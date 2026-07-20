@@ -19,7 +19,7 @@ single flag that has to match across the whole fleet.
 | Cross-node QP times out at `QP → RTR` | GID index 0 is link-local, not the RoCEv2 index | Set the RoCEv2 GID index (`MC_GID_INDEX` + `NCCL_IB_GID_INDEX`) — find it with `show_gids` (often 1 or 3). |
 | `received packet mismatch` | prefill and decode on different RDMA rails | Put both on the same `ib_device`. |
 
-## Tiered KV cache (kvd)
+## KV-Cache Offload (kvd)
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
@@ -76,3 +76,4 @@ curl -s localhost:8000/v1/admin/cache-view/<host:port>
 - Check the [environment variables](environment.md) reference — a missing or
   mismatched env var (GID index, `PYTHONHASHSEED`, `--ipc=host`) is a frequent
   root cause.
+

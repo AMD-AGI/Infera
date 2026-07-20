@@ -70,12 +70,12 @@ the server a static worker list — the fleet is discovered.
 workers exist, and what each can do." The server watches it; workers write to it.
 That's the whole coordination story.
 
-**(Optional) kvd — KV-cache management.** A per-host daemon that gives the workers
+**(Optional) kvd — KV-Cache Management.** A per-host daemon that gives the workers
 a **tiered KV cache**: blocks spill from GPU HBM → host RAM → NVMe → network and
 stay warm across engine restarts, shared by every engine on the host (read back
 zero-copy via a shared-memory arena). Turn it on when you want prefixes to survive
 restarts or to reuse them across workers. See
-[Tiered KV cache](../components/kvd.md).
+[KV-Cache Management](../components/kvd.md).
 
 ```{admonition} The one-sentence version
 :class: tip
@@ -131,3 +131,4 @@ quantized checkpoints you can load.
 - Pick an engine → [Engines](../components/engines.md)
 - Deploy for real → [Deployment](../serving/deployment.md)
 - The KV cache everyone keeps mentioning → [KV-Cache Offload](../features/kv_cache_offload.md)
+

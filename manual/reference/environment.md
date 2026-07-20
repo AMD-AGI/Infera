@@ -11,7 +11,7 @@ hits), `MC_GID_INDEX=1` (cross-node RDMA), and `--ipc=host` so the engine and kv
 share the L2 arena.
 ```
 
-## kvd cache — connector (set on the engine process)
+## KV-cache daemon — connector (set on the engine process)
 
 | Env | Default | What it does |
 |---|---|---|
@@ -78,3 +78,4 @@ and the [CLI reference](cli.md).
 ## Related
 
 - [CLI reference](cli.md) — the flag equivalents.
+

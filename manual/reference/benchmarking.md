@@ -66,3 +66,4 @@ to 128 MiB, matching production; a fixed small `--chunk-tokens` will under-repor
 RAID, NVMe vs NFS/WekaFS), chunk size, model KV shape, and host load all move
 these numbers — sometimes by a lot. Always measure your own mount with the tools
 above rather than trusting a number from another machine.
+

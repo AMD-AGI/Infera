@@ -26,7 +26,11 @@ Services, and the KV-event plane. Ready-to-fill `InferaDeployment` templates
 One script installs the cluster dependencies, each as an idempotent
 `helm upgrade --install`: the **LeaderWorkerSet** controller (multi-node workers),
 **NATS / JetStream** (KV-event + request transport), and the **Infera operator**
-(with its CRD + RBAC):
+(with its CRD + RBAC). Clone the Infera repo first if you haven't already:
+
+```bash
+git clone https://github.com/AMD-AGI/Infera.git && cd Infera
+```
 
 ```bash
 deploy/scripts/deploy-k8s.sh                 # LWS + NATS + operator (namespace: infera-system)
@@ -137,3 +141,4 @@ worker pick. See [Routing & transport](../features/routing_and_transport.md).
 
 - [Operator](../components/operator.md) — the `InferaDeployment` CRD field reference.
 - [Deployment](deployment.md) — the manual (`python -m`) deployment path.
+

@@ -9,7 +9,7 @@ Infera
 
 Server
   `infera.server` — the FastAPI process exposing the OpenAI API and holding the
-  router. Stateless w.r.t. models; run many replicas.
+  router. Stateless with respect to models; run many replicas.
 
 Worker / Engine
   One model engine (vLLM, SGLang, or ATOM) on one or more GPUs, launched via
@@ -81,7 +81,7 @@ kvd
 
 L1 / L2 / L3 / L4
   KV cache tiers: GPU HBM / host RAM / local disk / distributed store. See
-  [Tiered KV cache](../components/kvd.md).
+  [KV-Cache Management](../components/kvd.md).
 
 Shared arena (CopyFree)
   The memfd-backed pinned RAM region kvd shares with engines via an FD passed
@@ -108,3 +108,4 @@ fp8 / mxfp4
   Weight/activation quantization formats — both supported on MI355X. mxfp4 is the
   newer 4-bit format (smaller, faster).
 ```
+

@@ -13,7 +13,7 @@ across engines, so you don't recompute them. **How it works under the hood:** se
 
 ```{admonition} vLLM only (for now)
 :class: important
-KV-cache offload currently supports the **vLLM** engine
+KV-Cache Offload currently supports the **vLLM** engine
 (`infera.engine.vllm` + `InferaKvdConnector`). SGLang is not supported yet.
 ```
 
@@ -43,9 +43,9 @@ python -m infera.engine.vllm --model <model> --port 8000 --host 0.0.0.0 \
   --kv-transfer-config '{"kv_connector":"InferaKvdConnector","kv_role":"kv_both","kv_connector_module_path":"infera.engine.vllm.kvd_connector"}'
 ```
 
-That runs the POSIX read path (daemon `mmap`/socket). For **GPU-direct** L3 (DMA
-chunks straight into VRAM, bypassing the daemon) add — the connector writes chunk
-files itself under the roots and reads them back with hipFile/AIS:
+That runs the POSIX read path (daemon `mmap`/socket). For **GPU-direct** L3, the
+connector writes chunk files directly under the roots and reads them back via
+hipFile/AIS, bypassing the daemon. Add:
 
 ```bash
   INFERA_KVD_AIS=1 \
@@ -70,7 +70,7 @@ Requirements (per [hipFile's INSTALL.md](https://github.com/ROCm/rocm-systems/bl
 
 **Check the driver that is *loaded*, not the one installed.** A DKMS upgrade without a
 reboot leaves the old module running, and AIS stays off even though the package looks
-current — this is easy to miss and cost us a full benchmarking session:
+current — this is easy to miss and can cost a full benchmarking session:
 
 ```bash
 cat /sys/module/amdgpu/version        # what is actually running
@@ -236,3 +236,4 @@ connector doesn't expose either per request — `ephemeral` maps to `long` and
   offload/onboard mechanism, the tablespace on-disk format, and optimization.
 - [CLI reference](../reference/cli.md) · [Environment variables](../reference/environment.md)
   — the daemon flags and connector env vars.
+
