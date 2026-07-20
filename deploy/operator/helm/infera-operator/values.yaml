@@ -1,0 +1,43 @@
+#
+# Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: MIT
+#
+# Default values for the infera-operator chart. Override image.repository /
+# image.tag to pull from your own registry / mirror.
+
+replicaCount: 1
+
+image:
+  # Operator manager image. NOTE: distinct repo name from the chart
+  # (infera-operator) to avoid an OCI tag collision when both are pushed to
+  # the same namespace.
+  repository: docker.io/inferaimage/infera-operator-manager
+  tag: "0.1.2"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# Leader election lets multiple replicas run with a single active reconciler.
+leaderElection:
+  enabled: true
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+# RBAC ClusterRole/Binding + ServiceAccount creation.
+rbac:
+  create: true
+serviceAccount:
+  create: true
+  name: ""
+
+# nodeSelector / tolerations / affinity for the operator pod (control-plane
+# friendly defaults: none — schedules anywhere).
+nodeSelector: {}
+tolerations: []
+affinity: {}

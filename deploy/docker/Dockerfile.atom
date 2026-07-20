@@ -1,0 +1,50 @@
+# Infera ATOM engine image: apply infera's ATOM patches, layer the infera
+# source on the ROCm ATOM base, and install the KV-event site hook.
+ARG ATOM_BASE_IMAGE=rocm/atom:rocm7.2.4_ubuntu24.04_py3.12_pytorch_release_2.10.0_atom0.1.4_20260612
+FROM ${ATOM_BASE_IMAGE}
+
+# ATOM engine source patches (PD KV-transfer robustness, etc). Idempotent,
+# self-locating, no-op if the target pattern is absent — so an ATOM version bump
+# degrades gracefully rather than failing the build. Drop a new patch_*.py here
+# to add a fix (same convention as deploy/docker/patches/vllm/).
+COPY deploy/docker/patches/atom/ /tmp/atom-patches/
+RUN for f in /tmp/atom-patches/patch_*.py; do echo "[atom-patch] $f"; python3 "$f" || echo "[atom-patch] skipped $f"; done \
+    && rm -rf /tmp/atom-patches
+
+WORKDIR /opt/infera
+
+# Install infera + its declared deps from pyproject (single source of truth).
+# The ATOM base ships torch/ATOM; pip leaves those satisfied versions untouched
+# and pulls infera's runtime stack (the ATOM base lacks most of it). `.[atom]` =
+# infera core + the EPP (gaie) deps so this image can also run `python -m
+# infera.gaie`.
+COPY pyproject.toml README.md ./
+COPY infera ./infera
+RUN pip install --no-cache-dir ".[atom]"
+
+# ---- Rust router (multi-core data plane; --router-backend rust) ----
+# The ROCm base ships cargo; use it (install a minimal toolchain only if
+# absent). Needs cc for linking and libclang (onig_sys/bindgen). Removes
+# the build tree, keeps the binary.
+COPY rust ./rust
+RUN set -eu; \
+    command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; }; \
+    export LIBCLANG_PATH="$(dirname "$(find /opt/rocm* /usr/lib /usr/lib64 -name 'libclang.so*' 2>/dev/null | head -1)")"; \
+    case "$LIBCLANG_PATH" in ""|".") apt-get update && apt-get install -y --no-install-recommends libclang-dev && rm -rf /var/lib/apt/lists/* && export LIBCLANG_PATH="$(dirname "$(find /usr/lib -name 'libclang.so*' 2>/dev/null | head -1)")";; esac; \
+    command -v cargo >/dev/null || { curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal; . "$HOME/.cargo/env"; }; \
+    export PATH="$HOME/.cargo/bin:$PATH"; \
+    export LIBCLANG_PATH="${LIBCLANG_PATH:-/opt/rocm/llvm/lib}"; \
+    ( cd rust && cargo build --release --bin infera-router ); \
+    cp rust/target/release/infera-router /usr/local/bin/infera-router; \
+    rm -rf rust
+
+# KV-aware routing site hook: ATOM owns its BlockManager in a spawned
+# EngineCore subprocess, so the only reliable place to install the KV-event
+# publisher is a site .pth that runs in every interpreter in the tree. It is
+# a no-op unless INFERA_ATOM_KV_EVENTS_ENDPOINT is set (the launcher sets
+# it for the ATOM subprocess when --enable-kv-events is on).
+RUN SITE_PKGS=$(python3 -c "import site; print(site.getsitepackages()[0])") \
+    && echo "import infera.engine.atom.hooks.kv_event_bootstrap" \
+        > "${SITE_PKGS}/zzz_infera_atom_bootstrap.pth"
+
+ENTRYPOINT ["/bin/bash"]

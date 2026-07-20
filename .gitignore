@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.eggs/
+*.egg-info/
+# setuptools-scm generated
+infera/_version.py
+
+# Build / packaging
+build/
+dist/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtualenv / env
+.venv/
+.env
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+*.log
+.DS_Store
+
+# uv-managed lockfile; regenerate via `uv sync` rather than commit.
+uv.lock
+
+# Preflight generated reports / JSON
+output/
+preflight_result/
+
+# Bench artifacts — keep code, exclude generated CSV/PNG/MD/JSON results
+bench/**/results/*.csv
+bench/**/results/*.png
+bench/**/results/*.svg
+bench/**/results/*.md
+bench/**/results/*.json
+bench/kv_cache_cliff/results/
+
+# Vendored third-party sources (UCX / RIXL) — too large, fetch/build on demand
+deploy/docker/third_party/
+
+# Local scratch — not for review.
+.review-drafts/
+temp/
+.spur_job_*.sh
+.spur_ns_*.sh
+spur-*.out

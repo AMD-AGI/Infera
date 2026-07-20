@@ -1,0 +1,40 @@
+# Run on every commit:
+#   pre-commit install
+# Run on the whole repo manually:
+#   pre-commit run --all-files
+
+# Third-party patches must match upstream byte-for-byte; never reformat them
+# (trailing whitespace on diff context lines is significant — trimming breaks
+# `git apply`). Covers both .patch and .diff (e.g. patches/mooncake_cpp/*.diff).
+exclude: ^deploy/docker/patches/.*\.(patch|diff)$
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--allow-multiple-documents]  # k8s manifests bundle several docs
+        exclude: ^deploy/operator/helm/.*/templates/  # Helm Go-templates aren't valid YAML
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: check-merge-conflict
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.13.0
+    hooks:
+      - id: ruff-format
+      - id: ruff-check
+        args: [--fix]
+
+  # Rust formatting gate (needs a local toolchain: rustup + rustfmt). clippy and
+  # tests are heavier, so they run in CI (.github/workflows/ci.yml, job `rust`).
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt (rust)
+        entry: cargo fmt --manifest-path rust/Cargo.toml --all -- --check
+        language: system
+        files: ^rust/.*\.rs$
+        pass_filenames: false

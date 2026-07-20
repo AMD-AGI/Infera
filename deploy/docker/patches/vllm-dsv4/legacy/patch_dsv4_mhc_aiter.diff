@@ -1,0 +1,51 @@
+--- vllm_py/mhc.BEFORE.py	2026-06-26 13:57:50.114615000 +0000
++++ vllm_py/mhc.AFTER.py	2026-06-26 14:32:49.664553500 +0000
+@@ -26,6 +26,12 @@
+
+ HAS_TILELANG_MHC = _has_tilelang_mhc()
+
++import os as _os  # yihou: MHC aiter fast-path
++def _mhc_backend() -> str:
++    # aiter (default) | tilelang | native. aiter kernel needs hidden_size%256==0;
++    # caller still guards and falls back. tilelang broken on gfx950 here.
++    return _os.getenv('VLLM_MHC_BACKEND', 'aiter').lower()
++
+
+ # --8<-- [start:mhc_pre]
+ @CustomOp.register("mhc_pre")
+@@ -105,7 +111,20 @@
+         #         sinkhorn_repeat,
+         #     )
+         # else:
+-        if HAS_TILELANG_MHC:
++        _be = _mhc_backend()  # yihou: MHC aiter fast-path
++        if _be == 'aiter' and residual.shape[-1] % 256 == 0:
++            return torch.ops.vllm.mhc_pre_aiter(
++                residual,
++                fn,
++                hc_scale,
++                hc_base,
++                rms_eps,
++                hc_pre_eps,
++                hc_sinkhorn_eps,
++                hc_post_mult_value,
++                sinkhorn_repeat,
++            )
++        if _be == 'tilelang' and HAS_TILELANG_MHC:
+             return torch.ops.vllm.mhc_pre_tilelang(
+                 residual,
+                 fn,
+@@ -240,7 +259,12 @@
+         #         comb_res_mix,
+         #     )
+         # else:
+-        if HAS_TILELANG_MHC:
++        _be = _mhc_backend()  # yihou: MHC aiter fast-path
++        if _be == 'aiter' and residual.shape[-1] % 256 == 0:
++            return torch.ops.vllm.mhc_post_aiter(
++                x, residual, post_layer_mix, comb_res_mix
++            )
++        if _be == 'tilelang' and HAS_TILELANG_MHC:
+             return torch.ops.vllm.mhc_post_tilelang(
+                 x, residual, post_layer_mix, comb_res_mix
+             )

@@ -1,0 +1,174 @@
+name: Build & publish images
+
+# Automated container builds, published to docker.io/inferaimage/infera.
+#
+# Triggers:
+#   * push a version tag (v*.*.*) -> RELEASE build, tag id = the git tag (e.g. v0.1.0)
+#   * manual dispatch             -> NIGHTLY build, tag id = <date>-<sha1>
+#
+# Image ref:  inferaimage/infera:<engine>-<id>
+#   release:  inferaimage/infera:sglang-v0.1.0
+#   nightly:  inferaimage/infera:sglang-20260711-a1b2c3d
+#
+# Target repo defaults to docker.io/inferaimage/infera; override per-run with
+# the `image_repo` dispatch input, or repo-wide with the IMAGE_REPO Actions
+# variable (input > variable > default). The official repo will be
+# docker.io/rocm/infera (set IMAGE_REPO=docker.io/rocm/infera).
+#
+# Runs on a self-hosted runner labelled `gpu`. Auth uses the
+# INFERAIMAGE_DOCKERHUB_TOKEN repo secret (Docker Hub PAT for user inferaimage);
+# a non-default repo must be pushable by that same account.
+
+on:
+  push:
+    # Only semantic version tags trigger a release build. This keeps ad-hoc /
+    # internal tags from kicking off a GPU image build and auto-creating a
+    # public GitHub Release (see the `manual` job). Bump the pattern if the
+    # versioning scheme changes (e.g. add pre-release suffixes).
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      engines:
+        description: "Space-separated engines to build"
+        required: false
+        default: "sglang vllm atom kvd server"
+      id:
+        description: "Custom image id (overrides the default <date>-<sha1>)"
+        required: false
+        default: ""
+      image_repo:
+        description: "Target repo (default: vars.IMAGE_REPO or inferaimage/infera)"
+        required: false
+        default: ""
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Turn the (optional) engine list into a JSON matrix. Cheap, runs on GH-hosted.
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      engines: ${{ steps.set.outputs.engines }}
+    steps:
+      - id: set
+        run: |
+          raw="${{ github.event.inputs.engines }}"
+          [ -z "$raw" ] && raw="sglang vllm atom kvd server"
+          json=$(printf '%s\n' $raw | jq -R . | jq -sc .)
+          echo "engines=$json" >> "$GITHUB_OUTPUT"
+          echo "engines=$json"
+
+  build:
+    needs: prepare
+    if: vars.ENABLE_SELFHOSTED == 'true'
+    runs-on: [self-hosted, gpu]
+    # Gates on the auto-docker-builder environment: unlocks its
+    # INFERAIMAGE_DOCKERHUB_TOKEN secret and applies its protection rules
+    # (required reviewers / wait timer / allowed deploy branches+tags).
+    environment: auto-docker-builder
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: ${{ fromJSON(needs.prepare.outputs.engines) }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Resolve target repo
+        env:
+          INPUT_REPO: ${{ github.event.inputs.image_repo }}
+          VAR_REPO: ${{ vars.IMAGE_REPO }}
+        run: |
+          repo="${INPUT_REPO:-${VAR_REPO:-docker.io/inferaimage/infera}}"
+          echo "IMAGE=$repo" >> "$GITHUB_ENV"
+          echo "target repo=$repo"
+
+      - name: Compute image id
+        env:
+          CUSTOM_ID: ${{ github.event.inputs.id }}
+        run: |
+          if [ -n "$CUSTOM_ID" ]; then
+            echo "ID=$CUSTOM_ID" >> "$GITHUB_ENV"
+            echo "channel=custom id=$CUSTOM_ID"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "ID=${{ github.ref_name }}"                 >> "$GITHUB_ENV"
+            echo "channel=release id=${{ github.ref_name }}"
+          else
+            # nightly id: <date>-<tag>-post<N>-<sha1>, e.g. 20260711-v0.1-post5-a1b2c3d
+            #   (date first => sorts chronologically; tag+post => which release +
+            #    how many commits past it; sha => exact commit). No tag yet in the
+            #    repo => fall back to <date>-<sha1>.
+            date="$(date -u +%Y%m%d)"
+            sha="$(git rev-parse --short HEAD)"
+            if desc="$(git describe --tags --long 2>/dev/null)"; then
+              gsha="${desc##*-}"; rest="${desc%-*}"    # gsha=g<sha>, rest=<tag>-<N>
+              n="${rest##*-}"; tag="${rest%-*}"          # N=distance, tag=<tag>
+              id="${date}-${tag}-post${n}-${gsha#g}"
+            else
+              id="${date}-${sha}"
+            fi
+            echo "ID=$id" >> "$GITHUB_ENV"
+            echo "channel=nightly id=$id"
+          fi
+
+      - name: docker login
+        run: echo "${{ secrets.INFERAIMAGE_DOCKERHUB_TOKEN }}" | docker login -u inferaimage --password-stdin
+
+      - name: build image
+        timeout-minutes: 90
+        run: .github/scripts/build_test_push.sh build ${{ matrix.engine }}
+
+      - name: push image
+        timeout-minutes: 30
+        run: .github/scripts/build_test_push.sh push ${{ matrix.engine }}
+
+      - name: logout
+        if: always()
+        run: docker logout
+
+  # Build the /manual Sphinx site alongside the images. Always uploads the HTML
+  # as a workflow artifact; on a tag (release) it also attaches a tarball to the
+  # GitHub Release. No GPU needed, so this runs on a GH-hosted runner.
+  #
+  # Gated on `build`: don't publish a GitHub Release (create + attach the manual)
+  # unless every engine image built and pushed successfully, so a green Release
+  # never implies images that failed to build.
+  manual:
+    needs: build
+    runs-on: ubuntu-latest
+    # Same gate as the image build, so publishing a Release (create/upload)
+    # goes through the auto-docker-builder protection rules too.
+    environment: auto-docker-builder
+    permissions:
+      contents: write  # gh release create/upload
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.10"
+      - name: Install graphviz (dot binary for diagrams)
+        run: sudo apt-get update && sudo apt-get install -y graphviz
+      - name: Install Sphinx deps
+        run: pip install -r manual/requirements.txt
+      - name: Build manual (warnings = errors)
+        run: make -C manual html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: infera-manual-html
+          path: manual/_build/html
+      - name: Attach manual to release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          tar -czf "infera-manual-${TAG}.tar.gz" -C manual/_build/html .
+          gh release view "$TAG" >/dev/null 2>&1 || \
+            gh release create "$TAG" --title "$TAG" --notes "Automated release build."
+          gh release upload "$TAG" "infera-manual-${TAG}.tar.gz" --clobber

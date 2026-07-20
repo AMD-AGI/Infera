@@ -1,0 +1,42 @@
+# VCS
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.mypy_cache
+*.egg-info
+build
+dist
+
+# Virtualenv / env
+.venv
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.vscode
+.idea
+*.swp
+*.log
+.DS_Store
+
+# Not needed in the engine image — the Dockerfiles COPY only pyproject.toml,
+# README.md, infera/, rust/, and deploy/docker/{scripts,patches}. Excluding the
+# rest just slims the build context (nothing here is baked into the image).
+.github
+manual
+tests
+bench
+deploy/k8s
+deploy/operator
+
+# Vendored third-party sources — large; fetched/built during the image build.
+deploy/docker/third_party
+
+# Rust router: copy the source (Cargo.lock included), never the local build tree.
+rust/target
