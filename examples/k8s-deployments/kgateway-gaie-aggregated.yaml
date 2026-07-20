@@ -1,0 +1,115 @@
+# GAIE (Gateway API Inference Extension): a single mixed worker fronted by a
+# Kubernetes Inference Gateway instead of a standalone infera.server.
+#
+# What the operator does when spec.gaie.enabled=true (no `server` service needed):
+#   - injects a `infera.server --router-mode direct` frontend sidecar (:8000)
+#     into the worker pod and labels it for InferencePool selection,
+#   - deploys an Endpoint Picker (EPP, `python -m infera.gaie`) that scores
+#     workers with the same kv-aware policy,
+#   - creates an InferencePool (selecting the sidecar :8000) + an HTTPRoute that
+#     attaches to the Gateway below.
+#
+# Request flow:
+#   client -> Gateway (kgateway/envoy) -> EPP (picks worker) -> worker pod
+#   frontend sidecar (--router-mode direct) -> local engine (:30000).
+#
+# Prerequisites:
+#   - infera-operator with the GAIE-aware CRD (spec.gaie)
+#   - InferencePool CRD (inference.networking.k8s.io/v1)
+#   - a GatewayClass + Gateway for the Inference Gateway (e.g. kgateway). If you
+#     only install the InferencePool CRD without a Gateway, the operator still
+#     creates the EPP + InferencePool + injected sidecar (control plane), but the
+#     HTTPRoute will not be Accepted and the client->Envoy datapath is unavailable.
+#   - the PVC from pvc-models.yaml (worker engine loads the model from it)
+#
+# IMPORTANT: the EPP and the injected frontend sidecar are operator-generated
+# pods that do NOT mount your model volume, so gaie.tokenizerPath must be an HF
+# id they can download (not a local path). It must match the worker tokenizer.
+#
+# Fill in the <PLACEHOLDERS> for your cluster:
+#   <NAMESPACE>          target namespace (must exist)
+#   <GATEWAY_CLASS>      GatewayClass name (e.g. kgateway)
+#   <ENGINE_IMAGE>       infera engine image (contains infera.gaie + infera.server + engine)
+#   <IMAGE_PULL_SECRET>  docker-registry secret in <NAMESPACE> for that image
+#   <MODEL_PVC>          PVC (in <NAMESPACE>) that mounts your model store
+#   <MODEL_PATH>         path to the model dir as seen INSIDE the worker pod
+#   <MODEL_HF_ID>        HF id of the tokenizer/model (EPP+sidecar fetch it),
+#                        matching the worker tokenizer; also used as served name
+---
+# The Inference Gateway the operator's HTTPRoute attaches to. The gateway
+# controller provisions an Envoy proxy Deployment/Service for it automatically.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: inference-gateway
+  namespace: <NAMESPACE>
+spec:
+  gatewayClassName: <GATEWAY_CLASS>
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: qwen-gaie
+  namespace: <NAMESPACE>
+spec:
+  backendFramework: sglang
+  # Top-level image is what the operator gives the injected EPP + frontend
+  # sidecar (python -m infera.gaie / infera.server). The worker reuses it below.
+  image: <ENGINE_IMAGE>
+  discoveryBackend: kubernetes
+  # GAIE uses a shared NATS KV-event plane: the operator gives the EPP and the
+  # injected frontend sidecar --kv-event-transport nats, so the worker must
+  # publish KV events over NATS too (kv-aware routing needs one common plane).
+  # Let the operator provision NATS for this deployment.
+  nats:
+    deploy: true
+    storageSize: 4Gi
+  gaie:
+    enabled: true
+    tokenizerPath: <MODEL_HF_ID>    # HF id (EPP/sidecar fetch it); matches worker tokenizer
+    gatewayName: inference-gateway
+    gatewayNamespace: <NAMESPACE>
+    frontendPort: 8000
+    modelName: <MODEL_HF_ID>
+  services:
+    worker:
+      componentType: worker
+      role: mixed
+      replicas: 1
+      extraPodSpec:
+        imagePullSecrets:
+          - name: <IMAGE_PULL_SECRET>
+        containers:
+          - name: main
+            image: <ENGINE_IMAGE>
+            imagePullPolicy: IfNotPresent
+            # --served-model-name registers the worker under the HF id so the
+            # gaie.modelName / tokenizerPath / client "model" field all match
+            # (otherwise the worker registers under the --model-path).
+            # KV events go over the operator-managed NATS (see spec.nats above),
+            # matching the EPP/sidecar transport — do not override to zmq here.
+            command: ["python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
+                      "--model-path","<MODEL_PATH>",
+                      "--served-model-name","<MODEL_HF_ID>",
+                      "--tp-size","1","--attention-backend","aiter","--trust-remote-code",
+                      "--mem-fraction-static","0.8"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources:
+              requests: {cpu: "16", memory: 64Gi, amd.com/gpu: 1}
+              limits: {cpu: "16", memory: 64Gi, amd.com/gpu: 1}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: dshm, mountPath: /dev/shm}
+        volumes:
+          - {name: model, persistentVolumeClaim: {claimName: <MODEL_PVC>}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 32Gi}}

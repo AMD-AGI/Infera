@@ -1,0 +1,189 @@
+--- a/hipfile/__init__.py
++++ b/hipfile/__init__.py
+@@ -10,7 +10,7 @@ from hipfile.buffer import Buffer
+ from hipfile.driver import Driver
+ from hipfile.enums import FileHandleType, OpError
+ from hipfile.error import HipFileException
+-from hipfile.file import FileHandle
++from hipfile.file import FileHandle, Stream, supports_async
+ from hipfile.properties import driver_get_properties, get_version
+
+ __all__ = [
+@@ -22,5 +22,7 @@ __all__ = [
+     "OpError",
+     "driver_get_properties",
+     "get_version",
++    "Stream",
++    "supports_async",
+ ]
+ __version__ = f"{_VERSION_MAJOR}.{_VERSION_MINOR}.{_VERSION_PATCH}"
+--- a/hipfile/_chipfile.pxd
++++ b/hipfile/_chipfile.pxd
+@@ -16,6 +16,7 @@ cdef extern from "hip/hip_runtime_api.h":
+         hipSuccess = 0
+
+     hipError_t hipPeekAtLastError() nogil
++    ctypedef void* hipStream_t  # opaque CUDA/HIP stream handle
+
+
+ # ---------------------------------------------------------------------------
+@@ -178,6 +179,32 @@ cdef extern from "hipfile.h":
+                          size_t size, hoff_t file_offset,
+                          hoff_t buffer_offset) nogil
+
++    # Async I/O (stream-attached). The size/file_off/buf_off pointers
++    # are in/out — the kernel-side may chunk the request and update
++    # them as the IO progresses. ``bytes_done_p`` receives the
++    # actually-transferred bytes AFTER the async op completes; caller
++    # must sync on the stream (cuda.Event / Stream.synchronize) before
++    # reading the value. Pattern matches NVIDIA cuFileReadAsync /
++    # cuFileWriteAsync.
++    hipFileError_t hipFileReadAsync(hipFileHandle_t fh, void *buffer_base,
++                                     size_t *size_p,
++                                     hoff_t *file_offset_p,
++                                     hoff_t *buffer_offset_p,
++                                     ssize_t *bytes_done_p,
++                                     hipStream_t stream) nogil
++    hipFileError_t hipFileWriteAsync(hipFileHandle_t fh,
++                                      const void *buffer_base,
++                                      size_t *size_p,
++                                      hoff_t *file_offset_p,
++                                      hoff_t *buffer_offset_p,
++                                      ssize_t *bytes_done_p,
++                                      hipStream_t stream) nogil
++
++    # Stream registration — required before any *_Async call on a
++    # stream. Pair with hipFileStreamDeregister at shutdown.
++    hipFileError_t hipFileStreamRegister(hipStream_t stream, int flags) nogil
++    hipFileError_t hipFileStreamDeregister(hipStream_t stream) nogil
++
+     # Driver lifecycle
+     hipFileError_t hipFileDriverOpen() nogil
+     hipFileError_t hipFileDriverClose() nogil
+--- a/hipfile/_hipfile.pyx
++++ b/hipfile/_hipfile.pyx
+@@ -285,6 +285,124 @@ def hipFileWrite(uintptr_t handle, uintptr_t buffer_base, size_t size,
+     return (ret, extra)
+
+
++# ---------------------------------------------------------------------------
++#  Async I/O (stream-attached) — wraps hipFile{Read,Write}Async +
++#  hipFileStream{Register,Deregister}. Mirrors the cuFile async pattern.
++# ---------------------------------------------------------------------------
++
++
++def hipFileWriteAsync(uintptr_t handle, uintptr_t buffer_base, size_t size,
++                      _c.hoff_t file_offset, _c.hoff_t buffer_offset,
++                      uintptr_t stream_handle):
++    """Wrapper for ``hipFileWriteAsync``. Submits the I/O to the given
++    CUDA/HIP stream and returns immediately. Caller MUST sync on the
++    stream (e.g. via ``cuda.Event.record()`` + downstream
++    ``stream.wait_event()`` or ``stream.synchronize()``) before reading
++    ``bytes_done``.
++
++    ``stream_handle`` is the integer handle from
++    ``torch.cuda.Stream.cuda_stream`` (or any opaque ``hipStream_t``).
++
++    Returns ``(bytes_done, extra)``:
++      * On submit success: ``(bytes_done, 0)``. ``bytes_done`` is
++        updated by the driver after the async op completes.
++      * On submit error: ``(-error_code, extra)`` where ``error_code``
++        is ``hipFileOpError_t`` (positive integer) and ``extra`` is
++        ``errno`` (for sys errors) or ``hipError_t`` (for HIP driver
++        errors).
++    """
++    cdef _c.hipFileError_t ret
++    cdef size_t size_io = size
++    cdef _c.hoff_t file_off_io = file_offset
++    cdef _c.hoff_t buf_off_io = buffer_offset
++    cdef ssize_t bytes_done = 0
++    cdef int extra = 0
++    with nogil:
++        ret = _c.hipFileWriteAsync(
++            <_c.hipFileHandle_t>handle,
++            <const void *>buffer_base,
++            &size_io, &file_off_io, &buf_off_io, &bytes_done,
++            <_c.hipStream_t>stream_handle,
++        )
++        if <int>ret.err != <int>_c.hipFileSuccess:
++            if <int>ret.err == <int>_c.hipFileHipDriverError:
++                extra = <int>ret.hip_drv_err
++            else:
++                extra = errno
++    if <int>ret.err != <int>_c.hipFileSuccess:
++        return (-<int>ret.err, extra)
++    return (bytes_done, 0)
++
++
++def hipFileReadAsync(uintptr_t handle, uintptr_t buffer_base, size_t size,
++                     _c.hoff_t file_offset, _c.hoff_t buffer_offset,
++                     uintptr_t stream_handle):
++    """Mirror of ``hipFileWriteAsync`` for reads. See docstring above
++    for return semantics."""
++    cdef _c.hipFileError_t ret
++    cdef size_t size_io = size
++    cdef _c.hoff_t file_off_io = file_offset
++    cdef _c.hoff_t buf_off_io = buffer_offset
++    cdef ssize_t bytes_done = 0
++    cdef int extra = 0
++    with nogil:
++        ret = _c.hipFileReadAsync(
++            <_c.hipFileHandle_t>handle,
++            <void *>buffer_base,
++            &size_io, &file_off_io, &buf_off_io, &bytes_done,
++            <_c.hipStream_t>stream_handle,
++        )
++        if <int>ret.err != <int>_c.hipFileSuccess:
++            if <int>ret.err == <int>_c.hipFileHipDriverError:
++                extra = <int>ret.hip_drv_err
++            else:
++                extra = errno
++    if <int>ret.err != <int>_c.hipFileSuccess:
++        return (-<int>ret.err, extra)
++    return (bytes_done, 0)
++
++
++def hipFileStreamRegister(uintptr_t stream_handle, int flags=0):
++    """Wrapper for ``hipFileStreamRegister``. Register a CUDA/HIP
++    stream with hipFile so async I/O calls can target it. Must be
++    called BEFORE any ``hipFile{Read,Write}Async`` call on the stream.
++
++    ``flags`` is reserved (pass 0). Returns ``int(hipFileError_t)`` —
++    ``hipFileSuccess`` (0) on success, negative on failure.
++    """
++    cdef _c.hipFileError_t ret
++    with nogil:
++        ret = _c.hipFileStreamRegister(<_c.hipStream_t>stream_handle, flags)
++    return int(ret.err)
++
++
++def hipFileStreamDeregister(uintptr_t stream_handle):
++    """Wrapper for ``hipFileStreamDeregister``. Unregister a stream
++    previously registered with ``hipFileStreamRegister``. Idempotent
++    in the binding (driver may or may not be idempotent — check rc).
++
++    Returns ``int(hipFileError_t)``.
++    """
++    cdef _c.hipFileError_t ret
++    with nogil:
++        ret = _c.hipFileStreamDeregister(<_c.hipStream_t>stream_handle)
++    return int(ret.err)
++
++
++def supports_async():
++    """Quick probe: returns True if hipFileStreamRegister against a
++    null stream returns either hipFileSuccess or
++    ``hipFileInvalidValue`` (null stream rejected — driver supports
++    the API). Returns False if the driver returns
++    ``hipFileAsyncNotSupported`` (5038) or any other failure code,
++    indicating the underlying ``libhipfile.so`` doesn't implement the
++    async path."""
++    cdef _c.hipFileError_t ret
++    with nogil:
++        ret = _c.hipFileStreamRegister(<_c.hipStream_t>0, 0)
++    return <int>ret.err != 5038
++
++
+ # ---------------------------------------------------------------------------
+ #  Driver properties
+ # ---------------------------------------------------------------------------

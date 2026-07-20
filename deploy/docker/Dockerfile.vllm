@@ -1,0 +1,121 @@
+# Infera vLLM engine image (ROCm / gfx950 / MI355X) — the single canonical vLLM
+# image. Layers aiter(flydsl) + vLLM patches (shared + DSv4) + Mooncake dma-buf +
+# hipFile + libionic onto a digest-pinned nightly base, then the infera source,
+# and runs via `python -m infera.engine.vllm`.
+#
+# Base pinned by DIGEST for reproducibility (= vLLM 0.23.1rc1.dev861+gcbe9c40f9,
+# torch 2.11.0, ROCm 7.2.3). To move: bump the digest + re-verify patch no-ops.
+ARG VLLM_BASE_IMAGE=vllm/vllm-openai-rocm:nightly-cbe9c40f998f13975b967773ac7e7920e115387f
+FROM ${VLLM_BASE_IMAGE}
+
+# ---- 1) AITER (flydsl fp4 for DSv4 MXFP4 MoE) ------------------------------
+# WHY: the stock base aiter lacks the flydsl fp4 a4w4 kernel, and the prebuilt .so
+# hits a GLIBCXX/GLIBC ABI mismatch. HOW: build ROCm/aiter in-container (~20min JIT).
+ARG BUILD_AITER=1
+ARG AITER_GIT_REF=v0.1.16.post1
+ARG AITER_REPO=https://github.com/ROCm/aiter
+ARG GPU_ARCHS=gfx950
+COPY deploy/docker/scripts/build_aiter_rocm.sh /tmp/build_aiter_rocm.sh
+RUN if [ "${BUILD_AITER}" = "1" ]; then \
+        AITER_GIT_REF="${AITER_GIT_REF}" AITER_REPO="${AITER_REPO}" \
+        GPU_ARCHS="${GPU_ARCHS}" bash /tmp/build_aiter_rocm.sh; \
+    else \
+        echo "BUILD_AITER=0 — using aiter already in base image"; \
+    fi \
+    && rm -f /tmp/build_aiter_rocm.sh
+
+# ---- 2) vLLM Python patches (idempotent, self-locating) -------------------
+# Apply patches/vllm/ (general PD-transport / scheduler fixes) then patches/
+# vllm-dsv4/ (DSv4-specific: moriio_dsv4 {hybrid_blocksize, sparse_backend,
+# noncontig_register} + aiter flydsl). Each patch no-ops if its anchor is absent,
+# so a base bump degrades gracefully. legacy/ is upstream on this base, not applied.
+COPY deploy/docker/patches/vllm/ /tmp/vllm-patches/
+COPY deploy/docker/patches/vllm-dsv4/ /tmp/vllm-dsv4-patches/
+RUN for f in /tmp/vllm-patches/*.py; do echo "[vllm-patch] $f"; python "$f" || echo "[vllm-patch] skipped $f"; done \
+    && for f in /tmp/vllm-dsv4-patches/*.py; do echo "[vllm-dsv4-patch] $f"; python "$f" || echo "[vllm-dsv4-patch] skipped $f"; done \
+    && rm -rf /tmp/vllm-patches /tmp/vllm-dsv4-patches
+
+# ---- 3) Mooncake (main + B-group C++ patches, bare ibv_reg_mr) -------------
+# WHY: cross-node RDMA on ionic needs the B-group C++ patches (B.2 hip-transport
+# gate + B.3 auto-chunk MR), carried against mooncake main. The dma-buf GPUDirect
+# path was dropped in #154 (exhausts a KFD resource at high util -> HIP-209); bare
+# ibv_reg_mr via host-libionic injection is the only supported path. HOW: shared
+# build_mooncake_rocm.sh mode 1 (MOONCAKE_DMABUF=1 = main + B-group, no dma-buf).
+ARG BUILD_MOONCAKE=1
+ARG MOONCAKE_GIT_REF=747003c058015c4077a266e7ccd7549bbc9baede
+COPY deploy/docker/scripts/build_mooncake_rocm.sh /tmp/build_mooncake_rocm.sh
+COPY deploy/docker/patches/mooncake_cpp/ /tmp/mooncake_cpp/
+RUN if [ "${BUILD_MOONCAKE}" = "1" ]; then \
+        MOONCAKE_DMABUF=1 MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" \
+        MC_CPP_PATCH_DIR=/tmp/mooncake_cpp \
+        bash /tmp/build_mooncake_rocm.sh; \
+    else \
+        echo "BUILD_MOONCAKE=0 — skipping Mooncake build"; \
+    fi \
+    && rm -rf /tmp/build_mooncake_rocm.sh /tmp/mooncake_cpp
+
+# ---- 4) hipFile (AIS gpu-direct L3) ---------------------------------------
+# WHY: kvd's gpu-direct L3 needs libhipfile + the `ais-check` probe; a missing
+# ais-check SILENTLY downgrades the load path to CPU-bounce. HOW: build_hipfile.sh
+# installs both to /opt/rocm/bin; `test -x` asserts it so a regression fails the
+# build instead of degrading.
+ARG BUILD_HIPFILE=1
+COPY deploy/docker/scripts/build_hipfile.sh /tmp/build_hipfile.sh
+COPY deploy/docker/patches/hipfile_async/ /tmp/hipfile-async-patch/
+RUN if [ "${BUILD_HIPFILE}" = "1" ]; then \
+        HIPFILE_SKIP_PROBE=1 bash /tmp/build_hipfile.sh \
+        && bash /tmp/hipfile-async-patch/patch_hipfile_async.sh \
+        && test -x /opt/rocm/bin/ais-check; \
+    else \
+        echo "BUILD_HIPFILE=0 — skipping hipFile build"; \
+    fi \
+    && rm -rf /tmp/build_hipfile.sh /tmp/hipfile-async-patch
+
+# ---- 5) libionic (host ionic ABI match) -----------------------------------
+# WHY: base ships libionic 167; MI355X ionic kernel 26.03 needs 187 (ABI 4) or
+# ibv_get_device_list fails -> 0 HCAs -> silent TCP fallback. HOW: bake the deb
+# so RDMA works even with --entrypoint "" (which bypasses the runtime injector).
+ARG INSTALL_LIBIONIC=1
+ARG LIBIONIC_DEB_URL=https://repo.radeon.com/amdainic/pensando/ubuntu/1.117.5-a-77/pool/main/r/rdma-core/libionic1_54.0-187-1_amd64.deb
+RUN if [ "${INSTALL_LIBIONIC}" = "1" ]; then \
+        (curl -4 -fsSL --retry 3 -o /tmp/libionic.deb "${LIBIONIC_DEB_URL}" \
+          && dpkg -i --force-downgrade /tmp/libionic.deb \
+          && ldconfig \
+          && echo "libionic: $(dpkg -l | awk '/libionic1/{print $3}')" \
+          && rm -f /tmp/libionic.deb) \
+        || echo "[libionic] install failed (offline build?) — inject at runtime instead"; \
+    else \
+        echo "INSTALL_LIBIONIC=0 — libionic injected at container start"; \
+    fi
+
+# ---- 6) infera ------------------------------------------------------------
+# Install infera + its declared deps from pyproject (single source of truth).
+# The base ships torch/vllm and most of infera's runtime stack; pip leaves those
+# satisfied versions untouched and only pulls what's missing. `.[vllm]` = infera
+# core + the EPP (gaie) deps so this image can also run `python -m infera.gaie`.
+WORKDIR /opt/infera
+COPY pyproject.toml README.md ./
+COPY infera ./infera
+RUN pip install --no-cache-dir ".[vllm]"
+
+# ---- Rust router (multi-core data plane; --router-backend rust) ----
+# The ROCm base ships cargo; use it (install a minimal toolchain only if
+# absent). Needs cc for linking and libclang (onig_sys/bindgen). Removes
+# the build tree, keeps the binary.
+COPY rust ./rust
+RUN set -eu; \
+    command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; }; \
+    export LIBCLANG_PATH="$(dirname "$(find /opt/rocm* /usr/lib /usr/lib64 -name 'libclang.so*' 2>/dev/null | head -1)")"; \
+    case "$LIBCLANG_PATH" in ""|".") apt-get update && apt-get install -y --no-install-recommends libclang-dev && rm -rf /var/lib/apt/lists/* && export LIBCLANG_PATH="$(dirname "$(find /usr/lib -name 'libclang.so*' 2>/dev/null | head -1)")";; esac; \
+    command -v cargo >/dev/null || { curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal; . "$HOME/.cargo/env"; }; \
+    export PATH="$HOME/.cargo/bin:$PATH"; \
+    export LIBCLANG_PATH="${LIBCLANG_PATH:-/opt/rocm/llvm/lib}"; \
+    ( cd rust && cargo build --release --bin infera-router ); \
+    cp rust/target/release/infera-router /usr/local/bin/infera-router; \
+    rm -rf rust
+
+# libionic (baked above) + host ionic provider injected at container start;
+# see deploy/docker/scripts/infera_inject_host_ionic.sh.
+COPY deploy/docker/scripts/infera_inject_host_ionic.sh /usr/local/bin/infera-inject-host-ionic
+ENTRYPOINT ["/usr/local/bin/infera-inject-host-ionic"]
+CMD ["/bin/bash"]

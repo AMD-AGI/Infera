@@ -1,0 +1,64 @@
+# Shared model-store PV/PVC that the InferaDeployment examples mount at /models.
+# This template uses a WekaFS CSI directory volume; adapt the csi block to your
+# own storage backend/provisioner if different.
+#
+# Fill in the <PLACEHOLDERS> for your cluster:
+#   <NAMESPACE>            namespace where the InferaDeployment runs
+#   <MODEL_PVC>            PVC name referenced by the examples (claimName)
+#   <CSI_DRIVER>           CSI driver name (e.g. csi.weka.io)
+#   <CSI_VOLUME_HANDLE>    backend volume handle/path that contains models/<...>
+#   <CSI_SECRET_NAME>      CSI node/controller secret name
+#   <CSI_SECRET_NAMESPACE> namespace of that CSI secret
+#
+# Note: the examples reference the model as /models/<model-dir>. Ensure the
+# volume you point at actually contains that directory, and set <MODEL_PATH> in
+# the examples accordingly (mountPath is /models).
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: infera-models-pv
+  labels:
+    infera.amd.com/model-store: "true"
+spec:
+  accessModes:
+    - ReadWriteMany
+  capacity:
+    storage: 1Ti            # nominal for a directory volume; size to your backend
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: <MODEL_PVC>
+    namespace: <NAMESPACE>
+  csi:
+    driver: <CSI_DRIVER>
+    volumeHandle: <CSI_VOLUME_HANDLE>
+    volumeAttributes:
+      ownerGid: "1000"
+      ownerUid: "1000"
+      permissions: "0777"
+    controllerExpandSecretRef:
+      name: <CSI_SECRET_NAME>
+      namespace: <CSI_SECRET_NAMESPACE>
+    nodePublishSecretRef:
+      name: <CSI_SECRET_NAME>
+      namespace: <CSI_SECRET_NAMESPACE>
+  persistentVolumeReclaimPolicy: Retain
+  volumeMode: Filesystem
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: <MODEL_PVC>
+  namespace: <NAMESPACE>
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Ti
+  selector:
+    matchLabels:
+      infera.amd.com/model-store: "true"
+  storageClassName: ""
+  volumeName: infera-models-pv
+  volumeMode: Filesystem

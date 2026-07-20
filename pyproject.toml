@@ -1,0 +1,87 @@
+[project]
+name = "amd-infera"
+dynamic = ["version"]
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "httpx>=0.28",
+    "xxhash>=3.4",
+    "pyzmq>=26",
+    "msgspec>=0.18",
+    "msgpack>=1.1",
+    "transformers>=4.40",
+    "prometheus-client>=0.20",
+    "nats-py>=2.6",
+]
+
+[project.optional-dependencies]
+gaie = [
+    "grpcio>=1.81.1",
+    "protobuf>=6.33.5",
+    "grpcio-health-checking>=1.81.1",
+    "cryptography>=41",
+]
+# Per-engine targets; framework comes from the vendor base image, not pip.
+sglang = ["amd-infera[gaie]"]
+vllm = ["amd-infera[gaie]"]
+atom = ["amd-infera[gaie]"]
+dev = [
+    "ruff>=0.13,<1.0",
+    "pre-commit>=3",
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+]
+# all = ["amd-infera[sglang]", "amd-infera[vllm]", "amd-infera[atom]"]
+
+[project.scripts]
+# kvd storage/throughput benchmarking tools (see manual/reference/benchmarking.md)
+infera-kvd-probe = "infera.kvd.bench.probe:main"
+infera-kvd-l3-bench = "infera.kvd.bench.l3_bench:main"
+# node + PD preflight suite (gpu / network / storage / firmware / host probes)
+infera-preflight = "infera.tools.preflight.cli:main"
+
+[build-system]
+requires = ["setuptools>=69", "setuptools_scm[toml]>=8", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["infera*"]
+
+# Version from git tags; release with `git tag vX.Y.Z`.
+[tool.setuptools_scm]
+version_scheme = "guess-next-dev"
+local_scheme = "no-local-version"
+write_to = "infera/_version.py"
+fallback_version = "0.0.0"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+# Machine-generated protobuf/gRPC stubs (regenerated via grpc_tools.protoc).
+extend-exclude = ["infera/gaie/proto/ext_proc_pb2.py", "infera/gaie/proto/ext_proc_pb2_grpc.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+# E501 handled by the formatter; the rest are style-only rules vLLM also disables.
+ignore = ["E501", "E731", "B905", "B007"]
+
+[tool.ruff.lint.per-file-ignores]
+# A code fragment appended into the hipfile module by patch_hipfile_async.sh —
+# not a standalone module. FileHandle / HipFileException are defined in the
+# target file it gets injected into, so they're genuinely undefined here.
+"deploy/docker/patches/hipfile_async/file_async_fragment.py" = ["F821"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+# Never collect *.bak snapshots (e.g. tests/e2e/pd_mixed/sglang.bak): they duplicate
+# test module basenames and would trip pytest's import-mode collision check.
+norecursedirs = ["*.bak", "*.egg", ".*", "build", "dist", "venv", "node_modules", "__pycache__"]
+markers = [
+    "slow: e2e tests that spawn real engine workers and require a local etcd + GPUs",
+    "integration: L4 backend tests that need a live cluster (Mooncake Master / Redis / S3); gated by env vars, skipped by default",
+]

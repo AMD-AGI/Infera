@@ -1,0 +1,4 @@
+bin/
+testbin/
+*.test
+cover.out

@@ -1,0 +1,176 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]   # every branch: runs everything EXCEPT e2e (see e2e-mixed if:)
+  pull_request:
+    branches: [main]
+  workflow_dispatch:   # manual "Run workflow" button (Actions tab)
+    inputs:
+      run_e2e:
+        description: "Also run full PD-mixed e2e"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  pre_check:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip.outputs.should_skip }}
+    steps:
+      - id: skip
+        uses: fkirc/skip-duplicate-actions@f75f66ce1886f00957d99748a42c724f4330bdcf # v5
+        with:
+          skip_after_successful_duplicate: "true"
+          concurrent_skipping: "never"
+
+  lint:
+    needs: pre_check
+    if: needs.pre_check.outputs.should_skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.10"
+      - run: pip install pre-commit
+      - name: pre-commit (all hooks, all files)
+        run: pre-commit run --all-files --show-diff-on-failure
+
+  unit:
+    needs: [lint, pre_check]
+    if: needs.pre_check.outputs.should_skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.10"
+      - run: pip install -e ".[dev,gaie]"
+      - name: pytest (unit only)
+        run: pytest -m "not slow and not integration" -q
+
+  # Rust router: clippy + unit/integration tests. GH-hosted ubuntu-latest
+  # ships a stable toolchain (with clippy), so no toolchain setup is needed.
+  rust:
+    needs: [lint, pre_check]
+    if: needs.pre_check.outputs.should_skip != 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: cargo fmt (check)
+        run: cargo fmt --all -- --check
+      - name: cargo clippy (warnings = errors)
+        run: cargo clippy --all-targets -- -D warnings
+      - name: cargo test
+        run: cargo test
+
+  # Engine GPU tests — run on every branch (push + PRs into main).
+  engine:
+    needs: [lint, pre_check]
+    if: needs.pre_check.outputs.should_skip != 'true'
+    runs-on: [self-hosted, crusoe]
+    timeout-minutes: 90
+    env:
+      INFERA_E2E_SLURM_PARTITION: amd-spur
+      INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
+      INFERA_E2E_RESERVATION: infera-cicd-reserved
+      INFERA_E2E_JOB_TAG: ${{ github.run_id }}-engine
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - name: engine tests
+        run: bash tests/run_tests.sh engine
+      - name: reclaim this job's SLURM jobs (on cancel/failure)
+        if: cancelled() || failure()
+        run: |
+          suf="-${{ github.run_id }}-engine"
+          for i in 1 2 3 4 5; do
+            ids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \
+              | awk -v suf="$suf" '$2 ~ /^infera-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}')
+            [ -z "$ids" ] && { echo "no (more) SLURM jobs to reclaim"; break; }
+            echo "reclaiming SLURM job(s): $ids (try $i)"; scancel $ids 2>&1 || true
+            sleep 5
+          done
+
+  # Full PD-mixed e2e (per engine, parallel) — ONLY when code lands on main
+  # (push/merge to main). Skipped on other branches and on PRs.
+  e2e-mixed:
+    # Run on PRs into main (pre-merge; pull_request already filters base=main), so
+    # the merge is validated BEFORE landing and not re-run on the main push after.
+    # Also on manual dispatch when run_e2e is checked.
+    # Gated behind lint: run only if lint did not fail. `always()` + result check
+    # (instead of a plain success dependency) is needed so e2e still runs when lint
+    # is *skipped* as a duplicate (pre_check), but is held back when lint fails.
+    needs: lint
+    if: >-
+      always() &&
+      needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
+      (github.event_name == 'pull_request' ||
+       (github.event_name == 'workflow_dispatch' && inputs.run_e2e))
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [vllm, sglang, atom]
+    runs-on: [self-hosted, crusoe]
+    timeout-minutes: 240
+    env:
+      INFERA_E2E_SLURM_PARTITION: amd-spur
+      INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
+      # Dispatch onto this pre-made reservation's nodes (srun --reservation).
+      INFERA_E2E_RESERVATION: infera-cicd-reserved
+      INFERA_E2E_JOB_TAG: ${{ github.run_id }}-${{ matrix.engine }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - name: e2e ${{ matrix.engine }} mixed
+        run: bash tests/run_tests.sh e2e ${{ matrix.engine }} mixed
+      - name: reclaim this job's SLURM jobs (on cancel/failure)
+        if: cancelled() || failure()
+        run: |
+          # Retry: a single scancel can hit a transient Spur controller error
+          # ("no leader") and leave the job orphaned. Re-query + re-cancel until
+          # nothing matching this leg's suffix remains (or attempts run out).
+          suf="-${{ github.run_id }}-${{ matrix.engine }}"
+          for i in 1 2 3 4 5; do
+            ids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \
+              | awk -v suf="$suf" '$2 ~ /^infera-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}')
+            [ -z "$ids" ] && { echo "no (more) SLURM jobs to reclaim"; break; }
+            echo "reclaiming SLURM job(s): $ids (try $i)"; scancel $ids 2>&1 || true
+            sleep 5
+          done
+
+  unit-torch-cpu:
+    needs: [lint, pre_check]
+    if: needs.pre_check.outputs.should_skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: pip install -e ".[dev]"
+      - name: Install CPU-only torch
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: pytest (CPU tensor logic)
+        run: >
+          pytest -q
+          tests/engine/vllm/test_attention_layout_roundtrip.py
+          tests/engine/vllm/test_non_paged_skip.py
+          tests/engine/vllm/test_dsa_indexer_roundtrip.py
+          tests/engine/vllm/test_vllm_kvd_mla_l3_fullloop.py

@@ -1,0 +1,11 @@
+#
+# Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: MIT
+#
+# Helm chart for the Infera operator. Packaged as an OCI chart.
+apiVersion: v2
+name: infera-operator
+description: Infera Kubernetes operator. Reconciles InferaDeployment (infera.amd.com/v1alpha1) into Deployments / LeaderWorkerSets for aggregated and disaggregated (prefill/decode) LLM serving on AMD MI300X. Self-contained — no external inference-operator dependency.
+type: application
+version: 0.1.2
+appVersion: "0.1.2"

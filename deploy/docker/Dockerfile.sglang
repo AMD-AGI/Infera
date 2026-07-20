@@ -1,0 +1,37 @@
+# Infera SGLang engine image: layers the infera source onto the ROCm SGLang
+# base and sets an entrypoint that injects the host's libionic before exec'ing
+# the command.
+ARG SGLANG_BASE_IMAGE=lmsysorg/sglang-rocm:v0.5.13-rocm720-mi35x-20260612
+FROM ${SGLANG_BASE_IMAGE}
+
+WORKDIR /opt/infera
+
+# Install infera + its declared deps from pyproject (single source of truth).
+# The base already ships torch/sglang and most of infera's runtime stack; pip
+# leaves those satisfied versions untouched and only pulls what's missing (e.g.
+# nats-py). `.[sglang]` = infera core + the EPP (gaie) deps so this image can
+# also run `python -m infera.gaie`.
+COPY pyproject.toml README.md ./
+COPY infera ./infera
+RUN pip install --no-cache-dir ".[sglang]"
+
+# ---- Rust router (multi-core data plane; --router-backend rust) ----
+# The ROCm base ships cargo; use it (install a minimal toolchain only if
+# absent). Needs cc for linking and libclang (onig_sys/bindgen). Removes
+# the build tree, keeps the binary.
+COPY rust ./rust
+RUN set -eu; \
+    command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; }; \
+    export LIBCLANG_PATH="$(dirname "$(find /opt/rocm* /usr/lib /usr/lib64 -name 'libclang.so*' 2>/dev/null | head -1)")"; \
+    case "$LIBCLANG_PATH" in ""|".") apt-get update && apt-get install -y --no-install-recommends libclang-dev && rm -rf /var/lib/apt/lists/* && export LIBCLANG_PATH="$(dirname "$(find /usr/lib -name 'libclang.so*' 2>/dev/null | head -1)")";; esac; \
+    command -v cargo >/dev/null || { curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal; . "$HOME/.cargo/env"; }; \
+    export PATH="$HOME/.cargo/bin:$PATH"; \
+    export LIBCLANG_PATH="${LIBCLANG_PATH:-/opt/rocm/llvm/lib}"; \
+    ( cd rust && cargo build --release --bin infera-router ); \
+    cp rust/target/release/infera-router /usr/local/bin/infera-router; \
+    rm -rf rust
+
+COPY deploy/docker/scripts/infera_inject_host_ionic.sh /usr/local/bin/infera-inject-host-ionic
+
+ENTRYPOINT ["/usr/local/bin/infera-inject-host-ionic"]
+CMD ["/bin/bash"]

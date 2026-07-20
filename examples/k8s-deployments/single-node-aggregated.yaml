@@ -1,0 +1,79 @@
+# Single-node aggregated: 1 router (server) + 1 mixed worker (tp=1, 1 GPU).
+# Simplest topology; good smoke test for the operator + engine path.
+#
+# Fill in the <PLACEHOLDERS> for your cluster:
+#   <NAMESPACE>          target namespace (must exist)
+#   <ENGINE_IMAGE>       infera engine image your nodes can pull
+#                        (must contain infera.server + infera.engine.sglang)
+#   <IMAGE_PULL_SECRET>  docker-registry secret in <NAMESPACE> for that image
+#   <MODEL_PVC>          PVC (in <NAMESPACE>) that mounts your model store
+#   <MODEL_PATH>         path to the model dir as seen INSIDE the pod
+#                        (i.e. <mountPath>/<model-dir>)
+#
+# The operator provisions the server/worker Deployments, a ClusterIP Service
+# (:8000) and the k8s-discovery ServiceAccount/Role. The router talks to the
+# worker over HTTP and the worker publishes KV events over zmq, so no NATS
+# broker is needed (nats.deploy: false).
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: qwen-agg
+  namespace: <NAMESPACE>
+spec:
+  backendFramework: sglang
+  discoveryBackend: kubernetes
+  nats:
+    deploy: false
+  services:
+    server:
+      componentType: server
+      extraPodSpec:
+        imagePullSecrets:
+          - name: <IMAGE_PULL_SECRET>
+        containers:
+          - name: main
+            image: <ENGINE_IMAGE>
+            imagePullPolicy: IfNotPresent
+            command: ["python3","-m","infera.server","--host","0.0.0.0","--port","8000",
+                      "--router-tokenizer-path","<MODEL_PATH>",
+                      "--request-transport","http","--kv-event-transport","zmq"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources:
+              requests: {cpu: "4", memory: 16Gi}
+              limits: {cpu: "4", memory: 16Gi}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+        volumes:
+          - {name: model, persistentVolumeClaim: {claimName: <MODEL_PVC>}}
+    worker:
+      componentType: worker
+      role: mixed
+      replicas: 1
+      extraPodSpec:
+        imagePullSecrets:
+          - name: <IMAGE_PULL_SECRET>
+        containers:
+          - name: main
+            image: <ENGINE_IMAGE>
+            imagePullPolicy: IfNotPresent
+            command: ["python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
+                      "--model-path","<MODEL_PATH>",
+                      "--tp-size","1","--attention-backend","aiter","--trust-remote-code",
+                      "--mem-fraction-static","0.8",
+                      "--kv-event-transport","zmq","--request-transport","http"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources:
+              requests: {cpu: "16", memory: 64Gi, amd.com/gpu: 1}
+              limits: {cpu: "16", memory: 64Gi, amd.com/gpu: 1}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: dshm, mountPath: /dev/shm}
+        volumes:
+          - {name: model, persistentVolumeClaim: {claimName: <MODEL_PVC>}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 32Gi}}

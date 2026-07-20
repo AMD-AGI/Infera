@@ -1,0 +1,32 @@
+# infera-kvd node-local KV cache daemon image.
+#
+# Pure-Python service (no GPU, no torch). The image holds only what
+# the daemon needs at runtime: the infera package + its async/
+# msgpack/xxhash deps.
+#
+# Build (run from repository root):
+#   docker build -f deploy/docker/Dockerfile.kvd -t infera/kvd:dev .
+#
+# Run (standalone):
+#   docker run --rm -v /tmp/kvd-sock:/sock -v /tmp/kvd-long:/long \
+#     infera/kvd:dev \
+#     --socket /sock/infera-kvd.sock \
+#     --max-bytes 4G \
+#     --long-path /long \
+#     --long-bytes 16G
+
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Daemon is pure-Python; no system libs beyond what slim provides.
+COPY pyproject.toml README.md ./
+COPY infera ./infera
+# Include the [gaie] extra for parity with the other infera images so the
+# ext_proc EndpointPicker (infera.gaie) can run from here too.
+RUN pip install --no-cache-dir ".[gaie]"
+
+# Default socket path matches the adapter's default and the kvd CLI default.
+# Operators usually override via --socket /run/infera-kvd/... on the
+# command line + a bind-mounted volume.
+ENTRYPOINT ["python", "-m", "infera.kvd"]

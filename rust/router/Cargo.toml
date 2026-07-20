@@ -1,0 +1,38 @@
+[package]
+name = "infera-router"
+version = "0.1.0"
+edition = "2021"
+description = "Infera router data plane (Rust). Drop-in for `python -m infera.server` on the hot path."
+license = "Apache-2.0"
+
+[[bin]]
+name = "infera-router"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "net", "time"] }
+axum = "0.7"
+# rustls (pure-Rust TLS) avoids a system openssl build dep; http-only workers
+# don't need it, but https etcd / workers keep working.
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+arc-swap = "1"
+clap = { version = "4", features = ["derive", "env"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1"
+futures = "0.3"
+base64 = "0.22"
+rand = "0.8"
+# kv-aware routing: XXH3 chained block hashing (matches the Python xxhash side),
+# ZMQ SUB kv-event stream + msgpack decode, and HF fast-tokenizer + chat template.
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+zmq = "0.10"
+rmpv = "1"
+tokenizers = { version = "0.20", default-features = false, features = ["onig"] }
+# Kimi ships a tiktoken tokenizer (no tokenizer.json); we tokenize its text
+# prompts natively. Oniguruma handles the `&&` class intersection + `(?!\S)`
+# lookahead in Kimi's pat_str that the `regex` crate can't.
+onig = "6"
+minijinja = { version = "2", features = ["json", "loader", "loop_controls"] }

@@ -1,0 +1,68 @@
+{{- if .Values.rbac.create }}
+# ClusterRole mirrors deploy/operator/config/rbac/role.yaml (controller-gen
+# output). The operator reconciles InferaDeployment into Services,
+# Deployments/StatefulSets and LeaderWorkerSets cluster-wide.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "infera-operator.fullname" . }}
+  labels:
+    {{- include "infera-operator.labels" . | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["services", "serviceaccounts"]
+  verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+# pods: list/watch/patch for the per-IDEP discovery Role, and required for the
+# operator to grant those verbs (RBAC escalation prevention).
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch", "patch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "statefulsets"]
+  verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+- apiGroups: ["leaderworkerset.x-k8s.io"]
+  resources: ["leaderworkersets"]
+  verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+# GAIE: the operator creates an InferencePool + HTTPRoute when a deployment
+# enables spec.gaie (Gateway API Inference Extension integration).
+- apiGroups: ["inference.networking.k8s.io"]
+  resources: ["inferencepools"]
+  verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources: ["httproutes"]
+  verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["roles", "rolebindings"]
+  verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+- apiGroups: ["infera.amd.com"]
+  resources: ["inferadeployments"]
+  verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+- apiGroups: ["infera.amd.com"]
+  resources: ["inferadeployments/finalizers"]
+  verbs: ["update"]
+- apiGroups: ["infera.amd.com"]
+  resources: ["inferadeployments/status"]
+  verbs: ["get", "patch", "update"]
+# Leader election lease + event recording.
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "infera-operator.fullname" . }}
+  labels:
+    {{- include "infera-operator.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "infera-operator.fullname" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "infera-operator.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}

@@ -1,0 +1,17 @@
+# Infera API server image (no GPU, no SGLang).
+#
+# Build (run from repository root):
+#   docker build -f deploy/docker/Dockerfile.server -t infera/server:dev .
+
+FROM python:3.10-slim
+
+WORKDIR /app
+
+COPY pyproject.toml README.md ./
+COPY infera ./infera
+# Include the [gaie] extra so the ext_proc EndpointPicker (infera.gaie) can
+# also run from this image (grpcio/protobuf/grpcio-health-checking/cryptography).
+RUN pip install --no-cache-dir ".[gaie]"
+
+EXPOSE 8000
+ENTRYPOINT ["python", "-m", "infera.server"]

@@ -1,0 +1,98 @@
+# Multi-node tensor parallel (aggregated): one mixed worker instance spanning
+# 2 nodes via a LeaderWorkerSet (numberOfNodes: 2, replicas: 1 -> one group).
+# tp-size = numberOfNodes * gpus-per-node (here 2 * 1 = 2). Only node-rank 0
+# serves HTTP and registers; rank>0 is a pure TP worker.
+#
+# Requires the LeaderWorkerSet CRD/controller (leaderworkerset.x-k8s.io/v1).
+# The operator does NOT inject the cross-node rendezvous flags, so we wrap the
+# entrypoint in a shell that expands the LWS env ($LWS_WORKER_INDEX /
+# $LWS_LEADER_ADDRESS) into --nnodes / --node-rank / --dist-init-addr.
+#
+# Fill in the <PLACEHOLDERS> for your cluster:
+#   <NAMESPACE>          target namespace (must exist)
+#   <ENGINE_IMAGE>       infera engine image your nodes can pull
+#   <IMAGE_PULL_SECRET>  docker-registry secret in <NAMESPACE> for that image
+#   <MODEL_PVC>          PVC (in <NAMESPACE>) that mounts your model store
+#   <MODEL_PATH>         path to the model dir as seen INSIDE the pod
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: qwen-tp
+  namespace: <NAMESPACE>
+spec:
+  backendFramework: sglang
+  discoveryBackend: kubernetes
+  nats:
+    deploy: false
+  services:
+    server:
+      componentType: server
+      extraPodSpec:
+        imagePullSecrets:
+          - name: <IMAGE_PULL_SECRET>
+        containers:
+          - name: main
+            image: <ENGINE_IMAGE>
+            imagePullPolicy: IfNotPresent
+            command: ["python3","-m","infera.server","--host","0.0.0.0","--port","8000",
+                      "--router-tokenizer-path","<MODEL_PATH>",
+                      "--request-transport","http","--kv-event-transport","zmq"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources:
+              requests: {cpu: "4", memory: 16Gi}
+              limits: {cpu: "4", memory: 16Gi}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+        volumes:
+          - {name: model, persistentVolumeClaim: {claimName: <MODEL_PVC>}}
+    worker:
+      componentType: worker
+      role: mixed
+      numberOfNodes: 2        # -> LeaderWorkerSet, group size 2
+      replicas: 1             # one multi-node instance (NOT 2 groups)
+      extraPodSpec:
+        imagePullSecrets:
+          - name: <IMAGE_PULL_SECRET>
+        affinity:
+          # Force the 2 LWS pods (node-rank 0/1) onto distinct nodes so this is a
+          # real cross-node TP group; without it both 1-GPU pods can co-locate.
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    infera.amd.com/deployment: qwen-tp
+                    infera.amd.com/service: worker
+                topologyKey: kubernetes.io/hostname
+        containers:
+          - name: main
+            image: <ENGINE_IMAGE>
+            imagePullPolicy: IfNotPresent
+            # Shell wrapper expands the LWS rendezvous env for cross-node TP.
+            command:
+              - /bin/sh
+              - -c
+              - >-
+                exec python3 -m infera.engine.sglang
+                --host 0.0.0.0 --port 30000
+                --model-path <MODEL_PATH>
+                --tp-size 2 --attention-backend aiter --trust-remote-code
+                --mem-fraction-static 0.8
+                --kv-event-transport zmq --request-transport http
+                --nnodes 2 --node-rank "$LWS_WORKER_INDEX"
+                --dist-init-addr "$LWS_LEADER_ADDRESS:5000"
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources:
+              requests: {cpu: "16", memory: 64Gi, amd.com/gpu: 1}
+              limits: {cpu: "16", memory: 64Gi, amd.com/gpu: 1}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: dshm, mountPath: /dev/shm}
+        volumes:
+          - {name: model, persistentVolumeClaim: {claimName: <MODEL_PVC>}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 32Gi}}

@@ -1,0 +1,42 @@
+# Example: disaggregated SGLang deployment on MI300X.
+# - one router/server (no GPU), exposed as a ClusterIP Service on :8000
+# - one prefill worker pool and one decode worker pool (1 GPU each, amd.com/gpu)
+# - kubernetes-native discovery (no etcd): the operator provisions a
+#   ServiceAccount + Role; the operator builds the entrypoints with
+#   --discovery-backend kubernetes automatically.
+# - operator-managed NATS (JetStream) for the KV-event plane.
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: demo
+spec:
+  backendFramework: sglang
+  image: infera/engine-sglang-mi300x:dev
+  discoveryBackend: kubernetes        # no external etcd; uses the in-cluster API
+  nats:
+    deploy: true                      # operator creates a JetStream NATS
+    storageSize: 4Gi
+  services:
+    server:
+      componentType: server
+      replicas: 2
+      resources: {cpu: "4", memory: 8Gi}
+      args: ["--router-policy", "kv-aware", "--router-tokenizer-path", "Qwen/Qwen3-0.6B"]
+    prefill:
+      componentType: worker
+      role: prefill
+      replicas: 1
+      numberOfNodes: 1
+      resources: {gpu: 1, gpuType: amd.com/gpu, memory: 64Gi, sharedMemory: 32Gi}
+      args: ["--model-path", "Qwen/Qwen3-0.6B", "--tp-size", "1", "--trust-remote-code",
+             "--enable-kv-events", "--disaggregation-transfer-backend", "mori",
+             "--disaggregation-ib-device", "rdma0"]
+    decode:
+      componentType: worker
+      role: decode
+      replicas: 1
+      numberOfNodes: 1
+      resources: {gpu: 1, gpuType: amd.com/gpu, memory: 64Gi, sharedMemory: 32Gi}
+      args: ["--model-path", "Qwen/Qwen3-0.6B", "--tp-size", "1", "--trust-remote-code",
+             "--enable-kv-events", "--disaggregation-transfer-backend", "mori",
+             "--disaggregation-ib-device", "rdma0"]

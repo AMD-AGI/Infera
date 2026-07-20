@@ -1,0 +1,72 @@
+# Variables of the form ${<variable>} are substituted, currently the following
+# list is supported:
+#   - ${branch} (or {branch}) the name of the current branch
+#   - ${url} (or {url}) github url of the current project
+#   - ${project:<project_name>} base url of the documentation of <project_name>
+#     based on intersphinx_mapping.
+# These comments will also be removed.
+defaults:
+  numbered: false
+root: index.md
+subtrees:
+  - caption: Getting started
+    entries:
+      - file: getting_started/overview.md
+        title: Overview
+      - file: getting_started/quickstart.md
+        title: Quickstart
+      - file: getting_started/installation.md
+        title: Installation and setup
+      - file: reference/glossary.md
+        title: Glossary
+
+  - caption: Components
+    entries:
+      - file: components/server.md
+        title: Server
+      - file: components/engines.md
+        title: Engines
+      - file: components/operator.md
+        title: Operator
+      - file: components/kvd.md
+        title: KV cache daemon
+
+  - caption: Features
+    entries:
+      - file: features/feature_matrix.md
+        title: Feature matrix
+      - file: features/pd_disaggregation.md
+        title: Prefill-decode disaggregation
+      - file: features/kv_cache_offload.md
+        title: KV cache offload
+      - file: features/kv_aware_routing.md
+        title: KV-aware routing
+      - file: features/routing_and_transport.md
+        title: Routing and transport
+
+  - caption: Serving
+    entries:
+      - file: serving/deployment.md
+        title: Deployment
+      - file: serving/kubernetes.md
+        title: Kubernetes
+
+  - caption: Examples
+    entries:
+      - file: examples/sglang_1p2d_kimi2.6.md
+        title: SGLang 1P2D — Kimi-K2.6
+      - file: examples/sglang_mix_dsv4.md
+        title: SGLang mixed — DeepSeek-V4-Pro
+      - file: examples/sglang_1p1d_dsv4.md
+        title: SGLang 1P1D — DeepSeek-V4-Pro
+
+  - caption: Reference
+    entries:
+      - file: reference/cli.md
+        title: CLI reference
+      - file: reference/environment.md
+        title: Environment variables
+      - file: reference/benchmarking.md
+        title: Benchmarking
+      - file: reference/troubleshooting.md
+        title: Troubleshooting
