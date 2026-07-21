@@ -34,12 +34,7 @@ jobs:
 
   lint:
     needs: pre_check
-    # Same-repo PRs are already covered by the branch push event; only run the
-    # non-e2e jobs on push (and on fork PRs, which don't trigger a base push).
-    if: >-
-      needs.pre_check.outputs.should_skip != 'true' &&
-      (github.event_name != 'pull_request' ||
-       github.event.pull_request.head.repo.full_name != github.repository)
+    if: needs.pre_check.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
