@@ -214,6 +214,9 @@ don't have to spot it by eye:
 Manual checks when bringing up a new fabric:
 
 ```bash
+# install the tools if not present
+apt-get install -y libibverbs-utils perftest
+
 ibv_devinfo            # RDMA NIC present + port ACTIVE?
 show_gids              # find the RoCEv2 (v2) GID index -> set MC_GID_INDEX
 ib_write_bw <peer>     # RDMA bandwidth host-to-host (run server on one, client on the other)

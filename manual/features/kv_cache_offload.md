@@ -13,7 +13,7 @@ across engines, so you don't recompute them. **How it works under the hood:** se
 
 ```{admonition} vLLM only (for now)
 :class: important
-KV-cache offload currently supports the **vLLM** engine
+KV-Cache Offload currently supports the **vLLM** engine
 (`infera.engine.vllm` + `InferaKvdConnector`). SGLang is not supported yet.
 ```
 
@@ -43,16 +43,30 @@ python -m infera.engine.vllm --model <model> --port 8000 --host 0.0.0.0 \
   --kv-transfer-config '{"kv_connector":"InferaKvdConnector","kv_role":"kv_both","kv_connector_module_path":"infera.engine.vllm.kvd_connector"}'
 ```
 
-That runs the POSIX read path (daemon `mmap`/socket). For **GPU-direct** L3 (DMA
-chunks straight into VRAM, bypassing the daemon) add — the connector writes chunk
-files itself under the roots and reads them back with hipFile/AIS:
+That runs the POSIX read path (daemon `mmap`/socket). For **GPU-direct** L3, the
+connector writes chunk files directly under the roots and reads them back via
+hipFile/AIS, bypassing the daemon. Add:
 
 ```bash
   INFERA_KVD_AIS=1 \
   INFERA_KVD_HIPFILE_ROOTS=long=/nvme/kvd-long
 ```
 
-```{admonition} GPU-direct needs a new-enough amdgpu driver — and it fails *silently*
+:::{admonition} Run `ais-check` on the host, never inside the container
+:class: warning
+In a container there is no `dkms` binary, so `ais-check` silently falls back from
+reading the authoritative KFD capability to grepping `/boot/config-*`, and reports
+`Kernel P2PDMA support: True` on a host whose driver reports **False**. Same machine,
+opposite answers. The line that actually matters is **`amdgpu:`** — it agrees in both
+places. Do not mount `/boot` into the container to "fix" the check: that only feeds
+the weak fallback and manufactures a false positive.
+
+Note also that `capability & 0x40` in the KFD topology is **not** a reliable AIS signal
+on these driver builds — a node logging `AIS: registered` per GPU still reports the bit
+clear. Trust `ais-check`'s `amdgpu:` line and the `dmesg` `AIS:` messages.
+:::
+
+:::{admonition} GPU-direct needs a new-enough amdgpu driver — and it fails *silently*
 :class: warning
 `INFERA_KVD_AIS=1` is a **request**, not a guarantee. If the driver can't do AIS the
 connector logs one line and quietly serves L3 over POSIX (mmap+H2D) instead. You get
@@ -70,7 +84,7 @@ Requirements (per [hipFile's INSTALL.md](https://github.com/ROCm/rocm-systems/bl
 
 **Check the driver that is *loaded*, not the one installed.** A DKMS upgrade without a
 reboot leaves the old module running, and AIS stays off even though the package looks
-current — this is easy to miss and cost us a full benchmarking session:
+current — this is easy to miss and can cost a full benchmarking session:
 
 ```bash
 cat /sys/module/amdgpu/version        # what is actually running
@@ -78,34 +92,20 @@ modinfo amdgpu | grep ^version:       # what is installed on disk
 # if they differ -> reboot; AIS will not work until you do
 ```
 
-Then confirm on the **host** (see below):
+Then confirm on the **host** (see above):
 
 ```bash
 /opt/rocm/bin/ais-check               # want: amdgpu : True, and exit code 0
 dmesg -T | grep 'AIS:'                # want: "AIS: registered NNNNNMB device memory" per GPU
 ```
-```
+:::
 
-```{admonition} Run `ais-check` on the host, never inside the container
-:class: warning
-In a container there is no `dkms` binary, so `ais-check` silently falls back from
-reading the authoritative KFD capability to grepping `/boot/config-*`, and reports
-`Kernel P2PDMA support: True` on a host whose driver reports **False**. Same machine,
-opposite answers. The line that actually matters is **`amdgpu:`** — it agrees in both
-places. Do not mount `/boot` into the container to "fix" the check: that only feeds
-the weak fallback and manufactures a false positive.
-
-Note also that `capability & 0x40` in the KFD topology is **not** a reliable AIS signal
-on these driver builds — a node logging `AIS: registered` per GPU still reports the bit
-clear. Trust `ais-check`'s `amdgpu:` line and the `dmesg` `AIS:` messages.
-```
-
-```{admonition} Leave INFERA_KVD_CHUNK_TOKENS at `auto`
+:::{admonition} Leave INFERA_KVD_CHUNK_TOKENS at `auto`
 :class: important
 GPU-direct's cuFile fan-out only pays off at chunks **≥ 128 MiB**, which `auto`
 (the default) sizes to. A small fixed value makes each chunk overhead-bound and
 the reload runs *slower than recompute*.
-```
+:::
 
 **3. Verify.** Send the same prompt (or a shared long prefix) twice, then check
 the engine's stats line for a non-zero **`External prefix cache hit rate`**, and
@@ -236,3 +236,4 @@ connector doesn't expose either per request — `ephemeral` maps to `long` and
   offload/onboard mechanism, the tablespace on-disk format, and optimization.
 - [CLI reference](../reference/cli.md) · [Environment variables](../reference/environment.md)
   — the daemon flags and connector env vars.
+

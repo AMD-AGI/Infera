@@ -120,7 +120,7 @@ worker on its own port:
 ```
 
 Each rank self-registers into etcd; the router spreads across them by prefix. See
-the [project README](https://github.com/AMD-AGI/Optimus#data-parallel-replicas).
+the [project README](https://github.com/AMD-AGI/Infera).
 
 ## Container images
 
