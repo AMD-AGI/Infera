@@ -33,8 +33,10 @@ if [ -n "${GITHUB_ACTIONS:-}" ] || [ "${CI:-}" = "true" ] || [ -n "${INFERA_DISP
 fi
 
 remote=(bash "$BTP" ship "$engine")
+# Shared mode: read the stdin-piped token before redirecting output to NFS; then
+# re-pipe it into ship (Spur/srun does not deliver stdin through exec >log).
 [ "$shared" -eq 1 ] && \
-  remote=(bash -c 'lf="$1"; shift; exec >"$lf" 2>&1; exec bash "$@"' _ "$logf" "$BTP" ship "$engine")
+  remote=(bash -c 'lf="$1"; shift; token=$(cat); exec >"$lf" 2>&1; printf "%s" "$token" | bash "$@"' _ "$logf" "$BTP" ship "$engine")
 
 _run_srun() {
   printf '%s' "$token" | srun -N1 -p "$part" -t 02:00:00 \
