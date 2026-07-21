@@ -81,9 +81,7 @@ jobs:
   # Engine GPU tests — run on every branch (push + PRs into main).
   engine:
     needs: [lint, pre_check]
-    if: >-
-      vars.ENABLE_SELFHOSTED == 'true' &&
-      needs.pre_check.outputs.should_skip != 'true'
+    if: needs.pre_check.outputs.should_skip != 'true'
     runs-on: [self-hosted, crusoe]
     timeout-minutes: 90
     env:
@@ -120,7 +118,7 @@ jobs:
     # is *skipped* as a duplicate (pre_check), but is held back when lint fails.
     needs: lint
     if: >-
-      always() && vars.ENABLE_SELFHOSTED == 'true' &&
+      always() &&
       needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
       (github.event_name == 'pull_request' ||
        (github.event_name == 'workflow_dispatch' && inputs.run_e2e))
