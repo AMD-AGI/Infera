@@ -35,6 +35,8 @@ subtrees:
     entries:
       - file: features/feature_matrix.md
         title: Feature matrix
+      - file: features/compatibility_matrix.md
+        title: Compatibility matrix
       - file: features/pd_disaggregation.md
         title: Prefill-decode disaggregation
       - file: features/kv_cache_offload.md
