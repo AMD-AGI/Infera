@@ -9,9 +9,10 @@ It orchestrates engines — so you install **Infera** plus at least **one engine
 | Component | Requirement |
 |---|---|
 | GPU | AMD Instinct **MI355X** (gfx950) |
-| ROCm | 7.2+ |
+| ROCm | [7.2+](https://rocm.docs.amd.com/en/latest/deploy/linux/index.html) |
 | OS | Linux x86-64 (validated on Ubuntu 24.04) |
 | Python | 3.10+ |
+| Docker | required — used to run etcd in dev and to build engine images |
 | Discovery | etcd (dev) or the Kubernetes API (production) — a one-line `docker run` gets etcd up for dev, see the [Quickstart](quickstart.md) |
 | RDMA NIC | AMD AINIC — **only needed for cross-node PD** |
 | Engine | at least one of vLLM / SGLang / ATOM (below) |
@@ -54,7 +55,7 @@ base. See [Deployment → Engine images](../serving/deployment.md#engine-images)
 
 ## Docker
 
-For serving (rather than hacking on the code) the container path is usually
+For serving (rather than developing locally) the container path is usually
 easier: the **engine images** already bundle Infera, the `sitecustomize` hook, and
 the Mooncake / ionic RDMA shims on top of the vendor ROCm base — nothing to
 `pip install` by hand.
@@ -78,7 +79,7 @@ docker build -f deploy/docker/Dockerfile.atom \
 
 Then bring up a full stack (etcd + server + engine). The per-runtime
 Dockerfiles, Kubernetes manifests, and the manual (bare-metal) recipe —
-including KV-aware routing, the kvd cache daemon, and PD disaggregation — are
+including KV-aware routing, the kvd daemon, and PD disaggregation — are
 all covered in [Deployment](../serving/deployment.md).
 
 ## Verify
@@ -89,3 +90,4 @@ python -m infera.server --help | head -5
 ```
 
 Next: the [Quickstart](quickstart.md) brings up a real stack and serves a model.
+
