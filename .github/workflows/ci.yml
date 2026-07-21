@@ -143,9 +143,7 @@ jobs:
       - name: reclaim this job's SLURM jobs (on cancel/failure)
         if: always() && (cancelled() || failure())
         run: |
-          # Retry: a single scancel can hit a transient Spur controller error
-          # ("no leader") and leave the job orphaned. Re-query + re-cancel until
-          # nothing matching this leg's suffix remains (or attempts run out).
+          # Retry: a single scancel can hit a transient Spur controller error.
           suf="-${{ github.run_id }}-${{ matrix.engine }}"
           for i in 1 2 3 4 5; do
             ids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \

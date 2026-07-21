@@ -121,8 +121,8 @@ jobs:
             echo "channel=nightly id=$id"
           fi
 
-      # Token stays in the step env only; dispatch_build.sh exports it to the
-      # remote via srun --export (never echoed, never written to disk).
+      # Token stays in the step env; dispatch_build.sh forwards it to the remote
+      # via srun's env propagation (never echoed, never written to disk).
       - name: build & push (remote via srun)
         timeout-minutes: 140
         env:
@@ -135,7 +135,7 @@ jobs:
           suf="-${{ github.run_id }}-${{ matrix.engine }}"
           for i in 1 2 3 4 5; do
             ids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \
-              | awk -v suf="$suf" '$2 ~ /^infera-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}')
+              | awk -v suf="$suf" '$2 ~ /^infera-build-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}')
             [ -z "$ids" ] && { echo "no (more) SLURM jobs to reclaim"; break; }
             echo "reclaiming SLURM job(s): $ids (try $i)"; scancel $ids 2>&1 || true
             sleep 5

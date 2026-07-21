@@ -61,9 +61,9 @@ _cleanup_scratch() {
     --entrypoint sh "$img" -c 'rm -rf /scratch/* /scratch/.[!.]* 2>/dev/null' >/dev/null 2>&1 || true
   rm -rf "$SCRATCH" 2>/dev/null || true
 }
+
 # On interrupt (Ctrl-C / CI SIGTERM) scancel the dispatched job: killing the srun
-# client does NOT stop the Spur job. Prefer job id from $_CUR_DISPATCH_OUT; fall
-# back to INFERA_E2E_JOB_TAG suffix matching (same query as ci.yml reclaim step).
+# client does NOT stop the Spur job. Job id from $_CUR_DISPATCH_OUT, else job tag.
 _CUR_DISPATCH_OUT=""
 _cancel_dispatched() {
   local jids="" i suf csv
@@ -79,8 +79,7 @@ _cancel_dispatched() {
   fi
   [ -n "$jids" ] || return 0
   echo "[cleanup] cancelling dispatched SLURM job(s): $jids" >&2
-  # Retry: a single scancel can hit a transient Spur controller error and leave
-  # the job orphaned; re-cancel until squeue no longer lists any of them.
+  # Retry: a single scancel can hit a transient Spur controller error.
   csv=$(echo $jids | tr ' ' ',')
   for i in 1 2 3 4 5; do
     scancel $jids >/dev/null 2>&1 || true
