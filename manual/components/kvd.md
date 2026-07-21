@@ -88,9 +88,9 @@ The RAM tier is a memfd-backed pinned **shared arena**. When a vLLM/SGLang
 worker opts in at the UDS handshake, kvd passes the arena's file descriptor over
 `SCM_RIGHTS` and the engine `mmap`s the same region. A `get()` then returns just
 `(slot_offset, length, version)` — the engine reads bytes straight from its own
-mmap. No socket body, no `bytes(...)` copy. Measured **6.6× per-block** vs the
-legacy inline-bytes path on local kvd, and **280×** on NFS-backed L3 (prefetch
-warms the arena; the bytes path can't benefit).
+mmap. No socket body, no `bytes(...)` copy. The gain vs the legacy inline-bytes
+path is largest on NFS-backed L3 (prefetch warms the arena; the bytes path can't
+benefit).
 
 ## L3 on-disk design — the tablespace
 
@@ -206,14 +206,6 @@ class:
   `--long-workers-per-shard` (default `8`).
 - Low NFS `wsize` → a startup WARN with the exact remount command.
 
-## Measured backends (L3)
-
-| Backend | Best read | Best write | Note |
-|---|---:|---:|---|
-| 8× local NVMe (striped) | 49.7 GB/s cold | 29.2 GB/s | 94/91% of fio peak (O_DIRECT) |
-| Single NVMe ext4 | 6.5 GB/s | 4.0 GB/s | 99.8% of device ceiling |
-| Vast NFS (nconnect=8/32) | 10.7 GB/s | 5.2 GB/s | container-file design avoids per-chunk RPC tax |
-
 ## Sizing principles
 
 - **L2 (`--max-bytes`)** — as much host RAM as you can spare for KV; this is the
@@ -224,6 +216,23 @@ class:
 - **Grow capacity as you go down** — each tier should be **≥ the one above**
   (L3 ≥ L2 ≥ the engine's GPU L1). A lower tier smaller than the one above it just
   churns: blocks evict before they're ever reused.
+
+## Verify it's running
+
+After starting the daemon and at least one engine, send the same prompt twice
+(or any prompt that shares a long prefix), then check the daemon counters:
+
+```bash
+python -m infera.kvd.statctl --socket /var/run/infera-kvd.sock
+# healthy output: sets_total > 0, gets_total > 0, hits_total > 0
+```
+
+`hits_total == 0` after a repeated prompt usually means the engine isn't
+connected to the daemon — confirm `INFERA_KVD_SOCKET` is set and points to the
+same socket path. Under GPU-direct the daemon counters stay 0 by design (the
+connector owns the files directly); use the engine's `External prefix cache hit
+rate` log line and check for `.kvcache` files under `INFERA_KVD_HIPFILE_ROOTS`
+instead.
 
 ## Related
 

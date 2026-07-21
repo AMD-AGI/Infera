@@ -26,6 +26,7 @@ html_theme_options = {
     "repository_url": "https://github.com/AMD-AGI/Infera",
     "use_repository_button": True,
     "use_issues_button": True,
+    "use_download_button": True,
 }
 html_title = project
 
@@ -58,3 +59,10 @@ suppress_warnings = ["myst.header"]
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "README.md", ".venv", ".venv/**"]
+
+# Publish the llms.txt index at the docs site root and let
+# rocm-docs-core generate llms-full.txt after each build (the llms.txt standard,
+# https://llmstxt.org/). See the rocm-docs-core guide:
+# https://rocm.docs.amd.com/projects/rocm-docs-core/en/latest/user_guide/llms.html
+rocm_docs_generate_llms = True
+
