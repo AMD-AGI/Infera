@@ -57,7 +57,11 @@ PAGE_SIZE="${PAGE_SIZE:-64}"
 # isn't built in this image for gpt-oss MXFP4 (ModuleNotFoundError ->
 # scheduler dies). 'triton' is the portable ROCm fallback.
 MOE_RUNNER_BACKEND="${MOE_RUNNER_BACKEND:-auto}"
-GPU_ARCH="${GPU_ARCH:-gfx950}"   # MI355X; drives aiter JIT fp4 MoE kernel build
+# Auto-detect the live GPU arch from amd-smi structured output (no awk/grep/sed)
+# so the same script drives aiter/MoRI JIT correctly on any Instinct GPU; the
+# amd-smi half runs in the container where the ROCm stack lives. Override via GPU_ARCH.
+GPU_ARCH="${GPU_ARCH:-$(docker exec "$CONTAINER" amd-smi static -g 0 --asic --json \
+  | python3 -c 'import sys,json;print(json.load(sys.stdin)[0]["asic"]["target_graphics_version"])')}"
 # Repo root and this bench dir, auto-derived from the script location
 # (bench/pd_mori_1p1d/ -> 2 levels up). Override INFERA_SRC / WORKSPACE
 # when the source is mounted elsewhere inside the container.

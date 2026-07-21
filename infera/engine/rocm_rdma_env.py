@@ -62,6 +62,119 @@ def apply_vllm_aiter_default() -> str | None:
     return "1"
 
 
+def _compute_capability() -> tuple[int, int] | None:
+    """(major, minor) compute capability of the current GPU, or None.
+
+    CDNA maps arch -> capability: gfx942 (MI300/MI325, CDNA3) = (9, 4);
+    gfx950 (MI355X, CDNA4) = (9, 5). Uses torch (the engines already depend on
+    it); returns None on CPU-only / no-GPU hosts so callers no-op safely.
+    """
+    try:
+        import torch
+
+        if not torch.cuda.is_available():
+            return None
+        props = torch.cuda.get_device_properties(torch.cuda.current_device())
+        return (props.major, props.minor)
+    except Exception:
+        return None
+
+
+def is_gfx942() -> bool:
+    """True iff the current GPU is gfx942 (MI300/MI325X, CDNA3)."""
+    return _compute_capability() == (9, 4)
+
+
+def _is_dsv4_fp4_model(model_path: str | None) -> bool:
+    """True iff ``model_path`` is a local DeepSeek-V4 checkpoint with FP4 experts.
+
+    Double-guards the gfx942 env defaults so they NEVER touch a non-DSv4 model
+    (requirement: don't break other models' run path). Reads only ``config.json``
+    from a local dir — never downloads. A bare HF repo id (no local dir) or any
+    read error returns False (conservative: leave the native path alone).
+    """
+    if not model_path or not os.path.isdir(model_path):
+        return False
+    cfg_path = os.path.join(model_path, "config.json")
+    if not os.path.isfile(cfg_path):
+        return False
+    try:
+        with open(cfg_path) as fh:
+            cfg = json.load(fh)
+    except (OSError, ValueError):
+        return False
+    # DeepSeek-V4 family: model_type deepseek_v4 (or an index_topk sparse-attn
+    # config). FP4 experts show up as a fp4/mxfp4 quantization_config.
+    model_type = str(cfg.get("model_type", "")).lower()
+    is_dsv4 = model_type.startswith("deepseek_v4") or "index_topk" in cfg
+    qc = cfg.get("quantization_config") or {}
+    quant_blob = json.dumps(qc).lower() if isinstance(qc, dict) else str(qc).lower()
+    is_fp4 = "fp4" in quant_blob or "mxfp4" in quant_blob or "e2m1" in quant_blob
+    return bool(is_dsv4 and is_fp4)
+
+
+def apply_dsv4_gfx942_env_defaults(
+    model_path: str | None, *, engine: str
+) -> dict[str, str]:
+    """gfx942 (MI325X) DSv4-FP4 env defaults (set-if-unset). No-op otherwise.
+
+    MI325X/CDNA3 has no working FP4 MoE kernel, so DeepSeek-V4-Pro must dequantize
+    its FP4 experts to FP8 at load and run aiter's FP8 blockscale MoE (see the
+    ATOM/SGLang ``patch_dsv4_fp4_dequant_gfx942`` source patches baked into the
+    images). This flips the master switch for that path — plus the sglang MLA
+    backend override (default tilelang crashes gfx942) and the tuned bf16 GEMM
+    config — so the operator gets a working MI325X out of the box.
+
+    TRIPLE-GATED so it can't affect MI355X or other models:
+      1. arch == gfx942 / capability (9, 4) (MI355X is gfx950 -> skipped);
+      2. the model is a local DSv4 checkpoint with FP4 experts (other models ->
+         skipped);
+      3. every var is set-if-unset (operator/env always overrides).
+
+    Returns the dict of vars actually applied (empty if not applicable). Call
+    ONCE at startup BEFORE the engine subprocess is spawned so it's inherited.
+    """
+    if not is_gfx942():
+        return {}
+    if not _is_dsv4_fp4_model(model_path):
+        return {}
+
+    if engine == "atom":
+        defaults = {"ATOM_DSV4_FP4_DEQUANT": "1"}
+    elif engine == "sglang":
+        defaults = {
+            "SGLANG_DSV4_FP4_DEQUANT": "1",
+            # Default MLA backend (tilelang) fails TVM compile on gfx942; the
+            # pure-triton path works. Nothing auto-overrides it otherwise.
+            "SGLANG_HACK_FLASHMLA_BACKEND": "unified_kv_triton",
+        }
+        # Tuned aiter bf16 GEMM configs for gfx942/cu_num=304 (baked by
+        # Dockerfile.sglang.gfx942). Merge with aiter's base file; skip if either
+        # is absent so we never point aiter at a missing path.
+        csv = os.environ.get(
+            "INFERA_DSV4_GEMM_CSV", "/opt/infera/aiter_configs/tuned_dsv4_cu304.csv"
+        )
+        base = "/sgl-workspace/aiter/aiter/configs/bf16_tuned_gemm.csv"
+        if os.path.isfile(csv) and os.path.isfile(base):
+            defaults["AITER_CONFIG_GEMM_BF16"] = f"{base}:{csv}"
+    else:
+        return {}
+
+    applied: dict[str, str] = {}
+    for key, value in defaults.items():
+        if os.environ.get(key) in (None, ""):
+            os.environ[key] = value
+            applied[key] = value
+    if applied:
+        logger.info(
+            "gfx942 DSv4-FP4 env defaults applied for %s (set-if-unset; "
+            "override via env): %s",
+            engine,
+            applied,
+        )
+    return applied
+
+
 def apply_rocm_rdma_env_defaults() -> dict[str, str]:
     """Set ionic-RoCE RDMA env defaults (set-if-unset) on ROCm; no-op elsewhere.
 

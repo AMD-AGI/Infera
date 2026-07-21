@@ -1,4 +1,4 @@
-# Infera vLLM engine image (ROCm / gfx950 / MI355X) — the single canonical vLLM
+# Infera vLLM engine image (ROCm) — the single canonical vLLM
 # image. Layers aiter(flydsl) + vLLM patches (shared + DSv4) + Mooncake dma-buf +
 # hipFile + libionic onto a digest-pinned nightly base, then the infera source,
 # and runs via `python -m infera.engine.vllm`.
@@ -14,11 +14,10 @@ FROM ${VLLM_BASE_IMAGE}
 ARG BUILD_AITER=1
 ARG AITER_GIT_REF=v0.1.16.post1
 ARG AITER_REPO=https://github.com/ROCm/aiter
-ARG GPU_ARCHS=gfx950
 COPY deploy/docker/scripts/build_aiter_rocm.sh /tmp/build_aiter_rocm.sh
 RUN if [ "${BUILD_AITER}" = "1" ]; then \
         AITER_GIT_REF="${AITER_GIT_REF}" AITER_REPO="${AITER_REPO}" \
-        GPU_ARCHS="${GPU_ARCHS}" bash /tmp/build_aiter_rocm.sh; \
+        bash /tmp/build_aiter_rocm.sh; \
     else \
         echo "BUILD_AITER=0 — using aiter already in base image"; \
     fi \

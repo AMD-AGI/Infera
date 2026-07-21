@@ -1,0 +1,54 @@
+# Infera SGLang engine image for MI325X (gfx942 / CDNA3).
+#
+# WHY a SEPARATE image (not a shared gfx942+gfx950 build): the SGLang base is
+# arch-specific — the default Dockerfile.sglang targets MI355X (gfx950, mi35x
+# base), and a single sglang image cannot run on both gfx950 and gfx942. This
+# variant pins the MI30x base and bakes the DeepSeek-V4-Pro FP4->FP8 MoE dequant
+# patch that gfx942 requires (no native FP4 MoE kernel on CDNA3).
+#
+# The FP4->FP8 dequant code path is still env-gated (SGLANG_DSV4_FP4_DEQUANT) and
+# is_fp4_expert-guarded, and the launcher only enables it on a DSv4-FP4 model, so
+# baking the patch here never affects other models running on this image.
+ARG SGLANG_BASE_IMAGE=lmsysorg/sglang-rocm:v0.5.15-rocm720-mi30x-20260713
+FROM ${SGLANG_BASE_IMAGE}
+
+# ---- SGLang DSv4 patch (gfx942 FP4->FP8 MoE dequant + tuned bf16 GEMM) ------
+# Idempotent, self-locating, and a no-op if the SGLang source drifted (loud
+# warning, build continues) — same graceful convention as patches/atom and
+# patches/vllm-dsv4. Also installs the gfx942/cu_num=304 tuned aiter bf16 GEMM
+# CSV that the launcher points AITER_CONFIG_GEMM_BF16 at.
+COPY deploy/docker/patches/sglang-dsv4/ /tmp/sglang-dsv4-patches/
+RUN for f in /tmp/sglang-dsv4-patches/patch_*.py; do echo "[sglang-dsv4-patch] $f"; python3 "$f" || echo "[sglang-dsv4-patch] skipped $f"; done \
+    && rm -rf /tmp/sglang-dsv4-patches
+
+WORKDIR /opt/infera
+
+# Install infera + its declared deps from pyproject (single source of truth).
+# The base already ships torch/sglang and most of infera's runtime stack; pip
+# leaves those satisfied versions untouched and only pulls what's missing (e.g.
+# nats-py). `.[sglang]` = infera core + the EPP (gaie) deps so this image can
+# also run `python -m infera.gaie`.
+COPY pyproject.toml README.md ./
+COPY infera ./infera
+RUN pip install --no-cache-dir ".[sglang]"
+
+# ---- Rust router (multi-core data plane; --router-backend rust) ----
+# The ROCm base ships cargo; use it (install a minimal toolchain only if
+# absent). Needs cc for linking and libclang (onig_sys/bindgen). Removes
+# the build tree, keeps the binary.
+COPY rust ./rust
+RUN set -eu; \
+    command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; }; \
+    export LIBCLANG_PATH="$(dirname "$(find /opt/rocm* /usr/lib /usr/lib64 -name 'libclang.so*' 2>/dev/null | head -1)")"; \
+    case "$LIBCLANG_PATH" in ""|".") apt-get update && apt-get install -y --no-install-recommends libclang-dev && rm -rf /var/lib/apt/lists/* && export LIBCLANG_PATH="$(dirname "$(find /usr/lib -name 'libclang.so*' 2>/dev/null | head -1)")";; esac; \
+    command -v cargo >/dev/null || { curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal; . "$HOME/.cargo/env"; }; \
+    export PATH="$HOME/.cargo/bin:$PATH"; \
+    export LIBCLANG_PATH="${LIBCLANG_PATH:-/opt/rocm/llvm/lib}"; \
+    ( cd rust && cargo build --release --bin infera-router ); \
+    cp rust/target/release/infera-router /usr/local/bin/infera-router; \
+    rm -rf rust
+
+COPY deploy/docker/scripts/infera_inject_host_ionic.sh /usr/local/bin/infera-inject-host-ionic
+
+ENTRYPOINT ["/usr/local/bin/infera-inject-host-ionic"]
+CMD ["/bin/bash"]

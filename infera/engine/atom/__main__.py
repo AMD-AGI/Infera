@@ -91,6 +91,15 @@ async def main() -> None:
         kv_events_endpoint = f"tcp://{advertise_host}:{port}"
         kv_block_size = args.kv_block_size
 
+    # MI325X (gfx942) + DeepSeek-V4-Pro (FP4 experts): enable the FP4->FP8 MoE
+    # dequant path (set-if-unset), which gfx942 requires (no native FP4 MoE
+    # kernel). Triple-gated on arch + model, so it's a no-op on MI355X (gfx950)
+    # and every other model. Must run before the ATOM subprocess is spawned so
+    # the env is inherited.
+    from infera.engine.rocm_rdma_env import apply_dsv4_gfx942_env_defaults
+
+    apply_dsv4_gfx942_env_defaults(args.model, engine="atom")
+
     engine = AtomEngine(
         atom_argv=args.atom_argv,
         model_name=args.model,
