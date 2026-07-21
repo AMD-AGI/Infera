@@ -21,6 +21,41 @@ permissions:
   actions: read
 
 jobs:
+  # Classify the change: does it touch code, or only the Sphinx manual? A
+  # manual/-only change skips every code job below (a job skipped by `if`
+  # counts as success for required status checks); the manual itself is built
+  # and checked by the ReadTheDocs PR integration, so no docs job is needed here.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.f.outputs.code }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - id: f
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            range="${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}"
+          else
+            range="${{ github.event.before }}...${{ github.sha }}"
+          fi
+          files=$(git diff --name-only "$range" 2>/dev/null) || files=""
+          [ -z "$files" ] && files=$(git diff --name-only HEAD~1 2>/dev/null || true)
+          echo "changed files:"; printf '%s\n' "$files"
+          code=false
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              manual/*) ;;            # docs-only: validated by the ReadTheDocs check
+              *)        code=true ;;
+            esac
+          done <<< "$files"
+          # Unknown diff (new branch / force-push / empty): be safe, run everything.
+          [ -z "$files" ] && code=true
+          echo "=> code=$code"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
   pre_check:
     runs-on: ubuntu-latest
     outputs:
@@ -33,8 +68,10 @@ jobs:
           concurrent_skipping: "never"
 
   lint:
-    needs: pre_check
-    if: needs.pre_check.outputs.should_skip != 'true'
+    needs: [pre_check, changes]
+    if: >-
+      needs.pre_check.outputs.should_skip != 'true' &&
+      needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -46,11 +83,12 @@ jobs:
         run: pre-commit run --all-files --show-diff-on-failure
 
   unit:
-    needs: [lint, pre_check]
-    # Same-repo PRs are already covered by the branch push event; only run the
-    # non-e2e jobs on push (and on fork PRs, which don't trigger a base push).
+    needs: [lint, pre_check, changes]
+    # Skip on docs-only changes, and on same-repo PRs (already covered by the
+    # branch push event); still run on push and on fork PRs.
     if: >-
       needs.pre_check.outputs.should_skip != 'true' &&
+      needs.changes.outputs.code == 'true' &&
       (github.event_name != 'pull_request' ||
        github.event.pull_request.head.repo.full_name != github.repository)
     runs-on: ubuntu-latest
@@ -68,11 +106,12 @@ jobs:
   # Rust router: clippy + unit/integration tests. GH-hosted ubuntu-latest
   # ships a stable toolchain (with clippy), so no toolchain setup is needed.
   rust:
-    needs: [lint, pre_check]
-    # Same-repo PRs are already covered by the branch push event; only run the
-    # non-e2e jobs on push (and on fork PRs, which don't trigger a base push).
+    needs: [lint, pre_check, changes]
+    # Skip on docs-only changes, and on same-repo PRs (already covered by the
+    # branch push event); still run on push and on fork PRs.
     if: >-
       needs.pre_check.outputs.should_skip != 'true' &&
+      needs.changes.outputs.code == 'true' &&
       (github.event_name != 'pull_request' ||
        github.event.pull_request.head.repo.full_name != github.repository)
     runs-on: ubuntu-latest
@@ -90,11 +129,12 @@ jobs:
 
   # Engine GPU tests — run on each branch push (same-repo PRs reuse that run).
   engine:
-    needs: [lint, pre_check]
-    # Same-repo PRs are already covered by the branch push event; only run the
-    # non-e2e jobs on push (and on fork PRs, which don't trigger a base push).
+    needs: [lint, pre_check, changes]
+    # Skip on docs-only changes, and on same-repo PRs (already covered by the
+    # branch push event); still run on push and on fork PRs.
     if: >-
       needs.pre_check.outputs.should_skip != 'true' &&
+      needs.changes.outputs.code == 'true' &&
       (github.event_name != 'pull_request' ||
        github.event.pull_request.head.repo.full_name != github.repository)
     runs-on: [self-hosted, crusoe]
@@ -127,13 +167,14 @@ jobs:
   e2e-mixed:
     # Run on PRs into main (pre-merge; pull_request already filters base=main), so
     # the merge is validated BEFORE landing and not re-run on the main push after.
-    # Also on manual dispatch when run_e2e is checked.
+    # Also on manual dispatch when run_e2e is checked. Skipped for docs-only PRs.
     # Gated behind lint: run only if lint did not fail. `always()` + result check
     # (instead of a plain success dependency) is needed so e2e still runs when lint
     # is *skipped* as a duplicate (pre_check), but is held back when lint fails.
-    needs: lint
+    needs: [lint, changes]
     if: >-
       always() &&
+      needs.changes.outputs.code == 'true' &&
       needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
       (github.event_name == 'pull_request' ||
        (github.event_name == 'workflow_dispatch' && inputs.run_e2e))
@@ -169,11 +210,12 @@ jobs:
           done
 
   unit-torch-cpu:
-    needs: [lint, pre_check]
-    # Same-repo PRs are already covered by the branch push event; only run the
-    # non-e2e jobs on push (and on fork PRs, which don't trigger a base push).
+    needs: [lint, pre_check, changes]
+    # Skip on docs-only changes, and on same-repo PRs (already covered by the
+    # branch push event); still run on push and on fork PRs.
     if: >-
       needs.pre_check.outputs.should_skip != 'true' &&
+      needs.changes.outputs.code == 'true' &&
       (github.event_name != 'pull_request' ||
        github.event.pull_request.head.repo.full_name != github.repository)
     runs-on: ubuntu-latest
