@@ -8,7 +8,7 @@ on:
   workflow_dispatch:   # manual "Run workflow" button (Actions tab)
     inputs:
       run_e2e:
-        description: "Also run full PD-mixed e2e"
+        description: "run e2e mixed"
         type: boolean
         default: false
 
