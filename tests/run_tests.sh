@@ -62,18 +62,27 @@ _cleanup_scratch() {
   rm -rf "$SCRATCH" 2>/dev/null || true
 }
 # On interrupt (Ctrl-C / CI SIGTERM) scancel the dispatched job: killing the srun
-# client does NOT stop the Spur job. Job id is read from $_CUR_DISPATCH_OUT.
+# client does NOT stop the Spur job. Prefer job id from $_CUR_DISPATCH_OUT; fall
+# back to INFERA_E2E_JOB_TAG suffix matching (same query as ci.yml reclaim step).
 _CUR_DISPATCH_OUT=""
 _cancel_dispatched() {
-  [ -n "$_CUR_DISPATCH_OUT" ] && [ -f "$_CUR_DISPATCH_OUT" ] || return 0
-  local jids i
-  jids=$(grep -oE 'srun: job [0-9]+' "$_CUR_DISPATCH_OUT" 2>/dev/null | grep -oE '[0-9]+' | sort -u | tr '\n' ' ')
+  local jids="" i suf csv
+  if [ -n "$_CUR_DISPATCH_OUT" ] && [ -f "$_CUR_DISPATCH_OUT" ]; then
+    jids=$(grep -oE 'srun: job [0-9]+' "$_CUR_DISPATCH_OUT" 2>/dev/null \
+      | grep -oE '[0-9]+' | sort -u | tr '\n' ' ')
+  fi
+  if [ -z "$jids" ] && [ -n "${INFERA_E2E_JOB_TAG:-}" ]; then
+    suf="-${INFERA_E2E_JOB_TAG}"
+    jids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \
+      | awk -v suf="$suf" '$2 ~ /^infera-ci-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}' \
+      | tr '\n' ' ')
+  fi
   [ -n "$jids" ] || return 0
   echo "[cleanup] cancelling dispatched SLURM job(s): $jids" >&2
   # Retry: a single scancel can hit a transient Spur controller error and leave
   # the job orphaned; re-cancel until squeue no longer lists any of them.
-  local csv; csv=$(echo $jids | tr ' ' ',')
-  for i in 1 2 3; do
+  csv=$(echo $jids | tr ' ' ',')
+  for i in 1 2 3 4 5; do
     scancel $jids >/dev/null 2>&1 || true
     sleep 2
     [ -z "$(squeue -h -j "$csv" -o '%i' 2>/dev/null)" ] && return 0
@@ -189,7 +198,7 @@ _dispatch_slurm() {
     # Reservation policy: use it while it has free nodes; when full, spill to the
     # open partition up to INFERA_E2E_SPILL_MAX borrowed nodes (else queue on it);
     # if it's gone, drop --reservation (a stale one PENDs forever on Spur).
-    local resv=() jobname="infera-${label}${INFERA_E2E_JOB_TAG:+-$INFERA_E2E_JOB_TAG}" mode="open"
+    local resv=() jobname="infera-ci-${label}${INFERA_E2E_JOB_TAG:+-$INFERA_E2E_JOB_TAG}" mode="open"
     if [ -n "${INFERA_E2E_RESERVATION:-}" ]; then
       local rfree smax inflight
       rfree=$(_reservation_free "$INFERA_E2E_RESERVATION")
@@ -204,7 +213,7 @@ _dispatch_slurm() {
         inflight=$(_spill_inflight)
         if [ "$smax" -gt 0 ] && [ "$inflight" -lt "$smax" ]; then
           # spill marker sits before the run_id-engine suffix so ci.yml reclaim matches.
-          jobname="infera-${label}-spill${INFERA_E2E_JOB_TAG:+-$INFERA_E2E_JOB_TAG}"
+          jobname="infera-ci-${label}-spill${INFERA_E2E_JOB_TAG:+-$INFERA_E2E_JOB_TAG}"
           mode="spill($((inflight + 1))/$smax)"
         else
           resv=(--reservation="$INFERA_E2E_RESERVATION"); mode="resv-wait"

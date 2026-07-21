@@ -130,7 +130,7 @@ jobs:
         run: .github/scripts/dispatch_build.sh ${{ matrix.engine }}
 
       - name: reclaim this job's SLURM job (on cancel/failure)
-        if: cancelled() || failure()
+        if: always() && (cancelled() || failure())
         run: |
           suf="-${{ github.run_id }}-${{ matrix.engine }}"
           for i in 1 2 3 4 5; do
