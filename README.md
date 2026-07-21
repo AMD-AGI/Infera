@@ -134,6 +134,14 @@ docker build -f deploy/docker/Dockerfile.vllm   -t infera-vllm:dev .
 docker build -f deploy/docker/Dockerfile.atom   -t infera-atom:dev .
 ```
 
+## Benchmarks
+
+**Kimi agentic benchmark** — a long-context, multi-turn coding-agent workload
+(Kimi-K2.6-MXFP4 on MI355X) that compares prefill/decode disaggregation against a
+single-node TP8 baseline at a fixed per-user interactivity SLA. Workload definition,
+topologies, launch scripts, the concurrency-sweep harness, results, and reproduction
+steps are in [`examples/kimi_agentic_bench/`](examples/kimi_agentic_bench/README.md).
+
 ## Documentation
 
 Full guides, deployment recipes, and reference live in the Sphinx manual:
