@@ -10,7 +10,10 @@ Services, and the KV-event plane. Ready-to-fill `InferaDeployment` templates
 ## Prerequisites
 
 - A Kubernetes cluster (v1.24+) with **≥ 1 ROCm node**, and `kubectl` + `helm`.
-- The **AMD GPU device plugin**, so GPUs are schedulable as `amd.com/gpu`:
+- The **AMD GPU device plugin**, so GPUs are schedulable as `amd.com/gpu`. If
+  it's not installed yet, follow the
+  [AMD GPU Operator setup guide](https://instinct.docs.amd.com/projects/gpu-operator/en/latest/index.html)
+  or the [device plugin README](https://github.com/ROCm/k8s-device-plugin#deployment).
   ```bash
   kubectl describe node | grep amd.com/gpu     # Capacity should be > 0
   ```
@@ -26,7 +29,11 @@ Services, and the KV-event plane. Ready-to-fill `InferaDeployment` templates
 One script installs the cluster dependencies, each as an idempotent
 `helm upgrade --install`: the **LeaderWorkerSet** controller (multi-node workers),
 **NATS / JetStream** (KV-event + request transport), and the **Infera operator**
-(with its CRD + RBAC):
+(with its CRD + RBAC). Clone the Infera repo first if you haven't already:
+
+```bash
+git clone https://github.com/AMD-AGI/Infera.git && cd Infera
+```
 
 ```bash
 deploy/scripts/deploy-k8s.sh                 # LWS + NATS + operator (namespace: infera-system)
@@ -137,3 +144,4 @@ worker pick. See [Routing & transport](../features/routing_and_transport.md).
 
 - [Operator](../components/operator.md) — the `InferaDeployment` CRD field reference.
 - [Deployment](deployment.md) — the manual (`python -m`) deployment path.
+
