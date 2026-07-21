@@ -22,14 +22,14 @@ is validated against these engine versions and images.
 | **Engine version** | 0.25.1 | 0.5.13 | 0.1.4 |
 | **Docker image** | `vllm/vllm-openai-rocm:v0.25.1` (ROCm base, digest-pinned) | `lmsysorg/sglang-rocm:v0.5.13-rocm720-mi35x-20260612` | `rocm/atom:rocm7.2.4_ubuntu24.04_py3.12_pytorch_release_2.10.0_atom0.1.4_20260612` |
 | **ROCm (image base)** | 7.2.3 | 7.2.0 | 7.2.4 |
-| **OS (image base)** | — | Ubuntu 22.04.5 | Ubuntu 24.04 |
-| **Python (image base)** | — | 3.10.12 | 3.12 |
+| **OS (image base)** | Ubuntu 22.04.5 | Ubuntu 22.04.5 | Ubuntu 24.04.4 |
+| **Python (image base)** | 3.12.13 | 3.10.12 | 3.12.3 |
 | **PyTorch (image base)** | 2.11.0 | 2.9.1 | 2.10.0 |
-| **Build date** | — | 2026-06-12 | 2026-06-12 |
+| **Build date** | 2026-07-12 | 2026-06-12 | 2026-06-12 |
 
-Fields marked `—` are not encoded in the released image tag and are not
-separately stated here — see the platform table below for the validated baseline
-that applies across all engines.
+OS / Python / PyTorch above were read from inside each validated base image (not
+the tag). See the platform table below for the baseline that applies across all
+engines.
 
 ```{admonition} Engine images bundle more than the engine
 :class: tip
