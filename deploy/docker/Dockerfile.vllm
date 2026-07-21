@@ -3,9 +3,13 @@
 # hipFile + libionic onto a digest-pinned nightly base, then the infera source,
 # and runs via `python -m infera.engine.vllm`.
 #
-# Base pinned by DIGEST for reproducibility (= vLLM 0.23.1rc1.dev861+gcbe9c40f9,
-# torch 2.11.0, ROCm 7.2.3). To move: bump the digest + re-verify patch no-ops.
-ARG VLLM_BASE_IMAGE=vllm/vllm-openai-rocm:nightly-cbe9c40f998f13975b967773ac7e7920e115387f
+# Base pinned by DIGEST to the stable vLLM v0.25.1 release (was the rolling nightly
+# cbe9c40f = 0.23.1rc0.dev861+gcbe9c40f9, which DockerHub has since rolled off).
+# The tag ":v0.25.1" is kept in the ref for readability; the @sha256 is what pins
+# it (= vllm 0.25.1, torch 2.11.0, ROCm 7.2.3). To move: bump the digest +
+# re-verify patch no-ops (the patch loop swallows a patch's sys.exit(1), so a
+# moved anchor silently drops the patch — check the build log per layer).
+ARG VLLM_BASE_IMAGE=vllm/vllm-openai-rocm:v0.25.1@sha256:84459732ca98b40fe2f5338a3f050be6d522504e47a484a5180d58fb75956f86
 FROM ${VLLM_BASE_IMAGE}
 
 # ---- 1) AITER (flydsl fp4 for DSv4 MXFP4 MoE) ------------------------------
@@ -29,6 +33,14 @@ RUN if [ "${BUILD_AITER}" = "1" ]; then \
 # vllm-dsv4/ (DSv4-specific: moriio_dsv4 {hybrid_blocksize, sparse_backend,
 # noncontig_register} + aiter flydsl). Each patch no-ops if its anchor is absent,
 # so a base bump degrades gracefully. legacy/ is upstream on this base, not applied.
+#
+# DEAD ON v0.25.1 (kept in-tree, but no-op — verified 2026-07-21): the three
+# GLM-5.1 moriio patches patch_moriio_dsa_write.py, patch_moriio_hetero.py and
+# patch_vllm_moriio_blocksize.py skip on this base because v0.25.1 refactored the
+# MoRIIO connector into moriio_layout.py, which already covers all three fixes
+# (full-layer wait_for_save; per-layer transfer geometry; kernel/logical block
+# ratio). Their skip in the build log is EXPECTED, not a regression. GLM-5.1 PD
+# has no e2e coverage here; re-anchor against moriio_layout.py only if it lands.
 COPY deploy/docker/patches/vllm/ /tmp/vllm-patches/
 COPY deploy/docker/patches/vllm-dsv4/ /tmp/vllm-dsv4-patches/
 RUN for f in /tmp/vllm-patches/*.py; do echo "[vllm-patch] $f"; python "$f" || echo "[vllm-patch] skipped $f"; done \
