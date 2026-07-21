@@ -146,7 +146,7 @@ class EngineAdapter(ABC):
 
     def pick_port(self) -> int:
         with socket.socket() as s:
-            s.bind(("", 0))
+            s.bind(("127.0.0.1", 0))
             return s.getsockname()[1]
 
     def worker_id(self, host: str, port: int) -> str:

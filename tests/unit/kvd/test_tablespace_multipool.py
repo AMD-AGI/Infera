@@ -277,10 +277,13 @@ def test_remove_works_across_pools(tmp_path: Path):
         r.put(b"k-small", b"s" * 100, retention="long", model="m", compat_key="c")
         r.put(b"k-big", b"b" * 50000, retention="long", model="m", compat_key="c")
 
-        assert r.remove(b"k-small", model="m", compat_key="c") is True
-        assert r.remove(b"k-big", model="m", compat_key="c") is True
+        removed_small = r.remove(b"k-small", model="m", compat_key="c")
+        assert removed_small is True
+        removed_big = r.remove(b"k-big", model="m", compat_key="c")
+        assert removed_big is True
         assert r.entries_count == 0
-        assert r.remove(b"k-missing", model="m", compat_key="c") is False
+        removed_missing = r.remove(b"k-missing", model="m", compat_key="c")
+        assert removed_missing is False
     finally:
         r.shutdown()
 
