@@ -15,9 +15,8 @@ name: Build & publish images
 # variable (input > variable > default). The official repo will be
 # docker.io/rocm/infera (set IMAGE_REPO=docker.io/rocm/infera).
 #
-# Runs on a self-hosted runner labelled `gpu`. Auth uses the
-# INFERAIMAGE_DOCKERHUB_TOKEN repo secret (Docker Hub PAT for user inferaimage);
-# a non-default repo must be pushable by that same account.
+# Runs on the CI self-hosted pool; that host has no docker, so build+push is
+# dispatched to a compute node via srun. Auth: INFERAIMAGE_DOCKERHUB_TOKEN secret.
 
 on:
   push:
@@ -65,16 +64,21 @@ jobs:
 
   build:
     needs: prepare
-    if: vars.ENABLE_SELFHOSTED == 'true'
-    runs-on: [self-hosted, gpu]
-    # Gates on the auto-docker-builder environment: unlocks its
-    # INFERAIMAGE_DOCKERHUB_TOKEN secret and applies its protection rules
-    # (required reviewers / wait timer / allowed deploy branches+tags).
+    # Same runner pool as CI; that host has no docker, so build+push is
+    # dispatched to a compute node via srun (.github/scripts/dispatch_build.sh).
+    runs-on: [self-hosted, crusoe]
+    # auto-docker-builder env unlocks the INFERAIMAGE_DOCKERHUB_TOKEN secret and
+    # applies its protection rules (reviewers / wait timer / allowed refs).
     environment: auto-docker-builder
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
         engine: ${{ fromJSON(needs.prepare.outputs.engines) }}
+    env:
+      INFERA_E2E_SLURM_PARTITION: amd-spur
+      INFERA_E2E_RESERVATION: infera-cicd-reserved
+      INFERA_E2E_JOB_TAG: ${{ github.run_id }}-${{ matrix.engine }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -117,20 +121,25 @@ jobs:
             echo "channel=nightly id=$id"
           fi
 
-      - name: docker login
-        run: echo "${{ secrets.INFERAIMAGE_DOCKERHUB_TOKEN }}" | docker login -u inferaimage --password-stdin
+      # Token stays in the step env; dispatch_build.sh forwards it to the remote
+      # via srun's env propagation (never echoed, never written to disk).
+      - name: build & push (remote via srun)
+        timeout-minutes: 140
+        env:
+          INFERAIMAGE_DOCKERHUB_TOKEN: ${{ secrets.INFERAIMAGE_DOCKERHUB_TOKEN }}
+        run: .github/scripts/dispatch_build.sh ${{ matrix.engine }}
 
-      - name: build image
-        timeout-minutes: 90
-        run: .github/scripts/build_test_push.sh build ${{ matrix.engine }}
-
-      - name: push image
-        timeout-minutes: 30
-        run: .github/scripts/build_test_push.sh push ${{ matrix.engine }}
-
-      - name: logout
-        if: always()
-        run: docker logout
+      - name: reclaim this job's SLURM job (on cancel/failure)
+        if: always() && (cancelled() || failure())
+        run: |
+          suf="-${{ github.run_id }}-${{ matrix.engine }}"
+          for i in 1 2 3 4 5; do
+            ids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \
+              | awk -v suf="$suf" '$2 ~ /^infera-build-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}')
+            [ -z "$ids" ] && { echo "no (more) SLURM jobs to reclaim"; break; }
+            echo "reclaiming SLURM job(s): $ids (try $i)"; scancel $ids 2>&1 || true
+            sleep 5
+          done
 
   # Build the /manual Sphinx site alongside the images. Always uploads the HTML
   # as a workflow artifact; on a tag (release) it also attaches a tarball to the

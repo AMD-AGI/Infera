@@ -8,7 +8,7 @@ on:
   workflow_dispatch:   # manual "Run workflow" button (Actions tab)
     inputs:
       run_e2e:
-        description: "Also run full PD-mixed e2e"
+        description: "run e2e mixed"
         type: boolean
         default: false
 
@@ -81,9 +81,7 @@ jobs:
   # Engine GPU tests — run on every branch (push + PRs into main).
   engine:
     needs: [lint, pre_check]
-    if: >-
-      vars.ENABLE_SELFHOSTED == 'true' &&
-      needs.pre_check.outputs.should_skip != 'true'
+    if: needs.pre_check.outputs.should_skip != 'true'
     runs-on: [self-hosted, crusoe]
     timeout-minutes: 90
     env:
@@ -98,12 +96,12 @@ jobs:
       - name: engine tests
         run: bash tests/run_tests.sh engine
       - name: reclaim this job's SLURM jobs (on cancel/failure)
-        if: cancelled() || failure()
+        if: always() && (cancelled() || failure())
         run: |
           suf="-${{ github.run_id }}-engine"
           for i in 1 2 3 4 5; do
             ids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \
-              | awk -v suf="$suf" '$2 ~ /^infera-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}')
+              | awk -v suf="$suf" '$2 ~ /^infera-ci-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}')
             [ -z "$ids" ] && { echo "no (more) SLURM jobs to reclaim"; break; }
             echo "reclaiming SLURM job(s): $ids (try $i)"; scancel $ids 2>&1 || true
             sleep 5
@@ -120,7 +118,7 @@ jobs:
     # is *skipped* as a duplicate (pre_check), but is held back when lint fails.
     needs: lint
     if: >-
-      always() && vars.ENABLE_SELFHOSTED == 'true' &&
+      always() &&
       needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
       (github.event_name == 'pull_request' ||
        (github.event_name == 'workflow_dispatch' && inputs.run_e2e))
@@ -143,15 +141,13 @@ jobs:
       - name: e2e ${{ matrix.engine }} mixed
         run: bash tests/run_tests.sh e2e ${{ matrix.engine }} mixed
       - name: reclaim this job's SLURM jobs (on cancel/failure)
-        if: cancelled() || failure()
+        if: always() && (cancelled() || failure())
         run: |
-          # Retry: a single scancel can hit a transient Spur controller error
-          # ("no leader") and leave the job orphaned. Re-query + re-cancel until
-          # nothing matching this leg's suffix remains (or attempts run out).
+          # Retry: a single scancel can hit a transient Spur controller error.
           suf="-${{ github.run_id }}-${{ matrix.engine }}"
           for i in 1 2 3 4 5; do
             ids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \
-              | awk -v suf="$suf" '$2 ~ /^infera-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}')
+              | awk -v suf="$suf" '$2 ~ /^infera-ci-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}')
             [ -z "$ids" ] && { echo "no (more) SLURM jobs to reclaim"; break; }
             echo "reclaiming SLURM job(s): $ids (try $i)"; scancel $ids 2>&1 || true
             sleep 5
