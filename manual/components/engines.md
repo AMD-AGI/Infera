@@ -120,7 +120,7 @@ worker on its own port:
 ```
 
 Each rank self-registers into etcd; the router spreads across them by prefix. See
-the [project README](https://github.com/AMD-AGI/Optimus#data-parallel-replicas).
+the [project README](https://github.com/AMD-AGI/Infera).
 
 ## Container images
 
@@ -128,3 +128,4 @@ For production you run engines from prebuilt images that overlay the Infera
 connector + RDMA shims onto a vendor base (the SGLang base is pinned via the
 `SGLANG_BASE_IMAGE` build-arg). See
 [Deployment → Engine images](../serving/deployment.md#engine-images).
+
