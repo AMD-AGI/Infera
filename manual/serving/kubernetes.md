@@ -144,4 +144,3 @@ worker pick. See [Routing & transport](../features/routing_and_transport.md).
 
 - [Operator](../components/operator.md) — the `InferaDeployment` CRD field reference.
 - [Deployment](deployment.md) — the manual (`python -m`) deployment path.
-

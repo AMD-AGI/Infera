@@ -239,4 +239,3 @@ instead.
 - [KV-Cache Offload](../features/kv_cache_offload.md) — how to turn it on and the
   usage modes (RAM / disk / distributed / GPU-direct, per-request retention).
 - [CLI reference](../reference/cli.md) — the daemon flags and connector env vars.
-
