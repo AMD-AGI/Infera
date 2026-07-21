@@ -65,4 +65,3 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "README.md", ".venv", ".
 # https://llmstxt.org/). See the rocm-docs-core guide:
 # https://rocm.docs.amd.com/projects/rocm-docs-core/en/latest/user_guide/llms.html
 rocm_docs_generate_llms = True
-
