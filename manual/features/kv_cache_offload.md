@@ -52,7 +52,7 @@ hipFile/AIS, bypassing the daemon. Add:
   INFERA_KVD_HIPFILE_ROOTS=long=/nvme/kvd-long
 ```
 
-```{admonition} Run `ais-check` on the host, never inside the container
+:::{admonition} Run `ais-check` on the host, never inside the container
 :class: warning
 In a container there is no `dkms` binary, so `ais-check` silently falls back from
 reading the authoritative KFD capability to grepping `/boot/config-*`, and reports
@@ -64,9 +64,9 @@ the weak fallback and manufactures a false positive.
 Note also that `capability & 0x40` in the KFD topology is **not** a reliable AIS signal
 on these driver builds — a node logging `AIS: registered` per GPU still reports the bit
 clear. Trust `ais-check`'s `amdgpu:` line and the `dmesg` `AIS:` messages.
-```
+:::
 
-````{admonition} GPU-direct needs a new-enough amdgpu driver — and it fails *silently*
+:::{admonition} GPU-direct needs a new-enough amdgpu driver — and it fails *silently*
 :class: warning
 `INFERA_KVD_AIS=1` is a **request**, not a guarantee. If the driver can't do AIS the
 connector logs one line and quietly serves L3 over POSIX (mmap+H2D) instead. You get
@@ -98,14 +98,14 @@ Then confirm on the **host** (see above):
 /opt/rocm/bin/ais-check               # want: amdgpu : True, and exit code 0
 dmesg -T | grep 'AIS:'                # want: "AIS: registered NNNNNMB device memory" per GPU
 ```
-````
+:::
 
-```{admonition} Leave INFERA_KVD_CHUNK_TOKENS at `auto`
+:::{admonition} Leave INFERA_KVD_CHUNK_TOKENS at `auto`
 :class: important
 GPU-direct's cuFile fan-out only pays off at chunks **≥ 128 MiB**, which `auto`
 (the default) sizes to. A small fixed value makes each chunk overhead-bound and
 the reload runs *slower than recompute*.
-```
+:::
 
 **3. Verify.** Send the same prompt (or a shared long prefix) twice, then check
 the engine's stats line for a non-zero **`External prefix cache hit rate`**, and
