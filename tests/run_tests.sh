@@ -114,7 +114,7 @@ _default_partition() {
 }
 SLURM_PART="${INFERA_E2E_SLURM_PARTITION:-$(_default_partition)}"
 SLURM_PART="${SLURM_PART:-amd-spur}"
-SLURM_TIME="${INFERA_E2E_SLURM_TIME:-04:00:00}"
+SLURM_TIME="${INFERA_E2E_SLURM_TIME:-02:30:00}"
 
 _have_slurm() { command -v srun >/dev/null 2>&1; }
 # Print up to $1 idle nodes in the partition (one per line), skipping the
