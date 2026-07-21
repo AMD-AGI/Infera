@@ -8,7 +8,7 @@ on:
   workflow_dispatch:   # manual "Run workflow" button (Actions tab)
     inputs:
       run_e2e:
-        description: "run e2e mixed"
+        description: "also run e2e-mixed"
         type: boolean
         default: false
 
@@ -34,7 +34,12 @@ jobs:
 
   lint:
     needs: pre_check
-    if: needs.pre_check.outputs.should_skip != 'true'
+    # Same-repo PRs are already covered by the branch push event; only run the
+    # non-e2e jobs on push (and on fork PRs, which don't trigger a base push).
+    if: >-
+      needs.pre_check.outputs.should_skip != 'true' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name != github.repository)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -47,7 +52,12 @@ jobs:
 
   unit:
     needs: [lint, pre_check]
-    if: needs.pre_check.outputs.should_skip != 'true'
+    # Same-repo PRs are already covered by the branch push event; only run the
+    # non-e2e jobs on push (and on fork PRs, which don't trigger a base push).
+    if: >-
+      needs.pre_check.outputs.should_skip != 'true' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name != github.repository)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -64,7 +74,12 @@ jobs:
   # ships a stable toolchain (with clippy), so no toolchain setup is needed.
   rust:
     needs: [lint, pre_check]
-    if: needs.pre_check.outputs.should_skip != 'true'
+    # Same-repo PRs are already covered by the branch push event; only run the
+    # non-e2e jobs on push (and on fork PRs, which don't trigger a base push).
+    if: >-
+      needs.pre_check.outputs.should_skip != 'true' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name != github.repository)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -78,10 +93,15 @@ jobs:
       - name: cargo test
         run: cargo test
 
-  # Engine GPU tests — run on every branch (push + PRs into main).
+  # Engine GPU tests — run on each branch push (same-repo PRs reuse that run).
   engine:
     needs: [lint, pre_check]
-    if: needs.pre_check.outputs.should_skip != 'true'
+    # Same-repo PRs are already covered by the branch push event; only run the
+    # non-e2e jobs on push (and on fork PRs, which don't trigger a base push).
+    if: >-
+      needs.pre_check.outputs.should_skip != 'true' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name != github.repository)
     runs-on: [self-hosted, crusoe]
     timeout-minutes: 90
     env:
@@ -155,7 +175,12 @@ jobs:
 
   unit-torch-cpu:
     needs: [lint, pre_check]
-    if: needs.pre_check.outputs.should_skip != 'true'
+    # Same-repo PRs are already covered by the branch push event; only run the
+    # non-e2e jobs on push (and on fork PRs, which don't trigger a base push).
+    if: >-
+      needs.pre_check.outputs.should_skip != 'true' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name != github.repository)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
