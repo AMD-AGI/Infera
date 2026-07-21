@@ -14,7 +14,7 @@ subtrees:
       - file: getting_started/overview.md
         title: Overview
       - file: getting_started/quickstart.md
-        title: Quickstart
+        title: Quick start
       - file: getting_started/installation.md
         title: Installation and setup
       - file: reference/glossary.md
@@ -23,7 +23,7 @@ subtrees:
   - caption: Components
     entries:
       - file: components/server.md
-        title: Server
+        title: Server and router
       - file: components/engines.md
         title: Engines
       - file: components/operator.md
