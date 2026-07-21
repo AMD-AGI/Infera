@@ -584,9 +584,7 @@ class DisaggRouter(BaseRouter):
                 p_failed = True
                 obs["outcome"] = "502"
                 metrics.pd_bootstrap_failures_total.labels(reason="handoff_extract_failed").inc()
-                logger.warning(
-                    "handoff extraction failed (%s: %s)", type(exc).__name__, exc
-                )
+                logger.warning("handoff extraction failed (%s: %s)", type(exc).__name__, exc)
                 return JSONResponse(
                     content={
                         "error": "handoff extraction failed",
