@@ -2,7 +2,7 @@
 # Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
 # Build/push/ship one Infera engine image on a node that has docker.
-# ship = login+build+push (token read from stdin); dispatched here via srun.
+# ship = login+build+push
 #   build|push|ship <sglang|vllm|atom|kvd|server>
 set -euo pipefail
 
@@ -40,12 +40,17 @@ case "$cmd" in
     ;;
 
   ship)
-    # Login in a throwaway DOCKER_CONFIG (wiped on exit) so the stdin-piped token
+    # Login in a throwaway DOCKER_CONFIG (wiped on exit) so the token
     # is never written to the shared docker config or left on the node.
     DOCKER_CONFIG="$(mktemp -d)"; export DOCKER_CONFIG
     trap 'exit 143' INT TERM
     trap 'docker logout >/dev/null 2>&1 || true; rm -rf "$DOCKER_CONFIG"' EXIT
-    docker login -u inferaimage --password-stdin
+    if [ -n "${INFERAIMAGE_DOCKERHUB_TOKEN:-}" ]; then
+      printf '%s' "$INFERAIMAGE_DOCKERHUB_TOKEN" | docker login -u inferaimage --password-stdin
+      unset INFERAIMAGE_DOCKERHUB_TOKEN
+    else
+      docker login -u inferaimage --password-stdin
+    fi
     bash "$0" build "$engine"
     bash "$0" push "$engine"
     ;;

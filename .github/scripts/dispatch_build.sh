@@ -2,15 +2,15 @@
 # Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
 # Build+push an engine image on a SLURM node (the runner has no docker).
-# The Docker Hub token is piped over stdin and never persisted.
+# Token reaches the remote via srun --export (Spur does not forward stdin).
 #   .github/scripts/dispatch_build.sh <sglang|vllm|atom|kvd|server>
 set -uo pipefail
 
 engine="${1:?usage: dispatch_build.sh <engine>}"
 BTP="$(dirname "$(readlink -f "$0")")/build_test_push.sh"
 
-# Take the token out of the env so srun's default --export=ALL can't leak it to
-# the remote; hand it over via stdin instead.
+# Capture the token, then drop it from the runner env until srun exports it to the
+# remote step only (avoid leaving it in --export=ALL for unrelated local tools).
 token="${INFERAIMAGE_DOCKERHUB_TOKEN:-}"
 unset INFERAIMAGE_DOCKERHUB_TOKEN
 [ -n "$token" ] || { echo "INFERAIMAGE_DOCKERHUB_TOKEN is empty" >&2; exit 1; }
@@ -33,15 +33,20 @@ if [ -n "${GITHUB_ACTIONS:-}" ] || [ "${CI:-}" = "true" ] || [ -n "${INFERA_DISP
 fi
 
 remote=(bash "$BTP" ship "$engine")
-# Shared mode: read the stdin-piped token before redirecting output to NFS; then
-# re-pipe it into ship (Spur/srun does not deliver stdin through exec >log).
 [ "$shared" -eq 1 ] && \
-  remote=(bash -c 'lf="$1"; shift; token=$(cat); exec >"$lf" 2>&1; printf "%s" "$token" | bash "$@"' _ "$logf" "$BTP" ship "$engine")
+  remote=(bash -c 'lf="$1"; shift; exec >"$lf" 2>&1; exec bash "$@"' _ "$logf" "$BTP" ship "$engine")
+
+# Vars the remote build needs; token is injected in a subshell (see _run_srun).
+_srun_exports="INFERAIMAGE_DOCKERHUB_TOKEN,IMAGE,ID,PR,PATH,HOME,USER,LOGNAME,TMPDIR"
 
 _run_srun() {
-  printf '%s' "$token" | srun -N1 -p "$part" -t 02:00:00 \
-    -J "$jobname" "${resv[@]}" \
-    "${remote[@]}"
+  # Spur srun does not forward stdin — export the token explicitly for this step.
+  (
+    export INFERAIMAGE_DOCKERHUB_TOKEN="$token"
+    srun --export="$_srun_exports" -N1 -p "$part" -t 02:00:00 \
+      -J "$jobname" "${resv[@]}" \
+      "${remote[@]}"
+  )
 }
 
 if [ "$shared" -eq 0 ]; then

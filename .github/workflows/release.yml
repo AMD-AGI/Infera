@@ -121,8 +121,8 @@ jobs:
             echo "channel=nightly id=$id"
           fi
 
-      # Token stays in the step env only; dispatch_build.sh pipes it to the
-      # remote over stdin (never echoed, never written to disk).
+      # Token stays in the step env only; dispatch_build.sh exports it to the
+      # remote via srun --export (never echoed, never written to disk).
       - name: build & push (remote via srun)
         timeout-minutes: 140
         env:
