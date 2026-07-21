@@ -90,4 +90,3 @@ python -m infera.server --help | head -5
 ```
 
 Next: the [Quickstart](quickstart.md) brings up a real stack and serves a model.
-

@@ -128,4 +128,3 @@ For production you run engines from prebuilt images that overlay the Infera
 connector + RDMA shims onto a vendor base (the SGLang base is pinned via the
 `SGLANG_BASE_IMAGE` build-arg). See
 [Deployment → Engine images](../serving/deployment.md#engine-images).
-

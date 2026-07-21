@@ -269,4 +269,3 @@ Full list on the [environment variables](../reference/environment.md) page.
   topology (concurrent push vs serial pull).
 - [KV-Cache Offload](kv_cache_offload.md) — stack a tiered KV cache under the PD
   transport so cache-hit requests skip prefill entirely.
-
