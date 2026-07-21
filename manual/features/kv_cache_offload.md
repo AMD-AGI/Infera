@@ -66,7 +66,7 @@ on these driver builds — a node logging `AIS: registered` per GPU still report
 clear. Trust `ais-check`'s `amdgpu:` line and the `dmesg` `AIS:` messages.
 ```
 
-```{admonition} GPU-direct needs a new-enough amdgpu driver — and it fails *silently*
+````{admonition} GPU-direct needs a new-enough amdgpu driver — and it fails *silently*
 :class: warning
 `INFERA_KVD_AIS=1` is a **request**, not a guarantee. If the driver can't do AIS the
 connector logs one line and quietly serves L3 over POSIX (mmap+H2D) instead. You get
@@ -98,7 +98,7 @@ Then confirm on the **host** (see above):
 /opt/rocm/bin/ais-check               # want: amdgpu : True, and exit code 0
 dmesg -T | grep 'AIS:'                # want: "AIS: registered NNNNNMB device memory" per GPU
 ```
-```
+````
 
 ```{admonition} Leave INFERA_KVD_CHUNK_TOKENS at `auto`
 :class: important
@@ -236,3 +236,4 @@ connector doesn't expose either per request — `ephemeral` maps to `long` and
   offload/onboard mechanism, the tablespace on-disk format, and optimization.
 - [CLI reference](../reference/cli.md) · [Environment variables](../reference/environment.md)
   — the daemon flags and connector env vars.
+
