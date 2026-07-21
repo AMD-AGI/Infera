@@ -57,6 +57,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from infera.common.logsafe import scrub
+
 logger = logging.getLogger(__name__)
 
 
@@ -198,7 +200,7 @@ def _parse_openai_retention(body: dict[str, Any]) -> Retention | None:
         if retention in {"none", "off", "disabled"}:
             return _NONE
         # Unrecognized value: warn once but don't crash.
-        logger.debug("unknown prompt_cache_retention value: %r", retention)
+        logger.debug("unknown prompt_cache_retention value: %s", scrub(retention))
         return None
 
     # `prompt_cache_key` alone (no retention specified) → implicit short.

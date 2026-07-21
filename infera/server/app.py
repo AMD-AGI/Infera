@@ -14,6 +14,7 @@ import httpx
 from fastapi import FastAPI, HTTPException, Request, Response
 
 from infera.common.discovery import Registry
+from infera.common.logsafe import scrub
 from infera.common.worker_pool import DisaggMode, WorkerStatus
 from infera.kvd.client import KvdClient, KvdConnectionError
 from infera.router.base import BaseRouter
@@ -395,11 +396,21 @@ async def anthropic_messages(request: Request) -> Any:
     try:
         anthropic_body = await request.json()
     except Exception as exc:
+        # Log the parser detail server-side; return a generic message so
+        # internal error text can't leak to the client (py/stack-trace-exposure).
+        logger.warning(
+            "anthropic-messages: malformed JSON body (%s: %s)",
+            type(exc).__name__,
+            exc,
+        )
         return JSONResponse(
             status_code=400,
             content={
                 "type": "error",
-                "error": {"type": "invalid_request_error", "message": str(exc)},
+                "error": {
+                    "type": "invalid_request_error",
+                    "message": "malformed JSON in request body",
+                },
             },
         )
 
@@ -429,11 +440,14 @@ async def anthropic_messages(request: Request) -> Any:
     try:
         openai_body = anthropic_to_openai_request(anthropic_body)
     except AnthropicRequestRejected as exc:
+        # AnthropicRequestRejected carries a developer-authored, client-facing
+        # reason (unsupported feature / precondition violation). Keep it, but
+        # run it through scrub() to bound length and strip control chars.
         return JSONResponse(
             status_code=400,
             content={
                 "type": "error",
-                "error": {"type": "invalid_request_error", "message": str(exc)},
+                "error": {"type": "invalid_request_error", "message": scrub(exc)},
             },
         )
 

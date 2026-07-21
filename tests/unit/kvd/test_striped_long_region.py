@@ -276,10 +276,12 @@ def test_remove_works_through_correct_shard(tmp_path: Path):
         ok, _ = r.put(b"k", b"v" * 64, retention="long", model="m", compat_key="ck")
         assert ok
         assert r.get_bytes(b"k", model="m", compat_key="ck") is not None
-        assert r.remove(b"k", model="m", compat_key="ck") is True
+        removed = r.remove(b"k", model="m", compat_key="ck")
+        assert removed is True
         assert r.get_bytes(b"k", model="m", compat_key="ck") is None
         # Idempotent.
-        assert r.remove(b"k", model="m", compat_key="ck") is False
+        removed_again = r.remove(b"k", model="m", compat_key="ck")
+        assert removed_again is False
     finally:
         r.shutdown()
 

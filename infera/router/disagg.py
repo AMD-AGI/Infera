@@ -35,6 +35,18 @@ from infera.server import metrics
 logger = logging.getLogger(__name__)
 
 
+def _sanitized_error(reason: str, exc: BaseException, *, status_code: int) -> JSONResponse:
+    """Return a client-safe error response while logging the full exception.
+
+    Interpolating ``str(exc)`` into an HTTP response can leak internal details
+    or stack information to the caller (CodeQL ``py/stack-trace-exposure``).
+    The exception is logged server-side for debugging; the client receives
+    only the generic ``reason``.
+    """
+    logger.warning("%s (%s: %s)", reason, type(exc).__name__, exc)
+    return JSONResponse(content={"error": reason}, status_code=status_code)
+
+
 def _generate_room_id() -> int:
     """Random u63 ID for the per-request session (SGLang's bootstrap_room,
     vLLM connectors' transfer_id)."""
@@ -175,7 +187,7 @@ class DisaggRouter(BaseRouter):
         except (ProtocolMismatch, UnknownProtocol) as exc:
             obs["outcome"] = "500"
             metrics.pd_bootstrap_failures_total.labels(reason="protocol_unresolved").inc()
-            return JSONResponse(content={"error": str(exc)}, status_code=500)
+            return _sanitized_error("protocol resolution failed", exc, status_code=500)
 
         # SGLang's follow_bootstrap_room balancer ties the prefill DP rank to
         # bootstrap_room % dp_size; encode the steered rank so the prefill
@@ -199,7 +211,7 @@ class DisaggRouter(BaseRouter):
         except ValueError as exc:
             obs["outcome"] = "500"
             metrics.pd_bootstrap_failures_total.labels(reason="protocol_request_id_failed").inc()
-            return JSONResponse(content={"error": str(exc)}, status_code=500)
+            return _sanitized_error("protocol request-id generation failed", exc, status_code=500)
 
         self.policy.on_request_started(p_target.route_key, p_blocks)
         self.policy.on_request_started(d_target.route_key, d_blocks)
@@ -258,7 +270,7 @@ class DisaggRouter(BaseRouter):
             self.policy.on_request_finished(d_target.route_key, d_blocks)
             obs["outcome"] = "500"
             metrics.pd_bootstrap_failures_total.labels(reason="protocol_annotate_failed").inc()
-            return JSONResponse(content={"error": str(exc)}, status_code=500)
+            return _sanitized_error("protocol annotation failed", exc, status_code=500)
 
         # Deliver both legs over NATS when both workers registered for it. KV
         # transfer stays engine<->engine (bootstrap_room in the bodies), so the
@@ -329,10 +341,7 @@ class DisaggRouter(BaseRouter):
             except httpx.HTTPError as exc:
                 obs["outcome"] = "502"
                 metrics.pd_bootstrap_failures_total.labels(reason="worker_unreachable").inc()
-                return JSONResponse(
-                    content={"error": f"PD request failed: {exc}"},
-                    status_code=502,
-                )
+                return _sanitized_error("PD request failed", exc, status_code=502)
 
             if p_resp.status_code >= 400:
                 logger.warning(
@@ -527,7 +536,7 @@ class DisaggRouter(BaseRouter):
             self.policy.on_request_finished(d_target.route_key, d_blocks)
             obs["outcome"] = "500"
             metrics.pd_bootstrap_failures_total.labels(reason="protocol_annotate_failed").inc()
-            return JSONResponse(content={"error": str(exc)}, status_code=500)
+            return _sanitized_error("protocol annotation failed", exc, status_code=500)
 
         p_failed = False
         try:
@@ -538,10 +547,7 @@ class DisaggRouter(BaseRouter):
                     p_failed = True
                     obs["outcome"] = "502"
                     metrics.pd_bootstrap_failures_total.labels(reason="prefill_unreachable").inc()
-                    return JSONResponse(
-                        content={"error": f"prefill leg failed: {exc}"},
-                        status_code=502,
-                    )
+                    return _sanitized_error("prefill leg failed", exc, status_code=502)
 
             if p_resp.status_code >= 400:
                 p_failed = True
@@ -578,9 +584,12 @@ class DisaggRouter(BaseRouter):
                 p_failed = True
                 obs["outcome"] = "502"
                 metrics.pd_bootstrap_failures_total.labels(reason="handoff_extract_failed").inc()
+                logger.warning(
+                    "handoff extraction failed (%s: %s)", type(exc).__name__, exc
+                )
                 return JSONResponse(
                     content={
-                        "error": f"handoff extraction failed: {exc}",
+                        "error": "handoff extraction failed",
                         "prefill_payload": p_payload,
                     },
                     status_code=502,
@@ -607,7 +616,7 @@ class DisaggRouter(BaseRouter):
             self.policy.on_request_finished(d_target.route_key, d_blocks)
             obs["outcome"] = "500"
             metrics.pd_bootstrap_failures_total.labels(reason="protocol_annotate_failed").inc()
-            return JSONResponse(content={"error": str(exc)}, status_code=500)
+            return _sanitized_error("protocol annotation failed", exc, status_code=500)
 
         if stream:
             obs["outcome"] = "ok"  # commit at hand-off
@@ -625,10 +634,7 @@ class DisaggRouter(BaseRouter):
                 except httpx.HTTPError as exc:
                     obs["outcome"] = "502"
                     metrics.pd_bootstrap_failures_total.labels(reason="decode_unreachable").inc()
-                    return JSONResponse(
-                        content={"error": f"decode leg failed: {exc}"},
-                        status_code=502,
-                    )
+                    return _sanitized_error("decode leg failed", exc, status_code=502)
 
             try:
                 d_payload = d_resp.json()
@@ -673,7 +679,7 @@ class DisaggRouter(BaseRouter):
                     exc or "<no message>",
                 )
                 metrics.pd_bootstrap_failures_total.labels(reason="decode_unreachable").inc()
-                err = json.dumps({"error": f"decode unreachable: {type(exc).__name__}: {exc}"})
+                err = json.dumps({"error": "decode unreachable"})
                 yield f"data: {err}\n\n".encode()
                 return
 
@@ -728,7 +734,7 @@ class DisaggRouter(BaseRouter):
                     exc or "<no message>",
                 )
                 metrics.pd_bootstrap_failures_total.labels(reason="decode_stream_broken").inc()
-                err = json.dumps({"error": f"decode stream failed: {type(exc).__name__}: {exc}"})
+                err = json.dumps({"error": "decode stream failed"})
                 yield f"data: {err}\n\n".encode()
         finally:
             if d_resp is not None:
@@ -828,7 +834,7 @@ class DisaggRouter(BaseRouter):
                     )
                     metrics.pd_bootstrap_failures_total.labels(reason="decode_unreachable").inc()
                     # json.dumps: exc text may contain chars that break SSE.
-                    err = json.dumps({"error": f"decode unreachable: {type(exc).__name__}: {exc}"})
+                    err = json.dumps({"error": "decode unreachable"})
                     yield f"data: {err}\n\n".encode()
                     return
 
@@ -890,7 +896,7 @@ class DisaggRouter(BaseRouter):
                     exc or "<no message>",
                 )
                 metrics.pd_bootstrap_failures_total.labels(reason="decode_stream_broken").inc()
-                err = json.dumps({"error": f"decode stream failed: {type(exc).__name__}: {exc}"})
+                err = json.dumps({"error": "decode stream failed"})
                 yield f"data: {err}\n\n".encode()
         finally:
             if d_resp is not None:

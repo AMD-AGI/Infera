@@ -10,6 +10,7 @@ import logging
 from fastapi import Response
 from fastapi.responses import JSONResponse
 
+from infera.common.logsafe import scrub
 from infera.router.cache_control import parse_cache_hints
 from infera.router.disagg import DisaggRouter
 from infera.router.mixed import MixedRouter, _Retry
@@ -83,7 +84,7 @@ class DirectRouter(MixedRouter):
             worker = self.pool.get(worker_id)
             if worker is None:
                 obs["outcome"] = "503"
-                logger.warning("direct: worker %r from header not in pool", worker_id)
+                logger.warning("direct: worker %s from header not in pool", scrub(worker_id))
                 return JSONResponse(
                     content={"error": f"worker {worker_id!r} not found (stale gateway routing?)"},
                     status_code=503,
