@@ -236,4 +236,3 @@ connector doesn't expose either per request — `ephemeral` maps to `long` and
   offload/onboard mechanism, the tablespace on-disk format, and optimization.
 - [CLI reference](../reference/cli.md) · [Environment variables](../reference/environment.md)
   — the daemon flags and connector env vars.
-
