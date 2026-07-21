@@ -3,6 +3,17 @@
 This page is the conceptual tour — the mental model, no commands. If you'd rather
 get something running first, jump to the [Quickstart](quickstart.md) and come back.
 
+```{admonition} Is this for you?
+:class: tip
+**Yes, if** you're running multiple GPUs and want smarter request routing across
+them — by cache locality, by splitting prefill and decode, or both. Infera sits
+in front of vLLM, SGLang, or ATOM and turns a collection of model workers into a
+routed fleet.
+
+**Probably not yet, if** you have a single GPU and one model server. `vllm serve`
+or `sglang launch` is the right tool for that — come back when you're scaling out.
+```
+
 ## What problem does Infera solve?
 
 A single model server (`vllm serve`, `sglang launch`) is great until you need
@@ -70,12 +81,12 @@ the server a static worker list — the fleet is discovered.
 workers exist, and what each can do." The server watches it; workers write to it.
 That's the whole coordination story.
 
-**(Optional) kvd — KV-cache management.** A per-host daemon that gives the workers
+**(Optional) kvd — KV-Cache Management.** A per-host daemon that gives the workers
 a **tiered KV cache**: blocks spill from GPU HBM → host RAM → NVMe → network and
 stay warm across engine restarts, shared by every engine on the host (read back
 zero-copy via a shared-memory arena). Turn it on when you want prefixes to survive
 restarts or to reuse them across workers. See
-[Tiered KV cache](../components/kvd.md).
+[KV-Cache Management](../components/kvd.md).
 
 ```{admonition} The one-sentence version
 :class: tip
@@ -131,3 +142,4 @@ quantized checkpoints you can load.
 - Pick an engine → [Engines](../components/engines.md)
 - Deploy for real → [Deployment](../serving/deployment.md)
 - The KV cache everyone keeps mentioning → [KV-Cache Offload](../features/kv_cache_offload.md)
+
