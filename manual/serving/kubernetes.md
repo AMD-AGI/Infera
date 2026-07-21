@@ -5,7 +5,7 @@ NATS + LeaderWorkerSet controller) with Helm, submit an **`InferaDeployment`**
 CRD, and let the operator reconcile it into Deployments / LeaderWorkerSets,
 Services, and the KV-event plane. Ready-to-fill `InferaDeployment` templates
 (single-node, prefill/decode, multi-node TP, GAIE) live under
-[`examples/k8s-deployments/`](../../examples/k8s-deployments/README.md).
+[`examples/k8s-deployments/`](https://github.com/AMD-AGI/Infera/tree/main/examples/k8s-deployments).
 
 ## Prerequisites
 
@@ -123,7 +123,7 @@ curl localhost:8000/v1/chat/completions \
 ## Deployment templates
 
 Instead of hand-writing the CR above, start from the ready-to-fill templates in
-[`examples/k8s-deployments/`](../../examples/k8s-deployments/README.md) — one per
+[`examples/k8s-deployments/`](https://github.com/AMD-AGI/Infera/tree/main/examples/k8s-deployments) — one per
 topology (single-node aggregated, prefill/decode disaggregated, multi-node TP,
 and GAIE), each with a shared model-store PVC and documented `<PLACEHOLDERS>`.
 
