@@ -44,7 +44,7 @@ Pick whichever you'll serve with (you can install more than one):
 
 - **vLLM (ROCm)** — `vllm/vllm-openai-rocm:nightly-cbe9c40f…` is the validated
   base image (digest-pinned nightly), or a matching ROCm `pip` build.
-- **SGLang (ROCm)** — `lmsysorg/sglang-rocm:v0.5.13-rocm720-mi35x-20260612` is
+- **SGLang (ROCm)** — `lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x` is
   the validated base image.
 - **ATOM** — `rocm/atom:rocm7.2.4_...atom0.1.4`.
 

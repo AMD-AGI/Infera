@@ -57,7 +57,7 @@ Mooncake/ionic RDMA shims on top of a vendor base. Pick by runtime:
 | Dockerfile (under `deploy/docker/`) | Base | Use for |
 |---|---|---|
 | `Dockerfile.vllm` | `vllm/vllm-openai-rocm:nightly-cbe9c40f…` | vLLM on MI355X (incl. hipFile) |
-| `Dockerfile.sglang` | `lmsysorg/sglang-rocm:v0.5.13-rocm720-mi35x-…` | SGLang on ROCm |
+| `Dockerfile.sglang` | `lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x` | SGLang on ROCm |
 | `Dockerfile.atom` | `rocm/atom:rocm7.2.4_…atom0.1.4` | ATOM on ROCm |
 
 Build from the repo root, e.g.:
