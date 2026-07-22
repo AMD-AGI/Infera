@@ -21,8 +21,8 @@ permissions:
   actions: read
 
 jobs:
-  # Classify the change: does it touch code, or only the Sphinx manual? A
-  # manual/-only change skips every code job below (a job skipped by `if`
+  # Classify the change: does it touch package code, or only docs/examples? A
+  # docs-only change (manual/, examples/, *.md, LICENSE) skips every code job below (a job skipped by `if`
   # counts as success for required status checks); the manual itself is built
   # and checked by the ReadTheDocs PR integration, so no docs job is needed here.
   changes:
@@ -47,7 +47,10 @@ jobs:
           while IFS= read -r f; do
             [ -z "$f" ] && continue
             case "$f" in
-              manual/*) ;;            # docs-only: validated by the ReadTheDocs check
+              # docs / examples / meta — no package code to lint, test, or run on
+              # GPU. manual/ is validated by the ReadTheDocs check; examples/ are
+              # standalone recipes; *.md / LICENSE are prose.
+              manual/*|examples/*|*.md|LICENSE) ;;
               *)        code=true ;;
             esac
           done <<< "$files"
