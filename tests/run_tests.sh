@@ -201,7 +201,7 @@ _dispatch_slurm() {
     if [ -n "${INFERA_E2E_RESERVATION:-}" ]; then
       local rfree smax inflight
       rfree=$(_reservation_free "$INFERA_E2E_RESERVATION")
-      smax="${INFERA_E2E_SPILL_MAX:-0}"
+      smax="${INFERA_E2E_SPILL_MAX:-2}"
       if [ "$rfree" = "-1" ]; then
         echo "[$label] WARNING: reservation '$INFERA_E2E_RESERVATION' not found — falling back to open partition '$SLURM_PART'" >&2
         mode="resv-gone->open"
