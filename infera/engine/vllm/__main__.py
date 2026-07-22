@@ -164,6 +164,15 @@ async def main() -> None:
     # so prefill/decode don't land on cross-subnet NICs (QP-RTR [110] storm).
     apply_mooncake_topology_default()
 
+    # MI325X (gfx942) + DeepSeek-V4: fail fast on unsupported combos (fp8 dsv4 is
+    # not supported on vLLM; use sglang/atom). fp4 dsv4 runs natively on vLLM
+    # (aiter defaulted above), so the vllm branch never mutates argv — but thread
+    # it through anyway (uniform with sglang/atom; future-proof if a vllm CLI
+    # default is ever added).
+    from infera.engine.dsv4_gfx942 import apply_gfx942_dsv4
+
+    args.vllm_argv = apply_gfx942_dsv4(args.model, engine="vllm", argv=args.vllm_argv)
+
     # Kubernetes discovery: advertise the routable Pod IP (downward API) rather
     # than the 0.0.0.0 bind host so the server/peers can reach this worker.
     if args.discovery_backend == "kubernetes" and not args.advertise_host:

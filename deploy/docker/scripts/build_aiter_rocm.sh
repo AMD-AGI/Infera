@@ -2,24 +2,26 @@
 # Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
-# WHAT: build + install AITER from source (official ROCm/aiter) for DSv4 MXFP4 MoE
-#   on ROCm/gfx950 (MI355X). Idempotent: skips if the flydsl fp4 path is present.
+# WHAT: build + install AITER from source (official ROCm/aiter) for DSv4 MXFP4 MoE.
+#   Idempotent: skips if the flydsl fp4 path is present.
 # WHY: stock base aiter (0.1.13.post1) lacks the flydsl fp4 a4w4 kernel DSv4 needs
 #   (else cktile fallback -> "Unsupported scales/output dtype!"); prebuilt .so hits
 #   GLIBCXX/GLIBC ABI mismatch, so we compile in-container for ABI match. The ref
 #   also carries the Silu gate_mode fix + MHC accuracy fix ROCm/aiter#3033.
-# ENV: AITER_GIT_REF (v0.1.16.post1), AITER_REPO, AITER_ROOT, GPU_ARCHS (gfx950).
+# AITER RULE: never pin the arch at build. Leave GPU_ARCHS at its "native" default
+#   and PREBUILD_KERNELS unset so aiter detects the live GPU and JITs its kernels
+#   at first import — one image then runs on any Instinct arch (gfx942/gfx950).
+# ENV: AITER_GIT_REF (v0.1.16.post1), AITER_REPO, AITER_ROOT.
 # USAGE: bash deploy/docker/scripts/build_aiter_rocm.sh   (ROCm container w/ hipcc/cmake/git)
 set -euo pipefail
 
 AITER_GIT_REF="${AITER_GIT_REF:-v0.1.16.post1}"
 AITER_REPO="${AITER_REPO:-https://github.com/ROCm/aiter}"
 AITER_ROOT="${AITER_ROOT:-/opt/aiter_build}"
-GPU_ARCHS="${GPU_ARCHS:-gfx950}"
 
 echo "============================================"
 echo "  AITER ROCm source build (DSv4 MXFP4 flydsl fp4)"
-echo "  ref=${AITER_GIT_REF}  arch=${GPU_ARCHS}  root=${AITER_ROOT}"
+echo "  ref=${AITER_GIT_REF}  root=${AITER_ROOT}"
 echo "============================================"
 
 # ---- skip if a flydsl-fp4-capable aiter is already present ------------------
@@ -51,10 +53,14 @@ git checkout "$AITER_GIT_REF"
 git submodule update --init --recursive
 
 # ---- build + install (editable) --------------------------------------------
-# GPU_ARCHS pins the target gfx arch (no fat-binary). First import JIT-compiles
-# the kernels (~19min on gfx950) here at build time, not at first inference.
-echo "=== GPU_ARCHS=${GPU_ARCHS} pip install -e . ==="
-GPU_ARCHS="${GPU_ARCHS}" pip install -e . 2>&1 | tail -25
+# AITER RULE: never pin the arch. Set GPU_ARCHS="native" explicitly (its default,
+# made visible here) and leave PREBUILD_KERNELS unset so this editable install
+# compiles NO kernels at build time — aiter detects the live GPU via rocminfo and
+# JITs its kernels at first import, so one image runs on any Instinct arch. To
+# bake an AOT cache for a specific arch, export GPU_ARCHS=<gfxNNNN> PREBUILD_KERNELS=1.
+export GPU_ARCHS="${GPU_ARCHS:-native}"
+echo "=== pip install -e . (GPU_ARCHS=${GPU_ARCHS}) ==="
+pip install -e . 2>&1 | tail -25
 
 # ---- verify (on-disk; import needs GPU driver, absent in docker build) ----
 python3 - <<'PY'
