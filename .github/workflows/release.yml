@@ -164,7 +164,7 @@ jobs:
       - name: Install graphviz (dot binary for diagrams)
         run: sudo apt-get update && sudo apt-get install -y graphviz
       - name: Install Sphinx deps
-        run: pip install -r manual/requirements.txt
+        run: pip install -r manual/sphinx/requirements.txt
       - name: Build manual (warnings = errors)
         run: make -C manual html
       - uses: actions/upload-artifact@v4

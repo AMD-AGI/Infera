@@ -15,11 +15,9 @@ the *external-L3 reload* path — the exact accounting that
     the allocated-but-unfilled GPU blocks are attended over, and the model
     produces garbage on every L3 reuse.
 
-The legacy `test_vllm_kvd_connector.py` is module-`skip`ped (v1 per-block API)
-and `test_vllm_save_load_roundtrip.py` only exercises the byte-level
-gather/scatter round-trip — NEITHER drives `build_connector_meta` with a
-realistic reload `NewRequestData` carrying a non-zero `num_computed_tokens`.
-So this class of bug had no active regression gate. This file is that gate.
+No existing test drives `build_connector_meta` with a realistic reload
+`NewRequestData` carrying a non-zero `num_computed_tokens`, so this class
+of bug had no active regression gate. This file is that gate.
 
 Pure scheduler-side metadata assertions: no GPU, no forward pass — we assert
 that the LOAD entries cover exactly the externally-cached prefix region and
