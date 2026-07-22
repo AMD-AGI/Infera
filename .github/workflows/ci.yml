@@ -143,6 +143,7 @@ jobs:
       INFERA_E2E_SLURM_PARTITION: amd-spur
       INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
       INFERA_E2E_RESERVATION: infera-cicd-reserved
+      INFERA_E2E_SLURM_TIME: "01:00:00"
       INFERA_E2E_JOB_TAG: ${{ github.run_id }}-engine
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
