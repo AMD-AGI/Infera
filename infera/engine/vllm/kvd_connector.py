@@ -344,10 +344,13 @@ def _is_packed_quant_kv_dtype(dtype: Any) -> bool:
     chunked-fusion gather/scatter kernel copies raw elements with NO scale
     awareness. For a scale-packed cache the copy can silently mis-stride into
     garbage on reload. So register_kv_caches SKIPS a packed-dtype group UNLESS
-    it is the provably-safe plain-MLA-fp8 case — hidden == kv_lora_rank +
-    qk_rope_head_dim, a plain cast with no interleaved scale (auto-detected via
-    `_expected_plain_mla_hidden`; Kimi-K2.6 576 = 512 + 64, validated byte-exact).
-    bf16/fp16/fp32 are NOT packed and pass through unconditionally."""
+    it is a provably-safe PLAIN fp8 cast (no interleaved scale, hidden matches
+    the unquantized width exactly, auto-detected): a plain MLA latent — hidden
+    == kv_lora_rank + qk_rope_head_dim (`_expected_plain_mla_hidden`; Kimi-K2.6
+    576 = 512 + 64, validated byte-exact), or a plain GQA/MHA head layout —
+    hidden == (num_key_value_heads // tp) * head_dim (`_expected_plain_gqa_
+    hidden`; MiniMax-M2.5 8 x 128 = 1024). bf16/fp16/fp32 are NOT packed and
+    pass through unconditionally."""
     import torch
 
     names = (
@@ -414,6 +417,63 @@ def _expected_plain_mla_hidden(vllm_config: Any) -> int | None:
             rope = getattr(cand, "qk_rope_head_dim", None)
             if isinstance(klr, int) and klr > 0 and isinstance(rope, int) and rope > 0:
                 return klr + rope
+    except Exception:
+        return None
+    return None
+
+
+def _expected_plain_gqa_hidden(vllm_config: Any, tp_size: int) -> int | None:
+    """Return the per-rank PLAIN hidden width of a GQA / MHA KV head layout —
+    ``(num_key_value_heads // tp_size) * head_dim`` — else None.
+
+    Standard vLLM fp8 KV cache (``--kv-cache-dtype fp8``) is a PLAIN per-tensor
+    static-scale cast: ``k_scale`` / ``v_scale`` are scalars kept on the
+    attention layer (reloaded with the weights), NOT interleaved into the
+    cache. So the fp8 KV tensor has the SAME dims as its bf16 counterpart —
+    just 1-byte elements — and ``hidden == num_kv_heads_per_rank * head_dim``.
+    That contiguous cast has no scale bytes to mis-stride over, so the raw-byte
+    chunked gather/scatter round-trips it byte-exact (validated on MiniMax-M2.5
+    GQA: 8 kv-heads x 128 = 1024). A scale-PACKED fp8 format (per-token /
+    per-head scales appended into the hidden run) stores a LARGER hidden, so it
+    will NOT match this and stays guarded.
+
+    This is the non-MLA analogue of `_expected_plain_mla_hidden`. Unlike the
+    MLA latent (replicated across TP ranks), GQA KV heads are SHARDED across
+    tensor-parallel ranks, so the per-rank width is TP-dependent. Returns None
+    (→ stays skipped, correctness over the optimization) for an MLA model, or
+    when the per-rank head count can't be resolved cleanly (kv_heads neither
+    <= tp nor divisible by tp)."""
+    if _is_mla_from_config(vllm_config):
+        return None
+    try:
+        mc = getattr(vllm_config, "model_config", None)
+        if mc is None:
+            return None
+        hf = getattr(mc, "hf_text_config", None) or getattr(mc, "hf_config", None)
+        tp = tp_size if isinstance(tp_size, int) and tp_size > 0 else 1
+        for cand in (hf, getattr(hf, "text_config", None)):
+            if cand is None:
+                continue
+            kv_heads = getattr(cand, "num_key_value_heads", None)
+            if not (isinstance(kv_heads, int) and kv_heads > 0):
+                kv_heads = getattr(cand, "num_attention_heads", None)  # MHA
+            head_dim = getattr(cand, "head_dim", None)
+            if not (isinstance(head_dim, int) and head_dim > 0):
+                hs = getattr(cand, "hidden_size", None)
+                nh = getattr(cand, "num_attention_heads", None)
+                if isinstance(hs, int) and isinstance(nh, int) and nh > 0:
+                    head_dim = hs // nh
+            if not (isinstance(kv_heads, int) and kv_heads > 0):
+                continue
+            if not (isinstance(head_dim, int) and head_dim > 0):
+                continue
+            if kv_heads <= tp:
+                per_rank = 1  # vLLM replicates when kv_heads < tp
+            elif kv_heads % tp == 0:
+                per_rank = kv_heads // tp
+            else:
+                return None  # ragged shard — can't predict per-rank width
+            return per_rank * head_dim
     except Exception:
         return None
     return None
@@ -1003,6 +1063,12 @@ class InferaKvdConnector(KVConnectorBase_V1, SupportsHMA):  # type: ignore[misc]
         # (656/584/nvfp4) have a larger hidden and stay skipped. See
         # `_expected_plain_mla_hidden`.
         self._plain_mla_hidden = _expected_plain_mla_hidden(vllm_config)
+        # Plain-GQA-fp8 auto-detect: (num_key_value_heads // tp) * head_dim. A
+        # packed GQA KV tensor (num_kv_channels == 2) whose hidden matches this
+        # EXACTLY is a plain per-tensor-scale fp8 cast (no interleaved scale) →
+        # byte-exact copyable → safe to offload. Scale-packed layouts have a
+        # larger hidden and stay skipped. See `_expected_plain_gqa_hidden`.
+        self._plain_gqa_hidden = _expected_plain_gqa_hidden(vllm_config, self._tp_size)
         # Set True once a non-paged (Mamba / linear-attention / conv) cache
         # group is observed (register_kv_caches / bootstrap). vLLM 0.22.x does
         # NOT support external KV-connector LOADS for hybrid models — its
@@ -2497,28 +2563,38 @@ class InferaKvdConnector(KVConnectorBase_V1, SupportsHMA):  # type: ignore[misc]
                     # is skipped (no toggle: correctness over the optimization;
                     # a new safe format is added HERE, not via a runtime env).
                     _pmh = getattr(self, "_plain_mla_hidden", None)
+                    _gqh = getattr(self, "_plain_gqa_hidden", None)
                     _plain_mla_fp8 = (
                         num_kv_channels == 1 and _pmh is not None and hidden_dim == _pmh
                     )
+                    # GQA/MHA plain fp8: per-rank hidden == (kv_heads//tp)*head_dim,
+                    # a per-tensor-scale cast with no interleaved scale bytes →
+                    # byte-exact copyable (MiniMax-M2.5: 8 kv-heads x 128 = 1024).
+                    _plain_gqa_fp8 = (
+                        num_kv_channels == 2 and _gqh is not None and hidden_dim == _gqh
+                    )
                     if _is_packed_quant_kv_dtype(sample.dtype):
-                        if _plain_mla_fp8:
+                        if _plain_mla_fp8 or _plain_gqa_fp8:
                             logger.info(
                                 "register_kv_caches: group %d layer %r packed KV "
-                                "dtype %s hidden=%d == kv_lora_rank+qk_rope_head_dim "
-                                "— plain MLA fp8 cast (no interleaved scale), "
-                                "offloading to L3.",
+                                "dtype %s hidden=%d == plain %s width — per-tensor-"
+                                "scale cast (no interleaved scale), offloading to L3.",
                                 gid,
                                 present[0],
                                 sample.dtype,
                                 hidden_dim,
+                                "MLA latent (kv_lora_rank+qk_rope_head_dim)"
+                                if _plain_mla_fp8
+                                else "GQA ((kv_heads//tp)*head_dim)",
                             )
                         else:
                             logger.warning(
                                 "register_kv_caches: group %d layer %r has packed/"
                                 "quantized KV dtype %s (shape %s) that is NOT a plain "
-                                "MLA fp8 latent (hidden != kv_lora_rank+qk_rope_head_"
-                                "dim) — scale-packed/unrecognized layout is unvalidated,"
-                                " chunked fusion SKIPS it (no L3, no corruption).",
+                                "fp8 cast (hidden != plain MLA latent nor GQA "
+                                "(kv_heads//tp)*head_dim) — scale-packed/unrecognized "
+                                "layout is unvalidated, chunked fusion SKIPS it (no L3, "
+                                "no corruption).",
                                 gid,
                                 present[0],
                                 sample.dtype,
@@ -2614,23 +2690,27 @@ class InferaKvdConnector(KVConnectorBase_V1, SupportsHMA):  # type: ignore[misc]
                         block_size_in_shape = int(shape[1])
                         hidden_dim = int(shape[2])
                     _fb_pmh = getattr(self, "_plain_mla_hidden", None)
+                    _fb_gqh = getattr(self, "_plain_gqa_hidden", None)
                     _fallback_plain_mla_fp8 = (
                         num_kv_channels == 1 and _fb_pmh is not None and hidden_dim == _fb_pmh
+                    )
+                    _fallback_plain_gqa_fp8 = (
+                        num_kv_channels == 2 and _fb_gqh is not None and hidden_dim == _fb_gqh
                     )
                     if (
                         num_kv_channels
                         and _is_packed_quant_kv_dtype(sample.dtype)
-                        and not _fallback_plain_mla_fp8
+                        and not (_fallback_plain_mla_fp8 or _fallback_plain_gqa_fp8)
                     ):
                         # Same packed/quantized-dtype guard as the primary
                         # probe: skip scale-packed fp8/uint8 caches (no L3, no
-                        # corruption). The plain-MLA-fp8 case (hidden ==
-                        # kv_lora_rank+qk_rope_head_dim, no interleaved scale)
-                        # is auto-detected above and offloads normally.
+                        # corruption). The plain-fp8 cases (hidden == plain MLA
+                        # latent, or GQA (kv_heads//tp)*head_dim — no interleaved
+                        # scale) are auto-detected above and offload normally.
                         logger.warning(
                             "register_kv_caches (fallback): layer %r has packed/"
                             "quantized KV dtype %s (shape %s) that is NOT a plain "
-                            "MLA fp8 latent — scale-packed/unrecognized layout is "
+                            "fp8 cast — scale-packed/unrecognized layout is "
                             "unvalidated, chunked fusion SKIPS it (no L3, no "
                             "corruption).",
                             first_name,

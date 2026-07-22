@@ -212,6 +212,40 @@ def test_roundtrip_fullattention_interleaved(dtype_name):
 
 
 @torch_skip
+@pytest.mark.parametrize("layout", ["regular", "interleaved"])
+def test_roundtrip_gqa_fp8_minimax_dims(layout):
+    """GQA fp8 KV at MiniMax-M2.5 head dims (8 kv-heads x 128 = 1024 hidden),
+    both the [2, nb, bs, H, D] and the [nb, 2, bs, H, D] layouts vLLM emits.
+
+    This is the exact packed layout `register_kv_caches` now OFFLOADS for a
+    plain GQA fp8 cache (hidden == (num_key_value_heads // tp) * head_dim, no
+    interleaved scale) — see `_expected_plain_gqa_hidden`. A plain fp8 cast is
+    a contiguous per-tensor-scale byte run, so the gather/pack/unpack/scatter
+    round-trips it byte-exact regardless of head dims. Pinning MiniMax's real
+    dims guards the production shape (observed live: (64465, 2, 16, 8, 128)).
+    """
+
+    mh, md = 8, 128  # MiniMax-M2.5: num_key_value_heads x head_dim -> hidden 1024
+    dt = _fp8_or_uint8()
+    if layout == "regular":
+        make_fn, page_fn, empty = _make_regular, _page_regular, (2, NB, BS, mh, md)
+    else:
+        make_fn, page_fn, empty = _make_interleaved, _page_interleaved, (NB, 2, BS, mh, md)
+    src, dst, pp, cp = _roundtrip(
+        lambda dtype: make_fn(NL, NB, BS, mh, md, dtype),
+        page_fn,
+        nl=NL,
+        nb=NB,
+        bs=BS,
+        hidden=mh * md,
+        num_kv_channels=2,
+        dtype=dt,
+        empty_shape=empty,
+    )
+    _assert_pages_equal(src, dst, page_fn, pp, cp, NL)
+
+
+@torch_skip
 @pytest.mark.parametrize("dtype_name", ["bf16", "fp8"])
 def test_roundtrip_mla(dtype_name):
     """MLA combined latent [num_blocks, block_size, hidden]; fp8 == fp8_ds_mla."""
