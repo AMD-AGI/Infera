@@ -57,7 +57,7 @@ def _seed_files(root: str, num_chunks: int, payload_bytes: int) -> list[str]:
     for c in range(num_chunks):
         p = os.path.join(root, f"chunk_{c:04d}.bin")
         if not (os.path.exists(p) and os.path.getsize(p) == payload_bytes):
-            fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+            fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
             os.write(fd, bytes([(c + 1) % 251]) + base[1:])
             os.close(fd)
         paths.append(p)
