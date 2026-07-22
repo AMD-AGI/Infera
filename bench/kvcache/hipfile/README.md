@@ -123,12 +123,3 @@ integration work in `infera/kvd/` before Bench 1 + 2 also pass.
   Bench 1.
 - It does not touch any LMCache code path. By scope decision, hipFile
   lands in `infera-kvd` directly, no LMCache intermediate.
-
-## Smoke testing locally
-
-The smoke test in `tests/bench/test_bench0_sanity.py` injects a fake
-`infera.engine.sglang.hipfile_shim` via `sys.modules` so the bench
-runs without ROCm / `libhipfile.so` / `ais-check`. The smoke test
-validates JSON shape, byte-equality assertion, and `--require-p2pdma`
-exit-code semantics. It does NOT exercise the real hipFile data path —
-that needs a hipFile-capable node.

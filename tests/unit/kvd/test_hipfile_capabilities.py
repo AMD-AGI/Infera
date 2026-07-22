@@ -14,10 +14,8 @@ binding *is* importable but the driver can't open or no GPU is
 visible, the tests skip with a one-line reason rather than fail —
 the runtime gating already covers absent infrastructure.
 
-The standalone equivalent lives at
-``bench/kvcache/hipfile/probe_capabilities.py`` and is the script of record
-for ad-hoc investigation on a hipFile-capable node. This pytest module exists so the
-same checks can run in CI once a hipFile-capable runner is wired up.
+This pytest module exists so the same checks can run in CI once a
+hipFile-capable runner is wired up.
 """
 
 from __future__ import annotations
