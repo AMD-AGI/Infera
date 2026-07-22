@@ -11,6 +11,10 @@ spawns ``vllm serve``); only the argv mapping is vLLM-specific.
 
 from __future__ import annotations
 
+import os
+
+import pytest_asyncio
+
 from ...harness import EngineAdapter, EngineParams
 from ...harness.fixtures import make_worker_fixture
 
@@ -66,3 +70,67 @@ class VllmAdapter(EngineAdapter):
 
 
 worker = make_worker_fixture(VllmAdapter)
+
+
+@pytest_asyncio.fixture
+async def kvd_daemon(tmp_path):
+    """Start one ``infera.kvd`` daemon (RAM + local-disk L3) for the kvd-offload
+    test, and yield a small handle: the socket path a worker's InferaKvdConnector
+    connects to, plus a ``stats()`` reader over ``infera.kvd.statctl``.
+
+    RAM tier kept small (``--max-bytes``) so the hot set spills to the disk (L3)
+    tier under ``tmp_path``; both are torn down with the daemon.
+    """
+    import json
+    import subprocess
+    import time
+
+    sock = str(tmp_path / "kvd.sock")
+    long_dir = tmp_path / "l3"
+    long_dir.mkdir()
+    proc = subprocess.Popen(
+        [
+            "python3",
+            "-m",
+            "infera.kvd",
+            "--socket",
+            sock,
+            "--max-bytes",
+            "4G",
+            "--long-path",
+            str(long_dir),
+            "--long-bytes",
+            "64G",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.STDOUT,
+    )
+
+    def _stats() -> dict:
+        try:
+            out = subprocess.run(
+                ["python3", "-m", "infera.kvd.statctl", "--socket", sock],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            ).stdout
+            return json.loads(out)
+        except Exception:
+            return {}
+
+    # Wait for the daemon's unix socket to appear (fail-fast if it never boots).
+    for _ in range(100):
+        if os.path.exists(sock):
+            break
+        if proc.poll() is not None:
+            raise RuntimeError(f"infera.kvd daemon exited early (rc={proc.returncode})")
+        time.sleep(0.1)
+
+    try:
+        yield {"socket": sock, "long_dir": str(long_dir), "stats": _stats}
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except Exception:
+            proc.kill()

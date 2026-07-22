@@ -141,7 +141,7 @@ def run_storage_selfcheck(
             )
             t0 = time.monotonic()
             for f in w_assign[i]:
-                fd = os.open(f, fl, 0o644)
+                fd = os.open(f, fl, 0o600)
                 for c in range(per):
                     os.pwrite(fd, view, c * chunk)
                 os.fsync(fd)

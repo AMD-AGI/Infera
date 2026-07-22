@@ -147,7 +147,7 @@ def _odirect_ok(d: str) -> bool:
         return False
     p = os.path.join(d, ".odtest")
     try:
-        fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_DIRECT, 0o644)
+        fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_DIRECT, 0o600)
         b = mmap.mmap(-1, _ALIGN)
         os.pwrite(fd, memoryview(b)[:_ALIGN], 0)
         os.close(fd)
@@ -188,7 +188,7 @@ def _measure(target_dir: str, size_gb: float, workers: int, prefer_direct: bool)
     odf = os.O_DIRECT if (prefer_direct and _odirect_ok(d)) else 0
 
     def w(i: int) -> float:
-        fd = os.open(files[i], os.O_WRONLY | os.O_CREAT | os.O_TRUNC | odf, 0o644)
+        fd = os.open(files[i], os.O_WRONLY | os.O_CREAT | os.O_TRUNC | odf, 0o600)
         t0 = time.monotonic()
         for c in range(per):
             os.pwrite(fd, view, c * _CHUNK)
@@ -246,7 +246,7 @@ def _nvme_hbm_staged(target_dir: str, size_gb: float, torch) -> dict:
     mv = memoryview(host.numpy())
     odf = os.O_DIRECT if _odirect_ok(d) else 0
     try:
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | odf, 0o644)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | odf, 0o600)
         torch.cuda.synchronize()
         t0 = time.monotonic()
         for c in range(n):

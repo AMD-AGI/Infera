@@ -416,9 +416,11 @@ def test_remove_drops_entry(tmp_path: Path):
     r.start()
     try:
         r.put(b"k", b"v", retention="long", model="m", compat_key="ck")
-        assert r.remove(b"k", model="m", compat_key="ck") is True
+        removed = r.remove(b"k", model="m", compat_key="ck")
+        assert removed is True
         assert r.get_bytes(b"k", model="m", compat_key="ck") is None
-        assert r.remove(b"k", model="m", compat_key="ck") is False  # already gone
+        removed_again = r.remove(b"k", model="m", compat_key="ck")
+        assert removed_again is False  # already gone
     finally:
         r.shutdown()
 
