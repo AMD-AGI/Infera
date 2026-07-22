@@ -210,8 +210,10 @@ class TestSpilloverRegion:
         region = SpilloverRegion(tmp_path / "spillover", max_bytes=100)
         region.start()
         region.put(_key("a"), b"hello", retention="short")
-        assert region.remove(_key("a")) is True
-        assert region.remove(_key("a")) is False  # idempotent
+        removed = region.remove(_key("a"))
+        assert removed is True
+        removed_again = region.remove(_key("a"))
+        assert removed_again is False  # idempotent
         assert region.get_bytes(_key("a")) is None
 
     def test_clear(self, tmp_path: Path):

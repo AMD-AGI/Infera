@@ -2585,7 +2585,15 @@ class InferaKvdConnector(KVConnectorBase_V1, SupportsHMA):  # type: ignore[misc]
                 else:
                     sample = self._kv_caches[first_name]
                     shape = tuple(sample.shape)
+                    # Defaults for shapes that match none of the branches
+                    # below: num_kv_channels stays 0, which gates every use
+                    # of the dims via `if num_kv_channels:` — but initialize
+                    # them explicitly so an unrecognized layout can never hit
+                    # an UnboundLocalError.
                     num_kv_channels = 0
+                    num_blocks = 0
+                    block_size_in_shape = 0
+                    hidden_dim = 0
                     if len(shape) >= 4 and shape[0] == 2:
                         num_kv_channels = 2
                         hidden_dim = 1
@@ -4453,7 +4461,7 @@ class InferaKvdConnector(KVConnectorBase_V1, SupportsHMA):  # type: ignore[misc]
             try:
 
                 def _write_and_publish() -> None:
-                    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+                    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
                     try:
                         _w(fd, header_bytes)
                         _w(fd, memoryview(pinned_view.numpy()).cast("B"))
@@ -4708,7 +4716,7 @@ class InferaKvdConnector(KVConnectorBase_V1, SupportsHMA):  # type: ignore[misc]
         # 1. POSIX-create + write header + ftruncate.
         total_size = len(header_bytes) + payload_bytes
         try:
-            fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+            fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
             try:
                 view = memoryview(header_bytes)
                 written = 0

@@ -367,7 +367,11 @@ run_e2e_mixed() {
       vllm)   img="$IMG_VLLM" ;;
       atom)   img="$IMG_ATOM" ;;
     esac
-    run_e2e_engine "$img" "tests/e2e/pd_mixed/$e/test_mixed.py" || rc=1
+    # vLLM's mixed dir carries an extra kvd-offload test (test_mixed_kvd.py) —
+    # run the whole dir so it's collected; other engines have only test_mixed.py.
+    local testpath="tests/e2e/pd_mixed/$e/test_mixed.py"
+    [ "$e" = vllm ] && testpath="tests/e2e/pd_mixed/$e/"
+    run_e2e_engine "$img" "$testpath" || rc=1
   done
 
   docker rm -f "$ETCD_CTR" >/dev/null 2>&1 || true

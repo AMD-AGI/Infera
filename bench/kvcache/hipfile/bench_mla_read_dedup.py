@@ -45,7 +45,7 @@ def _seed(path: str, nbytes: int) -> None:
     if os.path.exists(path) and os.path.getsize(path) == nbytes:
         return
     buf = b"\xa5" * (1 << 20)
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     try:
         written = 0
         while written < nbytes:

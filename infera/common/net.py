@@ -17,7 +17,10 @@ def free_tcp_port() -> int:
     and matches what SGLang itself does internally.
     """
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("", 0))
+        # Bind to loopback only: we just need a free port number, not a
+        # publicly reachable listener. Binding to "" (all interfaces) would
+        # briefly expose the probe socket on every NIC.
+        s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
 
 
@@ -41,7 +44,8 @@ def free_tcp_port_block(count: int) -> int:
         try:
             for off in range(count):
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                s.bind(("", base + off))
+                # Loopback-only reservation; see free_tcp_port() rationale.
+                s.bind(("127.0.0.1", base + off))
                 socks.append(s)
             return base
         except OSError:
