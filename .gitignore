@@ -48,6 +48,8 @@ deploy/docker/third_party/
 # Local scratch — not for review.
 .review-drafts/
 temp/
+CLAUDE.md
+.claude/
 .spur_job_*.sh
 .spur_ns_*.sh
 spur-*.out
