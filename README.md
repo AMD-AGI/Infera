@@ -124,7 +124,7 @@ vendor base. Build from the repo root; override the base with `--build-arg <ENGI
 
 | Dockerfile          | Base image                                      |
 |---------------------|-------------------------------------------------|
-| `Dockerfile.sglang` | `lmsysorg/sglang-rocm:v0.5.13-rocm720-mi35x-…`  |
+| `Dockerfile.sglang` | `lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x`   |
 | `Dockerfile.vllm`   | `vllm/vllm-openai-rocm:nightly-cbe9c40f…`       |
 | `Dockerfile.atom`   | `rocm/atom:rocm7.2.4_…_atom0.1.4_20260612`      |
 
