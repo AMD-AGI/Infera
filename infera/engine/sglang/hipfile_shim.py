@@ -334,7 +334,7 @@ class HipFile:
             flags |= getattr(os, "O_DIRECT", 0)
 
         # New binding API (rocm-systems/hipfile current):
-        # `FileHandle(path, flags, mode=0o644)` constructs but does NOT
+        # `FileHandle(path, flags, mode=0o600)` constructs but does NOT
         # open. Call `.open()` (or use the binding's context manager)
         # to actually open the fd inside the binding — it owns the fd
         # lifecycle; we don't `os.open` it ourselves.
@@ -347,10 +347,10 @@ class HipFile:
         # behavior.
         self._fd = None
         try:
-            self._handle = hipfile.FileHandle(self._path, flags, 0o644)
+            self._handle = hipfile.FileHandle(self._path, flags, 0o600)
         except TypeError:
             # Legacy binding — open the fd here and pass it in.
-            self._fd = os.open(self._path, flags, 0o644)
+            self._fd = os.open(self._path, flags, 0o600)
             try:
                 self._handle = hipfile.FileHandle(self._fd)
             except Exception:

@@ -67,6 +67,8 @@ import uuid
 from collections.abc import AsyncIterable, AsyncIterator
 from typing import Any
 
+from infera.common.logsafe import scrub
+
 logger = logging.getLogger(__name__)
 
 
@@ -354,8 +356,8 @@ def _translate_tool_choice(tc: Any) -> Any:
     # the field and let the engine pick. Log so operators can spot
     # a client using something we haven't translated yet.
     logger.warning(
-        "anthropic tool_choice type=%r not recognized — falling back to engine default",
-        t,
+        "anthropic tool_choice type=%s not recognized — falling back to engine default",
+        scrub(t),
     )
     return None
 

@@ -249,9 +249,15 @@ class MixedRouter(BaseRouter):
             resp = await self._client.post(url, json=forwarded_body, headers=dp_headers)
         except httpx.HTTPError as exc:
             obs["outcome"] = "502"
+            logger.warning(
+                "worker %s unreachable (%s: %s)",
+                worker.worker_id,
+                type(exc).__name__,
+                exc,
+            )
             raise _Retry(
                 JSONResponse(
-                    content={"error": f"worker {worker.worker_id} unreachable: {exc}"},
+                    content={"error": f"worker {worker.worker_id} unreachable"},
                     status_code=502,
                 )
             ) from exc
@@ -295,4 +301,10 @@ class MixedRouter(BaseRouter):
                         yield (TYPE_DATA, None, chunk)
             yield (TYPE_DONE, 200, b"")
         except httpx.HTTPError as exc:
-            yield (TYPE_ERROR, None, str(exc).encode())
+            logger.warning(
+                "stream from worker %s failed before first byte: %s: %s",
+                worker.worker_id,
+                type(exc).__name__,
+                exc,
+            )
+            yield (TYPE_ERROR, None, b"worker stream transport error")

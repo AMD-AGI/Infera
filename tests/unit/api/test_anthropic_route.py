@@ -30,8 +30,14 @@ from infera.server import app as app_module
 from infera.server.app import init_app
 
 
-class _FakeRouter(BaseRouter):
-    """Captures the dispatched body and returns a canned response."""
+class _FakeRouter:
+    """Captures the dispatched body and returns a canned response.
+
+    Deliberately does NOT inherit ``BaseRouter``: that __init__ requires a
+    real ``pool``/``policy`` we don't have in this test. Instead the class is
+    registered as a virtual subclass (see ``BaseRouter.register`` below) so
+    any ``isinstance(router, BaseRouter)`` checks still pass.
+    """
 
     def __init__(
         self,
@@ -39,7 +45,6 @@ class _FakeRouter(BaseRouter):
         canned_response: dict[str, Any] | None = None,
         stream_chunks: list[bytes] | None = None,
     ) -> None:
-        # Skip parent __init__ — we don't have pool/policy here.
         self.last_body: dict | None = None
         self.last_path: str | None = None
         self.last_stream: bool | None = None
@@ -61,6 +66,11 @@ class _FakeRouter(BaseRouter):
 
             return StreamingResponse(_gen(), media_type="text/event-stream")
         return JSONResponse(content=self._canned or {})
+
+
+# Register as a virtual subclass so isinstance(_FakeRouter(), BaseRouter) is
+# True without inheriting BaseRouter.__init__ (which needs a real pool/policy).
+BaseRouter.register(_FakeRouter)
 
 
 @pytest.fixture
