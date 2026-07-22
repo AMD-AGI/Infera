@@ -1,7 +1,7 @@
 # Infera SGLang engine image: layers the infera source onto the ROCm SGLang
 # base and sets an entrypoint that injects the host's libionic before exec'ing
 # the command.
-ARG SGLANG_BASE_IMAGE=lmsysorg/sglang-rocm:v0.5.13-rocm720-mi35x-20260612
+ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
 FROM ${SGLANG_BASE_IMAGE}
 
 WORKDIR /opt/infera
