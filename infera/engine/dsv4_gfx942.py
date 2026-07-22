@@ -190,12 +190,11 @@ def apply_gfx942_dsv4(model_path: str | None, *, engine: str, argv: list[str]) -
             argv = _append_cli_if_absent(argv, _SGLANG_FLASH_MTP_CLI)
         return argv
 
-    if engine == "atom":
-        _apply_env(_ATOM_FP8_ENV, engine)
-        if model.variant == "flash":
-            argv = _append_cli_if_absent(argv, _ATOM_FLASH_MTP_CLI)
-        return argv
-
+    # engine == "atom" (the only remaining supported engine at this point;
+    # any other engine was already rejected by the _SUPPORTED check above).
+    _apply_env(_ATOM_FP8_ENV, engine)
+    if model.variant == "flash":
+        argv = _append_cli_if_absent(argv, _ATOM_FLASH_MTP_CLI)
     return argv
 
 

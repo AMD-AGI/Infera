@@ -67,21 +67,25 @@ Flash-fp8 decode kernel is broken on gfx942 → must route decode through MTP/EA
 - **NOT injected**: `--cpu-offload-gb`, `--max-total-tokens`, `--max-running-requests`,
   `--mem-fraction-static` (experiment-only VRAM band-aids, not product defaults).
 
-### Implementation checklist
+### Implementation checklist (COMPLETE — branch yihou.dev.mi325)
 
-- [ ] Create + push branch `yihou.dev.mi325.fp4patch.legacy` from current HEAD
+- [x] Create + push branch `yihou.dev.mi325.fp4patch.legacy` from current HEAD
       (preserve fp4 patches), then return to `yihou.dev.mi325`.
-- [ ] New module `infera/engine/dsv4_gfx942.py`: `detect_dsv4`,
+- [x] New module `infera/engine/dsv4_gfx942.py`: `detect_dsv4`,
       `Dsv4UnsupportedError`, `apply_gfx942_dsv4(model_path, *, engine, argv)`.
-- [ ] Remove `apply_dsv4_gfx942_env_defaults` + `_is_dsv4_fp4_model` from
+- [x] Remove `apply_dsv4_gfx942_env_defaults` + `_is_dsv4_fp4_model` from
       `rocm_rdma_env.py` (keep `is_gfx942` + RDMA fns).
-- [ ] Wire the new call into sglang/atom/vllm `__main__.py` (vllm = enforce/env only).
-- [ ] Delete `patches/sglang-dsv4/` and `patches/atom/patch_dsv4_fp4_dequant_gfx942*`;
+- [x] Wire the new call into sglang/atom/vllm `__main__.py` (vllm = enforce/env only).
+- [x] Delete `patches/sglang-dsv4/` and `patches/atom/patch_dsv4_fp4_dequant_gfx942*`;
       de-patch `Dockerfile.sglang.gfx942` (keep it, MI30x base) and `Dockerfile.atom`.
-- [ ] Tests `tests/engine/test_dsv4_gfx942.py`: detection, matrix enforcement,
+- [x] Tests `tests/engine/test_dsv4_gfx942.py`: detection, matrix enforcement,
       env/CLI set-if-unset + override, Flash MTP, no-op off-gfx942/non-dsv4.
-- [ ] Docs: `manual/features/mi325-deepseek-v4.md` + module docstrings (what/why/how/
+- [x] Docs: `manual/features/mi325-deepseek-v4.md` + module docstrings (what/why/how/
       context; no process narrative — rule 5).
+
+Known follow-up (pre-existing, out of scope): `.github/scripts/build_test_push.sh`
+has no case for the `Dockerfile.sglang.gfx942` variant — the gfx942 image isn't
+CI-wired. Wire it in a separate task if the image should be CI-built.
 
 ### Reference materials
 
