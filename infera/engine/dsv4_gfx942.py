@@ -159,9 +159,7 @@ _ATOM_FLASH_MTP_CLI: list[tuple[str, str | None]] = [
 ]
 
 
-def apply_gfx942_dsv4(
-    model_path: str | None, *, engine: str, argv: list[str]
-) -> list[str]:
+def apply_gfx942_dsv4(model_path: str | None, *, engine: str, argv: list[str]) -> list[str]:
     """Enforce the gfx942 dsv4 support matrix and apply its knobs (set-if-unset).
 
     No-op (returns ``argv`` unchanged, sets no env) if not gfx942 or not a local
@@ -227,16 +225,13 @@ def _apply_env(defaults: dict[str, str], engine: str) -> None:
             applied[k] = v
     if applied:
         logger.info(
-            "gfx942 DSv4-FP8 env defaults applied for %s (set-if-unset; "
-            "override via env): %s",
+            "gfx942 DSv4-FP8 env defaults applied for %s (set-if-unset; override via env): %s",
             engine,
             applied,
         )
 
 
-def _append_cli_if_absent(
-    argv: list[str], flags: list[tuple[str, str | None]]
-) -> list[str]:
+def _append_cli_if_absent(argv: list[str], flags: list[tuple[str, str | None]]) -> list[str]:
     """Append each (flag[, value]) not already present. Returns a new list."""
     out = list(argv)
     appended: list[str] = []
