@@ -57,8 +57,9 @@ SCRATCH_FLAGS+=(-v "$E2E_LOG_DIR":/e2e-logs)
 _cleanup_scratch() {
   local img="$IMG_SGLANG"
   docker image inspect "$IMG_VLLM" >/dev/null 2>&1 && img="$IMG_VLLM"
-  docker image inspect "$img" >/dev/null 2>&1 && docker run --rm -v "$SCRATCH":/scratch \
-    --entrypoint sh "$img" -c 'rm -rf /scratch/* /scratch/.[!.]* 2>/dev/null' >/dev/null 2>&1 || true
+  docker image inspect "$img" >/dev/null 2>&1 && timeout -k 10 120 docker run --rm \
+    -v "$SCRATCH":/scratch --entrypoint sh "$img" \
+    -c 'rm -rf /scratch/* /scratch/.[!.]* 2>/dev/null' >/dev/null 2>&1 || true
   rm -rf "$SCRATCH" 2>/dev/null || true
 }
 
