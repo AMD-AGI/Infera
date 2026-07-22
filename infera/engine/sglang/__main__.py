@@ -209,8 +209,8 @@ async def main() -> None:
     # (set-if-unset; an operator/launcher still overrides via env). Must run
     # BEFORE engine.start() spawns the sglang subprocess so it's inherited.
     # Without these the transfer engine silently falls back to TCP / hangs.
+    from infera.engine.dsv4_gfx942 import apply_gfx942_dsv4
     from infera.engine.rocm_rdma_env import (
-        apply_dsv4_gfx942_env_defaults,
         apply_kv_host_ip_default,
         apply_rocm_rdma_env_defaults,
     )
@@ -219,10 +219,12 @@ async def main() -> None:
     # Pin the KV host IP to the RDMA rail (else get_ip() picks the public NIC and
     # KV transfer targets the wrong interface). Must follow the GID default above.
     apply_kv_host_ip_default()
-    # MI325X (gfx942) + DeepSeek-V4-Pro (FP4 experts): enable the FP4->FP8 MoE
-    # dequant path + gfx942 MLA/GEMM defaults (set-if-unset). Triple-gated on
-    # arch + model, so it's a no-op on MI355X (gfx950) and every other model.
-    apply_dsv4_gfx942_env_defaults(args.server_args.model_path, engine="sglang")
+    # MI325X (gfx942) + DeepSeek-V4: enforce the support matrix (raise on an
+    # unsupported quant/engine combo) and apply the fp8 env + functional CLI
+    # defaults (Flash also gets MTP). No-op on other arches / non-dsv4 models.
+    args.sglang_argv = apply_gfx942_dsv4(
+        args.server_args.model_path, engine="sglang", argv=args.sglang_argv
+    )
 
     # Auto-size the mori-MoE dispatch buffer from --chunked-prefill-size so operators
     # only set the one documented knob (else sglang asserts on the prefill engine).
