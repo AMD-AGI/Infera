@@ -71,9 +71,7 @@ def test_detect_none_path_returns_none():
 def test_detect_quant_config_as_string(tmp_path):
     # quantization_config given as a non-dict (string) -> _detect_quant's
     # str() branch must still classify it.
-    p = _write_config(
-        tmp_path, {**_PRO, "quantization_config": "fp8 e4m3 blockwise"}
-    )
+    p = _write_config(tmp_path, {**_PRO, "quantization_config": "fp8 e4m3 blockwise"})
     m = d.detect_dsv4(p)
     assert m is not None and m.quant == "fp8"
 
@@ -86,8 +84,8 @@ def test_detect_empty_config_returns_none(tmp_path):
 def test_detect_model_type_casing_normalized(tmp_path):
     # model_type is lowercased before the deepseek_v4 check.
     p = _write_config(
-        tmp_path, {"model_type": "DeepSeek_V4", "hidden_size": 7168,
-                   "num_hidden_layers": 61, **_FP8_QC}
+        tmp_path,
+        {"model_type": "DeepSeek_V4", "hidden_size": 7168, "num_hidden_layers": 61, **_FP8_QC},
     )
     m = d.detect_dsv4(p)
     assert m is not None and m.variant == "pro" and m.quant == "fp8"
@@ -97,8 +95,14 @@ def test_detect_dsv4_via_index_topk_without_model_type(tmp_path):
     # dsv4 detected via index_topk sparse-attn config even when model_type
     # is not deepseek_v4.
     p = _write_config(
-        tmp_path, {"model_type": "custom", "index_topk": 1024,
-                   "hidden_size": 7168, "num_hidden_layers": 61, **_FP8_QC}
+        tmp_path,
+        {
+            "model_type": "custom",
+            "index_topk": 1024,
+            "hidden_size": 7168,
+            "num_hidden_layers": 61,
+            **_FP8_QC,
+        },
     )
     m = d.detect_dsv4(p)
     assert m is not None and m.variant == "pro" and m.quant == "fp8"
@@ -109,8 +113,10 @@ def test_detect_quant_fp4_wins_when_both_present(tmp_path):
     # win (checked first) so we don't misclassify an fp4 model as fp8.
     p = _write_config(
         tmp_path,
-        {**_PRO, "quantization_config": {"quant_method": "mxfp4",
-                                         "fmt": "e2m1", "scale_fmt": "e4m3"}},
+        {
+            **_PRO,
+            "quantization_config": {"quant_method": "mxfp4", "fmt": "e2m1", "scale_fmt": "e4m3"},
+        },
     )
     m = d.detect_dsv4(p)
     assert m is not None and m.quant == "fp4"
@@ -145,6 +151,7 @@ def _cfg(tmp_path, base, qc):
 
 # ---- no-op paths ----
 
+
 def test_noop_when_not_gfx942(tmp_path, monkeypatch):
     monkeypatch.setattr(d, "is_gfx942", lambda: False)
     p = _cfg(tmp_path, _PRO, _FP8_QC)
@@ -160,6 +167,7 @@ def test_noop_when_not_dsv4(tmp_path, _force_gfx942):
 
 
 # ---- fail-fast (unsupported cells) ----
+
 
 @pytest.mark.parametrize(
     "engine,base,qc",
@@ -180,6 +188,7 @@ def test_unsupported_combos_raise(tmp_path, _force_gfx942, engine, base, qc):
 
 # ---- supported cells do not raise ----
 
+
 @pytest.mark.parametrize(
     "engine,base,qc",
     [
@@ -197,6 +206,7 @@ def test_supported_combos_ok(tmp_path, _force_gfx942, engine, base, qc):
 
 
 # ---- sglang fp8 env + CLI ----
+
 
 def test_sglang_pro_fp8_env_and_cli(tmp_path, _force_gfx942):
     import os
@@ -224,6 +234,7 @@ def test_sglang_flash_fp8_injects_mtp(tmp_path, _force_gfx942):
 
 # ---- atom fp8 env + MTP ----
 
+
 def test_atom_pro_fp8_env_only(tmp_path, _force_gfx942):
     import os
 
@@ -246,6 +257,7 @@ def test_atom_flash_fp8_injects_mtp(tmp_path, _force_gfx942):
 
 # ---- set-if-unset: operator override wins ----
 
+
 def test_env_operator_override_preserved(tmp_path, _force_gfx942, monkeypatch):
     import os
 
@@ -257,9 +269,7 @@ def test_env_operator_override_preserved(tmp_path, _force_gfx942, monkeypatch):
 
 def test_cli_not_duplicated_when_present(tmp_path, _force_gfx942):
     p = _cfg(tmp_path, _PRO, _FP8_QC)
-    out = d.apply_gfx942_dsv4(
-        p, engine="sglang", argv=["--attention-backend", "flashinfer"]
-    )
+    out = d.apply_gfx942_dsv4(p, engine="sglang", argv=["--attention-backend", "flashinfer"])
     assert out.count("--attention-backend") == 1
     i = out.index("--attention-backend")
     assert out[i + 1] == "flashinfer"  # operator value kept
