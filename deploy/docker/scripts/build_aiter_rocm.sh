@@ -8,6 +8,9 @@
 #   (else cktile fallback -> "Unsupported scales/output dtype!"); prebuilt .so hits
 #   GLIBCXX/GLIBC ABI mismatch, so we compile in-container for ABI match. The ref
 #   also carries the Silu gate_mode fix + MHC accuracy fix ROCm/aiter#3033.
+# AITER RULE: never pin the arch at build. Leave GPU_ARCHS at its "native" default
+#   and PREBUILD_KERNELS unset so aiter detects the live GPU and JITs its kernels
+#   at first import — one image then runs on any Instinct arch (gfx942/gfx950).
 # ENV: AITER_GIT_REF (v0.1.16.post1), AITER_REPO, AITER_ROOT.
 # USAGE: bash deploy/docker/scripts/build_aiter_rocm.sh   (ROCm container w/ hipcc/cmake/git)
 set -euo pipefail

@@ -1,13 +1,8 @@
-# Infera SGLang engine image for MI325X (gfx942 / CDNA3).
-#
-# WHY a SEPARATE image (not a shared gfx942+gfx950 build): the SGLang base is
-# arch-specific — the default Dockerfile.sglang targets MI355X (gfx950, mi35x
-# base), and a single sglang image cannot run on both gfx950 and gfx942. This
-# variant pins the MI30x base so infera's sglang worker runs on gfx942.
-#
-# No DeepSeek-V4 source patches are baked in: on gfx942 infera supports dsv4
-# only in FP8 (native, no patch) and fails fast on FP4 (FP4 dsv4 runs on vLLM).
-# The fp8 env + CLI knobs are applied at launch by infera.engine.dsv4_gfx942.
+# WHAT: infera SGLang engine image for MI325X (gfx942 / CDNA3), MI30x base.
+# WHY : the SGLang base is arch-specific — the default Dockerfile.sglang targets
+#       gfx950 (mi35x) and one image can't serve both; no dsv4 source patch since
+#       gfx942 runs dsv4 FP8 natively / fails fast on FP4 (FP4 dsv4 -> vLLM).
+# HOW : fp8 env + CLI knobs are applied at launch by infera.engine.dsv4_gfx942.
 ARG SGLANG_BASE_IMAGE=lmsysorg/sglang-rocm:v0.5.15-rocm720-mi30x-20260713
 FROM ${SGLANG_BASE_IMAGE}
 

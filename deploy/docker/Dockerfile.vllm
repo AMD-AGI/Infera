@@ -10,7 +10,9 @@ FROM ${VLLM_BASE_IMAGE}
 
 # ---- 1) AITER (flydsl fp4 for DSv4 MXFP4 MoE) ------------------------------
 # WHY: the stock base aiter lacks the flydsl fp4 a4w4 kernel, and the prebuilt .so
-# hits a GLIBCXX/GLIBC ABI mismatch. HOW: build ROCm/aiter in-container (~20min JIT).
+# hits a GLIBCXX/GLIBC ABI mismatch. HOW: build ROCm/aiter in-container. Per the
+# AITER RULE in build_aiter_rocm.sh, the build does NOT pin the arch — aiter stays
+# "native" and JITs kernels at first import (~20min), so one image runs on any arch.
 ARG BUILD_AITER=1
 ARG AITER_GIT_REF=v0.1.16.post1
 ARG AITER_REPO=https://github.com/ROCm/aiter

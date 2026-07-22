@@ -42,7 +42,7 @@ import os
 from dataclasses import dataclass
 from typing import Literal
 
-from infera.engine.rocm_rdma_env import is_gfx942
+from infera.common.arch import is_gfx942
 
 logger = logging.getLogger(__name__)
 

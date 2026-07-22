@@ -62,29 +62,6 @@ def apply_vllm_aiter_default() -> str | None:
     return "1"
 
 
-def _compute_capability() -> tuple[int, int] | None:
-    """(major, minor) compute capability of the current GPU, or None.
-
-    CDNA maps arch -> capability: gfx942 (MI300/MI325, CDNA3) = (9, 4);
-    gfx950 (MI355X, CDNA4) = (9, 5). Uses torch (the engines already depend on
-    it); returns None on CPU-only / no-GPU hosts so callers no-op safely.
-    """
-    try:
-        import torch
-
-        if not torch.cuda.is_available():
-            return None
-        props = torch.cuda.get_device_properties(torch.cuda.current_device())
-        return (props.major, props.minor)
-    except Exception:
-        return None
-
-
-def is_gfx942() -> bool:
-    """True iff the current GPU is gfx942 (MI300/MI325X, CDNA3)."""
-    return _compute_capability() == (9, 4)
-
-
 def apply_rocm_rdma_env_defaults() -> dict[str, str]:
     """Set ionic-RoCE RDMA env defaults (set-if-unset) on ROCm; no-op elsewhere.
 

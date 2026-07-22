@@ -57,11 +57,11 @@ PAGE_SIZE="${PAGE_SIZE:-64}"
 # isn't built in this image for gpt-oss MXFP4 (ModuleNotFoundError ->
 # scheduler dies). 'triton' is the portable ROCm fallback.
 MOE_RUNNER_BACKEND="${MOE_RUNNER_BACKEND:-auto}"
-# Auto-detect the live GPU arch from amd-smi structured output (no awk/grep/sed)
-# so the same script drives aiter/MoRI JIT correctly on any Instinct GPU; the
-# amd-smi half runs in the container where the ROCm stack lives. Override via GPU_ARCH.
-GPU_ARCH="${GPU_ARCH:-$(docker exec "$CONTAINER" amd-smi static -g 0 --asic --json \
-  | python3 -c 'import sys,json;print(json.load(sys.stdin)[0]["asic"]["target_graphics_version"])')}"
+# Auto-detect the live GPU arch (e.g. gfx942/gfx950) so the same script drives
+# aiter/MoRI JIT correctly on any Instinct GPU. Uses infera's torch-based
+# detector inside the container (amd-smi text/JSON is an unstable interface
+# across ROCm releases). Override via GPU_ARCH.
+GPU_ARCH="${GPU_ARCH:-$(docker exec "$CONTAINER" python3 -m infera.common.arch)}"
 # Repo root and this bench dir, auto-derived from the script location
 # (bench/pd_mori_1p1d/ -> 2 levels up). Override INFERA_SRC / WORKSPACE
 # when the source is mounted elsewhere inside the container.

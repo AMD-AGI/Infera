@@ -35,8 +35,6 @@ subtrees:
     entries:
       - file: features/feature_matrix.md
         title: Feature matrix
-      - file: features/mi325-deepseek-v4.md
-        title: DeepSeek-V4 on MI325X
       - file: features/pd_disaggregation.md
         title: Prefill-decode disaggregation
       - file: features/kv_cache_offload.md

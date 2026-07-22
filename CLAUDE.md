@@ -80,8 +80,8 @@ Flash-fp8 decode kernel is broken on gfx942 → must route decode through MTP/EA
       de-patch `Dockerfile.sglang.gfx942` (keep it, MI30x base) and `Dockerfile.atom`.
 - [x] Tests `tests/engine/test_dsv4_gfx942.py`: detection, matrix enforcement,
       env/CLI set-if-unset + override, Flash MTP, no-op off-gfx942/non-dsv4.
-- [x] Docs: `manual/features/mi325-deepseek-v4.md` + module docstrings (what/why/how/
-      context; no process narrative — rule 5).
+- [x] Docs: `manual/wip/mi325-deepseek-v4.md` (WIP, not linked into the release
+      TOC) + module docstrings (what/why/how/context; no process narrative — rule 5).
 
 Known follow-up (pre-existing, out of scope): `.github/scripts/build_test_push.sh`
 has no case for the `Dockerfile.sglang.gfx942` variant — the gfx942 image isn't

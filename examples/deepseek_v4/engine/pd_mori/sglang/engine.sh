@@ -10,10 +10,10 @@ ROLE="${ROLE:?ROLE=prefill|decode}"; MY_IP="${MY_IP:?MY_IP=this node data-plane 
 ETCD_IP="${ETCD_IP:?ETCD_IP=etcd host (prefill node)}"; CTR="${CTR:-dsv4_pd_sgl_mori}"
 TP="${TP:-8}"; BASE_GPU="${BASE_GPU:-0}"; PORT="${PORT:-30000}"; CONC="${CONC:-640}"
 CHUNK="${CHUNK:-163840}"; BOOTSTRAP="${BOOTSTRAP:-8998}"; LOG="${LOG:-/tmp/pd_mori_${ROLE}_${PORT}.log}"
-# Auto-detect the live GPU arch from amd-smi structured output (no awk/grep/sed);
-# runs in the container where the ROCm stack lives. Override via GPU_ARCH.
-GPU_ARCH="${GPU_ARCH:-$(docker exec "$CTR" amd-smi static -g 0 --asic --json \
-  | python3 -c 'import sys,json;print(json.load(sys.stdin)[0]["asic"]["target_graphics_version"])')}"
+# Auto-detect the live GPU arch (e.g. gfx942/gfx950) via infera's torch-based
+# detector inside the container (amd-smi text/JSON is an unstable interface
+# across ROCm releases). Override via GPU_ARCH.
+GPU_ARCH="${GPU_ARCH:-$(docker exec "$CTR" python3 -m infera.common.arch)}"
 
 # MoRI wants every ACTIVE ionic NIC (opposite of mooncake, where you drop the flag).
 IBDEVS=$(docker exec "$CTR" bash -lc 'for d in /sys/class/infiniband/*; do n=$(basename "$d"); \
