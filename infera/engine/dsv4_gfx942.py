@@ -42,7 +42,7 @@ import os
 from dataclasses import dataclass
 from typing import Literal
 
-from infera.engine.rocm_rdma_env import is_gfx942  # noqa: F401  (used by Task 2 enforcement)
+from infera.engine.rocm_rdma_env import is_gfx942
 
 logger = logging.getLogger(__name__)
 
@@ -114,3 +114,142 @@ def _detect_quant(cfg: dict) -> Quant | None:
     if "fp8" in blob or "e4m3" in blob:
         return "fp8"
     return None
+
+
+# Supported (engine, variant, quant) combos on gfx942. Anything not listed here
+# raises Dsv4UnsupportedError. This tuple set IS the enforced contract.
+_SUPPORTED: frozenset[tuple[str, Variant, Quant]] = frozenset(
+    {
+        ("vllm", "pro", "fp4"),
+        ("vllm", "flash", "fp4"),
+        ("sglang", "pro", "fp8"),
+        ("sglang", "flash", "fp8"),
+        ("atom", "pro", "fp8"),
+        ("atom", "flash", "fp8"),
+    }
+)
+
+# fp8 env defaults per engine (set-if-unset).
+_SGLANG_FP8_ENV: dict[str, str] = {
+    "HSA_NO_SCRATCH_RECLAIM": "1",  # gfx942 firmware: dist-init FATALs without it
+    "SGLANG_USE_ROCM700A": "0",
+    "SGLANG_HACK_FLASHMLA_BACKEND": "unified_kv_triton",  # default tilelang MLA crashes on gfx942
+    "AITER_BF16_FP8_MOE_BOUND": "0",
+}
+_ATOM_FP8_ENV: dict[str, str] = {
+    "HSA_NO_SCRATCH_RECLAIM": "1",
+}
+
+# Functional CLI defaults (set-if-unset) for sglang fp8. Pairs of (flag, value);
+# value None = bare flag.
+_SGLANG_FP8_CLI: list[tuple[str, str | None]] = [
+    ("--attention-backend", "dsv4"),
+    ("--disable-shared-experts-fusion", None),
+]
+# Flash-only MTP flags (broken gfx942 decode kernel -> route decode via EAGLE).
+_SGLANG_FLASH_MTP_CLI: list[tuple[str, str | None]] = [
+    ("--speculative-algorithm", "EAGLE"),
+    ("--speculative-num-steps", "3"),
+    ("--speculative-eagle-topk", "1"),
+    ("--speculative-num-draft-tokens", "4"),
+]
+_ATOM_FLASH_MTP_CLI: list[tuple[str, str | None]] = [
+    ("--method", "mtp"),
+    ("--num-speculative-tokens", "3"),
+]
+
+
+def apply_gfx942_dsv4(
+    model_path: str | None, *, engine: str, argv: list[str]
+) -> list[str]:
+    """Enforce the gfx942 dsv4 support matrix and apply its knobs (set-if-unset).
+
+    No-op (returns ``argv`` unchanged, sets no env) if not gfx942 or not a local
+    dsv4 checkpoint. Otherwise, on an unsupported ``(engine, variant, quant)``
+    raises :class:`Dsv4UnsupportedError`; on a supported one, sets the env
+    defaults and returns ``argv`` with any missing functional CLI flags appended.
+    Call ONCE at startup BEFORE the engine subprocess is spawned so env is
+    inherited and injected CLI reaches the subprocess.
+    """
+    if not is_gfx942():
+        return argv
+    model = detect_dsv4(model_path)
+    if model is None:
+        return argv
+
+    key = (engine, model.variant, model.quant)
+    if key not in _SUPPORTED:
+        raise Dsv4UnsupportedError(_unsupported_message(engine, model))
+
+    if engine == "vllm":
+        # fp4 vllm runs natively (aiter already defaulted elsewhere); nothing to do.
+        return argv
+
+    if engine == "sglang":
+        _apply_env(_SGLANG_FP8_ENV, engine)
+        argv = _append_cli_if_absent(argv, _SGLANG_FP8_CLI)
+        if model.variant == "flash":
+            argv = _append_cli_if_absent(argv, _SGLANG_FLASH_MTP_CLI)
+        return argv
+
+    if engine == "atom":
+        _apply_env(_ATOM_FP8_ENV, engine)
+        if model.variant == "flash":
+            argv = _append_cli_if_absent(argv, _ATOM_FLASH_MTP_CLI)
+        return argv
+
+    return argv
+
+
+def _unsupported_message(engine: str, model: Dsv4Model) -> str:
+    """Actionable error naming the engine that DOES support this combo."""
+    if model.quant == "fp4":
+        return (
+            f"DeepSeek-V4-{model.variant} FP4 is not supported on {engine} on "
+            f"gfx942 (MI325X): gfx942 has no native FP4 MoE kernel and infera "
+            f"does not patch third-party engines. Use vLLM for FP4 dsv4 (it "
+            f"upcasts fp4->bf16 in-kernel), or an FP8 checkpoint on {engine}."
+        )
+    # fp8 on vllm
+    return (
+        f"DeepSeek-V4-{model.variant} FP8 is not supported on {engine} on "
+        f"gfx942 (MI325X). Use sglang or atom for FP8 dsv4."
+    )
+
+
+def _apply_env(defaults: dict[str, str], engine: str) -> None:
+    """Set each var if unset; log what was applied. Operator/env always wins."""
+    applied: dict[str, str] = {}
+    for k, v in defaults.items():
+        if os.environ.get(k) in (None, ""):
+            os.environ[k] = v
+            applied[k] = v
+    if applied:
+        logger.info(
+            "gfx942 DSv4-FP8 env defaults applied for %s (set-if-unset; "
+            "override via env): %s",
+            engine,
+            applied,
+        )
+
+
+def _append_cli_if_absent(
+    argv: list[str], flags: list[tuple[str, str | None]]
+) -> list[str]:
+    """Append each (flag[, value]) not already present. Returns a new list."""
+    out = list(argv)
+    appended: list[str] = []
+    for flag, value in flags:
+        if any(t == flag or t.startswith(flag + "=") for t in out):
+            continue  # operator already set it -> leave their value
+        out.append(flag)
+        appended.append(flag)
+        if value is not None:
+            out.append(value)
+            appended.append(value)
+    if appended:
+        logger.info(
+            "gfx942 DSv4-FP8 CLI defaults appended (set-if-unset): %s",
+            " ".join(appended),
+        )
+    return out
