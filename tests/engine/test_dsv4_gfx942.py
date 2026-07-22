@@ -263,3 +263,22 @@ def test_cli_not_duplicated_when_present(tmp_path, _force_gfx942):
     assert out.count("--attention-backend") == 1
     i = out.index("--attention-backend")
     assert out[i + 1] == "flashinfer"  # operator value kept
+
+
+def test_unknown_engine_raises(tmp_path, _force_gfx942):
+    # An engine not in the supported set fails fast (fail-safe), never no-ops.
+    p = _cfg(tmp_path, _PRO, _FP4_QC)
+    with pytest.raises(d.Dsv4UnsupportedError):
+        d.apply_gfx942_dsv4(p, engine="trtllm", argv=[])
+
+
+def test_vllm_fp4_is_true_noop(tmp_path, _force_gfx942):
+    # Supported vllm fp4: argv returned unchanged and NO env is set.
+    import os
+
+    p = _cfg(tmp_path, _PRO, _FP4_QC)
+    argv = ["--tensor-parallel-size", "8"]
+    out = d.apply_gfx942_dsv4(p, engine="vllm", argv=argv)
+    assert out == ["--tensor-parallel-size", "8"]
+    for v in _ALL_ENV:
+        assert v not in os.environ

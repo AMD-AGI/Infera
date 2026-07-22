@@ -203,16 +203,17 @@ def apply_gfx942_dsv4(
 
 def _unsupported_message(engine: str, model: Dsv4Model) -> str:
     """Actionable error naming the engine that DOES support this combo."""
+    variant = model.variant.capitalize()
     if model.quant == "fp4":
         return (
-            f"DeepSeek-V4-{model.variant} FP4 is not supported on {engine} on "
+            f"DeepSeek-V4-{variant} FP4 is not supported on {engine} on "
             f"gfx942 (MI325X): gfx942 has no native FP4 MoE kernel and infera "
             f"does not patch third-party engines. Use vLLM for FP4 dsv4 (it "
             f"upcasts fp4->bf16 in-kernel), or an FP8 checkpoint on {engine}."
         )
     # fp8 on vllm
     return (
-        f"DeepSeek-V4-{model.variant} FP8 is not supported on {engine} on "
+        f"DeepSeek-V4-{variant} FP8 is not supported on {engine} on "
         f"gfx942 (MI325X). Use sglang or atom for FP8 dsv4."
     )
 
