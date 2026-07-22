@@ -7,7 +7,7 @@ concurrency 1 → 250. Two arms compared:
 | Arm | Setup | Expected behavior |
 |---|---|---|
 | `vram_only` | vLLM with default prefix cache in VRAM, no kvd | Throughput cliffs around the concurrency at which concurrent KV exceeds VRAM budget; cached prefixes get evicted and every new request re-prefills 20K tokens. |
-| `kvd_v2` | vLLM + our v2 chunked-fusion connector with NVMe-backed (or Vast-NFS-backed) hipfile_root | Throughput keeps climbing past the VRAM cliff because evicted prefixes spill to kvd's file tier; subsequent requests load chunks from there in ~5 ms / 4.5 MiB per `infera-kvd-l3-bench` (the connector round-trip bench that absorbed `bench_packed_v2.py`). |
+| `kvd_v2` | vLLM + our v2 chunked-fusion connector with NVMe-backed (or Vast-NFS-backed) hipfile_root | Throughput keeps climbing past the VRAM cliff because evicted prefixes spill to kvd's file tier; subsequent requests load chunks from there in ~5 ms / 4.5 MiB per `infera-kvd-l3-bench` (the connector round-trip bench). |
 
 The two arms must be benched against separately-launched vLLM
 servers (each requires different startup flags). This dir provides

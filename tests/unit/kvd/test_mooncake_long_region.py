@@ -8,7 +8,7 @@
 The binding shim mirrors the REAL MooncakeDistributedStore API (read from
 the installed mooncake package source: setup() + put(str,value)/get(str)/
 is_exist/remove/close). These unit tests mock the shim with an
-in-memory dict; live-cluster tests are in tests/integration/test_l4_mooncake.py.
+in-memory dict.
 """
 
 from __future__ import annotations

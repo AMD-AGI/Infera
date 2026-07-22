@@ -676,7 +676,7 @@ class TablespaceJournal:
 
 
 # ----------------------------------------------------------------------
-# Snapshot read/write — mirrors `manifest.py` shape
+# Snapshot read/write
 # ----------------------------------------------------------------------
 
 

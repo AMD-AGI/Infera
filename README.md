@@ -140,7 +140,7 @@ Full guides, deployment recipes, and reference live in the Sphinx manual:
 
 ```bash
 sudo apt-get install -y graphviz                            # `dot`, for the diagrams
-cd manual && pip install -r requirements.txt && make html   # open _build/html/index.html
+cd manual && pip install -r sphinx/requirements.txt && make html   # open _build/html/index.html
 ```
 
 ## License

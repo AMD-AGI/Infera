@@ -8,8 +8,7 @@
 The binding shim (``_LMCacheBinding``) wraps the real LMCache objects
 (config / metadata / LocalCPUBackend / connector + async bridge). It was
 built + validated against a live Redis (see module docstring). These unit
-tests mock the shim so CI runs without lmcache/redis; a real round-trip
-test lives in tests/integration/test_l4_lmcache.py.
+tests mock the shim so CI runs without lmcache/redis.
 """
 
 from __future__ import annotations
