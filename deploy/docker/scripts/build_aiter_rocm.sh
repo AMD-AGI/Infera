@@ -53,11 +53,13 @@ git checkout "$AITER_GIT_REF"
 git submodule update --init --recursive
 
 # ---- build + install (editable) --------------------------------------------
-# No arch pin: this editable install does not compile kernels (PREBUILD_KERNELS
-# is unset). Kernels are JIT-compiled at first import on the live GPU, whose arch
-# aiter auto-detects via rocminfo (GPU_ARCHS defaults to "native"). To bake an
-# AOT cache for a specific arch, export GPU_ARCHS=<gfxNNNN> PREBUILD_KERNELS=1.
-echo "=== pip install -e . ==="
+# AITER RULE: never pin the arch. Set GPU_ARCHS="native" explicitly (its default,
+# made visible here) and leave PREBUILD_KERNELS unset so this editable install
+# compiles NO kernels at build time — aiter detects the live GPU via rocminfo and
+# JITs its kernels at first import, so one image runs on any Instinct arch. To
+# bake an AOT cache for a specific arch, export GPU_ARCHS=<gfxNNNN> PREBUILD_KERNELS=1.
+export GPU_ARCHS="${GPU_ARCHS:-native}"
+echo "=== pip install -e . (GPU_ARCHS=${GPU_ARCHS}) ==="
 pip install -e . 2>&1 | tail -25
 
 # ---- verify (on-disk; import needs GPU driver, absent in docker build) ----
