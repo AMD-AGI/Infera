@@ -22,7 +22,7 @@ Three pieces, all sharing one module so the wiring is in one place:
 
 The two server-side pieces are kept minimal: counters out, no
 mutation. Operator-triggered actions (e.g. invalidate) belong in a
-separate admin surface (`19-trust-and-deployment.md`).
+separate admin surface.
 """
 
 from __future__ import annotations
