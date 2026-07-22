@@ -4,9 +4,10 @@ ARG ATOM_BASE_IMAGE=rocm/atom:rocm7.2.4_ubuntu24.04_py3.12_pytorch_release_2.10.
 FROM ${ATOM_BASE_IMAGE}
 
 # ATOM engine source patches (PD KV-transfer robustness, etc). Idempotent,
-# self-locating, no-op if the target pattern is absent — so an ATOM version bump
-# degrades gracefully rather than failing the build. Drop a new patch_*.py here
-# to add a fix (same convention as deploy/docker/patches/vllm/).
+# self-locating; each degrades gracefully rather than failing the build. Drop a
+# new patch_*.py here to add a fix. NOTE: no DeepSeek-V4 FP4 dequant patch — on
+# gfx942 infera supports dsv4 only in FP8 (native) and fails fast on FP4; the
+# fp8 env/CLI knobs are applied at launch by infera.engine.dsv4_gfx942.
 COPY deploy/docker/patches/atom/ /tmp/atom-patches/
 RUN for f in /tmp/atom-patches/patch_*.py; do echo "[atom-patch] $f"; python3 "$f" || echo "[atom-patch] skipped $f"; done \
     && rm -rf /tmp/atom-patches

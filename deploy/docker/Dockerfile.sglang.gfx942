@@ -3,31 +3,21 @@
 # WHY a SEPARATE image (not a shared gfx942+gfx950 build): the SGLang base is
 # arch-specific — the default Dockerfile.sglang targets MI355X (gfx950, mi35x
 # base), and a single sglang image cannot run on both gfx950 and gfx942. This
-# variant pins the MI30x base and bakes the DeepSeek-V4-Pro FP4->FP8 MoE dequant
-# patch that gfx942 requires (no native FP4 MoE kernel on CDNA3).
+# variant pins the MI30x base so infera's sglang worker runs on gfx942.
 #
-# The FP4->FP8 dequant code path is still env-gated (SGLANG_DSV4_FP4_DEQUANT) and
-# is_fp4_expert-guarded, and the launcher only enables it on a DSv4-FP4 model, so
-# baking the patch here never affects other models running on this image.
+# No DeepSeek-V4 source patches are baked in: on gfx942 infera supports dsv4
+# only in FP8 (native, no patch) and fails fast on FP4 (FP4 dsv4 runs on vLLM).
+# The fp8 env + CLI knobs are applied at launch by infera.engine.dsv4_gfx942.
 ARG SGLANG_BASE_IMAGE=lmsysorg/sglang-rocm:v0.5.15-rocm720-mi30x-20260713
 FROM ${SGLANG_BASE_IMAGE}
-
-# ---- SGLang DSv4 patch (gfx942 FP4->FP8 MoE dequant + tuned bf16 GEMM) ------
-# Idempotent, self-locating, and a no-op if the SGLang source drifted (loud
-# warning, build continues) — same graceful convention as patches/atom and
-# patches/vllm-dsv4. Also installs the gfx942/cu_num=304 tuned aiter bf16 GEMM
-# CSV that the launcher points AITER_CONFIG_GEMM_BF16 at.
-COPY deploy/docker/patches/sglang-dsv4/ /tmp/sglang-dsv4-patches/
-RUN for f in /tmp/sglang-dsv4-patches/patch_*.py; do echo "[sglang-dsv4-patch] $f"; python3 "$f" || echo "[sglang-dsv4-patch] skipped $f"; done \
-    && rm -rf /tmp/sglang-dsv4-patches
 
 WORKDIR /opt/infera
 
 # Install infera + its declared deps from pyproject (single source of truth).
 # The base already ships torch/sglang and most of infera's runtime stack; pip
-# leaves those satisfied versions untouched and only pulls what's missing (e.g.
-# nats-py). `.[sglang]` = infera core + the EPP (gaie) deps so this image can
-# also run `python -m infera.gaie`.
+# leaves those satisfied versions untouched and only pulls what's missing.
+# `.[sglang]` = infera core + the EPP (gaie) deps so this image can also run
+# `python -m infera.gaie`.
 COPY pyproject.toml README.md ./
 COPY infera ./infera
 RUN pip install --no-cache-dir ".[sglang]"
