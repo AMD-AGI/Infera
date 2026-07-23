@@ -1,0 +1,22 @@
+# Environment — sglang PD mooncake/mori cross-node repro
+
+## Nodes (chi2879 prefill + chi2865 decode, same rail group Y)
+
+```
+### chi2879
+- arch: gfx950
+- rocm: 7.2.0
+- docker: 28.5.1
+- data-plane IP (enp193s0f1np1): 10.2.122.10/23
+- ionic active ports: 8
+- ib_peer_mem: 2
+- eph port range: 32768	60999
+### chi2865
+- arch: gfx950
+- rocm: 7.2.0
+- docker: 28.4.0
+- data-plane IP (enp193s0f1np1): 10.2.122.52/23
+- ionic active ports: 8
+- ib_peer_mem: 0
+- eph port range: 32768	60999
+```
