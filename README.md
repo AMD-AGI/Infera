@@ -148,7 +148,8 @@ placeholders are in [`examples/k8s-deployments/`](examples/k8s-deployments/READM
 
 ## Engine images
 
-Prebuilt images are published to the `rocm/infera` repository, tagged
+Prebuilt images are published to the `rocm/infera` repository on
+[Docker Hub](https://hub.docker.com/r/rocm/infera/tags), tagged
 `<component>-<version>`:
 
 | Image | Component |
