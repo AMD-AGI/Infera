@@ -1,0 +1,55 @@
+name: DCO
+
+# Verify the Developer Certificate of Origin: every non-merge commit in a PR
+# must carry a `Signed-off-by` trailer matching its author (git commit -s).
+# See CONTRIBUTING.md > Developer Certificate of Origin.
+
+on:
+  pull_request:
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+jobs:
+  dco:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - name: Verify Signed-off-by on every commit
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          fail=0
+          commits=$(git rev-list --no-merges "$BASE..$HEAD")
+          if [ -z "$commits" ]; then echo "no non-merge commits to check"; exit 0; fi
+          for c in $commits; do
+            subj=$(git show -s --format='%s' "$c")
+            aemail=$(git show -s --format='%ae' "$c" | tr '[:upper:]' '[:lower:]')
+            body=$(git show -s --format='%B' "$c")
+            # 1) a Signed-off-by trailer must be present
+            if ! printf '%s\n' "$body" | grep -qiE '^[[:space:]]*Signed-off-by:[[:space:]]*.+[[:space:]]+<[^>]+@[^>]+>'; then
+              echo "::error::commit ${c:0:12} is missing 'Signed-off-by' — $subj"
+              fail=1; continue
+            fi
+            # 2) the author's email must be among the sign-off emails
+            soemails=$(printf '%s\n' "$body" \
+              | grep -iE '^[[:space:]]*Signed-off-by:' \
+              | grep -oiE '<[^>]+>' | tr -d '<>' | tr '[:upper:]' '[:lower:]')
+            if ! printf '%s\n' "$soemails" | grep -qixF "$aemail"; then
+              echo "::error::commit ${c:0:12} Signed-off-by does not match author <$aemail> — $subj"
+              fail=1
+            fi
+          done
+          if [ "$fail" -ne 0 ]; then
+            echo ""
+            echo "DCO check failed. Sign your commits and push again:"
+            echo "    git rebase --signoff main   # signs every commit on the branch"
+            echo "    git push --force-with-lease"
+            echo "See CONTRIBUTING.md > Developer Certificate of Origin."
+            exit 1
+          fi
+          echo "DCO: all commits are signed off by their author."

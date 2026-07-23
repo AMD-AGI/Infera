@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/AMD-AGI/Infera/actions/workflows/ci.yml/badge.svg)](https://github.com/AMD-AGI/Infera/actions/workflows/ci.yml)
 [![Release](https://github.com/AMD-AGI/Infera/actions/workflows/release.yml/badge.svg)](https://github.com/AMD-AGI/Infera/actions/workflows/release.yml)
+[![Docs](https://img.shields.io/badge/docs-latest-blue.svg)](https://rocm.docs.amd.com/projects/infera/en/latest/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 [What's Infera?](#whats-infera) | [Key features](#key-features) | [Quick Start](#quick-start) | [Engine images](#engine-images) | [Documentation](#documentation) | [License](#license)
@@ -144,7 +145,10 @@ steps are in [`examples/kimi_agentic_bench/`](examples/kimi_agentic_bench/README
 
 ## Documentation
 
-Full guides, deployment recipes, and reference live in the Sphinx manual:
+Full guides, deployment recipes, and reference are hosted at
+**[rocm.docs.amd.com/projects/infera](https://rocm.docs.amd.com/projects/infera/en/latest/)**.
+
+To build the same Sphinx manual locally:
 
 ```bash
 sudo apt-get install -y graphviz                            # `dot`, for the diagrams
