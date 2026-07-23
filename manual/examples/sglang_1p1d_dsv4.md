@@ -39,7 +39,7 @@ a large prefill chunk. Both legs share these; they differ only by
 ```bash
 HF_CACHE=/path/to/hf-cache                     # TODO: HuggingFace cache / model dir (host path)
 MODEL=$HF_CACHE/DeepSeek-V4-Pro                 # fp4 DSv4-Pro checkpoint (real weights, not stubs)
-IMG=inferaimage/infera:infera-sglang-...        # TODO: update to the image you validated
+IMG=rocm/infera:sglang-v0.1.1                   # published SGLang engine image
 P_IP=10.0.0.1                                   # TODO: prefill node data-plane (RDMA-rail) IP
 D_IP=10.0.0.2                                   # TODO: decode  node data-plane (RDMA-rail) IP
 ETCD=$P_IP:2379                                 # etcd lives on the prefill node

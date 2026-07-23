@@ -37,7 +37,7 @@ HF_CACHE=/path/to/hf-cache                     # TODO: your HuggingFace cache / 
 MODEL=$HF_CACHE/DeepSeek-V4-Pro-fixed          # fp4 DSv4-Pro checkpoint
 HOST=127.0.0.1                                  # single node
 ETCD=$HOST:2379
-IMG=inferaimage/infera:infera-sglang-...        # TODO: update to the image you validated
+IMG=rocm/infera:sglang-v0.1.1                   # published SGLang engine image
 ```
 
 ## 1. etcd — shared registry (on the host)

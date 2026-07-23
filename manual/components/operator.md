@@ -29,7 +29,7 @@ metadata:
   name: demo
 spec:
   backendFramework: sglang
-  image: infera/engine-sglang:dev
+  image: rocm/infera:sglang-v0.1.1
   discoveryBackend: kubernetes             # in-cluster API; no external etcd
   nats: {deploy: true, storageSize: 4Gi}   # operator-managed JetStream (KV events)
   services:
