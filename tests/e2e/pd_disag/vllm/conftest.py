@@ -34,6 +34,19 @@ DOCKERFILE = "deploy/docker/Dockerfile.vllm"
 # _compute_disagg_meta). Both roles set it; they're on different nodes.
 _BOOTSTRAP_PORT = "8998"
 
+# Per-case KV connector selector. A case opts INTO MoRIIO by setting
+# extra_env={_KV_CONNECTOR_ENV: "MoRIIOConnector"} in its matrix row; absent it,
+# the connector defaults to Mooncake so every existing case is byte-for-byte
+# unchanged. The key is consumed here (to shape argv/env) and stripped from the
+# worker's actual env — the worker never sees it.
+_KV_CONNECTOR_ENV = "INFERA_E2E_KV_CONNECTOR"
+
+# MoRIIO fixed control ports (host-networked, one PD stack per node pair; freed by
+# the RDMA teardown between runs). host_ip/http_port/proxy_ip are derived per-role.
+_MORIIO_PROXY_PING_PORT = 36000
+_MORIIO_HANDSHAKE_PORT = 36100
+_MORIIO_NOTIFY_PORT = 36200
+
 
 class VllmDisaggAdapter(EngineAdapter):
     engine = "vllm"
@@ -92,10 +105,32 @@ class VllmDisaggAdapter(EngineAdapter):
         if tp > 1:
             argv += ["--tensor-parallel-size", str(tp)]
         argv += ["--max-num-seqs", "64"]
-        argv += [
-            "--kv-transfer-config",
-            json.dumps({"kv_connector": "MooncakeConnector", "kv_role": role.kv_role()}),
-        ]
+
+        connector = dict(params.extra_env).get(_KV_CONNECTOR_ENV, "MooncakeConnector")
+        if connector == "MoRIIOConnector":
+            # MoRIIO carries all its coordination in extra_config (the router forges
+            # the request_id from the workers' handshake/notify ports it reads back
+            # from etcd — see infera/router/disagg_protocols/vllm_moriio.py). proxy_ip
+            # is the router/prefill node; http_port is this worker's own HTTP port.
+            proxy_ip = server_ctx["etcd_endpoint"].split(":")[0]
+            kv_cfg = {
+                "kv_connector": "MoRIIOConnector",
+                "kv_role": role.kv_role(),
+                "kv_connector_extra_config": {
+                    "host_ip": advertise_host,
+                    "proxy_ip": proxy_ip,
+                    "proxy_ping_port": _MORIIO_PROXY_PING_PORT,
+                    "http_port": port,
+                    "handshake_port": _MORIIO_HANDSHAKE_PORT,
+                    "notify_port": _MORIIO_NOTIFY_PORT,
+                    "backend": "rdma",
+                    "tp_size": str(tp),
+                },
+            }
+        else:
+            kv_cfg = {"kv_connector": connector, "kv_role": role.kv_role()}
+        argv += ["--kv-transfer-config", json.dumps(kv_cfg)]
+
         if params.expert_parallel:
             argv += ["--enable-expert-parallel"]
         argv += list(params.extra_args)
@@ -117,7 +152,14 @@ class VllmDisaggAdapter(EngineAdapter):
             "MC_GID_INDEX": gid_index,
             "VLLM_MOONCAKE_BOOTSTRAP_PORT": _BOOTSTRAP_PORT,
         }
-        env.update(dict(params.extra_env))
+        case_env = dict(params.extra_env)
+        # MoRIIO reads its GID rail from MORI_IB_GID_INDEX; only set on the MoRIIO
+        # path so the default Mooncake env is untouched.
+        if case_env.get(_KV_CONNECTOR_ENV) == "MoRIIOConnector":
+            env["MORI_IB_GID_INDEX"] = gid_index
+        # The connector selector is consumed by build_disagg_argv, not the worker.
+        case_env.pop(_KV_CONNECTOR_ENV, None)
+        env.update(case_env)
         return env
 
 
