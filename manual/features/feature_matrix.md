@@ -13,10 +13,10 @@ engine. **Legend:** ✅ supported · 🚧 work in progress · blank = not suppor
 | **Disaggregated Serving (PD)** | ✅ | ✅ | ✅ | [PD Disaggregation][pd] |
 | **KV-Aware Routing** | ✅ | ✅ | ✅ | [KV-Aware Routing][kv] |
 | **KV-Aware Routing + DP-Attention** | ✅ | ✅ | ✅ | [KV-Aware Routing][kv] |
-| **Tiered KV Cache Offload (kvd)** | ✅[^gpu-direct] | ✅ | 🚧 | [KV Cache Offload][kvd] |
+| **Tiered KV Cache Offload (kvd)** | ✅ | 🚧 | 🚧 | [KV Cache Offload][kvd] |
 | **Multimodal (image / audio / video)** |  |  |  |  |
 
-[^gpu-direct]: The AIC GPU-Direct path is currently supported only by vLLM.
+KV-cache offload (`kvd`), including AIC GPU-Direct, is **vLLM-only** today.
 
 [pd]: ./pd_disaggregation.md
 [kv]: ./kv_aware_routing.md
