@@ -40,6 +40,17 @@ RUN if [ "${BUILD_AITER}" = "1" ]; then \
 # all three concerns (full-layer wait_for_save; per-layer transfer geometry;
 # kernel/logical block-size ratio), so their anchors no longer match and they were
 # dead weight — dropped to avoid the misleading "skipped" build-log lines.
+#
+# ACTIVE ON v0.25.1: patch_moriio_pagelen.py — v0.25.1's moriio_layout.py derives the
+# MLA per-block transfer SIZE/STRIDE from tensor shape (block_size*latent*elem), which
+# disagrees with the authoritative spec.page_size_bytes for block-scaled fp8 MLA caches:
+# DSv4 fp8_ds_mla is 576-aligned/padded (page > shape bytes; the dropped tail carries
+# the UE8M0 per-block scale) and GLM-5.1 is per-kernel-block=1 while the scheduler pages
+# at block_size 16 (shape bytes 16x short). Both corrupt the KV transfer -> DeepSeek-V4 /
+# GLM-5.1 MoRIIO PD produced garbage ("France"->"a good idea" / "is is is"). The patch
+# uses spec.page_size_bytes (mirrors Mooncake, which is correct on the same nodes).
+# Verified 2026-07-22 TP4 2-node MoRIIO PD, temp=0: DSv4-Pro + GLM-5.1-FP8 France->Paris.
+# No-op for contiguous fp16/bf16 K/V caches. See the patch header for the full diagnosis.
 COPY deploy/docker/patches/vllm/ /tmp/vllm-patches/
 COPY deploy/docker/patches/vllm-dsv4/ /tmp/vllm-dsv4-patches/
 RUN for f in /tmp/vllm-patches/*.py; do echo "[vllm-patch] $f"; python "$f" || echo "[vllm-patch] skipped $f"; done \
