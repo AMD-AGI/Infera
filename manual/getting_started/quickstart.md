@@ -1,7 +1,7 @@
 # Quickstart
 
 The fastest path from nothing to a served model you can `curl`. Single host,
-two GPUs, no Docker orchestration. About five minutes.
+two GPUs. About five minutes.
 
 You'll start four things: **etcd**, **one server**, **two engine workers**, then
 send a request.
@@ -11,15 +11,16 @@ send a request.
 ::::{grid} 1 1 3 3
 :gutter: 3
 
-:::{grid-item-card} 🐍 pip — this page
-`pip install amd-infera`, then run `python -m infera.*` by hand. The fastest
-way to see it work on one host — no images, no orchestrator.
+:::{grid-item-card} 🐳 Docker — recommended
+Pull a prebuilt engine image from [Docker Hub](https://hub.docker.com/r/rocm/infera/tags)
+(`rocm/infera:<engine>-v0.1.1`) and run the stack inside it. This page walks that path.
 :::
 
-:::{grid-item-card} 🐳 Container
+:::{grid-item-card} 🛠️ Build from source
 :link: installation
 :link-type: doc
-Prebuilt engine images — a reproducible single-host stack.
+Build the engine image from `deploy/docker/Dockerfile.<engine>` — it applies the
+vLLM / Mooncake / hipFile patches Infera needs. See [Installation](installation.md#docker).
 :::
 
 :::{grid-item-card} ☸️ Kubernetes
@@ -30,7 +31,14 @@ Multi-host, autoscale, and PD via the operator — the production path.
 
 ::::
 
-The rest of this page walks the **pip** path.
+```{admonition} Use an image, not a bare `pip install`
+:class: important
+The engine images bundle Infera **and** the engine patches (vLLM / Mooncake /
+hipFile) it depends on. A hand-rolled `pip install` skips those, so it is not a
+supported path — pull a prebuilt image, or build one from `deploy/docker/`.
+```
+
+Steps 2–3 run **inside** a prebuilt engine image; you'll start it in step 2.
 
 ## 1. Start etcd
 
@@ -45,8 +53,18 @@ docker run -d --name infera-etcd --net host quay.io/coreos/etcd:v3.5.14 \
 
 ## 2. Start a server
 
-The server holds the router, not the model. It needs a small tokenizer for the
-router's prefix hashing (any small model works):
+Open an engine image with host networking (so it shares etcd) — use the image
+for the engine you'll run in step 3 (`rocm/infera:{vllm,sglang,atom}-v0.1.1`):
+
+```bash
+docker run --rm -it --name infera --network host --ipc host --shm-size 32g \
+  --device /dev/kfd --device /dev/dri --group-add video --group-add render \
+  rocm/infera:sglang-v0.1.1 bash
+```
+
+Then, **inside the container**, start the server. It holds the router, not the
+model — it needs a small tokenizer for the router's prefix hashing (any small
+model works):
 
 ```bash
 python -m infera.server --port 8000 --etcd-endpoint 127.0.0.1:2379 \
@@ -72,7 +90,9 @@ front and you have HA for free.
 
 ## 3. Start two engine workers
 
-Pick **one** engine. Each worker takes a GPU and self-registers into etcd. The
+Run these **inside the same container** — open another shell into it with
+`docker exec -it infera bash`. Pick **one** engine (match the image from step 2).
+Each worker takes a GPU and self-registers into etcd. The
 `--discovery-backend etcd --request-transport http --kv-event-transport zmq`
 flags match the server (the no-broker dev path from step 2).
 
