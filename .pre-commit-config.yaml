@@ -38,3 +38,13 @@ repos:
         language: system
         files: ^rust/.*\.rs$
         pass_filenames: false
+
+      # Refuse a commit whose git email is a machine-generated local hostname
+      # (git's fallback when user.email is unset), so an internal build-host
+      # name can't leak into permanent public history. Skipped in CI.
+      - id: check-author-email
+        name: reject local-hostname / auto-generated git emails
+        entry: scripts/check-author-email.sh
+        language: script
+        always_run: true
+        pass_filenames: false
