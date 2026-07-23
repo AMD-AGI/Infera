@@ -7,8 +7,12 @@ on:
     branches: [main]
   workflow_dispatch:   # manual "Run workflow" button (Actions tab)
     inputs:
-      run_e2e:
+      run_e2e_mixed:
         description: "also run e2e-mixed"
+        type: boolean
+        default: false
+      run_e2e_disag:
+        description: "also run e2e-disag"
         type: boolean
         default: false
 
@@ -181,13 +185,13 @@ jobs:
       needs.changes.outputs.code == 'true' &&
       needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
       (github.event_name == 'pull_request' ||
-       (github.event_name == 'workflow_dispatch' && inputs.run_e2e))
+       (github.event_name == 'workflow_dispatch' && inputs.run_e2e_mixed))
     strategy:
       fail-fast: false
       matrix:
         engine: [vllm, sglang, atom]
     runs-on: [self-hosted, crusoe]
-    timeout-minutes: 240
+    timeout-minutes: 180
     env:
       INFERA_E2E_SLURM_PARTITION: amd-spur
       INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
@@ -208,6 +212,53 @@ jobs:
           for i in 1 2 3 4 5; do
             ids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \
               | awk -v suf="$suf" '$2 ~ /^infera-ci-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}')
+            [ -z "$ids" ] && { echo "no (more) SLURM jobs to reclaim"; break; }
+            echo "reclaiming SLURM job(s): $ids (try $i)"; scancel $ids 2>&1 || true
+            sleep 5
+          done
+
+  # Full PD-disaggregated e2e (per engine, parallel) — cross-node (2 nodes/engine).
+  # Same gating as e2e-mixed (PRs into main, or manual dispatch w/ run_e2e_disag);
+  # runs independently (in parallel) — not chained behind e2e-mixed.
+  e2e-disag:
+    needs: [lint, changes]
+    if: >-
+      always() &&
+      needs.changes.outputs.code == 'true' &&
+      needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
+      (github.event_name == 'pull_request' ||
+       (github.event_name == 'workflow_dispatch' && inputs.run_e2e_disag))
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [vllm, sglang, atom]
+    runs-on: [self-hosted, crusoe]
+    timeout-minutes: 180
+    env:
+      INFERA_E2E_SLURM_PARTITION: amd-spur
+      INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
+      # Dispatch onto this pre-made reservation's nodes (srun --reservation).
+      # A set reservation also auto-enables the disag node-hold (both nodes'
+      # GPUs are held for the whole run so concurrent jobs can't grab one
+      # between the many short srun steps).
+      INFERA_E2E_RESERVATION: infera-cicd-reserved
+      INFERA_E2E_JOB_TAG: ${{ github.run_id }}-${{ matrix.engine }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - name: e2e ${{ matrix.engine }} disag
+        run: bash tests/run_tests.sh e2e ${{ matrix.engine }} disag
+      - name: reclaim this job's SLURM jobs (on cancel/failure)
+        if: always() && (cancelled() || failure())
+        run: |
+          # Retry: a single scancel can hit a transient Spur controller error.
+          # disag also spawns node-hold allocations (infera-hold-*), so reclaim
+          # both those and the dispatched test jobs (infera-ci-*).
+          suf="-${{ github.run_id }}-${{ matrix.engine }}"
+          for i in 1 2 3 4 5; do
+            ids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \
+              | awk -v suf="$suf" '$2 ~ /^infera-(ci|hold)-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}')
             [ -z "$ids" ] && { echo "no (more) SLURM jobs to reclaim"; break; }
             echo "reclaiming SLURM job(s): $ids (try $i)"; scancel $ids 2>&1 || true
             sleep 5
