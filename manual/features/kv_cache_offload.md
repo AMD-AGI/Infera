@@ -11,10 +11,10 @@ across engines, so you don't recompute them. **How it works under the hood:** se
 
 ## Turn it on — single host
 
-```{admonition} vLLM only (for now)
+```{admonition} Limitation — vLLM only (for now)
 :class: important
-KV-Cache Offload currently supports the **vLLM** engine
-(`infera.engine.vllm` + `InferaKvdConnector`). SGLang is not supported yet.
+KV-Cache Offload, including the AIC GPU-Direct read path, currently supports the
+**vLLM** engine only. SGLang and ATOM support is planned.
 ```
 
 One `infera.kvd` daemon per host; every engine on that host shares it.
