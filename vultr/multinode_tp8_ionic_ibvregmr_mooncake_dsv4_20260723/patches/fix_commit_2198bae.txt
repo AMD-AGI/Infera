@@ -1,0 +1,28 @@
+commit 2198bae3c808943130c810c49dafabdf265a10db
+Author: yihou <yihou@amd>
+Date:   Thu Jul 23 05:36:57 2026 +0000
+
+    fix(sglang): gate Mooncake HIP transport for cross-node PD KV transfer
+    
+    The v0.5.15.post1 base bundles Mooncake at upstream #2682 ("rdma+hip
+    multi-protocol segments for single-node disaggregation"), which installs a
+    HIP transport unconditionally and registers the KV pool under both rdma and
+    hip. selectTransport then prefers hip (priority 4 > rdma 2), so even a
+    CROSS-NODE transfer uses HIP IPC — hipIpcOpenMemHandle can't open a peer's
+    handle across hosts, so decode never receives KV (500, gibberish).
+    
+    Older bases predated #2682 (no HIP transport at all), so cross-node PD used
+    RDMA and worked. This regressed with the base bump.
+    
+    Fix: patch_mooncake_sglang.sh gates the HIP install behind MC_ENABLE_HIP_TRANSPORT
+    (default OFF) and rebuilds the engine in place, then Dockerfile.sglang runs it.
+    The rebuild pins the target arch (gfx950) so it works in the GPU-less docker
+    build (ROCm's amdgpu-arch probe fails without a device and would otherwise drop
+    the HIP engine target). Verified end-to-end on chi2879+chi2865: DSv4 sglang PD
+    1p1d cross-node smoke passes on BOTH mooncake and mori after the fix.
+    
+    Co-Authored-By: Claude Opus 4 <noreply@anthropic.com>
+
+ deploy/docker/Dockerfile.sglang                |  15 ++++
+ deploy/docker/scripts/patch_mooncake_sglang.sh | 105 +++++++++++++++++++++++++
+ 2 files changed, 120 insertions(+)

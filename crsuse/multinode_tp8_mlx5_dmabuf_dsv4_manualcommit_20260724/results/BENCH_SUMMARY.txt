@@ -1,0 +1,14 @@
+DSv4 1P1D cross-node, KV over SINGLE mlx5 (dmabuf, no pin/double), ISL=4096 OSL=512
+server: TP8 each leg, max_running_requests=128, context_length=9472
+
+ conc  tot_tok/s  out_tok/s   req/s TTFT_med_ms TTFT_p99_ms TPOT_med_ms ITL_med_ms
+----------------------------------------------------------------------------------
+    1        679         75    0.15         287         513       12.63      12.58
+   16       7529        837    1.63         557        2588       17.23      17.35
+   32      12574       1397    2.73         532        4972       20.16      20.33
+   64      19015       2113    4.13         557        9626       25.64      25.81
+  128      26666       2963    5.79        4175       18746       29.02      29.18
+  256      26588       2954    5.77       23184       38293       29.03      29.18
+
+conc=256 > server max_running_requests=128 -> requests queue; TTFT_med balloons to ~23s
+while total throughput plateaus (~26.6k), i.e. server-side concurrency saturates at 128.

@@ -1,0 +1,11 @@
+PF_H=chi2879; DC_H=chi2865; CTR=dsv4_pd_sgl_mori
+for i in $(seq 1 56); do
+  pfr=$(ssh -o StrictHostKeyChecking=no $PF_H "docker exec $CTR bash -lc 'grep -ciE \"ready to roll|Uvicorn running|Application startup complete\" /tmp/pd_mori_prefill_30000.log 2>/dev/null'" 2>/dev/null)
+  dcr=$(ssh -o StrictHostKeyChecking=no $DC_H "docker exec $CTR bash -lc 'grep -ciE \"ready to roll|Uvicorn running|Application startup complete\" /tmp/pd_mori_decode_30000.log 2>/dev/null'" 2>/dev/null)
+  pff=$(ssh -o StrictHostKeyChecking=no $PF_H "docker exec $CTR bash -lc 'grep -ciE \"ibv_reg_mr|Cannot allocate|Traceback|HIP error|out of memory|Assertion|SIGABRT|Segmentation|scheduler died|exited before|ionic.cpp\" /tmp/pd_mori_prefill_30000.log 2>/dev/null'" 2>/dev/null)
+  dcf=$(ssh -o StrictHostKeyChecking=no $DC_H "docker exec $CTR bash -lc 'grep -ciE \"ibv_reg_mr|Cannot allocate|Traceback|HIP error|out of memory|Assertion|SIGABRT|Segmentation|scheduler died|exited before|ionic.cpp\" /tmp/pd_mori_decode_30000.log 2>/dev/null'" 2>/dev/null)
+  echo "[$i] PF ready=$pfr fatal=$pff | DC ready=$dcr fatal=$dcf"
+  if [ "${pfr:-0}" -ge 1 ] && [ "${dcr:-0}" -ge 1 ]; then echo "BOTH_READY"; break; fi
+  if [ "${pff:-0}" -ge 1 ] || [ "${dcf:-0}" -ge 1 ]; then echo "FATAL_DETECTED"; break; fi
+  sleep 30
+done

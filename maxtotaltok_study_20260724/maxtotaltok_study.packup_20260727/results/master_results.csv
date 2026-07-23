@@ -1,0 +1,10 @@
+round,leg,pool_full_token,max_running_per_rank,conc,peak_full_token_per_rank,peak_full_usage,peak_transfer_in,peak_running,retracted,crashed,total_throughput_tok_s,successful_req,kv_pool_GiB_per_card,note
+baseline,decode,3895296,64,128,165632,0.04,0.8,16,0,no,29418,1263,118.9,big-pool ref; decode 24% cap; prefill-bound
+R1,decode,262144,64,128,159488,0.61,0.9,17,0,no,29634,1263,8.0,cap works; zero throughput loss
+R2,decode,163840,64,128,153088,0.93,0.9,16,0,no,29618,1263,5.0,SAFE FLOOR; 93% peak; zero loss
+R4,decode,147456,64,128,144128,0.98,,16,0,no,27972,1182,4.5,98% edge; slight drops (81 fewer req)
+R3,decode,131072,64,128,130560,1.00,,15,,YES,,,4.0,CRASH: retract_decode NotImplementedError
+G1,decode,131072,12,128,131072,1.00,13,12,0,YES,,,4.0,CRASH: same pool 100%; max_run=12 didnt help
+G2,decode,131072,8,128,124928,0.95,9.2,7,0,no,,,4.0,THROUGHPUT COLLAPSE: transfer pipeline hogs pool; running starved to 2.8
+G3,decode,3895296,64,512,246272,0.06,27,25,0,no,,,118.9,overload=prefill-bound; router circuit-breaker rejects; decode only 20% cap
+prefill,prefill,3441920,varies,128,~69000,0.02,,0,0,no,,,2.1(actual)/105(pool),transient KV; queue-req 20 backed up=prefill-bound; inflight 6

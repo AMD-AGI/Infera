@@ -1,0 +1,17 @@
+gmu, KVpool_GB, KVpool/VRAM%, full_token, swa_tok, c4_tok, c128_tok, c4state_tok, c128state_GB, postpool_headroom_GB, VRAM_used_GB, VRAM_used/total%
+0.80,  91.24,  31.7,  7053056,  1057792,  1763264,  55102,  66112, 1.01, 67.92,  221.4, 76.9
+0.85, 105.08,  36.5,  8135424,  1220096,  2033856,  63558,  76256, 1.01, 55.95,  233.4, 81.0
+0.88, 113.39,  39.4,  8784896,  1317632,  2196224,  68632,  82352, 1.01, 48.84,  240.5, 83.5
+0.90, 118.93,  41.3,  9217792,  1382656,  2304448,  72014,  86416, 1.01, 44.02,  245.3, 85.2
+0.92, 124.47,  43.2,  9650944,  1447424,  2412736,  75398,  90464, 1.01, 39.31,  250.0, 86.8
+
+# gmu -> KVpool linear model (5-pt, R^2=1.000):
+#   KVpool_GB = 276.9*gmu - 130.3     (per +0.01 gmu: +2.770 GB, +216,470 full_tokens)
+#   full_token = KVpool_bytes / 13735.04 ; each pool = fixed fraction of full_token:
+#     swa = full*0.15 (swa_full_tokens_ratio) ; c4 = full/4 ; c128 = full/128 ; c4_logical = c128*32 = full/4
+# Implied static weights/card = VRAM_total - slope = 288 - 276.9 = 11.1 GiB (DSv4 fp8, TP8)
+
+# Runtime verify (Step 3, single-node mix gmu=0.90, real 8k/1k conc64 x128):
+#   peak full-attn token usage = 1%   peak swa token usage = 5%   peak #running = 13   RETRACT = 0
+#   -> runtime KV usage stays FAR inside the startup-fixed pool; pool is static, gmu is the only knob.
+#   -> swa pool (smaller, full*0.15) is the binding one (5% vs 1%), reached first under load.

@@ -1,0 +1,63 @@
+Single-node TP4 P (GPU0-3) <-> TP4 D (GPU4-7), MC_ENABLE_HIP_TRANSPORT=1, DSv4-Pro
+=================================================================================
+WHAT WORKED:
+- MC_ENABLE_HIP_TRANSPORT=1 un-gated hip transport: both legs logged
+  "HIP transport installed for intra-node GPU P2P" (4 contexts each).
+- RDMA transport also installed (coexist), but data plane did NOT use the NIC:
+  mlx5 port_xmit_data delta = 0 across KV-transfer attempts. So "no NIC" holds.
+- Both servers reached "ready to roll"; per-request KV transfer was ATTEMPTED via hip.
+
+WHAT FAILED (the real result):
+- Every cross-instance KV transfer FAILED. Decode side:
+    KVTransferError: Failed to get kvcache from prefill instance, it might be dead
+  Prefill side (root cause):
+    E hip_transport.cpp:815 Requested address 0x... not found!
+- Cause: hip transport uses hipIpcOpenMemHandle. P (GPU0-3) and D (GPU4-7) are TWO
+  SEPARATE sglang processes; one cannot open the other's GPU memory IPC handle —
+  the address isn't in the peer's IPC registry ("address not found"). Same root
+  class as the cross-node "peer can't open hip IPC segment" problem, but here it's
+  same-node cross-process. Router then circuit-broke prefill (correct reaction).
+- The warmup 200 OK earlier is prefill's LOCAL self-loop warmup, NOT a real
+  cross-instance KV transfer, so it did not exercise the failing path.
+
+MEMORY NOTE: DSv4 at TP4 = 210 GiB weights/GPU (vs 159 at TP8), leaving only ~67
+GiB for KV. Needs --mem-fraction-static >= 0.76 (0.42 fails: "no GPU memory for KV").
+
+VERDICT on the user's hypothesis:
+- "Open MC_ENABLE_HIP_TRANSPORT" — yes, that is the right switch, and it engages.
+- "Don't care which NIC / no NIC needed" — data plane truly avoids the NIC (delta=0),
+  BUT the hip-IPC path does NOT work between two independent sglang PD instances on
+  this stack. So single-node TP4 P<->D over hip transport does NOT transfer KV here.
+- Working alternative on one node: keep RDMA (mlx5 loopback / dmabuf), i.e. do NOT
+  set MC_ENABLE_HIP_TRANSPORT; let KV go over mlx5 even though same-node.
+
+--- FOLLOW-UP: single-node TP4 P<->D over RDMA loopback (NO hip) ---
+[mlx5_0, GID3, no MC_ENABLE_HIP_TRANSPORT] SUCCESS.
+- both ready; smoke via router: Paris / 4 / Jupiter (all correct).
+- transport = rdma on mlx5_0 (no hip transport installed), zero ionic refs.
+- So: SAME-NODE P<->D DOES work over mlx5 RDMA loopback. The hip-transport path
+  fails cross-instance, but plain RDMA over the NIC (even same-node loopback) works.
+- aiter FileBaton at /tmp/aiter_configs/*.lock made cold start slow (~1200s for
+  TP4 dual-instance vs 714s single) but is NOT a deadlock — it progressed.
+- mem: TP4 = 210 GiB weights/GPU, need --mem-fraction-static>=0.76 (used 0.85).
+
+[ionic_0, GID1, no MC_ENABLE_HIP_TRANSPORT] PARTIAL / UNSTABLE.
+- Both legs reached "ready to roll"; ionic KV-pool dmabuf registration did NOT OOM
+  here (TP4 KV pool only ~45 GiB, so even a pinned copy fit: 243+45<288 -> no crash
+  at registration, unlike the 2-node TP8 case where the pool was much larger).
+- Cross-instance smoke: 1st request OK ("Paris"), then requests FAILED 500 with:
+    Prefill: KVTransferError "remote mooncake session ...:15266 is not alive"
+    Decode:  "Failed to get kvcache from prefill instance, it might be dead"
+  Both procs stayed alive (2/2) — the mooncake RDMA SESSION died, not the process.
+- CONTRAST (same node, same TP4, same script, ONLY NIC differs):
+    mlx5 (has ODP): all 3 smokes passed (Paris/4/Jupiter), session stable.
+    ionic (no ODP): 1 ok then session dies.
+  => ionic's no-ODP RDMA session over same-node loopback is UNSTABLE for repeated
+     dmabuf KV transfers; mlx5's ODP path is stable. Consistent with the broader
+     finding that ionic + dmabuf is the problematic combination.
+
+OVERALL SINGLE-NODE TP4 P<->D CONCLUSION:
+- hip transport (MC_ENABLE_HIP_TRANSPORT=1): engages, no NIC used, BUT hipIpc can't
+  open peer instance's GPU handle -> all transfers fail. Does NOT work.
+- mlx5 RDMA loopback (no hip): WORKS, stable, no double. RECOMMENDED for same-node.
+- ionic RDMA loopback (no hip): 1st ok then session dies. Unstable. Avoid.

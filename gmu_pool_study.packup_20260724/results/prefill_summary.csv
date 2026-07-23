@@ -1,0 +1,13 @@
+gmu,kv_available_bytes_gb,bytes_per_full_token,full_token,swa,c4,c128,c4_state,c128_state_fixed_gb,avail_mem_gb,vram_used_gb_min,vram_used_gb_max,reached
+0.85,105.08,13735.04,13735
+8135424,1220096,4
+2033856,128
+63558,4
+76256,128
+1.01,55.93,233.32,233.74,yes
+0.90,118.93,13735.04,13735
+9217792,1382656,4
+2304448,128
+72014,4
+86416,128
+1.01,43.99,245.30,245.72,yes
