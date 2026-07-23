@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from ...harness.matrix import QWEN3_0_6B, expand_cases
+from ...harness.matrix import GLM_5_1_FP8, QWEN3_0_6B, expand_cases
 
 # [model, tp, ep, dp_attn] (+ optional opts dict: args/env/setup/server_ready_timeout).
 CASES = [
@@ -32,6 +32,40 @@ CASES = [
         False,
         False,
         {"server_ready_timeout": 900, "args": ["--gpu-memory-utilization", "0.4"]},
+    ],
+    # GLM-5.1-FP8 over the MoRIIO connector (NOT Mooncake) — the regression guard for
+    # the moriio_layout.py MLA page-length fix (patch_moriio_pagelen.py). MoRIIO is
+    # opted into explicitly via env[INFERA_E2E_KV_CONNECTOR]; without it the disagg
+    # adapter defaults to Mooncake, so this is the only MoRIIO case and no other model
+    # gets a MoRIIO variant. GlmMoeDsa = block-scaled fp8 MLA + DSA lightning indexer,
+    # the exact layout the page-len bug corrupted. args mirror the verified launch
+    # recipe (fp8 KV, aiter MoE, glm45 reasoning parser); timeout covers CG capture.
+    [
+        GLM_5_1_FP8,
+        4,
+        False,
+        False,
+        {
+            "env": {"INFERA_E2E_KV_CONNECTOR": "MoRIIOConnector"},
+            "args": [
+                "--kv-cache-dtype",
+                "fp8",
+                "--moe-backend",
+                "aiter",
+                "--reasoning-parser",
+                "glm45",
+                "--no-enable-prefix-caching",
+                "--gpu-memory-utilization",
+                "0.85",
+                "--max-model-len",
+                "9472",
+                "--max-num-batched-tokens",
+                "8192",
+                "--distributed-executor-backend",
+                "mp",
+            ],
+            "server_ready_timeout": 1800,
+        },
     ],
 ]
 

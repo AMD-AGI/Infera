@@ -84,6 +84,7 @@ QWEN3_8B = "Qwen/Qwen3-8B"
 KIMI_K25_MXFP4 = "amd/Kimi-K2.5-MXFP4"
 KIMI_K26_MXFP4 = "amd/Kimi-K2.6-MXFP4"
 DEEPSEEK_V4_PRO = "deepseek-ai/DeepSeek-V4-Pro"
+GLM_5_1_FP8 = "zai-org/GLM-5.1-FP8"
 
 EXTRA_ARGS: dict[str, tuple[str, ...]] = {}  # default verbatim extra launch args
 
