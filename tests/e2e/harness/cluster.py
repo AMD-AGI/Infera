@@ -120,6 +120,11 @@ def node_ip(node: str) -> str | None:
     argv = ["srun", "--overlap", "--nodes=1", "--ntasks=1", "--nodelist", node]
     if _job_id():
         argv += ["--jobid", _job_id()]
+    # Honor a caller-provided reservation (see launcher._RESV) so this probe srun
+    # can land on a reserved node instead of being rejected/queued.
+    _resv = os.environ.get("INFERA_E2E_RESERVATION")
+    if _resv:
+        argv += [f"--reservation={_resv}"]
     argv += ["hostname", "-I"]
     try:
         out = subprocess.run(argv, capture_output=True, text=True, timeout=_SRUN_TIMEOUT)
@@ -137,6 +142,106 @@ def node_ip(node: str) -> str | None:
 def gid_index() -> str:
     """RoCEv2 GID index for the RDMA KV transport (fixed default 1)."""
     return DEFAULT_GID_INDEX
+
+
+def _gid_routable(gid: str) -> bool:
+    """A routable RoCEv2 GID: non-zero and NOT ``fe80`` link-local. Covers both
+    IPv4-mapped (``::ffff:a.b.c.d``) and IPv6-ULA (``fc00::/7``, the ionic
+    ``fc01:...`` fabric) GIDs — both route cross-node; ``fe80`` times out at
+    QP→RTR."""
+    g = gid.strip().lower()
+    if not g or set(g.replace(":", "")) <= {"0"}:
+        return False
+    return not g.startswith("fe80")
+
+
+def _gid_subnet(gid: str) -> str:
+    """Coarse rail/subnet key: IPv4-mapped -> /24 (``a.b.c``); IPv6 -> /64 (first
+    four hextets). Distinguishes a rail-optimized fabric (each NIC its own subnet)
+    from a flat any-to-any fabric."""
+    g = gid.strip().lower()
+    h = g.replace(":", "")
+    if len(h) == 32 and h[:24] == "0" * 20 + "ffff":
+        octs = [str(int(h[i : i + 2], 16)) for i in range(24, 32, 2)]
+        return ".".join(octs[:3])
+    return ":".join(g.split(":")[:4])
+
+
+def compute_nic_filter(devices: list[tuple[str, str]]) -> str | None:
+    """Given ``[(device_name, gid_at_index)]`` for the ACTIVE RDMA ports, return
+    the ``MC_TE_FILTERS`` value that pins Mooncake to the right rail(s), or ``None``
+    when nothing needs constraining (a plain single-fabric host).
+
+    - Keep only NICs with a routable GID at the index (drops a mgmt NIC whose GID
+      there is link-local, e.g. a ConnectX ``mlx5_0``).
+    - If those span MULTIPLE subnets (a rail-optimized fabric where ``ionic_i``
+      only routes to the peer's ``ionic_i``, and host/aux buffers have no rail
+      affinity), pin to a SINGLE deterministic rail so both ends always agree.
+    - If they share one subnet (flat fabric), keep all data rails.
+    Pure function (no I/O) so it is unit-testable."""
+    if not devices:
+        return None
+    active = [name for name, _ in devices]
+    data = [(name, gid) for name, gid in devices if _gid_routable(gid)]
+    if not data:
+        return None
+    subnets = {_gid_subnet(gid) for _, gid in data}
+    data_nics = sorted(name for name, _ in data)
+    whitelist = [data_nics[0]] if len(subnets) > 1 else data_nics
+    if set(whitelist) == set(active):
+        return None  # nothing to narrow
+    return ",".join(whitelist)
+
+
+def _rdma_gids_on_node(node: str, gid_idx: int) -> list[tuple[str, str]]:
+    """``[(device, gid_at_gid_idx)]`` for ACTIVE RDMA ports on ``node``, read from
+    its ``/sys/class/infiniband`` via ``srun`` (the ionic NICs live on the compute
+    node, not the login host). ``[]`` on any failure."""
+    if not have_slurm():
+        return []
+    script = (
+        "for d in /sys/class/infiniband/*; do "
+        '[ -e "$d/ports/1/state" ] || continue; '
+        'grep -q ACTIVE "$d/ports/1/state" 2>/dev/null || continue; '
+        f'echo "$(basename "$d") $(cat "$d/ports/1/gids/{gid_idx}" 2>/dev/null)"; '
+        "done"
+    )
+    # Spur scheduler exposes only a subset of srun (no --overlap/--jobid); detect
+    # it by its controller env var and place work with plain `srun -N1 -n1 -w NODE`
+    # (mirrors launcher._srun). Stock SLURM keeps --overlap/--jobid.
+    if os.environ.get("SPUR_CONTROLLER_ADDR"):
+        part = os.environ.get("INFERA_E2E_SLURM_PARTITION")
+        argv = ["srun", "-N1", "-n1"] + (["-p", part] if part else []) + ["-w", node]
+    else:
+        argv = ["srun", "--overlap", "--nodes=1", "--ntasks=1", "--nodelist", node]
+        if _job_id():
+            argv += ["--jobid", _job_id()]
+    resv = os.environ.get("INFERA_E2E_RESERVATION")
+    if resv:
+        argv += [f"--reservation={resv}"]
+    argv += ["bash", "-lc", script]
+    try:
+        out = subprocess.run(argv, capture_output=True, text=True, timeout=_SRUN_TIMEOUT)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if out.returncode != 0:
+        return []
+    devs: list[tuple[str, str]] = []
+    for line in out.stdout.splitlines():
+        parts = line.split()
+        if len(parts) == 2:
+            devs.append((parts[0], parts[1]))
+    return devs
+
+
+@functools.cache
+def mooncake_nic_filter(node: str, gid_idx: int) -> str | None:
+    """The ``MC_TE_FILTERS`` value to inject into the PD worker env so Mooncake
+    binds the right RDMA rail on this cluster (see :func:`compute_nic_filter`).
+
+    Probes ``node`` (identical prefill/decode hardware, so one probe covers both);
+    returns ``None`` when no constraint is needed. Cached per (node, index)."""
+    return compute_nic_filter(_rdma_gids_on_node(node, gid_idx))
 
 
 def pd_nodes() -> tuple[str, str] | None:

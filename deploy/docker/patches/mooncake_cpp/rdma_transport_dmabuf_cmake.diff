@@ -1,0 +1,39 @@
+diff --git a/mooncake-transfer-engine/src/transport/rdma_transport/CMakeLists.txt b/mooncake-transfer-engine/src/transport/rdma_transport/CMakeLists.txt
+--- a/mooncake-transfer-engine/src/transport/rdma_transport/CMakeLists.txt
++++ b/mooncake-transfer-engine/src/transport/rdma_transport/CMakeLists.txt
+@@ -7,3 +7,35 @@ target_link_libraries(rdma_transport PRIVATE JsonCpp::JsonCpp glog::glog
+ if(USE_MLX5DV)
+   target_compile_definitions(rdma_transport PRIVATE USE_MLX5DV)
+ endif()
++
++# infera B.1: enable the HIP dma-buf GPU-direct MR registration path for THIS
++# object library. rdma_context.cpp (the file that actually calls
++# ibv_reg_dmabuf_mr / hsa_amd_portable_export_dmabuf) is compiled into the
++# `rdma_transport` OBJECT lib, NOT into `transfer_engine`. Upstream only defines
++# USE_HIP_DMABUF on the `transfer_engine` target (src/CMakeLists.txt), so the
++# #elif defined(USE_HIP_DMABUF) branch in rdma_context.cpp compiles OUT here and
++# GPU buffers fall through to the bare ibv_reg_mr() branch. Bare ibv_reg_mr on a
++# device pointer only works when the legacy ib_peer_mem kernel module is loaded;
++# on a dma-buf-only RoCE fabric (no ib_peer_mem) it cannot pin VRAM and the KV
++# registration fails (huge host-memory pin / OOM). Mirror the transfer_engine
++# block so the dmabuf verb is compiled into the code path that uses it.
++#
++# USE_HIP is a global compile definition (mooncake-common/common.cmake) and the
++# option is a cache var, so both are visible here. hsa/hip headers are already on
++# the global include path (include_directories(${HIP_INCLUDE_DIRS})); we still
++# link hsa-runtime64 so hsa_amd_portable_export_dmabuf resolves. At runtime
++# rdma_context.cpp::isKernelDmabufSupported() self-checks CONFIG_PCI_P2PDMA /
++# CONFIG_DMABUF_MOVE_NOTIFY and falls back to ibv_reg_mr if the kernel lacks
++# them, and MOONCAKE_DISABLE_HIP_DMABUF=1 forces the old path — so this is safe
++# to compile in unconditionally on the images that opt into it.
++if(USE_HIP)
++  option(USE_HIP_DMABUF "Enable HIP dmabuf RDMA MR registration" ON)
++  if(USE_HIP_DMABUF)
++    find_package(hsa-runtime64 CONFIG QUIET)
++    target_compile_definitions(rdma_transport PRIVATE USE_HIP_DMABUF)
++    if(hsa-runtime64_FOUND)
++      target_link_libraries(rdma_transport PRIVATE hsa-runtime64::hsa-runtime64)
++    endif()
++    message(STATUS "rdma_transport: USE_HIP_DMABUF enabled (ibv_reg_dmabuf_mr GPU-direct path; hsa-runtime64_FOUND=${hsa-runtime64_FOUND})")
++  endif()
++endif()

@@ -38,16 +38,35 @@ apply_one() {
     fi
 }
 
-# B.1 (rdma_transport_CMakeLists.diff, USE_HIP_DMABUF -> ibv_reg_dmabuf_mr) REMOVED.
-# That dma-buf GPUDirect registration path exhausts a driver/KFD resource at high
-# gpu_memory_utilization (>=0.7): registering the whole KV pool (~156 GiB/GPU at
-# util 0.8) via ibv_reg_dmabuf_mr makes EVERY subsequent hipModuleLoad fail with
-# HIP-209 "no kernel image is available for execution", crashing the decode engine
-# at kernel_warmup / first inference (_compute_slot_mapping_kernel, torch fill_,
-# ...). The GPU BAR is 512 GiB (not the limit); reproduces on Kimi-K2.6 AND
-# DeepSeek-V4-Pro. Bare ibv_reg_mr (VRAM RDMA via host-libionic injection) does NOT
-# exhaust it and transfers KV correctly on ionic (validated util 0.8 P<->D, both
-# models). The diff is dropped entirely — bare ibv_reg_mr is the only supported path.
+# B.1 (rdma_transport_dmabuf_cmake.diff, USE_HIP_DMABUF -> ibv_reg_dmabuf_mr) is
+# OPT-IN, gated by MOONCAKE_HIP_DMABUF=1 (default 0 = off).
+#
+# History: B.1 was originally dropped because that dma-buf GPUDirect registration
+# path exhausts a driver/KFD resource at high gpu_memory_utilization (>=0.7):
+# registering the whole KV pool (~156 GiB/GPU at util 0.8) via ibv_reg_dmabuf_mr
+# makes EVERY subsequent hipModuleLoad fail with HIP-209 "no kernel image is
+# available for execution", crashing the decode engine at kernel_warmup / first
+# inference. On fabrics that expose the legacy ib_peer_mem kernel module, bare
+# ibv_reg_mr (VRAM RDMA via host-libionic injection) does NOT exhaust it and
+# transfers KV correctly (validated util 0.8 P<->D on Kimi-K2.6 + DeepSeek-V4-Pro).
+#
+# BUT on a dma-buf-only RoCE fabric (no ib_peer_mem — e.g. the crusoe amd-spur
+# cluster, which replaced ib_peer_mem with the kernel dma-buf path) bare
+# ibv_reg_mr CANNOT pin VRAM: registering the KV pool degenerates to a huge
+# host-memory pin and OOMs (needs >100 GiB of host RAM). There the dmabuf verb
+# (hsa_amd_portable_export_dmabuf + ibv_reg_dmabuf_mr) is the ONLY working GPU
+# registration path. So B.1 is re-added as an opt-in: set MOONCAKE_HIP_DMABUF=1
+# for images that run on a dma-buf-only fabric, keep it 0 (default) on ib_peer_mem
+# fabrics + high-util production to avoid the HIP-209 exhaustion. The dmabuf code
+# in rdma_context.cpp still self-checks the kernel (CONFIG_PCI_P2PDMA /
+# CONFIG_DMABUF_MOVE_NOTIFY) and falls back to ibv_reg_mr when unsupported, and
+# MOONCAKE_DISABLE_HIP_DMABUF=1 is a runtime override.
+if [ "${MOONCAKE_HIP_DMABUF:-0}" = "1" ]; then
+    echo "MOONCAKE_HIP_DMABUF=1 -> applying B.1 (dma-buf GPUDirect MR registration)"
+    apply_one rdma_transport_dmabuf_cmake.diff
+else
+    echo "MOONCAKE_HIP_DMABUF=0 (default) -> B.1 dma-buf path NOT applied (bare ibv_reg_mr; needs ib_peer_mem)"
+fi
 apply_one transfer_engine_impl.diff
 apply_one rdma_auto_chunk_mr_2017.diff
 

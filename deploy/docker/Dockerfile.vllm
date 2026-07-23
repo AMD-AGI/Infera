@@ -48,18 +48,24 @@ RUN for f in /tmp/vllm-patches/*.py; do echo "[vllm-patch] $f"; python "$f" || e
     && for f in /tmp/vllm-dsv4-patches/*.py; do echo "[vllm-dsv4-patch] $f"; python "$f" || echo "[vllm-dsv4-patch] skipped $f"; done \
     && rm -rf /tmp/vllm-patches /tmp/vllm-dsv4-patches
 
-# ---- 3) Mooncake (main + B-group C++ patches, bare ibv_reg_mr) -------------
+# ---- 3) Mooncake (main + B-group C++ patches) ------------------------------
 # WHY: cross-node RDMA on ionic needs the B-group C++ patches (B.2 hip-transport
-# gate + B.3 auto-chunk MR), carried against mooncake main. The dma-buf GPUDirect
-# path was dropped in #154 (exhausts a KFD resource at high util -> HIP-209); bare
-# ibv_reg_mr via host-libionic injection is the only supported path. HOW: shared
-# build_mooncake_rocm.sh mode 1 (MOONCAKE_DMABUF=1 = main + B-group, no dma-buf).
+# gate + B.3 auto-chunk MR), carried against mooncake main. GPU MR registration
+# path is selected by MOONCAKE_HIP_DMABUF (build ARG below):
+#   0 (default) = bare ibv_reg_mr via host-libionic injection — needs the legacy
+#                 ib_peer_mem kernel module (do NOT use at high util; HIP-209).
+#   1           = B.1 dma-buf GPUDirect (ibv_reg_dmabuf_mr) — REQUIRED on
+#                 dma-buf-only RoCE fabrics that lack ib_peer_mem (e.g. crusoe
+#                 amd-spur), where bare ibv_reg_mr OOMs pinning the KV pool.
+# HOW: shared build_mooncake_rocm.sh mode 1 (MOONCAKE_DMABUF=1 = main + B-group).
 ARG BUILD_MOONCAKE=1
 ARG MOONCAKE_GIT_REF=747003c058015c4077a266e7ccd7549bbc9baede
+ARG MOONCAKE_HIP_DMABUF=0
 COPY deploy/docker/scripts/build_mooncake_rocm.sh /tmp/build_mooncake_rocm.sh
 COPY deploy/docker/patches/mooncake_cpp/ /tmp/mooncake_cpp/
 RUN if [ "${BUILD_MOONCAKE}" = "1" ]; then \
-        MOONCAKE_DMABUF=1 MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" \
+        MOONCAKE_DMABUF=1 MOONCAKE_HIP_DMABUF="${MOONCAKE_HIP_DMABUF}" \
+        MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" \
         MC_CPP_PATCH_DIR=/tmp/mooncake_cpp \
         bash /tmp/build_mooncake_rocm.sh; \
     else \
