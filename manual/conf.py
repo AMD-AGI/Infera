@@ -37,6 +37,9 @@ extensions = [
 ]
 external_toc_path = "./sphinx/_toc.yml"
 external_projects_current_project = "infera"
+# The manual cross-references no ROCm sub-project, so skip the theme's default
+# intersphinx targets (rocm-docs-core "all" ~178 projects); many objects.inv 404.
+external_projects = []
 # Uncomment if you encounter rate limits when building locally
 # external_projects_remote_repository = ""
 
@@ -58,7 +61,7 @@ nitpicky = False
 suppress_warnings = ["myst.header"]
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "README.md", ".venv", ".venv/**"]
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "README.md", ".venv", ".venv/**", "wip/**"]
 
 # Publish the llms.txt index at the docs site root and let
 # rocm-docs-core generate llms-full.txt after each build (the llms.txt standard,
