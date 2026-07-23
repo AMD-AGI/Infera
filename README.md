@@ -1,37 +1,48 @@
-# ROCm Infera: More token goodput from frontier models.
+# Infera: Scaling Goodput for Agentic AI with Distributed Inference Orchestration
 
 [![CI](https://github.com/AMD-AGI/Infera/actions/workflows/ci.yml/badge.svg)](https://github.com/AMD-AGI/Infera/actions/workflows/ci.yml)
 [![Release](https://github.com/AMD-AGI/Infera/actions/workflows/release.yml/badge.svg)](https://github.com/AMD-AGI/Infera/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-[What's Infera?](#whats-infera) | [Key features](#key-features) | [Quick Start](#quick-start) | [Engine images](#engine-images) | [Documentation](#documentation) | [License](#license)
+[What's Infera?](#whats-infera) | [Key features](#key-features) | [Quick Start](#quick-start) | [Engine images](#engine-images) | [Benchmarks](#benchmarks) | [Documentation](#documentation) | [Roadmap](#roadmap) | [License](#license)
 
-A distributed, production serving mesh — disaggregated prefill/decode, KV-aware routing, and
-cache offload, tuned to your production SLA.
+AMD ROCm™ Infera is a distributed inference reference solution for large-scale deployments — a
+conductor for your inference GPU orchestra. It coordinates engine instances across three dimensions,
+KV-Aware Routing, Prefill-Decode Disaggregation, and KV-Cache Tiering, tuned to your production SLA.
 
-Infera is open and ROCm-native, built for AMD Instinct™ GPUs. It presents a single
-**OpenAI-compatible** endpoint — and the **Anthropic Messages** API through a translation
-layer — in front of one or many model workers, and runs **vLLM, SGLang, or ATOM** underneath.
+Infera is open source from day one and ROCm-native, built for AMD Instinct™ GPUs. It presents a
+single OpenAI-compatible endpoint — and the Anthropic Messages API through a translation
+layer — in front of one or many engine instances, and runs vLLM, SGLang, or ATOM underneath.
 
 ## What's Infera?
 
-Frontier models are served across nodes; inference engines are optimized within one. vLLM,
-SGLang, and ATOM batch, schedule, and manage memory well on a single node — but coordinating a
-fleet of them is left to you: hundreds of gigabytes of KV cache to track, agentic clients that
-replay the same history on every step, and requests to place across many GPUs without throwing
-away work the fleet has already done.
+Modern inference engines optimize execution within an engine instance, but production systems rely
+on many instances for scale, availability, and workload specialization. As deployments grow, teams
+typically use conventional load balancing or custom logic to distribute requests.
 
-Infera does **not** replace those engines. It is the layer in front of them that turns per-node
-engines into one fleet behind a single API, so that more of the GPU time you pay for becomes
-tokens you keep rather than prefill you recompute. Built and validated on AMD Instinct MI355X.
+This creates an orchestration gap, especially for agentic workloads. Agentic systems run long,
+multi-turn loops that repeatedly reuse large prefixes (system prompts, memory, retrieved context,
+tool outputs) while adding only small increments of new tokens. Contexts can reach tens or hundreds
+of thousands of tokens, with input-to-output ratios exceeding 100:1. In theory, most of this work
+should be reused via KV caching. In practice, reuse breaks down: systems lack visibility into which
+instances hold relevant KV cache, memory pressure forces eviction of large prefixes, and requests
+often land on different instances across turns. The result is repeated prefill, lost cache locality,
+degraded latency, and lower throughput, even when systems appear balanced.
+
+Infera addresses this by coordinating engine instances across three dimensions: KV-aware routing,
+prefill-decode disaggregation, and KV-cache tiering. Rather than replacing inference engines, it
+manages request placement, execution phases, and reusable KV state across the deployment. This
+orchestration increases inference goodput — the rate of requests completed within latency targets
+such as time to first token and inter-token latency — which is what determines end-to-end agentic AI
+performance. Built and validated on AMD Instinct MI355X.
 
 ## Key features
 
-The three levers that turn GPU time into tokens:
+Infera coordinates engine instances across three capabilities that turn GPU time into tokens:
 
-- **KV-aware routing** — score every live worker by how much of the prompt's prefix it already holds and route to the best match, keeping the fleet balanced. The prefix is served from cache instead of being recomputed.
-- **Prefill/decode disaggregation** — prefill is compute-bound, decode is bandwidth-bound, and running both on the same GPUs underuses each. Run them on separate GPUs/nodes, size each pool for its own job, and stream the KV between them over Mooncake or MoRI (AI NIC RDMA).
-- **Cache offload — tiered KV cache (`kvd`)** — when HBM fills, keep KV warm instead of dropping it and paying to recompute: GPU HBM → host RAM → local NVMe (L3) *or* a distributed store (L4). Durable across restarts, shared across engines on a host, and — on the distributed tier — pooled across nodes, so one node can pick up a prefix another already computed.
+- **Route: KV-Aware Routing** — route the request to an engine instance that balances KV-cache reuse and active work. The router scores every live instance by how much of the prompt's prefix it already holds and routes to the best match, so the prefix is served from cache instead of being recomputed.
+- **Specialize: Prefill-Decode Disaggregation** — run prefill and decode on specialized engine instances. Prefill is compute-bound and decode is bandwidth-bound, so running both in one instance underuses each; separate them, size each pool for its own job, and stream the KV between them over Mooncake or MoRI-IO (AI NIC RDMA).
+- **Retain: KV-Cache Tiering** — retain reusable KV state beyond GPU HBM memory for future requests. When HBM fills, AMD Infinity Context (AIC) keeps KV warm instead of dropping it: GPU HBM → local NVMe or remote NFS-backed storage, moved over a direct GPU data path that avoids staging through CPU DRAM, so one instance can pick up a prefix another already computed.
 
 Around them:
 
@@ -39,6 +50,23 @@ Around them:
 - **OpenAI- and Anthropic-compatible API** — `/v1/chat/completions`, `/v1/completions`, and `/v1/messages` (Anthropic Messages, translated in-process).
 - **Self-registering fleet** — workers register into etcd and heartbeat, so the router works from a live view and never routes to a worker that is gone; run any number of stateless server replicas.
 - **Kubernetes-native** — an operator reconciles an `InferaDeployment` CRD (aggregated / PD / multi-node), with an optional Gateway API (GAIE) endpoint picker.
+
+## Architecture
+
+Infera introduces a focused orchestration layer to the ROCm inference stack. Applications connect
+through the OpenAI-compatible API (with an Anthropic-compatible shim), where a built-in router
+handles scheduling; the server scales out behind a load balancer, and the same routing logic is
+also available as a high-performance Rust data plane.
+
+![ROCm Infera platform architecture layers](images/infera_architecture.png)
+
+At runtime, prefill and decode instances register with the control plane through etcd, and the
+router selects a compatible prefill-decode pair based on role, active work, and KV-cache locality.
+The prefill instance queries the external KV cache (kvd) for reusable blocks, AIC restores any hits
+over a direct GPU path, the completed KV state is transferred to the decode instance over Mooncake
+or MoRI-IO, and the decode instance streams the response back through the router.
+
+![Request flow in a prefill-decode disaggregated deployment with external KV-cache storage](images/infera_request_flow.png)
 
 ## Quick Start
 
@@ -134,14 +162,32 @@ docker build -f deploy/docker/Dockerfile.vllm   -t infera-vllm:dev .
 docker build -f deploy/docker/Dockerfile.atom   -t infera-atom:dev .
 ```
 
+## Benchmarks
+
+These early results show how Infera converts higher concurrency into usable goodput rather than
+raw throughput alone. Detailed workload definitions, configurations, methodology, and performance
+reproduction instructions are available in the
+[benchmarks section of the repository](https://github.com/AMD-AGI/Infera/tree/main/examples). We are
+continuing to expand our test coverage.
+
 ## Documentation
 
-Full guides, deployment recipes, and reference live in the Sphinx manual:
+Full guides, deployment recipes, and reference: **[rocm.docs.amd.com/infera](https://rocm.docs.amd.com/infera)**
+
+To build the same docs locally from the Sphinx manual:
 
 ```bash
 sudo apt-get install -y graphviz                            # `dot`, for the diagrams
 cd manual && pip install -r sphinx/requirements.txt && make html   # open _build/html/index.html
 ```
+
+## Roadmap
+
+Infera is currently at v0.1, and the initial reference solution should be viewed as a
+foundation rather than a feature-complete solution. Current limitations are detailed in the Infera
+[Feature Matrix](https://rocm.docs.amd.com/projects/infera/en/latest/features/feature_matrix.html)
+and [Compatibility Matrix](https://rocm.docs.amd.com/projects/infera/en/latest/features/compatibility_matrix.html).
+The public [Infera Roadmap](https://github.com/AMD-AGI/Infera/issues/9) identifies the priorities.
 
 ## License
 
