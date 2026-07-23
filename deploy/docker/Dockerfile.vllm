@@ -34,13 +34,12 @@ RUN if [ "${BUILD_AITER}" = "1" ]; then \
 # noncontig_register} + aiter flydsl). Each patch no-ops if its anchor is absent,
 # so a base bump degrades gracefully. legacy/ is upstream on this base, not applied.
 #
-# DEAD ON v0.25.1 (kept in-tree, but no-op — verified 2026-07-21): the three
-# GLM-5.1 moriio patches patch_moriio_dsa_write.py, patch_moriio_hetero.py and
-# patch_vllm_moriio_blocksize.py skip on this base because v0.25.1 refactored the
-# MoRIIO connector into moriio_layout.py, which already covers all three fixes
-# (full-layer wait_for_save; per-layer transfer geometry; kernel/logical block
-# ratio). Their skip in the build log is EXPECTED, not a regression. GLM-5.1 PD
-# has no e2e coverage here; re-anchor against moriio_layout.py only if it lands.
+# Removed on v0.25.1 (were no-op here): the three GLM-5.1 moriio patches
+# patch_moriio_dsa_write.py, patch_moriio_hetero.py and patch_vllm_moriio_blocksize.py.
+# v0.25.1 refactored the MoRIIO connector into moriio_layout.py, which natively covers
+# all three concerns (full-layer wait_for_save; per-layer transfer geometry;
+# kernel/logical block-size ratio), so their anchors no longer match and they were
+# dead weight — dropped to avoid the misleading "skipped" build-log lines.
 COPY deploy/docker/patches/vllm/ /tmp/vllm-patches/
 COPY deploy/docker/patches/vllm-dsv4/ /tmp/vllm-dsv4-patches/
 RUN for f in /tmp/vllm-patches/*.py; do echo "[vllm-patch] $f"; python "$f" || echo "[vllm-patch] skipped $f"; done \
