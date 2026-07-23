@@ -11,6 +11,30 @@ COPY deploy/docker/patches/atom/ /tmp/atom-patches/
 RUN for f in /tmp/atom-patches/patch_*.py; do echo "[atom-patch] $f"; python3 "$f" || echo "[atom-patch] skipped $f"; done \
     && rm -rf /tmp/atom-patches
 
+# ---- Mooncake (main + B-group C++ patches) --------------------------------
+# WHY: the ATOM base ships a Mooncake whose HIP GPU MR path is bare ibv_reg_mr,
+# which needs the legacy ib_peer_mem kernel module. On a dma-buf-only RoCE fabric
+# (no ib_peer_mem) that can't pin VRAM and the PD KV registration OOMs. Rebuild
+# Mooncake from the same pinned main ref vLLM uses, with MOONCAKE_HIP_DMABUF
+# selecting the GPU MR path (see build_mooncake_rocm.sh / Dockerfile.vllm).
+# ONLY rebuilt when MOONCAKE_HIP_DMABUF=1 (the e2e disagg harness passes it for
+# dma-buf-only clusters); by default (=0) the base image's Mooncake is used
+# UNCHANGED — so PD-mixed / any non-dma-buf build is byte-for-byte as before.
+ARG BUILD_MOONCAKE=1
+ARG MOONCAKE_GIT_REF=747003c058015c4077a266e7ccd7549bbc9baede
+ARG MOONCAKE_HIP_DMABUF=0
+COPY deploy/docker/scripts/build_mooncake_rocm.sh /tmp/build_mooncake_rocm.sh
+COPY deploy/docker/patches/mooncake_cpp/ /tmp/mooncake_cpp/
+RUN if [ "${BUILD_MOONCAKE}" = "1" ] && [ "${MOONCAKE_HIP_DMABUF}" = "1" ]; then \
+        MOONCAKE_DMABUF=1 MOONCAKE_HIP_DMABUF=1 \
+        MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" \
+        MC_CPP_PATCH_DIR=/tmp/mooncake_cpp \
+        bash /tmp/build_mooncake_rocm.sh; \
+    else \
+        echo "MOONCAKE_HIP_DMABUF=0 — using the base image's Mooncake (unchanged)"; \
+    fi \
+    && rm -rf /tmp/build_mooncake_rocm.sh /tmp/mooncake_cpp
+
 WORKDIR /opt/infera
 
 # Install infera + its declared deps from pyproject (single source of truth).
