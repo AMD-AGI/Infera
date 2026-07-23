@@ -64,7 +64,7 @@ Build from the repo root, e.g.:
 
 ```bash
 docker build -f deploy/docker/Dockerfile.sglang \
-  -t infera/engine-sglang:rocm720-mi35x .
+  -t rocm/infera:sglang-dev .
 ```
 
 ```{admonition} Pin the SGLang base image

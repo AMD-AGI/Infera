@@ -58,7 +58,7 @@ Shared by both: `--attention-backend aiter --kv-cache-dtype fp8_e4m3 --trust-rem
 - **Hardware:** 3 nodes, 8× MI355X each (ROCm 7.2.0), Docker with GPU access.
   node-0 prefill uses 4 GPUs; each decode node uses all 8.
 - **Model:** `amd/Kimi-K2.6-MXFP4` (~550B, license modified-mit, NOT gated).
-- **Image:** `inferaimage/infera:<current-tag>`.
+- **Image:** `rocm/infera:sglang-v0.1.1`.
 
 Download the model to a **local directory** (it is bind-mounted read-only) and
 point `MODEL` at it. Benchmarking needs a local clone of InferenceX (`IX`). Full
@@ -94,7 +94,7 @@ single-node: engine -> verify -> benchmark
 **Single-node** (any 4-GPU MI355X):
 
 ```bash
-IMAGE=inferaimage/infera:<current-tag> \
+IMAGE=rocm/infera:sglang-v0.1.1 \
 MODEL=/your/path/Kimi-K2.6-MXFP4 bash sglang_naive_engine.sh
 ```
 

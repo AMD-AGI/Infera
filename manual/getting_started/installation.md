@@ -66,15 +66,15 @@ Build the engine image for the runtime you'll serve with, from the repo root
 ```bash
 # vLLM
 docker build -f deploy/docker/Dockerfile.vllm \
-  -t infera/engine-vllm:dev .
+  -t rocm/infera:vllm-dev .
 
 # SGLang
 docker build -f deploy/docker/Dockerfile.sglang \
-  -t infera/engine-sglang:dev .
+  -t rocm/infera:sglang-dev .
 
 # ATOM
 docker build -f deploy/docker/Dockerfile.atom \
-  -t infera/engine-atom:dev .
+  -t rocm/infera:atom-dev .
 ```
 
 Then bring up a full stack (etcd + server + engine). The per-runtime

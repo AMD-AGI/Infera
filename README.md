@@ -86,7 +86,7 @@ docker run --rm -it --network host --ipc host --shm-size 32g             \
   --device /dev/kfd --device /dev/dri --device /dev/infiniband           \
   --group-add video --group-add render --cap-add IPC_LOCK                \
   -v /usr/lib/x86_64-linux-gnu/libionic.so:/host-libionic/libionic.so:ro \
-  docker.io/rocm/infera-sglang:v0.1.0 bash
+  docker.io/rocm/infera:sglang-v0.1.1 bash
 
 # Step 3 — inside the container: start the server and a worker
 python -m infera.server --port 8000 --etcd-endpoint 127.0.0.1:2379 \
@@ -103,7 +103,7 @@ curl localhost:8000/v1/chat/completions -H 'Content-Type: application/json' \
 ```
 
 To build the image yourself, see [Engine images](#engine-images) and replace
-`rocm/infera-sglang:v0.1.0` above with your local `infera-sglang:dev` tag.
+`rocm/infera:sglang-v0.1.1` above with your local `rocm/infera:sglang-dev` tag.
 
 ### Option B — From source (pip)
 
@@ -148,8 +148,24 @@ placeholders are in [`examples/k8s-deployments/`](examples/k8s-deployments/READM
 
 ## Engine images
 
-Each engine has one canonical Dockerfile under `deploy/docker/` that overlays Infera on a
-vendor base. Build from the repo root; override the base with `--build-arg <ENGINE>_BASE_IMAGE=...`.
+Prebuilt images are published to the `rocm/infera` repository, tagged
+`<component>-<version>`:
+
+| Image | Component |
+|-------|-----------|
+| `rocm/infera:vllm-v0.1.1`   | vLLM engine + Infera |
+| `rocm/infera:sglang-v0.1.1` | SGLang engine + Infera |
+| `rocm/infera:atom-v0.1.1`   | ATOM engine + Infera |
+| `rocm/infera:kvd-v0.1.1`    | tiered KV-cache daemon (`infera.kvd`) |
+| `rocm/infera:server-v0.1.1` | OpenAI-compatible server + router |
+
+```bash
+docker pull rocm/infera:sglang-v0.1.1
+```
+
+To build one yourself, each engine has one canonical Dockerfile under
+`deploy/docker/` that overlays Infera on a vendor base. Build from the repo root;
+override the base with `--build-arg <ENGINE>_BASE_IMAGE=...`.
 
 | Dockerfile          | Base image                                      |
 |---------------------|-------------------------------------------------|
@@ -158,9 +174,9 @@ vendor base. Build from the repo root; override the base with `--build-arg <ENGI
 | `Dockerfile.atom`   | `rocm/atom:rocm7.2.4_…_atom0.1.4_20260612`      |
 
 ```bash
-docker build -f deploy/docker/Dockerfile.sglang -t infera-sglang:dev .
-docker build -f deploy/docker/Dockerfile.vllm   -t infera-vllm:dev .
-docker build -f deploy/docker/Dockerfile.atom   -t infera-atom:dev .
+docker build -f deploy/docker/Dockerfile.sglang -t rocm/infera:sglang-dev .
+docker build -f deploy/docker/Dockerfile.vllm   -t rocm/infera:vllm-dev .
+docker build -f deploy/docker/Dockerfile.atom   -t rocm/infera:atom-dev .
 ```
 
 ## Benchmarks

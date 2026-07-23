@@ -70,7 +70,7 @@ metadata:
   name: qwen
 spec:
   backendFramework: sglang
-  image: infera/engine-sglang:dev
+  image: rocm/infera:sglang-v0.1.1
   nats: {deploy: true}
   services:
     server:
