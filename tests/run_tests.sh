@@ -447,8 +447,15 @@ run_e2e_disagg() {
     echo "[e2e disagg] WARNING: no SLURM (srun) — skipping PD-disaggregated tests" >&2
     return 0
   fi
+
+  if ! python3 -c "import pytest, pytest_asyncio, httpx" >/dev/null 2>&1; then
+    echo "[e2e disagg] host deps missing on $(python3 -c 'import sys;print(sys.executable)' 2>/dev/null || echo python3) — installing (pip --user, no sudo)…" >&2
+    python3 -m pip install --user -q pytest pytest-asyncio httpx 2>/dev/null \
+      || python3 -m pip install --user --break-system-packages -q pytest pytest-asyncio httpx 2>/dev/null \
+      || true
+  fi
   python3 -c "import pytest, pytest_asyncio, httpx" >/dev/null 2>&1 \
-    || { echo "[e2e disagg] WARNING: missing host deps (pytest/pytest-asyncio/httpx) — skipping" >&2; return 0; }
+    || { echo "[e2e disagg] ERROR: host deps (pytest/pytest-asyncio/httpx) still missing on $(hostname) after pip --user — FAILING (misconfigured env?)" >&2; return 1; }
 
   # Opt-in: hold a node pair for the whole run + pin INFERA_E2E_NODES to it
   # (released via _release_held on exit / trap / function end).
