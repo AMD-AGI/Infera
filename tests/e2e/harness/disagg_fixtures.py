@@ -101,6 +101,20 @@ def make_disagg_stack_fixture(
             tp = max(1, params.tensor_parallel_size)
             gpu_ids = list(range(tp))
 
+            # Cross-node RDMA NIC selection is a CLUSTER property, so detect it
+            # here (before launching the engine) and pass it into the worker env
+            # as MC_TE_FILTERS — rather than baking cluster-specific probing into
+            # the infera engine code. On a multi-homed / rail-optimized ionic
+            # fabric this pins Mooncake to the right rail(s) so KV doesn't move
+            # over a mgmt NIC (link-local GID -> QP "received packet mismatch") or
+            # cross-rail (host/aux buffers have no rail affinity ->
+            # "transport retry counter exceeded"). None on a plain single-fabric
+            # host; probes prefill_node (prefill/decode are identical hardware).
+            try:
+                mc_te_filters = cluster.mooncake_nic_filter(prefill_node, int(gid))
+            except (ValueError, TypeError):
+                mc_te_filters = None
+
             launcher.cleanup_stale([prefill_node, decode_node])
             launcher.ensure_images([prefill_node, decode_node])
 
@@ -151,6 +165,10 @@ def make_disagg_stack_fixture(
                 env = adapter.disagg_worker_env(
                     params, role, advertise_host=ip, gpu_ids=gpu_ids, gid_index=gid
                 )
+                # Inject the detected RDMA-rail whitelist unless the engine/case
+                # already set it (operator override wins).
+                if mc_te_filters and "MC_TE_FILTERS" not in env:
+                    env = {**env, "MC_TE_FILTERS": mc_te_filters}
                 h = launcher.start(
                     node=node,
                     argv=argv,

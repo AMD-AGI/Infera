@@ -28,8 +28,10 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import shlex
 import subprocess
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
@@ -60,6 +62,12 @@ _SRUN = ["srun", "--overlap", "--nodes=1", "--ntasks=1"]
 # on stock SLURM we keep --overlap/--jobid to co-schedule inside an allocation.
 _SPUR = bool(os.environ.get("SPUR_CONTROLLER_ADDR"))
 _PART = os.environ.get("INFERA_E2E_SLURM_PARTITION")
+# Optional SLURM reservation: PD-disagg briefly releases a node between per-step
+# `srun`s (e.g. between the image build and etcd start), so on a busy cluster the
+# node can be grabbed by another job in that gap. Pin every disagg `srun` to a
+# reservation (that the caller created over the INFERA_E2E_NODES pair) so the pair
+# stays held for the whole run. Unset => no reservation (unchanged behavior).
+_RESV = os.environ.get("INFERA_E2E_RESERVATION")
 
 # ROCm + RoCE flags for GPU worker containers (see module docstring).
 _GPU_RDMA_FLAGS = [
@@ -87,15 +95,45 @@ def _job_id() -> str | None:
     return os.environ.get("SLURM_JOB_ID") or os.environ.get("SLURM_JOBID")
 
 
-def _srun(node: str, argv: list[str], *, timeout: float) -> subprocess.CompletedProcess:
+# Transient Spur/SLURM controller faults that a step `srun` can hit under load
+# (they are NOT a bad node): a request routed to a non-leader controller, a
+# controller failover, a busy queue, etc. Without a retry here the failing step
+# surfaces as e.g. "docker build ... failed", which run_tests.sh's disagg loop
+# then misreads as a bad node and re-picks a fresh (unreserved, un-cached) pair —
+# defeating the reservation. Retry the SAME step on the SAME node instead, matching
+# the transient-error retry the _dispatch_slurm path already does for mixed/unit.
+_TRANSIENT_SRUN_RE = re.compile(
+    r"raft propose failed|not the Raft leader|leadership transfer|"
+    r"service is currently unavailable|job submission failed|"
+    r"Socket timed out on send/recv|Requested nodes are busy|"
+    r"Unable to contact slurm controller",
+    re.I,
+)
+
+
+def _srun(
+    node: str, argv: list[str], *, timeout: float, retries: int = 4
+) -> subprocess.CompletedProcess:
     if _SPUR:
         cmd = ["srun", "-N1", "-n1"] + (["-p", _PART] if _PART else []) + ["-w", node]
     else:
         cmd = list(_SRUN) + ["--nodelist", node]
         if _job_id():
             cmd += ["--jobid", _job_id()]
+    if _RESV:
+        cmd += [f"--reservation={_RESV}"]
     cmd += argv
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    attempt = 0
+    while (
+        proc.returncode != 0
+        and attempt < retries
+        and _TRANSIENT_SRUN_RE.search((proc.stderr or "") + (proc.stdout or ""))
+    ):
+        attempt += 1
+        time.sleep(min(2**attempt, 15))
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    return proc
 
 
 @dataclass
@@ -217,10 +255,20 @@ class SrunDockerLauncher(WorkerLauncher):
         if not missing:
             return
 
+        # dma-buf GPUDirect MR registration for Mooncake: on a dma-buf-only RoCE
+        # fabric (no ib_peer_mem kernel module — e.g. the crusoe amd-spur cluster)
+        # bare ibv_reg_mr can't pin VRAM and the KV registration OOMs, so build the
+        # engine image with the dma-buf verb (ibv_reg_dmabuf_mr) turned on. Default
+        # ON for the cross-node PD suite; set INFERA_E2E_MOONCAKE_DMABUF=0 to force
+        # the legacy bare-ibv_reg_mr build on an ib_peer_mem fabric. Only the vLLM
+        # Dockerfile threads this ARG today (see Dockerfile.vllm); it's harmless
+        # (ignored) for images that don't declare it.
+        dmabuf = os.environ.get("INFERA_E2E_MOONCAKE_DMABUF", "1")
         for node in missing:
             emit_reporter_line(
                 f"[e2e disagg] building {self.image} on {node} from {self.dockerfile} "
-                f"(docker cache; first build compiles Mooncake — many minutes)"
+                f"(docker cache; first build compiles Mooncake — many minutes; "
+                f"MOONCAKE_HIP_DMABUF={dmabuf})"
             )
             built = _srun(
                 node,
@@ -228,6 +276,8 @@ class SrunDockerLauncher(WorkerLauncher):
                     "docker",
                     "build",
                     "--network=host",
+                    "--build-arg",
+                    f"MOONCAKE_HIP_DMABUF={dmabuf}",
                     "-f",
                     os.path.join(REPO, self.dockerfile),
                     "-t",

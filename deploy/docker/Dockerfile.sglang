@@ -4,6 +4,31 @@
 ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
 FROM ${SGLANG_BASE_IMAGE}
 
+# ---- Mooncake (main + B-group C++ patches) --------------------------------
+# WHY: the SGLang base bundles Mooncake v0.3.7.post2, whose HIP GPU MR path is
+# bare ibv_reg_mr (it only has the dma-buf verb under USE_CUDA). On a dma-buf-only
+# RoCE fabric (no ib_peer_mem) bare ibv_reg_mr can't pin VRAM and the PD KV
+# registration OOMs. Rebuild Mooncake from the same pinned main ref vLLM uses,
+# with MOONCAKE_HIP_DMABUF selecting the GPU MR path (see build_mooncake_rocm.sh /
+# Dockerfile.vllm). ONLY rebuilt when MOONCAKE_HIP_DMABUF=1 (the e2e disagg harness
+# passes it for dma-buf-only clusters); by default (=0) the base image's Mooncake
+# is used UNCHANGED — so PD-mixed / any non-dma-buf build is byte-for-byte as before
+# (SGLang's base already ships a working ROCm Mooncake, unlike the CUDA-only vLLM base).
+ARG BUILD_MOONCAKE=1
+ARG MOONCAKE_GIT_REF=747003c058015c4077a266e7ccd7549bbc9baede
+ARG MOONCAKE_HIP_DMABUF=0
+COPY deploy/docker/scripts/build_mooncake_rocm.sh /tmp/build_mooncake_rocm.sh
+COPY deploy/docker/patches/mooncake_cpp/ /tmp/mooncake_cpp/
+RUN if [ "${BUILD_MOONCAKE}" = "1" ] && [ "${MOONCAKE_HIP_DMABUF}" = "1" ]; then \
+        MOONCAKE_DMABUF=1 MOONCAKE_HIP_DMABUF=1 \
+        MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" \
+        MC_CPP_PATCH_DIR=/tmp/mooncake_cpp \
+        bash /tmp/build_mooncake_rocm.sh; \
+    else \
+        echo "MOONCAKE_HIP_DMABUF=0 — using the base image's Mooncake (unchanged)"; \
+    fi \
+    && rm -rf /tmp/build_mooncake_rocm.sh /tmp/mooncake_cpp
+
 WORKDIR /opt/infera
 
 # Install infera + its declared deps from pyproject (single source of truth).
