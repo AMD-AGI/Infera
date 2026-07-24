@@ -6,6 +6,21 @@ FROM ${SGLANG_BASE_IMAGE}
 
 WORKDIR /opt/infera
 
+# ---- Mooncake HIP-transport gate (cross-node PD KV transfer) ---------------
+# The v0.5.15.post1 base bundles Mooncake at upstream #2682, which installs a HIP
+# transport unconditionally and prefers it over RDMA for the dual-registered KV
+# pool — breaking CROSS-NODE PD (hipIpcOpenMemHandle fails on a peer's handle).
+# Gate HIP behind MC_ENABLE_HIP_TRANSPORT (default OFF) + rebuild the engine in
+# place. No-op/​self-verifying; skip with BUILD_MOONCAKE_GATE=0. See the script.
+ARG BUILD_MOONCAKE_GATE=1
+COPY deploy/docker/scripts/patch_mooncake_sglang.sh /tmp/patch_mooncake_sglang.sh
+RUN if [ "${BUILD_MOONCAKE_GATE}" = "1" ]; then \
+        bash /tmp/patch_mooncake_sglang.sh; \
+    else \
+        echo "BUILD_MOONCAKE_GATE=0 — leaving base Mooncake HIP transport as-is"; \
+    fi \
+    && rm -f /tmp/patch_mooncake_sglang.sh
+
 # Install infera + its declared deps from pyproject (single source of truth).
 # The base already ships torch/sglang and most of infera's runtime stack; pip
 # leaves those satisfied versions untouched and only pulls what's missing (e.g.
