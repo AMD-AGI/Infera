@@ -1,0 +1,56 @@
+############################################################
+# NO-PIN dma-buf capability — one-click check
+# host=chi2798  dev=ionic_0  date=2026-07-24_07:39:41
+############################################################
+------------------------------------------------------------
+LAYER 1 — NIC ODP (On-Demand Paging)   [decisive]
+    	general_odp_caps:
+    	rc_odp_caps:
+    					NO SUPPORT
+    	uc_odp_caps:
+    					NO SUPPORT
+    	ud_odp_caps:
+    					NO SUPPORT
+    	xrc_odp_caps:
+    					NO SUPPORT
+    	completion timestamp_mask:			0x0000ffffffffffff
+    	hca_core_clock:			1100440kHZ
+    	device_cap_flags_ex:		0x1220000
+    	tso_caps:
+    		max_tso:			0
+  => Layer1 RED: NIC declares NO ODP support -> pin FORCED.
+------------------------------------------------------------
+LAYER 1b — peermem (whether plain ibv_reg_mr GPU-direct is even an option)
+  no peermem module loaded -> ibv_reg_mr GPU-direct NOT available
+                                 -> ibv_reg_dmabuf_mr is the ONLY path.
+    dmesg: [   40.737278] amdgpu: PeerDirect support was initialized successfully
+------------------------------------------------------------
+LAYER 2 — kernel CONFIG_DMABUF_MOVE_NOTIFY
+    config: CONFIG_DMABUF_MOVE_NOTIFY=y
+    kallsyms dma_buf_move_notify present: yes
+  => Layer2 GREEN
+------------------------------------------------------------
+LAYER 3 — amdgpu driver freshness (pin/notify support)
+    uname -r = 6.8.0-107-generic
+    amdgpu version = 6.16.13   file=/lib/modules/6.8.0-107-generic/updates/dkms/amdgpu.ko.zst
+    [   81.446816] amdgpu 0000:95:00.0: amdgpu: [VCN instance 2] Found VCN firmware Version ENC: 1.11 DEC: 9 VEP: 0 Revision: 9
+    [   81.475896] amdgpu 0000:95:00.0: amdgpu: [VCN instance 3] Found VCN firmware Version ENC: 1.11 DEC: 9 VEP: 0 Revision: 9
+  => Layer3 GREEN
+------------------------------------------------------------
+LAYER 4 — user-space rdma-core / libibverbs dmabuf MR symbol
+    libibverbs = /lib/x86_64-linux-gnu/libibverbs.so.1
+    symbol ibv_reg_dmabuf_mr: present
+  => Layer4 GREEN
+------------------------------------------------------------
+VERDICT
+    Layer1 NIC-ODP        : RED
+    Layer1b peermem       : RED (affects ibv_reg_mr option, not no-pin)
+    Layer2 MOVE_NOTIFY    : GREEN
+    Layer3 amdgpu         : GREEN
+    Layer4 rdma-core sym  : GREEN
+------------------------------------------------------------
+  RESULT: PIN FORCED — ibv_reg_dmabuf_mr will PIN the GPU memory.
+          Consequence: KFD double-counts the externally-pinned GPU mem,
+          so reported available GPU memory shrinks by ~the registered
+          size (reversible on dereg; no physical VRAM duplication).
+          Blocking layer: L1 NIC has no ODP (ionic: unfixable by config).
