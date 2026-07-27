@@ -1,0 +1,5 @@
+Single-node MTP (EAGLE 5-draft), single-stream decode, temp=0 (2026-07-27)
+Correctness probe (temp=0): 4/4
+Spec-dec ACTIVE: accept len 3.52-4.83 (of 6 draft), accept rate 0.51-0.77
+Single-stream gen throughput: 219 tok/s  (vs ~80 no-MTP baseline = ~2.7x speedup)
+Output: coherent (reasoning-style CoT)

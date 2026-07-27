@@ -1,0 +1,9 @@
+sglang.bench_serving, sglang-oai, 1k/1k, conc=64, 256 prompts via router :8100 (2026-07-27)
+Transport: MoRI RDMA, prefill=chi2878 + decode=chi2879, 8 ionic NICs
+Successful requests:        256 / 256   (0 fail)
+Benchmark duration (s):     101.46
+Total token throughput:     5167.48 tok/s
+Concurrency (achieved):     63.11
+Median TTFT (ms):           534.88
+Median TPOT (ms):           20.89   (P99 21.05)
+Correctness probe (temp=0): 4/4

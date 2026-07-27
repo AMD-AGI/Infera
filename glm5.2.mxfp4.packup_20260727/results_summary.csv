@@ -1,0 +1,6 @@
+experiment,transport,mtp,correctness,conc,success,total_tput_toks,median_ttft_ms,median_tpot_ms,concurrency,verdict
+01_single_node_mix,colocated,no,4/4,64,256/256,4621,2246,22.1,56.5,PASS
+02_pd_mori,mori_rdma,no,4/4,64,256/256,5167,535,20.9,63.1,PASS
+03_pd_mooncake_tcp,mooncake_tcp,no,4/4,64,50/256,886,50674,13.4,28.3,FAIL_conc
+04_single_node_mtp,colocated,eagle_5draft,4/4,1,single-stream,219_per_user,,,1,PASS
+05_pd_mtp,mori_rdma,eagle_3draft_decode,4/4,64,256/256,7444,412,12.1,59.5,PASS

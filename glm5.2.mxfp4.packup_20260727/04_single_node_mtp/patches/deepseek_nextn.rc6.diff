@@ -1,0 +1,11 @@
+--- deepseek_nextn.rc6stock.py	2026-07-27 08:37:56.792814118 +0000
++++ deepseek_nextn.py	2026-07-27 06:55:08.274599852 +0000
+@@ -302,7 +302,7 @@
+                 should_ignore_layer,
+             )
+ 
+-            ckpt_prefix = f"model.layers.{config.num_hidden_layers}"
++            ckpt_prefix = f"model.layers.{config.num_hidden_layers}.eh_proj"  # GLM-5.2: MTP layer is bf16; match submodule-level quark exclude (rc6 one-line fix, ndl)
+             mapped_prefix = self.hf_to_sglang_mapper._map_name(ckpt_prefix)
+             if should_ignore_layer(mapped_prefix, nextn_quant_config.exclude_layers):
+                 nextn_quant_config = None

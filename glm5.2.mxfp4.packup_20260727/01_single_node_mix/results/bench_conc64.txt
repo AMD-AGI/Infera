@@ -1,0 +1,9 @@
+sglang.bench_serving, sglang-oai, 1k/1k, conc=64, 256 prompts (2026-07-27)
+Successful requests:        256 / 256   (0 fail)
+Benchmark duration (s):     113.45
+Total token throughput:     4621.37 tok/s
+Concurrency (achieved):     56.46
+Median E2E Latency (ms):    24399.99
+Median TTFT (ms):           2246.46
+Median TPOT (ms):           22.07   (P99 23.39)
+Correctness probe (temp=0): 4/4  (France->Paris, China->Beijing, 2+2->4, largest planet->Jupiter)

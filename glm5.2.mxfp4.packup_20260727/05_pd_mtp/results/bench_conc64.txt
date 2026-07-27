@@ -1,0 +1,10 @@
+sglang.bench_serving, sglang-oai, 1k/1k, conc=64, 256 prompts via router :8100 (2026-07-27)
+Transport: MoRI RDMA + MTP on decode leg. prefill=chi2832(no MTP) + decode=chi2879(EAGLE 3-draft)
+Successful requests:        256 / 256   (0 fail — no high-conc crash)
+Benchmark duration (s):     70.43
+Total token throughput:     7443.95 tok/s   (+44% vs no-MTP Phase3 5167)
+Concurrency (achieved):     59.52
+Median TTFT (ms):           412.10
+Median TPOT (ms):           12.10   (vs 20.9 no-MTP = 1.7x faster decode)
+Spec-dec on decode: accept len 2.75-2.88, accept rate 0.58-0.62
+Correctness probe (temp=0): 4/4

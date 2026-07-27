@@ -1,0 +1,10 @@
+sglang.bench_serving, sglang-oai, 1k/1k, conc=64, 256 prompts via router :8100 (2026-07-27)
+Transport: mooncake TCP (MC_FORCE_TCP=1), prefill=chi2878 + decode=chi2879
+Successful requests:        50 / 256   *** FAIL (206 dropped) ***
+Benchmark duration (s):     115.57 (terminated early)
+Total token throughput:     886.04 tok/s
+Concurrency (achieved):     28.33  (could not reach 64)
+Median TTFT (ms):           50673.97  (51s! TCP KV-transfer bottleneck)
+Median TPOT (ms):           13.42  (decode itself fine)
+Correctness probe (temp=0): 4/4  (output correct, but throughput fails)
+Failure: prefill log floods KVTransferError "remote mooncake session not alive" under conc load.
