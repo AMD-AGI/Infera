@@ -96,6 +96,7 @@ class SglangDisaggAdapter(EngineAdapter):
         advertise_host: str,
         gpu_ids: list[int],
         gid_index: str,
+        nic_filter: str | None = None,
     ) -> dict[str, str]:
         env = {
             "HIP_VISIBLE_DEVICES": ",".join(str(g) for g in gpu_ids),

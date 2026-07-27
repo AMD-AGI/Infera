@@ -183,9 +183,15 @@ class EngineAdapter(ABC):
         advertise_host: str,
         gpu_ids: list[int],
         gid_index: str,
+        nic_filter: str | None = None,
     ) -> dict[str, str]:
         """Env for one PD worker: GPU visibility + the RDMA data-plane host/GID +
-        any per-case ``extra_env``. Defaults to the mixed env (GPU only)."""
+        any per-case ``extra_env``. Defaults to the mixed env (GPU only).
+
+        ``nic_filter`` is the RDMA device this cluster's rails require (detected by
+        :func:`tests.e2e.harness.cluster.mooncake_nic_filter`), or None when nothing
+        needs pinning. The harness sets Mooncake's own ``MC_TE_FILTERS`` from it;
+        an engine that picks its NIC through a *different* knob maps it here."""
         return self.worker_env(params, gpu_ids=gpu_ids)
 
 

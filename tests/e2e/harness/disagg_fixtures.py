@@ -67,7 +67,6 @@ def make_disagg_stack_fixture(
     *,
     image: str,
     dockerfile: str,
-    shell_entrypoint: bool = False,
 ):
     """Return a function-scoped ``disagg_stack`` fixture bound to ``adapter_factory``.
 
@@ -82,9 +81,7 @@ def make_disagg_stack_fixture(
     @pytest_asyncio.fixture
     async def disagg_stack():
         adapter = adapter_factory()
-        launcher = SrunDockerLauncher(
-            image=image, dockerfile=dockerfile, shell_entrypoint=shell_entrypoint
-        )
+        launcher = SrunDockerLauncher(image=image, dockerfile=dockerfile)
         handles: list = []  # torn down in reverse order
 
         async def _up(params: EngineParams | None = None) -> dict:
@@ -163,7 +160,12 @@ def make_disagg_stack_fixture(
                     gpu_ids=gpu_ids,
                 )
                 env = adapter.disagg_worker_env(
-                    params, role, advertise_host=ip, gpu_ids=gpu_ids, gid_index=gid
+                    params,
+                    role,
+                    advertise_host=ip,
+                    gpu_ids=gpu_ids,
+                    gid_index=gid,
+                    nic_filter=mc_te_filters,
                 )
                 # Inject the detected RDMA-rail whitelist unless the engine/case
                 # already set it (operator override wins).

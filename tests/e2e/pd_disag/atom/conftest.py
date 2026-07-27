@@ -112,6 +112,7 @@ class AtomDisaggAdapter(EngineAdapter):
         advertise_host: str,
         gpu_ids: list[int],
         gid_index: str,
+        nic_filter: str | None = None,
     ) -> dict[str, str]:
         env = {
             "HIP_VISIBLE_DEVICES": ",".join(str(g) for g in gpu_ids),
@@ -122,12 +123,14 @@ class AtomDisaggAdapter(EngineAdapter):
             "RDMAV_FORK_SAFE": "1",
             "MC_GID_INDEX": gid_index,
         }
+        # ATOM picks its own Mooncake NIC and, unconfigured, assumes the MI300X
+        # naming (GPU N -> "rdmaN"). This fabric's devices are "ionic_N", so that
+        # guess names a device that does not exist: topology discovery finds 0 HCAs
+        # and Mooncake falls back to TCP. Hand it the NIC the harness detected.
+        if nic_filter:
+            env["ATOM_MOONCAKE_IB_DEVICE"] = nic_filter.split(",")[0]
         env.update(dict(params.extra_env))
         return env
 
 
-# shell_entrypoint=True: the ATOM image is ENTRYPOINT ["/bin/bash"] (vllm/sglang
-# use the host-ionic injector instead), so the launcher must override it.
-disagg_stack = make_disagg_stack_fixture(
-    AtomDisaggAdapter, image=IMAGE, dockerfile=DOCKERFILE, shell_entrypoint=True
-)
+disagg_stack = make_disagg_stack_fixture(AtomDisaggAdapter, image=IMAGE, dockerfile=DOCKERFILE)

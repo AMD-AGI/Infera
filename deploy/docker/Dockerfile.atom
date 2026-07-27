@@ -72,4 +72,7 @@ RUN SITE_PKGS=$(python3 -c "import site; print(site.getsitepackages()[0])") \
     && echo "import infera.engine.atom.hooks.kv_event_bootstrap" \
         > "${SITE_PKGS}/zzz_infera_atom_bootstrap.pth"
 
-ENTRYPOINT ["/bin/bash"]
+COPY deploy/docker/scripts/infera_inject_host_ionic.sh /usr/local/bin/infera-inject-host-ionic
+
+ENTRYPOINT ["/usr/local/bin/infera-inject-host-ionic"]
+CMD ["/bin/bash"]

@@ -203,20 +203,15 @@ class SrunDockerLauncher(WorkerLauncher):
         log_dir: str | None = None,
         build_timeout: float = 3600.0,
         start_timeout: float = 300.0,
-        shell_entrypoint: bool = False,
     ):
         self.image = image
         self.dockerfile = dockerfile
-        # Some engine images set ENTRYPOINT ["/bin/bash"] (e.g. ATOM) rather than
-        # the host-ionic injector that execs "$@" (vllm/sglang). For the former we
-        # must override --entrypoint bash and pass just "-lc <cmd>", else the CMD's
-        # leading "bash" is treated as a script ("cannot execute binary file").
-        self.shell_entrypoint = shell_entrypoint
         self.model_dir = model_dir or os.environ.get("INFERA_E2E_MODEL_DIR")
         self.log_dir = log_dir or "/tmp/infera-e2e-logs"
         self.build_timeout = build_timeout
         self.start_timeout = start_timeout
         self._built: set[str] = set()
+        self._libionic: dict[str, bool] = {}
         os.makedirs(self.log_dir, exist_ok=True)
 
     # -- cleanup --------------------------------------------------------
@@ -295,13 +290,38 @@ class SrunDockerLauncher(WorkerLauncher):
             self._built.add(node)
 
     # -- low-level container run ---------------------------------------
-    def _engine_mounts(self) -> list[str]:
+    def _has_host_libionic(self, node: str) -> bool:
+        """Whether ``node`` carries the host libionic provider to inject.
+
+        Probed ON THE NODE (memoised per node), not on this orchestrator host:
+        the driver is a login box with no ionic stack, so a local os.path.exists
+        drops the mount on every node. Without it the container keeps its own
+        libionic, libibverbs rejects it ("Driver ionic does not support the
+        kernel ABI of 4"), ibv_get_device_list() returns zero devices and
+        Mooncake silently installs TcpTransport instead of RDMA — the KV
+        transfer then runs over sockets with nothing failing.
+        """
+        if node not in self._libionic:
+            probe = _srun(
+                node,
+                ["bash", "-lc", f"test -e {shlex.quote(_LIBIONIC)}"],
+                timeout=self.start_timeout,
+            )
+            self._libionic[node] = probe.returncode == 0
+            if not self._libionic[node]:
+                emit_reporter_line(
+                    f"[e2e disagg] WARNING: {node} has no {_LIBIONIC}; the RDMA KV "
+                    f"transport may degrade to TCP"
+                )
+        return self._libionic[node]
+
+    def _engine_mounts(self, node: str) -> list[str]:
         mounts = ["-v", f"{REPO}:{REPO}"]
         # Mount when set (the dir lives on the compute NODE, not necessarily on
         # this orchestrator host, so don't gate on a local isdir check).
         if self.model_dir:
             mounts += ["-v", f"{self.model_dir}:{self.model_dir}:ro"]
-        if os.path.exists(_LIBIONIC):
+        if self._has_host_libionic(node):
             mounts += ["-v", f"{_LIBIONIC}:/host-libionic/libionic.so"]
         return mounts
 
@@ -327,23 +347,22 @@ class SrunDockerLauncher(WorkerLauncher):
     def _run_infera(
         self, node: str, container: str, argv: list[str], env: dict[str, str], *, gpu: bool
     ) -> None:
-        """Run an infera process (worker or router) in the engine image: keep the
-        image ENTRYPOINT (host-ionic inject), cd into the mounted repo, exec argv."""
+        """Run an infera process (worker or router) in the engine image: cd into the
+        mounted repo and exec argv.
+
+        The image ENTRYPOINT is never overridden: every engine image entrypoints on
+        the host-ionic injector, which execs "$@" after swapping in the host's
+        libionic. Overriding it (--entrypoint bash) skips that swap, and the
+        mismatched in-container provider leaves libibverbs with zero devices, so
+        Mooncake quietly serves KV over TCP instead of RDMA."""
         docker_args = ["--network", "host"]
         if gpu:
             docker_args += _GPU_RDMA_FLAGS
-        docker_args += self._engine_mounts()
+        docker_args += self._engine_mounts(node)
         for key, val in {"PYTHONPATH": REPO, **env}.items():
             docker_args += ["-e", f"{key}={val}"]
         inner = f"cd {shlex.quote(REPO)} && exec {shlex.join(argv)}"
-        if self.shell_entrypoint:
-            # ENTRYPOINT is a bare shell (e.g. ATOM's /bin/bash) -> override it and
-            # pass only the shell flags, not a leading "bash" arg.
-            docker_args += ["--entrypoint", "bash"]
-            self._run(node, container, self.image, docker_args, ["-lc", inner])
-        else:
-            # ENTRYPOINT execs "$@" (host-ionic injector) -> hand it a full argv.
-            self._run(node, container, self.image, docker_args, ["bash", "-lc", inner])
+        self._run(node, container, self.image, docker_args, ["bash", "-lc", inner])
 
     # -- services -------------------------------------------------------
     def start_etcd(self, *, node: str, container: str, advertise_host: str) -> LaunchHandle:
