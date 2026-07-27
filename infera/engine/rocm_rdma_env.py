@@ -34,6 +34,12 @@ logger = logging.getLogger(__name__)
 _ROCM_RDMA_DEFAULTS: dict[str, str] = {
     "MC_GID_INDEX": "1",  # Mooncake transfer engine: ionic RoCE v2 GID
     "MC_DISABLE_HIP_TRANSPORT": "1",  # Mooncake: use RDMA, not the HIP P2P transport
+    # The unified sglang image compiles the dma-buf MR path IN, but the whole AMD
+    # fleet is ionic (no ODP): ibv_reg_dmabuf_mr there PINS + DUPLICATES the KV
+    # pool in VRAM (and can exhaust a KFD resource). Default the safe bare
+    # ibv_reg_mr path ON; a dma-buf run (mlx5 / capped pool) opts back in by
+    # setting MOONCAKE_DISABLE_HIP_DMABUF=0 (or 'unset') in the launch env.
+    "MOONCAKE_DISABLE_HIP_DMABUF": "1",
     "MORI_IB_GID_INDEX": "1",  # MoRI transfer engine: ionic RoCE v2 GID
 }
 
