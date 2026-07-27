@@ -146,7 +146,7 @@ jobs:
       INFERA_E2E_SLURM_PARTITION: amd-spur
       INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
       INFERA_E2E_RESERVATION: infera-cicd-reserved
-      INFERA_E2E_SLURM_TIME: "01:00:00"
+      INFERA_E2E_SLURM_TIME: "00:50:00"
       INFERA_E2E_JOB_TAG: ${{ github.run_id }}-engine
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -187,12 +187,15 @@ jobs:
       matrix:
         engine: [vllm, sglang, atom]
     runs-on: [self-hosted, crusoe]
-    timeout-minutes: 240
+    timeout-minutes: 120
     env:
       INFERA_E2E_SLURM_PARTITION: amd-spur
       INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
       # Dispatch onto this pre-made reservation's nodes (srun --reservation).
       INFERA_E2E_RESERVATION: infera-cicd-reserved
+      # Keep the SLURM allocation just inside the job timeout, so the scheduler
+      # reclaims the node even if the runner is killed before it can scancel.
+      INFERA_E2E_SLURM_TIME: "01:50:00"
       INFERA_E2E_JOB_TAG: ${{ github.run_id }}-${{ matrix.engine }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
