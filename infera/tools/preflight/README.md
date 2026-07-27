@@ -46,6 +46,20 @@ python -m infera.tools.preflight --gpu --network
 
 Outputs: one `<dump-path>/<host>.json` per node + `<dump-path>/infera_preflight_report.html`.
 
+### Mooncake KV-registration mode
+
+A focused sub-probe decides HOW Mooncake should register the KV cache for PD
+disaggregation (bare `ibv_reg_mr`+peer-mem / `ibv_reg_dmabuf_mr` dma-buf / capped-KV)
+from the node's peer-mem + per-NIC ODP + BDF + GPU topology, and prints the exact
+env + launch flags with a bold-red warning on any bandwidth regression. Run it
+**inside the engine container** on the target GPU node (ODP / engine-`.so` checks
+need the image):
+
+```bash
+python -m infera.tools.preflight.mooncake_mode            # human report
+python -m infera.tools.preflight.mooncake_mode --json     # machine JSON (exit 2 if only the cap-KV stub)
+```
+
 > Running directly on a host only does the image-independent checks; GPU perf
 > (compute/HBM/P2P) and ais-check must run **inside the engine container** (see
 > "Multi-node" below).

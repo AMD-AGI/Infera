@@ -1,0 +1,53 @@
+{
+  "skill_name": "mooncake-mode-select",
+  "evals": [
+    {
+      "id": 0,
+      "name": "spur-dmabuf-bringup-happy-path",
+      "prompt": "I'm bringing up DeepSeek-V4-Pro cross-node PD disaggregation on two spur nodes (crsuse2-m2m, 8xMI355X) with the sglang mooncake backend. I already hold a node \u2014 job is under `squeue -u $USER`, and there's a container `dsv4_pd` running the dmabuf image on it. Figure out how mooncake should register the KV cache on this hardware and tell me exactly which NIC + env + launch flags to use before I start the prefill/decode legs.",
+      "expected_output": "Runs the mooncake_mode probe inside the spur container, detects no peer-mem + only mlx5 has ODP -> recommends Mode B (ibv_reg_dmabuf_mr on mlx5_0, GID 3, MC_MS_FILTERS=mlx5_0), surfaces the bandwidth-regression warning in bold (mlx5 200G vs ionic 400G x8), and ASKS the user to confirm before emitting the launch env/flags. Does NOT enable MC_ENABLE_HIP_TRANSPORT.",
+      "files": [],
+      "assertions": [
+        "Recommends Mode B (ibv_reg_dmabuf_mr / dma-buf) \u2014 not bare ibv_reg_mr",
+        "Selects mlx5_0 as the KV NIC (the only ODP NIC)",
+        "Emits MC_MS_FILTERS=mlx5_0 and MC_MS_AUTO_DISC=0 to force the single NIC",
+        "Sets MC_GID_INDEX=3 (mlx5 routable RoCEv2 GID)",
+        "Sets MOONCAKE_DISABLE_HIP_DMABUF=0 (allow dma-buf path)",
+        "Includes --disaggregation-ib-device mlx5_0 launch flag",
+        "Surfaces the bandwidth PERFORMANCE REGRESSION (1x200G mlx5 vs 8x400G ionic)",
+        "Does NOT enable MC_ENABLE_HIP_TRANSPORT for cross-node PD",
+        "States it would confirm the mode with the user before launching"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "kv-doubling-crash-debug",
+      "prompt": "My sglang decode worker keeps dying right at the KV-cache registration step \u2014 I see the VRAM climb to basically 2x the KV pool and then it SIGSEGVs (sometimes a HIP-209). This is mooncake PD on an MI355X box. What's going on and how do I launch it so it doesn't double the KV pool?",
+      "expected_output": "Recognizes the doubled-KV-pool + SIGSEGV/HIP-209 signature as ibv_reg_dmabuf_mr pinning on a no-ODP NIC (ionic). Probes the node for peer-mem + ODP NICs, and steers KV registration onto an ODP NIC (Mode B, mlx5) or peer-mem (Mode A) so the pool isn't pinned/doubled, forcing MC_MS_FILTERS onto the ODP NIC. Explains why non-ODP dma-buf pins.",
+      "files": [],
+      "assertions": [
+        "Identifies root cause: ibv_reg_dmabuf_mr pins+doubles the KV pool on a no-ODP NIC (ionic)",
+        "Detects that only mlx5 has ODP on this node (ionic lacks ODP)",
+        "Fix forces KV registration onto mlx5_0 (MC_MS_FILTERS / --disaggregation-ib-device)",
+        "Explains ODP dynamic-attach avoids the pin (no doubling)",
+        "Recommends Mode B env incl MOONCAKE_DISABLE_HIP_DMABUF=0 + MC_GID_INDEX=3",
+        "Ran the detector / probed the node rather than guessing"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "which-mode-generic-node",
+      "prompt": "Before I wire up mooncake KV transfer for prefill/decode disaggregation, how do I know whether this node should use bare ibv_reg_mr or the dma-buf path? What decides it, and can you just check this box and tell me?",
+      "expected_output": "Explains the decision hinges on a loaded peer-mem module (-> bare ibv_reg_mr, Mode A) vs no peer-mem + an ODP NIC (-> ibv_reg_dmabuf_mr, Mode B) vs neither (-> cap-KV stub). Runs the mooncake_mode probe on the node and reports the recommendation with the concrete env, then confirms the choice with the user rather than launching blind.",
+      "files": [],
+      "assertions": [
+        "Explains the decision rule: peer-mem present -> bare ibv_reg_mr (A); else ODP NIC -> dma-buf (B); else cap-KV (C)",
+        "Reports THIS box: no peer-mem module loaded",
+        "Reports THIS box: only mlx5 has ODP (8 ionic do not)",
+        "Concludes Mode B (dma-buf on mlx5) is the verdict for this box",
+        "Ran the detector on the box (job 50679) rather than answering generically",
+        "Mentions confirming with the user / notes the perf tradeoff"
+      ]
+    }
+  ]
+}
