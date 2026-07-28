@@ -303,11 +303,33 @@ docker exec dbg bash -c 'for p in $(ps -eo pid,args --no-headers | \
    and the next server wedges mid-boot with all ranks alive but the detokenizer silent.
    Use `docker rm -f <ctr>` + recreate; confirm `rocm-smi --showmemuse` reads 0% first.
    Re-`docker cp` the scripts and re-run `apply_fix.py` after recreating.
-2. **`TORCHINDUCTOR_COMPILE_THREADS=4` is mandatory on a cold Inductor cache.** Without
-   it, 8 DP ranks spawn 264 compile workers on 236 cores and deadlock during warmup in a
-   *different* place (DP0-2 in `synchronize` inside Inductor, DP3-7 at a collective,
-   stalled compiling `@torch.compile`'d `select_top_k_tokens`, `spec_utils.py:274`).
-   Do not confuse that boot-time deadlock with this request-time one.
+2. **`TORCHINDUCTOR_COMPILE_THREADS=4` is NOT sufficient on a cold Inductor cache.**
+   Without any limit, 8 DP ranks spawn 264 compile workers on 236 cores and deadlock
+   during warmup in a *different* place from Bug 2 (DP0-2 in `synchronize` inside
+   Inductor's `_make_launchers`, DP3-7 at a `broadcast`, stalled compiling
+   `@torch.compile`'d `select_top_k_tokens`, `spec_utils.py:274`).
+   Do not confuse that boot-time deadlock with the request-time one.
+
+   **Observed 2026-07-28 12:11 UTC: it recurred WITH `=4` set**, in a freshly recreated
+   container (cold cache), signature identical:
+   ```
+   DP0,1,2: synchronize (torch/cuda/__init__.py:1083)
+              _make_launchers (torch/_inductor/runtime/triton_heuristics.py:646)
+              precompile -> _wait_futures -> _compile_to_module
+   DP3..7:  broadcast (torch/distributed/distributed_c10d.py:2841)
+   ```
+   Boot hung >17 min (a healthy boot is ~9-10 min) with `health=503` throughout and no
+   exception in the log. Recovery that works:
+   ```bash
+   TORCHINDUCTOR_COMPILE_THREADS=1
+   TORCHINDUCTOR_CACHE_DIR=/home/yihou/glm52_fix/inductor_cache   # persist across containers
+   TRITON_CACHE_DIR=/home/yihou/glm52_fix/triton_cache
+   ```
+   Putting the caches on a host bind-mount is the real fix — after one successful boot the
+   compile step is warm and the race cannot recur. **Distinguishing the two deadlocks:**
+   boot-time = ranks in `synchronize`/Inductor frames and the server never reaches
+   `ready to roll`; Bug 2 = server IS ready, `health=200`, and it hangs only when a
+   request is routed, with one rank in `init_forward_metadata`.
 3. **Router:** fresh `--port` AND `--prometheus-port` on every restart; `pkill -9 -f
    launch_router` first. Once the router marks decode unhealthy it will not re-register —
    restart the router after decode reports `health=200`.
