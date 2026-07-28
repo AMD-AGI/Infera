@@ -1,0 +1,30 @@
+# accept length (of 4 draft tokens) — spec-dec really firing
+## mix DPA8+MTP (logs/mix_dpa_mtp_fix1.log), full run incl. conc=64 stress
+  n=251 min=2.35 p25=3.69 median=3.86 p75=3.98 max=4.00
+  (raw, last 20:)
+    accept len: 4.00
+    accept len: 3.52
+    accept len: 4.00
+    accept len: 3.85
+    accept len: 4.00
+    accept len: 4.00
+    accept len: 2.99
+    accept len: 4.00
+    accept len: 3.94
+    accept len: 3.58
+    accept len: 4.00
+    accept len: 4.00
+    accept len: 4.00
+    accept len: 3.21
+    accept len: 3.98
+    accept len: 3.54
+    accept len: 3.98
+    accept len: 3.85
+    accept len: 3.12
+    accept len: 4.00
+
+## MTP-only regression (logs/regr_mtp_only.log), 4/4 probe + 3 load reqs only
+    accept len: 3.35
+    accept len: 3.52
+    accept len: 2.50
+    accept len: 2.73

@@ -1,0 +1,76 @@
+[2026-07-28 08:14:00 DP6 TP6 EP6] Scheduler hit an exception: Traceback (most recent call last):
+  File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 4341, in run_scheduler_process
+    scheduler.run_event_loop()
+  File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 1523, in run_event_loop
+    dispatch_event_loop(self)
+  File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 4206, in dispatch_event_loop
+    scheduler.event_loop_overlap()
+  File "/opt/venv/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 120, in decorate_context
+    return func(*args, **kwargs)
+  File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 1615, in event_loop_overlap
+    batch_result = self.run_batch(batch)
+  File "/sgl-workspace/sglang/python/sglang/srt/utils/nvtx_utils.py", line 109, in wrapper
+    return func(*args, **kwargs)
+  File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 3259, in run_batch
+    batch_result = self.model_worker.forward_batch_generation(
+  File "/sgl-workspace/sglang/python/sglang/srt/speculative/eagle_worker_v2.py", line 1267, in forward_batch_generation
+    self.draft_worker._draft_extend_for_decode(batch, batch_output)
+  File "/sgl-workspace/sglang/python/sglang/srt/speculative/eagle_worker_v2.py", line 965, in _draft_extend_for_decode
+    draft_logits_output = self.draft_runner.forward(
+  File "/sgl-workspace/sglang/python/sglang/srt/model_executor/model_runner.py", line 3044, in forward
+    output = self._forward_raw(
+  File "/sgl-workspace/sglang/python/sglang/srt/model_executor/model_runner.py", line 3230, in _forward_raw
+    ret = self.eager_runner.execute(
+  File "/sgl-workspace/sglang/python/sglang/srt/model_executor/runner/eager_runner.py", line 207, in execute
+    return self._execute_idle(forward_batch, pp_proxy_tensors)
+  File "/sgl-workspace/sglang/python/sglang/srt/model_executor/runner/eager_runner.py", line 409, in _execute_idle
+    return model_runner.model.forward(
+  File "/opt/venv/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 120, in decorate_context
+    return func(*args, **kwargs)
+  File "/sgl-workspace/sglang/python/sglang/srt/models/deepseek_nextn.py", line 408, in forward
+    hidden_states = self.model(input_ids, positions, forward_batch)
+  File "/opt/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1775, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/opt/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1786, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/sgl-workspace/sglang/python/sglang/srt/models/deepseek_nextn.py", line 271, in forward
+    hidden_states, residual, topk_indices = self.decoder(
+  File "/opt/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1775, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/opt/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1786, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/sgl-workspace/sglang/python/sglang/srt/models/deepseek_v2.py", line 2227, in forward
+    hidden_states = self.self_attn(
+  File "/opt/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1775, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/opt/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1786, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/sgl-workspace/sglang/python/sglang/srt/models/deepseek_v2.py", line 1856, in forward
+    s = self.forward_prepare(
+  File "/sgl-workspace/sglang/python/sglang/srt/models/deepseek_v2.py", line 1914, in forward_prepare
+    inner_state = self.forward_absorb_prepare(
+  File "/sgl-workspace/sglang/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla.py", line 413, in forward_absorb_prepare
+    topk_indices = self.indexer(
+  File "/opt/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1775, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/opt/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1786, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/sgl-workspace/sglang/python/sglang/srt/layers/utils/multi_platform.py", line 83, in forward
+    return self._forward_method(*args, **kwargs)
+  File "/sgl-workspace/sglang/python/sglang/srt/layers/utils/multi_platform.py", line 95, in forward_hip
+    return self.forward_cuda(*args, **kwargs)
+  File "/sgl-workspace/sglang/python/sglang/srt/layers/attention/dsa/dsa_indexer.py", line 1911, in forward_cuda
+    topk_result = self._get_topk_paged(
+  File "/sgl-workspace/sglang/python/sglang/srt/layers/attention/dsa/dsa_indexer.py", line 963, in _get_topk_paged
+    topk_result = metadata.topk_transform(logits, self.index_topk)
+  File "/sgl-workspace/sglang/python/sglang/srt/layers/attention/dsa_backend.py", line 314, in topk_transform
+    return self.topk_backend.topk_transform(
+  File "/sgl-workspace/sglang/python/sglang/srt/layers/attention/dsa/dsa_topk_backend.py", line 130, in topk_transform
+    return fast_topk_transform_fused(
+  File "/opt/venv/lib/python3.10/site-packages/sgl_kernel/top_k.py", line 77, in fast_topk_transform_fused
+    torch.ops.sgl_kernel.fast_topk_transform_fused(
+  File "/opt/venv/lib/python3.10/site-packages/torch/_ops.py", line 1255, in __call__
+    return self._op(*args, **kwargs)
+RuntimeError: Expected lengths.size(0) == B to be true, but got false.  (Could this error message be improved?  If so, please report an enhancement request to PyTorch.)
+
+[2026-07-28 08:14:05 DP2 TP2 EP2] Scheduler hit an exception: Traceback (most recent call last):

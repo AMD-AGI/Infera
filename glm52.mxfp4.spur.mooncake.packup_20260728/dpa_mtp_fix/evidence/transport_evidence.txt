@@ -1,0 +1,11 @@
+### decode leg (DPA+MTP, pd_decode_v3.log)
+I0728 10:02:18.519924 14379 topology.cpp:127] Device mlx5_0 port 1 is available
+I0728 10:02:18.522629 14859 topology.cpp:127] Device mlx5_0 port 1 is available
+I0728 10:02:18.522694 14537 topology.cpp:127] Device mlx5_0 port 1 is available
+I0728 10:02:18.522842 15022 topology.cpp:127] Device mlx5_0 port 1 is available
+I0728 10:02:18.522920 14068 topology.cpp:127] Device mlx5_0 port 1 is available
+I0728 10:02:18.522995 14221 topology.cpp:127] Device mlx5_0 port 1 is available
+
+### counts (hung DPA+MTP run vs passing DPA-only run)
+pd_decode_v3: rdma=8 hip=0 tcp=0 mlx5=25 ionic=0 KVTransferError=0
+pd_decode_dpaonly: rdma=8 hip=0 tcp=0 mlx5=25 ionic=0 KVTransferError=0

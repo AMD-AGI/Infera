@@ -1,0 +1,64 @@
+[aiter] import [module_aiter_core] under /sgl-workspace/aiter/aiter/jit/module_aiter_core.so
+[aiter] merge tuned file under model_configs/ and configs/ /sgl-workspace/aiter/aiter/configs/bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/dsv3_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/dsv4_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/glm47_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/glm5_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/gptoss_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/kimi_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/kimik2_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/llama405B_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/llama70B_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/minimax_m3_eagle_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/qwen32B_bf16_tuned_gemm.csv
+/sgl-workspace/sglang/python/sglang/bench_serving.py:13: FutureWarning: `sglang.bench_serving` is deprecated and will be removed in a future release; use `sglang.benchmark.serving` instead (e.g. `python -m sglang.benchmark.serving`).
+  warnings.warn(
+benchmark_args=Namespace(backend='sglang-oai', base_url='http://10.245.158.91:8006', host='0.0.0.0', port=None, ready_check_timeout_sec=60, dataset_name='random', dataset_path='', dataset_offset=0, agentic_max_turns=None, speed_bench_category=None, speed_bench_output_len=512, model='glm5.2-mxfp4', served_model_name=None, tokenizer='/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4', num_prompts=256, sharegpt_output_len=None, sharegpt_context_len=None, random_input_len=1024, random_output_len=1024, random_range_ratio=1.0, image_count=1, image_resolution='1080p', random_image_count=False, image_format='jpeg', image_content='random', request_rate=inf, use_trace_timestamps=False, max_concurrency=64, output_file='/home/yihou/glm52_fix/sweep/pd_dpaonly_c64.jsonl', output_details=False, print_requests=False, disable_tqdm=False, disable_stream=False, return_logprob=False, top_logprobs_num=0, token_ids_logprob=None, logprob_start_len=-1, return_routed_experts=False, cache_report=False, seed=42, disable_ignore_eos=False, temperature=0.0, top_p=1.0, extra_request_body=None, apply_chat_template=False, profile=False, plot_throughput=False, profile_activities=['CPU', 'GPU'], profile_start_step=None, profile_steps=None, profile_num_steps=None, profile_by_stage=False, profile_stages=None, profile_output_dir=None, profile_prefix=None, lora_name=None, lora_request_distribution='uniform', lora_zipf_alpha=1.5, prompt_suffix='', pd_separated=False, profile_prefill_url=None, profile_decode_url=None, flush_cache=False, warmup_requests=64, tokenize_prompt=False, gsp_num_groups=64, gsp_prompts_per_group=16, gsp_system_prompt_len=2048, gsp_question_len=128, gsp_output_len=256, gsp_range_ratio=1.0, gsp_fast_prepare=False, gsp_send_routing_key=False, gsp_num_turns=1, gsp_ordered=False, gsp_group_distribution='uniform', gsp_zipf_alpha=None, mooncake_slowdown_factor=1.0, mooncake_num_rounds=1, mooncake_workload='conversation', fake_prefill=False, tag=None, header=None)
+Waiting up to 60s for http://10.245.158.91:8006/v1/models to become ready...
+Server ready in 0.0s.
+Fail to load tokenizer config with error=glm5.2-mxfp4 is not a local folder and is not a valid model identifier listed on 'https://huggingface.co/models'
+If this is a private repository, make sure to pass a token having permission to this repo either by logging in with `hf auth login` or by passing `token=<your_token>`
+
+WARNING It is recommended to use the `Chat` or `Instruct` model for benchmarking.
+Because when the tokenizer counts the output tokens, if there is gibberish, it might count incorrectly.
+
+Namespace(backend='sglang-oai', base_url='http://10.245.158.91:8006', host='0.0.0.0', port=30000, ready_check_timeout_sec=60, dataset_name='random', dataset_path='', dataset_offset=0, agentic_max_turns=None, speed_bench_category=None, speed_bench_output_len=512, model='glm5.2-mxfp4', served_model_name=None, tokenizer='/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4', num_prompts=256, sharegpt_output_len=None, sharegpt_context_len=None, random_input_len=1024, random_output_len=1024, random_range_ratio=1.0, image_count=1, image_resolution='1080p', random_image_count=False, image_format='jpeg', image_content='random', request_rate=inf, use_trace_timestamps=False, max_concurrency=64, output_file='/home/yihou/glm52_fix/sweep/pd_dpaonly_c64.jsonl', output_details=False, print_requests=False, disable_tqdm=False, disable_stream=False, return_logprob=False, top_logprobs_num=0, token_ids_logprob=None, logprob_start_len=-1, return_routed_experts=False, cache_report=False, seed=42, disable_ignore_eos=False, temperature=0.0, top_p=1.0, extra_request_body=None, apply_chat_template=False, profile=False, plot_throughput=False, profile_activities=['CPU', 'GPU'], profile_start_step=None, profile_steps=None, profile_num_steps=None, profile_by_stage=False, profile_stages=None, profile_output_dir=None, profile_prefix=None, lora_name=None, lora_request_distribution='uniform', lora_zipf_alpha=1.5, prompt_suffix='', pd_separated=False, profile_prefill_url=None, profile_decode_url=None, flush_cache=False, warmup_requests=64, tokenize_prompt=False, gsp_num_groups=64, gsp_prompts_per_group=16, gsp_system_prompt_len=2048, gsp_question_len=128, gsp_output_len=256, gsp_range_ratio=1.0, gsp_fast_prepare=False, gsp_send_routing_key=False, gsp_num_turns=1, gsp_ordered=False, gsp_group_distribution='uniform', gsp_zipf_alpha=None, mooncake_slowdown_factor=1.0, mooncake_num_rounds=1, mooncake_workload='conversation', fake_prefill=False, tag=None, header=None)
+
+#Input tokens: 262144
+#Output tokens: 262144
+Starting warmup with 64 sequences...
+Warmup completed with 64 sequences. Starting main benchmark run...
+  0%|          | 0/256 [00:00<?, ?it/s]  0%|          | 1/256 [00:28<2:00:19, 28.31s/it]  2%|▏         | 5/256 [00:28<17:44,  4.24s/it]    5%|▍         | 12/256 [00:28<05:33,  1.37s/it]  7%|▋         | 18/256 [00:30<03:29,  1.14it/s] 11%|█▏        | 29/256 [00:30<01:32,  2.46it/s] 18%|█▊        | 45/256 [00:30<00:41,  5.14it/s] 23%|██▎       | 59/256 [00:30<00:23,  8.33it/s] 25%|██▌       | 64/256 [00:48<00:23,  8.33it/s] 25%|██▌       | 65/256 [00:56<02:57,  1.08it/s] 26%|██▌       | 66/256 [00:56<02:53,  1.09it/s] 30%|██▉       | 76/256 [00:56<01:41,  1.78it/s] 33%|███▎      | 84/256 [01:01<01:36,  1.78it/s] 37%|███▋      | 95/256 [01:01<00:56,  2.82it/s] 40%|███▉      | 102/256 [01:01<00:42,  3.62it/s] 44%|████▍     | 113/256 [01:01<00:25,  5.57it/s] 48%|████▊     | 122/256 [01:02<00:17,  7.45it/s] 50%|█████     | 128/256 [01:05<00:29,  4.31it/s] 50%|█████     | 128/256 [01:18<00:29,  4.31it/s] 50%|█████     | 129/256 [01:25<02:33,  1.21s/it] 51%|█████     | 130/256 [01:26<02:30,  1.19s/it] 52%|█████▏    | 134/256 [01:26<01:46,  1.15it/s] 54%|█████▎    | 137/256 [01:26<01:22,  1.45it/s] 55%|█████▍    | 140/256 [01:27<01:06,  1.73it/s] 56%|█████▌    | 143/256 [01:28<00:59,  1.89it/s] 57%|█████▋    | 145/256 [01:31<01:16,  1.45it/s] 61%|██████▏   | 157/256 [01:32<00:32,  3.08it/s] 69%|██████▉   | 176/256 [01:32<00:10,  7.29it/s] 74%|███████▍  | 190/256 [01:34<00:09,  7.05it/s] 75%|███████▌  | 192/256 [01:48<00:09,  7.05it/s] 75%|███████▌  | 193/256 [01:53<00:49,  1.26it/s] 76%|███████▌  | 194/256 [01:54<00:49,  1.26it/s] 77%|███████▋  | 198/256 [01:54<00:37,  1.56it/s] 79%|███████▊  | 201/256 [01:55<00:29,  1.84it/s] 80%|███████▉  | 204/256 [01:55<00:23,  2.19it/s] 80%|████████  | 206/256 [01:55<00:19,  2.51it/s] 81%|████████▏ | 208/256 [01:56<00:19,  2.42it/s] 82%|████████▏ | 210/256 [01:59<00:29,  1.55it/s] 86%|████████▌ | 220/256 [01:59<00:09,  3.82it/s] 87%|████████▋ | 223/256 [02:01<00:10,  3.21it/s] 93%|█████████▎| 239/256 [02:02<00:02,  6.89it/s] 99%|█████████▉| 253/256 [02:02<00:00, 11.65it/s]100%|██████████| 256/256 [02:02<00:00,  2.08it/s]
+
+============ Serving Benchmark Result ============
+Backend:                                 sglang-oai
+Traffic request rate:                    inf       
+Max request concurrency:                 64        
+Successful requests:                     256       
+Benchmark duration (s):                  122.84    
+Total input tokens:                      262144    
+Total input text tokens:                 262144    
+Total generated tokens:                  262144    
+Total generated tokens (retokenized):    262080    
+Request throughput (req/s):              2.08      
+Input token throughput (tok/s):          2134.06   
+Output token throughput (tok/s):         2134.06   
+Peak output token throughput (tok/s):    7841.00   
+Peak concurrent requests:                107       
+Total token throughput (tok/s):          4268.13   
+Concurrency:                             62.41     
+----------------End-to-End Latency----------------
+Mean E2E Latency (ms):                   29947.36  
+Median E2E Latency (ms):                 30288.76  
+P90 E2E Latency (ms):                    31247.80  
+P95 E2E Latency (ms):                    31408.00  
+P99 E2E Latency (ms):                    32934.69  
+---------------Time to First Token----------------
+Mean TTFT (ms):                          2483.19   
+Median TTFT (ms):                        1699.21   
+P90 TTFT (ms):                           6624.31   
+P95 TTFT (ms):                           6712.34   
+P99 TTFT (ms):                           6816.60   
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          26.85     
+Median TPOT (ms):                        27.31     
+P90 TPOT (ms):                           28.45     
+P95 TPOT (ms):                           28.50     
+P99 TPOT (ms):                           28.51     
+---------------Inter-Token Latency----------------
+Mean ITL (ms):                           26.87     
+Median ITL (ms):                         27.39     
+P90 ITL (ms):                            28.72     
+P95 ITL (ms):                            29.07     
+P99 ITL (ms):                            29.82     
+Max ITL (ms):                            86.19     
+==================================================
