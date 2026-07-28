@@ -85,16 +85,61 @@ DP5:           init_forward_metadata (dsa_backend.py:752)
 `seq_lens_cpu is None` path, which does `seq_lens.max().item()` on a **GPU** tensor
 (a real device sync), versus the `if` arm's cheap host read.
 
-**Next hypothesis (under test now):** the surviving divergence is
-`forward_batch.seq_lens_cpu is None` differing per rank —
-`gpu_only = batch.seq_lens_cpu is None` (`base_spec_worker.py:112`). A rank on the
-else-arm issues a blocking device sync while peers on the host-read arm proceed into the
-next collective. Note `decide_needs_cpu_seq_lens` (`managers/overlap_utils.py:21`) is
-derived from `server_args` + backend flags, so it *should* be rank-uniform — meaning if
-the CPU mirror is missing on only some ranks, it is being dropped per-batch, not per-config.
+### The surviving divergence — CONFIRMED (2026-07-28 12:26 UTC)
 
-`scripts/instrument_v2.py` logs, per rank and per call, whether `seq_lens_cpu` is None and
-which arm is taken. It anchors on the **post-fix** text, so install it after `fix_bug2.py`.
+The arm probe (`scripts/instrument_v2.py`) caught it. Last step before the hang,
+`gnt=[0,0,0,0,0,0,4,0]` — only DP6 holds work:
+
+```
+7 idle ranks: mode=IDLE            seq_lens_cpu_is_None=False numel=0 -> arm=HOST      (cheap host read)
+DP6:          mode=DRAFT_EXTEND_V2 seq_lens_cpu_is_None=True  numel=1 -> arm=GPU_SYNC  (blocking .item())
+```
+
+and py-spy, sampled twice with zero movement:
+
+```
+DP6:              init_forward_metadata (dsa_backend.py:767)   <- seq_lens.max().item()
+DP0,1,3,4,5,7:    all_gather_into_tensor
+DP2:              broadcast
+```
+
+`dsa_backend.py:767` is literally `int(forward_batch.seq_lens.max().item()) + draft_token_num`.
+
+**So the causal chain is now complete and each link is measured:**
+
+1. A PD decode step gives work to a subset of DP ranks (`gnt` mostly zeros) — routine on
+   the decode leg because batches are shaped by KV arrival from prefill.
+2. `is_idle(rank) == (gnt[rank] == 0)` (56/56 samples) → the busy rank gets
+   `DRAFT_EXTEND_V2`, the rest get `IDLE`.
+3. Forward mode decides whether the host mirror exists: `IDLE` → `seq_lens_cpu` present;
+   `DRAFT_EXTEND_V2` → `seq_lens_cpu is None` (`gpu_only`, `base_spec_worker.py:112`;
+   see the "needs_cpu_seq_lens=False nulls the host mirror for spec-v2 relay batches"
+   comment at `dsa_backend.py:763`).
+4. Missing mirror forces the `else` arm → `seq_lens.max().item()`, a **GPU→CPU sync**,
+   while the idle peers take the free host path and run ahead into the next collective.
+5. The syncing rank can never retire its `.item()` because the peers hold the stream in a
+   collective it has not joined → **hard deadlock**.
+
+**Why `fix_bug2.py` was not enough:** it equalised *whether* ranks call
+`init_forward_metadata`, but not *what they do inside it*. The expensive/blocking arm is
+still selected per-rank, by forward mode.
+
+**Implication for the real fix.** Making the branch uniform is not sufficient; the
+`.item()` on this path has to go, or be made uniform. Cheapest ordering to try:
+
+a. **Avoid the sync entirely on the spec-v2 relay path.** `max_seqlen_k` only sizes the
+   page-table slice. A safe upper bound already known on the host (e.g. the batch's
+   `seq_lens_cpu` before it was nulled, or `context_length`/page-table width) would remove
+   the D2H read. This is the most promising: it deletes the hazard rather than
+   synchronising around it.
+b. **Restore the host mirror for `DRAFT_EXTEND_V2`** so both modes take the HOST arm —
+   i.e. make `gpu_only` False on this path. Costs one H2D per step, which is what the
+   `needs_cpu_seq_lens=False` optimisation was avoiding, so measure before adopting.
+c. Force every rank onto the same arm (all sync, or none), which keeps the cost but
+   removes the raggedness. Least attractive — it makes idle ranks pay a device sync.
+
+Note (c) is what a naive reading of "make it uniform" suggests, and it would work, but (a)
+is strictly better if a host-side bound is available.
 
 ## Live cluster state (verify before trusting — nodes may have been released)
 
