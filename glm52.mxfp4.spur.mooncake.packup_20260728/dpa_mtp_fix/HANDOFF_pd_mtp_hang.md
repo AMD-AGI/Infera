@@ -1,15 +1,69 @@
-# HANDOFF — PD + MTP decode hang (Bug 2, open)
+# HANDOFF — PD + MTP decode hang (Bug 2)
 
-State as of 2026-07-28 ~10:40 UTC. Written to survive a context compact: everything
+State as of 2026-07-28 ~11:35 UTC. Written to survive a context compact: everything
 needed to resume is here, no prior conversation required.
 
 ---
 
 ## One-line status
 
-Bug 1 (the `lengths.size(0) == B` top-k crash) is **FIXED and shipped**. A **second,
-independent defect** blocks PD when MTP runs on the decode leg: the server boots clean and
-the crash is gone, but the **first routed request deadlocks**. Not fixed. Not started.
+Bug 1 (the `lengths.size(0) == B` top-k crash) is **FIXED and shipped**. Bug 2 (PD + MTP
+decode deadlock) is **ROOT-CAUSED AND REPRODUCED**; a candidate fix is written and under
+test. See "ROOT CAUSE — PROVEN" below; the older hypothesis sections are kept, marked
+refuted, for the audit trail.
+
+## ROOT CAUSE — PROVEN (2026-07-28 11:24 UTC)
+
+**A DP-ragged branch in `base_spec_worker.prepare_for_draft_extend`.**
+
+```python
+can_cuda_graph = cuda_graph_runner and cuda_graph_runner.can_run_graph(forward_batch)
+if not batch.forward_mode.is_idle() and not can_cuda_graph:      # <-- PER-RANK predicate
+    draft_model_runner.attn_backend.init_forward_metadata(forward_batch)
+```
+
+`can_cuda_graph` is always False on this HIP build (draft-extend graph never captured),
+so the branch reduces to `if not is_idle()`.
+
+Rank-tagged instrumentation (`scripts/instrument_divergence.py`) gave a measured
+invariant, **56/56 samples, zero mismatches**:
+
+```
+is_idle(rank) == (global_num_tokens_cpu[rank] == 0)
+```
+
+So the branch is taken by exactly the ranks that hold work this step. When every rank has
+work — `gnt=[4,4,4,4,4,4,4,4]` — all 8 take it and the step completes (this is why boot,
+warmup, and the 4-prompt probe all pass). When a PD decode step has work for a **subset**
+— `gnt=[0,0,4,0,0,0,0,0]` — one rank enters `init_forward_metadata` and seven skip it.
+That call is not collective-free (DSA indexer metadata + a `.max().item()` device sync),
+so the busy rank blocks there while its peers run ahead into the next collective:
+
+```
+last probe line before the hang:   gnt=[0,0,4,0,0,0,0,0]   dp=2 eager=True, all others eager=False
+py-spy, sampled twice, identical:  DP2:        init_forward_metadata (dsa_backend.py:746)
+                                   DP1,3,4,5,7: all_gather_into_tensor
+                                   DP0,6:       broadcast
+```
+
+The stuck rank **follows whichever rank owns the work** — DP1 in the original capture,
+DP2 in the re-reproduction — confirming it is a ragged-collective race, not a fixed rank.
+
+**Why single-node mix passes and PD fails:** in the mix loop every rank gets work each
+step, so `gnt` is uniformly non-zero. On the PD decode leg batches are shaped by KV
+arrival from the prefill leg, so partial-occupancy steps are routine.
+
+**Candidate fix** (`scripts/fix_bug2.py`, under test): derive the predicate from the
+global state every rank already has, so no extra communication is needed —
+
+```python
+_gnt = getattr(forward_batch, "global_num_tokens_cpu", None)
+_needs_metadata = max(_gnt) > 0 if _gnt else (not batch.forward_mode.is_idle())
+if _needs_metadata and not can_cuda_graph:
+    draft_model_runner.attn_backend.init_forward_metadata(forward_batch)
+```
+
+Idle ranks then build zero-row metadata, which the DP-padded/IDLE path already handles.
 
 ## Live cluster state (verify before trusting — nodes may have been released)
 
