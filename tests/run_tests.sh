@@ -166,9 +166,18 @@ _spill_inflight() {
   squeue -h -u "$(id -un)" -o '%j' 2>/dev/null | grep -c -- 'spill' || true
 }
 
-# Re-run this script's args on one 8-GPU SLURM node with INFERA_E2E_LOCAL=1 (the
-# remote runs in place). Bad nodes are excluded and retried; transient controller
-# errors are retried. $1=label, $2..=script args.
+_hold_watch() {
+  local out="$1" flag="$2" jid=""
+  while sleep 5; do
+    [ -n "$jid" ] || jid=$(grep -oE 'srun: job [0-9]+' "$out" 2>/dev/null \
+      | grep -oE '[0-9]+' | head -1)
+    [ -n "$jid" ] || continue
+    case "$(squeue -h -j "$jid" -o '%T %r' 2>/dev/null)" in
+      PENDING*JobHoldMaxRequeue*) : > "$flag"; scancel "$jid" >/dev/null 2>&1; return ;;
+    esac
+  done
+}
+
 _dispatch_slurm() {
   local label="$1"; shift
   if ! _have_slurm; then
@@ -191,6 +200,7 @@ _dispatch_slurm() {
   fi
 
   local prc=1 attempt=0 max_attempts=5 exclude="" ran
+  local holdflag="$SCRATCH/.hold-$label" held=0 max_held="${INFERA_E2E_HOLD_MAX_RETRY:-30}"
   while [ "$attempt" -lt "$max_attempts" ]; do
     attempt=$((attempt + 1))
     local xflag=()
@@ -222,7 +232,7 @@ _dispatch_slurm() {
     fi
     echo "[$label] dispatch $attempt/$max_attempts to '$SLURM_PART' mode=$mode${exclude:+ exclude=$exclude} (remote: $*)"
     echo "[$label] streaming remote output below (live via $tailf):"
-    : > "$out"; [ -n "$logf" ] && : > "$logf"
+    : > "$out"; [ -n "$logf" ] && : > "$logf"; rm -f "$holdflag"
     # stdbuf -oL line-buffers tail to our stdout; -F follows by name + retry
     # (tolerates the remote truncating on open, and polls over NFS).
     stdbuf -oL tail -n +1 -F "$tailf" 2>/dev/null &
@@ -240,10 +250,24 @@ _dispatch_slurm() {
         -J "$jobname" "${xflag[@]}" "${resv[@]}" \
         "${remote[@]}" > "$out" 2>&1 &
     local srunpid=$!
+    _hold_watch "$out" "$holdflag" &
+    local holdpid=$!
     wait "$srunpid"; prc=$?
+    kill "$holdpid" 2>/dev/null; wait "$holdpid" 2>/dev/null
     # Let tail catch the final (NFS-propagated) lines before stopping it.
     sleep 3; kill "$tailpid" 2>/dev/null; wait "$tailpid" 2>/dev/null
     [ "$prc" -eq 0 ] && break
+    # Held job: the watchdog already cancelled it — resubmit without burning a
+    # real attempt, and fail the tier once the hold retries are exhausted.
+    if [ -f "$holdflag" ]; then
+      held=$((held + 1)); prc=1
+      if [ "$held" -ge "$max_held" ]; then
+        echo "[$label] job stuck in JobHoldMaxRequeue after $held retries — giving up" >&2
+        break
+      fi
+      echo "[$label] job held (JobHoldMaxRequeue) — cancelled, retry $held/$max_held in 5s" >&2
+      attempt=$((attempt - 1)); sleep 5; continue
+    fi
     # Retry on transient faults. Docker errors are in $logf (shared) or $out
     # (local); "running on <node>" is always an srun banner in $out.
     ran="$(sed -n 's/.*running on \([A-Za-z0-9._-]*\).*/\1/p' "$out" | tail -1)"
@@ -368,8 +392,6 @@ run_e2e_mixed() {
       vllm)   img="$IMG_VLLM" ;;
       atom)   img="$IMG_ATOM" ;;
     esac
-    # vLLM's mixed dir carries an extra kvd-offload test (test_mixed_kvd.py) —
-    # run the whole dir so it's collected; other engines have only test_mixed.py.
     local testpath="tests/e2e/pd_mixed/$e/test_mixed.py"
     [ "$e" = vllm ] && testpath="tests/e2e/pd_mixed/$e/"
     run_e2e_engine "$img" "$testpath" || rc=1
