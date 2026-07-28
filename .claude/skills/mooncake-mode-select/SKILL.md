@@ -59,29 +59,48 @@ image — on a bare login host ODP always reads absent). The standard spur patte
 `spur exec <jobid> docker exec <ctr> …` (see the `spur-interactive-debug` skill).
 
 ```bash
-# human-readable (colorized table + recommendation + warnings)
+# colorized CLI table: node facts + per-NIC capability + ALL modes ranked
 python -m infera.tools.preflight.mooncake_mode
 
-# machine-readable for programmatic decisions
-python -m infera.tools.preflight.mooncake_mode --json --quiet > /tmp/mc_mode.json
+# machine-readable + Markdown for an agent / to paste; --out-dir drops all 3 files
+python -m infera.tools.preflight.mooncake_mode --emit json --quiet > /tmp/mc_mode.json
+python -m infera.tools.preflight.mooncake_mode --out-dir /tmp/mc_mode   # .json/.md/.txt
 ```
 
-Exit code: `0` if a viable mode (A or B) was recommended, `2` if only the C stub.
+Exit code: `0` if the best pick is a viable full-KV mode (A or B, no user cap), `2`
+if the only viable path needs a KV cap (Mode C) or nothing is viable — i.e. `2`
+means a human decision (or an image rebuild) is required.
 
-The probe reports, per RDMA device: vendor/driver, netdev + IPv4, link speed, **ODP
-support**, routable RoCE-v2 **GID index**, PCI **BDF**, NUMA node — plus whether a
-**peer-mem** module is loaded, the kernel `CONFIG_PCI_P2PDMA`, GPU count/gfx, and
-whether the installed `engine.so` has `USE_HIP_DMABUF` compiled in.
+The tool **enumerates all three modes** — each marked viable or blocked *with the
+reason* — rather than emitting one recommendation, so you (or the user/agent) see
+the whole option space and can pick. It has two layers:
+
+- **Layer 1 (facts):** per RDMA device — vendor/driver, netdev + IPv4, link speed,
+  **ODP**, whether **dma-buf is registerable** on it, routable RoCE-v2 **GID index**,
+  PCI **BDF**, NUMA — plus node-level **peer-mem**, kernel `CONFIG_PCI_P2PDMA` (now
+  also probed via `/proc/kallsyms` when `/boot/config` isn't mounted in the
+  container), GPU count/gfx, and the **engine image** dma-buf capability (expected:
+  the infera sglang image supports every mode; the probe confirms `USE_HIP_DMABUF`).
+- **Layer 2 (options):** modes A/B/C ranked **safety-first, then bandwidth** — each
+  with viable/blocked + why, the selected NICs + selection rule, env dict, launch
+  flags, aggregate Gb/s, KV-pool full-vs-capped, pin none-vs-2×, and whether a
+  **user KV-cap confirmation** is required.
+
+The ranking is the load-bearing bit: a no-pin/no-cap mode on a slower ODP NIC
+outranks a faster mode that needs a KV cap — reproducing the crsuse choice of one
+200G mlx5 (Mode B) over eight 400G ionic (Mode C). Hand the JSON/Markdown to the
+user or an agent; they copy the env + flags for the mode they pick.
 
 If the script isn't importable (e.g. infera not pip-installed in that container),
 it's a single self-contained file — copy
 `infera/tools/preflight/mooncake_mode.py` in and run it directly with `python3`.
 
-### 2. Read the recommendation and the warnings
+### 2. Read the options (ranked) and the warnings
 
-The recommendation block gives the mode, the chosen NIC (if any), whether the
-dma-buf image is required, the exact **env dict**, and **launch flags**. Warnings
-carry severity:
+Each mode block gives viable/blocked + why, the selected NIC(s), whether the
+dma-buf image is required, the exact **env dict**, and **launch flags**; the top
+`★ best` is the safety-first pick. Read the blocked modes too — their reason is
+what tells the user "why not the faster one". Warnings carry severity:
 
 - **`*** PERFORMANCE REGRESSION ***`** — Mode B is forcing all KV onto an ODP NIC
   that is slower and/or fewer than the node's fast rails (the classic spur case:

@@ -20,6 +20,32 @@ The order is a **safety ranking**, not a performance ranking: A is the path with
 pinning and every rail available; B trades all-rails for no-pin on one ODP NIC; C
 is where no full-KV path is safe.
 
+## Ranking (why the detector enumerates AND sorts)
+
+The tool no longer emits one recommendation — it evaluates **all three modes** and
+sorts them by `_rank_key` (descending):
+
+```
+(viable, not needs_user_cap, pin == "none", aggregate_rail_gbps)
+```
+
+Read left-to-right this is **safety/correctness first, bandwidth last**:
+
+1. `viable` — a mode that can't run is always below one that can.
+2. `not needs_user_cap` — a full-KV mode outranks one that forces a KV-pool cap
+   (capping trades context/throughput and needs a human decision).
+3. `pin == "none"` — a no-pin mode outranks a pin+2× mode (the pin risks VRAM/KFD).
+4. `aggregate_rail_gbps` — only *then* does raw fabric bandwidth break ties.
+
+**This reproduces the crsuse decision.** On a node with 8×400G ionic (no peer-mem,
+no ODP) + 1×200G mlx5 (ODP), no peer-mem: Mode B on the single mlx5 is `viable, no
+cap, no pin, 200 Gb/s`; Mode C on the eight ionic is `viable, needs cap, 2× pin,
+3400 Gb/s`. Criterion 2 (no cap) fires before criterion 4 (bandwidth), so **B wins
+despite being 17× slower** — you accept the bandwidth hit to keep the full KV pool
+and avoid the pin. The detector prints B's `*** PERFORMANCE REGRESSION ***` so the
+user sees the tradeoff they're getting. Bandwidth only decides between two
+equally-safe modes (e.g. two ODP NICs, or two full-KV fabrics).
+
 ## Precondition 1 — peer-mem module (decides A vs B/C)
 
 **What it means:** a GPU peer-memory kernel module lets `ibv_reg_mr` register a raw

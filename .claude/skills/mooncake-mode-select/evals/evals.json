@@ -38,10 +38,10 @@
       "id": 2,
       "name": "which-mode-generic-node",
       "prompt": "Before I wire up mooncake KV transfer for prefill/decode disaggregation, how do I know whether this node should use bare ibv_reg_mr or the dma-buf path? What decides it, and can you just check this box and tell me?",
-      "expected_output": "Explains the decision hinges on a loaded peer-mem module (-> bare ibv_reg_mr, Mode A) vs no peer-mem + an ODP NIC (-> ibv_reg_dmabuf_mr, Mode B) vs neither (-> cap-KV stub). Runs the mooncake_mode probe on the node and reports the recommendation with the concrete env, then confirms the choice with the user rather than launching blind.",
+      "expected_output": "Explains the decision hinges on a loaded peer-mem module (-> bare ibv_reg_mr, Mode A) vs no peer-mem + an ODP NIC (-> ibv_reg_dmabuf_mr, Mode B) vs neither but kernel P2PDMA (-> capped dma-buf, Mode C). Runs the mooncake_mode probe on the node, which enumerates all three modes ranked safety-first then bandwidth, and reports the top viable pick with its concrete env, then confirms the choice with the user rather than launching blind.",
       "files": [],
       "assertions": [
-        "Explains the decision rule: peer-mem present -> bare ibv_reg_mr (A); else ODP NIC -> dma-buf (B); else cap-KV (C)",
+        "Explains the decision rule: peer-mem present -> bare ibv_reg_mr (A); else ODP NIC -> dma-buf (B); else kernel P2PDMA -> capped dma-buf (C), ranked safety-first then bandwidth",
         "Reports THIS box: no peer-mem module loaded",
         "Reports THIS box: only mlx5 has ODP (8 ionic do not)",
         "Concludes Mode B (dma-buf on mlx5) is the verdict for this box",

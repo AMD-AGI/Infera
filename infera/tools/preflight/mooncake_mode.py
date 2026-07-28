@@ -28,20 +28,28 @@ different ways, and the RIGHT one depends entirely on the node's kernel + NIC:
      driver-bug workaround). Left as a stub for a follow-up.
 
 This module PROBES the node (peer-mem, per-NIC ODP/vendor/speed/GID, kernel
-P2PDMA, GPU topology), then RECOMMENDS a mode with the exact env + launch flags,
-and RED-FLAGS a bandwidth regression when the only viable dma-buf NIC is slower or
-fewer than the node's fast rails. It never launches anything and takes no live
-transfer measurement (that is ``network.mooncakeperf``); it is the pre-decision
-step. The skill that drives it ALWAYS presents the recommendation to the user and
-lets them override -- the node can't see intent (a bandwidth hit the user has
-already accepted, a spare NIC reserved for something else).
+P2PDMA, GPU topology), then ENUMERATES all three modes -- each marked viable or
+blocked (with the reason) -- plus the per-NIC capability matrix and the engine
+image's dma-buf capability. Modes are ranked safety-first then bandwidth, so the
+top pick is the safest full-KV path, not merely the fastest fabric. It never
+launches anything and takes no live transfer measurement (that is
+``network.mooncakeperf``); it lays out the OPTIONS and their exact env + launch
+flags for a human or agent to choose from. A mode that needs a KV-pool CAP is
+flagged for explicit user confirmation.
+
+Output is offered in three formats (all from one probe): a colorized CLI table,
+JSON, and Markdown -- print any subset and/or drop all three to files.
 
 Usage:
-    python -m infera.tools.preflight.mooncake_mode            # human report
-    python -m infera.tools.preflight.mooncake_mode --json     # machine JSON
-    python -m infera.tools.preflight.mooncake_mode --json --quiet > mode.json
+    python -m infera.tools.preflight.mooncake_mode                 # CLI table (default)
+    python -m infera.tools.preflight.mooncake_mode --emit md       # Markdown to stdout
+    python -m infera.tools.preflight.mooncake_mode --emit table,json
+    python -m infera.tools.preflight.mooncake_mode --out-dir /tmp/mm   # write .json/.md/.txt
+    python -m infera.tools.preflight.mooncake_mode --json --quiet > mode.json  # back-compat
 
-Exit code: 0 if a viable mode (A or B) was recommended, 2 if only the stub (C).
+Exit code: 0 if the best pick is a viable full-KV mode (A or B, no user cap), 2 if
+the only viable path needs a KV cap (C) or nothing is viable -- i.e. 2 means a
+human decision or an image rebuild is required.
 """
 
 from __future__ import annotations
@@ -317,7 +325,14 @@ def probe_peermem() -> dict:
 
 
 def probe_pci_p2pdma() -> str | None:
-    """CONFIG_PCI_P2PDMA from the kernel config, if exposed (else None)."""
+    """CONFIG_PCI_P2PDMA from the kernel config, if exposed (else None).
+
+    P2PDMA is load-bearing for ionic dma-buf: a no-ODP NIC's dma-buf session is
+    stable only when the kernel has P2PDMA compiled in (isKernelDmabufSupported()
+    returns true) -- the amd-spur ionic dma-buf died for lack of it, the chi28xx
+    ionic dma-buf survived a conc=128 bench because it has it. So detecting this
+    correctly gates whether Mode C (capped ionic dma-buf) is viable or a blocker.
+    """
     for path in glob.glob("/boot/config-*"):
         txt = read_text(path)
         if txt:
@@ -330,6 +345,17 @@ def probe_pci_p2pdma() -> str | None:
                 if line.startswith("CONFIG_PCI_P2PDMA="):
                     return line.strip().split("=", 1)[1]
     except Exception:  # noqa: BLE001
+        pass
+    # Fallback for the engine container: /boot/config and /proc/config.gz are
+    # typically NOT mounted inside the image, but /proc/kallsyms still exposes the
+    # compiled-in pci_p2pdma_* symbols. Their presence == CONFIG_PCI_P2PDMA=y for
+    # our purpose. Stream it (kallsyms is multi-MB) and stop at the first hit.
+    try:
+        with open("/proc/kallsyms", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if "pci_p2pdma" in line:
+                    return "y (from /proc/kallsyms)"
+    except OSError:
         pass
     return None
 
@@ -391,150 +417,11 @@ def _fast_rails(nics: list[dict]) -> list[dict]:
     return [n for n in active if n["link_gbps"] == top]
 
 
-def decide(
-    nics: list[dict], peermem: dict, p2pdma: str | None, dmabuf_engine: dict
-) -> dict:
-    """Choose a mode + env + launch flags + warnings from the probe results."""
-    active = [n for n in nics if n["active"]]
-    odp_nics = [n for n in active if n["odp"]]
-    fast = _fast_rails(nics)
-    warnings: list[dict] = []
-
-    # ---- Mode A: peer-mem present -> bare ibv_reg_mr, the default no-surprise path
-    if peermem["present"]:
-        gid = next((n["gid_index"] for n in active if n["gid_index"] is not None), 1)
-        return {
-            "mode": "A_peermem_ibv_reg_mr",
-            "title": "bare ibv_reg_mr + peer-mem (default)",
-            "viable": True,
-            "nic_filter": None,  # all rails carry KV; let mooncake auto-discover
-            "env": {
-                "MOONCAKE_DISABLE_HIP_DMABUF": "1",
-                "MC_DISABLE_HIP_TRANSPORT": "1",
-                "MC_GID_INDEX": str(gid),
-                "NCCL_IB_DISABLE": "1",
-            },
-            "launch_flags": [],  # no --disaggregation-ib-device: use every rail
-            "needs_dmabuf_image": False,
-            "warnings": warnings,
-            "rationale": (
-                "peer-mem module present ("
-                + ", ".join(peermem["evidence"])
-                + "): ibv_reg_mr registers GPU pages directly, nothing pinned or "
-                "doubled, every RDMA rail usable. Stock image."
-            ),
-        }
-
-    # ---- Mode B: no peer-mem but an ODP NIC exists -> ibv_reg_dmabuf_mr on it
-    if odp_nics:
-        pick = sorted(odp_nics, key=lambda n: (-(n["link_gbps"] or 0), n["device"]))[0]
-        gid = pick["gid_index"] if pick["gid_index"] is not None else 3
-        # Perf regression: the only ODP NIC(s) are slower or fewer than the fast
-        # rails (e.g. one 200G mlx5 vs eight 400G ionic). All KV is forced onto
-        # the ODP NIC -- a real bandwidth downgrade the user must accept.
-        odp_is_fast = all(n["odp"] for n in fast) and len(odp_nics) >= len(fast)
-        if not odp_is_fast:
-            fast_desc = _rail_desc(fast)
-            odp_desc = _rail_desc(odp_nics)
-            warnings.append(
-                {
-                    "level": "perf-regression",
-                    "text": (
-                        f"KV is forced onto the ODP NIC(s) [{odp_desc}] instead of "
-                        f"the node's fast rails [{fast_desc}]. Expect a KV-transfer "
-                        "BANDWIDTH REGRESSION (fewer and/or slower rails carry the "
-                        "whole KV pool). This is the price of no-pin dma-buf without "
-                        "peer-mem; confirm the user accepts it."
-                    ),
-                }
-            )
-        if dmabuf_engine.get("compiled_in") is False:
-            warnings.append(
-                {
-                    "level": "blocker",
-                    "text": (
-                        "The installed mooncake engine.so was built WITHOUT "
-                        "USE_HIP_DMABUF (ibv_reg_dmabuf_mr not compiled in). dma-buf "
-                        "mode needs the rebuilt image -- see "
-                        "deploy/docker/scripts/build_mooncake_dmabuf.sh / "
-                        "deploy/docker/Dockerfile.sglang.dmabuf."
-                    ),
-                }
-            )
-        elif dmabuf_engine.get("compiled_in") is None:
-            warnings.append(
-                {
-                    "level": "verify",
-                    "text": (
-                        "Could not confirm the engine.so has USE_HIP_DMABUF "
-                        f"({dmabuf_engine.get('reason', 'unknown')}). Verify with: "
-                        "nm -D <mooncake engine.so> | grep ibv_reg_dmabuf_mr."
-                    ),
-                }
-            )
-        has_non_odp_active = any(not n["odp"] for n in active)
-        return {
-            "mode": "B_dmabuf_ibv_reg_dmabuf_mr",
-            "title": "ibv_reg_dmabuf_mr (GPUDirect dma-buf) on the ODP NIC",
-            "viable": True,
-            "nic_filter": pick["device"],
-            "env": {
-                "MOONCAKE_DISABLE_HIP_DMABUF": "0",
-                "MC_DISABLE_HIP_TRANSPORT": "1",
-                "MC_MS_AUTO_DISC": "0",
-                "MC_MS_FILTERS": pick["device"],
-                "MC_GID_INDEX": str(gid),
-                "NCCL_IB_DISABLE": "1",
-                # ionic rails present on the box need fork-safety; harmless for mlx5
-                **({"RDMAV_FORK_SAFE": "1"} if has_non_odp_active else {}),
-            },
-            "launch_flags": [f"--disaggregation-ib-device {pick['device']}"],
-            "needs_dmabuf_image": True,
-            "warnings": warnings,
-            "rationale": (
-                f"No peer-mem module; NIC {pick['device']} ({pick['vendor']}, "
-                f"{pick['link_gbps']}G) supports ODP, so ibv_reg_dmabuf_mr dynamic-"
-                "attaches without pinning -> KV pool not doubled. Forced onto this "
-                "NIC (MC_MS_FILTERS) so non-ODP rails never pin. Needs the dma-buf "
-                "image."
-            ),
-        }
-
-    # ---- Mode C: no peer-mem and no ODP NIC -> cap-KV workaround (STUB)
-    warnings.append(
-        {
-            "level": "blocker",
-            "text": (
-                "No peer-mem module AND no ODP-capable NIC. Bare ibv_reg_mr EFAULTs "
-                "on a device pointer; ibv_reg_dmabuf_mr would PIN + DOUBLE the KV "
-                "pool (SIGSEGV/HIP-209 on a large pool). Neither full-KV path is "
-                "safe on this node."
-            ),
-        }
-    )
-    return {
-        "mode": "C_cap_kv_workaround",
-        "title": "cap KV cache to survive a pinned dma-buf region (STUB)",
-        "viable": False,
-        "nic_filter": None,
-        "env": {
-            # left for a follow-up: the safe subset is dma-buf with a KV pool small
-            # enough that the doubled pin fits, or the driver-bug workaround.
-            "MOONCAKE_DISABLE_HIP_DMABUF": "0",
-            "MC_DISABLE_HIP_TRANSPORT": "1",
-        },
-        "launch_flags": [
-            # STUB: another agent fills the exact cap (e.g. --max-total-tokens / a
-            # reduced --mem-fraction-static so weights + 2x KV pin fit in VRAM).
-            "# TODO(cap-kv): --max-total-tokens <N>  # size so weights + 2*KV_pin < VRAM",
-        ],
-        "needs_dmabuf_image": True,
-        "warnings": warnings,
-        "rationale": (
-            "Fallback path intentionally left as a stub -- fill the KV-cap / driver-"
-            "bug workaround here."
-        ),
-    }
+def _p2pdma_present(p2pdma: str | None) -> bool:
+    """True when CONFIG_PCI_P2PDMA is compiled in (value 'y'/'m'/kallsyms hit)."""
+    if not p2pdma:
+        return False
+    return p2pdma.strip().lower().startswith(("y", "m"))
 
 
 def _rail_desc(nics: list[dict]) -> str:
@@ -546,6 +433,331 @@ def _rail_desc(nics: list[dict]) -> str:
     return ", ".join(f"{c}x {t}" for t, c in tags.items())
 
 
+def _total_gbps(nics: list[dict]) -> float:
+    """Aggregate KV-carrying bandwidth of a NIC set (rails x per-rail speed).
+
+    This is the number the ranking uses to compare fabrics: 8x400G ionic = 3200,
+    1x200G mlx5 = 200. It captures WHY mode A/C (all ionic) have far more raw
+    bandwidth than mode B (one ODP mlx5) even though B may still rank higher for
+    being no-pin/no-cap. Down/no-speed NICs contribute 0."""
+    return sum((n["link_gbps"] or 0) for n in nics)
+
+
+# --------------------------------------------------------------------------- #
+# Per-card capability (layer 1: the node facts, one row per NIC)
+# --------------------------------------------------------------------------- #
+def nic_capability(nics: list[dict], peermem: dict, dmabuf_engine: dict, p2pdma: str | None) -> list[dict]:
+    """One capability row per RDMA NIC: can THIS card carry KV, and by which path.
+
+    peer-mem is a node-level property (a loaded kernel module), so it's the same
+    for every card; odp is per-card. ``dmabuf_registerable`` = the engine.so has
+    ibv_reg_dmabuf_mr compiled in AND (the card has ODP OR the kernel has P2PDMA)
+    -- i.e. a dma-buf MR would register and stay alive on this card (no-pin via ODP,
+    or pinned-but-stable via P2PDMA). This is the layer-1 view a user/agent reads to
+    see, per card, whether peer-mem / dma-buf / ODP is available."""
+    pm = peermem["present"]
+    engine_ok = dmabuf_engine.get("compiled_in") is not False  # True or unknown
+    p2p = _p2pdma_present(p2pdma)
+    out: list[dict] = []
+    for n in nics:
+        if n["gid_index"] is None:
+            gid_disp = None
+        elif n["gid_ipv4"]:
+            gid_disp = f"{n['gid_index']}:{n['gid_ipv4']}"
+        else:
+            gid_disp = f"{n['gid_index']}:IPv6"
+        out.append(
+            {
+                "device": n["device"],
+                "vendor": n["vendor"],
+                "link_gbps": n["link_gbps"],
+                "active": n["active"],
+                "peermem": pm,  # node-level; repeated per row for a self-contained table
+                "odp": n["odp"],
+                "dmabuf_registerable": bool(engine_ok and (n["odp"] or p2p)),
+                "gid_index": n["gid_index"],
+                "gid_display": gid_disp,
+                "pci_bdf": n["pci_bdf"],
+                "numa_node": n["numa_node"],
+            }
+        )
+    return out
+
+
+def image_capability(dmabuf_engine: dict) -> dict:
+    """What the ENGINE IMAGE can do (layer 1). The infera sglang image is EXPECTED
+    to support every mode -- bare ibv_reg_mr, ibv_reg_dmabuf_mr (dma-buf compiled
+    in), and the HIP-transport gate -- all runtime-decided in one image (the unified
+    Dockerfile.sglang). We probe engine.so to CONFIRM the dma-buf half is really
+    compiled in; a mismatch means someone is on a stock/older base and should
+    rebuild. The probe confirms, it does not define the baseline expectation."""
+    compiled = dmabuf_engine.get("compiled_in")
+    cap = {
+        "expected": "infera sglang image supports ALL modes (bare ibv_reg_mr + "
+        "ibv_reg_dmabuf_mr + HIP-transport gate, runtime-decided in one image)",
+        "dmabuf_compiled_in": compiled,
+        "so": dmabuf_engine.get("so"),
+        "note": None,
+    }
+    if compiled is False:
+        cap["note"] = (
+            "engine.so has NO ibv_reg_dmabuf_mr -- this is a stock/older base, NOT the "
+            "unified infera image. dma-buf modes (B/C) need a rebuild "
+            "(deploy/docker/Dockerfile.sglang). Bare ibv_reg_mr (A) still works."
+        )
+    elif compiled is None:
+        cap["note"] = (
+            f"could not confirm ({dmabuf_engine.get('reason', 'unknown')}); verify: "
+            "nm -D <mooncake engine.so> | grep ibv_reg_dmabuf_mr"
+        )
+    return cap
+
+
+# --------------------------------------------------------------------------- #
+# Per-mode evaluation (layer 2: enumerate A/B/C, viable or blocked + why)
+# --------------------------------------------------------------------------- #
+def _engine_warnings(dmabuf_engine: dict) -> list[dict]:
+    """Shared dma-buf-engine warnings for modes B/C (need ibv_reg_dmabuf_mr)."""
+    compiled = dmabuf_engine.get("compiled_in")
+    if compiled is False:
+        return [
+            {
+                "level": "blocker",
+                "text": (
+                    "engine.so built WITHOUT USE_HIP_DMABUF (ibv_reg_dmabuf_mr not "
+                    "compiled in). Needs the unified image rebuild -- see "
+                    "deploy/docker/Dockerfile.sglang."
+                ),
+            }
+        ]
+    if compiled is None:
+        return [
+            {
+                "level": "verify",
+                "text": (
+                    "Could not confirm engine.so has USE_HIP_DMABUF "
+                    f"({dmabuf_engine.get('reason', 'unknown')}). Verify: "
+                    "nm -D <mooncake engine.so> | grep ibv_reg_dmabuf_mr."
+                ),
+            }
+        ]
+    return []
+
+
+def _eval_mode_a(active: list[dict], peermem: dict) -> dict:
+    """Mode A: bare ibv_reg_mr + peer-mem. Viable iff a peer-mem module is loaded."""
+    gid = next((n["gid_index"] for n in active if n["gid_index"] is not None), 1)
+    has_ionic = any(n["vendor"] == "ionic" for n in active)
+    devices = [n["device"] for n in active]
+    env = {
+        "MOONCAKE_DISABLE_HIP_DMABUF": "1",
+        "MC_DISABLE_HIP_TRANSPORT": "1",
+        "MC_GID_INDEX": str(gid),
+        "NCCL_IB_DISABLE": "1",
+        **({"RDMAV_FORK_SAFE": "1"} if has_ionic else {}),
+    }
+    viable = peermem["present"]
+    return {
+        "mode": "A",
+        "key": "A_peermem_ibv_reg_mr",
+        "title": "bare ibv_reg_mr + peer-mem (default, no-pin, every rail)",
+        "viable": viable,
+        "reason": (
+            "peer-mem present (" + ", ".join(peermem["evidence"]) + ")"
+            if viable
+            else "no peer-mem module loaded -- bare ibv_reg_mr would EFAULT on a device pointer"
+        ),
+        "nic_selection": {
+            "devices": devices,
+            "rule": "all active rails (cross-node; mooncake pairs by GID subnet). "
+            "Single-node loopback: pin ONE device on both legs instead.",
+        },
+        "env": env,
+        "launch_flags": [
+            "--disaggregation-ib-device " + ",".join(devices)
+            + "   # cross-node: all rails. Single-node: pin ONE (both legs same dev)."
+        ]
+        if devices
+        else [],
+        "needs_dmabuf_image": False,
+        "needs_user_cap": False,
+        "perf": {"rail_gbps": _total_gbps(active), "kv_pool": "full", "pin": "none"},
+        "warnings": [],
+    }
+
+
+def _eval_mode_b(active: list[dict], peermem: dict, fast: list[dict], dmabuf_engine: dict) -> dict:
+    """Mode B: ibv_reg_dmabuf_mr on an ODP NIC. Viable iff an ODP NIC exists AND the
+    engine.so has dma-buf compiled in (unknown counts as viable-with-verify)."""
+    odp_nics = [n for n in active if n["odp"]]
+    engine_ok = dmabuf_engine.get("compiled_in") is not False
+    warnings = list(_engine_warnings(dmabuf_engine))
+    pick = sorted(odp_nics, key=lambda n: (-(n["link_gbps"] or 0), n["device"]))[0] if odp_nics else None
+    gid = pick["gid_index"] if pick and pick["gid_index"] is not None else 3
+    has_non_odp_active = any(not n["odp"] for n in active)
+
+    # perf-regression: the ODP NIC(s) are slower/fewer than the node's fast rails.
+    if odp_nics:
+        odp_is_fast = all(n["odp"] for n in fast) and len(odp_nics) >= len(fast)
+        if not odp_is_fast:
+            warnings.append(
+                {
+                    "level": "perf-regression",
+                    "text": (
+                        f"KV forced onto ODP NIC(s) [{_rail_desc(odp_nics)}] instead of "
+                        f"the fast rails [{_rail_desc(fast)}]. Expect a KV-transfer "
+                        "BANDWIDTH REGRESSION -- the price of no-pin dma-buf without "
+                        "peer-mem. Confirm the user accepts it."
+                    ),
+                }
+            )
+    viable = bool(odp_nics) and engine_ok
+    if not odp_nics:
+        reason = "no ODP-capable NIC -- ibv_reg_dmabuf_mr would pin+double the pool"
+    elif not engine_ok:
+        reason = f"ODP NIC {pick['device']} present but engine.so has no dma-buf"
+    else:
+        reason = f"ODP NIC {pick['device']} ({pick['vendor']}, {pick['link_gbps']}G) -- no-pin dma-buf"
+    return {
+        "mode": "B",
+        "key": "B_dmabuf_odp_nic",
+        "title": "ibv_reg_dmabuf_mr (GPUDirect dma-buf) on the ODP NIC (no-pin)",
+        "viable": viable,
+        "reason": reason,
+        "nic_selection": {
+            "devices": [pick["device"]] if pick else [],
+            "rule": "the fastest ODP NIC (name tiebreak so prefill+decode pick the "
+            "SAME one); MC_MS_FILTERS locks KV to it so non-ODP rails never pin.",
+        },
+        "env": {
+            "MOONCAKE_DISABLE_HIP_DMABUF": "0",
+            "MC_DISABLE_HIP_TRANSPORT": "1",
+            "MC_MS_AUTO_DISC": "0",
+            "MC_MS_FILTERS": pick["device"] if pick else "<odp-nic>",
+            "MC_GID_INDEX": str(gid),
+            "NCCL_IB_DISABLE": "1",
+            **({"RDMAV_FORK_SAFE": "1"} if has_non_odp_active else {}),
+        },
+        "launch_flags": [f"--disaggregation-ib-device {pick['device']}"] if pick else [],
+        "needs_dmabuf_image": True,
+        "needs_user_cap": False,
+        "perf": {
+            "rail_gbps": _total_gbps([pick]) if pick else 0,
+            "kv_pool": "full",
+            "pin": "none",
+        },
+        "warnings": warnings,
+    }
+
+
+def _eval_mode_c(active: list[dict], p2pdma: str | None, dmabuf_engine: dict) -> dict:
+    """Mode C: capped dma-buf on a no-ODP NIC (ionic), gated on kernel P2PDMA.
+
+    ibv_reg_dmabuf_mr on a no-ODP NIC PINS + DOUBLES the KV pool; it is stable only
+    when the kernel has CONFIG_PCI_P2PDMA (isKernelDmabufSupported()). Viable iff
+    P2PDMA present AND engine has dma-buf; then the pool MUST be capped so weights +
+    2x(pin) fit VRAM -- always a user-confirmed tradeoff. Without P2PDMA it's the
+    amd-spur dead-end (session dies after the 1st transfer)."""
+    p2p = _p2pdma_present(p2pdma)
+    engine_ok = dmabuf_engine.get("compiled_in") is not False
+    warnings = list(_engine_warnings(dmabuf_engine))
+    devices = [n["device"] for n in active]
+    gid = next((n["gid_index"] for n in active if n["gid_index"] is not None), 1)
+    has_ionic = any(n["vendor"] == "ionic" for n in active)
+    viable = p2p and engine_ok
+
+    if not p2p:
+        warnings.append(
+            {
+                "level": "blocker",
+                "text": (
+                    "kernel CONFIG_PCI_P2PDMA absent "
+                    f"(probed: {p2pdma or 'unknown'}) -- no-ODP dma-buf session dies "
+                    "after the first transfer (the amd-spur dead-end). No safe KV path."
+                ),
+            }
+        )
+        reason = "no kernel P2PDMA -- capped dma-buf can't be made stable here"
+    elif not engine_ok:
+        reason = "P2PDMA present but engine.so has no dma-buf"
+    else:
+        reason = f"P2PDMA present ({p2pdma}) -- capped ionic dma-buf is stable"
+        warnings.append(
+            {
+                "level": "user-cap-confirm",
+                "text": (
+                    "ibv_reg_dmabuf_mr PINS + DOUBLES the KV pool -- it MUST be capped "
+                    "so weights + 2x(pin) fit VRAM. Validated (DSv4-Pro TP8 MI355X): "
+                    "--mem-fraction-static 0.75 --max-total-tokens 262144 -> 3.6 GB/card "
+                    "(2x pin 7.2 GB), avail 140 GB, conc=128 0-fail. This CAP is a "
+                    "throughput/context tradeoff -- CONFIRM WITH THE USER and recompute "
+                    "per model/TP/VRAM."
+                ),
+            }
+        )
+    return {
+        "mode": "C",
+        "key": "C_cap_kv_dmabuf",
+        "title": "capped dma-buf on a no-ODP NIC (ibv_reg_dmabuf_mr, KV pool capped)",
+        "viable": viable,
+        "reason": reason,
+        "nic_selection": {
+            "devices": devices,
+            "rule": "all active rails; the load-bearing knob is the KV CAP, not NIC choice.",
+        },
+        "env": {
+            "MOONCAKE_DISABLE_HIP_DMABUF": "0",
+            "MC_DISABLE_HIP_TRANSPORT": "1",
+            "MC_GID_INDEX": str(gid),
+            "NCCL_IB_DISABLE": "1",
+            **({"RDMAV_FORK_SAFE": "1"} if has_ionic else {}),
+        },
+        "launch_flags": (
+            ["--disaggregation-ib-device " + ",".join(devices)] if devices else []
+        )
+        + [
+            "--mem-fraction-static 0.75   # cap so weights + 2x KV pin fit VRAM",
+            "--max-total-tokens 262144   # DSv4-Pro TP8 MI355X; RECOMPUTE per model/TP/VRAM",
+        ],
+        "needs_dmabuf_image": True,
+        "needs_user_cap": True,
+        "perf": {"rail_gbps": _total_gbps(active), "kv_pool": "capped", "pin": "2x"},
+        "warnings": warnings,
+    }
+
+
+def _rank_key(m: dict) -> tuple:
+    """Sort key (descending): safety/correctness first, bandwidth last.
+
+    (viable, no-cap-needed, no-pin, aggregate-bandwidth). This reproduces the
+    crsuse decision: mode B on one slow ODP mlx5 (no cap, no pin) OUTRANKS mode C
+    on eight fast ionic (needs cap + 2x pin), i.e. we accept a bandwidth hit to
+    avoid capping the KV pool. Bandwidth only breaks ties among equally-safe modes."""
+    return (
+        m["viable"],
+        not m["needs_user_cap"],
+        m["perf"]["pin"] == "none",
+        m["perf"]["rail_gbps"],
+    )
+
+
+def evaluate_modes(
+    nics: list[dict], peermem: dict, p2pdma: str | None, dmabuf_engine: dict
+) -> list[dict]:
+    """Enumerate ALL three modes (A, B, C) with viability + config, in fixed order.
+
+    Unlike the old decide() (which returned a single recommendation), this returns
+    every mode so a user/agent sees the full picture: what's viable, what's blocked
+    and WHY. Ranking is a separate concern (see _rank_key)."""
+    active = [n for n in nics if n["active"]]
+    fast = _fast_rails(nics)
+    return [
+        _eval_mode_a(active, peermem),
+        _eval_mode_b(active, peermem, fast, dmabuf_engine),
+        _eval_mode_c(active, p2pdma, dmabuf_engine),
+    ]
+
+
 # --------------------------------------------------------------------------- #
 # Report / CLI
 # --------------------------------------------------------------------------- #
@@ -555,14 +767,20 @@ def collect() -> dict:
     p2pdma = probe_pci_p2pdma()
     dmabuf_engine = probe_dmabuf_engine()
     gpus = probe_gpus()
-    recommendation = decide(nics, peermem, p2pdma, dmabuf_engine)
+    modes = evaluate_modes(nics, peermem, p2pdma, dmabuf_engine)
+    ranked = sorted(modes, key=_rank_key, reverse=True)
+    best = ranked[0] if ranked and ranked[0]["viable"] else None
     return {
         "nics": nics,
         "peermem": peermem,
         "kernel_pci_p2pdma": p2pdma,
         "dmabuf_engine": dmabuf_engine,
         "gpus": gpus,
-        "recommendation": recommendation,
+        "nic_capability": nic_capability(nics, peermem, dmabuf_engine, p2pdma),
+        "image_capability": image_capability(dmabuf_engine),
+        "modes": modes,  # fixed A,B,C order
+        "ranked_keys": [m["key"] for m in ranked],
+        "recommend": best["key"] if best else None,
     }
 
 
@@ -577,68 +795,89 @@ def _c(s: str, color: str, enable: bool) -> str:
     return f"{color}{s}{_RST}" if enable else s
 
 
-def render(report: dict, color: bool) -> str:
+def _warn_tag(level: str, color: bool) -> str:
+    if level == "perf-regression":
+        return _c("*** PERFORMANCE REGRESSION ***", _RED, color)
+    if level == "blocker":
+        return _c("*** BLOCKER ***", _RED, color)
+    if level == "user-cap-confirm":
+        return _c("*** USER CONFIRM: KV CAP ***", _RED, color)
+    return _c(f"[{level}]", _YEL, color)
+
+
+def render_table(report: dict, color: bool) -> str:
+    """Human table: layer 1 (node + per-NIC + image facts) then layer 2 (A/B/C)."""
     lines: list[str] = []
     gpus = report["gpus"]
+
+    # ---- layer 1: node facts ----
+    lines.append(_c("=== NODE FACTS ===", _BOLD, color))
     lines.append(
         f"GPUs: {gpus.get('count')} x {gpus.get('gfx') or '?'}"
         f"   kernel CONFIG_PCI_P2PDMA={report['kernel_pci_p2pdma'] or 'unknown'}"
     )
     pm = report["peermem"]
-    pm_txt = "PRESENT" if pm["present"] else "absent"
-    lines.append(f"peer-mem module: {pm_txt}" + (f"  ({', '.join(pm['evidence'])})" if pm["evidence"] else ""))
-    de = report["dmabuf_engine"]
     lines.append(
-        "dma-buf engine.so (USE_HIP_DMABUF): "
-        + {True: "compiled-in", False: "NOT compiled-in", None: "unknown"}[de.get("compiled_in")]
+        f"peer-mem module: {'PRESENT' if pm['present'] else 'absent'}"
+        + (f"  ({', '.join(pm['evidence'])})" if pm["evidence"] else "")
     )
+    img = report["image_capability"]
+    di = {True: "compiled-in", False: "NOT compiled-in", None: "unknown"}[img["dmabuf_compiled_in"]]
+    lines.append(f"engine image dma-buf (ibv_reg_dmabuf_mr): {di}")
+    lines.append(f"  expected: {img['expected']}")
+    if img["note"]:
+        lines.append("  " + _c(img["note"], _YEL, color))
     lines.append("")
-    lines.append(f"{'NIC':<10}{'vendor':<10}{'netdev':<9}{'ipv4':<16}{'Gb/s':<7}{'ODP':<5}{'GID':<20}{'BDF':<14}")
-    for n in report["nics"]:
-        odp = "yes" if n["odp"] else "-"
-        if n["gid_index"] is None:
-            gid = "-"
-        elif n["gid_ipv4"]:
-            gid = f"{n['gid_index']}:{n['gid_ipv4']}"  # routable IPv4-mapped
-        else:
-            gid = f"{n['gid_index']}:IPv6"  # global-IPv6 RoCEv2 (raw GID in --json)
+
+    # ---- layer 1: per-NIC capability ----
+    lines.append(_c("=== NIC CAPABILITY ===", _BOLD, color))
+    hdr = (
+        f"{'NIC':<10}{'vendor':<9}{'Gb/s':<7}{'peermem':<9}{'ODP':<5}"
+        f"{'dmabuf':<8}{'GID':<18}{'BDF':<14}{'NUMA':<5}"
+    )
+    lines.append(hdr)
+    for c in report["nic_capability"]:
         lines.append(
-            f"{n['device']:<10}{n['vendor']:<10}{(n['netdev'] or '-'):<9}"
-            f"{(n['ipv4'] or '-'):<16}{str(n['link_gbps'] or '-'):<7}{odp:<5}"
-            f"{gid:<20}{(n['pci_bdf'] or '-'):<14}"
-            + ("" if n["active"] else "  [DOWN]")
+            f"{c['device']:<10}{c['vendor']:<9}{str(c['link_gbps'] or '-'):<7}"
+            f"{('yes' if c['peermem'] else '-'):<9}{('yes' if c['odp'] else '-'):<5}"
+            f"{('yes' if c['dmabuf_registerable'] else '-'):<8}"
+            f"{(c['gid_display'] or '-'):<18}{(c['pci_bdf'] or '-'):<14}"
+            f"{('-' if c['numa_node'] is None else str(c['numa_node'])):<5}"
+            + ("" if c["active"] else "  [DOWN]")
         )
     lines.append("")
 
-    rec = report["recommendation"]
-    head = f"RECOMMENDED MODE: {rec['mode']}  —  {rec['title']}"
-    lines.append(_c(head, _GRN if rec["viable"] else _RED, color))
-    lines.append(f"  why: {rec['rationale']}")
-    if rec["nic_filter"]:
-        lines.append(f"  NIC: {rec['nic_filter']}")
-    lines.append(f"  needs dma-buf image: {'YES' if rec['needs_dmabuf_image'] else 'no'}")
-    lines.append("  env:")
-    for k, v in rec["env"].items():
-        lines.append(f"    {k}={v}")
-    if rec["launch_flags"]:
-        lines.append("  launch flags:")
-        for f in rec["launch_flags"]:
-            lines.append(f"    {f}")
-    for w in rec["warnings"]:
-        if w["level"] == "perf-regression":
-            tag = _c("*** PERFORMANCE REGRESSION ***", _RED, color)
-        elif w["level"] == "blocker":
-            tag = _c("*** BLOCKER ***", _RED, color)
-        else:
-            tag = _c(f"[{w['level']}]", _YEL, color)
+    # ---- layer 2: modes, ranked ----
+    lines.append(_c("=== MODES (ranked: safety first, then bandwidth) ===", _BOLD, color))
+    best = report["recommend"]
+    by_key = {m["key"]: m for m in report["modes"]}
+    for key in report["ranked_keys"]:
+        m = by_key[key]
+        star = " ★ best" if key == best else ""
+        status = _c("viable", _GRN, color) if m["viable"] else _c("BLOCKED", _RED, color)
         lines.append("")
-        lines.append(f"  {tag} {_c(w['text'], _BOLD, color)}")
+        lines.append(_c(f"[{m['mode']}] {m['title']}", _BOLD, color) + f"  — {status}{star}")
+        lines.append(f"  why: {m['reason']}")
+        sel = m["nic_selection"]
+        lines.append(f"  NICs: {', '.join(sel['devices']) or '(none)'}")
+        lines.append(f"        rule: {sel['rule']}")
+        lines.append(
+            f"  bandwidth: {m['perf']['rail_gbps']:.0f} Gb/s aggregate"
+            f"   KV pool: {m['perf']['kv_pool']}   pin: {m['perf']['pin']}"
+            f"   dma-buf image: {'YES' if m['needs_dmabuf_image'] else 'no'}"
+        )
+        if m["env"]:
+            lines.append("  env: " + " ".join(f"{k}={v}" for k, v in m["env"].items()))
+        for fl in m["launch_flags"]:
+            lines.append(f"  flag: {fl}")
+        for w in m["warnings"]:
+            lines.append(f"  {_warn_tag(w['level'], color)} {_c(w['text'], _BOLD, color)}")
+
     lines.append("")
     lines.append(
         _c(
-            "NOTE: this is a recommendation. ALWAYS confirm the mode with the user "
-            "before launching — the node cannot see intent (an accepted bandwidth "
-            "hit, a NIC reserved for something else).",
+            "NOTE: this enumerates OPTIONS, not an order to launch. Modes needing a KV "
+            "CAP require the user to confirm the cap before launching.",
             _YEL,
             color,
         )
@@ -646,24 +885,162 @@ def render(report: dict, color: bool) -> str:
     return "\n".join(lines)
 
 
+def render_markdown(report: dict) -> str:
+    """Same two layers as the table, as GitHub-flavored Markdown (no ANSI)."""
+    p: list[str] = []
+    gpus = report["gpus"]
+    img = report["image_capability"]
+    di = {True: "compiled-in", False: "NOT compiled-in", None: "unknown"}[img["dmabuf_compiled_in"]]
+    pm = report["peermem"]
+
+    p.append("# Mooncake KV-registration mode report")
+    p.append("")
+    p.append("## Node facts")
+    p.append("")
+    p.append(f"- **GPUs:** {gpus.get('count')} x {gpus.get('gfx') or '?'}")
+    p.append(f"- **kernel CONFIG_PCI_P2PDMA:** {report['kernel_pci_p2pdma'] or 'unknown'}")
+    p.append(
+        f"- **peer-mem module:** {'PRESENT' if pm['present'] else 'absent'}"
+        + (f" ({', '.join(pm['evidence'])})" if pm["evidence"] else "")
+    )
+    p.append(f"- **engine image dma-buf (ibv_reg_dmabuf_mr):** {di}")
+    p.append(f"- **image expectation:** {img['expected']}")
+    if img["note"]:
+        p.append(f"- **note:** {img['note']}")
+    p.append("")
+
+    p.append("## NIC capability")
+    p.append("")
+    p.append("| NIC | vendor | Gb/s | peer-mem | ODP | dma-buf | GID | BDF | NUMA | active |")
+    p.append("|-----|--------|------|----------|-----|---------|-----|-----|------|--------|")
+    for c in report["nic_capability"]:
+        p.append(
+            f"| {c['device']} | {c['vendor']} | {c['link_gbps'] or '-'} | "
+            f"{'yes' if c['peermem'] else '-'} | {'yes' if c['odp'] else '-'} | "
+            f"{'yes' if c['dmabuf_registerable'] else '-'} | {c['gid_display'] or '-'} | "
+            f"{c['pci_bdf'] or '-'} | "
+            f"{'-' if c['numa_node'] is None else c['numa_node']} | "
+            f"{'yes' if c['active'] else 'DOWN'} |"
+        )
+    p.append("")
+
+    p.append("## Modes (ranked: safety first, then bandwidth)")
+    p.append("")
+    p.append("| rank | mode | viable | Gb/s | KV pool | pin | dma-buf img | user cap | why |")
+    p.append("|------|------|--------|------|---------|-----|-------------|----------|-----|")
+    best = report["recommend"]
+    by_key = {m["key"]: m for m in report["modes"]}
+    for i, key in enumerate(report["ranked_keys"], start=1):
+        m = by_key[key]
+        star = " ★" if key == best else ""
+        p.append(
+            f"| {i}{star} | {m['mode']} | {'yes' if m['viable'] else 'BLOCKED'} | "
+            f"{m['perf']['rail_gbps']:.0f} | {m['perf']['kv_pool']} | {m['perf']['pin']} | "
+            f"{'yes' if m['needs_dmabuf_image'] else 'no'} | "
+            f"{'yes' if m['needs_user_cap'] else 'no'} | {m['reason']} |"
+        )
+    p.append("")
+
+    # per-mode detail blocks (env + flags + warnings)
+    for key in report["ranked_keys"]:
+        m = by_key[key]
+        p.append(f"### [{m['mode']}] {m['title']}")
+        p.append("")
+        sel = m["nic_selection"]
+        p.append(f"- **NICs:** {', '.join(sel['devices']) or '(none)'}")
+        p.append(f"- **selection rule:** {sel['rule']}")
+        if m["env"]:
+            p.append("- **env:**")
+            p.append("  ```bash")
+            for k, v in m["env"].items():
+                p.append(f"  export {k}={v}")
+            p.append("  ```")
+        if m["launch_flags"]:
+            p.append("- **launch flags:**")
+            p.append("  ```")
+            for fl in m["launch_flags"]:
+                p.append(f"  {fl}")
+            p.append("  ```")
+        for w in m["warnings"]:
+            p.append(f"- **{w['level']}:** {w['text']}")
+        p.append("")
+    return "\n".join(p) + "\n"
+
+
+def _write_outputs(report: dict, out_dir: str, emit: set[str], color: bool) -> list[str]:
+    """Write requested formats into out_dir; return the paths written."""
+    os.makedirs(out_dir, exist_ok=True)
+    written: list[str] = []
+    if "json" in emit:
+        path = os.path.join(out_dir, "mooncake_mode.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2)
+        written.append(path)
+    if "md" in emit:
+        path = os.path.join(out_dir, "mooncake_mode.md")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(render_markdown(report))
+        written.append(path)
+    if "table" in emit:
+        path = os.path.join(out_dir, "mooncake_mode.txt")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(render_table(report, color=False) + "\n")
+        written.append(path)
+    return written
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
         prog="infera.tools.preflight.mooncake_mode", description=__doc__
     )
-    p.add_argument("--json", action="store_true", help="emit machine-readable JSON")
-    p.add_argument("--quiet", action="store_true", help="with --json, suppress the human report")
+    p.add_argument(
+        "--emit",
+        default="table",
+        help="comma-separated formats to print to stdout: table,json,md (default table)",
+    )
+    p.add_argument(
+        "--out-dir",
+        default="",
+        help="also write mooncake_mode.{json,md,txt} into this dir (all three formats)",
+    )
+    p.add_argument("--json", action="store_true", help="back-compat alias for --emit json")
+    p.add_argument("--quiet", action="store_true", help="with --json, suppress the human table on stderr")
     p.add_argument("--no-color", action="store_true", help="disable ANSI color")
     args = p.parse_args(argv)
 
     report = collect()
     color = (not args.no_color) and sys.stdout.isatty()
+    emit = {e.strip() for e in args.emit.split(",") if e.strip()}
     if args.json:
+        emit = {"json"}
+
+    # stdout
+    if emit == {"json"}:
         if not args.quiet:
-            sys.stderr.write(render(report, color) + "\n")
+            sys.stderr.write(render_table(report, color) + "\n")
         print(json.dumps(report, indent=2))
     else:
-        print(render(report, color))
-    return 0 if report["recommendation"]["viable"] else 2
+        chunks: list[str] = []
+        if "table" in emit:
+            chunks.append(render_table(report, color))
+        if "md" in emit:
+            chunks.append(render_markdown(report))
+        if "json" in emit:
+            chunks.append(json.dumps(report, indent=2))
+        print("\n\n".join(chunks))
+
+    # optional file drop (always all three formats, machine-consumable)
+    if args.out_dir:
+        written = _write_outputs(report, args.out_dir, {"json", "md", "table"}, color)
+        for path in written:
+            sys.stderr.write(f"[mooncake_mode] wrote {path}\n")
+
+    # exit 0 if a viable A/B (full-KV, no user cap) is the best pick, else 2. A
+    # C-only node (best needs a KV cap) or an all-blocked node returns 2 so callers
+    # know a human decision / rebuild is required.
+    by_key = {m["key"]: m for m in report["modes"]}
+    best = by_key.get(report["recommend"]) if report["recommend"] else None
+    return 0 if (best and not best["needs_user_cap"]) else 2
 
 
 if __name__ == "__main__":

@@ -48,16 +48,20 @@ Outputs: one `<dump-path>/<host>.json` per node + `<dump-path>/infera_preflight_
 
 ### Mooncake KV-registration mode
 
-A focused sub-probe decides HOW Mooncake should register the KV cache for PD
-disaggregation (bare `ibv_reg_mr`+peer-mem / `ibv_reg_dmabuf_mr` dma-buf / capped-KV)
-from the node's peer-mem + per-NIC ODP + BDF + GPU topology, and prints the exact
-env + launch flags with a bold-red warning on any bandwidth regression. Run it
-**inside the engine container** on the target GPU node (ODP / engine-`.so` checks
-need the image):
+A focused sub-probe that ENUMERATES how Mooncake can register the KV cache for PD
+disaggregation — modes A (bare `ibv_reg_mr`+peer-mem), B (`ibv_reg_dmabuf_mr` on an
+ODP NIC), C (capped dma-buf on a no-ODP NIC, gated on kernel P2PDMA) — each marked
+viable/blocked with the reason, from the node's peer-mem + per-NIC ODP + BDF + P2PDMA
++ GPU topology. It ranks them **safety-first then bandwidth**, prints the exact env +
+launch flags per mode, and bold-reds any bandwidth regression or required KV cap.
+Output as a CLI table (default), JSON, and/or Markdown. Run it **inside the engine
+container** on the target GPU node (ODP / engine-`.so` checks need the image):
 
 ```bash
-python -m infera.tools.preflight.mooncake_mode            # human report
-python -m infera.tools.preflight.mooncake_mode --json     # machine JSON (exit 2 if only the cap-KV stub)
+python -m infera.tools.preflight.mooncake_mode                 # CLI table (default)
+python -m infera.tools.preflight.mooncake_mode --emit json,md  # JSON + Markdown to stdout
+python -m infera.tools.preflight.mooncake_mode --out-dir /tmp/mm   # write .json/.md/.txt
+# exit 2 if the best pick needs a KV cap (Mode C) or nothing is viable
 ```
 
 > Running directly on a host only does the image-independent checks; GPU perf
