@@ -1,56 +1,72 @@
-# Reproduction kit — 03 PD mooncake (TCP: correct output; conc=64: fails)
+# Reproduction kit — 03 PD mooncake RDMA (pd-unified image)
 
-Goal: reproduce (a) correct GLM-5.2 output over mooncake TCP, and (b) the conc=64 failure.
-Est. ~15 min (~5 min cold start).
+Goal: coherent GLM-5.2 over mooncake RDMA across 2 nodes + conc=64 pass. Est. ~20 min (image
+distribution + ~5 min cold start).
 
 ## 0. Prerequisites
 
-Same as 02_pd_mori (same 2 nodes chi2878/chi2879, same model, same image, same libionic mount,
-same NATS/etcd/router). The only differences are the transport backend + MC_* envs (in `engine.sh`).
+- **Machines:** 2× 8-MI355X, same 10.2.122.x RoCE subnet.
+  - prefill = chi2878 (10.2.122.3), decode = chi2879 (10.2.122.10). NIC `enp193s0f1np1`.
+  - Kernel needs `CONFIG_PCI_P2PDMA` + `ib_peer_mem` loaded (both true on chi2878/chi2879 — the
+    peermem KV path needs them). Verify: `lsmod | grep ib_peer_mem`.
+- **Image:** `infera/engine-sglang:pd-unified` (PR #19 build). It is a LOCAL build — NOT on a public
+  registry. Get it onto both nodes:
+  - If a node already has it (chi2798/chi2878 did), great.
+  - To copy node→node WITHOUT the slow NFS `docker save` (78 GB over NFS is very slow): stream it —
+    `ssh <src> 'docker save infera/engine-sglang:pd-unified' | ssh <dst> 'docker load'` (direct pipe
+    over the data-plane; ~5 min). Or `docker build` it on each node from the Infera repo
+    (`deploy/docker/Dockerfile.sglang`, branch of PR #19).
+- **Model:** `/mnt/vast/xiaobo/models/GLM-5.2-MXFP4`.
+- **Host libionic:** injected into the container (else libibverbs enumerates 0 RDMA devices). `up.sh`
+  does this; verify `ibv_devinfo | grep -c PORT_ACTIVE` → 8.
+- **Fabric pre-check:** `SERVER=chi2878 CLIENT=chi2879 DEV=ionic_0 GIDIDX=1 DUR=5 bash
+  <cluster_tools>/rail_test.sh` → ~335 Gb/s.
 
-- `scripts/engine.sh` staged to a shared path (we used `/mnt/vast/c_huggingface/glm52_p2/engine.sh`).
-- **MODE selector** in `engine.sh`:
-  - `MODE=tcp` (default) → `MC_FORCE_TCP=1 MC_DISABLE_HIP_TRANSPORT=1 MC_GID_INDEX=1
-    MC_IB_GID_INDEX=1 MOONCAKE_DISABLE_HIP_DMABUF=1`. **This is the only path that yields correct
-    output on this stack.**
-  - `MODE=rdma` → attempts RDMA (see notes.md — expected to hit a driver segfault wall; we did not
-    run this on our nodes, only carried the option).
+## 1. Stage the leg script + bring up both legs
 
-## 1. Bring up the stack (TCP mode)
+    scp scripts/pd_leg.sh <jump>:/mnt/vast/c_huggingface/glm52_p2b/pd_leg.sh
+    CONC=64 DMABUF=0 bash scripts/up.sh
+    # up.sh: recreate pd_uni container + inject libionic on both nodes, copy pd_leg.sh in, launch
+    #   prefill (chi2878 :30000) + decode (chi2879 :30001), mooncake, dmabuf OFF, all-8-ionic.
+    # NO MC_FORCE_TCP — the pd-unified image defaults MC_DISABLE_HIP_TRANSPORT=1 → real RDMA.
+    # cold start ~5 min. Wait for BOTH legs to log "The server is fired up and ready to roll!".
 
-    scp scripts/engine.sh <jump>:/mnt/vast/c_huggingface/glm52_p2/engine.sh
-    MODE=tcp CONC=64 bash scripts/up.sh
-    # NATS(both) + etcd + router(http,kv-aware) + prefill leg + decode leg. Cold start ~5 min.
-    # decode log will show "TcpTransport: listen on port ..." confirming TCP transport.
+Confirm the RDMA path (not TCP):
 
-## 2. Wait for readiness
+    ssh chi2878 'grep "rdma_context.cpp.*HIP dmabuf disabled" \
+       /mnt/vast/c_huggingface/glm52_p2b/pd_prefill_30000.log | head'
+    # want 8 lines (one per NIC) = mooncake using the RDMA rdma_context path, dmabuf off.
 
-    curl -sf -o /dev/null -w '%{http_code}\n' http://10.2.122.3:8100/health   # 200
-    # both legs: grep "fired up and ready to roll" in the leg logs.
+## 2. Start the router (sglang_router mini-LB, in-container)
 
-## 3. Verify correctness (this PASSES)
+    ssh chi2878 'docker exec -d pd_uni bash -lc "pkill -9 -f sglang_router; sleep 3; \
+       python3 -m sglang_router.launch_router --pd-disaggregation \
+       --prefill http://10.2.122.3:30000 8998 --decode http://10.2.122.10:30001 \
+       --host 0.0.0.0 --port 8002 > /tmp/router.log 2>&1"'
+    sleep 16
+    ssh chi2878 'curl -s http://10.2.122.3:8002/workers'   # expect prefill + decode, is_healthy true
 
-    ssh chi2878 'docker cp /mnt/vast/c_huggingface/glm52_probe.py glm52-router-p2:/tmp/probe.py \
-      && docker exec glm52-router-p2 python3 /tmp/probe.py http://10.2.122.3:8100 glm5.2-mxfp4'
-    # expect 4/4 correct — output IS coherent over mooncake TCP.
+## 3. Verify correctness
 
-## 4. Run conc=64 (this FAILS — the point of keeping this kit)
+    ssh chi2878 'docker cp /mnt/vast/c_huggingface/glm52_probe.py pd_uni:/tmp/probe.py \
+       && docker exec pd_uni python3 /tmp/probe.py http://10.2.122.3:8002 glm5.2-mxfp4'
+    # expect 4/4 correct. (Use probe.py / urllib — inline curl JSON gets mangled through nested ssh.)
 
-    ssh chi2878 'docker exec glm52-router-p2 bash -lc "python3 -m sglang.bench_serving \
-      --backend sglang-oai --base-url http://10.2.122.3:8100 --model glm5.2-mxfp4 \
-      --tokenizer /mnt/vast/xiaobo/models/GLM-5.2-MXFP4 --dataset-name random \
-      --random-input-len 1024 --random-output-len 1024 --random-range-ratio 1.0 \
-      --max-concurrency 64 --num-prompts 256 --warmup-requests 32 --request-rate inf"'
+## 4. Run conc=64 (1k/1k)
+
+    ssh chi2878 'docker exec pd_uni bash -lc "python3 -m sglang.bench_serving --backend sglang-oai \
+       --base-url http://10.2.122.3:8002 --model glm5.2-mxfp4 \
+       --tokenizer /mnt/vast/xiaobo/models/GLM-5.2-MXFP4 --dataset-name random \
+       --random-input-len 1024 --random-output-len 1024 --random-range-ratio 1.0 \
+       --max-concurrency 64 --num-prompts 256 --warmup-requests 32 --request-rate inf"'
 
 ## Expected output
 
-- Probe: 4/4 correct.
-- Bench: **only ~50/256 successful**, median TTFT ~50 s, total ~886 tok/s. The prefill log floods
-  with `KVTransferError(...): Decode instance could be dead, remote mooncake session <ip:port> is
-  not alive` — the TCP KV-transfer sessions drop under concurrent load. See
-  `results/bench_conc64_FAIL.txt` and `logs/prefill.log`.
+- 8× "HIP dmabuf disabled" in the prefill log (RDMA confirmed), probe 4/4, bench 256/256, total
+  ~5150 tok/s, median TTFT ~543 ms, TPOT ~21 ms, zero transfer errors. See `results/bench_conc64.txt`.
 
-## If you want the pass instead
+## If it doesn't reproduce
 
-Use **02_pd_mori** (MoRI RDMA) — same workload passes conc=64 at 5167 tok/s. mooncake RDMA on this
-stack is a driver dead-end (notes.md).
+See `notes.md`. Do NOT set `MC_FORCE_TCP` (that's the slow fallback). If you see
+`hipIpcOpenMemHandle` errors, you're not on the pd-unified image (HIP transport wasn't gated off).
+Router false-circuit-break after a failed round: fully `pkill -9 -f sglang_router` before relaunch.

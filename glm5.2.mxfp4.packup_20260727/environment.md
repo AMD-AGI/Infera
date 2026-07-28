@@ -1,4 +1,4 @@
-# Environment (shared across all 5 experiments)
+# Environment (shared across all 7 experiments)
 
 Captured 2026-07-27 on the MI355X cluster via the jump host `root@149.28.124.225`.
 
@@ -22,11 +22,20 @@ Captured 2026-07-27 on the MI355X cluster via the jump host `root@149.28.124.225
 
 ## Software
 
-- **Image**: `rocm/infera:sglang-v0.1.0-rc6` — sglang **0.5.15.post1** (knows GLM-5.2
+- **Image A (01/02/04/05)**: `rocm/infera:sglang-v0.1.0-rc6` — sglang **0.5.15.post1** (knows GLM-5.2
   head_dim=192; 0.5.12/0.5.14 cannot load GLM-5.2).
   - Base image digest: `sha256:58d21d3300e9502967f4d1cf5fefc129372087e6bbce6dad80d3efa7e8f57af6`
   - Local image ID: `1b63f3d6ccb5`. Pull: `docker pull rocm/infera:sglang-v0.1.0-rc6`.
-  - Aux images: `quay.io/coreos/etcd:v3.5.14`, `nats:2.10`.
+- **Image B (03/06/07 — mooncake)**: `infera/engine-sglang:pd-unified` — sglang **0.5.15.post1**, but
+  the bundled mooncake (#2682) rebuilt per **Infera PR #19** so PD KV-transport is runtime-decided:
+  HIP transport OFF by default (`MC_DISABLE_HIP_TRANSPORT=1`) → cross-node RDMA; dma-buf compiled in
+  but OFF by default (bare `ibv_reg_mr`+peermem). Local image ID `f8ec2d627392`, 78.6 GB.
+  - **NOT on a public registry** — it's a local build (chi2798/chi2878 had it). Distribute node→node
+    by streaming `docker save | ssh <dst> docker load` (NFS `docker save` is very slow for 78 GB).
+  - Build source: Infera repo `deploy/docker/Dockerfile.sglang` on the PR #19 branch. The full method
+    is in the reference packup `sglang_unified_pd_test.packup_20260727`.
+- **Aux images**: `quay.io/coreos/etcd:v3.5.14`, `nats:2.10` (for the rc6 infera.server router path,
+  02/05). The pd-unified mooncake path (03/06) uses `sglang_router` in-container — no etcd/nats.
 - **Repo**: `infera.glm5.2.mxfp4`, branch `yihou.dev.glm5.2.mxfp4`, commit `2df2fed` (at packup time).
   The engine code that runs is INSIDE the image (`infera.engine.sglang` + sglang), not this repo —
   the repo provides the example kit under `examples/deepseek_v4/` that inspired these scripts.

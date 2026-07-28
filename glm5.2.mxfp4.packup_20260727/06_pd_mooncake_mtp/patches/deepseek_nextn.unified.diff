@@ -1,0 +1,11 @@
+--- stock.py	2026-07-27 10:02:03.906700058 +0000
++++ deepseek_nextn.py	2026-07-27 09:47:56.692847826 +0000
+@@ -360,7 +360,7 @@
+                 should_ignore_layer,
+             )
+ 
+-            ckpt_prefix = f"model.layers.{config.num_hidden_layers}"
++            ckpt_prefix = f"model.layers.{config.num_hidden_layers}.eh_proj"  # GLM-5.2: MTP layer bf16; match submodule-level quark exclude (pd-unified fix, ndl)
+             mapped_prefix = self.hf_to_sglang_mapper._map_name(ckpt_prefix)
+             if should_ignore_layer(mapped_prefix, nextn_quant_config.exclude_layers):
+                 nextn_quant_config = None

@@ -1,0 +1,12 @@
+GLM-5.2 mooncake RDMA PD (pd-unified image), 1k/1k, conc=64, 256 prompts (2026-07-27 09:39)
+Transport: mooncake RDMA (bare ibv_reg_mr+peermem, dmabuf OFF). prefill=chi2878 + decode=chi2879.
+Confirmed RDMA: prefill log "rdma_context.cpp:75 HIP dmabuf disabled via MOONCAKE_DISABLE_HIP_DMABUF"
+on all 8 NICs. Zero transfer errors (no "not alive"/KVTransferError/hipIpc) on both legs.
+Successful requests:        256 / 256   (Total generated tokens 262144 = 256x1024)
+Benchmark duration (s):     101.86
+Total token throughput:     5147.12 tok/s
+Concurrency (achieved):     63.17
+Median TTFT (ms):           543.24
+Median TPOT (ms):           20.92   (P99 21.20)
+Correctness probe (temp=0): 4/4
+VERDICT: PASS  (vs the old rc6 mooncake TCP attempt: 50/256, TTFT 51s — RDMA fully fixes it)

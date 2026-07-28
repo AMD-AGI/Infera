@@ -1,0 +1,11 @@
+GLM-5.2 mooncake RDMA PD + MTP (pd-unified image), 1k/1k, conc=64, 256 prompts (2026-07-27 09:55)
+Transport: mooncake RDMA (dmabuf OFF). prefill=chi2878 (no MTP) + decode=chi2879 (EAGLE 3-draft).
+Successful requests:        256 / 256
+Benchmark duration (s):     98.87
+Total token throughput:     5302.58 tok/s   (vs no-MTP mooncake PD 5147 = +3%)
+Concurrency (achieved):     60.72
+Median TTFT (ms):           1897.65
+Median TPOT (ms):           19.01   (vs no-MTP 20.9 — MTP faster per-token)
+Spec-dec on decode:         accept len 2.65-2.90, accept rate 0.55-0.63
+Correctness probe (temp=0): 4/4
+VERDICT: PASS
