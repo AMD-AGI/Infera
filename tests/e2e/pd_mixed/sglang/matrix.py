@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from ...harness.matrix import DEEPSEEK_V4_PRO, GPT_OSS, KIMI_K26_MXFP4, expand_cases
+from ...harness.matrix import DEEPSEEK_V4_PRO, GLM_5_1_FP8, GPT_OSS, KIMI_K26_MXFP4, expand_cases
 
 # [model, tp, ep, dp_attn] (+ optional opts dict). A tuple/list on an axis
 # enumerates it (e.g. (True, False) runs both). MoE models can exercise ep.
@@ -85,6 +85,29 @@ CASES = [
                 "SGLANG_OPT_USE_TILELANG_MHC_POST": "false",
             },
             "server_ready_timeout": 2400,
+        },
+    ],
+    # GLM-5.1-FP8 (GlmMoeDsa = MLA + DSA lightning indexer, tp4). Minimal ON PURPOSE:
+    # SGLang routes GlmMoeDsaForCausalLM through the DeepSeek MLA+DSA path and
+    # auto-selects attention_backend=dsa / page_size=64 / tilelang / kv bf16 — do NOT
+    # force the DSv4 flags (--attention-backend dsv4, --page-size 256), they fight the
+    # auto-config. --reasoning-parser glm45 splits GLM reasoning_content; AITER on.
+    # Verified 2026-07-23 single-node mix, temp=0: France->Paris/China->Beijing/2+2->4.
+    # Long timeout covers the ~8-10 min silent tilelang-JIT + aiter-GEMM-tuning window.
+    [
+        GLM_5_1_FP8,
+        4,
+        False,
+        False,
+        {
+            "args": [
+                "--reasoning-parser",
+                "glm45",
+                "--mem-fraction-static",
+                "0.85",
+            ],
+            "env": {"SGLANG_USE_AITER": "1"},
+            "server_ready_timeout": 1800,
         },
     ],
 ]
