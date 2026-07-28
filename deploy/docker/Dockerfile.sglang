@@ -6,6 +6,33 @@ FROM ${SGLANG_BASE_IMAGE}
 
 WORKDIR /opt/infera
 
+# ---- Mooncake unified rebuild: one engine.so, every PD path runtime-decided --
+# The v0.5.15.post1 base bundles Mooncake at upstream #2682. Rebuild it IN PLACE
+# (no extra version) so a single image supports every KV-transfer config and the
+# choice is made at RUNTIME:
+#   * HIP intra-node P2P transport — opt-in via MC_ENABLE_HIP_TRANSPORT=1 (default
+#     OFF so CROSS-NODE PD stays on RDMA; #2682 installs it unconditionally and
+#     prefers it over RDMA, breaking cross-node PD — hipIpcOpenMemHandle can't
+#     open a peer's handle).
+#   * dma-buf GPUDirect (ibv_reg_dmabuf_mr) vs bare ibv_reg_mr+peermem — the
+#     dma-buf branch is COMPILED IN (fixing #2682's CMake propagation bug that
+#     silently drops it), and #2682's own runtime switch then decides per
+#     memory-type/kernel. Force bare with MOONCAKE_DISABLE_HIP_DMABUF=1 (infera's
+#     default — the AMD fleet is ionic/no-ODP, where dma-buf pins+doubles the KV
+#     pool); a dma-buf run opts in with MOONCAKE_DISABLE_HIP_DMABUF=0.
+# The HIP gate + auto-chunk-MR come from the SAME reusable mooncake_cpp diffs the
+# vLLM image applies (no duplicated source edit). Self-verifying (fails the build
+# if dma-buf/gate did not compile in); skip with BUILD_MOONCAKE=0. See the script.
+ARG BUILD_MOONCAKE=1
+COPY deploy/docker/patches/mooncake_cpp/ /tmp/mooncake_cpp/
+COPY deploy/docker/scripts/build_mooncake_sglang.sh /tmp/build_mooncake_sglang.sh
+RUN if [ "${BUILD_MOONCAKE}" = "1" ]; then \
+        MC_CPP_PATCH_DIR=/tmp/mooncake_cpp bash /tmp/build_mooncake_sglang.sh; \
+    else \
+        echo "BUILD_MOONCAKE=0 — leaving base Mooncake as-is"; \
+    fi \
+    && rm -rf /tmp/build_mooncake_sglang.sh /tmp/mooncake_cpp
+
 # Install infera + its declared deps from pyproject (single source of truth).
 # The base already ships torch/sglang and most of infera's runtime stack; pip
 # leaves those satisfied versions untouched and only pulls what's missing (e.g.
