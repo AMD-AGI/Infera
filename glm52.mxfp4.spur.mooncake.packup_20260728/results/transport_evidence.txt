@@ -1,0 +1,5 @@
+I0728 04:56:55.007869  1257 rdma_context.cpp:1117] Using user-specified GID index: 3 on mlx5_0/ (with network device)
+I0728 04:56:55.010093  1257 transfer_engine_impl.cpp:389] installTransport, type=rdma
+I0728 04:56:55.018054  1416 rdma_context.cpp:1117] Using user-specified GID index: 3 on mlx5_0/ (with network device)
+I0728 04:56:55.018142   644 rdma_context.cpp:1117] Using user-specified GID index: 3 on mlx5_0/ (with network device)
+I0728 04:56:55.018195  1099 rdma_context.cpp:1117] Using user-specified GID index: 3 on mlx5_0/ (with network device)

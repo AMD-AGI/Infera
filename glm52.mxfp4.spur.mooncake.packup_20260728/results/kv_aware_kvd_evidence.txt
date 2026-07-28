@@ -1,0 +1,12 @@
+INFO:infera.router.policy.kv_event_aware:pick policy=kv-aware role=mixed retention=none request_id=423b910b558f435abea71c242b7d12ba picked=10.245.155.58:30000 cache_hits=0 request_blocks=0 active_blocks=0 w_overlap=1.00
+INFO:infera.router.policy.kv_event_aware:pick policy=kv-aware role=mixed retention=none request_id=93ad3f3fb8ce46b9bd8eb777d3be2ed4 picked=10.245.155.58:30000 cache_hits=0 request_blocks=0 active_blocks=0 w_overlap=1.00
+INFO:infera.router.policy.kv_event_aware:pick policy=kv-aware role=mixed retention=none request_id=459b613626084894bbb8c40fe9e58fb0 picked=10.245.155.58:30000 cache_hits=0 request_blocks=0 active_blocks=0 w_overlap=1.00
+INFO:infera.router.policy.kv_event_aware:pick policy=kv-aware role=mixed retention=none request_id=fd784b9d8efe47898c2080a6b9d583d8 picked=10.245.155.58:30000 cache_hits=0 request_blocks=0 active_blocks=0 w_overlap=1.00
+INFO:infera.router.policy.kv_event_aware:pick policy=kv-aware role=mixed retention=none request_id=ab2582c11ad74456b077b2c43779a402 picked=10.245.155.58:30000 cache_hits=0 request_blocks=31 active_blocks=0 w_overlap=1.00
+INFO:infera.router.policy.kv_event_aware:pick policy=kv-aware role=mixed retention=none request_id=d84be85af8fd4fa79cd4ca62a2369f27 picked=10.245.155.58:30000 cache_hits=31 request_blocks=31 active_blocks=0 w_overlap=1.00
+=== kvd ===
+2026-07-28 06:00:50,634 INFO infera.kvd.storage_selfcheck: [kvd] L3 storage self-check (/run/kvd-long): WRITE 20.66 GB/s  READ 43.70 GB/s  [io_mode=buffered workers=4 chunk=128MiB vol=1.6GB] (unknown device, conservative buffered; no device info, conservative default)
+2026-07-28 06:00:50,644 INFO infera.kvd.server: infera-kvd kvd-366e927e listening on /run/infera-kvd/infera-kvd.sock (max=8589934592 bytes)
+=== kvd backend created in worker (earlier kvd run) ===
+0
+n/a (nokvd run overwrote log)

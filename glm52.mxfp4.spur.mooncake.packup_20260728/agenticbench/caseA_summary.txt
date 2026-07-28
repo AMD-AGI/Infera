@@ -1,0 +1,64 @@
+Success rate: 95.9%
+Actual benchmark duration: 618.9s
+Actual average QPS: 0.20 (target: 0.05 -> 0.40)
+
+[1mActual Prompt Length Distribution:[0m
+  Mean: 82351 tokens
+  Std Dev: 43558 tokens
+  p50: 70148 tokens
+  p90: 148472 tokens
+  p99: 183017 tokens
+
+[1mActual Generation Length Distribution:[0m
+  Mean: 963.4 tokens (target: 1)
+  Median (p50): 415 tokens (target: 1)
+  Std Dev: 1393.7 tokens
+  p90: 2895 tokens
+  p99: 6059 tokens
+
+[1mTTFT (Time to First Token):[0m
+  p50: 846.3ms
+  p90: 2317.7ms
+  p99: 18651.1ms
+
+[1mTPOT (Time Per Output Token, excl. first):[0m
+  Samples: 116 (filtered: gen_len>1 & gen_time>=50ms)
+  Mean: 26.0ms (38.4 tok/s/req)
+  p50: 17.6ms
+  p90: 27.1ms
+  p99: 103.4ms
+
+[1m[92mPeak Prefill Throughput:[0m
+  Total: 622,872 tokens/sec (37,372,320 tokens/min)
+  Per GPU: 77,859 tokens/sec (4,671,540 tokens/min)
+
+[1mAverage Throughput:[0m
+  Context: 115,759 tokens/min/GPU (1,929 tokens/sec/GPU)
+  Generation: 83.1 tokens/sec (MTP compensated)
+
+[1mCache Statistics:[0m
+  Ideal cache hit rate: 89.0% (assuming no eviction)
+  Actual cache hit rate: 86.5%
+  Cache efficiency: 97.2% (actual/ideal)
+  Eviction rate: 2.8% of expected cache was evicted
+  Total tokens: 9,552,747 (prefix: 8,500,625, cached: 8,260,928, evicted: 239,697)
+
+[1mPhase Throughput Breakdown (input TPM includes cache; uncached = actual prefill work):[0m
+  phase     dur(s)  reqs   qps    input TPM   cached TPM   uncached TPM  visible TPM  reason TPM  cache%  TTFT p50  TTFT p90  TPOT p50  TPOT p90
+  ----------------------------------------------------------------------------------------------------------------------------------------------
+  ramp        45.0     9  0.20    1,222,007      862,635        359,372        2,052           0   70.6%  16131.8ms  18711.2ms     44.1ms    611.6ms
+  sustain    600.0   107  0.18      863,624      761,395        102,229       11,021           0   88.2%    749.6ms   1861.2ms     17.4ms     24.4ms
+  drain        n/a     0   n/a          n/a          n/a            n/a          n/a         n/a     n/a       n/a       n/a       n/a       n/a
+  (per-GPU: divide TPM by 8)
+
+[1mInter-Arrival Time (response + think time):[0m
+  Mean: 10.6s
+  p50: 4.5s
+  p90: 25.1s
+  p99: 140.3s
+
+[1mChatSession Statistics:[0m
+  Total sessions: 37 (initial: 8, +29 rate-based)
+  Active: 33, Retired: 4, Abandoned: 0 (0 by rate)
+  Final prefix sizes: min=5,603, max=19,341, mean=8,623
+  ChatSession lifetimes: min=18s, max=618s, mean=373s

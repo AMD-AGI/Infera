@@ -1,0 +1,4 @@
+config,transport,feature,correctness,conc,completed,total_tok_s,out_tok_s,median_tpot_ms,median_ttft_ms,verdict
+A_dpa,mooncake_rdma_mlx5_dmabuf,dp_attention_dp8_ep8,4/4,128,512/512,7218,3609,31.3,3785,PASS
+B_mtp,mooncake_rdma_mlx5_dmabuf,mtp_eagle_steps3,4/4,128,512/512,8990,4495,19.2,835,PASS
+C_kvaware,single_node_mix,infera_kvaware_native_cache,4/4,prefix_reuse,n/a,n/a,n/a,310(warm)/1870(cold),PASS
