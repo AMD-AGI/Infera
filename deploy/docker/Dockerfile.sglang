@@ -42,6 +42,16 @@ COPY pyproject.toml README.md ./
 COPY infera ./infera
 RUN pip install --no-cache-dir ".[sglang]"
 
+# ---- sglang Python patches (GLM-5.2 MTP nextn quark-exclude; backport of sglang #30265) ----
+# The v0.5.15.post1 base predates sgl-project/sglang#30265, so GLM-5.2 EAGLE/MTP crashes at
+# draft weight-load: the bf16 MTP layer's eh_proj is built as an MXFP4 param because sglang
+# checks the bare layer prefix (not the submodule-level exclude entry). Each patch is
+# self-locating, idempotent, and no-ops once the base sglang carries the fix — drop the patch
+# dir then. Modeled on the vLLM patch loop.
+COPY deploy/docker/patches/sglang/ /tmp/sglang-patches/
+RUN for f in /tmp/sglang-patches/*.py; do echo "[sglang-patch] $f"; python "$f" || echo "[sglang-patch] skipped $f"; done \
+    && rm -rf /tmp/sglang-patches
+
 # ---- Rust router (multi-core data plane; --router-backend rust) ----
 # The ROCm base ships cargo; use it (install a minimal toolchain only if
 # absent). Needs cc for linking and libclang (onig_sys/bindgen). Removes
