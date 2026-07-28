@@ -61,7 +61,11 @@ DP1:        init_forward_metadata  (dsa_backend.py:746)
 
 7 ranks are inside a collective; DP1 never arrives. Classic ragged-collective deadlock.
 
-## The most promising lead (not yet tested)
+## ~~The most promising lead~~ — REFUTED 2026-07-28 11:15 UTC
+
+> **STATUS: the `can_cuda_graph` divergence hypothesis below is DISPROVEN.**
+> Do not spend time on it. Evidence and what it means are in the next section;
+> the original text is kept only so the reasoning trail is auditable.
 
 `base_spec_worker.py:161-163` — `init_forward_metadata` is called **conditionally**:
 
@@ -71,7 +75,7 @@ if not batch.forward_mode.is_idle() and not can_cuda_graph:
     draft_model_runner.attn_backend.init_forward_metadata(forward_batch)   # <- DP1 stuck in here
 ```
 
-**Hypothesis:** `can_run_graph()` and/or `is_idle()` evaluate **differently per DP rank**
+**Hypothesis (WRONG):** `can_run_graph()` and/or `is_idle()` evaluate **differently per DP rank**
 (different batch size / seq lens / idle-ness on that rank). Ranks where the condition is
 False skip straight to the collective; DP1 takes the eager path and blocks inside
 `init_forward_metadata` at `dsa_backend.py:746`:
@@ -98,22 +102,90 @@ knows DSA + DP padding is fragile here:
 
 **sglang issue #27091 is the thing to read first.**
 
+## WHY THE ABOVE IS REFUTED (evidence, 2026-07-28 11:15 UTC)
+
+`can_cuda_graph` **cannot** differ per rank here, because on this build it is
+**always `False` on every rank**: the draft-extend CUDA graph is never captured at all.
+
+```bash
+# in BOTH the hung PD run and the PASSING single-node mix run:
+grep -c "Capture draft extend CUDA graph begin" logs/pd_decode_30001_dpa_mtp.log  # -> 0
+grep -c "Capture draft extend CUDA graph begin" logs/mix_dpa_mtp_fix1.log         # -> 0
+grep -c "Capture draft decode CUDA graph begin" logs/pd_decode_30001_dpa_mtp.log  # -> 1
+```
+
+Only the draft **decode** graph is captured; the draft **extend** graph is not. Reason
+(`eagle_worker_v2.py:441-482`): the capture is gated on
+
+```python
+supports_cuda_draft_extend_graph = (_is_cuda or _is_musa) and graph_supported_backend
+supports_hip_aiter_draft_extend_graph = _is_hip and isinstance(
+    self.draft_attn_backend, AiterMultiStepDraftBackend)
+if self.draft_extend_attn_backend and (_is_npu or _is_xpu
+        or supports_cuda_draft_extend_graph or supports_hip_aiter_draft_extend_graph):
+```
+
+On this stack `is_hip()==True` / `is_cuda()==False` (verified in-container), so
+`supports_cuda_draft_extend_graph` is False; and with the DSA/tilelang draft backend
+`draft_attn_backend` is **not** an `AiterMultiStepDraftBackend`, so
+`supports_hip_aiter_draft_extend_graph` is False too. Net:
+`cuda_graph_runner_for_draft_extend is None` → `can_cuda_graph` is falsy on all 8 ranks →
+**every rank takes the eager `init_forward_metadata` path.** The branch is already
+collective-uniform. It is not the divergence.
+
+Corollary: fix option 2(a) from the old plan ("force can_cuda_graph=False on all ranks")
+is a no-op — that is already the state.
+
+**What the py-spy split then means.** Ranks were in *three* different places
+(broadcast / all_gather_into_tensor / init_forward_metadata) — that is not "7 waiting for
+1 straggler", it is ranks executing **different collective sequences**. Since they all
+enter the same eager branch, the divergence happens either *inside*
+`init_forward_metadata` or *before* draft-extend is reached (i.e. the ranks are not even
+running the same batch/phase). That is what to instrument next.
+
+Also note the batch itself IS DP-synced upstream: `get_next_disagg_decode_batch_to_run`
+ends with `dp_attn_adapter.maybe_prepare_mlp_sync_batch(ret)`
+(`disaggregation/decode.py`), which all-gathers `global_num_tokens` and emits idle
+batches so every rank agrees on shape/mode. So plain "one rank got an empty batch" is
+also unlikely — unless that sync is itself being skipped or is what one group is stuck in.
+
+## Control experiment (rules out DPA and PD themselves)
+
+Run 2026-07-28 11:05-11:15 UTC on the same patched image, same two-node PD, MTP **off**,
+sustained load (not just a 4-prompt probe):
+
+| conc | completed | out tok/s | req/s | median TPOT | median TTFT |
+|---:|---:|---:|---:|---:|---:|
+| 64  | 256/256   | 2051 | 2.00 | 27.3 ms | 2052 ms |
+| 128 | 512/512   | 3743 | 3.66 | 31.2 ms | 2347 ms |
+| 256 | 1024/1024 | 6243 | 6.10 | 36.8 ms | 3487 ms |
+
+1792/1792 requests, zero failures, clean scaling. **PD + DP-attention + the Bug 1 patch
+are healthy under real load.** MTP on the decode leg is the sole trigger.
+(Raw: `results/ctrl_dpaonly_c{64,128,256}.jsonl`.)
+
 ## Concrete next steps (in order)
 
-1. **Confirm the divergence.** Add a rank-tagged log right before the `if` in
-   `base_spec_worker.py:161`: print `dp_rank, forward_mode, is_idle(), can_cuda_graph,
-   bs, seq_lens.shape`. Re-run PD with MTP; the expectation is that the ranks split
-   exactly along the `can_cuda_graph` value, matching the py-spy split (DP1 vs the rest).
-   *This is a 1-line instrumentation and settles the hypothesis outright.*
-2. **If confirmed** — make the branch collective-uniform. Options, cheapest first:
-   a. Force `can_cuda_graph=False` on all ranks under PD+DPA (all take the eager path).
-   b. All-reduce the predicate across the DP group before branching, so every rank agrees.
-   c. Avoid the `.item()` sync in `dsa_backend.py:746` on this path — `seq_lens_cpu` is
-      already a host mirror; if it is reliably populated, the `.max().item()` on the GPU
-      tensor in the `else` branch is what to eliminate.
-3. **If not confirmed** — bisect the batch: reproduce with `--dp-size 2` (much smaller
-   surface, faster boot) and dump all ranks' `forward_batch` shapes at the stall.
-4. Check whether `--speculative-attention-mode prefill` (vs the default `decode`) changes
+1. ~~Confirm `can_cuda_graph` divergence~~ — **done, refuted.** See above.
+2. **Find where the ranks actually diverge.** Two probes are written and ready:
+   - `/home/yihou/glm52_fix/instrument_divergence.py` — rank-tagged log of
+     `(dp_rank, forward_mode, is_idle, can_cuda_graph, bs, global_num_tokens_cpu,
+     can_run_dp_cuda_graph)` immediately before the `if` in `base_spec_worker.py:161`.
+     Still useful: it now answers *"do all ranks even reach draft-extend, with the same
+     mode and bs?"* rather than the refuted question.
+   - `/home/yihou/glm52_fix/instrument_dsa_stall.py` — ENTER / GOT_MAXSEQLEN markers
+     inside `dsa_backend.init_forward_metadata`, so the hung rank's **last** printed line
+     names the exact blocking statement.
+   Both are idempotent, verify their anchor matches exactly once, `py_compile` the result,
+   and support `--revert`. Install with `docker cp` + `docker exec python3 /tmp/<probe>.py`.
+3. If the ranks turn out to reach draft-extend with identical shapes, suspect the
+   collective *inside* the DSA indexer / MoE a2a under `draft_tp_context` — compare the
+   `draft_tp_context(self.draft_worker.draft_runner.tp_group)` group against the one the
+   non-spec path uses; a spec-only subgroup that not every DP rank joins would produce
+   exactly this three-way split.
+4. Bisect with `--dp-size 2` (much smaller surface, ~faster boot) once a probe confirms
+   the shape of the divergence.
+5. Check whether `--speculative-attention-mode prefill` (vs the default `decode`) changes
    the dispatch — it selects a different backend for draft-extend
    (`dsa_indexer.py::_uses_dsa_attention_backend`).
 
