@@ -1,0 +1,83 @@
+Fix DSA indexer top-k row-count mismatch on ROCm under DP-attention
+
+sglang 0.5.15.post1, python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+
+Symptom (AMD MI355X / gfx950, GLM-5.2 DSA with --enable-dp-attention + EAGLE MTP):
+
+    RuntimeError: Expected lengths.size(0) == B to be true, but got false.
+      dsa_indexer.py::_get_topk_paged -> metadata.topk_transform
+      -> dsa_topk_backend.py::topk_transform -> fast_topk_transform_fused
+      -> torch.ops.sgl_kernel.fast_topk_transform_fused
+
+Cause: in _get_topk_paged, `q_offset` is the real (unpadded) query-row count and is
+exactly what `lengths` (dsa_seqlens_expanded) is sized to. The CUDA and HIP paths then
+disagree on which row count they feed the top-k:
+
+  * CUDA: deepgemm_paged_mqa_logits_split() slices q_fp8[:q_offset] / weights[:q_offset],
+    so logits.shape[0] == q_offset == lengths.shape[0]. The padding is restored after.
+  * aiter/HIP: aiter_paged_mqa_logits() does NOT slice; it sizes its `logits` output
+    from q_fp8.shape[0], i.e. the DP-PADDED row count. And the padding-restore below was
+    gated `not _is_hip` -- self-consistent with never having sliced, but it left HIP with
+    no path that produces matching shapes.
+
+Under DP-attention the hidden states are padded to the DP group's common token width, so
+q_fp8.shape[0] > q_offset and the top-k asserts. Measured on gfx950 (GLM-5.2, dp8+ep8,
+EAGLE steps=3): 27 distinct padded shapes over one conc=64 run -- 26 in DRAFT_EXTEND_V2
+(e.g. q_fp8=(36,32,128) vs q_offset=32) and 1 in IDLE (q_fp8=(4,32,128) vs q_offset=1).
+TARGET_VERIFY is never padded, which is why the verify step alone never tripped it.
+
+Fix: make the HIP path obey the same contract as CUDA -- run top-k over the real rows,
+then restore the padding. Both guards are false when no padding is present, so the
+non-DP path is unchanged.
+
+Note this is NOT the same defect as the CUDA-side padded-row fix in sglang PR #30378 /
+#30427 ("clamp padded-row seq_lens to >= 0" in triton_ops/pad.py::seqlens_expand_kernel).
+That clamp fixes padded row *values* and is already present; this fixes the HIP-side row
+*count*.
+
+Verified on 8x MI355X (gfx950), ROCm 7.2.0, sglang 0.5.15.post1, GLM-5.2-MXFP4:
+  * DPA8 + MTP (EAGLE steps=3, eagle-topk=1) single node: 4/4 correctness, accept length
+    median 3.86/4 (n=251), conc=64 ISL/OSL 1k/1k 256/256 requests, 0 failed,
+    median TPOT 17.2 ms.
+  * Regressions unchanged: DPA-only 4/4, MTP-only 4/4.
+
+--- a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
++++ b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+@@ -903,10 +903,22 @@
+         weights = weights.squeeze(2)
+ 
+         if self.paged_mqa_logits_backend.is_aiter():
++            # DP-attention pads the hidden states, so q_fp8 can carry more rows than
++            # the batch really has; `q_offset` is the real (unpadded) count and is
++            # what `lengths` (dsa_seqlens_expanded) is sized to. The CUDA path
++            # (deepgemm_paged_mqa_logits_split) slices its q/weights to q_offset for
++            # exactly this reason. aiter instead sizes its `logits` output from
++            # q_fp8.shape[0], so without the same slice the top-k below sees
++            # score.shape[0] != lengths.shape[0] and asserts. Slice here so both
++            # backends feed top-k the same shape; the padding is restored after.
++            q_fp8_mqa, weights_mqa = q_fp8, weights
++            if 0 < q_offset < q_fp8.shape[0]:
++                q_fp8_mqa = q_fp8[:q_offset]
++                weights_mqa = weights[:q_offset]
+             logits = aiter_paged_mqa_logits(
+-                q_fp8,
++                q_fp8_mqa,
+                 kv_cache_fp8,
+-                weights,
++                weights_mqa,
+                 seqlens_32,
+                 block_tables,
+                 max_seq_len,
+@@ -962,7 +974,11 @@
+         # NOTE(dark): logits should be cleaned in topk_transform
+         topk_result = metadata.topk_transform(logits, self.index_topk)
+         # Restore possible padding exist in the hidden states.
+-        if not _is_hip and q_offset < q_fp8.shape[0]:
++        # Fire whenever the top-k actually ran on the unpadded rows -- true on CUDA
++        # (which always slices) and now on HIP/aiter too (sliced just above). The
++        # `topk_result.shape[0] == q_offset` guard keeps the non-DP path (where
++        # nothing was sliced) bit-identical to before.
++        if q_offset < q_fp8.shape[0] and topk_result.shape[0] == q_offset:
+             pad_len = q_fp8.shape[0] - q_offset
+             padding = torch.full(
+                 (pad_len, topk_result.shape[1]),
