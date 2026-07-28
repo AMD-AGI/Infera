@@ -53,7 +53,7 @@ DP2 in the re-reproduction — confirming it is a ragged-collective race, not a 
 step, so `gnt` is uniformly non-zero. On the PD decode leg batches are shaped by KV
 arrival from the prefill leg, so partial-occupancy steps are routine.
 
-**Candidate fix** (`scripts/fix_bug2.py`, under test): derive the predicate from the
+**Candidate fix** (`scripts/fix_bug2.py`): derive the predicate from the
 global state every rank already has, so no extra communication is needed —
 
 ```python
@@ -63,7 +63,38 @@ if _needs_metadata and not can_cuda_graph:
     draft_model_runner.attn_backend.init_forward_metadata(forward_batch)
 ```
 
-Idle ranks then build zero-row metadata, which the DP-padded/IDLE path already handles.
+Plus a required companion guard: idle ranks now arrive with a zero-row batch, and stock
+`dsa_backend.init_forward_metadata` calls `seq_lens_cpu.max()` unguarded →
+`RuntimeError: max(): Expected reduction dim to be specified for input.numel() == 0`
+(observed: DP6 crashed exactly there on the first attempt). `fix_bug2.py` guards both
+`max()` sites with a `numel() > 0` check.
+
+### Fix status: PARTIAL — necessary but NOT sufficient
+
+With both parts applied the server boots clean and all ranks do enter the call
+(verified: the stuck rank's frame is `base_spec_worker.py:182`, the patched line), **but
+the first routed request still deadlocks**:
+
+```
+DP0,2,3,4,6,7: all_gather_into_tensor
+DP1:           broadcast
+DP5:           init_forward_metadata (dsa_backend.py:752)
+```
+
+`dsa_backend.py:752` is the **`else` arm** of the `max_seqlen_k` branch — i.e. the
+`seq_lens_cpu is None` path, which does `seq_lens.max().item()` on a **GPU** tensor
+(a real device sync), versus the `if` arm's cheap host read.
+
+**Next hypothesis (under test now):** the surviving divergence is
+`forward_batch.seq_lens_cpu is None` differing per rank —
+`gpu_only = batch.seq_lens_cpu is None` (`base_spec_worker.py:112`). A rank on the
+else-arm issues a blocking device sync while peers on the host-read arm proceed into the
+next collective. Note `decide_needs_cpu_seq_lens` (`managers/overlap_utils.py:21`) is
+derived from `server_args` + backend flags, so it *should* be rank-uniform — meaning if
+the CPU mirror is missing on only some ranks, it is being dropped per-batch, not per-config.
+
+`scripts/instrument_v2.py` logs, per rank and per call, whether `seq_lens_cpu` is None and
+which arm is taken. It anchors on the **post-fix** text, so install it after `fix_bug2.py`.
 
 ## Live cluster state (verify before trusting — nodes may have been released)
 
