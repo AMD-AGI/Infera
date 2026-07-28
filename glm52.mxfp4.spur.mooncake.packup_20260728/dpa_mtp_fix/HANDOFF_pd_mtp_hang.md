@@ -141,6 +141,50 @@ c. Force every rank onto the same arm (all sync, or none), which keeps the cost 
 Note (c) is what a naive reading of "make it uniform" suggests, and it would work, but (a)
 is strictly better if a host-side bound is available.
 
+### The underlying contract violation (this is what to fix upstream)
+
+`DeepseekSparseAttnBackend` declares, twice (`dsa_backend.py:339` and `:2927`):
+
+```python
+needs_cpu_seq_lens: bool = False
+```
+
+That flag is a **promise to the scheduler**: `decide_needs_cpu_seq_lens`
+(`managers/overlap_utils.py:21`) ORs it across backends and, seeing False, tells FutureMap
+*not* to publish the host mirror. `prepare_for_draft_extend` then goes `gpu_only` and even
+says so in a comment (`base_spec_worker.py:152-155`):
+
+> *"Supply CPU mirror (extend_seq_lens are all num_draft_tokens) so backend max() reads
+> from list without a per-iter D2H sync."*
+
+But `DeepseekSparseAttnBackend.init_forward_metadata` **breaks that promise**: when
+`seq_lens_cpu is None` — exactly the state its own flag caused — it falls back to
+`seq_lens.max().item()`, a per-iteration D2H sync. So the backend opts out of the host
+mirror and then synchronously demands the value anyway.
+
+Single-GPU / uniform-batch runs never notice: everyone pays the same sync at the same
+point. It only becomes fatal under DP-attention with partial occupancy, where the ranks
+that skip the sync race ahead into a collective.
+
+**Therefore the correct upstream fix is (a) or (b) — honour the declared contract.** Either
+DSA stops needing the value on this path, or it stops declaring `needs_cpu_seq_lens = False`.
+Patching only `base_spec_worker`'s branch (what `fix_bug2.py` does) treats the symptom.
+
+## Current state of the investigation (2026-07-28 12:30 UTC)
+
+- **Root cause: fully understood, every link measured.** See the causal chain above.
+- **Not yet fixed.** `scripts/fix_bug2.py` is a *partial* fix — necessary (it removes the
+  first-order raggedness and the crash that came with it) but **not sufficient**; the hang
+  still reproduces. Do not ship it alone.
+- **Reproduction is now cheap and deterministic**: the probes make the divergence visible
+  in the log, so a candidate fix can be judged from one boot + one routed request.
+- Nodes in use: `5128` → 067 (10.245.157.102, decode, container `dbg2`),
+  `5129` → 260 (10.245.144.92, prefill, container `dbg2`). Both have the Bug 1 patch,
+  `fix_bug2.py`, and `instrument_v2.py` applied; Inductor/Triton caches now persist at
+  `/home/yihou/glm52_fix/{inductor_cache,triton_cache}` so reboots are faster.
+- The older two-node pair (`4540`/`4614`) still runs the **passing** PD DPA-only config and
+  is the control.
+
 ## Live cluster state (verify before trusting — nodes may have been released)
 
 | What | Value |
