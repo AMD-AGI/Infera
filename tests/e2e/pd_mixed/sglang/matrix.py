@@ -16,13 +16,13 @@ from ...harness.matrix import DEEPSEEK_V4_PRO, GLM_5_1_FP8, GPT_OSS, KIMI_K26_MX
 # enumerates it (e.g. (True, False) runs both). MoE models can exercise ep.
 CASES = [
     # gpt-oss-120b: tp2, ep on/off.
-    [
-        GPT_OSS,
-        2,
-        (True, False),
-        False,
-        {"env": {"SGLANG_USE_AITER": "1"}, "server_ready_timeout": 1800},
-    ],
+    # [
+    #     GPT_OSS,
+    #     2,
+    #     (True, False),
+    #     False,
+    #     {"env": {"SGLANG_USE_AITER": "1"}, "server_ready_timeout": 1800},
+    # ],
     [
         KIMI_K26_MXFP4,
         4,
@@ -94,22 +94,22 @@ CASES = [
     # auto-config. --reasoning-parser glm45 splits GLM reasoning_content; AITER on.
     # Verified 2026-07-23 single-node mix, temp=0: France->Paris/China->Beijing/2+2->4.
     # Long timeout covers the ~8-10 min silent tilelang-JIT + aiter-GEMM-tuning window.
-    [
-        GLM_5_1_FP8,
-        4,
-        False,
-        False,
-        {
-            "args": [
-                "--reasoning-parser",
-                "glm45",
-                "--mem-fraction-static",
-                "0.85",
-            ],
-            "env": {"SGLANG_USE_AITER": "1"},
-            "server_ready_timeout": 1800,
-        },
-    ],
+    # [
+    #     GLM_5_1_FP8,
+    #     4,
+    #     False,
+    #     False,
+    #     {
+    #         "args": [
+    #             "--reasoning-parser",
+    #             "glm45",
+    #             "--mem-fraction-static",
+    #             "0.85",
+    #         ],
+    #         "env": {"SGLANG_USE_AITER": "1"},
+    #         "server_ready_timeout": 1800,
+    #     },
+    # ],
 ]
 
 

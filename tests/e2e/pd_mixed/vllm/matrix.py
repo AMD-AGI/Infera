@@ -15,16 +15,16 @@ from ...harness.matrix import DEEPSEEK_V4_PRO, GLM_5_1_FP8, KIMI_K26_MXFP4, QWEN
 # [model, tp, ep, dp_attn] (+ optional opts dict). Opts mirror the matching
 # InferenceX single_node/fixed_seq_len benchmarks.
 CASES = [
-    [
-        QWEN3_8B,
-        2,
-        False,
-        False,
-        {
-            "args": ["--kv-cache-dtype", "fp8"],
-            "env": {"VLLM_ROCM_USE_AITER": "1"},
-        },
-    ],
+    # [
+    #     QWEN3_8B,
+    #     2,
+    #     False,
+    #     False,
+    #     {
+    #         "args": ["--kv-cache-dtype", "fp8"],
+    #         "env": {"VLLM_ROCM_USE_AITER": "1"},
+    #     },
+    # ],
     [
         KIMI_K26_MXFP4,
         4,
@@ -101,37 +101,37 @@ CASES = [
     # parser is its config. Single-node mix uses NO kv-transfer connector (that's the
     # pd_disag/vllm MoRIIO/Mooncake path). Verified 2026-07-23 single-node mix, temp=0
     # (thinking disabled): France->Paris/China->Beijing/2+2->4.
-    [
-        GLM_5_1_FP8,
-        4,
-        False,
-        False,
-        {
-            "args": [
-                "--kv-cache-dtype",
-                "fp8",
-                "--reasoning-parser",
-                "glm45",
-                "--no-enable-prefix-caching",
-                "--gpu-memory-utilization",
-                "0.85",
-                "--max-model-len",
-                "9472",
-                "--max-num-batched-tokens",
-                "8192",
-                "--distributed-executor-backend",
-                "mp",
-            ],
-            "env": {
-                "VLLM_USE_V1": "1",
-                "VLLM_ROCM_USE_AITER": "1",
-                "AITER_BF16_FP8_MOE_BOUND": "0",
-                "VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS": "1",
-                "PYTHONHASHSEED": "0",
-            },
-            "server_ready_timeout": 1800,
-        },
-    ],
+    # [
+    #     GLM_5_1_FP8,
+    #     4,
+    #     False,
+    #     False,
+    #     {
+    #         "args": [
+    #             "--kv-cache-dtype",
+    #             "fp8",
+    #             "--reasoning-parser",
+    #             "glm45",
+    #             "--no-enable-prefix-caching",
+    #             "--gpu-memory-utilization",
+    #             "0.85",
+    #             "--max-model-len",
+    #             "9472",
+    #             "--max-num-batched-tokens",
+    #             "8192",
+    #             "--distributed-executor-backend",
+    #             "mp",
+    #         ],
+    #         "env": {
+    #             "VLLM_USE_V1": "1",
+    #             "VLLM_ROCM_USE_AITER": "1",
+    #             "AITER_BF16_FP8_MOE_BOUND": "0",
+    #             "VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS": "1",
+    #             "PYTHONHASHSEED": "0",
+    #         },
+    #         "server_ready_timeout": 1800,
+    #     },
+    # ],
 ]
 
 

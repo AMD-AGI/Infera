@@ -201,7 +201,7 @@ _hold_pair() {
 # parallel and the mixed tier shares the pool, so a pair is often only free
 # later. The CI job timeout is the real backstop. $1=exclude list.
 _wait_for_pair() {
-  local excl="$1" waited=0 every=30 limit="${INFERA_E2E_WAIT_NODES_TIMEOUT:-3600}" nodes
+  local excl="$1" waited=0 every=30 limit="${INFERA_E2E_WAIT_NODES_TIMEOUT:-6400}" nodes
   while :; do
     nodes="$(_pick_idle_nodes 2 "$excl")"
     [ "$(printf '%s\n' "$nodes" | sed '/^$/d' | wc -l)" -ge 2 ] && { printf '%s\n' "$nodes"; return 0; }
@@ -562,7 +562,7 @@ run_e2e_disagg() {
         n2="$(printf '%s\n' "$nodes" | sed -n 2p)"
       fi
       if [ -z "$n1" ] || [ -z "$n2" ] || [ "$n1" = "$n2" ]; then
-        echo "[e2e disagg] WARNING: no 2 free nodes in '$SLURM_PART' within ${INFERA_E2E_WAIT_NODES_TIMEOUT:-3600}s — skipping $e" >&2
+        echo "[e2e disagg] WARNING: no 2 free nodes in '$SLURM_PART' within ${INFERA_E2E_WAIT_NODES_TIMEOUT:-6400}s — skipping $e" >&2
         break
       fi
       # Lock the pair before using it; losing the race to another job just means
