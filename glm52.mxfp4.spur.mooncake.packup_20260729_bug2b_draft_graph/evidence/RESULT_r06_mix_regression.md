@@ -33,6 +33,38 @@ been applied on this node, because an ad-hoc `grep -q eh_proj` idempotency check
 a false positive (`eh_proj` occurs elsewhere in the file). See PITFALLS P2. After applying
 the patch properly and verifying with the exact post-patch text, the server booted clean.
 
+## Sustained durability
+
+8 consecutive rounds of conc=128 × 512 tokens against the mix server, back to back:
+
+| round | ok | acc_len mean |
+|---|---|---|
+| 1 | 128/128 | 3.00 |
+| 2 | 128/128 | 3.04 |
+| 3 | 128/128 | 3.00 |
+| 4 | 128/128 | 2.96 |
+| 5 | 128/128 | 2.96 |
+| 6 | 128/128 | 2.99 |
+| 7 | 128/128 | 2.98 |
+| 8 | 128/128 | 2.98 |
+
+**1024/1024**, no degradation in throughput or accept length over the run. This matters
+because the deadlock is a race: a single passing round proves nothing, and any leak or
+drift introduced by the added per-call collective would show here.
+
+## A false alarm worth recording
+
+An earlier attempt at this durability run reported **0/128 on all 8 rounds** and briefly
+looked like a catastrophic regression. It was not: the run was pointed at router port 8104,
+whose *prefill* leg no longer existed — I had killed the PD prefill server on this node to
+free the GPUs for the mix server, so port 30000 was serving mix, not prefill. The router
+dutifully returned 503 for every request.
+
+Diagnosed in one command by checking the live process args for `disaggregation-mode`
+(absent → it is a mix server). Re-running against the mix endpoint directly gave
+1024/1024. **Lesson: before believing a regression, confirm the thing you are testing is
+the thing that is running.**
+
 ## Cumulative totals for the fix
 
 | arm | requests |
@@ -40,5 +72,6 @@ the patch properly and verifying with the exact post-patch text, the server boot
 | PD, fix + instrumentation (R3) | 927/927 |
 | PD, fix only, clean build (R5) | 457/457 |
 | Mix, fix (R6) | 132/132 |
-| **total** | **1516/1516** |
+| Mix, fix, 8-round durability (R6) | 1024/1024 |
+| **total** | **2540/2540** |
 | PD, fix reverted (R4 control) | **0/4 — deadlock** |
