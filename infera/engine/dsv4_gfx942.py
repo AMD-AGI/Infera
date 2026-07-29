@@ -81,8 +81,8 @@ def detect_dsv4(model_path: str | None) -> Dsv4Model | None:
         return None
 
     model_type = str(cfg.get("model_type", "")).lower()
-    is_dsv4 = model_type.startswith("deepseek_v4") or "index_topk" in cfg
-    if not is_dsv4:
+    architectures = [str(a).lower() for a in cfg.get("architectures") or []]
+    if not _is_dsv4(model_type, architectures, cfg):
         return None
 
     variant = _detect_variant(cfg)
@@ -90,6 +90,23 @@ def detect_dsv4(model_path: str | None) -> Dsv4Model | None:
     if quant is None:
         return None
     return Dsv4Model(variant=variant, quant=quant)
+
+
+def _is_dsv4(model_type: str, architectures: list[str], cfg: dict) -> bool:
+    """True iff this config is a DeepSeek-V4 checkpoint.
+
+    ``index_topk`` on its own only says "sparse attention": other families ship a
+    DSA variant too (GLM-5.2 is ``glm_moe_dsa`` with ``index_topk`` 2048), and
+    matching on it alone handed them the dsv4 gfx942 knobs — dsv4 attention
+    backend, no shared-experts fusion, the FlashMLA hack — that are not theirs. So
+    trust whatever the checkpoint calls itself, and fall back to ``index_topk``
+    only when it names no architecture at all (a re-exported dsv4 checkpoint).
+    """
+    if model_type.startswith("deepseek_v4"):
+        return True
+    if architectures:
+        return any(a.startswith("deepseekv4") for a in architectures)
+    return "index_topk" in cfg
 
 
 def _detect_variant(cfg: dict) -> Variant:

@@ -108,6 +108,24 @@ def test_detect_dsv4_via_index_topk_without_model_type(tmp_path):
     assert m is not None and m.variant == "pro" and m.quant == "fp8"
 
 
+def test_detect_dsv4_ignores_other_sparse_attention_families(tmp_path):
+    # GLM-5.2 is a DSA model, so it carries index_topk, but it is not dsv4 and
+    # must not get the dsv4 gfx942 knobs (dsv4 attention backend, no shared-experts
+    # fusion, the FlashMLA hack).
+    p = _write_config(
+        tmp_path,
+        {
+            "model_type": "glm_moe_dsa",
+            "architectures": ["GlmMoeDsaForCausalLM"],
+            "index_topk": 2048,
+            "hidden_size": 6144,
+            "num_hidden_layers": 78,
+            **_FP8_QC,
+        },
+    )
+    assert d.detect_dsv4(p) is None
+
+
 def test_detect_quant_fp4_wins_when_both_present(tmp_path):
     # A real mxfp4 checkpoint often carries fp8/e4m3 SCALE fields too; fp4 must
     # win (checked first) so we don't misclassify an fp4 model as fp8.
