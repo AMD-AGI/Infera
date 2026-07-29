@@ -11,14 +11,14 @@
 //! (DP-attention cache-locality + load, the Rust twin of
 //! `infera.router.policy.kv_event_aware`).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use serde_json::Value;
 
 use crate::block_hasher::BlockHasher;
-use crate::cache_control::{parse_cache_hints, CacheHints, Retention};
+use crate::cache_control::{extract_image_keys, parse_cache_hints, CacheHints, Retention};
 use crate::kv_event::KvEventClient;
 use crate::pool::{expand_targets, RouteTarget, Worker};
 
@@ -101,15 +101,17 @@ impl Default for RoundRobin {
 }
 
 impl Policy for RoundRobin {
-    fn pick(&self, candidates: &[Arc<Worker>], _request: &Value, _role: Role) -> Pick {
+    fn pick(&self, candidates: &[Arc<Worker>], _request: &Value, role: Role) -> Pick {
         let targets = expand_targets(candidates);
         let key: Vec<String> = targets.iter().map(|t| t.route_key()).collect();
         let mut counters = self.counters.lock().expect("policy counter mutex poisoned");
         let idx = counters.entry(key).or_insert(0);
         let i = *idx % targets.len();
         *idx = idx.wrapping_add(1);
+        let target = targets[i].clone();
+        tracing::info!(policy = "round-robin", role = ?role, picked = %target.route_key(), "pick");
         Pick {
-            target: targets[i].clone(),
+            target,
             blocks: Vec::new(),
         }
     }
@@ -124,6 +126,17 @@ const LONG_RETENTION_AMPLIFIER: f64 = 2.0;
 /// Explicit NONE means "don't cache" — load-balance with a tiny overlap weight.
 const NONE_RETENTION_DAMPENER: f64 = 0.1;
 
+/// Per-worker cap on remembered image keys (LRU). Small: a handful of hot
+/// images dominate agentic VLM traffic, and `contains` scans this deque.
+const MM_AFFINITY_CAP: usize = 256;
+
+/// Cache value of one held image, expressed in "equivalent prefill blocks", so
+/// the affinity term shares the overlap weight with text. An image expands to
+/// hundreds of vision tokens (many blocks) on the engine, so a hit is worth far
+/// more than a single text block — this makes image affinity dominate small
+/// load differences without a separate weight knob.
+const MM_IMAGE_BLOCK_WEIGHT: f64 = 48.0;
+
 /// Pick the worker minimising
 ///   `cost(w) = w_overlap * (request_blocks - hits(w)) + active_blocks(w)`
 /// where `hits(w)` is the longest cached prefix on that worker's DP rank and
@@ -136,6 +149,10 @@ pub struct KvEventAwarePolicy {
     w_decode: f64,
     // route_key -> {block_hash -> refcount}; len() is the load term.
     active: Mutex<HashMap<String, HashMap<u64, i64>>>,
+    // route_key -> recent image keys (MRU front, bounded LRU). Multimodal
+    // affinity: a request whose image a worker already holds costs less there,
+    // co-locating repeat images onto the worker with the warm vision cache.
+    mm_affinity: Mutex<HashMap<String, VecDeque<u64>>>,
 }
 
 impl KvEventAwarePolicy {
@@ -153,6 +170,7 @@ impl KvEventAwarePolicy {
             w_prefill: prefill_overlap_weight.unwrap_or(overlap_weight),
             w_decode: decode_overlap_weight.unwrap_or(overlap_weight),
             active: Mutex::new(HashMap::new()),
+            mm_affinity: Mutex::new(HashMap::new()),
         }
     }
 
@@ -182,6 +200,36 @@ impl KvEventAwarePolicy {
             .map(|m| m.len())
             .unwrap_or(0)
     }
+
+    /// How many of `keys` this worker is recorded as holding (its warm images).
+    fn mm_hits(&self, route_key: &str, keys: &[u64]) -> usize {
+        if keys.is_empty() {
+            return 0;
+        }
+        let aff = self.mm_affinity.lock().expect("mm_affinity mutex poisoned");
+        match aff.get(route_key) {
+            Some(dq) => keys.iter().filter(|k| dq.contains(k)).count(),
+            None => 0,
+        }
+    }
+
+    /// Record that `route_key` now holds `keys` (MRU front, deduped, capped).
+    fn record_mm(&self, route_key: &str, keys: &[u64]) {
+        if keys.is_empty() {
+            return;
+        }
+        let mut aff = self.mm_affinity.lock().expect("mm_affinity mutex poisoned");
+        let dq = aff.entry(route_key.to_string()).or_default();
+        for &k in keys {
+            if let Some(pos) = dq.iter().position(|&x| x == k) {
+                dq.remove(pos);
+            }
+            dq.push_front(k);
+        }
+        while dq.len() > MM_AFFINITY_CAP {
+            dq.pop_back();
+        }
+    }
 }
 
 impl Policy for KvEventAwarePolicy {
@@ -202,12 +250,19 @@ impl Policy for KvEventAwarePolicy {
         }
 
         let hints = parse_cache_hints(request);
-        let mut w_overlap = self.base_weight_for(role) * Self::retention_amplifier(&hints);
-        // Multimodal guard: the hasher is text-only, so a same-text-different-image
-        // request could collide → force load-only routing (overlap 0).
-        if hints.has_multimodal_content {
-            w_overlap = 0.0;
-        }
+        let base_weight = self.base_weight_for(role) * Self::retention_amplifier(&hints);
+        // Multimodal requests: the text hasher can't reproduce the engine's image
+        // blocks (sglang substitutes pad-values, vLLM folds in extra-keys), so
+        // text overlap is unreliable and a same-text-different-image request could
+        // collide → drop text overlap (w_overlap 0) and steer by IMAGE AFFINITY
+        // instead. Engine-agnostic: affinity keys the router's own image→worker
+        // map, so one code path serves sglang, vLLM and ATOM alike.
+        let (w_overlap, mm_keys) = if hints.has_multimodal_content {
+            (0.0, extract_image_keys(request))
+        } else {
+            (base_weight, Vec::new())
+        };
+        let w_mm = base_weight * MM_IMAGE_BLOCK_WEIGHT;
 
         let empty: Vec<u64> = Vec::new();
         let blocks_of = |t: &RouteTarget| -> &Vec<u64> {
@@ -223,7 +278,15 @@ impl Policy for KvEventAwarePolicy {
         let cost_of = |t: &RouteTarget| -> f64 {
             let total = blocks_of(t).len();
             let hits = hits_of(t);
-            w_overlap * (total.saturating_sub(hits) as f64) + self.active_len(&t.route_key()) as f64
+            let route_key = t.route_key();
+            // Image miss term: images this worker does NOT already hold cost w_mm
+            // each; the worker with the warm vision cache pays 0 → wins the pick.
+            let mm_miss = mm_keys
+                .len()
+                .saturating_sub(self.mm_hits(&route_key, &mm_keys));
+            w_overlap * (total.saturating_sub(hits) as f64)
+                + w_mm * (mm_miss as f64)
+                + self.active_len(&route_key) as f64
         };
 
         // min by (cost, active) — tie-break to least-loaded.
@@ -243,15 +306,22 @@ impl Policy for KvEventAwarePolicy {
 
         let blocks = blocks_of(&picked).clone();
         let hits = hits_of(&picked);
+        let picked_key = picked.route_key();
+        // Mark the chosen worker as now holding this request's images, so the
+        // next request for the same image is drawn back to its warm cache.
+        let mm_matched = self.mm_hits(&picked_key, &mm_keys);
+        self.record_mm(&picked_key, &mm_keys);
         tracing::info!(
             policy = "kv-aware",
             role = ?role,
             retention = hints.retention.as_str(),
-            picked = %picked.route_key(),
+            picked = %picked_key,
             cache_hits = hits,
             request_blocks = blocks.len(),
-            active_blocks = self.active_len(&picked.route_key()),
+            active_blocks = self.active_len(&picked_key),
             w_overlap,
+            mm_images = mm_keys.len(),
+            mm_affinity_hits = mm_matched,
             "pick"
         );
         Pick {
@@ -300,14 +370,21 @@ impl Policy for KvEventAwarePolicy {
             .iter()
             .map(|w| w.worker_id.as_str())
             .collect();
-        let mut active = self.active.lock().expect("active mutex poisoned");
-        active.retain(|route_key, _| {
+        let alive = |route_key: &str| -> bool {
             let wid = route_key
                 .split_once("#dp")
                 .map(|(a, _)| a)
                 .unwrap_or(route_key);
             ids.contains(wid)
-        });
+        };
+        self.active
+            .lock()
+            .expect("active mutex poisoned")
+            .retain(|rk, _| alive(rk));
+        self.mm_affinity
+            .lock()
+            .expect("mm_affinity mutex poisoned")
+            .retain(|rk, _| alive(rk));
     }
 }
 
@@ -381,5 +458,80 @@ mod tests {
         pol.sync_workers(&[worker("stay", 16, None)]);
         assert_eq!(pol.active_len("gone#dp0"), 0);
         assert_eq!(pol.active_len("stay"), 1);
+    }
+
+    fn mm_request(url: &str) -> Value {
+        json!({"messages": [{"role": "user", "content": [
+            {"type": "text", "text": "describe"},
+            {"type": "image_url", "image_url": {"url": url}}
+        ]}]})
+    }
+
+    #[test]
+    fn mm_affinity_sticks_repeat_image_to_one_worker() {
+        let kv = Arc::new(KvEventClient::new());
+        let pol = KvEventAwarePolicy::new(kv, BlockHasher::disabled(), 1.0, None, None);
+        let cands = vec![worker("a", 16, None), worker("b", 16, None)];
+        let req = mm_request("https://cdn/cat.png");
+
+        // First pick records the image on whichever worker won (a tie → "a").
+        let first = pol
+            .pick(&cands, &req, Role::Prefill)
+            .target
+            .worker
+            .worker_id
+            .clone();
+        // Lightly load the *other* worker (well under w_mm) — affinity must still
+        // pull the same image back to the worker holding its vision cache.
+        let other = if first == "a" { "b" } else { "a" };
+        pol.on_request_started(other, &[1, 2, 3]);
+        for _ in 0..5 {
+            let p = pol.pick(&cands, &req, Role::Prefill);
+            assert_eq!(p.target.worker.worker_id, first, "repeat image sticks");
+        }
+    }
+
+    #[test]
+    fn mm_affinity_new_image_balances_by_load() {
+        let kv = Arc::new(KvEventClient::new());
+        let pol = KvEventAwarePolicy::new(kv, BlockHasher::disabled(), 1.0, None, None);
+        let cands = vec![worker("a", 16, None), worker("b", 16, None)];
+        // Warm "a" with a cat and load it heavily.
+        pol.record_mm("a", &extract_image_keys(&mm_request("https://cdn/cat.png")));
+        pol.on_request_started("a", &[1, 2, 3, 4, 5]);
+        // A brand-new image has no affinity anywhere → least-loaded "b" wins.
+        let p = pol.pick(&cands, &mm_request("https://cdn/dog.png"), Role::Prefill);
+        assert_eq!(
+            p.target.worker.worker_id, "b",
+            "unseen image balances by load"
+        );
+    }
+
+    #[test]
+    fn mm_affinity_lru_capped() {
+        let kv = Arc::new(KvEventClient::new());
+        let pol = KvEventAwarePolicy::new(kv, BlockHasher::disabled(), 1.0, None, None);
+        let keys: Vec<u64> = (0..(MM_AFFINITY_CAP as u64 + 50)).collect();
+        for &k in &keys {
+            pol.record_mm("w", &[k]);
+        }
+        // Deque holds only the most-recent CAP; the oldest 50 are evicted.
+        assert_eq!(pol.mm_hits("w", &keys[..50]), 0, "oldest evicted");
+        assert_eq!(
+            pol.mm_hits("w", &keys[50..]),
+            MM_AFFINITY_CAP,
+            "newest retained"
+        );
+    }
+
+    #[test]
+    fn sync_prunes_removed_worker_mm_affinity() {
+        let kv = Arc::new(KvEventClient::new());
+        let pol = KvEventAwarePolicy::new(kv, BlockHasher::disabled(), 1.0, None, None);
+        pol.record_mm("gone#dp0", &[1, 2]);
+        pol.record_mm("stay", &[3]);
+        pol.sync_workers(&[worker("stay", 16, None)]);
+        assert_eq!(pol.mm_hits("gone#dp0", &[1, 2]), 0);
+        assert_eq!(pol.mm_hits("stay", &[3]), 1);
     }
 }

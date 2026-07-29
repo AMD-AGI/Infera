@@ -20,8 +20,10 @@ use axum::routing::post;
 use axum::{Json, Router};
 use serde_json::{json, Value};
 
+use infera_router::block_hasher::BlockHasher;
 use infera_router::handlers::{app, AppState};
-use infera_router::policy::RoundRobin;
+use infera_router::kv_event::KvEventClient;
+use infera_router::policy::{KvEventAwarePolicy, RoundRobin};
 use infera_router::pool::{Snapshot, Worker};
 use infera_router::proxy;
 
@@ -176,6 +178,81 @@ async fn mixed_round_robin_spreads_load() {
     // 4 requests, round-robin over 2 workers → 2 each.
     assert_eq!(a.hit_count(), 2);
     assert_eq!(b.hit_count(), 2);
+}
+
+// ---------------------------------------------------------------------------
+// Multimodal image-affinity routing (engine-agnostic: same OpenAI vision body
+// that both sglang and vLLM receive flows the full path handlers → parse →
+// extract_image_keys → KvEventAwarePolicy affinity → upstream).
+// ---------------------------------------------------------------------------
+
+fn make_kv_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
+    AppState {
+        pool: Arc::new(ArcSwap::from_pointee(Snapshot::build(workers))),
+        policy: Arc::new(KvEventAwarePolicy::new(
+            Arc::new(KvEventClient::new()),
+            BlockHasher::disabled(),
+            20.0,
+            None,
+            None,
+        )),
+        http: proxy::build_upstream_client().unwrap(),
+        started: Instant::now(),
+        retries,
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn mm_affinity_colocates_repeat_image() {
+    let (url_a, a) = spawn_mock(200, false, json!({"w": "a"})).await;
+    let (url_b, b) = spawn_mock(200, false, json!({"w": "b"})).await;
+    let state = make_kv_state(
+        vec![
+            worker(json!({"worker_id": "a", "url": url_a, "model_name": "m",
+                          "disagg_mode": "mixed", "kv_block_size": 16})),
+            worker(json!({"worker_id": "b", "url": url_b, "model_name": "m",
+                          "disagg_mode": "mixed", "kv_block_size": 16})),
+        ],
+        0,
+    );
+    let router = spawn_router(state).await;
+
+    // Standard OpenAI vision request — the identical body an OpenAI client sends
+    // to either sglang or vLLM. The router keys affinity off the image URL.
+    let img = json!({"model": "m", "stream": false, "messages": [{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "what is in this image?"},
+            {"type": "image_url", "image_url": {"url": "https://cdn.example/cat.png"}}
+        ]
+    }]});
+
+    for _ in 0..5 {
+        let r = client()
+            .post(format!("{router}/v1/chat/completions"))
+            .json(&img)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(r.status(), 200);
+    }
+
+    // All five identical-image requests land on ONE worker (its warm vision
+    // cache), instead of round-robining across both.
+    let (ha, hb) = (a.hit_count(), b.hit_count());
+    assert_eq!(ha + hb, 5, "all requests served");
+    assert!(
+        ha == 5 || hb == 5,
+        "image affinity co-locates repeats: a={ha} b={hb}"
+    );
+
+    // The image survived the hop to the upstream (routing didn't strip content).
+    let winner = if ha == 5 { &a } else { &b };
+    let body = &winner.hits.lock().unwrap()[0].body;
+    assert_eq!(
+        body["messages"][0]["content"][1]["image_url"]["url"],
+        "https://cdn.example/cat.png"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

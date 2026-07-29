@@ -6,9 +6,15 @@
 from __future__ import annotations
 
 import logging
+from collections import OrderedDict
 
 from infera.common.worker_pool import WorkerInfo
-from infera.router.cache_control import CacheHints, Retention, parse_cache_hints
+from infera.router.cache_control import (
+    CacheHints,
+    Retention,
+    extract_image_keys,
+    parse_cache_hints,
+)
 from infera.router.kv_event.block_hasher import BlockHasher
 from infera.router.kv_event.client import KvEventClient
 from infera.router.policy.base import Policy
@@ -28,6 +34,14 @@ _LONG_RETENTION_AMPLIFIER = 2.0
 # Conversely, "client said NONE" means they don't want caching — we
 # fall back to load balance with a tiny overlap weight to break ties.
 _NONE_RETENTION_DAMPENER = 0.1
+
+# Multimodal image-affinity (twin of the Rust router). Per-worker cap on
+# remembered image keys (LRU); small because a handful of hot images dominate
+# agentic VLM traffic. Each held image is worth this many "equivalent prefill
+# blocks" of cache value — an image expands to hundreds of vision tokens on the
+# engine, so a hit outweighs small load differences without a separate knob.
+_MM_AFFINITY_CAP = 256
+_MM_IMAGE_BLOCK_WEIGHT = 48.0
 
 
 class KvEventAwarePolicy(Policy):
@@ -75,6 +89,12 @@ class KvEventAwarePolicy(Policy):
         )
         # worker_id -> {block_hash -> refcount}; len() is the load term.
         self._active_block_refs: dict[str, dict[int, int]] = {}
+        # route_key -> ordered set of recent image keys (MRU last, bounded LRU).
+        # Multimodal affinity: a request whose image a worker already holds
+        # costs less there, co-locating repeat images onto the warm vision
+        # cache. OrderedDict-as-set: move_to_end = touch, popitem(last=False) =
+        # evict oldest.
+        self._mm_affinity: dict[str, OrderedDict[int, None]] = {}
 
     def _base_weight_for(self, role_hint: str | None) -> float:
         if role_hint == "prefill":
@@ -127,22 +147,25 @@ class KvEventAwarePolicy(Policy):
             cached_hints if isinstance(cached_hints, CacheHints) else parse_cache_hints(request)
         )
 
-        base_weight = self._base_weight_for(role_hint)
-        w_overlap = base_weight * self._retention_amplifier(hints)
+        amplified = self._base_weight_for(role_hint) * self._retention_amplifier(hints)
 
-        # Phase 4.7(b) silent-corruption guard: the router-side block
-        # hasher is text-only. For requests carrying images/audio/video
-        # the placeholder token is the SAME id regardless of which
-        # image, so a same-surrounding-tokens-different-image request
-        # would collide with a cached entry from a different image and
-        # serve the wrong KV. Force overlap=0 so cost() = active(w) —
-        # pure load balance. We still compute the (text-only) hashes
-        # for `picked_blocks` because on_request_started/finished use
-        # them for refcounting, and the engine still benefits from
-        # routing to a less-loaded worker.
+        # Multimodal requests: the text hasher can't reproduce the engine's
+        # image blocks (SGLang substitutes pad-values, vLLM folds in extra-keys)
+        # and the image placeholder token is the SAME id regardless of which
+        # image — so trusting text overlap would collide a new image onto a
+        # different image's cached KV (silent corruption). Drop text overlap
+        # (w_overlap=0) and steer by IMAGE AFFINITY instead: keys the router's
+        # own image→worker map, so one path serves SGLang, vLLM and ATOM alike.
+        # (We still compute text hashes for `picked_blocks` — the refcount hooks
+        # use them.)
         if hints.has_multimodal_content:
             w_overlap = 0.0
+            mm_keys = extract_image_keys(request)
             metrics.cache_locality_skipped_total.labels(reason="multimodal").inc()
+        else:
+            w_overlap = amplified
+            mm_keys = []
+        w_mm = amplified * _MM_IMAGE_BLOCK_WEIGHT
 
         def active(t: RouteTarget) -> int:
             return len(self._active_block_refs.get(t.route_key, {}))
@@ -150,7 +173,10 @@ class KvEventAwarePolicy(Policy):
         def cost(t: RouteTarget) -> float:
             total = len(hashes_for.get((t.worker.engine, t.worker.kv_block_size), []))
             hits = self._cache_hits(t, hashes_for)
-            return w_overlap * (total - hits) + active(t)
+            # Image miss term: images this worker does NOT already hold cost
+            # w_mm each; the worker with the warm vision cache pays 0 → wins.
+            mm_miss = len(mm_keys) - self._mm_hits(t.route_key, mm_keys)
+            return w_overlap * (total - hits) + w_mm * mm_miss + active(t)
 
         # Tie-break by lower active so equal-cost candidates fall back to
         # least-loaded.
@@ -158,6 +184,10 @@ class KvEventAwarePolicy(Policy):
         picked_blocks = list(
             hashes_for.get((picked.worker.engine, picked.worker.kv_block_size), [])
         )
+        # Mark the chosen worker as now holding this request's images, so the
+        # next request for the same image is drawn back to its warm cache.
+        mm_affinity_hits = self._mm_hits(picked.route_key, mm_keys)
+        self._record_mm(picked.route_key, mm_keys)
 
         # Telemetry: record the pick decision per role + target, plus
         # the retention bucket we observed on this request.
@@ -175,7 +205,8 @@ class KvEventAwarePolicy(Policy):
         # with the X-Infera-Request-Id the server emits.
         logger.info(
             "pick policy=kv-aware role=%s retention=%s request_id=%s picked=%s "
-            "cache_hits=%d request_blocks=%d active_blocks=%d w_overlap=%.2f",
+            "cache_hits=%d request_blocks=%d active_blocks=%d w_overlap=%.2f "
+            "mm_images=%d mm_affinity_hits=%d",
             role_hint or "mixed",
             hints.retention.value,
             request.get("_infera_request_id", "-"),
@@ -184,6 +215,8 @@ class KvEventAwarePolicy(Policy):
             len(picked_blocks),
             active(picked),
             w_overlap,
+            len(mm_keys),
+            mm_affinity_hits,
         )
 
         return picked, picked_blocks
@@ -199,6 +232,8 @@ class KvEventAwarePolicy(Policy):
         prefix = f"{worker_id}#dp"
         for key in [k for k in self._active_block_refs if k == worker_id or k.startswith(prefix)]:
             self._active_block_refs.pop(key, None)
+        for key in [k for k in self._mm_affinity if k == worker_id or k.startswith(prefix)]:
+            self._mm_affinity.pop(key, None)
 
     def on_request_started(self, route_key: str, blocks: list[int] | None = None) -> None:
         if not blocks:
@@ -226,6 +261,28 @@ class KvEventAwarePolicy(Policy):
     @property
     def kv_client(self) -> KvEventClient:
         return self._kv
+
+    def _mm_hits(self, route_key: str, keys: list[int]) -> int:
+        """How many of ``keys`` this worker is recorded as holding."""
+        if not keys:
+            return 0
+        aff = self._mm_affinity.get(route_key)
+        if not aff:
+            return 0
+        return sum(1 for k in keys if k in aff)
+
+    def _record_mm(self, route_key: str, keys: list[int]) -> None:
+        """Record that ``route_key`` now holds ``keys`` (MRU, deduped, capped)."""
+        if not keys:
+            return
+        aff = self._mm_affinity.setdefault(route_key, OrderedDict())
+        for k in keys:
+            if k in aff:
+                aff.move_to_end(k)
+            else:
+                aff[k] = None
+        while len(aff) > _MM_AFFINITY_CAP:
+            aff.popitem(last=False)
 
     def _cache_hits(self, t: RouteTarget, hashes_for: dict[tuple, list[int]]) -> int:
         if not t.worker.kv_block_size:
