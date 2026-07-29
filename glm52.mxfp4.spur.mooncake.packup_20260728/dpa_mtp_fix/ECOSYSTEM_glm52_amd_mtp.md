@@ -388,12 +388,26 @@ Other leads, in rough priority order:
 
 ## 7. Open questions — UNRESOLVED
 
-### ⚠️ The `--disable-custom-all-reduce` contradiction — read this before debugging further
+### ✅ RESOLVED 2026-07-29 — the `--disable-custom-all-reduce` contradiction
+
+**Answer: neither hypothesis below. The #31071 lead never applied to our topology.**
+BASELINE-VERIFIED at runtime: with `tp_size=8, dp_size=8`,
+`attn_tp_size = tp_size // attn_dp_size // attn_cp_size = 8 // 8 // 1 = 1`
+(`compute_dp_attention_world_info(True, 0, 8, 8, 1)` → `(0, 1, 0, 8)`). The broadcast
+fix is guarded by `if tp_group.world_size > 1:`, so on our config **it never executes**.
+
+In pure DP-attention (`dp_size == tp_size`) each attention-TP group holds exactly one
+GPU — there is nobody to broadcast to. #31071 fixes divergence *within* an attention-TP
+group; ours is *across* DP ranks. Different axis. The flag was never relevant.
+
+Consequence: **PR #31683's value to us drops** — its broadcast hunk is a no-op here.
+Only its idle-DP-rank empty-tensor commits remain potentially relevant (those do not
+depend on `attn_tp_size`). See `PROGRESS_20260729.md` §2.
+
+The two hypotheses originally recorded here, kept for the record:
 
 **We run with `--disable-custom-all-reduce`.** Per #31071's commit message, that should
 suppress the non-deterministic-all-reduce trigger it describes. **Yet we still deadlock.**
-
-Exactly one of these must be true, and we do not know which:
 
 1. **There is another non-determinism source.** The strongest candidate is the **ROCm argmax
    tie-break** (§2e) — upstream's own comment in

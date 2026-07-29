@@ -1,0 +1,40 @@
+[2026-07-29 09:42:17 DP3 TP3 EP3] [GLM52_LOOP_PROBE] it=986 dp=3 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP4 TP4 EP4] [GLM52_LOOP_PROBE] it=986 dp=4 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP5 TP5 EP5] [GLM52_LOOP_PROBE] it=986 dp=5 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP2 TP2 EP2] [GLM52_LOOP_PROBE] it=986 dp=2 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP1 TP1 EP1] [GLM52_LOOP_PROBE] it=986 dp=1 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP6 TP6 EP6] [GLM52_LOOP_PROBE] it=986 dp=6 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP0 TP0 EP0] [GLM52_LOOP_PROBE] it=986 dp=0 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP7 TP7 EP7] [GLM52_LOOP_PROBE] it=986 dp=7 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP3 TP3 EP3] [GLM52_LOOP_PROBE] it=987 dp=3 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP4 TP4 EP4] [GLM52_LOOP_PROBE] it=987 dp=4 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP5 TP5 EP5] [GLM52_LOOP_PROBE] it=987 dp=5 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP2 TP2 EP2] [GLM52_LOOP_PROBE] it=987 dp=2 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP6 TP6 EP6] [GLM52_LOOP_PROBE] it=987 dp=6 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP1 TP1 EP1] [GLM52_LOOP_PROBE] it=987 dp=1 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP0 TP0 EP0] [GLM52_LOOP_PROBE] it=987 dp=0 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP7 TP7 EP7] [GLM52_LOOP_PROBE] it=987 dp=7 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP3 TP3 EP3] [GLM52_LOOP_PROBE] it=988 dp=3 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP4 TP4 EP4] [GLM52_LOOP_PROBE] it=988 dp=4 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP5 TP5 EP5] [GLM52_LOOP_PROBE] it=988 dp=5 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP2 TP2 EP2] [GLM52_LOOP_PROBE] it=988 dp=2 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP1 TP1 EP1] [GLM52_LOOP_PROBE] it=988 dp=1 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP6 TP6 EP6] [GLM52_LOOP_PROBE] it=988 dp=6 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP0 TP0 EP0] [GLM52_LOOP_PROBE] it=988 dp=0 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP7 TP7 EP7] [GLM52_LOOP_PROBE] it=988 dp=7 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP4 TP4 EP4] [GLM52_LOOP_PROBE] it=989 dp=4 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP3 TP3 EP3] [GLM52_LOOP_PROBE] it=989 dp=3 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP2 TP2 EP2] [GLM52_LOOP_PROBE] it=989 dp=2 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP5 TP5 EP5] [GLM52_LOOP_PROBE] it=989 dp=5 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP1 TP1 EP1] [GLM52_LOOP_PROBE] it=989 dp=1 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP6 TP6 EP6] [GLM52_LOOP_PROBE] it=989 dp=6 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP0 TP0 EP0] [GLM52_LOOP_PROBE] it=989 dp=0 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP7 TP7 EP7] [GLM52_LOOP_PROBE] it=989 dp=7 batch=(None) last=(None) disable_overlap=None qlen=0 -> will_run=False will_pop=False
+[2026-07-29 09:42:17 DP2 TP2 EP2] [GLM52_LOOP_PROBE] it=990 dp=2 batch=(mode=ForwardMode.DECODE|bs=1|ext_in_batch=False|gnt=[1, 1, 1, 0, 0, 0, 0, 1]) last=(None) disable_overlap=False qlen=0 -> will_run=True will_pop=False
+[2026-07-29 09:42:17 DP1 TP1 EP1] [GLM52_LOOP_PROBE] it=990 dp=1 batch=(mode=ForwardMode.DECODE|bs=1|ext_in_batch=False|gnt=[1, 1, 1, 0, 0, 0, 0, 1]) last=(None) disable_overlap=False qlen=0 -> will_run=True will_pop=False
+[2026-07-29 09:42:17 DP4 TP4 EP4] [GLM52_LOOP_PROBE] it=990 dp=4 batch=(mode=ForwardMode.IDLE|bs=0|ext_in_batch=False|gnt=[1, 1, 1, 0, 0, 0, 0, 1]) last=(None) disable_overlap=False qlen=0 -> will_run=True will_pop=False
+[2026-07-29 09:42:17 DP3 TP3 EP3] [GLM52_LOOP_PROBE] it=990 dp=3 batch=(mode=ForwardMode.IDLE|bs=0|ext_in_batch=False|gnt=[1, 1, 1, 0, 0, 0, 0, 1]) last=(None) disable_overlap=False qlen=0 -> will_run=True will_pop=False
+[2026-07-29 09:42:17 DP0 TP0 EP0] [GLM52_LOOP_PROBE] it=990 dp=0 batch=(mode=ForwardMode.DECODE|bs=1|ext_in_batch=False|gnt=[1, 1, 1, 0, 0, 0, 0, 1]) last=(None) disable_overlap=False qlen=0 -> will_run=True will_pop=False
+[2026-07-29 09:42:17 DP7 TP7 EP7] [GLM52_LOOP_PROBE] it=990 dp=7 batch=(mode=ForwardMode.DECODE|bs=1|ext_in_batch=False|gnt=[1, 1, 1, 0, 0, 0, 0, 1]) last=(None) disable_overlap=False qlen=0 -> will_run=True will_pop=False
+[2026-07-29 09:42:17 DP5 TP5 EP5] [GLM52_LOOP_PROBE] it=990 dp=5 batch=(mode=ForwardMode.IDLE|bs=0|ext_in_batch=False|gnt=[1, 1, 1, 0, 0, 0, 0, 1]) last=(None) disable_overlap=False qlen=0 -> will_run=True will_pop=False
+[2026-07-29 09:42:17 DP6 TP6 EP6] [GLM52_LOOP_PROBE] it=990 dp=6 batch=(mode=ForwardMode.IDLE|bs=0|ext_in_batch=False|gnt=[1, 1, 1, 0, 0, 0, 0, 1]) last=(None) disable_overlap=False qlen=0 -> will_run=True will_pop=False
