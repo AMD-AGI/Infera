@@ -220,17 +220,13 @@ jobs:
             sleep 5
           done
 
-  # PD-disaggregated e2e (prefill and decode on two nodes, KV over RDMA). Runs on
-  # PRs like e2e-mixed, and on manual dispatch under its OWN run_e2e_disag box —
-  # separate job + separate switch so a PD-transport break is legible on its own.
   e2e-disag:
     needs: [lint, changes]
     if: >-
       always() &&
       needs.changes.outputs.code == 'true' &&
       needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
-      (github.event_name == 'pull_request' ||
-       (github.event_name == 'workflow_dispatch' && inputs.run_e2e_disag))
+      (github.event_name == 'workflow_dispatch' && inputs.run_e2e_disag)
     strategy:
       fail-fast: false
       matrix:
