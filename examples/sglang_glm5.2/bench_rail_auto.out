@@ -1,0 +1,128 @@
+[rails:auto] isl8192_osl128_c16 -> /wekafs/llying/code/Infera/examples/sglang_glm5.2/bench_rail_auto/isl8192_osl128_c16.json
+[aiter] import [module_aiter_core] under /sgl-workspace/aiter/aiter/jit/module_aiter_core.so
+[aiter] merge tuned file under model_configs/ and configs/ /sgl-workspace/aiter/aiter/configs/bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/dsv3_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/dsv4_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/glm47_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/glm5_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/gptoss_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/kimi_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/kimik2_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/llama405B_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/llama70B_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/minimax_m3_eagle_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/qwen32B_bf16_tuned_gemm.csv
+/sgl-workspace/sglang/python/sglang/bench_serving.py:13: FutureWarning: `sglang.bench_serving` is deprecated and will be removed in a future release; use `sglang.benchmark.serving` instead (e.g. `python -m sglang.benchmark.serving`).
+  warnings.warn(
+benchmark_args=Namespace(backend='sglang-oai', base_url=None, host='127.0.0.1', port=8000, ready_check_timeout_sec=60, dataset_name='random', dataset_path='', dataset_offset=0, agentic_max_turns=None, speed_bench_category=None, speed_bench_output_len=512, model='/wekafs/models/GLM-5.2-FP8', served_model_name=None, tokenizer='/wekafs/models/GLM-5.2-FP8', num_prompts=80, sharegpt_output_len=None, sharegpt_context_len=None, random_input_len=8192, random_output_len=128, random_range_ratio=1.0, image_count=1, image_resolution='1080p', random_image_count=False, image_format='jpeg', image_content='random', request_rate=inf, use_trace_timestamps=False, max_concurrency=16, output_file='/wekafs/llying/code/Infera/examples/sglang_glm5.2/bench_rail_auto/isl8192_osl128_c16.json', output_details=False, print_requests=False, disable_tqdm=False, disable_stream=False, return_logprob=False, top_logprobs_num=0, token_ids_logprob=None, logprob_start_len=-1, return_routed_experts=False, cache_report=False, seed=42, disable_ignore_eos=False, temperature=0.0, top_p=1.0, extra_request_body=None, apply_chat_template=False, profile=False, plot_throughput=False, profile_activities=['CPU', 'GPU'], profile_start_step=None, profile_steps=None, profile_num_steps=None, profile_by_stage=False, profile_stages=None, profile_output_dir=None, profile_prefix=None, lora_name=None, lora_request_distribution='uniform', lora_zipf_alpha=1.5, prompt_suffix='', pd_separated=False, profile_prefill_url=None, profile_decode_url=None, flush_cache=False, warmup_requests=1, tokenize_prompt=False, gsp_num_groups=64, gsp_prompts_per_group=16, gsp_system_prompt_len=2048, gsp_question_len=128, gsp_output_len=256, gsp_range_ratio=1.0, gsp_fast_prepare=False, gsp_send_routing_key=False, gsp_num_turns=1, gsp_ordered=False, gsp_group_distribution='uniform', gsp_zipf_alpha=None, mooncake_slowdown_factor=1.0, mooncake_num_rounds=1, mooncake_workload='conversation', fake_prefill=False, tag=None, header=None)
+Waiting up to 60s for http://127.0.0.1:8000/v1/models to become ready...
+Server ready in 0.0s.
+Namespace(backend='sglang-oai', base_url=None, host='127.0.0.1', port=8000, ready_check_timeout_sec=60, dataset_name='random', dataset_path='', dataset_offset=0, agentic_max_turns=None, speed_bench_category=None, speed_bench_output_len=512, model='/wekafs/models/GLM-5.2-FP8', served_model_name=None, tokenizer='/wekafs/models/GLM-5.2-FP8', num_prompts=80, sharegpt_output_len=None, sharegpt_context_len=None, random_input_len=8192, random_output_len=128, random_range_ratio=1.0, image_count=1, image_resolution='1080p', random_image_count=False, image_format='jpeg', image_content='random', request_rate=inf, use_trace_timestamps=False, max_concurrency=16, output_file='/wekafs/llying/code/Infera/examples/sglang_glm5.2/bench_rail_auto/isl8192_osl128_c16.json', output_details=False, print_requests=False, disable_tqdm=False, disable_stream=False, return_logprob=False, top_logprobs_num=0, token_ids_logprob=None, logprob_start_len=-1, return_routed_experts=False, cache_report=False, seed=42, disable_ignore_eos=False, temperature=0.0, top_p=1.0, extra_request_body=None, apply_chat_template=False, profile=False, plot_throughput=False, profile_activities=['CPU', 'GPU'], profile_start_step=None, profile_steps=None, profile_num_steps=None, profile_by_stage=False, profile_stages=None, profile_output_dir=None, profile_prefix=None, lora_name=None, lora_request_distribution='uniform', lora_zipf_alpha=1.5, prompt_suffix='', pd_separated=False, profile_prefill_url=None, profile_decode_url=None, flush_cache=False, warmup_requests=1, tokenize_prompt=False, gsp_num_groups=64, gsp_prompts_per_group=16, gsp_system_prompt_len=2048, gsp_question_len=128, gsp_output_len=256, gsp_range_ratio=1.0, gsp_fast_prepare=False, gsp_send_routing_key=False, gsp_num_turns=1, gsp_ordered=False, gsp_group_distribution='uniform', gsp_zipf_alpha=None, mooncake_slowdown_factor=1.0, mooncake_num_rounds=1, mooncake_workload='conversation', fake_prefill=False, tag=None, header=None)
+
+#Input tokens: 655360
+#Output tokens: 10240
+Starting warmup with 1 sequences...
+Warmup completed with 1 sequences. Starting main benchmark run...
+  0%|          | 0/80 [00:00<?, ?it/s]  1%|▏         | 1/80 [00:32<42:49, 32.53s/it] 20%|██        | 16/80 [00:40<02:04,  1.94s/it] 21%|██▏       | 17/80 [01:03<03:55,  3.74s/it] 25%|██▌       | 20/80 [01:11<03:28,  3.47s/it] 39%|███▉      | 31/80 [01:19<01:31,  1.86s/it] 40%|████      | 32/80 [01:27<01:48,  2.26s/it] 41%|████▏     | 33/80 [01:35<02:10,  2.77s/it] 42%|████▎     | 34/80 [01:43<02:37,  3.42s/it] 51%|█████▏    | 41/80 [01:49<01:18,  2.02s/it] 60%|██████    | 48/80 [01:50<00:40,  1.26s/it] 61%|██████▏   | 49/80 [01:52<00:40,  1.30s/it] 62%|██████▎   | 50/80 [01:57<00:50,  1.67s/it] 71%|███████▏  | 57/80 [02:03<00:28,  1.24s/it] 80%|████████  | 64/80 [02:07<00:16,  1.00s/it] 82%|████████▎ | 66/80 [02:12<00:16,  1.17s/it] 91%|█████████▏| 73/80 [02:16<00:06,  1.10it/s] 98%|█████████▊| 78/80 [02:18<00:01,  1.33it/s]100%|██████████| 80/80 [02:20<00:00,  1.25it/s]100%|██████████| 80/80 [02:20<00:00,  1.75s/it]
+
+============ Serving Benchmark Result ============
+Backend:                                 sglang-oai
+Traffic request rate:                    inf       
+Max request concurrency:                 16        
+Successful requests:                     80        
+Benchmark duration (s):                  140.28    
+Total input tokens:                      655360    
+Total input text tokens:                 655360    
+Total generated tokens:                  10240     
+Total generated tokens (retokenized):    10232     
+Request throughput (req/s):              0.57      
+Input token throughput (tok/s):          4671.82   
+Output token throughput (tok/s):         73.00     
+Peak output token throughput (tok/s):    210.00    
+Peak concurrent requests:                31        
+Total token throughput (tok/s):          4744.82   
+Concurrency:                             15.33     
+----------------End-to-End Latency----------------
+Mean E2E Latency (ms):                   26889.42  
+Median E2E Latency (ms):                 31412.39  
+P90 E2E Latency (ms):                    39471.98  
+P95 E2E Latency (ms):                    39643.01  
+P99 E2E Latency (ms):                    46871.40  
+---------------Time to First Token----------------
+Mean TTFT (ms):                          17653.33  
+Median TTFT (ms):                        21699.59  
+P90 TTFT (ms):                           29442.44  
+P95 TTFT (ms):                           29888.92  
+P99 TTFT (ms):                           37252.24  
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          72.73     
+Median TPOT (ms):                        76.80     
+P90 TPOT (ms):                           78.86     
+P95 TPOT (ms):                           78.90     
+P99 TPOT (ms):                           78.97     
+---------------Inter-Token Latency----------------
+Mean ITL (ms):                           72.73     
+Median ITL (ms):                         73.96     
+P90 ITL (ms):                            83.71     
+P95 ITL (ms):                            84.20     
+P99 ITL (ms):                            122.23    
+Max ITL (ms):                            196.70    
+==================================================
+[rails:auto] isl8192_osl128_c64 -> /wekafs/llying/code/Infera/examples/sglang_glm5.2/bench_rail_auto/isl8192_osl128_c64.json
+[aiter] import [module_aiter_core] under /sgl-workspace/aiter/aiter/jit/module_aiter_core.so
+[aiter] merge tuned file under model_configs/ and configs/ /sgl-workspace/aiter/aiter/configs/bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/dsv3_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/dsv4_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/glm47_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/glm5_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/gptoss_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/kimi_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/kimik2_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/llama405B_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/llama70B_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/minimax_m3_eagle_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/qwen32B_bf16_tuned_gemm.csv
+/sgl-workspace/sglang/python/sglang/bench_serving.py:13: FutureWarning: `sglang.bench_serving` is deprecated and will be removed in a future release; use `sglang.benchmark.serving` instead (e.g. `python -m sglang.benchmark.serving`).
+  warnings.warn(
+benchmark_args=Namespace(backend='sglang-oai', base_url=None, host='127.0.0.1', port=8000, ready_check_timeout_sec=60, dataset_name='random', dataset_path='', dataset_offset=0, agentic_max_turns=None, speed_bench_category=None, speed_bench_output_len=512, model='/wekafs/models/GLM-5.2-FP8', served_model_name=None, tokenizer='/wekafs/models/GLM-5.2-FP8', num_prompts=320, sharegpt_output_len=None, sharegpt_context_len=None, random_input_len=8192, random_output_len=128, random_range_ratio=1.0, image_count=1, image_resolution='1080p', random_image_count=False, image_format='jpeg', image_content='random', request_rate=inf, use_trace_timestamps=False, max_concurrency=64, output_file='/wekafs/llying/code/Infera/examples/sglang_glm5.2/bench_rail_auto/isl8192_osl128_c64.json', output_details=False, print_requests=False, disable_tqdm=False, disable_stream=False, return_logprob=False, top_logprobs_num=0, token_ids_logprob=None, logprob_start_len=-1, return_routed_experts=False, cache_report=False, seed=42, disable_ignore_eos=False, temperature=0.0, top_p=1.0, extra_request_body=None, apply_chat_template=False, profile=False, plot_throughput=False, profile_activities=['CPU', 'GPU'], profile_start_step=None, profile_steps=None, profile_num_steps=None, profile_by_stage=False, profile_stages=None, profile_output_dir=None, profile_prefix=None, lora_name=None, lora_request_distribution='uniform', lora_zipf_alpha=1.5, prompt_suffix='', pd_separated=False, profile_prefill_url=None, profile_decode_url=None, flush_cache=False, warmup_requests=1, tokenize_prompt=False, gsp_num_groups=64, gsp_prompts_per_group=16, gsp_system_prompt_len=2048, gsp_question_len=128, gsp_output_len=256, gsp_range_ratio=1.0, gsp_fast_prepare=False, gsp_send_routing_key=False, gsp_num_turns=1, gsp_ordered=False, gsp_group_distribution='uniform', gsp_zipf_alpha=None, mooncake_slowdown_factor=1.0, mooncake_num_rounds=1, mooncake_workload='conversation', fake_prefill=False, tag=None, header=None)
+Waiting up to 60s for http://127.0.0.1:8000/v1/models to become ready...
+Server ready in 0.0s.
+Namespace(backend='sglang-oai', base_url=None, host='127.0.0.1', port=8000, ready_check_timeout_sec=60, dataset_name='random', dataset_path='', dataset_offset=0, agentic_max_turns=None, speed_bench_category=None, speed_bench_output_len=512, model='/wekafs/models/GLM-5.2-FP8', served_model_name=None, tokenizer='/wekafs/models/GLM-5.2-FP8', num_prompts=320, sharegpt_output_len=None, sharegpt_context_len=None, random_input_len=8192, random_output_len=128, random_range_ratio=1.0, image_count=1, image_resolution='1080p', random_image_count=False, image_format='jpeg', image_content='random', request_rate=inf, use_trace_timestamps=False, max_concurrency=64, output_file='/wekafs/llying/code/Infera/examples/sglang_glm5.2/bench_rail_auto/isl8192_osl128_c64.json', output_details=False, print_requests=False, disable_tqdm=False, disable_stream=False, return_logprob=False, top_logprobs_num=0, token_ids_logprob=None, logprob_start_len=-1, return_routed_experts=False, cache_report=False, seed=42, disable_ignore_eos=False, temperature=0.0, top_p=1.0, extra_request_body=None, apply_chat_template=False, profile=False, plot_throughput=False, profile_activities=['CPU', 'GPU'], profile_start_step=None, profile_steps=None, profile_num_steps=None, profile_by_stage=False, profile_stages=None, profile_output_dir=None, profile_prefix=None, lora_name=None, lora_request_distribution='uniform', lora_zipf_alpha=1.5, prompt_suffix='', pd_separated=False, profile_prefill_url=None, profile_decode_url=None, flush_cache=False, warmup_requests=1, tokenize_prompt=False, gsp_num_groups=64, gsp_prompts_per_group=16, gsp_system_prompt_len=2048, gsp_question_len=128, gsp_output_len=256, gsp_range_ratio=1.0, gsp_fast_prepare=False, gsp_send_routing_key=False, gsp_num_turns=1, gsp_ordered=False, gsp_group_distribution='uniform', gsp_zipf_alpha=None, mooncake_slowdown_factor=1.0, mooncake_num_rounds=1, mooncake_workload='conversation', fake_prefill=False, tag=None, header=None)
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+#Input tokens: 2621440
+#Output tokens: 40960
+Starting warmup with 1 sequences...
+Warmup completed with 1 sequences. Starting main benchmark run...
+  0%|          | 0/320 [00:00<?, ?it/s]  0%|          | 1/320 [00:09<49:13,  9.26s/it]  1%|          | 2/320 [00:17<46:57,  8.86s/it]  3%|▎         | 9/320 [00:25<11:47,  2.28s/it]  8%|▊         | 25/320 [00:33<04:44,  1.04it/s] 13%|█▎        | 41/320 [00:41<03:21,  1.39it/s] 18%|█▊        | 57/320 [00:49<02:41,  1.63it/s] 22%|██▏       | 70/320 [00:57<02:33,  1.63it/s] 27%|██▋       | 85/320 [01:05<02:19,  1.69it/s] 32%|███▏      | 102/320 [01:12<01:57,  1.86it/s] 35%|███▍      | 111/320 [01:13<01:28,  2.35it/s] 37%|███▋      | 118/320 [01:20<01:50,  1.82it/s] 42%|████▏     | 133/320 [01:28<01:41,  1.83it/s] 45%|████▍     | 143/320 [01:36<01:45,  1.68it/s] 50%|████▉     | 159/320 [01:43<01:29,  1.80it/s] 54%|█████▍    | 173/320 [01:43<00:56,  2.62it/s] 55%|█████▌    | 177/320 [01:52<01:21,  1.75it/s] 60%|██████    | 192/320 [02:00<01:12,  1.77it/s] 63%|██████▎   | 201/320 [02:07<01:14,  1.59it/s] 67%|██████▋   | 214/320 [02:15<01:05,  1.62it/s] 72%|███████▏  | 231/320 [02:23<00:49,  1.80it/s] 77%|███████▋  | 246/320 [02:23<00:27,  2.66it/s] 78%|███████▊  | 250/320 [02:31<00:38,  1.82it/s] 82%|████████▏ | 262/320 [02:38<00:32,  1.76it/s] 85%|████████▌ | 273/320 [02:46<00:28,  1.64it/s] 90%|█████████ | 289/320 [02:53<00:17,  1.79it/s] 95%|█████████▌| 304/320 [03:01<00:08,  1.82it/s] 99%|█████████▉| 317/320 [03:08<00:01,  1.85it/s]100%|██████████| 320/320 [03:08<00:00,  1.70it/s]
+
+============ Serving Benchmark Result ============
+Backend:                                 sglang-oai
+Traffic request rate:                    inf       
+Max request concurrency:                 64        
+Successful requests:                     320       
+Benchmark duration (s):                  188.68    
+Total input tokens:                      2621440   
+Total input text tokens:                 2621440   
+Total generated tokens:                  40960     
+Total generated tokens (retokenized):    40810     
+Request throughput (req/s):              1.70      
+Input token throughput (tok/s):          13893.92  
+Output token throughput (tok/s):         217.09    
+Peak output token throughput (tok/s):    416.00    
+Peak concurrent requests:                81        
+Total token throughput (tok/s):          14111.01  
+Concurrency:                             57.70     
+----------------End-to-End Latency----------------
+Mean E2E Latency (ms):                   34020.63  
+Median E2E Latency (ms):                 31566.70  
+P90 E2E Latency (ms):                    39509.84  
+P95 E2E Latency (ms):                    41753.86  
+P99 E2E Latency (ms):                    49111.85  
+---------------Time to First Token----------------
+Mean TTFT (ms):                          24196.69  
+Median TTFT (ms):                        21718.21  
+P90 TTFT (ms):                           29532.37  
+P95 TTFT (ms):                           32315.05  
+P99 TTFT (ms):                           39701.95  
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          77.35     
+Median TPOT (ms):                        78.26     
+P90 TPOT (ms):                           80.39     
+P95 TPOT (ms):                           80.45     
+P99 TPOT (ms):                           84.37     
+---------------Inter-Token Latency----------------
+Mean ITL (ms):                           77.40     
+Median ITL (ms):                         74.98     
+P90 ITL (ms):                            84.59     
+P95 ITL (ms):                            85.07     
+P99 ITL (ms):                            147.94    
+Max ITL (ms):                            274.39    
+==================================================
+[rails:auto] scanning legs for RDMA transfer failures
+[rails:auto] prefill errors: 0, decode errors: 0
+[rails:auto] results in /wekafs/llying/code/Infera/examples/sglang_glm5.2/bench_rail_auto
+s):                            144.84    
+Max ITL (ms):                            219.15    
+==================================================
+[rails:auto] scanning legs for RDMA transfer failures
+[rails:auto] prefill errors: 0, decode errors: 0
+[rails:auto] results in /wekafs/llying/code/Infera/examples/sglang_glm5.2/bench_rail_auto

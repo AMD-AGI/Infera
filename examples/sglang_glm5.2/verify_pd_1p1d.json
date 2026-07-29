@@ -1,0 +1,484 @@
+{
+  "weights": [
+    {
+      "name": "indexer scale 张量全部为 2 维（统一走 block 反量化）",
+      "ok": true,
+      "got": "0 个 1 维 scale",
+      "want": "0 个 1 维 scale",
+      "tensors": 44
+    },
+    {
+      "name": "2 维 scale 推导出的 block 尺寸与 config 声明的 (128, 128) 一致",
+      "ok": true,
+      "got": "",
+      "want": "全部一致"
+    }
+  ],
+  "basic": [
+    {
+      "name": "What is 17 * 23? Reply with just the number.",
+      "ok": true,
+      "got": "391",
+      "want": "391"
+    },
+    {
+      "name": "What is 1234 + 5678? Reply with just the number.",
+      "ok": true,
+      "got": "6912",
+      "want": "6912"
+    },
+    {
+      "name": "What is the capital of France? Reply with one wo",
+      "ok": true,
+      "got": "Paris",
+      "want": "paris"
+    },
+    {
+      "name": "In which year did Apollo 11 land humans on the M",
+      "ok": true,
+      "got": "1969",
+      "want": "1969"
+    },
+    {
+      "name": "Reply with exactly the word BANANA and nothing e",
+      "ok": true,
+      "got": "BANANA",
+      "want": "banana"
+    },
+    {
+      "name": "What is the sum of the squares of the integers 1",
+      "ok": true,
+      "got": "385",
+      "want": "385"
+    },
+    {
+      "name": "Sort ascending, reply comma-separated only: 8, 3",
+      "ok": true,
+      "got": "1, 3, 8, 9, 15",
+      "want": "1, 3, 8, 9, 15"
+    }
+  ],
+  "determinism": [
+    {
+      "name": "greedy 复现性（3 次）",
+      "ok": true,
+      "got": "1 种不同输出",
+      "want": "1 种"
+    }
+  ],
+  "idle": [
+    {
+      "name": "背靠背请求输出正常（基线）",
+      "ok": true,
+      "got": "3/3 正常",
+      "want": "3/3"
+    },
+    {
+      "name": "空闲 10s 后首个请求输出正常",
+      "ok": true,
+      "got": "3/3 正常",
+      "want": "3/3"
+    },
+    {
+      "name": "空闲 10s + 预热请求后输出正常（规避方案）",
+      "ok": true,
+      "got": "3/3 正常",
+      "want": "3/3"
+    }
+  ],
+  "needle": [
+    {
+      "name": "needle ~4k tok, 深度 10%",
+      "ok": true,
+      "got": "3049672",
+      "want": "3049672",
+      "prompt_tok": 3670,
+      "regime": "sparse"
+    },
+    {
+      "name": "needle ~4k tok, 深度 50%",
+      "ok": true,
+      "got": "5134779",
+      "want": "5134779",
+      "prompt_tok": 3659,
+      "regime": "sparse"
+    },
+    {
+      "name": "needle ~4k tok, 深度 90%",
+      "ok": true,
+      "got": "6053778",
+      "want": "6053778",
+      "prompt_tok": 3656,
+      "regime": "sparse"
+    },
+    {
+      "name": "needle ~16k tok, 深度 10%",
+      "ok": true,
+      "got": "6000049",
+      "want": "6000049",
+      "prompt_tok": 14642,
+      "regime": "sparse"
+    },
+    {
+      "name": "needle ~16k tok, 深度 50%",
+      "ok": true,
+      "got": "5338298",
+      "want": "5338298",
+      "prompt_tok": 14603,
+      "regime": "sparse"
+    },
+    {
+      "name": "needle ~16k tok, 深度 90%",
+      "ok": true,
+      "got": "4291863",
+      "want": "4291863",
+      "prompt_tok": 14687,
+      "regime": "sparse"
+    },
+    {
+      "name": "needle ~64k tok, 深度 10%",
+      "ok": false,
+      "got": "2183</think>2183</think>218</think>218</think> the",
+      "want": "2183762",
+      "prompt_tok": 58695,
+      "regime": "sparse"
+    },
+    {
+      "name": "needle ~64k tok, 深度 50%",
+      "ok": false,
+      "got": "7549.8.8.</think>7549. The</think>7549.8.8759</thi",
+      "want": "7544440",
+      "prompt_tok": 58594,
+      "regime": "sparse"
+    },
+    {
+      "name": "needle ~64k tok, 深度 90%",
+      "ok": true,
+      "got": "8771895'",
+      "want": "8771895",
+      "prompt_tok": 58611,
+      "regime": "sparse"
+    }
+  ],
+  "humaneval": [
+    {
+      "name": "HumanEval/0",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 148
+    },
+    {
+      "name": "HumanEval/1",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 139
+    },
+    {
+      "name": "HumanEval/2",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 109
+    },
+    {
+      "name": "HumanEval/3",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 143
+    },
+    {
+      "name": "HumanEval/4",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 141
+    },
+    {
+      "name": "HumanEval/5",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 116
+    },
+    {
+      "name": "HumanEval/6",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 136
+    },
+    {
+      "name": "HumanEval/7",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 117
+    },
+    {
+      "name": "HumanEval/8",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 134
+    },
+    {
+      "name": "HumanEval/9",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 124
+    },
+    {
+      "name": "HumanEval/10",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 163
+    },
+    {
+      "name": "HumanEval/11",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 100
+    },
+    {
+      "name": "HumanEval/12",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 126
+    },
+    {
+      "name": "HumanEval/13",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 94
+    },
+    {
+      "name": "HumanEval/14",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 83
+    },
+    {
+      "name": "HumanEval/15",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 92
+    },
+    {
+      "name": "HumanEval/16",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 94
+    },
+    {
+      "name": "HumanEval/17",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 196
+    },
+    {
+      "name": "HumanEval/18",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 112
+    },
+    {
+      "name": "HumanEval/19",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 129
+    }
+  ],
+  "humaneval-long": [
+    {
+      "name": "HumanEval/0",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 8415
+    },
+    {
+      "name": "HumanEval/1",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 8177
+    },
+    {
+      "name": "HumanEval/2",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 8393
+    },
+    {
+      "name": "HumanEval/3",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 8320
+    },
+    {
+      "name": "HumanEval/4",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 8372
+    },
+    {
+      "name": "HumanEval/5",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 8492
+    },
+    {
+      "name": "HumanEval/6",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 8378
+    },
+    {
+      "name": "HumanEval/7",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 8422
+    },
+    {
+      "name": "HumanEval/8",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 8395
+    },
+    {
+      "name": "HumanEval/9",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 8345
+    },
+    {
+      "name": "HumanEval/10",
+      "ok": false,
+      "got": "IndentationError: unindent does not match any outer indentation level",
+      "want": "tests pass",
+      "prompt_tok": 8408
+    },
+    {
+      "name": "HumanEval/11",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 8277
+    },
+    {
+      "name": "HumanEval/12",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 8399
+    },
+    {
+      "name": "HumanEval/13",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 8407
+    },
+    {
+      "name": "HumanEval/14",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 8370
+    },
+    {
+      "name": "HumanEval/15",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 8339
+    },
+    {
+      "name": "HumanEval/16",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 8372
+    },
+    {
+      "name": "HumanEval/17",
+      "ok": false,
+      "got": "KeyError: ''",
+      "want": "tests pass",
+      "prompt_tok": 8494
+    },
+    {
+      "name": "HumanEval/18",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 8375
+    },
+    {
+      "name": "HumanEval/19",
+      "ok": true,
+      "got": "",
+      "want": "tests pass",
+      "prompt_tok": 8340
+    }
+  ],
+  "code-retrieval": [
+    {
+      "name": "定位 fwd_placeholder 所在文件",
+      "ok": true,
+      "got": "ernie45_vl.py",
+      "want": "ernie45_vl.py",
+      "prompt_tok": 13998
+    },
+    {
+      "name": "读出 fwd_placeholder(to_tensor=...) 默认值",
+      "ok": true,
+      "got": "False",
+      "want": "False",
+      "prompt_tok": 14006
+    }
+  ],
+  "deep-api": [
+    {
+      "name": "deep-api：调用了深埋于 50% 处的自造函数",
+      "ok": true,
+      "got": "from zt_util import zt_compute_payload_checksum  def make_tag(data: bytes) -> st",
+      "want": "zt_compute_payload_checksum(...)",
+      "prompt_tok": 8596
+    },
+    {
+      "name": "deep-api：salt / rounds 以关键字参数传入",
+      "ok": true,
+      "got": "",
+      "want": "salt= 且 rounds="
+    },
+    {
+      "name": "deep-api：rounds=7",
+      "ok": true,
+      "got": "",
+      "want": "rounds=7"
+    }
+  ]
+}
