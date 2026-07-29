@@ -1,0 +1,49 @@
+### SGLANG COMMIT
+0b3bb0cbe31873994c9f989fddfe2f87ca839fdd
+### KEY LIBS
+  aiter          no __version__
+  tilelang       0.1.7.post3+cuda.gita55a8230
+  sgl_kernel     0.4.4
+  triton         3.6.0
+  transformers   5.12.1
+  torch          2.9.1+rocm7.2.0.git7e1940d4
+### PATCH STATE (0 everywhere = clean upstream)
+  _q_mqa                           0
+  GLM52_BUG6                       0
+  _glm52_match_page_table_rows     0
+  GLM52_BUG2                       0
+  VARIANT_B                        0
+### MODELS
+  /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4
+     arch=GlmMoeDsaForCausalLM layers=78 experts=256 index_topk=2048
+     quant=quark
+     generation_config: temperature=1.0 top_p=0.95
+     chat_template.jinja present: True
+  /shared_nfs/huggingface_models/zai-org/GLM-5.2-FP8
+     arch=GlmMoeDsaForCausalLM layers=78 experts=256 index_topk=2048
+     quant=fp8
+     generation_config: temperature=1.0 top_p=0.95
+     chat_template.jinja present: True
+[aiter] import [module_aiter_core] under /sgl-workspace/aiter/aiter/jit/module_aiter_core.so
+Loading tilelang libs from dev root: /opt/tilelang/build
+### HOST
+crsuse2-m2m-084
+6.8.0-107-generic
+### GPU
+GPU[0]		: Card Series: 		AMD Instinct MI355X
+GPU[0]		: Card Model: 		0x75a3
+### CPU/MEM
+236
+               total        used        free      shared  buff/cache   available
+Mem:            2751          77        2206          19         499        2674
+### RDMA
+hca_id:	mlx5_0
+	fw_ver:				28.43.3608
+hca_id:	ionic_0
+	fw_ver:				1.117.1-a-63
+hca_id:	ionic_1
+	fw_ver:				1.117.1-a-63
+hca_id:	ionic_2
+	fw_ver:				1.117.1-a-63
+### IMAGE
+sha256:347bcd45da0dee1bc87f10c348e41f20ed56e11d23f9fead164cdef4e51dc970

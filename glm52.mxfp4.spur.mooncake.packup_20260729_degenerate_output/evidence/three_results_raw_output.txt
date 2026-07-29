@@ -1,0 +1,55 @@
+Raw stdout of the three decisive runs, 2026-07-29.
+Clean upstream sglang, no patches. See ../REPRODUCE.md for the exact commands.
+
+================================ RESULT 1 =================================
+node 11429 (crsuse2-m2m-084) | MXFP4 | /v1/chat/completions | t=1.0 p=0.95
+
+prompts=128 ntok=512  model=glm5.2-mxfp4
+CHAT endpoint (server applies chat_template), temperature=1.0 top_p=0.95
+
+  chat t=1.0 p=0.95 conc=128         ok=128 err= 0 looping=  0 (  0.0%) onset0=0    18s
+
+================================ RESULT 2 =================================
+node 11428 (crsuse2-m2m-029) | FP8 | /v1/chat/completions | t=1.0 p=0.95
+
+prompts=128 ntok=512  model=glm5.2-fp8
+CHAT endpoint (server applies chat_template), temperature=1.0 top_p=0.95
+
+  chat t=1.0 p=0.95 conc=128         ok=128 err= 0 looping=  0 (  0.0%) onset0=0    33s
+
+================================ RESULT 3 =================================
+node 11428 (crsuse2-m2m-029) | FP8 | /generate raw text | t=0 (greedy)
+  -- i.e. the ORIGINAL, flawed configuration
+
+run_id=fp8raw-c2a316 n=128 ok=128
+  looping at all : 1/128 = 0.8%
+    onset == 0   : 1  (broken from the first token)
+    onset  > 0   : 0  (good prose, then collapses)
+  onset chars: min=0 p25=0 med=0 max=0
+  --- fp8raw-c2a316-0117 dp=7 onset=0 (100% of output is loop)
+      before: ''
+      after : '4.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.'
+
+============================ SAMPLING KNOB CHECK ==========================
+node 11428 | FP8 | same prompt, 4 samples per setting
+
+  temperature=0                distinct/4 = 4   ' Quantum Fourier Transform\nQuantum Fourier Transform'
+  temperature=1.0              distinct/4 = 4   ' Quantum Fourier transform\n\n2023-09-29 21:25:01 view'
+  temperature=1.0,top_p=.95    distinct/4 = 4   ' Provide examples\nQuantum Error Correction: Shor Cod'
+  temperature=2.0              distinct/4 = 4   ' Class Hours strong traveling熠.notes miserable_THREA'
+  top_k=1 (=greedy)            distinct/4 = 4   ' Quantum algorithms\nQuantum algorithms are computati'
+
+t=2.0 degrades into noise while t=1.0/p=0.95 stays fluent -> the knobs work.
+distinct=4 at t=0 is expected: enable_deterministic_inference defaults False.
+
+========================== CHAT TEMPLATE TAKES EFFECT ======================
+Same prompt, FP8, via /v1/chat/completions:
+
+  finish: length
+  reasoning len: 0
+  content: '1.  **Analyze the Request:**\n    *   **Topic:** Quantum Computing.\n
+            *   **Level of Detail:** "In detail".\n    *   **Context/Continuity:**
+            "Part 31". This implies a highly advanced, niche, or highly'
+
+vs the raw /generate path, which returns base-LM continuations like
+'1.2.3.4.5.6.7.8.9.10.11.12...'.
