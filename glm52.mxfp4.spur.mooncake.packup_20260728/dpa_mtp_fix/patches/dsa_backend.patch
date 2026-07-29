@@ -1,0 +1,67 @@
+diff --git a/python/sglang/srt/layers/attention/dsa_backend.py b/python/sglang/srt/layers/attention/dsa_backend.py
+index 75aa41d784..6addbec8e6 100644
+--- a/python/sglang/srt/layers/attention/dsa_backend.py
++++ b/python/sglang/srt/layers/attention/dsa_backend.py
+@@ -740,10 +740,15 @@ class DeepseekSparseAttnBackend(
+                 forward_batch.seq_lens_cpu.max().item() + draft_token_num
+             )
+         else:
+-            # needs_cpu_seq_lens=False nulls the host mirror for spec-v2 relay
+-            # batches; graph replay uses the static page-table width, so only this
+-            # eager (e.g. over-capture-bs) fallback needs a length here.
+-            max_seqlen_k = int(forward_batch.seq_lens.max().item()) + draft_token_num
++            # GLM52_BUG2_FIX_A: needs_cpu_seq_lens=False nulls the host mirror for
++            # spec-v2 relay batches. `seq_lens.max().item()` here is a blocking D2H
++            # sync on a branch that only SOME DP ranks take (IDLE peers keep their
++            # mirror and take the cheap arm), which desynchronizes the DP collectives
++            # and deadlocks. Use the static page-table width instead -- the same
++            # sync-free idiom as _graph_page_table_width() and the graph-capture
++            # paths below. Over-allocating columns is safe: the page table is only
++            # indexed through top-k, which masks per row by cache_seqlens.
++            max_seqlen_k = self.req_to_token.shape[1]
+         # [b, max_seqlen_k]
+         page_table = self.req_to_token_pool.req_to_token[
+             forward_batch.req_pool_indices, :max_seqlen_k
+@@ -803,19 +808,32 @@ class DeepseekSparseAttnBackend(
+                 page_table, repeats=self.speculative_num_draft_tokens, dim=0
+             )
+         elif forward_batch.forward_mode.is_draft_extend_v2():
+-            if forward_batch.extend_prefix_lens_cpu is None:
+-                assert forward_batch.extend_prefix_lens is not None
+-                forward_batch.extend_prefix_lens_cpu = (
+-                    forward_batch.extend_prefix_lens.cpu().tolist()
+-                )
+-            if forward_batch.seq_lens_cpu is None:
+-                forward_batch.seq_lens_cpu = forward_batch.seq_lens.cpu()
+-                forward_batch.seq_lens_sum = int(forward_batch.seq_lens_cpu.sum())
++            # GLM52_BUG2_FIX_A2: the two host mirrors that used to be materialized
++            # here (extend_prefix_lens.cpu() and seq_lens.cpu()) are unconditional
++            # D2H syncs on the same rank-divergent branch as the max_seqlen_k fix
++            # above, so Fix A alone does not lift the deadlock.
++            #
++            # They are dead for DRAFT_EXTEND_V2, which is not is_extend() (see
++            # ForwardMode.is_extend -- include_draft_extend_v2 defaults to False).
++            # Every consumer is therefore unreachable on this path:
++            #   * extend_prefix_lens_cpu -- read only inside the is_extend() arm
++            #   * seq_lens_sum -- read at the is_extend()-gated capacity check and
++            #     the Blackwell+EXTEND prefill heuristic
++            #   * seq_lens_cpu -> indexer_seq_lens_cpu is captured ABOVE this block,
++            #     so it is already None here today; the draft-extend indexer path
++            #     reads get_seqlens_expanded() / block_tables.shape[1] (GPU-side)
++            #   * _cal_indexer_k_start_end and dsa_indexer's k-only path both open
++            #     with an is_extend_without_speculative() guard
++            #
++            # base_spec_worker.prepare_for_draft_extend already supplies the mirror
++            # this branch actually needs -- extend_seq_lens_cpu -- precisely "so
++            # backend max() reads from list without a per-iter D2H sync". This
++            # completes that intent instead of contradicting it. The assert keeps
++            # the invariant that the consumed values are present.
+             assert (
+                 forward_batch.extend_seq_lens_cpu is not None
+                 and forward_batch.extend_seq_lens is not None
+-                and forward_batch.extend_prefix_lens_cpu is not None
+-            ), "All of them must not be None"
++            ), "extend_seq_lens{,_cpu} must not be None for DRAFT_EXTEND_V2"
+ 
+             extend_seq_lens_cpu = forward_batch.extend_seq_lens_cpu
+             assert forward_batch.extend_seq_lens is not None

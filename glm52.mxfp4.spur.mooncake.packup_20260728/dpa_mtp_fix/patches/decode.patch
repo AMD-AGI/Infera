@@ -1,0 +1,37 @@
+diff --git a/python/sglang/srt/disaggregation/decode.py b/python/sglang/srt/disaggregation/decode.py
+index 2164cade49..28b949d54e 100644
+--- a/python/sglang/srt/disaggregation/decode.py
++++ b/python/sglang/srt/disaggregation/decode.py
+@@ -1840,6 +1840,32 @@ class SchedulerDisaggregationDecodeMixin:
+             # overlap + spec + grammar is unsupported (would desync DP ranks).
+             disable_overlap_for_batch = self.is_disable_overlap_for_batch(batch)
+ 
++            # GLM52_LOOP_PROBE  (debug only, read-only)
++            try:
++                import logging as _lg
++                _it = getattr(self, "_glm52_it", 0) + 1
++                self._glm52_it = _it
++                _b, _lb = batch, self.last_batch
++                def _d(x):
++                    if x is None:
++                        return "None"
++                    return "mode=%s|bs=%s|ext_in_batch=%s|gnt=%s" % (
++                        getattr(x, "forward_mode", "?"),
++                        len(getattr(x, "reqs", []) or []),
++                        getattr(x, "is_extend_in_batch", "?"),
++                        getattr(x, "global_num_tokens", None),
++                    )
++                _lg.getLogger(__name__).warning(
++                    "[GLM52_LOOP_PROBE] it=%s dp=%s batch=(%s) last=(%s) "
++                    "disable_overlap=%s qlen=%s -> will_run=%s will_pop=%s",
++                    _it, getattr(getattr(self, "ps", None), "dp_rank", "?"),
++                    _d(_b), _d(_lb), disable_overlap_for_batch,
++                    len(self.result_queue),
++                    bool(_b), bool(_lb),
++                )
++            except Exception:
++                pass
++
+             if disable_overlap_for_batch and self.last_batch:
+                 pop_and_process()
+ 
