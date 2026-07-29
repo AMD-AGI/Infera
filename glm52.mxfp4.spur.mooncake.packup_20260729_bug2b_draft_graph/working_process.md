@@ -22,6 +22,8 @@ CMD / HYPOTHESIS / LOG / RESULT; `.pyc` purge + marker verification on every pat
 | 02 | `r02_fix` | Vote the eager-need over the full TP group (gloo, 1 elem) | applied; first 4/4 pass with draft graph ON |
 | 03 | `r03_verify` | All 5 exit criteria + uniformity/graph-usage measurement | **PASS.** warmup ✓, 4×24 ✓, 1×512 ✓, conc 1/2/4/8/16/128/256 → **927/927**, 0 failures. Over 2992 iterations: LOCAL diverges 38×, **VOTED diverges 0×**, draft graph used **98.4%**, vote flipped a rank 190× (= 190 averted deadlocks). |
 | 04 | `r04_control` | 对拍: revert the fix, same node/config/traffic | **hang returns immediately** — 0/4, first request times out at 120 s. py-spy frozen; `final` diverges on exactly it=8 with **dp3** alone eager, and dp3 is the rank stuck in eager `init_forward_metadata`. Victim rank differs from R1 (dp2), confirming a race. |
+| 05 | `r05_clean` | Fix only, no instrumentation (the shippable build) | **PASS** — 4/4 + conc 1/8/64/128/256 → **457/457**, 0 failures |
+| 06 | `r06_mix` | Regression: does the added collective break single-node mix? | **PASS** — 132/132 (4/4 + conc128×512). First attempt died on the nextn `eh_proj` trap (bad idempotency grep), not the fix. |
 
 (rows appended as rounds complete)
 

@@ -122,6 +122,9 @@ mattered and wrong about the direction.
 | 3 | 1 × 512-token | ✅ 512/512 tokens |
 | 4 | conc 1/2/4/8/16/64/128/256 × 512 tok | ✅ **1384/1384**, 0 failures, 0 KVTransferError |
 | 5 | **draft graph actually used** | ✅ **98.4%** of iterations |
+| 6 | single-node **mix** unregressed (shared code path) | ✅ **132/132** |
+
+**Cumulative: 1516/1516 requests passed with the fix; 0/4 without it.**
 
 Criterion 5 is what separates this from the earlier Variant-B workaround, which reached
 1–4 by disabling the draft graph outright.
