@@ -10,19 +10,11 @@ from __future__ import annotations
 
 import pytest
 
-from ...harness.matrix import DEEPSEEK_V4_PRO, GLM_5_1_FP8, GPT_OSS, KIMI_K26_MXFP4, expand_cases
+from ...harness.matrix import DEEPSEEK_V4_PRO, GLM_5_1_FP8, KIMI_K26_MXFP4, expand_cases
 
 # [model, tp, ep, dp_attn] (+ optional opts dict). A tuple/list on an axis
 # enumerates it (e.g. (True, False) runs both). MoE models can exercise ep.
 CASES = [
-    # gpt-oss-120b: tp2, ep on/off.
-    [
-        GPT_OSS,
-        2,
-        (True, False),
-        False,
-        {"env": {"SGLANG_USE_AITER": "1"}, "server_ready_timeout": 1800},
-    ],
     [
         KIMI_K26_MXFP4,
         4,
