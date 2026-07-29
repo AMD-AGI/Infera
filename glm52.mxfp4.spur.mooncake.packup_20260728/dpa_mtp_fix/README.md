@@ -1,4 +1,51 @@
-# GLM-5.2 DSA: fixing the "DP-attention + MTP" crash on gfx950 (Bug 1)
+# GLM-5.2 DSA — DP-attention + MTP + PD disaggregation on gfx950
+
+> ## ⏩ Current state: **2026-07-29** — start with [`RESULTS_20260729.md`](RESULTS_20260729.md)
+>
+> The section below documents the **2026-07-28** session (Bug 1 only), when PD +
+> DPA + MTP still hung on the first routed request. That hang has since been
+> fixed, along with two further crashes. Where the older text disagrees with the
+> `*_20260729.md` documents, **the dated ones win**.
+>
+> | defect | state |
+> |---|---|
+> | Bug 1 — `dsa_indexer` HIP DP-padded rows | **fixed**, shipped |
+> | Bug 2 — `dsa_backend` rank-divergent D2H syncs | **fixed**, measured effective |
+> | Bug 2b — draft CUDA graph decision is rank-divergent | **localized**, worked around (Variant B); proper fix not written |
+> | Bug 5 — `page_table` rows vs `topk_indices` rows | **fixed** |
+> | Bug 6 — Bug-1 slice skipped DP-idle ranks (`q_offset == 0`) | **fixed** |
+> | ~2 % degenerate output under concurrency | **open** |
+> | `temperature` ignored in MTP verify on HIP | **open**, root cause identified |
+>
+> **2026-07-29 result:** 5 rounds × conc=128 × 512 tokens = **640/640 HTTP 200**,
+> 0 scheduler exceptions, 0 KVTransferError, MTP active
+> (`spec_accept_length` ≈ 2.73) across all 8 DP ranks — with the draft CUDA graph
+> disabled.
+>
+> **Read in this order**
+>
+> | file | what |
+> |---|---|
+> | [`RESULTS_20260729.md`](RESULTS_20260729.md) | current results, every defect, what is still open |
+> | [`REPRODUCE_20260729.md`](REPRODUCE_20260729.md) | exact environment + commands to rebuild the state |
+> | [`PITFALLS_20260729.md`](PITFALLS_20260729.md) | traps and wrong turns — read before debugging further |
+> | [`ROOTCAUSE_bug2b_graph_eager_divergence.md`](ROOTCAUSE_bug2b_graph_eager_divergence.md) | the graph/eager divergence (contains a CORRECTION retracting an overreach) |
+> | [`RESULT_variant_B_draft_graph.md`](RESULT_variant_B_draft_graph.md) | the experiment that localized it to the draft graph |
+> | [`WARMUP_MATRIX.md`](WARMUP_MATRIX.md) | which configs cleared PD warmup vs hung in it |
+>
+> **Patches:** `patches/scripts_20260729/` (idempotent scripts — preferred) and
+> `patches/ALL_FIXES_20260729.patch` (live unified diff).
+> **Do NOT apply** `fix_bug3_broadcast.py` (proven no-op) or
+> `fix_bug4_uniform_event.py` (**actively harmful** — causes its own deadlock).
+>
+> **Known gap:** this tree lacks AMD-AGI/Infera commit `854ebf70` (mooncake
+> chunked-prefill sync). Not implicated in anything measured here — our prompts
+> never split into more than one chunk — but **required for any long-context
+> work** on this deployment.
+
+---
+
+## 2026-07-28 session — Bug 1
 
 **Ran:** 2026-07-28 UTC · **Engine:** sglang 0.5.15.post1 · **HW:** 8× AMD MI355X (gfx950), ROCm 7.2.0
 **Model:** GLM-5.2-MXFP4 · **Cluster:** crsuse spur (nodes 207 + 197)

@@ -1,0 +1,347 @@
+diff --git a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+index 59b2256815..c4751c981c 100644
+--- a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
++++ b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+@@ -5,6 +5,8 @@ import logging
+ from abc import ABC, abstractmethod
+ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+ 
++import os
++
+ import torch
+ from einops import rearrange
+ 
+@@ -57,6 +59,9 @@ logger = logging.getLogger(__name__)
+ global _use_multi_stream
+ _is_cuda = is_cuda()
+ _is_hip = is_hip()
++# Set SGLANG_DEBUG_DSA_ROWS=1 to log the indexer row bookkeeping (padded vs real).
++_DSA_DEBUG_ROWS = os.environ.get("SGLANG_DEBUG_DSA_ROWS", "0") == "1"
++
+ _is_npu = is_npu()
+ 
+ if not _is_npu:
+@@ -903,10 +908,38 @@ class Indexer(MultiPlatformOp):
+         weights = weights.squeeze(2)
+ 
+         if self.paged_mqa_logits_backend.is_aiter():
++            # DP-attention pads the hidden states, so q_fp8 can carry more rows than
++            # the batch really has; `q_offset` is the real (unpadded) count and is
++            # what `lengths` (dsa_seqlens_expanded) is sized to. The CUDA path
++            # (deepgemm_paged_mqa_logits_split) slices its q/weights to q_offset for
++            # exactly this reason. aiter instead sizes its `logits` output from
++            # q_fp8.shape[0], so without the same slice the top-k below sees
++            # score.shape[0] != lengths.shape[0] and asserts. Slice here so both
++            # backends feed top-k the same shape; the padding is restored after.
++            _q_mqa, _w_mqa = q_fp8, weights
++            # GLM52_BUG6: no lower bound on q_offset. A DP-IDLE rank has no
++            # requests, so q_offset == 0 while q_fp8 still carries DP padding.
++            # The old `0 < q_offset` guard skipped the slice in exactly that
++            # case, leaving aiter to size `logits` from the padded row count
++            # while `lengths` had 0 rows -> "lengths.size(0) == B" failed in
++            # fast_topk_v2. q_fp8[:0] is a legal empty slice and is what an idle
++            # rank should pass; the CUDA path likewise slices unconditionally.
++            if q_offset < q_fp8.shape[0]:
++                _q_mqa = q_fp8[:q_offset]
++                _w_mqa = weights[:q_offset]
++            if _DSA_DEBUG_ROWS:
++                logger.info(
++                    "[dsa-rows] mode=%s q_fp8=%s q_offset=%s lengths=%s -> mqa_q=%s",
++                    forward_batch.forward_mode,
++                    tuple(q_fp8.shape),
++                    q_offset,
++                    tuple(metadata.get_seqlens_expanded().shape),
++                    tuple(_q_mqa.shape),
++                )
+             logits = aiter_paged_mqa_logits(
+-                q_fp8,
++                _q_mqa,
+                 kv_cache_fp8,
+-                weights,
++                _w_mqa,
+                 seqlens_32,
+                 block_tables,
+                 max_seq_len,
+@@ -962,7 +995,11 @@ class Indexer(MultiPlatformOp):
+         # NOTE(dark): logits should be cleaned in topk_transform
+         topk_result = metadata.topk_transform(logits, self.index_topk)
+         # Restore possible padding exist in the hidden states.
+-        if not _is_hip and q_offset < q_fp8.shape[0]:
++        # Fire whenever the top-k actually ran on the unpadded rows -- true on CUDA
++        # (which always slices) and now on HIP/aiter too (sliced just above). The
++        # `topk_result.shape[0] == q_offset` guard keeps the non-DP path (where
++        # nothing was sliced) bit-identical to before.
++        if q_offset < q_fp8.shape[0] and topk_result.shape[0] == q_offset:
+             pad_len = q_fp8.shape[0] - q_offset
+             padding = torch.full(
+                 (pad_len, topk_result.shape[1]),
+diff --git a/python/sglang/srt/layers/attention/dsa_backend.py b/python/sglang/srt/layers/attention/dsa_backend.py
+index 75aa41d784..58e6e504d2 100644
+--- a/python/sglang/srt/layers/attention/dsa_backend.py
++++ b/python/sglang/srt/layers/attention/dsa_backend.py
+@@ -141,6 +141,45 @@ def _to_2d_context_lens(seqlens_32: torch.Tensor, batch_size: int) -> torch.Tens
+ global_workspace_buffer = None
+ 
+ 
++
++
++def _glm52_match_page_table_rows(page_table, topk_indices):
++    """GLM52_BUG5: make page_table's row count agree with topk_indices'.
++
++    `metadata.page_table_1` is `req_to_token[req_pool_indices, :max_seqlen_k]`,
++    so it has one row per REQUEST. `topk_indices` has just been widened by
++    `_pad_topk_indices` to `q.shape[0]`, one row per TOKEN. For plain decode
++    those coincide (one token per request); under MTP the draft model runs
++    several tokens per request and they do not, so
++    `transform_index_page_table_decode_fast` trips
++
++        assert page_table.shape[0] == topk_indices.shape[0]
++
++    Observed as an 8-rank crash under 16 concurrent requests.
++
++    Expanding by repeat_interleave reproduces the token-major-per-request
++    layout. Rows added by `_pad_topk_indices` hold all -1, and the triton
++    kernel masks those out (`valid_topk_mask = mask & (loaded_topk_indices >= 0)`),
++    so their page-table counterparts are never read -- only the row COUNT has to
++    match. The prefill sibling handles this with an explicit `output_num_tokens`
++    argument; the decode entry point has no equivalent.
++    """
++    if topk_indices is None or page_table is None:
++        return page_table
++    n_topk = topk_indices.shape[0]
++    n_rows = page_table.shape[0]
++    if n_rows == n_topk:
++        return page_table
++    if n_rows > 0 and n_topk % n_rows == 0:
++        return page_table.repeat_interleave(n_topk // n_rows, dim=0)
++    # Non-integral ratio: trim or edge-pad so the shapes agree. Any row reached
++    # only through padded (-1) topk entries is masked, so its content is moot.
++    if n_rows > n_topk:
++        return page_table[:n_topk]
++    pad = page_table[-1:].expand(n_topk - n_rows, -1)
++    return torch.cat([page_table, pad], dim=0)
++
++
+ @dataclass(frozen=True)
+ class DSAFlashMLAMetadata:
+     """Metadata only needed by FlashMLA"""
+@@ -740,10 +779,15 @@ class DeepseekSparseAttnBackend(
+                 forward_batch.seq_lens_cpu.max().item() + draft_token_num
+             )
+         else:
+-            # needs_cpu_seq_lens=False nulls the host mirror for spec-v2 relay
+-            # batches; graph replay uses the static page-table width, so only this
+-            # eager (e.g. over-capture-bs) fallback needs a length here.
+-            max_seqlen_k = int(forward_batch.seq_lens.max().item()) + draft_token_num
++            # GLM52_BUG2_FIX_A: needs_cpu_seq_lens=False nulls the host mirror for
++            # spec-v2 relay batches. `seq_lens.max().item()` here is a blocking D2H
++            # sync on a branch that only SOME DP ranks take (IDLE peers keep their
++            # mirror and take the cheap arm), which desynchronizes the DP collectives
++            # and deadlocks. Use the static page-table width instead -- the same
++            # sync-free idiom as _graph_page_table_width() and the graph-capture
++            # paths below. Over-allocating columns is safe: the page table is only
++            # indexed through top-k, which masks per row by cache_seqlens.
++            max_seqlen_k = self.req_to_token.shape[1]
+         # [b, max_seqlen_k]
+         page_table = self.req_to_token_pool.req_to_token[
+             forward_batch.req_pool_indices, :max_seqlen_k
+@@ -803,19 +847,32 @@ class DeepseekSparseAttnBackend(
+                 page_table, repeats=self.speculative_num_draft_tokens, dim=0
+             )
+         elif forward_batch.forward_mode.is_draft_extend_v2():
+-            if forward_batch.extend_prefix_lens_cpu is None:
+-                assert forward_batch.extend_prefix_lens is not None
+-                forward_batch.extend_prefix_lens_cpu = (
+-                    forward_batch.extend_prefix_lens.cpu().tolist()
+-                )
+-            if forward_batch.seq_lens_cpu is None:
+-                forward_batch.seq_lens_cpu = forward_batch.seq_lens.cpu()
+-                forward_batch.seq_lens_sum = int(forward_batch.seq_lens_cpu.sum())
++            # GLM52_BUG2_FIX_A2: the two host mirrors that used to be materialized
++            # here (extend_prefix_lens.cpu() and seq_lens.cpu()) are unconditional
++            # D2H syncs on the same rank-divergent branch as the max_seqlen_k fix
++            # above, so Fix A alone does not lift the deadlock.
++            #
++            # They are dead for DRAFT_EXTEND_V2, which is not is_extend() (see
++            # ForwardMode.is_extend -- include_draft_extend_v2 defaults to False).
++            # Every consumer is therefore unreachable on this path:
++            #   * extend_prefix_lens_cpu -- read only inside the is_extend() arm
++            #   * seq_lens_sum -- read at the is_extend()-gated capacity check and
++            #     the Blackwell+EXTEND prefill heuristic
++            #   * seq_lens_cpu -> indexer_seq_lens_cpu is captured ABOVE this block,
++            #     so it is already None here today; the draft-extend indexer path
++            #     reads get_seqlens_expanded() / block_tables.shape[1] (GPU-side)
++            #   * _cal_indexer_k_start_end and dsa_indexer's k-only path both open
++            #     with an is_extend_without_speculative() guard
++            #
++            # base_spec_worker.prepare_for_draft_extend already supplies the mirror
++            # this branch actually needs -- extend_seq_lens_cpu -- precisely "so
++            # backend max() reads from list without a per-iter D2H sync". This
++            # completes that intent instead of contradicting it. The assert keeps
++            # the invariant that the consumed values are present.
+             assert (
+                 forward_batch.extend_seq_lens_cpu is not None
+                 and forward_batch.extend_seq_lens is not None
+-                and forward_batch.extend_prefix_lens_cpu is not None
+-            ), "All of them must not be None"
++            ), "extend_seq_lens{,_cpu} must not be None for DRAFT_EXTEND_V2"
+ 
+             extend_seq_lens_cpu = forward_batch.extend_seq_lens_cpu
+             assert forward_batch.extend_seq_lens is not None
+@@ -2134,7 +2191,9 @@ class DeepseekSparseAttnBackend(
+             page_table_1 = self._get_fused_topk_page_table(topk_indices)
+         else:
+             page_table_1 = transform_index_page_table_decode(
+-                page_table=metadata.page_table_1,
++                page_table=_glm52_match_page_table_rows(
++                    metadata.page_table_1, topk_indices
++                ),
+                 topk_indices=topk_indices,
+                 page_size=1,
+             )
+@@ -2704,7 +2763,9 @@ class DeepseekSparseAttnBackend(
+             if topk_indices is not None:
+                 topk_indices = self._pad_topk_indices(topk_indices, q.shape[0])
+             page_table_1 = transform_index_page_table_decode(
+-                page_table=metadata.page_table_1,
++                page_table=_glm52_match_page_table_rows(
++                    metadata.page_table_1, topk_indices
++                ),
+                 topk_indices=topk_indices,
+                 page_size=1,
+             )
+diff --git a/python/sglang/srt/models/deepseek_nextn.py b/python/sglang/srt/models/deepseek_nextn.py
+index 87a86adcba..e16fa330de 100644
+--- a/python/sglang/srt/models/deepseek_nextn.py
++++ b/python/sglang/srt/models/deepseek_nextn.py
+@@ -360,7 +360,7 @@ class DeepseekV3ForCausalLMNextN(DeepseekV3ForCausalLM):
+                 should_ignore_layer,
+             )
+ 
+-            ckpt_prefix = f"model.layers.{config.num_hidden_layers}"
++            ckpt_prefix = f"model.layers.{config.num_hidden_layers}.eh_proj"  # GLM-5.2: MTP layer bf16; match submodule-level quark exclude (pd-unified fix, ndl)
+             mapped_prefix = self.hf_to_sglang_mapper._map_name(ckpt_prefix)
+             if should_ignore_layer(mapped_prefix, nextn_quant_config.exclude_layers):
+                 nextn_quant_config = None
+diff --git a/python/sglang/srt/speculative/eagle_worker_v2.py b/python/sglang/srt/speculative/eagle_worker_v2.py
+index baa3674964..1043b67698 100644
+--- a/python/sglang/srt/speculative/eagle_worker_v2.py
++++ b/python/sglang/srt/speculative/eagle_worker_v2.py
+@@ -128,6 +128,7 @@ def _get_plan_stream(
+         return None, contextlib.nullcontext()
+ 
+ 
++from sglang.srt.layers.logits_processor import _sp_log, _sp_set_stage, _sp_bump_iter, _SP_STATE
+ class EagleDraftWorker(EagleDraftWorkerBase):
+     def __init__(
+         self,
+@@ -513,13 +514,34 @@ class EagleDraftWorker(EagleDraftWorkerBase):
+             self.topk,
+             self.speculative_num_steps,
+         )
++        _sp_cg_before = can_cuda_graph
+         if (
+             can_cuda_graph
+-            and not forward_batch.forward_mode.is_idle()
++            # GLM52_BUG2B: the `not forward_batch.forward_mode.is_idle()` term was
++            # removed here. Under DP-attention each rank is independently busy or
++            # idle, so that term made this guard rank-divergent -- it selected the
++            # CUDA-graph path on idle ranks and the eager path on busy ranks within
++            # the same collective step. The two paths issue different numbers of
++            # LM-head all-gathers (measured: eager 2, graph 0 visible, for the same
++            # rank/mode/bs), and RCCL matches collectives by issue order, so the DP
++            # group desynchronized and deadlocked. The remaining terms are all
++            # rank-uniform, so the decision now agrees across the group.
+             and self.seed_dsa_topk_from_draft_extend
+             and draft_input.dsa_topk_indices is None
+         ):
+             can_cuda_graph = False
++        # GLM52_VARIANT_B: force the draft path fully eager on EVERY rank.
++        # Isolates the draft cuda graph from the target-decode and
++        # draft-extend graphs, which --disable-cuda-graph turns off together.
++        can_cuda_graph = False
++        _sp_log(
++            "DRAFT_GRAPH",
++            mode=str(forward_batch.forward_mode),
++            cg_before=_sp_cg_before,
++            cg_after=can_cuda_graph,
++            seed=self.seed_dsa_topk_from_draft_extend,
++            topk_none=(draft_input.dsa_topk_indices is None),
++        )
+ 
+         n_inner = self.speculative_num_steps - 1
+         canary_outside_ctx = (
+@@ -654,6 +676,11 @@ class EagleDraftWorker(EagleDraftWorkerBase):
+                 and spec_info.dsa_topk_indices is not None
+             ):
+                 spec_info.dsa_topk_indices = None
++        _sp_log(
++            "DRAFT_LOOP",
++            n=self.speculative_num_steps,
++            idle=forward_batch.forward_mode.is_idle(),
++        )
+         for i in range(self.speculative_num_steps):
+             input_ids, hidden_states, scores, tree_info = select_top_k_tokens(
+                 i, topk_p, topk_index, hidden_states, scores, self.topk
+@@ -937,6 +964,12 @@ class EagleDraftWorker(EagleDraftWorkerBase):
+             self.cuda_graph_runner_for_draft_extend
+             and self.cuda_graph_runner_for_draft_extend.can_run_graph(forward_batch)
+         )
++        _sp_log(
++            "EXTEND_GRAPH",
++            mode=str(forward_batch.forward_mode),
++            cg=bool(can_cuda_graph),
++            ntok=forward_batch.input_ids.shape[0],
++        )
+ 
+         # Eager path publishes the indexer top-k into a worker buffer (the graph
+         # path uses the runner's static buffer). Gathered at select_index below.
+@@ -1211,6 +1244,15 @@ class EAGLEWorkerV2(BaseSpecWorker):
+                 )
+                 return batch_output
+         else:
++            _sp_bump_iter()
++            _sp_set_stage("iter_top")
++            _sp_log(
++                "ITER",
++                mode=str(batch.forward_mode),
++                bs=batch.seq_lens.shape[0],
++                steps=self.speculative_num_steps,
++                spec_info=type(batch.spec_info).__name__,
++            )
+             self.activate_step_by_batch(batch.seq_lens.shape[0])
+ 
+             if batch.spec_info is None:
+@@ -1243,10 +1285,21 @@ class EAGLEWorkerV2(BaseSpecWorker):
+                     speculative_moe_a2a_backend_context(),
+                     spec_stage_span("draft"),
+                 ):
++                    _sp_set_stage("draft")
++                    _sp_log(
++                        "STAGE_ENTER",
++                        mode=str(batch.forward_mode),
++                        bs=batch.seq_lens.shape[0],
++                        steps=self.speculative_num_steps,
++                    )
+                     verify_input: EagleVerifyInput = self.draft_worker.draft(batch)
++                    _sp_log("STAGE_EXIT")
+             assert verify_input.is_verify_input()
+             batch.spec_info = verify_input
++            _sp_set_stage("verify")
++            _sp_log("STAGE_ENTER")
+             batch_output = self.verify(batch)
++            _sp_log("STAGE_EXIT")
+             # Publish before draft_extend so the fence is at verify-end.
+             if on_publish is not None:
+                 on_publish(batch_output.new_seq_lens)
+@@ -1264,7 +1317,10 @@ class EAGLEWorkerV2(BaseSpecWorker):
+                     speculative_moe_a2a_backend_context(),
+                     spec_stage_span("draft_extend"),
+                 ):
++                    _sp_set_stage("draft_extend")
++                    _sp_log("STAGE_ENTER")
+                     self.draft_worker._draft_extend_for_decode(batch, batch_output)
++                    _sp_log("STAGE_EXIT")
+ 
+             return batch_output
+ 

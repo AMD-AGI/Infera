@@ -1,0 +1,122 @@
+diff --git a/python/sglang/srt/speculative/eagle_worker_v2.py b/python/sglang/srt/speculative/eagle_worker_v2.py
+index baa3674964..1043b67698 100644
+--- a/python/sglang/srt/speculative/eagle_worker_v2.py
++++ b/python/sglang/srt/speculative/eagle_worker_v2.py
+@@ -128,6 +128,7 @@ def _get_plan_stream(
+         return None, contextlib.nullcontext()
+ 
+ 
++from sglang.srt.layers.logits_processor import _sp_log, _sp_set_stage, _sp_bump_iter, _SP_STATE
+ class EagleDraftWorker(EagleDraftWorkerBase):
+     def __init__(
+         self,
+@@ -513,13 +514,34 @@ class EagleDraftWorker(EagleDraftWorkerBase):
+             self.topk,
+             self.speculative_num_steps,
+         )
++        _sp_cg_before = can_cuda_graph
+         if (
+             can_cuda_graph
+-            and not forward_batch.forward_mode.is_idle()
++            # GLM52_BUG2B: the `not forward_batch.forward_mode.is_idle()` term was
++            # removed here. Under DP-attention each rank is independently busy or
++            # idle, so that term made this guard rank-divergent -- it selected the
++            # CUDA-graph path on idle ranks and the eager path on busy ranks within
++            # the same collective step. The two paths issue different numbers of
++            # LM-head all-gathers (measured: eager 2, graph 0 visible, for the same
++            # rank/mode/bs), and RCCL matches collectives by issue order, so the DP
++            # group desynchronized and deadlocked. The remaining terms are all
++            # rank-uniform, so the decision now agrees across the group.
+             and self.seed_dsa_topk_from_draft_extend
+             and draft_input.dsa_topk_indices is None
+         ):
+             can_cuda_graph = False
++        # GLM52_VARIANT_B: force the draft path fully eager on EVERY rank.
++        # Isolates the draft cuda graph from the target-decode and
++        # draft-extend graphs, which --disable-cuda-graph turns off together.
++        can_cuda_graph = False
++        _sp_log(
++            "DRAFT_GRAPH",
++            mode=str(forward_batch.forward_mode),
++            cg_before=_sp_cg_before,
++            cg_after=can_cuda_graph,
++            seed=self.seed_dsa_topk_from_draft_extend,
++            topk_none=(draft_input.dsa_topk_indices is None),
++        )
+ 
+         n_inner = self.speculative_num_steps - 1
+         canary_outside_ctx = (
+@@ -654,6 +676,11 @@ class EagleDraftWorker(EagleDraftWorkerBase):
+                 and spec_info.dsa_topk_indices is not None
+             ):
+                 spec_info.dsa_topk_indices = None
++        _sp_log(
++            "DRAFT_LOOP",
++            n=self.speculative_num_steps,
++            idle=forward_batch.forward_mode.is_idle(),
++        )
+         for i in range(self.speculative_num_steps):
+             input_ids, hidden_states, scores, tree_info = select_top_k_tokens(
+                 i, topk_p, topk_index, hidden_states, scores, self.topk
+@@ -937,6 +964,12 @@ class EagleDraftWorker(EagleDraftWorkerBase):
+             self.cuda_graph_runner_for_draft_extend
+             and self.cuda_graph_runner_for_draft_extend.can_run_graph(forward_batch)
+         )
++        _sp_log(
++            "EXTEND_GRAPH",
++            mode=str(forward_batch.forward_mode),
++            cg=bool(can_cuda_graph),
++            ntok=forward_batch.input_ids.shape[0],
++        )
+ 
+         # Eager path publishes the indexer top-k into a worker buffer (the graph
+         # path uses the runner's static buffer). Gathered at select_index below.
+@@ -1211,6 +1244,15 @@ class EAGLEWorkerV2(BaseSpecWorker):
+                 )
+                 return batch_output
+         else:
++            _sp_bump_iter()
++            _sp_set_stage("iter_top")
++            _sp_log(
++                "ITER",
++                mode=str(batch.forward_mode),
++                bs=batch.seq_lens.shape[0],
++                steps=self.speculative_num_steps,
++                spec_info=type(batch.spec_info).__name__,
++            )
+             self.activate_step_by_batch(batch.seq_lens.shape[0])
+ 
+             if batch.spec_info is None:
+@@ -1243,10 +1285,21 @@ class EAGLEWorkerV2(BaseSpecWorker):
+                     speculative_moe_a2a_backend_context(),
+                     spec_stage_span("draft"),
+                 ):
++                    _sp_set_stage("draft")
++                    _sp_log(
++                        "STAGE_ENTER",
++                        mode=str(batch.forward_mode),
++                        bs=batch.seq_lens.shape[0],
++                        steps=self.speculative_num_steps,
++                    )
+                     verify_input: EagleVerifyInput = self.draft_worker.draft(batch)
++                    _sp_log("STAGE_EXIT")
+             assert verify_input.is_verify_input()
+             batch.spec_info = verify_input
++            _sp_set_stage("verify")
++            _sp_log("STAGE_ENTER")
+             batch_output = self.verify(batch)
++            _sp_log("STAGE_EXIT")
+             # Publish before draft_extend so the fence is at verify-end.
+             if on_publish is not None:
+                 on_publish(batch_output.new_seq_lens)
+@@ -1264,7 +1317,10 @@ class EAGLEWorkerV2(BaseSpecWorker):
+                     speculative_moe_a2a_backend_context(),
+                     spec_stage_span("draft_extend"),
+                 ):
++                    _sp_set_stage("draft_extend")
++                    _sp_log("STAGE_ENTER")
+                     self.draft_worker._draft_extend_for_decode(batch, batch_output)
++                    _sp_log("STAGE_EXIT")
+ 
+             return batch_output
+ 
