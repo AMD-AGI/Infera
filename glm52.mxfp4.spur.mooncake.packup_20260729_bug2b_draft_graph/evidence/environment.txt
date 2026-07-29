@@ -1,0 +1,21 @@
+### environment captured live 2026-07-29T18:49:02Z
+-- sglang --
+0b3bb0cbe3 [Cherry-pick to release/v0.5.15] support GLM-5.2 MTP index sharing with prefill CP (#30992) (#31106)
+0.5.15.post1
+-- torch/hip --
+2.9.1+rocm7.2.0.git7e1940d4
+7.2.26015-fc0010cf6a
+-- gpu --
+GPU[0]		: Card Series: 		AMD Instinct MI355X
+GPU[1]		: Card Series: 		AMD Instinct MI355X
+-- nic --
+hca_id:	mlx5_0
+	fw_ver:				28.43.3608
+hca_id:	ionic_0
+	fw_ver:				1.117.1-a-63
+-- kernel --
+6.8.0-107-generic
+-- cpu/mem --
+236
+               total        used        free      shared  buff/cache   available
+Mem:            2751          41        2192          19         518        2678
