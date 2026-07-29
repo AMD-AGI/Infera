@@ -102,8 +102,16 @@ _wipe_disag_nodes() {
   done
   _DISAG_NODES=""
 }
-trap _cleanup_scratch EXIT
-trap '_wipe_disag_nodes; _cancel_dispatched; exit 130' INT TERM
+# SLURM job holding the PD pair's GPUs for the whole run (see _hold_pair).
+_HOLDER_JID=""
+_release_hold() {
+  [ -n "$_HOLDER_JID" ] || return 0
+  echo "[e2e disagg] releasing held nodes (scancel $_HOLDER_JID)" >&2
+  scancel "$_HOLDER_JID" >/dev/null 2>&1 || true
+  _HOLDER_JID=""
+}
+trap '_release_hold; _cleanup_scratch' EXIT
+trap '_wipe_disag_nodes; _release_hold; _cancel_dispatched; exit 130' INT TERM
 echo "[scratch] $SCRATCH  (worker logs: $E2E_LOG_DIR, kept)"
 
 # INFERA_E2E_MODEL_DIR: bind the model tree read-only at the same path + forward
@@ -159,6 +167,36 @@ _candidate_nodes() {
     printf '%s\n' "$run" | grep -qw -- "$n" || echo "$n"
   done
 }
+# Hold both PD nodes' GPUs for the whole run. Unlike the mixed tier, disagg's
+# per-step sruns leave the nodes idle in between, so SLURM hands one to another
+# job and their fixed ports (etcd 2379/2380, router 8000, ...) collide. A
+# --gres=gpu:8 batch job keeps them ours; our own no-gres steps co-schedule.
+# Sets _HOLDER_JID. $1=n1,n2
+_hold_pair() {
+  local pair="$1" script="$SCRATCH/hold.sh" jid st rs waited qos=() i
+  # A real script file, not --wrap: on Spur --wrap always NODE_FAILs at -N2.
+  printf '#!/bin/bash\nsleep %s\n' "${INFERA_E2E_HOLD_SLEEP:-10800}" > "$script"
+  for i in 1 2 3; do
+    jid=$(sbatch --parsable -N2 -n2 -w "$pair" --gres=gpu:8 -p "$SLURM_PART" \
+      -t "$SLURM_TIME" -J "infera-ci-hold-${INFERA_E2E_JOB_TAG:-local}" \
+      ${INFERA_E2E_RESERVATION:+--reservation="$INFERA_E2E_RESERVATION"} \
+      "${qos[@]}" "$script" 2>/dev/null) || continue
+    waited=0
+    while [ "$waited" -lt "$QOS_WAIT" ]; do
+      st=$(scontrol show job "$jid" 2>/dev/null | grep -oE 'JobState=[A-Z_]+' | cut -d= -f2)
+      rs=$(scontrol show job "$jid" 2>/dev/null | grep -oE 'Reason=[A-Za-z]+' | cut -d= -f2)
+      [ "$st" = RUNNING ] && { _HOLDER_JID="$jid"; return 0; }
+      case "$st" in NODE_FAIL | FAILED | CANCELLED) break ;; esac
+      sleep 5; waited=$((waited + 5))
+    done
+    # Read the reason BEFORE cancelling; the burst QoS is the way past a group
+    # node limit, and a launch failure is Spur being flaky — both just retry.
+    [ "${#qos[@]}" -eq 0 ] && [ "${rs#QOSGrp}" != "$rs" ] && qos=(-q "$QOS_FALLBACK")
+    scancel "$jid" >/dev/null 2>&1
+    echo "[e2e disagg] hold attempt $i on $pair not started (${st:-?}/${rs:-?}) — retrying" >&2
+  done
+  return 1
+}
 # Two free nodes, waiting for them rather than giving up: engines run in
 # parallel and the mixed tier shares the pool, so a pair is often only free
 # later. The CI job timeout is the real backstop. $1=exclude list.
@@ -176,12 +214,15 @@ _wait_for_pair() {
 # Print up to $1 free nodes (one per line), skipping the comma-separated exclude
 # list in $2. Used to place the PD-disagg node pair.
 _pick_idle_nodes() {
-  local count="$1" excl=",${2:-}," n out=()
+  local count="$1" excl=",${2:-}," n out=() all
+  # Collect the list first: breaking out of a `< <(...)` mid-stream leaves the
+  # producer writing to a closed pipe, which prints EPIPE noise on every call.
+  all="$(_candidate_nodes)"
   while read -r n; do
     [ -n "$n" ] || continue
     case "$excl" in *,"$n",*) continue ;; esac
     out+=("$n"); [ "${#out[@]}" -ge "$count" ] && break
-  done < <(_candidate_nodes)
+  done <<< "$all"
   printf '%s\n' "${out[@]-}"
 }
 # AMD GPU count on THIS host (one renderD* per GPU; PCI vendor 0x1002 == AMD).
@@ -524,6 +565,12 @@ run_e2e_disagg() {
         echo "[e2e disagg] WARNING: no 2 free nodes in '$SLURM_PART' within ${INFERA_E2E_WAIT_NODES_TIMEOUT:-3600}s — skipping $e" >&2
         break
       fi
+      # Lock the pair before using it; losing the race to another job just means
+      # picking a fresh pair, so it does not burn a real attempt.
+      if ! _hold_pair "$n1,$n2"; then
+        echo "[e2e disagg] could not hold $n1,$n2 — trying another pair" >&2
+        exclude="${exclude:+$exclude,}$n1,$n2"; attempt=$((attempt - 1)); continue
+      fi
       echo "[e2e disagg] $e attempt $attempt/$max_attempts on nodes: $n1 (prefill), $n2 (decode)"
       _DISAG_NODES="$n1,$n2"
       INFERA_E2E_NODES="$n1,$n2" INFERA_E2E_SLURM_PARTITION="$SLURM_PART" \
@@ -532,6 +579,7 @@ run_e2e_disagg() {
           "$REPO/tests/e2e/pd_disag/$e" 2>&1 | tee "$out"
       prc=${PIPESTATUS[0]}
       _DISAG_NODES=""   # pytest returned, so its fixtures already tore the stack down
+      _release_hold
       [ "$prc" -eq 0 ] && { ok=1; break; }
       if grep -qiE 'node failure|Cannot connect to the Docker daemon|could not resolve a routable IP|docker build .* failed' "$out"; then
         exclude="${exclude:+$exclude,}$n1,$n2"
