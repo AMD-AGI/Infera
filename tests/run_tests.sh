@@ -159,6 +159,20 @@ _candidate_nodes() {
     printf '%s\n' "$run" | grep -qw -- "$n" || echo "$n"
   done
 }
+# Two free nodes, waiting for them rather than giving up: engines run in
+# parallel and the mixed tier shares the pool, so a pair is often only free
+# later. The CI job timeout is the real backstop. $1=exclude list.
+_wait_for_pair() {
+  local excl="$1" waited=0 every=30 limit="${INFERA_E2E_WAIT_NODES_TIMEOUT:-3600}" nodes
+  while :; do
+    nodes="$(_pick_idle_nodes 2 "$excl")"
+    [ "$(printf '%s\n' "$nodes" | sed '/^$/d' | wc -l)" -ge 2 ] && { printf '%s\n' "$nodes"; return 0; }
+    [ "$waited" -ge "$limit" ] && return 1
+    [ $((waited % 120)) -eq 0 ] &&
+      echo "[e2e disagg] fewer than 2 free nodes — waiting (${waited}s/${limit}s)" >&2
+    sleep "$every"; waited=$((waited + every))
+  done
+}
 # Print up to $1 free nodes (one per line), skipping the comma-separated exclude
 # list in $2. Used to place the PD-disagg node pair.
 _pick_idle_nodes() {
@@ -502,12 +516,12 @@ run_e2e_disagg() {
       if [ -n "${INFERA_E2E_NODES:-}" ] && [ "$attempt" -eq 1 ]; then
         n1="${INFERA_E2E_NODES%%,*}"; n2="${INFERA_E2E_NODES##*,}"
       else
-        nodes="$(_pick_idle_nodes 2 "$exclude")"
+        nodes="$(_wait_for_pair "$exclude")"
         n1="$(printf '%s\n' "$nodes" | sed -n 1p)"
         n2="$(printf '%s\n' "$nodes" | sed -n 2p)"
       fi
       if [ -z "$n1" ] || [ -z "$n2" ] || [ "$n1" = "$n2" ]; then
-        echo "[e2e disagg] WARNING: could not find 2 usable idle nodes in '$SLURM_PART' — skipping $e (set INFERA_E2E_SLURM_PARTITION to your cluster's partition)" >&2
+        echo "[e2e disagg] WARNING: no 2 free nodes in '$SLURM_PART' within ${INFERA_E2E_WAIT_NODES_TIMEOUT:-3600}s — skipping $e" >&2
         break
       fi
       echo "[e2e disagg] $e attempt $attempt/$max_attempts on nodes: $n1 (prefill), $n2 (decode)"
