@@ -1,5 +1,19 @@
 # DPA + MTP + PD — debug master doc
 
+> **SUPERSEDED IN PART (2026-07-29 evening).** Bug 2b — the draft-CUDA-graph deadlock
+> this document treats as open — is **fixed and verified**. See
+> `../../glm52.mxfp4.spur.mooncake.packup_20260729_bug2b_draft_graph/`.
+>
+> The root cause is *not* what §4 below infers. Measured: the graph/eager decision in
+> `eagle_worker_v2.py::draft()` is made per rank from rank-dependent inputs, and diverged
+> on exactly the iteration that froze. The `.max().item()` sync in §4 is where the busy
+> rank *ends up blocked*, but it is a downstream symptom of the split, not the cause —
+> the fix does not touch it and the hang is gone (1516/1516 requests; the same-node
+> control with only the fix reverted hangs 0/4).
+>
+> §4's "the brake sits on a fork only some ranks take" is the right *shape* of
+> explanation; the fork it names is the wrong one.
+
 Consolidated 2026-07-29. Everything needed to resume debugging without prior conversation:
 the bug in plain language, what is proven vs inferred, the research, the open options, and
 the concepts that kept coming up.

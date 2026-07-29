@@ -1,5 +1,18 @@
 # Bug 2b root cause — the CUDA-graph/eager switch in `draft()` is rank-divergent
 
+> **CONFIRMED AND FIXED 2026-07-29 evening.** This document's central claim was right.
+> The "decisive experiment" it calls for at the end of the CORRECTION section — the fix
+> with graphs still enabled — has now been run and passes. See
+> `../../glm52.mxfp4.spur.mooncake.packup_20260729_bug2b_draft_graph/`.
+>
+> Two refinements from the later measurement:
+> * The fix is **not** "drop the `not is_idle()` term" (candidate 1 below). That was tried
+>   and fails, and the new data explains why: it fixes the busy-rank iteration and breaks
+>   the idle-rank one. Candidate 2 (all-reduce the decision) is the one that works.
+> * The reason term 4 flips is now known: on the PD decode leg `dsa_topk_indices` is built
+>   from RDMA-shipped per-request payloads (`eagle_disaggregation.py:54-59`), so it depends
+>   on which requests a rank holds. This also explains why single-node mix never hangs.
+
 Measured 2026-07-29 12:1x–12:2x on job 9006 (decode leg), GLM-5.2-MXFP4,
 TP8 + DP-attention(dp_size=8) + EP8 + EAGLE MTP(steps=3, topk=1), gfx950.
 

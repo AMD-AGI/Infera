@@ -1,5 +1,11 @@
 # Variant B — the DRAFT cuda graph is the culprit
 
+> **SUPERSEDED 2026-07-29 evening.** The "follow-up needed" at the bottom of this file is
+> **done**: option 1 (all-reduce the decision across the group) was implemented and
+> verified. See `../../glm52.mxfp4.spur.mooncake.packup_20260729_bug2b_draft_graph/`.
+> Variant B's localization was correct — the draft graph is the culprit — and the proper
+> fix keeps that graph, using it on 98.4% of iterations instead of disabling it.
+
 Measured 2026-07-29 13:00–13:06, job 9006 (decode leg), graphs otherwise ON.
 
 ## What was changed
