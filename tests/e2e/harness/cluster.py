@@ -47,7 +47,13 @@ _SPUR = bool(os.environ.get("SPUR_CONTROLLER_ADDR"))
 # QoS until one is refused for a group node limit, then the rest of the run keeps
 # the fallback so that stall is paid once instead of per step.
 _QOS_FALLBACK = os.environ.get("INFERA_E2E_SLURM_QOS_FALLBACK", "amd-burst-qos")
-_QOS_PROBE_TIMEOUT = float(os.environ.get("INFERA_E2E_QOS_PROBE_TIMEOUT", "90"))
+_QOS_PROBE_TIMEOUT = float(os.environ.get("INFERA_E2E_QOS_PROBE_TIMEOUT", "30"))
+
+# Every disagg step carries this name (traceable to its CI run, and matched by
+# ci.yml's `infera-ci-` reclaim filter) and this ceiling. The longest step by far
+# is the image build, so the default is generous.
+JOB_NAME = "infera-ci-" + (os.environ.get("INFERA_E2E_JOB_TAG") or "disag-local")
+STEP_TIME = os.environ.get("INFERA_E2E_SLURM_TIME", "01:00:00")
 _QOS_LIMIT_RE = re.compile(
     r"QOSGrp\w*Limit|QOSMax\w*Limit|reached terminal state before allocation|"
     r"Unable to allocate resources",
@@ -70,7 +76,7 @@ def _job_id() -> str | None:
     return os.environ.get("SLURM_JOB_ID") or os.environ.get("SLURM_JOBID")
 
 
-def srun_argv(node: str) -> list[str]:
+def srun_argv(node: str, *, job: str = "") -> list[str]:
     """The ``srun`` prefix pinning one task to ``node`` — the one place scheduler
     flags are assembled. ``INFERA_E2E_RESERVATION`` keeps a disagg run's many
     short steps on the reserved pair; ``INFERA_E2E_SRUN_EXTRA`` adds site flags."""
@@ -81,6 +87,10 @@ def srun_argv(node: str) -> list[str]:
         argv = ["srun", "--overlap", "--nodes=1", "--ntasks=1", "--nodelist", node]
         if _job_id():
             argv += ["--jobid", _job_id()]
+    # Name and timebox every step: unnamed, SLURM labels them after the command
+    # ("docker") and leaves them UNLIMITED, so a leaked one is neither traceable
+    # to its CI run nor self-expiring. The prefix matches ci.yml's reclaim filter.
+    argv += ["-J", job or JOB_NAME, "-t", STEP_TIME]
     reservation = os.environ.get("INFERA_E2E_RESERVATION")
     if reservation:
         argv.append(f"--reservation={reservation}")
@@ -102,10 +112,11 @@ def probe_qos(node: str) -> None:
     global _qos_fallback_on
     if _qos_fallback_on or not _QOS_FALLBACK:
         return
-    job = f"infera-qos-probe-{os.getpid()}"
+    # Its own name so the scancel below cannot take the run's other steps with it.
+    job = f"{JOB_NAME}-qosprobe-{os.getpid()}"
     try:
         proc = subprocess.run(
-            srun_argv(node) + ["-J", job, "true"],
+            srun_argv(node, job=job) + ["true"],
             capture_output=True,
             text=True,
             timeout=_QOS_PROBE_TIMEOUT,
@@ -115,9 +126,11 @@ def probe_qos(node: str) -> None:
         blocked = bool(_QOS_LIMIT_RE.search((proc.stdout or "") + (proc.stderr or "")))
         detail = (proc.stderr or proc.stdout or "").strip().splitlines()[-1:]
     except subprocess.TimeoutExpired:
-        # Killing the srun client does not cancel the queued job; drop it by name.
-        subprocess.run(["scancel", "-n", job], capture_output=True, timeout=_SRUN_TIMEOUT)
         blocked, detail = True, [f"still queued after {_QOS_PROBE_TIMEOUT:.0f}s"]
+    finally:
+        # Killing the srun client does not cancel the queued job; drop it by name
+        # on every path (a no-op once it has already run).
+        subprocess.run(["scancel", "-n", job], capture_output=True, timeout=_SRUN_TIMEOUT)
     if blocked:
         _qos_fallback_on = True
         print(

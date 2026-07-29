@@ -272,7 +272,11 @@ class SrunDockerLauncher(WorkerLauncher):
         if gpu:
             docker_args += _GPU_RDMA_FLAGS
         docker_args += self._engine_mounts(node)
-        for key, val in {"PYTHONPATH": REPO, **env}.items():
+        # No .pyc: the repo is bind-mounted read-write and the container runs as
+        # root, so byte-compiling it litters the checkout with root-owned
+        # __pycache__ that the next actions/checkout cannot delete (EACCES).
+        base = {"PYTHONPATH": REPO, "PYTHONDONTWRITEBYTECODE": "1"}
+        for key, val in {**base, **env}.items():
             docker_args += ["-e", f"{key}={val}"]
         inner = f"cd {shlex.quote(REPO)} && exec {shlex.join(argv)}"
         self._run(node, container, self.image, docker_args, ["bash", "-lc", inner])

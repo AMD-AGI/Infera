@@ -236,10 +236,13 @@ jobs:
       matrix:
         engine: [vllm, sglang, atom]
     runs-on: [self-hosted, crusoe]
-    timeout-minutes: 120
+    timeout-minutes: 70
     env:
       INFERA_E2E_SLURM_PARTITION: amd-spur
       INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
+      # Ceiling on every disagg srun step, inside the job timeout above so the
+      # scheduler reclaims a node even if the runner is killed first.
+      INFERA_E2E_SLURM_TIME: "01:00:00"
       # Disagg is many short sruns; the reservation keeps the pair held across
       # them. QoS is left at the cluster default — the harness falls back to the
       # burst QoS by itself if a step is refused for a group node limit.
