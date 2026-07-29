@@ -116,6 +116,10 @@ _default_partition() {
 SLURM_PART="${INFERA_E2E_SLURM_PARTITION:-$(_default_partition)}"
 SLURM_PART="${SLURM_PART:-amd-spur}"
 SLURM_TIME="${INFERA_E2E_SLURM_TIME:-02:30:00}"
+# Burst QoS is a fallback: a dispatch queued this long on the group node limit is
+# resubmitted with it (see _watch_job / _dispatch_slurm), never used up front.
+QOS_FALLBACK="${INFERA_E2E_SLURM_QOS_FALLBACK:-amd-burst-qos}"
+QOS_WAIT="${INFERA_E2E_QOS_WAIT:-30}"
 
 _have_slurm() { command -v srun >/dev/null 2>&1; }
 # Print up to $1 idle nodes in the partition (one per line), skipping the
@@ -166,15 +170,33 @@ _spill_inflight() {
   squeue -h -u "$(id -un)" -o '%j' 2>/dev/null | grep -c -- 'spill' || true
 }
 
-_hold_watch() {
-  local out="$1" flag="$2" jid=""
+# Watch the dispatched job: report why it is still queued (a waiting job prints
+# NOTHING, so a CI run looks hung and gets cancelled), and cancel + flag the two
+# waits the caller can act on — a JobHoldMaxRequeue, and a group node limit still
+# unclear after $QOS_WAIT. $1=srun-out $2=hold-flag $3=qos-flag $4=label
+_watch_job() {
+  local out="$1" hold="$2" qos="$3" label="$4" jid="" state reason waited=0
+  local every="${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}" next="${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}"
   while sleep 5; do
-    [ -n "$jid" ] || jid=$(grep -oE 'srun: job [0-9]+' "$out" 2>/dev/null \
+    waited=$((waited + 5))
+    # Match both srun banners: "Pending job allocation N" while queued (the only
+    # one printed for a job that never starts) and "job N running on ...".
+    [ -n "$jid" ] || jid=$(grep -oE 'job (allocation )?[0-9]+' "$out" 2>/dev/null \
       | grep -oE '[0-9]+' | head -1)
     [ -n "$jid" ] || continue
-    case "$(squeue -h -j "$jid" -o '%T %r' 2>/dev/null)" in
-      PENDING*JobHoldMaxRequeue*) : > "$flag"; scancel "$jid" >/dev/null 2>&1; return ;;
-    esac
+    state=$(squeue -h -j "$jid" -o '%T' 2>/dev/null)
+    reason=$(squeue -h -j "$jid" -o '%r' 2>/dev/null)
+    [ "$state" = "PENDING" ] || continue
+    if [ "$reason" = "JobHoldMaxRequeue" ]; then
+      : > "$hold"; scancel "$jid" >/dev/null 2>&1; return
+    fi
+    if [ "$reason" = "QOSGrpNodeLimit" ] && [ "$waited" -ge "$QOS_WAIT" ]; then
+      : > "$qos"; scancel "$jid" >/dev/null 2>&1; return
+    fi
+    if [ "$waited" -ge "$next" ]; then
+      next=$((waited + every))
+      echo "[$label] still QUEUED on SLURM after ${waited}s — job $jid, reason=${reason:-unknown}" >&2
+    fi
   done
 }
 
@@ -200,6 +222,7 @@ _dispatch_slurm() {
   fi
 
   local prc=1 attempt=0 max_attempts=5 exclude="" ran
+  local qosflag="$SCRATCH/.qos-$label" qos=()
   local holdflag="$SCRATCH/.hold-$label" held=0 max_held="${INFERA_E2E_HOLD_MAX_RETRY:-30}"
   while [ "$attempt" -lt "$max_attempts" ]; do
     attempt=$((attempt + 1))
@@ -232,7 +255,7 @@ _dispatch_slurm() {
     fi
     echo "[$label] dispatch $attempt/$max_attempts to '$SLURM_PART' mode=$mode${exclude:+ exclude=$exclude} (remote: $*)"
     echo "[$label] streaming remote output below (live via $tailf):"
-    : > "$out"; [ -n "$logf" ] && : > "$logf"; rm -f "$holdflag"
+    : > "$out"; [ -n "$logf" ] && : > "$logf"; rm -f "$holdflag" "$qosflag"
     # stdbuf -oL line-buffers tail to our stdout; -F follows by name + retry
     # (tolerates the remote truncating on open, and polls over NFS).
     stdbuf -oL tail -n +1 -F "$tailf" 2>/dev/null &
@@ -247,10 +270,10 @@ _dispatch_slurm() {
     # job; `wait` is interrupted by the signal so the trap runs promptly.
     INFERA_E2E_LOCAL=1 \
       srun -N1 -p "$SLURM_PART" --gres=gpu:8 -t "$SLURM_TIME" \
-        -J "$jobname" "${xflag[@]}" "${resv[@]}" \
+        -J "$jobname" "${xflag[@]}" "${resv[@]}" "${qos[@]}" \
         "${remote[@]}" > "$out" 2>&1 &
     local srunpid=$!
-    _hold_watch "$out" "$holdflag" &
+    _watch_job "$out" "$holdflag" "$qosflag" "$label" &
     local holdpid=$!
     wait "$srunpid"; prc=$?
     kill "$holdpid" 2>/dev/null; wait "$holdpid" 2>/dev/null
@@ -267,6 +290,18 @@ _dispatch_slurm() {
       fi
       echo "[$label] job held (JobHoldMaxRequeue) — cancelled, retry $held/$max_held in 5s" >&2
       attempt=$((attempt - 1)); sleep 5; continue
+    fi
+    # Queued on the group node limit past $QOS_WAIT: the watchdog cancelled it —
+    # resubmit once on the burst QoS (not a real attempt); refused again = fail.
+    if [ -f "$qosflag" ]; then
+      prc=1
+      if [ "${#qos[@]}" -gt 0 ]; then
+        echo "[$label] still QOSGrpNodeLimit on --qos=$QOS_FALLBACK — giving up" >&2
+        break
+      fi
+      qos=(--qos="$QOS_FALLBACK")
+      echo "[$label] QOSGrpNodeLimit for ${QOS_WAIT}s — resubmitting with --qos=$QOS_FALLBACK" >&2
+      attempt=$((attempt - 1)); continue
     fi
     # Retry on transient faults. Docker errors are in $logf (shared) or $out
     # (local); "running on <node>" is always an srun banner in $out.
