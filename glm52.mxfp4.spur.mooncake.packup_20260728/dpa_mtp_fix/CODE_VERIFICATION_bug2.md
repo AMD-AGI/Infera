@@ -182,3 +182,59 @@ finding #2 kills it. Revised options:
 **(b) is now the recommended first attempt**, and for a reason stronger than "it's small":
 the `DRAFT_EXTEND_V2` branch already performs the exact D2H that opting out was meant to
 save, so the opt-out is buying nothing on this path while costing correctness.
+
+---
+
+# CORRECTION (upstream research, same day) — (b) was already rejected upstream
+
+The recommendation immediately above is **wrong as stated**, and the upstream history says
+why. Recording it rather than deleting it, because the reasoning error is instructive.
+
+**Lines 809/812 are not a pre-existing accident — they ARE an upstream fix**, added by
+merged PR **#29798** (`fix: avoid DSA indexer CPU seq lens fallback`, +8/−0 on
+`dsa_backend.py`, +1/−2 on `dsa_indexer.py`, nothing else). The diff is exactly the block I
+flagged. Its purpose was to repair `AssertionError: All of them must not be None` when a
+decode batch exceeds `--cuda-graph-max-bs` and runs eager.
+
+And that PR **explicitly considered and rejected option (b)**:
+
+> *"An earlier local workaround was to set `DeepseekSparseAttnMultiStepBackend.needs_cpu_seq_lens=True`.
+> That fixes the assertion but makes all spec-v2 DSA draft decode materialize a CPU
+> sequence-length mirror, **including CUDA graph replay cases and FP8-style deployments that
+> do not need it**. This PR instead keeps the common graph path GPU-only and populates CPU
+> metadata only in the over-graph eager fallback."*
+
+So flipping the flag is a known-and-declined trade: it taxes every graph-replay deployment
+to fix an eager-only path. A downstream patch doing it would be a local workaround, not
+something upstream would take.
+
+**Where my inference went wrong:** I argued "the opt-out buys nothing *on this path*, so
+publishing the mirror is free." True for this path, false globally — the flag is
+per-backend, not per-path, so setting `True` also re-enables the D2H for every graph-replay
+step, which is the majority case on CUDA. I over-generalised from one code path to the
+flag's whole blast radius. The measurement (lines 809/812 sync unconditionally) was right;
+the conclusion drawn from it was not.
+
+**What #29798 also proves:** upstream's mental model of this eager arm is
+*"rare, and entered by all ranks together"* — it is scoped to "decode batch exceeds
+`--cuda-graph-max-bs`", a global property. Our failure mode is different in kind: entered by
+**one rank** because of DP occupancy, on **every** step, because HIP never captures the
+draft-extend graph at all. The fix must therefore target *rank-asymmetric entry*, not the
+eager path's existence.
+
+## Revised recommendation
+
+**(a′) — make the `DRAFT_EXTEND_V2` metadata path sync-free**, i.e. supply the host-side
+lengths from values the spec worker already knows, so lines 809/812 never need to fire.
+`base_spec_worker.py:155` already sets `extend_seq_lens_cpu = [num_draft_tokens]*bs` on the
+`gpu_only` path for precisely this reason; the missing pieces are `extend_prefix_lens_cpu`
+and `seq_lens_cpu`, and `prepare_for_draft_extend` holds host-side equivalents of both
+before it nulls them. This keeps the flag `False` (so no graph-replay tax — respects
+#29798's constraint) while removing the rank-asymmetric stall.
+
+Note the upstream fix in flight, **PR #32209**, takes a *different* route for a sibling
+bug: all-gather the graph-vs-eager decision so ranks vote and agree. That does not help us —
+a host-side `cudaStreamSynchronize` on the busy rank is invisible to such a vote — but it
+does establish that upstream considers "make the ranks agree" the sanctioned shape. A
+defensible alternative is therefore **(c) uniform entry**, which composes with #32209's
+philosophy even though it costs idle ranks a sync.
