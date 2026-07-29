@@ -185,7 +185,7 @@ across PD and CUDA graph replay」**（2026-07-14，本地 `78dc581518`）加的
 | issue #32527（07-27） | 和本节完全同一个 bug：同样的 7+1 分叉、同样定位到 `is_idle()`、同样用 `index_share_for_mtp_iteration=false` 绕过 | open |
 | PR #32209（07-23） | 正牌修复，+616/-25、12 个文件，一次收拾 5 个故障模式 | open，**CI 红** |
 | PR #32196（07-23） | `[PD] Keep EAGLE DP graph and token metadata consistent`，同一片区域 | open |
-| PR #31477（07-16） | `[Spec][PD] Enable fused TopK for GLM-5.2 MTP IndexShare`，即 `dsa/utils.py:66` 那条 TODO 的真正修法 | open |
+| PR #31477（07-16） | `dsa/utils.py:66` 那条 TODO 的修法，把 seed 在 decode 侧重映射到本地 KV slot 后重新启用 fused TopK。**纯性能，不修死锁** | open，**CI 绿 + 已获 1 个 approve**，最接近合入 |
 | PR #32722（07-29） | 这条轴上的回归测试，故意在 main 上是红的 | draft |
 | issue #30854（07-11） | `dsa_seed_topk` copy_ 在 PD decode 崩，同族 | open |
 
@@ -194,6 +194,11 @@ collective），让全 8 个 rank 一起决定要不要退 eager，并且只把 
 原来的写法会让 9.7% 的 decode 批次连 target verify 和 draft-extend 的 graph 一起丢掉。issue
 #32527 里还有个三行版本：不退 eager，而是塞一个全零的 dummy seed 张量顶上，让所有 rank 都留在
 graph 路径。两种都能解死锁，我们的配置覆盖等价于第三种。
+
+**别把 #31477 当成这个死锁的候选修法。** 它和 #32209 修的是两件不同的事：#32209 管的是"seed 缺
+失时全体 rank 要不要一起退 eager"（活性），#31477 管的是"seed 存在时能不能被 fused TopK 吃掉"
+（性能，实测 TPOT −3.28% / ITL −3.08%，acceptance 66% 不变）。我们死锁的场景恰好是 seed **不
+存在**，所以 #31477 合了也解不了，它也没有动那个逐 rank 判断的结构问题。
 
 **一条我们能给上游的反例。** #32209 作者说"在 prefill 侧也开 MTP 就能避开这个 hang，因为那样
 decode 起步时 seed 一定在"。我们这轮**两条腿都开着 MTP=1**（脚本本来就强制两边一致，prefill 腿
@@ -232,6 +237,12 @@ disaggregation.`——**两条 PD 腿上 IndexShare 的消费端本来就是关�
 里 `force_unfused` 恒为真。留着 `seed_dsa_topk_from_draft_extend=True` 只剩坏处：产出没人用，
 却驱动了上面那个逐 rank 的 graph 判断。实测也对得上，accept len 3.78/4 与单机 IndexShare 开启
 时完全一致；#32209 下面另一个复现者报的是关前关后 3.239 对 3.24。
+
+**但这个"不花钱"有保质期。** 让它免费的前提正是 PD 下 fused TopK 被关着，而 #31477 就是专门来
+解除这个限制的（把 seed 在 decode 侧重映射到本地 KV slot 后重新启用 fused TopK，CI 已绿、拿到
+一个 approve，很可能比 #32209 先合）。**它一合，PD 下的 IndexShare 就真的有用了，我们这个覆盖
+也就从零成本变成要付 ~3% TPOT。** 到那时应该换成 #32209 或者 #32527 里的 dummy-seed 三行版，而
+不是继续关 IndexShare。这是升级 SGLang 时要重新评估的一条。
 
 顺便一个排错提示：`SGLANG_DSA_FUSE_TOPK=false` **解不了**这个死锁（上游复现者验过）。它只动消费
 端，不改 `seed_dsa_topk_from_draft_extend`，那个 graph 判断照样触发。必须从模型 config 这一层关。

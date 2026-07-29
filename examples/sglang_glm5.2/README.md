@@ -132,6 +132,13 @@ item of #32209 (TRT-LLM); all were still open as of 2026-07-29, and no one has d
 aiter/HIP side of the padded-row fix, which is what our patch is. Once #32209 lands, both
 workarounds can go.
 
+Do not read PR #31477 as an alternative fix for the deadlock. It is a performance change
+for the opposite case — making a seed that *does* arrive consumable by fused top-k — worth
+about 3% of TPOT, and it does nothing when the seed is absent, which is the case that
+deadlocks. It matters here for a different reason: it is what makes the IndexShare override
+free today, since fused top-k is currently off under PD anyway. When #31477 lands, the
+override starts costing that 3% and should be traded for #32209.
+
 ## 2. Verify the RDMA fabric first
 
 PD moves the KV cache across the fabric on every request. Over TCP the pair is slower
