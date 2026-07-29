@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from ...harness.matrix import DEEPSEEK_V4_PRO, GLM_5_1_FP8, KIMI_K26_MXFP4, QWEN3_8B, expand_cases
+from ...harness.matrix import DEEPSEEK_V4_PRO, KIMI_K26_MXFP4, expand_cases
 
 # [model, tp, ep, dp_attn] (+ optional opts dict). Opts mirror the matching
 # InferenceX single_node/fixed_seq_len benchmarks.

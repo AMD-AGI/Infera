@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from ...harness.matrix import DEEPSEEK_V4_PRO, GLM_5_1_FP8, GPT_OSS, KIMI_K26_MXFP4, expand_cases
+from ...harness.matrix import DEEPSEEK_V4_PRO, KIMI_K26_MXFP4, expand_cases
 
 # [model, tp, ep, dp_attn] (+ optional opts dict). A tuple/list on an axis
 # enumerates it (e.g. (True, False) runs both). MoE models can exercise ep.
