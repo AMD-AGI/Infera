@@ -7,8 +7,12 @@ on:
     branches: [main]
   workflow_dispatch:   # manual "Run workflow" button (Actions tab)
     inputs:
-      run_e2e:
+      run_e2e_mixed:
         description: "also run e2e-mixed"
+        type: boolean
+        default: false
+      run_e2e_disag:
+        description: "also run e2e-disag"
         type: boolean
         default: false
 
@@ -171,7 +175,7 @@ jobs:
   e2e-mixed:
     # Run on PRs into main (pre-merge; pull_request already filters base=main), so
     # the merge is validated BEFORE landing and not re-run on the main push after.
-    # Also on manual dispatch when run_e2e is checked. Skipped for docs-only PRs.
+    # Also on manual dispatch when run_e2e_mixed is checked. Skipped for docs-only PRs.
     # Gated behind lint: run only if lint did not fail. `always()` + result check
     # (instead of a plain success dependency) is needed so e2e still runs when lint
     # is *skipped* as a duplicate (pre_check), but is held back when lint fails.
@@ -181,7 +185,7 @@ jobs:
       needs.changes.outputs.code == 'true' &&
       needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
       (github.event_name == 'pull_request' ||
-       (github.event_name == 'workflow_dispatch' && inputs.run_e2e))
+       (github.event_name == 'workflow_dispatch' && inputs.run_e2e_mixed))
     strategy:
       fail-fast: false
       matrix:
@@ -215,6 +219,45 @@ jobs:
             echo "reclaiming SLURM job(s): $ids (try $i)"; scancel $ids 2>&1 || true
             sleep 5
           done
+
+  # PD-disaggregated e2e (prefill and decode on two nodes, KV over RDMA). Runs on
+  # PRs like e2e-mixed, and on manual dispatch under its OWN run_e2e_disag box —
+  # separate job + separate switch so a PD-transport break is legible on its own.
+  e2e-disag:
+    needs: [lint, changes]
+    if: >-
+      always() &&
+      needs.changes.outputs.code == 'true' &&
+      needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
+      (github.event_name == 'pull_request' ||
+       (github.event_name == 'workflow_dispatch' && inputs.run_e2e_disag))
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [vllm, sglang, atom]
+    runs-on: [self-hosted, crusoe]
+    timeout-minutes: 120
+    env:
+      INFERA_E2E_SLURM_PARTITION: amd-spur
+      INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
+      # Disagg is many short sruns; the reservation keeps the pair held across
+      # them. QoS is left at the cluster default — the harness falls back to the
+      # burst QoS by itself if a step is refused for a group node limit.
+      INFERA_E2E_RESERVATION: infera-cicd-reserved
+      # No ib_peer_mem here, so bare ibv_reg_mr cannot pin VRAM: Mooncake must
+      # register via dma-buf, compiled in at build time and selected at run time.
+      # The rail is mlx5 (ionic dma-buf dies on a production KV pool); its
+      # routable GID is index 3, its 0 and 1 are link-local.
+      INFERA_E2E_GID_INDEX: "3"
+      INFERA_E2E_WORKER_ENV: MC_TE_FILTERS=mlx5_0,MOONCAKE_DISABLE_HIP_DMABUF=0
+      INFERA_E2E_BUILD_ARGS: MOONCAKE_HIP_DMABUF=1
+      INFERA_E2E_JOB_TAG: ${{ github.run_id }}-${{ matrix.engine }}-disag
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - name: e2e ${{ matrix.engine }} disag
+        run: bash tests/run_tests.sh e2e ${{ matrix.engine }} disag
 
   unit-torch-cpu:
     needs: [lint, pre_check, changes]

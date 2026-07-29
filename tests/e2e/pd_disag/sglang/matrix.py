@@ -17,9 +17,7 @@ from ...harness.matrix import GPT_OSS, expand_cases
 
 # [model, tp, ep, dp_attn] (+ optional opts dict: args/env/setup/server_ready_timeout).
 CASES = [
-    # Debug: bigger model (gpt-oss-120b). Larger weights leave a smaller KV pool,
-    # so Mooncake's RDMA registration may stay under ionic's 2 GiB ibv_reg_mr cap
-    # that the small-model case tripped.
+    # gpt-oss-120b, prefill TP=2 + decode TP=2, KV over Mooncake RDMA.
     [
         GPT_OSS,
         2,
@@ -28,7 +26,7 @@ CASES = [
         {
             "env": {"SGLANG_USE_AITER": "1"},
             "server_ready_timeout": 1800,
-            "args": ["--mem-fraction-static", "0.5"],
+            "args": ["--mem-fraction-static", "0.9"],
         },
     ],
 ]

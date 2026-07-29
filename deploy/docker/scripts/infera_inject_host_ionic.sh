@@ -44,4 +44,10 @@ if [ -e "$SRC" ]; then
     fi
 fi
 
+# A leading flag means the caller expects the old `ENTRYPOINT ["/bin/bash"]`
+# contract (`docker run <img> -c '...'`), which a bare exec cannot honour.
+case "${1:-}" in
+    -*) exec /bin/bash "$@" ;;
+esac
+
 exec "$@"

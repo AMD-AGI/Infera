@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import shlex
 import subprocess
 from abc import ABC, abstractmethod
@@ -35,6 +36,7 @@ from dataclasses import dataclass, field
 
 import httpx
 
+from . import cluster
 from .adapter import emit_reporter_line
 
 # Repo root (…/tests/e2e/harness/launcher.py -> 4 up). Bind-mounted into each
@@ -51,15 +53,6 @@ _LIBIONIC = "/usr/lib/x86_64-linux-gnu/libionic.so"
 ETCD_IMAGE = "quay.io/coreos/etcd:v3.5.14"
 ETCD_PORT = 2379
 ROUTER_PORT = 8000
-
-_SRUN = ["srun", "--overlap", "--nodes=1", "--ntasks=1"]
-
-# The Spur scheduler exposes only a subset of srun (no --overlap/--jobid): it's
-# detected by its controller env var. On Spur we place work with plain
-# ``srun -N1 -n1 [-p PART] -w NODE`` (each step self-allocates the pinned node);
-# on stock SLURM we keep --overlap/--jobid to co-schedule inside an allocation.
-_SPUR = bool(os.environ.get("SPUR_CONTROLLER_ADDR"))
-_PART = os.environ.get("INFERA_E2E_SLURM_PARTITION")
 
 # ROCm + RoCE flags for GPU worker containers (see module docstring).
 _GPU_RDMA_FLAGS = [
@@ -83,19 +76,8 @@ _GPU_RDMA_FLAGS = [
 ]
 
 
-def _job_id() -> str | None:
-    return os.environ.get("SLURM_JOB_ID") or os.environ.get("SLURM_JOBID")
-
-
 def _srun(node: str, argv: list[str], *, timeout: float) -> subprocess.CompletedProcess:
-    if _SPUR:
-        cmd = ["srun", "-N1", "-n1"] + (["-p", _PART] if _PART else []) + ["-w", node]
-    else:
-        cmd = list(_SRUN) + ["--nodelist", node]
-        if _job_id():
-            cmd += ["--jobid", _job_id()]
-    cmd += argv
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    return cluster.run_on_node(node, argv, timeout=timeout)
 
 
 @dataclass
@@ -165,20 +147,20 @@ class SrunDockerLauncher(WorkerLauncher):
         log_dir: str | None = None,
         build_timeout: float = 3600.0,
         start_timeout: float = 300.0,
-        shell_entrypoint: bool = False,
     ):
-        self.image = image
+        # A build-arg'd image is a DIFFERENT image, so it gets its own tag: the
+        # unit/engine/PD-mixed tiers build the plain tag on these same nodes, and
+        # sharing one would let either tier hand the other its build.
+        self.build_args = cluster.image_build_args()
+        suffix = "-".join(f"{k}{v}" for k, v in sorted(self.build_args.items())).lower()
+        self.image = f"{image}-{re.sub(r'[^a-z0-9_.-]', '', suffix)}" if suffix else image
         self.dockerfile = dockerfile
-        # Some engine images set ENTRYPOINT ["/bin/bash"] (e.g. ATOM) rather than
-        # the host-ionic injector that execs "$@" (vllm/sglang). For the former we
-        # must override --entrypoint bash and pass just "-lc <cmd>", else the CMD's
-        # leading "bash" is treated as a script ("cannot execute binary file").
-        self.shell_entrypoint = shell_entrypoint
         self.model_dir = model_dir or os.environ.get("INFERA_E2E_MODEL_DIR")
         self.log_dir = log_dir or "/tmp/infera-e2e-logs"
         self.build_timeout = build_timeout
         self.start_timeout = start_timeout
         self._built: set[str] = set()
+        self._libionic: dict[str, bool] = {}
         os.makedirs(self.log_dir, exist_ok=True)
 
     # -- cleanup --------------------------------------------------------
@@ -224,16 +206,9 @@ class SrunDockerLauncher(WorkerLauncher):
             )
             built = _srun(
                 node,
-                [
-                    "docker",
-                    "build",
-                    "--network=host",
-                    "-f",
-                    os.path.join(REPO, self.dockerfile),
-                    "-t",
-                    self.image,
-                    REPO,
-                ],
+                ["docker", "build", "--network=host"]
+                + [a for kv in self.build_args.items() for a in ("--build-arg", "=".join(kv))]
+                + ["-f", os.path.join(REPO, self.dockerfile), "-t", self.image, REPO],
                 timeout=self.build_timeout,
             )
             if built.returncode != 0:
@@ -245,13 +220,26 @@ class SrunDockerLauncher(WorkerLauncher):
             self._built.add(node)
 
     # -- low-level container run ---------------------------------------
-    def _engine_mounts(self) -> list[str]:
+    def _has_libionic(self, node: str) -> bool:
+        """Whether ``node`` has the host libionic to inject, probed ON THE NODE:
+        the orchestrator is a login box with no ionic stack, so a local exists()
+        would drop the mount everywhere and libibverbs would find 0 devices."""
+        if node not in self._libionic:
+            probe = _srun(node, ["test", "-e", _LIBIONIC], timeout=self.start_timeout)
+            self._libionic[node] = probe.returncode == 0
+            if not self._libionic[node]:
+                emit_reporter_line(
+                    f"[e2e disagg] WARNING: {node} has no {_LIBIONIC}; RDMA may degrade to TCP"
+                )
+        return self._libionic[node]
+
+    def _engine_mounts(self, node: str) -> list[str]:
         mounts = ["-v", f"{REPO}:{REPO}"]
         # Mount when set (the dir lives on the compute NODE, not necessarily on
         # this orchestrator host, so don't gate on a local isdir check).
         if self.model_dir:
             mounts += ["-v", f"{self.model_dir}:{self.model_dir}:ro"]
-        if os.path.exists(_LIBIONIC):
+        if self._has_libionic(node):
             mounts += ["-v", f"{_LIBIONIC}:/host-libionic/libionic.so"]
         return mounts
 
@@ -277,23 +265,17 @@ class SrunDockerLauncher(WorkerLauncher):
     def _run_infera(
         self, node: str, container: str, argv: list[str], env: dict[str, str], *, gpu: bool
     ) -> None:
-        """Run an infera process (worker or router) in the engine image: keep the
-        image ENTRYPOINT (host-ionic inject), cd into the mounted repo, exec argv."""
+        """Run an infera process (worker or router) in the engine image: cd into
+        the mounted repo and exec argv. The ENTRYPOINT is never overridden — it
+        is the host-ionic injector, and skipping it silently drops KV to TCP."""
         docker_args = ["--network", "host"]
         if gpu:
             docker_args += _GPU_RDMA_FLAGS
-        docker_args += self._engine_mounts()
+        docker_args += self._engine_mounts(node)
         for key, val in {"PYTHONPATH": REPO, **env}.items():
             docker_args += ["-e", f"{key}={val}"]
         inner = f"cd {shlex.quote(REPO)} && exec {shlex.join(argv)}"
-        if self.shell_entrypoint:
-            # ENTRYPOINT is a bare shell (e.g. ATOM's /bin/bash) -> override it and
-            # pass only the shell flags, not a leading "bash" arg.
-            docker_args += ["--entrypoint", "bash"]
-            self._run(node, container, self.image, docker_args, ["-lc", inner])
-        else:
-            # ENTRYPOINT execs "$@" (host-ionic injector) -> hand it a full argv.
-            self._run(node, container, self.image, docker_args, ["bash", "-lc", inner])
+        self._run(node, container, self.image, docker_args, ["bash", "-lc", inner])
 
     # -- services -------------------------------------------------------
     def start_etcd(self, *, node: str, container: str, advertise_host: str) -> LaunchHandle:

@@ -88,8 +88,22 @@ _cancel_dispatched() {
     [ -z "$(squeue -h -j "$csv" -o '%i' 2>/dev/null)" ] && return 0
   done
 }
+# Nodes the running PD-disagg attempt placed containers on. A killed run skips
+# pytest's fixture teardown, so without this a cancel leaves prefill+decode
+# engines holding both nodes' GPUs.
+_DISAG_NODES=""
+_wipe_disag_nodes() {
+  local n resv="${INFERA_E2E_RESERVATION:+--reservation=$INFERA_E2E_RESERVATION}"
+  for n in ${_DISAG_NODES//,/ }; do
+    echo "[cleanup] removing PD containers on $n" >&2
+    srun -N1 -n1 -p "$SLURM_PART" -w "$n" $resv ${INFERA_E2E_SRUN_EXTRA:-} \
+      bash -lc 'docker rm -f $(docker ps -aq --filter name=infera-e2e-) 2>/dev/null || true' \
+      >/dev/null 2>&1 || true
+  done
+  _DISAG_NODES=""
+}
 trap _cleanup_scratch EXIT
-trap '_cancel_dispatched; exit 130' INT TERM
+trap '_wipe_disag_nodes; _cancel_dispatched; exit 130' INT TERM
 echo "[scratch] $SCRATCH  (worker logs: $E2E_LOG_DIR, kept)"
 
 # INFERA_E2E_MODEL_DIR: bind the model tree read-only at the same path + forward
@@ -115,18 +129,45 @@ _default_partition() {
 }
 SLURM_PART="${INFERA_E2E_SLURM_PARTITION:-$(_default_partition)}"
 SLURM_PART="${SLURM_PART:-amd-spur}"
-SLURM_TIME="${INFERA_E2E_SLURM_TIME:-02:30:00}"
+SLURM_TIME="${INFERA_E2E_SLURM_TIME:-02:00:00}"
+# Burst QoS is a fallback: a dispatch queued this long on the group node limit is
+# resubmitted with it (see _watch_job / _dispatch_slurm), never used up front.
+QOS_FALLBACK="${INFERA_E2E_SLURM_QOS_FALLBACK:-amd-burst-qos}"
+QOS_WAIT="${INFERA_E2E_QOS_WAIT:-60}"
 
 _have_slurm() { command -v srun >/dev/null 2>&1; }
-# Print up to $1 idle nodes in the partition (one per line), skipping the
-# comma-separated exclude list in $2. Used to place the PD-disagg node pair.
+# The nodes reservation $1 covers, one per line ('' if it's gone/expired).
+# Spur ignores the NAME arg and dumps all reservations; match the exact block.
+_reservation_nodes() {
+  scontrol show reservation "$1" 2>/dev/null | awk -v r="ReservationName=$1" '
+    BEGIN{RS="";FS="\n"}
+    $1==r { for(i=1;i<=NF;i++) if($i ~ /Nodes=/){ n=$i; sub(/.*Nodes=/,"",n); sub(/[[:space:]].*/,"",n); print n; exit } }' \
+    | tr ',' '\n' | sed '/^$/d'
+}
+# Free nodes to place the PD-disagg pair on, one per line: the reservation's own
+# (a reserved node reads 'resv', never 'idle', so sinfo would miss it), else the
+# partition's idle ones.
+_candidate_nodes() {
+  local n run nodes=""
+  [ -n "${INFERA_E2E_RESERVATION:-}" ] && nodes="$(_reservation_nodes "$INFERA_E2E_RESERVATION")"
+  if [ -z "$nodes" ]; then
+    sinfo -h -N -p "$SLURM_PART" -t idle -o '%n' 2>/dev/null | awk 'NF && !seen[$0]++'
+    return
+  fi
+  run="$(squeue -h -t running -o '%N' 2>/dev/null)"
+  for n in $nodes; do
+    printf '%s\n' "$run" | grep -qw -- "$n" || echo "$n"
+  done
+}
+# Print up to $1 free nodes (one per line), skipping the comma-separated exclude
+# list in $2. Used to place the PD-disagg node pair.
 _pick_idle_nodes() {
   local count="$1" excl=",${2:-}," n out=()
   while read -r n; do
     [ -n "$n" ] || continue
     case "$excl" in *,"$n",*) continue ;; esac
     out+=("$n"); [ "${#out[@]}" -ge "$count" ] && break
-  done < <(sinfo -h -N -p "$SLURM_PART" -t idle -o '%n' 2>/dev/null | awk 'NF && !seen[$0]++')
+  done < <(_candidate_nodes)
   printf '%s\n' "${out[@]-}"
 }
 # AMD GPU count on THIS host (one renderD* per GPU; PCI vendor 0x1002 == AMD).
@@ -148,12 +189,8 @@ _local_eligible() { [ "$(_amd_gpu_count)" -ge 8 ] && command -v docker >/dev/nul
 _reservation_free() {
   local rname="$1" nodes run n free=0
   command -v scontrol >/dev/null 2>&1 || { echo -2; return; }
-  # Spur ignores the NAME arg and dumps all reservations; match the exact block.
-  nodes=$(scontrol show reservation "$rname" 2>/dev/null | awk -v r="ReservationName=$rname" '
-    BEGIN{RS="";FS="\n"}
-    $1==r { for(i=1;i<=NF;i++) if($i ~ /Nodes=/){ n=$i; sub(/.*Nodes=/,"",n); sub(/[[:space:]].*/,"",n); print n; exit } }')
+  nodes=$(_reservation_nodes "$rname")
   [ -n "$nodes" ] || { echo -1; return; }
-  nodes=$(printf '%s' "$nodes" | tr ',' ' ')
   run=$(squeue -h -t running -o '%N' 2>/dev/null)
   for n in $nodes; do
     printf '%s\n' "$run" | grep -qw -- "$n" || free=$((free + 1))
@@ -166,15 +203,31 @@ _spill_inflight() {
   squeue -h -u "$(id -un)" -o '%j' 2>/dev/null | grep -c -- 'spill' || true
 }
 
-_hold_watch() {
-  local out="$1" flag="$2" jid=""
+# Watch the dispatched job: report why it is still queued (a waiting job prints
+# NOTHING, so a CI run looks hung and gets cancelled), and cancel + flag the two
+# waits the caller can act on — a JobHoldMaxRequeue, and a group node limit still
+# unclear after $QOS_WAIT. $1=srun-out $2=hold-flag $3=qos-flag $4=label
+_watch_job() {
+  local out="$1" hold="$2" qos="$3" label="$4" jid="" state reason waited=0
+  local every="${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}" next="${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}"
   while sleep 5; do
-    [ -n "$jid" ] || jid=$(grep -oE 'srun: job [0-9]+' "$out" 2>/dev/null \
+    waited=$((waited + 5))
+    [ -n "$jid" ] || jid=$(grep -oE 'job (allocation )?[0-9]+' "$out" 2>/dev/null \
       | grep -oE '[0-9]+' | head -1)
     [ -n "$jid" ] || continue
-    case "$(squeue -h -j "$jid" -o '%T %r' 2>/dev/null)" in
-      PENDING*JobHoldMaxRequeue*) : > "$flag"; scancel "$jid" >/dev/null 2>&1; return ;;
-    esac
+    state=$(squeue -h -j "$jid" -o '%T' 2>/dev/null)
+    reason=$(squeue -h -j "$jid" -o '%r' 2>/dev/null)
+    [ "$state" = "PENDING" ] || continue
+    if [ "$reason" = "JobHoldMaxRequeue" ]; then
+      : > "$hold"; scancel "$jid" >/dev/null 2>&1; return
+    fi
+    if [ "$reason" = "QOSGrpNodeLimit" ] && [ "$waited" -ge "$QOS_WAIT" ]; then
+      : > "$qos"; scancel "$jid" >/dev/null 2>&1; return
+    fi
+    if [ "$waited" -ge "$next" ]; then
+      next=$((waited + every))
+      echo "[$label] still QUEUED on SLURM after ${waited}s — job $jid, reason=${reason:-unknown}" >&2
+    fi
   done
 }
 
@@ -201,6 +254,7 @@ _dispatch_slurm() {
 
   local prc=1 attempt=0 max_attempts=5 exclude="" ran
   local holdflag="$SCRATCH/.hold-$label" held=0 max_held="${INFERA_E2E_HOLD_MAX_RETRY:-30}"
+  local qosflag="$SCRATCH/.qos-$label" qos=()
   while [ "$attempt" -lt "$max_attempts" ]; do
     attempt=$((attempt + 1))
     local xflag=()
@@ -231,8 +285,11 @@ _dispatch_slurm() {
       fi
     fi
     echo "[$label] dispatch $attempt/$max_attempts to '$SLURM_PART' mode=$mode${exclude:+ exclude=$exclude} (remote: $*)"
+    echo "[$label] submitted to SLURM — the job now QUEUES until the scheduler frees a node," \
+         "which can take a while on a busy cluster. Nothing prints until it starts;" \
+         "queue status follows every ${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}s."
     echo "[$label] streaming remote output below (live via $tailf):"
-    : > "$out"; [ -n "$logf" ] && : > "$logf"; rm -f "$holdflag"
+    : > "$out"; [ -n "$logf" ] && : > "$logf"; rm -f "$holdflag" "$qosflag"
     # stdbuf -oL line-buffers tail to our stdout; -F follows by name + retry
     # (tolerates the remote truncating on open, and polls over NFS).
     stdbuf -oL tail -n +1 -F "$tailf" 2>/dev/null &
@@ -247,10 +304,10 @@ _dispatch_slurm() {
     # job; `wait` is interrupted by the signal so the trap runs promptly.
     INFERA_E2E_LOCAL=1 \
       srun -N1 -p "$SLURM_PART" --gres=gpu:8 -t "$SLURM_TIME" \
-        -J "$jobname" "${xflag[@]}" "${resv[@]}" \
+        -J "$jobname" "${xflag[@]}" "${resv[@]}" "${qos[@]}" \
         "${remote[@]}" > "$out" 2>&1 &
     local srunpid=$!
-    _hold_watch "$out" "$holdflag" &
+    _watch_job "$out" "$holdflag" "$qosflag" "$label" &
     local holdpid=$!
     wait "$srunpid"; prc=$?
     kill "$holdpid" 2>/dev/null; wait "$holdpid" 2>/dev/null
@@ -267,6 +324,18 @@ _dispatch_slurm() {
       fi
       echo "[$label] job held (JobHoldMaxRequeue) — cancelled, retry $held/$max_held in 5s" >&2
       attempt=$((attempt - 1)); sleep 5; continue
+    fi
+    # Queued on the group node limit past $QOS_WAIT: the watchdog cancelled it —
+    # resubmit once on the burst QoS (not a real attempt); refused again = fail.
+    if [ -f "$qosflag" ]; then
+      prc=1
+      if [ "${#qos[@]}" -gt 0 ]; then
+        echo "[$label] still QOSGrpNodeLimit on --qos=$QOS_FALLBACK — giving up" >&2
+        break
+      fi
+      qos=(--qos="$QOS_FALLBACK")
+      echo "[$label] QOSGrpNodeLimit for ${QOS_WAIT}s — resubmitting with --qos=$QOS_FALLBACK" >&2
+      attempt=$((attempt - 1)); continue
     fi
     # Retry on transient faults. Docker errors are in $logf (shared) or $out
     # (local); "running on <node>" is always an srun banner in $out.
@@ -414,6 +483,13 @@ run_e2e_disagg() {
   python3 -c "import pytest, pytest_asyncio, httpx" >/dev/null 2>&1 \
     || { echo "[e2e disagg] WARNING: missing host deps (pytest/pytest-asyncio/httpx) — skipping" >&2; return 0; }
 
+  # An expired reservation is worse than none — every step's `srun --reservation`
+  # would fail. Drop it, as _dispatch_slurm does for the mixed tier.
+  if [ -n "${INFERA_E2E_RESERVATION:-}" ] && [ -z "$(_reservation_nodes "$INFERA_E2E_RESERVATION")" ]; then
+    echo "[e2e disagg] WARNING: reservation '$INFERA_E2E_RESERVATION' not found — falling back to open partition '$SLURM_PART'" >&2
+    unset INFERA_E2E_RESERVATION
+  fi
+
   local rc=0 e prc out="$SCRATCH/.e2e-disag.out"
   local max_attempts=3 attempt exclude n1 n2 nodes ok
   for e in "${engines[@]}"; do
@@ -435,11 +511,13 @@ run_e2e_disagg() {
         break
       fi
       echo "[e2e disagg] $e attempt $attempt/$max_attempts on nodes: $n1 (prefill), $n2 (decode)"
+      _DISAG_NODES="$n1,$n2"
       INFERA_E2E_NODES="$n1,$n2" INFERA_E2E_SLURM_PARTITION="$SLURM_PART" \
       PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
         python3 -m pytest -p no:cacheprovider -o addopts= -rfE -v -s \
           "$REPO/tests/e2e/pd_disag/$e" 2>&1 | tee "$out"
       prc=${PIPESTATUS[0]}
+      _DISAG_NODES=""   # pytest returned, so its fixtures already tore the stack down
       [ "$prc" -eq 0 ] && { ok=1; break; }
       if grep -qiE 'node failure|Cannot connect to the Docker daemon|could not resolve a routable IP|docker build .* failed' "$out"; then
         exclude="${exclude:+$exclude,}$n1,$n2"
