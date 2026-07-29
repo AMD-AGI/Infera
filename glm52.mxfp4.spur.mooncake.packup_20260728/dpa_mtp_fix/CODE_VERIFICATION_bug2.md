@@ -238,3 +238,47 @@ a host-side `cudaStreamSynchronize` on the busy rank is invisible to such a vote
 does establish that upstream considers "make the ranks agree" the sanctioned shape. A
 defensible alternative is therefore **(c) uniform entry**, which composes with #32209's
 philosophy even though it costs idle ranks a sync.
+
+## Groundwork for (a′): the machinery already exists, and where it must live
+
+`managers/overlap_utils.py` already has an async, non-blocking way to get host-side seq
+lens — a **pinned** host mirror plus a private D2H stream:
+
+```python
+156:         self.new_seq_lens_buf = torch.empty(...)
+159:         # Pinned host copy of new_seq_lens_buf + private stream for fwd-prepare
+164:             self.new_seq_lens_cpu_pinned = torch.empty(...)
+...
+312:         # Mechanism: don't sync the schedule stream; gate a private stream on the
+313:         # publish event and copy into the static pinned buffer.
+314:         self.fwd_prepare_d2h_stream.wait_event(self.publish_ready)
+315:         with torch.get_device_module(self.device).stream(self.fwd_prepare_d2h_stream):
+316:             self.new_seq_lens_cpu_pinned.copy_(self.new_seq_lens_buf, non_blocking=True)
+317:         self.fwd_prepare_d2h_stream.synchronize()
+320:         batch.seq_lens_cpu = self.new_seq_lens_cpu_pinned[batch.req_pool_indices_cpu]
+```
+
+Two things matter here, and they point straight at the fix:
+
+1. **This path still ends in a `synchronize()` (line 317).** So "publish the mirror" is not
+   literally sync-free either. But —
+2. **It is called from the scheduler's main forward path, uniformly on every rank**
+   (`managers/scheduler.py:3232`, inside `run_batch` before any spec/DP branching), *not*
+   from inside a rank-divergent `if`. Every rank executes it every step, so the sync is
+   **collectively aligned** and harmless.
+
+That reframes the bug precisely: **the problem was never "a sync exists" — it is "a sync
+exists on a branch only some ranks take."** The same `cudaStreamSynchronize`, hoisted to a
+point all ranks reach, is fine; left at `dsa_backend.py:746/809/812` behind
+`is_draft_extend_v2()`, it deadlocks.
+
+**Therefore (a′) concretely means:** ensure the host-side lengths DSA needs for
+`DRAFT_EXTEND_V2` are materialised at a rank-uniform point (scheduler / spec-worker level,
+where `resolve_seq_lens_cpu` already runs) rather than lazily inside the backend's
+mode-specific branch. That satisfies #29798's constraint (graph-replay deployments keep
+`needs_cpu_seq_lens=False` and pay nothing extra) while removing the asymmetry.
+
+Also note `base_spec_worker.py:112` reads `gpu_only = batch.seq_lens_cpu is None` — by then
+the mirror is *already* None, so `prepare_for_draft_extend` cannot hand the value down; the
+population has to happen at or above `resolve_seq_lens_cpu`, or be reconstructed from
+values that survive (`batch.seq_lens` is on GPU; `req_pool_indices_cpu` is on host).
