@@ -154,21 +154,59 @@ Same node, same container, same config, same router, same traffic; **only the fi
 | decision uniform | **no** — diverged on the frozen iteration | yes, 2992/2992 |
 | victim rank | dp3 (R1 saw dp2) | — |
 
-## 6. Layout
+## 6. The complete patch set
+
+This fix does **not** stand alone. A working PD + DPA + MTP decode leg needs all four,
+and `patches/` contains all four so this kit is self-contained:
+
+| # | patch | fixes | without it |
+|---|---|---|---|
+| 1 | `dsa_indexer_hip_dp_padded_rows.diff` | Bug 1 + Bug 6 — HIP sizes `logits` from DP-padded rows while `lengths` is real rows; the slice guard's `0 <` lower bound also broke DP-**idle** ranks | `RuntimeError: Expected lengths.size(0) == B` |
+| 2 | `dsa_backend_dp_sync_and_page_table_rows.diff` | Bug 5 — page-table rows (per request) vs top-k rows (per token) under MTP; plus removes rank-divergent `.item()` host syncs | `assert page_table.shape[0] == topk_indices.shape[0]` under concurrency |
+| 3 | `deepseek_nextn_glm52_mtp_bf16.diff` | GLM-5.2's nextn layer is bf16 while the model is quantized | dies at weight load, `size of tensor a (3072) must match ... b (6144)` |
+| 4 | **`eagle_worker_v2_uniform_draft_graph.diff`** | **Bug 2b — this round's fix** | first routed request hard-deadlocks |
+
+Apply in that order against sglang `0b3bb0cbe31873994c9f989fddfe2f87ca839fdd`:
+
+```bash
+cd /sgl-workspace/sglang
+for d in dsa_indexer_hip_dp_padded_rows.diff \
+         dsa_backend_dp_sync_and_page_table_rows.diff \
+         deepseek_nextn_glm52_mtp_bf16.diff \
+         eagle_worker_v2_uniform_draft_graph.diff; do
+  patch -p1 --fuzz=0 < patches/$d
+done
+```
+
+Verify (do not trust `--dry-run`; it fuzzes):
+
+```bash
+bash scripts/verify_patches.sh /sgl-workspace/sglang
+# -> OK for each diff, then ALL PATCHES VERIFIED
+```
+
+`patches/eagle_worker_v2_uniform_draft_graph.diff` was checked against
+`pristine/eagle_worker_v2.py.upstream` (a copy of upstream pulled from the image before
+any edit): it applies at **fuzz=0**, byte-compiles, and the result is **byte-identical**
+to what the fix script produced on the node that passed 2540/2540.
+
+## 7. Layout
 
 ```
 README.md                     this file
+TASK_SPEC.md                  the task as issued, verbatim + the goal set up front
 PLAN.md                       goal, hypotheses (H1/H2/H3), method
 working_process.md            round-by-round index
 REPRODUCE.md                  exact commands
 PITFALLS.md                   wrong turns, with what/why/how/context
-patches/                      the shippable patch
-scripts/                      fix, probes, analyzers, launchers, stress
+patches/                      all four diffs (this fix + the three prerequisites)
+pristine/                     upstream eagle_worker_v2.py, for patch verification
+scripts/                      fix, probes, analyzers, launchers, stress, verify_patches.sh
 evidence/                     per-round RESULT.md, environment, raw guard records
 results/                      stress jsonl (per-request outcomes)
 ```
 
-## 7. Environment (captured live, not from notes)
+## 8. Environment (captured live, not from notes)
 
 MI355X ×8 (gfx950) · ROCm/HIP 7.2.26015 · torch 2.9.1+rocm7.2.0 · sglang 0.5.15.post1
 @ `0b3bb0cbe31873994c9f989fddfe2f87ca839fdd` · kernel 6.8.0-107-generic · 236 cores ·
@@ -179,14 +217,39 @@ Model `/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4`. **No credentials requi
 Jobs: 11428 → crsuse2-m2m-029 (10.245.146.21, prefill) · 11429 → crsuse2-m2m-084
 (10.245.148.109, decode).
 
-## 8. Prerequisite patches
+## 9. Dependencies, uncommitted files, credentials
 
-This fix does not stand alone. The decode leg also needs, in this order:
-Bug 1 (`apply_fix.py`), Bug 5 (`fix_bug5_page_table_rows.py`),
-Bug 6 (`fix_bug6_idle_qoffset.py`), and the nextn `eh_proj` patch — without the last one
-the server dies at load with a 3072-vs-6144 shape mismatch.
+**Credentials: none.** No token, key, or login is needed to reproduce this. Model and
+image are already on the cluster; `DOCKER_CONFIG=/tmp/dockercfg` is a local docker-29
+workaround, not a credential.
 
-## 9. Still open
+**Absolute paths this kit depends on** (none are in git):
+
+| path | what | size |
+|---|---|---|
+| `/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4` | model weights | 408 GB |
+| `/home/yihou/infera.yihou.sglang.1.0.tar` | container image tarball | ~30 GB |
+| `/sgl-workspace/sglang` | editable sglang inside the image | — |
+| `/home/yihou/glm52_fix/` | working dir, bind-mounted into the container | — |
+| `/home/yihou/glm52_fix/{inductor_cache,triton_cache}` | persistent JIT caches; halve boot time | — |
+| `/home/yihou/glm52_fix/bug2b/` | **raw round-by-round workspace, incl. all server logs** | 15 MB |
+
+**Files on the filesystem that are NOT committed** (deliberately — the kit carries the
+distilled evidence, and the rule is not to delete originals):
+
+* `/home/yihou/glm52_fix/bug2b/r0*/{decode,prefill,mix,router}.log` — ~15 MB of raw server
+  logs, including the 6.3 MB `r03_verify/decode.log` that holds all 23 936 vote records.
+  The kit's `evidence/` carries the extracted records and the analyzer output instead.
+  Ask if you want the logs added.
+* `/home/yihou/glm52_fix/src_spec/` — upstream source pulled from the image for reading.
+  The one file needed for patch verification is committed as `pristine/`.
+* `/home/yihou/glm52_fix/bug2b/r0*/fix_*.py`, `probe_*.py` — all copied into `scripts/`.
+
+**Job/node identifiers are dead**: spur evicted 11428/11429 shortly after the final run
+(normal, undocumented, and expected). Everything above lives on NFS and survived; nothing
+in this kit requires those jobs to still exist.
+
+## 10. Still open
 
 * **`dp_padding_mode` was `None` on all 3200+ records**, so hypothesis H3 (captured
   graphs fix MAX_LEN while the eager path may pick SUM_LEN → `all_gather` vs `all_reduce`)
