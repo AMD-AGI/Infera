@@ -225,21 +225,39 @@ if _HAS_TRITON:
         tl.store(out_ptr + tok * stride_ot + rh, acc.to(out_ptr.dtype.element_ty))
 
 
+_TUNE_KEYS = (
+    "INFERA_MOE_GU_BLOCK_I",
+    "INFERA_MOE_GU_BLOCK_H",
+    "INFERA_MOE_GU_WARPS",
+    "INFERA_MOE_DN_BLOCK_H",
+    "INFERA_MOE_DN_BLOCK_I",
+    "INFERA_MOE_DN_WARPS",
+)
+# Tuned on gfx942/gfx950 at Kimi-2.6 dims, T=1..8 (~5.2-5.3 TB/s effective on the
+# selected-expert weight traffic). The tune ring rewrites this tuple in place
+# (tune_op.py --inject), or supply INFERA_MOE_TUNE_FILE (JSON) / per-key env.
+_TUNE_DEFAULTS = (32, 512, 8, 8, 512, 8)
+
+
+def _load_tune_file() -> dict:
+    path = os.environ.get("INFERA_MOE_TUNE_FILE")
+    if not path:
+        return {}
+    try:
+        import json
+
+        with open(path) as f:
+            return json.load(f)
+    except Exception:  # noqa: BLE001
+        return {}
+
+
 def _decode_tunables():
-    """Block sizes / warps, env-overridable for the optimize loop."""
-
-    def _i(name, default):
-        return int(os.environ.get(name, default))
-
-    # Defaults tuned on MI300-class (gfx942) at Kimi-2.6 dims, T=1..8: both
-    # kernels hit ~5.2-5.3 TB/s effective on the selected-expert weight traffic.
-    return (
-        _i("INFERA_MOE_GU_BLOCK_I", 32),
-        _i("INFERA_MOE_GU_BLOCK_H", 512),
-        _i("INFERA_MOE_GU_WARPS", 8),
-        _i("INFERA_MOE_DN_BLOCK_H", 8),
-        _i("INFERA_MOE_DN_BLOCK_I", 512),
-        _i("INFERA_MOE_DN_WARPS", 4),
+    """Block sizes / warps. Precedence: per-key env > tune file > baked defaults,
+    so profile→tune→inject→profile can drive the config without code edits."""
+    fromfile = _load_tune_file()
+    return tuple(
+        int(os.environ.get(k, fromfile.get(k, d))) for k, d in zip(_TUNE_KEYS, _TUNE_DEFAULTS)
     )
 
 
