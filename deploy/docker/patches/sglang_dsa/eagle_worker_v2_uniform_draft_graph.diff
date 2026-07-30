@@ -1,0 +1,61 @@
+diff --git a/python/sglang/srt/speculative/eagle_worker_v2.py b/python/sglang/srt/speculative/eagle_worker_v2.py
+--- a/python/sglang/srt/speculative/eagle_worker_v2.py
++++ b/python/sglang/srt/speculative/eagle_worker_v2.py
+@@ -510,18 +510,55 @@
+             batch,
+             self.cuda_graph_runner,
+             self.draft_runner,
+             self.topk,
+             self.speculative_num_steps,
+         )
+-        if (
++        # GLM52_BUG2B_UNIFORM: the graph/eager choice must be the SAME on every DP
++        # rank. Graph replay and the eager multi-step loop do not issue the same
++        # host-side collective sequence, so a per-rank choice desynchronizes the
++        # group and deadlocks (measured: one busy rank eager in
++        # init_forward_metadata while seven idle ranks sat in all_gather).
++        #
++        # The terms below are all rank-dependent under DP-attention:
++        #   is_idle()            -- occupancy, differs by construction
++        #   dsa_topk_indices     -- on the PD decode leg this comes from
++        #                           RDMA-shipped per-request payloads, so it is
++        #                           None only for freshly-arrived requests
++        # so we vote on the *local need for eager* and apply the group answer.
++        # An idle rank contributes False and can never force the group eager.
++        _needs_eager_local = (
+             can_cuda_graph
+             and not forward_batch.forward_mode.is_idle()
+             and self.seed_dsa_topk_from_draft_extend
+             and draft_input.dsa_topk_indices is None
+-        ):
++        )
++        if can_cuda_graph and self.seed_dsa_topk_from_draft_extend:
++            # NOT get_attention_tp_group(): under DPA8 on tp8 the attention TP
++            # group is attn_tp_size = tp/dp = 1 rank wide, so voting on it is a
++            # no-op. The group that must agree is the full TP group -- the same
++            # one the scheduler's MLP-sync all-gather spans (dp_attn.py:91).
++            from sglang.srt.distributed.parallel_state import (
++                get_tp_group as _get_tp_group,
++            )
++
++            _grp = _get_tp_group()
++            if _grp is not None and _grp.world_size > 1:
++                # 1-element gloo all-reduce on the CPU group: no GPU sync, and
++                # every rank reaches this line every iteration (verified by
++                # instrumentation), so the collective is safe here.
++                _vote = torch.tensor(
++                    [1 if _needs_eager_local else 0], dtype=torch.int32
++                )
++                torch.distributed.all_reduce(
++                    _vote,
++                    op=torch.distributed.ReduceOp.MAX,
++                    group=_grp.cpu_group,
++                )
++                _needs_eager_local = bool(_vote.item())
++        if _needs_eager_local:
+             can_cuda_graph = False
+ 
+         n_inner = self.speculative_num_steps - 1
+         canary_outside_ctx = (
+             c.with_ops_outside_graph(
+                 single_forward_indices=list(range(n_inner)),
