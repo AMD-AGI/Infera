@@ -34,6 +34,7 @@ split the chain apart. Full write-up with symptoms and root causes:
 | `zmq_dual_probe.py` | Is it address-dependent? Subscribes over loopback **and** the node IP in one process during one request. Two sequential single-address runs cannot tell "wrong address" from "missed the publish window", because frames only appear while a request is in flight — this removes that ambiguity. **This is the script that found bug 1.** | `python3 zmq_dual_probe.py 127.0.0.1,10.32.17.210 29992 8` |
 | `zmq_host_matrix.py` | Same address question with no engine involved: plain PUB→SUB over the (address, payload size) matrix. | `python3 zmq_host_matrix.py [port] [hosts]` |
 | `zmq_pub_isolated.py` | Is SGLang's `ZmqEventPublisher` class itself broken? Drives it directly. | `python3 zmq_pub_isolated.py [port]` |
+| `smoke_longctx.py` | Where does the stack stop serving long prompts? One salted request per target length, reporting tokens, wall time and finish reason. Run this before benchmarking a profile whose tail goes past what the correctness suite covered. `python3 smoke_longctx.py 60000 150000 180000` (arguments are line-count targets; ~23 tokens each, so these land at ~125K/314K/374K prompt tokens). |
 | `zmq_pub_ordering.py` | Does the *engine's* ordering matter — publisher and its thread idling for minutes before any subscriber connects, which is the opposite of the isolated test? **This is what falsified the ZMQ thread-safety theory**: frames arrive fine. | `python3 zmq_pub_ordering.py [port]` |
 
 For the routine "is kv-aware working right now" check, use
@@ -63,10 +64,16 @@ survive. Not modified here; if you change them, change them upstream.
 | `agentic_1_baseline_broken_view/` | Agentic bench baseline: broken router view, cache **not** flushed. 47.2% hit, 49.9% efficiency, TTFT p50 16.9s. |
 | `agentic_2_control_blind_view/` | Control group: broken view, cache flushed. 54.3% hit, 57.3% efficiency, TTFT p50 14.6s. Isolates "the fix helped" from "the empty cache helped". |
 | `agentic_3_kvaware_fixed/` | Both bugs fixed, cache flushed. 83.6% hit, 88.2% efficiency, TTFT p50 2.5s. |
+| `agentic_4_prod_p50_60k_p90_300k/` | The customer-shaped profile (p50 91K / p90 380K prompts, 42% new sessions). Headline efficiency reads 35.3%, but that is a metric artifact: 9 of 21 completed requests are new-session first turns carrying 56.4% of all tokens, which no cache can serve. On the requests that *can* hit, token-weighted efficiency is 95.0%. See `KV_AWARE.zh.md` §3.1. |
 
-All three are 60 requests of `code_agent_128k.yaml` at identical seed and token totals
+The first three are 60 requests of `code_agent_128k.yaml` at identical seed and token totals
 (`input_tokens=3,169,196`, `prefix_tokens=3,002,633`), so they are directly comparable —
-see `KV_AWARE.zh.md` §2.5 for the exact command and §3 for the attribution.
+see `KV_AWARE.zh.md` §2.5 for the exact command and §3 for the attribution. The fourth is a
+different workload (`code_agent_glm52_p50_60k_p90_300k.yaml`, §2.6) and is not comparable to
+them on the headline numbers; compare the per-request breakdown instead.
+
+Note that `cache.eviction_rate` in these summaries is exactly `1 - cache.efficiency` — a
+derived complement, not a count of evicted blocks.
 
 Each run directory holds `summary.json` (aggregate metrics), `metadata.json` (the
 effective workload parameters) and `metrics.jsonl.gz` (per-window time series: session

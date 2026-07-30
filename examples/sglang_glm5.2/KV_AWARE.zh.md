@@ -527,6 +527,48 @@ bash infera_1_server.sh          # router 重启只要 10 秒，引擎不用动
 # 清缓存 + 同一条 agent-bench 命令，--name control-blindview
 ```
 
+### 2.6 生产 profile：p50 60K / p90 300K
+
+`code_agent_glm52_p50_60k_p90_300k.yaml` 才是贴近客户真实场景的那个，和 128K profile 有三处
+本质差异：初始前缀是重尾对数正态（中位 58K、**均值 290K**、上限 380K）、
+`new_session_rate` 从 0.04 跳到 **0.42**、`max_prompt_tokens` 380K。
+
+**先确认服务端扛得住，再跑 bench。** 之前正确性套件覆盖的最长上下文只有 58,695 token，而这个
+profile 的尾部要到 380K，直接开跑很可能只收集到一堆错误。用 [`pdops/smoke_longctx.py`](pdops/smoke_longctx.py)
+逐级试探（每条都加盐，不吃缓存）：
+
+```bash
+$ python3 pdops/smoke_longctx.py 60000 150000 180000
+target=  60000  prompt_tokens= 125222  wall=  45.0s  finish=stop  reply='OK'
+target= 150000  prompt_tokens= 314039  wall= 136.6s  finish=stop  reply='OK'
+target= 180000  prompt_tokens= 374033  wall= 170.5s  finish=stop  reply='OK'
+```
+
+三条全部正确返回，说明 380K 以内没有上下文墙——引擎的 `context_len` 是模型自带的
+**1,048,576**，启动脚本没有设 `--context-length`；`/get_server_info` 显示
+`token_capacity=1,858,688` 且 8 个 rank 条目**各自**都是这个数，所以 380K 的前缀只占单 rank
+KV 池的 20%，容量不是瓶颈。单流 prefill 吞吐约 2.2–2.8K tok/s。
+
+据此定并发：均值 107K 的 prompt，按聚合吞吐推算可持续 QPS 只有 0.03 量级，所以把 profile 自带的
+`max_qps: 0.5` / `max_inflight: 32` 压下来，否则测的是排队。tokenizer 在 yaml 里是占位符
+`/path/to/GLM-5.2-MXFP4`，必须覆盖：
+
+```bash
+curl -s -X POST http://127.0.0.1:30001/flush_cache
+curl -s -X POST http://10.32.17.209:31001/flush_cache
+
+agent-bench agent --server http://127.0.0.1:8000 \
+  --model /wekafs/models/GLM-5.2-FP8 --tokenizer /wekafs/models/GLM-5.2-FP8 \
+  --workload-config agent/workloads/code_agent_glm52_p50_60k_p90_300k.yaml \
+  --max-qps 0.04 --initial-qps 0.02 --max-inflight 8 --gpus 16 \
+  --dashboard-mode --name prod-p50_60k_p90_300k
+```
+
+**一个硬约束要提前知道：** bench 客户端对每条请求写死了
+`aiohttp.ClientTimeout(total=240)`（`agent/agent_throughput.py:929`）。而空队列下 374K 的
+prompt 就要 170s，并发排队后必然突破 240s——这一轮 23 条里正是有 1 条这样超时
+（`success_rate=0.957`，引擎侧无任何错误）。要把 300K 以上的尾部跑干净，得先把这个超时改大。
+
 ---
 
 ## 3. 现在的结果
@@ -564,27 +606,74 @@ uncached token 少掉 64%，TTFT p50 快 5.8 倍。TPOT 三组都在 32ms，说�
 rank 上、只能重算——bench 把这部分记成 "eviction"，其实是**落错了 rank**。镜像正常之后，
 命中项（prefill 权重 20）把每个会话稳稳钉回持有它前缀的那个 rank，重算就消失了。
 
+> **`eviction_rate` 不是实测淘汰量。** 两轮数据都满足 `eviction_rate == 1 − efficiency`
+> （88.2%/11.8%、35.3%/64.7%），它就是效率的补数，不代表引擎真的淘汰了多少 KV。下面 §3.1
+> 说明为什么这个补数会把"物理上不可能命中"也算成损失。
+
+### 3.1 生产 profile（p50 60K / p90 300K）：跑通了，但表头数字会骗人
+
+23 条请求、22 条完成、**引擎侧零错误**（唯一那条失败是 §2.6 说的客户端 240s 超时），
+末态前缀 mean 147K / max 380K，实际新会话率 43.5%（目标 42%）：
+
+| 指标 | 128K profile（③ 修复后） | 生产 profile |
+|---|---|---|
+| 请求数 / 完成 | 60 / 60 | 23 / 22（1 条客户端超时） |
+| prompt 长度 p50 / p90 | 50K / 90K | **91K / 380K** |
+| `new_session_rate` | 0.04 | **0.42**（实际 0.435） |
+| 表头缓存效率 | 88.2% | **35.3%** |
+| TTFT p50 / p90 | 2.5s / 24.3s | 53.6s / 176.3s |
+| TPOT p50 | 32.3ms | 33.5ms |
+
+表头效率从 88.2% 掉到 35.3%，看着像 kv-aware 在真实场景失效了。**逐请求拆开看，结论完全相反：**
+
+| | 128K profile | 生产 profile |
+|---|---|---|
+| 几乎全 miss 的请求（actual < 0.05） | 1 / 59 | 9 / 21 |
+| 这批请求占全部 token | **1.1%** | **56.4%** |
+| 其余请求的 token 加权效率 | 91.7% | **95.0%** |
+
+那 9 条全 miss 的请求正是**新会话的首轮**——本轮 16 个会话里有 10 个是运行中新建的
+（`new_session_times` 10 条、`existing_session_requests` 13 条，合计 23 = 发出总数）。首轮的前缀
+从未发过，任何缓存都不可能命中；而 bench 的 `ideal_hit_rate` 按会话模型把这段初始前缀算作
+"可复用"，于是把物理上不可达的部分也计入了分母。这个 profile 的前缀又特别大，光这 9 条就占了
+56.4% 的 token，所以表头效率被压到 35%。
+
+**真正衡量路由质量的是"能命中的那批命中得多好"，这个数字是 95.0%——比 128K profile 的
+91.7% 还高**，因为这里可命中的请求都是十万级前缀，一旦路由正确就几乎全量命中
+（逐请求实测有 0.990/0.990、0.984/0.984、0.915/0.915 这样的成绩）。结论是 kv-aware 在客户
+真实场景下工作正常，`efficiency` 这个指标在高 `new_session_rate` 下不能直接当路由质量看。
+
 ---
 
 ## 4. 剩余问题：新会话全部从 dp0 开始
 
-修复后仍有 11.8% eviction、TTFT p90 还有 24.3s，来源是一个**策略问题，不是 bug**：
+TTFT p90 仍有 24.3s（生产 profile 更是 176s），来源是一个**策略问题，不是 bug**：
 
 ```python
 picked = min(targets, key=lambda t: (cost(t), active(t)))
 ```
 
 新会话在 8 个 rank 上命中都是 0、`active` 也基本是 0（pick 日志里恒为 `active_blocks=0`），
-于是完全平票，`min` 返回列表里第一个目标——**永远是 dp0**。这一轮全程 8 个会话
-（`num_sessions_total=8`，无退休），跑到末尾时每个会话的 prompt 已长到均值 71K、最大 104K，
-却全挤在 rank 0 那 1/8 的 KV pool 里，超出的部分被真正淘汰掉。p50 已经降到 2.5s（命中的
-那些），p90 仍高，就是那些在 dp0 上被淘汰、需要重算几万 token 前缀的请求。
+于是完全平票，`min` 返回列表里第一个目标——**永远是 dp0**。128K 那轮 60 条请求全部落在 dp0。
+
+这不是 KV 容量问题：`/get_server_info` 显示 `token_capacity=1,858,688` 且 8 个 rank 条目**各自**
+都是这个数（不是共享池的 1/8），8 个会话末态共约 568K token，单 rank 装得下——所以剩余的
+效率缺口来自首轮 miss 和零星部分命中（见 §3.1），不是淘汰。真正的代价是**并行度**：所有会话
+都钉在一个 DP rank 上，prefill 在该 rank 的调度器里排队，其余 7 个 rank 的算力和 KV 池空转，
+长 prompt 一堆积就直接体现在 p90 上。
 
 要再往上走：平票时按负载/容量把**新**会话铺开，同时保持老会话对持有其前缀那个 rank 的
-粘性。改 `infera/router/policy/kv_event_aware.py` 的 `cost`/tie-break 即可，**不需要重启
-引擎**（router 重启 10 秒），所以迭代很快。
+粘性。生产 profile 下这件事更值钱——它 42% 是新会话，且单条 prompt 动辄十万级，铺不开就等于
+把 8 倍的 prefill 算力浪费在一个 rank 上。
 
-另外两个副产品值得提上游/内部：
+改 `infera/router/policy/kv_event_aware.py` 的 `cost`/tie-break 即可，**不需要重启引擎**
+（router 重启 10 秒），所以迭代很快。
+
+另外几个副产品值得提上游/内部：
+
+- Optimus-AgenticBench 的 `efficiency` / `eviction_rate` 在高 `new_session_rate` 下会严重
+  低估路由质量（把新会话首轮那段从未发送过的前缀也算进可命中分母），建议补一个只统计
+  重复轮的口径；`aiohttp.ClientTimeout(total=240)` 也该随 profile 的 prompt 上限放大。
 
 - `free_tcp_port_block` 只用 loopback 探测，原理上发现不了 IPVS 拦截这类"能 bind、
   从节点 IP 打不通"的端口——任何在 K8s 上给 peer 广播端口的组件都有同样的风险。
@@ -601,7 +690,9 @@ picked = min(targets, key=lambda t: (cost(t), active(t)))
 | `cache-view` 全 0，router 有 `kv decode failed` | 报错里的字段路径 | Bug 2：wire 格式不匹配（`$[1][0][3]` = `token_ids`） |
 | `cache-view` 全 0，用的是 Rust router | 直接怀疑 bigram | Bug 3：静默丢弃，无日志 |
 | 镜像非空但 `cache_hits` 恒 0 | 请求侧 `request_blocks` 是否合理 | 哈希两侧不对齐（block_size / tokenizer / bigram 折平方式） |
-| 命中正常但 TTFT p90 仍高 | pick 日志的 rank 分布 | §4：新会话全落一个 rank，KV pool 装不下 |
+| 命中正常但 TTFT p90 仍高 | pick 日志的 rank 分布 | §4：新会话全落一个 rank，7/8 算力空转 |
+| `efficiency` 很低但逐请求有大量满命中 | profile 的 `new_session_rate` | §3.1：首轮不可命中被算进分母，不是路由问题 |
+| 长 prompt 报客户端超时、引擎侧无错 | bench 的 `ClientTimeout(total=240)` | §2.6：240s 装不下 300K+ 的 prefill |
 | 独立 SUB 收不到但引擎日志有 `sent` | 换 loopback 再抓一次 | 地址问题，不是发布器问题（§1.0/§1.1） |
 
 定位这几种情况用的诊断脚本都在 [`pdops/`](pdops/)（逐个用途见
