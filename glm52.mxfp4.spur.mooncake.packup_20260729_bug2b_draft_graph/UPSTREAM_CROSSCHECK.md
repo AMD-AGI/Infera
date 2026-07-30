@@ -76,18 +76,47 @@ Their proposed fix is a **third strategy** we had not considered: instead of dro
 eager, install a dummy all-zeros seed tensor so the guard's fourth term is false and *all*
 ranks stay on the graph path. `draft_forward()` detects the all-zero seed and recomputes.
 
-One comment, from **kpham-sgl** (an sglang maintainer):
+One comment on the issue, from **kpham-sgl** (Khoa Pham), in full:
 
-> in PD Disagg + Spec, we should also enable Spec in the Prefill worker
+> Hi @Xavier1994, in PD Disagg + Spec, we should also enable Spec in the Prefill worker
 
-**This applies to us.** VERIFIED-HERE in our own launcher: `scripts/pd_leg_spur.sh:72` reads
-`if [ "$MTP" = "1" ] && [ "$ROLE" = "decode" ]` — **our prefill leg never enabled MTP.** So
-our reproduction has the same configuration gap the maintainer is pointing at, and we are
-**not** in a position to offer the counter-example ("we enabled MTP on both legs and still
-deadlocked") that PR #34 currently claims. That claim must be removed.
+**Who they are — VERIFIED-HERE, and a correction.** An earlier draft of this file called
+kpham-sgl "an sglang maintainer". That was asserted without checking. What `gh` actually
+shows: they are **not** a public member of the `sgl-project` org
+(`gh api orgs/sgl-project/members/kpham-sgl` → 404); they have merged PRs (#32820, #31619)
+and several open ones; and the `TODO(kpham-sgl)` in `dsa/utils.py::should_use_dsa_fused_topk`
+— present in our baseline — is theirs. So: an active contributor to exactly this code, not a
+maintainer. They did not write the guard (#30839 is `zRzRzRzRzRzRzR`), #31477
+(`HanHan009527`), or #32209 (`HZY-Wade`).
 
-llying **is** in that position: their two leg scripts force MTP to match, their prefill leg
-completed PD warmup in 17 s, and the decode leg still deadlocked (FROM-LLYING).
+**Do not lean on the phrase "upstream recommends".** It is one issue comment, not
+documentation. See TODO-1 in §8.
+
+**The claim it points at does apply to us**, and the strong evidence is code, not the
+comment. VERIFIED-HERE at our baseline, `disaggregation/prefill.py:634-647`:
+
+```python
+if self.spec_algorithm.is_eagle() and batch.spec_info is not None:
+    ...
+    dsa_topk_indices = batch.spec_info.dsa_topk_indices
+    req.output_dsa_topk_indices = (dsa_topk_indices[i].cpu().clone()
+                                   if dsa_topk_indices is not None else None)
+else:
+    req.hidden_states_tensor = None
+    req.output_dsa_topk_indices = None        # <-- prefill without EAGLE lands here
+```
+
+and `scripts/pd_leg_spur.sh:72` reads `if [ "$MTP" = "1" ] && [ "$ROLE" = "decode" ]` —
+**our prefill leg never enabled MTP.** So every seed reaching our decode leg was `None`, and
+the guard's fourth term was **permanently true** rather than rank-divergent.
+
+Two consequences:
+
+1. We are **not** in a position to offer the counter-example ("we enabled MTP on both legs
+   and still deadlocked") that PR #34 currently claims. That claim must be removed. llying
+   **is** in that position: their two leg scripts force MTP to match, their prefill leg
+   completed PD warmup in 17 s, and the decode leg still deadlocked (FROM-LLYING).
+2. **This does not make patch 4 unnecessary** — see §3.5.
 
 ### 1.3 #32209 in detail — what it actually does
 
@@ -441,6 +470,47 @@ Also FROM-LLYING, worth remembering: `SGLANG_DSA_FUSE_TOPK=false` does **not** f
 deadlock. It only touches the consumer; `seed_dsa_topk_from_draft_extend` stays true and the
 guard still fires. The switch has to be at the model-config level.
 
+### 3.5 Enabling MTP on the prefill leg does NOT remove the need for patch 4
+
+Worth stating explicitly, because §1.2 can be misread as implying it does.
+
+VERIFIED-HERE from the source, the seed's two ends:
+
+* **producer** — `eagle_worker_v2.py:822-875` (`_draft_extend_for_prefill` returns
+  `EagleDraftInput(dsa_topk_indices=prefill_dsa_topk)`), consumed by
+  `disaggregation/prefill.py:640` into `req.output_dsa_topk_indices`, the whole block gated
+  on `if self.spec_algorithm.is_eagle()`;
+* **consumer** — `eagle_disaggregation.py:54-59`, which yields `None` unless **every** req in
+  the batch carries a non-`None` seed.
+
+So:
+
+| prefill leg | guard term 4 (`dsa_topk_indices is None`) | consequence |
+|---|---|---|
+| MTP **off** (our runs) | **permanently True** | the bug fires deterministically |
+| MTP **on** | **rank-dependent** — `None` for a freshly arrived request, non-`None` once `_draft_extend_for_decode` has seeded it | the bug fires **probabilistically** |
+
+Enabling it moves the defect from "certain" to "racy". It does not remove the divergence,
+because term 4 is still a function of *which requests a rank happens to hold*. **llying is
+the direct evidence**: both legs on MTP, prefill warmup passing in 17 s, decode leg still
+deadlocked (FROM-LLYING).
+
+**Why our runs passed without touching this.** Patch 4 votes "does *this* rank need eager",
+which is agnostic to where the need came from. With term 4 permanently true, busy ranks voted
+True and idle ranks voted False (blocked by term 2), MAX → whole group eager → uniform. That
+is also why graph usage was 98.4% and not 100%: the 1.6% are the iterations with a busy rank.
+
+**What we have never tested** is term 4 genuinely splitting *between* ranks (some holding
+seeded requests, others holding fresh arrivals). Patch 4 should hold there by construction —
+but that is INFERRED, not measured, and it is one of the things arm A is for.
+
+**A second, independent reason to fix the launcher:** with MTP off on prefill, the draft KV
+pool is never appended to the RDMA-registered buffer list
+(`disaggregation/prefill.py:186-194`, comment *"We should also transfer draft model kv
+cache"*), so the two legs register a different number of buffers. Our 2540/2540 was measured
+in that mismatched configuration. It did not misbehave, but it is a known gap in the
+validation, not a validated configuration.
+
 ---
 
 ## 4. Better fixes for patches 2 and 4
@@ -504,8 +574,8 @@ One boot answers every open question above.
   `scripts/verify_pyc.sh` with an identifier, not a comment marker);
 * add `--json-model-override-args '{"index_share_for_mtp_iteration":false}'` to **both** legs;
 * **enable MTP on the prefill leg too** — `pd_leg_spur.sh:72` currently gates it to
-  `ROLE = decode`, which is the configuration gap kpham-sgl flagged on #32527. Fixing this is
-  required before any claim about prefill-side MTP can be made.
+  `ROLE = decode`. Justification is code (`prefill.py:634-647`, `:186-194`) plus llying's
+  practice, **not** "upstream recommends" — see §1.2 and TODO-1.
 
 Outcomes:
 
@@ -532,8 +602,11 @@ Cost: two spur nodes, ~8 min cold start each (jobs 11428/11429 were evicted 2026
    prefill worker never runs `_draft_extend_for_prefill`, never populates
    `req.output_dsa_topk_indices`, and never registers the draft KV pool for RDMA — so the
    seed can never arrive and the guard's fourth term is trivially true. Every deadlock we
-   measured was under that configuration. Whatever arm A shows, it shows it for the
-   *maintainer-recommended* configuration only if this is fixed first.
+   measured was under that configuration.
+   **This is not a fix** — it moves the defect from deterministic to racy; patch 4 is still
+   needed (§3.5). It is required so that arm A's result describes a configuration that is
+   internally consistent (both legs registering the same RDMA buffers) and that exercises the
+   rank-split case we have never tested.
 2. **Expect a longer prefill cold start** once MTP is on that leg: the draft model is
    extracted from the same checkpoint, which llying measured as roughly doubling load time
    (FROM-LLYING).
@@ -585,3 +658,83 @@ GIT-VERIFIED / SEARCH-ONLY style label) but whose labels were dropped in the ret
 llying found #32527, #32209, #31477, #30839 and #32762 because they asked upstream directly.
 The rule going forward: **any claim of the form "upstream has/has not done X" is either
 sourced from an original pulled in this session, or it is explicitly marked second-hand.**
+
+The same failure mode recurred *within* this document — "kpham-sgl (an sglang maintainer)"
+was written without checking, and is false (§1.2). The rule extends: **who someone is, and
+what authority a statement carries, are also claims that need a source.**
+
+---
+
+## 8. TODO — open items, each with what would settle it
+
+Ordered by what blocks the experiment.
+
+### TODO-1 — Is there an authoritative statement that PD + spec requires MTP on both legs?
+
+**Status: UNKNOWN.** What we have is (a) one issue comment from a contributor, not a
+maintainer (§1.2), and (b) source code that makes the seed unreachable without it
+(`prefill.py:634-647`), plus the RDMA buffer-count mismatch (`prefill.py:186-194`).
+llying's scripts enforce it and their report classes MTP with `page_size` / `kv-cache-dtype`
+as must-match parameters (FROM-LLYING).
+
+**Not checked:** sglang's own docs (`docs/`), `server_args` validation, or whether any
+`ServerArgs` post-init rejects the mismatch. A quick pass found nothing, but it was not
+exhaustive.
+
+**To settle:** grep `docs/` and `server_args.py` for PD + speculative co-requirements; check
+whether a mismatched pair is rejected at startup or merely misbehaves. Cheap, offline.
+
+**Until then:** justify the launcher change by the code and by llying's practice. Do not
+write "upstream recommends" anywhere.
+
+### TODO-2 — Does patch 4 hold when guard term 4 splits genuinely across ranks?
+
+**Status: INFERRED only.** Every run we have was with prefill-MTP off, i.e. term 4
+permanently true (§3.5). The rank-split case is untested.
+
+**To settle:** arm A with the launcher fixed, `probe_voted.py` live, and
+`analyze_vote.py` checking that VOTED stays uniform while LOCAL splits. If LOCAL never
+splits on term 4 even with prefill MTP on, the arm did not exercise what it was meant to.
+
+### TODO-3 — Is patch 2a genuinely required on our stack?
+
+**Status: UNKNOWN, and the single most important open question (§3.2).** No differential
+control was ever run; llying does not apply it and does not deadlock.
+
+**To settle:** arm B — full patch set, revert only patch 2a, verify absent in bytecode.
+
+### TODO-4 — Do patch 2b's non-integral fallbacks ever fire?
+
+**Status: UNKNOWN.** "Nothing crashed in 2540 requests" is not evidence they cannot.
+
+**To settle:** arm C — counters on the trim / edge-pad branches across a concurrency sweep.
+If zero, replace them with an assert (#32762's style).
+
+### TODO-5 — The seventh padded-vs-real-rows crash
+
+**Status: unexplained.** `Expected lengths.size(0) == B` on DP7, once in 384+ requests, on a
+machine carrying patch 1 + Bug 6 (`packup_20260728/dpa_mtp_fix/TRACKING_degenerate_output.md`
+lines 132-146).
+
+**Retraction:** an earlier note in this session linked it to #31123. That was wrong — #31123
+fixes *negative* seq_lens in the CUDA `jit_kernel/csrc/deepseek_v4/topk_{v1,v2}.cuh`, whereas
+our HIP path runs `sgl-kernel/csrc/elementwise/topk.cu`, whose `lengths` is already `int32_t`
+(VERIFIED-HERE at our baseline). The seventh crash is a row-*count* mismatch, not a negative
+length. Different defect.
+
+**To settle:** `SGLANG_DEBUG_DSA_ROWS=1` (already in `dsa_indexer.py:63`) on the next boot; it
+logs `q_fp8` / `q_offset` / `lengths` / `mqa_q` at exactly that site. Candidate cause worth
+testing at the same time: #32762 derives the real row count from
+`_original_num_tokens` / `num_token_non_padded_cpu`, while ours reads
+`sum(get_dsa_extend_len_cpu())` — and `_pad_inputs_to_size` pads `extend_seq_lens` (GPU)
+**without** updating `extend_seq_lens_cpu` (FROM-LLYING §1.3, not independently verified).
+
+### TODO-6 — Cost of patch 4's added collective
+
+**Status: never measured.** One 1-element gloo all-reduce per `draft()` call.
+
+**To settle:** DPA-only throughput comparison, or adopt #32209's placement, which adds none.
+
+### TODO-7 — Fix PR #34's body
+
+Blocked on nothing; see §6. Three false statements to remove, two framings to add.
