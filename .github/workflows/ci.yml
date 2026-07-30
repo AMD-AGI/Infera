@@ -152,8 +152,11 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+      # exec, so run_tests.sh IS the step's entry process: on cancel the runner
+      # signals only that one pid, and a wrapping bash would not forward it, so
+      # the script's INT/TERM trap (scancel of the dispatched job) never ran.
       - name: engine tests
-        run: bash tests/run_tests.sh engine
+        run: exec bash tests/run_tests.sh engine
       - name: reclaim this job's SLURM jobs (on cancel/failure)
         if: always() && (cancelled() || failure())
         run: |
@@ -172,12 +175,15 @@ jobs:
     # Run on PRs into main (pre-merge; pull_request already filters base=main), so
     # the merge is validated BEFORE landing and not re-run on the main push after.
     # Also on manual dispatch when run_e2e is checked. Skipped for docs-only PRs.
-    # Gated behind lint: run only if lint did not fail. `always()` + result check
-    # (instead of a plain success dependency) is needed so e2e still runs when lint
-    # is *skipped* as a duplicate (pre_check), but is held back when lint fails.
+    # Gated behind lint: run only if lint did not fail. `!cancelled()` + result
+    # check (instead of a plain success dependency) is needed so e2e still runs
+    # when lint is *skipped* as a duplicate (pre_check), but is held back when
+    # lint fails. NOT `always()`: on cancel the server re-evaluates job-level
+    # `if`, and `always()` evaluates true, so the job is never cancelled — it
+    # keeps (or even starts) burning GPU nodes after "Cancel workflow".
     needs: [lint, changes]
     if: >-
-      always() &&
+      !cancelled() &&
       needs.changes.outputs.code == 'true' &&
       needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
       (github.event_name == 'pull_request' ||
@@ -201,8 +207,9 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+      # exec: see the engine job — keeps run_tests.sh's INT/TERM trap reachable.
       - name: e2e ${{ matrix.engine }} mixed
-        run: bash tests/run_tests.sh e2e ${{ matrix.engine }} mixed
+        run: exec bash tests/run_tests.sh e2e ${{ matrix.engine }} mixed
       - name: reclaim this job's SLURM jobs (on cancel/failure)
         if: always() && (cancelled() || failure())
         run: |
