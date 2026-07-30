@@ -1,59 +1,67 @@
-# MoE-experts op optimize loop (issue #40)
+# Op optimize-loop scaffold (issue #40)
 
-The closed loop for iterating custom kernels behind the [Infera vLLM op-injection
-plugin](../../infera/engine/vllm/ops/): **profile → tune → inject → re-profile**,
-on a real model's op dimensions (Kimi-2.6 by default). A new kernel is a
-`@register_experts_variant` in `infera/engine/vllm/ops/moe.py`; these scripts
-measure, diagnose, and tune it.
+An **op-agnostic** `measure → profile → tune → inject` loop for iterating custom
+kernels behind the [Infera vLLM op-injection plugin](../../infera/engine/vllm/ops/).
+The scaffold is the deliverable; a kernel (e.g. `infera_decode`) is just a
+candidate plugged in. **Adding an op is writing one `OpSpec` — no new script.**
 
-Run inside the vLLM ROCm image with the repo mounted and `PYTHONPATH` set, e.g.
+```
+framework.py   OpSpec + registry + generic measure/profile/tune
+loop.py        one CLI over any registered op
+ops/<name>.py  one OpSpec per op (self-registers). moe_experts.py = the template.
+```
+
+Run inside the vLLM ROCm image with the repo mounted and `PYTHONPATH` set (so the
+edited plugin is used):
 `docker run --device=/dev/kfd --device=/dev/dri -v <repo>:/work -w /work
--e PYTHONPATH=/work <vllm-rocm-image> bash -lc "<cmd>"`.
+-e PYTHONPATH=/work <vllm-rocm-image> bash -lc "cd bench/op_loop && <cmd>"`.
 
 ## The loop
 
-```
-                ┌────────────────────────────────────────────────┐
-                ▼                                                 │
-   profile_op.py  ──►  tune_op.py --inject  ──►  (plugin updated) ┘
-   where's the time?   search configs,          _TUNE_DEFAULTS
-   BW / roofline /     keep correct ones,        rewritten →
-   which kernel        bake the winner in        re-profile confirms
-```
-
-| Ring | Script | What it does |
-| --- | --- | --- |
-| **measure** | `moe_experts_loop.py` | built-in vs plugin-op vs torch-reference: latency + max abs/rel error. The A/B + correctness gate. |
-| **profile** | `profile_op.py` | roofline: achieved HBM BW vs peak → *bandwidth-bound* (near optimal) vs *launch/occupancy-bound* (headroom); `--kernels` adds the per-kernel device-time split. |
-| **tune** | `tune_op.py` | coordinate-descent over block/warp configs, keeping only correct ones; `--inject` rewrites `_TUNE_DEFAULTS` in the plugin (the 植入 step). |
-
-## Example cycle
-
 ```bash
-# 1. measure the current op vs the built-in (baseline)
-INFERA_MOE_EXPERTS=infera_decode python moe_experts_loop.py --tokens 1
-
-# 2. profile it — is there headroom, and which kernel to attack?
-python profile_op.py --impl infera_decode --tokens 1 --kernels
-
-# 3. tune and inject the winner into the plugin
-python tune_op.py --tokens 1 --inject
-
-# 4. re-profile to confirm (new default is now baked in)
-python profile_op.py --impl infera_decode --tokens 1
+python loop.py list                                   # registered ops
+python loop.py measure --op moe_experts               # baseline vs candidate vs oracle
+python loop.py profile --op moe_experts --kernels     # roofline + per-kernel split
+python loop.py tune    --op moe_experts --inject      # autotune, bake winner into plugin
+python loop.py measure --op moe_experts -d tokens=1 -d experts=64   # override dims
 ```
 
-Measured on MI355X (vLLM 0.23 ROCm), Kimi-2.6 dims, decode `T=1`: the built-in
-experts kernel = 0.171 ms; `infera_decode` after this loop = **0.135 ms
-(1.31× )** at **~5.2 TB/s (65% of HBM peak)** — bandwidth-bound, so further wins
-need less traffic (dtype / dedup), not more tuning.
+| Ring | What it does |
+| --- | --- |
+| **measure** | baseline (built-in) vs candidate (plugin op) vs reference (oracle): latency + rel error. The A/B + correctness gate. |
+| **profile** | roofline from `traffic_bytes`: achieved HBM BW vs peak → bandwidth-bound (near optimal) vs launch/occupancy-bound (headroom); `--kernels` adds the per-kernel device-time split. |
+| **tune** | sweep the op's `tune_env` configs, keep only correct ones; `--inject` calls the op's `inject` to bake the winner into the plugin. |
 
-## End-to-end (does the op win show up in a serve?)
+## Adding an op
 
-`../_moe_decode_e2e_serve.sh` + `../_moe_decode_e2e_client.py` measure single-stream
-(batch-1) decode ITL with the kernel wired into the serving path (the plugin's MoE
-seam runs `infera_decode` on genuine small-M bf16 decode steps, verified via a
-fire counter). Measured on **Qwen3.5-35B-A3B (bf16 MoE)**, MI355X, TP=1:
+Write `ops/<name>.py` with an `OpSpec` and `register_op` it — the CLI picks it up
+by name. Provide what applies (the loop skips the rest):
+
+| Field | For |
+| --- | --- |
+| `make_inputs(dims, dev)` | build the op's tensors at a model's dims |
+| `baseline(*inputs)` | the engine's built-in op (A) |
+| `candidate(*inputs)` | the plugin's op — the selected variant (B) |
+| `reference(*inputs)` | correctness oracle (optional) |
+| `traffic_bytes(dims)` | bytes moved, for the roofline (optional) |
+| `tune_env` / `tune_grid` / `inject` | the tune ring (optional) |
+
+`ops/moe_experts.py` is the reference implementation (Kimi-2.6 dims, the
+`infera_fused_experts` candidate, a torch-SwiGLU oracle, block/warp tuning).
+
+## Worked example: `moe_experts` / `infera_decode`
+
+Measured on MI355X (vLLM 0.23 ROCm), Kimi-2.6 dims, decode `T=1`: built-in
+experts = 0.171 ms; `infera_decode` after this loop = **0.135 ms (1.31× )** at
+**~5.2 TB/s (65% of HBM peak)** — the profile verdict (bandwidth-bound, reads each
+expert once = traffic floor) says it's near its roofline, so further wins need
+*less traffic* (dtype), not more tuning.
+
+### End-to-end (does the op win reach a serve?)
+
+`../_moe_decode_e2e_serve.sh` + `../_moe_decode_e2e_client.py` measure batch-1
+decode ITL with the kernel wired into the serving path (fire-counter verified).
+**Qwen3.5-35B-A3B (bf16 MoE)**, MI355X, TP=1:
 
 | config | ITL (ms/tok) | decode tok/s |
 | --- | --- | --- |
@@ -61,23 +69,7 @@ fire counter). Measured on **Qwen3.5-35B-A3B (bf16 MoE)**, MI355X, TP=1:
 | aiter off — builtin (triton) | 5.650 | 176.7 |
 | **aiter off — `infera_decode`** | **5.264** | **188.8** |
 
-So `infera_decode` is the **fastest config, ~8.5% better ITL than the aiter-on
-default** — because at batch-1 aiter gives no decode benefit here (slightly
-negative), so turning it off is free and the MoE kernel then wins. The op-level
-~1.3× dilutes to single-digit e2e because routed experts are ~⅓ of the
-bandwidth-bound batch-1 decode step.
-
-**Limitations (by design, all self-delegating — never a regression):**
-- **bf16/fp16 only** — MXFP4/quantized weights delegate (so Kimi-2.6 MXFP4 sees no effect).
-- **batch ≤ 16** — larger batches delegate and aiter's large-M wins take over.
-- **plain weight layout** — aiter pre-shuffles MoE weights, so the seam delegates when
-  `VLLM_ROCM_USE_AITER` is set; the kernel runs with aiter's MoE path off (or
-  `INFERA_MOE_ASSUME_PLAIN=1`). Mixing aiter-prefill with this decode kernel needs
-  weight un-shuffling — future work.
-
-## Config precedence
-
-`_decode_tunables()` reads, in order: per-key env (`INFERA_MOE_GU_BLOCK_I`, …) →
-`INFERA_MOE_TUNE_FILE` (JSON) → the baked `_TUNE_DEFAULTS`. So `--inject`
-(rewrites `_TUNE_DEFAULTS`) makes a tuned config permanent, while env / tune-file
-let you A/B without editing source.
+Fastest config, **+8.5% ITL over the aiter-on default** (at batch-1 aiter gives no
+decode benefit, so disabling it is free and the MoE kernel wins). Self-delegating
+limitations: bf16 only, batch ≤ 16, plain (non-aiter-shuffled) weights — never a
+regression.
