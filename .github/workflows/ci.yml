@@ -144,12 +144,13 @@ jobs:
   # Engine GPU tests — run on each branch push (same-repo PRs reuse that run).
   engine:
     # Skip on docs-only changes, and on same-repo PRs (already covered by the
-    # branch push event); still run on push and on fork PRs. `always()` + result
-    # checks (not a plain success dependency) so a *skipped* lint/dco — dco does
-    # not run off a PR — does not drag this down with it.
+    # branch push event); still run on push and on fork PRs. `!cancelled()` +
+    # result checks (not a plain success dependency) so a *skipped* lint/dco — dco
+    # does not run off a PR — does not drag this down with it. NOT `always()`:
+    # that evaluates true on cancel too, so the job would never be cancelled.
     needs: [lint, pre_check, changes, dco]
     if: >-
-      always() &&
+      !cancelled() &&
       needs.pre_check.outputs.should_skip != 'true' &&
       needs.changes.outputs.code == 'true' &&
       needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
@@ -168,8 +169,11 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+      # exec, so run_tests.sh IS the step's entry process: on cancel the runner
+      # signals only that one pid, and a wrapping bash would not forward it, so
+      # the script's INT/TERM trap (scancel of the dispatched job) never ran.
       - name: engine tests
-        run: bash tests/run_tests.sh engine
+        run: exec bash tests/run_tests.sh engine
       - name: reclaim this job's SLURM jobs (on cancel/failure)
         if: always() && (cancelled() || failure())
         run: |
@@ -188,12 +192,15 @@ jobs:
     # Run on PRs into main (pre-merge; pull_request already filters base=main), so
     # the merge is validated BEFORE landing and not re-run on the main push after.
     # Also on manual dispatch when run_e2e_mixed is checked. Skipped for docs-only PRs.
-    # Gated behind lint: run only if lint did not fail. `always()` + result check
-    # (instead of a plain success dependency) is needed so e2e still runs when lint
-    # is *skipped* as a duplicate (pre_check), but is held back when lint fails.
+    # Gated behind lint and dco: run only if neither failed. `!cancelled()` + result
+    # checks (instead of a plain success dependency) is needed so e2e still runs
+    # when lint is *skipped* as a duplicate (pre_check) or dco is skipped off a PR,
+    # but is held back when either fails. NOT `always()`: on cancel the server
+    # re-evaluates job-level `if`, and `always()` evaluates true, so the job is
+    # never cancelled — it keeps (or even starts) burning GPU nodes after "Cancel".
     needs: [lint, changes, dco]
     if: >-
-      always() &&
+      !cancelled() &&
       needs.changes.outputs.code == 'true' &&
       needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
       needs.dco.result != 'failure' && needs.dco.result != 'cancelled' &&
@@ -218,8 +225,9 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+      # exec: see the engine job — keeps run_tests.sh's INT/TERM trap reachable.
       - name: e2e ${{ matrix.engine }} mixed
-        run: bash tests/run_tests.sh e2e ${{ matrix.engine }} mixed
+        run: exec bash tests/run_tests.sh e2e ${{ matrix.engine }} mixed
       - name: reclaim this job's SLURM jobs (on cancel/failure)
         if: always() && (cancelled() || failure())
         run: |
@@ -234,9 +242,11 @@ jobs:
           done
 
   e2e-disag:
+    # Gates mirror e2e-mixed, `!cancelled()` included: `always()` would keep this
+    # holding a two-node pair after "Cancel workflow".
     needs: [lint, changes, dco]
     if: >-
-      always() &&
+      !cancelled() &&
       needs.changes.outputs.code == 'true' &&
       needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
       needs.dco.result != 'failure' && needs.dco.result != 'cancelled' &&
@@ -270,8 +280,10 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+      # exec: see the engine job — keeps run_tests.sh's INT/TERM trap reachable,
+      # which is what releases the held node pair on cancel.
       - name: e2e ${{ matrix.engine }} disag
-        run: bash tests/run_tests.sh e2e ${{ matrix.engine }} disag
+        run: exec bash tests/run_tests.sh e2e ${{ matrix.engine }} disag
       - name: reclaim this job's SLURM jobs (on cancel/failure)
         if: always() && (cancelled() || failure())
         run: |

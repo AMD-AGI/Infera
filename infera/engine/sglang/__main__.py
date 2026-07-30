@@ -210,12 +210,16 @@ async def main() -> None:
     # BEFORE engine.start() spawns the sglang subprocess so it's inherited.
     # Without these the transfer engine silently falls back to TCP / hangs.
     from infera.engine.dsv4_gfx942 import apply_gfx942_dsv4
+    from infera.engine.rocm_dsa_env import apply_rocm_dsa_env_defaults
     from infera.engine.rocm_rdma_env import (
         apply_kv_host_ip_default,
         apply_rocm_rdma_env_defaults,
     )
 
     apply_rocm_rdma_env_defaults()
+    # Disable sglang's CUDA-only DSA topk_v2 JIT on ROCm (set-if-unset), else every
+    # non-DeepseekV4 DSA arch dies in CUDA-graph capture. See rocm_dsa_env.py.
+    apply_rocm_dsa_env_defaults()
     # Pin the KV host IP to the RDMA rail (else get_ip() picks the public NIC and
     # KV transfer targets the wrong interface). Must follow the GID default above.
     apply_kv_host_ip_default()

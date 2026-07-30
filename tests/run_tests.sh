@@ -49,11 +49,23 @@ mkdir -p "$SCRATCH/hf"
 : > "$SCRATCH/failures.txt"
 chmod 666 "$SCRATCH/failures.txt" 2>/dev/null || true
 SCRATCH_FLAGS=(-v "$SCRATCH":/scratch -e HF_HOME=/scratch/hf)
-# Worker logs outlive the run at a fixed host dir; the harness writes there
-# whenever it finds the mount.
-E2E_LOG_DIR="/tmp/infera-e2e-logs"
+# Worker (engine) logs, mounted at /e2e-logs in the container, one file per case.
+# In CI a per-run NFS folder keyed by the job tag and shared with the dispatch
+# log, written live so it survives scancel/preempt/SIGKILL; else node-local /tmp.
+if [ -n "${GITHUB_ACTIONS:-}" ] || [ "${CI:-}" = "true" ] || [ -n "${INFERA_DISPATCH_LOGDIR:-}" ]; then
+  SHARED_LOG_DIR="${INFERA_DISPATCH_LOGDIR:-$HOME/infera-cicd-shared-logs}/${INFERA_E2E_JOB_TAG:-local}"
+  E2E_LOG_DIR="$SHARED_LOG_DIR"
+else
+  SHARED_LOG_DIR=""
+  E2E_LOG_DIR="/tmp/infera-e2e-logs"
+fi
 mkdir -p "$E2E_LOG_DIR"
+# World-writable: the in-container writer (root, or nobody under an NFS squash)
+# does not share our uid/gid, so group perms will not do. The sticky bit stops a
+# co-tenant renaming or clobbering another run's logs. Shared dir only.
+if [ -n "$SHARED_LOG_DIR" ]; then chmod 1777 "$E2E_LOG_DIR" 2>/dev/null || true; fi
 SCRATCH_FLAGS+=(-v "$E2E_LOG_DIR":/e2e-logs)
+
 _cleanup_scratch() {
   local img="$IMG_SGLANG"
   docker image inspect "$IMG_VLLM" >/dev/null 2>&1 && img="$IMG_VLLM"
@@ -114,7 +126,22 @@ _release_hold() {
 }
 trap '_release_hold; _cleanup_scratch' EXIT
 trap '_wipe_disag_nodes; _release_hold; _cancel_dispatched; exit 130' INT TERM
-echo "[scratch] $SCRATCH  (worker logs: $E2E_LOG_DIR, kept)"
+echo "[scratch] $SCRATCH  (worker logs: $E2E_LOG_DIR${SHARED_LOG_DIR:+ [shared NFS, live]})"
+
+# Banner the worker-log dir at both ends of the run: the GH Actions log is long
+# and read from the bottom after a failure, so repeating it saves a hunt.
+_log_dir_banner() {
+  echo ""
+  echo "=================== E2E WORKER LOG LOCATION ==================="
+  echo "  $E2E_LOG_DIR"
+  if [ -n "$SHARED_LOG_DIR" ]; then
+    echo "  (shared NFS, written live — survives scancel/preempt/SIGKILL)"
+  else
+    echo "  (node-local /tmp — NOT shared; lost when this machine is reclaimed)"
+  fi
+  echo "==============================================================="
+}
+_log_dir_banner
 
 # Bind the model tree read-only at the same path. If it is absent here it lives
 # on the compute node, so just forward the var and let the remote re-run mount it.
@@ -318,13 +345,14 @@ _dispatch_slurm() {
   _CUR_DISPATCH_OUT="$out"
 
   # CI (buffered srun) -> remote writes to a SHARED-NFS file we `tail -F`; local ->
-  # srun forwards to $out. INFERA_DISPATCH_LOGDIR forces the shared path.
+  # srun forwards to $out. The dispatch stream log lands in the SAME per-run folder
+  # ($SHARED_LOG_DIR, keyed by job tag) as the live worker logs, so one run's entire
+  # trace — dispatch banners + every engine worker's log — sits together on NFS.
   local shared=0 logdir="" logf="" tailf="$out"
-  if [ -n "${GITHUB_ACTIONS:-}" ] || [ "${CI:-}" = "true" ] || [ -n "${INFERA_DISPATCH_LOGDIR:-}" ]; then
+  if [ -n "$SHARED_LOG_DIR" ]; then
     shared=1
-    logdir="${INFERA_DISPATCH_LOGDIR:-$HOME/infera-cicd-shared-logs}"
-    mkdir -p "$logdir" 2>/dev/null || true
-    logf="$logdir/${label}-${INFERA_E2E_JOB_TAG:-local}-$$.log"
+    logdir="$SHARED_LOG_DIR"   # already created + chmod'd at startup
+    logf="$logdir/dispatch-${label}-$$.log"
     tailf="$logf"
   fi
 
@@ -424,8 +452,15 @@ _dispatch_slurm() {
     fi
     break  # genuine test/build failure
   done
-  [ "$shared" -eq 1 ] && find "$logdir" -maxdepth 1 -type f -name '*.log' \
-    -mmin "+${INFERA_DISPATCH_LOG_TTL_MIN:-14400}" -delete 2>/dev/null
+  # Shared mode only: prune old logs (10 days, INFERA_DISPATCH_LOG_TTL_MIN). Drop
+  # each aged-out per-run FOLDER whole — deleting only its *.log would strand the
+  # folder for ever on any stray non-log file. Second sweep: pre-folder flat logs.
+  if [ "$shared" -eq 1 ]; then
+    local ttl="${INFERA_DISPATCH_LOG_TTL_MIN:-14400}" root
+    root="$(dirname "$logdir")"
+    find "$root" -mindepth 1 -maxdepth 1 -type d -mmin "+$ttl" -exec rm -rf {} + 2>/dev/null || true
+    find "$root" -mindepth 1 -maxdepth 1 -type f -name '*.log' -mmin "+$ttl" -delete 2>/dev/null || true
+  fi
   return "$prc"
 }
 
@@ -703,6 +738,13 @@ if [ "$rc" -ne 0 ]; then
     echo "   build error or a native crash before pytest ran; scan above.)"
   fi
   echo "==============================================================="
+fi
+
+# Repeat the log location last (pass or fail): on a failure this is the first
+# thing visible at the bottom of the GH Actions log, right where debugging starts.
+_log_dir_banner
+if [ -d "$E2E_LOG_DIR" ]; then
+  ls -1 "$E2E_LOG_DIR"/*.log 2>/dev/null | sed 's|^|  |' || true
 fi
 
 [ "$rc" -eq 0 ] && echo "RESULT: PASS" || echo "RESULT: FAIL"
