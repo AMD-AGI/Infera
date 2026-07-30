@@ -82,3 +82,44 @@ def _make_seam(original):
 
     _seam._infera_wrapped = True
     return _seam
+
+
+# Custom experts-kernel variants register here (name -> callable with the same
+# signature as vLLM's ``fused_experts``). Empty by default: the built-in kernel
+# is the baseline (and on ROCm already dispatches to aiter), so a novel
+# HyperLoom-tuned kernel is added with @register_experts_variant("name") and
+# selected at runtime via ``INFERA_MOE_EXPERTS=name``.
+_EXPERTS_VARIANTS: dict[str, object] = {}
+
+
+def register_experts_variant(name: str):
+    """Decorator: register a custom MoE experts kernel under ``name``."""
+
+    def deco(fn):
+        _EXPERTS_VARIANTS[name.lower()] = fn
+        return fn
+
+    return deco
+
+
+def infera_fused_experts(*args, **kwargs):
+    """The plugin's swappable MoE experts op (issue #40) — the unit the
+    optimize-loop measures. ``INFERA_MOE_EXPERTS`` selects a registered variant;
+    unset / ``builtin`` (or an unknown/failed variant) uses vLLM's built-in
+    kernel, so the plugin op is a bitwise pass-through until a real kernel lands.
+    """
+    from vllm.model_executor.layers.fused_moe import fused_experts as _builtin
+
+    variant = (os.environ.get("INFERA_MOE_EXPERTS") or "builtin").lower()
+    fn = _EXPERTS_VARIANTS.get(variant)
+    if fn is None:
+        if variant not in ("builtin", "off", "0", ""):
+            logger.warning("infera-vllm-ops: no MoE experts variant %r — using builtin", variant)
+        return _builtin(*args, **kwargs)
+    try:
+        return fn(*args, **kwargs)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "infera-vllm-ops: experts variant %r failed (%s) — using builtin", variant, exc
+        )
+        return _builtin(*args, **kwargs)
