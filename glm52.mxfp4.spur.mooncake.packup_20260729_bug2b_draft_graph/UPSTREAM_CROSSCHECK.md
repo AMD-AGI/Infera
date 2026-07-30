@@ -32,18 +32,30 @@ Our baseline for all `gh api` source reads:
 
 ### 1.1 The ones that matter
 
+All rows below: number, title, state, dates, size and review status are **VERIFIED-HERE**
+via `gh pr view` / `gh issue view` on 2026-07-30. Anything else in the "Relation" column
+carries its own label.
+
 | # | What | State (2026-07-30) | Relation to us |
 |---|---|---|---|
-| **#32527** | issue, `[BUG] EAGLE + DP Attention + PD Disaggregation: Deadlock when index_share_for_mtp_iteration is enabled for GLM-5.2` | open, 2026-07-27 | **Same defect as our patch 4.** Reported **two days before** we fixed it. |
-| **#32209** | PR, `Fix PD decode hang with DP attention and GLM-5.2 MTP`, +616/−25, 12 files | open, 2026-07-23, CI red (FROM-LLYING) | **Same fix strategy as our patch 4**, better placed. Also carries the padded-rows fix for TRT-LLM. |
-| **#30839** | the PR that **introduced** the guard, "Stabilize GLM-5.2 MTP IndexShare across PD and CUDA graph replay" | merged 2026-07-14; v0.5.15 cherry-pick #31083 | FROM-LLYING. Means the guard is **new code**, not legacy — we had assumed legacy. |
-| **#31477** | PR, remap IndexShare seeds to decode-local KV slots so fused top-k can stay on under PD | open, CI green, 1 approve (FROM-LLYING) | **The expiry date on the IndexShare workaround.** See §3. |
+| **#32527** | issue, `[BUG] EAGLE + DP Attention + PD Disaggregation: Deadlock when index_share_for_mtp_iteration is enabled for GLM-5.2` | open, 2026-07-27 | **Same defect as our patch 4.** Reported **two days before** we fixed it. Proposes a third strategy (dummy zero seed). |
+| **#32209** | PR, `Fix PD decode hang with DP attention and GLM-5.2 MTP`, +616/−25, 12 files | open, 2026-07-23 | **Same fix strategy as our patch 4**, better placed. Also carries the padded-rows fix for TRT-LLM. |
+| **#31477** | PR, `[Spec][PD] Enable fused TopK for GLM-5.2 MTP IndexShare`, **+93/−4, 3 files** | open, 2026-07-16, `reviewDecision = REVIEW_REQUIRED` | **The expiry date on the IndexShare workaround.** See §3.4. |
+| **#32762** | PR, `[NPU] Fix DSA eager padding mismatch in PD MTP warm-up`, **+53/−0, 2 files** | open, 2026-07-29 | Patch 1's bug class on NPU. **The shape to mirror when upstreaming ours.** |
+| **#30839** | PR that **introduced** the guard, `[bug-fix] Stabilize GLM-5.2 MTP IndexShare across PD and CUDA graph replay`, +371/−37, 19 files | **MERGED 2026-07-14** | The guard is **new code**, not legacy. |
+| **#31083** | `[Cherry-pick to release/v0.5.15]` of #30839, +638/−60, 27 files | **MERGED 2026-07-14** | Puts #30839 **in our baseline** → this deadlock is a **regression** on v0.5.15. |
 | **#31683** | PR, `[ROCm][MI35X] Enable GLM-5.2-MXFP4 MTP speculative decoding`, +2479/−102, 34 files | open, 2026-07-18 | Contains an **independent, differently-placed implementation of our patch 1**. Does not touch our patch 2 or 4 sites. |
 | **#32175** | PR, `AMD ROCm enablement for GLM-5.x: DSA + prefill-CP + EAGLE and DFlash`, +785/−212 | open, 2026-07-23 | Contains a **semantically identical version of our patch 3**. Its `dsa_backend` hunks do not overlap ours. |
-| **#32762** | PR, same padded-rows fix on NPU (`npu_lightning_indexer`) | open, CI red (FROM-LLYING) | Third independent expression of patch 1's bug class. |
+| **#31123** | PR, `[BugFix][DSA] Harden top-k v1/v2 kernels against negative padded seq_lens`, +182/−29, 4 files | open, 2026-07-14 | **Kernel-side hardening of patch 1's region.** See §1.6. |
+| **#30565** | PR, `[AMD][GLM5] Fix MTP layer_quant_config in-place mutation + add nextn Quark-exclude unit test`, +298/−23, 6 files | open, 2026-07-08 | Adjacent to patch 3; its body states GLM-5.2 Quark-MXFP4 MTP has **no PR-CI coverage**. |
 | **#32120** | PR, GLM-5.2 MXFP4 1P1D CI recipes | draft, 2026-07-22 | **Zero product code.** Its `1p1d-dp8ep8-mtp.yaml` is our exact topology → upstream *wants* to test this and hasn't. |
 | **#32722** | PR, `test: cover GLM-5.2 PD DP attention with MTP` | draft, 2026-07-29 | One 125-line test file, no product code. **Proves no CI covers PD+DPA+MTP today.** |
-| **#30854** | issue, `dsa_seed_topk copy_` crashes in PD decode | open (FROM-LLYING) | Same family, unexamined by us. |
+| **#30854** | issue, `dsa_seed_topk copy_` crashes in PD decode | open (FROM-LLYING, not re-checked) | Same family, unexamined by us. |
+
+> **Correction to a second-hand claim.** An earlier draft of this file said #31477 was
+> "CI green + 1 approve" (FROM-LLYING). `gh` reports `reviewDecision = REVIEW_REQUIRED`
+> — **no approval**. CI status was not checked. The substantive point (it removes the TODO
+> that makes the IndexShare workaround free) stands and is VERIFIED-HERE from its diff.
 
 ### 1.2 #32527 in detail — the one that invalidates "unreported"
 
@@ -169,18 +181,93 @@ session, `compute_dp_attention_world_info(True,0,8,8,1)` → `(0,1,0,8)`), so th
 **never executes** in our config. It fixes divergence *inside* an attention-TP group; ours is
 *across* DP ranks.
 
-### 1.5 What upstream's state tells us
+### 1.5 #32762 — the shape to mirror when upstreaming patch 1
 
-Three things worth carrying forward:
+VERIFIED-HERE (read the whole 53-line diff; it is small enough to quote the logic).
 
-1. **Nothing arrives by waiting.** Every item above is open. Our baseline sits on
+Two files, `hardware_backend/npu/attention/ascend_backend.py::forward_sparse` and
+`dsa/dsa_indexer.py::forward_npu`. Same three moves as ours:
+
+```python
+num_token_non_padded = (forward_batch._original_num_tokens
+                        if forward_batch._original_num_tokens is not None
+                        else forward_batch.num_token_non_padded_cpu)
+trim_eager_padding = (not is_prefill and not self.graph_mode
+                      and num_token_non_padded is not None and num_token_non_padded > 0
+                      and num_token_padding > num_token_non_padded)
+if trim_eager_padding:
+    q = q[:num_token_non_padded]; q_rope = q_rope[:num_token_non_padded]
+...
+if trim_eager_padding:
+    assert attn_out.shape[0] == num_token_non_padded, "..."
+    attn_out = torch.cat([attn_out, attn_out.new_zeros(num_token_padding - attn_out.shape[0], *attn_out.shape[1:])], dim=0)
+```
+
+Differences worth copying: it derives the real row count from
+`_original_num_tokens` / `num_token_non_padded_cpu` rather than
+`sum(get_dsa_extend_len_cpu())`; it gates explicitly on `not graph_mode`; and it **asserts**
+the post-kernel row count before restoring padding. Ours has no such assert.
+
+**Three backends now fix this independently** — NPU (#32762), TRT-LLM (#32209 item 4),
+aiter/HIP (#31683 and ours). It is an accepted bug class upstream. Nobody has merged the
+HIP one.
+
+### 1.6 #31123 — kernel-side hardening of the same region
+
+VERIFIED-HERE (read the body). `[BugFix][DSA] Harden top-k v1/v2 kernels against negative
+padded seq_lens`, open, +182/−29, 4 files, 2026-07-14.
+
+Not the same defect as patch 1, but the **same region one layer down**. Its body:
+
+> Negative per-row lengths (DP-padded / idle-companion rows; **#30378 observed `-4` from
+> GLM 5.2 MTP draft-extend metadata**, and DP-attention idle rows are the same class) are
+> read through unsigned conversions in **both** top-k kernels and become ~4e9-token rows.
+
+Where patch 1 fixes the caller's row *count* contract, this fixes the kernel's tolerance of
+bad row *values*. It also documents that #25574's proposed fix (#25575) targets deleted code
+and that the SM100 crash could not be reproduced at kernel level.
+
+**Why it matters to us:** the unexplained seventh padded-vs-real-rows crash — seen once in
+500+ requests on a machine already carrying patch 1 — is a plausible member of this class.
+Worth reading before chasing it independently. INFERRED, not established.
+
+### 1.7 #30565 — adjacent to patch 3, and it names the CI gap
+
+VERIFIED-HERE. `[AMD][GLM5] Fix MTP layer_quant_config in-place mutation + add nextn
+Quark-exclude unit test`, open, +298/−23, 6 files, 2026-07-08.
+
+Fixes `_resolve_nextn_quant_config` mutating the shared `quant_config` in place (which can
+corrupt the main model's per-layer scheme selection) and adds a CPU test for the GLM-5.2 MTP
+`exclude_layers` remap — the exact mechanism our patch 3 depends on. Its body states plainly:
+
+> The GLM-5.2 Quark-MXFP4 MTP path has **no PR-CI coverage** — the only AMD GLM-MXFP4 test is
+> `nightly=True` and does not enable MTP; the GLM MTP e2e test is CUDA-only + FP8, not Quark
+> MXFP4.
+
+That is the structural reason patch 3's bug survived to us.
+
+### 1.8 What upstream's state tells us
+
+1. **Nothing arrives by waiting.** Every unmerged item above is open. Our baseline sits on
    `release/v0.5.15`, which has exactly one commit after us (a cmake pin) — so every fix must
    be backported manually or it does not reach us.
-2. **The padded-rows bug is being fixed on three backends independently**: NPU (#32762),
-   TRT-LLM (#32209 item 4), and ours (aiter/HIP). **Nobody upstream has done the HIP one.**
-   That makes our patch 1 a genuine contribution, and #32762 is the shape to mirror.
-3. **No CI covers PD+DPA+MTP** (#32722 exists precisely to add it, #32120 to add the recipes).
-   That is why this whole family of defects is alive.
+2. **This deadlock is a regression, and it is in our baseline by design.** #30839 merged
+   2026-07-14 and #31083 cherry-picked it to `release/v0.5.15` the same day. The guard is
+   fifteen days old, not legacy.
+3. **No CI covers PD+DPA+MTP** (#32722 to add the test, #32120 to add the recipes, #30565
+   naming the MXFP4-MTP gap). That is why this whole family of defects is alive.
+
+### 1.9 Search coverage, and its limit
+
+VERIFIED-HERE that these `gh search issues` / `gh search prs` queries return **nothing** on
+`sgl-project/sglang`: `dsa_backend max_seqlen_k`, `seq_lens max item host sync DP`,
+`page_table topk_indices assert`, `transform_index_page_table_decode`.
+
+**This is weak evidence.** `gh search` matches issue/PR titles and bodies, **not diff
+content** — an upstream PR could touch either patch-2 site without ever naming it. Combined
+with the per-diff greps of #31683 / #32175 / #32209 (all zero matches at both sites), the
+fair statement is: **patch 2 has no upstream counterpart that we have found**, not "patch 2
+is unreported upstream."
 
 ---
 
@@ -325,11 +412,30 @@ seed is produced and then not used by fused top-k. So switching it off currently
 approximately nothing. Their measurement: accept length **3.78/4** with IndexShare on and off,
 matching their single-node baseline; another reproducer on #32209 reported 3.239 vs 3.24.
 
-**But #31477 exists to delete that TODO** — remap the seeds to decode-local KV slots so fused
-top-k can stay on under PD. It is CI-green with one approval and may land before #32209. When
-it does, IndexShare becomes genuinely useful under PD and the override starts costing
-(~3% TPOT, FROM-LLYING). At that point the right move is #32209's vote or #32527's dummy seed,
-not the flag.
+**But #31477 exists to delete that TODO.** VERIFIED-HERE from its diff (+93/−4, 3 files) —
+it adds `should_remap_pd_dsa_seed_to_local_slots()` and, in
+`eagle_disaggregation.py::build_eagle_disagg_draft_input`, materializes the RDMA-shipped
+request-relative positions into decode-local physical slots through the local page table
+before the seed enters the draft loop:
+
+```python
+local_slots = req_to_token[batch.req_pool_indices[:, None], gather_positions]
+# ... invalid rows (out of range, or landing on the reserved slot 0) -> -1
+dsa_topk_indices = local_slots
+```
+
+then relaxes the gate to
+`not pd_index_share_seed or should_remap_pd_dsa_seed_to_local_slots(server_args)`
+(itself requiring `disaggregation_mode == "decode"`, no hisparse, `dcp_size == 1`).
+
+**Status correction:** `reviewDecision = REVIEW_REQUIRED` — it has **no approval**, contrary
+to the earlier second-hand note. CI status not checked. So "may land before #32209" is not
+supported; treat the timing as unknown.
+
+When it does land, IndexShare becomes genuinely useful under PD and the override starts
+costing (~3% TPOT, FROM-LLYING). At that point the right move is #32209's vote or #32527's
+dummy seed, not the flag. **Our patch 4 is unaffected by #31477** — that is its one durable
+advantage over the config workaround.
 
 Also FROM-LLYING, worth remembering: `SGLANG_DSA_FUSE_TOPK=false` does **not** fix the
 deadlock. It only touches the consumer; `seed_dsa_topk_from_draft_extend` stays true and the
@@ -356,6 +462,10 @@ which is weak evidence they were not, not evidence they cannot be.)
 simply has no equivalent. Adding `output_num_tokens` to
 `transform_index_page_table_decode` — and having the callee expand — is the change upstream
 would accept, and removes the need to guess a ratio at the call site.
+
+Also worth borrowing from #32762: it **asserts** the row count before restoring padding
+rather than silently reconciling. An assert that fires is a bug report; a fallback that
+fires is a bug that never gets reported.
 
 ### 4.2 Patch 4 — adopt #32209's placement
 
@@ -415,6 +525,26 @@ fires, we have a real unknown to chase.
 
 Cost: two spur nodes, ~8 min cold start each (jobs 11428/11429 were evicted 2026-07-29).
 
+### 5.1 Prerequisites before arm A can be trusted
+
+1. **`pd_leg_spur.sh:72` must be changed.** It currently reads
+   `if [ "$MTP" = "1" ] && [ "$ROLE" = "decode" ]`. With MTP absent on the prefill leg, the
+   prefill worker never runs `_draft_extend_for_prefill`, never populates
+   `req.output_dsa_topk_indices`, and never registers the draft KV pool for RDMA — so the
+   seed can never arrive and the guard's fourth term is trivially true. Every deadlock we
+   measured was under that configuration. Whatever arm A shows, it shows it for the
+   *maintainer-recommended* configuration only if this is fixed first.
+2. **Expect a longer prefill cold start** once MTP is on that leg: the draft model is
+   extracted from the same checkpoint, which llying measured as roughly doubling load time
+   (FROM-LLYING).
+3. **Revert verification must use an identifier, not a comment.** `verify_pyc.sh` with
+   `_needs_eager_local` / `_glm52_match_page_table_rows` / `GLM52_BUG2_FIX_A`-adjacent code
+   tokens — a `#` marker is discarded by the compiler and reads as a false negative
+   (`PITFALLS.md` P6).
+4. **Restart the router on a fresh `--port` and `--prometheus-port` between arms.** A circuit
+   breaker left open by a previous arm returns 503 in ~0.4 s and looks exactly like a
+   persisting failure (`PITFALLS.md` P4). Read the failure *latency* before concluding.
+
 ---
 
 ## 6. Corrections owed to PR #34
@@ -433,6 +563,15 @@ research pass without re-checking it:
 Additionally, "each one is independently necessary" for the four patches is
 **unsubstantiated** pending §5, and patch 2's lack of a differential control should be stated
 in the "Known limits of the validation" section.
+
+Two things the PR should *gain*:
+
+* **#32762 as the precedent for patch 1** — a 53-line NPU fix of the same bug class, open as
+  of 2026-07-29. It strengthens the case that patch 1 belongs upstream and gives a shape to
+  match.
+* **#30839 / #31083 as the origin** — the guard is fifteen days old and was cherry-picked
+  into `release/v0.5.15`, so this is a regression in our own baseline, not a legacy wart.
+  That is a materially better framing than the current text.
 
 ---
 
