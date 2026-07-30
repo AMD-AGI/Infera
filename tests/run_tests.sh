@@ -96,7 +96,11 @@ _wipe_disag_nodes() {
   local n resv="${INFERA_E2E_RESERVATION:+--reservation=$INFERA_E2E_RESERVATION}"
   for n in ${_DISAG_NODES//,/ }; do
     echo "[cleanup] removing PD containers on $n" >&2
+    # Name and timebox it like every other step: unnamed, SLURM calls it "bash"
+    # and leaves it UNLIMITED, so ci.yml's `infera-ci-`+run-id reclaim can neither
+    # see nor cancel it — and this runs on the very cancel that reclaim cleans up.
     srun -N1 -n1 -p "$SLURM_PART" -w "$n" $resv ${INFERA_E2E_SRUN_EXTRA:-} \
+      -J "infera-ci-wipe-${INFERA_E2E_JOB_TAG:-local}" -t 00:05:00 \
       bash -lc 'docker rm -f $(docker ps -aq --filter name=infera-e2e-) 2>/dev/null || true' \
       >/dev/null 2>&1 || true
   done
