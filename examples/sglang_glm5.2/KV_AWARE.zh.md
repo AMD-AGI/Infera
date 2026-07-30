@@ -13,15 +13,20 @@ MTP=1（EAGLE 3 步 / topk 1 / 4 draft token），KV 走 Mooncake RoCE。
 
 kv-aware 现在在 PD + DPA + MTP 上完整工作：router 的缓存镜像能填上，重复前缀拿到
 **333/333 全命中**，agentic 负载的缓存效率从 57.3% 提到 **88.2%**、TTFT p50 从 14.6s
-降到 **2.5s**，TPOT 不变（MTP 未受影响）。
+降到 **2.5s**，TPOT 不变（MTP 未受影响）。贴近客户生产形状的 profile（p50 91K / p90 380K
+prompt、42% 新会话）同样跑通，引擎侧零错误，可命中请求的 token 加权效率 **95.0%**（§3.1）。
 
-三个 bug 是**互不相关**的，而且串成了一条链——前一个不修，后一个根本不会显形：
+前三个 bug 挡住了 kv-aware 本身，**互不相关**却串成一条链——前一个不修，后一个根本不会显形。
+后三个是跑生产 profile 时暴露的，都在压测工具侧：不影响服务正确性，但会让你把好结果读成坏结果。
 
-| # | bug | 层次 | 现象 | 修复位置 |
+| # | bug | 层次 | 现象 | 处理 |
 |---|---|---|---|---|
-| 1 | KV 事件端口撞进 K8s NodePort 区间，被 IPVS 截走 | 端口分配 | 镜像恒空，**无任何报错** | `infera/common/net.py` |
-| 2 | MTP 下 `token_ids` 是 bigram 对，解码失败且不能直接哈希 | Python router | 日志 `kv decode failed: Expected int, got array` | `infera/router/kv_event/{events,client}.py` |
-| 3 | 同一个 bigram 问题在 Rust router 里被静默丢弃 | Rust router | 镜像恒空，**连警告都没有** | `rust/router/src/kv_event.rs` |
+| 1 | KV 事件端口撞进 K8s NodePort 区间，被 IPVS 截走 | 端口分配 | 镜像恒空，**无任何报错** | 已修 `infera/common/net.py` |
+| 2 | MTP 下 `token_ids` 是 bigram 对，解码失败且不能直接哈希 | Python router | 日志 `kv decode failed: Expected int, got array` | 已修 `infera/router/kv_event/{events,client}.py` |
+| 3 | 同一个 bigram 问题在 Rust router 里被静默丢弃 | Rust router | 镜像恒空，**连警告都没有** | 已修 `rust/router/src/kv_event.rs` |
+| 4 | bench 客户端 240s 硬超时，装不下 300K+ 的 prefill | AgenticBench | 请求被判失败，**引擎侧无任何错误** | 待上游改，见 §1.4 |
+| 5 | `efficiency` / `eviction_rate` 把物理上不可能命中的首轮算成损失 | AgenticBench 指标 | 表头效率 35.3%，实则 95.0% | 换口径读数，见 §1.5 |
+| 6 | 生产 profile 的 `tokenizer` 是占位符路径 | workload yaml | 启动即 `ERROR: Tokenizer path does not exist` | 命令行覆盖，见 §1.6 |
 
 一个贯穿全文的性质，先说在前面：**router 侧的命中判断算错也不会影响正确性。** router 只
 决定把请求送到哪个 rank，引擎自己会对 token 做精确前缀匹配，哈希误判的代价是白跑一次
@@ -29,7 +34,9 @@ prefill，不会返回错内容。所以 kv-aware 是纯性能特性。
 
 ---
 
-## 1. 三个 bug
+## 1. Bug 清单
+
+§1.0–1.3 是挡住 kv-aware 的三个 bug（已修），§1.4–1.6 是跑生产 profile 时暴露的压测工具问题。
 
 ### 1.0 先说一个被证伪的假设，免得别人再走一遍
 
@@ -327,6 +334,99 @@ cd rust/router
 LIBCLANG_PATH=/opt/rocm-7.2.0/lib/llvm/lib cargo test      # 59 项全过
 ```
 
+### 1.4 Bug 4：bench 客户端 240s 硬超时，把 300K+ 的请求判成失败
+
+#### 现象
+
+生产 profile 那轮 23 条请求里 1 条失败（`success_rate=0.9565`），但**引擎侧翻不到任何错误**：
+prefill / decode 日志没有 abort、没有超限、没有 5xx。bench 自己只打了一行：
+
+```
+WARNING: Request timeout - traffic timing may diverge from seed (non-deterministic)
+```
+
+#### 根因
+
+超时写死在客户端，与 prompt 长度无关：
+
+```python
+# Optimus-AgenticBench agent/agent_throughput.py:929（另有 :2229、:2972 三处相同）
+timeout=aiohttp.ClientTimeout(total=240)
+```
+
+而这个 profile 的尾部就在 240s 之外。用 `pdops/smoke_longctx.py` 实测的**空队列**单流耗时：
+
+| prompt token | 墙钟 | 结论 |
+|---|---|---|
+| 125,222 | 45.0s | 安全 |
+| 314,039 | 136.6s | 安全但已过半 |
+| 374,033 | 170.5s | 空队列就用掉 71% 的预算 |
+
+单流 prefill 吞吐约 2.2–2.8K tok/s，也就是 240s 的理论上限约 530–670K token；一旦并发排队，
+380K 的请求就必然突破。profile 自己声明上限 `max_prompt_tokens: 380000`，而客户端预算装不下
+它——**profile 与客户端的默认值互相矛盾**。
+
+#### 解决
+
+这是上游问题，不在 Infera 侧。跑长尾 profile 前把三处 `total=240` 按 prompt 上限放大，例如
+按 380K / 2.2K tok/s ≈ 173s 再留 3 倍余量取 900s。判断依据很明确：**失败但引擎侧无错、且失败
+集中在最长的那几条**，就是撞了这个超时，不要去查引擎。
+
+### 1.5 Bug 5：`efficiency` / `eviction_rate` 把物理上不可能命中的部分算成损失
+
+#### 现象
+
+生产 profile 的表头 `efficiency` 只有 **35.3%**（128K profile 是 88.2%），`eviction_rate`
+报 **64.7%**，看着像 kv-aware 在真实负载下失效。但逐请求看，21 条完成里有 9 条是
+`0.990/0.990`、`0.984/0.984` 这种几乎满命中。
+
+#### 根因
+
+两个独立的口径问题叠在一起：
+
+1. `eviction_rate` **不是实测淘汰量**。两轮数据都严格满足 `eviction_rate == 1 − efficiency`
+   （88.2%/11.8%、35.3%/64.7%），它只是效率的补数，与引擎是否真的淘汰了 KV 无关。
+2. `ideal_hit_rate` 把**新会话首轮**的初始前缀也算作"可复用"。首轮那段前缀从未发送过，任何
+   缓存都不可能命中，却进了分母。这个 profile `new_session_rate=0.42`，16 个会话有 10 个是
+   运行中新建的，光这些首轮就占全部 token 的 **56.4%**（128K profile 里只占 1.1%）。
+
+所以表头效率衡量的是"这个 workload 有多少 token 落在首轮"，而不是"路由做得有多好"。
+
+#### 解决
+
+改读数口径，只统计**能命中的那批**（`actual ≥ 0.05` 即非首轮）的 token 加权效率：
+
+```bash
+zcat pdops/results/agentic_4_prod_p50_60k_p90_300k/metrics.jsonl.gz | python3 -c "
+import json, sys
+rows = [json.loads(l) for l in sys.stdin if l.strip()]
+act = [h for x in rows for h in x.get('new_cache_hit_rates', [])]
+idl = [h for x in rows for h in x.get('new_ideal_cache_hit_rates', [])]
+pl  = [p for x in rows for p in x.get('new_prompt_lengths', [])]
+hit = [(p, a, d) for p, a, d in zip(pl, act, idl) if a >= 0.05]
+print('hittable=%d  token-weighted efficiency=%.3f'
+      % (len(hit), sum(p*a for p,a,_ in hit) / sum(p*d for p,_,d in hit)))
+"
+# hittable=12  token-weighted efficiency=0.950
+```
+
+同一口径下 128K profile 是 0.917，生产 profile 是 **0.950**——路由在真实负载下反而更好，
+因为可命中的请求都是十万级前缀，一旦落对 rank 就几乎全量命中。
+
+### 1.6 Bug 6：生产 profile 的 `tokenizer` 是占位符路径
+
+`code_agent_glm52_p50_60k_p90_300k.yaml:45` 写的是 `tokenizer: /path/to/GLM-5.2-MXFP4`
+（该 profile 是为 MXFP4 权重调的）。好在它**快速失败且报错明确**，不会静默用错 tokenizer 去
+估算 token 数：
+
+```
+Loading tokenizer: /path/to/GLM-5.2-MXFP4
+ERROR: Tokenizer path does not exist: /path/to/GLM-5.2-MXFP4
+```
+
+解决：命令行传 `--tokenizer /wekafs/models/GLM-5.2-FP8`。同理 `gpus: 8` 也要覆盖成 16
+（双节点），否则每 GPU 归一化的吞吐会虚高一倍。
+
 ---
 
 ## 2. 完整 workflow
@@ -564,10 +664,9 @@ agent-bench agent --server http://127.0.0.1:8000 \
   --dashboard-mode --name prod-p50_60k_p90_300k
 ```
 
-**一个硬约束要提前知道：** bench 客户端对每条请求写死了
-`aiohttp.ClientTimeout(total=240)`（`agent/agent_throughput.py:929`）。而空队列下 374K 的
-prompt 就要 170s，并发排队后必然突破 240s——这一轮 23 条里正是有 1 条这样超时
-（`success_rate=0.957`，引擎侧无任何错误）。要把 300K 以上的尾部跑干净，得先把这个超时改大。
+**一个硬约束要提前知道：** bench 客户端对每条请求写死了 240s 超时，而 380K 的 prompt 装不进
+这个预算——这一轮 23 条里正是有 1 条这样超时（`success_rate=0.957`，引擎侧无任何错误）。
+要把 300K 以上的尾部跑干净，先按 §1.4 把它改大。tokenizer 与 `gpus` 的覆盖理由见 §1.6。
 
 ---
 

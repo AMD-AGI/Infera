@@ -1146,13 +1146,13 @@ cache + 投机解码那条硬拒绝也还在）。**这是绕过，不是修掉�
 之外的任何有意义的路由行为，量到的吞吐也是这个默认值的天花板而不是硬件的。DP8 下想要
 每 rank N 就传 `8 × N`。
 
-### 5.2 code agentic 实测：PD + DPA + MTP 跑通了，缓存效率只有理想值的一半
+### 5.2 code agentic 实测：kv-aware 修好后缓存效率 88.2%，生产 profile 同样跑通
 
-工具是 Optimus-AgenticBench（`agent-bench agent`），负载形状取
-`agent/workloads/code_agent_128k.yaml`：初始前缀均值 40K、每轮追加均值 2.5K、
+工具是 Optimus-AgenticBench（`agent-bench agent`），先用较轻的
+`agent/workloads/code_agent_128k.yaml` 做三组归因对照：初始前缀均值 40K、每轮追加均值 2.5K、
 `new_session_rate=0.04`（也就是 **96% 的请求复用已有会话的前缀**）、生成均值 500。
-这个 profile 比 `code_agent_glm52_p50_60k_p90_300k.yaml`（均值 107K）轻得多，选它是因为
-后者在当前吞吐下一轮只跑得出个位数请求，前缀复用来不及体现。命令：
+贴近客户生产形状的 `code_agent_glm52_p50_60k_p90_300k.yaml`（p50 91K / p90 380K prompt、
+42% 新会话）随后也跑通了，见本节末尾。命令：
 
 ```bash
 agent-bench agent --server http://127.0.0.1:8000 \
@@ -1191,15 +1191,25 @@ TPOT 三组都在 32ms，说明这条路径没有动到 MTP。
    只剩负载项，于是并发的几个请求被摊到不同 rank，会话下一轮就落到不持有其前缀的 rank 上，
    只能重算——bench 把这部分记成 "eviction"，其实是**落错了 rank**。镜像正常之后，命中项
    （prefill 权重 20）把每个会话稳稳钉回持有它前缀的那个 rank，重算就消失了。
-3. **剩下的 11.8% 指向下一个瓶颈：新会话全部从 dp0 开始。** 平票时
+3. **剩下的缺口指向下一个瓶颈：新会话全部从 dp0 开始。** 平票时
    `min(targets, key=(cost, active))` 返回第一个目标，而新会话在 8 个 rank 上命中都是 0、
-   `active` 也基本是 0（日志里恒为 `active_blocks=0`），所以永远选 dp0。于是 8 个会话
-   （末态前缀均值 67K）全挤在 rank 0 那 1/8 的 KV pool 里，超出的部分被真正淘汰掉。
+   `active` 也基本是 0（日志里恒为 `active_blocks=0`），所以永远选 dp0——③里 60 条全落 dp0。
+   这**不是** KV 容量问题：`/get_server_info` 显示 `token_capacity=1,858,688` 是每个 DP rank
+   各自的（不是共享池的 1/8），8 个会话末态共约 568K，单 rank 装得下。真实代价是**并行度**，
+   其余 7 个 rank 的算力和 KV 池空转，长 prompt 一堆积就体现在 TTFT p90 上（24.3s）。
    要再往上走，得让平票时按负载/容量把**新**会话铺开，同时保持老会话的粘性——这是个策略
    改动，不是 bug，留作下一步。
 
-TTFT p90 24.3s 也印证第 3 点：p50 已经降到 2.5s（命中的那些），p90 仍高，是那些在 dp0 上
-被淘汰、需要重算 40-100K 前缀的请求。
+> 上表 `eviction rate` **不是实测淘汰量**：每一轮都严格等于 `1 − efficiency`，是效率的补数。
+> 真正的效率缺口来自新会话首轮无从命中（其前缀从未发送过）加零星部分命中。
+
+**生产 profile（p50 60K / p90 300K）也跑通了，但表头数字会骗人。** 23 条请求、22 条完成、
+**引擎侧零错误**（唯一失败是 bench 客户端 240s 硬超时，装不下 380K 的 prefill），TPOT 33.5ms
+与上面三组一致。表头 `efficiency` 只有 35.3%，看着像 kv-aware 在真实负载下失效；逐请求拆开
+结论相反——21 条完成里 9 条是**新会话首轮**（无从命中，却占全部 token 的 56.4%），其余
+**可命中请求的 token 加权效率是 95.0%**，比 128K profile 同口径的 91.7% 更高，因为十万级前缀
+一旦落对 rank 就几乎全量命中。完整过程、三个 bench 侧问题（240s 超时、指标口径、占位符
+tokenizer）和逐请求数据见 [`KV_AWARE.zh.md`](KV_AWARE.zh.md) §1.4–1.6、§2.6、§3.1。
 
 ---
 
@@ -1235,19 +1245,25 @@ TTFT p90 24.3s 也印证第 3 点：p50 已经降到 2.5s（命中的那些）�
    当初 0.85 的 OOM 是 65536 大单块造成的，回到每 rank 16384 后应该能恢复 0.85 拿回
    完整的 2,194,496 pool，但还没重测。
 4. **用真实负载形状重跑吞吐测试。** §4 全部取自 8k/128、每档 5 个 prompt、补丁之前，
-   只能算一种形状。需要补的是 code agent 的形态：长输入（64k–128k）、长输出、多轮之间
-   共享长前缀；每档样本量从 5 提到 ≥50，否则 p99 TTFT 没有意义；并且直接读 mooncake /
-   轨道计数器测真实 KV 出口字节数，而不是从 req/s 反推。
+   只能算一种形状。code agent 形态已经补上了两轮（§5.2：128K profile 60 条、生产 profile
+   p50 91K / p90 380K），还差的是：生产 profile 只跑出 23 条请求（0.029 QPS × 795s），
+   样本太薄，`prompt_len` 实测 p50/p90 都偏高于 profile 标称值——要先按 `KV_AWARE.zh.md` §1.4
+   放大 bench 客户端那个 240s 超时，再加大 `sustain_duration` 重跑一轮拿稳定百分位；以及
+   直接读 mooncake / 轨道计数器测真实 KV 出口字节数，而不是从 req/s 反推。
 5. **kv-aware 已在 PD + DPA + MTP 上跑通（§5.0），剩下一个策略问题。** 两个 bug 都修完了：
    KV 事件端口撞 NodePort 被 IPVS 截走（`infera/common/net.py`），以及 MTP 下 bigram
    `token_ids` 解不开、且不能原样参与哈希（`infera/router/kv_event/`）。agentic 实测缓存
-   效率 57.3% → 88.2%（§5.2 三组对照）。剩下的不是 bug 而是策略：**新会话平票时永远选
-   dp0**，8 个会话全挤在一个 rank 的 1/8 KV pool 里，这是剩余 11.8% eviction 和 TTFT p90
-   仍有 24s 的来源。要做的是让平票时按负载/容量把新会话铺开、同时保持老会话对持有其前缀
-   那个 rank 的粘性（改 `kv_event_aware.py` 的 `cost`/tie-break，不需要重启引擎）。
-   两个副产品值得提上游/内部：`free_tcp_port_block` 只用 loopback 探测，原理上发现不了
+   效率 57.3% → 88.2%（§5.2 三组对照），客户生产形状的 profile 也已跑通、可命中请求同口径
+   效率 95.0%（§5.2 末段）。剩下的不是 bug 而是策略：**新会话平票时永远选 dp0**（60 条全落
+   dp0）。注意这不是 KV 容量问题——`token_capacity=1,858,688` 是每个 DP rank 各自的，单 rank
+   装得下所有会话；代价是其余 7 个 rank 空转，长 prompt 一堆积就体现在 TTFT p90（24.3s / 生产
+   profile 176s）。要做的是让平票时按负载/容量把新会话铺开、同时保持老会话对持有其前缀
+   那个 rank 的粘性（改 `kv_event_aware.py` 的 `cost`/tie-break，不需要重启引擎）。生产 profile
+   下这件事更值钱：它 42% 是新会话，且单条 prompt 动辄十万级。
+   几个副产品值得提上游/内部：`free_tcp_port_block` 只用 loopback 探测，原理上发现不了
    IPVS 拦截这类"能 bind、从节点 IP 打不通"的端口；SGLang 的 `BlockStored.token_ids`
-   声明是 `list[int]` 而 EAGLE 路径实际写入 bigram 对，声明与实际不符。
+   声明是 `list[int]` 而 EAGLE 路径实际写入 bigram 对，声明与实际不符；Optimus-AgenticBench
+   的 240s 硬超时与 `efficiency` 口径（`KV_AWARE.zh.md` §1.4、§1.5）。
    下面两条原有分工仍然成立：
    - **先在单机 pd-mixed 上验**（§5.1）。MTP 冲突只作用于 decode 角色，所以 mixed 下
      dp-attention + MTP + kv-aware 可以同时开，不需要重启 PD 两条腿，而且顺带能拿到一个
