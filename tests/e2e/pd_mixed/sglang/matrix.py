@@ -20,7 +20,7 @@ CASES = [
         True,
         GPT_OSS,
         2,
-        (True, False),
+        True,
         False,
         {"env": {"SGLANG_USE_AITER": "1"}, "server_ready_timeout": 1800},
     ],
@@ -98,7 +98,7 @@ CASES = [
     # Verified 2026-07-23 single-node mix, temp=0: France->Paris/China->Beijing/2+2->4.
     # Long timeout covers the ~8-10 min silent tilelang-JIT + aiter-GEMM-tuning window.
     [
-        False,
+        True,
         GLM_5_1_FP8,
         4,
         False,

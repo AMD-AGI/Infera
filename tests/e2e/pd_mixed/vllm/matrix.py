@@ -16,7 +16,7 @@ from ...harness.matrix import DEEPSEEK_V4_PRO, GLM_5_1_FP8, KIMI_K26_MXFP4, QWEN
 # matching InferenceX single_node/fixed_seq_len benchmarks.
 CASES = [
     [
-        True,
+        False,
         QWEN3_8B,
         2,
         False,
@@ -105,7 +105,7 @@ CASES = [
     # pd_disag/vllm MoRIIO/Mooncake path). Verified 2026-07-23 single-node mix, temp=0
     # (thinking disabled): France->Paris/China->Beijing/2+2->4.
     [
-        False,
+        True,
         GLM_5_1_FP8,
         4,
         False,

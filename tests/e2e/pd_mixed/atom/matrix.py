@@ -19,7 +19,7 @@ CASES = [
         True,
         GPT_OSS,
         2,
-        (True, False),
+        True,
         False,
         {
             "args": [
@@ -86,7 +86,7 @@ CASES = [
     # so /v1/chat/completions works. Verified 2026-07-23 single-node, temp=0:
     # France->Paris/China->Beijing/2+2->4 (thinking disabled in the probe).
     [
-        False,
+        True,
         GLM_5_1_FP8,
         4,
         False,
