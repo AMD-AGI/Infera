@@ -621,6 +621,23 @@ run_e2e_disagg() {
   return "$rc"
 }
 
+# Report-only: both tiers can still run (degraded) without a reservation or with
+# a nearly full /home, and a hard exit here would cost a whole CI run to find out.
+_e2e_preflight() {
+  local avail
+  if [ -n "${INFERA_E2E_RESERVATION:-}" ] && command -v scontrol >/dev/null 2>&1 \
+     && [ -z "$(_reservation_nodes "$INFERA_E2E_RESERVATION")" ]; then
+    echo "[e2e] ERROR: reservation '$INFERA_E2E_RESERVATION' does not exist (gone or expired)" >&2
+  fi
+  avail=$(df -Pk /home 2>/dev/null | awk 'NR==2{print $4}')
+  case "$avail" in
+    "" | *[!0-9]*) ;;
+    *) [ "$avail" -lt 1048576 ] &&
+      echo "[e2e] WARNING: /home has $((avail / 1024)) MB free (under 1 GB)" >&2 ;;
+  esac
+  return 0
+}
+
 # run_e2e [engine] [scenario]   (order-independent)
 #   engine    sglang | vllm | atom | all   (default all)
 #   scenario  mixed | disag                (default BOTH mixed + disag)
@@ -636,6 +653,7 @@ run_e2e() {
       *) echo "[e2e] unknown arg '$tok' (engine: sglang|vllm|atom|all; scenario: mixed|disag)"; return 2 ;;
     esac
   done
+  _e2e_preflight
   local rc=0
   [ "$scenario" != "disag" ] && { run_e2e_mixed "${engines[@]}" || rc=1; }
   [ "$scenario" != "mixed" ] && { run_e2e_disagg "${engines[@]}" || rc=1; }
