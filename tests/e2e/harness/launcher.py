@@ -156,7 +156,10 @@ class SrunDockerLauncher(WorkerLauncher):
         self.image = f"{image}-{re.sub(r'[^a-z0-9_.-]', '', suffix)}" if suffix else image
         self.dockerfile = dockerfile
         self.model_dir = model_dir or os.environ.get("INFERA_E2E_MODEL_DIR")
-        self.log_dir = log_dir or "/tmp/infera-e2e-logs"
+        # run_tests.sh exports the per-run dir it made; in CI that is on shared
+        # NFS next to the dispatch log, so a disagg run's logs outlive the runner
+        # (and the folder is not left empty for a cleanup sweep to reap).
+        self.log_dir = log_dir or os.environ.get("INFERA_E2E_LOG_DIR") or "/tmp/infera-e2e-logs"
         self.build_timeout = build_timeout
         self.start_timeout = start_timeout
         self._built: set[str] = set()

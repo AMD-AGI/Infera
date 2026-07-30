@@ -109,6 +109,7 @@ CASES = [
                 "glm45",
                 "--mem-fraction-static",
                 "0.85",
+                "--model-loader-extra-config",
                 '{"enable_multithread_load": true, "num_threads": 8}',
             ],
             "env": {"SGLANG_USE_AITER": "1"},

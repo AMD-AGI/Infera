@@ -65,6 +65,9 @@ mkdir -p "$E2E_LOG_DIR"
 # co-tenant renaming or clobbering another run's logs. Shared dir only.
 if [ -n "$SHARED_LOG_DIR" ]; then chmod 1777 "$E2E_LOG_DIR" 2>/dev/null || true; fi
 SCRATCH_FLAGS+=(-v "$E2E_LOG_DIR":/e2e-logs)
+# The disagg tier drives its containers over srun and writes their logs here on
+# the orchestrator, so it needs the path itself, not the container mount above.
+export INFERA_E2E_LOG_DIR="$E2E_LOG_DIR"
 
 _cleanup_scratch() {
   local img="$IMG_SGLANG"
