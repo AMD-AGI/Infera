@@ -428,11 +428,23 @@ fn as_u64_vec(v: &rmpv::Value) -> Vec<u64> {
         .unwrap_or_default()
 }
 
+/// Flat token ids from a `BlockStored`'s `token_ids`, in either view the engine
+/// may report. Under EAGLE/MTP, SGLang keys its radix tree on bigrams and sends
+/// each block's tokens as the overlapping pairs `(t[i], t[i+1])`; the first
+/// element of each pair rebuilds `t[start:end]`, which is the flat slice
+/// `hash_request` chunks on the query side (radix nodes split on page
+/// boundaries, so the two chunkings stay aligned). Without this, pairs are not
+/// integers, every element is dropped, and the view silently stays empty.
 fn as_u32_vec(v: &rmpv::Value) -> Vec<u32> {
     v.as_array()
         .map(|a| {
             a.iter()
-                .filter_map(|x| as_u64_any(x).map(|n| n as u32))
+                .filter_map(|x| match x {
+                    rmpv::Value::Array(pair) => {
+                        pair.first().and_then(as_u64_any).map(|n| n as u32)
+                    }
+                    _ => as_u64_any(x).map(|n| n as u32),
+                })
                 .collect()
         })
         .unwrap_or_default()
@@ -508,6 +520,42 @@ mod tests {
             c.prefix_hits("sgl", Some(0), &q),
             0,
             "other DP rank untouched"
+        );
+        c.shutdown();
+    }
+
+    #[test]
+    fn decodes_sglang_bigram_batch_under_mtp() {
+        // With MTP/EAGLE the radix key is a bigram view, so token_ids arrives as
+        // overlapping (t[i], t[i+1]) PAIRS. The view must still hash to what the
+        // query side computes over the flat tokens, or kv-aware never hits.
+        let c = KvEventClient::new();
+        c.on_worker_added(&worker("sgl", Some("tcp://127.0.0.1:6005"), 16, Some(2)));
+        // 16 bigrams over flat tokens 1..=17 -> one block whose first elements
+        // are exactly 1..=16.
+        let pairs: Vec<Mv> = (1u32..=16)
+            .map(|t| Mv::Array(vec![Mv::from(t), Mv::from(t + 1)]))
+            .collect();
+        let stored = Mv::Array(vec![
+            Mv::String("BlockStored".into()),
+            ints(&[910]),
+            Mv::Nil,
+            Mv::Array(pairs),
+            Mv::from(16i64),
+            Mv::Nil,
+        ]);
+        let batch = enc(Mv::Array(vec![
+            Mv::from(1.0),
+            Mv::Array(vec![stored]),
+            Mv::from(0i64),
+        ]));
+        feed_wire(&c, "sgl", 0, &batch);
+        let q = crate::hasher::hash_request(&seq(1, 16), 16);
+        assert_eq!(q.len(), 1);
+        assert_eq!(
+            c.prefix_hits("sgl", Some(0), &q),
+            1,
+            "bigram pairs must hash like the flat token slice"
         );
         c.shutdown();
     }

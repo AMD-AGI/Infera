@@ -204,6 +204,21 @@ class KvEventClient:
             sub.view_for(rank).clear()
             sub.map_for(rank).clear()
 
+    @staticmethod
+    def _flat_tokens(token_ids: list) -> list[int]:
+        """Flat token ids for a stored block, whatever view the engine reports.
+
+        Under EAGLE/MTP SGLang keys its radix tree on bigrams, so a block's
+        tokens arrive as the overlapping pairs ``(t[i], t[i+1])``. Taking the
+        first element of each pair rebuilds ``t[start:end]`` -- the same flat
+        slice ``hash_request`` chunks on the query side, and radix nodes split on
+        page boundaries so the two chunkings stay aligned. Hashing the pairs
+        as-is would instead produce a view that never matches any request.
+        """
+        if token_ids and isinstance(token_ids[0], (list, tuple)):
+            return [pair[0] for pair in token_ids]
+        return token_ids
+
     def _on_block_stored(self, sub: WorkerSubscription, ev: object, rank: int | None) -> None:
         view, m = sub.view_for(rank), sub.map_for(rank)
         if ev.parent_block_hash is None:
@@ -216,9 +231,10 @@ class KvEventClient:
                 # query misses by one block.
                 return
         bs = sub.block_size
-        n = len(ev.token_ids) // bs
+        tokens = self._flat_tokens(ev.token_ids)
+        n = len(tokens) // bs
         for i in range(n):
-            chunk = ev.token_ids[i * bs : (i + 1) * bs]
+            chunk = tokens[i * bs : (i + 1) * bs]
             parent = hash_chunk(parent, chunk)
             view.add(parent)
             m[ev.block_hashes[i]] = parent
