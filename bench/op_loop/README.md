@@ -48,6 +48,33 @@ experts kernel = 0.171 ms; `infera_decode` after this loop = **0.135 ms
 (1.31× )** at **~5.2 TB/s (65% of HBM peak)** — bandwidth-bound, so further wins
 need less traffic (dtype / dedup), not more tuning.
 
+## End-to-end (does the op win show up in a serve?)
+
+`../_moe_decode_e2e_serve.sh` + `../_moe_decode_e2e_client.py` measure single-stream
+(batch-1) decode ITL with the kernel wired into the serving path (the plugin's MoE
+seam runs `infera_decode` on genuine small-M bf16 decode steps, verified via a
+fire counter). Measured on **Qwen3.5-35B-A3B (bf16 MoE)**, MI355X, TP=1:
+
+| config | ITL (ms/tok) | decode tok/s |
+| --- | --- | --- |
+| aiter **on** — production default | 5.754 | 173.3 |
+| aiter off — builtin (triton) | 5.650 | 176.7 |
+| **aiter off — `infera_decode`** | **5.264** | **188.8** |
+
+So `infera_decode` is the **fastest config, ~8.5% better ITL than the aiter-on
+default** — because at batch-1 aiter gives no decode benefit here (slightly
+negative), so turning it off is free and the MoE kernel then wins. The op-level
+~1.3× dilutes to single-digit e2e because routed experts are ~⅓ of the
+bandwidth-bound batch-1 decode step.
+
+**Limitations (by design, all self-delegating — never a regression):**
+- **bf16/fp16 only** — MXFP4/quantized weights delegate (so Kimi-2.6 MXFP4 sees no effect).
+- **batch ≤ 16** — larger batches delegate and aiter's large-M wins take over.
+- **plain weight layout** — aiter pre-shuffles MoE weights, so the seam delegates when
+  `VLLM_ROCM_USE_AITER` is set; the kernel runs with aiter's MoE path off (or
+  `INFERA_MOE_ASSUME_PLAIN=1`). Mixing aiter-prefill with this decode kernel needs
+  weight un-shuffling — future work.
+
 ## Config precedence
 
 `_decode_tunables()` reads, in order: per-key env (`INFERA_MOE_GU_BLOCK_I`, …) →

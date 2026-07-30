@@ -7,16 +7,24 @@
 
 vLLM runs every MoE block through a modular kernel (``FusedMoEKernel`` in vLLM
 0.23; its ``apply`` / ``apply_monolithic`` route → experts-GEMM → combine). We
-patch those methods from ``register_ops`` (a general plugin, so ``vllm`` is
-initialized) with a pass-through wrapper — the single point where an
-Infera/HyperLoom experts kernel replaces the default while keeping vLLM's
-routing / quant / EP-DP dispatch. This is the less-invasive alternative to
-vLLM-ATOM's whole-model ``register_model`` wrapper.
+patch ``apply`` from ``register_ops`` (a general plugin, so ``vllm`` is
+initialized) — the single point where an Infera/HyperLoom experts kernel replaces
+the default while keeping vLLM's routing / quant / EP-DP dispatch. Less invasive
+than vLLM-ATOM's whole-model ``register_model`` wrapper.
 
-Today it is a delegating pass-through (bitwise identical). ``INFERA_MOE_EXPERTS``
-is reserved for selecting a custom experts implementation. The MoE modular-kernel
-API moves between vLLM versions, so the patch is defensive: if the class/methods
-aren't found it logs and no-ops rather than raising.
+``INFERA_MOE_EXPERTS=<name>`` selects a registered variant; when the request is
+one the variant supports the seam runs it and returns the combined ``[T, H]``
+output, otherwise it delegates to the untouched original. The seam is safe and
+self-gating — it delegates (never garbage, never a regression) unless ALL hold:
+a variant is selected, plain (non-aiter-shuffled) bf16/fp16 weights
+(see ``_weights_are_aiter_shuffled``), small M (the ``infera_decode`` guard),
+unquantized, no expert_map/EP, no shared-expert overlap, modular (topk) ``apply``.
+The modular-kernel API moves between vLLM versions, so patching is defensive.
+
+Scope of the first kernel (``infera_decode``): a **decode-step specialist** — it
+helps single-stream / low-concurrency **bf16** MoE decode (measured e2e below),
+and delegates everywhere else. Not an aiter replacement, and (until weight
+un-shuffling is added) it runs only with aiter's MoE path off / plain weights.
 """
 
 from __future__ import annotations
@@ -61,7 +69,7 @@ def install_moe_ops() -> None:
         original = getattr(kernel, name, None)
         if original is None or getattr(original, "_infera_wrapped", False):
             continue
-        setattr(kernel, name, _make_seam(original))
+        setattr(kernel, name, _make_seam(original, name))
         wrapped.append(name)
 
     logger.info(
@@ -72,12 +80,99 @@ def install_moe_ops() -> None:
     )
 
 
-def _make_seam(original):
-    """Delegating pass-through — the point a custom experts kernel is dropped in."""
+# Count of genuine infera_decode Triton executions (set inside the variant, past
+# every guard/delegate). Verifies the kernel actually fires during a serve — a
+# silent delegate would otherwise give a false "no change". When
+# INFERA_MOE_DECODE_DEBUG=1: the first fire prints to stderr and, if
+# INFERA_MOE_FIRE_FILE is set, the running count is written there periodically.
+_KERNEL_FIRE_COUNT = 0
+
+
+def _selected_variant():
+    """The custom experts callable selected by ``INFERA_MOE_EXPERTS`` (or None for
+    the built-in aiter/modular path)."""
+    name = (os.environ.get("INFERA_MOE_EXPERTS") or "builtin").lower()
+    if name in ("builtin", "off", "0", ""):
+        return None
+    return _EXPERTS_VARIANTS.get(name)
+
+
+def _weights_are_aiter_shuffled() -> bool:
+    """Weight-layout state on the interface: when vLLM's aiter path is active it
+    pre-shuffles the MoE weights into aiter's private layout at load
+    (``rocm_aiter_ops.shuffle_weights`` in fused_moe/oracle/*), an in-place
+    ``.data`` swap with no per-tensor marker — so a plain-layout kernel would
+    silently misread them (garbage, no exception). The aiter master switch is the
+    reliable signal; when set, the seam MUST delegate. `INFERA_MOE_ASSUME_PLAIN=1`
+    overrides (you asserted plain weights, e.g. a custom load path)."""
+    if os.environ.get("INFERA_MOE_ASSUME_PLAIN") == "1":
+        return False
+    try:
+        import vllm.envs as envs
+
+        return bool(getattr(envs, "VLLM_ROCM_USE_AITER", False))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _make_seam(original, method_name):
+    """MoE-experts injection seam.
+
+    For the modular ``apply`` (topk_weights/topk_ids based) we intercept genuine
+    small-M **decode** steps and run the selected custom experts variant, which
+    returns the fully combined ``[T, H]`` MoE output (router weights applied on
+    output) — exactly what the modular flow returns before the downstream TP
+    all-reduce. prepare/finalize is a no-op identity for bf16-unquantized
+    single-node TP, so bypassing it is equivalent. Everything the variant does
+    not support (large M, quantized weights, expert_map/EP, shared-expert
+    overlap, non-SiLU, monolithic router+experts) delegates to the untouched
+    original so prefill / large batches keep the aiter path.
+    """
+
+    if method_name != "apply":
+        # apply_monolithic fuses routing (router_logits, no topk) — not something
+        # the decode experts kernel handles. Leave untouched.
+        def _passthrough(self, *args, **kwargs):
+            return original(self, *args, **kwargs)
+
+        _passthrough._infera_wrapped = True
+        return _passthrough
 
     def _seam(self, *args, **kwargs):
-        # TODO(#40): dispatch to the Infera experts-GEMM kernel when
-        # INFERA_MOE_EXPERTS is set. Until then, delegate unchanged.
+        variant = _selected_variant()
+        if variant is not None:
+            # FusedMoEKernel.apply is always called by keyword (see
+            # unquantized_fused_moe_method / fused_moe_modular_method).
+            hidden_states = kwargs.get("hidden_states")
+            # When can_overlap_shared_experts is False (non-async prepare/finalize,
+            # e.g. single-node TP / NoEP), the modular _finalize does NOT run the
+            # shared experts — the runner computes and combines them OUTSIDE the
+            # kernel (SharedExpertsOrder.NO_OVERLAP, see moe_runner._apply_quant_
+            # method). So the shared_experts handed to apply here are inert and we
+            # may replace the routed-experts compute. If overlap is active, the
+            # kernel owns the shared-expert compute — delegate to stay correct.
+            can_overlap = bool(getattr(self, "can_overlap_shared_experts", False))
+            # Weight-layout gate: the kernel reads plain [E, 2I, H]/[E, H, I]
+            # tensors; if aiter pre-shuffled them at load, delegate (else garbage).
+            if hidden_states is not None and not can_overlap and not _weights_are_aiter_shuffled():
+                try:
+                    out = variant(
+                        hidden_states,
+                        kwargs["w1"],
+                        kwargs["w2"],
+                        kwargs["topk_weights"],
+                        kwargs["topk_ids"],
+                        activation=kwargs.get("activation"),
+                        apply_router_weight_on_input=kwargs.get(
+                            "apply_router_weight_on_input", False
+                        ),
+                        global_num_experts=kwargs.get("global_num_experts", -1),
+                        expert_map=kwargs.get("expert_map"),
+                        _infera_delegate=lambda: original(self, *args, **kwargs),
+                    )
+                    return out
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("infera-vllm-ops: decode experts seam fell back (%s)", exc)
         return original(self, *args, **kwargs)
 
     _seam._infera_wrapped = True
@@ -273,9 +368,16 @@ def _infera_decode_experts(
     global_num_experts: int = -1,
     expert_map=None,
     quant_config=None,
+    _infera_delegate=None,
     **kwargs,
 ):
-    """Small-M fused SwiGLU experts kernel (see module comment above)."""
+    """Small-M fused SwiGLU experts kernel (see module comment above).
+
+    ``_infera_delegate`` (when supplied by the serve seam) re-runs the original
+    modular MoE flow — i.e. the untouched aiter path — for anything this kernel
+    does not handle, instead of the standalone ``fused_experts`` fallback used by
+    the offline microbench.
+    """
     import torch
 
     if not _HAS_TRITON:
@@ -302,6 +404,8 @@ def _infera_decode_experts(
     # win at T<=8 for E=384 (1.09-1.28x), win at T<=4 for E=64, lose beyond.
     max_tokens = int(os.environ.get("INFERA_MOE_DECODE_MAX_TOKENS", "16"))
     if T > max_tokens or 2 * T * K > E:  # large-M / collision-heavy: delegate.
+        if _infera_delegate is not None:
+            return _infera_delegate()
         from vllm.model_executor.layers.fused_moe import fused_experts as _builtin
 
         return _builtin(
@@ -320,6 +424,27 @@ def _infera_decode_experts(
     gu_bi, gu_bh, gu_w, dn_bh, dn_bi, dn_w = _decode_tunables()
     if I % gu_bi or H % gu_bh or H % dn_bh or I % dn_bi:
         raise RuntimeError(f"dims H={H} I={I} not divisible by block sizes")
+
+    # Verification counter: incremented only here, where the Triton kernels
+    # actually launch (past every delegate/guard) — so it counts genuine decode
+    # kernel executions, not seam entries or delegated prefill steps.
+    global _KERNEL_FIRE_COUNT
+    _KERNEL_FIRE_COUNT += 1
+    if os.environ.get("INFERA_MOE_DECODE_DEBUG") == "1":
+        if _KERNEL_FIRE_COUNT == 1:
+            import sys
+
+            sys.stderr.write(
+                f"[infera-moe] infera_decode kernel FIRST FIRE (T={T} K={K} E={E} H={H} I={I})\n"
+            )
+            sys.stderr.flush()
+        fire_file = os.environ.get("INFERA_MOE_FIRE_FILE")
+        if fire_file and _KERNEL_FIRE_COUNT % 500 == 0:
+            try:
+                with open(fire_file, "w") as _f:
+                    _f.write(str(_KERNEL_FIRE_COUNT))
+            except Exception:  # noqa: BLE001
+                pass
 
     x = hidden_states.contiguous()
     ids = topk_ids.reshape(-1).contiguous()
