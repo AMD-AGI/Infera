@@ -935,7 +935,8 @@ _active_rdma_nics() 报告的 subnets: ['10.115.46.0/24']   ← 只有 1 个
 
 ## 5. 路由：round-robin → KV-aware
 
-已改进脚本，但**尚未在硬件上验证**——这需要的 leg 重启没有执行。
+**已在硬件上跑通**：PD + DPA + MTP 上 kv-aware 拿到了完整命中，agentic 实测缓存效率
+从 57.3% 提到 88.2%（§5.0 的两个 bug 与修复，§5.2 的三组对照）。
 
 Infera 只提供两种策略：`round-robin` 和 `kv-aware`
 （`infera/router/policy/factory.py:56-67`）；`kv-aware` 其实是上游默认值，是这些
@@ -974,6 +975,120 @@ decode 侧刻意默认保持关闭：只要开了 kv 事件，Infera 就会给 m
 `infera_router_pick_request_blocks`，router 日志里的
 `pick policy=kv-aware ... cache_hits=N request_blocks=M` 那一行，以及
 `GET /v1/admin/cache-view/{worker_id}?dp_rank=N` 查看每个 rank 的 block 数。
+
+### 5.0 打通 kv-aware：两个各自独立的 bug，第二个被第一个挡住了
+
+按上面的配置真跑起来之后，router 的缓存镜像恒为空、`cache_hits` 恒为 0。挖到底发现是
+**两个完全无关的 bug 串在一条链上**：一个在端口分配，一个在事件解码。第二个只有修掉第一个
+之后才会显形——因为帧根本到不了 router，解码路径压根没被执行到。
+
+> 本节是摘要。[`KV_AWARE.zh.md`](KV_AWARE.zh.md) 是这条线的完整版：三个 bug（含 Rust
+> router 那个静默失败的孪生 bug）的逐项定位过程与代码片段，加上从启动、观测、正确性核验
+> 到 agentic bench 归因的完整 workflow 和命令。
+
+#### Bug 1：KV 事件端口撞进 Kubernetes NodePort 区间，被 IPVS 吃掉
+
+先说一个**被证伪的猜想**，免得别人再走一遍：本报告早先版本怀疑是 ZMQ 的线程安全问题
+（PUB socket 在主线程建、在发布线程用）。写了个复刻脚本，让发布器先空转 6 秒、订阅者后连，
+和引擎里的时序完全一致——**帧正常收到**。所以发布器没问题。
+
+真正的分水岭是**地址**。同一个进程里同时订阅 loopback 和节点 IP、发一条请求，同一瞬间：
+
+| SUB 连的地址 | 收到帧 |
+|---|---|
+| `tcp://127.0.0.1:32760` | ✅ 1 帧，73 KB，topic `kv-events`，msgpack 里是 `BlockStored` |
+| `tcp://10.32.17.210:32760` | ❌ 0 帧 |
+
+而 `socket.connect(("10.32.17.210", 32760))` 直接 **`ConnectionRefused`**，尽管
+`ss -ltnp` 明明显示 socket 绑在 `0.0.0.0:32760`。原因在 `/proc/net/ip_vs`：
+
+```
+10.32.17.210:32760  real_servers = NONE
+10.36.1.210:32760   real_servers = NONE      # 本机每个网卡地址都有一条
+...
+```
+
+集群里有个 Service 占用了 NodePort **32760**，kube-proxy（IPVS 模式）就在本机所有地址上
+建了对应的 IPVS 服务，而本节点没有它的 endpoint，于是 real server 列表为空。**IPVS 在数据包
+到达本地 `0.0.0.0` 监听之前就把它截走，内核回 RST。** 127.0.0.1 不在 IPVS 的绑定地址里，
+所以只有 loopback 通——而 router 用的恰恰是引擎 advertise 的节点 IP。
+
+端口是怎么选到 32760 的：`free_tcp_port_block()` 从 `ip_local_port_range` 下界往下扫，
+`32768 - 8 = 32760`，**整块都在 NodePort 区间（30000-32767）里**。更麻烦的是它只用
+`127.0.0.1` 试 bind——而 IPVS 拦截既不影响 bind 也不影响 loopback，所以这个探测**原理上
+就发现不了**这种端口。
+
+修复（`infera/common/net.py`）：扫描时绕开 NodePort 区间，默认 30000-32767，可用
+`INFERA_NODEPORT_RANGE="lo-hi"` 或 `none` 覆盖。dp8 下基址从 32760 变成 29992。单测
+`tests/unit/common/test_net_ports.py` 钉住"不与该区间重叠"。
+
+顺带一句：`free_tcp_port()`（单 rank 路径）不受影响——内核分配的临时端口在 32768 以上，
+本来就在 NodePort 区间之外。
+
+#### Bug 2：MTP 让 `token_ids` 变成 bigram 对，router 解不开
+
+帧能到之后，router 立刻报出真正的第二个问题：
+
+```
+kv decode failed for 10.32.17.210:30001: Expected `int`, got `array` - at `$[1][0][3][0]`
+```
+
+`$[1][0][3]` 就是第一个事件的 `token_ids`。SGLang 的结构体声明是 `list[int]`，但
+`_record_store_event` 往里塞的是别的东西（msgspec 编码不做类型校验）：
+
+```python
+is_bigram = node.key.is_bigram
+if is_bigram:
+    page_tokens = [(raw[j], raw[j + 1]) for j in range(start, end)]
+else:
+    page_tokens = list(raw[start:end])
+```
+
+而 `is_bigram` 的来源是 `RadixKey(..., is_bigram=self.is_eagle)`——**开了 MTP/EAGLE，
+radix 树就按 bigram 建键，事件里每个 block 的 token 就变成重叠的 `(t[i], t[i+1])` 对。**
+所以这不是偶发兼容问题，而是 MTP 与 kv-aware 的必然交点：只要这两个一起开，就会踩到。
+
+这里的关键不只是"解码类型要放宽"。router 给请求算哈希用的是扁平 token 序列
+（`hash_request` 按 block_size 切块链式哈希），**如果把 bigram 对原样喂进哈希，算出来的
+视图和任何请求都不会match**。正确做法是取每对的第一个元素：一页覆盖 bigram 位置
+`[start, end)`，各对的首元素就是 `raw[start:end]`，恰好是请求侧看到的那一段；而 radix 节点
+按页边界分裂，两边的切块因此天然对齐。
+
+修复（`infera/router/kv_event/{events,client}.py`）：SGLang 侧 schema 放成
+`list[int | tuple[int, int]]`，`_flat_tokens` 在哈希前把对折平。vLLM 侧不动（没有 bigram）。
+`tests/unit/router/test_kv_event_e2e.py` 里加了一个 bigram 契约测试：用 `(1,2),(2,3),(3,4),(4,5)`
+这种形状发事件，断言它和扁平 `[1,2,3,4]` 的请求哈希对得上。
+
+**Rust router 有同一个 bug，而且更隐蔽**（`rust/router/src/kv_event.rs`）：它的
+`as_u32_vec` 用 `filter_map(as_u64_any)`，嵌套数组不是整数、于是被**静默丢掉**，一页 64 个
+bigram 解出空 token 列表，`n = 0 / 64 = 0`，视图默默保持为空、连 Python 那条
+`kv decode failed` 警告都没有。已按同样的语义修掉并补了 Rust 侧的 bigram 测试
+（`cargo test`：59 项全过；本机构建需要 `LIBCLANG_PATH=/opt/rocm-7.2.0/lib/llvm/lib`，
+否则 `onig_sys` 找不到 libclang）。
+
+#### 修完之后的实测
+
+| 检查 | 结果 |
+|---|---|
+| 独立 SUB 连节点 IP（新端口 29992） | 收到帧，topic `kv-events` |
+| router 订阅 | `subscribing to ... (block_size=64, ranks=8) at tcp://10.32.17.210:29992` |
+| 缓存镜像 | `cache-view` dp0 从 0 涨到 333 blocks（21359 token 的 prompt） |
+| 同 prompt 重发 | **`cache_hits=333 request_blocks=333`**，333/333 全命中 |
+| 墙钟 | 首次 14.75s → 重发 **0.73s**（引擎侧 `cached_tokens=21312/21359`） |
+| `POST /flush_cache` | 镜像同步归零（`AllBlocksCleared` 路径也通） |
+| 正确性套件 | 9 项通过（`humaneval-long` 19/20，套件判定"未见长上下文退化"；`determinism` 1/1） |
+
+**一个值得记住的性质：router 侧的命中判断即使算错也不会影响正确性。** router 只决定把请求
+送到哪个 rank，引擎自己会对 token 做精确前缀匹配；哈希误判的代价是白跑一次 prefill，
+不会返回错内容。所以 kv-aware 是纯性能特性，可以放心开。
+
+**另一处要记住的坑：`cached_tokens` 不能用来验证 kv-aware 是否生效。** 开了
+`--enable-cache-report` 之后，响应里的 `prompt_tokens_details.cached_tokens` 是**引擎侧**的
+radix 匹配结果、且按页对齐（实测 19258 token 的 prompt 重发报 19200 = 300 × 64；全新 prompt
+则整个 `prompt_tokens_details` 是 `null`）。它说的是"请求落到的那个 rank 上引擎自己匹配到
+多少"，和 router 以为的命中是两件事——router 视图坏掉时请求偶然落回原 rank 一样会有高
+`cached_tokens`。要判断路由本身，看 router 的 `infera_router_pick_cache_hits` 和
+`cache-view`。
 
 ### 5.1 单机 pd-mixed 是可行的验证路径（也是唯一能和 MTP 同时跑的）
 
@@ -1031,6 +1146,61 @@ cache + 投机解码那条硬拒绝也还在）。**这是绕过，不是修掉�
 之外的任何有意义的路由行为，量到的吞吐也是这个默认值的天花板而不是硬件的。DP8 下想要
 每 rank N 就传 `8 × N`。
 
+### 5.2 code agentic 实测：PD + DPA + MTP 跑通了，缓存效率只有理想值的一半
+
+工具是 Optimus-AgenticBench（`agent-bench agent`），负载形状取
+`agent/workloads/code_agent_128k.yaml`：初始前缀均值 40K、每轮追加均值 2.5K、
+`new_session_rate=0.04`（也就是 **96% 的请求复用已有会话的前缀**）、生成均值 500。
+这个 profile 比 `code_agent_glm52_p50_60k_p90_300k.yaml`（均值 107K）轻得多，选它是因为
+后者在当前吞吐下一轮只跑得出个位数请求，前缀复用来不及体现。命令：
+
+```bash
+agent-bench agent --server http://127.0.0.1:8000 \
+  --model /wekafs/models/GLM-5.2-FP8 --tokenizer /wekafs/models/GLM-5.2-FP8 \
+  --workload-config agent/workloads/code_agent_128k.yaml \
+  --max-qps 0.1 --initial-qps 0.05 --ramp-duration 20 --sustain-duration 60 \
+  --max-inflight 8 --gpus 16 --dashboard-mode --name smoke-pd-mtp
+```
+
+跑了**三组**，每组都是 60 个请求、`success_rate=1.0`、同一个 workload 种子（三组的
+`total_tokens=3,169,196`、`prefix=3,002,633`、`ideal_hit=94.7%` 完全一致，所以可直接对比）：
+
+| 指标 | ① 基线：镜像空 + 未清缓存 | ② 对照：镜像空 + 已清缓存 | ③ 修复后：镜像正常 + 已清缓存 |
+|---|---|---|---|
+| 实际缓存命中率 | 47.2% | 54.3% | **83.6%** |
+| 缓存效率（实际/理想） | 49.9% | 57.3% | **88.2%** |
+| eviction rate | 50.1% | 42.7% | **11.8%** |
+| cached / uncached token | 1,497,216 / 1,671,980 | 1,720,448 / 1,448,748 | 2,648,192 / **521,004** |
+| TTFT p50 | 16.9s | 14.6s | **2.5s** |
+| TTFT p90 | 38.8s | 29.8s | 24.3s |
+| TPOT p50 | 31.7ms | 31.9ms | 32.3ms |
+
+②这一组是专门为了**归因**加的：③跑之前我 `flush_cache` 过，所以必须排掉"提升来自空缓存"
+这个解释。做法是只把 §5.0 Bug 2 的 schema 改回 `list[int]`（镜像重新变空，与①的行为一致），
+其余配置、清缓存动作、workload 全不变。结论：清缓存值 7 个点（47.2 → 54.3），
+**kv-aware 本身值 29 个点（54.3 → 83.6）**，uncached token 少掉 64%，TTFT p50 快 5.8 倍。
+TPOT 三组都在 32ms，说明这条路径没有动到 MTP。
+
+三个要点：
+
+1. **PD + DPA + MTP 在 agentic 形态下是稳的**：三组共 180 个请求全部成功、TPOT 稳定在 32ms
+   附近，没有 §1.3 那类崩溃。
+2. **机制不是"分散得更均匀"，恰恰相反，是"别再乱分散"。** 看 router 的 pick 日志：
+   ②里 60 个请求散在 5 个 rank 上（dp0-dp4 = 19/15/13/7/6），③里 **60 个全落 dp0**。
+   原因在打分函数 `cost = w_overlap × (blocks − hits) + active`：镜像为空时命中项恒为 0，
+   只剩负载项，于是并发的几个请求被摊到不同 rank，会话下一轮就落到不持有其前缀的 rank 上，
+   只能重算——bench 把这部分记成 "eviction"，其实是**落错了 rank**。镜像正常之后，命中项
+   （prefill 权重 20）把每个会话稳稳钉回持有它前缀的那个 rank，重算就消失了。
+3. **剩下的 11.8% 指向下一个瓶颈：新会话全部从 dp0 开始。** 平票时
+   `min(targets, key=(cost, active))` 返回第一个目标，而新会话在 8 个 rank 上命中都是 0、
+   `active` 也基本是 0（日志里恒为 `active_blocks=0`），所以永远选 dp0。于是 8 个会话
+   （末态前缀均值 67K）全挤在 rank 0 那 1/8 的 KV pool 里，超出的部分被真正淘汰掉。
+   要再往上走，得让平票时按负载/容量把**新**会话铺开，同时保持老会话的粘性——这是个策略
+   改动，不是 bug，留作下一步。
+
+TTFT p90 24.3s 也印证第 3 点：p50 已经降到 2.5s（命中的那些），p90 仍高，是那些在 dp0 上
+被淘汰、需要重算 40-100K 前缀的请求。
+
 ---
 
 ## 6. 未完成事项
@@ -1068,9 +1238,17 @@ cache + 投机解码那条硬拒绝也还在）。**这是绕过，不是修掉�
    只能算一种形状。需要补的是 code agent 的形态：长输入（64k–128k）、长输出、多轮之间
    共享长前缀；每档样本量从 5 提到 ≥50，否则 p99 TTFT 没有意义；并且直接读 mooncake /
    轨道计数器测真实 KV 出口字节数，而不是从 req/s 反推。
-5. **端到端验证 kv-aware**，用 agentic 形态的负载（多轮之间共享长前缀）实测命中率，
-   而不是想当然。这件事和第 4 项是同一个实验：prefill 命中率一高，KV 传输量就和 prefill
-   算力解耦，§4 那个 3.2% 的带宽占用才会真正受到考验。分两步走：
+5. **kv-aware 已在 PD + DPA + MTP 上跑通（§5.0），剩下一个策略问题。** 两个 bug 都修完了：
+   KV 事件端口撞 NodePort 被 IPVS 截走（`infera/common/net.py`），以及 MTP 下 bigram
+   `token_ids` 解不开、且不能原样参与哈希（`infera/router/kv_event/`）。agentic 实测缓存
+   效率 57.3% → 88.2%（§5.2 三组对照）。剩下的不是 bug 而是策略：**新会话平票时永远选
+   dp0**，8 个会话全挤在一个 rank 的 1/8 KV pool 里，这是剩余 11.8% eviction 和 TTFT p90
+   仍有 24s 的来源。要做的是让平票时按负载/容量把新会话铺开、同时保持老会话对持有其前缀
+   那个 rank 的粘性（改 `kv_event_aware.py` 的 `cost`/tie-break，不需要重启引擎）。
+   两个副产品值得提上游/内部：`free_tcp_port_block` 只用 loopback 探测，原理上发现不了
+   IPVS 拦截这类"能 bind、从节点 IP 打不通"的端口；SGLang 的 `BlockStored.token_ids`
+   声明是 `list[int]` 而 EAGLE 路径实际写入 bigram 对，声明与实际不符。
+   下面两条原有分工仍然成立：
    - **先在单机 pd-mixed 上验**（§5.1）。MTP 冲突只作用于 decode 角色，所以 mixed 下
      dp-attention + MTP + kv-aware 可以同时开，不需要重启 PD 两条腿，而且顺带能拿到一个
      开着 MTP 的吞吐数。它覆盖事件按 rank 发出、cache-view 按 dp_rank 填充、`expand_targets`

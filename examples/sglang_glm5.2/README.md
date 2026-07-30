@@ -13,6 +13,10 @@ identical recipe on one node.
 Every script is driven by environment variables; you should not need to edit any of
 them. The IPs below are this cluster's — substitute your own.
 
+Companion write-ups: `REPORT.zh.md` (the whole bring-up — what broke and why) and
+`KV_AWARE.zh.md` (kv-aware routing on PD + DPA + MTP: three bugs, plus the full
+launch/observe/verify/benchmark workflow).
+
 ## Scripts
 
 | Script                       | Where        | Purpose                                                   |
@@ -26,9 +30,12 @@ them. The IPs below are this cluster's — substitute your own.
 | `infera_2_sglang_prefill.sh` | prefill node | SGLang prefill leg, 8 GPUs, TP8/DP8.                       |
 | `infera_3_sglang_decode.sh`  | decode node  | SGLang decode leg, 8 GPUs, TP8/DP8.                        |
 | `curl.sh`                    | prefill node | Smoke-test the pair through the router.                    |
+| `verify_kv_aware.py`         | prefill node | Two-shot prefix check: is kv-aware seeing cache hits?      |
+| `probe_kv_aware.sh`          | prefill node | Dump kv-event endpoints and the router's per-rank view.    |
 | `bench.sh`                   | prefill node | Throughput sweep via `sglang.bench_serving`.               |
 | `sglang_naive_engine.sh`     | one node     | Aggregated baseline: same recipe, no PD, no Infera.        |
 | `stop.sh`                    | both nodes   | Tear down and wait for VRAM to come back.                  |
+| `pdops/`                     | both nodes   | Cluster ops + kv-aware diagnostics + the runs the reports cite (see `pdops/README.md`). |
 
 ## Topology (1P1D)
 

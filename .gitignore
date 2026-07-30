@@ -53,3 +53,8 @@ CLAUDE.md
 .spur_job_*.sh
 .spur_ns_*.sh
 spur-*.out
+
+# Engine launcher stdout captured by the sglang_glm5.2 scripts — multi-MB per
+# start, regenerated on every launch. The curated runs live in
+# examples/sglang_glm5.2/pdops/results/.
+examples/sglang_glm5.2/*_launcher.out
