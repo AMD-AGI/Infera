@@ -8,7 +8,6 @@ for the row/axis semantics)."""
 
 from __future__ import annotations
 
-from numpy._core.numeric import False_
 import pytest
 
 from ...harness.matrix import DEEPSEEK_V4_PRO, GLM_5_1_FP8, GPT_OSS, KIMI_K26_MXFP4, expand_cases
