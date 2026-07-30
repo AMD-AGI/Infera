@@ -6,12 +6,13 @@
 """Infera vLLM op-injection plugin (issue #40).
 
 Injects Infera/HyperLoom-optimized **Attention** and **MoE** kernels into stock
-vLLM via vLLM's out-of-tree plugin mechanism (``vllm.platform_plugins`` +
-``vllm.general_plugins``) — no vLLM fork. Both hooks are no-ops when
-``INFERA_VLLM_OPS_DISABLE=1``.
+vLLM via a single out-of-tree ``vllm.general_plugins`` hook — no vLLM fork. The
+hook (:func:`infera.engine.vllm.ops.register.register_ops`) runs after
+``vllm.platforms`` is initialized and patches the resolved platform / MoE layer,
+so it is import-safe. No-op when ``INFERA_VLLM_OPS_DISABLE=1`` or off-ROCm.
 
 Seams:
-  * Attention → :class:`infera.engine.vllm.ops.platform.InferaPlatform`
-    (``get_attn_backend_cls``).
+  * Attention → :func:`infera.engine.vllm.ops.attention.install_attention_ops`
+    (patches ``get_attn_backend_cls``; ``INFERA_ATTN_BACKEND`` selects a backend).
   * MoE experts → :func:`infera.engine.vllm.ops.moe.install_moe_ops`.
 """
