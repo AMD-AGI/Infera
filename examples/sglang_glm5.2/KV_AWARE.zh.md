@@ -554,6 +554,11 @@ uncached token 少掉 64%，TTFT p50 快 5.8 倍。TPOT 三组都在 32ms，说�
 | 60 个请求的 rank 分布 | dp0-dp4 = 19/15/13/7/6 | **全部 dp0** |
 | 有命中的请求数 | 0 | 59 / 60 |
 
+> 这两行是当时从 `infera_1_server.log` 的 pick 日志统计的，而 **router 一重启该日志就被覆盖**
+> （`pdops/results/` 里只有 bench 自己的产物，它不记录请求落在哪个 rank）。以后跑对照实验，
+> 重启 router 前先把日志留一份：
+> `grep -a "pick policy=kv-aware" infera_1_server.log | gzip > picks_<tag>.log.gz`。
+
 打分函数是 `cost = w_overlap × (request_blocks − hits) + active_blocks`。镜像为空时命中项
 恒为 0，只剩负载项，于是并发的几个请求被摊到不同 rank，会话下一轮就落到不持有其前缀的
 rank 上、只能重算——bench 把这部分记成 "eviction"，其实是**落错了 rank**。镜像正常之后，
