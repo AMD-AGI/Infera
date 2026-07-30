@@ -12,13 +12,19 @@ TP=${TP:-8}
 NAME=${NAME:-kimi_k3_vllm}
 
 docker rm -f "$NAME" >/dev/null 2>&1
+# Make the model visible inside the container: mount the top-level filesystem the
+# MODEL path lives on (e.g. /mnt/vast or /mnt/k3local). Without this a local path
+# is invisible in the container and HF treats it as a repo id -> HFValidationError.
+MODEL_MNT="/$(echo "$MODEL" | cut -d/ -f2-3)"   # e.g. /mnt/k3local, /mnt/vast
+MOUNTS=(-v /mnt/vast:/mnt/vast)
+[ "$MODEL_MNT" != "/mnt/vast" ] && [ -d "$MODEL_MNT" ] && MOUNTS+=(-v "$MODEL_MNT":"$MODEL_MNT")
 # Image ENTRYPOINT is /bin/bash (dev image), so serve via the vllm CLI:
 # `vllm serve <model> <flags>` (override the entrypoint).
 docker run -d --name "$NAME" \
   --device=/dev/kfd --device=/dev/dri \
   --security-opt seccomp=unconfined --group-add video \
   --privileged --ipc=host --shm-size 32g -p "$PORT":8000 \
-  -v /mnt/vast:/mnt/vast \
+  "${MOUNTS[@]}" \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
   -e HF_HUB_OFFLINE=1 \
   -e VLLM_ROCM_USE_AITER=1 \
