@@ -118,6 +118,22 @@ trap _cleanup_scratch EXIT
 trap '_cancel_dispatched; exit 130' INT TERM
 echo "[scratch] $SCRATCH  (worker logs: $E2E_LOG_DIR${SHARED_LOG_DIR:+ [shared NFS, live]})"
 
+# Banner the ABSOLUTE worker-log dir at both ends of the run: the GH Actions log
+# is long and usually read from the bottom after a failure, so repeating it means
+# a debugger never has to hunt for the path. _log_dir_banner is reused on exit.
+_log_dir_banner() {
+  echo ""
+  echo "=================== E2E WORKER LOG LOCATION ==================="
+  echo "  $E2E_LOG_DIR"
+  if [ -n "$SHARED_LOG_DIR" ]; then
+    echo "  (shared NFS, written live — survives scancel/preempt/SIGKILL)"
+  else
+    echo "  (node-local /tmp — NOT shared; lost when this machine is reclaimed)"
+  fi
+  echo "==============================================================="
+}
+_log_dir_banner
+
 # INFERA_E2E_MODEL_DIR: bind the model tree read-only at the same path + forward
 # the var. If absent here (lives on the compute node) just forward it; the remote
 # re-run mounts it.
@@ -594,6 +610,13 @@ if [ "$rc" -ne 0 ]; then
     echo "   build error or a native crash before pytest ran; scan above.)"
   fi
   echo "==============================================================="
+fi
+
+# Repeat the log location last (pass or fail): on a failure this is the first
+# thing visible at the bottom of the GH Actions log, right where debugging starts.
+_log_dir_banner
+if [ -d "$E2E_LOG_DIR" ]; then
+  ls -1 "$E2E_LOG_DIR"/*.log 2>/dev/null | sed 's|^|  |' || true
 fi
 
 [ "$rc" -eq 0 ] && echo "RESULT: PASS" || echo "RESULT: FAIL"
