@@ -226,7 +226,8 @@ jobs:
       always() &&
       needs.changes.outputs.code == 'true' &&
       needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
-      (github.event_name == 'workflow_dispatch' && inputs.run_e2e_disag)
+      (github.event_name == 'pull_request' ||
+       (github.event_name == 'workflow_dispatch' && inputs.run_e2e_disag))
     strategy:
       fail-fast: false
       matrix:
