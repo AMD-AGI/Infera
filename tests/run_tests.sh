@@ -28,8 +28,8 @@ DF_VLLM="deploy/docker/Dockerfile.vllm"
 DF_SGLANG="deploy/docker/Dockerfile.sglang"
 DF_ATOM="deploy/docker/Dockerfile.atom"
 ETCD_IMG="quay.io/coreos/etcd:v3.5.14"
-# Every container we launch carries this prefix so a new run can wipe stragglers
-# a killed/cancelled prior run left on the same (reused) node.
+# On every container we launch, so a new run can wipe what a killed one left on
+# this (reused) node.
 CTR_PREFIX="infera-utest-"
 ETCD_CTR="${CTR_PREFIX}etcd"
 PIPDEPS='pip install -q pytest pytest-asyncio nats-py 2>/dev/null || true'
@@ -49,8 +49,8 @@ mkdir -p "$SCRATCH/hf"
 : > "$SCRATCH/failures.txt"
 chmod 666 "$SCRATCH/failures.txt" 2>/dev/null || true
 SCRATCH_FLAGS=(-v "$SCRATCH":/scratch -e HF_HOME=/scratch/hf)
-# Worker (engine) logs persist on the host at a fixed dir, mounted at /e2e-logs
-# in the container (the harness writes there when that mount exists).
+# Worker logs outlive the run at a fixed host dir; the harness writes there
+# whenever it finds the mount.
 E2E_LOG_DIR="/tmp/infera-e2e-logs"
 mkdir -p "$E2E_LOG_DIR"
 SCRATCH_FLAGS+=(-v "$E2E_LOG_DIR":/e2e-logs)
@@ -63,8 +63,8 @@ _cleanup_scratch() {
   rm -rf "$SCRATCH" 2>/dev/null || true
 }
 
-# On interrupt (Ctrl-C / CI SIGTERM) scancel the dispatched job: killing the srun
-# client does NOT stop the Spur job. Job id from $_CUR_DISPATCH_OUT, else job tag.
+# Killing the srun client does NOT stop the Spur job, so a Ctrl-C / CI SIGTERM
+# has to scancel it: job id from $_CUR_DISPATCH_OUT, else from the job tag.
 _CUR_DISPATCH_OUT=""
 _cancel_dispatched() {
   local jids="" i suf csv
@@ -89,16 +89,14 @@ _cancel_dispatched() {
   done
 }
 # Nodes the running PD-disagg attempt placed containers on. A killed run skips
-# pytest's fixture teardown, so without this a cancel leaves prefill+decode
-# engines holding both nodes' GPUs.
+# pytest's teardown, so without this a cancel leaves prefill+decode on the GPUs.
 _DISAG_NODES=""
 _wipe_disag_nodes() {
   local n resv="${INFERA_E2E_RESERVATION:+--reservation=$INFERA_E2E_RESERVATION}"
   for n in ${_DISAG_NODES//,/ }; do
     echo "[cleanup] removing PD containers on $n" >&2
-    # Name and timebox it like every other step: unnamed, SLURM calls it "bash"
-    # and leaves it UNLIMITED, so ci.yml's `infera-ci-`+run-id reclaim can neither
-    # see nor cancel it — and this runs on the very cancel that reclaim cleans up.
+    # Unnamed, SLURM would call this "bash" and leave it UNLIMITED — invisible to
+    # ci.yml's `infera-ci-`+run-id reclaim, on the very cancel that reclaim cleans up.
     srun -N1 -n1 -p "$SLURM_PART" -w "$n" $resv ${INFERA_E2E_SRUN_EXTRA:-} \
       -J "infera-ci-wipe-${INFERA_E2E_JOB_TAG:-local}" -t 00:05:00 \
       bash -lc 'docker rm -f $(docker ps -aq --filter name=infera-e2e-) 2>/dev/null || true' \
@@ -118,9 +116,8 @@ trap '_release_hold; _cleanup_scratch' EXIT
 trap '_wipe_disag_nodes; _release_hold; _cancel_dispatched; exit 130' INT TERM
 echo "[scratch] $SCRATCH  (worker logs: $E2E_LOG_DIR, kept)"
 
-# INFERA_E2E_MODEL_DIR: bind the model tree read-only at the same path + forward
-# the var. If absent here (lives on the compute node) just forward it; the remote
-# re-run mounts it.
+# Bind the model tree read-only at the same path. If it is absent here it lives
+# on the compute node, so just forward the var and let the remote re-run mount it.
 E2E_FLAGS=()
 if [ -n "${INFERA_E2E_MODEL_DIR:-}" ]; then
   if [ -d "$INFERA_E2E_MODEL_DIR" ]; then
@@ -132,9 +129,9 @@ if [ -n "${INFERA_E2E_MODEL_DIR:-}" ]; then
   fi
 fi
 
-# --- SLURM dispatch (Spur scheduler and stock SLURM) --------------------
-# Partition: honor INFERA_E2E_SLURM_PARTITION; else the cluster's default (the
-# one sinfo flags with '*'), so this works on amd-spur and stock SLURM alike.
+# --- SLURM dispatch (Spur scheduler and stock SLURM) -------------------------
+# Fall back to the cluster default partition (the one sinfo stars) so this works
+# on amd-spur and stock SLURM alike.
 _default_partition() {
   command -v sinfo >/dev/null 2>&1 || return 0
   sinfo -h -o '%P' 2>/dev/null | sed -n 's/\*$//p' | head -1
@@ -142,8 +139,8 @@ _default_partition() {
 SLURM_PART="${INFERA_E2E_SLURM_PARTITION:-$(_default_partition)}"
 SLURM_PART="${SLURM_PART:-amd-spur}"
 SLURM_TIME="${INFERA_E2E_SLURM_TIME:-02:00:00}"
-# Burst QoS is a fallback: a dispatch queued this long on the group node limit is
-# resubmitted with it (see _watch_job / _dispatch_slurm), never used up front.
+# Burst QoS is a fallback, never used up front: a dispatch queued this long on
+# the group node limit is resubmitted with it (see _watch_job / _dispatch_slurm).
 QOS_FALLBACK="${INFERA_E2E_SLURM_QOS_FALLBACK:-amd-burst-qos}"
 QOS_WAIT="${INFERA_E2E_QOS_WAIT:-30}"
 # _hold_pair's own window: its -N2 --gres=gpu:8 batch job needs longer to start
@@ -151,7 +148,7 @@ QOS_WAIT="${INFERA_E2E_QOS_WAIT:-30}"
 HOLD_WAIT="${INFERA_E2E_HOLD_WAIT:-60}"
 
 _have_slurm() { command -v srun >/dev/null 2>&1; }
-# The nodes reservation $1 covers, one per line ('' if it's gone/expired).
+# The nodes reservation $1 covers, one per line ('' if it is gone/expired).
 # Spur ignores the NAME arg and dumps all reservations; match the exact block.
 _reservation_nodes() {
   scontrol show reservation "$1" 2>/dev/null | awk -v r="ReservationName=$1" '
@@ -159,54 +156,43 @@ _reservation_nodes() {
     $1==r { for(i=1;i<=NF;i++) if($i ~ /Nodes=/){ n=$i; sub(/.*Nodes=/,"",n); sub(/[[:space:]].*/,"",n); print n; exit } }' \
     | tr ',' '\n' | sed '/^$/d'
 }
-# Free nodes to place the PD-disagg pair on, one per line: the reservation's own
-# (a reserved node reads 'resv', never 'idle', so sinfo would miss it), else the
+# Ask the NODE, not squeue: a multi-node job's %N is a compacted hostlist
+# (crsuse2-m2m-[090,183]) holding neither full name, and Spur has no `scontrol
+# show hostnames`. Unreadable => busy, never hand out what we cannot verify.
+_node_free() {
+  local alloc
+  alloc=$(scontrol show node "$1" 2>/dev/null | grep -oE 'CPUAlloc=[0-9]+' | head -1 | cut -d= -f2)
+  [ -n "$alloc" ] && [ "$alloc" -eq 0 ] 2>/dev/null
+}
+# Free nodes for the PD-disagg pair, one per line: the reservation's own (a
+# reserved node reads 'resv', never 'idle', so sinfo would miss it), else the
 # partition's idle ones.
 _candidate_nodes() {
-  local n run nodes=""
+  local n nodes=""
   [ -n "${INFERA_E2E_RESERVATION:-}" ] && nodes="$(_reservation_nodes "$INFERA_E2E_RESERVATION")"
   if [ -z "$nodes" ]; then
     sinfo -h -N -p "$SLURM_PART" -t idle -o '%n' 2>/dev/null | awk 'NF && !seen[$0]++'
     return
   fi
-  run="$(squeue -h -t running -o '%N' 2>/dev/null)"
   for n in $nodes; do
-    printf '%s\n' "$run" | grep -qw -- "$n" || echo "$n"
+    _node_free "$n" && echo "$n"
   done
 }
-# Hold both PD nodes' GPUs for the whole run. Unlike the mixed tier, disagg's
-# per-step sruns leave the nodes idle in between, so SLURM hands one to another
-# job and their fixed ports (etcd 2379/2380, router 8000, ...) collide. A
-# --gres=gpu:8 batch job keeps them ours; our own no-gres steps co-schedule.
-# Sets _HOLDER_JID. $1=n1,n2
-_hold_pair() {
-  local pair="$1" script="$SCRATCH/hold.sh" jid st rs waited qos=() i
-  # A real script file, not --wrap: on Spur --wrap always NODE_FAILs at -N2.
-  printf '#!/bin/bash\nsleep %s\n' "${INFERA_E2E_HOLD_SLEEP:-10800}" > "$script"
-  for i in 1 2 3; do
-    jid=$(sbatch --parsable -N2 -n2 -w "$pair" --gres=gpu:8 -p "$SLURM_PART" \
-      -t "$SLURM_TIME" -J "infera-ci-hold-${INFERA_E2E_JOB_TAG:-local}" \
-      ${INFERA_E2E_RESERVATION:+--reservation="$INFERA_E2E_RESERVATION"} \
-      "${qos[@]}" "$script" 2>/dev/null) || continue
-    waited=0
-    while [ "$waited" -lt "$HOLD_WAIT" ]; do
-      st=$(scontrol show job "$jid" 2>/dev/null | grep -oE 'JobState=[A-Z_]+' | cut -d= -f2)
-      rs=$(scontrol show job "$jid" 2>/dev/null | grep -oE 'Reason=[A-Za-z]+' | cut -d= -f2)
-      [ "$st" = RUNNING ] && { _HOLDER_JID="$jid"; return 0; }
-      case "$st" in NODE_FAIL | FAILED | CANCELLED) break ;; esac
-      sleep 5; waited=$((waited + 5))
-    done
-    # Read the reason BEFORE cancelling; the burst QoS is the way past a group
-    # node limit, and a launch failure is Spur being flaky — both just retry.
-    [ "${#qos[@]}" -eq 0 ] && [ "${rs#QOSGrp}" != "$rs" ] && qos=(-q "$QOS_FALLBACK")
-    scancel "$jid" >/dev/null 2>&1
-    echo "[e2e disagg] hold attempt $i on $pair not started (${st:-?}/${rs:-?}) — retrying" >&2
-  done
-  return 1
+# Up to $1 free nodes, skipping the comma-separated exclude list in $2. Collect
+# before filtering: breaking out of a `< <(...)` mid-stream prints EPIPE noise.
+_pick_idle_nodes() {
+  local count="$1" excl=",${2:-}," n out=() all
+  all="$(_candidate_nodes)"
+  while read -r n; do
+    [ -n "$n" ] || continue
+    case "$excl" in *,"$n",*) continue ;; esac
+    out+=("$n"); [ "${#out[@]}" -ge "$count" ] && break
+  done <<< "$all"
+  printf '%s\n' "${out[@]-}"
 }
-# Two free nodes, waiting for them rather than giving up: engines run in
-# parallel and the mixed tier shares the pool, so a pair is often only free
-# later. The CI job timeout is the real backstop. $1=exclude list.
+# Wait for two free nodes rather than give up: engines run in parallel and the
+# mixed tier shares the pool, so a pair is often only free later. The CI job
+# timeout is the real backstop. $1=exclude list.
 _wait_for_pair() {
   local excl="$1" waited=0 every=30 limit="${INFERA_E2E_WAIT_NODES_TIMEOUT:-6400}" nodes
   while :; do
@@ -218,21 +204,52 @@ _wait_for_pair() {
     sleep "$every"; waited=$((waited + every))
   done
 }
-# Print up to $1 free nodes (one per line), skipping the comma-separated exclude
-# list in $2. Used to place the PD-disagg node pair.
-_pick_idle_nodes() {
-  local count="$1" excl=",${2:-}," n out=() all
-  # Collect the list first: breaking out of a `< <(...)` mid-stream leaves the
-  # producer writing to a closed pipe, which prints EPIPE noise on every call.
-  all="$(_candidate_nodes)"
-  while read -r n; do
-    [ -n "$n" ] || continue
-    case "$excl" in *,"$n",*) continue ;; esac
-    out+=("$n"); [ "${#out[@]}" -ge "$count" ] && break
-  done <<< "$all"
-  printf '%s\n' "${out[@]-}"
+# A running pair holder other than $1, on the same nodes and submitted earlier.
+_rival_holder() {
+  local self="$1" mine
+  mine=$(squeue -h -j "$self" -o '%N' 2>/dev/null)
+  [ -n "$mine" ] || return 0
+  squeue -h -t running -o '%i %j %N' 2>/dev/null | awk -v self="$self" -v mine="$mine" '
+    $2 ~ /^infera-ci-hold-/ && $3 == mine && $1 + 0 < self + 0 { print $1; exit }'
 }
-# AMD GPU count on THIS host (one renderD* per GPU; PCI vendor 0x1002 == AMD).
+# Hold both PD nodes' GPUs for the whole run: disagg's per-step sruns leave them
+# idle in between, so SLURM would hand one out and the fixed ports (etcd 2379,
+# router 8000, ...) collide. Our own no-gres steps co-schedule. Sets _HOLDER_JID.
+_hold_pair() {
+  local pair="$1" script="$SCRATCH/hold.sh" jid st rs waited qos=() i other
+  # A real script file, not --wrap: on Spur --wrap always NODE_FAILs at -N2.
+  printf '#!/bin/bash\nsleep %s\n' "${INFERA_E2E_HOLD_SLEEP:-10800}" > "$script"
+  for i in 1 2 3; do
+    jid=$(sbatch --parsable -N2 -n2 -w "$pair" --gres=gpu:8 -p "$SLURM_PART" \
+      -t "$SLURM_TIME" -J "infera-ci-hold-${INFERA_E2E_JOB_TAG:-local}" \
+      ${INFERA_E2E_RESERVATION:+--reservation="$INFERA_E2E_RESERVATION"} \
+      "${qos[@]}" "$script" 2>/dev/null) || continue
+    waited=0
+    while [ "$waited" -lt "$HOLD_WAIT" ]; do
+      st=$(scontrol show job "$jid" 2>/dev/null | grep -oE 'JobState=[A-Z_]+' | cut -d= -f2)
+      rs=$(scontrol show job "$jid" 2>/dev/null | grep -oE 'Reason=[A-Za-z]+' | cut -d= -f2)
+      if [ "$st" = RUNNING ]; then
+        # --gres does fence the pair, but two engines can submit in the same
+        # instant, before either holder exists to be seen. Lower job id keeps it
+        # and the other yields, so they cannot both back off and re-collide.
+        other=$(_rival_holder "$jid")
+        [ -z "$other" ] && { _HOLDER_JID="$jid"; return 0; }
+        scancel "$jid" >/dev/null 2>&1
+        echo "[e2e disagg] holder $jid started on $pair but $other holds it too — yielding" >&2
+        return 1
+      fi
+      case "$st" in NODE_FAIL | FAILED | CANCELLED) break ;; esac
+      sleep 5; waited=$((waited + 5))
+    done
+    # Read the reason BEFORE cancelling; the burst QoS is the way past a group
+    # node limit, and a launch failure is Spur being flaky — both just retry.
+    [ "${#qos[@]}" -eq 0 ] && [ "${rs#QOSGrp}" != "$rs" ] && qos=(-q "$QOS_FALLBACK")
+    scancel "$jid" >/dev/null 2>&1
+    echo "[e2e disagg] hold attempt $i on $pair not started (${st:-?}/${rs:-?}) — retrying" >&2
+  done
+  return 1
+}
+# One renderD* per GPU; PCI vendor 0x1002 == AMD.
 _amd_gpu_count() {
   local n=0 d
   for d in /sys/class/drm/renderD*/device/vendor; do
@@ -240,42 +257,37 @@ _amd_gpu_count() {
   done
   echo "$n"
 }
-
-# --- shared local-vs-SLURM decision (used by unit / engine / e2e-mixed) -------
-# THIS host can run a containerized GPU tier in place iff it has docker + >=8 AMD
-# GPUs. INFERA_E2E_LOCAL=1 (set by _dispatch_slurm on the remote) forces in-place.
+# Shared by unit / engine / e2e-mixed. INFERA_E2E_LOCAL=1 (set by _dispatch_slurm
+# on the remote) forces in-place.
 _local_eligible() { [ "$(_amd_gpu_count)" -ge 8 ] && command -v docker >/dev/null 2>&1; }
 
-# Reservation free-node count (spill helper; Spur has no srun --immediate).
-# Prints free count, -1 if reservation gone/expired, -2 if scontrol unavailable.
+# Spill helper (Spur has no srun --immediate): free count, -1 if the reservation
+# is gone/expired, -2 if scontrol is unavailable.
 _reservation_free() {
-  local rname="$1" nodes run n free=0
+  local rname="$1" nodes n free=0
   command -v scontrol >/dev/null 2>&1 || { echo -2; return; }
   nodes=$(_reservation_nodes "$rname")
   [ -n "$nodes" ] || { echo -1; return; }
-  run=$(squeue -h -t running -o '%N' 2>/dev/null)
   for n in $nodes; do
-    printf '%s\n' "$run" | grep -qw -- "$n" || free=$((free + 1))
+    _node_free "$n" && free=$((free + 1))
   done
   echo "$free"
 }
-# Count in-flight 'spill'-marked jobs to cap borrowed nodes at INFERA_E2E_SPILL_MAX.
-# Best-effort: concurrent dispatchers can race the cap.
+# Caps borrowed nodes at INFERA_E2E_SPILL_MAX; concurrent dispatchers can race it.
 _spill_inflight() {
   squeue -h -u "$(id -un)" -o '%j' 2>/dev/null | grep -c -- 'spill' || true
 }
 
-# Watch the dispatched job: report why it is still queued (a waiting job prints
-# NOTHING, so a CI run looks hung and gets cancelled), and cancel + flag the two
-# waits the caller can act on — a JobHoldMaxRequeue, and a group node limit still
-# unclear after $QOS_WAIT. $1=srun-out $2=hold-flag $3=qos-flag $4=label
+# Report why the dispatch is still queued (a waiting job prints NOTHING, so a CI
+# run looks hung and gets cancelled), and cancel + flag the two waits the caller
+# can act on. $1=srun-out $2=hold-flag $3=qos-flag $4=label
 _watch_job() {
   local out="$1" hold="$2" qos="$3" label="$4" jid="" state reason waited=0
   local every="${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}" next="${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}"
   while sleep 5; do
     waited=$((waited + 5))
-    # Match both srun banners: "Pending job allocation N" while queued (the only
-    # one printed for a job that never starts) and "job N running on ...".
+    # Both srun banners: "Pending job allocation N" (the only one a job that
+    # never starts prints) and "job N running on ...".
     [ -n "$jid" ] || jid=$(grep -oE 'job (allocation )?[0-9]+' "$out" 2>/dev/null \
       | grep -oE '[0-9]+' | head -1)
     [ -n "$jid" ] || continue
@@ -301,9 +313,9 @@ _dispatch_slurm() {
     echo "[$label] WARNING: no SLURM (srun) — skipping" >&2
     return 0
   fi
-  # $out: srun's own client banners/errors (job id, "running on <node>", ...).
+  # srun's own client banners/errors (job id, "running on <node>", ...).
   local out="$SCRATCH/.dispatch-$label.out"
-  _CUR_DISPATCH_OUT="$out"   # let the INT/TERM trap scancel this job if aborted
+  _CUR_DISPATCH_OUT="$out"
 
   # CI (buffered srun) -> remote writes to a SHARED-NFS file we `tail -F`; local ->
   # srun forwards to $out. INFERA_DISPATCH_LOGDIR forces the shared path.
@@ -323,9 +335,9 @@ _dispatch_slurm() {
     attempt=$((attempt + 1))
     local xflag=()
     [ -n "$exclude" ] && xflag=(-x "$exclude")
-    # Reservation policy: use it while it has free nodes; when full, spill to the
-    # open partition up to INFERA_E2E_SPILL_MAX borrowed nodes (else queue on it);
-    # if it's gone, drop --reservation (a stale one PENDs forever on Spur).
+    # Use the reservation while it has free nodes; when full, spill to the open
+    # partition up to INFERA_E2E_SPILL_MAX borrowed nodes (else queue on it); if
+    # it is gone, drop --reservation (a stale one PENDs forever on Spur).
     local resv=() jobname="infera-ci-${label}${INFERA_E2E_JOB_TAG:+-$INFERA_E2E_JOB_TAG}" mode="open"
     if [ -n "${INFERA_E2E_RESERVATION:-}" ]; then
       local rfree smax inflight
@@ -354,12 +366,10 @@ _dispatch_slurm() {
          "queue status follows every ${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}s."
     echo "[$label] streaming remote output below (live via $tailf):"
     : > "$out"; [ -n "$logf" ] && : > "$logf"; rm -f "$holdflag" "$qosflag"
-    # stdbuf -oL line-buffers tail to our stdout; -F follows by name + retry
-    # (tolerates the remote truncating on open, and polls over NFS).
+    # -F follows by name + retries, tolerating the remote truncating on open.
     stdbuf -oL tail -n +1 -F "$tailf" 2>/dev/null &
     local tailpid=$!
-    # Shared mode: the remote redirects its own fd1/fd2 to $logf (NFS) before
-    # exec'ing so output lands there live; local mode: srun forwards it to $out.
+    # Shared mode: the remote points its own fd1/fd2 at $logf (NFS) before exec'ing.
     local remote=(bash "$SCRIPT" "$@")
     [ "$shared" -eq 1 ] && \
       remote=(bash -c 'lf="$1"; shift; exec >"$lf" 2>&1; exec bash "$@"' _ "$logf" "$SCRIPT" "$@")
@@ -401,8 +411,8 @@ _dispatch_slurm() {
       echo "[$label] QOSGrpNodeLimit for ${QOS_WAIT}s — resubmitting with --qos=$QOS_FALLBACK" >&2
       attempt=$((attempt - 1)); continue
     fi
-    # Retry on transient faults. Docker errors are in $logf (shared) or $out
-    # (local); "running on <node>" is always an srun banner in $out.
+    # Docker errors land in $logf (shared) or $out (local); "running on <node>"
+    # is always an srun banner in $out.
     ran="$(sed -n 's/.*running on \([A-Za-z0-9._-]*\).*/\1/p' "$out" | tail -1)"
     if grep -qiE 'node failure|Cannot connect to the Docker daemon' "$out" ${logf:+"$logf"} 2>/dev/null; then
       [ -n "$ran" ] && exclude="${exclude:+$exclude,}$ran"
@@ -414,15 +424,13 @@ _dispatch_slurm() {
     fi
     break  # genuine test/build failure
   done
-  # Shared mode only: prune logs older than 10 days (INFERA_DISPATCH_LOG_TTL_MIN).
   [ "$shared" -eq 1 ] && find "$logdir" -maxdepth 1 -type f -name '*.log' \
     -mmin "+${INFERA_DISPATCH_LOG_TTL_MIN:-14400}" -delete 2>/dev/null
   return "$prc"
 }
 
-# docker build the engine image. --network=host so RUN steps (pip) resolve DNS
-# via the host resolver (these nodes list "nameserver 127.0.0.1" first, which a
-# default bridge build netns can't reach). Layer cache makes a no-op build fast.
+# --network=host so RUN steps (pip) resolve DNS via the host resolver: these
+# nodes list "nameserver 127.0.0.1" first, unreachable from a bridge build netns.
 build_image() {
   local df="$1" img="$2"
   echo "[build] $img <- $df"
@@ -438,8 +446,8 @@ run_unit() {
     "$PIPDEPS; python3 -m pytest -p no:cacheprovider -o addopts= -q -rfE tests/unit 2>&1 | stdbuf -oL tee /scratch/.unit.out; rc=\${PIPESTATUS[0]}; grep -aE '^(FAILED|ERROR) ' /scratch/.unit.out 2>/dev/null | sed 's/^/[unit] /' >> /scratch/failures.txt; exit \$rc"
 }
 
-# tests/engine one file at a time so a single ROCm/HIP native crash can't abort
-# the run. Each image runs only its own subtree. $1=Dockerfile $2=image $3=scope.
+# One file at a time so a single ROCm/HIP native crash cannot abort the run.
+# $1=Dockerfile $2=image $3=scope.
 run_engine() {
   local df="$1" img="$2" scope="${3:-tests/engine}"
   echo "===== engine in $img — $scope (per-file, crash-isolated) ====="
@@ -453,8 +461,7 @@ run_engine() {
       rc=0
       for f in $(find "$INFERA_TEST_SCOPE" -name "test_*.py" | sort); do
         echo "----- pytest $f -----"
-        # Stream pytest output live (so CI shows real test progress) AND keep a
-        # copy for the crash/summary/failure classification below.
+        # tee: stream live for CI, keep a copy for the classification below.
         $PYT "$f" 2>&1 | stdbuf -oL tee /scratch/.engine_f.out; code=${PIPESTATUS[0]}
         out=$(cat /scratch/.engine_f.out)
         case $code in
@@ -476,20 +483,19 @@ run_engine() {
       exit $rc'
 }
 
-# Run one engine's PD-mixed suite in its own image against the shared etcd.
+# One engine's PD-mixed suite in its own image against the shared etcd. Verbose:
+# -s keeps worker stdout live, -v names each test.
 run_e2e_engine() {
   local img="$1" testpath="$2"
   echo "----- e2e in $img — $testpath -----"
-  # Verbose: pytest capture off (-s, live worker stdout) + per-test names (-v).
   docker run --rm --name "${CTR_PREFIX}e2e" --network host "${GPU_FLAGS[@]}" "${SCRATCH_FLAGS[@]}" "${E2E_FLAGS[@]}" \
     -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONUNBUFFERED=1 \
     -v "$REPO":/workspace:ro -w /workspace --entrypoint bash "$img" -lc \
     "$PIPDEPS; python3 -m pytest -p no:cacheprovider -o addopts= -rfE -v -s $testpath 2>&1 | stdbuf -oL tee /scratch/.e2e.out; rc=\${PIPESTATUS[0]}; grep -aE '^(FAILED|ERROR) ' /scratch/.e2e.out 2>/dev/null | sed 's|^|[e2e $img] |' >> /scratch/failures.txt; exit \$rc"
 }
 
-# PD-mixed: run in place when eligible, else dispatch to one SLURM node. Locally:
-# build each engine image, start a temp etcd, run each engine's suite against it.
-# $@ = engines.
+# Run in place when eligible, else dispatch the whole tier to one SLURM node.
+# Locally: build each image, start a temp etcd, run each engine against it.
 run_e2e_mixed() {
   local engines=("$@")
   echo "===== e2e PD-mixed (etcd + real workers, GPU): ${engines[*]} ====="
@@ -534,9 +540,9 @@ run_e2e_mixed() {
   return "$rc"
 }
 
-# PD-disaggregated e2e (cross-node): a pytest orchestrator here drives
-# etcd/router/prefill/decode on TWO idle nodes (via INFERA_E2E_NODES + srun; see
-# harness/launcher.py). A bad node is excluded and a fresh pair tried. $@=engines.
+# Cross-node: a pytest orchestrator here drives etcd/router/prefill/decode on TWO
+# idle nodes (INFERA_E2E_NODES + srun; see harness/launcher.py). A bad node is
+# excluded and a fresh pair tried.
 run_e2e_disagg() {
   local engines=("$@")
   echo "===== e2e PD-disaggregated (cross-node, 2 nodes): ${engines[*]} ====="
@@ -562,8 +568,7 @@ run_e2e_disagg() {
     attempt=0; ok=0; exclude=""; races=0
     while [ "$attempt" -lt "$max_attempts" ]; do
       attempt=$((attempt + 1))
-      # A user-pinned pair (INFERA_E2E_NODES) wins on the first try; otherwise
-      # pick two idle nodes, skipping any excluded after a bad attempt.
+      # A user-pinned pair (INFERA_E2E_NODES) wins on the first try.
       if [ -n "${INFERA_E2E_NODES:-}" ] && [ "$attempt" -eq 1 ]; then
         n1="${INFERA_E2E_NODES%%,*}"; n2="${INFERA_E2E_NODES##*,}"
       else
@@ -575,12 +580,9 @@ run_e2e_disagg() {
         echo "[e2e disagg] WARNING: no 2 free nodes in '$SLURM_PART' within ${INFERA_E2E_WAIT_NODES_TIMEOUT:-6400}s — skipping $e" >&2
         break
       fi
-      # Lock the pair before using it. Losing the race to another job is not a
-      # node fault, so the pair must NOT join $exclude: with a small pool the
-      # engine would exclude every node and then starve on a fully idle cluster.
-      # Just re-pick — once the winner's holder is RUNNING, _candidate_nodes
-      # filters its nodes out by itself. Bounded so a pathological loser fails
-      # loudly instead of spinning until the CI job timeout.
+      # Losing the race is not a node fault, so the pair must NOT join $exclude:
+      # with a small pool the engine would exclude every node and then starve on
+      # an idle cluster. Bounded so a pathological loser fails loudly instead.
       if ! _hold_pair "$n1,$n2"; then
         races=$((races + 1))
         if [ "$races" -ge "$max_races" ]; then
@@ -640,9 +642,7 @@ run_e2e() {
   return "$rc"
 }
 
-# unit / engine tiers, gated by the SAME local-vs-SLURM decision as e2e-mixed:
-# run in place when eligible (or already the dispatched remote), else hand the
-# whole tier to a SLURM node via the shared dispatcher.
+# Gated by the SAME local-vs-SLURM decision as e2e-mixed.
 unit_tier() {
   if [ -n "${INFERA_E2E_LOCAL:-}" ] || _local_eligible; then run_unit
   else echo "[unit] no docker/GPU here — dispatching via srun"; _dispatch_slurm unit unit; fi
@@ -658,9 +658,8 @@ engine_tier() {
   fi
 }
 
-# On a container host (dispatched node or local-eligible box) wipe stale
-# infera-utest-* containers a killed/cancelled prior run left behind, so leaked
-# GPU/etcd containers can't OOM or clash with this run (reserved nodes are reused).
+# Reserved nodes get reused, so wipe what a killed run left behind before its
+# leaked GPU/etcd containers can OOM or clash with this one.
 if command -v docker >/dev/null 2>&1 && { [ -n "${INFERA_E2E_LOCAL:-}" ] || _local_eligible; }; then
   docker ps -aq --filter "name=^${CTR_PREFIX}" 2>/dev/null | xargs -r docker rm -f >/dev/null 2>&1 || true
 fi

@@ -15,10 +15,11 @@ import pytest
 
 from ...harness.matrix import GPT_OSS, expand_cases
 
-# [model, tp, ep, dp_attn] (+ optional opts dict: args/env/setup/server_ready_timeout).
+# [enable, model, tp, ep, dp_attn] (+ optional opts: args/env/setup/server_ready_timeout).
 CASES = [
     # gpt-oss-120b, prefill TP=2 + decode TP=2, KV over Mooncake RDMA.
     [
+        True,
         GPT_OSS,
         2,
         False,
