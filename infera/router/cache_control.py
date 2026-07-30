@@ -57,6 +57,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from xxhash import xxh3_64_intdigest
+
 from infera.common.logsafe import scrub
 
 logger = logging.getLogger(__name__)
@@ -345,6 +347,89 @@ def _detect_multimodal(body: dict[str, Any]) -> bool:
                 return True
 
     return False
+
+
+def _mm_ref_string(block: dict[str, Any]) -> str | None:
+    """The reference string that uniquely names a non-text block's payload,
+    across the OpenAI and Anthropic shapes. ``None`` for text / unrecognised
+    blocks."""
+    # OpenAI: {type:"image_url", image_url:{url:"http…"|"data:…"}} — or the
+    # shorthand image_url:"…".
+    iu = block.get("image_url")
+    if isinstance(iu, str):
+        return iu
+    if isinstance(iu, dict) and isinstance(iu.get("url"), str):
+        return iu["url"]
+    # OpenAI: {type:"input_audio", input_audio:{data:"<b64>", format:"wav"}}.
+    ia = block.get("input_audio")
+    if isinstance(ia, dict) and isinstance(ia.get("data"), str):
+        return ia["data"]
+    # Anthropic: {type:"image"|"document", source:{type:"url", url:"…"}} or
+    # {source:{type:"base64", media_type:"…", data:"<b64>"}}.
+    src = block.get("source")
+    if isinstance(src, dict):
+        if isinstance(src.get("url"), str):
+            return src["url"]
+        if isinstance(src.get("data"), str):
+            return src["data"]
+    # Permissive fallbacks for less common wrappers.
+    for k in ("url", "data"):
+        if isinstance(block.get(k), str):
+            return block[k]
+    return None
+
+
+def extract_image_keys(body: dict[str, Any]) -> list[int]:
+    """Stable per-image key (xxh3 of the image *reference*) for each image
+    block, in document order. Engine-agnostic on purpose: these key the
+    router's *own* image→worker affinity map, never the engine's KV block
+    hashes — so SGLang (pad-value token substitution) and vLLM (block-hash
+    extra-keys) route identically through one code path.
+
+    The "reference" is whatever uniquely names the image to the client: the
+    http URL, or the full ``data:`` URI (its base64 payload IS the content, so
+    hashing the string content-hashes the bytes). Identical reference →
+    identical key → affinity to the worker holding that image's vision cache.
+    Twin of the Rust router's ``cache_control::extract_image_keys``.
+    """
+
+    keys: list[int] = []
+    if not isinstance(body, dict):
+        return keys
+
+    def _push(refs: list[int], ref: str | None) -> None:
+        if isinstance(ref, str):
+            t = ref.strip()
+            if t:
+                refs.append(xxh3_64_intdigest(t.encode("utf-8")))
+
+    messages = body.get("messages")
+    if isinstance(messages, list):
+        for msg in messages:
+            if not isinstance(msg, dict):
+                continue
+            content = msg.get("content")
+            if not isinstance(content, list):
+                continue
+            for block in content:
+                if isinstance(block, dict):
+                    _push(keys, _mm_ref_string(block))
+
+    system = body.get("system")
+    if isinstance(system, list):
+        for entry in system:
+            if isinstance(entry, dict):
+                _push(keys, _mm_ref_string(entry))
+
+    images = body.get("images")
+    if isinstance(images, list):
+        for im in images:
+            if isinstance(im, str):
+                _push(keys, im)
+            elif isinstance(im, dict):
+                _push(keys, _mm_ref_string(im))
+
+    return keys
 
 
 def _retention_for_block(block: dict[str, Any]) -> Retention | None:

@@ -13,6 +13,7 @@
 //! Never panics on malformed bodies — treats them as no-hint.
 
 use serde_json::Value;
+use xxhash_rust::xxh3::xxh3_64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Retention {
@@ -229,6 +230,96 @@ fn detect_multimodal(obj: &serde_json::Map<String, Value>) -> bool {
     false
 }
 
+/// Extract a stable per-image key (xxh3 of the image *reference*) for each image
+/// block in the request, in document order. Engine-agnostic on purpose: these
+/// key the router's *own* affinity map (image -> worker), never the engine's KV
+/// block hashes — so `sglang` (pad-value token substitution) and `vLLM`
+/// (block-hash extra-keys) route identically through one code path.
+///
+/// The "reference" is whatever uniquely names the image to the client: the http
+/// URL string, or the full `data:` URI (its base64 payload IS the content, so
+/// hashing the string content-hashes the bytes). Identical reference -> identical
+/// key -> affinity to the worker that already holds that image's vision cache.
+pub fn extract_image_keys(body: &Value) -> Vec<u64> {
+    let obj = match body.as_object() {
+        Some(o) => o,
+        None => return Vec::new(),
+    };
+    let mut keys = Vec::new();
+    if let Some(msgs) = obj.get("messages").and_then(|v| v.as_array()) {
+        for msg in msgs {
+            if let Some(content) = msg.get("content").and_then(|v| v.as_array()) {
+                for b in content {
+                    push_image_key(&mut keys, mm_ref_string(b));
+                }
+            }
+        }
+    }
+    if let Some(system) = obj.get("system").and_then(|v| v.as_array()) {
+        for b in system {
+            push_image_key(&mut keys, mm_ref_string(b));
+        }
+    }
+    if let Some(images) = obj.get("images").and_then(|v| v.as_array()) {
+        for im in images {
+            let r = im
+                .as_str()
+                .map(str::to_string)
+                .or_else(|| mm_ref_string(im));
+            push_image_key(&mut keys, r);
+        }
+    }
+    keys
+}
+
+fn push_image_key(keys: &mut Vec<u64>, r: Option<String>) {
+    if let Some(s) = r {
+        let t = s.trim();
+        if !t.is_empty() {
+            keys.push(xxh3_64(t.as_bytes()));
+        }
+    }
+}
+
+/// The reference string that uniquely names a non-text block's payload, across
+/// the OpenAI and Anthropic shapes. `None` for text / unrecognised blocks.
+fn mm_ref_string(b: &Value) -> Option<String> {
+    // OpenAI: {type:"image_url", image_url:{url:"http…"|"data:…"}} — or the
+    // shorthand image_url:"…".
+    if let Some(iu) = b.get("image_url") {
+        if let Some(s) = iu.as_str() {
+            return Some(s.to_string());
+        }
+        if let Some(s) = iu.get("url").and_then(|v| v.as_str()) {
+            return Some(s.to_string());
+        }
+    }
+    // OpenAI: {type:"input_audio", input_audio:{data:"<b64>", format:"wav"}}.
+    if let Some(ia) = b.get("input_audio") {
+        if let Some(s) = ia.get("data").and_then(|v| v.as_str()) {
+            return Some(s.to_string());
+        }
+    }
+    // Anthropic: {type:"image"|"document", source:{type:"url", url:"…"}} or
+    // {source:{type:"base64", media_type:"…", data:"<b64>"}}.
+    if let Some(src) = b.get("source") {
+        if let Some(s) = src.get("url").and_then(|v| v.as_str()) {
+            return Some(s.to_string());
+        }
+        if let Some(s) = src.get("data").and_then(|v| v.as_str()) {
+            return Some(s.to_string());
+        }
+    }
+    // Permissive fallbacks for less common wrappers.
+    if let Some(s) = b.get("url").and_then(|v| v.as_str()) {
+        return Some(s.to_string());
+    }
+    if let Some(s) = b.get("data").and_then(|v| v.as_str()) {
+        return Some(s.to_string());
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -289,5 +380,82 @@ mod tests {
         ]}]});
         let h = parse_cache_hints(&body);
         assert!(h.has_multimodal_content);
+    }
+
+    fn openai_img(url: &str) -> Value {
+        json!({"messages": [{"role": "user", "content": [
+            {"type": "text", "text": "describe"},
+            {"type": "image_url", "image_url": {"url": url}}
+        ]}]})
+    }
+
+    #[test]
+    fn image_key_stable_across_surrounding_text() {
+        // Same image URL, different prose around it → identical key. This is the
+        // property affinity relies on: the image, not the text, decides routing.
+        let a = openai_img("https://cdn/cat.png");
+        let b = json!({"messages": [{"role": "user", "content": [
+            {"type": "text", "text": "a totally different question"},
+            {"type": "image_url", "image_url": {"url": "https://cdn/cat.png"}}
+        ]}]});
+        let ka = extract_image_keys(&a);
+        assert_eq!(ka.len(), 1);
+        assert_eq!(ka, extract_image_keys(&b));
+        // Different URL → different key.
+        assert_ne!(extract_image_keys(&openai_img("https://cdn/dog.png")), ka);
+    }
+
+    #[test]
+    fn image_key_openai_anthropic_shorthand_agree() {
+        let key = extract_image_keys(&openai_img("https://cdn/cat.png"));
+        // OpenAI image_url shorthand (bare string).
+        let shorthand = json!({"messages": [{"role": "user", "content": [
+            {"type": "image_url", "image_url": "https://cdn/cat.png"}
+        ]}]});
+        assert_eq!(extract_image_keys(&shorthand), key);
+        // Anthropic url source.
+        let anthropic = json!({"messages": [{"role": "user", "content": [
+            {"type": "image", "source": {"type": "url", "url": "https://cdn/cat.png"}}
+        ]}]});
+        assert_eq!(extract_image_keys(&anthropic), key);
+        // Top-level images[] bare url.
+        let images = json!({"images": ["https://cdn/cat.png"], "prompt": "hi"});
+        assert_eq!(extract_image_keys(&images), key);
+    }
+
+    #[test]
+    fn image_keys_multiple_in_order() {
+        let r = json!({"messages": [{"role": "user", "content": [
+            {"type": "image_url", "image_url": {"url": "u1"}},
+            {"type": "text", "text": "and"},
+            {"type": "image_url", "image_url": {"url": "u2"}}
+        ]}]});
+        let k = extract_image_keys(&r);
+        assert_eq!(k.len(), 2);
+        assert_ne!(k[0], k[1]);
+        // The first image's key matches that image taken alone (position-free).
+        assert_eq!(k[0], extract_image_keys(&openai_img("u1"))[0]);
+    }
+
+    #[test]
+    fn image_keys_text_only_empty() {
+        assert!(extract_image_keys(&json!({"prompt": "hello"})).is_empty());
+        assert!(extract_image_keys(
+            &json!({"messages": [{"role": "user", "content": "just text"}]})
+        )
+        .is_empty());
+        // Malformed body never panics.
+        assert!(extract_image_keys(&json!("not an object")).is_empty());
+    }
+
+    #[test]
+    fn image_key_data_uri_content_hashes() {
+        // data: URIs carry the bytes inline → identical payload, identical key;
+        // differing payload, differing key.
+        let d1 = openai_img("data:image/png;base64,AAABBBCCC");
+        let d2 = openai_img("data:image/png;base64,AAABBBCCC");
+        let d3 = openai_img("data:image/png;base64,ZZZ");
+        assert_eq!(extract_image_keys(&d1), extract_image_keys(&d2));
+        assert_ne!(extract_image_keys(&d1), extract_image_keys(&d3));
     }
 }

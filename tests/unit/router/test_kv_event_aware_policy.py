@@ -26,6 +26,7 @@ from infera.common.worker_pool import (
     WorkerInfo,
     WorkerStatus,
 )
+from infera.router.cache_control import extract_image_keys
 from infera.router.policy.kv_event_aware import KvEventAwarePolicy
 
 # ----------------------------------------------------------------------
@@ -551,17 +552,18 @@ def test_implicit_none_uses_neutral_amplifier_not_dampener():
 
 
 # ----------------------------------------------------------------------
-# Multimodal silent-corruption guard
+# Multimodal image-affinity routing
 #
 # The router-side hasher is text-only. For vision/audio requests the
 # placeholder token id is the same regardless of which image, so two
 # requests with the same surrounding tokens but different images
-# produce the same chain hash. If the policy trusted cache locality on
-# such a request, it would route to a worker that has the OTHER
-# image's KV cached and serve wrong KV — silent corruption.
-#
-# The fix: when has_multimodal_content=True, the policy forces
-# overlap_weight=0 so cost() = active(w), pure load balance.
+# produce the same chain hash — trusting text cache locality would serve
+# a DIFFERENT image's KV (silent corruption). So the policy drops text
+# overlap (w_overlap=0) and instead steers by IMAGE AFFINITY: a per-worker
+# LRU of image keys (xxh3 of the image reference). A repeat image co-locates
+# on the worker holding its warm vision cache; an unseen image has no
+# affinity anywhere and falls back to load balance (these first tests
+# exercise that new-image path — same outcome as the old force-load design).
 # ----------------------------------------------------------------------
 
 
@@ -693,6 +695,77 @@ def test_text_only_request_does_NOT_increment_skipped_metric():
     policy.pick([_worker("w1"), _worker("w2")], text_body)
     after = metrics.cache_locality_skipped_total.labels(reason="multimodal")._value.get()
     assert after == before
+
+
+def _mm_request_url(url: str) -> dict:
+    """MM request carrying a specific image URL (drives the affinity key)."""
+    return {
+        "model": "test/m",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "describe"},
+                    {"type": "image_url", "image_url": {"url": url}},
+                ],
+            }
+        ],
+    }
+
+
+def test_mm_affinity_sticks_repeat_image_to_one_worker():
+    """A repeated image co-locates on the worker holding its warm vision cache,
+    even when the OTHER worker is (lightly) less loaded."""
+    client = _StubKvClient({"w1": set(), "w2": set()})
+    policy = KvEventAwarePolicy(client, _StubHasher([]), overlap_weight=1.0)  # type: ignore[arg-type]
+    workers = [_worker("w1"), _worker("w2")]
+    req = _mm_request_url("https://cdn/cat.png")
+
+    # First pick records the image on the tie-winner (min → first = w1).
+    first = policy.pick(workers, req)[0].worker.worker_id
+    other = "w2" if first == "w1" else "w1"
+    # Load the OTHER worker (well under w_mm) — affinity must still win.
+    policy.on_request_started(other, [1, 2, 3])
+    for _ in range(5):
+        picked, _ = policy.pick(workers, req)
+        assert picked.worker.worker_id == first
+
+
+def test_mm_affinity_new_image_balances_by_load():
+    """An unseen image has no affinity anywhere → routes by load."""
+    client = _StubKvClient({"w1": set(), "w2": set()})
+    policy = KvEventAwarePolicy(client, _StubHasher([]), overlap_weight=1.0)  # type: ignore[arg-type]
+    workers = [_worker("w1"), _worker("w2")]
+    # Warm w1 with a cat and load it heavily.
+    policy._record_mm("w1", extract_image_keys(_mm_request_url("https://cdn/cat.png")))
+    policy.on_request_started("w1", [1, 2, 3, 4, 5])
+    # A brand-new image (dog) → least-loaded w2 wins.
+    picked, _ = policy.pick(workers, _mm_request_url("https://cdn/dog.png"))
+    assert picked.worker.worker_id == "w2"
+
+
+def test_mm_affinity_lru_capped():
+    """Per-worker affinity is a bounded LRU — the oldest keys are evicted."""
+    from infera.router.policy.kv_event_aware import _MM_AFFINITY_CAP
+
+    client = _StubKvClient()
+    policy = KvEventAwarePolicy(client, _StubHasher([]))  # type: ignore[arg-type]
+    keys = list(range(_MM_AFFINITY_CAP + 50))
+    for k in keys:
+        policy._record_mm("w", [k])
+    assert policy._mm_hits("w", keys[:50]) == 0  # oldest 50 evicted
+    assert policy._mm_hits("w", keys[50:]) == _MM_AFFINITY_CAP  # newest retained
+
+
+def test_mm_affinity_pruned_on_worker_removed():
+    """Affinity for a departed worker (and its dp ranks) is pruned."""
+    client = _StubKvClient()
+    policy = KvEventAwarePolicy(client, _StubHasher([]))  # type: ignore[arg-type]
+    policy._record_mm("gone#dp0", [1, 2])
+    policy._record_mm("stay", [3])
+    policy.on_worker_removed("gone")
+    assert policy._mm_hits("gone#dp0", [1, 2]) == 0
+    assert policy._mm_hits("stay", [3]) == 1
 
 
 def test_retention_hint_works_via_parse_cache_hints():

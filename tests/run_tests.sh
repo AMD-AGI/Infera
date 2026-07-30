@@ -141,7 +141,10 @@ SLURM_TIME="${INFERA_E2E_SLURM_TIME:-02:00:00}"
 # Burst QoS is a fallback: a dispatch queued this long on the group node limit is
 # resubmitted with it (see _watch_job / _dispatch_slurm), never used up front.
 QOS_FALLBACK="${INFERA_E2E_SLURM_QOS_FALLBACK:-amd-burst-qos}"
-QOS_WAIT="${INFERA_E2E_QOS_WAIT:-60}"
+QOS_WAIT="${INFERA_E2E_QOS_WAIT:-30}"
+# _hold_pair's own window: its -N2 --gres=gpu:8 batch job needs longer to start
+# than a single-node srun, and giving up early only churns the pair-hold race.
+HOLD_WAIT="${INFERA_E2E_HOLD_WAIT:-60}"
 
 _have_slurm() { command -v srun >/dev/null 2>&1; }
 # The nodes reservation $1 covers, one per line ('' if it's gone/expired).
@@ -182,7 +185,7 @@ _hold_pair() {
       ${INFERA_E2E_RESERVATION:+--reservation="$INFERA_E2E_RESERVATION"} \
       "${qos[@]}" "$script" 2>/dev/null) || continue
     waited=0
-    while [ "$waited" -lt "$QOS_WAIT" ]; do
+    while [ "$waited" -lt "$HOLD_WAIT" ]; do
       st=$(scontrol show job "$jid" 2>/dev/null | grep -oE 'JobState=[A-Z_]+' | cut -d= -f2)
       rs=$(scontrol show job "$jid" 2>/dev/null | grep -oE 'Reason=[A-Za-z]+' | cut -d= -f2)
       [ "$st" = RUNNING ] && { _HOLDER_JID="$jid"; return 0; }
@@ -267,6 +270,8 @@ _watch_job() {
   local every="${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}" next="${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}"
   while sleep 5; do
     waited=$((waited + 5))
+    # Match both srun banners: "Pending job allocation N" while queued (the only
+    # one printed for a job that never starts) and "job N running on ...".
     [ -n "$jid" ] || jid=$(grep -oE 'job (allocation )?[0-9]+' "$out" 2>/dev/null \
       | grep -oE '[0-9]+' | head -1)
     [ -n "$jid" ] || continue

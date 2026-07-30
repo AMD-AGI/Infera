@@ -5,9 +5,13 @@
 ###############################################################################
 from __future__ import annotations
 
+import logging
+
 from infera.common.worker_pool import WorkerInfo
 from infera.router.policy.base import Policy
 from infera.router.policy.target import RouteTarget, expand_targets
+
+logger = logging.getLogger(__name__)
 
 
 class RoundRobinPolicy(Policy):
@@ -38,13 +42,16 @@ class RoundRobinPolicy(Policy):
         *,
         role_hint: str | None = None,
     ) -> tuple[RouteTarget, list[int]]:
-        # role_hint is irrelevant to round-robin; accepted for interface
-        # compatibility with cost-aware policies.
-        del role_hint
+        # role_hint doesn't change round-robin's choice; it's logged so a PD run
+        # can bucket picks by pool the same way the cost-aware policy is read.
         targets = expand_targets(candidates)
         key = tuple(t.route_key for t in targets)
         idx = self._counters.get(key, 0)
         self._counters[key] = idx + 1
+        target = targets[idx % len(targets)]
+        logger.info(
+            "pick policy=round-robin role=%s picked=%s", role_hint or "mixed", target.route_key
+        )
         # Empty list: stateless w.r.t. KV blocks, signals "no per-request
         # tracking" to the cost-aware lifecycle hooks.
-        return targets[idx % len(targets)], []
+        return target, []
