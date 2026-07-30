@@ -547,9 +547,10 @@ run_e2e_disagg() {
 
   local rc=0 e prc out="$SCRATCH/.e2e-disag.out"
   local max_attempts=3 attempt exclude n1 n2 nodes ok
+  local races max_races="${INFERA_E2E_HOLD_RACE_MAX:-10}"
   for e in "${engines[@]}"; do
     echo "----- e2e disagg — tests/e2e/pd_disag/$e -----"
-    attempt=0; ok=0; exclude=""
+    attempt=0; ok=0; exclude=""; races=0
     while [ "$attempt" -lt "$max_attempts" ]; do
       attempt=$((attempt + 1))
       # A user-pinned pair (INFERA_E2E_NODES) wins on the first try; otherwise
@@ -565,12 +566,22 @@ run_e2e_disagg() {
         echo "[e2e disagg] WARNING: no 2 free nodes in '$SLURM_PART' within ${INFERA_E2E_WAIT_NODES_TIMEOUT:-6400}s — skipping $e" >&2
         break
       fi
-      # Lock the pair before using it; losing the race to another job just means
-      # picking a fresh pair, so it does not burn a real attempt.
+      # Lock the pair before using it. Losing the race to another job is not a
+      # node fault, so the pair must NOT join $exclude: with a small pool the
+      # engine would exclude every node and then starve on a fully idle cluster.
+      # Just re-pick — once the winner's holder is RUNNING, _candidate_nodes
+      # filters its nodes out by itself. Bounded so a pathological loser fails
+      # loudly instead of spinning until the CI job timeout.
       if ! _hold_pair "$n1,$n2"; then
-        echo "[e2e disagg] could not hold $n1,$n2 — trying another pair" >&2
-        exclude="${exclude:+$exclude,}$n1,$n2"; attempt=$((attempt - 1)); continue
+        races=$((races + 1))
+        if [ "$races" -ge "$max_races" ]; then
+          echo "[e2e disagg] lost the node-hold race $races times — giving up on $e" >&2
+          break
+        fi
+        echo "[e2e disagg] could not hold $n1,$n2 (race $races/$max_races) — re-picking in 30s" >&2
+        attempt=$((attempt - 1)); sleep 30; continue
       fi
+      races=0
       echo "[e2e disagg] $e attempt $attempt/$max_attempts on nodes: $n1 (prefill), $n2 (decode)"
       _DISAG_NODES="$n1,$n2"
       INFERA_E2E_NODES="$n1,$n2" INFERA_E2E_SLURM_PARTITION="$SLURM_PART" \
