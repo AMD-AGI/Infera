@@ -130,7 +130,54 @@ they fire identically whichever arm is taken. That is why the it=9 record exists
 
 ---
 
-## P9 — A shell loop clobbered `spur`'s arguments
+## P9 — "Catastrophic regression" that was a dead endpoint
+
+**What.** The 8-round durability run reported **0/128 on every round**. It looked like the
+fix had a fatal soak-time defect.
+
+**Why.** The run was pointed at router port 8104, whose *prefill* leg no longer existed —
+I had killed the PD prefill server on that node to free GPUs for the mix regression, so
+port 30000 was serving mix, not prefill. The router returned 503 for everything.
+
+**How caught.** Checked the live process args for `disaggregation-mode`; it was absent,
+so the thing answering on 30000 was a mix server. Re-running against the mix endpoint
+directly gave 1024/1024.
+
+**Lesson.** Before believing a regression, confirm that the thing under test is the thing
+that is running. The failure latency was also a tell — instant 503s, not timeouts.
+
+---
+
+## P10 — Spur evicted both jobs right after the final run
+
+**What.** Both jobs went `FAILED` minutes after the last measurement; `spur exec` started
+returning "job is not running".
+
+**Why.** Spur evicts without warning. Documented, expected, and it has happened before in
+this project.
+
+**Why it cost nothing this time.** Every log, result and script was written under
+`/home/yihou`, which is NFS-backed and bind-mounted into the container — so all 17 MB of
+raw evidence survived the eviction. Had they been written to container-local paths or
+`/tmp` on the node, the entire round would have been unreproducible.
+
+**Lesson.** On this cluster, treat node-local storage as volatile. Write everything that
+matters to the NFS bind-mount as you go, not at the end.
+
+---
+
+## P11 — The patches are not applied at image build time
+
+Not a mistake made here, but a trap for the next person: `Dockerfile.sglang` has no patch
+loop (the previous `patches/sglang/*.py` mechanism was removed), so a stock image build
+contains **none** of the four diffs. Every result in this kit was obtained by applying
+them into a running container. A reproduction that builds the image and expects the fix
+to be present will silently test unpatched code — which is the same class of failure as
+the stale-`.pyc` trap, one layer up.
+
+---
+
+## P12 — A shell loop clobbered `spur`'s arguments
 
 `for j in "11428 ip port role"; do set -- $j; spur exec $1 ...` — `set --` overwrote the
 positional parameters that `spur` itself parsed, yielding

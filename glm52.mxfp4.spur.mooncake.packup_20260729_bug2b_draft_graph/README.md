@@ -2,7 +2,10 @@
 
 **Date:** 2026-07-29 (17:20–19:00 UTC)
 **Status:** ✅ **fixed and verified**, with a same-node differential control.
-**Not pushed.** The user submits PRs.
+**Shipped:** `AMD-AGI/Infera` branch `worktree-dsa-hip-dp-rows-fix`, commit `25ba063`,
+pushed 2026-07-30 — it lands in the existing draft PR **#34**. The patch itself is at
+`deploy/docker/patches/sglang_dsa/eagle_worker_v2_uniform_draft_graph.diff` there; this
+kit is the reproduction and evidence.
 
 ---
 
