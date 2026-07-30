@@ -74,6 +74,13 @@ jobs:
           skip_after_successful_duplicate: "true"
           concurrent_skipping: "never"
 
+  # Sign-off gate for the GPU tiers below — `needs:` cannot reach a job in
+  # another workflow, so dco.yml is called here as one. Skipped off a PR (there
+  # is nothing to check), which the tiers below read as "did not fail".
+  dco:
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/dco.yml
+
   lint:
     needs: [pre_check, changes]
     if: >-
@@ -136,12 +143,17 @@ jobs:
 
   # Engine GPU tests — run on each branch push (same-repo PRs reuse that run).
   engine:
-    needs: [lint, pre_check, changes]
     # Skip on docs-only changes, and on same-repo PRs (already covered by the
-    # branch push event); still run on push and on fork PRs.
+    # branch push event); still run on push and on fork PRs. `always()` + result
+    # checks (not a plain success dependency) so a *skipped* lint/dco — dco does
+    # not run off a PR — does not drag this down with it.
+    needs: [lint, pre_check, changes, dco]
     if: >-
+      always() &&
       needs.pre_check.outputs.should_skip != 'true' &&
       needs.changes.outputs.code == 'true' &&
+      needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
+      needs.dco.result != 'failure' && needs.dco.result != 'cancelled' &&
       (github.event_name != 'pull_request' ||
        github.event.pull_request.head.repo.full_name != github.repository)
     runs-on: [self-hosted, crusoe]
@@ -179,11 +191,12 @@ jobs:
     # Gated behind lint: run only if lint did not fail. `always()` + result check
     # (instead of a plain success dependency) is needed so e2e still runs when lint
     # is *skipped* as a duplicate (pre_check), but is held back when lint fails.
-    needs: [lint, changes]
+    needs: [lint, changes, dco]
     if: >-
       always() &&
       needs.changes.outputs.code == 'true' &&
       needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
+      needs.dco.result != 'failure' && needs.dco.result != 'cancelled' &&
       (github.event_name == 'pull_request' ||
        (github.event_name == 'workflow_dispatch' && inputs.run_e2e_mixed))
     strategy:
@@ -221,11 +234,12 @@ jobs:
           done
 
   e2e-disag:
-    needs: [lint, changes]
+    needs: [lint, changes, dco]
     if: >-
       always() &&
       needs.changes.outputs.code == 'true' &&
       needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
+      needs.dco.result != 'failure' && needs.dco.result != 'cancelled' &&
       (github.event_name == 'pull_request' ||
        (github.event_name == 'workflow_dispatch' && inputs.run_e2e_disag))
     strategy:
