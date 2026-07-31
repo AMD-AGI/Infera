@@ -1,0 +1,13 @@
+diff --git a/python/sglang/srt/models/deepseek_nextn.py b/python/sglang/srt/models/deepseek_nextn.py
+index 87a86adcba..e16fa330de 100644
+--- a/python/sglang/srt/models/deepseek_nextn.py
++++ b/python/sglang/srt/models/deepseek_nextn.py
+@@ -360,7 +360,7 @@ class DeepseekV3ForCausalLMNextN(DeepseekV3ForCausalLM):
+                 should_ignore_layer,
+             )
+ 
+-            ckpt_prefix = f"model.layers.{config.num_hidden_layers}"
++            ckpt_prefix = f"model.layers.{config.num_hidden_layers}.eh_proj"  # GLM-5.2: MTP layer bf16; match submodule-level quark exclude (pd-unified fix, ndl)
+             mapped_prefix = self.hf_to_sglang_mapper._map_name(ckpt_prefix)
+             if should_ignore_layer(mapped_prefix, nextn_quant_config.exclude_layers):
+                 nextn_quant_config = None

@@ -1,0 +1,119 @@
+# Infera SGLang engine image — HIP dma-buf KV registration variant.
+#
+# Purpose: a build whose Mooncake registers GPU (device) KV memory through
+# ibv_reg_dmabuf_mr (via hsa_amd_portable_export_dmabuf), NOT bare ibv_reg_mr.
+# This is the GPUDirect path for hosts that have NO peer-memory kernel module
+# (no nvidia_peermem / no amdgpu peermem) — where a bare ibv_reg_mr on a device
+# pointer fails with EFAULT, so dma-buf is the only way the NIC can reach VRAM.
+#
+# ⚠️ NIC requirement: use this image ONLY when the KV-transfer NIC supports ODP
+# (On-Demand Paging), e.g. Mellanox mlx5. With ODP the dma-buf MR is a dynamic
+# attach → the NIC pages GPU memory on demand → NO pin, NO VRAM doubling. On a
+# NIC WITHOUT ODP (e.g. AMD Pensando ionic) the same ibv_reg_dmabuf_mr forces the
+# driver to PIN the whole registered region → the KV pool is duplicated in VRAM
+# and can exhaust a KFD resource (HIP-209) → the engine crashes at KV setup.
+# For no-ODP NICs use the default build (bare ibv_reg_mr + host-libionic
+# injection): deploy/docker/scripts/build_mooncake_rocm.sh.
+#
+# This image differs from Dockerfile.sglang in two ways: it ENABLES the dma-buf
+# Mooncake path instead of gating it off, and it bakes in the GLM-5.2 DSA patch
+# set (see below). It deliberately does not add the infera python package or the
+# Rust router — it is a minimal sglang+mooncake runtime for the
+# ibv_reg_dmabuf_mr case. Add those layers if you need them.
+#
+# ⚠️ The sglang base tag is PINNED and must stay pinned. The DSA patches below
+# apply at --fuzz=0 against this exact commit
+# (0b3bb0cbe31873994c9f989fddfe2f87ca839fdd, release/v0.5.15). Bumping the base
+# will fail the build at the patch step rather than silently mis-apply — which
+# is the intended behaviour, not a defect.
+ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
+FROM ${SGLANG_BASE_IMAGE}
+
+WORKDIR /opt/infera
+
+# ---- Mooncake rebuild with HIP dma-buf MR registration ENABLED -------------
+# The v0.5.15.post1 base bundles Mooncake at upstream #2682, which:
+#   (a) compiles USE_HIP_DMABUF onto the transfer_engine target only, so
+#       rdma_context.cpp (in the rdma_transport OBJECT lib, where the
+#       ibv_reg_dmabuf_mr call lives) falls back to bare ibv_reg_mr; and
+#   (b) installs a HIP IPC transport unconditionally and prefers it over RDMA,
+#       which breaks CROSS-NODE PD (a peer can't open a local hip IPC segment).
+# build_mooncake_dmabuf.sh fixes both: it applies the in-tree B-group patches
+# (HIP-transport gate behind MC_ENABLE_HIP_TRANSPORT + auto-chunk MR — both
+# `git apply --check` clean on #2682) AND propagates USE_HIP_DMABUF to
+# rdma_transport, then rebuilds -DUSE_HIP_DMABUF=ON and verifies the compiled
+# object actually references ibv_reg_dmabuf_mr. Self-checking: fails the build if
+# the dma-buf symbol is absent. Skip the whole step with BUILD_MOONCAKE_DMABUF=0.
+ARG BUILD_MOONCAKE_DMABUF=1
+COPY deploy/docker/patches/mooncake_cpp/ /tmp/mooncake_cpp/
+COPY deploy/docker/scripts/build_mooncake_dmabuf.sh /tmp/build_mooncake_dmabuf.sh
+RUN if [ "${BUILD_MOONCAKE_DMABUF}" = "1" ]; then \
+        MC_CPP_PATCH_DIR=/tmp/mooncake_cpp bash /tmp/build_mooncake_dmabuf.sh; \
+    else \
+        echo "BUILD_MOONCAKE_DMABUF=0 — leaving base Mooncake (bare ibv_reg_mr) as-is"; \
+    fi \
+    && rm -rf /tmp/build_mooncake_dmabuf.sh /tmp/mooncake_cpp
+
+# ---- GLM-5.2 DSA patch set --------------------------------------------------
+# Four patches that together enable PD disaggregation + DP-attention + EAGLE MTP
+# for GLM-5.2 on gfx950. Without them the combination crashes at weight load, at
+# the first batch, or deadlocks the whole DP group under concurrency.
+#
+#   dsa_indexer_hip_dp_padded_rows      the HIP/aiter paged-MQA path sizes its
+#                                       output from DP-PADDED rows while
+#                                       `lengths` is sized to REAL rows ->
+#                                       "Expected lengths.size(0) == B".
+#                                       Shaped after upstream PR #32762 (same
+#                                       bug class, NPU): one boolean gates both
+#                                       trim and restore, and the post-kernel
+#                                       row count is ASSERTED before the padding
+#                                       is re-attached.
+#   dsa_backend_dp_sync_and_page_table  (a) `seq_lens.max().item()` is a host
+#                                       sync on a branch only SOME DP ranks
+#                                       take, desynchronizing DP collectives;
+#                                       (b) page_table_1 has one row per REQUEST
+#                                       while topk_indices has one per TOKEN
+#                                       under MTP -> assert on unequal rows.
+#   deepseek_nextn_glm52_mtp_bf16       GLM-5.2 MXFP4 exports the nextn layer in
+#                                       bf16 while the model is quantized; the
+#                                       quark exclude check must test
+#                                       `model.layers.{N}.eh_proj`, not the bare
+#                                       layer prefix. Else a 3072-vs-6144 shape
+#                                       crash at load.
+#   draft_cuda_graph_dp_vote            the draft-graph/eager choice in
+#                                       EagleDraftWorker.draft() is made PER
+#                                       RANK from rank-dependent inputs and
+#                                       diverges on the PD decode leg, where the
+#                                       DSA top-k seed arrives by RDMA. Graph
+#                                       replay and the eager loop do not issue
+#                                       the same collectives -> deadlock. Shaped
+#                                       after upstream PR #32209: the vote rides
+#                                       the MLP-sync all-gather the scheduler
+#                                       ALREADY performs, adding zero extra
+#                                       collectives.
+#
+# The apply script verifies every patch reached the BYTECODE, not just the
+# source: a stale __pycache__ entry silently reverts a patch and has already
+# invalidated one full experiment here. Set APPLY_SGLANG_DSA_PATCHES=0 for a
+# stock engine (e.g. to A/B the patches).
+ARG APPLY_SGLANG_DSA_PATCHES=1
+COPY deploy/docker/patches/sglang_dsa/ /tmp/sglang_dsa/
+COPY deploy/docker/scripts/apply_sglang_dsa_patches.sh /tmp/apply_sglang_dsa_patches.sh
+RUN if [ "${APPLY_SGLANG_DSA_PATCHES}" = "1" ]; then \
+        PATCH_DIR=/tmp/sglang_dsa bash /tmp/apply_sglang_dsa_patches.sh; \
+    else \
+        echo "APPLY_SGLANG_DSA_PATCHES=0 — stock sglang, GLM-5.2 PD+DPA+MTP will NOT work"; \
+    fi \
+    && rm -rf /tmp/apply_sglang_dsa_patches.sh /tmp/sglang_dsa
+
+# ---- host-libionic injection entrypoint ------------------------------------
+# Same entrypoint as Dockerfile.sglang: when /host-libionic/libionic.so is
+# bind-mounted, replace the container's libionic provider with the host build so
+# in-container libibverbs speaks the host kernel module's ABI (else ibv_get_
+# device_list() returns 0 devices and RDMA silently degrades to TCP). No-op when
+# the mount is absent (e.g. mlx5-only hosts). Harmless for the dma-buf case and
+# required if any ionic device is enumerated at runtime.
+COPY deploy/docker/scripts/infera_inject_host_ionic.sh /usr/local/bin/infera-inject-host-ionic
+
+ENTRYPOINT ["/usr/local/bin/infera-inject-host-ionic"]
+CMD ["/bin/bash"]
