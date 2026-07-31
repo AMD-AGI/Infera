@@ -4,19 +4,23 @@ Patches against the sglang source tree bundled in the ROCm engine images
 (`lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x` and derivatives, where sglang is an
 editable checkout at `/sgl-workspace/sglang`).
 
-> **`Dockerfile.sglang.dmabuf` applies these at build time**, via
+> **`Dockerfile.sglang` applies these at build time by default**
+> (`APPLY_SGLANG_DSA_PATCHES=1`), via
 > `deploy/docker/scripts/apply_sglang_dsa_patches.sh`, which also verifies each patch
 > reached the **bytecode** (a stale `__pycache__` entry silently reverts a patch and has
 > already invalidated a full experiment here). Set `APPLY_SGLANG_DSA_PATCHES=0` to build
 > a stock engine for A/B.
 >
-> `Dockerfile.sglang` does **not** apply them — a stock build of that image contains none
-> of them. Apply them into a running container by `patch -p1 --fuzz=0` if you need them
-> there.
->
 > The base image tag is pinned deliberately: these target one sglang commit and are
 > applied at `--fuzz=0`, so a base bump fails the build at the patch step rather than
 > mis-applying silently.
+>
+> **Prerequisite, applied earlier in the same Dockerfile:**
+> `deploy/docker/patches/sglang/patch_glm52_nextn_quark_exclude.py` fixes the GLM-5.2
+> nextn `eh_proj` quark-exclude check (backport of sglang #30265). GLM-5.2 MTP cannot
+> load its draft weights without it — a `3072 vs 6144` shape mismatch. It is not part of
+> this set, but `apply_sglang_dsa_patches.sh` **asserts** it, because that script is
+> idempotent and would otherwise "skip" silently.
 
 ## `dsa_indexer_hip_dp_padded_rows.diff`
 
@@ -104,11 +108,22 @@ the second pairs the same unpadded page table with a padded `topk_indices`. The 
 sibling already solves this with an explicit `output_num_tokens` argument; the decode
 entry point had no equivalent.
 
-## `deepseek_nextn_glm52_mtp_bf16.diff`
+## nextn `eh_proj` — not here, applied earlier
 
-One line in `python/sglang/srt/models/deepseek_nextn.py`. **Required for GLM-5.2 MTP**,
-whose nextn layer is bf16 while the rest of the model is quantized — without it the
-weight load dies with a `3072 vs 6144` shape mismatch.
+Earlier revisions of this directory carried a fourth diff,
+`deepseek_nextn_glm52_mtp_bf16.diff`: one line in
+`python/sglang/srt/models/deepseek_nextn.py` making the quark-exclude check test
+`model.layers.{N}.eh_proj` instead of the bare layer prefix. **Required for GLM-5.2
+MTP**, whose nextn layer is bf16 while the rest of the model is quantized — without it
+the weight load dies with a `3072 vs 6144` shape mismatch.
+
+It was removed as a duplicate: `deploy/docker/patches/sglang/patch_glm52_nextn_quark_exclude.py`
+(main, commit `0d8d0ff`) already makes the identical edit — same file, same line, same
+resulting value — as an idempotent Python patch that runs earlier in `Dockerfile.sglang`.
+Keeping both would have been worse than redundant: main's script runs first, so our
+context diff would then fail at `--fuzz=0` on an already-edited anchor.
+
+`apply_sglang_dsa_patches.sh` asserts the edit is present before proceeding.
 
 ## `draft_cuda_graph_dp_vote.diff`
 
@@ -221,22 +236,20 @@ cannot distinguish a fix from that workaround — the usage counter can.
 
 ## Applying
 
-All four apply with exact context, no fuzz, against sglang commit
+All three apply with exact context, no fuzz, against sglang commit
 `0b3bb0cbe31873994c9f989fddfe2f87ca839fdd` (v0.5.15.post1):
 
 ```bash
 cd /sgl-workspace/sglang
 for d in dsa_indexer_hip_dp_padded_rows.diff \
          dsa_backend_dp_sync_and_page_table_rows.diff \
-         deepseek_nextn_glm52_mtp_bf16.diff \
          draft_cuda_graph_dp_vote.diff; do
   patch -p1 --fuzz=0 < "$d"
 done
 ```
 
 `deploy/docker/scripts/apply_sglang_dsa_patches.sh` does exactly this and then verifies
-each patch in the **bytecode**; prefer it. `Dockerfile.sglang.dmabuf` runs it at build
-time.
+each patch in the **bytecode**; prefer it. `Dockerfile.sglang` runs it at build time.
 
 Verified by applying for real into a scratch tree and byte-compiling the result — note
 that `patch --dry-run` and `git apply --check` **fuzz by default**, and a hand-written
@@ -248,10 +261,11 @@ diff in this series once silently dropped a hunk while still "passing".
 > draft-graph vote and the **v1** indexer patch. Both have since been reshaped to follow
 > upstream (#32209 and #32762 respectively), and each reshape was separately re-validated
 > — but the two reshaped patches were validated in *different* runs, never together.
-> The end-to-end run of exactly the four diffs in this directory is recorded below under
-> "Final validation".
+> They were also measured with the nextn fix supplied as a fourth diff in this directory
+> rather than by the earlier patch loop; the two make the identical edit. The end-to-end
+> run of the current arrangement is recorded below under "Final validation".
 
-With **all four** diffs applied, PD disaggregation with DP-attention + EAGLE MTP and the
+With the full set applied, PD disaggregation with DP-attention + EAGLE MTP and the
 **draft CUDA graph enabled** is working on 2× 8×MI355X, GLM-5.2-MXFP4,
 `--dp-size 8 --enable-dp-attention --ep-size 8`, mooncake RDMA over mlx5 + dma-buf:
 
