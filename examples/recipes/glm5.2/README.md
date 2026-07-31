@@ -21,6 +21,20 @@ only if you have two nodes on a mutually routable RoCE fabric.
 
 `export COMBO=mixed` (or `mixed-kvd`, `pd`, `pd-kvd`) — the commands below use it.
 
+```{admonition} SGLang kvd/pd combos need a py310 native tree
+The overlay harvests its native tree (Mooncake, hipFile) from `NATIVE_IMAGE`,
+which defaults to a **vLLM** image — so a default build ships `native/rocm7-py312`
+only. SGLang bases are CPython 3.10, so `mixed-kvd`, `pd` and `pd-kvd` here will
+stop at startup with:
+
+    infera-exec: no native payload for rocm7-py310
+
+That is the `INFERA_REQUIRE_NATIVE=1` guard doing its job — without it the Pod
+would come up green and quietly serve with no kvd L3 and no KV transport. Build
+the overlay with an SGLang-based `NATIVE_IMAGE` to get the py310 tree. `mixed`
+needs none of this and is unaffected.
+```
+
 ## 2. Prerequisites
 
 **Hardware.** 8× MI355X (or MI300X+) on one node for `mixed`; two such nodes on a
