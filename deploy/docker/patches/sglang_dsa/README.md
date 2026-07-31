@@ -88,6 +88,23 @@ collectives desynchronize and the group deadlocks. Replaced with the sync-free
 safe: the page table is only indexed through top-k, which masks per row by
 `cache_seqlens`. Two further unconditional `.cpu()` syncs are removed.
 
+*How this was established.* Not by reverting the fix, but by observing the divergence
+directly: a py-spy dump caught a **busy** rank blocked inside `dsa_backend` on
+`.max().item()` while **idle** peers had already advanced into the next collective. After
+the fix, no rank appears in `dsa_backend` in a dump again and PD warmup passes on all 8
+ranks. The second half (removing the two unconditional `.cpu()` syncs) was **forced by
+experiment, not by reading**: with the `max_seqlen_k` change applied and those syncs left
+in, the hang persists — they sit on the same rank-divergent branch. Safety of the wider
+page table was verified by walking every consumer, and the sync-free idiom is established
+in-tree three times (`triton_backend.py:704-708`, `trtllm_mha_backend.py:555-559`, and
+DSA's own graph path at `dsa_backend.py:689-695`).
+
+Upstream does not cover this. Per-diff greps: #31683 does not touch this file's
+`max_seqlen_k` path at all; #32209/#32196 vote on *graph capture*, which a host-side sync
+is invisible to; merged #29798 repaired the **global** eager path (batches exceeding
+`--cuda-graph-max-bs`, entered by all ranks together) and never anticipated per-rank
+asymmetric entry.
+
 **2 — page-table rows vs top-k rows (fixes a crash under concurrency).**
 `metadata.page_table_1` is `req_to_token[req_pool_indices]`, one row per **request**,
 while `topk_indices` has just been padded to `q.shape[0]`, one row per **token**. Those
@@ -252,7 +269,7 @@ needed. Each diff's header records where it stands relative to this.
 | patch | substituted by IndexShare-off? |
 |---|---|
 | 01 `dsa_indexer_hip_dp_padded_rows` | **No** — independent bug, present regardless |
-| 02a `dsa_backend` DP host-sync | **Unknown** — never tested in isolation, here or anywhere |
+| 02a `dsa_backend` DP host-sync | **No** — a host sync is invisible to the graph/eager decision either mechanism changes |
 | 02b `dsa_backend` page-table rows | **Yes**, in effect — the arm ran without it and passed |
 | nextn `eh_proj` (the prerequisite) | **No** — weight-load bug, unrelated |
 | 04 `draft_cuda_graph_dp_vote` | **Yes** — this is what it targets |
@@ -366,7 +383,7 @@ which our removed diff would have added. `apply_sglang_dsa_patches.sh` logged
 **Not established by this run:** the draft-graph replay count was not re-measured (it
 needs an added probe, i.e. a different image — measured at 92.0 %, identical on all 8
 ranks, on the immediately preceding build of the same patch set). No differential control
-was re-run; necessity is established in the kits below, and patch 2a has never had one.
+was re-run either; each patch's necessity is established in the kits below.
 
 Measurements: `glm52.mxfp4.spur.mooncake.packup_20260729_bug2b_draft_graph/` (the draft
 graph fix, with its differential control) and

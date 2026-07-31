@@ -5,9 +5,20 @@ PAGE-TABLE ROW half of this diff (2b), but not the DP host-sync half (2a).
 
 An arm run with this override and with 2b and 04 both asserted ABSENT from the
 bytecode passed 4/4, 32/32 twice and 64/64 on 2 x 8 MI355X.  So 2b is not needed in
-that configuration.  2a was NOT reverted in that arm, so nothing was learned about
-it -- 2a has never been tested in isolation, here or anywhere, which is the oldest
-open gap in this series.
+that configuration.  2a was NOT reverted in that arm, so that arm says nothing about
+it either way.
+
+2a's own evidence does not come from a revert; it comes from runtime state.  A
+py-spy dump caught a BUSY rank blocked inside dsa_backend on .max().item() while
+IDLE peers had already advanced into the next collective -- the divergence itself,
+observed.  After the fix no rank appears in dsa_backend in a dump again and PD
+warmup passes on all 8 ranks.  Fix A2 (the two unconditional .cpu() syncs on the
+same branch) was forced by experiment, not by reading: with A applied and A2 not,
+the hang persists.  Over-allocating page-table columns was verified safe by walking
+every consumer -- the table is only indexed THROUGH top-k, which masks per row by
+cache_seqlens, so the extra columns get -inf and are never selected.  The
+sync-free idiom is established in-tree three times (triton_backend.py,
+trtllm_mha_backend.py, and DSA's own graph path).
 
 The override does NOT substitute for 01 (padded rows) or the nextn eh_proj fix.
 It is nearly free only while IndexShare's consumer stays disabled under PD by
