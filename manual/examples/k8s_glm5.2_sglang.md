@@ -20,6 +20,18 @@ via the router returns a correct answer ("… the capital of France is Paris …
 the same request on the vLLM image returns garbage.
 ```
 
+```{admonition} What is validated
+:class: note
+On single-node k3s (MI355X, `amd.com/gpu: 8`), GLM-5.2-MXFP4 at TP8 through this
+manifest: the operator reconciled the CR into router + worker, the worker reached
+Ready in **~6 min** (~408 GiB of weights plus DSA graph capture), and a
+`/v1/chat/completions` request through the router returned a **correct, coherent**
+answer.
+
+The same request against the vLLM image on the same hardware returned
+`'1!!!!!!!...'` — which is why this recipe is SGLang-only.
+```
+
 ```{admonition} REQUIRED ROCm env — GLM-5.2 crashes at init without it
 :class: warning
 Stock SGLang defaults a **CUDA-only DSA top-k JIT kernel** that will not build on

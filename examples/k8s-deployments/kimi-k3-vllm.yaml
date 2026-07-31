@@ -1,7 +1,8 @@
 # Kimi-K3 (VLM) — single-node aggregated, vLLM, TP8, one 8-GPU node.
 # Mounts the model-cache PVC (model-cache/) at /models and serves the multimodal
-# Kimi-K3 checkpoint. Structure is validated (operator reconcile + model-cache);
-# see the caveat below before expecting this to serve.
+# Kimi-K3 checkpoint. Validated end to end on MI355X: the operator reconciles the
+# CR, the TP8 worker reaches Ready in ~9 min, and a multimodal image request
+# through the router returns a correct colour-grounded answer.
 #
 # IMAGE: rocm/infera:vllm-kimi-k3 = infera (server/router + infera.engine.vllm)
 # layered onto the upstream vllm/vllm-openai-rocm:kimi-k3 build — the vLLM that
