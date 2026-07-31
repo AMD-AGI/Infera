@@ -27,8 +27,7 @@ spec:
       containers:
         - name: model-download
           # Light, engine-agnostic downloader — any image with huggingface_hub works;
-          # the engine image (offline) is an alternative. hf_xet accelerates large
-          # Xet-backed repos (e.g. Kimi-K3) and is harmless for plain LFS repos.
+          # the engine image (offline) is an alternative.
           image: python:3.11-slim
           securityContext:
             allowPrivilegeEscalation: false
@@ -36,16 +35,22 @@ spec:
               drop: ["ALL"]
             seccompProfile:
               type: RuntimeDefault
+          # Download accelerators — help ONLY on a bandwidth/latency-constrained link
+          # (single-stream underutilizes the pipe). On a fast network the download is
+          # already network-bound (~600 MB/s measured here) and these are no-ops.
+          #   HF_HUB_ENABLE_HF_TRANSFER: parallel-chunked LFS (Kimi-K3 is plain LFS).
+          #   HF_XET_HIGH_PERFORMANCE:   only for Xet-backed repos (Kimi-K3 is NOT one).
           env:
+            - {name: HF_HUB_ENABLE_HF_TRANSFER, value: "1"}
             - {name: HF_XET_HIGH_PERFORMANCE, value: "1"}
-          # envFrom:                       # gated repos only (Kimi-K3): HF_TOKEN
+          # envFrom:                       # gated repos only: HF_TOKEN
           #   - secretRef: {name: hf-token-secret}
           command: ["sh", "-c"]
           # Swap the repo id (and dir) for your model, e.g. moonshotai/Kimi-K3 -> /model-cache/Kimi-K3.
           args:
             - |
               set -eux
-              pip install --no-cache-dir 'huggingface_hub[hf_xet]'
+              pip install --no-cache-dir 'huggingface_hub[hf_xet,hf_transfer]'
               python -c "from huggingface_hub import snapshot_download; print('downloaded ->', snapshot_download('Qwen/Qwen3-0.6B', local_dir='/model-cache/Qwen3-0.6B'))"
           volumeMounts:
             - name: model-cache
