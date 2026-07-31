@@ -10,6 +10,10 @@ name: Build & publish images
 #   release:  inferaimage/infera:sglang-v0.1.0
 #   nightly:  inferaimage/infera:sglang-20260711-a1b2c3d
 #
+# The `overlay` image (deploy/overlay/) is built in its own job after the engine
+# images, because it harvests their compiled pieces — see the `overlay` job.
+#   inferaimage/infera:overlay-v0.1.0
+#
 # Target repo defaults to docker.io/inferaimage/infera; override per-run with
 # the `image_repo` dispatch input, or repo-wide with the IMAGE_REPO Actions
 # variable (input > variable > default). The official repo will be
@@ -53,6 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       engines: ${{ steps.set.outputs.engines }}
+      overlay: ${{ steps.set.outputs.overlay }}
     steps:
       - id: set
         run: |
@@ -61,6 +66,16 @@ jobs:
           json=$(printf '%s\n' $raw | jq -R . | jq -sc .)
           echo "engines=$json" >> "$GITHUB_OUTPUT"
           echo "engines=$json"
+          # The overlay harvests Mooncake/hipFile out of BOTH engine images, so it
+          # can only be built when both are part of this run. A partial dispatch
+          # (e.g. just "sglang") skips it rather than building a payload that
+          # silently carries a previous release's native code.
+          if printf '%s\n' $raw | grep -qx sglang && printf '%s\n' $raw | grep -qx vllm; then
+            echo "overlay=true" >> "$GITHUB_OUTPUT"; echo "overlay=true"
+          else
+            echo "overlay=false" >> "$GITHUB_OUTPUT"
+            echo "overlay=false (needs both sglang and vllm in the engine list)"
+          fi
 
   build:
     needs: prepare
@@ -141,15 +156,92 @@ jobs:
             sleep 5
           done
 
+  # The base-agnostic overlay payload (deploy/overlay/). Unlike the engine
+  # images this one is not independent: it builds its Python trees inside the
+  # STOCK vendor bases and harvests the compiled pieces out of THIS run's vllm
+  # and sglang images, so it must run after `build` and cannot be another entry
+  # in that matrix. Skipped when a partial dispatch leaves either engine out.
+  overlay:
+    needs: [prepare, build]
+    if: needs.prepare.outputs.overlay == 'true'
+    runs-on: [self-hosted, crusoe]
+    environment: auto-docker-builder
+    timeout-minutes: 90
+    env:
+      INFERA_E2E_SLURM_PARTITION: amd-spur
+      INFERA_E2E_RESERVATION: infera-cicd-reserved
+      INFERA_E2E_JOB_TAG: ${{ github.run_id }}-overlay
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Resolve target repo
+        env:
+          INPUT_REPO: ${{ github.event.inputs.image_repo }}
+          VAR_REPO: ${{ vars.IMAGE_REPO }}
+        run: |
+          repo="${INPUT_REPO:-${VAR_REPO:-docker.io/inferaimage/infera}}"
+          echo "IMAGE=$repo" >> "$GITHUB_ENV"
+          echo "target repo=$repo"
+
+      # Same id logic as `build`, so the overlay harvests the engine images this
+      # run just pushed rather than whatever happens to be latest.
+      - name: Compute image id
+        env:
+          CUSTOM_ID: ${{ github.event.inputs.id }}
+        run: |
+          if [ -n "$CUSTOM_ID" ]; then
+            id="$CUSTOM_ID"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            id="${{ github.ref_name }}"
+          else
+            date="$(date -u +%Y%m%d)"; sha="$(git rev-parse --short HEAD)"
+            if desc="$(git describe --tags --long 2>/dev/null)"; then
+              gsha="${desc##*-}"; rest="${desc%-*}"
+              n="${rest##*-}"; tag="${rest%-*}"
+              id="${date}-${tag}-post${n}-${gsha#g}"
+            else
+              id="${date}-${sha}"
+            fi
+          fi
+          echo "ID=$id" >> "$GITHUB_ENV"
+          echo "overlay id=$id"
+
+      - name: build & push overlay (remote via srun)
+        timeout-minutes: 80
+        env:
+          INFERAIMAGE_DOCKERHUB_TOKEN: ${{ secrets.INFERAIMAGE_DOCKERHUB_TOKEN }}
+        run: .github/scripts/dispatch_build.sh overlay
+
+      - name: reclaim this job's SLURM job (on cancel/failure)
+        if: always() && (cancelled() || failure())
+        run: |
+          suf="-${{ github.run_id }}-overlay"
+          for i in 1 2 3 4 5; do
+            ids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \
+              | awk -v suf="$suf" '$2 ~ /^infera-build-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}')
+            [ -z "$ids" ] && { echo "no (more) SLURM jobs to reclaim"; break; }
+            echo "reclaiming SLURM job(s): $ids (try $i)"; scancel $ids 2>&1 || true
+            sleep 5
+          done
+
   # Build the /manual Sphinx site alongside the images. Always uploads the HTML
   # as a workflow artifact; on a tag (release) it also attaches a tarball to the
   # GitHub Release. No GPU needed, so this runs on a GH-hosted runner.
   #
-  # Gated on `build`: don't publish a GitHub Release (create + attach the manual)
-  # unless every engine image built and pushed successfully, so a green Release
-  # never implies images that failed to build.
+  # Gated on `build` and `overlay`: don't publish a GitHub Release (create +
+  # attach the manual) unless everything this run ships built and pushed, so a
+  # green Release never implies images that failed to build. A SKIPPED overlay
+  # (partial dispatch, see `prepare`) is fine and must not block the Release —
+  # only a FAILED one does, hence the explicit result checks rather than a plain
+  # `needs:`, which would also skip this job whenever overlay is skipped.
   manual:
-    needs: build
+    needs: [build, overlay]
+    if: >-
+      always() && needs.build.result == 'success'
+      && needs.overlay.result != 'failure'
+      && needs.overlay.result != 'cancelled'
     runs-on: ubuntu-latest
     # Same gate as the image build, so publishing a Release (create/upload)
     # goes through the auto-docker-builder protection rules too.
