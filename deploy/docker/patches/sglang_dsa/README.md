@@ -4,14 +4,19 @@ Patches against the sglang source tree bundled in the ROCm engine images
 (`lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x` and derivatives, where sglang is an
 editable checkout at `/sgl-workspace/sglang`).
 
-> **These diffs are NOT applied at image build time.** `Dockerfile.sglang` no longer
-> carries a patch loop (the previous `deploy/docker/patches/sglang/*.py` mechanism was
-> removed along with it), so a stock build of the image does **not** contain any of them.
-> Apply them into a running container — by `patch -p1 --fuzz=0`, or by bind-mounting the
-> patched files over the container's copies — which is how every result quoted below was
-> obtained. If you want them baked in, a build step has to be added; that is deliberate
-> for now, since they target a specific pinned sglang commit and would silently no-op or
-> conflict on a different base.
+> **`Dockerfile.sglang.dmabuf` applies these at build time**, via
+> `deploy/docker/scripts/apply_sglang_dsa_patches.sh`, which also verifies each patch
+> reached the **bytecode** (a stale `__pycache__` entry silently reverts a patch and has
+> already invalidated a full experiment here). Set `APPLY_SGLANG_DSA_PATCHES=0` to build
+> a stock engine for A/B.
+>
+> `Dockerfile.sglang` does **not** apply them — a stock build of that image contains none
+> of them. Apply them into a running container by `patch -p1 --fuzz=0` if you need them
+> there.
+>
+> The base image tag is pinned deliberately: these target one sglang commit and are
+> applied at `--fuzz=0`, so a base bump fails the build at the patch step rather than
+> mis-applying silently.
 
 ## `dsa_indexer_hip_dp_padded_rows.diff`
 
@@ -105,7 +110,7 @@ One line in `python/sglang/srt/models/deepseek_nextn.py`. **Required for GLM-5.2
 whose nextn layer is bf16 while the rest of the model is quantized — without it the
 weight load dies with a `3072 vs 6144` shape mismatch.
 
-## `eagle_worker_v2_uniform_draft_graph.diff`
+## `draft_cuda_graph_dp_vote.diff`
 
 **Lets the EAGLE draft CUDA graph stay enabled on the PD decode leg.** Without it the
 first routed request hard-deadlocks.
@@ -130,18 +135,44 @@ is the race behaving as a race. This also explains why single-node **mix** never
 with no disaggregation the top-k seed is always produced locally by identical code on
 every rank, so the fourth term never flips asymmetrically.
 
-The fix votes the *local need for eager* across the DP group (one 1-element **gloo**
-all-reduce on `cpu_group` — no GPU sync, cannot serialize the compute stream) and has
-every rank act on the group's answer. An idle rank contributes `False`, so it can never
-drag the group to eager.
+### Where the vote lives, and why it moved
+
+The fix makes the graph/eager choice a **group** decision instead of a per-rank one. Two
+placements were implemented and both were measured:
+
+| | placement | collectives added | draft-graph usage |
+|---|---|---|---|
+| v1 (superseded) | a 1-element gloo all-reduce inside `draft()` | **one per draft call** | 98.4 % |
+| **v2 (this diff)** | one more int64 slot in the MLP-sync all-gather the scheduler **already** performs | **none** | **97.1 %** |
+
+v2 is the shape of upstream PR [#32209](https://github.com/sgl-project/sglang/pull/32209)
+(`Fix PD decode hang with DP attention and GLM-5.2 MTP`, open). Adopting it means this
+tree converges with upstream rather than diverging from it, and it drops a collective
+whose cost we never measured. It also separates the *draft*-graph vote from the generic
+`can_cuda_graph` vote, so target-verify and draft-extend graphs are not collateral damage
+— #32209 reports that folding them together cost 9.7 % of decode batches their generic
+graph replay.
+
+The rank-local predicate is `requires_dp_attention_eager_forward()`; the scheduler calls
+it just before `maybe_prepare_mlp_sync_batch`, and the gathered value is `min()`-reduced
+so **any** rank needing eager takes the whole group eager. Idle/inactive ranks contribute
+`1` (permissive) and so can never drag the group into eager on their own.
 
 Two details that would otherwise make the patch silently inert:
 
-* it must use `get_tp_group()`, **not** `get_attention_tp_group()` — under DPA8 on tp8 the
-  attention TP group is `attn_tp_size = tp/dp = 1` rank wide, so voting on it is a no-op;
-* a collective is safe at this line because instrumentation showed all 8 ranks entering
-  `draft()` an equal number of times every iteration, idle ones included — the vote sits
-  on a branch every rank takes, which is precisely the property the buggy code lacked.
+* under overlap scheduling the draft input is resolved **after** the scheduler-side vote,
+  so `dsa_topk_indices` is stale at that point and must not be read directly. The
+  predicate consults `future_dsa_topk_indices_available` instead — which is exactly
+  "will term 4 be satisfied once resolved". An earlier revision wrongly assumed that
+  attribute was absent and fell back to requiring eager whenever `future_indices` was
+  set; since overlap scheduling sets it on **every** decode iteration, that refused the
+  draft graph 100 % of the time (measured: 0.0 % usage, 200/200 calls refused) and
+  silently degraded the fix into the "just disable the draft graph" workaround while
+  still passing every functional test.
+* the v1 form had to use `get_tp_group()`, **not** `get_attention_tp_group()` — under
+  DPA8 on tp8 the attention TP group is `attn_tp_size = tp/dp = 1` rank wide, so voting
+  on it is a no-op. v2 rides the scheduler's existing all-gather and so does not face
+  this choice.
 
 An earlier attempt that removed only the `not is_idle()` term does **not** work, and the
 measurements say why: it fixes the busy-rank iteration and breaks the idle-rank one, which
@@ -150,7 +181,9 @@ matches the observed symptom of the failure moving earlier, into warmup.
 ### Verified
 
 2× 8×MI355X, GLM-5.2-MXFP4, PD over mooncake/mlx5, DPA8 + EAGLE MTP(3,1,4), **draft graph
-enabled**:
+enabled**.
+
+v1's evidence, which established the root cause and carries the differential control:
 
 | Check | Result |
 |---|---|
@@ -158,7 +191,7 @@ enabled**:
 | conc 1/2/4/8/16/64/128/256 × 512 tok | **1384/1384**, 0 failures, 0 KVTransferError |
 | Single-node mix regression (shared code path) | **132/132** |
 | Durability, 8 × conc=128 × 512 back to back | **1024/1024**, accept length flat at ~3.0 |
-| **Draft graph actually used** | **98.4%** of iterations |
+| **Draft graph actually used** | **98.4 %** of iterations |
 | Same-node control, only this diff reverted | **0/4 — deadlock, 120 s timeout on request 1** |
 
 Cumulative **2540/2540** with the fix, **0/4** without.
@@ -166,8 +199,25 @@ Cumulative **2540/2540** with the fix, **0/4** without.
 The mechanism was verified, not just the outcome. Over 2992 iterations with all 8 ranks
 logging: the *local* decision still diverges 38 times (the defect is latent and real, not
 masked by timing) while the *acted-on* decision diverges **0** times, and the vote changed
-some rank's mind 190 times — each one an averted deadlock. The 98.4% graph usage is what
-distinguishes this from simply disabling the draft graph.
+some rank's mind 190 times — each one an averted deadlock.
+
+v2 (this diff) was then measured on its own:
+
+| Check | Result |
+|---|---|
+| 4-prompt probe | 4/4, accept length 2.18–3.00 |
+| conc=32 × 512, ×2 | **32/32**, **32/32** |
+| conc=64 × 512 | **64/64** |
+| **Draft graph actually used** | **97.1 %** (777/800 calls, identical on all 8 ranks) |
+
+The graph-usage number is the point of that run. Forcing the draft path eager passes every
+functional test while disabling the feature under test, so a green stress result alone
+cannot distinguish a fix from that workaround — the usage counter can.
+
+> The v1 diff (`eagle_worker_v2_uniform_draft_graph.diff`) has been **removed** from this
+> directory in favour of v2. It is preserved, with its full evidence, in
+> `glm52.mxfp4.spur.mooncake.packup_20260729_bug2b_draft_graph/` in the
+> `infera.yihou.glm5.2.mxfp4` workspace.
 
 ## Applying
 
@@ -179,16 +229,27 @@ cd /sgl-workspace/sglang
 for d in dsa_indexer_hip_dp_padded_rows.diff \
          dsa_backend_dp_sync_and_page_table_rows.diff \
          deepseek_nextn_glm52_mtp_bf16.diff \
-         eagle_worker_v2_uniform_draft_graph.diff; do
+         draft_cuda_graph_dp_vote.diff; do
   patch -p1 --fuzz=0 < "$d"
 done
 ```
+
+`deploy/docker/scripts/apply_sglang_dsa_patches.sh` does exactly this and then verifies
+each patch in the **bytecode**; prefer it. `Dockerfile.sglang.dmabuf` runs it at build
+time.
 
 Verified by applying for real into a scratch tree and byte-compiling the result — note
 that `patch --dry-run` and `git apply --check` **fuzz by default**, and a hand-written
 diff in this series once silently dropped a hunk while still "passing".
 
-## PD + MTP status (updated 2026-07-29 evening)
+## PD + MTP status
+
+> **Provenance of the numbers below (2026-07-29).** They were measured with the **v1**
+> draft-graph vote and the **v1** indexer patch. Both have since been reshaped to follow
+> upstream (#32209 and #32762 respectively), and each reshape was separately re-validated
+> — but the two reshaped patches were validated in *different* runs, never together.
+> The end-to-end run of exactly the four diffs in this directory is recorded below under
+> "Final validation".
 
 With **all four** diffs applied, PD disaggregation with DP-attention + EAGLE MTP and the
 **draft CUDA graph enabled** is working on 2× 8×MI355X, GLM-5.2-MXFP4,
@@ -205,7 +266,7 @@ With **all four** diffs applied, PD disaggregation with DP-attention + EAGLE MTP
 ### Both earlier caveats are now closed
 
 1. ~~"the draft CUDA graph must be disabled; a proper fix is not written yet"~~ —
-   **written and verified**, see `eagle_worker_v2_uniform_draft_graph.diff` above. The
+   **written and verified**, see `draft_cuda_graph_dp_vote.diff` above. The
    earlier 640/640 was measured with that graph off; it is now on and used 98.4% of the
    time.
 2. ~~"about 2 % of responses under concurrency are degenerate"~~ — **falsified; this was
@@ -248,11 +309,45 @@ the same issue as sglang PR #30378 / #30427 ("clamp padded-row seq_lens to >= 0"
 `triton_ops/pad.py::seqlens_expand_kernel`), which fixes padded row *values* and is
 already present in this image. This one fixes the HIP-side row *count*.
 
-The `eagle_worker_v2` fix is **not** ROCm-specific in principle. The guard it repairs is
+The draft-graph vote is **not** ROCm-specific in principle. The guard it repairs is
 platform-neutral, and its terms are rank-dependent on any backend running DP-attention
 with PD disaggregation; CUDA is protected today only because the draft-extend graph is
-captured there, which keeps the ranks on the same path. Upstream has related open work
-that blames `can_cuda_graph` (#32209 all-gathers that decision, CI red; #32527 same
-topology; #32722 shows **no CI covers PD+DPA+MTP**), but none of them addresses this
-guard — and we measured `can_cuda_graph` to be *uniform* across ranks here, so #32209's
-vote would not have fixed it. This mechanism appears unreported.
+captured there, which keeps the ranks on the same path.
+
+State of the relevant upstream work, queried with `gh` on 2026-07-31 (all **open**, none
+merged — so none of it reaches a `release/v0.5.15` baseline without a manual backport):
+
+| PR / issue | what it is | relation |
+|---|---|---|
+| [#32209](https://github.com/sgl-project/sglang/pull/32209) | `Fix PD decode hang with DP attention and GLM-5.2 MTP` | **same defect, same strategy as our vote.** `draft_cuda_graph_dp_vote.diff` adopts its placement. |
+| [#32527](https://github.com/sgl-project/sglang/issues/32527) | issue, same deadlock on 8× Blackwell / GLM-5.2-FP8 | independent report, 2026-07-27, same analysis. Proposes a third strategy: a dummy all-zeros seed so the guard's 4th term is false. |
+| [#32762](https://github.com/sgl-project/sglang/pull/32762) | `[NPU] Fix DSA eager padding mismatch in PD MTP warm-up` | same bug class as `dsa_indexer_hip_dp_padded_rows`; that diff is written in its shape. |
+| [#31683](https://github.com/sgl-project/sglang/pull/31683) | `[ROCm][MI35X] Enable GLM-5.2-MXFP4 MTP` | carries an independent, differently-placed implementation of the same indexer fix. |
+| [#30839](https://github.com/sgl-project/sglang/pull/30839) / [#31083](https://github.com/sgl-project/sglang/pull/31083) | introduced the guard; cherry-picked to `release/v0.5.15` | **merged 2026-07-14** — so this deadlock is a *regression* in the baseline, not a legacy wart. |
+| [#32722](https://github.com/sgl-project/sglang/pull/32722) | a test covering PD + DP-attention + MTP | proves **no CI covers this topology today**, which is why the family survives. |
+
+Three corrections to earlier revisions of this file, all of which asserted upstream state
+from notes instead of from `gh`:
+
+1. ~~"this mechanism appears unreported"~~ — **false**, #32527 reported it independently
+   two days before we fixed it.
+2. ~~"#32209 all-gathers `can_cuda_graph`, and we measured that to be uniform, so its vote
+   would not have fixed it"~~ — **false**. #32209 adds a *separate* `can_draft_cuda_graph`
+   field; it is the same idea as ours, better placed. We now use its placement.
+3. ~~"#32209 is CI red"~~ — not checked at the time; its review state is
+   `REVIEW_REQUIRED`.
+
+The `dsa_backend` fixes have **no upstream counterpart we have found** — per-diff greps of
+#31683, #32175 and #32209 match neither site. That is weaker than it sounds: `gh search`
+matches titles and bodies, not diff content, so an upstream PR could touch either site
+without naming it.
+
+One negative result worth recording, because it looks like an obvious convergence and is
+not: #32209's *other* half reconciles the decode row counts by **trimming q/top-k** where
+we **expand the page table**. Porting that half to this HIP/tilelang path fails
+reproducibly at conc=32 (0/32 across seven runs, three node pairs, a rebuilt image).
+Seventeen candidate causes were instrumented and eliminated; the root cause is **not**
+identified. Details and the reproducer are in
+`glm52.mxfp4.spur.mooncake.packup_20260731_exp3a_32209_patch2b_unresolved/`. Until that is
+understood, `dsa_backend_dp_sync_and_page_table_rows.diff` keeps our expand-the-page-table
+form.
