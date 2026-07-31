@@ -39,6 +39,19 @@ ROCm major, then execs the engine. So following an upstream vLLM or SGLang relea
 is an image-tag edit here — no rebuild of ours, and no repeat of the incident where
 forking the base for one model broke every other model.
 
+Build the overlay before deploying:
+
+```bash
+docker build -f deploy/overlay/Dockerfile.payload -t rocm/infera-overlay:latest .
+```
+
+**The payload must contain a `native/` tree** (Mooncake + hipFile) for the `kvd`
+and `pd` combos. Build it from an image that has them — that is what the
+`NATIVE_IMAGE` build arg is for. A payload without `native/` still runs `mixed`
+perfectly, and merely *warns* on the others, so the kvd and pd manifests set
+`INFERA_REQUIRE_NATIVE=1`: without it a wrong overlay tag deploys clean and
+silently serves without the GPU-direct L3 or the KV transport you asked for.
+
 See [`deploy/overlay/README.md`](../../deploy/overlay/README.md) for how the payload
 is assembled.
 

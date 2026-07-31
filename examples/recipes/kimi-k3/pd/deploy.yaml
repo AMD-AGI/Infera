@@ -100,6 +100,11 @@ spec:
               - {name: HF_HUB_OFFLINE, value: "1"}
               - {name: VLLM_ROCM_USE_AITER, value: "1"}
               - {name: SAFETENSORS_FAST_GPU, value: "1"}
+            # kvd's GPU-direct L3 (hipFile) and PD's KV transport (Mooncake) live in
+            # the overlay's native tree. Without this, a payload built without that
+            # tree only WARNS and both silently become unavailable — the run looks
+            # healthy and quietly serves without the thing you deployed it for.
+              - {name: INFERA_REQUIRE_NATIVE, value: "1"}
             startupProbe:
               httpGet: {path: /health, port: 30000}
               periodSeconds: 10
@@ -156,6 +161,11 @@ spec:
               - {name: HF_HUB_OFFLINE, value: "1"}
               - {name: VLLM_ROCM_USE_AITER, value: "1"}
               - {name: SAFETENSORS_FAST_GPU, value: "1"}
+            # kvd's GPU-direct L3 (hipFile) and PD's KV transport (Mooncake) live in
+            # the overlay's native tree. Without this, a payload built without that
+            # tree only WARNS and both silently become unavailable — the run looks
+            # healthy and quietly serves without the thing you deployed it for.
+              - {name: INFERA_REQUIRE_NATIVE, value: "1"}
             startupProbe:
               httpGet: {path: /health, port: 30000}
               periodSeconds: 10
