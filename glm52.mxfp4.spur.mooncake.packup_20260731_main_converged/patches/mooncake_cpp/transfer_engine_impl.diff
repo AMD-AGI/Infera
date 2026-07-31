@@ -1,0 +1,14 @@
+--- a/mooncake-transfer-engine/src/transfer_engine_impl.cpp
++++ b/mooncake-transfer-engine/src/transfer_engine_impl.cpp
+@@ -402,7 +402,10 @@
+ #ifdef USE_HIP
+         // HIP transport handles intra-node GPU P2P via XGMI/IPC and can
+         // coexist with the cross-node transport (RDMA/TCP) selected above.
+-        {
++        // FIX(yihou): default OFF — else GPU bufs register as a "hip" IPC segment
++        // a cross-node peer can't open ("Corrupted segment descriptor hipbuffer").
++        // Set MC_ENABLE_HIP_TRANSPORT=1 to opt back in for intra-node P2P.
++        if (getenv("MC_ENABLE_HIP_TRANSPORT")) {
+             Transport* hip_transport =
+                 multi_transports_->installTransport("hip", nullptr);
+             if (!hip_transport) {
