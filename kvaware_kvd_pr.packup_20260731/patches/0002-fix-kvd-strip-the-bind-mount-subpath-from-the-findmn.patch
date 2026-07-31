@@ -1,0 +1,119 @@
+From ebdb3e4afa64db4a2bc9eca67424e95485fd46c9 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Fri, 31 Jul 2026 09:37:30 +0000
+Subject: [PATCH 2/5] fix(kvd): strip the bind-mount subpath from the findmnt
+ source
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+For a bind mount findmnt reports the source with the bind subpath appended in
+brackets:
+
+    /dev/md0[/mnt/nvme-raid/kvd-long]
+
+_findmnt() returned that whole string and the caller handed it to lsblk, which
+answers "not a block device" and makes the rotational/queue probe fail. The
+failure is silent: classification falls back to buffered I/O even on hardware
+that qualifies for O_DIRECT.
+
+This hits exactly the normal kvd deployment — an L3 long-tier directory
+bind-mounted into the engine container — so a container-hosted kvd would never
+use O_DIRECT on its NVMe tier, with no error to say why.
+
+Keep only the part before '[', which is the device.
+
+Two cases added to tests/unit/kvd/test_storage_classify.py. The fake `_run`
+had to be taught the real lsblk contract (non-zero exit on a bracketed target);
+without that the pre-fix code passes the new tests vacuously.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ infera/kvd/storage_classify.py          |  9 +++++
+ tests/unit/kvd/test_storage_classify.py | 53 +++++++++++++++++++++++++
+ 2 files changed, 62 insertions(+)
+
+diff --git a/infera/kvd/storage_classify.py b/infera/kvd/storage_classify.py
+index 64ad985..6cf7c3b 100644
+--- a/infera/kvd/storage_classify.py
++++ b/infera/kvd/storage_classify.py
+@@ -162,6 +162,15 @@ def _findmnt(path: Path) -> tuple[str, str] | None:
+         return None
+     fstype = parts[-1]
+     source = " ".join(parts[:-1])
++    # For a bind mount findmnt appends the bind subpath in brackets:
++    #     /dev/md0[/mnt/nvme-raid/kvd-long]
++    # Only the part before '[' names the device. Handing the whole string to
++    # lsblk gets "not a block device", which silently drops the probe to
++    # buffered even on hardware that qualifies for O_DIRECT — exactly what
++    # happens to a kvd L3 directory bind-mounted into a container.
++    bracket = source.find("[")
++    if bracket > 0:
++        source = source[:bracket]
+     return source, fstype
+ 
+ 
+diff --git a/tests/unit/kvd/test_storage_classify.py b/tests/unit/kvd/test_storage_classify.py
+index 05336f0..ee2e152 100644
+--- a/tests/unit/kvd/test_storage_classify.py
++++ b/tests/unit/kvd/test_storage_classify.py
+@@ -358,6 +358,59 @@ def test_sas_ssd_picks_o_direct(fake_run):
+     assert "sas-ssd" in rationale
+ 
+ 
++def test_bind_mount_source_strips_subpath(monkeypatch):
++    """A bind mount makes findmnt print SOURCE as ``/dev/md0[/sub/path]``.
++
++    That bracketed suffix is not part of the device name. Passing the raw
++    string to lsblk gets ``not a block device``, so the probe silently
++    degrades to buffered even on hardware that qualifies for O_DIRECT.
++
++    Observed on a real deployment: kvd's L3 bind-mounted into a container
++    reported ``devices = [(none)]``, ``rationale: unknown device,
++    conservative buffered``, on an ext4-on-md0 mount.
++
++    This test models the *real* lsblk contract — it errors on a bracketed
++    argument — rather than a fake that accepts anything, which is what
++    lets the bug through.
++    """
++
++    def run(cmd, timeout=2.0):
++        class R:
++            returncode = 0
++            stdout = ""
++
++        r = R()
++        if cmd[0] == "findmnt":
++            r.stdout = "/dev/nvme0n1p1[/kvd-long] ext4\n"
++        elif cmd[0] == "lsblk":
++            target = cmd[-1]
++            if "[" in target:  # what real lsblk does
++                r.returncode = 32
++                r.stdout = ""
++            else:
++                r.stdout = "nvme0n1 nvme 0\n"
++        return r
++
++    monkeypatch.setattr(storage_classify, "_run", run)
++    o_direct, rationale = pick_io_mode(Path("/kvd-long"))
++    assert o_direct is True, f"bind mount misclassified: {rationale}"
++    assert "nvme-ssd" in rationale
++
++
++def test_bind_mount_classify_reports_clean_source(fake_run):
++    """The bracketed subpath must not leak into the reported mount source
++    either — operators read this field to sanity-check the probe."""
++    fake_run(
++        {
++            "findmnt": "/dev/sda1[/some/where] ext4\n",
++            "lsblk": "sda sata 0\n",
++        }
++    )
++    info = classify_storage(Path("/some/where"))
++    assert info.mount_source == "/dev/sda1"
++    assert info.devices, "bind-mounted device should still be resolved"
++
++
+ def test_findmnt_missing_falls_back_to_buffered(monkeypatch, caplog):
+     """When findmnt isn't installed (minimal containers), we don't
+     raise — we just default to buffered and log a WARN. The classifier

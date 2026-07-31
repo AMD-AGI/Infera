@@ -1,0 +1,7 @@
+T3/conc=128 n=512 dur=75.3s
+   CLEAN              502
+   CORRUPT_REASONING  8
+   DIGIT_LOOP         2
+   throughput        6.8 req/s
+   -- gate: ERROR=0 (want 0)  CORRUPT_REASONING=8 (want 0)  WRONG=0
+   -- informational: stop/EOS run-on (DIGIT_LOOP+TAIL_REPEAT)=2
