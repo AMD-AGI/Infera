@@ -2,9 +2,11 @@
 
 Patches against the sglang source tree bundled in the ROCm engine images (sglang is an
 editable checkout at `/sgl-workspace/sglang`, so `python/sglang/...` is what actually
-runs — there is no separate site-packages copy to patch).
+runs — there is no separate site-packages copy to patch). Each is a self-locating,
+idempotent Python script, applied at image build time by the patch loop in
+`Dockerfile.sglang` / `Dockerfile.sglang.gfx942`.
 
-## `mooncake_early_send_wait_event.diff`
+## `patch_mooncake_early_send_wait_event.py`
 
 **Fixes silent KV corruption for chunked prefill over the mooncake PD transport.**
 Without it, every prefill chunk except the last can be transferred to the decode leg
@@ -57,16 +59,20 @@ conspicuous "retrieved half the digits" way instead of a quiet quality drop.
 
 ### Applying
 
+The image build runs it; a live container that was started from an unpatched image can
+run the same script by hand:
+
 ```bash
-cd /sgl-workspace/sglang
-patch -p1 --forward < mooncake_early_send_wait_event.diff   # or: git apply
+python deploy/docker/patches/sglang_disagg/patch_mooncake_early_send_wait_event.py
 ```
 
-`--forward` makes a re-run a no-op instead of reversing the change, so this is safe to
-run unconditionally on a node whose image may or may not already carry the fix. The diff
-is pinned to sglang v0.5.16 source; if a hunk fails, re-cut it against the new tree
-rather than forcing it — the `wait_event` handover is only correct if all three hunks
-land.
+It locates sglang through `importlib`, so it needs no path argument, and re-running it
+is a no-op ("already present"). The edits are anchored on source text rather than line
+numbers, so they survive the offsets between sglang releases: the anchors are present in
+both v0.5.15.post1 and v0.5.16, and the result is byte-identical to the hand-cut diff
+this patch started as. An anchor that goes missing or stops being unique writes
+**nothing** and fails — the `wait_event` handover is only correct if all three files
+land, and a half-patched tree still corrupts long prompts.
 
 ### Verified
 

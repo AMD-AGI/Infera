@@ -47,6 +47,21 @@ baseline, not a legacy wart.
 [#32722](https://github.com/sgl-project/sglang/pull/32722) (OPEN) adds a test for
 PD + DP-attention + MTP, i.e. **no CI covers this topology today**.
 
+## sglang PD — `patches/sglang_disagg/` (baked by `Dockerfile.sglang` and `Dockerfile.sglang.gfx942`)
+
+| patch | fixes | upstream issue | upstream PR | ours? | PR state |
+|---|---|---|---|---|---|
+| `sglang_disagg/patch_mooncake_early_send_wait_event.py` | `mooncake/conn.py` never waits on the forward's completion event and the overlap path records none, so chunked prefill hands a non-final chunk to the decode leg while the forward writing those pages is still running → prompts longer than one chunk come back **partially wrong**, with nothing in any log | [sglang#25583](https://github.com/sgl-project/sglang/issues/25583) reports the same corruption shape on GLM-5, but **aggregated** — no PD, no mooncake — so a shared root cause is unestablished; closed **inactive** 2026-07-18, no follow-up | none found | — | — |
+
+> `prefill.py` already records the completion event this needs; only the `mori`
+> backend ever read it, and the patch mirrors what `mori` does. **Drop it** once a
+> base sglang synchronizes on that event itself — the script then reports "already
+> present" and no-ops.
+>
+> Unlike the rest of this page, this row was **not** verified with `gh`: the issue
+> state was read from the web UI on 2026-08-03, and no upstream PR search was run.
+> "none found" here is weaker than elsewhere on the page.
+
 ## Mooncake C++ — `patches/mooncake_cpp/` (built by `Dockerfile.sglang`, `Dockerfile.vllm`, `Dockerfile.atom`)
 
 Pinned to Mooncake `main @ 747003c`; `git apply` fails loudly on ref drift.
@@ -115,7 +130,8 @@ ATOM is an internal engine; there is no public upstream to file against.
 
 Every file under `patches/` is covered above except these, which carry no fix of
 their own: `mooncake_cpp/apply_mooncake_cpp_patches.sh` (applies the three
-Mooncake diffs), `sglang_dsa/README.md` and `vllm-dsv4/legacy/README.md`.
+Mooncake diffs), `sglang_dsa/README.md`, `sglang_disagg/README.md` and
+`vllm-dsv4/legacy/README.md`.
 
 ## Maintenance
 

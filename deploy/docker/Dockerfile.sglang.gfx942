@@ -67,6 +67,21 @@ COPY pyproject.toml README.md ./
 COPY infera ./infera
 RUN pip install --no-cache-dir ".[sglang]"
 
+# ---- sglang PD patches (mooncake early-send KV wait event) ----
+# REQUIRED FOR CORRECTNESS on any PD deployment doing chunked prefill over
+# mooncake: without it every chunk but the last is RDMA-read while the forward is
+# still writing those pages, and prompts longer than one chunk come back
+# partially wrong with nothing in any log. Each script is self-locating and
+# idempotent, and reports "already present" once the base sglang carries the fix.
+# Unlike the backport loop in Dockerfile.sglang this one is NOT tolerant: a script
+# here exits non-zero only when its anchors drifted, i.e. when the fix did not go
+# in — and an engine image that silently corrupts long prompts is worse than a
+# failed build.
+COPY deploy/docker/patches/sglang_disagg/ /tmp/sglang-disagg-patches/
+RUN set -eu; \
+    for f in /tmp/sglang-disagg-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
+    rm -rf /tmp/sglang-disagg-patches
+
 # ---- Rust router (multi-core data plane; --router-backend rust) ----
 # The ROCm base ships cargo; use it (install a minimal toolchain only if
 # absent). Needs cc for linking and libclang (onig_sys/bindgen). Removes
