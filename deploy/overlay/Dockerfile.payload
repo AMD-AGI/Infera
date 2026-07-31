@@ -29,19 +29,40 @@
 #   docker build -f deploy/overlay/Dockerfile.payload -t infera-overlay:latest .
 ARG NATIVE_IMAGE=rocm/infera:vllm-v0.1.1
 
+# The Python trees are built INSIDE the vendor bases they will be overlaid onto,
+# not on a plain python:X-slim. `pip install --target` ignores the environment and
+# installs the whole transitive closure, and a --target tree lands FIRST on
+# PYTHONPATH — so every duplicate silently shadows the vendor's copy at whatever
+# version PyPI resolved. Building on slim produced a tree of 52 distributions of
+# which two were new, eleven of them shadowing the base at a DIFFERENT version
+# (numpy 2.5.1 over 2.3.5, which broke the base's numba; cryptography 50.0.0 over
+# 3.4.8; protobuf 7 over 6). Building in the base lets prune_base_dists.py drop
+# everything the base already provides, restoring the property the baked images
+# had for free: add infera, touch nothing else. 325 MB -> 5.8 MB, measured.
+#
+# These need only be *representative* of their ABI family — a base bump does not
+# require bumping them, since what matters is which distributions the family
+# ships, not their exact versions.
+ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
+ARG VLLM_BASE_IMAGE=vllm/vllm-openai-rocm:v0.25.1
+
 # ---- cp310 tree (SGLang bases) ---------------------------------------------
-FROM python:3.10-slim AS deps310
+FROM ${SGLANG_BASE_IMAGE} AS deps310
 WORKDIR /src
 COPY pyproject.toml README.md ./
 COPY infera ./infera
-RUN pip install --no-cache-dir --target /payload/py310 ".[vllm]"
+COPY deploy/overlay/prune_base_dists.py /tmp/prune_base_dists.py
+RUN pip install --no-cache-dir --target /payload/py310 ".[sglang]" \
+    && python3 /tmp/prune_base_dists.py /payload/py310
 
 # ---- cp312 tree (vLLM bases) -----------------------------------------------
-FROM python:3.12-slim AS deps312
+FROM ${VLLM_BASE_IMAGE} AS deps312
 WORKDIR /src
 COPY pyproject.toml README.md ./
 COPY infera ./infera
-RUN pip install --no-cache-dir --target /payload/py312 ".[vllm]"
+COPY deploy/overlay/prune_base_dists.py /tmp/prune_base_dists.py
+RUN pip install --no-cache-dir --target /payload/py312 ".[vllm]" \
+    && python3 /tmp/prune_base_dists.py /payload/py312
 
 # ---- native: harvest the compiled artifacts + their transitive libs ---------
 # Mooncake's extension pulls ~40 system libraries (glog, jsoncpp, asio, gflags,
