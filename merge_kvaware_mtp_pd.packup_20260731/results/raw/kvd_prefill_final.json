@@ -1,0 +1,11 @@
+{
+  "entries": 11440,
+  "host_bytes": 20216401920,
+  "spillover_bytes": 0,
+  "long_bytes": 20216401920,
+  "gets_total": 204,
+  "sets_total": 11440,
+  "hits_total": 204,
+  "misses_total": 0,
+  "evictions_total": 0
+}
