@@ -298,6 +298,35 @@ With the full set applied, PD disaggregation with DP-attention + EAGLE MTP and t
    user sampling params for the request as a whole — that over-generalization is
    withdrawn.
 
+### Final validation (2026-07-31) — this directory's exact contents
+
+Re-run after the three overlaps with main were dropped, so that what was measured is what
+this branch ships: an image built from `Dockerfile.sglang` on the PR branch, patches
+applied **at build time**, nothing patched in the running container. 2 × 8×MI355X
+(gfx950), GLM-5.2-MXFP4, PD + `--dp-size 8 --enable-dp-attention --ep-size 8` + EAGLE MTP
+with the draft CUDA graph **enabled**, mooncake RDMA over mlx5 + dma-buf
+(`MOONCAKE_DISABLE_HIP_DMABUF=0`).
+
+| Check | Target | Result |
+|---|---|---|
+| Build-time bytecode verification, both nodes | all markers | **8/8 + prereq + patch2a** |
+| 4-prompt correctness probe | 4/4, `acc_len` > 1 | **4/4**, 2.00–3.43 |
+| conc=32 × 512 tok | 32/32 | **32/32** |
+| conc=128 × 512 tok | 128/128 | **128/128** |
+| conc=128 × 512, repeat | — | **128/128** |
+| `Traceback` / `KVTransferError`, either leg | 0 | **0 / 0** |
+| DP ranks serving | 8 | **8**, every run, 0 retries |
+
+The nextn prerequisite was confirmed to come from the earlier patch loop and not from
+this directory: the edited line in the running image carries **no** trailing comment,
+which our removed diff would have added. `apply_sglang_dsa_patches.sh` logged
+`PREREQ nextn eh_proj -> src=1` after `[glm52-nextn] patched ...`, in that order.
+
+**Not established by this run:** the draft-graph replay count was not re-measured (it
+needs an added probe, i.e. a different image — measured at 92.0 %, identical on all 8
+ranks, on the immediately preceding build of the same patch set). No differential control
+was re-run; necessity is established in the kits below, and patch 2a has never had one.
+
 Measurements: `glm52.mxfp4.spur.mooncake.packup_20260729_bug2b_draft_graph/` (the draft
 graph fix, with its differential control) and
 `glm52.mxfp4.spur.mooncake.packup_20260729_degenerate_output/` (the falsification, with
