@@ -1,0 +1,86 @@
+# STEP 4 RESULT — kv-aware routing effect, measured with 2 workers per role
+#
+# Ran 2026-07-30 ~13:00-13:40. GLM-5.2-MXFP4, mooncake real RDMA, kvaware+kvd ON.
+#
+# Steps 1-3 could confirm the role weights were *loaded* but never what they
+# *did*: with one prefill and one decode worker the scorer has no alternative to
+# choose between. Step 4 adds a second decode worker so a routing decision
+# actually exists, then runs the same workload under two policies.
+
+===================== TOPOLOGY =====================
+
+  prefill  chi2879  TP8 (GPU0-7)  :30000   gmu 0.88
+  decodeA  chi2867  TP4 (GPU0-3)  :30000   gmu 0.70   kv_pub 5557  snap 8801
+  decodeB  chi2867  TP4 (GPU4-7)  :32000   gmu 0.70   kv_pub 5657  snap 8802
+
+  Router sees 3 workers (1 prefill + 2 decode). Confirmed via /v1/workers.
+
+  TP4 instead of TP8 on the decode side: GLM-5.2 is 408 GB, so TP4 puts
+  102 GB/GPU of weights (vs 51 at TP8) and two workers fit on one node's 8 GPUs.
+
+===================== THE MEASUREMENT =====================
+
+Same workload both times (prefix_reuse.py, 4 sessions x 4 turns, ~6200-token
+shared prefix, run twice = 32 requests). Only --router-policy differs.
+Distribution measured from each decode worker's own "Decode batch" log lines.
+
+  policy                                  decodeA    decodeB
+  --------------------------------------  -------    -------
+  kv-aware (prefill 20.0 / decode 2.0)        17          0
+  round-robin                                 +6         +8
+
+  (round-robin figures are deltas: counters ran 17->23 and 0->8.)
+
+**kv-aware sent every single request to decodeA. round-robin split them 6/8.**
+
+Correctness held throughout:
+  kv-aware    : 32/32, median latency 0.71s (cold) -> 0.27s (warm)
+  round-robin : 32/32, median latency 0.77s (cold) -> 0.26s (warm)
+
+===================== WHAT IT MEANS =====================
+
+This is the differential that steps 1-3 could not produce. Same workload, same
+two workers, same everything else — flip the policy and the distribution
+inverts. So the kv-aware scorer is not merely instantiated, it is *deciding*.
+
+The all-to-one result is the CORRECT behaviour here, not a load-balancing bug:
+every request in this workload shares one prefix, decodeA holds it, and
+  cost = w * (request_blocks - hits) + active_blocks
+with w=2.0 on the decode side makes the cache-locality term dominate the load
+term at this concurrency. Sticking to the worker that already has the prefix is
+exactly the point of the policy. Under a workload with several distinct
+prefixes, or high enough concurrency for active_blocks to matter, the split
+would move.
+
+===================== CAVEATS =====================
+
+1. The *prefill* weight (20.0) is still unmeasured — there is only one prefill
+   worker. Measuring it needs 2 prefill nodes.
+2. Only one prefix in play, so this shows "affinity" but not "correct affinity
+   among competing prefixes". A stronger test: N distinct prefixes, N workers,
+   check each prefix consistently lands on its own worker.
+3. Concurrency was low (sequential requests). The load term never had a chance
+   to push back against locality, so this does not probe the balance point
+   between the two.
+
+===================== A THIRD DEFAULT-PORT COLLISION =====================
+
+decodeB reached "ready to roll" and then silently never appeared in etcd. Cause:
+
+  OSError: [Errno 98] error while attempting to bind on address ('0.0.0.0', 8801)
+
+`--kv-snapshot-port` defaults to 8801 on *every* worker, so the second worker on
+a host dies during registration — after the engine is already up, which is why
+the leg logs "ready to roll" and looks healthy. Fixed by giving each worker its
+own (8801 / 8802); `glm52_leg.sh` now exposes `KV_SNAP_PORT`.
+
+That makes **three** kvaware-path defaults that collide when two workers share a
+host:
+  1. the sglang --kv-events-config port block  (patch 0001 — deterministic scan)
+  2. --kv-events-bind          default tcp://0.0.0.0:5557
+  3. --kv-snapshot-port        default 8801
+Only #1 was a code bug; #2 and #3 are defaults that simply cannot be shared, but
+#3 fails in a particularly misleading way (healthy-looking leg, absent worker).
+
+Also hit and fixed on the way: `--mem-fraction-static 0.85` is a TP8 value; at
+TP4 the weights double per GPU and DP3 OOM'd on a 390 MiB allocation. 0.70 works.

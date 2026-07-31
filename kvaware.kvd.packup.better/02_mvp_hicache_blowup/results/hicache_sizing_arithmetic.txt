@@ -1,0 +1,93 @@
+# Why --hicache-ratio 2.0 asked for 354.94 GB per DP rank — worked through.
+#
+# This file exists so the headline number can be checked rather than trusted.
+# Every input is either a quoted log line or a field of the model's config.json.
+
+
+## Inputs
+
+From the r1 decode-leg log (captured in-session 2026-07-30):
+
+    [DP0 TP0 EP0] max_total_num_tokens=1547424, ...
+    [DP0 TP0 EP0] Allocating 354.94 GB host memory for hierarchical KV cache.
+
+From Qwen3-1.7B config.json
+(/mnt/vast/.cache/huggingface/hub/models--Qwen--Qwen3-1.7B/snapshots/70d244cc86ccca08cf5af4e1e306ecf908b1ad5e/config.json):
+
+    "num_hidden_layers":     28
+    "num_key_value_heads":    8
+    "head_dim":             128
+    "torch_dtype":     "bfloat16"     -> 2 bytes/element
+    "hidden_size":         2048
+    "num_attention_heads":   16       (GQA: 16 q heads over 8 kv heads)
+
+Launch args (scripts/leg.sh): --tp-size 4 --dp-size 4 --enable-dp-attention
+--ep-size 4 --mem-fraction-static 0.60. Note --kv-cache-dtype was NOT set, so
+the KV cache is bf16, same as the weights.
+
+
+## The calculation
+
+    bytes per token per layer = 2 (K and V)
+                              x num_key_value_heads (8)
+                              x head_dim (128)
+                              x 2 (bf16)
+                              = 4096 B
+
+    bytes per token           = 4096 x 28 layers = 114,688 B = 112.0 KiB
+
+    device KV pool            = 1,547,424 tok x 114,688 B
+                              = 177,470,963,712 B
+                              = 177.47 GB (decimal)  /  165.28 GiB
+
+    host pool at ratio 2.0    = 2 x 177,470,963,712 B
+                              = 354,941,927,424 B
+                              = 354.94 GB (decimal)
+
+The log prints 354.94. Exact match, decimal GB.
+
+    x 4 DP ranks              = 1,419,767,709,696 B = 1.42 TB
+
+chi2879 has 3023 GB of RAM, the great majority of it already in use by other
+tenants and by page cache. The request was refused.
+
+
+## Where the 1,547,424-token KV pool came from
+
+Not measured directly — sglang computes it from whatever VRAM is left after
+weights and activations, and only the final figure was logged. But the shape of
+the problem is unambiguous:
+
+  * Qwen3-1.7B in bf16 is ~3.4 GB of weights, /4 at TP4 = ~0.9 GB per GPU.
+  * An MI355X has far more HBM than that.
+  * --mem-fraction-static 0.60 hands most of the remainder to the KV pool.
+
+So on a small model the KV pool is enormous *by design*, and a host pool defined
+as a MULTIPLE of it inherits that. The ratio is not wrong; it is the wrong
+parameterisation for this regime.
+
+UNKNOWN: the exact per-GPU VRAM figure at that moment was not captured.
+
+
+## The scaling that makes this a real trap, not a toy one
+
+hicache_ratio couples the host pool to the device pool, and the device pool
+moves INVERSELY with model size for a fixed --mem-fraction-static. So the
+smaller and cheaper the model you pick to debug wiring with, the larger the host
+allocation it demands. That is exactly backwards from the intuition that a
+small model is the safe thing to test with.
+
+--hicache-size decouples them. It is the right knob whenever you do not control
+the model size — which, on a debugging loop, you never do.
+
+
+## The opposite trap on the same knob
+
+Do NOT respond to this by lowering the ratio. Below roughly 1.5, sglang's
+prefetch_capacity_limit computes to approximately zero, and the L3 tier is
+written but never read back — a silent no-op that is much harder to notice than
+a 1.4 TB allocation failure. Set an absolute size instead, or keep ratio >= 2.0.
+
+(Source: infera's own hicache_validate.py carries this check. Recorded here
+because the two failure modes sit on the same dial and one of them is loud
+while the other is silent.)

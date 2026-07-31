@@ -1,0 +1,8 @@
+# Proof the 4/4 baseline ran on real mooncake RDMA, not the TCP fallback.
+# Commands run inside the glm52_kvexp container on chi2879 (prefill node):
+
+$ grep -ac "MC_FORCE_TCP" /mnt/vast/c_huggingface/glm52_kvexp/pd_prefill_base.log
+0
+
+$ grep -ac "HIP dmabuf disabled" /mnt/vast/c_huggingface/glm52_kvexp/pd_prefill_base.log
+8          # one per active ionic NIC -> mooncake RDMA path engaged on all 8 rails

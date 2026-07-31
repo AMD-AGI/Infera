@@ -1,0 +1,87 @@
+# The three port collisions that bite when two workers share a host.
+#
+# Round r3 is where the third one got fixed, so this is the natural place to
+# put the whole set down. They are UNRELATED CODE PATHS. Fixing one does
+# nothing for the others, and each was found in a separate debugging round —
+# one per round, which is exactly how long it takes when you assume the one you
+# just fixed was the only one.
+
+
+## 1. sglang --kv-events-config block  (a REAL BUG — patch 0001)
+
+  Default:  computed by infera/common/net.py:free_tcp_port_block(count)
+  Reached:  only from worker.py:77, i.e. only when enable_kv_events is on
+  Symptom:  zmq.error.ZMQError: Address already in use (addr='tcp://*:32765')
+            RuntimeError: Rank 0 scheduler died during initialization (exit code: -3)
+  Timing:   at startup. The second leg never comes up.
+
+  Pre-fix the function scanned downward from a FIXED start
+  (ip_local_port_range.low - count = 32764) and released its probe sockets
+  before returning, so two callers got the identical block — deterministically,
+  not as a race:
+
+      OLD bases: [32764, 32764, 32764, 32764, 32764, 32764, 32764, 32764, 32764, 32764]
+      distinct: 1
+
+  With dp_size=4 sglang binds one publisher per DP rank at base+rank, so all
+  four ports overlap and the crash lands on base+1.
+
+  Fix:      randomise the scan start (patch 0001). Post-fix, live:
+                prefill kv_events_endpoint=tcp://10.2.122.10:17213
+                decode  kv_events_endpoint=tcp://10.2.122.10:31215
+
+  NOT fixable by any launch flag. --kv-events-bind does NOT control this port;
+  worker.py:77 ignores it here. That was tried and reverted.
+
+
+## 2. --kv-events-bind  (a default, not a bug)
+
+  Default:  tcp://0.0.0.0:5557 — identical on every leg
+  Owner:    infera's OWN kv-event publisher socket (distinct from #1, which is
+            the endpoint handed to sglang)
+  Symptom:  the second leg fails to bind
+  Timing:   at startup.
+
+  Fix:      give each co-located leg its own. This round used 5557 (prefill)
+            and 5657 (decode). scripts/leg.sh exposes it as KV_PUB_PORT.
+
+
+## 3. --kv-snapshot-port  (a default, and the nastiest of the three)
+
+  Default:  8801 — identical on every leg
+  Owner:    infera's per-worker snapshot HTTP server
+  Symptom:  OSError: [Errno 98] error while attempting to bind on address ('0.0.0.0', 8801)
+            preceded by
+            INFO:__main__:using etcd registration: endpoint=10.2.122.10:2379 ...
+            and followed by sys.exit(STARTUP_FAILURE)
+  Timing:   AFTER the leg has already logged "ready to roll".
+
+  Why it is the worst: "ready to roll" is the line everyone greps for. The
+  engine looks healthy, the log looks finished, and the worker simply never
+  appears in /v1/workers. You go looking for a router or etcd problem.
+
+  Fix:      give each co-located leg its own (8801 / 8802). Exposed as
+            KV_SNAP_PORT in the GLM-5.2 leg script.
+
+  Did NOT bite in round r3 — it surfaced later, in a GLM-5.2 run with two
+  decode workers on one host. Recorded here because it belongs with the set,
+  and because the failure signature is worth internalising before it happens.
+
+
+## The general shape
+
+All three only matter when two engine workers share a host, which is exactly
+the configuration you reach for when you want a cheap PD test on one node. So
+the "cheap" test costs three debugging rounds before it runs — unless you know
+about all three up front, which is the point of this file.
+
+Diagnostic order when a co-located second leg misbehaves:
+
+  1. Did it log "ready to roll"?
+       no  -> #1 or #2. Check the log for ZMQError / bind errors, and check
+              which port: 'tcp://*:<port>' wildcard is #1, 5557 is #2.
+       yes -> go to 2.
+  2. Does it appear in /v1/workers?
+       no  -> #3. grep the log for 'address already in use' AFTER the
+              "ready to roll" line.
+       yes -> your problem is not a port collision.

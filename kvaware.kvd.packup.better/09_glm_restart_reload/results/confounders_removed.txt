@@ -1,0 +1,106 @@
+# Why this experiment's conclusion is confounder-free — the explicit argument.
+#
+# Numbers from results/step3_restart_reload.txt (2026-07-30 ~12:15-12:45).
+
+===================== THE CLAIM =====================
+
+  kvd delivered CROSS-RESTART KV reuse: a brand-new engine process read 170
+  blocks out of a store that a previous, now-dead process had written.
+
+===================== THE OBSERVATION =====================
+
+Prefill node chi2879, kvd counters around the relaunch + replay:
+
+                        BEFORE restart      AFTER restart+replay     delta
+  entries                    340                   340               0
+  host_bytes             600837120             600837120             0
+  long_bytes             600837120             600837120             0
+  sets_total                 340                   340               0
+  gets_total                 170                   340            +170
+  hits_total                 170                   340            +170
+  misses_total                 0                     0               0
+
+===================== THE THREE ALTERNATIVE EXPLANATIONS, AND WHY EACH IS DEAD ===
+
+Every one of these would produce "hits went up", so each has to be killed
+separately. This is the part that makes the result worth more than the previous
+prefix-reuse round, which killed none of them.
+
+--- (a) "It was the GPU radix cache." ---
+
+Dead by measurement. Before relaunching, VRAM was verified back at the idle
+baseline:
+
+  chi2879 GPU[0] VRAM used ... 297840640 B   (~297 MB)
+  chi2867 GPU[0] VRAM used ... 297754624 B
+
+An engine holding a 400 GB model with a populated KV pool does not sit at
+297 MB. The process is gone and its VRAM — weights, KV pool, HiRadixCache — went
+with it. The new engine started with an empty in-VRAM cache by construction.
+
+This check is not a formality. It is the single precondition the whole
+experiment rests on, which is why scripts/run.sh gates on it and refuses to let
+a result be cited if VRAM is still high.
+
+--- (b) "It was same-process reuse — it stored, then read its own writes." ---
+
+Dead by process identity plus a flat sets_total. The writer process was killed
+(`pkill -9 -f infera.engine.sglang`, confirmed `engine procs left: 0`); the
+reader is a different PID that attached to the daemon afresh (8 new
+"infera-kvd adapter connected" lines per leg).
+
+--- (c) "The new engine just rebuilt everything and hit its own fresh writes." ---
+
+This is the subtle one, and it is dead by **sets_total staying at exactly 340**.
+
+If the new engine had re-computed and re-stored the prefix, sets_total would
+have climbed by ~170 and entries/host_bytes with it. They did not move by a
+single byte. The 170 gets were served entirely out of what was already there.
+
+A rising gets_total on its own would NOT have been sufficient evidence. The
+flat sets_total is what converts it into proof.
+
+--- (d) "The kvd daemon restarted and reloaded from disk, so it's really an L3
+        recovery test, not a live-store test." ---
+
+Dead by pgrep: the daemon was never restarted.
+
+  kvd alive on both nodes ..... pgrep -fc 'infera.kvd' = 1
+
+(Note: kvd *can* recover its long region from disk across its own restart —
+"long region recovered from /tmp/kvd-long" appears at daemon startup — but that
+is a different capability and was not what happened here.)
+
+===================== WHAT THE DECODE NODE DID, AND WHY IT DOESN'T MATTER ======
+
+Decode node chi2867 was NOT clean:
+
+                        BEFORE       AFTER      delta
+  entries                  402         424       +22
+  sets_total               402         438       +36
+  gets_total               170         340      +170
+  hits_total               170         340      +170
+  misses_total               0           0         0
+
+Its sets/entries moved. Not investigated. The most likely explanation is the
+decode leg's own HiRadixCache repopulating decode-side blocks that were never in
+kvd to begin with — but that is a hypothesis, not a finding, and it is recorded
+as unresolved rather than smoothed over.
+
+It does not affect the conclusion, because the conclusion rests entirely on the
+prefill node's clean read-only delta. The prefill node alone exhibits all three
+required properties simultaneously (gets up, hits up, sets flat), and one node
+showing the clean signature is sufficient to establish that the mechanism works.
+
+===================== WHAT THE RESULT IS NOT =====================
+
+  Latency did NOT improve.  round 1 cold: 0.71 s median
+                            round 2 reload: 0.76 s median
+
+Reading ~6200 tokens of KV back over a unix socket from the host tier is not
+obviously cheaper than recomputing prefill for a 6200-token prefix on 8x
+MI355X. So kvd's demonstrated win here is CAPACITY AND SURVIVAL — the cache
+outlives the engine — and explicitly not speed.
+
+A latency win would need a much longer prefix, a slower prefill, or GPU-direct
+reads. None of those were tested.

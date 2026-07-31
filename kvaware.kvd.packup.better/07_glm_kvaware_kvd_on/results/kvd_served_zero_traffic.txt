@@ -1,0 +1,90 @@
+# The negative result of experiment 07, stated on its own so it cannot be
+# quietly dropped when the 4/4 gets quoted.
+#
+# kvd was connected, provisioned, and legal on both legs — and served ZERO
+# traffic. Read this alongside results/step1_kvaware_kvd_4of4.txt.
+
+===================== THE COUNTERS =====================
+
+Read from the daemon itself via scripts/kvdstats.sh (an in-process
+infera.kvd.client call, not a log scrape), after the 4-prompt probe:
+
+    StatsResponse(entries=0, host_bytes=0, spillover_bytes=0, long_bytes=0,
+                  gets_total=0, sets_total=0, hits_total=0, misses_total=0,
+                  evictions_total=0)
+
+Every field zero. Not "small". Zero.
+
+===================== WHY THIS IS EXPECTED =====================
+
+The probe workload is four prompts:
+
+    "The capital of France is"
+    "The capital of China is"
+    "2+2="
+    "The largest planet in our solar system is"
+
+A few dozen tokens each, sharing no prefix with each other, and nowhere near
+enough to pressure the GPU KV pool. So:
+
+  - nothing is ever EVICTED from the GPU radix cache, so nothing is offloaded
+    to the host tier -> sets_total = 0;
+  - no request repeats a prefix another request already stored, so no lookup
+    would hit even if the store were populated -> gets_total = 0;
+  - and hicache's L3 prefetch is gated on prefix length anyway
+    (hiradix_cache.py:1603 skips when prefetch_length < prefetch_threshold,
+    which is 256 by sglang's default), so a few-dozen-token prompt would not
+    trigger a prefetch regardless.
+
+A cache with nothing to cache does nothing. That is correct behaviour, and it
+is why this experiment can only support the weaker of the two possible claims.
+
+===================== THE CLAIM BOUNDARY =====================
+
+  SUPPORTED:  kvaware and kvd are wired end-to-end on GLM-5.2 two-node PD+DPA
+              over real RDMA, on every DP rank of both legs, and they do not
+              break correctness (4/4, matching the switches-off run exactly).
+
+  NOT SUPPORTED, AND NOT ADDRESSED:
+              that kvd stores anything, serves anything, or is worth its cost.
+
+"Wired and harmless" is a real result — it is what you need before you can
+measure anything else, and it took two bug fixes to reach. It is simply not the
+same result as "useful", and the distinction disappears the moment someone
+quotes the 4/4 without this file.
+
+===================== WHAT WOULD CLOSE IT =====================
+
+A workload with a long shared prefix across sessions, plus the daemon's own
+gets/sets/hits/misses snapshotted before and after. The prefix has to clear the
+prefetch threshold — a few thousand tokens, not a few dozen — and the same
+prefix has to be sent more than once.
+
+Even then, a hit-rate on its own would not prove kvd was doing the work: the GPU
+radix cache would be warm too, and it is faster. Separating them needs the
+engine killed and the daemon kept alive, so that a brand-new process reads
+blocks it never wrote.
+
+===================== A RELATED FALSE ALARM, FOR THE RECORD =====================
+
+At every startup infera logs:
+
+  WARNING: SGLang version has no recognized prefetch_threshold field
+    (tried hicache_storage_prefetch_threshold, hicache_prefetch_threshold,
+     prefetch_threshold)
+
+This reads like "your prefetch_threshold override was lost", and it was
+initially taken that way. It is COSMETIC. On sglang 0.5.15.post1
+prefetch_threshold is not a ServerArgs field at all (zero hits in
+server_args.py); it is read from the backend extra-config:
+
+  mem_cache/hiradix_cache.py:675   prefetch_threshold = extra_config.pop("prefetch_threshold", 256)
+  mem_cache/hiradix_cache.py:1603  or prefetch_length < self.prefetch_threshold: return
+
+— and infera passes {"prefetch_threshold": 64} in exactly that extra-config
+(visible in the logged --hicache-storage-backend-extra-config). The value takes
+effect; only infera's ServerArgs-probing fallback path is looking in the wrong
+place and printing a scary warning.
+
+Either way it does not rescue this run: 64 or 256, a few-dozen-token prompt
+clears neither.

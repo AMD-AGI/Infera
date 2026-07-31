@@ -1,0 +1,133 @@
+# Experiment 05 — MVP rounds r4 + r5, THE DIFFERENTIAL.
+# Qwen3-1.7B, single node chi2879, 1P1D TP4+TP4, over MC_FORCE_TCP.
+#
+# Question: the output is garbled. Is that kvaware/kvd's fault?
+#
+# Method: two arms, everything held identical except the two switches and the
+#         router policy that follows from them.
+#
+#   arm A (r4): KVD=1 KVAWARE=1 POLICY=kv-aware
+#   arm B (r5): KVD=0 KVAWARE=0 POLICY=round-robin
+#
+# Held constant: node, GPUs (prefill 0-3 :30000, decode 4-7 :31000), model, TP4,
+# DP-attention, --mem-fraction-static 0.60, --context-length 8192,
+# --chunked-prefill-size 4096, --hicache-size 8, patched net.py,
+# per-leg --kv-events-bind 5557/5657, and MC_FORCE_TCP=1.
+#
+# PROVENANCE. Captured in-session on 2026-07-30. The container (`kvexp` on
+# chi2879) was REMOVED before the GLM-5.2 runs, so /tmp/r4/ and /tmp/r5/ and the
+# raw .log files no longer exist. See logs/README.md.
+#
+# VERDICT: NO-REGRESSION. **NOT a correctness pass.** Read the last section
+#          before citing this anywhere.
+
+
+=== SETUP THAT MAKES THE COMPARISON VALID ===
+
+Both arms: both legs reached "ready to roll", the router saw both workers, KV
+handoff completed, and NO completion returned HTTP 500. This matters — the
+previous round's failure was HTTP 500 "Failed to get kvcache from prefill
+instance" over real RDMA. MC_FORCE_TCP removed that, so both arms here are
+genuinely answering, and the question moves from "does it transfer" to "is the
+answer right".
+
+An arm that never completed a request would say nothing about content. Neither
+arm is in that state.
+
+
+=== ARM A (r4) — kvaware ON, kvd ON ===
+
+    Q "capital of France" -> 'v4 freddy\n\nAists. Log In andapace.a\n\nWho wouldin %%%%3...'
+    Q "17*23"             -> 'S情辣梯neig治\n\n杖\n\n及格...'
+
+Garbled. Not subtly wrong — word salad, mixed scripts, no relation to the
+prompt.
+
+The natural next move is to probe a PD leg directly to see which half is
+producing nonsense. THAT DOES NOT WORK: curl to a PD leg's own port returns
+nothing, because a PD leg only serves through the pair. A round was spent on
+this before switching to the differential. The discriminating experiment is to
+flip one thing and hold the rest.
+
+
+=== ARM B (r5) — kvaware OFF, kvd OFF, round-robin ===
+
+    Q "capital of France" -> 'v4ই\n\n脐猫\n\nument=""&gt;&lt; t-tcan you-...'
+
+EQUALLY GARBLED.
+
+And note: **both arms open with the same `v4` token.** Two runs with different
+features, different router policy, different code paths through the KV plane —
+and the same opening token. Whatever is generating this is upstream of anything
+the switches control.
+
+
+=== WHAT THE DIFFERENTIAL ESTABLISHES ===
+
+The garbling belongs to the SAME-HOST PD + MC_FORCE_TCP substrate, not to
+kvaware and not to kvd. With both features off the output is just as wrong.
+
+That is a real result. It closed the question of whether the features were
+breaking generation, and it did so for the cost of one extra ~2-minute round
+rather than a deep dive into the KV plane.
+
+
+=== WHAT THE DIFFERENTIAL DOES *NOT* ESTABLISH ===
+
+  *** THIS IS A NO-REGRESSION OBSERVATION, NOT A CORRECTNESS PASS. ***
+
+Spelled out, because this is exactly the sentence that gets over-quoted:
+
+  * NOTHING here was correct. Arm A scored 0/4. Arm B scored 0/4.
+  * "The features did not cause the garbling" is supported.
+  * "kvaware+kvd produce correct output" is NOT supported. It is not even
+    addressed. A test where both arms fail cannot certify either one.
+  * It also does not establish that the features DID anything useful. Four
+    short prefix-disjoint prompts give an offload path nothing to do; kvd's
+    counters were not read in this round, and even if they had been, "connected"
+    is not "serving".
+
+The correct one-line citation is:
+
+    "On same-host PD over MC_FORCE_TCP, output was garbled with kvaware+kvd ON
+     and equally garbled with them OFF, so the garbling is not attributable to
+     the features. Neither arm was correct; this is not a correctness result."
+
+
+=== WHY THE INVESTIGATION MOVED TO TWO NODES ===
+
+Two suspects remained after r5, and they were entangled:
+
+  1. same-host PD (the pair co-located on one box), and
+  2. MC_FORCE_TCP (only in use BECAUSE of #1 — same-host mooncake RDMA fails
+     with "transport retry counter exceeded" / "received packet mismatch").
+
+Because #2 exists only as a consequence of #1, no experiment on one node can
+separate them. Moving to two nodes removes both at once: the pair is no longer
+co-located, and real RDMA works, so MC_FORCE_TCP is no longer needed.
+
+That was the right call for a second reason: a two-node run is the deployment
+shape anyone actually cares about. The single-node MVP existed to shake out
+wiring cheaply, and it did — three bugs and a fabric limitation in five rounds
+of ~2 minutes each. Once the wiring was clean, the MVP had done its job.
+
+UNKNOWN, and it stayed unknown: which of the two suspects is the actual cause
+of the garbling. Both were eliminated in one step, so neither was ever
+convicted individually. Nothing here diagnoses same-host PD or MC_FORCE_TCP
+further; they were removed, not understood.
+
+
+=== WHAT IS UNKNOWN / WAS NOT CAPTURED ===
+
+  * The FULL completions. Only the leading fragments above were kept —
+    the '...' is literal truncation in the capture, not elision here.
+  * Arm B's answer to the "17*23" prompt. Only the France prompt's arm-B
+    output survived.
+  * Whether the two arms' prompt sets were byte-identical. Arm A's record
+    includes a "17*23" arithmetic prompt; the standard 4-case probe uses
+    "2+2=". The prompts quoted here are as captured. This is a real gap in
+    the comparison's rigour and it is why scripts/probe.py now pins the case
+    list in code.
+  * kvd's counters in arm A (gets/hits/sets). Not read in this round.
+  * The router's per-request worker assignment in either arm.
+  * Any token-level or logits-level diagnosis of the garbling. None was done.

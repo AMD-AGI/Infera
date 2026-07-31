@@ -1,0 +1,68 @@
+
+======================================================================
+1. findmnt prints a bind mount's subpath in brackets; lsblk rejects it
+======================================================================
+Recorded on the node (chi2867, container with -v /mnt/nvme-raid/kvd-long:/kvd-long):
+
+  $ findmnt -no SOURCE,FSTYPE -T /kvd-long
+  /dev/md0[/mnt/nvme-raid/kvd-long] ext4
+
+  $ lsblk -no NAME,TRAN,ROTA '/dev/md0[/mnt/nvme-raid/kvd-long]'
+  lsblk: /dev/md0[/mnt/nvme-raid/kvd-long]: not a block device      (rc=32)
+
+Live check on THIS machine — lsblk's reaction to a bracketed argument:
+  rc=32  stderr='lsblk: /dev/sda1[/some/where]: not a block device'
+  -> non-zero, as recorded. lsblk will not take a bracketed source.
+
+======================================================================
+2. pre-fix vs post-fix parser, same input
+======================================================================
+  input                                      OLD                        NEW                verdict
+  ------------------------------------------ -------------------------- ------------------ -------
+  /dev/md0[/mnt/nvme-raid/kvd-long] ext4     /dev/md0[/mnt/nvme-raid/kvd-long] /dev/md0           ok   (bind mount (the bug))
+  /dev/nvme0n1p1[/kvd-long] ext4             /dev/nvme0n1p1[/kvd-long]  /dev/nvme0n1p1     ok   (bind mount on NVMe)
+  /dev/sda1 ext4                             /dev/sda1                  /dev/sda1          ok   (ordinary mount (must not change))
+  overlay overlay                            overlay                    overlay            ok   (container overlayfs (must not change))
+  nfsserver:/export nfs4                     nfsserver:/export          nfsserver:/export  ok   (NFS (must not change))
+  [/weird] ext4                              [/weird]                   [/weird]           ok   (leading bracket -> find()==0, NOT stripped)
+
+  The last row is deliberate: the fix uses `bracket > 0`, not `>= 0`, so a
+  source that *starts* with '[' is left alone rather than becoming the empty
+  string. Off-by-one here would turn a weird case into a crash.
+
+======================================================================
+3. the consequence: an NVMe-backed bind mount is classified as buffered
+======================================================================
+  OLD (pre-fix)
+    mount    = /dev/nvme0n1p1[/kvd-long]
+    devices  = [(none)]
+    rationale: unknown device, conservative buffered
+    io_mode  = BUFFERED
+
+  NEW (post-fix)
+    mount    = /dev/nvme0n1p1
+    devices  = ['nvme0n1']
+    rationale: nvme-ssd -> O_DIRECT
+    io_mode  = DIRECT
+
+  -> BUG REPRODUCED and FIX CONFIRMED. Any bind-mounted L3 silently got
+     buffered I/O regardless of the hardware underneath, and the only clue
+     was a WARN that reads like a missing-tool problem.
+
+======================================================================
+4. against the real infera.kvd.storage_classify (needs it importable)
+======================================================================
+  SKIPPED — infera not importable (No module named 'infera').
+  Retry with: PYTHONPATH=<infera repo> python3 mvp_bind_mount.py
+
+======================================================================
+SUMMARY
+======================================================================
+  All checks behaved as recorded.
+
+  What the fix does NOT settle, and both are real:
+   (a) the verdict on the reference hardware is still 'buffered', and that is
+       CORRECT: md0 is a raid1 of two SATA SSDs and the classifier prefers
+       buffered for SATA (readahead win). md0 also has no TRAN of its own.
+   (b) a stock container cannot see /dev/md0 at all. Bind-mounting the PATH
+       does not expose the DEVICE — you also need --device=/dev/md0.

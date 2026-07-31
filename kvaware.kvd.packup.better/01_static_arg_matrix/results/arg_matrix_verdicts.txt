@@ -1,0 +1,22 @@
+# Output of scripts/argcheck.py, run inside infera/engine-sglang:pd-unified
+# on chi2879, 2026-07-30. Model path must be mounted (from_cli_args touches
+# the tokenizer), hence /mnt/vast bind.
+
+[OK  ] 1 baseline mix
+        hier=False backend=None ratio=2.0 page=64 disable_radix=False
+[OK  ] 2 mix + hicache
+        hier=True backend=dynamic ratio=2.0 page=64 disable_radix=False
+[OK  ] 3 mix + DPA + hicache
+        hier=True backend=dynamic ratio=2.0 page=64 disable_radix=False
+[OK  ] 4 PD-prefill + DPA + hicache
+        hier=True backend=dynamic ratio=2.0 page=64 disable_radix=False
+[FAIL] 5 PD-decode  + DPA + hicache: ValueError: The arguments enable-hierarchical-cache and disable-radix-cache are mutually exclusive and cannot be used at the same time. Please use only one of them.
+[OK  ] 6 PD-decode + DPA + hicache + decode-radix(auto-append)
+        hier=True backend=dynamic ratio=2.0 page=64 disable_radix=False
+[FAIL] 7 PD-prefill + DPA + hicache + disable-radix (CONFLICT probe): ValueError: The arguments enable-hierarchical-cache and disable-radix-cache are mutually exclusive and cannot be used at the same time.
+[FAIL] 8 PD-decode + DPA + hicache + offload-kvcache: ValueError: The arguments enable-hierarchical-cache and disable-radix-cache are mutually exclusive and cannot be used at the same time.
+
+# Direct probe of the mechanism (separate one-liner, same container):
+[decode leg, NO hicache]              disable_radix_cache=True
+[decode leg + decode-radix flag]      disable_radix_cache=False
+[prefill leg, NO hicache]             disable_radix_cache=False

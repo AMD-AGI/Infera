@@ -1,0 +1,102 @@
+# The routing distribution, re-derived from the log files in logs/ of this
+# packup — so the headline number can be audited rather than trusted.
+#
+# Re-derived 2026-07-31. Every command below is runnable from logs/.
+
+===================== THE HEADLINE =====================
+
+  policy                                  decodeA    decodeB
+  --------------------------------------  -------    -------
+  kv-aware (prefill 20.0 / decode 2.0)        17          0
+  round-robin                                 +6         +8
+
+===================== HOW IT IS COUNTED =====================
+
+Each decode worker logs a "Decode batch" line while it is generating. Counting
+them per worker is the distribution measurement — the router's own log does not
+record per-request placement, so the workers' own logs are the evidence.
+
+Total, over the whole session:
+
+  $ grep -ac 'Decode batch' pd_decodeA.log
+  23
+  $ grep -ac 'Decode batch' pd_decodeB.log
+  8
+
+23 = 17 (kv-aware arm) + 6 (round-robin arm). 8 = 0 + 8. The published numbers
+are the per-arm DELTAS of these counters, which is why they are quoted as
+"17 / 0" and then "+6 / +8".
+
+===================== SPLITTING THE TWO ARMS BY TIMESTAMP =====================
+
+The two arms are cleanly separated in time. The exact per-line timestamps:
+
+  $ grep -a 'Decode batch' pd_decodeA.log | grep -oE '2026-07-30 [0-9:]+'
+    12:17:50 12:17:51 12:17:52 12:17:53 12:17:55 12:17:56 12:17:56 12:17:58
+    12:17:59 12:18:00 12:18:02 12:18:02 12:18:03 12:18:05 12:18:06 12:18:07
+    12:18:08                                             <- 17 lines, ARM 1
+    12:19:39 12:19:57 12:20:02 12:20:06 12:20:06 12:20:07 <- 6 lines,  ARM 2
+
+  $ grep -a 'Decode batch' pd_decodeB.log | grep -oE '2026-07-30 [0-9:]+'
+    (nothing before 12:19)                               <- 0 lines,  ARM 1
+    12:19:46 12:19:53 12:19:57 12:20:01 12:20:04 12:20:07
+    12:20:08 12:20:09                                    <- 8 lines,  ARM 2
+
+Machine-checkable, with the arm boundary at 12:19:00 (the router was restarted
+onto round-robin between the arms):
+
+  $ grep -a 'Decode batch' pd_decodeA.log | grep -cE '2026-07-30 12:1[78]'      # 17
+  $ grep -a 'Decode batch' pd_decodeB.log | grep -cE '2026-07-30 12:1[78]'      #  0
+  $ grep -a 'Decode batch' pd_decodeA.log | grep -cE '2026-07-30 12:(19|20|21)' #  6
+  $ grep -a 'Decode batch' pd_decodeB.log | grep -cE '2026-07-30 12:(19|20|21)' #  8
+
+**decodeB ran nothing at all during the kv-aware arm.** Not "less" — zero.
+
+===================== THE TWO WORKERS REALLY WERE DISTINCT =====================
+
+  $ grep -aoE 'tp_size=[0-9]+|mem_fraction_static=[0-9.]+' pd_decodeA.log | sort -u
+  mem_fraction_static=0.7
+  tp_size=4
+  (identical in pd_decodeB.log)
+
+  $ grep -aoE 'port=3[0-9]+' pd_decodeA.log | sort -u    #  port=30000
+  $ grep -aoE 'port=3[0-9]+' pd_decodeB.log | sort -u    #  port=32000
+
+  $ grep -aoE 'events_bind=tcp://[0-9.]+:[0-9]+|snapshot=http://[0-9.]+:[0-9]+' \
+        pd_decodeA.log | sort -u
+  events_bind=tcp://0.0.0.0:5557
+  snapshot=http://10.2.122.44:8801
+  $ ... pd_decodeB.log
+  events_bind=tcp://0.0.0.0:5657
+  snapshot=http://10.2.122.44:8802
+
+All three ports differ, exactly as required for two workers on one host. TP4 at
+gmu 0.70 on both — the TP8 value of 0.85 OOMs here because TP4 doubles GLM-5.2's
+per-GPU weights to ~102 GB.
+
+Both reached ready:
+
+  $ grep -a 'ready to roll' pd_decodeA.log   # [2026-07-30 12:08:29]
+  $ grep -a 'ready to roll' pd_decodeB.log   # [2026-07-30 12:15:03]
+
+Note decodeB came up ~6.5 minutes after decodeA and about 2 minutes before the
+first arm's traffic. Its zero in arm 1 is NOT "it wasn't up yet".
+
+===================== WHAT THIS RE-DERIVATION DOES *NOT* SETTLE ==============
+
+- **Which arm is which is inferred from the timestamps**, not from a marker in
+  the decode logs. The workers do not log the router's policy. The mapping
+  (12:17-12:18 = kv-aware, 12:19-12:20 = round-robin) comes from the run
+  transcript and from the router log line quoted in
+  results/step4_role_weights_routing.txt, and the router log itself is gone.
+  The split is unambiguous in shape — one arm is 17/0, the other 6/8 — but the
+  LABELS rest on the in-session record.
+
+- **"Decode batch" lines are not requests.** A long generation logs several. The
+  counts are a proxy for where decode work landed, not an exact request tally.
+  For the differential that is sufficient: the same workload ran twice, so the
+  proxy is comparable across arms. It is not a throughput measurement.
+
+- Each arm ran the same 32-request workload (4 sessions x 4 turns x 2 phases).
+  The prefill leg's log confirms 64 completions across the two arms
+  (12:17-12:20), i.e. 32 each.

@@ -1,0 +1,10 @@
+# GLM-5.2-MXFP4 two-node PD (mooncake RDMA) + DP-attention, kvaware=OFF kvd=OFF
+# scripts/probe.py against the infera router http://10.2.122.10:8100, served=glm5.2-mxfp4
+# Ran 2026-07-30. Criterion: >=3/4 (probe.py exits non-zero below that).
+
+[OK] 'The capital of France is' -> '1.  **Identify the core question:** The user is asking for the capital of France.\n2.  **Retrieve knowledge:** Access geographical knowledge. France is a country in Europe. Its capital city is Paris.\n3.  **Formulate the answer:** State clearly that the capital of France is Paris. Keep'
+[OK] 'The capital of China is' -> "1.  **Identify the core entity and question:** The user is asking for the capital of China.\n2.  **Retrieve knowledge:** Access geographical knowledge regarding China. The capital of the People's Republic of China is Beijing.\n3.  **Formulate the answer:** State clearly and concisely that the"
+[OK] '2+2=' -> '1.  **Analyze the Input:** The user is asking a basic arithmetic question: "2+2=".\n2.  **Perform the calculation:** 2 + 2 = 4.\n3.  **Formulate the response:** Keep it simple, direct, and accurate. "4" or "'
+[OK] 'The largest planet in our solar system is' -> '1.  **Identify the core entity and question:** The user is asking for the largest planet in our solar system.\n2.  **Retrieve knowledge about the solar system:**\n    *   Planets in order from the Sun: Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, Neptune'
+
+4/4 correct

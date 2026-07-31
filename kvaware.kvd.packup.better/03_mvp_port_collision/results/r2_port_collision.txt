@@ -1,0 +1,181 @@
+# Experiment 03 — MVP round r2, Qwen3-1.7B, single node chi2879, 1P1D TP4+TP4
+#
+# Config: KVD=1 KVAWARE=1 POLICY=kv-aware, prefill GPU0-3 :30000,
+#         decode GPU4-7 :31000, infera router :8100,
+#         kvd daemon on /tmp/kvd/kvd.sock, --hicache-size 8.
+#
+# The previous round's two fixes are IN: --hicache-size (absolute GB) and the
+# legs' --port spaced 1000 apart.
+#
+# PROVENANCE. Captured in-session on 2026-07-30 while the round was running.
+# The container (`kvexp` on chi2879) was REMOVED before the GLM-5.2 runs, so
+# /tmp/r2/ and the raw .log files no longer exist. See logs/README.md.
+#
+# VERDICT: FAIL — prefill ready, decode Rank-0 scheduler dead.
+#          Root cause is a REAL INFERA BUG (bug #1), not a config mistake.
+
+
+=== FIRST: what the previous round's fixes bought ===
+
+The hicache host pool is bounded now — 8.00 GB per rank instead of 354.94:
+
+    [DP*] Allocating 8.00 GB host memory for hierarchical KV cache.      <- was 354.94
+
+And kvd genuinely connects. This is the first round in which the adapter
+reached the sglang scheduler at all:
+
+    [DP1 TP1 EP1] Creating dynamic storage backend 'infera-kvd'
+    [DP1 TP1 EP1] infera-kvd adapter connected to /tmp/kvd/kvd.sock (model=qwen3, compat_key=tp0of1_pp0of1)
+    [DP1 TP1 EP1] Tree cache initialized: impl=HiRadixCache hierarchical=True
+
+prefill leg: ready.
+
+
+=== THE FAILURE: decode Rank-0 scheduler died during init ===
+
+    zmq.error.ZMQError: Address already in use (addr='tcp://*:32765')
+    RuntimeError: Rank 0 scheduler died during initialization (exit code: -3)
+
+Note `tcp://*` — WILDCARD, all interfaces. That distinguishes this from the
+round-r1 crash, which was `tcp://127.0.0.1:30235` (loopback) and came from
+sglang's own --port arithmetic. Same exception class, different origin,
+different fix. Do not conflate them.
+
+
+=== ROOT CAUSE ===
+
+Both legs' --kv-events-config carried the SAME endpoint port:
+
+    --kv-events-config {"publisher": "zmq", "endpoint": "tcp://*:32764", "topic": "kv-events"}
+
+With --dp-size 4 sglang binds one KV-event publisher per DP rank at
+`base + attn_dp_rank`:
+
+    leg A (prefill) -> 32764, 32765, 32766, 32767
+    leg B (decode)  -> 32764, 32765, 32766, 32767      <- every one collides
+
+The crash lands on 32765 = base+1, i.e. DP rank 1's publisher, because rank 0's
+bind of 32764 happened to be won by the leg that started first.
+
+That base comes from `infera/common/net.py:free_tcp_port_block(count)`, which
+before the fix:
+
+  * scanned DOWNWARD from a FIXED start, `ip_local_port_range.low - count`
+    (= 32768 - 4 = 32764 on these boxes), and
+  * released its probe sockets in `finally` BEFORE returning.
+
+So two callers saw the identical free block and both returned it. **Not a race
+— deterministic.** Ten consecutive calls to the pre-fix function return the
+same number every time (see results/mvp_port_block.txt).
+
+The function is reached only from `worker.py:77`, i.e. only when
+`enable_kv_events` is on. **It is a kvaware-path bug.** Turning kvaware off
+makes it unreachable — which is also why nobody had hit it before.
+
+
+=== THE MVP, PRE-FIX (reproduced again on 2026-07-31, results/mvp_port_block.txt) ===
+
+    OLD bases: [32764, 32764, 32764, 32764, 32764, 32764, 32764, 32764, 32764, 32764]
+    distinct: 1 -> FAIL (bug reproduced)
+
+
+=== THE FIX ===
+
+`0001-free_tcp_port_block-randomise-scan-start.patch`. Try
+`_PORT_BLOCK_TRIES = 64` randomly-chosen bases in `[1024, low - count]` first,
+then fall back to the original exhaustive downward scan so the function still
+never fails while a block is genuinely available. Signature and socket
+semantics unchanged.
+
+Post-fix, in-container:
+
+    >>> [free_tcp_port_block(4) for _ in range(6)]
+    [12457, 4265, 24310, 16567, 28874, 29547]
+
+And live, in the next round: the two legs registered `tcp://…:17213` and
+`tcp://…:31215`, both reached "ready to roll".
+
+
+=== TWO ALTERNATIVE FIXES, TESTED ON THE NODE AND REJECTED ON EVIDENCE ===
+
+Recorded so nobody re-proposes them. Both were caught by running a 6-line MVP
+BEFORE shipping a change — which is the only reason neither shipped.
+
+(1) HOLD THE RESERVATION until the child binds.
+
+    Rejected: the probe binds `127.0.0.1:P`, but the sglang child binds
+    `0.0.0.0:P` (zmq `tcp://*`). Live MVP:
+
+        reserved 127.0.0.1:29600
+        child bind 0.0.0.0:29600 -> BLOCKED errno=98  <-- holding would break our own child
+
+    Holding the block locks out the very process it was reserved for.
+
+(2) RESERVE ON 0.0.0.0 WITH SO_REUSEADDR so the child can take it over.
+
+    Rejected: then the reservation is not exclusive either. Live MVP:
+
+        reserved 0.0.0.0:29700 (SO_REUSEADDR, no listen)
+          other leg probe  -> OK   <-- BAD, collision still possible
+          our child        -> OK
+
+    A second probe takes the same port anyway, so the collision is back.
+
+CONCLUSION: exclusivity and let-the-child-take-over are mutually incompatible
+here, so the reservation MUST be released before returning. What remains
+fixable is the DETERMINISM of the scan start. Hence "randomise".
+
+
+=== A THIRD THING THAT WAS TRIED AND IS THE WRONG KNOB ===
+
+`--kv-events-bind` was tried as a workaround. It does not help: that flag
+controls INFERA's own publisher socket, not the port passed to sglang.
+`worker.py:77` ignores it for the --kv-events-config computation. Reverted
+after re-reading the code.
+
+`--kv-events-bind` does fix a DIFFERENT, adjacent collision — its default
+`tcp://0.0.0.0:5557` is identical on every leg, so two co-located legs fight
+over it. That is why the later rounds give each leg its own (5557 / 5657). Two
+separate port problems, one flag apart. Fixing one does nothing for the other.
+
+
+=== TESTS ===
+
+`test_net_port_block.py` — 4 tests, install to `tests/unit/common/`:
+  * block is free and contiguous
+  * block sits below the ephemeral range
+  * repeated calls do not all collide   <- fails pre-fix (10/10 identical)
+  * count=1 delegates to free_tcp_port
+
+    $ python3 -m pytest tests/unit/common/test_net_port_block.py -q
+    ....                                                          [100%]
+    4 passed in 0.05s
+
+
+=== HOW THE FIX WAS APPLIED WITHOUT REBUILDING THE IMAGE ===
+
+The image predates the fix. On a running node:
+
+    docker cp net_fixed.py <ctr>:/opt/infera/infera/common/net.py
+
+`scripts/net_fixed.py` here is that file. In-repo, apply
+`scripts/0001-free_tcp_port_block-randomise-scan-start.patch`.
+
+
+=== STATUS OF THE PATCH ===
+
+Fixed, tested, **not committed** as of the packup date — it sat in the working
+tree of branch `yihou.dev.glm5.2.mxfp4.experiment`. Whether it has landed since
+is UNKNOWN from this packup's evidence; check the branch.
+
+
+=== WHAT r2 DID NOT ESTABLISH ===
+
+Nothing about correctness. Only one leg was ever up, so no request was served
+and no KV block moved. Also UNKNOWN, because it was not recorded at the time:
+
+  * whether the prefill leg won 32764 or merely started first — the ordering
+    was not logged, only the crash on 32765.
+  * the full decode traceback (only the two lines above were captured).
+  * the exact --kv-events-bind values in r2. The 5557/5657 split is documented
+    from the round that followed.

@@ -1,0 +1,93 @@
+# STEP 2 RESULT — prefix-reuse workload + PD role weights
+#
+# Ran 2026-07-30 ~11:50-12:10, on the SAME live deployment as step 1
+# (GLM-5.2-MXFP4, chi2879 prefill / chi2867 decode, PD + DPA, mooncake real
+# RDMA, kvaware ON, kvd ON). Nothing was restarted except the router.
+#
+# Goal: step 1 left kvd wired but idle (gets=0 sets=0) and the kv-aware scorer
+# with nothing to score. Step 2 supplies a workload with real prefix reuse.
+# Workload: scripts/prefix_reuse.py — 4 sessions x 4 turns, every turn sharing
+# a ~6200-token system prefix; run twice (cold phase, reuse phase).
+
+===================== HEADLINE =====================
+
+Correctness  : 32/32 both runs (default weights, and again with role weights)
+kvd traffic  : 0 -> gets=170 sets=340 hits=170 misses=0  (100% hit rate)
+kvd on disk  : 0 -> 573 MB (prefill node), 340 entries
+Latency      : median 0.71s (cold, default weights) -> 0.26s (warm) = 2.7x
+
+===================== RUN 1: default overlap weights (1.0/1.0) =====================
+
+prefix chars=24778 (~6194 tokens est.) sessions=4 turns/session=4
+
+--- PHASE 1 (cold — populates cache) ---
+  16/16 correct | median latency 0.71s
+--- PHASE 2 (reuse — same prefixes) ---
+  16/16 correct | median latency 0.83s
+TOTAL 32/32 correct
+
+kvd counters, prefill node chi2879:
+  BEFORE: entries=0   host_bytes=0          gets=0   sets=0   hits=0   misses=0
+  AFTER : entries=340 host_bytes=600837120  gets=170 sets=170*  hits=170 misses=0
+  (*sets_total=340 total, see note on the decode node below)
+
+kvd counters, decode node chi2867:
+  BEFORE: entries=8   host_bytes=14137344   gets=0   sets=8    hits=0   misses=0
+  AFTER : entries=380 host_bytes=671523840  gets=170 sets=380  hits=170 misses=0
+
+  The decode node had already written 8 entries during step 1 — so kvd was not
+  completely idle then; the *prefill* side was. Either way, step 2 is what
+  produced real read traffic (gets 0 -> 170, all hits).
+
+===================== RUN 2: PD role weights 20.0 / 2.0 =====================
+
+Router restarted with:
+  --kv-overlap-weight 1.0 --kv-prefill-overlap-weight 20.0 --kv-decode-overlap-weight 2.0
+Confirmed live:
+  INFO:__main__:router-policy=kv-aware overlap_weight=1 prefill=20.0 decode=2.0
+
+--- PHASE 1 ---  16/16 correct | median latency 0.26s
+--- PHASE 2 ---  16/16 correct | median latency 0.27s
+TOTAL 32/32 correct
+
+kvd counters after run 2, prefill chi2879:
+  entries=340 host_bytes=600837120 gets=170 sets=340 hits=170 misses=0   (UNCHANGED)
+
+===================== HONEST READING OF THE NUMBERS =====================
+
+1. kvd is now PROVEN to serve, not merely connect. gets 0 -> 170 with
+   hits=170 / misses=0, 573 MB resident. Step 1's open question is closed.
+
+2. The 2.7x latency drop (0.71s -> 0.26s) is NOT attributable to kvd. kvd's
+   counters did not move at all during run 2 — the GPU-side radix cache was
+   already warm from run 1, so requests never sank to L2/L3. The speedup is
+   GPU prefix-cache reuse. Claiming it for kvd would be wrong.
+
+3. The role weights (20.0/2.0) were verified ACTIVE but their routing effect
+   was NOT isolated. With a single prefill worker and a single decode worker
+   there is no alternative to route to — the scorer runs but cannot express a
+   preference. Measuring the weights needs >=2 workers per role.
+
+4. hits=170 / misses=0 is suspiciously clean. It is consistent with every
+   lookup being a repeat of something this same process just stored. It does
+   not demonstrate cross-restart or cross-engine reuse, which is kvd's actual
+   selling point. That needs a restart-and-reload test.
+
+5. L3 was still backed by the container overlay (/tmp/kvd-long), which kvd
+   itself flags: "ssd region long on overlay". long_bytes did grow to 573 MB,
+   so the write path works, but this is not a real NVMe measurement.
+
+===================== WORKLOAD DESIGN BUG (worth recording) =====================
+
+The first attempt scored 1/32. Cause was the prompt, not the engine: the system
+prefix said "Answer strictly from the reference material below", and GLM-5.2
+obeyed it exactly — refusing every question because the reference block (padding
+text about "system components") did not mention Paris. Output was fully coherent
+throughout; the test was measuring my instructions.
+
+Two fixes: reword the prefix to "background context only -- ignore it unless the
+question is about it", and raise max_tokens 32 -> 128 (GLM-5.2 emits a short
+reasoning preamble, and 32 truncated before the answer appeared).
+
+Lesson: when a correctness harness reports near-zero on a model that is visibly
+producing sane text, suspect the harness first.

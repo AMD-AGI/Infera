@@ -1,0 +1,94 @@
+# The workload-design bug that scored 1/32 — recorded because the failure mode
+# is general and the debugging instinct it teaches is worth more than the fix.
+#
+# From results/step2_prefix_reuse.txt, section "WORKLOAD DESIGN BUG".
+
+===================== THE SYMPTOM =====================
+
+First attempt at this experiment: **1/32 correct.**
+
+A near-zero score on a 32-request run, on a deployment that had scored 4/4 on
+the same model minutes earlier. The obvious hypotheses, in the order they
+suggest themselves:
+
+  - the cache is returning corrupted KV
+  - the long prefix broke something (chunked prefill? DSA indexer?)
+  - the PD transfer mangles multi-chunk prefills
+  - kvaware/kvd corrupt output under reuse
+
+All plausible. All wrong. And each one is an expensive investigation on a stack
+where a single cold start costs 6 minutes.
+
+===================== THE ONE OBSERVATION THAT REDIRECTED IT =====================
+
+**The output was fully coherent.** Not garbled, not truncated, not empty —
+well-formed English sentences, on topic, correctly punctuated. The model was
+working perfectly.
+
+A corrupted KV cache does not produce fluent refusals. It produces garbage.
+
+===================== THE ACTUAL CAUSE =====================
+
+The shared system prefix began:
+
+    "You are a helpful assistant. Answer strictly from the reference material
+     below."
+
+...followed by ~6000 tokens of padding text about "system component number N,
+subsystem N%7, controller N%5" — filler whose only purpose was to be long,
+stable and identical across sessions.
+
+GLM-5.2 obeyed the instruction **exactly**. Asked "What is the capital of
+France?", it correctly observed that the reference material was about system
+components and said nothing about Paris, and declined to answer.
+
+The harness was measuring its own prompt.
+
+===================== THE FIX (two parts, both needed) =====================
+
+1. Reword the prefix so it cannot gate the answer:
+
+     "The reference material below is background context only -- ignore it
+      unless the question is about it."
+
+   The prefix exists to be a long, stable, shared token sequence. It must not
+   carry semantics that interact with the questions.
+
+2. Raise max_tokens 32 -> 128.
+
+   GLM-5.2 emits a short reasoning preamble ("1. **Identify the core
+   entity:** ...") before the answer. At 32 tokens the response was truncated
+   before the expected substring ever appeared — a second, independent way to
+   score zero on correct behaviour. Both bugs were in the same 1/32.
+
+After both fixes: 32/32.
+
+===================== THE LESSON =====================
+
+**When a correctness harness reports near-zero on a model that is visibly
+producing sane text, suspect the harness first.**
+
+The discriminating question is cheap and takes one second: *is the output
+coherent?*
+
+  - incoherent / garbled  -> the engine, the cache, or the transport
+  - coherent but "wrong"  -> the prompt, the scoring rule, or the token budget
+
+Only the first kind justifies opening the engine source. The second kind is
+free to fix and, on this stack, saves a 6-minute cold start per wrong guess.
+
+The same reasoning applies to the truncation half: a substring check is a
+*harness* rule, and a model that answers correctly after 40 tokens of reasoning
+fails a 32-token budget while being entirely right. Score the content you can
+actually see, and give the model room to reach it.
+
+===================== A RELATED CASE, FOR CALIBRATION =====================
+
+A later run of this same workload scored 31/32 rather than 32/32. The single
+miss was the "largest planet" question in one session: the model spent its
+128-token budget on a reasoning preamble and never reached "Jupiter". Same
+prompt passed in the other three sessions and in every other run.
+
+That is the *same* class of artifact as the 1/32 — a budget truncation, not a
+wrong answer — and recognising it immediately, rather than opening a cache
+investigation, is the payoff of having debugged the 1/32 properly.

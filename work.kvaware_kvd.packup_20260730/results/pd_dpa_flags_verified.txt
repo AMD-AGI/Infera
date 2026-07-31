@@ -1,0 +1,16 @@
+# Both legs symmetric PD + DP-attention (asymmetric DPA would mismatch the KV
+# shard layout across the mooncake transfer). Grepped from the live leg logs.
+
+=== pd_prefill_base.log (chi2879 10.2.122.10) ===
+disaggregation_mode='prefill'
+disaggregation_transfer_backend='mooncake'
+enable_dp_attention=True
+dp_size=8
+ep_size=8
+
+=== pd_decode_base.log (chi2867 10.2.122.44) ===
+disaggregation_mode='decode'
+disaggregation_transfer_backend='mooncake'
+enable_dp_attention=True
+dp_size=8
+ep_size=8

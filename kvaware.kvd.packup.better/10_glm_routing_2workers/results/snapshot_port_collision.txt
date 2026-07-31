@@ -1,0 +1,120 @@
+# The failure mode this experiment walked into, and why it deserves its own file.
+#
+# From results/step4_role_weights_routing.txt. The failed attempt's log was
+# overwritten by the successful relaunch, so the traceback below is an
+# in-session capture.
+
+===================== THE SYMPTOM =====================
+
+decodeB was launched. It loaded 408 GB of weights, initialised all four DP
+ranks, and printed the line everyone greps for:
+
+    The server is fired up and ready to roll!
+
+And then it never appeared in the router's /v1/workers. Two workers had been
+started; the router saw one.
+
+Everything about the engine looked healthy. The natural next move — and the
+wrong one — is to go looking at etcd, at the router's discovery backend, at
+network reachability between the nodes.
+
+===================== THE ACTUAL CAUSE =====================
+
+Further down the same log, AFTER the "ready to roll" line:
+
+    INFO:__main__:using etcd registration: endpoint=10.2.122.10:2379 ...
+    OSError: [Errno 98] error while attempting to bind on address ('0.0.0.0', 8801)
+    sys.exit(STARTUP_FAILURE)
+
+`--kv-snapshot-port` — infera's per-worker snapshot HTTP server — defaults to
+**8801 on every worker**. decodeA already had it. decodeB tried to bind the same
+port during etcd registration, failed, and exited.
+
+The engine was up. The wrapper died around it.
+
+===================== WHY THIS ONE IS THE NASTIEST OF THE THREE ===============
+
+There are THREE kvaware-path ports that collide when two workers share a host,
+and they are unrelated code paths:
+
+  1. the sglang --kv-events-config port block, from
+     infera/common/net.py:free_tcp_port_block
+       -> A REAL BUG (fixed by patch 0001): the pre-fix function scanned
+          downward from a fixed start and released its probe sockets before
+          returning, so two callers got the identical base, deterministically.
+       -> Fails AT startup: ZMQError: Address already in use (addr='tcp://*:32765')
+          RuntimeError: Rank 0 scheduler died during initialization
+
+  2. --kv-events-bind, default tcp://0.0.0.0:5557 — infera's OWN publisher
+       -> not a bug, just a default that cannot be shared
+       -> Fails AT startup: the second leg fails to bind.
+
+  3. --kv-snapshot-port, default 8801
+       -> not a bug either
+       -> Fails AFTER "ready to roll", during etcd registration.
+
+#1 and #2 fail loudly and early, at a point where you are still watching the
+log. #3 fails **late and quietly**, past the line that means "we're up", in a
+phase nobody is watching.
+
+Fixing one does nothing for the others. Each was found in a separate debugging
+round, which is how long it takes when you assume the one you just fixed was the
+only one.
+
+===================== THE DIAGNOSTIC ORDER =====================
+
+When a co-located second worker misbehaves:
+
+  1. Did it log "ready to roll"?
+       NO  -> #1 or #2. Check which port the bind error names:
+                'tcp://*:<port>' (wildcard, high number) -> #1
+                5557                                     -> #2
+       YES -> go to 2.
+
+  2. Does it appear in the router's /v1/workers?
+       NO  -> #3. grep the log for 'address already in use' or 'Errno 98'
+              AFTER the "ready to roll" line.
+       YES -> your problem is not a port collision.
+
+===================== THE FIX =====================
+
+Give every co-located worker its own value for all three. In this experiment:
+
+                   decodeA          decodeB
+    PORT           30000            32000
+    KV_PUB_PORT    5557             5657      (--kv-events-bind)
+    KV_SNAP_PORT   8801             8802      (--kv-snapshot-port)
+
+glm52_leg.sh exposes KV_PUB_PORT and KV_SNAP_PORT for exactly this.
+
+Verifiable in the surviving logs (logs/pd_decode[AB].log):
+
+    events_bind=tcp://0.0.0.0:5557   snapshot=http://10.2.122.44:8801   (A)
+    events_bind=tcp://0.0.0.0:5657   snapshot=http://10.2.122.44:8802   (B)
+
+And #1's fix visibly held, which is the run where it actually mattered:
+
+    "endpoint": "tcp://*:25186"   (A)
+    "endpoint": "tcp://*:13792"   (B)
+
+Two independent draws. Pre-fix both would have been 32764 and, with dp_size=4,
+all four per-rank publishers would have overlapped.
+
+===================== THE CHECK THAT CATCHES IT =====================
+
+**"ready to roll" is not a readiness check when two workers share a host.**
+Count the workers the router can actually see:
+
+    curl -s http://<router>:8100/v1/workers | grep -o '"url"' | wc -l
+
+For 1 prefill + 2 decode this must be 3. scripts/run.sh asserts it and, on a
+shortfall, greps both decode logs for the Errno-98 signature automatically.
+
+===================== A SECOND THING HIT ON THE WAY =====================
+
+`--mem-fraction-static 0.85` is a TP8 value. At TP4, GLM-5.2's per-GPU weights
+double from ~51 GB to ~102 GB, and 0.85 left so little that DP3 died on a
+390 MiB allocation with 120 MiB free. 0.70 works at TP4.
+
+Scale it with TP. Do not carry the number over from a TP8 recipe — which is
+exactly what "just split the node into two workers" invites you to do.

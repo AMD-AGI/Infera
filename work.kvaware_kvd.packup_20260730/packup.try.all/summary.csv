@@ -1,0 +1,49 @@
+round,date,model,topology,transport,kvaware,kvd,metric,value,expected,verdict,evidence
+r0_static,2026-07-30,GLM-5.2-MXFP4,n/a (arg parse only),n/a,n/a,n/a,arg_combos_ok,5/8,5 OK / 3 FAIL,PASS,../results/support_matrix.md
+r0_static,2026-07-30,GLM-5.2-MXFP4,n/a,n/a,n/a,n/a,decode_leg_needs_kvaware_for_kvd,true,true,PASS,../results/support_matrix.md
+r1_mvp,2026-07-30,Qwen3-1.7B,1P1D TP4+TP4 single-node,mooncake RDMA,on,on,legs_ready,0/2,2/2,FAIL,./step0_mvp_rounds.md
+r1_mvp,2026-07-30,Qwen3-1.7B,1P1D TP4+TP4 single-node,mooncake RDMA,on,on,hicache_host_alloc_gb_per_rank,354.94,<=16,FAIL,./step0_mvp_rounds.md
+r2_mvp,2026-07-30,Qwen3-1.7B,1P1D TP4+TP4 single-node,mooncake RDMA,on,on,hicache_host_alloc_gb_per_rank,8.00,<=16,PASS,./step0_mvp_rounds.md
+r2_mvp,2026-07-30,Qwen3-1.7B,1P1D TP4+TP4 single-node,mooncake RDMA,on,on,legs_ready,1/2,2/2,FAIL,./step0_mvp_rounds.md
+r2_mvp,2026-07-30,Qwen3-1.7B,1P1D TP4+TP4 single-node,mooncake RDMA,on,on,kv_events_port_collision,both=32764,distinct,FAIL,../patches/0001-note.md
+r3_mvp,2026-07-30,Qwen3-1.7B,1P1D TP4+TP4 single-node,mooncake RDMA,on,on,legs_ready,2/2,2/2,PASS,./step0_mvp_rounds.md
+r3_mvp,2026-07-30,Qwen3-1.7B,1P1D TP4+TP4 single-node,mooncake RDMA,on,on,kv_events_ports,17213/31215,distinct,PASS,../patches/0001-note.md
+r3_mvp,2026-07-30,Qwen3-1.7B,1P1D TP4+TP4 single-node,mooncake RDMA,on,on,kv_transfer,failed,ok,FAIL,./step0_mvp_rounds.md
+r4_mvp,2026-07-30,Qwen3-1.7B,1P1D TP4+TP4 single-node,MC_FORCE_TCP,on,on,correctness,garbled,coherent,FAIL,./step0_mvp_rounds.md
+r5_mvp,2026-07-30,Qwen3-1.7B,1P1D TP4+TP4 single-node,MC_FORCE_TCP,off,off,correctness,garbled,coherent,FAIL,./step0_mvp_rounds.md
+r5_mvp,2026-07-30,Qwen3-1.7B,1P1D TP4+TP4 single-node,MC_FORCE_TCP,n/a,n/a,differential_verdict,garbling_not_caused_by_features,attributable,PASS,./step0_mvp_rounds.md
+baseline,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,off,off,correctness,4/4,>=3/4,PASS,../results/baseline_probe_4of4.txt
+baseline,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,off,off,mc_force_tcp_hits,0,0,PASS,../results/transport_was_real_rdma.txt
+baseline,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,off,off,rdma_rails_active,8,8,PASS,../results/transport_was_real_rdma.txt
+baseline,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,off,off,kv_events_endpoint,null,null,PASS,../results/pd_dpa_flags_verified.txt
+step1,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,on,on,correctness,4/4,>=3/4,PASS,../results/step1_kvaware_kvd_4of4.txt
+step1,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,on,on,kvd_ranks_connected_per_leg,8,8,PASS,../results/step1_kvaware_kvd_4of4.txt
+step1,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,on,on,kv_plane_up,1,1,PASS,../results/step1_kvaware_kvd_4of4.txt
+step1,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,on,on,hicache_host_gb_per_rank,16.00,16,PASS,../results/step1_kvaware_kvd_4of4.txt
+step1,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,on,on,kvd_gets_total,0,>0,FAIL,../results/step1_kvaware_kvd_4of4.txt
+step2,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,on,on,correctness,32/32,32/32,PASS,../results/step2_prefix_reuse.txt
+step2,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,on,on,kvd_gets_total,170,>0,PASS,../results/step2_prefix_reuse.txt
+step2,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,on,on,kvd_hits_total,170,>0,PASS,../results/step2_prefix_reuse.txt
+step2,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,on,on,kvd_misses_total,0,0,PASS,../results/step2_prefix_reuse.txt
+step2,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,on,on,kvd_resident_bytes,600837120,>0,PASS,../results/step2_prefix_reuse.txt
+step2,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,on,on,median_latency_cold_s,0.71,n/a,INFO,../results/step2_prefix_reuse.txt
+step2,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,on,on,median_latency_warm_s,0.26,n/a,INFO,../results/step2_prefix_reuse.txt
+step2,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,on,on,warm_speedup_attribution,gpu_radix_cache_not_kvd,n/a,INFO,../results/step2_prefix_reuse.txt
+step3,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,on,on,correctness,31/32,>=31/32,PASS,../results/step3_restart_reload.txt
+step3,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,on,on,gpu_vram_before_relaunch_mb,284,~284 (idle),PASS,../results/step3_restart_reload.txt
+step3,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,on,on,kvd_gets_delta,170,>0,PASS,../results/step3_restart_reload.txt
+step3,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,on,on,kvd_hits_delta,170,>0,PASS,../results/step3_restart_reload.txt
+step3,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,on,on,kvd_sets_delta_prefill,0,0 (read-only reuse),PASS,../results/step3_restart_reload.txt
+step3,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,on,on,median_latency_s,0.76,n/a,INFO,../results/step3_restart_reload.txt
+step3,2026-07-30,GLM-5.2-MXFP4,1P1D TP8+TP8 two-node,mooncake RDMA,on,on,kvd_latency_benefit,none_observed,n/a,INFO,../results/step3_restart_reload.txt
+step4,2026-07-30,GLM-5.2-MXFP4,1P2D TP8+2xTP4 two-node,mooncake RDMA,on,on,workers_registered,3,3,PASS,../results/step4_role_weights_routing.txt
+step4,2026-07-30,GLM-5.2-MXFP4,1P2D TP8+2xTP4 two-node,mooncake RDMA,on,on,correctness_kvaware,32/32,32/32,PASS,../results/step4_role_weights_routing.txt
+step4,2026-07-30,GLM-5.2-MXFP4,1P2D TP8+2xTP4 two-node,mooncake RDMA,on,on,correctness_roundrobin,32/32,32/32,PASS,../results/step4_role_weights_routing.txt
+step4,2026-07-30,GLM-5.2-MXFP4,1P2D TP8+2xTP4 two-node,mooncake RDMA,on,on,split_kvaware_A_over_B,17/0,skewed,PASS,../results/step4_role_weights_routing.txt
+step4,2026-07-30,GLM-5.2-MXFP4,1P2D TP8+2xTP4 two-node,mooncake RDMA,on,on,split_roundrobin_A_over_B,6/8,even,PASS,../results/step4_role_weights_routing.txt
+step4,2026-07-30,GLM-5.2-MXFP4,1P2D TP8+2xTP4 two-node,mooncake RDMA,on,on,routing_effect_demonstrated,true,true,PASS,../results/step4_role_weights_routing.txt
+step4,2026-07-30,GLM-5.2-MXFP4,1P2D TP8+2xTP4 two-node,mooncake RDMA,on,on,prefill_weight_effect,unmeasured (1 prefill worker),n/a,INFO,../results/step4_role_weights_routing.txt
+step5,2026-07-30,GLM-5.2-MXFP4,n/a (classifier only),n/a,on,on,device_resolved_before_fix,none,a real device,FAIL,../patches/0002-note.md
+step5,2026-07-30,GLM-5.2-MXFP4,n/a (classifier only),n/a,on,on,device_resolved_after_fix,md0 (?~ssd),a real device,PASS,../patches/0002-note.md
+step5,2026-07-30,GLM-5.2-MXFP4,n/a (classifier only),n/a,on,on,io_mode,buffered,buffered on SATA (correct),INFO,../results/step5_nvme_l3.txt
+step5,2026-07-30,GLM-5.2-MXFP4,n/a (classifier only),n/a,on,on,nvme_odirect_tested,false,true,BLOCKED,../results/step5_nvme_l3.txt

@@ -1,0 +1,91 @@
+# STEP 5 RESULT — real block-device L3 (the "NVMe L3" item)
+#
+# Ran 2026-07-30 ~14:00-14:30. Goal: get kvd's L3 off the container overlay and
+# onto a real block device, so storage_classify can pick O_DIRECT instead of
+# falling back to buffered.
+#
+# Outcome: PARTIAL. Found and fixed a real infera bug on the way (patch 0002),
+# but the io-mode verdict on this hardware is still (correctly) buffered, and a
+# second, environmental blocker remains.
+
+===================== WHAT WE STARTED WITH =====================
+
+Container had only /mnt/vast mounted; kvd's --long-path /tmp/kvd-long lived on
+the container overlay:
+
+  mount    = overlay (overlay)
+  devices  = [(none)]
+  rationale: unknown device, conservative buffered
+
+overlayfs has no backing block device for lsblk to report, so this is expected.
+
+===================== HARDWARE SURVEY (why md0, not NVMe) =====================
+
+  /mnt/nvme-raid  ->  /dev/md0, ext4, 231 GB free
+                      md0 = raid1 of sda2+sdb2  == SATA SSDs, NOT NVMe
+  /dev/nvme0n1..7 ->  8x 7 TB, ext4, ALL UNMOUNTED
+
+  /dev/nvme0n1 was inspected read-only and already holds someone else's data:
+      kvd-long/  kvd-short/  lost+found/     120 GB
+
+Mounting an unmounted drive on a shared cluster, or writing into another team's
+kvd store, is not ours to do. Chose md0 (real block device, nobody's data) to
+test the *classification* question, accepting that it cannot measure NVMe
+throughput.
+
+===================== BUG FOUND: bind-mount subpath (patch 0002) =====================
+
+Rebuilt both containers with `-v /mnt/nvme-raid/kvd-long:/kvd-long`. Classifier
+STILL reported no device:
+
+  storage_classify: lsblk returned no devices for source='/dev/md0[/mnt/nvme-raid/kvd-long]'
+
+findmnt prints a bind mount's subpath in brackets; `_findmnt()` passed the whole
+string to lsblk, which rejects it. So ANY bind-mounted L3 silently gets buffered
+I/O. Fixed by stripping the bracketed suffix. Full write-up:
+patches/0002-note.md.
+
+A/B on the node (scripts/abtest.sh), same path, same moment:
+
+  WITHOUT fix:  mount = /dev/md0[/mnt/nvme-raid/kvd-long]   devices = [(none)]
+                rationale: unknown device, conservative buffered
+  WITH fix:     mount = /dev/md0                            devices = [md0 (?, ssd)]
+                rationale: unknown transport '' (md0), conservative buffered
+
+Device resolution fixed; the WARN is gone.
+
+===================== SECOND BLOCKER (environmental, NOT fixed) =====================
+
+A stock container cannot see the device node at all:
+
+  (container) ls -l /dev/md0    -> No such file or directory
+  (container) lsblk /dev/md0    -> not a block device (rc=32)
+  (host)      lsblk /dev/md0    -> md0          0
+
+Bind-mounting the *directory* does not expose the *device*. For the A/B above
+the node was created by hand (`mknod /dev/md0 b 9 0`). A deployment that wants
+accurate L3 classification must also pass `--device=/dev/md0` (or run
+privileged).
+
+**This is the actual trap of step 5**, and it is a deployment-recipe issue, not
+an infera defect: everyone will bind-mount the path and assume that is enough.
+
+===================== WHY THE VERDICT IS STILL "buffered" =====================
+
+Two independent reasons, both legitimate:
+
+1. md0 has no TRAN of its own (it is an md-raid node); resolving transport means
+   recursing to members sda2/sdb2. The classifier reports
+   `unknown transport '' (md0)` and stays conservative. Not addressed by 0002.
+2. Even if it recursed, the members are **SATA** SSDs, and storage_classify
+   deliberately picks buffered for SATA to win on cold-read readahead. So
+   buffered is the CORRECT answer for this hardware.
+
+===================== WHAT REMAINS UNTESTED =====================
+
+O_DIRECT against a genuine NVMe device. That needs either:
+  - one of the 8 unmounted NVMe drives mounted (needs cluster-owner sign-off), or
+  - a node whose NVMe is already mounted and free.
+Everything else in the chain is now in place: the L3 write path works (573 MB
+resident, recovered across a daemon restart), and after patch 0002 a
+bind-mounted device resolves correctly.

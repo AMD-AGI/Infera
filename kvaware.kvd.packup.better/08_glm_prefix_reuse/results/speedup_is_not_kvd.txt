@@ -1,0 +1,81 @@
+# The 2.7x speedup in this experiment is NOT kvd's. Stated on its own so it
+# cannot travel without its caveat.
+#
+# Source numbers: results/step2_prefix_reuse.txt (2026-07-30 ~11:50-12:10).
+
+===================== THE NUMBER PEOPLE WILL QUOTE =====================
+
+    run 1 (default weights 1.0/1.0)   phase 1 median latency  0.71 s
+    run 2 (role weights 20.0/2.0)     phase 1 median latency  0.26 s
+                                                             -------
+                                                             2.7x faster
+
+Same workload, same deployment, nothing restarted except the router. It is very
+tempting to read this as "kvd made it 2.7x faster", or as "the role weights made
+it 2.7x faster". Both readings are wrong.
+
+===================== WHY IT IS NOT KVD =====================
+
+kvd's own counters on the prefill node, read from the daemon before and after
+run 2:
+
+    after run 1:  entries=340 host_bytes=600837120 gets=170 sets=340 hits=170 misses=0
+    after run 2:  entries=340 host_bytes=600837120 gets=170 sets=340 hits=170 misses=0
+                  ^^^^^^^^^^^^^^^^^^^^^^^^ IDENTICAL — not one counter moved
+
+If kvd had served a single block during the fast run, gets_total would have
+increased. It did not. Requests never sank to the host tier at all, because the
+GPU-side radix cache was already warm from run 1 and satisfied the prefix
+lookups before anything reached L2/L3.
+
+**The speedup is GPU prefix-cache reuse.** That is a real and useful effect —
+it is simply not this feature's effect.
+
+===================== WHY IT IS NOT THE ROLE WEIGHTS EITHER =====================
+
+The weights were verified loaded and active:
+
+    INFO:__main__:router-policy=kv-aware overlap_weight=1 prefill=20.0 decode=2.0
+
+But there was ONE prefill worker and ONE decode worker. A scorer with no
+alternative cannot express a preference — whatever weight it computes, the
+request goes to the only worker in that role. The weights changed nothing about
+where anything was sent, so they cannot have changed the latency.
+
+What actually differed between run 1 and run 2 was cache state: run 1 started
+cold, run 2 started warm. The router restart is a coincidence of timing, not a
+cause.
+
+===================== WHAT KVD *DID* DO IN THIS EXPERIMENT =====================
+
+The genuine kvd result is in run 1, and it is a capacity result, not a speed one:
+
+    BEFORE run 1: entries=0   host_bytes=0          gets=0   sets=0   hits=0  misses=0
+    AFTER  run 1: entries=340 host_bytes=600837120  gets=170 sets=340 hits=170 misses=0
+
+kvd went from completely idle to 573 MB resident, 340 entries, 170 lookups with
+a 100% hit rate. That closes the previous experiment's open question — kvd
+serves, it does not merely connect.
+
+The decode node's store moved too (it had 8 entries before run 1, from an
+earlier round; it ended at 380 entries / 671523840 bytes / gets=170 / hits=170).
+Two separate stores, one per node — each engine talks to its local daemon.
+
+===================== AND WHAT IT STILL DOES NOT SHOW =====================
+
+hits=170 / misses=0 is suspiciously clean, and the reason is that every lookup
+repeated something this same live process had just stored. Same-process reuse,
+with a warm GPU cache sitting in front of it the whole time.
+
+kvd's actual selling point is surviving the engine — a new process reading
+blocks an old one wrote. Nothing here tests that. It needs the engine killed,
+the daemon kept alive, VRAM verified back at idle, and the workload replayed;
+the discriminating signature is gets/hits climbing while sets/entries/bytes stay
+flat.
+
+===================== THE GENERAL LESSON =====================
+
+A latency improvement observed while a feature is enabled is not evidence about
+the feature. The feature's own counters are. Read them before and after, and if
+they did not move, the feature did not do it — no matter how good the number
+looks.

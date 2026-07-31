@@ -1,0 +1,111 @@
+# What the storage on this cluster actually is — and why "NVMe L3" was not
+# measured. Recorded as a resource constraint, not dressed up as a finding.
+#
+# Surveyed 2026-07-30 on chi2867. From results/step5_nvme_l3.txt and
+# environment notes.
+
+===================== THE NAME LIES =====================
+
+  /mnt/nvme-raid  ->  /dev/md0, ext4, 231 GB free
+                      md0 = raid1 of sda2 + sdb2
+                      sda / sdb are **SATA SSDs. Not NVMe.**
+
+The mount point is called "nvme-raid". It is not NVMe. Anyone reading a result
+that says "we put L3 on /mnt/nvme-raid and it chose buffered" will reasonably
+conclude the classifier is wrong about NVMe. It is not; it never saw NVMe.
+
+===================== THE REAL NVMe, AND WHY IT WAS LEFT ALONE ================
+
+  /dev/nvme0n1 ... /dev/nvme7n1    8 x 7 TB, ext4 formatted
+                                   **ALL UNMOUNTED**
+
+  /dev/nvme0n1 was inspected READ-ONLY and already contains:
+      kvd-long/  kvd-short/  lost+found/        ~120 GB
+
+That is **another team's kvd store**. On a shared cluster, mounting an unmounted
+drive or writing into someone else's data is not ours to do without sign-off.
+
+So md0 was chosen deliberately: it is a real block device, it belongs to nobody,
+and it is sufficient to test the CLASSIFICATION question — which was the actual
+bug. It cannot test NVMe throughput, and no claim about NVMe throughput is made
+anywhere in this packup.
+
+===================== WHY THE VERDICT IS 'buffered', AND WHY THAT IS RIGHT ====
+
+Two independent reasons, both legitimate. Neither is fixed by patch 0002, and
+neither should be.
+
+1. **md0 has no transport of its own.** An md-raid node's `TRAN` column is
+   empty; resolving it means recursing to the member disks (sda2 / sdb2). The
+   classifier reports `unknown transport '' (md0)` and stays conservative.
+
+     $ lsblk -no NAME,TRAN,ROTA /dev/md0
+     md0          0
+
+   Note the blank TRAN. The recursion exists in the module for the member-walk
+   case, but the top-level `md0` device alone does not carry the information.
+
+2. **Even if it recursed, the members are SATA**, and storage_classify
+   deliberately picks buffered for SATA:
+
+     - **NVMe SSD**        -> O_DIRECT (queue-depth bound, no readahead win)
+     - **SAS enterprise**  -> O_DIRECT (same shape at the block layer)
+     - **SATA SSD**        -> buffered (slow random-read latency; readahead is
+                              the only thing keeping throughput up)
+     - **rotational HDD**  -> buffered (seek-bound)
+     - **iSCSI / SAN**     -> buffered (network-bound)
+     - **NFS**             -> buffered
+     - **tmpfs**           -> buffered (O_DIRECT unsupported)
+     - **unknown**         -> buffered (conservative)
+
+   So `buffered` is the CORRECT answer for this hardware. The bug was never
+   "it picked buffered"; the bug was "it could not see the device at all".
+
+===================== WHAT PATCH 0002 ACTUALLY CHANGED =====================
+
+  BEFORE:  mount    = /dev/md0[/mnt/nvme-raid/kvd-long] (ext4)
+           devices  = [(none)]
+           rationale: unknown device, conservative buffered
+           WARN: lsblk returned no devices for source='/dev/md0[/mnt/...]'
+
+  AFTER:   mount    = /dev/md0 (ext4)
+           devices  = [md0 (?, ssd)]
+           rationale: unknown transport '' (md0), conservative buffered
+
+Device resolution fixed; the misleading WARN gone. Same verdict, for a
+different and honest reason. Before the patch you could not tell "conservative
+because SATA" from "conservative because blind".
+
+===================== THE SECOND BLOCKER — ENVIRONMENTAL, NOT FIXED ==========
+
+  (container) $ ls -l /dev/md0     -> No such file or directory
+  (container) $ lsblk /dev/md0     -> not a block device (rc=32)
+  (host)      $ lsblk -no NAME,TRAN,ROTA /dev/md0  -> md0          0
+
+**Bind-mounting the directory does not expose the device.** A stock container
+sees the files and not the block device behind them, so `lsblk` fails no matter
+how good the parser is. For the reference A/B the node was created by hand
+(`mknod /dev/md0 b 9 0`).
+
+A deployment that wants accurate L3 classification needs `--device=/dev/md0`
+(or `--privileged`) **in addition to** the `-v` mount. This is a
+DEPLOYMENT-RECIPE trap, not an infera defect, and everyone will walk into it —
+because bind-mounting the path is the obvious and apparently complete move.
+
+===================== WHAT REMAINS UNTESTED =====================
+
+**O_DIRECT against a genuine NVMe device.** That is the thing the "NVMe L3"
+item originally asked for, and it was not done.
+
+It needs either:
+  - one of the 8 unmounted NVMe drives mounted (requires cluster-owner
+    sign-off), or
+  - a node whose NVMe is already mounted and free.
+
+Everything else in the chain is in place: the L3 write path works (573 MB
+resident in a separate experiment, and the daemon recovers it across its own
+restart — "long region recovered from /tmp/kvd-long"), and after patch 0002 a
+bind-mounted device resolves correctly.
+
+Stated plainly: this is a **resource constraint**, not a result. Nothing here
+supports or contradicts any claim about NVMe O_DIRECT performance.

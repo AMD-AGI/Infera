@@ -1,0 +1,71 @@
+# Proof the CONTROL really had kvaware and kvd OFF — in the engine, not just on
+# the command line. A control that quietly had a feature on is not a control.
+#
+# Re-derived 2026-07-31 from the log files committed in logs/ of this packup.
+# Every command below is runnable against them; see logs/README.md.
+
+=== 1. kvaware OFF — sglang never received a kv-events config ===
+
+$ grep -ac 'kv-events-config' logs/pd_prefill_base.log
+0
+$ grep -ac 'kv-events-config' logs/pd_decode_base.log
+0
+
+  With KVAWARE=1 the leg script passes --kv-events-bind / --kv-snapshot-port and
+  the infera wrapper computes a --kv-events-config block for sglang. Zero hits
+  means that whole path was never taken.
+
+  The router's own view of the same fact (captured live, from /v1/workers):
+
+    prefill http://10.2.122.10:30000 "kv_events_endpoint":null
+    decode  http://10.2.122.44:30000 "kv_events_endpoint":null
+
+  That is the switch confirming itself from the wire rather than being taken on
+  trust from the launch command.
+
+=== 2. kvd OFF — no adapter, no hierarchical cache ===
+
+$ grep -ac 'infera-kvd adapter connected' logs/pd_prefill_base.log
+0
+$ grep -aoE 'enable_hierarchical_cache=[A-Za-z]+' logs/pd_prefill_base.log | sort -u
+enable_hierarchical_cache=False
+$ grep -aoE 'hicache_storage_backend=[A-Za-z']* logs/pd_prefill_base.log | sort -u
+hicache_storage_backend=None
+$ grep -ac 'HiRadixCache' logs/pd_prefill_base.log
+0
+
+  The tree cache the engine actually built:
+
+    [DP5 TP5 EP5] Tree cache initialized: source=default impl=RadixCache
+      hybrid_swa=False hybrid_ssm=False hierarchical=False streaming_wrapped=False
+
+  Plain RadixCache, hierarchical=False. No host tier, no L3, nothing for kvd to
+  attach to.
+
+=== 3. the decode leg's self-imposed disable_radix_cache is VISIBLE here ===
+
+$ grep -aoE 'disable_radix_cache=[A-Za-z]+' logs/pd_decode_base.log | sort -u
+disable_radix_cache=True
+$ grep -aoE 'disable_radix_cache=[A-Za-z]+' logs/pd_prefill_base.log | sort -u
+disable_radix_cache=False
+
+  A PD decode leg sets disable_radix_cache=True by itself ("KV cache is forced
+  as chunk cache for decode server"). That is fine here because nothing asks for
+  a hierarchical cache. It is worth noting in the control because it is exactly
+  the state that makes kvd illegal on a decode leg unless something legalises it.
+
+=== 4. engine geometry (see also pd_dpa_flags_verified.txt) ===
+
+$ grep -aoE 'mem_fraction_static=[0-9.]+|tp_size=[0-9]+' logs/pd_prefill_base.log | sort -u
+mem_fraction_static=0.88
+tp_size=8
+$ grep -aoE 'mem_fraction_static=[0-9.]+|tp_size=[0-9]+' logs/pd_decode_base.log | sort -u
+mem_fraction_static=0.85
+tp_size=8
+
+=== 5. both legs actually came up ===
+
+$ grep -ac 'ready to roll' logs/pd_prefill_base.log
+1
+$ grep -ac 'ready to roll' logs/pd_decode_base.log
+1

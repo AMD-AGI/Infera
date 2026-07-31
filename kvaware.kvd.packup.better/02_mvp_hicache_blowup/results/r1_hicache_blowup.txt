@@ -1,0 +1,97 @@
+# Experiment 02 — MVP round r1, Qwen3-1.7B, single node chi2879, 1P1D TP4+TP4
+#
+# Config: KVD=1 KVAWARE=1 POLICY=kv-aware, prefill GPU0-3, decode GPU4-7,
+#         infera router :8100, kvd daemon on /tmp/kvd/kvd.sock.
+#
+# PROVENANCE. Every line below was captured in-session on 2026-07-30 while the
+# round was running. The container that produced them (`kvexp` on chi2879) was
+# REMOVED before the GLM-5.2 runs, so /tmp/r1/ and the raw .log files no longer
+# exist. These excerpts are what survived. See logs/README.md.
+#
+# VERDICT: FAIL — two independent startup failures, neither of them related to
+# each other, and neither of them a code bug.
+
+
+=== FAILURE (a): prefill leg died on a derived ZMQ port ===
+
+zmq.error.ZMQError: Address already in use (addr='tcp://127.0.0.1:30235')
+RuntimeError: sglang subprocess exited with code -9 before reporting ready
+
+  Reading: 30235 is not a port anybody configured. sglang derives a block of
+  internal ZMQ / nccl endpoints from --port, and the two legs' --port values
+  were close enough that decode's derived block overlapped prefill's.
+
+  This is NOT the same bug as the --kv-events-config collision (that one binds
+  'tcp://*:<port>', wildcard, and comes from infera's free_tcp_port_block).
+  This one is loopback-scoped and comes from sglang's own --port arithmetic.
+  Different origin, different fix.
+
+
+=== FAILURE (b): decode leg tried to allocate 1.4 TB of HOST memory ===
+
+[DP0 TP0 EP0] max_total_num_tokens=1547424, ...
+[DP0 TP0 EP0] Allocating 354.94 GB host memory for hierarchical KV cache.
+[DP1..DP3] (same, x4 ranks = 1.4 TB on a 3 TB box)
+
+  The per-rank figure was 354.94 GB. With --dp-size 4 --enable-dp-attention
+  each DP rank sizes its own host pool, so the node was asked for ~1.4 TB.
+  chi2879 has 3023 GB total, most of it not free.
+
+
+=== WHY 354.94 GB — the arithmetic, independently checkable ===
+
+  --hicache-ratio defaults to 2.0 and sizes the HOST pool as a multiple of the
+  device KV pool, i.e. off max_total_num_tokens.
+
+  Qwen3-1.7B (config.json, read from
+  /mnt/vast/.cache/huggingface/hub/models--Qwen--Qwen3-1.7B/snapshots/70d244cc86ccca08cf5af4e1e306ecf908b1ad5e):
+      num_hidden_layers    = 28
+      num_key_value_heads  = 8
+      head_dim             = 128
+      torch_dtype          = bfloat16  (2 bytes)
+
+  bytes/token = 2 (K and V) x 28 x 8 x 128 x 2 = 114,688 B = 112 KiB
+
+  device KV pool = 1,547,424 tok x 114,688 B = 177,470,963,712 B = 177.47 GB
+  host pool      = 177.47 GB x 2.0           = 354.94 GB        <- the log line
+
+  Exact match to the printed value. So the number is not a bug or a leak: it is
+  hicache_ratio doing precisely what it is documented to do.
+
+  The trap is that max_total_num_tokens was 1,547,424 in the FIRST place. The
+  model is 1.7B — the weights barely dent an MI355X — so --mem-fraction-static
+  0.60 left an enormous amount of VRAM for KV, and the KV pool ballooned. A
+  ratio that is sane on a 400 GB model is catastrophic on a 1.7B one.
+
+  Same knob, opposite failure, worth knowing: a hicache_ratio BELOW ~1.5 makes
+  sglang's prefetch_capacity_limit compute to about 0, so L3 gets written and
+  never read. Do not "fix" this by lowering the ratio.
+
+
+=== THE FIXES APPLIED (both carried into every later round) ===
+
+  (b) --hicache-size 16
+      An ABSOLUTE per-rank GB cap. It overrides hicache_ratio outright, so the
+      host pool no longer tracks the KV pool at all. r2 then printed:
+
+          [DP*] Allocating 8.00 GB host memory for hierarchical KV cache.
+
+      (r2 ran with 8 GB; the later GLM-5.2 runs used 16 GB.)
+
+  (a) space the two legs' --port 1000 apart: prefill :30000, decode :31000.
+      Enough room that the derived blocks cannot overlap.
+
+
+=== WHAT r1 DID NOT ESTABLISH ===
+
+  Nothing about kvaware or kvd correctness. Neither leg reached "ready to roll",
+  so no request was ever served and no KV block ever moved. r1's whole yield is
+  the two configuration lessons above.
+
+  Not recorded at the time, and therefore UNKNOWN:
+    - the exact --port values the two legs used in r1 (only the derived
+      collision port, 30235, was captured). The 1000-apart fix implies they
+      were closer than 1000, but the original pair was not written down.
+    - whether the prefill leg would ALSO have hit the hicache blow-up: it died
+      on the port first, so the question never arose.
+    - the exact free-RAM figure on chi2879 at that moment.

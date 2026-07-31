@@ -1,0 +1,48 @@
+# What actually lit up with KVAWARE=1 KVD=1 — quoted from the live leg logs.
+#
+# PROVENANCE: these lines are from the **Qwen3-1.7B single-node** round (r4), the
+# only kvaware+kvd run that reached "ready to roll" on both legs. That container
+# has since been removed, so the log files are gone; these excerpts were captured
+# in-session. The GLM-5.2 two-node kvaware+kvd run was cut short before its legs
+# wrote any log (see notes.md "What is NOT proven").
+
+=== kvd wiring (infera wrapper process, both legs) ===
+INFO:infera.kvd.client:kvd client sglang-startup-probe: shared arena negotiated (8.00 GiB, slot=0, server_pid=39)
+INFO:infera.engine.sglang.kvd_adapter:registered infera-kvd backend with SGLang factory
+INFO:infera.engine.sglang.kvd_wiring:--infera-kvd-socket implies --enable-hierarchical-cache
+INFO:infera.engine.sglang.kvd_wiring:--infera-kvd-socket implies --hicache-storage-backend infera-kvd
+WARNING:infera.engine.sglang.kvd_wiring:SGLang version has no recognized prefetch_threshold field (tried hicache_storage_prefetch_threshold, hicache_prefetch_threshold, prefetch_threshold). ...
+INFO:infera.engine.sglang.kvd_wiring:--infera-kvd-socket appends --enable-hierarchical-cache
+INFO:infera.engine.sglang.kvd_wiring:--infera-kvd-socket appends --hicache-storage-backend dynamic
+INFO:infera.engine.sglang.kvd_wiring:--infera-kvd-socket appends dynamic backend extra config
+INFO:infera.engine.sglang.kvd_wiring:infera-kvd HiCacheStorage backend ready (socket=/tmp/kvd/kvd.sock)
+
+=== the argv the wrapper actually handed to sglang (decode leg) ===
+... --dp-size 4 --enable-dp-attention --ep-size 4 \
+    --disaggregation-decode-enable-radix-cache \        # <- auto-appended by infera
+    --enable-hierarchical-cache --hicache-storage-backend dynamic \
+    --hicache-storage-backend-extra-config {"backend_name": "infera-kvd", "module_path": "infera.engine.sglang.kvd_adapter", "class_name": "InferaKvdBackend", "prefetch_threshold": 64} \
+    --kv-events-config {"publisher": "zmq", "endpoint": "tcp://*:32764", "topic": "kv-events"}
+
+=== kvd backend live inside the sglang scheduler (per DP rank) ===
+[DP1 TP1 EP1] Creating dynamic storage backend 'infera-kvd' (infera.engine.sglang.kvd_adapter.InferaKvdBackend)
+[DP1 TP1 EP1] InferaKvdBackend: kvd retention default = long (source: fallback).
+[DP1 TP1 EP1] kvd client sglang-tp0-pid2181: shared arena negotiated (8.00 GiB, slot=0, server_pid=39)
+[DP1 TP1 EP1] infera-kvd adapter connected to /tmp/kvd/kvd.sock (model=qwen3, compat_key=tp0of1_pp0of1)
+[DP1 TP1 EP1] Tree cache initialized: source=default impl=HiRadixCache hybrid_swa=False hybrid_ssm=False hierarchical=True streaming_wrapped=False
+
+=== kvd daemon startup (L2 shared arena + L3 self-check) ===
+INFO infera.kvd.server: shared arena: --shared-arena-bytes=auto -> using --max-bytes (8.00 GiB)
+INFO infera.kvd.shared_arena: infera-kvd-arena: arena pinned via mlock (8.00 GiB locked)
+INFO infera.kvd.ssd: long region recovered from /tmp/kvd-long: 0 entries, 0 bytes
+INFO infera.kvd.storage_selfcheck: [kvd] L3 storage self-check (/tmp/kvd-long): WRITE 1.34 GB/s  READ 24.79 GB/s  [io_mode=buffered workers=4 chunk=128MiB vol=1.6GB]
+INFO infera.kvd.server: infera-kvd kvd-d80bece4 listening on /tmp/kvd/kvd.sock (max=8589934592 bytes)
+
+=== kvaware: both workers registered with a kv-events endpoint (router view) ===
+prefill http://10.2.122.10:30000 kv_events_endpoint=tcp://10.2.122.10:17213
+decode  http://10.2.122.10:31000 kv_events_endpoint=tcp://10.2.122.10:31215
+# distinct ports == the free_tcp_port_block fix working; pre-fix both were 32764.
+
+=== contrast: the same router view with KVAWARE=0 (GLM-5.2 baseline) ===
+prefill http://10.2.122.10:30000 "kv_events_endpoint":null
+decode  http://10.2.122.44:30000 "kv_events_endpoint":null

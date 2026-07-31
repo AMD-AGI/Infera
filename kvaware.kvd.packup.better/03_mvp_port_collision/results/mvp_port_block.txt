@@ -1,0 +1,70 @@
+# Experiment 03 §A — the free_tcp_port_block MVP, run as committed evidence.
+#
+# Command:   PYTHONPATH=<infera repo> python3 scripts/mvp_port_block.py
+# Host:      the workstation (no cluster, no GPU, no container). ~1 second.
+# Date:      2026-07-31T08:17:09Z
+# infera:    branch yihou.dev.glm5.2.mxfp4.experiment @ 666c604
+#            (net.py already carries the fix; section 1 inlines the pre-fix
+#             loop body so the bug is reproducible from any checkout)
+#
+# The base 32764 below = ip_local_port_range.low (32768) minus count (4).
+# On a box with a different range the base differs; the collision does not.
+
+========================================================================
+1. REPRODUCE — pre-fix free_tcp_port_block is deterministic
+========================================================================
+   ip_local_port_range low = 32768  -> fixed scan start = 32764
+   OLD bases: [32764, 32764, 32764, 32764, 32764, 32764, 32764, 32764, 32764, 32764]
+   distinct: 1
+   -> FAIL (bug reproduced, as expected)
+
+   Consequence with dp_size=4: BOTH legs get base 32764, and sglang
+   binds one publisher per DP rank at base+rank, i.e.
+     leg A -> 32764, 32765, 32766, 32767
+     leg B -> 32764, 32765, 32766, 32767   <- every one collides
+   The observed crash was on base+1.
+
+========================================================================
+2. CONFIRM — the shipped fix spreads the picks
+========================================================================
+   NEW bases: [5225, 7795, 13583, 22435, 15173, 24396, 5276, 27463, 3716, 3194]
+   distinct: 10
+   all below the ephemeral range (32768): True
+   -> PASS
+
+========================================================================
+3. REJECT — the two obvious alternative fixes, on evidence
+========================================================================
+
+   (a) Hold the 127.0.0.1 reservation until the child binds.
+       Rejected: the probe binds 127.0.0.1:P but the sglang child
+       binds 0.0.0.0:P (zmq 'tcp://*'). Holding locks out the very
+       process the block was reserved FOR.
+       reserved 127.0.0.1:48353
+       child bind 0.0.0.0:48353 -> BLOCKED errno=98  <-- holding would break our own child
+
+   (b) Reserve on 0.0.0.0 with SO_REUSEADDR so the child can take over.
+       Rejected: then the reservation is not exclusive either — a
+       second probe takes the same port and the collision is back.
+       reserved 0.0.0.0:37415 (SO_REUSEADDR, no listen)
+         other leg probe  -> OK   <-- BAD, collision still possible
+         our child        -> OK
+
+   CONCLUSION: exclusivity and let-the-child-take-over are mutually
+   incompatible here, so the reservation MUST be released before
+   returning. What remains fixable is the DETERMINISM of the scan
+   start — hence the randomise fix.
+
+========================================================================
+   reproduce    as expected
+   fix          as expected
+   rejected     as expected
+========================================================================
+
+# --- regression test, same session ---
+$ python3 -m pytest scripts/test_net_port_block.py -q
+....                                                                     [100%]
+4 passed in 0.02s
+
+# test_repeated_calls_do_not_all_collide is the one that matters: it FAILS
+# on pre-fix code (10/10 identical bases) and passes after.

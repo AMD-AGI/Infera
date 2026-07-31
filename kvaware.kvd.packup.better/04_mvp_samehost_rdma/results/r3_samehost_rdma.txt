@@ -1,0 +1,136 @@
+# Experiment 04 — MVP round r3, Qwen3-1.7B, single node chi2879, 1P1D TP4+TP4
+#
+# Config: KVD=1 KVAWARE=1 POLICY=kv-aware, prefill GPU0-3 :30000,
+#         decode GPU4-7 :31000, infera router :8100,
+#         kvd daemon on /tmp/kvd/kvd.sock, --hicache-size 8,
+#         mooncake transfer backend on REAL RDMA (no MC_FORCE_TCP).
+#
+# All three earlier fixes are IN:
+#   --hicache-size 8 (absolute GB)   -- r1's 354.94 GB/rank host-pool blow-up
+#   legs' --port 1000 apart          -- r1's derived-ZMQ collision on 30235
+#   patched free_tcp_port_block      -- r2's --kv-events-config collision
+#   plus: each leg its own --kv-events-bind (5557 / 5657)
+#
+# PROVENANCE. Captured in-session on 2026-07-30. The container (`kvexp` on
+# chi2879) was REMOVED before the GLM-5.2 runs, so /tmp/r3/ and the raw .log
+# files no longer exist. See logs/README.md.
+#
+# VERDICT: PARTIAL — startup fully fixed, KV transfer fails.
+#          Cause is a SAME-HOST LIMITATION of this fabric, ORTHOGONAL to
+#          kvaware and kvd.
+
+
+=== WHAT NOW WORKS (and this is the load-bearing part) ===
+
+Both legs reached "ready to roll". Both registered with the router. And their
+kv-event endpoints are DISTINCT, which is the randomised free_tcp_port_block
+fix holding under real conditions:
+
+    prefill http://10.2.122.10:30000 kv_events_endpoint=tcp://10.2.122.10:17213
+    decode  http://10.2.122.10:31000 kv_events_endpoint=tcp://10.2.122.10:31215
+
+    # distinct ports == the free_tcp_port_block fix working;
+    # pre-fix both were 32764.
+
+17213 and 31215 are two independent draws from the randomised scan. Pre-fix
+they would both have been 32764 and the decode leg would have died at startup,
+as it did in the previous round.
+
+This matters for attributing what follows: every layer ABOVE the KV transfer is
+demonstrably healthy. Legs start, DP ranks initialise, kvd connects, kv-events
+publish on separate sockets, both workers appear in the router. The only thing
+that fails is moving KV bytes from prefill to decode.
+
+
+=== THE FAILURE: every completion returns HTTP 500 ===
+
+    Failed to get kvcache from prefill instance
+
+And in the leg log, the mooncake transport underneath it:
+
+    worker_pool.cpp:408 ... local_nic: ionic_0, peer_nic: ...@ionic_4:
+                            transport retry counter exceeded
+    rdma_endpoint.cpp:472  Invalid argument: received packet mismatch
+
+
+=== ROOT CAUSE ===
+
+Two legs on ONE host. The prefill leg's mooncake endpoint picks a local rail
+(ionic_0); the decode leg, being a different process with a different rail
+assignment, is reached at ionic_4. So the transfer has to go OUT of ionic_0 and
+back IN at ionic_4 on the same machine — a loopback across rails.
+
+This ionic RoCE v2 fabric will not do that. "transport retry counter exceeded"
+is the QP giving up after retries; "received packet mismatch" is the endpoint
+seeing traffic it cannot reconcile with its expected sequence.
+
+This is a property of the DEPLOYMENT SHAPE (PD pair co-located), not of
+kvaware, not of kvd, and not of the model. On two nodes the same transfer goes
+out one host's NIC and into the other's, which is the ordinary path, and it
+works — that is how the later GLM-5.2 runs operated.
+
+
+=== THE WORKAROUND ===
+
+    MC_FORCE_TCP=1
+
+This repo's known correct-but-slower transport. It sidesteps RDMA entirely, so
+the loopback question does not arise. Completions come back.
+
+    !! It is a workaround for the TRANSPORT, and it buys nothing else. In
+    particular it does not make the output right — the round that followed used
+    MC_FORCE_TCP and produced garbled text, and so did its switches-off
+    baseline. Getting a completion and getting a CORRECT completion are
+    different claims.
+
+For any correctness claim: use two nodes and real RDMA.
+
+
+=== AN ADJACENT FIX APPLIED IN THE SAME ROUND ===
+
+Each leg was given its OWN --kv-events-bind (5557 / 5657). That flag is
+infera's own publisher socket and its default `tcp://0.0.0.0:5557` is identical
+on every leg, so two co-located legs fight over it.
+
+Note this is the THIRD distinct port collision in this deployment shape, and
+all three are unrelated code paths — fixing one does nothing for the others:
+
+  1. sglang --kv-events-config block, from free_tcp_port_block  -> patch 0001
+  2. --kv-events-bind, default 5557 identical on every leg      -> per-leg value
+  3. --kv-snapshot-port, default 8801                           -> per-leg value
+
+(#3 did not bite in this round. It is recorded because it is the nastiest of
+the three: the leg logs "ready to roll" and THEN dies during etcd registration,
+so the engine looks healthy and the worker simply never appears in /v1/workers.
+It surfaced later, in a GLM-5.2 run with two decode workers on one host.)
+
+
+=== WHY THIS ROUND IS NOT A KVAWARE/KVD RESULT ===
+
+Stated plainly because it is easy to mis-cite:
+
+  * The failure is in the mooncake RDMA data path.
+  * kvaware and kvd were both ON, but neither is in that path — kvaware
+    publishes events over ZMQ, kvd stores blocks over a unix socket.
+  * The same failure occurs with both switches OFF (the transport does not know
+    about them). NOT separately re-tested in r3, but it follows from the layer
+    the error comes from, and the round that followed established the same kind
+    of independence for the garbling.
+
+Treat r3 as an environment-mapping result: **a PD pair co-located on one host
+cannot use mooncake RDMA on this fabric.**
+
+
+=== WHAT r3 DID NOT ESTABLISH, AND WHAT IS UNKNOWN ===
+
+  * No correctness result. Nothing completed.
+  * Whether kvd would have served anything — no request got far enough.
+  * UNKNOWN: the full worker_pool.cpp / rdma_endpoint.cpp stanzas. Only the
+    lines above were captured; the surrounding retry counts, QP numbers and
+    the peer's full endpoint string were not.
+  * UNKNOWN: whether a rail-affinity forcing knob (pinning both legs to the
+    SAME ionic device) would have worked around it. Not tried — MC_FORCE_TCP
+    was the faster path to an answer, and the real fix was to use two nodes.
+  * UNKNOWN: the exact mooncake version string in the image at that moment
+    (the image digest is recorded; the mooncake build inside it was not
+    separately noted in this round).

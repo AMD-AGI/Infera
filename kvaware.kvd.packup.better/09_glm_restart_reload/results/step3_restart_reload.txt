@@ -1,0 +1,86 @@
+# STEP 3 RESULT — cross-restart KV reuse (kvd's actual selling point)
+#
+# Ran 2026-07-30 ~12:15-12:45. GLM-5.2-MXFP4, chi2879 prefill / chi2867 decode,
+# PD + DPA, mooncake real RDMA, kvaware ON, kvd ON.
+#
+# Step 2 proved kvd serves hits, but every hit repeated something the SAME
+# process had just stored, and the GPU radix cache was warm the whole time — so
+# it did not prove kvd was the thing doing the work. Step 3 removes both
+# confounders.
+
+===================== EXPERIMENT DESIGN =====================
+
+Kill ONLY the sglang engine legs; leave the kvd daemon running.
+
+  - engine dies  -> GPU KV cache is gone, HiRadixCache is gone, the new engine
+                    is a fresh process with an empty in-VRAM cache.
+  - kvd survives -> still holds 340 entries / 573 MB written by the OLD engine.
+
+Then relaunch the legs and replay the IDENTICAL workload. If kvd is real, the
+new engine must READ the old engine's blocks: gets_total climbs, while
+sets_total / entries / host_bytes stay flat (nothing new to store).
+
+Verified preconditions before relaunch:
+  chi2879 GPU[0] VRAM used ... 297840640 B  (idle baseline -> engine truly dead)
+  chi2867 GPU[0] VRAM used ... 297754624 B  (same)
+  kvd alive on both nodes ..... pgrep -fc 'infera.kvd' = 1
+  kvd state preserved ......... entries=340, long_bytes=600837120
+
+===================== COUNTERS: prefill node chi2879 =====================
+
+                        BEFORE restart      AFTER restart+replay     delta
+  entries                    340                   340               0
+  host_bytes             600837120             600837120             0
+  long_bytes             600837120             600837120             0
+  sets_total                 340                   340               0     <-- nothing re-written
+  gets_total                 170                   340            +170     <-- new engine READ
+  hits_total                 170                   340            +170     <-- and every read HIT
+  misses_total                 0                     0               0
+
+===================== COUNTERS: decode node chi2867 =====================
+
+                        BEFORE restart      AFTER restart+replay     delta
+  entries                    402                   424             +22
+  sets_total                 402                   438             +36
+  gets_total                 170                   340            +170
+  hits_total                 170                   340            +170
+  misses_total                 0                     0               0
+
+===================== CORRECTNESS =====================
+
+--- PHASE 1 ---  15/16 correct | median latency 0.76s
+--- PHASE 2 ---  16/16 correct | median latency 0.72s
+TOTAL 31/32
+
+The single miss (session 2, "largest planet") is a TRUNCATION, not a wrong
+answer: GLM-5.2 spent its 128-token budget on a reasoning preamble
+("1. **Analyze the Request:** ...") and never reached "Jupiter". Same prompt
+passed in the other three sessions and in both prior runs. It is a harness
+budget artifact, not an engine or cache defect.
+
+===================== WHAT THIS PROVES =====================
+
+**kvd delivered cross-restart KV reuse.** +170 gets, +170 hits, 0 misses, with
+sets/entries/bytes perfectly flat on the prefill node — the new engine process
+read 170 blocks it never wrote, out of a store the previous process left behind.
+
+This is the confounder-free version of step 2:
+  - the GPU radix cache CANNOT explain it (fresh process, VRAM at idle baseline
+    before relaunch),
+  - same-process reuse CANNOT explain it (the writer process is dead),
+  - a flat sets_total rules out "it just rebuilt everything and hit its own
+    fresh writes".
+
+Latency did NOT improve (0.76s vs step 2's cold 0.71s). Expected and worth
+stating plainly: reading ~6200 tokens of KV back over a UDS from the host tier
+is not obviously cheaper than recomputing prefill for a 6200-token prefix on 8×
+MI355X. kvd's win here is *capacity and survival* (the cache outlives the
+engine), not latency at this size. A latency win would need a much longer
+prefix, a slower prefill, or GPU-direct reads.
+
+===================== CAVEAT =====================
+
+The decode node's sets/entries did move (+36 / +22) while prefill's stayed flat.
+Not investigated. Most likely the decode leg's own HiRadixCache repopulating
+decode-side blocks that were never in kvd to begin with. Does not affect the
+conclusion, which rests on the prefill node's clean read-only delta.
