@@ -168,20 +168,25 @@ class SrunDockerLauncher(WorkerLauncher):
 
     # -- cleanup --------------------------------------------------------
     def cleanup_stale(self, nodes: list[str]) -> None:
-        """Remove any leftover ``infera-e2e-*`` containers on each node before a
-        run. A previous run that was interrupted/crashed can leave containers
-        holding the fixed ports (etcd 2379/2380, router 8000, worker 30001/2), so
-        the next run's etcd fails with 'address already in use'. Best-effort."""
+        """Remove leftover ``infera-e2e-*`` and ``infera-utest-*`` containers on
+        each node before a run. A previous run that was interrupted/crashed can
+        leave containers holding the fixed ports (etcd 2379/2380, router 8000,
+        worker 30001/2), so the next run's etcd fails with 'address already in
+        use'. Best-effort."""
         for node in dict.fromkeys(nodes):
-            _srun(
+            got = _srun(
                 node,
                 [
                     "bash",
                     "-lc",
-                    "docker rm -f $(docker ps -aq --filter name=infera-e2e-) 2>/dev/null || true",
+                    "s=$(docker ps -a --filter name=infera-e2e- --filter name=infera-utest- "
+                    "--format '{{.Names}}'); [ -n \"$s\" ] && echo $s && "
+                    "docker rm -f $s >/dev/null 2>&1; true",
                 ],
                 timeout=self.start_timeout,
             )
+            if got.stdout.strip():
+                emit_reporter_line(f"[e2e disagg] {node}: removed stale {got.stdout.strip()}")
 
     # -- image ----------------------------------------------------------
     def ensure_image(self, node: str) -> None:

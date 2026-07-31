@@ -721,7 +721,12 @@ engine_tier() {
 # Reserved nodes get reused, so wipe what a killed run left behind before its
 # leaked GPU/etcd containers can OOM or clash with this one.
 if command -v docker >/dev/null 2>&1 && { [ -n "${INFERA_E2E_LOCAL:-}" ] || _local_eligible; }; then
-  docker ps -aq --filter "name=^${CTR_PREFIX}" 2>/dev/null | xargs -r docker rm -f >/dev/null 2>&1 || true
+  stale=$(docker ps -a --filter "name=^${CTR_PREFIX}" --filter name=infera-e2e- \
+    --format '{{.Names}}' 2>/dev/null)
+  if [ -n "$stale" ]; then
+    echo "[cleanup] $(hostname -s): removing stale containers: $(echo $stale | tr '\n' ' ')"
+    docker rm -f $stale >/dev/null 2>&1 || true
+  fi
 fi
 
 rc=0
