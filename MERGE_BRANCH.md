@@ -1,0 +1,129 @@
+# The merged branch: what is on it, and how to take it apart
+
+`yihou.dev.glm52.merged.experiment`, branched from `main` @ `8692fb4`.
+
+Three workstreams that had only ever been validated separately, merged into one
+configuration and validated end to end on 2 × 8×MI355X over mooncake RDMA. The
+run is packed up under `merge_kvaware_mtp_pd.packup_20260731/`.
+
+The commits are grouped so that any group can be dropped with one
+`git rebase --onto` once its upstream PR lands. **Nothing on this branch was
+taken on faith** — every commit here is code the merge experiment actually ran.
+
+## The four groups, oldest first
+
+| # | group | commits | upstream |
+|---|---|---|---|
+| A | sglang DSA: PD + DP-attention + EAGLE MTP on gfx950 | `53ccea0..87460ae` (9) | PR #58 |
+| B | kvaware + kvd | `826619b..7f2dac8` (7) | PR #59 |
+| C | mooncake early-send + bigram kv-events | `2181136`, `6e6fdb7` (2) | **PR #56** — temporary, see below |
+| D | this merge's own fixes | `0cc9593..c0450a4` (3) | new |
+
+A and B are our own PRs, cherry-picked unmodified — the tree after A is
+byte-identical to PR #58's branch, and B's files land identically too.
+
+## Group C is temporary
+
+Both commits are reduced forms of liyingli's PR #56. They are here because the
+merge could not be validated without them, not because this branch owns them.
+
+**When PR #56 merges, drop both:**
+
+```bash
+git rebase --onto 7f2dac8 6e6fdb7 yihou.dev.glm52.merged.experiment
+```
+
+That replays group D straight onto the end of group B. Group D does not depend
+on group C's code — it touches `args.py`, `kvd_wiring.py`, and three test
+modules, none of which group C changes — so the replay is clean.
+
+### What was deliberately left out of group C
+
+PR #56 has seven commits. Four are not here at all, and two of the three we did
+take were reduced. The rule was: **only code this merge's experiment exercised
+enters this branch.** Everything below is real work that simply was not on our
+measured path, and taking it would have meant shipping unvalidated code under a
+validated branch name.
+
+| left out | from | why not here |
+|---|---|---|
+| `deploy/docker/Dockerfile.sglang.gfx942` early-send layer | `6121189` | the MI325X image. Never built or run here. |
+| `rust/router/src/kv_event.rs` bigram decode + its tests | `01b0534` | every run used `--router-backend python` (the default). **A Rust-router deployment with MTP still has the original bug** — same silent degradation to round-robin. |
+| `infera/engine/dsv4_gfx942.py` arch detection | `1ebdc7e` | `apply_gfx942_dsv4` returns early on non-gfx942, so it is a **no-op on MI355X**. Matters on MI325X. |
+| `INFERA_SGLANG_READY_TIMEOUT` | `0bb23c7` | convenience; 1800 s sufficed. |
+| `net.py` NodePort-range skip | `d63e48b` | vultr is bare metal, no kube-proxy, `ip_local_port_range` starts at 32768 — the bug cannot be hit here. **Also conflicts textually with B's `826619b`** (both edit `free_tcp_port_block`); the two fixes are compatible and would need merging by hand, which is not worth doing for code we cannot test. |
+| `Dockerfile.sglang.gfx942` v0.5.16 base | `b2150c3` | same image, same reason. |
+
+If any of these is wanted here later, the honest route is: add it, then re-run
+the gate that would catch it failing. For the Rust one that means a G1 repeat
+with `--router-backend rust`.
+
+## Group D — what this merge itself produced
+
+| commit | what |
+|---|---|
+| `0cc9593` | `args.py`: don't append `--disaggregation-decode-enable-radix-cache` under speculative decoding — SGLang rejects the combination, killing an MTP decode leg at argument parsing |
+| `e948285` | `kvd_wiring.py`: skip kvd on a PD decode leg — it is **write-only** there in every configuration (measured 180 sets / 0 gets) |
+| `c0450a4` | behavioural tests for the bigram decode, at the seam rather than through the publish path |
+
+Neither fix is a conflict between the merged workstreams — no line of either
+changed. Both are **pre-existing infera code meeting a configuration nobody had
+run**: the kvaware/kvd validation never enabled MTP, and the MTP validation drove
+`sglang.launch_server` directly, bypassing the wrapper that appends the flags.
+
+The first two are independent — different flags, different gates, different
+SGLang checks. A decode leg with kvaware on and kvd off still needs `0cc9593`.
+
+## The image
+
+`deploy/docker/Dockerfile.sglang` carries everything. Layer order and the reason
+for it:
+
+| # | layer | note |
+|---|---|---|
+| 1 | mooncake unified rebuild | HIP-transport gate + dma-buf, runtime-decided |
+| 2 | `pip install .[sglang]` | brings in the infera source, including groups C and D |
+| 3 | `patches/sglang/` | GLM-5.2 nextn `eh_proj` quark-exclude |
+| 4 | `patches/sglang_disagg/` | mooncake early-send wait event (group C) |
+| 5 | `patches/sglang_dsa/` | the 3 DSA diffs (group A) — **layer 3 is their prerequisite**, which the apply script asserts rather than applies |
+| 6 | Rust router | |
+
+Layers 3 and 4 differ in strictness on purpose. Layer 3 tolerates a failed patch
+(`|| echo skipped`) because those no-op once the base carries the fix. Layer 4
+does not (`set -eu`): its script already reports "already present" on its own, so
+a non-zero exit means the anchors drifted and the fix did *not* go in — and an
+image that silently corrupts long prompts is worse than a failed build.
+
+```bash
+docker build -f deploy/docker/Dockerfile.sglang -t infera/engine-sglang:merged .
+```
+
+The base tag stays **pinned**: the DSA diffs apply at `--fuzz=0` against sglang
+`0b3bb0cbe31873994c9f989fddfe2f87ca839fdd`, so a base bump fails the build at the
+patch step rather than mis-applying silently. That is intended.
+
+## Validation
+
+Four gates, each loading one more thing onto the last so a failure localises.
+Full detail, including the two probe defects that each produced a wrong verdict
+before being caught, is in `merge_kvaware_mtp_pd.packup_20260731/`.
+
+| gate | criterion | result |
+|---|---|---|
+| G0 | the patches do not break kvaware+kvd | 4/4, 32/32 prefix reuse, kvd **102 gets / 102 hits / 102 sets unchanged** after an engine restart |
+| G1 | + MTP on the decode leg | 4/4, 32/32, `accept len` 2.48–2.58, router prefill view **51 blocks** |
+| G2 | + a prompt spanning more than one prefill chunk | **5/5** needles, prompt really split `8192+8192+1728` |
+| stress | conc=16, then conc=128 | **64/64** and **256/256**, 0 corrupt, 0 HTTP errors |
+
+Unit suite: **1162 passed, 1 skipped**.
+
+The two numbers that would have gone red had a fix been absent or wrong:
+
+- **kvd is serving, not merely wired.** A speed-up proves nothing — the in-GPU
+  radix cache serves a repeated prefix without touching L3. Restarting the
+  prefill engine empties that cache while the kvd daemon keeps running: 102
+  reads afterwards, `sets` **unchanged**, zero misses.
+- **The bigram fix produces the *right* hashes.** The router view reads 51
+  blocks under MTP — byte-identical to the plain-int path in G0, which shows the
+  flattened keys chain to the same hashes rather than merely being non-empty.
+  Unfixed it reads 0.
