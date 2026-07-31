@@ -1,3 +1,10 @@
+NOT substituted by the IndexShare workaround.  Turning GLM-5.2 MTP IndexShare off
+(--json-model-override-args '{"index_share_for_mtp_iteration":false}') removes the
+rank-divergence that 04 and 02's page-table half address, but this is an
+independent bug -- the HIP indexer sizing its output from DP-PADDED rows while
+`lengths` is sized to REAL rows.  It is present regardless of IndexShare, and the
+arm that validated the override applied THIS patch.
+
 diff --git a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
 index 59b2256815..e5f4847678 100644
 --- a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py

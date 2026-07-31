@@ -1,3 +1,19 @@
+PARTIAL ALTERNATIVE: turning GLM-5.2 MTP IndexShare off avoids the need for the
+PAGE-TABLE ROW half of this diff (2b), but not the DP host-sync half (2a).
+
+    --json-model-override-args '{"index_share_for_mtp_iteration":false}'
+
+An arm run with this override and with 2b and 04 both asserted ABSENT from the
+bytecode passed 4/4, 32/32 twice and 64/64 on 2 x 8 MI355X.  So 2b is not needed in
+that configuration.  2a was NOT reverted in that arm, so nothing was learned about
+it -- 2a has never been tested in isolation, here or anywhere, which is the oldest
+open gap in this series.
+
+The override does NOT substitute for 01 (padded rows) or the nextn eh_proj fix.
+It is nearly free only while IndexShare's consumer stays disabled under PD by
+should_use_dsa_fused_topk; upstream #31477 removes that.  See the header of
+draft_cuda_graph_dp_vote.diff for the full account and the status check.
+
 diff --git a/python/sglang/srt/layers/attention/dsa_backend.py b/python/sglang/srt/layers/attention/dsa_backend.py
 index 75aa41d784..58e6e504d2 100644
 --- a/python/sglang/srt/layers/attention/dsa_backend.py
