@@ -3,13 +3,15 @@
 # hipFile + libionic onto a digest-pinned nightly base, then the infera source,
 # and runs via `python -m infera.engine.vllm`.
 #
-# Base pinned by DIGEST to the stable vLLM v0.25.1 release (was the rolling nightly
-# cbe9c40f = 0.23.1rc0.dev861+gcbe9c40f9, which DockerHub has since rolled off).
-# The tag ":v0.25.1" is kept in the ref for readability; the @sha256 is what pins
-# it (= vllm 0.25.1, torch 2.11.0, ROCm 7.2.3). To move: bump the digest +
-# re-verify patch no-ops (the patch loop swallows a patch's sys.exit(1), so a
-# moved anchor silently drops the patch — check the build log per layer).
-ARG VLLM_BASE_IMAGE=vllm/vllm-openai-rocm:v0.25.1@sha256:84459732ca98b40fe2f5338a3f050be6d522504e47a484a5180d58fb75956f86
+# Base pinned by DIGEST to the vLLM kimi-k3 build — the vLLM that carries kimi_k3
+# model support (KimiK3ForConditionalGeneration) plus the broader model coverage
+# of a newer vLLM. The tag ":kimi-k3" is kept in the ref for readability; the
+# @sha256 is what pins it. The full stack (aiter + vLLM/DSv4 patches + Mooncake +
+# hipFile + libionic + infera + rust router) was validated on this base on MI355X.
+# To move: bump the digest + re-verify patch no-ops (the patch loop swallows a
+# patch's sys.exit(1), so a moved anchor silently drops the patch — check the
+# build log per layer).
+ARG VLLM_BASE_IMAGE=vllm/vllm-openai-rocm:kimi-k3@sha256:5aa7e626ff73672f5ca7aae46754570488c23d33ca1ac90756a1d2d1a3fe099b
 FROM ${VLLM_BASE_IMAGE}
 
 # ---- 1) AITER (flydsl fp4 for DSv4 MXFP4 MoE) ------------------------------
