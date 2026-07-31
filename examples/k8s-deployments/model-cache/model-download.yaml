@@ -1,6 +1,6 @@
-# Model download Job — populates the model-cache PVC (Dynamo model-download.yaml
-# analog). Runs snapshot_download into a clean dir on the PVC so serving pods can
-# mount it and reference /models/<name> directly (no HF cache-path juggling).
+# Model download Job — populates the model-cache PVC. Runs snapshot_download into
+# a clean dir on the PVC so serving pods can mount it and reference /models/<name>
+# directly (no HF cache-path juggling).
 #
 #   kubectl apply -f model-cache.yaml -n infera
 #   kubectl apply -f model-download.yaml -n infera

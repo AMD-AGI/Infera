@@ -2,9 +2,8 @@
 
 A **Kubernetes-native** recipe for **Kimi-K3** (the multimodal VLM): a
 `model-cache` PVC populated by a download Job, then an **`InferaDeployment`** the
-operator reconciles into a router + a TP8 vLLM worker on one 8-GPU node. This is
-the infera analog of a vendor "recipe" (e.g. NVIDIA Dynamo's `recipes/kimi-k3`),
-using only `kubectl`/`helm` and one CR.
+operator reconciles into a router + a TP8 vLLM worker on one 8-GPU node, using
+only `kubectl`/`helm` and one CR.
 
 The runnable manifests live in the repo under
 [`examples/k8s-deployments/`](https://github.com/AMD-AGI/Infera/tree/main/examples/k8s-deployments)
@@ -28,7 +27,7 @@ docker build -f deploy/docker/Dockerfile.vllm \
   --build-arg VLLM_BASE_IMAGE=vllm/vllm-openai-rocm:kimi-k3 \
   --build-arg BUILD_AITER=0 --build-arg BUILD_MOONCAKE=0 \
   --build-arg BUILD_HIPFILE=0 --build-arg INSTALL_LIBIONIC=0 \
-  -t inferaimage/infera:vllm-kimi-k3 .
+  -t rocm/infera:vllm-kimi-k3 .
 ```
 
 The result carries `infera.server` + `infera.engine.vllm` **and**
@@ -81,15 +80,15 @@ PVC read-only.
 ## 1. Model cache (PVC + download Job)
 
 The [`model-cache/`](https://github.com/AMD-AGI/Infera/tree/main/examples/k8s-deployments/model-cache)
-pair mirrors Dynamo's model-cache: a PVC plus a Job that downloads the checkpoint
-into it. Kimi-K3 is **gated (~1.5 TB)**, so create the HF token secret and size
-the PVC to ~3000 Gi first:
+pair is a PVC plus a Job that downloads the checkpoint into it. Kimi-K3 is
+**gated (~1.5 TB)**, so create the HF token secret and size the PVC to ~2000 Gi
+first:
 
 ```bash
 kubectl create namespace infera
 kubectl create secret generic hf-token-secret --from-literal=HF_TOKEN=<token> -n infera
 
-# edit model-cache.yaml: storage: 3000Gi (+ a ReadWriteMany class if multi-node)
+# edit model-cache.yaml: storage: 2000Gi (+ a ReadWriteMany class if multi-node)
 # edit model-download.yaml: uncomment envFrom(hf-token-secret); repo -> moonshotai/Kimi-K3
 kubectl apply -f examples/k8s-deployments/model-cache/model-cache.yaml -n infera
 kubectl apply -f examples/k8s-deployments/model-cache/model-download.yaml -n infera

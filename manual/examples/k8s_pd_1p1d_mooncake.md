@@ -48,9 +48,11 @@ prefill, then decode pulls the KV).
   routable RoCE fabric (see the admonition). Join the second node with its
   data-dir on a large disk:
   ```bash
-  # on the agent node (K3S_URL = the server's IP):
+  # on the agent node (K3S_URL = the server's IP). The node-token lives under the
+  # server's data-dir — /var/lib/rancher/k3s/... by default, or <data-dir>/server/
+  # node-token if the server was installed with --data-dir on a big disk.
   curl -sfL https://get.k3s.io | K3S_URL=https://<server-ip>:6443 \
-    K3S_TOKEN=$(ssh <server> sudo cat /var/lib/rancher/k3s/server/node-token) \
+    K3S_TOKEN=$(ssh <server> sudo cat /mnt/<big-disk>/k3s/server/node-token) \
     INSTALL_K3S_EXEC="--data-dir /mnt/<big-disk>/k3s" sh -
   kubectl get nodes          # both Ready
   ```
@@ -104,6 +106,11 @@ dispatch but fail the transfer.
   host IP and, on a single node, also collide prefill/decode on `:30000`.
 - **Slow-load probe.** `skipReadinessProbe: true` on the workers so the operator
   doesn't restart them during model load / graph capture.
+- **NICs — Mooncake auto-discovers, mori lists.** Mooncake runs its own topology
+  discovery, so **drop** `--disaggregation-ib-device` and it uses every active
+  ionic HCA (pinning one, e.g. `ionic_0`, limits KV transfer to a single rail).
+  `mori` is the opposite: pass **all** active NICs explicitly,
+  `--disaggregation-ib-device ionic_0,ionic_1,…,ionic_7`.
 - **mori alternative.** `--disaggregation-transfer-backend mori` is the other
   RoCE path; it needs an active RDMA device in-pod too (same libionic fix) and, on
   a single node, `MORI_DISABLE_AUTO_XGMI=0` for the intra-node XGMI fallback.

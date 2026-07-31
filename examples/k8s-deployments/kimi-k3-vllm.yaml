@@ -3,19 +3,17 @@
 # Kimi-K3 checkpoint. Structure is validated (operator reconcile + model-cache);
 # see the caveat below before expecting this to serve.
 #
-# ┌─ IMAGE ────────────────────────────────────────────────────────────────────┐
-# │ `inferaimage/infera:vllm-kimi-k3` = infera (server/router + infera.engine.   │
-# │ vllm) layered onto the upstream `vllm/vllm-openai-rocm:kimi-k3` build, which  │
-# │ is the vLLM that carries kimi_k3 model support (KimiK3ForConditionalGen).     │
-# │ Build it from the repo root:                                                  │
-# │   docker build -f deploy/docker/Dockerfile.vllm \                             │
-# │     --build-arg VLLM_BASE_IMAGE=vllm/vllm-openai-rocm:kimi-k3 \               │
-# │     --build-arg BUILD_AITER=0 --build-arg BUILD_MOONCAKE=0 \                  │
-# │     --build-arg BUILD_HIPFILE=0 --build-arg INSTALL_LIBIONIC=0 \              │
-# │     -t inferaimage/infera:vllm-kimi-k3 .                                      │
-# │ (aiter stays the base's kimi-tuned build; the disabled layers are RDMA-PD /   │
-# │ kvd-L3 only, not needed for single-node aggregated serving.)                  │
-# └─────────────────────────────────────────────────────────────────────────────┘
+# IMAGE: rocm/infera:vllm-kimi-k3 = infera (server/router + infera.engine.vllm)
+# layered onto the upstream vllm/vllm-openai-rocm:kimi-k3 build — the vLLM that
+# carries kimi_k3 model support (KimiK3ForConditionalGeneration). Build it from
+# the repo root:
+#   docker build -f deploy/docker/Dockerfile.vllm \
+#     --build-arg VLLM_BASE_IMAGE=vllm/vllm-openai-rocm:kimi-k3 \
+#     --build-arg BUILD_AITER=0 --build-arg BUILD_MOONCAKE=0 \
+#     --build-arg BUILD_HIPFILE=0 --build-arg INSTALL_LIBIONIC=0 \
+#     -t rocm/infera:vllm-kimi-k3 .
+# (aiter stays the base's kimi-tuned build; the disabled layers are RDMA-PD /
+# kvd-L3 only, not needed for single-node aggregated serving.)
 apiVersion: infera.amd.com/v1alpha1
 kind: InferaDeployment
 metadata:
@@ -32,7 +30,7 @@ spec:
       extraPodSpec:
         containers:
           - name: main
-            image: inferaimage/infera:vllm-kimi-k3   # see IMAGE below
+            image: rocm/infera:vllm-kimi-k3   # see IMAGE below
             imagePullPolicy: IfNotPresent
             command: ["python3","-m","infera.server","--host","0.0.0.0","--port","8000",
                       "--router-tokenizer-path","/models/Kimi-K3",
@@ -58,7 +56,7 @@ spec:
       extraPodSpec:
         containers:
           - name: main
-            image: inferaimage/infera:vllm-kimi-k3   # see IMAGE below
+            image: rocm/infera:vllm-kimi-k3   # see IMAGE below
             imagePullPolicy: IfNotPresent
             # vLLM flags mirror examples/kimi_k3/vllm_serve.sh (TP8, mm data-parallel
             # encoder, kimi_k3 tool/reasoning parsers), routed through infera.engine.vllm.

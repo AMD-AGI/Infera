@@ -62,12 +62,11 @@ spec:
             command: ["python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
                       "--disaggregation-mode","prefill","--model-path","<MODEL_PATH>",
                       "--tp-size","1","--attention-backend","aiter","--trust-remote-code",
-                      "--mem-fraction-static","0.6",
+                      "--mem-fraction-static","0.8",
                       "--kv-event-transport","zmq","--request-transport","http",
-                      "--disaggregation-transfer-backend","mooncake","--disaggregation-ib-device","ionic_0"]
+                      "--disaggregation-transfer-backend","mooncake"]
             env:
               - {name: SGLANG_USE_AITER, value: "1"}
-              - {name: NCCL_IB_HCA, value: "ionic_0"}
               - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
               - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
               - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
@@ -96,12 +95,11 @@ spec:
             command: ["python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
                       "--disaggregation-mode","decode","--model-path","<MODEL_PATH>",
                       "--tp-size","1","--attention-backend","aiter","--trust-remote-code",
-                      "--mem-fraction-static","0.6",
+                      "--mem-fraction-static","0.8",
                       "--kv-event-transport","zmq","--request-transport","http",
-                      "--disaggregation-transfer-backend","mooncake","--disaggregation-ib-device","ionic_0"]
+                      "--disaggregation-transfer-backend","mooncake"]
             env:
               - {name: SGLANG_USE_AITER, value: "1"}
-              - {name: NCCL_IB_HCA, value: "ionic_0"}
               - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
               - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
               - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}

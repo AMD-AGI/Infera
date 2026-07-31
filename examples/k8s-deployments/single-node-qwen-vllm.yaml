@@ -4,7 +4,7 @@
 # (infera.server) is engine-agnostic; only the worker changes to
 # infera.engine.vllm with vLLM-style flags (--model / --tensor-parallel-size /
 # --gpu-memory-utilization). Adjust for your node:
-#   image        infera/infera:vllm-v0.1.0-rc5   (present in the node runtime)
+#   image        rocm/infera:vllm-v0.1.1   (present in the node runtime)
 #   model dir    /mnt/k3local/models/qwen        (contains Qwen3-0.6B/)
 apiVersion: infera.amd.com/v1alpha1
 kind: InferaDeployment
@@ -22,7 +22,7 @@ spec:
       extraPodSpec:
         containers:
           - name: main
-            image: inferaimage/infera:vllm-v0.1.0-rc5
+            image: rocm/infera:vllm-v0.1.1
             imagePullPolicy: IfNotPresent
             command: ["python3","-m","infera.server","--host","0.0.0.0","--port","8000",
                       "--router-tokenizer-path","/models/Qwen3-0.6B",
@@ -45,7 +45,7 @@ spec:
       extraPodSpec:
         containers:
           - name: main
-            image: inferaimage/infera:vllm-v0.1.0-rc5
+            image: rocm/infera:vllm-v0.1.1
             imagePullPolicy: IfNotPresent
             command: ["python3","-m","infera.engine.vllm","--host","0.0.0.0","--port","30000",
                       "--model","/models/Qwen3-0.6B","--served-model-name","Qwen3-0.6B",

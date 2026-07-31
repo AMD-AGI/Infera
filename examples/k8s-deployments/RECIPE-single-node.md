@@ -18,7 +18,7 @@ engines is *not* just the image; four coupled things change, all on the worker:
 | | SGLang | vLLM |
 |---|---|---|
 | `spec.backendFramework` | `sglang` | `vllm` |
-| container `image` | `rocm/infera:sglang-v0.1.1` | `inferaimage/infera:vllm-v0.1.0-rc5` |
+| container `image` | `rocm/infera:sglang-v0.1.1` | `rocm/infera:vllm-v0.1.1` |
 | worker module | `infera.engine.sglang` | `infera.engine.vllm` |
 | engine flags | `--model-path … --tp-size 1 --attention-backend aiter --mem-fraction-static 0.8` | `--model … --tensor-parallel-size 1 --gpu-memory-utilization 0.85` |
 
