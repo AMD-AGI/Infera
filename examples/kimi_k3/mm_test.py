@@ -30,7 +30,12 @@ def solid_png(r, g, b, side=64) -> bytes:
 
     raw = (b"\x00" + bytes([r, g, b]) * side) * side
     ihdr = struct.pack(">IIBBBBB", side, side, 8, 2, 0, 0, 0)
-    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b"")
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", ihdr)
+        + chunk(b"IDAT", zlib.compress(raw, 9))
+        + chunk(b"IEND", b"")
+    )
 
 
 def main():
@@ -38,10 +43,14 @@ def main():
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--model", default="kimi-k3")
     ap.add_argument("--url", help="image URL; default = a generated crimson square")
-    ap.add_argument("--prompt", default="What is the dominant colour of this image? Answer in one word.")
+    ap.add_argument(
+        "--prompt", default="What is the dominant colour of this image? Answer in one word."
+    )
     args = ap.parse_args()
 
-    image = args.url or ("data:image/png;base64," + base64.b64encode(solid_png(220, 20, 60)).decode())
+    image = args.url or (
+        "data:image/png;base64," + base64.b64encode(solid_png(220, 20, 60)).decode()
+    )
     body = {
         "model": args.model,
         "max_tokens": 64,
