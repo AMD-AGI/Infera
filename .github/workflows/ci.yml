@@ -189,22 +189,18 @@ jobs:
       - name: cargo test
         run: cargo test
 
-  # Engine GPU tests — run on each branch push (same-repo PRs reuse that run).
+  # Engine GPU tests. Same schedule as the e2e tiers (see e2e_gate): every PR
+  # into main, and any push that lands untested code on main — never on a plain
+  # branch push, which is where these GPU minutes used to go.
   engine:
-    # Skip on docs-only changes, and on same-repo PRs (already covered by the
-    # branch push event); still run on push and on fork PRs. `!cancelled()` +
-    # result checks (not a plain success dependency) so a *skipped* lint/dco — dco
-    # does not run off a PR — does not drag this down with it. NOT `always()`:
-    # that evaluates true on cancel too, so the job would never be cancelled.
-    needs: [lint, pre_check, changes, dco]
+    needs: [lint, pre_check, changes, dco, e2e_gate]
     if: >-
       !cancelled() &&
       needs.pre_check.outputs.should_skip != 'true' &&
       needs.changes.outputs.code == 'true' &&
       needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
       needs.dco.result != 'failure' && needs.dco.result != 'cancelled' &&
-      (github.event_name != 'pull_request' ||
-       github.event.pull_request.head.repo.full_name != github.repository)
+      (needs.e2e_gate.outputs.run == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: [self-hosted, crusoe]
     timeout-minutes: 60
     env:
