@@ -1,37 +1,59 @@
 #!/bin/sh
-# Select the payload tree matching this container's Python, then exec the command.
+# Select the payload trees matching this container, then exec the command.
 #
-# The overlay ships one tree per CPython minor because four of infera's
-# dependencies (msgspec, xxhash, pyzmq, msgpack) are C extensions; the vendor
-# bases disagree (vLLM 3.12, SGLang 3.10). This picks the right one instead of
-# making the caller know which base they are on.
+# The overlay ships one Python tree per CPython minor (four of infera's
+# dependencies are C extensions) and one native tree per (ROCm major, CPython
+# minor) — Mooncake and hipFile are compiled and bind both. The vendor bases
+# disagree on all of it (vLLM ships Python 3.12, SGLang 3.10), so this picks the
+# right trees instead of making the caller know which base they are on.
 #
 #   docker run -v infera_payload:/payload:ro \
 #     --entrypoint /payload/bin/infera-exec <vendor image> \
 #     python3 -m infera.engine.vllm --model ...
 #
-# PAYLOAD_ROOT defaults to this script's parent-of-parent, so it works from a
-# read-only mount at any path.
+# A missing native tree is not fatal: aggregated serving needs none of it. Only
+# PD (Mooncake KV transfer) and kvd's GPU-direct L3 (hipFile) do, and those warn.
 set -eu
 
 SELF_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PAYLOAD_ROOT="${PAYLOAD_ROOT:-$(dirname -- "$SELF_DIR")}"
 
 PY="${INFERA_PYTHON:-python3}"
-TAG=$("$PY" -c 'import sys; print("py%d%d" % sys.version_info[:2])')
-TREE="$PAYLOAD_ROOT/$TAG"
+PYTAG=$("$PY" -c 'import sys; print("py%d%d" % sys.version_info[:2])')
+PYTREE="$PAYLOAD_ROOT/$PYTAG"
 
-if [ ! -d "$TREE" ]; then
-    echo "infera-exec: no payload for $TAG in $PAYLOAD_ROOT" >&2
+if [ ! -d "$PYTREE" ]; then
+    echo "infera-exec: no Python payload for $PYTAG in $PAYLOAD_ROOT" >&2
     echo "infera-exec: available: $(ls -d "$PAYLOAD_ROOT"/py* 2>/dev/null | xargs -n1 basename | tr '\n' ' ')" >&2
     exit 1
 fi
 
-# Prepend the payload so `infera` resolves; keep any caller-supplied PYTHONPATH.
-PYTHONPATH="$TREE${PYTHONPATH:+:$PYTHONPATH}"
-export PYTHONPATH
+PYTHONPATH="$PYTREE${PYTHONPATH:+:$PYTHONPATH}"
 PATH="$PAYLOAD_ROOT/bin:$PATH"
-export PATH
+
+# --- native tree: Mooncake (PD) and hipFile (kvd GPU-direct L3) --------------
+# Keyed by the ROCm major from the container's own libamdhip64 soname, since a
+# vendor bump can move it.
+ROCM_MAJOR=$(readlink -f /opt/rocm/lib/libamdhip64.so.* 2>/dev/null \
+             | grep -oE 'so\.[0-9]+' | head -1 | cut -d. -f2)
+if [ -n "${ROCM_MAJOR:-}" ]; then
+    NATIVE="$PAYLOAD_ROOT/native/rocm${ROCM_MAJOR}-${PYTAG}"
+    if [ -d "$NATIVE" ]; then
+        PYTHONPATH="$NATIVE:$PYTHONPATH"
+        LD_LIBRARY_PATH="$NATIVE/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+        PATH="$NATIVE/bin:$PATH"
+        export LD_LIBRARY_PATH
+    elif [ "${INFERA_REQUIRE_NATIVE:-0}" = "1" ]; then
+        echo "infera-exec: no native payload for rocm${ROCM_MAJOR}-${PYTAG}" >&2
+        echo "infera-exec: available: $(ls -d "$PAYLOAD_ROOT"/native/* 2>/dev/null | xargs -n1 basename | tr '\n' ' ')" >&2
+        exit 1
+    else
+        echo "infera-exec: no native payload for rocm${ROCM_MAJOR}-${PYTAG};" \
+             "PD (Mooncake) and kvd GPU-direct L3 (hipFile) will be unavailable." >&2
+    fi
+fi
+
+export PYTHONPATH PATH
 
 # Python puts the working directory at sys.path[0] — ahead of PYTHONPATH. Vendor
 # images that already ship infera set WORKDIR to its parent (e.g. /opt/infera),
