@@ -38,19 +38,47 @@ ROCM_MAJOR=$(readlink -f /opt/rocm/lib/libamdhip64.so.* 2>/dev/null \
              | grep -oE 'so\.[0-9]+' | head -1 | cut -d. -f2)
 if [ -n "${ROCM_MAJOR:-}" ]; then
     NATIVE="$PAYLOAD_ROOT/native/rocm${ROCM_MAJOR}-${PYTAG}"
+    HAVE=""
     if [ -d "$NATIVE" ]; then
         PYTHONPATH="$NATIVE:$PYTHONPATH"
         LD_LIBRARY_PATH="$NATIVE/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
         PATH="$NATIVE/bin:$PATH"
         export LD_LIBRARY_PATH
-    elif [ "${INFERA_REQUIRE_NATIVE:-0}" = "1" ]; then
-        echo "infera-exec: no native payload for rocm${ROCM_MAJOR}-${PYTAG}" >&2
-        echo "infera-exec: available: $(ls -d "$PAYLOAD_ROOT"/native/* 2>/dev/null | xargs -n1 basename | tr '\n' ' ')" >&2
-        exit 1
+        # Normalise to one spaced line: the word-match below needs space delimiters.
+        HAVE=$(tr '\n' ' ' < "$NATIVE/CAPABILITIES" 2>/dev/null || echo "mooncake hipfile")
     else
         echo "infera-exec: no native payload for rocm${ROCM_MAJOR}-${PYTAG};" \
              "PD (Mooncake) and kvd GPU-direct L3 (hipFile) will be unavailable." >&2
     fi
+
+    # INFERA_REQUIRE_NATIVE names the capabilities this deployment actually needs
+    # ("mooncake", "hipfile", or both, comma- or space-separated). A deployment
+    # that needs none leaves it unset.
+    #
+    # It is deliberately per-capability rather than a yes/no on the tree. The
+    # families do not carry the same things — hipFile is vLLM-only, because kvd's
+    # GPU-direct L3 is a vLLM-only path — so "the tree is complete" is the wrong
+    # question. Asking it would reject two configurations that work: SGLang PD,
+    # whose tree correctly has no hipFile, and SGLang kvd, which reaches its L2
+    # and file L3 through HiCacheStorage and needs no native code at all.
+    #
+    # Accepts 1/true/all for "everything this family can provide".
+    REQ="${INFERA_REQUIRE_NATIVE:-}"
+    case "$REQ" in
+        1|true|all) REQ="$HAVE"; [ -n "$REQ" ] || REQ="mooncake" ;;
+        0|"") REQ="" ;;
+    esac
+    for cap in $(echo "$REQ" | tr ',' ' '); do
+        case " $HAVE " in
+            *" $cap "*) ;;
+            *)
+                echo "infera-exec: required native capability '$cap' is not in the payload" >&2
+                echo "infera-exec: tree rocm${ROCM_MAJOR}-${PYTAG} provides: [${HAVE:-none}]" >&2
+                echo "infera-exec: available trees: $(ls -d "$PAYLOAD_ROOT"/native/* 2>/dev/null | xargs -n1 basename | tr '\n' ' ')" >&2
+                [ "$cap" = hipfile ] && echo "infera-exec: note — hipfile (kvd GPU-direct L3) is a vLLM-only capability" >&2
+                exit 1 ;;
+        esac
+    done
 fi
 
 export PYTHONPATH PATH
