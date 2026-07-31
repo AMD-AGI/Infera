@@ -50,6 +50,8 @@ subtrees:
     entries:
       - file: serving/deployment.md
         title: Deployment
+      - file: serving/kvaware_kvd_operations.md
+        title: KV-aware + kvd operations
       - file: serving/kubernetes.md
         title: Kubernetes
 
