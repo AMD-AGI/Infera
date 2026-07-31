@@ -260,7 +260,22 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
         and getattr(sglang_parsed, "disaggregation_transfer_backend", None) == "mooncake"
         and "--disaggregation-decode-enable-radix-cache" not in remaining
     ):
-        remaining.append("--disaggregation-decode-enable-radix-cache")
+        # SGLang rejects the decode radix cache outright under speculative
+        # decoding (pd_disaggregation_hook: "incompatible with speculative
+        # decoding"), so appending it would kill an EAGLE/MTP decode leg during
+        # argument parsing. Skip it and let SGLang fall back to its chunk cache;
+        # prefix-aware routing then runs on the prefill-side view.
+        if getattr(sglang_parsed, "speculative_algorithm", None) is not None:
+            logger.info(
+                "kv-events on, but --disaggregation-decode-enable-radix-cache is "
+                "incompatible with --speculative-algorithm %s; not appending it. "
+                "The decode leg will use SGLang's chunk cache and contribute "
+                "little to the router KV view; prefix-aware routing runs on the "
+                "prefill-side view.",
+                sglang_parsed.speculative_algorithm,
+            )
+        else:
+            remaining.append("--disaggregation-decode-enable-radix-cache")
 
     server_args = ServerArgs.from_cli_args(sglang_parsed)
 
