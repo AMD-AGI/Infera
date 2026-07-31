@@ -1,0 +1,16 @@
+# Model cache PVC — the infera analog of Dynamo's recipes/*/model-cache.yaml.
+# A download Job (model-download.yaml) populates it; serving pods mount it
+# read-only at /models. Sized for Qwen3-0.6B here; for Kimi-K3 use ~3000Gi and a
+# ReadWriteMany class (a shared CSI) if workers span nodes.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache
+  namespace: infera
+spec:
+  accessModes:
+    - ReadWriteOnce          # local-path is single-node RWO; use ReadWriteMany on a shared CSI for multi-node
+  resources:
+    requests:
+      storage: 20Gi          # Qwen3-0.6B; Kimi-K3 needs ~3000Gi
+  storageClassName: local-path   # k3s default; edit for your cluster's class
