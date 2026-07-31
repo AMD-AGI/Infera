@@ -1,0 +1,77 @@
+diff --git a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+index 59b2256815..c4751c981c 100644
+--- a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
++++ b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+@@ -5,6 +5,8 @@ import logging
+ from abc import ABC, abstractmethod
+ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+ 
++import os
++
+ import torch
+ from einops import rearrange
+ 
+@@ -57,6 +59,9 @@ logger = logging.getLogger(__name__)
+ global _use_multi_stream
+ _is_cuda = is_cuda()
+ _is_hip = is_hip()
++# Set SGLANG_DEBUG_DSA_ROWS=1 to log the indexer row bookkeeping (padded vs real).
++_DSA_DEBUG_ROWS = os.environ.get("SGLANG_DEBUG_DSA_ROWS", "0") == "1"
++
+ _is_npu = is_npu()
+ 
+ if not _is_npu:
+@@ -903,10 +908,38 @@ class Indexer(MultiPlatformOp):
+         weights = weights.squeeze(2)
+ 
+         if self.paged_mqa_logits_backend.is_aiter():
++            # DP-attention pads the hidden states, so q_fp8 can carry more rows than
++            # the batch really has; `q_offset` is the real (unpadded) count and is
++            # what `lengths` (dsa_seqlens_expanded) is sized to. The CUDA path
++            # (deepgemm_paged_mqa_logits_split) slices its q/weights to q_offset for
++            # exactly this reason. aiter instead sizes its `logits` output from
++            # q_fp8.shape[0], so without the same slice the top-k below sees
++            # score.shape[0] != lengths.shape[0] and asserts. Slice here so both
++            # backends feed top-k the same shape; the padding is restored after.
++            _q_mqa, _w_mqa = q_fp8, weights
++            # GLM52_BUG6: no lower bound on q_offset. A DP-IDLE rank has no
++            # requests, so q_offset == 0 while q_fp8 still carries DP padding.
++            # The old `0 < q_offset` guard skipped the slice in exactly that
++            # case, leaving aiter to size `logits` from the padded row count
++            # while `lengths` had 0 rows -> "lengths.size(0) == B" failed in
++            # fast_topk_v2. q_fp8[:0] is a legal empty slice and is what an idle
++            # rank should pass; the CUDA path likewise slices unconditionally.
++            if q_offset < q_fp8.shape[0]:
++                _q_mqa = q_fp8[:q_offset]
++                _w_mqa = weights[:q_offset]
++            if _DSA_DEBUG_ROWS:
++                logger.info(
++                    "[dsa-rows] mode=%s q_fp8=%s q_offset=%s lengths=%s -> mqa_q=%s",
++                    forward_batch.forward_mode,
++                    tuple(q_fp8.shape),
++                    q_offset,
++                    tuple(metadata.get_seqlens_expanded().shape),
++                    tuple(_q_mqa.shape),
++                )
+             logits = aiter_paged_mqa_logits(
+-                q_fp8,
++                _q_mqa,
+                 kv_cache_fp8,
+-                weights,
++                _w_mqa,
+                 seqlens_32,
+                 block_tables,
+                 max_seq_len,
+@@ -962,7 +995,11 @@ class Indexer(MultiPlatformOp):
+         # NOTE(dark): logits should be cleaned in topk_transform
+         topk_result = metadata.topk_transform(logits, self.index_topk)
+         # Restore possible padding exist in the hidden states.
+-        if not _is_hip and q_offset < q_fp8.shape[0]:
++        # Fire whenever the top-k actually ran on the unpadded rows -- true on CUDA
++        # (which always slices) and now on HIP/aiter too (sliced just above). The
++        # `topk_result.shape[0] == q_offset` guard keeps the non-DP path (where
++        # nothing was sliced) bit-identical to before.
++        if q_offset < q_fp8.shape[0] and topk_result.shape[0] == q_offset:
+             pad_len = q_fp8.shape[0] - q_offset
+             padding = torch.full(
+                 (pad_len, topk_result.shape[1]),
