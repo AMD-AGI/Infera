@@ -21,18 +21,22 @@ only if you have two nodes on a mutually routable RoCE fabric.
 
 `export COMBO=mixed` (or `mixed-kvd`, `pd`, `pd-kvd`) — the commands below use it.
 
-```{admonition} SGLang kvd/pd combos need a py310 native tree
-The overlay harvests its native tree (Mooncake, hipFile) from `NATIVE_IMAGE`,
-which defaults to a **vLLM** image — so a default build ships `native/rocm7-py312`
-only. SGLang bases are CPython 3.10, so `mixed-kvd`, `pd` and `pd-kvd` here will
-stop at startup with:
+```{admonition} What each combo needs from the overlay's native tree
+The overlay harvests one native tree per ABI family — `rocm7-py310` for SGLang
+bases, `rocm7-py312` for vLLM — and each records what it carries:
 
-    infera-exec: no native payload for rocm7-py310
+| combo | needs | why |
+|---|---|---|
+| `mixed` | nothing | |
+| `mixed-kvd` | nothing | SGLang reaches kvd's L2 and file L3 through HiCacheStorage, which is pure Python |
+| `pd`, `pd-kvd` | `mooncake` | the KV handoff is Mooncake, a compiled extension |
 
-That is the `INFERA_REQUIRE_NATIVE=1` guard doing its job — without it the Pod
-would come up green and quietly serve with no kvd L3 and no KV transport. Build
-the overlay with an SGLang-based `NATIVE_IMAGE` to get the py310 tree. `mixed`
-needs none of this and is unaffected.
+`hipfile` is **absent from the SGLang tree on purpose** — kvd's GPU-direct L3 is
+a vLLM-only path — so its absence here is not a broken payload.
+
+The combos that need something declare it as `INFERA_REQUIRE_NATIVE`, and
+`infera-exec` fails at startup if the payload cannot supply it. Without that, a
+payload missing Mooncake comes up green and serves with no KV transfer at all.
 ```
 
 ## 2. Prerequisites

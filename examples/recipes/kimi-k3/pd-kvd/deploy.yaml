@@ -121,11 +121,10 @@ spec:
               - {name: VLLM_ROCM_USE_AITER, value: "1"}
               - {name: SAFETENSORS_FAST_GPU, value: "1"}
               - {name: INFERA_KVD_SOCKET, value: "/kvd/kvd.sock"}
-            # kvd's GPU-direct L3 (hipFile) and PD's KV transport (Mooncake) live in
-            # the overlay's native tree. Without this, a payload built without that
-            # tree only WARNS and both silently become unavailable — the run looks
-            # healthy and quietly serves without the thing you deployed it for.
-              - {name: INFERA_REQUIRE_NATIVE, value: "1"}
+            # PD needs Mooncake and kvd's GPU-direct L3 needs hipFile, both in
+            # the overlay's native tree. Named so a payload missing either fails at
+            # startup rather than silently dropping that half of the design.
+              - {name: INFERA_REQUIRE_NATIVE, value: "mooncake,hipfile"}
             startupProbe:
               httpGet: {path: /health, port: 30000}
               periodSeconds: 10
@@ -151,7 +150,7 @@ spec:
                       "--max-bytes","34359738368",                            # 32 GiB L2 arena
                       "--long-path","/l3/long","--long-bytes","107374182400"] # 100 GiB L3 on the PVC
             env:
-              - {name: INFERA_REQUIRE_NATIVE, value: "1"}   # hipFile, or fail loudly
+              - {name: INFERA_REQUIRE_NATIVE, value: "hipfile"}
             securityContext:
               capabilities: {add: ["IPC_LOCK"]}     # required to mlock the arena
             resources:
@@ -210,11 +209,10 @@ spec:
               - {name: VLLM_ROCM_USE_AITER, value: "1"}
               - {name: SAFETENSORS_FAST_GPU, value: "1"}
               - {name: INFERA_KVD_SOCKET, value: "/kvd/kvd.sock"}
-            # kvd's GPU-direct L3 (hipFile) and PD's KV transport (Mooncake) live in
-            # the overlay's native tree. Without this, a payload built without that
-            # tree only WARNS and both silently become unavailable — the run looks
-            # healthy and quietly serves without the thing you deployed it for.
-              - {name: INFERA_REQUIRE_NATIVE, value: "1"}
+            # PD needs Mooncake and kvd's GPU-direct L3 needs hipFile, both in
+            # the overlay's native tree. Named so a payload missing either fails at
+            # startup rather than silently dropping that half of the design.
+              - {name: INFERA_REQUIRE_NATIVE, value: "mooncake,hipfile"}
             startupProbe:
               httpGet: {path: /health, port: 30000}
               periodSeconds: 10
@@ -240,7 +238,7 @@ spec:
                       "--max-bytes","34359738368",                            # 32 GiB L2 arena
                       "--long-path","/l3/long","--long-bytes","107374182400"] # 100 GiB L3 on the PVC
             env:
-              - {name: INFERA_REQUIRE_NATIVE, value: "1"}   # hipFile, or fail loudly
+              - {name: INFERA_REQUIRE_NATIVE, value: "hipfile"}
             securityContext:
               capabilities: {add: ["IPC_LOCK"]}     # required to mlock the arena
             resources:

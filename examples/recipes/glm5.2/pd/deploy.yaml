@@ -107,11 +107,10 @@ spec:
               - {name: SAFETENSORS_FAST_GPU, value: "1"}
               - {name: HIP_FORCE_DEV_KERNARG, value: "1"}
               - {name: HSA_NO_SCRATCH_RECLAIM, value: "1"}
-            # kvd's GPU-direct L3 (hipFile) and PD's KV transport (Mooncake) live in
-            # the overlay's native tree. Without this, a payload built without that
-            # tree only WARNS and both silently become unavailable — the run looks
-            # healthy and quietly serves without the thing you deployed it for.
-              - {name: INFERA_REQUIRE_NATIVE, value: "1"}
+            # PD's KV transport is Mooncake, which lives in the overlay's native
+            # tree. Name it so a payload lacking it fails at startup instead of only
+            # warning and quietly serving with no KV transfer at all.
+              - {name: INFERA_REQUIRE_NATIVE, value: "mooncake"}
             startupProbe:
               httpGet: {path: /health, port: 30000}
               periodSeconds: 10
@@ -175,11 +174,10 @@ spec:
               - {name: SAFETENSORS_FAST_GPU, value: "1"}
               - {name: HIP_FORCE_DEV_KERNARG, value: "1"}
               - {name: HSA_NO_SCRATCH_RECLAIM, value: "1"}
-            # kvd's GPU-direct L3 (hipFile) and PD's KV transport (Mooncake) live in
-            # the overlay's native tree. Without this, a payload built without that
-            # tree only WARNS and both silently become unavailable — the run looks
-            # healthy and quietly serves without the thing you deployed it for.
-              - {name: INFERA_REQUIRE_NATIVE, value: "1"}
+            # PD's KV transport is Mooncake, which lives in the overlay's native
+            # tree. Name it so a payload lacking it fails at startup instead of only
+            # warning and quietly serving with no KV transfer at all.
+              - {name: INFERA_REQUIRE_NATIVE, value: "mooncake"}
             startupProbe:
               httpGet: {path: /health, port: 30000}
               periodSeconds: 10

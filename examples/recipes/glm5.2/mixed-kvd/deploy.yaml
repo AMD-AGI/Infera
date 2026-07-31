@@ -118,11 +118,6 @@ spec:
               - {name: HIP_FORCE_DEV_KERNARG, value: "1"}
               - {name: HSA_NO_SCRATCH_RECLAIM, value: "1"}
               - {name: INFERA_KVD_SOCKET, value: "/kvd/kvd.sock"}
-            # kvd's GPU-direct L3 (hipFile) and PD's KV transport (Mooncake) live in
-            # the overlay's native tree. Without this, a payload built without that
-            # tree only WARNS and both silently become unavailable — the run looks
-            # healthy and quietly serves without the thing you deployed it for.
-              - {name: INFERA_REQUIRE_NATIVE, value: "1"}
             startupProbe:
               httpGet: {path: /health, port: 30000}
               periodSeconds: 10
@@ -147,8 +142,6 @@ spec:
                       "--socket","/kvd/kvd.sock",
                       "--max-bytes","34359738368",                            # 32 GiB L2 arena
                       "--long-path","/l3/long","--long-bytes","107374182400"] # 100 GiB L3 on the PVC
-            env:
-              - {name: INFERA_REQUIRE_NATIVE, value: "1"}   # hipFile, or fail loudly
             securityContext:
               capabilities: {add: ["IPC_LOCK"]}     # required to mlock the arena
             resources:

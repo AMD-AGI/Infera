@@ -45,12 +45,23 @@ Build the overlay before deploying:
 docker build -f deploy/overlay/Dockerfile.payload -t rocm/infera-overlay:latest .
 ```
 
-**The payload must contain a `native/` tree** (Mooncake + hipFile) for the `kvd`
-and `pd` combos. Build it from an image that has them — that is what the
-`NATIVE_IMAGE` build arg is for. A payload without `native/` still runs `mixed`
-perfectly, and merely *warns* on the others, so the kvd and pd manifests set
-`INFERA_REQUIRE_NATIVE=1`: without it a wrong overlay tag deploys clean and
-silently serves without the GPU-direct L3 or the KV transport you asked for.
+The build harvests **one native tree per ABI family** — `NATIVE_IMAGE` supplies
+the vLLM one (CPython 3.12) and `SGLANG_NATIVE_IMAGE` the SGLang one (3.10).
+Mooncake and hipFile bind both the ROCm major and the CPython minor, so neither
+tree can stand in for the other.
+
+The families do not carry the same capabilities, and that is by design:
+
+| | `mooncake` (PD KV transport) | `hipfile` (kvd GPU-direct L3) |
+|---|---|---|
+| `rocm7-py312` (vLLM) | yes | yes |
+| `rocm7-py310` (SGLang) | yes | **no — vLLM-only path** |
+
+So each manifest names the capabilities it needs via `INFERA_REQUIRE_NATIVE`
+(e.g. `mooncake`, `hipfile`, or `mooncake,hipfile`) and `infera-exec` refuses to
+start without them. Combos that need nothing native — `mixed` anywhere, and
+`mixed-kvd` on SGLang, which reaches its L2 and file L3 through pure-Python
+HiCacheStorage — leave it unset.
 
 See [`deploy/overlay/README.md`](../../deploy/overlay/README.md) for how the payload
 is assembled.
