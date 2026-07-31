@@ -1,0 +1,58 @@
+# Infera overlay payload — one image that composes with any stock vendor base.
+#
+# WHY: today every engine image bakes infera onto a digest-pinned vendor base, so
+# following an upstream vLLM/SGLang bump means rebuilding everything, and forking
+# the base for one model (Kimi-K3) broke the others. But most of what we add is
+# not tied to the base: infera and kvd are pure Python, the Rust router links only
+# libc/libstdc++, libionic is injected from the host, and aiter JITs its kernels
+# at runtime. Only Mooncake and hipFile are genuinely ABI-bound (CPython version
+# AND the ROCm major), and those stay in the built engine image.
+#
+# So: ONE payload image, mounted over an UNMODIFIED vendor image. No rebuild, no
+# base fork, no per-model image.
+#
+# Four dependencies are C extensions (msgspec, xxhash, pyzmq, msgpack) and are
+# therefore CPython-ABI bound, and the vendor bases have split — vLLM ships
+# Python 3.12, SGLang ships 3.10. Rather than publishing two payloads, this image
+# carries both trees and `infera-exec` picks the matching one at run time:
+#
+#   /payload/py310/  cp310 deps + infera + kvd   (SGLang bases)
+#   /payload/py312/  cp312 deps + infera + kvd   (vLLM bases)
+#   /payload/bin/    infera-router, infera-exec
+#
+# Build:
+#   docker build -f deploy/overlay/Dockerfile.payload -t infera-overlay:latest .
+#
+# Use — the vendor image is untouched:
+#   docker run -v infera_payload:/payload:ro \
+#     --entrypoint /payload/bin/infera-exec <ANY vendor image> \
+#     python3 -m infera.engine.vllm ...
+#
+# In Kubernetes the same thing is an initContainer that copies /payload into an
+# emptyDir the engine container mounts.
+ARG ROUTER_IMAGE=rocm/infera:vllm-v0.1.1
+
+# ---- cp310 tree (SGLang bases) ---------------------------------------------
+FROM python:3.10-slim AS deps310
+WORKDIR /src
+COPY pyproject.toml README.md ./
+COPY infera ./infera
+RUN pip install --no-cache-dir --target /payload/py310 ".[vllm]"
+
+# ---- cp312 tree (vLLM bases) -----------------------------------------------
+FROM python:3.12-slim AS deps312
+WORKDIR /src
+COPY pyproject.toml README.md ./
+COPY infera ./infera
+RUN pip install --no-cache-dir --target /payload/py312 ".[vllm]"
+
+# ---- the one compiled artifact: reuse it rather than carry a Rust toolchain --
+FROM ${ROUTER_IMAGE} AS router
+
+# ---- final: busybox, so an initContainer can `cp` the payload out -----------
+FROM busybox:1.36
+COPY --from=deps310 /payload/py310 /payload/py310
+COPY --from=deps312 /payload/py312 /payload/py312
+COPY --from=router /usr/local/bin/infera-router /payload/bin/infera-router
+COPY deploy/overlay/infera-exec /payload/bin/infera-exec
+CMD ["sh", "-c", "cp -a /payload/. /out/ && echo 'infera overlay payload installed to /out'"]
