@@ -13,15 +13,31 @@ git commit -s -m "..."
 git commit -s -F -   # when writing a longer message from a heredoc
 ```
 
-That appends a trailer matching `user.name` / `user.email`:
+That appends a trailer built from **your own** `user.name` / `user.email`:
 
 ```
-Signed-off-by: Zhang, Jiejing <jiejing.zhang@amd.com>
+Signed-off-by: Your Name <you@example.com>
 ```
 
-**Sign off as the repository's configured identity** (`git config user.name` /
-`user.email`). The DCO is an assertion about the *right to submit* the code, so
-it must name the human submitting it — never a bot or assistant identity.
+**Sign off as yourself.** The DCO is an assertion that *you* have the right to
+submit this code, so the trailer must name the person making the commit. Never
+copy a colleague's line from an existing commit, and never use a bot or assistant
+identity — contributors here sign off under several different addresses, and the
+trailer has to match the commit's actual author.
+
+Check what `-s` will produce before your first commit in a fresh clone or
+container, where git may have inherited a default from the environment:
+
+```bash
+git config user.name && git config user.email
+```
+
+If those are empty or wrong, set them (add `--global` outside a container):
+
+```bash
+git config user.name "Your Name"
+git config user.email "you@example.com"
+```
 
 ### Fixing commits that are already missing it
 
