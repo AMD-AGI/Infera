@@ -59,6 +59,8 @@ subtrees:
         title: Kubernetes recipe — Kimi-K3 (vLLM, mixed)
       - file: examples/k8s_pd_1p1d_mooncake.md
         title: Kubernetes recipe — PD 1P1D (SGLang, Mooncake)
+      - file: examples/k8s_glm5.2_sglang.md
+        title: Kubernetes recipe — GLM-5.2 (SGLang, DSA)
       - file: examples/sglang_1p2d_kimi2.6.md
         title: SGLang 1P2D — Kimi-K2.6
       - file: examples/sglang_mix_dsv4.md
