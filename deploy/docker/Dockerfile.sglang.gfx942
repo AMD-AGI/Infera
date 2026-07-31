@@ -3,7 +3,11 @@
 #       gfx950 (mi35x) and one image can't serve both; no dsv4 source patch since
 #       gfx942 runs dsv4 FP8 natively / fails fast on FP4 (FP4 dsv4 -> vLLM).
 # HOW : fp8 env + CLI knobs are applied at launch by infera.engine.dsv4_gfx942.
-ARG SGLANG_BASE_IMAGE=lmsysorg/sglang-rocm:v0.5.15-rocm720-mi30x-20260713
+#
+# v0.5.16 is the version GLM-5.2-FP8 was brought up and verified on for this arch
+# (see examples/glm5.2/gfx942/). It also carries sglang #30265, so the GLM-5.2
+# nextn patch in patches/sglang/ is not needed here.
+ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.16-rocm720-mi30x
 FROM ${SGLANG_BASE_IMAGE}
 
 WORKDIR /opt/infera
