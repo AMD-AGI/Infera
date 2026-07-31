@@ -419,6 +419,82 @@ def _expected_plain_mla_hidden(vllm_config: Any) -> int | None:
     return None
 
 
+def _expected_plain_attn_hidden(vllm_config: Any) -> int | None:
+    """Return ``num_kv_heads * head_size`` (this rank's share), else None.
+
+    The regular (non-MLA) attention counterpart of
+    ``_expected_plain_mla_hidden``. The shape probe folds every dim past the
+    block dim into ``hidden_dim``, so for the regular layouts
+    ``[2, num_blocks, block_size, num_kv_heads, head_size]`` and the
+    interleaved ``[num_blocks, 2, block_size, num_kv_heads, head_size]`` the
+    hidden run is ``num_kv_heads * head_size``.
+
+    vLLM's ``--kv-cache-dtype fp8*`` for regular attention casts the K/V
+    elements to fp8 and keeps the scale OUTSIDE the cache, as the per-layer
+    ``k_scale``/``v_scale`` scalars on the attention module — the tensor keeps
+    its unquantized geometry and only the element width changes. So a packed
+    tensor whose ``hidden_dim`` equals this EXACTLY has no room for
+    interleaved per-token scale bytes, and the raw-byte chunked
+    gather/scatter round-trips it byte-exact.
+
+    A layout that DOES pack scales into the hidden run (per-token-head-scale
+    fp8, nvfp4) carries a larger hidden and will not match, so it stays
+    guarded — same contract as the MLA case: correctness over the
+    optimization, and a new safe format is added here rather than behind a
+    runtime toggle.
+
+    Uses the TP-sharded head count, since each rank registers only its own
+    shard of the KV heads.
+    """
+    try:
+        mc = getattr(vllm_config, "model_config", None)
+        if mc is None:
+            return None
+
+        head_size = None
+        get_hs = getattr(mc, "get_head_size", None)
+        if callable(get_hs):
+            v = get_hs()
+            if isinstance(v, int) and v > 0:
+                head_size = v
+
+        n_kv = None
+        get_kv = getattr(mc, "get_num_kv_heads", None)
+        if callable(get_kv):
+            # Needs a real parallel_config: vLLM dereferences
+            # `.tensor_parallel_size` on it, so passing None raises
+            # AttributeError rather than falling back to a default.
+            pc = getattr(vllm_config, "parallel_config", None)
+            for call in ((lambda: get_kv(pc)) if pc is not None else None, lambda: get_kv()):
+                if call is None:
+                    continue
+                try:
+                    v = call()
+                except (TypeError, AttributeError):
+                    continue
+                if isinstance(v, int) and v > 0:
+                    n_kv = v
+                    break
+
+        if head_size is None or n_kv is None:
+            hf = getattr(mc, "hf_text_config", None) or getattr(mc, "hf_config", None)
+            for cand in (hf, getattr(hf, "text_config", None)):
+                if head_size is None:
+                    v = getattr(cand, "head_dim", None)
+                    if isinstance(v, int) and v > 0:
+                        head_size = v
+                if n_kv is None:
+                    v = getattr(cand, "num_key_value_heads", None)
+                    if isinstance(v, int) and v > 0:
+                        n_kv = v
+
+        if isinstance(head_size, int) and head_size > 0 and isinstance(n_kv, int) and n_kv > 0:
+            return n_kv * head_size
+    except Exception:
+        return None
+    return None
+
+
 # Substrings (lower-cased) of vLLM v1 KVCacheSpec class names whose state
 # is NOT a paged attention KV cache: recurrent / convolutional / linear-
 # attention state (Mamba, Mamba2, short-conv, linear attention). The kvd
@@ -1003,6 +1079,11 @@ class InferaKvdConnector(KVConnectorBase_V1, SupportsHMA):  # type: ignore[misc]
         # (656/584/nvfp4) have a larger hidden and stay skipped. See
         # `_expected_plain_mla_hidden`.
         self._plain_mla_hidden = _expected_plain_mla_hidden(vllm_config)
+        # Regular-attention counterpart: vLLM's fp8 KV keeps k_scale/v_scale
+        # as per-layer scalars OUTSIDE the cache, so a packed tensor whose
+        # hidden matches head_size exactly has no interleaved scale and is
+        # safe to offload. See `_expected_plain_attn_hidden`.
+        self._plain_attn_hidden = _expected_plain_attn_hidden(vllm_config)
         # Set True once a non-paged (Mamba / linear-attention / conv) cache
         # group is observed (register_kv_caches / bootstrap). vLLM 0.22.x does
         # NOT support external KV-connector LOADS for hybrid models — its
@@ -2500,17 +2581,27 @@ class InferaKvdConnector(KVConnectorBase_V1, SupportsHMA):  # type: ignore[misc]
                     _plain_mla_fp8 = (
                         num_kv_channels == 1 and _pmh is not None and hidden_dim == _pmh
                     )
+                    # Regular attention (K and V channels) under vLLM's fp8 KV:
+                    # the scale lives outside the cache as the per-layer
+                    # k_scale/v_scale scalars, so a tensor whose hidden is
+                    # still exactly head_size carries no interleaved scale and
+                    # round-trips byte-exact. A scale-packed layout has a
+                    # larger hidden and will not match.
+                    _pah = getattr(self, "_plain_attn_hidden", None)
+                    _plain_attn_fp8 = (
+                        num_kv_channels == 2 and _pah is not None and hidden_dim == _pah
+                    )
                     if _is_packed_quant_kv_dtype(sample.dtype):
-                        if _plain_mla_fp8:
+                        if _plain_mla_fp8 or _plain_attn_fp8:
                             logger.info(
                                 "register_kv_caches: group %d layer %r packed KV "
-                                "dtype %s hidden=%d == kv_lora_rank+qk_rope_head_dim "
-                                "— plain MLA fp8 cast (no interleaved scale), "
-                                "offloading to L3.",
+                                "dtype %s hidden=%d matches %s — plain fp8 cast "
+                                "(no interleaved scale), offloading to L3.",
                                 gid,
                                 present[0],
                                 sample.dtype,
                                 hidden_dim,
+                                "kv_lora_rank+qk_rope_head_dim" if _plain_mla_fp8 else "head_size",
                             )
                         else:
                             logger.warning(
@@ -2617,10 +2708,15 @@ class InferaKvdConnector(KVConnectorBase_V1, SupportsHMA):  # type: ignore[misc]
                     _fallback_plain_mla_fp8 = (
                         num_kv_channels == 1 and _fb_pmh is not None and hidden_dim == _fb_pmh
                     )
+                    _fb_pah = getattr(self, "_plain_attn_hidden", None)
+                    _fallback_plain_attn_fp8 = (
+                        num_kv_channels == 2 and _fb_pah is not None and hidden_dim == _fb_pah
+                    )
                     if (
                         num_kv_channels
                         and _is_packed_quant_kv_dtype(sample.dtype)
                         and not _fallback_plain_mla_fp8
+                        and not _fallback_plain_attn_fp8
                     ):
                         # Same packed/quantized-dtype guard as the primary
                         # probe: skip scale-packed fp8/uint8 caches (no L3, no
