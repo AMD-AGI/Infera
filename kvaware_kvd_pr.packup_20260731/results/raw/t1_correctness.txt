@@ -1,0 +1,7 @@
+[OK] 'The capital of France is' -> '1.  **Identify the core question:** The user is asking for the capital of France.\n2.  **Retrieve knowledge:** Access geographical knowledge regarding France. The capital city of France is Paris.\n3.  **Formulate the response:** State clearly that the capital is Paris. Keep it concise and direct as'
+[OK] 'The capital of China is' -> "1.  **Identify the core entity and question:** The user is asking for the capital of China.\n2.  **Retrieve knowledge:** The capital of the People's Republic of China is Beijing.\n3.  **Formulate the answer:** State clearly that Beijing is the capital. Keep it concise and direct as"
+[OK] '2+2=' -> '1.  **Analyze the Input:** The user provided a simple arithmetic expression: "2+2=".\n2.  **Determine the Intent:** The user is asking for the result of adding 2 and 2.\n3.  **Perform the Calculation:** 2 + 2 = 4.\n'
+[OK] 'The largest planet in our solar system is' -> '1.  **Identify the core entity and question:** The user is asking for the "largest planet in our solar system".\n2.  **Retrieve knowledge about the solar system:**\n    *   Planets in order from the Sun: Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus'
+
+4/4 correct
+T1 rc=0
