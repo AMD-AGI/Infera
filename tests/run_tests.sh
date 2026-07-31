@@ -591,6 +591,10 @@ run_e2e_disagg() {
   python3 -c "import pytest, pytest_asyncio, httpx" >/dev/null 2>&1 \
     || { echo "[e2e disagg] WARNING: missing host deps (pytest/pytest-asyncio/httpx) — skipping" >&2; return 0; }
 
+  if [ -n "$SHARED_LOG_DIR" ]; then
+    exec > >(stdbuf -oL tee -a "$SHARED_LOG_DIR/dispatch-disag-$$.log") 2>&1
+  fi
+
   # An expired reservation is worse than none — every step's `srun --reservation`
   # would fail. Drop it, as _dispatch_slurm does for the mixed tier.
   if [ -n "${INFERA_E2E_RESERVATION:-}" ] && [ -z "$(_reservation_nodes "$INFERA_E2E_RESERVATION")" ]; then
