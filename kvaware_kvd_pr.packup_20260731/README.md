@@ -88,10 +88,13 @@ reverting the source and re-running (3 failures, 48 passes; 51 pass after).
 
 | Path | What |
 |---|---|
+| `spec.md` | the ask, the success criteria, and the result against **each** one |
 | `REPRODUCE.md` | ordered, copy-pasteable steps to redo the whole thing |
 | `environment.md` | hardware, drivers, RDMA fabric, image digests, external paths, secrets needed |
 | `notes.md` | gotchas, the wrong turns, and why each step is shaped the way it is |
 | `patches/` | the 5 commits as `git format-patch` files |
+| `patches/README.md` | per-patch **what / why / how / context**, incl. blast radius |
+| `dockerfiles/` | the Dockerfiles and build scripts the image came from, copied verbatim |
 | `scripts/` | every script that ran, verbatim |
 | `results/raw/` | the captured outputs and kvd counters (JSON) |
 | `results/` | the two kvd reuse transcripts (before/after restart) |
