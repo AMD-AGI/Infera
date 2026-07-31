@@ -73,7 +73,12 @@ class _SglangKVCacheEvent(msgspec.Struct, array_like=True, omit_defaults=True, g
 class SglangBlockStored(_SglangKVCacheEvent, tag="BlockStored"):
     block_hashes: list[int]
     parent_block_hash: int | None
-    token_ids: list[int]
+    # With EAGLE/MTP the radix key is a bigram view (``RadixKey.is_bigram``, set
+    # from ``is_eagle``), and the engine reports a block's tokens as the
+    # overlapping pairs ``(t[i], t[i+1])`` instead of bare ints -- so this field
+    # is list[int] on a plain engine and list[tuple[int, int]] under MTP. See
+    # ``client._flat_tokens`` for how the pairs map back onto flat tokens.
+    token_ids: list[int | tuple[int, int]]
     block_size: int
     lora_id: int | None
     medium: str | None = None
