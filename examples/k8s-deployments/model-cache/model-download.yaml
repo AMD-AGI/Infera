@@ -35,14 +35,6 @@ spec:
               drop: ["ALL"]
             seccompProfile:
               type: RuntimeDefault
-          # Download accelerators — help ONLY on a bandwidth/latency-constrained link
-          # (single-stream underutilizes the pipe). On a fast network the download is
-          # already network-bound (~600 MB/s measured here) and these are no-ops.
-          #   HF_HUB_ENABLE_HF_TRANSFER: parallel-chunked LFS (Kimi-K3 is plain LFS).
-          #   HF_XET_HIGH_PERFORMANCE:   only for Xet-backed repos (Kimi-K3 is NOT one).
-          env:
-            - {name: HF_HUB_ENABLE_HF_TRANSFER, value: "1"}
-            - {name: HF_XET_HIGH_PERFORMANCE, value: "1"}
           # envFrom:                       # gated repos only: HF_TOKEN
           #   - secretRef: {name: hf-token-secret}
           command: ["sh", "-c"]
@@ -50,7 +42,7 @@ spec:
           args:
             - |
               set -eux
-              pip install --no-cache-dir 'huggingface_hub[hf_xet,hf_transfer]'
+              pip install --no-cache-dir huggingface_hub
               python -c "from huggingface_hub import snapshot_download; print('downloaded ->', snapshot_download('Qwen/Qwen3-0.6B', local_dir='/model-cache/Qwen3-0.6B'))"
           volumeMounts:
             - name: model-cache
