@@ -358,6 +358,59 @@ def test_sas_ssd_picks_o_direct(fake_run):
     assert "sas-ssd" in rationale
 
 
+def test_bind_mount_source_strips_subpath(monkeypatch):
+    """A bind mount makes findmnt print SOURCE as ``/dev/md0[/sub/path]``.
+
+    That bracketed suffix is not part of the device name. Passing the raw
+    string to lsblk gets ``not a block device``, so the probe silently
+    degrades to buffered even on hardware that qualifies for O_DIRECT.
+
+    Observed on a real deployment: kvd's L3 bind-mounted into a container
+    reported ``devices = [(none)]``, ``rationale: unknown device,
+    conservative buffered``, on an ext4-on-md0 mount.
+
+    This test models the *real* lsblk contract — it errors on a bracketed
+    argument — rather than a fake that accepts anything, which is what
+    lets the bug through.
+    """
+
+    def run(cmd, timeout=2.0):
+        class R:
+            returncode = 0
+            stdout = ""
+
+        r = R()
+        if cmd[0] == "findmnt":
+            r.stdout = "/dev/nvme0n1p1[/kvd-long] ext4\n"
+        elif cmd[0] == "lsblk":
+            target = cmd[-1]
+            if "[" in target:  # what real lsblk does
+                r.returncode = 32
+                r.stdout = ""
+            else:
+                r.stdout = "nvme0n1 nvme 0\n"
+        return r
+
+    monkeypatch.setattr(storage_classify, "_run", run)
+    o_direct, rationale = pick_io_mode(Path("/kvd-long"))
+    assert o_direct is True, f"bind mount misclassified: {rationale}"
+    assert "nvme-ssd" in rationale
+
+
+def test_bind_mount_classify_reports_clean_source(fake_run):
+    """The bracketed subpath must not leak into the reported mount source
+    either — operators read this field to sanity-check the probe."""
+    fake_run(
+        {
+            "findmnt": "/dev/sda1[/some/where] ext4\n",
+            "lsblk": "sda sata 0\n",
+        }
+    )
+    info = classify_storage(Path("/some/where"))
+    assert info.mount_source == "/dev/sda1"
+    assert info.devices, "bind-mounted device should still be resolved"
+
+
 def test_findmnt_missing_falls_back_to_buffered(monkeypatch, caplog):
     """When findmnt isn't installed (minimal containers), we don't
     raise — we just default to buffered and log a WARN. The classifier

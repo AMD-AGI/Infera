@@ -162,6 +162,15 @@ def _findmnt(path: Path) -> tuple[str, str] | None:
         return None
     fstype = parts[-1]
     source = " ".join(parts[:-1])
+    # For a bind mount findmnt appends the bind subpath in brackets:
+    #     /dev/md0[/mnt/nvme-raid/kvd-long]
+    # Only the part before '[' names the device. Handing the whole string to
+    # lsblk gets "not a block device", which silently drops the probe to
+    # buffered even on hardware that qualifies for O_DIRECT — exactly what
+    # happens to a kvd L3 directory bind-mounted into a container.
+    bracket = source.find("[")
+    if bracket > 0:
+        source = source[:bracket]
     return source, fstype
 
 
