@@ -1,0 +1,79 @@
+# Infera overlay payload — one image that composes with any stock vendor base.
+#
+# WHY: every engine image today bakes infera onto a digest-pinned vendor base, so
+# following an upstream vLLM/SGLang bump means rebuilding everything, and forking
+# the base for one model (Kimi-K3) broke the others. None of what we add actually
+# requires being baked into that specific base:
+#
+#   * infera and kvd are pure Python
+#   * the Rust router links only libc/libstdc++
+#   * libionic is injected from the host at container start
+#   * aiter JIT-compiles its kernels per GPU arch at run time
+#   * Mooncake and hipFile ARE compiled, but they bind the CPython minor and the
+#     ROCm major — NOT the specific vendor image. Ship one build per
+#     (python, rocm) pair with their transitive system libs bundled, exactly the
+#     way auditwheel vendors deps into a manylinux wheel, and they load on a
+#     stock base.
+#
+# So the whole overlay is base-agnostic and a base bump costs nothing.
+#
+#   /payload/py310/                cp310 deps + infera + kvd     (SGLang bases)
+#   /payload/py312/                cp312 deps + infera + kvd     (vLLM bases)
+#   /payload/native/rocm7-py312/   mooncake + hipFile + their libs
+#   /payload/bin/                  infera-router, infera-exec
+#
+# `infera-exec` selects the trees matching the container's Python and ROCm.
+#
+# Build (NATIVE_IMAGE supplies the already-compiled Mooncake/hipFile/router;
+# rebuilding those here would mean carrying a full ROCm toolchain):
+#   docker build -f deploy/overlay/Dockerfile.payload -t infera-overlay:latest .
+ARG NATIVE_IMAGE=rocm/infera:vllm-v0.1.1
+
+# ---- cp310 tree (SGLang bases) ---------------------------------------------
+FROM python:3.10-slim AS deps310
+WORKDIR /src
+COPY pyproject.toml README.md ./
+COPY infera ./infera
+RUN pip install --no-cache-dir --target /payload/py310 ".[vllm]"
+
+# ---- cp312 tree (vLLM bases) -----------------------------------------------
+FROM python:3.12-slim AS deps312
+WORKDIR /src
+COPY pyproject.toml README.md ./
+COPY infera ./infera
+RUN pip install --no-cache-dir --target /payload/py312 ".[vllm]"
+
+# ---- native: harvest the compiled artifacts + their transitive libs ---------
+# Mooncake's extension pulls ~40 system libraries (glog, jsoncpp, asio, gflags,
+# ...) that a stock vendor image does not ship. Bundling them next to the .so is
+# what makes the overlay work off-base; LD_LIBRARY_PATH points at the bundle.
+FROM ${NATIVE_IMAGE} AS native
+RUN set -eu; \
+    ROCM_MAJOR="$(readlink -f /opt/rocm/lib/libamdhip64.so.* 2>/dev/null | grep -oE 'so\.[0-9]+' | head -1 | cut -d. -f2)"; \
+    PYTAG="py$(python3 -c 'import sys;print("%d%d"%sys.version_info[:2])')"; \
+    OUT="/native/rocm${ROCM_MAJOR}-${PYTAG}"; \
+    mkdir -p "$OUT/lib" "$OUT/bin"; \
+    echo "harvesting into $OUT"; \
+    MC="$(python3 -c 'import mooncake,os;print(os.path.dirname(mooncake.__file__))')"; \
+    cp -a "$MC" "$OUT/mooncake"; \
+    # transitive deps of the Mooncake extension, minus what every base already has
+    ldd "$MC"/engine*.so 2>/dev/null | awk '/=> \//{print $3}' \
+      | grep -vE 'libamdhip64|libc\.so|libm\.so|libstdc\+\+|libgcc_s|ld-linux|libpthread|libdl|librt|libnuma|libibverbs' \
+      | while read -r so; do cp -L "$so" "$OUT/lib/" 2>/dev/null || true; done; \
+    # hipFile: libhipfile + the ais-check probe (a Python script) + its module
+    for f in /opt/rocm/lib/libhipfile.so*; do cp -L "$f" "$OUT/lib/" 2>/dev/null || true; done; \
+    cp /opt/rocm/bin/ais-check "$OUT/bin/" 2>/dev/null || true; \
+    HF="$(python3 -c 'import hipfile,os;print(os.path.dirname(hipfile.__file__))' 2>/dev/null || true)"; \
+    [ -n "$HF" ] && cp -a "$HF" "$OUT/hipfile" || true; \
+    ln -sf libhipfile.so.0.3.0 "$OUT/lib/libhipfile.so.0" 2>/dev/null || true; \
+    ln -sf libhipfile.so.0 "$OUT/lib/libhipfile.so" 2>/dev/null || true; \
+    du -sh "$OUT"
+
+# ---- final: busybox, so an initContainer can `cp` the payload out -----------
+FROM busybox:1.36
+COPY --from=deps310 /payload/py310 /payload/py310
+COPY --from=deps312 /payload/py312 /payload/py312
+COPY --from=native /native /payload/native
+COPY --from=native /usr/local/bin/infera-router /payload/bin/infera-router
+COPY deploy/overlay/infera-exec /payload/bin/infera-exec
+CMD ["sh", "-c", "cp -a /payload/. /out/ && echo 'infera overlay payload installed to /out'"]

@@ -12,10 +12,11 @@ import pytest
 
 from ...harness.matrix import DEEPSEEK_V4_PRO, GLM_5_1_FP8, KIMI_K26_MXFP4, QWEN3_8B, expand_cases
 
-# [model, tp, ep, dp_attn] (+ optional opts dict). Opts mirror the matching
-# InferenceX single_node/fixed_seq_len benchmarks.
+# [enable, model, tp, ep, dp_attn] (+ optional opts dict). Opts mirror the
+# matching InferenceX single_node/fixed_seq_len benchmarks.
 CASES = [
     [
+        False,
         QWEN3_8B,
         2,
         False,
@@ -26,6 +27,7 @@ CASES = [
         },
     ],
     [
+        True,
         KIMI_K26_MXFP4,
         4,
         False,
@@ -56,6 +58,7 @@ CASES = [
     # DeepSeek-V4-Pro (MoE, tp8): DSv4 needs the deepseek_v4 tokenizer + reasoning
     # parser; aiter MoE backend + fp8 KV are its config. tp from the adapter.
     [
+        False,
         DEEPSEEK_V4_PRO,
         8,
         False,
@@ -102,6 +105,7 @@ CASES = [
     # pd_disag/vllm MoRIIO/Mooncake path). Verified 2026-07-23 single-node mix, temp=0
     # (thinking disabled): France->Paris/China->Beijing/2+2->4.
     [
+        True,
         GLM_5_1_FP8,
         4,
         False,

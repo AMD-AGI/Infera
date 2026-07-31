@@ -17,6 +17,7 @@ from __future__ import annotations
 from infera.router.cache_control import (
     CacheHints,
     Retention,
+    extract_image_keys,
     parse_cache_hints,
 )
 
@@ -534,3 +535,104 @@ def test_no_mm_on_unknown_block_type():
     }
     hints = parse_cache_hints(body)
     assert hints.has_multimodal_content is False
+
+
+# ----------------------------------------------------------------------
+# extract_image_keys — per-image affinity keys (MM routing)
+# ----------------------------------------------------------------------
+
+
+def _openai_img(url: str) -> dict:
+    return {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "describe"},
+                    {"type": "image_url", "image_url": {"url": url}},
+                ],
+            }
+        ]
+    }
+
+
+def test_image_key_stable_across_surrounding_text():
+    """Same image URL, different prose → identical key. This is the property
+    affinity relies on: the image, not the text, decides routing."""
+    a = _openai_img("https://cdn/cat.png")
+    b = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "a totally different question"},
+                    {"type": "image_url", "image_url": {"url": "https://cdn/cat.png"}},
+                ],
+            }
+        ]
+    }
+    ka = extract_image_keys(a)
+    assert len(ka) == 1
+    assert ka == extract_image_keys(b)
+    assert extract_image_keys(_openai_img("https://cdn/dog.png")) != ka
+
+
+def test_image_key_openai_anthropic_shorthand_agree():
+    key = extract_image_keys(_openai_img("https://cdn/cat.png"))
+    # OpenAI image_url shorthand (bare string).
+    shorthand = {
+        "messages": [
+            {"role": "user", "content": [{"type": "image_url", "image_url": "https://cdn/cat.png"}]}
+        ]
+    }
+    assert extract_image_keys(shorthand) == key
+    # Anthropic url source.
+    anthropic = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "source": {"type": "url", "url": "https://cdn/cat.png"}}
+                ],
+            }
+        ]
+    }
+    assert extract_image_keys(anthropic) == key
+    # Top-level images[] bare url.
+    assert extract_image_keys({"images": ["https://cdn/cat.png"], "prompt": "hi"}) == key
+
+
+def test_image_keys_multiple_in_order():
+    r = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": "u1"}},
+                    {"type": "text", "text": "and"},
+                    {"type": "image_url", "image_url": {"url": "u2"}},
+                ],
+            }
+        ]
+    }
+    k = extract_image_keys(r)
+    assert len(k) == 2
+    assert k[0] != k[1]
+    assert k[0] == extract_image_keys(_openai_img("u1"))[0]
+
+
+def test_image_keys_text_only_empty():
+    assert extract_image_keys({"prompt": "hello"}) == []
+    assert extract_image_keys({"messages": [{"role": "user", "content": "just text"}]}) == []
+    assert extract_image_keys("not a dict") == []  # type: ignore[arg-type]
+
+
+def test_image_key_data_uri_content_hashes():
+    """data: URIs carry the bytes inline → identical payload, identical key;
+    differing payload, differing key."""
+    d1 = _openai_img("data:image/png;base64,AAABBBCCC")
+    d3 = _openai_img("data:image/png;base64,ZZZ")
+    assert extract_image_keys(d1) == extract_image_keys(
+        _openai_img("data:image/png;base64,AAABBBCCC")
+    )
+    assert extract_image_keys(d1) != extract_image_keys(d3)

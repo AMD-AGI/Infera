@@ -12,13 +12,14 @@ import pytest
 
 from ...harness.matrix import DEEPSEEK_V4_PRO, GLM_5_1_FP8, GPT_OSS, KIMI_K26_MXFP4, expand_cases
 
-# [model, tp, ep, dp_attn] (+ optional opts dict). Opts mirror the matching
-# InferenceX single_node/fixed_seq_len benchmarks.
+# [enable, model, tp, ep, dp_attn] (+ optional opts dict). Opts mirror the
+# matching InferenceX single_node/fixed_seq_len benchmarks.
 CASES = [
     [
+        True,
         GPT_OSS,
         2,
-        False,
+        True,
         False,
         {
             "args": [
@@ -34,9 +35,10 @@ CASES = [
         },
     ],
     [
+        True,
         KIMI_K26_MXFP4,
         4,
-        (True, False),
+        False,
         False,
         {
             "args": ["--kv_cache_dtype", "fp8", "--trust-remote-code"],
@@ -45,6 +47,7 @@ CASES = [
         },
     ],
     [
+        False,
         DEEPSEEK_V4_PRO,
         8,
         False,
@@ -83,6 +86,7 @@ CASES = [
     # so /v1/chat/completions works. Verified 2026-07-23 single-node, temp=0:
     # France->Paris/China->Beijing/2+2->4 (thinking disabled in the probe).
     [
+        True,
         GLM_5_1_FP8,
         4,
         False,

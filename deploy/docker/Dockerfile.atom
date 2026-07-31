@@ -12,6 +12,25 @@ COPY deploy/docker/patches/atom/ /tmp/atom-patches/
 RUN for f in /tmp/atom-patches/patch_*.py; do echo "[atom-patch] $f"; python3 "$f" || echo "[atom-patch] skipped $f"; done \
     && rm -rf /tmp/atom-patches
 
+# ---- Mooncake (main + B-group C++ patches) --------------------------------
+# The base ships a Mooncake whose GPU MR path is bare ibv_reg_mr, which needs
+# the legacy ib_peer_mem module. Rebuild from the ref vLLM uses ONLY when
+# MOONCAKE_HIP_DMABUF=1; at the default 0 the base's Mooncake is left untouched.
+ARG BUILD_MOONCAKE=1
+ARG MOONCAKE_GIT_REF=747003c058015c4077a266e7ccd7549bbc9baede
+ARG MOONCAKE_HIP_DMABUF=0
+COPY deploy/docker/scripts/build_mooncake_rocm.sh /tmp/build_mooncake_rocm.sh
+COPY deploy/docker/patches/mooncake_cpp/ /tmp/mooncake_cpp/
+RUN if [ "${BUILD_MOONCAKE}" = "1" ] && [ "${MOONCAKE_HIP_DMABUF}" = "1" ]; then \
+        MOONCAKE_DMABUF=1 MOONCAKE_HIP_DMABUF=1 \
+        MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" \
+        MC_CPP_PATCH_DIR=/tmp/mooncake_cpp \
+        bash /tmp/build_mooncake_rocm.sh; \
+    else \
+        echo "MOONCAKE_HIP_DMABUF=0 — using the base image's Mooncake"; \
+    fi \
+    && rm -rf /tmp/build_mooncake_rocm.sh /tmp/mooncake_cpp
+
 WORKDIR /opt/infera
 
 # Install infera + its declared deps from pyproject (single source of truth).
@@ -48,4 +67,9 @@ RUN SITE_PKGS=$(python3 -c "import site; print(site.getsitepackages()[0])") \
     && echo "import infera.engine.atom.hooks.kv_event_bootstrap" \
         > "${SITE_PKGS}/zzz_infera_atom_bootstrap.pth"
 
-ENTRYPOINT ["/bin/bash"]
+# Host libionic injected at container start, as in the vllm/sglang images: with a
+# mismatched provider libibverbs enumerates 0 devices and RDMA degrades to TCP.
+COPY deploy/docker/scripts/infera_inject_host_ionic.sh /usr/local/bin/infera-inject-host-ionic
+
+ENTRYPOINT ["/usr/local/bin/infera-inject-host-ionic"]
+CMD ["/bin/bash"]

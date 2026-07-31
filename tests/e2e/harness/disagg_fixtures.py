@@ -67,7 +67,6 @@ def make_disagg_stack_fixture(
     *,
     image: str,
     dockerfile: str,
-    shell_entrypoint: bool = False,
 ):
     """Return a function-scoped ``disagg_stack`` fixture bound to ``adapter_factory``.
 
@@ -82,9 +81,7 @@ def make_disagg_stack_fixture(
     @pytest_asyncio.fixture
     async def disagg_stack():
         adapter = adapter_factory()
-        launcher = SrunDockerLauncher(
-            image=image, dockerfile=dockerfile, shell_entrypoint=shell_entrypoint
-        )
+        launcher = SrunDockerLauncher(image=image, dockerfile=dockerfile)
         handles: list = []  # torn down in reverse order
 
         async def _up(params: EngineParams | None = None) -> dict:
@@ -101,6 +98,7 @@ def make_disagg_stack_fixture(
             tp = max(1, params.tensor_parallel_size)
             gpu_ids = list(range(tp))
 
+            cluster.probe_qos(prefill_node)
             launcher.cleanup_stale([prefill_node, decode_node])
             launcher.ensure_images([prefill_node, decode_node])
 
@@ -151,6 +149,8 @@ def make_disagg_stack_fixture(
                 env = adapter.disagg_worker_env(
                     params, role, advertise_host=ip, gpu_ids=gpu_ids, gid_index=gid
                 )
+                # Fabric settings last: they override the adapter's fleet default.
+                env.update(cluster.kv_transport_env())
                 h = launcher.start(
                     node=node,
                     argv=argv,
@@ -166,6 +166,8 @@ def make_disagg_stack_fixture(
             await wait_workers_active(
                 launcher, server_ctx["url"], workers, timeout=params.server_ready_timeout
             )
+            # Exposed for disagg_suite.assert_rdma_kv_transport (reads their logs).
+            server_ctx["launcher"], server_ctx["workers"] = launcher, workers
             return server_ctx
 
         yield _up

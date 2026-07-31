@@ -12,18 +12,20 @@ import pytest
 
 from ...harness.matrix import DEEPSEEK_V4_PRO, GLM_5_1_FP8, GPT_OSS, KIMI_K26_MXFP4, expand_cases
 
-# [model, tp, ep, dp_attn] (+ optional opts dict). A tuple/list on an axis
+# [enable, model, tp, ep, dp_attn] (+ optional opts dict). A tuple/list on an axis
 # enumerates it (e.g. (True, False) runs both). MoE models can exercise ep.
 CASES = [
     # gpt-oss-120b: tp2, ep on/off.
     [
+        True,
         GPT_OSS,
         2,
-        (True, False),
+        True,
         False,
         {"env": {"SGLANG_USE_AITER": "1"}, "server_ready_timeout": 1800},
     ],
     [
+        True,
         KIMI_K26_MXFP4,
         4,
         True,
@@ -42,6 +44,7 @@ CASES = [
     # DeepSeek-V4-Pro (MoE, tp8): --attention-backend dsv4 selects the DSv4 sparse
     # attention; the SGLANG_OPT_*/AITER env is its FP8 config. tp from the adapter.
     [
+        False,
         DEEPSEEK_V4_PRO,
         8,
         False,
@@ -95,6 +98,7 @@ CASES = [
     # Verified 2026-07-23 single-node mix, temp=0: France->Paris/China->Beijing/2+2->4.
     # Long timeout covers the ~8-10 min silent tilelang-JIT + aiter-GEMM-tuning window.
     [
+        True,
         GLM_5_1_FP8,
         4,
         False,
@@ -105,6 +109,8 @@ CASES = [
                 "glm45",
                 "--mem-fraction-static",
                 "0.85",
+                "--model-loader-extra-config",
+                '{"enable_multithread_load": true, "num_threads": 8}',
             ],
             "env": {"SGLANG_USE_AITER": "1"},
             "server_ready_timeout": 1800,

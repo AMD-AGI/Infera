@@ -38,16 +38,16 @@ apply_one() {
     fi
 }
 
-# B.1 (rdma_transport_CMakeLists.diff, USE_HIP_DMABUF -> ibv_reg_dmabuf_mr) REMOVED.
-# That dma-buf GPUDirect registration path exhausts a driver/KFD resource at high
-# gpu_memory_utilization (>=0.7): registering the whole KV pool (~156 GiB/GPU at
-# util 0.8) via ibv_reg_dmabuf_mr makes EVERY subsequent hipModuleLoad fail with
-# HIP-209 "no kernel image is available for execution", crashing the decode engine
-# at kernel_warmup / first inference (_compute_slot_mapping_kernel, torch fill_,
-# ...). The GPU BAR is 512 GiB (not the limit); reproduces on Kimi-K2.6 AND
-# DeepSeek-V4-Pro. Bare ibv_reg_mr (VRAM RDMA via host-libionic injection) does NOT
-# exhaust it and transfers KV correctly on ionic (validated util 0.8 P<->D, both
-# models). The diff is dropped entirely — bare ibv_reg_mr is the only supported path.
+# B.1 (USE_HIP_DMABUF -> ibv_reg_dmabuf_mr) is OPT-IN. It was dropped in #154
+# because dma-buf at high util exhausts a KFD resource (later hipModuleLoad ->
+# HIP-209) where ib_peer_mem is available; but on a dma-buf-only fabric (no
+# ib_peer_mem) it is the ONLY path that can register VRAM at all.
+if [ "${MOONCAKE_HIP_DMABUF:-0}" = "1" ]; then
+    echo "MOONCAKE_HIP_DMABUF=1 -> applying B.1 (dma-buf GPUDirect MR registration)"
+    apply_one rdma_transport_dmabuf_cmake.diff
+else
+    echo "MOONCAKE_HIP_DMABUF=0 (default) -> B.1 not applied (bare ibv_reg_mr; needs ib_peer_mem)"
+fi
 apply_one transfer_engine_impl.diff
 apply_one rdma_auto_chunk_mr_2017.diff
 

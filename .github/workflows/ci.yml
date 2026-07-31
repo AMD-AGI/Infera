@@ -2,13 +2,17 @@ name: CI
 
 on:
   push:
-    branches: ["**"]   # every branch: runs everything EXCEPT e2e (see e2e-mixed if:)
+    branches: ["**"]   # e2e only for code reaching main untested (see e2e_gate)
   pull_request:
-    branches: [main]
+    branches: [main]   # e2e runs here, pre-merge — the usual path
   workflow_dispatch:   # manual "Run workflow" button (Actions tab)
     inputs:
-      run_e2e:
+      run_e2e_mixed:
         description: "also run e2e-mixed"
+        type: boolean
+        default: false
+      run_e2e_disag:
+        description: "also run e2e-disag"
         type: boolean
         default: false
 
@@ -59,6 +63,54 @@ jobs:
           echo "=> code=$code"
           echo "code=$code" >> "$GITHUB_OUTPUT"
 
+  # Should the e2e tiers run for THIS event? Every PR into main is tested
+  # pre-merge, so landing that same code must not test it twice — but "same" has
+  # to mean the CONTENT, not the PR: if main moved on while the PR sat open, what
+  # lands is a combination no e2e ever saw. Compare git TREES, which are exactly
+  # the content, and are equal iff the merge changed nothing versus the PR head.
+  e2e_gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          tree_of() { gh api "repos/$REPO/commits/$1" --jq .commit.tree.sha 2>/dev/null; }
+
+          run=false
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            run=true
+            echo "pull_request into main — e2e runs pre-merge"
+          elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            # Squash and merge commits both report the PR they came from.
+            head=$(gh api "repos/$REPO/commits/$SHA/pulls" --jq '.[0].head.sha // empty' 2>/dev/null)
+            landed=$(tree_of "$SHA")
+            tested=""; [ -n "$head" ] && tested=$(tree_of "$head")
+            if [ -z "$head" ]; then
+              run=true; echo "no PR behind this commit — its code was never e2e'd"
+            elif [ -z "$landed" ] || [ -z "$tested" ]; then
+              # Never infer "already tested" from a failed lookup: re-testing costs
+              # GPU minutes, shipping untested code costs more.
+              run=true; echo "could not read both trees — running e2e to be safe"
+            elif [ "$landed" = "$tested" ]; then
+              echo "tree $landed is what PR head $head already e2e'd — skipping"
+            else
+              run=true
+              echo "tree $landed != PR head $head's $tested — main moved under the PR"
+            fi
+          else
+            echo "not a PR into main, and not a push to main — no e2e"
+          fi
+          echo "=> run_e2e=$run"
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
   pre_check:
     runs-on: ubuntu-latest
     outputs:
@@ -69,6 +121,13 @@ jobs:
         with:
           skip_after_successful_duplicate: "true"
           concurrent_skipping: "never"
+
+  # Sign-off gate for the GPU tiers below — `needs:` cannot reach a job in
+  # another workflow, so dco.yml is called here as one. Skipped off a PR (there
+  # is nothing to check), which the tiers below read as "did not fail".
+  dco:
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/dco.yml
 
   lint:
     needs: [pre_check, changes]
@@ -130,16 +189,18 @@ jobs:
       - name: cargo test
         run: cargo test
 
-  # Engine GPU tests — run on each branch push (same-repo PRs reuse that run).
+  # Engine GPU tests. Same schedule as the e2e tiers (see e2e_gate): every PR
+  # into main, and any push that lands untested code on main — never on a plain
+  # branch push, which is where these GPU minutes used to go.
   engine:
-    needs: [lint, pre_check, changes]
-    # Skip on docs-only changes, and on same-repo PRs (already covered by the
-    # branch push event); still run on push and on fork PRs.
+    needs: [lint, pre_check, changes, dco, e2e_gate]
     if: >-
+      !cancelled() &&
       needs.pre_check.outputs.should_skip != 'true' &&
       needs.changes.outputs.code == 'true' &&
-      (github.event_name != 'pull_request' ||
-       github.event.pull_request.head.repo.full_name != github.repository)
+      needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
+      needs.dco.result != 'failure' && needs.dco.result != 'cancelled' &&
+      (needs.e2e_gate.outputs.run == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: [self-hosted, crusoe]
     timeout-minutes: 60
     env:
@@ -152,8 +213,11 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+      # exec, so run_tests.sh IS the step's entry process: on cancel the runner
+      # signals only that one pid, and a wrapping bash would not forward it, so
+      # the script's INT/TERM trap (scancel of the dispatched job) never ran.
       - name: engine tests
-        run: bash tests/run_tests.sh engine
+        run: exec bash tests/run_tests.sh engine
       - name: reclaim this job's SLURM jobs (on cancel/failure)
         if: always() && (cancelled() || failure())
         run: |
@@ -166,22 +230,24 @@ jobs:
             sleep 5
           done
 
-  # Full PD-mixed e2e (per engine, parallel) — ONLY when code lands on main
-  # (push/merge to main). Skipped on other branches and on PRs.
+  # Full PD-mixed e2e (per engine, parallel). When it runs is e2e_gate's call:
+  # every PR into main, plus a push that lands untested code on main.
   e2e-mixed:
-    # Run on PRs into main (pre-merge; pull_request already filters base=main), so
-    # the merge is validated BEFORE landing and not re-run on the main push after.
-    # Also on manual dispatch when run_e2e is checked. Skipped for docs-only PRs.
-    # Gated behind lint: run only if lint did not fail. `always()` + result check
-    # (instead of a plain success dependency) is needed so e2e still runs when lint
-    # is *skipped* as a duplicate (pre_check), but is held back when lint fails.
-    needs: [lint, changes]
+    # Skipped for docs-only changes. Gated behind lint and dco: run only if neither
+    # failed. `!cancelled()` + result checks (instead of a plain success dependency)
+    # is needed so e2e still runs when lint is *skipped* as a duplicate (pre_check)
+    # or dco is skipped off a PR, but is held back when either fails. NOT
+    # `always()`: on cancel the server re-evaluates job-level `if`, and `always()`
+    # evaluates true, so the job is never cancelled — it keeps (or even starts)
+    # burning GPU nodes after "Cancel workflow".
+    needs: [lint, changes, dco, e2e_gate]
     if: >-
-      always() &&
+      !cancelled() &&
       needs.changes.outputs.code == 'true' &&
       needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
-      (github.event_name == 'pull_request' ||
-       (github.event_name == 'workflow_dispatch' && inputs.run_e2e))
+      needs.dco.result != 'failure' && needs.dco.result != 'cancelled' &&
+      (needs.e2e_gate.outputs.run == 'true' ||
+       (github.event_name == 'workflow_dispatch' && inputs.run_e2e_mixed))
     strategy:
       fail-fast: false
       matrix:
@@ -201,13 +267,72 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+      # exec: see the engine job — keeps run_tests.sh's INT/TERM trap reachable.
       - name: e2e ${{ matrix.engine }} mixed
-        run: bash tests/run_tests.sh e2e ${{ matrix.engine }} mixed
+        run: exec bash tests/run_tests.sh e2e ${{ matrix.engine }} mixed
       - name: reclaim this job's SLURM jobs (on cancel/failure)
         if: always() && (cancelled() || failure())
         run: |
           # Retry: a single scancel can hit a transient Spur controller error.
           suf="-${{ github.run_id }}-${{ matrix.engine }}"
+          for i in 1 2 3 4 5; do
+            ids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \
+              | awk -v suf="$suf" '$2 ~ /^infera-ci-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}')
+            [ -z "$ids" ] && { echo "no (more) SLURM jobs to reclaim"; break; }
+            echo "reclaiming SLURM job(s): $ids (try $i)"; scancel $ids 2>&1 || true
+            sleep 5
+          done
+
+  e2e-disag:
+    # Gates mirror e2e-mixed, `!cancelled()` included: `always()` would keep this
+    # holding a two-node pair after "Cancel workflow".
+    needs: [lint, changes, dco, e2e_gate]
+    if: >-
+      !cancelled() &&
+      needs.changes.outputs.code == 'true' &&
+      needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
+      needs.dco.result != 'failure' && needs.dco.result != 'cancelled' &&
+      (needs.e2e_gate.outputs.run == 'true' ||
+       (github.event_name == 'workflow_dispatch' && inputs.run_e2e_disag))
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [vllm, sglang, atom]
+    runs-on: [self-hosted, crusoe]
+    timeout-minutes: 120
+    env:
+      INFERA_E2E_SLURM_PARTITION: amd-spur
+      INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
+      # Ceiling on every disagg srun step, inside the job timeout above so the
+      # scheduler reclaims a node even if the runner is killed first.
+      INFERA_E2E_SLURM_TIME: "01:50:00"
+      # Disagg is many short sruns; the reservation keeps the pair held across
+      # them. QoS is left at the cluster default — the harness falls back to the
+      # burst QoS by itself if a step is refused for a group node limit.
+      INFERA_E2E_RESERVATION: infera-cicd-reserved
+      # No ib_peer_mem here, so bare ibv_reg_mr cannot pin VRAM: Mooncake must
+      # register via dma-buf, compiled in at build time and selected at run time.
+      # The rail is mlx5 (ionic dma-buf dies on a production KV pool); its
+      # routable GID is index 3, its 0 and 1 are link-local.
+      INFERA_E2E_GID_INDEX: "3"
+      INFERA_E2E_WORKER_ENV: MC_TE_FILTERS=mlx5_0,MOONCAKE_DISABLE_HIP_DMABUF=0
+      INFERA_E2E_BUILD_ARGS: MOONCAKE_HIP_DMABUF=1
+      INFERA_E2E_JOB_TAG: ${{ github.run_id }}-${{ matrix.engine }}-disag
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      # exec: see the engine job — keeps run_tests.sh's INT/TERM trap reachable,
+      # which is what releases the held node pair on cancel.
+      - name: e2e ${{ matrix.engine }} disag
+        run: exec bash tests/run_tests.sh e2e ${{ matrix.engine }} disag
+      - name: reclaim this job's SLURM jobs (on cancel/failure)
+        if: always() && (cancelled() || failure())
+        run: |
+          # Catches the infera-ci-hold-* pair holder too: it is a -N2 --gres=gpu:8
+          # batch job, so a leaked one keeps TWO reserved nodes out of the pool.
+          # Retry: a single scancel can hit a transient Spur controller error.
+          suf="-${{ github.run_id }}-${{ matrix.engine }}-disag"
           for i in 1 2 3 4 5; do
             ids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \
               | awk -v suf="$suf" '$2 ~ /^infera-ci-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}')
