@@ -2,8 +2,14 @@
 # Apply the GLM-5.2 DSA patch set to the sglang checkout in an engine image, and
 # prove every patch reached the BYTECODE.
 #
-# Used by Dockerfile.sglang.dmabuf at build time, and runnable by hand inside a
+# Used by Dockerfile.sglang at build time, and runnable by hand inside a
 # container for iteration.
+#
+# DEPENDENCY: the GLM-5.2 nextn eh_proj quark-exclude fix is NOT in this set --
+# deploy/docker/patches/sglang/patch_glm52_nextn_quark_exclude.py already carries
+# it, and Dockerfile.sglang runs that loop BEFORE this script.  It is a hard
+# prerequisite (without it GLM-5.2 MTP dies at draft weight-load with a
+# 3072-vs-6144 shape error), so we ASSERT it below rather than assume it.
 #
 # WHY BYTECODE VERIFICATION.  Python caches compiled modules in __pycache__ keyed
 # on the source mtime.  A patch script that restores a backup with shutil.copy2
@@ -20,12 +26,11 @@ SGLANG_DIR="${SGLANG_DIR:-/sgl-workspace/sglang}"
 PATCH_DIR="${PATCH_DIR:-/tmp/sglang_dsa}"
 SRT="$SGLANG_DIR/python/sglang/srt"
 
-# Applied in this order.  01 must precede nothing in particular -- the four touch
-# disjoint files except that 02 carries both patch 2a and 2b in one diff.
+# Applied in this order.  Order is not significant -- the three touch disjoint
+# files, except that 02 carries both patch 2a and 2b in one diff.
 PATCHES=(
   dsa_indexer_hip_dp_padded_rows.diff
   dsa_backend_dp_sync_and_page_table_rows.diff
-  deepseek_nextn_glm52_mtp_bf16.diff
   draft_cuda_graph_dp_vote.diff
 )
 
@@ -56,11 +61,16 @@ find "$SGLANG_DIR/python/sglang/srt" -name __pycache__ -exec rm -rf {} + 2>/dev/
 echo "=== verifying every patch reached the bytecode ==="
 fail=0
 
-# Patch 3's marker is a literal inside an f-string -- check the source, since the
-# f-string is split across bytecode constants.
+# PREREQUISITE, not one of our patches: patch_glm52_nextn_quark_exclude.py (run
+# earlier by Dockerfile.sglang) must have made the nextn eh_proj edit.  Asserted
+# here because GLM-5.2 MTP cannot load its draft weights without it, and because
+# a silent "skipped" from that idempotent script would otherwise go unnoticed
+# until the engine crashed at runtime.  The marker is a literal inside an
+# f-string, so this is a SOURCE check -- the f-string is split across bytecode
+# constants and does not appear whole in the .pyc.
 n3=$(grep -c 'num_hidden_layers}.eh_proj' "$SRT/models/deepseek_nextn.py" || true)
-echo "  patch3 nextn eh_proj      -> src=$n3 (want 1)"
-[ "$n3" -eq 1 ] || fail=1
+echo "  PREREQ nextn eh_proj      -> src=$n3 (want 1)"
+[ "$n3" -eq 1 ] || { echo "  ^ run deploy/docker/patches/sglang/ first" >&2; fail=1; }
 
 # Patch 2a changes an expression and introduces no new identifier, and the same
 # expression already appears on two pre-existing graph-capture paths -- so
