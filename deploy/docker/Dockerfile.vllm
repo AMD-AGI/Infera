@@ -3,15 +3,13 @@
 # hipFile + libionic onto a digest-pinned nightly base, then the infera source,
 # and runs via `python -m infera.engine.vllm`.
 #
-# Base pinned by DIGEST to the vLLM kimi-k3 build — the vLLM that carries kimi_k3
-# model support (KimiK3ForConditionalGeneration) plus the broader model coverage
-# of a newer vLLM. The tag ":kimi-k3" is kept in the ref for readability; the
-# @sha256 is what pins it. The full stack (aiter + vLLM/DSv4 patches + Mooncake +
-# hipFile + libionic + infera + rust router) was validated on this base on MI355X.
-# To move: bump the digest + re-verify patch no-ops (the patch loop swallows a
-# patch's sys.exit(1), so a moved anchor silently drops the patch — check the
-# build log per layer).
-ARG VLLM_BASE_IMAGE=vllm/vllm-openai-rocm:kimi-k3@sha256:5aa7e626ff73672f5ca7aae46754570488c23d33ca1ac90756a1d2d1a3fe099b
+# Base pinned by DIGEST to the stable vLLM v0.25.1 release (was the rolling nightly
+# cbe9c40f = 0.23.1rc0.dev861+gcbe9c40f9, which DockerHub has since rolled off).
+# The tag ":v0.25.1" is kept in the ref for readability; the @sha256 is what pins
+# it (= vllm 0.25.1, torch 2.11.0, ROCm 7.2.3). To move: bump the digest +
+# re-verify patch no-ops (the patch loop swallows a patch's sys.exit(1), so a
+# moved anchor silently drops the patch — check the build log per layer).
+ARG VLLM_BASE_IMAGE=vllm/vllm-openai-rocm:v0.25.1@sha256:84459732ca98b40fe2f5338a3f050be6d522504e47a484a5180d58fb75956f86
 FROM ${VLLM_BASE_IMAGE}
 
 # ---- 1) AITER (flydsl fp4 for DSv4 MXFP4 MoE) ------------------------------
@@ -60,18 +58,24 @@ RUN for f in /tmp/vllm-patches/*.py; do echo "[vllm-patch] $f"; python "$f" || e
     && for f in /tmp/vllm-dsv4-patches/*.py; do echo "[vllm-dsv4-patch] $f"; python "$f" || echo "[vllm-dsv4-patch] skipped $f"; done \
     && rm -rf /tmp/vllm-patches /tmp/vllm-dsv4-patches
 
-# ---- 3) Mooncake (main + B-group C++ patches, bare ibv_reg_mr) -------------
+# ---- 3) Mooncake (main + B-group C++ patches) ------------------------------
 # WHY: cross-node RDMA on ionic needs the B-group C++ patches (B.2 hip-transport
-# gate + B.3 auto-chunk MR), carried against mooncake main. The dma-buf GPUDirect
-# path was dropped in #154 (exhausts a KFD resource at high util -> HIP-209); bare
-# ibv_reg_mr via host-libionic injection is the only supported path. HOW: shared
-# build_mooncake_rocm.sh mode 1 (MOONCAKE_DMABUF=1 = main + B-group, no dma-buf).
+# gate + B.3 auto-chunk MR), carried against mooncake main. How GPU memory is
+# registered for RDMA is chosen by the MOONCAKE_HIP_DMABUF build ARG:
+#   0 (default) = bare ibv_reg_mr via host-libionic injection — needs the legacy
+#                 ib_peer_mem kernel module (do NOT use at high util; HIP-209).
+#   1           = B.1 dma-buf GPUDirect (ibv_reg_dmabuf_mr) — REQUIRED on a
+#                 dma-buf-only RoCE fabric with no ib_peer_mem (e.g. crusoe
+#                 amd-spur), where bare ibv_reg_mr cannot pin VRAM at all.
+# HOW: shared build_mooncake_rocm.sh mode 1 (MOONCAKE_DMABUF=1 = main + B-group).
 ARG BUILD_MOONCAKE=1
 ARG MOONCAKE_GIT_REF=747003c058015c4077a266e7ccd7549bbc9baede
+ARG MOONCAKE_HIP_DMABUF=0
 COPY deploy/docker/scripts/build_mooncake_rocm.sh /tmp/build_mooncake_rocm.sh
 COPY deploy/docker/patches/mooncake_cpp/ /tmp/mooncake_cpp/
 RUN if [ "${BUILD_MOONCAKE}" = "1" ]; then \
-        MOONCAKE_DMABUF=1 MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" \
+        MOONCAKE_DMABUF=1 MOONCAKE_HIP_DMABUF="${MOONCAKE_HIP_DMABUF}" \
+        MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" \
         MC_CPP_PATCH_DIR=/tmp/mooncake_cpp \
         bash /tmp/build_mooncake_rocm.sh; \
     else \

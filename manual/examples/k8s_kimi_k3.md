@@ -19,19 +19,23 @@ reconciling an `InferaDeployment` into router + worker + Service, and a real
 engines on `Qwen3-0.6B`, including serving straight from the model-cache PVC
 (see [`RECIPE-single-node.md`](https://github.com/AMD-AGI/Infera/blob/main/examples/k8s-deployments/RECIPE-single-node.md)).
 
-Kimi-K3 needs a vLLM build with `kimi_k3` model support. The standard infera vLLM
-image now bases on the `kimi_k3` vLLM build (see `deploy/docker/Dockerfile.vllm`),
-so it carries that support out of the box — just build it the normal way:
+Kimi-K3 needs a vLLM build with `kimi_k3` model support. Layer infera onto the
+upstream `kimi_k3` vLLM by overriding the base of the standard vLLM image build:
 
 ```bash
-docker build -f deploy/docker/Dockerfile.vllm -t rocm/infera:vllm-v0.1.2 .
+docker build -f deploy/docker/Dockerfile.vllm \
+  --build-arg VLLM_BASE_IMAGE=vllm/vllm-openai-rocm:kimi-k3 \
+  --build-arg BUILD_AITER=0 --build-arg BUILD_MOONCAKE=0 \
+  --build-arg BUILD_HIPFILE=0 --build-arg INSTALL_LIBIONIC=0 \
+  -t rocm/infera:vllm-kimi-k3 .
 ```
 
 The result carries `infera.server` + `infera.engine.vllm` **and**
 `KimiK3ForConditionalGeneration`. With this image the full path is validated on a
 single 8-GPU node: operator → router → `infera.engine.vllm` TP8 worker serving
 Kimi-K3 (MXFP4), and a **multimodal** image request through the router returns a
-correct colour-grounded answer.
+correct colour-grounded answer. The disabled layers are RDMA-PD / kvd-L3 only;
+aiter stays the base's kimi-tuned build.
 ```
 
 ## Topology
@@ -69,7 +73,7 @@ PVC read-only.
 - The engine **image present in the node container runtime**. k3s uses
   containerd (not docker) — import a local image as a tar, not a stream:
   ```bash
-  docker save rocm/infera:vllm-v0.1.2 -o /mnt/<big-disk>/img.tar
+  docker save <infera-vllm-kimi-k3-image> -o /mnt/<big-disk>/img.tar
   sudo k3s ctr images import /mnt/<big-disk>/img.tar
   ```
 
