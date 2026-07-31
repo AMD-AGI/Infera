@@ -234,6 +234,47 @@ cannot distinguish a fix from that workaround — the usage counter can.
 > `glm52.mxfp4.spur.mooncake.packup_20260729_bug2b_draft_graph/` in the
 > `infera.yihou.glm5.2.mxfp4` workspace.
 
+## A configuration-only alternative to part of this set
+
+Turning GLM-5.2's MTP **IndexShare** off avoids the same deadlock without patch 04 or the
+page-table half of patch 02:
+
+```
+--json-model-override-args '{"index_share_for_mtp_iteration":false}'
+```
+
+It works because IndexShare is the *source* of the rank divergence: the guard term
+`draft_input.dsa_topk_indices is None` is seeded on the PD decode leg from RDMA-shipped
+per-request payloads (`eagle_disaggregation.py:54-59`), so it is a function of which
+requests each rank happens to hold. Remove the seed and the term stops diverging — no vote
+needed. Each diff's header records where it stands relative to this.
+
+| patch | substituted by IndexShare-off? |
+|---|---|
+| 01 `dsa_indexer_hip_dp_padded_rows` | **No** — independent bug, present regardless |
+| 02a `dsa_backend` DP host-sync | **Unknown** — never tested in isolation, here or anywhere |
+| 02b `dsa_backend` page-table rows | **Yes**, in effect — the arm ran without it and passed |
+| nextn `eh_proj` (the prerequisite) | **No** — weight-load bug, unrelated |
+| 04 `draft_cuda_graph_dp_vote` | **Yes** — this is what it targets |
+
+Measured on 2 × 8 MI355X with 02b and 04 asserted **absent from the bytecode**: 4/4 probe,
+32/32 twice, 64/64, zero tracebacks, accept length 2.98–3.01 — no measurable cost. Two
+conditions are easy to miss: MTP must be on the **prefill** leg too (otherwise the seed
+never reaches decode and the setting is untested rather than tested), and that arm was
+taken to conc=64, not 128.
+
+**Why the patches remain the default here.** The override is nearly free only because
+IndexShare's consumer is currently disabled under PD by `should_use_dsa_fused_topk`.
+Upstream PR [#31477](https://github.com/sgl-project/sglang/pull/31477) exists to remove
+that limitation; once it lands the override starts costing (~3 % TPOT, reported by AMD's
+llying — second-hand, not measured by us). Checked with `gh` on 2026-07-31: #31477 is
+**open**, `reviewDecision = REVIEW_REQUIRED`, unmerged. So it is a good answer today if
+IndexShare is not wanted, and a dated one if it is.
+
+Full arm with anti-marker verification:
+`glm52.mxfp4.spur.mooncake.packup_20260730_exp2_indexshare_off` in the
+`infera.yihou.glm5.2.mxfp4` workspace.
+
 ## Applying
 
 All three apply with exact context, no fuzz, against sglang commit
