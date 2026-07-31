@@ -1,0 +1,14 @@
+PHASE1-cold: 16/16 correct, median 0.69s
+PHASE2-reuse: 16/16 correct, median 0.70s
+===AFTER===
+{
+  "entries": 18272,
+  "host_bytes": 32289693696,
+  "spillover_bytes": 0,
+  "long_bytes": 32289693696,
+  "gets_total": 102,
+  "sets_total": 18272,
+  "hits_total": 102,
+  "misses_total": 0,
+  "evictions_total": 0
+}

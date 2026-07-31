@@ -1,0 +1,15 @@
+=== kvd BEFORE restart ===
+{
+  "entries": 18272,
+  "host_bytes": 32289693696,
+  "spillover_bytes": 0,
+  "long_bytes": 32289693696,
+  "gets_total": 0,
+  "sets_total": 18272,
+  "hits_total": 0,
+  "misses_total": 0,
+  "evictions_total": 0
+}
+=== restarting PREFILL engine only (kvd daemon stays up) ===
+  prefill restarting; waiting for ready...
+  ready after 190s

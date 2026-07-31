@@ -1,0 +1,14 @@
+PHASE1-cold: 16/16 correct, median 0.70s
+PHASE2-reuse: 16/16 correct, median 0.94s
+=== kvd stats after reuse ===
+{
+  "entries": 18272,
+  "host_bytes": 32289693696,
+  "spillover_bytes": 0,
+  "long_bytes": 32289693696,
+  "gets_total": 0,
+  "sets_total": 18272,
+  "hits_total": 0,
+  "misses_total": 0,
+  "evictions_total": 0
+}

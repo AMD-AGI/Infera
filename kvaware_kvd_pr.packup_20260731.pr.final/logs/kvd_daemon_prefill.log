@@ -1,0 +1,11 @@
+2026-07-31 10:16:02,111 INFO infera.kvd.server: shared arena: --shared-arena-bytes=auto → using --max-bytes (64.00 GiB)
+2026-07-31 10:16:16,121 INFO infera.kvd.shared_arena: infera-kvd-arena: arena pinned via mlock (64.00 GiB locked)
+2026-07-31 10:16:16,121 INFO infera.kvd.server: shared arena enabled: 64.00 GiB, pin=True, hugetlb=False
+2026-07-31 10:16:16,121 INFO infera.kvd.ssd: long region recovered from /tmp/kvd-long: 0 entries, 0 bytes
+2026-07-31 10:16:16,121 INFO infera.kvd.ssd: ssd region long on overlay — file-tier reads would compat-fallback under hipFile; sharded layout still functional for the kvd-internal write path
+2026-07-31 10:16:16,127 WARNING infera.kvd.storage_classify: storage_classify: lsblk returned no devices for source='overlay'; defaulting to buffered
+2026-07-31 10:16:16,129 WARNING infera.kvd.storage_classify: storage_classify: lsblk returned no devices for source='overlay'; defaulting to buffered
+2026-07-31 10:16:17,648 INFO infera.kvd.storage_selfcheck: [kvd] L3 storage self-check (/tmp/kvd-long): WRITE 1.33 GB/s  READ 28.61 GB/s  [io_mode=buffered workers=4 chunk=128MiB vol=1.6GB] (unknown device, conservative buffered; no device info, conservative default)
+2026-07-31 10:16:17,658 INFO infera.kvd.server: infera-kvd kvd-b7c9cb20 listening on /tmp/kvd/kvd.sock (max=68719476736 bytes)
+2026-07-31 10:44:48,435 INFO infera.kvd.shared_arena: infera-kvd-arena: slot grid initialized — slot_size=659008 num_slots=104277 (64.00 GiB usable of 64.00 GiB capacity)
+2026-07-31 10:44:48,491 WARNING infera.kvd.shared_arena: infera-kvd-arena: blob size 2875408 > slot_size 659008 (set by first put). Refusing oversize.
