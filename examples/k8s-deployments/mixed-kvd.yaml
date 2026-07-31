@@ -1,0 +1,129 @@
+# Mixed (aggregated) serving WITH the kvd tiered KV cache — CONCRETE recipe.
+#
+# The plain mixed recipe is single-node-qwen-sglang.yaml / -vllm.yaml. This adds
+# kvd, laid out the way Kubernetes wants it rather than with host paths:
+#
+#   * kvd runs as a SIDECAR in the worker Pod. The operator only owns the
+#     container named `main`, so any extra container is passed through verbatim.
+#   * the engine <-> kvd Unix socket lives in an `emptyDir` shared by the two
+#     containers — no hostPath, nothing pinned to a node.
+#   * kvd's L3 spill is a **PVC**, so capacity is requested from the cluster and
+#     the scheduler places the Pod where it can be satisfied.
+#   * kvd's L2 arena is host RAM, so it is charged to the sidecar's memory limit
+#     and needs IPC_LOCK to pin (mlock) it.
+#
+# Requires the model-cache PVC (model-cache/) or a hostPath model, as usual.
+#
+# NOTE ON MEMORY: `--infera-kvd-socket` enables SGLang's hierarchical cache,
+# whose host-RAM tier is sized from the GPU KV pool unless capped. Left alone it
+# requested 416 GB here and the container was OOMKilled — always pass
+# `--hicache-size` (GiB) that fits inside the engine container's memory limit.
+#
+# NOTE ON KV DTYPE: kvd only offloads KV layouts it can round-trip byte-exact.
+# Regular-attention fp8 support landed in #63 — on an engine image predating it,
+# add `--kv-cache-dtype auto` (or env INFERA_DEFAULT_KV_FP8=0) to the worker or
+# kvd will silently store nothing.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kvd-l3
+  namespace: infera
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 200Gi        # L3 spill; size to your working set
+  storageClassName: local-path   # k3s default; use a fast local-NVMe class in production
+---
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: qwen-kvd
+  namespace: infera
+spec:
+  backendFramework: sglang
+  discoveryBackend: kubernetes
+  nats:
+    deploy: false
+  services:
+    server:
+      componentType: server
+      extraPodSpec:
+        containers:
+          - name: main
+            image: rocm/infera:sglang-v0.1.1
+            imagePullPolicy: IfNotPresent
+            command: ["python3","-m","infera.server","--host","0.0.0.0","--port","8000",
+                      "--router-tokenizer-path","/models/Qwen3-0.6B",
+                      "--request-transport","http","--kv-event-transport","zmq"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources: {requests: {cpu: "4", memory: 8Gi}, limits: {cpu: "4", memory: 8Gi}}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+        volumes:
+          - {name: model, hostPath: {path: /mnt/k3local/models/qwen, type: Directory}}
+    worker:
+      componentType: worker
+      role: mixed
+      replicas: 1
+      extraPodSpec:
+        containers:
+          # ---- the engine ----
+          - name: main
+            image: rocm/infera:sglang-v0.1.1
+            imagePullPolicy: IfNotPresent
+            command: ["python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
+                      "--model-path","/models/Qwen3-0.6B",
+                      "--tp-size","1","--attention-backend","aiter","--trust-remote-code",
+                      "--mem-fraction-static","0.8",
+                      "--infera-kvd-socket","/kvd/kvd.sock",
+                      # REQUIRED under Kubernetes: --infera-kvd-socket turns on
+                      # SGLang's hierarchical cache, which otherwise sizes its
+                      # host-RAM tier from the GPU KV pool (it asked for 416 GB
+                      # here) and the container is OOMKilled. Cap it below the
+                      # engine container's memory limit.
+                      "--hicache-size","16",
+                      "--kv-event-transport","zmq","--request-transport","http"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+              - {name: INFERA_KVD_SOCKET, value: /kvd/kvd.sock}
+            resources:
+              requests: {cpu: "16", memory: 64Gi, amd.com/gpu: 1}
+              limits: {cpu: "16", memory: 64Gi, amd.com/gpu: 1}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: kvd-sock, mountPath: /kvd}
+              - {name: dshm, mountPath: /dev/shm}
+          # ---- the kvd sidecar ----
+          # Same image (kvd is pure Python inside the infera package). L2 is the
+          # pinned host-RAM arena; L3 spills to the PVC.
+          - name: kvd
+            image: rocm/infera:sglang-v0.1.1
+            imagePullPolicy: IfNotPresent
+            command: ["python3","-m","infera.kvd",
+                      "--socket","/kvd/kvd.sock",
+                      "--max-bytes","34359738368",          # 32 GiB L2 host-RAM arena
+                      "--long-path","/l3/long","--long-bytes","107374182400"]  # 100 GiB L3 on the PVC
+            securityContext:
+              capabilities:
+                add: ["IPC_LOCK"]      # required to mlock the arena
+            resources:
+              # Must exceed --max-bytes: the arena is pinned host RAM charged here.
+              requests: {cpu: "4", memory: 40Gi}
+              limits: {cpu: "4", memory: 40Gi}
+            volumeMounts:
+              - {name: kvd-sock, mountPath: /kvd}
+              - {name: kvd-l3, mountPath: /l3}
+        volumes:
+          - {name: model, hostPath: {path: /mnt/k3local/models/qwen, type: Directory}}
+          # engine <-> kvd UDS: a plain emptyDir shared by the two containers
+          - {name: kvd-sock, emptyDir: {}}
+          - {name: kvd-l3, persistentVolumeClaim: {claimName: kvd-l3}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 32Gi}}
