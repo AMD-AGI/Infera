@@ -102,9 +102,15 @@ curl -s localhost:8000/v1/chat/completions \
        "max_tokens":60}' | jq -r '.choices[0].message.content'
 ```
 
-Expect a coherent answer naming Paris. **Garbage or repeated tokens** means the ROCm
-DSA indexer env vars did not take effect — check that `SGLANG_OPT_USE_TILELANG_INDEXER=1`,
-`SGLANG_OPT_USE_TOPK_V2=0` and `SGLANG_OPT_USE_JIT_NORM=0` are set on the worker.
+Expect exactly `The capital of France is Paris.` **Garbage or repeated tokens**
+means the ROCm DSA indexer env vars did not take effect — check that
+`SGLANG_OPT_USE_TILELANG_INDEXER=1`, `SGLANG_OPT_USE_TOPK_V2=0` and
+`SGLANG_OPT_USE_JIT_NORM=0` are set on the worker.
+
+GLM-5.2 is a thinking model, so the manifest passes `--reasoning-parser glm45`
+and the trace lands in `reasoning_content`, leaving `content` clean. Without it
+the answer is still correct but arrives with the chain-of-thought and a raw
+`</think>` inlined — right output, unusable shape.
 
 On the kvd combos, confirm KV is actually landing in the tiers — this is the check
 that catches a silently-storing-nothing kvd:
@@ -136,14 +142,22 @@ rocm-smi --showpids
 
 | What | Status |
 |---|---|
-| GLM-5.2 TP8 SGLang serving, real tokens | validated on MI355X — [`manual/examples/k8s_glm5.2_sglang.md`](../../../manual/examples/k8s_glm5.2_sglang.md) |
-| kvd sidecar + PVC L3 under SGLang | validated (3674 entries / 421 MB), on Qwen3-0.6B |
-| overlay payload on a stock SGLang base | validated — [`deploy/overlay/README.md`](../../../deploy/overlay/README.md) |
-| these three combined, as written here | **not yet run end-to-end** |
+| **`mixed/deploy.yaml` exactly as written** | **validated end-to-end on k3s (MI355X, 8×`amd.com/gpu`)** — see below |
+| kvd sidecar + PVC L3 under SGLang | validated (3674 entries / 421 MB), on Qwen3-0.6B — but see the py310 native-tree note above |
 | pd / pd-kvd for this model | structure only; needs a routable RoCE fabric |
 
-The validated runs used the baked `rocm/infera:sglang-*` images. These manifests
-compose that same software as an overlay — proven separately, not yet together.
+The `mixed` run used the **stock `lmsysorg/sglang` image** with the overlay
+mounted in — no infera-built engine image anywhere in the Pod:
+
+| | |
+|---|---|
+| router Ready | ~20 s (`infera.server` running from the overlay's py310 tree) |
+| worker Ready | ~13 min (408 GiB over NFS, plus DSA graph capture) |
+| output | `The capital of France is Paris.` — correct and coherent |
+| reasoning | separated into `reasoning_content`, no `</think>` in `content` |
+
+Weights came over NFS here. On local NVMe expect materially less than 13 min;
+the comparable Kimi-K3 run loaded 1453 GiB in 502 s from local disk.
 
 ## Source
 
