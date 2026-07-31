@@ -57,6 +57,23 @@ COPY deploy/docker/patches/sglang/ /tmp/sglang-patches/
 RUN for f in /tmp/sglang-patches/*.py; do echo "[sglang-patch] $f"; python "$f" || echo "[sglang-patch] skipped $f"; done \
     && rm -rf /tmp/sglang-patches
 
+# ---- sglang PD patches (mooncake early-send KV wait event) ------------------
+# REQUIRED FOR CORRECTNESS on any PD deployment doing chunked prefill over
+# mooncake: without it every chunk but the last is RDMA-read while the forward is
+# still writing those pages, so prompts longer than one chunk come back partially
+# wrong with nothing in any log. Self-locating and idempotent like the loop
+# above, and reports "already present" once the base sglang carries the fix.
+# NOT tolerant, unlike that loop: a script here exits non-zero only when its
+# anchors drifted, i.e. when the fix did NOT go in -- and an engine image that
+# silently corrupts long prompts is worse than a failed build.
+#
+# Placed before the DSA layer to match the order the merge experiment validated;
+# the two touch disjoint sglang files, so the order is not load-bearing.
+COPY deploy/docker/patches/sglang_disagg/ /tmp/sglang-disagg-patches/
+RUN set -eu; \
+    for f in /tmp/sglang-disagg-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
+    rm -rf /tmp/sglang-disagg-patches
+
 # ---- GLM-5.2 DSA patch set (PD + DP-attention + EAGLE MTP on gfx950) --------
 # Three patches that together make PD disaggregation + DP-attention + EAGLE MTP
 # work for GLM-5.2. Without them the combination crashes on the first batch or
