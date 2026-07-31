@@ -1,0 +1,82 @@
+[
+  {
+    "round": 0,
+    "kind": "canary",
+    "verdict": "GIBBERISH",
+    "served_before": 0,
+    "latency_s": 21.53,
+    "output": "The in022.</think>829</think>The8292</think>The8.</think>8.</think></think>82</think>8.</think></think></think></think></think>The8</think></think></think></think></think></think></think></think>8.</think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think>"
+  },
+  {
+    "round": 1,
+    "kind": "canary",
+    "verdict": "GIBBERISH",
+    "served_before": 0,
+    "latency_s": 7.85,
+    "output": "The user wants the answer to2.3.</think>82928.</think>The calibration constant28</think>The</think></think>The8292</think></think></think>82</think></think>8</think></think>8</think></think></think></think></think></think></think></think>8</think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think>"
+  },
+  {
+    "round": 2,
+    "kind": "canary",
+    "verdict": "OK",
+    "served_before": 0,
+    "latency_s": 2.48,
+    "output": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for the relevant information.\nLooking through the log, I see a record that stands out:\n\"Record SECRET-B: the calibration constant for the orbital gyroscope is exactly 82931.\"\nThe question asks for the number only.\nSo the answer is 82931.</think>82931"
+  },
+  {
+    "round": 3,
+    "kind": "canary",
+    "verdict": "GIBBERISH",
+    "served_before": 0,
+    "latency_s": 8.42,
+    "output": "The answer is 829.</think>The829.</think>The82. Record 134298.</think>8292</think></think>8292.</think></think>8292</think>The292</think>8292</think>829</think></think>829</think>829</think>829</think>82</think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think>"
+  },
+  {
+    "round": 4,
+    "kind": "canary",
+    "verdict": "MISS",
+    "served_before": 0,
+    "latency_s": 2.45,
+    "output": "1.  **Analyze the Request:** The user wants to know the calibration constant for the orbital gyroscope based *only* on the provided maintenance log. The answer should be just the number.\n2.  **Scan the Log:** I need to look for the keyword \"calibration constant\" or \"orbital gyroscope\" within the log text.\n3.  **Locate the Information:** Scanning through the records...\n    *   Record 12345 to Record"
+  },
+  {
+    "round": 5,
+    "kind": "canary",
+    "verdict": "OK",
+    "served_before": 0,
+    "latency_s": 2.53,
+    "output": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for the term \"orbital gyroscope\" or \"calibration constant\".\nLooking through the log:\nRecord 12883: the maintenance crew inspected corridor 111 and logged routine status code 6689 with no anomalies reported that shift.\nRecord SECRET-B: the calibration constant for the orbital gyroscope is exactly 82931.\nRecord 12884"
+  },
+  {
+    "round": 6,
+    "kind": "canary",
+    "verdict": "GIBBERISH",
+    "served_before": 0,
+    "latency_s": 7.87,
+    "output": "The question asks for \"the\" and1\" and2.3\"3.4.5678.8\"1.9.2 the3\"4.55\"5\"6.7\"8.810\"3.1\" the2.3\"4.5\"6.7 the2.8 the0.1 the2.3\"4.4.5\"5\"6.7\"8.1 the"
+  },
+  {
+    "round": 7,
+    "kind": "canary",
+    "verdict": "GIBBERISH",
+    "served_before": 0,
+    "latency_s": 7.87,
+    "output": "The question asks for the6 the1. I1 the2. The calibration3 The4 the4567.</think>The8 the2 the3.0 the1 the.2 the34 the5.6 the7 the8 the9 the0 the1.1 the2 the3 the45.2 the3 the4 the5 the6 the7 the8 the9 the1 the2 the3 the8 the4 the5 the6 the"
+  },
+  {
+    "round": 8,
+    "kind": "canary",
+    "verdict": "GIBBERISH",
+    "served_before": 0,
+    "latency_s": 8.4,
+    "output": "The user wants the number,</think>The 829.5.</think>829</think> 1</think></think>8.</think></think></think>829</think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think>829</think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think>8</think></think></think></think></think></think></think></think></think></think></think></think></think>8</think></think></think>"
+  },
+  {
+    "round": 9,
+    "kind": "canary",
+    "verdict": "OK",
+    "served_before": 0,
+    "latency_s": 2.6,
+    "output": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for the term \"calibration constant for the orbital gyroscope\".\nLooking through the log:\nRecord 12883: the maintenance crew inspected corridor 111 and logged routine status code 6689 with no anomalies reported that shift.\nRecord SECRET-B: the calibration constant for the orbital gyroscope is exactly 82931.\nRecord 12884: the"
+  }
+]

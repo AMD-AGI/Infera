@@ -1,0 +1,38 @@
+Benchmark duration (s):                  101.86    
+Total input tokens:                      262144    
+Total input text tokens:                 262144    
+Total generated tokens:                  262144    
+Total generated tokens (retokenized):    262004    
+Request throughput (req/s):              2.51      
+Input token throughput (tok/s):          2573.56   
+Output token throughput (tok/s):         2573.56   
+Peak output token throughput (tok/s):    3072.00   
+Peak concurrent requests:                88        
+Total token throughput (tok/s):          5147.12   
+Concurrency:                             63.17     
+----------------End-to-End Latency----------------
+Mean E2E Latency (ms):                   25133.89  
+Median E2E Latency (ms):                 21987.99  
+P90 E2E Latency (ms):                    35100.98  
+P95 E2E Latency (ms):                    35873.57  
+P99 E2E Latency (ms):                    36220.89  
+---------------Time to First Token----------------
+Mean TTFT (ms):                          3765.50   
+Median TTFT (ms):                        543.24    
+P90 TTFT (ms):                           13821.65  
+P95 TTFT (ms):                           14515.01  
+P99 TTFT (ms):                           14541.19  
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          20.89     
+Median TPOT (ms):                        20.92     
+P90 TPOT (ms):                           21.09     
+P95 TPOT (ms):                           21.12     
+P99 TPOT (ms):                           21.20     
+---------------Inter-Token Latency----------------
+Mean ITL (ms):                           20.91     
+Median ITL (ms):                         21.05     
+P90 ITL (ms):                            21.90     
+P95 ITL (ms):                            22.22     
+P99 ITL (ms):                            22.78     
+Max ITL (ms):                            63.47     
+==================================================

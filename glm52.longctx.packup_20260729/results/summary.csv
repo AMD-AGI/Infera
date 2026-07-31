@@ -1,0 +1,23 @@
+arm,image,topology,dpa,chunk_per_rank,test,prompt_tokens,result,note
+A,rc6,single-node,1,2048,needle 65K,64974,3/3 + 3/3,PASS
+A,rc6,single-node,1,2048,needle 119K,119071,3/3 + 3/3,PASS
+B,rc6,single-node,1,2048,conc=32 ISL=32K,32768,64/64 0err,26621 in-tok/s 26830 total
+C,pd-unified,single-node,0,16384,18 novel cold shapes,33131-91919,0 corrupt,PASS control arm
+D,pd-unified,single-node,1,2048,18 novel cold shapes,3131-91386,0 corrupt,PASS control arm
+E,pd-unified,PD mooncake,1,2048,len sweep,2693,last clean,boundary = chunk
+E,pd-unified,PD mooncake,1,2048,len sweep,2801,first corrupt,boundary = chunk
+E,pd-unified,PD mooncake,0,16384,len sweep,31845,last clean,boundary moved with chunk
+E,pd-unified,PD mooncake,0,16384,len sweep,32548,first corrupt,boundary moved with chunk
+E,pd-unified,PD mooncake,1,2048,canary x10 identical prompt,30410,4/10 corrupt,latency bimodal 2.2s=OK 6.4s=corrupt
+E,pd-unified,PD mooncake,1,2048,6 baseline lengths,5650-51389,5/6 corrupt,
+F,pd-unified,PD mooncake,1,32768,canary x10 identical prompt,30410,0/10 corrupt,MITIGATION chunk=262144
+F,pd-unified,PD mooncake,1,32768,6 baseline lengths,5650-51389,1/6 corrupt,the one failure pt=36678 > chunk
+F,pd-unified,PD mooncake,1,32768,boundary sweep,32599,last clean,boundary moved to new chunk
+F,pd-unified,PD mooncake,1,32768,boundary sweep,34885,first corrupt,boundary moved to new chunk
+G,pd-unified,PD mooncake,1,2048,canary x10 + disable-chunked-prefix-cache,30410,7/10 corrupt,hypothesis 2 RULED OUT
+H,pd-unified,PD TCP (MC_FORCE_TCP),1,2048,canary x10,30410,6/10 corrupt,transport EXONERATED - bug is prefill-side
+I,pd-unified-waitevent,PD mooncake,1,2048,canary x10 PATCHED,30410,0 corrupt-reasoning 9/10 coherent,FIX VERIFIED (commit 854ebf70)
+I,pd-unified-waitevent,PD mooncake,1,2048,canary x20 PATCHED,30410,0/20 corrupt-reasoning,4 misses = 96-token truncation
+I,pd-unified-waitevent,PD mooncake,1,2048,6 baseline lengths PATCHED,5650-51389,6/6 coherent,was 5/6 corrupt; incl pt=51389 = 25 chunks
+J,pd-unified-waitevent,PD mooncake,1,2048,conc=32 ISL=32K stress PATCHED,32768,64/64 0err 0retract,24073 total tok/s; TTFT med 23.5s; TPOT med 20.7ms
+J,pd-unified-waitevent,PD mooncake,1,2048,post-stress 6 lengths,5650-51389,6/6 coherent 0 corrupt,correctness holds after stress

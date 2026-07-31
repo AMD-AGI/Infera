@@ -1,0 +1,51 @@
+{
+  "base": "http://127.0.0.1:30000",
+  "model": "glm5.2-mxfp4",
+  "target_tokens": 65536,
+  "calibration": [
+    {
+      "lines": 3276,
+      "prompt_tokens": 92892
+    },
+    {
+      "lines": 2311,
+      "prompt_tokens": 65008
+    }
+  ],
+  "cases": [
+    {
+      "depth": 0.05,
+      "prompt_tokens": 64974,
+      "completion_tokens": 96,
+      "latency_s": 13.23,
+      "expect": "crimson-lantern-4417",
+      "output": "The user wants to know the emergency access passphrase for vault seven based on the provided log.\nI need to scan the log for the keyword \"vault seven\" or \"passphrase\".\nLooking through the log:\nRecord SECRET-A: the emergency access passphrase for vault seven is 'crimson-lantern-4417'.\n\nI need to answer with the passphrase only.\nThe passphrase is 'crimson-lantern-4417' or crimson-lantern-4417",
+      "pass": true
+    },
+    {
+      "depth": 0.5,
+      "prompt_tokens": 64971,
+      "completion_tokens": 85,
+      "latency_s": 13.05,
+      "expect": "82931",
+      "output": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for the keyword \"calibration constant\" or \"orbital gyroscope\".\nLooking through the log:\nRecord SECRET-B: the calibration constant for the orbital gyroscope is exactly 82931.\nThe question asks for the number only.\nThe number is 82931.</think>82931",
+      "pass": true
+    },
+    {
+      "depth": 0.95,
+      "prompt_tokens": 64975,
+      "completion_tokens": 95,
+      "latency_s": 13.17,
+      "expect": "kestrel-nine",
+      "output": "The user wants to know the building name where the backup generator was relocated to, based on the provided log.\nI need to scan the log for the relevant information.\nLooking through the log, I see a record:\n\"Record SECRET-C: the backup generator was relocated to building 'Kestrel-Nine' on March 14th.\"\nThe question asks for the building name only.\nThe building name is 'Kestrel-Nine'.</think>Kestrel-Nine",
+      "pass": true
+    }
+  ],
+  "multi": {
+    "prompt_tokens": 65037,
+    "latency_s": 12.72,
+    "hits": 2,
+    "output": "The user wants me to extract three specific pieces of information from the provided log:\n1. The vault seven passphrase\n2. The orbital gyroscope calibration constant\n3. The building the backup generator was relocated to\n\nI need to scan the log for these specific records.\n\n1. Looking for \"vault seven passphrase\":\nRecord SECRET-A: the emergency access passphrase for vault seven is 'crimson-lantern-4417'.\nSo the passphrase is 'crimson-lantern-4417'.\n\n2. Looking for \"orbital gyroscope calibration constant\":\nRecord SECRET-B: the calibration constant for the orbital gyroscope is exactly 82931.\nSo the calibration constant is 82931.\n\n3. Looking for \"backup generator was relocated to\":\nRecord SECRET-C: the backup generator"
+  },
+  "single_needle_pass": "3/3"
+}

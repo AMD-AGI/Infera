@@ -1,0 +1,162 @@
+[
+  {
+    "round": 0,
+    "kind": "canary",
+    "verdict": "OK",
+    "served_before": 0,
+    "latency_s": 2.35,
+    "output": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for the relevant information.\n\nLooking through the log:\n...\nRecord 12883: the maintenance crew inspected corridor 111 and logged routine status code 6689 with no anomalies reported that shift.\nRecord SECRET-B: the calibration constant for the orbital gyroscope is exactly 82931.\nRecord 12884: the maintenance crew inspected corridor 118 and"
+  },
+  {
+    "round": 1,
+    "kind": "canary",
+    "verdict": "OK",
+    "served_before": 0,
+    "latency_s": 2.44,
+    "output": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for \"orbital gyroscope\" or \"calibration constant\".\nLooking through the log...\nRecord 12883: the maintenance crew inspected corridor 111 and logged routine status code 6689 with no anomalies reported that shift.\nRecord SECRET-B: the calibration constant for the orbital gyroscope is exactly 82931.\nRecord 12884: the"
+  },
+  {
+    "round": 2,
+    "kind": "canary",
+    "verdict": "GIBBERISH",
+    "served_before": 0,
+    "latency_s": 8.58,
+    "output": "The user wants to find the calibration constant for the orbital gyroscope in the provided text.\nI need to scan the text for \"calibration constant\" and \"orbital gyroscope\".\nLooking through the text:\n\"Record SECRET-B: the calibration constant for the orbital gyroscope is exactly 82931.\"\nThe number is 82931.\nThe question asks to answer with the number only.</think></think>82931</think></think>8293182931</think>The"
+  },
+  {
+    "round": 3,
+    "kind": "canary",
+    "verdict": "OK",
+    "served_before": 0,
+    "latency_s": 2.83,
+    "output": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for the term \"calibration constant for the orbital gyroscope\".\nLooking through the log...\nRecord 12883: the maintenance crew inspected corridor 111 and logged routine status code 6689 with no anomalies reported that shift.\nRecord SECRET-B: the calibration constant for the orbital gyroscope is exactly 82931.\nRecord 12884: the"
+  },
+  {
+    "round": 4,
+    "kind": "canary",
+    "verdict": "MISS",
+    "served_before": 0,
+    "latency_s": 2.83,
+    "output": "1.  **Analyze the Request:** The user wants to know the calibration constant for the orbital gyroscope based *only* on the provided maintenance log. The answer should be just the number.\n2.  **Scan the Log for Keywords:** I need to search for \"calibration constant\", \"orbital gyroscope\", or \"gyroscope\".\n3.  **Locate the Information:**\n    *   Scanning through the log...\n    *   Record 123"
+  },
+  {
+    "round": 5,
+    "kind": "canary",
+    "verdict": "OK",
+    "served_before": 0,
+    "latency_s": 2.52,
+    "output": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for \"orbital gyroscope\" or \"calibration constant\".\nLooking through the log, I see:\nRecord 12883: the maintenance crew inspected corridor 111 and logged routine status code 6689 with no anomalies reported that shift.\nRecord SECRET-B: the calibration constant for the orbital gyroscope is exactly 82931.\nRecord 128"
+  },
+  {
+    "round": 6,
+    "kind": "canary",
+    "verdict": "OK",
+    "served_before": 0,
+    "latency_s": 2.49,
+    "output": "The user wants to know the calibration constant for the orbital gyroscope based on the provided maintenance log.\nI need to scan the log for the term \"orbital gyroscope\" or \"calibration constant\".\nLooking through the log:\nRecord 12883: the maintenance crew inspected corridor 111 and logged routine status code 6689 with no anomalies reported that shift.\nRecord SECRET-B: the calibration constant for the orbital gyroscope is exactly 82931.\nRecord 128"
+  },
+  {
+    "round": 7,
+    "kind": "canary",
+    "verdict": "OK",
+    "served_before": 0,
+    "latency_s": 2.07,
+    "output": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for the relevant information.\nLooking through the log, I see a record:\n\"Record SECRET-B: the calibration constant for the orbital gyroscope is exactly 82931.\"\nThe question asks for the number only.\nSo the answer should be 82931.</think>82931"
+  },
+  {
+    "round": 8,
+    "kind": "canary",
+    "verdict": "OK",
+    "served_before": 0,
+    "latency_s": 2.95,
+    "output": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for \"calibration constant for the orbital gyroscope\".\nLooking through the log:\nRecord 12883: the maintenance crew inspected corridor 111 and logged routine status code 6689 with no anomalies reported that shift.\nRecord SECRET-B: the calibration constant for the orbital gyroscope is exactly 82931.\nRecord 12884: the maintenance crew"
+  },
+  {
+    "round": 9,
+    "kind": "canary",
+    "verdict": "OK",
+    "served_before": 0,
+    "latency_s": 1.98,
+    "output": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for the relevant information.\nLooking through the log, I find:\nRecord SECRET-B: the calibration constant for the orbital gyroscope is exactly 82931.\nThe question asks for the number only.\nSo the answer is 82931.</think>82931"
+  },
+  {
+    "round": 10,
+    "kind": "canary",
+    "verdict": "MISS",
+    "served_before": 0,
+    "latency_s": 2.52,
+    "output": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for the term \"orbital gyroscope\" or \"calibration constant\".\nLooking through the log:\nRecord 12345: ...\n...\nRecord 12883: the maintenance crew inspected corridor 111 and logged routine status code 6689 with no anomalies reported that shift.\nRecord SECRET-B: the calibration constant for the orbital gyroscope is exactly 8"
+  },
+  {
+    "round": 11,
+    "kind": "canary",
+    "verdict": "OK",
+    "served_before": 0,
+    "latency_s": 2.06,
+    "output": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for the relevant information.\nLooking through the log, I see a record:\n\"Record SECRET-B: the calibration constant for the orbital gyroscope is exactly 82931.\"\nThe question asks for the number only.\nSo the answer should be 82931.</think>82931"
+  },
+  {
+    "round": 12,
+    "kind": "canary",
+    "verdict": "MISS",
+    "served_before": 0,
+    "latency_s": 2.11,
+    "output": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for the phrase \"calibration constant for the orbital gyroscope\".\nLooking through the log...\nRecord 12345 to Record 12883 are normal.\nRecord 12883: the maintenance crew inspected corridor 111 and logged routine status code 6689 with no anomalies reported that shift.\nRecord SECRET-B: the calibration constant for the orbital gyroscope is"
+  },
+  {
+    "round": 13,
+    "kind": "canary",
+    "verdict": "OK",
+    "served_before": 0,
+    "latency_s": 2.32,
+    "output": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for the term \"orbital gyroscope\" or \"calibration constant\".\n\nLooking through the log:\nRecord 12883: the maintenance crew inspected corridor 111 and logged routine status code 6689 with no anomalies reported that shift.\nRecord SECRET-B: the calibration constant for the orbital gyroscope is exactly 82931.\nRecord 12884"
+  },
+  {
+    "round": 14,
+    "kind": "canary",
+    "verdict": "OK",
+    "served_before": 0,
+    "latency_s": 2.07,
+    "output": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for the relevant information.\nLooking through the log, I find:\n\"Record SECRET-B: the calibration constant for the orbital gyroscope is exactly 82931.\"\nThe question asks for the number only.\nThe number is 82931.</think>82931"
+  },
+  {
+    "round": 15,
+    "kind": "canary",
+    "verdict": "OK",
+    "served_before": 0,
+    "latency_s": 1.87,
+    "output": "The user wants to know the calibration constant for the orbital gyroscope based on the provided maintenance log.\nI need to scan the log for the relevant information.\nLooking through the log, I see a record that stands out:\nRecord SECRET-B: the calibration constant for the orbital gyroscope is exactly 82931.\nThe question asks for the number only.\nSo the answer should be 82931.</think>82931"
+  },
+  {
+    "round": 16,
+    "kind": "canary",
+    "verdict": "OK",
+    "served_before": 0,
+    "latency_s": 2.18,
+    "output": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for the relevant information.\nLooking through the log, I see a record:\n\"Record SECRET-B: the calibration constant for the orbital gyroscope is exactly 82931.\"\nThe question asks for the number only.\nThe number is 82931.</think>82931"
+  },
+  {
+    "round": 17,
+    "kind": "canary",
+    "verdict": "MISS",
+    "served_before": 0,
+    "latency_s": 2.06,
+    "output": "1.  **Analyze the Request:** The user wants to know the calibration constant for the orbital gyroscope, based *only* on the provided maintenance log. The answer must be the number only.\n2.  **Scan the Log:** I need to search the log for the keywords \"calibration constant\", \"orbital gyroscope\", or \"SECRET-B\".\n3.  **Locate the Information:**\n    *   Scanning through the records...\n    *  "
+  },
+  {
+    "round": 18,
+    "kind": "canary",
+    "verdict": "OK",
+    "served_before": 0,
+    "latency_s": 2.06,
+    "output": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for the term \"orbital gyroscope\" or \"calibration constant\".\n\nLooking through the log:\nRecord 12883: the maintenance crew inspected corridor 111 and logged routine status code 6689 with no anomalies reported that shift.\nRecord SECRET-B: the calibration constant for the orbital gyroscope is exactly 82931.\nRecord 12884"
+  },
+  {
+    "round": 19,
+    "kind": "canary",
+    "verdict": "OK",
+    "served_before": 0,
+    "latency_s": 2.33,
+    "output": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for the relevant information.\nLooking through the log:\n...\nRecord 12883: the maintenance crew inspected corridor 111 and logged routine status code 6689 with no anomalies reported that shift.\nRecord SECRET-B: the calibration constant for the orbital gyroscope is exactly 82931.\nRecord 12884: the maintenance crew inspected corridor 118 and"
+  }
+]
