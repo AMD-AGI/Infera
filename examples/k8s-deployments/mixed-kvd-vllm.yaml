@@ -1,4 +1,4 @@
-# Mixed (aggregated) serving WITH the kvd tiered KV cache — CONCRETE recipe.
+# Mixed (aggregated) serving WITH kvd on the vLLM path — CONCRETE recipe.
 #
 # The plain mixed recipe is single-node-qwen-sglang.yaml / -vllm.yaml. This adds
 # kvd, laid out the way Kubernetes wants it rather than with host paths:
@@ -14,19 +14,12 @@
 #
 # Requires the model-cache PVC (model-cache/) or a hostPath model, as usual.
 #
-# ENGINE CHOICE — this manifest uses SGLang, which reaches kvd through its
-# HiCacheStorage backend (`--infera-kvd-socket`) and gets the L2 host-RAM arena
-# plus the L3 file tier. Verified here: 3674 entries / 421 MB landing in both.
-#
-# But **hipFile GPU-direct L3 is vLLM-only**: on the vLLM path kvd loads L3
-# straight into VRAM, while SGLang's route goes through host memory. If you want
-# GPU-direct L3, use mixed-kvd-vllm.yaml instead — same sidecar/PVC layout, with
-# the InferaKvdConnector wiring.
-#
-# NOTE ON MEMORY: `--infera-kvd-socket` enables SGLang's hierarchical cache,
-# whose host-RAM tier is sized from the GPU KV pool unless capped. Left alone it
-# requested 416 GB here and the container was OOMKilled — always pass
-# `--hicache-size` (GiB) that fits inside the engine container's memory limit.
+# ENGINE CHOICE — this is the vLLM twin of mixed-kvd.yaml. It reaches kvd
+# through the InferaKvdConnector (a vLLM KV-transfer connector) rather than
+# SGLang's HiCacheStorage backend, and it is the path that supports **hipFile
+# GPU-direct L3**: L3 loads straight into VRAM instead of bouncing through host
+# memory. Use this one when GPU-direct L3 matters; mixed-kvd.yaml (SGLang) gets
+# the L2 arena and the file tier but not the GPU-direct path.
 #
 # NOTE ON KV DTYPE: kvd only offloads KV layouts it can round-trip byte-exact.
 # Regular-attention fp8 support landed in #63 — on an engine image predating it,
@@ -36,7 +29,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: kvd-l3
+  name: kvd-l3-vllm
   namespace: infera
 spec:
   accessModes:
@@ -49,10 +42,10 @@ spec:
 apiVersion: infera.amd.com/v1alpha1
 kind: InferaDeployment
 metadata:
-  name: qwen-kvd
+  name: qwen-kvd-vllm
   namespace: infera
 spec:
-  backendFramework: sglang
+  backendFramework: vllm
   discoveryBackend: kubernetes
   nats:
     deploy: false
@@ -62,7 +55,7 @@ spec:
       extraPodSpec:
         containers:
           - name: main
-            image: rocm/infera:sglang-v0.1.1
+            image: rocm/infera:vllm-v0.1.1
             imagePullPolicy: IfNotPresent
             command: ["python3","-m","infera.server","--host","0.0.0.0","--port","8000",
                       "--router-tokenizer-path","/models/Qwen3-0.6B",
@@ -84,19 +77,18 @@ spec:
         containers:
           # ---- the engine ----
           - name: main
-            image: rocm/infera:sglang-v0.1.1
+            image: rocm/infera:vllm-v0.1.1
             imagePullPolicy: IfNotPresent
-            command: ["python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
-                      "--model-path","/models/Qwen3-0.6B",
-                      "--tp-size","1","--attention-backend","aiter","--trust-remote-code",
-                      "--mem-fraction-static","0.8",
-                      "--infera-kvd-socket","/kvd/kvd.sock",
-                      # REQUIRED under Kubernetes: --infera-kvd-socket turns on
-                      # SGLang's hierarchical cache, which otherwise sizes its
-                      # host-RAM tier from the GPU KV pool (it asked for 416 GB
-                      # here) and the container is OOMKilled. Cap it below the
-                      # engine container's memory limit.
-                      "--hicache-size","16",
+            # kvd is reached through the connector, declared in
+            # --kv-transfer-config; INFERA_KVD_SOCKET (below) points it at the
+            # sidecar's UDS. No hierarchical-cache sizing to worry about here —
+            # that knob is SGLang-side only.
+            command: ["python3","-m","infera.engine.vllm","--host","0.0.0.0","--port","30000",
+                      "--model","/models/Qwen3-0.6B","--served-model-name","qwen",
+                      "--tensor-parallel-size","1","--gpu-memory-utilization","0.85",
+                      "--trust-remote-code",
+                      "--kv-transfer-config",
+                      "{\"kv_connector\":\"InferaKvdConnector\",\"kv_role\":\"kv_both\",\"kv_connector_module_path\":\"infera.engine.vllm.kvd_connector\"}",
                       "--kv-event-transport","zmq","--request-transport","http"]
             env:
               - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
@@ -114,7 +106,7 @@ spec:
           # Same image (kvd is pure Python inside the infera package). L2 is the
           # pinned host-RAM arena; L3 spills to the PVC.
           - name: kvd
-            image: rocm/infera:sglang-v0.1.1
+            image: rocm/infera:vllm-v0.1.1
             imagePullPolicy: IfNotPresent
             command: ["python3","-m","infera.kvd",
                       "--socket","/kvd/kvd.sock",
@@ -134,5 +126,5 @@ spec:
           - {name: model, hostPath: {path: /mnt/k3local/models/qwen, type: Directory}}
           # engine <-> kvd UDS: a plain emptyDir shared by the two containers
           - {name: kvd-sock, emptyDir: {}}
-          - {name: kvd-l3, persistentVolumeClaim: {claimName: kvd-l3}}
+          - {name: kvd-l3, persistentVolumeClaim: {claimName: kvd-l3-vllm}}
           - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 32Gi}}
