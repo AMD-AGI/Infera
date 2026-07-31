@@ -73,7 +73,7 @@ or remove the seed so the term stops diverging (IndexShare off).
 | patch | replaced by IndexShare-off? |
 |---|---|
 | 1 `dsa_indexer_hip_dp_padded_rows` | **No.** Independent bug — DP-padded vs real rows in the HIP indexer. Still required. |
-| 2a `dsa_backend` DP host-sync | **Not established.** Untested in isolation, here or anywhere. |
+| 2a `dsa_backend` DP host-sync | **No.** A host sync is invisible to the graph/eager decision either mechanism changes. |
 | 2b `dsa_backend` page-table rows | **Yes, in effect** — the arm ran without it and passed. |
 | 3 nextn `eh_proj` | **No.** Weight-load bug, unrelated. Still required. |
 | 4 `draft_cuda_graph_dp_vote` | **Yes** — this is the one it genuinely targets. |
@@ -143,10 +143,17 @@ latency: ~0.4 s is the breaker, 12–23 s is a real fault. This run used a fresh
 
 ## 4. What is still open
 
-- **Patch 2a has never had a differential control.** Not in this kit, not in any of the ten
-  before it. Its evidence remains one observation. `CLAUDE.md` makes 对拍 mandatory for
-  this bug class; patch 2a does not meet that bar and never has. The cheap experiment:
-  full set, revert only 2a, verify absent in bytecode, run conc=32.
+- **Patch 2a has no revert-style control** — but that is not the same as thin evidence, and
+  an earlier revision of this kit wrongly implied it was. Its case was made from runtime
+  state rather than from a revert: a py-spy dump caught a **busy** rank blocked inside
+  `dsa_backend` on `.max().item()` while **idle** peers had already advanced into the next
+  collective (the divergence itself, observed), and after the fix no rank appears in
+  `dsa_backend` in a dump again with PD warmup passing on all 8 ranks. Its second half
+  (removing two unconditional `.cpu()` syncs) was forced *by experiment*: with the
+  `max_seqlen_k` change alone the hang persists. See
+  `..._20260728/dpa_mtp_fix/{CODE_VERIFICATION_bug2.md,dpa.mtp.pd.debug.md}`. A revert
+  control would still be a cheap addition, but it would confirm a conclusion that already
+  rests on direct observation, not fill a hole.
 - **The draft-graph replay count was not re-measured here** — it needs a probe, i.e. a
   different image. 92.0 % on all 8 ranks was measured on the immediately preceding build of
   the same patch set. Everything in this kit is consistent with the draft path being forced

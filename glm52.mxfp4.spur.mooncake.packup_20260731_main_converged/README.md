@@ -102,10 +102,11 @@ it does **not**, and why it has an expiry date (upstream #31477).
   different image. Measured at **92.0 %, identical on all 8 ranks**, on the immediately
   preceding build of the same patch set (`..._20260731_final_deliverable`). A green stress
   result alone cannot distinguish a fix from forcing the path eager.
-- **No differential control was run here.** Necessity lives in the earlier kits — patch 4's
-  same-node revert control (0/4, deadlock) is in `..._20260729_bug2b_draft_graph`.
-- **Patch 2a still has no differential control**, in this kit or any of the ten before it.
-  This is the oldest open gap in the series.
+- **No differential control was run here.** Each patch's necessity lives in the earlier
+  kits — patch 4's same-node revert control (0/4, deadlock) is in
+  `..._20260729_bug2b_draft_graph`; patch 2's is in `..._20260728/dpa_mtp_fix/`, where the
+  divergence was caught in a py-spy dump and its second half was forced by experiment
+  (with only the `max_seqlen_k` change, the hang persists). See `notes.md` §4.
 - **No performance comparison** against a DPA-only baseline.
 - **One configuration only**: context 32768, short prompts, 512-token outputs,
   `--disable-custom-all-reduce`, MTP on the decode leg only.
