@@ -93,8 +93,12 @@ curl -s localhost:8000/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{"model":"kimi-k3",
        "messages":[{"role":"user","content":"What is the capital of France?"}],
-       "max_tokens":60}' | jq -r '.choices[0].message.content'
+       "max_tokens":200}' | jq -r '.choices[0].message.content'
 ```
+
+Expect `The capital of France is Paris.` Keep `max_tokens` generous: Kimi-K3
+spent 73 completion tokens on that sentence, so a 60-token cap truncates it to
+the single word `The` and the recipe looks broken when it is not.
 
 **Multimodal** — Kimi-K3 is a vision model, so the text test alone does not cover
 it. `examples/kimi_k3/mm_test.py` generates a test image with the standard library
@@ -152,14 +156,26 @@ on this hardware.
 
 | What | Status |
 |---|---|
-| Kimi-K3 TP8 vLLM serving + multimodal | validated on MI355X — [`manual/examples/k8s_kimi_k3.md`](../../../manual/examples/k8s_kimi_k3.md) |
+| **`mixed/deploy.yaml` exactly as written** | **validated end-to-end on k3s (MI355X, 8×`amd.com/gpu`)** — see below |
 | kvd sidecar + PVC L3 under vLLM | validated (2 entries / 271 MB on a 3510-token request), on Qwen3-0.6B |
-| overlay payload on a stock vLLM base | validated — [`deploy/overlay/README.md`](../../../deploy/overlay/README.md) |
-| these three combined, as written here | **not yet run end-to-end** |
 | pd / pd-kvd for this model | structure only; the vLLM MultiConnector wiring is unproven for Kimi-K3 |
 
-The validated runs used the baked `rocm/infera:vllm-*` images. These manifests
-compose that same software as an overlay — proven separately, not yet together.
+The `mixed` run used the **stock `vllm/vllm-openai-rocm:kimi-k3` image** with the
+overlay mounted in — no infera-built engine image anywhere in the Pod:
+
+| | |
+|---|---|
+| router Ready | ~20 s (`infera.server` running from `/overlay`) |
+| weight load | 502 s, 96 shards, 1453 GiB from local XFS NVMe |
+| worker Ready | ~11 min including aiter JIT + CUDA graph capture |
+| text | `The capital of France is Paris.` (73 completion tokens, `finish_reason: stop`) |
+| multimodal | correctly identified the generated crimson image |
+
+That run is also what surfaced the payload-shadowing bug: the engine logged
+`ImportError: Numba needs NumPy 2.4 or less. Got NumPy 2.5` on repeat, because
+the overlay was shipping numpy 2.5.1 over the base's 2.3.5. Non-fatal here, but
+fixed properly in `deploy/overlay/prune_base_dists.py` — the payload now adds
+only what the base lacks.
 
 ## Source
 
