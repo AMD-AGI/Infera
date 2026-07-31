@@ -47,6 +47,9 @@ set -euo pipefail
 
 MC_ROOT="${MC_ROOT:-/sgl-workspace/Mooncake}"
 PATCH_DIR="${MC_CPP_PATCH_DIR:-/tmp/mooncake_cpp}"
+# Target GPU arch for the HIP build; see [3/4] for why it cannot be probed here.
+# gfx950 = MI355X (Dockerfile.sglang); the gfx942/MI30x image passes MC_GPU_ARCH.
+MC_GPU_ARCH="${MC_GPU_ARCH:-gfx950}"
 RCM="$MC_ROOT/mooncake-transfer-engine/src/transport/rdma_transport/CMakeLists.txt"
 
 [ -f "$MC_ROOT/mooncake-transfer-engine/src/CMakeLists.txt" ] \
@@ -99,17 +102,17 @@ fi
 # ---- [3/4] cmake configure + ninja the engine module (USE_HIP_DMABUF=ON) -------
 # `docker build` has NO GPU, so ROCm's amdgpu-arch probe fails and cmake would
 # drop the HIP engine target from the graph (leaving the base's unpatched .so).
-# Pin the target arch explicitly so the build is GPU-independent. gfx950 = MI355X.
-export PYTORCH_ROCM_ARCH="${PYTORCH_ROCM_ARCH:-gfx950}"
-export GPU_ARCHS="${GPU_ARCHS:-gfx950}" AMDGPU_TARGETS="${AMDGPU_TARGETS:-gfx950}"
-export HIP_ARCHITECTURES="${HIP_ARCHITECTURES:-gfx950}"
+# Pin the target arch explicitly so the build is GPU-independent.
+export PYTORCH_ROCM_ARCH="${PYTORCH_ROCM_ARCH:-$MC_GPU_ARCH}"
+export GPU_ARCHS="${GPU_ARCHS:-$MC_GPU_ARCH}" AMDGPU_TARGETS="${AMDGPU_TARGETS:-$MC_GPU_ARCH}"
+export HIP_ARCHITECTURES="${HIP_ARCHITECTURES:-$MC_GPU_ARCH}"
 export CMAKE_PREFIX_PATH="/opt/rocm:/opt/rocm/lib/cmake:/opt/rocm-7.2.0/lib/cmake:$(python3 -c 'import pybind11;print(pybind11.get_cmake_dir())' 2>/dev/null):${CMAKE_PREFIX_PATH:-}"
-echo "=== [3/4] cmake configure + ninja (USE_HIP=ON USE_HIP_DMABUF=ON) ==="
+echo "=== [3/4] cmake configure + ninja (USE_HIP=ON USE_HIP_DMABUF=ON $MC_GPU_ARCH) ==="
 cd "$MC_ROOT"
 rm -rf build && mkdir build && cd build
 cmake .. -DUSE_HIP=ON -DUSE_HIP_DMABUF=ON -DUSE_ETCD=OFF -DWITH_STORE=OFF \
     -DBUILD_UNIT_TESTS=OFF -DBUILD_EXAMPLES=OFF -DWITH_STORE_RUST=OFF \
-    -DCMAKE_HIP_ARCHITECTURES=gfx950 -GNinja 2>&1 \
+    -DCMAKE_HIP_ARCHITECTURES="$MC_GPU_ARCH" -GNinja 2>&1 \
     | grep -iE "dmabuf|hsa-runtime|hip transport|error" | head -20 || true
 # Build the pybind engine module explicitly — plain `ninja` builds only the
 # default target set, which does NOT include it, so the prebuilt (unpatched) one

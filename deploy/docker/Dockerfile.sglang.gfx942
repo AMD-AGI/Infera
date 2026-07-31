@@ -3,7 +3,16 @@
 #       gfx950 (mi35x) and one image can't serve both; no dsv4 source patch since
 #       gfx942 runs dsv4 FP8 natively / fails fast on FP4 (FP4 dsv4 -> vLLM).
 # HOW : fp8 env + CLI knobs are applied at launch by infera.engine.dsv4_gfx942.
-ARG SGLANG_BASE_IMAGE=lmsysorg/sglang-rocm:v0.5.15-rocm720-mi30x-20260713
+# BASE: v0.5.16 is the sglang this image is validated on — GLM-5.2 MTP needs
+#       sglang #30839 (IndexShare across PD and CUDA-graph replay) and its own
+#       GlmMoeDsaForCausalLMNextN quant handling, both of which land in v0.5.16;
+#       on the previous v0.5.15 base the draft weight-load and PD warmup fail.
+#       That is also why this image does NOT apply patches/sglang/ (the nextn
+#       quark-exclude backport for the v0.5.15 mi35x base): v0.5.16 fixes GLM-5.2
+#       upstream, and the backport's anchor survives the refactor inside
+#       DeepSeek's own nextn path, so applying it here would rewrite a probe that
+#       is already correct.
+ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.16-rocm720-mi30x
 FROM ${SGLANG_BASE_IMAGE}
 
 WORKDIR /opt/infera
@@ -27,6 +36,27 @@ RUN if [ "${INSTALL_LIBIONIC}" = "1" ]; then \
     else \
         echo "INSTALL_LIBIONIC=0 — libionic injected at container start"; \
     fi
+
+# ---- Mooncake unified rebuild: one engine.so, every PD path runtime-decided --
+# Same in-place rebuild Dockerfile.sglang does (shared script + shared mooncake_cpp
+# diffs), with the HIP target pinned to gfx942 since `docker build` has no GPU to
+# probe. The base bundles Mooncake at upstream #2682 (01d1eb2a), which installs a
+# HIP IPC transport UNCONDITIONALLY and prefers it over RDMA — so CROSS-NODE PD
+# dies on the first request in hipIpcOpenMemHandle, which cannot open a peer's
+# handle. Without this block the MI325X 1P1D recipe has to rebuild engine.so
+# inside the running container before it can move a single KV chunk.
+# Self-verifying (fails the build if the gate / dma-buf did not compile in);
+# skip with BUILD_MOONCAKE=0. See the script for the full rationale.
+ARG BUILD_MOONCAKE=1
+COPY deploy/docker/patches/mooncake_cpp/ /tmp/mooncake_cpp/
+COPY deploy/docker/scripts/build_mooncake_sglang.sh /tmp/build_mooncake_sglang.sh
+RUN if [ "${BUILD_MOONCAKE}" = "1" ]; then \
+        MC_GPU_ARCH=gfx942 MC_CPP_PATCH_DIR=/tmp/mooncake_cpp \
+            bash /tmp/build_mooncake_sglang.sh; \
+    else \
+        echo "BUILD_MOONCAKE=0 — leaving base Mooncake as-is"; \
+    fi \
+    && rm -rf /tmp/build_mooncake_sglang.sh /tmp/mooncake_cpp
 
 # Install infera + its declared deps from pyproject (single source of truth).
 # The base already ships torch/sglang and most of infera's runtime stack; pip
