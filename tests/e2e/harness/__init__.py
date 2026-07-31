@@ -23,7 +23,7 @@ PD-disaggregated (cross-node) placement lives in :mod:`.cluster` (SLURM topology
 + :mod:`.launcher` (``SrunDockerLauncher``); the shared bodies are
 :mod:`.mixed_suite` (``run_mixed_case``) and :mod:`.disagg_suite`
 (``run_disagg_case``). Shared parametrize building blocks live in :mod:`.matrix`
-(a declarative ``[model, tp, ep, dp_attn]`` case table expanded by
+(a declarative ``[enable, model, tp, ep, dp_attn]`` case table expanded by
 ``expand_cases``); each engine's own grid lives in its dir under
 ``tests/e2e/pd_mixed/`` / ``tests/e2e/pd_disag/``.
 """

@@ -10,15 +10,35 @@ from __future__ import annotations
 
 import pytest
 
-from ...harness.matrix import DEEPSEEK_V4_PRO, GLM_5_1_FP8, KIMI_K26_MXFP4, expand_cases
+from ...harness.matrix import DEEPSEEK_V4_PRO, GLM_5_1_FP8, GPT_OSS, KIMI_K26_MXFP4, expand_cases
 
-# [model, tp, ep, dp_attn] (+ optional opts dict). Opts mirror the matching
-# InferenceX single_node/fixed_seq_len benchmarks.
+# [enable, model, tp, ep, dp_attn] (+ optional opts dict). Opts mirror the
+# matching InferenceX single_node/fixed_seq_len benchmarks.
 CASES = [
     [
+        True,
+        GPT_OSS,
+        2,
+        True,
+        False,
+        {
+            "args": [
+                "--kv_cache_dtype",
+                "fp8",
+                "--gpu-memory-utilization",
+                "0.9",
+                "--block-size",
+                "16",
+            ],
+            "env": {"ATOM_GPT_OSS_MODEL": "1", "OMP_NUM_THREADS": "1"},
+            "server_ready_timeout": 1800,
+        },
+    ],
+    [
+        True,
         KIMI_K26_MXFP4,
         4,
-        (True, False),
+        False,
         False,
         {
             "args": ["--kv_cache_dtype", "fp8", "--trust-remote-code"],
@@ -27,6 +47,7 @@ CASES = [
         },
     ],
     [
+        False,
         DEEPSEEK_V4_PRO,
         8,
         False,
@@ -65,6 +86,7 @@ CASES = [
     # so /v1/chat/completions works. Verified 2026-07-23 single-node, temp=0:
     # France->Paris/China->Beijing/2+2->4 (thinking disabled in the probe).
     [
+        True,
         GLM_5_1_FP8,
         4,
         False,

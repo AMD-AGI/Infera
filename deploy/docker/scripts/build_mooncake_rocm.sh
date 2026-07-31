@@ -13,18 +13,20 @@
 # Two build modes via MOONCAKE_DMABUF (default 0): 0 = release -DUSE_HIP=ON (VRAM
 #   RDMA via host-libionic injection); 1 = main @ pinned ref + B-group C++ patches
 #   (B.2 hip-transport gate + B.3 auto-chunk MR) for DSv4 cross-node RDMA.
-#   NOTE: the dma-buf GPUDirect path (B.1 CMake + -DUSE_HIP_DMABUF=ON) was dropped
-#   in #154 — it exhausts a KFD resource at high util (HIP-209). Both modes now use
-#   bare ibv_reg_mr; the flag name is kept only for its Dockerfile call sites.
+#
+# GPU MR registration path via MOONCAKE_HIP_DMABUF (default 0, mode 1 only):
+#   0 = bare ibv_reg_mr, needs the legacy ib_peer_mem module; 1 = B.1 dma-buf
+#   GPUDirect, the only path that registers VRAM where ib_peer_mem is absent.
 #
 # Idempotent: reuses an existing build artifact if present.
 #
 # Environment overrides:
-#   MOONCAKE_DMABUF    0 (release ref) | 1 (main ref + B-group patches); no dma-buf
-#   MOONCAKE_GIT_REF   git tag/branch/commit (default depends on MOONCAKE_DMABUF)
-#   MOONCAKE_REPO      git remote   (default https://github.com/kvcache-ai/Mooncake.git)
-#   MC_ROOT            checkout dir (default /opt/mooncake/Mooncake)
-#   MC_CPP_PATCH_DIR   B-group patch dir (mode 1 only)
+#   MOONCAKE_DMABUF      0 (release ref) | 1 (main ref + B-group patches)
+#   MOONCAKE_HIP_DMABUF  0 (bare ibv_reg_mr) | 1 (dma-buf GPUDirect; mode 1 only)
+#   MOONCAKE_GIT_REF     git tag/branch/commit (default depends on MOONCAKE_DMABUF)
+#   MOONCAKE_REPO        git remote   (default https://github.com/kvcache-ai/Mooncake.git)
+#   MC_ROOT              checkout dir (default /opt/mooncake/Mooncake)
+#   MC_CPP_PATCH_DIR     B-group patch dir (mode 1 only)
 #
 # Usage (inside a ROCm container with hipcc/cmake/ninja/git):
 #   bash deploy/docker/scripts/build_mooncake_rocm.sh                    # release ref
@@ -36,17 +38,25 @@ export DEBIAN_FRONTEND=noninteractive
 
 # ---- mode-dependent settings (all resolved up front) -----------------------
 MOONCAKE_DMABUF="${MOONCAKE_DMABUF:-0}"
+MOONCAKE_HIP_DMABUF="${MOONCAKE_HIP_DMABUF:-0}"
+export MOONCAKE_HIP_DMABUF  # read by apply_mooncake_cpp_patches.sh (B.1 gate)
 MOONCAKE_REPO="${MOONCAKE_REPO:-https://github.com/kvcache-ai/Mooncake.git}"
 MC_ROOT="${MC_ROOT:-/opt/mooncake/Mooncake}"
 MC_CPP_PATCH_DIR="${MC_CPP_PATCH_DIR:-$SCRIPT_DIR/patches/mooncake_cpp}"
 
 if [ "$MOONCAKE_DMABUF" = "1" ]; then
     MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF:-747003c058015c4077a266e7ccd7549bbc9baede}"
-    MODE_DESC="main + B-group C++ patches (bare ibv_reg_mr, no dma-buf)"
-    # main defaults RUST store ON; turn it off and pin pybind11. USE_HIP_DMABUF is
-    # intentionally NOT set — the dma-buf path was dropped in #154 (HIP-209).
-    EXTRA_CMAKE=(-DWITH_STORE_RUST=OFF
-        -Dpybind11_DIR=/usr/local/lib/python3.12/dist-packages/pybind11/share/cmake/pybind11)
+    if [ "$MOONCAKE_HIP_DMABUF" = "1" ]; then
+        MODE_DESC="main + B-group C++ patches + B.1 dma-buf GPUDirect (ibv_reg_dmabuf_mr)"
+    else
+        MODE_DESC="main + B-group C++ patches (bare ibv_reg_mr, needs ib_peer_mem)"
+    fi
+    # main defaults RUST store ON; turn it off and pin pybind11. pybind11_DIR is
+    # auto-detected from the ACTIVE interpreter, since the engine images lay
+    # Python out differently (vLLM /usr/local, sglang + ATOM /opt/venv).
+    PYBIND11_CMAKE_DIR="$(python3 -c 'import pybind11; print(pybind11.get_cmake_dir())' 2>/dev/null \
+        || echo /usr/local/lib/python3.12/dist-packages/pybind11/share/cmake/pybind11)"
+    EXTRA_CMAKE=(-DWITH_STORE_RUST=OFF -Dpybind11_DIR="$PYBIND11_CMAKE_DIR")
 else
     MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF:-v0.3.7.post2}"
     MODE_DESC="release, no dma-buf (host-libionic injection)"
@@ -122,7 +132,18 @@ fi
 # ---- verify ----------------------------------------------------------------
 SO="$(python3 -c 'import mooncake.engine as e; print(e.__file__)')"
 echo "installed: $SO"
-# (The dma-buf symbol check was removed with B.1 in #154 — the build no longer
-# compiles hsa_amd_portable_export_dmabuf; bare ibv_reg_mr is the only path.)
+# Assert the dmabuf verbs really compiled in — a CMake define that failed to
+# reach rdma_transport would silently leave the bare ibv_reg_mr path. Capture
+# `nm -D` into a var first so pipefail can't trip on grep's exit status.
+if [ "$MOONCAKE_HIP_DMABUF" = "1" ]; then
+    _dynsyms="$(nm -D "$SO" 2>/dev/null || true)"
+    if printf '%s\n' "$_dynsyms" | grep -qE 'ibv_reg_dmabuf_mr|hsa_amd_portable_export_dmabuf'; then
+        echo "MC_DMABUF_VERIFY OK (dma-buf GPUDirect symbols present)"
+    else
+        echo "ERROR: MOONCAKE_HIP_DMABUF=1 but dma-buf symbols absent from $SO" >&2
+        echo "       -> B.1 CMake patch did not reach rdma_transport; check build log." >&2
+        exit 1
+    fi
+fi
 python3 -c "from mooncake.engine import TransferEngine; print('MOONCAKE IMPORT OK')"
 echo "MC_BUILD_DONE"

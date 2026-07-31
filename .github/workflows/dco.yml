@@ -5,8 +5,11 @@ name: DCO
 # See CONTRIBUTING.md > Developer Certificate of Origin.
 
 on:
+  # Standalone on a PR into any branch; ci.yml additionally calls this one as a
+  # job, which is what lets its GPU tiers gate on the sign-off via `needs:`.
   pull_request:
     branches: ["**"]
+  workflow_call:
 
 permissions:
   contents: read
