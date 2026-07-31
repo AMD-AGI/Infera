@@ -11,10 +11,11 @@ across engines, so you don't recompute them. **How it works under the hood:** se
 
 ## Turn it on — single host
 
-```{admonition} Limitation — vLLM only (for now)
+```{admonition} Engine support
 :class: important
-KV-Cache Offload, including the AIC GPU-Direct read path, currently supports the
-**vLLM** engine only. SGLang and ATOM support is planned.
+KV-Cache Offload runs on **vLLM** and on **SGLang**. ATOM support is planned.
+The **AIC GPU-Direct** read path is vLLM-only; SGLang reads through the daemon's
+POSIX path. For the SGLang setup see [SGLang](#sglang) below.
 ```
 
 One `infera.kvd` daemon per host; every engine on that host shares it.
@@ -172,6 +173,65 @@ restarts.
 The daemon flags and connector env vars are in the
 [CLI reference](../reference/cli.md) and the
 [environment variables](../reference/environment.md) reference.
+
+(sglang)=
+## SGLang
+
+SGLang reaches kvd through its own **HiCache** tier: infera registers
+`InferaKvdBackend`, a `HiCacheStorage` implementation, as SGLang's L3 store.
+One flag turns the whole thing on — `--infera-kvd-socket` — and infera appends
+`--enable-hierarchical-cache`, `--hicache-storage-backend dynamic`, and the
+backend extra-config for you. You must launch through the infera wrapper
+(`python -m infera.engine.sglang`); `sglang.launch_server` bypasses the wiring
+entirely.
+
+```bash
+PYTHONHASHSEED=0 python -m infera.engine.sglang \
+  --model-path <model> --port 30000 --host <routable> \
+  --infera-kvd-socket /var/run/infera-kvd.sock \
+  --hicache-size 16
+```
+
+`--infera-kvd-socket` **fails fast** (5 s probe): if the daemon is unreachable
+the engine refuses to start rather than serving with a silently dead L3.
+
+```{admonition} Size the host pool with --hicache-size, not --hicache-ratio
+:class: warning
+SGLang's default `--hicache-ratio 2.0` sizes the host pool as a multiple of
+`max_total_num_tokens`, so a small model with a large KV pool asks for a
+preposterous amount — a 1.7 B model with 1.5 M tokens allocated **355 GB per DP
+rank** (1.4 TB on a 4-rank node) before the node OOMed. `--hicache-size <GB>` is
+an absolute per-rank cap and overrides the ratio; prefer it.
+
+Also note `--hicache-ratio` below **1.5** silently disables L3 prefetch.
+```
+
+```{admonition} On a PD decode leg, kvd needs KV events ON
+:class: important
+A decode leg sets `disable_radix_cache=True` on itself ("KV cache is forced as
+chunk cache for decode server"), and SGLang rejects
+`--enable-hierarchical-cache` alongside it — so kvd is illegal on a decode leg
+by default. Infera appends `--disaggregation-decode-enable-radix-cache` to undo
+that, but **only** when KV events are enabled and the transfer backend is
+Mooncake (`infera/engine/sglang/args.py`). Passing `--no-enable-kv-events` on a
+decode leg therefore silently disables kvd there too.
+```
+
+**Verify.** Same as vLLM — drive a shared long prefix twice and read the daemon
+counters:
+
+```bash
+python -m infera.kvd.statctl --socket /var/run/infera-kvd.sock
+# want: sets_total > 0, then gets_total > 0 with hits_total climbing
+```
+
+A speed-up alone does **not** prove kvd did anything: SGLang's in-GPU radix
+cache serves a repeated prefix without ever touching L3. Read the counters. To
+attribute a hit to kvd specifically, restart the engine (which empties the GPU
+cache) and replay — hits should climb with **no new sets**.
+
+`PYTHONHASHSEED=0` keeps block hashes, and therefore chunk keys, stable across
+restarts; without it a restart orphans the whole L3 cache.
 
 ## Usage modes
 
