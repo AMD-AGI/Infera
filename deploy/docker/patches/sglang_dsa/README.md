@@ -423,7 +423,7 @@ merged — so none of it reaches a `release/v0.5.15` baseline without a manual b
 | [#32209](https://github.com/sgl-project/sglang/pull/32209) | `Fix PD decode hang with DP attention and GLM-5.2 MTP` | **same defect, same strategy as our vote.** `draft_cuda_graph_dp_vote.diff` adopts its placement. |
 | [#32527](https://github.com/sgl-project/sglang/issues/32527) | issue, same deadlock on 8× Blackwell / GLM-5.2-FP8 | independent report, 2026-07-27, same analysis. Proposes a third strategy: a dummy all-zeros seed so the guard's 4th term is false. |
 | [#32762](https://github.com/sgl-project/sglang/pull/32762) | `[NPU] Fix DSA eager padding mismatch in PD MTP warm-up` | same bug class as `dsa_indexer_hip_dp_padded_rows`; that diff is written in its shape. |
-| [#31683](https://github.com/sgl-project/sglang/pull/31683) | `[ROCm][MI35X] Enable GLM-5.2-MXFP4 MTP` | carries an independent, differently-placed implementation of the same indexer fix. |
+| [#31683](https://github.com/sgl-project/sglang/pull/31683) | `[ROCm][MI35X] Enable GLM-5.2-MXFP4 MTP` | **adjacent, not the same fix.** It widens `dsa_indexer.forward_cuda`'s guard from `seq_lens.numel() == 0` to `is_idle() or seq_lens.numel() == 0` — same function, related class of defect, **different symptom**. Verified against its diff. |
 | [#30839](https://github.com/sgl-project/sglang/pull/30839) / [#31083](https://github.com/sgl-project/sglang/pull/31083) | introduced the guard; cherry-picked to `release/v0.5.15` | **merged 2026-07-14** — so this deadlock is a *regression* in the baseline, not a legacy wart. |
 | [#32722](https://github.com/sgl-project/sglang/pull/32722) | a test covering PD + DP-attention + MTP | proves **no CI covers this topology today**, which is why the family survives. |
 

@@ -12,9 +12,10 @@ busy one gets a tensor.  No seed, no divergence, no vote needed.
 Measured on 2 x 8 MI355X, GLM-5.2-MXFP4, with this patch and 02's page-table half
 BOTH asserted absent from the bytecode: 4/4 probe, 32/32 twice, 64/64, zero
 tracebacks, accept length 2.98-3.01 (no measurable cost).  It substitutes for THIS
-patch and for 02's page-table row fix; it does NOT substitute for 01 (padded rows)
-or for the nextn eh_proj fix, which are independent bugs.  02's DP host-sync half
-has never been tested in isolation either way.
+patch and for 02's page-table row fix; it does NOT substitute for 01 (padded rows),
+for the nextn eh_proj fix, or for 02's DP host-sync half -- those are independent
+bugs, and a host-side sync is invisible to the graph/eager decision that both this
+patch and IndexShare-off act on.
 
 Two conditions that are easy to miss: MTP must be enabled on the PREFILL leg too
 (otherwise the seed never reaches decode and the setting is untested rather than
