@@ -149,6 +149,14 @@ image test against the standalone docker serve is
   fp8_e4m3 KV cache, but Kimi-K3's MLA then picks the `mla_gluon` kernel
   (batch_size=1 only) and crashes warmup at `--max-num-seqs 128`. Pass
   `--kv-cache-dtype auto` (or env `INFERA_DEFAULT_KV_FP8=0`) to keep the native KV.
-- **Slow load vs the readiness probe.** Kimi-K3 loads ~1.5 TB (~7 min); set
-  `skipReadinessProbe: true` on the worker so the operator doesn't restart it
-  mid-load.
+- **Slow load — use a startupProbe.** Kimi-K3 loads ~1.5 TB (~9 min to Ready). A
+  generous `startupProbe` on `/health` (e.g. `failureThreshold: 120`,
+  `periodSeconds: 10`) holds the pod non-Ready through the load; the operator's
+  readiness probe is gated by it and takes over once weights + CUDA graphs are up.
+  (`skipReadinessProbe: true` also works but never surfaces a Ready signal.)
+- **Don't enable prefix caching or fastsafetensors here.** Kimi-K3 is a hybrid
+  **Mamba** model — `--enable-prefix-caching` forces the experimental Mamba
+  "align" cache and fails engine init. `--load-format fastsafetensors` needs GPU
+  Direct Storage (cufile/GDS); without it, loads stall (~30 s queue waits per
+  batch). Neither is in the upstream vLLM ROCm Kimi-K3 command — keep
+  `--load-format auto` and no prefix caching.

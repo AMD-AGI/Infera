@@ -50,9 +50,6 @@ spec:
       componentType: worker
       role: mixed
       replicas: 1
-      # Kimi-K3 loads ~1.5 TB over ~7 min; skip the readiness probe so the operator
-      # doesn't restart the pod mid-load.
-      skipReadinessProbe: true
       extraPodSpec:
         containers:
           - name: main
@@ -83,6 +80,14 @@ spec:
               - {name: AITER_BF16_FP8_MOE_BOUND, value: "0"}
               - {name: SAFETENSORS_FAST_GPU, value: "1"}
               - {name: VLLM_USE_BREAKABLE_CUDAGRAPH, value: "0"}
+            # Kimi-K3 loads ~1.5 TB (~9 min); a generous startupProbe holds the pod
+            # non-Ready through the load, then the operator's /health readiness probe
+            # (gated by startup) takes over — cleaner than skipReadinessProbe.
+            startupProbe:
+              httpGet: {path: /health, port: 30000}
+              periodSeconds: 10
+              timeoutSeconds: 10
+              failureThreshold: 120   # up to ~20 min: weights + CUDA-graph capture
             resources:
               requests: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}
               limits: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}
