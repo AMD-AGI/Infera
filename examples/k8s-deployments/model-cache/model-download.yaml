@@ -4,7 +4,7 @@
 #
 #   kubectl apply -f model-cache.yaml -n infera
 #   kubectl apply -f model-download.yaml -n infera
-#   kubectl wait --for=condition=Complete job/model-download -n infera --timeout=4h
+#   kubectl wait --for=condition=Complete job/model-download -n infera --timeout=8h
 #
 # For a GATED repo (e.g. moonshotai/Kimi-K3): first create the token secret, then
 # uncomment envFrom below and swap the repo id:
@@ -26,19 +26,27 @@ spec:
       restartPolicy: Never
       containers:
         - name: model-download
-          # Any image with huggingface_hub. The engine image already has it (and
-          # is offline in-cluster); python:3.11-slim + `pip install huggingface_hub`
-          # also works if you prefer an engine-agnostic downloader.
-          image: rocm/infera:sglang-v0.1.1
-          imagePullPolicy: IfNotPresent
+          # Light, engine-agnostic downloader — any image with huggingface_hub works;
+          # the engine image (offline) is an alternative. hf_xet accelerates large
+          # Xet-backed repos (e.g. Kimi-K3) and is harmless for plain LFS repos.
+          image: python:3.11-slim
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+            - {name: HF_XET_HIGH_PERFORMANCE, value: "1"}
           # envFrom:                       # gated repos only (Kimi-K3): HF_TOKEN
           #   - secretRef: {name: hf-token-secret}
-          command: ["python3", "-c"]
+          command: ["sh", "-c"]
+          # Swap the repo id (and dir) for your model, e.g. moonshotai/Kimi-K3 -> /model-cache/Kimi-K3.
           args:
             - |
-              from huggingface_hub import snapshot_download
-              p = snapshot_download("Qwen/Qwen3-0.6B", local_dir="/model-cache/Qwen3-0.6B")
-              print("downloaded ->", p)
+              set -eux
+              pip install --no-cache-dir 'huggingface_hub[hf_xet]'
+              python -c "from huggingface_hub import snapshot_download; print('downloaded ->', snapshot_download('Qwen/Qwen3-0.6B', local_dir='/model-cache/Qwen3-0.6B'))"
           volumeMounts:
             - name: model-cache
               mountPath: /model-cache
