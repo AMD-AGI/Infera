@@ -111,6 +111,6 @@ daemon-level concern today, not a per-request knob on the vLLM path.
 |---|---|---|
 | `PYTHONHASHSEED=0` | vLLM worker | **mandatory** for cross-restart cache hits (vLLM salts block hashes per process) |
 | `HIP_VISIBLE_DEVICES` | worker | which GPU(s) the worker uses |
-| `MC_DISABLE_HIP_TRANSPORT=1` | PD worker | force RDMA, not the empty XGMI shortcut |
+| `MC_DISABLE_HIP_TRANSPORT=1` | PD worker | force RDMA, not the hipIpc transport (already the image default) |
 | `MC_GID_INDEX=1` / `NCCL_IB_GID_INDEX=1` | cross-node PD | RoCEv2 GID (default 0 is link-local) |
 | `VLLM_HOST_IP` | vLLM PD | routable host IP for the connector |

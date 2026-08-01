@@ -9,7 +9,8 @@
 #   * single-node  vs  cross-node PD        — decided by how you launch the legs
 #   * dma-buf GPUDirect (ibv_reg_dmabuf_mr)  — the DEFAULT registration path
 #   * bare ibv_reg_mr + peermem              — MOONCAKE_DISABLE_HIP_DMABUF=1
-#   * HIP intra-node P2P transport           — opt-in via MC_ENABLE_HIP_TRANSPORT=1
+#   * HIP intra-node P2P transport           — OFF on ROCm (never worked cross-node);
+#                                              MC_ENABLE_HIP_TRANSPORT=1 opts back in
 #
 # WHY this is a single in-place build (not two images):
 #   The base bundles Mooncake at upstream #2682 (commit 01d1eb2a), whose
@@ -27,8 +28,10 @@
 #         Fix: propagate USE_HIP_DMABUF + hsa-runtime64 to rdma_transport.
 #     (b) it installs a HIP IPC transport UNCONDITIONALLY and selectTransport
 #         prefers it over RDMA, so CROSS-NODE PD breaks (hipIpcOpenMemHandle
-#         cannot open a peer's handle). Fix: gate it behind MC_ENABLE_HIP_TRANSPORT
-#         (default OFF) — the reusable in-tree B-group C++ patch, shared verbatim
+#         cannot open a peer's handle — an IPC handle is host-local by
+#         construction). Fix: gate it OFF by default; MC_ENABLE_HIP_TRANSPORT=1
+#         opts back in and MC_DISABLE_HIP_TRANSPORT=1 vetoes even that
+#         — the reusable in-tree B-group C++ patch, shared verbatim
 #         with the vLLM build (deploy/docker/patches/mooncake_cpp), so there is no
 #         duplicated hand-written source edit.
 #
@@ -121,13 +124,21 @@ cp "$SO" "$DEST"
 ASIO="$(ls "$MC_ROOT"/build/mooncake-common/libasio.so 2>/dev/null | head -1 || true)"
 [ -n "$ASIO" ] && { cp "$ASIO" "$(dirname "$DEST")/" 2>/dev/null || true; cp "$ASIO" /usr/local/lib/ 2>/dev/null || true; ldconfig 2>/dev/null || true; }
 
-# (a) HIP-transport gate present (grep into a var, not `strings | grep -q`: under
-#     pipefail, grep -q closing the pipe early SIGPIPEs strings -> false negative).
-if ! strings "$DEST" | grep -c MC_ENABLE_HIP_TRANSPORT | grep -qv '^0$'; then
-    echo "[mc-build] ERROR: rebuilt engine.so lacks the HIP-transport gate — patch/build did not take" >&2
-    exit 1
-fi
-echo "  HIP_GATE=yes"
+# (a) HIP-transport gate present. BOTH spellings must be in the binary: the gate
+#     reads MC_ENABLE_HIP_TRANSPORT (opt back in) *and* MC_DISABLE_HIP_TRANSPORT
+#     (hard veto, the spelling infera/docs/tests use). Checking only the first
+#     would pass a binary that still ignores the second.
+#     (grep into a count, not `strings | grep -q`: under pipefail, grep -q closing
+#     the pipe early SIGPIPEs strings -> false negative.)
+for _v in MC_ENABLE_HIP_TRANSPORT MC_DISABLE_HIP_TRANSPORT; do
+    if ! strings "$DEST" | grep -c "$_v" | grep -qv '^0$'; then
+        echo "[mc-build] ERROR: rebuilt engine.so lacks $_v — the HIP-transport gate" \
+             "patch/build did not take. Cross-node PD would break (hipIpcOpenMemHandle" \
+             "cannot open a peer node's handle)." >&2
+        exit 1
+    fi
+done
+echo "  HIP_GATE=yes (MC_ENABLE_HIP_TRANSPORT + MC_DISABLE_HIP_TRANSPORT)"
 
 # (b) dma-buf actually compiled into rdma_context.o (EXTERNAL symbols, so inspect
 #     the object's undefined refs — not `strings`).
@@ -148,7 +159,7 @@ else
 fi
 
 python3 -c "from mooncake.engine import TransferEngine" || { echo "[mc-build] import failed" >&2; exit 1; }
-echo "[mc-build] DONE — one engine.so: HIP gated (MC_ENABLE_HIP_TRANSPORT), dma-buf"
+echo "[mc-build] DONE — one engine.so: HIP transport OFF by default, dma-buf"
 echo "           compiled-in (default ibv_reg_dmabuf_mr; MOONCAKE_DISABLE_HIP_DMABUF=1"
 echo "           forces bare ibv_reg_mr). Runtime decides every path."
 

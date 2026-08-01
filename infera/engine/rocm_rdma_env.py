@@ -33,7 +33,17 @@ logger = logging.getLogger(__name__)
 # separate concern, irrelevant for intra-node TP, so it's intentionally not here.)
 _ROCM_RDMA_DEFAULTS: dict[str, str] = {
     "MC_GID_INDEX": "1",  # Mooncake transfer engine: ionic RoCE v2 GID
-    "MC_DISABLE_HIP_TRANSPORT": "1",  # Mooncake: use RDMA, not the HIP P2P transport
+    # Mooncake: use RDMA, not the HIP (hipIpc) P2P transport. A hipIpc handle is
+    # host-local by construction, so a peer NODE can never open it -- cross-node
+    # PD dies with "hipIpcOpenMemHandle failed (201 - invalid device context)".
+    # NOTE: this is belt-and-braces. The B.2 patch we build into the image
+    # (deploy/docker/patches/mooncake_cpp/transfer_engine_impl.diff) already
+    # defaults the HIP transport OFF with no env var set at all, precisely so the
+    # safe behaviour does not depend on anyone remembering to export this. Until
+    # 2026-08 this name was a NO-OP -- the gate read MC_ENABLE_HIP_TRANSPORT and
+    # nothing read MC_DISABLE_HIP_TRANSPORT; the patch now honours both, with
+    # this one taking precedence.
+    "MC_DISABLE_HIP_TRANSPORT": "1",
     # The unified sglang image compiles the dma-buf MR path IN, but the whole AMD
     # fleet is ionic (no ODP): ibv_reg_dmabuf_mr there PINS + DUPLICATES the KV
     # pool in VRAM (and can exhaust a KFD resource). Default the safe bare

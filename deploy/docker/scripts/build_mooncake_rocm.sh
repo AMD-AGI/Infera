@@ -145,5 +145,20 @@ if [ "$MOONCAKE_HIP_DMABUF" = "1" ]; then
         exit 1
     fi
 fi
+# Assert the B.2 HIP-transport gate compiled in. Without it the binary is stock
+# upstream #2682: it installs the HIP transport unconditionally and selectTransport
+# prefers it over RDMA, so cross-node PD dies in KV transfer with
+# "hipIpcOpenMemHandle failed (201 - invalid device context)" — an IPC handle is
+# host-local, so a peer NODE can never open it. Both spellings must be present:
+# MC_ENABLE_HIP_TRANSPORT (opt back in) and MC_DISABLE_HIP_TRANSPORT (hard veto,
+# the spelling infera's rocm_rdma_env.py sets).
+for _v in MC_ENABLE_HIP_TRANSPORT MC_DISABLE_HIP_TRANSPORT; do
+    if ! strings "$SO" | grep -c "$_v" | grep -qv '^0$'; then
+        echo "ERROR: $SO lacks $_v — the B.2 HIP-transport gate did not take." >&2
+        echo "       Cross-node PD would break (hipIpcOpenMemHandle 201)." >&2
+        exit 1
+    fi
+done
+echo "MC_HIP_GATE_VERIFY OK (HIP transport OFF by default)"
 python3 -c "from mooncake.engine import TransferEngine; print('MOONCAKE IMPORT OK')"
 echo "MC_BUILD_DONE"
