@@ -1,7 +1,7 @@
 # GLM-5.2-MXFP4 — pd — Kubernetes recipe
 #
 #   base image   lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x      (stock vendor image, unmodified)
-#   overlay      rocm/infera-overlay:latest                     (infera + router + kvd + native deps)
+#   overlay      inferaimage/infera-overlay:v0.2.1                     (infera + router + kvd + native deps)
 #   engine       infera.engine.sglang   TP8
 #
 # Deploy:  kubectl apply -f examples/recipes/glm5.2/pd/deploy.yaml
@@ -36,7 +36,7 @@ spec:
         # so following an upstream bump costs nothing in this repo.
         initContainers:
           - name: infera-overlay
-            image: rocm/infera-overlay:latest
+            image: inferaimage/infera-overlay:v0.2.1
             imagePullPolicy: IfNotPresent
             command: ["sh","-c","cp -a /payload/. /overlay/"]
             volumeMounts:
@@ -72,7 +72,7 @@ spec:
         # so following an upstream bump costs nothing in this repo.
         initContainers:
           - name: infera-overlay
-            image: rocm/infera-overlay:latest
+            image: inferaimage/infera-overlay:v0.2.1
             imagePullPolicy: IfNotPresent
             command: ["sh","-c","cp -a /payload/. /overlay/"]
             volumeMounts:
@@ -139,7 +139,7 @@ spec:
         # so following an upstream bump costs nothing in this repo.
         initContainers:
           - name: infera-overlay
-            image: rocm/infera-overlay:latest
+            image: inferaimage/infera-overlay:v0.2.1
             imagePullPolicy: IfNotPresent
             command: ["sh","-c","cp -a /payload/. /overlay/"]
             volumeMounts:
