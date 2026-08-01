@@ -29,11 +29,21 @@ spec:
     server:
       componentType: server
       extraPodSpec:
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it, so following an upstream bump
+        # is an image-tag edit rather than a rebuild of ours.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay:v0.2.1
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
         containers:
           - name: main
-            image: rocm/infera:vllm-kimi-k3   # see IMAGE below
+            image: vllm/vllm-openai-rocm:kimi-k3   # see IMAGE below
             imagePullPolicy: IfNotPresent
-            command: ["python3","-m","infera.server","--host","0.0.0.0","--port","8000",
+            command: ["/overlay/bin/infera-exec","python3","-m","infera.server","--host","0.0.0.0","--port","8000",
                       "--router-tokenizer-path","/models/Kimi-K3",
                       "--request-transport","http","--kv-event-transport","zmq"]
             env:
@@ -44,17 +54,29 @@ spec:
               requests: {cpu: "8", memory: 16Gi}
               limits: {cpu: "8", memory: 16Gi}
             volumeMounts:
+              - {name: overlay, mountPath: /overlay, readOnly: true}
               - {name: model, mountPath: /models, readOnly: true}
         volumes:
+          - {name: overlay, emptyDir: {}}
           - {name: model, persistentVolumeClaim: {claimName: model-cache}}
     worker:
       componentType: worker
       role: mixed
       replicas: 1
       extraPodSpec:
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it, so following an upstream bump
+        # is an image-tag edit rather than a rebuild of ours.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay:v0.2.1
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
         containers:
           - name: main
-            image: rocm/infera:vllm-kimi-k3   # see IMAGE below
+            image: vllm/vllm-openai-rocm:kimi-k3   # see IMAGE below
             imagePullPolicy: IfNotPresent
             # vLLM flags mirror examples/kimi_k3/vllm_serve.sh (TP8, mm data-parallel
             # encoder, kimi_k3 tool/reasoning parsers), routed through infera.engine.vllm.
@@ -62,7 +84,7 @@ spec:
             # MLA then selects the mla_gluon kernel (batch_size=1 only) and crashes warmup
             # at --max-num-seqs 128. `auto` keeps the model's native KV dtype. (Equivalent:
             # env INFERA_DEFAULT_KV_FP8=0.)
-            command: ["python3","-m","infera.engine.vllm","--host","0.0.0.0","--port","30000",
+            command: ["/overlay/bin/infera-exec","python3","-m","infera.engine.vllm","--host","0.0.0.0","--port","30000",
                       "--model","/models/Kimi-K3","--served-model-name","kimi-k3",
                       "--tensor-parallel-size","8","--gpu-memory-utilization","0.95",
                       "--trust-remote-code","--moe-backend","auto","--load-format","auto",
@@ -93,8 +115,10 @@ spec:
               requests: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}
               limits: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}
             volumeMounts:
+              - {name: overlay, mountPath: /overlay, readOnly: true}
               - {name: model, mountPath: /models, readOnly: true}
               - {name: dshm, mountPath: /dev/shm}
         volumes:
+          - {name: overlay, emptyDir: {}}
           - {name: model, persistentVolumeClaim: {claimName: model-cache}}
           - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 32Gi}}

@@ -32,11 +32,21 @@ spec:
       componentType: server
       extraPodSpec:
         nodeSelector: {kubernetes.io/hostname: <PREFILL_NODE>}
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it, so following an upstream bump
+        # is an image-tag edit rather than a rebuild of ours.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay:v0.2.1
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
         containers:
           - name: main
-            image: rocm/infera:sglang-v0.1.2      # libionic (ABI 4) baked
+            image: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x      # libionic (ABI 4) baked
             imagePullPolicy: IfNotPresent
-            command: ["python3","-m","infera.server","--host","0.0.0.0","--port","8000",
+            command: ["/overlay/bin/infera-exec","python3","-m","infera.server","--host","0.0.0.0","--port","8000",
                       "--router-tokenizer-path","<MODEL_PATH>",
                       "--request-transport","http","--kv-event-transport","zmq"]
             env:
@@ -44,8 +54,8 @@ spec:
               - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
               - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
             resources: {requests: {cpu: "4", memory: 8Gi}, limits: {cpu: "4", memory: 8Gi}}
-            volumeMounts: [{name: model, mountPath: /models, readOnly: true}]
-        volumes: [{name: model, hostPath: {path: <MODEL_DIR>, type: Directory}}]
+            volumeMounts: [{name: overlay, mountPath: /overlay, readOnly: true}, {name: model, mountPath: /models, readOnly: true}]
+        volumes: [{name: overlay, emptyDir: {}}, {name: model, hostPath: {path: <MODEL_DIR>, type: Directory}}]
     prefill:
       componentType: worker
       role: prefill
@@ -54,12 +64,22 @@ spec:
       skipReadinessProbe: true
       extraPodSpec:
         nodeSelector: {kubernetes.io/hostname: <PREFILL_NODE>}
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it, so following an upstream bump
+        # is an image-tag edit rather than a rebuild of ours.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay:v0.2.1
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
         containers:
           - name: main
-            image: rocm/infera:sglang-v0.1.2
+            image: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
             imagePullPolicy: IfNotPresent
             securityContext: {privileged: true, capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}}
-            command: ["python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
+            command: ["/overlay/bin/infera-exec","python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
                       "--disaggregation-mode","prefill","--model-path","<MODEL_PATH>",
                       "--tp-size","1","--attention-backend","aiter","--trust-remote-code",
                       "--mem-fraction-static","0.8",
@@ -72,10 +92,12 @@ spec:
               - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
             resources: {requests: {cpu: "16", memory: 96Gi, amd.com/gpu: 1}, limits: {cpu: "16", memory: 96Gi, amd.com/gpu: 1}}
             volumeMounts:
+              - {name: overlay, mountPath: /overlay, readOnly: true}
               - {name: model, mountPath: /models, readOnly: true}
               - {name: dshm, mountPath: /dev/shm}
               - {name: ib, mountPath: /dev/infiniband}
         volumes:
+          - {name: overlay, emptyDir: {}}
           - {name: model, hostPath: {path: <MODEL_DIR>, type: Directory}}
           - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 16Gi}}
           - {name: ib, hostPath: {path: /dev/infiniband, type: Directory}}
@@ -87,12 +109,22 @@ spec:
       skipReadinessProbe: true
       extraPodSpec:
         nodeSelector: {kubernetes.io/hostname: <DECODE_NODE>}
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it, so following an upstream bump
+        # is an image-tag edit rather than a rebuild of ours.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay:v0.2.1
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
         containers:
           - name: main
-            image: rocm/infera:sglang-v0.1.2
+            image: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
             imagePullPolicy: IfNotPresent
             securityContext: {privileged: true, capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}}
-            command: ["python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
+            command: ["/overlay/bin/infera-exec","python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
                       "--disaggregation-mode","decode","--model-path","<MODEL_PATH>",
                       "--tp-size","1","--attention-backend","aiter","--trust-remote-code",
                       "--mem-fraction-static","0.8",
@@ -105,10 +137,12 @@ spec:
               - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
             resources: {requests: {cpu: "16", memory: 96Gi, amd.com/gpu: 1}, limits: {cpu: "16", memory: 96Gi, amd.com/gpu: 1}}
             volumeMounts:
+              - {name: overlay, mountPath: /overlay, readOnly: true}
               - {name: model, mountPath: /models, readOnly: true}
               - {name: dshm, mountPath: /dev/shm}
               - {name: ib, mountPath: /dev/infiniband}
         volumes:
+          - {name: overlay, emptyDir: {}}
           - {name: model, hostPath: {path: <MODEL_DIR>, type: Directory}}
           - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 16Gi}}
           - {name: ib, hostPath: {path: /dev/infiniband, type: Directory}}
