@@ -1,0 +1,143 @@
+# Kimi-K3 — pd (SGLang) — Kubernetes recipe
+#
+# The SGLang half of Kimi-K3 PD. The vLLM half is ../pd/deploy.yaml; pick by which
+# engine you want, not by which is "the" PD path — they disaggregate differently:
+#
+#   SGLang   --disaggregation-mode + a Mooncake bootstrap handshake
+#   vLLM     --kv-transfer-config with a MooncakeConnector
+#
+#   base image   lmsysorg/sglang-rocm:rocm720-mi35x-k3-20260727   (the SGLang build
+#                carrying Kimi-K3 support; the general v0.5.15 tag has none)
+#   overlay      inferaimage/infera-overlay:v0.2.1
+#
+# Weights come from NFS so both nodes see the same path — Kimi-K3 is ~1.5 TB and
+# the decode node here has 147 GB free, so a local copy is not an option.
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: kimi-k3-pd-sglang
+  namespace: infera
+spec:
+  backendFramework: sglang
+  discoveryBackend: kubernetes
+  nats:
+    deploy: false
+  services:
+    server:
+      componentType: server
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <PREFILL_NODE>}
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it, so following an upstream bump
+        # is an image-tag edit rather than a rebuild of ours.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay:v0.2.1
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
+        containers:
+          - name: main
+            image: lmsysorg/sglang-rocm:rocm720-mi35x-k3-20260727      # libionic (ABI 4) baked
+            imagePullPolicy: IfNotPresent
+            command: ["/overlay/bin/infera-exec","python3","-m","infera.server","--host","0.0.0.0","--port","8000",
+                      "--router-tokenizer-path","/models/Kimi-K3",
+                      "--request-transport","http","--kv-event-transport","zmq"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources: {requests: {cpu: "4", memory: 8Gi}, limits: {cpu: "4", memory: 8Gi}}
+            volumeMounts: [{name: overlay, mountPath: /overlay, readOnly: true}, {name: model, mountPath: /models, readOnly: true}]
+        volumes: [{name: overlay, emptyDir: {}}, {name: model, hostPath: {path: /mnt/vast/yaocheng/models/moonshotai, type: Directory}}]
+    prefill:
+      componentType: worker
+      role: prefill
+      replicas: 1
+      port: 30000
+      skipReadinessProbe: true
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <PREFILL_NODE>}
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it, so following an upstream bump
+        # is an image-tag edit rather than a rebuild of ours.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay:v0.2.1
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
+        containers:
+          - name: main
+            image: lmsysorg/sglang-rocm:rocm720-mi35x-k3-20260727
+            imagePullPolicy: IfNotPresent
+            securityContext: {privileged: true, capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}}
+            command: ["/overlay/bin/infera-exec","python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
+                      "--disaggregation-mode","prefill","--model-path","/models/Kimi-K3",
+                      "--tp-size","8","--attention-backend","aiter","--trust-remote-code",
+                      "--mem-fraction-static","0.8",
+                      "--kv-event-transport","zmq","--request-transport","http",
+                      "--disaggregation-transfer-backend","mooncake"]
+            env:
+              - {name: SGLANG_USE_AITER, value: "1"}
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources: {requests: {cpu: "16", memory: 96Gi, amd.com/gpu: 1}, limits: {cpu: "16", memory: 96Gi, amd.com/gpu: 1}}
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay, readOnly: true}
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: dshm, mountPath: /dev/shm}
+              - {name: ib, mountPath: /dev/infiniband}
+        volumes:
+          - {name: overlay, emptyDir: {}}
+          - {name: model, hostPath: {path: /mnt/vast/yaocheng/models/moonshotai, type: Directory}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 16Gi}}
+          - {name: ib, hostPath: {path: /dev/infiniband, type: Directory}}
+    decode:
+      componentType: worker
+      role: decode
+      replicas: 1
+      port: 30000
+      skipReadinessProbe: true
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <DECODE_NODE>}
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it, so following an upstream bump
+        # is an image-tag edit rather than a rebuild of ours.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay:v0.2.1
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
+        containers:
+          - name: main
+            image: lmsysorg/sglang-rocm:rocm720-mi35x-k3-20260727
+            imagePullPolicy: IfNotPresent
+            securityContext: {privileged: true, capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}}
+            command: ["/overlay/bin/infera-exec","python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
+                      "--disaggregation-mode","decode","--model-path","/models/Kimi-K3",
+                      "--tp-size","8","--attention-backend","aiter","--trust-remote-code",
+                      "--mem-fraction-static","0.8",
+                      "--kv-event-transport","zmq","--request-transport","http",
+                      "--disaggregation-transfer-backend","mooncake"]
+            env:
+              - {name: SGLANG_USE_AITER, value: "1"}
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources: {requests: {cpu: "16", memory: 96Gi, amd.com/gpu: 1}, limits: {cpu: "16", memory: 96Gi, amd.com/gpu: 1}}
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay, readOnly: true}
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: dshm, mountPath: /dev/shm}
+              - {name: ib, mountPath: /dev/infiniband}
+        volumes:
+          - {name: overlay, emptyDir: {}}
+          - {name: model, hostPath: {path: /mnt/vast/yaocheng/models/moonshotai, type: Directory}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 16Gi}}
+          - {name: ib, hostPath: {path: /dev/infiniband, type: Directory}}

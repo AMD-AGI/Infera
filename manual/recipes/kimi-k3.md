@@ -39,7 +39,18 @@ kubectl -n infera get pods -w
 :::{tab-item} PD
 :sync: pd
 
-Prefill and decode on separate nodes, KV handed over by Mooncake.
+Prefill and decode on separate nodes, KV handed over by Mooncake. **Two engines
+disaggregate differently — pick by which engine you want, not by which is "the"
+PD path:**
+
+| Engine | Mechanism | Manifest | Image |
+|---|---|---|---|
+| vLLM | `--kv-transfer-config` with a `MooncakeConnector` | `pd/deploy.yaml` | `vllm/vllm-openai-rocm:kimi-k3` |
+| SGLang | `--disaggregation-mode` + a Mooncake bootstrap handshake | `pd-sglang/deploy.yaml` | `lmsysorg/sglang-rocm:rocm720-mi35x-k3-20260727` |
+
+The general `lmsysorg/sglang` tags carry **no** Kimi-K3 support — only that dated
+`-k3-` build does. Weights must sit on storage both nodes see at the same path;
+at ~1.5 TB a per-node copy is usually not an option.
 
 This combination declares `INFERA_REQUIRE_NATIVE=mooncake`, so it fails at startup rather than serving quietly without it.
 
