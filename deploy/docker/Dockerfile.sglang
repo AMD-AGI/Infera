@@ -1,6 +1,11 @@
 # Infera SGLang engine image: layers the infera source onto the ROCm SGLang
 # base and sets an entrypoint that injects the host's libionic before exec'ing
 # the command.
+#
+# ⚠️ The base tag is PINNED and must stay pinned: the GLM-5.2 DSA patches near
+# the end of this file are context diffs applied at --fuzz=0 against this exact
+# sglang commit. Bumping the base fails the build there rather than silently
+# mis-applying. Build with APPLY_SGLANG_DSA_PATCHES=0 if you need a newer base.
 ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
 FROM ${SGLANG_BASE_IMAGE}
 
@@ -71,6 +76,28 @@ RUN pip install --no-cache-dir ".[sglang]"
 COPY deploy/docker/patches/sglang/ /tmp/sglang-patches/
 RUN for f in /tmp/sglang-patches/*.py; do echo "[sglang-patch] $f"; python "$f" || echo "[sglang-patch] skipped $f"; done \
     && rm -rf /tmp/sglang-patches
+
+# ---- GLM-5.2 DSA patch set (PD + DP-attention + EAGLE MTP on gfx950) --------
+# WHAT: three patches that together make PD + DP-attention + EAGLE MTP work for
+# GLM-5.2; without them it crashes on the first batch or deadlocks the DP group.
+# Per-patch rationale and upstream linkage: patches/sglang_dsa/README.md.
+#
+# MUST stay after the loop above -- that supplies the nextn eh_proj prerequisite,
+# which the script asserts. Unlike that loop these are context diffs at --fuzz=0
+# against the pinned base, so a base bump FAILS here instead of mis-applying.
+#
+# The script also verifies each patch reached the BYTECODE, not just the source:
+# a stale __pycache__ silently reverts a patch and has voided an experiment here.
+# APPLY_SGLANG_DSA_PATCHES=0 builds a stock engine to A/B against.
+ARG APPLY_SGLANG_DSA_PATCHES=1
+COPY deploy/docker/patches/sglang_dsa/ /tmp/sglang_dsa/
+COPY deploy/docker/scripts/apply_sglang_dsa_patches.sh /tmp/apply_sglang_dsa_patches.sh
+RUN if [ "${APPLY_SGLANG_DSA_PATCHES}" = "1" ]; then \
+        PATCH_DIR=/tmp/sglang_dsa bash /tmp/apply_sglang_dsa_patches.sh; \
+    else \
+        echo "APPLY_SGLANG_DSA_PATCHES=0 — stock sglang, GLM-5.2 PD+DPA+MTP will NOT work"; \
+    fi \
+    && rm -rf /tmp/apply_sglang_dsa_patches.sh /tmp/sglang_dsa
 
 # ---- Rust router (multi-core data plane; --router-backend rust) ----
 # The ROCm base ships cargo; use it (install a minimal toolchain only if
