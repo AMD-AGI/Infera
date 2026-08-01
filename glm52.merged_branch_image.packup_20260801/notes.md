@@ -219,13 +219,20 @@ reduced. The rule was **only code this experiment exercised enters the branch**,
 because shipping unvalidated code under a validated branch name is worse than
 shipping less.
 
-The sharp edge among the omissions: **`rust/router/src/kv_event.rs` has the same
-bigram bug, unfixed.** Every run here used `--router-backend python` (the
-default), so a Rust-router deployment with MTP still silently degrades kv-aware
-routing to round-robin. It is a real bug kept out of scope only by our backend
-choice. PR #56 carries the fix.
+The sharp edge among the omissions was **`rust/router/src/kv_event.rs`: the same
+bigram bug, unfixed.** Every run in this kit used `--router-backend python` (the
+default), so a Rust-router deployment with MTP still silently degraded kv-aware
+routing to round-robin — a real bug kept out of scope only by our backend choice.
 
-Full table with per-item reasoning: `branch/MERGE_BRANCH.md`.
+> **Fixed after this kit was written.** Group E (`d3c0d6f`) carries the Rust
+> half, alongside the two other non-gfx942 PR #56 commits. The numbers in this
+> kit predate those three and are unaffected by them: none is on the measured
+> path — the Rust router was never run, 1800 s sufficed, and the NodePort window
+> is unreachable on bare metal with `ip_local_port_range` starting at 32768.
+> See `branch/MERGE_BRANCH.md` §"Group E" and `work.liying_rest_20260801/`.
+
+Only gfx942 work is still out. Full table with per-item reasoning:
+`branch/MERGE_BRANCH.md`.
 
 ---
 

@@ -59,17 +59,23 @@ PR #58's branch, and B's files land identically too.
 **Group C is reduced on purpose.** PR #56 has seven commits; two are here, and
 those two are stripped of everything this experiment did not exercise:
 
-| left out | why |
-|---|---|
-| `Dockerfile.sglang.gfx942` early-send layer | the MI325X image — never built or run here |
-| `rust/router/src/kv_event.rs` bigram decode | every run used `--router-backend python` (the default). **A Rust-router deployment with MTP still has the original bug.** |
-| `dsv4_gfx942.py` arch detection | `apply_gfx942_dsv4` returns early on non-gfx942 → **no-op on MI355X** |
-| `INFERA_SGLANG_READY_TIMEOUT` | convenience; 1800 s sufficed |
-| `net.py` NodePort-range skip | bare metal, no kube-proxy, `ip_local_port_range` starts at 32768 — unreachable here. Also conflicts textually with B's `826619b`. |
-| gfx942 v0.5.16 base bump | same image, same reason |
+| left out | why | status now |
+|---|---|---|
+| `Dockerfile.sglang.gfx942` early-send layer | the MI325X image — never built or run here | still out |
+| `rust/router/src/kv_event.rs` bigram decode | every run used `--router-backend python` (the default), so a Rust-router deployment with MTP still had the original bug | **fixed later** — `d3c0d6f` |
+| `dsv4_gfx942.py` arch detection | `apply_gfx942_dsv4` returns early on non-gfx942 → **no-op on MI355X** | still out |
+| `INFERA_SGLANG_READY_TIMEOUT` | convenience; 1800 s sufficed | **added later** — `fd3540d` |
+| `net.py` NodePort-range skip | bare metal, no kube-proxy, `ip_local_port_range` starts at 32768 — unreachable here. Also conflicts textually with B's `826619b`. | **hand-merged later** — `eef9bfc` |
+| gfx942 v0.5.16 base bump | same image, same reason | still out |
 
 The rule was: **only code this experiment exercised enters the branch.** Those
 omissions are a boundary, not an oversight — see `branch/MERGE_BRANCH.md`.
+
+> **Three of the six were backfilled after this kit was written**, as group E,
+> each validated on its own terms rather than argued for — the Rust one by
+> reverting the fix and watching the new ZMQ test fail `0 vs 2`. They are *not*
+> on this kit's measured path, so every number below still stands as recorded.
+> Only gfx942 work remains out. See `work.liying_rest_20260801/`.
 
 **Verified droppable.** `git rebase --onto 7f2dac8 6e6fdb7` replays all 7 later
 commits with no conflict, and with group C gone the bigram tests fail

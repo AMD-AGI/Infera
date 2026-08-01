@@ -234,9 +234,16 @@ result looked *odd*, not because anything failed.
 | `net.py` NodePort-range skip | vultr is bare metal, no kube-proxy, `ip_local_port_range=32768 60999` — cannot be hit here | any Kubernetes deployment |
 | **Rust router bigram decode** | every run uses `--router-backend python` (the default) | **a Rust-router deployment with MTP still has the original bug** — kv-aware silently degrades to round-robin |
 
-The Rust one is the sharp edge: it is a real, unfixed instance of the same bug,
-invisible in exactly the same way, and only the default backend choice keeps it
-out of scope here.
+The Rust one was the sharp edge: a real, unfixed instance of the same bug,
+invisible in exactly the same way, kept out of scope only by the default backend
+choice.
+
+> **All three of the non-gfx942 rows above were closed later**, as group E on the
+> branch (`d3c0d6f`, `fd3540d`, `eef9bfc`). Nothing in this kit's measured path
+> changes — that is precisely why they were deferred — so every number here still
+> stands. The Rust fix was validated by reverting it and watching a real-socket
+> bigram test fail `0 vs 2`. See `work.liying_rest_20260801/` and
+> `MERGE_BRANCH.md` §"Group E".
 
 ---
 
