@@ -1,0 +1,19 @@
+=== source the build consumed (/root/merged_e_src) ===
+  fn as_u32_any                                  src=1 OK
+  subscriber_decodes_bigram_tokens_under_mtp     src=1 OK
+  decodes_sglang_bigram_batch_under_mtp          src=2 OK
+=== built image ===
+=== python: bytecode ===
+  net::_reserved_nodeport_range                  pyc=1 OK
+  worker::INFERA_SGLANG_READY_TIMEOUT            pyc=1 OK
+=== rust: the SHIPPED binary ===
+-rwxr-xr-x 1 root root 12934224 Aug  1 06:00 /usr/local/bin/infera-router
+  binary runs                                   OK
+  rust/ removed by the build, as designed
+=== python behaviour ===
+/sgl-workspace/sglang/python/sglang/srt/layers/attention/fla/utils.py:223: UserWarning: Triton is not supported on current platform, roll back to CPU.
+  warnings.warn(
+  nodeport guard + randomisation                OK
+  _wait_ready(timeout=None) -> env-resolved     OK
+
+=== GROUP E VERIFIED IN THE BUILT IMAGE ===

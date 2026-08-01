@@ -1,0 +1,207 @@
+From d3c0d6f4888bbc0196cb2cebd3897d1106d82cea Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Sat, 1 Aug 2026 05:55:43 +0000
+Subject: [PATCH 1/3] fix(router): decode SGLang's bigram BlockStored tokens in
+ the Rust router
+
+The Python half of this fix is already on the branch (6e6fdb7); this is the
+other half, which that commit deliberately left out because every run in the
+merge experiment used --router-backend python (the default).
+
+With EAGLE/MTP on, SGLang keys its radix tree on bigrams, so each stored page
+reports its tokens as the overlapping pairs `(t[i], t[i+1])` instead of bare
+ints. `as_u32_vec` read each element as an integer, and a pair is not an
+integer, so `filter_map` dropped every one of them: the view stays permanently
+empty, `cache_hits` is pinned at 0, and kv-aware routing degrades to load
+balancing on exactly the deployments that need it most -- silently, since
+nothing in the pipeline errors.
+
+Take the first element of each pair. That rebuilds `t[start:end]`, the same flat
+slice `hash_request` chunks on the query side, and radix nodes split on page
+boundaries so the two chunkings stay aligned.
+
+Cherry-picked from liyingli's PR #56 (01b0534); the inline unit test comes with
+it unchanged. Added `subscriber_decodes_bigram_tokens_under_mtp` to the ZMQ
+integration suite as well, because the failure is silent and the in-crate test
+does not cover the real socket + msgpack decode path where it would be met.
+
+Verified by control rather than by argument, in the built image on chi2879:
+reverting `as_u32_any` and rerunning the integration test fails with
+`left: 0, right: 2` -- the bug verbatim, every pair dropped -- and restoring it
+passes. Whole crate: 70 tests, 0 failures.
+
+A live A/B of the two router binaries against the running PD pair was tried
+first and rejected as non-discriminating: that prefill leg runs without
+--speculative-algorithm, so its wire carries plain ints and the *unpatched*
+binary also read 51 hits.
+
+Co-authored-by: liyingli <liyingli@amd.com>
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ rust/router/src/kv_event.rs       | 56 ++++++++++++++++++++++---
+ rust/router/tests/kv_event_zmq.rs | 69 +++++++++++++++++++++++++++++++
+ 2 files changed, 120 insertions(+), 5 deletions(-)
+
+diff --git a/rust/router/src/kv_event.rs b/rust/router/src/kv_event.rs
+index f9102c1..cc6de24 100644
+--- a/rust/router/src/kv_event.rs
++++ b/rust/router/src/kv_event.rs
+@@ -428,13 +428,23 @@ fn as_u64_vec(v: &rmpv::Value) -> Vec<u64> {
+         .unwrap_or_default()
+ }
+ 
++/// One flat token id from a `BlockStored`'s `token_ids`, in either view the
++/// engine may report. Under EAGLE/MTP, SGLang keys its radix tree on bigrams and
++/// sends each block's tokens as the overlapping pairs `(t[i], t[i+1])`; the first
++/// element of each pair rebuilds `t[start:end]`, which is the flat slice
++/// `hash_request` chunks on the query side (radix nodes split on page boundaries,
++/// so the two chunkings stay aligned). Read as ints, a pair is not an integer, so
++/// every element would be dropped and the view would silently stay empty.
++fn as_u32_any(v: &rmpv::Value) -> Option<u32> {
++    match v {
++        rmpv::Value::Array(pair) => pair.first().and_then(as_u64_any).map(|n| n as u32),
++        _ => as_u64_any(v).map(|n| n as u32),
++    }
++}
++
+ fn as_u32_vec(v: &rmpv::Value) -> Vec<u32> {
+     v.as_array()
+-        .map(|a| {
+-            a.iter()
+-                .filter_map(|x| as_u64_any(x).map(|n| n as u32))
+-                .collect()
+-        })
++        .map(|a| a.iter().filter_map(as_u32_any).collect())
+         .unwrap_or_default()
+ }
+ 
+@@ -512,6 +522,42 @@ mod tests {
+         c.shutdown();
+     }
+ 
++    #[test]
++    fn decodes_sglang_bigram_batch_under_mtp() {
++        // With MTP/EAGLE the radix key is a bigram view, so token_ids arrives as
++        // overlapping (t[i], t[i+1]) PAIRS. The view must still hash to what the
++        // query side computes over the flat tokens, or kv-aware never hits.
++        let c = KvEventClient::new();
++        c.on_worker_added(&worker("sgl", Some("tcp://127.0.0.1:6005"), 16, Some(2)));
++        // 16 bigrams over flat tokens 1..=17 -> one block whose first elements
++        // are exactly 1..=16.
++        let pairs: Vec<Mv> = (1u32..=16)
++            .map(|t| Mv::Array(vec![Mv::from(t), Mv::from(t + 1)]))
++            .collect();
++        let stored = Mv::Array(vec![
++            Mv::String("BlockStored".into()),
++            ints(&[910]),
++            Mv::Nil,
++            Mv::Array(pairs),
++            Mv::from(16i64),
++            Mv::Nil,
++        ]);
++        let batch = enc(Mv::Array(vec![
++            Mv::from(1.0),
++            Mv::Array(vec![stored]),
++            Mv::from(0i64),
++        ]));
++        feed_wire(&c, "sgl", 0, &batch);
++        let q = crate::hasher::hash_request(&seq(1, 16), 16);
++        assert_eq!(q.len(), 1);
++        assert_eq!(
++            c.prefix_hits("sgl", Some(0), &q),
++            1,
++            "bigram pairs must hash like the flat token slice"
++        );
++        c.shutdown();
++    }
++
+     #[test]
+     fn decodes_vllm_batch_with_medium_field() {
+         // vLLM sets the trailing `medium` field (offload tier), so its
+diff --git a/rust/router/tests/kv_event_zmq.rs b/rust/router/tests/kv_event_zmq.rs
+index 845b2e6..d3d0da3 100644
+--- a/rust/router/tests/kv_event_zmq.rs
++++ b/rust/router/tests/kv_event_zmq.rs
+@@ -37,6 +37,23 @@ fn block_stored(block_hashes: &[u64], parent: Option<u64>, token_ids: &[u32], bs
+     ])
+ }
+ 
++/// The same event as SGLang emits it under EAGLE/MTP: `token_ids` carries the
++/// overlapping bigrams `(t[i], t[i+1])` that key the radix tree, not bare ints.
++fn block_stored_bigram(block_hashes: &[u64], parent: Option<u64>, flat: &[u32], bs: i64) -> Mv {
++    let pairs: Vec<Mv> = flat
++        .windows(2)
++        .map(|w| Mv::Array(vec![Mv::from(w[0]), Mv::from(w[1])]))
++        .collect();
++    Mv::Array(vec![
++        Mv::String("BlockStored".into()),
++        Mv::Array(block_hashes.iter().map(|&h| Mv::from(h)).collect()),
++        parent.map(Mv::from).unwrap_or(Mv::Nil),
++        Mv::Array(pairs),
++        Mv::from(bs),
++        Mv::Nil, // lora_id
++    ])
++}
++
+ /// Encode a KVEventBatch: array_like `[ts, events, attn_dp_rank?]`.
+ fn batch(events: Vec<Mv>) -> Vec<u8> {
+     let v = Mv::Array(vec![Mv::from(0.0_f64), Mv::Array(events)]);
+@@ -90,3 +107,55 @@ fn subscriber_decodes_real_zmq_msgpack_into_view() {
+ 
+     client.shutdown();
+ }
++
++/// The MTP shape, over the same real socket.
++///
++/// This is the wire-level twin of the in-crate `decodes_sglang_bigram_batch_under_mtp`
++/// unit test, and the one that would have caught the original bug in a live
++/// deployment: a `--router-backend rust` router subscribed to an MTP-enabled
++/// SGLang leg received pairs, decoded every element to `None`, and kept an empty
++/// view forever. Nothing errored — kv-aware simply degraded to load balancing.
++///
++/// The assertion is that the bigram view hashes to *the same blocks* the query
++/// side computes over the flat tokens, not merely that it is non-empty.
++#[test]
++fn subscriber_decodes_bigram_tokens_under_mtp() {
++    let ctx = zmq::Context::new();
++    let pub_sock = ctx.socket(zmq::PUB).unwrap();
++    pub_sock.bind("tcp://127.0.0.1:*").unwrap();
++    let endpoint = pub_sock.get_last_endpoint().unwrap().unwrap();
++
++    let client = KvEventClient::new();
++    client.on_worker_added(&worker("w", &endpoint, 4));
++
++    // Flat tokens 1..=9 -> 8 bigrams -> two blocks of 4 whose first elements are
++    // [1,2,3,4] and [5,6,7,8]: exactly the slice the query side chunks.
++    let payload = batch(vec![block_stored_bigram(
++        &[333, 444],
++        None,
++        &[1, 2, 3, 4, 5, 6, 7, 8, 9],
++        4,
++    )]);
++    let query = hash_request(&[1, 2, 3, 4, 5, 6, 7, 8], 4);
++    assert_eq!(query.len(), 2);
++
++    let deadline = Instant::now() + Duration::from_secs(10);
++    let mut hits = 0;
++    while Instant::now() < deadline {
++        pub_sock
++            .send_multipart([b"kv-events".as_ref(), payload.as_ref()], 0)
++            .unwrap();
++        std::thread::sleep(Duration::from_millis(50));
++        hits = client.prefix_hits("w", None, &query);
++        if hits == 2 {
++            break;
++        }
++    }
++    assert_eq!(
++        hits, 2,
++        "bigram token_ids must mirror to the same blocks as the flat slice; \
++         0 here is the original bug (every pair dropped, view stays empty)"
++    );
++
++    client.shutdown();
++}
+-- 
+2.34.1
+

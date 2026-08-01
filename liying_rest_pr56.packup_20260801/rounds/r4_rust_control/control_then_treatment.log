@@ -1,0 +1,37 @@
+############ CONTROL: revert as_u32_any, expect FAILURE ############
+  reverted: as_u32_any removed, as_u32_vec back to ints-only
+test subscriber_decodes_real_zmq_msgpack_into_view ... ok
+test subscriber_decodes_bigram_tokens_under_mtp ... FAILED
+
+failures:
+
+---- subscriber_decodes_bigram_tokens_under_mtp stdout ----
+
+thread 'subscriber_decodes_bigram_tokens_under_mtp' (36221) panicked at router/tests/kv_event_zmq.rs:154:5:
+assertion `left == right` failed: bigram token_ids must mirror to the same blocks as the flat slice; 0 here is the original bug (every pair dropped, view stays empty)
+  left: 0
+ right: 2
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    subscriber_decodes_bigram_tokens_under_mtp
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.01s
+
+error: test failed, to rerun pass `--test kv_event_zmq`
+control_rc=101
+
+############ TREATMENT: restore the fix, expect PASS ############
+2
+   Compiling infera-router v0.1.0 (/opt/infera/rust/router)
+    Finished `release` profile [optimized] target(s) in 20.82s
+     Running tests/kv_event_zmq.rs (target/release/deps/kv_event_zmq-ae9ea9d0e6fc1572)
+
+running 2 tests
+test subscriber_decodes_real_zmq_msgpack_into_view ... ok
+test subscriber_decodes_bigram_tokens_under_mtp ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s
+
+treatment_rc=0

@@ -1,0 +1,17 @@
+building patched release binary ...
+   Compiling clap v4.6.1
+   Compiling axum v0.7.9
+   Compiling tracing-subscriber v0.3.23
+   Compiling tokenizers v0.20.4
+   Compiling minijinja v2.21.0
+   Compiling reqwest v0.12.28
+   Compiling futures v0.3.32
+   Compiling rmpv v1.3.1
+   Compiling arc-swap v1.9.2
+   Compiling xxhash-rust v0.8.16
+   Compiling infera-router v0.1.0 (/opt/infera/rust/router)
+    Finished `release` profile [optimized] target(s) in 56.73s
+build_rc=0
+-rwxr-xr-x 2 root root 12934224 Aug  1 05:42 target/release/infera-router
+4743821bd136d5326a4666617bb14a8a  target/release/infera-router
+f0990a445cfef329e013ed47548ecd7f  /usr/local/bin/infera-router

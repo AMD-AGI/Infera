@@ -1,0 +1,37 @@
+=== new suites only (both must actually EXECUTE, not skip) ===
+configfile: pyproject.toml
+plugins: hypothesis-6.150.2, anyio-4.14.2
+collecting ... collected 22 items
+
+tests/unit/common/test_net_port_block.py::test_block_ports_are_free_and_contiguous PASSED [  4%]
+tests/unit/common/test_net_port_block.py::test_block_sits_below_the_ephemeral_range PASSED [  9%]
+tests/unit/common/test_net_port_block.py::test_repeated_calls_do_not_all_collide PASSED [ 13%]
+tests/unit/common/test_net_port_block.py::test_count_of_one_delegates_to_single_port PASSED [ 18%]
+tests/unit/common/test_net_port_block.py::test_block_avoids_default_nodeport_range[2] PASSED [ 22%]
+tests/unit/common/test_net_port_block.py::test_block_avoids_default_nodeport_range[8] PASSED [ 27%]
+tests/unit/common/test_net_port_block.py::test_block_avoids_default_nodeport_range[16] PASSED [ 31%]
+tests/unit/common/test_net_port_block.py::test_block_avoids_custom_nodeport_range PASSED [ 36%]
+tests/unit/common/test_net_port_block.py::test_range_can_be_disabled PASSED [ 40%]
+tests/unit/common/test_net_port_block.py::test_malformed_range_keeps_the_default PASSED [ 45%]
+tests/engine/sglang/test_ready_timeout.py::test_timeout_comes_from_the_env[None-1800.0] PASSED [ 50%]
+tests/engine/sglang/test_ready_timeout.py::test_timeout_comes_from_the_env[5400-5400.0] PASSED [ 54%]
+tests/engine/sglang/test_ready_timeout.py::test_timeout_comes_from_the_env[-1800.0] PASSED [ 59%]
+tests/engine/sglang/test_ready_timeout.py::test_timeout_comes_from_the_env[not-a-number-None] PASSED [ 63%]
+tests/engine/sglang/test_ready_timeout.py::test_explicit_argument_beats_the_env PASSED [ 68%]
+tests/unit/router/test_kv_event_bigram.py::test_flat_tokens_unwraps_pairs PASSED [ 72%]
+tests/unit/router/test_kv_event_bigram.py::test_flat_tokens_accepts_lists_not_only_tuples PASSED [ 77%]
+tests/unit/router/test_kv_event_bigram.py::test_flat_tokens_leaves_plain_ints_alone PASSED [ 81%]
+tests/unit/router/test_kv_event_bigram.py::test_flat_tokens_handles_empty PASSED [ 86%]
+tests/unit/router/test_kv_event_bigram.py::test_bigram_event_populates_the_view PASSED [ 90%]
+tests/unit/router/test_kv_event_bigram.py::test_bigram_and_plain_views_agree PASSED [ 95%]
+tests/unit/router/test_kv_event_bigram.py::test_bigram_event_decodes_over_the_wire PASSED [100%]
+
+=============================== warnings summary ===============================
+../venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1428
+  /opt/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1428: PytestConfigWarning: Unknown config option: asyncio_mode
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 22 passed, 1 warning in 2.83s =========================
+pytest_rc=0

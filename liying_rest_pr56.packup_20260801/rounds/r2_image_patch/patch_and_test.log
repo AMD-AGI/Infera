@@ -1,0 +1,61 @@
+=== 1. apply python + rust sources ===
+  as_u32_any occurrences in kv_event.rs: 2
+=== 2. recompile the touched python, check BYTECODE ===
+  net::_reserved_nodeport_range                  pyc=1 OK
+  worker::INFERA_SGLANG_READY_TIMEOUT            pyc=1 OK
+=== 3. python behavioural checks ===
+  nodeport guard + randomisation both hold        OK
+INFERA_NODEPORT_RANGE='not-a-range' is not a 'lo-hi' range; using the default 30000-32767
+=== 4. pytest on the touched suites ===
+-rw-rw-r-- 1 100882 100882 3602 Aug  1 05:15 tests/engine/sglang/test_ready_timeout.py
+-rw-rw-r-- 1 100882 100882 4095 Aug  1 05:13 tests/unit/common/test_net_port_block.py
+ERROR: file or directory not found: tests/unit/router/test_kv_event_bigram.py
+
+
+=============================== warnings summary ===============================
+../venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1428
+  /opt/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1428: PytestConfigWarning: Unknown config option: asyncio_mode
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 warning in 0.05s
+pytest_rc=4
+=== 5. cargo test the rust decoder ===
+  LIBCLANG_PATH=/opt/rocm-7.2.0/lib/llvm/lib
+/opt/rocm-7.2.0/lib/llvm/lib/libclang.so
+/opt/rocm-7.2.0/lib/llvm/lib/libclang.so.22.0.0git
+/opt/rocm-7.2.0/lib/llvm/lib/libclang.so.22.0git
+test kv_event::tests::decodes_atom_single_block_per_event ... ok
+test kv_event::tests::removed_and_cleared_evict ... ok
+test kv_event::tests::per_rank_views_are_isolated ... ok
+test kv_event::tests::atom_chain_breaks_on_missing_parent ... ok
+test kv_event::tests::decodes_sglang_bigram_batch_under_mtp ... ok
+test kv_event::tests::decodes_vllm_batch_with_medium_field ... ok
+test kv_event::tests::decodes_vllm_map_event ... ok
+test kv_event::tests::stored_then_prefix_hits_match_query_chain ... ok
+test kv_event::tests::decodes_sglang_dp_packed_batch ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 46 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/infera_router-5f11ce0427af4a14)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/functional.rs (target/debug/deps/functional-779e2d621d7d6208)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests/kv_event_zmq.rs (target/debug/deps/kv_event_zmq-20b42f4edf6cef44)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+cargo_test_rc=0
+
+=== PY CHECKS PASSED ===

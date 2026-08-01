@@ -1,0 +1,172 @@
+From fd3540d2df3f8840a486c1f892fe87bf035b3b79 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Sat, 1 Aug 2026 05:55:54 +0000
+Subject: [PATCH 2/3] feat(engine): make the sglang readiness timeout
+ configurable
+
+The hardcoded 30 min covers weight load plus cuda-graph capture for the models
+we ship recipes for, but not a 700 GiB checkpoint read twice -- MTP re-reads the
+weights to extract the draft layer -- and least of all when both PD legs load
+off the same filesystem at once. That leg gets killed while it is still making
+progress, so the whole bring-up has to start over.
+
+Read `$INFERA_SGLANG_READY_TIMEOUT` when no explicit timeout is passed, the same
+shape as the existing `INFERA_ATOM_READY_TIMEOUT`.
+
+Cherry-picked from liyingli's PR #56 (0bb23c7). The env-reference row lands in
+the next commit, which adds a second row to the same new table.
+
+Liying's commit ships no test; added one. It asserts the resolved value via the
+`TimeoutError` message rather than by waiting, driving the timeout branch with a
+clock already past the deadline, so the 1800 s default is checked in
+milliseconds. It also covers the two ways a misconfiguration could silently
+disable the guard: an empty value must mean "unset", not "0 seconds", and a
+non-numeric value must raise rather than be coerced.
+
+Written with `asyncio.run` in sync test functions rather than
+`@pytest.mark.asyncio` on purpose: the engine image ships pytest without
+pytest-asyncio, where that marker is an unknown mark and every async test is
+silently collected, never awaited, and reported as passing. Verified executing
+in the built image on chi2879: 5 passed.
+
+Co-authored-by: liyingli <liyingli@amd.com>
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ infera/engine/sglang/worker.py            |   9 +-
+ tests/engine/sglang/test_ready_timeout.py | 104 ++++++++++++++++++++++
+ 2 files changed, 112 insertions(+), 1 deletion(-)
+ create mode 100644 tests/engine/sglang/test_ready_timeout.py
+
+diff --git a/infera/engine/sglang/worker.py b/infera/engine/sglang/worker.py
+index a75a726..e5fa7ba 100644
+--- a/infera/engine/sglang/worker.py
++++ b/infera/engine/sglang/worker.py
+@@ -136,7 +136,14 @@ class SglangEngine(BaseEngine):
+             dp_size=dp_size,
+         )
+ 
+-    async def _wait_ready(self, timeout: float = 1800) -> None:
++    async def _wait_ready(self, timeout: float | None = None) -> None:
++        # 30 min covers weight load + cuda-graph capture for the models we ship
++        # recipes for, but not a 700 GiB checkpoint read twice (MTP extracts the
++        # draft layer on a second pass) — and less so when both PD legs load off
++        # the same filesystem at once. $INFERA_SGLANG_READY_TIMEOUT raises it
++        # without editing a launcher, as INFERA_ATOM_READY_TIMEOUT does for ATOM.
++        if timeout is None:
++            timeout = float(os.environ.get("INFERA_SGLANG_READY_TIMEOUT", "1800") or 1800)
+         # /health is probed locally; sglang binds on server_args.host, but if
+         # that is 0.0.0.0 we should probe via 127.0.0.1 instead.
+         probe_host = self.server_args.host
+diff --git a/tests/engine/sglang/test_ready_timeout.py b/tests/engine/sglang/test_ready_timeout.py
+new file mode 100644
+index 0000000..8127c2d
+--- /dev/null
++++ b/tests/engine/sglang/test_ready_timeout.py
+@@ -0,0 +1,104 @@
++###############################################################################
++# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
++#
++# SPDX-License-Identifier: MIT
++###############################################################################
++"""``INFERA_SGLANG_READY_TIMEOUT`` overrides the readiness deadline.
++
++The hardcoded 30 min covers weight load plus cuda-graph capture for the models
++we ship recipes for, but not a very large checkpoint read twice -- MTP re-reads
++the weights to extract the draft layer -- and least of all when both PD legs
++load off one filesystem at once. That leg is killed while it is still making
++progress and the whole bring-up restarts, so the deadline has to be raisable
++without editing a launcher.
++
++The resolved value is observable without waiting for it: ``_wait_ready`` puts it
++in the ``TimeoutError`` it raises. These tests drive the timeout path with a
++clock that has already jumped past the deadline, so a 1800 s default is asserted
++in milliseconds.
++
++Two deliberate choices about how this runs:
++
++* ``importorskip("sglang")`` -- ``infera.engine.sglang.worker`` imports
++  ``sglang.srt.server_args`` at module load, so this runs in the SGLang
++  container and skips on a bare dev box. Same pattern as
++  ``test_decode_radix_vs_speculative.py``.
++* ``asyncio.run`` in sync test functions rather than ``@pytest.mark.asyncio``
++  -- the engine image ships pytest without ``pytest-asyncio``, where that marker
++  is silently unknown and every async test is skipped-as-passed. These have to
++  actually execute in the image they guard.
++"""
++
++from __future__ import annotations
++
++import asyncio
++from types import SimpleNamespace
++
++import pytest
++
++pytest.importorskip("sglang")
++
++from infera.engine.sglang import worker as worker_mod  # noqa: E402
++from infera.engine.sglang.worker import SglangEngine  # noqa: E402
++
++
++class _JumpedClock:
++    """A loop clock that is already past any deadline after the first read.
++
++    ``_wait_ready`` reads ``loop.time()`` once to set the deadline and again in
++    the ``while`` guard. Returning 0.0 then a huge value skips the poll loop
++    entirely, so the timeout branch is reached with no real waiting.
++    """
++
++    def __init__(self) -> None:
++        self._reads = 0
++
++    def time(self) -> float:
++        self._reads += 1
++        return 0.0 if self._reads == 1 else 1e9
++
++
++@pytest.fixture
++def jumped_clock(monkeypatch):
++    monkeypatch.setattr(worker_mod.asyncio, "get_running_loop", lambda: _JumpedClock())
++    yield
++
++
++def _engine() -> SglangEngine:
++    """An engine shell carrying only what ``_wait_ready`` reads."""
++    eng = SglangEngine.__new__(SglangEngine)
++    eng.server_args = SimpleNamespace(host="127.0.0.1", port=1)
++    eng._proc = None
++    return eng
++
++
++@pytest.mark.parametrize(
++    "env, expected",
++    [
++        (None, 1800.0),  # unset -> the shipped default is unchanged
++        ("5400", 5400.0),  # raised for a big checkpoint
++        ("", 1800.0),  # empty means unset, not "0 seconds"
++        ("not-a-number", None),  # a typo must not be silently treated as 0
++    ],
++)
++def test_timeout_comes_from_the_env(monkeypatch, jumped_clock, env, expected):
++    if env is None:
++        monkeypatch.delenv("INFERA_SGLANG_READY_TIMEOUT", raising=False)
++    else:
++        monkeypatch.setenv("INFERA_SGLANG_READY_TIMEOUT", env)
++
++    eng = _engine()
++    if expected is None:
++        with pytest.raises(ValueError):
++            asyncio.run(eng._wait_ready())
++        return
++    with pytest.raises(TimeoutError, match=rf"not ready after {expected}s"):
++        asyncio.run(eng._wait_ready())
++
++
++def test_explicit_argument_beats_the_env(monkeypatch, jumped_clock):
++    """Flag > env > default, the same precedence the rest of the CLI uses."""
++    monkeypatch.setenv("INFERA_SGLANG_READY_TIMEOUT", "5400")
++    eng = _engine()
++    with pytest.raises(TimeoutError, match=r"not ready after 7\.0s"):
++        asyncio.run(eng._wait_ready(7.0))
+-- 
+2.34.1
+

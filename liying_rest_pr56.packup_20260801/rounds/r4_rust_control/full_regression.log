@@ -1,0 +1,25 @@
+############ cargo: WHOLE router crate ############
+running 56 tests
+test protocol::tests::vllm_decode_errors_on_missing_params ... ok
+test result: ok. 56 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+running 0 tests
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+running 12 tests
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+running 2 tests
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s
+running 0 tests
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+############ pytest: whole unit + engine tree ############
+
+tests/unit/router/test_kv_event_e2e.py:307
+  /opt/infera/tests/unit/router/test_kv_event_e2e.py:307: PytestUnknownMarkWarning: Unknown pytest.mark.asyncio - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.asyncio
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/router/test_kv_event_e2e.py::test_full_pipeline_routes_to_worker_with_cached_prefix
+FAILED tests/unit/router/test_kv_event_e2e.py::test_full_pipeline_handles_chained_parent_block_hash
+FAILED tests/unit/router/test_kv_event_e2e.py::test_bigram_block_stored_matches_flat_request_tokens
+FAILED tests/unit/router/test_kv_event_e2e.py::test_request_with_misaligned_tokens_gets_zero_hits
+4 failed, 22 passed, 5 warnings in 2.87s

@@ -1,0 +1,25 @@
+#21 23.99    Compiling unicode_categories v0.1.1
+#21 24.03    Compiling tokenizers v0.20.4
+#21 24.04    Compiling minijinja v2.21.0
+#21 24.08    Compiling tracing-subscriber v0.3.23
+#21 25.64    Compiling axum v0.7.9
+#21 27.62    Compiling clap v4.6.1
+#21 27.64    Compiling reqwest v0.12.28
+#21 31.06    Compiling futures v0.3.32
+#21 31.09    Compiling rmpv v1.3.1
+#21 31.41    Compiling arc-swap v1.9.2
+#21 31.45    Compiling xxhash-rust v0.8.16
+#21 37.05    Compiling infera-router v0.1.0 (/opt/infera/rust/router)
+#21 57.30     Finished `release` profile [optimized] target(s) in 56.94s
+#21 DONE 57.5s
+
+#22 [18/18] COPY deploy/docker/scripts/infera_inject_host_ionic.sh /usr/local/bin/infera-inject-host-ionic
+#22 DONE 0.0s
+
+#23 exporting to image
+#23 exporting layers
+#23 exporting layers 0.2s done
+#23 writing image sha256:bfcb6462fa306743e0bf43b32ac0263ce9094e13591f6f748263e5348bf97e41 done
+#23 naming to docker.io/infera/engine-sglang:merged-e done
+#23 DONE 0.2s
+=== done: sha256:bfcb6462fa306743e0bf43b32ac0263ce9094e13591f6f748263e5348bf97e41 ===

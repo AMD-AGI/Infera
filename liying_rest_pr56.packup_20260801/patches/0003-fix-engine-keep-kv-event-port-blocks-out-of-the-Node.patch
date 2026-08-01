@@ -1,0 +1,236 @@
+From eef9bfcbd7658879f28eab0dbe3036160a2964ed Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Sat, 1 Aug 2026 05:56:08 +0000
+Subject: [PATCH 3/3] fix(engine): keep kv-event port blocks out of the
+ NodePort range
+
+`free_tcp_port_block` scans below the ephemeral range, which on a default host
+means it can hand back a block inside 30000-32767 -- the Kubernetes NodePort
+range. Any Service in the cluster can claim a port in that window at any time,
+and kube-proxy in IPVS mode then owns it on *every* node address with no real
+server behind it here, so traffic to the node IP is swallowed before it reaches
+our listener and the kernel answers RST.
+
+The bind probe cannot see this: the port is free, it binds, and loopback works.
+Only a peer dialing the address we advertise breaks, which is exactly the router
+subscribing to a worker's kv-events -- so the router's cache view stays empty
+and kv-aware routing quietly degrades to load balancing.
+
+Skip the window during the scan, overridable with `$INFERA_NODEPORT_RANGE` for a
+cluster that moved the range (`none` drops the guard); a malformed value keeps
+the default rather than dropping it.
+
+Adapted from liyingli's PR #56 (d63e48b), which does not apply as-is: 826619b on
+this branch rewrote the same loop to randomise the scan start (a fixed start
+made two PD legs on one host pick the same base deterministically). Both fixes
+belong to that one loop, so this keeps `itertools.chain(randomised, exhaustive)`
+and adds the reserved-window skip as the first statement of the loop body -- the
+guard applies to the random probes and the fallback scan alike.
+
+For the same reason liying's separate `tests/unit/common/test_net_ports.py` is
+folded into the existing `test_net_port_block.py` rather than added alongside
+it: same function, same subject, and two files asserting on one loop would only
+conflict again. The merged suite asserts both properties together, since a base
+must now be both spread out and outside the window.
+
+Verified in the built image on chi2879: 40 consecutive `free_tcp_port_block(8)`
+calls, none overlapping 30000-32767, more than one distinct base; `none` drops
+the guard and `not-a-range` keeps it. 10 passed.
+
+Co-authored-by: liyingli <liyingli@amd.com>
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ infera/common/net.py                     | 49 +++++++++++++++++++
+ manual/reference/environment.md          |  7 +++
+ tests/unit/common/test_net_port_block.py | 60 +++++++++++++++++++++---
+ 3 files changed, 109 insertions(+), 7 deletions(-)
+
+diff --git a/infera/common/net.py b/infera/common/net.py
+index 1fe61dd..346bfc7 100644
+--- a/infera/common/net.py
++++ b/infera/common/net.py
+@@ -6,13 +6,54 @@
+ from __future__ import annotations
+ 
+ import itertools
++import logging
++import os
+ import random
+ import socket
+ 
++logger = logging.getLogger(__name__)
++
+ # How many randomly-chosen bases free_tcp_port_block tries before falling back
+ # to an exhaustive scan.
+ _PORT_BLOCK_TRIES = 64
+ 
++# Kubernetes' default --service-node-port-range. A port in this window can be
++# claimed cluster-wide by any Service at any time; kube-proxy in IPVS mode then
++# creates an IPVS service for it on *every* node address, with no real server
++# backing it on this node. Traffic to a node IP is then swallowed by IPVS before
++# it reaches a local 0.0.0.0 listener and the kernel answers RST, so the port
++# stays bindable and reachable over loopback while being "connection refused"
++# from the node IP -- which is the address we advertise to peers.
++_NODEPORT_RANGE_DEFAULT = "30000-32767"
++
++
++def _parse_port_range(spec: str) -> tuple[int, int] | None:
++    lo, _, hi = spec.partition("-")
++    try:
++        return int(lo), int(hi)
++    except ValueError:
++        return None
++
++
++def _reserved_nodeport_range() -> tuple[int, int] | None:
++    """The port window to keep out of, or None when the caller opted out.
++
++    ``INFERA_NODEPORT_RANGE="lo-hi"`` for a cluster that moved the range,
++    ``"none"`` to drop the guard. An unparseable value keeps the default
++    rather than silently dropping the guard.
++    """
++    spec = os.environ.get("INFERA_NODEPORT_RANGE", _NODEPORT_RANGE_DEFAULT).strip()
++    if spec.lower() in ("", "none", "off"):
++        return None
++    parsed = _parse_port_range(spec)
++    if parsed is None:
++        logger.warning(
++            "INFERA_NODEPORT_RANGE=%r is not a 'lo-hi' range; using the default %s",
++            spec,
++            _NODEPORT_RANGE_DEFAULT,
++        )
++    return parsed or _parse_port_range(_NODEPORT_RANGE_DEFAULT)
++
+ 
+ def free_tcp_port() -> int:
+     """Bind to port 0 to let the kernel assign a free port, then release.
+@@ -48,6 +89,9 @@ def free_tcp_port_block(count: int) -> int:
+     from the same place, both saw the same free block, and the second died with
+     ``ZMQError: Address already in use`` on ``base + rank``. Randomising spreads
+     the picks so concurrent callers land on different blocks.
++
++    The scan also skips the Kubernetes NodePort range, which a loopback bind
++    probe cannot rule out on its own.
+     """
+     if count <= 1:
+         return free_tcp_port()
+@@ -55,12 +99,17 @@ def free_tcp_port_block(count: int) -> int:
+         low = int(open("/proc/sys/net/ipv4/ip_local_port_range").read().split()[0])
+     except (OSError, ValueError, IndexError):
+         low = 32768
++    reserved = _reserved_nodeport_range()
+     # Candidate window: [1024, low - count]. Probe randomly-chosen bases first,
+     # then fall back to an exhaustive downward scan so we never fail while a
+     # block is still available.
+     highest = low - count
+     randomised = [random.randint(1024, highest) for _ in range(_PORT_BLOCK_TRIES)]
+     for base in itertools.chain(randomised, range(highest, 1024, -1)):
++        # A block inside the NodePort range binds and answers on loopback here,
++        # so only skipping it up front keeps it out of the advertised endpoint.
++        if reserved and base + count - 1 >= reserved[0] and base <= reserved[1]:
++            continue
+         socks: list[socket.socket] = []
+         try:
+             for off in range(count):
+diff --git a/manual/reference/environment.md b/manual/reference/environment.md
+index 2fad2fa..308e43b 100644
+--- a/manual/reference/environment.md
++++ b/manual/reference/environment.md
+@@ -68,6 +68,13 @@ checklist and the RDMA self-check.
+ Each has a CLI flag (flag > env > default); see [Routing & transport](../features/routing_and_transport.md)
+ and the [CLI reference](cli.md).
+ 
++## Engine startup (set on the engine process)
++
++| Env | Default | What it does |
++|---|---|---|
++| `INFERA_SGLANG_READY_TIMEOUT` | `1800` (s) | How long the launcher waits for SGLang's `/health` before it gives up on the engine. Raise it for a very large checkpoint: MTP reads the weights a second time to extract the draft layer, and two PD legs loading off one filesystem are slower per leg. `INFERA_ATOM_READY_TIMEOUT` is the ATOM twin. |
++| `INFERA_NODEPORT_RANGE` | `30000-32767` | Port window the auto-allocated kv-event port block must avoid — Kubernetes' NodePort range, where a Service claim makes the port unreachable from the node IP we advertise. Set `lo-hi` for a cluster that moved the range, `none` to drop the guard. |
++
+ ## Engine correctness
+ 
+ | Env | Value | What it does |
+diff --git a/tests/unit/common/test_net_port_block.py b/tests/unit/common/test_net_port_block.py
+index 52e4c9b..21ca43a 100644
+--- a/tests/unit/common/test_net_port_block.py
++++ b/tests/unit/common/test_net_port_block.py
+@@ -5,19 +5,38 @@
+ ###############################################################################
+ """Regression tests for ``infera.common.net.free_tcp_port_block``.
+ 
+-The bug these guard against: the scan used to start at a fixed
+-``ip_local_port_range.low - count`` and the probe released the block before
+-returning, so two engines launched on the same host (the prefill and decode
+-legs of a PD pair, each with ``dp_size > 1``) deterministically picked the
+-*same* base. The second leg's sglang subprocess then died with
+-``ZMQError: Address already in use`` binding ``base + attn_dp_rank``.
++Two independent bugs, both of which make the *block* unusable while every
++individual port passes a bind probe:
++
++1. **Collision.** The scan used to start at a fixed
++   ``ip_local_port_range.low - count`` and the probe released the block before
++   returning, so two engines launched on the same host (the prefill and decode
++   legs of a PD pair, each with ``dp_size > 1``) deterministically picked the
++   *same* base. The second leg's sglang subprocess then died with
++   ``ZMQError: Address already in use`` binding ``base + attn_dp_rank``.
++2. **NodePort range.** A base inside Kubernetes' NodePort window binds here and
++   answers on loopback, but once any Service claims that port kube-proxy (IPVS)
++   intercepts it on every node address and the kernel answers RST — so only a
++   *peer* dialing the advertised node IP breaks, which is exactly the router
++   subscribing to a worker's kv-events.
++
++Both guards live in one scan, so they are tested together: a base must be both
++spread out and outside the reserved window.
+ """
+ 
+ from __future__ import annotations
+ 
+ import socket
+ 
+-from infera.common.net import free_tcp_port_block
++import pytest
++
++from infera.common.net import _reserved_nodeport_range, free_tcp_port_block
++
++_DEFAULT_LO, _DEFAULT_HI = 30000, 32767
++
++
++def _overlaps(base: int, count: int, lo: int, hi: int) -> bool:
++    return base + count - 1 >= lo and base <= hi
+ 
+ 
+ def _ephemeral_low() -> int:
+@@ -63,3 +82,30 @@ def test_repeated_calls_do_not_all_collide() -> None:
+ def test_count_of_one_delegates_to_single_port() -> None:
+     port = free_tcp_port_block(1)
+     assert 1024 <= port <= 65535
++
++
++@pytest.mark.parametrize("count", [2, 8, 16])
++def test_block_avoids_default_nodeport_range(count: int) -> None:
++    base = free_tcp_port_block(count)
++    assert not _overlaps(base, count, _DEFAULT_LO, _DEFAULT_HI), (
++        f"block {base}..{base + count - 1} overlaps the NodePort range"
++    )
++
++
++def test_block_avoids_custom_nodeport_range(monkeypatch) -> None:
++    monkeypatch.setenv("INFERA_NODEPORT_RANGE", "20000-25000")
++    base = free_tcp_port_block(8)
++    assert not _overlaps(base, 8, 20000, 25000)
++
++
++def test_range_can_be_disabled(monkeypatch) -> None:
++    # A cluster that moved the range off the default should not pay for a
++    # needlessly low block.
++    monkeypatch.setenv("INFERA_NODEPORT_RANGE", "none")
++    assert _reserved_nodeport_range() is None
++
++
++def test_malformed_range_keeps_the_default(monkeypatch) -> None:
++    # A typo must not silently drop the guard.
++    monkeypatch.setenv("INFERA_NODEPORT_RANGE", "not-a-range")
++    assert _reserved_nodeport_range() == (_DEFAULT_LO, _DEFAULT_HI)
+-- 
+2.34.1
+

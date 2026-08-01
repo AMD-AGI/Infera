@@ -1,0 +1,10 @@
+############ before ############
+cache_hits=0 request_blocks=51
+cache_hits=0 request_blocks=51
+cache_hits=51 request_blocks=51
+cache_hits=0 request_blocks=51
+############ after ############
+cache_hits=0 request_blocks=51
+cache_hits=0 request_blocks=51
+cache_hits=0 request_blocks=51
+cache_hits=0 request_blocks=51

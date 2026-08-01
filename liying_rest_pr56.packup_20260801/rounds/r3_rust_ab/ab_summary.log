@@ -1,0 +1,11 @@
+=== leg before : /usr/local/bin/infera-router ===
+f0990a445cfef329e013ed47548ecd7f  /usr/local/bin/infera-router
+  router up
+  --- cache_hits seen on picks ---
+  --- max ---
+=== leg after : /opt/infera/rust/target/release/infera-router ===
+4743821bd136d5326a4666617bb14a8a  /opt/infera/rust/target/release/infera-router
+  router up
+  --- cache_hits seen on picks ---
+  --- max ---
+=== done; logs in /tmp/rustab ===
