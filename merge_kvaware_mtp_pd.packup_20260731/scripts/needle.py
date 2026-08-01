@@ -14,6 +14,7 @@ a needle in the last chunk passes even on unpatched code.
 usage: needle.py BASE MODEL PROMPT_TOKENS [DEPTHS_CSV] [OUT_JSON]
 """
 import json
+import os
 import re
 import sys
 import urllib.request
@@ -45,10 +46,30 @@ def build(depth: float, secret: int) -> str:
 MAX_TOKENS = int(sys.argv[6]) if len(sys.argv) > 6 else 1024
 
 
+# GLM-5.2's own generation_config.json: temperature 1.0, top_p 0.95. Use it.
+#
+# The earlier `temperature: 0` here was a probe defect, and a costly one. Greedy
+# decoding sends a reasoning model into repetition on a long prompt, and EAGLE/MTP
+# AMPLIFIES it: the draft model predicts a loop perfectly, so `accept len` pins at
+# its maximum (4.00 with --speculative-num-draft-tokens 4) and the loop runs to
+# max_tokens. The result reads exactly like KV corruption -- needle missing,
+# `</think>` repeating hundreds of times, finish=length -- while the KV path is
+# fine. Measured: MTP on gave 3/5 at temp 0 and 5/5 at these settings, with the
+# same image, same prefill leg, same prompt.
+#
+# top_k is not in generation_config; 40 is the value GLM's own serving docs use.
+TEMPERATURE = float(os.environ.get("NEEDLE_TEMPERATURE", "1.0"))
+TOP_P = float(os.environ.get("NEEDLE_TOP_P", "0.95"))
+TOP_K = int(os.environ.get("NEEDLE_TOP_K", "40"))
+
+
 def ask(prompt: str) -> tuple[str, int, int, str]:
     body = json.dumps({"model": MODEL,
                        "messages": [{"role": "user", "content": prompt}],
-                       "max_tokens": MAX_TOKENS, "temperature": 0}).encode()
+                       "max_tokens": MAX_TOKENS,
+                       "temperature": TEMPERATURE,
+                       "top_p": TOP_P,
+                       "top_k": TOP_K}).encode()
     req = urllib.request.Request(f"{BASE}/v1/chat/completions", data=body,
                                  headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=900) as r:

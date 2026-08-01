@@ -31,9 +31,17 @@ Four gates, each loading one more thing onto the last, so a failure localises.
 | **G0** | patches must not break kvaware+kvd: 4/4 correctness, kvd restart-replay shows `gets>0`, `hits>0`, `sets` unchanged | 4/4, 32/32 prefix reuse, kvd **102 gets / 102 hits / 102 sets (unchanged)** after engine restart | ✅ |
 | **G1** | + MTP on decode: 4/4, `acc_len>1`, router KV view non-empty | 4/4, 32/32, **`accept len` 2.48–2.58**, router prefill view **51 blocks** | ✅ |
 | **G2** | + prompt spanning >1 prefill chunk: needle correct at every depth | **5/5**, prompt really split `8192+8192+1728` | ✅ |
-| **stress** | conc=16 then conc=128, 0 HTTP errors | **64/64** and **256/256**, 0 corrupt, 0 errors | ✅ |
+| **stress** | conc=16 then conc=128, 0 HTTP errors | **64/64 CLEAN**; conc=128 **255/256 well-formed** (1 capped response, see below), 0 HTTP errors | ✅ |
 
 `Traceback` on either leg across all gates: **0**.
+
+**The one conc=128 case, stated honestly.** Both the patched and the built image
+show exactly **1 `CORRUPT_REASONING` in 256** — an earlier draft of this table
+claimed 0, which the raw JSON does not support. In both runs that response is the
+single one that ran to the `max_tokens` cap, and it is a plain repetition loop
+(`the the the…`, `</think>` × **0**), not the chunk-boundary signature, which
+requires the tag to cycle. Replaying the identical prompt at conc=1 returns
+CLEAN. See `notes.md` §6c.
 
 ### Against the spec's four goals
 
@@ -102,13 +110,36 @@ gets**, 318 MB of host memory for zero reads. Not MTP-specific.
 
 Full analysis, including the open question it leaves: `notes.md` §5.
 
-## What this kit does NOT establish
+## The image WAS built, and reproduces the result
 
-- **The merged image was never built.** Everything was validated by patching the
-  running containers, with each patch verified in the *bytecode* on both nodes.
-  `deliverable/deploy/docker/Dockerfile.sglang` applies the same scripts in the
-  same order, but that is an argument, not a measurement. **Build it and re-run
-  G0–G2 before shipping.**
+Originally this kit could only argue that the Dockerfile would reproduce the run.
+It no longer has to. `deploy/docker/Dockerfile.sglang` was built **on both cluster
+nodes from the merged branch source**, verified in the bytecode, and G0–G2 plus
+both stress gates were re-run against it with **no in-container patching at all**.
+
+| gate | patched image | **built image** |
+|---|---|---|
+| G0 correctness / prefix reuse | 4/4, 32/32 | **4/4, 32/32** |
+| G0 kvd restart-replay | 102 gets / 102 hits / sets unchanged | **102 / 102 / unchanged** |
+| G1 correctness | 4/4 | **4/4** |
+| G1 router view (prefill) | 51 | **51** |
+| G1 `accept len` | 2.48–2.58 | **2.17–2.60** |
+| G2 needles | 5/5, split 8192+8192+1728 | **5/5, same split** |
+| conc=16 | 64/64 | **64/64** |
+| conc=128 | 1 CORRUPT / 256 | **1 CORRUPT / 256** |
+
+Image ids: chi2879 `1f7cf6964cee`, chi2867 `0d478433f1b3`. **They differ, and that
+is expected** — each node built independently, so the Rust router objects and
+layer timestamps differ. Content equivalence is what matters and was checked: 18
+bytecode/source assertions plus a behavioural smoke test, identical on both.
+
+Raw results are in `results/raw/*.builtimage.json`. One difference from the
+patched image worth knowing: the built image carries **one** infera copy
+(`/opt/infera/infera`), not two, so the trap in §3 of `notes.md` cannot arise
+there.
+
+## What this kit still does NOT establish
+
 - **No differential control in this run.** Each patch's necessity was established
   in the earlier per-workstream kits, not re-proven here.
 - **No performance comparison** against any baseline. Every number here is
@@ -134,17 +165,6 @@ Full analysis, including the open question it leaves: `notes.md` §5.
 
 ## Related kits
 
-These live in the **experiment checkout**, not in the repository — of the three,
-only this kit is committed. (`kvaware_kvd_pr.packup_20260731/` is on the branch
-too, carried in by the PR #59 cherry-picks.)
-
 - `kvaware_kvd_pr.packup_20260731.pr.final` — workstream 1 alone
 - `glm52.mxfp4.spur.mooncake.packup_20260731_main_converged` — workstream 2 alone
 - `work.merge_20260731/` — the live scratch workspace this kit was built from (kept intact)
-
-## Where this sits in the branch
-
-`MERGE_BRANCH.md` at the repository root maps the four commit groups, says which
-upstream PR each belongs to, and gives the exact `git rebase --onto` that drops
-the temporary ones. Read that first if you are here to rebase rather than to
-reproduce.

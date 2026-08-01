@@ -124,10 +124,53 @@ should not enable hicache storage.
 
 ---
 
-## 6. Two probe defects that each produced a wrong verdict
+## 6. Three probe defects that each produced a wrong verdict
 
-Both were in **our measurement tooling**, not the system under test. Both would
-have been believed if the numbers had been slightly less surprising.
+All three were in **our measurement tooling**, not the system under test. All
+would have been believed if the numbers had been slightly less surprising.
+
+### 6c. `temperature: 0` + MTP manufactures the corruption signature
+
+Found on the **built-image** re-run, and the most expensive of the three.
+
+**What.** G2 reported **3/5** on the merged image with MTP on: needle missing at
+two depths, `</think>` × 1264, `finish=length` at the 2048 cap, and a degenerate
+`0 the0 the0 the` loop. Depth 1.0 was the only clean one — which is precisely the
+early-send signature (the final chunk goes through the sampling path, which
+already synchronizes). Every check said the fix was in: `_early_send_wait_event`
+present in the bytecode of all three files on both nodes, the call sites wired
+(`prefill.py:721` records, `conn.py:1751` picks up, `conn.py:1233` synchronizes),
+and the prompt genuinely split `8192+8192+1728`.
+
+**Why it was wrong.** All four probes sent `temperature: 0` with no `top_p`.
+GLM-5.2's own `generation_config.json` says **temperature 1.0, top_p 0.95**.
+Greedy decoding sends a reasoning model into repetition on a long prompt, and
+**EAGLE/MTP amplifies it**: the draft model predicts a loop perfectly, so
+`accept len` pins at its maximum (4.00 with `--speculative-num-draft-tokens 4`)
+and the response runs to `max_tokens`. `accept len: 4.00` is therefore a
+*symptom of the loop*, not evidence MTP is healthy.
+
+**The control that settled it.** Same image, same prefill leg, same prompt, MTP
+off on the decode leg: **5/5, all `finish=stop`, 74–153 tokens**. One variable.
+Then with MTP back on and the official sampling: **5/5**, `accept len` back to
+2.17–2.60.
+
+**How to tell it from real corruption.** The real chunk-boundary signature needs
+the **tag cycling** (`2183</think>2183</think>`). A `the the the` or `0 the0 the`
+loop with `</think>` × 0 is sampling degeneration. And it is not load-dependent:
+replaying the identical failing prompts at conc=1 via `IDX=` returned **12/12
+CLEAN**.
+
+**Also visible in the stress gate.** At OSL 1024 the merged image showed 5/256
+BAD, *all of them* at the cap. Raising OSL to 2048 dropped it to **1/256** —
+matching the validated run exactly — with no other change. Same lesson as 6a: a
+response cut off mid-thought mimics corruption.
+
+**Fixed** in `scripts/needle.py` and `scripts/stress_capture.py`: both now send
+`temperature 1.0, top_p 0.95, top_k 40`, overridable by env for a deliberate A/B.
+`probe.py` and `prefix_reuse.py` still send `temperature: 0` and were left alone
+— at 64 and 128 max tokens they cannot reach the degenerate regime, and they
+passed 4/4 and 32/32 on both images.
 
 ### 6a. `max_tokens=256` manufactures the corruption signature
 

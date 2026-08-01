@@ -214,23 +214,64 @@ CORRUPT_REASONING` is the criterion. The classifier in `scripts/` is the
 **corrected** one — the original had two defects that between them hid the very
 failure mode this gate exists to catch (`notes.md` §6).
 
-## 7. Validating the deliverable instead (NOT YET DONE)
+## 7. Validating the deliverable image (DONE — this is the preferred path)
 
-The above reproduces the measurement. To validate the shipped artifact:
+§2–§6 above patch a base image in place, which is how the fixes were first
+measured. The shipped artifact is the Dockerfile, and it has now been built and
+re-validated end to end. Prefer this path.
 
-    # in an Infera checkout with deliverable/infera_source_changes.diff applied
-    git apply <KIT>/deliverable/infera_source_changes.diff
-    python3 -m pytest tests/unit --ignore=tests/unit/gaie -q      # expect 1161 passed
+Build **on each node** rather than building once and shipping a 28 GB tarball —
+the claim being tested is that the Dockerfile reproduces the run:
+
+    # from a checkout of the merged branch, on each node
+    git archive --format=tar HEAD | gzip > /tmp/merged_src.tgz   # on the workstation
+    # ... stage to the node, then:
+    tar xzf /tmp/merged_src.tgz -C /root/merged_src && cd /root/merged_src
     docker build -f deploy/docker/Dockerfile.sglang -t infera/engine-sglang:merged .
 
-then re-run §2–§6 against `IMAGE=infera/engine-sglang:merged`, **skipping the
-patch step** (the image already carries everything). `node_reset_and_patch.sh`
-takes `IMAGE=` as an env var.
+Takes ~15 min per node with the base already pulled (mooncake rebuild and the
+Rust router dominate). The build fails loudly if a patch does not apply.
 
-This has not been done. It is the outstanding work item.
+**Verify the image before running anything.** A build log saying a patch script
+printed success is not the same as the interpreter executing patched code — see
+`notes.md` §3 for the stale-`.pyc` failure that has already invalidated a full
+experiment. `scripts/verify_built_image.sh` greps freshly-compiled bytecode for
+identifiers the patches introduce, and finishes with a behavioural smoke test:
+
+    IMAGE=infera/engine-sglang:merged bash scripts/verify_built_image.sh
+    # -> 18 checks, then "ALL FIXES VERIFIED IN THE BUILT IMAGE"
+
+Then run §3–§6 unchanged **except**: use `scripts/node_reset_and_patch.sh` with
+`IMAGE=infera/engine-sglang:merged` and **skip its patch step** — the image
+already carries everything, and anything applied after `docker run` defeats the
+point of the exercise.
+
+**Two differences from the patched image, both expected:**
+
+- The two nodes' image ids **differ** (`1f7cf6964cee` vs `0d478433f1b3`). Each
+  built independently, so Rust objects and layer timestamps differ. Do not check
+  for equal digests; check content equivalence with the script above.
+- The built image carries **one** infera copy, not two, so the trap in
+  `notes.md` §3 cannot arise there.
+
+Results: `results/raw/*.builtimage.json`. Every gate matched the patched-image
+run — see the table in `README.md`.
 
 ## If it doesn't reproduce
 
 `notes.md` covers, in order of how likely they are to bite: cold start mistaken
 for a hang, the reset ritual, the two-infera-copies trap, the router-view timing
-trap, the decode-leg kvd finding, the two probe defects, and what is deferred.
+trap, the decode-leg kvd finding, the **three** probe defects, and what is
+deferred.
+
+Two failure modes that cost the most time on the built-image re-run, both in the
+tooling rather than the system:
+
+- **`temperature: 0` + MTP looks exactly like KV corruption** (`notes.md` §6c).
+  Always send the model's own `generation_config.json` values — GLM-5.2:
+  temperature 1.0, top_p 0.95, top_k 40. `accept len: 4.00` is a *symptom of the
+  loop*, not evidence MTP is healthy.
+- **`start_leg.sh` leaves the `sglang.launch_server` child alive.** It pkills
+  `infera.engine.sglang` only; the child keeps the DP kv-event port block bound
+  and the next leg dies with `port_base at N is not available`. Kill the tree and
+  wait for the ports before relaunching.

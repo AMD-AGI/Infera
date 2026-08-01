@@ -2,8 +2,8 @@
 """Concurrency stress that CAPTURES EVERY OUTPUT and classifies degeneration.
 
 bench_serving only reports completion; a "digit loop" completes normally and is invisible to it.
-This sends N deterministic (temp=0) prompts at a fixed concurrency through the router, stores
-every full output, and classifies each one.
+This sends N prompts at a fixed concurrency through the router, stores every full output, and
+classifies each one. Sampling follows the model's own generation_config (see below), NOT greedy.
 
 Verdicts:
   DIGIT_LOOP        a short numeric-ish span repeats many times  <- the reported bug
@@ -29,6 +29,13 @@ ISL    = int(sys.argv[5]) if len(sys.argv) > 5 else 1024
 OSL    = int(sys.argv[6]) if len(sys.argv) > 6 else 1024
 OUT    = sys.argv[7] if len(sys.argv) > 7 else "/tmp/stress_capture.json"
 SALT   = int(sys.argv[8]) if len(sys.argv) > 8 else 0
+
+# From GLM-5.2's own generation_config.json. top_k is not in that file; 40 is the
+# value GLM's serving docs use. Overridable for a deliberate A/B.
+import os as _os
+TEMPERATURE = float(_os.environ.get("STRESS_TEMPERATURE", "1.0"))
+TOP_P       = float(_os.environ.get("STRESS_TOP_P", "0.95"))
+TOP_K       = int(_os.environ.get("STRESS_TOP_K", "40"))
 
 TOK_PER_LINE = 28.1
 FILLER = ("Record {i}: the maintenance crew inspected corridor {a} and logged "
@@ -147,8 +154,17 @@ def worker():
         except queue.Empty:
             return
         p, expect = build(idx)
+        # GLM-5.2's own generation_config.json (temperature 1.0, top_p 0.95),
+        # NOT greedy. Greedy decoding sends a reasoning model into repetition on
+        # a long prompt, and EAGLE/MTP amplifies it -- the draft model predicts
+        # the loop perfectly, `accept len` pins at its maximum, and the response
+        # runs to max_tokens. That reads exactly like the KV corruption this gate
+        # exists to catch. See the same fix and its measurement in needle.py.
         body = json.dumps({"model": MODEL, "messages": [{"role": "user", "content": p}],
-                           "max_tokens": OSL, "temperature": 0}).encode()
+                           "max_tokens": OSL,
+                           "temperature": TEMPERATURE,
+                           "top_p": TOP_P,
+                           "top_k": TOP_K}).encode()
         req = urllib.request.Request(f"{BASE}/v1/chat/completions", data=body,
                                      headers={"Content-Type": "application/json"})
         t0 = time.time()
