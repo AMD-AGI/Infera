@@ -136,7 +136,14 @@ class SglangEngine(BaseEngine):
             dp_size=dp_size,
         )
 
-    async def _wait_ready(self, timeout: float = 1800) -> None:
+    async def _wait_ready(self, timeout: float | None = None) -> None:
+        # 30 min covers weight load + cuda-graph capture for the models we ship
+        # recipes for, but not a 700 GiB checkpoint read twice (MTP extracts the
+        # draft layer on a second pass) — and less so when both PD legs load off
+        # the same filesystem at once. $INFERA_SGLANG_READY_TIMEOUT raises it
+        # without editing a launcher, as INFERA_ATOM_READY_TIMEOUT does for ATOM.
+        if timeout is None:
+            timeout = float(os.environ.get("INFERA_SGLANG_READY_TIMEOUT", "1800") or 1800)
         # /health is probed locally; sglang binds on server_args.host, but if
         # that is 0.0.0.0 we should probe via 127.0.0.1 instead.
         probe_host = self.server_args.host
