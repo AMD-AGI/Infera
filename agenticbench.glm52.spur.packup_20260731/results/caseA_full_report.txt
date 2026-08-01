@@ -1,0 +1,1147 @@
+[transformers] PyTorch was not found. Models won't be available and only tokenizers, configuration and file/data utilities can be used.
+Loaded workload config from: /home/yihou/dev/git/infera.yihou.glm5.2.mxfp4/work.agenticbench/workloads/caseA_full.yaml
+  Applied: 14 parameters
+  Skipped (CLI override): 1 parameters
+    - tokenizer (CLI override: /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4)
+  Profile: percentile-calibrated (input_tokens, output_tokens, turns_per_session, inter_turn_delay_s, cache_hit_rate, max_input_tokens)
+Loading tokenizer: /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4
+Tokenizer loaded successfully (vocab size: 154820)
+Random seed set to: 1337
+Running in REALISTIC mode
+(Response-chained sessions, max 1 in-flight per session)
+Press n to force next request to create a new session
+Benchmark mode enabled. Output: /shared_nfs/yihou_agentbench/bench/caseA_full/caseA_full/2026-07-31-17-10-30
+Generating synthetic system prompt (2,000 tokens)...
+System prompt generated: 5,603 tokens
+
+LLM Throughput Simulator (Realistic Mode)
+--------------------------------------------------------------------------------
+Server: http://10.245.153.38:8190
+Model: glm5.2-mxfp4
+Initial sessions: 32, Max sessions: 128
+New session rate: 11.0%/sec, Abandon rate: 0.0%/req
+Turns/session, inter-turn delay: from profile percentiles (think-time and session-lifetime settings do not apply)
+Warmup (excluded from sustain): 400s, Measured: 3600s, Total: 4000s
+NOTE: realistic mode is closed-loop — offered load follows from initial_sessions/new_session_rate. initial_qps/max_qps have no effect here.
+================================================================================
+
+Starting 32 initial sessions (staggered)...
+Started session 66e3d37d (1/32)
+Started session 710d4156 (2/32)
+Started session a097acbb (3/32)
+Started session 87ec0a4d (4/32)
+Started session 48b3102f (5/32)
+Started session e84b1467 (6/32)
+Started session ee0db573 (7/32)
+Started session a9ee285a (8/32)
+Started session 930e6c00 (9/32)
+Started session 04f36407 (10/32)
+Started session 2017c02a (11/32)
+Started session 38a41ab9 (12/32)
+Started session bb54a9c6 (13/32)
+Started session cc58ca48 (14/32)
+Started session c84dc9fa (15/32)
+Started session 763fd63d (16/32)
+Started session 6f20e505 (17/32)
+Started session 161989ae (18/32)
+Started session 71384b3d (19/32)
+Started session 02da87ee (20/32)
+Started session 28d52284 (21/32)
+Started session 1a5e9854 (22/32)
+Started session 6c4a19dc (23/32)
+Started session 2d30f1c7 (24/32)
+Started session 61b0fc7b (25/32)
+Started session 0cf3436f (26/32)
+Started session e9fc5d41 (27/32)
+Started session 2494f424 (28/32)
+Started session 1e66cd36 (29/32)
+Started session 39d14133 (30/32)
+Started session 44da8a09 (31/32)
+Started session 6d8e3348 (32/32)
+All 32 sessions started
+
+
+[53s] Created session 917fffb6 (rate-based, total: 33)
+
+[54s] Created session d4f6844a (rate-based, total: 34)
+
+[71s] Created session 6ccac739 (rate-based, total: 35)
+
+[80s] Created session 1390df3d (rate-based, total: 36)
+
+[81s] Created session c648d9e7 (rate-based, total: 37)
+
+[93s] Created session c8fd187e (rate-based, total: 38)
+
+[97s] Created session c96a61f5 (rate-based, total: 39)
+
+[108s] Created session b1d4a3b7 (rate-based, total: 40)
+
+[111s] Created session ec3e172f (rate-based, total: 41)
+
+[131s] Created session 2d4bdd67 (rate-based, total: 42)
+
+[135s] Created session fa54a6c5 (rate-based, total: 43)
+
+[136s] Created session a16efcef (rate-based, total: 44)
+
+[142s] Created session 616f8222 (rate-based, total: 45)
+
+[145s] Created session b05eb775 (rate-based, total: 46)
+
+[161s] Created session 543f1bbf (rate-based, total: 47)
+
+[166s] Created session 9e356bc7 (rate-based, total: 48)
+
+[174s] Created session 5f271553 (rate-based, total: 49)
+
+[192s] Created session 26f78b98 (rate-based, total: 50)
+
+[211s] Created session f49c4843 (rate-based, total: 51)
+
+[221s] Created session 200c7f15 (rate-based, total: 52)
+
+[230s] Created session f55ec2fa (rate-based, total: 53)
+
+[259s] Created session dd29f3a3 (rate-based, total: 54)
+
+[270s] Created session 5228198e (rate-based, total: 55)
+
+[272s] Created session 3152ec64 (rate-based, total: 56)
+
+[287s] Created session cda39d8c (rate-based, total: 57)
+
+
+[292s] Created session d8cdf359 (rate-based, total: 58)
+
+[300s] Created session 8c90e221 (rate-based, total: 59)
+
+[303s] Created session cd0e0f3e (rate-based, total: 60)
+
+[319s] Created session 0886a538 (rate-based, total: 61)
+
+[329s] Created session 7be01de6 (rate-based, total: 62)
+
+[331s] Created session 57b7a1bb (rate-based, total: 63)
+
+[344s] Created session 1a4883b2 (rate-based, total: 64)
+
+[356s] Created session 93078947 (rate-based, total: 65)
+
+[360s] Created session 235756b1 (rate-based, total: 66)
+
+[366s] Created session d7ea50da (rate-based, total: 67)
+
+[391s] Created session 30453462 (rate-based, total: 68)
+
+[401s] Created session 938fc28d (rate-based, total: 69)
+
+[418s] Created session a3147ea6 (rate-based, total: 70)
+
+[433s] Created session ebe520f6 (rate-based, total: 71)
+
+[435s] Created session 34e69284 (rate-based, total: 72)
+
+[436s] Created session 64f6ba62 (rate-based, total: 73)
+
+[438s] Created session 15ab7a73 (rate-based, total: 74)
+
+[467s] Created session 4a599bd6 (rate-based, total: 75)
+
+[480s] Created session c6f71344 (rate-based, total: 76)
+
+
+[524s] Created session 348d7455 (rate-based, total: 77)
+
+[531s] Created session d82a6ea8 (rate-based, total: 78)
+
+[532s] Created session 8daae0ac (rate-based, total: 79)
+
+[538s] Created session 8590075d (rate-based, total: 80)
+
+[541s] Created session 03aecf49 (rate-based, total: 81)
+
+[565s] Created session 9eb5cf1e (rate-based, total: 82)
+
+[568s] Created session 223ad2e2 (rate-based, total: 83)
+
+[570s] Created session a988a2e0 (rate-based, total: 84)
+
+[577s] Created session 1d7738c3 (rate-based, total: 85)
+
+[596s] Created session fe5e30e8 (rate-based, total: 86)
+
+[607s] Created session cb61860f (rate-based, total: 87)
+
+[621s] Created session d2c6005e (rate-based, total: 88)
+
+[638s] Created session f4d02df5 (rate-based, total: 89)
+
+[639s] Created session c0be2e8f (rate-based, total: 90)
+
+
+[670s] Created session 698bb813 (rate-based, total: 91)
+
+[695s] Created session 8682e9e6 (rate-based, total: 92)
+
+
+[707s] Created session c280dfa5 (rate-based, total: 93)
+
+[710s] Created session 0a53d1b6 (rate-based, total: 94)
+
+
+[716s] Created session 7c4e07e2 (rate-based, total: 95)
+
+[717s] Created session f5fb7162 (rate-based, total: 96)
+
+[727s] Created session 71eb7912 (rate-based, total: 97)
+
+[743s] Created session b717a44a (rate-based, total: 98)
+
+[761s] Created session 96fd0dd5 (rate-based, total: 99)
+
+[764s] Created session 3b161fba (rate-based, total: 100)
+
+[768s] Created session 350425b1 (rate-based, total: 101)
+
+[780s] Created session 63fd0b90 (rate-based, total: 102)
+
+[788s] Created session ae92e284 (rate-based, total: 103)
+
+[792s] Created session d28e8797 (rate-based, total: 104)
+
+[796s] Created session 4fbfa357 (rate-based, total: 105)
+
+[808s] Created session 1c431fe1 (rate-based, total: 106)
+
+[818s] Created session e7aa1c6b (rate-based, total: 107)
+
+[835s] Created session a525ae2b (rate-based, total: 108)
+
+[837s] Created session b76b4990 (rate-based, total: 109)
+
+[838s] Created session cb869ef3 (rate-based, total: 110)
+
+[843s] Created session 42e2fcd2 (rate-based, total: 111)
+
+[857s] Created session f55982a4 (rate-based, total: 112)
+
+[860s] Created session 52f288f6 (rate-based, total: 113)
+
+[862s] Created session 14cea79f (rate-based, total: 114)
+
+[866s] Created session a241178c (rate-based, total: 115)
+
+[880s] Created session 828cf097 (rate-based, total: 116)
+
+[896s] Created session 0bfd924b (rate-based, total: 117)
+
+[903s] Created session 45511374 (rate-based, total: 118)
+
+[906s] Created session 6d9406de (rate-based, total: 119)
+
+[907s] Created session a69e1ab3 (rate-based, total: 120)
+
+
+
+[910s] Created session 14f9fcff (rate-based, total: 121)
+
+[913s] Created session 2bafa4d7 (rate-based, total: 122)
+
+[917s] Created session dcc55a3b (rate-based, total: 123)
+
+[927s] Created session d4ad9743 (rate-based, total: 124)
+
+[944s] Created session cea8968f (rate-based, total: 125)
+
+
+[964s] Created session 905b69fd (rate-based, total: 126)
+
+[966s] Created session aa00ec73 (rate-based, total: 127)
+
+[967s] Created session 488ce95e (rate-based, total: 128)
+
+[972s] Created session efc18c53 (rate-based, total: 128)
+
+
+[974s] Created session 9768fa4c (rate-based, total: 128)
+
+[980s] Created session 25518653 (rate-based, total: 128)
+
+[994s] Created session 68414a0e (rate-based, total: 128)
+
+[995s] Created session da0d0514 (rate-based, total: 128)
+
+[1000s] Created session 9c3a52ce (rate-based, total: 128)
+
+
+[1003s] Created session acc5c0dc (rate-based, total: 128)
+
+[1005s] Created session 1cad338c (rate-based, total: 128)
+
+[1011s] Created session 32c96632 (rate-based, total: 128)
+
+[1019s] Created session 92cbc9f0 (rate-based, total: 128)
+
+[1021s] Created session 07df331a (rate-based, total: 128)
+
+[1025s] Created session a8c7e75a (rate-based, total: 128)
+
+
+[1046s] Created session 13eb1ef9 (rate-based, total: 128)
+
+[1061s] Created session f6eea348 (rate-based, total: 128)
+
+[1064s] Created session 47f30970 (rate-based, total: 128)
+
+[1075s] Created session 4b5f88b9 (rate-based, total: 128)
+
+[1087s] Created session 6e98dc8f (rate-based, total: 128)
+
+[1091s] Created session 013ebce2 (rate-based, total: 128)
+
+[1095s] Created session 7033962c (rate-based, total: 128)
+
+[1108s] Created session 01bc8a47 (rate-based, total: 128)
+
+[1121s] Created session 4515b094 (rate-based, total: 128)
+
+[1122s] Created session 7279ff73 (rate-based, total: 128)
+
+
+[1134s] Created session 056097ff (rate-based, total: 128)
+
+[1136s] Created session 76faf4f4 (rate-based, total: 128)
+
+[1139s] Created session 4cf26293 (rate-based, total: 128)
+
+[1143s] Created session 04a3283e (rate-based, total: 128)
+
+[1147s] Created session 4fe1bcca (rate-based, total: 128)
+
+[1154s] Created session 44500fbe (rate-based, total: 128)
+
+[1160s] Created session b7f66718 (rate-based, total: 128)
+
+[1163s] Created session 3372d880 (rate-based, total: 128)
+
+
+[1177s] Created session d310b413 (rate-based, total: 128)
+
+[1184s] Created session 8ab53457 (rate-based, total: 128)
+
+[1198s] Created session 5e9ce698 (rate-based, total: 128)
+
+[1206s] Created session b6507597 (rate-based, total: 128)
+
+[1215s] Created session 69047e70 (rate-based, total: 128)
+
+[1216s] Created session 123a2cbf (rate-based, total: 128)
+
+[1235s] Created session db629fe4 (rate-based, total: 128)
+
+[1245s] Created session 675fc55a (rate-based, total: 128)
+
+[1257s] Created session a1daecee (rate-based, total: 128)
+
+[1261s] Created session ddb3d90b (rate-based, total: 128)
+
+[1268s] Created session 0a4cfd3e (rate-based, total: 128)
+
+[1276s] Created session 3680f460 (rate-based, total: 128)
+
+[1277s] Created session 67dec2cb (rate-based, total: 128)
+
+
+[1287s] Created session 03b79c63 (rate-based, total: 128)
+
+[1292s] Created session 690981a3 (rate-based, total: 128)
+
+[1296s] Created session 960637e8 (rate-based, total: 128)
+
+[1297s] Created session c18884df (rate-based, total: 128)
+
+[1301s] Created session 007e1835 (rate-based, total: 128)
+
+[1303s] Created session 3dbc73d2 (rate-based, total: 128)
+
+[1313s] Created session 3947d58a (rate-based, total: 128)
+
+[1349s] Created session f0b13370 (rate-based, total: 128)
+
+[1362s] Created session 966c931f (rate-based, total: 128)
+
+[1364s] Created session d56f35ec (rate-based, total: 128)
+
+[1365s] Created session ea9cf285 (rate-based, total: 128)
+
+[1371s] Created session 9289fb44 (rate-based, total: 128)
+
+[1382s] Created session 9e04b65e (rate-based, total: 128)
+
+[1386s] Created session c9c2a737 (rate-based, total: 128)
+
+
+[1396s] Created session 4adf022d (rate-based, total: 128)
+
+[1399s] Created session 421496e1 (rate-based, total: 128)
+
+[1403s] Created session 4db6ead2 (rate-based, total: 128)
+
+[1406s] Created session 6fa71238 (rate-based, total: 128)
+
+
+[1426s] Created session ca2b268a (rate-based, total: 128)
+
+[1428s] Created session 8031d5fe (rate-based, total: 128)
+
+[1435s] Created session 065f446e (rate-based, total: 128)
+
+[1460s] Created session 52dfa69e (rate-based, total: 128)
+
+[1465s] Created session 8c3115df (rate-based, total: 128)
+
+
+
+[1486s] Created session 85fad7b1 (rate-based, total: 128)
+
+[1489s] Created session 2fc4a9cf (rate-based, total: 128)
+
+[1511s] Created session 2e78a741 (rate-based, total: 128)
+
+[1526s] Created session 0ad8ecd1 (rate-based, total: 128)
+
+[1527s] Created session af8f2533 (rate-based, total: 128)
+
+[1546s] Created session 33bad8ca (rate-based, total: 128)
+
+[1553s] Created session dc37126d (rate-based, total: 128)
+
+[1567s] Created session 1a4cc78c (rate-based, total: 128)
+
+
+[1615s] Created session 0ceb68f9 (rate-based, total: 128)
+
+
+
+[1637s] Created session 29e5920f (rate-based, total: 128)
+
+[1639s] Created session 44cfd821 (rate-based, total: 128)
+
+[1650s] Created session eda3f91a (rate-based, total: 128)
+
+[1651s] Created session 697240bd (rate-based, total: 128)
+
+[1671s] Created session b9a37aab (rate-based, total: 128)
+
+[1672s] Created session a4e39ea0 (rate-based, total: 128)
+
+
+[1680s] Created session 285d71d4 (rate-based, total: 128)
+
+[1683s] Created session 4544648e (rate-based, total: 128)
+
+[1684s] Created session 882baadc (rate-based, total: 128)
+
+[1686s] Created session 00a6bf5d (rate-based, total: 128)
+
+[1688s] Created session c301de71 (rate-based, total: 128)
+
+[1692s] Created session 32ae69a8 (rate-based, total: 128)
+
+
+
+[1701s] Created session ee3d1674 (rate-based, total: 128)
+
+[1720s] Created session eb121676 (rate-based, total: 128)
+
+[1734s] Created session 76ef7c49 (rate-based, total: 128)
+
+[1741s] Created session cc364947 (rate-based, total: 128)
+
+[1744s] Created session 4a860bd1 (rate-based, total: 128)
+
+[1769s] Created session 21d2e054 (rate-based, total: 128)
+
+[1777s] Created session 150c0f28 (rate-based, total: 128)
+
+[1795s] Created session 8c4b86dc (rate-based, total: 128)
+
+
+
+[1822s] Created session 9adb9297 (rate-based, total: 128)
+
+[1829s] Created session 4e04ef2f (rate-based, total: 128)
+
+
+[1831s] Created session 8e06c6da (rate-based, total: 128)
+
+[1850s] Created session 050e43f9 (rate-based, total: 128)
+
+[1851s] Created session edaa349e (rate-based, total: 128)
+
+Request 953 timed out
+
+
+[1889s] Created session ae83c81a (rate-based, total: 128)
+
+[1893s] Created session 8f3b2307 (rate-based, total: 128)
+
+[1898s] Created session bee6960c (rate-based, total: 128)
+
+[1904s] Created session abcd9ae8 (rate-based, total: 128)
+
+[1913s] Created session ec4c1b65 (rate-based, total: 128)
+
+[1915s] Created session 4c4119be (rate-based, total: 128)
+
+[1921s] Created session c7d7dda2 (rate-based, total: 128)
+
+[1924s] Created session 55deaf42 (rate-based, total: 128)
+
+
+[1945s] Created session 9ab56ff3 (rate-based, total: 128)
+
+[1947s] Created session b2b1c714 (rate-based, total: 128)
+
+[1951s] Created session 890d217a (rate-based, total: 128)
+
+[1965s] Created session 894777df (rate-based, total: 128)
+
+
+[1981s] Created session dfd2d020 (rate-based, total: 128)
+
+[1989s] Created session 1d5c3ca0 (rate-based, total: 128)
+
+[1991s] Created session c4c8ed25 (rate-based, total: 128)
+
+[1993s] Created session 82058ca8 (rate-based, total: 128)
+
+[2001s] Created session 6ad94011 (rate-based, total: 128)
+
+
+[2009s] Created session a9678861 (rate-based, total: 128)
+
+
+[2022s] Created session 4ebb6d5d (rate-based, total: 128)
+
+[2025s] Created session a5ecdb75 (rate-based, total: 128)
+
+[2029s] Created session 98caa960 (rate-based, total: 128)
+
+[2033s] Created session 3c44ecba (rate-based, total: 128)
+
+[2038s] Created session f4c48e46 (rate-based, total: 128)
+
+[2044s] Created session f9d1a0c9 (rate-based, total: 128)
+
+[2083s] Created session 29bf2082 (rate-based, total: 128)
+
+[2091s] Created session 70e35001 (rate-based, total: 128)
+
+
+[2097s] Created session f5d5bc47 (rate-based, total: 128)
+
+[2121s] Created session 3c4d8647 (rate-based, total: 128)
+
+[2129s] Created session e8097897 (rate-based, total: 128)
+
+[2131s] Created session fe071781 (rate-based, total: 128)
+
+[2142s] Created session 3fcc1e19 (rate-based, total: 128)
+
+[2150s] Created session 5e7840ce (rate-based, total: 128)
+
+[2169s] Created session f0749996 (rate-based, total: 128)
+
+
+[2202s] Created session 43d9de12 (rate-based, total: 128)
+
+[2220s] Created session 4e3a2450 (rate-based, total: 128)
+
+[2230s] Created session 3e2660d7 (rate-based, total: 128)
+
+
+[2241s] Created session c6295b18 (rate-based, total: 128)
+
+[2256s] Created session 095631fa (rate-based, total: 128)
+
+[2268s] Created session da0fad85 (rate-based, total: 128)
+
+[2271s] Created session 24e11dd5 (rate-based, total: 128)
+
+
+[2279s] Created session 0f3977cd (rate-based, total: 128)
+
+
+[2292s] Created session 73020178 (rate-based, total: 128)
+
+[2301s] Created session 7c1f147a (rate-based, total: 128)
+
+[2315s] Created session c550bd8c (rate-based, total: 128)
+
+[2319s] Created session 41ba5f53 (rate-based, total: 128)
+
+[2325s] Created session e28dea5b (rate-based, total: 128)
+
+[2326s] Created session 63a41637 (rate-based, total: 128)
+
+[2329s] Created session d3536583 (rate-based, total: 128)
+
+[2335s] Created session 6d24faa2 (rate-based, total: 128)
+
+[2337s] Created session 9d424247 (rate-based, total: 128)
+
+[2342s] Created session 739996ef (rate-based, total: 128)
+
+[2354s] Created session 7957021e (rate-based, total: 128)
+
+[2355s] Created session 5b6fa3eb (rate-based, total: 128)
+
+[2357s] Created session 0394234b (rate-based, total: 128)
+
+[2391s] Created session 5e984d8f (rate-based, total: 128)
+
+[2398s] Created session 4401ef7a (rate-based, total: 128)
+
+[2403s] Created session 51945278 (rate-based, total: 128)
+
+[2408s] Created session 4070f4a7 (rate-based, total: 128)
+
+[2411s] Created session 163a2423 (rate-based, total: 128)
+
+[2429s] Created session d2241bd1 (rate-based, total: 128)
+
+[2442s] Created session 55cfcf3c (rate-based, total: 128)
+
+[2445s] Created session b8d2b0ea (rate-based, total: 128)
+
+[2459s] Created session 6452a519 (rate-based, total: 128)
+
+[2463s] Created session b4485616 (rate-based, total: 128)
+
+
+[2467s] Created session 57efa3e2 (rate-based, total: 128)
+
+[2476s] Created session 98cbf63b (rate-based, total: 128)
+
+[2480s] Created session 481b361e (rate-based, total: 128)
+
+[2491s] Created session b3d7b837 (rate-based, total: 128)
+
+[2494s] Created session 5af28ffe (rate-based, total: 128)
+
+[2499s] Created session a2854af1 (rate-based, total: 128)
+
+[2500s] Created session a3874420 (rate-based, total: 128)
+
+[2513s] Created session 82e9db16 (rate-based, total: 128)
+
+[2514s] Created session 1fae0c65 (rate-based, total: 128)
+
+[2518s] Created session a5163d86 (rate-based, total: 128)
+
+[2522s] Created session d7729e78 (rate-based, total: 128)
+
+[2526s] Created session c2215290 (rate-based, total: 128)
+
+[2531s] Created session bc078e45 (rate-based, total: 128)
+
+[2536s] Created session e7a6690e (rate-based, total: 128)
+
+[2543s] Created session 20c9ec2e (rate-based, total: 128)
+
+
+[2551s] Created session 3cf391be (rate-based, total: 128)
+
+[2554s] Created session 0aa7695e (rate-based, total: 128)
+
+[2563s] Created session 636ee346 (rate-based, total: 128)
+
+
+[2583s] Created session f6b2679a (rate-based, total: 128)
+
+
+[2589s] Created session d43d2c87 (rate-based, total: 128)
+
+
+
+[2603s] Created session 32877a91 (rate-based, total: 128)
+
+[2606s] Created session 49ccb428 (rate-based, total: 128)
+
+[2614s] Created session 8429b584 (rate-based, total: 128)
+
+[2616s] Created session f9124b73 (rate-based, total: 128)
+
+[2627s] Created session 6edc6fe4 (rate-based, total: 128)
+
+[2628s] Created session d326877c (rate-based, total: 128)
+
+[2631s] Created session e9b8b9e7 (rate-based, total: 128)
+
+[2632s] Created session 366d868d (rate-based, total: 128)
+
+[2644s] Created session c956b217 (rate-based, total: 128)
+
+[2656s] Created session c3a7f968 (rate-based, total: 128)
+
+[2678s] Created session 50d2c05f (rate-based, total: 128)
+
+[2683s] Created session 136f73f8 (rate-based, total: 128)
+
+[2692s] Created session 890f0e0b (rate-based, total: 128)
+
+
+[2705s] Created session 43c6f2ef (rate-based, total: 128)
+
+
+[2710s] Created session 60b93858 (rate-based, total: 128)
+
+[2712s] Created session 4551426c (rate-based, total: 128)
+
+[2718s] Created session ed612a6c (rate-based, total: 128)
+
+[2723s] Created session c8f3fa0e (rate-based, total: 128)
+
+[2725s] Created session baf2373c (rate-based, total: 128)
+
+[2728s] Created session b0b0c537 (rate-based, total: 128)
+
+[2731s] Created session b1fa0d22 (rate-based, total: 128)
+
+[2754s] Created session 8cdc362f (rate-based, total: 128)
+
+[2760s] Created session f39213cc (rate-based, total: 128)
+
+[2768s] Created session 9005f191 (rate-based, total: 128)
+
+
+[2773s] Created session a4b9fd95 (rate-based, total: 128)
+
+
+[2777s] Created session be269237 (rate-based, total: 128)
+
+[2782s] Created session c256977b (rate-based, total: 128)
+
+
+[2788s] Created session 274e5a85 (rate-based, total: 128)
+
+[2790s] Created session 3464b662 (rate-based, total: 128)
+
+[2803s] Created session 84cdcb14 (rate-based, total: 128)
+
+[2822s] Created session 5e1e06a1 (rate-based, total: 128)
+
+
+[2834s] Created session dccd455a (rate-based, total: 128)
+
+[2837s] Created session 5f32148c (rate-based, total: 128)
+
+[2843s] Created session 2cf8c25b (rate-based, total: 128)
+
+[2855s] Created session f8315928 (rate-based, total: 128)
+
+[2866s] Created session cd7d5b5d (rate-based, total: 128)
+
+
+
+[2869s] Created session 8b853d08 (rate-based, total: 128)
+
+
+[2873s] Created session d75adc5a (rate-based, total: 128)
+
+[2876s] Created session 4b28417a (rate-based, total: 128)
+
+[2887s] Created session a4ffa4d9 (rate-based, total: 128)
+
+[2889s] Created session 9c2f8c91 (rate-based, total: 128)
+
+[2897s] Created session f0cdc35d (rate-based, total: 128)
+
+[2899s] Created session 6eb1036b (rate-based, total: 128)
+
+
+[2912s] Created session 3422c9db (rate-based, total: 128)
+
+[2914s] Created session 025dc366 (rate-based, total: 128)
+
+[2915s] Created session 5a9d27b3 (rate-based, total: 128)
+
+[2916s] Created session 682ec24c (rate-based, total: 128)
+
+[2924s] Created session 307fd17d (rate-based, total: 128)
+
+[2926s] Created session d3fb9ec3 (rate-based, total: 128)
+
+
+[2934s] Created session 5d6f755f (rate-based, total: 128)
+
+[2935s] Created session dc063263 (rate-based, total: 128)
+
+[2937s] Created session 362252db (rate-based, total: 128)
+
+
+[2964s] Created session d25fe9ad (rate-based, total: 128)
+
+
+[2982s] Created session 98e08157 (rate-based, total: 128)
+
+[2986s] Created session 0cb0ef32 (rate-based, total: 128)
+
+[3002s] Created session bad646a6 (rate-based, total: 128)
+
+
+[3024s] Created session c0560272 (rate-based, total: 128)
+
+[3036s] Created session cc6404c2 (rate-based, total: 128)
+
+[3042s] Created session d55f8171 (rate-based, total: 128)
+
+[3044s] Created session 981712c0 (rate-based, total: 128)
+
+[3045s] Created session 987cc546 (rate-based, total: 128)
+
+[3046s] Created session 120c93d7 (rate-based, total: 128)
+
+[3049s] Created session ecb49713 (rate-based, total: 128)
+
+[3062s] Created session f4328ddf (rate-based, total: 128)
+
+[3072s] Created session c11ddcc6 (rate-based, total: 128)
+
+
+[3079s] Created session d4c95883 (rate-based, total: 128)
+
+[3104s] Created session 6c2990fb (rate-based, total: 128)
+
+
+
+
+[3147s] Created session 7ea3305c (rate-based, total: 128)
+
+[3148s] Created session 29822fd3 (rate-based, total: 128)
+
+[3149s] Created session 0d425b37 (rate-based, total: 128)
+
+[3155s] Created session 982cd555 (rate-based, total: 128)
+
+
+[3169s] Created session a3a60b3a (rate-based, total: 128)
+
+[3175s] Created session 224b2691 (rate-based, total: 128)
+
+[3178s] Created session 8fb7dc6d (rate-based, total: 128)
+
+[3181s] Created session 75576bed (rate-based, total: 128)
+
+
+[3199s] Created session 8accf7a6 (rate-based, total: 128)
+
+[3200s] Created session 0fb95b1b (rate-based, total: 128)
+
+
+
+[3217s] Created session 811e264b (rate-based, total: 128)
+
+[3224s] Created session 0a690951 (rate-based, total: 128)
+
+[3230s] Created session 361c02d7 (rate-based, total: 128)
+
+[3232s] Created session 71e46e2a (rate-based, total: 128)
+
+[3239s] Created session fdf9264a (rate-based, total: 128)
+
+[3240s] Created session 5a2ebe5e (rate-based, total: 128)
+
+[3244s] Created session d5a657ff (rate-based, total: 128)
+
+[3250s] Created session e817d122 (rate-based, total: 128)
+
+[3254s] Created session 900bed6a (rate-based, total: 128)
+
+[3264s] Created session 4dae957f (rate-based, total: 128)
+
+[3270s] Created session 641b8b37 (rate-based, total: 128)
+
+[3287s] Created session d16b020a (rate-based, total: 128)
+
+
+[3302s] Created session ee5c891b (rate-based, total: 128)
+
+
+[3324s] Created session 4281ded9 (rate-based, total: 128)
+
+[3325s] Created session 943d2d4a (rate-based, total: 128)
+
+[3326s] Created session d033bcce (rate-based, total: 128)
+
+[3334s] Created session aa1c0a1b (rate-based, total: 128)
+
+[3347s] Created session f7699ee8 (rate-based, total: 128)
+
+[3383s] Created session ba0a5f62 (rate-based, total: 128)
+
+[3384s] Created session 803dca82 (rate-based, total: 128)
+
+
+
+
+[3397s] Created session 2b5c51d6 (rate-based, total: 128)
+
+[3399s] Created session 1d0cc66c (rate-based, total: 128)
+
+[3405s] Created session 7e2b8c99 (rate-based, total: 128)
+
+
+[3423s] Created session 6d23bbc3 (rate-based, total: 128)
+
+[3424s] Created session 3e276102 (rate-based, total: 128)
+
+[3429s] Created session 443d3ef8 (rate-based, total: 128)
+
+[3435s] Created session 309ec47c (rate-based, total: 128)
+
+[3437s] Created session b3a0af13 (rate-based, total: 128)
+
+[3439s] Created session 0c0176aa (rate-based, total: 128)
+
+[3447s] Created session 797dabd3 (rate-based, total: 128)
+
+
+[3454s] Created session 11055877 (rate-based, total: 128)
+
+[3455s] Created session 86263ee7 (rate-based, total: 128)
+
+[3462s] Created session 2e919c8b (rate-based, total: 128)
+
+[3464s] Created session de83959e (rate-based, total: 128)
+
+
+[3473s] Created session c1b9d3dc (rate-based, total: 128)
+
+[3475s] Created session 40faf514 (rate-based, total: 128)
+
+[3484s] Created session b0ff8f26 (rate-based, total: 128)
+
+[3491s] Created session d9f106eb (rate-based, total: 128)
+
+
+[3492s] Created session 393b9991 (rate-based, total: 128)
+
+[3496s] Created session 424eee69 (rate-based, total: 128)
+
+[3535s] Created session 15c5d6a3 (rate-based, total: 128)
+
+[3537s] Created session feaedaec (rate-based, total: 128)
+
+[3541s] Created session bbe71785 (rate-based, total: 128)
+
+[3547s] Created session 916b6657 (rate-based, total: 128)
+
+
+[3556s] Created session 133948c1 (rate-based, total: 128)
+
+[3565s] Created session 12240dfe (rate-based, total: 128)
+
+
+[3574s] Created session cc2fd3f2 (rate-based, total: 128)
+
+[3581s] Created session 1ec0b0e1 (rate-based, total: 128)
+
+[3595s] Created session 192408ae (rate-based, total: 128)
+
+
+[3602s] Created session 2e36f21b (rate-based, total: 128)
+
+[3608s] Created session d3cd2a14 (rate-based, total: 128)
+
+[3624s] Created session 06544f56 (rate-based, total: 128)
+
+[3632s] Created session 0ff19855 (rate-based, total: 128)
+
+[3637s] Created session 26182afd (rate-based, total: 128)
+
+[3641s] Created session abddf703 (rate-based, total: 128)
+
+[3654s] Created session 25370918 (rate-based, total: 128)
+
+[3664s] Created session 00094cb4 (rate-based, total: 128)
+
+[3666s] Created session 444e4cb8 (rate-based, total: 128)
+
+[3669s] Created session 71aa9da8 (rate-based, total: 128)
+
+[3675s] Created session 99136d21 (rate-based, total: 128)
+
+[3679s] Created session 972c5fa5 (rate-based, total: 128)
+
+
+[3706s] Created session 3b5361b7 (rate-based, total: 128)
+
+[3713s] Created session f7652828 (rate-based, total: 128)
+
+[3714s] Created session c4894f5e (rate-based, total: 128)
+
+[3718s] Created session aaf97d51 (rate-based, total: 128)
+
+[3722s] Created session a179b68a (rate-based, total: 128)
+
+[3726s] Created session a7da5132 (rate-based, total: 128)
+
+
+
+[3738s] Created session 8e92fe29 (rate-based, total: 128)
+
+[3742s] Created session ea517bc5 (rate-based, total: 128)
+
+
+[3744s] Created session b05cfbd1 (rate-based, total: 128)
+
+[3750s] Created session 700ffe18 (rate-based, total: 128)
+
+
+[3756s] Created session 1bac61e8 (rate-based, total: 128)
+
+
+[3761s] Created session fdc7a1c7 (rate-based, total: 128)
+
+[3763s] Created session 8c756f55 (rate-based, total: 128)
+
+[3769s] Created session 7c7a7e44 (rate-based, total: 128)
+
+[3770s] Created session 10492646 (rate-based, total: 128)
+
+[3776s] Created session ccea123b (rate-based, total: 128)
+
+
+[3784s] Created session afec3262 (rate-based, total: 128)
+
+[3785s] Created session 36e27834 (rate-based, total: 128)
+
+[3786s] Created session 7d769915 (rate-based, total: 128)
+
+[3817s] Created session 1ea5bf48 (rate-based, total: 128)
+
+
+
+[3843s] Created session a470f032 (rate-based, total: 128)
+
+[3846s] Created session 5713462d (rate-based, total: 128)
+
+[3861s] Created session 2230eff2 (rate-based, total: 128)
+
+
+[3881s] Created session 051a8c2e (rate-based, total: 128)
+
+
+[3893s] Created session 139f87de (rate-based, total: 128)
+
+[3895s] Created session 35a00147 (rate-based, total: 128)
+
+[3896s] Created session 9e1e8872 (rate-based, total: 128)
+
+[3899s] Created session ac05f7da (rate-based, total: 128)
+
+[3900s] Created session 67c371a7 (rate-based, total: 128)
+
+[3903s] Created session 3ccc5666 (rate-based, total: 128)
+
+[3904s] Created session 522ca5ba (rate-based, total: 128)
+
+[3905s] Created session 1607256a (rate-based, total: 128)
+
+
+[3920s] Created session 119a1e99 (rate-based, total: 128)
+
+
+
+[3942s] Created session 3cf7da06 (rate-based, total: 128)
+
+[3943s] Created session b3b38487 (rate-based, total: 128)
+
+
+
+[3959s] Created session edbe0ee7 (rate-based, total: 128)
+
+[3961s] Created session 02880d96 (rate-based, total: 128)
+
+[3974s] Created session 6655908f (rate-based, total: 128)
+
+[3980s] Created session 48b8f5fe (rate-based, total: 128)
+
+
+[3995s] Created session 4c3aa85c (rate-based, total: 128)
+
+
+Benchmark complete. Waiting for in-flight requests...
+
+Final Results (Realistic Mode):
+--------------------------------------------------------------------------------
+Total requests sent: 2,919
+Completed: 2,782
+Errors: 96
+Success rate: 95.3%
+Actual benchmark duration: 4005.4s
+Actual average QPS: 0.73 (emergent — closed-loop)
+
+Actual Prompt Length Distribution:
+  Mean: 85172 tokens
+  Std Dev: 45652 tokens
+  p50: 73862 tokens
+  p90: 151526 tokens
+  p99: 226854 tokens
+
+Actual Generation Length Distribution:
+  Mean: 801.8 tokens (target: 1)
+  Median (p50): 286 tokens (target: 1)
+  Std Dev: 1263.9 tokens
+  p90: 2283 tokens
+  p99: 6301 tokens
+
+TTFT (Time to First Token):
+  p50: 4445.5ms
+  p90: 8652.0ms
+  p99: 13011.7ms
+
+TPOT (Time Per Output Token, excl. first):
+  Samples: 2781 (filtered: gen_len>1 & gen_time>=50ms)
+  Mean: 30.9ms (32.4 tok/s/req)
+  p50: 31.2ms
+  p90: 32.5ms
+  p99: 37.9ms
+
+Peak Prefill Throughput:
+  Total: 522,974 tokens/sec (31,378,440 tokens/min)
+  Per GPU: 65,372 tokens/sec (3,922,305 tokens/min)
+
+Average Throughput:
+  Context: 443,673 tokens/min/GPU (7,395 tokens/sec/GPU)
+  Generation: 32.9 tokens/sec (MTP compensated)
+
+Cache Statistics:
+  Ideal cache hit rate: 89.0% (assuming no eviction)
+  Actual cache hit rate: 89.0%
+  Cache efficiency: 100.0% (actual/ideal)
+  Eviction rate: 0.0% of expected cache was evicted
+  Total tokens: 236,947,454 (prefix: 210,851,596, cached: 210,892,544, evicted: 0)
+
+Phase Throughput Breakdown (input TPM includes cache; uncached = actual prefill work):
+  phase     dur(s)  reqs   qps    input TPM   cached TPM   uncached TPM  visible TPM  reason TPM  cache%  TTFT p50  TTFT p90  TPOT p50  TPOT p90
+  ----------------------------------------------------------------------------------------------------------------------------------------------
+  ramp       400.0   190  0.47    2,501,897    2,261,952        239,945       19,216           0   90.4%   2928.4ms   7063.6ms     28.1ms     30.5ms
+  sustain   3600.0  2588  0.72    3,668,448    3,261,157        407,291       34,997           0   88.9%   4543.0ms   8820.8ms     31.3ms     32.6ms
+  drain        2.2     4  1.79    4,332,362    3,853,090        479,272       71,515           0   88.9%   6102.7ms   6700.1ms     31.5ms     31.5ms
+  (per-GPU: divide TPM by 8)
+
+Inter-Arrival Time (response + think time):
+  Mean: 14.8s
+  p50: 4.0s
+  p90: 27.4s
+  p99: 168.6s
+
+ChatSession Statistics:
+  Total sessions: 128 (initial: 32, +458 rate-based)
+  Active: 50, Retired: 78, Abandoned: 0 (0 by rate)
+  Final prefix sizes: min=5,603, max=5,603, mean=5,603
+  ChatSession lifetimes: min=12s, max=3219s, mean=684s

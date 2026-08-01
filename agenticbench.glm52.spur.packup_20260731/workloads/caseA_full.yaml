@@ -1,0 +1,96 @@
+# =============================================================================
+# Case A — FULL variant.  Derived from Optimus-AgenticBench
+# agent/workloads/glm52_crxx_caseA.fix.yaml (the spec of record, left untouched).
+#
+# This is the deliverable run: the request-shape block and the measurement
+# window are the spec's.  Only three things differ, and none of them touch the
+# workload shape:
+#
+#   * acc_len 1.56 -> 1.0, mtp_draft_tokens 5 -> 1.  MTP IS OFF in this
+#     deployment (the DPA+PD+MTP fix is not merged with kv-aware yet).  Left at
+#     1.56 the driver reports a fabricated MTP-adjusted TPS for a server that
+#     has no speculative decoding, and the reported "acceptance" would be an
+#     artifact of the shipped constant rather than a measurement.
+#   * tokenizer: the placeholder path aborts the run.
+#   * initial_sessions / new_session_rate: REPLACED after the probe run with the
+#     pair re-solved from the measured E2E.  The values below are still the
+#     spec's E2E=15 s placeholder -- if this file reaches a full run with them
+#     unchanged, the population lands somewhere other than the target and every
+#     throughput number is for a load level nobody chose.
+#
+# max_input_tokens stays at the spec's 260000 and the engine is booted with
+# --context-length 262144 to cover it plus output.
+# =============================================================================
+workload:
+
+  # --- Percentile-calibrated request profile (unchanged from the spec) -------
+  profile:
+    input_tokens:        { p50: 74000,  p90: 155000, p99: 235000 }
+    output_tokens:       { p50: 320,    p90: 3300,   p99: 17000 }
+    turns_per_session:   { p50: 3,      p90: 20,     p99: 103 }
+    inter_turn_delay_s:  { p50: 4,      p90: 31,     p99: 240 }
+    cache_hit_rate:      0.89
+    max_input_tokens:    260000
+
+  # --- Speculative decoding: NONE.  See header. ------------------------------
+  acc_len:               1.0
+  mtp_draft_tokens:      1
+  mtp_overhead_factor:   1.0
+
+  # --- Offered load ----------------------------------------------------------
+  # RE-SOLVED FROM THE PROBE (2026-07-31, 1000 s run, 622 requests).
+  #
+  # The closed-form  new_session_rate = N_target / (E[turns] x (E2E + E[delay]))
+  # needs a single scalar E2E, and the probe does not supply a trustworthy one:
+  # the generation length is heavily right-skewed (p50 212 tok, p99 6,372 tok),
+  # so mean-based and median-based estimates disagree by 3.5x --
+  #     from the observed steady-state population : E2E ~=  6.0 s
+  #     from TTFT p50 + mean_gen x TPOT p50       : E2E ~= 20.8 s
+  # Picking either one silently picks an offered load.
+  #
+  # So the rate was scaled empirically. The FIRST attempt used
+  #     rate = 0.10 x 32/22 = 0.145
+  # (probe held ~22 live sessions at 0.10; population assumed linear in rate).
+  # That run was ABORTED at t=1195s: `max_inflight` pinned at 48 (25 of the last
+  # 120 ticks at the cap, mean 44.2) and the live population climbed monotonically
+  # 40 -> 57. Backpressure, not the workload, was setting the load, so the run was
+  # not the configured one. Server was healthy throughout -- 0 GPU faults,
+  # 0 scheduler exceptions on both legs -- so this was purely an offered-load
+  # error on my part, not a deployment failure.
+  #
+  # The linearity assumption is what broke: it predicts ~26 in-flight at 0.145,
+  # and the measured value was 44-48. Service time grows with load, so the
+  # response is superlinear and interpolation between the two points is unsafe.
+  # ctx also doubled (131072 -> 262144) between the probe and the full run, which
+  # raises per-request service time on its own.
+  #
+  # Anchoring on measurement instead of the model. Two measured points:
+  #     rate 0.100 -> in-flight 10-27 (mean ~18), sessions 19-26   STABLE
+  #     rate 0.145 -> in-flight 44-48 (pinned),   sessions 40-57   SATURATED
+  # 0.110 is 10 % above the known-stable point -- a modest step that keeps clear
+  # of the cap rather than chasing a session-count target into saturation.
+  #
+  # If 0.110 still pins at 48, that is a reportable capacity finding, not
+  # something to tune around mid-run.
+  initial_sessions:      32
+  new_session_rate:      0.110
+  max_sessions:          128
+  max_inflight:          48
+
+  # --- Measurement window (the spec's; ~67 min total) ------------------------
+  ramp_duration:         400
+  sustain_duration:      3600
+
+  # --- Request framing -------------------------------------------------------
+  system_prompt_len:     2000
+  max_prompt_tokens:     260000
+  tokenizer:             /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4
+
+  sla:
+    e2e_p50_ms:          4500
+    ttft_p90_ms:         30000
+    success_rate:        0.97
+
+  gpus:                  8
+  window:                30
+  random_seed:           1337

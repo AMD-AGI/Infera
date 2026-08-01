@@ -1,0 +1,329 @@
+[transformers] PyTorch was not found. Models won't be available and only tokenizers, configuration and file/data utilities can be used.
+Loaded workload config from: /home/yihou/dev/git/infera.yihou.glm5.2.mxfp4/work.agenticbench/workloads/caseA_probe.yaml
+  Applied: 14 parameters
+  Skipped (CLI override): 1 parameters
+    - tokenizer (CLI override: /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4)
+  Profile: percentile-calibrated (input_tokens, output_tokens, turns_per_session, inter_turn_delay_s, cache_hit_rate, max_input_tokens)
+Loading tokenizer: /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4
+Tokenizer loaded successfully (vocab size: 154820)
+Random seed set to: 1337
+Running in REALISTIC mode
+(Response-chained sessions, max 1 in-flight per session)
+Press n to force next request to create a new session
+Generating synthetic system prompt (2,000 tokens)...
+System prompt generated: 5,603 tokens
+
+LLM Throughput Simulator (Realistic Mode)
+--------------------------------------------------------------------------------
+Server: http://10.245.153.38:8190
+Model: glm5.2-mxfp4
+Initial sessions: 32, Max sessions: 128
+New session rate: 10.0%/sec, Abandon rate: 0.0%/req
+Turns/session, inter-turn delay: from profile percentiles (think-time and session-lifetime settings do not apply)
+Warmup (excluded from sustain): 400s, Measured: 600s, Total: 1000s
+NOTE: realistic mode is closed-loop — offered load follows from initial_sessions/new_session_rate. initial_qps/max_qps have no effect here.
+================================================================================
+
+Starting 32 initial sessions (staggered)...
+Started session 51c9d4be (1/32)
+Started session f78f2f94 (2/32)
+Started session 262bc53d (3/32)
+Started session 4735c18f (4/32)
+Started session f0de4815 (5/32)
+Started session e64d9ced (6/32)
+Started session 07b6caea (7/32)
+Started session d9cd8077 (8/32)
+Started session eb4faee1 (9/32)
+Started session 09f13f9f (10/32)
+Started session 838f9a63 (11/32)
+Started session 2bbbfe8b (12/32)
+Started session 3ad267ac (13/32)
+Started session fa33aa5e (14/32)
+Started session 7476e8da (15/32)
+Started session c614bc8f (16/32)
+Started session c947d6ee (17/32)
+Started session ce1b166d (18/32)
+Started session 750b3678 (19/32)
+Started session e68b3bb9 (20/32)
+Started session 0fe2324c (21/32)
+Started session 050bd508 (22/32)
+Started session 2109b48a (23/32)
+Started session 6f993d2a (24/32)
+Started session fdee1d42 (25/32)
+Started session 9bf9c357 (26/32)
+Started session 95387dbf (27/32)
+Started session 3e9a29c8 (28/32)
+Started session 7be645da (29/32)
+Started session f92be4e2 (30/32)
+Started session 4346f5bf (31/32)
+Started session b600880a (32/32)
+All 32 sessions started
+
+
+[53s] Created session 3aa8d776 (rate-based, total: 33)
+
+[54s] Created session 2de52556 (rate-based, total: 34)
+
+[80s] Created session e9d51332 (rate-based, total: 35)
+
+[92s] Created session 31d86c8b (rate-based, total: 36)
+
+[96s] Created session 55ccd9f4 (rate-based, total: 37)
+
+[110s] Created session b827809a (rate-based, total: 38)
+
+[130s] Created session 142ac421 (rate-based, total: 39)
+
+[134s] Created session fe4fd443 (rate-based, total: 40)
+
+[135s] Created session 6c43f760 (rate-based, total: 41)
+
+[141s] Created session 96b14a66 (rate-based, total: 42)
+
+[144s] Created session 9231235c (rate-based, total: 43)
+
+[160s] Created session 0e2bd6a0 (rate-based, total: 44)
+
+[165s] Created session 203f8109 (rate-based, total: 45)
+
+[173s] Created session ab97acd1 (rate-based, total: 46)
+
+[191s] Created session fec576cd (rate-based, total: 47)
+
+[210s] Created session 8230c94a (rate-based, total: 48)
+
+[220s] Created session a224b444 (rate-based, total: 49)
+
+[229s] Created session 353f7d81 (rate-based, total: 50)
+
+[258s] Created session f40231f0 (rate-based, total: 51)
+
+[269s] Created session 1316bea6 (rate-based, total: 52)
+
+[271s] Created session d168be62 (rate-based, total: 53)
+
+[286s] Created session d7137026 (rate-based, total: 54)
+
+[291s] Created session 43eb8c9a (rate-based, total: 55)
+
+[299s] Created session 19111f53 (rate-based, total: 56)
+
+[302s] Created session 899896a7 (rate-based, total: 57)
+
+[318s] Created session 581bcc98 (rate-based, total: 58)
+
+[328s] Created session f5d91f51 (rate-based, total: 59)
+
+[330s] Created session 2d82de22 (rate-based, total: 60)
+
+[343s] Created session 394812ba (rate-based, total: 61)
+
+
+[355s] Created session 05b5a3c3 (rate-based, total: 62)
+
+[359s] Created session b06e757b (rate-based, total: 63)
+
+[366s] Created session 9a1402b8 (rate-based, total: 64)
+
+[388s] Created session 453a1e8b (rate-based, total: 65)
+
+[397s] Created session 52dcadd6 (rate-based, total: 66)
+
+[414s] Created session f4137e54 (rate-based, total: 67)
+
+[429s] Created session b9e5e337 (rate-based, total: 68)
+
+[431s] Created session 616f7528 (rate-based, total: 69)
+
+[432s] Created session edd925b2 (rate-based, total: 70)
+
+[434s] Created session a19b8bdc (rate-based, total: 71)
+
+
+[462s] Created session e4b6b1b6 (rate-based, total: 72)
+
+[475s] Created session e0f99807 (rate-based, total: 73)
+
+[519s] Created session 22892f26 (rate-based, total: 74)
+
+[526s] Created session 1032bbc3 (rate-based, total: 75)
+
+[527s] Created session 6217f4d6 (rate-based, total: 76)
+
+[533s] Created session e47c16d3 (rate-based, total: 77)
+
+[536s] Created session 6e0c8fd9 (rate-based, total: 78)
+
+[560s] Created session 28fd9f24 (rate-based, total: 79)
+
+[563s] Created session 7db901c7 (rate-based, total: 80)
+
+[565s] Created session ffdc4727 (rate-based, total: 81)
+
+[572s] Created session 04069c42 (rate-based, total: 82)
+
+[591s] Created session a203a1e3 (rate-based, total: 83)
+
+[602s] Created session c402738e (rate-based, total: 84)
+
+[616s] Created session b5f499a0 (rate-based, total: 85)
+
+[632s] Created session c937d3dc (rate-based, total: 86)
+
+[633s] Created session 78c89dd3 (rate-based, total: 87)
+
+[664s] Created session 4582ec87 (rate-based, total: 88)
+
+[689s] Created session 5b08c915 (rate-based, total: 89)
+
+[701s] Created session f895e7f0 (rate-based, total: 90)
+
+[704s] Created session 1f01cf53 (rate-based, total: 91)
+
+[710s] Created session 4940e919 (rate-based, total: 92)
+
+
+[711s] Created session 1849d684 (rate-based, total: 93)
+
+[721s] Created session 3b263dd4 (rate-based, total: 94)
+
+[737s] Created session 114cc88b (rate-based, total: 95)
+
+[755s] Created session 371fe7a3 (rate-based, total: 96)
+
+[759s] Created session 4874ea10 (rate-based, total: 97)
+
+[763s] Created session eaa1fda8 (rate-based, total: 98)
+
+[775s] Created session 064e1a13 (rate-based, total: 99)
+
+[783s] Created session 027c231d (rate-based, total: 100)
+
+[787s] Created session 9e88078e (rate-based, total: 101)
+
+[791s] Created session 8a080643 (rate-based, total: 102)
+
+[802s] Created session 2f1b0a99 (rate-based, total: 103)
+
+[812s] Created session ecc44724 (rate-based, total: 104)
+
+[829s] Created session 3ec5e13f (rate-based, total: 105)
+
+[831s] Created session 6988b961 (rate-based, total: 106)
+
+[837s] Created session 65d83f24 (rate-based, total: 107)
+
+[851s] Created session bf23eea0 (rate-based, total: 108)
+
+[854s] Created session 0204eb4d (rate-based, total: 109)
+
+[860s] Created session b641d4ef (rate-based, total: 110)
+
+[890s] Created session b8d813be (rate-based, total: 111)
+
+[897s] Created session 7fcba3be (rate-based, total: 112)
+
+[900s] Created session 6a7b0f2f (rate-based, total: 113)
+
+[901s] Created session c822e0b3 (rate-based, total: 114)
+
+[907s] Created session 52c4cd97 (rate-based, total: 115)
+
+[911s] Created session 63cea490 (rate-based, total: 116)
+
+[921s] Created session 6ba1e91d (rate-based, total: 117)
+
+[938s] Created session 19758e81 (rate-based, total: 118)
+
+[958s] Created session fc6cb30b (rate-based, total: 119)
+
+[960s] Created session 47cc65a1 (rate-based, total: 120)
+
+[961s] Created session 0c35d5f4 (rate-based, total: 121)
+
+[968s] Created session 69306e93 (rate-based, total: 122)
+
+[974s] Created session a57d21a7 (rate-based, total: 123)
+
+[988s] Created session 48c191fe (rate-based, total: 124)
+
+[989s] Created session 0f299c60 (rate-based, total: 125)
+
+[994s] Created session 966abab8 (rate-based, total: 126)
+
+[997s] Created session 8befaafa (rate-based, total: 127)
+
+[999s] Created session 0abdafd0 (rate-based, total: 128)
+
+
+Benchmark complete. Waiting for in-flight requests...
+
+Final Results (Realistic Mode):
+--------------------------------------------------------------------------------
+Total requests sent: 622
+Completed: 597
+Errors: 3
+Success rate: 96.0%
+Actual benchmark duration: 1005.1s
+Actual average QPS: 0.62 (emergent — closed-loop)
+
+Actual Prompt Length Distribution:
+  Mean: 79789 tokens
+  Std Dev: 34047 tokens
+  p50: 75190 tokens
+  p90: 131072 tokens
+  p99: 131072 tokens
+
+Actual Generation Length Distribution:
+  Mean: 678.8 tokens (target: 1)
+  Median (p50): 212 tokens (target: 1)
+  Std Dev: 1198.2 tokens
+  p90: 2047 tokens
+  p99: 6372 tokens
+
+TTFT (Time to First Token):
+  p50: 2294.0ms
+  p90: 5454.9ms
+  p99: 51370.7ms
+
+TPOT (Time Per Output Token, excl. first):
+  Samples: 503 (filtered: gen_len>1 & gen_time>=50ms)
+  Mean: 27.0ms (37.0 tok/s/req)
+  p50: 27.3ms
+  p90: 29.2ms
+  p99: 34.9ms
+
+Peak Prefill Throughput:
+  Total: 540,703 tokens/sec (32,442,180 tokens/min)
+  Per GPU: 67,588 tokens/sec (4,055,272 tokens/min)
+
+Average Throughput:
+  Context: 355,442 tokens/min/GPU (5,924 tokens/sec/GPU)
+  Generation: 37.7 tokens/sec (MTP compensated)
+
+Cache Statistics:
+  Ideal cache hit rate: 89.0% (assuming no eviction)
+  Actual cache hit rate: 65.8%
+  Cache efficiency: 74.0% (actual/ideal)
+  Eviction rate: 26.0% of expected cache was evicted
+  Total tokens: 47,634,003 (prefix: 42,388,547, cached: 31,364,672, evicted: 11,023,875)
+
+Phase Throughput Breakdown (input TPM includes cache; uncached = actual prefill work):
+  phase     dur(s)  reqs   qps    input TPM   cached TPM   uncached TPM  visible TPM  reason TPM  cache%  TTFT p50  TTFT p90  TPOT p50  TPOT p90
+  ----------------------------------------------------------------------------------------------------------------------------------------------
+  ramp       400.0   246  0.61    2,894,403    1,854,154      1,040,249       20,733           0   64.1%   2497.7ms  19954.0ms     27.0ms     29.1ms
+  sustain    600.0   351  0.58    2,833,798    1,900,365        933,434       26,702           0   67.1%   2228.5ms   4315.0ms     27.3ms     29.2ms
+  drain        n/a     0   n/a          n/a          n/a            n/a          n/a         n/a     n/a       n/a       n/a       n/a       n/a
+  (per-GPU: divide TPM by 8)
+
+Inter-Arrival Time (response + think time):
+  Mean: 12.4s
+  p50: 4.5s
+  p90: 27.3s
+  p99: 157.3s
+
+ChatSession Statistics:
+  Total sessions: 128 (initial: 32, +96 rate-based)
+  Active: 26, Retired: 102, Abandoned: 0 (0 by rate)
+  Final prefix sizes: min=5,603, max=5,603, mean=5,603
+  ChatSession lifetimes: min=6s, max=1004s, mean=583s

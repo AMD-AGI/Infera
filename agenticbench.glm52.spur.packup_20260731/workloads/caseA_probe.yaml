@@ -1,0 +1,68 @@
+# =============================================================================
+# Case A — PROBE variant.  Derived from Optimus-AgenticBench
+# agent/workloads/glm52_crxx_caseA.fix.yaml (the spec of record, left untouched).
+#
+# THIS IS NOT A DELIVERABLE RUN.  Its only jobs are:
+#   1. measure a real mean E2E so new_session_rate can be re-solved for the full
+#      run (the shipped rate assumes E2E ~= 15 s, which is a placeholder), and
+#   2. prove the deployment survives long prompts at all before a 67-minute
+#      measured window is spent on it.
+# Percentiles from a 600 s window are noise at ~1 req/s -- CASE_AB_GUIDE.md says
+# so explicitly.  Do not quote them.
+#
+# Deltas from caseA.fix.yaml, and why each one:
+#   * max_input_tokens 260000 -> 131072, max_prompt_tokens likewise.  Every
+#     validated configuration in this repo ran --context-length 32768; the probe
+#     runs the engine at 131072 to de-risk the cold start (tilelang JIT + DP
+#     cudagraph capture at a large KV pool is unmeasured here) before the full
+#     run goes to 262144.  This changes the input distribution, so the probe's
+#     percentiles are not the spec's -- only its E2E is used downstream.
+#   * sustain_duration 3600 -> 600.
+#   * acc_len 1.56 -> 1.0, mtp_draft_tokens 5 -> 1.  MTP IS OFF in this
+#     deployment (the DPA+PD+MTP fix is not merged with kv-aware yet).  Left at
+#     1.56 the driver reports a fabricated MTP-adjusted TPS for a server that
+#     has no speculative decoding.
+#   * tokenizer: the placeholder path aborts the run.
+# =============================================================================
+workload:
+
+  # --- Percentile-calibrated request profile (unchanged from the spec) -------
+  profile:
+    input_tokens:        { p50: 74000,  p90: 155000, p99: 235000 }
+    output_tokens:       { p50: 320,    p90: 3300,   p99: 17000 }
+    turns_per_session:   { p50: 3,      p90: 20,     p99: 103 }
+    inter_turn_delay_s:  { p50: 4,      p90: 31,     p99: 240 }
+    cache_hit_rate:      0.89
+    # PROBE ONLY: clamp lowered to match the engine's probe-phase context length.
+    max_input_tokens:    131072
+
+  # --- Speculative decoding: NONE.  See header. ------------------------------
+  acc_len:               1.0
+  mtp_draft_tokens:      1
+  mtp_overhead_factor:   1.0
+
+  # --- Offered load ----------------------------------------------------------
+  # Same starting point as the spec (N=32 @ E2E=15 s).  Measuring the real E2E
+  # and re-solving this pair is the entire purpose of the probe.
+  initial_sessions:      32
+  new_session_rate:      0.10
+  max_sessions:          128
+  max_inflight:          48
+
+  # --- Measurement window ----------------------------------------------------
+  ramp_duration:         400
+  sustain_duration:      600           # PROBE ONLY -- truncates the turn tail
+
+  # --- Request framing -------------------------------------------------------
+  system_prompt_len:     2000
+  max_prompt_tokens:     131072
+  tokenizer:             /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4
+
+  sla:
+    e2e_p50_ms:          4500
+    ttft_p90_ms:         30000
+    success_rate:        0.97
+
+  gpus:                  8
+  window:                30
+  random_seed:           1337
