@@ -44,7 +44,25 @@ GPU_FLAGS=(
 
 # Per-run host scratch (HF cache + logs), shared into every container at
 # /scratch and removed on exit (via a container, since containers write as root).
-SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/infera-test.XXXXXX")"
+#
+# This script has no `set -e`, so an unchecked mktemp is not merely untidy: on a
+# node where TMPDIR is not writable, $SCRATCH goes empty and every path built
+# from it silently retargets the filesystem root — `mkdir /hf`, `: > /failures.txt`
+# — which also fail, and the run limps on to report
+#
+#     (a tier failed but no per-test detail was captured — likely an image
+#      build error or a native crash before pytest ran; scan above.)
+#
+# i.e. it blames the image for an unwritable /tmp. Seen on a Spur node in CI.
+# Fail here instead, naming the directory, so the next person reads one line.
+SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/infera-test.XXXXXX" 2>/dev/null)" || SCRATCH=""
+if [ -z "$SCRATCH" ] || [ ! -d "$SCRATCH" ] || [ ! -w "$SCRATCH" ]; then
+  echo "FATAL: cannot create a writable scratch dir under '${TMPDIR:-/tmp}'." >&2
+  echo "       This node's temp space is unusable, so the run cannot start." >&2
+  echo "       Set TMPDIR to somewhere writable, or take the node out of the pool." >&2
+  ls -ld "${TMPDIR:-/tmp}" >&2 2>/dev/null || true
+  exit 1
+fi
 mkdir -p "$SCRATCH/hf"
 : > "$SCRATCH/failures.txt"
 chmod 666 "$SCRATCH/failures.txt" 2>/dev/null || true

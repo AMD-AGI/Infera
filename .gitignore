@@ -49,7 +49,14 @@ deploy/docker/third_party/
 .review-drafts/
 temp/
 CLAUDE.md
-.claude/
+# ...except the shared repo conventions, which are meant for review and for
+# everyone's agent sessions. Excluding `.claude/*` rather than `.claude/` is what
+# makes the negation possible — git will not descend into an excluded directory,
+# so a re-include under `.claude/` would never be reached. Everything else stays
+# out: settings.local.json is per-developer, and worktrees/ holds whole nested
+# checkouts.
+.claude/*
+!.claude/CLAUDE.md
 .spur_job_*.sh
 .spur_ns_*.sh
 spur-*.out

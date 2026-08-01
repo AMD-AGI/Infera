@@ -1,0 +1,53 @@
+# Model download Job — populates the model-cache PVC. Runs snapshot_download into
+# a clean dir on the PVC so serving pods can mount it and reference /models/<name>
+# directly (no HF cache-path juggling).
+#
+#   kubectl apply -f model-cache.yaml -n infera
+#   kubectl apply -f model-download.yaml -n infera
+#   kubectl wait --for=condition=Complete job/model-download -n infera --timeout=8h
+#
+# For a GATED repo (e.g. moonshotai/Kimi-K3): first create the token secret, then
+# uncomment envFrom below and swap the repo id:
+#   kubectl create secret generic hf-token-secret --from-literal=HF_TOKEN=<tok> -n infera
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: model-download
+  namespace: infera
+spec:
+  backoffLimit: 3
+  completions: 1
+  parallelism: 1
+  template:
+    metadata:
+      labels:
+        app: model-download
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: model-download
+          # Light, engine-agnostic downloader — any image with huggingface_hub works;
+          # the engine image (offline) is an alternative.
+          image: python:3.11-slim
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          # envFrom:                       # gated repos only: HF_TOKEN
+          #   - secretRef: {name: hf-token-secret}
+          command: ["sh", "-c"]
+          # Swap the repo id (and dir) for your model, e.g. moonshotai/Kimi-K3 -> /model-cache/Kimi-K3.
+          args:
+            - |
+              set -eux
+              pip install --no-cache-dir huggingface_hub
+              python -c "from huggingface_hub import snapshot_download; print('downloaded ->', snapshot_download('Qwen/Qwen3-0.6B', local_dir='/model-cache/Qwen3-0.6B'))"
+          volumeMounts:
+            - name: model-cache
+              mountPath: /model-cache
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: model-cache

@@ -33,6 +33,26 @@ RUN if [ "${BUILD_MOONCAKE}" = "1" ]; then \
     fi \
     && rm -rf /tmp/build_mooncake_sglang.sh /tmp/mooncake_cpp
 
+# ---- libionic (host ionic ABI match) -----------------------------------------
+# WHY: the sglang base ships libionic with an old kernel ABI (e.g. 54.0-149 = ABI
+# 1); MI355X ionic kernel 26.03 needs ABI 4 (54.0-187) or ibv_get_device_list
+# returns 0 HCAs -> RDMA silently degrades to TCP and cross-node PD KV transfer
+# fails ("remote mooncake session not alive"). HOW: bake the ABI-4 deb so RDMA
+# works even without the runtime host-libionic injection (which the entrypoint
+# still does as a belt-and-braces match when /host-libionic is mounted).
+ARG INSTALL_LIBIONIC=1
+ARG LIBIONIC_DEB_URL=https://repo.radeon.com/amdainic/pensando/ubuntu/1.117.5-a-77/pool/main/r/rdma-core/libionic1_54.0-187-1_amd64.deb
+RUN if [ "${INSTALL_LIBIONIC}" = "1" ]; then \
+        (curl -4 -fsSL --retry 3 -o /tmp/libionic.deb "${LIBIONIC_DEB_URL}" \
+          && dpkg -i --force-downgrade /tmp/libionic.deb \
+          && ldconfig \
+          && echo "libionic: $(dpkg -l | awk '/libionic1/{print $3}')" \
+          && rm -f /tmp/libionic.deb) \
+        || echo "[libionic] install failed (offline build?) — inject at runtime instead"; \
+    else \
+        echo "INSTALL_LIBIONIC=0 — libionic injected at container start"; \
+    fi
+
 # Install infera + its declared deps from pyproject (single source of truth).
 # The base already ships torch/sglang and most of infera's runtime stack; pip
 # leaves those satisfied versions untouched and only pulls what's missing (e.g.

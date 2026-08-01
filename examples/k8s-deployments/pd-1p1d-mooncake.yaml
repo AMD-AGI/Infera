@@ -1,0 +1,114 @@
+# PD-disaggregated 1P1D over Mooncake — CONCRETE 2-node recipe.
+# 1 router + 1 prefill (node A) + 1 decode (node B), tp=1 each. KV is streamed
+# prefill -> decode by the Mooncake transfer engine over the ionic RoCE fabric;
+# the Mooncake RPC/handshake rides the pod-overlay (flannel) so it needs no host
+# networking. Uses the libionic-baked engine image, so no runtime host-libionic
+# injection is required (ibv sees the 8 ionic HCAs out of the box).
+#
+# Fill in for your cluster:
+#   <PREFILL_NODE> / <DECODE_NODE>   kubernetes.io/hostname of two GPU nodes that
+#                                    share a routable RoCE fabric (prefill and
+#                                    decode must be able to open an RDMA QP over
+#                                    ionic — same rail/subnet, or a routed fabric).
+#   <MODEL_DIR>                      a directory reachable at the SAME path on both
+#                                    nodes (shared FS, e.g. /mnt/vast/.../qwen)
+#                                    holding the model dir; mounted at /models.
+#   <MODEL_PATH>                     /models/<model-dir> as seen inside the pod.
+#
+# Requirements per worker: privileged + a hostPath mount of /dev/infiniband (the
+# ionic uverbs devices); no rdma/hca device-plugin needed with this approach.
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: qwen-pd
+  namespace: infera
+spec:
+  backendFramework: sglang
+  discoveryBackend: kubernetes
+  nats:
+    deploy: false
+  services:
+    server:
+      componentType: server
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <PREFILL_NODE>}
+        containers:
+          - name: main
+            image: rocm/infera:sglang-v0.1.2      # libionic (ABI 4) baked
+            imagePullPolicy: IfNotPresent
+            command: ["python3","-m","infera.server","--host","0.0.0.0","--port","8000",
+                      "--router-tokenizer-path","<MODEL_PATH>",
+                      "--request-transport","http","--kv-event-transport","zmq"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources: {requests: {cpu: "4", memory: 8Gi}, limits: {cpu: "4", memory: 8Gi}}
+            volumeMounts: [{name: model, mountPath: /models, readOnly: true}]
+        volumes: [{name: model, hostPath: {path: <MODEL_DIR>, type: Directory}}]
+    prefill:
+      componentType: worker
+      role: prefill
+      replicas: 1
+      port: 30000
+      skipReadinessProbe: true
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <PREFILL_NODE>}
+        containers:
+          - name: main
+            image: rocm/infera:sglang-v0.1.2
+            imagePullPolicy: IfNotPresent
+            securityContext: {privileged: true, capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}}
+            command: ["python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
+                      "--disaggregation-mode","prefill","--model-path","<MODEL_PATH>",
+                      "--tp-size","1","--attention-backend","aiter","--trust-remote-code",
+                      "--mem-fraction-static","0.8",
+                      "--kv-event-transport","zmq","--request-transport","http",
+                      "--disaggregation-transfer-backend","mooncake"]
+            env:
+              - {name: SGLANG_USE_AITER, value: "1"}
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources: {requests: {cpu: "16", memory: 96Gi, amd.com/gpu: 1}, limits: {cpu: "16", memory: 96Gi, amd.com/gpu: 1}}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: dshm, mountPath: /dev/shm}
+              - {name: ib, mountPath: /dev/infiniband}
+        volumes:
+          - {name: model, hostPath: {path: <MODEL_DIR>, type: Directory}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 16Gi}}
+          - {name: ib, hostPath: {path: /dev/infiniband, type: Directory}}
+    decode:
+      componentType: worker
+      role: decode
+      replicas: 1
+      port: 30000
+      skipReadinessProbe: true
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <DECODE_NODE>}
+        containers:
+          - name: main
+            image: rocm/infera:sglang-v0.1.2
+            imagePullPolicy: IfNotPresent
+            securityContext: {privileged: true, capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}}
+            command: ["python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
+                      "--disaggregation-mode","decode","--model-path","<MODEL_PATH>",
+                      "--tp-size","1","--attention-backend","aiter","--trust-remote-code",
+                      "--mem-fraction-static","0.8",
+                      "--kv-event-transport","zmq","--request-transport","http",
+                      "--disaggregation-transfer-backend","mooncake"]
+            env:
+              - {name: SGLANG_USE_AITER, value: "1"}
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources: {requests: {cpu: "16", memory: 96Gi, amd.com/gpu: 1}, limits: {cpu: "16", memory: 96Gi, amd.com/gpu: 1}}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: dshm, mountPath: /dev/shm}
+              - {name: ib, mountPath: /dev/infiniband}
+        volumes:
+          - {name: model, hostPath: {path: <MODEL_DIR>, type: Directory}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 16Gi}}
+          - {name: ib, hostPath: {path: /dev/infiniband, type: Directory}}

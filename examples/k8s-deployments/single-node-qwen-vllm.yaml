@@ -1,0 +1,66 @@
+# Single-node aggregated (vLLM) — CONCRETE, ready-to-apply validation recipe.
+# 1 router (server, no GPU) + 1 mixed worker (vLLM, tp=1, 1 amd.com/gpu),
+# Qwen3-0.6B via hostPath. vLLM twin of single-node-qwen-sglang.yaml: the router
+# (infera.server) is engine-agnostic; only the worker changes to
+# infera.engine.vllm with vLLM-style flags (--model / --tensor-parallel-size /
+# --gpu-memory-utilization). Adjust for your node:
+#   image        rocm/infera:vllm-v0.1.1   (present in the node runtime)
+#   model dir    /mnt/k3local/models/qwen        (contains Qwen3-0.6B/)
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: qwen-agg-vllm
+  namespace: infera
+spec:
+  backendFramework: vllm
+  discoveryBackend: kubernetes
+  nats:
+    deploy: false
+  services:
+    server:
+      componentType: server
+      extraPodSpec:
+        containers:
+          - name: main
+            image: rocm/infera:vllm-v0.1.1
+            imagePullPolicy: IfNotPresent
+            command: ["python3","-m","infera.server","--host","0.0.0.0","--port","8000",
+                      "--router-tokenizer-path","/models/Qwen3-0.6B",
+                      "--request-transport","http","--kv-event-transport","zmq"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources:
+              requests: {cpu: "4", memory: 8Gi}
+              limits: {cpu: "4", memory: 8Gi}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+        volumes:
+          - {name: model, hostPath: {path: /mnt/k3local/models/qwen, type: Directory}}
+    worker:
+      componentType: worker
+      role: mixed
+      replicas: 1
+      extraPodSpec:
+        containers:
+          - name: main
+            image: rocm/infera:vllm-v0.1.1
+            imagePullPolicy: IfNotPresent
+            command: ["python3","-m","infera.engine.vllm","--host","0.0.0.0","--port","30000",
+                      "--model","/models/Qwen3-0.6B","--served-model-name","Qwen3-0.6B",
+                      "--tensor-parallel-size","1","--gpu-memory-utilization","0.85","--trust-remote-code",
+                      "--kv-event-transport","zmq","--request-transport","http"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources:
+              requests: {cpu: "16", memory: 64Gi, amd.com/gpu: 1}
+              limits: {cpu: "16", memory: 64Gi, amd.com/gpu: 1}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: dshm, mountPath: /dev/shm}
+        volumes:
+          - {name: model, hostPath: {path: /mnt/k3local/models/qwen, type: Directory}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 32Gi}}

@@ -1,0 +1,200 @@
+# PD-disaggregated 1P1D over Mooncake, WITH the kvd tiered KV cache — the fourth
+# recipe shape (mixed, mixed+kvd, pd, pd+kvd).
+#
+# PD structure is pd-1p1d-mooncake.yaml; kvd is layered on the same way as in
+# mixed-kvd.yaml, but on BOTH roles: prefill and decode each get their own kvd
+# sidecar, their own emptyDir socket, and their own L3 PVC.
+#
+# Why per-role rather than one shared kvd: the two roles hold different KV.
+# Prefill produces prefix KV worth reusing across requests; decode holds the
+# transferred working set. They also sit on different nodes, and a PVC is
+# ReadWriteOnce — a shared daemon would pin both roles to one node and undo the
+# point of disaggregating them.
+#
+# NOTE ON THE L3 PVCs AND SCHEDULING: with a node-local StorageClass (k3s
+# `local-path`, local-static-provisioner, most local-NVMe CSIs) each PV is bound
+# to the node that first consumed it, and that binding OUTLIVES the Pod. If a
+# role is later pinned to a different node, the scheduler cannot satisfy both the
+# PV's node affinity and the Pod's, and the Pod stays Pending forever:
+#
+#   0/2 nodes are available: 1 node(s) didn't match PersistentVolume's node
+#   affinity, 1 node(s) didn't match Pod's node affinity
+#
+# So either (a) delete and recreate the PVC when you move a role between nodes,
+# or (b) use a StorageClass whose volumes are not node-local. This is why the two
+# roles get SEPARATE PVCs — a single shared ReadWriteOnce claim would pin prefill
+# and decode to the same node and defeat the disaggregation.
+#
+# Fill in for your cluster:
+#   <PREFILL_NODE> / <DECODE_NODE>   two GPU nodes on a routable RoCE fabric
+#                                    (see pd-1p1d-mooncake.yaml — prefill and
+#                                    decode must be able to open an RDMA QP)
+#   <MODEL_DIR>                      a directory at the SAME path on both nodes
+#   <MODEL_PATH>                     /models/<model-dir> inside the pod
+#
+# NOTE ON MEMORY: `--infera-kvd-socket` enables SGLang's hierarchical cache,
+# whose host-RAM tier is sized from the GPU KV pool unless capped. Left alone it
+# will ask for hundreds of GB and the container is OOMKilled — `--hicache-size`
+# (GiB) must fit inside the engine container's memory limit.
+#
+# NOTE ON KV DTYPE: kvd only offloads KV layouts it can round-trip byte-exact.
+# Regular-attention fp8 support landed in #63; on an older engine image add
+# `--kv-cache-dtype auto` or kvd silently stores nothing.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kvd-l3-prefill
+  namespace: infera
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: {requests: {storage: 200Gi}}
+  storageClassName: local-path
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kvd-l3-decode
+  namespace: infera
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: {requests: {storage: 200Gi}}
+  storageClassName: local-path
+---
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: qwen-pd-kvd
+  namespace: infera
+spec:
+  backendFramework: sglang
+  discoveryBackend: kubernetes
+  nats:
+    deploy: false
+  services:
+    server:
+      componentType: server
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <PREFILL_NODE>}
+        containers:
+          - name: main
+            image: rocm/infera:sglang-v0.1.2      # libionic (ABI 4) baked
+            imagePullPolicy: IfNotPresent
+            command: ["python3","-m","infera.server","--host","0.0.0.0","--port","8000",
+                      "--router-tokenizer-path","<MODEL_PATH>",
+                      "--request-transport","http","--kv-event-transport","zmq"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources: {requests: {cpu: "4", memory: 8Gi}, limits: {cpu: "4", memory: 8Gi}}
+            volumeMounts: [{name: model, mountPath: /models, readOnly: true}]
+        volumes: [{name: model, hostPath: {path: <MODEL_DIR>, type: Directory}}]
+    prefill:
+      componentType: worker
+      role: prefill
+      replicas: 1
+      port: 30000
+      skipReadinessProbe: true
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <PREFILL_NODE>}
+        containers:
+          - name: main
+            image: rocm/infera:sglang-v0.1.2
+            imagePullPolicy: IfNotPresent
+            securityContext: {privileged: true, capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}}
+            command: ["python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
+                      "--disaggregation-mode","prefill","--model-path","<MODEL_PATH>",
+                      "--infera-kvd-socket","/kvd/kvd.sock","--hicache-size","16",
+                      "--tp-size","1","--attention-backend","aiter","--trust-remote-code",
+                      "--mem-fraction-static","0.8",
+                      "--kv-event-transport","zmq","--request-transport","http",
+                      "--disaggregation-transfer-backend","mooncake"]
+            env:
+              - {name: SGLANG_USE_AITER, value: "1"}
+              - {name: INFERA_KVD_SOCKET, value: /kvd/kvd.sock}
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources: {requests: {cpu: "16", memory: 96Gi, amd.com/gpu: 1}, limits: {cpu: "16", memory: 96Gi, amd.com/gpu: 1}}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: dshm, mountPath: /dev/shm}
+              - {name: ib, mountPath: /dev/infiniband}
+              - {name: kvd-sock, mountPath: /kvd}
+          # ---- kvd sidecar for this role ----
+          - name: kvd
+            image: rocm/infera:sglang-v0.1.2
+            imagePullPolicy: IfNotPresent
+            command: ["python3","-m","infera.kvd",
+                      "--socket","/kvd/kvd.sock",
+                      "--max-bytes","34359738368",
+                      "--long-path","/l3/long","--long-bytes","107374182400"]
+            securityContext:
+              capabilities: {add: ["IPC_LOCK"]}
+            resources:
+              requests: {cpu: "4", memory: 40Gi}
+              limits: {cpu: "4", memory: 40Gi}
+            volumeMounts:
+              - {name: kvd-sock, mountPath: /kvd}
+              - {name: kvd-l3, mountPath: /l3}
+        volumes:
+          - {name: model, hostPath: {path: <MODEL_DIR>, type: Directory}}
+          - {name: kvd-sock, emptyDir: {}}
+          - {name: kvd-l3, persistentVolumeClaim: {claimName: kvd-l3-prefill}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 16Gi}}
+          - {name: ib, hostPath: {path: /dev/infiniband, type: Directory}}
+    decode:
+      componentType: worker
+      role: decode
+      replicas: 1
+      port: 30000
+      skipReadinessProbe: true
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <DECODE_NODE>}
+        containers:
+          - name: main
+            image: rocm/infera:sglang-v0.1.2
+            imagePullPolicy: IfNotPresent
+            securityContext: {privileged: true, capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}}
+            command: ["python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
+                      "--disaggregation-mode","decode","--model-path","<MODEL_PATH>",
+                      "--infera-kvd-socket","/kvd/kvd.sock","--hicache-size","16",
+                      "--tp-size","1","--attention-backend","aiter","--trust-remote-code",
+                      "--mem-fraction-static","0.8",
+                      "--kv-event-transport","zmq","--request-transport","http",
+                      "--disaggregation-transfer-backend","mooncake"]
+            env:
+              - {name: SGLANG_USE_AITER, value: "1"}
+              - {name: INFERA_KVD_SOCKET, value: /kvd/kvd.sock}
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources: {requests: {cpu: "16", memory: 96Gi, amd.com/gpu: 1}, limits: {cpu: "16", memory: 96Gi, amd.com/gpu: 1}}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: dshm, mountPath: /dev/shm}
+              - {name: ib, mountPath: /dev/infiniband}
+              - {name: kvd-sock, mountPath: /kvd}
+          # ---- kvd sidecar for this role ----
+          - name: kvd
+            image: rocm/infera:sglang-v0.1.2
+            imagePullPolicy: IfNotPresent
+            command: ["python3","-m","infera.kvd",
+                      "--socket","/kvd/kvd.sock",
+                      "--max-bytes","34359738368",
+                      "--long-path","/l3/long","--long-bytes","107374182400"]
+            securityContext:
+              capabilities: {add: ["IPC_LOCK"]}
+            resources:
+              requests: {cpu: "4", memory: 40Gi}
+              limits: {cpu: "4", memory: 40Gi}
+            volumeMounts:
+              - {name: kvd-sock, mountPath: /kvd}
+              - {name: kvd-l3, mountPath: /l3}
+        volumes:
+          - {name: model, hostPath: {path: <MODEL_DIR>, type: Directory}}
+          - {name: kvd-sock, emptyDir: {}}
+          - {name: kvd-l3, persistentVolumeClaim: {claimName: kvd-l3-decode}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 16Gi}}
+          - {name: ib, hostPath: {path: /dev/infiniband, type: Directory}}

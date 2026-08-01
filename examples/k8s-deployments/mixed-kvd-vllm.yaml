@@ -1,0 +1,130 @@
+# Mixed (aggregated) serving WITH kvd on the vLLM path — CONCRETE recipe.
+#
+# The plain mixed recipe is single-node-qwen-sglang.yaml / -vllm.yaml. This adds
+# kvd, laid out the way Kubernetes wants it rather than with host paths:
+#
+#   * kvd runs as a SIDECAR in the worker Pod. The operator only owns the
+#     container named `main`, so any extra container is passed through verbatim.
+#   * the engine <-> kvd Unix socket lives in an `emptyDir` shared by the two
+#     containers — no hostPath, nothing pinned to a node.
+#   * kvd's L3 spill is a **PVC**, so capacity is requested from the cluster and
+#     the scheduler places the Pod where it can be satisfied.
+#   * kvd's L2 arena is host RAM, so it is charged to the sidecar's memory limit
+#     and needs IPC_LOCK to pin (mlock) it.
+#
+# Requires the model-cache PVC (model-cache/) or a hostPath model, as usual.
+#
+# ENGINE CHOICE — this is the vLLM twin of mixed-kvd.yaml. It reaches kvd
+# through the InferaKvdConnector (a vLLM KV-transfer connector) rather than
+# SGLang's HiCacheStorage backend, and it is the path that supports **hipFile
+# GPU-direct L3**: L3 loads straight into VRAM instead of bouncing through host
+# memory. Use this one when GPU-direct L3 matters; mixed-kvd.yaml (SGLang) gets
+# the L2 arena and the file tier but not the GPU-direct path.
+#
+# NOTE ON KV DTYPE: kvd only offloads KV layouts it can round-trip byte-exact.
+# Regular-attention fp8 support landed in #63 — on an engine image predating it,
+# add `--kv-cache-dtype auto` (or env INFERA_DEFAULT_KV_FP8=0) to the worker or
+# kvd will silently store nothing.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kvd-l3-vllm
+  namespace: infera
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 200Gi        # L3 spill; size to your working set
+  storageClassName: local-path   # k3s default; use a fast local-NVMe class in production
+---
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: qwen-kvd-vllm
+  namespace: infera
+spec:
+  backendFramework: vllm
+  discoveryBackend: kubernetes
+  nats:
+    deploy: false
+  services:
+    server:
+      componentType: server
+      extraPodSpec:
+        containers:
+          - name: main
+            image: rocm/infera:vllm-v0.1.1
+            imagePullPolicy: IfNotPresent
+            command: ["python3","-m","infera.server","--host","0.0.0.0","--port","8000",
+                      "--router-tokenizer-path","/models/Qwen3-0.6B",
+                      "--request-transport","http","--kv-event-transport","zmq"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources: {requests: {cpu: "4", memory: 8Gi}, limits: {cpu: "4", memory: 8Gi}}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+        volumes:
+          - {name: model, hostPath: {path: /mnt/k3local/models/qwen, type: Directory}}
+    worker:
+      componentType: worker
+      role: mixed
+      replicas: 1
+      extraPodSpec:
+        containers:
+          # ---- the engine ----
+          - name: main
+            image: rocm/infera:vllm-v0.1.1
+            imagePullPolicy: IfNotPresent
+            # kvd is reached through the connector, declared in
+            # --kv-transfer-config; INFERA_KVD_SOCKET (below) points it at the
+            # sidecar's UDS. No hierarchical-cache sizing to worry about here —
+            # that knob is SGLang-side only.
+            command: ["python3","-m","infera.engine.vllm","--host","0.0.0.0","--port","30000",
+                      "--model","/models/Qwen3-0.6B","--served-model-name","qwen",
+                      "--tensor-parallel-size","1","--gpu-memory-utilization","0.85",
+                      "--trust-remote-code",
+                      "--kv-transfer-config",
+                      "{\"kv_connector\":\"InferaKvdConnector\",\"kv_role\":\"kv_both\",\"kv_connector_module_path\":\"infera.engine.vllm.kvd_connector\"}",
+                      "--kv-event-transport","zmq","--request-transport","http"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+              - {name: INFERA_KVD_SOCKET, value: /kvd/kvd.sock}
+            resources:
+              requests: {cpu: "16", memory: 64Gi, amd.com/gpu: 1}
+              limits: {cpu: "16", memory: 64Gi, amd.com/gpu: 1}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: kvd-sock, mountPath: /kvd}
+              - {name: dshm, mountPath: /dev/shm}
+          # ---- the kvd sidecar ----
+          # Same image (kvd is pure Python inside the infera package). L2 is the
+          # pinned host-RAM arena; L3 spills to the PVC.
+          - name: kvd
+            image: rocm/infera:vllm-v0.1.1
+            imagePullPolicy: IfNotPresent
+            command: ["python3","-m","infera.kvd",
+                      "--socket","/kvd/kvd.sock",
+                      "--max-bytes","34359738368",          # 32 GiB L2 host-RAM arena
+                      "--long-path","/l3/long","--long-bytes","107374182400"]  # 100 GiB L3 on the PVC
+            securityContext:
+              capabilities:
+                add: ["IPC_LOCK"]      # required to mlock the arena
+            resources:
+              # Must exceed --max-bytes: the arena is pinned host RAM charged here.
+              requests: {cpu: "4", memory: 40Gi}
+              limits: {cpu: "4", memory: 40Gi}
+            volumeMounts:
+              - {name: kvd-sock, mountPath: /kvd}
+              - {name: kvd-l3, mountPath: /l3}
+        volumes:
+          - {name: model, hostPath: {path: /mnt/k3local/models/qwen, type: Directory}}
+          # engine <-> kvd UDS: a plain emptyDir shared by the two containers
+          - {name: kvd-sock, emptyDir: {}}
+          - {name: kvd-l3, persistentVolumeClaim: {claimName: kvd-l3-vllm}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 32Gi}}
