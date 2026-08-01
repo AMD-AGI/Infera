@@ -68,6 +68,13 @@ checklist and the RDMA self-check.
 Each has a CLI flag (flag > env > default); see [Routing & transport](../features/routing_and_transport.md)
 and the [CLI reference](cli.md).
 
+## Engine startup (set on the engine process)
+
+| Env | Default | What it does |
+|---|---|---|
+| `INFERA_SGLANG_READY_TIMEOUT` | `1800` (s) | How long the launcher waits for SGLang's `/health` before it gives up on the engine. Raise it for a very large checkpoint: MTP reads the weights a second time to extract the draft layer, and two PD legs loading off one filesystem are slower per leg. `INFERA_ATOM_READY_TIMEOUT` is the ATOM twin. |
+| `INFERA_NODEPORT_RANGE` | `30000-32767` | Port window the auto-allocated kv-event port block must avoid — Kubernetes' NodePort range, where a Service claim makes the port unreachable from the node IP we advertise. Set `lo-hi` for a cluster that moved the range, `none` to drop the guard. |
+
 ## Engine correctness
 
 | Env | Value | What it does |
