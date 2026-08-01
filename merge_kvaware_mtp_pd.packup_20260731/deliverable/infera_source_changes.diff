@@ -1,0 +1,507 @@
+diff --git a/infera/engine/sglang/args.py b/infera/engine/sglang/args.py
+index 47ca0eb..e8786a3 100644
+--- a/infera/engine/sglang/args.py
++++ b/infera/engine/sglang/args.py
+@@ -260,7 +260,22 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
+         and getattr(sglang_parsed, "disaggregation_transfer_backend", None) == "mooncake"
+         and "--disaggregation-decode-enable-radix-cache" not in remaining
+     ):
+-        remaining.append("--disaggregation-decode-enable-radix-cache")
++        # SGLang rejects the decode radix cache outright under speculative
++        # decoding (pd_disaggregation_hook: "incompatible with speculative
++        # decoding"), so appending it would kill an EAGLE/MTP decode leg during
++        # argument parsing. Skip it and let SGLang fall back to its chunk cache;
++        # prefix-aware routing then runs on the prefill-side view.
++        if getattr(sglang_parsed, "speculative_algorithm", None) is not None:
++            logger.info(
++                "kv-events on, but --disaggregation-decode-enable-radix-cache is "
++                "incompatible with --speculative-algorithm %s; not appending it. "
++                "The decode leg will use SGLang's chunk cache and contribute "
++                "little to the router KV view; prefix-aware routing runs on the "
++                "prefill-side view.",
++                sglang_parsed.speculative_algorithm,
++            )
++        else:
++            remaining.append("--disaggregation-decode-enable-radix-cache")
+ 
+     server_args = ServerArgs.from_cli_args(sglang_parsed)
+ 
+diff --git a/infera/engine/sglang/kvd_wiring.py b/infera/engine/sglang/kvd_wiring.py
+index b0b35dc..5669d39 100644
+--- a/infera/engine/sglang/kvd_wiring.py
++++ b/infera/engine/sglang/kvd_wiring.py
+@@ -171,11 +171,35 @@ def _finish_wiring(args: Any, socket_path: str) -> None:
+     logger.info("infera-kvd HiCacheStorage backend ready (socket=%s)", socket_path)
+ 
+ 
++def _skip_kvd_on_decode_leg(args: Any) -> bool:
++    """True if this is a PD decode leg, where kvd would be write-only.
++
++    SGLang only prefetches from hicache storage on the aggregated and PREFILL
++    branches of ``Scheduler._add_request_to_queue``; the DECODE branch has no
++    ``_prefetch_kvcache`` call, and that method is the sole caller of
++    ``prefetch_from_storage``. The backup path still runs, so a decode leg fills
++    L3 and never reads it -- measured at 180 sets / 0 gets against a prefill
++    leg's 102 sets / 102 gets on the same run.
++    """
++    mode = getattr(getattr(args, "server_args", None), "disaggregation_mode", None)
++    if str(mode) != "decode":
++        return False
++    logger.info(
++        "PD decode leg: not wiring infera-kvd. SGLang issues no storage prefetch "
++        "on the decode branch (scheduler._add_request_to_queue), so L3 here would "
++        "be write-only -- host memory and D2H bandwidth for zero reads. kvd stays "
++        "on the prefill leg, which is where prefix reuse is decided."
++    )
++    return True
++
++
+ async def awire_infera_kvd_backend(args: Any) -> None:
+     """Async variant for callers already inside an event loop."""
+     socket_path = args.infera_kvd_socket
+     if not socket_path:
+         return
++    if _skip_kvd_on_decode_leg(args):
++        return
+ 
+     # The adapter (constructed later by SGLang) reads this env var;
+     # this is the only seam we have because SGLang's factory
+diff --git a/infera/router/kv_event/client.py b/infera/router/kv_event/client.py
+index 3f89740..ef28fe8 100644
+--- a/infera/router/kv_event/client.py
++++ b/infera/router/kv_event/client.py
+@@ -47,6 +47,22 @@ def _offset_endpoint(endpoint: str, rank: int) -> str:
+     return f"{head}:{int(port) + rank}"
+ 
+ 
++def _flat_tokens(token_ids: list) -> list[int]:
++    """The flat token ids of a stored block, whatever view the engine reports.
++
++    Under EAGLE/MTP, SGLang keys its radix tree on bigrams, so a block's tokens
++    arrive as the overlapping pairs ``(t[i], t[i+1])``. The first element of each
++    pair rebuilds ``t[start:end]`` -- the same flat slice ``hash_request`` chunks
++    on the query side, and radix nodes split on page boundaries so the two
++    chunkings stay aligned. Hashing the pairs as-is builds a view that no request
++    can ever match.
++    """
++    if token_ids and isinstance(token_ids[0], (list, tuple)):
++        return [pair[0] for pair in token_ids]
++    return token_ids
++
++
++
+ @dataclass
+ class WorkerSubscription:
+     """Per-worker subscription state: one ZMQ task per DP rank plus a
+@@ -216,9 +232,10 @@ class KvEventClient:
+                 # query misses by one block.
+                 return
+         bs = sub.block_size
+-        n = len(ev.token_ids) // bs
++        tokens = _flat_tokens(ev.token_ids)
++        n = len(tokens) // bs
+         for i in range(n):
+-            chunk = ev.token_ids[i * bs : (i + 1) * bs]
++            chunk = tokens[i * bs : (i + 1) * bs]
+             parent = hash_chunk(parent, chunk)
+             view.add(parent)
+             m[ev.block_hashes[i]] = parent
+diff --git a/infera/router/kv_event/events.py b/infera/router/kv_event/events.py
+index 252f2a2..3ae2637 100644
+--- a/infera/router/kv_event/events.py
++++ b/infera/router/kv_event/events.py
+@@ -73,7 +73,12 @@ class _SglangKVCacheEvent(msgspec.Struct, array_like=True, omit_defaults=True, g
+ class SglangBlockStored(_SglangKVCacheEvent, tag="BlockStored"):
+     block_hashes: list[int]
+     parent_block_hash: int | None
+-    token_ids: list[int]
++    # With EAGLE/MTP the radix key is a bigram view (``RadixKey.is_bigram``, set
++    # from ``is_eagle``), and the engine reports a block's tokens as the
++    # overlapping pairs ``(t[i], t[i+1])`` instead of bare ints -- so this field
++    # is list[int] on a plain engine and list[tuple[int, int]] under MTP. See
++    # ``client._flat_tokens`` for how the pairs map back onto flat tokens.
++    token_ids: list[int | tuple[int, int]]
+     block_size: int
+     lora_id: int | None
+     medium: str | None = None
+diff --git a/tests/engine/sglang/test_decode_leg_gating.py b/tests/engine/sglang/test_decode_leg_gating.py
+new file mode 100644
+index 0000000..179b35a
+--- /dev/null
++++ b/tests/engine/sglang/test_decode_leg_gating.py
+@@ -0,0 +1,107 @@
++###############################################################################
++# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
++#
++# SPDX-License-Identifier: MIT
++###############################################################################
++"""kvd must not be wired on a PD decode leg.
++
++infera appends ``--enable-hierarchical-cache`` whenever kvd is on. On a decode
++leg that is wrong twice over:
++
++* It crashes. With EAGLE/MTP, SGLang refuses
++  ``--disaggregation-decode-enable-radix-cache`` (which infera also appends, on
++  the separate kv-events gate), which forces ``disable_radix_cache = True``,
++  which SGLang then refuses to combine with the hierarchical cache.
++* Even when it does not crash, kvd is **write-only** there in every
++  configuration: ``_prefetch_kvcache`` is the sole caller of
++  ``prefetch_from_storage``, and ``_add_request_to_queue`` only calls it on the
++  NULL and PREFILL branches. Measured at 180 sets / 0 gets against a prefill
++  leg's 102 sets / 102 gets on the same run.
++
++The companion gate -- not appending the decode radix cache under speculative
++decoding -- is a different flag on a different condition and is covered by
++``test_decode_radix_vs_speculative.py``, which needs sglang importable.
++"""
++
++from __future__ import annotations
++
++import asyncio
++from types import SimpleNamespace
++
++import pytest
++
++from infera.engine.sglang import kvd_wiring
++
++
++def _args(mode: str | None):
++    return SimpleNamespace(
++        infera_kvd_socket="/tmp/kvd/kvd.sock",
++        sglang_argv=["--model-path", "/nonexistent"],
++        server_args=SimpleNamespace(
++            disaggregation_mode=mode,
++            enable_hierarchical_cache=False,
++            hicache_storage_backend=None,
++        ),
++    )
++
++
++def _wire(args, monkeypatch) -> list[str]:
++    """Run the real wiring entry point and return the forwarded argv.
++
++    Tests the OBSERVABLE effect -- which flags reach the sglang subprocess --
++    rather than the presence of a helper. A test that imports the helper by name
++    turns into a collection error when the fix is reverted, and a collection
++    error proves nothing about behaviour.
++
++    The kvd daemon probe and the backend registration both need a live process,
++    so both are stubbed; neither is what this test is about.
++    """
++    monkeypatch.setattr(kvd_wiring, "_probe_kvd", _noop_probe)
++    monkeypatch.setattr(
++        kvd_wiring, "_finish_wiring",
++        lambda a, sock: kvd_wiring._append_sglang_hicache_argv(a),
++    )
++    asyncio.run(kvd_wiring.awire_infera_kvd_backend(args))
++    return list(args.sglang_argv)
++
++
++async def _noop_probe(socket_path: str) -> None:
++    return None
++
++
++# ----------------------------------------------------------------------
++# kvd wiring vs the decode leg
++# ----------------------------------------------------------------------
++
++
++def test_decode_leg_gets_no_hicache_flags(monkeypatch):
++    """The load-bearing assertion: nothing kvd-related reaches the decode leg.
++
++    Fails on the pre-fix code, where --enable-hierarchical-cache is appended
++    unconditionally and SGLang then refuses to combine it with the
++    disable_radix_cache that a speculative decode leg is forced into.
++    """
++    argv = _wire(_args("decode"), monkeypatch)
++    assert "--enable-hierarchical-cache" not in argv
++    assert "--hicache-storage-backend" not in argv
++
++
++def test_prefill_leg_still_gets_them(monkeypatch):
++    """kvd must keep working where it actually serves reads."""
++    argv = _wire(_args("prefill"), monkeypatch)
++    assert "--enable-hierarchical-cache" in argv
++    assert "--hicache-storage-backend" in argv
++
++
++def test_aggregated_server_still_gets_them(monkeypatch):
++    """No disaggregation mode at all -- the colocated case must be untouched."""
++    argv = _wire(_args(None), monkeypatch)
++    assert "--enable-hierarchical-cache" in argv
++
++
++def test_missing_server_args_does_not_raise(monkeypatch):
++    """Defensive: the guard runs before SGLang args are fully materialised on
++    some call paths, and must not turn a missing attribute into a crash."""
++    args = SimpleNamespace(infera_kvd_socket="/x", sglang_argv=[])
++    argv = _wire(args, monkeypatch)
++    assert "--enable-hierarchical-cache" in argv
+diff --git a/tests/engine/sglang/test_decode_radix_vs_speculative.py b/tests/engine/sglang/test_decode_radix_vs_speculative.py
+new file mode 100644
+index 0000000..e4d2a20
+--- /dev/null
++++ b/tests/engine/sglang/test_decode_radix_vs_speculative.py
+@@ -0,0 +1,81 @@
++###############################################################################
++# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
++#
++# SPDX-License-Identifier: MIT
++###############################################################################
++"""infera must not append the decode radix cache under speculative decoding.
++
++With kv-events on, ``parse_sglang_args`` appends
++``--disaggregation-decode-enable-radix-cache`` to a mooncake decode leg so the
++router can steer repeats to the rank holding the prefix. SGLang rejects that flag
++outright when a speculative algorithm is set::
++
++    sglang/srt/arg_groups/pd_disaggregation_hook.py
++        if server_args.speculative_algorithm is not None:
++            raise ValueError(
++                "--disaggregation-decode-enable-radix-cache is incompatible "
++                "with speculative decoding (--speculative-algorithm EAGLE)")
++
++so the decode leg dies during argument parsing, before it loads a weight. The
++gate already excludes non-mooncake backends for exactly this "SGLang rejects it"
++reason; speculative decoding is the same class of exclusion.
++
++Guarded by ``importorskip("sglang")`` because ``infera.engine.sglang.args``
++imports ``sglang.srt.server_args`` at module load: runs in the SGLang container,
++skips on bare dev boxes. Same pattern as ``test_disagg_allow_tcp_args.py``.
++"""
++
++from __future__ import annotations
++
++import pytest
++
++pytest.importorskip("sglang")
++
++from infera.engine.sglang.args import parse_sglang_args  # noqa: E402
++
++_BASE = [
++    "--model-path",
++    "Qwen/Qwen3-0.6B",
++    "--etcd-endpoint",
++    "127.0.0.1:2379",
++    "--disaggregation-mode",
++    "decode",
++    "--disaggregation-transfer-backend",
++    "mooncake",
++]
++
++_EAGLE = [
++    "--speculative-algorithm",
++    "EAGLE",
++    "--speculative-num-steps",
++    "3",
++    "--speculative-eagle-topk",
++    "1",
++    "--speculative-num-draft-tokens",
++    "4",
++]
++
++_FLAG = "--disaggregation-decode-enable-radix-cache"
++
++
++def test_appended_without_speculative_decoding():
++    """The pre-existing behaviour must survive the new condition."""
++    assert _FLAG in parse_sglang_args(_BASE).sglang_argv
++
++
++def test_not_appended_under_eagle():
++    """Fails on the pre-fix code, where the flag is appended unconditionally and
++    SGLang then raises."""
++    assert _FLAG not in parse_sglang_args([*_BASE, *_EAGLE]).sglang_argv
++
++
++def test_operator_supplied_flag_still_raises_under_eagle():
++    """We only decline to ADD it; we do not silently strip an explicit one.
++
++    ``parse_sglang_args`` builds a ``ServerArgs``, whose ``__post_init__`` runs
++    SGLang's own validation — so an operator who passes the flag deliberately
++    gets SGLang's error here, at parse time, rather than a config that quietly
++    differs from what they asked for.
++    """
++    with pytest.raises(ValueError, match="incompatible with speculative decoding"):
++        parse_sglang_args([*_BASE, *_EAGLE, _FLAG])
+diff --git a/tests/unit/router/test_kv_event_bigram.py b/tests/unit/router/test_kv_event_bigram.py
+new file mode 100644
+index 0000000..528f301
+--- /dev/null
++++ b/tests/unit/router/test_kv_event_bigram.py
+@@ -0,0 +1,175 @@
++###############################################################################
++# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
++#
++# SPDX-License-Identifier: MIT
++###############################################################################
++"""The MTP bigram token view in SGLang kv-events.
++
++With EAGLE/MTP on, SGLang keys its radix tree on bigrams (``RadixKey.is_bigram``,
++set from ``is_eagle``) and the kv-event emitter reports a block's tokens as the
++overlapping pairs ``(t[i], t[i+1])`` rather than bare ints::
++
++    sglang/srt/mem_cache/events.py
++        is_bigram = node.key.is_bigram
++        ...
++        if is_bigram:
++            page_tokens = [(raw[j], raw[j + 1]) for j in range(start, end)]
++
++Hashing the pairs as-is builds a cache view no query can ever match: the query
++side chunks the FLAT token slice. The router therefore scores every worker zero
++and kv-aware routing silently degrades to round-robin, with nothing in any log.
++
++The property that matters is not merely "the view is non-empty under MTP" — it is
++that the bigram view and the plain view produce the SAME hashes for the same
++underlying tokens. That is what ``test_bigram_and_plain_views_agree`` asserts, and
++it is the test that would fail on a flatten that took ``pair[1]`` instead.
++"""
++
++from __future__ import annotations
++
++import pytest
++
++from infera.router.kv_event import client as client_mod
++from infera.router.kv_event.client import KvEventClient, WorkerSubscription
++from infera.router.kv_event.events import SglangBlockStored
++from infera.router.kv_event.hasher import ROUTER_SEED, hash_chunk
++
++# Imported by name rather than `from ... import _flat_tokens` on purpose: on
++# pre-fix code the symbol does not exist, and a module-level ImportError would
++# abort COLLECTION -- every test in the file erroring out, which proves nothing
++# about the bug. This way the behavioural tests below run and genuinely fail.
++_flat_tokens = getattr(client_mod, "_flat_tokens", None)
++_needs_fix = pytest.mark.skipif(
++    _flat_tokens is None, reason="_flat_tokens is the fix under test"
++)
++
++
++def _bigrams(tokens: list[int]) -> list[tuple[int, int]]:
++    """The pairs SGLang emits for ``tokens``: ``(t[i], t[i+1])`` per position.
++
++    The engine holds ``N+1`` raw tokens for ``N`` bigram positions, so the pair
++    at the last position reaches one token past the block. Mirrored here.
++    """
++    return [(tokens[i], tokens[i + 1] if i + 1 < len(tokens) else 0) for i in range(len(tokens))]
++
++
++# ----------------------------------------------------------------------
++# _flat_tokens
++# ----------------------------------------------------------------------
++
++
++@_needs_fix
++def test_flat_tokens_unwraps_pairs():
++    assert _flat_tokens([(1, 2), (2, 3), (3, 4)]) == [1, 2, 3]
++
++
++@_needs_fix
++def test_flat_tokens_accepts_lists_not_only_tuples():
++    """msgpack decodes a 2-element sequence as a list, not a tuple."""
++    assert _flat_tokens([[1, 2], [2, 3]]) == [1, 2]
++
++
++@_needs_fix
++def test_flat_tokens_leaves_plain_ints_alone():
++    assert _flat_tokens([1, 2, 3]) == [1, 2, 3]
++
++
++@_needs_fix
++def test_flat_tokens_handles_empty():
++    assert _flat_tokens([]) == []
++
++
++# ----------------------------------------------------------------------
++# _handle_event end to end
++# ----------------------------------------------------------------------
++
++
++def test_bigram_event_populates_the_view():
++    """Fails on the pre-fix code: the pairs hash to something no query matches.
++
++    Pre-fix this does not raise — it produces a view of the WRONG hashes, which is
++    precisely why the bug was invisible in production. So assert the exact
++    expected hash, not just non-emptiness.
++    """
++    client = KvEventClient()
++    sub = WorkerSubscription(worker_id="w1", endpoint="tcp://x:1", block_size=4)
++
++    client._handle_event(
++        sub,
++        SglangBlockStored(
++            block_hashes=[111],
++            parent_block_hash=None,
++            token_ids=_bigrams([1, 2, 3, 4]),
++            block_size=4,
++            lora_id=None,
++        ),
++    )
++
++    expected = hash_chunk(ROUTER_SEED, [1, 2, 3, 4])
++    assert sub.view_for(None) == {expected}
++    assert sub.map_for(None) == {111: expected}
++
++
++def test_bigram_and_plain_views_agree():
++    """The same tokens must chain to the same hashes either way.
++
++    This is the real invariant. A flatten that picked ``pair[1]`` would still give
++    a non-empty view and still pass a "kv-aware works under MTP" smoke test, while
++    keying every block one token off.
++    """
++    tokens = [10, 20, 30, 40, 50, 60, 70, 80]
++
++    plain = KvEventClient()
++    plain_sub = WorkerSubscription(worker_id="p", endpoint="tcp://x:1", block_size=4)
++    plain._handle_event(
++        plain_sub,
++        SglangBlockStored(
++            block_hashes=[1, 2],
++            parent_block_hash=None,
++            token_ids=list(tokens),
++            block_size=4,
++            lora_id=None,
++        ),
++    )
++
++    bigram = KvEventClient()
++    bigram_sub = WorkerSubscription(worker_id="b", endpoint="tcp://x:1", block_size=4)
++    bigram._handle_event(
++        bigram_sub,
++        SglangBlockStored(
++            block_hashes=[1, 2],
++            parent_block_hash=None,
++            token_ids=_bigrams(tokens),
++            block_size=4,
++            lora_id=None,
++        ),
++    )
++
++    assert bigram_sub.view_for(None) == plain_sub.view_for(None)
++    assert bigram_sub.map_for(None) == plain_sub.map_for(None)
++
++
++def test_bigram_event_decodes_over_the_wire():
++    """The msgspec schema must accept pairs, else every event fails to decode.
++
++    ``token_ids`` is annotated ``list[int | tuple[int, int]]``; a schema still
++    declaring ``list[int]`` raises here rather than degrading quietly.
++    """
++    import msgspec
++    from msgspec.msgpack import Decoder
++
++    from infera.router.kv_event.events import SglangKVEventBatch
++
++    ev = SglangBlockStored(
++        block_hashes=[111],
++        parent_block_hash=None,
++        token_ids=_bigrams([1, 2, 3, 4]),
++        block_size=4,
++        lora_id=None,
++    )
++    raw = msgspec.msgpack.encode(SglangKVEventBatch(ts=0.0, events=[ev]))
++    batch = Decoder(type=SglangKVEventBatch).decode(raw)
++
++    (decoded,) = batch.events
++    # One pair per position, so flattening recovers all four first elements.
++    assert _flat_tokens(decoded.token_ids) == [1, 2, 3, 4]

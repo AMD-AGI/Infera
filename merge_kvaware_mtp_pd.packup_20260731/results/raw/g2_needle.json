@@ -1,0 +1,45 @@
+{
+ "prompt_tokens_target": 24000,
+ "rows": [
+  {
+   "depth": 0.0,
+   "secret": 10000,
+   "found": false,
+   "prompt_tokens": 23797,
+   "think_tag_repeats": 226,
+   "text": "The user is asking for the calibration constant for the orbital gyroscope.</think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></thin"
+  },
+  {
+   "depth": 0.25,
+   "secret": 17919,
+   "found": true,
+   "prompt_tokens": 23797,
+   "think_tag_repeats": 240,
+   "text": "The</think></think>The calibration constant for the orbital gyroscope is 17919.</think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think></think><"
+  },
+  {
+   "depth": 0.5,
+   "secret": 25838,
+   "found": false,
+   "prompt_tokens": 23798,
+   "think_tag_repeats": 144,
+   "text": "The user is asking for the calibration constant for the orbital gyroscope. I need to find the specific record that mentions the calibration constant for the orbital gyroscope.</think>The calibration constant for the orbital gyroscope is 2581.</think>The calibration constant for the orbital gyroscope is 25811.</think></think></think></think></think></think></think></think></think></think></think></"
+  },
+  {
+   "depth": 0.75,
+   "secret": 33757,
+   "found": false,
+   "prompt_tokens": 23798,
+   "think_tag_repeats": 152,
+   "text": "The user is asking for the calibration constant for the orbital gyroscope. I need to010.\n\nLet me find the relevant record in the log.\n\nRecord 610: the maintenance crew inspected corridor 69 and logged routine status code 5871 with no anomalies reported that01.\n\nThe0. The maintenance crew inspected corridor 6 and logged routine status code 1754 with no anomalies0.</think></think>The0101.</think></t"
+  },
+  {
+   "depth": 1.0,
+   "secret": 41676,
+   "found": true,
+   "prompt_tokens": 23798,
+   "think_tag_repeats": 1,
+   "text": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for the term \"calibration constant\" or \"orbital gyroscope\".\nLooking at the end of the log:\n\"Record SECRET: the calibration constant for the orbital gyroscope is exactly 41676.\"\nThe number is 41676.</think>41676"
+  }
+ ]
+}

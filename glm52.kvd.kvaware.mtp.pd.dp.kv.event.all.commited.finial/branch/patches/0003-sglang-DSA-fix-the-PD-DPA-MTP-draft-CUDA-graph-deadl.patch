@@ -1,0 +1,327 @@
+From 89d016f17af2c172096e73a892625993b24123ed Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Thu, 30 Jul 2026 05:22:04 +0000
+Subject: [PATCH 03/25] sglang DSA: fix the PD+DPA+MTP draft-CUDA-graph
+ deadlock
+
+Adds eagle_worker_v2_uniform_draft_graph.diff, the fourth and final patch needed
+for PD disaggregation with DP-attention and EAGLE MTP. With it the draft CUDA
+graph can stay ENABLED; the previous 640/640 result in this file was measured
+with that graph disabled as a workaround.
+
+The graph/eager choice in draft() was made independently per DP rank from
+rank-dependent inputs. Graph replay and the eager multi-step loop do not issue
+the same host-side collective sequence, so the moment one rank chose differently
+the group desynchronized and deadlocked on the first routed request.
+
+Measured, not argued: instrumenting all four guard terms per rank per iteration,
+the decision diverged on exactly the iteration that froze -- one busy rank eager,
+seven idle ranks graph -- and that rank is exactly the one py-spy caught in the
+eager init_forward_metadata. Reproduced twice with different victim ranks.
+
+This also explains, for the first time, why single-node mix never hangs: on the
+PD decode leg dsa_topk_indices is seeded from RDMA-shipped per-request payloads
+(eagle_disaggregation.py:54-59), so it depends on which requests a rank holds;
+mix seeds it locally, identically on every rank.
+
+Fix: vote the local need-for-eager across the full TP group via a 1-element gloo
+all-reduce on cpu_group (no GPU sync), and have every rank act on the group
+answer. Must be get_tp_group(), not get_attention_tp_group() -- the latter is one
+rank wide under DPA8, which would make the patch silently inert.
+
+Verified 2540/2540 requests (PD conc 1->256, mix regression, 8-round durability)
+against 0/4 for a same-node control with only this diff reverted. Over 2992
+iterations the acted-on decision diverged 0 times while the local decision still
+diverged 38 times -- the defect is latent, not masked by timing -- and the draft
+graph is used on 98.4% of iterations, so the speedup is kept.
+
+Also corrects two now-stale caveats in this README:
+- the draft-graph limitation is closed by this patch;
+- the "~2% degenerate output under concurrency" claim is WITHDRAWN. It was a
+  test-harness error: the harness skipped GLM-5.2's chat template and forced
+  temperature=0 over the model's own 1.0/0.95. With the template and correct
+  sampling, 0/128 degenerate on both MXFP4 and FP8; the official FP8 build
+  reproduced the "failure" under the wrong config identically.
+
+Documents what was not validated: no performance comparison against the DPA-only
+baseline, custom all-reduce still disabled, single context length and image.
+---
+ deploy/docker/patches/sglang_dsa/README.md    | 167 +++++++++++++++---
+ .../eagle_worker_v2_uniform_draft_graph.diff  |  61 +++++++
+ 2 files changed, 199 insertions(+), 29 deletions(-)
+ create mode 100644 deploy/docker/patches/sglang_dsa/eagle_worker_v2_uniform_draft_graph.diff
+
+diff --git a/deploy/docker/patches/sglang_dsa/README.md b/deploy/docker/patches/sglang_dsa/README.md
+index 6d207ec..cb9a756 100644
+--- a/deploy/docker/patches/sglang_dsa/README.md
++++ b/deploy/docker/patches/sglang_dsa/README.md
+@@ -4,6 +4,15 @@ Patches against the sglang source tree bundled in the ROCm engine images
+ (`lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x` and derivatives, where sglang is an
+ editable checkout at `/sgl-workspace/sglang`).
+ 
++> **These diffs are NOT applied at image build time.** `Dockerfile.sglang` no longer
++> carries a patch loop (the previous `deploy/docker/patches/sglang/*.py` mechanism was
++> removed along with it), so a stock build of the image does **not** contain any of them.
++> Apply them into a running container — by `patch -p1 --fuzz=0`, or by bind-mounting the
++> patched files over the container's copies — which is how every result quoted below was
++> obtained. If you want them baked in, a build step has to be added; that is deliberate
++> for now, since they target a specific pinned sglang commit and would silently no-op or
++> conflict on a different base.
++
+ ## `dsa_indexer_hip_dp_padded_rows.diff`
+ 
+ **Enables DP-attention and EAGLE MTP to run together for GLM-5.2 DSA on gfx950.**
+@@ -96,54 +105,154 @@ One line in `python/sglang/srt/models/deepseek_nextn.py`. **Required for GLM-5.2
+ whose nextn layer is bf16 while the rest of the model is quantized — without it the
+ weight load dies with a `3072 vs 6144` shape mismatch.
+ 
++## `eagle_worker_v2_uniform_draft_graph.diff`
++
++**Lets the EAGLE draft CUDA graph stay enabled on the PD decode leg.** Without it the
++first routed request hard-deadlocks.
++
++`draft()` decides per rank whether to replay the draft graph or run the multi-step draft
++eagerly. The two paths do not issue the same host-side collective sequence, and two of
++the guard's four terms are rank-dependent by construction:
++
++* `not forward_batch.forward_mode.is_idle()` — occupancy differs per rank every step;
++* `draft_input.dsa_topk_indices is None` — on the **PD decode leg** this field is built
++  from RDMA-shipped per-request payloads (`eagle_disaggregation.py:54-59`), so it is a
++  function of which requests a rank happens to hold.
++
++So one rank replays a graph while another runs eager inside the same collective step, and
++the group desynchronizes permanently.
++
++Measured rather than argued: instrumenting all four terms per rank per iteration, the
++*decision* diverged on **exactly** the iteration that froze — one busy rank eager, seven
++idle ranks graph — and that rank is exactly the one py-spy found blocked in the eager
++`init_forward_metadata`. Reproduced twice with different victim ranks (dp2, dp3), which
++is the race behaving as a race. This also explains why single-node **mix** never hangs:
++with no disaggregation the top-k seed is always produced locally by identical code on
++every rank, so the fourth term never flips asymmetrically.
++
++The fix votes the *local need for eager* across the DP group (one 1-element **gloo**
++all-reduce on `cpu_group` — no GPU sync, cannot serialize the compute stream) and has
++every rank act on the group's answer. An idle rank contributes `False`, so it can never
++drag the group to eager.
++
++Two details that would otherwise make the patch silently inert:
++
++* it must use `get_tp_group()`, **not** `get_attention_tp_group()` — under DPA8 on tp8 the
++  attention TP group is `attn_tp_size = tp/dp = 1` rank wide, so voting on it is a no-op;
++* a collective is safe at this line because instrumentation showed all 8 ranks entering
++  `draft()` an equal number of times every iteration, idle ones included — the vote sits
++  on a branch every rank takes, which is precisely the property the buggy code lacked.
++
++An earlier attempt that removed only the `not is_idle()` term does **not** work, and the
++measurements say why: it fixes the busy-rank iteration and breaks the idle-rank one, which
++matches the observed symptom of the failure moving earlier, into warmup.
++
++### Verified
++
++2× 8×MI355X, GLM-5.2-MXFP4, PD over mooncake/mlx5, DPA8 + EAGLE MTP(3,1,4), **draft graph
++enabled**:
++
++| Check | Result |
++|---|---|
++| PD warmup, 4×24-token, 1×512-token | pass |
++| conc 1/2/4/8/16/64/128/256 × 512 tok | **1384/1384**, 0 failures, 0 KVTransferError |
++| Single-node mix regression (shared code path) | **132/132** |
++| Durability, 8 × conc=128 × 512 back to back | **1024/1024**, accept length flat at ~3.0 |
++| **Draft graph actually used** | **98.4%** of iterations |
++| Same-node control, only this diff reverted | **0/4 — deadlock, 120 s timeout on request 1** |
++
++Cumulative **2540/2540** with the fix, **0/4** without.
++
++The mechanism was verified, not just the outcome. Over 2992 iterations with all 8 ranks
++logging: the *local* decision still diverges 38 times (the defect is latent and real, not
++masked by timing) while the *acted-on* decision diverges **0** times, and the vote changed
++some rank's mind 190 times — each one an averted deadlock. The 98.4% graph usage is what
++distinguishes this from simply disabling the draft graph.
++
+ ## Applying
+ 
+-All three apply with exact context, no fuzz, against sglang commit
++All four apply with exact context, no fuzz, against sglang commit
+ `0b3bb0cbe31873994c9f989fddfe2f87ca839fdd` (v0.5.15.post1):
+ 
+ ```bash
+ cd /sgl-workspace/sglang
+ for d in dsa_indexer_hip_dp_padded_rows.diff \
+          dsa_backend_dp_sync_and_page_table_rows.diff \
+-         deepseek_nextn_glm52_mtp_bf16.diff; do
+-  git apply --check "$d" && git apply "$d"
++         deepseek_nextn_glm52_mtp_bf16.diff \
++         eagle_worker_v2_uniform_draft_graph.diff; do
++  patch -p1 --fuzz=0 < "$d"
+ done
+ ```
+ 
+-Verified with `git apply --check` against a pristine checkout.
++Verified by applying for real into a scratch tree and byte-compiling the result — note
++that `patch --dry-run` and `git apply --check` **fuzz by default**, and a hand-written
++diff in this series once silently dropped a hunk while still "passing".
+ 
+-## PD + MTP status (2026-07-29)
++## PD + MTP status (updated 2026-07-29 evening)
+ 
+-The deadlock described as a known limitation in the original version of this file is
+-**fixed** by the `dsa_backend` sync change above. Current state on 2× 8×MI355X, GLM-5.2-MXFP4,
+-`--dp-size 8 --enable-dp-attention --ep-size 8`, EAGLE MTP on the decode leg, mooncake
+-RDMA over mlx5 + dma-buf:
++With **all four** diffs applied, PD disaggregation with DP-attention + EAGLE MTP and the
++**draft CUDA graph enabled** is working on 2× 8×MI355X, GLM-5.2-MXFP4,
++`--dp-size 8 --enable-dp-attention --ep-size 8`, mooncake RDMA over mlx5 + dma-buf:
+ 
+ | Check | Result |
+ |---|---|
+-| PD warmup (8 concurrent, one per DP rank) | passes in ~10 s |
+-| conc=128 × 512 tokens, 5 rounds | **640/640 HTTP 200** |
++| PD warmup (8 concurrent, one per DP rank) | passes |
++| conc 1/2/4/8/16/64/128/256 × 512 tokens | **1384/1384** |
++| Durability, 8 × conc=128 × 512 back to back | **1024/1024** |
+ | Scheduler exceptions / KVTransferError | **0 / 0** |
+-| Spec-dec | active, mean accept length 2.73, all 8 `dp_rank`s serving |
+-
+-**Two caveats, both outside these three diffs.**
+-
+-1. This was measured with the EAGLE **draft** CUDA graph disabled. The graph/eager
+-   decision in `eagle_worker_v2.py::draft()` is rank-divergent under DP-attention
+-   (`not forward_batch.forward_mode.is_idle()` differs per rank), so some ranks replay a
+-   graph while others run eager within the same collective step, and the group hangs.
+-   Disabling that one graph avoids it; a proper fix — making the decision uniform across
+-   the DP group — is not written yet, so no `eagle_worker_v2` patch is included here.
+-2. About **2 % of responses under concurrency are degenerate** (`1.1.1.1...`): HTTP 200,
+-   correct token count, wrong content. Root cause not established. Related and separate:
+-   `eagle_utils.py:620` forces `argmax` on HIP (`or _is_hip`), so user-supplied
+-   `temperature`/`top_p` are silently discarded during MTP verify.
+-
+-See `RESULTS_20260729.md` in the reproduction kit for the measurements behind both.
++| Spec-dec | active, mean accept length ~2.9, all 8 `dp_rank`s serving |
++
++### Both earlier caveats are now closed
++
++1. ~~"the draft CUDA graph must be disabled; a proper fix is not written yet"~~ —
++   **written and verified**, see `eagle_worker_v2_uniform_draft_graph.diff` above. The
++   earlier 640/640 was measured with that graph off; it is now on and used 98.4% of the
++   time.
++2. ~~"about 2 % of responses under concurrency are degenerate"~~ — **falsified; this was
++   a test-harness error, not an engine bug.** The harness posted raw prompts to
++   `/generate`, skipping GLM-5.2's chat template (so the model was doing base-LM
++   completion), and forced `temperature=0` over the model's own recommended
++   `temperature 1.0 / top_p 0.95`. Degenerate repetition under greedy decoding is expected
++   behaviour (Holtzman et al. 2019), not a defect. With the template applied and the
++   model's own sampling, **0/128 degenerate at conc=128 on both MXFP4 and FP8** — and the
++   official FP8 build reproduced the "failure" under the *wrong* config exactly as MXFP4
++   did, so quantization was never implicated either.
++
++   The related note about `eagle_utils.py:620` forcing `argmax` on HIP stands as a code
++   observation, but it is confined to the spec-decode verify path and does not discard
++   user sampling params for the request as a whole — that over-generalization is
++   withdrawn.
++
++Measurements: `glm52.mxfp4.spur.mooncake.packup_20260729_bug2b_draft_graph/` (the draft
++graph fix, with its differential control) and
++`glm52.mxfp4.spur.mooncake.packup_20260729_degenerate_output/` (the falsification, with
++`RETRACTIONS.md`), both in the `infera.yihou.glm5.2.mxfp4` workspace.
++
++### Known limits of the validation
++
++* Performance was **not** measured against the DPA-only baseline. The vote adds one
++  1-element host collective per `draft()` call; the cost is expected to be negligible but
++  is unquantified.
++* All runs used `--disable-custom-all-reduce` (required on gfx942/gfx950 for EAGLE), so
++  the custom all-reduce path remains unexercised.
++* Context 32768, short prompts, 512-token outputs, one image, one hardware
++  configuration. Long-context and 400k-context configs are untested.
++* A seventh occurrence of the padded-vs-real-rows crash family was seen **once** in 500+
++  requests during an earlier session, on a machine already carrying the `dsa_indexer` fix.
++  It did not recur in 2540 requests here, but at that rate absence is not evidence.
+ 
+ ### Upstream
+ 
+-This is ROCm-specific; the CUDA path was always correct. It is **not** the same issue as
+-sglang PR #30378 / #30427 ("clamp padded-row seq_lens to >= 0" in
++The `dsa_indexer` fix is ROCm-specific; the CUDA path was always correct. It is **not**
++the same issue as sglang PR #30378 / #30427 ("clamp padded-row seq_lens to >= 0" in
+ `triton_ops/pad.py::seqlens_expand_kernel`), which fixes padded row *values* and is
+ already present in this image. This one fixes the HIP-side row *count*.
++
++The `eagle_worker_v2` fix is **not** ROCm-specific in principle. The guard it repairs is
++platform-neutral, and its terms are rank-dependent on any backend running DP-attention
++with PD disaggregation; CUDA is protected today only because the draft-extend graph is
++captured there, which keeps the ranks on the same path. Upstream has related open work
++that blames `can_cuda_graph` (#32209 all-gathers that decision, CI red; #32527 same
++topology; #32722 shows **no CI covers PD+DPA+MTP**), but none of them addresses this
++guard — and we measured `can_cuda_graph` to be *uniform* across ranks here, so #32209's
++vote would not have fixed it. This mechanism appears unreported.
+diff --git a/deploy/docker/patches/sglang_dsa/eagle_worker_v2_uniform_draft_graph.diff b/deploy/docker/patches/sglang_dsa/eagle_worker_v2_uniform_draft_graph.diff
+new file mode 100644
+index 0000000..8473e88
+--- /dev/null
++++ b/deploy/docker/patches/sglang_dsa/eagle_worker_v2_uniform_draft_graph.diff
+@@ -0,0 +1,61 @@
++diff --git a/python/sglang/srt/speculative/eagle_worker_v2.py b/python/sglang/srt/speculative/eagle_worker_v2.py
++--- a/python/sglang/srt/speculative/eagle_worker_v2.py
+++++ b/python/sglang/srt/speculative/eagle_worker_v2.py
++@@ -510,18 +510,55 @@
++             batch,
++             self.cuda_graph_runner,
++             self.draft_runner,
++             self.topk,
++             self.speculative_num_steps,
++         )
++-        if (
+++        # GLM52_BUG2B_UNIFORM: the graph/eager choice must be the SAME on every DP
+++        # rank. Graph replay and the eager multi-step loop do not issue the same
+++        # host-side collective sequence, so a per-rank choice desynchronizes the
+++        # group and deadlocks (measured: one busy rank eager in
+++        # init_forward_metadata while seven idle ranks sat in all_gather).
+++        #
+++        # The terms below are all rank-dependent under DP-attention:
+++        #   is_idle()            -- occupancy, differs by construction
+++        #   dsa_topk_indices     -- on the PD decode leg this comes from
+++        #                           RDMA-shipped per-request payloads, so it is
+++        #                           None only for freshly-arrived requests
+++        # so we vote on the *local need for eager* and apply the group answer.
+++        # An idle rank contributes False and can never force the group eager.
+++        _needs_eager_local = (
++             can_cuda_graph
++             and not forward_batch.forward_mode.is_idle()
++             and self.seed_dsa_topk_from_draft_extend
++             and draft_input.dsa_topk_indices is None
++-        ):
+++        )
+++        if can_cuda_graph and self.seed_dsa_topk_from_draft_extend:
+++            # NOT get_attention_tp_group(): under DPA8 on tp8 the attention TP
+++            # group is attn_tp_size = tp/dp = 1 rank wide, so voting on it is a
+++            # no-op. The group that must agree is the full TP group -- the same
+++            # one the scheduler's MLP-sync all-gather spans (dp_attn.py:91).
+++            from sglang.srt.distributed.parallel_state import (
+++                get_tp_group as _get_tp_group,
+++            )
+++
+++            _grp = _get_tp_group()
+++            if _grp is not None and _grp.world_size > 1:
+++                # 1-element gloo all-reduce on the CPU group: no GPU sync, and
+++                # every rank reaches this line every iteration (verified by
+++                # instrumentation), so the collective is safe here.
+++                _vote = torch.tensor(
+++                    [1 if _needs_eager_local else 0], dtype=torch.int32
+++                )
+++                torch.distributed.all_reduce(
+++                    _vote,
+++                    op=torch.distributed.ReduceOp.MAX,
+++                    group=_grp.cpu_group,
+++                )
+++                _needs_eager_local = bool(_vote.item())
+++        if _needs_eager_local:
++             can_cuda_graph = False
++ 
++         n_inner = self.speculative_num_steps - 1
++         canary_outside_ctx = (
++             c.with_ops_outside_graph(
++                 single_forward_indices=list(range(n_inner)),
+-- 
+2.34.1
+

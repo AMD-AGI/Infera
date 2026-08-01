@@ -1,0 +1,55 @@
+{
+ "prompt_tokens_target": 24000,
+ "rows": [
+  {
+   "depth": 0.0,
+   "secret": 10000,
+   "found": true,
+   "prompt_tokens": 23797,
+   "completion_tokens": 85,
+   "finish_reason": "stop",
+   "think_tag_repeats": 1,
+   "text": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to read the log and find the relevant information.\nThe log starts with: \"Record SECRET: the calibration constant for the orbital gyroscope is exactly 10000.\"\nThe question asks: \"What is the calibration constant for the orbital gyroscope? State the number.\"\nThe answer is 10000.</think>10000"
+  },
+  {
+   "depth": 0.25,
+   "secret": 17919,
+   "found": true,
+   "prompt_tokens": 23797,
+   "completion_tokens": 142,
+   "finish_reason": "stop",
+   "think_tag_repeats": 1,
+   "text": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for the keyword \"calibration constant\" and \"orbital gyroscope\".\n\nLooking through the log:\nRecord 212: the maintenance crew inspected corridor 284 and logged routine status code 3756 with no anomalies reported that shift.\nRecord SECRET: the calibration constant for the orbital gyroscope is exactly 17919.\nRecord 213: the maintenance crew inspected corridor 291 and logged routine status code 3769 with no anomalies reported that shift.\n\nThe calibration constant is exactly 179"
+  },
+  {
+   "depth": 0.5,
+   "secret": 25838,
+   "found": true,
+   "prompt_tokens": 23798,
+   "completion_tokens": 142,
+   "finish_reason": "stop",
+   "think_tag_repeats": 1,
+   "text": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for the keyword \"calibration constant\" and \"orbital gyroscope\".\n\nLooking through the log:\nRecord 426: the maintenance crew inspected corridor 182 and logged routine status code 6538 with no anomalies reported that shift.\nRecord SECRET: the calibration constant for the orbital gyroscope is exactly 25838.\nRecord 427: the maintenance crew inspected corridor 189 and logged routine status code 6551 with no anomalies reported that shift.\n\nThe calibration constant is exactly 258"
+  },
+  {
+   "depth": 0.75,
+   "secret": 33757,
+   "found": true,
+   "prompt_tokens": 23798,
+   "completion_tokens": 155,
+   "finish_reason": "stop",
+   "think_tag_repeats": 1,
+   "text": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for the keyword \"calibration constant\" or \"orbital gyroscope\".\nLooking through the log:\nRecord 639: the maintenance crew inspected corridor 73 and logged routine status code 1307 with no anomalies reported that shift.\nRecord SECRET: the calibration constant for the orbital gyroscope is exactly 33757.\nRecord 640: the maintenance crew inspected corridor 80 and logged routine status code 1320 with no anomalies reported that shift.\n\nThe log explicitly states: \"Record SECRET: "
+  },
+  {
+   "depth": 1.0,
+   "secret": 41676,
+   "found": true,
+   "prompt_tokens": 23798,
+   "completion_tokens": 79,
+   "finish_reason": "stop",
+   "think_tag_repeats": 1,
+   "text": "The user wants to know the calibration constant for the orbital gyroscope based on the provided log.\nI need to scan the log for the keyword \"calibration constant\" and \"orbital gyroscope\".\nLooking at the end of the log:\nRecord SECRET: the calibration constant for the orbital gyroscope is exactly 41676.\nThe number is 41676.</think>41676"
+  }
+ ]
+}

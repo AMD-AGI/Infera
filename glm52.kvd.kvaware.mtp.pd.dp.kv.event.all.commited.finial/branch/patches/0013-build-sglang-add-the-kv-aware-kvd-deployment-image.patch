@@ -1,0 +1,122 @@
+From d13202a2dc47d4e50b85b3238f9d608b8c8f9820 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Fri, 31 Jul 2026 09:48:58 +0000
+Subject: [PATCH 13/25] build(sglang): add the kv-aware + kvd deployment image
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Dockerfile.sglang already builds everything this deployment needs — engine,
+infera wrapper, `infera.kvd` daemon, router, statctl — so this layers on it
+rather than duplicating a ~78 GB build.
+
+What it adds is the contract:
+
+  * A build-time self-check that imports InferaKvdBackend,
+    wire_infera_kvd_backend, attach_to_radix_cache and statctl, and asserts
+    free_tcp_port_block no longer returns a fixed base. A build that loses the
+    kvd adapter (bad merge, or a base bump that moves HiCacheStorage) fails
+    here instead of starting fine and serving with no L3 at all. Verified the
+    assertion discriminates: 10 distinct bases post-fix, 1 pre-fix.
+  * PYTHONHASHSEED=0 baked in. For kvd this is a correctness requirement, not
+    a tuning knob: unset, it is random per process, the two PD legs hash the
+    same prompt differently, and every restart orphans the whole L3 cache.
+  * The ionic Mooncake defaults from the verified GLM-5.2 two-node PD run
+    (MC_GID_INDEX=1, MC_DISABLE_HIP_TRANSPORT=1,
+    MOONCAKE_DISABLE_HIP_DMABUF=1), overridable at docker run.
+  * A digest-pinnable base arg, because the unified Mooncake rebuild is
+    exactly the layer you do not want silently swapped.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ deploy/docker/Dockerfile.sglang.kvaware-kvd | 78 +++++++++++++++++++++
+ 1 file changed, 78 insertions(+)
+ create mode 100644 deploy/docker/Dockerfile.sglang.kvaware-kvd
+
+diff --git a/deploy/docker/Dockerfile.sglang.kvaware-kvd b/deploy/docker/Dockerfile.sglang.kvaware-kvd
+new file mode 100644
+index 0000000..2a7f283
+--- /dev/null
++++ b/deploy/docker/Dockerfile.sglang.kvaware-kvd
+@@ -0,0 +1,78 @@
++# Infera SGLang image for the kv-aware + kvd (tiered KV offload) deployment.
++#
++# WHY A SEPARATE FILE, AND WHAT IT IS NOT
++# ---------------------------------------
++# It is *not* a different image contents-wise. Dockerfile.sglang already
++# produces everything this deployment needs: the SGLang engine, the infera
++# wrapper that does the kvaware/kvd wiring, the `infera.kvd` daemon, the
++# router, and `infera.kvd.statctl`. One image runs all four roles.
++#
++# What this file adds is the *contract*: a digest-pinned base, a build-time
++# self-check that the kvaware and kvd code paths are actually importable in the
++# built image, and the operational defaults for this deployment recorded as
++# LABELs and ENV rather than living in someone's shell history. A build that
++# silently loses the kvd adapter (a bad merge, a base bump that moves
++# HiCacheStorage) fails here instead of at 3am on a decode leg.
++#
++# Build (from the repository root):
++#
++#   docker build -f deploy/docker/Dockerfile.sglang.kvaware-kvd \
++#     -t infera/engine-sglang:kvaware-kvd .
++#
++# Run: identical to Dockerfile.sglang — bind-mount the host libionic at
++# /host-libionic/libionic.so and the entrypoint handles the ABI match.
++# See manual/features/kv_cache_offload.md for the SGLang setup.
++
++# ---- Base: the standard infera SGLang image -------------------------------
++# Built from deploy/docker/Dockerfile.sglang, which carries the unified
++# Mooncake rebuild (runtime-decided PD transport). Override to pin a digest:
++#   --build-arg INFERA_SGLANG_IMAGE=infera/engine-sglang@sha256:...
++# Pin by digest in production. A floating tag is not reproducible, and the
++# Mooncake rebuild is exactly the layer you do not want silently swapped.
++ARG INFERA_SGLANG_IMAGE=infera/engine-sglang:pd-unified
++FROM ${INFERA_SGLANG_IMAGE}
++
++# ---- Build-time self-check ------------------------------------------------
++# Fail the build if either feature's code path is missing from the image.
++# These import the real modules, not a file listing: `InferaKvdBackend`
++# subclasses SGLang's `HiCacheStorage`, so this also catches a base-image bump
++# that moves or renames that class — the failure mode where the image builds,
++# starts, and serves with no L3 at all.
++RUN set -eu; \
++    python3 -c "\
++from infera.engine.sglang.kvd_adapter import InferaKvdBackend; \
++from infera.engine.sglang.kvd_wiring import wire_infera_kvd_backend; \
++from infera.engine.sglang.kv_probe import attach_to_radix_cache; \
++from infera.kvd.statctl import main as _statctl; \
++from infera.common.net import free_tcp_port_block; \
++assert len({free_tcp_port_block(4) for _ in range(10)}) > 1, \
++    'free_tcp_port_block returns a fixed base — the port-collision fix is missing'; \
++print('kvaware+kvd self-check OK')"
++
++# ---- Operational defaults for this deployment -----------------------------
++# Stable block hashes -> stable kvd chunk keys across engine restarts. Without
++# it PYTHONHASHSEED is random per process, the two PD legs hash the same prompt
++# differently, and every restart orphans the whole L3 cache. This is a
++# correctness requirement for kvd, not a tuning knob — hence baked in.
++ENV PYTHONHASHSEED=0
++
++# Mooncake defaults for the AMD ionic fleet. Both are the values the verified
++# GLM-5.2 two-node PD run used; both are overridable at `docker run`.
++#   MC_GID_INDEX=1              RoCEv2 GID on ionic.
++#   MC_DISABLE_HIP_TRANSPORT=1  keep cross-node PD on RDMA (the HIP intra-node
++#                               P2P transport cannot open a peer node's handle).
++#   MOONCAKE_DISABLE_HIP_DMABUF=1  ionic/no-ODP hosts: dma-buf registration
++#                               duplicates the KV pool at pin time.
++ENV MC_GID_INDEX=1 \
++    MC_DISABLE_HIP_TRANSPORT=1 \
++    MOONCAKE_DISABLE_HIP_DMABUF=1
++
++LABEL org.opencontainers.image.title="infera-sglang-kvaware-kvd" \
++      org.opencontainers.image.description="Infera SGLang engine with KV-aware routing and tiered KV offload (kvd)" \
++      infera.features="kv-aware-routing,kvd-hicache,pd-disaggregation,dp-attention" \
++      infera.kvd.engine-entrypoint="python -m infera.engine.sglang" \
++      infera.kvd.daemon-entrypoint="python -m infera.kvd" \
++      infera.kvd.verify="python -m infera.kvd.statctl --socket <sock>"
++
++ENTRYPOINT ["/usr/local/bin/infera-inject-host-ionic"]
++CMD ["/bin/bash"]
+-- 
+2.34.1
+

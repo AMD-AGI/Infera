@@ -1,0 +1,173 @@
+From 826619b3ed628199eb20562e4adaeedf43843af7 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Fri, 31 Jul 2026 09:37:22 +0000
+Subject: [PATCH 10/25] fix(net): randomise free_tcp_port_block scan start
+
+free_tcp_port_block() scanned downward from a fixed base (ip_local_port_range
+low - count) and released the probe sockets before returning. Two engines
+started on one host therefore picked the *same* base deterministically.
+
+This is reached only from the kv-aware path (worker.py, when enable_kv_events
+is set), where SGLang binds one KV-event publisher per DP rank at base+rank.
+The PD prefill and decode legs of a pair on one host both scanned from the
+same place, both saw the same block free, and the second leg died with:
+
+    zmq.error.ZMQError: Address already in use (addr='tcp://*:32765')
+
+Two alternatives were tried and rejected against live MVPs:
+
+  * Hold the reservation until the child binds. The probe binds 127.0.0.1:P
+    while the real listener binds 0.0.0.0:P (zmq `tcp://*`); holding it makes
+    our own subprocess fail with errno 98.
+  * 0.0.0.0 + SO_REUSEADDR reservation. A second probe can still take the same
+    port, so the reservation is not exclusive and buys nothing.
+
+The reservation fundamentally cannot be exclusive, so remove the determinism
+instead: try 64 random bases in the same sub-ephemeral window, then fall back
+to the original exhaustive downward scan so we never fail while a block is
+still free.
+
+tests/unit/common/test_net_port_block.py covers: the block is free and
+contiguous, it sits below the ephemeral range, repeated calls do not all
+collide, and count<=1 delegates to free_tcp_port(). The collision test fails
+on the pre-fix code (10/10 identical bases).
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ infera/common/net.py                     | 31 +++++++++--
+ tests/unit/common/test_net_port_block.py | 65 ++++++++++++++++++++++++
+ 2 files changed, 91 insertions(+), 5 deletions(-)
+ create mode 100644 tests/unit/common/test_net_port_block.py
+
+diff --git a/infera/common/net.py b/infera/common/net.py
+index 5aa74d4..1fe61dd 100644
+--- a/infera/common/net.py
++++ b/infera/common/net.py
+@@ -5,8 +5,14 @@
+ ###############################################################################
+ from __future__ import annotations
+ 
++import itertools
++import random
+ import socket
+ 
++# How many randomly-chosen bases free_tcp_port_block tries before falling back
++# to an exhaustive scan.
++_PORT_BLOCK_TRIES = 64
++
+ 
+ def free_tcp_port() -> int:
+     """Bind to port 0 to let the kernel assign a free port, then release.
+@@ -28,10 +34,20 @@ def free_tcp_port_block(count: int) -> int:
+     """Lowest base such that ``base .. base+count-1`` are all free TCP ports.
+ 
+     SGLang binds one KV-event publisher per DP rank at ``base + attn_dp_rank``,
+-    so a single free base is not enough. We scan downward from just below the OS
+-    ephemeral range: a base there won't be handed out to any ``bind(("", 0))``
+-    caller (ours or SGLang's internal sockets), so the whole block survives the
+-    window until the engine binds it.
++    so a single free base is not enough. We scan below the OS ephemeral range:
++    a base there won't be handed out to any ``bind(("", 0))`` caller (ours or
++    SGLang's internal sockets), so the whole block survives the window until
++    the engine binds it.
++
++    The scan start is **randomised**. The probe must release the block before
++    returning (the caller's real listener binds ``0.0.0.0``, and a retained
++    ``127.0.0.1`` reservation would shut its own child out), so the reservation
++    cannot be exclusive. With a fixed start (``low - count``) that made
++    collisions deterministic rather than merely possible: two engines launched
++    on one host — e.g. the prefill and decode legs of a PD pair — both scanned
++    from the same place, both saw the same free block, and the second died with
++    ``ZMQError: Address already in use`` on ``base + rank``. Randomising spreads
++    the picks so concurrent callers land on different blocks.
+     """
+     if count <= 1:
+         return free_tcp_port()
+@@ -39,7 +55,12 @@ def free_tcp_port_block(count: int) -> int:
+         low = int(open("/proc/sys/net/ipv4/ip_local_port_range").read().split()[0])
+     except (OSError, ValueError, IndexError):
+         low = 32768
+-    for base in range(low - count, 1024, -1):
++    # Candidate window: [1024, low - count]. Probe randomly-chosen bases first,
++    # then fall back to an exhaustive downward scan so we never fail while a
++    # block is still available.
++    highest = low - count
++    randomised = [random.randint(1024, highest) for _ in range(_PORT_BLOCK_TRIES)]
++    for base in itertools.chain(randomised, range(highest, 1024, -1)):
+         socks: list[socket.socket] = []
+         try:
+             for off in range(count):
+diff --git a/tests/unit/common/test_net_port_block.py b/tests/unit/common/test_net_port_block.py
+new file mode 100644
+index 0000000..52e4c9b
+--- /dev/null
++++ b/tests/unit/common/test_net_port_block.py
+@@ -0,0 +1,65 @@
++###############################################################################
++# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
++#
++# SPDX-License-Identifier: MIT
++###############################################################################
++"""Regression tests for ``infera.common.net.free_tcp_port_block``.
++
++The bug these guard against: the scan used to start at a fixed
++``ip_local_port_range.low - count`` and the probe released the block before
++returning, so two engines launched on the same host (the prefill and decode
++legs of a PD pair, each with ``dp_size > 1``) deterministically picked the
++*same* base. The second leg's sglang subprocess then died with
++``ZMQError: Address already in use`` binding ``base + attn_dp_rank``.
++"""
++
++from __future__ import annotations
++
++import socket
++
++from infera.common.net import free_tcp_port_block
++
++
++def _ephemeral_low() -> int:
++    try:
++        return int(open("/proc/sys/net/ipv4/ip_local_port_range").read().split()[0])
++    except (OSError, ValueError, IndexError):
++        return 32768
++
++
++def test_block_ports_are_free_and_contiguous() -> None:
++    count = 4
++    base = free_tcp_port_block(count)
++    socks = []
++    try:
++        for off in range(count):
++            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
++            s.bind(("127.0.0.1", base + off))
++            socks.append(s)
++    finally:
++        for s in socks:
++            s.close()
++
++
++def test_block_sits_below_the_ephemeral_range() -> None:
++    """A base inside the ephemeral range could be handed out by bind(("", 0))."""
++    count = 4
++    base = free_tcp_port_block(count)
++    assert 1024 <= base
++    assert base + count - 1 < _ephemeral_low()
++
++
++def test_repeated_calls_do_not_all_collide() -> None:
++    """Consecutive callers must not deterministically get the same base.
++
++    With the old fixed scan start every call returned an identical base while
++    nothing held the ports, which is exactly the PD two-leg crash. Randomising
++    the scan start makes repeats spread out.
++    """
++    bases = [free_tcp_port_block(4) for _ in range(10)]
++    assert len(set(bases)) > 1, f"all calls returned the same base: {bases[0]}"
++
++
++def test_count_of_one_delegates_to_single_port() -> None:
++    port = free_tcp_port_block(1)
++    assert 1024 <= port <= 65535
+-- 
+2.34.1
+

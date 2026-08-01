@@ -1,0 +1,456 @@
+From 06a53d3e1386251854a4fac1c5e253b97909cdee Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 29 Jul 2026 14:29:39 +0000
+Subject: [PATCH 02/25] sglang DSA: fix PD+MTP deadlock, add page-table row
+ fix, correct idle-rank slice
+
+Three patches for GLM-5.2 DSA on gfx950, taking PD disaggregation with
+DP-attention + EAGLE MTP from "deadlocks on the first routed request" to
+640/640 requests at conc=128 x 512 tokens.
+
+dsa_indexer_hip_dp_padded_rows.diff (revised)
+  The slice guard was `if 0 < q_offset < q_fp8.shape[0]`. The `0 <` lower bound
+  made the slice a no-op on DP-idle ranks, where q_offset == 0 because the rank
+  holds no requests -- reproducing the same "lengths.size(0) == B" assert on
+  those ranks. It only surfaces once some ranks are idle while others are busy,
+  which the original single-node validation never exercised. Bound removed;
+  q_fp8[:0] is a legal empty slice and the CUDA path has no such bound either.
+
+dsa_backend_dp_sync_and_page_table_rows.diff (new)
+  1. Replaces `int(forward_batch.seq_lens.max().item())` with the sync-free
+     `self.req_to_token.shape[1]`. That host sync sat on a branch only some DP
+     ranks take, so idle peers took the cheap arm and the DP collectives
+     desynchronized -- the PD+MTP deadlock. Two further unconditional .cpu()
+     syncs removed. Measured: no rank reaches dsa_backend in a py-spy dump
+     afterwards, and PD warmup passes on all 8 ranks.
+  2. Expands page_table rows to match topk_indices rows before
+     transform_index_page_table_decode. page_table_1 has one row per request,
+     topk_indices one row per token; equal for plain decode, unequal under MTP,
+     which killed all 8 ranks on the callee's assert. Padded topk rows are all
+     -1 and masked by the kernel, so only the row count matters. Applied at both
+     decode call sites.
+
+deepseek_nextn_glm52_mtp_bf16.diff (new)
+  One line. Required for GLM-5.2, whose MTP/nextn layer is bf16 while the rest
+  of the model is quantized; without it the weight load dies 3072 vs 6144.
+
+All three verified with `git apply --check` against a pristine sglang
+0b3bb0cbe31873994c9f989fddfe2f87ca839fdd (v0.5.15.post1).
+
+Measured on 2x 8xMI355X (gfx950), ROCm 7.2.0, GLM-5.2-MXFP4, mooncake RDMA over
+mlx5 + dma-buf: PD warmup ~10s, 5 rounds x conc=128 x 512 tokens = 640/640
+HTTP 200, 0 scheduler exceptions, 0 KVTransferError, spec-dec active with mean
+accept length 2.73 across all 8 dp_ranks.
+
+Two caveats, both outside these diffs and documented in the README:
+  - measured with the EAGLE draft CUDA graph disabled. That graph's
+    enable/disable decision in eagle_worker_v2.py::draft() is rank-divergent
+    under DP-attention, so ranks split between graph replay and eager within one
+    collective step and hang. A proper fix is not written yet, so no
+    eagle_worker_v2 patch is included.
+  - ~2% of responses under concurrency are degenerate (HTTP 200, right token
+    count, wrong content). Root cause not established.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ deploy/docker/patches/sglang_dsa/README.md    |  98 ++++++++++++-
+ .../deepseek_nextn_glm52_mtp_bf16.diff        |  13 ++
+ ...a_backend_dp_sync_and_page_table_rows.diff | 135 ++++++++++++++++++
+ .../dsa_indexer_hip_dp_padded_rows.diff       |  96 ++++++-------
+ 4 files changed, 285 insertions(+), 57 deletions(-)
+ create mode 100644 deploy/docker/patches/sglang_dsa/deepseek_nextn_glm52_mtp_bf16.diff
+ create mode 100644 deploy/docker/patches/sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff
+
+diff --git a/deploy/docker/patches/sglang_dsa/README.md b/deploy/docker/patches/sglang_dsa/README.md
+index e16190d..6d207ec 100644
+--- a/deploy/docker/patches/sglang_dsa/README.md
++++ b/deploy/docker/patches/sglang_dsa/README.md
+@@ -47,13 +47,99 @@ Full reproduction kit (environment, commands, raw logs, evidence, root-cause not
+ in the `infera.yihou.glm5.2.mxfp4` workspace under
+ `glm52.mxfp4.spur.mooncake.packup_20260728/dpa_mtp_fix/`.
+ 
+-### Known limitation
++> **Updated 2026-07-29.** This diff was revised: its slice guard was
++> `if 0 < q_offset < q_fp8.shape[0]`, and the `0 <` lower bound made the slice a
++> no-op on DP-**idle** ranks (where `q_offset == 0` because the rank holds no
++> requests), reproducing the very same assert on those ranks. It only surfaces
++> once some ranks are idle while others are busy, i.e. under concurrency, which
++> the original single-node validation never exercised. The bound is now removed.
++> `q_fp8[:0]` is a legal empty slice and is what an idle rank should pass; the
++> CUDA path has no such bound either.
++
++## `dsa_backend_dp_sync_and_page_table_rows.diff`
++
++Two fixes to `python/sglang/srt/layers/attention/dsa_backend.py`, both required
++for **PD disaggregation with MTP on the decode leg**.
++
++**1 — rank-divergent GPU→CPU syncs (fixes the PD+MTP deadlock).**
++`max_seqlen_k = int(forward_batch.seq_lens.max().item())` is a host sync sitting on a
++branch that only *some* DP ranks take; idle peers take the cheap arm, so the DP
++collectives desynchronize and the group deadlocks. Replaced with the sync-free
++`self.req_to_token.shape[1]`, the same idiom already used by
++`_graph_page_table_width()` and the graph-capture paths. Over-allocating columns is
++safe: the page table is only indexed through top-k, which masks per row by
++`cache_seqlens`. Two further unconditional `.cpu()` syncs are removed.
++
++**2 — page-table rows vs top-k rows (fixes a crash under concurrency).**
++`metadata.page_table_1` is `req_to_token[req_pool_indices]`, one row per **request**,
++while `topk_indices` has just been padded to `q.shape[0]`, one row per **token**. Those
++are equal for plain decode but not under MTP, where the draft model runs several tokens
++per request — so `transform_index_page_table_decode_fast` trips
++`assert page_table.shape[0] == topk_indices.shape[0]` and every rank dies:
+ 
+-Under **PD disaggregation** with MTP on the decode leg, the server starts cleanly and the
+-crash above no longer occurs, but the first routed request deadlocks in the EAGLE
+-draft-extend metadata path (`dsa_backend.py::init_forward_metadata`, a `.max().item()`
+-GPU→CPU sync racing a collective across DP ranks). That is a **separate defect**, not
+-addressed by this patch — PD with DP-attention only is unaffected and passes.
++```
++deepseek_nextn.py:271 -> dsa_backend.py:2154 forward_decode
++  -> dsa/transform_index.py:138  assert page_table.shape[0] == topk_indices.shape[0]
++```
++
++A helper expands the page table to token rows via `repeat_interleave`. Rows added by
++`_pad_topk_indices` hold all `-1` and are masked out by the triton kernel
++(`valid_topk_mask = mask & (loaded_topk_indices >= 0)`), so only the row *count* has to
++match. Applied at **both** decode call sites — the traceback named only the first, but
++the second pairs the same unpadded page table with a padded `topk_indices`. The prefill
++sibling already solves this with an explicit `output_num_tokens` argument; the decode
++entry point had no equivalent.
++
++## `deepseek_nextn_glm52_mtp_bf16.diff`
++
++One line in `python/sglang/srt/models/deepseek_nextn.py`. **Required for GLM-5.2 MTP**,
++whose nextn layer is bf16 while the rest of the model is quantized — without it the
++weight load dies with a `3072 vs 6144` shape mismatch.
++
++## Applying
++
++All three apply with exact context, no fuzz, against sglang commit
++`0b3bb0cbe31873994c9f989fddfe2f87ca839fdd` (v0.5.15.post1):
++
++```bash
++cd /sgl-workspace/sglang
++for d in dsa_indexer_hip_dp_padded_rows.diff \
++         dsa_backend_dp_sync_and_page_table_rows.diff \
++         deepseek_nextn_glm52_mtp_bf16.diff; do
++  git apply --check "$d" && git apply "$d"
++done
++```
++
++Verified with `git apply --check` against a pristine checkout.
++
++## PD + MTP status (2026-07-29)
++
++The deadlock described as a known limitation in the original version of this file is
++**fixed** by the `dsa_backend` sync change above. Current state on 2× 8×MI355X, GLM-5.2-MXFP4,
++`--dp-size 8 --enable-dp-attention --ep-size 8`, EAGLE MTP on the decode leg, mooncake
++RDMA over mlx5 + dma-buf:
++
++| Check | Result |
++|---|---|
++| PD warmup (8 concurrent, one per DP rank) | passes in ~10 s |
++| conc=128 × 512 tokens, 5 rounds | **640/640 HTTP 200** |
++| Scheduler exceptions / KVTransferError | **0 / 0** |
++| Spec-dec | active, mean accept length 2.73, all 8 `dp_rank`s serving |
++
++**Two caveats, both outside these three diffs.**
++
++1. This was measured with the EAGLE **draft** CUDA graph disabled. The graph/eager
++   decision in `eagle_worker_v2.py::draft()` is rank-divergent under DP-attention
++   (`not forward_batch.forward_mode.is_idle()` differs per rank), so some ranks replay a
++   graph while others run eager within the same collective step, and the group hangs.
++   Disabling that one graph avoids it; a proper fix — making the decision uniform across
++   the DP group — is not written yet, so no `eagle_worker_v2` patch is included here.
++2. About **2 % of responses under concurrency are degenerate** (`1.1.1.1...`): HTTP 200,
++   correct token count, wrong content. Root cause not established. Related and separate:
++   `eagle_utils.py:620` forces `argmax` on HIP (`or _is_hip`), so user-supplied
++   `temperature`/`top_p` are silently discarded during MTP verify.
++
++See `RESULTS_20260729.md` in the reproduction kit for the measurements behind both.
+ 
+ ### Upstream
+ 
+diff --git a/deploy/docker/patches/sglang_dsa/deepseek_nextn_glm52_mtp_bf16.diff b/deploy/docker/patches/sglang_dsa/deepseek_nextn_glm52_mtp_bf16.diff
+new file mode 100644
+index 0000000..18c1275
+--- /dev/null
++++ b/deploy/docker/patches/sglang_dsa/deepseek_nextn_glm52_mtp_bf16.diff
+@@ -0,0 +1,13 @@
++diff --git a/python/sglang/srt/models/deepseek_nextn.py b/python/sglang/srt/models/deepseek_nextn.py
++index 87a86adcba..e16fa330de 100644
++--- a/python/sglang/srt/models/deepseek_nextn.py
+++++ b/python/sglang/srt/models/deepseek_nextn.py
++@@ -360,7 +360,7 @@ class DeepseekV3ForCausalLMNextN(DeepseekV3ForCausalLM):
++                 should_ignore_layer,
++             )
++ 
++-            ckpt_prefix = f"model.layers.{config.num_hidden_layers}"
+++            ckpt_prefix = f"model.layers.{config.num_hidden_layers}.eh_proj"  # GLM-5.2: MTP layer bf16; match submodule-level quark exclude (pd-unified fix, ndl)
++             mapped_prefix = self.hf_to_sglang_mapper._map_name(ckpt_prefix)
++             if should_ignore_layer(mapped_prefix, nextn_quant_config.exclude_layers):
++                 nextn_quant_config = None
+diff --git a/deploy/docker/patches/sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff b/deploy/docker/patches/sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff
+new file mode 100644
+index 0000000..fad922d
+--- /dev/null
++++ b/deploy/docker/patches/sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff
+@@ -0,0 +1,135 @@
++diff --git a/python/sglang/srt/layers/attention/dsa_backend.py b/python/sglang/srt/layers/attention/dsa_backend.py
++index 75aa41d784..58e6e504d2 100644
++--- a/python/sglang/srt/layers/attention/dsa_backend.py
+++++ b/python/sglang/srt/layers/attention/dsa_backend.py
++@@ -141,6 +141,45 @@ def _to_2d_context_lens(seqlens_32: torch.Tensor, batch_size: int) -> torch.Tens
++ global_workspace_buffer = None
++ 
++ 
+++
+++
+++def _glm52_match_page_table_rows(page_table, topk_indices):
+++    """GLM52_BUG5: make page_table's row count agree with topk_indices'.
+++
+++    `metadata.page_table_1` is `req_to_token[req_pool_indices, :max_seqlen_k]`,
+++    so it has one row per REQUEST. `topk_indices` has just been widened by
+++    `_pad_topk_indices` to `q.shape[0]`, one row per TOKEN. For plain decode
+++    those coincide (one token per request); under MTP the draft model runs
+++    several tokens per request and they do not, so
+++    `transform_index_page_table_decode_fast` trips
+++
+++        assert page_table.shape[0] == topk_indices.shape[0]
+++
+++    Observed as an 8-rank crash under 16 concurrent requests.
+++
+++    Expanding by repeat_interleave reproduces the token-major-per-request
+++    layout. Rows added by `_pad_topk_indices` hold all -1, and the triton
+++    kernel masks those out (`valid_topk_mask = mask & (loaded_topk_indices >= 0)`),
+++    so their page-table counterparts are never read -- only the row COUNT has to
+++    match. The prefill sibling handles this with an explicit `output_num_tokens`
+++    argument; the decode entry point has no equivalent.
+++    """
+++    if topk_indices is None or page_table is None:
+++        return page_table
+++    n_topk = topk_indices.shape[0]
+++    n_rows = page_table.shape[0]
+++    if n_rows == n_topk:
+++        return page_table
+++    if n_rows > 0 and n_topk % n_rows == 0:
+++        return page_table.repeat_interleave(n_topk // n_rows, dim=0)
+++    # Non-integral ratio: trim or edge-pad so the shapes agree. Any row reached
+++    # only through padded (-1) topk entries is masked, so its content is moot.
+++    if n_rows > n_topk:
+++        return page_table[:n_topk]
+++    pad = page_table[-1:].expand(n_topk - n_rows, -1)
+++    return torch.cat([page_table, pad], dim=0)
+++
+++
++ @dataclass(frozen=True)
++ class DSAFlashMLAMetadata:
++     """Metadata only needed by FlashMLA"""
++@@ -740,10 +779,15 @@ class DeepseekSparseAttnBackend(
++                 forward_batch.seq_lens_cpu.max().item() + draft_token_num
++             )
++         else:
++-            # needs_cpu_seq_lens=False nulls the host mirror for spec-v2 relay
++-            # batches; graph replay uses the static page-table width, so only this
++-            # eager (e.g. over-capture-bs) fallback needs a length here.
++-            max_seqlen_k = int(forward_batch.seq_lens.max().item()) + draft_token_num
+++            # GLM52_BUG2_FIX_A: needs_cpu_seq_lens=False nulls the host mirror for
+++            # spec-v2 relay batches. `seq_lens.max().item()` here is a blocking D2H
+++            # sync on a branch that only SOME DP ranks take (IDLE peers keep their
+++            # mirror and take the cheap arm), which desynchronizes the DP collectives
+++            # and deadlocks. Use the static page-table width instead -- the same
+++            # sync-free idiom as _graph_page_table_width() and the graph-capture
+++            # paths below. Over-allocating columns is safe: the page table is only
+++            # indexed through top-k, which masks per row by cache_seqlens.
+++            max_seqlen_k = self.req_to_token.shape[1]
++         # [b, max_seqlen_k]
++         page_table = self.req_to_token_pool.req_to_token[
++             forward_batch.req_pool_indices, :max_seqlen_k
++@@ -803,19 +847,32 @@ class DeepseekSparseAttnBackend(
++                 page_table, repeats=self.speculative_num_draft_tokens, dim=0
++             )
++         elif forward_batch.forward_mode.is_draft_extend_v2():
++-            if forward_batch.extend_prefix_lens_cpu is None:
++-                assert forward_batch.extend_prefix_lens is not None
++-                forward_batch.extend_prefix_lens_cpu = (
++-                    forward_batch.extend_prefix_lens.cpu().tolist()
++-                )
++-            if forward_batch.seq_lens_cpu is None:
++-                forward_batch.seq_lens_cpu = forward_batch.seq_lens.cpu()
++-                forward_batch.seq_lens_sum = int(forward_batch.seq_lens_cpu.sum())
+++            # GLM52_BUG2_FIX_A2: the two host mirrors that used to be materialized
+++            # here (extend_prefix_lens.cpu() and seq_lens.cpu()) are unconditional
+++            # D2H syncs on the same rank-divergent branch as the max_seqlen_k fix
+++            # above, so Fix A alone does not lift the deadlock.
+++            #
+++            # They are dead for DRAFT_EXTEND_V2, which is not is_extend() (see
+++            # ForwardMode.is_extend -- include_draft_extend_v2 defaults to False).
+++            # Every consumer is therefore unreachable on this path:
+++            #   * extend_prefix_lens_cpu -- read only inside the is_extend() arm
+++            #   * seq_lens_sum -- read at the is_extend()-gated capacity check and
+++            #     the Blackwell+EXTEND prefill heuristic
+++            #   * seq_lens_cpu -> indexer_seq_lens_cpu is captured ABOVE this block,
+++            #     so it is already None here today; the draft-extend indexer path
+++            #     reads get_seqlens_expanded() / block_tables.shape[1] (GPU-side)
+++            #   * _cal_indexer_k_start_end and dsa_indexer's k-only path both open
+++            #     with an is_extend_without_speculative() guard
+++            #
+++            # base_spec_worker.prepare_for_draft_extend already supplies the mirror
+++            # this branch actually needs -- extend_seq_lens_cpu -- precisely "so
+++            # backend max() reads from list without a per-iter D2H sync". This
+++            # completes that intent instead of contradicting it. The assert keeps
+++            # the invariant that the consumed values are present.
++             assert (
++                 forward_batch.extend_seq_lens_cpu is not None
++                 and forward_batch.extend_seq_lens is not None
++-                and forward_batch.extend_prefix_lens_cpu is not None
++-            ), "All of them must not be None"
+++            ), "extend_seq_lens{,_cpu} must not be None for DRAFT_EXTEND_V2"
++ 
++             extend_seq_lens_cpu = forward_batch.extend_seq_lens_cpu
++             assert forward_batch.extend_seq_lens is not None
++@@ -2134,7 +2191,9 @@ class DeepseekSparseAttnBackend(
++             page_table_1 = self._get_fused_topk_page_table(topk_indices)
++         else:
++             page_table_1 = transform_index_page_table_decode(
++-                page_table=metadata.page_table_1,
+++                page_table=_glm52_match_page_table_rows(
+++                    metadata.page_table_1, topk_indices
+++                ),
++                 topk_indices=topk_indices,
++                 page_size=1,
++             )
++@@ -2704,7 +2763,9 @@ class DeepseekSparseAttnBackend(
++             if topk_indices is not None:
++                 topk_indices = self._pad_topk_indices(topk_indices, q.shape[0])
++             page_table_1 = transform_index_page_table_decode(
++-                page_table=metadata.page_table_1,
+++                page_table=_glm52_match_page_table_rows(
+++                    metadata.page_table_1, topk_indices
+++                ),
++                 topk_indices=topk_indices,
++                 page_size=1,
++             )
+diff --git a/deploy/docker/patches/sglang_dsa/dsa_indexer_hip_dp_padded_rows.diff b/deploy/docker/patches/sglang_dsa/dsa_indexer_hip_dp_padded_rows.diff
+index 4873856..7228a3d 100644
+--- a/deploy/docker/patches/sglang_dsa/dsa_indexer_hip_dp_padded_rows.diff
++++ b/deploy/docker/patches/sglang_dsa/dsa_indexer_hip_dp_padded_rows.diff
+@@ -1,49 +1,27 @@
+-Fix DSA indexer top-k row-count mismatch on ROCm under DP-attention
+-
+-sglang 0.5.15.post1, python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+-
+-Symptom (AMD MI355X / gfx950, GLM-5.2 DSA with --enable-dp-attention + EAGLE MTP):
+-
+-    RuntimeError: Expected lengths.size(0) == B to be true, but got false.
+-      dsa_indexer.py::_get_topk_paged -> metadata.topk_transform
+-      -> dsa_topk_backend.py::topk_transform -> fast_topk_transform_fused
+-      -> torch.ops.sgl_kernel.fast_topk_transform_fused
+-
+-Cause: in _get_topk_paged, `q_offset` is the real (unpadded) query-row count and is
+-exactly what `lengths` (dsa_seqlens_expanded) is sized to. The CUDA and HIP paths then
+-disagree on which row count they feed the top-k:
+-
+-  * CUDA: deepgemm_paged_mqa_logits_split() slices q_fp8[:q_offset] / weights[:q_offset],
+-    so logits.shape[0] == q_offset == lengths.shape[0]. The padding is restored after.
+-  * aiter/HIP: aiter_paged_mqa_logits() does NOT slice; it sizes its `logits` output
+-    from q_fp8.shape[0], i.e. the DP-PADDED row count. And the padding-restore below was
+-    gated `not _is_hip` -- self-consistent with never having sliced, but it left HIP with
+-    no path that produces matching shapes.
+-
+-Under DP-attention the hidden states are padded to the DP group's common token width, so
+-q_fp8.shape[0] > q_offset and the top-k asserts. Measured on gfx950 (GLM-5.2, dp8+ep8,
+-EAGLE steps=3): 27 distinct padded shapes over one conc=64 run -- 26 in DRAFT_EXTEND_V2
+-(e.g. q_fp8=(36,32,128) vs q_offset=32) and 1 in IDLE (q_fp8=(4,32,128) vs q_offset=1).
+-TARGET_VERIFY is never padded, which is why the verify step alone never tripped it.
+-
+-Fix: make the HIP path obey the same contract as CUDA -- run top-k over the real rows,
+-then restore the padding. Both guards are false when no padding is present, so the
+-non-DP path is unchanged.
+-
+-Note this is NOT the same defect as the CUDA-side padded-row fix in sglang PR #30378 /
+-#30427 ("clamp padded-row seq_lens to >= 0" in triton_ops/pad.py::seqlens_expand_kernel).
+-That clamp fixes padded row *values* and is already present; this fixes the HIP-side row
+-*count*.
+-
+-Verified on 8x MI355X (gfx950), ROCm 7.2.0, sglang 0.5.15.post1, GLM-5.2-MXFP4:
+-  * DPA8 + MTP (EAGLE steps=3, eagle-topk=1) single node: 4/4 correctness, accept length
+-    median 3.86/4 (n=251), conc=64 ISL/OSL 1k/1k 256/256 requests, 0 failed,
+-    median TPOT 17.2 ms.
+-  * Regressions unchanged: DPA-only 4/4, MTP-only 4/4.
+-
++diff --git a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
++index 59b2256815..c4751c981c 100644
+ --- a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+ +++ b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+-@@ -903,10 +903,22 @@
++@@ -5,6 +5,8 @@ import logging
++ from abc import ABC, abstractmethod
++ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
++ 
+++import os
+++
++ import torch
++ from einops import rearrange
++ 
++@@ -57,6 +59,9 @@ logger = logging.getLogger(__name__)
++ global _use_multi_stream
++ _is_cuda = is_cuda()
++ _is_hip = is_hip()
+++# Set SGLANG_DEBUG_DSA_ROWS=1 to log the indexer row bookkeeping (padded vs real).
+++_DSA_DEBUG_ROWS = os.environ.get("SGLANG_DEBUG_DSA_ROWS", "0") == "1"
+++
++ _is_npu = is_npu()
++ 
++ if not _is_npu:
++@@ -903,10 +908,38 @@ class Indexer(MultiPlatformOp):
+          weights = weights.squeeze(2)
+  
+          if self.paged_mqa_logits_backend.is_aiter():
+@@ -55,20 +33,36 @@ Verified on 8x MI355X (gfx950), ROCm 7.2.0, sglang 0.5.15.post1, GLM-5.2-MXFP4:
+ +            # q_fp8.shape[0], so without the same slice the top-k below sees
+ +            # score.shape[0] != lengths.shape[0] and asserts. Slice here so both
+ +            # backends feed top-k the same shape; the padding is restored after.
+-+            q_fp8_mqa, weights_mqa = q_fp8, weights
+-+            if 0 < q_offset < q_fp8.shape[0]:
+-+                q_fp8_mqa = q_fp8[:q_offset]
+-+                weights_mqa = weights[:q_offset]
+++            _q_mqa, _w_mqa = q_fp8, weights
+++            # GLM52_BUG6: no lower bound on q_offset. A DP-IDLE rank has no
+++            # requests, so q_offset == 0 while q_fp8 still carries DP padding.
+++            # The old `0 < q_offset` guard skipped the slice in exactly that
+++            # case, leaving aiter to size `logits` from the padded row count
+++            # while `lengths` had 0 rows -> "lengths.size(0) == B" failed in
+++            # fast_topk_v2. q_fp8[:0] is a legal empty slice and is what an idle
+++            # rank should pass; the CUDA path likewise slices unconditionally.
+++            if q_offset < q_fp8.shape[0]:
+++                _q_mqa = q_fp8[:q_offset]
+++                _w_mqa = weights[:q_offset]
+++            if _DSA_DEBUG_ROWS:
+++                logger.info(
+++                    "[dsa-rows] mode=%s q_fp8=%s q_offset=%s lengths=%s -> mqa_q=%s",
+++                    forward_batch.forward_mode,
+++                    tuple(q_fp8.shape),
+++                    q_offset,
+++                    tuple(metadata.get_seqlens_expanded().shape),
+++                    tuple(_q_mqa.shape),
+++                )
+              logits = aiter_paged_mqa_logits(
+ -                q_fp8,
+-+                q_fp8_mqa,
+++                _q_mqa,
+                  kv_cache_fp8,
+ -                weights,
+-+                weights_mqa,
+++                _w_mqa,
+                  seqlens_32,
+                  block_tables,
+                  max_seq_len,
+-@@ -962,7 +974,11 @@
++@@ -962,7 +995,11 @@ class Indexer(MultiPlatformOp):
+          # NOTE(dark): logits should be cleaned in topk_transform
+          topk_result = metadata.topk_transform(logits, self.index_topk)
+          # Restore possible padding exist in the hidden states.
+-- 
+2.34.1
+

@@ -1,0 +1,176 @@
+From a1507d8a465a8003bb696af69d521d5b93c77233 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Fri, 31 Jul 2026 10:59:25 +0000
+Subject: [PATCH 07/25] sglang DSA: record the IndexShare alternative at the
+ point of use
+
+Turning GLM-5.2 MTP IndexShare off avoids the same deadlock without patch 04 or
+02's page-table half:
+
+    --json-model-override-args '{"index_share_for_mtp_iteration":false}'
+
+It works because IndexShare is the SOURCE of the divergence this set votes around:
+the guard term dsa_topk_indices is None is seeded on the PD decode leg from
+RDMA-shipped per-request payloads, so it is a function of which requests each rank
+holds. No seed, no divergence.
+
+Each diff now carries a header saying where it stands: 04 "ALTERNATIVE TO THIS
+PATCH", 02 "PARTIAL ALTERNATIVE" (2b yes, 2a untested either way), 01 "NOT
+substituted" (independent bug, present regardless). README gains the same as a
+table plus the measurement.
+
+Recorded honestly rather than as a recommendation: the arm that validated it ran
+conc=64 not 128, needed prefill-leg MTP as well, and the override is nearly free
+only while IndexShare's consumer stays disabled under PD by
+should_use_dsa_fused_topk. Upstream #31477 removes that -- re-checked with gh
+today: OPEN, REVIEW_REQUIRED, unmerged. Good answer today if IndexShare is not
+wanted, dated one if it is.
+
+The headers sit before the first "diff --git", which patch(1) skips. Verified by a
+REAL --fuzz=0 apply into a pristine v0.5.15.post1 tree, in prerequisite order
+(main's nextn script first): all three clean, 9 files modified. Not by --dry-run,
+which fuzzes by default.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ deploy/docker/patches/sglang_dsa/README.md    | 41 +++++++++++++++++++
+ .../sglang_dsa/draft_cuda_graph_dp_vote.diff  | 33 +++++++++++++++
+ ...a_backend_dp_sync_and_page_table_rows.diff | 16 ++++++++
+ .../dsa_indexer_hip_dp_padded_rows.diff       |  7 ++++
+ 4 files changed, 97 insertions(+)
+
+diff --git a/deploy/docker/patches/sglang_dsa/README.md b/deploy/docker/patches/sglang_dsa/README.md
+index 15eb439..b40fd9c 100644
+--- a/deploy/docker/patches/sglang_dsa/README.md
++++ b/deploy/docker/patches/sglang_dsa/README.md
+@@ -234,6 +234,47 @@ cannot distinguish a fix from that workaround — the usage counter can.
+ > `glm52.mxfp4.spur.mooncake.packup_20260729_bug2b_draft_graph/` in the
+ > `infera.yihou.glm5.2.mxfp4` workspace.
+ 
++## A configuration-only alternative to part of this set
++
++Turning GLM-5.2's MTP **IndexShare** off avoids the same deadlock without patch 04 or the
++page-table half of patch 02:
++
++```
++--json-model-override-args '{"index_share_for_mtp_iteration":false}'
++```
++
++It works because IndexShare is the *source* of the rank divergence: the guard term
++`draft_input.dsa_topk_indices is None` is seeded on the PD decode leg from RDMA-shipped
++per-request payloads (`eagle_disaggregation.py:54-59`), so it is a function of which
++requests each rank happens to hold. Remove the seed and the term stops diverging — no vote
++needed. Each diff's header records where it stands relative to this.
++
++| patch | substituted by IndexShare-off? |
++|---|---|
++| 01 `dsa_indexer_hip_dp_padded_rows` | **No** — independent bug, present regardless |
++| 02a `dsa_backend` DP host-sync | **Unknown** — never tested in isolation, here or anywhere |
++| 02b `dsa_backend` page-table rows | **Yes**, in effect — the arm ran without it and passed |
++| nextn `eh_proj` (the prerequisite) | **No** — weight-load bug, unrelated |
++| 04 `draft_cuda_graph_dp_vote` | **Yes** — this is what it targets |
++
++Measured on 2 × 8 MI355X with 02b and 04 asserted **absent from the bytecode**: 4/4 probe,
++32/32 twice, 64/64, zero tracebacks, accept length 2.98–3.01 — no measurable cost. Two
++conditions are easy to miss: MTP must be on the **prefill** leg too (otherwise the seed
++never reaches decode and the setting is untested rather than tested), and that arm was
++taken to conc=64, not 128.
++
++**Why the patches remain the default here.** The override is nearly free only because
++IndexShare's consumer is currently disabled under PD by `should_use_dsa_fused_topk`.
++Upstream PR [#31477](https://github.com/sgl-project/sglang/pull/31477) exists to remove
++that limitation; once it lands the override starts costing (~3 % TPOT, reported by AMD's
++llying — second-hand, not measured by us). Checked with `gh` on 2026-07-31: #31477 is
++**open**, `reviewDecision = REVIEW_REQUIRED`, unmerged. So it is a good answer today if
++IndexShare is not wanted, and a dated one if it is.
++
++Full arm with anti-marker verification:
++`glm52.mxfp4.spur.mooncake.packup_20260730_exp2_indexshare_off` in the
++`infera.yihou.glm5.2.mxfp4` workspace.
++
+ ## Applying
+ 
+ All three apply with exact context, no fuzz, against sglang commit
+diff --git a/deploy/docker/patches/sglang_dsa/draft_cuda_graph_dp_vote.diff b/deploy/docker/patches/sglang_dsa/draft_cuda_graph_dp_vote.diff
+index 6623e66..5096f19 100644
+--- a/deploy/docker/patches/sglang_dsa/draft_cuda_graph_dp_vote.diff
++++ b/deploy/docker/patches/sglang_dsa/draft_cuda_graph_dp_vote.diff
+@@ -1,3 +1,36 @@
++ALTERNATIVE TO THIS PATCH: turn GLM-5.2 MTP IndexShare off.
++
++    --json-model-override-args '{"index_share_for_mtp_iteration":false}'
++
++This patch makes the per-rank draft graph/eager decision uniform.  IndexShare-off
++instead removes the thing that makes it diverge: the guard term
++`draft_input.dsa_topk_indices is None` is seeded on the PD decode leg from
++RDMA-shipped per-request payloads (eagle_disaggregation.py:54-59), so it is a
++function of which requests each rank happens to hold -- an idle rank gets None, a
++busy one gets a tensor.  No seed, no divergence, no vote needed.
++
++Measured on 2 x 8 MI355X, GLM-5.2-MXFP4, with this patch and 02's page-table half
++BOTH asserted absent from the bytecode: 4/4 probe, 32/32 twice, 64/64, zero
++tracebacks, accept length 2.98-3.01 (no measurable cost).  It substitutes for THIS
++patch and for 02's page-table row fix; it does NOT substitute for 01 (padded rows)
++or for the nextn eh_proj fix, which are independent bugs.  02's DP host-sync half
++has never been tested in isolation either way.
++
++Two conditions that are easy to miss: MTP must be enabled on the PREFILL leg too
++(otherwise the seed never reaches decode and the setting is untested rather than
++tested), and that arm was taken to conc=64, not 128.
++
++WHY IT IS NOT THE DEFAULT HERE: it is nearly free only because IndexShare's
++consumer is currently disabled under PD by should_use_dsa_fused_topk.  Upstream PR
++#31477 ("[Spec][PD] Enable fused TopK for GLM-5.2 MTP IndexShare") exists to remove
++that limitation; once it lands the override starts costing (~3% TPOT, reported by
++AMD's llying -- second-hand, not measured by us).  Checked with gh on 2026-07-31:
++#31477 is OPEN, reviewDecision REVIEW_REQUIRED, unmerged.  So: a good answer today
++if IndexShare is not wanted, a dated one if it is.
++
++Full arm, with anti-marker verification:
++glm52.mxfp4.spur.mooncake.packup_20260730_exp2_indexshare_off (infera.yihou.glm5.2.mxfp4)
++
+ diff --git a/python/sglang/srt/disaggregation/decode.py b/python/sglang/srt/disaggregation/decode.py
+ index 2164cade49..84a54ae0d3 100644
+ --- a/python/sglang/srt/disaggregation/decode.py
+diff --git a/deploy/docker/patches/sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff b/deploy/docker/patches/sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff
+index fad922d..24051e3 100644
+--- a/deploy/docker/patches/sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff
++++ b/deploy/docker/patches/sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff
+@@ -1,3 +1,19 @@
++PARTIAL ALTERNATIVE: turning GLM-5.2 MTP IndexShare off avoids the need for the
++PAGE-TABLE ROW half of this diff (2b), but not the DP host-sync half (2a).
++
++    --json-model-override-args '{"index_share_for_mtp_iteration":false}'
++
++An arm run with this override and with 2b and 04 both asserted ABSENT from the
++bytecode passed 4/4, 32/32 twice and 64/64 on 2 x 8 MI355X.  So 2b is not needed in
++that configuration.  2a was NOT reverted in that arm, so nothing was learned about
++it -- 2a has never been tested in isolation, here or anywhere, which is the oldest
++open gap in this series.
++
++The override does NOT substitute for 01 (padded rows) or the nextn eh_proj fix.
++It is nearly free only while IndexShare's consumer stays disabled under PD by
++should_use_dsa_fused_topk; upstream #31477 removes that.  See the header of
++draft_cuda_graph_dp_vote.diff for the full account and the status check.
++
+ diff --git a/python/sglang/srt/layers/attention/dsa_backend.py b/python/sglang/srt/layers/attention/dsa_backend.py
+ index 75aa41d784..58e6e504d2 100644
+ --- a/python/sglang/srt/layers/attention/dsa_backend.py
+diff --git a/deploy/docker/patches/sglang_dsa/dsa_indexer_hip_dp_padded_rows.diff b/deploy/docker/patches/sglang_dsa/dsa_indexer_hip_dp_padded_rows.diff
+index b5ba70b..3d918a8 100644
+--- a/deploy/docker/patches/sglang_dsa/dsa_indexer_hip_dp_padded_rows.diff
++++ b/deploy/docker/patches/sglang_dsa/dsa_indexer_hip_dp_padded_rows.diff
+@@ -1,3 +1,10 @@
++NOT substituted by the IndexShare workaround.  Turning GLM-5.2 MTP IndexShare off
++(--json-model-override-args '{"index_share_for_mtp_iteration":false}') removes the
++rank-divergence that 04 and 02's page-table half address, but this is an
++independent bug -- the HIP indexer sizing its output from DP-PADDED rows while
++`lengths` is sized to REAL rows.  It is present regardless of IndexShare, and the
++arm that validated the override applied THIS patch.
++
+ diff --git a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+ index 59b2256815..e5f4847678 100644
+ --- a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+-- 
+2.34.1
+

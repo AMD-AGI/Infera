@@ -1,0 +1,3159 @@
+diff --git a/MERGE_BRANCH.md b/MERGE_BRANCH.md
+new file mode 100644
+index 0000000..4b61458
+--- /dev/null
++++ b/MERGE_BRANCH.md
+@@ -0,0 +1,150 @@
++# The merged branch: what is on it, and how to take it apart
++
++`yihou.dev.glm52.merged.experiment`, branched from `main` @ `8692fb4`.
++
++Three workstreams that had only ever been validated separately, merged into one
++configuration and validated end to end on 2 × 8×MI355X over mooncake RDMA. The
++run is packed up under `merge_kvaware_mtp_pd.packup_20260731/`.
++
++The commits are grouped so that any group can be dropped with one
++`git rebase --onto` once its upstream PR lands. **Nothing on this branch was
++taken on faith** — every commit here is code the merge experiment actually ran.
++
++## The four groups, oldest first
++
++| # | group | commits | upstream |
++|---|---|---|---|
++| A | sglang DSA: PD + DP-attention + EAGLE MTP on gfx950 | `53ccea0..87460ae` (9) | PR #58 |
++| B | kvaware + kvd | `826619b..7f2dac8` (7) | PR #59 |
++| C | mooncake early-send + bigram kv-events | `2181136`, `6e6fdb7` (2) | **PR #56** — temporary, see below |
++| D | this merge's own fixes | `0cc9593..c0450a4` (3) | new |
++
++A and B are our own PRs, cherry-picked unmodified — the tree after A is
++byte-identical to PR #58's branch, and B's files land identically too.
++
++## Group C is temporary
++
++Both commits are reduced forms of liyingli's PR #56. They are here because the
++merge could not be validated without them, not because this branch owns them.
++
++**When PR #56 merges, drop both:**
++
++```bash
++git rebase --onto 7f2dac8 6e6fdb7 yihou.dev.glm52.merged.experiment
++```
++
++That replays group D straight onto the end of group B. Group D does not depend
++on group C's code — it touches `args.py`, `kvd_wiring.py`, and three test
++modules, none of which group C changes — so the replay is clean.
++
++### What was deliberately left out of group C
++
++PR #56 has seven commits. Four are not here at all, and two of the three we did
++take were reduced. The rule was: **only code this merge's experiment exercised
++enters this branch.** Everything below is real work that simply was not on our
++measured path, and taking it would have meant shipping unvalidated code under a
++validated branch name.
++
++| left out | from | why not here |
++|---|---|---|
++| `deploy/docker/Dockerfile.sglang.gfx942` early-send layer | `6121189` | the MI325X image. Never built or run here. |
++| `rust/router/src/kv_event.rs` bigram decode + its tests | `01b0534` | every run used `--router-backend python` (the default). **A Rust-router deployment with MTP still has the original bug** — same silent degradation to round-robin. |
++| `infera/engine/dsv4_gfx942.py` arch detection | `1ebdc7e` | `apply_gfx942_dsv4` returns early on non-gfx942, so it is a **no-op on MI355X**. Matters on MI325X. |
++| `INFERA_SGLANG_READY_TIMEOUT` | `0bb23c7` | convenience; 1800 s sufficed. |
++| `net.py` NodePort-range skip | `d63e48b` | vultr is bare metal, no kube-proxy, `ip_local_port_range` starts at 32768 — the bug cannot be hit here. **Also conflicts textually with B's `826619b`** (both edit `free_tcp_port_block`); the two fixes are compatible and would need merging by hand, which is not worth doing for code we cannot test. |
++| `Dockerfile.sglang.gfx942` v0.5.16 base | `b2150c3` | same image, same reason. |
++
++If any of these is wanted here later, the honest route is: add it, then re-run
++the gate that would catch it failing. For the Rust one that means a G1 repeat
++with `--router-backend rust`.
++
++## Group D — what this merge itself produced
++
++| commit | what |
++|---|---|
++| `0cc9593` | `args.py`: don't append `--disaggregation-decode-enable-radix-cache` under speculative decoding — SGLang rejects the combination, killing an MTP decode leg at argument parsing |
++| `e948285` | `kvd_wiring.py`: skip kvd on a PD decode leg — it is **write-only** there in every configuration (measured 180 sets / 0 gets) |
++| `c0450a4` | behavioural tests for the bigram decode, at the seam rather than through the publish path |
++
++Neither fix is a conflict between the merged workstreams — no line of either
++changed. Both are **pre-existing infera code meeting a configuration nobody had
++run**: the kvaware/kvd validation never enabled MTP, and the MTP validation drove
++`sglang.launch_server` directly, bypassing the wrapper that appends the flags.
++
++The first two are independent — different flags, different gates, different
++SGLang checks. A decode leg with kvaware on and kvd off still needs `0cc9593`.
++
++## The image
++
++`deploy/docker/Dockerfile.sglang` carries everything. Layer order and the reason
++for it:
++
++| # | layer | note |
++|---|---|---|
++| 1 | mooncake unified rebuild | HIP-transport gate + dma-buf, runtime-decided |
++| 2 | `pip install .[sglang]` | brings in the infera source, including groups C and D |
++| 3 | `patches/sglang/` | GLM-5.2 nextn `eh_proj` quark-exclude |
++| 4 | `patches/sglang_disagg/` | mooncake early-send wait event (group C) |
++| 5 | `patches/sglang_dsa/` | the 3 DSA diffs (group A) — **layer 3 is their prerequisite**, which the apply script asserts rather than applies |
++| 6 | Rust router | |
++
++Layers 3 and 4 differ in strictness on purpose. Layer 3 tolerates a failed patch
++(`|| echo skipped`) because those no-op once the base carries the fix. Layer 4
++does not (`set -eu`): its script already reports "already present" on its own, so
++a non-zero exit means the anchors drifted and the fix did *not* go in — and an
++image that silently corrupts long prompts is worse than a failed build.
++
++```bash
++docker build -f deploy/docker/Dockerfile.sglang -t infera/engine-sglang:merged .
++```
++
++Build **on each node** rather than building once and shipping a 28 GB tarball —
++the claim being tested is that the Dockerfile reproduces the run. ~15 min per node
++with the base pulled. The two nodes' image ids will **differ** (independent
++builds, so Rust objects and layer timestamps differ); check content equivalence
++with `verify_built_image.sh`, not digests.
++
++The base tag stays **pinned**: the DSA diffs apply at `--fuzz=0` against sglang
++`0b3bb0cbe31873994c9f989fddfe2f87ca839fdd`, so a base bump fails the build at the
++patch step rather than mis-applying silently. That is intended.
++
++## Validation
++
++Four gates, each loading one more thing onto the last so a failure localises.
++**Run twice**: once against a base image patched in place, and again against the
++image built from this branch's `Dockerfile.sglang` on both nodes, with no
++in-container patching at all. Full detail, including the three probe defects that
++each produced a wrong verdict before being caught, is in
++`merge_kvaware_mtp_pd.packup_20260731/`.
++
++| gate | criterion | patched image | **built image** |
++|---|---|---|---|
++| G0 | the patches do not break kvaware+kvd | 4/4, 32/32 | **4/4, 32/32** |
++| G0 | kvd restart-replay | 102 gets / 102 hits / sets unchanged | **102 / 102 / unchanged** |
++| G1 | + MTP on the decode leg | 4/4, `accept len` 2.48–2.58, prefill view **51** | **4/4, 2.17–2.60, 51** |
++| G2 | + a prompt spanning >1 prefill chunk | 5/5, split `8192+8192+1728` | **5/5, same split** |
++| stress | conc=16 | 64/64 | **64/64** |
++| stress | conc=128 | 1 CORRUPT / 256 | **1 CORRUPT / 256** |
++
++The single conc=128 case is the same in both: the one response that ran to the
++`max_tokens` cap, a plain repetition loop (`</think>` × 0) rather than the
++chunk-boundary signature, and CLEAN when the identical prompt is replayed at
++conc=1.
++
++Verify a built image before running anything against it —
++`packup/scripts/verify_built_image.sh` makes 18 bytecode/source assertions plus a
++behavioural smoke test. A build log saying a patch printed success is not the same
++as the interpreter running patched code.
++
++Unit suite: **1162 passed, 1 skipped**.
++
++The two numbers that would have gone red had a fix been absent or wrong:
++
++- **kvd is serving, not merely wired.** A speed-up proves nothing — the in-GPU
++  radix cache serves a repeated prefix without touching L3. Restarting the
++  prefill engine empties that cache while the kvd daemon keeps running: 102
++  reads afterwards, `sets` **unchanged**, zero misses.
++- **The bigram fix produces the *right* hashes.** The router view reads 51
++  blocks under MTP — byte-identical to the plain-int path in G0, which shows the
++  flattened keys chain to the same hashes rather than merely being non-empty.
++  Unfixed it reads 0.
+diff --git a/PATCH1_UPSTREAM_STATUS.md b/PATCH1_UPSTREAM_STATUS.md
+new file mode 100644
+index 0000000..08022d3
+--- /dev/null
++++ b/PATCH1_UPSTREAM_STATUS.md
+@@ -0,0 +1,57 @@
++# Patch 1 — upstreamed to sglang (HIP/aiter DSA padding fix)
++
++**Patch:** `dsa_indexer_hip_dp_padded_rows.diff`
++**File:** `python/sglang/srt/layers/attention/dsa/dsa_indexer.py`
++**Status:** real, current, unreported-on-HIP bug → **PR opened against sglang `main`.**
++
++## What patch 1 fixes
++
++`Indexer._get_topk_paged` dispatches the paged-MQA-logits kernel across
++backends. Under attn-tp / DP-attention (or MAX_LEN padding), `q_fp8` carries
++padding rows up to the largest per-rank token count, while `seqlens`
++(`dsa_seqlens_expanded`) is sized to the real count `q_offset`.
++
++- The CUDA backends (`deepgemm_paged_mqa_logits_split` / `_native`,
++  `cutedsl_paged_mqa_logits`) all take `q_offset=` and slice internally.
++- The **aiter (HIP)** branch passes `q_fp8`/`weights` **unsliced** and sizes its
++  `logits` from `q_fp8.shape[0]` → top-k sees `score.shape[0] != lengths.shape[0]`
++  → assert `Expected lengths.size(0) == B`.
++- The padding-restore after `topk_transform` is gated `if not _is_hip`, so HIP
++  never restores either.
++
++Fix: slice `q_fp8[:q_offset]` / `weights[:q_offset]` in the aiter branch (match
++the CUDA contract), and drop the `not _is_hip` guard on the restore since every
++backend now returns a `q_offset`-sized result. ~5 lines, no kernel change.
++
++## Local vs upstream form
++
++- **Local (this repo, base `v0.5.15.post1`):** the patch also carries debug
++  scaffolding — `GLM52_P1V2` markers, `_p1v2_*` locals, and the
++  `SGLANG_DEBUG_DSA_ROWS` / `_DSA_DEBUG_ROWS` logging block. Those are local-only
++  and were **stripped** for the upstream PR.
++- **Upstream PR (against `main`):** re-written against current `main`, whose
++  `_get_topk_paged` has drifted (added cutedsl / dg_native branches,
++  `_mask_init_and_local_tokens`). The clean diff is the two edits above with an
++  upstream-neutral comment. Verified to compile.
++
++## Upstream context
++
++- **PR #32762 "[NPU] Fix DSA eager padding mismatch in PD MTP warm-up"** — same
++  bug class, NPU platform, OPEN + CI-red. Our PR is the HIP/aiter sibling; cited.
++- **PR #30839** (merged) — the eager-fallback path that first exposes the
++  seed-unavailable case; cited as background.
++- No PR covers the HIP/aiter path. HIP is still broken on `main`.
++
++## PR
++
++- **https://github.com/sgl-project/sglang/pull/33059** — "Fix DSA indexer aiter
++  (HIP) padding mismatch under DP-attention" (OPEN, against `main`, 1 file
++  +16/-4). Opened from fork `dorado269/sglang`, branch
++  `fix-dsa-indexer-hip-aiter-dp-padding`.
++
++## Local validation (base-branch form)
++
++Single-node dp8+ep8 + EAGLE steps=3: 4/4 correctness, conc=64 1k/1k **256/256
++zero failed** (see memory `project-glm52-dpa-mtp-fix`). The upstream port is the
++same logic adapted to `main`; it was **not** re-run on `main`-based hardware from
++the PR session — CI / a maintainer run is the confirmation on that base.
+diff --git a/PATCH3_UPSTREAM_STATUS.md b/PATCH3_UPSTREAM_STATUS.md
+new file mode 100644
+index 0000000..11ea404
+--- /dev/null
++++ b/PATCH3_UPSTREAM_STATUS.md
+@@ -0,0 +1,54 @@
++# Patch 3 — already covered upstream, do NOT open a PR
++
++**Patch:** `deepseek_nextn_glm52_mtp_bf16.diff`
++**File:** `python/sglang/srt/models/deepseek_nextn.py`
++**Status:** superseded by merged upstream PR — keep locally, do not upstream.
++
++## What patch 3 does
++
++One line, on the `v0.5.15.post1` release branch we build against:
++
++```python
++- ckpt_prefix = f"model.layers.{config.num_hidden_layers}"
+++ ckpt_prefix = f"model.layers.{config.num_hidden_layers}.eh_proj"
++```
++
++GLM-5.2's MTP/NextN `eh_proj` is bf16 while the rest is quark-mxfp4. Quark's
++`exclude_layers` records the excluded MTP weight at submodule granularity, so
++matching on the bare layer prefix `model.layers.{N}` misses it and `eh_proj`
++gets built as mxfp4 → weight-load shape crash. Appending `.eh_proj` makes the
++`should_ignore_layer` check match and keeps it bf16.
++
++## Why no upstream PR
++
++Upstream **`main` already fixes exactly this bug, more completely**, via merged
++PR **#30265 "[AMD] Fix GLM-5.2 MTP Quark excludes"**
++(https://github.com/sgl-project/sglang/pull/30265 — merged 2026-07-08, merge
++commit `07ef650`):
++
++- adds a dedicated `GlmMoeDsaForCausalLMNextN` class;
++- extracts `_resolve_nextn_quant_config()`;
++- remaps the **full** MTP exclude set for GLM — `eh_proj`, `enorm`, `hnorm`,
++  `shared_head.norm`, decoder blocks (`model.decoder.*`), and the fused-MoE
++  experts prefix `model.decoder.mlp.experts`.
++
++The quark matcher (`_is_equal_or_regex_match`) is exact-string unless the target
++is `re:`-prefixed, which is why #30265 had to add every runtime name. Our
++one-liner only remaps `eh_proj`, so it is a **strict subset** of #30265 — a
++narrow backport onto the release branch, not an improvement over `main`. The PR
++body says so directly: "Mapping only the leaf names is not enough."
++
++## Version relationship (verified)
++
++- Our base tag `v0.5.15.post1` → commit `0b3bb0c`. At that commit
++  `deepseek_nextn.py` still has the old inline block patch 3 edits, and
++  `glm4_moe.py` has **no** `GlmMoeDsaForCausalLMNextN` → the release branch does
++  **not** contain #30265.
++- `compare(v0.5.15.post1 … 07ef650)` = diverged, ahead 65 / behind 25 — the
++  release line was cut without #30265; `main` has it.
++
++## Action
++
++Keep patch 3 in the local set (our base genuinely needs it). Do not open a PR.
++If/when we rebase onto an sglang `main` that already contains #30265, drop
++patch 3 entirely — it will no longer apply and is no longer needed.
+diff --git a/deploy/docker/Dockerfile.sglang b/deploy/docker/Dockerfile.sglang
+index e64f696..e13f6f2 100644
+--- a/deploy/docker/Dockerfile.sglang
++++ b/deploy/docker/Dockerfile.sglang
+@@ -1,6 +1,11 @@
+ # Infera SGLang engine image: layers the infera source onto the ROCm SGLang
+ # base and sets an entrypoint that injects the host's libionic before exec'ing
+ # the command.
++#
++# ⚠️ The base tag is PINNED and must stay pinned: the GLM-5.2 DSA patches near
++# the end of this file are context diffs applied at --fuzz=0 against this exact
++# sglang commit. Bumping the base fails the build there rather than silently
++# mis-applying. Build with APPLY_SGLANG_DSA_PATCHES=0 if you need a newer base.
+ ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
+ FROM ${SGLANG_BASE_IMAGE}
+ 
+@@ -52,6 +57,73 @@ COPY deploy/docker/patches/sglang/ /tmp/sglang-patches/
+ RUN for f in /tmp/sglang-patches/*.py; do echo "[sglang-patch] $f"; python "$f" || echo "[sglang-patch] skipped $f"; done \
+     && rm -rf /tmp/sglang-patches
+ 
++# ---- sglang PD patches (mooncake early-send KV wait event) ------------------
++# REQUIRED FOR CORRECTNESS on any PD deployment doing chunked prefill over
++# mooncake: without it every chunk but the last is RDMA-read while the forward is
++# still writing those pages, so prompts longer than one chunk come back partially
++# wrong with nothing in any log. Self-locating and idempotent like the loop
++# above, and reports "already present" once the base sglang carries the fix.
++# NOT tolerant, unlike that loop: a script here exits non-zero only when its
++# anchors drifted, i.e. when the fix did NOT go in -- and an engine image that
++# silently corrupts long prompts is worse than a failed build.
++#
++# Placed before the DSA layer to match the order the merge experiment validated;
++# the two touch disjoint sglang files, so the order is not load-bearing.
++COPY deploy/docker/patches/sglang_disagg/ /tmp/sglang-disagg-patches/
++RUN set -eu; \
++    for f in /tmp/sglang-disagg-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
++    rm -rf /tmp/sglang-disagg-patches
++
++# ---- GLM-5.2 DSA patch set (PD + DP-attention + EAGLE MTP on gfx950) --------
++# Three patches that together make PD disaggregation + DP-attention + EAGLE MTP
++# work for GLM-5.2. Without them the combination crashes on the first batch or
++# deadlocks the whole DP group under concurrency:
++#
++#   dsa_indexer_hip_dp_padded_rows      the HIP/aiter paged-MQA path sizes its
++#                                       output from DP-PADDED rows while
++#                                       `lengths` is sized to REAL rows ->
++#                                       "Expected lengths.size(0) == B". Shaped
++#                                       after upstream PR #32762 (same bug class,
++#                                       NPU): one boolean gates both trim and
++#                                       restore, and the post-kernel row count is
++#                                       ASSERTED before padding is re-attached.
++#   dsa_backend_dp_sync_and_page_table  (a) `seq_lens.max().item()` is a host sync
++#                                       on a branch only SOME DP ranks take,
++#                                       desynchronizing DP collectives; (b)
++#                                       page_table_1 has one row per REQUEST while
++#                                       topk_indices has one per TOKEN under MTP
++#                                       -> assert on unequal rows.
++#   draft_cuda_graph_dp_vote            the draft-graph/eager choice in
++#                                       EagleDraftWorker.draft() is made PER RANK
++#                                       from rank-dependent inputs and diverges on
++#                                       the PD decode leg, where the DSA top-k seed
++#                                       arrives by RDMA. Graph replay and the eager
++#                                       loop do not issue the same collectives ->
++#                                       deadlock. Shaped after upstream PR #32209:
++#                                       the vote rides the MLP-sync all-gather the
++#                                       scheduler ALREADY performs, adding zero
++#                                       extra collectives.
++#
++# The nextn eh_proj fix is NOT here -- the patch loop above already applies it;
++# the script asserts it as a prerequisite.
++#
++# Unlike the loop above these are context diffs applied at --fuzz=0 against the
++# pinned base (sglang 0b3bb0cbe31873994c9f989fddfe2f87ca839fdd, release/v0.5.15).
++# Bumping SGLANG_BASE_IMAGE will FAIL the build here rather than silently
++# mis-apply -- intended, not a defect. The script also verifies each patch reached
++# the BYTECODE, not just the source: a stale __pycache__ entry silently reverts a
++# patch and has already invalidated a full experiment. Set
++# APPLY_SGLANG_DSA_PATCHES=0 for a stock engine (e.g. to A/B the patches).
++ARG APPLY_SGLANG_DSA_PATCHES=1
++COPY deploy/docker/patches/sglang_dsa/ /tmp/sglang_dsa/
++COPY deploy/docker/scripts/apply_sglang_dsa_patches.sh /tmp/apply_sglang_dsa_patches.sh
++RUN if [ "${APPLY_SGLANG_DSA_PATCHES}" = "1" ]; then \
++        PATCH_DIR=/tmp/sglang_dsa bash /tmp/apply_sglang_dsa_patches.sh; \
++    else \
++        echo "APPLY_SGLANG_DSA_PATCHES=0 — stock sglang, GLM-5.2 PD+DPA+MTP will NOT work"; \
++    fi \
++    && rm -rf /tmp/apply_sglang_dsa_patches.sh /tmp/sglang_dsa
++
+ # ---- Rust router (multi-core data plane; --router-backend rust) ----
+ # The ROCm base ships cargo; use it (install a minimal toolchain only if
+ # absent). Needs cc for linking and libclang (onig_sys/bindgen). Removes
+diff --git a/deploy/docker/Dockerfile.sglang.kvaware-kvd b/deploy/docker/Dockerfile.sglang.kvaware-kvd
+new file mode 100644
+index 0000000..2a7f283
+--- /dev/null
++++ b/deploy/docker/Dockerfile.sglang.kvaware-kvd
+@@ -0,0 +1,78 @@
++# Infera SGLang image for the kv-aware + kvd (tiered KV offload) deployment.
++#
++# WHY A SEPARATE FILE, AND WHAT IT IS NOT
++# ---------------------------------------
++# It is *not* a different image contents-wise. Dockerfile.sglang already
++# produces everything this deployment needs: the SGLang engine, the infera
++# wrapper that does the kvaware/kvd wiring, the `infera.kvd` daemon, the
++# router, and `infera.kvd.statctl`. One image runs all four roles.
++#
++# What this file adds is the *contract*: a digest-pinned base, a build-time
++# self-check that the kvaware and kvd code paths are actually importable in the
++# built image, and the operational defaults for this deployment recorded as
++# LABELs and ENV rather than living in someone's shell history. A build that
++# silently loses the kvd adapter (a bad merge, a base bump that moves
++# HiCacheStorage) fails here instead of at 3am on a decode leg.
++#
++# Build (from the repository root):
++#
++#   docker build -f deploy/docker/Dockerfile.sglang.kvaware-kvd \
++#     -t infera/engine-sglang:kvaware-kvd .
++#
++# Run: identical to Dockerfile.sglang — bind-mount the host libionic at
++# /host-libionic/libionic.so and the entrypoint handles the ABI match.
++# See manual/features/kv_cache_offload.md for the SGLang setup.
++
++# ---- Base: the standard infera SGLang image -------------------------------
++# Built from deploy/docker/Dockerfile.sglang, which carries the unified
++# Mooncake rebuild (runtime-decided PD transport). Override to pin a digest:
++#   --build-arg INFERA_SGLANG_IMAGE=infera/engine-sglang@sha256:...
++# Pin by digest in production. A floating tag is not reproducible, and the
++# Mooncake rebuild is exactly the layer you do not want silently swapped.
++ARG INFERA_SGLANG_IMAGE=infera/engine-sglang:pd-unified
++FROM ${INFERA_SGLANG_IMAGE}
++
++# ---- Build-time self-check ------------------------------------------------
++# Fail the build if either feature's code path is missing from the image.
++# These import the real modules, not a file listing: `InferaKvdBackend`
++# subclasses SGLang's `HiCacheStorage`, so this also catches a base-image bump
++# that moves or renames that class — the failure mode where the image builds,
++# starts, and serves with no L3 at all.
++RUN set -eu; \
++    python3 -c "\
++from infera.engine.sglang.kvd_adapter import InferaKvdBackend; \
++from infera.engine.sglang.kvd_wiring import wire_infera_kvd_backend; \
++from infera.engine.sglang.kv_probe import attach_to_radix_cache; \
++from infera.kvd.statctl import main as _statctl; \
++from infera.common.net import free_tcp_port_block; \
++assert len({free_tcp_port_block(4) for _ in range(10)}) > 1, \
++    'free_tcp_port_block returns a fixed base — the port-collision fix is missing'; \
++print('kvaware+kvd self-check OK')"
++
++# ---- Operational defaults for this deployment -----------------------------
++# Stable block hashes -> stable kvd chunk keys across engine restarts. Without
++# it PYTHONHASHSEED is random per process, the two PD legs hash the same prompt
++# differently, and every restart orphans the whole L3 cache. This is a
++# correctness requirement for kvd, not a tuning knob — hence baked in.
++ENV PYTHONHASHSEED=0
++
++# Mooncake defaults for the AMD ionic fleet. Both are the values the verified
++# GLM-5.2 two-node PD run used; both are overridable at `docker run`.
++#   MC_GID_INDEX=1              RoCEv2 GID on ionic.
++#   MC_DISABLE_HIP_TRANSPORT=1  keep cross-node PD on RDMA (the HIP intra-node
++#                               P2P transport cannot open a peer node's handle).
++#   MOONCAKE_DISABLE_HIP_DMABUF=1  ionic/no-ODP hosts: dma-buf registration
++#                               duplicates the KV pool at pin time.
++ENV MC_GID_INDEX=1 \
++    MC_DISABLE_HIP_TRANSPORT=1 \
++    MOONCAKE_DISABLE_HIP_DMABUF=1
++
++LABEL org.opencontainers.image.title="infera-sglang-kvaware-kvd" \
++      org.opencontainers.image.description="Infera SGLang engine with KV-aware routing and tiered KV offload (kvd)" \
++      infera.features="kv-aware-routing,kvd-hicache,pd-disaggregation,dp-attention" \
++      infera.kvd.engine-entrypoint="python -m infera.engine.sglang" \
++      infera.kvd.daemon-entrypoint="python -m infera.kvd" \
++      infera.kvd.verify="python -m infera.kvd.statctl --socket <sock>"
++
++ENTRYPOINT ["/usr/local/bin/infera-inject-host-ionic"]
++CMD ["/bin/bash"]
+diff --git a/deploy/docker/patches/sglang_disagg/README.md b/deploy/docker/patches/sglang_disagg/README.md
+new file mode 100644
+index 0000000..635cf3c
+--- /dev/null
++++ b/deploy/docker/patches/sglang_disagg/README.md
+@@ -0,0 +1,103 @@
++# sglang PD disaggregation patches
++
++Patches against the sglang source tree bundled in the ROCm engine images (sglang is an
++editable checkout at `/sgl-workspace/sglang`, so `python/sglang/...` is what actually
++runs — there is no separate site-packages copy to patch). Each is a self-locating,
++idempotent Python script, applied at image build time by the patch loop in
++`Dockerfile.sglang` / `Dockerfile.sglang.gfx942`.
++
++## `patch_mooncake_early_send_wait_event.py`
++
++**Fixes silent KV corruption for chunked prefill over the mooncake PD transport.**
++Without it, every prefill chunk except the last can be transferred to the decode leg
++while the forward that writes those pages is still running. The decode leg gets
++half-written KV for that part of the context.
++
++The symptom is not a crash and not an obvious wrong answer — it is *partially* wrong
++output for prompts longer than one prefill chunk. On GLM-5.2 DSA, needle-in-a-haystack
++retrieval returns the first few digits of a 7-digit needle and then degenerates into
++repeated `</think>`:
++
++```
++want=2183762  got='2183</think>2183</think>218</think>218</think> the'
++want=7544440  got='7549.8.8.</think>7549. The</think>7549.8.8759</thi'
++```
++
++The corruption boundary lands exactly on the chunk boundary: a needle in the final chunk
++is retrieved correctly, a needle in any earlier chunk is not. It only reproduces under PD
++— the same model, same DSA backends, same chunk size in an aggregated single-node server
++passes 9/9.
++
++### Root cause
++
++`prefill.py` records a CUDA event as a barrier before handing over pages that may still
++be under write, and the comment there says exactly what it is for:
++
++> *Record a completion event now so the transfer worker can wait on those writes before
++> the RDMA read, instead of racing them.*
++
++But **only the `mori` backend ever read that event** (`mori/conn.py`). `mooncake/conn.py`
++had no `wait_event` / `synchronize()` anywhere, so on mooncake the barrier had never
++taken effect. And under overlap scheduling the transfer that actually moves non-final
++chunks (`send_kv_chunk(..., last_chunk=False)` in `process_batch_result_disagg_prefill`)
++did not even record an event. The final chunk is always correct because it goes through
++the sampling path, which already has a real `copy_done.synchronize()`.
++
++### What the patch does
++
++Three changes, all mirroring what `mori` already does:
++
++| File | Change |
++|---|---|
++| `disaggregation/common/utils.py` | `TransferKVChunk` gains a `wait_event` field so the barrier can travel with the work item |
++| `disaggregation/mooncake/conn.py` | `send()` picks up and forwards the event; `add_transfer_request()` accepts it; `transfer_worker` `synchronize()`s **before** reading device memory |
++| `disaggregation/prefill.py` | the overlap-path non-final-chunk transfer, which had no barrier at all, now records an event on `forward_stream` |
++
++This is **not** DSA-specific. Any PD deployment running chunked prefill over mooncake
++with overlap scheduling is affected; DSA's sparse retrieval just makes it visible in the
++conspicuous "retrieved half the digits" way instead of a quiet quality drop.
++
++### Applying
++
++The image build runs it; a live container that was started from an unpatched image can
++run the same script by hand:
++
++```bash
++python deploy/docker/patches/sglang_disagg/patch_mooncake_early_send_wait_event.py
++```
++
++It locates sglang through `importlib`, so it needs no path argument, and re-running it
++is a no-op ("already present"). The edits are anchored on source text rather than line
++numbers, so they survive the offsets between sglang releases: the anchors are present in
++both v0.5.15.post1 and v0.5.16, and the result is byte-identical to the hand-cut diff
++this patch started as. An anchor that goes missing or stops being unique writes
++**nothing** and fails — the `wait_event` handover is only correct if all three files
++land, and a half-patched tree still corrupts long prompts.
++
++### Verified
++
++2× 8×MI325X (gfx942), ROCm 7.2.0, sglang v0.5.16, GLM-5.2-FP8 1P1D, mooncake RDMA,
++overlap scheduling **on**, `chunked-prefill-size 131072` with `--enable-dp-attention`
++(so 16384 per DP rank), `MEM_FRAC=0.80`. Logs confirm the failing prompt is still really
++split into 4 chunks after the fix:
++
++| Test | Before | After |
++|---|---|---|
++| needle, 3 lengths × depth 10/50/90 | 5/9 | **9/9** |
++| needle, 29k depth sweep (5,20,35,44,50,56,62,75,95) | 4/9 | **9/9** |
++| full correctness suite (needle + humaneval-long + long-context delta) | needle 7/9 | all checks pass |
++
++It also removes the reason for the `CHUNK=524288` + `MEM_FRAC=0.80` workaround: chunk
++size goes back to being a pure performance knob, and prefill overlap scheduling no longer
++has to be sacrificed.
++
++### Upstream
++
++Not submitted yet. The closest existing report,
++[sglang#25583](https://github.com/sgl-project/sglang/issues/25583) (GLM-5-FP8 + NSA +
++70k prompt, identical symptom), was auto-closed with no follow-up. The aggregated-vs-PD
++A/B above is the piece that report was missing.
++
++The cost of the fix should be measured when upstreaming: the new
++`wait_event.synchronize()` in the transfer worker blocks that thread, which in principle
++trades some transfer overlap for correctness.
+diff --git a/deploy/docker/patches/sglang_disagg/patch_mooncake_early_send_wait_event.py b/deploy/docker/patches/sglang_disagg/patch_mooncake_early_send_wait_event.py
+new file mode 100644
+index 0000000..0a67d8f
+--- /dev/null
++++ b/deploy/docker/patches/sglang_disagg/patch_mooncake_early_send_wait_event.py
+@@ -0,0 +1,239 @@
++#!/usr/bin/env python3
++# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
++# SPDX-License-Identifier: MIT
++"""Make sglang's mooncake PD transport wait on the forward that wrote the KV.
++
++WHAT: with chunked prefill over the mooncake KV transport, every chunk except the
++last can be RDMA-read while the forward that writes those pages is still running,
++so the decode leg gets half-written KV. It does not crash — prompts longer than one
++prefill chunk come back PARTIALLY wrong. On GLM-5.2 DSA a needle read returns the
++first digits of the needle and then repeats `</think>`:
++
++    want=2183762  got='2183</think>2183</think>218</think>218</think> the'
++
++The corruption boundary lands exactly on the chunk boundary (a needle in the final
++chunk is retrieved correctly), and the same model, same DSA backends, same chunk
++size in an aggregated single-node server passes 9/9.
++
++ROOT CAUSE: `prefill.py`'s early-send path already records a completion event as
++the barrier (`req.disagg_kv_sender._early_send_wait_event`), but only `mori/conn.py`
++ever reads it — `mooncake/conn.py` has no `wait_event` / `synchronize()` anywhere,
++so on mooncake the barrier has never taken effect. And the overlap-scheduling path
++that moves non-final chunks (`process_batch_result_disagg_prefill`) does not even
++record an event. The final chunk is always correct because it goes through the
++sampling path, which already has a real `copy_done.synchronize()`.
++
++FIX (three files, all mirroring what `mori` already does):
++  disaggregation/common/utils.py   `TransferKVChunk` carries a `wait_event`, so the
++                                   barrier travels with the work item.
++  disaggregation/mooncake/conn.py  `send()` picks the event up off the sender,
++                                   `add_transfer_request()` forwards it, and
++                                   `transfer_worker` synchronizes on it BEFORE it
++                                   reads device memory.
++  disaggregation/prefill.py        the overlap non-final-chunk send, which had no
++                                   barrier at all, records one on `forward_stream`.
++
++Not DSA-specific: any PD deployment running chunked prefill over mooncake with
++overlap scheduling is affected — DSA's sparse retrieval only makes it conspicuous
++("retrieved half the digits") instead of a quiet quality drop.
++
++VERIFIED: 2x 8xMI325X (gfx942), ROCm 7.2.0, sglang v0.5.16, GLM-5.2-FP8 1P1D over
++mooncake RDMA, overlap scheduling ON, `chunked-prefill-size 131072` with
++`--enable-dp-attention`: needle 5/9 -> 9/9, a 29k depth sweep 4/9 -> 9/9, and the
++logs confirm the failing prompt is still really split into 4 chunks afterwards. The
++anchors below are present in both v0.5.15.post1 and v0.5.16.
++
++UPSTREAM: not submitted. The closest existing report,
++sgl-project/sglang#25583 (GLM-5-FP8 + NSA + 70k prompt, identical symptom), was
++auto-closed with no follow-up; the aggregated-vs-PD A/B above is what it was
++missing. Worth measuring when upstreaming: the new `synchronize()` blocks the
++transfer worker, trading some transfer overlap for correctness. DROP THIS PATCH
++once the base sglang waits on the event in mooncake — this script then reports
++"already present" and no-ops.
++
++Self-locating and idempotent. All three files or none: a half-patched tree still
++corrupts long prompts, so an anchor that is missing or no longer unique writes
++NOTHING and fails (exit 1) instead of leaving the image silently broken.
++"""
++
++import importlib.util
++import sys
++from pathlib import Path
++
++_TAG = "[mc-wait-event]"
++
++# Path under sglang/srt -> [(anchor, anchor + our addition)]. Each anchor must
++# occur exactly once; the replacement doubles as the already-applied marker.
++_EDITS: dict[str, list[tuple[str, str]]] = {
++    "disaggregation/common/utils.py": [
++        (
++            "from typing import List, Optional, Tuple, Union",
++            "from typing import Any, List, Optional, Tuple, Union",
++        ),
++        (
++            """    trace_ctx: Union[TraceReqContext, TraceNullContext] = dataclasses.field(
++        default_factory=TraceNullContext
++    )
++""",
++            """    trace_ctx: Union[TraceReqContext, TraceNullContext] = dataclasses.field(
++        default_factory=TraceNullContext
++    )
++    # Completion event for the forward that wrote these pages. The transfer
++    # worker reads device memory outside the CUDA stream, so it must wait on
++    # this before the RDMA read or it can observe half-written KV.
++    wait_event: Optional[Any] = None
++""",
++        ),
++    ],
++    "disaggregation/mooncake/conn.py": [
++        (
++            "from typing import List, Optional, Tuple, Union",
++            "from typing import Any, List, Optional, Tuple, Union",
++        ),
++        (
++            """                kv_chunk: TransferKVChunk = queue.get()
++""",
++            """                kv_chunk: TransferKVChunk = queue.get()
++                if kv_chunk.wait_event is not None:
++                    # The RDMA read bypasses the CUDA stream, so without this the
++                    # read can race the forward still writing these pages.
++                    kv_chunk.wait_event.synchronize()
++                    kv_chunk.wait_event = None
++""",
++        ),
++        (
++            """        trace_ctx: Optional[Union[TraceReqContext, TraceNullContext]] = None,
++    ):
++        assert self.disaggregation_mode == DisaggregationMode.PREFILL
++""",
++            """        trace_ctx: Optional[Union[TraceReqContext, TraceNullContext]] = None,
++        wait_event: Optional[Any] = None,
++    ):
++        assert self.disaggregation_mode == DisaggregationMode.PREFILL
++""",
++        ),
++        (
++            """                prefill_aux_index=aux_index,
++                state_indices=state_indices,
++                trace_ctx=trace_ctx,
++            )
++""",
++            """                prefill_aux_index=aux_index,
++                state_indices=state_indices,
++                trace_ctx=trace_ctx,
++                wait_event=wait_event,
++            )
++""",
++        ),
++        (
++            """        if should_skip:
++            return
++
++        if not is_last_chunk:
++""",
++            """        if should_skip:
++            return
++
++        # Pages handed over before their forward is known to be complete carry a
++        # completion event; the transfer worker waits on it before reading.
++        wait_event = getattr(self, "_early_send_wait_event", None)
++        self._early_send_wait_event = None
++
++        if not is_last_chunk:
++""",
++        ),
++        (
++            """                index_slice,
++                False,
++                trace_ctx=self.trace_ctx.copy_for_thread(),
++            )
++""",
++            """                index_slice,
++                False,
++                trace_ctx=self.trace_ctx.copy_for_thread(),
++                wait_event=wait_event,
++            )
++""",
++        ),
++        (
++            """                aux_index=self.aux_index,
++                state_indices=state_indices,
++                trace_ctx=self.trace_ctx.copy_for_thread(),
++            )
++        self._record_transfer_indices(kv_indices, state_indices)
++""",
++            """                aux_index=self.aux_index,
++                state_indices=state_indices,
++                trace_ctx=self.trace_ctx.copy_for_thread(),
++                wait_event=wait_event,
++            )
++        self._record_transfer_indices(kv_indices, state_indices)
++""",
++        ),
++    ],
++    "disaggregation/prefill.py": [
++        (
++            """                    ), f"Req {req.rid} does not have metadata buffer allocated"
++                    self.send_kv_chunk(req, last_chunk=False, end_idx=req.tmp_end_idx)
++""",
++            """                    ), f"Req {req.rid} does not have metadata buffer allocated"
++                    # Non-final chunks are handed over while later chunks are
++                    # already running on forward_stream, and the transfer worker
++                    # reads device memory outside the CUDA stream. Gate the read
++                    # on this chunk's writes completing.
++                    ev = torch.cuda.Event()
++                    ev.record(self.forward_stream)
++                    req.disagg_kv_sender._early_send_wait_event = ev
++                    self.send_kv_chunk(req, last_chunk=False, end_idx=req.tmp_end_idx)
++""",
++        ),
++    ],
++}
++
++
++def _srt_dir():
++    spec = importlib.util.find_spec("sglang")
++    if not spec or not spec.origin:
++        return None
++    d = Path(spec.origin).parent / "srt"
++    return d if d.is_dir() else None
++
++
++def main():
++    srt = _srt_dir()
++    if srt is None:
++        print(f"{_TAG} sglang not importable — skipping")
++        return 0
++
++    edited: list[tuple[Path, str]] = []
++    for rel, edits in _EDITS.items():
++        f = srt / rel
++        if not f.is_file():
++            print(f"{_TAG} {f} is missing — sglang layout changed, re-anchor the patch")
++            return 1
++        src = out = f.read_text()
++        for old, new in edits:
++            if new in out:
++                continue  # this edit is already in the tree
++            found = out.count(old)
++            if found != 1:
++                where = "absent" if found == 0 else f"{found}x ambiguous"
++                print(f"{_TAG} anchor {where} in {rel}: {old.splitlines()[0]!r}")
++                print(f"{_TAG} sglang drifted — re-cut the patch, nothing written")
++                return 1
++            out = out.replace(old, new, 1)
++        if out != src:
++            edited.append((f, out))
++
++    if not edited:
++        print(f"{_TAG} already present — skipping")
++        return 0
++    for f, out in edited:
++        f.write_text(out)
++        print(f"{_TAG} patched {f}")
++    print(f"{_TAG} mooncake now waits on the prefill write event before the RDMA read")
++    return 0
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+diff --git a/deploy/docker/patches/sglang_dsa/README.md b/deploy/docker/patches/sglang_dsa/README.md
+new file mode 100644
+index 0000000..863d26d
+--- /dev/null
++++ b/deploy/docker/patches/sglang_dsa/README.md
+@@ -0,0 +1,454 @@
++# sglang DSA patches
++
++Patches against the sglang source tree bundled in the ROCm engine images
++(`lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x` and derivatives, where sglang is an
++editable checkout at `/sgl-workspace/sglang`).
++
++> **`Dockerfile.sglang` applies these at build time by default**
++> (`APPLY_SGLANG_DSA_PATCHES=1`), via
++> `deploy/docker/scripts/apply_sglang_dsa_patches.sh`, which also verifies each patch
++> reached the **bytecode** (a stale `__pycache__` entry silently reverts a patch and has
++> already invalidated a full experiment here). Set `APPLY_SGLANG_DSA_PATCHES=0` to build
++> a stock engine for A/B.
++>
++> The base image tag is pinned deliberately: these target one sglang commit and are
++> applied at `--fuzz=0`, so a base bump fails the build at the patch step rather than
++> mis-applying silently.
++>
++> **Prerequisite, applied earlier in the same Dockerfile:**
++> `deploy/docker/patches/sglang/patch_glm52_nextn_quark_exclude.py` fixes the GLM-5.2
++> nextn `eh_proj` quark-exclude check (backport of sglang #30265). GLM-5.2 MTP cannot
++> load its draft weights without it — a `3072 vs 6144` shape mismatch. It is not part of
++> this set, but `apply_sglang_dsa_patches.sh` **asserts** it, because that script is
++> idempotent and would otherwise "skip" silently.
++
++## `dsa_indexer_hip_dp_padded_rows.diff`
++
++**Enables DP-attention and EAGLE MTP to run together for GLM-5.2 DSA on gfx950.**
++Without it, the combination crashes on the first batch:
++
++```
++RuntimeError: Expected lengths.size(0) == B to be true, but got false.
++```
++
++The DSA indexer's aiter/HIP paged-MQA path sizes its `logits` output from the
++**DP-padded** row count, while the CUDA path slices to the real row count (`q_offset`) —
++which is what `lengths` is sized to. The patch makes HIP follow the CUDA contract: run
++top-k over the real rows, then restore the padding. Two guards keep the non-DP path
++bit-identical. Full rationale is in the patch header.
++
++Applies to `python/sglang/srt/layers/attention/dsa/dsa_indexer.py`, exact context, no
++fuzz:
++
++```bash
++cd /sgl-workspace/sglang
++patch -p1 --fuzz=0 < dsa_indexer_hip_dp_padded_rows.diff
++```
++
++Or bind-mount the patched file over the container's copy.
++
++### Verified
++
++8× MI355X (gfx950), ROCm 7.2.0, sglang 0.5.15.post1, GLM-5.2-MXFP4, single node
++`--dp-size 8 --enable-dp-attention --ep-size 8` + `--speculative-algorithm EAGLE
++--speculative-num-steps 3 --speculative-eagle-topk 1 --speculative-num-draft-tokens 4`:
++
++| Check | Result |
++|---|---|
++| Correctness probe | 4/4 |
++| Spec-dec accept length | median 3.86 / 4 (n=251) |
++| conc=64, ISL/OSL 1k/1k, 256 prompts | 256/256, 0 failed, median TPOT 17.2 ms |
++| Regression: DP-attention only | 4/4, unchanged |
++| Regression: MTP only | 4/4, unchanged |
++
++Full reproduction kit (environment, commands, raw logs, evidence, root-cause notes) lives
++in the `infera.yihou.glm5.2.mxfp4` workspace under
++`glm52.mxfp4.spur.mooncake.packup_20260728/dpa_mtp_fix/`.
++
++> **Updated 2026-07-29.** This diff was revised: its slice guard was
++> `if 0 < q_offset < q_fp8.shape[0]`, and the `0 <` lower bound made the slice a
++> no-op on DP-**idle** ranks (where `q_offset == 0` because the rank holds no
++> requests), reproducing the very same assert on those ranks. It only surfaces
++> once some ranks are idle while others are busy, i.e. under concurrency, which
++> the original single-node validation never exercised. The bound is now removed.
++> `q_fp8[:0]` is a legal empty slice and is what an idle rank should pass; the
++> CUDA path has no such bound either.
++
++## `dsa_backend_dp_sync_and_page_table_rows.diff`
++
++Two fixes to `python/sglang/srt/layers/attention/dsa_backend.py`, both required
++for **PD disaggregation with MTP on the decode leg**.
++
++**1 — rank-divergent GPU→CPU syncs (fixes the PD+MTP deadlock).**
++`max_seqlen_k = int(forward_batch.seq_lens.max().item())` is a host sync sitting on a
++branch that only *some* DP ranks take; idle peers take the cheap arm, so the DP
++collectives desynchronize and the group deadlocks. Replaced with the sync-free
++`self.req_to_token.shape[1]`, the same idiom already used by
++`_graph_page_table_width()` and the graph-capture paths. Over-allocating columns is
++safe: the page table is only indexed through top-k, which masks per row by
++`cache_seqlens`. Two further unconditional `.cpu()` syncs are removed.
++
++*How this was established.* Not by reverting the fix, but by observing the divergence
++directly: a py-spy dump caught a **busy** rank blocked inside `dsa_backend` on
++`.max().item()` while **idle** peers had already advanced into the next collective. After
++the fix, no rank appears in `dsa_backend` in a dump again and PD warmup passes on all 8
++ranks. The second half (removing the two unconditional `.cpu()` syncs) was **forced by
++experiment, not by reading**: with the `max_seqlen_k` change applied and those syncs left
++in, the hang persists — they sit on the same rank-divergent branch. Safety of the wider
++page table was verified by walking every consumer, and the sync-free idiom is established
++in-tree three times (`triton_backend.py:704-708`, `trtllm_mha_backend.py:555-559`, and
++DSA's own graph path at `dsa_backend.py:689-695`).
++
++Upstream does not cover this. Per-diff greps: #31683 does not touch this file's
++`max_seqlen_k` path at all; #32209/#32196 vote on *graph capture*, which a host-side sync
++is invisible to; merged #29798 repaired the **global** eager path (batches exceeding
++`--cuda-graph-max-bs`, entered by all ranks together) and never anticipated per-rank
++asymmetric entry.
++
++**2 — page-table rows vs top-k rows (fixes a crash under concurrency).**
++`metadata.page_table_1` is `req_to_token[req_pool_indices]`, one row per **request**,
++while `topk_indices` has just been padded to `q.shape[0]`, one row per **token**. Those
++are equal for plain decode but not under MTP, where the draft model runs several tokens
++per request — so `transform_index_page_table_decode_fast` trips
++`assert page_table.shape[0] == topk_indices.shape[0]` and every rank dies:
++
++```
++deepseek_nextn.py:271 -> dsa_backend.py:2154 forward_decode
++  -> dsa/transform_index.py:138  assert page_table.shape[0] == topk_indices.shape[0]
++```
++
++A helper expands the page table to token rows via `repeat_interleave`. Rows added by
++`_pad_topk_indices` hold all `-1` and are masked out by the triton kernel
++(`valid_topk_mask = mask & (loaded_topk_indices >= 0)`), so only the row *count* has to
++match. Applied at **both** decode call sites — the traceback named only the first, but
++the second pairs the same unpadded page table with a padded `topk_indices`. The prefill
++sibling already solves this with an explicit `output_num_tokens` argument; the decode
++entry point had no equivalent.
++
++## nextn `eh_proj` — not here, applied earlier
++
++Earlier revisions of this directory carried a fourth diff,
++`deepseek_nextn_glm52_mtp_bf16.diff`: one line in
++`python/sglang/srt/models/deepseek_nextn.py` making the quark-exclude check test
++`model.layers.{N}.eh_proj` instead of the bare layer prefix. **Required for GLM-5.2
++MTP**, whose nextn layer is bf16 while the rest of the model is quantized — without it
++the weight load dies with a `3072 vs 6144` shape mismatch.
++
++It was removed as a duplicate: `deploy/docker/patches/sglang/patch_glm52_nextn_quark_exclude.py`
++(main, commit `0d8d0ff`) already makes the identical edit — same file, same line, same
++resulting value — as an idempotent Python patch that runs earlier in `Dockerfile.sglang`.
++Keeping both would have been worse than redundant: main's script runs first, so our
++context diff would then fail at `--fuzz=0` on an already-edited anchor.
++
++`apply_sglang_dsa_patches.sh` asserts the edit is present before proceeding.
++
++## `draft_cuda_graph_dp_vote.diff`
++
++**Lets the EAGLE draft CUDA graph stay enabled on the PD decode leg.** Without it the
++first routed request hard-deadlocks.
++
++`draft()` decides per rank whether to replay the draft graph or run the multi-step draft
++eagerly. The two paths do not issue the same host-side collective sequence, and two of
++the guard's four terms are rank-dependent by construction:
++
++* `not forward_batch.forward_mode.is_idle()` — occupancy differs per rank every step;
++* `draft_input.dsa_topk_indices is None` — on the **PD decode leg** this field is built
++  from RDMA-shipped per-request payloads (`eagle_disaggregation.py:54-59`), so it is a
++  function of which requests a rank happens to hold.
++
++So one rank replays a graph while another runs eager inside the same collective step, and
++the group desynchronizes permanently.
++
++Measured rather than argued: instrumenting all four terms per rank per iteration, the
++*decision* diverged on **exactly** the iteration that froze — one busy rank eager, seven
++idle ranks graph — and that rank is exactly the one py-spy found blocked in the eager
++`init_forward_metadata`. Reproduced twice with different victim ranks (dp2, dp3), which
++is the race behaving as a race. This also explains why single-node **mix** never hangs:
++with no disaggregation the top-k seed is always produced locally by identical code on
++every rank, so the fourth term never flips asymmetrically.
++
++### Where the vote lives, and why it moved
++
++The fix makes the graph/eager choice a **group** decision instead of a per-rank one. Two
++placements were implemented and both were measured:
++
++| | placement | collectives added | draft-graph usage |
++|---|---|---|---|
++| v1 (superseded) | a 1-element gloo all-reduce inside `draft()` | **one per draft call** | 98.4 % |
++| **v2 (this diff)** | one more int64 slot in the MLP-sync all-gather the scheduler **already** performs | **none** | **97.1 %** |
++
++v2 is the shape of upstream PR [#32209](https://github.com/sgl-project/sglang/pull/32209)
++(`Fix PD decode hang with DP attention and GLM-5.2 MTP`, open). Adopting it means this
++tree converges with upstream rather than diverging from it, and it drops a collective
++whose cost we never measured. It also separates the *draft*-graph vote from the generic
++`can_cuda_graph` vote, so target-verify and draft-extend graphs are not collateral damage
++— #32209 reports that folding them together cost 9.7 % of decode batches their generic
++graph replay.
++
++The rank-local predicate is `requires_dp_attention_eager_forward()`; the scheduler calls
++it just before `maybe_prepare_mlp_sync_batch`, and the gathered value is `min()`-reduced
++so **any** rank needing eager takes the whole group eager. Idle/inactive ranks contribute
++`1` (permissive) and so can never drag the group into eager on their own.
++
++Two details that would otherwise make the patch silently inert:
++
++* under overlap scheduling the draft input is resolved **after** the scheduler-side vote,
++  so `dsa_topk_indices` is stale at that point and must not be read directly. The
++  predicate consults `future_dsa_topk_indices_available` instead — which is exactly
++  "will term 4 be satisfied once resolved". An earlier revision wrongly assumed that
++  attribute was absent and fell back to requiring eager whenever `future_indices` was
++  set; since overlap scheduling sets it on **every** decode iteration, that refused the
++  draft graph 100 % of the time (measured: 0.0 % usage, 200/200 calls refused) and
++  silently degraded the fix into the "just disable the draft graph" workaround while
++  still passing every functional test.
++* the v1 form had to use `get_tp_group()`, **not** `get_attention_tp_group()` — under
++  DPA8 on tp8 the attention TP group is `attn_tp_size = tp/dp = 1` rank wide, so voting
++  on it is a no-op. v2 rides the scheduler's existing all-gather and so does not face
++  this choice.
++
++An earlier attempt that removed only the `not is_idle()` term does **not** work, and the
++measurements say why: it fixes the busy-rank iteration and breaks the idle-rank one, which
++matches the observed symptom of the failure moving earlier, into warmup.
++
++### Verified
++
++2× 8×MI355X, GLM-5.2-MXFP4, PD over mooncake/mlx5, DPA8 + EAGLE MTP(3,1,4), **draft graph
++enabled**.
++
++v1's evidence, which established the root cause and carries the differential control:
++
++| Check | Result |
++|---|---|
++| PD warmup, 4×24-token, 1×512-token | pass |
++| conc 1/2/4/8/16/64/128/256 × 512 tok | **1384/1384**, 0 failures, 0 KVTransferError |
++| Single-node mix regression (shared code path) | **132/132** |
++| Durability, 8 × conc=128 × 512 back to back | **1024/1024**, accept length flat at ~3.0 |
++| **Draft graph actually used** | **98.4 %** of iterations |
++| Same-node control, only this diff reverted | **0/4 — deadlock, 120 s timeout on request 1** |
++
++Cumulative **2540/2540** with the fix, **0/4** without.
++
++The mechanism was verified, not just the outcome. Over 2992 iterations with all 8 ranks
++logging: the *local* decision still diverges 38 times (the defect is latent and real, not
++masked by timing) while the *acted-on* decision diverges **0** times, and the vote changed
++some rank's mind 190 times — each one an averted deadlock.
++
++v2 (this diff) was then measured on its own:
++
++| Check | Result |
++|---|---|
++| 4-prompt probe | 4/4, accept length 2.18–3.00 |
++| conc=32 × 512, ×2 | **32/32**, **32/32** |
++| conc=64 × 512 | **64/64** |
++| **Draft graph actually used** | **97.1 %** (777/800 calls, identical on all 8 ranks) |
++
++The graph-usage number is the point of that run. Forcing the draft path eager passes every
++functional test while disabling the feature under test, so a green stress result alone
++cannot distinguish a fix from that workaround — the usage counter can.
++
++> The v1 diff (`eagle_worker_v2_uniform_draft_graph.diff`) has been **removed** from this
++> directory in favour of v2. It is preserved, with its full evidence, in
++> `glm52.mxfp4.spur.mooncake.packup_20260729_bug2b_draft_graph/` in the
++> `infera.yihou.glm5.2.mxfp4` workspace.
++
++## A configuration-only alternative to part of this set
++
++Turning GLM-5.2's MTP **IndexShare** off avoids the same deadlock without patch 04 or the
++page-table half of patch 02:
++
++```
++--json-model-override-args '{"index_share_for_mtp_iteration":false}'
++```
++
++It works because IndexShare is the *source* of the rank divergence: the guard term
++`draft_input.dsa_topk_indices is None` is seeded on the PD decode leg from RDMA-shipped
++per-request payloads (`eagle_disaggregation.py:54-59`), so it is a function of which
++requests each rank happens to hold. Remove the seed and the term stops diverging — no vote
++needed. Each diff's header records where it stands relative to this.
++
++| patch | substituted by IndexShare-off? |
++|---|---|
++| 01 `dsa_indexer_hip_dp_padded_rows` | **No** — independent bug, present regardless |
++| 02a `dsa_backend` DP host-sync | **No** — a host sync is invisible to the graph/eager decision either mechanism changes |
++| 02b `dsa_backend` page-table rows | **Yes**, in effect — the arm ran without it and passed |
++| nextn `eh_proj` (the prerequisite) | **No** — weight-load bug, unrelated |
++| 04 `draft_cuda_graph_dp_vote` | **Yes** — this is what it targets |
++
++Measured on 2 × 8 MI355X with 02b and 04 asserted **absent from the bytecode**: 4/4 probe,
++32/32 twice, 64/64, zero tracebacks, accept length 2.98–3.01 — no measurable cost. Two
++conditions are easy to miss: MTP must be on the **prefill** leg too (otherwise the seed
++never reaches decode and the setting is untested rather than tested), and that arm was
++taken to conc=64, not 128.
++
++**Why the patches remain the default here.** The override is nearly free only because
++IndexShare's consumer is currently disabled under PD by `should_use_dsa_fused_topk`.
++Upstream PR [#31477](https://github.com/sgl-project/sglang/pull/31477) exists to remove
++that limitation; once it lands the override starts costing (~3 % TPOT, reported by AMD's
++llying — second-hand, not measured by us). Checked with `gh` on 2026-07-31: #31477 is
++**open**, `reviewDecision = REVIEW_REQUIRED`, unmerged. So it is a good answer today if
++IndexShare is not wanted, and a dated one if it is.
++
++Full arm with anti-marker verification:
++`glm52.mxfp4.spur.mooncake.packup_20260730_exp2_indexshare_off` in the
++`infera.yihou.glm5.2.mxfp4` workspace.
++
++## Applying
++
++All three apply with exact context, no fuzz, against sglang commit
++`0b3bb0cbe31873994c9f989fddfe2f87ca839fdd` (v0.5.15.post1):
++
++```bash
++cd /sgl-workspace/sglang
++for d in dsa_indexer_hip_dp_padded_rows.diff \
++         dsa_backend_dp_sync_and_page_table_rows.diff \
++         draft_cuda_graph_dp_vote.diff; do
++  patch -p1 --fuzz=0 < "$d"
++done
++```
++
++`deploy/docker/scripts/apply_sglang_dsa_patches.sh` does exactly this and then verifies
++each patch in the **bytecode**; prefer it. `Dockerfile.sglang` runs it at build time.
++
++Verified by applying for real into a scratch tree and byte-compiling the result — note
++that `patch --dry-run` and `git apply --check` **fuzz by default**, and a hand-written
++diff in this series once silently dropped a hunk while still "passing".
++
++## PD + MTP status
++
++> **Provenance of the numbers below (2026-07-29).** They were measured with the **v1**
++> draft-graph vote and the **v1** indexer patch. Both have since been reshaped to follow
++> upstream (#32209 and #32762 respectively), and each reshape was separately re-validated
++> — but the two reshaped patches were validated in *different* runs, never together.
++> They were also measured with the nextn fix supplied as a fourth diff in this directory
++> rather than by the earlier patch loop; the two make the identical edit. The end-to-end
++> run of the current arrangement is recorded below under "Final validation".
++
++With the full set applied, PD disaggregation with DP-attention + EAGLE MTP and the
++**draft CUDA graph enabled** is working on 2× 8×MI355X, GLM-5.2-MXFP4,
++`--dp-size 8 --enable-dp-attention --ep-size 8`, mooncake RDMA over mlx5 + dma-buf:
++
++| Check | Result |
++|---|---|
++| PD warmup (8 concurrent, one per DP rank) | passes |
++| conc 1/2/4/8/16/64/128/256 × 512 tokens | **1384/1384** |
++| Durability, 8 × conc=128 × 512 back to back | **1024/1024** |
++| Scheduler exceptions / KVTransferError | **0 / 0** |
++| Spec-dec | active, mean accept length ~2.9, all 8 `dp_rank`s serving |
++
++### Both earlier caveats are now closed
++
++1. ~~"the draft CUDA graph must be disabled; a proper fix is not written yet"~~ —
++   **written and verified**, see `draft_cuda_graph_dp_vote.diff` above. The
++   earlier 640/640 was measured with that graph off; it is now on and used 98.4% of the
++   time.
++2. ~~"about 2 % of responses under concurrency are degenerate"~~ — **falsified; this was
++   a test-harness error, not an engine bug.** The harness posted raw prompts to
++   `/generate`, skipping GLM-5.2's chat template (so the model was doing base-LM
++   completion), and forced `temperature=0` over the model's own recommended
++   `temperature 1.0 / top_p 0.95`. Degenerate repetition under greedy decoding is expected
++   behaviour (Holtzman et al. 2019), not a defect. With the template applied and the
++   model's own sampling, **0/128 degenerate at conc=128 on both MXFP4 and FP8** — and the
++   official FP8 build reproduced the "failure" under the *wrong* config exactly as MXFP4
++   did, so quantization was never implicated either.
++
++   The related note about `eagle_utils.py:620` forcing `argmax` on HIP stands as a code
++   observation, but it is confined to the spec-decode verify path and does not discard
++   user sampling params for the request as a whole — that over-generalization is
++   withdrawn.
++
++### Final validation (2026-07-31) — this directory's exact contents
++
++Re-run after the three overlaps with main were dropped, so that what was measured is what
++this branch ships: an image built from `Dockerfile.sglang` on the PR branch, patches
++applied **at build time**, nothing patched in the running container. 2 × 8×MI355X
++(gfx950), GLM-5.2-MXFP4, PD + `--dp-size 8 --enable-dp-attention --ep-size 8` + EAGLE MTP
++with the draft CUDA graph **enabled**, mooncake RDMA over mlx5 + dma-buf
++(`MOONCAKE_DISABLE_HIP_DMABUF=0`).
++
++| Check | Target | Result |
++|---|---|---|
++| Build-time bytecode verification, both nodes | all markers | **8/8 + prereq + patch2a** |
++| 4-prompt correctness probe | 4/4, `acc_len` > 1 | **4/4**, 2.00–3.43 |
++| conc=32 × 512 tok | 32/32 | **32/32** |
++| conc=128 × 512 tok | 128/128 | **128/128** |
++| conc=128 × 512, repeat | — | **128/128** |
++| `Traceback` / `KVTransferError`, either leg | 0 | **0 / 0** |
++| DP ranks serving | 8 | **8**, every run, 0 retries |
++
++The nextn prerequisite was confirmed to come from the earlier patch loop and not from
++this directory: the edited line in the running image carries **no** trailing comment,
++which our removed diff would have added. `apply_sglang_dsa_patches.sh` logged
++`PREREQ nextn eh_proj -> src=1` after `[glm52-nextn] patched ...`, in that order.
++
++**Not established by this run:** the draft-graph replay count was not re-measured (it
++needs an added probe, i.e. a different image — measured at 92.0 %, identical on all 8
++ranks, on the immediately preceding build of the same patch set). No differential control
++was re-run either; each patch's necessity is established in the kits below.
++
++Measurements: `glm52.mxfp4.spur.mooncake.packup_20260729_bug2b_draft_graph/` (the draft
++graph fix, with its differential control) and
++`glm52.mxfp4.spur.mooncake.packup_20260729_degenerate_output/` (the falsification, with
++`RETRACTIONS.md`), both in the `infera.yihou.glm5.2.mxfp4` workspace.
++
++### Known limits of the validation
++
++* Performance was **not** measured against the DPA-only baseline. The vote adds one
++  1-element host collective per `draft()` call; the cost is expected to be negligible but
++  is unquantified.
++* All runs used `--disable-custom-all-reduce` (required on gfx942/gfx950 for EAGLE), so
++  the custom all-reduce path remains unexercised.
++* Context 32768, short prompts, 512-token outputs, one image, one hardware
++  configuration. Long-context and 400k-context configs are untested.
++* A seventh occurrence of the padded-vs-real-rows crash family was seen **once** in 500+
++  requests during an earlier session, on a machine already carrying the `dsa_indexer` fix.
++  It did not recur in 2540 requests here, but at that rate absence is not evidence.
++
++### Upstream
++
++The `dsa_indexer` fix is ROCm-specific; the CUDA path was always correct. It is **not**
++the same issue as sglang PR #30378 / #30427 ("clamp padded-row seq_lens to >= 0" in
++`triton_ops/pad.py::seqlens_expand_kernel`), which fixes padded row *values* and is
++already present in this image. This one fixes the HIP-side row *count*.
++
++The draft-graph vote is **not** ROCm-specific in principle. The guard it repairs is
++platform-neutral, and its terms are rank-dependent on any backend running DP-attention
++with PD disaggregation; CUDA is protected today only because the draft-extend graph is
++captured there, which keeps the ranks on the same path.
++
++State of the relevant upstream work, queried with `gh` on 2026-07-31 (all **open**, none
++merged — so none of it reaches a `release/v0.5.15` baseline without a manual backport):
++
++| PR / issue | what it is | relation |
++|---|---|---|
++| [#32209](https://github.com/sgl-project/sglang/pull/32209) | `Fix PD decode hang with DP attention and GLM-5.2 MTP` | **same defect, same strategy as our vote.** `draft_cuda_graph_dp_vote.diff` adopts its placement. |
++| [#32527](https://github.com/sgl-project/sglang/issues/32527) | issue, same deadlock on 8× Blackwell / GLM-5.2-FP8 | independent report, 2026-07-27, same analysis. Proposes a third strategy: a dummy all-zeros seed so the guard's 4th term is false. |
++| [#32762](https://github.com/sgl-project/sglang/pull/32762) | `[NPU] Fix DSA eager padding mismatch in PD MTP warm-up` | same bug class as `dsa_indexer_hip_dp_padded_rows`; that diff is written in its shape. |
++| [#31683](https://github.com/sgl-project/sglang/pull/31683) | `[ROCm][MI35X] Enable GLM-5.2-MXFP4 MTP` | **adjacent, not the same fix.** It widens `dsa_indexer.forward_cuda`'s guard from `seq_lens.numel() == 0` to `is_idle() or seq_lens.numel() == 0` — same function, related class of defect, **different symptom**. Verified against its diff. |
++| [#30839](https://github.com/sgl-project/sglang/pull/30839) / [#31083](https://github.com/sgl-project/sglang/pull/31083) | introduced the guard; cherry-picked to `release/v0.5.15` | **merged 2026-07-14** — so this deadlock is a *regression* in the baseline, not a legacy wart. |
++| [#32722](https://github.com/sgl-project/sglang/pull/32722) | a test covering PD + DP-attention + MTP | proves **no CI covers this topology today**, which is why the family survives. |
++
++Three corrections to earlier revisions of this file, all of which asserted upstream state
++from notes instead of from `gh`:
++
++1. ~~"this mechanism appears unreported"~~ — **false**, #32527 reported it independently
++   two days before we fixed it.
++2. ~~"#32209 all-gathers `can_cuda_graph`, and we measured that to be uniform, so its vote
++   would not have fixed it"~~ — **false**. #32209 adds a *separate* `can_draft_cuda_graph`
++   field; it is the same idea as ours, better placed. We now use its placement.
++3. ~~"#32209 is CI red"~~ — not checked at the time; its review state is
++   `REVIEW_REQUIRED`.
++
++The `dsa_backend` fixes have **no upstream counterpart we have found** — per-diff greps of
++#31683, #32175 and #32209 match neither site. That is weaker than it sounds: `gh search`
++matches titles and bodies, not diff content, so an upstream PR could touch either site
++without naming it.
++
++One negative result worth recording, because it looks like an obvious convergence and is
++not: #32209's *other* half reconciles the decode row counts by **trimming q/top-k** where
++we **expand the page table**. Porting that half to this HIP/tilelang path fails
++reproducibly at conc=32 (0/32 across seven runs, three node pairs, a rebuilt image).
++Seventeen candidate causes were instrumented and eliminated; the root cause is **not**
++identified. Details and the reproducer are in
++`glm52.mxfp4.spur.mooncake.packup_20260731_exp3a_32209_patch2b_unresolved/`. Until that is
++understood, `dsa_backend_dp_sync_and_page_table_rows.diff` keeps our expand-the-page-table
++form.
+diff --git a/deploy/docker/patches/sglang_dsa/draft_cuda_graph_dp_vote.diff b/deploy/docker/patches/sglang_dsa/draft_cuda_graph_dp_vote.diff
+new file mode 100644
+index 0000000..512b93a
+--- /dev/null
++++ b/deploy/docker/patches/sglang_dsa/draft_cuda_graph_dp_vote.diff
+@@ -0,0 +1,280 @@
++ALTERNATIVE TO THIS PATCH: turn GLM-5.2 MTP IndexShare off.
++
++    --json-model-override-args '{"index_share_for_mtp_iteration":false}'
++
++This patch makes the per-rank draft graph/eager decision uniform.  IndexShare-off
++instead removes the thing that makes it diverge: the guard term
++`draft_input.dsa_topk_indices is None` is seeded on the PD decode leg from
++RDMA-shipped per-request payloads (eagle_disaggregation.py:54-59), so it is a
++function of which requests each rank happens to hold -- an idle rank gets None, a
++busy one gets a tensor.  No seed, no divergence, no vote needed.
++
++Measured on 2 x 8 MI355X, GLM-5.2-MXFP4, with this patch and 02's page-table half
++BOTH asserted absent from the bytecode: 4/4 probe, 32/32 twice, 64/64, zero
++tracebacks, accept length 2.98-3.01 (no measurable cost).  It substitutes for THIS
++patch and for 02's page-table row fix; it does NOT substitute for 01 (padded rows),
++for the nextn eh_proj fix, or for 02's DP host-sync half -- those are independent
++bugs, and a host-side sync is invisible to the graph/eager decision that both this
++patch and IndexShare-off act on.
++
++Two conditions that are easy to miss: MTP must be enabled on the PREFILL leg too
++(otherwise the seed never reaches decode and the setting is untested rather than
++tested), and that arm was taken to conc=64, not 128.
++
++WHY IT IS NOT THE DEFAULT HERE: it is nearly free only because IndexShare's
++consumer is currently disabled under PD by should_use_dsa_fused_topk.  Upstream PR
++#31477 ("[Spec][PD] Enable fused TopK for GLM-5.2 MTP IndexShare") exists to remove
++that limitation; once it lands the override starts costing (~3% TPOT, reported by
++AMD's llying -- second-hand, not measured by us).  Checked with gh on 2026-07-31:
++#31477 is OPEN, reviewDecision REVIEW_REQUIRED, unmerged.  So: a good answer today
++if IndexShare is not wanted, a dated one if it is.
++
++Full arm, with anti-marker verification:
++glm52.mxfp4.spur.mooncake.packup_20260730_exp2_indexshare_off (infera.yihou.glm5.2.mxfp4)
++
++diff --git a/python/sglang/srt/disaggregation/decode.py b/python/sglang/srt/disaggregation/decode.py
++index 2164cade49..84a54ae0d3 100644
++--- a/python/sglang/srt/disaggregation/decode.py
+++++ b/python/sglang/srt/disaggregation/decode.py
++@@ -1905,6 +1905,16 @@ class SchedulerDisaggregationDecodeMixin:
++             self.running_batch = self.update_running_batch(self.running_batch)
++             ret = self.running_batch if not self.running_batch.is_empty() else None
++ 
+++        # GLM52_P4V2: ask the draft worker whether THIS rank needs an eager
+++        # draft step, and record it on the batch so the MLP-sync all-gather
+++        # below carries it to every rank. Must run BEFORE
+++        # maybe_prepare_mlp_sync_batch -- that is the collective that spreads
+++        # it. (Upstream PR #32209 places it at exactly this line.)
+++        if ret is not None and getattr(self, "draft_worker", None) is not None:
+++            ret.force_disable_draft_cuda_graph = (
+++                self.draft_worker.requires_dp_attention_eager_forward(ret)
+++            )
+++
++         ret = self.dp_attn_adapter.maybe_prepare_mlp_sync_batch(ret)
++         if ret:
++             set_schedule_time_batch(ret)
++diff --git a/python/sglang/srt/managers/schedule_batch.py b/python/sglang/srt/managers/schedule_batch.py
++index 55c88afa19..23687c1669 100755
++--- a/python/sglang/srt/managers/schedule_batch.py
+++++ b/python/sglang/srt/managers/schedule_batch.py
++@@ -1782,6 +1782,10 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
++     is_extend_in_batch: bool = False
++     all_extend_in_batch: bool = False  # plumbing for downstream forks (PR #19639)
++     can_run_dp_cuda_graph: bool = False
+++    can_run_dp_draft_cuda_graph: bool = True  # GLM52_P4V2
+++    # GLM52_P4V2: rank-local request for an eager draft step; the MLP-sync
+++    # all-gather turns it into the group-wide can_run_dp_draft_cuda_graph.
+++    force_disable_draft_cuda_graph: bool = False
++     can_run_dp_breakable_cuda_graph: bool = False
++     tbo_split_seq_index: Optional[int] = None
++ 
++@@ -2852,6 +2856,8 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
++             global_num_tokens=self.global_num_tokens,
++             global_num_tokens_for_logprob=self.global_num_tokens_for_logprob,
++             can_run_dp_cuda_graph=self.can_run_dp_cuda_graph,
+++            can_run_dp_draft_cuda_graph=self.can_run_dp_draft_cuda_graph,  # GLM52_P4V2
+++            force_disable_draft_cuda_graph=self.force_disable_draft_cuda_graph,
++             can_run_dp_breakable_cuda_graph=self.can_run_dp_breakable_cuda_graph,
++             is_extend_in_batch=self.is_extend_in_batch,
++             all_extend_in_batch=self.all_extend_in_batch,
++diff --git a/python/sglang/srt/managers/scheduler_components/dp_attn.py b/python/sglang/srt/managers/scheduler_components/dp_attn.py
++index b473a11ee7..ff0ef4220c 100644
++--- a/python/sglang/srt/managers/scheduler_components/dp_attn.py
+++++ b/python/sglang/srt/managers/scheduler_components/dp_attn.py
++@@ -37,6 +37,9 @@ class MLPSyncBatchInfo:
++     num_tokens: int
++     num_tokens_for_logprob: int
++     can_cuda_graph: bool
+++    # GLM52_P4V2: slot 7 of the gathered tensor. min()-reduced like
+++    # can_cuda_graph, so ANY rank needing eager takes the whole group eager.
+++    can_draft_cuda_graph: bool
++     is_extend_in_batch: bool
++     local_can_run_tbo: bool
++     local_forward_mode: int
++@@ -60,6 +63,7 @@ class MLPSyncBatchInfo:
++                 int(self.local_can_run_tbo),
++                 self.local_forward_mode,
++                 int(self.can_run_breakable_cuda_graph),
+++                int(self.can_draft_cuda_graph),  # GLM52_P4V2
++             ],
++             device=device,
++             dtype=dtype,
++@@ -75,6 +79,8 @@ class MLPSyncBatchInfo:
++                 1,  # local_can_run_tbo
++                 ForwardMode.IDLE.value,  # local_forward_mode
++                 0,  # can_run_breakable_cuda_graph
+++                1,  # can_draft_cuda_graph -- GLM52_P4V2, permissive: an
+++                    # inactive rank must not drag the group into eager.
++             ],
++             device=device,
++             dtype=dtype,
++@@ -82,8 +88,9 @@ class MLPSyncBatchInfo:
++ 
++     def all_gather(self, device, group: torch.distributed.ProcessGroup):
++         local_info_tensor = self._get_local_tensor(device=device)
+++        # GLM52_P4V2: 7 -> 8 slots (can_draft_cuda_graph appended).
++         global_info_tensor = torch.empty(
++-            (self.dp_size, self.tp_size * self.cp_size, 7),
+++            (self.dp_size, self.tp_size * self.cp_size, 8),
++             dtype=torch.int64,
++             device=device,
++         )
++@@ -99,7 +106,9 @@ class MLPSyncBatchInfo:
++             tp_active_ranks = get_tp_group().active_ranks
++ 
++         # Set fallback values for inactive ranks
++-        tp_info = global_info_tensor.view(self.dp_size * self.tp_size * self.cp_size, 7)
+++        tp_info = global_info_tensor.view(  # GLM52_P4V2: 7 -> 8
+++            self.dp_size * self.tp_size * self.cp_size, 8
+++        )
++         tp_info[tp_active_ranks == 0] = self._get_fallback_tensor(device=device)
++ 
++         tp0_info = global_info_tensor[:, 0, :]
++@@ -111,6 +120,8 @@ class MLPSyncBatchInfo:
++         self.can_cuda_graph = bool(tp0_info[:, 2].min().item())
++         self.is_extend_in_batch = bool(tp0_info[:, 3].max().item())
++         self.can_run_breakable_cuda_graph = bool(tp0_info[:, 6].min().item())
+++        # GLM52_P4V2: min() -- one rank needing eager takes the whole group.
+++        self.can_draft_cuda_graph = bool(tp0_info[:, 7].min().item())
++         if _ENABLE_METRICS_DP_ATTENTION:
++             self.dp_cooperation_info = DPCooperationInfo.create(tp0_info[:, 5].tolist())
++ 
++@@ -137,6 +148,7 @@ def _update_gather_batch(
++ 
++     # Check forward mode for cuda graph
++     batch.can_run_dp_cuda_graph = mlp_sync_info.can_cuda_graph
+++    batch.can_run_dp_draft_cuda_graph = mlp_sync_info.can_draft_cuda_graph  # GLM52_P4V2
++     batch.can_run_dp_breakable_cuda_graph = mlp_sync_info.can_run_breakable_cuda_graph
++ 
++ 
++@@ -189,6 +201,13 @@ def prepare_mlp_sync_batch_raw(
++         and local_batch.forward_mode in (ForwardMode.EXTEND, ForwardMode.MIXED)
++         and not disable_cuda_graph
++     )
+++    # GLM52_P4V2: rank-local answer set by the scheduler just before this call.
+++    # Default True (permissive) when the batch is None or the attribute is
+++    # absent, matching can_cuda_graph's treatment of idle ranks.
+++    can_draft_cuda_graph = not (
+++        local_batch is not None
+++        and getattr(local_batch, "force_disable_draft_cuda_graph", False)
+++    )
++ 
++     is_extend_in_batch = local_batch.forward_mode.is_extend() if local_batch else False
++     if local_batch is not None:
++@@ -214,6 +233,7 @@ def prepare_mlp_sync_batch_raw(
++         num_tokens=num_tokens,
++         num_tokens_for_logprob=num_tokens_for_logprob,
++         can_cuda_graph=can_cuda_graph,
+++        can_draft_cuda_graph=can_draft_cuda_graph,  # GLM52_P4V2
++         is_extend_in_batch=is_extend_in_batch,
++         local_can_run_tbo=local_can_run_tbo,
++         local_forward_mode=local_forward_mode,
++diff --git a/python/sglang/srt/model_executor/forward_batch_info.py b/python/sglang/srt/model_executor/forward_batch_info.py
++index 031ab4fe87..09c43f6d55 100644
++--- a/python/sglang/srt/model_executor/forward_batch_info.py
+++++ b/python/sglang/srt/model_executor/forward_batch_info.py
++@@ -389,6 +389,7 @@ class ForwardBatch(ForwardBatchDeepSeekMHAMixin):
++     # Mirrors ScheduleBatch.all_extend_in_batch; kept for downstream forks.
++     all_extend_in_batch: bool = False
++     can_run_dp_cuda_graph: bool = False
+++    can_run_dp_draft_cuda_graph: bool = True  # GLM52_P4V2
++     can_run_dp_breakable_cuda_graph: bool = False
++     global_forward_mode: Optional[ForwardMode] = None
++ 
++@@ -704,6 +705,7 @@ class ForwardBatch(ForwardBatchDeepSeekMHAMixin):
++             is_extend_in_batch=batch.is_extend_in_batch,
++             all_extend_in_batch=batch.all_extend_in_batch,
++             can_run_dp_cuda_graph=batch.can_run_dp_cuda_graph,
+++            can_run_dp_draft_cuda_graph=batch.can_run_dp_draft_cuda_graph,  # GLM52_P4V2
++             can_run_dp_breakable_cuda_graph=batch.can_run_dp_breakable_cuda_graph,
++             global_forward_mode=batch.global_forward_mode,
++             is_prefill_only=batch.is_prefill_only,
++diff --git a/python/sglang/srt/speculative/eagle_draft_cuda_graph_runner.py b/python/sglang/srt/speculative/eagle_draft_cuda_graph_runner.py
++index 7cf12912ce..4f903cd7cf 100644
++--- a/python/sglang/srt/speculative/eagle_draft_cuda_graph_runner.py
+++++ b/python/sglang/srt/speculative/eagle_draft_cuda_graph_runner.py
++@@ -305,7 +305,14 @@ class EAGLEDraftCudaGraphRunner(DecodeCudaGraphRunner):
++         )
++ 
++         if self.require_mlp_sync:
++-            is_bs_supported = is_bs_supported and forward_batch.can_run_dp_cuda_graph
+++            # GLM52_P4V2: the group-wide draft-graph gate, all-gathered by
+++            # the scheduler. Without it the draft graph decision stays
+++            # rank-local and the group deadlocks.
+++            is_bs_supported = (
+++                is_bs_supported
+++                and forward_batch.can_run_dp_cuda_graph
+++                and forward_batch.can_run_dp_draft_cuda_graph
+++            )
++ 
++         return is_bs_supported
++ 
++diff --git a/python/sglang/srt/speculative/eagle_worker_v2.py b/python/sglang/srt/speculative/eagle_worker_v2.py
++index baa3674964..0aa321a1b1 100644
++--- a/python/sglang/srt/speculative/eagle_worker_v2.py
+++++ b/python/sglang/srt/speculative/eagle_worker_v2.py
++@@ -1105,6 +1105,64 @@ class EAGLEWorkerV2(BaseSpecWorker):
++         # draft_extend, which runs on the draft runner.
++         return self._draft_worker.draft_runner
++ 
+++    def requires_dp_attention_eager_forward(self, batch) -> bool:
+++        """GLM52_P4V2: does THIS rank need the draft step to run eagerly?
+++
+++        Ported from upstream PR #32209. The graph/eager choice must be the
+++        SAME on every DP rank -- graph replay and the eager multi-step loop do
+++        not issue the same host-side collective sequence, so a per-rank choice
+++        desynchronizes the group and deadlocks (measured: one busy rank eager
+++        in init_forward_metadata while seven idle ranks sat in all_gather).
+++
+++        This is the rank-local half. The scheduler folds the answer into the
+++        MLP-sync all-gather it already performs, which min()-reduces it across
+++        the group -- so no extra collective is introduced, unlike our v1 fix
+++        which added a gloo all-reduce inside draft().
+++
+++        The condition is guard term 4 of the original `draft()` check: with
+++        IndexShare seeding on, a batch whose DSA top-k seed has not arrived
+++        must not use the draft graph. On the PD decode leg that seed comes
+++        from RDMA-shipped per-request payloads, so the answer is a function of
+++        which requests this rank happens to hold -- which is exactly why it
+++        diverges here and never does on a single-node mix run.
+++        """
+++        if not self._draft_worker.seed_dsa_topk_from_draft_extend:
+++            return False
+++
+++        draft_input = batch.spec_info
+++        if draft_input is None:
+++            return False
+++
+++        # Under overlap scheduling FutureMap resolves the draft input AFTER
+++        # this scheduler-side vote, so `dsa_topk_indices` is still stale here
+++        # and must not be read directly. Upstream #32209 consults
+++        # `future_dsa_topk_indices_available` instead, and so do we:
+++        #
+++        #   scheduler.py:3314          sets it to (dsa_topk_indices is not None)
+++        #                              on the draft input published for the
+++        #                              NEXT iteration;
+++        #   overlap_utils.py:271       is the consumer -- it fills
+++        #                              draft_input.dsa_topk_indices from the
+++        #                              buffer iff the flag is set, else None.
+++        #
+++        # So the flag is exactly "will term 4 be satisfied once resolved",
+++        # which is the question this predicate has to answer one step early.
+++        #
+++        # CORRECTION (2026-07-30): an earlier revision of this script claimed
+++        # the attribute was absent from this baseline and fell back to
+++        # REQUIRING EAGER whenever `future_indices` was set. That claim was
+++        # wrong -- it is present at eagle_info.py:179 and spec_info.py:261 --
+++        # and the fallback was catastrophic rather than merely conservative:
+++        # overlap scheduling sets `future_indices` on EVERY decode iteration,
+++        # so the draft graph was refused 100% of the time. Measured on arm e3b,
+++        # conc=32: draft-graph usage 0.0% across all 8 ranks (200/200 calls
+++        # refused), with the real guard term (`seed_none`) never once firing.
+++        # That silently degraded patch 4 into the Variant-B workaround while
+++        # still passing every functional test.
+++        if getattr(draft_input, "future_indices", None) is not None:
+++            return not draft_input.future_dsa_topk_indices_available
+++        return getattr(draft_input, "dsa_topk_indices", None) is None
+++
++     @property
++     def spec_v2_attn_backends(self) -> tuple:
++         # Every attn backend a spec_v2 forward touches; consumed by
+diff --git a/deploy/docker/patches/sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff b/deploy/docker/patches/sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff
+new file mode 100644
+index 0000000..174f84d
+--- /dev/null
++++ b/deploy/docker/patches/sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff
+@@ -0,0 +1,162 @@
++PARTIAL ALTERNATIVE: turning GLM-5.2 MTP IndexShare off avoids the need for the
++PAGE-TABLE ROW half of this diff (2b), but not the DP host-sync half (2a).
++
++    --json-model-override-args '{"index_share_for_mtp_iteration":false}'
++
++An arm run with this override and with 2b and 04 both asserted ABSENT from the
++bytecode passed 4/4, 32/32 twice and 64/64 on 2 x 8 MI355X.  So 2b is not needed in
++that configuration.  2a was NOT reverted in that arm, so that arm says nothing about
++it either way.
++
++2a's own evidence does not come from a revert; it comes from runtime state.  A
++py-spy dump caught a BUSY rank blocked inside dsa_backend on .max().item() while
++IDLE peers had already advanced into the next collective -- the divergence itself,
++observed.  After the fix no rank appears in dsa_backend in a dump again and PD
++warmup passes on all 8 ranks.  Fix A2 (the two unconditional .cpu() syncs on the
++same branch) was forced by experiment, not by reading: with A applied and A2 not,
++the hang persists.  Over-allocating page-table columns was verified safe by walking
++every consumer -- the table is only indexed THROUGH top-k, which masks per row by
++cache_seqlens, so the extra columns get -inf and are never selected.  The
++sync-free idiom is established in-tree three times (triton_backend.py,
++trtllm_mha_backend.py, and DSA's own graph path).
++
++The override does NOT substitute for 01 (padded rows) or the nextn eh_proj fix.
++It is nearly free only while IndexShare's consumer stays disabled under PD by
++should_use_dsa_fused_topk; upstream #31477 removes that.  See the header of
++draft_cuda_graph_dp_vote.diff for the full account and the status check.
++
++diff --git a/python/sglang/srt/layers/attention/dsa_backend.py b/python/sglang/srt/layers/attention/dsa_backend.py
++index 75aa41d784..58e6e504d2 100644
++--- a/python/sglang/srt/layers/attention/dsa_backend.py
+++++ b/python/sglang/srt/layers/attention/dsa_backend.py
++@@ -141,6 +141,45 @@ def _to_2d_context_lens(seqlens_32: torch.Tensor, batch_size: int) -> torch.Tens
++ global_workspace_buffer = None
++ 
++ 
+++
+++
+++def _glm52_match_page_table_rows(page_table, topk_indices):
+++    """GLM52_BUG5: make page_table's row count agree with topk_indices'.
+++
+++    `metadata.page_table_1` is `req_to_token[req_pool_indices, :max_seqlen_k]`,
+++    so it has one row per REQUEST. `topk_indices` has just been widened by
+++    `_pad_topk_indices` to `q.shape[0]`, one row per TOKEN. For plain decode
+++    those coincide (one token per request); under MTP the draft model runs
+++    several tokens per request and they do not, so
+++    `transform_index_page_table_decode_fast` trips
+++
+++        assert page_table.shape[0] == topk_indices.shape[0]
+++
+++    Observed as an 8-rank crash under 16 concurrent requests.
+++
+++    Expanding by repeat_interleave reproduces the token-major-per-request
+++    layout. Rows added by `_pad_topk_indices` hold all -1, and the triton
+++    kernel masks those out (`valid_topk_mask = mask & (loaded_topk_indices >= 0)`),
+++    so their page-table counterparts are never read -- only the row COUNT has to
+++    match. The prefill sibling handles this with an explicit `output_num_tokens`
+++    argument; the decode entry point has no equivalent.
+++    """
+++    if topk_indices is None or page_table is None:
+++        return page_table
+++    n_topk = topk_indices.shape[0]
+++    n_rows = page_table.shape[0]
+++    if n_rows == n_topk:
+++        return page_table
+++    if n_rows > 0 and n_topk % n_rows == 0:
+++        return page_table.repeat_interleave(n_topk // n_rows, dim=0)
+++    # Non-integral ratio: trim or edge-pad so the shapes agree. Any row reached
+++    # only through padded (-1) topk entries is masked, so its content is moot.
+++    if n_rows > n_topk:
+++        return page_table[:n_topk]
+++    pad = page_table[-1:].expand(n_topk - n_rows, -1)
+++    return torch.cat([page_table, pad], dim=0)
+++
+++
++ @dataclass(frozen=True)
++ class DSAFlashMLAMetadata:
++     """Metadata only needed by FlashMLA"""
++@@ -740,10 +779,15 @@ class DeepseekSparseAttnBackend(
++                 forward_batch.seq_lens_cpu.max().item() + draft_token_num
++             )
++         else:
++-            # needs_cpu_seq_lens=False nulls the host mirror for spec-v2 relay
++-            # batches; graph replay uses the static page-table width, so only this
++-            # eager (e.g. over-capture-bs) fallback needs a length here.
++-            max_seqlen_k = int(forward_batch.seq_lens.max().item()) + draft_token_num
+++            # GLM52_BUG2_FIX_A: needs_cpu_seq_lens=False nulls the host mirror for
+++            # spec-v2 relay batches. `seq_lens.max().item()` here is a blocking D2H
+++            # sync on a branch that only SOME DP ranks take (IDLE peers keep their
+++            # mirror and take the cheap arm), which desynchronizes the DP collectives
+++            # and deadlocks. Use the static page-table width instead -- the same
+++            # sync-free idiom as _graph_page_table_width() and the graph-capture
+++            # paths below. Over-allocating columns is safe: the page table is only
+++            # indexed through top-k, which masks per row by cache_seqlens.
+++            max_seqlen_k = self.req_to_token.shape[1]
++         # [b, max_seqlen_k]
++         page_table = self.req_to_token_pool.req_to_token[
++             forward_batch.req_pool_indices, :max_seqlen_k
++@@ -803,19 +847,32 @@ class DeepseekSparseAttnBackend(
++                 page_table, repeats=self.speculative_num_draft_tokens, dim=0
++             )
++         elif forward_batch.forward_mode.is_draft_extend_v2():
++-            if forward_batch.extend_prefix_lens_cpu is None:
++-                assert forward_batch.extend_prefix_lens is not None
++-                forward_batch.extend_prefix_lens_cpu = (
++-                    forward_batch.extend_prefix_lens.cpu().tolist()
++-                )
++-            if forward_batch.seq_lens_cpu is None:
++-                forward_batch.seq_lens_cpu = forward_batch.seq_lens.cpu()
++-                forward_batch.seq_lens_sum = int(forward_batch.seq_lens_cpu.sum())
+++            # GLM52_BUG2_FIX_A2: the two host mirrors that used to be materialized
+++            # here (extend_prefix_lens.cpu() and seq_lens.cpu()) are unconditional
+++            # D2H syncs on the same rank-divergent branch as the max_seqlen_k fix
+++            # above, so Fix A alone does not lift the deadlock.
+++            #
+++            # They are dead for DRAFT_EXTEND_V2, which is not is_extend() (see
+++            # ForwardMode.is_extend -- include_draft_extend_v2 defaults to False).
+++            # Every consumer is therefore unreachable on this path:
+++            #   * extend_prefix_lens_cpu -- read only inside the is_extend() arm
+++            #   * seq_lens_sum -- read at the is_extend()-gated capacity check and
+++            #     the Blackwell+EXTEND prefill heuristic
+++            #   * seq_lens_cpu -> indexer_seq_lens_cpu is captured ABOVE this block,
+++            #     so it is already None here today; the draft-extend indexer path
+++            #     reads get_seqlens_expanded() / block_tables.shape[1] (GPU-side)
+++            #   * _cal_indexer_k_start_end and dsa_indexer's k-only path both open
+++            #     with an is_extend_without_speculative() guard
+++            #
+++            # base_spec_worker.prepare_for_draft_extend already supplies the mirror
+++            # this branch actually needs -- extend_seq_lens_cpu -- precisely "so
+++            # backend max() reads from list without a per-iter D2H sync". This
+++            # completes that intent instead of contradicting it. The assert keeps
+++            # the invariant that the consumed values are present.
++             assert (
++                 forward_batch.extend_seq_lens_cpu is not None
++                 and forward_batch.extend_seq_lens is not None
++-                and forward_batch.extend_prefix_lens_cpu is not None
++-            ), "All of them must not be None"
+++            ), "extend_seq_lens{,_cpu} must not be None for DRAFT_EXTEND_V2"
++ 
++             extend_seq_lens_cpu = forward_batch.extend_seq_lens_cpu
++             assert forward_batch.extend_seq_lens is not None
++@@ -2134,7 +2191,9 @@ class DeepseekSparseAttnBackend(
++             page_table_1 = self._get_fused_topk_page_table(topk_indices)
++         else:
++             page_table_1 = transform_index_page_table_decode(
++-                page_table=metadata.page_table_1,
+++                page_table=_glm52_match_page_table_rows(
+++                    metadata.page_table_1, topk_indices
+++                ),
++                 topk_indices=topk_indices,
++                 page_size=1,
++             )
++@@ -2704,7 +2763,9 @@ class DeepseekSparseAttnBackend(
++             if topk_indices is not None:
++                 topk_indices = self._pad_topk_indices(topk_indices, q.shape[0])
++             page_table_1 = transform_index_page_table_decode(
++-                page_table=metadata.page_table_1,
+++                page_table=_glm52_match_page_table_rows(
+++                    metadata.page_table_1, topk_indices
+++                ),
++                 topk_indices=topk_indices,
++                 page_size=1,
++             )
+diff --git a/deploy/docker/patches/sglang_dsa/dsa_indexer_hip_dp_padded_rows.diff b/deploy/docker/patches/sglang_dsa/dsa_indexer_hip_dp_padded_rows.diff
+new file mode 100644
+index 0000000..3d918a8
+--- /dev/null
++++ b/deploy/docker/patches/sglang_dsa/dsa_indexer_hip_dp_padded_rows.diff
+@@ -0,0 +1,122 @@
++NOT substituted by the IndexShare workaround.  Turning GLM-5.2 MTP IndexShare off
++(--json-model-override-args '{"index_share_for_mtp_iteration":false}') removes the
++rank-divergence that 04 and 02's page-table half address, but this is an
++independent bug -- the HIP indexer sizing its output from DP-PADDED rows while
++`lengths` is sized to REAL rows.  It is present regardless of IndexShare, and the
++arm that validated the override applied THIS patch.
++
++diff --git a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
++index 59b2256815..e5f4847678 100644
++--- a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+++++ b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
++@@ -5,6 +5,8 @@ import logging
++ from abc import ABC, abstractmethod
++ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
++ 
+++import os
+++
++ import torch
++ from einops import rearrange
++ 
++@@ -57,6 +59,9 @@ logger = logging.getLogger(__name__)
++ global _use_multi_stream
++ _is_cuda = is_cuda()
++ _is_hip = is_hip()
+++# Set SGLANG_DEBUG_DSA_ROWS=1 to log the indexer row bookkeeping (padded vs real).
+++_DSA_DEBUG_ROWS = os.environ.get("SGLANG_DEBUG_DSA_ROWS", "0") == "1"
+++
++ _is_npu = is_npu()
++ 
++ if not _is_npu:
++@@ -902,11 +907,60 @@ class Indexer(MultiPlatformOp):
++         assert len(weights.shape) == 3
++         weights = weights.squeeze(2)
++ 
+++        # GLM52_P1V2: bound before the branch so the restore below can gate on
+++        # it without a locals() lookup. Only the aiter branch sets it True;
+++        # the CUDA branches slice internally and re-pad themselves.
+++        _p1v2_trim = False
+++        _p1v2_real = q_offset
+++        _p1v2_padded = q_fp8.shape[0]
++         if self.paged_mqa_logits_backend.is_aiter():
+++            # Trim eager DP-attention padding before the aiter paged-MQA call,
+++            # in the shape of upstream PR #32762 (NPU, same bug class).
+++            #
+++            # Under DP-attention the hidden states are padded to the largest
+++            # token count across ranks, so q_fp8 carries more rows than this
+++            # rank's batch really has, while `lengths` (dsa_seqlens_expanded)
+++            # is sized to the REAL count. The CUDA path
+++            # (deepgemm_paged_mqa_logits_split) slices q/weights for exactly
+++            # this reason; aiter instead sizes its `logits` output from
+++            # q_fp8.shape[0], so without the same slice the top-k below sees
+++            # score.shape[0] != lengths.shape[0] and asserts
+++            # ("Expected lengths.size(0) == B to be true").
+++            #
+++            # Trim whenever there IS padding, including _p1v2_real == 0: a
+++            # DP-IDLE rank has no requests, so the real count is 0 while q_fp8
+++            # still carries padding. q_fp8[:0] is a legal empty slice and is
+++            # what an idle rank should pass -- the CUDA path likewise slices
+++            # unconditionally. (An earlier revision had a `0 < q_offset` lower
+++            # bound here; it made fast_topk_v2 assert on idle ranks.)
+++            _p1v2_trim = _p1v2_real < _p1v2_padded
+++            _q_mqa, _w_mqa = q_fp8, weights
+++            if _p1v2_trim:
+++                _q_mqa = q_fp8[:_p1v2_real]
+++                _w_mqa = weights[:_p1v2_real]
+++            if _DSA_DEBUG_ROWS:
+++                # Cross-check against the padding bookkeeping #32762 uses as
+++                # its source. NOT an assert: it has never been measured to
+++                # agree with q_offset on the MTP draft-extend path. Logged so
+++                # a later revision can promote it if the data supports it.
+++                _p1v2_ntnp = getattr(forward_batch, "_original_num_tokens", None)
+++                if _p1v2_ntnp is None:
+++                    _p1v2_ntnp = forward_batch.num_token_non_padded_cpu
+++                logger.info(
+++                    "[dsa-rows] mode=%s q_fp8=%s q_offset=%s ntnp=%s agree=%s "
+++                    "lengths=%s -> mqa_q=%s",
+++                    forward_batch.forward_mode,
+++                    tuple(q_fp8.shape),
+++                    _p1v2_real,
+++                    _p1v2_ntnp,
+++                    _p1v2_ntnp == _p1v2_real,
+++                    tuple(metadata.get_seqlens_expanded().shape),
+++                    tuple(_q_mqa.shape),
+++                )
++             logits = aiter_paged_mqa_logits(
++-                q_fp8,
+++                _q_mqa,
++                 kv_cache_fp8,
++-                weights,
+++                _w_mqa,
++                 seqlens_32,
++                 block_tables,
++                 max_seq_len,
++@@ -961,11 +1015,24 @@ class Indexer(MultiPlatformOp):
++ 
++         # NOTE(dark): logits should be cleaned in topk_transform
++         topk_result = metadata.topk_transform(logits, self.index_topk)
++-        # Restore possible padding exist in the hidden states.
++-        if not _is_hip and q_offset < q_fp8.shape[0]:
++-            pad_len = q_fp8.shape[0] - q_offset
+++        # GLM52_P1V2: restore the padding the trim above removed.
+++        #
+++        # #32762's shape: gate on the SAME boolean that drove the trim, and
+++        # ASSERT the kernel returned exactly the trimmed row count before
+++        # concatenating. The previous revision re-derived the condition as
+++        # `q_offset < q_fp8.shape[0] and topk_result.shape[0] == q_offset`,
+++        # whose second conjunct silently skipped the restore on a shape drift
+++        # and handed the caller a short tensor -- a wrong answer rather than a
+++        # crash.
+++        if _p1v2_trim:
+++            assert topk_result.shape[0] == _p1v2_real, (
+++                "GLM52_P1V2: paged-MQA top-k returned "
+++                f"{topk_result.shape[0]} rows for {_p1v2_real} trimmed query "
+++                f"rows (padded={_p1v2_padded}); refusing to pad a mis-shaped "
+++                "result."
+++            )
++             padding = torch.full(
++-                (pad_len, topk_result.shape[1]),
+++                (_p1v2_padded - _p1v2_real, topk_result.shape[1]),
++                 -1,
++                 dtype=topk_result.dtype,
++                 device=topk_result.device,
+diff --git a/deploy/docker/scripts/apply_sglang_dsa_patches.sh b/deploy/docker/scripts/apply_sglang_dsa_patches.sh
+new file mode 100755
+index 0000000..d08a309
+--- /dev/null
++++ b/deploy/docker/scripts/apply_sglang_dsa_patches.sh
+@@ -0,0 +1,101 @@
++#!/usr/bin/env bash
++# Apply the GLM-5.2 DSA patch set to the sglang checkout in an engine image, and
++# prove every patch reached the BYTECODE.
++#
++# Used by Dockerfile.sglang at build time, and runnable by hand inside a
++# container for iteration.
++#
++# DEPENDENCY: the GLM-5.2 nextn eh_proj quark-exclude fix is NOT in this set --
++# deploy/docker/patches/sglang/patch_glm52_nextn_quark_exclude.py already carries
++# it, and Dockerfile.sglang runs that loop BEFORE this script.  It is a hard
++# prerequisite (without it GLM-5.2 MTP dies at draft weight-load with a
++# 3072-vs-6144 shape error), so we ASSERT it below rather than assume it.
++#
++# WHY BYTECODE VERIFICATION.  Python caches compiled modules in __pycache__ keyed
++# on the source mtime.  A patch script that restores a backup with shutil.copy2
++# preserves the original mtime, so the edited .py can match a stale .pyc and
++# CPython silently runs the UNPATCHED bytecode.  This has already invalidated a
++# full experiment here -- the source showed the fix, the runtime did not have it.
++# So we drop __pycache__ and re-verify against freshly compiled bytecode.
++#
++# Verification greps for IDENTIFIERS, never for `#` comment markers: the compiler
++# discards comments, so a comment marker reads as a false negative.
++set -euo pipefail
++
++SGLANG_DIR="${SGLANG_DIR:-/sgl-workspace/sglang}"
++PATCH_DIR="${PATCH_DIR:-/tmp/sglang_dsa}"
++SRT="$SGLANG_DIR/python/sglang/srt"
++
++# Applied in this order.  Order is not significant -- the three touch disjoint
++# files, except that 02 carries both patch 2a and 2b in one diff.
++PATCHES=(
++  dsa_indexer_hip_dp_padded_rows.diff
++  dsa_backend_dp_sync_and_page_table_rows.diff
++  draft_cuda_graph_dp_vote.diff
++)
++
++# module basename : identifier that must be present in the compiled bytecode
++MARKERS=(
++  "dsa_indexer.py:_p1v2_trim"
++  "dsa_backend.py:_glm52_match_page_table_rows"
++  "dp_attn.py:can_draft_cuda_graph"
++  "eagle_worker_v2.py:requires_dp_attention_eager_forward"
++  "eagle_draft_cuda_graph_runner.py:can_run_dp_draft_cuda_graph"
++  "forward_batch_info.py:can_run_dp_draft_cuda_graph"
++  "schedule_batch.py:force_disable_draft_cuda_graph"
++  "decode.py:force_disable_draft_cuda_graph"
++)
++
++echo "=== sglang DSA patches: applying to $SGLANG_DIR ==="
++cd "$SGLANG_DIR"
++for p in "${PATCHES[@]}"; do
++  echo "  --- $p"
++  # --fuzz=0: these target a pinned sglang commit.  A fuzzy apply that "succeeds"
++  # against a different base is worse than a clean failure.
++  patch -p1 --fuzz=0 < "$PATCH_DIR/$p"
++done
++
++echo "=== dropping __pycache__ so verification cannot read a stale .pyc ==="
++find "$SGLANG_DIR/python/sglang/srt" -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
++
++echo "=== verifying every patch reached the bytecode ==="
++fail=0
++
++# PREREQUISITE, not one of our patches: patch_glm52_nextn_quark_exclude.py (run
++# earlier by Dockerfile.sglang) must have made the nextn eh_proj edit.  Asserted
++# here because GLM-5.2 MTP cannot load its draft weights without it, and because
++# a silent "skipped" from that idempotent script would otherwise go unnoticed
++# until the engine crashed at runtime.  The marker is a literal inside an
++# f-string, so this is a SOURCE check -- the f-string is split across bytecode
++# constants and does not appear whole in the .pyc.
++n3=$(grep -c 'num_hidden_layers}.eh_proj' "$SRT/models/deepseek_nextn.py" || true)
++echo "  PREREQ nextn eh_proj      -> src=$n3 (want 1)"
++[ "$n3" -eq 1 ] || { echo "  ^ run deploy/docker/patches/sglang/ first" >&2; fail=1; }
++
++# Patch 2a changes an expression and introduces no new identifier, and the same
++# expression already appears on two pre-existing graph-capture paths -- so
++# counting it gives 3, not 1.  Key off the unique comment the patch adds.  This
++# is a SOURCE check by necessity; bytecode cannot show it.
++n2a=$(grep -c 'GLM52_BUG2_FIX_A: needs_cpu_seq_lens=False nulls the host mirror' \
++      "$SRT/layers/attention/dsa_backend.py" || true)
++echo "  patch2a max_seqlen_k      -> src=$n2a (want 1)"
++[ "$n2a" -eq 1 ] || fail=1
++
++for spec in "${MARKERS[@]}"; do
++  f="${spec%%:*}"; m="${spec#*:}"
++  p=$(find "$SRT" -name "$f" | head -1)
++  if [ -z "$p" ]; then echo "  MISSING MODULE $f"; fail=1; continue; fi
++  d=$(dirname "$p"); b=$(basename "$p" .py)
++  rm -f "$d/__pycache__/$b."*.pyc
++  python3 -c "import py_compile; py_compile.compile('$p', doraise=True)"
++  pyc=$(ls "$d/__pycache__/$b."*.pyc 2>/dev/null | head -1)
++  n=$(strings "$pyc" | grep -c "$m" || true)
++  printf "  %-42s -> pyc=%s (want >0)\n" "$f :: $m" "$n"
++  [ "$n" -gt 0 ] || fail=1
++done
++
++if [ "$fail" -ne 0 ]; then
++  echo "SGLANG DSA PATCH VERIFICATION FAILED" >&2
++  exit 1
++fi
++echo "=== all sglang DSA patches verified in bytecode ==="
+diff --git a/infera/common/net.py b/infera/common/net.py
+index 5aa74d4..1fe61dd 100644
+--- a/infera/common/net.py
++++ b/infera/common/net.py
+@@ -5,8 +5,14 @@
+ ###############################################################################
+ from __future__ import annotations
+ 
++import itertools
++import random
+ import socket
+ 
++# How many randomly-chosen bases free_tcp_port_block tries before falling back
++# to an exhaustive scan.
++_PORT_BLOCK_TRIES = 64
++
+ 
+ def free_tcp_port() -> int:
+     """Bind to port 0 to let the kernel assign a free port, then release.
+@@ -28,10 +34,20 @@ def free_tcp_port_block(count: int) -> int:
+     """Lowest base such that ``base .. base+count-1`` are all free TCP ports.
+ 
+     SGLang binds one KV-event publisher per DP rank at ``base + attn_dp_rank``,
+-    so a single free base is not enough. We scan downward from just below the OS
+-    ephemeral range: a base there won't be handed out to any ``bind(("", 0))``
+-    caller (ours or SGLang's internal sockets), so the whole block survives the
+-    window until the engine binds it.
++    so a single free base is not enough. We scan below the OS ephemeral range:
++    a base there won't be handed out to any ``bind(("", 0))`` caller (ours or
++    SGLang's internal sockets), so the whole block survives the window until
++    the engine binds it.
++
++    The scan start is **randomised**. The probe must release the block before
++    returning (the caller's real listener binds ``0.0.0.0``, and a retained
++    ``127.0.0.1`` reservation would shut its own child out), so the reservation
++    cannot be exclusive. With a fixed start (``low - count``) that made
++    collisions deterministic rather than merely possible: two engines launched
++    on one host — e.g. the prefill and decode legs of a PD pair — both scanned
++    from the same place, both saw the same free block, and the second died with
++    ``ZMQError: Address already in use`` on ``base + rank``. Randomising spreads
++    the picks so concurrent callers land on different blocks.
+     """
+     if count <= 1:
+         return free_tcp_port()
+@@ -39,7 +55,12 @@ def free_tcp_port_block(count: int) -> int:
+         low = int(open("/proc/sys/net/ipv4/ip_local_port_range").read().split()[0])
+     except (OSError, ValueError, IndexError):
+         low = 32768
+-    for base in range(low - count, 1024, -1):
++    # Candidate window: [1024, low - count]. Probe randomly-chosen bases first,
++    # then fall back to an exhaustive downward scan so we never fail while a
++    # block is still available.
++    highest = low - count
++    randomised = [random.randint(1024, highest) for _ in range(_PORT_BLOCK_TRIES)]
++    for base in itertools.chain(randomised, range(highest, 1024, -1)):
+         socks: list[socket.socket] = []
+         try:
+             for off in range(count):
+diff --git a/infera/engine/sglang/args.py b/infera/engine/sglang/args.py
+index 47ca0eb..e8786a3 100644
+--- a/infera/engine/sglang/args.py
++++ b/infera/engine/sglang/args.py
+@@ -260,7 +260,22 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
+         and getattr(sglang_parsed, "disaggregation_transfer_backend", None) == "mooncake"
+         and "--disaggregation-decode-enable-radix-cache" not in remaining
+     ):
+-        remaining.append("--disaggregation-decode-enable-radix-cache")
++        # SGLang rejects the decode radix cache outright under speculative
++        # decoding (pd_disaggregation_hook: "incompatible with speculative
++        # decoding"), so appending it would kill an EAGLE/MTP decode leg during
++        # argument parsing. Skip it and let SGLang fall back to its chunk cache;
++        # prefix-aware routing then runs on the prefill-side view.
++        if getattr(sglang_parsed, "speculative_algorithm", None) is not None:
++            logger.info(
++                "kv-events on, but --disaggregation-decode-enable-radix-cache is "
++                "incompatible with --speculative-algorithm %s; not appending it. "
++                "The decode leg will use SGLang's chunk cache and contribute "
++                "little to the router KV view; prefix-aware routing runs on the "
++                "prefill-side view.",
++                sglang_parsed.speculative_algorithm,
++            )
++        else:
++            remaining.append("--disaggregation-decode-enable-radix-cache")
+ 
+     server_args = ServerArgs.from_cli_args(sglang_parsed)
+ 
+diff --git a/infera/engine/sglang/kvd_wiring.py b/infera/engine/sglang/kvd_wiring.py
+index b0b35dc..5669d39 100644
+--- a/infera/engine/sglang/kvd_wiring.py
++++ b/infera/engine/sglang/kvd_wiring.py
+@@ -171,11 +171,35 @@ def _finish_wiring(args: Any, socket_path: str) -> None:
+     logger.info("infera-kvd HiCacheStorage backend ready (socket=%s)", socket_path)
+ 
+ 
++def _skip_kvd_on_decode_leg(args: Any) -> bool:
++    """True if this is a PD decode leg, where kvd would be write-only.
++
++    SGLang only prefetches from hicache storage on the aggregated and PREFILL
++    branches of ``Scheduler._add_request_to_queue``; the DECODE branch has no
++    ``_prefetch_kvcache`` call, and that method is the sole caller of
++    ``prefetch_from_storage``. The backup path still runs, so a decode leg fills
++    L3 and never reads it -- measured at 180 sets / 0 gets against a prefill
++    leg's 102 sets / 102 gets on the same run.
++    """
++    mode = getattr(getattr(args, "server_args", None), "disaggregation_mode", None)
++    if str(mode) != "decode":
++        return False
++    logger.info(
++        "PD decode leg: not wiring infera-kvd. SGLang issues no storage prefetch "
++        "on the decode branch (scheduler._add_request_to_queue), so L3 here would "
++        "be write-only -- host memory and D2H bandwidth for zero reads. kvd stays "
++        "on the prefill leg, which is where prefix reuse is decided."
++    )
++    return True
++
++
+ async def awire_infera_kvd_backend(args: Any) -> None:
+     """Async variant for callers already inside an event loop."""
+     socket_path = args.infera_kvd_socket
+     if not socket_path:
+         return
++    if _skip_kvd_on_decode_leg(args):
++        return
+ 
+     # The adapter (constructed later by SGLang) reads this env var;
+     # this is the only seam we have because SGLang's factory
+diff --git a/infera/kvd/storage_classify.py b/infera/kvd/storage_classify.py
+index 64ad985..6cf7c3b 100644
+--- a/infera/kvd/storage_classify.py
++++ b/infera/kvd/storage_classify.py
+@@ -162,6 +162,15 @@ def _findmnt(path: Path) -> tuple[str, str] | None:
+         return None
+     fstype = parts[-1]
+     source = " ".join(parts[:-1])
++    # For a bind mount findmnt appends the bind subpath in brackets:
++    #     /dev/md0[/mnt/nvme-raid/kvd-long]
++    # Only the part before '[' names the device. Handing the whole string to
++    # lsblk gets "not a block device", which silently drops the probe to
++    # buffered even on hardware that qualifies for O_DIRECT — exactly what
++    # happens to a kvd L3 directory bind-mounted into a container.
++    bracket = source.find("[")
++    if bracket > 0:
++        source = source[:bracket]
+     return source, fstype
+ 
+ 
+diff --git a/infera/router/kv_event/client.py b/infera/router/kv_event/client.py
+index 3f89740..97c3ebe 100644
+--- a/infera/router/kv_event/client.py
++++ b/infera/router/kv_event/client.py
+@@ -47,6 +47,21 @@ def _offset_endpoint(endpoint: str, rank: int) -> str:
+     return f"{head}:{int(port) + rank}"
+ 
+ 
++def _flat_tokens(token_ids: list[int] | list[tuple[int, int]]) -> list[int]:
++    """The flat token ids of a stored block, whatever view the engine reports.
++
++    Under EAGLE/MTP, SGLang keys its radix tree on bigrams, so a block's tokens
++    arrive as the overlapping pairs ``(t[i], t[i+1])``. The first element of each
++    pair rebuilds ``t[start:end]`` -- the same flat slice ``hash_request`` chunks
++    on the query side, and radix nodes split on page boundaries so the two
++    chunkings stay aligned. Hashing the pairs as-is builds a view that no request
++    can ever match.
++    """
++    if token_ids and isinstance(token_ids[0], (list, tuple)):
++        return [pair[0] for pair in token_ids]
++    return token_ids
++
++
+ @dataclass
+ class WorkerSubscription:
+     """Per-worker subscription state: one ZMQ task per DP rank plus a
+@@ -216,9 +231,10 @@ class KvEventClient:
+                 # query misses by one block.
+                 return
+         bs = sub.block_size
+-        n = len(ev.token_ids) // bs
++        tokens = _flat_tokens(ev.token_ids)
++        n = len(tokens) // bs
+         for i in range(n):
+-            chunk = ev.token_ids[i * bs : (i + 1) * bs]
++            chunk = tokens[i * bs : (i + 1) * bs]
+             parent = hash_chunk(parent, chunk)
+             view.add(parent)
+             m[ev.block_hashes[i]] = parent
+diff --git a/infera/router/kv_event/events.py b/infera/router/kv_event/events.py
+index 252f2a2..3ae2637 100644
+--- a/infera/router/kv_event/events.py
++++ b/infera/router/kv_event/events.py
+@@ -73,7 +73,12 @@ class _SglangKVCacheEvent(msgspec.Struct, array_like=True, omit_defaults=True, g
+ class SglangBlockStored(_SglangKVCacheEvent, tag="BlockStored"):
+     block_hashes: list[int]
+     parent_block_hash: int | None
+-    token_ids: list[int]
++    # With EAGLE/MTP the radix key is a bigram view (``RadixKey.is_bigram``, set
++    # from ``is_eagle``), and the engine reports a block's tokens as the
++    # overlapping pairs ``(t[i], t[i+1])`` instead of bare ints -- so this field
++    # is list[int] on a plain engine and list[tuple[int, int]] under MTP. See
++    # ``client._flat_tokens`` for how the pairs map back onto flat tokens.
++    token_ids: list[int | tuple[int, int]]
+     block_size: int
+     lora_id: int | None
+     medium: str | None = None
+diff --git a/manual/features/feature_matrix.md b/manual/features/feature_matrix.md
+index 7c6f97f..78dac20 100644
+--- a/manual/features/feature_matrix.md
++++ b/manual/features/feature_matrix.md
+@@ -13,10 +13,18 @@ engine. **Legend:** ✅ supported · 🚧 work in progress · blank = not suppor
+ | **Disaggregated Serving (PD)** | ✅ | ✅ | ✅ | [PD Disaggregation][pd] |
+ | **KV-Aware Routing** | ✅ | ✅ | ✅ | [KV-Aware Routing][kv] |
+ | **KV-Aware Routing + DP-Attention** | ✅ | ✅ | ✅ | [KV-Aware Routing][kv] |
+-| **Tiered KV Cache Offload (kvd)** | ✅ | 🚧 | 🚧 | [KV Cache Offload][kvd] |
++| **Tiered KV Cache Offload (kvd)** | ✅ | ✅ | 🚧 | [KV Cache Offload][kvd] |
+ | **Multimodal (image / audio / video)** |  |  |  |  |
+ 
+-KV-cache offload (`kvd`), including AIC GPU-Direct, is **vLLM-only** today.
++`kvd` runs on vLLM (`InferaKvdConnector`) and on SGLang (`InferaKvdBackend`, a
++`HiCacheStorage` backend). The **AIC GPU-Direct** read path is vLLM-only; SGLang
++reads through the daemon's POSIX path.
++
++On SGLang, `kvd` on a **PD decode leg** additionally requires KV events to be
++on: a decode leg sets `disable_radix_cache=True` itself, and SGLang rejects that
++alongside `--enable-hierarchical-cache`. Infera re-enables the decode radix
++cache automatically — but only when KV events are enabled. See
++[KV Cache Offload][kvd].
+ 
+ [pd]: ./pd_disaggregation.md
+ [kv]: ./kv_aware_routing.md
+diff --git a/manual/features/kv_cache_offload.md b/manual/features/kv_cache_offload.md
+index f6239b4..8fa6f46 100644
+--- a/manual/features/kv_cache_offload.md
++++ b/manual/features/kv_cache_offload.md
+@@ -11,10 +11,11 @@ across engines, so you don't recompute them. **How it works under the hood:** se
+ 
+ ## Turn it on — single host
+ 
+-```{admonition} Limitation — vLLM only (for now)
++```{admonition} Engine support
+ :class: important
+-KV-Cache Offload, including the AIC GPU-Direct read path, currently supports the
+-**vLLM** engine only. SGLang and ATOM support is planned.
++KV-Cache Offload runs on **vLLM** and on **SGLang**. ATOM support is planned.
++The **AIC GPU-Direct** read path is vLLM-only; SGLang reads through the daemon's
++POSIX path. For the SGLang setup see [SGLang](#sglang) below.
+ ```
+ 
+ One `infera.kvd` daemon per host; every engine on that host shares it.
+@@ -173,6 +174,65 @@ The daemon flags and connector env vars are in the
+ [CLI reference](../reference/cli.md) and the
+ [environment variables](../reference/environment.md) reference.
+ 
++(sglang)=
++## SGLang
++
++SGLang reaches kvd through its own **HiCache** tier: infera registers
++`InferaKvdBackend`, a `HiCacheStorage` implementation, as SGLang's L3 store.
++One flag turns the whole thing on — `--infera-kvd-socket` — and infera appends
++`--enable-hierarchical-cache`, `--hicache-storage-backend dynamic`, and the
++backend extra-config for you. You must launch through the infera wrapper
++(`python -m infera.engine.sglang`); `sglang.launch_server` bypasses the wiring
++entirely.
++
++```bash
++PYTHONHASHSEED=0 python -m infera.engine.sglang \
++  --model-path <model> --port 30000 --host <routable> \
++  --infera-kvd-socket /var/run/infera-kvd.sock \
++  --hicache-size 16
++```
++
++`--infera-kvd-socket` **fails fast** (5 s probe): if the daemon is unreachable
++the engine refuses to start rather than serving with a silently dead L3.
++
++```{admonition} Size the host pool with --hicache-size, not --hicache-ratio
++:class: warning
++SGLang's default `--hicache-ratio 2.0` sizes the host pool as a multiple of
++`max_total_num_tokens`, so a small model with a large KV pool asks for a
++preposterous amount — a 1.7 B model with 1.5 M tokens allocated **355 GB per DP
++rank** (1.4 TB on a 4-rank node) before the node OOMed. `--hicache-size <GB>` is
++an absolute per-rank cap and overrides the ratio; prefer it.
++
++Also note `--hicache-ratio` below **1.5** silently disables L3 prefetch.
++```
++
++```{admonition} On a PD decode leg, kvd needs KV events ON
++:class: important
++A decode leg sets `disable_radix_cache=True` on itself ("KV cache is forced as
++chunk cache for decode server"), and SGLang rejects
++`--enable-hierarchical-cache` alongside it — so kvd is illegal on a decode leg
++by default. Infera appends `--disaggregation-decode-enable-radix-cache` to undo
++that, but **only** when KV events are enabled and the transfer backend is
++Mooncake (`infera/engine/sglang/args.py`). Passing `--no-enable-kv-events` on a
++decode leg therefore silently disables kvd there too.
++```
++
++**Verify.** Same as vLLM — drive a shared long prefix twice and read the daemon
++counters:
++
++```bash
++python -m infera.kvd.statctl --socket /var/run/infera-kvd.sock
++# want: sets_total > 0, then gets_total > 0 with hits_total climbing
++```
++
++A speed-up alone does **not** prove kvd did anything: SGLang's in-GPU radix
++cache serves a repeated prefix without ever touching L3. Read the counters. To
++attribute a hit to kvd specifically, restart the engine (which empties the GPU
++cache) and replay — hits should climb with **no new sets**.
++
++`PYTHONHASHSEED=0` keeps block hashes, and therefore chunk keys, stable across
++restarts; without it a restart orphans the whole L3 cache.
++
+ ## Usage modes
+ 
+ L2 (host RAM) is on by default; the **long tier is one backend** — local disk
+diff --git a/manual/serving/kvaware_kvd_operations.md b/manual/serving/kvaware_kvd_operations.md
+new file mode 100644
+index 0000000..c71b7af
+--- /dev/null
++++ b/manual/serving/kvaware_kvd_operations.md
+@@ -0,0 +1,276 @@
++# Running KV-aware routing + kvd on SGLang
++
++```{admonition} One-pager
++:class: tip
++**What:** how to run a PD-disaggregated SGLang deployment with **KV-aware
++routing** and **tiered KV offload (kvd)** both on, in production. **Why a
++separate page:** the feature pages tell you the flags; this one tells you which
++of them exist only to make an *experiment* cheap, what to set instead in
++production, how to prove each switch actually took effect, and which numbers are
++safe to tune.
++```
++
++Everything below was verified on GLM-5.2-MXFP4 across two MI355X nodes, PD over
++Mooncake RDMA, DP-attention on both legs, both features on.
++
++## 1. Experiment-only settings — do not ship these
++
++These appear in the reproduction scripts. Each exists to make a test cheap or to
++route around a lab constraint, and each is **wrong for production**.
++
++| Setting | Why it was used | Production instead |
++|---|---|---|
++| `MC_FORCE_TCP=1` | Both PD legs on **one host**, where Mooncake RDMA must loop back across rails (`ionic_0 → ionic_4`) and fails with `transport retry counter exceeded`. TCP is the known-good, slower path. | **Drop it.** Put the legs on different hosts and use RDMA. This flag costs you most of the PD transfer bandwidth. |
++| `--hicache-size 8` (GB) | A small RAM tier so the working set spills to L3 and the test actually exercises disk. | Size to the real hot set — typically **32–128 GB**. See §4. |
++| `--max-bytes 8G` on the daemon | Same reason: force spillover. | Match the host's spare RAM, typically **64–256 GB**. |
++| `--long-path /tmp/kvd-long` | Somewhere writable in a scratch container. | A real NVMe mount. `/tmp` is usually tmpfs — that is **RAM pretending to be disk**, so your L3 tier silently competes with L2 for the same memory. |
++| Qwen3-1.7B as the model | Cuts a ~30 min GLM-5.2 cold start to ~2 min, so the wiring loop could run 5 rounds in an afternoon. The thing under test was the wiring, not the model. | Your real model. A small model is excellent for **wiring** bugs and tells you nothing about capacity. |
++| `docker cp` of the host `libionic.so` | The scripts predate the image entrypoint. | Nothing — bind-mount the host library at `/host-libionic/libionic.so` and `infera-inject-host-ionic` does it. See `deploy/docker/scripts/infera_inject_host_ionic.sh`. |
++| Two TP4 workers packed onto one node | Gives the KV-aware scorer ≥2 workers per role to choose between, on one node's worth of GPUs. | One worker per node at full TP, and as many nodes as you have. |
++| `--kv-events-bind` / `--kv-snapshot-port` set per leg | Two workers on **one host** collide on the shared defaults (`5557`, `8801`). | Only needed when co-locating workers. One worker per host uses the defaults. |
++
++```{admonition} The port-collision trap that looks like a healthy leg
++:class: warning
++`--kv-snapshot-port` defaults to `8801` on **every** worker. Two workers on one
++host: the second logs `ready to roll`, *then* dies during etcd registration with
++`[Errno 98] address already in use`. The engine looks up and the worker never
++appears in the router. If a leg is "up" but never registers, check for `Errno
++98` **after** the ready line.
++```
++
++## 2. Recommended production configuration — all switches on
++
++Three roles, one image (`deploy/docker/Dockerfile.sglang.kvaware-kvd`).
++
++**Per host: the kvd daemon.** One per host; every engine on that host shares it.
++
++```bash
++python -m infera.kvd \
++  --socket /run/infera-kvd/kvd.sock \
++  --max-bytes 128G \
++  --long-path /nvme/kvd-long --long-bytes 2T \
++  --io-mode auto \
++  --log-level INFO
++```
++
++**Each engine leg** (prefill shown; decode is the same minus
++`--disaggregation-bootstrap-port`). Launch through the **infera wrapper** —
++`sglang.launch_server` bypasses all of the kvaware/kvd wiring:
++
++```bash
++python -m infera.engine.sglang \
++  --model-path <model> --host <routable-ip> --port 30000 \
++  --advertise-host <routable-ip> \
++  --etcd-endpoint <etcd>:2379 --discovery-backend etcd \
++  --request-transport http --kv-event-transport zmq \
++  --disaggregation-mode prefill \
++  --disaggregation-transfer-backend mooncake \
++  --disaggregation-ib-device <active-rails> \
++  --disaggregation-bootstrap-port 8998 \
++  --dp-size 8 --enable-dp-attention --ep-size 8 \
++  --infera-kvd-socket /run/infera-kvd/kvd.sock \
++  --hicache-size 64
++```
++
++`PYTHONHASHSEED=0` is baked into the image; if you build your own, set it.
++
++**The router**, with the PD-aware weights:
++
++```bash
++python -m infera.server --host 0.0.0.0 --port 8100 \
++  --discovery-backend etcd --etcd-endpoint <etcd>:2379 \
++  --request-transport http --kv-event-transport zmq \
++  --router-policy kv-aware --router-tokenizer-path <model> \
++  --kv-prefill-overlap-weight 20.0 \
++  --kv-decode-overlap-weight 2.0 \
++  --kvd-socket-path /run/infera-kvd/kvd.sock
++```
++
++```{admonition} Three defaults that are wrong for a PD deployment
++:class: important
++1. **`--kv-overlap-weight` defaults to `1.0`**, and the prefill/decode weights
++   fall back to it. At 1.0 the cache term barely outweighs load, so you get
++   nearly round-robin behaviour and will conclude kv-aware "does nothing". Set
++   the per-role weights explicitly (§4).
++2. **`--no-enable-kv-events` on a decode leg silently disables kvd there**,
++   because infera only re-enables the decode radix cache when KV events are on.
++   Leave KV events on.
++3. **`--hicache-ratio` (default 2.0) sizes the host pool off
++   `max_total_num_tokens`** — it asked for 355 GB *per DP rank* on a small model.
++   Use `--hicache-size <GB>`.
++```
++
++DP-attention must be **symmetric** across the pair (same `--dp-size`/`--ep-size`
++on both legs) or the KV shard layout does not match across the transfer.
++
++## 3. Verifying each switch actually took effect
++
++Every check below has a **negative** form — something that also looks like
++success but is not. That is the whole point: all three of these features fail
++*silently*, degrading to a slower-but-correct path.
++
++### kvd is wired
++
++```bash
++grep -E "infera-kvd adapter connected|hierarchical=True" <engine-log>
++```
++
++Want: `infera-kvd adapter connected to /run/infera-kvd/kvd.sock` and a
++`Tree cache initialized: ... HiRadixCache ... hierarchical=True`.
++
++Cheap pre-check: `--infera-kvd-socket` **fails fast** (5 s probe). If the daemon
++is unreachable the engine refuses to start, so a running engine has *a* daemon —
++but not necessarily one that is being used.
++
++### kvd is actually serving
++
++```bash
++python -m infera.kvd.statctl --socket /run/infera-kvd/kvd.sock
++```
++
++Drive a repeated long shared prefix, then want `sets_total > 0` followed by
++`gets_total > 0` with `hits_total` climbing.
++
++```{admonition} A speed-up does NOT prove kvd did anything
++:class: warning
++SGLang's in-GPU radix cache serves a repeated prefix without ever touching L3.
++In our run the reuse phase was **2.7× faster** while kvd's counters stayed at
++**zero** — the win was entirely the GPU cache.
++
++To attribute reuse to kvd specifically: **restart the engine** (which empties
++the GPU cache) and replay the same prefixes. Hits should climb with **no new
++sets**. Ours went `+170 hits / 0 new sets` — that reuse could only have come
++from L3.
++```
++
++`misses_total > 0` means the scheduler and worker derived different chunk keys —
++almost always a `PYTHONHASHSEED` mismatch.
++
++### KV events are flowing (the kv-aware input)
++
++```bash
++grep "KV plane up" <engine-log>
++```
++
++Also confirm each leg picked a **distinct** publisher port. Two legs sharing one
++means one of them is dead:
++
++```bash
++grep -o "kv-events.*:[0-9]*" <prefill-log> <decode-log>
++```
++
++### KV-aware routing is actually steering
++
++Load a prefix on one worker, then send the same prefix again and see where it
++lands. The discriminating test is a **policy flip** on identical traffic:
++
++| policy | requests to worker A | to worker B |
++|---|---|---|
++| `kv-aware` | 17 | 0 |
++| `round-robin` | +6 | +8 |
++
++Round-robin splits; kv-aware pins every repeat onto the worker holding the
++prefix. If your kv-aware run also splits evenly, the most likely cause is
++`--kv-overlap-weight` left at its `1.0` default.
++
++The router logs its arithmetic per decision:
++
++```
++cache_hits=… request_blocks=… active_blocks=… w_overlap=…
++```
++
++`w_overlap=1.00` when you expected `20.00` means the flag did not reach the
++policy.
++
++### The decode leg really has kvd (PD only)
++
++```bash
++grep "disaggregation-decode-enable-radix-cache" <decode-log>
++```
++
++Absent → the decode leg has no hierarchical cache, whatever else you passed.
++
++## 4. Tunable numbers, and what to set them to
++
++### Router: overlap weights
++
++`cost(w) = overlap_weight × (request_blocks − hits(w)) + active_blocks(w)`
++
++Cache locality vs. load balance, on one axis. Higher = chase the warm worker
++harder; lower = spread the load.
++
++| Flag | Default | Recommended | Why |
++|---|---|---|---|
++| `--kv-prefill-overlap-weight` | falls back to `1.0` | **20.0** | Prefill is compute-bound; a hit skips an entire prefill pass, which dominates everything else. Bias hard. |
++| `--kv-decode-overlap-weight` | falls back to `1.0` | **2.0** | Decode is memory-bound on KV. A prefill-time hit does little for the decode loop, and even latency matters more. Bias weakly. |
++| `--kv-overlap-weight` | `1.0` | 1.0–2.0 | Mixed (non-PD) pools and the fallback for the two above. |
++
++Tune from the recommended values, and move **one at a time**:
++
++- Prefill workers hot-spotting while others idle → lower the prefill weight
++  (20 → 10). The load term is in *blocks*, so with long prompts it can take a
++  large weight before locality wins at all.
++- Prefill hit rate flat and traffic spread evenly → raise it (20 → 40).
++- Decode tail latency spiking → lower the decode weight toward 1.0.
++
++Client `cache_control` also scales the weight per request: **long retention
++×2.0**, **explicit `none` ×0.1**. So a `retention=long` request effectively sees
++prefill weight 40 at the default. Account for that before concluding your
++weight is too high.
++
++```{admonition} Our measurement of these weights is incomplete
++:class: note
++The 17/0-vs-round-robin result was measured with **one prefill worker** and a
++**single** shared prefix. That demonstrates the mechanism works; it does not
++validate `20.0` as the optimum, and it never tested affinity between
++*competing* prefixes. Treat 20.0/2.0 as a documented starting point and measure
++on your own traffic.
++```
++
++### kvd daemon: tier sizes
++
++| Flag | Default | Recommended | Notes |
++|---|---|---|---|
++| `--max-bytes` (L2, host RAM) | `8G` | **64–256G** | The hot tier. Too small and everything falls through to L3 on every miss. Leave headroom: this is pinned host RAM competing with the engine's own host allocations. |
++| `--long-bytes` (L3) | — | **1–4T** | Cheap. Size to the working set you want to survive restarts. |
++| `--long-path` | — | a real NVMe mount | Not `/tmp` — that is usually tmpfs, i.e. RAM. |
++| `--long-paths` | — | one path per NVMe | Striped L3. Reads fan out across shards; N inodes on N devices give real parallelism where a single device does not. `--long-bytes` is then the **total** budget. |
++| `--io-mode` | `auto` | `auto` | `auto` probes for O_DIRECT eligibility. Force `direct`/`buffered` only to diagnose. |
++
++```{admonition} Bind-mounted L3 and O_DIRECT
++:class: note
++A bind-mounted L3 directory used to classify as buffered even on qualifying
++NVMe, because `findmnt` reports the source as `/dev/md0[/mnt/...]` and the
++bracketed form is not a block device. Fixed — but if you are on an older build,
++this is why a container-hosted kvd never used O_DIRECT.
++```
++
++### Engine: host cache pool
++
++| Flag | Default | Recommended | Notes |
++|---|---|---|---|
++| `--hicache-size` (GB, per rank) | — | **32–128** | Absolute; overrides the ratio. **Prefer this.** Note it is **per DP rank**: with `--dp-size 8`, `--hicache-size 64` allocates 512 GB on the host. |
++| `--hicache-ratio` | `2.0` | avoid | Scales off `max_total_num_tokens`. Asked for 355 GB/rank on a 1.7 B model. **Below 1.5 it silently disables L3 prefetch** — `prefetch_capacity_limit = 0.8 × (host_pool − device_pool)` goes to zero. |
++
++### What we did not measure
++
++Stated plainly so nobody reads a recommendation as a benchmark:
++
++- **kvd latency benefit** — not observed. The reload phase (0.76 s) was no
++  faster than cold (0.71 s). kvd demonstrably *served* the blocks; it did not
++  demonstrably make anything faster at this scale.
++- **Concurrency vs. locality** — every request in the routing test was
++  sequential, so the `active_blocks` load term never actually pushed back
++  against the cache term. The interesting behaviour of these weights is under
++  load, and we did not observe it.
++- **Competing prefixes** — one shared prefix only.
++- **True NVMe O_DIRECT L3** — the lab's NVMe drives were unmounted; L3 ran on a
++  filesystem that classified as buffered.
++
++## Related
++
++- [KV Cache Offload](../features/kv_cache_offload.md) — the kvd feature page,
++  including the SGLang section.
++- [KV-Aware Routing](../features/kv_aware_routing.md) — the routing feature page.
++- [PD Disaggregation](../features/pd_disaggregation.md) — set the P/D pair up first.
++- [CLI reference](../reference/cli.md) · [Environment variables](../reference/environment.md)
+diff --git a/manual/sphinx/_toc.yml.in b/manual/sphinx/_toc.yml.in
+index 7c2ab3a..5cf51a5 100644
+--- a/manual/sphinx/_toc.yml.in
++++ b/manual/sphinx/_toc.yml.in
+@@ -50,6 +50,8 @@ subtrees:
+     entries:
+       - file: serving/deployment.md
+         title: Deployment
++      - file: serving/kvaware_kvd_operations.md
++        title: KV-aware + kvd operations
+       - file: serving/kubernetes.md
+         title: Kubernetes
+ 
+diff --git a/tests/engine/sglang/test_decode_leg_gating.py b/tests/engine/sglang/test_decode_leg_gating.py
+new file mode 100644
+index 0000000..179b35a
+--- /dev/null
++++ b/tests/engine/sglang/test_decode_leg_gating.py
+@@ -0,0 +1,107 @@
++###############################################################################
++# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
++#
++# SPDX-License-Identifier: MIT
++###############################################################################
++"""kvd must not be wired on a PD decode leg.
++
++infera appends ``--enable-hierarchical-cache`` whenever kvd is on. On a decode
++leg that is wrong twice over:
++
++* It crashes. With EAGLE/MTP, SGLang refuses
++  ``--disaggregation-decode-enable-radix-cache`` (which infera also appends, on
++  the separate kv-events gate), which forces ``disable_radix_cache = True``,
++  which SGLang then refuses to combine with the hierarchical cache.
++* Even when it does not crash, kvd is **write-only** there in every
++  configuration: ``_prefetch_kvcache`` is the sole caller of
++  ``prefetch_from_storage``, and ``_add_request_to_queue`` only calls it on the
++  NULL and PREFILL branches. Measured at 180 sets / 0 gets against a prefill
++  leg's 102 sets / 102 gets on the same run.
++
++The companion gate -- not appending the decode radix cache under speculative
++decoding -- is a different flag on a different condition and is covered by
++``test_decode_radix_vs_speculative.py``, which needs sglang importable.
++"""
++
++from __future__ import annotations
++
++import asyncio
++from types import SimpleNamespace
++
++import pytest
++
++from infera.engine.sglang import kvd_wiring
++
++
++def _args(mode: str | None):
++    return SimpleNamespace(
++        infera_kvd_socket="/tmp/kvd/kvd.sock",
++        sglang_argv=["--model-path", "/nonexistent"],
++        server_args=SimpleNamespace(
++            disaggregation_mode=mode,
++            enable_hierarchical_cache=False,
++            hicache_storage_backend=None,
++        ),
++    )
++
++
++def _wire(args, monkeypatch) -> list[str]:
++    """Run the real wiring entry point and return the forwarded argv.
++
++    Tests the OBSERVABLE effect -- which flags reach the sglang subprocess --
++    rather than the presence of a helper. A test that imports the helper by name
++    turns into a collection error when the fix is reverted, and a collection
++    error proves nothing about behaviour.
++
++    The kvd daemon probe and the backend registration both need a live process,
++    so both are stubbed; neither is what this test is about.
++    """
++    monkeypatch.setattr(kvd_wiring, "_probe_kvd", _noop_probe)
++    monkeypatch.setattr(
++        kvd_wiring, "_finish_wiring",
++        lambda a, sock: kvd_wiring._append_sglang_hicache_argv(a),
++    )
++    asyncio.run(kvd_wiring.awire_infera_kvd_backend(args))
++    return list(args.sglang_argv)
++
++
++async def _noop_probe(socket_path: str) -> None:
++    return None
++
++
++# ----------------------------------------------------------------------
++# kvd wiring vs the decode leg
++# ----------------------------------------------------------------------
++
++
++def test_decode_leg_gets_no_hicache_flags(monkeypatch):
++    """The load-bearing assertion: nothing kvd-related reaches the decode leg.
++
++    Fails on the pre-fix code, where --enable-hierarchical-cache is appended
++    unconditionally and SGLang then refuses to combine it with the
++    disable_radix_cache that a speculative decode leg is forced into.
++    """
++    argv = _wire(_args("decode"), monkeypatch)
++    assert "--enable-hierarchical-cache" not in argv
++    assert "--hicache-storage-backend" not in argv
++
++
++def test_prefill_leg_still_gets_them(monkeypatch):
++    """kvd must keep working where it actually serves reads."""
++    argv = _wire(_args("prefill"), monkeypatch)
++    assert "--enable-hierarchical-cache" in argv
++    assert "--hicache-storage-backend" in argv
++
++
++def test_aggregated_server_still_gets_them(monkeypatch):
++    """No disaggregation mode at all -- the colocated case must be untouched."""
++    argv = _wire(_args(None), monkeypatch)
++    assert "--enable-hierarchical-cache" in argv
++
++
++def test_missing_server_args_does_not_raise(monkeypatch):
++    """Defensive: the guard runs before SGLang args are fully materialised on
++    some call paths, and must not turn a missing attribute into a crash."""
++    args = SimpleNamespace(infera_kvd_socket="/x", sglang_argv=[])
++    argv = _wire(args, monkeypatch)
++    assert "--enable-hierarchical-cache" in argv
+diff --git a/tests/engine/sglang/test_decode_radix_vs_speculative.py b/tests/engine/sglang/test_decode_radix_vs_speculative.py
+new file mode 100644
+index 0000000..e4d2a20
+--- /dev/null
++++ b/tests/engine/sglang/test_decode_radix_vs_speculative.py
+@@ -0,0 +1,81 @@
++###############################################################################
++# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
++#
++# SPDX-License-Identifier: MIT
++###############################################################################
++"""infera must not append the decode radix cache under speculative decoding.
++
++With kv-events on, ``parse_sglang_args`` appends
++``--disaggregation-decode-enable-radix-cache`` to a mooncake decode leg so the
++router can steer repeats to the rank holding the prefix. SGLang rejects that flag
++outright when a speculative algorithm is set::
++
++    sglang/srt/arg_groups/pd_disaggregation_hook.py
++        if server_args.speculative_algorithm is not None:
++            raise ValueError(
++                "--disaggregation-decode-enable-radix-cache is incompatible "
++                "with speculative decoding (--speculative-algorithm EAGLE)")
++
++so the decode leg dies during argument parsing, before it loads a weight. The
++gate already excludes non-mooncake backends for exactly this "SGLang rejects it"
++reason; speculative decoding is the same class of exclusion.
++
++Guarded by ``importorskip("sglang")`` because ``infera.engine.sglang.args``
++imports ``sglang.srt.server_args`` at module load: runs in the SGLang container,
++skips on bare dev boxes. Same pattern as ``test_disagg_allow_tcp_args.py``.
++"""
++
++from __future__ import annotations
++
++import pytest
++
++pytest.importorskip("sglang")
++
++from infera.engine.sglang.args import parse_sglang_args  # noqa: E402
++
++_BASE = [
++    "--model-path",
++    "Qwen/Qwen3-0.6B",
++    "--etcd-endpoint",
++    "127.0.0.1:2379",
++    "--disaggregation-mode",
++    "decode",
++    "--disaggregation-transfer-backend",
++    "mooncake",
++]
++
++_EAGLE = [
++    "--speculative-algorithm",
++    "EAGLE",
++    "--speculative-num-steps",
++    "3",
++    "--speculative-eagle-topk",
++    "1",
++    "--speculative-num-draft-tokens",
++    "4",
++]
++
++_FLAG = "--disaggregation-decode-enable-radix-cache"
++
++
++def test_appended_without_speculative_decoding():
++    """The pre-existing behaviour must survive the new condition."""
++    assert _FLAG in parse_sglang_args(_BASE).sglang_argv
++
++
++def test_not_appended_under_eagle():
++    """Fails on the pre-fix code, where the flag is appended unconditionally and
++    SGLang then raises."""
++    assert _FLAG not in parse_sglang_args([*_BASE, *_EAGLE]).sglang_argv
++
++
++def test_operator_supplied_flag_still_raises_under_eagle():
++    """We only decline to ADD it; we do not silently strip an explicit one.
++
++    ``parse_sglang_args`` builds a ``ServerArgs``, whose ``__post_init__`` runs
++    SGLang's own validation — so an operator who passes the flag deliberately
++    gets SGLang's error here, at parse time, rather than a config that quietly
++    differs from what they asked for.
++    """
++    with pytest.raises(ValueError, match="incompatible with speculative decoding"):
++        parse_sglang_args([*_BASE, *_EAGLE, _FLAG])
+diff --git a/tests/unit/common/test_net_port_block.py b/tests/unit/common/test_net_port_block.py
+new file mode 100644
+index 0000000..52e4c9b
+--- /dev/null
++++ b/tests/unit/common/test_net_port_block.py
+@@ -0,0 +1,65 @@
++###############################################################################
++# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
++#
++# SPDX-License-Identifier: MIT
++###############################################################################
++"""Regression tests for ``infera.common.net.free_tcp_port_block``.
++
++The bug these guard against: the scan used to start at a fixed
++``ip_local_port_range.low - count`` and the probe released the block before
++returning, so two engines launched on the same host (the prefill and decode
++legs of a PD pair, each with ``dp_size > 1``) deterministically picked the
++*same* base. The second leg's sglang subprocess then died with
++``ZMQError: Address already in use`` binding ``base + attn_dp_rank``.
++"""
++
++from __future__ import annotations
++
++import socket
++
++from infera.common.net import free_tcp_port_block
++
++
++def _ephemeral_low() -> int:
++    try:
++        return int(open("/proc/sys/net/ipv4/ip_local_port_range").read().split()[0])
++    except (OSError, ValueError, IndexError):
++        return 32768
++
++
++def test_block_ports_are_free_and_contiguous() -> None:
++    count = 4
++    base = free_tcp_port_block(count)
++    socks = []
++    try:
++        for off in range(count):
++            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
++            s.bind(("127.0.0.1", base + off))
++            socks.append(s)
++    finally:
++        for s in socks:
++            s.close()
++
++
++def test_block_sits_below_the_ephemeral_range() -> None:
++    """A base inside the ephemeral range could be handed out by bind(("", 0))."""
++    count = 4
++    base = free_tcp_port_block(count)
++    assert 1024 <= base
++    assert base + count - 1 < _ephemeral_low()
++
++
++def test_repeated_calls_do_not_all_collide() -> None:
++    """Consecutive callers must not deterministically get the same base.
++
++    With the old fixed scan start every call returned an identical base while
++    nothing held the ports, which is exactly the PD two-leg crash. Randomising
++    the scan start makes repeats spread out.
++    """
++    bases = [free_tcp_port_block(4) for _ in range(10)]
++    assert len(set(bases)) > 1, f"all calls returned the same base: {bases[0]}"
++
++
++def test_count_of_one_delegates_to_single_port() -> None:
++    port = free_tcp_port_block(1)
++    assert 1024 <= port <= 65535
+diff --git a/tests/unit/kvd/test_storage_classify.py b/tests/unit/kvd/test_storage_classify.py
+index 05336f0..ee2e152 100644
+--- a/tests/unit/kvd/test_storage_classify.py
++++ b/tests/unit/kvd/test_storage_classify.py
+@@ -358,6 +358,59 @@ def test_sas_ssd_picks_o_direct(fake_run):
+     assert "sas-ssd" in rationale
+ 
+ 
++def test_bind_mount_source_strips_subpath(monkeypatch):
++    """A bind mount makes findmnt print SOURCE as ``/dev/md0[/sub/path]``.
++
++    That bracketed suffix is not part of the device name. Passing the raw
++    string to lsblk gets ``not a block device``, so the probe silently
++    degrades to buffered even on hardware that qualifies for O_DIRECT.
++
++    Observed on a real deployment: kvd's L3 bind-mounted into a container
++    reported ``devices = [(none)]``, ``rationale: unknown device,
++    conservative buffered``, on an ext4-on-md0 mount.
++
++    This test models the *real* lsblk contract — it errors on a bracketed
++    argument — rather than a fake that accepts anything, which is what
++    lets the bug through.
++    """
++
++    def run(cmd, timeout=2.0):
++        class R:
++            returncode = 0
++            stdout = ""
++
++        r = R()
++        if cmd[0] == "findmnt":
++            r.stdout = "/dev/nvme0n1p1[/kvd-long] ext4\n"
++        elif cmd[0] == "lsblk":
++            target = cmd[-1]
++            if "[" in target:  # what real lsblk does
++                r.returncode = 32
++                r.stdout = ""
++            else:
++                r.stdout = "nvme0n1 nvme 0\n"
++        return r
++
++    monkeypatch.setattr(storage_classify, "_run", run)
++    o_direct, rationale = pick_io_mode(Path("/kvd-long"))
++    assert o_direct is True, f"bind mount misclassified: {rationale}"
++    assert "nvme-ssd" in rationale
++
++
++def test_bind_mount_classify_reports_clean_source(fake_run):
++    """The bracketed subpath must not leak into the reported mount source
++    either — operators read this field to sanity-check the probe."""
++    fake_run(
++        {
++            "findmnt": "/dev/sda1[/some/where] ext4\n",
++            "lsblk": "sda sata 0\n",
++        }
++    )
++    info = classify_storage(Path("/some/where"))
++    assert info.mount_source == "/dev/sda1"
++    assert info.devices, "bind-mounted device should still be resolved"
++
++
+ def test_findmnt_missing_falls_back_to_buffered(monkeypatch, caplog):
+     """When findmnt isn't installed (minimal containers), we don't
+     raise — we just default to buffered and log a WARN. The classifier
+diff --git a/tests/unit/router/test_kv_event_bigram.py b/tests/unit/router/test_kv_event_bigram.py
+new file mode 100644
+index 0000000..528f301
+--- /dev/null
++++ b/tests/unit/router/test_kv_event_bigram.py
+@@ -0,0 +1,175 @@
++###############################################################################
++# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
++#
++# SPDX-License-Identifier: MIT
++###############################################################################
++"""The MTP bigram token view in SGLang kv-events.
++
++With EAGLE/MTP on, SGLang keys its radix tree on bigrams (``RadixKey.is_bigram``,
++set from ``is_eagle``) and the kv-event emitter reports a block's tokens as the
++overlapping pairs ``(t[i], t[i+1])`` rather than bare ints::
++
++    sglang/srt/mem_cache/events.py
++        is_bigram = node.key.is_bigram
++        ...
++        if is_bigram:
++            page_tokens = [(raw[j], raw[j + 1]) for j in range(start, end)]
++
++Hashing the pairs as-is builds a cache view no query can ever match: the query
++side chunks the FLAT token slice. The router therefore scores every worker zero
++and kv-aware routing silently degrades to round-robin, with nothing in any log.
++
++The property that matters is not merely "the view is non-empty under MTP" — it is
++that the bigram view and the plain view produce the SAME hashes for the same
++underlying tokens. That is what ``test_bigram_and_plain_views_agree`` asserts, and
++it is the test that would fail on a flatten that took ``pair[1]`` instead.
++"""
++
++from __future__ import annotations
++
++import pytest
++
++from infera.router.kv_event import client as client_mod
++from infera.router.kv_event.client import KvEventClient, WorkerSubscription
++from infera.router.kv_event.events import SglangBlockStored
++from infera.router.kv_event.hasher import ROUTER_SEED, hash_chunk
++
++# Imported by name rather than `from ... import _flat_tokens` on purpose: on
++# pre-fix code the symbol does not exist, and a module-level ImportError would
++# abort COLLECTION -- every test in the file erroring out, which proves nothing
++# about the bug. This way the behavioural tests below run and genuinely fail.
++_flat_tokens = getattr(client_mod, "_flat_tokens", None)
++_needs_fix = pytest.mark.skipif(
++    _flat_tokens is None, reason="_flat_tokens is the fix under test"
++)
++
++
++def _bigrams(tokens: list[int]) -> list[tuple[int, int]]:
++    """The pairs SGLang emits for ``tokens``: ``(t[i], t[i+1])`` per position.
++
++    The engine holds ``N+1`` raw tokens for ``N`` bigram positions, so the pair
++    at the last position reaches one token past the block. Mirrored here.
++    """
++    return [(tokens[i], tokens[i + 1] if i + 1 < len(tokens) else 0) for i in range(len(tokens))]
++
++
++# ----------------------------------------------------------------------
++# _flat_tokens
++# ----------------------------------------------------------------------
++
++
++@_needs_fix
++def test_flat_tokens_unwraps_pairs():
++    assert _flat_tokens([(1, 2), (2, 3), (3, 4)]) == [1, 2, 3]
++
++
++@_needs_fix
++def test_flat_tokens_accepts_lists_not_only_tuples():
++    """msgpack decodes a 2-element sequence as a list, not a tuple."""
++    assert _flat_tokens([[1, 2], [2, 3]]) == [1, 2]
++
++
++@_needs_fix
++def test_flat_tokens_leaves_plain_ints_alone():
++    assert _flat_tokens([1, 2, 3]) == [1, 2, 3]
++
++
++@_needs_fix
++def test_flat_tokens_handles_empty():
++    assert _flat_tokens([]) == []
++
++
++# ----------------------------------------------------------------------
++# _handle_event end to end
++# ----------------------------------------------------------------------
++
++
++def test_bigram_event_populates_the_view():
++    """Fails on the pre-fix code: the pairs hash to something no query matches.
++
++    Pre-fix this does not raise — it produces a view of the WRONG hashes, which is
++    precisely why the bug was invisible in production. So assert the exact
++    expected hash, not just non-emptiness.
++    """
++    client = KvEventClient()
++    sub = WorkerSubscription(worker_id="w1", endpoint="tcp://x:1", block_size=4)
++
++    client._handle_event(
++        sub,
++        SglangBlockStored(
++            block_hashes=[111],
++            parent_block_hash=None,
++            token_ids=_bigrams([1, 2, 3, 4]),
++            block_size=4,
++            lora_id=None,
++        ),
++    )
++
++    expected = hash_chunk(ROUTER_SEED, [1, 2, 3, 4])
++    assert sub.view_for(None) == {expected}
++    assert sub.map_for(None) == {111: expected}
++
++
++def test_bigram_and_plain_views_agree():
++    """The same tokens must chain to the same hashes either way.
++
++    This is the real invariant. A flatten that picked ``pair[1]`` would still give
++    a non-empty view and still pass a "kv-aware works under MTP" smoke test, while
++    keying every block one token off.
++    """
++    tokens = [10, 20, 30, 40, 50, 60, 70, 80]
++
++    plain = KvEventClient()
++    plain_sub = WorkerSubscription(worker_id="p", endpoint="tcp://x:1", block_size=4)
++    plain._handle_event(
++        plain_sub,
++        SglangBlockStored(
++            block_hashes=[1, 2],
++            parent_block_hash=None,
++            token_ids=list(tokens),
++            block_size=4,
++            lora_id=None,
++        ),
++    )
++
++    bigram = KvEventClient()
++    bigram_sub = WorkerSubscription(worker_id="b", endpoint="tcp://x:1", block_size=4)
++    bigram._handle_event(
++        bigram_sub,
++        SglangBlockStored(
++            block_hashes=[1, 2],
++            parent_block_hash=None,
++            token_ids=_bigrams(tokens),
++            block_size=4,
++            lora_id=None,
++        ),
++    )
++
++    assert bigram_sub.view_for(None) == plain_sub.view_for(None)
++    assert bigram_sub.map_for(None) == plain_sub.map_for(None)
++
++
++def test_bigram_event_decodes_over_the_wire():
++    """The msgspec schema must accept pairs, else every event fails to decode.
++
++    ``token_ids`` is annotated ``list[int | tuple[int, int]]``; a schema still
++    declaring ``list[int]`` raises here rather than degrading quietly.
++    """
++    import msgspec
++    from msgspec.msgpack import Decoder
++
++    from infera.router.kv_event.events import SglangKVEventBatch
++
++    ev = SglangBlockStored(
++        block_hashes=[111],
++        parent_block_hash=None,
++        token_ids=_bigrams([1, 2, 3, 4]),
++        block_size=4,
++        lora_id=None,
++    )
++    raw = msgspec.msgpack.encode(SglangKVEventBatch(ts=0.0, events=[ev]))
++    batch = Decoder(type=SglangKVEventBatch).decode(raw)
++
++    (decoded,) = batch.events
++    # One pair per position, so flattening recovers all four first elements.
++    assert _flat_tokens(decoded.token_ids) == [1, 2, 3, 4]
+diff --git a/tests/unit/router/test_kv_event_e2e.py b/tests/unit/router/test_kv_event_e2e.py
+index 93462d8..c7ec275 100644
+--- a/tests/unit/router/test_kv_event_e2e.py
++++ b/tests/unit/router/test_kv_event_e2e.py
+@@ -236,6 +236,74 @@ async def test_full_pipeline_handles_chained_parent_block_hash():
+         await client.aclose()
+ 
+ 
++@pytest.mark.asyncio
++async def test_bigram_block_stored_matches_flat_request_tokens():
++    """MTP/EAGLE shape: SGLang keys its radix tree on bigrams when speculative
++    decoding is on, so each stored page reports its tokens as the overlapping
++    pairs ``(t[i], t[i+1])`` rather than bare ints. The router must map those
++    back onto the flat token slice, or a view built from MTP events can never
++    match a request -- which is what kv-aware routing does on every prefill.
++
++    Flat tokens [1..9] with page_size 4 give 8 bigrams -> two pages, whose
++    first elements are [1,2,3,4] and [5,6,7,8].
++    """
++    port = _free_port()
++    ep = f"tcp://127.0.0.1:{port}"
++
++    ctx = zmq.Context()
++    pub = ctx.socket(zmq.PUB)
++    pub.bind(ep)
++
++    client = KvEventClient()
++    policy = KvEventAwarePolicy(client, _IdentityHasher())
++    w = _worker("w1", endpoint=ep, kv_block_size=4)
++    policy.on_worker_added(w)
++
++    try:
++        encoder = msgspec.msgpack.Encoder()
++        # One event per page, chained -- exactly how _record_store_event emits.
++        batch = SglangKVEventBatch(
++            ts=1.0,
++            events=[
++                SglangBlockStored(
++                    block_hashes=[2001],
++                    parent_block_hash=None,
++                    token_ids=[(1, 2), (2, 3), (3, 4), (4, 5)],
++                    block_size=4,
++                    lora_id=None,
++                    medium="device",
++                ),
++                SglangBlockStored(
++                    block_hashes=[2002],
++                    parent_block_hash=2001,
++                    token_ids=[(5, 6), (6, 7), (7, 8), (8, 9)],
++                    block_size=4,
++                    lora_id=None,
++                    medium="device",
++                ),
++            ],
++        )
++        payload = encoder.encode(batch)
++
++        ok = await _publish_until_visible(
++            pub,
++            payload,
++            predicate=lambda: len(client.cache_view("w1")) == 2,
++            deadline_s=3.0,
++        )
++        assert ok, f"bigram events never applied; view={client.cache_view('w1')}"
++
++        picked, blocks = policy.pick(
++            [w], {"model": "test/m", "token_ids": [1, 2, 3, 4, 5, 6, 7, 8]}
++        )
++        hits = policy._cache_hits(RouteTarget(w), {(EngineType.SGLANG, 4): blocks})
++        assert hits == 2, "bigram view must hash to the same blocks as flat tokens"
++    finally:
++        pub.close(linger=0)
++        ctx.term()
++        await client.aclose()
++
++
+ @pytest.mark.asyncio
+ async def test_request_with_misaligned_tokens_gets_zero_hits():
+     """Worker cached [1..8]; request asks for [9..16]. cache_hits = 0,

@@ -1,0 +1,74 @@
+From 87460ae846968bffa047521857adc5e8e40689d7 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Fri, 31 Jul 2026 11:25:51 +0000
+Subject: [PATCH 09/25] sglang DSA: fix two more descriptions the same audit
+ turned up
+
+Follow-up to the patch-2a correction, from re-reading every hedged claim in this
+directory against the kits rather than against memory. Two were wrong; the rest
+checked out and are left alone.
+
+1. draft_cuda_graph_dp_vote.diff's header still said 02's DP host-sync half "has
+   never been tested in isolation either way" -- the same error just corrected in
+   02's own header, missed because I fixed one file and not its sibling. It now
+   says what is actually true: IndexShare-off does not substitute for 2a either,
+   because a host-side sync is invisible to the graph/eager decision both
+   mechanisms act on.
+
+2. The upstream table called #31683 "an independent, differently-placed
+   implementation of the same indexer fix". That is stronger than what was
+   verified. Per its diff, #31683 widens dsa_indexer.forward_cuda's guard from
+   seq_lens.numel() == 0 to is_idle() or seq_lens.numel() == 0 -- same function,
+   related class of defect, DIFFERENT symptom. The kit recorded it as "adjacent
+   only"; the table now matches.
+
+Deliberately left as-is after checking: the "no upstream counterpart" note for
+dsa_backend already carries its own limitation (gh search matches titles and
+bodies, not diff content) and is PR-DIFF-VERIFIED per-diff; the unmeasured v1
+collective cost, the unexercised custom-all-reduce path, the un-re-measured 92%
+and the conc=64 ceiling on the IndexShare arm are all real coverage limits rather
+than understatements of existing evidence.
+
+Headers re-verified by a real --fuzz=0 apply into a pristine tree: 3/3 clean, 9
+files modified.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ deploy/docker/patches/sglang_dsa/README.md                 | 2 +-
+ .../patches/sglang_dsa/draft_cuda_graph_dp_vote.diff       | 7 ++++---
+ 2 files changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/deploy/docker/patches/sglang_dsa/README.md b/deploy/docker/patches/sglang_dsa/README.md
+index 02ec407..863d26d 100644
+--- a/deploy/docker/patches/sglang_dsa/README.md
++++ b/deploy/docker/patches/sglang_dsa/README.md
+@@ -423,7 +423,7 @@ merged — so none of it reaches a `release/v0.5.15` baseline without a manual b
+ | [#32209](https://github.com/sgl-project/sglang/pull/32209) | `Fix PD decode hang with DP attention and GLM-5.2 MTP` | **same defect, same strategy as our vote.** `draft_cuda_graph_dp_vote.diff` adopts its placement. |
+ | [#32527](https://github.com/sgl-project/sglang/issues/32527) | issue, same deadlock on 8× Blackwell / GLM-5.2-FP8 | independent report, 2026-07-27, same analysis. Proposes a third strategy: a dummy all-zeros seed so the guard's 4th term is false. |
+ | [#32762](https://github.com/sgl-project/sglang/pull/32762) | `[NPU] Fix DSA eager padding mismatch in PD MTP warm-up` | same bug class as `dsa_indexer_hip_dp_padded_rows`; that diff is written in its shape. |
+-| [#31683](https://github.com/sgl-project/sglang/pull/31683) | `[ROCm][MI35X] Enable GLM-5.2-MXFP4 MTP` | carries an independent, differently-placed implementation of the same indexer fix. |
++| [#31683](https://github.com/sgl-project/sglang/pull/31683) | `[ROCm][MI35X] Enable GLM-5.2-MXFP4 MTP` | **adjacent, not the same fix.** It widens `dsa_indexer.forward_cuda`'s guard from `seq_lens.numel() == 0` to `is_idle() or seq_lens.numel() == 0` — same function, related class of defect, **different symptom**. Verified against its diff. |
+ | [#30839](https://github.com/sgl-project/sglang/pull/30839) / [#31083](https://github.com/sgl-project/sglang/pull/31083) | introduced the guard; cherry-picked to `release/v0.5.15` | **merged 2026-07-14** — so this deadlock is a *regression* in the baseline, not a legacy wart. |
+ | [#32722](https://github.com/sgl-project/sglang/pull/32722) | a test covering PD + DP-attention + MTP | proves **no CI covers this topology today**, which is why the family survives. |
+ 
+diff --git a/deploy/docker/patches/sglang_dsa/draft_cuda_graph_dp_vote.diff b/deploy/docker/patches/sglang_dsa/draft_cuda_graph_dp_vote.diff
+index 5096f19..512b93a 100644
+--- a/deploy/docker/patches/sglang_dsa/draft_cuda_graph_dp_vote.diff
++++ b/deploy/docker/patches/sglang_dsa/draft_cuda_graph_dp_vote.diff
+@@ -12,9 +12,10 @@ busy one gets a tensor.  No seed, no divergence, no vote needed.
+ Measured on 2 x 8 MI355X, GLM-5.2-MXFP4, with this patch and 02's page-table half
+ BOTH asserted absent from the bytecode: 4/4 probe, 32/32 twice, 64/64, zero
+ tracebacks, accept length 2.98-3.01 (no measurable cost).  It substitutes for THIS
+-patch and for 02's page-table row fix; it does NOT substitute for 01 (padded rows)
+-or for the nextn eh_proj fix, which are independent bugs.  02's DP host-sync half
+-has never been tested in isolation either way.
++patch and for 02's page-table row fix; it does NOT substitute for 01 (padded rows),
++for the nextn eh_proj fix, or for 02's DP host-sync half -- those are independent
++bugs, and a host-side sync is invisible to the graph/eager decision that both this
++patch and IndexShare-off act on.
+ 
+ Two conditions that are easy to miss: MTP must be enabled on the PREFILL leg too
+ (otherwise the seed never reaches decode and the setting is untested rather than
+-- 
+2.34.1
+
