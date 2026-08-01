@@ -1,12 +1,72 @@
-NOT substituted by the IndexShare workaround.  Turning GLM-5.2 MTP IndexShare off
-(--json-model-override-args '{"index_share_for_mtp_iteration":false}') removes the
-rank-divergence that 04 and 02's page-table half address, but this is an
-independent bug -- the HIP indexer sizing its output from DP-PADDED rows while
-`lengths` is sized to REAL rows.  It is present regardless of IndexShare, and the
-arm that validated the override applied THIS patch.
+PATCH 01 -- dsa_indexer HIP/aiter DP-padded rows
+================================================================================
+WHAT   The aiter (HIP) paged-MQA branch sizes its `logits` output from the
+       DP-PADDED row count while `lengths` is sized to the REAL count, so top-k
+       dies with "Expected lengths.size(0) == B to be true, but got false".
+       Slice q/weights to the real count (the contract every CUDA backend
+       already honours), then restore the padding after topk_transform.
+WHY    Without it, DP-attention + EAGLE MTP for GLM-5.2 DSA on gfx950 crashes on
+       the very first batch.  CUDA was never affected: those backends take
+       `q_offset=` and slice internally.  ROCm-specific.
+
+UPSTREAM STATUS  (queried with `gh`, 2026-08-01 -- all OPEN, none merged)
+--------------------------------------------------------------------------------
+issue            NONE.  No upstream issue reports this.  Searched sgl-project/
+                 sglang for "Expected lengths.size", "DSA padding DP attention"
+                 and the GLM-5.2 MTP crash text: no match.  Weak evidence --
+                 `gh search` matches titles and bodies, not diff content.
+third-party PR   #32762  "[NPU] Fix DSA eager padding mismatch in PD MTP
+                 warm-up" (stellaxcpeng, OPEN).  SAME BUG CLASS on a different
+                 platform, and this diff is written in its shape: one boolean
+                 gates both trim and restore, and the returned row count is
+                 asserted before the padding is re-attached.  It does not touch
+                 the aiter branch, so it does not fix HIP.
+                 #31683  "[ROCm][MI35X] Enable GLM-5.2-MXFP4 MTP" (long10024070,
+                 OPEN).  ADJACENT, NOT THE SAME FIX -- same function, but it
+                 widens forward_cuda's guard from `seq_lens.numel() == 0` to
+                 `is_idle() or ...`.  Different symptom; verified against its diff.
+                 #30378 / #30427 (both MERGED, in this base) clamp padded-row
+                 seq_lens VALUES in triton_ops/pad.py.  This fixes the HIP-side
+                 row COUNT -- a different defect in the same area.
+own PR           #33059  "Fix DSA indexer aiter (HIP) padding mismatch under
+                 DP-attention" (dorado269, OPEN, REVIEW_REQUIRED, against main,
+                 1 file +16/-4, fork dorado269/sglang).  CI is red only at
+                 `pr-gate`, which blocks on a missing `run-ci` label, not on code.
+
+THIS PATCH vs OUR OWN PR #33059
+--------------------------------------------------------------------------------
+Same defect, same two edits.  They differ deliberately:
+
+  base       here: v0.5.15.post1 (`0b3bb0c`), the pinned engine base.
+             #33059: sglang `main`, whose `_get_topk_paged` has drifted (added
+             cutedsl / dg_native branches and `_mask_init_and_local_tokens`).
+  form       here: explicit `_p1v2_trim` / `_p1v2_real` / `_p1v2_padded` locals
+             with a post-kernel row-count ASSERT, following #32762's shape.
+             #33059: the minimal `q_fp8[:q_offset]` / `weights[:q_offset]` slice
+             and a plain `if q_offset < q_fp8.shape[0]` restore.
+  local-only Stripped for upstream: the `GLM52_P1V2` markers (the build script
+             greps them out of the BYTECODE to prove the patch landed), the
+             `_p1v2_*` naming, and the whole `SGLANG_DEBUG_DSA_ROWS` logging
+             block.  All three are scaffolding for this repo's verification
+             loop and carry no upstream value.
+  trade-off  The upstream form is smaller and easier to review.  Ours fails
+             LOUDER: on a shape drift the assert crashes instead of silently
+             returning a short tensor.  Prefer upstream's once it merges and the
+             base carries it -- then delete this diff.
+  validation Ours: 4/4 probe, conc=64 1k/1k 256/256, plus 2540/2540 in the PD
+             set.  #33059's port to `main` was NOT re-run on hardware; CI or a
+             maintainer run is its confirmation.
+
+RELATION TO THE INDEXSHARE WORKAROUND
+--------------------------------------------------------------------------------
+NOT substituted.  `--json-model-override-args
+'{"index_share_for_mtp_iteration":false}'` removes the rank divergence that
+patch 04 and patch 02b address, but this is an independent bug -- present
+regardless of IndexShare, and the arm that validated the override had THIS
+patch applied.
 
 diff --git a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
-index 59b2256815..e5f4847678 100644
+index 59b2256..0bacbdb 100644
 --- a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
 +++ b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
 @@ -5,6 +5,8 @@ import logging
@@ -28,46 +88,31 @@ index 59b2256815..e5f4847678 100644
  _is_npu = is_npu()
  
  if not _is_npu:
-@@ -902,11 +907,60 @@ class Indexer(MultiPlatformOp):
+@@ -902,11 +907,45 @@ class Indexer(MultiPlatformOp):
          assert len(weights.shape) == 3
          weights = weights.squeeze(2)
  
-+        # GLM52_P1V2: bound before the branch so the restore below can gate on
-+        # it without a locals() lookup. Only the aiter branch sets it True;
-+        # the CUDA branches slice internally and re-pad themselves.
++        # GLM52_P1V2: bound before the branch so the restore gates on the same
++        # boolean. Only aiter sets it; the CUDA branches slice internally.
 +        _p1v2_trim = False
 +        _p1v2_real = q_offset
 +        _p1v2_padded = q_fp8.shape[0]
          if self.paged_mqa_logits_backend.is_aiter():
-+            # Trim eager DP-attention padding before the aiter paged-MQA call,
-+            # in the shape of upstream PR #32762 (NPU, same bug class).
-+            #
-+            # Under DP-attention the hidden states are padded to the largest
-+            # token count across ranks, so q_fp8 carries more rows than this
-+            # rank's batch really has, while `lengths` (dsa_seqlens_expanded)
-+            # is sized to the REAL count. The CUDA path
-+            # (deepgemm_paged_mqa_logits_split) slices q/weights for exactly
-+            # this reason; aiter instead sizes its `logits` output from
-+            # q_fp8.shape[0], so without the same slice the top-k below sees
-+            # score.shape[0] != lengths.shape[0] and asserts
-+            # ("Expected lengths.size(0) == B to be true").
-+            #
-+            # Trim whenever there IS padding, including _p1v2_real == 0: a
-+            # DP-IDLE rank has no requests, so the real count is 0 while q_fp8
-+            # still carries padding. q_fp8[:0] is a legal empty slice and is
-+            # what an idle rank should pass -- the CUDA path likewise slices
-+            # unconditionally. (An earlier revision had a `0 < q_offset` lower
-+            # bound here; it made fast_topk_v2 assert on idle ranks.)
++            # WHY: DP-attention pads q_fp8 past `lengths` and aiter (unlike CUDA)
++            # sizes logits from q_fp8.shape[0] -> "Expected lengths.size(0) == B".
++            # HOW: slice to the real count -- the contract CUDA already honours.
++
++            # Trim at _p1v2_real == 0 too: q_fp8[:0] is what a DP-idle rank should
++            # pass. An earlier `0 < q_offset` bound asserted on exactly those ranks.
 +            _p1v2_trim = _p1v2_real < _p1v2_padded
 +            _q_mqa, _w_mqa = q_fp8, weights
 +            if _p1v2_trim:
 +                _q_mqa = q_fp8[:_p1v2_real]
 +                _w_mqa = weights[:_p1v2_real]
 +            if _DSA_DEBUG_ROWS:
-+                # Cross-check against the padding bookkeeping #32762 uses as
-+                # its source. NOT an assert: it has never been measured to
-+                # agree with q_offset on the MTP draft-extend path. Logged so
-+                # a later revision can promote it if the data supports it.
++                # Cross-check against the padding bookkeeping #32762 keys off.
++                # Logged, not asserted: it has never been measured to agree with
++                # q_offset on the MTP draft-extend path.
 +                _p1v2_ntnp = getattr(forward_batch, "_original_num_tokens", None)
 +                if _p1v2_ntnp is None:
 +                    _p1v2_ntnp = forward_batch.num_token_non_padded_cpu
@@ -91,22 +136,16 @@ index 59b2256815..e5f4847678 100644
                  seqlens_32,
                  block_tables,
                  max_seq_len,
-@@ -961,11 +1015,24 @@ class Indexer(MultiPlatformOp):
+@@ -961,11 +1000,18 @@ class Indexer(MultiPlatformOp):
  
          # NOTE(dark): logits should be cleaned in topk_transform
          topk_result = metadata.topk_transform(logits, self.index_topk)
 -        # Restore possible padding exist in the hidden states.
 -        if not _is_hip and q_offset < q_fp8.shape[0]:
 -            pad_len = q_fp8.shape[0] - q_offset
-+        # GLM52_P1V2: restore the padding the trim above removed.
-+        #
-+        # #32762's shape: gate on the SAME boolean that drove the trim, and
-+        # ASSERT the kernel returned exactly the trimmed row count before
-+        # concatenating. The previous revision re-derived the condition as
-+        # `q_offset < q_fp8.shape[0] and topk_result.shape[0] == q_offset`,
-+        # whose second conjunct silently skipped the restore on a shape drift
-+        # and handed the caller a short tensor -- a wrong answer rather than a
-+        # crash.
++        # GLM52_P1V2: restore the trimmed padding -- gate on the SAME boolean and
++        # assert the row count. BEFORE, a re-derived condition skipped the restore
++        # on a shape drift, returning a short tensor instead of crashing.
 +        if _p1v2_trim:
 +            assert topk_result.shape[0] == _p1v2_real, (
 +                "GLM52_P1V2: paged-MQA top-k returned "

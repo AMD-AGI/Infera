@@ -1,60 +1,103 @@
-PARTIAL ALTERNATIVE: turning GLM-5.2 MTP IndexShare off avoids the need for the
-PAGE-TABLE ROW half of this diff (2b), but not the DP host-sync half (2a).
+PATCH 02 -- dsa_backend DP host-sync (2a) + page-table rows (2b)
+================================================================================
+Two independent fixes in one file, both needed for PD disaggregation with MTP on
+the decode leg.
 
+WHAT 2a  `max_seqlen_k = int(forward_batch.seq_lens.max().item())` is a blocking
+         D2H sync sitting on a branch only SOME DP ranks take (idle peers keep
+         their host mirror and take the cheap arm), so the DP collectives
+         desynchronize and the group deadlocks.  Replaced with the sync-free
+         `self.req_to_token.shape[1]`.  Two further unconditional `.cpu()` syncs
+         on the same branch are removed (2a2) -- with 2a alone the hang persists.
+WHY 2a   Over-allocating page-table columns is safe: the table is only indexed
+         THROUGH top-k, which masks per row by cache_seqlens, so extra columns
+         get -inf and are never selected.  Verified by walking every consumer.
+         The sync-free idiom is established in-tree three times
+         (triton_backend.py:704-708, trtllm_mha_backend.py:555-559, and DSA's own
+         graph path at dsa_backend.py:689-695).
+         2a2's removals are dead for DRAFT_EXTEND_V2, which is not is_extend()
+         (ForwardMode.is_extend, include_draft_extend_v2 defaults False), so every
+         consumer is unreachable: extend_prefix_lens_cpu is read only inside the
+         is_extend() arm; seq_lens_sum at the is_extend()-gated capacity check and
+         the Blackwell+EXTEND heuristic; indexer_seq_lens_cpu is captured ABOVE
+         this block and is already None here; _cal_indexer_k_start_end and
+         dsa_indexer's k-only path both open with is_extend_without_speculative().
+         base_spec_worker.prepare_for_draft_extend already supplies the mirror
+         this branch does need (extend_seq_lens_cpu), for this exact reason.
+
+WHAT 2b  `metadata.page_table_1` is one row per REQUEST; `topk_indices` has just
+         been padded to `q.shape[0]`, one row per TOKEN.  Equal for plain decode,
+         unequal under MTP -- `transform_index_page_table_decode_fast` then trips
+         `assert page_table.shape[0] == topk_indices.shape[0]` and every rank dies.
+WHY 2b   Expanding by repeat_interleave reproduces the token-major layout.  Rows
+         `_pad_topk_indices` added hold all -1 and the triton kernel masks them
+         (`valid_topk_mask = mask & (loaded_topk_indices >= 0)`), so only the row
+         COUNT has to match.  Applied at BOTH decode call sites -- the traceback
+         named only the first, but the second pairs the same unpadded page table
+         with a padded topk_indices.  The prefill sibling solves this with an
+         explicit `output_num_tokens`; the decode entry point has no equivalent.
+
+UPSTREAM STATUS  (queried with `gh`, 2026-08-01)
+--------------------------------------------------------------------------------
+issue            NONE for either half.
+third-party PR   NONE for either half.  Per-diff greps: #31683 does not touch
+                 this file's max_seqlen_k path at all; #32209 / #32196 vote on
+                 GRAPH CAPTURE, which a host-side sync is invisible to; merged
+                 #29798 ("avoid DSA indexer CPU seq lens fallback") repaired the
+                 GLOBAL eager path -- batches over --cuda-graph-max-bs, entered
+                 by all ranks together -- and never anticipated per-rank
+                 asymmetric entry.
+                 Weaker than it sounds: `gh search` matches titles and bodies,
+                 not diff content, so an upstream PR could touch either site
+                 without naming it.
+own PR           NONE.  Not upstreamed.  2a's evidence is runtime-state, not a
+                 revert, so it is harder to present upstream than patch 01 was;
+                 2b's upstream counterpart would be #32209's other half, which we
+                 could not make work here (see below).
+
+HOW 2a WAS ESTABLISHED
+--------------------------------------------------------------------------------
+Not by reverting the fix -- by observing the divergence.  A py-spy dump caught a
+BUSY rank blocked inside dsa_backend on `.max().item()` while IDLE peers had
+already advanced into the next collective.  After the fix no rank appears in
+dsa_backend in a dump again and PD warmup passes on all 8 ranks.  2a2 was forced
+by experiment, not by reading: with 2a applied and 2a2 not, the hang persists.
+
+A NEGATIVE RESULT WORTH RECORDING
+--------------------------------------------------------------------------------
+#32209's other half reconciles the same decode row counts by TRIMMING q/top-k
+where 2b EXPANDS the page table.  It looks like an obvious convergence and is
+not: porting it onto this HIP/tilelang path fails reproducibly at conc=32 (0/32
+across seven runs, three node pairs, a rebuilt image).  Seventeen candidate
+causes were instrumented and eliminated; the root cause is NOT identified.
+Reproducer: glm52.mxfp4.spur.mooncake.packup_20260731_exp3a_32209_patch2b_unresolved
+(branch yihou.dev.glm5.2.mxfp4.experiment).  Until that is understood, 2b keeps its own form.
+
+RELATION TO THE INDEXSHARE WORKAROUND
+--------------------------------------------------------------------------------
     --json-model-override-args '{"index_share_for_mtp_iteration":false}'
 
-An arm run with this override and with 2b and 04 both asserted ABSENT from the
-bytecode passed 4/4, 32/32 twice and 64/64 on 2 x 8 MI355X.  So 2b is not needed in
-that configuration.  2a was NOT reverted in that arm, so that arm says nothing about
-it either way.
-
-2a's own evidence does not come from a revert; it comes from runtime state.  A
-py-spy dump caught a BUSY rank blocked inside dsa_backend on .max().item() while
-IDLE peers had already advanced into the next collective -- the divergence itself,
-observed.  After the fix no rank appears in dsa_backend in a dump again and PD
-warmup passes on all 8 ranks.  Fix A2 (the two unconditional .cpu() syncs on the
-same branch) was forced by experiment, not by reading: with A applied and A2 not,
-the hang persists.  Over-allocating page-table columns was verified safe by walking
-every consumer -- the table is only indexed THROUGH top-k, which masks per row by
-cache_seqlens, so the extra columns get -inf and are never selected.  The
-sync-free idiom is established in-tree three times (triton_backend.py,
-trtllm_mha_backend.py, and DSA's own graph path).
-
-The override does NOT substitute for 01 (padded rows) or the nextn eh_proj fix.
-It is nearly free only while IndexShare's consumer stays disabled under PD by
-should_use_dsa_fused_topk; upstream #31477 removes that.  See the header of
-draft_cuda_graph_dp_vote.diff for the full account and the status check.
+Substitutes for 2b, NOT for 2a.  An arm with the override, and with 2b and 04
+both asserted ABSENT from the bytecode, passed 4/4, 32/32 twice and 64/64 on
+2 x 8 MI355X.  2a was NOT reverted in that arm, so it says nothing about 2a
+either way -- and a host-side sync is invisible to the graph/eager decision the
+override acts on.  See the header of draft_cuda_graph_dp_vote.diff for the cost
+of the override and the #31477 status check.
 
 diff --git a/python/sglang/srt/layers/attention/dsa_backend.py b/python/sglang/srt/layers/attention/dsa_backend.py
-index 75aa41d784..58e6e504d2 100644
+index 75aa41d..59edf19 100644
 --- a/python/sglang/srt/layers/attention/dsa_backend.py
 +++ b/python/sglang/srt/layers/attention/dsa_backend.py
-@@ -141,6 +141,45 @@ def _to_2d_context_lens(seqlens_32: torch.Tensor, batch_size: int) -> torch.Tens
+@@ -141,6 +141,29 @@ def _to_2d_context_lens(seqlens_32: torch.Tensor, batch_size: int) -> torch.Tens
  global_workspace_buffer = None
  
  
-+
-+
 +def _glm52_match_page_table_rows(page_table, topk_indices):
-+    """GLM52_BUG5: make page_table's row count agree with topk_indices'.
++    """GLM52_BUG2B: give page_table one row per TOKEN, matching topk_indices.
 +
-+    `metadata.page_table_1` is `req_to_token[req_pool_indices, :max_seqlen_k]`,
-+    so it has one row per REQUEST. `topk_indices` has just been widened by
-+    `_pad_topk_indices` to `q.shape[0]`, one row per TOKEN. For plain decode
-+    those coincide (one token per request); under MTP the draft model runs
-+    several tokens per request and they do not, so
-+    `transform_index_page_table_decode_fast` trips
-+
-+        assert page_table.shape[0] == topk_indices.shape[0]
-+
-+    Observed as an 8-rank crash under 16 concurrent requests.
-+
-+    Expanding by repeat_interleave reproduces the token-major-per-request
-+    layout. Rows added by `_pad_topk_indices` hold all -1, and the triton
-+    kernel masks those out (`valid_topk_mask = mask & (loaded_topk_indices >= 0)`),
-+    so their page-table counterparts are never read -- only the row COUNT has to
-+    match. The prefill sibling handles this with an explicit `output_num_tokens`
-+    argument; the decode entry point has no equivalent.
++    page_table_1 is per-REQUEST, topk_indices per-TOKEN -- equal for plain decode,
++    not under MTP, where decode then trips `assert page_table.shape[0] ==
++    topk_indices.shape[0]`. Padded rows are masked, so only the COUNT matters.
 +    """
 +    if topk_indices is None or page_table is None:
 +        return page_table
@@ -75,7 +118,7 @@ index 75aa41d784..58e6e504d2 100644
  @dataclass(frozen=True)
  class DSAFlashMLAMetadata:
      """Metadata only needed by FlashMLA"""
-@@ -740,10 +779,15 @@ class DeepseekSparseAttnBackend(
+@@ -740,10 +763,10 @@ class DeepseekSparseAttnBackend(
                  forward_batch.seq_lens_cpu.max().item() + draft_token_num
              )
          else:
@@ -83,19 +126,14 @@ index 75aa41d784..58e6e504d2 100644
 -            # batches; graph replay uses the static page-table width, so only this
 -            # eager (e.g. over-capture-bs) fallback needs a length here.
 -            max_seqlen_k = int(forward_batch.seq_lens.max().item()) + draft_token_num
-+            # GLM52_BUG2_FIX_A: needs_cpu_seq_lens=False nulls the host mirror for
-+            # spec-v2 relay batches. `seq_lens.max().item()` here is a blocking D2H
-+            # sync on a branch that only SOME DP ranks take (IDLE peers keep their
-+            # mirror and take the cheap arm), which desynchronizes the DP collectives
-+            # and deadlocks. Use the static page-table width instead -- the same
-+            # sync-free idiom as _graph_page_table_width() and the graph-capture
-+            # paths below. Over-allocating columns is safe: the page table is only
-+            # indexed through top-k, which masks per row by cache_seqlens.
++            # GLM52_BUG2A: BEFORE `seq_lens.max().item()`, a D2H sync on a branch
++            # only SOME DP ranks take -> collectives desync -> deadlock. AFTER the
++            # static width, the sync-free idiom _graph_page_table_width() uses.
 +            max_seqlen_k = self.req_to_token.shape[1]
          # [b, max_seqlen_k]
          page_table = self.req_to_token_pool.req_to_token[
              forward_batch.req_pool_indices, :max_seqlen_k
-@@ -803,19 +847,32 @@ class DeepseekSparseAttnBackend(
+@@ -803,19 +826,13 @@ class DeepseekSparseAttnBackend(
                  page_table, repeats=self.speculative_num_draft_tokens, dim=0
              )
          elif forward_batch.forward_mode.is_draft_extend_v2():
@@ -107,28 +145,9 @@ index 75aa41d784..58e6e504d2 100644
 -            if forward_batch.seq_lens_cpu is None:
 -                forward_batch.seq_lens_cpu = forward_batch.seq_lens.cpu()
 -                forward_batch.seq_lens_sum = int(forward_batch.seq_lens_cpu.sum())
-+            # GLM52_BUG2_FIX_A2: the two host mirrors that used to be materialized
-+            # here (extend_prefix_lens.cpu() and seq_lens.cpu()) are unconditional
-+            # D2H syncs on the same rank-divergent branch as the max_seqlen_k fix
-+            # above, so Fix A alone does not lift the deadlock.
-+            #
-+            # They are dead for DRAFT_EXTEND_V2, which is not is_extend() (see
-+            # ForwardMode.is_extend -- include_draft_extend_v2 defaults to False).
-+            # Every consumer is therefore unreachable on this path:
-+            #   * extend_prefix_lens_cpu -- read only inside the is_extend() arm
-+            #   * seq_lens_sum -- read at the is_extend()-gated capacity check and
-+            #     the Blackwell+EXTEND prefill heuristic
-+            #   * seq_lens_cpu -> indexer_seq_lens_cpu is captured ABOVE this block,
-+            #     so it is already None here today; the draft-extend indexer path
-+            #     reads get_seqlens_expanded() / block_tables.shape[1] (GPU-side)
-+            #   * _cal_indexer_k_start_end and dsa_indexer's k-only path both open
-+            #     with an is_extend_without_speculative() guard
-+            #
-+            # base_spec_worker.prepare_for_draft_extend already supplies the mirror
-+            # this branch actually needs -- extend_seq_lens_cpu -- precisely "so
-+            # backend max() reads from list without a per-iter D2H sync". This
-+            # completes that intent instead of contradicting it. The assert keeps
-+            # the invariant that the consumed values are present.
++            # GLM52_BUG2A2: BEFORE two more D2H syncs sat here on the same
++            # divergent branch, so 2A alone left the deadlock. AFTER removed --
++            # dead for DRAFT_EXTEND_V2; per-consumer walk in the patch header.
              assert (
                  forward_batch.extend_seq_lens_cpu is not None
                  and forward_batch.extend_seq_lens is not None
@@ -138,7 +157,7 @@ index 75aa41d784..58e6e504d2 100644
  
              extend_seq_lens_cpu = forward_batch.extend_seq_lens_cpu
              assert forward_batch.extend_seq_lens is not None
-@@ -2134,7 +2191,9 @@ class DeepseekSparseAttnBackend(
+@@ -2134,7 +2151,9 @@ class DeepseekSparseAttnBackend(
              page_table_1 = self._get_fused_topk_page_table(topk_indices)
          else:
              page_table_1 = transform_index_page_table_decode(
@@ -149,7 +168,7 @@ index 75aa41d784..58e6e504d2 100644
                  topk_indices=topk_indices,
                  page_size=1,
              )
-@@ -2704,7 +2763,9 @@ class DeepseekSparseAttnBackend(
+@@ -2704,7 +2723,9 @@ class DeepseekSparseAttnBackend(
              if topk_indices is not None:
                  topk_indices = self._pad_topk_indices(topk_indices, q.shape[0])
              page_table_1 = transform_index_page_table_decode(

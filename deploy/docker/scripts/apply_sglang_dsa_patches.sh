@@ -76,7 +76,7 @@ echo "  PREREQ nextn eh_proj      -> src=$n3 (want 1)"
 # expression already appears on two pre-existing graph-capture paths -- so
 # counting it gives 3, not 1.  Key off the unique comment the patch adds.  This
 # is a SOURCE check by necessity; bytecode cannot show it.
-n2a=$(grep -c 'GLM52_BUG2_FIX_A: needs_cpu_seq_lens=False nulls the host mirror' \
+n2a=$(grep -cF 'GLM52_BUG2A: BEFORE `seq_lens.max().item()`' \
       "$SRT/layers/attention/dsa_backend.py" || true)
 echo "  patch2a max_seqlen_k      -> src=$n2a (want 1)"
 [ "$n2a" -eq 1 ] || fail=1

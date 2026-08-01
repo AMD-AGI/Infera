@@ -78,45 +78,17 @@ RUN for f in /tmp/sglang-patches/*.py; do echo "[sglang-patch] $f"; python "$f" 
     && rm -rf /tmp/sglang-patches
 
 # ---- GLM-5.2 DSA patch set (PD + DP-attention + EAGLE MTP on gfx950) --------
-# Three patches that together make PD disaggregation + DP-attention + EAGLE MTP
-# work for GLM-5.2. Without them the combination crashes on the first batch or
-# deadlocks the whole DP group under concurrency:
+# WHAT: three patches that together make PD + DP-attention + EAGLE MTP work for
+# GLM-5.2; without them it crashes on the first batch or deadlocks the DP group.
+# Per-patch rationale and upstream linkage: patches/sglang_dsa/README.md.
 #
-#   dsa_indexer_hip_dp_padded_rows      the HIP/aiter paged-MQA path sizes its
-#                                       output from DP-PADDED rows while
-#                                       `lengths` is sized to REAL rows ->
-#                                       "Expected lengths.size(0) == B". Shaped
-#                                       after upstream PR #32762 (same bug class,
-#                                       NPU): one boolean gates both trim and
-#                                       restore, and the post-kernel row count is
-#                                       ASSERTED before padding is re-attached.
-#   dsa_backend_dp_sync_and_page_table  (a) `seq_lens.max().item()` is a host sync
-#                                       on a branch only SOME DP ranks take,
-#                                       desynchronizing DP collectives; (b)
-#                                       page_table_1 has one row per REQUEST while
-#                                       topk_indices has one per TOKEN under MTP
-#                                       -> assert on unequal rows.
-#   draft_cuda_graph_dp_vote            the draft-graph/eager choice in
-#                                       EagleDraftWorker.draft() is made PER RANK
-#                                       from rank-dependent inputs and diverges on
-#                                       the PD decode leg, where the DSA top-k seed
-#                                       arrives by RDMA. Graph replay and the eager
-#                                       loop do not issue the same collectives ->
-#                                       deadlock. Shaped after upstream PR #32209:
-#                                       the vote rides the MLP-sync all-gather the
-#                                       scheduler ALREADY performs, adding zero
-#                                       extra collectives.
+# MUST stay after the loop above -- that supplies the nextn eh_proj prerequisite,
+# which the script asserts. Unlike that loop these are context diffs at --fuzz=0
+# against the pinned base, so a base bump FAILS here instead of mis-applying.
 #
-# The nextn eh_proj fix is NOT here -- the patch loop above already applies it;
-# the script asserts it as a prerequisite.
-#
-# Unlike the loop above these are context diffs applied at --fuzz=0 against the
-# pinned base (sglang 0b3bb0cbe31873994c9f989fddfe2f87ca839fdd, release/v0.5.15).
-# Bumping SGLANG_BASE_IMAGE will FAIL the build here rather than silently
-# mis-apply -- intended, not a defect. The script also verifies each patch reached
-# the BYTECODE, not just the source: a stale __pycache__ entry silently reverts a
-# patch and has already invalidated a full experiment. Set
-# APPLY_SGLANG_DSA_PATCHES=0 for a stock engine (e.g. to A/B the patches).
+# The script also verifies each patch reached the BYTECODE, not just the source:
+# a stale __pycache__ silently reverts a patch and has voided an experiment here.
+# APPLY_SGLANG_DSA_PATCHES=0 builds a stock engine to A/B against.
 ARG APPLY_SGLANG_DSA_PATCHES=1
 COPY deploy/docker/patches/sglang_dsa/ /tmp/sglang_dsa/
 COPY deploy/docker/scripts/apply_sglang_dsa_patches.sh /tmp/apply_sglang_dsa_patches.sh
