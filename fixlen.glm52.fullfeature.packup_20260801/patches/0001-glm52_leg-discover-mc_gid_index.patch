@@ -1,0 +1,59 @@
+--- a/glm52_leg.sh
++++ b/glm52_leg.sh
+@@ -83,7 +83,42 @@
+ if [ "$DMABUF" = "1" ]; then export MOONCAKE_DISABLE_HIP_DMABUF=0; else export MOONCAKE_DISABLE_HIP_DMABUF=1; fi
+ 
+ # mooncake RDMA env — real RDMA across the two nodes, NOT MC_FORCE_TCP.
+-export MC_GID_INDEX=1 MC_DISABLE_HIP_TRANSPORT=1
++#
++# BENCH DELTA (work.bench_20260801): MC_GID_INDEX is DISCOVERED, not hardcoded.
++#
++# The kit hardcoded MC_GID_INDEX=1, which is true on chi2879 and FALSE on
++# chi2867. Both nodes expose two RoCE v2 GIDs per ionic port -- a link-local
++# fe80:: one and a routable fd93:: one -- but at different indices:
++#
++#     chi2879  idx0 fe80::(link-local)  idx1 fd93::(routable)
++#     chi2867  idx0 fe80::(link-local)  idx1 EMPTY  idx2 fd93::(routable)
++#
++# Consistent across all 8 NICs on each node. With the hardcoded 1, chi2867 reads
++# an empty GID slot and every device fails:
++#     rdma_context.cpp:1132 GID is NULL, please check your GID index
++#     rdma_context.cpp:200  Failed to open device ionic_N
++#     -> "Mooncake Transfer Engine initialization failed" on all 8 DP ranks,
++#        scheduler dies during init, leg never reports ready.
++# The link-local idx0 is not a workaround: it is not routable across the fabric
++# and crashes MoRI at ionic.cpp:414 (see the slurm-cluster skill's rdma.md).
++#
++# So: pick the first index whose GID is neither empty nor fe80::. Falls back to
++# the hardcoded value only if discovery finds nothing, so behaviour on a node
++# where discovery fails is unchanged rather than silently different.
++_gid_discover() {
++  local d idx g
++  d=$(echo "$IB_DEVICES" | cut -d, -f1)
++  for idx in 0 1 2 3 4 5 6 7; do
++    g=$(cat "/sys/class/infiniband/$d/ports/1/gids/$idx" 2>/dev/null) || continue
++    case "$g" in
++      ""|0000:0000:0000:0000:0000:0000:0000:0000|fe80*) continue ;;
++      *) echo "$idx"; return 0 ;;
++    esac
++  done
++  return 1
++}
++MC_GID_INDEX="${MC_GID_INDEX:-$(_gid_discover || echo 1)}"
++export MC_GID_INDEX MC_DISABLE_HIP_TRANSPORT=1
+ unset MC_ENABLE_HIP_TRANSPORT
+ export RDMAV_FORK_SAFE=1
+ export NCCL_IB_DISABLE=1 NCCL_IGNORE_CPU_AFFINITY=1 HSA_NO_SCRATCH_RECLAIM=1
+@@ -131,6 +166,12 @@
+ 
+ EXTRA_ARGS=()
+ [ -n "$MAX_TOTAL" ] && EXTRA_ARGS+=(--max-total-tokens "$MAX_TOTAL")
++# BENCH DELTA (work.bench_20260801): --enable-cache-report populates
++# usage.prompt_tokens_details.cached_tokens. Without it BOTH benches read a
++# cache-hit rate of 0 -- sglang bench_serving's --cache-report column and the
++# agentic driver's observed hit rate -- so Case A's 88-90% target becomes
++# uncheckable. Default ON; CACHE_REPORT=0 to drop it.
++[ "${CACHE_REPORT:-1}" = "1" ] && EXTRA_ARGS+=(--enable-cache-report)
+ 
+ # ---- MTP: EAGLE steps=3 (decode leg by default; PREFILL_MTP=1 adds prefill) --
+ MTP_ARGS=()
