@@ -98,6 +98,12 @@ image that silently corrupts long prompts is worse than a failed build.
 docker build -f deploy/docker/Dockerfile.sglang -t infera/engine-sglang:merged .
 ```
 
+Build **on each node** rather than building once and shipping a 28 GB tarball —
+the claim being tested is that the Dockerfile reproduces the run. ~15 min per node
+with the base pulled. The two nodes' image ids will **differ** (independent
+builds, so Rust objects and layer timestamps differ); check content equivalence
+with `verify_built_image.sh`, not digests.
+
 The base tag stays **pinned**: the DSA diffs apply at `--fuzz=0` against sglang
 `0b3bb0cbe31873994c9f989fddfe2f87ca839fdd`, so a base bump fails the build at the
 patch step rather than mis-applying silently. That is intended.
@@ -105,15 +111,30 @@ patch step rather than mis-applying silently. That is intended.
 ## Validation
 
 Four gates, each loading one more thing onto the last so a failure localises.
-Full detail, including the two probe defects that each produced a wrong verdict
-before being caught, is in `merge_kvaware_mtp_pd.packup_20260731/`.
+**Run twice**: once against a base image patched in place, and again against the
+image built from this branch's `Dockerfile.sglang` on both nodes, with no
+in-container patching at all. Full detail, including the three probe defects that
+each produced a wrong verdict before being caught, is in
+`merge_kvaware_mtp_pd.packup_20260731/`.
 
-| gate | criterion | result |
-|---|---|---|
-| G0 | the patches do not break kvaware+kvd | 4/4, 32/32 prefix reuse, kvd **102 gets / 102 hits / 102 sets unchanged** after an engine restart |
-| G1 | + MTP on the decode leg | 4/4, 32/32, `accept len` 2.48–2.58, router prefill view **51 blocks** |
-| G2 | + a prompt spanning more than one prefill chunk | **5/5** needles, prompt really split `8192+8192+1728` |
-| stress | conc=16, then conc=128 | **64/64** and **256/256**, 0 corrupt, 0 HTTP errors |
+| gate | criterion | patched image | **built image** |
+|---|---|---|---|
+| G0 | the patches do not break kvaware+kvd | 4/4, 32/32 | **4/4, 32/32** |
+| G0 | kvd restart-replay | 102 gets / 102 hits / sets unchanged | **102 / 102 / unchanged** |
+| G1 | + MTP on the decode leg | 4/4, `accept len` 2.48–2.58, prefill view **51** | **4/4, 2.17–2.60, 51** |
+| G2 | + a prompt spanning >1 prefill chunk | 5/5, split `8192+8192+1728` | **5/5, same split** |
+| stress | conc=16 | 64/64 | **64/64** |
+| stress | conc=128 | 1 CORRUPT / 256 | **1 CORRUPT / 256** |
+
+The single conc=128 case is the same in both: the one response that ran to the
+`max_tokens` cap, a plain repetition loop (`</think>` × 0) rather than the
+chunk-boundary signature, and CLEAN when the identical prompt is replayed at
+conc=1.
+
+Verify a built image before running anything against it —
+`packup/scripts/verify_built_image.sh` makes 18 bytecode/source assertions plus a
+behavioural smoke test. A build log saying a patch printed success is not the same
+as the interpreter running patched code.
 
 Unit suite: **1162 passed, 1 skipped**.
 
