@@ -66,14 +66,15 @@ Pinned to Mooncake `main @ 747003c`; `git apply` fails loudly on ref drift.
 |---|---|---|---|---|---|
 | `vllm/patch_defer_kv_register.py` | registering the Mooncake KV pool before warmup trips a decode-boot crash at high util (`compile_or_warm_up_model` returns None → `AttributeError: 'NoneType' … language_model`); defer to the end of warmup | none found | none found | — | — |
 | `vllm/patch_moriio_pagelen.py` | MoRIIO MLA derives per-block transfer size/stride from tensor **shape**, so block-scaled fp8 MLA + DSA transfers the wrong geometry → PD output is wrong while direct prefill is correct | none found | none found | — | — |
-| `vllm/patch_moriio_write.py` | in WRITE (push) mode the decode addresses **itself** (`is_producer=True`), the consumer handler asserts, the notify thread dies and the request hangs | [Infera-Private#67](https://github.com/AMD-AGI/Infera-Private/issues/67) | fixed on vLLM `main` / `v0.22.1rc0` **source**, but no AMD ROCm image ships it | no | n/a (source-only) |
-| `vllm/patch_sched_guard.py` | decode EngineCore dies on `assert req_id in self.requests` when a KV-xfer-finished event arrives for an already-removed request | [Infera-Private#69](https://github.com/AMD-AGI/Infera-Private/issues/69) | none found | — | — |
+| `vllm/patch_moriio_write.py` | in WRITE (push) mode the decode addresses **itself** (`is_producer=True`), the consumer handler asserts, the notify thread dies and the request hangs | `AMD-AGI/Infera#67` | fixed on vLLM `main` / `v0.22.1rc0` **source**, but no AMD ROCm image ships it | no | n/a (source-only) |
+| `vllm/patch_sched_guard.py` | decode EngineCore dies on `assert req_id in self.requests` when a KV-xfer-finished event arrives for an already-removed request | `AMD-AGI/Infera#69` | none found | — | — |
 | `vllm/patch_vllm_mooncake_blocksize.py` | backends that force a kernel block size of 1 make the connector index logical pages at kernel granularity → RDMA moves empty rows, decode attends over zeros | none found | none found | — | — |
-| `vllm/patch_vllm_mooncake_prom_metrics.py` | `MooncakeConnector` lacks `build_prom_metrics`, so `MultiKVConnectorPromMetrics.observe` asserts and kills the engine under `MultiConnector` | none found | [Infera-Private#178](https://github.com/AMD-AGI/Infera-Private/pull/178) (the sibling fix for `InferaKvdConnector`) | **yes** (`jiejingzhangamd`) | **MERGED** |
+| `vllm/patch_vllm_mooncake_prom_metrics.py` | `MooncakeConnector` lacks `build_prom_metrics`, so `MultiKVConnectorPromMetrics.observe` asserts and kills the engine under `MultiConnector` | none found | internal PR #178 (the sibling fix for `InferaKvdConnector`) | **yes** | **MERGED** |
 
-> `patch_moriio_write.py` and `patch_sched_guard.py` cite these as
-> `AMD-AGI/Infera#67` / `#69` in their docstrings; both actually live in
-> **Infera-Private**. Numbers verified, repo corrected here only.
+> The `AMD-AGI/Infera#NN` references above are quoted verbatim from the patches'
+> own docstrings, which is the citation form this repo already uses. They resolve
+> against an internal tracker, so treat a `404` as expected rather than as a
+> stale number.
 
 ## vLLM DSv4 — `patches/vllm-dsv4/` (baked by `Dockerfile.vllm`)
 

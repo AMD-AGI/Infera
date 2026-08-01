@@ -88,11 +88,9 @@ Draft-graph replay was measured at **97.1 %** (777/800 calls, identical on all 8
 ranks) — that counter is the point, because forcing the draft path eager passes
 every functional test while disabling the feature under test.
 
-Measurements live in the `yihou.dev.glm5.2.mxfp4.experiment` branch:
-`glm52.mxfp4.spur.mooncake.packup_20260731_main_converged` (the run above),
-`..._20260729_bug2b_draft_graph` (the draft-graph fix and its differential
-control), `..._20260730_exp2_indexshare_off` (the workaround arm),
-`..._20260731_exp3a_32209_patch2b_unresolved` (the failed #32209 port).
+Raw measurements are held in internal reproduction kits, one per arm: the run
+above, the draft-graph fix with its differential control, the IndexShare-off
+workaround arm, and the failed #32209 port. Ask the patch author for access.
 
 ### What this validation does NOT establish
 
@@ -160,7 +158,7 @@ that arm was taken to conc=64, not 128.
 **Why the patches remain the default.** The override is nearly free only because
 IndexShare's consumer is currently disabled under PD by
 `should_use_dsa_fused_topk`. Upstream PR #31477 exists to remove that limitation;
-once it lands the override starts costing (~3 % TPOT, reported by AMD's llying —
+once it lands the override starts costing (~3 % TPOT, reported internally —
 second-hand, not measured by us). Checked with `gh` on 2026-08-01: #31477 is
 **open**, `REVIEW_REQUIRED`, unmerged. A good answer today if IndexShare is not
 wanted, a dated one if it is.

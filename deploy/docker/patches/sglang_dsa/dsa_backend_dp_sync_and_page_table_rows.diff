@@ -69,9 +69,9 @@ A NEGATIVE RESULT WORTH RECORDING
 where 2b EXPANDS the page table.  It looks like an obvious convergence and is
 not: porting it onto this HIP/tilelang path fails reproducibly at conc=32 (0/32
 across seven runs, three node pairs, a rebuilt image).  Seventeen candidate
-causes were instrumented and eliminated; the root cause is NOT identified.
-Reproducer: glm52.mxfp4.spur.mooncake.packup_20260731_exp3a_32209_patch2b_unresolved
-(branch yihou.dev.glm5.2.mxfp4.experiment).  Until that is understood, 2b keeps its own form.
+causes were instrumented and eliminated; the root cause is NOT identified.  The
+reproduction kit is held internally.  Until that is understood, 2b keeps its
+own form.
 
 RELATION TO THE INDEXSHARE WORKAROUND
 --------------------------------------------------------------------------------

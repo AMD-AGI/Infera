@@ -86,8 +86,7 @@ graph replay.  v1 additionally had to use `get_tp_group()`, not
 `get_attention_tp_group()`: under DPA8 on tp8 the attention TP group is
 attn_tp_size = tp/dp = 1 rank wide, so voting on it is a no-op.  v2 rides the
 scheduler's existing gather and never faces that choice.
-v1's diff is preserved with its full evidence in
-glm52.mxfp4.spur.mooncake.packup_20260729_bug2b_draft_graph (branch yihou.dev.glm5.2.mxfp4.experiment).
+v1's diff is preserved with its full evidence in the internal reproduction kits.
 
 TWO DETAILS THAT WOULD MAKE THIS SILENTLY INERT
 --------------------------------------------------------------------------------
@@ -130,11 +129,10 @@ WHY IT IS NOT THE DEFAULT: it is nearly free only because IndexShare's consumer
 is currently disabled under PD by `should_use_dsa_fused_topk`.  Upstream #31477
 ("[Spec][PD] Enable fused TopK for GLM-5.2 MTP IndexShare", HanHan009527) exists
 to remove that limitation; once it lands the override starts costing (~3% TPOT,
-reported by AMD's llying -- second-hand, not measured by us).  Checked with `gh`
+reported internally -- second-hand, not measured by us).  Checked with `gh`
 2026-08-01: #31477 is OPEN, REVIEW_REQUIRED, unmerged.  So: a good answer today
 if IndexShare is not wanted, a dated one if it is.
-Full arm with anti-marker verification:
-glm52.mxfp4.spur.mooncake.packup_20260730_exp2_indexshare_off (branch yihou.dev.glm5.2.mxfp4.experiment).
+The full arm, with anti-marker verification, is in the internal kits.
 
 diff --git a/python/sglang/srt/disaggregation/decode.py b/python/sglang/srt/disaggregation/decode.py
 index 2164cad..b1e9e0e 100644
