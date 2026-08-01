@@ -63,15 +63,29 @@ jobs:
         run: |
           raw="${{ github.event.inputs.engines }}"
           [ -z "$raw" ] && raw="sglang vllm atom kvd server"
-          json=$(printf '%s\n' $raw | jq -R . | jq -sc .)
+
+          has() { printf '%s\n' $raw | grep -qx "$1"; }
+          has overlay && asked_overlay=1 || asked_overlay=0
+
+          # `overlay` is never a matrix entry. It is not an engine: it harvests
+          # Mooncake/hipFile out of the vllm and sglang images, so running it
+          # beside them would harvest whatever the registry had from a previous
+          # run. It gets its own job, gated on `build`. Strip it here so typing it
+          # in the dispatch box cannot route it into the matrix.
+          engines=$(printf '%s\n' $raw | grep -vx overlay | tr '\n' ' ')
+          json=$(printf '%s\n' $engines | jq -R . | jq -sc 'map(select(length>0))')
           echo "engines=$json" >> "$GITHUB_OUTPUT"
           echo "engines=$json"
-          # The overlay harvests Mooncake/hipFile out of BOTH engine images, so it
-          # can only be built when both are part of this run. A partial dispatch
-          # (e.g. just "sglang") skips it rather than building a payload that
-          # silently carries a previous release's native code.
-          if printf '%s\n' $raw | grep -qx sglang && printf '%s\n' $raw | grep -qx vllm; then
+
+          # The overlay needs BOTH engine images from THIS run.
+          if has sglang && has vllm; then
             echo "overlay=true" >> "$GITHUB_OUTPUT"; echo "overlay=true"
+          elif [ "$asked_overlay" = 1 ]; then
+            # Explicitly requested but impossible to build correctly. Fail loudly
+            # rather than skip: a silent skip on an explicit request reads as
+            # "the overlay was published" when nothing was.
+            echo "::error::overlay was requested but needs both sglang and vllm in the engine list (got: $raw)"
+            exit 1
           else
             echo "overlay=false" >> "$GITHUB_OUTPUT"
             echo "overlay=false (needs both sglang and vllm in the engine list)"
