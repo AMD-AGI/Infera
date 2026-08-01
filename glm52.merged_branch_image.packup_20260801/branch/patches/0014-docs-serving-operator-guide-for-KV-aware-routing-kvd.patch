@@ -1,0 +1,340 @@
+From 7e04a0ca124fa92262459b2615e441d57dcf618f Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Fri, 31 Jul 2026 09:53:44 +0000
+Subject: [PATCH 14/25] docs(serving): operator guide for KV-aware routing +
+ kvd on SGLang
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The feature pages give the flags. This page covers what an operator actually
+needs and could not get from them:
+
+  * Experiment-only settings and what to use instead. The reproduction scripts
+    carry MC_FORCE_TCP=1, an 8 GB hicache, an L3 tier on /tmp, and a manual
+    libionic docker cp — every one of which is deliberately wrong for
+    production, for a reason worth writing down (e.g. /tmp is usually tmpfs,
+    so the "disk" tier is RAM competing with the RAM tier).
+  * A recommended all-switches-on configuration for the three roles.
+  * How to verify each switch took effect, with the specific log strings, and
+    a negative case for each. All three features fail silently by degrading to
+    a slower-but-correct path, so "it works" is not evidence. In our own run
+    the reuse phase was 2.7x faster with kvd's counters at ZERO — the win was
+    the in-GPU radix cache. The check that attributes reuse to kvd is a
+    restart-and-replay: hits climb, sets do not.
+  * Which numbers are tunable, their defaults, recommended values, and which
+    direction to move them. Notably --kv-overlap-weight defaults to 1.0 and
+    the per-role weights fall back to it, so a PD deployment that does not set
+    them explicitly behaves nearly round-robin and looks like kv-aware "does
+    nothing".
+  * A "what we did not measure" section, so the recommended weights are not
+    mistaken for benchmarked optima: no concurrency, one prefix, no observed
+    latency win from kvd.
+
+Every log string and flag default cited here was checked against source.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ manual/serving/kvaware_kvd_operations.md | 276 +++++++++++++++++++++++
+ manual/sphinx/_toc.yml.in                |   2 +
+ 2 files changed, 278 insertions(+)
+ create mode 100644 manual/serving/kvaware_kvd_operations.md
+
+diff --git a/manual/serving/kvaware_kvd_operations.md b/manual/serving/kvaware_kvd_operations.md
+new file mode 100644
+index 0000000..c71b7af
+--- /dev/null
++++ b/manual/serving/kvaware_kvd_operations.md
+@@ -0,0 +1,276 @@
++# Running KV-aware routing + kvd on SGLang
++
++```{admonition} One-pager
++:class: tip
++**What:** how to run a PD-disaggregated SGLang deployment with **KV-aware
++routing** and **tiered KV offload (kvd)** both on, in production. **Why a
++separate page:** the feature pages tell you the flags; this one tells you which
++of them exist only to make an *experiment* cheap, what to set instead in
++production, how to prove each switch actually took effect, and which numbers are
++safe to tune.
++```
++
++Everything below was verified on GLM-5.2-MXFP4 across two MI355X nodes, PD over
++Mooncake RDMA, DP-attention on both legs, both features on.
++
++## 1. Experiment-only settings — do not ship these
++
++These appear in the reproduction scripts. Each exists to make a test cheap or to
++route around a lab constraint, and each is **wrong for production**.
++
++| Setting | Why it was used | Production instead |
++|---|---|---|
++| `MC_FORCE_TCP=1` | Both PD legs on **one host**, where Mooncake RDMA must loop back across rails (`ionic_0 → ionic_4`) and fails with `transport retry counter exceeded`. TCP is the known-good, slower path. | **Drop it.** Put the legs on different hosts and use RDMA. This flag costs you most of the PD transfer bandwidth. |
++| `--hicache-size 8` (GB) | A small RAM tier so the working set spills to L3 and the test actually exercises disk. | Size to the real hot set — typically **32–128 GB**. See §4. |
++| `--max-bytes 8G` on the daemon | Same reason: force spillover. | Match the host's spare RAM, typically **64–256 GB**. |
++| `--long-path /tmp/kvd-long` | Somewhere writable in a scratch container. | A real NVMe mount. `/tmp` is usually tmpfs — that is **RAM pretending to be disk**, so your L3 tier silently competes with L2 for the same memory. |
++| Qwen3-1.7B as the model | Cuts a ~30 min GLM-5.2 cold start to ~2 min, so the wiring loop could run 5 rounds in an afternoon. The thing under test was the wiring, not the model. | Your real model. A small model is excellent for **wiring** bugs and tells you nothing about capacity. |
++| `docker cp` of the host `libionic.so` | The scripts predate the image entrypoint. | Nothing — bind-mount the host library at `/host-libionic/libionic.so` and `infera-inject-host-ionic` does it. See `deploy/docker/scripts/infera_inject_host_ionic.sh`. |
++| Two TP4 workers packed onto one node | Gives the KV-aware scorer ≥2 workers per role to choose between, on one node's worth of GPUs. | One worker per node at full TP, and as many nodes as you have. |
++| `--kv-events-bind` / `--kv-snapshot-port` set per leg | Two workers on **one host** collide on the shared defaults (`5557`, `8801`). | Only needed when co-locating workers. One worker per host uses the defaults. |
++
++```{admonition} The port-collision trap that looks like a healthy leg
++:class: warning
++`--kv-snapshot-port` defaults to `8801` on **every** worker. Two workers on one
++host: the second logs `ready to roll`, *then* dies during etcd registration with
++`[Errno 98] address already in use`. The engine looks up and the worker never
++appears in the router. If a leg is "up" but never registers, check for `Errno
++98` **after** the ready line.
++```
++
++## 2. Recommended production configuration — all switches on
++
++Three roles, one image (`deploy/docker/Dockerfile.sglang.kvaware-kvd`).
++
++**Per host: the kvd daemon.** One per host; every engine on that host shares it.
++
++```bash
++python -m infera.kvd \
++  --socket /run/infera-kvd/kvd.sock \
++  --max-bytes 128G \
++  --long-path /nvme/kvd-long --long-bytes 2T \
++  --io-mode auto \
++  --log-level INFO
++```
++
++**Each engine leg** (prefill shown; decode is the same minus
++`--disaggregation-bootstrap-port`). Launch through the **infera wrapper** —
++`sglang.launch_server` bypasses all of the kvaware/kvd wiring:
++
++```bash
++python -m infera.engine.sglang \
++  --model-path <model> --host <routable-ip> --port 30000 \
++  --advertise-host <routable-ip> \
++  --etcd-endpoint <etcd>:2379 --discovery-backend etcd \
++  --request-transport http --kv-event-transport zmq \
++  --disaggregation-mode prefill \
++  --disaggregation-transfer-backend mooncake \
++  --disaggregation-ib-device <active-rails> \
++  --disaggregation-bootstrap-port 8998 \
++  --dp-size 8 --enable-dp-attention --ep-size 8 \
++  --infera-kvd-socket /run/infera-kvd/kvd.sock \
++  --hicache-size 64
++```
++
++`PYTHONHASHSEED=0` is baked into the image; if you build your own, set it.
++
++**The router**, with the PD-aware weights:
++
++```bash
++python -m infera.server --host 0.0.0.0 --port 8100 \
++  --discovery-backend etcd --etcd-endpoint <etcd>:2379 \
++  --request-transport http --kv-event-transport zmq \
++  --router-policy kv-aware --router-tokenizer-path <model> \
++  --kv-prefill-overlap-weight 20.0 \
++  --kv-decode-overlap-weight 2.0 \
++  --kvd-socket-path /run/infera-kvd/kvd.sock
++```
++
++```{admonition} Three defaults that are wrong for a PD deployment
++:class: important
++1. **`--kv-overlap-weight` defaults to `1.0`**, and the prefill/decode weights
++   fall back to it. At 1.0 the cache term barely outweighs load, so you get
++   nearly round-robin behaviour and will conclude kv-aware "does nothing". Set
++   the per-role weights explicitly (§4).
++2. **`--no-enable-kv-events` on a decode leg silently disables kvd there**,
++   because infera only re-enables the decode radix cache when KV events are on.
++   Leave KV events on.
++3. **`--hicache-ratio` (default 2.0) sizes the host pool off
++   `max_total_num_tokens`** — it asked for 355 GB *per DP rank* on a small model.
++   Use `--hicache-size <GB>`.
++```
++
++DP-attention must be **symmetric** across the pair (same `--dp-size`/`--ep-size`
++on both legs) or the KV shard layout does not match across the transfer.
++
++## 3. Verifying each switch actually took effect
++
++Every check below has a **negative** form — something that also looks like
++success but is not. That is the whole point: all three of these features fail
++*silently*, degrading to a slower-but-correct path.
++
++### kvd is wired
++
++```bash
++grep -E "infera-kvd adapter connected|hierarchical=True" <engine-log>
++```
++
++Want: `infera-kvd adapter connected to /run/infera-kvd/kvd.sock` and a
++`Tree cache initialized: ... HiRadixCache ... hierarchical=True`.
++
++Cheap pre-check: `--infera-kvd-socket` **fails fast** (5 s probe). If the daemon
++is unreachable the engine refuses to start, so a running engine has *a* daemon —
++but not necessarily one that is being used.
++
++### kvd is actually serving
++
++```bash
++python -m infera.kvd.statctl --socket /run/infera-kvd/kvd.sock
++```
++
++Drive a repeated long shared prefix, then want `sets_total > 0` followed by
++`gets_total > 0` with `hits_total` climbing.
++
++```{admonition} A speed-up does NOT prove kvd did anything
++:class: warning
++SGLang's in-GPU radix cache serves a repeated prefix without ever touching L3.
++In our run the reuse phase was **2.7× faster** while kvd's counters stayed at
++**zero** — the win was entirely the GPU cache.
++
++To attribute reuse to kvd specifically: **restart the engine** (which empties
++the GPU cache) and replay the same prefixes. Hits should climb with **no new
++sets**. Ours went `+170 hits / 0 new sets` — that reuse could only have come
++from L3.
++```
++
++`misses_total > 0` means the scheduler and worker derived different chunk keys —
++almost always a `PYTHONHASHSEED` mismatch.
++
++### KV events are flowing (the kv-aware input)
++
++```bash
++grep "KV plane up" <engine-log>
++```
++
++Also confirm each leg picked a **distinct** publisher port. Two legs sharing one
++means one of them is dead:
++
++```bash
++grep -o "kv-events.*:[0-9]*" <prefill-log> <decode-log>
++```
++
++### KV-aware routing is actually steering
++
++Load a prefix on one worker, then send the same prefix again and see where it
++lands. The discriminating test is a **policy flip** on identical traffic:
++
++| policy | requests to worker A | to worker B |
++|---|---|---|
++| `kv-aware` | 17 | 0 |
++| `round-robin` | +6 | +8 |
++
++Round-robin splits; kv-aware pins every repeat onto the worker holding the
++prefix. If your kv-aware run also splits evenly, the most likely cause is
++`--kv-overlap-weight` left at its `1.0` default.
++
++The router logs its arithmetic per decision:
++
++```
++cache_hits=… request_blocks=… active_blocks=… w_overlap=…
++```
++
++`w_overlap=1.00` when you expected `20.00` means the flag did not reach the
++policy.
++
++### The decode leg really has kvd (PD only)
++
++```bash
++grep "disaggregation-decode-enable-radix-cache" <decode-log>
++```
++
++Absent → the decode leg has no hierarchical cache, whatever else you passed.
++
++## 4. Tunable numbers, and what to set them to
++
++### Router: overlap weights
++
++`cost(w) = overlap_weight × (request_blocks − hits(w)) + active_blocks(w)`
++
++Cache locality vs. load balance, on one axis. Higher = chase the warm worker
++harder; lower = spread the load.
++
++| Flag | Default | Recommended | Why |
++|---|---|---|---|
++| `--kv-prefill-overlap-weight` | falls back to `1.0` | **20.0** | Prefill is compute-bound; a hit skips an entire prefill pass, which dominates everything else. Bias hard. |
++| `--kv-decode-overlap-weight` | falls back to `1.0` | **2.0** | Decode is memory-bound on KV. A prefill-time hit does little for the decode loop, and even latency matters more. Bias weakly. |
++| `--kv-overlap-weight` | `1.0` | 1.0–2.0 | Mixed (non-PD) pools and the fallback for the two above. |
++
++Tune from the recommended values, and move **one at a time**:
++
++- Prefill workers hot-spotting while others idle → lower the prefill weight
++  (20 → 10). The load term is in *blocks*, so with long prompts it can take a
++  large weight before locality wins at all.
++- Prefill hit rate flat and traffic spread evenly → raise it (20 → 40).
++- Decode tail latency spiking → lower the decode weight toward 1.0.
++
++Client `cache_control` also scales the weight per request: **long retention
++×2.0**, **explicit `none` ×0.1**. So a `retention=long` request effectively sees
++prefill weight 40 at the default. Account for that before concluding your
++weight is too high.
++
++```{admonition} Our measurement of these weights is incomplete
++:class: note
++The 17/0-vs-round-robin result was measured with **one prefill worker** and a
++**single** shared prefix. That demonstrates the mechanism works; it does not
++validate `20.0` as the optimum, and it never tested affinity between
++*competing* prefixes. Treat 20.0/2.0 as a documented starting point and measure
++on your own traffic.
++```
++
++### kvd daemon: tier sizes
++
++| Flag | Default | Recommended | Notes |
++|---|---|---|---|
++| `--max-bytes` (L2, host RAM) | `8G` | **64–256G** | The hot tier. Too small and everything falls through to L3 on every miss. Leave headroom: this is pinned host RAM competing with the engine's own host allocations. |
++| `--long-bytes` (L3) | — | **1–4T** | Cheap. Size to the working set you want to survive restarts. |
++| `--long-path` | — | a real NVMe mount | Not `/tmp` — that is usually tmpfs, i.e. RAM. |
++| `--long-paths` | — | one path per NVMe | Striped L3. Reads fan out across shards; N inodes on N devices give real parallelism where a single device does not. `--long-bytes` is then the **total** budget. |
++| `--io-mode` | `auto` | `auto` | `auto` probes for O_DIRECT eligibility. Force `direct`/`buffered` only to diagnose. |
++
++```{admonition} Bind-mounted L3 and O_DIRECT
++:class: note
++A bind-mounted L3 directory used to classify as buffered even on qualifying
++NVMe, because `findmnt` reports the source as `/dev/md0[/mnt/...]` and the
++bracketed form is not a block device. Fixed — but if you are on an older build,
++this is why a container-hosted kvd never used O_DIRECT.
++```
++
++### Engine: host cache pool
++
++| Flag | Default | Recommended | Notes |
++|---|---|---|---|
++| `--hicache-size` (GB, per rank) | — | **32–128** | Absolute; overrides the ratio. **Prefer this.** Note it is **per DP rank**: with `--dp-size 8`, `--hicache-size 64` allocates 512 GB on the host. |
++| `--hicache-ratio` | `2.0` | avoid | Scales off `max_total_num_tokens`. Asked for 355 GB/rank on a 1.7 B model. **Below 1.5 it silently disables L3 prefetch** — `prefetch_capacity_limit = 0.8 × (host_pool − device_pool)` goes to zero. |
++
++### What we did not measure
++
++Stated plainly so nobody reads a recommendation as a benchmark:
++
++- **kvd latency benefit** — not observed. The reload phase (0.76 s) was no
++  faster than cold (0.71 s). kvd demonstrably *served* the blocks; it did not
++  demonstrably make anything faster at this scale.
++- **Concurrency vs. locality** — every request in the routing test was
++  sequential, so the `active_blocks` load term never actually pushed back
++  against the cache term. The interesting behaviour of these weights is under
++  load, and we did not observe it.
++- **Competing prefixes** — one shared prefix only.
++- **True NVMe O_DIRECT L3** — the lab's NVMe drives were unmounted; L3 ran on a
++  filesystem that classified as buffered.
++
++## Related
++
++- [KV Cache Offload](../features/kv_cache_offload.md) — the kvd feature page,
++  including the SGLang section.
++- [KV-Aware Routing](../features/kv_aware_routing.md) — the routing feature page.
++- [PD Disaggregation](../features/pd_disaggregation.md) — set the P/D pair up first.
++- [CLI reference](../reference/cli.md) · [Environment variables](../reference/environment.md)
+diff --git a/manual/sphinx/_toc.yml.in b/manual/sphinx/_toc.yml.in
+index 7c2ab3a..5cf51a5 100644
+--- a/manual/sphinx/_toc.yml.in
++++ b/manual/sphinx/_toc.yml.in
+@@ -50,6 +50,8 @@ subtrees:
+     entries:
+       - file: serving/deployment.md
+         title: Deployment
++      - file: serving/kvaware_kvd_operations.md
++        title: KV-aware + kvd operations
+       - file: serving/kubernetes.md
+         title: Kubernetes
+ 
+-- 
+2.34.1
+

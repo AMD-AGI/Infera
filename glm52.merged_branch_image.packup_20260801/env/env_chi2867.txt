@@ -1,0 +1,52 @@
+=== host ===
+chi2867
+6.8.0-107-generic
+2026-08-01T04:24:04Z
+=== cpu / ram ===
+CPU(s): 256
+Model name: AMD EPYC 9575F 64-Core Processor
+Socket(s): 2
+               total        used        free      shared  buff/cache   available
+Mem:            3023         290         196          75        2626        2732
+=== gpu ===
+GPU[0]		: Card Series: 		AMD Radeon Graphics
+GPU[0]		: Card Model: 		0x75a3
+GPU[0]		: Card Vendor: 		Advanced Micro Devices, Inc. [AMD/ATI]
+GPU[0]		: Card SKU: 		N/A
+GPU[0]		: Subsystem ID: 	0x75a3
+GPU[0]		: Device Rev: 		0x00
+GPU[0]		: Node ID: 		3
+GPU[0]		: GUID: 		42583
+GPU[0]		: GFX Version: 		gfx950
+  amdgpu: 6.16.13
+=== rdma fabric ===
+  ionic_rdma: 26.03.3.001
+    ionic_0         	069081fffe39ef88
+    ionic_1         	069081fffe39d050
+    ionic_2         	069081fffe39e730
+    ionic_3         	069081fffe39e970
+    ionic_4         	069081fffe39e910
+    ionic_5         	069081fffe39e778
+    ionic_6         	069081fffe391860
+    ionic_7         	069081fffe393180
+  ionic_0 state=PORT_ACTIVE 
+  ionic_1 state=PORT_ACTIVE 
+  ionic_2 state=PORT_ACTIVE 
+  ionic_3 state=PORT_ACTIVE 
+  ionic_4 state=PORT_ACTIVE 
+  ionic_5 state=PORT_ACTIVE 
+  ionic_6 state=PORT_ACTIVE 
+  ionic_7 state=PORT_ACTIVE 
+  host libionic: /usr/lib/x86_64-linux-gnu/libionic.so.1.1.54.0-187
+=== images ===
+  infera/engine-sglang:merged -> sha256:0d478433f1b368483a4721ae5f40f276ca33fb50dd2a72112d562b9da64b396a
+  lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x -> 
+ABSENT
+  base RepoDigests: 
+=== versions inside the merged image ===
+  sglang 0.5.15.post1
+  torch 2.9.1+rocm7.2.0.git7e1940d4
+=== disk ===
+Filesystem                                 Size  Used Avail Use% Mounted on
+/dev/md0                                   838G  619G  183G  78% /
+10.2.123.177:/aac-8634674/aac/shared/data  501T  374T  128T  75% /mnt/vast

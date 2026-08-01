@@ -1,0 +1,25 @@
+330da16 docs: record the built-image validation in the branch guide
+9c227af docs: validate the merged image by building it, and fix a third probe defect
+58f2ea7 docs: pack up the merge validation
+d3d2634 docs: record the merged branch's structure and how to take it apart
+c0450a4 test(router): behavioural coverage for the bigram kv-event decode
+e948285 fix(kvd): skip kvd wiring on a PD decode leg
+0cc9593 fix(sglang): don't append the decode radix cache under speculative decoding
+6e6fdb7 fix(router): decode SGLang's bigram BlockStored tokens under MTP
+2181136 fix(image): carry the sglang mooncake early-send KV wait-event patch
+7f2dac8 docs(packup): close the three checklist gaps
+aa8c118 docs: pack up the kvaware+kvd PR reproduction
+7e04a0c docs(serving): operator guide for KV-aware routing + kvd on SGLang
+d13202a build(sglang): add the kv-aware + kvd deployment image
+cf24455 docs(kvd): record SGLang KV-cache offload support
+52ae292 fix(kvd): strip the bind-mount subpath from the findmnt source
+826619b fix(net): randomise free_tcp_port_block scan start
+87460ae sglang DSA: fix two more descriptions the same audit turned up
+34e0a23 sglang DSA: correct how patch 2a's evidence is described
+a1507d8 sglang DSA: record the IndexShare alternative at the point of use
+7a2e504 sglang DSA: record the post-convergence validation
+8761b1e sglang DSA: drop what main already carries, fold the layer into Dockerfile.sglang
+80961f4 sglang DSA: converge patches with upstream, bake them into the image
+89d016f sglang DSA: fix the PD+DPA+MTP draft-CUDA-graph deadlock
+06a53d3 sglang DSA: fix PD+MTP deadlock, add page-table row fix, correct idle-rank slice
+53ccea0 Add sglang DSA patch: fix HIP indexer top-k row mismatch under DP-attention

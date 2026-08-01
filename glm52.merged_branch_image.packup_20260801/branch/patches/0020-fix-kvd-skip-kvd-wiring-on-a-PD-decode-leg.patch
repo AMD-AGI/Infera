@@ -1,0 +1,210 @@
+From e948285ccfc17a93950d3dbb734adff57ded86f4 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Fri, 31 Jul 2026 14:45:25 +0000
+Subject: [PATCH 20/25] fix(kvd): skip kvd wiring on a PD decode leg
+
+Two independent reasons.
+
+The crash. With the decode radix cache gated off by the previous commit, SGLang
+forces disable_radix_cache = True, and the kvd wiring's unconditional
+--enable-hierarchical-cache then hits:
+
+    ValueError: The arguments enable-hierarchical-cache and disable-radix-cache
+    are mutually exclusive
+
+That check comes from sgl-project/sglang#9452 and is an implementation
+dependency, not a law: hicache is a RadixCache subclass and its storage keys are
+radix-node hash values, so a ChunkCache has nothing to key on
+('ChunkCache' object has no attribute 'prefetch_from_storage').
+
+The wider reason, which is why the skip is not narrowed to the MTP case: kvd on
+a PD decode leg is WRITE-ONLY in every configuration. Scheduler
+._add_request_to_queue calls _prefetch_kvcache on the NULL and PREFILL branches
+only -- the DECODE branch just enqueues to disagg_decode_prealloc_queue -- and
+_prefetch_kvcache is the sole caller of tree_cache.prefetch_from_storage. The
+backup path still runs, so L3 fills and is never read.
+
+Measured in the most favourable case (MTP off, so the decode leg held a full
+HiRadixCache, separate kvd daemons per leg):
+
+    leg      sets   gets   hits   bytes
+    prefill   102    102    102   180 MB
+    decode    180      0      0   318 MB
+
+318 MB of host memory and the D2H bandwidth to move it, for zero reads. The
+prefill numbers are from a restart-and-replay, so they attribute to L3 rather
+than the in-GPU radix cache.
+
+Open, deliberately: --disaggregation-decode-enable-offload-kvcache drives a
+separate mechanism (DecodeKVCacheOffloadManager) that also requires a hicache
+storage backend. We never enable it and did not check whether it reads back from
+L3. This skip disables that path too; read that manager first if you need the
+flag.
+
+Four tests asserting the OBSERVABLE effect -- which flags reach the sglang
+subprocess argv -- rather than the presence of the guard helper, so they fail
+behaviourally on pre-fix code instead of as an ImportError.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ infera/engine/sglang/kvd_wiring.py            |  24 ++++
+ tests/engine/sglang/test_decode_leg_gating.py | 107 ++++++++++++++++++
+ 2 files changed, 131 insertions(+)
+ create mode 100644 tests/engine/sglang/test_decode_leg_gating.py
+
+diff --git a/infera/engine/sglang/kvd_wiring.py b/infera/engine/sglang/kvd_wiring.py
+index b0b35dc..5669d39 100644
+--- a/infera/engine/sglang/kvd_wiring.py
++++ b/infera/engine/sglang/kvd_wiring.py
+@@ -171,11 +171,35 @@ def _finish_wiring(args: Any, socket_path: str) -> None:
+     logger.info("infera-kvd HiCacheStorage backend ready (socket=%s)", socket_path)
+ 
+ 
++def _skip_kvd_on_decode_leg(args: Any) -> bool:
++    """True if this is a PD decode leg, where kvd would be write-only.
++
++    SGLang only prefetches from hicache storage on the aggregated and PREFILL
++    branches of ``Scheduler._add_request_to_queue``; the DECODE branch has no
++    ``_prefetch_kvcache`` call, and that method is the sole caller of
++    ``prefetch_from_storage``. The backup path still runs, so a decode leg fills
++    L3 and never reads it -- measured at 180 sets / 0 gets against a prefill
++    leg's 102 sets / 102 gets on the same run.
++    """
++    mode = getattr(getattr(args, "server_args", None), "disaggregation_mode", None)
++    if str(mode) != "decode":
++        return False
++    logger.info(
++        "PD decode leg: not wiring infera-kvd. SGLang issues no storage prefetch "
++        "on the decode branch (scheduler._add_request_to_queue), so L3 here would "
++        "be write-only -- host memory and D2H bandwidth for zero reads. kvd stays "
++        "on the prefill leg, which is where prefix reuse is decided."
++    )
++    return True
++
++
+ async def awire_infera_kvd_backend(args: Any) -> None:
+     """Async variant for callers already inside an event loop."""
+     socket_path = args.infera_kvd_socket
+     if not socket_path:
+         return
++    if _skip_kvd_on_decode_leg(args):
++        return
+ 
+     # The adapter (constructed later by SGLang) reads this env var;
+     # this is the only seam we have because SGLang's factory
+diff --git a/tests/engine/sglang/test_decode_leg_gating.py b/tests/engine/sglang/test_decode_leg_gating.py
+new file mode 100644
+index 0000000..179b35a
+--- /dev/null
++++ b/tests/engine/sglang/test_decode_leg_gating.py
+@@ -0,0 +1,107 @@
++###############################################################################
++# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
++#
++# SPDX-License-Identifier: MIT
++###############################################################################
++"""kvd must not be wired on a PD decode leg.
++
++infera appends ``--enable-hierarchical-cache`` whenever kvd is on. On a decode
++leg that is wrong twice over:
++
++* It crashes. With EAGLE/MTP, SGLang refuses
++  ``--disaggregation-decode-enable-radix-cache`` (which infera also appends, on
++  the separate kv-events gate), which forces ``disable_radix_cache = True``,
++  which SGLang then refuses to combine with the hierarchical cache.
++* Even when it does not crash, kvd is **write-only** there in every
++  configuration: ``_prefetch_kvcache`` is the sole caller of
++  ``prefetch_from_storage``, and ``_add_request_to_queue`` only calls it on the
++  NULL and PREFILL branches. Measured at 180 sets / 0 gets against a prefill
++  leg's 102 sets / 102 gets on the same run.
++
++The companion gate -- not appending the decode radix cache under speculative
++decoding -- is a different flag on a different condition and is covered by
++``test_decode_radix_vs_speculative.py``, which needs sglang importable.
++"""
++
++from __future__ import annotations
++
++import asyncio
++from types import SimpleNamespace
++
++import pytest
++
++from infera.engine.sglang import kvd_wiring
++
++
++def _args(mode: str | None):
++    return SimpleNamespace(
++        infera_kvd_socket="/tmp/kvd/kvd.sock",
++        sglang_argv=["--model-path", "/nonexistent"],
++        server_args=SimpleNamespace(
++            disaggregation_mode=mode,
++            enable_hierarchical_cache=False,
++            hicache_storage_backend=None,
++        ),
++    )
++
++
++def _wire(args, monkeypatch) -> list[str]:
++    """Run the real wiring entry point and return the forwarded argv.
++
++    Tests the OBSERVABLE effect -- which flags reach the sglang subprocess --
++    rather than the presence of a helper. A test that imports the helper by name
++    turns into a collection error when the fix is reverted, and a collection
++    error proves nothing about behaviour.
++
++    The kvd daemon probe and the backend registration both need a live process,
++    so both are stubbed; neither is what this test is about.
++    """
++    monkeypatch.setattr(kvd_wiring, "_probe_kvd", _noop_probe)
++    monkeypatch.setattr(
++        kvd_wiring, "_finish_wiring",
++        lambda a, sock: kvd_wiring._append_sglang_hicache_argv(a),
++    )
++    asyncio.run(kvd_wiring.awire_infera_kvd_backend(args))
++    return list(args.sglang_argv)
++
++
++async def _noop_probe(socket_path: str) -> None:
++    return None
++
++
++# ----------------------------------------------------------------------
++# kvd wiring vs the decode leg
++# ----------------------------------------------------------------------
++
++
++def test_decode_leg_gets_no_hicache_flags(monkeypatch):
++    """The load-bearing assertion: nothing kvd-related reaches the decode leg.
++
++    Fails on the pre-fix code, where --enable-hierarchical-cache is appended
++    unconditionally and SGLang then refuses to combine it with the
++    disable_radix_cache that a speculative decode leg is forced into.
++    """
++    argv = _wire(_args("decode"), monkeypatch)
++    assert "--enable-hierarchical-cache" not in argv
++    assert "--hicache-storage-backend" not in argv
++
++
++def test_prefill_leg_still_gets_them(monkeypatch):
++    """kvd must keep working where it actually serves reads."""
++    argv = _wire(_args("prefill"), monkeypatch)
++    assert "--enable-hierarchical-cache" in argv
++    assert "--hicache-storage-backend" in argv
++
++
++def test_aggregated_server_still_gets_them(monkeypatch):
++    """No disaggregation mode at all -- the colocated case must be untouched."""
++    argv = _wire(_args(None), monkeypatch)
++    assert "--enable-hierarchical-cache" in argv
++
++
++def test_missing_server_args_does_not_raise(monkeypatch):
++    """Defensive: the guard runs before SGLang args are fully materialised on
++    some call paths, and must not turn a missing attribute into a crash."""
++    args = SimpleNamespace(infera_kvd_socket="/x", sglang_argv=[])
++    argv = _wire(args, monkeypatch)
++    assert "--enable-hierarchical-cache" in argv
+-- 
+2.34.1
+
