@@ -48,6 +48,22 @@ The prefill→decode KV handoff is RDMA, and there is **no TCP fallback**. Both 
 must sit on a mutually routable RoCE fabric. On a single box, use `mixed`.
 ```
 
+```{admonition} Checking RoCE reachability: bind the source rail
+:class: tip
+This fabric is **routed L3 RoCEv2**: every NIC gets its own /64, so no two hosts
+ever share a subnet — by design, not a fault. An unbound `ping6` picks a default
+source, leaves via the wrong rail and reports "No route", which reads as "these
+nodes cannot do PD". Bind the matching local rail instead:
+
+```bash
+ping6 -I <local-rail-ULA> <peer-rail-ULA>
+```
+
+Mooncake binds its QP to a device and GID index, so it takes the working path the
+naive ping does not. On this fleet all 8 rails answer at ~0.1 ms once bound.
+```
+
+
 ## What the overlay provides
 
 The overlay carries one native tree per ABI family and records what each provides,

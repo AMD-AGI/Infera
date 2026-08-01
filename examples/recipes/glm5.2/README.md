@@ -148,7 +148,7 @@ rocm-smi --showpids
 |---|---|
 | **`mixed/deploy.yaml` exactly as written** | **validated end-to-end on k3s (MI355X, 8×`amd.com/gpu`)** — see below |
 | kvd sidecar + PVC L3 under SGLang | validated (3674 entries / 421 MB), on Qwen3-0.6B — but see the py310 native-tree note above |
-| pd / pd-kvd for this model | structure only; needs a routable RoCE fabric |
+| pd / pd-kvd for this model | the PD path itself is validated cross-node (SGLang + Mooncake over RoCE, chi2800→chi2866); not yet run with these GLM-5.2 settings |
 
 The `mixed` run used the **stock `lmsysorg/sglang` image** with the overlay
 mounted in — no infera-built engine image anywhere in the Pod:
