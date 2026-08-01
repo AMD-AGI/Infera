@@ -23,12 +23,20 @@ Kimi-K3 needs a vLLM build with `kimi_k3` model support. Layer infera onto the
 upstream `kimi_k3` vLLM by overriding the base of the standard vLLM image build:
 
 ```bash
-docker build -f deploy/docker/Dockerfile.vllm \
-  --build-arg VLLM_BASE_IMAGE=vllm/vllm-openai-rocm:kimi-k3 \
-  --build-arg BUILD_AITER=0 --build-arg BUILD_MOONCAKE=0 \
-  --build-arg BUILD_HIPFILE=0 --build-arg INSTALL_LIBIONIC=0 \
-  -t rocm/infera:vllm-kimi-k3 .
+docker pull vllm/vllm-openai-rocm:kimi-k3          # the vLLM carrying kimi_k3 support
+docker pull inferaimage/infera-overlay:v0.2.1      # infera, kvd, router, Mooncake, hipFile
 ```
+
+Nothing is built here. The manifest runs the **stock** vLLM image and mounts infera
+in from the overlay, so following an upstream vLLM release is an image-tag edit
+rather than a rebuild. Both images are public; on k3s, import them into containerd
+as below.
+
+The overlay carries one tree per ABI family and records what each provides —
+`rocm7-py312` has `mooncake` and `hipfile`, `rocm7-py310` has `mooncake` only,
+because kvd's GPU-direct L3 is a vLLM-only path. `infera-exec` picks the tree
+matching the container and refuses to start if a manifest asks for a capability
+the payload cannot supply.
 
 The result carries `infera.server` + `infera.engine.vllm` **and**
 `KimiK3ForConditionalGeneration`. With this image the full path is validated on a
@@ -73,7 +81,7 @@ PVC read-only.
 - The engine **image present in the node container runtime**. k3s uses
   containerd (not docker) — import a local image as a tar, not a stream:
   ```bash
-  docker save <infera-vllm-kimi-k3-image> -o /mnt/<big-disk>/img.tar
+  docker save vllm/vllm-openai-rocm:kimi-k3 inferaimage/infera-overlay:v0.2.1 -o /mnt/<big-disk>/img.tar
   sudo k3s ctr images import /mnt/<big-disk>/img.tar
   ```
 
