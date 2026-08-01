@@ -53,6 +53,16 @@ subtrees:
       - file: serving/kubernetes.md
         title: Kubernetes
 
+  - caption: Recipes
+    entries:
+      - file: recipes/index.md
+        title: Recipes — by model
+        entries:
+          - file: recipes/glm5.2.md
+            title: GLM-5.2-MXFP4 (SGLang)
+          - file: recipes/kimi-k3.md
+            title: Kimi-K3 (vLLM)
+
   - caption: Examples
     entries:
       - file: examples/k8s_kimi_k3.md
