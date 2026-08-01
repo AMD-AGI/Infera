@@ -1,0 +1,423 @@
+From 21811369aab6c39f84e83378c6ed3b4470be9ca7 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Fri, 31 Jul 2026 14:43:17 +0000
+Subject: [PATCH 17/25] fix(image): carry the sglang mooncake early-send KV
+ wait-event patch
+
+From PR #56 (liyingli), reduced to the part this merge actually exercised.
+
+Without it, mooncake's transfer worker RDMA-reads a non-final prefill chunk's
+pages while the forward that writes them is still running. Prompts longer than
+one chunk come back partially wrong and nothing raises: on GLM-5.2 DSA a needle
+read returns the leading digits and then cycles the closing tag, and the
+corruption boundary lands exactly on the chunk boundary. mori/conn.py already
+waited on the completion event prefill.py records; mooncake/conn.py had no
+wait_event or synchronize() anywhere.
+
+Squashes PR#56's 0360af5 (the hand-cut diff) and 6121189 (its re-cut as a
+self-locating script + the Dockerfile wiring) into their end state, since the
+intermediate diff was dropped by the second commit anyway.
+
+Deliberately NOT taken from those commits:
+
+  * deploy/docker/Dockerfile.sglang.gfx942 -- the same layer for the MI325X
+    image. We never built or ran that image in this merge; PR #56 carries it.
+
+Validated here by G2: a 24k prompt really split into 8192+8192+1728 returns the
+needle at all 5 depths, all finish=stop, and conc=128 shows 0 corrupt.
+
+Co-authored-by: liyingli <liyingli@amd.com>
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ deploy/docker/Dockerfile.sglang               |  17 ++
+ deploy/docker/patches/sglang_disagg/README.md | 103 ++++++++
+ .../patch_mooncake_early_send_wait_event.py   | 239 ++++++++++++++++++
+ 3 files changed, 359 insertions(+)
+ create mode 100644 deploy/docker/patches/sglang_disagg/README.md
+ create mode 100644 deploy/docker/patches/sglang_disagg/patch_mooncake_early_send_wait_event.py
+
+diff --git a/deploy/docker/Dockerfile.sglang b/deploy/docker/Dockerfile.sglang
+index 803e51b..e13f6f2 100644
+--- a/deploy/docker/Dockerfile.sglang
++++ b/deploy/docker/Dockerfile.sglang
+@@ -57,6 +57,23 @@ COPY deploy/docker/patches/sglang/ /tmp/sglang-patches/
+ RUN for f in /tmp/sglang-patches/*.py; do echo "[sglang-patch] $f"; python "$f" || echo "[sglang-patch] skipped $f"; done \
+     && rm -rf /tmp/sglang-patches
+ 
++# ---- sglang PD patches (mooncake early-send KV wait event) ------------------
++# REQUIRED FOR CORRECTNESS on any PD deployment doing chunked prefill over
++# mooncake: without it every chunk but the last is RDMA-read while the forward is
++# still writing those pages, so prompts longer than one chunk come back partially
++# wrong with nothing in any log. Self-locating and idempotent like the loop
++# above, and reports "already present" once the base sglang carries the fix.
++# NOT tolerant, unlike that loop: a script here exits non-zero only when its
++# anchors drifted, i.e. when the fix did NOT go in -- and an engine image that
++# silently corrupts long prompts is worse than a failed build.
++#
++# Placed before the DSA layer to match the order the merge experiment validated;
++# the two touch disjoint sglang files, so the order is not load-bearing.
++COPY deploy/docker/patches/sglang_disagg/ /tmp/sglang-disagg-patches/
++RUN set -eu; \
++    for f in /tmp/sglang-disagg-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
++    rm -rf /tmp/sglang-disagg-patches
++
+ # ---- GLM-5.2 DSA patch set (PD + DP-attention + EAGLE MTP on gfx950) --------
+ # Three patches that together make PD disaggregation + DP-attention + EAGLE MTP
+ # work for GLM-5.2. Without them the combination crashes on the first batch or
+diff --git a/deploy/docker/patches/sglang_disagg/README.md b/deploy/docker/patches/sglang_disagg/README.md
+new file mode 100644
+index 0000000..635cf3c
+--- /dev/null
++++ b/deploy/docker/patches/sglang_disagg/README.md
+@@ -0,0 +1,103 @@
++# sglang PD disaggregation patches
++
++Patches against the sglang source tree bundled in the ROCm engine images (sglang is an
++editable checkout at `/sgl-workspace/sglang`, so `python/sglang/...` is what actually
++runs — there is no separate site-packages copy to patch). Each is a self-locating,
++idempotent Python script, applied at image build time by the patch loop in
++`Dockerfile.sglang` / `Dockerfile.sglang.gfx942`.
++
++## `patch_mooncake_early_send_wait_event.py`
++
++**Fixes silent KV corruption for chunked prefill over the mooncake PD transport.**
++Without it, every prefill chunk except the last can be transferred to the decode leg
++while the forward that writes those pages is still running. The decode leg gets
++half-written KV for that part of the context.
++
++The symptom is not a crash and not an obvious wrong answer — it is *partially* wrong
++output for prompts longer than one prefill chunk. On GLM-5.2 DSA, needle-in-a-haystack
++retrieval returns the first few digits of a 7-digit needle and then degenerates into
++repeated `</think>`:
++
++```
++want=2183762  got='2183</think>2183</think>218</think>218</think> the'
++want=7544440  got='7549.8.8.</think>7549. The</think>7549.8.8759</thi'
++```
++
++The corruption boundary lands exactly on the chunk boundary: a needle in the final chunk
++is retrieved correctly, a needle in any earlier chunk is not. It only reproduces under PD
++— the same model, same DSA backends, same chunk size in an aggregated single-node server
++passes 9/9.
++
++### Root cause
++
++`prefill.py` records a CUDA event as a barrier before handing over pages that may still
++be under write, and the comment there says exactly what it is for:
++
++> *Record a completion event now so the transfer worker can wait on those writes before
++> the RDMA read, instead of racing them.*
++
++But **only the `mori` backend ever read that event** (`mori/conn.py`). `mooncake/conn.py`
++had no `wait_event` / `synchronize()` anywhere, so on mooncake the barrier had never
++taken effect. And under overlap scheduling the transfer that actually moves non-final
++chunks (`send_kv_chunk(..., last_chunk=False)` in `process_batch_result_disagg_prefill`)
++did not even record an event. The final chunk is always correct because it goes through
++the sampling path, which already has a real `copy_done.synchronize()`.
++
++### What the patch does
++
++Three changes, all mirroring what `mori` already does:
++
++| File | Change |
++|---|---|
++| `disaggregation/common/utils.py` | `TransferKVChunk` gains a `wait_event` field so the barrier can travel with the work item |
++| `disaggregation/mooncake/conn.py` | `send()` picks up and forwards the event; `add_transfer_request()` accepts it; `transfer_worker` `synchronize()`s **before** reading device memory |
++| `disaggregation/prefill.py` | the overlap-path non-final-chunk transfer, which had no barrier at all, now records an event on `forward_stream` |
++
++This is **not** DSA-specific. Any PD deployment running chunked prefill over mooncake
++with overlap scheduling is affected; DSA's sparse retrieval just makes it visible in the
++conspicuous "retrieved half the digits" way instead of a quiet quality drop.
++
++### Applying
++
++The image build runs it; a live container that was started from an unpatched image can
++run the same script by hand:
++
++```bash
++python deploy/docker/patches/sglang_disagg/patch_mooncake_early_send_wait_event.py
++```
++
++It locates sglang through `importlib`, so it needs no path argument, and re-running it
++is a no-op ("already present"). The edits are anchored on source text rather than line
++numbers, so they survive the offsets between sglang releases: the anchors are present in
++both v0.5.15.post1 and v0.5.16, and the result is byte-identical to the hand-cut diff
++this patch started as. An anchor that goes missing or stops being unique writes
++**nothing** and fails — the `wait_event` handover is only correct if all three files
++land, and a half-patched tree still corrupts long prompts.
++
++### Verified
++
++2× 8×MI325X (gfx942), ROCm 7.2.0, sglang v0.5.16, GLM-5.2-FP8 1P1D, mooncake RDMA,
++overlap scheduling **on**, `chunked-prefill-size 131072` with `--enable-dp-attention`
++(so 16384 per DP rank), `MEM_FRAC=0.80`. Logs confirm the failing prompt is still really
++split into 4 chunks after the fix:
++
++| Test | Before | After |
++|---|---|---|
++| needle, 3 lengths × depth 10/50/90 | 5/9 | **9/9** |
++| needle, 29k depth sweep (5,20,35,44,50,56,62,75,95) | 4/9 | **9/9** |
++| full correctness suite (needle + humaneval-long + long-context delta) | needle 7/9 | all checks pass |
++
++It also removes the reason for the `CHUNK=524288` + `MEM_FRAC=0.80` workaround: chunk
++size goes back to being a pure performance knob, and prefill overlap scheduling no longer
++has to be sacrificed.
++
++### Upstream
++
++Not submitted yet. The closest existing report,
++[sglang#25583](https://github.com/sgl-project/sglang/issues/25583) (GLM-5-FP8 + NSA +
++70k prompt, identical symptom), was auto-closed with no follow-up. The aggregated-vs-PD
++A/B above is the piece that report was missing.
++
++The cost of the fix should be measured when upstreaming: the new
++`wait_event.synchronize()` in the transfer worker blocks that thread, which in principle
++trades some transfer overlap for correctness.
+diff --git a/deploy/docker/patches/sglang_disagg/patch_mooncake_early_send_wait_event.py b/deploy/docker/patches/sglang_disagg/patch_mooncake_early_send_wait_event.py
+new file mode 100644
+index 0000000..0a67d8f
+--- /dev/null
++++ b/deploy/docker/patches/sglang_disagg/patch_mooncake_early_send_wait_event.py
+@@ -0,0 +1,239 @@
++#!/usr/bin/env python3
++# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
++# SPDX-License-Identifier: MIT
++"""Make sglang's mooncake PD transport wait on the forward that wrote the KV.
++
++WHAT: with chunked prefill over the mooncake KV transport, every chunk except the
++last can be RDMA-read while the forward that writes those pages is still running,
++so the decode leg gets half-written KV. It does not crash — prompts longer than one
++prefill chunk come back PARTIALLY wrong. On GLM-5.2 DSA a needle read returns the
++first digits of the needle and then repeats `</think>`:
++
++    want=2183762  got='2183</think>2183</think>218</think>218</think> the'
++
++The corruption boundary lands exactly on the chunk boundary (a needle in the final
++chunk is retrieved correctly), and the same model, same DSA backends, same chunk
++size in an aggregated single-node server passes 9/9.
++
++ROOT CAUSE: `prefill.py`'s early-send path already records a completion event as
++the barrier (`req.disagg_kv_sender._early_send_wait_event`), but only `mori/conn.py`
++ever reads it — `mooncake/conn.py` has no `wait_event` / `synchronize()` anywhere,
++so on mooncake the barrier has never taken effect. And the overlap-scheduling path
++that moves non-final chunks (`process_batch_result_disagg_prefill`) does not even
++record an event. The final chunk is always correct because it goes through the
++sampling path, which already has a real `copy_done.synchronize()`.
++
++FIX (three files, all mirroring what `mori` already does):
++  disaggregation/common/utils.py   `TransferKVChunk` carries a `wait_event`, so the
++                                   barrier travels with the work item.
++  disaggregation/mooncake/conn.py  `send()` picks the event up off the sender,
++                                   `add_transfer_request()` forwards it, and
++                                   `transfer_worker` synchronizes on it BEFORE it
++                                   reads device memory.
++  disaggregation/prefill.py        the overlap non-final-chunk send, which had no
++                                   barrier at all, records one on `forward_stream`.
++
++Not DSA-specific: any PD deployment running chunked prefill over mooncake with
++overlap scheduling is affected — DSA's sparse retrieval only makes it conspicuous
++("retrieved half the digits") instead of a quiet quality drop.
++
++VERIFIED: 2x 8xMI325X (gfx942), ROCm 7.2.0, sglang v0.5.16, GLM-5.2-FP8 1P1D over
++mooncake RDMA, overlap scheduling ON, `chunked-prefill-size 131072` with
++`--enable-dp-attention`: needle 5/9 -> 9/9, a 29k depth sweep 4/9 -> 9/9, and the
++logs confirm the failing prompt is still really split into 4 chunks afterwards. The
++anchors below are present in both v0.5.15.post1 and v0.5.16.
++
++UPSTREAM: not submitted. The closest existing report,
++sgl-project/sglang#25583 (GLM-5-FP8 + NSA + 70k prompt, identical symptom), was
++auto-closed with no follow-up; the aggregated-vs-PD A/B above is what it was
++missing. Worth measuring when upstreaming: the new `synchronize()` blocks the
++transfer worker, trading some transfer overlap for correctness. DROP THIS PATCH
++once the base sglang waits on the event in mooncake — this script then reports
++"already present" and no-ops.
++
++Self-locating and idempotent. All three files or none: a half-patched tree still
++corrupts long prompts, so an anchor that is missing or no longer unique writes
++NOTHING and fails (exit 1) instead of leaving the image silently broken.
++"""
++
++import importlib.util
++import sys
++from pathlib import Path
++
++_TAG = "[mc-wait-event]"
++
++# Path under sglang/srt -> [(anchor, anchor + our addition)]. Each anchor must
++# occur exactly once; the replacement doubles as the already-applied marker.
++_EDITS: dict[str, list[tuple[str, str]]] = {
++    "disaggregation/common/utils.py": [
++        (
++            "from typing import List, Optional, Tuple, Union",
++            "from typing import Any, List, Optional, Tuple, Union",
++        ),
++        (
++            """    trace_ctx: Union[TraceReqContext, TraceNullContext] = dataclasses.field(
++        default_factory=TraceNullContext
++    )
++""",
++            """    trace_ctx: Union[TraceReqContext, TraceNullContext] = dataclasses.field(
++        default_factory=TraceNullContext
++    )
++    # Completion event for the forward that wrote these pages. The transfer
++    # worker reads device memory outside the CUDA stream, so it must wait on
++    # this before the RDMA read or it can observe half-written KV.
++    wait_event: Optional[Any] = None
++""",
++        ),
++    ],
++    "disaggregation/mooncake/conn.py": [
++        (
++            "from typing import List, Optional, Tuple, Union",
++            "from typing import Any, List, Optional, Tuple, Union",
++        ),
++        (
++            """                kv_chunk: TransferKVChunk = queue.get()
++""",
++            """                kv_chunk: TransferKVChunk = queue.get()
++                if kv_chunk.wait_event is not None:
++                    # The RDMA read bypasses the CUDA stream, so without this the
++                    # read can race the forward still writing these pages.
++                    kv_chunk.wait_event.synchronize()
++                    kv_chunk.wait_event = None
++""",
++        ),
++        (
++            """        trace_ctx: Optional[Union[TraceReqContext, TraceNullContext]] = None,
++    ):
++        assert self.disaggregation_mode == DisaggregationMode.PREFILL
++""",
++            """        trace_ctx: Optional[Union[TraceReqContext, TraceNullContext]] = None,
++        wait_event: Optional[Any] = None,
++    ):
++        assert self.disaggregation_mode == DisaggregationMode.PREFILL
++""",
++        ),
++        (
++            """                prefill_aux_index=aux_index,
++                state_indices=state_indices,
++                trace_ctx=trace_ctx,
++            )
++""",
++            """                prefill_aux_index=aux_index,
++                state_indices=state_indices,
++                trace_ctx=trace_ctx,
++                wait_event=wait_event,
++            )
++""",
++        ),
++        (
++            """        if should_skip:
++            return
++
++        if not is_last_chunk:
++""",
++            """        if should_skip:
++            return
++
++        # Pages handed over before their forward is known to be complete carry a
++        # completion event; the transfer worker waits on it before reading.
++        wait_event = getattr(self, "_early_send_wait_event", None)
++        self._early_send_wait_event = None
++
++        if not is_last_chunk:
++""",
++        ),
++        (
++            """                index_slice,
++                False,
++                trace_ctx=self.trace_ctx.copy_for_thread(),
++            )
++""",
++            """                index_slice,
++                False,
++                trace_ctx=self.trace_ctx.copy_for_thread(),
++                wait_event=wait_event,
++            )
++""",
++        ),
++        (
++            """                aux_index=self.aux_index,
++                state_indices=state_indices,
++                trace_ctx=self.trace_ctx.copy_for_thread(),
++            )
++        self._record_transfer_indices(kv_indices, state_indices)
++""",
++            """                aux_index=self.aux_index,
++                state_indices=state_indices,
++                trace_ctx=self.trace_ctx.copy_for_thread(),
++                wait_event=wait_event,
++            )
++        self._record_transfer_indices(kv_indices, state_indices)
++""",
++        ),
++    ],
++    "disaggregation/prefill.py": [
++        (
++            """                    ), f"Req {req.rid} does not have metadata buffer allocated"
++                    self.send_kv_chunk(req, last_chunk=False, end_idx=req.tmp_end_idx)
++""",
++            """                    ), f"Req {req.rid} does not have metadata buffer allocated"
++                    # Non-final chunks are handed over while later chunks are
++                    # already running on forward_stream, and the transfer worker
++                    # reads device memory outside the CUDA stream. Gate the read
++                    # on this chunk's writes completing.
++                    ev = torch.cuda.Event()
++                    ev.record(self.forward_stream)
++                    req.disagg_kv_sender._early_send_wait_event = ev
++                    self.send_kv_chunk(req, last_chunk=False, end_idx=req.tmp_end_idx)
++""",
++        ),
++    ],
++}
++
++
++def _srt_dir():
++    spec = importlib.util.find_spec("sglang")
++    if not spec or not spec.origin:
++        return None
++    d = Path(spec.origin).parent / "srt"
++    return d if d.is_dir() else None
++
++
++def main():
++    srt = _srt_dir()
++    if srt is None:
++        print(f"{_TAG} sglang not importable — skipping")
++        return 0
++
++    edited: list[tuple[Path, str]] = []
++    for rel, edits in _EDITS.items():
++        f = srt / rel
++        if not f.is_file():
++            print(f"{_TAG} {f} is missing — sglang layout changed, re-anchor the patch")
++            return 1
++        src = out = f.read_text()
++        for old, new in edits:
++            if new in out:
++                continue  # this edit is already in the tree
++            found = out.count(old)
++            if found != 1:
++                where = "absent" if found == 0 else f"{found}x ambiguous"
++                print(f"{_TAG} anchor {where} in {rel}: {old.splitlines()[0]!r}")
++                print(f"{_TAG} sglang drifted — re-cut the patch, nothing written")
++                return 1
++            out = out.replace(old, new, 1)
++        if out != src:
++            edited.append((f, out))
++
++    if not edited:
++        print(f"{_TAG} already present — skipping")
++        return 0
++    for f, out in edited:
++        f.write_text(out)
++        print(f"{_TAG} patched {f}")
++    print(f"{_TAG} mooncake now waits on the prefill write event before the RDMA read")
++    return 0
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+-- 
+2.34.1
+

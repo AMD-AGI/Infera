@@ -1,0 +1,25 @@
+330da16011f8cf72956e0d1a662688a6eb38b21b	yihou	2026-08-01	docs: record the built-image validation in the branch guide
+9c227af603082dcf5d052cee74c1b61ba8fc880b	yihou	2026-08-01	docs: validate the merged image by building it, and fix a third probe defect
+58f2ea77b5d7fb880b18f1657c6072b69b2b2096	yihou	2026-07-31	docs: pack up the merge validation
+d3d2634030b28c256c124daf0889ac0253211ef4	yihou	2026-07-31	docs: record the merged branch's structure and how to take it apart
+c0450a4c8aaa84fbabe2e5f499cd00f16b51e8f1	yihou	2026-07-31	test(router): behavioural coverage for the bigram kv-event decode
+e948285ccfc17a93950d3dbb734adff57ded86f4	yihou	2026-07-31	fix(kvd): skip kvd wiring on a PD decode leg
+0cc9593579affc0550f528abb1fc17c034fcf4b3	yihou	2026-07-31	fix(sglang): don't append the decode radix cache under speculative decoding
+6e6fdb753dca378137a60dcbf14b9ddd2df3ea5c	yihou	2026-07-31	fix(router): decode SGLang's bigram BlockStored tokens under MTP
+21811369aab6c39f84e83378c6ed3b4470be9ca7	yihou	2026-07-31	fix(image): carry the sglang mooncake early-send KV wait-event patch
+7f2dac8977036f2d4afb299e206ac730fa57472b	yihou	2026-07-31	docs(packup): close the three checklist gaps
+aa8c1182e60502178477d1560b615c9dd5047733	yihou	2026-07-31	docs: pack up the kvaware+kvd PR reproduction
+7e04a0ca124fa92262459b2615e441d57dcf618f	yihou	2026-07-31	docs(serving): operator guide for KV-aware routing + kvd on SGLang
+d13202a2dc47d4e50b85b3238f9d608b8c8f9820	yihou	2026-07-31	build(sglang): add the kv-aware + kvd deployment image
+cf24455c48efb686754970c6955afe3744ddefa1	yihou	2026-07-31	docs(kvd): record SGLang KV-cache offload support
+52ae2928d37b981e8bb7c55cff7f73dd41d2ff73	yihou	2026-07-31	fix(kvd): strip the bind-mount subpath from the findmnt source
+826619b3ed628199eb20562e4adaeedf43843af7	yihou	2026-07-31	fix(net): randomise free_tcp_port_block scan start
+87460ae846968bffa047521857adc5e8e40689d7	yihou	2026-07-31	sglang DSA: fix two more descriptions the same audit turned up
+34e0a235246e6de21a7df563f6d4f5a291cb3dff	yihou	2026-07-31	sglang DSA: correct how patch 2a's evidence is described
+a1507d8a465a8003bb696af69d521d5b93c77233	yihou	2026-07-31	sglang DSA: record the IndexShare alternative at the point of use
+7a2e504aabba0ab8b00d9292e578e4b05b607c45	yihou	2026-07-31	sglang DSA: record the post-convergence validation
+8761b1e5db0275b3abaa309f690acf35fc7b47cc	yihou	2026-07-31	sglang DSA: drop what main already carries, fold the layer into Dockerfile.sglang
+80961f400b7780ce981e6c34335486f12093466b	yihou	2026-07-31	sglang DSA: converge patches with upstream, bake them into the image
+89d016f17af2c172096e73a892625993b24123ed	yihou	2026-07-30	sglang DSA: fix the PD+DPA+MTP draft-CUDA-graph deadlock
+06a53d3e1386251854a4fac1c5e253b97909cdee	yihou	2026-07-29	sglang DSA: fix PD+MTP deadlock, add page-table row fix, correct idle-rank slice
+53ccea063251fbbc2c7249d095cda46df24de5f9	Yinxing Hou	2026-07-28	Add sglang DSA patch: fix HIP indexer top-k row mismatch under DP-attention

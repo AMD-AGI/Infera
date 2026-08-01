@@ -1,0 +1,240 @@
+From 34e0a235246e6de21a7df563f6d4f5a291cb3dff Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Fri, 31 Jul 2026 11:20:38 +0000
+Subject: [PATCH 08/25] sglang DSA: correct how patch 2a's evidence is
+ described
+
+The previous commit described 2a as untested in isolation and left the IndexShare
+table calling it "Unknown". Both were wrong. The error came from inferring
+evidence strength from verification mechanics -- 2a is checked by source-grep
+rather than bytecode, because it changes an expression and introduces no new
+identifier -- instead of reading the kit that recorded how it was established.
+
+2a was localized by observation, not by argument: a py-spy dump caught a BUSY rank
+blocked inside dsa_backend on .max().item() while IDLE peers had already advanced
+into the next collective. After the fix no rank appears in dsa_backend in a dump
+again and PD warmup passes on all 8 ranks. Fix A2 (dropping the two unconditional
+.cpu() syncs on the same branch) was forced by experiment: with A alone, the hang
+persists. Over-allocating page-table columns was verified safe by walking every
+consumer, and the sync-free idiom is established in-tree three times.
+
+Upstream non-coverage was verified per-diff and is now stated: #31683 does not
+touch this file's max_seqlen_k path; #32209/#32196 vote on graph capture, which a
+host-side sync is invisible to; merged #29798 repaired the GLOBAL eager path and
+never anticipated per-rank asymmetric entry.
+
+The IndexShare table now reads "No" for 2a with the reason, rather than "Unknown".
+
+Headers re-verified by a real --fuzz=0 apply into a pristine v0.5.15.post1 tree in
+prerequisite order: all three clean, 9 files modified.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ PATCH1_UPSTREAM_STATUS.md                     | 57 +++++++++++++++++++
+ PATCH3_UPSTREAM_STATUS.md                     | 54 ++++++++++++++++++
+ deploy/docker/patches/sglang_dsa/README.md    | 21 ++++++-
+ ...a_backend_dp_sync_and_page_table_rows.diff | 17 +++++-
+ 4 files changed, 144 insertions(+), 5 deletions(-)
+ create mode 100644 PATCH1_UPSTREAM_STATUS.md
+ create mode 100644 PATCH3_UPSTREAM_STATUS.md
+
+diff --git a/PATCH1_UPSTREAM_STATUS.md b/PATCH1_UPSTREAM_STATUS.md
+new file mode 100644
+index 0000000..08022d3
+--- /dev/null
++++ b/PATCH1_UPSTREAM_STATUS.md
+@@ -0,0 +1,57 @@
++# Patch 1 — upstreamed to sglang (HIP/aiter DSA padding fix)
++
++**Patch:** `dsa_indexer_hip_dp_padded_rows.diff`
++**File:** `python/sglang/srt/layers/attention/dsa/dsa_indexer.py`
++**Status:** real, current, unreported-on-HIP bug → **PR opened against sglang `main`.**
++
++## What patch 1 fixes
++
++`Indexer._get_topk_paged` dispatches the paged-MQA-logits kernel across
++backends. Under attn-tp / DP-attention (or MAX_LEN padding), `q_fp8` carries
++padding rows up to the largest per-rank token count, while `seqlens`
++(`dsa_seqlens_expanded`) is sized to the real count `q_offset`.
++
++- The CUDA backends (`deepgemm_paged_mqa_logits_split` / `_native`,
++  `cutedsl_paged_mqa_logits`) all take `q_offset=` and slice internally.
++- The **aiter (HIP)** branch passes `q_fp8`/`weights` **unsliced** and sizes its
++  `logits` from `q_fp8.shape[0]` → top-k sees `score.shape[0] != lengths.shape[0]`
++  → assert `Expected lengths.size(0) == B`.
++- The padding-restore after `topk_transform` is gated `if not _is_hip`, so HIP
++  never restores either.
++
++Fix: slice `q_fp8[:q_offset]` / `weights[:q_offset]` in the aiter branch (match
++the CUDA contract), and drop the `not _is_hip` guard on the restore since every
++backend now returns a `q_offset`-sized result. ~5 lines, no kernel change.
++
++## Local vs upstream form
++
++- **Local (this repo, base `v0.5.15.post1`):** the patch also carries debug
++  scaffolding — `GLM52_P1V2` markers, `_p1v2_*` locals, and the
++  `SGLANG_DEBUG_DSA_ROWS` / `_DSA_DEBUG_ROWS` logging block. Those are local-only
++  and were **stripped** for the upstream PR.
++- **Upstream PR (against `main`):** re-written against current `main`, whose
++  `_get_topk_paged` has drifted (added cutedsl / dg_native branches,
++  `_mask_init_and_local_tokens`). The clean diff is the two edits above with an
++  upstream-neutral comment. Verified to compile.
++
++## Upstream context
++
++- **PR #32762 "[NPU] Fix DSA eager padding mismatch in PD MTP warm-up"** — same
++  bug class, NPU platform, OPEN + CI-red. Our PR is the HIP/aiter sibling; cited.
++- **PR #30839** (merged) — the eager-fallback path that first exposes the
++  seed-unavailable case; cited as background.
++- No PR covers the HIP/aiter path. HIP is still broken on `main`.
++
++## PR
++
++- **https://github.com/sgl-project/sglang/pull/33059** — "Fix DSA indexer aiter
++  (HIP) padding mismatch under DP-attention" (OPEN, against `main`, 1 file
++  +16/-4). Opened from fork `dorado269/sglang`, branch
++  `fix-dsa-indexer-hip-aiter-dp-padding`.
++
++## Local validation (base-branch form)
++
++Single-node dp8+ep8 + EAGLE steps=3: 4/4 correctness, conc=64 1k/1k **256/256
++zero failed** (see memory `project-glm52-dpa-mtp-fix`). The upstream port is the
++same logic adapted to `main`; it was **not** re-run on `main`-based hardware from
++the PR session — CI / a maintainer run is the confirmation on that base.
+diff --git a/PATCH3_UPSTREAM_STATUS.md b/PATCH3_UPSTREAM_STATUS.md
+new file mode 100644
+index 0000000..11ea404
+--- /dev/null
++++ b/PATCH3_UPSTREAM_STATUS.md
+@@ -0,0 +1,54 @@
++# Patch 3 — already covered upstream, do NOT open a PR
++
++**Patch:** `deepseek_nextn_glm52_mtp_bf16.diff`
++**File:** `python/sglang/srt/models/deepseek_nextn.py`
++**Status:** superseded by merged upstream PR — keep locally, do not upstream.
++
++## What patch 3 does
++
++One line, on the `v0.5.15.post1` release branch we build against:
++
++```python
++- ckpt_prefix = f"model.layers.{config.num_hidden_layers}"
+++ ckpt_prefix = f"model.layers.{config.num_hidden_layers}.eh_proj"
++```
++
++GLM-5.2's MTP/NextN `eh_proj` is bf16 while the rest is quark-mxfp4. Quark's
++`exclude_layers` records the excluded MTP weight at submodule granularity, so
++matching on the bare layer prefix `model.layers.{N}` misses it and `eh_proj`
++gets built as mxfp4 → weight-load shape crash. Appending `.eh_proj` makes the
++`should_ignore_layer` check match and keeps it bf16.
++
++## Why no upstream PR
++
++Upstream **`main` already fixes exactly this bug, more completely**, via merged
++PR **#30265 "[AMD] Fix GLM-5.2 MTP Quark excludes"**
++(https://github.com/sgl-project/sglang/pull/30265 — merged 2026-07-08, merge
++commit `07ef650`):
++
++- adds a dedicated `GlmMoeDsaForCausalLMNextN` class;
++- extracts `_resolve_nextn_quant_config()`;
++- remaps the **full** MTP exclude set for GLM — `eh_proj`, `enorm`, `hnorm`,
++  `shared_head.norm`, decoder blocks (`model.decoder.*`), and the fused-MoE
++  experts prefix `model.decoder.mlp.experts`.
++
++The quark matcher (`_is_equal_or_regex_match`) is exact-string unless the target
++is `re:`-prefixed, which is why #30265 had to add every runtime name. Our
++one-liner only remaps `eh_proj`, so it is a **strict subset** of #30265 — a
++narrow backport onto the release branch, not an improvement over `main`. The PR
++body says so directly: "Mapping only the leaf names is not enough."
++
++## Version relationship (verified)
++
++- Our base tag `v0.5.15.post1` → commit `0b3bb0c`. At that commit
++  `deepseek_nextn.py` still has the old inline block patch 3 edits, and
++  `glm4_moe.py` has **no** `GlmMoeDsaForCausalLMNextN` → the release branch does
++  **not** contain #30265.
++- `compare(v0.5.15.post1 … 07ef650)` = diverged, ahead 65 / behind 25 — the
++  release line was cut without #30265; `main` has it.
++
++## Action
++
++Keep patch 3 in the local set (our base genuinely needs it). Do not open a PR.
++If/when we rebase onto an sglang `main` that already contains #30265, drop
++patch 3 entirely — it will no longer apply and is no longer needed.
+diff --git a/deploy/docker/patches/sglang_dsa/README.md b/deploy/docker/patches/sglang_dsa/README.md
+index b40fd9c..02ec407 100644
+--- a/deploy/docker/patches/sglang_dsa/README.md
++++ b/deploy/docker/patches/sglang_dsa/README.md
+@@ -88,6 +88,23 @@ collectives desynchronize and the group deadlocks. Replaced with the sync-free
+ safe: the page table is only indexed through top-k, which masks per row by
+ `cache_seqlens`. Two further unconditional `.cpu()` syncs are removed.
+ 
++*How this was established.* Not by reverting the fix, but by observing the divergence
++directly: a py-spy dump caught a **busy** rank blocked inside `dsa_backend` on
++`.max().item()` while **idle** peers had already advanced into the next collective. After
++the fix, no rank appears in `dsa_backend` in a dump again and PD warmup passes on all 8
++ranks. The second half (removing the two unconditional `.cpu()` syncs) was **forced by
++experiment, not by reading**: with the `max_seqlen_k` change applied and those syncs left
++in, the hang persists — they sit on the same rank-divergent branch. Safety of the wider
++page table was verified by walking every consumer, and the sync-free idiom is established
++in-tree three times (`triton_backend.py:704-708`, `trtllm_mha_backend.py:555-559`, and
++DSA's own graph path at `dsa_backend.py:689-695`).
++
++Upstream does not cover this. Per-diff greps: #31683 does not touch this file's
++`max_seqlen_k` path at all; #32209/#32196 vote on *graph capture*, which a host-side sync
++is invisible to; merged #29798 repaired the **global** eager path (batches exceeding
++`--cuda-graph-max-bs`, entered by all ranks together) and never anticipated per-rank
++asymmetric entry.
++
+ **2 — page-table rows vs top-k rows (fixes a crash under concurrency).**
+ `metadata.page_table_1` is `req_to_token[req_pool_indices]`, one row per **request**,
+ while `topk_indices` has just been padded to `q.shape[0]`, one row per **token**. Those
+@@ -252,7 +269,7 @@ needed. Each diff's header records where it stands relative to this.
+ | patch | substituted by IndexShare-off? |
+ |---|---|
+ | 01 `dsa_indexer_hip_dp_padded_rows` | **No** — independent bug, present regardless |
+-| 02a `dsa_backend` DP host-sync | **Unknown** — never tested in isolation, here or anywhere |
++| 02a `dsa_backend` DP host-sync | **No** — a host sync is invisible to the graph/eager decision either mechanism changes |
+ | 02b `dsa_backend` page-table rows | **Yes**, in effect — the arm ran without it and passed |
+ | nextn `eh_proj` (the prerequisite) | **No** — weight-load bug, unrelated |
+ | 04 `draft_cuda_graph_dp_vote` | **Yes** — this is what it targets |
+@@ -366,7 +383,7 @@ which our removed diff would have added. `apply_sglang_dsa_patches.sh` logged
+ **Not established by this run:** the draft-graph replay count was not re-measured (it
+ needs an added probe, i.e. a different image — measured at 92.0 %, identical on all 8
+ ranks, on the immediately preceding build of the same patch set). No differential control
+-was re-run; necessity is established in the kits below, and patch 2a has never had one.
++was re-run either; each patch's necessity is established in the kits below.
+ 
+ Measurements: `glm52.mxfp4.spur.mooncake.packup_20260729_bug2b_draft_graph/` (the draft
+ graph fix, with its differential control) and
+diff --git a/deploy/docker/patches/sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff b/deploy/docker/patches/sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff
+index 24051e3..174f84d 100644
+--- a/deploy/docker/patches/sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff
++++ b/deploy/docker/patches/sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff
+@@ -5,9 +5,20 @@ PAGE-TABLE ROW half of this diff (2b), but not the DP host-sync half (2a).
+ 
+ An arm run with this override and with 2b and 04 both asserted ABSENT from the
+ bytecode passed 4/4, 32/32 twice and 64/64 on 2 x 8 MI355X.  So 2b is not needed in
+-that configuration.  2a was NOT reverted in that arm, so nothing was learned about
+-it -- 2a has never been tested in isolation, here or anywhere, which is the oldest
+-open gap in this series.
++that configuration.  2a was NOT reverted in that arm, so that arm says nothing about
++it either way.
++
++2a's own evidence does not come from a revert; it comes from runtime state.  A
++py-spy dump caught a BUSY rank blocked inside dsa_backend on .max().item() while
++IDLE peers had already advanced into the next collective -- the divergence itself,
++observed.  After the fix no rank appears in dsa_backend in a dump again and PD
++warmup passes on all 8 ranks.  Fix A2 (the two unconditional .cpu() syncs on the
++same branch) was forced by experiment, not by reading: with A applied and A2 not,
++the hang persists.  Over-allocating page-table columns was verified safe by walking
++every consumer -- the table is only indexed THROUGH top-k, which masks per row by
++cache_seqlens, so the extra columns get -inf and are never selected.  The
++sync-free idiom is established in-tree three times (triton_backend.py,
++trtllm_mha_backend.py, and DSA's own graph path).
+ 
+ The override does NOT substitute for 01 (padded rows) or the nextn eh_proj fix.
+ It is nearly free only while IndexShare's consumer stays disabled under PD by
+-- 
+2.34.1
+

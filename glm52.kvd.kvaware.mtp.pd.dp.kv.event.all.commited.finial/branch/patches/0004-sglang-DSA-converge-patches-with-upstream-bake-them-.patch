@@ -1,0 +1,1091 @@
+From 80961f400b7780ce981e6c34335486f12093466b Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Fri, 31 Jul 2026 09:23:35 +0000
+Subject: [PATCH 04/25] sglang DSA: converge patches with upstream, bake them
+ into the image
+
+Reshapes two of the four patches to follow the upstream PRs that fix the same
+bug classes, and adds a build step so the image actually contains them.
+
+Patch changes:
+
+* dsa_indexer_hip_dp_padded_rows -- reshaped to PR #32762's form (NPU, same
+  bug class): one boolean gates both the trim and the restore, and the
+  post-kernel row count is ASSERTED before the padding is re-attached. The
+  previous form re-derived the condition and used `topk_result.shape[0] ==
+  q_offset` as a silent guard, so a shape drift would skip the restore and
+  hand back a short tensor -- a wrong answer instead of a crash.
+
+* eagle_worker_v2_uniform_draft_graph -> draft_cuda_graph_dp_vote. Same fix,
+  PR #32209's placement: the draft-graph vote rides the MLP-sync all-gather
+  the scheduler already performs instead of adding a gloo all-reduce per
+  draft() call. Zero extra collectives, and it separates the draft vote from
+  the generic can_cuda_graph vote. Measured at 97.1% draft-graph usage.
+
+Build:
+
+* Dockerfile.sglang.dmabuf now applies the patch set via
+  apply_sglang_dsa_patches.sh, which verifies each patch reached the BYTECODE
+  -- a stale __pycache__ entry silently reverts a patch and has already
+  invalidated a full experiment here. APPLY_SGLANG_DSA_PATCHES=0 builds stock.
+  The base tag stays pinned: patches apply at --fuzz=0, so a base bump fails
+  the build instead of mis-applying.
+
+README corrections, all from `gh` this time rather than from notes:
+
+* "this mechanism appears unreported" was false -- #32527 reported it
+  independently two days before we fixed it;
+* "#32209 all-gathers can_cuda_graph, so its vote would not have fixed it" was
+  false -- it adds a separate can_draft_cuda_graph field, the same idea as
+  ours, better placed;
+* "#32209 is CI red" was never checked; its state is REVIEW_REQUIRED.
+
+Also records a negative result: porting #32209's OTHER half (trim q/top-k
+instead of expanding the page table) fails 0/32 across seven runs and three
+node pairs, seventeen candidate causes eliminated, root cause not identified.
+Our expand form stays until that is understood.
+
+The 2026-07-29 numbers in the README were measured with the v1 shapes; each
+reshape was re-validated separately but never together. That is now stated
+rather than implied, pending the end-to-end run.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ deploy/docker/Dockerfile.sglang.dmabuf        | 119 +++++++++
+ deploy/docker/patches/sglang_dsa/README.md    | 157 ++++++++---
+ .../sglang_dsa/draft_cuda_graph_dp_vote.diff  | 246 ++++++++++++++++++
+ .../dsa_indexer_hip_dp_padded_rows.diff       |  98 ++++---
+ .../eagle_worker_v2_uniform_draft_graph.diff  |  61 -----
+ .../scripts/apply_sglang_dsa_patches.sh       |  91 +++++++
+ .../docker/scripts/build_mooncake_dmabuf.sh   | 109 ++++++++
+ 7 files changed, 759 insertions(+), 122 deletions(-)
+ create mode 100644 deploy/docker/Dockerfile.sglang.dmabuf
+ create mode 100644 deploy/docker/patches/sglang_dsa/draft_cuda_graph_dp_vote.diff
+ delete mode 100644 deploy/docker/patches/sglang_dsa/eagle_worker_v2_uniform_draft_graph.diff
+ create mode 100755 deploy/docker/scripts/apply_sglang_dsa_patches.sh
+ create mode 100644 deploy/docker/scripts/build_mooncake_dmabuf.sh
+
+diff --git a/deploy/docker/Dockerfile.sglang.dmabuf b/deploy/docker/Dockerfile.sglang.dmabuf
+new file mode 100644
+index 0000000..6bbb1ff
+--- /dev/null
++++ b/deploy/docker/Dockerfile.sglang.dmabuf
+@@ -0,0 +1,119 @@
++# Infera SGLang engine image — HIP dma-buf KV registration variant.
++#
++# Purpose: a build whose Mooncake registers GPU (device) KV memory through
++# ibv_reg_dmabuf_mr (via hsa_amd_portable_export_dmabuf), NOT bare ibv_reg_mr.
++# This is the GPUDirect path for hosts that have NO peer-memory kernel module
++# (no nvidia_peermem / no amdgpu peermem) — where a bare ibv_reg_mr on a device
++# pointer fails with EFAULT, so dma-buf is the only way the NIC can reach VRAM.
++#
++# ⚠️ NIC requirement: use this image ONLY when the KV-transfer NIC supports ODP
++# (On-Demand Paging), e.g. Mellanox mlx5. With ODP the dma-buf MR is a dynamic
++# attach → the NIC pages GPU memory on demand → NO pin, NO VRAM doubling. On a
++# NIC WITHOUT ODP (e.g. AMD Pensando ionic) the same ibv_reg_dmabuf_mr forces the
++# driver to PIN the whole registered region → the KV pool is duplicated in VRAM
++# and can exhaust a KFD resource (HIP-209) → the engine crashes at KV setup.
++# For no-ODP NICs use the default build (bare ibv_reg_mr + host-libionic
++# injection): deploy/docker/scripts/build_mooncake_rocm.sh.
++#
++# This image differs from Dockerfile.sglang in two ways: it ENABLES the dma-buf
++# Mooncake path instead of gating it off, and it bakes in the GLM-5.2 DSA patch
++# set (see below). It deliberately does not add the infera python package or the
++# Rust router — it is a minimal sglang+mooncake runtime for the
++# ibv_reg_dmabuf_mr case. Add those layers if you need them.
++#
++# ⚠️ The sglang base tag is PINNED and must stay pinned. The DSA patches below
++# apply at --fuzz=0 against this exact commit
++# (0b3bb0cbe31873994c9f989fddfe2f87ca839fdd, release/v0.5.15). Bumping the base
++# will fail the build at the patch step rather than silently mis-apply — which
++# is the intended behaviour, not a defect.
++ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
++FROM ${SGLANG_BASE_IMAGE}
++
++WORKDIR /opt/infera
++
++# ---- Mooncake rebuild with HIP dma-buf MR registration ENABLED -------------
++# The v0.5.15.post1 base bundles Mooncake at upstream #2682, which:
++#   (a) compiles USE_HIP_DMABUF onto the transfer_engine target only, so
++#       rdma_context.cpp (in the rdma_transport OBJECT lib, where the
++#       ibv_reg_dmabuf_mr call lives) falls back to bare ibv_reg_mr; and
++#   (b) installs a HIP IPC transport unconditionally and prefers it over RDMA,
++#       which breaks CROSS-NODE PD (a peer can't open a local hip IPC segment).
++# build_mooncake_dmabuf.sh fixes both: it applies the in-tree B-group patches
++# (HIP-transport gate behind MC_ENABLE_HIP_TRANSPORT + auto-chunk MR — both
++# `git apply --check` clean on #2682) AND propagates USE_HIP_DMABUF to
++# rdma_transport, then rebuilds -DUSE_HIP_DMABUF=ON and verifies the compiled
++# object actually references ibv_reg_dmabuf_mr. Self-checking: fails the build if
++# the dma-buf symbol is absent. Skip the whole step with BUILD_MOONCAKE_DMABUF=0.
++ARG BUILD_MOONCAKE_DMABUF=1
++COPY deploy/docker/patches/mooncake_cpp/ /tmp/mooncake_cpp/
++COPY deploy/docker/scripts/build_mooncake_dmabuf.sh /tmp/build_mooncake_dmabuf.sh
++RUN if [ "${BUILD_MOONCAKE_DMABUF}" = "1" ]; then \
++        MC_CPP_PATCH_DIR=/tmp/mooncake_cpp bash /tmp/build_mooncake_dmabuf.sh; \
++    else \
++        echo "BUILD_MOONCAKE_DMABUF=0 — leaving base Mooncake (bare ibv_reg_mr) as-is"; \
++    fi \
++    && rm -rf /tmp/build_mooncake_dmabuf.sh /tmp/mooncake_cpp
++
++# ---- GLM-5.2 DSA patch set --------------------------------------------------
++# Four patches that together enable PD disaggregation + DP-attention + EAGLE MTP
++# for GLM-5.2 on gfx950. Without them the combination crashes at weight load, at
++# the first batch, or deadlocks the whole DP group under concurrency.
++#
++#   dsa_indexer_hip_dp_padded_rows      the HIP/aiter paged-MQA path sizes its
++#                                       output from DP-PADDED rows while
++#                                       `lengths` is sized to REAL rows ->
++#                                       "Expected lengths.size(0) == B".
++#                                       Shaped after upstream PR #32762 (same
++#                                       bug class, NPU): one boolean gates both
++#                                       trim and restore, and the post-kernel
++#                                       row count is ASSERTED before the padding
++#                                       is re-attached.
++#   dsa_backend_dp_sync_and_page_table  (a) `seq_lens.max().item()` is a host
++#                                       sync on a branch only SOME DP ranks
++#                                       take, desynchronizing DP collectives;
++#                                       (b) page_table_1 has one row per REQUEST
++#                                       while topk_indices has one per TOKEN
++#                                       under MTP -> assert on unequal rows.
++#   deepseek_nextn_glm52_mtp_bf16       GLM-5.2 MXFP4 exports the nextn layer in
++#                                       bf16 while the model is quantized; the
++#                                       quark exclude check must test
++#                                       `model.layers.{N}.eh_proj`, not the bare
++#                                       layer prefix. Else a 3072-vs-6144 shape
++#                                       crash at load.
++#   draft_cuda_graph_dp_vote            the draft-graph/eager choice in
++#                                       EagleDraftWorker.draft() is made PER
++#                                       RANK from rank-dependent inputs and
++#                                       diverges on the PD decode leg, where the
++#                                       DSA top-k seed arrives by RDMA. Graph
++#                                       replay and the eager loop do not issue
++#                                       the same collectives -> deadlock. Shaped
++#                                       after upstream PR #32209: the vote rides
++#                                       the MLP-sync all-gather the scheduler
++#                                       ALREADY performs, adding zero extra
++#                                       collectives.
++#
++# The apply script verifies every patch reached the BYTECODE, not just the
++# source: a stale __pycache__ entry silently reverts a patch and has already
++# invalidated one full experiment here. Set APPLY_SGLANG_DSA_PATCHES=0 for a
++# stock engine (e.g. to A/B the patches).
++ARG APPLY_SGLANG_DSA_PATCHES=1
++COPY deploy/docker/patches/sglang_dsa/ /tmp/sglang_dsa/
++COPY deploy/docker/scripts/apply_sglang_dsa_patches.sh /tmp/apply_sglang_dsa_patches.sh
++RUN if [ "${APPLY_SGLANG_DSA_PATCHES}" = "1" ]; then \
++        PATCH_DIR=/tmp/sglang_dsa bash /tmp/apply_sglang_dsa_patches.sh; \
++    else \
++        echo "APPLY_SGLANG_DSA_PATCHES=0 — stock sglang, GLM-5.2 PD+DPA+MTP will NOT work"; \
++    fi \
++    && rm -rf /tmp/apply_sglang_dsa_patches.sh /tmp/sglang_dsa
++
++# ---- host-libionic injection entrypoint ------------------------------------
++# Same entrypoint as Dockerfile.sglang: when /host-libionic/libionic.so is
++# bind-mounted, replace the container's libionic provider with the host build so
++# in-container libibverbs speaks the host kernel module's ABI (else ibv_get_
++# device_list() returns 0 devices and RDMA silently degrades to TCP). No-op when
++# the mount is absent (e.g. mlx5-only hosts). Harmless for the dma-buf case and
++# required if any ionic device is enumerated at runtime.
++COPY deploy/docker/scripts/infera_inject_host_ionic.sh /usr/local/bin/infera-inject-host-ionic
++
++ENTRYPOINT ["/usr/local/bin/infera-inject-host-ionic"]
++CMD ["/bin/bash"]
+diff --git a/deploy/docker/patches/sglang_dsa/README.md b/deploy/docker/patches/sglang_dsa/README.md
+index cb9a756..0d80156 100644
+--- a/deploy/docker/patches/sglang_dsa/README.md
++++ b/deploy/docker/patches/sglang_dsa/README.md
+@@ -4,14 +4,19 @@ Patches against the sglang source tree bundled in the ROCm engine images
+ (`lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x` and derivatives, where sglang is an
+ editable checkout at `/sgl-workspace/sglang`).
+ 
+-> **These diffs are NOT applied at image build time.** `Dockerfile.sglang` no longer
+-> carries a patch loop (the previous `deploy/docker/patches/sglang/*.py` mechanism was
+-> removed along with it), so a stock build of the image does **not** contain any of them.
+-> Apply them into a running container — by `patch -p1 --fuzz=0`, or by bind-mounting the
+-> patched files over the container's copies — which is how every result quoted below was
+-> obtained. If you want them baked in, a build step has to be added; that is deliberate
+-> for now, since they target a specific pinned sglang commit and would silently no-op or
+-> conflict on a different base.
++> **`Dockerfile.sglang.dmabuf` applies these at build time**, via
++> `deploy/docker/scripts/apply_sglang_dsa_patches.sh`, which also verifies each patch
++> reached the **bytecode** (a stale `__pycache__` entry silently reverts a patch and has
++> already invalidated a full experiment here). Set `APPLY_SGLANG_DSA_PATCHES=0` to build
++> a stock engine for A/B.
++>
++> `Dockerfile.sglang` does **not** apply them — a stock build of that image contains none
++> of them. Apply them into a running container by `patch -p1 --fuzz=0` if you need them
++> there.
++>
++> The base image tag is pinned deliberately: these target one sglang commit and are
++> applied at `--fuzz=0`, so a base bump fails the build at the patch step rather than
++> mis-applying silently.
+ 
+ ## `dsa_indexer_hip_dp_padded_rows.diff`
+ 
+@@ -105,7 +110,7 @@ One line in `python/sglang/srt/models/deepseek_nextn.py`. **Required for GLM-5.2
+ whose nextn layer is bf16 while the rest of the model is quantized — without it the
+ weight load dies with a `3072 vs 6144` shape mismatch.
+ 
+-## `eagle_worker_v2_uniform_draft_graph.diff`
++## `draft_cuda_graph_dp_vote.diff`
+ 
+ **Lets the EAGLE draft CUDA graph stay enabled on the PD decode leg.** Without it the
+ first routed request hard-deadlocks.
+@@ -130,18 +135,44 @@ is the race behaving as a race. This also explains why single-node **mix** never
+ with no disaggregation the top-k seed is always produced locally by identical code on
+ every rank, so the fourth term never flips asymmetrically.
+ 
+-The fix votes the *local need for eager* across the DP group (one 1-element **gloo**
+-all-reduce on `cpu_group` — no GPU sync, cannot serialize the compute stream) and has
+-every rank act on the group's answer. An idle rank contributes `False`, so it can never
+-drag the group to eager.
++### Where the vote lives, and why it moved
++
++The fix makes the graph/eager choice a **group** decision instead of a per-rank one. Two
++placements were implemented and both were measured:
++
++| | placement | collectives added | draft-graph usage |
++|---|---|---|---|
++| v1 (superseded) | a 1-element gloo all-reduce inside `draft()` | **one per draft call** | 98.4 % |
++| **v2 (this diff)** | one more int64 slot in the MLP-sync all-gather the scheduler **already** performs | **none** | **97.1 %** |
++
++v2 is the shape of upstream PR [#32209](https://github.com/sgl-project/sglang/pull/32209)
++(`Fix PD decode hang with DP attention and GLM-5.2 MTP`, open). Adopting it means this
++tree converges with upstream rather than diverging from it, and it drops a collective
++whose cost we never measured. It also separates the *draft*-graph vote from the generic
++`can_cuda_graph` vote, so target-verify and draft-extend graphs are not collateral damage
++— #32209 reports that folding them together cost 9.7 % of decode batches their generic
++graph replay.
++
++The rank-local predicate is `requires_dp_attention_eager_forward()`; the scheduler calls
++it just before `maybe_prepare_mlp_sync_batch`, and the gathered value is `min()`-reduced
++so **any** rank needing eager takes the whole group eager. Idle/inactive ranks contribute
++`1` (permissive) and so can never drag the group into eager on their own.
+ 
+ Two details that would otherwise make the patch silently inert:
+ 
+-* it must use `get_tp_group()`, **not** `get_attention_tp_group()` — under DPA8 on tp8 the
+-  attention TP group is `attn_tp_size = tp/dp = 1` rank wide, so voting on it is a no-op;
+-* a collective is safe at this line because instrumentation showed all 8 ranks entering
+-  `draft()` an equal number of times every iteration, idle ones included — the vote sits
+-  on a branch every rank takes, which is precisely the property the buggy code lacked.
++* under overlap scheduling the draft input is resolved **after** the scheduler-side vote,
++  so `dsa_topk_indices` is stale at that point and must not be read directly. The
++  predicate consults `future_dsa_topk_indices_available` instead — which is exactly
++  "will term 4 be satisfied once resolved". An earlier revision wrongly assumed that
++  attribute was absent and fell back to requiring eager whenever `future_indices` was
++  set; since overlap scheduling sets it on **every** decode iteration, that refused the
++  draft graph 100 % of the time (measured: 0.0 % usage, 200/200 calls refused) and
++  silently degraded the fix into the "just disable the draft graph" workaround while
++  still passing every functional test.
++* the v1 form had to use `get_tp_group()`, **not** `get_attention_tp_group()` — under
++  DPA8 on tp8 the attention TP group is `attn_tp_size = tp/dp = 1` rank wide, so voting
++  on it is a no-op. v2 rides the scheduler's existing all-gather and so does not face
++  this choice.
+ 
+ An earlier attempt that removed only the `not is_idle()` term does **not** work, and the
+ measurements say why: it fixes the busy-rank iteration and breaks the idle-rank one, which
+@@ -150,7 +181,9 @@ matches the observed symptom of the failure moving earlier, into warmup.
+ ### Verified
+ 
+ 2× 8×MI355X, GLM-5.2-MXFP4, PD over mooncake/mlx5, DPA8 + EAGLE MTP(3,1,4), **draft graph
+-enabled**:
++enabled**.
++
++v1's evidence, which established the root cause and carries the differential control:
+ 
+ | Check | Result |
+ |---|---|
+@@ -158,7 +191,7 @@ enabled**:
+ | conc 1/2/4/8/16/64/128/256 × 512 tok | **1384/1384**, 0 failures, 0 KVTransferError |
+ | Single-node mix regression (shared code path) | **132/132** |
+ | Durability, 8 × conc=128 × 512 back to back | **1024/1024**, accept length flat at ~3.0 |
+-| **Draft graph actually used** | **98.4%** of iterations |
++| **Draft graph actually used** | **98.4 %** of iterations |
+ | Same-node control, only this diff reverted | **0/4 — deadlock, 120 s timeout on request 1** |
+ 
+ Cumulative **2540/2540** with the fix, **0/4** without.
+@@ -166,8 +199,25 @@ Cumulative **2540/2540** with the fix, **0/4** without.
+ The mechanism was verified, not just the outcome. Over 2992 iterations with all 8 ranks
+ logging: the *local* decision still diverges 38 times (the defect is latent and real, not
+ masked by timing) while the *acted-on* decision diverges **0** times, and the vote changed
+-some rank's mind 190 times — each one an averted deadlock. The 98.4% graph usage is what
+-distinguishes this from simply disabling the draft graph.
++some rank's mind 190 times — each one an averted deadlock.
++
++v2 (this diff) was then measured on its own:
++
++| Check | Result |
++|---|---|
++| 4-prompt probe | 4/4, accept length 2.18–3.00 |
++| conc=32 × 512, ×2 | **32/32**, **32/32** |
++| conc=64 × 512 | **64/64** |
++| **Draft graph actually used** | **97.1 %** (777/800 calls, identical on all 8 ranks) |
++
++The graph-usage number is the point of that run. Forcing the draft path eager passes every
++functional test while disabling the feature under test, so a green stress result alone
++cannot distinguish a fix from that workaround — the usage counter can.
++
++> The v1 diff (`eagle_worker_v2_uniform_draft_graph.diff`) has been **removed** from this
++> directory in favour of v2. It is preserved, with its full evidence, in
++> `glm52.mxfp4.spur.mooncake.packup_20260729_bug2b_draft_graph/` in the
++> `infera.yihou.glm5.2.mxfp4` workspace.
+ 
+ ## Applying
+ 
+@@ -179,16 +229,27 @@ cd /sgl-workspace/sglang
+ for d in dsa_indexer_hip_dp_padded_rows.diff \
+          dsa_backend_dp_sync_and_page_table_rows.diff \
+          deepseek_nextn_glm52_mtp_bf16.diff \
+-         eagle_worker_v2_uniform_draft_graph.diff; do
++         draft_cuda_graph_dp_vote.diff; do
+   patch -p1 --fuzz=0 < "$d"
+ done
+ ```
+ 
++`deploy/docker/scripts/apply_sglang_dsa_patches.sh` does exactly this and then verifies
++each patch in the **bytecode**; prefer it. `Dockerfile.sglang.dmabuf` runs it at build
++time.
++
+ Verified by applying for real into a scratch tree and byte-compiling the result — note
+ that `patch --dry-run` and `git apply --check` **fuzz by default**, and a hand-written
+ diff in this series once silently dropped a hunk while still "passing".
+ 
+-## PD + MTP status (updated 2026-07-29 evening)
++## PD + MTP status
++
++> **Provenance of the numbers below (2026-07-29).** They were measured with the **v1**
++> draft-graph vote and the **v1** indexer patch. Both have since been reshaped to follow
++> upstream (#32209 and #32762 respectively), and each reshape was separately re-validated
++> — but the two reshaped patches were validated in *different* runs, never together.
++> The end-to-end run of exactly the four diffs in this directory is recorded below under
++> "Final validation".
+ 
+ With **all four** diffs applied, PD disaggregation with DP-attention + EAGLE MTP and the
+ **draft CUDA graph enabled** is working on 2× 8×MI355X, GLM-5.2-MXFP4,
+@@ -205,7 +266,7 @@ With **all four** diffs applied, PD disaggregation with DP-attention + EAGLE MTP
+ ### Both earlier caveats are now closed
+ 
+ 1. ~~"the draft CUDA graph must be disabled; a proper fix is not written yet"~~ —
+-   **written and verified**, see `eagle_worker_v2_uniform_draft_graph.diff` above. The
++   **written and verified**, see `draft_cuda_graph_dp_vote.diff` above. The
+    earlier 640/640 was measured with that graph off; it is now on and used 98.4% of the
+    time.
+ 2. ~~"about 2 % of responses under concurrency are degenerate"~~ — **falsified; this was
+@@ -248,11 +309,45 @@ the same issue as sglang PR #30378 / #30427 ("clamp padded-row seq_lens to >= 0"
+ `triton_ops/pad.py::seqlens_expand_kernel`), which fixes padded row *values* and is
+ already present in this image. This one fixes the HIP-side row *count*.
+ 
+-The `eagle_worker_v2` fix is **not** ROCm-specific in principle. The guard it repairs is
++The draft-graph vote is **not** ROCm-specific in principle. The guard it repairs is
+ platform-neutral, and its terms are rank-dependent on any backend running DP-attention
+ with PD disaggregation; CUDA is protected today only because the draft-extend graph is
+-captured there, which keeps the ranks on the same path. Upstream has related open work
+-that blames `can_cuda_graph` (#32209 all-gathers that decision, CI red; #32527 same
+-topology; #32722 shows **no CI covers PD+DPA+MTP**), but none of them addresses this
+-guard — and we measured `can_cuda_graph` to be *uniform* across ranks here, so #32209's
+-vote would not have fixed it. This mechanism appears unreported.
++captured there, which keeps the ranks on the same path.
++
++State of the relevant upstream work, queried with `gh` on 2026-07-31 (all **open**, none
++merged — so none of it reaches a `release/v0.5.15` baseline without a manual backport):
++
++| PR / issue | what it is | relation |
++|---|---|---|
++| [#32209](https://github.com/sgl-project/sglang/pull/32209) | `Fix PD decode hang with DP attention and GLM-5.2 MTP` | **same defect, same strategy as our vote.** `draft_cuda_graph_dp_vote.diff` adopts its placement. |
++| [#32527](https://github.com/sgl-project/sglang/issues/32527) | issue, same deadlock on 8× Blackwell / GLM-5.2-FP8 | independent report, 2026-07-27, same analysis. Proposes a third strategy: a dummy all-zeros seed so the guard's 4th term is false. |
++| [#32762](https://github.com/sgl-project/sglang/pull/32762) | `[NPU] Fix DSA eager padding mismatch in PD MTP warm-up` | same bug class as `dsa_indexer_hip_dp_padded_rows`; that diff is written in its shape. |
++| [#31683](https://github.com/sgl-project/sglang/pull/31683) | `[ROCm][MI35X] Enable GLM-5.2-MXFP4 MTP` | carries an independent, differently-placed implementation of the same indexer fix. |
++| [#30839](https://github.com/sgl-project/sglang/pull/30839) / [#31083](https://github.com/sgl-project/sglang/pull/31083) | introduced the guard; cherry-picked to `release/v0.5.15` | **merged 2026-07-14** — so this deadlock is a *regression* in the baseline, not a legacy wart. |
++| [#32722](https://github.com/sgl-project/sglang/pull/32722) | a test covering PD + DP-attention + MTP | proves **no CI covers this topology today**, which is why the family survives. |
++
++Three corrections to earlier revisions of this file, all of which asserted upstream state
++from notes instead of from `gh`:
++
++1. ~~"this mechanism appears unreported"~~ — **false**, #32527 reported it independently
++   two days before we fixed it.
++2. ~~"#32209 all-gathers `can_cuda_graph`, and we measured that to be uniform, so its vote
++   would not have fixed it"~~ — **false**. #32209 adds a *separate* `can_draft_cuda_graph`
++   field; it is the same idea as ours, better placed. We now use its placement.
++3. ~~"#32209 is CI red"~~ — not checked at the time; its review state is
++   `REVIEW_REQUIRED`.
++
++The `dsa_backend` fixes have **no upstream counterpart we have found** — per-diff greps of
++#31683, #32175 and #32209 match neither site. That is weaker than it sounds: `gh search`
++matches titles and bodies, not diff content, so an upstream PR could touch either site
++without naming it.
++
++One negative result worth recording, because it looks like an obvious convergence and is
++not: #32209's *other* half reconciles the decode row counts by **trimming q/top-k** where
++we **expand the page table**. Porting that half to this HIP/tilelang path fails
++reproducibly at conc=32 (0/32 across seven runs, three node pairs, a rebuilt image).
++Seventeen candidate causes were instrumented and eliminated; the root cause is **not**
++identified. Details and the reproducer are in
++`glm52.mxfp4.spur.mooncake.packup_20260731_exp3a_32209_patch2b_unresolved/`. Until that is
++understood, `dsa_backend_dp_sync_and_page_table_rows.diff` keeps our expand-the-page-table
++form.
+diff --git a/deploy/docker/patches/sglang_dsa/draft_cuda_graph_dp_vote.diff b/deploy/docker/patches/sglang_dsa/draft_cuda_graph_dp_vote.diff
+new file mode 100644
+index 0000000..6623e66
+--- /dev/null
++++ b/deploy/docker/patches/sglang_dsa/draft_cuda_graph_dp_vote.diff
+@@ -0,0 +1,246 @@
++diff --git a/python/sglang/srt/disaggregation/decode.py b/python/sglang/srt/disaggregation/decode.py
++index 2164cade49..84a54ae0d3 100644
++--- a/python/sglang/srt/disaggregation/decode.py
+++++ b/python/sglang/srt/disaggregation/decode.py
++@@ -1905,6 +1905,16 @@ class SchedulerDisaggregationDecodeMixin:
++             self.running_batch = self.update_running_batch(self.running_batch)
++             ret = self.running_batch if not self.running_batch.is_empty() else None
++ 
+++        # GLM52_P4V2: ask the draft worker whether THIS rank needs an eager
+++        # draft step, and record it on the batch so the MLP-sync all-gather
+++        # below carries it to every rank. Must run BEFORE
+++        # maybe_prepare_mlp_sync_batch -- that is the collective that spreads
+++        # it. (Upstream PR #32209 places it at exactly this line.)
+++        if ret is not None and getattr(self, "draft_worker", None) is not None:
+++            ret.force_disable_draft_cuda_graph = (
+++                self.draft_worker.requires_dp_attention_eager_forward(ret)
+++            )
+++
++         ret = self.dp_attn_adapter.maybe_prepare_mlp_sync_batch(ret)
++         if ret:
++             set_schedule_time_batch(ret)
++diff --git a/python/sglang/srt/managers/schedule_batch.py b/python/sglang/srt/managers/schedule_batch.py
++index 55c88afa19..23687c1669 100755
++--- a/python/sglang/srt/managers/schedule_batch.py
+++++ b/python/sglang/srt/managers/schedule_batch.py
++@@ -1782,6 +1782,10 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
++     is_extend_in_batch: bool = False
++     all_extend_in_batch: bool = False  # plumbing for downstream forks (PR #19639)
++     can_run_dp_cuda_graph: bool = False
+++    can_run_dp_draft_cuda_graph: bool = True  # GLM52_P4V2
+++    # GLM52_P4V2: rank-local request for an eager draft step; the MLP-sync
+++    # all-gather turns it into the group-wide can_run_dp_draft_cuda_graph.
+++    force_disable_draft_cuda_graph: bool = False
++     can_run_dp_breakable_cuda_graph: bool = False
++     tbo_split_seq_index: Optional[int] = None
++ 
++@@ -2852,6 +2856,8 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
++             global_num_tokens=self.global_num_tokens,
++             global_num_tokens_for_logprob=self.global_num_tokens_for_logprob,
++             can_run_dp_cuda_graph=self.can_run_dp_cuda_graph,
+++            can_run_dp_draft_cuda_graph=self.can_run_dp_draft_cuda_graph,  # GLM52_P4V2
+++            force_disable_draft_cuda_graph=self.force_disable_draft_cuda_graph,
++             can_run_dp_breakable_cuda_graph=self.can_run_dp_breakable_cuda_graph,
++             is_extend_in_batch=self.is_extend_in_batch,
++             all_extend_in_batch=self.all_extend_in_batch,
++diff --git a/python/sglang/srt/managers/scheduler_components/dp_attn.py b/python/sglang/srt/managers/scheduler_components/dp_attn.py
++index b473a11ee7..ff0ef4220c 100644
++--- a/python/sglang/srt/managers/scheduler_components/dp_attn.py
+++++ b/python/sglang/srt/managers/scheduler_components/dp_attn.py
++@@ -37,6 +37,9 @@ class MLPSyncBatchInfo:
++     num_tokens: int
++     num_tokens_for_logprob: int
++     can_cuda_graph: bool
+++    # GLM52_P4V2: slot 7 of the gathered tensor. min()-reduced like
+++    # can_cuda_graph, so ANY rank needing eager takes the whole group eager.
+++    can_draft_cuda_graph: bool
++     is_extend_in_batch: bool
++     local_can_run_tbo: bool
++     local_forward_mode: int
++@@ -60,6 +63,7 @@ class MLPSyncBatchInfo:
++                 int(self.local_can_run_tbo),
++                 self.local_forward_mode,
++                 int(self.can_run_breakable_cuda_graph),
+++                int(self.can_draft_cuda_graph),  # GLM52_P4V2
++             ],
++             device=device,
++             dtype=dtype,
++@@ -75,6 +79,8 @@ class MLPSyncBatchInfo:
++                 1,  # local_can_run_tbo
++                 ForwardMode.IDLE.value,  # local_forward_mode
++                 0,  # can_run_breakable_cuda_graph
+++                1,  # can_draft_cuda_graph -- GLM52_P4V2, permissive: an
+++                    # inactive rank must not drag the group into eager.
++             ],
++             device=device,
++             dtype=dtype,
++@@ -82,8 +88,9 @@ class MLPSyncBatchInfo:
++ 
++     def all_gather(self, device, group: torch.distributed.ProcessGroup):
++         local_info_tensor = self._get_local_tensor(device=device)
+++        # GLM52_P4V2: 7 -> 8 slots (can_draft_cuda_graph appended).
++         global_info_tensor = torch.empty(
++-            (self.dp_size, self.tp_size * self.cp_size, 7),
+++            (self.dp_size, self.tp_size * self.cp_size, 8),
++             dtype=torch.int64,
++             device=device,
++         )
++@@ -99,7 +106,9 @@ class MLPSyncBatchInfo:
++             tp_active_ranks = get_tp_group().active_ranks
++ 
++         # Set fallback values for inactive ranks
++-        tp_info = global_info_tensor.view(self.dp_size * self.tp_size * self.cp_size, 7)
+++        tp_info = global_info_tensor.view(  # GLM52_P4V2: 7 -> 8
+++            self.dp_size * self.tp_size * self.cp_size, 8
+++        )
++         tp_info[tp_active_ranks == 0] = self._get_fallback_tensor(device=device)
++ 
++         tp0_info = global_info_tensor[:, 0, :]
++@@ -111,6 +120,8 @@ class MLPSyncBatchInfo:
++         self.can_cuda_graph = bool(tp0_info[:, 2].min().item())
++         self.is_extend_in_batch = bool(tp0_info[:, 3].max().item())
++         self.can_run_breakable_cuda_graph = bool(tp0_info[:, 6].min().item())
+++        # GLM52_P4V2: min() -- one rank needing eager takes the whole group.
+++        self.can_draft_cuda_graph = bool(tp0_info[:, 7].min().item())
++         if _ENABLE_METRICS_DP_ATTENTION:
++             self.dp_cooperation_info = DPCooperationInfo.create(tp0_info[:, 5].tolist())
++ 
++@@ -137,6 +148,7 @@ def _update_gather_batch(
++ 
++     # Check forward mode for cuda graph
++     batch.can_run_dp_cuda_graph = mlp_sync_info.can_cuda_graph
+++    batch.can_run_dp_draft_cuda_graph = mlp_sync_info.can_draft_cuda_graph  # GLM52_P4V2
++     batch.can_run_dp_breakable_cuda_graph = mlp_sync_info.can_run_breakable_cuda_graph
++ 
++ 
++@@ -189,6 +201,13 @@ def prepare_mlp_sync_batch_raw(
++         and local_batch.forward_mode in (ForwardMode.EXTEND, ForwardMode.MIXED)
++         and not disable_cuda_graph
++     )
+++    # GLM52_P4V2: rank-local answer set by the scheduler just before this call.
+++    # Default True (permissive) when the batch is None or the attribute is
+++    # absent, matching can_cuda_graph's treatment of idle ranks.
+++    can_draft_cuda_graph = not (
+++        local_batch is not None
+++        and getattr(local_batch, "force_disable_draft_cuda_graph", False)
+++    )
++ 
++     is_extend_in_batch = local_batch.forward_mode.is_extend() if local_batch else False
++     if local_batch is not None:
++@@ -214,6 +233,7 @@ def prepare_mlp_sync_batch_raw(
++         num_tokens=num_tokens,
++         num_tokens_for_logprob=num_tokens_for_logprob,
++         can_cuda_graph=can_cuda_graph,
+++        can_draft_cuda_graph=can_draft_cuda_graph,  # GLM52_P4V2
++         is_extend_in_batch=is_extend_in_batch,
++         local_can_run_tbo=local_can_run_tbo,
++         local_forward_mode=local_forward_mode,
++diff --git a/python/sglang/srt/model_executor/forward_batch_info.py b/python/sglang/srt/model_executor/forward_batch_info.py
++index 031ab4fe87..09c43f6d55 100644
++--- a/python/sglang/srt/model_executor/forward_batch_info.py
+++++ b/python/sglang/srt/model_executor/forward_batch_info.py
++@@ -389,6 +389,7 @@ class ForwardBatch(ForwardBatchDeepSeekMHAMixin):
++     # Mirrors ScheduleBatch.all_extend_in_batch; kept for downstream forks.
++     all_extend_in_batch: bool = False
++     can_run_dp_cuda_graph: bool = False
+++    can_run_dp_draft_cuda_graph: bool = True  # GLM52_P4V2
++     can_run_dp_breakable_cuda_graph: bool = False
++     global_forward_mode: Optional[ForwardMode] = None
++ 
++@@ -704,6 +705,7 @@ class ForwardBatch(ForwardBatchDeepSeekMHAMixin):
++             is_extend_in_batch=batch.is_extend_in_batch,
++             all_extend_in_batch=batch.all_extend_in_batch,
++             can_run_dp_cuda_graph=batch.can_run_dp_cuda_graph,
+++            can_run_dp_draft_cuda_graph=batch.can_run_dp_draft_cuda_graph,  # GLM52_P4V2
++             can_run_dp_breakable_cuda_graph=batch.can_run_dp_breakable_cuda_graph,
++             global_forward_mode=batch.global_forward_mode,
++             is_prefill_only=batch.is_prefill_only,
++diff --git a/python/sglang/srt/speculative/eagle_draft_cuda_graph_runner.py b/python/sglang/srt/speculative/eagle_draft_cuda_graph_runner.py
++index 7cf12912ce..4f903cd7cf 100644
++--- a/python/sglang/srt/speculative/eagle_draft_cuda_graph_runner.py
+++++ b/python/sglang/srt/speculative/eagle_draft_cuda_graph_runner.py
++@@ -305,7 +305,14 @@ class EAGLEDraftCudaGraphRunner(DecodeCudaGraphRunner):
++         )
++ 
++         if self.require_mlp_sync:
++-            is_bs_supported = is_bs_supported and forward_batch.can_run_dp_cuda_graph
+++            # GLM52_P4V2: the group-wide draft-graph gate, all-gathered by
+++            # the scheduler. Without it the draft graph decision stays
+++            # rank-local and the group deadlocks.
+++            is_bs_supported = (
+++                is_bs_supported
+++                and forward_batch.can_run_dp_cuda_graph
+++                and forward_batch.can_run_dp_draft_cuda_graph
+++            )
++ 
++         return is_bs_supported
++ 
++diff --git a/python/sglang/srt/speculative/eagle_worker_v2.py b/python/sglang/srt/speculative/eagle_worker_v2.py
++index baa3674964..0aa321a1b1 100644
++--- a/python/sglang/srt/speculative/eagle_worker_v2.py
+++++ b/python/sglang/srt/speculative/eagle_worker_v2.py
++@@ -1105,6 +1105,64 @@ class EAGLEWorkerV2(BaseSpecWorker):
++         # draft_extend, which runs on the draft runner.
++         return self._draft_worker.draft_runner
++ 
+++    def requires_dp_attention_eager_forward(self, batch) -> bool:
+++        """GLM52_P4V2: does THIS rank need the draft step to run eagerly?
+++
+++        Ported from upstream PR #32209. The graph/eager choice must be the
+++        SAME on every DP rank -- graph replay and the eager multi-step loop do
+++        not issue the same host-side collective sequence, so a per-rank choice
+++        desynchronizes the group and deadlocks (measured: one busy rank eager
+++        in init_forward_metadata while seven idle ranks sat in all_gather).
+++
+++        This is the rank-local half. The scheduler folds the answer into the
+++        MLP-sync all-gather it already performs, which min()-reduces it across
+++        the group -- so no extra collective is introduced, unlike our v1 fix
+++        which added a gloo all-reduce inside draft().
+++
+++        The condition is guard term 4 of the original `draft()` check: with
+++        IndexShare seeding on, a batch whose DSA top-k seed has not arrived
+++        must not use the draft graph. On the PD decode leg that seed comes
+++        from RDMA-shipped per-request payloads, so the answer is a function of
+++        which requests this rank happens to hold -- which is exactly why it
+++        diverges here and never does on a single-node mix run.
+++        """
+++        if not self._draft_worker.seed_dsa_topk_from_draft_extend:
+++            return False
+++
+++        draft_input = batch.spec_info
+++        if draft_input is None:
+++            return False
+++
+++        # Under overlap scheduling FutureMap resolves the draft input AFTER
+++        # this scheduler-side vote, so `dsa_topk_indices` is still stale here
+++        # and must not be read directly. Upstream #32209 consults
+++        # `future_dsa_topk_indices_available` instead, and so do we:
+++        #
+++        #   scheduler.py:3314          sets it to (dsa_topk_indices is not None)
+++        #                              on the draft input published for the
+++        #                              NEXT iteration;
+++        #   overlap_utils.py:271       is the consumer -- it fills
+++        #                              draft_input.dsa_topk_indices from the
+++        #                              buffer iff the flag is set, else None.
+++        #
+++        # So the flag is exactly "will term 4 be satisfied once resolved",
+++        # which is the question this predicate has to answer one step early.
+++        #
+++        # CORRECTION (2026-07-30): an earlier revision of this script claimed
+++        # the attribute was absent from this baseline and fell back to
+++        # REQUIRING EAGER whenever `future_indices` was set. That claim was
+++        # wrong -- it is present at eagle_info.py:179 and spec_info.py:261 --
+++        # and the fallback was catastrophic rather than merely conservative:
+++        # overlap scheduling sets `future_indices` on EVERY decode iteration,
+++        # so the draft graph was refused 100% of the time. Measured on arm e3b,
+++        # conc=32: draft-graph usage 0.0% across all 8 ranks (200/200 calls
+++        # refused), with the real guard term (`seed_none`) never once firing.
+++        # That silently degraded patch 4 into the Variant-B workaround while
+++        # still passing every functional test.
+++        if getattr(draft_input, "future_indices", None) is not None:
+++            return not draft_input.future_dsa_topk_indices_available
+++        return getattr(draft_input, "dsa_topk_indices", None) is None
+++
++     @property
++     def spec_v2_attn_backends(self) -> tuple:
++         # Every attn backend a spec_v2 forward touches; consumed by
+diff --git a/deploy/docker/patches/sglang_dsa/dsa_indexer_hip_dp_padded_rows.diff b/deploy/docker/patches/sglang_dsa/dsa_indexer_hip_dp_padded_rows.diff
+index 7228a3d..b5ba70b 100644
+--- a/deploy/docker/patches/sglang_dsa/dsa_indexer_hip_dp_padded_rows.diff
++++ b/deploy/docker/patches/sglang_dsa/dsa_indexer_hip_dp_padded_rows.diff
+@@ -1,5 +1,5 @@
+ diff --git a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+-index 59b2256815..c4751c981c 100644
++index 59b2256815..e5f4847678 100644
+ --- a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+ +++ b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+ @@ -5,6 +5,8 @@ import logging
+@@ -21,35 +21,57 @@ index 59b2256815..c4751c981c 100644
+  _is_npu = is_npu()
+  
+  if not _is_npu:
+-@@ -903,10 +908,38 @@ class Indexer(MultiPlatformOp):
++@@ -902,11 +907,60 @@ class Indexer(MultiPlatformOp):
++         assert len(weights.shape) == 3
+          weights = weights.squeeze(2)
+  
+++        # GLM52_P1V2: bound before the branch so the restore below can gate on
+++        # it without a locals() lookup. Only the aiter branch sets it True;
+++        # the CUDA branches slice internally and re-pad themselves.
+++        _p1v2_trim = False
+++        _p1v2_real = q_offset
+++        _p1v2_padded = q_fp8.shape[0]
+          if self.paged_mqa_logits_backend.is_aiter():
+-+            # DP-attention pads the hidden states, so q_fp8 can carry more rows than
+-+            # the batch really has; `q_offset` is the real (unpadded) count and is
+-+            # what `lengths` (dsa_seqlens_expanded) is sized to. The CUDA path
+-+            # (deepgemm_paged_mqa_logits_split) slices its q/weights to q_offset for
+-+            # exactly this reason. aiter instead sizes its `logits` output from
+++            # Trim eager DP-attention padding before the aiter paged-MQA call,
+++            # in the shape of upstream PR #32762 (NPU, same bug class).
+++            #
+++            # Under DP-attention the hidden states are padded to the largest
+++            # token count across ranks, so q_fp8 carries more rows than this
+++            # rank's batch really has, while `lengths` (dsa_seqlens_expanded)
+++            # is sized to the REAL count. The CUDA path
+++            # (deepgemm_paged_mqa_logits_split) slices q/weights for exactly
+++            # this reason; aiter instead sizes its `logits` output from
+ +            # q_fp8.shape[0], so without the same slice the top-k below sees
+-+            # score.shape[0] != lengths.shape[0] and asserts. Slice here so both
+-+            # backends feed top-k the same shape; the padding is restored after.
+++            # score.shape[0] != lengths.shape[0] and asserts
+++            # ("Expected lengths.size(0) == B to be true").
+++            #
+++            # Trim whenever there IS padding, including _p1v2_real == 0: a
+++            # DP-IDLE rank has no requests, so the real count is 0 while q_fp8
+++            # still carries padding. q_fp8[:0] is a legal empty slice and is
+++            # what an idle rank should pass -- the CUDA path likewise slices
+++            # unconditionally. (An earlier revision had a `0 < q_offset` lower
+++            # bound here; it made fast_topk_v2 assert on idle ranks.)
+++            _p1v2_trim = _p1v2_real < _p1v2_padded
+ +            _q_mqa, _w_mqa = q_fp8, weights
+-+            # GLM52_BUG6: no lower bound on q_offset. A DP-IDLE rank has no
+-+            # requests, so q_offset == 0 while q_fp8 still carries DP padding.
+-+            # The old `0 < q_offset` guard skipped the slice in exactly that
+-+            # case, leaving aiter to size `logits` from the padded row count
+-+            # while `lengths` had 0 rows -> "lengths.size(0) == B" failed in
+-+            # fast_topk_v2. q_fp8[:0] is a legal empty slice and is what an idle
+-+            # rank should pass; the CUDA path likewise slices unconditionally.
+-+            if q_offset < q_fp8.shape[0]:
+-+                _q_mqa = q_fp8[:q_offset]
+-+                _w_mqa = weights[:q_offset]
+++            if _p1v2_trim:
+++                _q_mqa = q_fp8[:_p1v2_real]
+++                _w_mqa = weights[:_p1v2_real]
+ +            if _DSA_DEBUG_ROWS:
+++                # Cross-check against the padding bookkeeping #32762 uses as
+++                # its source. NOT an assert: it has never been measured to
+++                # agree with q_offset on the MTP draft-extend path. Logged so
+++                # a later revision can promote it if the data supports it.
+++                _p1v2_ntnp = getattr(forward_batch, "_original_num_tokens", None)
+++                if _p1v2_ntnp is None:
+++                    _p1v2_ntnp = forward_batch.num_token_non_padded_cpu
+ +                logger.info(
+-+                    "[dsa-rows] mode=%s q_fp8=%s q_offset=%s lengths=%s -> mqa_q=%s",
+++                    "[dsa-rows] mode=%s q_fp8=%s q_offset=%s ntnp=%s agree=%s "
+++                    "lengths=%s -> mqa_q=%s",
+ +                    forward_batch.forward_mode,
+ +                    tuple(q_fp8.shape),
+-+                    q_offset,
+++                    _p1v2_real,
+++                    _p1v2_ntnp,
+++                    _p1v2_ntnp == _p1v2_real,
+ +                    tuple(metadata.get_seqlens_expanded().shape),
+ +                    tuple(_q_mqa.shape),
+ +                )
+@@ -62,16 +84,32 @@ index 59b2256815..c4751c981c 100644
+                  seqlens_32,
+                  block_tables,
+                  max_seq_len,
+-@@ -962,7 +995,11 @@ class Indexer(MultiPlatformOp):
++@@ -961,11 +1015,24 @@ class Indexer(MultiPlatformOp):
++ 
+          # NOTE(dark): logits should be cleaned in topk_transform
+          topk_result = metadata.topk_transform(logits, self.index_topk)
+-         # Restore possible padding exist in the hidden states.
++-        # Restore possible padding exist in the hidden states.
+ -        if not _is_hip and q_offset < q_fp8.shape[0]:
+-+        # Fire whenever the top-k actually ran on the unpadded rows -- true on CUDA
+-+        # (which always slices) and now on HIP/aiter too (sliced just above). The
+-+        # `topk_result.shape[0] == q_offset` guard keeps the non-DP path (where
+-+        # nothing was sliced) bit-identical to before.
+-+        if q_offset < q_fp8.shape[0] and topk_result.shape[0] == q_offset:
+-             pad_len = q_fp8.shape[0] - q_offset
++-            pad_len = q_fp8.shape[0] - q_offset
+++        # GLM52_P1V2: restore the padding the trim above removed.
+++        #
+++        # #32762's shape: gate on the SAME boolean that drove the trim, and
+++        # ASSERT the kernel returned exactly the trimmed row count before
+++        # concatenating. The previous revision re-derived the condition as
+++        # `q_offset < q_fp8.shape[0] and topk_result.shape[0] == q_offset`,
+++        # whose second conjunct silently skipped the restore on a shape drift
+++        # and handed the caller a short tensor -- a wrong answer rather than a
+++        # crash.
+++        if _p1v2_trim:
+++            assert topk_result.shape[0] == _p1v2_real, (
+++                "GLM52_P1V2: paged-MQA top-k returned "
+++                f"{topk_result.shape[0]} rows for {_p1v2_real} trimmed query "
+++                f"rows (padded={_p1v2_padded}); refusing to pad a mis-shaped "
+++                "result."
+++            )
+              padding = torch.full(
+-                 (pad_len, topk_result.shape[1]),
++-                (pad_len, topk_result.shape[1]),
+++                (_p1v2_padded - _p1v2_real, topk_result.shape[1]),
++                 -1,
++                 dtype=topk_result.dtype,
++                 device=topk_result.device,
+diff --git a/deploy/docker/patches/sglang_dsa/eagle_worker_v2_uniform_draft_graph.diff b/deploy/docker/patches/sglang_dsa/eagle_worker_v2_uniform_draft_graph.diff
+deleted file mode 100644
+index 8473e88..0000000
+--- a/deploy/docker/patches/sglang_dsa/eagle_worker_v2_uniform_draft_graph.diff
++++ /dev/null
+@@ -1,61 +0,0 @@
+-diff --git a/python/sglang/srt/speculative/eagle_worker_v2.py b/python/sglang/srt/speculative/eagle_worker_v2.py
+---- a/python/sglang/srt/speculative/eagle_worker_v2.py
+-+++ b/python/sglang/srt/speculative/eagle_worker_v2.py
+-@@ -510,18 +510,55 @@
+-             batch,
+-             self.cuda_graph_runner,
+-             self.draft_runner,
+-             self.topk,
+-             self.speculative_num_steps,
+-         )
+--        if (
+-+        # GLM52_BUG2B_UNIFORM: the graph/eager choice must be the SAME on every DP
+-+        # rank. Graph replay and the eager multi-step loop do not issue the same
+-+        # host-side collective sequence, so a per-rank choice desynchronizes the
+-+        # group and deadlocks (measured: one busy rank eager in
+-+        # init_forward_metadata while seven idle ranks sat in all_gather).
+-+        #
+-+        # The terms below are all rank-dependent under DP-attention:
+-+        #   is_idle()            -- occupancy, differs by construction
+-+        #   dsa_topk_indices     -- on the PD decode leg this comes from
+-+        #                           RDMA-shipped per-request payloads, so it is
+-+        #                           None only for freshly-arrived requests
+-+        # so we vote on the *local need for eager* and apply the group answer.
+-+        # An idle rank contributes False and can never force the group eager.
+-+        _needs_eager_local = (
+-             can_cuda_graph
+-             and not forward_batch.forward_mode.is_idle()
+-             and self.seed_dsa_topk_from_draft_extend
+-             and draft_input.dsa_topk_indices is None
+--        ):
+-+        )
+-+        if can_cuda_graph and self.seed_dsa_topk_from_draft_extend:
+-+            # NOT get_attention_tp_group(): under DPA8 on tp8 the attention TP
+-+            # group is attn_tp_size = tp/dp = 1 rank wide, so voting on it is a
+-+            # no-op. The group that must agree is the full TP group -- the same
+-+            # one the scheduler's MLP-sync all-gather spans (dp_attn.py:91).
+-+            from sglang.srt.distributed.parallel_state import (
+-+                get_tp_group as _get_tp_group,
+-+            )
+-+
+-+            _grp = _get_tp_group()
+-+            if _grp is not None and _grp.world_size > 1:
+-+                # 1-element gloo all-reduce on the CPU group: no GPU sync, and
+-+                # every rank reaches this line every iteration (verified by
+-+                # instrumentation), so the collective is safe here.
+-+                _vote = torch.tensor(
+-+                    [1 if _needs_eager_local else 0], dtype=torch.int32
+-+                )
+-+                torch.distributed.all_reduce(
+-+                    _vote,
+-+                    op=torch.distributed.ReduceOp.MAX,
+-+                    group=_grp.cpu_group,
+-+                )
+-+                _needs_eager_local = bool(_vote.item())
+-+        if _needs_eager_local:
+-             can_cuda_graph = False
+- 
+-         n_inner = self.speculative_num_steps - 1
+-         canary_outside_ctx = (
+-             c.with_ops_outside_graph(
+-                 single_forward_indices=list(range(n_inner)),
+diff --git a/deploy/docker/scripts/apply_sglang_dsa_patches.sh b/deploy/docker/scripts/apply_sglang_dsa_patches.sh
+new file mode 100755
+index 0000000..2c3d15c
+--- /dev/null
++++ b/deploy/docker/scripts/apply_sglang_dsa_patches.sh
+@@ -0,0 +1,91 @@
++#!/usr/bin/env bash
++# Apply the GLM-5.2 DSA patch set to the sglang checkout in an engine image, and
++# prove every patch reached the BYTECODE.
++#
++# Used by Dockerfile.sglang.dmabuf at build time, and runnable by hand inside a
++# container for iteration.
++#
++# WHY BYTECODE VERIFICATION.  Python caches compiled modules in __pycache__ keyed
++# on the source mtime.  A patch script that restores a backup with shutil.copy2
++# preserves the original mtime, so the edited .py can match a stale .pyc and
++# CPython silently runs the UNPATCHED bytecode.  This has already invalidated a
++# full experiment here -- the source showed the fix, the runtime did not have it.
++# So we drop __pycache__ and re-verify against freshly compiled bytecode.
++#
++# Verification greps for IDENTIFIERS, never for `#` comment markers: the compiler
++# discards comments, so a comment marker reads as a false negative.
++set -euo pipefail
++
++SGLANG_DIR="${SGLANG_DIR:-/sgl-workspace/sglang}"
++PATCH_DIR="${PATCH_DIR:-/tmp/sglang_dsa}"
++SRT="$SGLANG_DIR/python/sglang/srt"
++
++# Applied in this order.  01 must precede nothing in particular -- the four touch
++# disjoint files except that 02 carries both patch 2a and 2b in one diff.
++PATCHES=(
++  dsa_indexer_hip_dp_padded_rows.diff
++  dsa_backend_dp_sync_and_page_table_rows.diff
++  deepseek_nextn_glm52_mtp_bf16.diff
++  draft_cuda_graph_dp_vote.diff
++)
++
++# module basename : identifier that must be present in the compiled bytecode
++MARKERS=(
++  "dsa_indexer.py:_p1v2_trim"
++  "dsa_backend.py:_glm52_match_page_table_rows"
++  "dp_attn.py:can_draft_cuda_graph"
++  "eagle_worker_v2.py:requires_dp_attention_eager_forward"
++  "eagle_draft_cuda_graph_runner.py:can_run_dp_draft_cuda_graph"
++  "forward_batch_info.py:can_run_dp_draft_cuda_graph"
++  "schedule_batch.py:force_disable_draft_cuda_graph"
++  "decode.py:force_disable_draft_cuda_graph"
++)
++
++echo "=== sglang DSA patches: applying to $SGLANG_DIR ==="
++cd "$SGLANG_DIR"
++for p in "${PATCHES[@]}"; do
++  echo "  --- $p"
++  # --fuzz=0: these target a pinned sglang commit.  A fuzzy apply that "succeeds"
++  # against a different base is worse than a clean failure.
++  patch -p1 --fuzz=0 < "$PATCH_DIR/$p"
++done
++
++echo "=== dropping __pycache__ so verification cannot read a stale .pyc ==="
++find "$SGLANG_DIR/python/sglang/srt" -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
++
++echo "=== verifying every patch reached the bytecode ==="
++fail=0
++
++# Patch 3's marker is a literal inside an f-string -- check the source, since the
++# f-string is split across bytecode constants.
++n3=$(grep -c 'num_hidden_layers}.eh_proj' "$SRT/models/deepseek_nextn.py" || true)
++echo "  patch3 nextn eh_proj      -> src=$n3 (want 1)"
++[ "$n3" -eq 1 ] || fail=1
++
++# Patch 2a changes an expression and introduces no new identifier, and the same
++# expression already appears on two pre-existing graph-capture paths -- so
++# counting it gives 3, not 1.  Key off the unique comment the patch adds.  This
++# is a SOURCE check by necessity; bytecode cannot show it.
++n2a=$(grep -c 'GLM52_BUG2_FIX_A: needs_cpu_seq_lens=False nulls the host mirror' \
++      "$SRT/layers/attention/dsa_backend.py" || true)
++echo "  patch2a max_seqlen_k      -> src=$n2a (want 1)"
++[ "$n2a" -eq 1 ] || fail=1
++
++for spec in "${MARKERS[@]}"; do
++  f="${spec%%:*}"; m="${spec#*:}"
++  p=$(find "$SRT" -name "$f" | head -1)
++  if [ -z "$p" ]; then echo "  MISSING MODULE $f"; fail=1; continue; fi
++  d=$(dirname "$p"); b=$(basename "$p" .py)
++  rm -f "$d/__pycache__/$b."*.pyc
++  python3 -c "import py_compile; py_compile.compile('$p', doraise=True)"
++  pyc=$(ls "$d/__pycache__/$b."*.pyc 2>/dev/null | head -1)
++  n=$(strings "$pyc" | grep -c "$m" || true)
++  printf "  %-42s -> pyc=%s (want >0)\n" "$f :: $m" "$n"
++  [ "$n" -gt 0 ] || fail=1
++done
++
++if [ "$fail" -ne 0 ]; then
++  echo "SGLANG DSA PATCH VERIFICATION FAILED" >&2
++  exit 1
++fi
++echo "=== all sglang DSA patches verified in bytecode ==="
+diff --git a/deploy/docker/scripts/build_mooncake_dmabuf.sh b/deploy/docker/scripts/build_mooncake_dmabuf.sh
+new file mode 100644
+index 0000000..88a23ed
+--- /dev/null
++++ b/deploy/docker/scripts/build_mooncake_dmabuf.sh
+@@ -0,0 +1,109 @@
++#!/usr/bin/env bash
++# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
++# SPDX-License-Identifier: MIT
++#
++# Rebuild the sglang base image's bundled Mooncake with the HIP dma-buf RDMA MR
++# path ENABLED — i.e. device-memory KV registration goes through
++# ibv_reg_dmabuf_mr (via hsa_amd_portable_export_dmabuf) instead of bare
++# ibv_reg_mr. This is the ONLY registration path that gives GPUDirect on hosts
++# WITHOUT a peer-memory kernel module (no nvidia_peermem / amdgpu peermem), where
++# a bare ibv_reg_mr on a device pointer fails with EFAULT.
++#
++# IMPORTANT — where this may pin: on an RDMA NIC WITHOUT ODP (On-Demand Paging;
++# e.g. AMD Pensando ionic), ibv_reg_dmabuf_mr forces the driver to PIN the whole
++# registered region → the KV pool is duplicated in VRAM (and can exhaust a KFD
++# resource → HIP-209). Use this image ONLY where the KV NIC HAS ODP (e.g.
++# Mellanox mlx5, which does dynamic attach → no pin, no double). That is why
++# infera's default build (deploy/docker/scripts/build_mooncake_rocm.sh) drops the
++# dma-buf path; this image is the opt-in counterpart for the mlx5 case.
++#
++# What it does, in order:
++#   1. Apply the in-tree B-group C++ patches (idempotent, self-checking):
++#        - transfer_engine_impl.diff : gate installTransport("hip") behind
++#          MC_ENABLE_HIP_TRANSPORT (default OFF) so CROSS-NODE PD stays on RDMA.
++#        - rdma_auto_chunk_mr_2017.diff : split a buffer larger than the device
++#          max_mr_size into <=max_mr_size MRs. No-op for mlx5 (unlimited
++#          max_mr_size); a correctness fix for any finite-max_mr_size NIC. Both
++#          verified to `git apply --check` clean on the base's Mooncake #2682.
++#   2. Propagate USE_HIP_DMABUF to the rdma_transport target (the piece the
++#      in-tree patches deliberately do NOT carry): upstream only defines
++#      USE_HIP_DMABUF on the transfer_engine target, but rdma_context.cpp (which
++#      contains the ibv_reg_dmabuf_mr call) lives in the rdma_transport OBJECT
++#      lib — without the define there, the #elif USE_HIP_DMABUF branch compiles
++#      out and registration silently falls back to bare ibv_reg_mr.
++#   3. cmake -DUSE_HIP=ON -DUSE_HIP_DMABUF=ON, ninja the engine module, install
++#      it over the pip-installed one, and VERIFY ibv_reg_dmabuf_mr is actually
++#      referenced by the built rdma_context object (fail the build otherwise).
++set -euo pipefail
++
++MC_ROOT="${MC_ROOT:-/sgl-workspace/Mooncake}"
++PATCH_DIR="${MC_CPP_PATCH_DIR:-/tmp/mooncake_cpp}"
++[ -f "$MC_ROOT/mooncake-transfer-engine/src/CMakeLists.txt" ] \
++    || { echo "ERR: $MC_ROOT not a Mooncake tree — base image layout changed" >&2; exit 1; }
++
++echo "=== [1/4] apply in-tree B-group C++ patches (HIP gate + auto-chunk MR) ==="
++MC_ROOT="$MC_ROOT" bash "$PATCH_DIR/apply_mooncake_cpp_patches.sh"
++
++echo "=== [2/4] propagate USE_HIP_DMABUF to the rdma_transport target ==="
++RCM="$MC_ROOT/mooncake-transfer-engine/src/transport/rdma_transport/CMakeLists.txt"
++if grep -q 'USE_HIP_DMABUF' "$RCM"; then
++    echo "  already propagated — skip"
++else
++    cat >> "$RCM" <<'CM'
++
++# infera(dmabuf image): rdma_context.cpp calls ibv_reg_dmabuf_mr but lives in this
++# OBJECT lib; upstream only defines USE_HIP_DMABUF on the transfer_engine target,
++# so the branch compiles out here and registration falls back to bare ibv_reg_mr.
++# Add the define + hsa-runtime64 link so the dma-buf path is actually compiled.
++if(USE_HIP)
++  target_include_directories(rdma_transport PRIVATE ${HIP_INCLUDE_DIRS})
++  option(USE_HIP_DMABUF "Enable HIP dmabuf RDMA MR registration" ON)
++  if(USE_HIP_DMABUF)
++    find_package(hsa-runtime64 CONFIG)
++    if(hsa-runtime64_FOUND)
++      target_compile_definitions(rdma_transport PRIVATE USE_HIP_DMABUF)
++      target_link_libraries(rdma_transport PRIVATE hsa-runtime64::hsa-runtime64 hip::host)
++      message(STATUS "rdma_transport: HIP dmabuf MR registration enabled")
++    else()
++      message(FATAL_ERROR "USE_HIP_DMABUF requested but hsa-runtime64 not found")
++    endif()
++  endif()
++endif()
++CM
++    echo "  propagated to $RCM"
++fi
++
++echo "=== [3/4] cmake configure + ninja build engine module (USE_HIP_DMABUF=ON) ==="
++# docker build has NO GPU, so pin the arch explicitly (amdgpu-arch probe would
++# fail and cmake would drop the HIP engine target). gfx950 = MI355X.
++export PYTORCH_ROCM_ARCH="${PYTORCH_ROCM_ARCH:-gfx950}"
++export GPU_ARCHS="${GPU_ARCHS:-gfx950}" AMDGPU_TARGETS="${AMDGPU_TARGETS:-gfx950}"
++export HIP_ARCHITECTURES="${HIP_ARCHITECTURES:-gfx950}"
++export CMAKE_PREFIX_PATH="/opt/rocm:/opt/rocm/lib/cmake:/opt/rocm-7.2.0/lib/cmake:$(python3 -c 'import pybind11;print(pybind11.get_cmake_dir())' 2>/dev/null):${CMAKE_PREFIX_PATH:-}"
++cd "$MC_ROOT"
++rm -rf build && mkdir build && cd build
++cmake .. -DUSE_HIP=ON -DUSE_HIP_DMABUF=ON -DUSE_ETCD=OFF -DWITH_STORE=OFF \
++    -DBUILD_UNIT_TESTS=OFF -DBUILD_EXAMPLES=OFF -DWITH_STORE_RUST=OFF \
++    -DCMAKE_HIP_ARCHITECTURES=gfx950 -GNinja 2>&1 \
++    | grep -iE "dmabuf|hsa-runtime|error" | head -20
++ninja engine.cpython-310-x86_64-linux-gnu.so 2>&1 | tail -6
++
++echo "=== [4/4] install over pip engine.so + verify dma-buf compiled in ==="
++SO="$(ls "$MC_ROOT"/build/mooncake-integration/engine.cpython-*-x86_64-linux-gnu.so | head -1)"
++DEST="$(python3 -c 'import mooncake.engine as e; print(e.__file__)')"
++cp "$SO" "$DEST"
++ASIO="$(ls "$MC_ROOT"/build/mooncake-common/libasio.so 2>/dev/null | head -1 || true)"
++[ -n "$ASIO" ] && { cp "$ASIO" "$(dirname "$DEST")/"; cp "$ASIO" /usr/local/lib/ 2>/dev/null || true; ldconfig 2>/dev/null || true; }
++
++# The registration calls are EXTERNAL symbols, not string literals — check the
++# rdma_context object's undefined refs, not `strings`.
++OBJ="$MC_ROOT/build/mooncake-transfer-engine/src/transport/rdma_transport/CMakeFiles/rdma_transport.dir/rdma_context.cpp.o"
++if [ -f "$OBJ" ] && nm "$OBJ" 2>/dev/null | grep -qiE "ibv_reg_dmabuf_mr|hsa_amd_portable_export_dmabuf"; then
++    echo "DMABUF_COMPILED_IN=yes ($(nm "$OBJ" | grep -ioE 'ibv_reg_dmabuf_mr|hsa_amd_portable_export_dmabuf' | sort -u | tr '\n' ' '))"
++else
++    echo "ERROR: ibv_reg_dmabuf_mr NOT compiled into rdma_context.o — build did not take" >&2
++    exit 1
++fi
++ldd "$DEST" 2>/dev/null | grep -qi hsa-runtime64 && echo "LINKS_HSA=yes" || { echo "ERROR: engine.so not linked to hsa-runtime64" >&2; exit 1; }
++python3 -c "from mooncake.engine import TransferEngine; print('MC_IMPORT_OK')"
++echo "MOONCAKE_DMABUF_BUILD_DONE"
+-- 
+2.34.1
+

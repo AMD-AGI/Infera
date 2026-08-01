@@ -1,0 +1,181 @@
+From 6e6fdb753dca378137a60dcbf14b9ddd2df3ea5c Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Fri, 31 Jul 2026 14:43:35 +0000
+Subject: [PATCH 18/25] fix(router): decode SGLang's bigram BlockStored tokens
+ under MTP
+
+From PR #56 (liyingli), reduced to the Python router this merge exercised.
+
+With EAGLE/MTP on, SGLang keys its radix tree on bigrams (RadixKey.is_bigram,
+set from is_eagle) and the kv-event emitter reports a block's tokens as the
+overlapping pairs (t[i], t[i+1]). The client hashed the pairs as-is while the
+query side chunks the flat token slice, so the view could never be matched:
+cache_hits pinned at 0 and kv-aware routing degrading to round-robin, silently,
+because nothing in the pipeline errors.
+
+Take the first element of each pair -- that rebuilds t[start:end], the slice
+hash_request chunks, and radix nodes split on page boundaries so the two
+chunkings stay aligned. Widen the msgspec schema to the union it really is, or
+every event fails to decode before reaching the hasher.
+
+Note is_eagle is a GLOBAL server arg, so this bites the PREFILL leg too, not
+only the leg running MTP. That is what makes it observable in a PD run whose
+decode leg alone has MTP on.
+
+Deliberately NOT taken from PR#56's 01b0534:
+
+  * rust/router/src/kv_event.rs and its tests -- the same bug in the Rust
+    decoder. Every run in this merge used --router-backend python (the
+    default), so we never exercised that path. PR #56 carries the fix; until
+    it lands, a Rust-router deployment with MTP still has the original bug.
+
+Validated here by G1: the router's mirrored KV view reads 51 blocks on the
+prefill worker, byte-identical to the plain-int path in G0. Unfixed it reads 0.
+
+Co-authored-by: liyingli <liyingli@amd.com>
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ infera/router/kv_event/client.py       | 20 +++++++-
+ infera/router/kv_event/events.py       |  7 ++-
+ tests/unit/router/test_kv_event_e2e.py | 68 ++++++++++++++++++++++++++
+ 3 files changed, 92 insertions(+), 3 deletions(-)
+
+diff --git a/infera/router/kv_event/client.py b/infera/router/kv_event/client.py
+index 3f89740..97c3ebe 100644
+--- a/infera/router/kv_event/client.py
++++ b/infera/router/kv_event/client.py
+@@ -47,6 +47,21 @@ def _offset_endpoint(endpoint: str, rank: int) -> str:
+     return f"{head}:{int(port) + rank}"
+ 
+ 
++def _flat_tokens(token_ids: list[int] | list[tuple[int, int]]) -> list[int]:
++    """The flat token ids of a stored block, whatever view the engine reports.
++
++    Under EAGLE/MTP, SGLang keys its radix tree on bigrams, so a block's tokens
++    arrive as the overlapping pairs ``(t[i], t[i+1])``. The first element of each
++    pair rebuilds ``t[start:end]`` -- the same flat slice ``hash_request`` chunks
++    on the query side, and radix nodes split on page boundaries so the two
++    chunkings stay aligned. Hashing the pairs as-is builds a view that no request
++    can ever match.
++    """
++    if token_ids and isinstance(token_ids[0], (list, tuple)):
++        return [pair[0] for pair in token_ids]
++    return token_ids
++
++
+ @dataclass
+ class WorkerSubscription:
+     """Per-worker subscription state: one ZMQ task per DP rank plus a
+@@ -216,9 +231,10 @@ class KvEventClient:
+                 # query misses by one block.
+                 return
+         bs = sub.block_size
+-        n = len(ev.token_ids) // bs
++        tokens = _flat_tokens(ev.token_ids)
++        n = len(tokens) // bs
+         for i in range(n):
+-            chunk = ev.token_ids[i * bs : (i + 1) * bs]
++            chunk = tokens[i * bs : (i + 1) * bs]
+             parent = hash_chunk(parent, chunk)
+             view.add(parent)
+             m[ev.block_hashes[i]] = parent
+diff --git a/infera/router/kv_event/events.py b/infera/router/kv_event/events.py
+index 252f2a2..3ae2637 100644
+--- a/infera/router/kv_event/events.py
++++ b/infera/router/kv_event/events.py
+@@ -73,7 +73,12 @@ class _SglangKVCacheEvent(msgspec.Struct, array_like=True, omit_defaults=True, g
+ class SglangBlockStored(_SglangKVCacheEvent, tag="BlockStored"):
+     block_hashes: list[int]
+     parent_block_hash: int | None
+-    token_ids: list[int]
++    # With EAGLE/MTP the radix key is a bigram view (``RadixKey.is_bigram``, set
++    # from ``is_eagle``), and the engine reports a block's tokens as the
++    # overlapping pairs ``(t[i], t[i+1])`` instead of bare ints -- so this field
++    # is list[int] on a plain engine and list[tuple[int, int]] under MTP. See
++    # ``client._flat_tokens`` for how the pairs map back onto flat tokens.
++    token_ids: list[int | tuple[int, int]]
+     block_size: int
+     lora_id: int | None
+     medium: str | None = None
+diff --git a/tests/unit/router/test_kv_event_e2e.py b/tests/unit/router/test_kv_event_e2e.py
+index 93462d8..c7ec275 100644
+--- a/tests/unit/router/test_kv_event_e2e.py
++++ b/tests/unit/router/test_kv_event_e2e.py
+@@ -236,6 +236,74 @@ async def test_full_pipeline_handles_chained_parent_block_hash():
+         await client.aclose()
+ 
+ 
++@pytest.mark.asyncio
++async def test_bigram_block_stored_matches_flat_request_tokens():
++    """MTP/EAGLE shape: SGLang keys its radix tree on bigrams when speculative
++    decoding is on, so each stored page reports its tokens as the overlapping
++    pairs ``(t[i], t[i+1])`` rather than bare ints. The router must map those
++    back onto the flat token slice, or a view built from MTP events can never
++    match a request -- which is what kv-aware routing does on every prefill.
++
++    Flat tokens [1..9] with page_size 4 give 8 bigrams -> two pages, whose
++    first elements are [1,2,3,4] and [5,6,7,8].
++    """
++    port = _free_port()
++    ep = f"tcp://127.0.0.1:{port}"
++
++    ctx = zmq.Context()
++    pub = ctx.socket(zmq.PUB)
++    pub.bind(ep)
++
++    client = KvEventClient()
++    policy = KvEventAwarePolicy(client, _IdentityHasher())
++    w = _worker("w1", endpoint=ep, kv_block_size=4)
++    policy.on_worker_added(w)
++
++    try:
++        encoder = msgspec.msgpack.Encoder()
++        # One event per page, chained -- exactly how _record_store_event emits.
++        batch = SglangKVEventBatch(
++            ts=1.0,
++            events=[
++                SglangBlockStored(
++                    block_hashes=[2001],
++                    parent_block_hash=None,
++                    token_ids=[(1, 2), (2, 3), (3, 4), (4, 5)],
++                    block_size=4,
++                    lora_id=None,
++                    medium="device",
++                ),
++                SglangBlockStored(
++                    block_hashes=[2002],
++                    parent_block_hash=2001,
++                    token_ids=[(5, 6), (6, 7), (7, 8), (8, 9)],
++                    block_size=4,
++                    lora_id=None,
++                    medium="device",
++                ),
++            ],
++        )
++        payload = encoder.encode(batch)
++
++        ok = await _publish_until_visible(
++            pub,
++            payload,
++            predicate=lambda: len(client.cache_view("w1")) == 2,
++            deadline_s=3.0,
++        )
++        assert ok, f"bigram events never applied; view={client.cache_view('w1')}"
++
++        picked, blocks = policy.pick(
++            [w], {"model": "test/m", "token_ids": [1, 2, 3, 4, 5, 6, 7, 8]}
++        )
++        hits = policy._cache_hits(RouteTarget(w), {(EngineType.SGLANG, 4): blocks})
++        assert hits == 2, "bigram view must hash to the same blocks as flat tokens"
++    finally:
++        pub.close(linger=0)
++        ctx.term()
++        await client.aclose()
++
++
+ @pytest.mark.asyncio
+ async def test_request_with_misaligned_tokens_gets_zero_hits():
+     """Worker cached [1..8]; request asks for [9..16]. cache_hits = 0,
+-- 
+2.34.1
+
