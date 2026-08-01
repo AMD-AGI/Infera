@@ -19,20 +19,31 @@ next to a legitimate numeric answer -- the classifier must not confuse them).
 
 usage: stress_capture.py BASE MODEL CONC NPROMPTS [ISL] [OSL] [OUT_JSON] [SALT]
 """
-import json, re, sys, time, threading, queue, urllib.request, collections
 
-BASE   = sys.argv[1]
-MODEL  = sys.argv[2]
-CONC   = int(sys.argv[3])
-N      = int(sys.argv[4])
-ISL    = int(sys.argv[5]) if len(sys.argv) > 5 else 1024
-OSL    = int(sys.argv[6]) if len(sys.argv) > 6 else 1024
-OUT    = sys.argv[7] if len(sys.argv) > 7 else "/tmp/stress_capture.json"
-SALT   = int(sys.argv[8]) if len(sys.argv) > 8 else 0
+import collections
+import json
+import os
+import queue
+import re
+import sys
+import threading
+import time
+import urllib.request
+
+BASE = sys.argv[1]
+MODEL = sys.argv[2]
+CONC = int(sys.argv[3])
+N = int(sys.argv[4])
+ISL = int(sys.argv[5]) if len(sys.argv) > 5 else 1024
+OSL = int(sys.argv[6]) if len(sys.argv) > 6 else 1024
+OUT = sys.argv[7] if len(sys.argv) > 7 else "/tmp/stress_capture.json"
+SALT = int(sys.argv[8]) if len(sys.argv) > 8 else 0
 
 TOK_PER_LINE = 28.1
-FILLER = ("Record {i}: the maintenance crew inspected corridor {a} and logged "
-          "routine status code {b} with no anomalies reported that shift.")
+FILLER = (
+    "Record {i}: the maintenance crew inspected corridor {a} and logged "
+    "routine status code {b} with no anomalies reported that shift."
+)
 
 
 def build(idx):
@@ -40,14 +51,22 @@ def build(idx):
     secret = 10000 + (idx * 7919 + SALT * 131) % 89999
     n = max(6, int(ISL / TOK_PER_LINE))
     s = idx * 977 + SALT
-    lines = [FILLER.format(i=i + s, a=(i * 7 + s) % 400,
-                           b=1000 + (i * 13 + s * 31) % 8000) for i in range(n)]
-    lines.insert(n // 2, f"Record SECRET-{idx}: the calibration constant for the orbital "
-                         f"gyroscope is exactly {secret}.")
-    p = ("Below is a long maintenance log. Read it carefully, then answer the question at the "
-         "end using only information from the log.\n\n<log>\n" + "\n".join(lines) +
-         "\n</log>\n\nQuestion: What is the calibration constant for the orbital gyroscope? "
-         "Explain your reasoning briefly, then state the number.")
+    lines = [
+        FILLER.format(i=i + s, a=(i * 7 + s) % 400, b=1000 + (i * 13 + s * 31) % 8000)
+        for i in range(n)
+    ]
+    lines.insert(
+        n // 2,
+        f"Record SECRET-{idx}: the calibration constant for the orbital "
+        f"gyroscope is exactly {secret}.",
+    )
+    p = (
+        "Below is a long maintenance log. Read it carefully, then answer the question at the "
+        "end using only information from the log.\n\n<log>\n"
+        + "\n".join(lines)
+        + "\n</log>\n\nQuestion: What is the calibration constant for the orbital gyroscope? "
+        "Explain your reasoning briefly, then state the number."
+    )
     return p, str(secret)
 
 
@@ -81,10 +100,12 @@ def digit_loop(t):
 
 
 def salad(t):
-    return (len(re.findall(r"\b[Tt]he\d", t)) > 1
-            or len(re.findall(r"\d\s+the\b", t)) > 2
-            or len(re.findall(r"[一-鿿]", t)) > 5
-            or len(re.findall(r"(\b\w+\b)(?:\W+\1\b){4,}", t)) > 0)
+    return (
+        len(re.findall(r"\b[Tt]he\d", t)) > 1
+        or len(re.findall(r"\d\s+the\b", t)) > 2
+        or len(re.findall(r"[一-鿿]", t)) > 5
+        or len(re.findall(r"(\b\w+\b)(?:\W+\1\b){4,}", t)) > 0
+    )
 
 
 def classify(txt, expect, finish):
@@ -109,7 +130,7 @@ def classify(txt, expect, finish):
 # IDX="71,84,101" replays exactly those prompt indices (optionally REP times each) instead of
 # range(N). Lets us re-run the failing subset at conc=1 -- prompt content is a pure function of
 # idx+salt, so it is byte-identical to what failed under load.
-import os
+
 _idx = os.environ.get("IDX", "")
 if _idx:
     REP = int(os.environ.get("REP", "1"))
@@ -130,28 +151,49 @@ def worker():
         except queue.Empty:
             return
         p, expect = build(idx)
-        body = json.dumps({"model": MODEL, "messages": [{"role": "user", "content": p}],
-                           "max_tokens": OSL, "temperature": 0}).encode()
-        req = urllib.request.Request(f"{BASE}/v1/chat/completions", data=body,
-                                     headers={"Content-Type": "application/json"})
+        body = json.dumps(
+            {
+                "model": MODEL,
+                "messages": [{"role": "user", "content": p}],
+                "max_tokens": OSL,
+                "temperature": 0,
+            }
+        ).encode()
+        req = urllib.request.Request(
+            f"{BASE}/v1/chat/completions", data=body, headers={"Content-Type": "application/json"}
+        )
         t0 = time.time()
         try:
             d = json.load(urllib.request.urlopen(req, timeout=3600))
             txt = d["choices"][0]["message"]["content"] or ""
             fin = d["choices"][0].get("finish_reason", "")
-            rec = {"idx": idx, "expect": expect, "verdict": classify(txt, expect, fin),
-                   "finish": fin, "latency_s": round(time.time() - t0, 2),
-                   "prompt_tokens": d["usage"]["prompt_tokens"],
-                   "completion_tokens": d["usage"]["completion_tokens"], "output": txt}
+            rec = {
+                "idx": idx,
+                "expect": expect,
+                "verdict": classify(txt, expect, fin),
+                "finish": fin,
+                "latency_s": round(time.time() - t0, 2),
+                "prompt_tokens": d["usage"]["prompt_tokens"],
+                "completion_tokens": d["usage"]["completion_tokens"],
+                "output": txt,
+            }
         except Exception as e:
-            rec = {"idx": idx, "expect": expect, "verdict": "ERROR",
-                   "latency_s": round(time.time() - t0, 2), "output": f"{type(e).__name__}: {e}"}
+            rec = {
+                "idx": idx,
+                "expect": expect,
+                "verdict": "ERROR",
+                "latency_s": round(time.time() - t0, 2),
+                "output": f"{type(e).__name__}: {e}",
+            }
         with lock:
             out.append(rec)
             n = len(out)
             if rec["verdict"] not in ("CLEAN", "TAIL_REPEAT"):
-                print(f"  [{n}/{N}] idx={idx} {rec['verdict']} lat={rec['latency_s']}s "
-                      f"-> {rec['output'][:90]!r}", flush=True)
+                print(
+                    f"  [{n}/{N}] idx={idx} {rec['verdict']} lat={rec['latency_s']}s "
+                    f"-> {rec['output'][:90]!r}",
+                    flush=True,
+                )
             elif n % 32 == 0:
                 print(f"  [{n}/{N}] ...", flush=True)
 
@@ -164,8 +206,19 @@ ths = [threading.Thread(target=worker, daemon=True) for _ in range(CONC)]
 dur = time.time() - T0
 
 out.sort(key=lambda x: x["idx"])
-json.dump({"conc": CONC, "n": N, "isl": ISL, "osl": OSL, "salt": SALT,
-           "duration_s": round(dur, 1), "rows": out}, open(OUT, "w"), indent=1)
+json.dump(
+    {
+        "conc": CONC,
+        "n": N,
+        "isl": ISL,
+        "osl": OSL,
+        "salt": SALT,
+        "duration_s": round(dur, 1),
+        "rows": out,
+    },
+    open(OUT, "w"),
+    indent=1,
+)
 
 c = collections.Counter(x["verdict"] for x in out)
 print(f"\n== conc={CONC} n={N} dur={dur:.1f}s")

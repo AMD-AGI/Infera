@@ -51,16 +51,16 @@ index 64ad985..6cf7c3b 100644
 +    if bracket > 0:
 +        source = source[:bracket]
      return source, fstype
- 
- 
+
+
 diff --git a/tests/unit/kvd/test_storage_classify.py b/tests/unit/kvd/test_storage_classify.py
 index 05336f0..ee2e152 100644
 --- a/tests/unit/kvd/test_storage_classify.py
 +++ b/tests/unit/kvd/test_storage_classify.py
 @@ -358,6 +358,59 @@ def test_sas_ssd_picks_o_direct(fake_run):
      assert "sas-ssd" in rationale
- 
- 
+
+
 +def test_bind_mount_source_strips_subpath(monkeypatch):
 +    """A bind mount makes findmnt print SOURCE as ``/dev/md0[/sub/path]``.
 +

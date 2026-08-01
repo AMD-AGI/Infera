@@ -54,7 +54,7 @@ index 7c6f97f..78dac20 100644
 -| **Tiered KV Cache Offload (kvd)** | ✅ | 🚧 | 🚧 | [KV Cache Offload][kvd] |
 +| **Tiered KV Cache Offload (kvd)** | ✅ | ✅ | 🚧 | [KV Cache Offload][kvd] |
  | **Multimodal (image / audio / video)** |  |  |  |  |
- 
+
 -KV-cache offload (`kvd`), including AIC GPU-Direct, is **vLLM-only** today.
 +`kvd` runs on vLLM (`InferaKvdConnector`) and on SGLang (`InferaKvdBackend`, a
 +`HiCacheStorage` backend). The **AIC GPU-Direct** read path is vLLM-only; SGLang
@@ -65,7 +65,7 @@ index 7c6f97f..78dac20 100644
 +alongside `--enable-hierarchical-cache`. Infera re-enables the decode radix
 +cache automatically — but only when KV events are enabled. See
 +[KV Cache Offload][kvd].
- 
+
  [pd]: ./pd_disaggregation.md
  [kv]: ./kv_aware_routing.md
 diff --git a/manual/features/kv_cache_offload.md b/manual/features/kv_cache_offload.md
@@ -73,9 +73,9 @@ index f6239b4..8fa6f46 100644
 --- a/manual/features/kv_cache_offload.md
 +++ b/manual/features/kv_cache_offload.md
 @@ -11,10 +11,11 @@ across engines, so you don't recompute them. **How it works under the hood:** se
- 
+
  ## Turn it on — single host
- 
+
 -```{admonition} Limitation — vLLM only (for now)
 +```{admonition} Engine support
  :class: important
@@ -85,12 +85,12 @@ index f6239b4..8fa6f46 100644
 +The **AIC GPU-Direct** read path is vLLM-only; SGLang reads through the daemon's
 +POSIX path. For the SGLang setup see [SGLang](#sglang) below.
  ```
- 
+
  One `infera.kvd` daemon per host; every engine on that host shares it.
 @@ -173,6 +174,65 @@ The daemon flags and connector env vars are in the
  [CLI reference](../reference/cli.md) and the
  [environment variables](../reference/environment.md) reference.
- 
+
 +(sglang)=
 +## SGLang
 +
@@ -151,5 +151,5 @@ index f6239b4..8fa6f46 100644
 +restarts; without it a restart orphans the whole L3 cache.
 +
  ## Usage modes
- 
+
  L2 (host RAM) is on by default; the **long tier is one backend** — local disk

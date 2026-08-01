@@ -46,21 +46,21 @@ index 5aa74d4..1fe61dd 100644
 @@ -5,8 +5,14 @@
  ###############################################################################
  from __future__ import annotations
- 
+
 +import itertools
 +import random
  import socket
- 
+
 +# How many randomly-chosen bases free_tcp_port_block tries before falling back
 +# to an exhaustive scan.
 +_PORT_BLOCK_TRIES = 64
 +
- 
+
  def free_tcp_port() -> int:
      """Bind to port 0 to let the kernel assign a free port, then release.
 @@ -28,10 +34,20 @@ def free_tcp_port_block(count: int) -> int:
      """Lowest base such that ``base .. base+count-1`` are all free TCP ports.
- 
+
      SGLang binds one KV-event publisher per DP rank at ``base + attn_dp_rank``,
 -    so a single free base is not enough. We scan downward from just below the OS
 -    ephemeral range: a base there won't be handed out to any ``bind(("", 0))``

@@ -334,4 +334,3 @@ index 7c2ab3a..5cf51a5 100644
 +        title: KV-aware + kvd operations
        - file: serving/kubernetes.md
          title: Kubernetes
- 
