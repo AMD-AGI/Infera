@@ -18,45 +18,67 @@ taken on faith** — every commit here is code the merge experiment actually ran
 | B | kvaware + kvd | `826619b..7f2dac8` (7) | PR #59 |
 | C | mooncake early-send + bigram kv-events | `2181136`, `6e6fdb7` (2) | **PR #56** — temporary, see below |
 | D | this merge's own fixes | `0cc9593..c0450a4` (3) | new |
+| E | the rest of PR #56 that is not gfx942 | `d3c0d6f..eef9bfc` (3) | **PR #56** — temporary, see below |
 
 A and B are our own PRs, cherry-picked unmodified — the tree after A is
 byte-identical to PR #58's branch, and B's files land identically too.
 
-## Group C is temporary
+## Groups C and E are temporary
 
-Both commits are reduced forms of liyingli's PR #56. They are here because the
-merge could not be validated without them, not because this branch owns them.
+Both hold liyingli's PR #56. C is the part the merge experiment ran and could
+not be validated without; E is the remainder of PR #56 that is **not gfx942**,
+backfilled afterwards and validated on its own terms. Neither group is owned by
+this branch.
 
-**When PR #56 merges, drop both:**
+**When PR #56 merges, drop both.** They are not adjacent, so it is two rebases —
+innermost last:
 
 ```bash
+# drop E (3 commits at the tip)
+git rebase --onto c0450a4 eef9bfc yihou.dev.glm52.merged.experiment
+# then drop C
 git rebase --onto 7f2dac8 6e6fdb7 yihou.dev.glm52.merged.experiment
 ```
 
-That replays group D straight onto the end of group B. Group D does not depend
-on group C's code — it touches `args.py`, `kvd_wiring.py`, and three test
-modules, none of which group C changes — so the replay is clean.
+Dropping C replays group D straight onto the end of group B: D does not depend
+on C's code — it touches `args.py`, `kvd_wiring.py`, and three test modules,
+none of which C changes — so the replay is clean. E is at the tip, so dropping
+it replays nothing.
 
-### What was deliberately left out of group C
+E touches only files C does not (`kv_event.rs`, `worker.py`, `net.py`), so the
+two can also be dropped in either order; the order above just avoids rewriting
+E's SHAs before removing them.
 
-PR #56 has seven commits. Four are not here at all, and two of the three we did
-take were reduced. The rule was: **only code this merge's experiment exercised
-enters this branch.** Everything below is real work that simply was not on our
-measured path, and taking it would have meant shipping unvalidated code under a
-validated branch name.
+### Group E — the rest of PR #56, minus gfx942
+
+| commit | PR #56 | what, and how it was validated |
+|---|---|---|
+| `d3c0d6f` | `01b0534` (Rust half) | The bigram decode in `rust/router/src/kv_event.rs`. C took only the Python half. Validated by **control**: revert `as_u32_any`, and the new ZMQ integration test fails `left: 0, right: 2`; restore it and it passes. |
+| `fd3540d` | `0bb23c7` | `INFERA_SGLANG_READY_TIMEOUT`. Liying's commit ships no test; one was added. |
+| `eef9bfc` | `d63e48b` | The NodePort-range skip, **hand-merged** with B's `826619b` — both rewrite the same loop. Liying's separate test file was folded into ours for the same reason. |
+
+Verified in the built image on chi2879: **cargo 70 passed / 0 failed**, and the
+touched Python suites 22 passed. Locally, where `pytest-asyncio` is installed,
+the whole unit tree is **1168 passed / 1 skipped** (was 1162; +6 NodePort tests).
+
+> The four `test_kv_event_e2e.py` async tests that fail *in the image* fail
+> there before these commits too: that image has no `pytest-asyncio`, so
+> `@pytest.mark.asyncio` is an unknown mark and the coroutine is never awaited.
+> They pass locally. New tests here avoid the marker for exactly this reason.
+
+### What is still deliberately left out
+
+Only gfx942 work remains, none of which this cluster can exercise:
 
 | left out | from | why not here |
 |---|---|---|
 | `deploy/docker/Dockerfile.sglang.gfx942` early-send layer | `6121189` | the MI325X image. Never built or run here. |
-| `rust/router/src/kv_event.rs` bigram decode + its tests | `01b0534` | every run used `--router-backend python` (the default). **A Rust-router deployment with MTP still has the original bug** — same silent degradation to round-robin. |
 | `infera/engine/dsv4_gfx942.py` arch detection | `1ebdc7e` | `apply_gfx942_dsv4` returns early on non-gfx942, so it is a **no-op on MI355X**. Matters on MI325X. |
-| `INFERA_SGLANG_READY_TIMEOUT` | `0bb23c7` | convenience; 1800 s sufficed. |
-| `net.py` NodePort-range skip | `d63e48b` | vultr is bare metal, no kube-proxy, `ip_local_port_range` starts at 32768 — the bug cannot be hit here. **Also conflicts textually with B's `826619b`** (both edit `free_tcp_port_block`); the two fixes are compatible and would need merging by hand, which is not worth doing for code we cannot test. |
 | `Dockerfile.sglang.gfx942` v0.5.16 base | `b2150c3` | same image, same reason. |
 
-If any of these is wanted here later, the honest route is: add it, then re-run
-the gate that would catch it failing. For the Rust one that means a G1 repeat
-with `--router-backend rust`.
+The rule is unchanged: **only code an experiment here exercised enters this
+branch.** Adding any of the above means adding it, then running the gate that
+would catch it failing — on gfx942 hardware.
 
 ## Group D — what this merge itself produced
 
