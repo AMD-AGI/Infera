@@ -80,7 +80,28 @@ FROM ${NATIVE_IMAGE} AS native312
 COPY deploy/overlay/harvest_native.sh /tmp/harvest_native.sh
 RUN sh /tmp/harvest_native.sh
 
-FROM ${SGLANG_NATIVE_IMAGE} AS native310
+# Mooncake for the SGLang family is BUILT HERE, not harvested. The published
+# engine images ship the base's own Mooncake: in rocm/infera:sglang-v0.1.1 and
+# v0.1.2 the engine.so has mtime 2026-07-15 04:57:53 — byte-identical to the base
+# — and `strings` finds no MC_ENABLE_HIP_TRANSPORT, so the B.2 HIP-transport gate
+# never reached them even though it landed on 2026-07-21, before both builds.
+#
+# Without the gate, Mooncake registers the HIP (hipIpc) transport unconditionally
+# and prefers it for GPU-to-GPU, and cross-node PD then dies in
+# hipIpcOpenMemHandle — an IPC handle is host-local, so a peer node can never open
+# it. Harvesting Mooncake from an engine image inherits whatever that image
+# happened to have; building it here means the overlay carries a payload we can
+# state properties about.
+FROM ${SGLANG_BASE_IMAGE} AS mooncake310
+COPY deploy/docker/patches/mooncake_cpp/ /tmp/mooncake_cpp/
+COPY deploy/docker/scripts/build_mooncake_sglang.sh /tmp/build_mooncake_sglang.sh
+RUN MC_CPP_PATCH_DIR=/tmp/mooncake_cpp bash /tmp/build_mooncake_sglang.sh \
+    && python3 -c "import mooncake.engine as e; print(e.__file__)" \
+    && strings "$(python3 -c 'import mooncake.engine as e; print(e.__file__)')" \
+         | grep -q MC_ENABLE_HIP_TRANSPORT \
+    && echo "mooncake310: HIP-transport gate verified present"
+
+FROM mooncake310 AS native310
 COPY deploy/overlay/harvest_native.sh /tmp/harvest_native.sh
 RUN sh /tmp/harvest_native.sh
 
