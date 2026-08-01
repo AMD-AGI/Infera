@@ -15,7 +15,11 @@ legs of a PD pair, each with ``dp_size > 1``) deterministically picked the
 
 from __future__ import annotations
 
+import builtins
+import io
 import socket
+
+import pytest
 
 from infera.common.net import free_tcp_port_block
 
@@ -63,3 +67,24 @@ def test_repeated_calls_do_not_all_collide() -> None:
 def test_count_of_one_delegates_to_single_port() -> None:
     port = free_tcp_port_block(1)
     assert 1024 <= port <= 65535
+
+
+def test_no_window_below_ephemeral_range_raises_cleanly(monkeypatch) -> None:
+    """A host tuned to `ip_local_port_range = 1024 65535` has no window at all.
+
+    The four tests above all read the real /proc value, so this path cannot be
+    reached in CI — and it regressed once already: sampling the empty window
+    raised `ValueError: empty range in randrange(1024, 1017)` out of `random`
+    before probing a single port, naming neither the port block nor the range.
+    """
+    real_open = builtins.open
+
+    def fake_open(path, *args, **kwargs):
+        if str(path) == "/proc/sys/net/ipv4/ip_local_port_range":
+            return io.StringIO("1024\t65535\n")
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "open", fake_open)
+
+    with pytest.raises(RuntimeError, match="no room for a 8-port block"):
+        free_tcp_port_block(8)

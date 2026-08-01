@@ -59,7 +59,20 @@ def free_tcp_port_block(count: int) -> int:
     # then fall back to an exhaustive downward scan so we never fail while a
     # block is still available.
     highest = low - count
-    randomised = [random.randint(1024, highest) for _ in range(_PORT_BLOCK_TRIES)]
+    if highest < 1024:
+        # No window at all: the host's ephemeral range starts at (or just above)
+        # 1024, e.g. the `ip_local_port_range = 1024 65535` high-concurrency
+        # tuning. Say so here — sampling an empty window raises ValueError out of
+        # `random` before a single port is probed, which names neither the port
+        # block nor the range that caused it.
+        raise RuntimeError(
+            f"no room for a {count}-port block below the ephemeral range "
+            f"(ip_local_port_range starts at {low})"
+        )
+    # Sample WITHOUT replacement: drawing 64 independent randints repeats bases
+    # under contention, which is exactly when each probe is worth the most.
+    tries = min(_PORT_BLOCK_TRIES, highest - 1023)
+    randomised = random.sample(range(1024, highest + 1), k=tries)
     for base in itertools.chain(randomised, range(highest, 1024, -1)):
         socks: list[socket.socket] = []
         try:
