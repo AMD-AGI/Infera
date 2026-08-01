@@ -1,0 +1,93 @@
+#!/bin/sh
+# Select the payload trees matching this container, then exec the command.
+#
+# The overlay ships one Python tree per CPython minor (four of infera's
+# dependencies are C extensions) and one native tree per (ROCm major, CPython
+# minor) — Mooncake and hipFile are compiled and bind both. The vendor bases
+# disagree on all of it (vLLM ships Python 3.12, SGLang 3.10), so this picks the
+# right trees instead of making the caller know which base they are on.
+#
+#   docker run -v infera_payload:/payload:ro \
+#     --entrypoint /payload/bin/infera-exec <vendor image> \
+#     python3 -m infera.engine.vllm --model ...
+#
+# A missing native tree is not fatal: aggregated serving needs none of it. Only
+# PD (Mooncake KV transfer) and kvd's GPU-direct L3 (hipFile) do, and those warn.
+set -eu
+
+SELF_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+PAYLOAD_ROOT="${PAYLOAD_ROOT:-$(dirname -- "$SELF_DIR")}"
+
+PY="${INFERA_PYTHON:-python3}"
+PYTAG=$("$PY" -c 'import sys; print("py%d%d" % sys.version_info[:2])')
+PYTREE="$PAYLOAD_ROOT/$PYTAG"
+
+if [ ! -d "$PYTREE" ]; then
+    echo "infera-exec: no Python payload for $PYTAG in $PAYLOAD_ROOT" >&2
+    echo "infera-exec: available: $(ls -d "$PAYLOAD_ROOT"/py* 2>/dev/null | xargs -n1 basename | tr '\n' ' ')" >&2
+    exit 1
+fi
+
+PYTHONPATH="$PYTREE${PYTHONPATH:+:$PYTHONPATH}"
+PATH="$PAYLOAD_ROOT/bin:$PATH"
+
+# --- native tree: Mooncake (PD) and hipFile (kvd GPU-direct L3) --------------
+# Keyed by the ROCm major from the container's own libamdhip64 soname, since a
+# vendor bump can move it.
+ROCM_MAJOR=$(readlink -f /opt/rocm/lib/libamdhip64.so.* 2>/dev/null \
+             | grep -oE 'so\.[0-9]+' | head -1 | cut -d. -f2)
+if [ -n "${ROCM_MAJOR:-}" ]; then
+    NATIVE="$PAYLOAD_ROOT/native/rocm${ROCM_MAJOR}-${PYTAG}"
+    HAVE=""
+    if [ -d "$NATIVE" ]; then
+        PYTHONPATH="$NATIVE:$PYTHONPATH"
+        LD_LIBRARY_PATH="$NATIVE/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+        PATH="$NATIVE/bin:$PATH"
+        export LD_LIBRARY_PATH
+        # Normalise to one spaced line: the word-match below needs space delimiters.
+        HAVE=$(tr '\n' ' ' < "$NATIVE/CAPABILITIES" 2>/dev/null || echo "mooncake hipfile")
+    else
+        echo "infera-exec: no native payload for rocm${ROCM_MAJOR}-${PYTAG};" \
+             "PD (Mooncake) and kvd GPU-direct L3 (hipFile) will be unavailable." >&2
+    fi
+
+    # INFERA_REQUIRE_NATIVE names the capabilities this deployment actually needs
+    # ("mooncake", "hipfile", or both, comma- or space-separated). A deployment
+    # that needs none leaves it unset.
+    #
+    # It is deliberately per-capability rather than a yes/no on the tree. The
+    # families do not carry the same things — hipFile is vLLM-only, because kvd's
+    # GPU-direct L3 is a vLLM-only path — so "the tree is complete" is the wrong
+    # question. Asking it would reject two configurations that work: SGLang PD,
+    # whose tree correctly has no hipFile, and SGLang kvd, which reaches its L2
+    # and file L3 through HiCacheStorage and needs no native code at all.
+    #
+    # Accepts 1/true/all for "everything this family can provide".
+    REQ="${INFERA_REQUIRE_NATIVE:-}"
+    case "$REQ" in
+        1|true|all) REQ="$HAVE"; [ -n "$REQ" ] || REQ="mooncake" ;;
+        0|"") REQ="" ;;
+    esac
+    for cap in $(echo "$REQ" | tr ',' ' '); do
+        case " $HAVE " in
+            *" $cap "*) ;;
+            *)
+                echo "infera-exec: required native capability '$cap' is not in the payload" >&2
+                echo "infera-exec: tree rocm${ROCM_MAJOR}-${PYTAG} provides: [${HAVE:-none}]" >&2
+                echo "infera-exec: available trees: $(ls -d "$PAYLOAD_ROOT"/native/* 2>/dev/null | xargs -n1 basename | tr '\n' ' ')" >&2
+                [ "$cap" = hipfile ] && echo "infera-exec: note — hipfile (kvd GPU-direct L3) is a vLLM-only capability" >&2
+                exit 1 ;;
+        esac
+    done
+fi
+
+export PYTHONPATH PATH
+
+# Python puts the working directory at sys.path[0] — ahead of PYTHONPATH. Vendor
+# images that already ship infera set WORKDIR to its parent (e.g. /opt/infera),
+# so the baked-in copy would silently shadow this payload and the overlay would
+# appear to do nothing. Move to a directory that cannot contain an importable
+# `infera`. Override with INFERA_EXEC_CHDIR if a command needs its own cwd.
+cd "${INFERA_EXEC_CHDIR:-/}"
+
+exec "$@"

@@ -1,0 +1,95 @@
+# Infera overlay payload — one image that composes with any stock vendor base.
+#
+# WHY: every engine image today bakes infera onto a digest-pinned vendor base, so
+# following an upstream vLLM/SGLang bump means rebuilding everything, and forking
+# the base for one model (Kimi-K3) broke the others. None of what we add actually
+# requires being baked into that specific base:
+#
+#   * infera and kvd are pure Python
+#   * the Rust router links only libc/libstdc++
+#   * libionic is injected from the host at container start
+#   * aiter JIT-compiles its kernels per GPU arch at run time
+#   * Mooncake and hipFile ARE compiled, but they bind the CPython minor and the
+#     ROCm major — NOT the specific vendor image. Ship one build per
+#     (python, rocm) pair with their transitive system libs bundled, exactly the
+#     way auditwheel vendors deps into a manylinux wheel, and they load on a
+#     stock base.
+#
+# So the whole overlay is base-agnostic and a base bump costs nothing.
+#
+#   /payload/py310/                cp310 deps + infera + kvd     (SGLang bases)
+#   /payload/py312/                cp312 deps + infera + kvd     (vLLM bases)
+#   /payload/native/rocm7-py312/   mooncake + hipFile + their libs
+#   /payload/bin/                  infera-router, infera-exec
+#
+# `infera-exec` selects the trees matching the container's Python and ROCm.
+#
+# Build (NATIVE_IMAGE supplies the already-compiled Mooncake/hipFile/router;
+# rebuilding those here would mean carrying a full ROCm toolchain):
+#   docker build -f deploy/overlay/Dockerfile.payload -t infera-overlay:latest .
+ARG NATIVE_IMAGE=rocm/infera:vllm-v0.1.1
+# The SGLang ABI family needs its own harvest: same Mooncake, different CPython.
+ARG SGLANG_NATIVE_IMAGE=rocm/infera:sglang-v0.1.2
+
+# The Python trees are built INSIDE the vendor bases they will be overlaid onto,
+# not on a plain python:X-slim. `pip install --target` ignores the environment and
+# installs the whole transitive closure, and a --target tree lands FIRST on
+# PYTHONPATH — so every duplicate silently shadows the vendor's copy at whatever
+# version PyPI resolved. Building on slim produced a tree of 52 distributions of
+# which two were new, eleven of them shadowing the base at a DIFFERENT version
+# (numpy 2.5.1 over 2.3.5, which broke the base's numba; cryptography 50.0.0 over
+# 3.4.8; protobuf 7 over 6). Building in the base lets prune_base_dists.py drop
+# everything the base already provides, restoring the property the baked images
+# had for free: add infera, touch nothing else. 325 MB -> 5.8 MB, measured.
+#
+# These need only be *representative* of their ABI family — a base bump does not
+# require bumping them, since what matters is which distributions the family
+# ships, not their exact versions.
+ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
+ARG VLLM_BASE_IMAGE=vllm/vllm-openai-rocm:v0.25.1
+
+# ---- cp310 tree (SGLang bases) ---------------------------------------------
+FROM ${SGLANG_BASE_IMAGE} AS deps310
+WORKDIR /src
+COPY pyproject.toml README.md ./
+COPY infera ./infera
+COPY deploy/overlay/prune_base_dists.py /tmp/prune_base_dists.py
+RUN pip install --no-cache-dir --target /payload/py310 ".[sglang]" \
+    && python3 /tmp/prune_base_dists.py /payload/py310
+
+# ---- cp312 tree (vLLM bases) -----------------------------------------------
+FROM ${VLLM_BASE_IMAGE} AS deps312
+WORKDIR /src
+COPY pyproject.toml README.md ./
+COPY infera ./infera
+COPY deploy/overlay/prune_base_dists.py /tmp/prune_base_dists.py
+RUN pip install --no-cache-dir --target /payload/py312 ".[vllm]" \
+    && python3 /tmp/prune_base_dists.py /payload/py312
+
+# ---- native: harvest the compiled artifacts + their transitive libs ---------
+# Once per ABI family — (ROCm major, CPython minor) — because Mooncake and
+# hipFile bind both and the vendor bases disagree (vLLM 3.12, SGLang 3.10).
+# Harvesting only the vLLM family, as this did originally, left SGLang
+# deployments with no native tree at all: `infera-exec: no native payload for
+# rocm7-py310`, so PD could not work on SGLang however the manifest was written.
+#
+# hipFile is legitimately absent from the SGLang family — kvd's GPU-direct L3 is
+# a vLLM-only path — so the harvest records what each tree actually carries in a
+# CAPABILITIES file rather than assuming every tree is complete.
+FROM ${NATIVE_IMAGE} AS native312
+COPY deploy/overlay/harvest_native.sh /tmp/harvest_native.sh
+RUN sh /tmp/harvest_native.sh
+
+FROM ${SGLANG_NATIVE_IMAGE} AS native310
+COPY deploy/overlay/harvest_native.sh /tmp/harvest_native.sh
+RUN sh /tmp/harvest_native.sh
+
+# ---- final: busybox, so an initContainer can `cp` the payload out -----------
+FROM busybox:1.36
+COPY --from=deps310 /payload/py310 /payload/py310
+COPY --from=deps312 /payload/py312 /payload/py312
+COPY --from=native312 /native /payload/native
+COPY --from=native310 /native /payload/native
+COPY --from=native312 /usr/local/bin/infera-router /payload/bin/infera-router
+COPY deploy/overlay/infera-exec /payload/bin/infera-exec
+CMD ["sh", "-c", "cp -a /payload/. /out/ && echo 'infera overlay payload installed to /out'"]
