@@ -1,0 +1,476 @@
+diff --git a/infera/common/net.py b/infera/common/net.py
+index 1fe61dd..346bfc7 100644
+--- a/infera/common/net.py
++++ b/infera/common/net.py
+@@ -6,13 +6,54 @@
+ from __future__ import annotations
+ 
+ import itertools
++import logging
++import os
+ import random
+ import socket
+ 
++logger = logging.getLogger(__name__)
++
+ # How many randomly-chosen bases free_tcp_port_block tries before falling back
+ # to an exhaustive scan.
+ _PORT_BLOCK_TRIES = 64
+ 
++# Kubernetes' default --service-node-port-range. A port in this window can be
++# claimed cluster-wide by any Service at any time; kube-proxy in IPVS mode then
++# creates an IPVS service for it on *every* node address, with no real server
++# backing it on this node. Traffic to a node IP is then swallowed by IPVS before
++# it reaches a local 0.0.0.0 listener and the kernel answers RST, so the port
++# stays bindable and reachable over loopback while being "connection refused"
++# from the node IP -- which is the address we advertise to peers.
++_NODEPORT_RANGE_DEFAULT = "30000-32767"
++
++
++def _parse_port_range(spec: str) -> tuple[int, int] | None:
++    lo, _, hi = spec.partition("-")
++    try:
++        return int(lo), int(hi)
++    except ValueError:
++        return None
++
++
++def _reserved_nodeport_range() -> tuple[int, int] | None:
++    """The port window to keep out of, or None when the caller opted out.
++
++    ``INFERA_NODEPORT_RANGE="lo-hi"`` for a cluster that moved the range,
++    ``"none"`` to drop the guard. An unparseable value keeps the default
++    rather than silently dropping the guard.
++    """
++    spec = os.environ.get("INFERA_NODEPORT_RANGE", _NODEPORT_RANGE_DEFAULT).strip()
++    if spec.lower() in ("", "none", "off"):
++        return None
++    parsed = _parse_port_range(spec)
++    if parsed is None:
++        logger.warning(
++            "INFERA_NODEPORT_RANGE=%r is not a 'lo-hi' range; using the default %s",
++            spec,
++            _NODEPORT_RANGE_DEFAULT,
++        )
++    return parsed or _parse_port_range(_NODEPORT_RANGE_DEFAULT)
++
+ 
+ def free_tcp_port() -> int:
+     """Bind to port 0 to let the kernel assign a free port, then release.
+@@ -48,6 +89,9 @@ def free_tcp_port_block(count: int) -> int:
+     from the same place, both saw the same free block, and the second died with
+     ``ZMQError: Address already in use`` on ``base + rank``. Randomising spreads
+     the picks so concurrent callers land on different blocks.
++
++    The scan also skips the Kubernetes NodePort range, which a loopback bind
++    probe cannot rule out on its own.
+     """
+     if count <= 1:
+         return free_tcp_port()
+@@ -55,12 +99,17 @@ def free_tcp_port_block(count: int) -> int:
+         low = int(open("/proc/sys/net/ipv4/ip_local_port_range").read().split()[0])
+     except (OSError, ValueError, IndexError):
+         low = 32768
++    reserved = _reserved_nodeport_range()
+     # Candidate window: [1024, low - count]. Probe randomly-chosen bases first,
+     # then fall back to an exhaustive downward scan so we never fail while a
+     # block is still available.
+     highest = low - count
+     randomised = [random.randint(1024, highest) for _ in range(_PORT_BLOCK_TRIES)]
+     for base in itertools.chain(randomised, range(highest, 1024, -1)):
++        # A block inside the NodePort range binds and answers on loopback here,
++        # so only skipping it up front keeps it out of the advertised endpoint.
++        if reserved and base + count - 1 >= reserved[0] and base <= reserved[1]:
++            continue
+         socks: list[socket.socket] = []
+         try:
+             for off in range(count):
+diff --git a/infera/engine/sglang/worker.py b/infera/engine/sglang/worker.py
+index a75a726..e5fa7ba 100644
+--- a/infera/engine/sglang/worker.py
++++ b/infera/engine/sglang/worker.py
+@@ -136,7 +136,14 @@ class SglangEngine(BaseEngine):
+             dp_size=dp_size,
+         )
+ 
+-    async def _wait_ready(self, timeout: float = 1800) -> None:
++    async def _wait_ready(self, timeout: float | None = None) -> None:
++        # 30 min covers weight load + cuda-graph capture for the models we ship
++        # recipes for, but not a 700 GiB checkpoint read twice (MTP extracts the
++        # draft layer on a second pass) — and less so when both PD legs load off
++        # the same filesystem at once. $INFERA_SGLANG_READY_TIMEOUT raises it
++        # without editing a launcher, as INFERA_ATOM_READY_TIMEOUT does for ATOM.
++        if timeout is None:
++            timeout = float(os.environ.get("INFERA_SGLANG_READY_TIMEOUT", "1800") or 1800)
+         # /health is probed locally; sglang binds on server_args.host, but if
+         # that is 0.0.0.0 we should probe via 127.0.0.1 instead.
+         probe_host = self.server_args.host
+diff --git a/manual/reference/environment.md b/manual/reference/environment.md
+index 2fad2fa..308e43b 100644
+--- a/manual/reference/environment.md
++++ b/manual/reference/environment.md
+@@ -68,6 +68,13 @@ checklist and the RDMA self-check.
+ Each has a CLI flag (flag > env > default); see [Routing & transport](../features/routing_and_transport.md)
+ and the [CLI reference](cli.md).
+ 
++## Engine startup (set on the engine process)
++
++| Env | Default | What it does |
++|---|---|---|
++| `INFERA_SGLANG_READY_TIMEOUT` | `1800` (s) | How long the launcher waits for SGLang's `/health` before it gives up on the engine. Raise it for a very large checkpoint: MTP reads the weights a second time to extract the draft layer, and two PD legs loading off one filesystem are slower per leg. `INFERA_ATOM_READY_TIMEOUT` is the ATOM twin. |
++| `INFERA_NODEPORT_RANGE` | `30000-32767` | Port window the auto-allocated kv-event port block must avoid — Kubernetes' NodePort range, where a Service claim makes the port unreachable from the node IP we advertise. Set `lo-hi` for a cluster that moved the range, `none` to drop the guard. |
++
+ ## Engine correctness
+ 
+ | Env | Value | What it does |
+diff --git a/rust/router/src/kv_event.rs b/rust/router/src/kv_event.rs
+index f9102c1..cc6de24 100644
+--- a/rust/router/src/kv_event.rs
++++ b/rust/router/src/kv_event.rs
+@@ -428,13 +428,23 @@ fn as_u64_vec(v: &rmpv::Value) -> Vec<u64> {
+         .unwrap_or_default()
+ }
+ 
++/// One flat token id from a `BlockStored`'s `token_ids`, in either view the
++/// engine may report. Under EAGLE/MTP, SGLang keys its radix tree on bigrams and
++/// sends each block's tokens as the overlapping pairs `(t[i], t[i+1])`; the first
++/// element of each pair rebuilds `t[start:end]`, which is the flat slice
++/// `hash_request` chunks on the query side (radix nodes split on page boundaries,
++/// so the two chunkings stay aligned). Read as ints, a pair is not an integer, so
++/// every element would be dropped and the view would silently stay empty.
++fn as_u32_any(v: &rmpv::Value) -> Option<u32> {
++    match v {
++        rmpv::Value::Array(pair) => pair.first().and_then(as_u64_any).map(|n| n as u32),
++        _ => as_u64_any(v).map(|n| n as u32),
++    }
++}
++
+ fn as_u32_vec(v: &rmpv::Value) -> Vec<u32> {
+     v.as_array()
+-        .map(|a| {
+-            a.iter()
+-                .filter_map(|x| as_u64_any(x).map(|n| n as u32))
+-                .collect()
+-        })
++        .map(|a| a.iter().filter_map(as_u32_any).collect())
+         .unwrap_or_default()
+ }
+ 
+@@ -512,6 +522,42 @@ mod tests {
+         c.shutdown();
+     }
+ 
++    #[test]
++    fn decodes_sglang_bigram_batch_under_mtp() {
++        // With MTP/EAGLE the radix key is a bigram view, so token_ids arrives as
++        // overlapping (t[i], t[i+1]) PAIRS. The view must still hash to what the
++        // query side computes over the flat tokens, or kv-aware never hits.
++        let c = KvEventClient::new();
++        c.on_worker_added(&worker("sgl", Some("tcp://127.0.0.1:6005"), 16, Some(2)));
++        // 16 bigrams over flat tokens 1..=17 -> one block whose first elements
++        // are exactly 1..=16.
++        let pairs: Vec<Mv> = (1u32..=16)
++            .map(|t| Mv::Array(vec![Mv::from(t), Mv::from(t + 1)]))
++            .collect();
++        let stored = Mv::Array(vec![
++            Mv::String("BlockStored".into()),
++            ints(&[910]),
++            Mv::Nil,
++            Mv::Array(pairs),
++            Mv::from(16i64),
++            Mv::Nil,
++        ]);
++        let batch = enc(Mv::Array(vec![
++            Mv::from(1.0),
++            Mv::Array(vec![stored]),
++            Mv::from(0i64),
++        ]));
++        feed_wire(&c, "sgl", 0, &batch);
++        let q = crate::hasher::hash_request(&seq(1, 16), 16);
++        assert_eq!(q.len(), 1);
++        assert_eq!(
++            c.prefix_hits("sgl", Some(0), &q),
++            1,
++            "bigram pairs must hash like the flat token slice"
++        );
++        c.shutdown();
++    }
++
+     #[test]
+     fn decodes_vllm_batch_with_medium_field() {
+         // vLLM sets the trailing `medium` field (offload tier), so its
+diff --git a/rust/router/tests/kv_event_zmq.rs b/rust/router/tests/kv_event_zmq.rs
+index 845b2e6..d3d0da3 100644
+--- a/rust/router/tests/kv_event_zmq.rs
++++ b/rust/router/tests/kv_event_zmq.rs
+@@ -37,6 +37,23 @@ fn block_stored(block_hashes: &[u64], parent: Option<u64>, token_ids: &[u32], bs
+     ])
+ }
+ 
++/// The same event as SGLang emits it under EAGLE/MTP: `token_ids` carries the
++/// overlapping bigrams `(t[i], t[i+1])` that key the radix tree, not bare ints.
++fn block_stored_bigram(block_hashes: &[u64], parent: Option<u64>, flat: &[u32], bs: i64) -> Mv {
++    let pairs: Vec<Mv> = flat
++        .windows(2)
++        .map(|w| Mv::Array(vec![Mv::from(w[0]), Mv::from(w[1])]))
++        .collect();
++    Mv::Array(vec![
++        Mv::String("BlockStored".into()),
++        Mv::Array(block_hashes.iter().map(|&h| Mv::from(h)).collect()),
++        parent.map(Mv::from).unwrap_or(Mv::Nil),
++        Mv::Array(pairs),
++        Mv::from(bs),
++        Mv::Nil, // lora_id
++    ])
++}
++
+ /// Encode a KVEventBatch: array_like `[ts, events, attn_dp_rank?]`.
+ fn batch(events: Vec<Mv>) -> Vec<u8> {
+     let v = Mv::Array(vec![Mv::from(0.0_f64), Mv::Array(events)]);
+@@ -90,3 +107,55 @@ fn subscriber_decodes_real_zmq_msgpack_into_view() {
+ 
+     client.shutdown();
+ }
++
++/// The MTP shape, over the same real socket.
++///
++/// This is the wire-level twin of the in-crate `decodes_sglang_bigram_batch_under_mtp`
++/// unit test, and the one that would have caught the original bug in a live
++/// deployment: a `--router-backend rust` router subscribed to an MTP-enabled
++/// SGLang leg received pairs, decoded every element to `None`, and kept an empty
++/// view forever. Nothing errored — kv-aware simply degraded to load balancing.
++///
++/// The assertion is that the bigram view hashes to *the same blocks* the query
++/// side computes over the flat tokens, not merely that it is non-empty.
++#[test]
++fn subscriber_decodes_bigram_tokens_under_mtp() {
++    let ctx = zmq::Context::new();
++    let pub_sock = ctx.socket(zmq::PUB).unwrap();
++    pub_sock.bind("tcp://127.0.0.1:*").unwrap();
++    let endpoint = pub_sock.get_last_endpoint().unwrap().unwrap();
++
++    let client = KvEventClient::new();
++    client.on_worker_added(&worker("w", &endpoint, 4));
++
++    // Flat tokens 1..=9 -> 8 bigrams -> two blocks of 4 whose first elements are
++    // [1,2,3,4] and [5,6,7,8]: exactly the slice the query side chunks.
++    let payload = batch(vec![block_stored_bigram(
++        &[333, 444],
++        None,
++        &[1, 2, 3, 4, 5, 6, 7, 8, 9],
++        4,
++    )]);
++    let query = hash_request(&[1, 2, 3, 4, 5, 6, 7, 8], 4);
++    assert_eq!(query.len(), 2);
++
++    let deadline = Instant::now() + Duration::from_secs(10);
++    let mut hits = 0;
++    while Instant::now() < deadline {
++        pub_sock
++            .send_multipart([b"kv-events".as_ref(), payload.as_ref()], 0)
++            .unwrap();
++        std::thread::sleep(Duration::from_millis(50));
++        hits = client.prefix_hits("w", None, &query);
++        if hits == 2 {
++            break;
++        }
++    }
++    assert_eq!(
++        hits, 2,
++        "bigram token_ids must mirror to the same blocks as the flat slice; \
++         0 here is the original bug (every pair dropped, view stays empty)"
++    );
++
++    client.shutdown();
++}
+diff --git a/tests/engine/sglang/test_ready_timeout.py b/tests/engine/sglang/test_ready_timeout.py
+new file mode 100644
+index 0000000..8127c2d
+--- /dev/null
++++ b/tests/engine/sglang/test_ready_timeout.py
+@@ -0,0 +1,104 @@
++###############################################################################
++# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
++#
++# SPDX-License-Identifier: MIT
++###############################################################################
++"""``INFERA_SGLANG_READY_TIMEOUT`` overrides the readiness deadline.
++
++The hardcoded 30 min covers weight load plus cuda-graph capture for the models
++we ship recipes for, but not a very large checkpoint read twice -- MTP re-reads
++the weights to extract the draft layer -- and least of all when both PD legs
++load off one filesystem at once. That leg is killed while it is still making
++progress and the whole bring-up restarts, so the deadline has to be raisable
++without editing a launcher.
++
++The resolved value is observable without waiting for it: ``_wait_ready`` puts it
++in the ``TimeoutError`` it raises. These tests drive the timeout path with a
++clock that has already jumped past the deadline, so a 1800 s default is asserted
++in milliseconds.
++
++Two deliberate choices about how this runs:
++
++* ``importorskip("sglang")`` -- ``infera.engine.sglang.worker`` imports
++  ``sglang.srt.server_args`` at module load, so this runs in the SGLang
++  container and skips on a bare dev box. Same pattern as
++  ``test_decode_radix_vs_speculative.py``.
++* ``asyncio.run`` in sync test functions rather than ``@pytest.mark.asyncio``
++  -- the engine image ships pytest without ``pytest-asyncio``, where that marker
++  is silently unknown and every async test is skipped-as-passed. These have to
++  actually execute in the image they guard.
++"""
++
++from __future__ import annotations
++
++import asyncio
++from types import SimpleNamespace
++
++import pytest
++
++pytest.importorskip("sglang")
++
++from infera.engine.sglang import worker as worker_mod  # noqa: E402
++from infera.engine.sglang.worker import SglangEngine  # noqa: E402
++
++
++class _JumpedClock:
++    """A loop clock that is already past any deadline after the first read.
++
++    ``_wait_ready`` reads ``loop.time()`` once to set the deadline and again in
++    the ``while`` guard. Returning 0.0 then a huge value skips the poll loop
++    entirely, so the timeout branch is reached with no real waiting.
++    """
++
++    def __init__(self) -> None:
++        self._reads = 0
++
++    def time(self) -> float:
++        self._reads += 1
++        return 0.0 if self._reads == 1 else 1e9
++
++
++@pytest.fixture
++def jumped_clock(monkeypatch):
++    monkeypatch.setattr(worker_mod.asyncio, "get_running_loop", lambda: _JumpedClock())
++    yield
++
++
++def _engine() -> SglangEngine:
++    """An engine shell carrying only what ``_wait_ready`` reads."""
++    eng = SglangEngine.__new__(SglangEngine)
++    eng.server_args = SimpleNamespace(host="127.0.0.1", port=1)
++    eng._proc = None
++    return eng
++
++
++@pytest.mark.parametrize(
++    "env, expected",
++    [
++        (None, 1800.0),  # unset -> the shipped default is unchanged
++        ("5400", 5400.0),  # raised for a big checkpoint
++        ("", 1800.0),  # empty means unset, not "0 seconds"
++        ("not-a-number", None),  # a typo must not be silently treated as 0
++    ],
++)
++def test_timeout_comes_from_the_env(monkeypatch, jumped_clock, env, expected):
++    if env is None:
++        monkeypatch.delenv("INFERA_SGLANG_READY_TIMEOUT", raising=False)
++    else:
++        monkeypatch.setenv("INFERA_SGLANG_READY_TIMEOUT", env)
++
++    eng = _engine()
++    if expected is None:
++        with pytest.raises(ValueError):
++            asyncio.run(eng._wait_ready())
++        return
++    with pytest.raises(TimeoutError, match=rf"not ready after {expected}s"):
++        asyncio.run(eng._wait_ready())
++
++
++def test_explicit_argument_beats_the_env(monkeypatch, jumped_clock):
++    """Flag > env > default, the same precedence the rest of the CLI uses."""
++    monkeypatch.setenv("INFERA_SGLANG_READY_TIMEOUT", "5400")
++    eng = _engine()
++    with pytest.raises(TimeoutError, match=r"not ready after 7\.0s"):
++        asyncio.run(eng._wait_ready(7.0))
+diff --git a/tests/unit/common/test_net_port_block.py b/tests/unit/common/test_net_port_block.py
+index 52e4c9b..21ca43a 100644
+--- a/tests/unit/common/test_net_port_block.py
++++ b/tests/unit/common/test_net_port_block.py
+@@ -5,19 +5,38 @@
+ ###############################################################################
+ """Regression tests for ``infera.common.net.free_tcp_port_block``.
+ 
+-The bug these guard against: the scan used to start at a fixed
+-``ip_local_port_range.low - count`` and the probe released the block before
+-returning, so two engines launched on the same host (the prefill and decode
+-legs of a PD pair, each with ``dp_size > 1``) deterministically picked the
+-*same* base. The second leg's sglang subprocess then died with
+-``ZMQError: Address already in use`` binding ``base + attn_dp_rank``.
++Two independent bugs, both of which make the *block* unusable while every
++individual port passes a bind probe:
++
++1. **Collision.** The scan used to start at a fixed
++   ``ip_local_port_range.low - count`` and the probe released the block before
++   returning, so two engines launched on the same host (the prefill and decode
++   legs of a PD pair, each with ``dp_size > 1``) deterministically picked the
++   *same* base. The second leg's sglang subprocess then died with
++   ``ZMQError: Address already in use`` binding ``base + attn_dp_rank``.
++2. **NodePort range.** A base inside Kubernetes' NodePort window binds here and
++   answers on loopback, but once any Service claims that port kube-proxy (IPVS)
++   intercepts it on every node address and the kernel answers RST — so only a
++   *peer* dialing the advertised node IP breaks, which is exactly the router
++   subscribing to a worker's kv-events.
++
++Both guards live in one scan, so they are tested together: a base must be both
++spread out and outside the reserved window.
+ """
+ 
+ from __future__ import annotations
+ 
+ import socket
+ 
+-from infera.common.net import free_tcp_port_block
++import pytest
++
++from infera.common.net import _reserved_nodeport_range, free_tcp_port_block
++
++_DEFAULT_LO, _DEFAULT_HI = 30000, 32767
++
++
++def _overlaps(base: int, count: int, lo: int, hi: int) -> bool:
++    return base + count - 1 >= lo and base <= hi
+ 
+ 
+ def _ephemeral_low() -> int:
+@@ -63,3 +82,30 @@ def test_repeated_calls_do_not_all_collide() -> None:
+ def test_count_of_one_delegates_to_single_port() -> None:
+     port = free_tcp_port_block(1)
+     assert 1024 <= port <= 65535
++
++
++@pytest.mark.parametrize("count", [2, 8, 16])
++def test_block_avoids_default_nodeport_range(count: int) -> None:
++    base = free_tcp_port_block(count)
++    assert not _overlaps(base, count, _DEFAULT_LO, _DEFAULT_HI), (
++        f"block {base}..{base + count - 1} overlaps the NodePort range"
++    )
++
++
++def test_block_avoids_custom_nodeport_range(monkeypatch) -> None:
++    monkeypatch.setenv("INFERA_NODEPORT_RANGE", "20000-25000")
++    base = free_tcp_port_block(8)
++    assert not _overlaps(base, 8, 20000, 25000)
++
++
++def test_range_can_be_disabled(monkeypatch) -> None:
++    # A cluster that moved the range off the default should not pay for a
++    # needlessly low block.
++    monkeypatch.setenv("INFERA_NODEPORT_RANGE", "none")
++    assert _reserved_nodeport_range() is None
++
++
++def test_malformed_range_keeps_the_default(monkeypatch) -> None:
++    # A typo must not silently drop the guard.
++    monkeypatch.setenv("INFERA_NODEPORT_RANGE", "not-a-range")
++    assert _reserved_nodeport_range() == (_DEFAULT_LO, _DEFAULT_HI)
