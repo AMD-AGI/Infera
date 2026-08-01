@@ -114,7 +114,16 @@ async def _maybe_start_kv_plane(
 
     # 0.0.0.0 bind is fine inside the worker but useless on the wire;
     # the registered endpoint must be reachable by the server.
-    advertise_host = args.server_args.host
+    #
+    # Use the resolved advertise host, not the bind host. main() sets
+    # args.advertise_host from POD_IP under Kubernetes discovery precisely so these
+    # endpoints can be reached — its own comment says "the registered url/worker_id
+    # and kv endpoints all derive from this" — but this path ignored it and
+    # published the bind address. With the usual `--host 0.0.0.0` the router then
+    # polled `http://0.0.0.0:8801` for every worker and logged "All connection
+    # attempts failed" on a loop, while both workers registered and looked healthy.
+    # The vLLM worker already does `args.advertise_host or args.host`.
+    advertise_host = args.advertise_host or args.server_args.host
     events_advertise = args.kv_events_advertise or resolve_advertise_endpoint(
         args.kv_events_bind, advertise_host
     )
