@@ -156,7 +156,7 @@ preference.
 | Setting | Why it is not optional |
 |---|---|
 | `--kv-cache-dtype auto` | infera otherwise injects fp8_e4m3, which selects the batch-1-only `mla_gluon` kernel and warmup dies with `requires batch_size=1, got 128`. |
-| no `--enable-prefix-caching` | Kimi-K3 is a hybrid Mamba model and crashes with it on, whatever the generic vLLM recipe suggests. |
+| `--enable-prefix-caching` is safe here | Kimi-K3 is hybrid, so vLLM runs it in Mamba cache `align` mode and calls that experimental. Measured: 72.7% hit rate on a shared prefix, output still correct. An earlier note claimed it fails engine init — that was an older base image. |
 | `--load-format auto` | `fastsafetensors` needs GDS; without it the load stalls in 30-second queue waits. |
 | `startupProbe`, not readiness | ~1.5 TB of weights outlives any sane readiness deadline. |
 

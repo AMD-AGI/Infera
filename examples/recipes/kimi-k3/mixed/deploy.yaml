@@ -14,8 +14,14 @@
 # `--kv-cache-dtype auto` is REQUIRED. infera otherwise injects
 # fp8_e4m3, which selects the batch-1-only `mla_gluon` kernel and the
 # engine dies with `requires batch_size=1, got 128`.
-# Do NOT add --enable-prefix-caching: Kimi-K3 is a hybrid Mamba model
-# and it crashes. Do NOT use --load-format fastsafetensors without GDS.
+# --enable-prefix-caching WORKS, and is on below. Kimi-K3 is hybrid, so
+# vLLM runs it in Mamba cache "align" mode (it does not declare
+# SupportsMambaPrefixCaching) and calls that mode experimental. Measured
+# here: 72.7% hit rate across requests sharing a long prefix, and a fact
+# buried after 1000 shared records still retrieved correctly. An earlier
+# note said this fails engine init; that was true of an older base image.
+# "align" mode requires chunked prefill, which vLLM enables by default.
+# Do NOT use --load-format fastsafetensors without GDS.
 ---
 apiVersion: infera.amd.com/v1alpha1
 kind: InferaDeployment
@@ -86,7 +92,7 @@ spec:
                       "--tensor-parallel-size","8","--gpu-memory-utilization","0.95",
                       "--trust-remote-code","--load-format","auto",
                       "--mm-encoder-tp-mode","data","--kv-cache-dtype","auto",
-                      "--max-num-seqs","128","--max-num-batched-tokens","4096",
+                      "--enable-prefix-caching","--max-num-seqs","128","--max-num-batched-tokens","4096",
                       "--enable-auto-tool-choice","--tool-call-parser","kimi_k3",
                       "--reasoning-parser","kimi_k3",
                       "--kv-event-transport","zmq","--request-transport","http"]

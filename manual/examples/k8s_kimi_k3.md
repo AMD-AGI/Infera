@@ -162,9 +162,12 @@ image test against the standalone docker serve is
   `periodSeconds: 10`) holds the pod non-Ready through the load; the operator's
   readiness probe is gated by it and takes over once weights + CUDA graphs are up.
   (`skipReadinessProbe: true` also works but never surfaces a Ready signal.)
-- **Don't enable prefix caching or fastsafetensors here.** Kimi-K3 is a hybrid
-  **Mamba** model — `--enable-prefix-caching` forces the experimental Mamba
-  "align" cache and fails engine init. `--load-format fastsafetensors` needs GPU
-  Direct Storage (cufile/GDS); without it, loads stall (~30 s queue waits per
-  batch). Neither is in the upstream vLLM ROCm Kimi-K3 command — keep
-  `--load-format auto` and no prefix caching.
+- **Prefix caching works; fastsafetensors still does not.** Kimi-K3 is a hybrid
+  **Mamba** model, so `--enable-prefix-caching` puts vLLM in Mamba cache `"align"`
+  mode — which vLLM labels experimental, and which needs chunked prefill (on by
+  default). It does not fail engine init: measured on MI355X, **72.7% hit rate**
+  across requests sharing a long prefix, with a fact buried after 1000 shared
+  records still retrieved correctly. An earlier version of this page said it fails
+  init; that was true of an older base image. `--load-format fastsafetensors`
+  still needs GPU Direct Storage (cufile/GDS) — without it loads stall in ~30 s
+  queue waits per batch, so keep `--load-format auto`.
