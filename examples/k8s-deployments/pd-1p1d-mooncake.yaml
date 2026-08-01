@@ -64,6 +64,12 @@ spec:
       skipReadinessProbe: true
       extraPodSpec:
         nodeSelector: {kubernetes.io/hostname: <PREFILL_NODE>}
+        # hostNetwork is REQUIRED, not a tuning choice. The RDMA rails are host
+        # interfaces; the flannel pod network (10.42.0.0/24) cannot reach them, so
+        # without this Mooncake has no path to the peer and the KV transfer fails
+        # with the engine otherwise looking healthy.
+        hostNetwork: true
+        dnsPolicy: ClusterFirstWithHostNet
         # The overlay payload is dropped into an emptyDir here; the STOCK vendor
         # image below then runs infera out of it, so following an upstream bump
         # is an image-tag edit rather than a rebuild of ours.
@@ -96,11 +102,17 @@ spec:
               - {name: model, mountPath: /models, readOnly: true}
               - {name: dshm, mountPath: /dev/shm}
               - {name: ib, mountPath: /dev/infiniband}
+              # The vendor base's libionic must match the host ionic kernel ABI or
+              # libibverbs rejects every device ("does not support the kernel ABI").
+              # infera-exec swaps it in from here; see deploy/overlay/infera-exec.
+              - {name: host-libionic, mountPath: /host-libionic/libionic.so, readOnly: true}
         volumes:
           - {name: overlay, emptyDir: {}}
           - {name: model, hostPath: {path: <MODEL_DIR>, type: Directory}}
           - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 16Gi}}
           - {name: ib, hostPath: {path: /dev/infiniband, type: Directory}}
+          - name: host-libionic
+            hostPath: {path: /usr/lib/x86_64-linux-gnu/libionic.so.1, type: File}
     decode:
       componentType: worker
       role: decode
@@ -109,6 +121,12 @@ spec:
       skipReadinessProbe: true
       extraPodSpec:
         nodeSelector: {kubernetes.io/hostname: <DECODE_NODE>}
+        # hostNetwork is REQUIRED, not a tuning choice. The RDMA rails are host
+        # interfaces; the flannel pod network (10.42.0.0/24) cannot reach them, so
+        # without this Mooncake has no path to the peer and the KV transfer fails
+        # with the engine otherwise looking healthy.
+        hostNetwork: true
+        dnsPolicy: ClusterFirstWithHostNet
         # The overlay payload is dropped into an emptyDir here; the STOCK vendor
         # image below then runs infera out of it, so following an upstream bump
         # is an image-tag edit rather than a rebuild of ours.
@@ -141,8 +159,14 @@ spec:
               - {name: model, mountPath: /models, readOnly: true}
               - {name: dshm, mountPath: /dev/shm}
               - {name: ib, mountPath: /dev/infiniband}
+              # The vendor base's libionic must match the host ionic kernel ABI or
+              # libibverbs rejects every device ("does not support the kernel ABI").
+              # infera-exec swaps it in from here; see deploy/overlay/infera-exec.
+              - {name: host-libionic, mountPath: /host-libionic/libionic.so, readOnly: true}
         volumes:
           - {name: overlay, emptyDir: {}}
           - {name: model, hostPath: {path: <MODEL_DIR>, type: Directory}}
           - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 16Gi}}
           - {name: ib, hostPath: {path: /dev/infiniband, type: Directory}}
+          - name: host-libionic
+            hostPath: {path: /usr/lib/x86_64-linux-gnu/libionic.so.1, type: File}
