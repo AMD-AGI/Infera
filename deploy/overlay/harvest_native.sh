@@ -48,24 +48,53 @@ fi
 
 # ---- hipFile ----------------------------------------------------------------
 # libhipfile plus the ais-check probe. A missing ais-check silently downgrades
-# kvd's load path to a CPU bounce, so the capability is only claimed when the
-# library, the probe AND the Python module are all present.
-HF="$(python3 -c 'import hipfile,os;print(os.path.dirname(hipfile.__file__))' 2>/dev/null || true)"
+# kvd's load path to a CPU bounce.
+#
+# hipfile is a SPLIT package: the .py sources live in the ROCm source tree and the
+# compiled _hipfile*.so in dist-packages, as two entries of one package __path__.
+# Copying either alone yields a package that cannot import — no .so in the first
+# case, no __init__.py in the second — so every search location is merged. Probe
+# from / so the build image's cwd cannot shadow the resolution.
+HF="$(cd / && python3 -c '
+import importlib.util
+s = importlib.util.find_spec("hipfile")
+print(" ".join(s.submodule_search_locations or []))
+' 2>/dev/null || true)"
 HAVE_LIB=0
 for f in /opt/rocm/lib/libhipfile.so*; do
     [ -e "$f" ] || continue
     cp -L "$f" "$OUT/lib/" 2>/dev/null && HAVE_LIB=1
 done
 cp /opt/rocm/bin/ais-check "$OUT/bin/" 2>/dev/null || true
-[ -n "$HF" ] && cp -a "$HF" "$OUT/hipfile" || true
-ln -sf libhipfile.so.0.3.0 "$OUT/lib/libhipfile.so.0" 2>/dev/null || true
-ln -sf libhipfile.so.0 "$OUT/lib/libhipfile.so" 2>/dev/null || true
+if [ -n "$HF" ]; then
+    mkdir -p "$OUT/hipfile"
+    for d in $HF; do cp -a "$d"/. "$OUT/hipfile/" 2>/dev/null || true; done
+fi
+# Rebuild the soname chain from the file that is actually present. This was
+# hardcoded to libhipfile.so.0.3.0; the image now ships 0.4.0, so the symlink
+# dangled and every import died with "libhipfile.so.0: cannot open shared object
+# file" — with the capability still claimed.
+REAL="$(cd "$OUT/lib" 2>/dev/null && ls libhipfile.so.*.* 2>/dev/null | head -1 || true)"
+[ -n "$REAL" ] && (cd "$OUT/lib" && ln -sf "$REAL" libhipfile.so.0 && ln -sf libhipfile.so.0 libhipfile.so)
 
-if [ "$HAVE_LIB" = 1 ] && [ -n "$HF" ] && [ -x "$OUT/bin/ais-check" ]; then
+# Claim the capability only if the HARVESTED tree actually imports. "The files are
+# there" is a different question, and answering that one instead is how the first
+# version of this harvest shipped a CAPABILITIES file claiming hipfile while every
+# consumer failed at `import hipfile._hipfile`. A capability file that can lie is
+# worse than no capability file.
+HF_IMPORTS=0
+if [ -d "$OUT/hipfile" ]; then
+    (cd / && PYTHONPATH="$OUT" LD_LIBRARY_PATH="$OUT/lib:${LD_LIBRARY_PATH:-}" \
+        python3 -c 'import hipfile, hipfile._hipfile' >/dev/null 2>&1) && HF_IMPORTS=1
+fi
+
+if [ "$HAVE_LIB" = 1 ] && [ "$HF_IMPORTS" = 1 ] && [ -x "$OUT/bin/ais-check" ]; then
     CAPS="${CAPS}hipfile "
-    echo "harvest:   hipfile <- $HF"
+    echo "harvest:   hipfile <- $HF (import verified)"
 else
-    echo "harvest:   hipfile ABSENT (expected on SGLang images — GPU-direct L3 is vLLM-only)"
+    echo "harvest:   hipfile NOT CLAIMED (lib=$HAVE_LIB import=$HF_IMPORTS" \
+         "probe=$([ -x "$OUT/bin/ais-check" ] && echo 1 || echo 0));" \
+         "expected on SGLang images — GPU-direct L3 is vLLM-only"
 fi
 
 # One space-separated line — infera-exec word-matches against it.
