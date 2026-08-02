@@ -8,7 +8,7 @@
 #
 #   base image   lmsysorg/sglang-rocm:rocm720-mi35x-k3-20260727   (the SGLang build
 #                carrying Kimi-K3 support; the general v0.5.15 tag has none)
-#   overlay      inferaimage/infera-overlay:v0.2.1
+#   overlay      inferaimage/infera-overlay:v0.2.2
 #
 #   <PREFILL_MODEL_DIR> / <DECODE_MODEL_DIR>
 #       the model directory on EACH node. They need NOT match: every pod mounts its
@@ -40,7 +40,7 @@ spec:
         # is an image-tag edit rather than a rebuild of ours.
         initContainers:
           - name: infera-overlay
-            image: inferaimage/infera-overlay:v0.2.1
+            image: inferaimage/infera-overlay:v0.2.2
             imagePullPolicy: IfNotPresent
             command: ["sh","-c","cp -a /payload/. /overlay/"]
             volumeMounts:
@@ -80,7 +80,7 @@ spec:
         # is an image-tag edit rather than a rebuild of ours.
         initContainers:
           - name: infera-overlay
-            image: inferaimage/infera-overlay:v0.2.1
+            image: inferaimage/infera-overlay:v0.2.2
             imagePullPolicy: IfNotPresent
             command: ["sh","-c","cp -a /payload/. /overlay/"]
             volumeMounts:
@@ -178,7 +178,7 @@ spec:
         # is an image-tag edit rather than a rebuild of ours.
         initContainers:
           - name: infera-overlay
-            image: inferaimage/infera-overlay:v0.2.1
+            image: inferaimage/infera-overlay:v0.2.2
             imagePullPolicy: IfNotPresent
             command: ["sh","-c","cp -a /payload/. /overlay/"]
             volumeMounts:
