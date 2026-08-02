@@ -15,6 +15,56 @@ placeholders substituted — the files themselves are templates and cannot be ap
 as-is. `pd-dspark` needs `--speculative-config` on **both** roles, which is not
 redundancy — see §6.
 
+## 0. Placeholders you must fill in
+
+**Every manifest in this directory is a template.** None of them can be applied
+directly, and applying one anyway is *accepted by the API server* — the placeholder
+passes CRD validation — then fails minutes later at mount time. Substitute first.
+
+| Placeholder | In | What it is | How to find it |
+|---|---|---|---|
+| `<MODEL_DIR>` | `mixed`, `mixed-dspark` | directory holding `Kimi-K3/` (and `Kimi-K3-DSpark/` for the speculative variant), mounted at `/models` | see below — **it is site-specific and there is no default** |
+| `<NODE>` | `mixed`, `mixed-dspark` | the node both pods are pinned to | any node with 8 free `amd.com/gpu` **that has the weights at `<MODEL_DIR>`** |
+| `<PREFILL_NODE>` `<DECODE_NODE>` | `pd`, `pd-dspark` | the two nodes | two nodes on a mutually routable RoCE fabric |
+| `<PREFILL_MODEL_DIR>` `<DECODE_MODEL_DIR>` | `pd`, `pd-dspark` | per-node model directory | **these do not have to be equal** — see below |
+
+```{admonition} The model path is site-specific, and a mixed fleet may not agree with itself
+:class: warning
+There is no default and no value this document can supply. On the fleet these
+recipes were validated on the two GPU nodes use **different** paths for the same
+weights, which is why the PD manifests take two separate directory placeholders
+rather than one.
+
+Getting it wrong does not produce a clear error. If the path is absent, the pod
+fails with `hostPath type check failed`. If the path *exists but is empty* — which
+is what happens when you copy a working node's value onto a node that never had the
+weights — the mount succeeds and the engine crashloops several minutes later with
+
+    ValueError: '/models/Kimi-K3': not a local path and HF resolution failed:
+      Repo id must be in the form 'repo_name' or 'namespace/repo_name'
+
+which reads as a bad model name and points nowhere near the real cause.
+
+Find it, per node, rather than assuming:
+
+```bash
+# read it off a deployment that already works
+kubectl -n infera get deploy <any-worker-deploy> \
+  -o jsonpath='{.spec.template.spec.volumes[?(@.name=="model")].hostPath.path}{"\n"}'
+
+# or look on the node itself (needs a shell there, or a privileged pod)
+find /mnt -maxdepth 4 -name 'Kimi-K3' 2>/dev/null
+
+# then confirm it is LOCAL storage on that node, not a network mount
+df -hT <dir>
+```
+
+That last check is not a formality. The obvious shared-looking mount on this fleet
+(`/mnt/shared`) is an NFS export of the *other* node's array. Using it puts one side
+on a ~95-minute weight load, which exceeds the ready timeout, so the worker restarts
+mid-load and never finishes — presenting as a crash loop rather than as slow storage.
+```
+
 ## 1. Choose the combination
 
 |  | GPUs | Manifest | Reach for it when |

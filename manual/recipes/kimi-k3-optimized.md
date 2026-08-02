@@ -9,17 +9,33 @@ A separate entry from [Kimi-K3](kimi-k3) rather than a combination on it, becaus
 it is a different artifact. Same vLLM commit (`g5f76ae224`) as the stock image, so
 the delta is kernels, not engine version.
 
-```{admonition} These manifests are templates — a bare kubectl apply looks like it works
+```{admonition} Every manifest here is a template — fill in the placeholders first
 :class: warning
-Every file here carries placeholders. Applying one directly is **accepted by the
-API server** (the placeholder passes CRD validation) and then fails minutes later
-at mount time with `hostPath type check failed: <MODEL_DIR> is not a directory`.
-Substitute first, as every command on this page does.
+A bare `kubectl apply` on these files is **accepted by the API server** (the
+placeholder passes CRD validation) and then fails minutes later at mount time.
 
-`<NODE>` on the 8-GPU combinations pins the server and worker to one node: both
-mount the weights by `hostPath` and are scheduled independently, so on a fleet
-whose model paths differ per node the one that guesses wrong crashloops with a
-HuggingFace repo-id error that points nowhere near the cause.
+| Placeholder | In | How to find it |
+|---|---|---|
+| `<MODEL_DIR>` | Mixed, Mixed + DSpark | site-specific, **no default** — see below |
+| `<NODE>` | Mixed, Mixed + DSpark | a node with 8 free GPUs *that has the weights at that path* |
+| `<PREFILL_NODE>`, `<DECODE_NODE>` | PD, PD + DSpark | two nodes on a routable RoCE fabric |
+| `<PREFILL_MODEL_DIR>`, `<DECODE_MODEL_DIR>` | PD, PD + DSpark | per node — **they need not be equal** |
+
+**The model path is site-specific and a mixed fleet may not agree with itself.** On
+the fleet these were validated on, the two GPU nodes use different paths for the
+same weights. Read it off a working deployment
+(`kubectl -n infera get deploy <w> -o jsonpath='{.spec.template.spec.volumes[?(@.name=="model")].hostPath.path}'`)
+or `find /mnt -maxdepth 4 -name 'Kimi-K3'`, then confirm with `df -hT` that it is
+local storage on that node — the obvious shared-looking mount may be an NFS export
+of the peer's array, which puts one side on a ~95-minute load.
+
+A path that is absent fails with `hostPath type check failed`. A path that **exists
+but is empty** mounts fine and crashloops minutes later with a HuggingFace repo-id
+error that points nowhere near the cause.
+
+`<NODE>` exists because both the server and the worker mount the weights by
+hostPath and are scheduled independently — without it they can land on different
+nodes.
 ```
 
 ## 1. Choose the combination
