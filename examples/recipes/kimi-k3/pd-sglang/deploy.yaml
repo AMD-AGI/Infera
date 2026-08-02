@@ -8,7 +8,7 @@
 #
 #   base image   lmsysorg/sglang-rocm:rocm720-mi35x-k3-20260727   (the SGLang build
 #                carrying Kimi-K3 support; the general v0.5.15 tag has none)
-#   overlay      inferaimage/infera-overlay:v0.2.2
+#   overlay      inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
 #
 #   <PREFILL_MODEL_DIR> / <DECODE_MODEL_DIR>
 #       the model directory on EACH node. They need NOT match: every pod mounts its
@@ -40,14 +40,14 @@ spec:
         # is an image-tag edit rather than a rebuild of ours.
         initContainers:
           - name: infera-overlay
-            image: inferaimage/infera-overlay:v0.2.2
+            image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
             imagePullPolicy: IfNotPresent
             command: ["sh","-c","cp -a /payload/. /overlay/"]
             volumeMounts:
               - {name: overlay, mountPath: /overlay}
         containers:
           - name: main
-            image: lmsysorg/sglang-rocm:rocm720-mi35x-k3-20260727      # libionic (ABI 4) baked
+            image: lmsysorg/sglang-rocm:rocm720-mi35x-k3-20260727@sha256:3c01f73fe23aebf4a8853de0899a70b75c2af6c0409d2331353847aac4d3f906      # libionic (ABI 4) baked
             imagePullPolicy: IfNotPresent
             command: ["/overlay/bin/infera-exec","python3","-m","infera.server","--host","0.0.0.0","--port","8000",
                       "--router-tokenizer-path","/models/Kimi-K3",
@@ -80,14 +80,14 @@ spec:
         # is an image-tag edit rather than a rebuild of ours.
         initContainers:
           - name: infera-overlay
-            image: inferaimage/infera-overlay:v0.2.2
+            image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
             imagePullPolicy: IfNotPresent
             command: ["sh","-c","cp -a /payload/. /overlay/"]
             volumeMounts:
               - {name: overlay, mountPath: /overlay}
         containers:
           - name: main
-            image: lmsysorg/sglang-rocm:rocm720-mi35x-k3-20260727
+            image: lmsysorg/sglang-rocm:rocm720-mi35x-k3-20260727@sha256:3c01f73fe23aebf4a8853de0899a70b75c2af6c0409d2331353847aac4d3f906
             imagePullPolicy: IfNotPresent
             securityContext: {privileged: true, capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}}
             command: ["/overlay/bin/infera-exec","python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
@@ -178,14 +178,14 @@ spec:
         # is an image-tag edit rather than a rebuild of ours.
         initContainers:
           - name: infera-overlay
-            image: inferaimage/infera-overlay:v0.2.2
+            image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
             imagePullPolicy: IfNotPresent
             command: ["sh","-c","cp -a /payload/. /overlay/"]
             volumeMounts:
               - {name: overlay, mountPath: /overlay}
         containers:
           - name: main
-            image: lmsysorg/sglang-rocm:rocm720-mi35x-k3-20260727
+            image: lmsysorg/sglang-rocm:rocm720-mi35x-k3-20260727@sha256:3c01f73fe23aebf4a8853de0899a70b75c2af6c0409d2331353847aac4d3f906
             imagePullPolicy: IfNotPresent
             securityContext: {privileged: true, capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}}
             command: ["/overlay/bin/infera-exec","python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",

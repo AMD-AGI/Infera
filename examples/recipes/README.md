@@ -42,7 +42,7 @@ forking the base for one model broke every other model.
 Build the overlay before deploying:
 
 ```bash
-docker build -f deploy/overlay/Dockerfile.payload -t inferaimage/infera-overlay:v0.2.1 .
+docker build -f deploy/overlay/Dockerfile.payload -t inferaimage/infera-overlay:v0.2.2 .
 ```
 
 The build harvests **one native tree per ABI family** — `NATIVE_IMAGE` supplies
