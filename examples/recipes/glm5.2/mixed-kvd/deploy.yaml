@@ -1,7 +1,7 @@
 # GLM-5.2-MXFP4 — mixed-kvd — Kubernetes recipe
 #
 #   base image   lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x      (stock vendor image, unmodified)
-#   overlay      inferaimage/infera-overlay:v0.2.1                     (infera + router + kvd + native deps)
+#   overlay      inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44                     (infera + router + kvd + native deps)
 #   engine       infera.engine.sglang   TP8
 #
 # Deploy:  kubectl apply -f examples/recipes/glm5.2/mixed-kvd/deploy.yaml
@@ -45,14 +45,14 @@ spec:
         # so following an upstream bump costs nothing in this repo.
         initContainers:
           - name: infera-overlay
-            image: inferaimage/infera-overlay:v0.2.1
+            image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
             imagePullPolicy: IfNotPresent
             command: ["sh","-c","cp -a /payload/. /overlay/"]
             volumeMounts:
               - {name: overlay, mountPath: /overlay}
         containers:
           - name: main
-            image: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
+            image: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x@sha256:40e940a0c55b87105c773d8b484616616b3a91662bfa223c48ff721d9793dc8d
             imagePullPolicy: IfNotPresent
             command: ["/overlay/bin/infera-exec","python3","-m","infera.server",
                       "--host","0.0.0.0","--port","8000",
@@ -79,14 +79,14 @@ spec:
         # so following an upstream bump costs nothing in this repo.
         initContainers:
           - name: infera-overlay
-            image: inferaimage/infera-overlay:v0.2.1
+            image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
             imagePullPolicy: IfNotPresent
             command: ["sh","-c","cp -a /payload/. /overlay/"]
             volumeMounts:
               - {name: overlay, mountPath: /overlay}
         containers:
           - name: main
-            image: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
+            image: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x@sha256:40e940a0c55b87105c773d8b484616616b3a91662bfa223c48ff721d9793dc8d
             imagePullPolicy: IfNotPresent
             command: ["/overlay/bin/infera-exec",
                       "python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
@@ -136,7 +136,7 @@ spec:
           # infera.kvd out of the shared overlay. The overlay image itself is a
           # busybox carrying the payload — it has no interpreter to run kvd with.
           - name: kvd
-            image: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
+            image: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x@sha256:40e940a0c55b87105c773d8b484616616b3a91662bfa223c48ff721d9793dc8d
             imagePullPolicy: IfNotPresent
             command: ["/overlay/bin/infera-exec","python3","-m","infera.kvd",
                       "--socket","/kvd/kvd.sock",

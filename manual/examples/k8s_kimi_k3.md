@@ -24,7 +24,7 @@ upstream `kimi_k3` vLLM by overriding the base of the standard vLLM image build:
 
 ```bash
 docker pull vllm/vllm-openai-rocm:kimi-k3          # the vLLM carrying kimi_k3 support
-docker pull inferaimage/infera-overlay:v0.2.1      # infera, kvd, router, Mooncake, hipFile
+docker pull inferaimage/infera-overlay:v0.2.2      # infera, kvd, router, Mooncake, hipFile
 ```
 
 Nothing is built here. The manifest runs the **stock** vLLM image and mounts infera
@@ -81,7 +81,7 @@ PVC read-only.
 - The engine **image present in the node container runtime**. k3s uses
   containerd (not docker) — import a local image as a tar, not a stream:
   ```bash
-  docker save vllm/vllm-openai-rocm:kimi-k3 inferaimage/infera-overlay:v0.2.1 -o /mnt/<big-disk>/img.tar
+  docker save vllm/vllm-openai-rocm:kimi-k3 inferaimage/infera-overlay:v0.2.2 -o /mnt/<big-disk>/img.tar
   sudo k3s ctr images import /mnt/<big-disk>/img.tar
   ```
 

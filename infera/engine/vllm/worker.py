@@ -24,6 +24,14 @@ from infera.engine.base import BaseEngine, EngineConfig
 logger = logging.getLogger(__name__)
 
 
+def _ready_timeout() -> float:
+    """Seconds to wait for the engine's /health, from INFERA_ENGINE_READY_TIMEOUT."""
+    try:
+        return float(os.environ.get("INFERA_ENGINE_READY_TIMEOUT", "1800"))
+    except ValueError:
+        return 1800.0
+
+
 class VllmEngine(BaseEngine):
     def __init__(
         self,
@@ -162,7 +170,12 @@ class VllmEngine(BaseEngine):
         except ProcessLookupError:
             pass
 
-    async def _wait_ready(self, timeout: float = 1800) -> None:
+    # Weight-load time tracks the storage, not the model: Kimi-K3 read 96 shards in
+    # 502 s from local NVMe and ~95 min from NFS with both PD nodes competing for
+    # the same mount. A hardcoded 1800 s is generous for the first and impossible
+    # for the second — the worker killed itself mid-load, restarted, and could
+    # never finish. Tunable via INFERA_ENGINE_READY_TIMEOUT (seconds).
+    async def _wait_ready(self, timeout: float = _ready_timeout()) -> None:
         # 30 min: cold model download + ROCm kernel compile can eat 10+ min.
         probe_host = "127.0.0.1" if self.host in ("0.0.0.0", "") else self.host
         url = f"http://{probe_host}:{self.port}/health"

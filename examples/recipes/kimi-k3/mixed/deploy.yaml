@@ -1,7 +1,7 @@
 # Kimi-K3 — mixed — Kubernetes recipe
 #
 #   base image   vllm/vllm-openai-rocm:kimi-k3      (stock vendor image, unmodified)
-#   overlay      inferaimage/infera-overlay:v0.2.1                     (infera + router + kvd + native deps)
+#   overlay      inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44                     (infera + router + kvd + native deps)
 #   engine       infera.engine.vllm   TP8
 #
 # Deploy:  kubectl apply -f examples/recipes/kimi-k3/mixed/deploy.yaml
@@ -42,14 +42,14 @@ spec:
         # so following an upstream bump costs nothing in this repo.
         initContainers:
           - name: infera-overlay
-            image: inferaimage/infera-overlay:v0.2.1
+            image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
             imagePullPolicy: IfNotPresent
             command: ["sh","-c","cp -a /payload/. /overlay/"]
             volumeMounts:
               - {name: overlay, mountPath: /overlay}
         containers:
           - name: main
-            image: vllm/vllm-openai-rocm:kimi-k3
+            image: vllm/vllm-openai-rocm:kimi-k3@sha256:5aa7e626ff73672f5ca7aae46754570488c23d33ca1ac90756a1d2d1a3fe099b
             imagePullPolicy: IfNotPresent
             command: ["/overlay/bin/infera-exec","python3","-m","infera.server",
                       "--host","0.0.0.0","--port","8000",
@@ -76,14 +76,14 @@ spec:
         # so following an upstream bump costs nothing in this repo.
         initContainers:
           - name: infera-overlay
-            image: inferaimage/infera-overlay:v0.2.1
+            image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
             imagePullPolicy: IfNotPresent
             command: ["sh","-c","cp -a /payload/. /overlay/"]
             volumeMounts:
               - {name: overlay, mountPath: /overlay}
         containers:
           - name: main
-            image: vllm/vllm-openai-rocm:kimi-k3
+            image: vllm/vllm-openai-rocm:kimi-k3@sha256:5aa7e626ff73672f5ca7aae46754570488c23d33ca1ac90756a1d2d1a3fe099b
             imagePullPolicy: IfNotPresent
             command: ["/overlay/bin/infera-exec",
                       "python3","-m","infera.engine.vllm","--host","0.0.0.0","--port","30000",

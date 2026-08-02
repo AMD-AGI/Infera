@@ -29,7 +29,7 @@ spec:
         # is an image-tag edit rather than a rebuild of ours.
         initContainers:
           - name: infera-overlay
-            image: inferaimage/infera-overlay:v0.2.1
+            image: inferaimage/infera-overlay:v0.2.2
             imagePullPolicy: IfNotPresent
             command: ["sh","-c","cp -a /payload/. /overlay/"]
             volumeMounts:
@@ -64,7 +64,7 @@ spec:
         # is an image-tag edit rather than a rebuild of ours.
         initContainers:
           - name: infera-overlay
-            image: inferaimage/infera-overlay:v0.2.1
+            image: inferaimage/infera-overlay:v0.2.2
             imagePullPolicy: IfNotPresent
             command: ["sh","-c","cp -a /payload/. /overlay/"]
             volumeMounts:
