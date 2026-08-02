@@ -68,6 +68,9 @@ class WorkerSubscription:
     views: dict[int, set[int]] = field(default_factory=dict)
     maps: dict[int, dict[int, int]] = field(default_factory=dict)  # worker_hash -> router_hash
     tasks: list[asyncio.Task] = field(default_factory=list)
+    # Latched: the block-size mismatch is per-subscription, not per-event, so
+    # logging it on every event would bury the fact under thousands of copies.
+    block_size_mismatch_logged: bool = False
 
     def view_for(self, rank: int | None) -> set[int]:
         return self.views.setdefault(rank or 0, set())
@@ -101,10 +104,25 @@ class KvEventClient:
     def on_worker_added(self, w: WorkerInfo) -> None:
         if not w.kv_events_endpoint or w.worker_id in self._subs:
             return
+        # No block size means we cannot reproduce the engine's paging, and 1 is not
+        # a safe stand-in: it is a wrong answer that looks like an answer. Hashing
+        # per token against an engine paging per 768 yields a view that never
+        # matches, so kv-aware routing degrades to nothing while the logs show a
+        # healthy subscription. Refuse loudly instead — the policy already skips
+        # workers without a block size, so this only makes the two agree.
+        if not w.kv_block_size:
+            logger.error(
+                "kv events: NOT subscribing to %s — it registered no kv_block_size, so "
+                "its KV view cannot be reproduced and kv-aware routing is off for this "
+                "worker. On vLLM this means the resolved block size could not be read "
+                "from /metrics at startup.",
+                w.worker_id,
+            )
+            return
         sub = WorkerSubscription(
             worker_id=w.worker_id,
             endpoint=w.kv_events_endpoint,
-            block_size=w.kv_block_size or 1,
+            block_size=w.kv_block_size,
             # vLLM and SGLang serialize kv-events differently (map vs array); pick
             # the decoder matching THIS worker's engine or every event fails to
             # decode and the view stays empty.
@@ -216,7 +234,39 @@ class KvEventClient:
                 # query misses by one block.
                 return
         bs = sub.block_size
-        n = len(ev.token_ids) // bs
+        # Both engines put the engine-side block size on the event itself. If it
+        # disagrees with what the worker registered, every hash we compute is
+        # against the wrong chunking and the view can never match — so say that,
+        # once, instead of leaving it to be inferred from a routing hit rate of
+        # zero. This is the check that would have named the Kimi-K3 failure
+        # immediately: events said 768, the registration said nothing, and the
+        # subscriber assumed 1.
+        ev_bs = getattr(ev, "block_size", None)
+        if ev_bs and ev_bs != bs and not sub.block_size_mismatch_logged:
+            sub.block_size_mismatch_logged = True
+            logger.error(
+                "kv events from %s are paged at block_size=%d but this worker registered "
+                "%d; the router's KV view cannot match the engine's and kv-aware routing "
+                "will report no hits for it",
+                sub.worker_id,
+                ev_bs,
+                bs,
+            )
+        # Bound by BOTH sequences. The count was derived from token_ids alone and
+        # then used to index block_hashes, so any disagreement between them was an
+        # IndexError — surfacing as "list index out of range", a message that points
+        # nowhere near the block size.
+        n = min(len(ev.token_ids) // bs, len(ev.block_hashes))
+        if n * bs != len(ev.token_ids) or n != len(ev.block_hashes):
+            logger.warning(
+                "kv event from %s covers %d tokens and %d block hashes, which do not "
+                "agree at block_size=%d; indexing %d block(s) and dropping the rest",
+                sub.worker_id,
+                len(ev.token_ids),
+                len(ev.block_hashes),
+                bs,
+                n,
+            )
         for i in range(n):
             chunk = ev.token_ids[i * bs : (i + 1) * bs]
             parent = hash_chunk(parent, chunk)
