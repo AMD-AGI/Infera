@@ -181,18 +181,53 @@ def _is_private_ipv4(ip: str) -> bool:
     return False
 
 
+# Interface name prefixes that are virtual by construction — container bridges,
+# CNI plugins, veth pairs, tunnels. None can carry RoCE, and several are private
+# RFC1918, which is exactly what makes them dangerous to a "first private IPv4"
+# scan.
+_VIRTUAL_IF_PREFIXES = (
+    "docker",
+    "cni",
+    "flannel",
+    "cali",
+    "cilium",
+    "weave",
+    "kube-",
+    "veth",
+    "br-",
+    "virbr",
+    "tunl",
+    "gre",
+    "ip6tnl",
+    "dummy",
+    "bond-dummy",
+)
+
+
 def _private_rail_ipv4() -> str | None:
     """First private (RFC1918) NIC IPv4, sorted by ifname for determinism.
 
     The KV-transfer P2P-handshake host must be a peer-reachable, NON-public
     address; ``get_ip()`` (route to 8.8.8.8) returns the PUBLIC NIC on a
-    multi-homed host. Skip loopback and the docker bridge."""
+    multi-homed host.
+
+    Skip virtual interfaces, not just loopback and docker. On a Kubernetes node
+    the CNI bridge is private, RFC1918 and — sorted by name — comes FIRST, so a
+    naive scan picks `cni0` (10.42.0.1) and pins the KV host IP to an address the
+    peer cannot reach. Observed on k3s/flannel: prefill advertised 10.42.0.1 and
+    decode 10.42.1.1, each the other node's unreachable bridge gateway. The host
+    interface list there begins:
+
+        cni0  docker0  enp105s0  enp121s0 ...
+
+    so ordering alone guarantees the wrong answer. These names are virtual by
+    construction and can never be an RDMA rail."""
     try:
         ifs = sorted(os.listdir(_NET_PATH))
     except OSError:
         return None
     for n in ifs:
-        if n == "lo" or n.startswith("docker"):
+        if n == "lo" or n.startswith(_VIRTUAL_IF_PREFIXES):
             continue
         ip = _ifaddr_ipv4(n)
         if ip and _is_private_ipv4(ip):

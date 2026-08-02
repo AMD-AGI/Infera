@@ -83,6 +83,33 @@ fi
 
 export PYTHONPATH PATH
 
+# --- host libionic (RoCE provider ABI) --------------------------------------
+# The vendor bases ship whatever libionic they were built with; the ionic kernel
+# driver only accepts a matching ABI. On this fleet the stock SGLang image has
+# 54.0-149 (ABI 1) against a host needing 54.0-187 (ABI 4), and libibverbs then
+# rejects every device:
+#
+#   libibverbs: Driver ionic does not support the kernel ABI of 1 (supports 4 to 4)
+#
+# which surfaces as "No RDMA devices found" and sends Mooncake down its HIP-IPC
+# path, where cross-node PD dies on hipIpcOpenMemHandle. The baked images solved
+# this twice over (a pinned deb plus an entrypoint injector); a stock base keeps
+# neither, so do it here — infera-exec is what replaced that entrypoint.
+#
+# Mount the host build at /host-libionic to enable this. A missing mount is not an
+# error: aggregated serving never touches RDMA.
+if [ -e /host-libionic/libionic.so ]; then
+    _tgt=$(readlink -f /usr/lib/x86_64-linux-gnu/libionic.so.1 2>/dev/null || true)
+    if [ -n "$_tgt" ] && [ -f "$_tgt" ] && ! cmp -s /host-libionic/libionic.so "$_tgt"; then
+        if cp -f /host-libionic/libionic.so "$_tgt" 2>/dev/null; then
+            ldconfig 2>/dev/null || true
+            echo "infera-exec: replaced $_tgt with the host libionic build" >&2
+        else
+            echo "infera-exec: cannot write $_tgt (read-only rootfs?); RDMA may be unavailable" >&2
+        fi
+    fi
+fi
+
 # Python puts the working directory at sys.path[0] — ahead of PYTHONPATH. Vendor
 # images that already ship infera set WORKDIR to its parent (e.g. /opt/infera),
 # so the baked-in copy would silently shadow this payload and the overlay would
