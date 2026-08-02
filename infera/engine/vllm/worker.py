@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -84,10 +85,65 @@ class VllmEngine(BaseEngine):
             disagg_mode=self.disagg_mode,
             disagg_meta=dict(self.disagg_meta),
             kv_events_endpoint=self.kv_events_endpoint,
-            kv_block_size=self.kv_block_size,
+            kv_block_size=await self._resolve_block_size(),
             dp_rank=self.dp_rank,
             dp_size=self.dp_size,
         )
+
+    async def _resolve_block_size(self) -> int | None:
+        """The block size vLLM actually ended up using, not the one asked for.
+
+        ``--block-size`` defaults to None and the platform resolves it after the
+        model is loaded, so the value parsed off the command line is frequently
+        not the value in force. Kimi-K3 makes this loud: it is a hybrid Mamba
+        model, so vLLM logs
+
+            Setting attention block size to 768 tokens to ensure that attention
+            page size is >= mamba page size
+
+        and the CLI namespace still says None. Registering that None left the
+        router with no block size, which it read as 1 — and a router hashing per
+        token against an engine paging per 768 produced an empty KV view and
+        kv-aware routing that silently did nothing.
+
+        ``vllm:cache_config_info`` carries the resolved value as a label and is
+        the only endpoint that does; ``/v1/models`` does not, and scraping the
+        log line is hostage to its wording. If the metric is missing (older
+        vLLM), fall back to the CLI value — wrong is still better than absent,
+        because absent disables kv-aware routing outright.
+        """
+        probe_host = "127.0.0.1" if self.host in ("0.0.0.0", "") else self.host
+        url = f"http://{probe_host}:{self.port}/metrics"
+        try:
+            async with httpx.AsyncClient() as client:
+                r = await client.get(url, timeout=10)
+            if r.status_code != 200:
+                raise RuntimeError(f"HTTP {r.status_code}")
+            m = re.search(r'vllm:cache_config_info\{[^}]*\bblock_size="(\d+)"', r.text)
+            if m is None:
+                raise RuntimeError("no vllm:cache_config_info{block_size=...} in /metrics")
+            resolved = int(m.group(1))
+        except Exception as exc:
+            logger.warning(
+                "could not read the resolved block size from %s (%s); falling back to the "
+                "command-line value %r. If that is None, kv-aware routing stays off for "
+                "this worker.",
+                url,
+                exc,
+                self.kv_block_size,
+            )
+            return self.kv_block_size
+
+        if self.kv_block_size is not None and resolved != self.kv_block_size:
+            logger.info(
+                "vLLM resolved block_size=%d, overriding the requested %d; registering the "
+                "resolved value so the router pages the same way the engine does",
+                resolved,
+                self.kv_block_size,
+            )
+        else:
+            logger.info("vLLM resolved block_size=%d", resolved)
+        return resolved
 
     async def stop(self) -> None:
         logger.info("vLLM engine stopping")
