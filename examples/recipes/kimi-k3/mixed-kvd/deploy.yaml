@@ -1,7 +1,7 @@
 # Kimi-K3 — mixed-kvd — Kubernetes recipe
 #
 #   base image   vllm/vllm-openai-rocm:kimi-k3      (stock vendor image, unmodified)
-#   overlay      rocm/infera-overlay:latest                     (infera + router + kvd + native deps)
+#   overlay      inferaimage/infera-overlay:v0.2.1                     (infera + router + kvd + native deps)
 #   engine       infera.engine.vllm   TP8
 #
 # Deploy:  kubectl apply -f examples/recipes/kimi-k3/mixed-kvd/deploy.yaml
@@ -44,7 +44,7 @@ spec:
         # so following an upstream bump costs nothing in this repo.
         initContainers:
           - name: infera-overlay
-            image: rocm/infera-overlay:latest
+            image: inferaimage/infera-overlay:v0.2.1
             imagePullPolicy: IfNotPresent
             command: ["sh","-c","cp -a /payload/. /overlay/"]
             volumeMounts:
@@ -78,7 +78,7 @@ spec:
         # so following an upstream bump costs nothing in this repo.
         initContainers:
           - name: infera-overlay
-            image: rocm/infera-overlay:latest
+            image: inferaimage/infera-overlay:v0.2.1
             imagePullPolicy: IfNotPresent
             command: ["sh","-c","cp -a /payload/. /overlay/"]
             volumeMounts:
