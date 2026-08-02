@@ -14,9 +14,10 @@ even though the engine "came up". Bake them in as DEFAULTS here, set-if-unset,
 so an operator or launcher can still override any of them via the environment.
 
 Gated on ROCm (probe ``/dev/kfd``); a no-op on NVIDIA hosts. GID index ``1`` is
-the ionic RoCE-v2 value used across our AMD fleet; a different fabric overrides
-via env. Each transfer engine reads only the vars it recognizes, so set-defaulting
-both the Mooncake (``MC_*``) and MoRI (``MORI_*``) vars is harmless for either backend.
+the routable RoCE-v2 index on a typical ionic fabric; a fabric that differs
+overrides via env. Each transfer engine reads only the vars it recognizes, so
+set-defaulting both the Mooncake (``MC_*``) and MoRI (``MORI_*``) vars is
+harmless for either backend.
 """
 
 from __future__ import annotations
