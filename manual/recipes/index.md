@@ -28,6 +28,16 @@ vLLM · TP8 · MI355X
 Multimodal, ~1.5 TB of weights, hybrid Mamba.
 :::
 
+:::{grid-item-card} Kimi-K3 optimized (DSpark)
+:link: kimi-k3-optimized
+:link-type: doc
+
+vLLM · TP8 · MI355X
+
+Same engine commit, optimized FP8 kernels. Optional DSpark speculation: 1.9–2.2×
+below concurrency 8, and it crashes above it.
+:::
+
 ::::
 
 ## The four combinations
@@ -41,6 +51,11 @@ Each recipe comes in the same four shapes, composing two independent choices:
 | `mixed + kvd` | one worker does prefill and decode | plus L2 host RAM and L3 on a PVC | requests share long prefixes — a common system prompt, multi-turn chat, RAG |
 | `pd` | prefill and decode on separate nodes | GPU only | prefill and decode want different batching |
 | `pd + kvd` | prefill and decode on separate nodes | plus kvd on each role | both of the above |
+
+One recipe carries an extra axis rather than a fifth combination: **Kimi-K3
+optimized** ships `mixed` and `mixed-dspark`, because speculative decoding is a
+property of that image's draft model, not a serving topology. It composes with the
+four above in principle; only `mixed` was built for it.
 
 ```{admonition} PD needs a routable RoCE fabric
 :class: warning

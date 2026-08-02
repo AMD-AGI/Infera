@@ -61,7 +61,7 @@ one **mixed SGLang worker** at **TP8**, both mounting the model read-only.
 - The SGLang engine image (`rocm/infera:sglang-v0.1.1`, SGLang 0.5.15+) present
   in the node's containerd (`k3s ctr images import` for a local image).
 - The GLM-5.2-MXFP4 checkpoint reachable inside the pod — a `hostPath` (as in the
-  manifest) or the [model-cache](k8s_kimi_k3.md#1-model-cache-pvc-download-job) PVC.
+  manifest) or the {ref}`model-cache <model-cache-pvc-download-job>` PVC.
 
 ## Deploy & verify
 

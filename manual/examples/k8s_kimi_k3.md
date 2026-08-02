@@ -85,6 +85,7 @@ PVC read-only.
   sudo k3s ctr images import /mnt/<big-disk>/img.tar
   ```
 
+(model-cache-pvc-download-job)=
 ## 1. Model cache (PVC + download Job)
 
 The [`model-cache/`](https://github.com/AMD-AGI/Infera/tree/main/examples/k8s-deployments/model-cache)

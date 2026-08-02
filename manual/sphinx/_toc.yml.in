@@ -62,6 +62,8 @@ subtrees:
             title: GLM-5.2-MXFP4 (SGLang)
           - file: recipes/kimi-k3.md
             title: Kimi-K3 (vLLM)
+          - file: recipes/kimi-k3-optimized.md
+            title: Kimi-K3 optimized (DSpark)
 
   - caption: Examples
     entries:
