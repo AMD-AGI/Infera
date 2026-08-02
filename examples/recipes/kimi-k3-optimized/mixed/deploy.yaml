@@ -6,7 +6,7 @@
 # output gate and a tri-projection dispatch. Same vLLM commit as the stock
 # kimi-k3 image (g5f76ae224), so the delta is kernels, not engine version.
 #
-#   base image   johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260801
+#   base image   johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260802
 #   overlay      inferaimage/infera-overlay v0.2.2
 #
 # Fill in <MODEL_DIR>: the directory holding Kimi-K3. Use LOCAL NVMe —

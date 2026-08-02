@@ -1,6 +1,6 @@
 # Kimi-K3 (optimized build) — pd — Kubernetes recipe
 #
-#   base image   johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260801
+#   base image   johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260802
 #   overlay      inferaimage/infera-overlay v0.2.2
 #   engine       infera.engine.vllm   TP8 per role, 1P1D
 #
