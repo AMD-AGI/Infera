@@ -5,7 +5,7 @@
 #   engine       infera.engine.vllm   TP8 per role, 1P1D, DSpark on BOTH roles
 #
 # Deploy:  THIS FILE CONTAINS PLACEHOLDERS — it cannot be applied directly.
-#          see README section 3 — four placeholders
+#          see README section 0 for the placeholders, section 4 for the command
 # Docs:    examples/recipes/kimi-k3-optimized/README.md
 #
 # --speculative-config IS ON BOTH ROLES, AND THAT IS NOT REDUNDANCY. The obvious

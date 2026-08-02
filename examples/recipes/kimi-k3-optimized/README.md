@@ -107,6 +107,13 @@ For the PD combinations, run it once **per node**, with that node's own director
 
 ```bash
 ./examples/recipes/kimi-k3-optimized/preflight.sh <PREFILL_NODE> <PREFILL_MODEL_DIR>
+./examples/recipes/kimi-k3-optimized/preflight.sh <DECODE_NODE>  <DECODE_MODEL_DIR>
+```
+
+For `pd-dspark`, pass `--dspark` on **both** lines — both roles load the draft:
+
+```bash
+./examples/recipes/kimi-k3-optimized/preflight.sh <PREFILL_NODE> <PREFILL_MODEL_DIR> --dspark
 ./examples/recipes/kimi-k3-optimized/preflight.sh <DECODE_NODE>  <DECODE_MODEL_DIR> --dspark
 ```
 
@@ -273,6 +280,19 @@ be equal on a uniform fleet, but assuming so is the single most likely way to ge
 the empty-mount crashloop described in §0 — determine each node's own path with
 `preflight.sh <NODE> --find`.
 
+### Tearing down
+
+The combinations cannot coexist — `mixed`/`mixed-dspark` take 8 GPUs, the PD pair
+takes all 16 — so switching between them means deleting the first:
+
+```bash
+kubectl -n infera delete inferadeployment <name>    # e.g. kimi-k3-opt-dspark
+```
+
+Use the name from the table below, not the directory name. GPUs are released when
+the pods finish terminating; `preflight.sh` will tell you when they are actually
+free.
+
 **The deployment name is not the directory name**, which matters for every
 `kubectl` command below:
 
@@ -289,20 +309,30 @@ the empty-mount crashloop described in §0 — determine each node's own path wi
 # Check the forward came up. If the port is already held, port-forward fails, the
 # curl below then silently returns nothing and exits 0 — a false negative on the
 # one health check you are running.
-kubectl -n infera port-forward svc/<name>-server 8000:8000 & PF=$!
-sleep 3; kill -0 $PF 2>/dev/null || { echo "port-forward failed"; exit 1; }
+# Any free local port will do — 8000 is often already taken by an earlier
+# port-forward. If this reports failure, pick another and change the curl below.
+kubectl -n infera port-forward svc/<name>-server 18000:8000 & PF=$!
+sleep 3; kill -0 $PF 2>/dev/null || { echo "port-forward failed — try another local port"; exit 1; }
 
 # --max-time is not optional. This system's failure mode is a HANG, not an error:
 # a request that cannot be served does not come back, and an un-timed curl waits
 # indefinitely while everything looks healthy.
-curl -s --max-time 300 localhost:8000/v1/chat/completions -H 'Content-Type: application/json' \
+curl -s --max-time 300 localhost:18000/v1/chat/completions -H 'Content-Type: application/json' \
   -d '{"model":"kimi-k3","messages":[{"role":"user","content":"What is the capital of France?"}],
        "max_tokens":200}' | jq -r '.choices[0].message.content'
 ```
 
-Expect ~130–150 completion tokens and `finish_reason: "stop"`. `max_tokens: 200`
-is enough; a tighter cap truncates the answer into something that reads like a
-broken deployment.
+Expect ~120–155 completion tokens and `finish_reason: "stop"`.
+
+```{admonition} Use max_tokens 1024, not 200
+:class: tip
+This model emits a reasoning preamble before the answer, and its length varies. At
+`max_tokens: 200` roughly one request in four comes back `"finish_reason":
+"length"` with 199 tokens of *"The user is asking a simple factual question…"* and
+never reaches "Paris" — which reads exactly like a broken deployment, on a
+deployment that is fine. Raise the cap; the answer still stops on its own at
+~150.
+```
 
 Keep `max_tokens` generous: this model spends 70+ completion tokens on that
 sentence, so a tight cap truncates it into something that reads like a broken
@@ -333,6 +363,7 @@ faster. Check the decode side instead:
 ```bash
 DEC=$(kubectl -n infera get pod -o name \
   -l infera.amd.com/deployment=kimi-k3-opt-pd,infera.amd.com/service=decode | head -1)
+  # for pd-dspark: deployment=kimi-k3-opt-pd-dspark
 kubectl -n infera logs $DEC -c main | grep 'Engine 000' | tail -2
 ```
 
@@ -405,7 +436,7 @@ Absolute throughput favours the 16-GPU options; tokens **per GPU** never does:
 
 So the PD pair is not a throughput-efficiency play. What it buys is headroom
 (`pd` reaches 1217 tok/s where `mixed` tops out at 972) and latency
-(`pd-dspark` holds TPOT at 17 ms where `mixed` is at 49 ms). Pick on those, not on
+(`pd-dspark` holds TPOT at 17.44 ms at c=64 where `mixed` is at 48.81 ms). Pick on those, not on
 the tok/s column.
 
 The decode side held `External prefix cache hit rate` at 99.9% across all five

@@ -119,8 +119,8 @@ If you pin the older digest, the old ceiling still applies to you.
 
 ```bash
 sed -e 's|<PREFILL_NODE>|nodeA|' -e 's|<DECODE_NODE>|nodeB|' \
-    -e 's|<PREFILL_MODEL_DIR>|/local/nvme/models|' \
-    -e 's|<DECODE_MODEL_DIR>|/local/nvme/models|' \
+    -e 's|<PREFILL_MODEL_DIR>|/mnt/local-nvme/models|' \
+    -e 's|<DECODE_MODEL_DIR>|/mnt/array/models|' \
     examples/recipes/kimi-k3-optimized/pd/deploy.yaml | kubectl apply -f -
 ```
 
@@ -148,8 +148,8 @@ Below c=32 it is a straight loss on both counts.
 
 ```bash
 sed -e 's|<PREFILL_NODE>|nodeA|' -e 's|<DECODE_NODE>|nodeB|' \
-    -e 's|<PREFILL_MODEL_DIR>|/local/nvme/models|' \
-    -e 's|<DECODE_MODEL_DIR>|/local/nvme/models|' \
+    -e 's|<PREFILL_MODEL_DIR>|/mnt/local-nvme/models|' \
+    -e 's|<DECODE_MODEL_DIR>|/mnt/array/models|' \
     examples/recipes/kimi-k3-optimized/pd-dspark/deploy.yaml | kubectl apply -f -
 ```
 
@@ -171,6 +171,9 @@ No layer filtering fixes that — both sides must compute the count the same way
 
 Loading the draft on the prefiller is the **price of that agreement**, not an
 oversight. It is never run there, and both nodes need the draft on disk.
+
+Both failures **hang rather than error**: all pods Ready, health checks green,
+restarts 0, no inference logged, and the client waits until its own timeout.
 ```
 
 | 1024 in / 128 out | tok/s | vs `pd` | TPOT |
@@ -185,10 +188,6 @@ Speculation helps PD far more than it helps Mixed (1.68× vs 1.10× at c=16) —
 the decode role is not competing with prefill for the same GPUs. It still crosses
 over at c=64, but even there TPOT is less than half of plain PD's.
 
-
-Both failures **hang rather than error**: all pods Ready, health checks green,
-restarts 0, no inference logged, and the client waits until its own timeout.
-```
 :::
 
 ::::
@@ -225,11 +224,18 @@ top of weight load and CUDA-graph capture.
 ## 4. Smoke test
 
 ```bash
-kubectl -n infera port-forward svc/<name>-server 8000:8000 &
-curl -s localhost:8000/v1/chat/completions -H 'Content-Type: application/json' \
+kubectl -n infera port-forward svc/<name>-server 18000:8000 & PF=$!
+sleep 3; kill -0 $PF 2>/dev/null || { echo "port-forward failed — try another local port"; exit 1; }
+
+# --max-time is not optional: this system's failure mode is a HANG, not an error.
+curl -s --max-time 300 localhost:18000/v1/chat/completions -H 'Content-Type: application/json' \
   -d '{"model":"kimi-k3","messages":[{"role":"user","content":"What is the capital of France?"}],
-       "max_tokens":200}' | jq -r '.choices[0].message.content'
+       "max_tokens":1024}' | jq -r '.choices[0].message.content'
 ```
+
+`max_tokens: 1024`, not 200: the model emits a variable-length reasoning preamble,
+and at 200 roughly one request in four returns `finish_reason: "length"` having
+never reached the answer — which reads like a broken deployment on a healthy one.
 
 Keep `max_tokens` generous — this model spends 70+ tokens on that sentence.
 
@@ -254,6 +260,7 @@ throughput` near zero.
 | `attention_backend: ROCM_AITER_MLA` | the ROCm counterpart of the upstream quick-start's `FLASHINFER_MLA`. Dropping the key instead of translating it is not the fix |
 | `--gpu-memory-utilization 0.88` | the draft's weights land after the KV budget is computed; `0.95` dies with 998 MB free trying to allocate 2.32 GiB |
 | `INFERA_ENGINE_READY_TIMEOUT=7200` | the 1800 s default is impossible on slow storage, and the worker then restarts mid-load forever — which reads as a crash loop, not as slow storage |
+| PD: each node needs its **own local** copy | the `model` volume is a `hostPath`, and the paths need not match between nodes. The fleet's obvious shared mount may be an NFS export of the peer's array — one side then loads for ~95 min and restarts forever |
 | PD: never point a misbehaving client at it | the engine validates **after** prefill, so a rejected request has already had its KV computed and queued. 84 requests rejected for one bad field left 424 aborted Mooncake transfers and stalled valid traffic for ~20 minutes with `MooncakeXferMetadata transfer failed: Resource temporarily unavailable`, which reads exactly like a broken fabric |
 
 `ibv_devices` is **not installed** in this image; reading its "not found" as "no

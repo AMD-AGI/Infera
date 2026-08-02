@@ -112,9 +112,12 @@ alloc=$(kubectl get node "$NODE" -o jsonpath='{.status.allocatable.amd\.com/gpu}
 if [ -z "$alloc" ]; then
   bad "node $NODE not found, or advertises no amd.com/gpu"
 else
-  used=$(kubectl -n "$NS" get pods --field-selector spec.nodeName="$NODE",status.phase=Running \
-          -o jsonpath='{range .items[*].spec.containers[*]}{.resources.requests.amd\.com/gpu}{"\n"}{end}' 2>/dev/null \
-        | awk '{s+=$1} END{print s+0}')
+  # ALL namespaces, and not only Running: a pod in another namespace holds the GPU
+  # just as hard, and one still ContainerCreating has already had it assigned.
+  # Scoping this to $NS reported "8 of 8 free" on a node with nothing free.
+  used=$(kubectl get pods --all-namespaces --field-selector spec.nodeName="$NODE" \
+          -o jsonpath='{range .items[?(@.status.phase!="Succeeded")]}{range .spec.containers[*]}{.resources.requests.amd\.com/gpu}{"\n"}{end}{end}' 2>/dev/null \
+        | awk '$1 ~ /^[0-9]+$/ {s+=$1} END{print s+0}')
   free=$((alloc - used))
   [ "$free" -ge 8 ] \
     && ok "node $NODE: $free of $alloc GPUs free" \
@@ -122,9 +125,13 @@ else
 fi
 
 # --- the model directory, ON THAT NODE ---------------------------------------
-# A pod is the only way to see the node's filesystem from here. hostPath type
-# DirectoryOrCreate rather than Directory: a missing path must be reported by
-# this script, not turned into a pod that fails to schedule.
+# A pod is the only way to see the node's filesystem from here. It mounts the
+# PARENT and looks inside, so nothing is created: an earlier version used
+# hostPath type DirectoryOrCreate on MODEL_DIR itself, which meant checking a
+# typo'd path CREATED it -- and a later `hostPath type: Directory` deploy then
+# succeeded on that empty directory, turning a fast mount failure into the
+# 12-minute crashloop this script exists to prevent. A check must not make the
+# thing it checks more broken.
 POD=preflight-$$
 kubectl -n "$NS" delete pod "$POD" --ignore-not-found >/dev/null 2>&1
 cat <<EOF | kubectl apply -f - >/dev/null 2>&1
@@ -138,10 +145,10 @@ spec:
   containers:
   - name: p
     image: busybox
-    command: ["sh","-c","for d in Kimi-K3 Kimi-K3-DSpark; do if [ -d /m/\$d ]; then echo \"HAVE \$d \$(ls /m/\$d/*.safetensors 2>/dev/null | wc -l)\"; else echo \"MISS \$d\"; fi; done; echo \"FSTYPE \$(df -PT /m | tail -1 | awk '{print \$2}')\"; echo \"SOURCE \$(df -P /m | tail -1 | awk '{print \$1}')\""]
-    volumeMounts: [{name: m, mountPath: /m}]
+    command: ["sh","-c","B=/m$MODEL_DIR; if [ ! -d \$B ]; then echo NOPATH; exit 0; fi; for d in Kimi-K3 Kimi-K3-DSpark; do if [ -d \$B/\$d ]; then echo \"HAVE \$d \$(ls \$B/\$d/*.safetensors 2>/dev/null | wc -l) \$(du -sm \$B/\$d 2>/dev/null | awk '{print \$1}')\"; else echo \"MISS \$d\"; fi; done; echo \"FSTYPE \$(df -PT \$B | tail -1 | awk '{print \$2}')\"; echo \"SOURCE \$(df -P \$B | tail -1 | awk '{print \$1}')\""]
+    volumeMounts: [{name: m, mountPath: /m, readOnly: true}]
   volumes:
-  - {name: m, hostPath: {path: $MODEL_DIR, type: DirectoryOrCreate}}
+  - {name: m, hostPath: {path: /, type: Directory}}
 EOF
 i=0
 while [ $i -lt 40 ]; do
@@ -152,23 +159,37 @@ done
 out=$(kubectl -n "$NS" logs "$POD" 2>/dev/null)
 kubectl -n "$NS" delete pod "$POD" --ignore-not-found >/dev/null 2>&1
 
-if [ -z "$out" ]; then
+if [ "$out" = "NOPATH" ]; then
+  bad "$MODEL_DIR does not exist on $NODE"
+elif [ -z "$out" ]; then
   bad "could not inspect $MODEL_DIR on $NODE (probe pod produced no output)"
 else
   n=$(echo "$out" | awk '/^HAVE Kimi-K3 /{print $3}')
+  mb=$(echo "$out" | awk '/^HAVE Kimi-K3 /{print $4}')
   if [ -z "$n" ]; then
     bad "$MODEL_DIR/Kimi-K3 not present on $NODE — this is the case that mounts fine and crashloops later"
   elif [ "$n" -lt 90 ]; then
     bad "$MODEL_DIR/Kimi-K3 on $NODE has only $n safetensors shards (expected 96) — incomplete copy"
+  elif [ "${mb:-0}" -lt 100000 ]; then
+    # Counting files is not enough: a failed or in-flight download leaves the
+    # right number of zero-byte or partial shards. Kimi-K3 is ~1.4 TB.
+    bad "$MODEL_DIR/Kimi-K3 on $NODE has $n shards but only ${mb} MB — incomplete or still downloading (expect ~1400000 MB)"
   else
-    ok "$MODEL_DIR/Kimi-K3 on $NODE: $n shards"
+    ok "$MODEL_DIR/Kimi-K3 on $NODE: $n shards, ${mb} MB"
   fi
 
   if [ "$WANT_DRAFT" = "--dspark" ]; then
+    # $d is a COUNT, not a presence flag. An earlier version tested [ -n "$d" ],
+    # which is true for the string "0" -- so an empty draft directory passed, in
+    # exactly the case this script exists to catch.
     d=$(echo "$out" | awk '/^HAVE Kimi-K3-DSpark /{print $3}')
-    [ -n "$d" ] \
-      && ok "$MODEL_DIR/Kimi-K3-DSpark on $NODE present" \
-      || bad "$MODEL_DIR/Kimi-K3-DSpark missing on $NODE — required for the speculative combinations"
+    if [ -z "$d" ]; then
+      bad "$MODEL_DIR/Kimi-K3-DSpark missing on $NODE — required for the speculative combinations"
+    elif [ "$d" -lt 1 ]; then
+      bad "$MODEL_DIR/Kimi-K3-DSpark on $NODE exists but holds no safetensors — an interrupted download leaves exactly this"
+    else
+      ok "$MODEL_DIR/Kimi-K3-DSpark on $NODE: $d shard(s)"
+    fi
   fi
 
   fs=$(echo "$out" | awk '/^FSTYPE/{print $2}')
@@ -182,5 +203,5 @@ else
 fi
 
 echo
-[ "$FAIL" = 0 ] && echo "pre-flight: PASS" || echo "pre-flight: FAIL — fix the above before deploying; the failures below show up 12-14 minutes in, as something else"
+[ "$FAIL" = 0 ] && echo "pre-flight: PASS" || echo "pre-flight: FAIL — fix the failures above before deploying. Each of them otherwise surfaces 12-14 minutes in, as something else."
 exit "$FAIL"
