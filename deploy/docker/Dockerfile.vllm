@@ -83,6 +83,32 @@ RUN if [ "${BUILD_MOONCAKE}" = "1" ]; then \
     fi \
     && rm -rf /tmp/build_mooncake_rocm.sh /tmp/mooncake_cpp
 
+# ---- 3b) assert the HIP-transport gate is in the .so this image will LOAD ----
+# Same defect class as the sglang image: a build that skips or silently no-ops
+# the Mooncake rebuild ships stock upstream #2682, which installs the HIP
+# transport unconditionally and prefers it over RDMA -> cross-node PD dies with
+# hipIpcOpenMemHandle 201. Separate layer so it runs in BOTH BUILD_MOONCAKE
+# branches and is visible in `docker history`. For images built FROM an already
+# published image (where this stage never re-runs), use the artifact-level check:
+#   deploy/docker/scripts/verify_image_mooncake.sh <image>
+ARG REQUIRE_MOONCAKE_HIP_GATE=1
+RUN set -eu; \
+    if [ "${REQUIRE_MOONCAKE_HIP_GATE}" != "1" ]; then \
+        echo "REQUIRE_MOONCAKE_HIP_GATE=0 — skipping HIP-transport gate assertion"; \
+    else \
+        so_dir="$(python3 -c 'import mooncake, os; print(os.path.dirname(mooncake.__file__))')"; \
+        so="$(ls "$so_dir"/engine*.so | head -1)"; \
+        for v in MC_ENABLE_HIP_TRANSPORT MC_DISABLE_HIP_TRANSPORT; do \
+            n="$(strings "$so" | grep -c "$v" || true)"; \
+            [ "$n" != "0" ] || { \
+                echo "ERROR: $so lacks $v — stock upstream #2682 installs the HIP" >&2; \
+                echo "       transport unconditionally and prefers it over RDMA, so" >&2; \
+                echo "       cross-node PD dies with hipIpcOpenMemHandle 201." >&2; \
+                exit 1; }; \
+        done; \
+        echo "MOONCAKE_HIP_GATE=present ($so)"; \
+    fi
+
 # ---- 4) hipFile (AIS gpu-direct L3) ---------------------------------------
 # WHY: kvd's gpu-direct L3 needs libhipfile + the `ais-check` probe; a missing
 # ais-check SILENTLY downgrades the load path to CPU-bounce. HOW: build_hipfile.sh

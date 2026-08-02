@@ -15,10 +15,12 @@ WORKDIR /opt/infera
 # The v0.5.15.post1 base bundles Mooncake at upstream #2682. Rebuild it IN PLACE
 # (no extra version) so a single image supports every KV-transfer config and the
 # choice is made at RUNTIME:
-#   * HIP intra-node P2P transport — opt-in via MC_ENABLE_HIP_TRANSPORT=1 (default
-#     OFF so CROSS-NODE PD stays on RDMA; #2682 installs it unconditionally and
-#     prefers it over RDMA, breaking cross-node PD — hipIpcOpenMemHandle can't
-#     open a peer's handle).
+#   * HIP intra-node P2P transport — OFF on ROCm. #2682 installs it
+#     unconditionally and selectTransport prefers it over RDMA, which breaks
+#     cross-node PD: a hipIpc handle is host-local by construction, so a peer
+#     NODE's hipIpcOpenMemHandle fails ("invalid device context", 201).
+#     MC_ENABLE_HIP_TRANSPORT=1 opts back in for single-node-only P2P;
+#     MC_DISABLE_HIP_TRANSPORT=1 (infera's default) vetoes even that.
 #   * dma-buf GPUDirect (ibv_reg_dmabuf_mr) vs bare ibv_reg_mr+peermem — the
 #     dma-buf branch is COMPILED IN (fixing #2682's CMake propagation bug that
 #     silently drops it), and #2682's own runtime switch then decides per
@@ -37,6 +39,33 @@ RUN if [ "${BUILD_MOONCAKE}" = "1" ]; then \
         echo "BUILD_MOONCAKE=0 — leaving base Mooncake as-is"; \
     fi \
     && rm -rf /tmp/build_mooncake_sglang.sh /tmp/mooncake_cpp
+
+# ---- assert the gate is in the .so this image will LOAD -----------------------
+# Separate layer on purpose: it runs in BOTH BUILD_MOONCAKE branches, so
+# BUILD_MOONCAKE=0 can no longer silently ship a stock #2682 engine.so that
+# breaks cross-node PD. It also leaves a visible marker in `docker history`,
+# so you can tell from a published image whether the check ever ran.
+# This does NOT catch an image built FROM an already-published infera image
+# (the stage simply never re-runs) — for that, run the artifact-level check:
+#   deploy/docker/scripts/verify_image_mooncake.sh <image>
+# Set REQUIRE_MOONCAKE_HIP_GATE=0 to build an image deliberately without it.
+ARG REQUIRE_MOONCAKE_HIP_GATE=1
+RUN set -eu; \
+    if [ "${REQUIRE_MOONCAKE_HIP_GATE}" != "1" ]; then \
+        echo "REQUIRE_MOONCAKE_HIP_GATE=0 — skipping HIP-transport gate assertion"; \
+    else \
+        so_dir="$(python3 -c 'import mooncake, os; print(os.path.dirname(mooncake.__file__))')"; \
+        so="$(ls "$so_dir"/engine*.so | head -1)"; \
+        for v in MC_ENABLE_HIP_TRANSPORT MC_DISABLE_HIP_TRANSPORT; do \
+            n="$(strings "$so" | grep -c "$v" || true)"; \
+            [ "$n" != "0" ] || { \
+                echo "ERROR: $so lacks $v — stock upstream #2682 installs the HIP" >&2; \
+                echo "       transport unconditionally and prefers it over RDMA, so" >&2; \
+                echo "       cross-node PD dies with hipIpcOpenMemHandle 201." >&2; \
+                exit 1; }; \
+        done; \
+        echo "MOONCAKE_HIP_GATE=present ($so)"; \
+    fi
 
 # ---- libionic (host ionic ABI match) -----------------------------------------
 # WHY: the sglang base ships libionic with an old kernel ABI (e.g. 54.0-149 = ABI

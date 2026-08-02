@@ -6,8 +6,12 @@
 #   the cmake/ninja build — both required for cross-node GDR on AMD (MI355X+ionic).
 #   B.1 CMakeLists: propagate USE_HIP_DMABUF+hsa-runtime64 to rdma_transport (else
 #       the ibv_reg_dmabuf_mr branch compiles out -> bare ibv_reg_mr fails on ionic).
-#   B.2 transfer_engine_impl: gate installTransport("hip") behind MC_ENABLE_HIP_TRANSPORT
-#       (else GPU bufs become intra-node hip IPC segments a cross-node peer can't open).
+#   B.2 transfer_engine_impl: do NOT installTransport("hip") on ROCm by default
+#       (else GPU bufs become intra-node hip IPC segments a cross-node peer can't
+#       open — an IPC handle is host-local, so hipIpcOpenMemHandle on a peer NODE
+#       fails with "invalid device context"/201). MC_ENABLE_HIP_TRANSPORT=1 opts
+#       back in for single-node-only P2P; MC_DISABLE_HIP_TRANSPORT=1 vetoes even
+#       that, so infera's rocm_rdma_env.py default is honoured rather than a no-op.
 #   B.3 rdma_auto_chunk_mr_2017: split buffers larger than the device max_mr_size
 #       into <=max_mr_size MRs (one BufferDesc per chunk) instead of silently
 #       truncating ibv_reg_mr — on ionic (max_mr_size ~2GiB) a truncated MR makes

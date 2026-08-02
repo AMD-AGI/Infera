@@ -45,7 +45,8 @@ ones that matter.
 |---|---|---|
 | `MC_GID_INDEX` | `1` | Mooncake **RoCEv2 (routable) GID index** — `1` on our ionic fleet; verify with `show_gids` (often 1 or 3). Index 0 is the link-local/RoCEv1 GID and times out cross-node. |
 | `NCCL_IB_GID_INDEX` | `1` | Same idea for the collectives (RCCL) path. |
-| `MC_DISABLE_HIP_TRANSPORT` | `1` (cross-node) | Force RDMA instead of the intra-node HIP/XGMI shortcut (which advertises an empty segment a remote peer rejects). |
+| `MC_DISABLE_HIP_TRANSPORT` | `1` | Force RDMA instead of the intra-node HIP (hipIpc) transport. Belt-and-braces only: our image already defaults that transport OFF. A hipIpc handle is host-local, so a peer node's `hipIpcOpenMemHandle` fails with `201 - invalid device context` and cross-node PD dies. |
+| `MC_ENABLE_HIP_TRANSPORT` | unset | Escape hatch: opt the HIP intra-node P2P transport back **in**. Single-node deployments only — it breaks cross-node PD. `MC_DISABLE_HIP_TRANSPORT=1` overrides it. |
 | `MORI_IB_GID_INDEX` | `1` | RoCEv2 GID index for the MoRI transport. |
 | `VLLM_HOST_IP` | *(none)* | Routable IP a vLLM worker advertises for KV transfer (cross-node). Pair with `--advertise-host`. |
 | `RDMAV_FORK_SAFE` | `1` | libibverbs fork-safety; set for RDMA workers. |

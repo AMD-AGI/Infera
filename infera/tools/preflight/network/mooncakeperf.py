@@ -404,11 +404,16 @@ def _spawn(
     env.pop("MC_GID_INDEX", None)
     env.pop("MC_FORCE_TCP", None)
     env.pop("MC_DISABLE_HIP_TRANSPORT", None)
+    # An inherited MC_ENABLE_HIP_TRANSPORT would re-install the hipIpc transport
+    # and skew every variant, so clear it too rather than letting the caller's
+    # shell leak into the measurement.
+    env.pop("MC_ENABLE_HIP_TRANSPORT", None)
     if protocol == "rdma":
         # Documented cross-node requirement (Infera rocm_rdma_env default): force
-        # RDMA, not the intra-node HIP/XGMI shortcut, which advertises an empty
-        # segment the peer rejects. Set on all rdma variants so rdma-default varies
-        # ONLY in the missing MC_GID_INDEX it is meant to demonstrate.
+        # RDMA, not the intra-node HIP (hipIpc) transport, whose handles are
+        # host-local and so cannot be opened by a peer node. Set on all rdma
+        # variants so rdma-default varies ONLY in the missing MC_GID_INDEX it is
+        # meant to demonstrate.
         env["MC_DISABLE_HIP_TRANSPORT"] = "1"
     if env_kind == "gid":
         env["MC_GID_INDEX"] = str(_ref_gid())

@@ -191,8 +191,14 @@ Intra-host PD "just works." Cross-host PD moves the KV over RDMA and needs care:
   `NCCL_IB_GID_INDEX=1` for the collectives path). Infera sets these defaults on
   ROCm for you; the default index 0 is link-local and times out on `QP → RTR`
   between hosts.
-- **Force RDMA, not the intra-node shortcut** — Mooncake: `MC_DISABLE_HIP_TRANSPORT=1`
-  (else its XGMI path advertises an empty segment the peer rejects).
+- **Force RDMA, not the intra-node shortcut** — Mooncake: `MC_DISABLE_HIP_TRANSPORT=1`.
+  Our image already defaults the HIP (hipIpc) transport OFF, so this is
+  belt-and-braces. Upstream Mooncake installs it unconditionally and prefers it
+  over RDMA for GPU→GPU; because a hipIpc handle is host-local by construction, a
+  peer node can never open it and KV transfer dies with
+  `hipIpcOpenMemHandle failed (Error code: 201 - invalid device context)` — even
+  though RDMA itself is healthy. If you see that line, your image predates the
+  gate; check it with `deploy/docker/scripts/verify_image_mooncake.sh <image>`.
 - **Routable addresses + shared etcd** — `--advertise-host <node-ip>`, all
   workers/servers on one reachable `--etcd-endpoint`.
 
@@ -255,7 +261,7 @@ flags like `--advertise-host` / `--kv-transfer-config` cover the rest.
 |---|---|---|
 | `MC_GID_INDEX` | `1` | Mooncake RoCEv2 GID index — index 0 is link-local and times out cross-node. |
 | `NCCL_IB_GID_INDEX` | `1` | RoCEv2 GID index for the collectives (RCCL) path. |
-| `MC_DISABLE_HIP_TRANSPORT` | `1` | Force RDMA, not the intra-node HIP/XGMI shortcut (cross-node). |
+| `MC_DISABLE_HIP_TRANSPORT` | `1` | Force RDMA, not the HIP (hipIpc) transport. Already the image default; set explicitly as belt-and-braces. |
 | `MORI_IB_GID_INDEX` | `1` | RoCEv2 GID index for the MoRIIO transport. |
 | `VLLM_MORIIO_CONNECTOR_READ_MODE` | `1` | MoRIIO read/pull mode (decode reads KV from prefill). Set on both legs. |
 | `VLLM_HOST_IP` | *(routable IP)* | Address a vLLM worker advertises for KV transfer; pair with `--advertise-host`. |
