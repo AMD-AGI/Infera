@@ -181,6 +181,28 @@ async def main() -> None:
             args.advertise_host = pod_ip
             logger.info("k8s discovery: advertising Pod IP %s", pod_ip)
 
+            # disagg_meta was already built during arg parsing, when advertise_host
+            # was still unset — so Mooncake's bootstrap_addr was frozen as the bind
+            # host. The prefiller then publishes "http://0.0.0.0:8998", the decoder
+            # reads it from kv_transfer_params and cannot connect:
+            #
+            #   Failed to connect to bootstrap server http://0.0.0.0:8998
+            #   Failed to find remote engine_id ...
+            #
+            # Both workers stay healthy and the request simply hangs to the
+            # connector's 480 s timeout, so nothing points at the address. Rebuild
+            # the address now that the routable host is known.
+            meta = args.disagg_meta or {}
+            params = meta.get("params") or {}
+            addr = params.get("bootstrap_addr")
+            if addr and "//0.0.0.0:" in addr:
+                params["bootstrap_addr"] = addr.replace("//0.0.0.0:", f"//{pod_ip}:")
+                logger.info(
+                    "k8s discovery: bootstrap_addr %s -> %s",
+                    addr,
+                    params["bootstrap_addr"],
+                )
+
     logger.info(
         "parsed args: model=%s host=%s port=%d disagg=%s disagg_meta=%s enable_kv_events=%s",
         args.model,
