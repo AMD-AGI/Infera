@@ -1,0 +1,91 @@
+GLM52_P1V3 — handle the REVERSED padding case in the aiter paged-MQA trim.
+
+Applies to, inside the container:
+  /sgl-workspace/sglang/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+
+Context: see notes.dsa.mtp.crash.md. The existing GLM52_P1V2 trim assumes
+padding only ever makes q_fp8 LONGER than the real row count
+(_p1v2_real < _p1v2_padded). On a DP-attention IDLE rank under MTP
+draft-extend the inequality inverts:
+
+    mode=ForwardMode.IDLE q_fp8=(1,32,128) q_offset=2 ntnp=0 lengths=(2,) -> mqa_q=(1,...)
+
+`2 < 1` is False, so no trim runs; aiter then sizes its logits from
+q_fp8.shape[0]=1 while `lengths` has 2 entries, and fast_topk_v2 asserts
+"Expected lengths.size(0) == B to be true".
+
+The fix cannot be a trim -- there are FEWER query rows than lengths entries,
+so there is nothing to cut. Both sides must be reconciled to the number of
+rows actually present, which is what the kernel can compute over.
+
+--- BEFORE (line ~937) ---
+
+            _p1v2_trim = _p1v2_real < _p1v2_padded
+            _q_mqa, _w_mqa = q_fp8, weights
+            if _p1v2_trim:
+                _q_mqa = q_fp8[:_p1v2_real]
+                _w_mqa = weights[:_p1v2_real]
+
+--- AFTER ---
+
+            # GLM52_P1V3: the padding can go BOTH ways.
+            #
+            #   real < padded : the #32762 case -- q_fp8 carries DP padding.
+            #                   Trim q/weights down to the real count.
+            #   real > padded : IDLE ranks under MTP draft-extend. q_offset
+            #                   (sum of dsa_extend_len_cpu) overcounts the rows
+            #                   actually materialized in q_fp8. Nothing can be
+            #                   trimmed; instead the LENGTHS handed to the
+            #                   kernel must be clipped to the rows present,
+            #                   otherwise fast_topk_v2 asserts.
+            #
+            # _p1v2_rows is the single source of truth for both the aiter call
+            # and the top-k below.
+            _p1v2_rows = min(_p1v2_real, _p1v2_padded)
+            _p1v2_trim = _p1v2_rows < _p1v2_padded
+            _p1v2_clip = _p1v2_rows < _p1v2_real       # the inverted case
+            _q_mqa, _w_mqa = q_fp8, weights
+            if _p1v2_trim:
+                _q_mqa = q_fp8[:_p1v2_rows]
+                _w_mqa = weights[:_p1v2_rows]
+
+--- BEFORE (line ~1017, after `topk_result = metadata.topk_transform(...)`) ---
+
+        topk_result = metadata.topk_transform(logits, self.index_topk)
+        if _p1v2_trim:
+            assert topk_result.shape[0] == _p1v2_real, (
+
+--- AFTER ---
+
+        # GLM52_P1V3: when the row count was clipped (real > padded), the
+        # lengths tensor the transform will index must be clipped to match, or
+        # the kernel sees score.shape[0] < lengths.shape[0]. Passed explicitly
+        # rather than mutating metadata, which is shared and graph-captured.
+        if _p1v2_clip:
+            topk_result = metadata.topk_transform(
+                logits, self.index_topk, ke_offset=metadata.get_seqlens_expanded()[:_p1v2_rows]
+            )
+        else:
+            topk_result = metadata.topk_transform(logits, self.index_topk)
+        if _p1v2_trim:
+            assert topk_result.shape[0] == _p1v2_rows, (
+
+  (and in the same assert message, _p1v2_real -> _p1v2_rows, plus the
+   padding size below becomes _p1v2_padded - _p1v2_rows)
+
+NOTE ON SCOPE / RISK
+--------------------
+This changes engine code inside the image under test, which is exactly what
+the mission is measuring. It is therefore recorded as a patch and the
+resulting Case A numbers must be reported as "merged-e + P1V3", not as
+stock merged-e.
+
+`ke_offset` is an existing parameter of DSAIndexerMetadata.topk_transform
+(dsa_backend.py:333) whose only effect is to override `seq_lens_topk`, so
+this rides an intended extension point rather than reaching into internals.
+
+VERIFY AFTER APPLYING (stale bytecode has invalidated an experiment here before):
+    docker exec bench_run python3 -c "
+    import sglang.srt.layers.attention.dsa.dsa_indexer as m, inspect
+    s=inspect.getsource(m); print('P1V3:', s.count('GLM52_P1V3'))"
+    # then confirm the .pyc mtime is newer than the .py, or delete __pycache__

@@ -1,0 +1,104 @@
+# =============================================================================
+# GLM-5.2 SOLO LATENCY FLOOR  —  Case A request shape at concurrency EXACTLY 1
+# -----------------------------------------------------------------------------
+# Derived from glm52_crxx_caseA.fix.yaml. The QUESTION is different, so only the
+# load block changed:
+#
+#   Case A asks   "what does the service do under a realistic agentic load?"
+#   This asks     "with zero queueing interference, how fast can it possibly be?"
+#
+# Everything that defines a REQUEST is byte-identical to Case A — the same
+# input/output percentile triples, the same 0.89 cache-hit construction, the same
+# 260000 clamp, the same seed, the same tokenizer, the same 400 s warm-up. What
+# changed is everything that defines CONCURRENCY. Any measured gap between this
+# run and Case A is therefore attributable to load, not to a different workload.
+#
+# WHY EACH KNOB IS WHAT IT IS  (mechanism, from agent_throughput.py)
+#
+#   turns_per_session {1,1,1}
+#       PercentileSampler(1,1,1) collapses: vmin == vmax == 1, so sample_int()
+#       returns 1 with probability 1 (verified offline). session_loop then
+#       retires the session after its single turn — and it does so on the
+#       `break` path BEFORE the inter-turn sleep, so inter_turn_delay_s is never
+#       executed. The gap between requests is therefore NOT the 18.4 s Case A
+#       think time; it is only the main loop's 1 Hz respawn tick.
+#
+#   max_sessions 1
+#       The real concurrency gate. The control loop spawns only while
+#       `active_sessions < max_sessions`, and count_active_sessions() counts a
+#       session that is in_flight. So while a request is on the wire, no second
+#       session can be born. This is what pins concurrency at 1 — not
+#       max_inflight.
+#
+#   new_session_rate 1.0
+#       Bernoulli draw per ~1 s tick. At 1.0 the replacement session is created
+#       on the very next tick after the previous one retires, so the duty cycle
+#       loss is <= 1 s per request (~3.5% of a ~14 s E2E — it costs sample
+#       count, not per-request latency).
+#
+#   max_inflight 1
+#       Belt-and-braces only. If the session accounting is right this gate never
+#       fires. If the driver prints its "Hit max_inflight" warning, the run is
+#       suspect and the session bookkeeping should be re-read before trusting
+#       any number.
+#
+#   initial_sessions 1
+#       Matches the steady state, so t=0 is already the operating point.
+#
+# WHAT THIS RUN CANNOT TELL YOU
+#   At ~1 request per ~14 s, a 1800 s measured window holds ~120-140 samples.
+#   p50 and p90 are solid; p99 is ONE OR TWO REQUESTS and must be read as an
+#   indication, not a percentile. Shortening requests to buy samples was
+#   rejected: it would break "same shape as Case A", which is the whole basis
+#   for the comparison.
+# =============================================================================
+workload:
+
+  # --- Request profile: IDENTICAL to Case A. Do not touch. -------------------
+  profile:
+    input_tokens:        { p50: 74000,  p90: 155000, p99: 235000 }
+    output_tokens:       { p50: 320,    p90: 3300,   p99: 17000 }
+    # CHANGED (the point of this run): one request per session, always.
+    turns_per_session:   { p50: 1,      p90: 1,      p99: 1 }
+    # Retained verbatim for provenance. UNREACHABLE at turns=1 — session_loop
+    # breaks out on the turn budget before it ever sleeps. Deleting it would
+    # make this file look like a different workload; it is not.
+    inter_turn_delay_s:  { p50: 4,      p90: 31,     p99: 240 }
+    cache_hit_rate:      0.89
+    max_input_tokens:    260000
+
+  # --- Speculative decoding accounting: unchanged ---------------------------
+  acc_len:               1.56
+  mtp_draft_tokens:      5
+  mtp_overhead_factor:   1.0
+
+  # --- Offered load: ONE request in flight, always --------------------------
+  initial_sessions:      1
+  new_session_rate:      1.0     # respawn on the next tick after retirement
+  max_sessions:          1       # THE concurrency gate (in_flight counts as active)
+  max_inflight:          1       # safety valve; should never fire
+
+  # --- Measurement window ---------------------------------------------------
+  # ramp 400 kept identical to Case A so the 231K-token shared prefix is
+  # resident and the comparison starts from the same cache state.
+  ramp_duration:         400
+  # 30 min measured, as specified. Total = 2200 s + drain (~37 min).
+  sustain_duration:      1800
+
+  # --- Request framing: unchanged -------------------------------------------
+  system_prompt_len:     2000
+  max_prompt_tokens:     260000
+  tokenizer:             /mnt/vast/xiaobo/models/GLM-5.2-MXFP4
+
+  # --- SLA: carried over from Case A for reference ---------------------------
+  # Documentation only — args.sla_cfg is parsed and never consumed. At
+  # concurrency 1 these are a latency FLOOR check, not a capacity check.
+  sla:
+    e2e_p50_ms:          4500
+    ttft_p90_ms:         30000
+    success_rate:        0.97
+
+  # --- Misc: unchanged ------------------------------------------------------
+  gpus:                  8
+  window:                30
+  random_seed:           1337    # same seed as Case A
