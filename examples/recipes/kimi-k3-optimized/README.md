@@ -15,6 +15,7 @@ kernels, not engine version.
 |---|---|---|
 | **mixed** | [`mixed/`](mixed/deploy.yaml) | concurrency above 8 — and it is the faster recipe there |
 | **mixed + DSpark** | [`mixed-dspark/`](mixed-dspark/deploy.yaml) | concurrency ≤ 8, where speculation is worth 1.9–2.2× |
+| **pd** | [`pd/`](pd/deploy.yaml) | you have two nodes on a routable RoCE fabric and want prefill and decode batched separately |
 
 DSpark is speculative decoding with a block-diffusion draft model that drafts 7
 tokens in one parallel pass. The draft is a community checkpoint
@@ -66,6 +67,17 @@ sed 's|<MODEL_DIR>|/your/local/nvme/models|' \
 kubectl -n infera get pods -w
 ```
 
+`pd/` takes four placeholders instead, because the two roles land on different
+nodes and each reads its **own local** copy — the paths do not have to match, and
+on this fleet they do not:
+
+```bash
+sed -e 's|<PREFILL_NODE>|chi2800|'      -e 's|<DECODE_NODE>|chi2866|' \
+    -e 's|<PREFILL_MODEL_DIR>|/mnt/k3local/models/moonshotai|' \
+    -e 's|<DECODE_MODEL_DIR>|/mnt/nvmeraid/models/moonshotai|' \
+    examples/recipes/kimi-k3-optimized/pd/deploy.yaml | kubectl apply -f -
+```
+
 ## 4. Smoke test
 
 ```bash
@@ -95,6 +107,24 @@ kubectl -n infera logs $POD -c main | grep -oE 'Mean acceptance length: [0-9.]+'
 `running the draft eagerly` means the draft fell back to Triton instead of being
 captured into CUDA graphs, which costs about 5% of decode throughput.
 
+On `pd`, the correct answer proves nothing on its own: if the KV handoff fails
+open, the decoder simply re-prefills locally and returns the same text. Check the
+**decode** side instead —
+
+```bash
+DEC=$(kubectl -n infera get pod -o name -l infera.amd.com/service=decode | head -1)
+kubectl -n infera logs $DEC -c main | grep 'Engine 000' | tail -2
+```
+
+```
+Avg prompt throughput: 0.1 tokens/s, Avg generation throughput: 7.8 tokens/s,
+  ... External prefix cache hit rate: 100.0%
+```
+
+`External prefix cache hit rate: 100.0%` with `Avg prompt throughput` near zero is
+the handoff working: the decoder computed no prefill and took the KV off the wire.
+The prefill pod is the mirror image — all prompt throughput, no generation.
+
 ## 5. Measured results
 
 8× MI355X, TP8, `--max-model-len 1048576`, BF16 KV, on k3s through the infera
@@ -110,7 +140,19 @@ time ÷ tokens-per-step, so it flatters speculation and swings with acceptance.
 
 A DSpark step costs 2.35× a baseline step and delivers ~3.85 tokens instead of 1.
 
-**1024 in / 128 out, output token throughput:**
+**pd, 2139 in / 127 out, 1P1D over two nodes — 16 GPUs:**
+
+| concurrency | output tok/s | P50 | P90 |
+|---:|---:|---:|---:|
+| 4 | 130.15 | 3.59 s | 4.27 s |
+| 8 | 229.61 | 4.34 s | 4.59 s |
+| 16 | 386.28 | 4.63 s | 6.09 s |
+
+These are deliberately **not** in the table below. `pd` uses 16 GPUs against
+`mixed`'s 8 *and* was measured at a 2139-token prompt against its 1024 — two
+differences at once, so any ratio between the two tables measures nothing.
+
+**mixed, 1024 in / 128 out, output token throughput — 8 GPUs:**
 
 | concurrency | mixed | mixed + DSpark | speedup |
 |---:|---:|---:|---:|
@@ -134,6 +176,8 @@ Each row is a failure that was hit and diagnosed on this hardware, not a prefere
 | `attention_backend: ROCM_AITER_MLA` | in the speculative config. The upstream quick-start says `FLASHINFER_MLA`, which is CUDA-only; **omitting the key entirely is not the fix** — this is its ROCm counterpart |
 | `--gpu-memory-utilization 0.88` | the draft's weights land after the KV budget is computed. At `0.95` the run dies with 998 MB free trying to allocate 2.32 GiB |
 | `INFERA_ENGINE_READY_TIMEOUT=7200` | infera's 1800 s default is generous for local NVMe and impossible for anything slower; the worker then kills itself mid-load and restarts forever, which reads as a crash loop rather than as slow storage |
+| `pd`: each node needs its **own local** copy of the weights | the `model` volume is a `hostPath`, so the two nodes need not use the same path — and on this fleet the tempting common name (`/mnt/shared`) is an NFS export of the *other* node's array. Mounting it on both sides turns one side's 8-minute load into ~95 minutes, which then exceeds the ready timeout and restarts forever. `df -hT <dir>` on each node and take the local device |
+| `pd`: never point a client at it that sends requests the engine will reject | the engine validates **after** prefill, so a rejected request has already had its KV computed and queued for transfer. 84 requests rejected for one bad field (`min_tokens` equal to `max_tokens`, which fails because the server silently decrements `max_tokens` by 1) left 424 aborted Mooncake transfers — 53 requests × 8 TP ranks — and stalled *valid* traffic behind the backlog for ~20 minutes. It presents as `MooncakeXferMetadata transfer failed: Resource temporarily unavailable` and reads exactly like a broken fabric |
 
 ## 7. Validation status
 
@@ -141,8 +185,30 @@ Each row is a failure that was hit and diagnosed on this hardware, not a prefere
 |---|---|
 | `mixed/deploy.yaml` as written | **validated end-to-end** — ready in ~10 min, correct answer, c=4/8/16 measured |
 | `mixed-dspark/deploy.yaml` as written | **validated end-to-end** — ready in ~14 min, correct answer, c=4/8 measured, c≥16 confirmed to crash |
-| PD / kvd combinations | not built for this image |
+| `pd/deploy.yaml` as written | **validated end-to-end across two nodes** — see below |
+| `pd` + DSpark | not attempted. Speculation is decode-side and its behaviour in the `kv_consumer` role is a separate unknown |
+| kvd combinations | not built for this image |
 | fp8 KV cache | not measured here |
+
+The `pd` run was 1P1D on chi2800 (prefill) and chi2866 (decode), 8 GPUs each:
+
+| | |
+|---|---|
+| both roles Ready | 790 s, 0 restarts |
+| RDMA devices | 8 on each side, via `ibv_get_device_list` |
+| handoff verified | decode at `External prefix cache hit rate: 100.0%` with ~0 prompt throughput; prefill at 2010.5 tok/s prompt and ~0 generation |
+| clean requests | 131 consecutive (47 correctness + 84 sweep), 0 failed transfers |
+
+`ibv_devices` is **not installed** in this image. Running it and reading `not
+found` as "no RDMA devices" is a mistake that cost two false TCP-fallback
+diagnoses here; `ibv_get_device_list` reported 8 the whole time:
+
+```bash
+kubectl -n infera exec <pod> -c main -- python3 -c '
+import ctypes; lib = ctypes.CDLL("libibverbs.so.1")
+lib.ibv_get_device_list.restype = ctypes.POINTER(ctypes.c_void_p)
+n = ctypes.c_int(0); lib.ibv_get_device_list(ctypes.byref(n)); print(n.value)'
+```
 
 Against the upstream quick-start for this image, three of its numbers reproduce
 closely and three of its claims do not:

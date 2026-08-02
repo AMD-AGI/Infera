@@ -57,6 +57,34 @@ this manifest's best result (359.72 at `c=8`).
 ```
 :::
 
+:::{tab-item} PD
+:sync: pd
+
+Prefill and decode on separate nodes, KV handed over RDMA. **16 GPUs**, not 8.
+
+```bash
+sed -e 's|<PREFILL_NODE>|nodeA|' -e 's|<DECODE_NODE>|nodeB|' \
+    -e 's|<PREFILL_MODEL_DIR>|/local/nvme/models|' \
+    -e 's|<DECODE_MODEL_DIR>|/local/nvme/models|' \
+    examples/recipes/kimi-k3-optimized/pd/deploy.yaml | kubectl apply -f -
+```
+
+| 2139 in / 127 out | tok/s | P50 | P90 |
+|---:|---:|---:|---:|
+| c=4 | 130.15 | 3.59 s | 4.27 s |
+| c=8 | 229.61 | 4.34 s | 4.59 s |
+| c=16 | 386.28 | 4.63 s | 6.09 s |
+
+```{admonition} Do not read these against the Mixed tab
+:class: warning
+This is 16 GPUs against Mixed's 8, measured at a 2139-token prompt against its
+1024. Two differences at once — the ratio between the tabs measures nothing.
+```
+
+No speculation here: DSpark is decode-side and its behaviour in the `kv_consumer`
+role is a separate unknown. Do not graft `--speculative-config` onto this manifest.
+:::
+
 ::::
 
 ## 2. Prerequisites
@@ -108,8 +136,27 @@ kubectl -n infera logs <worker-pod> -c main | grep -oE 'Mean acceptance length: 
 
 ## 5. Validation status
 
-Both manifests were **run end-to-end as written** on k3s (MI355X, 8 GPUs, 1M
-context, BF16 KV), through the infera router.
+All three manifests were **run end-to-end as written** on k3s (MI355X, 1M context,
+BF16 KV), through the infera router — `mixed` and `mixed-dspark` on 8 GPUs, `pd` as
+1P1D across two nodes.
+
+For `pd`, a correct answer proves nothing on its own: if the KV handoff fails open,
+the decoder re-prefills locally and returns the same text. The tell is on the decode
+side — `External prefix cache hit rate: 100.0%` with `Avg prompt throughput` near
+zero, against the prefill side's 2010.5 tok/s prompt and ~0 generation. That held
+for 131 consecutive requests with zero failed transfers.
+
+```{admonition} Do not point a misbehaving client at a PD deployment
+:class: warning
+The engine validates **after** prefill, so a request it rejects has already had its
+KV computed and queued for transfer. 84 requests rejected for a single bad field
+left 424 aborted Mooncake transfers — 53 requests × 8 TP ranks — and stalled valid
+traffic behind the backlog for ~20 minutes, with
+
+    MooncakeXferMetadata transfer failed: Resource temporarily unavailable
+
+which reads exactly like a broken fabric. It was a broken client.
+```
 
 Against the upstream quick-start for this image, three numbers reproduce and three
 claims do not:
