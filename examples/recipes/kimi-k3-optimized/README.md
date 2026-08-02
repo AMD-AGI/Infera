@@ -420,7 +420,7 @@ Each row is a failure that was hit and diagnosed on this hardware, not a prefere
 | Setting | Why |
 |---|---|
 | the `KIMI_K3_*` / `VLLM_ROCM_*` env block | these select the optimized kernels. Without them the MoE asks aiter for a kernel that was never generated: `ValueError: Invalid FlyDSL kernel name: flydsl_moe1_..._t16x64x256_...` — there is no Kimi-K3 `tuned_fmoe.csv`, while dsv3/dsv4/glm5 all have one |
-| `VLLM_ROCM_USE_KIMI_K3_PREROUTE_BF16=0` | must be `0`. The pre-route dispatch tries BF16 first and a `1` shadows the FP8 cluster entirely — silently, at ~40% of throughput |
+| `VLLM_ROCM_USE_KIMI_K3_PREROUTE_BF16=0` | must be `0`. A `1` makes the pre-route dispatch take BF16 and shadows the FP8 cluster. **Measured on this image**, against the same manifest with `0`: 124.34 vs 241.69 tok/s at c=8 (51% of baseline) and 331.56 vs 427.86 at c=16 (78%) — the penalty is worst at low concurrency, not a flat factor. It is silent in every other respect: the worker starts normally, logs no warning, and median TPOT barely moves (28.52 vs 27.85 ms at c=8), so latency monitoring will not show it |
 | `attention_backend: ROCM_AITER_MLA` | in the speculative config. The upstream quick-start says `FLASHINFER_MLA`, which is CUDA-only; **omitting the key entirely is not the fix** — this is its ROCm counterpart |
 | `--gpu-memory-utilization 0.88` | the draft's weights land after the KV budget is computed. At `0.95` the run dies with 998 MB free trying to allocate 2.32 GiB |
 | `INFERA_ENGINE_READY_TIMEOUT=7200` | infera's 1800 s default is generous for local NVMe and impossible for anything slower; the worker then kills itself mid-load and restarts forever, which reads as a crash loop rather than as slow storage |

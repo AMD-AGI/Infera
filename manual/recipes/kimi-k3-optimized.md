@@ -250,7 +250,7 @@ throughput` near zero.
 | Setting | Why |
 |---|---|
 | the `KIMI_K3_*` / `VLLM_ROCM_*` env block | selects the optimized kernels. Without them the MoE asks aiter for a kernel that was never generated — `Invalid FlyDSL kernel name: flydsl_moe1_...` — because there is no Kimi-K3 `tuned_fmoe.csv` |
-| `VLLM_ROCM_USE_KIMI_K3_PREROUTE_BF16=0` | must be `0`; a `1` shadows the FP8 cluster silently, at ~40% of throughput |
+| `VLLM_ROCM_USE_KIMI_K3_PREROUTE_BF16=0` | must be `0`. A `1` shadows the FP8 cluster: measured 124.34 vs 241.69 tok/s at c=8 (51% of baseline), 331.56 vs 427.86 at c=16 (78%). Silent otherwise — starts fine, no warning, and TPOT barely moves, so latency monitoring misses it |
 | `attention_backend: ROCM_AITER_MLA` | the ROCm counterpart of the upstream quick-start's `FLASHINFER_MLA`. Dropping the key instead of translating it is not the fix |
 | `--gpu-memory-utilization 0.88` | the draft's weights land after the KV budget is computed; `0.95` dies with 998 MB free trying to allocate 2.32 GiB |
 | `INFERA_ENGINE_READY_TIMEOUT=7200` | the 1800 s default is impossible on slow storage, and the worker then restarts mid-load forever — which reads as a crash loop, not as slow storage |
