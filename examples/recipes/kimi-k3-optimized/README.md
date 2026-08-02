@@ -18,8 +18,25 @@ redundancy — see §7.
 ## 0. Placeholders you must fill in
 
 **Every manifest in this directory is a template.** None of them can be applied
-directly, and applying one anyway is *accepted by the API server* — the placeholder
-passes CRD validation — then fails minutes later at mount time. Substitute first.
+directly, and the API server accepts them anyway — placeholders pass CRD
+validation. What happens next depends on which one you left in, and neither is
+obvious:
+
+- **`<MODEL_DIR>` left in** → the Pod is created and fails at mount time with
+  `hostPath type check failed: <MODEL_DIR> is not a directory`.
+- **`<NODE>` left in** → **no Pod is ever created.** `kubectl apply` prints
+  `created` and exits 0, `kubectl get pods` shows nothing, and the
+  InferaDeployment's status stays empty. The only error is in the *operator's* log,
+  in a different namespace:
+  ```
+  kubectl -n infera-system logs deploy/infera-operator
+  ERROR Reconciler error ... spec.template.spec.nodeSelector: Invalid value: "<NODE>":
+    a valid label must be an empty string or consist of alphanumeric characters...
+  ```
+  Waiting for a Pod that will never appear is the expensive part. If `get pods`
+  returns nothing a minute after apply, read the operator log.
+
+Substitute first.
 
 | Placeholder | In | What it is | How to find it |
 |---|---|---|---|
@@ -45,18 +62,27 @@ weights — the mount succeeds and the engine crashloops several minutes later w
 
 which reads as a bad model name and points nowhere near the real cause.
 
-Find it, per node, rather than assuming:
+Find it **per node**, rather than assuming. You normally cannot log into the node,
+and for PD you cannot read it off an existing deployment either — PD needs every
+GPU, so the deployment you would have read it from has to be deleted first:
 
 ```bash
-# read it off a deployment that already works
-kubectl -n infera get deploy <any-worker-deploy> \
-  -o jsonpath='{.spec.template.spec.volumes[?(@.name=="model")].hostPath.path}{"\n"}'
+./examples/recipes/kimi-k3-optimized/preflight.sh <NODE> --find
+```
 
-# or look on the node itself (needs a shell there, or a privileged pod)
-find /mnt -maxdepth 4 -name 'Kimi-K3' 2>/dev/null
+```
+Kimi-K3 directories on node-b:
+  96   shards  /mnt/shared/models/moonshotai
+  96   shards  /mnt/array/models/moonshotai
+  96   shards  /mnt/vast/team/models/moonshotai
+```
 
-# then confirm it is LOCAL storage on that node, not a network mount
-df -hT <dir>
+**All three look identical and only one is right.** Shard count and directory
+layout do not distinguish local storage from a network mount, so confirm each
+candidate — that check mounts the path directly and reports the backing device:
+
+```bash
+./examples/recipes/kimi-k3-optimized/preflight.sh <NODE> /mnt/array/models/moonshotai
 ```
 
 That last check is not a formality. The obvious shared-looking mount on this fleet
@@ -147,7 +173,8 @@ If you are still on the 20260801 digest, the old ceiling still applies to you.
 ## 3. Prerequisites
 
 ```bash
-# nodes must advertise amd.com/gpu
+# nodes must advertise amd.com/gpu. NOTE this is CAPACITY, not availability — a
+# fully occupied node still prints 8. preflight.sh reports what is actually free.
 kubectl get nodes -o custom-columns=NODE:.metadata.name,GPU:.status.allocatable.'amd\.com/gpu'
 
 # every manifest here hardcodes `namespace: infera`, and nothing else creates it
@@ -207,27 +234,44 @@ even though it never runs the draft. Provisioning it on only one node fails with
 missing path, which reads like a typo in the manifest rather than a missing 6.7 GB
 directory.
 
-First start is **12–14 min**: the image rebuilds its AITER JIT modules in-container
+First start is **10–14 min**: the image rebuilds its AITER JIT modules in-container
 on top of weight load and CUDA-graph capture.
 
 ## 4. Deploy
 
+The 8-GPU combinations take **two** placeholders. `<NODE>` pins the server and the
+worker to one node: both mount the weights by `hostPath` and are scheduled
+independently, so without it they can land on different nodes and the one that
+guesses wrong fails.
+
 ```bash
-sed 's|<MODEL_DIR>|/your/local/nvme/models|' \
-  examples/recipes/kimi-k3-optimized/<mixed|mixed-dspark>/deploy.yaml | kubectl apply -f -
+sed -e 's|<MODEL_DIR>|/mnt/local-nvme/models|' -e 's|<NODE>|node-a|' \
+  examples/recipes/kimi-k3-optimized/mixed/deploy.yaml | kubectl apply -f -
+
+kubectl -n infera get pods -w
 ```
+
+Replace `mixed` with `mixed-dspark` for the speculative variant.
+
+If `get pods` shows nothing a minute after `apply`, a placeholder survived — see
+§0; that failure reports only in the operator's log, in another namespace.
 
 The PD combinations take four placeholders, because the roles land on different
 nodes and each reads its own local copy:
 
 ```bash
 sed -e 's|<PREFILL_NODE>|nodeA|'      -e 's|<DECODE_NODE>|nodeB|' \
-    -e 's|<PREFILL_MODEL_DIR>|/local/nvme/models|' \
-    -e 's|<DECODE_MODEL_DIR>|/local/nvme/models|' \
+    -e 's|<PREFILL_MODEL_DIR>|/mnt/local-nvme/models|' \
+    -e 's|<DECODE_MODEL_DIR>|/mnt/array/models|' \
     examples/recipes/kimi-k3-optimized/pd/deploy.yaml | kubectl apply -f -
 ```
 
 Replace `pd` with `pd-dspark` for the speculative variant.
+
+The two model directories are **deliberately different in that example.** They may
+be equal on a uniform fleet, but assuming so is the single most likely way to get
+the empty-mount crashloop described in §0 — determine each node's own path with
+`preflight.sh <NODE> --find`.
 
 **The deployment name is not the directory name**, which matters for every
 `kubectl` command below:
@@ -242,12 +286,23 @@ Replace `pd` with `pd-dspark` for the speculative variant.
 ## 5. Smoke test
 
 ```bash
-kubectl -n infera port-forward svc/<name>-server 8000:8000 &
+# Check the forward came up. If the port is already held, port-forward fails, the
+# curl below then silently returns nothing and exits 0 — a false negative on the
+# one health check you are running.
+kubectl -n infera port-forward svc/<name>-server 8000:8000 & PF=$!
+sleep 3; kill -0 $PF 2>/dev/null || { echo "port-forward failed"; exit 1; }
 
-curl -s localhost:8000/v1/chat/completions -H 'Content-Type: application/json' \
+# --max-time is not optional. This system's failure mode is a HANG, not an error:
+# a request that cannot be served does not come back, and an un-timed curl waits
+# indefinitely while everything looks healthy.
+curl -s --max-time 300 localhost:8000/v1/chat/completions -H 'Content-Type: application/json' \
   -d '{"model":"kimi-k3","messages":[{"role":"user","content":"What is the capital of France?"}],
        "max_tokens":200}' | jq -r '.choices[0].message.content'
 ```
+
+Expect ~130–150 completion tokens and `finish_reason: "stop"`. `max_tokens: 200`
+is enough; a tighter cap truncates the answer into something that reads like a
+broken deployment.
 
 Keep `max_tokens` generous: this model spends 70+ completion tokens on that
 sentence, so a tight cap truncates it into something that reads like a broken
@@ -280,6 +335,10 @@ DEC=$(kubectl -n infera get pod -o name \
   -l infera.amd.com/deployment=kimi-k3-opt-pd,infera.amd.com/service=decode | head -1)
 kubectl -n infera logs $DEC -c main | grep 'Engine 000' | tail -2
 ```
+
+Run this **within about a minute of the request.** vLLM logs these lines only for a
+couple of intervals after traffic stops, so later on `tail -2` returns two idle
+`0.0 / 0.0` lines and tells you nothing.
 
 ```
 Avg prompt throughput: 0.1 tokens/s, Avg generation throughput: 7.8 tokens/s,

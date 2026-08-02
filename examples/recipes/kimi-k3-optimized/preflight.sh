@@ -6,7 +6,8 @@
 ###############################################################################
 # Pre-flight for a kimi-k3-optimized deployment.
 #
-#   ./preflight.sh <NODE> <MODEL_DIR> [--dspark]
+#   ./preflight.sh <NODE> --find                  -- where are the weights on that node?
+#   ./preflight.sh <NODE> <MODEL_DIR> [--dspark]  -- is this deployment going to work?
 #
 # Checks, from the reader's position (kubectl only — no shell on the node), the
 # things that otherwise surface 12-14 minutes into a deploy and blame something
@@ -33,7 +34,62 @@
 #
 # Exit 0 = clear to deploy. Exit 1 = at least one check failed.
 set -u
-NODE="${1:?usage: preflight.sh <NODE> <MODEL_DIR> [--dspark]}"
+
+# --- discovery mode ----------------------------------------------------------
+# `preflight.sh <NODE> --find` answers the question the checks below assume you
+# have already answered: where are the weights ON THAT NODE. You generally cannot
+# log into it, and reading the path off an existing deployment does not work for
+# PD -- PD needs all the GPUs, so the deployment you would have read it from has
+# to be deleted first.
+if [ "${2:-}" = "--find" ]; then
+    NODE="${1:?usage: preflight.sh <NODE> --find}"
+    POD=preflight-find-$$
+    kubectl -n infera delete pod "$POD" --ignore-not-found >/dev/null 2>&1
+    cat <<EOF | kubectl apply -f - >/dev/null 2>&1
+apiVersion: v1
+kind: Pod
+metadata: {name: $POD, namespace: infera}
+spec:
+  nodeSelector: {kubernetes.io/hostname: $NODE}
+  restartPolicy: Never
+  tolerations: [{operator: Exists}]
+  containers:
+  - name: p
+    image: busybox
+    command: ["sh","-c","find /host/mnt -maxdepth 5 -name 'Kimi-K3' -type d 2>/dev/null | while read d; do echo \"\$(ls \$d/*.safetensors 2>/dev/null | wc -l) \$(dirname \$d)\"; done"]
+    volumeMounts: [{name: h, mountPath: /host, readOnly: true}]
+  volumes:
+  - {name: h, hostPath: {path: /, type: Directory}}
+EOF
+    i=0
+    while [ $i -lt 60 ]; do
+        ph=$(kubectl -n infera get pod "$POD" -o jsonpath='{.status.phase}' 2>/dev/null)
+        case "$ph" in Succeeded|Failed) break;; esac
+        i=$((i+1)); sleep 3
+    done
+    out=$(kubectl -n infera logs "$POD" 2>/dev/null)
+    kubectl -n infera delete pod "$POD" --ignore-not-found >/dev/null 2>&1
+    if [ -z "$out" ]; then
+        echo "no Kimi-K3 directory found on $NODE under /mnt"
+        exit 1
+    fi
+    echo "Kimi-K3 directories on $NODE:"
+    echo "$out" | sed 's|/host||' | while read n dir; do
+        printf '  %-4s shards  %s\n' "$n" "$dir"
+    done
+    echo
+    # Deliberately NOT reporting the filesystem here. Through a hostPath mount of
+    # / the node's submounts are not propagated, so df inside this pod reports the
+    # root filesystem for every path and would mislabel a local array as network
+    # storage -- steering you away from the right answer. The full check below
+    # mounts the candidate directly, where df is correct.
+    echo "This lists candidates only. Several of these are usually network mounts,"
+    echo "which look identical here and cost ~95 min of weight load. Confirm each:"
+    echo "  $0 $NODE <one of the above>"
+    exit 0
+fi
+
+NODE="${1:?usage: preflight.sh <NODE> <MODEL_DIR> [--dspark]   |   preflight.sh <NODE> --find}"
 MODEL_DIR="${2:?usage: preflight.sh <NODE> <MODEL_DIR> [--dspark]}"
 WANT_DRAFT="${3:-}"
 NS=infera

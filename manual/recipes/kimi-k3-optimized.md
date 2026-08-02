@@ -23,15 +23,14 @@ placeholder passes CRD validation) and then fails minutes later at mount time.
 
 **The model path is site-specific and a mixed fleet may not agree with itself.** On
 the fleet these were validated on, the two GPU nodes use different paths for the
-same weights. Read it off a working deployment
-(`kubectl -n infera get deploy <w> -o jsonpath='{.spec.template.spec.volumes[?(@.name=="model")].hostPath.path}'`)
-or `find /mnt -maxdepth 4 -name 'Kimi-K3'`, then confirm with `df -hT` that it is
-local storage on that node — the obvious shared-looking mount may be an NFS export
-of the peer's array, which puts one side on a ~95-minute load.
+same weights. Find each node's own with `preflight.sh <NODE> --find`, then confirm
+the candidate with `preflight.sh <NODE> <DIR>` — several candidates usually look
+identical (same shard count, same layout) while only one is local storage.
 
-A path that is absent fails with `hostPath type check failed`. A path that **exists
-but is empty** mounts fine and crashloops minutes later with a HuggingFace repo-id
-error that points nowhere near the cause.
+Leaving a placeholder in has two different outcomes, neither obvious. `<MODEL_DIR>`
+creates a Pod that fails at mount time. `<NODE>` creates **no Pod at all** —
+`apply` prints `created`, `get pods` shows nothing, and the only error is in the
+operator's log in the `infera-system` namespace.
 
 `<NODE>` exists because both the server and the worker mount the weights by
 hostPath and are scheduled independently — without it they can land on different
