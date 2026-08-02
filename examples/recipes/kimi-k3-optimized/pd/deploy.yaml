@@ -4,7 +4,8 @@
 #   overlay      inferaimage/infera-overlay v0.2.2
 #   engine       infera.engine.vllm   TP8 per role, 1P1D
 #
-# Deploy:  kubectl apply -f examples/recipes/kimi-k3-optimized/pd/deploy.yaml
+# Deploy:  THIS FILE CONTAINS PLACEHOLDERS — it cannot be applied directly.
+#          see README section 3 — four placeholders
 # Docs:    examples/recipes/kimi-k3-optimized/README.md
 #
 # NO SPECULATION HERE — that is ../pd-dspark/, which is validated. This file is

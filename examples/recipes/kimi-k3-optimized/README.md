@@ -10,9 +10,10 @@ than a combo on it, because it is a different artifact. It is the same vLLM comm
 (`g5f76ae224`) as the stock `vllm/vllm-openai-rocm:kimi-k3`, so the delta is
 kernels, not engine version.
 
-`mixed`, `mixed-dspark` and `pd` were **run end-to-end as written** on the image
-they pin. `pd-dspark` needs `--speculative-config` on **both** roles, which is not
-redundancy — see §7.
+All four combinations were **run end-to-end** on the image they pin, with the
+placeholders substituted — the files themselves are templates and cannot be applied
+as-is. `pd-dspark` needs `--speculative-config` on **both** roles, which is not
+redundancy — see §6.
 
 ## 1. Choose the combination
 
@@ -48,8 +49,24 @@ If you are still on the 20260801 digest, the old ceiling still applies to you.
 # nodes must advertise amd.com/gpu
 kubectl get nodes -o custom-columns=NODE:.metadata.name,GPU:.status.allocatable.'amd\.com/gpu'
 
-# the operator (provides the InferaDeployment CRD)
-helm install infera-operator deploy/operator/helm/infera-operator -n infera-system --create-namespace
+# every manifest here hardcodes `namespace: infera`, and nothing else creates it
+kubectl create namespace infera --dry-run=client -o yaml | kubectl apply -f -
+
+# the operator (provides the InferaDeployment CRD). Skip if already installed —
+# `helm install` fails on name reuse; use `helm upgrade --install` to be idempotent.
+helm upgrade --install infera-operator deploy/operator/helm/infera-operator \
+  -n infera-system --create-namespace
+```
+
+```{admonition} On k3s, helm needs KUBECONFIG spelled out
+:class: tip
+`kubectl` is a symlink to `k3s` and finds `/etc/rancher/k3s/k3s.yaml` implicitly.
+`helm` does not, and fails with `Kubernetes cluster unreachable: ... dial tcp
+[::1]:8080: connect: connection refused`. Export it first:
+
+```bash
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+```
 ```
 
 Both models go in one directory, mounted at `/models`:
@@ -59,7 +76,20 @@ hf download moonshotai/Kimi-K3      --local-dir <MODEL_DIR>/Kimi-K3
 hf download Inferact/Kimi-K3-DSpark --local-dir <MODEL_DIR>/Kimi-K3-DSpark   # DSpark only
 ```
 
-**`<MODEL_DIR>` must be local NVMe.** Kimi-K3's 96 shards load in ~8 min from local
+**Finding `<MODEL_DIR>` on a cluster where the weights already exist.** Nothing
+here can tell you the path — it is site-specific, and on a mixed fleet the nodes
+may not agree. Read it off a deployment that already works, or look for it:
+
+```bash
+# from an existing InferaDeployment
+kubectl -n infera get deploy <any-worker-deploy> \
+  -o jsonpath='{.spec.template.spec.volumes[?(@.name=="model")].hostPath.path}{"\n"}'
+
+# or search the node (needs a shell or a privileged pod on it)
+find /mnt -maxdepth 4 -name 'Kimi-K3' 2>/dev/null
+```
+
+**It must be local NVMe.** Kimi-K3's 96 shards load in ~8 min from local
 disk and ~95 min from NFS — and the slow path does not merely run late, it exceeds
 the ready timeout, so the worker restarts mid-load and never finishes.
 
@@ -70,9 +100,11 @@ node's array; using it on both sides puts one side on the 95-minute path. Check
 each node with `df -hT <dir>` and take the local device, not the convenient common
 name.
 
-For `pd-dspark`, **the draft must be on the decode node** — that is the role that
-loads it. Having it only on the prefill node fails with a missing path, which reads
-like a typo in the manifest rather than a missing 6.7 GB directory.
+For `pd-dspark`, **the draft must be on BOTH nodes.** Both roles carry
+`--speculative-config` and both load it — see §6 for why the prefiller needs it
+even though it never runs the draft. Provisioning it on only one node fails with a
+missing path, which reads like a typo in the manifest rather than a missing 6.7 GB
+directory.
 
 First start is **12–14 min**: the image rebuilds its AITER JIT modules in-container
 on top of weight load and CUDA-graph capture.
@@ -91,8 +123,20 @@ nodes and each reads its own local copy:
 sed -e 's|<PREFILL_NODE>|nodeA|'      -e 's|<DECODE_NODE>|nodeB|' \
     -e 's|<PREFILL_MODEL_DIR>|/local/nvme/models|' \
     -e 's|<DECODE_MODEL_DIR>|/local/nvme/models|' \
-    examples/recipes/kimi-k3-optimized/<pd|pd-dspark>/deploy.yaml | kubectl apply -f -
+    examples/recipes/kimi-k3-optimized/pd/deploy.yaml | kubectl apply -f -
 ```
+
+Replace `pd` with `pd-dspark` for the speculative variant.
+
+**The deployment name is not the directory name**, which matters for every
+`kubectl` command below:
+
+| directory | deployment / service prefix |
+|---|---|
+| `mixed/` | `kimi-k3-opt-base` |
+| `mixed-dspark/` | `kimi-k3-opt-dspark` |
+| `pd/` | `kimi-k3-opt-pd` |
+| `pd-dspark/` | `kimi-k3-opt-pd-dspark` |
 
 ## 4. Smoke test
 
@@ -112,7 +156,12 @@ deployment.
 inferring it from throughput later:
 
 ```bash
-POD=$(kubectl -n infera get pod -o name -l infera.amd.com/service=worker | head -1)   # or =decode for PD
+# Scope to the deployment. Without infera.amd.com/deployment, `head -1` may pick a
+# NON-speculative worker from another deployment in the namespace, and the check
+# then reports "speculation did not engage" against a perfectly good one.
+POD=$(kubectl -n infera get pod -o name \
+  -l infera.amd.com/deployment=kimi-k3-opt-dspark,infera.amd.com/service=worker | head -1)
+# for the PD variants: -l infera.amd.com/deployment=kimi-k3-opt-pd-dspark,infera.amd.com/service=decode
 
 kubectl -n infera logs $POD -c main | grep -oE "speculative_config=SpeculativeConfig\([^)]*\)" | tail -1
 kubectl -n infera logs $POD -c main | grep -c 'running the draft eagerly'   # must be 0
@@ -126,7 +175,8 @@ handoff fails open, the decoder re-prefills locally and returns the same text �
 faster. Check the decode side instead:
 
 ```bash
-DEC=$(kubectl -n infera get pod -o name -l infera.amd.com/service=decode | head -1)
+DEC=$(kubectl -n infera get pod -o name \
+  -l infera.amd.com/deployment=kimi-k3-opt-pd,infera.amd.com/service=decode | head -1)
 kubectl -n infera logs $DEC -c main | grep 'Engine 000' | tail -2
 ```
 
@@ -221,8 +271,14 @@ Each row is a failure that was hit and diagnosed on this hardware, not a prefere
 RDMA devices" produced two false TCP-fallback diagnoses here; ask the library
 instead:
 
+Run it in a **prefill or decode** pod. The server pod runs the same image but does
+not mount `/dev/infiniband` and is not privileged, so it reports `0` — reproducing
+the very false negative this check exists to prevent:
+
 ```bash
-kubectl -n infera exec <pod> -c main -- python3 -c '
+POD=$(kubectl -n infera get pod -o name \
+  -l infera.amd.com/deployment=kimi-k3-opt-pd,infera.amd.com/service=decode | head -1)
+kubectl -n infera exec $POD -c main -- python3 -c '
 import ctypes; lib = ctypes.CDLL("libibverbs.so.1")
 lib.ibv_get_device_list.restype = ctypes.POINTER(ctypes.c_void_p)
 n = ctypes.c_int(0); lib.ibv_get_device_list(ctypes.byref(n)); print(n.value)'
@@ -281,10 +337,10 @@ the answer text, and why every probe here carries an explicit timeout.
 
 | What | Status |
 |---|---|
-| `mixed/deploy.yaml` as written | **validated** — ready ~12 min, correct answer, c=4…64 swept |
-| `mixed-dspark/deploy.yaml` as written | **validated** — ready ~12 min, c=4…64 swept, 0 restarts, assertion count 0 |
-| `pd/deploy.yaml` as written | **validated cross-node** — ready ~12 min, c=4…64 swept, extcache 99.9% throughout |
-| `pd-dspark/deploy.yaml` as written | **validated cross-node** — both roles Ready in ~14 min, 0 restarts; sweep below |
+| `mixed/deploy.yaml`, placeholders substituted | **validated** — ready ~12 min, correct answer, c=4…64 swept |
+| `mixed-dspark/deploy.yaml`, placeholders substituted | **validated** — ready ~12 min, c=4…64 swept, 0 restarts, assertion count 0 |
+| `pd/deploy.yaml`, placeholders substituted | **validated cross-node** — ready ~12 min, c=4…64 swept, extcache 99.9% throughout |
+| `pd-dspark/deploy.yaml`, placeholders substituted | **validated cross-node** — both roles Ready in ~14 min, 0 restarts; sweep below |
 | `pd-dspark` with speculation on **decode only** | **hangs**, two separate ways — see above. Do not ship it |
 | kvd combinations | not built for this image |
 | fp8 KV cache | not measured here |

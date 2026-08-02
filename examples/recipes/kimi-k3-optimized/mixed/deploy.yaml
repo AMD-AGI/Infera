@@ -13,7 +13,8 @@
 # 96 shards load in ~8 min from local disk and ~95 min from NFS, and the slow path
 # does not merely run late, it exceeds the ready timeout and restarts forever.
 #
-# Deploy:  kubectl apply -f examples/recipes/kimi-k3-optimized/mixed/deploy.yaml
+# Deploy:  THIS FILE CONTAINS PLACEHOLDERS — it cannot be applied directly.
+#          sed 's|<MODEL_DIR>|/your/models|; s|<NODE>|nodeA|' .../mixed/deploy.yaml | kubectl apply -f -
 #
 # MEASURED, this manifest, 8x MI355X TP8, 1M context, on the image it pins:
 #   1024 in / 128 out  c=4      56.78 tok/s
@@ -44,6 +45,13 @@ spec:
     server:
       componentType: server
       extraPodSpec:
+        # Both pods mount the weights as a hostPath, and both are scheduled
+        # independently — so without this they can land on different nodes. Where
+        # the fleet's model paths differ per node, the one that guesses wrong
+        # crashloops with
+        #   ValueError: '/models/Kimi-K3': not a local path and HF resolution failed
+        # which reads as a bad model name, not as a bad node. Pin both.
+        nodeSelector: {kubernetes.io/hostname: <NODE>}
         initContainers:
         - name: infera-overlay
           image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
@@ -113,6 +121,13 @@ spec:
       role: mixed
       replicas: 1
       extraPodSpec:
+        # Both pods mount the weights as a hostPath, and both are scheduled
+        # independently — so without this they can land on different nodes. Where
+        # the fleet's model paths differ per node, the one that guesses wrong
+        # crashloops with
+        #   ValueError: '/models/Kimi-K3': not a local path and HF resolution failed
+        # which reads as a bad model name, not as a bad node. Pin both.
+        nodeSelector: {kubernetes.io/hostname: <NODE>}
         initContainers:
         - name: infera-overlay
           image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
@@ -168,7 +183,6 @@ spec:
           - http
           - --max-model-len
           - '1048576'
-          - --enable-prefix-caching
           env:
           - name: POD_NAME
             valueFrom:

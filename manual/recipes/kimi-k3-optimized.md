@@ -9,6 +9,19 @@ A separate entry from [Kimi-K3](kimi-k3) rather than a combination on it, becaus
 it is a different artifact. Same vLLM commit (`g5f76ae224`) as the stock image, so
 the delta is kernels, not engine version.
 
+```{admonition} These manifests are templates — a bare kubectl apply looks like it works
+:class: warning
+Every file here carries placeholders. Applying one directly is **accepted by the
+API server** (the placeholder passes CRD validation) and then fails minutes later
+at mount time with `hostPath type check failed: <MODEL_DIR> is not a directory`.
+Substitute first, as every command on this page does.
+
+`<NODE>` on the 8-GPU combinations pins the server and worker to one node: both
+mount the weights by `hostPath` and are scheduled independently, so on a fleet
+whose model paths differ per node the one that guesses wrong crashloops with a
+HuggingFace repo-id error that points nowhere near the cause.
+```
+
 ## 1. Choose the combination
 
 ::::{tab-set}
@@ -20,7 +33,8 @@ the delta is kernels, not engine version.
 measured.
 
 ```bash
-kubectl apply -f examples/recipes/kimi-k3-optimized/mixed/deploy.yaml
+sed -e 's|<MODEL_DIR>|/local/nvme/models|' -e 's|<NODE>|nodeA|' \
+    examples/recipes/kimi-k3-optimized/mixed/deploy.yaml | kubectl apply -f -
 ```
 
 | 1024 in / 128 out | tok/s | TPOT |
@@ -39,7 +53,8 @@ kubectl apply -f examples/recipes/kimi-k3-optimized/mixed/deploy.yaml
 per parallel pass. **Worth it up to c=16.**
 
 ```bash
-kubectl apply -f examples/recipes/kimi-k3-optimized/mixed-dspark/deploy.yaml
+sed -e 's|<MODEL_DIR>|/local/nvme/models|' -e 's|<NODE>|nodeA|' \
+    examples/recipes/kimi-k3-optimized/mixed-dspark/deploy.yaml | kubectl apply -f -
 ```
 
 | 1024 in / 128 out | tok/s | vs Mixed |
@@ -137,8 +152,6 @@ Speculation helps PD far more than it helps Mixed (1.68× vs 1.10× at c=16) —
 the decode role is not competing with prefill for the same GPUs. It still crosses
 over at c=64, but even there TPOT is less than half of plain PD's.
 
-```{admonition} placeholder
-:class: warning
 
 Both failures **hang rather than error**: all pods Ready, health checks green,
 restarts 0, no inference logged, and the client waits until its own timeout.
@@ -151,7 +164,14 @@ restarts 0, no inference logged, and the client waits until its own timeout.
 
 ```bash
 kubectl get nodes -o custom-columns=NODE:.metadata.name,GPU:.status.allocatable.'amd\.com/gpu'
-helm install infera-operator deploy/operator/helm/infera-operator -n infera-system --create-namespace
+
+# every manifest hardcodes `namespace: infera`, and nothing else creates it
+kubectl create namespace infera --dry-run=client -o yaml | kubectl apply -f -
+
+# on k3s, helm needs KUBECONFIG spelled out — kubectl finds it implicitly, helm does not
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+helm upgrade --install infera-operator deploy/operator/helm/infera-operator \
+  -n infera-system --create-namespace
 
 hf download moonshotai/Kimi-K3      --local-dir <MODEL_DIR>/Kimi-K3
 hf download Inferact/Kimi-K3-DSpark --local-dir <MODEL_DIR>/Kimi-K3-DSpark   # DSpark only
@@ -209,7 +229,8 @@ RDMA devices" produced two false TCP-fallback diagnoses here. Ask
 
 ## 5. Validation status
 
-Every combination was run end-to-end as written, on the image it pins, and every
+Every combination was run end-to-end on the image it pins, with placeholders
+substituted (the files are templates), and every
 number on this page comes from the same image — so the ratios are attributable to
 the manifests rather than to a base-image difference. That distinction is not
 academic: between the two images, `mixed` alone moved −15% at c=4 and +29% at c=8.
