@@ -110,6 +110,31 @@ if [ -e /host-libionic/libionic.so ]; then
     fi
 fi
 
+# --- vendor engine patches --------------------------------------------------
+# Fixes to the vendor's own code, applied here rather than baked into a forked
+# image — forking is exactly what this overlay exists to avoid. Each script
+# locates its target through the installed package, is idempotent, and no-ops
+# when the anchor is absent, so a base that already carries the fix is untouched
+# and the patch can stay in place across bumps.
+#
+# Currently: the Mooncake connector destructures every Mamba-family layer as a
+# 2-tuple, which is Mamba2's shape. Kimi-K3's KDA linear attention carries a
+# different number of state tensors, so PD died on every rank with "too many
+# values to unpack" during KV registration.
+#
+# Skipped entirely when INFERA_SKIP_ENGINE_PATCHES is set, and a failing patch
+# warns rather than blocking startup — a mis-anchored patch must not take down a
+# worker that would otherwise serve.
+if [ -d "$PAYLOAD_ROOT/patches/vllm" ] && [ -z "${INFERA_SKIP_ENGINE_PATCHES:-}" ]; then
+    if "$PY" -c 'import vllm' >/dev/null 2>&1; then
+        for _p in "$PAYLOAD_ROOT"/patches/vllm/*.py; do
+            [ -e "$_p" ] || continue
+            (cd / && PYTHONPATH="$PYTREE${PYTHONPATH:+:$PYTHONPATH}" "$PY" "$_p") \
+                || echo "infera-exec: patch $(basename "$_p") failed; continuing" >&2
+        done
+    fi
+fi
+
 # Python puts the working directory at sys.path[0] — ahead of PYTHONPATH. Vendor
 # images that already ship infera set WORKDIR to its parent (e.g. /opt/infera),
 # so the baked-in copy would silently shadow this payload and the overlay would

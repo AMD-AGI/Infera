@@ -112,5 +112,11 @@ COPY --from=deps312 /payload/py312 /payload/py312
 COPY --from=native312 /native /payload/native
 COPY --from=native310 /native /payload/native
 COPY --from=native312 /usr/local/bin/infera-router /payload/bin/infera-router
+# Engine patches applied at container start (see infera-exec). These fix vendor
+# code we do not otherwise ship — the overlay's whole point is not forking the
+# vendor image, and a runtime patch keeps that true where a rebuild would not.
+# Each script is self-locating, idempotent, and no-ops once upstream carries the
+# fix, so they are safe to leave in place across a base bump.
+COPY deploy/docker/patches/vllm/ /payload/patches/vllm/
 COPY deploy/overlay/infera-exec /payload/bin/infera-exec
 CMD ["sh", "-c", "cp -a /payload/. /out/ && echo 'infera overlay payload installed to /out'"]
