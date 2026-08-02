@@ -7,23 +7,29 @@
 # Deploy:  kubectl apply -f examples/recipes/kimi-k3-optimized/pd/deploy.yaml
 # Docs:    examples/recipes/kimi-k3-optimized/README.md
 #
-# NO SPECULATION HERE. DSpark is a decode-side draft and its interaction with the
-# kv_consumer role is a separate unknown; ../mixed-dspark/ is the speculative
-# recipe and it is mixed-only. Do not graft --speculative-config onto this file
-# without validating it — at c>=16 it fails even without PD.
+# NO SPECULATION HERE — that is ../pd-dspark/, which is validated. This file is
+# the control: same image, same nodes, same everything, minus one argument. Keep
+# it that way, so the pair stays a measurement of speculation rather than of two
+# unrelated configs.
 #
 # PD REQUIRES the two nodes to sit on a MUTUALLY ROUTABLE RoCE fabric. The KV
 # handoff is RDMA and there is no TCP fallback. Set <PREFILL_NODE>/<DECODE_NODE>.
 #
 # MEASURED, this manifest, 1P1D over 2x 8x MI355X = 16 GPUs, 1M context:
-#   ready              790 s both roles, 0 restarts
-#   2139 in / 127 out  c=4    130.15 tok/s   P50 3.59 s  P90 4.27 s
-#                      c=8    229.61 tok/s   P50 4.34 s  P90 4.59 s
-#                      c=16   386.28 tok/s   P50 4.63 s  P90 6.09 s
+#   1024 in / 128 out  c=4      50.38 tok/s   TPOT 23.20 ms
+#                      c=8     218.47         25.81
+#                      c=16    428.98         27.28
+#                      c=32    747.79         31.25
+#                      c=64   1217.32         38.12
 #
-# DO NOT compare those to ../mixed/ as a speedup. This is 16 GPUs against its 8,
-# and the prompt is 2139 tokens against its 1024 — two differences at once, so
-# the ratio measures nothing.
+# Against ../mixed/ on the SAME image (8 GPUs): 0.89x / 0.90x / 1.00x / 1.09x /
+# 1.25x. PD uses twice the hardware, so per GPU it never wins -- 1.25x on 2x the
+# GPUs is 0.63x per GPU at its best point. What it buys at c=64 is 1.25x
+# throughput AND 22% lower TPOT at once, which is the unusual part: those two
+# normally trade against each other. Below c=32 it is a straight loss on both.
+#
+# The decode side held External prefix cache hit rate at 99.9% across all five
+# concurrencies, so the handoff never silently failed open.
 #
 # The tell that the handoff is real is on the DECODE side, and it is not
 # throughput: `External prefix cache hit rate: 100.0%` with `Avg prompt
@@ -62,7 +68,7 @@ spec:
           - {name: overlay, mountPath: /overlay}
         containers:
         - name: main
-          image: johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260801@sha256:a3584d74f256ca7c33b1ac9e5598897123d28e9faf9860e188a2e82a9b5530e3
+          image: johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260802@sha256:5f3007aff1bc231eceb9f024e56ee80e44f9ca101a521aa50fe6bfa6c979d6b8
           imagePullPolicy: IfNotPresent
           command: ["/overlay/bin/infera-exec","python3","-m","infera.server",
                     "--host","0.0.0.0","--port","8000",
@@ -104,7 +110,7 @@ spec:
           - {name: overlay, mountPath: /overlay}
         containers:
         - name: main
-          image: johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260801@sha256:a3584d74f256ca7c33b1ac9e5598897123d28e9faf9860e188a2e82a9b5530e3
+          image: johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260802@sha256:5f3007aff1bc231eceb9f024e56ee80e44f9ca101a521aa50fe6bfa6c979d6b8
           imagePullPolicy: IfNotPresent
           command: ["/overlay/bin/infera-exec",
                     "python3","-m","infera.engine.vllm","--host","0.0.0.0","--port","30000",
@@ -213,7 +219,7 @@ spec:
           - {name: overlay, mountPath: /overlay}
         containers:
         - name: main
-          image: johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260801@sha256:a3584d74f256ca7c33b1ac9e5598897123d28e9faf9860e188a2e82a9b5530e3
+          image: johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260802@sha256:5f3007aff1bc231eceb9f024e56ee80e44f9ca101a521aa50fe6bfa6c979d6b8
           imagePullPolicy: IfNotPresent
           command: ["/overlay/bin/infera-exec",
                     "python3","-m","infera.engine.vllm","--host","0.0.0.0","--port","30000",

@@ -34,8 +34,9 @@ Multimodal, ~1.5 TB of weights, hybrid Mamba.
 
 vLLM · TP8 · MI355X
 
-Same engine commit, optimized FP8 kernels. Optional DSpark speculation: 1.9–2.2×
-below concurrency 8, and it crashes above it. Cross-node PD validated.
+Same engine commit, optimized FP8 kernels. Optional DSpark speculation — 2.60× at
+c=4, decaying to parity by c=32. Cross-node PD validated, with and without
+speculation.
 :::
 
 ::::
@@ -53,10 +54,10 @@ Each recipe comes in the same four shapes, composing two independent choices:
 | `pd + kvd` | prefill and decode on separate nodes | plus kvd on each role | both of the above |
 
 One recipe carries an extra axis rather than a fifth combination: **Kimi-K3
-optimized** ships `mixed`, `mixed-dspark` and `pd`, because speculative decoding is
-a property of that image's draft model, not a serving topology. `pd` is the same
-combination as everywhere else; `mixed-dspark` is the extra axis, and it was not
-combined with `pd`.
+optimized** ships `mixed`, `mixed-dspark`, `pd` and `pd-dspark`, because
+speculative decoding is a property of that image's draft model, not a serving
+topology. It composes with `mixed` and `pd` independently, which is why there are
+four rather than a fifth combination.
 
 ```{admonition} PD needs a routable RoCE fabric
 :class: warning

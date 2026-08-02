@@ -15,14 +15,21 @@
 #
 # Deploy:  kubectl apply -f examples/recipes/kimi-k3-optimized/mixed/deploy.yaml
 #
-# MEASURED, this manifest, 8x MI355X TP8, 1M context:
-#   8K in / 1K out, batch 1   step time 12.37 ms
-#   1024 in / 128 out  c=4     67.11 tok/s
-#                      c=8    187.17 tok/s
-#                      c=16   426.51 tok/s
+# MEASURED, this manifest, 8x MI355X TP8, 1M context, on the image it pins:
+#   1024 in / 128 out  c=4      56.78 tok/s
+#                      c=8     241.69
+#                      c=16    427.86
+#                      c=32    689.22
+#                      c=64    972.37
 #
-# This is the recipe to use above c=8. ../mixed-dspark/ is 1.9-2.2x faster at c<=8
-# but crashes at c>=16, and its best result (359.72) is below this one's c=16.
+# This is the best tokens-per-GPU option at every concurrency measured, and the
+# right default. ../mixed-dspark/ beats it up to c=16 on the same 8 GPUs (2.60x
+# at c=4, down to 1.10x at c=16) and loses from c=32 on.
+#
+# Do not carry these numbers across a base-image bump. Between the 20260801 and
+# 20260802 images this same manifest moved -15% at c=4 and +29% at c=8, in
+# opposite directions, so a speedup computed against the other image's baseline
+# measures the image, not the setting.
 apiVersion: infera.amd.com/v1alpha1
 kind: InferaDeployment
 metadata:
@@ -50,7 +57,7 @@ spec:
             mountPath: /overlay
         containers:
         - name: main
-          image: johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260801@sha256:a3584d74f256ca7c33b1ac9e5598897123d28e9faf9860e188a2e82a9b5530e3
+          image: johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260802@sha256:5f3007aff1bc231eceb9f024e56ee80e44f9ca101a521aa50fe6bfa6c979d6b8
           imagePullPolicy: IfNotPresent
           command:
           - /overlay/bin/infera-exec
@@ -119,7 +126,7 @@ spec:
             mountPath: /overlay
         containers:
         - name: main
-          image: johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260801@sha256:a3584d74f256ca7c33b1ac9e5598897123d28e9faf9860e188a2e82a9b5530e3
+          image: johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260802@sha256:5f3007aff1bc231eceb9f024e56ee80e44f9ca101a521aa50fe6bfa6c979d6b8
           imagePullPolicy: IfNotPresent
           command:
           - /overlay/bin/infera-exec
