@@ -13,7 +13,7 @@ kernels, not engine version.
 All four combinations were **run end-to-end** on the image they pin, with the
 placeholders substituted — the files themselves are templates and cannot be applied
 as-is. `pd-dspark` needs `--speculative-config` on **both** roles, which is not
-redundancy — see §6.
+redundancy — see §7.
 
 ## 0. Placeholders you must fill in
 
@@ -65,7 +65,58 @@ on a ~95-minute weight load, which exceeds the ready timeout, so the worker rest
 mid-load and never finishes — presenting as a crash loop rather than as slow storage.
 ```
 
-## 1. Choose the combination
+## 1. Pre-flight
+
+Run this before deploying. It takes about 15 seconds and checks the things that
+otherwise fail 12–14 minutes in, blaming something else:
+
+```bash
+./examples/recipes/kimi-k3-optimized/preflight.sh <NODE> <MODEL_DIR> [--dspark]
+
+# e.g.
+./examples/recipes/kimi-k3-optimized/preflight.sh node-a /mnt/local-nvme/models
+```
+
+For the PD combinations, run it once **per node**, with that node's own directory:
+
+```bash
+./examples/recipes/kimi-k3-optimized/preflight.sh <PREFILL_NODE> <PREFILL_MODEL_DIR>
+./examples/recipes/kimi-k3-optimized/preflight.sh <DECODE_NODE>  <DECODE_MODEL_DIR> --dspark
+```
+
+A passing run looks like:
+
+```
+  OK   namespace infera exists
+  OK   InferaDeployment CRD installed
+  OK   node node-a: 8 of 8 GPUs free
+  OK   /mnt/local-nvme/models/Kimi-K3 on node-a: 96 shards
+  OK   /mnt/local-nvme/models on node-a is local (xfs, /dev/nvme4n1)
+
+pre-flight: PASS
+```
+
+It exists because two specific failures are expensive and neither says what is
+actually wrong:
+
+```
+  FAIL /mnt/local-nvme/models/Kimi-K3 not present on node-b — this is the case
+       that mounts fine and crashloops later
+```
+Copying a working node's path onto a node that never had the weights leaves a path
+that *exists*, so `hostPath type: Directory` passes and the engine crashloops
+minutes later with `ValueError: '/models/Kimi-K3': not a local path and HF
+resolution failed` — which reads as a bad model name.
+
+```
+  FAIL /mnt/shared/models on node-a is nfs4 (10.0.0.2:/mnt/nvmeraid) — a network
+       mount. Weight load goes from ~8 min to ~95 min and exceeds the ready timeout
+```
+The shard count is right and the directory is right; only the backing device is
+wrong. The worker then restarts mid-load forever and presents as a crash loop
+rather than as slow storage.
+
+## 2. Choose the combination
 
 |  | GPUs | Manifest | Reach for it when |
 |---|---:|---|---|
@@ -93,7 +144,7 @@ speculation being quietly disabled.
 If you are still on the 20260801 digest, the old ceiling still applies to you.
 ```
 
-## 2. Prerequisites
+## 3. Prerequisites
 
 ```bash
 # nodes must advertise amd.com/gpu
@@ -159,7 +210,7 @@ directory.
 First start is **12–14 min**: the image rebuilds its AITER JIT modules in-container
 on top of weight load and CUDA-graph capture.
 
-## 3. Deploy
+## 4. Deploy
 
 ```bash
 sed 's|<MODEL_DIR>|/your/local/nvme/models|' \
@@ -188,7 +239,7 @@ Replace `pd` with `pd-dspark` for the speculative variant.
 | `pd/` | `kimi-k3-opt-pd` |
 | `pd-dspark/` | `kimi-k3-opt-pd-dspark` |
 
-## 4. Smoke test
+## 5. Smoke test
 
 ```bash
 kubectl -n infera port-forward svc/<name>-server 8000:8000 &
@@ -239,7 +290,7 @@ Avg prompt throughput: 0.1 tokens/s, Avg generation throughput: 7.8 tokens/s,
 is the handoff working. The prefill pod is the mirror image — all prompt
 throughput, no generation.
 
-## 5. Measured results
+## 6. Measured results
 
 MI355X, TP8 per worker, `--max-model-len 1048576`, BF16 KV, on k3s. Sweeps are
 `vllm bench serve`, 1024 in / 128 out, `--random-range-ratio 0` `--ignore-eos`
@@ -303,7 +354,7 @@ concurrencies in both PD combinations, so the handoff never silently failed open
 checked per concurrency, not once at the start, because a handoff that fails open
 under load makes throughput look *better*.
 
-## 6. Settings that are not optional
+## 7. Settings that are not optional
 
 Each row is a failure that was hit and diagnosed on this hardware, not a preference.
 
@@ -383,7 +434,7 @@ This is why the smoke test for PD checks the decode side's counters rather than
 the answer text, and why every probe here carries an explicit timeout.
 ```
 
-## 7. Validation status
+## 8. Validation status
 
 | What | Status |
 |---|---|

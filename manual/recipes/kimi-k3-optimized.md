@@ -38,7 +38,25 @@ hostPath and are scheduled independently — without it they can land on differe
 nodes.
 ```
 
-## 1. Choose the combination
+## 1. Pre-flight
+
+```bash
+./examples/recipes/kimi-k3-optimized/preflight.sh <NODE> <MODEL_DIR> [--dspark]
+```
+
+About 15 seconds, and it checks the things that otherwise fail 12–14 minutes into a
+deploy while blaming something else: the namespace and CRD, free GPUs on the node,
+whether `<MODEL_DIR>` **on that node** actually holds the 96 shards, and whether it
+is local storage rather than a network mount.
+
+For PD, run it once per node with that node's own directory.
+
+The two failures worth catching early — an empty-but-existing directory (mounts
+fine, crashloops later with a HuggingFace repo-id error) and a network mount
+wearing a local-looking name (right shards, ~95-minute load, restarts forever) —
+both otherwise present as something other than a path problem.
+
+## 2. Choose the combination
 
 ::::{tab-set}
 
@@ -176,7 +194,7 @@ restarts 0, no inference logged, and the client waits until its own timeout.
 
 ::::
 
-## 2. Prerequisites
+## 3. Prerequisites
 
 ```bash
 kubectl get nodes -o custom-columns=NODE:.metadata.name,GPU:.status.allocatable.'amd\.com/gpu'
@@ -205,7 +223,7 @@ the local device, not the convenient common name.
 First start is 12–14 min: the image rebuilds its AITER JIT modules in-container on
 top of weight load and CUDA-graph capture.
 
-## 3. Smoke test
+## 4. Smoke test
 
 ```bash
 kubectl -n infera port-forward svc/<name>-server 8000:8000 &
@@ -228,7 +246,7 @@ fails open just re-prefills locally and returns the same text, faster. Check the
 decode side: `External prefix cache hit rate` near 100% with `Avg prompt
 throughput` near zero.
 
-## 4. Settings that are not optional
+## 5. Settings that are not optional
 
 | Setting | Why |
 |---|---|
@@ -243,7 +261,7 @@ throughput` near zero.
 RDMA devices" produced two false TCP-fallback diagnoses here. Ask
 `ibv_get_device_list` instead — see the repo README for the one-liner.
 
-## 5. Validation status
+## 6. Validation status
 
 Every combination was run end-to-end on the image it pins, with placeholders
 substituted (the files are templates), and every
