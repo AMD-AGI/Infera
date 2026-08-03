@@ -137,6 +137,51 @@ Below that it is a straight loss on both counts — use **Aggregated**.
 Requires both nodes on a mutually routable RoCE fabric: the KV handoff is RDMA and
 there is no TCP fallback. Each node reads its **own local** copy of the weights, and
 the two paths need not be the same.
+
+### Checking the fabric before you deploy
+
+There is no pre-flight script. The one check worth running by hand is whether the
+engine container can actually see the RDMA devices, because when it cannot, nothing
+says so: Mooncake silently falls back to a transport that cannot cross nodes, and
+the symptom is a request that hangs while every pod stays Ready.
+
+`ibv_devices` is **not installed** in these images. Running it and reading
+`not found` as "no RDMA devices" produced two false TCP-fallback diagnoses during
+this work. Ask the library instead:
+
+```bash
+kubectl -n infera run rdmacheck --rm -it --restart=Never \
+  --image=<the base image this recipe pins> \
+  --overrides='{"spec":{"nodeSelector":{"kubernetes.io/hostname":"<NODE>"},
+    "containers":[{"name":"p","image":"<same image>","stdin":true,"tty":true,
+      "securityContext":{"privileged":true},
+      "command":["python3","-c","import ctypes; lib=ctypes.CDLL(\"libibverbs.so.1\"); lib.ibv_get_device_list.restype=ctypes.POINTER(ctypes.c_void_p); n=ctypes.c_int(0); lib.ibv_get_device_list(ctypes.byref(n)); print(n.value)"],
+      "volumeMounts":[{"name":"ib","mountPath":"/dev/infiniband"}]}],
+    "volumes":[{"name":"ib","hostPath":{"path":"/dev/infiniband","type":"Directory"}}]}}'
+```
+
+Expect the number of RDMA devices on the node — 8 on the fleet these recipes were
+validated on. **Zero means the container cannot see them**, which is a different
+problem from the node not having them.
+
+Once deployed, the same check inside a running pod must be run in a **prefill or
+decode** pod. The router pod runs the same image but is not privileged and does not
+mount `/dev/infiniband`, so it reports `0` — reproducing the very false negative
+this check exists to prevent:
+
+```bash
+POD=$(kubectl -n infera get pod -o name \
+  -l infera.amd.com/deployment=kimi-k3-opt-pd,infera.amd.com/service=decode | head -1)
+kubectl -n infera exec $POD -c main -- python3 -c '
+import ctypes; lib = ctypes.CDLL("libibverbs.so.1")
+lib.ibv_get_device_list.restype = ctypes.POINTER(ctypes.c_void_p)
+n = ctypes.c_int(0); lib.ibv_get_device_list(ctypes.byref(n)); print(n.value)'
+```
+
+For reachability between the two nodes rather than device visibility, see
+[the RoCE note on the recipes index](index) — on a routed L3 fabric an unbound
+`ping6` picks the wrong source rail and reports "No route", which reads as "these
+nodes cannot do PD" when they can.
 :::
 
 :::{tab-item} Disaggregated + DSpark
@@ -253,17 +298,17 @@ throughput` near zero.
 | PD: never point a misbehaving client at it | the engine validates **after** prefill, so a rejected request has already had its KV computed and queued. 84 requests rejected for one bad field left 424 aborted Mooncake transfers and stalled valid traffic for ~20 minutes with `MooncakeXferMetadata transfer failed: Resource temporarily unavailable`, which reads exactly like a broken fabric |
 
 `ibv_devices` is **not installed** in this image; reading its "not found" as "no
-RDMA devices" produced two false TCP-fallback diagnoses here. Ask
-`ibv_get_device_list` instead — see the repo README for the one-liner.
+RDMA devices" produced two false TCP-fallback diagnoses here. The
+`ibv_get_device_list` check is in the **Disaggregated** tab above.
 
 ## 5. Validation status
 
 Every combination was run end-to-end on the image it pins, with placeholders
-substituted (the files are templates). and every
-number on this page comes from the same image — Do not carry performance
-expectations across a base-image bump: between the two images of this model the
-same manifest moved substantially, and in opposite directions at different
-concurrencies, so no single correction factor exists.
+substituted — the files are templates.
+
+Do not carry performance expectations across a base-image bump. Between the two
+images of this model the same manifest moved substantially, and in opposite
+directions at different concurrencies, so no single correction factor exists.
 
 | What | Status |
 |---|---|
