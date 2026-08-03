@@ -3,7 +3,20 @@
 #       gfx950 (mi35x) and one image can't serve both; no dsv4 source patch since
 #       gfx942 runs dsv4 FP8 natively / fails fast on FP4 (FP4 dsv4 -> vLLM).
 # HOW : fp8 env + CLI knobs are applied at launch by infera.engine.dsv4_gfx942.
-ARG SGLANG_BASE_IMAGE=lmsysorg/sglang-rocm:v0.5.15-rocm720-mi30x-20260713
+# BASE: v0.5.16 is the sglang this image is validated on — GLM-5.2 MTP needs
+#       sglang #30839 (IndexShare across PD and CUDA-graph replay) and its own
+#       GlmMoeDsaForCausalLMNextN quant handling, both of which land in v0.5.16;
+#       on the previous v0.5.15 base the draft weight-load and PD warmup fail.
+#       That is also why this image does NOT apply patches/sglang/ (the nextn
+#       quark-exclude backport for the v0.5.15 mi35x base): v0.5.16 fixes GLM-5.2
+#       upstream, and the backport's anchor survives the refactor inside
+#       DeepSeek's own nextn path, so applying it here would rewrite a probe that
+#       is already correct.
+# RUN : GLM-5.2 PD + DP-attention + MTP on this image REQUIRES every leg to pass
+#       `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`.
+#       It is not tuning — it stands in for two sglang_dsa patches this base
+#       cannot take. Full reasoning at the DSA patch block below.
+ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.16-rocm720-mi30x
 FROM ${SGLANG_BASE_IMAGE}
 
 WORKDIR /opt/infera
@@ -28,6 +41,27 @@ RUN if [ "${INSTALL_LIBIONIC}" = "1" ]; then \
         echo "INSTALL_LIBIONIC=0 — libionic injected at container start"; \
     fi
 
+# ---- Mooncake unified rebuild: one engine.so, every PD path runtime-decided --
+# Same in-place rebuild Dockerfile.sglang does (shared script + shared mooncake_cpp
+# diffs), with the HIP target pinned to gfx942 since `docker build` has no GPU to
+# probe. The base bundles Mooncake at upstream #2682 (01d1eb2a), which installs a
+# HIP IPC transport UNCONDITIONALLY and prefers it over RDMA — so CROSS-NODE PD
+# dies on the first request in hipIpcOpenMemHandle, which cannot open a peer's
+# handle. Without this block the MI325X 1P1D recipe has to rebuild engine.so
+# inside the running container before it can move a single KV chunk.
+# Self-verifying (fails the build if the gate / dma-buf did not compile in);
+# skip with BUILD_MOONCAKE=0. See the script for the full rationale.
+ARG BUILD_MOONCAKE=1
+COPY deploy/docker/patches/mooncake_cpp/ /tmp/mooncake_cpp/
+COPY deploy/docker/scripts/build_mooncake_sglang.sh /tmp/build_mooncake_sglang.sh
+RUN if [ "${BUILD_MOONCAKE}" = "1" ]; then \
+        MC_GPU_ARCH=gfx942 MC_CPP_PATCH_DIR=/tmp/mooncake_cpp \
+            bash /tmp/build_mooncake_sglang.sh; \
+    else \
+        echo "BUILD_MOONCAKE=0 — leaving base Mooncake as-is"; \
+    fi \
+    && rm -rf /tmp/build_mooncake_sglang.sh /tmp/mooncake_cpp
+
 # Install infera + its declared deps from pyproject (single source of truth).
 # The base already ships torch/sglang and most of infera's runtime stack; pip
 # leaves those satisfied versions untouched and only pulls what's missing.
@@ -36,6 +70,52 @@ RUN if [ "${INSTALL_LIBIONIC}" = "1" ]; then \
 COPY pyproject.toml README.md ./
 COPY infera ./infera
 RUN pip install --no-cache-dir ".[sglang]"
+
+# ---- GLM-5.2 DSA indexer rows (patch 01 of the sglang_dsa set) --------------
+# REQUIRED for DP-attention here: the aiter (HIP) paged-MQA branch sizes its
+# logits from the DP-PADDED row count while `lengths` carries the real one, so
+# top-k dies with "Expected lengths.size(0) == B" as soon as concurrency > 1.
+# ROCm-specific and independent of IndexShare, so nothing at runtime substitutes
+# for it. Same fix Dockerfile.sglang applies; it is an anchor script rather than
+# a pinned diff precisely so both bases can share one source of truth, and its
+# two edit sites are byte-identical on v0.5.15.post1 and v0.5.16.
+#
+# ONLY patch 01 (DSA_PATCH_SET=indexer). Patches 02 and 04 are `--fuzz=0` context
+# diffs cut against v0.5.15.post1 and do not apply to this v0.5.16 base:
+#   02b, 04  substituted at RUNTIME on this image, and the 1P1D bring-up behind
+#            it was validated that way — every leg MUST launch with
+#            `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`.
+#            IndexShare is the source of the rank divergence those two repair, so
+#            removing the seed removes the deadlock. Leave IndexShare ON here and
+#            the decode leg deadlocks on the first request.
+#   02a      NOT carried and NOT substituted: a host sync on a branch only some
+#            DP ranks take. Not re-cut for v0.5.16 and not observed on this base
+#            (FP8, dp8, conc<=128) — see patches/sglang_dsa/README.md.
+ARG APPLY_SGLANG_DSA_PATCHES=1
+COPY deploy/docker/patches/sglang_dsa/ /tmp/sglang_dsa/
+COPY deploy/docker/scripts/apply_sglang_dsa_patches.sh /tmp/apply_sglang_dsa_patches.sh
+RUN if [ "${APPLY_SGLANG_DSA_PATCHES}" = "1" ]; then \
+        DSA_PATCH_SET=indexer PATCH_DIR=/tmp/sglang_dsa \
+            bash /tmp/apply_sglang_dsa_patches.sh; \
+    else \
+        echo "APPLY_SGLANG_DSA_PATCHES=0 — stock indexer, DP-attention will crash at conc>1"; \
+    fi \
+    && rm -rf /tmp/apply_sglang_dsa_patches.sh /tmp/sglang_dsa
+
+# ---- sglang PD patches (mooncake early-send KV wait event) ----
+# REQUIRED FOR CORRECTNESS on any PD deployment doing chunked prefill over
+# mooncake: without it every chunk but the last is RDMA-read while the forward is
+# still writing those pages, and prompts longer than one chunk come back
+# partially wrong with nothing in any log. Each script is self-locating and
+# idempotent, and reports "already present" once the base sglang carries the fix.
+# Unlike the backport loop in Dockerfile.sglang this one is NOT tolerant: a script
+# here exits non-zero only when its anchors drifted, i.e. when the fix did not go
+# in — and an engine image that silently corrupts long prompts is worse than a
+# failed build.
+COPY deploy/docker/patches/sglang_disagg/ /tmp/sglang-disagg-patches/
+RUN set -eu; \
+    for f in /tmp/sglang-disagg-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
+    rm -rf /tmp/sglang-disagg-patches
 
 # ---- Rust router (multi-core data plane; --router-backend rust) ----
 # The ROCm base ships cargo; use it (install a minimal toolchain only if

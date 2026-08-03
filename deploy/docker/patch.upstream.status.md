@@ -15,11 +15,17 @@ Column meanings:
   `yes` = us; `no` = a third party; `—` = no PR.
 - **PR state** — of the upstream PR named in the same row.
 
-## sglang — `patches/sglang_dsa/` (baked by `Dockerfile.sglang`, `APPLY_SGLANG_DSA_PATCHES=1`)
+## sglang — `patches/sglang_dsa/` (baked by `Dockerfile.sglang` and `Dockerfile.sglang.gfx942`, `APPLY_SGLANG_DSA_PATCHES=1`)
+
+Only patch 01 is baked by both: it is an anchor script, while 02 and 04 are
+`--fuzz=0` diffs pinned to v0.5.15.post1 and cannot apply to the gfx942 image's
+v0.5.16 base. That image substitutes 02b and 04 at runtime with
+`--json-model-override-args '{"index_share_for_mtp_iteration":false}'` and does
+not address 02a at all — `patches/sglang_dsa/README.md` carries the reasoning.
 
 | patch | fixes | upstream issue | upstream PR | ours? | PR state |
 |---|---|---|---|---|---|
-| `sglang_dsa/dsa_indexer_hip_dp_padded_rows.diff` | HIP/aiter paged-MQA sizes its output from DP-padded rows while `lengths` is sized to real rows → `Expected lengths.size(0) == B` | none found | [sglang#33059](https://github.com/sgl-project/sglang/pull/33059) | **yes** (`dorado269`) | OPEN, `REVIEW_REQUIRED` |
+| `sglang_dsa/patch_dsa_indexer_hip_dp_padded_rows.py` | HIP/aiter paged-MQA sizes its output from DP-padded rows while `lengths` is sized to real rows → `Expected lengths.size(0) == B` | none found | [sglang#33059](https://github.com/sgl-project/sglang/pull/33059) | **yes** (`dorado269`) | OPEN, `REVIEW_REQUIRED` |
 | ″ (same bug class, other platform) | — | none found | [sglang#32762](https://github.com/sgl-project/sglang/pull/32762) `[NPU] Fix DSA eager padding mismatch` — our diff is written in its shape | no (`stellaxcpeng`) | OPEN |
 | `sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff` (2a) | `seq_lens.max().item()` is a host sync on a branch only *some* DP ranks take → DP collectives desync → deadlock | none found | none found | — | — |
 | `sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff` (2b) | page table has one row per **request**, top-k one per **token** under MTP → `assert page_table.shape[0] == topk_indices.shape[0]` | none found | [sglang#32209](https://github.com/sgl-project/sglang/pull/32209) solves the same row mismatch by **trimming q/top-k**; porting that half here fails at conc=32 and is unresolved | no (`HZY-Wade`) | OPEN, `REVIEW_REQUIRED` |
@@ -46,6 +52,21 @@ introduced the guard patch 04 repairs — so that deadlock is a regression in th
 baseline, not a legacy wart.
 [#32722](https://github.com/sgl-project/sglang/pull/32722) (OPEN) adds a test for
 PD + DP-attention + MTP, i.e. **no CI covers this topology today**.
+
+## sglang PD — `patches/sglang_disagg/` (baked by `Dockerfile.sglang` and `Dockerfile.sglang.gfx942`)
+
+| patch | fixes | upstream issue | upstream PR | ours? | PR state |
+|---|---|---|---|---|---|
+| `sglang_disagg/patch_mooncake_early_send_wait_event.py` | `mooncake/conn.py` never waits on the forward's completion event and the overlap path records none, so chunked prefill hands a non-final chunk to the decode leg while the forward writing those pages is still running → prompts longer than one chunk come back **partially wrong**, with nothing in any log | [sglang#25583](https://github.com/sgl-project/sglang/issues/25583) reports the same corruption shape on GLM-5, but **aggregated** — no PD, no mooncake — so a shared root cause is unestablished; closed **inactive** 2026-07-18, no follow-up | none found | — | — |
+
+> `prefill.py` already records the completion event this needs; only the `mori`
+> backend ever read it, and the patch mirrors what `mori` does. **Drop it** once a
+> base sglang synchronizes on that event itself — the script then reports "already
+> present" and no-ops.
+>
+> Unlike the rest of this page, this row was **not** verified with `gh`: the issue
+> state was read from the web UI on 2026-08-03, and no upstream PR search was run.
+> "none found" here is weaker than elsewhere on the page.
 
 ## Mooncake C++ — `patches/mooncake_cpp/` (built by `Dockerfile.sglang`, `Dockerfile.vllm`, `Dockerfile.atom`)
 
@@ -115,7 +136,8 @@ ATOM is an internal engine; there is no public upstream to file against.
 
 Every file under `patches/` is covered above except these, which carry no fix of
 their own: `mooncake_cpp/apply_mooncake_cpp_patches.sh` (applies the three
-Mooncake diffs), `sglang_dsa/README.md` and `vllm-dsv4/legacy/README.md`.
+Mooncake diffs), `sglang_dsa/README.md`, `sglang_disagg/README.md` and
+`vllm-dsv4/legacy/README.md`.
 
 ## Maintenance
 

@@ -69,6 +69,12 @@ checklist and the RDMA self-check.
 Each has a CLI flag (flag > env > default); see [Routing & transport](../features/routing_and_transport.md)
 and the [CLI reference](cli.md).
 
+## Engine startup (set on the engine process)
+
+| Env | Default | What it does |
+|---|---|---|
+| `INFERA_NODEPORT_RANGE` | `30000-32767` | Port window every auto-allocated port must avoid (kv-event publishers, single or a per-DP-rank block, and the ATOM rendezvous port) — Kubernetes' NodePort range, where a Service claim makes the port unreachable from the node IP we advertise. Set `lo-hi` for a cluster that moved the range, `none` to drop the guard. Only `none`/`off` drop it — an empty or malformed value keeps the default. |
+
 ## Engine correctness
 
 | Env | Value | What it does |

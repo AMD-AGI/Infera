@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
+from typing import cast
 
 import zmq
 import zmq.asyncio
@@ -45,6 +46,25 @@ def _offset_endpoint(endpoint: str, rank: int) -> str:
         return endpoint
     head, _, port = endpoint.rpartition(":")
     return f"{head}:{int(port) + rank}"
+
+
+def _flat_tokens(token_ids: list[int | tuple[int, int]]) -> list[int]:
+    """The flat token ids of a stored block, whatever view the engine reports.
+
+    Under EAGLE/MTP, SGLang keys its radix tree on bigrams, so a block's tokens
+    arrive as the overlapping pairs ``(t[i], t[i+1])``. The first element of each
+    pair rebuilds ``t[start:end]`` -- the same flat slice ``hash_request`` chunks
+    on the query side, and radix nodes split on page boundaries so the two
+    chunkings stay aligned. Hashing the pairs as-is builds a view that no request
+    can ever match.
+
+    A radix node is one view or the other for its whole length -- the engine
+    decides bigrams once, from ``is_eagle`` -- so the first element settles it
+    for the rest, and the flat case hands back the caller's list uncopied.
+    """
+    if token_ids and isinstance(token_ids[0], (list, tuple)):
+        return [pair[0] for pair in cast("list[tuple[int, int]]", token_ids)]
+    return cast("list[int]", token_ids)
 
 
 @dataclass
@@ -252,23 +272,24 @@ class KvEventClient:
                 ev_bs,
                 bs,
             )
+        tokens = _flat_tokens(ev.token_ids)
         # Bound by BOTH sequences. The count was derived from token_ids alone and
         # then used to index block_hashes, so any disagreement between them was an
         # IndexError — surfacing as "list index out of range", a message that points
         # nowhere near the block size.
-        n = min(len(ev.token_ids) // bs, len(ev.block_hashes))
-        if n * bs != len(ev.token_ids) or n != len(ev.block_hashes):
+        n = min(len(tokens) // bs, len(ev.block_hashes))
+        if n * bs != len(tokens) or n != len(ev.block_hashes):
             logger.warning(
                 "kv event from %s covers %d tokens and %d block hashes, which do not "
                 "agree at block_size=%d; indexing %d block(s) and dropping the rest",
                 sub.worker_id,
-                len(ev.token_ids),
+                len(tokens),
                 len(ev.block_hashes),
                 bs,
                 n,
             )
         for i in range(n):
-            chunk = ev.token_ids[i * bs : (i + 1) * bs]
+            chunk = tokens[i * bs : (i + 1) * bs]
             parent = hash_chunk(parent, chunk)
             view.add(parent)
             m[ev.block_hashes[i]] = parent
