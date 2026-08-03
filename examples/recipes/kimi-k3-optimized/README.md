@@ -13,7 +13,7 @@ kernels, not engine version.
 All four combinations were **run end-to-end** on the image they pin, with the
 placeholders substituted — the files themselves are templates and cannot be applied
 as-is. `pd-dspark` needs `--speculative-config` on **both** roles, which is not
-redundancy — see §7.
+redundancy — see §6.
 
 ## 0. Placeholders you must fill in
 
@@ -62,28 +62,43 @@ weights — the mount succeeds and the engine crashloops several minutes later w
 
 which reads as a bad model name and points nowhere near the real cause.
 
-Find it **per node**, rather than assuming. You normally cannot log into the node,
-and for PD you cannot read it off an existing deployment either — PD needs every
-GPU, so the deployment you would have read it from has to be deleted first:
+Find it **per node**, rather than assuming — and note that for PD you usually
+cannot read it off an existing deployment, because PD needs every GPU so that
+deployment has to be deleted first.
+
+If you have a shell on the node:
 
 ```bash
-./examples/recipes/kimi-k3-optimized/preflight.sh <NODE> --find
+find /mnt -maxdepth 5 -name 'Kimi-K3' -type d 2>/dev/null
 ```
 
-```
-Kimi-K3 directories on node-b:
-  96   shards  /mnt/shared/models/moonshotai
-  96   shards  /mnt/array/models/moonshotai
-  96   shards  /mnt/vast/team/models/moonshotai
-```
-
-**All three look identical and only one is right.** Shard count and directory
-layout do not distinguish local storage from a network mount, so confirm each
-candidate — that check mounts the path directly and reports the backing device:
+If you do not — the usual case — run a throwaway pod pinned to it:
 
 ```bash
-./examples/recipes/kimi-k3-optimized/preflight.sh <NODE> /mnt/array/models/moonshotai
+kubectl -n infera run pathprobe --rm -it --restart=Never --image=busybox \
+  --overrides='{"spec":{"nodeSelector":{"kubernetes.io/hostname":"<NODE>"},
+    "containers":[{"name":"p","image":"busybox","stdin":true,"tty":true,
+    "command":["sh","-c","find /host/mnt -maxdepth 5 -name Kimi-K3 -type d"],
+    "volumeMounts":[{"name":"h","mountPath":"/host","readOnly":true}]}],
+    "volumes":[{"name":"h","hostPath":{"path":"/","type":"Directory"}}]}}'
 ```
+
+**Candidates usually look identical** — same shard count, same layout — while only
+one is local. Confirm the one you pick by mounting *that directory* and reading its
+backing device, which is the only reliable way:
+
+```bash
+kubectl -n infera run fsprobe --rm -it --restart=Never --image=busybox \
+  --overrides='{"spec":{"nodeSelector":{"kubernetes.io/hostname":"<NODE>"},
+    "containers":[{"name":"p","image":"busybox","stdin":true,"tty":true,
+    "command":["sh","-c","df -PT /m | tail -1; du -sm /m/Kimi-K3"],
+    "volumeMounts":[{"name":"m","mountPath":"/m","readOnly":true}]}],
+    "volumes":[{"name":"m","hostPath":{"path":"<MODEL_DIR>","type":"Directory"}}]}}'
+```
+
+Mount the **directory itself**, not a parent: `df` on a path under a mounted `/`
+reports the root filesystem and will call a network-mounted weights directory
+local. Expect a local device (`xfs`, `ext4`, `/dev/...`) and ~1.4 TB.
 
 That last check is not a formality. The obvious shared-looking mount on this fleet
 (`/mnt/shared`) is an NFS export of the *other* node's array. Using it puts one side
@@ -91,72 +106,14 @@ on a ~95-minute weight load, which exceeds the ready timeout, so the worker rest
 mid-load and never finishes — presenting as a crash loop rather than as slow storage.
 ```
 
-## 1. Pre-flight
-
-Run this before deploying. It takes about 15 seconds and checks the things that
-otherwise fail 12–14 minutes in, blaming something else:
-
-```bash
-./examples/recipes/kimi-k3-optimized/preflight.sh <NODE> <MODEL_DIR> [--dspark]
-
-# e.g.
-./examples/recipes/kimi-k3-optimized/preflight.sh node-a /mnt/local-nvme/models
-```
-
-For the PD combinations, run it once **per node**, with that node's own directory:
-
-```bash
-./examples/recipes/kimi-k3-optimized/preflight.sh <PREFILL_NODE> <PREFILL_MODEL_DIR>
-./examples/recipes/kimi-k3-optimized/preflight.sh <DECODE_NODE>  <DECODE_MODEL_DIR>
-```
-
-For `pd-dspark`, pass `--dspark` on **both** lines — both roles load the draft:
-
-```bash
-./examples/recipes/kimi-k3-optimized/preflight.sh <PREFILL_NODE> <PREFILL_MODEL_DIR> --dspark
-./examples/recipes/kimi-k3-optimized/preflight.sh <DECODE_NODE>  <DECODE_MODEL_DIR> --dspark
-```
-
-A passing run looks like:
-
-```
-  OK   namespace infera exists
-  OK   InferaDeployment CRD installed
-  OK   node node-a: 8 of 8 GPUs free
-  OK   /mnt/local-nvme/models/Kimi-K3 on node-a: 96 shards
-  OK   /mnt/local-nvme/models on node-a is local (xfs, /dev/nvme4n1)
-
-pre-flight: PASS
-```
-
-It exists because two specific failures are expensive and neither says what is
-actually wrong:
-
-```
-  FAIL /mnt/local-nvme/models/Kimi-K3 not present on node-b — this is the case
-       that mounts fine and crashloops later
-```
-Copying a working node's path onto a node that never had the weights leaves a path
-that *exists*, so `hostPath type: Directory` passes and the engine crashloops
-minutes later with `ValueError: '/models/Kimi-K3': not a local path and HF
-resolution failed` — which reads as a bad model name.
-
-```
-  FAIL /mnt/shared/models on node-a is nfs4 (10.0.0.2:/mnt/nvmeraid) — a network
-       mount. Weight load goes from ~8 min to ~95 min and exceeds the ready timeout
-```
-The shard count is right and the directory is right; only the backing device is
-wrong. The worker then restarts mid-load forever and presents as a crash loop
-rather than as slow storage.
-
-## 2. Choose the combination
+## 1. Choose the combination
 
 |  | GPUs | Manifest | Reach for it when |
 |---|---:|---|---|
 | **mixed** | 8 | [`mixed/`](mixed/deploy.yaml) | the default. Best tokens per GPU at every concurrency measured |
-| **mixed + DSpark** | 8 | [`mixed-dspark/`](mixed-dspark/deploy.yaml) | concurrency ≤ 16, where speculation is worth 1.1–2.6× on the same hardware |
-| **pd** | 16 | [`pd/`](pd/deploy.yaml) | concurrency ≥ 32 **and** latency matters — at c=64 it is 1.25× the throughput at 22% lower TPOT |
-| **pd + DSpark** | 16 | [`pd-dspark/`](pd-dspark/deploy.yaml) | PD's shape at high concurrency, plus speculation. Both roles must carry `--speculative-config` |
+| **mixed + DSpark** | 8 | [`mixed-dspark/`](mixed-dspark/deploy.yaml) | low concurrency, where speculation pays for itself on the same hardware |
+| **pd** | 16 | [`pd/`](pd/deploy.yaml) | you need more headroom than one node gives, or lower latency at high concurrency. It never wins per GPU |
+| **pd + DSpark** | 16 | [`pd-dspark/`](pd-dspark/deploy.yaml) | lowest TPOT of the four. Both roles must carry `--speculative-config` |
 
 DSpark is speculative decoding with a block-diffusion draft that produces 7 tokens
 in one parallel pass. The draft is a community checkpoint
@@ -177,11 +134,15 @@ speculation being quietly disabled.
 If you are still on the 20260801 digest, the old ceiling still applies to you.
 ```
 
-## 3. Prerequisites
+## 2. Prerequisites
 
 ```bash
 # nodes must advertise amd.com/gpu. NOTE this is CAPACITY, not availability — a
-# fully occupied node still prints 8. preflight.sh reports what is actually free.
+# fully occupied node still prints 8. For what is actually free:
+#   kubectl describe node <NODE> | grep -A5 'Allocated resources'
+# and check the node is schedulable: `kubectl get node <NODE>` must not say
+# SchedulingDisabled, and `kubectl describe node <NODE> | grep Taints` must not
+# show a NoSchedule taint -- the manifests here tolerate none.
 kubectl get nodes -o custom-columns=NODE:.metadata.name,GPU:.status.allocatable.'amd\.com/gpu'
 
 # every manifest here hardcodes `namespace: infera`, and nothing else creates it
@@ -244,7 +205,7 @@ directory.
 First start is **10–14 min**: the image rebuilds its AITER JIT modules in-container
 on top of weight load and CUDA-graph capture.
 
-## 4. Deploy
+## 3. Deploy
 
 The 8-GPU combinations take **two** placeholders. `<NODE>` pins the server and the
 worker to one node: both mount the weights by `hostPath` and are scheduled
@@ -277,8 +238,8 @@ Replace `pd` with `pd-dspark` for the speculative variant.
 
 The two model directories are **deliberately different in that example.** They may
 be equal on a uniform fleet, but assuming so is the single most likely way to get
-the empty-mount crashloop described in §0 — determine each node's own path with
-`preflight.sh <NODE> --find`.
+the empty-mount crashloop described in §0 — determine each node's own path with the
+probe in §0.
 
 ### Tearing down
 
@@ -290,8 +251,8 @@ kubectl -n infera delete inferadeployment <name>    # e.g. kimi-k3-opt-dspark
 ```
 
 Use the name from the table below, not the directory name. GPUs are released when
-the pods finish terminating; `preflight.sh` will tell you when they are actually
-free.
+the pods finish terminating; `kubectl -n infera get pods` shows when they are
+actually gone.
 
 **The deployment name is not the directory name**, which matters for every
 `kubectl` command below:
@@ -303,7 +264,7 @@ free.
 | `pd/` | `kimi-k3-opt-pd` |
 | `pd-dspark/` | `kimi-k3-opt-pd-dspark` |
 
-## 5. Smoke test
+## 4. Smoke test
 
 ```bash
 # Check the forward came up. If the port is already held, port-forward fails, the
@@ -380,78 +341,68 @@ Avg prompt throughput: 0.1 tokens/s, Avg generation throughput: 7.8 tokens/s,
 is the handoff working. The prefill pod is the mirror image — all prompt
 throughput, no generation.
 
-## 6. Measured results
+## 5. Measured behaviour
 
-MI355X, TP8 per worker, `--max-model-len 1048576`, BF16 KV, on k3s. Sweeps are
-`vllm bench serve`, 1024 in / 128 out, `--random-range-ratio 0` `--ignore-eos`
-`--seed 0`, `num-prompts = 4 × concurrency`.
+**Throughput figures have been withdrawn from this page.** They did not reproduce.
 
-**Everything below was measured on the same image**, so the ratios are attributable
-to the manifests and not to a base-image difference. That matters: the previous
-revision of this page compared a DSpark number against a `mixed` number taken on
-the older image, and `mixed` itself moved by 15% between the two.
+An independent run of the exact sweep this section used to specify got 165.99 tok/s
+on a fresh deployment and 270.4 tok/s once warm, against a published 241.69 — the
+published number matched neither. The cause is the sweep itself: at
+`num-prompts = 4 × concurrency` it is 32 requests over ~15 s, short enough that
+first-request TTFT (~2500 ms cold against ~400 ms warm) dominates the aggregate. No
+warm-up was specified, so a reader following the method literally lands ~31% below
+the published figure with no way to know that is expected.
 
-### 8 GPUs — output token throughput (tok/s)
+That also undermines the comparisons drawn from those numbers. The sweeps were run
+back-to-back within one deployment, low concurrency first, so the early points were
+colder than the late ones — which is the same direction as the trends that were
+being reported. Warm, `pd` and `mixed` at c=8 measured 269.7 and 270.4, effectively
+identical, where this page had claimed 0.90×.
 
-| c | `mixed` | `mixed-dspark` | DSpark / mixed |
-|---:|---:|---:|---:|
-| 4 | 56.78 | **147.90** | **2.60×** |
-| 8 | 241.69 | **328.58** | **1.36×** |
-| 16 | 427.86 | **471.74** | **1.10×** |
-| 32 | **689.22** | 685.25 | 0.99× |
-| 64 | **972.37** | 879.84 | 0.90× |
+Rather than republish numbers whose method is known to be unsound, what follows is
+what survived independent checking.
 
-Speculation's advantage decays monotonically with concurrency and crosses over
-between c=16 and c=32. It is a low-concurrency optimisation, not a free win — and
-the old "1.9–2.2×" figure on this page was inflated by an older, slower `mixed`
-baseline.
+### Latency reproduces
 
-### 16 GPUs — the PD pair
+Median TPOT was reproduced independently within a few percent, on both
+combinations checked — it is a per-step measure and does not care about warm-up:
 
-| c | `pd` | `pd-dspark` | dspark / pd | `pd` TPOT | `pd-dspark` TPOT |
-|---:|---:|---:|---:|---:|---:|
-| 4 | 50.38 | **135.34** | 2.69× | 23.20 ms | **7.81 ms** |
-| 8 | 218.47 | **445.72** | 2.04× | 25.81 ms | **11.50 ms** |
-| 16 | 428.98 | **718.64** | 1.68× | 27.28 ms | **12.37 ms** |
-| 32 | 747.79 | **928.50** | 1.24× | 31.25 ms | **17.80 ms** |
-| 64 | **1217.32** | 1079.32 | 0.89× | 38.12 ms | **17.44 ms** |
+| | published | independent |
+|---|---:|---:|
+| `mixed` c=8 | 27.85 ms | 26.51 ms |
+| `pd` c=8 | 25.81 ms | 25.70 ms |
+| `pd-dspark` c=64 | 17.44 ms | — |
 
-Speculation helps PD far more than it helps `mixed` (1.68× vs 1.10× at c=16),
-because the decode role is not competing with prefill for the same GPUs. It decays
-with concurrency the same way and crosses over at c=64 — but even there, where it
-loses 11% of throughput, TPOT is less than half. If latency is what you are buying
-16 GPUs for, `pd-dspark` is the endpoint at every concurrency measured.
+`pd-dspark` holding TPOT near 17 ms at c=64 where `mixed` is near 49 ms is the
+largest latency effect on this page, and the one worth deploying 16 GPUs for.
 
-### All four, per GPU
+### What is established without depending on throughput
 
-Absolute throughput favours the 16-GPU options; tokens **per GPU** never does:
+- **The concurrency crash is fixed.** On the `…-20260801` image every speculative
+  combination died at `c>=16` with `AssertionError: AiterMLA flattened verify
+  requires a uniform decode query len`. On the image pinned here, c=16/32/64 all
+  complete with 0 restarts and the assertion never appears. Binary, not a
+  measurement.
+- **Speculation is genuinely engaged**, not disabled to make the crash go away:
+  `num_spec_tokens=7`, CUDA-graph captured, `running the draft eagerly` count 0.
+- **The PD handoff is real.** The decode side holds `External prefix cache hit
+  rate` at 98.9–99.9% with prompt throughput near zero, and prefill shows the
+  mirror image. Independently confirmed on `pd` and `pd-dspark`.
+- **`pd-dspark` requires `--speculative-config` on both roles.** Decode-only fails
+  two ways, both hangs rather than errors — see §6.
 
-| c | best absolute | tok/s | best per GPU | tok/s per GPU |
-|---:|---|---:|---|---:|
-| 4 | `mixed-dspark` (8) | 147.90 | `mixed-dspark` | 18.5 |
-| 8 | `pd-dspark` (16) | 445.72 | `mixed-dspark` (8) | 41.1 |
-| 16 | `pd-dspark` (16) | 718.64 | `mixed-dspark` (8) | 59.0 |
-| 32 | `pd-dspark` (16) | 928.50 | `mixed` (8) | 86.2 |
-| 64 | `pd` (16) | 1217.32 | `mixed` (8) | 121.5 |
+Re-establishing throughput figures needs a stated warm-up protocol and a sweep long
+enough that the first request does not dominate. Until then this page does not
+publish any.
 
-So the PD pair is not a throughput-efficiency play. What it buys is headroom
-(`pd` reaches 1217 tok/s where `mixed` tops out at 972) and latency
-(`pd-dspark` holds TPOT at 17.44 ms at c=64 where `mixed` is at 48.81 ms). Pick on those, not on
-the tok/s column.
-
-The decode side held `External prefix cache hit rate` at 99.9% across all five
-concurrencies in both PD combinations, so the handoff never silently failed open —
-checked per concurrency, not once at the start, because a handoff that fails open
-under load makes throughput look *better*.
-
-## 7. Settings that are not optional
+## 6. Settings that are not optional
 
 Each row is a failure that was hit and diagnosed on this hardware, not a preference.
 
 | Setting | Why |
 |---|---|
 | the `KIMI_K3_*` / `VLLM_ROCM_*` env block | these select the optimized kernels. Without them the MoE asks aiter for a kernel that was never generated: `ValueError: Invalid FlyDSL kernel name: flydsl_moe1_..._t16x64x256_...` — there is no Kimi-K3 `tuned_fmoe.csv`, while dsv3/dsv4/glm5 all have one |
-| `VLLM_ROCM_USE_KIMI_K3_PREROUTE_BF16=0` | must be `0`. A `1` makes the pre-route dispatch take BF16 and shadows the FP8 cluster. **Measured on this image**, against the same manifest with `0`: 124.34 vs 241.69 tok/s at c=8 (51% of baseline) and 331.56 vs 427.86 at c=16 (78%) — the penalty is worst at low concurrency, not a flat factor. It is silent in every other respect: the worker starts normally, logs no warning, and median TPOT barely moves (28.52 vs 27.85 ms at c=8), so latency monitoring will not show it |
+| `VLLM_ROCM_USE_KIMI_K3_PREROUTE_BF16=0` | must be `0`. A `1` makes the pre-route dispatch take BF16 and shadows the FP8 cluster. **Measured on this image** against the same manifest with `0`, each as the first sweep after its own fresh deployment, so the two sides are comparable to each other even though the absolute figures are not reproducible (see §5): roughly half the throughput at c=8 and about three quarters at c=16 — the penalty is worst at low concurrency, not a flat factor. It is silent in every other respect: the worker starts normally, logs no warning, and median TPOT barely moves (28.52 vs 27.85 ms at c=8), so latency monitoring will not show it |
 | `attention_backend: ROCM_AITER_MLA` | in the speculative config. The upstream quick-start says `FLASHINFER_MLA`, which is CUDA-only; **omitting the key entirely is not the fix** — this is its ROCm counterpart |
 | `--gpu-memory-utilization 0.88` | the draft's weights land after the KV budget is computed. At `0.95` the run dies with 998 MB free trying to allocate 2.32 GiB |
 | `INFERA_ENGINE_READY_TIMEOUT=7200` | infera's 1800 s default is generous for local NVMe and impossible for anything slower; the worker then kills itself mid-load and restarts forever, which reads as a crash loop rather than as slow storage |
@@ -524,7 +475,7 @@ This is why the smoke test for PD checks the decode side's counters rather than
 the answer text, and why every probe here carries an explicit timeout.
 ```
 
-## 8. Validation status
+## 7. Validation status
 
 | What | Status |
 |---|---|

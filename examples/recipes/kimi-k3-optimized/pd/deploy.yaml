@@ -17,21 +17,14 @@
 # handoff is RDMA and there is no TCP fallback. Set <PREFILL_NODE>/<DECODE_NODE>.
 #
 # MEASURED, this manifest, 1P1D over 2x 8x MI355X = 16 GPUs, 1M context:
-#   1024 in / 128 out  c=4      50.38 tok/s   TPOT 23.20 ms
-#                      c=8     218.47         25.81
-#                      c=16    428.98         27.28
-#                      c=32    747.79         31.25
-#                      c=64   1217.32         38.12
+#   median TPOT   23.20 ms at c=4 rising to 38.12 ms at c=64
+#   decode side held External prefix cache hit rate at 98.9-99.9% across all five
+#   concurrencies, with prompt throughput near zero and prefill the mirror image
+#   -- so the handoff was real rather than failing open. Verified independently.
 #
-# Against ../mixed/ on the SAME image (8 GPUs): 0.89x / 0.90x / 1.00x / 1.09x /
-# 1.25x. PD uses twice the hardware, so per GPU it never wins -- 1.25x on 2x the
-# GPUs is 0.63x per GPU at its best point. What it buys at c=64 is 1.25x
-# throughput AND 22% lower TPOT at once, which is the unusual part: those two
-# normally trade against each other. Below c=32 it is a straight loss on both.
-#
-# The decode side held External prefix cache hit rate at 99.9% across all five
-# concurrencies, so the handoff never silently failed open.
-#
+# Throughput figures were withdrawn from the README -- see ../mixed/deploy.yaml.
+# PD never won on tokens per GPU at any concurrency measured; what it buys is
+# headroom past one node's ceiling, and lower TPOT at high concurrency.
 # The tell that the handoff is real is on the DECODE side, and it is not
 # throughput: `External prefix cache hit rate: 100.0%` with `Avg prompt
 # throughput` near zero means the decoder computed no prefill and took the KV

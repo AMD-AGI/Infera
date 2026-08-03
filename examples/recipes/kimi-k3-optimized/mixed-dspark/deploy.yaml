@@ -17,23 +17,17 @@
 #          sed 's|<MODEL_DIR>|/your/models|; s|<NODE>|nodeA|' .../mixed-dspark/deploy.yaml | kubectl apply -f -
 #
 # MEASURED, this manifest, 8x MI355X TP8, 1M context, on the image it pins:
-#   1024 in / 128 out  c=4     147.90 tok/s   2.60x ../mixed/
-#                      c=8     328.58         1.36x
-#                      c=16    471.74         1.10x
-#                      c=32    685.25         0.99x
-#                      c=64    879.84         0.90x
-#
-# Speculation's advantage decays monotonically and crosses over between c=16 and
-# c=32. Below that it is a large win; above it, use ../mixed/.
+#   speculation engaged: num_spec_tokens=7, CUDA-graph captured,
+#   "running the draft eagerly" count 0
 #
 # THE OLD CONCURRENCY CEILING IS GONE. On the 20260801 image this manifest died at
 # c>=16 with
 #   AssertionError: AiterMLA flattened verify requires a uniform decode query len
 # The image this file pins fixes it: c=16/32/64 all complete, 0 restarts, and the
-# assertion appears zero times. Speculation is genuinely still on -- 7 draft
-# tokens, CUDA-graph captured, "running the draft eagerly" count 0 -- so this is a
-# fix rather than speculation being quietly disabled. If you pin the older digest,
-# the old ceiling still applies to you.
+# assertion appears zero times. That is binary, not a measurement. If you pin the
+# older digest, the old ceiling still applies to you.
+#
+# Throughput figures were withdrawn from the README -- see ../mixed/deploy.yaml.
 apiVersion: infera.amd.com/v1alpha1
 kind: InferaDeployment
 metadata:

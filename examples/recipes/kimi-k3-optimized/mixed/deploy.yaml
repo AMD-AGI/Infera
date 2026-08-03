@@ -17,20 +17,12 @@
 #          sed 's|<MODEL_DIR>|/your/models|; s|<NODE>|nodeA|' .../mixed/deploy.yaml | kubectl apply -f -
 #
 # MEASURED, this manifest, 8x MI355X TP8, 1M context, on the image it pins:
-#   1024 in / 128 out  c=4      56.78 tok/s
-#                      c=8     241.69
-#                      c=16    427.86
-#                      c=32    689.22
-#                      c=64    972.37
+#   median TPOT   25.24 ms at c=4 rising to 48.81 ms at c=64
 #
-# This is the best tokens-per-GPU option at every concurrency measured, and the
-# right default. ../mixed-dspark/ beats it up to c=16 on the same 8 GPUs (2.60x
-# at c=4, down to 1.10x at c=16) and loses from c=32 on.
-#
-# Do not carry these numbers across a base-image bump. Between the 20260801 and
-# 20260802 images this same manifest moved -15% at c=4 and +29% at c=8, in
-# opposite directions, so a speedup computed against the other image's baseline
-# measures the image, not the setting.
+# Throughput figures were withdrawn from the README: an independent run of the
+# same sweep got 165.99 tok/s cold and 270.4 warm against a published 241.69, so
+# the method (32 requests, ~15 s, no warm-up) was not sound enough to publish
+# from. TPOT reproduced within a few percent and is kept.
 apiVersion: infera.amd.com/v1alpha1
 kind: InferaDeployment
 metadata:

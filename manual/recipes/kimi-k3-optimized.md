@@ -23,9 +23,11 @@ placeholder passes CRD validation) and then fails minutes later at mount time.
 
 **The model path is site-specific and a mixed fleet may not agree with itself.** On
 the fleet these were validated on, the two GPU nodes use different paths for the
-same weights. Find each node's own with `preflight.sh <NODE> --find`, then confirm
-the candidate with `preflight.sh <NODE> <DIR>` — several candidates usually look
-identical (same shard count, same layout) while only one is local storage.
+same weights. Candidates usually look identical (same shard count, same layout)
+while only one is local storage, so confirm the one you pick by mounting **that
+directory** in a throwaway pod on the node and reading `df -PT` — see the repo
+README for the commands. Mounting a parent instead reports the root filesystem and
+will call a network-mounted weights directory local.
 
 Leaving a placeholder in has two different outcomes, neither obvious. `<MODEL_DIR>`
 creates a Pod that fails at mount time. `<NODE>` creates **no Pod at all** —
@@ -37,25 +39,7 @@ hostPath and are scheduled independently — without it they can land on differe
 nodes.
 ```
 
-## 1. Pre-flight
-
-```bash
-./examples/recipes/kimi-k3-optimized/preflight.sh <NODE> <MODEL_DIR> [--dspark]
-```
-
-About 15 seconds, and it checks the things that otherwise fail 12–14 minutes into a
-deploy while blaming something else: the namespace and CRD, free GPUs on the node,
-whether `<MODEL_DIR>` **on that node** actually holds the 96 shards, and whether it
-is local storage rather than a network mount.
-
-For PD, run it once per node with that node's own directory.
-
-The two failures worth catching early — an empty-but-existing directory (mounts
-fine, crashloops later with a HuggingFace repo-id error) and a network mount
-wearing a local-looking name (right shards, ~95-minute load, restarts forever) —
-both otherwise present as something other than a path problem.
-
-## 2. Choose the combination
+## 1. Choose the combination
 
 ::::{tab-set}
 
@@ -70,13 +54,13 @@ sed -e 's|<MODEL_DIR>|/local/nvme/models|' -e 's|<NODE>|nodeA|' \
     examples/recipes/kimi-k3-optimized/mixed/deploy.yaml | kubectl apply -f -
 ```
 
-| 1024 in / 128 out | tok/s | TPOT |
-|---:|---:|---:|
-| c=4 | 56.78 | 25.24 ms |
-| c=8 | 241.69 | 27.85 ms |
-| c=16 | 427.86 | 29.23 ms |
-| c=32 | 689.22 | 37.09 ms |
-| c=64 | 972.37 | 48.81 ms |
+| 1024 in / 128 out | TPOT |
+|---:|---:|
+| c=4 | 25.24 ms |
+| c=8 | 27.85 ms |
+| c=16 | 29.23 ms |
+| c=32 | 37.09 ms |
+| c=64 | 48.81 ms |
 :::
 
 :::{tab-item} Mixed + DSpark
@@ -90,15 +74,10 @@ sed -e 's|<MODEL_DIR>|/local/nvme/models|' -e 's|<NODE>|nodeA|' \
     examples/recipes/kimi-k3-optimized/mixed-dspark/deploy.yaml | kubectl apply -f -
 ```
 
-| 1024 in / 128 out | tok/s | vs Mixed |
-|---:|---:|---:|
-| c=4 | 147.90 | **2.60×** |
-| c=8 | 328.58 | **1.36×** |
-| c=16 | 471.74 | **1.10×** |
 | c=32 | 685.25 | 0.99× |
 | c=64 | 879.84 | 0.90× |
 
-The advantage decays monotonically and crosses over between c=16 and c=32.
+Throughput figures for this page have been withdrawn — they did not reproduce independently (see the repo README). TPOT did.
 
 ```{admonition} The old concurrency ceiling is gone
 :class: note
@@ -124,20 +103,19 @@ sed -e 's|<PREFILL_NODE>|nodeA|' -e 's|<DECODE_NODE>|nodeB|' \
     examples/recipes/kimi-k3-optimized/pd/deploy.yaml | kubectl apply -f -
 ```
 
-| 1024 in / 128 out | tok/s | vs Mixed (8 GPU) | TPOT |
-|---:|---:|---:|---:|
-| c=4 | 50.38 | 0.89× | 23.20 ms |
-| c=8 | 218.47 | 0.90× | 25.81 ms |
-| c=16 | 428.98 | 1.00× | 27.28 ms |
-| c=32 | 747.79 | 1.09× | 31.25 ms |
+| 1024 in / 128 out | TPOT |
+|---:|---:|
+| c=4 | 23.20 ms |
+| c=8 | 25.81 ms |
+| c=16 | 27.28 ms |
+| c=32 | 31.25 ms |
+| c=64 | 38.12 ms |
 | c=64 | **1217.32** | **1.25×** | **38.12 ms** |
 
-```{admonition} Twice the hardware, so read this per GPU
+```{admonition} Twice the hardware, and it never wins per GPU
 :class: warning
-PD never wins per GPU — 1.25× throughput on 2× the GPUs is 0.63× per GPU at its
-best point. What it buys at c=64 is 1.25× throughput **and** 22% lower TPOT at the
-same time, which is the unusual part; those two normally trade against each other.
-Below c=32 it is a straight loss on both counts.
+What PD buys is headroom beyond one node's ceiling, and lower TPOT at high
+concurrency. It is not a tokens-per-GPU improvement at any concurrency measured.
 ```
 :::
 
@@ -176,23 +154,22 @@ Both failures **hang rather than error**: all pods Ready, health checks green,
 restarts 0, no inference logged, and the client waits until its own timeout.
 ```
 
-| 1024 in / 128 out | tok/s | vs `pd` | TPOT |
-|---:|---:|---:|---:|
-| c=4 | 135.34 | 2.69× | **7.81 ms** |
-| c=8 | 445.72 | 2.04× | **11.50 ms** |
-| c=16 | 718.64 | 1.68× | **12.37 ms** |
-| c=32 | 928.50 | 1.24× | **17.80 ms** |
-| c=64 | 1079.32 | 0.89× | **17.44 ms** |
+| 1024 in / 128 out | TPOT |
+|---:|---:|
+| c=4 | **7.81 ms** |
+| c=8 | **11.50 ms** |
+| c=16 | **12.37 ms** |
+| c=32 | **17.80 ms** |
+| c=64 | **17.44 ms** |
 
-Speculation helps PD far more than it helps Mixed (1.68× vs 1.10× at c=16) —
-the decode role is not competing with prefill for the same GPUs. It still crosses
-over at c=64, but even there TPOT is less than half of plain PD's.
+This is the lowest TPOT of the four combinations — the decode role is not
+competing with prefill for the same GPUs.
 
 :::
 
 ::::
 
-## 3. Prerequisites
+## 2. Prerequisites
 
 ```bash
 kubectl get nodes -o custom-columns=NODE:.metadata.name,GPU:.status.allocatable.'amd\.com/gpu'
@@ -221,7 +198,7 @@ the local device, not the convenient common name.
 First start is 12–14 min: the image rebuilds its AITER JIT modules in-container on
 top of weight load and CUDA-graph capture.
 
-## 4. Smoke test
+## 3. Smoke test
 
 ```bash
 kubectl -n infera port-forward svc/<name>-server 18000:8000 & PF=$!
@@ -251,12 +228,12 @@ fails open just re-prefills locally and returns the same text, faster. Check the
 decode side: `External prefix cache hit rate` near 100% with `Avg prompt
 throughput` near zero.
 
-## 5. Settings that are not optional
+## 4. Settings that are not optional
 
 | Setting | Why |
 |---|---|
 | the `KIMI_K3_*` / `VLLM_ROCM_*` env block | selects the optimized kernels. Without them the MoE asks aiter for a kernel that was never generated — `Invalid FlyDSL kernel name: flydsl_moe1_...` — because there is no Kimi-K3 `tuned_fmoe.csv` |
-| `VLLM_ROCM_USE_KIMI_K3_PREROUTE_BF16=0` | must be `0`. A `1` shadows the FP8 cluster: measured 124.34 vs 241.69 tok/s at c=8 (51% of baseline), 331.56 vs 427.86 at c=16 (78%). Silent otherwise — starts fine, no warning, and TPOT barely moves, so latency monitoring misses it |
+| `VLLM_ROCM_USE_KIMI_K3_PREROUTE_BF16=0` | must be `0`. A `1` shadows the FP8 cluster: measured against the same manifest with `0`, each as the first sweep after its own deployment: roughly half the throughput at c=8, about three quarters at c=16. Silent otherwise — starts fine, no warning, and TPOT barely moves, so latency monitoring misses it |
 | `attention_backend: ROCM_AITER_MLA` | the ROCm counterpart of the upstream quick-start's `FLASHINFER_MLA`. Dropping the key instead of translating it is not the fix |
 | `--gpu-memory-utilization 0.88` | the draft's weights land after the KV budget is computed; `0.95` dies with 998 MB free trying to allocate 2.32 GiB |
 | `INFERA_ENGINE_READY_TIMEOUT=7200` | the 1800 s default is impossible on slow storage, and the worker then restarts mid-load forever — which reads as a crash loop, not as slow storage |
@@ -267,7 +244,7 @@ throughput` near zero.
 RDMA devices" produced two false TCP-fallback diagnoses here. Ask
 `ibv_get_device_list` instead — see the repo README for the one-liner.
 
-## 6. Validation status
+## 5. Validation status
 
 Every combination was run end-to-end on the image it pins, with placeholders
 substituted (the files are templates), and every
