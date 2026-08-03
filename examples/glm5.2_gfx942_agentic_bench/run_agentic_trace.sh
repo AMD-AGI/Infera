@@ -39,5 +39,5 @@ python3 -m sglang.benchmark.serving \
 # The tool's own input/cache summary is wrong in multi-turn mode; this is the
 # number to read.
 echo
-python3 "$HERE/score_agentic_trace.py" "$TRACE" "$DETAILS" "$NUM_PROMPTS" \
+python3 "$HERE/score_agentic_trace.py" "$TRACE" "$DETAILS" "$NUM_PROMPTS" ${SCORE_ARGS:-} \
   | tee "$RESULT_DIR/agentic_${TAG}.score.txt"

@@ -29,6 +29,11 @@ if [[ -n "${IB_DEVICE:-}" ]]; then
   IB_ARGS=(--disaggregation-ib-device "$IB_DEVICE")
 fi
 
+# No kvd on this leg, deliberately: SGLang's scheduler only prefetches from
+# hicache storage on its aggregated and prefill branches, so a decode-side L3
+# gets written and never read. There is no daemon on this node either, so
+# passing the socket here would just fail the engine's startup probe.
+
 export HIP_VISIBLE_DEVICES="${HIP_VISIBLE_DEVICES:-0,1,2,3,4,5,6,7}"
 export CUDA_VISIBLE_DEVICES="$HIP_VISIBLE_DEVICES"
 export SGLANG_HOST_IP="$HOST_IP" HOST_IP
