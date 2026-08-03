@@ -1,47 +1,63 @@
-# Kimi-K3 (optimized build) — pd — Kubernetes recipe
+# Kimi-K3 (optimized build) — pd-dspark — Kubernetes recipe
 #
 #   base image   johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260802
 #   overlay      inferaimage/infera-overlay v0.2.2
-#   engine       infera.engine.vllm   TP8 per role, 1P1D
+#   engine       infera.engine.vllm   TP8 per role, 1P1D, DSpark on BOTH roles
 #
 # Deploy:  THIS FILE CONTAINS PLACEHOLDERS — it cannot be applied directly.
 #          see README section 0 for the placeholders, section 4 for the command
 # Docs:    examples/recipes/kimi-k3-optimized/README.md
 #
-# NO SPECULATION HERE — that is ../pd-dspark/, which is validated. This file is
-# the control: same image, same nodes, same everything, minus one argument. Keep
-# it that way, so the pair stays a measurement of speculation rather than of two
-# unrelated configs.
+# --speculative-config IS ON BOTH ROLES, AND THAT IS NOT REDUNDANCY. The obvious
+# reading is that speculation belongs only on decode — the prefiller never samples,
+# so a draft there looks like dead weight. That configuration was tried and it does
+# not work, in two separate ways:
+#
+#   1. vLLM merges the draft's layers into the same kv_caches dict as the target's,
+#      continuing the numbering. Kimi-K3 has 93 layers, DSpark adds 5, so a
+#      speculating decoder registers model.layers.0...97 and sends all 98 names to
+#      the prefiller, which has nothing past 92:
+#          KeyError: 'model.layers.93.self_attn'
+#
+#   2. Even with the layer lists forced to agree, speculation changes the decoder's
+#      block accounting — max_num_scheduled_tokens is recomputed to reserve slots
+#      for draft tokens — so the two sides disagree on how many blocks a request
+#      needs:
+#          pulling kv_caches ... failed: P num blocks less than D
+#      (mooncake_connector.py: "local blocks(N) < remote blocks(M)")
+#
+# The second one is why the prefiller must be speculation-aware even though it will
+# never run the draft: the block count has to be computed the same way on both
+# sides. Loading the draft on the prefiller is the price of that agreement, not an
+# oversight.
+#
+# BOTH FAILURES HANG RATHER THAN ERROR. The request never completes and never
+# returns an error; all pods stay Ready, health checks pass, restarts stay 0, and
+# the decoder logs no inference. The first symptom is a client that waits until its
+# own timeout — 45 minutes in the run that found this. Do not conclude a PD
+# deployment works from `kubectl get pods`.
+#
+# THE DRAFT MUST BE ON BOTH NODES, since both roles now load it.
 #
 # PD REQUIRES the two nodes to sit on a MUTUALLY ROUTABLE RoCE fabric. The KV
 # handoff is RDMA and there is no TCP fallback. Set <PREFILL_NODE>/<DECODE_NODE>.
 #
-# MEASURED, this manifest, 1P1D over 2x 8x MI355X = 16 GPUs, 1M context:
-#   median TPOT   23.20 ms at c=4 rising to 38.12 ms at c=64
-#   decode side held External prefix cache hit rate at 98.9-99.9% across all five
-#   concurrencies, with prompt throughput near zero and prefill the mirror image
-#   -- so the handoff was real rather than failing open. Verified independently.
+# EACH NODE NEEDS ITS OWN LOCAL COPY of both models, and the paths need not match —
+# hence the separate placeholders. On this fleet the tempting common mount
+# (/mnt/shared) is an NFS export of the other node's array, so using it on both
+# sides turns one side's 8-minute load into ~95 minutes, which then exceeds the
+# ready timeout and restarts forever. `df -hT <dir>` on each node and take the
+# local device, not the convenient common name.
 #
-# Throughput figures were withdrawn from the README -- see ../mixed/deploy.yaml.
-# PD never won on tokens per GPU at any concurrency measured; what it buys is
-# headroom past one node's ceiling, and lower TPOT at high concurrency.
-# The tell that the handoff is real is on the DECODE side, and it is not
-# throughput: `External prefix cache hit rate: 100.0%` with `Avg prompt
-# throughput` near zero means the decoder computed no prefill and took the KV
-# from the wire. A correct answer proves nothing here — if the handoff fails
-# open, the decoder just re-prefills locally and returns the same text.
-#
-# THE WEIGHTS ARE A hostPath, SO EACH NODE NEEDS ITS OWN COPY — and the paths do
-# not have to match, which is why there are two placeholders. Both must be LOCAL
-# storage. On the fleet this was validated on, the obvious "shared" mount is an
-# NFS export of the other node's RAID: using it on both sides turns an 8-minute
-# weight load into a ~95-minute one on the NFS side, which then exceeds the ready
-# timeout and restarts forever. Check with `df -hT <dir>` on each node and take
-# the local device, not the convenient common name.
+# The tell that the handoff is real is on the DECODE side, and it is not throughput:
+# `External prefix cache hit rate: ~100%` with `Avg prompt throughput` near zero
+# means the decoder computed no prefill and took the KV off the wire. A correct
+# answer proves nothing — a handoff that fails open just re-prefills locally and
+# returns the same text, faster.
 apiVersion: infera.amd.com/v1alpha1
 kind: InferaDeployment
 metadata:
-  name: kimi-k3-opt-pd
+  name: kimi-k3-opt-pd-dspark
   namespace: infera
 spec:
   backendFramework: vllm
@@ -131,6 +147,7 @@ spec:
                     # while both workers look healthy and the request just hangs to a
                     # 480 s connector timeout.
                     "--data-parallel-address","$(POD_IP)",
+                    "--speculative-config","{\"method\": \"dspark\", \"model\": \"/models/Kimi-K3-DSpark\", \"num_speculative_tokens\": 7, \"attention_backend\": \"ROCM_AITER_MLA\"}",
                     "--kv-transfer-config","{\"kv_connector\":\"MooncakeConnector\",\"kv_role\":\"kv_producer\"}",
                     "--kv-event-transport","zmq","--request-transport","http"]
           env:
@@ -228,6 +245,7 @@ spec:
                     "--enable-auto-tool-choice","--tool-call-parser","kimi_k3",
                     "--reasoning-parser","kimi_k3",
                     "--data-parallel-address","$(POD_IP)",
+                    "--speculative-config","{\"method\": \"dspark\", \"model\": \"/models/Kimi-K3-DSpark\", \"num_speculative_tokens\": 7, \"attention_backend\": \"ROCM_AITER_MLA\"}",
                     "--kv-transfer-config","{\"kv_connector\":\"MooncakeConnector\",\"kv_role\":\"kv_consumer\"}",
                     "--kv-event-transport","zmq","--request-transport","http"]
           env:
