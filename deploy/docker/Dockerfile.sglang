@@ -74,6 +74,25 @@ RUN set -eu; \
     for f in /tmp/sglang-disagg-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
     rm -rf /tmp/sglang-disagg-patches
 
+# ---- sglang ROCm patches (hierarchical-cache host allocator) ----------------
+# REQUIRED FOR CORRECTNESS on ROCm whenever hierarchical cache / kvd is enabled:
+# hipHostRegister maps host pages at a device VA that differs from the host VA,
+# but sglang's hicache stores raw host data_ptr()s in device-side pointer tables
+# that a GPU kernel dereferences. The kernel then dereferences an unmapped
+# address and the process aborts with "Memory access fault by GPU node-N on
+# address <host VA>". gfx950 is xnack-, so there is no page-migration fallback.
+# Routes ALLOC_MEMORY_FUNCS to pin_memory (hipHostMalloc) on HIP, exactly as the
+# "npu" and "musa" entries already do for the same reason.
+#
+# NOT tolerant, like the disagg loop above: an image that GPU-faults the moment
+# kvd writes back is worse than a failed build. Self-locating, idempotent, and
+# it plants a real module-level string literal so the fix can be proven in the
+# BYTECODE rather than in the source.
+COPY deploy/docker/patches/sglang_rocm/ /tmp/sglang-rocm-patches/
+RUN set -eu; \
+    for f in /tmp/sglang-rocm-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
+    rm -rf /tmp/sglang-rocm-patches
+
 # ---- GLM-5.2 DSA patch set (PD + DP-attention + EAGLE MTP on gfx950) --------
 # Three patches that together make PD disaggregation + DP-attention + EAGLE MTP
 # work for GLM-5.2. Without them the combination crashes on the first batch or
