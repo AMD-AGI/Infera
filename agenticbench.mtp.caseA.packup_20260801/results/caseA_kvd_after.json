@@ -1,0 +1,11 @@
+{
+  "entries": 47907,
+  "host_bytes": 84538920960,
+  "spillover_bytes": 0,
+  "long_bytes": 549755182080,
+  "gets_total": 11281,
+  "sets_total": 376791,
+  "hits_total": 11281,
+  "misses_total": 0,
+  "evictions_total": 326459
+}

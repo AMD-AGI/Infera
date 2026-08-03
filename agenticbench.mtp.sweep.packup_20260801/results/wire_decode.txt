@@ -1,0 +1,6 @@
+subscribed to tcp://10.245.146.87:26028 ranks 0..7, listening 60s
+
+rank    batches   stored  int-view  pair-view  first sample
+TOTAL         0        0         0          0
+
+VERDICT: no BlockStored events seen (drive traffic while this runs).

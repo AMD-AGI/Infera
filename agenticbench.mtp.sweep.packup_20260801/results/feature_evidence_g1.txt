@@ -1,0 +1,134 @@
+############ feature evidence  tag=g1  2026-08-01T09:41:00Z
+
+=== 1. PD + mooncake RDMA (would go red: silent TCP fallback) ===
+  prefill  MC_FORCE_TCP=0     mlx5_0=26     dmabuf_disable=0
+  prefill  bootstrap/transfer lines: 2
+  decode   MC_FORCE_TCP=0     mlx5_0=26     dmabuf_disable=0
+  decode   bootstrap/transfer lines: 2
+
+=== 2. DP-attention (would go red: dp_size=1, 1 scheduler proc) ===
+  prefill  enable_dp_attention=enable_dp_attention=True  dp_size=8 lines=1
+    live sglang::scheduler_DP procs: 9
+  decode   enable_dp_attention=enable_dp_attention=True  dp_size=8 lines=1
+    live sglang::scheduler_DP procs: 9
+
+=== 3. MTP / EAGLE (would go red: no speculative args, no accept len) ===
+  decode  speculative_algorithm: speculative_algorithm='EAGLE'
+  decode  num_steps/topk/draft:   speculative_num_steps=3 speculative_eagle_topk=1 speculative_num_draft_tokens=4
+  decode  accept len samples (want 2.1-2.6; 4.00 is BAD -- a predicted loop):
+      accept len: 1.95
+      accept len: 1.88
+      accept len: 2.15
+      accept len: 2.80
+      accept len: 2.35
+      accept len: 2.35
+      accept len: 2.77
+      accept len: 2.60
+  prefill speculative args (want none): 0
+  --- server-reported acceptance (the number bench_serving reads) ---
+      avg_spec_accept_length = 2.7491830065359477
+
+=== 4. kv-aware routing (would go red: cache view 0, no kv-aware picks) ===
+  --- workers ---
+{
+    "workers": [
+        {
+            "worker_id": "10.245.146.87:30001",
+            "url": "http://10.245.146.87:30001",
+            "model_name": "glm5.2-mxfp4",
+            "engine": "sglang",
+            "status": "active",
+            "disagg_mode": "decode",
+            "disagg_meta": {
+                "protocol": "sglang-bootstrap",
+                "params": {}
+            },
+            "kv_events_endpoint": "tcp://10.245.146.87:26028",
+            "kv_block_size": 64,
+            "dp_rank": null,
+            "dp_size": 8
+        },
+        {
+            "worker_id": "10.245.157.89:30000",
+            "url": "http://10.245.157.89:30000",
+            "model_name": "glm5.2-mxfp4",
+            "engine": "sglang",
+            "status": "active",
+            "disagg_mode": "prefill",
+            "disagg_meta": {
+                "protocol": "sglang-bootstrap",
+                "params": {
+                    "bootstrap_addr": "10.245.157.89:8998"
+                }
+            },
+            "kv_events_endpoint": "tcp://10.245.157.89:17568",
+            "kv_block_size": 64,
+            "dp_rank": null,
+            "dp_size": 8
+        }
+    ]
+}
+  --- router kv-aware metrics ---
+infera_router_picks_total{role="prefill",worker_id="10.245.157.89:30000#dp0"} 22.0
+infera_router_picks_total{role="decode",worker_id="10.245.146.87:30001#dp0"} 22.0
+infera_router_pick_cache_hits_sum{role="prefill"} 19027.0
+infera_router_pick_cache_hits_sum{role="decode"} 0.0
+infera_router_pick_request_blocks_sum{role="prefill"} 33750.0
+infera_router_pick_request_blocks_sum{role="decode"} 33750.0
+infera_policy_active_blocks{worker_id="10.245.157.89:30000#dp0"} 0.0
+infera_policy_active_blocks{worker_id="10.245.146.87:30001#dp0"} 0.0
+infera_policy_cache_view_size{worker_id="10.245.146.87:30001#dp0"} 0.0
+infera_policy_cache_view_size{worker_id="10.245.146.87:30001#dp1"} 0.0
+infera_policy_cache_view_size{worker_id="10.245.146.87:30001#dp2"} 0.0
+infera_policy_cache_view_size{worker_id="10.245.146.87:30001#dp3"} 0.0
+infera_policy_cache_view_size{worker_id="10.245.146.87:30001#dp4"} 0.0
+infera_policy_cache_view_size{worker_id="10.245.146.87:30001#dp5"} 0.0
+infera_policy_cache_view_size{worker_id="10.245.146.87:30001#dp6"} 0.0
+infera_policy_cache_view_size{worker_id="10.245.146.87:30001#dp7"} 0.0
+infera_policy_cache_view_size{worker_id="10.245.157.89:30000#dp0"} 14723.0
+infera_policy_cache_view_size{worker_id="10.245.157.89:30000#dp1"} 0.0
+infera_policy_cache_view_size{worker_id="10.245.157.89:30000#dp2"} 0.0
+infera_policy_cache_view_size{worker_id="10.245.157.89:30000#dp3"} 0.0
+infera_policy_cache_view_size{worker_id="10.245.157.89:30000#dp4"} 0.0
+infera_policy_cache_view_size{worker_id="10.245.157.89:30000#dp5"} 0.0
+infera_policy_cache_view_size{worker_id="10.245.157.89:30000#dp6"} 0.0
+infera_policy_cache_view_size{worker_id="10.245.157.89:30000#dp7"} 0.0
+  --- kv-aware pick log lines ---
+45
+policy=kv-aware role=decode retention=none request_id=431504d16d084f19862fe83c5554d1f3 picked=10.245.146.87:30001#dp0 cache_hits=0 request_blocks=1875
+policy=kv-aware role=prefill retention=none request_id=bb139f31d4864dbd87625de78e5e791f picked=10.245.157.89:30000#dp0 cache_hits=93 request_blocks=1875
+policy=kv-aware role=decode retention=none request_id=bb139f31d4864dbd87625de78e5e791f picked=10.245.146.87:30001#dp0 cache_hits=0 request_blocks=1875
+policy=kv-aware role=prefill retention=none request_id=8206bf3121a548b4a96589b61cc9f163 picked=10.245.157.89:30000#dp0 cache_hits=937 request_blocks=1875
+policy=kv-aware role=decode retention=none request_id=8206bf3121a548b4a96589b61cc9f163 picked=10.245.146.87:30001#dp0 cache_hits=0 request_blocks=1875
+
+=== 5. kvd (counters; the SERVING proof is restart_replay.sh) ===
+  --- prefill ---
+    {
+      "entries": 22048,
+      "host_bytes": 38962520064,
+      "spillover_bytes": 0,
+      "long_bytes": 38962520064,
+      "gets_total": 0,
+      "sets_total": 22048,
+      "hits_total": 0,
+      "misses_total": 0,
+      "evictions_total": 0
+    }
+    hierarchical_cache=enable_hierarchical_cache=True  hicache_storage_backend=hicache_storage_backend='dynamic'
+    "not wiring infera-kvd" (decode should be 1): 0
+  --- decode ---
+    {
+      "entries": 0,
+      "host_bytes": 0,
+      "spillover_bytes": 0,
+      "long_bytes": 0,
+      "gets_total": 0,
+      "sets_total": 0,
+      "hits_total": 0,
+      "misses_total": 0,
+      "evictions_total": 0
+    }
+    hierarchical_cache=enable_hierarchical_cache=False  hicache_storage_backend=hicache_storage_backend=None
+    "not wiring infera-kvd" (decode should be 1): 0
+
+############ end

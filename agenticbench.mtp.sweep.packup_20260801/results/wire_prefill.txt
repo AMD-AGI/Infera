@@ -1,0 +1,7 @@
+subscribed to tcp://10.245.157.89:17568 ranks 0..7, listening 60s
+
+rank    batches   stored  int-view  pair-view  first sample
+0            12     1055      1055          0  INT bs=64 [154822, 154824, 154826]
+TOTAL        12     1055      1055          0
+
+VERDICT: PLAIN-INT view on the wire -> the bigram path is NOT exercised by this leg.

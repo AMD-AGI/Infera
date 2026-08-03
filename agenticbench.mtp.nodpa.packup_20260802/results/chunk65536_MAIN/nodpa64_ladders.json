@@ -1,0 +1,201 @@
+{
+  "run_dir": "/shared_nfs/yihou_agbench_mtp/bench/nodpa64_full/nodpa64_full/2026-08-02-14-18-43",
+  "ramp_s": 180,
+  "n_all": 115,
+  "n_sustain": 103,
+  "in_flight_max": 1,
+  "sessions_max": 1,
+  "summary": {
+    "context": {
+      "mode": "realistic",
+      "server_url": "http://10.245.150.172:8190",
+      "model": "glm5.2-mxfp4",
+      "num_gpus": 8,
+      "ramp_duration_secs": 180,
+      "sustain_duration_secs": 1800,
+      "max_inflight": 1
+    },
+    "duration_s": 1985.9417498111725,
+    "requests_sent": 117,
+    "requests_completed": 115,
+    "errors": 1,
+    "success_rate": 0.9829059829059829,
+    "actual_average_qps": 0.058914114681925894,
+    "totals": {
+      "input_tokens": 10096971,
+      "cached_tokens": 8979520,
+      "uncached_tokens": 1117451,
+      "prefix_tokens": 8984997,
+      "generation_tokens": 153578,
+      "reasoning_tokens": 0,
+      "visible_tokens": 153578
+    },
+    "prompt_length": {
+      "mean": 87799.74782608695,
+      "p50": 84404.0,
+      "p90": 150548.0,
+      "p99": 244504.0
+    },
+    "generation_length": {
+      "mean": 1335.4608695652173,
+      "p50": 256.0,
+      "p90": 3041.0,
+      "p99": 15595.0
+    },
+    "reasoning_length": {
+      "mean": 0.0,
+      "p90": 0.0
+    },
+    "ttft_ms": {
+      "mean": 1329.726915774138,
+      "p50": 1162.1651649475098,
+      "p90": 2253.9992332458496,
+      "p99": 6300.78911781311
+    },
+    "tpot_ms": {
+      "mean": 11.126193629774036,
+      "p50": 10.958887762942556,
+      "p90": 13.715848326683044,
+      "p99": 14.915713046158166
+    },
+    "cache": {
+      "ideal_hit_rate": 0.8898705364212693,
+      "actual_hit_rate": 0.8893280965152817,
+      "efficiency": 0.9993904282884012,
+      "eviction_rate": 0.0006095717115987908,
+      "server_reported_cached": true
+    },
+    "phases": [
+      {
+        "phase": "ramp",
+        "duration_s": 180,
+        "completed": 12,
+        "qps": 0.06666666666666667,
+        "input_tokens": 1200500,
+        "cached_tokens": 1070016,
+        "uncached_tokens": 130484,
+        "gen_tokens": 8376,
+        "reasoning_tokens": 0,
+        "visible_tokens": 8376,
+        "input_tpm": 400166.6666666667,
+        "cached_tpm": 356672.0,
+        "uncached_tpm": 43494.666666666664,
+        "gen_tpm": 2792.0,
+        "reasoning_tpm": 0.0,
+        "visible_tpm": 2792.0,
+        "cache_hit_rate": 0.8913086214077468,
+        "ttft_p50_ms": 1698.4515190124512,
+        "ttft_p90_ms": 2118.6325550079346,
+        "ttft_p99_ms": 6300.78911781311,
+        "tpot_p50_ms": 11.664579896365895,
+        "tpot_p90_ms": 14.276157345688134,
+        "tpot_p99_ms": 14.503811200459799
+      },
+      {
+        "phase": "sustain",
+        "duration_s": 1800,
+        "completed": 103,
+        "qps": 0.05722222222222222,
+        "input_tokens": 8896471,
+        "cached_tokens": 7909504,
+        "uncached_tokens": 986967,
+        "gen_tokens": 145202,
+        "reasoning_tokens": 0,
+        "visible_tokens": 145202,
+        "input_tpm": 296549.0333333333,
+        "cached_tpm": 263650.13333333336,
+        "uncached_tpm": 32898.9,
+        "gen_tpm": 4840.066666666667,
+        "reasoning_tpm": 0.0,
+        "visible_tpm": 4840.066666666667,
+        "cache_hit_rate": 0.8890608422148513,
+        "ttft_p50_ms": 1133.9824199676514,
+        "ttft_p90_ms": 2253.9992332458496,
+        "ttft_p99_ms": 4729.943752288818,
+        "tpot_p50_ms": 10.88773681078585,
+        "tpot_p90_ms": 13.472730862466912,
+        "tpot_p99_ms": 14.915713046158166
+      },
+      {
+        "phase": "drain",
+        "duration_s": 0.0,
+        "completed": 0,
+        "qps": 0.0,
+        "input_tokens": 0,
+        "cached_tokens": 0,
+        "uncached_tokens": 0,
+        "gen_tokens": 0,
+        "reasoning_tokens": 0,
+        "visible_tokens": 0,
+        "input_tpm": 0.0,
+        "cached_tpm": 0.0,
+        "uncached_tpm": 0.0,
+        "gen_tpm": 0.0,
+        "reasoning_tpm": 0.0,
+        "visible_tpm": 0.0,
+        "cache_hit_rate": 0.0,
+        "ttft_p50_ms": 0.0,
+        "ttft_p90_ms": 0.0,
+        "ttft_p99_ms": 0.0,
+        "tpot_p50_ms": 0.0,
+        "tpot_p90_ms": 0.0,
+        "tpot_p99_ms": 0.0
+      }
+    ]
+  },
+  "ttft_ladder_all": {
+    "p1": 420.5111074447632,
+    "p5": 448.9645004272461,
+    "p10": 473.19278717041016,
+    "p25": 639.4060850143433,
+    "p50": 1162.1651649475098,
+    "p75": 1698.9128589630127,
+    "p90": 2227.3220062255855,
+    "p95": 2653.3480405807495,
+    "p99": 6080.8707666397095
+  },
+  "ttft_ladder_sustain": {
+    "p1": 420.1133394241333,
+    "p5": 447.8904724121094,
+    "p10": 462.6542091369629,
+    "p25": 636.7950439453125,
+    "p50": 1133.9824199676514,
+    "p75": 1612.4248504638672,
+    "p90": 2240.6606197357173,
+    "p95": 2644.2405939102177,
+    "p99": 4720.369014739992
+  },
+  "prompt_ladder_sustain": {
+    "p1": 35342.0,
+    "p5": 35342.0,
+    "p10": 35342.0,
+    "p25": 48423.5,
+    "p50": 78942,
+    "p75": 110892.5,
+    "p90": 148474.99999999997,
+    "p95": 163065.80000000002,
+    "p99": 202939.38000000003
+  },
+  "gen_ladder_sustain": {
+    "p1": 30.02,
+    "p5": 31.0,
+    "p10": 31.0,
+    "p25": 65.0,
+    "p50": 255,
+    "p75": 1014.0,
+    "p90": 3940.999999999997,
+    "p95": 7107.200000000012,
+    "p99": 15440.24000000003
+  },
+  "acc_ladder_sustain": {
+    "p1": 1.1680896358543418,
+    "p5": 1.3913919413919413,
+    "p10": 1.5845744680851064,
+    "p25": 1.8714285714285714,
+    "p50": 2.08,
+    "p75": 2.2139303482587067,
+    "p90": 2.3746666666666667,
+    "p95": 2.581059239965271,
+    "p99": 2.7195444735463594
+  }
+}

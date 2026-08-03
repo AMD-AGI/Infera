@@ -1,0 +1,86 @@
+================================================================================
+lat1 analysis — /shared_nfs/yihou_agbench_mtp/bench/lat1_full/lat1_full/2026-08-02-05-39-24
+================================================================================
+duration        1,980.9 s   (ramp 180 s excluded from SUSTAIN)
+requests        124 sent / 124 completed / 0 errors   success=1.0000
+qps             0.0626  (closed loop, one at a time)
+
+CONCURRENCY GUARANTEE   in_flight max=1   sessions_active max=1
+  holds: never more than one request in flight, never more than one live session
+
+--------------------------------------------------------------------------------
+HEADLINE (from summary.json, the driver's own computation)
+--------------------------------------------------------------------------------
+  ttft_ms    mean=  2,458.9  p50=  2,053.2  p90=  4,860.5  p99=  7,134.3
+  tpot_ms    mean=     10.5  p50=     10.7  p90=     12.2  p99=     13.7
+  cache      actual=0.8897  ideal=0.8899  eff=0.9998  evict=0.0002
+
+--------------------------------------------------------------------------------
+LADDERS — ALL requests
+--------------------------------------------------------------------------------
+
+TTFT  (n=124)
+         p1       p5      p10      p25      p50      p75      p90      p95      p99     mean      max
+      820.3    868.3    922.5  1,323.1  2,042.1  3,041.4  4,757.4  5,334.7  7,009.8  2,458.9  9,284.3  ms
+
+prompt length  (n=124)
+         p1       p5      p10      p25      p50      p75      p90      p95      p99     mean      max
+   35,342.0 35,342.0 37,146.5 53,843.2 83,048.0121,385.5171,270.7190,796.1233,537.0 94,687.0260,013.0  tok
+
+generation length  (n=124)
+         p1       p5      p10      p25      p50      p75      p90      p95      p99     mean      max
+       31.0     31.0     34.9    128.0    390.5  1,330.5  3,103.6  5,453.7 14,946.4  1,324.0 22,219.0  tok
+
+acceptance (driver-side)  (n=124)
+         p1       p5      p10      p25      p50      p75      p90      p95      p99     mean      max
+        1.3      1.6      1.7      2.0      2.2      2.4      2.6      2.8      2.9      2.2      2.9  
+
+cache hit  (n=124)
+         p1       p5      p10      p25      p50      p75      p90      p95      p99     mean      max
+       88.9     88.9     88.9     88.9     89.0     89.0     89.0     89.0     89.0     89.0     89.0  %
+
+--------------------------------------------------------------------------------
+LADDERS — SUSTAIN only (elapsed >= 180 s)
+--------------------------------------------------------------------------------
+
+TTFT  (n=120)
+         p1       p5      p10      p25      p50      p75      p90      p95      p99     mean      max
+      820.2    867.0    904.8  1,323.1  2,029.1  3,041.4  4,866.4  5,345.5  7,031.4  2,462.1  9,284.3  ms
+
+prompt length  (n=120)
+         p1       p5      p10      p25      p50      p75      p90      p95      p99     mean      max
+   35,342.0 35,342.0 36,860.7 53,843.2 81,584.5121,385.5171,899.8191,611.8234,005.0 94,582.8260,013.0  tok
+
+generation length  (n=120)
+         p1       p5      p10      p25      p50      p75      p90      p95      p99     mean      max
+       31.0     31.0     33.7    128.0    385.0  1,330.5  3,039.7  5,624.3 15,331.2  1,324.0 22,219.0  tok
+
+acceptance (driver-side)  (n=120)
+         p1       p5      p10      p25      p50      p75      p90      p95      p99     mean      max
+        1.3      1.6      1.8      2.0      2.2      2.4      2.6      2.8      2.9      2.2      2.9  
+
+--------------------------------------------------------------------------------
+THE CURVE THAT ANSWERS THE QUESTION
+--------------------------------------------------------------------------------
+
+TTFT vs input length  (concurrency 1 -> pure prefill service time)
+         bin (input tok)    n  mean TTFT ms         p50         min         max
+  -----------------------------------------------------------------------------
+                0-40,000   17         960.5       877.3       812.0     1,899.6
+           40,000-60,000   19       1,184.4     1,150.4       975.5     1,437.6
+           60,000-80,000   21       1,716.1     1,674.2     1,411.0     2,497.4
+          80,000-100,000   23       2,176.3     2,163.5     1,901.5     2,893.8
+         100,000-130,000   19       2,972.5     2,895.6     2,472.0     4,966.9
+         130,000-160,000    5       3,677.8     3,728.6     3,440.9     3,938.5
+         160,000-200,000   15       4,707.5     4,516.9     4,126.9     5,425.8
+         200,000-240,000    4       6,303.4     6,237.3     5,604.7     7,134.3
+                240,000+    1       9,284.3     9,284.3     9,284.3     9,284.3
+
+  least-squares fit:  TTFT_ms = -319 + 29.33 x (input_ktok)
+  -> fixed overhead -319 ms;  marginal prefill rate 34,092 tok/s
+
+  (TPOT-vs-output is not reconstructible per request from these artifacts —
+   the driver persists no per-request TPOT array. summary.json's tpot_ms
+   block above is the authoritative TPOT for this run.)
+
+[json] wrote /shared_nfs/yihou_agbench_mtp/results/lat1_ladders.json

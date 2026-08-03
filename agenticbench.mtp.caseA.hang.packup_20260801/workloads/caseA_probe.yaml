@@ -1,0 +1,81 @@
+# =============================================================================
+# Case A — PROBE variant. Calibration only; NOT a deliverable.
+#
+# Derived from Optimus-AgenticBench agent/workloads/glm52_crxx_caseA.fix.yaml
+# (the spec of record, left untouched). The request-shape block is the spec's,
+# verbatim. Four things differ, and none of them touch the request shape:
+#
+#   * acc_len 1.56 -> 1.0, mtp_draft_tokens 5 -> 1.  SEE THE LONG NOTE BELOW --
+#     this is NOT because MTP is off (it is ON in this deployment); it is because
+#     acc_len would DOUBLE-COUNT the speedup this server already delivers.
+#   * tokenizer: the placeholder path aborts the run.
+#   * ramp/sustain shortened to 300/600 -- calibration only.
+#   * new_session_rate starts at the spec's own 0.10, deliberately: it is the
+#     only rate on this cluster with a measured, unsaturated outcome behind it.
+#
+# Percentiles from a 600 s window at ~1 req/s are noise. Read ONLY the
+# steady-state live-session band and the in-flight range off this run.
+# =============================================================================
+workload:
+
+  # --- Percentile-calibrated request profile (unchanged from the spec) -------
+  profile:
+    input_tokens:        { p50: 74000,  p90: 155000, p99: 235000 }
+    output_tokens:       { p50: 320,    p90: 3300,   p99: 17000 }
+    turns_per_session:   { p50: 3,      p90: 20,     p99: 103 }
+    inter_turn_delay_s:  { p50: 4,      p90: 31,     p99: 240 }
+    cache_hit_rate:      0.89
+    max_input_tokens:    260000
+
+  # --- Speculative decoding accounting ---------------------------------------
+  # MTP IS ON in this deployment (EAGLE, decode leg, steps=3 topk=1 draft=4,
+  # measured acceptance ~2.2-2.4). So why 1.0 and not 2.2?
+  #
+  # Because `acc_len` is a PROJECTION KNOB, not a description of the server:
+  #
+  #     generation_tps_mtp = completion_tokens * acc_len / generation_time
+  #                                              ^^^^^^^      (agent_throughput.py:1002)
+  #
+  # and that product is what lands in metrics.jsonl as `generation_tps` and is
+  # printed as "(MTP compensated)". It exists to ESTIMATE what a non-speculative
+  # server WOULD achieve if speculation were added.
+  #
+  # This server already has speculation, so its measured completion_tokens /
+  # generation_time ALREADY contains the speedup. Multiplying by 2.2 again would
+  # report ~2.2x the tokens/s the deployment actually delivered -- inflating the
+  # headline throughput of a real measurement with a model of itself.
+  #
+  # 1.0 is the identity, so `generation_tps` stays the honestly measured rate.
+  # The acceptance number is reported separately, from the engine's own counters
+  # (see the sweep kit) -- never inferred from this knob.
+  acc_len:               1.0
+  mtp_draft_tokens:      1
+  mtp_overhead_factor:   1.0
+
+  # --- Offered load ----------------------------------------------------------
+  # Start at the spec's own 0.10. The previous spur run (same cluster, model and
+  # ctx; MTP off) measured 0.10 -> in-flight 10-27, sessions 19-26: STABLE. That
+  # is the only anchored point available, and this deployment is faster, so 0.10
+  # cannot saturate it. The full run re-solves from what this probe measures.
+  initial_sessions:      32
+  new_session_rate:      0.10
+  max_sessions:          128
+  max_inflight:          48
+
+  # --- Calibration window (NOT the spec's; deliverable uses 400/3600) --------
+  ramp_duration:         300
+  sustain_duration:      600
+
+  # --- Request framing -------------------------------------------------------
+  system_prompt_len:     2000
+  max_prompt_tokens:     260000
+  tokenizer:             /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4
+
+  sla:
+    e2e_p50_ms:          4500
+    ttft_p90_ms:         30000
+    success_rate:        0.97
+
+  gpus:                  8
+  window:                30
+  random_seed:           1337

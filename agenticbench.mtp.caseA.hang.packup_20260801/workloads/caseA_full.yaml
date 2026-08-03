@@ -1,0 +1,127 @@
+# =============================================================================
+# Case A — FULL variant. THE DELIVERABLE RUN.
+#
+# Derived from Optimus-AgenticBench agent/workloads/glm52_crxx_caseA.fix.yaml
+# (the spec of record, left untouched). The request-shape block and the
+# measurement window are the spec's. Three things differ:
+#
+#   * acc_len 1.56 -> 1.0, mtp_draft_tokens 5 -> 1. NOT because MTP is off (it is
+#     ON here) but because acc_len would DOUBLE-COUNT it. See the note below.
+#   * tokenizer: the placeholder path aborts the run.
+#   * initial_sessions / new_session_rate: re-solved from the PROBE, not from the
+#     spec's E2E=15s placeholder and not by inverting Little's law.
+# =============================================================================
+workload:
+
+  # --- Percentile-calibrated request profile (unchanged from the spec) -------
+  profile:
+    input_tokens:        { p50: 74000,  p90: 155000, p99: 235000 }
+    output_tokens:       { p50: 320,    p90: 3300,   p99: 17000 }
+    turns_per_session:   { p50: 3,      p90: 20,     p99: 103 }
+    inter_turn_delay_s:  { p50: 4,      p90: 31,     p99: 240 }
+    cache_hit_rate:      0.89
+    max_input_tokens:    260000
+
+  # --- Speculative decoding accounting ---------------------------------------
+  # MTP IS ON in this deployment (EAGLE on the decode leg, steps=3 topk=1
+  # draft=4; measured acceptance 2.0-2.4). These are still 1.0 / 1, and the
+  # reason is the opposite of the previous run's.
+  #
+  # The previous spur run set 1.0 because MTP was OFF and 1.56 would have
+  # fabricated a speedup that did not exist. Here MTP is on -- but `acc_len` is a
+  # PROJECTION knob, not a description of the server:
+  #
+  #     generation_tps_mtp = completion_tokens * acc_len / generation_time
+  #                                              ^^^^^^^     (agent_throughput.py:1002)
+  #
+  # and that product is what lands in metrics.jsonl as `generation_tps` and is
+  # printed "(MTP compensated)". It exists to estimate what a NON-speculative
+  # server WOULD reach if speculation were added.
+  #
+  # This server already speculates, so its measured completion_tokens /
+  # generation_time ALREADY contains the speedup. Setting acc_len=2.2 would
+  # multiply a real measurement by a model of itself and report ~2.2x the
+  # tokens/s actually delivered. 1.0 is the identity; `generation_tps` stays the
+  # honestly measured rate. Acceptance is reported separately from the engine's
+  # own counters -- never inferred from this knob.
+  acc_len:               1.0
+  mtp_draft_tokens:      1
+  mtp_overhead_factor:   1.0
+
+  # --- Offered load: re-solved from the probe --------------------------------
+  # PROBE RESULT (2026-08-01 11:54, 900 s, 509 completed, rate 0.10):
+  #     live sessions  p50 20 / p90 23 / max 25
+  #     in-flight      p50 13 / p90 17 / max 19   against a cap of 48
+  #     ticks at cap   0
+  #     errors         3 of 522
+  # Stable, oscillating, nowhere near the cap.
+  #
+  # WHY NOT INVERT LITTLE'S LAW. The closed form
+  #     N = rate x E[turns] x (E2E + E[delay])
+  # needs one scalar E2E, and this workload does not supply a trustworthy one:
+  #     from the observed population   : E2E ~=  2.8 s
+  #     from the duty cycle 13/20      : E2E ~= 33.2 s
+  #     from TTFT_mean + gen x TPOT    : E2E ~= 25.6 s
+  # Three routes, an order of magnitude apart. Substituting the last one predicts
+  # N=42 at the rate that actually produced N=20 -- the model over-predicts ~2x,
+  # so inverting it to choose a rate would be choosing an offered load by
+  # arithmetic that measurement has already contradicted.
+  #
+  # AND DO NOT ASSUME LINEARITY EITHER. The previous run scaled 0.10 -> 0.145 on
+  # a linear assumption, predicted 26 in-flight, measured 44-48, pinned
+  # max_inflight and had to be ABORTED at t=1195 s. Service time grows with load,
+  # so the response is superlinear.
+  #
+  # FIRST ATTEMPT AT 0.15 WAS ABORTED at t=902 s. In-flight pinned at 48 for
+  # 120 of the last 120 ticks and the live population climbed monotonically
+  # 25 -> 70 while `num_sessions_total` reached the 128 cap. Backpressure, not
+  # the workload, was setting the load. 44 errors, ALL of them the client's
+  # hardcoded 240 s timeout, 0 server faults. Preserved at
+  # bench/caseA_full_ABORTED_saturated_rate015/.
+  #
+  # WHY 0.15 WAS WRONG, stated plainly because the reasoning error is the useful
+  # part: I stepped past the MTP-off run's proven-stable 0.110 on the argument
+  # that "MTP makes this deployment faster, so it tolerates more load." That is
+  # false for THIS workload:
+  #
+  #     Case A mean input  = 86,012 tok
+  #     Case A mean output =  1,434 tok      -> ~60x more prefill than decode
+  #     MTP accelerates DECODE only.
+  #
+  # And the sweep had already measured this very deployment as PREFILL-BOUND,
+  # saturating by conc=32 (32 -> 128 buys only 19-26 % more input tok/s). So MTP
+  # cannot raise the sustainable session rate for a prefill-dominated workload,
+  # and the MTP-off run's anchor still governs. I had the measurement in hand and
+  # reasoned past it.
+  #
+  # Measured points on this cluster, both configurations:
+  #     MTP on : 0.100 -> N=20, in-flight p50 13 / max 19, 0 at cap   STABLE
+  #     MTP on : 0.150 -> N=70 climbing, 48 pinned 120/120 ticks      SATURATED
+  #     MTP off: 0.110 -> in-flight p50 28 / max 46, never pinned     STABLE
+  #     MTP off: 0.145 -> 44-48 pinned, sessions 40 -> 57             SATURATED
+  #
+  # Interpolating between a stable and a saturated point is invalid, so this
+  # takes the highest rate with a measured non-saturated outcome anywhere on this
+  # cluster (0.110) and adds a token 5 %.
+  initial_sessions:      32
+  new_session_rate:      0.115
+  max_sessions:          128
+  max_inflight:          48
+
+  # --- Measurement window (the spec's; ~67 min total) ------------------------
+  ramp_duration:         400
+  sustain_duration:      3600
+
+  # --- Request framing -------------------------------------------------------
+  system_prompt_len:     2000
+  max_prompt_tokens:     260000
+  tokenizer:             /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4
+
+  sla:
+    e2e_p50_ms:          4500
+    ttft_p90_ms:         30000
+    success_rate:        0.97
+
+  gpus:                  8
+  window:                30
+  random_seed:           1337

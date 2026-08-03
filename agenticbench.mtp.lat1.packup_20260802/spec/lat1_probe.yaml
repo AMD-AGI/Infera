@@ -1,0 +1,174 @@
+# =============================================================================
+# lat1 — LATENCY FLOOR at concurrency 1.  THE DELIVERABLE RUN.
+#
+# PURPOSE.  Case A answers "what does this deployment do under a realistic
+# agentic population". It cannot answer "how fast is one request", because every
+# number it produces is contaminated by queueing: at 44 in-flight requests a
+# TTFT of 18.9 s is mostly *waiting*, not *computing*. This workload strips the
+# population down to exactly one live session issuing exactly one turn at a
+# time, so TTFT and TPOT become the service time itself. That is the latency
+# limit of the service.
+#
+# DERIVED FROM caseA_full.yaml.  Everything that describes the REQUEST is
+# byte-identical to Case A: the input/output percentile triples, the cache hit
+# rate, max_input_tokens, system_prompt_len, tokenizer, acc_len,
+# mtp_draft_tokens, sla, gpus, window, random_seed. The SERVER is not touched at
+# all -- same two legs, same flags, same image, same GLM52_P1V3 patch.
+#
+# Only the CONCURRENCY STRUCTURE differs, and only in the six knobs marked
+# [LAT1] below. Each one is load-bearing; dropping any of them silently breaks
+# the "exactly one" guarantee. The mechanism for each is stated against the
+# driver source it was read from.
+# =============================================================================
+workload:
+
+  # --- Request profile: IDENTICAL to Case A except turns ---------------------
+  profile:
+    input_tokens:        { p50: 74000,  p90: 155000, p99: 235000 }
+    output_tokens:       { p50: 320,    p90: 3300,   p99: 17000 }
+
+    # [LAT1 1/6] turns_per_session 3/20/103 -> 1/1/1.
+    #
+    # PercentileSampler requires 0 < p50 <= p90 <= p99 (sampling.py:102), so the
+    # degenerate triple is legal. With all three equal, _interp_lnv() returns
+    # ln(1) for every z, sample_int() returns exactly 1, and the session's turn
+    # budget is 1 (`session_max_turns = profile.turns.sample_int()`,
+    # agent_throughput.py:2366).
+    #
+    # The session then retires after its single turn -- verified at :2384-2391,
+    # which sets `session.retired = True` and breaks, rather than merely leaving
+    # the loop. That distinction matters here: a session that only breaks still
+    # reads as live and would hold the single max_sessions slot forever, and the
+    # run would issue exactly ONE request in 30 minutes.
+    turns_per_session:   { p50: 1,      p90: 1,      p99: 1 }
+
+    # Kept although it can never fire: with a 1-turn budget the loop breaks
+    # before reaching the think-time sleep (:2400). Present so this file stays
+    # diffable against caseA_full.yaml -- a removed key would read as a
+    # deliberate profile change when it is a dead knob.
+    inter_turn_delay_s:  { p50: 4,      p90: 31,     p99: 240 }
+
+    cache_hit_rate:      0.89
+    max_input_tokens:    260000
+
+  # --- MTP accounting: IDENTICAL to Case A -----------------------------------
+  # acc_len is a REPORTING knob only (agent_throughput.py:2314): it scales the
+  # "MTP compensated" generation_tps and nothing else. This server already
+  # speculates, so 1.0 is the identity and generation_tps stays the honestly
+  # measured rate. Acceptance comes from the engine's own counters.
+  acc_len:               1.0
+  mtp_draft_tokens:      4              # matches --speculative-num-draft-tokens 4
+  mtp_overhead_factor:   1.0
+
+  # --- Concurrency: ONE. The whole point of this workload. -------------------
+  #
+  # [LAT1 2/6] initial_sessions 32 -> 1. One session task is started (:2462).
+  #
+  # [LAT1 3/6] max_sessions 128 -> 1. This is the knob that actually ENFORCES
+  # "sessions == 1", and it is not the same guarantee as initial_sessions=1.
+  # The control loop spawns a replacement every tick it finds room (:2509-2517):
+  #
+  #     if new_session_rate > 0 and active_sessions < max_sessions:
+  #         if random.random() < new_session_rate: <spawn>
+  #
+  # `active_sessions` counts `is_available() or in_flight` (:2416, :310), so
+  # while the current request is in flight the count is 1, the guard is false,
+  # and nothing is spawned. Only after the session retires does the count drop
+  # to 0 and a single replacement appear. The population is therefore 1, always,
+  # by construction rather than by luck.
+  #
+  # [LAT1 4/6] new_session_rate 0.10 -> 1.0. With a 1-turn budget the session
+  # dies after every request, so the replacement rate governs the DEAD TIME
+  # between requests, not the load. At 0.10 the expected wait for a respawn is
+  # ~10 ticks = ~10 s of idle per request -- which at ~19 s of service time would
+  # throw away a third of the window. 1.0 respawns on the very next tick.
+  #
+  # The cost of 1.0 is honest and bounded: the control loop's `await
+  # asyncio.sleep(1.0)` (:2530) still quantises respawn to a 1 s grid, so there
+  # is ~0.5 s of mean dead time per request regardless. That is dead time
+  # BETWEEN requests and cannot inflate TTFT or TPOT, both of which are measured
+  # from `start_time = time.time()` taken after the prompt is built (:2255).
+  initial_sessions:      1
+  max_sessions:          1
+  new_session_rate:      1.0
+
+  # [LAT1 5/6] max_inflight 48 -> 1. Belt and braces: even if the population
+  # logic above were wrong, this gate holds each turn until in-flight < 1
+  # (:2163-2172). Verified it sits BEFORE `start_time` is taken, so any wait it
+  # imposes is excluded from the measured latency rather than folded into it.
+  max_inflight:          1
+
+  # --- Window ----------------------------------------------------------------
+  #
+  # [LAT1 6/6] ramp_duration 400 -> 180. The only knob changed for a reason
+  # other than concurrency, and it is changed because its JOB is different here.
+  #
+  # ramp_duration is a warm-up EXCLUSION window, not a load ramp. In Case A it
+  # covers two effects: the 231K-token shared prefix becoming resident, and a
+  # synchronized 32-session cohort dispersing. Here there is no cohort to
+  # disperse -- there is one session -- so only the prefix matters, and the
+  # prefix is fully resident after the first one or two requests.
+  #
+  # At ~19 s expected service time, 400 s would discard ~21 of roughly 110 total
+  # samples: 19 % of the entire dataset, spent re-proving something the first
+  # two requests already settled. 180 s discards ~9. Sample count is the binding
+  # constraint of this experiment, so the excess exclusion is a real cost with
+  # no matching benefit.
+  ramp_duration:         60
+  sustain_duration:      240            # PROBE: mechanism + cache check only
+
+  # --- Framing: IDENTICAL to Case A ------------------------------------------
+  system_prompt_len:     2000
+  max_prompt_tokens:     260000
+  tokenizer:             /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4
+
+  # Parsed and never consumed (args.sla_cfg has no reader). Carried verbatim
+  # from Case A so the two configs stay diffable.
+  sla:
+    e2e_p50_ms:          4500
+    ttft_p90_ms:         30000
+    success_rate:        0.97
+
+  gpus:                  8
+  window:                30
+
+  # [LAT1 7/6 -- added after a failed first attempt] random_seed 1337 -> 20260802.
+  #
+  # This is the one knob changed for a DEBUG reason rather than a design reason,
+  # and it is changed because 1337 produced a measurement of the wrong thing.
+  #
+  # SYMPTOM. The first lat1 attempt returned cache hit ~100 % on its opening
+  # requests -- against a configured 0.89 -- with only 14-62 uncached tokens and
+  # TTFT of 392-1,673 ms. Those requests were doing essentially no prefill, so
+  # their TTFT is not a prefill service time and would have dragged the whole
+  # ladder down. The probe showed the same shape for its first 12 requests.
+  #
+  # CAUSE, from source rather than inference. Two seeds feed prompt construction
+  # and NEITHER varies across runs:
+  #     :2054  profile_shared_base = make_filler_seeded(..., seed=987654321)
+  #     :2187  fresh part          = make_filler_seeded(fresh, seed=request_id+1)
+  # The fresh seed is the run-local request_id, which restarts at 0 every run. So
+  # any two runs sharing `random_seed` draw the same input lengths, hence the
+  # same cached/fresh split, hence byte-identical prompts in the same order. The
+  # second run replays the first one's prompts straight into whatever cache is
+  # still warm. Verified directly: the aborted full run's first 17 prompt lengths
+  # (61473, 53668, 164146, 183017, ...) match the probe's first 17 exactly.
+  #
+  # WHICH CACHE. kvd L3 was NOT involved -- gets_total held at 15,210 across the
+  # contaminated requests (snapshots in results/). It is the prefill leg's
+  # in-GPU radix tree, still holding entries from the Case A run of 2026-08-01,
+  # which used random_seed 1337 and the same shared-base seed and therefore has
+  # the same opening request sequence.
+  #
+  # FIX. A distinct seed changes the sampled input lengths, which changes
+  # cached = round(0.89 x L), which breaks the shared-base prefix match before
+  # the fresh remainder -- so no stale entry can be hit. Measured after the
+  # change: cache hit 88.9-89.0 % from request 0, uncached 4K-19K tokens.
+  #
+  # COST, stated plainly: lat1 is no longer bit-comparable to the Case A run at
+  # the level of individual prompts. It remains comparable at the level of the
+  # DISTRIBUTION, which is what both configs specify and what both reproduce --
+  # and a shared seed was never giving comparability here anyway, only cache
+  # contamination.
+  random_seed:           2026080299    # distinct from the FULL run (a shared seed would let the probe warm the full run's cache). Must be <= 2**32-1: numpy rejects larger, and the driver seeds np.random directly.
+

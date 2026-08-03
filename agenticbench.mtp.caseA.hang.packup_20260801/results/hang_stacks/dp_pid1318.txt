@@ -1,0 +1,12 @@
+Process 1318: sglang::scheduler_DP2_TP2_EP2
+Python v3.10.12 (/usr/bin/python3.10)
+
+Thread 1318 (idle): "MainThread"
+    all_gather_into_tensor (torch/distributed/distributed_c10d.py:4056)
+    wrapper (torch/distributed/c10d_logger.py:81)
+    all_gather (scheduler_components/dp_attn.py:98)
+    prepare_mlp_sync_batch_raw (scheduler_components/dp_attn.py:244)
+    prepare_mlp_sync_batch (scheduler_components/dp_attn.py:293)
+    maybe_prepare_mlp_sync_batch (scheduler_components/dp_attn.py:320)
+    get_next_disagg_decode_batch_to_run (decode.py:1918)
+    wrapper (utils/nvtx_utils.py:109)
