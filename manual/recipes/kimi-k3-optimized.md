@@ -140,7 +140,7 @@ the two paths need not be the same.
 
 ### Checking the fabric before you deploy
 
-Use [Preflight](../tools/preflight) — it covers RDMA device and link state,
+Use [Preflight](../reference/preflight) — it covers RDMA device and link state,
 cross-node RoCE bandwidth, Mooncake KV-transfer bandwidth measured separately over
 RDMA and TCP, and whether the KV path is on local NVMe:
 
@@ -158,7 +158,7 @@ NODES=<node-a>,<node-b> PARTITION=<partition> IMAGE=<image> \
 
 It writes `<dump-path>/<host>.json` per node plus a combined HTML report. GPU perf
 and `ais-check` only run **inside the engine container**; run it there for those.
-See [Preflight](../tools/preflight) for the full check list, thresholds and the
+See [Preflight](../reference/preflight) for the full check list, thresholds and the
 multi-node path.
 
 The Mooncake rows are the ones that matter for this recipe: they report KV-move

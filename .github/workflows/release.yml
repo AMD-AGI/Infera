@@ -250,6 +250,63 @@ jobs:
   # (partial dispatch, see `prepare`) is fine and must not block the Release —
   # only a FAILED one does, hence the explicit result checks rather than a plain
   # `needs:`, which would also skip this job whenever overlay is skipped.
+  # Python distribution. Independent of the image builds -- it needs neither the
+  # engine images nor the overlay -- so it does not gate them or wait on them.
+  pypi:
+    runs-on: ubuntu-latest
+    environment: auto-docker-builder
+    permissions:
+      contents: write   # gh release upload
+      id-token: write   # PyPI trusted publishing, when it is configured
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # setuptools_scm derives the version from git describe. A shallow
+          # clone has no tags, so the wheel would come out 0.0.0 (the
+          # fallback_version) instead of the tag being released.
+          fetch-depth: 0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+      - name: Build sdist + wheel
+        run: |
+          pip install build twine
+          python -m build
+      - name: Check metadata
+        run: twine check dist/*
+      - name: Show what was built
+        run: |
+          ls -la dist/
+          echo "--- sdist contents (top level) ---"
+          tar tzf dist/*.tar.gz | awk -F/ '{print $2}' | sort -u
+      - name: Verify the wheel installs and its console scripts run
+        # Catches a broken entry point or a missing runtime dependency here,
+        # rather than in the first user's environment.
+        run: |
+          python -m venv /tmp/verify
+          /tmp/verify/bin/pip install dist/*.whl
+          /tmp/verify/bin/python -c "import infera, infera._version as v; print('version:', v.version)"
+          for c in infera-preflight infera-kvd-probe infera-kvd-l3-bench; do
+            /tmp/verify/bin/$c --help > /dev/null || { echo "$c failed"; exit 1; }
+            echo "ok: $c"
+          done
+      - name: Attach to the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
+      - name: Publish to PyPI
+        # Skipped unless PYPI_API_TOKEN is set. amd-infera has never been
+        # published, so claiming the name is a deliberate act, not something a
+        # tag push should do by surprise -- and a missing token must not fail
+        # the release.
+        if: startsWith(github.ref, 'refs/tags/v') && env.PYPI_API_TOKEN != ''
+        env:
+          PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: twine upload dist/*
+
   manual:
     needs: [build, overlay]
     if: >-

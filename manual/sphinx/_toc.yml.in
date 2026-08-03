@@ -88,7 +88,7 @@ subtrees:
         title: Environment variables
       - file: reference/benchmarking.md
         title: Benchmarking
-      - file: tools/preflight.md
+      - file: reference/preflight.md
         title: Preflight
       - file: reference/troubleshooting.md
         title: Troubleshooting
