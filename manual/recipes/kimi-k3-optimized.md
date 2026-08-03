@@ -43,15 +43,15 @@ nodes.
 
 ::::{tab-set}
 
-:::{tab-item} Mixed
-:sync: mixed
+:::{tab-item} Aggregated
+:sync: aggregated
 
 8 GPUs on one node, no speculative decoding. **The default**, and the best tokens
 per GPU of the four.
 
 ```bash
 sed -e 's|<MODEL_DIR>|/mnt/local-nvme/models|' -e 's|<NODE>|node-a|' \
-    examples/recipes/kimi-k3-optimized/mixed/deploy.yaml | kubectl apply -f -
+    examples/recipes/kimi-k3-optimized/aggregated/deploy.yaml | kubectl apply -f -
 ```
 
 | Placeholder | What to put there |
@@ -63,15 +63,15 @@ Start here unless you have a specific reason not to. The other three trade GPUs 
 added complexity for latency, and one of them needs a second node.
 :::
 
-:::{tab-item} Mixed + DSpark
-:sync: mixed-dspark
+:::{tab-item} Aggregated + DSpark
+:sync: aggregated-dspark
 
 Same 8 GPUs, plus speculative decoding: a block-diffusion draft model that produces
 7 tokens in one parallel pass, verified against the target.
 
 ```bash
 sed -e 's|<MODEL_DIR>|/mnt/local-nvme/models|' -e 's|<NODE>|node-a|' \
-    examples/recipes/kimi-k3-optimized/mixed-dspark/deploy.yaml | kubectl apply -f -
+    examples/recipes/kimi-k3-optimized/aggregated-dspark/deploy.yaml | kubectl apply -f -
 ```
 
 Same two placeholders as **Mixed**, but `<MODEL_DIR>` must also contain
@@ -101,8 +101,8 @@ If you pin the older digest, the old ceiling still applies to you.
 ```
 :::
 
-:::{tab-item} PD
-:sync: pd
+:::{tab-item} Disaggregated
+:sync: disaggregated
 
 Prefill and decode on **separate nodes**, 8 GPUs each, KV handed between them over
 RDMA.
@@ -111,7 +111,7 @@ RDMA.
 sed -e 's|<PREFILL_NODE>|node-a|' -e 's|<DECODE_NODE>|node-b|' \
     -e 's|<PREFILL_MODEL_DIR>|/mnt/local-nvme/models|' \
     -e 's|<DECODE_MODEL_DIR>|/mnt/array/models|' \
-    examples/recipes/kimi-k3-optimized/pd/deploy.yaml | kubectl apply -f -
+    examples/recipes/kimi-k3-optimized/disaggregated/deploy.yaml | kubectl apply -f -
 ```
 
 | Placeholder | What to put there |
@@ -131,7 +131,7 @@ before substituting.
 PD does not improve tokens per GPU at any concurrency measured here. What it buys
 is **headroom** past what a single node can serve, and **lower latency** at high
 concurrency, because decode is no longer interleaved with prefill on the same GPUs.
-Below that it is a straight loss on both counts — use **Mixed**.
+Below that it is a straight loss on both counts — use **Aggregated**.
 ```
 
 Requires both nodes on a mutually routable RoCE fabric: the KV handoff is RDMA and
@@ -139,20 +139,20 @@ there is no TCP fallback. Each node reads its **own local** copy of the weights,
 the two paths need not be the same.
 :::
 
-:::{tab-item} PD + DSpark
-:sync: pd-dspark
+:::{tab-item} Disaggregated + DSpark
+:sync: disaggregated-dspark
 
-PD's topology plus speculation. **The lowest latency of the four** — the decode role
+the disaggregated topology plus speculation. **The lowest latency of the four** — the decode role
 is not competing with prefill for the same GPUs, so drafting has capacity to use.
 
 ```bash
 sed -e 's|<PREFILL_NODE>|node-a|' -e 's|<DECODE_NODE>|node-b|' \
     -e 's|<PREFILL_MODEL_DIR>|/mnt/local-nvme/models|' \
     -e 's|<DECODE_MODEL_DIR>|/mnt/array/models|' \
-    examples/recipes/kimi-k3-optimized/pd-dspark/deploy.yaml | kubectl apply -f -
+    examples/recipes/kimi-k3-optimized/disaggregated-dspark/deploy.yaml | kubectl apply -f -
 ```
 
-The placeholders are the same four as **PD** above, with one addition to the
+The placeholders are the same four as **Disaggregated** above, with one addition to the
 requirement: `Kimi-K3-DSpark/` must sit alongside `Kimi-K3/` in **both**
 directories, because both roles load the draft.
 
@@ -267,10 +267,10 @@ concurrencies, so no single correction factor exists.
 
 | What | Status |
 |---|---|
-| `mixed` | validated |
-| `mixed-dspark` | validated; 0 restarts and the concurrency assertion never appears |
-| `pd` | validated cross-node; handoff confirmed on the decode side at every concurrency exercised |
-| `pd-dspark` | validated cross-node; handoff confirmed on the decode side; needs `--speculative-config` on both roles |
+| `aggregated` | validated |
+| `aggregated-dspark` | validated; 0 restarts and the concurrency assertion never appears |
+| `disaggregated` | validated cross-node; handoff confirmed on the decode side at every concurrency exercised |
+| `disaggregated-dspark` | validated cross-node; handoff confirmed on the decode side; needs `--speculative-config` on both roles |
 | kvd combinations | not built for this image |
 | fp8 KV cache | not measured |
 

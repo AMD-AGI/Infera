@@ -12,7 +12,7 @@ kernels, not engine version.
 
 All four combinations were **run end-to-end** on the image they pin, with the
 placeholders substituted — the files themselves are templates and cannot be applied
-as-is. `pd-dspark` needs `--speculative-config` on **both** roles, which is not
+as-is. `disaggregated-dspark` needs `--speculative-config` on **both** roles, which is not
 redundancy — see §6.
 
 ## 0. Placeholders you must fill in
@@ -40,10 +40,10 @@ Substitute first.
 
 | Placeholder | In | What it is | How to find it |
 |---|---|---|---|
-| `<MODEL_DIR>` | `mixed`, `mixed-dspark` | directory holding `Kimi-K3/` (and `Kimi-K3-DSpark/` for the speculative variant), mounted at `/models` | see below — **it is site-specific and there is no default** |
-| `<NODE>` | `mixed`, `mixed-dspark` | the node both pods are pinned to | any node with 8 free `amd.com/gpu` **that has the weights at `<MODEL_DIR>`** |
-| `<PREFILL_NODE>` `<DECODE_NODE>` | `pd`, `pd-dspark` | the two nodes | two nodes on a mutually routable RoCE fabric |
-| `<PREFILL_MODEL_DIR>` `<DECODE_MODEL_DIR>` | `pd`, `pd-dspark` | per-node model directory | **these do not have to be equal** — see below |
+| `<MODEL_DIR>` | `aggregated`, `aggregated-dspark` | directory holding `Kimi-K3/` (and `Kimi-K3-DSpark/` for the speculative variant), mounted at `/models` | see below — **it is site-specific and there is no default** |
+| `<NODE>` | `aggregated`, `aggregated-dspark` | the node both pods are pinned to | any node with 8 free `amd.com/gpu` **that has the weights at `<MODEL_DIR>`** |
+| `<PREFILL_NODE>` `<DECODE_NODE>` | `disaggregated`, `disaggregated-dspark` | the two nodes | two nodes on a mutually routable RoCE fabric |
+| `<PREFILL_MODEL_DIR>` `<DECODE_MODEL_DIR>` | `disaggregated`, `disaggregated-dspark` | per-node model directory | **these do not have to be equal** — see below |
 
 ```{admonition} The model path is site-specific, and a mixed fleet may not agree with itself
 :class: warning
@@ -110,10 +110,10 @@ mid-load and never finishes — presenting as a crash loop rather than as slow s
 
 |  | GPUs | Manifest | Reach for it when |
 |---|---:|---|---|
-| **mixed** | 8 | [`mixed/`](mixed/deploy.yaml) | the default. Best tokens per GPU at every concurrency measured |
-| **mixed + DSpark** | 8 | [`mixed-dspark/`](mixed-dspark/deploy.yaml) | low concurrency, where speculation pays for itself on the same hardware |
-| **pd** | 16 | [`pd/`](pd/deploy.yaml) | you need more headroom than one node gives, or lower latency at high concurrency. It never wins per GPU |
-| **pd + DSpark** | 16 | [`pd-dspark/`](pd-dspark/deploy.yaml) | lowest TPOT of the four. Both roles must carry `--speculative-config` |
+| **aggregated** | 8 | [`aggregated/`](aggregated/deploy.yaml) | the default. Best tokens per GPU at every concurrency measured |
+| **aggregated + DSpark** | 8 | [`aggregated-dspark/`](aggregated-dspark/deploy.yaml) | low concurrency, where speculation pays for itself on the same hardware |
+| **disaggregated** | 16 | [`disaggregated/`](disaggregated/deploy.yaml) | you need more headroom than one node gives, or lower latency at high concurrency. It never wins per GPU |
+| **disaggregated + DSpark** | 16 | [`disaggregated-dspark/`](disaggregated-dspark/deploy.yaml) | lowest TPOT of the four. Both roles must carry `--speculative-config` |
 
 DSpark is speculative decoding with a block-diffusion draft that produces 7 tokens
 in one parallel pass. The draft is a community checkpoint
@@ -196,7 +196,7 @@ node's array; using it on both sides puts one side on the 95-minute path. Check
 each node with `df -hT <dir>` and take the local device, not the convenient common
 name.
 
-For `pd-dspark`, **the draft must be on BOTH nodes.** Both roles carry
+For `disaggregated-dspark`, **the draft must be on BOTH nodes.** Both roles carry
 `--speculative-config` and both load it — see §6 for why the prefiller needs it
 even though it never runs the draft. Provisioning it on only one node fails with a
 missing path, which reads like a typo in the manifest rather than a missing 6.7 GB
@@ -214,7 +214,7 @@ guesses wrong fails.
 
 ```bash
 sed -e 's|<MODEL_DIR>|/mnt/local-nvme/models|' -e 's|<NODE>|node-a|' \
-  examples/recipes/kimi-k3-optimized/mixed/deploy.yaml | kubectl apply -f -
+  examples/recipes/kimi-k3-optimized/aggregated/deploy.yaml | kubectl apply -f -
 
 kubectl -n infera get pods -w
 ```
@@ -224,7 +224,7 @@ kubectl -n infera get pods -w
 | `<MODEL_DIR>` | Directory on that node containing `Kimi-K3/`, mounted into the pod at `/models`. A `hostPath` — the node must hold the weights locally. |
 | `<NODE>` | Hostname of the node (`kubernetes.io/hostname`). Pins **both** the server and the worker to it — see below for why. |
 
-Replace `mixed` with `mixed-dspark` for the speculative variant; for that one,
+Replace `aggregated` with `aggregated-dspark` for the speculative variant; for that one,
 `<MODEL_DIR>` must also contain `Kimi-K3-DSpark/`.
 
 If `get pods` shows nothing a minute after `apply`, a placeholder survived — see
@@ -237,7 +237,7 @@ nodes and each reads its own local copy:
 sed -e 's|<PREFILL_NODE>|nodeA|'      -e 's|<DECODE_NODE>|nodeB|' \
     -e 's|<PREFILL_MODEL_DIR>|/mnt/local-nvme/models|' \
     -e 's|<DECODE_MODEL_DIR>|/mnt/array/models|' \
-    examples/recipes/kimi-k3-optimized/pd/deploy.yaml | kubectl apply -f -
+    examples/recipes/kimi-k3-optimized/disaggregated/deploy.yaml | kubectl apply -f -
 ```
 
 | Placeholder | What to put there |
@@ -250,7 +250,7 @@ sed -e 's|<PREFILL_NODE>|nodeA|'      -e 's|<DECODE_NODE>|nodeB|' \
 Both are `hostPath` mounts, so each node reads its **own local copy** — there is no
 shared volume, and the two paths do not have to agree.
 
-Replace `pd` with `pd-dspark` for the speculative variant; for that one,
+Replace `disaggregated` with `disaggregated-dspark` for the speculative variant; for that one,
 `Kimi-K3-DSpark/` must sit alongside `Kimi-K3/` in **both** directories, because
 both roles load the draft.
 
@@ -261,7 +261,7 @@ probe in §0.
 
 ### Tearing down
 
-The combinations cannot coexist — `mixed`/`mixed-dspark` take 8 GPUs, the PD pair
+The combinations cannot coexist — `aggregated`/`aggregated-dspark` take 8 GPUs, the disaggregated pair
 takes all 16 — so switching between them means deleting the first:
 
 ```bash
@@ -277,10 +277,10 @@ actually gone.
 
 | directory | deployment / service prefix |
 |---|---|
-| `mixed/` | `kimi-k3-opt-base` |
-| `mixed-dspark/` | `kimi-k3-opt-dspark` |
-| `pd/` | `kimi-k3-opt-pd` |
-| `pd-dspark/` | `kimi-k3-opt-pd-dspark` |
+| `aggregated/` | `kimi-k3-opt-base` |
+| `aggregated-dspark/` | `kimi-k3-opt-dspark` |
+| `disaggregated/` | `kimi-k3-opt-pd` |
+| `disaggregated-dspark/` | `kimi-k3-opt-pd-dspark` |
 
 ## 4. Smoke test
 
@@ -374,7 +374,7 @@ the published figure with no way to know that is expected.
 That also undermines the comparisons drawn from those numbers. The sweeps were run
 back-to-back within one deployment, low concurrency first, so the early points were
 colder than the late ones — which is the same direction as the trends that were
-being reported. Warm, `pd` and `mixed` at c=8 measured 269.7 and 270.4, effectively
+being reported. Warm, `disaggregated` and `aggregated` at c=8 measured 269.7 and 270.4, effectively
 identical, where this page had claimed 0.90×.
 
 Rather than republish numbers whose method is known to be unsound, what follows is
@@ -387,11 +387,11 @@ combinations checked — it is a per-step measure and does not care about warm-u
 
 | | published | independent |
 |---|---:|---:|
-| `mixed` c=8 | 27.85 ms | 26.51 ms |
-| `pd` c=8 | 25.81 ms | 25.70 ms |
-| `pd-dspark` c=64 | 17.44 ms | — |
+| `aggregated` c=8 | 27.85 ms | 26.51 ms |
+| `disaggregated` c=8 | 25.81 ms | 25.70 ms |
+| `disaggregated-dspark` c=64 | 17.44 ms | — |
 
-`pd-dspark` holding TPOT near 17 ms at c=64 where `mixed` is near 49 ms is the
+`disaggregated-dspark` holding TPOT near 17 ms at c=64 where `aggregated` is near 49 ms is the
 largest latency effect on this page, and the one worth deploying 16 GPUs for.
 
 ### What is established without depending on throughput
@@ -405,8 +405,8 @@ largest latency effect on this page, and the one worth deploying 16 GPUs for.
   `num_spec_tokens=7`, CUDA-graph captured, `running the draft eagerly` count 0.
 - **The PD handoff is real.** The decode side holds `External prefix cache hit
   rate` at 98.9–99.9% with prompt throughput near zero, and prefill shows the
-  mirror image. Independently confirmed on `pd` and `pd-dspark`.
-- **`pd-dspark` requires `--speculative-config` on both roles.** Decode-only fails
+  mirror image. Independently confirmed on `disaggregated` and `disaggregated-dspark`.
+- **`disaggregated-dspark` requires `--speculative-config` on both roles.** Decode-only fails
   two ways, both hangs rather than errors — see §6.
 
 Re-establishing throughput figures needs a stated warm-up protocol and a sweep long
@@ -445,7 +445,7 @@ n = ctypes.c_int(0); lib.ibv_get_device_list(ctypes.byref(n)); print(n.value)'
 ```
 
 
-### Why `pd-dspark` configures speculation on *both* roles
+### Why `disaggregated-dspark` configures speculation on *both* roles
 
 The obvious reading is that speculation belongs only on decode — the prefiller
 never samples, so a draft there looks like dead weight. That configuration was
@@ -497,11 +497,11 @@ the answer text, and why every probe here carries an explicit timeout.
 
 | What | Status |
 |---|---|
-| `mixed/deploy.yaml`, placeholders substituted | **validated** — ready ~12 min, correct answer, c=4…64 swept |
-| `mixed-dspark/deploy.yaml`, placeholders substituted | **validated** — ready ~12 min, c=4…64 swept, 0 restarts, assertion count 0 |
-| `pd/deploy.yaml`, placeholders substituted | **validated cross-node** — ready ~12 min, c=4…64 swept, extcache 99.9% throughout |
-| `pd-dspark/deploy.yaml`, placeholders substituted | **validated cross-node** — both roles Ready in ~14 min, 0 restarts; sweep below |
-| `pd-dspark` with speculation on **decode only** | **hangs**, two separate ways — see above. Do not ship it |
+| `aggregated/deploy.yaml`, placeholders substituted | **validated** — ready ~12 min, correct answer, c=4…64 swept |
+| `aggregated-dspark/deploy.yaml`, placeholders substituted | **validated** — ready ~12 min, c=4…64 swept, 0 restarts, assertion count 0 |
+| `disaggregated/deploy.yaml`, placeholders substituted | **validated cross-node** — ready ~12 min, c=4…64 swept, extcache 99.9% throughout |
+| `disaggregated-dspark/deploy.yaml`, placeholders substituted | **validated cross-node** — both roles Ready in ~14 min, 0 restarts; sweep below |
+| `disaggregated-dspark` with speculation on **decode only** | **hangs**, two separate ways — see above. Do not ship it |
 | kvd combinations | not built for this image |
 | fp8 KV cache | not measured here |
 

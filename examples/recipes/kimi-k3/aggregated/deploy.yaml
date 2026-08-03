@@ -1,27 +1,35 @@
-# GLM-5.2-MXFP4 — mixed — Kubernetes recipe
+# Kimi-K3 — mixed — Kubernetes recipe
 #
-#   base image   lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x      (stock vendor image, unmodified)
+#   base image   vllm/vllm-openai-rocm:kimi-k3      (stock vendor image, unmodified)
 #   overlay      inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44                     (infera + router + kvd + native deps)
-#   engine       infera.engine.sglang   TP8
+#   engine       infera.engine.vllm   TP8
 #
-# Deploy:  kubectl apply -f examples/recipes/glm5.2/mixed/deploy.yaml
-# Docs:    examples/recipes/glm5.2/README.md
+# Deploy:  kubectl apply -f examples/recipes/kimi-k3/aggregated/deploy.yaml
+# Docs:    examples/recipes/kimi-k3/README.md
 #
-# Expects the `model-cache` PVC to hold the weights at /models/GLM-5.2-MXFP4
+# Expects the `model-cache` PVC to hold the weights at /models/Kimi-K3
 # (examples/k8s-deployments/model-cache/). Swap the `model` volume for a
 # hostPath if you keep weights on the node instead.
 #
-# The five SGLANG_OPT_* / SGLANG_USE_AITER vars are NOT optional on
-# ROCm: without them GLM-5.2's DSA indexer picks a path that produces
-# garbage decode. See manual/examples/k8s_glm5.2_sglang.md.
+# `--kv-cache-dtype auto` is REQUIRED. infera otherwise injects
+# fp8_e4m3, which selects the batch-1-only `mla_gluon` kernel and the
+# engine dies with `requires batch_size=1, got 128`.
+# --enable-prefix-caching WORKS, and is on below. Kimi-K3 is hybrid, so
+# vLLM runs it in Mamba cache "align" mode (it does not declare
+# SupportsMambaPrefixCaching) and calls that mode experimental. Measured
+# here: 72.7% hit rate across requests sharing a long prefix, and a fact
+# buried after 1000 shared records still retrieved correctly. An earlier
+# note said this fails engine init; that was true of an older base image.
+# "align" mode requires chunked prefill, which vLLM enables by default.
+# Do NOT use --load-format fastsafetensors without GDS.
 ---
 apiVersion: infera.amd.com/v1alpha1
 kind: InferaDeployment
 metadata:
-  name: glm52-mixed
+  name: kimi-k3-mixed
   namespace: infera
 spec:
-  backendFramework: sglang
+  backendFramework: vllm
   discoveryBackend: kubernetes
   nats:
     deploy: false
@@ -41,11 +49,11 @@ spec:
               - {name: overlay, mountPath: /overlay}
         containers:
           - name: main
-            image: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x@sha256:40e940a0c55b87105c773d8b484616616b3a91662bfa223c48ff721d9793dc8d
+            image: vllm/vllm-openai-rocm:kimi-k3@sha256:5aa7e626ff73672f5ca7aae46754570488c23d33ca1ac90756a1d2d1a3fe099b
             imagePullPolicy: IfNotPresent
             command: ["/overlay/bin/infera-exec","python3","-m","infera.server",
                       "--host","0.0.0.0","--port","8000",
-                      "--router-tokenizer-path","/models/GLM-5.2-MXFP4",
+                      "--router-tokenizer-path","/models/Kimi-K3",
                       "--request-transport","http","--kv-event-transport","zmq"]
             env:
               - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
@@ -75,37 +83,31 @@ spec:
               - {name: overlay, mountPath: /overlay}
         containers:
           - name: main
-            image: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x@sha256:40e940a0c55b87105c773d8b484616616b3a91662bfa223c48ff721d9793dc8d
+            image: vllm/vllm-openai-rocm:kimi-k3@sha256:5aa7e626ff73672f5ca7aae46754570488c23d33ca1ac90756a1d2d1a3fe099b
             imagePullPolicy: IfNotPresent
             command: ["/overlay/bin/infera-exec",
-                      "python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
-                      "--model-path","/models/GLM-5.2-MXFP4",
-                      "--served-model-name","glm5.2-mxfp4",
-                      "--tp-size","8","--trust-remote-code",
-                      "--nsa-prefill-backend","tilelang","--nsa-decode-backend","tilelang",
-                      "--kv-cache-dtype","fp8_e4m3","--mem-fraction-static","0.85",
-                      "--context-length","32768","--chunked-prefill-size","8192",
-                      "--max-running-requests","24","--cuda-graph-max-bs","24",
-                      "--reasoning-parser","glm45",
+                      "python3","-m","infera.engine.vllm","--host","0.0.0.0","--port","30000",
+                      "--model","/models/Kimi-K3",
+                      "--served-model-name","kimi-k3",
+                      "--tensor-parallel-size","8","--gpu-memory-utilization","0.95",
+                      "--trust-remote-code","--load-format","auto",
+                      "--mm-encoder-tp-mode","data","--kv-cache-dtype","auto",
+                      "--enable-prefix-caching","--max-num-seqs","128","--max-num-batched-tokens","4096",
+                      "--enable-auto-tool-choice","--tool-call-parser","kimi_k3",
+                      "--reasoning-parser","kimi_k3",
                       "--kv-event-transport","zmq","--request-transport","http"]
             env:
               - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
               - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
               - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
-              - {name: SGLANG_OPT_USE_TILELANG_INDEXER, value: "1"}
-              - {name: SGLANG_OPT_USE_TOPK_V2, value: "0"}
-              - {name: SGLANG_OPT_USE_JIT_NORM, value: "0"}
-              - {name: SGLANG_USE_AITER, value: "1"}
-              - {name: SGLANG_ROCM_FUSED_DECODE_MLA, value: "0"}
-              - {name: ROCM_QUICK_REDUCE_QUANTIZATION, value: "INT4"}
+              - {name: HF_HUB_OFFLINE, value: "1"}
+              - {name: VLLM_ROCM_USE_AITER, value: "1"}
               - {name: SAFETENSORS_FAST_GPU, value: "1"}
-              - {name: HIP_FORCE_DEV_KERNARG, value: "1"}
-              - {name: HSA_NO_SCRATCH_RECLAIM, value: "1"}
             startupProbe:
               httpGet: {path: /health, port: 30000}
               periodSeconds: 10
               timeoutSeconds: 10
-              failureThreshold: 180     # weight load is slow; do not use a readinessProbe here
+              failureThreshold: 120     # weight load is slow; do not use a readinessProbe here
             resources:
               requests: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}
               limits: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}
