@@ -112,8 +112,11 @@ RUN for f in /tmp/sglang-patches/*.py; do echo "[sglang-patch] $f"; python "$f" 
 # Per-patch rationale and upstream linkage: patches/sglang_dsa/README.md.
 #
 # MUST stay after the loop above -- that supplies the nextn eh_proj prerequisite,
-# which the script asserts. Unlike that loop these are context diffs at --fuzz=0
-# against the pinned base, so a base bump FAILS here instead of mis-applying.
+# which the script asserts (DSA_PATCH_SET=full, the default, is the only arm that
+# needs it). Patches 02 and 04 are context diffs at --fuzz=0 against the pinned
+# base, so a base bump FAILS here instead of mis-applying. Patch 01 is an anchor
+# script instead: Dockerfile.sglang.gfx942 needs the same fix on a v0.5.16 base
+# where those diffs cannot apply, and one source of truth beats two.
 #
 # The script also verifies each patch reached the BYTECODE, not just the source:
 # a stale __pycache__ silently reverts a patch and has voided an experiment here.

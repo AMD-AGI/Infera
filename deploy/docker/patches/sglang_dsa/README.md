@@ -1,18 +1,30 @@
 # sglang DSA patches
 
 Three patches that together make **PD disaggregation + DP-attention + EAGLE MTP**
-work for GLM-5.2 on gfx950. Without them the combination crashes on the first
-batch or deadlocks the whole DP group under concurrency.
+work for GLM-5.2. Without them the combination crashes on the first batch or
+deadlocks the whole DP group under concurrency.
 
-They apply to the sglang tree bundled in the ROCm engine images
-(`lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x`, an editable checkout at
-`/sgl-workspace/sglang`).
+They apply to the sglang tree bundled in the ROCm engine images (an editable
+checkout at `/sgl-workspace/sglang`). The two engine bases do **not** carry the
+same arm of the set — see [Applying](#applying):
+
+| image | base | arm |
+|---|---|---|
+| `Dockerfile.sglang` (gfx950 / MI355X) | `lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x` | all three |
+| `Dockerfile.sglang.gfx942` (gfx942 / MI325X) | `lmsysorg/sglang:v0.5.16-rocm720-mi30x` | **01 only**, plus a mandatory runtime flag |
 
 | # | patch | fixes |
 |---|---|---|
-| 01 | `dsa_indexer_hip_dp_padded_rows.diff` | HIP/aiter paged-MQA sizes its output from **DP-padded** rows while `lengths` is sized to **real** rows → `Expected lengths.size(0) == B` |
+| 01 | `patch_dsa_indexer_hip_dp_padded_rows.py` | HIP/aiter paged-MQA sizes its output from **DP-padded** rows while `lengths` is sized to **real** rows → `Expected lengths.size(0) == B` |
 | 02 | `dsa_backend_dp_sync_and_page_table_rows.diff` | (a) a host sync on a branch only *some* DP ranks take → collectives desync → deadlock; (b) page table has one row per **request**, top-k one per **token** under MTP → assert |
 | 04 | `draft_cuda_graph_dp_vote.diff` | the draft graph/eager choice is made **per rank** from rank-dependent inputs and diverges on the PD decode leg → deadlock |
+
+Patch 01 is a **script** and 02/04 are **context diffs**, and that is the whole
+reason the two images can differ: 02 and 04 are `--fuzz=0` against
+v0.5.15.post1, while 01 anchors on source text and its two edit sites are
+byte-identical on both releases. On v0.5.15.post1 the script's output is
+byte-identical to the `dsa_indexer_hip_dp_padded_rows.diff` it replaced, which
+is why that diff is gone rather than kept as a second source of truth.
 
 **Each patch's own header is the record**: what it fixes, why, how it was
 established, the upstream issue / third-party PR / our own PR, how it differs
@@ -24,8 +36,15 @@ Upstream linkage for these and every other patch in the repo is indexed in
 
 ## Applying
 
-`Dockerfile.sglang` applies them at build time by default
-(`APPLY_SGLANG_DSA_PATCHES=1`) via `deploy/docker/scripts/apply_sglang_dsa_patches.sh`.
+Both engine images apply their arm at build time by default
+(`APPLY_SGLANG_DSA_PATCHES=1`) via `deploy/docker/scripts/apply_sglang_dsa_patches.sh`,
+which takes `DSA_PATCH_SET`:
+
+| arm | used by | applies | verification |
+|---|---|---|---|
+| `full` (default) | `Dockerfile.sglang` | 01 + 02 + 04 | 8 bytecode markers, the nextn prerequisite, and patch 2a's source marker |
+| `indexer` | `Dockerfile.sglang.gfx942` | 01 | the `_p1v2_trim` bytecode marker |
+
 Set `APPLY_SGLANG_DSA_PATCHES=0` for a stock engine to A/B against.
 
 Prefer the script over patching by hand: it also verifies each patch reached the
@@ -37,19 +56,43 @@ By hand, against sglang `0b3bb0cbe31873994c9f989fddfe2f87ca839fdd` (v0.5.15.post
 
 ```bash
 cd /sgl-workspace/sglang
-for d in dsa_indexer_hip_dp_padded_rows.diff \
-         dsa_backend_dp_sync_and_page_table_rows.diff \
+python3 patch_dsa_indexer_hip_dp_padded_rows.py
+for d in dsa_backend_dp_sync_and_page_table_rows.diff \
          draft_cuda_graph_dp_vote.diff; do
   patch -p1 --fuzz=0 < "$d"
 done
 ```
 
-`--fuzz=0` is deliberate: these target one pinned commit, and a fuzzy apply that
-"succeeds" against a different base is worse than a clean failure. The base image
-tag is pinned for the same reason — bumping it fails the build here rather than
-mis-applying silently. Note that `patch --dry-run` and `git apply --check` **fuzz
-by default**, and a hand-written diff in this series once silently dropped a hunk
-while still "passing".
+On the v0.5.16 base run only the first line; the two diffs will not apply.
+
+`--fuzz=0` is deliberate: those two target one pinned commit, and a fuzzy apply
+that "succeeds" against a different base is worse than a clean failure. The
+mi35x base image tag is pinned for the same reason — bumping it fails the build
+here rather than mis-applying silently. Note that `patch --dry-run` and `git
+apply --check` **fuzz by default**, and a hand-written diff in this series once
+silently dropped a hunk while still "passing". Patch 01 needs none of that care
+for a different reason: an absent or ambiguous anchor makes it write nothing and
+exit 1.
+
+### gfx942 / v0.5.16 — the runtime half is not optional
+
+That image carries patch 01 only, so **every leg must launch with**
+
+```
+--json-model-override-args '{"index_share_for_mtp_iteration":false}'
+```
+
+This is not a tuning knob there. It is what stands in for 02b and 04 (see
+[the alternative](#a-configuration-only-alternative-to-part-of-this-set), whose
+substitution table applies unchanged) — leave IndexShare on and the decode leg
+deadlocks on the first request, exactly as it does on gfx950 without patch 04.
+The 1P1D bring-up behind this image was validated with the flag set.
+
+Patch **02a** is neither carried nor substituted on that base. Its diff was not
+re-cut for v0.5.16, and the failure it prevents (a host sync on a branch only
+some DP ranks take) was not observed there — FP8, `dp8`, concurrency up to 128.
+Absence of the symptom is not a fix; if a gfx942 run deadlocks with IndexShare
+already off, 02a is the first thing to port.
 
 ### Prerequisite
 
@@ -65,6 +108,11 @@ Keeping both would have been worse than redundant — main's loop runs first, so
 our context diff would then fail at `--fuzz=0` against an already-edited anchor.
 
 ## Validation
+
+Everything below is the **gfx950 / v0.5.15.post1 / all-three arm**. The gfx942
+arm is validated separately and much more narrowly — see
+[gfx942](#gfx942--v0516--the-runtime-half-is-not-optional) and the caveats after
+this section.
 
 2 × 8×MI355X (gfx950), ROCm 7.2.0, sglang 0.5.15.post1, GLM-5.2-MXFP4, PD over
 mooncake/mlx5 + dma-buf, `--dp-size 8 --enable-dp-attention --ep-size 8` + EAGLE
@@ -94,6 +142,13 @@ workaround arm, and the failed #32209 port. Ask the patch author for access.
 
 ### What this validation does NOT establish
 
+* **Nothing about gfx942.** That arm was exercised on 2 × 8×MI325X, ROCm 7.2.0,
+  sglang v0.5.16, GLM-5.2-**FP8** 1P1D, `tp8 dp8 --enable-dp-attention` + EAGLE
+  MTP(3,1,4), IndexShare **off**, `attention-backend dsa` with the tilelang
+  prefill/decode backends and `dsa-paged-mqa-logits-backend auto` — a different
+  quantization, a different base, and a different backend selection. Patch 01 is
+  carried there because the row mismatch it fixes shows up at concurrency > 1;
+  the 02a exposure noted above is untested rather than ruled out.
 * **The image built from this branch after the rebase was not re-run.** `main`
   has since added a `libionic` layer (`eb7da57`) that the measured image did not
   carry. It is orthogonal to these patches — RDMA ABI matching, not DSA — but it
@@ -131,6 +186,9 @@ workaround arm, and the failed #32209 port. Ask the patch author for access.
 
 ## A configuration-only alternative to part of this set
 
+On gfx950 this is an alternative. On **gfx942 it is the mechanism** — that image
+ships neither 04 nor 02b, so the flag below is required, not optional.
+
 Turning GLM-5.2's MTP **IndexShare** off avoids the same deadlock without patch
 04 or the page-table half of patch 02:
 
@@ -155,10 +213,14 @@ conditions are easy to miss: MTP must be on the **prefill** leg too (otherwise t
 seed never reaches decode and the setting is untested rather than tested), and
 that arm was taken to conc=64, not 128.
 
-**Why the patches remain the default.** The override is nearly free only because
-IndexShare's consumer is currently disabled under PD by
+**Why the patches remain the default where they can be.** The override is nearly
+free only because IndexShare's consumer is currently disabled under PD by
 `should_use_dsa_fused_topk`. Upstream PR #31477 exists to remove that limitation;
 once it lands the override starts costing (~3 % TPOT, reported internally —
 second-hand, not measured by us). Checked with `gh` on 2026-08-01: #31477 is
 **open**, `REVIEW_REQUIRED`, unmerged. A good answer today if IndexShare is not
 wanted, a dated one if it is.
+
+That dating is the standing cost of the gfx942 arm, which has no other option
+until 02 and 04 are re-cut against v0.5.16. When #31477 lands, port them rather
+than paying the TPOT.
