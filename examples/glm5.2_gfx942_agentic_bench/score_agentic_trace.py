@@ -14,6 +14,10 @@ tokenizer. With both in hand this also reports the ideal hit rate (in a
 growing-prefix session turn i can at best reuse all of turn i-1's prompt) and the
 actual/ideal efficiency, which is the number worth comparing across tools.
 
+A run containing any failed request is refused rather than scored: a failure is
+recorded with ``cached_tokens=0``, so including it drags the hit rate towards zero
+and a dead worker reads as a cache problem.
+
     python score_agentic_trace.py dataset.json run.jsonl <num_prompts>
 """
 
@@ -23,13 +27,27 @@ import sys
 
 def main(dataset_path: str, details_path: str, n_conv: int) -> int:
     ds = json.load(open(dataset_path))["conversations"][:n_conv]
-    cached = json.loads(open(details_path).read().strip())["cached_tokens"]
+    run = json.loads(open(details_path).read().strip())
+    cached = run["cached_tokens"]
+    errors = run.get("errors") or [""] * len(cached)
 
     expected_turns = sum(len(c) for c in ds)
     print(f"conversations={len(ds)}  turns in dataset={expected_turns}  "
           f"requests recorded={len(cached)}")
+
+    # A failed turn is recorded with cached_tokens=0 and breaks its conversation's
+    # prefix chain, so scoring one dilutes the hit rate towards zero and the result
+    # reads like a cache problem instead of a dead worker. Refuse outright.
+    failed = [i for i, e in enumerate(errors) if e]
+    if failed:
+        print(f"\n  {len(failed)} of {len(errors)} requests FAILED -- nothing to score.")
+        print(f"  first at turn {failed[0]}: {errors[failed[0]][:150]}")
+        print("  check both legs are registered (/v1/workers) and rerun.")
+        return 1
     if expected_turns != len(cached):
-        print("  WARNING: turn count mismatch; the alignment below may be off")
+        print(f"\n  turn count mismatch: dataset has {expected_turns}, run recorded "
+              f"{len(cached)} -- alignment would be wrong, nothing to score.")
+        return 1
 
     actual_in: list[int] = []
     ideal_cached: list[int] = []
@@ -40,9 +58,7 @@ def main(dataset_path: str, details_path: str, n_conv: int) -> int:
             ideal_cached.append(prev)
             prev = turn["prompt_tokens"]
 
-    n = min(len(actual_in), len(cached))
-    actual_in, ideal_cached, cached = actual_in[:n], ideal_cached[:n], cached[:n]
-
+    n = len(cached)
     tot_in = sum(actual_in)
     tot_cached = sum(cached)
     tot_ideal = sum(ideal_cached)
