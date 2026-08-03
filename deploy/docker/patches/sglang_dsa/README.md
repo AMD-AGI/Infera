@@ -74,6 +74,83 @@ in the `infera.yihou.glm5.2.mxfp4` workspace under
 > `q_fp8[:0]` is a legal empty slice and is what an idle rank should pass; the
 > CUDA path has no such bound either.
 
+### The row count diverges in BOTH directions (`GLM52_P1V3`)
+
+> **Updated 2026-08-03.** This diff was revised a second time, and this revision is
+> what makes the patch survive an *agentic* workload. Everything above describes
+> the `real < padded` half; that half alone crashes the decode leg after ~13
+> minutes of Optimus-AgenticBench Case A.
+
+The trim assumed DP padding only ever makes `q_fp8` **longer** than the real row
+count. On a DP-attention **IDLE** rank under MTP draft-extend the inequality
+inverts. Captured live with this diff's own `SGLANG_DEBUG_DSA_ROWS=1`:
+
+    mode=IDLE q_fp8=(1,32,128) q_offset=2 ntnp=0 agree=False lengths=(2,) -> mqa_q=(1,32,128)
+
+`q_offset` (= `sum(dsa_extend_len_cpu)`) is **2** while only **1** row is
+materialized in `q_fp8`. `2 < 1` is false, so no trim runs; aiter sizes its
+`logits` from `q_fp8.shape[0] = 1`, and `fast_topk_v2` gets 1 score row against
+2 lengths entries:
+
+    RuntimeError: Expected lengths.size(0) == B to be true, but got false.
+
+killing the scheduler rank (`deepseek_nextn.py` → `dsa_backend.py` → `top_k.py`)
+and dropping the router to `active_workers: 1`.
+
+**A trim cannot fix this direction** — there are *fewer* query rows than lengths
+entries, so there is nothing to cut. Both sides reconcile down to
+`min(real, padded)`:
+
+| | `real < padded` | `real > padded` |
+|---|---|---|
+| cause | DP padding (the #32762 case) | IDLE rank, MTP draft-extend |
+| `_p1v2_trim` | **True** — slice `q`/`weights` | False |
+| `_p1v2_clip` | False | **True** — clip the lengths |
+| restore | re-pad by `padded - rows` | nothing to restore |
+
+`_p1v2_rows = min(_p1v2_real, _p1v2_padded)` is the single source of truth and
+both flags derive from it, which is what keeps them from disagreeing. The lengths
+side is clipped by passing `ke_offset=metadata.get_seqlens_expanded()[:rows]` —
+an **existing** parameter of `DSAIndexerMetadata.topk_transform` whose sole effect
+is to override `seq_lens_topk`, so the fix rides an intended extension point
+rather than mutating shared (possibly graph-captured) metadata.
+
+Two details worth keeping in view when reading the diff:
+
+* `_p1v2_clip` and `_p1v2_rows` are bound **before** the `is_aiter()` branch.
+  `_p1v2_clip` is read unconditionally at the `topk_transform` call, so a
+  branch-local binding is a `NameError` on any non-aiter backend. (aiter is
+  unconditional on ROCm, so this never fired in practice — but a build-time patch
+  should not depend on that.)
+* the restore assert now keys off `_p1v2_rows`, not `_p1v2_real`: under the clip
+  case the two differ, and it is `_p1v2_rows` the kernel actually ran over.
+
+**Why the fixed-length gates never caught it.** The bug needs MTP **and**
+DP-attention **and** an idle rank simultaneously. An 8-round fixed-shape sweep ran
+MTP + DPA for 660 requests without hitting it, because `--random-range-ratio 1.0`
+keeps every request in a round the same length — batch shapes stay homogeneous and
+ranks rarely go idle mid-flight. Case A's breathing session population produces
+ragged batches constantly. Over the last 400 indexer calls before one crash, 2 had
+the fatal shape.
+
+**Verified.** Reproduced twice on vultr (125 s and 766 s into two independent Case
+A runs, stock image, both crash logs kept). With the fix: **0** occurrences of
+`Expected lengths.size` across a full 4,006 s Case A window, 0 scheduler
+exceptions, 0 retractions, `active_workers: 2` throughout — and independently over
+a 4,007 s window on a second cluster.
+
+> **Provenance.** This fix was first validated as a runtime script applied inside
+> the decode container (`apply_p1v3.py` in the Case A packups), *not* as part of
+> this diff. Folding it in here is a re-shaping of an already-measured fix, and
+> the fold was checked for equivalence: applying the old diff plus that script,
+> versus applying this diff, yields a byte-identical file apart from the two
+> pre-branch bindings noted above.
+
+**Upstream status.** Not filed. It should be — this repository already ships the
+instrumentation that proves the bug (`SGLANG_DEBUG_DSA_ROWS`) and, before this
+revision, a comment conceding the two bookkeeping sources had never been measured
+to agree on the MTP draft-extend path. They do not; that is the bug.
+
 ## `dsa_backend_dp_sync_and_page_table_rows.diff`
 
 Two fixes to `python/sglang/srt/layers/attention/dsa_backend.py`, both required

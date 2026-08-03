@@ -5,6 +5,14 @@ independent bug -- the HIP indexer sizing its output from DP-PADDED rows while
 `lengths` is sized to REAL rows.  It is present regardless of IndexShare, and the
 arm that validated the override applied THIS patch.
 
+The row count can diverge in BOTH directions, and this diff handles both:
+
+  real > padded  (GLM52_P1V2)  q_fp8 carries DP padding; trim q/weights down.
+  real < padded  (GLM52_P1V3)  a DP-IDLE rank under MTP draft-extend; there is
+                               nothing to trim, so the LENGTHS are clipped
+                               instead.  V2 alone crashes here after ~13 min of
+                               an agentic workload; see the README.
+
 diff --git a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
 index 59b2256815..e5f4847678 100644
 --- a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
@@ -28,19 +36,27 @@ index 59b2256815..e5f4847678 100644
  _is_npu = is_npu()
  
  if not _is_npu:
-@@ -902,11 +907,60 @@ class Indexer(MultiPlatformOp):
+@@ -902,11 +907,89 @@ class Indexer(MultiPlatformOp):
          assert len(weights.shape) == 3
          weights = weights.squeeze(2)
  
-+        # GLM52_P1V2: bound before the branch so the restore below can gate on
-+        # it without a locals() lookup. Only the aiter branch sets it True;
++        # GLM52_P1V2/P1V3: bound before the branch so the code after it can gate
++        # on these without a locals() lookup. Only the aiter branch assigns them;
 +        # the CUDA branches slice internally and re-pad themselves.
++        #
++        # _p1v2_clip in particular MUST be bound here and not in the branch: it
++        # is read unconditionally at the topk_transform call below, so a
++        # branch-local binding would be a NameError on any non-aiter backend.
++        # _p1v2_rows defaults to _p1v2_padded, which makes the restore below a
++        # no-op if it is somehow reached without the branch having run.
 +        _p1v2_trim = False
++        _p1v2_clip = False
 +        _p1v2_real = q_offset
 +        _p1v2_padded = q_fp8.shape[0]
++        _p1v2_rows = _p1v2_padded
          if self.paged_mqa_logits_backend.is_aiter():
-+            # Trim eager DP-attention padding before the aiter paged-MQA call,
-+            # in the shape of upstream PR #32762 (NPU, same bug class).
++            # Reconcile eager DP-attention padding before the aiter paged-MQA
++            # call, in the shape of upstream PR #32762 (NPU, same bug class).
 +            #
 +            # Under DP-attention the hidden states are padded to the largest
 +            # token count across ranks, so q_fp8 carries more rows than this
@@ -52,22 +68,43 @@ index 59b2256815..e5f4847678 100644
 +            # score.shape[0] != lengths.shape[0] and asserts
 +            # ("Expected lengths.size(0) == B to be true").
 +            #
-+            # Trim whenever there IS padding, including _p1v2_real == 0: a
-+            # DP-IDLE rank has no requests, so the real count is 0 while q_fp8
-+            # still carries padding. q_fp8[:0] is a legal empty slice and is
-+            # what an idle rank should pass -- the CUDA path likewise slices
-+            # unconditionally. (An earlier revision had a `0 < q_offset` lower
-+            # bound here; it made fast_topk_v2 assert on idle ranks.)
-+            _p1v2_trim = _p1v2_real < _p1v2_padded
++            # GLM52_P1V3: the two counts can diverge in BOTH directions, and a
++            # trim only addresses one of them.
++            #
++            #   real < padded  the #32762 case. q_fp8 carries DP padding, so
++            #                  TRIM q/weights down to the real count. Trim even
++            #                  when _p1v2_real == 0: a DP-IDLE rank has no
++            #                  requests, so the real count is 0 while q_fp8
++            #                  still carries padding. q_fp8[:0] is a legal empty
++            #                  slice and is what an idle rank should pass -- the
++            #                  CUDA path likewise slices unconditionally. (An
++            #                  earlier revision had a `0 < q_offset` lower bound
++            #                  here; it made fast_topk_v2 assert on idle ranks.)
++            #
++            #   real > padded  an IDLE rank under MTP draft-extend. q_offset
++            #                  (sum of dsa_extend_len_cpu) OVERCOUNTS the rows
++            #                  actually materialized in q_fp8, so there is
++            #                  nothing to trim -- the LENGTHS must be clipped
++            #                  instead, at the topk_transform call below.
++            #                  Observed live with SGLANG_DEBUG_DSA_ROWS=1 as
++            #                  mode=IDLE q_fp8=(1,32,128) q_offset=2 lengths=(2,)
++            #                  which reached fast_topk_v2 with 1 score row
++            #                  against 2 lengths entries and killed the rank.
++            #
++            # _p1v2_rows is the single source of truth for both sides; deriving
++            # both flags from it is what keeps them from disagreeing.
++            _p1v2_rows = min(_p1v2_real, _p1v2_padded)
++            _p1v2_trim = _p1v2_rows < _p1v2_padded
++            _p1v2_clip = _p1v2_rows < _p1v2_real
 +            _q_mqa, _w_mqa = q_fp8, weights
 +            if _p1v2_trim:
-+                _q_mqa = q_fp8[:_p1v2_real]
-+                _w_mqa = weights[:_p1v2_real]
++                _q_mqa = q_fp8[:_p1v2_rows]
++                _w_mqa = weights[:_p1v2_rows]
 +            if _DSA_DEBUG_ROWS:
 +                # Cross-check against the padding bookkeeping #32762 uses as
-+                # its source. NOT an assert: it has never been measured to
-+                # agree with q_offset on the MTP draft-extend path. Logged so
-+                # a later revision can promote it if the data supports it.
++                # its source. NOT an assert: it does NOT agree with q_offset on
++                # the MTP draft-extend path -- that disagreement is precisely
++                # the P1V3 case above, and this log is how it was caught.
 +                _p1v2_ntnp = getattr(forward_batch, "_original_num_tokens", None)
 +                if _p1v2_ntnp is None:
 +                    _p1v2_ntnp = forward_batch.num_token_non_padded_cpu
@@ -91,13 +128,28 @@ index 59b2256815..e5f4847678 100644
                  seqlens_32,
                  block_tables,
                  max_seq_len,
-@@ -961,11 +1015,24 @@ class Indexer(MultiPlatformOp):
+@@ -961,11 +1044,41 @@ class Indexer(MultiPlatformOp):
  
          # NOTE(dark): logits should be cleaned in topk_transform
-         topk_result = metadata.topk_transform(logits, self.index_topk)
+-        topk_result = metadata.topk_transform(logits, self.index_topk)
 -        # Restore possible padding exist in the hidden states.
 -        if not _is_hip and q_offset < q_fp8.shape[0]:
 -            pad_len = q_fp8.shape[0] - q_offset
++        # GLM52_P1V3: when the rows were CLIPPED (real > padded), the lengths
++        # this transform indexes must be clipped to match, or it sees more
++        # lengths entries than there are score rows. Passed through the existing
++        # `ke_offset` parameter of DSAIndexerMetadata.topk_transform -- an
++        # intended extension point whose sole effect is to override
++        # seq_lens_topk -- rather than by mutating shared, possibly
++        # graph-captured metadata.
++        if _p1v2_clip:
++            topk_result = metadata.topk_transform(
++                logits,
++                self.index_topk,
++                ke_offset=metadata.get_seqlens_expanded()[:_p1v2_rows],
++            )
++        else:
++            topk_result = metadata.topk_transform(logits, self.index_topk)
 +        # GLM52_P1V2: restore the padding the trim above removed.
 +        #
 +        # #32762's shape: gate on the SAME boolean that drove the trim, and
@@ -107,16 +159,19 @@ index 59b2256815..e5f4847678 100644
 +        # whose second conjunct silently skipped the restore on a shape drift
 +        # and handed the caller a short tensor -- a wrong answer rather than a
 +        # crash.
++        #
++        # Keyed off _p1v2_rows, not _p1v2_real: under P1V3's clip case the two
++        # differ, and it is _p1v2_rows that the kernel actually ran over.
 +        if _p1v2_trim:
-+            assert topk_result.shape[0] == _p1v2_real, (
-+                "GLM52_P1V2: paged-MQA top-k returned "
-+                f"{topk_result.shape[0]} rows for {_p1v2_real} trimmed query "
-+                f"rows (padded={_p1v2_padded}); refusing to pad a mis-shaped "
-+                "result."
++            assert topk_result.shape[0] == _p1v2_rows, (
++                "GLM52_P1V3: paged-MQA top-k returned "
++                f"{topk_result.shape[0]} rows for {_p1v2_rows} trimmed query "
++                f"rows (real={_p1v2_real}, padded={_p1v2_padded}); refusing to "
++                "pad a mis-shaped result."
 +            )
              padding = torch.full(
 -                (pad_len, topk_result.shape[1]),
-+                (_p1v2_padded - _p1v2_real, topk_result.shape[1]),
++                (_p1v2_padded - _p1v2_rows, topk_result.shape[1]),
                  -1,
                  dtype=topk_result.dtype,
                  device=topk_result.device,

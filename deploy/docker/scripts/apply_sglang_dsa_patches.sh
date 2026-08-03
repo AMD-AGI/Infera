@@ -35,8 +35,13 @@ PATCHES=(
 )
 
 # module basename : identifier that must be present in the compiled bytecode
+# Two markers for the indexer patch, not one.  `_p1v2_trim` alone was satisfied
+# by the earlier one-directional revision, so it cannot tell the two apart;
+# `_p1v2_rows` is introduced only by the GLM52_P1V3 fold and is what proves the
+# reversed-padding (real > padded) case is handled.
 MARKERS=(
   "dsa_indexer.py:_p1v2_trim"
+  "dsa_indexer.py:_p1v2_rows"
   "dsa_backend.py:_glm52_match_page_table_rows"
   "dp_attn.py:can_draft_cuda_graph"
   "eagle_worker_v2.py:requires_dp_attention_eager_forward"
