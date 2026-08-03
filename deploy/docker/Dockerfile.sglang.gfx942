@@ -120,6 +120,44 @@ RUN set -eu; \
     for f in /tmp/sglang-disagg-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
     rm -rf /tmp/sglang-disagg-patches
 
+# ---- sglang ROCm patches (hicache host allocator, staged write-back) --------
+# Two independent hicache-on-ROCm fixes, both needed once kvd is enabled.
+#
+# (1) host allocator. sglang's hicache allocates its
+# host pools with mmap + hipHostRegister and then hands the raw host data_ptr()s
+# to GPU kernels through device-side pointer tables, which is only correct while
+# hipHostRegister happens to map the pages at the host VA. The patch moves ROCm
+# to hipHostMalloc, whose device pointer IS the host pointer by contract.
+#
+# PREVENTIVE ON THIS BASE, not a fix for a crash seen here. On gfx950 the
+# addresses differ and the first kvd write-back aborts the process with "Memory
+# access fault by GPU node-N"; on gfx942 they do NOT. Measured on MI300X
+# (amdgpu 6.14.14, ROCm 7.2.0, this base image): host VA == hipHostGetDevicePointer
+# for 8 MiB / 512 MiB / 4 GiB, with and without hipHostRegisterMapped, and across
+# 78 sequential registrations totalling 7.3 GB -- 0 mismatches. That identity is
+# an accident of the driver rather than an API guarantee, gfx942 is `xnack-` too
+# (so a regression would fault rather than migrate), and the switch costs nothing
+# measurable here: SGLANG_HUGEPAGE_SIZE is unset and the hosts have no hugepages
+# reserved, so both allocators hand out 4 KiB pages.
+#
+# (2) staged write-back JIT. NOT preventive -- without it this base kills the
+# prefill scheduler (exit -3, "Tensor match failed ... device=rocm:0") on the
+# first page written back to the host tier, i.e. on the first request that
+# reuses a prefix. pool_host/mla.py opts HIP into a JIT kernel whose ROCm build
+# wants host-resident indices while the caller passes a GPU tensor; the patch
+# gates it on CUDA like every other host pool does. New in v0.5.16: v0.5.15.post1
+# has no pool_host/mla.py, so this patch is a no-op on the mi35x image.
+#
+# Order-independent w.r.t. everything above: they touch
+# mem_cache/pool_host/{common,mla}.py, which no other patch here does. NOT
+# tolerant, like the disagg loop: a non-zero exit means the base drifted, and
+# either fix half-applied is worse than a failed build. The one tolerated miss
+# is an absent pool_host/mla.py, which means the base predates the JIT path.
+COPY deploy/docker/patches/sglang_rocm/ /tmp/sglang-rocm-patches/
+RUN set -eu; \
+    for f in /tmp/sglang-rocm-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
+    rm -rf /tmp/sglang-rocm-patches
+
 # ---- Rust router (multi-core data plane; --router-backend rust) ----
 # The ROCm base ships cargo; use it (install a minimal toolchain only if
 # absent). Needs cc for linking and libclang (onig_sys/bindgen). Removes

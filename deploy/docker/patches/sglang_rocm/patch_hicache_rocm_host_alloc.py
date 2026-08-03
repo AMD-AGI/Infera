@@ -66,6 +66,29 @@ buffer, page ranges head / tail / last:
 The repro and its logs are in the internal reproduction kit -- ask the patch
 author.
 
+NOT REPRODUCIBLE ON gfx942 -- and the patch is applied there anyway
+------------------------------------------------------------------
+Re-measured on MI300X (gfx942:sramecc+:xnack-, amdgpu 6.14.14, ROCm 7.2.0,
+lmsysorg/sglang:v0.5.16-rocm720-mi30x): hipHostRegister returns a device pointer
+EQUAL to the host VA for 8 MiB / 512 MiB / 4 GiB, with and without
+hipHostRegisterMapped, and across 78 sequential registrations totalling 7.3 GB --
+0 mismatches. So the stock allocator does not fault on that arch, and this patch
+fixes nothing observable there today.
+
+That measurement is rerunnable rather than quoted:
+examples/glm5.2_gfx942_agentic_bench/probe_hip_host_ptr.py prints host VA against
+hipHostGetDevicePointer for each allocation strategy sglang can take. Run it on a
+new arch or after a driver bump before assuming either outcome.
+
+`Dockerfile.sglang.gfx942` applies it regardless. The identity above is a
+property of that driver, not of the API -- hipHostRegister's contract is that you
+call hipHostGetDevicePointer -- and gfx950 already breaks it on the same ROCm
+release. gfx942 is `xnack-` too, so a driver bump that diverged would fault
+rather than migrate, and the failure lands on the kvd write-back path where it is
+expensive to diagnose. The switch also costs nothing measurable on either arch
+while SGLANG_HUGEPAGE_SIZE is unset: alloc_mmap then takes its plain-page branch,
+so both allocators hand out 4 KiB pages.
+
 UPSTREAM STATUS (queried with `gh` on 2026-08-03)
   issue          NONE FOUND. Searched sgl-project/sglang issues for
                  "hipHostRegister", "hicache ROCm host" and "Memory access fault

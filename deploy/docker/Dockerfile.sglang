@@ -159,6 +159,12 @@ RUN set -eu; \
 # Order-independent w.r.t. everything above: it touches
 # mem_cache/pool_host/common.py, which no other patch here does.
 #
+# The directory also carries patch_hicache_rocm_staged_write_back.py, which
+# gates a write-back JIT kernel that ROCm cannot run. That kernel arrived in
+# v0.5.16: this base has no mem_cache/pool_host/mla.py, so the patch reports
+# that and exits 0 here. It is kept in the shared directory so a base bump
+# picks the fix up instead of rediscovering it as a scheduler crash.
+#
 # NOT tolerant, like the disagg loop above: an image that GPU-faults the moment
 # kvd writes back is worse than a failed build. Self-locating, idempotent, and
 # it plants a real module-level string literal so the fix can be proven in the

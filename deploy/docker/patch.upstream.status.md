@@ -71,11 +71,18 @@ PD + DP-attention + MTP, i.e. **no CI covers this topology today**.
 > state was read from the web UI on 2026-08-03, and no upstream PR search was run.
 > "none found" here is weaker than elsewhere on the page.
 
-## sglang ROCm — `patches/sglang_rocm/` (baked by `Dockerfile.sglang`)
+## sglang ROCm — `patches/sglang_rocm/` (baked by `Dockerfile.sglang`, `Dockerfile.sglang.gfx942`)
 
 | patch | fixes | upstream issue | upstream PR | ours? | PR state |
 |---|---|---|---|---|---|
 | `sglang_rocm/patch_hicache_rocm_host_alloc.py` | hicache allocates host pools with `mmap` + `hipHostRegister`, which on ROCm maps the pages at a device address ≠ the host VA, but the pools hand raw host `data_ptr()`s to GPU kernels via device-side pointer tables → `Memory access fault by GPU node-N on address <host VA>` on the first kvd write-back | none found | none found | — | — |
+| `sglang_rocm/patch_hicache_rocm_staged_write_back.py` | `pool_host/mla.py` enables the staged write-back JIT on HIP while `DSAIndexerPoolHost` — in the same `HostPoolGroup` for any DSA model — still gates it on `_is_cuda`. The group ANDs the flag and puts the destination indices on the GPU; the anchor MLA pool reads its own flag and launches the JIT anyway → `Tensor match failed … device=rocm:0 … allowed options: [cpu, rocm_host]`, scheduler exit −3 on the first write-back | none found | [sglang#28534](https://github.com/sgl-project/sglang/pull/28534) `[AMD] Enable JIT staged HiCache write-back and fix CPU-index crash` — added the HIP enablement and aligned `cache_controller.py`, `memory_pool_host.py`, `pool_host/mha.py`; **never touched `pool_host/mla.py`** | no (`AMD-yanfeiwang`) | **MERGED** 2026-07-09 |
+
+> The fault is **gfx950-only so far**: on gfx942 (MI300X, amdgpu 6.14.14, ROCm
+> 7.2.0) the two addresses are measured equal, so `Dockerfile.sglang.gfx942`
+> carries this patch preventively rather than to fix a crash. The reasoning and
+> the measurement are in the script's header; don't read this row as evidence the
+> fault was seen on both arches.
 
 > Verified on 2026-08-03 by **reading upstream `main` directly** (contents API,
 > `pool_host/common.py`): `ALLOC_MEMORY_FUNCS` still overrides only `"npu"` and
@@ -90,6 +97,17 @@ PD + DP-attention + MTP, i.e. **no CI covers this topology today**.
 > [#32503](https://github.com/sgl-project/sglang/pull/32503) /
 > [#32792](https://github.com/sgl-project/sglang/pull/32792) (OPEN, Intel XPU
 > HiCache) touch this same dict — expect an anchor conflict, not a fix.
+
+The staged write-back row is **not preventive**: without it this base kills the
+prefill scheduler on the first reused prefix, so `Dockerfile.sglang.gfx942` needs
+it to run kvd at all. It is a **no-op on the mi35x image** — v0.5.15.post1 has no
+`mem_cache/pool_host/mla.py` (verified: raw.githubusercontent 404 at that tag,
+200 for `pool_host/common.py`), which is also why the MI355 stack never hit this.
+Both `_is_cuda or _is_hip` and the CUDA-only gate on the other pools are still on
+upstream `main` (read from the raw file, so this is stronger than a search miss),
+i.e. **main is affected**. #28534's own reasoning argues for the opposite repair —
+teach the remaining pools the JIT rather than gate MLA down — so expect upstream
+to close this differently than we did; our patch only has to stop the crash.
 
 ## Mooncake C++ — `patches/mooncake_cpp/` (built by `Dockerfile.sglang`, `Dockerfile.vllm`, `Dockerfile.atom`)
 
