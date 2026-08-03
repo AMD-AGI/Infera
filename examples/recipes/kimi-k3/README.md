@@ -13,25 +13,25 @@ keeps Kimi-K3's base choice from being everyone else's problem.
 
 | Combo | Serving | KV cache | Manifest |
 |---|---|---|---|
-| **mixed** | one worker, prefill + decode | GPU only | [`mixed/deploy.yaml`](mixed/deploy.yaml) |
-| **mixed + kvd** | one worker, prefill + decode | + L2 host RAM, L3 on a PVC, **GPU-direct** | [`mixed-kvd/deploy.yaml`](mixed-kvd/deploy.yaml) |
-| **pd** | prefill and decode on separate nodes | GPU only | [`pd/deploy.yaml`](pd/deploy.yaml) |
-| **pd + kvd** | prefill and decode on separate nodes | + kvd per role | [`pd-kvd/deploy.yaml`](pd-kvd/deploy.yaml) |
+| **aggregated** | one worker, prefill + decode | GPU only | [`aggregated/deploy.yaml`](aggregated/deploy.yaml) |
+| **aggregated + kvd** | one worker, prefill + decode | + L2 host RAM, L3 on a PVC, **GPU-direct** | [`aggregated-kvd/deploy.yaml`](aggregated-kvd/deploy.yaml) |
+| **disaggregated** | prefill and decode on separate nodes | GPU only | [`disaggregated/deploy.yaml`](disaggregated/deploy.yaml) |
+| **disaggregated + kvd** | prefill and decode on separate nodes | + kvd per role | [`disaggregated-kvd/deploy.yaml`](disaggregated-kvd/deploy.yaml) |
 
-Start with **mixed**. Add **kvd** when requests share long prefixes (a common system
-prompt, multi-turn chat, RAG). Move to **pd** only if you have two nodes on a
+Start with **aggregated**. Add **kvd** when requests share long prefixes (a common system
+prompt, multi-turn chat, RAG). Move to **disaggregated** only if you have two nodes on a
 mutually routable RoCE fabric.
 
 Because this recipe runs vLLM, its kvd combos get **GPU-direct L3**: kvd loads the
 L3 tier straight into VRAM through hipFile. SGLang's route (`--infera-kvd-socket`)
 bounces through host memory instead, so GPU-direct L3 is a vLLM-only capability.
 
-`export COMBO=mixed` (or `mixed-kvd`, `pd`, `pd-kvd`) — the commands below use it.
+`export COMBO=aggregated` (or `aggregated-kvd`, `disaggregated`, `disaggregated-kvd`) — the commands below use it.
 
 ## 2. Prerequisites
 
-**Hardware.** 8× MI355X (or MI300X+) on one node for `mixed`; two such nodes on a
-shared RoCE fabric for `pd`. Kimi-K3's weights are ~1.5 TB — put them on **local
+**Hardware.** 8× MI355X (or MI300X+) on one node for `aggregated`; two such nodes on a
+shared RoCE fabric for `disaggregated`. Kimi-K3's weights are ~1.5 TB — put them on **local
 NVMe**, not NFS. Loading over NFS took about an hour here; local disk is minutes.
 
 **Cluster.** Kubernetes 1.28+ with:
@@ -65,7 +65,7 @@ kubectl create namespace infera --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f examples/recipes/kimi-k3/${COMBO}/deploy.yaml
 ```
 
-For the `pd` combos, first substitute the two node names:
+For the `disaggregated` combos, first substitute the two node names:
 
 ```bash
 sed -e "s/<PREFILL_NODE>/node-a/" -e "s/<DECODE_NODE>/node-b/" \
@@ -156,11 +156,11 @@ on this hardware.
 
 | What | Status |
 |---|---|
-| **`mixed/deploy.yaml` exactly as written** | **validated end-to-end on k3s (MI355X, 8×`amd.com/gpu`)** — see below |
+| **`aggregated/deploy.yaml` exactly as written** | **validated end-to-end on k3s (MI355X, 8×`amd.com/gpu`)** — see below |
 | kvd sidecar + PVC L3 under vLLM | validated (2 entries / 271 MB on a 3510-token request), on Qwen3-0.6B |
 | pd / pd-kvd for this model | structure only; the vLLM MultiConnector wiring is unproven for Kimi-K3 |
 
-The `mixed` run used the **stock `vllm/vllm-openai-rocm:kimi-k3` image** with the
+The `aggregated` run used the **stock `vllm/vllm-openai-rocm:kimi-k3` image** with the
 overlay mounted in — no infera-built engine image anywhere in the Pod:
 
 | | |

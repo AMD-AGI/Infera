@@ -4,7 +4,7 @@
 #   overlay      inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44                     (infera + router + kvd + native deps)
 #   engine       infera.engine.vllm   TP8
 #
-# Deploy:  kubectl apply -f examples/recipes/kimi-k3/mixed-kvd/deploy.yaml
+# Deploy:  kubectl apply -f examples/recipes/kimi-k3/aggregated-kvd/deploy.yaml
 # Docs:    examples/recipes/kimi-k3/README.md
 #
 # Expects the `model-cache` PVC to hold the weights at /models/Kimi-K3
