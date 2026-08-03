@@ -219,7 +219,13 @@ sed -e 's|<MODEL_DIR>|/mnt/local-nvme/models|' -e 's|<NODE>|node-a|' \
 kubectl -n infera get pods -w
 ```
 
-Replace `mixed` with `mixed-dspark` for the speculative variant.
+| Placeholder | What to put there |
+|---|---|
+| `<MODEL_DIR>` | Directory on that node containing `Kimi-K3/`, mounted into the pod at `/models`. A `hostPath` — the node must hold the weights locally. |
+| `<NODE>` | Hostname of the node (`kubernetes.io/hostname`). Pins **both** the server and the worker to it — see below for why. |
+
+Replace `mixed` with `mixed-dspark` for the speculative variant; for that one,
+`<MODEL_DIR>` must also contain `Kimi-K3-DSpark/`.
 
 If `get pods` shows nothing a minute after `apply`, a placeholder survived — see
 §0; that failure reports only in the operator's log, in another namespace.
@@ -234,7 +240,19 @@ sed -e 's|<PREFILL_NODE>|nodeA|'      -e 's|<DECODE_NODE>|nodeB|' \
     examples/recipes/kimi-k3-optimized/pd/deploy.yaml | kubectl apply -f -
 ```
 
-Replace `pd` with `pd-dspark` for the speculative variant.
+| Placeholder | What to put there |
+|---|---|
+| `<PREFILL_NODE>` | Hostname of the node that runs **prefill** (`kubernetes.io/hostname`). It processes the prompt and produces the KV cache; the router pod is placed here too. |
+| `<DECODE_NODE>` | Hostname of the node that runs **decode** — it receives that KV over RDMA and generates the tokens. Must be a *different* node, and the two must be able to reach each other over the RoCE fabric. |
+| `<PREFILL_MODEL_DIR>` | Directory **on the prefill node** containing `Kimi-K3/`, mounted into the pod at `/models`. |
+| `<DECODE_MODEL_DIR>` | The same, **on the decode node**. Frequently a different path. |
+
+Both are `hostPath` mounts, so each node reads its **own local copy** — there is no
+shared volume, and the two paths do not have to agree.
+
+Replace `pd` with `pd-dspark` for the speculative variant; for that one,
+`Kimi-K3-DSpark/` must sit alongside `Kimi-K3/` in **both** directories, because
+both roles load the draft.
 
 The two model directories are **deliberately different in that example.** They may
 be equal on a uniform fleet, but assuming so is the single most likely way to get
