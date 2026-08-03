@@ -54,6 +54,11 @@ sed -e 's|<MODEL_DIR>|/mnt/local-nvme/models|' -e 's|<NODE>|node-a|' \
     examples/recipes/kimi-k3-optimized/mixed/deploy.yaml | kubectl apply -f -
 ```
 
+| Placeholder | What to put there |
+|---|---|
+| `<MODEL_DIR>` | Directory on that node containing `Kimi-K3/`, mounted into the pod at `/models`. A `hostPath` — the node must hold the weights locally. |
+| `<NODE>` | Hostname of the node (`kubernetes.io/hostname`). Pins **both** the server and the worker to it: both mount the weights by `hostPath` and are scheduled independently, so without this they can land on different nodes and the one without the weights fails. |
+
 Start here unless you have a specific reason not to. The other three trade GPUs or
 added complexity for latency, and one of them needs a second node.
 :::
@@ -68,6 +73,9 @@ Same 8 GPUs, plus speculative decoding: a block-diffusion draft model that produ
 sed -e 's|<MODEL_DIR>|/mnt/local-nvme/models|' -e 's|<NODE>|node-a|' \
     examples/recipes/kimi-k3-optimized/mixed-dspark/deploy.yaml | kubectl apply -f -
 ```
+
+Same two placeholders as **Mixed**, but `<MODEL_DIR>` must also contain
+`Kimi-K3-DSpark/` alongside `Kimi-K3/`.
 
 The draft is a community checkpoint,
 [`Inferact/Kimi-K3-DSpark`](https://huggingface.co/Inferact/Kimi-K3-DSpark) — there
@@ -106,6 +114,18 @@ sed -e 's|<PREFILL_NODE>|node-a|' -e 's|<DECODE_NODE>|node-b|' \
     examples/recipes/kimi-k3-optimized/pd/deploy.yaml | kubectl apply -f -
 ```
 
+| Placeholder | What to put there |
+|---|---|
+| `<PREFILL_NODE>` | Hostname of the node that runs **prefill** (`kubernetes.io/hostname`). It processes the prompt and produces the KV cache. The router pod is placed here too. |
+| `<DECODE_NODE>` | Hostname of the node that runs **decode** — it receives that KV over RDMA and generates the tokens. Must be a *different* node, and the two must be able to reach each other over the RoCE fabric. |
+| `<PREFILL_MODEL_DIR>` | Directory **on the prefill node** containing `Kimi-K3/`, mounted into the pod at `/models`. |
+| `<DECODE_MODEL_DIR>` | The same, **on the decode node**. Frequently a different path — the nodes do not have to agree, and on a mixed fleet they often do not. |
+
+Both directories are `hostPath` mounts, so each node reads its **own local copy**;
+there is no shared volume. Neither path is discoverable from this page — find each
+one on its own node, and confirm it is local storage rather than a network mount,
+before substituting.
+
 ```{admonition} Twice the hardware, and it never wins per GPU
 :class: warning
 PD does not improve tokens per GPU at any concurrency measured here. What it buys
@@ -131,6 +151,10 @@ sed -e 's|<PREFILL_NODE>|node-a|' -e 's|<DECODE_NODE>|node-b|' \
     -e 's|<DECODE_MODEL_DIR>|/mnt/array/models|' \
     examples/recipes/kimi-k3-optimized/pd-dspark/deploy.yaml | kubectl apply -f -
 ```
+
+The placeholders are the same four as **PD** above, with one addition to the
+requirement: `Kimi-K3-DSpark/` must sit alongside `Kimi-K3/` in **both**
+directories, because both roles load the draft.
 
 ```{admonition} `--speculative-config` goes on BOTH roles, and that is not redundancy
 :class: warning
