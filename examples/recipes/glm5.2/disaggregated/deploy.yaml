@@ -13,8 +13,35 @@
 #
 # PD REQUIRES the prefill and decode nodes to sit on a MUTUALLY ROUTABLE RoCE
 # fabric — the KV transfer is RDMA, not TCP, and there is no fallback. Set
-# <PREFILL_NODE>/<DECODE_NODE> to two such nodes. Not validated for this model;
-# examples/k8s-deployments/pd-1p1d-mooncake.yaml is the validated reference.
+# <PREFILL_NODE>/<DECODE_NODE> to two such nodes.
+#
+# THE `model-cache` PVC BELOW CANNOT WORK FOR PD AS SHIPPED. It is provisioned
+# ReadWriteOnce on the `local-path` storage class, which pins the volume to one
+# node -- so the role scheduled on the other node cannot mount it and the Pod
+# never starts. PD needs each node to hold the weights itself. Replace both
+# `model` volumes with a hostPath per node:
+#
+#   prefill:  - {name: model, hostPath: {path: <PREFILL_MODEL_DIR>, type: Directory}}
+#   decode:   - {name: model, hostPath: {path: <DECODE_MODEL_DIR>,  type: Directory}}
+#
+# The two paths need not match, and on a mixed fleet they usually do not. Each
+# must be LOCAL storage on its own node: the obvious shared-looking mount may be
+# an NFS export of the peer's array, which turns an 8-minute weight load into a
+# ~95-minute one, exceeds the ready timeout, and restarts forever.
+#
+# VALIDATED cross-node on k3s (MI355X, chi2800 prefill / chi2866 decode) with
+# amd/GLM-5.2-MXFP4 (282 shards, 408 GB per node) and the hostPath substitution
+# above: both roles Ready in ~4 min, 0 restarts, correct answer. The KV handoff
+# was confirmed rather than inferred -- the decode side logged only `Decode
+# batch` and never a `Prefill batch`, so it did not recompute the prompt locally.
+#
+# DECODE-SIDE DP ATTENTION WORKS. Adding `--dp-size 2 --enable-dp-attention` to
+# the decode role only (keeping `--tp-size 8`, since SGLang's tp-size stays the
+# total) came up in ~3 min with 0 restarts, served 3/3 requests, kept the same
+# `Decode batch`-only signature, and exercised both attention ranks (DP0 and DP1
+# both logged). No `Address already in use` -- but note that the port-block
+# collision that `free_tcp_port_block` guards against needs two engines on ONE
+# host, which this cross-node topology does not exercise.
 ---
 apiVersion: infera.amd.com/v1alpha1
 kind: InferaDeployment
