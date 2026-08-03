@@ -1,0 +1,44 @@
+===== HOST
+chi2835
+Mon Aug  3 10:51:16 AM UTC 2026
+ 10:51:16 up 26 days, 15:38,  3 users,  load average: 45.01, 43.00, 43.15
+===== KERNEL
+6.8.0-107-generic
+===== CPU/RAM
+CPU(s):                                  256
+Model name:                              AMD EPYC 9575F 64-Core Processor
+BIOS Model name:                         AMD EPYC 9575F 64-Core Processor                Unknown CPU @ 3.3GHz
+CPU(s) scaling MHz:                      85%
+               total        used        free      shared  buff/cache   available
+Mem:            3023         490         473         221        2295        2532
+===== GPU
+
+
+============================ ROCm System Management Interface ============================
+============================== Version of System Component ===============================
+Driver version: 6.16.13
+device,VRAM Total Memory (B),VRAM Total Used Memory (B)
+card0,309220868096,293931421696
+card1,309220868096,294821003264
+card2,309220868096,294805557248
+card3,309220868096,294766751744
+card4,309220868096,294663667712
+card5,309220868096,294503297024
+card6,309220868096,294537003008
+card7,309220868096,294506819584
+===== RDMA
+hca_id:	ionic_0				state:			PORT_ACTIVE (4)
+hca_id:	ionic_1				state:			PORT_ACTIVE (4)
+hca_id:	ionic_2				state:			PORT_ACTIVE (4)
+hca_id:	ionic_3				state:			PORT_ACTIVE (4)
+hca_id:	ionic_4				state:			PORT_ACTIVE (4)
+hca_id:	ionic_5				state:			PORT_ACTIVE (4)
+hca_id:	ionic_6				state:			PORT_ACTIVE (4)
+hca_id:	ionic_7				state:			PORT_ACTIVE (4)
+===== IP
+10.2.122.78
+===== IMAGE
+sha256:27667ee43291bed2bddb9caf44a63217fdb994d6f423f6ed3bf7e807340fae7a
+infera/engine-sglang                       merged-e                                                        <none>                                                                    27667ee43291   2 days ago     78.6GB
+===== CMDLINE
+Sun Aug  2 15:34:07 2026 /opt/venv/bin/python3 -m sglang.launch_server --model-path /mnt/vast/xiaobo/models/GLM-5.2-MXFP4 --served-model-name glm5.2-mxfp4 --tp-size 8 --trust-remote-code --host 10.2.122.78 --port 30000 --nsa-prefill-backend tilelang --nsa-decode-backend tilelang --kv-cache-dtype fp8_e4m3 --mem-fraction-static 0.80 --context-length 262144 --chunked-prefill-size 16384 --cuda-graph-max-bs 128 --max-running-requests 2048 --watchdog-timeout 3600 --hicache-size 16 --ep-size 8 --disaggregation-mode prefill --disaggregation-transfer-backend mooncake --disaggregation-ib-device ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7 --disaggregation-bootstrap-port 8998 --enable-cache-report --enable-hierarchical-cache --hicache-storage-backend dynamic --hicache-storage-backend-extra-config {"backend_name": "infera-kvd", "module_path": "infera.engine.sglang.kvd_adapter", "class_name": "InferaKvdBackend", "prefetch_threshold": 64} --kv-events-config {"publisher": "zmq", "endpoint": "tcp://*:63985", "topic": "kv-events"}
