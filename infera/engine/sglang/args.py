@@ -260,7 +260,20 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
         and getattr(sglang_parsed, "disaggregation_transfer_backend", None) == "mooncake"
         and "--disaggregation-decode-enable-radix-cache" not in remaining
     ):
-        remaining.append("--disaggregation-decode-enable-radix-cache")
+        # SGLang rejects this flag under speculative decoding, so appending it
+        # kills an EAGLE/MTP decode leg at parse time. Skipping it costs only the
+        # decode-side KV view; prefix-aware routing runs on the prefill one.
+        if getattr(sglang_parsed, "speculative_algorithm", None) is not None:
+            logger.info(
+                "kv-events on, but --disaggregation-decode-enable-radix-cache is "
+                "incompatible with --speculative-algorithm %s; not appending it. "
+                "The decode leg will use SGLang's chunk cache and contribute "
+                "little to the router KV view; prefix-aware routing runs on the "
+                "prefill-side view.",
+                sglang_parsed.speculative_algorithm,
+            )
+        else:
+            remaining.append("--disaggregation-decode-enable-radix-cache")
 
     # infera product default: fp8 KV cache (fp8_e4m3) unless the operator passed
     # --kv-cache-dtype explicitly. fp8 halves the KV footprint -> ~2x the KV that
