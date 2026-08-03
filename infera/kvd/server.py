@@ -1163,6 +1163,11 @@ async def _main_async(args) -> None:
             "use --long-path for single-device (existing behavior) or "
             "--long-paths for multi-device striping (Phase 3)."
         )
+    # The io_mode the long region below resolved, so the startup self-check can
+    # report the mount under the mode kvd will actually use. None = "no region, or
+    # the region resolves it later" — the self-check then classifies for itself,
+    # which is its own default.
+    resolved_o_direct: bool | None = None
     if args.long_paths and not args.use_tablespace:
         raise SystemExit(
             "kvd: --long-paths requires --use-tablespace (the striped "
@@ -1193,6 +1198,7 @@ async def _main_async(args) -> None:
             # that all striping shards live on similar devices (typical:
             # 8× NVMe under /mnt/nvme{0..7}); the auto-probe is a guide.
             o_direct, _ = _resolve_io_mode(args, paths[0])
+        resolved_o_direct = o_direct
         if args.tablespace_flush_interval_ms is not None:
             flush_interval_ms = args.tablespace_flush_interval_ms
         elif args.tablespace_auto_detect_fs:
@@ -1252,6 +1258,7 @@ async def _main_async(args) -> None:
                 o_direct = None
             else:
                 o_direct, _ = _resolve_io_mode(args, args.long_path)
+            resolved_o_direct = o_direct
 
             if args.tablespace_flush_interval_ms is not None:
                 flush_interval_ms = args.tablespace_flush_interval_ms
@@ -1308,7 +1315,12 @@ async def _main_async(args) -> None:
         try:
             from infera.kvd.storage_selfcheck import run_storage_selfcheck
 
-            run_storage_selfcheck(_sc_path)
+            # Without resolved_o_direct the self-check classifies the mount all
+            # over again, which disagrees with the region whenever --io-mode was
+            # explicit or the probe cannot see the device (any container: the walk
+            # ends at a /dev/mapper node that is not in the namespace). It then
+            # reports GB/s for a mode kvd is not using.
+            run_storage_selfcheck(_sc_path, o_direct=resolved_o_direct)
         except Exception as _sc_exc:  # pragma: no cover — never block startup
             logger.warning("[kvd] storage self-check wiring error (non-fatal): %s", _sc_exc)
 
