@@ -171,10 +171,34 @@ def _finish_wiring(args: Any, socket_path: str) -> None:
     logger.info("infera-kvd HiCacheStorage backend ready (socket=%s)", socket_path)
 
 
+def _skip_kvd_on_decode_leg(args: Any) -> bool:
+    """True if this is a PD decode leg, where kvd would be write-only.
+
+    SGLang only prefetches from hicache storage on the aggregated and PREFILL
+    branches of ``Scheduler._add_request_to_queue``; the DECODE branch has no
+    ``_prefetch_kvcache`` call, and that method is the sole caller of
+    ``prefetch_from_storage``. The backup path still runs, so a decode leg fills
+    L3 and never reads it -- measured at 180 sets / 0 gets against a prefill
+    leg's 102 sets / 102 gets on the same run.
+    """
+    mode = getattr(getattr(args, "server_args", None), "disaggregation_mode", None)
+    if str(mode) != "decode":
+        return False
+    logger.info(
+        "PD decode leg: not wiring infera-kvd. SGLang issues no storage prefetch "
+        "on the decode branch (scheduler._add_request_to_queue), so L3 here would "
+        "be write-only -- host memory and D2H bandwidth for zero reads. kvd stays "
+        "on the prefill leg, which is where prefix reuse is decided."
+    )
+    return True
+
+
 async def awire_infera_kvd_backend(args: Any) -> None:
     """Async variant for callers already inside an event loop."""
     socket_path = args.infera_kvd_socket
     if not socket_path:
+        return
+    if _skip_kvd_on_decode_leg(args):
         return
 
     # The adapter (constructed later by SGLang) reads this env var;

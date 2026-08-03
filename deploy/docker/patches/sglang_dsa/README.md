@@ -15,16 +15,21 @@ same arm of the set — see [Applying](#applying):
 
 | # | patch | fixes |
 |---|---|---|
-| 01 | `patch_dsa_indexer_hip_dp_padded_rows.py` | HIP/aiter paged-MQA sizes its output from **DP-padded** rows while `lengths` is sized to **real** rows → `Expected lengths.size(0) == B` |
+| 01 | `patch_dsa_indexer_hip_dp_padded_rows.py` | the HIP/aiter paged-MQA row count and `lengths` disagree — **in both directions** → `Expected lengths.size(0) == B` |
 | 02 | `dsa_backend_dp_sync_and_page_table_rows.diff` | (a) a host sync on a branch only *some* DP ranks take → collectives desync → deadlock; (b) page table has one row per **request**, top-k one per **token** under MTP → assert |
 | 04 | `draft_cuda_graph_dp_vote.diff` | the draft graph/eager choice is made **per rank** from rank-dependent inputs and diverges on the PD decode leg → deadlock |
 
 Patch 01 is a **script** and 02/04 are **context diffs**, and that is the whole
 reason the two images can differ: 02 and 04 are `--fuzz=0` against
-v0.5.15.post1, while 01 anchors on source text and its two edit sites are
-byte-identical on both releases. On v0.5.15.post1 the script's output is
-byte-identical to the `dsa_indexer_hip_dp_padded_rows.diff` it replaced, which
-is why that diff is gone rather than kept as a second source of truth.
+v0.5.15.post1, while 01 anchors on source text. Its `GLM52_P1V2` edit sites are
+byte-identical on both releases; its later `GLM52_P1V3` anchor (the bare
+`topk_transform` call) has been re-read against v0.5.15.post1 only — see the
+anchor note in the script's header.
+
+The script replaced a `dsa_indexer_hip_dp_padded_rows.diff` that carried the
+same `GLM52_P1V2` edits; the diff is gone rather than kept as a second source of
+truth. It is **no longer equivalent to that diff**: `GLM52_P1V3` was added after
+the replacement, and only the script has it.
 
 **Each patch's own header is the record**: what it fixes, why, how it was
 established, the upstream issue / third-party PR / our own PR, how it differs
@@ -93,6 +98,89 @@ re-cut for v0.5.16, and the failure it prevents (a host sync on a branch only
 some DP ranks take) was not observed there — FP8, `dp8`, concurrency up to 128.
 Absence of the symptom is not a fix; if a gfx942 run deadlocks with IndexShare
 already off, 02a is the first thing to port.
+
+### Patch 01: the row count diverges in BOTH directions (`GLM52_P1V3`)
+
+Patch 01 originally guarded one direction only — `real < padded`, i.e. it
+assumed DP padding always makes `q_fp8` **longer** than the real row count. On a
+DP-attention **IDLE** rank under MTP draft-extend the inequality inverts.
+Captured live with the patch's own `SGLANG_DEBUG_DSA_ROWS=1`:
+
+    mode=IDLE q_fp8=(1,32,128) q_offset=2 ntnp=0 agree=False lengths=(2,) -> mqa_q=(1,32,128)
+
+`q_offset` (= `sum(dsa_extend_len_cpu)`) is **2** while only **1** row is
+materialized in `q_fp8`. `2 < 1` is false, so no trim runs; aiter sizes its
+`logits` from `q_fp8.shape[0] = 1`, and `fast_topk_v2` gets 1 score row against
+2 lengths entries — killing the scheduler rank (`deepseek_nextn.py` →
+`dsa_backend.py` → `top_k.py`) and dropping the router to `active_workers: 1`.
+
+**A trim cannot fix this direction** — there are *fewer* query rows than lengths
+entries, so there is nothing to cut. Both sides reconcile down to
+`min(real, padded)`:
+
+| | `real < padded` | `real > padded` |
+|---|---|---|
+| cause | DP padding (the #32762 case) | IDLE rank, MTP draft-extend |
+| `_p1v2_trim` | **True** — slice `q`/`weights` | False |
+| `_p1v2_clip` | False | **True** — clip the lengths |
+| restore | re-pad by `padded - rows` | nothing to restore |
+
+`_p1v2_rows = min(_p1v2_real, _p1v2_padded)` is the single source of truth and
+both flags derive from it, which is what keeps them from disagreeing. The
+lengths side is clipped by passing `ke_offset=metadata.get_seqlens_expanded()
+[:rows]` — an **existing** parameter of `DSAIndexerMetadata.topk_transform` whose
+sole effect is to override `seq_lens_topk`, so the fix rides an intended
+extension point rather than mutating shared (possibly graph-captured) metadata.
+
+Two details worth keeping in view when reading the script:
+
+* `_p1v2_clip` and `_p1v2_rows` are bound **before** the `is_aiter()` branch.
+  `_p1v2_clip` is read unconditionally at the `topk_transform` call, so a
+  branch-local binding is a `NameError` on any non-aiter backend. (aiter is
+  unconditional on ROCm, so this never fired in practice — but a build-time patch
+  should not depend on that.)
+* the restore assert keys off `_p1v2_rows`, not `_p1v2_real`: under the clip case
+  the two differ, and it is `_p1v2_rows` the kernel actually ran over.
+
+**This half is what makes the patch survive an *agentic* workload.** The bug
+needs MTP **and** DP-attention **and** an idle rank simultaneously. An 8-round
+fixed-shape sweep ran MTP + DPA for 660 requests without hitting it, because
+`--random-range-ratio 1.0` keeps every request in a round the same length —
+batch shapes stay homogeneous and ranks rarely go idle mid-flight. An agentic
+workload's breathing session population produces ragged batches constantly, and
+the one-directional revision crashed the decode leg roughly 13 minutes into an
+agentic benchmark. Over the last 400 indexer calls before one crash, 2 had the
+fatal shape.
+
+**Validated.** Reproduced twice under that workload (125 s and 766 s into two
+independent runs on the same stock image). With the fix: **0** occurrences of
+`Expected lengths.size` across a full ~4,000 s window, 0 scheduler exceptions, 0
+retractions, `active_workers: 2` throughout — and independently over a second
+~4,000 s window on a different cluster.
+
+> **Provenance.** Second-hand for the reader: this half was first validated as a
+> runtime script applied inside the decode container, *not* as part of patch 01.
+> Folding it in here is a re-shaping of an already-measured fix, and the fold was
+> checked for equivalence: the two forms differ only in the two pre-branch
+> bindings noted above. The runtime script, both crash logs and both clean-window
+> logs are in the internal reproduction kit — ask the patch author.
+
+**Upstream status.** Not filed, and it is not in our own PR #33059 either, which
+carries the `real < padded` half only. It should be — this repository already
+ships the instrumentation that proves the bug (`SGLANG_DEBUG_DSA_ROWS`) and, before
+this revision, a comment conceding the two bookkeeping sources had never been
+measured to agree on the MTP draft-extend path. They do not; that is the bug.
+
+Re-searched 2026-08-03 for the P1V3 half specifically ("DSA idle rank MTP draft
+extend", "q_offset dsa_extend_len", "fast_topk_v2 lengths"): no issue, no PR.
+But searching for the *function* rather than the symptom surfaces two OPEN PRs
+that rewrite what patch 01 anchors on — neither fixes this defect:
+[#32738](https://github.com/sgl-project/sglang/pull/32738) pads heads for
+DeepGEMM at the same two aiter call sites (`q_fp8` → `q_fp8_padded`), and
+[#31480](https://github.com/sgl-project/sglang/pull/31480) (updated the same day)
+extracts the paged-MQA backend, restructuring the `is_aiter()` dispatch this
+patch hangs off. Either landing in a future base drifts the anchors, which fails
+the build rather than mis-applying — but re-cut patch 01 when bumping past them.
 
 ### Prerequisite
 

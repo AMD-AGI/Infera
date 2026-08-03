@@ -162,6 +162,12 @@ def _findmnt(path: Path) -> tuple[str, str] | None:
         return None
     fstype = parts[-1]
     source = " ".join(parts[:-1])
+    # A bind mount prints SOURCE as `/dev/md0[/sub/path]`; only the part before
+    # '[' names the device. The whole string makes lsblk say "not a block
+    # device", silently downgrading an O_DIRECT-capable kvd L3 to buffered.
+    bracket = source.find("[")
+    if bracket > 0:
+        source = source[:bracket]
     return source, fstype
 
 

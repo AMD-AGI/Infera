@@ -80,6 +80,35 @@ def test_block_is_contiguous_and_bindable(count):
             s.close()
 
 
+def _ephemeral_low() -> int:
+    try:
+        return int(open("/proc/sys/net/ipv4/ip_local_port_range").read().split()[0])
+    except (OSError, ValueError, IndexError):
+        return 32768
+
+
+def test_block_sits_below_the_ephemeral_range():
+    # A base inside the ephemeral range could be handed out by bind(("", 0))
+    # between the probe releasing it and the engine binding it.
+    count = 4
+    base = free_tcp_port_block(count)
+    assert 1024 <= base
+    assert base + count - 1 < _ephemeral_low()
+
+
+def test_repeated_calls_do_not_all_collide():
+    """Consecutive callers must not deterministically get the same base.
+
+    The probe releases the block before returning, so the reservation is not
+    exclusive. With the old fixed scan start every call returned an identical
+    base while nothing held the ports: the prefill and decode legs of a PD pair
+    launched on one host both picked it, and the second leg's sglang subprocess
+    died with ``ZMQError: Address already in use`` on ``base + attn_dp_rank``.
+    """
+    bases = [free_tcp_port_block(4) for _ in range(10)]
+    assert len(set(bases)) > 1, f"all calls returned the same base: {bases[0]}"
+
+
 def test_single_port_delegates_to_ephemeral_helper():
     # count<=1 lets the kernel choose, which on a default ip_local_port_range
     # lands above the NodePort range anyway.

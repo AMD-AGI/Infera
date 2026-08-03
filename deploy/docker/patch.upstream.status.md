@@ -5,9 +5,11 @@ project it patches. Kept here so "why do we still carry this?" has one answer
 per row, and so a patch that upstream has since merged gets dropped instead of
 quietly outliving its reason.
 
-**Verified with `gh` on 2026-08-01.** State drifts; re-check before relying on a
-row. `gh search` matches titles and bodies, **not diff content**, so "no upstream
-PR" means "none found by search", not "none exists".
+**Verified with `gh` on 2026-08-01**, except the `patches/sglang_rocm/` section,
+verified 2026-08-03. State drifts; re-check before relying on a row. `gh search`
+matches titles and bodies, **not diff content**, so "no upstream PR" means "none
+found by search", not "none exists" — where a row could be checked by reading
+upstream source instead, it says so.
 
 Column meanings:
 
@@ -27,6 +29,7 @@ not address 02a at all — `patches/sglang_dsa/README.md` carries the reasoning.
 |---|---|---|---|---|---|
 | `sglang_dsa/patch_dsa_indexer_hip_dp_padded_rows.py` | HIP/aiter paged-MQA sizes its output from DP-padded rows while `lengths` is sized to real rows → `Expected lengths.size(0) == B` | none found | [sglang#33059](https://github.com/sgl-project/sglang/pull/33059) | **yes** (`dorado269`) | OPEN, `REVIEW_REQUIRED` |
 | ″ (same bug class, other platform) | — | none found | [sglang#32762](https://github.com/sgl-project/sglang/pull/32762) `[NPU] Fix DSA eager padding mismatch` — our diff is written in its shape | no (`stellaxcpeng`) | OPEN |
+| ″ (anchor collision, **not** a fix) | — | — | [sglang#32738](https://github.com/sgl-project/sglang/pull/32738) pads heads for DeepGEMM at the same two aiter call sites; [#31480](https://github.com/sgl-project/sglang/pull/31480) extracts the paged-MQA backend and restructures the `is_aiter()` dispatch | no | both OPEN (re-read 2026-08-03) |
 | `sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff` (2a) | `seq_lens.max().item()` is a host sync on a branch only *some* DP ranks take → DP collectives desync → deadlock | none found | none found | — | — |
 | `sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff` (2b) | page table has one row per **request**, top-k one per **token** under MTP → `assert page_table.shape[0] == topk_indices.shape[0]` | none found | [sglang#32209](https://github.com/sgl-project/sglang/pull/32209) solves the same row mismatch by **trimming q/top-k**; porting that half here fails at conc=32 and is unresolved | no (`HZY-Wade`) | OPEN, `REVIEW_REQUIRED` |
 | `sglang_dsa/draft_cuda_graph_dp_vote.diff` | draft graph/eager choice is per-rank and diverges on the PD decode leg → group deadlock | [sglang#32527](https://github.com/sgl-project/sglang/issues/32527) (independent report, 8× Blackwell) | [sglang#32209](https://github.com/sgl-project/sglang/pull/32209) — same defect, same strategy; **this diff adopts its placement** | no (`HZY-Wade`) | OPEN, `REVIEW_REQUIRED` |
@@ -67,6 +70,26 @@ PD + DP-attention + MTP, i.e. **no CI covers this topology today**.
 > Unlike the rest of this page, this row was **not** verified with `gh`: the issue
 > state was read from the web UI on 2026-08-03, and no upstream PR search was run.
 > "none found" here is weaker than elsewhere on the page.
+
+## sglang ROCm — `patches/sglang_rocm/` (baked by `Dockerfile.sglang`)
+
+| patch | fixes | upstream issue | upstream PR | ours? | PR state |
+|---|---|---|---|---|---|
+| `sglang_rocm/patch_hicache_rocm_host_alloc.py` | hicache allocates host pools with `mmap` + `hipHostRegister`, which on ROCm maps the pages at a device address ≠ the host VA, but the pools hand raw host `data_ptr()`s to GPU kernels via device-side pointer tables → `Memory access fault by GPU node-N on address <host VA>` on the first kvd write-back | none found | none found | — | — |
+
+> Verified on 2026-08-03 by **reading upstream `main` directly** (contents API,
+> `pool_host/common.py`): `ALLOC_MEMORY_FUNCS` still overrides only `"npu"` and
+> `"musa"`, with no HIP entry — so main is affected too, and this is stronger
+> than the usual "no search hit". [sglang#23361](https://github.com/sgl-project/sglang/pull/23361)
+> (**MERGED**, MUSA) is the same one-line dispatch override for the same reason
+> and is the shape this patch copies.
+>
+> **No PR of ours has been filed** — it should be. **Drop this patch** when a
+> base sglang routes HIP to `alloc_with_pin_memory`; the anchor stops matching
+> and the script exits non-zero, so the drop is not silent. Note
+> [#32503](https://github.com/sgl-project/sglang/pull/32503) /
+> [#32792](https://github.com/sgl-project/sglang/pull/32792) (OPEN, Intel XPU
+> HiCache) touch this same dict — expect an anchor conflict, not a fix.
 
 ## Mooncake C++ — `patches/mooncake_cpp/` (built by `Dockerfile.sglang`, `Dockerfile.vllm`, `Dockerfile.atom`)
 

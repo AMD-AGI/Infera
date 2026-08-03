@@ -11,9 +11,10 @@
 #         patch 01 + 02 + 04.  02 and 04 are `--fuzz=0` context diffs pinned to
 #         that one release, so this arm only works on that base.
 #   DSA_PATCH_SET=indexer  (Dockerfile.sglang.gfx942, mi30x / v0.5.16)
-#         patch 01 only.  It is an anchor script, not a pinned diff, and its two
-#         edit sites are byte-identical on both releases.  02b and 04 are instead
-#         substituted at RUNTIME on this base by
+#         patch 01 only -- an anchor script, not a pinned diff, which is what
+#         lets both bases share it.  Anchor coverage per base: patch 01's header.
+#
+#         02b and 04 are instead substituted at RUNTIME on this base by
 #         `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`
 #         -- see patches/sglang_dsa/README.md; the gfx942 recipe MUST pass it.
 #         02a has no substitute and is not carried here: its diff does not apply
@@ -62,7 +63,10 @@ PATCHES=(
 )
 
 # module basename : identifier that must be present in the compiled bytecode
-MARKERS=("dsa_indexer.py:_p1v2_trim")
+#
+# Patch 01 needs TWO markers: `_p1v2_trim` alone is also satisfied by the earlier
+# one-directional revision; only `_p1v2_rows` proves real > padded is handled.
+MARKERS=("dsa_indexer.py:_p1v2_trim" "dsa_indexer.py:_p1v2_rows")
 if [ "$DSA_PATCH_SET" = "full" ]; then
   MARKERS+=(
     "dsa_backend.py:_glm52_match_page_table_rows"

@@ -72,13 +72,16 @@ COPY infera ./infera
 RUN pip install --no-cache-dir ".[sglang]"
 
 # ---- GLM-5.2 DSA indexer rows (patch 01 of the sglang_dsa set) --------------
-# REQUIRED for DP-attention here: the aiter (HIP) paged-MQA branch sizes its
-# logits from the DP-PADDED row count while `lengths` carries the real one, so
-# top-k dies with "Expected lengths.size(0) == B" as soon as concurrency > 1.
+# REQUIRED for DP-attention here: the aiter (HIP) paged-MQA row count and
+# `lengths` disagree -- in BOTH directions -- so top-k dies with "Expected
+# lengths.size(0) == B" as soon as concurrency > 1.
 # ROCm-specific and independent of IndexShare, so nothing at runtime substitutes
 # for it. Same fix Dockerfile.sglang applies; it is an anchor script rather than
-# a pinned diff precisely so both bases can share one source of truth, and its
-# two edit sites are byte-identical on v0.5.15.post1 and v0.5.16.
+# a pinned diff precisely so both bases can share one source of truth. Its
+# `GLM52_P1V2` edit sites are byte-identical on v0.5.15.post1 and v0.5.16; the
+# later `GLM52_P1V3` anchor has been re-read against v0.5.15.post1 only (see the
+# anchor note in the script's header). A drifted anchor writes nothing and exits
+# non-zero, so this build fails rather than shipping a half-applied fix.
 #
 # ONLY patch 01 (DSA_PATCH_SET=indexer). Patches 02 and 04 are `--fuzz=0` context
 # diffs cut against v0.5.15.post1 and do not apply to this v0.5.16 base:
