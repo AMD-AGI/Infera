@@ -10,16 +10,16 @@ an upstream SGLang bump is a one-line image-tag edit here.
 
 | Combo | Serving | KV cache | Manifest |
 |---|---|---|---|
-| **mixed** | one worker, prefill + decode | GPU only | [`mixed/deploy.yaml`](mixed/deploy.yaml) |
-| **mixed + kvd** | one worker, prefill + decode | + L2 host RAM, L3 on a PVC | [`mixed-kvd/deploy.yaml`](mixed-kvd/deploy.yaml) |
-| **pd** | prefill and decode on separate nodes | GPU only | [`pd/deploy.yaml`](pd/deploy.yaml) |
-| **pd + kvd** | prefill and decode on separate nodes | + kvd per role | [`pd-kvd/deploy.yaml`](pd-kvd/deploy.yaml) |
+| **aggregated** | one worker, prefill + decode | GPU only | [`aggregated/deploy.yaml`](aggregated/deploy.yaml) |
+| **aggregated + kvd** | one worker, prefill + decode | + L2 host RAM, L3 on a PVC | [`aggregated-kvd/deploy.yaml`](aggregated-kvd/deploy.yaml) |
+| **disaggregated** | prefill and decode on separate nodes | GPU only | [`disaggregated/deploy.yaml`](disaggregated/deploy.yaml) |
+| **disaggregated + kvd** | prefill and decode on separate nodes | + kvd per role | [`disaggregated-kvd/deploy.yaml`](disaggregated-kvd/deploy.yaml) |
 
-Start with **mixed**. Add **kvd** when requests share long prefixes (a common system
-prompt, multi-turn chat, RAG) — that is what the L2/L3 tiers pay for. Move to **pd**
+Start with **aggregated**. Add **kvd** when requests share long prefixes (a common system
+prompt, multi-turn chat, RAG) — that is what the L2/L3 tiers pay for. Move to **disaggregated**
 only if you have two nodes on a mutually routable RoCE fabric.
 
-`export COMBO=mixed` (or `mixed-kvd`, `pd`, `pd-kvd`) — the commands below use it.
+`export COMBO=aggregated` (or `aggregated-kvd`, `disaggregated`, `disaggregated-kvd`) — the commands below use it.
 
 ```{admonition} What each combo needs from the overlay's native tree
 The overlay harvests one native tree per ABI family — `rocm7-py310` for SGLang
@@ -27,9 +27,9 @@ bases, `rocm7-py312` for vLLM — and each records what it carries:
 
 | combo | needs | why |
 |---|---|---|
-| `mixed` | nothing | |
-| `mixed-kvd` | nothing | SGLang reaches kvd's L2 and file L3 through HiCacheStorage, which is pure Python |
-| `pd`, `pd-kvd` | `mooncake` | the KV handoff is Mooncake, a compiled extension |
+| `aggregated` | nothing | |
+| `aggregated-kvd` | nothing | SGLang reaches kvd's L2 and file L3 through HiCacheStorage, which is pure Python |
+| `disaggregated`, `disaggregated-kvd` | `mooncake` | the KV handoff is Mooncake, a compiled extension |
 
 `hipfile` is **absent from the SGLang tree on purpose** — kvd's GPU-direct L3 is
 a vLLM-only path — so its absence here is not a broken payload.
@@ -41,8 +41,8 @@ payload missing Mooncake comes up green and serves with no KV transfer at all.
 
 ## 2. Prerequisites
 
-**Hardware.** 8× MI355X (or MI300X+) on one node for `mixed`; two such nodes on a
-shared RoCE fabric for `pd`. ~700 GB of host RAM if you enable kvd — its L2 arena is
+**Hardware.** 8× MI355X (or MI300X+) on one node for `aggregated`; two such nodes on a
+shared RoCE fabric for `disaggregated`. ~700 GB of host RAM if you enable kvd — its L2 arena is
 pinned host memory charged to the sidecar's limit.
 
 **Cluster.** Kubernetes 1.28+ with:
@@ -78,7 +78,7 @@ kubectl create namespace infera --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f examples/recipes/glm5.2/${COMBO}/deploy.yaml
 ```
 
-For the `pd` combos, first substitute the two node names:
+For the `disaggregated` combos, first substitute the two node names:
 
 ```bash
 sed -e "s/<PREFILL_NODE>/node-a/" -e "s/<DECODE_NODE>/node-b/" \
@@ -146,11 +146,11 @@ rocm-smi --showpids
 
 | What | Status |
 |---|---|
-| **`mixed/deploy.yaml` exactly as written** | **validated end-to-end on k3s (MI355X, 8×`amd.com/gpu`)** — see below |
+| **`aggregated/deploy.yaml` exactly as written** | **validated end-to-end on k3s (MI355X, 8×`amd.com/gpu`)** — see below |
 | kvd sidecar + PVC L3 under SGLang | validated (3674 entries / 421 MB), on Qwen3-0.6B — but see the py310 native-tree note above |
 | pd / pd-kvd for this model | the PD path itself is validated cross-node (SGLang + Mooncake over RoCE, chi2800→chi2866); not yet run with these GLM-5.2 settings |
 
-The `mixed` run used the **stock `lmsysorg/sglang` image** with the overlay
+The `aggregated` run used the **stock `lmsysorg/sglang` image** with the overlay
 mounted in — no infera-built engine image anywhere in the Pod:
 
 | | |

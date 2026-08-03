@@ -10,32 +10,32 @@ an image-tag edit.
 
 ::::{tab-set}
 
-:::{tab-item} Mixed
-:sync: mixed
+:::{tab-item} Aggregated
+:sync: aggregated
 
 One worker does prefill and decode. Start here.
 
 ```bash
-kubectl apply -f examples/recipes/glm5.2/mixed/deploy.yaml
+kubectl apply -f examples/recipes/glm5.2/aggregated/deploy.yaml
 kubectl -n infera get pods -w
 ```
 
-[`glm5.2/mixed/deploy.yaml`](https://github.com/AMD-AGI/Infera/tree/main/examples/recipes/glm5.2/mixed/deploy.yaml)
+[`glm5.2/mixed/deploy.yaml`](https://github.com/AMD-AGI/Infera/tree/main/examples/recipes/glm5.2/aggregated/deploy.yaml)
 :::
-:::{tab-item} Mixed + kvd
-:sync: mixed-kvd
+:::{tab-item} Aggregated + kvd
+:sync: aggregated-kvd
 
 Adds the kvd tiered cache: an L2 arena in pinned host RAM and an L3 tier on a PVC. Worth it when requests share long prefixes.
 
 ```bash
-kubectl apply -f examples/recipes/glm5.2/mixed-kvd/deploy.yaml
+kubectl apply -f examples/recipes/glm5.2/aggregated-kvd/deploy.yaml
 kubectl -n infera get pods -w
 ```
 
-[`glm5.2/mixed-kvd/deploy.yaml`](https://github.com/AMD-AGI/Infera/tree/main/examples/recipes/glm5.2/mixed-kvd/deploy.yaml)
+[`glm5.2/mixed-kvd/deploy.yaml`](https://github.com/AMD-AGI/Infera/tree/main/examples/recipes/glm5.2/aggregated-kvd/deploy.yaml)
 :::
-:::{tab-item} PD
-:sync: pd
+:::{tab-item} Disaggregated
+:sync: disaggregated
 
 Prefill and decode on separate nodes, KV handed over by Mooncake.
 
@@ -47,14 +47,14 @@ Substitute `<PREFILL_NODE>` and `<DECODE_NODE>` first. The KV handoff is RDMA wi
 ```
 
 ```bash
-kubectl apply -f examples/recipes/glm5.2/pd/deploy.yaml
+kubectl apply -f examples/recipes/glm5.2/disaggregated/deploy.yaml
 kubectl -n infera get pods -w
 ```
 
-[`glm5.2/pd/deploy.yaml`](https://github.com/AMD-AGI/Infera/tree/main/examples/recipes/glm5.2/pd/deploy.yaml)
+[`glm5.2/pd/deploy.yaml`](https://github.com/AMD-AGI/Infera/tree/main/examples/recipes/glm5.2/disaggregated/deploy.yaml)
 :::
-:::{tab-item} PD + kvd
-:sync: pd-kvd
+:::{tab-item} Disaggregated + kvd
+:sync: disaggregated-kvd
 
 Disaggregated, with kvd on each role.
 
@@ -66,11 +66,11 @@ Substitute `<PREFILL_NODE>` and `<DECODE_NODE>` first. The KV handoff is RDMA wi
 ```
 
 ```bash
-kubectl apply -f examples/recipes/glm5.2/pd-kvd/deploy.yaml
+kubectl apply -f examples/recipes/glm5.2/disaggregated-kvd/deploy.yaml
 kubectl -n infera get pods -w
 ```
 
-[`glm5.2/pd-kvd/deploy.yaml`](https://github.com/AMD-AGI/Infera/tree/main/examples/recipes/glm5.2/pd-kvd/deploy.yaml)
+[`glm5.2/pd-kvd/deploy.yaml`](https://github.com/AMD-AGI/Infera/tree/main/examples/recipes/glm5.2/disaggregated-kvd/deploy.yaml)
 :::
 
 ::::

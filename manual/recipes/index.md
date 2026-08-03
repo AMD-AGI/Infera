@@ -41,6 +41,15 @@ speculation.
 
 ::::
 
+```{admonition} The directory is `aggregated`, the API field still says `mixed`
+:class: note
+`aggregated` / `disaggregated` is the vocabulary these directories use. The `role:`
+field inside each manifest is an API value the operator consumes — `mixed`,
+`prefill`, `decode` — and is deliberately unchanged, since renaming it would break
+deployed configurations. So `aggregated/deploy.yaml` legitimately contains
+`role: mixed`.
+```
+
 ## The four combinations
 
 Each recipe comes in the same four shapes, composing two independent choices:
@@ -48,21 +57,21 @@ Each recipe comes in the same four shapes, composing two independent choices:
 
 | Combination | Serving | KV cache | Reach for it when |
 |---|---|---|---|
-| `mixed` | one worker does prefill and decode | GPU only | the default; the simplest thing that works |
-| `mixed + kvd` | one worker does prefill and decode | plus L2 host RAM and L3 on a PVC | requests share long prefixes — a common system prompt, multi-turn chat, RAG |
-| `pd` | prefill and decode on separate nodes | GPU only | prefill and decode want different batching |
-| `pd + kvd` | prefill and decode on separate nodes | plus kvd on each role | both of the above |
+| `aggregated` | one worker does prefill and decode | GPU only | the default; the simplest thing that works |
+| `aggregated + kvd` | one worker does prefill and decode | plus L2 host RAM and L3 on a PVC | requests share long prefixes — a common system prompt, multi-turn chat, RAG |
+| `disaggregated` (PD) | prefill and decode on separate nodes | GPU only | prefill and decode want different batching |
+| `disaggregated + kvd` | prefill and decode on separate nodes | plus kvd on each role | both of the above |
 
 One recipe carries an extra axis rather than a fifth combination: **Kimi-K3
-optimized** ships `mixed`, `mixed-dspark`, `pd` and `pd-dspark`, because
+optimized** ships `aggregated`, `aggregated-dspark`, `disaggregated` and `disaggregated-dspark`, because
 speculative decoding is a property of that image's draft model, not a serving
-topology. It composes with `mixed` and `pd` independently, which is why there are
+topology. It composes with `aggregated` and `disaggregated` independently, which is why there are
 four rather than a fifth combination.
 
 ```{admonition} PD needs a routable RoCE fabric
 :class: warning
 The prefill→decode KV handoff is RDMA, and there is **no TCP fallback**. Both nodes
-must sit on a mutually routable RoCE fabric. On a single box, use `mixed`.
+must sit on a mutually routable RoCE fabric. On a single box, use `aggregated`.
 ```
 
 ```{admonition} Checking RoCE reachability: bind the source rail

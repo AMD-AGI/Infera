@@ -8,6 +8,17 @@ serve them. Pick a model, pick a combo, `kubectl apply`.
 | GLM-5.2-MXFP4 | SGLang | [`glm5.2/`](glm5.2/README.md) |
 | Kimi-K3 | vLLM | [`kimi-k3/`](kimi-k3/README.md) |
 
+
+```{admonition} The directory is `aggregated`, the API field still says `mixed`
+:class: note
+`aggregated` / `disaggregated` is the industry vocabulary and what these directories
+are named. The `role:` field inside each manifest is an **API value consumed by the
+operator** — `mixed`, `prefill`, `decode` — and is deliberately left alone: renaming
+it would break every deployed configuration and anything outside this repo using the
+CRD. So `aggregated/deploy.yaml` legitimately contains `role: mixed`. Read `role:`
+as the wire format, and the directory name as what it means.
+```
+
 ## The four combos
 
 Every recipe comes in the same four shapes. They compose two independent choices:
@@ -15,13 +26,13 @@ Every recipe comes in the same four shapes. They compose two independent choices
 
 | Combo | Serving | KV cache | Use it when |
 |---|---|---|---|
-| `mixed` | one worker does prefill + decode | GPU only | default; simplest thing that works |
-| `mixed-kvd` | one worker does prefill + decode | + kvd L2 host RAM, L3 on a PVC | repeated/long prefixes — shared system prompts, multi-turn chat, RAG |
-| `pd` | prefill and decode on separate nodes | GPU only | prefill and decode want different batching; you have a RoCE fabric |
-| `pd-kvd` | prefill and decode on separate nodes | + kvd on each role | both of the above |
+| `aggregated` | one worker does prefill + decode | GPU only | default; simplest thing that works |
+| `aggregated-kvd` | one worker does prefill + decode | + kvd L2 host RAM, L3 on a PVC | repeated/long prefixes — shared system prompts, multi-turn chat, RAG |
+| `disaggregated` | prefill and decode on separate nodes | GPU only | prefill and decode want different batching; you have a RoCE fabric |
+| `disaggregated-kvd` | prefill and decode on separate nodes | + kvd on each role | both of the above |
 
-`pd` needs the two nodes on a **mutually routable RoCE fabric** — the KV handoff is
-RDMA, and there is no TCP fallback. If you are on one box, use `mixed`.
+`disaggregated` needs the two nodes on a **mutually routable RoCE fabric** — the KV handoff is
+RDMA, and there is no TCP fallback. If you are on one box, use `aggregated`.
 
 ## How these manifests are built
 
@@ -59,8 +70,8 @@ The families do not carry the same capabilities, and that is by design:
 
 So each manifest names the capabilities it needs via `INFERA_REQUIRE_NATIVE`
 (e.g. `mooncake`, `hipfile`, or `mooncake,hipfile`) and `infera-exec` refuses to
-start without them. Combos that need nothing native — `mixed` anywhere, and
-`mixed-kvd` on SGLang, which reaches its L2 and file L3 through pure-Python
+start without them. Combos that need nothing native — `aggregated` anywhere, and
+`aggregated-kvd` on SGLang, which reaches its L2 and file L3 through pure-Python
 HiCacheStorage — leave it unset.
 
 See [`deploy/overlay/README.md`](../../deploy/overlay/README.md) for how the payload

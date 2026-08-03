@@ -10,34 +10,34 @@ an image-tag edit.
 
 ::::{tab-set}
 
-:::{tab-item} Mixed
-:sync: mixed
+:::{tab-item} Aggregated
+:sync: aggregated
 
 One worker does prefill and decode. Start here.
 
 ```bash
-kubectl apply -f examples/recipes/kimi-k3/mixed/deploy.yaml
+kubectl apply -f examples/recipes/kimi-k3/aggregated/deploy.yaml
 kubectl -n infera get pods -w
 ```
 
-[`kimi-k3/mixed/deploy.yaml`](https://github.com/AMD-AGI/Infera/tree/main/examples/recipes/kimi-k3/mixed/deploy.yaml)
+[`kimi-k3/mixed/deploy.yaml`](https://github.com/AMD-AGI/Infera/tree/main/examples/recipes/kimi-k3/aggregated/deploy.yaml)
 :::
-:::{tab-item} Mixed + kvd
-:sync: mixed-kvd
+:::{tab-item} Aggregated + kvd
+:sync: aggregated-kvd
 
 Adds the kvd tiered cache: an L2 arena in pinned host RAM and an L3 tier on a PVC. Worth it when requests share long prefixes.
 
 This combination declares `INFERA_REQUIRE_NATIVE=hipfile`, so it fails at startup rather than serving quietly without it.
 
 ```bash
-kubectl apply -f examples/recipes/kimi-k3/mixed-kvd/deploy.yaml
+kubectl apply -f examples/recipes/kimi-k3/aggregated-kvd/deploy.yaml
 kubectl -n infera get pods -w
 ```
 
-[`kimi-k3/mixed-kvd/deploy.yaml`](https://github.com/AMD-AGI/Infera/tree/main/examples/recipes/kimi-k3/mixed-kvd/deploy.yaml)
+[`kimi-k3/mixed-kvd/deploy.yaml`](https://github.com/AMD-AGI/Infera/tree/main/examples/recipes/kimi-k3/aggregated-kvd/deploy.yaml)
 :::
-:::{tab-item} PD
-:sync: pd
+:::{tab-item} Disaggregated
+:sync: disaggregated
 
 Prefill and decode on separate nodes, KV handed over by Mooncake. **Two engines
 disaggregate differently — pick by which engine you want, not by which is "the"
@@ -45,8 +45,8 @@ PD path:**
 
 | Engine | Mechanism | Manifest | Image |
 |---|---|---|---|
-| vLLM | `--kv-transfer-config` with a `MooncakeConnector` | `pd/deploy.yaml` | `vllm/vllm-openai-rocm:kimi-k3` |
-| SGLang | `--disaggregation-mode` + a Mooncake bootstrap handshake | `pd-sglang/deploy.yaml` | `lmsysorg/sglang-rocm:rocm720-mi35x-k3-20260727` |
+| vLLM | `--kv-transfer-config` with a `MooncakeConnector` | `disaggregated/deploy.yaml` | `vllm/vllm-openai-rocm:kimi-k3` |
+| SGLang | `--disaggregation-mode` + a Mooncake bootstrap handshake | `disaggregated-sglang/deploy.yaml` | `lmsysorg/sglang-rocm:rocm720-mi35x-k3-20260727` |
 
 The general `lmsysorg/sglang` tags carry **no** Kimi-K3 support — only that dated
 `-k3-` build does. Weights must sit on storage both nodes see at the same path;
@@ -60,14 +60,14 @@ Substitute `<PREFILL_NODE>` and `<DECODE_NODE>` first. The KV handoff is RDMA wi
 ```
 
 ```bash
-kubectl apply -f examples/recipes/kimi-k3/pd/deploy.yaml
+kubectl apply -f examples/recipes/kimi-k3/disaggregated/deploy.yaml
 kubectl -n infera get pods -w
 ```
 
-[`kimi-k3/pd/deploy.yaml`](https://github.com/AMD-AGI/Infera/tree/main/examples/recipes/kimi-k3/pd/deploy.yaml)
+[`kimi-k3/pd/deploy.yaml`](https://github.com/AMD-AGI/Infera/tree/main/examples/recipes/kimi-k3/disaggregated/deploy.yaml)
 :::
-:::{tab-item} PD + kvd
-:sync: pd-kvd
+:::{tab-item} Disaggregated + kvd
+:sync: disaggregated-kvd
 
 Disaggregated, with kvd on each role.
 
@@ -79,11 +79,11 @@ Substitute `<PREFILL_NODE>` and `<DECODE_NODE>` first. The KV handoff is RDMA wi
 ```
 
 ```bash
-kubectl apply -f examples/recipes/kimi-k3/pd-kvd/deploy.yaml
+kubectl apply -f examples/recipes/kimi-k3/disaggregated-kvd/deploy.yaml
 kubectl -n infera get pods -w
 ```
 
-[`kimi-k3/pd-kvd/deploy.yaml`](https://github.com/AMD-AGI/Infera/tree/main/examples/recipes/kimi-k3/pd-kvd/deploy.yaml)
+[`kimi-k3/pd-kvd/deploy.yaml`](https://github.com/AMD-AGI/Infera/tree/main/examples/recipes/kimi-k3/disaggregated-kvd/deploy.yaml)
 :::
 
 ::::

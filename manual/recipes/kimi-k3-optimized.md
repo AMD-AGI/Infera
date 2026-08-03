@@ -43,15 +43,15 @@ nodes.
 
 ::::{tab-set}
 
-:::{tab-item} Mixed
-:sync: mixed
+:::{tab-item} Aggregated
+:sync: aggregated
 
 8 GPUs on one node, no speculative decoding. **The default**, and the best tokens
 per GPU of the four.
 
 ```bash
 sed -e 's|<MODEL_DIR>|/mnt/local-nvme/models|' -e 's|<NODE>|node-a|' \
-    examples/recipes/kimi-k3-optimized/mixed/deploy.yaml | kubectl apply -f -
+    examples/recipes/kimi-k3-optimized/aggregated/deploy.yaml | kubectl apply -f -
 ```
 
 | Placeholder | What to put there |
@@ -63,15 +63,15 @@ Start here unless you have a specific reason not to. The other three trade GPUs 
 added complexity for latency, and one of them needs a second node.
 :::
 
-:::{tab-item} Mixed + DSpark
-:sync: mixed-dspark
+:::{tab-item} Aggregated + DSpark
+:sync: aggregated-dspark
 
 Same 8 GPUs, plus speculative decoding: a block-diffusion draft model that produces
 7 tokens in one parallel pass, verified against the target.
 
 ```bash
 sed -e 's|<MODEL_DIR>|/mnt/local-nvme/models|' -e 's|<NODE>|node-a|' \
-    examples/recipes/kimi-k3-optimized/mixed-dspark/deploy.yaml | kubectl apply -f -
+    examples/recipes/kimi-k3-optimized/aggregated-dspark/deploy.yaml | kubectl apply -f -
 ```
 
 Same two placeholders as **Mixed**, but `<MODEL_DIR>` must also contain
@@ -101,8 +101,8 @@ If you pin the older digest, the old ceiling still applies to you.
 ```
 :::
 
-:::{tab-item} PD
-:sync: pd
+:::{tab-item} Disaggregated
+:sync: disaggregated
 
 Prefill and decode on **separate nodes**, 8 GPUs each, KV handed between them over
 RDMA.
@@ -111,7 +111,7 @@ RDMA.
 sed -e 's|<PREFILL_NODE>|node-a|' -e 's|<DECODE_NODE>|node-b|' \
     -e 's|<PREFILL_MODEL_DIR>|/mnt/local-nvme/models|' \
     -e 's|<DECODE_MODEL_DIR>|/mnt/array/models|' \
-    examples/recipes/kimi-k3-optimized/pd/deploy.yaml | kubectl apply -f -
+    examples/recipes/kimi-k3-optimized/disaggregated/deploy.yaml | kubectl apply -f -
 ```
 
 | Placeholder | What to put there |
@@ -131,28 +131,86 @@ before substituting.
 PD does not improve tokens per GPU at any concurrency measured here. What it buys
 is **headroom** past what a single node can serve, and **lower latency** at high
 concurrency, because decode is no longer interleaved with prefill on the same GPUs.
-Below that it is a straight loss on both counts — use **Mixed**.
+Below that it is a straight loss on both counts — use **Aggregated**.
 ```
 
 Requires both nodes on a mutually routable RoCE fabric: the KV handoff is RDMA and
 there is no TCP fallback. Each node reads its **own local** copy of the weights, and
 the two paths need not be the same.
+
+### Checking the fabric before you deploy
+
+Use [Preflight](../tools/preflight) — it covers RDMA device and link state,
+cross-node RoCE bandwidth, Mooncake KV-transfer bandwidth measured separately over
+RDMA and TCP, and whether the KV path is on local NVMe:
+
+```bash
+# one node, all image-independent checks
+python -m infera.tools.preflight --dump-path output/preflight
+
+# just the network probes
+python -m infera.tools.preflight --network
+
+# both nodes at once, under SLURM, rendering one combined report
+NODES=<node-a>,<node-b> PARTITION=<partition> IMAGE=<image> \
+  infera/tools/preflight/run_preflight_slurm.sh
+```
+
+It writes `<dump-path>/<host>.json` per node plus a combined HTML report. GPU perf
+and `ais-check` only run **inside the engine container**; run it there for those.
+See [Preflight](../tools/preflight) for the full check list, thresholds and the
+multi-node path.
+
+The Mooncake rows are the ones that matter for this recipe: they report KV-move
+bandwidth over `rdma` and over `tcp` separately, so a fabric that will silently
+serve at TCP speed shows up as a number rather than as a slow deployment.
+
+```{admonition} A second, automatic check runs at launch
+:class: note
+`infera/common/disagg_preflight.py` validates the disaggregated config *before* the
+engine subprocess starts, and fails fast rather than hanging. It catches a worker
+advertising a non-routable host (`0.0.0.0`, `127.0.0.1`) to etcd — the peer then
+cannot reach its bootstrap endpoint across nodes — and configurations prone to
+silent TCP fallback. It is pure config validation, so it cannot tell you the NIC
+itself is healthy; that is what the tool above is for.
+```
+
+If you only want to know whether the container can see the RDMA devices, note that
+`ibv_devices` is **not installed** in these images — reading its `not found` as "no
+RDMA devices" produced two false TCP-fallback diagnoses during this work. Ask the
+library, in a **prefill or decode** pod (the router pod is not privileged and does
+not mount `/dev/infiniband`, so it reports `0` and reproduces that same false
+negative):
+
+```bash
+POD=$(kubectl -n infera get pod -o name \
+  -l infera.amd.com/deployment=kimi-k3-opt-pd,infera.amd.com/service=decode | head -1)
+kubectl -n infera exec $POD -c main -- python3 -c '
+import ctypes; lib = ctypes.CDLL("libibverbs.so.1")
+lib.ibv_get_device_list.restype = ctypes.POINTER(ctypes.c_void_p)
+n = ctypes.c_int(0); lib.ibv_get_device_list(ctypes.byref(n)); print(n.value)'
+```
+
+For reachability rather than device visibility, see
+[the RoCE note on the recipes index](index) — on a routed L3 fabric an unbound
+`ping6` picks the wrong source rail and reports "No route", which reads as "these
+nodes cannot do PD" when they can.
 :::
 
-:::{tab-item} PD + DSpark
-:sync: pd-dspark
+:::{tab-item} Disaggregated + DSpark
+:sync: disaggregated-dspark
 
-PD's topology plus speculation. **The lowest latency of the four** — the decode role
+the disaggregated topology plus speculation. **The lowest latency of the four** — the decode role
 is not competing with prefill for the same GPUs, so drafting has capacity to use.
 
 ```bash
 sed -e 's|<PREFILL_NODE>|node-a|' -e 's|<DECODE_NODE>|node-b|' \
     -e 's|<PREFILL_MODEL_DIR>|/mnt/local-nvme/models|' \
     -e 's|<DECODE_MODEL_DIR>|/mnt/array/models|' \
-    examples/recipes/kimi-k3-optimized/pd-dspark/deploy.yaml | kubectl apply -f -
+    examples/recipes/kimi-k3-optimized/disaggregated-dspark/deploy.yaml | kubectl apply -f -
 ```
 
-The placeholders are the same four as **PD** above, with one addition to the
+The placeholders are the same four as **Disaggregated** above, with one addition to the
 requirement: `Kimi-K3-DSpark/` must sit alongside `Kimi-K3/` in **both**
 directories, because both roles load the draft.
 
@@ -253,24 +311,24 @@ throughput` near zero.
 | PD: never point a misbehaving client at it | the engine validates **after** prefill, so a rejected request has already had its KV computed and queued. 84 requests rejected for one bad field left 424 aborted Mooncake transfers and stalled valid traffic for ~20 minutes with `MooncakeXferMetadata transfer failed: Resource temporarily unavailable`, which reads exactly like a broken fabric |
 
 `ibv_devices` is **not installed** in this image; reading its "not found" as "no
-RDMA devices" produced two false TCP-fallback diagnoses here. Ask
-`ibv_get_device_list` instead — see the repo README for the one-liner.
+RDMA devices" produced two false TCP-fallback diagnoses here. The
+`ibv_get_device_list` check is in the **Disaggregated** tab above.
 
 ## 5. Validation status
 
 Every combination was run end-to-end on the image it pins, with placeholders
-substituted (the files are templates). and every
-number on this page comes from the same image — Do not carry performance
-expectations across a base-image bump: between the two images of this model the
-same manifest moved substantially, and in opposite directions at different
-concurrencies, so no single correction factor exists.
+substituted — the files are templates.
+
+Do not carry performance expectations across a base-image bump. Between the two
+images of this model the same manifest moved substantially, and in opposite
+directions at different concurrencies, so no single correction factor exists.
 
 | What | Status |
 |---|---|
-| `mixed` | validated |
-| `mixed-dspark` | validated; 0 restarts and the concurrency assertion never appears |
-| `pd` | validated cross-node; handoff confirmed on the decode side at every concurrency exercised |
-| `pd-dspark` | validated cross-node; handoff confirmed on the decode side; needs `--speculative-config` on both roles |
+| `aggregated` | validated |
+| `aggregated-dspark` | validated; 0 restarts and the concurrency assertion never appears |
+| `disaggregated` | validated cross-node; handoff confirmed on the decode side at every concurrency exercised |
+| `disaggregated-dspark` | validated cross-node; handoff confirmed on the decode side; needs `--speculative-config` on both roles |
 | kvd combinations | not built for this image |
 | fp8 KV cache | not measured |
 
