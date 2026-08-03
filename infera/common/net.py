@@ -39,10 +39,14 @@ def _reserved_nodeport_range() -> tuple[int, int] | None:
 
     ``INFERA_NODEPORT_RANGE="lo-hi"`` for a cluster that moved the range,
     ``"none"`` to drop the guard entirely. An unparseable value keeps the
-    default rather than silently dropping the guard.
+    default rather than silently dropping the guard, and so does an empty one:
+    a manifest that renders ``INFERA_NODEPORT_RANGE=""`` from an unset variable
+    is exactly the accident this guard exists to survive.
     """
     spec = os.environ.get("INFERA_NODEPORT_RANGE", _NODEPORT_RANGE_DEFAULT).strip()
-    if spec.lower() in ("", "none", "off"):
+    if not spec:
+        spec = _NODEPORT_RANGE_DEFAULT
+    if spec.lower() in ("none", "off"):
         return None
     parsed = _parse_port_range(spec)
     if parsed is None:

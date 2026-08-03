@@ -58,6 +58,14 @@ def test_malformed_range_keeps_the_default(monkeypatch):
     assert _reserved_nodeport_range() == (_DEFAULT_LO, _DEFAULT_HI)
 
 
+@pytest.mark.parametrize("spec", ["", "   "])
+def test_empty_range_keeps_the_default(monkeypatch, spec):
+    # A manifest rendering the var from something unset must not read as an
+    # opt-out; that accident is the one the guard exists to survive.
+    monkeypatch.setenv("INFERA_NODEPORT_RANGE", spec)
+    assert _reserved_nodeport_range() == (_DEFAULT_LO, _DEFAULT_HI)
+
+
 @pytest.mark.parametrize("count", [2, 8])
 def test_block_is_contiguous_and_bindable(count):
     base = free_tcp_port_block(count)

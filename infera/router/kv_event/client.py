@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
+from typing import cast
 
 import zmq
 import zmq.asyncio
@@ -47,7 +48,7 @@ def _offset_endpoint(endpoint: str, rank: int) -> str:
     return f"{head}:{int(port) + rank}"
 
 
-def _flat_tokens(token_ids: list[int] | list[tuple[int, int]]) -> list[int]:
+def _flat_tokens(token_ids: list[int | tuple[int, int]]) -> list[int]:
     """The flat token ids of a stored block, whatever view the engine reports.
 
     Under EAGLE/MTP, SGLang keys its radix tree on bigrams, so a block's tokens
@@ -56,10 +57,14 @@ def _flat_tokens(token_ids: list[int] | list[tuple[int, int]]) -> list[int]:
     on the query side, and radix nodes split on page boundaries so the two
     chunkings stay aligned. Hashing the pairs as-is builds a view that no request
     can ever match.
+
+    A radix node is one view or the other for its whole length -- the engine
+    decides bigrams once, from ``is_eagle`` -- so the first element settles it
+    for the rest, and the flat case hands back the caller's list uncopied.
     """
     if token_ids and isinstance(token_ids[0], (list, tuple)):
-        return [pair[0] for pair in token_ids]
-    return token_ids
+        return [pair[0] for pair in cast("list[tuple[int, int]]", token_ids)]
+    return cast("list[int]", token_ids)
 
 
 @dataclass

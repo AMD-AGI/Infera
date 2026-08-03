@@ -73,7 +73,7 @@ and the [CLI reference](cli.md).
 
 | Env | Default | What it does |
 |---|---|---|
-| `INFERA_NODEPORT_RANGE` | `30000-32767` | Port window every auto-allocated port must avoid (kv-event publishers, single or a per-DP-rank block, and the ATOM rendezvous port) — Kubernetes' NodePort range, where a Service claim makes the port unreachable from the node IP we advertise. Set `lo-hi` for a cluster that moved the range, `none` to drop the guard. |
+| `INFERA_NODEPORT_RANGE` | `30000-32767` | Port window every auto-allocated port must avoid (kv-event publishers, single or a per-DP-rank block, and the ATOM rendezvous port) — Kubernetes' NodePort range, where a Service claim makes the port unreachable from the node IP we advertise. Set `lo-hi` for a cluster that moved the range, `none` to drop the guard. Only `none`/`off` drop it — an empty or malformed value keeps the default. |
 
 ## Engine correctness
 
