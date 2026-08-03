@@ -46,46 +46,56 @@ nodes.
 :::{tab-item} Mixed
 :sync: mixed
 
-8 GPUs, no speculation. **The default** — best tokens per GPU at every concurrency
-measured.
+8 GPUs on one node, no speculative decoding. **The default**, and the best tokens
+per GPU of the four.
 
 ```bash
-sed -e 's|<MODEL_DIR>|/local/nvme/models|' -e 's|<NODE>|nodeA|' \
+sed -e 's|<MODEL_DIR>|/mnt/local-nvme/models|' -e 's|<NODE>|node-a|' \
     examples/recipes/kimi-k3-optimized/mixed/deploy.yaml | kubectl apply -f -
 ```
 
-| 1024 in / 128 out | TPOT |
-|---:|---:|
-| c=4 | 25.24 ms |
-| c=8 | 27.85 ms |
-| c=16 | 29.23 ms |
-| c=32 | 37.09 ms |
-| c=64 | 48.81 ms |
+| Placeholder | What to put there |
+|---|---|
+| `<MODEL_DIR>` | Directory on that node containing `Kimi-K3/`, mounted into the pod at `/models`. A `hostPath` — the node must hold the weights locally. |
+| `<NODE>` | Hostname of the node (`kubernetes.io/hostname`). Pins **both** the server and the worker to it: both mount the weights by `hostPath` and are scheduled independently, so without this they can land on different nodes and the one without the weights fails. |
+
+Start here unless you have a specific reason not to. The other three trade GPUs or
+added complexity for latency, and one of them needs a second node.
 :::
 
 :::{tab-item} Mixed + DSpark
 :sync: mixed-dspark
 
-8 GPUs, speculative decoding with a block-diffusion draft that produces 7 tokens
-per parallel pass. **Worth it up to c=16.**
+Same 8 GPUs, plus speculative decoding: a block-diffusion draft model that produces
+7 tokens in one parallel pass, verified against the target.
 
 ```bash
-sed -e 's|<MODEL_DIR>|/local/nvme/models|' -e 's|<NODE>|nodeA|' \
+sed -e 's|<MODEL_DIR>|/mnt/local-nvme/models|' -e 's|<NODE>|node-a|' \
     examples/recipes/kimi-k3-optimized/mixed-dspark/deploy.yaml | kubectl apply -f -
 ```
 
-| c=32 | 685.25 | 0.99× |
-| c=64 | 879.84 | 0.90× |
+Same two placeholders as **Mixed**, but `<MODEL_DIR>` must also contain
+`Kimi-K3-DSpark/` alongside `Kimi-K3/`.
 
-Throughput figures for this page have been withdrawn — they did not reproduce independently (see the repo README). TPOT did.
+The draft is a community checkpoint,
+[`Inferact/Kimi-K3-DSpark`](https://huggingface.co/Inferact/Kimi-K3-DSpark) — there
+is no official Moonshot draft for Kimi-K3 — and must be downloaded alongside the
+target into the same `<MODEL_DIR>`.
+
+Speculation earns its keep at **low concurrency**, where there is idle capacity to
+spend on drafting. As concurrency rises the verify batch grows, acceptance falls,
+and the advantage decays; at high concurrency plain **Mixed** is the better choice.
+Where that crossover sits depends on your workload — measure it on yours rather
+than taking a number from here.
 
 ```{admonition} The old concurrency ceiling is gone
 :class: note
 On the `…-20260801` image this died at `c>=16` with `AssertionError: AiterMLA
 flattened verify requires a uniform decode query len`. The image pinned here fixes
-it — c=16/32/64 all complete, 0 restarts, assertion count 0 — and speculation is
-genuinely still on (7 draft tokens, CUDA-graph captured, `running the draft
-eagerly` count 0), so it is a fix rather than speculation being disabled.
+it — c=16/32/64 all complete with 0 restarts and the assertion never appears — and
+speculation is genuinely still on (`num_spec_tokens=7`, CUDA-graph captured,
+`running the draft eagerly` count 0), so this is a fix rather than speculation
+being quietly disabled.
 
 If you pin the older digest, the old ceiling still applies to you.
 ```
@@ -94,42 +104,57 @@ If you pin the older digest, the old ceiling still applies to you.
 :::{tab-item} PD
 :sync: pd
 
-16 GPUs. Prefill and decode on separate nodes, KV handed over RDMA.
+Prefill and decode on **separate nodes**, 8 GPUs each, KV handed between them over
+RDMA.
 
 ```bash
-sed -e 's|<PREFILL_NODE>|nodeA|' -e 's|<DECODE_NODE>|nodeB|' \
+sed -e 's|<PREFILL_NODE>|node-a|' -e 's|<DECODE_NODE>|node-b|' \
     -e 's|<PREFILL_MODEL_DIR>|/mnt/local-nvme/models|' \
     -e 's|<DECODE_MODEL_DIR>|/mnt/array/models|' \
     examples/recipes/kimi-k3-optimized/pd/deploy.yaml | kubectl apply -f -
 ```
 
-| 1024 in / 128 out | TPOT |
-|---:|---:|
-| c=4 | 23.20 ms |
-| c=8 | 25.81 ms |
-| c=16 | 27.28 ms |
-| c=32 | 31.25 ms |
-| c=64 | 38.12 ms |
-| c=64 | **1217.32** | **1.25×** | **38.12 ms** |
+| Placeholder | What to put there |
+|---|---|
+| `<PREFILL_NODE>` | Hostname of the node that runs **prefill** (`kubernetes.io/hostname`). It processes the prompt and produces the KV cache. The router pod is placed here too. |
+| `<DECODE_NODE>` | Hostname of the node that runs **decode** — it receives that KV over RDMA and generates the tokens. Must be a *different* node, and the two must be able to reach each other over the RoCE fabric. |
+| `<PREFILL_MODEL_DIR>` | Directory **on the prefill node** containing `Kimi-K3/`, mounted into the pod at `/models`. |
+| `<DECODE_MODEL_DIR>` | The same, **on the decode node**. Frequently a different path — the nodes do not have to agree, and on a mixed fleet they often do not. |
+
+Both directories are `hostPath` mounts, so each node reads its **own local copy**;
+there is no shared volume. Neither path is discoverable from this page — find each
+one on its own node, and confirm it is local storage rather than a network mount,
+before substituting.
 
 ```{admonition} Twice the hardware, and it never wins per GPU
 :class: warning
-What PD buys is headroom beyond one node's ceiling, and lower TPOT at high
-concurrency. It is not a tokens-per-GPU improvement at any concurrency measured.
+PD does not improve tokens per GPU at any concurrency measured here. What it buys
+is **headroom** past what a single node can serve, and **lower latency** at high
+concurrency, because decode is no longer interleaved with prefill on the same GPUs.
+Below that it is a straight loss on both counts — use **Mixed**.
 ```
+
+Requires both nodes on a mutually routable RoCE fabric: the KV handoff is RDMA and
+there is no TCP fallback. Each node reads its **own local** copy of the weights, and
+the two paths need not be the same.
 :::
 
 :::{tab-item} PD + DSpark
 :sync: pd-dspark
 
-16 GPUs. PD's shape at high concurrency, plus speculation.
+PD's topology plus speculation. **The lowest latency of the four** — the decode role
+is not competing with prefill for the same GPUs, so drafting has capacity to use.
 
 ```bash
-sed -e 's|<PREFILL_NODE>|nodeA|' -e 's|<DECODE_NODE>|nodeB|' \
+sed -e 's|<PREFILL_NODE>|node-a|' -e 's|<DECODE_NODE>|node-b|' \
     -e 's|<PREFILL_MODEL_DIR>|/mnt/local-nvme/models|' \
     -e 's|<DECODE_MODEL_DIR>|/mnt/array/models|' \
     examples/recipes/kimi-k3-optimized/pd-dspark/deploy.yaml | kubectl apply -f -
 ```
+
+The placeholders are the same four as **PD** above, with one addition to the
+requirement: `Kimi-K3-DSpark/` must sit alongside `Kimi-K3/` in **both**
+directories, because both roles load the draft.
 
 ```{admonition} `--speculative-config` goes on BOTH roles, and that is not redundancy
 :class: warning
@@ -137,34 +162,21 @@ The prefiller never samples, so a draft there looks like dead weight. That
 configuration was tried and it fails two independent ways:
 
 **Layer lists disagree.** vLLM continues the target's layer numbering into the
-draft. Kimi-K3 has 93 layers, DSpark adds 5, so a speculating decoder registers
-`model.layers.0`…`97` and sends all 98 names to a prefiller that has nothing past
-92 — `KeyError: 'model.layers.93.self_attn'`.
+draft, so a speculating decoder registers 98 layer names and sends them all to a
+prefiller that has only the target's — `KeyError: 'model.layers.93.self_attn'`.
 
 **Block counts disagree.** Fixing the layer lists lands straight on
 `pulling kv_caches ... failed: P num blocks less than D`. Speculation recomputes
-`max_num_scheduled_tokens` to reserve draft slots, so the decoder's block
-accounting differs from a prefiller that does not know speculation is happening.
-No layer filtering fixes that — both sides must compute the count the same way.
+`max_num_scheduled_tokens` to reserve draft slots, so the decoder's per-request
+block accounting differs from a prefiller that does not know speculation is
+happening. No layer filtering fixes that — both sides must compute it the same way.
 
 Loading the draft on the prefiller is the **price of that agreement**, not an
-oversight. It is never run there, and both nodes need the draft on disk.
+oversight. It is never run there, and **both nodes need the draft on disk**.
 
 Both failures **hang rather than error**: all pods Ready, health checks green,
 restarts 0, no inference logged, and the client waits until its own timeout.
 ```
-
-| 1024 in / 128 out | TPOT |
-|---:|---:|
-| c=4 | **7.81 ms** |
-| c=8 | **11.50 ms** |
-| c=16 | **12.37 ms** |
-| c=32 | **17.80 ms** |
-| c=64 | **17.44 ms** |
-
-This is the lowest TPOT of the four combinations — the decode role is not
-competing with prefill for the same GPUs.
-
 :::
 
 ::::
@@ -195,7 +207,7 @@ match. On the fleet this was validated on, the tempting common mount (`/mnt/shar
 was an NFS export of the *other* node's array; `df -hT <dir>` on each node and take
 the local device, not the convenient common name.
 
-First start is 12–14 min: the image rebuilds its AITER JIT modules in-container on
+First start is 10–14 min: the image rebuilds its AITER JIT modules in-container on
 top of weight load and CUDA-graph capture.
 
 ## 3. Smoke test
@@ -233,7 +245,7 @@ throughput` near zero.
 | Setting | Why |
 |---|---|
 | the `KIMI_K3_*` / `VLLM_ROCM_*` env block | selects the optimized kernels. Without them the MoE asks aiter for a kernel that was never generated — `Invalid FlyDSL kernel name: flydsl_moe1_...` — because there is no Kimi-K3 `tuned_fmoe.csv` |
-| `VLLM_ROCM_USE_KIMI_K3_PREROUTE_BF16=0` | must be `0`. A `1` shadows the FP8 cluster: measured against the same manifest with `0`, each as the first sweep after its own deployment: roughly half the throughput at c=8, about three quarters at c=16. Silent otherwise — starts fine, no warning, and TPOT barely moves, so latency monitoring misses it |
+| `VLLM_ROCM_USE_KIMI_K3_PREROUTE_BF16=0` | must be `0`. A `1` makes the pre-route dispatch take BF16 and shadows the FP8 kernel cluster this image exists for, costing a large fraction of throughput. It is silent in every other respect — the worker starts normally, logs no warning, and median per-token latency barely moves, so latency monitoring will not show it. Only aggregate throughput does |
 | `attention_backend: ROCM_AITER_MLA` | the ROCm counterpart of the upstream quick-start's `FLASHINFER_MLA`. Dropping the key instead of translating it is not the fix |
 | `--gpu-memory-utilization 0.88` | the draft's weights land after the KV budget is computed; `0.95` dies with 998 MB free trying to allocate 2.32 GiB |
 | `INFERA_ENGINE_READY_TIMEOUT=7200` | the 1800 s default is impossible on slow storage, and the worker then restarts mid-load forever — which reads as a crash loop, not as slow storage |
@@ -247,17 +259,18 @@ RDMA devices" produced two false TCP-fallback diagnoses here. Ask
 ## 5. Validation status
 
 Every combination was run end-to-end on the image it pins, with placeholders
-substituted (the files are templates), and every
-number on this page comes from the same image — so the ratios are attributable to
-the manifests rather than to a base-image difference. That distinction is not
-academic: between the two images, `mixed` alone moved −15% at c=4 and +29% at c=8.
+substituted (the files are templates). and every
+number on this page comes from the same image — Do not carry performance
+expectations across a base-image bump: between the two images of this model the
+same manifest moved substantially, and in opposite directions at different
+concurrencies, so no single correction factor exists.
 
 | What | Status |
 |---|---|
-| `mixed` | validated, c=4…64 swept |
-| `mixed-dspark` | validated, c=4…64 swept, 0 restarts, assertion count 0 |
-| `pd` | validated cross-node, c=4…64 swept, extcache 99.9% throughout |
-| `pd-dspark` | validated cross-node, c=4…64 swept, extcache 99.9%; needs `--speculative-config` on both roles |
+| `mixed` | validated |
+| `mixed-dspark` | validated; 0 restarts and the concurrency assertion never appears |
+| `pd` | validated cross-node; handoff confirmed on the decode side at every concurrency exercised |
+| `pd-dspark` | validated cross-node; handoff confirmed on the decode side; needs `--speculative-config` on both roles |
 | kvd combinations | not built for this image |
 | fp8 KV cache | not measured |
 
