@@ -1,0 +1,17 @@
+# The sdist otherwise carries the whole repository -- tests, examples, deploy,
+# manual and bench together outnumber the source it exists to ship. Keep the
+# things needed to build and understand the package, drop the rest.
+include README.md LICENSE
+recursive-include infera *.py
+recursive-include infera *.md
+prune tests
+prune examples
+prune deploy
+prune manual
+prune bench
+prune rust
+prune .github
+prune images
+prune scripts
+prune .claude
+global-exclude *.pyc __pycache__/*

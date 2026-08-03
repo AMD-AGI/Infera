@@ -1,6 +1,7 @@
 [project]
 name = "amd-infera"
 dynamic = ["version"]
+readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.115",
