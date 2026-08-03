@@ -92,8 +92,70 @@ preflight only, not production config.
 counting `*.json` in the directory, so a stale file makes it render early. The
 script clears the path for you.
 
-Without SLURM it falls back to a single node. The manual equivalent is
-`--collect-only` on each node, then one `--render-only` over the shared directory.
+### Two nodes without SLURM
+
+SLURM is convenient, not required. Rank, world size and node name come from plain
+environment variables — `SLURM_PROCID`, `SLURM_NNODES`, `PREFLIGHT_HOST` — and all
+coordination happens through files in the shared `--dump-path`. Setting those by
+hand works exactly the same.
+
+**The dump path must be the same directory on both nodes, on a shared filesystem.**
+That is not a convenience: it is how the nodes find each other. Each publishes its
+NIC information there, waits until every node has, then walks the pair matrix
+behind a file barrier. Two separate local directories give you two single-node runs
+that never measure anything cross-node.
+
+Run these on **node A** and **node B** at the same time, one shell each:
+
+```bash
+# --- node A ---
+export DUMP=/shared/preflight-run1          # the same path on both nodes
+mkdir -p "$DUMP"
+SLURM_PROCID=0 SLURM_NNODES=2 PREFLIGHT_HOST=$(hostname) \
+  infera-preflight --dump-path "$DUMP" --netperf --mooncake
+
+# --- node B, started at the same time ---
+SLURM_PROCID=1 SLURM_NNODES=2 PREFLIGHT_HOST=$(hostname) \
+  infera-preflight --dump-path "$DUMP" --netperf --mooncake
+```
+
+Ranks must be `0` and `1`. Rank 0 is the one that waits for the other node and
+renders `infera_preflight_report.html` into `$DUMP`, so exactly one node must have
+it; the other exits as soon as it has published its own results.
+
+```{admonition} Start them together
+:class: warning
+The nodes wait for each other, but not indefinitely: 120 s for the initial exchange
+of NIC information, and 300 s for rank 0 to see every node's JSON. Start the second
+node a few minutes late and you get a report with the cross-node sections missing
+and `WARN: only 1/2 node reports before timeout` on stderr — which looks like a
+fabric problem and is not one. The per-pair barrier is far more generous (30 min),
+because a single bandwidth measurement can legitimately take a while.
+```
+
+If you cannot mount a shared filesystem, collect separately and render once. This
+measures **per-node state only** — the cross-node probes have no way to coordinate,
+so there is no RoCE matrix and no Mooncake KV-transfer comparison:
+
+```bash
+# on each node, independently
+infera-preflight --collect-only --dump-path /local/preflight
+
+# copy every <host>.json into one directory, then on any one machine
+infera-preflight --render-only --dump-path /collected
+```
+
+```{admonition} Use a fresh dump path for every run
+:class: tip
+Rank 0 decides everyone has reported by counting `*.json` in the directory. A
+leftover file from an earlier run makes it render immediately, with one node's data
+silently coming from that earlier run. `run_preflight_slurm.sh` clears the path for
+you; by hand, you have to.
+```
+
+Either way, the full check set only runs **inside the engine container** — see the
+warning above.
+
 
 ## Report layout
 
