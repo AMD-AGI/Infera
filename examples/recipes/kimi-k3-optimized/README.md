@@ -13,7 +13,7 @@ kernels, not engine version.
 All four combinations were **run end-to-end** on the image they pin, with the
 placeholders substituted — the files themselves are templates and cannot be applied
 as-is. `disaggregated-dspark` needs `--speculative-config` on **both** roles, which is not
-redundancy — see §6.
+redundancy — see §7.
 
 ## 0. Placeholders you must fill in
 
@@ -134,7 +134,35 @@ speculation being quietly disabled.
 If you are still on the 20260801 digest, the old ceiling still applies to you.
 ```
 
-## 2. Prerequisites
+## 2. Pre-flight
+
+Before deploying, especially for the disaggregated combinations, run the
+repository's preflight tool. It covers RDMA device and link state, cross-node RoCE
+bandwidth, Mooncake KV-transfer bandwidth measured separately over RDMA and TCP,
+and whether the KV path is on local NVMe:
+
+```bash
+python -m infera.tools.preflight --dump-path output/preflight   # one node
+python -m infera.tools.preflight --network                      # network probes only
+
+NODES=<node-a>,<node-b> PARTITION=<partition> IMAGE=<image> \
+  infera/tools/preflight/run_preflight_slurm.sh                 # both nodes, one report
+```
+
+GPU perf and `ais-check` only run **inside the engine container**. Full check list
+and thresholds: [`infera/tools/preflight/README.md`](../../../infera/tools/preflight/README.md).
+
+The Mooncake rows are the ones that matter here — they report KV-move bandwidth
+over `rdma` and over `tcp` separately, so a fabric that will silently serve at TCP
+speed appears as a number instead of as a mysteriously slow deployment.
+
+A second check runs automatically: `infera/common/disagg_preflight.py` validates
+the disaggregated config before the engine subprocess starts and fails fast rather
+than hanging. It catches a worker advertising a non-routable host (`0.0.0.0`,
+`127.0.0.1`) to etcd, and configurations prone to silent TCP fallback. Being pure
+config validation it cannot tell you the NIC is healthy — that is the tool above.
+
+## 3. Prerequisites
 
 ```bash
 # nodes must advertise amd.com/gpu. NOTE this is CAPACITY, not availability — a
@@ -205,7 +233,7 @@ directory.
 First start is **10–14 min**: the image rebuilds its AITER JIT modules in-container
 on top of weight load and CUDA-graph capture.
 
-## 3. Deploy
+## 4. Deploy
 
 The 8-GPU combinations take **two** placeholders. `<NODE>` pins the server and the
 worker to one node: both mount the weights by `hostPath` and are scheduled
@@ -282,7 +310,7 @@ actually gone.
 | `disaggregated/` | `kimi-k3-opt-pd` |
 | `disaggregated-dspark/` | `kimi-k3-opt-pd-dspark` |
 
-## 4. Smoke test
+## 5. Smoke test
 
 ```bash
 # Check the forward came up. If the port is already held, port-forward fails, the
@@ -359,7 +387,7 @@ Avg prompt throughput: 0.1 tokens/s, Avg generation throughput: 7.8 tokens/s,
 is the handoff working. The prefill pod is the mirror image — all prompt
 throughput, no generation.
 
-## 5. Measured behaviour
+## 6. Measured behaviour
 
 **Throughput figures have been withdrawn from this page.** They did not reproduce.
 
@@ -413,7 +441,7 @@ Re-establishing throughput figures needs a stated warm-up protocol and a sweep l
 enough that the first request does not dominate. Until then this page does not
 publish any.
 
-## 6. Settings that are not optional
+## 7. Settings that are not optional
 
 Each row is a failure that was hit and diagnosed on this hardware, not a preference.
 
@@ -493,7 +521,7 @@ This is why the smoke test for PD checks the decode side's counters rather than
 the answer text, and why every probe here carries an explicit timeout.
 ```
 
-## 7. Validation status
+## 8. Validation status
 
 | What | Status |
 |---|---|

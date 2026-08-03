@@ -140,34 +140,47 @@ the two paths need not be the same.
 
 ### Checking the fabric before you deploy
 
-There is no pre-flight script. The one check worth running by hand is whether the
-engine container can actually see the RDMA devices, because when it cannot, nothing
-says so: Mooncake silently falls back to a transport that cannot cross nodes, and
-the symptom is a request that hangs while every pod stays Ready.
-
-`ibv_devices` is **not installed** in these images. Running it and reading
-`not found` as "no RDMA devices" produced two false TCP-fallback diagnoses during
-this work. Ask the library instead:
+Use the repository's preflight tool — it covers RDMA device and link state,
+cross-node RoCE bandwidth, Mooncake KV-transfer bandwidth measured separately over
+RDMA and TCP, and whether the KV path is on local NVMe:
 
 ```bash
-kubectl -n infera run rdmacheck --rm -it --restart=Never \
-  --image=<the base image this recipe pins> \
-  --overrides='{"spec":{"nodeSelector":{"kubernetes.io/hostname":"<NODE>"},
-    "containers":[{"name":"p","image":"<same image>","stdin":true,"tty":true,
-      "securityContext":{"privileged":true},
-      "command":["python3","-c","import ctypes; lib=ctypes.CDLL(\"libibverbs.so.1\"); lib.ibv_get_device_list.restype=ctypes.POINTER(ctypes.c_void_p); n=ctypes.c_int(0); lib.ibv_get_device_list(ctypes.byref(n)); print(n.value)"],
-      "volumeMounts":[{"name":"ib","mountPath":"/dev/infiniband"}]}],
-    "volumes":[{"name":"ib","hostPath":{"path":"/dev/infiniband","type":"Directory"}}]}}'
+# one node, all image-independent checks
+python -m infera.tools.preflight --dump-path output/preflight
+
+# just the network probes
+python -m infera.tools.preflight --network
+
+# both nodes at once, under SLURM, rendering one combined report
+NODES=<node-a>,<node-b> PARTITION=<partition> IMAGE=<image> \
+  infera/tools/preflight/run_preflight_slurm.sh
 ```
 
-Expect the number of RDMA devices on the node — 8 on the fleet these recipes were
-validated on. **Zero means the container cannot see them**, which is a different
-problem from the node not having them.
+It writes `<dump-path>/<host>.json` per node plus a combined HTML report. GPU perf
+and `ais-check` only run **inside the engine container**; run it there for those.
+See [`infera/tools/preflight/README.md`](https://github.com/AMD-AGI/Infera/blob/main/infera/tools/preflight/README.md)
+for the full check list and thresholds.
 
-Once deployed, the same check inside a running pod must be run in a **prefill or
-decode** pod. The router pod runs the same image but is not privileged and does not
-mount `/dev/infiniband`, so it reports `0` — reproducing the very false negative
-this check exists to prevent:
+The Mooncake rows are the ones that matter for this recipe: they report KV-move
+bandwidth over `rdma` and over `tcp` separately, so a fabric that will silently
+serve at TCP speed shows up as a number rather than as a slow deployment.
+
+```{admonition} A second, automatic check runs at launch
+:class: note
+`infera/common/disagg_preflight.py` validates the disaggregated config *before* the
+engine subprocess starts, and fails fast rather than hanging. It catches a worker
+advertising a non-routable host (`0.0.0.0`, `127.0.0.1`) to etcd — the peer then
+cannot reach its bootstrap endpoint across nodes — and configurations prone to
+silent TCP fallback. It is pure config validation, so it cannot tell you the NIC
+itself is healthy; that is what the tool above is for.
+```
+
+If you only want to know whether the container can see the RDMA devices, note that
+`ibv_devices` is **not installed** in these images — reading its `not found` as "no
+RDMA devices" produced two false TCP-fallback diagnoses during this work. Ask the
+library, in a **prefill or decode** pod (the router pod is not privileged and does
+not mount `/dev/infiniband`, so it reports `0` and reproduces that same false
+negative):
 
 ```bash
 POD=$(kubectl -n infera get pod -o name \
@@ -178,7 +191,7 @@ lib.ibv_get_device_list.restype = ctypes.POINTER(ctypes.c_void_p)
 n = ctypes.c_int(0); lib.ibv_get_device_list(ctypes.byref(n)); print(n.value)'
 ```
 
-For reachability between the two nodes rather than device visibility, see
+For reachability rather than device visibility, see
 [the RoCE note on the recipes index](index) — on a routed L3 fabric an unbound
 `ping6` picks the wrong source rail and reports "No route", which reads as "these
 nodes cannot do PD" when they can.
