@@ -166,13 +166,29 @@ declaring `--drain-timeout 300` still received `terminationGracePeriodSeconds:
 120`, i.e. 365 s of budget granted 120.
 ```
 
-Measured on a live k3s cluster, workers registering by Pod annotation and a real
-infera server watching them: `kubectl delete pod` took the worker out of routing
-in **93 ms**, against a 15 000 ms `preStop` delay — the whole point of reading
-`deletionTimestamp`, since the alternatives (the `DELETE` event, or `phase`
-leaving `Running`) only fire after the container has already exited. A
-300-chunk generation in flight on that Pod completed in full while it drained,
-and its replacement had registered before the drain finished.
+Measured on a live k3s cluster: `kubectl delete pod` took the worker out of
+routing in **87–93 ms**, against the 15 000 ms `preStop` delay. That gap is the
+whole point of reading `deletionTimestamp` — the alternatives (the `DELETE`
+event, or `phase` leaving `Running`) only fire once the container has already
+exited, so without it the router would keep assigning work for the entire
+`preStop` window and then have it killed.
+
+Two runs, both with a Pod deleted while holding in-flight work:
+
+- **Real SGLang Qwen3-8B** deployed by the operator (`InferaDeployment`, two
+  workers, one MI355X each, Kubernetes discovery, HTTP transport): four
+  concurrent 2500-token generations in flight, **4/4 completed with HTTP 200**
+  and full-length output (6.5–13.3 kB), replacement Pod registered before the
+  drain finished.
+- **Fake workers**, same path without a GPU: a 300-chunk generation completed
+  in full across the drain.
+
+```{note}
+`spec.services.<name>.resources` is **ignored when `extraPodSpec` is set** — the
+template is passed through verbatim, so the GPU request has to live on your own
+container. A worker that omits it schedules, starts, and then fails with "No
+accelerator available".
+```
 
 If you set the grace period yourself it is respected as long as it is **larger**
 than the derived value; it is only ever raised, never lowered.
