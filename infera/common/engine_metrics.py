@@ -13,10 +13,13 @@ site where one of them would quietly rot.
 
 Provenance, because it is uneven and matters:
 
-* **vLLM** — from its published metrics documentation.
-* **SGLang** — second-hand, not verified against a running engine. Treat a
-  lookup failure as "unknown", never as "zero"; the difference decides whether a
-  drain waits or gives up.
+* **vLLM** — verified against a running engine (vLLM 0.1.dev19253, Qwen3-8B on
+  MI355X). Note ``kv_cache_usage_perc`` was ``gpu_cache_usage_perc`` in older
+  builds; the alias list below covers both.
+* **SGLang** — verified against a running engine (SGLang 0.5.15, Qwen3-8B on
+  MI355X). Note sglang serves ``/metrics`` only with ``--enable-metrics``; the
+  worker entrypoint injects it. Treat a lookup failure as "unknown", never as
+  "zero"; the difference decides whether a drain waits or gives up.
 * **ATOM** — unknown. Deliberately absent rather than guessed: a wrong name
   reads as an idle engine, and an idle engine is exactly the answer that makes a
   drain cut live requests.
@@ -28,8 +31,16 @@ import re
 
 from infera.common.worker_pool import EngineType
 
-#: metric key -> per-engine exposition name. A missing engine means "we do not
-#: know", which callers must distinguish from "the value is zero".
+#: metric key -> per-engine exposition name(s). A missing engine means "we do
+#: not know", which callers must distinguish from "the value is zero". Several
+#: names per entry means the engine renamed the series between releases and both
+#: spellings are in the wild.
+_ALIASES: dict[str, dict[EngineType, tuple[str, ...]]] = {
+    "kv_cache_usage": {
+        EngineType.VLLM: ("vllm:kv_cache_usage_perc", "vllm:gpu_cache_usage_perc"),
+    },
+}
+
 _NAMES: dict[str, dict[EngineType, str]] = {
     "requests_running": {
         EngineType.VLLM: "vllm:num_requests_running",
@@ -39,8 +50,11 @@ _NAMES: dict[str, dict[EngineType, str]] = {
         EngineType.VLLM: "vllm:num_requests_waiting",
         EngineType.SGLANG: "sglang:num_queue_reqs",
     },
+    # vLLM renamed this: older builds expose gpu_cache_usage_perc, current ones
+    # kv_cache_usage_perc. Both are listed and callers sum whichever is present,
+    # because pinning one silently returns "no KV in use" on the other.
     "kv_cache_usage": {
-        EngineType.VLLM: "vllm:gpu_cache_usage_perc",
+        EngineType.VLLM: "vllm:kv_cache_usage_perc",
         EngineType.SGLANG: "sglang:token_usage",
     },
 }
@@ -62,8 +76,17 @@ _DRAIN_EXTRA: dict[EngineType, tuple[str, ...]] = {
 
 
 def metric_name(key: str, engine: EngineType) -> str | None:
-    """Exposition name for ``key`` on ``engine``, or None if not known."""
+    """Primary exposition name for ``key`` on ``engine``, or None if unknown."""
     return _NAMES[key].get(engine)
+
+
+def metric_names(key: str, engine: EngineType) -> tuple[str, ...]:
+    """Every spelling of ``key`` on ``engine``, newest first."""
+    alias = _ALIASES.get(key, {}).get(engine)
+    if alias:
+        return alias
+    name = _NAMES[key].get(engine)
+    return (name,) if name else ()
 
 
 def parse_metric(text: str, name: str) -> float | None:

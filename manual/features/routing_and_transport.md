@@ -150,6 +150,10 @@ discovery still reports it `ACTIVE` is the signal worth alerting on.
 
 Both the Python and Rust routers implement this identically, with the same flags.
 
+The breaker is the router's view of a worker that is failing. For the orderly
+case — a worker being removed on purpose — see [Scaling a fleet](scaling.md),
+which covers draining in-flight generations before shutdown.
+
 ## KV-event transport
 
 Powers [KV-aware routing](kv_aware_routing.md). `--kv-event-transport`:
