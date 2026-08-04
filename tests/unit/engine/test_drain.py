@@ -75,16 +75,50 @@ def _patch_client(monkeypatch, handler):
 
 @pytest.mark.asyncio
 async def test_returns_when_engine_goes_idle(monkeypatch):
-    counts = iter([3, 2, 0])
+    counts = iter([3, 2] + [0] * 100)
 
     def handler(request):
         return httpx.Response(200, text=f"vllm:num_requests_running {next(counts)}\n")
 
     _patch_client(monkeypatch, handler)
     drained = await drain_engine_inflight(
-        host="1.2.3.4", port=8000, engine=EngineType.VLLM, timeout=5, poll_interval=0.01
+        host="1.2.3.4",
+        port=8000,
+        engine=EngineType.VLLM,
+        timeout=5,
+        poll_interval=0.01,
+        settle=0.05,
     )
     assert drained is True
+
+
+@pytest.mark.asyncio
+async def test_a_single_zero_reading_is_not_enough(monkeypatch):
+    """Measured on SGLang: the gauge lags the work by 5-15s, so one zero can
+    mean "idle" or "not counted yet". A late non-zero must restart the window
+    rather than being ignored."""
+    counts = iter([0, 0, 4] + [0] * 100)
+    seen: list[float] = []
+
+    def handler(request):
+        v = next(counts)
+        seen.append(v)
+        return httpx.Response(200, text=f"vllm:num_requests_running {v}\n")
+
+    _patch_client(monkeypatch, handler)
+    drained = await drain_engine_inflight(
+        host="1.2.3.4",
+        port=8000,
+        engine=EngineType.VLLM,
+        timeout=5,
+        poll_interval=0.01,
+        settle=0.05,
+    )
+    assert drained is True
+    assert 4 in seen, "the late non-zero reading must have been observed"
+    # It must have kept polling well past the point where the first two zeros
+    # would have satisfied a naive implementation.
+    assert len(seen) > 3
 
 
 @pytest.mark.asyncio

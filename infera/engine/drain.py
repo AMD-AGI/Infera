@@ -45,6 +45,18 @@ logger = logging.getLogger(__name__)
 
 _POLL_INTERVAL_S = 0.5
 
+#: How long the engine must report zero before we believe it.
+#:
+#: These gauges are refreshed on the engine's own schedule, not per request.
+#: Measured on SGLang 0.5.15: ``num_running_reqs`` stayed at 12 for 5-15s after
+#: the last HTTP response completed. The lag is safe in the direction that
+#: matters (stale-high just makes the drain wait), but it is dangerous at the
+#: start: a request accepted moments before SIGTERM may not be in the gauge yet,
+#: so a single zero reading can mean "idle" or "not counted yet". Requiring the
+#: zero to persist past one refresh cycle tells those apart. Costs a few seconds
+#: on every shutdown; cheap against cutting a live generation.
+_SETTLE_S = 6.0
+
 
 async def drain_engine_inflight(
     *,
@@ -53,6 +65,7 @@ async def drain_engine_inflight(
     engine: EngineType,
     timeout: float,
     poll_interval: float = _POLL_INTERVAL_S,
+    settle: float = _SETTLE_S,
 ) -> bool:
     """Wait until the engine reports no in-flight work, bounded by ``timeout``.
 
@@ -68,6 +81,7 @@ async def drain_engine_inflight(
     url = f"http://{probe_host}:{port}/metrics"
     deadline = time.monotonic() + timeout
     peak = 0.0
+    zero_since: float | None = None
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
@@ -93,10 +107,22 @@ async def drain_engine_inflight(
                     return False
 
                 peak = max(peak, inflight)
+                now = time.monotonic()
                 if inflight <= 0:
-                    if peak > 0:
-                        logger.info("drain: engine idle, %.0f request(s) completed", peak)
-                    return True
+                    if zero_since is None:
+                        zero_since = now
+                    elif now - zero_since >= settle:
+                        if peak > 0:
+                            logger.info(
+                                "drain: engine idle for %.0fs, %.0f request(s) completed",
+                                settle,
+                                peak,
+                            )
+                        return True
+                else:
+                    # A late gauge refresh revealed work we had not seen; the
+                    # settle window has to start over.
+                    zero_since = None
 
                 if time.monotonic() >= deadline:
                     logger.warning(

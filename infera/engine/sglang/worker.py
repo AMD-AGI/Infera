@@ -80,6 +80,14 @@ class SglangEngine(BaseEngine):
     async def start(self) -> EngineConfig:
         argv = list(self.sglang_argv)
 
+        # sglang serves /metrics only with --enable-metrics; without it the
+        # endpoint 404s. Graceful shutdown reads the in-flight request count
+        # from there, so leaving it off silently downgrades every scale-down
+        # and rolling update to "kill in-flight generations". Cheap enough to
+        # always enable, and the caller can still have passed it explicitly.
+        if not any(a == "--enable-metrics" for a in argv):
+            argv.append("--enable-metrics")
+
         if self.enable_kv_events:
             dp_size = int(getattr(self.server_args, "dp_size", 1) or 1)
             self._kv_events_port = free_tcp_port_block(dp_size) if dp_size > 1 else free_tcp_port()
