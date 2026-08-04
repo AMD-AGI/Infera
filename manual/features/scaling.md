@@ -200,7 +200,9 @@ they scale **independently** — add prefill for longer inputs, decode for more
 concurrent users. Two constraints:
 
 - **Neither pool can go to zero.** PD dispatch fails closed when either side is
-  empty. `minReplicas: 0` on either is an outage, not an idle saving.
+  empty — `minReplicas: 0` on either is an outage, not an idle saving. The 503
+  names the empty pool (`has 1 decode worker(s) but no prefill worker`), so the
+  cause is visible without reading the fleet.
 - **A DP worker's shape decides who picks the rank.** A worker registering
   `dp_size > 1` with **no** `dp_rank` is rank-multiplexed: the router fans it
   out into one target per rank and pins `X-Data-Parallel-Rank`. A worker that
@@ -280,10 +282,16 @@ drain: engine idle for 6s, 1 request(s) completed
 deregistered worker 127.0.0.1:20001 (lease revoked)
 ```
 
+**PD scaling, measured.** A 1P1D fake fleet grown to 2P2D and shrunk back under
+continuous traffic: **200 requests, 0 failures**, both pools scaling
+independently and the drained workers finishing their in-flight work. Taking the
+last prefill away then returns 503 naming the empty pool.
+
 ```{warning}
-**Not measured:** multi-node workers, TP > 1, PD under scaling, and scale-down
-during an active KV transfer. The PD handoff queues are counted in the drain,
-but that path has not been exercised on hardware.
+**Not measured:** multi-node workers, TP > 1, PD scaling with a *real* engine
+(the run above used fake workers, so no KV moved), and scale-down during an
+active KV transfer. The PD handoff queues are counted in the drain, but that
+path has not been exercised on hardware.
 ```
 
 ## Autoscaling

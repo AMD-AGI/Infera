@@ -14,7 +14,7 @@ import httpx
 import pytest
 
 from infera.common.nats_request import TYPE_DATA, TYPE_DONE, TYPE_ERROR
-from infera.common.worker_pool import EngineType, WorkerInfo
+from infera.common.worker_pool import DisaggMode, EngineType, WorkerInfo
 from infera.router.mixed import MixedRouter
 from infera.router.policy.target import RouteTarget
 
@@ -342,4 +342,64 @@ async def test_unary_5xx_trips_the_breaker():
     for _ in range(3):
         assert (await r.dispatch({"model": "m"}, stream=False)).status_code == 200
     assert r.breaker.state_of("bad").value == "open"
+    await r.aclose()
+
+
+# --- half a PD deployment must say so --------------------------------------
+
+
+class _ModePool:
+    """Pool that can answer per-disagg-mode, unlike _FakePool."""
+
+    def __init__(self, workers):
+        self._w = workers
+
+    def list_active(self, model=None, mode=None):
+        return [w for w in self._w if mode is None or w.disagg_mode == mode]
+
+
+def _pd_worker(wid, mode):
+    return WorkerInfo(
+        worker_id=wid,
+        url=f"http://{wid}",
+        model_name="m",
+        engine=EngineType.SGLANG,
+        disagg_mode=mode,
+        request_transport="http",
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "present,missing",
+    [(DisaggMode.PREFILL, "decode"), (DisaggMode.DECODE, "prefill")],
+)
+async def test_half_a_pd_deployment_names_the_empty_pool(present, missing):
+    """Scaling either PD pool to zero fails closed -- correctly -- but used to
+    report "no active mixed worker", which points at something the operator
+    never deployed while the surviving pool sits right there."""
+    from infera.router.auto import AutoRouter
+
+    r = AutoRouter(_ModePool([_pd_worker("w1", present)]), _FakePolicy())
+    resp = await r.dispatch({"model": "m"}, stream=False)
+    assert resp.status_code == 503
+    body = json.loads(bytes(resp.body))["error"]
+    assert missing in body and "PD dispatch requires both pools" in body, body
+    assert "mixed" not in body, f"must not blame mixed workers: {body}"
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_a_mixed_worker_still_absorbs_a_half_pd_fleet():
+    """A mixed worker alongside half a PD pool can serve, so the 503 must not
+    fire -- this is the rolling-upgrade case."""
+    from infera.router.auto import AutoRouter
+
+    pool = _ModePool([_pd_worker("p", DisaggMode.PREFILL), _pd_worker("m1", DisaggMode.MIXED)])
+    r = AutoRouter(pool, _FakePolicy(), nats_client=None, request_max_retries=0)
+    r._mixed._client = httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda req: httpx.Response(200, json={"id": "ok"}))
+    )
+    resp = await r.dispatch({"model": "m"}, stream=False)
+    assert resp.status_code == 200
     await r.aclose()
