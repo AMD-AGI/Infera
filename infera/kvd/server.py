@@ -1169,6 +1169,11 @@ async def _main_async(args) -> None:
             "region shards over TablespaceLongRegion instances; the "
             "legacy LongStorageRegion is not supported)."
         )
+    # The io_mode the long region below resolves, so the startup self-check can
+    # report the mount under the mode kvd will actually use. None means no region,
+    # or a region that only resolves it at start() — the self-check then classifies
+    # for itself, which is its own default.
+    resolved_o_direct: bool | None = None
     if args.long_paths:
         # Striped long region — N shards, one per mount point, hash-routed.
         from infera.kvd.striped_long_region import StripedLongRegion
@@ -1193,6 +1198,7 @@ async def _main_async(args) -> None:
             # that all striping shards live on similar devices (typical:
             # 8× NVMe under /mnt/nvme{0..7}); the auto-probe is a guide.
             o_direct, _ = _resolve_io_mode(args, paths[0])
+        resolved_o_direct = o_direct
         if args.tablespace_flush_interval_ms is not None:
             flush_interval_ms = args.tablespace_flush_interval_ms
         elif args.tablespace_auto_detect_fs:
@@ -1252,6 +1258,7 @@ async def _main_async(args) -> None:
                 o_direct = None
             else:
                 o_direct, _ = _resolve_io_mode(args, args.long_path)
+            resolved_o_direct = o_direct
 
             if args.tablespace_flush_interval_ms is not None:
                 flush_interval_ms = args.tablespace_flush_interval_ms
@@ -1294,6 +1301,10 @@ async def _main_async(args) -> None:
                     flush_interval_ms=flush_interval_ms,
                 )
         else:
+            # The file-per-block region never opens with O_DIRECT, so say so rather
+            # than leaving the self-check to probe: on NVMe the probe answers
+            # `direct` and would report that mode's GB/s for buffered writes.
+            resolved_o_direct = False
             long_region = LongStorageRegion(args.long_path, args.long_bytes)
         long_region.start()
 
@@ -1308,7 +1319,11 @@ async def _main_async(args) -> None:
         try:
             from infera.kvd.storage_selfcheck import run_storage_selfcheck
 
-            run_storage_selfcheck(_sc_path)
+            # Pass the region's resolved io_mode; left to classify on its own the
+            # self-check reports GB/s for a mode kvd is not using whenever
+            # --io-mode was explicit or its device walk dead-ends (in a container
+            # it stops at a /dev/mapper node outside the namespace).
+            run_storage_selfcheck(_sc_path, o_direct=resolved_o_direct)
         except Exception as _sc_exc:  # pragma: no cover — never block startup
             logger.warning("[kvd] storage self-check wiring error (non-fatal): %s", _sc_exc)
 
