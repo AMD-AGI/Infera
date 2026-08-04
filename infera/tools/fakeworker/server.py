@@ -448,20 +448,25 @@ async def _serve(args) -> None:
     stop = asyncio.Event()
 
     async def _shutdown() -> None:
-        # Deregister BEFORE draining, matching the real worker: the router must
-        # stop sending new work before we stop accepting it, or the gap shows up
-        # to clients as failures rather than as a clean drain.
+        # Announce, drain, then deregister -- the same order as the real worker
+        # entrypoints. Stopping new work has to come first or the drain just
+        # races arrivals; keeping the record until the end is what makes the
+        # worker visibly draining rather than simply gone.
         state.draining = True
-        hb_task.cancel()
         try:
-            await reg.deregister()
+            await reg.announce_draining()
         except Exception as exc:  # noqa: BLE001 - shutdown must not raise
-            logger.warning("deregister failed: %s", exc)
+            logger.warning("announce_draining failed: %s", exc)
         deadline = time.monotonic() + args.drain_timeout
         while state.running and time.monotonic() < deadline:
             await asyncio.sleep(0.1)
         if state.running:
             logger.warning("drain timeout with %d request(s) still in flight", state.running)
+        hb_task.cancel()
+        try:
+            await reg.deregister()
+        except Exception as exc:  # noqa: BLE001 - shutdown must not raise
+            logger.warning("deregister failed: %s", exc)
         server.should_exit = True
         stop.set()
 

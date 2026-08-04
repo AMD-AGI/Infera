@@ -24,6 +24,7 @@ from infera.common.net import free_tcp_port
 from infera.common.registration import RegistrationClient
 from infera.common.worker_pool import DisaggMode, KvRegistrationMetadata
 from infera.engine.base import watch_engine_death
+from infera.engine.drain import drain_engine_inflight
 from infera.engine.vllm.args import VllmWorkerArgs, parse_vllm_args
 from infera.engine.vllm.worker import VllmEngine
 
@@ -360,9 +361,28 @@ async def main() -> None:
     except asyncio.CancelledError:
         pass
 
-    await reg_client.deregister()
+    # Announce first, drain second, deregister last. Announcing DRAINING takes
+    # this worker out of routing (list_active filters it) while leaving the
+    # record in place, so for the whole drain it is visibly draining rather than
+    # simply gone -- which is what distinguishes an orderly rollout from a crash
+    # in /v1/workers. Deregistering first would work too, but it throws away
+    # that signal at exactly the moment someone is watching for it.
+    await reg_client.announce_draining()
     if nats_req_server is not None:
         await nats_req_server.stop(drain=True, drain_timeout=args.drain_timeout)
+    else:
+        # HTTP transport: the router talks straight to the engine, so infera
+        # never saw these requests and has to ask the engine what is still in
+        # flight. The DRAINING announcement above already stopped new work being
+        # routed here; this waits for the work already accepted.
+        await drain_engine_inflight(
+            host=config.host,
+            port=config.port,
+            engine=config.engine,
+            timeout=args.drain_timeout,
+        )
+
+    await reg_client.deregister()
     if kv_relay is not None:
         await kv_relay.stop()
     await engine.stop()

@@ -211,6 +211,26 @@ class KubernetesRegistry:
         phase = ((pod.get("status") or {}).get("phase")) or ""
         return phase == "Running"
 
+    @staticmethod
+    def _pod_terminating(pod: dict) -> bool:
+        """True once the API server has stamped the Pod for deletion.
+
+        A terminating Pod keeps ``phase: Running`` until its containers exit, so
+        a liveness check alone cannot see it. That gap is not academic: the
+        operator injects a ``preStop sleep`` before SIGTERM, and for the whole
+        of that delay the Pod is condemned, still Running, and — without this
+        check — still a routing candidate. The router would keep assigning new
+        work right up to the moment the process is killed, so the sleep that
+        exists to make shutdown graceful instead buys more requests that are
+        guaranteed to be cut.
+
+        Reading ``deletionTimestamp`` closes that: the worker leaves the pool
+        the instant deletion is requested, in-flight work finishes on the
+        connections it already has, and the preStop delay becomes what it was
+        meant to be — drain time.
+        """
+        return bool((pod.get("metadata") or {}).get("deletionTimestamp"))
+
     def _handle_pod(self, pod: dict, *, deleted: bool) -> None:
         meta = pod.get("metadata") or {}
         pod_name = meta.get("name") or ""
@@ -219,8 +239,10 @@ class KubernetesRegistry:
         annotations = meta.get("annotations") or {}
         raw = annotations.get(WORKER_INFO_ANNOTATION)
 
-        # Removal: explicit DELETE, pod no longer Running, or annotation gone.
-        if deleted or raw is None or not self._pod_running(pod):
+        # Removal: explicit DELETE, deletion requested, pod no longer Running,
+        # or annotation gone. Terminating is checked separately from Running
+        # because a condemned Pod stays Running until its containers exit.
+        if deleted or raw is None or self._pod_terminating(pod) or not self._pod_running(pod):
             worker_id = self._pod_to_worker.pop(pod_name, None)
             if worker_id is not None:
                 self._remove(worker_id)
