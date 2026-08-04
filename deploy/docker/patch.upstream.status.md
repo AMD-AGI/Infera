@@ -130,11 +130,21 @@ to close this differently than we did; our patch only has to stop the crash.
 > between. **Our leverage is a gfx942 reproduction comment on that PR, not a
 > competing PR** — the thread has no MI300X datapoint.
 >
-> **The drop detection does not cover this.** #30350 never touches
-> `pool_host/mla.py`, so our anchor keeps matching and the patch keeps applying on
-> top of it. Not a crash — both gates read False again and the non-JIT kernel takes
-> over — but a silent forfeit of the staged kernel #30350 enables. Re-check by hand
-> on every base bump.
+> **The anchor alone cannot detect this**, which is why the script does not rely on
+> it. #30350 never touches `pool_host/mla.py`, so our anchor would keep matching and
+> the patch would keep applying on top of the fix — not a crash, since both gates
+> read False again and the non-JIT kernel takes over, but a silent forfeit of the
+> staged kernel #30350 enables. `check_group_still_poisoned()` therefore checks the
+> *precondition* instead: if `DSAIndexerPoolHost` has stopped gating on `_is_cuda`
+> alone, the patch refuses and exits 1 telling the operator to drop it.
+>
+> **Exercised against the real base on 2026-08-04**, inside
+> `lmsysorg/sglang:v0.5.16-rocm720-mi30x` (gfx942 node), on throwaway copies of the
+> two files rather than the installed package. Stock v0.5.16: applies, exit 0. Same
+> tree again: "already applied", exit 0. With #30350 simulated by flipping all three
+> CUDA-only gates to `_is_cuda_alike`: refuses, exit 1, and `mla.py` byte-identical
+> to pristine afterwards. With `pool_host/mla.py` removed (the v0.5.15.post1 shape
+> the mi35x image builds on): tolerated, exit 0.
 
 > Scope: `DSAIndexerPoolHost` is not the only CUDA-only member that can poison the
 > group's AND — `DeepSeekV4PagedHostPool` and `DeepSeekV4StateHostPool` do too, and

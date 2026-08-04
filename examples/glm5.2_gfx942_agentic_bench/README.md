@@ -72,6 +72,7 @@ match the RDMA rail the two nodes share.
 | `run_kvd_reuse.sh` | container, prefill node | Two-pass experiment that isolates what kvd recovers (§5.3). |
 | `score_agentic_trace.py` | container, prefill node | Recompute cache metrics (see §4.3). |
 | `probe_hip_host_ptr.py` | container, either node | Does `hipHostRegister` return the host VA on this arch? Evidence for the hicache allocator patch (gotcha 7). |
+| `probe_l3_page_hashes.py` | container, prefill node | Did L3 hold the pages a turn failed to reuse? Read-only, answers what the counters cannot (§7.5). |
 | `stop.sh` | container, both nodes | Stop router/engine/kvd processes. |
 
 ## 1. Build the image
@@ -271,8 +272,11 @@ path — a decode-leg misconfiguration produces exactly that.
 asked of it" will mislead you. It counts failed **gets** only, while SGLang gets
 nothing it has not already confirmed with `batch_exists` — and a negative `exists`
 never touches the counter. A run can therefore report `0 misses` while L3 was
-missing most of what the engine looked for. Treat it as "no get raced an eviction",
-and use `cached tokens by tier` for whether L3 actually served anything.
+missing most of what the engine looked for. Worse, a prefetch abandoned before its
+query reaches the backend leaves *every* counter untouched, which is what happened
+in §7.3. Treat `misses_total` as "no get raced an eviction", use `cached tokens by
+tier` for whether L3 actually served anything, and read the tablespace journal
+(§7.5) for whether L3 held it in the first place.
 
 The prefill log should show the wiring and the negotiated zero-copy arena:
 
@@ -393,45 +397,78 @@ Read it in this order:
 3. **kvd supplied 0.43% of pass 2's hits.** Not because it failed, but because
    pass 2 replays whole conversations: from turn 2 on, each conversation has
    refilled the GPU tier from its own traffic and serves itself.
-4. **On the turns kvd is the only possible source it served 2.8%, and that figure
-   is not yet explained.** For the 20 conversation-opening turns `device` was 0 —
-   the isolation held — and kvd returned 32,768 of 1,176,384 ideal tokens: exactly
-   8,192 on 4 of the 20, and nothing at all on the other 16.
+4. **On the turns kvd is the only possible source it served 2.8%, and the reason
+   is the prefetch timeout, not a gap in L3.** For the 20 conversation-opening
+   turns `device` was 0 — the isolation held — and kvd returned 32,768 of
+   1,176,384 ideal tokens: exactly 8,192 on 4 of the 20, and nothing at all on the
+   other 16. Reading the L3 journal afterwards settled where the shortfall came
+   from; §7.5 records that measurement and this is its conclusion.
 
-   8,192 is not an arbitrary number. `STORAGE_BATCH_SIZE = 128`
-   (`mem_cache/hicache_storage.py`) times the 64-token page is exactly 8,192, and
-   `cache_controller._storage_hit_query` walks a prompt's page hashes one 128-page
-   batch at a time, adds `hit_page_num * page_size`, and **breaks at the first
-   batch that is not entirely present** — it never looks at the batches beyond it.
-   The count is then MIN-reduced across the prefetch group. So exactly 8,192 means
-   one full batch present and the next batch's first page absent on at least one
-   rank, and 0 means the very first page was absent there.
+   **The pages were in L3 — all of them, checked one by one.** `probe_l3_page_hashes.py`
+   rebuilds a turn's page hashes the way `query_storage_hit_length` does and looks
+   them up in the key set replayed out of the tablespace journal. For all 20
+   opening turns the leading run covers the entire prompt: 19,381 pages, 19,381
+   present, first absent page none. Replaying `_storage_hit_query`'s own walk over
+   them returns **1,176,384 tokens — the full ideal**, against the 32,768 the
+   engine actually reused. The counting evidence agrees: pass 1's window took on
+   24,192 distinct page hashes against the 24,216 unique pages the trace contains,
+   every one carrying its full set of three objects (2.742 MiB KV page, 0.628 MiB
+   `.indexer`, 36 KiB `.draft`). Write-back did not truncate, and the reader's keys
+   do not diverge.
 
-   The break itself is correct and not the thing to chase. Prefix reuse needs an
-   unbroken prefix — the radix match and the paged KV layout cannot splice around a
-   hole — so once page 129 is missing, pages 130 and beyond are unusable whether or
-   not they are in L3, and continuing to query them would only cost round trips.
-   What needs explaining is the hole, not the stop.
+   **The reader gave up before it finished asking.** The prefetch stop policy
+   defaults to `timeout`, and the budget is
+   `min(cfg.max, cfg.base + cfg.per_ki_token * num_tokens / 1024)` with
+   `num_tokens = len(operation.hash_value) * page_size`
+   (`hiradix_cache._prefetch_timeout_check_linear_func`). `operation.hash_value` is
+   filled only *after* `_storage_hit_query` has walked every 128-page batch, so
+   while the query is still running it is empty and the budget collapses to
+   `cfg.base` — 2.0 seconds — for a prompt of any size. An opening turn here is
+   ~1,000 pages, so eight `batch_exists` rounds have to finish, and then a MIN
+   all-reduce across the prefetch group has to complete, inside those two seconds.
+   One prefetch thread per rank drains the queue, and at `CONC=4` these arrive four
+   at a time behind 30–70 s prefills. Miss the deadline and
+   `check_prefetch_progress` finds `host_indices is None`, terminates, and revokes.
 
-   Warm replay says that should not happen: pass 2 replays the identical token
-   sequence, so every page hash is one that pass 1 already wrote. Two things could
-   produce it — the pages are genuinely not in L3, or they are but the reader's
-   keys diverge past the first batch — and this run cannot tell them apart, because
-   **`0 misses` is not evidence that L3 held them.** `misses_total` is incremented
-   only on the get path (`infera/kvd/store.py`); a negative `exists` never reaches
-   it, and prefetch only gets what `batch_exists` already confirmed. The counters
-   therefore cannot distinguish "kvd did not have it" from "SGLang did not ask".
-   Settling it needs a direct probe: rebuild one opening turn's page hashes with
-   `get_hash_str` and run EXISTS against L3 by hand. If page 129 is there the bug is
-   on the read side; if it is not, the write-back never covered the turn. Start with
-   the write side — the backup path chunks by the same `STORAGE_BATCH_SIZE`, so "one
-   batch present" is just as cheaply explained by "one batch written". Not done here:
-   the cluster was reclaimed first.
+   That is also why the counters stayed silent. A terminated operation short-
+   circuits in `prefetch_thread_func` — `if operation.is_terminated(): hash_value,
+   storage_hit_count = [], 0` — so the query is never issued and kvd is never
+   asked. The 16 zero turns are recorded with `cached_tokens_details: null`, not
+   with a storage tier of zero: the engine has no tier breakdown to report because
+   it never reached the tier. This is the `misses_total` blind spot of §5.2 in its
+   pure form, and the reason "0 misses" proved nothing either way.
 
-   An earlier version of this section blamed `prefetch_rate_limited()`. That was
-   wrong and is worth recording as a wrong turn: the budget is `0.5 × host pool`,
-   which at 32 GB/rank is ~16 GB against the ~350 MiB a single 8,192-token prefetch
-   occupies, so the limiter is roughly 47× away from binding and never fired.
+   The four turns that got 8,192 are the same story one stage later. Their query
+   did land inside two seconds, `hash_value` filled, and the budget grew to
+   `2.0 + 0.1 × 63744/1024 ≈ 8.2 s` — still measured from the operation's original
+   `start_time`, not from when the query finished. `_page_transfer` then moves one
+   `STORAGE_BATCH_SIZE` batch at a time, and at ~3.4 MiB per page a batch is
+   ~436 MiB, so exactly one batch landed before the clock ran out. `8,192` is
+   `128 × 64`: the batch quantum sets the granularity, the timeout sets the count.
+
+   What is measured and what is inferred: the per-page membership, the journal
+   count, the three-object completeness, the tier split, and the 16 `null` detail
+   records are measurements; the policy default, the budget formula, and the
+   terminated-operation short circuit are read off v0.5.16. Both candidate
+   explanations for the shortfall — pages absent, or keys diverged — are excluded
+   by measurement, which leaves the deadline. What is not pinned down is *which*
+   deadline expired for which turn: the query phase and the transfer phase share
+   one `start_time`, and the run kept no per-operation timing to separate them.
+
+   Two earlier readings of this were wrong and are worth recording. Blaming
+   `prefetch_rate_limited()` was wrong — its budget is `0.5 × host pool`, ~16 GB at
+   32 GB/rank against the ~350 MiB a single 8,192-token prefetch occupies, so it is
+   roughly 47× from binding and never fired. But retracting the timeout idea along
+   with it went too far: there is a timeout, it is simply a different one, and its
+   `cfg.base` floor is what these turns hit.
+
+   The knob follows directly. `--hicache-storage-prefetch-policy wait_complete`
+   removes the deadline, at the cost of making the request wait for L3; raising
+   `prefetch_timeout_base` through `--hicache-storage-extra-config` keeps the
+   deadline but stops the query phase from being budgeted as if it were fetching
+   zero tokens. Neither was worth setting for this deployment — with a 54 GB device
+   pool the trace does not need L3 — but a deployment that does need it will hit
+   this floor on exactly its most valuable requests, the long cold ones.
 
 Pass 2's 39 s / 1.6 s TTFT advantage is **not** evidence for kvd: 0.43% of hits
 cannot pay for it, and a 138-request run varies by more than that.
@@ -442,10 +479,11 @@ it a win, remove the reason it is idle: more concurrent distinct sessions than
 running once one of those is true — below the pressure point both arms are served
 by the GPU and there is nothing to compare.
 
-`--hicache-storage-prefetch-policy wait_complete` was on this list as a third
-option, on the theory that prefetch was timing out. Point 4 above retires that
-theory: the shortfall lands on a 128-page batch boundary, which is not a deadline.
-Chase point 4's open question before spending a run on the policy knob.
+`--hicache-storage-prefetch-policy wait_complete` belongs on that list too, but for
+the requests kvd would serve rather than for throughput — see point 4. It is not
+worth a run here for the same reason the A/B is not: below the pressure point the
+GPU tier answers everything, so removing the prefetch deadline has nothing to let
+through.
 
 ### 7.4 High concurrency
 
@@ -472,6 +510,64 @@ landed on conversation-**opening** turns, which by construction cannot reuse the
 own conversation. That is kv-aware routing paying off — cross-session prefixes are
 exactly what it is for — and it is why the scorer prints the excess instead of
 clamping it.
+
+### 7.5 Reading L3 directly
+
+§5.2 explains why the kvd counters cannot tell you whether L3 held a page. The
+tablespace can, and answering the question does not need a running daemon: each
+pool keeps an append-only `index.log` of newline-delimited JSON, one object per
+index op, so replaying `PUT`/`DEL` to the surviving set is a read-only walk over a
+file. `key_hex` decodes straight back to the key string SGLang used, because the
+kvd adapter encodes keys as UTF-8.
+
+```python
+live = {}
+for line in open("/mnt/.../kvd-l3/pool-0004M/index.log"):
+    op = json.loads(line)
+    k = (op.get("model", ""), op.get("compat_key", ""), op["key_hex"])
+    live[k] = op if op["op"] == "PUT" else live.pop(k, None)
+# bytes.fromhex(key_hex).decode() -> "<page hash>", "<page hash>.indexer", ...
+```
+
+A daemon writing concurrently can leave the last line half-written; stop the
+replay there rather than aborting, which is what kvd's own recovery does. Entries
+carry `ts`, so bucketing first-appearances by time separates one run's writes from
+the next — that is how pass 1's contribution was isolated below.
+
+`probe_l3_page_hashes.py` does this and the other half — rebuilding a turn's page
+hashes and looking them up:
+
+```bash
+python3 probe_l3_page_hashes.py \
+  --trace "$TRACE" --model "$MODEL" \
+  --journal "$KVD_L3_DIR"/pool-*/index.log \
+  --details results/agentic_kvd_p2_c4_n20.jsonl
+```
+
+**The key derivation is the part that will fool you.**
+`hiradix_cache.query_storage_hit_length` hashes a `RadixKey`, not the token ids,
+and passes `is_bigram=self.is_eagle` — so with speculative decoding on, the key is
+a bigram view of the prompt, every hash shifts, and the page count drops by one.
+Hashing raw token ids on this deployment matches **zero of 19,381 pages**, which
+reads exactly like an empty L3. The probe scores the other derivation alongside as
+a control for this reason: if the control is 0 and the primary is not, the primary
+is the engine's. It also refuses any turn whose tokenization does not reproduce the
+dataset's recorded `prompt_tokens` exactly, rather than reporting it as a miss.
+
+What the 20-conversation reuse run left behind:
+
+| | |
+|---|---|
+| live entries | 235,455 |
+| distinct page hashes | 78,485, each with all three objects |
+| per page | 2.742 MiB KV + 0.628 MiB `.indexer` + 36 KiB `.draft` |
+| namespace | one: `model=<model path>`, `compat_key=pp0of1` |
+| pass 1's window | 24,192 new distinct pages, vs 24,216 the trace contains |
+| the 20 opening turns | 19,381 pages, 19,381 present, leading run = whole prompt |
+
+The last two rows are the ones that matter: pass 1 stored the trace, and every
+page of every turn pass 2 failed to reuse was there to be read. Whatever went
+wrong, it was not L3.
 
 ## Notes & gotchas
 
