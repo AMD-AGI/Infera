@@ -32,6 +32,10 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Named because two places have to agree on it: the appender below, and the
+# prefetch_threshold fallback in `_finish_wiring` that only holds if we append.
+_EXTRA_CONFIG_FLAG = "--hicache-storage-backend-extra-config"
+
 
 def _has_cli_flag(argv: list[str], flag: str) -> bool:
     return flag in argv or any(item.startswith(f"{flag}=") for item in argv)
@@ -59,14 +63,14 @@ def _append_sglang_hicache_argv(args: Any) -> None:
         argv += ["--hicache-storage-backend", "dynamic"]
         logger.info("--infera-kvd-socket appends --hicache-storage-backend dynamic")
 
-    if not _has_cli_flag(argv, "--hicache-storage-backend-extra-config"):
+    if not _has_cli_flag(argv, _EXTRA_CONFIG_FLAG):
         cfg = {
             "backend_name": "infera-kvd",
             "module_path": "infera.engine.sglang.kvd_adapter",
             "class_name": "InferaKvdBackend",
             "prefetch_threshold": 64,
         }
-        argv += ["--hicache-storage-backend-extra-config", json.dumps(cfg)]
+        argv += [_EXTRA_CONFIG_FLAG, json.dumps(cfg)]
         logger.info("--infera-kvd-socket appends dynamic backend extra config")
 
 
@@ -161,12 +165,25 @@ def _finish_wiring(args: Any, socket_path: str) -> None:
             overridden = True
             break
     if not overridden:
-        logger.info(
-            "No prefetch_threshold field on this SGLang's ServerArgs (tried %s); the "
-            "backend extra config appended below carries prefetch_threshold=64, which "
-            "is the copy the engine subprocess reads.",
-            ", ".join(_PREFETCH_FIELDS),
-        )
+        # `_append_sglang_hicache_argv` only adds its extra config when the operator
+        # supplied none, so whether the 64 still reaches the engine depends on that.
+        if _has_cli_flag(getattr(args, "sglang_argv", None) or [], _EXTRA_CONFIG_FLAG):
+            logger.warning(
+                "No prefetch_threshold field on this SGLang's ServerArgs (tried %s) "
+                "and %s is already on the argv, so infera cannot supply the default. "
+                'Add {"prefetch_threshold": 64} to that JSON yourself, or prompts '
+                "under 256 tokens will not trigger L3 prefetch.",
+                ", ".join(_PREFETCH_FIELDS),
+                _EXTRA_CONFIG_FLAG,
+            )
+        else:
+            logger.info(
+                "No prefetch_threshold field on this SGLang's ServerArgs (tried %s); "
+                "the %s appended below carries prefetch_threshold=64, which is the "
+                "copy the engine subprocess reads.",
+                ", ".join(_PREFETCH_FIELDS),
+                _EXTRA_CONFIG_FLAG,
+            )
 
     _append_sglang_hicache_argv(args)
     logger.info("infera-kvd HiCacheStorage backend ready (socket=%s)", socket_path)

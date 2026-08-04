@@ -1087,6 +1087,31 @@ def _resolve_io_mode(args, probe_path: str | Path) -> tuple[bool, str]:
     return o_direct, "auto"
 
 
+def _resolve_region_io_mode(args, probe_path: str | Path) -> bool | None:
+    """``o_direct`` for a tablespace long region, or None to leave it undecided.
+
+    The order is NOT the one ``_resolve_io_mode``'s docstring implies on its own,
+    because the two legacy flags are checked before it ever runs:
+
+      1. ``--tablespace-buffered-io`` short-circuits to buffered, as its own help
+         text promises. It therefore also shadows ``INFERA_KVD_IO_MODE``, which
+         overrides ``--io-mode`` and not this flag.
+      2. ``--tablespace-auto-detect-fs`` returns None, deferring to the region's
+         own fstype probe at ``start()``.
+      3. Otherwise ``_resolve_io_mode``: env var, then ``--io-mode``, then the
+         storage-classifier probe.
+
+    One helper for both the striped and single-path branches, so that order is
+    stated once instead of drifting between two copies of it.
+    """
+    if args.tablespace_buffered_io:
+        logger.info("[kvd] L3 io_mode: BUFFERED (explicit --tablespace-buffered-io)")
+        return False
+    if args.tablespace_auto_detect_fs:
+        return None
+    return _resolve_io_mode(args, probe_path)[0]
+
+
 async def _main_async(args) -> None:
     # Optional SSD tiers — wired only when the operator provides paths.
     # Either or both can be enabled independently.
@@ -1182,22 +1207,10 @@ async def _main_async(args) -> None:
         paths = [p.strip() for p in args.long_paths.split(",") if p.strip()]
         if not paths:
             raise SystemExit("kvd: --long-paths must be a non-empty comma-separated list")
-        # Resolution order: INFERA_KVD_IO_MODE > --io-mode (non-auto)
-        # > legacy --tablespace-buffered-io > --tablespace-auto-detect-fs
-        # > --io-mode auto (storage_classify probe).
-        if args.tablespace_buffered_io:
-            o_direct = False
-            logger.info("[kvd] L3 io_mode: BUFFERED (explicit --tablespace-buffered-io)")
-        elif args.tablespace_auto_detect_fs:
-            # Defer to TablespaceLongRegion's fstype-based auto-detect
-            # (legacy behavior — kept for backward compat with deploy
-            # manifests that already use this flag).
-            o_direct = None
-        else:
-            # Classify on the first shard's path. The expectation is
-            # that all striping shards live on similar devices (typical:
-            # 8× NVMe under /mnt/nvme{0..7}); the auto-probe is a guide.
-            o_direct, _ = _resolve_io_mode(args, paths[0])
+        # Probed on the first shard's path: the expectation is that all striping
+        # shards live on similar devices (typical: 8× NVMe under /mnt/nvme{0..7}),
+        # so the auto-probe is a guide rather than a per-shard measurement.
+        o_direct = _resolve_region_io_mode(args, paths[0])
         resolved_o_direct = o_direct
         if args.tablespace_flush_interval_ms is not None:
             flush_interval_ms = args.tablespace_flush_interval_ms
@@ -1237,27 +1250,10 @@ async def _main_async(args) -> None:
             # append-only journal. Bounded file count, scales better
             # past ~100K entries than the file-per-block layout.
 
-            # Resolution order for o_direct + flush_interval_ms:
-            #   1. INFERA_KVD_IO_MODE env var — operator escape hatch.
-            #   2. Explicit --tablespace-buffered-io flag — legacy
-            #      backward-compat; treated as "I really mean buffered".
-            #   3. --tablespace-auto-detect-fs — pass None down, let the
-            #      region probe fstype at start() and pick per-backend
-            #      defaults.
-            #   4. --io-mode (default `auto`) — call storage_classify
-            #      to pick based on the underlying device transport.
-            #      Explicit `--io-mode direct/buffered` short-circuits.
-            #
-            # The `--io-mode auto` default is intentional (May 2026
-            # rebrand): O_DIRECT was the unconditional choice and lost
-            # to buffered on SATA + NFS-low-nconnect.
-            if args.tablespace_buffered_io:
-                o_direct = False
-                logger.info("[kvd] L3 io_mode: BUFFERED (explicit --tablespace-buffered-io)")
-            elif args.tablespace_auto_detect_fs:
-                o_direct = None
-            else:
-                o_direct, _ = _resolve_io_mode(args, args.long_path)
+            # `--io-mode auto` is the default on purpose (May 2026 rebrand):
+            # O_DIRECT used to be the unconditional choice and lost to buffered on
+            # SATA and on NFS with low nconnect.
+            o_direct = _resolve_region_io_mode(args, args.long_path)
             resolved_o_direct = o_direct
 
             if args.tablespace_flush_interval_ms is not None:

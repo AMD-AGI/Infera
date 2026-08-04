@@ -28,8 +28,12 @@ logger = logging.getLogger(__name__)
 #
 # 0.5.15 changed it to `int(0.5 * host_pool)` (still so on main), which is
 # positive for any host pool, so there the low-ratio failure is a hit-rate loss —
-# an L2 that evicts as fast as the L1 it shadows — rather than prefetch being
+# an L2 that evicts about as fast as the L1 it shadows — rather than prefetch being
 # switched off. Worth guarding on both; only the older base loses reads entirely.
+#
+# 1.5 rather than 1.0: the limit is 0 only exactly at 1.0 on the old formula, but a
+# host pool under 1.5× the device pool is too thin a margin to be worth an L3 round
+# trip on either formula, and it is never what an operator meant to configure.
 HICACHE_RATIO_DANGER_THRESHOLD = 1.5
 
 
@@ -38,11 +42,11 @@ def warn_if_hicache_prefetch_disabled(server_args: Any) -> bool:
 
     Returns True iff a warning was emitted (for testability).
 
-    A ratio near 1.0 sizes the host pool at the device pool, which on older
-    SGLang caps `prefetch_capacity_limit` at 0 outright and on current SGLang
-    leaves an L2 that evicts as fast as the L1 it shadows — see the threshold
-    constant above. This is the infera-side guard so operators don't ship a
-    config that looks like "kvd is wired up" but never reads from it.
+    A ratio below the threshold above sizes the host pool close to the device
+    pool, which at exactly 1.0 caps `prefetch_capacity_limit` at 0 on older
+    SGLang and otherwise leaves an L2 too small to be worth reading. This is the
+    infera-side guard so operators don't ship a config that looks like "kvd is
+    wired up" but never reads from it.
     """
     enable_hicache = bool(getattr(server_args, "enable_hierarchical_cache", False))
     storage_backend = getattr(server_args, "hicache_storage_backend", None)

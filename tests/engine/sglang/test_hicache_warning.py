@@ -6,11 +6,13 @@
 """Unit tests for `warn_if_hicache_prefetch_disabled`.
 
 The function lives in `infera.engine.sglang.hicache_validate` and exists
-to flag SGLang configs where `--hicache-ratio` leaves the host pool no
-bigger than the device pool: on sglang <= 0.5.14 `prefetch_capacity_limit`
-then rounds to 0 and silently disables L3 prefetch, and from 0.5.15 the L2
-evicts as fast as the L1 it shadows. Background: see PD design §5.4 + the
-2026-05-23 TP=1 debugging session.
+to flag SGLang configs where `--hicache-ratio` leaves the host pool close
+to the device pool — the guard fires below 1.5, so at 1.0 the two are
+equal and above it the margin is too thin to matter. On sglang <= 0.5.14
+`prefetch_capacity_limit` then rounds to 0 and silently disables L3
+prefetch; from 0.5.15 the L2 instead evicts about as fast as the L1 it
+shadows. Background: see PD design §5.4 + the 2026-05-23 TP=1 debugging
+session.
 
 These tests don't depend on SGLang being installed — they pass a
 SimpleNamespace masquerading as `ServerArgs`.
