@@ -6,7 +6,8 @@
 #   build|push|ship <sglang|vllm|atom|kvd|server|overlay>
 #
 # `overlay` builds the base-agnostic payload (deploy/overlay/). It consumes the
-# vllm and sglang images, so it must run AFTER them — release.yml gates it.
+# vllm and sglang images, so it must run AFTER them — release.yml gates it, and
+# it publishes to two repos from one build (see the `refs` array below).
 set -euo pipefail
 
 cmd="${1:-}"
@@ -29,6 +30,39 @@ elif [ -n "${PR:-}" ]; then tag="${engine}-pr${PR}"
 else                        tag="${engine}-local"
 fi
 ref="${IMAGE}:${tag}"
+
+# The overlay ships to two places from one build, and the two have different
+# lifetimes -- this is a transition, not a permanent design.
+#
+#   ${IMAGE}:overlay-<id>   The point of this change. Engine images publish to
+#                           the private staging repo and are promoted to the
+#                           public docker.io/rocm/infera after review; the
+#                           overlay never entered that pipeline, so it had no
+#                           reviewed public home. Same tag shape as the engines
+#                           (<component>-<id>), so promotion is the same
+#                           mechanical retag rather than a special case.
+#
+#   ${IMAGE}-overlay:<id>   Temporary. A public repo under the staging
+#                           namespace, currently the only published overlay and
+#                           what every recipe in this tree pulls. It goes away
+#                           once a promoted rocm/infera:overlay-<id> exists and
+#                           the manifests point at it.
+#
+# Deriving the second name from IMAGE rather than hard-coding it means
+# overriding IMAGE moves both together, instead of silently publishing half a
+# release to the wrong place.
+#
+# One build, two tags -- never two builds. The overlay harvests compiled pieces
+# out of the engine images, so a rebuild is both expensive (~80 min) and not
+# guaranteed to reproduce the same bits; tagging one image twice makes the two
+# refs provably the same artefact, which matters when one of them is the thing
+# that gets reviewed and the other is what users are already running.
+refs=("$ref")
+if [ "$engine" = overlay ]; then
+  overlay_id="${ID:-${PR:+pr$PR}}"
+  overlay_id="${overlay_id:-local}"
+  refs+=("${IMAGE}-overlay:${overlay_id}")
+fi
 
 cd "$(dirname "$0")/../.."
 
@@ -78,12 +112,16 @@ case "$cmd" in
   build)
     # --network=host: RUN steps need DNS, and these nodes resolve via 127.0.0.1
     # which a default bridge build netns can't reach.
+    tag_args=(); for r in "${refs[@]}"; do tag_args+=(-t "$r"); done
     docker build --network=host ${build_args[@]+"${build_args[@]}"} \
-                 -f "$dockerfile" -t "$ref" .
+                 "${tag_args[@]}" -f "$dockerfile" .
     ;;
 
   push)
-    docker push "$ref"
+    for r in "${refs[@]}"; do
+      echo "pushing $r"
+      docker push "$r"
+    done
     ;;
 
   ship)

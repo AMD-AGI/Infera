@@ -12,7 +12,13 @@ name: Build & publish images
 #
 # The `overlay` image (deploy/overlay/) is built in its own job after the engine
 # images, because it harvests their compiled pieces — see the `overlay` job.
-#   inferaimage/infera:overlay-v0.1.0
+# It is published to BOTH repos from a single build, same image, two names:
+#   inferaimage/infera:overlay-v0.1.0   staging, alongside the engine images,
+#                                       so it promotes to rocm/infera the same
+#                                       way they do
+#   inferaimage/infera-overlay:v0.1.0   transitional public repo — what the
+#                                       recipes pull today, retired once a
+#                                       promoted rocm/infera:overlay-* exists
 #
 # Target repo defaults to docker.io/inferaimage/infera; override per-run with
 # the `image_repo` dispatch input, or repo-wide with the IMAGE_REPO Actions
