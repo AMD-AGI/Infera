@@ -115,16 +115,59 @@ worker.
 
 ### On Kubernetes
 
-Two things beyond `SIGTERM`:
+The recipes deploy with `discoveryBackend: kubernetes` and
+`--request-transport http`, so the shutdown path differs from a bare
+etcd deployment in two ways — and gains one stage.
 
-- The registry drops a Pod as soon as it carries a `deletionTimestamp`, without
-  waiting for the container to exit. A terminating Pod keeps `phase: Running`,
-  so without this it would stay a routing candidate for the whole `preStop`
-  delay — turning a hook meant to make shutdown graceful into extra seconds of
-  accepting work that is about to be killed.
-- `terminationGracePeriodSeconds` must exceed `preStop` + `--drain-timeout`, or
-  the kubelet `SIGKILL`s mid-drain. The operator sets 120 s with a 15 s preStop;
-  raise it if your generations are longer.
+**Discovery is a Pod annotation, not an etcd lease.** Registering writes
+`infera.amd.com/worker-info` on the worker's own Pod; deregistering clears it.
+The registry additionally drops a Pod the moment it carries a
+`deletionTimestamp`, without waiting for the container to exit. That matters
+because a terminating Pod keeps `phase: Running` — without the check it would
+stay a routing candidate for the whole `preStop` delay, turning a hook meant to
+make shutdown graceful into extra seconds of accepting work about to be killed.
+
+**There is a `preStop` delay before `SIGTERM`.** The operator injects
+`sleep 15`, so the full sequence is:
+
+```
+deletion requested ──► deletionTimestamp set ──► registry drops the worker
+                   ──► preStop sleep 15 (still serving what it has)
+                   ──► SIGTERM ──► DRAINING ──► drain ──► deregister ──► engine.stop()
+                   ──► [kubelet SIGKILL at terminationGracePeriodSeconds]
+```
+
+### Worst case, and the budget
+
+Every stage is individually bounded:
+
+| Stage | Bound | Set by |
+|---|---|---|
+| `preStop` | 15 s | operator |
+| announce `DRAINING` | 10 s | registration HTTP client timeout |
+| drain | `--drain-timeout` (default 30 s) | flag |
+| deregister | 10 s | registration HTTP client timeout |
+| `engine.stop()` | 30 s | `SIGTERM` to the engine's process group, then `SIGKILL` |
+| **total** | **≈95 s at defaults** | |
+
+`terminationGracePeriodSeconds` has to cover that whole sum, because the kubelet
+`SIGKILL`s the moment it expires — mid-drain if that is where things are. The
+operator now **derives** it as `preStop + --drain-timeout + 50 s` of teardown
+headroom, with a 120 s floor, reading the flag from `ServiceSpec.Args` or from
+the container directly when an `extraPodSpec` template supplies it.
+
+```{warning}
+This used to be a fixed 120 s with a comment saying it "must exceed preStop +
+the worker `--drain-timeout`" — and nothing parsed that flag, so the invariant
+was documented and unenforced. Raising `--drain-timeout` for long generations
+(the only reason anyone raises it) pushed shutdown past the grace and turned the
+drain back into a kill. Measured on a live cluster before the change: a worker
+declaring `--drain-timeout 300` still received `terminationGracePeriodSeconds:
+120`, i.e. 365 s of budget granted 120.
+```
+
+If you set the grace period yourself it is respected as long as it is **larger**
+than the derived value; it is only ever raised, never lowered.
 
 ## PD and DP
 

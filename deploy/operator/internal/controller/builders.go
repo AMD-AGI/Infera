@@ -7,6 +7,9 @@ package controller
 
 import (
 	"fmt"
+	"math"
+	"strconv"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -30,9 +33,50 @@ const (
 	lwsKind       = "LeaderWorkerSet"
 
 	// Graceful rolling-upgrade tuning for GPU worker pods.
-	workerPreStopDrainSeconds           = 15  // preStop sleep: let the router drop us before SIGTERM
-	workerTerminationGraceSeconds int64 = 120 // must exceed preStop + the worker --drain-timeout
+	workerPreStopDrainSeconds       = 15 // preStop sleep: let the router drop us before SIGTERM
+	workerDefaultDrainTimeoutSeconds = 30 // matches the worker's --drain-timeout default
+	// Teardown after the drain finishes: deregistering, stopping the KV plane,
+	// and engine.stop(), which SIGTERMs the engine's process group and waits up
+	// to 30s before escalating to SIGKILL.
+	workerTeardownHeadroomSeconds = 50
+	// Floor, so short drain timeouts still leave room for a slow engine exit.
+	workerTerminationGraceSeconds int64 = 120
 )
+
+// graceSecondsFor sizes terminationGracePeriodSeconds so the kubelet cannot
+// SIGKILL a worker in the middle of shutting down.
+//
+// The budget is preStop + the worker's --drain-timeout + teardown. That last
+// term is not small: engine.stop() alone waits up to 30s for the engine's
+// process group before escalating. Leaving the grace at a fixed 120s was fine
+// for the default 30s drain, but --drain-timeout lives in free-form args that
+// nothing here parsed -- so raising it for long generations (the exact reason
+// anyone raises it) silently pushed shutdown past the grace and turned a
+// graceful drain back into a kill.
+func graceSecondsFor(args []string) int64 {
+	drain := workerDefaultDrainTimeoutSeconds
+	for i, a := range args {
+		v := ""
+		if a == "--drain-timeout" && i+1 < len(args) {
+			v = args[i+1]
+		} else if strings.HasPrefix(a, "--drain-timeout=") {
+			v = strings.TrimPrefix(a, "--drain-timeout=")
+		}
+		if v == "" {
+			continue
+		}
+		// The worker takes a float; round up so a fractional value never
+		// shortens the budget.
+		if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
+			drain = int(math.Ceil(f))
+		}
+	}
+	need := int64(workerPreStopDrainSeconds + drain + workerTeardownHeadroomSeconds)
+	if need < workerTerminationGraceSeconds {
+		return workerTerminationGraceSeconds
+	}
+	return need
+}
 
 // labelsFor returns the selector/identity labels for a service's workload.
 func labelsFor(idepName, svcName string) map[string]string {
@@ -216,11 +260,16 @@ var mainContainerNames = map[string]struct{}{"main": {}, "infera": {}}
 // generations, plus a /health readiness probe for single-node workers (skipped
 // for multi-node LWS groups whose follower ranks > 0 do not serve /health).
 // Existing values are preserved; the grace is only raised, never lowered.
-func injectWorkerRolloutDefaults(spec *corev1.PodSpec, idx int, port int32, addReadiness bool) {
+func injectWorkerRolloutDefaults(spec *corev1.PodSpec, idx int, port int32, addReadiness bool, args []string) {
 	if idx < 0 || idx >= len(spec.Containers) {
 		return
 	}
 	c := &spec.Containers[idx]
+	// The flag can arrive two ways: via ServiceSpec.Args on the rendered path,
+	// or written straight into the container by an extraPodSpec template, which
+	// is passed through verbatim. Reading only the first would miss exactly the
+	// deployments most likely to have tuned it.
+	drainArgs := append(append(append([]string{}, args...), c.Command...), c.Args...)
 	if addReadiness && c.ReadinessProbe == nil {
 		// SGLang's /health runs a tiny prefill self-check that often takes
 		// >1s, so a 1s probe timeout (the k8s default) flaps the pod between
@@ -246,8 +295,9 @@ func injectWorkerRolloutDefaults(spec *corev1.PodSpec, idx int, port int32, addR
 			},
 		}
 	}
-	if spec.TerminationGracePeriodSeconds == nil || *spec.TerminationGracePeriodSeconds < workerTerminationGraceSeconds {
-		grace := workerTerminationGraceSeconds
+	if want := graceSecondsFor(drainArgs); spec.TerminationGracePeriodSeconds == nil ||
+		*spec.TerminationGracePeriodSeconds < want {
+		grace := want
 		spec.TerminationGracePeriodSeconds = &grace
 	}
 }
@@ -296,7 +346,7 @@ func podTemplateFromExtra(idep *inferav1alpha1.InferaDeployment, svcName string,
 	// Graceful rolling-upgrade defaults for worker pods rendered by an external
 	// template: inject readiness/preStop/grace the template omitted.
 	if svc.ComponentType == inferav1alpha1.ComponentTypeWorker {
-		injectWorkerRolloutDefaults(&spec, idx, port, svc.NumberOfNodes <= 1 && !svc.SkipReadinessProbe)
+		injectWorkerRolloutDefaults(&spec, idx, port, svc.NumberOfNodes <= 1 && !svc.SkipReadinessProbe, svc.Args)
 	}
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{Labels: podLabelsFor(idep.Name, svcName, svc)},
@@ -355,7 +405,7 @@ func podTemplate(idep *inferav1alpha1.InferaDeployment, svcName string, svc infe
 	// readiness is skipped for multi-node LWS groups (follower ranks have no
 	// /health). The server (CPU-only) keeps the default fast shutdown.
 	if svc.ComponentType == inferav1alpha1.ComponentTypeWorker {
-		injectWorkerRolloutDefaults(&podSpec, 0, port, svc.NumberOfNodes <= 1 && !svc.SkipReadinessProbe)
+		injectWorkerRolloutDefaults(&podSpec, 0, port, svc.NumberOfNodes <= 1 && !svc.SkipReadinessProbe, svc.Args)
 	}
 	tmpl := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{Labels: podLabelsFor(idep.Name, svcName, svc)},
