@@ -1301,6 +1301,10 @@ async def _main_async(args) -> None:
                     flush_interval_ms=flush_interval_ms,
                 )
         else:
+            # The file-per-block region never opens with O_DIRECT, so say so rather
+            # than leaving the self-check to probe: on NVMe the probe answers
+            # `direct` and would report that mode's GB/s for buffered writes.
+            resolved_o_direct = False
             long_region = LongStorageRegion(args.long_path, args.long_bytes)
         long_region.start()
 
