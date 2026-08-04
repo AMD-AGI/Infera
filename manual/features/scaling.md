@@ -66,6 +66,19 @@ The worker then, in this order:
 Requests already in flight run to completion. Requests that arrive during the
 drain go to other workers.
 
+**Two different timings, easily conflated.** A worker stops *receiving* new
+requests within a second of `SIGTERM` — that is the `DRAINING` announcement plus
+the router's watch, and it is the number that decides whether traffic is still
+being sent somewhere that is about to die. How long the *process* then lives is
+a separate and much larger number, set by the longest generation it was already
+serving. Measured: under a second to stop receiving, 38 s until the record
+disappeared, while a 40-second generation ran to completion in between.
+
+Watching `/v1/workers` measures the second one, not the first: it lists every
+worker including draining ones, precisely so a rollout is visible while it
+happens. To see the transition, read the `status` field rather than counting
+rows.
+
 ```{note}
 `--drain-timeout` is a **ceiling, not a delay** — a worker with nothing in flight
 exits in about six seconds regardless. Set it above your p99 generation time.
@@ -157,9 +170,10 @@ Measured on two nodes (chi2800 / chi2866, one MI355X each, workers advertising
 their own IPs, etcd and router on the first node): both workers registered with
 distinct addresses, 12 requests distributed 7/7 across the machines, and a
 `SIGTERM` to the **remote** worker drained cleanly — its three in-flight
-3000-token generations all completed (13.7–14.4 k characters), it left the fleet
-after 30 s, and 100 requests flowing through the router during the whole
-transition saw **0 failures**.
+3000-token generations all completed (13.7–14.4 k characters), its record
+disappeared after 30 s, and 100 requests flowing through the router during the
+whole transition saw **0 failures**. (As above, the record surviving 30 s is the
+generations finishing, not 30 s of continuing to receive work.)
 
 ```{warning}
 This covers workers on separate machines. It does **not** cover a single worker
@@ -177,8 +191,9 @@ transport, etcd discovery, real router.
 | | |
 |---|---|
 | Cold start (`docker run` → in `/v1/workers`) | **140 s** |
-| Scale-down (`SIGTERM` → out of `/v1/workers`) | **30 s** |
-| Router reaction to a worker leaving | **15 ms** |
+| Scale-down: `SIGTERM` → stops receiving new requests | **< 1 s** |
+| Scale-down: `SIGTERM` → record gone from `/v1/workers` | **30–38 s** |
+| Router reaction to a worker's record being deleted | **15 ms** |
 | Drain settle window | 6 s |
 
 Two runs, both with traffic flowing throughout:
