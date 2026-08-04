@@ -109,6 +109,17 @@ i.e. **main is affected**. #28534's own reasoning argues for the opposite repair
 teach the remaining pools the JIT rather than gate MLA down — so expect upstream
 to close this differently than we did; our patch only has to stop the crash.
 
+> Scope: `DSAIndexerPoolHost` is not the only CUDA-only member that can poison the
+> group's AND — `DeepSeekV4PagedHostPool` and `DeepSeekV4StateHostPool` do too, and
+> `build_deepseek_v4_hicache_stack` puts one of them in a group anchored by
+> `LogicalHostPool` (flag unconditionally True). The same crash shape should
+> therefore be expected on a V4 hicache stack on gfx942, and **this patch does not
+> cover it** — it gates `mla.py` only. No V4 stack runs on this branch, so that gate
+> would be untested; the script's SCOPE section records it for whoever gets there.
+> That section also names a third repair upstream may prefer over both of the above:
+> have the sidecar pools stop poisoning the AND, which is already what
+> `MambaPoolHost` does deliberately.
+
 ## Mooncake C++ — `patches/mooncake_cpp/` (built by `Dockerfile.sglang`, `Dockerfile.vllm`, `Dockerfile.atom`)
 
 Pinned to Mooncake `main @ 747003c`; `git apply` fails loudly on ref drift.

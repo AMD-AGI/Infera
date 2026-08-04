@@ -14,10 +14,15 @@ write-back JIT kernel:
         _is_cuda or _is_hip
     ) and can_use_write_back_jit_kernel(...)
 
-Every other host pool still gates the same flag on `_is_cuda` alone -- including
-`DSAIndexerPoolHost`, which a DSA model such as GLM-5.2 always instantiates
-alongside the MLA pool. `HostPoolGroup` then ANDs the flag over its entries, so
-the group's flag is False on ROCm while its anchor entry (the MLA pool) says True.
+`pool_host/mha.py` carries the identical HIP enablement -- #28534 did both -- but
+the pools that can share a `HostPoolGroup` with them do not. Three still gate the
+flag on `_is_cuda` alone and therefore read False on ROCm: `DSAIndexerPoolHost`,
+which a DSA model such as GLM-5.2 always instantiates alongside the MLA pool, plus
+`DeepSeekV4PagedHostPool` and `DeepSeekV4StateHostPool`. (`MambaPoolHost` and
+`LogicalHostPool` set it True unconditionally, so they are harmless here -- see
+SCOPE.) `HostPoolGroup` ANDs the flag over its entries, so one CUDA-only member
+makes the group's flag False on ROCm while its anchor entry -- the MLA pool --
+still says True.
 
 The two gates feed different decisions:
 
@@ -48,18 +53,26 @@ crashes on the first real request.
 THE FIX
 -------
 Make the anchor agree with the group: gate the staged JIT on CUDA only, exactly as
-`memory_pool_host.py` already spells it for every other pool. The MLA pool then
+the three CUDA-only pools above already spell it. The MLA pool then
 falls through to `transfer_kv_all_layer_mla_lf_pf` -- the non-JIT kernel in the
 same branch, which asserts its destination indices ARE on the GPU, which is where
 the controller just put them. Both gates now read False on ROCm and the two
 decisions match.
 
-Cost: nothing that worked before. Because `DSAIndexerPoolHost` is CUDA-gated, the
-group flag is False on ROCm for every DSA model regardless of this patch, so the
-staged JIT was already unreachable here -- the `_is_hip` in mla.py did not buy a
-faster path, it only desynchronized the two gates. Restoring the staged kernel on
-ROCm means flipping the other pools too and proving the JIT is correct for them,
-which is a different and much larger change than this one.
+Cost, on any model that reaches this crash: nothing that worked before. Because
+`DSAIndexerPoolHost` is CUDA-gated, the group flag is already False on ROCm for
+every DSA model, so the staged JIT was unreachable here regardless of this patch --
+the `_is_hip` in mla.py did not buy a faster path, it only desynchronized the two
+gates.
+
+It is not free everywhere, though. An MLA model in a group whose every other member
+sets the flag True unconditionally (`MambaPoolHost`, `LogicalHostPool`) had both
+gates reading True on ROCm, so it really did run the staged kernel, and this patch
+moves it back to the non-JIT one. That is a throughput question on the write-back
+path, not a correctness one -- the non-JIT kernel is what ROCm ran before #28534 --
+and no such model is deployed here. Restoring the staged kernel for the DSA path
+instead means flipping the CUDA-only pools and proving the JIT correct for them,
+which is a much larger change than this one; see SCOPE for who should own it.
 
 WHY NOT A LAUNCH FLAG
 ---------------------
@@ -70,6 +83,22 @@ workaround, which trips the `layout != "page_first"` early return that zeroes th
 flag. Both change how every transfer is done in order to route around one
 mis-set boolean, and both leave the disagreement in place for the next model to
 find. This patch changes the boolean.
+
+SCOPE -- WHAT THIS DOES NOT FIX
+------------------------------
+The disagreement is a property of the group, not of MLA, so gating one pool closes
+one instance of it. The other reachable instance today is the DeepSeek-V4 hicache
+stack: `build_deepseek_v4_hicache_stack` anchors on `LogicalHostPool`, whose flag is
+an unconditional True, and hangs `DeepSeekV4PagedHostPool` (CUDA-only, False on
+ROCm) off the same group. Same AND, same False group flag, same True anchor, so the
+same crash shape should be expected there on gfx942 -- and this patch will not
+prevent it, because it only touches mla.py. Left alone deliberately: no V4 stack
+runs on this branch, so a gate here would be untested code guarding an untested
+path. Named so the next person recognizes the failure instead of re-deriving it.
+
+The mirror case -- an MHA anchor over a CUDA-only member -- is not reachable today:
+the CUDA-only pools appear in groups anchored by MLA (DSA sidecar) or by
+`LogicalHostPool` (V4), never by `pool_host/mha.py`.
 
 UPSTREAM STATUS (2026-08-03)
   `main` still carries the `_is_cuda or _is_hip` gate (read from the raw file at
@@ -85,10 +114,20 @@ UPSTREAM STATUS (2026-08-03)
   incomplete on the MLA + DSA path rather than a fresh defect.
 
   No PR of ours filed yet; it should be, and it should say which side upstream
-  wants -- teach the remaining pools the JIT (parity, #28534's intent) or gate MLA
-  like the rest (this patch). Drop this patch once a base sglang makes the two
-  gates agree by construction: the anchor stops matching and the build fails, so
-  the drop cannot be silent.
+  wants. There are three repairs, not two: teach the CUDA-only pools the JIT
+  (parity, #28534's intent), gate MLA like them (this patch), or make the
+  sidecar pools stop poisoning the AND. The third is what upstream already does
+  elsewhere -- `MambaPoolHost` sets the flag True unconditionally under the comment
+  "Must be True: HostPoolGroup computes can_use_write_back_jit as AND of all pools.
+  When True, start_writing() keeps indices on CPU, which MLA's staged write-back
+  kernel requires", and routes its own backup by layout + io_backend instead. A
+  `DSAIndexerPoolHost` following that precedent would keep the staged kernel on ROCm
+  and cost nothing, which makes it the strongest thing to open the PR with; we did
+  not take it here only because the patch has to be a one-anchor edit that fails
+  loudly, not a behavior change inside a pool we do not otherwise touch.
+
+  Drop this patch once a base sglang makes the two gates agree by construction: the
+  anchor stops matching and the build fails, so the drop cannot be silent.
 
 BASES WITHOUT THIS CODE
   If `can_use_write_back_jit` does not appear in mla.py at all, this base predates
