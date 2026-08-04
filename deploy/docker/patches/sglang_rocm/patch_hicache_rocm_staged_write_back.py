@@ -100,7 +100,7 @@ The mirror case -- an MHA anchor over a CUDA-only member -- is not reachable tod
 the CUDA-only pools appear in groups anchored by MLA (DSA sidecar) or by
 `LogicalHostPool` (V4), never by `pool_host/mha.py`.
 
-UPSTREAM STATUS (2026-08-03)
+UPSTREAM STATUS (2026-08-04)
   `main` still carries the `_is_cuda or _is_hip` gate (read from the raw file at
   refs/heads/main), so main is affected, not just this base.
 
@@ -113,27 +113,70 @@ UPSTREAM STATUS (2026-08-03)
   `DSAIndexerPoolHost` joining the same pool group. So this is #28534's fix left
   incomplete on the MLA + DSA path rather than a fresh defect.
 
-  No PR of ours filed yet; it should be, and it should say which side upstream
-  wants. There are three repairs, not two: teach the CUDA-only pools the JIT
-  (parity, #28534's intent), gate MLA like them (this patch), or make the
-  sidecar pools stop poisoning the AND. The third is what upstream already does
-  elsewhere -- `MambaPoolHost` sets the flag True unconditionally under the comment
-  "Must be True: HostPoolGroup computes can_use_write_back_jit as AND of all pools.
-  When True, start_writing() keeps indices on CPU, which MLA's staged write-back
-  kernel requires", and routes its own backup by layout + io_backend instead. A
-  `DSAIndexerPoolHost` following that precedent would keep the staged kernel on ROCm
-  and cost nothing, which makes it the strongest thing to open the PR with; we did
-  not take it here only because the patch has to be a one-anchor edit that fails
-  loudly, not a behavior change inside a pool we do not otherwise touch.
+  There are three repairs, not two: teach the CUDA-only pools the JIT (parity,
+  #28534's intent), gate MLA like them (this patch), or make the sidecar pools stop
+  poisoning the AND -- the precedent for the third being `MambaPoolHost`, which sets
+  the flag True unconditionally under the comment "Must be True: HostPoolGroup
+  computes can_use_write_back_jit as AND of all pools. When True, start_writing()
+  keeps indices on CPU, which MLA's staged write-back kernel requires".
 
-  Drop this patch once a base sglang makes the two gates agree by construction: the
-  anchor stops matching and the build fails, so the drop cannot be silent.
+  A fix is already in flight, and it is the parity repair done thoroughly:
+  sglang#30350 "Add HiCache JIT test and benchmark for ROCm/HIP CI support" (OPEN,
+  Emmanuel0612) adds `_is_cuda_alike = _is_cuda or _is_hip` and flips exactly the
+  three CUDA-only `can_use_write_back_jit` gates named above -- `DSAIndexerPoolHost`,
+  `DeepSeekV4PagedHostPool`, `DeepSeekV4StateHostPool` -- so the group AND stops
+  reading False on ROCm. It also teaches `staged_write_back.cuh` to accept kDLROCM /
+  kDLROCMHost, which is the TensorMatcher check that emits the crash above, and adds
+  an AMD CI lane for the HiCache JIT (author reports 47/47 on MI355X). It therefore
+  also covers the V4 stack that SCOPE above leaves open.
 
-BASES WITHOUT THIS CODE
-  If `can_use_write_back_jit` does not appear in mla.py at all, this base predates
-  the staged write-back and there is nothing to gate: the patch says so and exits
-  0. That is the ONLY tolerated miss. A file that has the flag in an unexpected
-  shape exits non-zero, because then the gate silently would not be applied.
+  It is stalled, not rejected: amd-bot reported the PR's own AMD suites green on
+  2026-07-09 alongside a merge conflict with main, the author cleared conflicts on
+  07-13, and nothing has moved since 07-16. #28534 landed in between and touches the
+  same area, so expect it to be conflicted again.
+
+  So the useful contribution is a reproduction on #30350, not a competing PR: that
+  thread has MI355X coverage and no gfx942 datapoint, and this crash was hit on
+  MI300X with GLM-5.2 DSA. File our own only if #30350 dies.
+
+  Anchor drift alone cannot be the drop signal for #30350, which is why this script
+  checks a precondition instead. #30350 repairs the OTHER pools and never touches
+  `pool_host/mla.py`, so the OLD anchor would keep matching and this patch would keep
+  applying on top of the fix -- without crashing, because both gates read False again
+  and the non-JIT kernel takes over, and therefore without anyone noticing that the
+  staged kernel #30350 enabled on ROCm had been given back. `check_group_still_poisoned`
+  closes that: it reads `DSAIndexerPoolHost` in `memory_pool_host.py` and refuses to
+  apply once that pool stops gating on `_is_cuda` alone. Verified against both
+  v0.5.16 and main, where the gate sits at line 1777 / 1830 respectively in the
+  shape the check looks for.
+
+THE TWO IMAGES THAT RUN THIS
+  `Dockerfile.sglang.gfx942` (MI300X / MI325X, base v0.5.16) is the one that needs
+  it: `pool_host/mla.py` carries the `_is_cuda or _is_hip` gate, and
+  `DSAIndexerPoolHost` sits in `memory_pool_host.py` still gated on `_is_cuda`
+  (line 1777 at v0.5.16, 1830 on main). Both checks below find what they expect.
+
+  `Dockerfile.sglang` (MI355X, base v0.5.15.post1) exits 0 at the first check, and
+  has no bug to exit from. Every write-back gate on that base is still `_is_cuda` --
+  MHA (196), MLA (1405), both V4 pools (2478, 2887) and `DSAIndexerPoolHost` (3387),
+  all still in `memory_pool_host.py` before MLA and MHA moved into `pool_host/` --
+  and `_is_hip` appears only in the import guard for the kernels, never in a gate.
+  So `HostPoolGroup`'s AND and its anchor both read False on ROCm, they agree, and
+  the non-JIT kernel runs. The disagreement is what sglang#28534 introduced on
+  2026-07-09 by teaching MLA and MHA `_is_hip`; v0.5.15.post1 predates it. That is
+  the real reason the MI355 stack never hit this -- the absent `pool_host/mla.py` is
+  just how the script notices.
+
+EXIT CODES
+  0  applied; already applied; or nothing to gate -- no `pool_host/mla.py`, or an
+     mla.py with no `can_use_write_back_jit` (a base predating the staged write-back).
+     Those are the ONLY tolerated misses.
+  1  everything else, all of it meaning "a human has to look":
+       * the anchor is present but in an unexpected shape -- the crashing path IS on
+         this base and the gate would silently not be applied;
+       * `DSAIndexerPoolHost` no longer gates on `_is_cuda` alone -- upstream fixed
+         it, so this patch must be dropped rather than applied (see UPSTREAM STATUS);
+       * that pool, or `memory_pool_host.py`, cannot be found to check at all.
 
 Idempotent and self-locating. Run inside the container, then delete stale .pyc.
 """
@@ -148,6 +191,15 @@ OLD = """        self.can_use_write_back_jit = (
             _is_cuda or _is_hip
         ) and can_use_write_back_jit_kernel("""
 
+# The precondition this patch exists for: a CUDA-only pool in the same
+# HostPoolGroup dragging the group's AND to False on ROCm. Checked against the
+# pool that does it for every DSA model, in the file it lives in.
+MPH_REL = ("srt", "mem_cache", "memory_pool_host.py")
+GROUP_MEMBER = "class DSAIndexerPoolHost"
+POISON_GATE = (
+    "self.can_use_write_back_jit = _is_cuda and can_use_write_back_jit_kernel("
+)
+
 NEW = f"""        # {MARKER}: WHY the ROCm build of this kernel declares dst_indices
         # host-resident while the caller passes a GPU tensor -> "Tensor match
         # failed ... device=rocm:0" kills the scheduler on the first write-back.
@@ -158,11 +210,14 @@ NEW = f"""        # {MARKER}: WHY the ROCm build of this kernel declares dst_ind
         self.can_use_write_back_jit = _is_cuda and can_use_write_back_jit_kernel("""
 
 
-def find_mla_py() -> str:
+def find_pkg_root() -> str:
     spec = importlib.util.find_spec("sglang")
     if spec is None or not spec.submodule_search_locations:
         sys.exit("cannot locate the sglang package")
-    root = list(spec.submodule_search_locations)[0]
+    return list(spec.submodule_search_locations)[0]
+
+
+def find_mla_py(root: str) -> str:
     path = os.path.join(root, "srt", "mem_cache", "pool_host", "mla.py")
     if not os.path.isfile(path):
         print(f"[patch] no {path} on this base — no staged write-back to gate")
@@ -170,16 +225,78 @@ def find_mla_py() -> str:
     return path
 
 
-def main() -> int:
-    path = find_mla_py()
-    src = open(path).read()
+def check_group_still_poisoned(root: str) -> int:
+    """Verify the disagreement this patch resolves is still there.
 
-    if MARKER in src:
-        print(f"[patch] already applied: {path}")
-        return 0
+    The OLD anchor cannot be the drop signal on its own. sglang#30350 repairs
+    the other side -- it teaches `DSAIndexerPoolHost` and the two DeepSeek-V4
+    pools HIP -- and never touches `pool_host/mla.py`, so the anchor would keep
+    matching and this patch would keep applying on top of the fix. That does not
+    crash; it silently gates the anchor back down, makes the group read False
+    again, and forfeits the staged kernel #30350 just enabled on ROCm. So check
+    the precondition instead of the anchor, and fail the build when it is gone.
+    """
+    path = os.path.join(root, *MPH_REL)
+    if not os.path.isfile(path):
+        print(
+            "[patch] ERROR: mla.py carries the staged write-back but there is no\n"
+            f"        {path}\n"
+            "        to check the group's other members against. Refusing to\n"
+            "        apply a gate whose precondition cannot be verified."
+        )
+        return 1
+
+    src = open(path).read()
+    start = src.find(GROUP_MEMBER)
+    if start < 0:
+        print(
+            f"[patch] ERROR: no `{GROUP_MEMBER}` to check. It has moved or been\n"
+            "        renamed, so whether the HostPoolGroup AND still reads False on\n"
+            "        ROCm is unknown. Re-derive before shipping — see this script's\n"
+            "        UPSTREAM STATUS section.\n"
+            f"        Checked: {path}"
+        )
+        return 1
+
+    end = src.find("\nclass ", start + 1)
+    block = src[start:] if end < 0 else src[start:end]
+    if POISON_GATE not in block:
+        print(
+            "[patch] ERROR: DSAIndexerPoolHost no longer gates can_use_write_back_jit\n"
+            "        on _is_cuda alone, so it no longer forces the HostPoolGroup AND\n"
+            "        to False on ROCm and the two gates already agree without us.\n"
+            "        This is what sglang#30350 does.\n"
+            "\n"
+            "        DROP THIS PATCH — remove it from Dockerfile.sglang.gfx942.\n"
+            "\n"
+            "        Do NOT re-anchor it instead. #30350 leaves pool_host/mla.py\n"
+            "        alone, so the anchor below still matches and applying it would\n"
+            "        gate the anchor back down, put the group at False again, and\n"
+            "        silently give up the staged write-back kernel on ROCm.\n"
+            f"        Checked: {path}"
+        )
+        return 1
+
+    return 0
+
+
+def main() -> int:
+    root = find_pkg_root()
+    path = find_mla_py(root)
+    src = open(path).read()
 
     if "can_use_write_back_jit" not in src:
         print(f"[patch] {path} has no staged write-back JIT — nothing to gate")
+        return 0
+
+    # A precondition for patching, so it runs only once the two exits above have
+    # established there is something to patch.
+    rc = check_group_still_poisoned(root)
+    if rc:
+        return rc
+
+    if MARKER in src:
+        print(f"[patch] already applied: {path}")
         return 0
 
     if OLD not in src:

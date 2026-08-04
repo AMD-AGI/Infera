@@ -160,10 +160,12 @@ RUN set -eu; \
 # mem_cache/pool_host/common.py, which no other patch here does.
 #
 # The directory also carries patch_hicache_rocm_staged_write_back.py, which
-# gates a write-back JIT kernel that ROCm cannot run. That kernel arrived in
-# v0.5.16: this base has no mem_cache/pool_host/mla.py, so the patch reports
-# that and exits 0 here. It is kept in the shared directory so a base bump
-# picks the fix up instead of rediscovering it as a scheduler crash.
+# resyncs two gates that disagree about the staged write-back JIT on ROCm. This
+# base is not affected: every gate here is still _is_cuda, so they agree on False
+# and the non-JIT kernel runs. The disagreement came with sglang#28534, which
+# taught MLA and MHA _is_hip after this tag. The patch notices via the absent
+# mem_cache/pool_host/mla.py and exits 0. Kept in the shared directory so a base
+# bump picks the fix up instead of rediscovering it as a scheduler crash.
 #
 # NOT tolerant, like the disagg loop above: an image that GPU-faults the moment
 # kvd writes back is worse than a failed build. Self-locating, idempotent, and

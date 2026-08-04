@@ -100,14 +100,41 @@ PD + DP-attention + MTP, i.e. **no CI covers this topology today**.
 
 The staged write-back row is **not preventive**: without it this base kills the
 prefill scheduler on the first reused prefix, so `Dockerfile.sglang.gfx942` needs
-it to run kvd at all. It is a **no-op on the mi35x image** — v0.5.15.post1 has no
-`mem_cache/pool_host/mla.py` (verified: raw.githubusercontent 404 at that tag,
-200 for `pool_host/common.py`), which is also why the MI355 stack never hit this.
+it to run kvd at all. It is a **no-op on the mi35x image**, and that base has nothing
+to fix: every `can_use_write_back_jit` gate at v0.5.15.post1 is still `_is_cuda` —
+MHA, MLA, both V4 pools and `DSAIndexerPoolHost`, all in `memory_pool_host.py`
+before MLA/MHA moved into `pool_host/` — with `_is_hip` only in the kernel import
+guard, so the group AND and its anchor agree on False and the non-JIT kernel runs.
+#28534 introduced the disagreement on 2026-07-09, after that tag. The script detects
+the no-op via the absent `mem_cache/pool_host/mla.py` (verified: raw.githubusercontent
+404 at that tag, 200 for `pool_host/common.py`) — that absence is how it notices,
+not why the MI355 stack is safe.
 Both `_is_cuda or _is_hip` and the CUDA-only gate on the other pools are still on
 upstream `main` (read from the raw file, so this is stronger than a search miss),
 i.e. **main is affected**. #28534's own reasoning argues for the opposite repair —
 teach the remaining pools the JIT rather than gate MLA down — so expect upstream
 to close this differently than we did; our patch only has to stop the crash.
+
+> **A fix is in flight (checked 2026-08-04):**
+> [sglang#30350](https://github.com/sgl-project/sglang/pull/30350) `Add HiCache JIT
+> test and benchmark for ROCm/HIP CI support` (**OPEN**, `Emmanuel0612`) is that
+> opposite repair, done thoroughly. It adds `_is_cuda_alike = _is_cuda or _is_hip`
+> and flips exactly the three CUDA-only `can_use_write_back_jit` gates —
+> `DSAIndexerPoolHost`, `DeepSeekV4PagedHostPool`, `DeepSeekV4StateHostPool` — so the
+> group AND stops reading False on ROCm, **including the V4 stack our patch does not
+> cover**. It also teaches `staged_write_back.cuh` to accept kDLROCM/kDLROCMHost (the
+> TensorMatcher check that emits our crash) and adds an AMD CI lane for the HiCache
+> JIT; the author reports 47/47 on MI355X. Stalled rather than rejected: amd-bot
+> called its own AMD suites green on 2026-07-09 with a merge conflict against main,
+> conflicts were cleared 07-13, no movement since 07-16, and #28534 landed in
+> between. **Our leverage is a gfx942 reproduction comment on that PR, not a
+> competing PR** — the thread has no MI300X datapoint.
+>
+> **The drop detection does not cover this.** #30350 never touches
+> `pool_host/mla.py`, so our anchor keeps matching and the patch keeps applying on
+> top of it. Not a crash — both gates read False again and the non-JIT kernel takes
+> over — but a silent forfeit of the staged kernel #30350 enables. Re-check by hand
+> on every base bump.
 
 > Scope: `DSAIndexerPoolHost` is not the only CUDA-only member that can poison the
 > group's AND — `DeepSeekV4PagedHostPool` and `DeepSeekV4StateHostPool` do too, and
