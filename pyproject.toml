@@ -41,6 +41,7 @@ infera-kvd-probe = "infera.kvd.bench.probe:main"
 infera-kvd-l3-bench = "infera.kvd.bench.l3_bench:main"
 # node + PD preflight suite (gpu / network / storage / firmware / host probes)
 infera-preflight = "infera.tools.preflight.cli:main"
+infera-fake-worker = "infera.tools.fakeworker.server:main"
 
 [build-system]
 requires = ["setuptools>=69", "setuptools_scm[toml]>=8", "wheel"]
