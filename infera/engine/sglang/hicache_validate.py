@@ -17,31 +17,32 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-# Threshold below which SGLang's prefetch becomes effectively disabled.
-# Derivation: cache_controller.py:462 computes
+# Threshold below which a host pool stops being a useful L2.
+#
+# On sglang <= 0.5.14 it is worse than useless — cache_controller computes
 #     prefetch_capacity_limit = max(0, int(0.8 * (host_pool - device_pool)))
-# In token units this evaluates to
-#     0.8 * device_pool_tokens * (hicache_ratio - 1)
-# So when hicache_ratio == 1.0 the limit is 0 — every prefetch attempt is
-# rate-limited → kvd / mooncake / nixl L3 storage never gets queried.
-# Empirically observed on MiniMax-M2.5 TP=1 with --hicache-ratio 1.0:
-# 0 EXISTS, 0 GET to kvd across a 5-minute bench, while the same workload
-# at ratio=2.0 produced 35 EXISTS + 2048 GET calls.
+# which in token units is 0.8 * device_pool_tokens * (hicache_ratio - 1), so at
+# ratio 1.0 the limit is 0, every prefetch is rate-limited, and L3 storage is
+# never queried. Empirically on MiniMax-M2.5 TP=1 at ratio 1.0: 0 EXISTS and
+# 0 GET to kvd across a 5-minute bench, versus 35 EXISTS + 2048 GET at 2.0.
+#
+# 0.5.15 changed it to `int(0.5 * host_pool)` (still so on main), which is
+# positive for any host pool, so there the low-ratio failure is a hit-rate loss —
+# an L2 that evicts as fast as the L1 it shadows — rather than prefetch being
+# switched off. Worth guarding on both; only the older base loses reads entirely.
 HICACHE_RATIO_DANGER_THRESHOLD = 1.5
 
 
 def warn_if_hicache_prefetch_disabled(server_args: Any) -> bool:
-    """Log a CRITICAL warning if the server_args config will silently
-    disable SGLang's L3 prefetch path.
+    """Log a CRITICAL warning when server_args leaves L3 prefetch useless.
 
     Returns True iff a warning was emitted (for testability).
 
-    See `--hicache-ratio` documentation in SGLang's server_args; the
-    `prefetch_capacity_limit` formula scales with `(host - device)`,
-    so values near 1.0 produce a 0-limit cap and silently disable
-    prefetch. Upstream fix tracked separately; this is the
-    infera-side guard so operators don't ship configs that look
-    like "kvd is wired up" but never actually fetch from it.
+    A ratio near 1.0 sizes the host pool at the device pool, which on older
+    SGLang caps `prefetch_capacity_limit` at 0 outright and on current SGLang
+    leaves an L2 that evicts as fast as the L1 it shadows — see the threshold
+    constant above. This is the infera-side guard so operators don't ship a
+    config that looks like "kvd is wired up" but never reads from it.
     """
     enable_hicache = bool(getattr(server_args, "enable_hierarchical_cache", False))
     storage_backend = getattr(server_args, "hicache_storage_backend", None)
@@ -61,17 +62,17 @@ def warn_if_hicache_prefetch_disabled(server_args: Any) -> bool:
 
     logger.critical(
         "infera: --hicache-ratio=%g with --hicache-storage-backend=%s "
-        "will silently DISABLE SGLang L3 prefetch. "
-        "Inside SGLang's cache_controller.py the formula "
-        "prefetch_capacity_limit = 0.8 * (host_pool - device_pool) "
-        "evaluates to ~0 when ratio is close to 1.0, which makes "
-        "prefetch_rate_limited() return True on every attempt. "
-        "Net effect: kvd / mooncake / nixl backend receives writes "
-        "but never any reads, even when GPU cache overflows. "
+        "cripples SGLang's L3 prefetch. On sglang <= 0.5.14 it DISABLES it: "
+        "cache_controller's prefetch_capacity_limit = "
+        "0.8 * (host_pool - device_pool) evaluates to ~0 as the ratio "
+        "approaches 1.0, so prefetch_rate_limited() returns True on every "
+        "attempt and the kvd / mooncake / nixl backend takes writes but is "
+        "never read, even when the GPU cache overflows. From 0.5.15 the limit "
+        "is 0.5 * host_pool, so prefetch still runs but against a host pool "
+        "that evicts as fast as the GPU pool it shadows. "
         "Recommended: --hicache-ratio >= 2.0 (the SGLang default), "
-        "or use --hicache-size=<GB> to override the ratio-based "
-        "computation. See infera PD design §5.4 for empirical "
-        "evidence on MI355X TP=1.",
+        "or --hicache-size=<GB> to size the host pool outright. "
+        "See infera PD design §5.4 for the MI355X TP=1 measurement.",
         ratio,
         storage_backend,
     )

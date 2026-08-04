@@ -131,9 +131,11 @@ def _finish_wiring(args: Any, socket_path: str) -> None:
     # the override, prompts under 256 tokens never trigger L3 prefetch
     # → `gets_total = 0` and operators see no cache reuse.
     #
-    # Try common field names across SGLang versions and lower the
-    # default; if none match (older SGLang), log a clear WARNING with
-    # the override the operator should pass via extra-config.
+    # Try common field names across SGLang versions and lower the default. Not
+    # finding one is normal rather than a problem: on bases where the threshold
+    # lives in the backend's extra config instead of ServerArgs,
+    # `_append_sglang_hicache_argv` below carries the same 64 on the argv, which
+    # is the copy the subprocess actually reads.
     _PREFETCH_FIELDS = (
         "hicache_storage_prefetch_threshold",
         "hicache_prefetch_threshold",
@@ -159,11 +161,10 @@ def _finish_wiring(args: Any, socket_path: str) -> None:
             overridden = True
             break
     if not overridden:
-        logger.warning(
-            "SGLang version has no recognized prefetch_threshold field "
-            "(tried %s). Prompts under 256 tokens may not trigger L3 "
-            "prefetch. Pass an explicit override via --hicache-storage-"
-            'config / extra-config JSON: {"prefetch_threshold":64}.',
+        logger.info(
+            "No prefetch_threshold field on this SGLang's ServerArgs (tried %s); the "
+            "backend extra config appended below carries prefetch_threshold=64, which "
+            "is the copy the engine subprocess reads.",
             ", ".join(_PREFETCH_FIELDS),
         )
 

@@ -5,11 +5,12 @@
 ###############################################################################
 """Unit tests for `warn_if_hicache_prefetch_disabled`.
 
-The function lives in `infera.engine.sglang.args` and exists to flag
-SGLang configs where `--hicache-ratio` is small enough that
-`prefetch_capacity_limit` rounds to 0 and silently disables L3
-prefetch. Background: see PD design §5.4 + the 2026-05-23 TP=1
-debugging session.
+The function lives in `infera.engine.sglang.hicache_validate` and exists
+to flag SGLang configs where `--hicache-ratio` leaves the host pool no
+bigger than the device pool: on sglang <= 0.5.14 `prefetch_capacity_limit`
+then rounds to 0 and silently disables L3 prefetch, and from 0.5.15 the L2
+evicts as fast as the L1 it shadows. Background: see PD design §5.4 + the
+2026-05-23 TP=1 debugging session.
 
 These tests don't depend on SGLang being installed — they pass a
 SimpleNamespace masquerading as `ServerArgs`.
@@ -60,8 +61,8 @@ def test_no_warning_when_no_storage_backend(caplog):
 
 
 def test_no_warning_at_default_ratio(caplog):
-    """ratio=2.0 (SGLang default) is fine; capacity_limit = 0.8 * 1.0 *
-    device_pool which is plenty of prefetch budget."""
+    """ratio=2.0 (SGLang default) is fine: the host pool is twice the device
+    pool, so either capacity_limit formula leaves real prefetch budget."""
     from infera.engine.sglang.hicache_validate import warn_if_hicache_prefetch_disabled
 
     args = _fake_server_args(hicache_ratio=2.0)
