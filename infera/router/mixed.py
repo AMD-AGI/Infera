@@ -255,6 +255,10 @@ class MixedRouter(BaseRouter):
                     )
                 ) from None
             obs["outcome"] = "ok" if status < 400 else f"{status // 100}xx"
+            # Same rule as the HTTP path below: a 5xx before any data is a
+            # worker fault and retryable; a 4xx belongs to the request.
+            if is_worker_fault(status):
+                raise _Retry(JSONResponse(content=payload_json, status_code=status))
             return JSONResponse(content=payload_json, status_code=status)
 
         # Direct HTTP forward.
@@ -288,6 +292,16 @@ class MixedRouter(BaseRouter):
                 )
             ) from None
         obs["outcome"] = "ok" if resp.status_code < 400 else f"{resp.status_code // 100}xx"
+        # A 5xx here is the worker failing before a single byte reached the
+        # client, which is exactly the case failover exists for -- and until now
+        # this path returned it verbatim instead, so a unary request over HTTP
+        # never failed over and never fed the circuit breaker. The streaming
+        # path and the Rust router both retry it; this brings the third one into
+        # line. 4xx still passes straight through: the request itself is bad and
+        # every worker would say the same, so retrying only triples the latency
+        # of an error the client needs to see.
+        if is_worker_fault(resp.status_code):
+            raise _Retry(JSONResponse(content=payload_json, status_code=resp.status_code))
         return JSONResponse(content=payload_json, status_code=resp.status_code)
 
     async def _normalized_stream(

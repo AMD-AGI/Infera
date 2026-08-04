@@ -283,3 +283,63 @@ async def test_breaker_recovers_after_cooldown():
     assert body == b"back", "the half-open probe must reach the recovered worker"
     assert r.breaker.state_of("w1").value == "closed"
     await r.aclose()
+
+
+# --- unary 5xx must fail over too (the gap the breaker fell through) ---------
+
+
+@pytest.mark.asyncio
+async def test_unary_http_fails_over_on_5xx():
+    """A worker 500 before any byte reached the client is exactly what failover
+    is for. This path used to return it verbatim, so a non-streaming request
+    over HTTP -- the default in every k8s example -- never failed over and never
+    reached the circuit breaker."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "w1":
+            return httpx.Response(500, json={"error": "boom"})
+        return httpx.Response(200, json={"id": "ok"})
+
+    r = _router([_w("w1", transport="http"), _w("w2", transport="http")], nats=None, retries=1)
+    r._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    resp = await r.dispatch({"model": "m"}, stream=False)
+    assert resp.status_code == 200
+    assert json.loads(bytes(resp.body))["id"] == "ok"
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_unary_http_does_not_fail_over_on_4xx():
+    """The request is bad, not the worker. Every worker would answer the same,
+    so retrying only triples the latency of an error the client must see."""
+    hits: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        hits.append(request.url.host)
+        return httpx.Response(400, json={"error": "bad request"})
+
+    r = _router([_w("w1", transport="http"), _w("w2", transport="http")], nats=None, retries=1)
+    r._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    resp = await r.dispatch({"model": "m"}, stream=False)
+    assert resp.status_code == 400
+    assert hits == ["w1"], f"4xx must not be retried, but hit {hits}"
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_unary_5xx_trips_the_breaker():
+    """The consequence that made this worth fixing: without failover the
+    breaker never saw a unary failure, so a wedged worker was re-picked
+    forever on the most common configuration."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "bad":
+            return httpx.Response(503, json={"error": "wedged"})
+        return httpx.Response(200, json={"id": "ok"})
+
+    r = _router([_w("bad", transport="http"), _w("good", transport="http")], nats=None, retries=1)
+    r._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    for _ in range(3):
+        assert (await r.dispatch({"model": "m"}, stream=False)).status_code == 200
+    assert r.breaker.state_of("bad").value == "open"
+    await r.aclose()
