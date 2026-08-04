@@ -1,0 +1,31 @@
+===== 3. feature evidence =====
+-- PD + mooncake: KV must move over RDMA, not TCP --
+  chi2835    MC_FORCE_TCP=0    GID-is-NULL=0    RDMA-devices-in-container=8
+  chi2879    MC_FORCE_TCP=0    GID-is-NULL=0    RDMA-devices-in-container=7
+  (the two counters must be 0; the device count must be > 0)
+-- DP-attention: resolved dp_size per leg --
+dp_size=1 enable_dp_attention=False 
+dp_size=8 enable_dp_attention=True 
+-- MTP: acceptance length on the decode leg --
+accept len: 3.17
+accept len: 2.27
+accept len: 3.20
+accept len: 3.23
+accept len: 3.05
+-- kv-aware / kvd --
+  router router_policy: "kv-aware"   tokenizer-loaded=1 (must be >0 for kv-aware to steer)
+  prefill kvd adapters connected: 8 (expect one per DP rank on the kvd leg)
+  kvd counters:
+{
+  "entries": 40,
+  "host_bytes": 70686720,
+  "spillover_bytes": 0,
+  "long_bytes": 70686720,
+  "gets_total": 0,
+  "sets_total": 40,
+  "hits_total": 0,
+  "misses_total": 0,
+  "evictions_total": 0
+}
+
+[0;32m[glm52][0m smoke complete — read the four blocks above, not just the exit code
