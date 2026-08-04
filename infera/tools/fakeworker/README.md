@@ -41,6 +41,48 @@ against fakes transfers to a real fleet unchanged.
 > names are second-hand from a research pass and have not been checked against a
 > live SGLang.** Verify before depending on them.
 
+## PD and DP attention
+
+Both work, and both are verified end to end against a real router with no GPU.
+
+**PD.** `--disagg-mode prefill|decode` advertises the same `disagg_meta` a real
+worker does — `{"protocol": ..., "params": {"bootstrap_addr": ...}}`, prefill
+only — with `--pd-protocol` constrained to the router's own protocol registry so
+a typo dies at argparse rather than at the first request.
+
+**DP attention.** Two deployment shapes exist and they behave differently, which
+is worth knowing before concluding anything is broken:
+
+| Shape | Registration | What the router does |
+|---|---|---|
+| per-rank endpoints | `--dp-rank R --dp-size N` | Nothing. The address already selects the rank, so no header is pinned and no room alignment happens. `dp_rank` on the `RouteTarget` stays `None`. |
+| rank-multiplexed | `--dp-size N`, **no** `--dp-rank` | `expand_targets` fans one worker into N targets; the router pins `X-Data-Parallel-Rank`, aligns `bootstrap_room % dp_size == dp_rank`, and injects `disagg_prefill_dp_rank` for the decode leg. |
+
+`is_rank_multiplexed()` is `dp_size > 1 and dp_rank is None` — so registering a
+rank makes the worker an endpoint and opts *out* of router-side DP routing. That
+is correct, not a bug, but the first time you see it the DP path looks dead.
+
+### `GET /debug/routing`
+
+The reason PD and DP are testable at all. It reports what the *router* decided —
+per-rank request counts keyed on the header it sent, and the handoff fields it
+injected on the last request:
+
+```json
+{"dp_rank": null, "dp_size": 4,
+ "requests_by_dp_rank": {"0": 2, "1": 2, "2": 2, "3": 2},
+ "last_handoff": {"bootstrap_host": "127.0.0.1", "bootstrap_port": 18430,
+                  "bootstrap_room": 7442254485466660987,
+                  "disagg_prefill_dp_rank": 3}}
+```
+
+None of that is observable with a real engine: a malformed handoff does not
+raise, it hangs on KVPoll until a ~300 s timeout, and the failure surfaces
+nowhere near the router that caused it. Here you can assert on it directly —
+e.g. that `bootstrap_room % dp_size == disagg_prefill_dp_rank` holds on every
+request, which is the invariant SGLang's `follow_bootstrap_room` balancer
+enforces with a `KVTransferError`.
+
 ## Limits — read these before drawing conclusions
 
 **No KV transfer is simulated.** A `--disagg-mode prefill` / `decode` fake takes
@@ -69,6 +111,12 @@ and nothing contends for memory. Do not use it to predict real throughput.
 - **The server requires `--router-tokenizer-path` even for `round-robin`**, and
   resolves it eagerly. Any existing directory satisfies it, which is enough to
   bring a router up against fakes.
+- **A bind failure used to still register.** uvicorn logs `address already in
+  use` and gives up, but the process keeps running — so a port collision
+  produced a worker that was in the pool and served nothing. Now the socket must
+  be bound before registration, and a collision exits 3. Worth remembering
+  because the symptom was a router error about the *worker* returning garbage,
+  which pointed nowhere near the real cause.
 - **Registration alone is not enough** — `heartbeat_loop()` has to be running or
   the etcd lease (30 s) expires and the worker vanishes from the pool about half
   a minute after it appears. This looks exactly like a discovery bug and is not

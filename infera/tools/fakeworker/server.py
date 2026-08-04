@@ -51,6 +51,8 @@ from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 
 from infera.common.worker_pool import DisaggMode, EngineType, KvRegistrationMetadata
 from infera.engine.base import EngineConfig
+from infera.router.disagg_protocols import _PROTOCOLS
+from infera.router.dp_routing import DP_RANK_HEADER
 
 logger = logging.getLogger("infera.fakeworker")
 
@@ -86,6 +88,16 @@ class State:
     started_at: float = field(default_factory=time.monotonic)
     _sem: asyncio.Semaphore | None = None
     draining: bool = False
+
+    #: Per-DP-rank request counts, keyed by the X-Data-Parallel-Rank header the
+    #: router sent. With a real engine you cannot easily see which rank the
+    #: router *intended* -- the engine just serves. Counting them here is what
+    #: makes DP-attention routing assertable at all.
+    by_dp_rank: dict[str, int] = field(default_factory=dict)
+    #: The PD handoff fields the router injected on the last request. Whether
+    #: the router shaped the body correctly is invisible from outside; a real
+    #: engine either works or hangs on KVPoll with no explanation.
+    last_handoff: dict = field(default_factory=dict)
 
 
 def deterministic_canary(model_name: str) -> list[int]:
@@ -158,6 +170,25 @@ def build_app(cfg: EngineConfig, behaviour: Behaviour, state: State) -> FastAPI:
     @app.post("/v1/completions")
     async def completions(request: Request):
         body = await request.json()
+
+        # Record what the router decided *before* deciding whether to serve, so
+        # a refused request still shows up in the routing evidence.
+        rank = request.headers.get(DP_RANK_HEADER) or "-"
+        state.by_dp_rank[rank] = state.by_dp_rank.get(rank, 0) + 1
+        handoff = {
+            k: body[k]
+            for k in (
+                "bootstrap_host",
+                "bootstrap_port",
+                "bootstrap_room",
+                "disagg_prefill_dp_rank",
+                "kv_transfer_params",
+            )
+            if k in body
+        }
+        if handoff:
+            state.last_handoff = handoff
+
         if not await _admit():
             return JSONResponse({"error": "fake worker refusing"}, status_code=503)
         prompt_tokens, max_tokens = _parse(body)
@@ -211,9 +242,45 @@ def build_app(cfg: EngineConfig, behaviour: Behaviour, state: State) -> FastAPI:
             f"infera_fake_worker_ready {1 if state.ready else 0}",
             f"infera_fake_worker_draining {1 if state.draining else 0}",
         ]
+        for rank, n in sorted(state.by_dp_rank.items()):
+            lines.append(f'infera_fake_worker_requests_by_dp_rank{{dp_rank="{rank}"}} {n}')
         return PlainTextResponse("\n".join(lines) + "\n")
 
+    @app.get("/debug/routing")
+    async def routing():
+        """What the router actually decided, which is otherwise unobservable.
+
+        A real engine given a malformed PD handoff does not complain -- it hangs
+        on KVPoll until a ~300s timeout, and the failure surfaces nowhere near
+        the router that caused it. This turns that into an assertion.
+        """
+        return {
+            "worker_id": f"{cfg.host}:{cfg.port}",
+            "disagg_mode": cfg.disagg_mode.value,
+            "dp_rank": cfg.dp_rank,
+            "dp_size": cfg.dp_size,
+            "requests_by_dp_rank": state.by_dp_rank,
+            "last_handoff": state.last_handoff,
+        }
+
     return app
+
+
+def _disagg_meta(args) -> dict:
+    """Mirror what a real worker advertises.
+
+    Only PREFILL carries a bootstrap endpoint; DECODE tags the protocol so the
+    router can fail fast on a cross-protocol pairing, and has nothing else to
+    say. Getting this wrong does not fail loudly at registration -- it fails at
+    the first PD request, as a protocol error that reads like a router bug.
+    """
+    if args.disagg_mode == "mixed":
+        return {}
+    params: dict = {}
+    if args.disagg_mode == "prefill":
+        host = args.advertise_host or args.host
+        params["bootstrap_addr"] = f"{host}:{args.bootstrap_port}"
+    return {"protocol": args.pd_protocol, "params": params}
 
 
 def build_config(args) -> EngineConfig:
@@ -234,7 +301,7 @@ def build_config(args) -> EngineConfig:
         port=args.port,
         engine=EngineType(args.engine),
         disagg_mode=DisaggMode(args.disagg_mode),
-        disagg_meta={"protocol": args.pd_protocol} if args.disagg_mode != "mixed" else {},
+        disagg_meta=_disagg_meta(args),
         kv=kv,
         kv_block_size=args.kv_block_size if args.kv else None,
         dp_rank=args.dp_rank,
@@ -259,7 +326,20 @@ def parse_args(argv=None):
     p.add_argument("--port", type=int, default=8080)
     p.add_argument("--engine", default="sglang", choices=[e.value for e in EngineType])
     p.add_argument("--disagg-mode", default="mixed", choices=[m.value for m in DisaggMode])
-    p.add_argument("--pd-protocol", default="sglang_bootstrap")
+    p.add_argument(
+        "--pd-protocol",
+        default="sglang-bootstrap",
+        choices=sorted(_PROTOCOLS),
+        help="must match the router's registry; a decode worker advertising a "
+        "different one is rejected as a protocol mismatch",
+    )
+    p.add_argument(
+        "--bootstrap-port",
+        type=int,
+        default=8998,
+        help="advertised in disagg_meta by a prefill worker. Nothing listens on "
+        "it -- no KV is transferred (see README).",
+    )
     p.add_argument("--dp-rank", type=int, default=None)
     p.add_argument("--dp-size", type=int, default=None)
 
@@ -321,6 +401,19 @@ async def _serve(args) -> None:
         uvicorn.Config(app, host=args.host, port=args.port, log_level="warning")
     )
     serve_task = asyncio.create_task(server.serve())
+
+    # Do not register until the socket is actually bound. uvicorn logs a bind
+    # failure and gives up, but the process keeps running -- so without this
+    # check a port collision produces a worker that is in the pool and serves
+    # nothing. That is a routing black hole, and it is exactly the failure this
+    # tool exists to help find rather than create.
+    for _ in range(100):
+        if server.started or serve_task.done():
+            break
+        await asyncio.sleep(0.05)
+    if not server.started:
+        serve_task.cancel()
+        raise SystemExit(f"failed to bind {args.host}:{args.port} -- not registering")
 
     if args.startup_delay_s > 0:
         logger.info("simulating weight load for %.0fs", args.startup_delay_s)
