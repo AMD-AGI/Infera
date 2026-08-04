@@ -127,6 +127,48 @@ concurrent users. Two constraints:
   registers its own `dp_rank` is a plain endpoint and opts out — its address
   already selects the rank. Both are valid; only the first involves the router.
 
+## Across machines
+
+Nothing about scaling changes when workers live on different hosts — discovery
+is already the coordination point, so a worker on another machine joins the same
+way. Two things do change, and both are configuration rather than mechanism:
+
+**`--advertise-host` must be the node's routable address.** It is the URL peers
+dial, and the single-node habit of leaving it at `127.0.0.1` registers an
+address that resolves to the wrong machine everywhere else. The failure is
+quiet in the worst way: the router *lists* the worker and cannot reach it, so it
+looks like a broken worker rather than a misconfiguration. On Kubernetes, take
+it from the downward API (`POD_IP`).
+
+**Discovery must be reachable from every node.** An etcd bound only to loopback,
+or advertising a loopback client URL, works perfectly on the node running it and
+is invisible from the others.
+
+Checking both before deploying costs nothing:
+
+```bash
+# from each worker node
+curl -s -o /dev/null -w '%{http_code}\n' -X POST http://<etcd-host>:2379/v3/kv/range -d '{"key":"Lw=="}'
+# from the router node, once a worker has registered
+curl -s http://<router>:8000/v1/workers | jq -r '.workers[].url'   # must be dialable
+```
+
+Measured on two nodes (chi2800 / chi2866, one MI355X each, workers advertising
+their own IPs, etcd and router on the first node): both workers registered with
+distinct addresses, 12 requests distributed 7/7 across the machines, and a
+`SIGTERM` to the **remote** worker drained cleanly — its three in-flight
+3000-token generations all completed (13.7–14.4 k characters), it left the fleet
+after 30 s, and 100 requests flowing through the router during the whole
+transition saw **0 failures**.
+
+```{warning}
+This covers workers on separate machines. It does **not** cover a single worker
+*spanning* machines (`numberOfNodes > 1`, LeaderWorkerSet) or PD over RDMA
+between nodes — neither has been exercised here. Note also that on this cluster
+`rdma/hca` is not advertised as an allocatable resource, so a PD deployment
+would need host networking and direct device access rather than a device plugin.
+```
+
 ## Measurements
 
 SGLang 0.5.15 and vLLM 0.1.dev19253, Qwen3-8B, one MI355X per instance, HTTP
