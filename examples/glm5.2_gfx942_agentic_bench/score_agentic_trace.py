@@ -104,8 +104,9 @@ def main(dataset_path: str, details_path: str, n_conv: int, warm: bool, page: in
 
     # Cold: the ideal already excludes the pages no cache could return, so a turn
     # under it lost blocks that were stored and then dropped. Warm: the ideal is
-    # what a perfect L3 would serve, and the gap is mostly prefetch that did not
-    # deliver in time, so calling it eviction would name the wrong cause.
+    # what a perfect L3 would serve, and a gap can equally be a page L3 never held
+    # or one the prefetch never asked for, so calling it eviction would name a
+    # cause this run cannot see. Hence the neutral label below.
     short = [i for i in range(n) if cached[i] < ideal_cached[i]]
     lost = sum(ideal_cached[i] - cached[i] for i in short)
     label = "tokens not served " if warm else "tokens lost to evict"

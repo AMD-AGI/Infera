@@ -267,6 +267,13 @@ python3 -m infera.kvd.statctl --socket /tmp/infera-kvd/kvd.sock
 `hits_total` climbing means it is reading back. Writes alone prove only half the
 path — a decode-leg misconfiguration produces exactly that.
 
+`misses_total` is narrower than it looks, and reading it as "L3 had everything
+asked of it" will mislead you. It counts failed **gets** only, while SGLang gets
+nothing it has not already confirmed with `batch_exists` — and a negative `exists`
+never touches the counter. A run can therefore report `0 misses` while L3 was
+missing most of what the engine looked for. Treat it as "no get raced an eviction",
+and use `cached tokens by tier` for whether L3 actually served anything.
+
 The prefill log should show the wiring and the negotiated zero-copy arena:
 
 ```
@@ -386,22 +393,59 @@ Read it in this order:
 3. **kvd supplied 0.43% of pass 2's hits.** Not because it failed, but because
    pass 2 replays whole conversations: from turn 2 on, each conversation has
    refilled the GPU tier from its own traffic and serves itself.
-4. **On the turns kvd is the only possible source it served 2.8%.** For the 20
-   conversation-opening turns, `device` was 0 — the isolation held — and kvd
-   returned 32,768 of 1,176,384 ideal tokens, in units of exactly 8,192 tokens for
-   4 of the 20. So prefetch stops early rather than kvd missing: the cap is on
-   SGLang's side (`hicache_storage_prefetch_policy` defaults to `timeout`, and
-   `prefetch_rate_limited()` gates on `prefetch_tokens_occupied` against
-   `0.5 × host pool`), and pinning it exactly was not chased here.
+4. **On the turns kvd is the only possible source it served 2.8%, and that figure
+   is not yet explained.** For the 20 conversation-opening turns `device` was 0 —
+   the isolation held — and kvd returned 32,768 of 1,176,384 ideal tokens: exactly
+   8,192 on 4 of the 20, and nothing at all on the other 16.
+
+   8,192 is not an arbitrary number. `STORAGE_BATCH_SIZE = 128`
+   (`mem_cache/hicache_storage.py`) times the 64-token page is exactly 8,192, and
+   `cache_controller._storage_hit_query` walks a prompt's page hashes one 128-page
+   batch at a time, adds `hit_page_num * page_size`, and **breaks at the first
+   batch that is not entirely present** — it never looks at the batches beyond it.
+   The count is then MIN-reduced across the prefetch group. So exactly 8,192 means
+   one full batch present and the next batch's first page absent on at least one
+   rank, and 0 means the very first page was absent there.
+
+   The break itself is correct and not the thing to chase. Prefix reuse needs an
+   unbroken prefix — the radix match and the paged KV layout cannot splice around a
+   hole — so once page 129 is missing, pages 130 and beyond are unusable whether or
+   not they are in L3, and continuing to query them would only cost round trips.
+   What needs explaining is the hole, not the stop.
+
+   Warm replay says that should not happen: pass 2 replays the identical token
+   sequence, so every page hash is one that pass 1 already wrote. Two things could
+   produce it — the pages are genuinely not in L3, or they are but the reader's
+   keys diverge past the first batch — and this run cannot tell them apart, because
+   **`0 misses` is not evidence that L3 held them.** `misses_total` is incremented
+   only on the get path (`infera/kvd/store.py`); a negative `exists` never reaches
+   it, and prefetch only gets what `batch_exists` already confirmed. The counters
+   therefore cannot distinguish "kvd did not have it" from "SGLang did not ask".
+   Settling it needs a direct probe: rebuild one opening turn's page hashes with
+   `get_hash_str` and run EXISTS against L3 by hand. If page 129 is there the bug is
+   on the read side; if it is not, the write-back never covered the turn. Start with
+   the write side — the backup path chunks by the same `STORAGE_BATCH_SIZE`, so "one
+   batch present" is just as cheaply explained by "one batch written". Not done here:
+   the cluster was reclaimed first.
+
+   An earlier version of this section blamed `prefetch_rate_limited()`. That was
+   wrong and is worth recording as a wrong turn: the budget is `0.5 × host pool`,
+   which at 32 GB/rank is ~16 GB against the ~350 MiB a single 8,192-token prefetch
+   occupies, so the limiter is roughly 47× away from binding and never fired.
 
 Pass 2's 39 s / 1.6 s TTFT advantage is **not** evidence for kvd: 0.43% of hits
 cannot pay for it, and a 138-request run varies by more than that.
 
 **So: kvd is validated as functional, not as a win in this configuration.** To make
-it a win, remove the reason it is idle — more concurrent distinct sessions than
-54 GB/rank can hold, a smaller `MEM_FRAC`, or `--hicache-storage-prefetch-policy
-wait_complete` to trade TTFT for prefix reuse. The A/B against `KVD=0` is only
-worth running once one of those is true.
+it a win, remove the reason it is idle: more concurrent distinct sessions than
+54 GB/rank can hold, or a smaller `MEM_FRAC`. The A/B against `KVD=0` is only worth
+running once one of those is true — below the pressure point both arms are served
+by the GPU and there is nothing to compare.
+
+`--hicache-storage-prefetch-policy wait_complete` was on this list as a third
+option, on the theory that prefetch was timing out. Point 4 above retires that
+theory: the shortfall lands on a 128-page batch boundary, which is not a deadline.
+Chase point 4's open question before spending a run on the policy knob.
 
 ### 7.4 High concurrency
 
