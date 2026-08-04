@@ -80,6 +80,12 @@ def exec_rust(args: argparse.Namespace) -> None:
         args.request_transport,
         "--request-max-retries",
         str(args.request_max_retries),
+        "--breaker-failure-threshold",
+        str(args.breaker_failure_threshold),
+        "--breaker-cooldown-s",
+        str(args.breaker_cooldown_s),
+        "--breaker-max-cooldown-s",
+        str(args.breaker_max_cooldown_s),
     ]
     # kv-aware needs the tokenizer + overlap weights, or it degrades to
     # load-only routing (no cache locality). Resolve HF ids to a local path

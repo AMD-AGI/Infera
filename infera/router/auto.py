@@ -38,11 +38,17 @@ class AutoRouter(BaseRouter):
             self.policy,
             nats_client=self.nats_client,
             request_max_retries=self.request_max_retries,
+            # One breaker shared by both sub-routers: otherwise each would build
+            # its own default and the configured thresholds would never reach
+            # them, since AutoRouter is what the server actually constructs.
+            breaker=self.breaker,
         )
         # Pass the NATS request client to the PD router too, so disaggregated
         # (prefill/decode) dispatch uses the per-instance NATS transport when
         # configured (it falls back to HTTP only when nats_client is None).
-        self._disagg = DisaggRouter(self.pool, self.policy, nats_client=self.nats_client)
+        self._disagg = DisaggRouter(
+            self.pool, self.policy, nats_client=self.nats_client, breaker=self.breaker
+        )
 
     async def aclose(self) -> None:
         await self._mixed.aclose()

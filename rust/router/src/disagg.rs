@@ -12,6 +12,7 @@
 //! KVPoll until a ~300s timeout. A detached `tokio::spawn` gives us exactly
 //! that: it outlives the client connection.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use axum::body::{Body, Bytes};
@@ -19,6 +20,7 @@ use axum::http::{header, StatusCode};
 use axum::response::Response;
 use serde_json::{Map, Value};
 
+use crate::breaker::{is_worker_fault, CircuitBreaker};
 use crate::dp;
 use crate::handlers::AppState;
 use crate::policy::{ActiveGuard, Role};
@@ -41,16 +43,21 @@ pub async fn dispatch(
 ) -> Response {
     // role_hint lets a cost-aware policy weight P (cache-heavy: a hit skips a
     // whole prefill pass) differently from D (route by load).
-    let p_pick = state.policy.pick(
-        snap.list_active(model, DisaggMode::Prefill),
-        request,
-        Role::Prefill,
-    );
-    let d_pick = state.policy.pick(
-        snap.list_active(model, DisaggMode::Decode),
-        request,
-        Role::Decode,
-    );
+    // Each pool is filtered against the breaker independently: a wedged prefill
+    // and a wedged decode are different events against different pools, and one
+    // open breaker must not remove the other role's healthy workers.
+    let p_avail = state
+        .breaker
+        .filter(snap.list_active(model, DisaggMode::Prefill), |w| {
+            w.worker_id.as_str()
+        });
+    let d_avail = state
+        .breaker
+        .filter(snap.list_active(model, DisaggMode::Decode), |w| {
+            w.worker_id.as_str()
+        });
+    let p_pick = state.policy.pick(&p_avail, request, Role::Prefill);
+    let d_pick = state.policy.pick(&d_avail, request, Role::Decode);
     let p = p_pick.target;
     let d = d_pick.target;
     // One guard for both legs; dropped when the decode body finishes streaming
@@ -121,7 +128,14 @@ async fn stream_dual(
     d_body: Map<String, Value>,
     guard: ActiveGuard,
 ) -> Response {
-    spawn_prefill_drain(state.http.clone(), p_url, p_body, p.dp_rank);
+    spawn_prefill_drain(
+        state.http.clone(),
+        state.breaker.clone(),
+        p.worker.worker_id.clone(),
+        p_url,
+        p_body,
+        p.dp_rank,
+    );
 
     match open_decode(state, d, &d_url, &d_body).await {
         Ok(resp) => Response::builder()
@@ -167,13 +181,26 @@ async fn unary_dual(
                     st.as_u16()
                 );
             }
+            if is_worker_fault(st.as_u16()) {
+                state.breaker.record_failure(&p.worker.worker_id);
+            } else {
+                state.breaker.record_success(&p.worker.worker_id);
+            }
         }
-        Err(e) => tracing::warn!("prefill {} failed: {e}", p_url),
+        Err(e) => {
+            tracing::warn!("prefill {} failed: {e}", p_url);
+            state.breaker.record_failure(&p.worker.worker_id);
+        }
     }
 
     match d_res {
         Ok(resp) => {
             let st = resp.status();
+            if is_worker_fault(st.as_u16()) {
+                state.breaker.record_failure(&d.worker.worker_id);
+            } else {
+                state.breaker.record_success(&d.worker.worker_id);
+            }
             let ct = content_type(&resp);
             match resp.bytes().await {
                 Ok(bytes) => Response::builder()
@@ -187,10 +214,13 @@ async fn unary_dual(
                 ),
             }
         }
-        Err(e) => json_error(
-            StatusCode::BAD_GATEWAY,
-            &format!("decode {} unreachable: {e}", d.worker.worker_id),
-        ),
+        Err(e) => {
+            state.breaker.record_failure(&d.worker.worker_id);
+            json_error(
+                StatusCode::BAD_GATEWAY,
+                &format!("decode {} unreachable: {e}", d.worker.worker_id),
+            )
+        }
     }
 }
 
@@ -198,6 +228,8 @@ async fn unary_dual(
 /// Never awaited by the request path, so a client disconnect can't cancel it.
 fn spawn_prefill_drain(
     http: reqwest::Client,
+    breaker: Arc<CircuitBreaker>,
+    worker_id: String,
     url: String,
     body: Map<String, Value>,
     dp_rank: Option<i64>,
@@ -217,8 +249,19 @@ fn spawn_prefill_drain(
                         st.as_u16()
                     );
                 }
+                // This leg is detached, so its outcome never reaches the client
+                // — but a prefill that 5xx's still leaves decode hanging on
+                // KVPoll, which is exactly the failure worth remembering.
+                if is_worker_fault(st.as_u16()) {
+                    breaker.record_failure(&worker_id);
+                } else {
+                    breaker.record_success(&worker_id);
+                }
             }
-            Err(e) => tracing::warn!("prefill {url} failed: {e} (decode may hang on KVPoll)"),
+            Err(e) => {
+                tracing::warn!("prefill {url} failed: {e} (decode may hang on KVPoll)");
+                breaker.record_failure(&worker_id);
+            }
         }
     });
 }
@@ -237,6 +280,9 @@ async fn open_decode(
             Ok(resp) => {
                 let st = resp.status();
                 if st.is_client_error() || st.is_server_error() {
+                    if is_worker_fault(st.as_u16()) {
+                        state.breaker.record_failure(&d.worker.worker_id);
+                    }
                     let txt = resp.text().await.unwrap_or_default();
                     return Err(format!(
                         "decode {} error {}: {}",
@@ -245,6 +291,7 @@ async fn open_decode(
                         &txt[..txt.len().min(300)]
                     ));
                 }
+                state.breaker.record_success(&d.worker.worker_id);
                 return Ok(resp);
             }
             Err(e) if attempt < DECODE_OPEN_RETRIES => {
@@ -255,7 +302,12 @@ async fn open_decode(
                 tokio::time::sleep(backoff).await;
                 backoff = (backoff * 2).min(Duration::from_millis(500));
             }
-            Err(e) => return Err(format!("decode {} unreachable: {e}", d.worker.worker_id)),
+            Err(e) => {
+                // Exhausted the in-request retries: this worker is not merely
+                // slow to accept a connection.
+                state.breaker.record_failure(&d.worker.worker_id);
+                return Err(format!("decode {} unreachable: {e}", d.worker.worker_id));
+            }
         }
     }
     unreachable!("loop returns on the final attempt")

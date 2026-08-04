@@ -21,6 +21,7 @@ from infera.kv.snapshot import SnapshotReconciler
 from infera.kv.subscriber import KvEventSubscriberPool
 from infera.kv.writer import KvIndexWriter
 from infera.router.auto import AutoRouter
+from infera.router.breaker import CircuitBreaker
 from infera.router.direct import DirectRouter
 from infera.router.policy.factory import build_policy
 from infera.server.app import init_app
@@ -223,6 +224,13 @@ async def main(args) -> None:
         logger.info("request transport: nats (per-instance subjects)")
 
     # --- Router + FastAPI app ---
+    # Per-worker failure memory, shared by every router this process builds.
+    # DirectRouter never selects, so it holds one but does not consult it.
+    breaker = CircuitBreaker(
+        failure_threshold=args.breaker_failure_threshold,
+        cooldown=args.breaker_cooldown_s,
+        max_cooldown=args.breaker_max_cooldown_s,
+    )
     # router-mode=direct trusts an upstream GAIE EPP's per-request worker
     # selection (x-worker-instance-id header); auto selects in-process.
     if args.router_mode == "direct":
@@ -231,6 +239,7 @@ async def main(args) -> None:
             policy,
             nats_client=nats_request_client,
             request_max_retries=args.request_max_retries,
+            breaker=breaker,
         )
         logger.info("router-mode=direct (honouring GAIE EPP x-worker-instance-id)")
     else:
@@ -239,6 +248,7 @@ async def main(args) -> None:
             policy,
             nats_client=nats_request_client,
             request_max_retries=args.request_max_retries,
+            breaker=breaker,
         )
     app = init_app(
         registry,

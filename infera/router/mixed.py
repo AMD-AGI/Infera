@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from infera.common.nats_request import TYPE_DATA, TYPE_DONE, TYPE_ERROR
 from infera.common.worker_pool import DisaggMode
 from infera.router.base import BaseRouter
+from infera.router.breaker import is_worker_fault
 from infera.router.cache_control import parse_cache_hints
 from infera.router.dp_routing import dp_rank_header
 from infera.router.engine_priority import inject_engine_priority
@@ -82,13 +83,25 @@ class MixedRouter(BaseRouter):
                     for w in self.pool.list_active(model=model, mode=DisaggMode.MIXED)
                     if w.worker_id not in tried
                 ]
+                # Drop workers the breaker has open. Falls back to the unfiltered
+                # list when every candidate is open -- a request served by a
+                # probably-bad worker beats turning a partial outage into a 503.
+                candidates = self.breaker.filter(candidates)
                 if not candidates:
                     break
                 target, blocks = self.policy.pick(candidates, body)
                 tried.add(target.worker.worker_id)
                 try:
-                    return await self._attempt(target, blocks, body, hints, path, stream, obs)
+                    resp = await self._attempt(target, blocks, body, hints, path, stream, obs)
+                    self.breaker.record_success(target.worker.worker_id)
+                    return resp
                 except _Retry as r:
+                    # Pre-first-byte only: _Retry is never raised once bytes have
+                    # been streamed, so a mid-stream failure cannot trip this.
+                    # 4xx is retried but not held against the worker -- see
+                    # is_worker_fault().
+                    if is_worker_fault(getattr(r.response, "status_code", 0)):
+                        self.breaker.record_failure(target.worker.worker_id)
                     last_error = r.response
                     logger.info(
                         "failover: worker %s failed before first byte; %d worker(s) tried",

@@ -21,6 +21,7 @@ use axum::{Json, Router};
 use serde_json::{json, Value};
 
 use infera_router::block_hasher::BlockHasher;
+use infera_router::breaker::CircuitBreaker;
 use infera_router::handlers::{app, AppState};
 use infera_router::kv_event::KvEventClient;
 use infera_router::policy::{KvEventAwarePolicy, RoundRobin};
@@ -106,6 +107,7 @@ fn make_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
         http: proxy::build_upstream_client().unwrap(),
         started: Instant::now(),
         retries,
+        breaker: Arc::new(CircuitBreaker::default()),
     }
 }
 
@@ -199,6 +201,7 @@ fn make_kv_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
         http: proxy::build_upstream_client().unwrap(),
         started: Instant::now(),
         retries,
+        breaker: Arc::new(CircuitBreaker::default()),
     }
 }
 
@@ -285,6 +288,86 @@ async fn mixed_failover_to_healthy_worker() {
     assert_eq!(resp.json::<Value>().await.unwrap()["ok"], true);
     assert_eq!(bad.hit_count(), 1);
     assert_eq!(ok.hit_count(), 1);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn breaker_stops_reselecting_a_dead_worker() {
+    // The regression behind issue #82, end to end through the real router
+    // rather than against the breaker in isolation.
+    //
+    // Failover already made every one of these ten requests succeed, so a test
+    // that only checked status codes passed before the fix and after it. What
+    // was broken is the *cost*: `tried` is per-request, so RoundRobin kept
+    // offering the dead worker its turn -- 5 of 10 requests paid a wasted
+    // upstream round trip. The assertion that matters is bad.hit_count(), which
+    // is 5 without the breaker and 3 with it.
+    let (url_bad, bad) = spawn_mock(500, false, json!(null)).await;
+    let (url_ok, ok) = spawn_mock(200, false, json!({"ok": true})).await;
+    let state = make_state(
+        vec![
+            worker(
+                json!({"worker_id": "bad", "url": url_bad, "model_name": "m", "disagg_mode": "mixed"}),
+            ),
+            worker(
+                json!({"worker_id": "ok", "url": url_ok, "model_name": "m", "disagg_mode": "mixed"}),
+            ),
+        ],
+        1,
+    );
+    let router = spawn_router(state).await;
+
+    for _ in 0..10 {
+        let resp = client()
+            .post(format!("{router}/v1/chat/completions"))
+            .json(&json!({"model": "m"}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(
+            resp.status(),
+            200,
+            "failover must still serve every request"
+        );
+    }
+
+    // Default threshold is 3. RoundRobin offers `bad` on every other request,
+    // so it takes 3 of its turns to trip; after that it is out of rotation and
+    // the 5s cooldown does not elapse within the test.
+    assert_eq!(
+        bad.hit_count(),
+        3,
+        "dead worker must stop being re-picked after the threshold (was 5 before the fix)"
+    );
+    assert_eq!(ok.hit_count(), 10, "healthy worker still serves everything");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn breaker_ignores_client_errors() {
+    // A 400 comes from the request, not the worker: it would be returned by
+    // every worker in the fleet, so counting it would circuit-break all of
+    // them. Ten bad requests must leave the worker in rotation.
+    let (url, w) = spawn_mock(400, false, json!(null)).await;
+    let state = make_state(
+        vec![worker(
+            json!({"worker_id": "w1", "url": url, "model_name": "m", "disagg_mode": "mixed"}),
+        )],
+        0,
+    );
+    let router = spawn_router(state).await;
+
+    for _ in 0..10 {
+        let _ = client()
+            .post(format!("{router}/v1/chat/completions"))
+            .json(&json!({"model": "m"}))
+            .send()
+            .await
+            .unwrap();
+    }
+    assert_eq!(
+        w.hit_count(),
+        10,
+        "4xx must not take a healthy worker out of rotation"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

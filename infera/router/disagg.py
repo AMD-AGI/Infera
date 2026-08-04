@@ -119,6 +119,11 @@ class DisaggRouter(BaseRouter):
             model = body.get("model")
             prefills = self.pool.list_active(model=model, mode=DisaggMode.PREFILL)
             decodes = self.pool.list_active(model=model, mode=DisaggMode.DECODE)
+            # Independently per role: a wedged prefill and a wedged decode are
+            # different events against different pools, and one open breaker
+            # must not remove the other role's healthy workers.
+            prefills = self.breaker.filter(prefills)
+            decodes = self.breaker.filter(decodes)
             if not prefills or not decodes:
                 obs["outcome"] = "503"
                 metrics.pd_bootstrap_failures_total.labels(reason="no_pd_workers").inc()
@@ -341,6 +346,7 @@ class DisaggRouter(BaseRouter):
             except httpx.HTTPError as exc:
                 obs["outcome"] = "502"
                 metrics.pd_bootstrap_failures_total.labels(reason="worker_unreachable").inc()
+                self.breaker.record_failure(p.worker_id)
                 return _sanitized_error("PD request failed", exc, status_code=502)
 
             if p_resp.status_code >= 400:
@@ -547,6 +553,7 @@ class DisaggRouter(BaseRouter):
                     p_failed = True
                     obs["outcome"] = "502"
                     metrics.pd_bootstrap_failures_total.labels(reason="prefill_unreachable").inc()
+                    self.breaker.record_failure(p.worker_id)
                     return _sanitized_error("prefill leg failed", exc, status_code=502)
 
             if p_resp.status_code >= 400:
@@ -632,6 +639,7 @@ class DisaggRouter(BaseRouter):
                 except httpx.HTTPError as exc:
                     obs["outcome"] = "502"
                     metrics.pd_bootstrap_failures_total.labels(reason="decode_unreachable").inc()
+                    self.breaker.record_failure(d.worker_id)
                     return _sanitized_error("decode leg failed", exc, status_code=502)
 
             try:
@@ -677,6 +685,7 @@ class DisaggRouter(BaseRouter):
                     exc or "<no message>",
                 )
                 metrics.pd_bootstrap_failures_total.labels(reason="decode_unreachable").inc()
+                self.breaker.record_failure(d_target.worker.worker_id)
                 err = json.dumps({"error": "decode unreachable"})
                 yield f"data: {err}\n\n".encode()
                 return
@@ -831,6 +840,7 @@ class DisaggRouter(BaseRouter):
                         exc or "<no message>",
                     )
                     metrics.pd_bootstrap_failures_total.labels(reason="decode_unreachable").inc()
+                    self.breaker.record_failure(d_target.worker.worker_id)
                     # json.dumps: exc text may contain chars that break SSE.
                     err = json.dumps({"error": "decode unreachable"})
                     yield f"data: {err}\n\n".encode()

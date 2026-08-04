@@ -208,3 +208,78 @@ async def test_http_unary_failover():
     assert resp.status_code == 200
     assert json.loads(bytes(resp.body))["id"] == "ok-http"
     await r.aclose()
+
+
+# --- circuit breaker: failure memory ACROSS requests (issue #82) ---------------
+
+
+@pytest.mark.asyncio
+async def test_breaker_stops_reselecting_a_dead_worker():
+    """The regression behind issue #82, through the real MixedRouter.
+
+    Failover already made all ten of these requests succeed, so a test that
+    only checked status codes passed both before and after the fix. What was
+    broken is the cost: ``tried`` is per-request, so a worker that is broken
+    for inference but healthy to discovery was re-picked on *every* request and
+    every one of them paid a wasted round trip. ``nats.streamed`` is the
+    assertion that matters.
+    """
+    scripts = {
+        "w1": [(TYPE_ERROR, 502, b"wedged")],
+        "w2": [(TYPE_DATA, None, b"ok"), (TYPE_DONE, 200, b"")],
+    }
+    nats = _FakeNats(scripts)
+    r = _router([_w("w1"), _w("w2")], nats, retries=1)
+    for _ in range(10):
+        resp = await r.dispatch({"model": "m"}, stream=True)
+        assert await _drain_stream(resp) == b"ok", "failover must still serve every request"
+
+    # _FakePolicy always picks candidates[0], so w1 is offered every request
+    # until the breaker (threshold 3) takes it out; its 5s cooldown does not
+    # elapse during the test.
+    assert nats.streamed.count("w1") == 3, (
+        f"w1 dispatched {nats.streamed.count('w1')} times; expected 3 "
+        "(it was 10 before the breaker existed)"
+    )
+    assert nats.streamed.count("w2") == 10
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_breaker_ignores_client_errors():
+    """A 400 is the request's fault, and every worker would return it. Counting
+    it would circuit-break an entirely healthy fleet on one bad client."""
+    nats = _FakeNats({"w1": [(TYPE_ERROR, 400, b"bad request")]})
+    r = _router([_w("w1")], nats, retries=0)
+    for _ in range(10):
+        await r.dispatch({"model": "m"}, stream=True)
+    assert nats.streamed.count("w1") == 10, "4xx must not take a healthy worker out of rotation"
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_breaker_recovers_after_cooldown():
+    """A worker that comes back must be picked up again, not stay excluded."""
+    scripts = {
+        "w1": [(TYPE_ERROR, 502, b"wedged")],
+        "w2": [(TYPE_DATA, None, b"ok"), (TYPE_DONE, 200, b"")],
+    }
+    nats = _FakeNats(scripts)
+    r = _router([_w("w1"), _w("w2")], nats, retries=1)
+
+    clock = [1000.0]
+    r.breaker.now = lambda: clock[0]
+
+    for _ in range(3):
+        await _drain_stream(await r.dispatch({"model": "m"}, stream=True))
+    assert nats.streamed.count("w1") == 3  # tripped
+
+    await _drain_stream(await r.dispatch({"model": "m"}, stream=True))
+    assert nats.streamed.count("w1") == 3, "still open during the cooldown"
+
+    scripts["w1"] = [(TYPE_DATA, None, b"back"), (TYPE_DONE, 200, b"")]
+    clock[0] += 5.1
+    body = await _drain_stream(await r.dispatch({"model": "m"}, stream=True))
+    assert body == b"back", "the half-open probe must reach the recovered worker"
+    assert r.breaker.state_of("w1").value == "closed"
+    await r.aclose()

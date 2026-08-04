@@ -7,12 +7,13 @@
 //! crate (see `lib.rs`); this just wires config → discovery → server.
 
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use arc_swap::ArcSwap;
 use tracing_subscriber::EnvFilter;
 
 use infera_router::block_hasher::BlockHasher;
+use infera_router::breaker;
 use infera_router::config::Config;
 use infera_router::handlers::{app, AppState};
 use infera_router::kv_event::KvEventClient;
@@ -69,6 +70,11 @@ async fn main() -> anyhow::Result<()> {
         http: proxy::build_upstream_client()?,
         started: Instant::now(),
         retries: cfg.request_max_retries,
+        breaker: Arc::new(breaker::CircuitBreaker::new(
+            cfg.breaker_failure_threshold,
+            Duration::from_secs_f64(cfg.breaker_cooldown_s),
+            Duration::from_secs_f64(cfg.breaker_max_cooldown_s),
+        )),
     };
 
     let addr = format!("{}:{}", cfg.host, cfg.port);
