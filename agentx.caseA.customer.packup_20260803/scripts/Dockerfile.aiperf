@@ -1,0 +1,15 @@
+FROM python:3.13-slim-bookworm
+
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends git ca-certificates curl build-essential \
+ && rm -rf /var/lib/apt/lists/*
+
+ARG BRANCH
+RUN pip install --no-cache-dir "git+https://github.com/SemiAnalysisAI/aiperf.git@${BRANCH}"
+
+# Pre-cache the tiktoken encoding so a run never needs the network for it.
+ENV TIKTOKEN_CACHE_DIR=/opt/tiktoken_cache
+RUN mkdir -p /opt/tiktoken_cache \
+ && python -c "import tiktoken; tiktoken.get_encoding('o200k_base')"
+
+ENTRYPOINT ["aiperf"]
