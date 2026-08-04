@@ -1,0 +1,10 @@
+chi2835 sysctl change 2026-08-04T04:33:59Z
+  net.ipv4.ip_local_port_range: 1024 65535  ->  32768 60999  (kernel default)
+  reason: only chi2835 deviated; chi2879/chi2867/chi2872 all read 32768 60999.
+          With low=1024 there is no room below the ephemeral range, so
+          free_tcp_port_block() must scan INSIDE it, where the kernel can hand
+          the same port to any bind(("",0)) between our probe releasing it and
+          the engine binding it -- measured: base 37059, DP7 died on 37066.
+  scope:  runtime only. No file under /etc/sysctl.conf or /etc/sysctl.d/ sets
+          this, so a node reboot restores 1024 65535.
+  revert: sysctl -w net.ipv4.ip_local_port_range="1024 65535"

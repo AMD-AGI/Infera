@@ -1,0 +1,88 @@
+diff --git a/tests/unit/common/test_net_port_block.py b/tests/unit/common/test_net_port_block.py
+index 21ca43a..b4f4082 100644
+--- a/tests/unit/common/test_net_port_block.py
++++ b/tests/unit/common/test_net_port_block.py
+@@ -20,6 +20,15 @@ individual port passes a bind probe:
+    *peer* dialing the advertised node IP breaks, which is exactly the router
+    subscribing to a worker's kv-events.
+ 
++3. **No room below the ephemeral range.** The candidate window was hardcoded to
++   ``[1024, low - count]``. On a host whose ``ip_local_port_range`` *starts* at
++   1024 — the entire port space is ephemeral — that window is empty and
++   ``random.randint(1024, low - count)`` raised
++   ``ValueError: empty range for randrange() (1024, 1017, -7)`` before any bind
++   was attempted. Only ``dp_size > 1`` reaches this code (``count <= 1``
++   delegates to ``free_tcp_port``), so a DP-attention leg died at startup on a
++   node where the same image ran fine with DP-attention off.
++
+ Both guards live in one scan, so they are tested together: a base must be both
+ spread out and outside the reserved window.
+ """
+@@ -61,11 +70,19 @@ def test_block_ports_are_free_and_contiguous() -> None:
+ 
+ 
+ def test_block_sits_below_the_ephemeral_range() -> None:
+-    """A base inside the ephemeral range could be handed out by bind(("", 0))."""
++    """A base inside the ephemeral range could be handed out by bind(("", 0)).
++
++    Only asserted when there IS room below the range. A host whose ephemeral
++    range starts at 1024 has no such room at all; see
++    ``test_block_when_whole_port_space_is_ephemeral``.
++    """
++    low = _ephemeral_low()
+     count = 4
++    if low - count < 1024:
++        pytest.skip(f"no room below the ephemeral range (starts at {low})")
+     base = free_tcp_port_block(count)
+     assert 1024 <= base
+-    assert base + count - 1 < _ephemeral_low()
++    assert base + count - 1 < low
+ 
+ 
+ def test_repeated_calls_do_not_all_collide() -> None:
+@@ -109,3 +126,45 @@ def test_malformed_range_keeps_the_default(monkeypatch) -> None:
+     # A typo must not silently drop the guard.
+     monkeypatch.setenv("INFERA_NODEPORT_RANGE", "not-a-range")
+     assert _reserved_nodeport_range() == (_DEFAULT_LO, _DEFAULT_HI)
++
++
++@pytest.mark.parametrize("count", [2, 8, 16])
++def test_block_when_whole_port_space_is_ephemeral(monkeypatch, tmp_path, count) -> None:
++    """``ip_local_port_range`` starting at 1024 leaves no room below it.
++
++    Measured on a live node (chi2835: ``1024   65535``), where a prefill leg
++    with ``--dp-size 8 --enable-dp-attention`` died before spawning sglang:
++
++        File "infera/common/net.py", line 107, in free_tcp_port_block
++          randomised = [random.randint(1024, highest) ...]
++        ValueError: empty range for randrange() (1024, 1017, -7)
++
++    The block must come from somewhere valid instead of raising. It cannot sit
++    below the ephemeral range because there is nothing below it, so the only
++    requirements left are: in range, contiguous, bindable, and outside the
++    NodePort window.
++    """
++    fake = tmp_path / "ip_local_port_range"
++    fake.write_text("1024\t65535\n")
++    real_open = open
++
++    def fake_open(path, *a, **kw):
++        if str(path) == "/proc/sys/net/ipv4/ip_local_port_range":
++            return real_open(fake, *a, **kw)
++        return real_open(path, *a, **kw)
++
++    monkeypatch.setattr("builtins.open", fake_open)
++
++    base = free_tcp_port_block(count)
++    assert 1024 <= base and base + count - 1 <= 65535
++    assert not _overlaps(base, count, _DEFAULT_LO, _DEFAULT_HI)
++
++    socks = []
++    try:
++        for off in range(count):
++            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
++            s.bind(("127.0.0.1", base + off))
++            socks.append(s)
++    finally:
++        for s in socks:
++            s.close()

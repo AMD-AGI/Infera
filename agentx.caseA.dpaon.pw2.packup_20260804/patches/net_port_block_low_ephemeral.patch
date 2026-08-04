@@ -1,0 +1,60 @@
+diff --git a/infera/common/net.py b/infera/common/net.py
+index 346bfc7..a7cf37d 100644
+--- a/infera/common/net.py
++++ b/infera/common/net.py
+@@ -92,20 +92,47 @@ def free_tcp_port_block(count: int) -> int:
+ 
+     The scan also skips the Kubernetes NodePort range, which a loopback bind
+     probe cannot rule out on its own.
++
++    **When there is nothing below the ephemeral range**, that preference is
++    unsatisfiable and we scan the top of the range instead. Some hosts set
++    ``ip_local_port_range`` to ``1024 65535`` — the whole port space is
++    ephemeral — and the window ``[1024, low - count]`` is then empty. This used
++    to raise ``ValueError: empty range for randrange()`` out of ``randint``
++    before a single bind was attempted, so a leg with ``dp_size > 1`` could not
++    start at all on such a node while ``dp_size == 1`` (which never reaches
++    here) was fine. A high base is weaker than a low one — the kernel can hand
++    the same port to a ``bind(("", 0))`` caller in the window between our probe
++    releasing it and the engine binding it — but a weaker block that works
++    beats a correct block that does not exist.
+     """
+     if count <= 1:
+         return free_tcp_port()
+     try:
+-        low = int(open("/proc/sys/net/ipv4/ip_local_port_range").read().split()[0])
++        low, high = (
++            int(x) for x in open("/proc/sys/net/ipv4/ip_local_port_range").read().split()[:2]
++        )
+     except (OSError, ValueError, IndexError):
+-        low = 32768
++        low, high = 32768, 60999
+     reserved = _reserved_nodeport_range()
+-    # Candidate window: [1024, low - count]. Probe randomly-chosen bases first,
+-    # then fall back to an exhaustive downward scan so we never fail while a
+-    # block is still available.
+-    highest = low - count
+-    randomised = [random.randint(1024, highest) for _ in range(_PORT_BLOCK_TRIES)]
+-    for base in itertools.chain(randomised, range(highest, 1024, -1)):
++    # Preferred candidate window: [1024, low - count], i.e. below the ephemeral
++    # range. Falls back to the top of the ephemeral range when that window is
++    # empty. Probe randomly-chosen bases first, then an exhaustive downward scan
++    # so we never fail while a block is still available.
++    lowest, highest = 1024, low - count
++    if highest < lowest:
++        lowest, highest = max(1024, low), high - count + 1
++        logger.warning(
++            "ip_local_port_range starts at %d, leaving no room below it for a "
++            "%d-port block; scanning %d..%d inside the ephemeral range instead",
++            low,
++            count,
++            lowest,
++            highest,
++        )
++    if highest < lowest:
++        raise RuntimeError(f"could not find {count} contiguous free TCP ports")
++    randomised = [random.randint(lowest, highest) for _ in range(_PORT_BLOCK_TRIES)]
++    for base in itertools.chain(randomised, range(highest, lowest - 1, -1)):
+         # A block inside the NodePort range binds and answers on loopback here,
+         # so only skipping it up front keeps it out of the advertised endpoint.
+         if reserved and base + count - 1 >= reserved[0] and base <= reserved[1]:

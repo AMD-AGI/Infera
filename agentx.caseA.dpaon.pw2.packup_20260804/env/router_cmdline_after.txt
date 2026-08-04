@@ -1,0 +1,1 @@
+/usr/local/bin/infera-router --host 0.0.0.0 --port 8100 --etcd-endpoint 10.2.122.78:2379 --etcd-prefix /infera/workers/ --router-policy round-robin --discovery-backend etcd --request-transport http --request-max-retries 1
