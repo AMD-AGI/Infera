@@ -166,6 +166,14 @@ declaring `--drain-timeout 300` still received `terminationGracePeriodSeconds:
 120`, i.e. 365 s of budget granted 120.
 ```
 
+Measured on a live k3s cluster, workers registering by Pod annotation and a real
+infera server watching them: `kubectl delete pod` took the worker out of routing
+in **93 ms**, against a 15 000 ms `preStop` delay — the whole point of reading
+`deletionTimestamp`, since the alternatives (the `DELETE` event, or `phase`
+leaving `Running`) only fire after the container has already exited. A
+300-chunk generation in flight on that Pod completed in full while it drained,
+and its replacement had registered before the drain finished.
+
 If you set the grace period yourself it is respected as long as it is **larger**
 than the derived value; it is only ever raised, never lowered.
 
