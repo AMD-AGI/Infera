@@ -289,12 +289,14 @@ def test_producer_empty_snapshot_for_unknown_stream() -> None:
 # ----------------------------------------------------------------------
 
 
-async def _make_reconciler(pull_fn) -> tuple[KVIndex, KvIndexWriter, SnapshotReconciler]:
+async def _make_reconciler(
+    pull_fn, interval_s: float = 10_000
+) -> tuple[KVIndex, KvIndexWriter, SnapshotReconciler]:
     index = KVIndex()
     queue: asyncio.Queue = asyncio.Queue(maxsize=100)
     writer = KvIndexWriter(index=index, queue=queue)
     await writer.start()
-    rec = SnapshotReconciler(index=index, writer=writer, pull_fn=pull_fn, interval_s=10_000)
+    rec = SnapshotReconciler(index=index, writer=writer, pull_fn=pull_fn, interval_s=interval_s)
     return index, writer, rec
 
 
@@ -685,3 +687,112 @@ def test_index_drop_tree() -> None:
     matches_b = index.find_matches(model="m", compat_key="ckB", chain=[chain[0]], candidates=["w1"])
     assert matches_a["w1"] == OverlapBlocks()
     assert matches_b["w1"].device == 1
+
+
+async def test_target_registered_while_running_is_not_left_for_a_whole_interval() -> None:
+    """A worker that joins after the reconciler is already running must have its
+    snapshot pulled promptly, not on the next periodic tick.
+
+    This is the router-restart / rolling-upgrade case, and it is where the delay
+    actually costs something. A *newly started* worker has an empty cache, so an
+    empty routing view of it is correct. But when the router restarts, every
+    existing worker arrives through the same path with a cache that is genuinely
+    warm -- and until its snapshot lands, kv-aware routing scores all of them as
+    holding nothing.
+
+    The loop sits in `wait_for(self._kick.wait(), timeout=interval_s)`, so a
+    registration that does not set the kick waits out the full interval (30 s in
+    production).
+    """
+    chain = hash_token_blocks(list(range(4)), block_size=4)
+    snap = Snapshot(
+        publisher_id="w-late",
+        publisher_type="worker",
+        model_name="m",
+        compat_key="ck",
+        index_block_size=4,
+        batch_id=0,
+        blocks=(
+            SnapshotBlock(
+                sequence_hash=chain[0].sequence_hash,
+                parent_sequence_hash=None,
+                block_hash=chain[0].block_hash,
+                tiers=("device",),
+            ),
+        ),
+    )
+    pulled: list[str] = []
+
+    async def pull_fn(publisher_id, *args, **kwargs):
+        pulled.append(publisher_id)
+        return snap
+
+    # A long interval stands in for production's 30 s: if registration relies on
+    # the periodic tick, this test waits for it and fails on the assertion.
+    index, writer, rec = await _make_reconciler(pull_fn, interval_s=5.0)
+    try:
+        await rec.start()
+        await asyncio.sleep(0.05)
+        pulled.clear()
+
+        rec.register_target(publisher_id="w-late", endpoint="ignored", model="m", compat_key="ck")
+        await asyncio.sleep(0.3)
+        assert "w-late" in pulled, (
+            "a worker registered while the reconciler was running was not pulled "
+            "within 0.3s; it is waiting out the periodic interval"
+        )
+    finally:
+        await rec.stop()
+        await writer.stop()
+
+
+async def test_reregistering_a_known_target_does_not_re_pull() -> None:
+    """Registration is re-asserted routinely -- the Kubernetes backend rewrites
+    its Pod annotation every 30 s, and etcd watch redelivers on relist. Kicking
+    on every one of those would turn a self-heal into a snapshot stampede
+    proportional to fleet size.
+    """
+    chain = hash_token_blocks(list(range(4)), block_size=4)
+    snap = Snapshot(
+        publisher_id="w1",
+        publisher_type="worker",
+        model_name="m",
+        compat_key="ck",
+        index_block_size=4,
+        batch_id=0,
+        blocks=(
+            SnapshotBlock(
+                sequence_hash=chain[0].sequence_hash,
+                parent_sequence_hash=None,
+                block_hash=chain[0].block_hash,
+                tiers=("device",),
+            ),
+        ),
+    )
+    pulls = 0
+
+    async def pull_fn(*args, **kwargs):
+        nonlocal pulls
+        pulls += 1
+        return snap
+
+    index, writer, rec = await _make_reconciler(pull_fn, interval_s=5.0)
+    try:
+        await rec.start()
+        await asyncio.sleep(0.05)
+        kw = dict(publisher_id="w1", endpoint="ignored", model="m", compat_key="ck")
+        rec.register_target(**kw)
+        await asyncio.sleep(0.2)
+        after_first = pulls
+        assert after_first > 0, "the first registration must pull"
+
+        for _ in range(5):
+            rec.register_target(**kw)
+        await asyncio.sleep(0.2)
+        assert pulls == after_first, (
+            f"re-registering pulled {pulls - after_first} more time(s); "
+            "only a new target should kick"
+        )
+    finally:
+        await rec.stop()
+        await writer.stop()
