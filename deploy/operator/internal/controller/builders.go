@@ -152,6 +152,21 @@ func replicasOf(svc inferav1alpha1.ServiceSpec) int32 {
 	return 1
 }
 
+// effectiveReplicas is the count to write onto the workload: the scaling
+// adapter's if one owns this service, otherwise the CR's own.
+//
+// Routing the adapter through here rather than letting it write the workload
+// directly keeps a single writer. The reconciler already assigns the whole
+// child `.Spec` on every pass, so a second writer would simply be reverted --
+// which is exactly what happens today to anyone pointing an HPA at the child
+// Deployment.
+func effectiveReplicas(svc inferav1alpha1.ServiceSpec, svcName string, overrides map[string]int32) int32 {
+	if n, ok := overrides[svcName]; ok {
+		return n
+	}
+	return replicasOf(svc)
+}
+
 // containerCommand builds the infera entrypoint + operator-injected flags,
 // then appends the user's free-form Args (model-path, tokenizer, tp-size, ...).
 func containerCommand(idep *inferav1alpha1.InferaDeployment, svc inferav1alpha1.ServiceSpec) []string {
@@ -415,8 +430,8 @@ func podTemplate(idep *inferav1alpha1.InferaDeployment, svcName string, svc infe
 	return tmpl
 }
 
-func buildDeployment(idep *inferav1alpha1.InferaDeployment, svcName string, svc inferav1alpha1.ServiceSpec) *appsv1.Deployment {
-	reps := replicasOf(svc)
+func buildDeployment(idep *inferav1alpha1.InferaDeployment, svcName string, svc inferav1alpha1.ServiceSpec, overrides map[string]int32) *appsv1.Deployment {
+	reps := effectiveReplicas(svc, svcName, overrides)
 	lbls := labelsFor(idep.Name, svcName)
 	// Worker services use surge-free RollingUpdate (maxSurge=0, maxUnavailable=1):
 	// the default RollingUpdate brings up a surge pod first, which on a
@@ -455,8 +470,8 @@ func buildDeployment(idep *inferav1alpha1.InferaDeployment, svcName string, svc 
 // buildLeaderWorkerSet returns an unstructured LeaderWorkerSet so the operator
 // does not take a compile-time dependency on the LWS Go module (keeps Infera
 // self-contained; the LWS CRD must be installed in the cluster).
-func buildLeaderWorkerSet(idep *inferav1alpha1.InferaDeployment, svcName string, svc inferav1alpha1.ServiceSpec) *unstructured.Unstructured {
-	reps := replicasOf(svc)
+func buildLeaderWorkerSet(idep *inferav1alpha1.InferaDeployment, svcName string, svc inferav1alpha1.ServiceSpec, overrides map[string]int32) *unstructured.Unstructured {
+	reps := effectiveReplicas(svc, svcName, overrides)
 	lbls := labelsFor(idep.Name, svcName)
 	tmpl := podTemplate(idep, svcName, svc)
 	// Convert the typed PodTemplateSpec to a map for embedding.

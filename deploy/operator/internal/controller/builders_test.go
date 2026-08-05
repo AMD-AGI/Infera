@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+
+	inferav1alpha1 "github.com/amd/infera/deploy/operator/api/v1alpha1"
 )
 
 // The grace period is the only thing standing between a graceful drain and a
@@ -95,5 +97,33 @@ func TestGraceReadsDrainTimeoutFromTheContainerToo(t *testing.T) {
 	want := int64(workerPreStopDrainSeconds + 240 + workerTeardownHeadroomSeconds)
 	if *spec.TerminationGracePeriodSeconds != want {
 		t.Fatalf("grace = %d, want %d", *spec.TerminationGracePeriodSeconds, want)
+	}
+}
+
+// An adapter owns its service's replica count; everything else keeps using the
+// CR's. Getting this wrong in either direction is bad: ignoring the adapter
+// makes `/scale` a no-op, and applying it too broadly makes a single autoscaler
+// silently resize pools nobody pointed it at.
+func TestEffectiveReplicas(t *testing.T) {
+	three := int32(3)
+	svc := inferav1alpha1.ServiceSpec{Replicas: &three}
+
+	if got := effectiveReplicas(svc, "worker", nil); got != 3 {
+		t.Fatalf("no adapters: got %d, want the CR's 3", got)
+	}
+	if got := effectiveReplicas(svc, "worker", map[string]int32{"worker": 7}); got != 7 {
+		t.Fatalf("adapter present: got %d, want 7", got)
+	}
+	if got := effectiveReplicas(svc, "worker", map[string]int32{"prefill": 7}); got != 3 {
+		t.Fatalf("adapter for another service: got %d, want the CR's 3", got)
+	}
+	// Zero is a legitimate target, not "unset" -- an autoscaler scaling a pool
+	// to zero must not silently fall back to the CR's count.
+	if got := effectiveReplicas(svc, "worker", map[string]int32{"worker": 0}); got != 0 {
+		t.Fatalf("adapter asking for 0: got %d, want 0", got)
+	}
+	// The CR default when it says nothing either.
+	if got := effectiveReplicas(inferav1alpha1.ServiceSpec{}, "worker", nil); got != 1 {
+		t.Fatalf("nothing set anywhere: got %d, want the default 1", got)
 	}
 }

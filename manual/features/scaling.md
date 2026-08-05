@@ -361,18 +361,66 @@ path has not been exercised on hardware.
 
 ## Autoscaling
 
-Infera does not ship an autoscaler, and an external one cannot currently drive
-an `InferaDeployment`: the operator reconciles `replicas` from the CR on every
-pass, so a `HorizontalPodAutoscaler` writing to the child Deployment is reverted
-within seconds. Scaling today is a deliberate act — `kubectl scale` on the CR,
-or starting and stopping workers.
+Infera ships no autoscaler. It does ship the standard interface one drives.
 
-The mechanics an autoscaler would need are in place: workers join and leave
-cleanly under load, and the signals worth scaling on
-(`vllm:num_requests_waiting`, `sglang:num_queue_reqs`, KV cache utilisation) are
-exposed by the engines and read by the drain path already.
+### The `/scale` subresource
 
-The unsolved part is not the plumbing. It is that a **140-second cold start sits
-inside a control loop that ticks every 15 seconds**, and that nothing in
-Kubernetes lets a scaler choose *which* replica to remove — so the one holding
-the warmest KV cache is as likely to go as any other.
+An `InferaDeployment` cannot carry `/scale` itself, and that is a property of
+its shape rather than a missing feature: `spec.services` is a map with
+user-chosen keys, while the scale subresource requires `specReplicasPath` to be
+a *static* dot-notation JSONPath. There is no way to name "the replicas of an
+arbitrary map entry".
+
+So scaling gets its own object — one `InferaScalingAdapter` per scalable
+service:
+
+```yaml
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaScalingAdapter
+metadata: {name: qwen-decode, namespace: infera}
+spec:
+  deploymentRef: qwen          # the InferaDeployment
+  serviceName: decode         # a key in its spec.services
+  replicas: 2
+```
+
+```bash
+kubectl scale inferascalingadapter/qwen-decode --replicas=5
+```
+
+That is the whole integration. `kubectl scale`, `HorizontalPodAutoscaler`, KEDA
+and a custom planner all work through it with no per-tool support in the
+operator — a `scaleTargetRef` of kind `InferaScalingAdapter` is all an HPA
+needs.
+
+**One writer, always.** While an adapter has `spec.replicas` set it owns that
+service's count: the InferaDeployment reconciler reads the adapter instead of
+the CR's own `replicas`. Clearing `spec.replicas`, or deleting the adapter, hands
+control back. Creating an adapter without `spec.replicas` is deliberately inert,
+so an autoscaler can be attached and watched before it is trusted.
+
+This matters because the reconciler assigns the whole child `.Spec` on every
+pass. Anything else writing that Deployment loses — which is exactly what
+happens to an HPA pointed straight at it: **measured, a `kubectl scale` to 3 was
+reverted to 1 in under 3 seconds.** Going through the adapter is not a
+convention, it is the only thing that survives.
+
+`status.replicas` reports what the workload *observes*, not the desired count
+echoed back. An autoscaler computes `desired = ceil(current × metric/target)`;
+if `current` were the number it just asked for, it could not tell a scale-up had
+not landed and would keep multiplying through a 140-second model load.
+
+### What is still missing
+
+The plumbing is not the hard part. Two things are:
+
+- **A 140-second cold start sits inside a control loop that ticks every 15
+  seconds.** A burst shorter than the cold start cannot be answered by adding
+  workers at all.
+- **Nothing in Kubernetes lets a scaler choose *which* replica to remove**, so
+  the one holding the warmest KV cache is as likely to go as any other. Upstream
+  has declined to fix this (k8s#123541, closed as not planned).
+
+The signals worth scaling on (`vllm:num_requests_waiting`,
+`sglang:num_queue_reqs`, KV utilisation) are exposed by the engines and already
+read by the drain path, but nothing polls them continuously yet.

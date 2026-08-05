@@ -1,0 +1,207 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.1
+  name: inferascalingadapters.infera.amd.com
+spec:
+  group: infera.amd.com
+  names:
+    kind: InferaScalingAdapter
+    listKind: InferaScalingAdapterList
+    plural: inferascalingadapters
+    shortNames:
+    - isa
+    singular: inferascalingadapter
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.deploymentRef
+      name: Target
+      type: string
+    - jsonPath: .spec.serviceName
+      name: Service
+      type: string
+    - jsonPath: .spec.replicas
+      name: Desired
+      type: integer
+    - jsonPath: .status.replicas
+      name: Current
+      type: integer
+    - jsonPath: .status.readyReplicas
+      name: Ready
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          InferaScalingAdapter gives one service of an InferaDeployment a standard
+          Kubernetes `/scale` subresource.
+
+          An InferaDeployment cannot carry `/scale` itself, and this is a property of
+          its shape rather than a missing feature: `spec.services` is a map with
+          user-chosen keys, while the scale subresource requires `specReplicasPath` to
+          be a *static* dot-notation JSONPath under `.spec`. There is no way to write
+          "the replicas of an arbitrary map entry".
+
+          So scaling gets its own object, one per scalable service. That makes
+          `kubectl scale`, HorizontalPodAutoscaler, KEDA and a custom planner all work
+          through the same standard interface, with no per-tool support in this
+          operator.
+
+          While an adapter exists with `spec.replicas` set, it is the single writer of
+          that service's replica count: the InferaDeployment reconciler reads the
+          adapter instead of the CR's own `replicas`, so the two cannot fight. Delete
+          the adapter, or clear `spec.replicas`, and the CR is back in charge.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              InferaScalingAdapterSpec points at one service inside an InferaDeployment and
+              owns its replica count.
+            properties:
+              deploymentRef:
+                description: DeploymentRef is the InferaDeployment to scale, in this
+                  namespace.
+                minLength: 1
+                type: string
+              replicas:
+                description: |-
+                  Replicas is the desired count, and the field `/scale` writes.
+
+                  Left unset the adapter is inert: the InferaDeployment's own
+                  `spec.services[<name>].replicas` still applies. That makes adding an
+                  adapter a safe no-op until something actually scales, so an autoscaler
+                  can be attached and observed before it is trusted.
+                format: int32
+                minimum: 0
+                type: integer
+              serviceName:
+                description: ServiceName is the key in that deployment's `spec.services`
+                  map.
+                minLength: 1
+                type: string
+            required:
+            - deploymentRef
+            - serviceName
+            type: object
+          status:
+            description: InferaScalingAdapterStatus carries what `/scale` reads back.
+            properties:
+              conditions:
+                description: |-
+                  Conditions carries `Ready` (the target resolves and is being driven) and
+                  `Degraded` (it does not).
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              observedGeneration:
+                description: ObservedGeneration is the adapter generation this status
+                  reflects.
+                format: int64
+                type: integer
+              readyReplicas:
+                description: ReadyReplicas is how many of those are actually serving.
+                format: int32
+                type: integer
+              replicas:
+                description: |-
+                  Replicas is the count observed on the workload -- not the desired count
+                  echoed back.
+
+                  The distinction is the whole reason this field exists. HorizontalPodAutoscaler
+                  computes `desired = ceil(current * metric/target)`; if `current` is really
+                  the desired value it never lags reality, so during a multi-minute model load
+                  the autoscaler cannot tell that a scale-up has not landed yet and keeps
+                  multiplying.
+                format: int32
+                type: integer
+              selector:
+                description: |-
+                  Selector is a serialized label selector matching the scaled pods.
+                  HorizontalPodAutoscaler requires this to be a *string*, not a structured
+                  selector, and refuses to scale a resource whose scale subresource does not
+                  provide one.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      scale:
+        labelSelectorPath: .status.selector
+        specReplicasPath: .spec.replicas
+        statusReplicasPath: .status.replicas
+      status: {}

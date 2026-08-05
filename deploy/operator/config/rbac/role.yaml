@@ -52,6 +52,35 @@ rules:
   - update
   - watch
 - apiGroups:
+  - infera.amd.com
+  resources:
+  - inferadeployments
+  - inferascalingadapters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - infera.amd.com
+  resources:
+  - inferadeployments/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - infera.amd.com
+  resources:
+  - inferadeployments/status
+  - inferascalingadapters/scale
+  - inferascalingadapters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - inference.networking.k8s.io
   resources:
   - inferencepools
@@ -88,29 +117,3 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - infera.amd.com
-  resources:
-  - inferadeployments
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - infera.amd.com
-  resources:
-  - inferadeployments/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - infera.amd.com
-  resources:
-  - inferadeployments/status
-  verbs:
-  - get
-  - patch
-  - update

@@ -55,6 +55,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&controller.InferaScalingAdapterReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "InferaScalingAdapter")
+		os.Exit(1)
+	}
+
 	if err := (&controller.InferaDeploymentReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
