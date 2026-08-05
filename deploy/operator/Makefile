@@ -3,7 +3,7 @@
 #   make docker-build docker-push IMG=docker.io/inferaimage/infera:0.1.0
 # The manager ships as a tag of the shared rocm/infera repo, matching the
 # engine images (sglang-v0.1.1, server-v0.1.1, ...).
-IMG ?= docker.io/rocm/infera:operator-v0.1.3
+IMG ?= docker.io/rocm/infera:operator-v0.1.0
 # OCI registry namespace the packaged Helm chart is pushed to (chart repo name
 # comes from Chart.yaml: infera-operator).
 CHART_REGISTRY ?= oci://docker.io/rocm
