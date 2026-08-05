@@ -306,7 +306,7 @@ def build_config(args) -> EngineConfig:
         kv_block_size=args.kv_block_size if args.kv else None,
         dp_rank=args.dp_rank,
         dp_size=args.dp_size,
-        request_transport="http",
+        request_transport=args.request_transport,
     )
 
 
@@ -378,6 +378,16 @@ def parse_args(argv=None):
         help="refuse the first N requests with 503, then recover -- exercises "
         "the router's circuit breaker and its half-open probe.",
     )
+    p.add_argument(
+        "--request-transport",
+        default="http",
+        choices=["http", "nats"],
+        help="nats routes requests through a broker instead of the router "
+        "dialling this worker directly. Uses the real NatsRequestServer, which "
+        "proxies to this process's own HTTP surface exactly as it proxies to a "
+        "real engine -- so the transport under test is the production one.",
+    )
+    p.add_argument("--nats-server", default=os.environ.get("NATS_SERVER"))
     p.add_argument("--drain-timeout", type=float, default=30.0)
     return p.parse_args(argv)
 
@@ -414,6 +424,16 @@ async def _serve(args) -> None:
     if not server.started:
         serve_task.cancel()
         raise SystemExit(f"failed to bind {args.host}:{args.port} -- not registering")
+
+    nats_req_server = None
+    if args.request_transport == "nats":
+        from infera.common.nats_request import NatsRequestServer
+
+        nats_req_server = NatsRequestServer(
+            f"{cfg.host}:{cfg.port}", args.port, url=args.nats_server
+        )
+        await nats_req_server.start()
+        logger.info("nats request consumer started for %s:%s", cfg.host, cfg.port)
 
     if args.startup_delay_s > 0:
         logger.info("simulating weight load for %.0fs", args.startup_delay_s)
@@ -457,6 +477,12 @@ async def _serve(args) -> None:
             await reg.announce_draining()
         except Exception as exc:  # noqa: BLE001 - shutdown must not raise
             logger.warning("announce_draining failed: %s", exc)
+        if nats_req_server is not None:
+            # The real drain: unsubscribe first so nothing new arrives, then
+            # wait on the in-flight set infera actually holds. No polling and no
+            # settle window -- unlike HTTP, where the count has to be inferred
+            # from the engine's lagging gauges.
+            await nats_req_server.stop(drain=True, drain_timeout=args.drain_timeout)
         deadline = time.monotonic() + args.drain_timeout
         while state.running and time.monotonic() < deadline:
             await asyncio.sleep(0.1)

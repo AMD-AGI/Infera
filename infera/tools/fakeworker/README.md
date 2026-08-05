@@ -83,6 +83,38 @@ e.g. that `bootstrap_room % dp_size == disagg_prefill_dp_rank` holds on every
 request, which is the invariant SGLang's `follow_bootstrap_room` balancer
 enforces with a `KVTransferError`.
 
+## NATS transport
+
+`--request-transport nats` routes requests through a broker instead of having
+the router dial this worker. It uses the **real** `NatsRequestServer`, which
+proxies to this process's own HTTP surface exactly as it proxies to a real
+engine's — so the transport under test is the production one, not a stand-in.
+
+```bash
+infera-fake-worker --model-name m --port 9101 \
+  --request-transport nats --nats-server nats://127.0.0.1:4222 \
+  --discovery-backend etcd --etcd-endpoint http://127.0.0.1:2379
+```
+
+Shutdown then goes through the real NATS drain — unsubscribe first, then wait on
+the in-flight set infera actually holds:
+
+```
+worker 127.0.0.1:19951 announced DRAINING
+draining 1 in-flight NATS request(s), up to 60s
+deregistered worker 127.0.0.1:19951
+```
+
+```{note}
+**The fake's HTTP drain is not representative of a real worker's.** This process
+serves the requests itself, so it knows its own in-flight count exactly. A real
+worker on HTTP transport does not: the router talks straight to the engine, so
+infera has to poll the engine's `/metrics` and wait out a settle window because
+those gauges lag. Comparing the fake's HTTP drain against its NATS drain
+therefore measures nothing — both are exact. The difference only shows up with a
+real engine.
+```
+
 ## Limits — read these before drawing conclusions
 
 **No KV transfer is simulated.** A `--disagg-mode prefill` / `decode` fake takes
