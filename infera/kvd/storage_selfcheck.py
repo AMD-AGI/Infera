@@ -103,6 +103,11 @@ def run_storage_selfcheck(
         d = Path(long_path) / ".kvd_selfcheck"
         d.mkdir(parents=True, exist_ok=True)
         r_od, r_workers, r_chunk, why = _resolve(Path(long_path))
+        if o_direct is not None and bool(o_direct) != r_od:
+            # Otherwise the log line reads `io_mode=direct` next to the probe's
+            # reason for picking buffered, and looks self-contradictory.
+            probed = "direct" if r_od else "buffered"
+            why = f"io_mode from the caller, not the probe (probe wanted {probed}: {why})"
         o_direct = r_od if o_direct is None else bool(o_direct)
         chunk = r_chunk if chunk_bytes is None else int(chunk_bytes)
         w_workers = int(write_workers) if write_workers else r_workers
