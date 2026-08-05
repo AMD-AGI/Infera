@@ -178,7 +178,7 @@ kubectl create namespace infera --dry-run=client -o yaml | kubectl apply -f -
 
 # the operator (provides the InferaDeployment CRD). Skip if already installed —
 # `helm install` fails on name reuse; use `helm upgrade --install` to be idempotent.
-helm upgrade --install infera-operator deploy/operator/helm/infera-operator \
+helm upgrade --install infera-operator oci://docker.io/rocm/infera-operator --version 0.1.0 \
   -n infera-system --create-namespace
 ```
 
