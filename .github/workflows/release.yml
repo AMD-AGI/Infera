@@ -10,6 +10,15 @@ name: Build & publish images
 #   release:  inferaimage/infera:sglang-v0.1.0
 #   nightly:  inferaimage/infera:sglang-20260711-a1b2c3d
 #
+# Also published, both on GitHub-hosted runners (no GPU, no SLURM):
+#   * the operator manager image + its Helm chart, versioned from the same tag,
+#     so `helm install ... oci://.../infera-operator` pulls a manager from this
+#     same run instead of whatever was committed months ago
+#   * promotion-<id>.json — the source -> destination map for the staging-to-
+#     public image promotion, uploaded as a workflow artifact and attached to
+#     the GitHub Release. Generated from what this run actually built, so it
+#     cannot drift from reality the way a hand-written list does.
+#
 # The `overlay` image (deploy/overlay/) is built in its own job after the engine
 # images, because it harvests their compiled pieces — see the `overlay` job.
 # It is published to BOTH repos from a single build, same image, two names:
@@ -64,7 +73,41 @@ jobs:
     outputs:
       engines: ${{ steps.set.outputs.engines }}
       overlay: ${{ steps.set.outputs.overlay }}
+      id: ${{ steps.id.outputs.id }}
+      semver: ${{ steps.id.outputs.semver }}
     steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      # Computed once and shared. `build` and `overlay` each recompute the same
+      # thing on their own runners, which is fine while they agree -- but the
+      # overlay harvests the engine images by tag, so an id that differed
+      # between jobs would silently harvest the wrong ones.
+      - id: id
+        env:
+          CUSTOM_ID: ${{ github.event.inputs.id }}
+        run: |
+          if [ -n "$CUSTOM_ID" ]; then
+            id="$CUSTOM_ID"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            id="${{ github.ref_name }}"
+          else
+            date="$(date -u +%Y%m%d)"; sha="$(git rev-parse --short HEAD)"
+            if desc="$(git describe --tags --long 2>/dev/null)"; then
+              gsha="${desc##*-}"; rest="${desc%-*}"
+              n="${rest##*-}"; tag="${rest%-*}"
+              id="${date}-${tag}-post${n}-${gsha#g}"
+            else
+              id="${date}-${sha}"
+            fi
+          fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          # Helm chart versions must be SemVer *without* a leading v, so the
+          # chart cannot simply reuse the tag. `helm package` rejects "v0.2.3".
+          echo "semver=${id#v}" >> "$GITHUB_OUTPUT"
+          echo "id=$id semver=${id#v}"
+
       - id: set
         run: |
           raw="${{ github.event.inputs.engines }}"
@@ -245,6 +288,137 @@ jobs:
             echo "reclaiming SLURM job(s): $ids (try $i)"; scancel $ids 2>&1 || true
             sleep 5
           done
+
+  # The operator manager image + its Helm chart. Unlike the engine images this
+  # needs no GPU and no SLURM dispatch: the Dockerfile is a distroless,
+  # CGO_ENABLED=0 Go build, so a GitHub-hosted runner does it in a couple of
+  # minutes. Independent of `build` and `overlay` -- the operator ships no
+  # engine code, so gating it on them would only make a GPU-queue delay block a
+  # chart nobody was waiting on.
+  operator:
+    needs: [prepare]
+    runs-on: ubuntu-latest
+    environment: auto-docker-builder
+    timeout-minutes: 30
+    env:
+      ID: ${{ needs.prepare.outputs.id }}
+      SEMVER: ${{ needs.prepare.outputs.semver }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Resolve target repo
+        env:
+          INPUT_REPO: ${{ github.event.inputs.image_repo }}
+          VAR_REPO: ${{ vars.IMAGE_REPO }}
+        run: |
+          repo="${INPUT_REPO:-${VAR_REPO:-docker.io/inferaimage/infera}}"
+          # The manager is a component tag of the shared repo, exactly like the
+          # engines (sglang-<id>, server-<id>, ...), so it promotes the same way
+          # they do. The chart is a separate OCI repo, so their tags cannot
+          # collide even though both live in the namespace.
+          echo "MANAGER_IMAGE=${repo}" >> "$GITHUB_ENV"
+          echo "CHART_REGISTRY=oci://${repo%/*}" >> "$GITHUB_ENV"
+          echo "manager=${repo}:operator-<id>  chart=oci://${repo%/*}"
+
+      - name: Pin the chart to this release
+        working-directory: deploy/operator
+        run: |
+          # Chart version, appVersion and the default image tag all move
+          # together, so `helm install` with no --set pulls the manager built by
+          # this same run. Leaving them at whatever is committed is how a chart
+          # ends up quietly installing a months-old manager.
+          sed -i "s/^version:.*/version: ${SEMVER}/"       helm/infera-operator/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${SEMVER}\"/" helm/infera-operator/Chart.yaml
+          sed -i "s|^  repository:.*|  repository: ${MANAGER_IMAGE}|" helm/infera-operator/values.yaml
+          sed -i "s/^  tag:.*/  tag: \"operator-${ID}\"/"  helm/infera-operator/values.yaml
+          echo "--- Chart.yaml ---"; grep -E '^(version|appVersion):' helm/infera-operator/Chart.yaml
+          echo "--- values.yaml ---"; grep -A3 '^image:' helm/infera-operator/values.yaml
+
+      - name: Chart renders
+        working-directory: deploy/operator
+        run: helm template infera-operator helm/infera-operator > /dev/null
+
+      - name: Build and push the manager image
+        working-directory: deploy/operator
+        env:
+          INFERAIMAGE_DOCKERHUB_TOKEN: ${{ secrets.INFERAIMAGE_DOCKERHUB_TOKEN }}
+        run: |
+          # Throwaway DOCKER_CONFIG so the token never lands in the shared
+          # config, matching build_test_push.sh.
+          DOCKER_CONFIG="$(mktemp -d)"; export DOCKER_CONFIG
+          trap 'docker logout >/dev/null 2>&1 || true; rm -rf "$DOCKER_CONFIG"' EXIT
+          printf '%s' "$INFERAIMAGE_DOCKERHUB_TOKEN" | docker login -u inferaimage --password-stdin
+          make docker-build docker-push IMG="${MANAGER_IMAGE}:operator-${ID}"
+
+      - name: Package and push the Helm chart
+        working-directory: deploy/operator
+        env:
+          INFERAIMAGE_DOCKERHUB_TOKEN: ${{ secrets.INFERAIMAGE_DOCKERHUB_TOKEN }}
+        run: |
+          printf '%s' "$INFERAIMAGE_DOCKERHUB_TOKEN" \
+            | helm registry login registry-1.docker.io -u inferaimage --password-stdin
+          trap 'helm registry logout registry-1.docker.io >/dev/null 2>&1 || true' EXIT
+          # `helm-push` depends on `helm-package`, so this leaves the .tgz in
+          # the working directory for the release-upload step below. Using the
+          # Makefile target rather than open-coding helm here keeps one
+          # definition of how a chart is built and named.
+          make helm-push CHART_REGISTRY="${CHART_REGISTRY}"
+
+      - name: Attach the chart to the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: deploy/operator
+        run: gh release upload "${GITHUB_REF_NAME}" "infera-operator-${SEMVER}.tgz" --clobber
+
+  # The promotion manifest: what a reviewer copies images from and to.
+  #
+  # Engine images publish to the private staging repo and are promoted to the
+  # public one after review. That promotion is a separate, human-gated process,
+  # so this job does not perform it -- it only writes down, for this exact
+  # release, which source maps to which destination. Generating it here rather
+  # than hand-writing it later is the point: the list cannot drift from what the
+  # run actually built.
+  promotion-manifest:
+    needs: [prepare]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Generate
+        env:
+          ID: ${{ needs.prepare.outputs.id }}
+          ENGINES: ${{ needs.prepare.outputs.engines }}
+          OVERLAY: ${{ needs.prepare.outputs.overlay }}
+          SRC_REPO: ${{ github.event.inputs.image_repo || vars.IMAGE_REPO || 'inferaimage/infera' }}
+          DST_REPO: ${{ vars.PROMOTE_TO_REPO || 'rocm/infera' }}
+        run: |
+          # Components come from `prepare`, so a partial dispatch produces a
+          # partial manifest instead of listing images that were never built.
+          src="${SRC_REPO#docker.io/}"
+          dst="${DST_REPO#docker.io/}"
+          components=$(printf '%s' "$ENGINES" | jq -r '.[]')
+          [ "$OVERLAY" = "true" ] && components="$components overlay"
+          # The operator manager is a component tag of the same repo, so it
+          # promotes exactly like the engines and belongs in the same manifest.
+          components="$components operator"
+          printf '%s\n' $components \
+            | jq -R --arg s "$src" --arg d "$dst" --arg id "$ID" \
+                '{source: ($s + ":" + . + "-" + $id), destination: ($d + ":" + . + "-" + $id)}' \
+            | jq -s . > promotion-${ID}.json
+          echo "--- promotion-${ID}.json ---"
+          cat promotion-${ID}.json
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: promotion-manifest
+          path: promotion-*.json
+          if-no-files-found: error
+
+      - name: Attach to the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${GITHUB_REF_NAME}" promotion-*.json --clobber
 
   # Build the /manual Sphinx site alongside the images. Always uploads the HTML
   # as a workflow artifact; on a tag (release) it also attaches a tarball to the
