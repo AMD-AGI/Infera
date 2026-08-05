@@ -146,7 +146,7 @@ RUN set -eu; \
     for f in /tmp/sglang-disagg-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
     rm -rf /tmp/sglang-disagg-patches
 
-# ---- sglang ROCm patches (hierarchical-cache host allocator) ----------------
+# ---- sglang ROCm patches (hicache host allocator, staged write-back) --------
 # REQUIRED FOR CORRECTNESS on ROCm whenever hierarchical cache / kvd is enabled:
 # hipHostRegister maps host pages at a device VA that differs from the host VA,
 # but sglang's hicache stores raw host data_ptr()s in device-side pointer tables
@@ -163,6 +163,14 @@ RUN set -eu; \
 # kvd writes back is worse than a failed build. Self-locating, idempotent, and
 # it plants a real module-level string literal so the fix can be proven in the
 # BYTECODE rather than in the source.
+#
+# The directory also carries patch_hicache_rocm_staged_write_back.py, which
+# resyncs two gates that disagree about the staged write-back JIT on ROCm. This
+# base is not affected: every gate here is still _is_cuda, so they agree on False
+# and the non-JIT kernel runs — sglang#28534 introduced the disagreement after
+# this tag. That script exits 0 on the absent mem_cache/pool_host/mla.py. Kept in
+# the shared directory so a base bump picks the fix up rather than rediscovering
+# it as a scheduler crash.
 COPY deploy/docker/patches/sglang_rocm/ /tmp/sglang-rocm-patches/
 RUN set -eu; \
     for f in /tmp/sglang-rocm-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \

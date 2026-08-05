@@ -37,7 +37,7 @@ on two different fabrics, is in [`results/`](results/README.md).
 node-P                                        node-D
 ├─ etcd                    ◀── discovery ──▶
 ├─ infera router  :8100    ◀── clients
-├─ kvd daemon                                 
+├─ kvd daemon
 └─ prefill leg    :30000   ══ KV over RDMA ══▶ decode leg :30001
    TP8, DPA off,                                TP8, DPA on (dp8),
    kvd L2/L3                                    MTP (EAGLE)
