@@ -49,7 +49,8 @@ Around them:
 
 - **Multi-engine** — run vLLM, SGLang, or ATOM behind one common serving interface.
 - **OpenAI- and Anthropic-compatible API** — `/v1/chat/completions`, `/v1/completions`, and `/v1/messages` (Anthropic Messages, translated in-process).
-- **Self-registering fleet** — workers register into etcd and heartbeat, so the router works from a live view and never routes to a worker that is gone; run any number of stateless server replicas.
+- **Self-registering fleet** — workers register into etcd (or their own Pod annotation on Kubernetes) and heartbeat, so the router works from a live view and never routes to a worker that is gone; run any number of stateless server replicas.
+- **Scale without dropping requests** — a worker joins when it is ready and leaves by draining: it announces `DRAINING`, finishes the generations it already accepted, and only then deregisters. Measured on MI355X: a worker stops receiving new work **under a second** after `SIGTERM` while its in-flight 4000-token generations all complete, and adding or removing instances under continuous traffic costs **zero failed requests**. See [Scaling a fleet](https://rocm.docs.amd.com/projects/infera/en/latest/features/scaling.html).
 - **Kubernetes-native** — an operator reconciles an `InferaDeployment` CRD (aggregated / PD / multi-node), with an optional Gateway API (GAIE) endpoint picker.
 
 ## Architecture
@@ -145,6 +146,24 @@ kubectl apply -f examples/k8s-deployments/single-node-aggregated.yaml
 
 Ready-to-fill deployment templates (single-node, prefill/decode, multi-node TP, GAIE) and their
 placeholders are in [`examples/k8s-deployments/`](examples/k8s-deployments/README.md).
+
+**Scaling.** There is no scaling controller — workers self-register when ready and deregister when
+they drain, and the router routes to whatever is registered at that instant. Scaling is therefore
+`kubectl scale` on the CR, or starting and stopping workers; nothing has to be told about it.
+
+The two directions cost very different things, and it shapes everything built on top:
+
+| | measured |
+|---|---|
+| scale up: `docker run` → serving | **140 s**, almost all of it weight loading |
+| scale down: `SIGTERM` → stops receiving | **< 1 s** |
+| scale down: in-flight generations | run to completion, bounded by `--drain-timeout` |
+| adding + removing under traffic | **260 requests, 0 failures** |
+
+Because a cold start is minutes and the control loop is seconds, **a burst shorter than a cold
+start cannot be answered by adding workers** — keep headroom, or steer traffic to instances that
+are already running. Infera does not ship an autoscaler; [Scaling a
+fleet](https://rocm.docs.amd.com/projects/infera/en/latest/features/scaling.html) documents what is in place for one, and what is not.
 
 ## Engine images
 
