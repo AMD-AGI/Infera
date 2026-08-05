@@ -85,6 +85,39 @@ exits in about six seconds regardless. Set it above your p99 generation time.
 Anything still running when it expires is cut, with a warning naming the count.
 ```
 
+### The transport decides how well this works
+
+Draining is only as good as the router's view of what is in flight, and that
+differs by transport — not by implementation quality, but by where the
+information lives.
+
+| | who knows what is in flight | drain |
+|---|---|---|
+| **NATS** (`--request-transport nats`) | infera — it owns the request path and holds the in-flight set | exact, no polling |
+| **HTTP** (default in the recipes) | only the engine — the router dials it directly and never sees the request | poll the engine's `/metrics`, behind a settle window |
+
+Measured, same fake worker, same generation:
+
+- **NATS, one in-flight generation**: the log reads `draining 1 in-flight NATS
+  request(s)` — it knows the count — the 300-chunk generation completed in full,
+  and the worker deregistered **21.3 s** later, which is just the remaining
+  generation time with no overhead.
+- **NATS, nothing in flight**: announce → deregister in **3 ms**.
+- **HTTP with a real engine, nothing in flight**: at least the **6 s** settle
+  window, because a single zero reading cannot be told apart from a gauge that
+  has not refreshed yet.
+
+So NATS costs a broker and buys a drain that is exact rather than inferred. It
+also buys request cancellation the HTTP path does not have — a timeout or client
+disconnect publishes to `infera.cancel.<worker>` and the worker tears down the
+engine connection, instead of leaving it generating.
+
+```{note}
+The Rust router does not implement the NATS transport (`lib.rs`: "Configs
+outside this set (NATS transport, ...) are served by the Python backend"), so
+the Rust data plane and the NATS drain are currently an either/or.
+```
+
 ### Why in-flight work is visible at all
 
 The engine's own gauges are the only source of truth on the HTTP path, and they
