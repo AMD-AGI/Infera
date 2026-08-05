@@ -249,7 +249,7 @@ kubectl create namespace infera --dry-run=client -o yaml | kubectl apply -f -
 
 # on k3s, helm needs KUBECONFIG spelled out — kubectl finds it implicitly, helm does not
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-helm upgrade --install infera-operator oci://docker.io/rocm/infera-operator --version 0.1.0 \
+helm upgrade --install infera-operator deploy/operator/helm/infera-operator \
   -n infera-system --create-namespace
 
 hf download moonshotai/Kimi-K3      --local-dir <MODEL_DIR>/Kimi-K3

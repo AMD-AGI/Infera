@@ -8,11 +8,20 @@
 replicaCount: 1
 
 image:
-  # Operator manager image. It lives as an `operator-` tag of the shared
-  # rocm/infera repo; the chart itself is a separate OCI repo
-  # (rocm/infera-operator), so their tags cannot collide.
-  repository: docker.io/rocm/infera
-  tag: "operator-v0.1.0"
+  # Operator manager image.
+  #
+  # The operator is not part of the tagged release yet -- the engine images
+  # publish to staging and are promoted to rocm/infera after review, and the
+  # manager does not go through that. It is published on its own to
+  # inferaimage/infera-operator-manager, so that is what the chart must point
+  # at: a default naming a repo that does not exist installs cleanly and then
+  # sits in ImagePullBackOff, which reads as a cluster problem rather than a
+  # chart one.
+  #
+  # When the release does publish it (#89), this moves to an `operator-` tag of
+  # the shared repo alongside the engines, and the chart default moves with it.
+  repository: docker.io/inferaimage/infera-operator-manager
+  tag: "0.1.2"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []

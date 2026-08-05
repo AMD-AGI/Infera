@@ -95,7 +95,7 @@ kubectl -n infera get pods -w
 kubectl get nodes -o custom-columns=NODE:.metadata.name,GPU:.status.allocatable.'amd\.com/gpu'
 
 # the operator (provides the InferaDeployment CRD)
-helm install infera-operator oci://docker.io/rocm/infera-operator --version 0.1.0 \
+helm upgrade --install infera-operator deploy/operator/helm/infera-operator \
   -n infera-system --create-namespace
 ```
 
