@@ -389,6 +389,10 @@ def _sysfs_transport(name: str) -> str:
     treat as "unknown → buffered". Since this whole path only runs after
     lsblk has failed to answer, an unrecognised bus is no worse than the
     status quo — every transport we *do* resolve is a strict improvement.
+
+    Every check below is a per-device one, and answers the same way lsblk
+    would. There is deliberately no guessing beyond that: a bus we cannot
+    name from this device's own sysfs entries stays "", and "" is buffered.
     """
     disk = _sysfs_whole_disk(name)
     devlink = os.path.join(f"{_SYSFS_ROOT}/class/block", disk, "device")
@@ -402,10 +406,15 @@ def _sysfs_transport(name: str) -> str:
     if subsystem != "scsi":
         return ""
     # SCSI multiplexes every serial bus, so the subsystem alone says nothing.
-    # util-linux keys off the host's proc_name; we follow it, then fall back
-    # to the shape of the device path for the buses that do not set one.
-    m = re.search(r"/host(\d+)/", devpath + "/")
-    proc = _sysfs_read(f"{_SYSFS_ROOT}/class/scsi_host/host{m.group(1)}/proc_name") if m else ""
+    # util-linux keys off the SCSI host this device hangs from; we follow it,
+    # then fall back to the shape of the device's own path for the buses that
+    # set no proc_name. Every one of these is scoped to this device — the
+    # host number comes out of its path, and the path is its own.
+    host = re.search(r"/host(\d+)/", devpath + "/")
+    hostn = host.group(1) if host else ""
+    proc = _sysfs_read(f"{_SYSFS_ROOT}/class/scsi_host/host{hostn}/proc_name") if hostn else ""
+    if hostn and os.path.isdir(f"{_SYSFS_ROOT}/class/fc_host/host{hostn}"):
+        return "fc"
     if proc.startswith("iscsi"):
         return "iscsi"
     if os.path.exists(os.path.join(devpath, "sas_address")):
@@ -414,9 +423,6 @@ def _sysfs_transport(name: str) -> str:
         return "usb"
     if proc in ("ahci", "ata_piix") or proc.startswith(("sata_", "pata_")) or "/ata" in devpath:
         return "sata"
-    fc_host = f"{_SYSFS_ROOT}/class/fc_host"
-    if os.path.isdir(fc_host) and os.listdir(fc_host):
-        return "fc"
     return ""
 
 

@@ -932,6 +932,46 @@ def test_sysfs_reads_sas_from_the_device_attribute(fake_sysfs):
     assert storage_classify._sysfs_for_path(probe)[0].transport == "sas"
 
 
+def test_sysfs_does_not_name_a_bus_from_machine_wide_state(fake_sysfs, tmp_path):
+    """A RAID card presenting a logical volume supplies no per-device signal,
+    so it has to stay unknown. Answering from something machine-wide instead —
+    "this box has an fc_host, so call it fc" — labels a local disk a SAN.
+    """
+    probe = fake_sysfs(
+        {
+            "sdf": {
+                "subsystem": "scsi",
+                "devpath": "pci0000:00/host2/target2:2:0/2:2:0:0",
+                "rotational": "0",
+            }
+        },
+        target="sdf",
+        scsi_hosts={"host2": "megaraid_sas"},
+    )
+    # An FC HBA elsewhere in the box, on a host this disk has nothing to do with.
+    (tmp_path / "sys" / "class" / "fc_host" / "host9").mkdir(parents=True)
+    assert storage_classify._sysfs_for_path(probe)[0].transport == ""
+
+
+def test_sysfs_names_fc_when_the_hba_is_this_disk_s_own_host(fake_sysfs, tmp_path):
+    """The other half of the pair: a real SAN is worth naming, because
+    'SAN fc → buffered' reads a great deal better in the startup log than an
+    unknown transport, which also logs a WARN."""
+    probe = fake_sysfs(
+        {
+            "sdg": {
+                "subsystem": "scsi",
+                "devpath": "pci0000:00/host4/rport-4:0-0/target4:0:0/4:0:0:0",
+                "rotational": "0",
+            }
+        },
+        target="sdg",
+        scsi_hosts={"host4": "lpfc"},
+    )
+    (tmp_path / "sys" / "class" / "fc_host" / "host4").mkdir(parents=True)
+    assert storage_classify._sysfs_for_path(probe)[0].transport == "fc"
+
+
 def test_sysfs_returns_nothing_when_the_devno_is_not_registered(fake_sysfs, tmp_path):
     """A filesystem with no block device behind it — NFS reports a synthetic
     st_dev that has no /sys/dev/block entry."""
