@@ -46,16 +46,24 @@ A CPU-count guardrail caps the final pick at
 ``max(2, cpu_count() // n_shards)`` so 8-shard configs on small boxes
 never spin up more threads than the box can productively schedule.
 
-The probe is a chain of cheap subprocess calls — ``findmnt`` and
-``lsblk`` — both shipped by util-linux on every modern distro. If
-either binary is missing (containers, exotic systems) we fall back to
-the conservative "buffered" + workers=4 default and log a WARN.
+The probe starts from ``findmnt`` to name the mount, then resolves that
+mount to its physical devices two ways. ``lsblk -no NAME,TRAN,ROTA`` is
+tried first, since the transport table above was calibrated against its
+TRAN column. It answers by device *name*, though, which fails on an LVM
+mount (the name findmnt hands back is a udev symlink) and inside a
+container (``/dev`` holds only what ``--device`` put there). So whenever
+lsblk comes back empty, or with devices it could not name a transport
+for, we walk sysfs instead: ``major:minor`` from ``stat()`` into
+``/sys/dev/block``, then down ``slaves/`` to the physical disks. sysfs
+needs no device node, no udev and no subprocess, and the block layer is
+not namespaced, so an unprivileged container sees the whole topology.
 
-The chain handles md-raid, LVM, dm-crypt, and bind mounts transparently
-by walking ``lsblk -no NAME,TRAN,ROTA`` recursively. For mixed-device
-arrays (e.g. NVMe + SATA in the same md0) the worst-case device wins
-— a single SATA member in an mdraid pulls the whole array into the
-"buffered" bucket.
+Between them the two cover md-raid, LVM, dm-crypt, partitions and bind
+mounts. If both come up empty we fall back to the conservative
+"buffered" + workers=4 default and log a WARN. For mixed-device arrays
+(e.g. NVMe + SATA in the same md0) the worst-case device wins — a single
+SATA member in an mdraid pulls the whole array into the "buffered"
+bucket.
 
 Public API:
 
@@ -323,6 +331,157 @@ def _lsblk_inverse_parent(devpath: str) -> tuple[str, bool | None]:
     return "", None
 
 
+# ----------------------------------------------------------------------
+# sysfs device walk — the fallback for everything lsblk cannot answer
+# ----------------------------------------------------------------------
+#
+# lsblk resolves a device by *name*, which is where it loses two cases we
+# actually run in:
+#
+#   - **LVM.** ``findmnt`` reports ``/dev/mapper/<vg>-<lv>``, a symlink udev
+#     creates; the kernel's own node is ``/dev/dm-N``. The forward walk then
+#     reports the leaf as ``<vg>-<lv>``, and ``/dev/<vg>-<lv>`` is not a path
+#     that exists, so the ``--inverse`` walk that would have supplied the
+#     transport dead-ends. md is unaffected — ``md0`` and ``/dev/md0`` agree —
+#     which is why this went unnoticed.
+#   - **Containers.** ``/dev`` is a private, near-empty devtmpfs; Docker only
+#     populates what ``--device`` names. lsblk cannot open the node at all.
+#     ``privileged: true`` does not rescue LVM either: the host devtmpfs it
+#     exposes carries ``/dev/dm-N`` but not the ``/dev/mapper/`` symlinks,
+#     because those are udev's work and containers do not run udev.
+#
+# sysfs sidesteps both. It is indexed by ``major:minor`` rather than by name,
+# and those numbers come straight from ``stat()`` — no node, no udev, no
+# subprocess. It is also global: the block layer is not namespaced, so a
+# container sees the full topology even unprivileged.
+
+# Every sysfs lookup below hangs off this one root so the tests can aim the
+# whole walk at a fixture tree instead of the machine they happen to run on.
+_SYSFS_ROOT = "/sys"
+
+
+def _sysfs_read(path: str) -> str:
+    """Read a sysfs attribute; "" if it is missing or unreadable."""
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+def _sysfs_whole_disk(name: str) -> str:
+    """Resolve a partition to the disk that carries it.
+
+    Partitions have neither ``queue/`` nor ``device/`` of their own — both
+    live on the whole-disk node one level up (``.../block/sda/sda1`` → ``sda``).
+    Non-partitions are returned unchanged.
+    """
+    real = os.path.realpath(os.path.join(f"{_SYSFS_ROOT}/class/block", name))
+    if os.path.exists(os.path.join(real, "partition")):
+        return os.path.basename(os.path.dirname(real))
+    return name
+
+
+def _sysfs_transport(name: str) -> str:
+    """Best-effort transport for a leaf device, mirroring lsblk's TRAN.
+
+    Returns "" when the bus cannot be identified, which the callers already
+    treat as "unknown → buffered". Since this whole path only runs after
+    lsblk has failed to answer, an unrecognised bus is no worse than the
+    status quo — every transport we *do* resolve is a strict improvement.
+
+    Every check below is a per-device one, and answers the same way lsblk
+    would. There is deliberately no guessing beyond that: a bus we cannot
+    name from this device's own sysfs entries stays "", and "" is buffered.
+    """
+    disk = _sysfs_whole_disk(name)
+    devlink = os.path.join(f"{_SYSFS_ROOT}/class/block", disk, "device")
+    if not os.path.exists(devlink):
+        # No backing device: dm/md nodes with no slaves, loop, zram, ramdisk.
+        return ""
+    devpath = os.path.realpath(devlink)
+    subsystem = os.path.basename(os.path.realpath(os.path.join(devlink, "subsystem")))
+    if subsystem in ("nvme", "virtio", "mmc"):
+        return subsystem
+    if subsystem != "scsi":
+        return ""
+    # SCSI multiplexes every serial bus, so the subsystem alone says nothing.
+    # util-linux keys off the SCSI host this device hangs from; we follow it,
+    # then fall back to the shape of the device's own path for the buses that
+    # set no proc_name. Every one of these is scoped to this device — the
+    # host number comes out of its path, and the path is its own.
+    host = re.search(r"/host(\d+)/", devpath + "/")
+    hostn = host.group(1) if host else ""
+    proc = _sysfs_read(f"{_SYSFS_ROOT}/class/scsi_host/host{hostn}/proc_name") if hostn else ""
+    if hostn and os.path.isdir(f"{_SYSFS_ROOT}/class/fc_host/host{hostn}"):
+        return "fc"
+    if proc.startswith("iscsi"):
+        return "iscsi"
+    if os.path.exists(os.path.join(devpath, "sas_address")):
+        return "sas"
+    if "/usb" in devpath:
+        return "usb"
+    if proc in ("ahci", "ata_piix") or proc.startswith(("sata_", "pata_")) or "/ata" in devpath:
+        return "sata"
+    return ""
+
+
+def _sysfs_leaves(name: str, seen: set[str] | None = None) -> list[str]:
+    """Descend ``slaves/`` until devices that have none — the physical disks.
+
+    ``slaves/`` is how the block layer records "this virtual device is built
+    on those"; dm stacks (LVM, dm-crypt) and md arrays both populate it, and
+    nesting them just deepens the recursion. ``seen`` guards against a device
+    appearing under two parents (an LVM RAID mirrors each leg through its own
+    rimage) rather than against a real cycle, which the kernel forbids.
+    """
+    seen = seen if seen is not None else set()
+    if name in seen:
+        return []
+    seen.add(name)
+    slaves = os.path.join(f"{_SYSFS_ROOT}/class/block", name, "slaves")
+    try:
+        children = sorted(os.listdir(slaves)) if os.path.isdir(slaves) else []
+    except OSError:
+        children = []
+    if not children:
+        return [name]
+    out: list[str] = []
+    for child in children:
+        out += _sysfs_leaves(child, seen)
+    return out
+
+
+def _sysfs_rotational(name: str) -> bool:
+    """``queue/rotational`` for a leaf, read off its whole disk."""
+    disk = _sysfs_whole_disk(name)
+    return _sysfs_read(f"{_SYSFS_ROOT}/class/block/{disk}/queue/rotational") == "1"
+
+
+def _sysfs_for_path(path: Path) -> list[DeviceInfo]:
+    """Resolve ``path`` to its physical devices through sysfs alone.
+
+    Returns [] when sysfs cannot answer — no /sys mounted, or a filesystem
+    with no block device behind it (NFS and friends report a synthetic
+    ``st_dev`` that has no ``/sys/dev/block`` entry). Never raises.
+    """
+    try:
+        st = os.stat(path)
+        devno = f"{os.major(st.st_dev)}:{os.minor(st.st_dev)}"
+        link = f"{_SYSFS_ROOT}/dev/block/{devno}"
+        if not os.path.exists(link):
+            return []
+        top = os.path.basename(os.path.realpath(link))
+        # dict.fromkeys dedupes while keeping the walk order stable.
+        return [
+            DeviceInfo(dev=d, transport=_sysfs_transport(d), rotational=_sysfs_rotational(d))
+            for d in dict.fromkeys(_sysfs_leaves(top))
+        ]
+    except OSError as exc:
+        logger.debug("storage_classify: sysfs walk of %s failed: %s", path, exc)
+        return []
+
+
 def _nfs_mount_opts(source: str, path: Path) -> str:
     """Return the raw mount-options string for the NFS mount covering
     ``path``. Empty string if /proc/mounts isn't readable or no NFS
@@ -429,9 +588,24 @@ def classify_storage(path: Path) -> StorageInfo:
     if fstype in _NO_DIRECT_FSTYPES:
         return info
     devices = _lsblk_for_source(source)
+    # lsblk is kept as the fast path because it is what the transport table
+    # above was calibrated against, but it answers by name and so cannot see
+    # through an LVM mount or into a container's empty /dev. Take the sysfs
+    # answer whenever lsblk returned nothing, or returned devices it could not
+    # put a transport on — both of those end at "conservative buffered", and
+    # on NVMe that is a ~4x throughput cut taken for a naming detail.
+    if not devices or any(not d.transport for d in devices):
+        from_sysfs = _sysfs_for_path(path)
+        if from_sysfs and any(d.transport for d in from_sysfs):
+            logger.debug(
+                "storage_classify: lsblk could not classify source=%r; sysfs resolved %d device(s)",
+                source,
+                len(from_sysfs),
+            )
+            devices = from_sysfs
     if not devices:
         info.warnings.append(
-            f"lsblk returned no devices for source={source!r}; defaulting to buffered"
+            f"neither lsblk nor sysfs found devices for source={source!r}; defaulting to buffered"
         )
     info.devices = devices
     return info
