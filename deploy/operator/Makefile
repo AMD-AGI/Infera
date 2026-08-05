@@ -1,12 +1,19 @@
 # infera-operator — minimal build/codegen targets.
-# Operator manager image + chart registry. Override on the CLI, e.g.
-#   make docker-build docker-push IMG=docker.io/inferaimage/infera:0.1.0
-# The manager ships as a tag of the shared rocm/infera repo, matching the
-# engine images (sglang-v0.1.1, server-v0.1.1, ...).
-IMG ?= docker.io/rocm/infera:operator-v0.1.0
+# The manager is a tag of the shared rocm/infera repo, alongside the engine
+# images, so one repo holds everything that runs. The chart is pushed to
+# rocm/infera-operator instead -- a separate OCI repo, so image tags and chart
+# versions cannot collide in the same namespace.
+#
+#   docker pull rocm/infera:operator-v0.1.0
+#   helm  pull  oci://docker.io/rocm/infera-operator --version 0.1.0
+#
+# Builds publish to the staging repo, as the engine images do; promotion to
+# rocm/infera is a separate step. Override on the CLI, e.g.
+#   make docker-build docker-push IMG=docker.io/<ns>/infera:operator-v0.1.0
+IMG ?= docker.io/inferaimage/infera:operator-v0.1.0
 # OCI registry namespace the packaged Helm chart is pushed to (chart repo name
-# comes from Chart.yaml: infera-operator).
-CHART_REGISTRY ?= oci://docker.io/rocm
+# comes from Chart.yaml: infera-operator). Staging, like IMG.
+CHART_REGISTRY ?= oci://docker.io/inferaimage
 CHART_DIR ?= helm/infera-operator
 CRD_DIR ?= config/crd/bases
 # The chart ships its own copy of the CRD, so `helm install` can create it
