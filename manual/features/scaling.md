@@ -112,6 +112,38 @@ also buys request cancellation the HTTP path does not have — a timeout or clie
 disconnect publishes to `infera.cancel.<worker>` and the worker tears down the
 engine connection, instead of leaving it generating.
 
+### Admission control
+
+Setting `INFERA_NATS_REQ_MAX_PENDING` (or `--nats-req-max-pending`) above zero
+on **both** the server and the workers makes the request path JetStream-backed:
+a WorkQueue stream with one durable consumer per worker. The router reads that
+consumer's backlog before dispatching and refuses a worker over the limit.
+
+This matters for scaling because it covers the window scaling cannot: a burst
+shorter than a 140 s cold start cannot be answered by adding workers, so the
+choice is between queueing behind a saturated worker and steering away from it.
+
+**Look at the distribution, not the status codes.** A refusal raises the same
+retryable failure as any other pre-first-byte error, so the request fails over
+to a freer worker and the client sees `200`. Only when every worker is over the
+limit and retries are exhausted does a `429` reach the client. Measured with one
+deliberately saturated worker (concurrency 1) and one fast one, limit 3:
+
+| | saturated worker | fast worker |
+|---|---|---|
+| 20 requests under backlog | **+0** | **+20** |
+| round-robin without the throttle | +10 | +10 |
+
+The worker's consumer showed `num_ack_pending = 10` against a limit of 3 at the
+time — the ack happens after the request is fully proxied, precisely so the
+backlog gauge reflects genuinely in-flight work rather than mere delivery.
+
+```{note}
+The check is per dispatch, so it steers *new* requests. Requests already
+dispatched are unaffected, and a simultaneous burst is all admitted — every
+admission check runs before any of them has built backlog.
+```
+
 ```{note}
 The Rust router does not implement the NATS transport (`lib.rs`: "Configs
 outside this set (NATS transport, ...) are served by the Python backend"), so
