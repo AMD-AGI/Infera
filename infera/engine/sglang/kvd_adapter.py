@@ -52,6 +52,9 @@ import contextvars
 import logging
 import os
 import threading
+import time
+from collections import deque
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -98,6 +101,33 @@ except ImportError:  # pragma: no cover — exercised only without sglang instal
 
     _SGLANG_AVAILABLE = False
 
+# `get_stats()` is polled every scheduler step by SGLang's hicache
+# observability and its return value goes straight into
+# `StorageMetricsCollector.log_storage_metrics`, which asserts the exact type.
+# Returning anything else (we used to return a dict of daemon counters) kills
+# the scheduler with a bare AssertionError. Absent sglang, the local stand-in
+# keeps this module importable for unit tests.
+try:
+    from sglang.srt.observability.metrics_collector import StorageMetrics
+
+    _STORAGE_METRICS_FROM_SGLANG = True
+except ImportError:  # pragma: no cover — exercised only without sglang installed
+    _STORAGE_METRICS_FROM_SGLANG = False
+
+    @dataclass
+    class StorageMetrics:  # type: ignore[no-redef]
+        prefetch_pgs: list[int] = field(default_factory=list)
+        backup_pgs: list[int] = field(default_factory=list)
+        prefetch_bandwidth: list[float] = field(default_factory=list)
+        backup_bandwidth: list[float] = field(default_factory=list)
+
+
+# sglang is here but its StorageMetrics is not where we look for it — a future
+# release moved or renamed it. The stand-in above satisfies nothing in that
+# case: the assert is against sglang's own class, so handing one back is the
+# original crash again. Report no metrics instead.
+_STORAGE_METRICS_MISPLACED = _SGLANG_AVAILABLE and not _STORAGE_METRICS_FROM_SGLANG
+
 
 def _torch():
     """Lazy torch handle. Raises a clean error if called when torch
@@ -109,6 +139,20 @@ def _torch():
 
 
 logger = logging.getLogger(__name__)
+
+if _STORAGE_METRICS_MISPLACED:  # pragma: no cover — needs a future sglang
+    logger.critical(
+        "infera: sglang is installed but "
+        "sglang.srt.observability.metrics_collector.StorageMetrics is not "
+        "importable. hicache storage metrics (prefetch/backup pages and "
+        "bandwidth) will be empty until the import in kvd_adapter.py is "
+        "pointed at the new location."
+    )
+
+# Per-series cap on undrained hicache metric samples. At one sample per batch
+# io this is a few seconds of traffic; the deques only fill up when SGLang is
+# not polling get_stats(), i.e. when metrics are off and nobody reads them.
+_METRICS_SAMPLE_CAP = 4096
 
 
 _DEFAULT_SOCKET_PATH = "/var/run/infera-kvd.sock"
@@ -308,6 +352,21 @@ class InferaKvdBackend(HiCacheStorage):  # type: ignore[misc]
         self._hipfile_read_warned: set[Any] = set()
         self._hipfile_write_warned: set[Any] = set()
 
+        # ----- hicache storage metrics -----
+        # One sample per batch io, drained by get_stats(). Bounded rather than
+        # gated on a flag: SGLang only polls get_stats() when metrics are on,
+        # and unbounded lists would grow for the entire run when they are off.
+        #
+        # The lock is load-bearing, not defensive: SGLang records from its
+        # prefetch and backup worker threads and drains from the scheduler
+        # thread, and the drain is a read-then-clear that would otherwise lose
+        # whatever lands between its two halves.
+        self._metrics_lock = threading.Lock()
+        self._prefetch_pgs: deque[int] = deque(maxlen=_METRICS_SAMPLE_CAP)
+        self._backup_pgs: deque[int] = deque(maxlen=_METRICS_SAMPLE_CAP)
+        self._prefetch_bandwidth: deque[float] = deque(maxlen=_METRICS_SAMPLE_CAP)
+        self._backup_bandwidth: deque[float] = deque(maxlen=_METRICS_SAMPLE_CAP)
+
         self._start_background_loop()
         self._connect_or_raise()
 
@@ -355,7 +414,16 @@ class InferaKvdBackend(HiCacheStorage):  # type: ignore[misc]
         connection IS the throughput path; we'll add it when measured."""
         if target_locations is None or len(target_locations) != len(keys):
             raise ValueError("InferaKvdBackend.batch_get requires aligned target_locations")
-        return [self.get(k, t) for k, t in zip(keys, target_locations, strict=True)]
+        started = time.perf_counter()
+        out = [self.get(k, t) for k, t in zip(keys, target_locations, strict=True)]
+        hits = [t for t in out if t is not None]
+        self._record_io(
+            pages=len(hits),
+            nbytes=sum(int(t.numel()) * int(t.element_size()) for t in hits),
+            elapsed=time.perf_counter() - started,
+            write=False,
+        )
+        return out
 
     def set(
         self,
@@ -406,10 +474,22 @@ class InferaKvdBackend(HiCacheStorage):  # type: ignore[misc]
         PoolTransfer can pipeline."""
         if values is None or len(values) != len(keys):
             raise ValueError("InferaKvdBackend.batch_set requires aligned values")
+        started = time.perf_counter()
         success = True
+        written = 0
+        nbytes = 0
         for k, v in zip(keys, values, strict=True):
-            if not self.set(k, v):
+            if self.set(k, v):
+                written += 1
+                nbytes += int(v.numel()) * int(v.element_size())
+            else:
                 success = False
+        self._record_io(
+            pages=written,
+            nbytes=nbytes,
+            elapsed=time.perf_counter() - started,
+            write=True,
+        )
         return success
 
     # ------------------------------------------------------------------
@@ -548,6 +628,10 @@ class InferaKvdBackend(HiCacheStorage):  # type: ignore[misc]
             if write
             else self._retention_default
         )
+        started = time.perf_counter()
+        pages_done = 0
+        bytes_done = 0
+        unsized_pages = False
         for transfer in transfers:
             name = transfer.name
             keys = list(transfer.keys or [])
@@ -589,6 +673,25 @@ class InferaKvdBackend(HiCacheStorage):  # type: ignore[misc]
                 else:
                     per_key.append(self._v2_read_page(name, key, host_pool, page_offset))
             results[name] = per_key
+            pages = sum(per_key)
+            info = self._get_pool_buffer_info(host_pool)
+            if info is None:
+                # Pool shape we don't recognize, so we have no page stride and
+                # no way to size the transfer. `elapsed` covers every pool in
+                # the batch, so counting this one's pages with zero bytes — or
+                # dropping only its bytes — understates the rate. Drop the
+                # whole sample; registration already logged the unknown shape.
+                unsized_pages = unsized_pages or pages > 0
+                continue
+            pages_done += pages
+            bytes_done += pages * info[2]
+        if not unsized_pages:
+            self._record_io(
+                pages=pages_done,
+                nbytes=bytes_done,
+                elapsed=time.perf_counter() - started,
+                write=write,
+            )
         return results
 
     def _pool_storage_key(self, pool_name: Any, key: str) -> str:
@@ -949,10 +1052,51 @@ class InferaKvdBackend(HiCacheStorage):  # type: ignore[misc]
         on the same kvd are untouched."""
         self._run_async(self._client.clear(model=self._model, compat_key=self._compat_key))
 
-    def get_stats(self) -> dict | None:
-        """Daemon-side counters. SGLang's hicache observability picks
-        this up; we surface the same numbers to Prometheus on the server
-        via `/v1/kv-stats`."""
+    def _record_io(self, *, pages: int, nbytes: int, elapsed: float, write: bool) -> None:
+        """Append one batch-io sample. Bandwidth is GB/s over the whole
+        batch, matching what SGLang's built-in backends report. A batch we
+        cannot size is dropped rather than published as 0 GB/s — an absent
+        sample reads as "no data", a zero reads as "the transfer stalled"."""
+        if pages <= 0 or nbytes <= 0 or elapsed <= 0:
+            return
+        gb_per_s = (nbytes / elapsed) / 1e9
+        with self._metrics_lock:
+            if write:
+                self._backup_pgs.append(pages)
+                self._backup_bandwidth.append(gb_per_s)
+            else:
+                self._prefetch_pgs.append(pages)
+                self._prefetch_bandwidth.append(gb_per_s)
+
+    def get_stats(self) -> StorageMetrics | None:
+        """Drain the batch-io samples for SGLang's hicache observability.
+
+        Polled every scheduler step. The return type is load-bearing:
+        `StorageMetricsCollector.log_storage_metrics` asserts on it, so a
+        wrong type takes the scheduler down rather than degrading metrics.
+        `None` is the one other value it accepts, and the only safe answer
+        when we cannot construct sglang's own class. Daemon-side counters
+        live in `daemon_counters()` — they are a different thing and SGLang
+        has nowhere to put them.
+        """
+        if _STORAGE_METRICS_MISPLACED:  # pragma: no cover — needs a future sglang
+            return None
+        metrics = StorageMetrics()
+        with self._metrics_lock:
+            metrics.prefetch_pgs.extend(self._prefetch_pgs)
+            metrics.backup_pgs.extend(self._backup_pgs)
+            metrics.prefetch_bandwidth.extend(self._prefetch_bandwidth)
+            metrics.backup_bandwidth.extend(self._backup_bandwidth)
+            self._prefetch_pgs.clear()
+            self._backup_pgs.clear()
+            self._prefetch_bandwidth.clear()
+            self._backup_bandwidth.clear()
+        return metrics
+
+    def daemon_counters(self) -> dict | None:
+        """Daemon-side totals (entries, bytes, hits/misses/evictions).
+        Used to confirm kvd is actually being read and written, which the
+        per-step `get_stats()` histograms cannot show on their own."""
         try:
             stats = self._run_async(self._client.stats())
         except (KvdConnectionError, KvdProtocolError):
