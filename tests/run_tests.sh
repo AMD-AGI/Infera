@@ -214,10 +214,16 @@ _skip_or_fail() {
 }
 
 _have_slurm() { command -v srun >/dev/null 2>&1; }
-# The nodes reservation $1 covers, one per line ('' if it is gone/expired).
-# Spur ignores the NAME arg and dumps all reservations; match the exact block.
+# The nodes reservation $1 covers, one per line. Non-zero means the QUERY failed;
+# exit 0 with no output means the reservation genuinely is not there. Spur keeps
+# the two separable: it ignores the NAME arg and dumps every reservation, so a
+# missing name still exits 0 and the awk below simply matches nothing.
+# Capture before parsing: under pipefail a later stage's status would otherwise
+# masquerade as a failed query, and callers now act on that distinction.
 _reservation_nodes() {
-  scontrol show reservation "$1" 2>/dev/null | awk -v r="ReservationName=$1" '
+  local out
+  out=$(scontrol show reservation "$1" 2>/dev/null) || return 1
+  printf '%s\n' "$out" | awk -v r="ReservationName=$1" '
     BEGIN{RS="";FS="\n"}
     $1==r { for(i=1;i<=NF;i++) if($i ~ /Nodes=/){ n=$i; sub(/.*Nodes=/,"",n); sub(/[[:space:]].*/,"",n); print n; exit } }' \
     | tr ',' '\n' | sed '/^$/d'
@@ -235,7 +241,11 @@ _node_free() {
 # partition's idle ones.
 _candidate_nodes() {
   local n nodes=""
-  [ -n "${INFERA_E2E_RESERVATION:-}" ] && nodes="$(_reservation_nodes "$INFERA_E2E_RESERVATION")"
+  if [ -n "${INFERA_E2E_RESERVATION:-}" ]; then
+    # Query failed: offer nothing and let the caller keep waiting. Falling
+    # through would hand the PD pair unreserved nodes off the open partition.
+    nodes=$(_reservation_nodes "$INFERA_E2E_RESERVATION") || return 0
+  fi
   if [ -z "$nodes" ]; then
     sinfo -h -N -p "$SLURM_PART" -t idle -o '%n' 2>/dev/null | awk 'NF && !seen[$0]++'
     return
@@ -328,11 +338,11 @@ _amd_gpu_count() {
 _local_eligible() { [ "$(_amd_gpu_count)" -ge 8 ] && command -v docker >/dev/null 2>&1; }
 
 # Spill helper (Spur has no srun --immediate): free count, -1 if the reservation
-# is gone/expired, -2 if scontrol is unavailable.
+# is gone/expired, -2 if scontrol is unavailable, -3 if the query itself failed.
 _reservation_free() {
   local rname="$1" nodes n free=0
   command -v scontrol >/dev/null 2>&1 || { echo -2; return; }
-  nodes=$(_reservation_nodes "$rname")
+  nodes=$(_reservation_nodes "$rname") || { echo -3; return; }
   [ -n "$nodes" ] || { echo -1; return; }
   for n in $nodes; do
     _node_free "$n" && free=$((free + 1))
@@ -413,10 +423,12 @@ _dispatch_slurm() {
       rfree=$(_reservation_free "$INFERA_E2E_RESERVATION")
       smax="${INFERA_E2E_SPILL_MAX:-2}"
       if [ "$rfree" = "-1" ]; then
-        echo "[$label] WARNING: reservation '$INFERA_E2E_RESERVATION' not found — falling back to open partition '$SLURM_PART'" >&2
+        echo "[$label] WARNING: reservation '$INFERA_E2E_RESERVATION' does not exist — falling back to open partition '$SLURM_PART'" >&2
         mode="resv-gone->open"
       elif [ "$rfree" != "0" ]; then
-        # free>0, or -2 (no scontrol): use the reservation.
+        # free>0, or -2/-3 (cannot tell): keep the reservation. Only a query that
+        # answered may drop it -- reading a controller blink as "gone" is what
+        # sent a whole run to the open partition on 2026-08-06.
         resv=(--reservation="$INFERA_E2E_RESERVATION"); mode="resv"
       else
         inflight=$(_spill_inflight)
@@ -643,10 +655,16 @@ run_e2e_disagg() {
   fi
 
   # An expired reservation is worse than none — every step's `srun --reservation`
-  # would fail. Drop it, as _dispatch_slurm does for the mixed tier.
-  if [ -n "${INFERA_E2E_RESERVATION:-}" ] && [ -z "$(_reservation_nodes "$INFERA_E2E_RESERVATION")" ]; then
-    echo "[e2e disagg] WARNING: reservation '$INFERA_E2E_RESERVATION' not found — falling back to open partition '$SLURM_PART'" >&2
-    unset INFERA_E2E_RESERVATION
+  # would fail. Drop it, as _dispatch_slurm does for the mixed tier, but only on
+  # a query that answered: a failed one says nothing about the pool.
+  local resv_nodes
+  if [ -n "${INFERA_E2E_RESERVATION:-}" ]; then
+    if ! resv_nodes=$(_reservation_nodes "$INFERA_E2E_RESERVATION"); then
+      echo "[e2e disagg] WARNING: cannot reach the scheduler to check reservation '$INFERA_E2E_RESERVATION' — keeping it" >&2
+    elif [ -z "$resv_nodes" ]; then
+      echo "[e2e disagg] WARNING: reservation '$INFERA_E2E_RESERVATION' does not exist — falling back to open partition '$SLURM_PART'" >&2
+      unset INFERA_E2E_RESERVATION
+    fi
   fi
 
   local rc=0 e prc out="$SCRATCH/.e2e-disag.out"
@@ -713,10 +731,15 @@ run_e2e_disagg() {
 # Report-only: both tiers can still run (degraded) without a reservation or with
 # a nearly full /home, and a hard exit here would cost a whole CI run to find out.
 _e2e_preflight() {
-  local avail
-  if [ -n "${INFERA_E2E_RESERVATION:-}" ] && command -v scontrol >/dev/null 2>&1 \
-     && [ -z "$(_reservation_nodes "$INFERA_E2E_RESERVATION")" ]; then
-    echo "[e2e] ERROR: reservation '$INFERA_E2E_RESERVATION' does not exist (gone or expired)" >&2
+  local avail resv_nodes
+  if [ -n "${INFERA_E2E_RESERVATION:-}" ] && command -v scontrol >/dev/null 2>&1; then
+    if ! resv_nodes=$(_reservation_nodes "$INFERA_E2E_RESERVATION"); then
+      # This line used to say "does not exist" for an unreachable controller too,
+      # which sent triage looking for a deleted reservation.
+      echo "[e2e] ERROR: cannot reach the scheduler to check reservation '$INFERA_E2E_RESERVATION' (scontrol failed)" >&2
+    elif [ -z "$resv_nodes" ]; then
+      echo "[e2e] ERROR: reservation '$INFERA_E2E_RESERVATION' does not exist (gone or expired)" >&2
+    fi
   fi
   avail=$(df -Pk /home 2>/dev/null | awk 'NR==2{print $4}')
   case "$avail" in
