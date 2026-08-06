@@ -110,9 +110,11 @@ spec:
             restartPolicy: Always
             image: infera:sglang-gfx942-glm52
             imagePullPolicy: IfNotPresent
-            # --io-mode: `auto`'s probe ends at a /dev/mapper node it cannot see
-            # from inside a container and falls back to buffered. On the docker
-            # recipe's NVMe: 3.70 GB/s buffered vs 14.56 GB/s with O_DIRECT.
+            # --io-mode: `auto` used to lose an LVM mount from inside a container
+            # and fall back to buffered — 3.70 GB/s against 14.56 with O_DIRECT
+            # here. It resolves that through sysfs now, so this is a pin rather
+            # than a workaround: it is what the docker recipe ran, and a
+            # misclassification costs 4x while nothing warns.
             # --tablespace-pools: one slot must hold one whole hicache page, and
             # GLM-5.2-FP8 at page_size 64 writes both 2.74 MiB KV pages and
             # 624 KiB indexer pages. Oversize values are REJECTED, not split, so
