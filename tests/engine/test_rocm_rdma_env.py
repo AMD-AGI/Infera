@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-import pathlib
+import os
 
 import infera.engine.rocm_rdma_env as rre
 
@@ -46,8 +46,6 @@ def test_host_ip_prefers_roce_gid(monkeypatch):
     # fallback must NOT be consulted when a RoCE IPv4 GID exists
     monkeypatch.setattr(rre, "_private_rail_ipv4", lambda: "10.0.0.1")
     assert rre.apply_kv_host_ip_default() == "10.9.9.9"
-    import os
-
     assert os.environ["VLLM_HOST_IP"] == "10.9.9.9"
     assert os.environ["ATOM_HOST_IP"] == "10.9.9.9"
 
@@ -79,8 +77,6 @@ def test_aiter_default_on(monkeypatch):
     monkeypatch.delenv("VLLM_ROCM_USE_AITER", raising=False)
     monkeypatch.setattr(rre, "_is_rocm", lambda: True)
     assert rre.apply_vllm_aiter_default() == "1"
-    import os
-
     assert os.environ["VLLM_ROCM_USE_AITER"] == "1"
 
 
@@ -88,8 +84,6 @@ def test_aiter_respects_operator_override(monkeypatch):
     monkeypatch.setenv("VLLM_ROCM_USE_AITER", "0")
     monkeypatch.setattr(rre, "_is_rocm", lambda: True)
     assert rre.apply_vllm_aiter_default() is None  # no-op
-    import os
-
     assert os.environ["VLLM_ROCM_USE_AITER"] == "0"
 
 
@@ -99,60 +93,97 @@ def test_aiter_noop_off_rocm(monkeypatch):
     assert rre.apply_vllm_aiter_default() is None
 
 
-# --- Mooncake HIP-transport gate: the two halves must agree ------------------
+# --- destination-device affinity: default ON, opt-out must actually work -----
 #
-# Regression guard for a defect that shipped: rocm_rdma_env set
-# MC_DISABLE_HIP_TRANSPORT=1 while the C++ gate we patch into Mooncake read only
-# MC_ENABLE_HIP_TRANSPORT, so NOTHING consumed the variable infera was setting
-# and the "disable" default was a silent no-op. Cross-node PD then died in KV
-# transfer with hipIpcOpenMemHandle 201 (a hipIpc handle is host-local, so a peer
-# node can never open it).
+# Mooncake enables the policy on the mere PRESENCE of the env var, so a "0" from
+# an operator would silently still enable it. And setting it alongside
+# MC_ENABLE_HCA_PEER_AFFINITY makes Mooncake disable BOTH policies, which is
+# worse than either alone. Both hazards are handled here, not in the C++.
+
+
+def _on_rocm_without_affinity_env(monkeypatch):
+    for v in (rre._MC_DEST_AFFINITY, rre._MC_HCA_PEER_AFFINITY):
+        monkeypatch.delenv(v, raising=False)
+    monkeypatch.setattr(rre, "_is_rocm", lambda: True)
+
+
+def test_dest_affinity_defaults_on(monkeypatch):
+    _on_rocm_without_affinity_env(monkeypatch)
+    assert rre.apply_rocm_rdma_env_defaults()[rre._MC_DEST_AFFINITY] == "1"
+    assert os.environ[rre._MC_DEST_AFFINITY] == "1"
+
+
+def test_dest_affinity_opt_out_unsets_the_var(monkeypatch):
+    """A false-y value must DISABLE it, not just be left in the environment."""
+    _on_rocm_without_affinity_env(monkeypatch)
+    for value in ("0", "False"):
+        monkeypatch.setenv(rre._MC_DEST_AFFINITY, value)
+        assert rre._MC_DEST_AFFINITY not in rre.apply_rocm_rdma_env_defaults()
+        assert rre._MC_DEST_AFFINITY not in os.environ
+
+
+def test_dest_affinity_defers_to_explicit_hca_peer_affinity(monkeypatch):
+    _on_rocm_without_affinity_env(monkeypatch)
+    monkeypatch.setenv(rre._MC_HCA_PEER_AFFINITY, "true")
+    assert rre._MC_DEST_AFFINITY not in rre.apply_rocm_rdma_env_defaults()
+    assert rre._MC_DEST_AFFINITY not in os.environ
+
+
+def test_dest_affinity_applies_when_hca_peer_affinity_is_off(monkeypatch):
+    _on_rocm_without_affinity_env(monkeypatch)
+    monkeypatch.setenv(rre._MC_HCA_PEER_AFFINITY, "0")
+    assert rre.apply_rocm_rdma_env_defaults()[rre._MC_DEST_AFFINITY] == "1"
+
+
+# --- GPU MR path: follow the host, not a fleet-wide guess --------------------
 #
-# These tests pin the Python default and the C++ patch to the same spelling, so
-# renaming either half without the other fails here instead of on a cluster.
-
-_MC_PATCH = (
-    pathlib.Path(__file__).resolve().parents[2]
-    / "deploy"
-    / "docker"
-    / "patches"
-    / "mooncake_cpp"
-    / "transfer_engine_impl.diff"
-)
+# Both paths are compiled into the images. Bare ibv_reg_mr needs a peer-memory
+# module and cannot register a device pointer without one; dma-buf works there but
+# on a peer-mem host it burns a KFD resource under load (HIP-209). So the choice
+# has to be made per host, at startup.
 
 
-def test_hip_transport_disabled_by_default():
-    """infera must ship the HIP transport OFF, via the name the gate reads."""
-    assert rre._ROCM_RDMA_DEFAULTS["MC_DISABLE_HIP_TRANSPORT"] == "1"
-    # It must NOT hand out an "enable" default -- that would re-break cross-node PD.
-    assert "MC_ENABLE_HIP_TRANSPORT" not in rre._ROCM_RDMA_DEFAULTS
+def _on_rocm_without_mr_env(monkeypatch, *, peermem: bool):
+    _on_rocm_without_affinity_env(monkeypatch)
+    monkeypatch.delenv(rre._MC_DISABLE_DMABUF, raising=False)
+    monkeypatch.setattr(rre, "_peermem_loaded", lambda: peermem)
 
 
-def test_mooncake_patch_consumes_the_var_infera_sets():
-    """The C++ gate must read every MC_*_HIP_TRANSPORT var infera sets."""
-    patch = _MC_PATCH.read_text()
-    added = "\n".join(line[1:] for line in patch.splitlines() if line.startswith("+"))
-    for var in rre._ROCM_RDMA_DEFAULTS:
-        if "HIP_TRANSPORT" in var:
-            assert f'getenv("{var}")' in added, (
-                f"{var} is set by rocm_rdma_env but never read by the Mooncake "
-                f"gate patch -- it would be a silent no-op"
-            )
+def test_no_peermem_leaves_dmabuf_selected(monkeypatch):
+    _on_rocm_without_mr_env(monkeypatch, peermem=False)
+    assert rre._MC_DISABLE_DMABUF not in rre.apply_rocm_rdma_env_defaults()
+    assert rre._MC_DISABLE_DMABUF not in os.environ
 
 
-def test_mooncake_patch_defaults_off_without_any_env():
-    """The gate must not require an env var to be safe.
+def test_peermem_pins_the_bare_reg_mr_path(monkeypatch):
+    _on_rocm_without_mr_env(monkeypatch, peermem=True)
+    assert rre.apply_rocm_rdma_env_defaults()[rre._MC_DISABLE_DMABUF] == "1"
+    assert os.environ[rre._MC_DISABLE_DMABUF] == "1"
 
-    The installTransport("hip") call must sit in the `else` of a check that is
-    false when nothing is set, so an operator who exports nothing still gets RDMA.
-    """
-    patch = _MC_PATCH.read_text()
-    added = "\n".join(line[1:] for line in patch.splitlines() if line.startswith("+"))
-    # Enabling requires MC_ENABLE_HIP_TRANSPORT to be present AND non-"0" ...
-    assert 'mc_hip_enable && strcmp(mc_hip_enable, "0") != 0' in added
-    # ... and MC_DISABLE_HIP_TRANSPORT vetoes it outright.
-    assert 'mc_hip_disable && strcmp(mc_hip_disable, "0") != 0' in added
-    assert "if (!mc_hip_wanted || mc_hip_vetoed) {" in added
-    # The unconditional upstream block must be gone.
-    removed = [line[1:] for line in patch.splitlines() if line.startswith("-")]
-    assert any(line.strip() == "{" for line in removed)
+
+def test_operator_mr_path_override_wins(monkeypatch):
+    _on_rocm_without_mr_env(monkeypatch, peermem=True)
+    monkeypatch.setenv(rre._MC_DISABLE_DMABUF, "0")
+    assert rre._MC_DISABLE_DMABUF not in rre.apply_rocm_rdma_env_defaults()
+    assert os.environ[rre._MC_DISABLE_DMABUF] == "0"
+
+
+def _fake_proc_modules(monkeypatch, tmp_path, body):
+    mods = tmp_path / "modules"
+    mods.write_text(body)
+    monkeypatch.setattr(rre, "_PROC_MODULES", str(mods))
+
+
+def test_peermem_probe_reads_proc_modules(monkeypatch, tmp_path):
+    _fake_proc_modules(monkeypatch, tmp_path, "amdgpu 1 0 - Live 0x0\nib_peer_mem 1 1 - Live 0x0\n")
+    assert rre._peermem_loaded() is True
+
+
+def test_peermem_probe_ignores_unrelated_modules(monkeypatch, tmp_path):
+    _fake_proc_modules(monkeypatch, tmp_path, "amdgpu 1 0 - Live 0x0\n\n")
+    assert rre._peermem_loaded() is False
+
+
+def test_peermem_probe_reports_absent_when_unreadable(monkeypatch, tmp_path):
+    monkeypatch.setattr(rre, "_PROC_MODULES", str(tmp_path / "missing"))
+    assert rre._peermem_loaded() is False

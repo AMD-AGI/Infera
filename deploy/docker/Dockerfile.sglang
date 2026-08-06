@@ -11,60 +11,36 @@ FROM ${SGLANG_BASE_IMAGE}
 
 WORKDIR /opt/infera
 
-# ---- Mooncake unified rebuild: one engine.so, every PD path runtime-decided --
-# The v0.5.15.post1 base bundles Mooncake at upstream #2682. Rebuild it IN PLACE
-# (no extra version) so a single image supports every KV-transfer config and the
-# choice is made at RUNTIME:
-#   * HIP intra-node P2P transport — OFF on ROCm. #2682 installs it
-#     unconditionally and selectTransport prefers it over RDMA, which breaks
-#     cross-node PD: a hipIpc handle is host-local by construction, so a peer
-#     NODE's hipIpcOpenMemHandle fails ("invalid device context", 201).
-#     MC_ENABLE_HIP_TRANSPORT=1 opts back in for single-node-only P2P;
-#     MC_DISABLE_HIP_TRANSPORT=1 (infera's default) vetoes even that.
-#   * dma-buf GPUDirect (ibv_reg_dmabuf_mr) vs bare ibv_reg_mr+peermem — the
-#     dma-buf branch is COMPILED IN (fixing #2682's CMake propagation bug that
-#     silently drops it), and #2682's own runtime switch then decides per
-#     memory-type/kernel. Force bare with MOONCAKE_DISABLE_HIP_DMABUF=1 (infera's
-#     default — the AMD fleet is ionic/no-ODP, where dma-buf pins+doubles the KV
-#     pool); a dma-buf run opts in with MOONCAKE_DISABLE_HIP_DMABUF=0.
-# The HIP gate + auto-chunk-MR come from the SAME reusable mooncake_cpp diffs the
-# vLLM image applies (no duplicated source edit). Self-verifying (fails the build
-# if dma-buf/gate did not compile in); skip with BUILD_MOONCAKE=0. See the script.
+# ---- Mooncake: pinned upstream, no private source patches -------------------
+# The base bundles an older Mooncake. Rebuild its source checkout at the same
+# upstream revision used by the vLLM image. That revision already includes HIP
+# dma-buf build wiring, automatic cross-host RDMA routing, large-MR chunking,
+# chunk-offset correctness, and registration-error propagation. The build script
+# verifies those capabilities in the installed engine.so.
 ARG BUILD_MOONCAKE=1
-COPY deploy/docker/patches/mooncake_cpp/ /tmp/mooncake_cpp/
+ARG MOONCAKE_GIT_REF=faae8dd4a6309c3ecd47e0721a83b0250d686fa2
 COPY deploy/docker/scripts/build_mooncake_sglang.sh /tmp/build_mooncake_sglang.sh
 RUN if [ "${BUILD_MOONCAKE}" = "1" ]; then \
-        MC_CPP_PATCH_DIR=/tmp/mooncake_cpp bash /tmp/build_mooncake_sglang.sh; \
+        MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" bash /tmp/build_mooncake_sglang.sh; \
     else \
         echo "BUILD_MOONCAKE=0 — leaving base Mooncake as-is"; \
     fi \
-    && rm -rf /tmp/build_mooncake_sglang.sh /tmp/mooncake_cpp
+    && rm -f /tmp/build_mooncake_sglang.sh
 
-# ---- assert the gate is in the .so this image will LOAD -----------------------
-# Separate layer on purpose: it runs in BOTH BUILD_MOONCAKE branches, so
-# BUILD_MOONCAKE=0 can no longer silently ship a stock #2682 engine.so that
-# breaks cross-node PD. It also leaves a visible marker in `docker history`,
-# so you can tell from a published image whether the check ever ran.
-# This does NOT catch an image built FROM an already-published infera image
-# (the stage simply never re-runs) — for that, run the artifact-level check:
-#   deploy/docker/scripts/verify_image_mooncake.sh <image>
-# Set REQUIRE_MOONCAKE_HIP_GATE=0 to build an image deliberately without it.
-ARG REQUIRE_MOONCAKE_HIP_GATE=1
+# ---- assert cross-host routing in the .so this image will LOAD --------------
+# This separate artifact check also covers BUILD_MOONCAKE=0.
+ARG REQUIRE_MOONCAKE_CROSS_HOST_ROUTING=1
 RUN set -eu; \
-    if [ "${REQUIRE_MOONCAKE_HIP_GATE}" != "1" ]; then \
-        echo "REQUIRE_MOONCAKE_HIP_GATE=0 — skipping HIP-transport gate assertion"; \
+    if [ "${REQUIRE_MOONCAKE_CROSS_HOST_ROUTING}" != "1" ]; then \
+        echo "skipping Mooncake cross-host routing assertion"; \
     else \
         so_dir="$(python3 -c 'import mooncake, os; print(os.path.dirname(mooncake.__file__))')"; \
         so="$(ls "$so_dir"/engine*.so | head -1)"; \
-        for v in MC_ENABLE_HIP_TRANSPORT MC_DISABLE_HIP_TRANSPORT; do \
-            n="$(strings "$so" | grep -c "$v" || true)"; \
-            [ "$n" != "0" ] || { \
-                echo "ERROR: $so lacks $v — stock upstream #2682 installs the HIP" >&2; \
-                echo "       transport unconditionally and prefers it over RDMA, so" >&2; \
-                echo "       cross-node PD dies with hipIpcOpenMemHandle 201." >&2; \
-                exit 1; }; \
-        done; \
-        echo "MOONCAKE_HIP_GATE=present ($so)"; \
+        syms="$(strings "$so")"; \
+        printf '%s\n' "$syms" | grep -q "MC_DISABLE_HIP" || { \
+            echo "ERROR: $so lacks upstream cross-host HIP locality routing" >&2; \
+            exit 1; }; \
+        echo "MOONCAKE_CROSS_HOST_ROUTING=present ($so)"; \
     fi
 
 # ---- libionic (host ionic ABI match) -----------------------------------------

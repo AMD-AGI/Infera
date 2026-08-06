@@ -41,26 +41,20 @@ RUN if [ "${INSTALL_LIBIONIC}" = "1" ]; then \
         echo "INSTALL_LIBIONIC=0 — libionic injected at container start"; \
     fi
 
-# ---- Mooncake unified rebuild: one engine.so, every PD path runtime-decided --
-# Same in-place rebuild Dockerfile.sglang does (shared script + shared mooncake_cpp
-# diffs), with the HIP target pinned to gfx942 since `docker build` has no GPU to
-# probe. The base bundles Mooncake at upstream #2682 (01d1eb2a), which installs a
-# HIP IPC transport UNCONDITIONALLY and prefers it over RDMA — so CROSS-NODE PD
-# dies on the first request in hipIpcOpenMemHandle, which cannot open a peer's
-# handle. Without this block the MI325X 1P1D recipe has to rebuild engine.so
-# inside the running container before it can move a single KV chunk.
-# Self-verifying (fails the build if the gate / dma-buf did not compile in);
-# skip with BUILD_MOONCAKE=0. See the script for the full rationale.
+# ---- Mooncake: same pinned upstream revision as MI355X/vLLM -----------------
+# Build with gfx942 explicitly because docker build has no GPU to probe. The
+# shared script verifies HIP dma-buf and automatic cross-host RDMA routing in the
+# installed engine.so.
 ARG BUILD_MOONCAKE=1
-COPY deploy/docker/patches/mooncake_cpp/ /tmp/mooncake_cpp/
+ARG MOONCAKE_GIT_REF=faae8dd4a6309c3ecd47e0721a83b0250d686fa2
 COPY deploy/docker/scripts/build_mooncake_sglang.sh /tmp/build_mooncake_sglang.sh
 RUN if [ "${BUILD_MOONCAKE}" = "1" ]; then \
-        MC_GPU_ARCH=gfx942 MC_CPP_PATCH_DIR=/tmp/mooncake_cpp \
+        MC_GPU_ARCH=gfx942 MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" \
             bash /tmp/build_mooncake_sglang.sh; \
     else \
         echo "BUILD_MOONCAKE=0 — leaving base Mooncake as-is"; \
     fi \
-    && rm -rf /tmp/build_mooncake_sglang.sh /tmp/mooncake_cpp
+    && rm -f /tmp/build_mooncake_sglang.sh
 
 # Install infera + its declared deps from pyproject (single source of truth).
 # The base already ships torch/sglang and most of infera's runtime stack; pip

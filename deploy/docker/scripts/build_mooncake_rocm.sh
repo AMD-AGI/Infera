@@ -11,12 +11,13 @@
 #   (MI300X/MI355X + Pensando ionic) we must build Mooncake ourselves.
 #
 # Two build modes via MOONCAKE_DMABUF (default 0): 0 = release -DUSE_HIP=ON (VRAM
-#   RDMA via host-libionic injection); 1 = main @ pinned ref + B-group C++ patches
-#   (B.2 hip-transport gate + B.3 auto-chunk MR) for DSv4 cross-node RDMA.
+#   RDMA via host-libionic injection); 1 = main @ pinned ref + the B.2
+#   hip-transport gate, for DSv4 cross-node RDMA.
 #
 # GPU MR registration path via MOONCAKE_HIP_DMABUF (default 0, mode 1 only):
-#   0 = bare ibv_reg_mr, needs the legacy ib_peer_mem module; 1 = B.1 dma-buf
+#   0 = bare ibv_reg_mr, needs the legacy ib_peer_mem module; 1 = dma-buf
 #   GPUDirect, the only path that registers VRAM where ib_peer_mem is absent.
+#   It maps straight onto upstream's USE_HIP_DMABUF cmake option.
 #
 # Idempotent: reuses an existing build artifact if present.
 #
@@ -39,17 +40,21 @@ export DEBIAN_FRONTEND=noninteractive
 # ---- mode-dependent settings (all resolved up front) -----------------------
 MOONCAKE_DMABUF="${MOONCAKE_DMABUF:-0}"
 MOONCAKE_HIP_DMABUF="${MOONCAKE_HIP_DMABUF:-0}"
-export MOONCAKE_HIP_DMABUF  # read by apply_mooncake_cpp_patches.sh (B.1 gate)
+export MOONCAKE_HIP_DMABUF
 MOONCAKE_REPO="${MOONCAKE_REPO:-https://github.com/kvcache-ai/Mooncake.git}"
 MC_ROOT="${MC_ROOT:-/opt/mooncake/Mooncake}"
 MC_CPP_PATCH_DIR="${MC_CPP_PATCH_DIR:-$SCRIPT_DIR/patches/mooncake_cpp}"
 
 if [ "$MOONCAKE_DMABUF" = "1" ]; then
-    MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF:-747003c058015c4077a266e7ccd7549bbc9baede}"
+    MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF:-faae8dd4a6309c3ecd47e0721a83b0250d686fa2}"
+    # Upstream defaults USE_HIP_DMABUF ON, so pass it either way rather than
+    # letting MOONCAKE_HIP_DMABUF=0 silently still compile the dma-buf path in.
     if [ "$MOONCAKE_HIP_DMABUF" = "1" ]; then
-        MODE_DESC="main + B-group C++ patches + B.1 dma-buf GPUDirect (ibv_reg_dmabuf_mr)"
+        MODE_DESC="main + B.2 gate + dma-buf GPUDirect (ibv_reg_dmabuf_mr)"
+        DMABUF_CMAKE=(-DUSE_HIP_DMABUF=ON)
     else
-        MODE_DESC="main + B-group C++ patches (bare ibv_reg_mr, needs ib_peer_mem)"
+        MODE_DESC="main + B.2 gate (bare ibv_reg_mr, needs ib_peer_mem)"
+        DMABUF_CMAKE=(-DUSE_HIP_DMABUF=OFF)
     fi
     # main defaults RUST store ON; turn it off and pin pybind11. pybind11_DIR is
     # auto-detected from the ACTIVE interpreter, since the engine images lay
@@ -61,6 +66,7 @@ else
     MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF:-v0.3.7.post2}"
     MODE_DESC="release, no dma-buf (host-libionic injection)"
     EXTRA_CMAKE=()
+    DMABUF_CMAKE=()
 fi
 
 echo "============================================"
@@ -102,10 +108,11 @@ bash dependencies.sh -y 2>&1 | tail -15 || echo "dependencies.sh returned $? (co
 export CMAKE_PREFIX_PATH="/opt/rocm:/opt/rocm/lib/cmake:/usr/local/lib/python3.12/dist-packages/pybind11/share/cmake/pybind11:${CMAKE_PREFIX_PATH:-}"
 ENGINE_SO_GLOB="build/mooncake-integration/engine.cpython-*-x86_64-linux-gnu.so"
 if ! ls $ENGINE_SO_GLOB >/dev/null 2>&1; then
-    echo "=== cmake configure (USE_HIP=ON ${EXTRA_CMAKE[*]:-}) ==="
+    echo "=== cmake configure (USE_HIP=ON ${DMABUF_CMAKE[*]:-} ${EXTRA_CMAKE[*]:-}) ==="
     rm -rf build && mkdir build && cd build
     cmake .. -DUSE_HIP=ON -DUSE_ETCD=OFF -DWITH_STORE=OFF \
-        -DBUILD_UNIT_TESTS=OFF -DBUILD_EXAMPLES=OFF "${EXTRA_CMAKE[@]}" \
+        -DBUILD_UNIT_TESTS=OFF -DBUILD_EXAMPLES=OFF \
+        "${DMABUF_CMAKE[@]}" "${EXTRA_CMAKE[@]}" \
         -GNinja 2>&1 | tail -25
     echo "=== ninja build ==="
     ninja 2>&1 | tail -25
@@ -153,12 +160,13 @@ if [ "$MOONCAKE_HIP_DMABUF" = "1" ]; then
         echo "MC_DMABUF_VERIFY OK (dma-buf GPUDirect symbols present)"
     else
         echo "ERROR: MOONCAKE_HIP_DMABUF=1 but dma-buf symbols absent from $SO" >&2
-        echo "       -> B.1 CMake patch did not reach rdma_transport; check build log." >&2
+        echo "       -> USE_HIP_DMABUF did not reach rdma_transport; check build log." >&2
         exit 1
     fi
 fi
-# Assert the B.2 HIP-transport gate compiled in. Without it the binary is stock
-# upstream #2682: it installs the HIP transport unconditionally and selectTransport
+# Assert the B.2 HIP-transport gate compiled in. This build does not enable
+# upstream's ENABLE_MULTI_PROTOCOL locality routing, so without the gate the
+# binary installs the HIP transport unconditionally and selectTransport
 # prefers it over RDMA, so cross-node PD dies in KV transfer with
 # "hipIpcOpenMemHandle failed (201 - invalid device context)" — an IPC handle is
 # host-local, so a peer NODE can never open it. Both spellings must be present:

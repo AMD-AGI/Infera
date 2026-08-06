@@ -146,18 +146,28 @@ so expect upstream to close this differently than we did.
 > V4 stack runs on this branch, so that gate would be untested — the script's SCOPE
 > section records it for whoever gets there.
 
-## Mooncake C++ — `patches/mooncake_cpp/` (built by `Dockerfile.sglang`, `Dockerfile.vllm`, `Dockerfile.atom`)
+## Mooncake C++ — `patches/mooncake_cpp/`
 
-Pinned to Mooncake `main @ 747003c`; `git apply` fails loudly on ref drift.
+SGLang now builds Mooncake `faae8dd4` directly and carries no private Mooncake
+source patch. The one file below is still applied by the vLLM build, and must be
+removed there once it enables upstream multi-protocol routing. `Dockerfile.atom`
+copies the patch dir too, but only rebuilds Mooncake under
+`MOONCAKE_HIP_DMABUF=1` — not its default, and nothing in this repo passes it. That
+path is still pinned to `747003c` and would need a validated ref bump before use.
 
 | patch | fixes | upstream issue | upstream PR | ours? | PR state |
 |---|---|---|---|---|---|
-| `mooncake_cpp/rdma_auto_chunk_mr_2017.diff` | buffers over the device `max_mr_size` are silently truncated by `ibv_reg_mr` while `BufferDesc.length` advertises the full size → `IBV_WC_REM_ACCESS_ERR` past the boundary | [Mooncake#2017](https://github.com/kvcache-ai/Mooncake/issues/2017) | [Mooncake#2644](https://github.com/kvcache-ai/Mooncake/pull/2644) | **yes** (`jiejingzhangamd`) | **MERGED** 2026-07-28 |
-| `mooncake_cpp/rdma_transport_dmabuf_cmake.diff` | `USE_HIP_DMABUF` is defined only on the `transfer_engine` target, so the `ibv_reg_dmabuf_mr` branch compiles **out** of `rdma_transport` — where it is actually called → GPU buffers fall back to bare `ibv_reg_mr`, which cannot pin VRAM without `ib_peer_mem` | none found | none found | — | — |
-| `mooncake_cpp/transfer_engine_impl.diff` | `installTransport("hip")` runs unconditionally, so GPU buffers become intra-node HIP IPC segments a cross-node peer cannot open (`Corrupted segment descriptor hipbuffer`) | none found | none found | — | — |
+| `mooncake_cpp/transfer_engine_impl.diff` | old single-protocol builds preferred HIP IPC for cross-host targets | none | [Mooncake#2753](https://github.com/kvcache-ai/Mooncake/pull/2753) | no | **MERGED**; still needed while the vLLM build leaves `ENABLE_MULTI_PROTOCOL` off |
 
-> #2644 is merged upstream but **not** in the pinned `747003c` tree, so the local
-> diff is still applied. Drop it when the pin advances past the merge.
+Two files were deleted once the pinned ref carried them: `rdma_auto_chunk_mr_2017.diff`
+after [Mooncake#2644](https://github.com/kvcache-ai/Mooncake/pull/2644) landed, and
+`rdma_transport_dmabuf_cmake.diff` after
+[Mooncake#2725](https://github.com/kvcache-ai/Mooncake/pull/2725) moved the
+`USE_HIP_DMABUF` wiring into `src/CMakeLists.txt`; the vLLM build now selects that
+path with `-DUSE_HIP_DMABUF` instead of a patch. The upstream source includes a GPU
+dma-buf chunk test, but it is not registered with CTest and does not cover a
+1 GiB-aligned allocation on ionic. That provider-specific case still needs a
+hardware regression test.
 
 ## vLLM — `patches/vllm/` (baked by `Dockerfile.vllm`)
 
@@ -213,17 +223,17 @@ ATOM is an internal engine; there is no public upstream to file against.
 ## Not patches
 
 Every file under `patches/` is covered above except these, which carry no fix of
-their own: `mooncake_cpp/apply_mooncake_cpp_patches.sh` (applies the three
-Mooncake diffs), `sglang_dsa/README.md`, `sglang_disagg/README.md` and
+their own: `mooncake_cpp/apply_mooncake_cpp_patches.sh`,
+`sglang_dsa/README.md`, `sglang_disagg/README.md` and
 `vllm-dsv4/legacy/README.md`.
 
 ## Maintenance
 
 A row is ready to delete when its upstream PR is **merged and present in the
 pinned base**. Merged-but-not-in-base still needs the local patch — sglang#30265
-and Mooncake#2644 are exactly that case. The staged write-back row is the
-exception: its `MERGED` PR (sglang#28534) is what *introduced* the defect, so that
-patch drops on sglang#30350 instead.
+is exactly that case. The staged write-back row is the exception: its `MERGED` PR
+(sglang#28534) is what *introduced* the defect, so that patch drops on
+sglang#30350 instead.
 
 When adding a patch, add its row here in the same commit, and put the full
 argument — evidence, alternatives, how it differs from our own upstream PR — in
