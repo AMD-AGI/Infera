@@ -18,7 +18,8 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "str
 serde = { version = "1", features = ["derive"] }
 # preserve_order: without it serde_json sorts object keys on parse, so a tool
 # call's arguments reach the chat template in a different order than the engine
-# saw them and every block hash downstream of it misses.
+# saw them and every block hash downstream of it misses. It also redefines
+# Map::remove as a swap that perturbs order -- reach for shift_remove instead.
 serde_json = { version = "1", features = ["preserve_order"] }
 arc-swap = "1"
 clap = { version = "4", features = ["derive", "env"] }
