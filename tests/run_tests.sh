@@ -195,6 +195,24 @@ QOS_WAIT="${INFERA_E2E_QOS_WAIT:-30}"
 # than a single-node srun, and giving up early only churns the pair-hold race.
 HOLD_WAIT="${INFERA_E2E_HOLD_WAIT:-60}"
 
+# A tier that could not run is not a tier that passed: returning 0 here is how a
+# runner whose python3 lacked pytest turned every e2e-disag leg green in 7s. Fail
+# and name the cause; a dev box that really has no SLURM opts out explicitly.
+#   $1=label  $2=what is wrong  $3=how to fix it
+_SKIPPED_TIERS=""
+_skip_or_fail() {
+  local label="$1" why="$2" fix="$3"
+  if [ "${INFERA_E2E_ALLOW_SKIP:-}" = 1 ]; then
+    _SKIPPED_TIERS="${_SKIPPED_TIERS:+$_SKIPPED_TIERS, }$label"
+    echo "[$label] SKIPPED (INFERA_E2E_ALLOW_SKIP=1): $why" >&2
+    return 0
+  fi
+  echo "[$label] FATAL: $why" >&2
+  echo "[$label] fix: $fix" >&2
+  echo "[$label] (or INFERA_E2E_ALLOW_SKIP=1 to skip this tier instead of failing)" >&2
+  return 1
+}
+
 _have_slurm() { command -v srun >/dev/null 2>&1; }
 # The nodes reservation $1 covers, one per line ('' if it is gone/expired).
 # Spur ignores the NAME arg and dumps all reservations; match the exact block.
@@ -358,8 +376,10 @@ _watch_job() {
 _dispatch_slurm() {
   local label="$1"; shift
   if ! _have_slurm; then
-    echo "[$label] WARNING: no SLURM (srun) — skipping" >&2
-    return 0
+    _skip_or_fail "$label" \
+      "no SLURM: srun is not on PATH, so this tier cannot be dispatched to a GPU node" \
+      "expose the SLURM client on this host, or run where docker + >=8 AMD GPUs are present"
+    return $?
   fi
   # srun's own client banners/errors (job id, "running on <node>", ...).
   local out="$SCRATCH/.dispatch-$label.out"
@@ -603,11 +623,20 @@ run_e2e_disagg() {
   local engines=("$@")
   echo "===== e2e PD-disaggregated (cross-node, 2 nodes): ${engines[*]} ====="
   if ! _have_slurm; then
-    echo "[e2e disagg] WARNING: no SLURM (srun) — skipping PD-disaggregated tests" >&2
-    return 0
+    _skip_or_fail "e2e disagg" \
+      "no SLURM: srun is not on PATH, so the PD-disaggregated tests cannot run" \
+      "expose the SLURM client on this host"
+    return $?
   fi
-  python3 -c "import pytest, pytest_asyncio, httpx" >/dev/null 2>&1 \
-    || { echo "[e2e disagg] WARNING: missing host deps (pytest/pytest-asyncio/httpx) — skipping" >&2; return 0; }
+  # Name the interpreter actually consulted and quote its ImportError: "missing
+  # host deps" is true of every python3 on the box, and sent the last triage wrong.
+  local deps_err
+  if ! deps_err=$(python3 -c "import pytest, pytest_asyncio, httpx" 2>&1); then
+    _skip_or_fail "e2e disagg" \
+      "the disagg orchestrator runs pytest on THIS host, and $(command -v python3 || echo 'python3 (not on PATH)') cannot import its deps: ${deps_err##*$'\n'}" \
+      "pip install pytest pytest-asyncio httpx"
+    return $?
+  fi
 
   if [ -n "$SHARED_LOG_DIR" ]; then
     exec > >(stdbuf -oL tee -a "$SHARED_LOG_DIR/dispatch-disag-$$.log") 2>&1
@@ -777,5 +806,11 @@ if [ -d "$E2E_LOG_DIR" ]; then
   ls -1 "$E2E_LOG_DIR"/*.log 2>/dev/null | sed 's|^|  |' || true
 fi
 
-[ "$rc" -eq 0 ] && echo "RESULT: PASS" || echo "RESULT: FAIL"
+if [ "$rc" -ne 0 ]; then
+  echo "RESULT: FAIL"
+elif [ -n "$_SKIPPED_TIERS" ]; then
+  echo "RESULT: PASS (SKIPPED: $_SKIPPED_TIERS)"
+else
+  echo "RESULT: PASS"
+fi
 exit "$rc"
