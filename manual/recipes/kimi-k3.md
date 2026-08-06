@@ -94,6 +94,12 @@ kubectl -n infera get pods -w
 # nodes must advertise amd.com/gpu
 kubectl get nodes -o custom-columns=NODE:.metadata.name,GPU:.status.allocatable.'amd\.com/gpu'
 
+# every manifest below hardcodes `namespace: infera`, and nothing else creates it
+kubectl create namespace infera --dry-run=client -o yaml | kubectl apply -f -
+
+# on k3s, helm needs KUBECONFIG spelled out — kubectl finds it implicitly, helm does not
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+
 # the operator (provides the InferaDeployment CRD)
 helm upgrade --install infera-operator deploy/operator/helm/infera-operator \
   -n infera-system --create-namespace
