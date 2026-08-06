@@ -50,6 +50,14 @@ On k3s, install with `--data-dir` on a large disk. The default lives under `/var
 and 1.5 TB of weights plus these images fills it — the node goes `DiskPressure` and
 evicts the operator before anything serves.
 
+`--data-dir` moves the image store only. kubelet keeps its root at
+`/var/lib/kubelet` on the OS disk, and the default eviction threshold is
+`nodefs.available<10%` of *that* disk — a node with `--data-dir` on a 7 TB NVMe
+still sat `DiskPressure` for two days because its 838 GB OS disk had 0 bytes
+free. Keep 10% free on both, and check with
+`kubectl get --raw /api/v1/nodes/<node>/proxy/stats/summary`, which reports the
+two filesystems separately.
+
 **Weights.** The manifests expect the `model-cache` PVC to hold Kimi-K3 at
 `/models/Kimi-K3`. Size the PVC for 1.5 TB before you start:
 

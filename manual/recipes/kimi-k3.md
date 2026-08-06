@@ -110,6 +110,14 @@ on a large disk — the default lives under `/var/lib`, and these images plus th
 checkpoint fill it, at which point the node goes `DiskPressure` and evicts the
 operator before anything serves.
 
+`--data-dir` moves the image store only. kubelet keeps its root at
+`/var/lib/kubelet` on the OS disk, and the default eviction threshold is
+`nodefs.available<10%` of *that* disk — a node with `--data-dir` on a 7 TB NVMe
+still sat `DiskPressure` for two days because its 838 GB OS disk had 0 bytes
+free. Keep 10% free on both, and check with
+`kubectl get --raw /api/v1/nodes/<node>/proxy/stats/summary`, which reports the
+two filesystems separately.
+
 ```bash
 kubectl apply -f examples/k8s-deployments/model-cache/model-cache.yaml
 kubectl apply -f examples/k8s-deployments/model-cache/model-download.yaml
