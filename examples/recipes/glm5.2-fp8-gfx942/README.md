@@ -5,9 +5,10 @@ disaggregation over Mooncake RDMA, DP-attention, MTP speculative decoding, kv-aw
 routing, and KV offload to host RAM + node-local NVMe through `infera-kvd`.
 
 Every flag here is lifted from a `docker` + shell deployment of the same topology,
-validated on 2 × MI300X and referred to throughout as **the docker recipe**. Nothing
-was retuned for Kubernetes: §6 lists every difference and why the substrate forced
-it, and there are no others.
+validated on 2 × MI300X and referred to throughout as **the docker recipe**:
+[`examples/glm5.2_gfx942/`](../../glm5.2_gfx942/README.md), which also carries the
+bring-up, verification and benchmark scripts. Nothing was retuned for Kubernetes:
+§6 lists every difference and why the substrate forced it, and there are no others.
 
 | Combo | Serving | KV cache | Manifest |
 |---|---|---|---|
@@ -229,13 +230,27 @@ command, drop the `kvd-sock` / `kvd-l3` volumes, and drop the `kvd-sock`
 `volumeMount` from the prefill `main` container — miss that last one and the Pod
 is rejected for referencing a volume that no longer exists. Worth running only once the
 deployment is above its pressure point — below it the 54 GB device pool per rank
-answers everything and both arms are identical. That is what the docker recipe's
-agentic trace showed; **TODO — kvd's share of the hits is being re-measured, so no
-figure is quoted here yet.**
+answers everything and both arms are identical.
+
+**That is what the docker recipe's agentic trace measured, and the result was
+negative:** on a 32-conversation / 225-turn trace at `CONC=16`, `KVD=1` ran
+**12.0% slower** than `KVD=0` and served **`gets_total = 0`** — 100.8 GB written
+to L3 and not one page read back. Nothing was wrong with the offload path; the
+trace simply had no misses left for it, its scorer efficiency against the
+achievable ideal already sitting at ~100% on the GPU pool alone. Run this
+manifest for a workload whose working set outgrows 54 GB/rank, and run the
+`KVD=0` variant above to confirm yours does before paying for the tier.
 
 ## 6. What changed from the docker recipe, and why
 
-Every engine, router and kvd flag is identical. These are substrate translations:
+Every engine and kvd flag is identical. The one router flag that differs is
+`--router-backend`: the docker recipe defaults to `rust`, which this manifest
+cannot use, because the Rust binary supports only `--discovery-backend etcd`
+while the operator's backend is `kubernetes` (first row below). The two make
+identical routing decisions request for request; `python` reaches them ~27%
+slower end to end, which is the price of the substrate here.
+
+The rest are substrate translations:
 
 | `docker` form | Kubernetes form | Why |
 |---|---|---|
