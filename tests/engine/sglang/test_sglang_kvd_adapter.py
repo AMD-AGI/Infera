@@ -438,6 +438,24 @@ async def test_get_stats_returns_none_when_sglang_moved_the_type(
 
 
 @pytest.mark.asyncio
+async def test_record_io_drops_a_batch_it_cannot_size(kvd_daemon, patched_adapter_codecs):
+    """A transfer whose byte count we could not derive must not surface as
+    a 0 GB/s sample: absent reads as "no data", zero reads as "stalled"."""
+    backend = await asyncio.to_thread(InferaKvdBackend, _make_config(), socket_path=kvd_daemon)
+    try:
+        backend._record_io(pages=4, nbytes=0, elapsed=0.001, write=False)
+        backend._record_io(pages=4, nbytes=0, elapsed=0.001, write=True)
+
+        metrics = await asyncio.to_thread(backend.get_stats)
+        assert metrics.prefetch_pgs == []
+        assert metrics.backup_pgs == []
+        assert metrics.prefetch_bandwidth == []
+        assert metrics.backup_bandwidth == []
+    finally:
+        await asyncio.to_thread(backend.close)
+
+
+@pytest.mark.asyncio
 async def test_get_stats_samples_are_bounded(kvd_daemon, patched_adapter_codecs):
     """With metrics off nobody drains, so the accumulators must not grow
     without bound for the length of a run."""
@@ -787,6 +805,23 @@ class _FakeHostPool:
         self._storage[i : i + self.page_size] = bytes(data_page.payload)
 
 
+class _SizedFakeHostPool(_FakeHostPool):
+    """A pool the adapter *can* size, i.e. one that carries the MLA-shaped
+    `kv_buffer` that `_get_pool_buffer_info` duck-types on. Plain
+    `_FakeHostPool` has no buffer attribute at all, so the two together
+    cover both arms of the metric sampling."""
+
+    def __init__(self, n_slots: int, page_size: int = 2) -> None:
+        super().__init__(n_slots, page_size)
+        self.kv_buffer = SimpleNamespace(
+            data_ptr=lambda: 4096,
+            numel=lambda: n_slots,
+            element_size=lambda: 1,
+        )
+        self.kv_cache_dim = 1
+        self.dtype = SimpleNamespace(itemsize=1)
+
+
 class _FakeIndices:
     """Stand-in for a torch.LongTensor of host indices. Supports
     `numel()` and integer indexing returning an obj with `.item()`."""
@@ -930,6 +965,78 @@ async def test_batch_set_v2_roundtrip_kv_and_indexer(
         # kvd hit counter should advance by 4 (we read 2×2 pages).
         stats_after = await asyncio.to_thread(backend.daemon_counters)
         assert stats_after["hits_total"] >= 4
+    finally:
+        await asyncio.to_thread(backend.close)
+
+
+@pytest.mark.asyncio
+async def test_batch_io_v2_records_no_sample_for_a_pool_it_cannot_size(
+    kvd_daemon, patched_adapter_codecs, fake_sglang_v2_types
+):
+    """`_FakeHostPool` carries neither buffer attribute, so the adapter has
+    no page stride for it. The transfer still has to work, and it has to
+    leave no bandwidth sample rather than one reading 0 GB/s."""
+    PoolName = fake_sglang_v2_types.PoolName
+    PoolHitPolicy = fake_sglang_v2_types.PoolHitPolicy
+
+    backend = await asyncio.to_thread(
+        kvd_adapter.InferaKvdBackend,
+        _make_config(),
+        socket_path=kvd_daemon,
+        client_id="v2-unsized-metrics",
+    )
+    try:
+        kv_pool = _FakeHostPool(n_slots=8, page_size=2)
+        assert backend._get_pool_buffer_info(kv_pool) is None, "pool must be unrecognized"
+        backend.registered_pools = {PoolName.KV: kv_pool}
+
+        keys = ["unsized_alpha", "unsized_beta"]
+        kv_t = _make_transfer(PoolName, PoolHitPolicy, PoolName.KV, keys, [0, 1, 2, 3])
+        assert await asyncio.to_thread(backend.batch_set_v2, [kv_t]) == {PoolName.KV: [True, True]}
+
+        metrics = await asyncio.to_thread(backend.get_stats)
+        assert metrics.backup_pgs == []
+        assert metrics.backup_bandwidth == []
+    finally:
+        await asyncio.to_thread(backend.close)
+
+
+@pytest.mark.asyncio
+async def test_batch_io_v2_drops_the_sample_when_one_pool_is_unsized(
+    kvd_daemon, patched_adapter_codecs, fake_sglang_v2_types
+):
+    """A batch spans several pools but is timed as a whole. If one pool's
+    bytes are unknowable, keeping the others' would divide real bytes by
+    the whole batch's time and understate the rate, so the sample goes."""
+    PoolName = fake_sglang_v2_types.PoolName
+    PoolHitPolicy = fake_sglang_v2_types.PoolHitPolicy
+
+    backend = await asyncio.to_thread(
+        kvd_adapter.InferaKvdBackend,
+        _make_config(),
+        socket_path=kvd_daemon,
+        client_id="v2-mixed-metrics",
+    )
+    try:
+        sized = _SizedFakeHostPool(n_slots=8, page_size=2)
+        unsized = _FakeHostPool(n_slots=8, page_size=2)
+        assert backend._get_pool_buffer_info(sized) is not None
+        assert backend._get_pool_buffer_info(unsized) is None
+        backend.registered_pools = {PoolName.KV: sized, PoolName.INDEXER: unsized}
+
+        # Sized pool alone: one sample, and it is not a zero.
+        kv_t = _make_transfer(PoolName, PoolHitPolicy, PoolName.KV, ["mixed_a"], [0, 1])
+        await asyncio.to_thread(backend.batch_set_v2, [kv_t])
+        metrics = await asyncio.to_thread(backend.get_stats)
+        assert metrics.backup_pgs == [1]
+        assert metrics.backup_bandwidth and metrics.backup_bandwidth[0] > 0
+
+        # Same batch plus the unsized pool: nothing recorded at all.
+        idx_t = _make_transfer(PoolName, PoolHitPolicy, PoolName.INDEXER, ["mixed_b"], [0, 1])
+        await asyncio.to_thread(backend.batch_set_v2, [kv_t, idx_t])
+        after = await asyncio.to_thread(backend.get_stats)
+        assert after.backup_pgs == []
+        assert after.backup_bandwidth == []
     finally:
         await asyncio.to_thread(backend.close)
 

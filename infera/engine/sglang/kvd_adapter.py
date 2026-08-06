@@ -356,6 +356,12 @@ class InferaKvdBackend(HiCacheStorage):  # type: ignore[misc]
         # One sample per batch io, drained by get_stats(). Bounded rather than
         # gated on a flag: SGLang only polls get_stats() when metrics are on,
         # and unbounded lists would grow for the entire run when they are off.
+        #
+        # The lock is load-bearing, not defensive: SGLang records from its
+        # prefetch and backup worker threads and drains from the scheduler
+        # thread, and the drain is a read-then-clear that would otherwise lose
+        # whatever lands between its two halves.
+        self._metrics_lock = threading.Lock()
         self._prefetch_pgs: deque[int] = deque(maxlen=_METRICS_SAMPLE_CAP)
         self._backup_pgs: deque[int] = deque(maxlen=_METRICS_SAMPLE_CAP)
         self._prefetch_bandwidth: deque[float] = deque(maxlen=_METRICS_SAMPLE_CAP)
@@ -625,6 +631,7 @@ class InferaKvdBackend(HiCacheStorage):  # type: ignore[misc]
         started = time.perf_counter()
         pages_done = 0
         bytes_done = 0
+        unsized_pages = False
         for transfer in transfers:
             name = transfer.name
             keys = list(transfer.keys or [])
@@ -666,16 +673,25 @@ class InferaKvdBackend(HiCacheStorage):  # type: ignore[misc]
                 else:
                     per_key.append(self._v2_read_page(name, key, host_pool, page_offset))
             results[name] = per_key
+            pages = sum(per_key)
             info = self._get_pool_buffer_info(host_pool)
-            page_bytes = info[2] if info else 0
-            pages_done += sum(per_key)
-            bytes_done += sum(per_key) * page_bytes
-        self._record_io(
-            pages=pages_done,
-            nbytes=bytes_done,
-            elapsed=time.perf_counter() - started,
-            write=write,
-        )
+            if info is None:
+                # Pool shape we don't recognize, so we have no page stride and
+                # no way to size the transfer. `elapsed` covers every pool in
+                # the batch, so counting this one's pages with zero bytes — or
+                # dropping only its bytes — understates the rate. Drop the
+                # whole sample; registration already logged the unknown shape.
+                unsized_pages = unsized_pages or pages > 0
+                continue
+            pages_done += pages
+            bytes_done += pages * info[2]
+        if not unsized_pages:
+            self._record_io(
+                pages=pages_done,
+                nbytes=bytes_done,
+                elapsed=time.perf_counter() - started,
+                write=write,
+            )
         return results
 
     def _pool_storage_key(self, pool_name: Any, key: str) -> str:
@@ -1038,16 +1054,19 @@ class InferaKvdBackend(HiCacheStorage):  # type: ignore[misc]
 
     def _record_io(self, *, pages: int, nbytes: int, elapsed: float, write: bool) -> None:
         """Append one batch-io sample. Bandwidth is GB/s over the whole
-        batch, matching what SGLang's built-in backends report."""
-        if pages <= 0 or elapsed <= 0:
+        batch, matching what SGLang's built-in backends report. A batch we
+        cannot size is dropped rather than published as 0 GB/s — an absent
+        sample reads as "no data", a zero reads as "the transfer stalled"."""
+        if pages <= 0 or nbytes <= 0 or elapsed <= 0:
             return
         gb_per_s = (nbytes / elapsed) / 1e9
-        if write:
-            self._backup_pgs.append(pages)
-            self._backup_bandwidth.append(gb_per_s)
-        else:
-            self._prefetch_pgs.append(pages)
-            self._prefetch_bandwidth.append(gb_per_s)
+        with self._metrics_lock:
+            if write:
+                self._backup_pgs.append(pages)
+                self._backup_bandwidth.append(gb_per_s)
+            else:
+                self._prefetch_pgs.append(pages)
+                self._prefetch_bandwidth.append(gb_per_s)
 
     def get_stats(self) -> StorageMetrics | None:
         """Drain the batch-io samples for SGLang's hicache observability.
@@ -1063,14 +1082,15 @@ class InferaKvdBackend(HiCacheStorage):  # type: ignore[misc]
         if _STORAGE_METRICS_MISPLACED:  # pragma: no cover — needs a future sglang
             return None
         metrics = StorageMetrics()
-        metrics.prefetch_pgs.extend(self._prefetch_pgs)
-        metrics.backup_pgs.extend(self._backup_pgs)
-        metrics.prefetch_bandwidth.extend(self._prefetch_bandwidth)
-        metrics.backup_bandwidth.extend(self._backup_bandwidth)
-        self._prefetch_pgs.clear()
-        self._backup_pgs.clear()
-        self._prefetch_bandwidth.clear()
-        self._backup_bandwidth.clear()
+        with self._metrics_lock:
+            metrics.prefetch_pgs.extend(self._prefetch_pgs)
+            metrics.backup_pgs.extend(self._backup_pgs)
+            metrics.prefetch_bandwidth.extend(self._prefetch_bandwidth)
+            metrics.backup_bandwidth.extend(self._backup_bandwidth)
+            self._prefetch_pgs.clear()
+            self._backup_pgs.clear()
+            self._prefetch_bandwidth.clear()
+            self._backup_bandwidth.clear()
         return metrics
 
     def daemon_counters(self) -> dict | None:
