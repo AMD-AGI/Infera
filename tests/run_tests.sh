@@ -100,16 +100,21 @@ _cleanup_scratch() {
 # has to scancel it: job id from $_CUR_DISPATCH_OUT, else from the job tag.
 _CUR_DISPATCH_OUT=""
 _cancel_dispatched() {
-  local jids="" i suf csv
+  local jids="" i suf csv left
   if [ -n "$_CUR_DISPATCH_OUT" ] && [ -f "$_CUR_DISPATCH_OUT" ]; then
     jids=$(grep -oE 'srun: job [0-9]+' "$_CUR_DISPATCH_OUT" 2>/dev/null \
       | grep -oE '[0-9]+' | sort -u | tr '\n' ' ')
   fi
   if [ -z "$jids" ] && [ -n "${INFERA_E2E_JOB_TAG:-}" ]; then
     suf="-${INFERA_E2E_JOB_TAG}"
-    jids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \
+    # A failed lookup is not an empty queue. Say so and leave it to ci.yml's
+    # reclaim step rather than returning as if there were nothing to cancel.
+    if ! jids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \
       | awk -v suf="$suf" '$2 ~ /^infera-ci-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}' \
-      | tr '\n' ' ')
+      | tr '\n' ' '); then
+      echo "[cleanup] squeue failed — cannot list this run's jobs, leaving them to the workflow's reclaim step" >&2
+      return 1
+    fi
   fi
   [ -n "$jids" ] || return 0
   echo "[cleanup] cancelling dispatched SLURM job(s): $jids" >&2
@@ -118,8 +123,13 @@ _cancel_dispatched() {
   for i in 1 2 3 4 5; do
     scancel $jids >/dev/null 2>&1 || true
     sleep 2
-    [ -z "$(squeue -h -j "$csv" -o '%i' 2>/dev/null)" ] && return 0
+    # Only a query that answered may confirm the cancel: on Spur a gone job still
+    # exits 0 with no output. (Stock SLURM errors on an invalid id, so there this
+    # never confirms and the warning below is a false alarm -- the workflow's
+    # reclaim step is the backstop either way.)
+    left=$(squeue -h -j "$csv" -o '%i' 2>/dev/null) && [ -z "$left" ] && return 0
   done
+  echo "[cleanup] could not confirm the cancel of $jids" >&2
 }
 # Nodes the running PD-disagg attempt placed containers on. A killed run skips
 # pytest's teardown, so without this a cancel leaves prefill+decode on the GPUs.
@@ -291,6 +301,9 @@ _rival_holder() {
 # Hold both PD nodes' GPUs for the whole run: disagg's per-step sruns leave them
 # idle in between, so SLURM would hand one out and the fixed ports (etcd 2379,
 # router 8000, ...) collide. Our own no-gres steps co-schedule. Sets _HOLDER_JID.
+# 0 = held, 1 = another holder won the pair, 2 = SLURM never placed the hold.
+# The caller reports 1 and 2 differently: they used to read alike, so a refused
+# sbatch was announced as a lost race and pointed triage away from the scheduler.
 _hold_pair() {
   local pair="$1" script="$SCRATCH/hold.sh" jid st rs waited qos=() i other
   # A real script file, not --wrap: on Spur --wrap always NODE_FAILs at -N2.
@@ -323,7 +336,7 @@ _hold_pair() {
     scancel "$jid" >/dev/null 2>&1
     echo "[e2e disagg] hold attempt $i on $pair not started (${st:-?}/${rs:-?}) — retrying" >&2
   done
-  return 1
+  return 2
 }
 # One renderD* per GPU; PCI vendor 0x1002 == AMD.
 _amd_gpu_count() {
@@ -350,8 +363,12 @@ _reservation_free() {
   echo "$free"
 }
 # Caps borrowed nodes at INFERA_E2E_SPILL_MAX; concurrent dispatchers can race it.
+# Non-zero if the query failed, so the caller does not read that as "none in
+# flight" and borrow past the cap exactly when the scheduler is already unwell.
 _spill_inflight() {
-  squeue -h -u "$(id -un)" -o '%j' 2>/dev/null | grep -c -- 'spill' || true
+  local out
+  out=$(squeue -h -u "$(id -un)" -o '%j' 2>/dev/null) || return 1
+  printf '%s\n' "$out" | grep -c -- 'spill' || true
 }
 
 # Report why the dispatch is still queued (a waiting job prints NOTHING, so a CI
@@ -431,8 +448,8 @@ _dispatch_slurm() {
         # sent a whole run to the open partition on 2026-08-06.
         resv=(--reservation="$INFERA_E2E_RESERVATION"); mode="resv"
       else
-        inflight=$(_spill_inflight)
-        if [ "$smax" -gt 0 ] && [ "$inflight" -lt "$smax" ]; then
+        # A failed count must not authorise a spill: queue on the reservation.
+        if inflight=$(_spill_inflight) && [ "$smax" -gt 0 ] && [ "$inflight" -lt "$smax" ]; then
           # spill marker sits before the run_id-engine suffix so ci.yml reclaim matches.
           jobname="infera-ci-${label}-spill${INFERA_E2E_JOB_TAG:+-$INFERA_E2E_JOB_TAG}"
           mode="spill($((inflight + 1))/$smax)"
@@ -669,7 +686,7 @@ run_e2e_disagg() {
 
   local rc=0 e prc out="$SCRATCH/.e2e-disag.out"
   local max_attempts=3 attempt exclude n1 n2 nodes ok
-  local races max_races="${INFERA_E2E_HOLD_RACE_MAX:-10}"
+  local races max_races="${INFERA_E2E_HOLD_RACE_MAX:-10}" hold_rc
   for e in "${engines[@]}"; do
     echo "----- e2e disagg — tests/e2e/pd_disag/$e -----"
     attempt=0; ok=0; exclude=""; races=0
@@ -690,13 +707,19 @@ run_e2e_disagg() {
       # Losing the race is not a node fault, so the pair must NOT join $exclude:
       # with a small pool the engine would exclude every node and then starve on
       # an idle cluster. Bounded so a pathological loser fails loudly instead.
-      if ! _hold_pair "$n1,$n2"; then
+      # Not `if ! _hold_pair`: inside that, $? is the negation's, not the call's.
+      _hold_pair "$n1,$n2"; hold_rc=$?
+      if [ "$hold_rc" -ne 0 ]; then
         races=$((races + 1))
         if [ "$races" -ge "$max_races" ]; then
-          echo "[e2e disagg] lost the node-hold race $races times — giving up on $e" >&2
+          if [ "$hold_rc" -eq 2 ]; then
+            echo "[e2e disagg] SLURM never placed a node hold in $races attempts — giving up on $e" >&2
+          else
+            echo "[e2e disagg] lost the node-hold race $races times — giving up on $e" >&2
+          fi
           break
         fi
-        echo "[e2e disagg] could not hold $n1,$n2 (race $races/$max_races) — re-picking in 30s" >&2
+        echo "[e2e disagg] could not hold $n1,$n2 (attempt $races/$max_races) — re-picking in 30s" >&2
         attempt=$((attempt - 1)); sleep 30; continue
       fi
       races=0
