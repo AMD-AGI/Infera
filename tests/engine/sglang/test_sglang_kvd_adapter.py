@@ -217,7 +217,7 @@ async def test_adapter_init_connects(kvd_daemon, patched_adapter_codecs):
     )
     try:
         # Round-trip a stats call as a liveness probe.
-        stats = await asyncio.to_thread(backend.get_stats)
+        stats = await asyncio.to_thread(backend.daemon_counters)
         assert stats is not None
         assert stats["entries"] == 0
     finally:
@@ -349,7 +349,7 @@ async def test_adapter_get_size_mismatch_returns_none(kvd_daemon, patched_adapte
 
 
 @pytest.mark.asyncio
-async def test_adapter_get_stats_after_traffic(kvd_daemon, patched_adapter_codecs):
+async def test_adapter_daemon_counters_after_traffic(kvd_daemon, patched_adapter_codecs):
     socket = kvd_daemon
     backend = await asyncio.to_thread(InferaKvdBackend, _make_config(), socket_path=socket)
     try:
@@ -358,13 +358,95 @@ async def test_adapter_get_stats_after_traffic(kvd_daemon, patched_adapter_codec
         await asyncio.to_thread(backend.get, "a", target)  # hit
         await asyncio.to_thread(backend.get, "absent", _FakeTensor(b"\x00"))  # miss
 
-        stats = await asyncio.to_thread(backend.get_stats)
+        stats = await asyncio.to_thread(backend.daemon_counters)
         assert stats is not None
         # Counts include the auxiliary stats call's own GETs etc; just
         # sanity-check ranges.
         assert stats["entries"] == 1
         assert stats["hits_total"] >= 1
         assert stats["misses_total"] >= 1
+    finally:
+        await asyncio.to_thread(backend.close)
+
+
+# ----------------------------------------------------------------------
+# hicache storage metrics
+#
+# SGLang polls get_stats() every scheduler step and feeds the result
+# straight into StorageMetricsCollector.log_storage_metrics, which does
+# `assert isinstance(storage_metrics, StorageMetrics)`. Returning the
+# daemon-counter dict here used to take the prefill scheduler down with a
+# bare AssertionError the moment KVD and --enable-metrics were both on.
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_stats_returns_storage_metrics_type(kvd_daemon, patched_adapter_codecs):
+    """The type is the contract: anything else crashes the scheduler."""
+    backend = await asyncio.to_thread(InferaKvdBackend, _make_config(), socket_path=kvd_daemon)
+    try:
+        metrics = await asyncio.to_thread(backend.get_stats)
+        assert isinstance(metrics, kvd_adapter.StorageMetrics)
+        # Every field the collector iterates must exist and be iterable.
+        assert metrics.prefetch_pgs == []
+        assert metrics.backup_pgs == []
+        assert metrics.prefetch_bandwidth == []
+        assert metrics.backup_bandwidth == []
+    finally:
+        await asyncio.to_thread(backend.close)
+
+
+@pytest.mark.asyncio
+async def test_get_stats_records_then_drains_batch_io(kvd_daemon, patched_adapter_codecs):
+    """Batch ops leave one sample per call; get_stats drains them so the
+    histograms observe each sample exactly once."""
+    backend = await asyncio.to_thread(InferaKvdBackend, _make_config(), socket_path=kvd_daemon)
+    try:
+        keys = ["m1", "m2"]
+        values = [_FakeTensor(b"aaaa"), _FakeTensor(b"bbbb")]
+        await asyncio.to_thread(backend.batch_set, keys, values)
+        await asyncio.to_thread(backend.batch_get, keys, [_FakeTensor(b"\x00" * 4) for _ in keys])
+
+        metrics = await asyncio.to_thread(backend.get_stats)
+        assert metrics.backup_pgs == [2], "one sample per batch_set, 2 pages written"
+        assert metrics.prefetch_pgs == [2], "one sample per batch_get, 2 pages read"
+        assert len(metrics.backup_bandwidth) == 1
+        assert len(metrics.prefetch_bandwidth) == 1
+        assert all(b > 0 for b in metrics.backup_bandwidth + metrics.prefetch_bandwidth)
+
+        # Drained: a second poll with no traffic in between is empty.
+        again = await asyncio.to_thread(backend.get_stats)
+        assert again.prefetch_pgs == []
+        assert again.backup_pgs == []
+    finally:
+        await asyncio.to_thread(backend.close)
+
+
+@pytest.mark.asyncio
+async def test_get_stats_returns_none_when_sglang_moved_the_type(
+    kvd_daemon, patched_adapter_codecs, monkeypatch
+):
+    """If a future sglang moves StorageMetrics, our local stand-in would
+    fail the same isinstance assert. None is the only other value
+    log_storage_metrics accepts, so metrics go empty instead of fatal."""
+    monkeypatch.setattr(kvd_adapter, "_STORAGE_METRICS_MISPLACED", True)
+    backend = await asyncio.to_thread(InferaKvdBackend, _make_config(), socket_path=kvd_daemon)
+    try:
+        assert await asyncio.to_thread(backend.get_stats) is None
+    finally:
+        await asyncio.to_thread(backend.close)
+
+
+@pytest.mark.asyncio
+async def test_get_stats_samples_are_bounded(kvd_daemon, patched_adapter_codecs):
+    """With metrics off nobody drains, so the accumulators must not grow
+    without bound for the length of a run."""
+    backend = await asyncio.to_thread(InferaKvdBackend, _make_config(), socket_path=kvd_daemon)
+    try:
+        cap = kvd_adapter._METRICS_SAMPLE_CAP
+        for _ in range(cap + 10):
+            backend._record_io(pages=1, nbytes=1024, elapsed=0.001, write=False)
+        assert len(backend._prefetch_pgs) == cap
     finally:
         await asyncio.to_thread(backend.close)
 
@@ -831,7 +913,7 @@ async def test_batch_set_v2_roundtrip_kv_and_indexer(
         assert set_res[PoolName.INDEXER] == [True, True]
 
         # Daemon should report 4 stored entries (2 pages × 2 pools).
-        stats = await asyncio.to_thread(backend.get_stats)
+        stats = await asyncio.to_thread(backend.daemon_counters)
         assert stats["entries"] == 4
 
         # Wipe and read back through v2 → byte-perfect restore.
@@ -846,7 +928,7 @@ async def test_batch_set_v2_roundtrip_kv_and_indexer(
             assert idx_pool._storage[s] == 0xA0 + s, f"idx slot {s} mismatch"
 
         # kvd hit counter should advance by 4 (we read 2×2 pages).
-        stats_after = await asyncio.to_thread(backend.get_stats)
+        stats_after = await asyncio.to_thread(backend.daemon_counters)
         assert stats_after["hits_total"] >= 4
     finally:
         await asyncio.to_thread(backend.close)
