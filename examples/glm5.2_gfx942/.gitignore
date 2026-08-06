@@ -1,0 +1,4 @@
+# Written by the launch scripts and bench.sh. Engine logs run to megabytes and
+# trip the large-file hook long before anyone reviews the diff.
+logs/
+results/
