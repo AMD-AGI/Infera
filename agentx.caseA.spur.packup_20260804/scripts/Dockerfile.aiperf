@@ -1,0 +1,10 @@
+FROM python:3.13-slim
+ARG BRANCH=cquil11/aiperf-agentx-v1.0
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends git ca-certificates curl build-essential \
+ && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir "git+https://github.com/SemiAnalysisAI/aiperf.git@${BRANCH}"
+ENV TIKTOKEN_CACHE_DIR=/opt/tiktoken_cache
+RUN mkdir -p /opt/tiktoken_cache \
+ && python -c "import tiktoken; tiktoken.get_encoding('o200k_base')"
+ENTRYPOINT ["aiperf"]

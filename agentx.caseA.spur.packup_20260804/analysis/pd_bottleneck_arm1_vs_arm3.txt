@@ -1,0 +1,47 @@
+===== arm1 MTP+ChunkCache =====
+
+--- prefill (states 1-2) ---
+rank        lines  state1 mean   p95   max  state2 mean   p95   max
+(single)      653         2.00     8    12         1.69     4     8
+
+--- decode (states 3-5), PER RANK ---
+rank        lines  run mean  run max  prealloc max  xfer mean xfer max  retract max  tokusg p95
+DP0          1190      1.02        2             0      0.129        2            0       0.080
+DP1          1005      1.02        2             0      0.084        1            0       0.060
+DP2           738      1.09        2             0      0.305        2            0       0.060
+DP3           624      1.03        3             0      0.117        2            0       0.080
+DP4           620      1.29        3             0      0.406        3            0       0.060
+DP5           537      1.06        2             0      0.367        2            0       0.070
+DP6           419      1.06        2             0      0.236        2            0       0.080
+DP7           431      1.15        3             0      0.471        2            0       0.080
+
+cross-rank SUM of running-req per second: p50=2 p90=5 max=13   | distinct ranks active/sec: p50=2 max=8
+decode occupancy vs cap (256/rank x 8 ranks): 0.13%
+
+--- client ARRIVAL (closed-loop: this is an OUTPUT, not a knob) ---
+n=231 span=897.3s  arrival_rate=0.257 req/s  gap p50=2.48s mean=3.90s
+Compare this ACROSS arms before attributing any TTFT change to the server.
+
+===== arm3 noMTP+RadixCache =====
+
+--- prefill (states 1-2) ---
+rank        lines  state1 mean   p95   max  state2 mean   p95   max
+(single)      214         0.50     2     7         1.21     3     5
+
+--- decode (states 3-5), PER RANK ---
+rank        lines  run mean  run max  prealloc max  xfer mean xfer max  retract max  tokusg p95
+DP0           844      1.02        2             0      0.012        1            0       0.030
+DP1           848      1.00        1             0      0.000        0            0       0.030
+DP2           586      1.25        2             0      0.106        1            0       0.100
+DP3           455      1.00        2             0      0.009        1            0       0.040
+DP4           717      1.00        1             0      0.000        0            0       0.040
+DP5           564      1.10        2             0      0.009        1            0       0.040
+DP6           653      1.00        1             0      0.000        0            0       0.070
+DP7           177      1.00        1             0      0.000        0            0       0.030
+
+cross-rank SUM of running-req per second: p50=6 p90=7 max=10   | distinct ranks active/sec: p50=5 max=7
+decode occupancy vs cap (256/rank x 8 ranks): 0.27%
+
+--- client ARRIVAL (closed-loop: this is an OUTPUT, not a knob) ---
+n=176 span=897.2s  arrival_rate=0.196 req/s  gap p50=3.35s mean=5.13s
+Compare this ACROSS arms before attributing any TTFT change to the server.

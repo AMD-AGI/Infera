@@ -1,0 +1,8 @@
+host: crsuse2-m2m-288
+ip: 10.245.152.60/20
+kernel: 6.8.0-107-generic
+gpu: 8 x gfx950
+driver: 6.14.14
+image: sha256:81f05a634358988a2a036cb772af87c2b6c713a16a6140a11cdddee804b13560
+cmdline:
+/opt/venv/bin/python3 -m sglang.launch_server --model-path /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4 --served-model-name glm5.2-mxfp4 --tp-size 8 --trust-remote-code --host 10.245.152.60 --port 30000 --nsa-prefill-backend tilelang --nsa-decode-backend tilelang --kv-cache-dtype fp8_e4m3 --mem-fraction-static 0.85 --context-length 262144 --chunked-prefill-size 65536 --cuda-graph-max-bs 128 --max-running-requests 2048 --watchdog-timeout 3600 --hicache-size 32 --ep-size 8 --dp-size 8 --enable-dp-attention --speculative-algorithm EAGLE --speculative-num-steps 3 --speculative-eagle-topk 1 --speculative-num-draft-tokens 4 --num-reserved-decode-tokens 256 --disable-custom-all-reduce --disaggregation-mode decode --disaggregation-transfer-backend mooncake --disaggregation-ib-device mlx5_0 --enable-cache-report --kv-events-config {"publisher": "zmq", "endpoint": "tcp://*:23960", "topic": "kv-events"}

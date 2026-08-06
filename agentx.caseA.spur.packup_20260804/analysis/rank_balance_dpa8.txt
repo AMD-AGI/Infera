@@ -1,0 +1,29 @@
+samples=87  window=2026-08-04T05:32:36Z -> 2026-08-04T05:54:11Z  ranks=8
+
+cumulative prefill batches over the window:
+  DP0       236   21.1 %  #########################
+  DP1       211   18.8 %  ######################
+  DP2       211   18.8 %  ######################
+  DP3       152   13.6 %  ################
+  DP4       122   10.9 %  #############
+  DP5        72    6.4 %  #######
+  DP6        73    6.5 %  #######
+  DP7        43    3.8 %  ####
+
+  total=1,120  mean=140  min=43  max=236  max/min=5.49x  CV=0.494
+
+per-tick delta CV (0 = perfectly balanced):
+  2026-08-04T05:43:24Z  batches=   20  CV=2.059
+  2026-08-04T05:43:39Z  batches=    4  CV=1.732
+  2026-08-04T05:44:09Z  batches=   35  CV=1.114
+  2026-08-04T05:44:39Z  batches=   37  CV=1.118
+  2026-08-04T05:45:09Z  batches=   35  CV=1.792
+  2026-08-04T05:45:39Z  batches=   39  CV=0.942
+  2026-08-04T05:46:24Z  batches=   55  CV=0.904
+  2026-08-04T05:46:54Z  batches=   31  CV=1.485
+  2026-08-04T05:47:25Z  batches=   28  CV=2.030
+  2026-08-04T05:47:55Z  batches=   23  CV=1.307
+  2026-08-04T05:48:40Z  batches=   44  CV=0.886
+  2026-08-04T05:49:10Z  batches=   32  CV=1.231
+
+  active ticks=44  mean CV=1.454  median=1.258
