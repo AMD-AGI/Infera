@@ -100,21 +100,23 @@ _cleanup_scratch() {
 # has to scancel it: job id from $_CUR_DISPATCH_OUT, else from the job tag.
 _CUR_DISPATCH_OUT=""
 _cancel_dispatched() {
-  local jids="" i suf csv left
+  local jids="" i suf csv left queue
   if [ -n "$_CUR_DISPATCH_OUT" ] && [ -f "$_CUR_DISPATCH_OUT" ]; then
     jids=$(grep -oE 'srun: job [0-9]+' "$_CUR_DISPATCH_OUT" 2>/dev/null \
       | grep -oE '[0-9]+' | sort -u | tr '\n' ' ')
   fi
   if [ -z "$jids" ] && [ -n "${INFERA_E2E_JOB_TAG:-}" ]; then
     suf="-${INFERA_E2E_JOB_TAG}"
-    # A failed lookup is not an empty queue. Say so and leave it to ci.yml's
-    # reclaim step rather than returning as if there were nothing to cancel.
-    if ! jids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \
-      | awk -v suf="$suf" '$2 ~ /^infera-ci-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}' \
-      | tr '\n' ' '); then
-      echo "[cleanup] squeue failed — cannot list this run's jobs, leaving them to the workflow's reclaim step" >&2
+    # A failed lookup is not an empty queue. Capture before parsing: awk would
+    # filter the error away, leaving a bare "squeue failed" that has to be
+    # reproduced to diagnose. Then hand off to ci.yml's reclaim step.
+    if ! queue=$(squeue -h -u "$(id -un)" -o '%i %j' 2>&1); then
+      echo "[cleanup] squeue failed, leaving this run's jobs to the workflow's reclaim step: $queue" >&2
       return 1
     fi
+    jids=$(printf '%s\n' "$queue" \
+      | awk -v suf="$suf" '$2 ~ /^infera-ci-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}' \
+      | tr '\n' ' ')
   fi
   [ -n "$jids" ] || return 0
   echo "[cleanup] cancelling dispatched SLURM job(s): $jids" >&2
@@ -127,9 +129,9 @@ _cancel_dispatched() {
     # exits 0 with no output. (Stock SLURM errors on an invalid id, so there this
     # never confirms and the warning below is a false alarm -- the workflow's
     # reclaim step is the backstop either way.)
-    left=$(squeue -h -j "$csv" -o '%i' 2>/dev/null) && [ -z "$left" ] && return 0
+    left=$(squeue -h -j "$csv" -o '%i' 2>&1) && [ -z "$left" ] && return 0
   done
-  echo "[cleanup] could not confirm the cancel of $jids" >&2
+  echo "[cleanup] could not confirm the cancel of $jids: ${left:-no output}" >&2
 }
 # Nodes the running PD-disagg attempt placed containers on. A killed run skips
 # pytest's teardown, so without this a cancel leaves prefill+decode on the GPUs.
@@ -232,7 +234,9 @@ _have_slurm() { command -v srun >/dev/null 2>&1; }
 # masquerade as a failed query, and callers now act on that distinction.
 _reservation_nodes() {
   local out
-  out=$(scontrol show reservation "$1" 2>/dev/null) || return 1
+  # Forward scontrol's own words: callers can only say "cannot reach the
+  # scheduler", which is not enough to act on.
+  out=$(scontrol show reservation "$1" 2>&1) || { printf '%s\n' "$out" >&2; return 1; }
   printf '%s\n' "$out" | awk -v r="ReservationName=$1" '
     BEGIN{RS="";FS="\n"}
     $1==r { for(i=1;i<=NF;i++) if($i ~ /Nodes=/){ n=$i; sub(/.*Nodes=/,"",n); sub(/[[:space:]].*/,"",n); print n; exit } }' \
@@ -367,7 +371,7 @@ _reservation_free() {
 # flight" and borrow past the cap exactly when the scheduler is already unwell.
 _spill_inflight() {
   local out
-  out=$(squeue -h -u "$(id -un)" -o '%j' 2>/dev/null) || return 1
+  out=$(squeue -h -u "$(id -un)" -o '%j' 2>&1) || { printf '%s\n' "$out" >&2; return 1; }
   printf '%s\n' "$out" | grep -c -- 'spill' || true
 }
 
