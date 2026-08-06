@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Records the remote command up.sh/smoke.sh/bench.sh would have run.
+#
+# For commands that invoke leg.sh it also EXECUTES them, so the real engine
+# command line materialises through the docker stub — that argv is what the
+# equivalence check is about.
+#
+# The execution runs under `env -i`, carrying ONLY PATH and TRACE. That is the
+# whole point: a real ssh gives the remote side nothing but what is written in
+# the command string, so anything up.sh forgot to put in COMMON_ENV must be
+# absent here too. Inheriting the caller's environment would silently paper over
+# exactly the class of bug this run is checking for.
+host="$1"; shift; cmd="$*"
+printf '### SSH %s\n%s\n' "$host" "$cmd" >> "$TRACE"
+case "$cmd" in
+  *leg.sh*)
+    env -i PATH="$PATH" TRACE="$TRACE" bash -c "$cmd" >>"$TRACE.legout" 2>&1
+    exit 0 ;;
+  *chat/completions*) echo '{"choices":[{"message":{"content":"Paris is the capital of France.","reasoning_content":"The user asks for the capital of France."}}],"usage":{"prompt_tokens":25,"completion_tokens":9,"prompt_tokens_details":{"cached_tokens":0}}}' ;;
+  *v1/workers*)       echo '{"workers":[{"role":"prefill"},{"role":"decode"}]}' ;;
+  *health*)           echo 'OK' ;;
+  *)                  : ;;
+esac
+exit 0

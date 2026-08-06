@@ -1,0 +1,2 @@
+conc,out_tok_s,req_s,ttft_p50,ttft_p90,ttft_p99,itl_p50,itl_p90,e2e_p50,e2e_p90,e2e_p99,isl_mean,osl_mean,cache_pct
+8,268.1,0.24,6461,22134,38194,14.04,19.36,14763,43119,126271,80307,1099,51.0

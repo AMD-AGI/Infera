@@ -1,0 +1,84 @@
+# HELP infera_router_picks_total Total number of pick() decisions made by the router, per role and worker.
+# TYPE infera_router_picks_total counter
+# HELP infera_router_pick_cache_hits Number of cache blocks the picked worker already had (chained-prefix hits).
+# TYPE infera_router_pick_cache_hits histogram
+# HELP infera_router_pick_request_blocks Total request block count seen at pick time.
+# TYPE infera_router_pick_request_blocks histogram
+# HELP infera_request_duration_seconds End-to-end server-observed request latency (server.pick + worker round-trip).
+# TYPE infera_request_duration_seconds histogram
+infera_request_duration_seconds_bucket{le="0.005",outcome="ok",router="disagg"} 2322.0
+infera_request_duration_seconds_bucket{le="0.01",outcome="ok",router="disagg"} 2322.0
+infera_request_duration_seconds_bucket{le="0.025",outcome="ok",router="disagg"} 2322.0
+infera_request_duration_seconds_bucket{le="0.05",outcome="ok",router="disagg"} 2322.0
+infera_request_duration_seconds_bucket{le="0.1",outcome="ok",router="disagg"} 2322.0
+infera_request_duration_seconds_bucket{le="0.25",outcome="ok",router="disagg"} 2322.0
+infera_request_duration_seconds_bucket{le="0.5",outcome="ok",router="disagg"} 2322.0
+infera_request_duration_seconds_bucket{le="1.0",outcome="ok",router="disagg"} 2322.0
+infera_request_duration_seconds_bucket{le="2.5",outcome="ok",router="disagg"} 2323.0
+infera_request_duration_seconds_bucket{le="5.0",outcome="ok",router="disagg"} 2323.0
+infera_request_duration_seconds_bucket{le="10.0",outcome="ok",router="disagg"} 2323.0
+infera_request_duration_seconds_bucket{le="30.0",outcome="ok",router="disagg"} 2323.0
+infera_request_duration_seconds_bucket{le="60.0",outcome="ok",router="disagg"} 2323.0
+infera_request_duration_seconds_bucket{le="+Inf",outcome="ok",router="disagg"} 2323.0
+infera_request_duration_seconds_count{outcome="ok",router="disagg"} 2323.0
+infera_request_duration_seconds_sum{outcome="ok",router="disagg"} 2.76729847304523
+# HELP infera_request_duration_seconds_created End-to-end server-observed request latency (server.pick + worker round-trip).
+# TYPE infera_request_duration_seconds_created gauge
+infera_request_duration_seconds_created{outcome="ok",router="disagg"} 1.7858133669691563e+09
+# HELP infera_request_inflight Currently in-flight requests at the server.
+# TYPE infera_request_inflight gauge
+infera_request_inflight{router="disagg"} 0.0
+# HELP infera_pd_dispatch_duration_seconds Per-worker duration of a PD-dispatched request (P or D leg from server POST to response complete). Roughly: P leg = prefill + KV push start; D leg = KV pull + decode generation. The gap between P and D completion times approximates KV transfer latency.
+# TYPE infera_pd_dispatch_duration_seconds histogram
+infera_pd_dispatch_duration_seconds_bucket{le="0.01",leg="prefill",worker_id="10.245.156.167:30000"} 0.0
+infera_pd_dispatch_duration_seconds_bucket{le="0.05",leg="prefill",worker_id="10.245.156.167:30000"} 0.0
+infera_pd_dispatch_duration_seconds_bucket{le="0.1",leg="prefill",worker_id="10.245.156.167:30000"} 0.0
+infera_pd_dispatch_duration_seconds_bucket{le="0.25",leg="prefill",worker_id="10.245.156.167:30000"} 0.0
+infera_pd_dispatch_duration_seconds_bucket{le="0.5",leg="prefill",worker_id="10.245.156.167:30000"} 0.0
+infera_pd_dispatch_duration_seconds_bucket{le="1.0",leg="prefill",worker_id="10.245.156.167:30000"} 0.0
+infera_pd_dispatch_duration_seconds_bucket{le="2.5",leg="prefill",worker_id="10.245.156.167:30000"} 1.0
+infera_pd_dispatch_duration_seconds_bucket{le="5.0",leg="prefill",worker_id="10.245.156.167:30000"} 1.0
+infera_pd_dispatch_duration_seconds_bucket{le="10.0",leg="prefill",worker_id="10.245.156.167:30000"} 1.0
+infera_pd_dispatch_duration_seconds_bucket{le="30.0",leg="prefill",worker_id="10.245.156.167:30000"} 1.0
+infera_pd_dispatch_duration_seconds_bucket{le="60.0",leg="prefill",worker_id="10.245.156.167:30000"} 1.0
+infera_pd_dispatch_duration_seconds_bucket{le="+Inf",leg="prefill",worker_id="10.245.156.167:30000"} 1.0
+infera_pd_dispatch_duration_seconds_count{leg="prefill",worker_id="10.245.156.167:30000"} 1.0
+infera_pd_dispatch_duration_seconds_sum{leg="prefill",worker_id="10.245.156.167:30000"} 1.4757437338121235
+infera_pd_dispatch_duration_seconds_bucket{le="0.01",leg="decode",worker_id="10.245.152.164:30001"} 0.0
+infera_pd_dispatch_duration_seconds_bucket{le="0.05",leg="decode",worker_id="10.245.152.164:30001"} 0.0
+infera_pd_dispatch_duration_seconds_bucket{le="0.1",leg="decode",worker_id="10.245.152.164:30001"} 0.0
+infera_pd_dispatch_duration_seconds_bucket{le="0.25",leg="decode",worker_id="10.245.152.164:30001"} 0.0
+infera_pd_dispatch_duration_seconds_bucket{le="0.5",leg="decode",worker_id="10.245.152.164:30001"} 0.0
+infera_pd_dispatch_duration_seconds_bucket{le="1.0",leg="decode",worker_id="10.245.152.164:30001"} 0.0
+infera_pd_dispatch_duration_seconds_bucket{le="2.5",leg="decode",worker_id="10.245.152.164:30001"} 1.0
+infera_pd_dispatch_duration_seconds_bucket{le="5.0",leg="decode",worker_id="10.245.152.164:30001"} 1.0
+infera_pd_dispatch_duration_seconds_bucket{le="10.0",leg="decode",worker_id="10.245.152.164:30001"} 1.0
+infera_pd_dispatch_duration_seconds_bucket{le="30.0",leg="decode",worker_id="10.245.152.164:30001"} 1.0
+infera_pd_dispatch_duration_seconds_bucket{le="60.0",leg="decode",worker_id="10.245.152.164:30001"} 1.0
+infera_pd_dispatch_duration_seconds_bucket{le="+Inf",leg="decode",worker_id="10.245.152.164:30001"} 1.0
+infera_pd_dispatch_duration_seconds_count{leg="decode",worker_id="10.245.152.164:30001"} 1.0
+infera_pd_dispatch_duration_seconds_sum{leg="decode",worker_id="10.245.152.164:30001"} 2.2773589021526277
+# HELP infera_pd_dispatch_duration_seconds_created Per-worker duration of a PD-dispatched request (P or D leg from server POST to response complete). Roughly: P leg = prefill + KV push start; D leg = KV pull + decode generation. The gap between P and D completion times approximates KV transfer latency.
+# TYPE infera_pd_dispatch_duration_seconds_created gauge
+infera_pd_dispatch_duration_seconds_created{leg="prefill",worker_id="10.245.156.167:30000"} 1.7858133661667237e+09
+infera_pd_dispatch_duration_seconds_created{leg="decode",worker_id="10.245.152.164:30001"} 1.7858133669690082e+09
+# HELP infera_pd_bootstrap_failures_total PD bootstrap protocol failures (missing bootstrap_addr, P unreachable, etc.).
+# TYPE infera_pd_bootstrap_failures_total counter
+infera_pd_bootstrap_failures_total{reason="decode_4xx"} 1.0
+infera_pd_bootstrap_failures_total{reason="prefill_5xx"} 1.0
+# HELP infera_pd_bootstrap_failures_created PD bootstrap protocol failures (missing bootstrap_addr, P unreachable, etc.).
+# TYPE infera_pd_bootstrap_failures_created gauge
+infera_pd_bootstrap_failures_created{reason="decode_4xx"} 1.785817306508636e+09
+infera_pd_bootstrap_failures_created{reason="prefill_5xx"} 1.7858173065303724e+09
+# HELP infera_active_workers Number of workers in ACTIVE status, by disagg_mode.
+# TYPE infera_active_workers gauge
+infera_active_workers{disagg_mode="decode"} 1.0
+infera_active_workers{disagg_mode="prefill"} 1.0
+# HELP infera_policy_active_blocks Per-worker count of distinct in-flight block hashes — the load term in KvEventAwarePolicy's cost function. Lower = less loaded by the policy's view.
+# TYPE infera_policy_active_blocks gauge
+# HELP infera_policy_cache_view_size Per-worker count of cached blocks in the router-side KvEventClient view. Reflects what BlockStored / BlockRemoved events have applied so far.
+# TYPE infera_policy_cache_view_size gauge
+# HELP infera_cache_control_seen_total Count of requests by retention level observed in the request body (parsed from Anthropic cache_control / OpenAI prompt_cache_retention). Lets ops correlate workload mix with cache hit rate.
+# TYPE infera_cache_control_seen_total counter
+# HELP infera_cache_locality_skipped_total Count of routing decisions where cache locality was intentionally ignored (overlap_weight forced to 0). Most common reason today is `multimodal` — see Phase 4.7(b): until router + engine adopt MM-aware hashing, vision/audio requests fall back to pure load balance to avoid wrong-KV reuse from same-text-different-image collisions.
+# TYPE infera_cache_locality_skipped_total counter

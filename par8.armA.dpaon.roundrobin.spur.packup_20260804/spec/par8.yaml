@@ -1,0 +1,150 @@
+# =============================================================================
+# GLM-5.2 PAR8  —  Case A request shape, reduced offered load, DPA OFF on prefill
+# -----------------------------------------------------------------------------
+# Derived from glm52_crxx_caseA.fix.yaml by changing EXACTLY THREE numbers:
+#
+#     initial_sessions   32  ->  8
+#     max_sessions      128  ->  32
+#     max_inflight       48  ->  24
+#
+# Everything else -- the whole request profile, new_session_rate 0.10, ramp 400,
+# sustain 3600, seed 1337 -- is byte-identical to Case A, so any measured gap is
+# attributable to offered load and to the DPA-off prefill deployment, not to the
+# workload. Full cycle = 400 + 3600 = ~67 min.
+#
+# DEPLOYMENT NOTE (not expressible in this file, but load-bearing for reading it):
+# the prefill leg runs with DP-attention OFF (pure TP8). sglang only divides
+# --chunked-prefill-size by dp_size when enable_dp_attention is true
+# (server_args.py:4902), so the launcher must pass CHUNK=16384 directly rather
+# than Case A's 65536; otherwise per-forward prefill work drops 8x.
+#
+# READ new_session_rate's comment below before interpreting the session count.
+# -----------------------------------------------------------------------------
+# Provenance of the parent file follows, verbatim.
+#
+# Revision of glm52_crxx_caseA.yaml. The request-shape block is unchanged and was
+# always sound; what changed is everything describing *load*, which was written in
+# open-loop vocabulary (QPS / ramp / in-flight cap) for a driver that runs this
+# workload closed-loop.
+#
+# A `profile:` block forces --mode realistic, where each session issues one request
+# at a time and waits for the response before its inter-turn delay. Offered load is
+# therefore set by the number of live sessions, never by a QPS field. initial_qps /
+# max_qps are omitted below because they do nothing here; the driver now says so at
+# startup rather than printing them as a "target".
+#
+# Companion code fixes (agent_throughput.py) this config assumes:
+#   - turns_per_session is no longer halved by a double-counted request_count
+#   - the lognormal session lifetime no longer censors the turn budget
+#   - the run spans warmup+measured from metrics.start_time, so the sustain row's
+#     rate denominator matches the samples in it
+#   - max_inflight is actually enforced
+#   - max_sessions caps live sessions, and finished ones free their slot
+# Running this file against an older agent_throughput.py will silently under-load.
+# =============================================================================
+workload:
+
+  # --- Percentile-calibrated request profile (unchanged from the original) ---
+  profile:
+    # Per-request INPUT length (prompt tokens). Case A: 74K / 155K / 235K.
+    input_tokens:        { p50: 74000,  p90: 155000, p99: 235000 }
+    # Per-request OUTPUT length (generated tokens; sent as max_tokens + ignore_eos).
+    output_tokens:       { p50: 320,    p90: 3300,   p99: 17000 }
+    # Turns (requests) per session. Mean of this triple is 9.5, not 3 — the p99
+    # tail dominates, which is why the measurement window below is sized in hours.
+    turns_per_session:   { p50: 3,      p90: 20,     p99: 103 }
+    # Wall-clock gap between consecutive turns of a session (seconds). Mean 18.4.
+    inter_turn_delay_s:  { p50: 4,      p90: 31,     p99: 240 }
+    # Target prefix cache-hit rate. Modeled as a shared, globally-cached prefix
+    # of round(cache_hit_rate * input) tokens + request-unique fresh tokens.
+    # NOTE: every request nests inside the SAME prefix, so the radix tree holds one
+    # hot path and there is no eviction pressure. This number verifies cache
+    # accounting; it does not exercise HiCache/NVMe tiering. Use a growing-prefix
+    # workload (e.g. code_agent_200k.yaml) for that.
+    cache_hit_rate:      0.89           # Case A: 88–90%
+    # Hard clamp on any sampled input (guards the p99 tail vs engine ctx length).
+    max_input_tokens:    260000
+
+  # --- Speculative decoding (engine-side; used for TPS / goodput accounting) -
+  acc_len:               1.56           # mean accepted length (56% acceptance, 5 draft)
+  mtp_draft_tokens:      5              # draft tokens per step
+  mtp_overhead_factor:   1.0            # extra cost multiplier for the draft pass
+
+  # --- Offered load ----------------------------------------------------------
+  # THE capacity knob is the live-session count. Sessions are born at
+  # new_session_rate and die when they exhaust their sampled turn budget, so by
+  # Little's law the steady-state population is:
+  #
+  #     N  =  new_session_rate x E[turns] x (E2E + E[inter_turn_delay])
+  #        =  new_session_rate x 9.5 x (E2E + 18.4)
+  #
+  # Below is solved for N = 32 assuming E2E ~ 15 s. E2E is a *measurement*, not a
+  # constant: after the first run, read the achieved mean E2E off the summary and
+  # re-solve, otherwise the population lands somewhere other than 32. Sweeping
+  # capacity means sweeping this pair — `runner.py --auto-search` bisects on QPS
+  # and has no effect in this mode.
+  # CHANGED vs Case A (32 -> 8). Starts the run at 8 live sessions.
+  initial_sessions:      8              # start at target so t=0 is already steady
+  # HELD at Case A's value, on instruction ("其余不变"). Read the consequence
+  # before interpreting this run: 0.10 was SOLVED FOR N=32, so births keep
+  # pushing the population up until deaths balance them or max_sessions caps it.
+  # The live-session count is therefore a MEASUREMENT of this run, not 8. Read it
+  # off the driver's `Sessions` column; it is not predicted here.
+  new_session_rate:      0.10           # ~0.10 sessions/s = 32 / (9.5 x 33.4)
+  # Bernoulli draw per ~1 s tick, so this saturates at ~1.0 and cannot express a
+  # faster birth rate; raise initial_sessions and lengthen sessions instead.
+
+  # CHANGED vs Case A (128 -> 32). With new_session_rate held at the N=32 value,
+  # this is no longer 4x headroom over the birth target -- it sits AT it. Hitting
+  # 32 is therefore an expected outcome of that pairing, not automatically the
+  # saturation signal it is in Case A. Distinguish the two by whether in_flight
+  # is also pinned at max_inflight.
+  max_sessions:          32             # cap on LIVE sessions
+  # CHANGED vs Case A (48 -> 24). Global in-flight cap, enforced.
+  max_inflight:          24             # safety valve; if in_flight pins here,
+                                        # backpressure -- not the config -- is
+                                        # setting the load, and the window is spent.
+
+  # --- Measurement window ----------------------------------------------------
+  # ramp_duration is a WARMUP EXCLUSION window, not a load ramp: nothing ramps in
+  # closed-loop mode. It is sized at roughly one session lifetime (~320 s) so the
+  # synchronized t=0 cohort has died off and births drive the population, and so
+  # the 231K-token shared prefix is resident before measurement starts.
+  ramp_duration:         400
+  # A p99 session is 103 turns x ~33 s = ~3400 s. Anything shorter truncates the
+  # tail that turns_per_session was calibrated to reproduce. 1200 is a reasonable
+  # compromise while iterating; 3600 is the honest number.
+  sustain_duration:      3600
+  # Total run = ramp + sustain = ~67 min, plus a 5 s drain.
+
+  # --- Request framing ------------------------------------------------------
+  system_prompt_len:     2000           # NOT sent in profile mode — prompts are cut
+                                        # from the shared base. Only sizes each
+                                        # session's (unused) token slice.
+  max_prompt_tokens:     260000         # unused for retirement in profile mode, but
+                                        # declared to match max_input_tokens: the
+                                        # original inherited a 200000 default that
+                                        # silently contradicted the 260000 clamp.
+  tokenizer:             /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4
+  # model / server are normally supplied by runner.py; uncomment for standalone use:
+  # model:               glm5.2-mxfp4
+  # server:              http://127.0.0.1:30000
+
+  # --- SLA targets -----------------------------------------------------------
+  # Read for documentation only: args.sla_cfg is parsed and never consumed, and
+  # runner.py's slo_satisfied() checks sustain_ttft_p90_ms + success_rate off its
+  # own CLI flags. Pass --slo-ttft-p90-ms / --slo-success-rate to actually gate.
+  sla:
+    e2e_p50_ms:          4500           # Case A: P50 end-to-end < 4.5 s
+    ttft_p90_ms:         30000          # the metric runner.py actually compares
+    success_rate:        0.97
+
+  # --- Misc -----------------------------------------------------------------
+  gpus:                  8              # per-GPU throughput reporting only
+  window:                30             # metrics smoothing window (s)
+  random_seed:           1337
+
+# Omitted on purpose (no effect in realistic mode; the driver warns if present):
+#   initial_qps, max_qps          — closed-loop: load comes from session count
+#   session_lifetime_mean/median  — turns_per_session owns session length here
+#   think_time_mean/shape         — inter_turn_delay_s replaces the gamma think time

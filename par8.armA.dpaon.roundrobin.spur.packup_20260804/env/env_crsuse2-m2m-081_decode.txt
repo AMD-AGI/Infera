@@ -1,0 +1,222 @@
+
+===== HOST / TIME =====
+hostname : crsuse2-m2m-081
+date     : 2026-08-04 04:26:00 +0000
+uptime   :  04:26:00 up 28 days,  1:35,  0 user,  load average: 8.67, 12.17, 13.91
+kernel   : Linux crsuse2-m2m-081 6.8.0-107-generic #107-Ubuntu SMP PREEMPT_DYNAMIC Fri Mar 13 19:51:50 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+os       : Ubuntu 24.04.4 LTS
+
+===== CPU / MEM =====
+CPU(s):                                  236
+Model name:                              AMD EPYC 9575F 64-Core Processor
+Thread(s) per core:                      2
+Core(s) per socket:                      59
+Socket(s):                               2
+               total        used        free      shared  buff/cache   available
+Mem:           2.7Ti       157Gi       2.1Ti        85Gi       559Gi       2.5Ti
+Swap:             0B          0B          0B
+
+===== GPU =====
+-- rocm-smi --
+Driver version: 6.14.14
+GPU[0]		: Card Series: 		AMD Instinct MI355X
+GPU[0]		: Card Model: 		0x75a3
+GPU[0]		: Card Vendor: 		Advanced Micro Devices, Inc. [AMD/ATI]
+GPU[0]		: Card SKU: 		N/A
+GPU[0]		: Subsystem ID: 	0x75a3
+GPU[0]		: Device Rev: 		0x00
+GPU[0]		: Node ID: 		2
+GPU[0]		: GUID: 		65321
+GPU[0]		: GFX Version: 		gfx950
+GPU[1]		: Card Series: 		AMD Instinct MI355X
+GPU[1]		: Card Model: 		0x75a3
+GPU[1]		: Card Vendor: 		Advanced Micro Devices, Inc. [AMD/ATI]
+GPU[1]		: Card SKU: 		N/A
+GPU[1]		: Subsystem ID: 	0x75a3
+GPU[1]		: Device Rev: 		0x00
+GPU[1]		: Node ID: 		3
+GPU[1]		: GUID: 		24357
+GPU[1]		: GFX Version: 		gfx950
+GPU[2]		: Card Series: 		AMD Instinct MI355X
+GPU[2]		: Card Model: 		0x75a3
+GPU[2]		: Card Vendor: 		Advanced Micro Devices, Inc. [AMD/ATI]
+GPU[2]		: Card SKU: 		N/A
+GPU[2]		: Subsystem ID: 	0x75a3
+GPU[2]		: Device Rev: 		0x00
+GPU[2]		: Node ID: 		4
+GPU[2]		: GUID: 		16161
+GPU[2]		: GFX Version: 		gfx950
+GPU[3]		: Card Series: 		AMD Instinct MI355X
+GPU[3]		: Card Model: 		0x75a3
+GPU[3]		: Card Vendor: 		Advanced Micro Devices, Inc. [AMD/ATI]
+GPU[3]		: Card SKU: 		N/A
+GPU[3]		: Subsystem ID: 	0x75a3
+GPU[3]		: Device Rev: 		0x00
+GPU[3]		: Node ID: 		5
+GPU[3]		: GUID: 		24382
+GPU[3]		: GFX Version: 		gfx950
+GPU[4]		: Card Series: 		AMD Instinct MI355X
+GPU[4]		: Card Model: 		0x75a3
+GPU[4]		: Card Vendor: 		Advanced Micro Devices, Inc. [AMD/ATI]
+GPU[4]		: Card SKU: 		N/A
+GPU[4]		: Subsystem ID: 	0x75a3
+GPU[4]		: Device Rev: 		0x00
+GPU[4]		: Node ID: 		6
+GPU[4]		: GUID: 		27252
+GPU[4]		: GFX Version: 		gfx950
+GPU[5]		: Card Series: 		AMD Instinct MI355X
+GPU[5]		: Card Model: 		0x75a3
+GPU[5]		: Card Vendor: 		Advanced Micro Devices, Inc. [AMD/ATI]
+GPU[5]		: Card SKU: 		N/A
+GPU[5]		: Subsystem ID: 	0x75a3
+GPU[5]		: Device Rev: 		0x00
+GPU[5]		: Node ID: 		7
+GPU[5]		: GUID: 		51832
+GPU[5]		: GFX Version: 		gfx950
+GPU[6]		: Card Series: 		AMD Instinct MI355X
+GPU[6]		: Card Model: 		0x75a3
+GPU[6]		: Card Vendor: 		Advanced Micro Devices, Inc. [AMD/ATI]
+GPU[6]		: Card SKU: 		N/A
+GPU[6]		: Subsystem ID: 	0x75a3
+GPU[6]		: Device Rev: 		0x00
+GPU[6]		: Node ID: 		8
+GPU[6]		: GUID: 		43644
+GPU[6]		: GFX Version: 		gfx950
+GPU[7]		: Card Series: 		AMD Instinct MI355X
+GPU[7]		: Card Model: 		0x75a3
+GPU[7]		: Card Vendor: 		Advanced Micro Devices, Inc. [AMD/ATI]
+GPU[7]		: Card SKU: 		N/A
+GPU[7]		: Subsystem ID: 	0x75a3
+GPU[7]		: Device Rev: 		0x00
+GPU[7]		: Node ID: 		9
+GPU[7]		: GUID: 		51811
+GPU[7]		: GFX Version: 		gfx950
+-- count --
+40
+-- mem/util snapshot --
+GPU[0]		: GPU use (%): 0
+GPU[0]		: GFX Activity: 3674666239
+GPU[1]		: GPU use (%): 0
+GPU[1]		: GFX Activity: 2148007255
+GPU[2]		: GPU use (%): 0
+GPU[2]		: GFX Activity: 2125638750
+GPU[3]		: GPU use (%): 0
+GPU[3]		: GFX Activity: 2169040631
+GPU[4]		: GPU use (%): 0
+GPU[4]		: GFX Activity: 2112841844
+GPU[5]		: GPU use (%): 0
+GPU[5]		: GFX Activity: 4258454697
+GPU[6]		: GPU use (%): 0
+GPU[6]		: GFX Activity: 3889674048
+GPU[7]		: GPU use (%): 0
+GPU[7]		: GFX Activity: 3880524648
+GPU[0]		: VRAM Total Memory (B): 309220868096
+GPU[0]		: VRAM Total Used Memory (B): 272815841280
+GPU[1]		: VRAM Total Memory (B): 309220868096
+GPU[1]		: VRAM Total Used Memory (B): 273721737216
+GPU[2]		: VRAM Total Memory (B): 309220868096
+GPU[2]		: VRAM Total Used Memory (B): 273734328320
+GPU[3]		: VRAM Total Memory (B): 309220868096
+GPU[3]		: VRAM Total Used Memory (B): 273751093248
+GPU[4]		: VRAM Total Memory (B): 309220868096
+GPU[4]		: VRAM Total Used Memory (B): 273583050752
+GPU[5]		: VRAM Total Memory (B): 309220868096
+GPU[5]		: VRAM Total Used Memory (B): 273391988736
+GPU[6]		: VRAM Total Memory (B): 309220868096
+GPU[6]		: VRAM Total Used Memory (B): 273431941120
+GPU[7]		: VRAM Total Memory (B): 309220868096
+GPU[7]		: VRAM Total Used Memory (B): 273505464320
+
+===== RDMA / FABRIC =====
+-- ibv_devices --
+libibverbs: Warning: couldn't load driver 'libvmw_pvrdma-rdmav34.so': libvmw_pvrdma-rdmav34.so: cannot open shared object file: No such file or directory
+    device          	   node GUID
+    ------          	----------------
+    ionic_0         	069081fffe4740a9
+    mlx5_0          	3ed768fffee35e97
+    ionic_1         	069081fffe4757a1
+    ionic_2         	069081fffe46d161
+    ionic_3         	069081fffe4692c1
+    ionic_4         	069081fffe45d279
+    ionic_5         	069081fffe468a09
+    ionic_6         	069081fffe477a09
+    ionic_7         	069081fffe46d0a1
+-- rail link state (ibstat / ibv_devinfo) --
+CA 'ionic_0'
+	CA type: crsuse2-m2m-081 ionic_0
+		State: Active
+		Physical state: LinkUp
+		Rate: 400
+		Link layer: Ethernet
+CA 'ionic_1'
+	CA type: crsuse2-m2m-081 ionic_1
+		State: Active
+		Physical state: LinkUp
+		Rate: 400
+		Link layer: Ethernet
+CA 'ionic_2'
+	CA type: crsuse2-m2m-081 ionic_2
+		State: Active
+		Physical state: LinkUp
+		Rate: 400
+		Link layer: Ethernet
+CA 'ionic_3'
+	CA type: crsuse2-m2m-081 ionic_3
+		State: Active
+		Physical state: LinkUp
+		Rate: 400
+		Link layer: Ethernet
+CA 'ionic_4'
+	CA type: crsuse2-m2m-081 ionic_4
+		State: Active
+		Physical state: LinkUp
+		Rate: 400
+		Link layer: Ethernet
+CA 'ionic_5'
+	CA type: crsuse2-m2m-081 ionic_5
+		State: Active
+		Physical state: LinkUp
+		Rate: 400
+		Link layer: Ethernet
+CA 'ionic_6'
+	CA type: crsuse2-m2m-081 ionic_6
+		State: Active
+		Physical state: LinkUp
+		Rate: 400
+		Link layer: Ethernet
+CA 'ionic_7'
+	CA type: crsuse2-m2m-081 ionic_7
+		State: Active
+		Physical state: LinkUp
+		Rate: 400
+		Link layer: Ethernet
+CA 'mlx5_0'
+	CA type: MT4126
+		State: Active
+		Physical state: LinkUp
+		Rate: 200
+		Link layer: Ethernet
+-- rdma link --
+link ionic_0/1 state ACTIVE physical_state LINK_UP netdev enP2p0s9 
+link mlx5_0/1 state ACTIVE physical_state LINK_UP netdev ens3 
+link ionic_1/1 state ACTIVE physical_state LINK_UP netdev enP2p0s10 
+link ionic_2/1 state ACTIVE physical_state LINK_UP netdev enP2p0s11 
+link ionic_3/1 state ACTIVE physical_state LINK_UP netdev enP2p0s12 
+link ionic_4/1 state ACTIVE physical_state LINK_UP netdev enP3p0s9 
+link ionic_5/1 state ACTIVE physical_state LINK_UP netdev enP3p0s10 
+link ionic_6/1 state ACTIVE physical_state LINK_UP netdev enP3p0s11 
+link ionic_7/1 state ACTIVE physical_state LINK_UP netdev enP3p0s12 
+
+===== DOCKER =====
+-- version --
+29.6.1
+-- running containers --
+NAMES         IMAGE                           STATUS
+agbench_mtp   infera/engine-sglang:final-pr   Up About an hour
+(no image tag passed; re-run as ./collect_env.sh <image_tag> to resolve base digest)
+
+===== GIT (run from inside the repo the experiment used) =====
+(not inside a git work tree — cd into the repo and re-run, or record branch+SHA by hand)
+
+===== DONE =====
+Paste this block into environment.md under a heading for host crsuse2-m2m-081.

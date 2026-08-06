@@ -1,0 +1,395 @@
+diff --color -ru work.glm52.example/verify/kit_T3/cluster/README.md examples/sglang_1p1d_glm5.2/cluster/README.md
+--- work.glm52.example/verify/kit_T3/cluster/README.md	2026-08-04 08:30:02.271541955 +0000
++++ examples/sglang_1p1d_glm5.2/cluster/README.md	2026-08-04 09:27:25.532268240 +0000
+@@ -51,11 +51,22 @@
+ | `MODEL_MOUNT` | host directory bind-mounted into the container |
+ | `MODEL` | the checkpoint, which must live **under** `MODEL_MOUNT` |
+ | `TOKENIZER` | usually the same path; the router loads it for kv-aware routing |
++| `HOST_RDMA_LIB` / `HOST_RDMA_MOUNT` / `ENTRYPOINT_KEEP` | only if your image injects a host RDMA provider library at entrypoint — see below |
+ 
+ The checkpoint is ~400 GB and both legs read it during bring-up. Prefer local storage
+ on both nodes: a slow mount can take an order of magnitude longer and blow the ready
+ timeout — which presents as a crash loop, not as slow storage.
+ 
++**If your image injects a host RDMA provider library**, all three variables are
++required together. `HOST_RDMA_LIB` is the host path (point it at the *symlink*, so nodes
++carrying different provider builds both resolve); `HOST_RDMA_MOUNT` is the in-container
++path **that image's entrypoint reads**; `ENTRYPOINT_KEEP=1` keeps the entrypoint that
++does the injecting. Set only some of them and nothing happens — the library is mounted
++where nothing reads it, which is not an error. The failure is silent: the leg boots and
++serves, `ibv_devinfo` inside the container reports `does not support the kernel ABI` and
++finds **zero** devices, and mooncake moves KV over a 5-20× slower transport.
++`start_container` warns when the in-container device count is 0; that line is the check.
++
+ ### 3. Transport
+ 
+ The block that differs between the two wrappers. Each field is a value to copy from
+diff --color -ru work.glm52.example/verify/kit_T3/cluster/cluster.peermem.sh examples/sglang_1p1d_glm5.2/cluster/cluster.peermem.sh
+--- work.glm52.example/verify/kit_T3/cluster/cluster.peermem.sh	2026-08-04 08:30:02.274970457 +0000
++++ examples/sglang_1p1d_glm5.2/cluster/cluster.peermem.sh	2026-08-04 09:27:25.537884414 +0000
+@@ -52,9 +52,11 @@
+ export MODEL="$MODEL_MOUNT/GLM-5.2-MXFP4"
+ export TOKENIZER="$MODEL"
+ 
+-# If your image bind-maps a host RDMA provider library at entrypoint, keep that
+-# entrypoint (ENTRYPOINT_KEEP) and point HOST_RDMA_LIB at the library:
+-# export HOST_RDMA_LIB=/usr/lib/x86_64-linux-gnu/lib<provider>.so ENTRYPOINT_KEEP=1
++# If your image injects a host RDMA provider library at entrypoint, set all three: the
++# host library (the SYMLINK, so differing per-node builds resolve), the in-container path
++# THAT image reads, and the entrypoint. Any one alone silently does nothing — see §2.
++# export HOST_RDMA_LIB=/usr/lib/x86_64-linux-gnu/lib<provider>.so.1
++# export HOST_RDMA_MOUNT=/host-<provider>/lib<provider>.so ENTRYPOINT_KEEP=1
+ 
+ # ---------------------------------------------------------------------------
+ # 3. Transport — mode A (peer-mem, every rail)
+diff --color -ru work.glm52.example/verify/kit_T3/common.sh examples/sglang_1p1d_glm5.2/common.sh
+--- work.glm52.example/verify/kit_T3/common.sh	2026-08-04 08:30:02.258251560 +0000
++++ examples/sglang_1p1d_glm5.2/common.sh	2026-08-04 09:27:25.544160798 +0000
+@@ -36,11 +36,11 @@
+   local ep=(--entrypoint '')
+   if [ "${ENTRYPOINT_KEEP:-0}" = "1" ]; then ep=(); fi
+   local mounts=(-v "$MODEL_MOUNT:$MODEL_MOUNT")
+-  # Only mount a host RDMA provider library if the site says it needs one. On a fabric
+-  # whose in-container provider already matches the host driver, mounting a nonexistent
+-  # path just fails the run.
++  # Only mount a host RDMA provider library if the site says it needs one.
++  # HOST_RDMA_MOUNT must be the in-container path YOUR image's entrypoint reads — mount it
++  # elsewhere and the injection silently no-ops: zero devices, and the leg still serves.
+   if [ -n "${HOST_RDMA_LIB:-}" ]; then
+-    mounts+=(-v "$HOST_RDMA_LIB:/host-rdma/$(basename "$HOST_RDMA_LIB"):ro")
++    mounts+=(-v "$HOST_RDMA_LIB:${HOST_RDMA_MOUNT:-/host-rdma/$(basename "$HOST_RDMA_LIB")}:ro")
+   fi
+   docker rm -f "$CTR" >/dev/null 2>&1 || true
+   docker run -d --name "$CTR" --network=host --ipc=host --shm-size=32G \
+@@ -51,8 +51,18 @@
+     || die "docker run failed for $CTR"
+   log "container '$CTR' up ($INFERA_IMAGE)"
+   docker exec "$CTR" python3 -c 'import torch;print("  gpu gate:", torch.cuda.is_available(), torch.cuda.device_count())' || true
+-  echo -n "  RDMA PORT_ACTIVE visible in container: "
+-  docker exec "$CTR" bash -c 'ibv_devinfo 2>/dev/null | grep -c PORT_ACTIVE || echo 0'
++  # Zero devices is not an error — mooncake falls back to a 5-20x slower transport and the
++  # leg serves fine. Hence a warning, not a number to skim past.
++  # `grep -c` already prints 0 and exits 1; a `|| echo 0` would make the value read "00".
++  local nports
++  nports=$(docker exec "$CTR" bash -c 'ibv_devinfo 2>/dev/null | grep -c PORT_ACTIVE; true' | tr -d '\r\n')
++  echo "  RDMA PORT_ACTIVE visible in container: ${nports:-0}"
++  if [ "${nports:-0}" -eq 0 ]; then
++    warn "  NO RDMA device usable inside $CTR — KV will not move over RDMA."
++    warn "  docker exec $CTR ibv_devinfo; a 'does not support the kernel ABI' line means"
++    warn "  the provider mismatches the host driver — set HOST_RDMA_LIB + HOST_RDMA_MOUNT"
++    warn "  + ENTRYPOINT_KEEP=1 so the image's entrypoint injects the host build."
++  fi
+ }
+ 
+ # what: etcd on the prefill node. why: both legs and the router self-register here, so the
+diff --color -ru work.glm52.example/verify/kit_T3/engine/smoke.sh examples/sglang_1p1d_glm5.2/engine/smoke.sh
+--- work.glm52.example/verify/kit_T3/engine/smoke.sh	2026-08-04 08:30:02.302080318 +0000
++++ examples/sglang_1p1d_glm5.2/engine/smoke.sh	2026-08-04 09:27:25.550751727 +0000
+@@ -52,14 +52,22 @@
+ # MC_FORCE_TCP appearing in a leg log means mooncake fell back to TCP. That path WORKS and
+ # looks fine; it is merely 5-20x slower, which is exactly why it has to be checked rather
+ # than assumed. 'GID is NULL' means the GID index is wrong for this node.
++#
++# `strings` because these logs carry binary bytes and a bare grep then reports only
++# "binary file matches". Values go into variables first: an `echo -n "label="` followed by
++# output arriving over ssh interleaves, leaving a bare column of digits.
++#
++# The two counters being 0 does NOT prove the container can see an RDMA device — a
++# mismatched provider finds ZERO devices and prints neither string. Hence the device count.
+ for pair in "$PREFILL_NODE:$PLOG" "$DECODE_NODE:$DLOG"; do
+   h="${pair%%:*}"; f="${pair#*:}"
+-  echo -n "  $h  MC_FORCE_TCP="
+-  on "$h" "docker exec $CTR bash -c \"grep -c MC_FORCE_TCP $f 2>/dev/null || echo 0\"" | tr -d '\r'
+-  echo -n "  $h  'GID is NULL'="
+-  on "$h" "docker exec $CTR bash -c \"grep -c 'GID is NULL' $f 2>/dev/null || echo 0\"" | tr -d '\r'
++  n_tcp=$(on "$h" "docker exec $CTR bash -c \"strings $f 2>/dev/null | grep -c MC_FORCE_TCP; true\"" | tr -d '\r\n')
++  n_gid=$(on "$h" "docker exec $CTR bash -c \"strings $f 2>/dev/null | grep -c 'GID is NULL'; true\"" | tr -d '\r\n')
++  n_dev=$(on "$h" "docker exec $CTR bash -c \"ibv_devinfo 2>/dev/null | grep -c PORT_ACTIVE; true\"" | tr -d '\r\n')
++  printf '  %-10s MC_FORCE_TCP=%-4s GID-is-NULL=%-4s RDMA-devices-in-container=%s\n' \
++    "$h" "${n_tcp:-?}" "${n_gid:-?}" "${n_dev:-?}"
+ done
+-echo "  (both must be 0)"
++echo "  (the two counters must be 0; the device count must be > 0)"
+ 
+ echo "-- DP-attention: resolved dp_size per leg --"
+ # Read it off the engine's own resolved server_args, not off what was requested. A leg
+@@ -67,22 +75,38 @@
+ for pair in "$PREFILL_NODE:$PLOG" "$DECODE_NODE:$DLOG"; do
+   h="${pair%%:*}"; f="${pair#*:}"
+   echo -n "  $h  "
+-  on "$h" "docker exec $CTR bash -c \"grep -o 'dp_size=[0-9]*' $f 2>/dev/null | head -1; grep -o 'enable_dp_attention=[A-Za-z]*' $f 2>/dev/null | head -1\"" | tr '\n' ' '
++  on "$h" "docker exec $CTR bash -c \"strings $f 2>/dev/null | grep -o 'dp_size=[0-9]*' | head -1; strings $f 2>/dev/null | grep -o 'enable_dp_attention=[A-Za-z]*' | head -1\"" | tr '\n' ' '
+   echo
+ done
+ 
+ echo "-- MTP: acceptance length on the decode leg --"
+-# Healthy is roughly 2-3 accepted tokens per step. A steady 4.00 is NOT a good result: it
+-# means the draft model is predicting a repetition loop perfectly, i.e. the output degenerated.
+-on "$DECODE_NODE" "docker exec $CTR bash -c \"grep -o 'accept len: [0-9.]*' $DLOG 2>/dev/null | tail -5\"" \
++# Healthy is a MEDIAN of 2-3. Report the distribution, not the last few lines: a few
++# percent of batches sit at 4.00 even on a healthy leg (measured 4.7% at median 2.88), so
++# a `tail -5` routinely lands on them and reads as degenerate.
++on "$DECODE_NODE" "docker exec $CTR bash -c \"strings $DLOG 2>/dev/null \
++  | grep -o 'accept len: [0-9.]*' | awk '{print \\\$3}' | sort -n \
++  | awk '{a[NR]=\\\$1; if (\\\$1>=4) f++} END {if (!NR) exit 1;
++      printf \\\"  n=%d  p10=%s  MEDIAN=%s  p90=%s  at-4.00=%d (%.1f%%)\\n\\\",
++             NR, a[int(NR*0.1)+1], a[int(NR*0.5)+1], a[int(NR*0.9)+1], f, 100*f/NR}'\"" \
+   || echo "  (no accept-len lines yet — send more traffic)"
++echo "  (read the MEDIAN: 2-3 is healthy. A median at 4.00 is a repetition loop, not a win.)"
+ 
+ echo "-- kv-aware / kvd --"
+-on "$PREFILL_NODE" "docker exec $CTR bash -c \"grep -o 'router-policy=[a-z-]*' /tmp/router.log 2>/dev/null | head -1\"" || true
++# The Rust router prints `router_policy: "kv-aware"` inside a colourised Config{...} dump,
++# never `router-policy=<x>` — a hyphenated, unquoted, ANSI-naive pattern prints EMPTY
++# whatever the policy is. Strip ANSI, read the struct field, and `strings` for the binary bytes.
++r_pol=$(on "$PREFILL_NODE" "docker exec $CTR bash -c \"strings /tmp/router.log 2>/dev/null \
++  | sed -r 's/\\x1B\\[[0-9;]*[mK]//g' | grep -oE 'router_policy: \\\"[a-z-]+\\\"' | head -1\"" | tr -d '\r\n')
++# kv-aware silently degrades to load-only routing if the tokenizer did not load, so the
++# policy line alone is not enough.
++r_tok=$(on "$PREFILL_NODE" "docker exec $CTR bash -c \"strings /tmp/router.log 2>/dev/null \
++  | sed -r 's/\\x1B\\[[0-9;]*[mK]//g' | grep -c 'kv-aware: loaded tokenizer'\"" | tr -d '\r\n')
++printf '  router %s   tokenizer-loaded=%s (must be >0 for kv-aware to steer)\n' \
++  "${r_pol:-<not found>}" "${r_tok:-?}"
+ # kvd 'adapter connected' should appear once per DP rank on a leg with kvd enabled, and zero
+ # times on the decode leg — infera skips kvd there by design.
+-echo -n "  prefill kvd adapters connected: "
+-on "$PREFILL_NODE" "docker exec $CTR bash -c \"grep -c 'kvd adapter connected' $PLOG 2>/dev/null || echo 0\"" | tr -d '\r'
++n_kvd=$(on "$PREFILL_NODE" "docker exec $CTR bash -c \"strings $PLOG 2>/dev/null | grep -c 'kvd adapter connected'; true\"" | tr -d '\r\n')
++printf '  prefill kvd adapters connected: %s (expect one per DP rank on the kvd leg)\n' "${n_kvd:-?}"
+ if [ "${PREFILL_KVD:-1}" = "1" ]; then
+   echo "  kvd counters:"
+   on "$PREFILL_NODE" "docker exec $CTR python3 -m infera.kvd.statctl --socket $KVD_SOCK 2>&1 | head -12" || true
+diff --color -ru work.glm52.example/verify/kit_T3/preflight_rdma.sh examples/sglang_1p1d_glm5.2/preflight_rdma.sh
+--- work.glm52.example/verify/kit_T3/preflight_rdma.sh	2026-08-04 08:30:02.314770373 +0000
++++ examples/sglang_1p1d_glm5.2/preflight_rdma.sh	2026-08-04 09:27:25.557002071 +0000
+@@ -26,7 +26,10 @@
+              --device=/dev/kfd --device=/dev/dri --device=/dev/infiniband
+              --group-add video --group-add render --cap-add=IPC_LOCK
+              --ulimit memlock=-1:-1 --security-opt seccomp=unconfined --ipc=host)
+-[ -n "${HOST_RDMA_LIB:-}" ] && DOCKER_ARGS+=(-v "$HOST_RDMA_LIB:/host-rdma/$(basename "$HOST_RDMA_LIB"):ro")
++# HOST_RDMA_MOUNT must be the in-container path your image's entrypoint reads, or the
++# injection silently no-ops and this probe measures a container whose provider does not
++# match the host driver — it then reports zero devices and the report means nothing.
++[ -n "${HOST_RDMA_LIB:-}" ] && DOCKER_ARGS+=(-v "$HOST_RDMA_LIB:${HOST_RDMA_MOUNT:-/host-rdma/$(basename "$HOST_RDMA_LIB")}:ro")
+ 
+ case "$CMD" in
+ mode)
+diff --color -ru work.glm52.example/verify/kit_T3/results/README.md examples/sglang_1p1d_glm5.2/results/README.md
+--- work.glm52.example/verify/kit_T3/results/README.md	2026-08-04 08:30:02.284430867 +0000
++++ examples/sglang_1p1d_glm5.2/results/README.md	2026-08-04 09:10:09.751713786 +0000
+@@ -7,7 +7,7 @@
+ | file | what |
+ |---|---|
+ | [`infera_agenticbench_conc8.md`](infera_agenticbench_conc8.md) | infera's own agentic benchmark — closed-loop session driver, ~67-minute window, both clusters |
+-| [`customer_agentx_caseA_conc8.md`](customer_agentx_caseA_conc8.md) | the customer's AgentX Case-A — open-loop frozen-trace replay, 900 s window, both clusters |
++| [`customer_agentx_caseA_conc8.md`](customer_agentx_caseA_conc8.md) | the customer's AgentX Case-A — frozen-trace replay, 900 s window, both clusters |
+ 
+ ## Read this before comparing any two numbers here
+ 
+@@ -16,17 +16,18 @@
+ **1. The two benchmarks apply load differently, so their concurrency numbers are
+ not the same operating point.**
+ 
++Both are **closed-loop** — a request is not issued until the previous one on that
++session/worker has returned, so a slower server reduces offered load in either. What
++differs is what "8" counts:
++
+ | | infera AgenticBench | customer AgentX Case-A |
+ |---|---|---|
+-| control loop | **closed** — a session waits for its response, then sleeps think-time | **open** — N lanes kept saturated |
+-| what "conc 8" means | 8 *initial sessions*; in-flight is emergent and lands wherever the server allows | 8 *pinned lanes*; in-flight sits at exactly 8 |
++| what "conc 8" means | 8 *initial sessions*, population **grows** to a cap of 32; in-flight is emergent and lands wherever the server allows (mean 12.1) | 8 *fixed workers*; in-flight is bounded by 8 and lands below it (mean 5.1) |
+ | requests | built live by the driver | frozen in 200 session files, byte-identical every replay |
+ | window | ramp 400 s + sustain 3,600 s | 900 s |
+ 
+-In a closed loop a slower server **reduces** offered load — sessions spend longer
+-waiting and issue fewer turns. In an open loop with pinned lanes it gets no such
+-relief. So a TTFT gap between the two benches is expected and is **not** evidence
+-about the deployment.
++So the two ran at very different occupancies on the same server, and a TTFT gap
++between them is expected — it is **not** evidence about the deployment.
+ 
+ The two agree where the load model does not matter: **ITL/TPOT p50 ≈ 14–16 ms** and
+ **prefix cache ≈ 88 %**, measured independently by both drivers on both clusters.
+@@ -40,7 +41,10 @@
+ built from the same Case-A profile — ISL p50/p90/p99 ≈ 74K/155K/235K, OSL p50/p90 ≈
+ 320/3,300, ~89 % prefix reuse — and the realised distributions land within ~7 % of
+ each other on every axis. Workload shape is therefore never the explanation for a
+-latency difference between them.
++latency difference between them. The one axis where the customer harness's corpus
++does *not* meet the spec is the prefix-reuse rate, which it hits per turn but not
++overall; see
++[the construction analysis](customer_agentx_caseA_conc8.md#the-harnesss-cache-hit-construction-does-not-meet-the-workload-spec).
+ 
+ ## Cross-cluster: why the single-rail cluster looks slower
+ 
+diff --color -ru work.glm52.example/verify/kit_T3/results/customer_agentx_caseA_conc8.md examples/sglang_1p1d_glm5.2/results/customer_agentx_caseA_conc8.md
+--- work.glm52.example/verify/kit_T3/results/customer_agentx_caseA_conc8.md	2026-08-04 08:30:02.281299080 +0000
++++ examples/sglang_1p1d_glm5.2/results/customer_agentx_caseA_conc8.md	2026-08-04 09:09:43.312790406 +0000
+@@ -20,12 +20,15 @@
+   `inferencex-agentx-mvp`, `--custom-dataset-type weka_trace`) against any
+   OpenAI-compatible endpoint.
+ 
+-It is **open-loop**: `--concurrency N` keeps N trajectory lanes saturated. Think-time
+-is consumed *inside* a lane, so the lane keeps its slot.
++It is **closed-loop**, like the infera bench: `--concurrency N` runs N workers, and a
++worker does not issue its next request until the previous one has returned. Offered
++load is therefore bounded by the server, not pushed at it — which the measurement
++confirms, in-flight sitting at mean 5.13 against a cap of 8. What differs from the
++infera bench is not the loop but *what N counts*: N is a fixed worker population here,
++where the infera bench starts 8 sessions and lets the population grow.
+ 
+ The frozen trace is what makes this benchmark useful: replaying it against a
+-different deployment changes exactly one variable, which is a class of confound a
+-closed-loop driver structurally cannot avoid.
++different deployment changes exactly one variable.
+ 
+ ## Results at c8
+ 
+@@ -55,31 +58,61 @@
+ 
+ **The two clusters agree closely at this concurrency** — TTFT p50 within 1.3×, ITL
+ within 4 %. That is a narrower gap than the infera bench shows between the same two
+-clusters, which is consistent with the open-loop driver holding in-flight at ~5 on
+-both while the closed-loop driver let the faster cluster run at higher occupancy.
++clusters, which is consistent with this driver's fixed worker population holding
++in-flight at ~5 on both, where the infera bench's growing session population let the
++faster cluster run at higher occupancy.
++
++### The harness's cache-hit construction does not meet the workload spec
++
++The Case-A spec asks for a **~88–89 % prefix-cache hit rate**. The corpus generator
++aims at that number per turn and reaches it *as a per-turn median* — but the corpus it
++produces does not deliver it as a workload property. Measured over all 200 sessions /
++1,778 requests of the shipped corpus:
+ 
+-### Two cache numbers, and only one of them measures the server
+-
+-The harness's own summary line reports **`Theoretical Prefix Cache Hit` ≈ 50.8 %**,
+-which is easy to mistake for a result about this deployment. It is not. Despite the
+-customer README describing it as "the endpoint's realized server-side prefix hit",
+-the code computes it from the *trace file's* `hash_ids` and never asks the server —
+-so it is **invariant to the deployment under test** and reads the same on both
+-clusters regardless of how the cache performs.
+-
+-The number to read is the server's own `usage_prompt_cache_read_tokens`, which aiperf
+-does record per request. Taken as a per-request ratio it is **88.1 % p50 / 89.4 % p90
+-on both clusters** — matching the infera bench's 88.9 % and the workload's 89 %
+-target.
+-
+-Take that ratio **per request, then take the median** — not as a sum over all
+-requests. Not every record carries both fields, so summing `cache_read` and
+-`prompt_tokens` over unequal sets understates the rate badly (it gives ~67 % here).
+-
+-Both the mislabelled metric and a second defect are worth reporting upstream: the
+-other is that `replay_caseA.sh` silently loses results when `OUT` is set outside the
+-script's own directory, because the container mounts only that directory — the sweep
+-then prints `FAILED` for a run that actually succeeded.
++| how the corpus's own `hash_ids` are counted | hit rate |
++|---|---|
++| per-turn ratio, median | 88.0 % |
++| per-turn ratio, median, excluding turn 0 | 88.2 % |
++| per-turn ratio, **mean** | 66.0 % |
++| **token-weighted over the whole corpus** | **59.7 %** |
++
++Three things in `gen_caseA_conformance.py` drive the gap, and each is worth reporting
++upstream:
++
++1. **Cold start is inside the target.** Turn 0 is all-miss by construction and is
++   11.2 % of requests. The generator applies its 0.88–0.90 draw only from turn 1, so
++   the corpus can hit the target per-turn and still miss it overall.
++2. **No token weighting.** The target is drawn per *turn*, uniformly, but turns differ
++   by two orders of magnitude in input size (ISL is sampled lognormal per turn,
++   independently of the reuse draw). Cheap turns and 240K-token turns count equally
++   toward a rate whose cost is entirely token-proportional.
++3. **The reuse accounting does not survive a shrinking turn.** Reuse is
++   `min(len(prefix_blocks), int(total_blocks × uniform(0.88, 0.90)))` against a
++   `total_blocks` resampled independently each turn, and the surviving prefix is then
++   *overwritten* with this turn's `hash_ids` (`prefix_blocks = hash_ids`). Because
++   consecutive ISL draws are independent, **51 % of turns are shorter than their
++   predecessor**, and every one of those truncates the accumulated prefix permanently.
++   A real agentic session's context grows; this one random-walks.
++
++The consequence for reading the results below: the harness's own summary line reports
++**`Theoretical Prefix Cache Hit` ≈ 50.8 %**, and that figure is *not* a deployment
++measurement — it is computed from the trace file's `hash_ids` and never asks the
++server, so it reads the same on both clusters regardless of how the cache performs.
++Its closeness to the corpus's own 59.7 % token-weighted rate is the point: both are
++properties of the corpus.
++
++The server-side number aiperf does record is `usage_prompt_cache_read_tokens`. Taken
++as a per-request ratio it is **88.1 % p50 / 89.4 % p90 on both clusters** — but that
++median is over the 177 of 231 records that carry the field, and the 54 that do not are
++exactly the `turn_index == 0` requests, i.e. the cold ones. Counted with those in at
++0 % it is 72.4 %; token-weighted over all requests, 50.3 %. **All three are real
++numbers about different populations**, and the deployment comparison in this document
++uses the first because it is the one that holds the population fixed across clusters.
++
++A second, unrelated defect is worth reporting with the above: `replay_caseA.sh`
++silently loses results when `OUT` is set outside the script's own directory, because
++the container mounts only that directory — the sweep then prints `FAILED` for a run
++that actually succeeded.
+ 
+ ## What this benchmark establishes that the infera one cannot
+ 
+@@ -93,19 +126,20 @@
+ | turn ≥ 1 (cached) | 177 | 70,998 | **3,568 ms** |
+ 
+ 2.5× faster for a 1.6 % *larger* prompt. That is the prefix cache priced directly.
+-The closed-loop driver has no turn index and cannot produce this.
++The infera bench has no turn index and cannot produce this.
+ 
+ **2. Independent confirmation of the cache rate.** 88.1 % measured from the server's
+ own usage field, by a third-party driver, on a third-party trace, on **both**
+-clusters — against the infera bench's 88.9 %.
++clusters — against the infera bench's 88.9 %. Same population caveat as above: this is
++the median over the warm requests.
+ 
+ **3. A structurally clean input distribution.** `max(in + out) = 258,303` by
+ construction, below the 262,144 context, so context overflow is impossible. The
+ infera bench samples input and output independently with no joint clamp, which is
+ where its 0.5 % error rate comes from.
+ 
+-**4. Where the usable concurrency limit sits.** Comparing c8 against a c16 run on the
+-same deployment, TTFT-by-input-size changes *shape*:
++**4. TTFT-by-input-size, and what changes with concurrency.** Comparing c8 against a
++c16 run on the same deployment, the curve changes *shape*:
+ 
+ | | 0–50K | 50–100K | 100–160K | 160–220K | 220–300K | spread |
+ |---|---|---|---|---|---|---|
+@@ -116,9 +150,8 @@
+ 
+ At c8 the curve is **prefill-shaped** — monotone and super-linear, the deployment is
+ computing. At c16 it **flattens** and the smallest bucket already costs 14 s: a 40K
+-request cannot take that long to prefill on a leg that serves 240K in 40 s. It is
+-waiting. **The usable concurrency limit is between 8 and 16**, and neither run
+-locates it more precisely.
++request cannot take that long to prefill on a leg that serves 240K in 40 s, so that
++time is queueing rather than compute.
+ 
+ TTFT here is entirely server-side: `http_req_sending` p50 is 0.2 ms.
+ 
+@@ -138,7 +171,7 @@
+ |---|---|
+ | the 900 s window is too short for the prefill radix tree to reach the steady state the 3,600 s run measures | run the customer bench at c8 for 3,600 s; compare its first 900 s against its last |
+ | the scenario injects a unique marker into every trajectory's first turn, deliberately defeating cross-trajectory prefix sharing the other driver allows | run with the scenario's cache-bust disabled |
+-| think-times are consumed inside a lane, so turns arrive far denser than in a closed-loop session | compare measured inter-arrival per conversation against the trace's think-time field |
++| the driver may not honour the trace's `think_time`, so turns arrive far denser than the session profile specifies | compare measured inter-arrival per conversation against the trace's think-time field |
+ | measurement definition — first *token* vs first *chunk* | inspect the first streamed chunk of a known request under both drivers |
+ 
+ **Do not pick one of these without running the experiment.**
+@@ -148,10 +181,10 @@
+ The two benchmarks answer different questions and should not be collapsed into one
+ number.
+ 
+-- The **infera bench** discovers capacity: a closed loop finds the concurrency the
+-  workload naturally sustains, runs a long steady-state window, and captures router
+-  and KV internals. The customer bench must be *told* a concurrency, so it measures
+-  the point you chose.
++- The **infera bench** discovers capacity: its session population grows, so it finds
++  the concurrency the workload naturally sustains, runs a long steady-state window,
++  and captures router and KV internals. The customer bench must be *told* a worker
++  count, so it measures the point you chose.
+ - The **customer bench** compares deployments: the frozen trace means replaying it
+   against a different topology changes exactly one variable. It also models real
+   per-turn structure and applies no client timeout.

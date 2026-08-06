@@ -1,0 +1,6 @@
+[0;32m[glm52][0m torn down node-P
+[0;32m[glm52][0m torn down node-D
+[0;32m[glm52][0m checking VRAM released (a non-empty list means something is still holding it):
+  --- node-P ---
+  --- node-D ---
+[0;32m[glm52][0m teardown complete

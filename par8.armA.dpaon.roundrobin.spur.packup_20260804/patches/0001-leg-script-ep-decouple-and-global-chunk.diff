@@ -1,0 +1,69 @@
+--- agenticbench.mtp.caseA.packup_20260801/scripts/glm52_leg_spur_mtp.sh	2026-08-03 12:05:49.240293731 +0000
++++ /shared_nfs/yihou_final_pr/scripts/glm52_leg_spur_mtp.sh	2026-08-03 12:18:37.756966297 +0000
+@@ -90,14 +90,38 @@
+ # Decode stays 0.85 -- it never crashed, and moving both would make this a
+ # two-variable change.
+ if [ "$ROLE" = "prefill" ]; then GMU="${GMU:-0.80}"; else GMU="${GMU:-0.85}"; fi
+-LOG="${LOG:-/shared_nfs/yihou_agbench_mtp/${ROLE}.log}"
++LOG="${LOG:-/shared_nfs/yihou_final_pr/${ROLE}.log}"
+ mkdir -p "$(dirname "$LOG")"
+ 
++# ---- --chunked-prefill-size is a GLOBAL per-step budget, and DPA DIVIDES it ---
++# sglang divides chunked_prefill_size by dp_size only when enable_dp_attention is
++# true (server_args.py:4902 -- a division, not a clamp). So ISL*TP = 65536 at dp8
++# resolves to 8192 PER RANK, i.e. 65536 machine-wide.
++#
++# The old `else` branch hardcoded 8192 for DPA=0. With no division that is 8192
++# GLOBALLY -- one eighth of what the DPA arm gets. Flipping DPA off would then
++# also have cut the global chunk 8x, and any TTFT change would be misattributed
++# to DP-attention. The default below therefore matches the GLOBAL budget on both
++# arms (ISL*TP), which is what the spur nodpa kit settled on after a rerun
++# (notes/nodpa_design.md §1).
++#
++# The two reference kits DISAGREE here and the caller may need to override:
++#   nodpa (spur, conc 1)   CHUNK=65536 -> global-matched, 8x per-forward work
++#   par8  (vultr, conc 24) CHUNK=16384 -> "near the measured sweet spot", 2x
++# Neither is per-forward-matched (that would be 8192). Pass CHUNK explicitly when
++# the deployment needs one over the other.
+ ISL="${ISL:-8192}"
+-if [ "$DPA" = "1" ]; then CHUNK="${CHUNK:-$((ISL * TP))}"; else CHUNK="${CHUNK:-8192}"; fi
++CHUNK="${CHUNK:-$((ISL * TP))}"
+ 
+ # ---- 408 GB checkpoint, two legs off one filesystem: the 1800 s default is tight.
+-export INFERA_SGLANG_READY_TIMEOUT="${INFERA_SGLANG_READY_TIMEOUT:-3600}"
++#
++# RENAMED SINCE THE PREDECESSOR KIT. That kit exported INFERA_SGLANG_READY_TIMEOUT,
++# which the branch under test no longer reads: main's e190d65 generalised the knob
++# to INFERA_ENGINE_READY_TIMEOUT so it covers the vLLM worker too
++# (infera/engine/sglang/worker.py:39, infera/engine/vllm/worker.py:30). Copying the
++# old name across would have left the 1800 s default in force and turned a slow
++# cold start into a spurious "engine never became ready".
++export INFERA_ENGINE_READY_TIMEOUT="${INFERA_ENGINE_READY_TIMEOUT:-3600}"
+ 
+ # ---- spur transport: no peermem, so dma-buf via mlx5(ODP) is the ONLY GPUDirect path.
+ if [ "$DMABUF" = "1" ]; then export MOONCAKE_DISABLE_HIP_DMABUF=0; else export MOONCAKE_DISABLE_HIP_DMABUF=1; fi
+@@ -125,9 +149,22 @@
+            --disaggregation-ib-device "$IBDEV")
+ [ "$ROLE" = "prefill" ] && ROLE_ARGS+=(--disaggregation-bootstrap-port "$BOOTSTRAP_PORT")
+ 
+-DP_ARGS=()
++# EP_DECOUPLE: --ep-size is OUTSIDE the DPA branch, deliberately.
++#
++# GLM-5.2 is a MoE. --ep-size selects EXPERT parallelism; --enable-dp-attention
++# selects ATTENTION parallelism. Different axes. This script used to gate both on
++# the same `if`, so DPA=0 also collapsed the MoE from ep8 to the TP default --
++# changing the expert-dispatch collective at the same time as the attention
++# layout, and making a "DPA on vs off" comparison a two-variable one. The nodpa
++# kit (agenticbench.mtp.nodpa.packup_20260802, notes/nodpa_design.md §2) hit
++# exactly this and separated them; ep8 is held fixed on both arms.
++DP_ARGS=(--ep-size "$TP")
+ if [ "$DPA" = "1" ]; then
+-  DP_ARGS+=(--dp-size "$TP" --enable-dp-attention --ep-size "$TP")
++  DP_ARGS+=(--dp-size "$TP" --enable-dp-attention)
++  # The prefill delayer aligns arrival times ACROSS DP ranks so they batch
++  # together. With no independent DP ranks there is nothing to align -- it is
++  # DPA's own machinery and leaves with it. Not a confounder, but a real config
++  # difference between the arms, so it is stated rather than silent.
+   if [ "$ROLE" = "prefill" ] && [ "$DELAYER" = "1" ]; then
+     DP_ARGS+=(--enable-prefill-delayer --prefill-delayer-max-delay-ms "$PREFILL_DELAY_MS")
+   fi

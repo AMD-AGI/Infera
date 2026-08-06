@@ -1,0 +1,8 @@
+host: crsuse2-m2m-268
+ip: 10.245.145.242/20
+kernel: 6.8.0-107-generic
+gpu: 8 x gfx950
+driver: 6.14.14
+image: sha256:3b71c8303ca710f8c80aeb2f2b09393834dcd1f0db575d76136b32f2c228a6ff
+cmdline:
+/opt/venv/bin/python3 -m sglang.launch_server --model-path /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4 --served-model-name glm5.2-mxfp4 --tp-size 8 --trust-remote-code --host 10.245.145.242 --port 30000 --nsa-prefill-backend tilelang --nsa-decode-backend tilelang --kv-cache-dtype fp8_e4m3 --mem-fraction-static 0.70 --context-length 262144 --chunked-prefill-size 65536 --cuda-graph-max-bs 128 --max-running-requests 2048 --watchdog-timeout 3600 --hicache-size 32 --ep-size 8 --disable-custom-all-reduce --disaggregation-mode prefill --disaggregation-transfer-backend mooncake --disaggregation-ib-device mlx5_0 --disaggregation-bootstrap-port 8998 --enable-cache-report --enable-hierarchical-cache --hicache-storage-backend dynamic --hicache-storage-backend-extra-config {"backend_name": "infera-kvd", "module_path": "infera.engine.sglang.kvd_adapter", "class_name": "InferaKvdBackend", "prefetch_threshold": 64} --kv-events-config {"publisher": "zmq", "endpoint": "tcp://*:55689", "topic": "kv-events"}

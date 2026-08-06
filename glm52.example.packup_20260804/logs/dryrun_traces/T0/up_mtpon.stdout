@@ -1,0 +1,11 @@
+[0;32m[glm52][0m === 1/4 containers ===
+[0;32m[glm52][0m === 2/4 etcd (prefill node) + kvd ===
+[0;32m[glm52][0m === 3/4 legs ===
+[0;32m[glm52][0m waiting for both legs (cold start is minutes — silence is not a hang)
+OK
+[0;32m[glm52][0m   node-P (10.0.0.1:30000) serving after 15s
+OK
+[0;32m[glm52][0m   node-D (10.0.0.2:30001) serving after 15s
+[0;32m[glm52][0m === 4/4 router (prefill node) ===
+[0;32m[glm52][0m up. endpoint: http://10.0.0.1:8100
+[0;32m[glm52][0m verify with:  bash cluster/<your-cluster>.sh smoke

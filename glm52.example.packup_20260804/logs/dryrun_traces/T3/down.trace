@@ -1,0 +1,8 @@
+### SSH node-P
+docker rm -f glm52_pd glm52-etcd 2>/dev/null;     pkill -9 -f 'infera.engine.sglang' 2>/dev/null; true
+### SSH node-D
+docker rm -f glm52_pd glm52-etcd 2>/dev/null;     pkill -9 -f 'infera.engine.sglang' 2>/dev/null; true
+### SSH node-P
+rocm-smi --showpids 2>/dev/null | tail -8
+### SSH node-D
+rocm-smi --showpids 2>/dev/null | tail -8

@@ -1,0 +1,58 @@
+diff --color -ru work.glm52.example/verify/kit_T2/README.md work.glm52.example/verify/kit_T3/README.md
+--- work.glm52.example/verify/kit_T2/README.md	2026-08-04 07:56:34.252697634 +0000
++++ work.glm52.example/verify/kit_T3/README.md	2026-08-04 08:30:02.262135294 +0000
+@@ -52,9 +52,7 @@
+ fabric**. The KV handoff is RDMA and there is no TCP fallback worth having — over TCP
+ the pair is slower than a single node.
+ 
+-**Weights.** GLM-5.2-MXFP4 (~400 GB) on **each** node. A mount that merely looks
+-shared may be an NFS export of the peer's array, which turns an 8-minute weight load
+-into a ~95-minute one, exceeds the ready timeout, and presents as a crash loop.
++**Weights.** GLM-5.2-MXFP4 (~400 GB) on **each** node.
+ 
+ **Image.** `inferaimage/infera-sglang:0.2.0`.
+ 
+@@ -269,12 +267,6 @@
+ `round-robin`, lower `GMU_PREFILL`.** That is why 0.70 is the shipped default rather
+ than the higher value a kv-aware-only deployment could sustain.
+ 
+-**Which policy to pick.** `kv-aware` for the lower latency; `round-robin` if you need
+-every DP rank utilised evenly — kv-aware's concentration is self-reinforcing (no
+-traffic → empty cache view → never the cheapest candidate → no traffic), and the
+-round-robin arm measured ±4 % spread across all 8 ranks against kv-aware leaving six
+-of eight ranks at one batch each for an entire run.
+-
+ ## Notes & gotchas
+ 
+ **1. `--ep-size` and `--enable-dp-attention` are different parallelism axes.** Expert
+diff --color -ru work.glm52.example/verify/kit_T2/cluster/README.md work.glm52.example/verify/kit_T3/cluster/README.md
+--- work.glm52.example/verify/kit_T2/cluster/README.md	2026-08-04 07:56:34.244799259 +0000
++++ work.glm52.example/verify/kit_T3/cluster/README.md	2026-08-04 08:30:02.271541955 +0000
+@@ -52,10 +52,9 @@
+ | `MODEL` | the checkpoint, which must live **under** `MODEL_MOUNT` |
+ | `TOKENIZER` | usually the same path; the router loads it for kv-aware routing |
+ 
+-The checkpoint is ~400 GB and both legs read it during bring-up. Local NVMe loads in
+-minutes; a mount that *looks* shared but is really an NFS export of the peer's array
+-can take an order of magnitude longer and blow the ready timeout — which presents as
+-a crash loop, not as slow storage.
++The checkpoint is ~400 GB and both legs read it during bring-up. Prefer local storage
++on both nodes: a slow mount can take an order of magnitude longer and blow the ready
++timeout — which presents as a crash loop, not as slow storage.
+ 
+ ### 3. Transport
+ 
+diff --color -ru work.glm52.example/verify/kit_T2/cluster/cluster.peermem.sh work.glm52.example/verify/kit_T3/cluster/cluster.peermem.sh
+--- work.glm52.example/verify/kit_T2/cluster/cluster.peermem.sh	2026-08-04 07:56:34.241544599 +0000
++++ work.glm52.example/verify/kit_T3/cluster/cluster.peermem.sh	2026-08-04 08:30:02.274970457 +0000
+@@ -46,8 +46,8 @@
+ export INFERA_IMAGE="${INFERA_IMAGE:-inferaimage/infera-sglang:0.2.0}"
+ 
+ # MODEL_MOUNT is bind-mounted into the container; MODEL must live under it.
+-# Prefer LOCAL storage on both nodes: a mount that merely looks shared can be an
+-# NFS export of the peer's array, which blows the ready timeout (README §1).
++# Prefer LOCAL storage on both nodes — a slow mount blows the ready timeout
++# (see cluster/README.md section 2).
+ export MODEL_MOUNT="<host-dir-holding-the-weights>"
+ export MODEL="$MODEL_MOUNT/GLM-5.2-MXFP4"
+ export TOKENIZER="$MODEL"

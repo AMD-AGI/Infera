@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Records the full docker argv (this is where the engine command line shows up),
+# and answers the one probe leg.sh actually reads back: the NIC holding MY_IP.
+printf '### DOCKER' >> "$TRACE"
+for a in "$@"; do printf ' %q' "$a" >> "$TRACE"; done
+printf '\n' >> "$TRACE"
+for a in "$@"; do
+  case "$a" in
+    *"ip -o -4 addr"*) echo "eth0"; exit 0 ;;
+  esac
+done
+exit 0

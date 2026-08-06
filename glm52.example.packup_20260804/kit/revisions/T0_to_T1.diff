@@ -1,0 +1,53 @@
+diff --color -ru work.glm52.example/verify/kit_T0/engine/bench.sh work.glm52.example/verify/kit_T1/engine/bench.sh
+--- work.glm52.example/verify/kit_T0/engine/bench.sh	2026-08-04 07:41:23.277869060 +0000
++++ work.glm52.example/verify/kit_T1/engine/bench.sh	2026-08-04 07:48:48.150400254 +0000
+@@ -18,7 +18,9 @@
+ OUT="${OUT:-/tmp/glm52_bench}"
+ 
+ for C in $CONCS; do
+-  N="${N:-$((C * 10))}"
++  # Recomputed per concurrency. A single $N reused across the sweep would leave the high
++  # arms with too few requests to reach steady state, and their percentiles unusable.
++  NPROMPTS="${N:-$((C * 10))}"
+   WARM=$([ "$C" -lt 8 ] && echo "$C" || echo 8)
+   TAG="glm52_isl${ISL}_osl${OSL}_c${C}"
+   log "=== $TAG ==="
+@@ -41,7 +43,7 @@
+       --model $SERVED --tokenizer ${TOKENIZER:-$MODEL} \
+       --dataset-name random --random-input-len $ISL --random-output-len $OSL \
+       --random-range-ratio 1.0 \
+-      --max-concurrency $C --num-prompts $N --request-rate inf \
++      --max-concurrency $C --num-prompts $NPROMPTS --request-rate inf \
+       --warmup-requests $WARM \
+       --cache-report --temperature 1.0 --top-p 0.95 \
+       --output-file $OUT/$TAG.jsonl --output-details 2>&1 | tail -30'"
+diff --color -ru work.glm52.example/verify/kit_T0/engine/up.sh work.glm52.example/verify/kit_T1/engine/up.sh
+--- work.glm52.example/verify/kit_T0/engine/up.sh	2026-08-04 07:41:23.280862193 +0000
++++ work.glm52.example/verify/kit_T1/engine/up.sh	2026-08-04 07:48:48.146671693 +0000
+@@ -21,11 +21,13 @@
+ on(){ local h="$1"; shift; $SSH_CMD "$h" "$*"; }
+ 
+ # The env every remote invocation needs. Kept in one string so the two legs cannot drift.
++# PREFILL_MTP is forwarded as well as consumed below: leg.sh reads it directly to decide
++# whether a prefill leg may emit MTP args, so passing only MTP= leaves that gate always shut.
+ COMMON_ENV="CTR=$CTR INFERA_IMAGE=$INFERA_IMAGE MODEL=$MODEL MODEL_MOUNT=$MODEL_MOUNT \
+ SERVED=$SERVED TOKENIZER=${TOKENIZER:-$MODEL} ETCD_IP=$PREFILL_IP ETCD_PORT=$ETCD_PORT \
+ ROUTER_PORT=$ROUTER_PORT PREFILL_PORT=$PREFILL_PORT DECODE_PORT=$DECODE_PORT \
+ BOOTSTRAP_PORT=$BOOTSTRAP_PORT KVD_SOCK=$KVD_SOCK TP=${TP:-8} CTX=${CTX:-262144} \
+-CHUNK=${CHUNK:-65536} KVAWARE=${KVAWARE:-1} \
++CHUNK=${CHUNK:-65536} KVAWARE=${KVAWARE:-1} PREFILL_MTP=${PREFILL_MTP:-0} \
+ RDMA_IB_DEVICES=$RDMA_IB_DEVICES MC_GID_INDEX=$MC_GID_INDEX \
+ MOONCAKE_DISABLE_HIP_DMABUF=${MOONCAKE_DISABLE_HIP_DMABUF:-1} \
+ ${MC_MS_FILTERS:+MC_MS_FILTERS=$MC_MS_FILTERS} \
+diff --color -ru work.glm52.example/verify/kit_T0/results/infera_agenticbench_conc8.md work.glm52.example/verify/kit_T1/results/infera_agenticbench_conc8.md
+--- work.glm52.example/verify/kit_T0/results/infera_agenticbench_conc8.md	2026-08-04 07:41:23.297214744 +0000
++++ work.glm52.example/verify/kit_T1/results/infera_agenticbench_conc8.md	2026-08-04 07:48:48.166678166 +0000
+@@ -37,7 +37,7 @@
+ | **TTFT p50** | **1,365 ms** | 2,239 ms | 3,504 ms |
+ | **TTFT p90** | **4,903 ms** | 6,389 ms | 7,079 ms |
+ | TTFT p99 | 9,066 ms | 10,606 ms | 16,602 ms |
+-| **TPOT p50** | **14.8 ms** | 16.0 ms | 16.5 ms |
++| **TPOT p50** | **14.8 ms** | 16.1 ms | 16.5 ms |
+ | TPOT p90 | 17.7 ms | 21.1 ms | 23.3 ms |
+ | cache hit (actual / ideal) | 88.9 % / 89.0 % | 88.7 % / 89.0 % | 88.2 % / 89.0 % |
+ | cache efficiency | 100.0 % | 99.6 % | 99.1 % |

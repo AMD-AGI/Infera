@@ -1,0 +1,26 @@
+### SSH node-P
+docker exec glm52_pd curl -s -m10 http://10.0.0.1:8100/health
+### SSH node-P
+docker exec glm52_pd curl -s -m10 http://10.0.0.1:8100/v1/workers
+### SSH node-P
+docker exec glm52_pd curl -s -m120 http://10.0.0.1:8100/v1/chat/completions   -H 'Content-Type: application/json' -d '{"model": "glm5.2-mxfp4", "messages": [{"role": "user", "content": "What is the capital of France? Answer in one short sentence."}], "max_tokens": 512}'
+### SSH node-P
+docker exec glm52_pd bash -c "grep -c MC_FORCE_TCP /tmp/glm52_prefill.log 2>/dev/null || echo 0"
+### SSH node-P
+docker exec glm52_pd bash -c "grep -c 'GID is NULL' /tmp/glm52_prefill.log 2>/dev/null || echo 0"
+### SSH node-D
+docker exec glm52_pd bash -c "grep -c MC_FORCE_TCP /tmp/glm52_decode.log 2>/dev/null || echo 0"
+### SSH node-D
+docker exec glm52_pd bash -c "grep -c 'GID is NULL' /tmp/glm52_decode.log 2>/dev/null || echo 0"
+### SSH node-P
+docker exec glm52_pd bash -c "grep -o 'dp_size=[0-9]*' /tmp/glm52_prefill.log 2>/dev/null | head -1; grep -o 'enable_dp_attention=[A-Za-z]*' /tmp/glm52_prefill.log 2>/dev/null | head -1"
+### SSH node-D
+docker exec glm52_pd bash -c "grep -o 'dp_size=[0-9]*' /tmp/glm52_decode.log 2>/dev/null | head -1; grep -o 'enable_dp_attention=[A-Za-z]*' /tmp/glm52_decode.log 2>/dev/null | head -1"
+### SSH node-D
+docker exec glm52_pd bash -c "grep -o 'accept len: [0-9.]*' /tmp/glm52_decode.log 2>/dev/null | tail -5"
+### SSH node-P
+docker exec glm52_pd bash -c "grep -o 'router-policy=[a-z-]*' /tmp/router.log 2>/dev/null | head -1"
+### SSH node-P
+docker exec glm52_pd bash -c "grep -c 'kvd adapter connected' /tmp/glm52_prefill.log 2>/dev/null || echo 0"
+### SSH node-P
+docker exec glm52_pd python3 -m infera.kvd.statctl --socket /tmp/kvd/kvd.sock 2>&1 | head -12

@@ -1,0 +1,4 @@
+[0;32m[glm52][0m === glm52_isl8192_osl1024_c8 ===
+[0;32m[glm52][0m === glm52_isl8192_osl1024_c16 ===
+[0;32m[glm52][0m === glm52_isl8192_osl1024_c32 ===
+[0;32m[glm52][0m bench done -> node-P:/tmp/glm52_bench/*.jsonl (per-request ttfts/itls are in the jsonl)

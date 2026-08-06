@@ -1,0 +1,483 @@
+diff --color -ru work.glm52.example/verify/kit_T1/README.md work.glm52.example/verify/kit_T2/README.md
+--- work.glm52.example/verify/kit_T1/README.md	2026-08-04 07:48:48.154350651 +0000
++++ work.glm52.example/verify/kit_T2/README.md	2026-08-04 07:56:34.252697634 +0000
+@@ -192,17 +192,37 @@
+   means the draft model is predicting a repetition loop perfectly, i.e. the output has
+   degenerated. 2–3 is the healthy band.
+ 
+-For a throughput reference:
++The completion check asks a one-line question but sends `max_tokens: 512`, which is
++deliberate. GLM-5.2 is a thinking model and the leg passes `--reasoning-parser glm45`,
++so the chain of thought lands in `reasoning_content` — but it is billed against the
++**same** budget. At a small value the model spends every token thinking, `content`
++comes back empty with `finish_reason: "length"`, and the check reads as a failure on a
++deployment that is serving correctly.
++
++### Reference sweep
+ 
+ ```bash
+ bash cluster/cluster.peermem.sh bench 8 16 32
+ ```
+ 
+-This uses SGLang's own `bench_serving`, which ships inside the image. Note what its
+-cache-hit column means on this dataset: `--dataset-name random` builds every prompt
+-independently, so there is **no shared prefix by construction** and any nonzero value
+-is residue from the previous round, not a cache result. Prefix reuse is an
+-agentic-workload property — see [`results/`](results/README.md).
++This uses SGLang's own `bench_serving`, which ships inside the image. Three of its
++flags are load-bearing in ways that are not obvious from the flag name:
++
++- **`--random-range-ratio 1.0`** pins every prompt to exactly `ISL`. The default draws
++  uniformly, and the percentiles then mix request sizes — a fixed-length sweep wants a
++  delta, not a distribution.
++- **`--temperature 1.0 --top-p 0.95`** are the checkpoint's own `generation_config`
++  defaults, and are deliberately *not* greedy. At temperature 0 this reasoning model
++  falls into repetition on a long prompt, MTP then predicts the loop perfectly,
++  acceptance length pins at 4.00, and the run reads like KV corruption.
++- **`--cache-report`** needs the server's `--enable-cache-report` (`engine/leg.sh`
++  passes it). Its column is nonetheless meaningless on this dataset: `--dataset-name
++  random` builds every prompt independently, so there is **no shared prefix by
++  construction** and any nonzero value is residue from the previous round. Prefix reuse
++  is an agentic-workload property — see [`results/`](results/README.md).
++
++`--num-prompts` is recomputed per concurrency (`10 × C`), so each arm of a sweep gets
++enough requests to reach steady state.
+ 
+ **This kit ships no agentic benchmark client**, by design. `results/` documents what
+ the agentic numbers look like and how to point the customer's harness at this
+diff --color -ru work.glm52.example/verify/kit_T1/cluster/cluster.dmabuf.sh work.glm52.example/verify/kit_T2/cluster/cluster.dmabuf.sh
+--- work.glm52.example/verify/kit_T1/cluster/cluster.dmabuf.sh	2026-08-04 07:48:48.176450531 +0000
++++ work.glm52.example/verify/kit_T2/cluster/cluster.dmabuf.sh	2026-08-04 07:56:34.248013540 +0000
+@@ -38,12 +38,9 @@
+ # ---------------------------------------------------------------------------
+ # 1. Nodes
+ # ---------------------------------------------------------------------------
+-# SSH-reachable names for the two nodes, and each one's DATA-PLANE IP — the
+-# address on the KV network that the peer node and the router can reach. Do NOT
+-# use the management/public NIC: the legs advertise these to each other.
+-#
+-# On a scheduler that blocks ssh to compute nodes, set SSH_CMD below to whatever
+-# does run a command on a node (see cluster/README.md).
++# Each node's SSH-reachable name and its DATA-PLANE IP. Do NOT use the
++# management/public NIC — the legs advertise these to each other. If ssh to
++# compute nodes is blocked, set SSH_CMD (see cluster/README.md).
+ export PREFILL_NODE="<prefill-host>"
+ export DECODE_NODE="<decode-host>"
+ export PREFILL_IP="<prefill-data-plane-ip>"
+@@ -60,8 +57,7 @@
+ export INFERA_IMAGE="${INFERA_IMAGE:-inferaimage/infera-sglang:0.2.0}"
+ 
+ # MODEL_MOUNT is bind-mounted into the container; MODEL must live under it.
+-# Weights on shared storage work but load slowly — the checkpoint is ~400 GB and
+-# both legs read it at once. The ready timeout in engine/leg.sh is sized for that.
++# Shared storage works but loads slowly — ~400 GB read by both legs at once.
+ export MODEL_MOUNT="<host-dir-holding-the-weights>"
+ export MODEL="$MODEL_MOUNT/GLM-5.2-MXFP4"
+ export TOKENIZER="$MODEL"
+@@ -69,12 +65,9 @@
+ # ---------------------------------------------------------------------------
+ # 3. Transport — mode B (dma-buf on the ODP NIC)
+ # ---------------------------------------------------------------------------
+-# Copy these values straight out of the preflight report's mode-B block. It
+-# names the exact NIC and GID it wants, having already checked ODP per card and
+-# confirmed the image's mooncake engine really has ibv_reg_dmabuf_mr compiled in.
+-#
+-# One device, not a list. Both legs MUST name the SAME one — preflight breaks
+-# ties by name for exactly this reason.
++# Copy these straight out of the preflight report's mode-B block — it has
++# already checked ODP per card and confirmed dma-buf is compiled into the image.
++# ONE device, not a list, and both legs MUST name the same one.
+ export RDMA_IB_DEVICES="<odp-nic-from-preflight>"          # e.g. mlx5_0
+ 
+ # Lock mooncake to that device. With auto-discovery on, it would find the
+diff --color -ru work.glm52.example/verify/kit_T1/cluster/cluster.peermem.sh work.glm52.example/verify/kit_T2/cluster/cluster.peermem.sh
+--- work.glm52.example/verify/kit_T1/cluster/cluster.peermem.sh	2026-08-04 07:48:48.173048776 +0000
++++ work.glm52.example/verify/kit_T2/cluster/cluster.peermem.sh	2026-08-04 07:56:34.241544599 +0000
+@@ -28,17 +28,15 @@
+ # ---------------------------------------------------------------------------
+ # 1. Nodes
+ # ---------------------------------------------------------------------------
+-# SSH-reachable names for the two nodes, and each one's DATA-PLANE IP — the
+-# address on the RDMA rail network that the peer node and the router can reach.
+-# Do NOT use the management/public NIC here: the legs advertise these addresses
+-# to each other for the KV handoff.
++# Each node's SSH-reachable name and its DATA-PLANE IP. Do NOT use the
++# management/public NIC — the legs advertise these to each other for the KV
++# handoff. See cluster/README.md section 1.
+ export PREFILL_NODE="<prefill-host>"
+ export DECODE_NODE="<decode-host>"
+ export PREFILL_IP="<prefill-data-plane-ip>"
+ export DECODE_IP="<decode-data-plane-ip>"
+ 
+-# This kit must live at the SAME path on both nodes (a shared filesystem, or an
+-# identical copy). up.sh ssh's in and runs engine/leg.sh from here.
++# Must be the SAME path on both nodes — up.sh runs engine/leg.sh from here.
+ export KIT_DIR="$KIT"
+ 
+ # ---------------------------------------------------------------------------
+@@ -48,45 +46,27 @@
+ export INFERA_IMAGE="${INFERA_IMAGE:-inferaimage/infera-sglang:0.2.0}"
+ 
+ # MODEL_MOUNT is bind-mounted into the container; MODEL must live under it.
+-# Both nodes need the weights on LOCAL storage. A mount that merely looks shared
+-# may be an NFS export of the peer's array, which turns an 8-minute weight load
+-# into a ~95-minute one and blows the ready timeout.
++# Prefer LOCAL storage on both nodes: a mount that merely looks shared can be an
++# NFS export of the peer's array, which blows the ready timeout (README §1).
+ export MODEL_MOUNT="<host-dir-holding-the-weights>"
+ export MODEL="$MODEL_MOUNT/GLM-5.2-MXFP4"
+ export TOKENIZER="$MODEL"
+ 
+-# Some images bind-map a host RDMA provider library at entrypoint so the
+-# container's provider matches the host driver. If yours does, point this at the
+-# host library and drop the `--entrypoint ''` override:
+-# export HOST_RDMA_LIB=/usr/lib/x86_64-linux-gnu/lib<provider>.so
+-# export ENTRYPOINT_KEEP=1
++# If your image bind-maps a host RDMA provider library at entrypoint, keep that
++# entrypoint (ENTRYPOINT_KEEP) and point HOST_RDMA_LIB at the library:
++# export HOST_RDMA_LIB=/usr/lib/x86_64-linux-gnu/lib<provider>.so ENTRYPOINT_KEEP=1
+ 
+ # ---------------------------------------------------------------------------
+ # 3. Transport — mode A (peer-mem, every rail)
+ # ---------------------------------------------------------------------------
+ # Copy these two values straight out of the preflight report's mode-A block.
+-#
+-# RDMA_IB_DEVICES: every ACTIVE rail. Enumerate rather than hardcode — a rail
+-# that is physically down must not be listed, or every transfer targeting it
+-# fails. This one-liner lists the active ones on the node you run it on:
+-#
+-#     for d in /sys/class/infiniband/*; do
+-#       grep -q ACTIVE "$d/ports/1/state" && basename "$d"
+-#     done | paste -sd,
+-#
++# RDMA_IB_DEVICES is every ACTIVE rail — a rail that is physically down must NOT
++# be listed, or every transfer targeting it fails. Enumerate per node; see §3.
+ export RDMA_IB_DEVICES="<ionic_0,ionic_1,...>"
+ 
+-# MC_GID_INDEX: the RoCEv2 GID index, and it is NODE-DEPENDENT. Nodes of the
+-# same model routinely expose the routable GID at different indices — one at 1,
+-# another at 2 — because an empty slot shifts everything after it. Getting it
+-# wrong fails loudly at init ("GID is NULL, please check your GID index") on
+-# every DP rank, so it is cheap to catch but expensive to assume.
+-#
+-# The link-local fe80:: GID (usually index 0) is NOT a fallback: it is not
+-# routable across the fabric.
+-#
+-# If your two nodes disagree, set MC_GID_INDEX per node instead of here — e.g.
+-# export it in the per-node environment, or split this wrapper in two.
++# MC_GID_INDEX: the RoCEv2 GID index. It is NODE-dependent, not cluster-wide —
++# if your two nodes disagree, set it per node rather than here. The link-local
++# fe80:: GID (usually index 0) is NOT a fallback. Details: cluster/README.md §3.
+ export MC_GID_INDEX="<gid-index-from-preflight>"
+ 
+ # dma-buf OFF: with a peer-mem module loaded, bare ibv_reg_mr is the no-pin path.
+diff --color -ru work.glm52.example/verify/kit_T1/common.sh work.glm52.example/verify/kit_T2/common.sh
+--- work.glm52.example/verify/kit_T1/common.sh	2026-08-04 07:48:48.130085575 +0000
++++ work.glm52.example/verify/kit_T2/common.sh	2026-08-04 07:56:34.203573158 +0000
+@@ -28,12 +28,8 @@
+ : "${KVD_SOCK:=/tmp/kvd/kvd.sock}"
+ 
+ # what: start the long-lived engine container (host net + GPU + IB), then sleep.
+-# why : every infera command runs via `docker exec` into it, so a leg restart does not pay
+-#       the container-create cost. how: caller passes the node's role only for the log line.
+-# note: --entrypoint '' is deliberate. The image entrypoint bind-maps a host RDMA provider
+-#       library, which is a no-op without the corresponding mount; skipping it also keeps
+-#       `sleep infinity` from being re-exec'd. Set ENTRYPOINT_KEEP=1 if your image's
+-#       entrypoint is load-bearing on your fabric (see cluster/README.md).
++# why : every infera command `docker exec`s into it, so a leg restart is cheap.
++# note: `--entrypoint ''` is deliberate — see ENTRYPOINT_KEEP in cluster/cluster.peermem.sh.
+ start_container(){
+   require_env INFERA_IMAGE "the engine image"
+   require_env MODEL_MOUNT "host dir holding the weights, bind-mounted into the container"
+@@ -75,11 +71,8 @@
+ }
+ 
+ # what: the infera router, inside $CTR on the prefill node.
+-# why : the module is `infera.server`. It is NOT `infera.router` — that is a package with no
+-#       __main__, and the failure reads like a missing dependency rather than a wrong name.
+-# how : POLICY=kv-aware|round-robin. kv-aware needs the tokenizer or it silently degrades to
+-#       load-only routing. The Rust backend is the default and rejects, rather than ignores,
+-#       an option it does not implement.
++# why : the module is `infera.server`, NOT `infera.router` — the latter has no __main__.
++# how : POLICY=kv-aware|round-robin, coupled to GMU_PREFILL; kv-aware needs the tokenizer.
+ start_router(){
+   local ip="${1:?router bind ip}"
+   require_env TOKENIZER "tokenizer path the router loads for kv-aware routing"
+@@ -107,11 +100,9 @@
+   log "router up on :$ROUTER_PORT (backend=$backend policy=$policy)"
+ }
+ 
+-# what: poll an HTTP endpoint until it answers. why: a PD leg's cold start is minutes
+-#       (weights + graph capture) and silence is NOT a hang.
+-# note: poll HTTP, never grep the log for "ready to roll" — logs are appended to across
+-#       restarts, so a grep matches the PREVIOUS run's line within seconds and the caller
+-#       proceeds against an engine that is still loading weights.
++# what: poll an HTTP endpoint until it answers. why: a leg's cold start is minutes and
++#       silence is NOT a hang. note: DO NOT grep the log for a ready line instead — logs
++#       are appended to across restarts, so a grep matches the PREVIOUS run and returns early.
+ wait_health(){
+   local url="$1" tries="${2:-120}" gap="${3:-15}"
+   for i in $(seq 1 "$tries"); do
+@@ -122,11 +113,9 @@
+   return 1
+ }
+ 
+-# what: kill engines in $CTR and wait for VRAM to drain.
+-# why : the infera wrapper exits before its sglang child does, and the child keeps the KV
+-#       event port block bound. The next leg then dies with "port_base at N is not
+-#       available", which reads as a port-allocation bug rather than as leftover state.
+-#       The WAIT is the point, not the kill.
++# what: kill engines in $CTR and wait for VRAM to drain. The WAIT is the point, not the kill.
++# why : the infera wrapper exits before its sglang child does, and that child keeps the KV
++#       event port block bound — the next leg dies with "port_base at N is not available".
+ reap(){
+   docker exec "$CTR" bash -c '
+     pkill -9 -f "infera.engine.sglang" 2>/dev/null
+diff --color -ru work.glm52.example/verify/kit_T1/engine/bench.sh work.glm52.example/verify/kit_T2/engine/bench.sh
+--- work.glm52.example/verify/kit_T1/engine/bench.sh	2026-08-04 07:48:48.150400254 +0000
++++ work.glm52.example/verify/kit_T2/engine/bench.sh	2026-08-04 07:56:34.209300343 +0000
+@@ -24,19 +24,8 @@
+   WARM=$([ "$C" -lt 8 ] && echo "$C" || echo 8)
+   TAG="glm52_isl${ISL}_osl${OSL}_c${C}"
+   log "=== $TAG ==="
+-  # --random-range-ratio 1.0 pins every prompt to exactly ISL. A fixed-length sweep wants a
+-  # delta, not a distribution; the default draws uniformly and the percentiles then mix
+-  # request sizes.
+-  #
+-  # Sampling uses the model's own generation_config rather than greedy. temperature 0 sends
+-  # this reasoning model into repetition on a long prompt, MTP then predicts the loop
+-  # perfectly, acceptance length pins at 4.00, and the run reads like KV corruption.
+-  #
+-  # --cache-report needs the server's --enable-cache-report (engine/leg.sh passes it). Note
+-  # what the column means for THIS dataset: --dataset-name random builds every prompt
+-  # independently, so there is no shared prefix by construction and any nonzero cache hit is
+-  # residue from the previous round, not a cache result. Prefix reuse is an agentic-workload
+-  # property; see results/.
++  # Three of the flags below are load-bearing in non-obvious ways (range-ratio, temperature,
++  # cache-report). Do not change them without reading "Reference sweep" in the README.
+   $SSH_CMD "$PREFILL_NODE" "docker exec $CTR bash -c 'mkdir -p $OUT && \
+     python3 -m sglang.bench_serving \
+       --backend sglang-oai-chat --base-url $URL \
+diff --color -ru work.glm52.example/verify/kit_T1/engine/down.sh work.glm52.example/verify/kit_T2/engine/down.sh
+--- work.glm52.example/verify/kit_T1/engine/down.sh	2026-08-04 07:48:48.142855033 +0000
++++ work.glm52.example/verify/kit_T2/engine/down.sh	2026-08-04 07:56:34.221969790 +0000
+@@ -13,9 +13,8 @@
+ for h in "$PREFILL_NODE" "$DECODE_NODE"; do
+   [ -n "$h" ] || continue
+   # Removing the container kills its `sleep infinity` init, which reaps the engine children.
+-  # Left alone they linger holding VRAM and the KV-event port block, and the next launch dies
+-  # with "port_base at N is not available" — which reads as a port-allocation bug rather than
+-  # as leftover state.
++  # Left alone they hold VRAM and the KV-event port block, and the next launch dies with
++  # "port_base at N is not available" — which reads as a bug, not as leftover state.
+   $SSH_CMD "$h" "docker rm -f $CTR glm52-etcd 2>/dev/null; \
+     pkill -9 -f 'infera.engine.sglang' 2>/dev/null; true" >/dev/null 2>&1 || true
+   log "torn down $h"
+diff --color -ru work.glm52.example/verify/kit_T1/engine/leg.sh work.glm52.example/verify/kit_T2/engine/leg.sh
+--- work.glm52.example/verify/kit_T1/engine/leg.sh	2026-08-04 07:48:48.140184045 +0000
++++ work.glm52.example/verify/kit_T2/engine/leg.sh	2026-08-04 07:56:34.218639201 +0000
+@@ -39,42 +39,22 @@
+ KVAWARE="${KVAWARE:-1}"
+ LOG="${LOG:-/tmp/glm52_${ROLE}.log}"
+ 
+-# ---- --mem-fraction-static: role-asymmetric, and the direction is counter-intuitive ------
+-# A prefill leg that aborts with
+-#     rocdevice.cpp:… HSA_STATUS_ERROR_OUT_OF_RESOURCES … Fatal Python error: Aborted
+-# while `token usage` reads 0.01-0.05 is NOT out of KV — the pool is nearly empty. It is out
+-# of ACTIVATION memory, which lives in the 1 - mem_fraction_static remainder. So:
+-#
+-#     decode   retract / get_cpu_copy NotImplementedError    -> RAISE mem-fraction-static
+-#     prefill  HSA_STATUS_ERROR_OUT_OF_RESOURCES at low usage -> LOWER mem-fraction-static
+-#
+-# The prefill value is also coupled to two things people do not expect:
+-#   * DP-attention OFF needs a LOWER value than ON at the same chunk size — without DPA one
+-#     rank computes attention over the whole chunk instead of its 1/TP slice.
+-#   * round-robin routing needs a LOWER value than kv-aware — spreading work means 4-5 DP
+-#     ranks prefill concurrently, each holding its own chunk's activations, where kv-aware
+-#     concentrates on 1-2.
+-# 0.70/0.85 is the safe pair across every combination measured on MI355X. If your KV pool is
+-# the binding resource and your prefill leg is stable, raise GMU_PREFILL a step at a time.
++# Role-asymmetric, and the direction is counter-intuitive: a prefill OOM is fixed by LOWERING
++# this, a decode retract by raising it. Also coupled to DPA and to the router policy.
++# 0.70/0.85 is safe across every combination measured on MI355X. Diagnosis: README note 3.
+ GMU_PREFILL="${GMU_PREFILL:-0.70}"
+ GMU_DECODE="${GMU_DECODE:-0.85}"
+ [ "$ROLE" = "prefill" ] && GMU="${GMU:-$GMU_PREFILL}" || GMU="${GMU:-$GMU_DECODE}"
+ 
+-# ---- --chunked-prefill-size is a GLOBAL budget, and DPA divides it -----------------------
+-# SGLang divides --chunked-prefill-size by dp_size ONLY when DP-attention is on (a division,
+-# not a clamp — the engine's own warning text reads like a clamp, which is what makes this
+-# trap expensive). At dp8 a requested 65536 resolves to 8192 per rank while staying 65536
+-# machine-wide. Turning DPA off without touching this flag therefore leaves the GLOBAL budget
+-# unchanged, which is what you want; hardcoding the per-rank number in a DPA-off branch would
+-# silently cut it 8x. One value, both modes, set explicitly.
++# A GLOBAL budget that SGLang divides by dp_size only when DP-attention is on. One value
++# serves both modes; DO NOT hardcode a per-rank number in a DPA-off branch — that cuts the
++# global budget 8x, silently. Why the trap is expensive: README note 2.
+ CHUNK="${CHUNK:-65536}"
+ 
+-# ---- transport env ----------------------------------------------------------------------
+-# Every one of these comes from cluster/<wrapper>.sh, which in turn comes from what
+-# `python -m infera.tools.preflight.mooncake_mode` reports for your node. Do not guess them:
+-# a wrong GID index fails loudly ("GID is NULL"), but a wrong dma-buf/peer-mem choice fails
+-# SILENTLY — either by pinning and doubling the KV pool, or by degrading to TCP, which works
+-# and merely runs 5-20x slower.
++# ---- transport env ------------------------------------------------------------------------
++# All from cluster/<wrapper>.sh, filled in from the preflight report. Do not guess: a wrong
++# GID index fails loudly, but a wrong dma-buf/peer-mem choice fails SILENTLY — doubled KV
++# pool, or a 5-20x slower TCP fallback. See cluster/README.md section 3.
+ export MOONCAKE_DISABLE_HIP_DMABUF="${MOONCAKE_DISABLE_HIP_DMABUF:-1}"
+ export MC_GID_INDEX="${MC_GID_INDEX:?MC_GID_INDEX is required — read it off the preflight report}"
+ export MC_DISABLE_HIP_TRANSPORT=1
+@@ -98,9 +78,8 @@
+ export INFERA_SGLANG_READY_TIMEOUT="${READY_TIMEOUT:-3600}"
+ 
+ # ---- GLM-5.2 DSA-on-ROCm recipe (mandatory on gfx950) -----------------------------------
+-# Without these the model still serves, but the sparse-attention indexer takes a path that is
+-# not ported to ROCm and the output is garbage or repeated tokens — a correctness failure that
+-# presents as a quality complaint, not as an error.
++# Without these the model still serves and still returns 200s — it just returns garbage,
++# because the sparse-attention indexer takes a path not ported to ROCm. See README note 5.
+ export SGLANG_USE_AITER=1 SGLANG_ROCM_FUSED_DECODE_MLA=0
+ export SGLANG_OPT_USE_TILELANG_INDEXER=1 SGLANG_OPT_USE_TOPK_V2=0 SGLANG_OPT_USE_JIT_NORM=0
+ export SAFETENSORS_FAST_GPU=1 HIP_FORCE_DEV_KERNARG=1
+@@ -115,11 +94,9 @@
+            --disaggregation-ib-device "$RDMA_IB_DEVICES")
+ [ "$ROLE" = "prefill" ] && ROLE_ARGS+=(--disaggregation-bootstrap-port "$BOOTSTRAP_PORT")
+ 
+-# --ep-size is passed UNCONDITIONALLY, outside the DPA branch. --ep-size selects EXPERT
+-# parallelism and --enable-dp-attention selects ATTENTION parallelism: different axes. Gating
+-# both on one `if` means DPA=0 also collapses the MoE from ep8 to the TP default, so a run
+-# billed as "DPA off" differs in the expert-dispatch collective too and no latency delta is
+-# attributable to either.
++# --ep-size is passed UNCONDITIONALLY, outside the DPA branch: expert parallelism and
++# attention parallelism are different axes. DO NOT move it inside the `if` — that silently
++# collapses the MoE too whenever DPA is off. See README note 1.
+ DP_ARGS=(--ep-size "$TP")
+ if [ "$DPA" = "1" ]; then
+   DP_ARGS+=(--dp-size "$TP" --enable-dp-attention)
+@@ -136,18 +113,15 @@
+ if [ "$KVAWARE" = "1" ]; then
+   INFERA_ARGS+=(--kv-events-bind "tcp://0.0.0.0:$KV_PUB_PORT" --kv-snapshot-port "$KV_SNAP_PORT")
+ else
+-  # NOTE: this also disables kvd on the DECODE leg, and the coupling is not obvious. A PD
+-  # decode leg sets disable_radix_cache itself, and SGLang rejects hierarchical cache
+-  # alongside it; what legalises kvd there is --disaggregation-decode-enable-radix-cache,
+-  # which infera appends only when KV events are on. The two switches are not independent.
++  # NOTE: this also disables kvd on the DECODE leg — the two switches are not independent.
++  # What legalises kvd there is --disaggregation-decode-enable-radix-cache, which infera
++  # appends only when KV events are on. See README note 6.
+   INFERA_ARGS+=(--no-enable-kv-events)
+ fi
+ 
+ # kvd: the wrapper probes the daemon, then appends --enable-hierarchical-cache,
+-# --hicache-storage-backend and the backend's extra-config for you.
+-# --hicache-size is an ABSOLUTE size in GB, deliberately. SGLang's ratio-based default sizes
+-# the host pool off max_total_num_tokens and can compute to hundreds of GB PER DP RANK; a
+-# TB-scale pinned host allocation can wedge a node at kernel level.
++# --hicache-storage-backend and the backend's extra-config for you. --hicache-size is an
++# ABSOLUTE size in GB, deliberately — the ratio-based default can wedge a node. README note 7.
+ [ "$KVD" = "1" ] && INFERA_ARGS+=(--infera-kvd-socket "$KVD_SOCK" --hicache-size "$HICACHE_GB")
+ 
+ # MTP (EAGLE). Decode-only by default: that is the configuration these settings were
+@@ -162,11 +136,9 @@
+             --num-reserved-decode-tokens "${RESERVED_TOK:-256}")
+ fi
+ 
+-# Custom all-reduce is disabled by default and INDEPENDENTLY of MTP. The aiter custom
+-# all-reduce kernel deadlocks on gfx942/gfx950 during EAGLE verify at high concurrency; that
+-# is a defect in the kernel on this arch. Letting it follow MTP would make any "MTP on vs off"
+-# comparison a two-variable one. Set CUSTOM_AR=1 only if you have reason to believe your
+-# image carries the kernel fix.
++# Disabled by default and INDEPENDENTLY of MTP — the aiter kernel deadlocks on gfx942/gfx950
++# during EAGLE verify. DO NOT let this switch follow MTP: that makes any "MTP on vs off"
++# comparison two-variable. Set CUSTOM_AR=1 only if your image carries the fix. README note 4.
+ CAR_ARGS=()
+ [ "${CUSTOM_AR:-0}" = "1" ] || CAR_ARGS+=(--disable-custom-all-reduce)
+ 
+diff --color -ru work.glm52.example/verify/kit_T1/engine/smoke.sh work.glm52.example/verify/kit_T2/engine/smoke.sh
+--- work.glm52.example/verify/kit_T1/engine/smoke.sh	2026-08-04 07:48:48.137172963 +0000
++++ work.glm52.example/verify/kit_T2/engine/smoke.sh	2026-08-04 07:56:34.212720000 +0000
+@@ -25,18 +25,9 @@
+ 
+ echo
+ echo "===== 2. a real completion through the router ====="
+-# Expect a correct, coherent answer. GARBAGE OR REPEATED TOKENS here is the signature of the
+-# DSA-on-ROCm env block not taking effect — the model serves, it just computes sparse
+-# attention on a path that is not ported to this architecture.
+-#
+-# GLM-5.2 is a thinking model and the leg passes --reasoning-parser glm45, so the chain of
+-# thought lands in `reasoning_content` and `content` stays clean. Without the parser the
+-# answer is still correct but arrives with the reasoning and a raw </think> inlined.
+-#
+-# max_tokens has to be generous even for a one-line question: the reasoning is billed against
+-# the SAME budget. At 64 the model spends every token thinking, `content` comes back EMPTY
+-# with finish_reason "length", and the check reads as a failure on a deployment that is
+-# serving correctly. 512 leaves room for ~170 reasoning tokens plus the answer.
++# Expect a coherent answer; GARBAGE OR REPEATED TOKENS means the DSA-on-ROCm env block did
++# not take effect, and is not a sampling problem (README note 5). DO NOT lower max_tokens —
++# reasoning is billed against the SAME budget and `content` then comes back EMPTY (README §5).
+ BODY=$(python3 -c "import json,os;print(json.dumps({
+   'model': os.environ.get('SERVED','glm5.2-mxfp4'),
+   'messages':[{'role':'user','content':'What is the capital of France? Answer in one short sentence.'}],
+diff --color -ru work.glm52.example/verify/kit_T1/engine/up.sh work.glm52.example/verify/kit_T2/engine/up.sh
+--- work.glm52.example/verify/kit_T1/engine/up.sh	2026-08-04 07:48:48.146671693 +0000
++++ work.glm52.example/verify/kit_T2/engine/up.sh	2026-08-04 07:56:34.215731594 +0000
+@@ -45,14 +45,9 @@
+ log "=== 2/4 etcd (prefill node) + kvd ==="
+ on "$PREFILL_NODE" "$COMMON_ENV bash -c 'source $KIT_DIR/common.sh; start_etcd $PREFILL_IP'"
+ 
+-# kvd runs only where a leg enables it. Stage a script FILE and nohup it: a detached
+-# `docker exec -d ... bash -lc '<cmd>'` login shell exits and takes the child with it —
+-# no process, no log, no error to read.
+-#
+-# --max-bytes / --long-bytes are ABSOLUTE caps on purpose. The L3 tier writes to a
+-# container-local path, so an oversized budget fills the node's root filesystem and then
+-# every `docker exec` on that node fails with "no space left on device" — which reads as a
+-# broken node rather than as a full disk.
++# kvd runs only where a leg enables it. Stage a script FILE and nohup it — a detached
++# `docker exec -d ... bash -lc '<cmd>'` login shell exits and takes the child with it, leaving
++# no process, no log, no error. --max-bytes/--long-bytes are absolute caps: README note 7.
+ start_kvd(){
+   local h="$1"
+   on "$h" "docker exec $CTR bash -c \"mkdir -p /tmp/kvd /tmp/kvd-long && rm -f $KVD_SOCK && \
+diff --color -ru work.glm52.example/verify/kit_T1/preflight_rdma.sh work.glm52.example/verify/kit_T2/preflight_rdma.sh
+--- work.glm52.example/verify/kit_T1/preflight_rdma.sh	2026-08-04 07:48:48.126502382 +0000
++++ work.glm52.example/verify/kit_T2/preflight_rdma.sh	2026-08-04 07:56:34.199966474 +0000
+@@ -30,30 +30,17 @@
+ 
+ case "$CMD" in
+ mode)
+-  # Per-node. Reports, per RDMA NIC: vendor, link speed, ODP, PCI BDF, NUMA node and GID
+-  # index; and node-wide: whether a peer-memory module is loaded and whether the image's
+-  # mooncake engine has dma-buf compiled in. Then it enumerates registration modes A/B/C,
+-  # each marked viable or blocked WITH the reason, and prints the exact env + launch flags
+-  # for the one it picks.
+-  #
+-  # Read the peer-mem line first — it decides which cluster wrapper you use:
+-  #     peermem present -> mode A -> cluster/cluster.peermem.sh
+-  #     peermem absent, an ODP NIC exists -> mode B -> cluster/cluster.dmabuf.sh
+-  #
+-  # Exit code 0 = a full-KV mode is viable. Exit code 2 = the only viable path needs the KV
+-  # pool CAPPED (mode C) or nothing is viable — a human decision, not a default.
++  # Per-node registration-mode probe; prints the env and launch flags for the mode it picks.
++  # Read the peer-mem line first — present -> cluster.peermem.sh, absent+ODP -> dmabuf.sh.
++  # Exit 2 means only the KV-pool-CAPPED mode C is left: a human decision, not a default.
+   echo "[preflight] registration-mode probe on $(hostname -s)"
+   exec docker run "${DOCKER_ARGS[@]}" "$IMAGE" \
+     python3 -m infera.tools.preflight.mooncake_mode
+   ;;
+ fabric)
+-  # Cross-node. Needs one task per node writing into a SHARED dump path; srun fills in
+-  # SLURM_PROCID / SLURM_NNODES / SLURMD_NODENAME. Rank 0 renders the combined HTML report
+-  # once every node has written its JSON.
+-  #
+-  # The rows to read for PD are the mooncake ones: they report KV-move bandwidth over rdma
+-  # and over tcp SEPARATELY. A fabric that will silently serve at TCP speed therefore shows
+-  # up as a number here, instead of as a deployment that is inexplicably slow later.
++  # Cross-node. One task per node writing into a SHARED dump path; rank 0 renders the report.
++  # For PD, read the mooncake rows: they report KV-move bandwidth over rdma and over tcp
++  # SEPARATELY, which turns a silent TCP fallback into a number you can read before deploying.
+   : "${DUMP_PATH:?set DUMP_PATH=<a directory shared by all nodes>}"
+   : "${SLURM_PROCID:?rank — srun sets this; otherwise set it per node by hand (0..N-1)}"
+   : "${SLURM_NNODES:?node count — srun sets this}"

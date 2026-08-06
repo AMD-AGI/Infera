@@ -1,0 +1,4 @@
+[0;32m[glm52][0m prefill on 10.0.0.1:30000 — tp=8 dpa=0 mtp=0 kvaware=1 kvd=1 gmu=0.70 chunk=65536 ctx=262144 nic=eth0 ib=mlx5_0
+[0;32m[glm52][0m prefill launching -> /tmp/glm52_prefill.log in glm52_pd (cold start is minutes: weights + graph capture)
+[0;32m[glm52][0m decode on 10.0.0.2:30001 — tp=8 dpa=1 mtp=1 kvaware=1 kvd=0 gmu=0.85 chunk=65536 ctx=262144 nic=eth0 ib=mlx5_0
+[0;32m[glm52][0m decode launching -> /tmp/glm52_decode.log in glm52_pd (cold start is minutes: weights + graph capture)

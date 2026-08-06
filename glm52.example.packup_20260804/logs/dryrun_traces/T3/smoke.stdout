@@ -1,0 +1,30 @@
+===== 1. router + workers =====
+OK
+
+{
+    "workers": [
+        {
+            "role": "prefill"
+        },
+        {
+            "role": "decode"
+        }
+    ]
+}
+
+===== 2. a real completion through the router =====
+  content  : Paris is the capital of France.
+  reasoning: The user asks for the capital of France.
+  usage    : 25 prompt / 9 completion | cached 0
+
+===== 3. feature evidence =====
+-- PD + mooncake: KV must move over RDMA, not TCP --
+  node-P  MC_FORCE_TCP=  node-P  'GID is NULL'=  node-D  MC_FORCE_TCP=  node-D  'GID is NULL'=  (both must be 0)
+-- DP-attention: resolved dp_size per leg --
+  node-P  
+  node-D  
+-- MTP: acceptance length on the decode leg --
+-- kv-aware / kvd --
+  prefill kvd adapters connected:   kvd counters:
+
+[0;32m[glm52][0m smoke complete — read the four blocks above, not just the exit code
