@@ -17,14 +17,64 @@
 //! cost function falls back to load-only routing — never a 500 — exactly like
 //! the Python side.
 
+use std::io;
 use std::path::Path;
 
 use minijinja::{context, Environment};
+use serde::Serialize;
 use serde_json::Value;
 use tokenizers::Tokenizer;
 
 use crate::hasher::hash_request;
 use crate::tiktoken::KimiTokenizer;
+
+/// `json.dumps` default separators: `", "` between items, `": "` after a key.
+/// serde_json packs both, and the engine's prompt has the spaces.
+struct PyJsonFormatter;
+
+impl serde_json::ser::Formatter for PyJsonFormatter {
+    fn begin_array_value<W: ?Sized + io::Write>(
+        &mut self,
+        w: &mut W,
+        first: bool,
+    ) -> io::Result<()> {
+        if first {
+            Ok(())
+        } else {
+            w.write_all(b", ")
+        }
+    }
+    fn begin_object_key<W: ?Sized + io::Write>(
+        &mut self,
+        w: &mut W,
+        first: bool,
+    ) -> io::Result<()> {
+        if first {
+            Ok(())
+        } else {
+            w.write_all(b", ")
+        }
+    }
+    fn begin_object_value<W: ?Sized + io::Write>(&mut self, w: &mut W) -> io::Result<()> {
+        w.write_all(b": ")
+    }
+}
+
+/// Python's `ensure_ascii=True`: every non-ASCII scalar becomes `\uXXXX`, and
+/// anything above the BMP becomes a surrogate pair.
+fn escape_non_ascii(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        if c.is_ascii() {
+            out.push(c);
+        } else {
+            for unit in c.encode_utf16(&mut [0u16; 2]) {
+                out.push_str(&format!("\\u{unit:04x}"));
+            }
+        }
+    }
+    out
+}
 
 pub struct BlockHasher {
     tokenizer: Option<Tokenizer>,
@@ -180,24 +230,137 @@ impl BlockHasher {
     fn apply_chat_template(&self, messages: &Value) -> Option<String> {
         let template = self.chat_template.as_ref()?;
         let mut env = Environment::new();
-        // HF chat templates use the Python dict method `msg.get('key')` (7x in
-        // Kimi's), which minijinja lacks natively -> the template errors -> empty
-        // render -> no cache locality for chat. Supply just `.get(key[,default])`.
+        // transformers renders with both of these on. minijinja defaults them off,
+        // which leaves a newline after every `{% %}` that is alone on its line --
+        // invisible in the plain chat path, which trims explicitly with `{%- -%}`,
+        // and two stray newlines in GLM-5.2's tool-call branch, which does not.
+        env.set_trim_blocks(true);
+        env.set_lstrip_blocks(true);
+        // HF chat templates are written against Python's data model and call
+        // methods minijinja does not have. A missing one is not a loud failure:
+        // the template errors, the render comes back empty, the prompt hashes to
+        // nothing, and kv-aware quietly becomes load-only routing at full health.
+        // Kimi's needs `msg.get('key')` (7x); GLM-5.2's needs `content.strip()`
+        // and `content.split('</think>')[-1]`.
         env.set_unknown_method_callback(|_state, value, method, args| {
+            use minijinja::value::ValueKind;
             use minijinja::{Error, ErrorKind, Value};
-            if method == "get" {
-                let key = args.first().cloned().unwrap_or(Value::UNDEFINED);
-                let default = args.get(1).cloned().unwrap_or_else(|| Value::from(()));
-                return Ok(match value.get_item(&key) {
-                    Ok(v) if !v.is_undefined() => v,
-                    _ => default,
-                });
+            let as_text = |v: &Value| -> Result<String, Error> {
+                v.as_str().map(str::to_owned).ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::InvalidOperation,
+                        format!("{method}() expects a string, got {}", v.kind()),
+                    )
+                })
+            };
+            match method {
+                "get" => {
+                    let key = args.first().cloned().unwrap_or(Value::UNDEFINED);
+                    let default = args.get(1).cloned().unwrap_or_else(|| Value::from(()));
+                    Ok(match value.get_item(&key) {
+                        Ok(v) if !v.is_undefined() => v,
+                        _ => default,
+                    })
+                }
+                // Python strips whitespace with no argument and the given
+                // character SET (not substring) with one.
+                "strip" | "lstrip" | "rstrip" => {
+                    let s = as_text(value)?;
+                    let chars: Option<Vec<char>> = match args.first() {
+                        Some(a) if !a.is_undefined() && !a.is_none() => {
+                            Some(as_text(a)?.chars().collect())
+                        }
+                        _ => None,
+                    };
+                    let matches = |c: char| match &chars {
+                        Some(set) => set.contains(&c),
+                        None => c.is_whitespace(),
+                    };
+                    Ok(Value::from(match method {
+                        "lstrip" => s.trim_start_matches(matches).to_owned(),
+                        "rstrip" => s.trim_end_matches(matches).to_owned(),
+                        _ => s.trim_matches(matches).to_owned(),
+                    }))
+                }
+                // `s.split(sep)` keeps empty fields, so "a<t>b".split("<t>") is
+                // ["a", "b"] and "".split("<t>") is [""] -- str::split agrees.
+                // Bare `s.split()` is the different, whitespace-collapsing form.
+                "split" => {
+                    let s = as_text(value)?;
+                    let parts: Vec<String> = match args.first() {
+                        Some(a) if !a.is_undefined() && !a.is_none() => {
+                            let sep = as_text(a)?;
+                            if sep.is_empty() {
+                                return Err(Error::new(
+                                    ErrorKind::InvalidOperation,
+                                    "split() with an empty separator",
+                                ));
+                            }
+                            s.split(sep.as_str()).map(str::to_owned).collect()
+                        }
+                        _ => s.split_whitespace().map(str::to_owned).collect(),
+                    };
+                    Ok(Value::from(parts))
+                }
+                // Python's dict views. minijinja iterates a map as its keys, so
+                // the other two are built from that.
+                "items" | "keys" | "values" => {
+                    if value.kind() != ValueKind::Map {
+                        return Err(Error::new(
+                            ErrorKind::InvalidOperation,
+                            format!("{method}() expects a mapping, got {}", value.kind()),
+                        ));
+                    }
+                    let at = |k: &Value| value.get_item(k).unwrap_or(Value::UNDEFINED);
+                    let keys = value.try_iter()?;
+                    Ok(Value::from(match method {
+                        "keys" => keys.collect::<Vec<_>>(),
+                        "values" => keys.map(|k| at(&k)).collect(),
+                        _ => keys
+                            .map(|k| {
+                                let v = at(&k);
+                                Value::from(vec![k, v])
+                            })
+                            .collect(),
+                    }))
+                }
+                _ => Err(Error::new(
+                    ErrorKind::UnknownMethod,
+                    format!("object has no method {method}"),
+                )),
             }
-            Err(Error::new(
-                ErrorKind::UnknownMethod,
-                format!("object has no method {method}"),
-            ))
         });
+        // transformers does not use jinja2's tojson either -- it installs
+        // `json.dumps(x, ensure_ascii=False, sort_keys=False)`, explicitly to stop
+        // HTML characters being escaped. minijinja's builtin escapes `<`, `>` and
+        // `&` and packs the separators, so both of them would move the token
+        // stream away from the engine's.
+        env.add_filter(
+            "tojson",
+            |v: minijinja::Value, kwargs: minijinja::value::Kwargs| {
+                use minijinja::{Error, ErrorKind};
+                let ascii = kwargs.get::<Option<bool>>("ensure_ascii")?.unwrap_or(false);
+                // Ignoring an argument silently would only shift the divergence
+                // somewhere harder to see; failing outright would blind the
+                // router completely, which is worse.
+                if let Err(e) = kwargs.assert_all_used() {
+                    tracing::warn!(err = %e, "kv-aware: tojson() argument ignored");
+                }
+                let mut buf = Vec::new();
+                v.serialize(&mut serde_json::Serializer::with_formatter(
+                    &mut buf,
+                    PyJsonFormatter,
+                ))
+                .map_err(|e| Error::new(ErrorKind::InvalidOperation, format!("tojson: {e}")))?;
+                let out = String::from_utf8(buf)
+                    .map_err(|e| Error::new(ErrorKind::InvalidOperation, format!("tojson: {e}")))?;
+                Ok(minijinja::Value::from(if ascii {
+                    escape_non_ascii(&out)
+                } else {
+                    out
+                }))
+            },
+        );
         // HF templates call raise_exception(msg) on malformed input.
         env.add_function(
             "raise_exception",
@@ -315,18 +478,37 @@ mod tests {
         assert!(h.hash_for(&json!({"prompt": "text"}), 4).is_empty());
     }
 
+    /// Model dir for a weight-backed test, from the environment.
+    ///
+    /// These used to carry a hardcoded absolute path from whichever machine the
+    /// test was written on. That is worse than no test: everywhere else the
+    /// path is missing, the test returns early, and the run reports a pass
+    /// having checked nothing. Naming the variable at least makes the skip
+    /// legible and lets CI opt in.
+    fn model_dir_from_env(var: &str) -> Option<String> {
+        match std::env::var(var) {
+            Ok(p) if Path::new(&p).join("chat_template.jinja").exists() => Some(p),
+            Ok(p) => {
+                eprintln!("skip: {var}={p} has no chat_template.jinja");
+                None
+            }
+            Err(_) => {
+                eprintln!("skip: set {var} to a model dir to run this test");
+                None
+            }
+        }
+    }
+
     // Kimi ships chat_template.jinja (not embedded) + tiktoken. This guards the
     // whole chat path: standalone-template fallback, the `.get()` method, and the
     // `{% break %}` loop control all have to work or a chat request hashes to
     // empty (load-only routing, no cache locality). Skips if weights absent.
     #[test]
     fn kimi_chat_request_renders_and_hashes() {
-        const KIMI_DIR: &str = "/mnt/vast/john/huggingface/amd-Kimi-K2.6-MXFP4";
-        if !Path::new(KIMI_DIR).join("chat_template.jinja").exists() {
-            eprintln!("skip: {KIMI_DIR} not present");
+        let Some(kimi_dir) = model_dir_from_env("INFERA_TEST_KIMI_DIR") else {
             return;
-        }
-        let h = BlockHasher::load(KIMI_DIR);
+        };
+        let h = BlockHasher::load(&kimi_dir);
         assert!(h.is_enabled());
         // A multi-turn chat (incl. a tool message → exercises break/.get) must
         // render to a non-trivial token stream -> at least one 16-token block.
@@ -342,6 +524,201 @@ mod tests {
         assert!(
             !h.hash_for(&body, 16).is_empty(),
             "kimi chat template must render + tokenize (else 0 cache locality)"
+        );
+    }
+
+    /// GLM-5.2's template splits the thinking block out and strips the rest:
+    ///
+    ///   {%- set content = content.split('</think>')[-1] %}
+    ///   {%- if content.strip() -%}{{ content.strip() }}{%- endif -%}
+    ///
+    /// minijinja has neither method natively. Without them the render errors,
+    /// the prompt yields no tokens, and kv-aware degrades to load-only routing
+    /// while every health signal stays green -- measured as 0.00% predicted
+    /// hits against the Python router's 83.33% on the same trace. No weights
+    /// needed: the template text is the whole subject.
+    #[test]
+    fn python_str_methods_render_glm_style_template() {
+        let h = BlockHasher {
+            tokenizer: None,
+            tiktoken: None,
+            chat_template: Some(
+                "{%- for m in messages -%}\
+                 {%- set content = m['content'] -%}\
+                 {%- set reasoning = content.split('</think>')[0].split('<think>')[-1] -%}\
+                 {%- set content = content.split('</think>')[-1] -%}\
+                 {%- if content.strip() -%}[{{ content.strip() }}|{{ reasoning.strip() }}]\
+                 {%- endif -%}{%- endfor -%}"
+                    .to_string(),
+            ),
+            bos_token: None,
+            eos_token: None,
+        };
+        let messages = json!([{"content": "<think>  weighing it  </think>  the answer  "}]);
+        assert_eq!(
+            h.apply_chat_template(&messages).as_deref(),
+            Some("[the answer|weighing it]"),
+            "split() must keep empty fields and index from the end; strip() must \
+             trim both ends -- anything else changes the token stream and every \
+             block hash with it"
+        );
+    }
+
+    /// The pieces of Python's string semantics the templates actually lean on,
+    /// where minijinja's nearest builtin differs: `split(sep)` KEEPS empty
+    /// fields (bare `split()` does not), and `strip(chars)` takes a character
+    /// SET, not a suffix.
+    #[test]
+    fn str_methods_follow_python_semantics() {
+        let h = BlockHasher {
+            tokenizer: None,
+            tiktoken: None,
+            chat_template: Some(
+                "{%- set s = messages[0]['content'] -%}\
+                 {{ s.split(',') | length }}|{{ s.split() | length }}|\
+                 {{ s.strip(' x') }}|{{ s.lstrip(' ') }}|{{ s.rstrip(' ') }}"
+                    .to_string(),
+            ),
+            bos_token: None,
+            eos_token: None,
+        };
+        // "a,,b " -> split(',') = ["a","","b "] (3, empties kept)
+        //         -> split()   = ["a,,b"]      (1, whitespace-collapsing)
+        //         -> strip(" x") trims spaces and 'x' from both ends
+        let messages = json!([{"content": "a,,b "}]);
+        assert_eq!(
+            h.apply_chat_template(&messages).as_deref(),
+            Some("3|1|a,,b|a,,b |a,,b")
+        );
+    }
+
+    /// `transformers` swaps jinja2's tojson for `json.dumps(..., ensure_ascii=
+    /// False)`, so the engine's prompt has Python's `", "` / `": "` spacing and
+    /// literal `<`, `>`, `&`. minijinja's builtin does the opposite on both
+    /// counts, and object order has to survive serde_json and minijinja (each
+    /// sorts keys unless told otherwise) or the arguments come out alphabetised.
+    #[test]
+    fn tojson_matches_transformers_json_dumps() {
+        let h = BlockHasher {
+            tokenizer: None,
+            tiktoken: None,
+            chat_template: Some(
+                "{{ messages[0] | tojson }}|{{ messages[0] | tojson(ensure_ascii=True) }}"
+                    .to_string(),
+            ),
+            bos_token: None,
+            eos_token: None,
+        };
+        let messages = json!([{"z": "<a&b>", "a": [1, 2], "u": "中文"}]);
+        assert_eq!(
+            h.apply_chat_template(&messages).as_deref(),
+            Some(
+                r#"{"z": "<a&b>", "a": [1, 2], "u": "中文"}|{"z": "<a&b>", "a": [1, 2], "u": "\u4e2d\u6587"}"#
+            ),
+            "must equal json.dumps(x, ensure_ascii=...) byte for byte"
+        );
+    }
+
+    /// minijinja has none of Python's dict views, and GLM-5.2 iterates
+    /// `arguments.items()` on every tool call, so their absence takes the whole
+    /// render down rather than just that branch.
+    #[test]
+    fn dict_views_follow_python_semantics() {
+        let h = BlockHasher {
+            tokenizer: None,
+            tiktoken: None,
+            chat_template: Some(
+                "{%- set d = messages[0] -%}\
+                 {%- for k, v in d.items() -%}{{ k }}={{ v }};{%- endfor -%}\
+                 |{{ d.keys() | join(',') }}|{{ d.values() | join(',') }}"
+                    .to_string(),
+            ),
+            bos_token: None,
+            eos_token: None,
+        };
+        let messages = json!([{"path": "/etc/hosts", "limit": 40}]);
+        assert_eq!(
+            h.apply_chat_template(&messages).as_deref(),
+            Some("path=/etc/hosts;limit=40;|path,limit|/etc/hosts,40"),
+            "items() must unpack as (key, value), agree with keys()/values(), and \
+             keep the request's own key order rather than alphabetising it"
+        );
+    }
+
+    /// End-to-end on real GLM-5.2 weights: template render -> tokenize -> block
+    /// hashes. Guards the whole chat path the way the Kimi test does. The
+    /// hermetic test above is the one that actually pins the bug; this one
+    /// catches a template that changes under us. Opt in with
+    /// `INFERA_TEST_GLM_DIR=/path/to/GLM-5.2-*`.
+    #[test]
+    fn glm52_chat_request_renders_and_hashes() {
+        let Some(glm_dir) = model_dir_from_env("INFERA_TEST_GLM_DIR") else {
+            return;
+        };
+        // The render failure this guards against is only ever a warn log, so
+        // without a subscriber the assert below says "blind" and not why.
+        let _ = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::WARN)
+            .try_init();
+        let h = BlockHasher::load(&glm_dir);
+        assert!(h.is_enabled());
+        let body = json!({"messages": [
+            {"role": "user", "content": "read the config file ".repeat(40)},
+            {"role": "assistant", "content": "<think>looking</think>here it is ".repeat(40)},
+            {"role": "user", "content": "now summarize it ".repeat(40)},
+        ]});
+        assert!(
+            !h.hash_for(&body, 64).is_empty(),
+            "GLM-5.2 chat template must render + tokenize, else kv-aware is blind"
+        );
+    }
+
+    /// The tool-call branch reaches template code the plain chat turns never do
+    /// (`arguments.items()`, `tojson`, the tool role, and `{% %}` tags with no
+    /// explicit whitespace control), and the trace this router was tuned on has
+    /// no tool calls -- so the path stayed broken with every benchmark green.
+    ///
+    /// A hit needs the router's tokens to equal the engine's, so "it rendered"
+    /// is not the bar; this pins the exact string. Regenerate the expected value
+    /// by rendering `chat_template.jinja` through the environment built in
+    /// `transformers.utils.chat_template_utils._compile_jinja_template`.
+    #[test]
+    fn glm52_tool_call_render_matches_transformers() {
+        let Some(glm_dir) = model_dir_from_env("INFERA_TEST_GLM_DIR") else {
+            return;
+        };
+        let h = BlockHasher::load(&glm_dir);
+        // Ordered so that alphabetising the keys shows up, and carrying values
+        // that separate Python's json.dumps from serde_json's: a nested object,
+        // a list, an HTML character and a non-ASCII one.
+        let messages = json!([
+            {"role": "user", "content": "read the config file"},
+            {"role": "assistant", "content": "", "tool_calls": [{
+                "type": "function",
+                "function": {"name": "read_file", "arguments": {
+                    "path": "/etc/hosts",
+                    "opts": {"depth": 2, "glob": "<*.py>", "note": "中文"},
+                    "tags": ["a", "b"],
+                    "limit": 40,
+                }},
+            }]},
+            {"role": "tool", "content": "127.0.0.1 localhost"},
+        ]);
+        assert_eq!(
+            h.apply_chat_template(&messages).as_deref(),
+            Some(concat!(
+                "[gMASK]<sop><|system|>Reasoning Effort: Max",
+                "<|user|>read the config file",
+                "<|assistant|><think></think>",
+                "<tool_call>read_file",
+                "<arg_key>path</arg_key><arg_value>/etc/hosts</arg_value>",
+                r#"<arg_key>opts</arg_key><arg_value>{"depth": 2, "glob": "<*.py>", "note": "中文"}</arg_value>"#,
+                r#"<arg_key>tags</arg_key><arg_value>["a", "b"]</arg_value>"#,
+                "<arg_key>limit</arg_key><arg_value>40</arg_value>",
+                "</tool_call>",
+                "<|observation|><tool_response>127.0.0.1 localhost</tool_response>",
+                "<|assistant|><think>",
+            ))
         );
     }
 }

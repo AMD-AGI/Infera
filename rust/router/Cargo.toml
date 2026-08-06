@@ -16,7 +16,10 @@ axum = "0.7"
 # don't need it, but https etcd / workers keep working.
 reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# preserve_order: without it serde_json sorts object keys on parse, so a tool
+# call's arguments reach the chat template in a different order than the engine
+# saw them and every block hash downstream of it misses.
+serde_json = { version = "1", features = ["preserve_order"] }
 arc-swap = "1"
 clap = { version = "4", features = ["derive", "env"] }
 tracing = "0.1"
@@ -35,4 +38,9 @@ tokenizers = { version = "0.20", default-features = false, features = ["onig"] }
 # prompts natively. Oniguruma handles the `&&` class intersection + `(?!\S)`
 # lookahead in Kimi's pat_str that the `regex` crate can't.
 onig = "6"
-minijinja = { version = "2", features = ["json", "loader", "loop_controls"] }
+minijinja = { version = "2", features = [
+    "json",
+    "loader",
+    "loop_controls",
+    "preserve_order",
+] }
