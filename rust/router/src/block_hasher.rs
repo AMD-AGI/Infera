@@ -17,6 +17,7 @@
 //! cost function falls back to load-only routing — never a 500 — exactly like
 //! the Python side.
 
+use std::fmt::Write as _;
 use std::io;
 use std::path::Path;
 
@@ -69,7 +70,9 @@ fn escape_non_ascii(s: &str) -> String {
             out.push(c);
         } else {
             for unit in c.encode_utf16(&mut [0u16; 2]) {
-                out.push_str(&format!("\\u{unit:04x}"));
+                // write! rather than push_str(&format!(..)): straight into the
+                // buffer instead of a String per code unit. Infallible for String.
+                let _ = write!(out, "\\u{unit:04x}");
             }
         }
     }
