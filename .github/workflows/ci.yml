@@ -220,15 +220,7 @@ jobs:
         run: exec bash tests/run_tests.sh engine
       - name: reclaim this job's SLURM jobs (on cancel/failure)
         if: always() && (cancelled() || failure())
-        run: |
-          suf="-${{ github.run_id }}-engine"
-          for i in 1 2 3 4 5; do
-            ids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \
-              | awk -v suf="$suf" '$2 ~ /^infera-ci-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}')
-            [ -z "$ids" ] && { echo "no (more) SLURM jobs to reclaim"; break; }
-            echo "reclaiming SLURM job(s): $ids (try $i)"; scancel $ids 2>&1 || true
-            sleep 5
-          done
+        run: .github/scripts/reclaim_slurm_jobs.sh infera-ci- "-${{ github.run_id }}-engine"
 
   # Full PD-mixed e2e (per engine, parallel). When it runs is e2e_gate's call:
   # every PR into main, plus a push that lands untested code on main.
@@ -272,16 +264,7 @@ jobs:
         run: exec bash tests/run_tests.sh e2e ${{ matrix.engine }} mixed
       - name: reclaim this job's SLURM jobs (on cancel/failure)
         if: always() && (cancelled() || failure())
-        run: |
-          # Retry: a single scancel can hit a transient Spur controller error.
-          suf="-${{ github.run_id }}-${{ matrix.engine }}"
-          for i in 1 2 3 4 5; do
-            ids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \
-              | awk -v suf="$suf" '$2 ~ /^infera-ci-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}')
-            [ -z "$ids" ] && { echo "no (more) SLURM jobs to reclaim"; break; }
-            echo "reclaiming SLURM job(s): $ids (try $i)"; scancel $ids 2>&1 || true
-            sleep 5
-          done
+        run: .github/scripts/reclaim_slurm_jobs.sh infera-ci- "-${{ github.run_id }}-${{ matrix.engine }}"
 
   e2e-disag:
     # Gates mirror e2e-mixed, `!cancelled()` included: `always()` would keep this
@@ -328,18 +311,9 @@ jobs:
         run: exec bash tests/run_tests.sh e2e ${{ matrix.engine }} disag
       - name: reclaim this job's SLURM jobs (on cancel/failure)
         if: always() && (cancelled() || failure())
-        run: |
-          # Catches the infera-ci-hold-* pair holder too: it is a -N2 --gres=gpu:8
-          # batch job, so a leaked one keeps TWO reserved nodes out of the pool.
-          # Retry: a single scancel can hit a transient Spur controller error.
-          suf="-${{ github.run_id }}-${{ matrix.engine }}-disag"
-          for i in 1 2 3 4 5; do
-            ids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \
-              | awk -v suf="$suf" '$2 ~ /^infera-ci-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}')
-            [ -z "$ids" ] && { echo "no (more) SLURM jobs to reclaim"; break; }
-            echo "reclaiming SLURM job(s): $ids (try $i)"; scancel $ids 2>&1 || true
-            sleep 5
-          done
+        # Catches the infera-ci-hold-* pair holder too: it is a -N2 --gres=gpu:8
+        # batch job, so a leaked one keeps TWO reserved nodes out of the pool.
+        run: .github/scripts/reclaim_slurm_jobs.sh infera-ci- "-${{ github.run_id }}-${{ matrix.engine }}-disag"
 
   unit-torch-cpu:
     needs: [lint, pre_check, changes]
