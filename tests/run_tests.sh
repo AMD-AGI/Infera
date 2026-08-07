@@ -568,7 +568,15 @@ run_engine() {
       cd /workspace
       PYT="python3 -m pytest -p no:cacheprovider -o addopts= -q -rfE"
       rc=0
-      for f in $(find "$INFERA_TEST_SCOPE" -name "test_*.py" | sort); do
+      # A scope that matches nothing iterates zero times and exits 0, so a rename
+      # or a typo in engine_tier would report PASS having tested nothing. Capture
+      # before sorting: through a pipe, find's own exit code would be sort's 0.
+      if ! files=$(find "$INFERA_TEST_SCOPE" -name "test_*.py") || [ -z "$files" ]; then
+        echo "[engine $INFERA_TEST_SCOPE] FATAL: scope unreadable or holds no test_*.py" >&2
+        echo "[engine $INFERA_TEST_SCOPE] scope unreadable or holds no test_*.py" >> /scratch/failures.txt
+        exit 1
+      fi
+      for f in $(printf "%s\n" "$files" | sort); do
         echo "----- pytest $f -----"
         # tee: stream live for CI, keep a copy for the classification below.
         $PYT "$f" 2>&1 | stdbuf -oL tee /scratch/.engine_f.out; code=${PIPESTATUS[0]}
@@ -577,7 +585,11 @@ run_engine() {
           139|134|137) line="CRASH(exit=$code)"; rc=1
               echo "[engine $INFERA_TEST_SCOPE] CRASH(exit=$code) $f" >> /scratch/failures.txt ;;
           0)  line=$(printf "%s" "$out" | grep -E "passed|failed|skipped|no tests ran" | tail -1) ;;
-          5)  line="no tests ran (whole file skipped — not a failure)" ;;
+          # Nothing collected. Each guarded file importorskips a module its own
+          # image ships, so a 5 means the image is broken — exactly when this must
+          # go red. Say so plainly: pytest words it "1 skipped", which reads benign.
+          5)  line="FAIL: no tests collected (exit=5)"; rc=1
+              echo "[engine $INFERA_TEST_SCOPE] $f (exit=5, no tests collected)" >> /scratch/failures.txt ;;
           *)  line=$(printf "%s" "$out" | grep -E "passed|failed|error|skipped" | tail -1)
               [ -z "$line" ] && line="(exit=$code)"; rc=1
               fails=$(printf "%s\n" "$out" | grep -aE "^(FAILED|ERROR) ")
