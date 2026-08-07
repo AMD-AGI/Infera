@@ -43,19 +43,6 @@ rules:
 - apiGroups: ["infera.amd.com"]
   resources: ["inferadeployments/status"]
   verbs: ["get", "patch", "update"]
-# Scaling adapters: the standard /scale surface an HPA, KEDA or a custom planner
-# drives. The operator reads spec.replicas and owns status; /scale is listed
-# because that is the endpoint external scalers write, and it is a distinct
-# subresource from status for RBAC purposes.
-- apiGroups: ["infera.amd.com"]
-  resources: ["inferascalingadapters"]
-  verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
-- apiGroups: ["infera.amd.com"]
-  resources: ["inferascalingadapters/status"]
-  verbs: ["get", "patch", "update"]
-- apiGroups: ["infera.amd.com"]
-  resources: ["inferascalingadapters/scale"]
-  verbs: ["get", "patch", "update"]
 # Leader election lease + event recording.
 - apiGroups: ["coordination.k8s.io"]
   resources: ["leases"]

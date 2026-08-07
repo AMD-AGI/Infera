@@ -14,9 +14,11 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	inferav1alpha1 "github.com/amd/infera/deploy/operator/api/v1alpha1"
@@ -109,13 +111,46 @@ func graceSecondsFor(args []string, env []corev1.EnvVar) int64 {
 	return need
 }
 
+// Identity labels on every workload this operator builds. They are the only
+// link back from a Deployment/LeaderWorkerSet to the CR and service that
+// produced it, so the watch handlers that map a workload event to the objects
+// interested in it read these rather than re-deriving the name.
+const (
+	labelKeyDeployment = "infera.amd.com/deployment"
+	labelKeyService    = "infera.amd.com/service"
+)
+
 // labelsFor returns the selector/identity labels for a service's workload.
 func labelsFor(idepName, svcName string) map[string]string {
 	return map[string]string{
 		"app.kubernetes.io/managed-by": "infera-operator",
-		"infera.amd.com/deployment":    idepName,
-		"infera.amd.com/service":       svcName,
+		labelKeyDeployment:             idepName,
+		labelKeyService:                svcName,
 	}
+}
+
+// lwsInstalled reports whether the LeaderWorkerSet CRD is served by the API.
+//
+// It gates registering a watch on LWS: controller-runtime builds an informer
+// for every watched type at startup, and one for a kind the API server does not
+// serve fails the manager outright. LWS is an optional dependency here -- only
+// multi-node services use it -- so a single-node cluster without the CRD must
+// still be able to run the operator.
+//
+// The check runs once, at setup. Installing the CRD afterwards therefore needs
+// an operator restart to pick up the watch; until then multi-node status still
+// refreshes on the reconciler's periodic resync, just not immediately.
+func lwsInstalled(mapper meta.RESTMapper) bool {
+	_, err := mapper.RESTMapping(
+		schema.GroupKind{Group: lwsGVK().Group, Kind: lwsGVK().Kind}, lwsGVK().Version)
+	return err == nil
+}
+
+// lwsObject returns an empty LeaderWorkerSet for use as a watch target.
+func lwsObject() *unstructured.Unstructured {
+	u := &unstructured.Unstructured{}
+	u.SetGroupVersionKind(lwsGVK())
+	return u
 }
 
 // podLabelsFor returns the operator's selector labels merged with any
@@ -181,21 +216,6 @@ func replicasOf(svc inferav1alpha1.ServiceSpec) int32 {
 		return *svc.Replicas
 	}
 	return 1
-}
-
-// effectiveReplicas is the count to write onto the workload: the scaling
-// adapter's if one owns this service, otherwise the CR's own.
-//
-// Routing the adapter through here rather than letting it write the workload
-// directly keeps a single writer. The reconciler already assigns the whole
-// child `.Spec` on every pass, so a second writer would simply be reverted --
-// which is exactly what happens today to anyone pointing an HPA at the child
-// Deployment.
-func effectiveReplicas(svc inferav1alpha1.ServiceSpec, svcName string, overrides map[string]int32) int32 {
-	if n, ok := overrides[svcName]; ok {
-		return n
-	}
-	return replicasOf(svc)
 }
 
 // containerCommand builds the infera entrypoint + operator-injected flags,
@@ -466,8 +486,8 @@ func podTemplate(idep *inferav1alpha1.InferaDeployment, svcName string, svc infe
 	return tmpl
 }
 
-func buildDeployment(idep *inferav1alpha1.InferaDeployment, svcName string, svc inferav1alpha1.ServiceSpec, overrides map[string]int32) *appsv1.Deployment {
-	reps := effectiveReplicas(svc, svcName, overrides)
+func buildDeployment(idep *inferav1alpha1.InferaDeployment, svcName string, svc inferav1alpha1.ServiceSpec) *appsv1.Deployment {
+	reps := replicasOf(svc)
 	lbls := labelsFor(idep.Name, svcName)
 	// Worker services use surge-free RollingUpdate (maxSurge=0, maxUnavailable=1):
 	// the default RollingUpdate brings up a surge pod first, which on a
@@ -506,8 +526,8 @@ func buildDeployment(idep *inferav1alpha1.InferaDeployment, svcName string, svc 
 // buildLeaderWorkerSet returns an unstructured LeaderWorkerSet so the operator
 // does not take a compile-time dependency on the LWS Go module (keeps Infera
 // self-contained; the LWS CRD must be installed in the cluster).
-func buildLeaderWorkerSet(idep *inferav1alpha1.InferaDeployment, svcName string, svc inferav1alpha1.ServiceSpec, overrides map[string]int32) *unstructured.Unstructured {
-	reps := effectiveReplicas(svc, svcName, overrides)
+func buildLeaderWorkerSet(idep *inferav1alpha1.InferaDeployment, svcName string, svc inferav1alpha1.ServiceSpec) *unstructured.Unstructured {
+	reps := replicasOf(svc)
 	lbls := labelsFor(idep.Name, svcName)
 	tmpl := podTemplate(idep, svcName, svc)
 	// Convert the typed PodTemplateSpec to a map for embedding.
