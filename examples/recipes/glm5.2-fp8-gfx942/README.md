@@ -282,7 +282,7 @@ tier; `decode` runs no host tier and gets half. `cpu: 32` matches `num_threads` 
 
 | What | Status |
 |---|---|
-| This configuration in its **`docker` form** | brought up and benchmarked on 2 × MI300X. **TODO — numbers withheld pending a re-run.** Request count, cache efficiency and the kvd counters are being re-measured on one consistent run; quote nothing here until they land |
+| This configuration in its **`docker` form** | brought up and benchmarked on 2 × MI300X. The figures quoted in §5 and in the docker recipe come from that sweep, one axis at a time against a locked baseline; the kvd counters in §5 are from the single `KVD=1` run of it |
 | **This manifest** | **not run.** Derived from that deployment flag for flag, and every deviation is in §6, but the Kubernetes form has not been brought up |
 | Native kvd sidecar ordering | not run. The mechanism is standard k8s 1.29+; the claim that it removes the startup race is reasoned, not measured |
 
