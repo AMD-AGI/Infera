@@ -1,0 +1,360 @@
+# yaml-language-server: $schema=../_schema/patch.archived.schema.json
+#
+# Retired patches. These are applied by nothing and have no per-patch record — this
+# file is their entire memory, so each entry is written to stand on its own.
+#
+# Two kinds of entry:
+#   * source still present, moved under archived/  — recoverable by reading the file
+#   * source deleted before this file existed      — recoverable from the named commit
+#
+# Nothing here should be deleted to tidy up. The value of an archive is answering
+# "did we already try this, and what happened" two years later.
+schema_version: 1
+status_updated: 2026-08-05
+note: >-
+  Added in the change that introduced the per-patch record system. The four legacy /
+  already-deleted patches below were previously described in prose in
+  patch.upstream.status.md, or in the case of the three MoRIIO patches, only in a
+  Dockerfile comment. Source files were MOVED rather than deleted so this can be
+  reviewed in a PR without losing anything.
+
+patches:
+  - name: patch_dsv4_aiter_moe.py
+    source:
+      original_path: deploy/docker/patches/vllm-dsv4/legacy/patch_dsv4_aiter_moe.py
+      current_path: deploy/docker/patches/archived/vllm-dsv4/patch_dsv4_aiter_moe.py
+      last_commit_with_file: null
+    library: aiter
+    component: moe
+    engines_affected:
+      - vllm
+    born:
+      date: 2026-07-20
+      commit: 89c86fb
+      subject: Infera v0.1.0
+    retired_on:
+      date: 2026-08-05
+      infera_commit: pending
+      subject: "move the legacy DSv4 patches under archived/ and record them"
+    retired_reason: upstream-fixed-and-in-base
+    upstream_fix:
+      ref: ROCm/aiter#3123
+      url: https://github.com/ROCm/aiter/pull/3123
+      title: "[MoE] Align Swiglu MXFP4 fused quant paths"
+      state: MERGED
+      merged_at: 2026-05-12
+      commit: null
+      author: XiaobingSuper
+      same_approach: true
+    integrated_by:
+      infera_commit: pending
+      how: >-
+        Arrived by rebuilding from the open-source vllm/vllm-openai-rocm base instead of the
+        private pre-baked image early bring-up used. No deliberate bump — the fix was already
+        in the public base.
+      base_before: private pre-baked DSv4 image (older vLLM / aiter)
+      base_after: vLLM 0.23.1rc1.dev748+g2dfaae752 with amd-aiter 0.1.16.post2
+    problem:
+      what: >-
+        DSv4 MXFP4 MoE needed gate-mode plumbing (SWIGLUOAI / activation_interleave) that aiter
+        did not yet carry, so the fused quant path could not be selected correctly.
+      why: >-
+        aiter's rocm_aiter_moe.py had no notion of the interleaved-activation SwiGLU variant DSv4
+        uses, so there was no way to ask for it from vLLM.
+      how: >-
+        Monkey-patched rocm_aiter_moe.py to add the gate-mode plumbing, with a self-detect that
+        skips if upstream already has it.
+      before_fix: DSv4 MXFP4 MoE could not select the correct fused quant path.
+      after_fix: >-
+        Upstream aiter carries SWIGLUOAI / activation_interleave and defaults gate_mode="" for
+        Silu, so the patch self-detects and skips.
+      context: >-
+        DeepSeek-V4 MXFP4 MoE on vLLM ROCm during early DSv4 bring-up, debugged against a private
+        pre-baked image with an older aiter.
+      call_chain:
+        - "vLLM MoE layer -> aiter rocm_aiter_moe.py fused quant path selection"
+      symptom_signature: null
+    resolution: >-
+      Obsolete by the time it was first published. Early DSv4 bring-up was debugged against a
+      private pre-baked image with an older aiter; once the image was rebuilt from the
+      open-source vllm/vllm-openai-rocm base and markers were checked on real hardware, aiter
+      already carried the feature via #3123 (merged 2026-05-12). The patch self-detects upstream
+      and skips, so it had been a no-op on every published image.
+    reusable_on: >-
+      An aiter older than #3123 — e.g. the earlier vLLM dev301/dev424 bases. Reference the file
+      under archived/ to reproduce on such a stack.
+    lesson: >-
+      Patches written against a private pre-baked image should be re-verified against the public
+      base before being carried, not after. Three of the four entries in this file are the same
+      story.
+
+  - name: patch_dsv4_mhc_aiter.py
+    source:
+      original_path: deploy/docker/patches/vllm-dsv4/legacy/patch_dsv4_mhc_aiter.py
+      current_path: deploy/docker/patches/archived/vllm-dsv4/patch_dsv4_mhc_aiter.py
+      extra_files:
+        - deploy/docker/patches/archived/vllm-dsv4/patch_dsv4_mhc_aiter.diff
+      last_commit_with_file: null
+    library: aiter
+    component: mhc
+    engines_affected:
+      - vllm
+    born:
+      date: 2026-07-20
+      commit: 89c86fb
+      subject: Infera v0.1.0
+    retired_on:
+      date: 2026-08-05
+      infera_commit: pending
+      subject: "move the legacy DSv4 patches under archived/ and record them"
+    retired_reason: upstream-fixed-differently
+    upstream_fix:
+      ref: ROCm/aiter#3033
+      url: https://github.com/ROCm/aiter/pull/3033
+      title: Fix sqrsum store race condition
+      state: MERGED
+      merged_at: 2026-05-06
+      commit: null
+      author: kkHuang-amd
+      same_approach: false
+    integrated_by:
+      infera_commit: pending
+      how: >-
+        Same as the sibling entry — arrived with the move to the open-source base, not by a
+        deliberate bump.
+      base_before: private pre-baked DSv4 image (older vLLM / aiter)
+      base_after: vLLM 0.23.1rc1.dev748+g2dfaae752 with amd-aiter 0.1.16.post2
+    problem:
+      what: >-
+        A store race in aiter's mhc_pre_gemm_sqrsum_kernel killed the vLLM EngineCore.
+      why: >-
+        The kernel's sqrsum store was not correctly synchronized, so concurrent stores raced.
+      how: >-
+        Locally, an env-gated backend selection (VLLM_MHC_BACKEND) that routed around the racing
+        path, hooked on a _mhc_backend() anchor.
+      before_fix: EngineCore dies during DSv4 MHC execution.
+      after_fix: >-
+        Upstream fixed the race itself and made aiter the MHC default — mhc.py now reads
+        `if HAS_AITER_MHC and hidden % 256 == 0: mhc_pre_aiter` with no env gate at all — so the
+        local anchor _mhc_backend() no longer exists and the patch auto-skips.
+      context: >-
+        DeepSeek-V4 MHC on vLLM ROCm during early bring-up against an older aiter.
+      call_chain:
+        - "vLLM DSv4 MHC path -> aiter mhc.py backend selection -> mhc_pre_gemm_sqrsum_kernel"
+      symptom_signature: EngineCore death during DSv4 MHC execution
+    resolution: >-
+      Functionally upstream in a DIFFERENT form, which is why it retired quietly rather than by
+      the anchor drifting into a conflict. We routed around the race with an env-gated backend
+      choice; upstream fixed the race (#3033, merged 2026-05-06) and then made aiter the MHC
+      default outright, so the env gate our anchor keyed on does not exist. The .diff is the
+      unified-diff companion, never executed, kept as reference.
+    reusable_on: "An aiter older than #3033, e.g. the earlier vLLM dev301/dev424 bases."
+    lesson: >-
+      "Functionally upstream, different form" is the failure mode worth naming: the local patch
+      does not conflict, it simply stops matching, so nothing announces that it has become dead
+      weight. This is the same class as the still-active drop candidates whose drop_signal is
+      base-version-only.
+
+  - name: patch_moriio_dsa_write.py
+    source:
+      original_path: deploy/docker/patches/vllm/patch_moriio_dsa_write.py
+      current_path: deleted
+      last_commit_with_file: 89c86fb
+    library: vllm
+    component: moriio
+    engines_affected:
+      - vllm
+    born:
+      date: 2026-07-20
+      commit: 89c86fb
+      subject: Infera v0.1.0
+    retired_on:
+      date: 2026-07-23
+      infera_commit: "3375773"
+      subject: Remove three no-op MoRIIO patches dead on the v0.25.1 base
+    retired_reason: base-refactor-made-anchor-obsolete
+    upstream_fix: null
+    integrated_by:
+      infera_commit: "3375773"
+      how: >-
+        vLLM base bump to v0.25.1, which refactored the MoRIIO connector into moriio_layout.py.
+      base_before: vLLM 0.23.x ROCm
+      base_after: vllm/vllm-openai-rocm:v0.25.1
+    problem:
+      what: >-
+        GLM-5.1 over MoRIIO PD needed a full-layer wait_for_save so the KV write completed before
+        the transfer was considered done.
+      why: >-
+        The pre-v0.25.1 MoRIIO connector did not wait for the whole layer to be saved on the DSA
+        write path, so a transfer could observe a partially written layer.
+      how: Monkey-patched the connector to wait for the full layer on save.
+      before_fix: GLM-5.1 MoRIIO PD could transfer a partially-written layer.
+      after_fix: >-
+        v0.25.1's moriio_layout.py handles full-layer wait_for_save natively, so the patch's anchor
+        no longer matches and it contributed nothing.
+      context: GLM-5.1 over MoRIIO PD on vLLM ROCm 0.23.x.
+      call_chain:
+        - "moriio connector save path -> wait_for_save on the DSA write"
+      symptom_signature: null
+    resolution: >-
+      Retired as part of a group of three. v0.25.1 refactored the MoRIIO connector into
+      moriio_layout.py, which natively covers all three concerns these patches addressed, so their
+      anchors stopped matching. They were deleted rather than archived at the time — specifically
+      to stop the build log printing misleading "skipped" lines — which is why this entry has no
+      file and cites commit 89c86fb for recovery instead.
+    reusable_on: vLLM 0.23.x and earlier ROCm bases, before the moriio_layout.py refactor.
+    lesson: >-
+      Deleting them was right, but the reasoning lived only in a Dockerfile comment. That is the
+      gap this file closes.
+
+  - name: patch_moriio_hetero.py
+    source:
+      original_path: deploy/docker/patches/vllm/patch_moriio_hetero.py
+      current_path: deleted
+      last_commit_with_file: 89c86fb
+    library: vllm
+    component: moriio
+    engines_affected:
+      - vllm
+    born:
+      date: 2026-07-20
+      commit: 89c86fb
+      subject: Infera v0.1.0
+    retired_on:
+      date: 2026-07-23
+      infera_commit: "3375773"
+      subject: Remove three no-op MoRIIO patches dead on the v0.25.1 base
+    retired_reason: base-refactor-made-anchor-obsolete
+    upstream_fix: null
+    integrated_by:
+      infera_commit: "3375773"
+      how: vLLM base bump to v0.25.1 and its moriio_layout.py refactor.
+      base_before: vLLM 0.23.x ROCm
+      base_after: vllm/vllm-openai-rocm:v0.25.1
+    problem:
+      what: >-
+        Per-layer transfer geometry was not handled for heterogeneous layer layouts, so GLM-5.1
+        MoRIIO PD computed transfer offsets from a single global geometry.
+      why: >-
+        The pre-v0.25.1 connector assumed a uniform layer geometry across the model.
+      how: Monkey-patched the connector to compute transfer geometry per layer.
+      before_fix: Wrong transfer geometry on models with heterogeneous layer layouts.
+      after_fix: >-
+        v0.25.1's moriio_layout.py derives per-layer transfer geometry natively, so the anchor
+        no longer matched.
+      context: GLM-5.1 over MoRIIO PD on vLLM ROCm 0.23.x.
+      call_chain:
+        - "moriio connector -> per-layer transfer geometry computation"
+      symptom_signature: null
+    resolution: >-
+      One of the three retired together on the v0.25.1 move. Note what did NOT retire with them:
+      patch_moriio_pagelen.py addresses the same file and the same subject — MLA per-block transfer
+      geometry — and is still load-bearing, because the refactor changed WHERE the geometry is
+      computed without fixing that it is derived from tensor shape instead of spec.page_size_bytes.
+    reusable_on: vLLM 0.23.x and earlier ROCm bases.
+    lesson: >-
+      A refactor that makes three patches obsolete does not necessarily make the fourth one
+      obsolete. Each anchor has to be checked individually against the new base.
+
+  - name: patch_vllm_moriio_blocksize.py
+    source:
+      original_path: deploy/docker/patches/vllm/patch_vllm_moriio_blocksize.py
+      current_path: deleted
+      last_commit_with_file: 89c86fb
+    library: vllm
+    component: moriio
+    engines_affected:
+      - vllm
+    born:
+      date: 2026-07-20
+      commit: 89c86fb
+      subject: Infera v0.1.0
+    retired_on:
+      date: 2026-07-23
+      infera_commit: "3375773"
+      subject: Remove three no-op MoRIIO patches dead on the v0.25.1 base
+    retired_reason: base-refactor-made-anchor-obsolete
+    upstream_fix: null
+    integrated_by:
+      infera_commit: "3375773"
+      how: vLLM base bump to v0.25.1 and its moriio_layout.py refactor.
+      base_before: vLLM 0.23.x ROCm
+      base_after: vllm/vllm-openai-rocm:v0.25.1
+    problem:
+      what: >-
+        The MoRIIO connector ignored the kernel/logical block-size ratio, so it indexed logical
+        pages at kernel granularity.
+      why: >-
+        Same defect class as the Mooncake connector's: backends that force a kernel block size of
+        1 make cache.shape[0] a multiple of the logical page count, and the connector registered
+        at the wrong granularity.
+      how: Monkey-patched the connector to account for the ratio.
+      before_fix: >-
+        Transfers addressed the wrong offsets for models whose kernel block size differs from the
+        scheduler's.
+      after_fix: >-
+        v0.25.1's moriio_layout.py handles the kernel/logical ratio natively for the K/V branches
+        (via kernel_blocks_per_block), so the anchor no longer matched.
+      context: GLM-5.1 over MoRIIO PD on vLLM ROCm 0.23.x.
+      call_chain:
+        - "moriio connector registration -> block_len / num_blocks at kernel rather than logical granularity"
+      symptom_signature: null
+    resolution: >-
+      The third of the group retired on the v0.25.1 move. Worth pairing with its Mooncake
+      counterpart: patch_vllm_mooncake_blocksize.py is the same defect in the Mooncake connector,
+      and that one was fixed by UPSTREAM (vllm#46807, merged 2026-06-30) rather than by a refactor.
+      Same bug, two connectors, two entirely different retirement routes.
+    reusable_on: vLLM 0.23.x and earlier ROCm bases.
+    lesson: >-
+      The kernel-versus-logical block-size confusion has now appeared in three connectors
+      (Mooncake, MoRIIO, and MoRIIO MLA geometry). It is a design-level trap in the connector
+      interface, not three unrelated bugs.
+
+  - name: dsa_indexer_hip_dp_padded_rows.diff
+    source:
+      original_path: deploy/docker/patches/sglang_dsa/dsa_indexer_hip_dp_padded_rows.diff
+      current_path: deleted
+      last_commit_with_file: c91db76
+    library: sglang
+    component: dsa
+    engines_affected:
+      - sglang
+    born:
+      date: 2026-08-01
+      commit: c91db76
+      subject: "sglang DSA: enable PD + DP-attention + EAGLE MTP for GLM-5.2 on gfx950"
+    retired_on:
+      date: 2026-08-03
+      infera_commit: "1380228"
+      subject: "fix(image): carry the DSA indexer row fix onto the gfx942 v0.5.16 base"
+    retired_reason: superseded-by-local-patch
+    upstream_fix: null
+    integrated_by: null
+    problem:
+      what: >-
+        The DSA indexer's aiter (HIP) paged-MQA branch sizes its logits from the padded row count
+        while `lengths` is sized from the real one, so fast_topk_v2 asserts under DP-attention.
+      why: >-
+        Same root cause as its replacement — see
+        sglang_dsa/patch_dsa_indexer_hip_dp_padded_rows.upstream.status.yaml for the full account.
+      how: >-
+        A `patch -p1 --fuzz=0` context diff cut against sglang v0.5.15.post1.
+      before_fix: >-
+        "RuntimeError: Expected lengths.size(0) == B to be true, but got false" on gfx950.
+      after_fix: Fixed on gfx950 — but only on the base the diff was cut against.
+      context: >-
+        gfx950 / MI355X, sglang v0.5.15.post1, GLM-5.2 DSA with DP-attention and EAGLE MTP.
+      call_chain:
+        - "dsa_indexer.py :: forward (aiter/HIP branch) -> fast_topk_v2 asserts lengths.size(0) == B"
+      symptom_signature: "Expected lengths.size(0) == B to be true, but got false"
+    resolution: >-
+      Not obsolete — REPLACED, by a Python anchor script doing the same repair. A --fuzz=0 diff
+      only applies to the exact base it was cut against, and the fix was needed on the gfx942
+      v0.5.16 base too. The script form also made room for the second direction of the bug (the
+      DP-idle rank under MTP draft-extend, where there are FEWER query rows than lengths entries),
+      which was added the same day as GLM52_P1V3 and which a context diff would have made awkward.
+    reusable_on: sglang v0.5.15.post1 only, by construction.
+    lesson: >-
+      Prefer an anchor script to a context diff for anything that has to span two engine bases.
+      The three sglang_dsa patches now split exactly along that line: the one that became a script
+      runs on both images, and the two that stayed diffs run on one.

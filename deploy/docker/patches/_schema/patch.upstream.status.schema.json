@@ -1,0 +1,585 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AMD-AGI/infera/deploy/docker/patches/_schema/patch.upstream.status.schema.json",
+  "title": "Infera per-patch upstream status",
+  "description": "One record per patch under deploy/docker/patches/. Lives beside the patch it describes, named <patch-file-prefix>.upstream.status.yaml. The patch's own header carries the full argument; this file is the machine-checkable index of where that patch stands against the project it patches.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status_updated",
+    "verified_by",
+    "patch",
+    "target",
+    "upstream_main_affected",
+    "applies_to",
+    "alive_because",
+    "history",
+    "upstream_issues",
+    "upstream_prs",
+    "related_refs",
+    "problem"
+  ],
+  "properties": {
+    "schema_version": {
+      "description": "Bumped when this schema makes a breaking change.",
+      "const": 1
+    },
+
+    "status_updated": {
+      "$ref": "#/$defs/date",
+      "description": "Date every upstream claim in this file was last checked. Upstream moves and this file does not, so a stale date is the signal to re-check rather than to trust."
+    },
+
+    "verified_by": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "gh-pr-issue-state",
+          "gh-search",
+          "upstream-source-read",
+          "git-compare",
+          "local-repro",
+          "web-ui",
+          "patch-header-only"
+        ]
+      },
+      "description": "How the upstream claims below were established. 'gh-search' proves only that a title/body search missed — it does not prove absence. 'upstream-source-read' is stronger: the defect was confirmed present or absent by reading the upstream file."
+    },
+
+    "patch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "kind", "applied_by"],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/repo_path",
+          "description": "Primary patch file, relative to the git root."
+        },
+        "extra_files": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/repo_path" },
+          "description": "Further files that are part of the same patch (a fragment appended by a script, a companion .diff)."
+        },
+        "kind": {
+          "enum": ["python-anchor-script", "shell-script", "context-diff", "git-diff"],
+          "description": "python-anchor-script and shell-script locate their target at run time and no-op on a miss; context-diff and git-diff fail loudly on ref drift."
+        },
+        "idempotent": {
+          "type": "boolean",
+          "description": "Re-running is a no-op. Absent means unknown, which for a patch that runs on every container start is a defect."
+        },
+        "applied_by": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "Dockerfile.sglang",
+              "Dockerfile.sglang.gfx942",
+              "Dockerfile.vllm",
+              "Dockerfile.atom",
+              "deploy/overlay/Dockerfile.payload",
+              "deploy/overlay/infera-exec",
+              "deploy/docker/scripts/apply_sglang_dsa_patches.sh",
+              "deploy/docker/scripts/build_mooncake_rocm.sh",
+              "deploy/docker/scripts/build_mooncake_sglang.sh",
+              "deploy/docker/patches/mooncake_cpp/apply_mooncake_cpp_patches.sh",
+              "none"
+            ]
+          },
+          "description": "Every surface that applies this patch. 'none' means carried but not wired up, which needs a reason in alive_because.detail."
+        },
+        "opt_in_flag": {
+          "type": ["string", "null"],
+          "description": "Build ARG or env var that gates application, when it is not applied unconditionally."
+        }
+      }
+    },
+
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["library", "repo", "files", "versions"],
+      "properties": {
+        "library": {
+          "$ref": "#/$defs/library",
+          "description": "The project whose source this patch edits — not the engine that runs it. A patch to vLLM's bundled MoRIIO connector has library 'vllm', component 'moriio'."
+        },
+        "component": {
+          "type": ["string", "null"],
+          "description": "Subsystem inside that library: mooncake, moriio, hicache, dsa, disaggregation, hipfile, flydsl-moe, scheduler."
+        },
+        "repo": {
+          "anyOf": [
+            { "$ref": "#/$defs/gh_repo" },
+            { "const": "internal" }
+          ],
+          "description": "owner/name on GitHub, or 'internal' for a closed-source engine."
+        },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Paths edited inside the target project, as the patch addresses them."
+        },
+        "versions": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Every pinned version of the target this patch is carried against. Two entries when a patch spans two engine bases — they can disagree about whether the defect is even present.",
+          "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["ref", "commit", "pinned_ref_on_main"],
+          "properties": {
+            "surface": {
+              "type": ["string", "null"],
+              "description": "Which build this version belongs to, when the patch spans more than one."
+            },
+            "ref": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Tag, branch, version string, or 'unpinned-default-branch'."
+            },
+            "commit": {
+              "anyOf": [{ "$ref": "#/$defs/commit" }, { "type": "null" }],
+              "description": "Commit the ref resolves to. null only when the ref is genuinely unpinned, in which case unpinned_risk must say what that costs."
+            },
+            "pinned_ref_on_main": {
+              "type": ["boolean", "null"],
+              "description": "Is the pinned commit an ancestor of the upstream default branch? false means a release branch, so upstream main fixes do not arrive by bumping a patch level. null for internal or unpinned targets."
+            },
+            "release_branch": {
+              "type": ["string", "null"],
+              "description": "Upstream branch the pinned ref sits on, when it is not main."
+            },
+            "unpinned_risk": {
+              "type": ["string", "null"],
+              "description": "Required in spirit when commit is null: what an unpinned target means for this patch."
+            },
+            "images": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["tag", "digest", "digest_source"],
+                "properties": {
+                  "tag": { "type": "string", "minLength": 1 },
+                  "digest": {
+                    "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+                  },
+                  "digest_source": {
+                    "enum": ["dockerfile-pin", "unresolved"],
+                    "description": "'unresolved' means the Dockerfile pins the tag only; the digest is whatever the registry serves at build time."
+                  },
+                  "note": { "type": ["string", "null"] }
+                }
+              }
+            }
+          }
+          }
+        }
+      }
+    },
+
+    "upstream_main_affected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "evidence"],
+      "properties": {
+        "value": {
+          "type": ["boolean", "null"],
+          "description": "Does the upstream default branch still carry the defect this patch fixes? null when there is no public upstream to check."
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What settles it. Naming the file and line read from main is the standard here; 'no search hit' is not."
+        }
+      }
+    },
+
+    "applies_to": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Field 4a — what this patch actually does in each engine image it reaches.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["engine", "surface", "effect", "evidence"],
+        "properties": {
+          "engine": { "$ref": "#/$defs/engine" },
+          "surface": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Dockerfile or runtime path this row is about."
+          },
+          "effect": {
+            "enum": ["op", "no-op", "not-applied", "unverified"],
+            "description": "op = changes bytes and is load-bearing. no-op = reached but changed nothing (target absent, already fixed, or anchor gone). not-applied = never traversed on this surface. unverified = never checked on this surface, which is a gap, not a state."
+          },
+          "required_to_run": {
+            "type": "boolean",
+            "description": "true when the engine cannot serve the target workload without this patch."
+          },
+          "evidence": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+
+    "alive_because": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason", "detail", "consumers", "drop_when", "drop_signal"],
+      "description": "Field 4b — why we still carry this.",
+      "properties": {
+        "reason": {
+          "enum": [
+            "no-upstream-pr",
+            "upstream-pr-open",
+            "upstream-pr-closed-unfixed",
+            "merged-not-in-pinned-base",
+            "merged-not-released",
+            "released-but-infera-not-bumped",
+            "upstream-fixed-differently",
+            "internal-engine-no-upstream",
+            "local-only-by-design",
+            "archival"
+          ]
+        },
+        "detail": { "type": "string", "minLength": 1 },
+        "consumers": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Which infera engines, images or workloads still need it. 'none' as the sole entry means the patch is a drop candidate on every surface."
+        },
+        "drop_when": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The concrete condition that retires this patch."
+        },
+        "drop_signal": {
+          "enum": [
+            "anchor-drift-fails-loudly",
+            "self-guard-marker-skips",
+            "precondition-check-refuses",
+            "base-version-only",
+            "pin-advance-only",
+            "manual-review"
+          ],
+          "description": "How we find out. 'base-version-only' and 'pin-advance-only' mean the patch keeps applying cleanly on a fixed base, so nothing fails and a human has to decide."
+        },
+        "silent_misapply_risk": {
+          "type": ["string", "null"],
+          "description": "What goes wrong if this patch outlives its reason and nobody notices. Non-null whenever drop_signal cannot self-announce."
+        }
+      }
+    },
+
+    "history": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["born", "last_modified"],
+      "properties": {
+        "born": { "$ref": "#/$defs/commit_event" },
+        "last_modified": {
+          "allOf": [
+            { "$ref": "#/$defs/commit_event" },
+            {
+              "type": "object",
+              "required": ["reason"],
+              "properties": {
+                "reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Why it changed — not a restatement of the commit subject."
+                }
+              }
+            }
+          ]
+        },
+        "supersedes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Earlier patch files this one replaced."
+        }
+      }
+    },
+
+    "upstream_issues": {
+      "description": "Field 7 — upstream issues for this defect. null is a legitimate value and must be written explicitly.",
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/upstream_ref" }
+        }
+      ]
+    },
+
+    "upstream_prs": {
+      "description": "Field 8 — PRs that fix, or claim to fix, this defect.",
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ref", "url", "title", "state", "author", "ours", "same_approach", "approach_note"],
+            "properties": {
+              "ref": { "$ref": "#/$defs/gh_ref" },
+              "url": { "$ref": "#/$defs/url" },
+              "title": { "type": "string", "minLength": 1 },
+              "state": { "$ref": "#/$defs/pr_state" },
+              "review_decision": {
+                "anyOf": [
+                  { "enum": ["APPROVED", "CHANGES_REQUESTED", "REVIEW_REQUIRED"] },
+                  { "type": "null" }
+                ]
+              },
+              "merged_at": {
+                "anyOf": [{ "$ref": "#/$defs/date" }, { "type": "null" }]
+              },
+              "author": {
+                "type": ["string", "null"],
+                "description": "GitHub handle. null means not recorded — better than a placeholder, and note that `ours` can still be answered without it."
+              },
+              "ours": {
+                "type": "boolean",
+                "description": "Opened by a contributor of this repo."
+              },
+              "same_approach": {
+                "type": ["boolean", "null"],
+                "description": "Does it fix the defect the way our patch does? null when it does not fix this defect at all and is listed for collision or context."
+              },
+              "approach_note": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Why ours differs, or why it does not. 'we needed a local narrow fix and are not carrying the general case' is a valid and useful answer."
+              },
+              "requested_action": {
+                "type": ["string", "null"],
+                "description": "What an upstream maintainer explicitly asked for, and who asked."
+              },
+              "in_pinned_base": {
+                "type": ["boolean", "null"],
+                "description": "Is this PR present in the version we actually build against? A merged PR that is not in the pinned base still needs the local patch."
+              }
+            }
+          }
+        }
+      ]
+    },
+
+    "related_refs": {
+      "description": "Field 9 — PRs and issues that do not decide whether we keep this patch but inform how it should be fixed: the same defect on another platform, a refactor that will move our anchor, a test that proves no CI covers this.",
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "allOf": [
+              { "$ref": "#/$defs/upstream_ref" },
+              {
+                "type": "object",
+                "required": ["relevance"],
+                "properties": {
+                  "relevance": {
+                    "enum": [
+                      "same-defect-other-platform",
+                      "anchor-collision",
+                      "alternative-repair",
+                      "introduced-the-defect",
+                      "adjacent-site",
+                      "missing-test-coverage",
+                      "shape-we-copied",
+                      "background"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+
+    "problem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["what", "why", "how", "before_fix", "after_fix", "context"],
+      "properties": {
+        "what": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The defect, in one or two sentences."
+        },
+        "why": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Root cause — why the upstream code is wrong, not just what it does."
+        },
+        "how": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What the patch changes, and why that is the minimal correct change."
+        },
+        "before_fix": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Observed failure. Quote the error or the wrong output."
+        },
+        "after_fix": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Observed behaviour with the patch, measured where possible."
+        },
+        "context": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Which model, topology, arch and flags this reproduces under, and where it does not."
+        },
+        "call_chain": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Ordered path from entry point to failure site."
+        },
+        "symptom_signature": {
+          "type": ["string", "null"],
+          "description": "The grep-able fingerprint — the exact assert, error string or fault address shape."
+        },
+        "silent": {
+          "type": "boolean",
+          "description": "true when the defect produces wrong results rather than a crash. These are the expensive ones."
+        }
+      }
+    },
+
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How the fix was established locally.",
+      "properties": {
+        "date": { "$ref": "#/$defs/date" },
+        "hardware": { "type": "string", "minLength": 1 },
+        "software": { "type": "string", "minLength": 1 },
+        "workload": { "type": "string", "minLength": 1 },
+        "result": { "type": "string", "minLength": 1 },
+        "notes": { "type": ["string", "null"] }
+      }
+    },
+
+    "scope_limits": {
+      "type": ["string", "null"],
+      "description": "What this patch deliberately does not cover, so the next person does not assume it does."
+    },
+
+    "open_actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["action", "owner"],
+        "properties": {
+          "action": { "type": "string", "minLength": 1 },
+          "owner": { "type": "string", "minLength": 1 },
+          "blocked_on": { "type": ["string", "null"] }
+        }
+      },
+      "description": "What still has to happen upstream or here. An empty list is fine; a missing PR of ours is not."
+    }
+  },
+
+  "$defs": {
+    "date": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$",
+      "description": "Lowercase hex, 7 to 40 characters."
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://"
+    },
+    "repo_path": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._/-]+$",
+      "description": "Path relative to the git root, no leading slash and no '..'."
+    },
+    "gh_repo": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$"
+    },
+    "gh_ref": {
+      "type": "string",
+      "pattern": "^([A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+|internal#[0-9]+)$",
+      "description": "owner/name#123, or internal#123 for the private tracker."
+    },
+    "engine": {
+      "enum": ["sglang", "vllm", "atom"]
+    },
+    "library": {
+      "enum": ["sglang", "vllm", "atom", "mooncake", "mori", "aiter", "hipfile"]
+    },
+    "pr_state": {
+      "enum": ["OPEN", "MERGED", "CLOSED", "DRAFT", "not-submitted", "source-only"]
+    },
+    "issue_state": {
+      "enum": ["OPEN", "CLOSED"]
+    },
+    "commit_event": {
+      "type": "object",
+      "required": ["date", "commit", "subject"],
+      "properties": {
+        "date": { "$ref": "#/$defs/date" },
+        "commit": { "$ref": "#/$defs/commit" },
+        "subject": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "upstream_ref": {
+      "type": "object",
+      "required": ["ref", "url", "kind", "state", "note"],
+      "properties": {
+        "ref": { "$ref": "#/$defs/gh_ref" },
+        "url": { "$ref": "#/$defs/url" },
+        "kind": { "enum": ["pr", "issue"] },
+        "title": { "type": "string", "minLength": 1 },
+        "state": {
+          "anyOf": [
+            { "$ref": "#/$defs/pr_state" },
+            { "$ref": "#/$defs/issue_state" }
+          ]
+        },
+        "state_reason": {
+          "type": ["string", "null"],
+          "description": "Why it closed — 'inactive', 'superseded by #X', 'fixed'."
+        },
+        "author": { "type": ["string", "null"] },
+        "relevance": { "type": "string" },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What this reference tells us that the title does not."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,164 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - upstream-source-read
+  - gh-search
+  - local-repro
+
+patch:
+  path: deploy/docker/patches/vllm/patch_moriio_write.py
+  kind: python-anchor-script
+  idempotent: true
+  applied_by:
+    - Dockerfile.vllm
+    - deploy/overlay/Dockerfile.payload
+    - deploy/overlay/infera-exec
+  opt_in_flag: null
+
+target:
+  library: vllm
+  component: moriio
+  repo: vllm-project/vllm
+  files:
+    - vllm/distributed/kv_transfer/kv_connector/v1/moriio/moriio_connector.py
+  versions:
+    - surface: Dockerfile.vllm
+      ref: v0.25.1
+      commit: null
+      pinned_ref_on_main: false
+      release_branch: null
+      unpinned_risk: >-
+        Consumed as a published image digest rather than a git ref; the digest is the pin.
+      images:
+        - tag: vllm/vllm-openai-rocm:v0.25.1
+          digest: sha256:84459732ca98b40fe2f5338a3f050be6d522504e47a484a5180d58fb75956f86
+          digest_source: dockerfile-pin
+          note: >-
+            Whether THIS base is one of the ROCm images that still hardcodes
+            is_producer=True is the unresolved question — see applies_to.
+
+upstream_main_affected:
+  value: false
+  evidence: >-
+    Read from upstream main on 2026-08-05: moriio_connector.py has is_producer=False at
+    BOTH call sites. Main is fixed. The patch's docstring records the same for
+    v0.22.1rc0 source.
+
+applies_to:
+  - engine: vllm
+    surface: Dockerfile.vllm (v0.25.1 base)
+    effect: unverified
+    required_to_run: false
+    evidence: >-
+      The patch's docstring enumerates v0.20.2 / v0.21.0 / v0.22.0 / v0.22.1 as ROCm images
+      that still hardcode is_producer=True, but v0.25.1 postdates all of them and main was
+      fixed, so this base plausibly carries the fix already. Not checked. If it does, the
+      patch prints "already patched" and exits 0. One grep inside the image settles it.
+  - engine: vllm
+    surface: deploy/overlay/infera-exec
+    effect: unverified
+    required_to_run: false
+    evidence: Same question, same base.
+
+alive_because:
+  reason: released-but-infera-not-bumped
+  detail: >-
+    Fixed upstream on source (main and v0.22.1rc0) but historically absent from every
+    published AMD ROCm image, which is why the patch exists at all. Our base has since moved
+    to v0.25.1, so the likely truth is that this is now redundant — a drop candidate whose
+    only blocker is that nobody has looked.
+  consumers:
+    - >-
+      possibly none on the v0.25.1 base; required on any ROCm image at v0.22.1 or earlier
+      running MoRIIO WRITE (push) mode
+  drop_when: >-
+    The pinned base is confirmed to carry is_producer=False.
+  drop_signal: self-guard-marker-skips
+  silent_misapply_risk: >-
+    The guard is `if new in src` — i.e. it keys on the FIXED text, so on a fixed base it
+    reports "already patched" and exits 0. Safe, but the build log line reads like success
+    rather than like redundancy. Note the sharper edge: if upstream ever ships a base with
+    a DIFFERENT count of is_producer=True occurrences, the script exits 1, which the
+    Dockerfile's patch loop swallows into "[vllm-patch] skipped" — so a real failure is
+    indistinguishable from a benign skip in the log.
+
+history:
+  born:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+  last_modified:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+    reason: >-
+      Unchanged. The base has moved twice under it without the patch being re-examined,
+      which is precisely how a patch becomes invisible dead weight.
+
+upstream_issues:
+  - ref: internal#67
+    url: https://github.com/AMD-AGI/Infera/issues/67
+    kind: issue
+    title: "MoRIIO WRITE mode: decode addresses itself for block-allocate notification"
+    state: OPEN
+    state_reason: null
+    author: null
+    note: >-
+      Our tracker item, quoted in the patch docstring. Resolves against an internal tracker,
+      so a 404 is expected.
+
+# Deliberately null rather than a placeholder ref. Upstream reaches the same end state —
+# is_producer=False at both call sites on main and on v0.22.1rc0 source — but the PR that
+# did it was never identified, and a guessed number is worse than none. The source read
+# under upstream_main_affected is the citation.
+upstream_prs: null
+
+related_refs: null
+
+problem:
+  what: >-
+    In MoRIIO WRITE (push) mode the decode sends the block-allocate notification to ITSELF,
+    the consumer-side handler asserts, the notify thread dies and the request hangs.
+  why: >-
+    The decode calls get_peer_zmq_from_request_id(..., is_producer=True), which resolves to
+    the producer — itself. The receiving handler asserts get_role() == PRODUCER ("Only
+    prefill can get block messages") and raises, killing the moriio-notify thread. The
+    decode must address the PREFILL, i.e. is_producer=False.
+  how: >-
+    One-token change: is_producer=True -> is_producer=False at the single call site, guarded
+    on the occurrence count being exactly 1 so a layout change fails rather than guesses.
+  before_fix: The request hangs and the client sees HTTP 000; the notify thread is dead.
+  after_fix: WRITE-mode PD requests complete.
+  context: >-
+    MoRIIO WRITE (push) mode only. PULL (read) mode never takes this branch and does not
+    need the patch.
+  call_chain:
+    - "moriio_connector.py :: decode sends block-allocate notification"
+    - "get_peer_zmq_from_request_id(request.request_id, is_producer=True) -> resolves to self"
+    - "consumer handler asserts get_role() == PRODUCER -> moriio-notify thread dies"
+    - "request hangs, HTTP 000"
+  symptom_signature: '"Only prefill can get block messages" followed by a hung request / HTTP 000'
+  silent: false
+
+verification:
+  date: 2026-07-20
+  hardware: AMD ROCm 2-node PD
+  software: vLLM ROCm image, MoRIIO WRITE mode
+  workload: MoRIIO push-mode PD request
+  result: Hang cleared; the notification reaches the prefill.
+  notes: null
+
+scope_limits: WRITE (push) mode only.
+
+open_actions:
+  - action: >-
+      Grep the pinned v0.25.1 base for is_producer= and drop this patch if it is already
+      False. Main is fixed and the base has moved twice since the patch was written.
+    owner: unassigned
+    blocked_on: null
+  - action: >-
+      Identify the upstream PR that fixed this, so the record cites a change rather than a
+      source state.
+    owner: unassigned
+    blocked_on: null

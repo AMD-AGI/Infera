@@ -1,0 +1,122 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - gh-search
+  - local-repro
+
+patch:
+  path: deploy/docker/patches/vllm-dsv4/patch_moriio_dsv4_noncontig_register.py
+  kind: python-anchor-script
+  idempotent: true
+  applied_by:
+    - Dockerfile.vllm
+  opt_in_flag: null
+
+target:
+  library: vllm
+  component: moriio
+  repo: vllm-project/vllm
+  files:
+    - vllm/distributed/kv_transfer/kv_connector/v1/moriio/moriio_engine.py
+  versions:
+    - surface: Dockerfile.vllm
+      ref: v0.25.1
+      commit: null
+      pinned_ref_on_main: false
+      release_branch: null
+      unpinned_risk: >-
+        Consumed as a published image digest rather than a git ref. The patch's own header
+        records verification against vllm 0.23.x.
+      images:
+        - tag: vllm/vllm-openai-rocm:v0.25.1
+          digest: sha256:84459732ca98b40fe2f5338a3f050be6d522504e47a484a5180d58fb75956f86
+          digest_source: dockerfile-pin
+          note: vllm 0.25.1, torch 2.11.0, ROCm 7.2.3.
+
+upstream_main_affected:
+  value: null
+  evidence: Not established — main was not read, and no search hit exists as of 2026-08-05.
+
+applies_to:
+  - engine: vllm
+    surface: Dockerfile.vllm (vllm-dsv4-patches loop)
+    effect: unverified
+    required_to_run: false
+    evidence: >-
+      Verified load-bearing on vllm 0.23.x for DSv4-Pro 1P1D. Not re-verified on v0.25.1.
+
+alive_because:
+  reason: no-upstream-pr
+  detail: >-
+    Nothing upstream and nothing of ours. Worth noting the fix is not novel — sglang's mori
+    connector already registers this way, so the shape is established; only vLLM's MoRIIO
+    lacks it.
+  consumers:
+    - Dockerfile.vllm, for DeepSeek-V4 MoRIIO PD
+  drop_when: >-
+    A base vLLM's MoRIIO engine registers non-contiguous tensors by storage span, as sglang's
+    mori connector already does.
+  drop_signal: self-guard-marker-skips
+  silent_misapply_risk: null
+
+history:
+  born:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+  last_modified:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+    reason: Unchanged across two base bumps.
+
+upstream_issues: null
+
+upstream_prs: null
+
+related_refs: null
+
+problem:
+  what: >-
+    MoRI's register_torch_tensor rejects DeepSeek-V4's KV cache because it is a non-contiguous
+    view, and the obvious workaround — calling .contiguous() — would be silently wrong.
+  why: >-
+    DSv4's fp8_ds_mla KV cache is a 576-byte-aligned non-contiguous view over a larger buffer.
+    register_torch_tensor forces contiguity and raises. .contiguous() would copy to a NEW
+    address, so the registered memory would no longer be the buffer the model forward writes
+    into — registration would succeed and transfers would move stale data.
+  how: >-
+    For a non-contiguous tensor, register the storage span through the low-level
+    register_memory(data_ptr, storage_nbytes - storage_offset_bytes, dev, loc), using the same
+    base that _compute_block_transfer_offsets already uses so the offset arithmetic stays
+    consistent. Contiguous tensors keep the original path. This mirrors sglang's mori connector.
+  before_fix: >-
+    register_torch_tensor raises on the non-contiguous DSv4 KV view, so registration fails.
+  after_fix: DSv4-Pro registers its KV cache and MoRIIO 1P1D serves.
+  context: >-
+    DeepSeek-V4-Pro (fp8_ds_mla, 576B-aligned non-contiguous KV view) with MoRIIO on ROCm,
+    verified on vllm 0.23.x. Contiguous fp16/bf16 caches are unaffected.
+  call_chain:
+    - "moriio_engine.py :: register_torch_tensor(kv_view)"
+    - "non-contiguous 576B-aligned fp8_ds_mla view -> raises"
+    - "(.contiguous() would copy to a new address, detaching from the forward's buffer)"
+  symptom_signature: register_torch_tensor rejecting a non-contiguous tensor at MoRIIO registration
+  silent: false
+
+verification:
+  date: 2026-07-20
+  hardware: AMD ROCm 1P1D
+  software: vllm 0.23.x ROCm, MoRIIOConnector
+  workload: DeepSeek-V4-Pro MoRIIO PD
+  result: Registration succeeds against the live forward buffer.
+  notes: >-
+    The .contiguous() trap is the transferable lesson: it would have "worked" and moved stale
+    KV, which is far worse than the exception.
+
+scope_limits: Non-contiguous registration only; contiguous tensors keep the stock path.
+
+open_actions:
+  - action: Re-verify on the v0.25.1 base together with the other three DSv4 MoRIIO patches.
+    owner: unassigned
+    blocked_on: null

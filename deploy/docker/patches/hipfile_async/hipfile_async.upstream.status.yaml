@@ -1,0 +1,180 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - gh-pr-issue-state
+  - gh-search
+  - local-repro
+
+patch:
+  path: deploy/docker/patches/hipfile_async/hipfile_async.patch
+  extra_files:
+    - deploy/docker/patches/hipfile_async/file_async_fragment.py
+    - deploy/docker/patches/hipfile_async/patch_hipfile_async.sh
+  kind: git-diff
+  idempotent: true
+  applied_by:
+    - Dockerfile.vllm
+  opt_in_flag: BUILD_HIPFILE=1 (build ARG; default 1)
+
+target:
+  library: hipfile
+  component: python-bindings
+  repo: ROCm/rocm-systems
+  files:
+    - projects/hipfile/python/hipfile/__init__.py
+    - projects/hipfile/python/hipfile/_chipfile.pxd
+    - projects/hipfile/python/hipfile/_hipfile.pyx
+    - projects/hipfile/python/hipfile/file.py
+  versions:
+    - surface: Dockerfile.vllm (build_hipfile.sh)
+      ref: unpinned-default-branch
+      commit: null
+      pinned_ref_on_main: true
+      release_branch: null
+      unpinned_risk: >-
+        This is the important fact about this patch. build_hipfile.sh defaults
+        HIPFILE_GIT_REF to empty, i.e. HEAD of the ROCm/rocm-systems default branch, so the
+        target moves on every build with no record of what was built. Since #7386 merged on
+        2026-07-16, any clone taken after that date already carries the async API — which
+        means this patch is expected to be a no-op on any fresh build today, and the image
+        content depends on the build DATE rather than on anything in this repo.
+      images: []
+
+upstream_main_affected:
+  value: false
+  evidence: >-
+    ROCm/rocm-systems#7386 is MERGED (2026-07-16) and lands the same feature on the same
+    four files this patch edits, with the same root-cause account of the pointer-lifetime
+    bug. The default branch therefore carries the API.
+
+applies_to:
+  - engine: vllm
+    surface: Dockerfile.vllm (BUILD_HIPFILE=1, step 4)
+    effect: unverified
+    required_to_run: false
+    evidence: >-
+      Effect depends on the build date, not on the repo: the script greps the cloned tree
+      for the hipFileStreamRegister marker and skips if present. Any build after 2026-07-16
+      clones a tree that has #7386, so this is very likely a no-op now — but nothing in the
+      repo records which it was for a given image, so it cannot be asserted either way.
+
+alive_because:
+  reason: released-but-infera-not-bumped
+  detail: >-
+    Ours, merged upstream on 2026-07-16, and the target is unpinned — so upstream's fix
+    arrives on its own the next time anyone builds. This is not really "alive" so much as
+    "not yet deleted". Note the two implementations differ in HOW they keep the driver's
+    out-parameters alive, so this is merged-but-not-equivalent: upstream owns the slots in a
+    Cython AsyncIOHandle cdef class, while this patch sidesteps Cython and calls
+    libhipfile.so through ctypes with heap-allocated c_size_t / c_int64 / c_ssize_t slots.
+    Upstream's is the better shape.
+  consumers:
+    - >-
+      none, most likely — only a build pinned to a rocm-systems tree older than #7386 would
+      still need it
+  drop_when: >-
+    Now, in practice: the base image's /opt/rocm-systems-src/projects/hipfile carries #7386
+    on any fresh clone. Confirm with one grep for hipFileStreamRegister and delete.
+  drop_signal: self-guard-marker-skips
+  silent_misapply_risk: >-
+    The marker grep makes the skip safe, so there is no misapply risk. The real risk is the
+    opposite and worth stating plainly: because HIPFILE_GIT_REF is unpinned, two images built
+    from the same infera commit on either side of 2026-07-16 contain DIFFERENT hipfile code —
+    one with our ctypes implementation, one with upstream's Cython one. That is an
+    unreproducible build, independent of whether the patch is kept.
+
+history:
+  born:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+  last_modified:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+    reason: >-
+      Unchanged. The upstream PR was ours and merged four days before this repo's v0.1.0
+      commit landed the local copy, and nobody revisited it afterwards.
+
+upstream_issues: null
+
+upstream_prs:
+  - ref: ROCm/rocm-systems#7386
+    url: https://github.com/ROCm/rocm-systems/pull/7386
+    title: "hipfile: feat(hipfile/python): add async stream I/O bindings"
+    state: MERGED
+    review_decision: null
+    merged_at: 2026-07-16
+    author: jiejingzhangamd
+    ours: true
+    same_approach: false
+    approach_note: >-
+      Same feature, same four files, same root-cause account — but a different mechanism for
+      keeping the driver's out-parameters alive. Upstream owns the slots in a Cython
+      AsyncIOHandle cdef class; the local patch avoids Cython entirely and calls libhipfile.so
+      through ctypes with heap-allocated slots. Ours was the fast local implementation; the
+      upstream one is the general fix and is better. Do not carry the local one forward.
+    requested_action: null
+    in_pinned_base: null
+
+related_refs: null
+
+problem:
+  what: >-
+    The ROCm hipFile Python binding exposes no async API, and the obvious Cython
+    implementation of one is unsafe: out-parameters passed as `&local` die before the driver
+    dereferences them.
+  why: >-
+    Cython stack locals passed by address to an asynchronous driver call go out of scope when
+    the Python frame returns, while the driver writes to them later. The write then lands on
+    reclaimed stack, so bytes_done reads 0 and HipFileException 5022 appears
+    intermittently — a lifetime bug, so it is timing-dependent and looks flaky.
+  how: >-
+    Add write_async / read_async, Stream and supports_async() to the binding, and keep the
+    driver's out-parameter slots on the HEAP: the wrapper calls libhipfile.so via ctypes with
+    heap-allocated c_size_t / c_int64 / c_ssize_t slots that outlive the call.
+  before_fix: >-
+    No async API at all; a naive Cython binding gives bytes_done == 0 and intermittent
+    HipFileException 5022.
+  after_fix: >-
+    Async stream I/O works and bytes_done is correct, which is what kvd's gpu-direct L3 load
+    path needs.
+  context: >-
+    ROCm hipFile Python bindings, used by kvd's gpu-direct L3. Built into Dockerfile.vllm
+    from a clone of ROCm/rocm-systems, so the effective target is whatever that default
+    branch holds at build time.
+  call_chain:
+    - "hipfile/file.py :: write_async / read_async"
+    - "_hipfile.pyx passes &local out-parameters to the async driver call"
+    - "the Python frame returns; the driver writes to reclaimed stack"
+    - "bytes_done reads 0 / HipFileException 5022"
+  symptom_signature: "HipFileException 5022 with bytes_done == 0, intermittently"
+  silent: false
+
+verification:
+  date: 2026-07-20
+  hardware: AMD ROCm with hipFile / AIS
+  software: ROCm hipfile python bindings from ROCm/rocm-systems
+  workload: kvd gpu-direct L3 async read/write
+  result: Async I/O completes with correct bytes_done; the intermittent 5022 is gone.
+  notes: >-
+    Also note the neighbouring trap in the same build step: a missing ais-check probe
+    SILENTLY downgrades the kvd load path to CPU-bounce, which is why Dockerfile.vllm asserts
+    `test -x /opt/rocm/bin/ais-check`.
+
+scope_limits: >-
+  A local implementation, superseded upstream by a better one. It should not be carried
+  forward on its own merits.
+
+open_actions:
+  - action: >-
+      Delete this patch. It is ours, merged upstream on 2026-07-16, the target is unpinned so
+      the fix arrives by itself, and upstream's implementation is the better of the two.
+    owner: unassigned
+    blocked_on: null
+  - action: >-
+      Separately, pin HIPFILE_GIT_REF. An unpinned default-branch clone makes image contents a
+      function of the build date; that is a reproducibility problem regardless of this patch.
+    owner: unassigned
+    blocked_on: null

@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AMD-AGI/infera/deploy/docker/patches/_schema/patch.upstream.index.schema.json",
+  "title": "Infera patch index",
+  "description": "deploy/docker/patch.upstream.status.yaml — the one-screen view of every patch this repo carries, grouped by the library it patches. Each entry references the per-patch record that holds the argument; this file carries only what you need to decide whether to open it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status_updated", "libraries", "archived_record", "totals"],
+  "properties": {
+    "schema_version": { "const": 1 },
+
+    "status_updated": {
+      "$ref": "#/$defs/date",
+      "description": "Date of the last full sweep. Individual entries carry their own date when they were checked separately."
+    },
+
+    "verification_note": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What 'verified' means for this sweep, and what it does not cover."
+    },
+
+    "pinned_bases": {
+      "type": "array",
+      "description": "What the images actually build against. A merged upstream fix that is not in one of these still needs its local patch.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["surface", "library", "ref", "commit", "pinned_ref_on_main"],
+        "properties": {
+          "surface": { "type": "string", "minLength": 1 },
+          "library": { "$ref": "#/$defs/library" },
+          "ref": { "type": "string", "minLength": 1 },
+          "commit": {
+            "anyOf": [{ "$ref": "#/$defs/commit" }, { "type": "null" }]
+          },
+          "pinned_ref_on_main": { "type": ["boolean", "null"] },
+          "image": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "required": ["tag", "digest", "digest_source"],
+            "properties": {
+              "tag": { "type": "string", "minLength": 1 },
+              "digest": {
+                "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+              },
+              "digest_source": { "enum": ["dockerfile-pin", "unresolved"] }
+            }
+          },
+          "note": { "type": ["string", "null"] }
+        }
+      }
+    },
+
+    "libraries": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "description": "Keyed by the library being patched. Only libraries this repo actually patches appear; add a key when a new dependency needs one.",
+      "propertyNames": { "$ref": "#/$defs/library" },
+      "patternProperties": {
+        "^(sglang|vllm|atom|mooncake|mori|aiter|hipfile)$": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["repo", "patches"],
+          "properties": {
+            "repo": {
+              "anyOf": [{ "$ref": "#/$defs/gh_repo" }, { "const": "internal" }]
+            },
+            "note": { "type": ["string", "null"] },
+            "patches": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "patch",
+                  "record",
+                  "component",
+                  "engines",
+                  "status",
+                  "alive_because",
+                  "drop_signal",
+                  "summary"
+                ],
+                "properties": {
+                  "patch": { "$ref": "#/$defs/repo_path" },
+                  "record": {
+                    "$ref": "#/$defs/repo_path",
+                    "description": "The per-patch .upstream.status.yaml. Must exist and must validate."
+                  },
+                  "component": { "type": ["string", "null"] },
+                  "engines": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": { "$ref": "#/$defs/engine" }
+                  },
+                  "status": {
+                    "enum": [
+                      "carry-no-upstream-fix",
+                      "carry-upstream-pr-open",
+                      "drop-candidate",
+                      "internal-engine",
+                      "archival"
+                    ],
+                    "description": "drop-candidate means an upstream fix exists and merged; it is waiting only on a base or pin bump here."
+                  },
+                  "alive_because": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "One clause. The record carries the argument."
+                  },
+                  "drop_signal": {
+                    "enum": [
+                      "anchor-drift-fails-loudly",
+                      "self-guard-marker-skips",
+                      "precondition-check-refuses",
+                      "base-version-only",
+                      "pin-advance-only",
+                      "manual-review"
+                    ]
+                  },
+                  "ours_upstream_pr": {
+                    "anyOf": [{ "$ref": "#/$defs/gh_ref" }, { "type": "null" }],
+                    "description": "Our own upstream PR for this defect, when one exists. null here on a crash-class fix is a gap worth acting on."
+                  },
+                  "summary": { "type": "string", "minLength": 1 },
+                  "status_updated": { "$ref": "#/$defs/date" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "archived_record": {
+      "$ref": "#/$defs/repo_path",
+      "description": "The single file recording retired patches."
+    },
+
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["active_patches", "records", "archived_patches"],
+      "properties": {
+        "active_patches": { "type": "integer", "minimum": 0 },
+        "records": { "type": "integer", "minimum": 0 },
+        "archived_patches": { "type": "integer", "minimum": 0 },
+        "by_status": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "description": "Cross-checked by the validator against what is on disk, so a patch added without a record fails CI."
+    },
+
+    "not_patches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "role"],
+        "properties": {
+          "path": { "$ref": "#/$defs/repo_path" },
+          "role": { "type": "string", "minLength": 1 }
+        }
+      },
+      "description": "Files under patches/ that carry no fix of their own — drivers, READMEs, schemas. The validator uses this list to decide what is allowed to have no record."
+    },
+
+    "maintenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "drop_rule": { "type": "string", "minLength": 1 },
+        "add_rule": { "type": "string", "minLength": 1 },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "date": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+    },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "repo_path": { "type": "string", "pattern": "^[A-Za-z0-9._/-]+$" },
+    "gh_repo": { "type": "string", "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$" },
+    "gh_ref": {
+      "type": "string",
+      "pattern": "^([A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+|internal#[0-9]+)$"
+    },
+    "engine": { "enum": ["sglang", "vllm", "atom"] },
+    "library": { "enum": ["sglang", "vllm", "atom", "mooncake", "mori", "aiter", "hipfile"] }
+  }
+}

@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AMD-AGI/infera/deploy/docker/patches/_schema/patch.archived.schema.json",
+  "title": "Infera retired patches",
+  "description": "deploy/docker/patches/archived/patch.archived.yaml — one list entry per patch we no longer need. Retired patches get no per-patch record and are not applied by any surface; this file is the whole memory of them, so each entry has to stand alone.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status_updated", "patches"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "status_updated": { "$ref": "#/$defs/date" },
+    "note": { "type": "string", "minLength": 1 },
+
+    "patches": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "source",
+          "library",
+          "engines_affected",
+          "retired_on",
+          "retired_reason",
+          "problem",
+          "resolution"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Original patch file name, without directory."
+          },
+          "source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["original_path", "current_path"],
+            "properties": {
+              "original_path": {
+                "$ref": "#/$defs/repo_path",
+                "description": "Where it lived while it was applied."
+              },
+              "current_path": {
+                "anyOf": [
+                  { "$ref": "#/$defs/repo_path" },
+                  { "const": "deleted" }
+                ],
+                "description": "Where the file sits now, or 'deleted' when it was removed before this record existed — in which case last_commit_with_file must be set so it can still be recovered."
+              },
+              "extra_files": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/repo_path" }
+              },
+              "last_commit_with_file": {
+                "anyOf": [{ "$ref": "#/$defs/commit" }, { "type": "null" }],
+                "description": "Required in spirit when current_path is 'deleted': the commit to recover the file from."
+              }
+            }
+          },
+          "library": { "$ref": "#/$defs/library" },
+          "component": { "type": ["string", "null"] },
+          "engines_affected": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/engine" },
+            "description": "Which engines were failing before this patch existed."
+          },
+          "born": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "required": ["date", "commit"],
+            "properties": {
+              "date": { "$ref": "#/$defs/date" },
+              "commit": { "$ref": "#/$defs/commit" },
+              "subject": { "type": "string", "minLength": 1 }
+            }
+          },
+          "retired_on": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["date", "infera_commit"],
+            "properties": {
+              "date": { "$ref": "#/$defs/date" },
+              "infera_commit": {
+                "anyOf": [{ "$ref": "#/$defs/commit" }, { "const": "pending" }],
+                "description": "The infera commit that stopped applying it. 'pending' while the retiring change is still in review."
+              },
+              "subject": { "type": "string", "minLength": 1 }
+            }
+          },
+          "retired_reason": {
+            "enum": [
+              "upstream-fixed-and-in-base",
+              "upstream-fixed-differently",
+              "base-refactor-made-anchor-obsolete",
+              "superseded-by-local-patch",
+              "never-reproduced-again",
+              "wrong-diagnosis"
+            ]
+          },
+          "upstream_fix": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "required": ["ref", "url", "state"],
+            "properties": {
+              "ref": { "$ref": "#/$defs/gh_ref" },
+              "url": { "$ref": "#/$defs/url" },
+              "title": { "type": "string", "minLength": 1 },
+              "state": { "enum": ["MERGED", "CLOSED", "OPEN"] },
+              "merged_at": {
+                "anyOf": [{ "$ref": "#/$defs/date" }, { "type": "null" }]
+              },
+              "commit": {
+                "anyOf": [{ "$ref": "#/$defs/commit" }, { "type": "null" }],
+                "description": "Upstream commit that carries the fix, when known."
+              },
+              "author": { "type": ["string", "null"] },
+              "same_approach": { "type": ["boolean", "null"] }
+            },
+            "description": "The upstream change that made this patch unnecessary. null when it was retired for a local reason — a base refactor, or a diagnosis that turned out wrong."
+          },
+          "integrated_by": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "required": ["infera_commit", "how"],
+            "properties": {
+              "infera_commit": {
+                "anyOf": [{ "$ref": "#/$defs/commit" }, { "const": "pending" }]
+              },
+              "how": {
+                "type": "string",
+                "minLength": 1,
+                "description": "How the upstream fix arrived here — base image bump, pin advance, engine version bump."
+              },
+              "base_before": { "type": ["string", "null"] },
+              "base_after": { "type": ["string", "null"] }
+            },
+            "description": "How and when infera picked up the upstream fix."
+          },
+          "problem": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["what", "why", "how", "before_fix", "after_fix", "context"],
+            "properties": {
+              "what": { "type": "string", "minLength": 1 },
+              "why": { "type": "string", "minLength": 1 },
+              "how": { "type": "string", "minLength": 1 },
+              "before_fix": { "type": "string", "minLength": 1 },
+              "after_fix": { "type": "string", "minLength": 1 },
+              "context": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The original failing scenario: model, arch, topology, engine and flags."
+              },
+              "call_chain": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              },
+              "symptom_signature": { "type": ["string", "null"] }
+            }
+          },
+          "resolution": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The one-paragraph account of how this ended, written so it makes sense without the surrounding table."
+          },
+          "reusable_on": {
+            "type": ["string", "null"],
+            "description": "Bases where this patch would still apply, for anyone reproducing on an older stack."
+          },
+          "lesson": {
+            "type": ["string", "null"],
+            "description": "What this cost us and what would have caught it sooner. Optional, but this is where the value of an archive actually is."
+          }
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "date": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+    },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "repo_path": { "type": "string", "pattern": "^[A-Za-z0-9._/-]+$" },
+    "url": { "type": "string", "format": "uri", "pattern": "^https://" },
+    "gh_ref": {
+      "type": "string",
+      "pattern": "^([A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+|internal#[0-9]+)$"
+    },
+    "engine": { "enum": ["sglang", "vllm", "atom"] },
+    "library": { "enum": ["sglang", "vllm", "atom", "mooncake", "mori", "aiter", "hipfile"] }
+  }
+}

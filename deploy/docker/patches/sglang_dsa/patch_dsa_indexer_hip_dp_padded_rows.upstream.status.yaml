@@ -1,0 +1,229 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - gh-pr-issue-state
+  - gh-search
+  - local-repro
+
+patch:
+  path: deploy/docker/patches/sglang_dsa/patch_dsa_indexer_hip_dp_padded_rows.py
+  kind: python-anchor-script
+  idempotent: true
+  applied_by:
+    - Dockerfile.sglang
+    - Dockerfile.sglang.gfx942
+    - deploy/docker/scripts/apply_sglang_dsa_patches.sh
+  opt_in_flag: APPLY_SGLANG_DSA_PATCHES=1 (default on; DSA_PATCH_SET selects the arm)
+
+target:
+  library: sglang
+  component: dsa
+  repo: sgl-project/sglang
+  files:
+    - python/sglang/srt/layers/attention/dsa_indexer.py
+  versions:
+    - surface: Dockerfile.sglang
+      ref: v0.5.15.post1
+      commit: 0b3bb0cbe318
+      pinned_ref_on_main: false
+      release_branch: release/v0.5.15
+      images:
+        - tag: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
+          digest: null
+          digest_source: unresolved
+          note: Dockerfile.sglang pins the tag, not a digest.
+    - surface: Dockerfile.sglang.gfx942
+      ref: v0.5.16
+      commit: fdebc938f7f4
+      pinned_ref_on_main: false
+      release_branch: release/v0.5.16
+      images:
+        - tag: lmsysorg/sglang:v0.5.16-rocm720-mi30x
+          digest: null
+          digest_source: unresolved
+          note: >-
+            This is the only one of the three sglang_dsa patches the gfx942 base can
+            take, because it anchors on source text rather than being a --fuzz=0 diff.
+
+upstream_main_affected:
+  value: true
+  evidence: >-
+    Our own PR sglang#33059 is still OPEN and unreviewed against main, i.e. the aiter
+    branch on main still sizes its logits from the padded row count. Not re-read from
+    main source on this sweep; the open PR is the evidence.
+
+applies_to:
+  - engine: sglang
+    surface: Dockerfile.sglang (gfx950 / MI355X, v0.5.15.post1)
+    effect: op
+    required_to_run: true
+    evidence: >-
+      Without it GLM-5.2 DSA with DP-attention + EAGLE MTP crashes on the very first
+      batch on gfx950. Verified by the 8-marker bytecode assertion in
+      apply_sglang_dsa_patches.sh (DSA_PATCH_SET=full).
+  - engine: sglang
+    surface: Dockerfile.sglang.gfx942 (gfx942 / MI325X, v0.5.16)
+    effect: op
+    required_to_run: true
+    evidence: >-
+      DSA_PATCH_SET=indexer asserts the dsa_indexer.py:_p1v2_trim bytecode marker.
+      Without it DP-attention crashes at concurrency > 1 on this base.
+
+alive_because:
+  reason: upstream-pr-open
+  detail: >-
+    Our fix is upstream as sglang#33059 but has had no review since it was opened, and
+    the two engine bases are release-branch pins that would not pick up a main merge
+    anyway. Three other open PRs touch the same two aiter call sites, so the shape of
+    the eventual upstream fix is still unsettled.
+  consumers:
+    - Dockerfile.sglang (GLM-5.2 DSA PD + DP-attention + MTP on gfx950)
+    - Dockerfile.sglang.gfx942 (GLM-5.2 DSA on gfx942, any concurrency > 1)
+  drop_when: >-
+    A base sglang reconciles the aiter paged-MQA row count with lengths — whether via
+    #33059, #32762 or the #31480 backend extraction.
+  drop_signal: anchor-drift-fails-loudly
+  silent_misapply_risk: null
+
+history:
+  born:
+    date: 2026-08-03
+    commit: "1380228"
+    subject: "fix(image): carry the DSA indexer row fix onto the gfx942 v0.5.16 base"
+  last_modified:
+    date: 2026-08-03
+    commit: 9380f07
+    subject: "fix(glm5.2): agentic-serving fixes for DSA indexer, ROCm hicache and PD/kvd wiring"
+    reason: >-
+      Added the GLM52_P1V3 arm. The original revision guarded only real < padded,
+      assuming DP padding always makes q_fp8 longer; a DP-idle rank under MTP
+      draft-extend inverts that and there is nothing to trim, so the lengths side is
+      clipped through topk_transform's existing ke_offset instead.
+  supersedes:
+    - deploy/docker/patches/sglang_dsa/dsa_indexer_hip_dp_padded_rows.diff
+
+upstream_issues: null
+
+upstream_prs:
+  - ref: sgl-project/sglang#33059
+    url: https://github.com/sgl-project/sglang/pull/33059
+    title: Fix DSA indexer aiter (HIP) padding mismatch under DP-attention
+    state: OPEN
+    review_decision: REVIEW_REQUIRED
+    merged_at: null
+    author: dorado269
+    ours: true
+    same_approach: true
+    approach_note: >-
+      This is the same fix, submitted upstream. It is written in the shape of the NPU
+      PR #32762 deliberately, so the two can converge rather than compete.
+    requested_action: null
+    in_pinned_base: false
+
+related_refs:
+  - ref: sgl-project/sglang#32762
+    url: https://github.com/sgl-project/sglang/pull/32762
+    kind: pr
+    title: "[NPU] Fix DSA eager padding mismatch in PD MTP warm-up"
+    state: OPEN
+    state_reason: null
+    author: stellaxcpeng
+    relevance: same-defect-other-platform
+    note: >-
+      Same bug class on NPU. Our diff is written in its shape; the real < padded arm is
+      exactly its case.
+  - ref: sgl-project/sglang#32738
+    url: https://github.com/sgl-project/sglang/pull/32738
+    kind: pr
+    title: "[Fix] DSA Indexer: pad heads for DeepGEMM paged MQA logits on decode/target-verify"
+    state: OPEN
+    state_reason: null
+    author: aqni
+    relevance: anchor-collision
+    note: >-
+      Pads heads at the same two aiter call sites we edit. Not a fix for our defect —
+      expect a conflict, not a resolution.
+  - ref: sgl-project/sglang#31480
+    url: https://github.com/sgl-project/sglang/pull/31480
+    kind: pr
+    title: "[DSA] Add an arch-independent torch paged-MQA-logits backend with a fused Triton fast path"
+    state: OPEN
+    state_reason: null
+    author: vroomfondel
+    relevance: anchor-collision
+    note: >-
+      Extracts the paged-MQA backend and restructures the is_aiter() dispatch our
+      anchors sit in. If this lands first the patch has to be rewritten, not rebased.
+  - ref: sgl-project/sglang#30378
+    url: https://github.com/sgl-project/sglang/pull/30378
+    kind: pr
+    title: "[DSA] Re-enable fused top-k v2 for MTP: clamp padded-row seq_lens to >= 0"
+    state: MERGED
+    state_reason: fixed
+    author: DarkSharpness
+    relevance: background
+    note: >-
+      Already in the base. Clamps padded-row seq_lens VALUES; this patch fixes the
+      HIP-side row COUNT. Different defect, adjacent code.
+
+problem:
+  what: >-
+    The aiter (HIP) paged-MQA branch of the DSA lightning indexer sizes its logits
+    output from one row count while `lengths` is sized from the other, so fast_topk_v2
+    is handed a score tensor and a lengths tensor that disagree.
+  why: >-
+    Under DP-attention the two counts diverge in BOTH directions. When q_fp8 carries DP
+    padding the real count is smaller, which is the case every CUDA backend already
+    handles by taking a q_offset= and slicing internally; ROCm's aiter entry point has
+    no such parameter, so nothing slices. On a DP-idle rank under MTP draft-extend the
+    inequality inverts: q_offset (= sum of dsa_extend_len_cpu) is 2 while only 1 row is
+    materialized in q_fp8, so there are FEWER query rows than lengths entries and a
+    trim cannot help.
+  how: >-
+    Reconcile both counts to min(real, padded). When q_fp8 is the longer side, trim
+    q/weights to the real count and restore the padding after topk_transform — the
+    contract the CUDA backends already honour. When q_fp8 is the shorter side, clip the
+    lengths instead, through topk_transform's existing ke_offset parameter. `_p1v2_clip`
+    and `_p1v2_rows` are bound BEFORE the is_aiter() test because the former is read
+    unconditionally at the topk_transform call.
+  before_fix: >-
+    RuntimeError "Expected lengths.size(0) == B to be true, but got false" — on gfx950
+    at the very first batch, on gfx942 at concurrency > 1. In the inverted (P1V3)
+    direction the scheduler rank dies and the router drops to `active_workers: 1`.
+  after_fix: >-
+    GLM-5.2 DSA runs with DP-attention and EAGLE MTP on both bases. The debug hook
+    SGLANG_DEBUG_DSA_ROWS=1 shows the reconciled counts, including the idle-rank case
+    mode=IDLE q_fp8=(1,32,128) q_offset=2 -> mqa_q=(1,32,128) with lengths clipped.
+  context: >-
+    ROCm-specific: gfx950 (MI355X) and gfx942 (MI325X), GLM-5.2 DSA, DP-attention with
+    EAGLE MTP. CUDA was never affected because those backends take q_offset= and slice
+    internally. The GLM52_P1V2 edit sites are byte-identical on v0.5.15.post1 and
+    v0.5.16; the later GLM52_P1V3 anchor has only been re-read against v0.5.15.post1.
+  call_chain:
+    - "sglang/srt/layers/attention/dsa_indexer.py :: forward (aiter/HIP branch)"
+    - "aiter paged-MQA logits kernel — sizes its output from q_fp8.shape[0]"
+    - "fast_topk_v2 / topk_transform — asserts lengths.size(0) == B"
+  symptom_signature: "Expected lengths.size(0) == B to be true, but got false"
+  silent: false
+
+verification:
+  date: 2026-08-03
+  hardware: 8x MI355X (gfx950) and 2x 8x MI325X (gfx942)
+  software: sglang v0.5.15.post1 and v0.5.16, ROCm 7.2.0
+  workload: GLM-5.2-FP8, DSA attention, --enable-dp-attention with EAGLE MTP
+  result: >-
+    Crash at first batch (gfx950) / conc>1 (gfx942) becomes a clean run. Captured the
+    inverted direction live with the patch's own SGLANG_DEBUG_DSA_ROWS=1 hook.
+  notes: >-
+    Do NOT reintroduce a `0 < q_offset` lower bound on the trim arm — an earlier
+    revision had one and it made fast_topk_v2 assert on exactly the idle ranks.
+
+scope_limits: >-
+  The GLM52_P1V3 anchor (the bare topk_transform call) has been re-read against
+  v0.5.15.post1 only, not v0.5.16.
+
+open_actions:
+  - action: "Get sglang#33059 reviewed, or converge it onto #32762 if that lands first."
+    owner: dorado269
+    blocked_on: upstream review

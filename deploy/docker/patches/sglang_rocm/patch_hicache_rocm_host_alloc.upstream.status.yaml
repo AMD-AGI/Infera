@@ -1,0 +1,203 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - gh-pr-issue-state
+  - gh-search
+  - upstream-source-read
+  - local-repro
+
+patch:
+  path: deploy/docker/patches/sglang_rocm/patch_hicache_rocm_host_alloc.py
+  kind: python-anchor-script
+  idempotent: true
+  applied_by:
+    - Dockerfile.sglang
+    - Dockerfile.sglang.gfx942
+  opt_in_flag: null
+
+target:
+  library: sglang
+  component: hicache
+  repo: sgl-project/sglang
+  files:
+    - python/sglang/srt/mem_cache/pool_host/common.py
+  versions:
+    - surface: Dockerfile.sglang
+      ref: v0.5.15.post1
+      commit: 0b3bb0cbe318
+      pinned_ref_on_main: false
+      release_branch: release/v0.5.15
+      images:
+        - tag: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
+          digest: null
+          digest_source: unresolved
+          note: gfx950 — where the fault was actually observed.
+    - surface: Dockerfile.sglang.gfx942
+      ref: v0.5.16
+      commit: fdebc938f7f4
+      pinned_ref_on_main: false
+      release_branch: release/v0.5.16
+      images:
+        - tag: lmsysorg/sglang:v0.5.16-rocm720-mi30x
+          digest: null
+          digest_source: unresolved
+          note: >-
+            Carried preventively here. MI300X measures the host and device addresses
+            EQUAL, so this image has no fault to fix.
+
+upstream_main_affected:
+  value: true
+  evidence: >-
+    Read from upstream main on 2026-08-05 (contents API, pool_host/common.py):
+    ALLOC_MEMORY_FUNCS still overrides only "npu" and "musa", with no HIP entry, over a
+    defaultdict whose default is alloc_with_host_register. Main is affected. This is a
+    source read, not a search miss.
+
+applies_to:
+  - engine: sglang
+    surface: Dockerfile.sglang (gfx950 / MI355X, v0.5.15.post1)
+    effect: op
+    required_to_run: true
+    evidence: >-
+      Without it the first kvd write-back aborts the process with a GPU memory access
+      fault. Reproduced standalone with the exact write-back kernel.
+  - engine: sglang
+    surface: Dockerfile.sglang.gfx942 (gfx942 / MI325X, v0.5.16)
+    effect: op
+    required_to_run: false
+    evidence: >-
+      It changes the allocator here too, but preventively: MI300X (amdgpu 6.14.14, ROCm
+      7.2.0) measures hipHostRegister's device pointer EQUAL to the host VA, so the
+      fault does not occur on this arch. Do not read this row as evidence the fault was
+      seen on gfx942.
+
+alive_because:
+  reason: no-upstream-pr
+  detail: >-
+    No upstream issue and no upstream PR — and none of ours either, which is the gap
+    worth closing here. Upstream main is affected, established by reading the file, so
+    this is not a case of "probably already fixed".
+  consumers:
+    - Dockerfile.sglang (kvd / hierarchical cache on gfx950 — required)
+    - Dockerfile.sglang.gfx942 (preventive)
+  drop_when: >-
+    A base sglang routes HIP to alloc_with_pin_memory in ALLOC_MEMORY_FUNCS.
+  drop_signal: anchor-drift-fails-loudly
+  silent_misapply_risk: null
+
+history:
+  born:
+    date: 2026-08-03
+    commit: 9380f07
+    subject: "fix(glm5.2): agentic-serving fixes for DSA indexer, ROCm hicache and PD/kvd wiring"
+  last_modified:
+    date: 2026-08-04
+    commit: 71fe42c
+    subject: "fix(sglang-rocm): make hicache survive its first write-back on gfx942"
+    reason: >-
+      Carried onto the gfx942 image alongside the staged write-back patch, and its
+      header corrected: the fault is gfx950-only so far, so this one is preventive on
+      MI300X rather than a fix for an observed crash.
+
+upstream_issues: null
+
+upstream_prs: null
+
+related_refs:
+  - ref: sgl-project/sglang#23361
+    url: https://github.com/sgl-project/sglang/pull/23361
+    kind: pr
+    title: "[MUSA][19/N] Support HiCache with pin_memory allocator"
+    state: MERGED
+    state_reason: fixed
+    author: yafengio
+    relevance: shape-we-copied
+    note: >-
+      The same one-line dispatch override for the same reason, for MUSA. This patch is
+      written in its shape, which is also the argument that upstream would accept a HIP
+      entry.
+  - ref: sgl-project/sglang#32503
+    url: https://github.com/sgl-project/sglang/pull/32503
+    kind: pr
+    title: "[XPU] Enable HiCache support on Intel XPU"
+    state: OPEN
+    state_reason: null
+    author: kpjeeja
+    relevance: anchor-collision
+    note: Touches the same ALLOC_MEMORY_FUNCS dict. Expect a conflict, not a fix.
+  - ref: sgl-project/sglang#32792
+    url: https://github.com/sgl-project/sglang/pull/32792
+    kind: pr
+    title: "[XPU]Enable HiSparse hierarchical sparse KV cache on Intel XPU"
+    state: OPEN
+    state_reason: null
+    author: Amrutha-M05
+    relevance: anchor-collision
+    note: Same dict again.
+
+problem:
+  what: >-
+    sglang allocates every hierarchical-cache host pool with anonymous mmap +
+    hipHostRegister, then stores the resulting HOST virtual addresses in a device-side
+    pointer table that a GPU kernel dereferences. On ROCm those host VAs are not
+    dereferenceable from the device.
+  why: >-
+    On CUDA, cudaHostRegister maps the pages at the SAME address in the device address
+    space, so a host VA is directly usable from a kernel. On ROCm, hipHostRegister maps
+    them at a DIFFERENT device address which you must obtain via
+    hipHostGetDevicePointer. Measured on gfx950 / ROCm 7.2.0 with an 8 MiB buffer:
+    pin_memory gives host==devPtr, while mmap+hipHostRegister gives
+    host=0x7d3bee790000 devPtr=0x7d3bede00000 — and every register-flag variant
+    (Mapped, Portable|Mapped, MAP_PRIVATE) also differs. gfx950 reports xnack-, so
+    there is no page-migration path to paper over it.
+  how: >-
+    Register ROCm in ALLOC_MEMORY_FUNCS to use alloc_with_pin_memory — torch
+    pin_memory=True, hipHostMalloc underneath — which returns memory whose device
+    pointer IS the host pointer. Exactly what the existing "npu" and "musa" entries do,
+    for the same reason. This is the smallest change that makes the existing
+    pointer-table design correct on ROCm; translating every host pointer through
+    hipHostGetDevicePointer is the right upstream shape but touches roughly ten call
+    sites and is not something to apply blind to a running container.
+  before_fix: >-
+    "Memory access fault by GPU node-2 (Agent handle: ...) on address <host VA>. Reason:
+    Unknown." on the first kvd write-back. The fault address equals the host pointer
+    exactly, which is the fingerprint.
+  after_fix: >-
+    Standalone repro of the exact write-back kernel — 78 layers, 7.33 GB host indexer
+    buffer, page ranges head / tail / last — goes from a fault on every mmap variant to
+    ALL OK with pin_memory.
+  context: >-
+    gfx950 / MI355X, ROCm 7.2.0, sglang hierarchical cache with a DSA model
+    (DSAIndexerPoolHost). MI300X measures the two addresses equal, so the fault is
+    gfx950-only so far. Cost of the fix: the hugepage path in alloc_mmap
+    (SGLANG_HUGEPAGE_SIZE) is bypassed on ROCm; that env var is unset here.
+  call_chain:
+    - "sglang/srt/mem_cache/pool_host/common.py :: ALLOC_MEMORY_FUNCS[device] -> alloc_with_host_register"
+    - "alloc_mmap(dims, dtype) then cudaHostRegister(buffer.data_ptr(), n, 0)"
+    - "memory_pool_host.py :: DSAIndexerPoolHost.init_kv_buffer builds index_k_data_ptrs from host data_ptr()s on the GPU"
+    - "transfer_kv_all_layer_mla(dst_layers=self.index_k_data_ptrs, ...) — kernel dereferences a host VA"
+  symptom_signature: "Memory access fault by GPU node-N ... on address <host VA>"
+  silent: false
+
+verification:
+  date: 2026-08-03
+  hardware: MI355X (gfx950, xnack-) and MI300X (amdgpu 6.14.14) for the negative control
+  software: ROCm 7.2.0, sglang v0.5.15.post1
+  workload: standalone repro of the hicache write-back kernel, 78 layers, 7.33 GB host indexer buffer
+  result: mmap+hipHostRegister faults on every variant; pin_memory is clean on all page ranges
+  notes: >-
+    The address-equality measurement is the cheap way to tell whether a given arch is
+    affected — run it before assuming a new GPU needs this.
+
+scope_limits: >-
+  Fixes the allocator, not the design. The pointer tables still hold raw host pointers;
+  any future pool that builds a device-side table the same way is correct only because
+  pin_memory happens to return matching addresses.
+
+open_actions:
+  - action: >-
+      File the upstream PR. This is the only crash-class fix in the tree with no upstream
+      PR at all, upstream main is affected, and #23361 is the merged precedent to copy.
+    owner: unassigned
+    blocked_on: null

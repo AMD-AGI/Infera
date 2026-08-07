@@ -1,0 +1,188 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - gh-pr-issue-state
+  - gh-search
+  - upstream-source-read
+  - local-repro
+
+patch:
+  path: deploy/docker/patches/sglang_disagg/patch_mooncake_early_send_wait_event.py
+  kind: python-anchor-script
+  idempotent: true
+  applied_by:
+    - Dockerfile.sglang
+    - Dockerfile.sglang.gfx942
+  opt_in_flag: null
+
+target:
+  library: sglang
+  component: disaggregation
+  repo: sgl-project/sglang
+  files:
+    - python/sglang/srt/disaggregation/common/utils.py
+    - python/sglang/srt/disaggregation/mooncake/conn.py
+    - python/sglang/srt/disaggregation/prefill.py
+  versions:
+    - surface: Dockerfile.sglang
+      ref: v0.5.15.post1
+      commit: 0b3bb0cbe318
+      pinned_ref_on_main: false
+      release_branch: release/v0.5.15
+      images:
+        - tag: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
+          digest: null
+          digest_source: unresolved
+          note: null
+    - surface: Dockerfile.sglang.gfx942
+      ref: v0.5.16
+      commit: fdebc938f7f4
+      pinned_ref_on_main: false
+      release_branch: release/v0.5.16
+      images:
+        - tag: lmsysorg/sglang:v0.5.16-rocm720-mi30x
+          digest: null
+          digest_source: unresolved
+          note: The anchors are present in both v0.5.15.post1 and v0.5.16.
+
+upstream_main_affected:
+  value: true
+  evidence: >-
+    Read from upstream main on 2026-08-05: disaggregation/mooncake/conn.py contains ZERO
+    occurrences of `wait_event`, while disaggregation/mori/conn.py has five (the
+    TransferKVChunk field, the pickup off the sender, the forward, and the
+    transfer_worker wait). Main is affected, and this is a source read rather than a
+    search miss.
+
+applies_to:
+  - engine: sglang
+    surface: Dockerfile.sglang (gfx950 / MI355X, v0.5.15.post1)
+    effect: op
+    required_to_run: true
+    evidence: >-
+      Required for correctness, not startup: without it any prompt longer than one
+      prefill chunk comes back partially wrong over mooncake PD.
+  - engine: sglang
+    surface: Dockerfile.sglang.gfx942 (gfx942 / MI325X, v0.5.16)
+    effect: op
+    required_to_run: true
+    evidence: >-
+      Verified on this base directly — 2x 8x MI325X, GLM-5.2-FP8 1P1D, needle retrieval
+      5/9 -> 9/9.
+
+alive_because:
+  reason: no-upstream-pr
+  detail: >-
+    Not submitted upstream. The closest existing report, #25583, describes the identical
+    corruption shape but on an AGGREGATED server with no PD and no mooncake, so a shared
+    root cause is unestablished; it was auto-closed inactive with no follow-up. The
+    aggregated-vs-PD A/B this patch rests on is exactly what that issue was missing.
+  consumers:
+    - Dockerfile.sglang (any PD deployment with chunked prefill over mooncake)
+    - Dockerfile.sglang.gfx942 (same)
+  drop_when: >-
+    A base sglang synchronizes on the completion event prefill.py already records — the
+    script then reports "already present" and no-ops.
+  drop_signal: self-guard-marker-skips
+  silent_misapply_risk: null
+
+history:
+  born:
+    date: 2026-07-31
+    commit: ea07d53
+    subject: "fix(image): apply the mooncake PD wait-event patch at image build time"
+  last_modified:
+    date: 2026-07-31
+    commit: ea07d53
+    subject: "fix(image): apply the mooncake PD wait-event patch at image build time"
+    reason: >-
+      Moved into the image build in the same change that introduced it, so a PD
+      deployment cannot silently run without it. Preceded by 786f238, which carried the
+      patch itself.
+
+upstream_issues:
+  - ref: sgl-project/sglang#25583
+    url: https://github.com/sgl-project/sglang/issues/25583
+    kind: issue
+    title: "[Bug] Long text response error on GLM-5-FP8 with NSA backend"
+    state: CLOSED
+    state_reason: inactive — auto-closed 2026-07-18 with no follow-up
+    author: dingfen
+    note: >-
+      Same corruption shape on GLM-5, but aggregated: no PD and no mooncake. So it may
+      or may not share this root cause. Treat as suggestive, not confirming.
+
+upstream_prs: null
+
+related_refs: null
+
+problem:
+  what: >-
+    With chunked prefill over the mooncake KV transport, every prefill chunk except the
+    last can be RDMA-read while the forward that writes those pages is still running, so
+    the decode leg receives half-written KV.
+  why: >-
+    prefill.py's early-send path already records a completion event as the barrier
+    (req.disagg_kv_sender._early_send_wait_event), and the comment there says exactly
+    what it is for — but only mori/conn.py ever reads it. mooncake/conn.py has no
+    wait_event or synchronize() anywhere, so on mooncake the barrier has never taken
+    effect. Worse, the overlap-scheduling path that actually moves non-final chunks
+    (process_batch_result_disagg_prefill) does not even record an event. The final chunk
+    is always correct because it goes through the sampling path, which has a real
+    copy_done.synchronize().
+  how: >-
+    Three edits, all mirroring what mori already does. TransferKVChunk gains a
+    wait_event field so the barrier travels with the work item; mooncake's send() picks
+    the event up off the sender, add_transfer_request() forwards it, and transfer_worker
+    synchronizes on it BEFORE reading device memory; and prefill.py's overlap non-final
+    chunk send records an event on forward_stream.
+  before_fix: >-
+    No crash and nothing in any log — output is PARTIALLY wrong for prompts longer than
+    one prefill chunk. On GLM-5.2 DSA needle-in-a-haystack returns the first digits of
+    the needle then degenerates: want=2183762 got='2183</think>2183</think>218</think>'.
+    The corruption boundary lands exactly on the chunk boundary.
+  after_fix: >-
+    Needle retrieval 5/9 -> 9/9 and a 29k depth sweep 4/9 -> 9/9, with logs confirming
+    the failing prompt is still really split into 4 chunks afterwards (so the fix is a
+    barrier, not an accidental disabling of chunking).
+  context: >-
+    2x 8x MI325X (gfx942), ROCm 7.2.0, sglang v0.5.16, GLM-5.2-FP8 1P1D over mooncake
+    RDMA, overlap scheduling ON, --chunked-prefill-size 131072, --enable-dp-attention.
+    NOT DSA-specific: any PD deployment running chunked prefill over mooncake with
+    overlap scheduling is affected. The same model, same backends and same chunk size in
+    an aggregated single-node server passes 9/9, which is the A/B that localises it to
+    the transport.
+  call_chain:
+    - "sglang/srt/disaggregation/prefill.py :: process_batch_result_disagg_prefill (overlap path)"
+    - "send_kv_chunk(..., last_chunk=False) — no event recorded on this path"
+    - "sglang/srt/disaggregation/mooncake/conn.py :: send() -> add_transfer_request()"
+    - "transfer_worker reads device memory with no synchronize() — races the forward still writing those pages"
+  symptom_signature: >-
+    partially-correct long-prompt output with the error boundary on the prefill chunk
+    boundary; no log line, no crash
+  silent: true
+
+verification:
+  date: 2026-07-31
+  hardware: 2x 8x MI325X (gfx942)
+  software: sglang v0.5.16, ROCm 7.2.0
+  workload: GLM-5.2-FP8 1P1D over mooncake RDMA, overlap scheduling on, chunked prefill 131072
+  result: needle 5/9 -> 9/9; 29k depth sweep 4/9 -> 9/9; chunk count unchanged at 4
+  notes: >-
+    DSA's sparse retrieval only makes this conspicuous ("retrieved half the digits");
+    on a dense model the same defect is a quiet quality drop.
+
+scope_limits: null
+
+open_actions:
+  - action: >-
+      Submit upstream. The aggregated-vs-PD A/B is the evidence #25583 lacked, and no
+      upstream PR exists for a correctness bug that is silent by construction.
+    owner: unassigned
+    blocked_on: null
+  - action: >-
+      Measure the added synchronize()'s cost on prefill throughput before upstreaming —
+      it sits on the hot chunk path.
+    owner: unassigned
+    blocked_on: null

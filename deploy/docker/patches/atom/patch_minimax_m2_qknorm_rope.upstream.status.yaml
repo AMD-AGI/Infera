@@ -1,0 +1,140 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - local-repro
+  - patch-header-only
+
+patch:
+  path: deploy/docker/patches/atom/patch_minimax_m2_qknorm_rope.py
+  kind: python-anchor-script
+  idempotent: true
+  applied_by:
+    - Dockerfile.atom
+  opt_in_flag: null
+
+target:
+  library: atom
+  component: model-definition
+  repo: internal
+  files:
+    - atom/models/minimax_m2.py
+  versions:
+    - surface: Dockerfile.atom
+      ref: atom0.1.4
+      commit: null
+      pinned_ref_on_main: null
+      release_branch: null
+      unpinned_risk: >-
+        Internal engine consumed as a base image; the tag is the entire pin.
+      images:
+        - tag: rocm/atom:rocm7.2.4_ubuntu24.04_py3.12_pytorch_release_2.10.0_atom0.1.4_20260612
+          digest: null
+          digest_source: unresolved
+          note: ATOM 0.1.4, built 2026-06-12. Tag-pinned only.
+
+upstream_main_affected:
+  value: null
+  evidence: No public upstream exists — ATOM is internal.
+
+applies_to:
+  - engine: atom
+    surface: Dockerfile.atom
+    effect: op
+    required_to_run: true
+    evidence: >-
+      The stock model file does not load at all on this base — get_rope() raises a TypeError on
+      import. Required to START MiniMax-M2; see scope_limits for what it does not give you.
+
+alive_because:
+  reason: internal-engine-no-upstream
+  detail: >-
+    No public upstream. This is a base-image inconsistency rather than a design defect: the
+    shipped minimax_m2.py calls a get_rope API the shipped rope module does not have, so the
+    two halves of the same image disagree.
+  consumers:
+    - Dockerfile.atom, for MiniMax-M2
+  drop_when: >-
+    An ATOM base image ships a minimax_m2.py consistent with its own rope API, and a QK-norm
+    kernel that does not need the batch guard.
+  drop_signal: anchor-drift-fails-loudly
+  silent_misapply_risk: >-
+    Hunk B caps the fused QK-norm kernel at qkv.shape[0] <= 256 and falls back to a manual fp32
+    path above that. If a future ATOM raises the kernel's real limit, the cap silently keeps the
+    slower fallback for large batches — correct output, quietly worse throughput, and nothing
+    fails. The 256 threshold is the number to re-check on a base bump.
+
+history:
+  born:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+  last_modified:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+    reason: Unchanged since it was written.
+
+upstream_issues: null
+
+upstream_prs: null
+
+related_refs: null
+
+problem:
+  what: >-
+    The stock atom/models/minimax_m2.py in the base image fails to load, and its TP fused
+    QK-norm all-reduce kernel is unsafe for large batches.
+  why: >-
+    Two independent problems. (A) The model file passes dtype= to get_rope(), but the installed
+    rope API does not accept it, so import raises a TypeError — the model file and the rope
+    module in the same image are out of sync. (B) The TP fused QK-norm all-reduce kernel does not
+    hold for large batches, so it needs a size guard rather than being taken unconditionally.
+  how: >-
+    Two minimal, independently guarded hunks: (A) drop the dtype= kwarg from the get_rope call;
+    (B) guard the fused kernel with qkv.shape[0] <= 256 so larger batches fall back to the manual
+    fp32 QK-norm path. Each hunk is applied only if its exact, unique pre-image is present, and
+    a missing or non-unique pre-image skips that hunk with a loud warning instead of editing code
+    the patch does not recognise.
+  before_fix: TypeError from get_rope() at model load — MiniMax-M2 cannot start.
+  after_fix: >-
+    MiniMax-M2 loads and runs. Correct OUTPUT additionally requires the triton/unified attention
+    backend, which is selected at launch (ATOM_USE_UNIFIED_ATTN=1 plus --block-size 64 in
+    models/minimax_m27.conf) and is not this patch's job.
+  context: >-
+    MiniMax-M2 on the rocm/atom 0.1.4 base image. Nothing model-agnostic here — both hunks are
+    specific to minimax_m2.py.
+  call_chain:
+    - "atom/models/minimax_m2.py imported at model load"
+    - "get_rope(..., dtype=getattr(quant_config, 'torch_dtype', None)) -> TypeError"
+    - "(separately) TP fused QK-norm all-reduce kernel taken unconditionally for any batch size"
+  symptom_signature: "TypeError from get_rope() during MiniMax-M2 model load"
+  silent: false
+
+verification:
+  date: 2026-07-20
+  hardware: AMD ROCm
+  software: ATOM 0.1.4 base image
+  workload: MiniMax-M2 model load and serve
+  result: >-
+    Model loads and runs. Coherent output needs the unified attention backend selected at launch,
+    which is configured separately.
+  notes: >-
+    Worth keeping the two concerns distinct: this patch makes the model START; the launch config
+    makes it CORRECT. Conflating them has previously led to blaming the patch for output quality.
+
+scope_limits: >-
+  Makes MiniMax-M2 start. It does not make its output correct — that needs
+  ATOM_USE_UNIFIED_ATTN=1 and --block-size 64 from models/minimax_m27.conf.
+
+open_actions:
+  - action: >-
+      Get a base image whose minimax_m2.py matches its own rope API. Hunk A is fixing an
+      inconsistency inside the vendor image, which is the vendor's to resolve.
+    owner: unassigned
+    blocked_on: null
+  - action: >-
+      Establish the fused QK-norm kernel's real batch limit so the 256 guard is a measured
+      threshold rather than a safe-looking round number.
+    owner: unassigned
+    blocked_on: null

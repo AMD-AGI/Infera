@@ -1,0 +1,183 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - gh-pr-issue-state
+  - gh-search
+  - upstream-source-read
+  - local-repro
+
+patch:
+  path: deploy/docker/patches/vllm/patch_sched_guard.py
+  kind: python-anchor-script
+  idempotent: true
+  applied_by:
+    - Dockerfile.vllm
+    - deploy/overlay/Dockerfile.payload
+    - deploy/overlay/infera-exec
+  opt_in_flag: null
+
+target:
+  library: vllm
+  component: scheduler
+  repo: vllm-project/vllm
+  files:
+    - vllm/v1/core/sched/scheduler.py
+  versions:
+    - surface: Dockerfile.vllm
+      ref: v0.25.1
+      commit: null
+      pinned_ref_on_main: false
+      release_branch: null
+      unpinned_risk: >-
+        Consumed as a published image digest rather than a git ref; the digest is the pin.
+      images:
+        - tag: vllm/vllm-openai-rocm:v0.25.1
+          digest: sha256:84459732ca98b40fe2f5338a3f050be6d522504e47a484a5180d58fb75956f86
+          digest_source: dockerfile-pin
+          note: vllm 0.25.1, torch 2.11.0, ROCm 7.2.3.
+
+upstream_main_affected:
+  value: true
+  evidence: >-
+    Read from upstream main on 2026-08-05: v1/core/sched/scheduler.py still has the bare
+    `assert req_id in self.requests` at both call sites, with three open issues against it
+    and no PR.
+
+applies_to:
+  - engine: vllm
+    surface: Dockerfile.vllm (v0.25.1 base)
+    effect: op
+    required_to_run: false
+    evidence: >-
+      Keeps the decode EngineCore alive under concurrent PD load. Deliberately NOT
+      required to run: it is applied for throughput runs and should be considered
+      unwanted for correctness testing — see scope_limits.
+  - engine: vllm
+    surface: deploy/overlay/infera-exec
+    effect: op
+    required_to_run: false
+    evidence: Same patch on the runtime-overlay path.
+
+alive_because:
+  reason: no-upstream-pr
+  detail: >-
+    Three independent upstream issues describe this exact assert and all three are OPEN
+    with no PR against any of them. Nobody has fixed it upstream, ourselves included —
+    though in our case that is defensible, because what we carry is a symptom guard and
+    not a fix, and upstreaming a symptom guard would be the wrong contribution.
+  consumers:
+    - Dockerfile.vllm and the overlay payload, for PD throughput runs
+  drop_when: >-
+    Upstream replaces the assert with real handling of late KV-transfer-finished events —
+    which means fixing the race, not guarding it.
+  drop_signal: self-guard-marker-skips
+  silent_misapply_risk: >-
+    This patch converts a crash into a warning while the underlying race still loses the
+    racing request's KV transfer. Carrying it on a correctness run therefore HIDES a
+    correctness defect. That is the risk here — not that the patch becomes stale, but that
+    it is applied on a run whose purpose is to surface what it suppresses.
+
+history:
+  born:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+  last_modified:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+    reason: Unchanged since it was written.
+
+upstream_issues:
+  - ref: vllm-project/vllm#43226
+    url: https://github.com/vllm-project/vllm/issues/43226
+    kind: issue
+    title: "assert req_id in self.requests in _update_from_kv_xfer_finished for an aborted/freed request"
+    state: OPEN
+    state_reason: null
+    author: null
+    note: The most discussed of the three (5 comments). Same assert, aborted-request trigger.
+  - ref: vllm-project/vllm#46240
+    url: https://github.com/vllm-project/vllm/issues/46240
+    kind: issue
+    title: "Scheduler assert when finished_recving and finished_sending arrive in one step"
+    state: OPEN
+    state_reason: null
+    author: null
+    note: Same assert, different trigger — both events in a single step.
+  - ref: vllm-project/vllm#49089
+    url: https://github.com/vllm-project/vllm/issues/49089
+    kind: issue
+    title: "Late KV-transfer-finished event for an already-failed request trips the scheduler assert"
+    state: OPEN
+    state_reason: null
+    author: null
+    note: >-
+      Same assert again. Three independent reporters and no PR is the useful signal here:
+      the race is real and unowned upstream.
+  - ref: internal#69
+    url: https://github.com/AMD-AGI/Infera/issues/69
+    kind: issue
+    title: "PD: decode EngineCore dies on assert req_id in self.requests under concurrent load"
+    state: OPEN
+    state_reason: null
+    author: null
+    note: >-
+      Our tracker item, quoted in the patch docstring. Resolves against an internal
+      tracker, so a 404 is expected rather than stale.
+
+upstream_prs: null
+
+related_refs: null
+
+problem:
+  what: >-
+    Under concurrent PD load the decode EngineCore dies on
+    `assert req_id in self.requests` in scheduler._update_from_kv_xfer_finished — a
+    KV-transfer-finished event arrives for a request that has already been removed.
+  why: >-
+    The scheduler assumes a KV-transfer-finished event can only refer to a live request.
+    It can't guarantee that: the request can be aborted, freed, or completed between the
+    transfer being issued and the event arriving, and both the recving and sending paths
+    have the same assumption.
+  how: >-
+    Skip the stale event with a warning instead of asserting, at both call sites. This is
+    explicitly a symptom guard, not a repair — the racing request still loses its KV
+    transfer.
+  before_fix: The decode EngineCore process dies, taking the deployment down mid-run.
+  after_fix: >-
+    The engine stays up and logs "KV xfer finished for unknown req <id> (recving/sending);
+    skipping stale event". The affected request is still wrong.
+  context: >-
+    Concurrent PD load on vLLM. Applied for THROUGHPUT runs where correctness checking is
+    off; it must not be applied to correctness tests, which should surface the race.
+  call_chain:
+    - "vllm/v1/core/sched/scheduler.py :: _update_from_kv_xfer_finished"
+    - "finished_recving / finished_sending event for a req_id already removed from self.requests"
+    - "bare assert -> EngineCore process death"
+  symptom_signature: "assert req_id in self.requests"
+  silent: false
+
+verification:
+  date: 2026-07-20
+  hardware: AMD ROCm multi-node PD
+  software: vLLM
+  workload: concurrent PD throughput
+  result: EngineCore survives; the stale event is logged and skipped.
+  notes: >-
+    "Works" here means the process stays up, which is the whole intent and also the whole
+    limitation.
+
+scope_limits: >-
+  Does NOT fix the underlying correctness race — the racing request still loses its KV
+  transfer. Apply for throughput runs; leave it off for correctness runs so the race
+  stays visible.
+
+open_actions:
+  - action: >-
+      Decide whether to pursue the real fix upstream. Three open issues and no PR means
+      the race is unowned; a proper repair would be a genuine contribution where this
+      guard would not.
+    owner: unassigned
+    blocked_on: null

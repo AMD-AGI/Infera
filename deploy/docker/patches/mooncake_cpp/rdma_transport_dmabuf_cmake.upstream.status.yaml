@@ -1,0 +1,159 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - gh-pr-issue-state
+  - gh-search
+  - local-repro
+
+patch:
+  path: deploy/docker/patches/mooncake_cpp/rdma_transport_dmabuf_cmake.diff
+  kind: git-diff
+  idempotent: true
+  applied_by:
+    - deploy/docker/patches/mooncake_cpp/apply_mooncake_cpp_patches.sh
+    - Dockerfile.sglang
+    - Dockerfile.sglang.gfx942
+    - Dockerfile.vllm
+    - Dockerfile.atom
+    - deploy/overlay/Dockerfile.payload
+  opt_in_flag: MOONCAKE_HIP_DMABUF=1 (build ARG; default 0)
+
+target:
+  library: mooncake
+  component: transfer-engine-rdma
+  repo: kvcache-ai/Mooncake
+  files:
+    - mooncake-transfer-engine/CMakeLists.txt
+    - mooncake-transfer-engine/src/transport/rdma_transport/rdma_context.cpp
+  versions:
+    - surface: all images (MOONCAKE_GIT_REF)
+      ref: main @ 747003c
+      commit: 747003c058015c4077a266e7ccd7549bbc9baede
+      pinned_ref_on_main: true
+      release_branch: null
+      images: []
+
+upstream_main_affected:
+  value: false
+  evidence: >-
+    Mooncake#2543 is MERGED (2026-07-24) and 747003c predates it, so main carries
+    dma-buf GPUDirect registration and our pin does not.
+
+applies_to:
+  - engine: sglang
+    surface: Dockerfile.sglang / Dockerfile.sglang.gfx942
+    effect: op
+    required_to_run: false
+    evidence: >-
+      Only when MOONCAKE_HIP_DMABUF=1. Default is 0, in which case GPU memory is
+      registered with bare ibv_reg_mr via host-libionic injection and this diff is not
+      needed. It IS required on a dma-buf-only RoCE fabric with no ib_peer_mem, e.g. the
+      crusoe amd-spur cluster, where bare ibv_reg_mr cannot pin VRAM at all.
+  - engine: vllm
+    surface: Dockerfile.vllm (MOONCAKE_HIP_DMABUF ARG, default 0)
+    effect: op
+    required_to_run: false
+    evidence: Same ARG, same condition.
+  - engine: atom
+    surface: Dockerfile.atom
+    effect: op
+    required_to_run: false
+    evidence: Same ARG, same condition.
+
+alive_because:
+  reason: merged-not-in-pinned-base
+  detail: >-
+    Upstream merged the equivalent as #2543 on 2026-07-24; MOONCAKE_GIT_REF is still
+    747003c (2026-06-26), which is behind it. Purely a pin lag.
+  consumers:
+    - any image built with MOONCAKE_HIP_DMABUF=1 (dma-buf-only fabrics such as crusoe amd-spur)
+  drop_when: "MOONCAKE_GIT_REF advances past #2543's merge commit."
+  drop_signal: pin-advance-only
+  silent_misapply_risk: >-
+    The apply script's `git apply --reverse --check` makes an already-fixed pin a clean
+    skip, so advancing the pin will not fail the build — nothing will announce that this
+    diff has become redundant. Track it by the pin, not by the build log.
+
+history:
+  born:
+    date: 2026-07-29
+    commit: a322e14
+    subject: add pd utest on crusoe cluster
+  last_modified:
+    date: 2026-07-29
+    commit: a322e14
+    subject: add pd utest on crusoe cluster
+    reason: >-
+      Added for the crusoe amd-spur bring-up, where the fabric offers no ib_peer_mem and
+      dma-buf is the only way to register VRAM. Unchanged since.
+
+upstream_issues: null
+
+upstream_prs:
+  - ref: kvcache-ai/Mooncake#2543
+    url: https://github.com/kvcache-ai/Mooncake/pull/2543
+    title: "feat(rdma): support dma-buf GPUDirect memory registration"
+    state: MERGED
+    review_decision: null
+    merged_at: 2026-07-24
+    author: null
+    ours: false
+    same_approach: true
+    approach_note: >-
+      Same mechanism — detect ibv_reg_dmabuf_mr at configure time and use it for GPU
+      buffers. Ours is the same content carried against the older pin; nothing here is
+      local-only.
+    requested_action: null
+    in_pinned_base: false
+
+related_refs: null
+
+problem:
+  what: >-
+    Mooncake at our pin has no dma-buf GPUDirect registration path, so on a fabric that
+    exposes only dma-buf it cannot register VRAM for RDMA at all.
+  why: >-
+    Registration goes through bare ibv_reg_mr, which needs the legacy ib_peer_mem kernel
+    module to pin device memory. On a dma-buf-only RoCE fabric that module is absent, so
+    there is no mechanism by which the VRAM can be pinned.
+  how: >-
+    Detect ibv_reg_dmabuf_mr availability in CMakeLists.txt and, when
+    MOONCAKE_HIP_DMABUF=1, register GPU buffers through it (dma-buf GPUDirect) instead of
+    bare ibv_reg_mr.
+  before_fix: >-
+    On crusoe amd-spur, GPU memory registration fails outright — RDMA cannot be set up,
+    so cross-node PD never starts.
+  after_fix: >-
+    GPU buffers register via ibv_reg_dmabuf_mr and cross-node PD works on the dma-buf-only
+    fabric. PD unit tests pass there.
+  context: >-
+    Fabric-dependent, not model-dependent. Required on crusoe amd-spur (dma-buf only, no
+    ib_peer_mem). On ionic the default path (bare ibv_reg_mr + host-libionic injection)
+    works, but must not be used at high utilisation — see HIP-209.
+  call_chain:
+    - "mooncake-transfer-engine/CMakeLists.txt — probes for ibv_reg_dmabuf_mr"
+    - "RdmaContext::registerMemoryRegionInternal — bare ibv_reg_mr for GPU buffers"
+    - "no ib_peer_mem -> VRAM cannot be pinned -> registration fails"
+  symptom_signature: GPU memory registration failure on a fabric without ib_peer_mem
+  silent: false
+
+verification:
+  date: 2026-07-29
+  hardware: crusoe amd-spur cluster (dma-buf-only RoCE, no ib_peer_mem)
+  software: Mooncake main @ 747003c with MOONCAKE_HIP_DMABUF=1
+  workload: cross-node PD unit tests
+  result: Registration succeeds and the PD tests pass on that fabric.
+  notes: null
+
+scope_limits: >-
+  Opt-in only. With the default MOONCAKE_HIP_DMABUF=0 this changes nothing, so it is not
+  a fix for the ionic default path.
+
+open_actions:
+  - action: >-
+      Advance MOONCAKE_GIT_REF past #2543 and drop this diff — same pin bump that retires
+      rdma_auto_chunk_mr_2017.diff.
+    owner: unassigned
+    blocked_on: >-
+      The same pin advance also pulls #2682/#2725; sequence it with the hip-transport gate.

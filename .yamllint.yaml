@@ -1,0 +1,42 @@
+# Style gate for the hand-written YAML under deploy/docker/ (the patch status
+# records and their index). check-yaml already answers "does this parse"; this
+# answers "does it say what its author meant".
+#
+# Scoped by the pre-commit hook's `files:`, not from here — the k8s manifests and
+# Helm charts under deploy/operator/ are a much larger body of existing YAML and
+# are deliberately left alone for now.
+#
+# Run by hand over the same set:
+#   yamllint $(git ls-files 'deploy/docker/**/*.yaml')
+
+extends: default
+
+rules:
+  # The records quote upstream verbatim — issue titles, engine error strings,
+  # call chains — and those have to stay byte-exact to stay greppable, so the
+  # limit is set where it catches a runaway line without asking anyone to reflow
+  # a fact. 80 (the default) is unusable here; the longest line today is 156.
+  line-length:
+    max: 160
+    allow-non-breakable-words: true  # a bare URL should not have to wrap
+
+  # These are single-document files by construction; the schemas have no notion
+  # of a multi-doc record, so a leading `---` would be noise on all 27 of them.
+  document-start: disable
+
+  # This one is load-bearing, not cosmetic. In YAML an unquoted ` #` opens a
+  # comment, so `action: Get #2725 reviewed; ...` silently parses as `Get` and
+  # the rest of the sentence is discarded. Eleven values were losing text that
+  # way before this hook went in — every one of them a PR number mid-sentence.
+  comments:
+    require-starting-space: true
+    min-spaces-from-content: 2
+
+  # Warnings are failures: a hook that prints and exits 0 teaches people to
+  # ignore it.
+  truthy:
+    level: error
+  braces:
+    level: error
+  brackets:
+    level: error

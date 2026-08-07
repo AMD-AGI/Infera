@@ -1,0 +1,177 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - gh-pr-issue-state
+  - git-compare
+  - local-repro
+
+patch:
+  path: deploy/docker/patches/mooncake_cpp/rdma_auto_chunk_mr_2017.diff
+  kind: git-diff
+  idempotent: true
+  applied_by:
+    - deploy/docker/patches/mooncake_cpp/apply_mooncake_cpp_patches.sh
+    - Dockerfile.sglang
+    - Dockerfile.sglang.gfx942
+    - Dockerfile.vllm
+    - Dockerfile.atom
+    - deploy/overlay/Dockerfile.payload
+  opt_in_flag: null
+
+target:
+  library: mooncake
+  component: transfer-engine-rdma
+  repo: kvcache-ai/Mooncake
+  files:
+    - mooncake-transfer-engine/include/transport/rdma_transport/rdma_transport.h
+    - mooncake-transfer-engine/src/transport/rdma_transport/rdma_context.cpp
+    - mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp
+  versions:
+    - surface: all images (MOONCAKE_GIT_REF)
+      ref: main @ 747003c
+      commit: 747003c058015c4077a266e7ccd7549bbc9baede
+      pinned_ref_on_main: true
+      release_branch: null
+      images: []
+
+upstream_main_affected:
+  value: false
+  evidence: >-
+    Mooncake#2644 is MERGED (2026-07-28) and the pin is an ancestor of main, so main
+    carries the fix. Established with `git compare` between #2644's merge commit and
+    747003c: the pin is BEHIND the merge, so main has it and we do not.
+
+applies_to:
+  - engine: sglang
+    surface: Dockerfile.sglang / Dockerfile.sglang.gfx942 (Mooncake rebuilt in place)
+    effect: op
+    required_to_run: false
+    evidence: >-
+      Load-bearing only above the device max_mr_size — on ionic that is ~2 GiB, which a
+      real KV pool exceeds. `git apply --reverse --check` in the apply script makes the
+      already-applied case an idempotent skip.
+  - engine: vllm
+    surface: Dockerfile.vllm (build_mooncake_rocm.sh, MOONCAKE_DMABUF=1)
+    effect: op
+    required_to_run: false
+    evidence: Same diff, same pin, same reasoning.
+  - engine: atom
+    surface: Dockerfile.atom
+    effect: op
+    required_to_run: false
+    evidence: Same diff, same pin.
+
+alive_because:
+  reason: merged-not-in-pinned-base
+  detail: >-
+    Ours, and merged upstream on 2026-07-28 — but MOONCAKE_GIT_REF is still 747003c
+    (2026-06-26), which is behind that merge. So the local diff is still doing the work.
+  consumers:
+    - all four engine images plus the overlay payload, on any fabric whose max_mr_size is
+      smaller than the KV pool
+  drop_when: "MOONCAKE_GIT_REF advances past #2644's merge commit."
+  drop_signal: pin-advance-only
+  silent_misapply_risk: >-
+    Low but not zero: `git apply --reverse --check` detects the already-applied case and
+    skips, so a pin advance past #2644 produces a clean skip rather than a failure. That
+    is the desired behaviour, but it means nothing announces that the diff has become
+    dead weight — only the pin tells you.
+
+history:
+  born:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+  last_modified:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+    reason: >-
+      Unchanged since it was written — the upstream review of #2644 did not require a
+      change to the local diff.
+
+upstream_issues:
+  - ref: kvcache-ai/Mooncake#2017
+    url: https://github.com/kvcache-ai/Mooncake/issues/2017
+    kind: issue
+    title: Buffers larger than device max_mr_size are silently truncated
+    state: CLOSED
+    state_reason: "fixed by #2644"
+    author: null
+    note: >-
+      Our own report, and the number the diff and its chunk_map_ comments cite
+      throughout.
+
+upstream_prs:
+  - ref: kvcache-ai/Mooncake#2644
+    url: https://github.com/kvcache-ai/Mooncake/pull/2644
+    title: "fix(rdma): auto-chunk MRs larger than device max_mr_size (#2017)"
+    state: MERGED
+    review_decision: null
+    merged_at: 2026-07-28
+    author: jiejingzhangamd
+    ours: true
+    same_approach: true
+    approach_note: >-
+      Same change, upstreamed by us and merged. The local diff is the same content
+      carried against the older pin.
+    requested_action: null
+    in_pinned_base: false
+
+related_refs: null
+
+problem:
+  what: >-
+    Buffers larger than the device max_mr_size are silently truncated by ibv_reg_mr while
+    BufferDesc.length keeps advertising the full size, so RDMA operations whose target
+    lands past the boundary fail.
+  why: >-
+    registerMemoryRegionInternal saw `length > max_mr_size`, logged a warning and simply
+    shortened `length`. The registration then succeeded for a shorter region than the
+    descriptor advertises, so a remote peer computes a valid-looking address inside a
+    region that was never registered.
+  how: >-
+    Chunk at registration time: registerLocalMemory splits buffers into <= max_mr_size
+    MRs, one BufferDesc per chunk. Because unregisterLocalMemory() only receives the base
+    address, the transport remembers each base buffer's chunk start addresses in a
+    chunk_map_ guarded by chunk_map_mutex_ so cleanup can find them. The truncation site
+    itself becomes a hard error rather than a warning — after chunking, no larger buffer
+    should ever reach it, so failing loudly is correct.
+  before_fix: >-
+    IBV_WC_REM_ACCESS_ERR on RDMA operations whose target lands past the truncation
+    boundary, with only a PLOG(WARNING) at registration to hint at why.
+  after_fix: >-
+    Large KV pools register as multiple MRs and cross-node transfers complete. A buffer
+    that somehow still exceeds max_mr_size now returns ERR_INVALID_ARGUMENT instead of
+    registering short.
+  context: >-
+    AMD MI355X + ionic RoCE, where max_mr_size is about 2 GiB — comfortably smaller than
+    a production KV pool. Any fabric with a max_mr_size below the pool size hits this;
+    it is not ROCm-specific, which is why upstream took it.
+  call_chain:
+    - "RdmaTransport::registerLocalMemory(addr, length, ...)"
+    - "RdmaContext::registerMemoryRegionInternal — compared length > globalConfig().max_mr_size and shrank length"
+    - "ibv_reg_mr registers a shorter region than BufferDesc.length advertises"
+    - "remote RDMA op targeting past the boundary -> IBV_WC_REM_ACCESS_ERR"
+  symptom_signature: IBV_WC_REM_ACCESS_ERR past the max_mr_size boundary
+  silent: false
+
+verification:
+  date: 2026-07-20
+  hardware: AMD MI355X, ionic RoCE (max_mr_size ~2 GiB)
+  software: Mooncake main @ 747003c
+  workload: cross-node PD KV transfer with a KV pool larger than max_mr_size
+  result: "REM_ACCESS_ERR cleared; upstream accepted the same change as #2644."
+  notes: null
+
+scope_limits: null
+
+open_actions:
+  - action: >-
+      Advance MOONCAKE_GIT_REF past #2644 and drop this diff. It is the cleanest
+      retirement available — our own merged fix, only the pin holding it.
+    owner: unassigned
+    blocked_on: >-
+      A pin advance also pulls #2682/#2725, which changes the hip-transport picture; do
+      the two together, not separately.

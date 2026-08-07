@@ -1,0 +1,128 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - gh-search
+  - local-repro
+
+patch:
+  path: deploy/docker/patches/vllm-dsv4/patch_moriio_dsv4_sparse_backend.py
+  kind: python-anchor-script
+  idempotent: true
+  applied_by:
+    - Dockerfile.vllm
+  opt_in_flag: null
+
+target:
+  library: vllm
+  component: moriio
+  repo: vllm-project/vllm
+  files:
+    - vllm/distributed/kv_transfer/kv_connector/v1/moriio/moriio_connector.py
+  versions:
+    - surface: Dockerfile.vllm
+      ref: v0.25.1
+      commit: null
+      pinned_ref_on_main: false
+      release_branch: null
+      unpinned_risk: >-
+        Consumed as a published image digest rather than a git ref. The patch's own header
+        records verification against vllm 0.23.x.
+      images:
+        - tag: vllm/vllm-openai-rocm:v0.25.1
+          digest: sha256:84459732ca98b40fe2f5338a3f050be6d522504e47a484a5180d58fb75956f86
+          digest_source: dockerfile-pin
+          note: vllm 0.25.1, torch 2.11.0, ROCm 7.2.3.
+
+upstream_main_affected:
+  value: null
+  evidence: Not established — main was not read, and no search hit exists as of 2026-08-05.
+
+applies_to:
+  - engine: vllm
+    surface: Dockerfile.vllm (vllm-dsv4-patches loop)
+    effect: unverified
+    required_to_run: false
+    evidence: >-
+      Verified load-bearing on vllm 0.23.x for DSv4-Pro 1P1D. Not re-verified on v0.25.1. The
+      anchor is matched verbatim so drift skips rather than mis-patches.
+
+alive_because:
+  reason: no-upstream-pr
+  detail: Nothing upstream and nothing of ours.
+  consumers:
+    - Dockerfile.vllm, for DeepSeek-V4 sparse MLA MoRIIO PD
+  drop_when: >-
+    A base vLLM's ROCm backend selector recognises fp8_ds_mla sparse MLA, or MoRIIO stops
+    routing a handshake tag through the full backend-selection path.
+  drop_signal: self-guard-marker-skips
+  silent_misapply_risk: >-
+    The patch hardcodes backend_name for one model family. If a future base changes what
+    backend_name means — from a P/D handshake tag to something the transfer path actually
+    dispatches on — a hardcoded value would be wrong rather than merely cosmetic. That
+    assumption is the load-bearing part of this fix and should be re-checked on a base bump.
+
+history:
+  born:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+  last_modified:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+    reason: Unchanged across two base bumps.
+
+upstream_issues: null
+
+upstream_prs: null
+
+related_refs: null
+
+problem:
+  what: >-
+    MoRIIO asks the generic ROCm backend selector for a backend name purely to fill a P/D
+    handshake tag, and for DSv4 sparse MLA that query raises and kills the prefill worker.
+  why: >-
+    The generic selector returns ROCM_AITER_MLA_SPARSE, which does not support fp8_ds_mla, so
+    get_attn_backend() raises. The irony is that the return value is only used as a handshake
+    STRING — nothing dispatches on it — so a fatal query is being made for a cosmetic purpose.
+  how: >-
+    For DSv4 sparse MLA specifically (use_mla and hf_config.index_topk and cache_dtype
+    fp8_ds_mla), skip the generic query and set backend_name directly to
+    ROCM_FLASHMLA_SPARSE_DSV4. Every other model keeps the original path. The old code is
+    matched verbatim so drift skips loudly rather than mis-patching.
+  before_fix: >-
+    get_attn_backend() raises during MoRIIO setup and the prefill worker dies, so DSv4 sparse
+    MLA PD never starts.
+  after_fix: DSv4-Pro serves over MoRIIO 1P1D with the correct handshake tag.
+  context: >-
+    DeepSeek-V4-Pro sparse MLA (fp8_ds_mla, index_topk) with MoRIIOConnector 1P1D on ROCm,
+    verified on vllm 0.23.x.
+  call_chain:
+    - "moriio_connector.py :: setup -> get_attn_backend(...) to obtain backend_name"
+    - "generic ROCm selector returns ROCM_AITER_MLA_SPARSE, which lacks fp8_ds_mla -> raises"
+    - "prefill worker dies"
+  symptom_signature: get_attn_backend raising for fp8_ds_mla during MoRIIO handshake setup
+  silent: false
+
+verification:
+  date: 2026-07-20
+  hardware: AMD ROCm 1P1D
+  software: vllm 0.23.x ROCm, MoRIIOConnector
+  workload: DeepSeek-V4-Pro sparse MLA MoRIIO PD
+  result: Prefill worker survives setup and PD serves.
+  notes: null
+
+scope_limits: >-
+  DSv4 sparse MLA only, gated on use_mla + index_topk + fp8_ds_mla. Other models are untouched.
+
+open_actions:
+  - action: Re-verify on the v0.25.1 base together with the other three DSv4 MoRIIO patches.
+    owner: unassigned
+    blocked_on: null
+  - action: >-
+      Confirm backend_name is still only a handshake tag on the current base — the whole fix
+      rests on that.
+    owner: unassigned
+    blocked_on: null

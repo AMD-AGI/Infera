@@ -1,4 +1,8 @@
-# vllm-dsv4/legacy — deprecated / upstreamed DSv4 patches (not baked into any image)
+# archived/vllm-dsv4 — deprecated / upstreamed DSv4 patches (not baked into any image)
+
+> Moved here from `patches/vllm-dsv4/legacy/` on 2026-08-05. The authoritative record for
+> these is now [`../patch.archived.yaml`](../patch.archived.yaml); this file is kept as the
+> original provenance note. Nothing under `archived/` is copied into any image.
 
 ## Purpose
 
@@ -30,4 +34,5 @@ archival and provenance.
 - `patch_dsv4_mhc_aiter`'s functionality is upstream via a **different implementation**
   (aiter as the MHC default rather than an env gate) — "functionally upstream, different
   form" — so the monkey-patch anchor mismatches on dev748 and auto-skips.
-- Active DSv4 patches live in the parent directory `../` (the moriio_dsv4 trio).
+- Active DSv4 patches live in `deploy/docker/patches/vllm-dsv4/` (the moriio_dsv4 trio),
+  each with its own `.upstream.status.yaml` record.

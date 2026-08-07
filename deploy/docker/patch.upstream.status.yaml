@@ -1,0 +1,550 @@
+# yaml-language-server: $schema=patches/_schema/patch.upstream.index.schema.json
+#
+# Every third-party patch this repo carries, grouped by the library it patches.
+#
+# This file is an INDEX. It holds only what you need to decide whether to open the
+# per-patch record: which engines see the patch, why it is still here, and how you will
+# find out when it can go. The argument — root cause, upstream state, evidence, call
+# chain, verification — lives in the referenced <patch>.upstream.status.yaml, and the
+# patch's own header carries the code-level detail.
+#
+# Validated by scripts/validate-patch-status.py against
+# patches/_schema/patch.upstream.index.schema.json, which also cross-checks that every
+# patch on disk has a record and that the totals below match. A patch added without a
+# record fails the lint gate.
+#
+# Replaces patch.upstream.status.md (removed in the same change).
+schema_version: 1
+status_updated: 2026-08-05
+
+verification_note: >-
+  Every row was re-established on 2026-08-05: patch header read, `gh` queried for the
+  live state of each PR and issue, and for the rows where a search found nothing, upstream
+  `main` read directly through the contents API. What is NOT covered: no image was built
+  or inspected, so the four rows whose effect depends on what the pinned base already
+  carries are marked `unverified` in their records rather than guessed at. Treat any row
+  whose status_updated has drifted far from today as a prompt to re-check, not as fact.
+
+pinned_bases:
+  - surface: Dockerfile.sglang
+    library: sglang
+    ref: v0.5.15.post1
+    commit: 0b3bb0cbe318
+    pinned_ref_on_main: false
+    image:
+      tag: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
+      digest: null
+      digest_source: unresolved
+    note: >-
+      gfx950 / MI355X. On release/v0.5.15, not main — so upstream main fixes do not arrive
+      by a patch-level bump. release/v0.5.17 already exists upstream.
+  - surface: Dockerfile.sglang.gfx942
+    library: sglang
+    ref: v0.5.16
+    commit: fdebc938f7f4
+    pinned_ref_on_main: false
+    image:
+      tag: lmsysorg/sglang:v0.5.16-rocm720-mi30x
+      digest: null
+      digest_source: unresolved
+    note: >-
+      gfx942 / MI325X. On release/v0.5.16. The two sglang bases disagree about which
+      patches they need, which is why several records carry two target versions.
+  - surface: Dockerfile.vllm
+    library: vllm
+    ref: v0.25.1
+    commit: null
+    pinned_ref_on_main: false
+    image:
+      tag: vllm/vllm-openai-rocm:v0.25.1
+      digest: sha256:84459732ca98b40fe2f5338a3f050be6d522504e47a484a5180d58fb75956f86
+      digest_source: dockerfile-pin
+    note: >-
+      The only digest-pinned base in the tree. vllm 0.25.1, torch 2.11.0, ROCm 7.2.3.
+  - surface: Dockerfile.atom
+    library: atom
+    ref: atom0.1.4
+    commit: null
+    pinned_ref_on_main: null
+    image:
+      tag: rocm/atom:rocm7.2.4_ubuntu24.04_py3.12_pytorch_release_2.10.0_atom0.1.4_20260612
+      digest: null
+      digest_source: unresolved
+    note: Internal engine — no public repo, so there is no commit and no notion of main.
+  - surface: all images (MOONCAKE_GIT_REF)
+    library: mooncake
+    ref: main @ 747003c
+    commit: 747003c058015c4077a266e7ccd7549bbc9baede
+    pinned_ref_on_main: true
+    image: null
+    note: >-
+      Rebuilt in place in every engine image. The only base pinned to a real upstream commit,
+      and the only one on main. It is 2026-06-26 and two of our own merged fixes are newer,
+      so advancing it retires two patches at once.
+  - surface: Dockerfile.vllm (BUILD_AITER=1)
+    library: aiter
+    ref: v0.1.16.post1
+    commit: null
+    pinned_ref_on_main: null
+    image: null
+    note: >-
+      Built in-container from a tag. The flydsl patch was verified against 0.1.16.post2, one
+      patch level above this — they have drifted.
+  - surface: Dockerfile.vllm (BUILD_HIPFILE=1)
+    library: hipfile
+    ref: unpinned-default-branch
+    commit: null
+    pinned_ref_on_main: true
+    image: null
+    note: >-
+      NOT PINNED. build_hipfile.sh clones HEAD of ROCm/rocm-systems, so image content is a
+      function of the build DATE. Two images from the same infera commit built either side of
+      2026-07-16 contain different hipfile code. Worth fixing independently of any patch.
+
+libraries:
+  sglang:
+    repo: sgl-project/sglang
+    note: >-
+      Two bases, and they need different patch sets. The two --fuzz=0 context diffs apply only
+      to v0.5.15.post1; the gfx942 image substitutes a runtime flag for one of them and does
+      not address the other.
+    patches:
+      - patch: deploy/docker/patches/sglang/patch_glm52_nextn_quark_exclude.py
+        record: deploy/docker/patches/sglang/patch_glm52_nextn_quark_exclude.upstream.status.yaml
+        component: quantization
+        engines: [sglang]
+        status: drop-candidate
+        alive_because: >-
+          sglang#30265 merged 2026-07-08 but release/v0.5.15 was cut without it
+        drop_signal: base-version-only
+        ours_upstream_pr: null
+        summary: >-
+          GLM-5.2's bf16 MTP layer is built as MXFP4 because the quark exclude probe tests the
+          bare layer prefix instead of the eh_proj submodule, so the draft weight-load asserts.
+          A narrow one-line backport of #30265, applied to the mi35x base only. WARNING: the
+          anchor does NOT disappear on a fixed base — #30265 left the matched string on main —
+          so decide the drop from the base version, not from the build log.
+      - patch: deploy/docker/patches/sglang_disagg/patch_mooncake_early_send_wait_event.py
+        record: deploy/docker/patches/sglang_disagg/patch_mooncake_early_send_wait_event.upstream.status.yaml
+        component: disaggregation
+        engines: [sglang]
+        status: carry-no-upstream-fix
+        alive_because: not submitted upstream; main confirmed affected by source read
+        drop_signal: self-guard-marker-skips
+        ours_upstream_pr: null
+        summary: >-
+          SILENT CORRECTNESS BUG. Chunked prefill over mooncake PD RDMA-reads KV pages while the
+          forward is still writing them, because the barrier prefill.py records is only ever read
+          by mori/conn.py — mooncake/conn.py has no wait_event at all. Long prompts come back
+          partially wrong with no log line. Needle retrieval 5/9 -> 9/9.
+      - patch: deploy/docker/patches/sglang_dsa/patch_dsa_indexer_hip_dp_padded_rows.py
+        record: deploy/docker/patches/sglang_dsa/patch_dsa_indexer_hip_dp_padded_rows.upstream.status.yaml
+        component: dsa
+        engines: [sglang]
+        status: carry-upstream-pr-open
+        alive_because: our sglang#33059 is open and unreviewed; both bases are release-branch pins
+        drop_signal: anchor-drift-fails-loudly
+        ours_upstream_pr: sgl-project/sglang#33059
+        summary: >-
+          The aiter/HIP paged-MQA branch sizes logits and lengths from different row counts, which
+          diverge in BOTH directions under DP-attention. Reconciles to min(real, padded). The only
+          sglang_dsa patch that runs on both bases, because it is an anchor script rather than a
+          --fuzz=0 diff.
+      - patch: deploy/docker/patches/sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff
+        record: deploy/docker/patches/sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.upstream.status.yaml
+        component: dsa
+        engines: [sglang]
+        status: carry-no-upstream-fix
+        alive_because: >-
+          no upstream PR for the DP host-sync deadlock at all; the one PR touching the row
+          mismatch takes an approach that fails here at concurrency 32
+        drop_signal: anchor-drift-fails-loudly
+        ours_upstream_pr: null
+        summary: >-
+          Two independent defects. A blocking device-to-host sync on a DP-divergent branch
+          deadlocks the group; and the decode page table is per-request while top-k is per-token
+          under MTP, which asserts. gfx950 only.
+      - patch: deploy/docker/patches/sglang_dsa/draft_cuda_graph_dp_vote.diff
+        record: deploy/docker/patches/sglang_dsa/draft_cuda_graph_dp_vote.upstream.status.yaml
+        component: speculative-decoding
+        engines: [sglang]
+        status: carry-upstream-pr-open
+        alive_because: >-
+          sglang#32209 carries this exact fix and is unreviewed; we deliberately opened no
+          competing PR
+        drop_signal: anchor-drift-fails-loudly
+        ours_upstream_pr: null
+        summary: >-
+          The draft-CUDA-graph choice is made per rank from two rank-dependent terms, so the DP
+          group deadlocks on the first PD request. Made a group decision via one extra int64 slot
+          in the existing all-gather. A regression from merged #30839/#31083, independently
+          reported upstream as #32527 on Blackwell — not ROCm-specific.
+      - patch: deploy/docker/patches/sglang_rocm/patch_hicache_rocm_host_alloc.py
+        record: deploy/docker/patches/sglang_rocm/patch_hicache_rocm_host_alloc.upstream.status.yaml
+        component: hicache
+        engines: [sglang]
+        status: carry-no-upstream-fix
+        alive_because: no upstream issue and no PR, ours included; main confirmed affected
+        drop_signal: anchor-drift-fails-loudly
+        ours_upstream_pr: null
+        summary: >-
+          On ROCm, hipHostRegister maps pages at a DIFFERENT device address than the host VA, but
+          hicache stores host VAs in a device-side pointer table a kernel dereferences — GPU
+          memory access fault at the host address. Routes ROCm to pin_memory, exactly as the merged
+          MUSA entry (#23361) does. The clearest missing-PR gap in the tree.
+      - patch: deploy/docker/patches/sglang_rocm/patch_hicache_rocm_staged_write_back.py
+        record: deploy/docker/patches/sglang_rocm/patch_hicache_rocm_staged_write_back.upstream.status.yaml
+        component: hicache
+        engines: [sglang]
+        status: carry-upstream-pr-open
+        alive_because: >-
+          drops on sglang#30350 (OPEN, CHANGES_REQUESTED) — note its MERGED sibling #28534 is what
+          INTRODUCED the defect
+        drop_signal: precondition-check-refuses
+        ours_upstream_pr: null
+        summary: >-
+          Two gates decide one thing and disagree on ROCm: the MLA pool opts HIP into the staged
+          JIT while the pools sharing its group do not, so the controller puts indices on the GPU
+          and the kernel demands them on the host. Kills the scheduler on the first write-back.
+          Uses a PRECONDITION CHECK rather than an anchor check, because #30350 never touches our
+          anchor and would let the patch silently outlive its reason.
+
+  vllm:
+    repo: vllm-project/vllm
+    note: >-
+      One digest-pinned base. Patches are baked by Dockerfile.vllm and, for patches/vllm/, also
+      applied at container start by the overlay. Note the patch loop swallows a patch's
+      sys.exit(1) into "skipped", so a real failure and a benign skip look identical in the log.
+    patches:
+      - patch: deploy/docker/patches/vllm/patch_moriio_pagelen.py
+        record: deploy/docker/patches/vllm/patch_moriio_pagelen.upstream.status.yaml
+        component: moriio
+        engines: [vllm]
+        status: carry-no-upstream-fix
+        alive_because: no upstream issue and no PR; main confirmed affected by source read
+        drop_signal: anchor-drift-fails-loudly
+        ours_upstream_pr: null
+        summary: >-
+          SILENT CORRECTNESS BUG. MoRIIO derives MLA per-block transfer size and stride from tensor
+          SHAPE rather than spec.page_size_bytes, which disagrees two independent ways: DSv4's
+          fp8_ds_mla page is padded (the dropped tail holds the scale), and GLM-5.1 pages 16x
+          larger than its kernel block. PD output wrong while prefill-direct is correct. Localised
+          by differential against Mooncake on the same nodes.
+      - patch: deploy/docker/patches/vllm/patch_mooncake_mamba_unpack.py
+        record: deploy/docker/patches/vllm/patch_mooncake_mamba_unpack.upstream.status.yaml
+        component: mooncake-connector
+        engines: [vllm]
+        status: carry-no-upstream-fix
+        alive_because: no upstream issue and no PR; main confirmed affected at line 1678
+        drop_signal: self-guard-marker-skips
+        ours_upstream_pr: null
+        summary: >-
+          `conv, _ = cache_or_caches` treats Mamba2's two-tensor shape as the contract, so Kimi-K3's
+          KDA linear attention raises "too many values to unpack" on every rank during KV
+          registration. Three-line fix, no competing PR. Existed since 2026-08-02 and was never
+          indexed on the old status page — the gap this system closes.
+      - patch: deploy/docker/patches/vllm/patch_sched_guard.py
+        record: deploy/docker/patches/vllm/patch_sched_guard.upstream.status.yaml
+        component: scheduler
+        engines: [vllm]
+        status: carry-no-upstream-fix
+        alive_because: >-
+          three open upstream issues describe this exact assert and none has a PR; ours is a
+          symptom guard we should not upstream as-is
+        drop_signal: self-guard-marker-skips
+        ours_upstream_pr: null
+        summary: >-
+          Skips a KV-xfer-finished event for an already-removed request instead of asserting, so the
+          decode EngineCore survives concurrent PD load. Deliberately NOT a fix — the racing request
+          still loses its transfer — so apply for throughput runs and leave it OFF for correctness
+          runs, which should surface the race.
+      - patch: deploy/docker/patches/vllm/patch_vllm_mooncake_prom_metrics.py
+        record: deploy/docker/patches/vllm/patch_vllm_mooncake_prom_metrics.upstream.status.yaml
+        component: mooncake-connector
+        engines: [vllm]
+        status: carry-upstream-pr-open
+        alive_because: "vllm#50374 open and unreviewed; #43836 would also resolve it"
+        drop_signal: self-guard-marker-skips
+        ours_upstream_pr: null
+        summary: >-
+          MooncakeConnector has no build_prom_metrics, so under MultiConnector the Prometheus
+          registration assert kills the engine on the first request — i.e. exactly the PD + kvd-L3
+          recipe with stats on. Patched at build time, not run time, because the runtime approach
+          loses an import-order race. Our internal #178 fixed only the sibling connector, which
+          fixed nothing.
+      - patch: deploy/docker/patches/vllm/patch_defer_kv_register.py
+        record: deploy/docker/patches/vllm/patch_defer_kv_register.upstream.status.yaml
+        component: mooncake-connector
+        engines: [vllm]
+        status: carry-no-upstream-fix
+        alive_because: >-
+          nothing upstream; also the hardest to upstream, because the crash it avoids was routed
+          around rather than diagnosed
+        drop_signal: self-guard-marker-skips
+        ours_upstream_pr: null
+        summary: >-
+          Defers Mooncake KV registration to the end of warmup, which avoids a high-util boot crash
+          where one TP worker's compile_or_warm_up_model returns None. A workaround with an
+          unexplained mechanism — the weakest-evidence record here, and it says so.
+      - patch: deploy/docker/patches/vllm/patch_vllm_mooncake_blocksize.py
+        record: deploy/docker/patches/vllm/patch_vllm_mooncake_blocksize.upstream.status.yaml
+        component: mooncake-connector
+        engines: [vllm]
+        status: drop-candidate
+        alive_because: >-
+          vllm#46807 MERGED 2026-06-30 with the identical repair; only unconfirmed whether the
+          pinned base carries it
+        drop_signal: self-guard-marker-skips
+        ours_upstream_pr: vllm-project/vllm#46334
+        summary: >-
+          THE NEXT ONE TO DELETE. Registers KV at logical-page granularity for backends that force
+          kernel block size 1. Our #46334 proposed this first and was closed as superseded by
+          #46807. The guard marker is the name UPSTREAM added, so on a fixed base it self-skips —
+          safe, but "already patched" in the log reads like success rather than redundancy.
+      - patch: deploy/docker/patches/vllm/patch_moriio_write.py
+        record: deploy/docker/patches/vllm/patch_moriio_write.upstream.status.yaml
+        component: moriio
+        engines: [vllm]
+        status: drop-candidate
+        alive_because: >-
+          fixed on upstream source (main and v0.22.1rc0); written when no shipped ROCm image had
+          it, and the base has moved twice since without anyone re-checking
+        drop_signal: self-guard-marker-skips
+        ours_upstream_pr: null
+        summary: >-
+          One token: in WRITE mode the decode addressed itself (is_producer=True), the consumer
+          handler asserted, the notify thread died and the request hung at HTTP 000. Main has
+          is_producer=False at both call sites; v0.25.1 postdates every image the header lists as
+          affected, so this is probably already redundant.
+
+      # ---- DSv4-specific, from patches/vllm-dsv4/ (Dockerfile.vllm's second loop) ----
+      # Grouped here rather than under a directory-shaped key, because the library they patch
+      # is vLLM. All three were verified on vllm 0.23.x and none was re-verified on the v0.25.1
+      # base — the same refactor that retired three sibling patches. This is the single largest
+      # unverified area in the index.
+      - patch: deploy/docker/patches/vllm-dsv4/patch_moriio_dsv4_hybrid_blocksize.py
+        record: deploy/docker/patches/vllm-dsv4/patch_moriio_dsv4_hybrid_blocksize.upstream.status.yaml
+        component: moriio
+        engines: [vllm]
+        status: carry-no-upstream-fix
+        alive_because: nothing upstream; effect on the current base unverified
+        drop_signal: self-guard-marker-skips
+        ours_upstream_pr: null
+        summary: >-
+          Drops a global block_size equality check that kills the prefill worker at KV registration,
+          although DSv4 legitimately registers per-layer caches at different block sizes and the
+          offset path already consults the per-layer map.
+      - patch: deploy/docker/patches/vllm-dsv4/patch_moriio_dsv4_noncontig_register.py
+        record: deploy/docker/patches/vllm-dsv4/patch_moriio_dsv4_noncontig_register.upstream.status.yaml
+        component: moriio
+        engines: [vllm]
+        status: carry-no-upstream-fix
+        alive_because: nothing upstream; effect on the current base unverified
+        drop_signal: self-guard-marker-skips
+        ours_upstream_pr: null
+        summary: >-
+          Registers DSv4's 576B-aligned non-contiguous fp8_ds_mla KV view by storage span, as
+          sglang's mori connector already does. The trap worth knowing: .contiguous() would have
+          "worked" and silently moved stale KV, since it copies away from the buffer the forward
+          writes into.
+      - patch: deploy/docker/patches/vllm-dsv4/patch_moriio_dsv4_sparse_backend.py
+        record: deploy/docker/patches/vllm-dsv4/patch_moriio_dsv4_sparse_backend.upstream.status.yaml
+        component: moriio
+        engines: [vllm]
+        status: carry-no-upstream-fix
+        alive_because: nothing upstream; effect on the current base unverified
+        drop_signal: self-guard-marker-skips
+        ours_upstream_pr: null
+        summary: >-
+          The generic ROCm selector returns a backend that lacks fp8_ds_mla and raises, killing the
+          prefill worker — for a value used only as a P/D handshake tag. Sets it directly for DSv4
+          sparse MLA. The whole fix rests on backend_name still being cosmetic.
+
+  aiter:
+    repo: ROCm/aiter
+    note: Built in-container by Dockerfile.vllm from AITER_GIT_REF.
+    patches:
+      - patch: deploy/docker/patches/vllm-dsv4/patch_aiter_flydsl_moe_memref_bufres.py
+        record: deploy/docker/patches/vllm-dsv4/patch_aiter_flydsl_moe_memref_bufres.upstream.status.yaml
+        component: flydsl-moe
+        engines: [vllm]
+        status: carry-no-upstream-fix
+        alive_because: >-
+          nothing upstream; and verified against aiter 0.1.16.post2 while the Dockerfile now builds
+          v0.1.16.post1
+        drop_signal: self-guard-marker-skips
+        ours_upstream_pr: null
+        summary: >-
+          aiter 0.1.16's fx.ptrtoint rejects the flydsl memrefs vLLM's tensors become, so the
+          2-stage MoE GEMM dies with an MLIRError. Reverts gemm1/gemm2 to the memref-friendly
+          buffer_ops calls. Needed by Kimi-K2.6 int4 W4A16; no-op for DSv4 MXFP4.
+
+  mooncake:
+    repo: kvcache-ai/Mooncake
+    note: >-
+      Rebuilt in place in every engine image from MOONCAKE_GIT_REF and patched with three C++
+      diffs. The pin is on main but two of our own merged fixes are newer than it, so ONE pin
+      advance retires two of these three — sequence them together, because the same advance also
+      pulls #2682, which is what makes the third patch necessary.
+    patches:
+      - patch: deploy/docker/patches/mooncake_cpp/transfer_engine_impl.diff
+        record: deploy/docker/patches/mooncake_cpp/transfer_engine_impl.upstream.status.yaml
+        component: transfer-engine
+        engines: [sglang, vllm, atom]
+        status: carry-upstream-pr-open
+        alive_because: our Mooncake#2725 is open and unreviewed
+        drop_signal: pin-advance-only
+        ours_upstream_pr: kvcache-ai/Mooncake#2725
+        summary: >-
+          Upstream #2682 installs the HIP (hipIpc) transport unconditionally and prefers it over
+          RDMA, so cross-node PD dies with hipIpcOpenMemHandle 201. Gates it behind an env var. The
+          risk here is INVERTED — a build that silently skips the rebuild ships stock #2682 — which
+          is why every image asserts the gate is present in the .so it will load.
+      - patch: deploy/docker/patches/mooncake_cpp/rdma_auto_chunk_mr_2017.diff
+        record: deploy/docker/patches/mooncake_cpp/rdma_auto_chunk_mr_2017.upstream.status.yaml
+        component: transfer-engine-rdma
+        engines: [sglang, vllm, atom]
+        status: drop-candidate
+        alive_because: our Mooncake#2644 MERGED 2026-07-28; the pin is 2026-06-26
+        drop_signal: pin-advance-only
+        ours_upstream_pr: kvcache-ai/Mooncake#2644
+        summary: >-
+          Buffers larger than the device max_mr_size were silently truncated while BufferDesc kept
+          advertising the full length, so remote operations past the boundary hit
+          IBV_WC_REM_ACCESS_ERR. Chunks at registration time and makes the truncation site a hard
+          error. Ours, merged; only the pin holds it here.
+      - patch: deploy/docker/patches/mooncake_cpp/rdma_transport_dmabuf_cmake.diff
+        record: deploy/docker/patches/mooncake_cpp/rdma_transport_dmabuf_cmake.upstream.status.yaml
+        component: transfer-engine-rdma
+        engines: [sglang, vllm, atom]
+        status: drop-candidate
+        alive_because: Mooncake#2543 MERGED 2026-07-24; the pin is 2026-06-26
+        drop_signal: pin-advance-only
+        ours_upstream_pr: null
+        summary: >-
+          Adds dma-buf GPUDirect registration (ibv_reg_dmabuf_mr), which is the ONLY way to pin VRAM
+          on a fabric without ib_peer_mem — required on crusoe amd-spur. Opt-in via
+          MOONCAKE_HIP_DMABUF=1, default off.
+
+  atom:
+    repo: internal
+    note: >-
+      ATOM is an internal engine with no public upstream, so "file it upstream" means landing it in
+      ATOM itself. These three cannot be retired by any external event.
+    patches:
+      - patch: deploy/docker/patches/atom/patch_gdn_pd_state_transfer.py
+        record: deploy/docker/patches/atom/patch_gdn_pd_state_transfer.upstream.status.yaml
+        component: attention-metadata
+        engines: [atom]
+        status: internal-engine
+        alive_because: internal engine — no public upstream to file against
+        drop_signal: anchor-drift-fails-loudly
+        ours_upstream_pr: null
+        summary: >-
+          SILENT CORRECTNESS BUG. Hybrid GDN models never transfer the GatedDeltaNet recurrent state
+          in PD, so decode starts from a zero mamba state and cannot recall anything from the
+          prompt. Masked because weight-stored world knowledge still answers correctly: 5/5 recall
+          single-node mixed versus 0/5 in PD.
+      - patch: deploy/docker/patches/atom/patch_mooncake_consumer_slot.py
+        record: deploy/docker/patches/atom/patch_mooncake_consumer_slot.upstream.status.yaml
+        component: mooncake-connector
+        engines: [atom]
+        status: internal-engine
+        alive_because: internal engine — no public upstream to file against
+        drop_signal: anchor-drift-fails-loudly
+        ours_upstream_pr: null
+        summary: >-
+          consumer_staging_pool_idx is bound only inside the slot_regions branch but read
+          unconditionally, so models with cache-group slot state and no registered slot_regions
+          (Qwen3.5 GDN) crash the decode worker with UnboundLocalError on the first PD request.
+      - patch: deploy/docker/patches/atom/patch_minimax_m2_qknorm_rope.py
+        record: deploy/docker/patches/atom/patch_minimax_m2_qknorm_rope.upstream.status.yaml
+        component: model-definition
+        engines: [atom]
+        status: internal-engine
+        alive_because: internal engine — a base image whose model file and rope API disagree
+        drop_signal: anchor-drift-fails-loudly
+        ours_upstream_pr: null
+        summary: >-
+          The stock minimax_m2.py does not load — it passes dtype= to a get_rope that does not
+          accept it — and the TP fused QK-norm kernel needs a batch guard. Makes MiniMax-M2 START;
+          correct OUTPUT additionally needs ATOM_USE_UNIFIED_ATTN=1 and --block-size 64 at launch.
+
+  hipfile:
+    repo: ROCm/rocm-systems
+    note: >-
+      Built by Dockerfile.vllm from an UNPINNED clone of the default branch, so the target moves on
+      every build.
+    patches:
+      - patch: deploy/docker/patches/hipfile_async/hipfile_async.patch
+        record: deploy/docker/patches/hipfile_async/hipfile_async.upstream.status.yaml
+        component: python-bindings
+        engines: [vllm]
+        status: drop-candidate
+        alive_because: >-
+          ours, MERGED upstream 2026-07-16, and the target is unpinned — so the fix arrives on its
+          own and this is "not yet deleted" rather than alive
+        drop_signal: self-guard-marker-skips
+        ours_upstream_pr: ROCm/rocm-systems#7386
+        summary: >-
+          Adds async stream I/O to the ROCm hipFile Python binding, keeping the driver's
+          out-parameters on the heap — Cython stack locals passed as &local die before the driver
+          writes to them, giving bytes_done == 0 and intermittent HipFileException 5022. Upstream
+          #7386 is the same feature on the same four files by the same author, with a better
+          mechanism (a Cython AsyncIOHandle owning the slots). Delete ours.
+
+archived_record: deploy/docker/patches/archived/patch.archived.yaml
+
+totals:
+  active_patches: 25
+  records: 25
+  archived_patches: 6
+  by_status:
+    carry-no-upstream-fix: 11
+    carry-upstream-pr-open: 5
+    drop-candidate: 6
+    internal-engine: 3
+
+not_patches:
+  - path: deploy/docker/patches/mooncake_cpp/apply_mooncake_cpp_patches.sh
+    role: >-
+      Driver that applies the three Mooncake C++ diffs, with a `git apply --reverse --check`
+      so an already-fixed pin is an idempotent skip.
+  - path: deploy/docker/patches/sglang_dsa/README.md
+    role: Directory notes for the sglang DSA patch set.
+  - path: deploy/docker/patches/sglang_disagg/README.md
+    role: Directory notes for the sglang disaggregation patch.
+  - path: deploy/docker/patches/archived/vllm-dsv4/README.md
+    role: Original notes for the archived legacy DSv4 patches, kept as provenance.
+
+maintenance:
+  drop_rule: >-
+    A patch is ready to delete when its upstream fix is merged AND present in the pinned base.
+    Merged-but-not-in-base still needs the local patch — sglang#30265, Mooncake#2644/#2543 and
+    rocm-systems#7386 are all that case. Two rows do not fit the rule's shape at all: the staged
+    write-back drops on sglang#30350 because its MERGED sibling #28534 is what INTRODUCED the
+    defect, and the Mooncake diffs drop on the pin advancing rather than on any merge.
+  add_rule: >-
+    A new patch needs a <prefix>.upstream.status.yaml beside it and an entry here, or
+    scripts/validate-patch-status.py fails the lint gate. If a file under patches/ carries no fix
+    of its own, list it under not_patches instead.
+  warnings:
+    - >-
+      Six patches cannot announce their own obsolescence. Anything with drop_signal
+      base-version-only or pin-advance-only keeps applying cleanly after upstream has fixed the
+      problem, so only the pinned version tells you. Review those on every base bump.
+    - >-
+      A self-guard marker that keys on text UPSTREAM added — not on text we add — prints
+      "already patched" on a fixed base. That is safe but indistinguishable from success in the
+      build log. patch_vllm_mooncake_blocksize.py and patch_moriio_write.py are both this shape.
+    - >-
+      Dockerfile.vllm's patch loop swallows sys.exit(1) into "[vllm-patch] skipped", so a genuine
+      failure and a benign no-op look the same. Read the per-layer build log when bumping the base.
+    - >-
+      Four patches carry silent correctness bugs — wrong output, no crash, no log line:
+      patch_mooncake_early_send_wait_event.py, patch_moriio_pagelen.py,
+      patch_gdn_pd_state_transfer.py, and patch_vllm_mooncake_blocksize.py. Never assume a smoke
+      test covers these; three of them pass one.
+    - >-
+      HIPFILE_GIT_REF is unpinned, so images from the same infera commit can contain different
+      hipfile code depending on the build date. That is a reproducibility problem in its own right.

@@ -1,0 +1,161 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - gh-pr-issue-state
+  - gh-search
+  - upstream-source-read
+  - local-repro
+
+patch:
+  path: deploy/docker/patches/vllm/patch_mooncake_mamba_unpack.py
+  kind: python-anchor-script
+  idempotent: true
+  applied_by:
+    - Dockerfile.vllm
+    - deploy/overlay/Dockerfile.payload
+    - deploy/overlay/infera-exec
+  opt_in_flag: null
+
+target:
+  library: vllm
+  component: mooncake-connector
+  repo: vllm-project/vllm
+  files:
+    - vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py
+  versions:
+    - surface: Dockerfile.vllm
+      ref: v0.25.1
+      commit: null
+      pinned_ref_on_main: false
+      release_branch: null
+      unpinned_risk: >-
+        Consumed as a published image digest rather than a git ref, so no upstream commit
+        is recorded; the digest is the pin.
+      images:
+        - tag: vllm/vllm-openai-rocm:v0.25.1
+          digest: sha256:84459732ca98b40fe2f5338a3f050be6d522504e47a484a5180d58fb75956f86
+          digest_source: dockerfile-pin
+          note: vllm 0.25.1, torch 2.11.0, ROCm 7.2.3.
+
+upstream_main_affected:
+  value: true
+  evidence: >-
+    Read from upstream main on 2026-08-05: mooncake_connector.py still has
+    `conv, _ = cache_or_caches` at line 1678 — the exact line and line number from the
+    Kimi-K3 traceback. Main is affected.
+
+applies_to:
+  - engine: vllm
+    surface: Dockerfile.vllm (v0.25.1 base)
+    effect: op
+    required_to_run: true
+    evidence: >-
+      Kimi-K3 PD cannot register KV without it — every rank raises at once during
+      registration.
+  - engine: vllm
+    surface: deploy/overlay/infera-exec (applied at container start over an unpatched base)
+    effect: op
+    required_to_run: true
+    evidence: >-
+      This is the surface the patch was written for: the overlay applies patches/vllm/*.py
+      at container start so an unpatched vendor image can still serve.
+
+alive_because:
+  reason: no-upstream-pr
+  detail: >-
+    No upstream issue and no upstream PR — including none of ours, for a crash that takes
+    down every rank. The nearest PR, #47638, edits the very next line and leaves the
+    arity assumption intact, so it will not fix this even if it merges.
+  consumers:
+    - Dockerfile.vllm and the overlay payload, for Kimi-K3 (KDA linear attention) PD
+  drop_when: >-
+    Upstream stops destructuring MambaSpec caches as a fixed 2-tuple. The patch then
+    reports "already applied" or fails to find its anchor and no-ops.
+  drop_signal: self-guard-marker-skips
+  silent_misapply_risk: null
+
+history:
+  born:
+    date: 2026-08-02
+    commit: 5b31fe0
+    subject: "feat(overlay): apply vendor engine patches at container start"
+  last_modified:
+    date: 2026-08-02
+    commit: 5b31fe0
+    subject: "feat(overlay): apply vendor engine patches at container start"
+    reason: >-
+      Born with the overlay mechanism it was written for. It was never indexed on the
+      previous status page, which is the gap this record system exists to prevent.
+
+upstream_issues: null
+
+upstream_prs: null
+
+related_refs:
+  - ref: vllm-project/vllm#47638
+    url: https://github.com/vllm-project/vllm/pull/47638
+    kind: pr
+    title: "[KV Connector] Normalize list/tuple KV cache input in register_kv_caches"
+    state: OPEN
+    state_reason: null
+    author: jianzs
+    relevance: adjacent-site
+    note: >-
+      Edits the very next line — it appends an `elif isinstance(cache_or_caches, (list,
+      tuple))` branch for Ascend compressed MLA — and leaves the MambaSpec arity
+      assumption alone. Our three-line anchor survives it, so the two can coexist; do not
+      read this PR as an incoming fix.
+
+problem:
+  what: >-
+    The Mooncake connector's register_kv_caches() destructures every MambaSpec layer as a
+    2-tuple, so any Mamba-family layer that carries a different number of state tensors
+    kills KV registration on every rank.
+  why: >-
+    `conv, _ = cache_or_caches` encodes Mamba2's shape (conv state, SSM state) as if it
+    were the contract. It is not: MambaSpec.shapes is already a variable-length tuple of
+    shapes, so the two-tensor assumption belongs to the connector, not the spec. Kimi-K3
+    uses KDA linear attention, whose layers carry a different count.
+  how: >-
+    Take the first state tensor — exactly what the original code kept — without
+    constraining how many follow: `cache_list = [cache_or_caches[0]]`.
+  before_fix: >-
+    "mooncake_connector.py:1678 in register_kv_caches / conv, _ = cache_or_caches /
+    ValueError: too many values to unpack (expected 2)", on every rank simultaneously
+    during KV registration, so PD never starts.
+  after_fix: Kimi-K3 registers KV and PD starts.
+  context: >-
+    Kimi-K3 with KDA linear attention over Mooncake PD. Mamba2 models were never
+    affected, which is why the assumption survived.
+  call_chain:
+    - "mooncake_connector.py :: register_kv_caches"
+    - "isinstance(layer_spec, MambaSpec) -> conv, _ = cache_or_caches"
+    - "KDA layer carries != 2 state tensors -> ValueError on every rank"
+  symptom_signature: "ValueError: too many values to unpack (expected 2)"
+  silent: false
+
+verification:
+  date: 2026-08-02
+  hardware: AMD ROCm multi-node PD
+  software: vLLM v0.25.1 base with the Mooncake connector
+  workload: Kimi-K3 PD KV registration
+  result: Registration completes; the all-rank ValueError is gone.
+  notes: null
+
+scope_limits: >-
+  Keeps the first state tensor and no more, which is what the original code did. It does
+  not teach the connector to transfer the additional KDA state tensors — if those turn
+  out to matter for correctness, that is a separate and larger fix.
+
+open_actions:
+  - action: >-
+      Submit upstream. Main is affected (confirmed by source read), the fix is three
+      lines, and there is no competing PR.
+    owner: unassigned
+    blocked_on: null
+  - action: >-
+      Establish whether dropping the remaining KDA state tensors from the transfer is
+      correct, or merely non-crashing.
+    owner: unassigned
+    blocked_on: null

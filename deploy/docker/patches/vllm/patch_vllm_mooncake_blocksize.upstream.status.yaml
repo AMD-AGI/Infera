@@ -1,0 +1,180 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - gh-pr-issue-state
+  - upstream-source-read
+  - local-repro
+
+patch:
+  path: deploy/docker/patches/vllm/patch_vllm_mooncake_blocksize.py
+  kind: python-anchor-script
+  idempotent: true
+  applied_by:
+    - Dockerfile.vllm
+    - deploy/overlay/infera-exec
+  opt_in_flag: null
+
+target:
+  library: vllm
+  component: mooncake-connector
+  repo: vllm-project/vllm
+  files:
+    - vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py
+  versions:
+    - surface: Dockerfile.vllm
+      ref: v0.25.1
+      commit: null
+      pinned_ref_on_main: false
+      release_branch: null
+      unpinned_risk: >-
+        No upstream commit is recorded here: the base is consumed as a published image
+        digest, not a git ref, so the exact vLLM commit is whatever v0.25.1 was cut from.
+        The digest below is the real pin.
+      images:
+        - tag: vllm/vllm-openai-rocm:v0.25.1
+          digest: sha256:84459732ca98b40fe2f5338a3f050be6d522504e47a484a5180d58fb75956f86
+          digest_source: dockerfile-pin
+          note: >-
+            vllm 0.25.1, torch 2.11.0, ROCm 7.2.3. The tag in the ref is for readability;
+            the @sha256 is what pins it.
+
+upstream_main_affected:
+  value: false
+  evidence: >-
+    vllm#46807 is MERGED (2026-06-30) and landed the marker name
+    _physical_blocks_per_logical_kv_block on main — seven hits in its diff. Main is fixed.
+
+applies_to:
+  - engine: vllm
+    surface: Dockerfile.vllm (v0.25.1 base)
+    effect: unverified
+    required_to_run: false
+    evidence: >-
+      Whether the pinned v0.25.1 base already carries #46807 has not been checked
+      directly, and it decides between op and no-op. If it does, the patch prints
+      "already patched" and exits; if not, it is still doing the work. Checking is one
+      grep inside the image and is the open action below.
+  - engine: vllm
+    surface: deploy/overlay/infera-exec (patches applied at container start)
+    effect: unverified
+    required_to_run: false
+    evidence: Same question, same base.
+
+alive_because:
+  reason: released-but-infera-not-bumped
+  detail: >-
+    Upstream fixed this in passing on 2026-06-30 as part of #46807 (GDN + MLA PD
+    support). Our own PR proposed the identical repair first and was closed as
+    superseded. So nothing is outstanding upstream — this is the cleanest drop
+    candidate in the tree, waiting only on confirmation that the pinned base carries it.
+  consumers:
+    - >-
+      possibly none — this is the next patch to drop, pending a grep of the pinned base
+  drop_when: >-
+    The pinned vLLM base is confirmed to carry #46807.
+  drop_signal: self-guard-marker-skips
+  silent_misapply_risk: >-
+    Note the inversion that makes this safe: the guard marker
+    _physical_blocks_per_logical_kv_block is what UPSTREAM added, not what we edit. So on
+    a fixed base the patch self-skips and cannot double-apply — but equally there is no
+    `git apply` failure and no build-log complaint to tell you it has become dead weight.
+    The build log's "already patched" line is the only signal, and it reads like success.
+
+history:
+  born:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+  last_modified:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+    reason: >-
+      Unchanged. The upstream conversation moved (our PR was superseded) without the
+      local patch needing an edit.
+
+upstream_issues: null
+
+upstream_prs:
+  - ref: vllm-project/vllm#46807
+    url: https://github.com/vllm-project/vllm/pull/46807
+    title: Support GDN + MLA PD with the Mooncake connector
+    state: MERGED
+    review_decision: null
+    merged_at: 2026-06-30
+    author: null
+    ours: false
+    same_approach: true
+    approach_note: >-
+      Fixes this in passing as part of a larger change, using the same logical/kernel
+      ratio handle we did — the name _physical_blocks_per_logical_kv_block is literally
+      the marker this patch guards on.
+    requested_action: null
+    in_pinned_base: null
+  - ref: vllm-project/vllm#46334
+    url: https://github.com/vllm-project/vllm/pull/46334
+    title: "Mooncake connector: register KV at logical-page granularity"
+    state: CLOSED
+    review_decision: null
+    merged_at: null
+    author: llying-001
+    ours: true
+    same_approach: true
+    approach_note: >-
+      Ours, proposing the identical repair, and it went in FIRST. Closed 2026-07-01 as
+      superseded by #46807 rather than rejected — the outcome we wanted, by a different
+      PR.
+    requested_action: null
+    in_pinned_base: null
+
+related_refs: null
+
+problem:
+  what: >-
+    Some attention backends force a KERNEL block size of 1 even when the user pins
+    --block-size 16. The KV tensor is then allocated at per-token granularity while the
+    scheduler still hands the connector LOGICAL page block_ids, so the connector's
+    address arithmetic is off by the ratio.
+  why: >-
+    The stock connector registers num_blocks = cache.shape[0] and block_len =
+    stride(0)*elemsize. When cache.shape[0] == num_logical_pages * ratio, the address
+    base + page_id*block_len lands `ratio` times too early. Affected backends are ROCm
+    Aiter MLA and the DeepSeek-V3.2 / GLM-5.1 DSA lightning indexer.
+  how: >-
+    Mirror vLLM's NIXL connector: compute ratio = logical_block_size // kernel_block_size
+    in _sync_block_size_with_kernel and register at logical-page granularity
+    (num_blocks //= ratio, block_len *= ratio). ratio == 1 for dense and matched-block
+    models, so this is byte-for-byte inert there.
+  before_fix: >-
+    RDMA transfers empty rows, the decode engine attends over all-zero prompt KV and
+    emits garbage from the first token. The transfer also overflows, producing
+    "destination transfer region exceeds remote KV block size".
+  after_fix: GLM-5.1 fp8 mooncake PD produces correct output from the first token.
+  context: >-
+    Observed with GLM-5.1 fp8 over mooncake PD. Applies to any backend that forces
+    kernel block size 1; no-op for dense or matched-block models.
+  call_chain:
+    - "mooncake_connector.py :: register_kv_caches -> num_blocks = cache.shape[0], block_len = stride(0)*elemsize"
+    - "scheduler hands LOGICAL page block_ids"
+    - "base + page_id*block_len lands ratio x too early -> empty rows transferred"
+  symptom_signature: "destination transfer region exceeds remote KV block size"
+  silent: false
+
+verification:
+  date: 2026-07-20
+  hardware: AMD ROCm multi-node PD
+  software: vLLM with the Mooncake connector, GLM-5.1 fp8
+  workload: mooncake PD, --block-size 16 with a kernel-block-1 backend
+  result: Garbage-from-first-token cleared.
+  notes: null
+
+scope_limits: null
+
+open_actions:
+  - action: >-
+      Grep the pinned v0.25.1 base for _physical_blocks_per_logical_kv_block and, if
+      present, delete this patch. It is the least contentious retirement available:
+      merged upstream, our own repair, nothing outstanding.
+    owner: unassigned
+    blocked_on: null
