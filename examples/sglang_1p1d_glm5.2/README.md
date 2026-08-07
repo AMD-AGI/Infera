@@ -14,8 +14,8 @@ bash cluster/cluster.peermem.sh up           # (or cluster.dmabuf.sh) — bring 
 bash cluster/cluster.peermem.sh smoke        # prove it works
 ```
 
-Measured performance for this exact shape, under two independent agentic benchmarks
-on two different fabrics, is in [`results/`](results/README.md).
+This exact shape has been measured under two independent agentic benchmarks on two
+different fabrics; those numbers are not published with this kit.
 
 ## Contents
 
@@ -29,7 +29,6 @@ on two different fabrics, is in [`results/`](results/README.md).
 | `engine/bench.sh` | reference throughput sweep using SGLang's own `bench_serving` |
 | `engine/down.sh` | tear down and wait for VRAM to actually free |
 | `preflight_rdma.sh` | RDMA preflight: registration-mode probe + cross-node fabric measurement |
-| [`results/`](results/README.md) | measured agentic-benchmark numbers at concurrency 8 |
 
 ## Topology
 
@@ -216,14 +215,13 @@ flags are load-bearing in ways that are not obvious from the flag name:
   passes it). Its column is nonetheless meaningless on this dataset: `--dataset-name
   random` builds every prompt independently, so there is **no shared prefix by
   construction** and any nonzero value is residue from the previous round. Prefix reuse
-  is an agentic-workload property — see [`results/`](results/README.md).
+  is an agentic-workload property.
 
 `--num-prompts` is recomputed per concurrency (`10 × C`), so each arm of a sweep gets
 enough requests to reach steady state.
 
-**This kit ships no agentic benchmark client**, by design. `results/` documents what
-the agentic numbers look like and how to point the customer's harness at this
-deployment.
+**This kit ships no agentic benchmark client**, by design. Point the customer's own
+harness at the router endpoint.
 
 ## 6. Tear down
 
@@ -327,7 +325,7 @@ Stated plainly rather than implied.
 
 | what | status |
 |---|---|
-| the deployment **shape** this kit encodes (1P1D + mooncake + DPA + MTP + kvd + kv-aware) | **validated end-to-end on two clusters**, both fabric types, with the agentic results in [`results/`](results/README.md) |
+| the deployment **shape** this kit encodes (1P1D + mooncake + DPA + MTP + kvd + kv-aware) | **validated end-to-end on two clusters**, both fabric types, under a real agentic workload |
 | the tuned values (GMU, chunk, ctx, EAGLE settings, DSA env, router weights) | **validated** — each is carried over from a run that completed cleanly |
 | the three traps in Notes 1–3 | **first-hand**, each found by a run that failed or silently mis-measured |
 | **these scripts as written** | **validated** — `preflight_rdma.sh mode` → `up` → `smoke` → `bench` → `down` on a 2-node MI355X mode-B cluster, with no edits outside `cluster/cluster.dmabuf.sh`. Long context checked separately (needle, to 238K tokens) and under a real agentic workload at concurrency 8 |
