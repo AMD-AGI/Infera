@@ -117,6 +117,9 @@ If your nodes resolve by name, `PREFILL_NODE` / `DECODE_NODE` derive the IPs
 instead. The addresses must be the ones the peers can reach on the data network,
 not a management NIC.
 
+Every script that dials one of them refuses to start until both resolve, rather
+than defaulting the missing one — see gotcha 7 for what that default would cost.
+
 ## 3. Verify the RDMA fabric
 
 Cross-node PD moves the KV cache over the fabric on every request, and a mismatch
@@ -317,6 +320,12 @@ full run is exactly the 12% regression above. The remaining knobs — `KVD_RAM_B
    hand-off time, not at startup.
 6. **`Ctrl-C` on a `tail -f` does not stop an engine.** The launch scripts run
    them under `nohup`; use `stop.sh`.
-7. **`kvd` outlives a restart, on disk.** `stop.sh` kills the daemon after the
+7. **A missing IP is refused, not defaulted.** Both legs find each other only
+   through the addresses they register in etcd, and a wrong one costs a full cold
+   start to discover: registration happens *after* the weights load, on the other
+   node. Setting only `PREFILL_IP` is the trap worth naming — the decode leg would
+   advertise the prefill node's address, both legs would register, and only a real
+   request would find the hole. `require_ips` in `env.sh` stops that at launch.
+8. **`kvd` outlives a restart, on disk.** `stop.sh` kills the daemon after the
    engines, so nothing is pulled from under a live one, but L3 is journalled and
    is recovered on the next start. Delete `KVD_L3_DIR` to start cold.

@@ -6,6 +6,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 source "$HERE/env.sh"
+require_ips
 
 LOG="${LOG:-$LOG_DIR/prefill.log}"
 HOST_IP="${HOST_IP:-$PREFILL_IP}"

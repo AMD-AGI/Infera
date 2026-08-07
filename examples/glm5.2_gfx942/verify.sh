@@ -13,6 +13,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/env.sh"
+require_ips
 
 SERVER="${SERVER:-$ROUTER_URL}"
 FAILED=0
