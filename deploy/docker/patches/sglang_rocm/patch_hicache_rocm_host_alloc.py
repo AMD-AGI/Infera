@@ -105,10 +105,29 @@ UPSTREAM STATUS (queried with `gh` on 2026-08-03)
                  (host VA is not the device VA on that platform). #32503 /
                  #32792 (both OPEN) add Intel XPU HiCache and will touch the same
                  dict -- a merge conflict risk for this anchor, not a fix for it.
-  own PR         NONE. Not filed. It should be: upstream main is affected, the
-                 one-line form matches an already-merged precedent (#23361), and
-                 the device-pointer measurements above are the evidence. Blocked
-                 only on someone opening it.
+  own PR         #33968 (OPEN, DRAFT, filed 2026-08-07 by dorado269) --
+                 "[ROCm] Fix HiCache host-pool allocator: hipHostRegister's
+                 device pointer is not the host VA". Same fix as this script,
+                 minus the GLM52_ROCM_HOST_ALLOC bytecode marker.
+
+                 STILL A DRAFT because the MI355X cluster was unreachable when it
+                 was opened, so it has NOT been re-run against the original fault
+                 on hardware that reproduces it. What was checked, on MI300X: the
+                 dispatch resolves to alloc_with_pin_memory for every key incl. a
+                 torch.device one, a real 8 MiB allocation comes back pinned with
+                 devPtr == host, and nothing is removed from the module. Do not
+                 read "PR open" as "fixed upstream".
+
+  CORRECTION     This header used to call the fix a one-line dispatch override in
+                 the shape of #23361. It is not, and cannot be:
+                   * get_device() returns "cuda" on ROCm (measured), so HIP has no
+                     key of its own to add the way "npu"/"musa" do; and
+                   * memory_pool_host.py:768 and :1257 key the table with a
+                     torch.device OBJECT. torch.device("cuda:0") is NOT
+                     dict-key-equal to "cuda" (measured: different hash), so those
+                     two pools always resolve through the defaultdict default.
+                 That is why both the key and the default move below. A fix that
+                 only added a "cuda" key would silently miss those two pools.
 
 Idempotent and self-locating. Run inside the container, then delete stale .pyc.
 """

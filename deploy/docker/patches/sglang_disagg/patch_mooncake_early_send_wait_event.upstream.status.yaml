@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
 schema_version: 1
-status_updated: 2026-08-05
+status_updated: 2026-08-07
 verified_by:
   - gh-pr-issue-state
   - gh-search
@@ -72,12 +72,14 @@ applies_to:
       5/9 -> 9/9.
 
 alive_because:
-  reason: no-upstream-pr
+  reason: upstream-pr-open
   detail: >-
-    Not submitted upstream. The closest existing report, #25583, describes the identical
-    corruption shape but on an AGGREGATED server with no PD and no mooncake, so a shared
-    root cause is unestablished; it was auto-closed inactive with no follow-up. The
-    aggregated-vs-PD A/B this patch rests on is exactly what that issue was missing.
+    Ours is now upstream as sglang#33970 (DRAFT, opened 2026-08-07). The closest existing
+    report, #25583, describes the identical corruption shape but on an AGGREGATED server
+    with no PD and no mooncake, so a shared root cause is unestablished; it was
+    auto-closed inactive with no follow-up. The aggregated-vs-PD A/B this patch rests on
+    is exactly what that issue was missing, and is the core of the PR's argument.
+    Was `no-upstream-pr` until #33970.
   consumers:
     - Dockerfile.sglang (any PD deployment with chunked prefill over mooncake)
     - Dockerfile.sglang.gfx942 (same)
@@ -113,7 +115,29 @@ upstream_issues:
       Same corruption shape on GLM-5, but aggregated: no PD and no mooncake. So it may
       or may not share this root cause. Treat as suggestive, not confirming.
 
-upstream_prs: null
+upstream_prs:
+  - ref: sgl-project/sglang#33970
+    url: https://github.com/sgl-project/sglang/pull/33970
+    title: "[PD] Make the mooncake KV transfer wait on the prefill forward that wrote the pages"
+    state: OPEN
+    review_decision: REVIEW_REQUIRED
+    merged_at: null
+    author: dorado269
+    ours: true
+    same_approach: true
+    approach_note: >-
+      Opened 2026-08-07 as a DRAFT. Same three edits as this patch, re-anchored onto
+      main (which has since gained TransferKVChunk.staging_counted and
+      _prepare_send_indices, so the anchors moved). One behaviour worth knowing that the
+      local patch header does not spell out: prefill.py is transport-agnostic, so
+      recording the event on the overlap non-final-chunk send also closes the same gap
+      for MORI, which reads the field but was never handed one on that path. Checked
+      that nixl / ascend / fake / base do not read _early_send_wait_event and that no
+      sender class uses __slots__, so setting the attribute is inert for them.
+    requested_action: >-
+      Draft until re-validated on a 2-node PD pair, and until the added synchronize()'s
+      cost on prefill throughput is measured — the PR states plainly that it is not.
+    in_pinned_base: false
 
 related_refs: null
 
@@ -177,12 +201,18 @@ scope_limits: null
 
 open_actions:
   - action: >-
-      Submit upstream. The aggregated-vs-PD A/B is the evidence #25583 lacked, and no
-      upstream PR exists for a correctness bug that is silent by construction.
-    owner: unassigned
-    blocked_on: null
+      Re-validate sglang#33970 on a 2-node PD pair and take it out of draft. What WAS
+      checked on a single MI300X against the PR's exact diff: the wait_event field
+      defaults to None so existing construction sites are unaffected; send() forwards it
+      on both the last-chunk and non-last-chunk arms and clears the sender's copy; and
+      the wait is a real barrier (event pending after record, synchronize() measurably
+      blocks, a post-barrier read on another stream sees the writes). What was NOT: that
+      the corruption is gone end-to-end.
+    owner: dorado269
+    blocked_on: 2-node RDMA cluster access (unreachable 2026-08-07)
   - action: >-
-      Measure the added synchronize()'s cost on prefill throughput before upstreaming —
-      it sits on the hot chunk path.
+      Measure the added synchronize()'s cost on prefill throughput — it sits on the hot
+      chunk path. Still unmeasured; #33970 says so explicitly rather than implying it is
+      free, and it is the first thing a reviewer will ask.
     owner: unassigned
-    blocked_on: null
+    blocked_on: same cluster access

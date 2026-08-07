@@ -60,3 +60,10 @@ CLAUDE.md
 .spur_job_*.sh
 .spur_ns_*.sh
 spur-*.out
+
+# Per-task agent workspaces. These hold the working log, validation scripts and
+# scratch copies for one piece of work — useful while it is in flight and to
+# re-run later, but they are not repo deliverables. The conclusions that ARE
+# deliverables get written into the patch records and into the reports at the
+# repo root instead.
+work/

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
 schema_version: 1
-status_updated: 2026-08-05
+status_updated: 2026-08-07
 verified_by:
   - gh-pr-issue-state
   - gh-search
@@ -73,11 +73,11 @@ applies_to:
       seen on gfx942.
 
 alive_because:
-  reason: no-upstream-pr
+  reason: upstream-pr-open
   detail: >-
-    No upstream issue and no upstream PR — and none of ours either, which is the gap
-    worth closing here. Upstream main is affected, established by reading the file, so
-    this is not a case of "probably already fixed".
+    Ours is now upstream as sglang#33968 (DRAFT, opened 2026-08-07). No third-party
+    issue or PR exists. Upstream main is affected, established by reading the file, so
+    this is not a case of "probably already fixed". Was `no-upstream-pr` until #33968.
   consumers:
     - Dockerfile.sglang (kvd / hierarchical cache on gfx950 — required)
     - Dockerfile.sglang.gfx942 (preventive)
@@ -102,7 +102,29 @@ history:
 
 upstream_issues: null
 
-upstream_prs: null
+upstream_prs:
+  - ref: sgl-project/sglang#33968
+    url: https://github.com/sgl-project/sglang/pull/33968
+    title: "[ROCm] Fix HiCache host-pool allocator: hipHostRegister's device pointer is not the host VA"
+    state: OPEN
+    review_decision: REVIEW_REQUIRED
+    merged_at: null
+    author: dorado269
+    ours: true
+    same_approach: true
+    approach_note: >-
+      Opened 2026-08-07 as a DRAFT. Same fix as this patch, minus the local
+      GLM52_ROCM_HOST_ALLOC bytecode marker. Adapting it corrected the record's own
+      framing twice: get_device() returns "cuda" on ROCm, so HIP cannot take a key of
+      its own the way #23361's "musa" did; and memory_pool_host.py:768 and :1257 key
+      the table with a torch.device OBJECT, which is not dict-key-equal to the string
+      "cuda" (measured: different hash), so those two pools always resolve through the
+      defaultdict default. Changing only the key would have missed them — which is why
+      both the key and the default move.
+    requested_action: >-
+      Draft until re-validated on gfx950. The MI355X cluster was unreachable when it was
+      opened, so the write-back repro in the PR body is historical, not from that branch.
+    in_pinned_base: false
 
 related_refs:
   - ref: sgl-project/sglang#23361
@@ -197,7 +219,10 @@ scope_limits: >-
 
 open_actions:
   - action: >-
-      File the upstream PR. This is the only crash-class fix in the tree with no upstream
-      PR at all, upstream main is affected, and #23361 is the merged precedent to copy.
-    owner: unassigned
-    blocked_on: null
+      Re-validate sglang#33968 on gfx950 and take it out of draft. The equivalence and
+      scope of the PR's diff were checked on MI300X (dispatch for every key including a
+      torch.device one, a real 8 MiB allocation with its device pointer measured, module
+      exports), but MI300X is the NEGATIVE control — it cannot reproduce the fault. Run
+      the write-back repro on MI355X against that exact branch.
+    owner: dorado269
+    blocked_on: MI355X cluster access (unreachable 2026-08-07)

@@ -15,7 +15,7 @@
 #
 # Replaces patch.upstream.status.md (removed in the same change).
 schema_version: 1
-status_updated: 2026-08-05
+status_updated: 2026-08-07
 
 verification_note: >-
   Every row was re-established on 2026-08-05: patch header read, `gh` queried for the
@@ -24,6 +24,13 @@ verification_note: >-
   or inspected, so the four rows whose effect depends on what the pinned base already
   carries are marked `unverified` in their records rather than guessed at. Treat any row
   whose status_updated has drifted far from today as a prompt to re-check, not as fact.
+  UPDATED 2026-08-07: the three sglang rows that had no PR of ours now have one —
+  #33968 (hicache allocator), #33970 (mooncake wait event), #33973 (DSA host-sync, the
+  2a half only). All three are DRAFTS: they were re-validated for equivalence and scope
+  against the proven local fix on MI300X, but the MI355X / multi-node cluster was
+  unreachable, so none has been re-run against the original fault on the hardware that
+  reproduces it. Do not read `carry-upstream-pr-open` on those rows as "fixed upstream".
+  Full record: pr.done.md and work.todo.md at the repo root.
 
 pinned_bases:
   - surface: Dockerfile.sglang
@@ -128,10 +135,12 @@ libraries:
         record: deploy/docker/patches/sglang_disagg/patch_mooncake_early_send_wait_event.upstream.status.yaml
         component: disaggregation
         engines: [sglang]
-        status: carry-no-upstream-fix
-        alive_because: not submitted upstream; main confirmed affected by source read
+        status: carry-upstream-pr-open
+        alive_because: >-
+          our sglang#33970 is a draft pending 2-node PD re-validation; main confirmed
+          affected by source read
         drop_signal: self-guard-marker-skips
-        ours_upstream_pr: null
+        ours_upstream_pr: sgl-project/sglang#33970
         summary: >-
           SILENT CORRECTNESS BUG. Chunked prefill over mooncake PD RDMA-reads KV pages while the
           forward is still writing them, because the barrier prefill.py records is only ever read
@@ -154,12 +163,13 @@ libraries:
         record: deploy/docker/patches/sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.upstream.status.yaml
         component: dsa
         engines: [sglang]
-        status: carry-no-upstream-fix
+        status: carry-upstream-pr-open
         alive_because: >-
-          no upstream PR for the DP host-sync deadlock at all; the one PR touching the row
-          mismatch takes an approach that fails here at concurrency 32
+          only HALF is upstream — our sglang#33973 carries the host-sync deadlock (2a);
+          the row mismatch (2b) has no PR of ours because #32209's approach fails here at
+          concurrency 32, so this patch outlives #33973
         drop_signal: anchor-drift-fails-loudly
-        ours_upstream_pr: null
+        ours_upstream_pr: sgl-project/sglang#33973
         summary: >-
           Two independent defects. A blocking device-to-host sync on a DP-divergent branch
           deadlocks the group; and the decode page table is per-request while top-k is per-token
@@ -183,10 +193,12 @@ libraries:
         record: deploy/docker/patches/sglang_rocm/patch_hicache_rocm_host_alloc.upstream.status.yaml
         component: hicache
         engines: [sglang]
-        status: carry-no-upstream-fix
-        alive_because: no upstream issue and no PR, ours included; main confirmed affected
+        status: carry-upstream-pr-open
+        alive_because: >-
+          our sglang#33968 is a draft pending gfx950 re-validation; no third-party issue
+          or PR; main confirmed affected
         drop_signal: anchor-drift-fails-loudly
-        ours_upstream_pr: null
+        ours_upstream_pr: sgl-project/sglang#33968
         summary: >-
           On ROCm, hipHostRegister maps pages at a DIFFERENT device address than the host VA, but
           hicache stores host VAs in a device-side pointer table a kernel dereferences — GPU
@@ -500,8 +512,8 @@ totals:
   records: 25
   archived_patches: 6
   by_status:
-    carry-no-upstream-fix: 11
-    carry-upstream-pr-open: 5
+    carry-no-upstream-fix: 8
+    carry-upstream-pr-open: 8
     drop-candidate: 6
     internal-engine: 3
 

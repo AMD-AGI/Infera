@@ -43,13 +43,32 @@ mooncake RDMA, overlap scheduling ON, `chunked-prefill-size 131072` with
 logs confirm the failing prompt is still really split into 4 chunks afterwards. The
 anchors below are present in both v0.5.15.post1 and v0.5.16.
 
-UPSTREAM: not submitted. The closest existing report,
-sgl-project/sglang#25583 (GLM-5-FP8 + NSA + 70k prompt, identical symptom), was
-auto-closed with no follow-up; the aggregated-vs-PD A/B above is what it was
-missing. Worth measuring when upstreaming: the new `synchronize()` blocks the
-transfer worker, trading some transfer overlap for correctness. DROP THIS PATCH
-once the base sglang waits on the event in mooncake — this script then reports
-"already present" and no-ops.
+UPSTREAM: sgl-project/sglang#33970 (OPEN, DRAFT, filed 2026-08-07 by dorado269)
+-- "[PD] Make the mooncake KV transfer wait on the prefill forward that wrote
+the pages". Same three edits, re-anchored onto main (which has since gained
+`TransferKVChunk.staging_counted` and `_prepare_send_indices`, so the anchors
+moved). The closest existing report, sgl-project/sglang#25583 (GLM-5-FP8 + NSA +
+70k prompt, identical symptom), was auto-closed with no follow-up; the
+aggregated-vs-PD A/B above is what it was missing, and is cited in the PR.
+
+STILL A DRAFT: the 2-node PD pair was unreachable when it was opened, so it has
+NOT been re-run end-to-end against this branch. What WAS checked on a single
+MI300X: `wait_event` defaults to None so existing construction sites are
+unaffected; `send()` forwards it on BOTH arms and clears the sender's copy; and
+the wait is a real barrier (event pending after record, `synchronize()`
+measurably blocks, a post-barrier read on another stream sees the writes).
+STILL UNMEASURED: the new `synchronize()` blocks the transfer worker, trading
+some transfer overlap for correctness. The PR says so plainly rather than
+implying it is free -- it is the first thing a reviewer will ask.
+
+WORTH KNOWING when reading the prefill.py edit: that file is transport-agnostic,
+so recording the event on the overlap non-final-chunk send also closes the same
+gap for MORI, which reads the field but was never handed one on that path.
+nixl / ascend / fake / base do not read `_early_send_wait_event` and no sender
+uses __slots__, so setting the attribute is inert for them.
+
+DROP THIS PATCH once the base sglang waits on the event in mooncake -- this
+script then reports "already present" and no-ops.
 
 Self-locating and idempotent. All three files or none: a half-patched tree still
 corrupts long prompts, so an anchor that is missing or no longer unique writes
