@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 
 from infera.common.discovery_k8s import WORKER_INFO_ANNOTATION, KubernetesRegistry
+from infera.common.worker_pool import WorkerStatus
 
 
 def _payload(worker_id: str = "10.0.0.1:8080") -> str:
@@ -112,3 +113,92 @@ def test_other_removal_rules_still_hold():
         reg._handle_pod(_pod(), deleted=False)
         reg._handle_pod(_pod(**kwargs), deleted=deleted)
         assert _ids(reg) == [], f"{label} must still deregister"
+
+
+def _all(reg):
+    return {w.worker_id: w.status for w in reg.pool.list_all()}
+
+
+def test_a_draining_worker_stays_visible():
+    """Out of routing, still on the books.
+
+    Dropping the record entirely makes a worker finishing its in-flight
+    generations look exactly like one that crashed, so `/v1/workers` cannot
+    tell an orderly rollout from a fleet losing workers -- at exactly the
+    moment someone is watching one happen.
+    """
+    reg, _ = _registry()
+    reg._handle_pod(_pod(), deleted=False)
+    reg._handle_pod(_pod(terminating=True), deleted=False)
+
+    assert _ids(reg) == [], "still must not be a routing candidate"
+    assert _all(reg) == {"10.0.0.1:8080": WorkerStatus.DRAINING}
+
+
+def test_the_record_goes_when_the_drain_finishes():
+    """The worker clears its own annotation once drained, which lands here as
+    'annotation gone'. Without that the draining record would be immortal."""
+    reg, removed = _registry()
+    reg._handle_pod(_pod(), deleted=False)
+    reg._handle_pod(_pod(terminating=True), deleted=False)
+    assert _all(reg), "precondition: the record survives the terminating event"
+
+    reg._handle_pod(_pod(terminating=True, annotated=False), deleted=False)
+    assert _all(reg) == {}, "a drained worker must leave the pool"
+    assert removed == ["10.0.0.1:8080"], "announced once, not once per stage"
+
+
+def test_announced_once_across_draining_then_delete():
+    """The callbacks stop a KV subscriber and clear block accounting. Firing
+    them twice for one worker is not free, and firing them late (only at the
+    DELETE) would leave the router accounting for a worker it no longer routes
+    to for the whole drain."""
+    reg, removed = _registry()
+    reg._handle_pod(_pod(), deleted=False)
+    reg._handle_pod(_pod(terminating=True), deleted=False)
+    assert removed == ["10.0.0.1:8080"], "must announce as soon as it leaves routing"
+
+    reg._handle_pod(_pod(terminating=True), deleted=True)
+    assert _all(reg) == {}
+    assert removed == ["10.0.0.1:8080"], "the DELETE must not re-announce"
+
+
+def test_a_worker_that_never_drained_still_announces_on_delete():
+    """The drain path is not the only way out: a crash or an evicted Pod goes
+    straight to removal, and that still has to reach the callbacks."""
+    reg, removed = _registry()
+    reg._handle_pod(_pod(), deleted=False)
+    reg._handle_pod(_pod(), deleted=True)
+    assert _all(reg) == {}
+    assert removed == ["10.0.0.1:8080"]
+
+
+def test_a_list_reconciles_away_a_worker_whose_delete_was_missed():
+    """A list is a complete snapshot, so a tracked Pod it does not mention is
+    gone.
+
+    This is not hypothetical. Keeping a draining record alive means its removal
+    now depends on a later event, and the watch drops out routinely -- the
+    re-list exists precisely because etcd compaction expires the
+    resourceVersion every few minutes. A Pod deleted inside that window
+    produces no event anyone sees, so without reconciling against the list the
+    record is immortal: `/v1/workers` reports a worker that does not exist, and
+    the model's canary is never forgotten because a phantom still holds it.
+    """
+    reg, removed = _registry()
+    reg._handle_pod(_pod(), deleted=False)
+    reg._handle_pod(_pod(terminating=True), deleted=False)
+    assert _all(reg), "precondition: the draining record is being kept"
+
+    # The Pod is gone; a fresh list simply does not contain it.
+    reg._reconcile_absent(seen=set())
+
+    assert _all(reg) == {}, "a tracked Pod missing from a full list must be dropped"
+    assert removed == ["10.0.0.1:8080"], "already announced when it started draining"
+
+
+def test_a_list_keeps_workers_it_still_sees():
+    reg, _ = _registry()
+    reg._handle_pod(_pod(name="w-0"), deleted=False)
+    reg._reconcile_absent(seen={"w-0"})
+    assert _ids(reg) == ["10.0.0.1:8080"], "a Pod present in the list must survive"
