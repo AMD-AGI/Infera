@@ -28,8 +28,10 @@
 # rebuilding those here would mean carrying a full ROCm toolchain):
 #   docker build -f deploy/overlay/Dockerfile.payload -t infera-overlay:latest .
 ARG NATIVE_IMAGE=rocm/infera:vllm-v0.1.1
-# The SGLang ABI family needs its own harvest: same Mooncake, different CPython.
-ARG SGLANG_NATIVE_IMAGE=rocm/infera:sglang-v0.1.2
+# No SGLANG_NATIVE_IMAGE: the SGLang (CPython 3.10) family's Mooncake is compiled
+# in the `mooncake310` stage below rather than harvested, so that the
+# HIP-transport gate is guaranteed present -- see the comment on that stage. An
+# ARG here that no FROM consumes reads as "the sglang tree is harvested too".
 
 # The Python trees are built INSIDE the vendor bases they will be overlaid onto,
 # not on a plain python:X-slim. `pip install --target` ignores the environment and
