@@ -49,7 +49,7 @@ func TestGraceSecondsFor(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := graceSecondsFor(c.args); got != c.want {
+			if got := graceSecondsFor(c.args, nil); got != c.want {
 				t.Fatalf("graceSecondsFor(%v) = %d, want %d", c.args, got, c.want)
 			}
 		})
@@ -60,7 +60,7 @@ func TestGraceSecondsFor(t *testing.T) {
 func TestGraceCoversTheWholeShutdown(t *testing.T) {
 	for _, drain := range []int{30, 60, 120, 300} {
 		args := []string{"--drain-timeout", itoa(drain)}
-		grace := graceSecondsFor(args)
+		grace := graceSecondsFor(args, nil)
 		need := int64(workerPreStopDrainSeconds + drain + workerTeardownHeadroomSeconds)
 		if grace < need {
 			t.Fatalf("drain=%d: grace %d < required %d -- kubelet would SIGKILL mid-drain",
@@ -90,7 +90,7 @@ func TestGraceReadsDrainTimeoutFromTheContainerToo(t *testing.T) {
 		Command: []string{"python3", "-m", "infera.engine.sglang"},
 		Args:    []string{"--model-path", "/m", "--drain-timeout", "240"},
 	}}}
-	injectWorkerRolloutDefaults(spec, 0, 8080, false, nil)
+	injectWorkerRolloutDefaults(spec, 0, 8080, false, nil, nil)
 	if spec.TerminationGracePeriodSeconds == nil {
 		t.Fatal("grace not set")
 	}
@@ -125,5 +125,70 @@ func TestEffectiveReplicas(t *testing.T) {
 	// The CR default when it says nothing either.
 	if got := effectiveReplicas(inferav1alpha1.ServiceSpec{}, "worker", nil); got != 1 {
 		t.Fatalf("nothing set anywhere: got %d, want the default 1", got)
+	}
+}
+
+// The worker takes $INFERA_DRAIN_TIMEOUT as the default for --drain-timeout, so
+// setting it raises the drain exactly as the flag does. Sizing the grace from
+// the flag alone left the same silent overrun through a different door: the
+// worker would drain for its full timeout and be SIGKILLed partway through.
+func TestGraceReadsDrainTimeoutFromTheEnvironment(t *testing.T) {
+	env := []corev1.EnvVar{
+		{Name: "HF_HOME", Value: "/models"},
+		{Name: drainTimeoutEnvVar, Value: "300"},
+	}
+	want := int64(workerPreStopDrainSeconds + 300 + workerTeardownHeadroomSeconds)
+	if got := graceSecondsFor(nil, env); got != want {
+		t.Fatalf("env-set drain: grace = %d, want %d", got, want)
+	}
+}
+
+// argparse reads the variable as the flag's default, so an explicit flag wins.
+// Sizing the budget off the larger of the two would be safe but wrong, and
+// wrong here means a pod that lingers minutes longer than its config says.
+func TestGraceFlagOverridesTheEnvironment(t *testing.T) {
+	env := []corev1.EnvVar{{Name: drainTimeoutEnvVar, Value: "300"}}
+	args := []string{"--drain-timeout", "60"}
+	want := int64(workerPreStopDrainSeconds + 60 + workerTeardownHeadroomSeconds)
+	if got := graceSecondsFor(args, env); got != want {
+		t.Fatalf("flag with env set: grace = %d, want the flag's %d", got, want)
+	}
+}
+
+func TestGraceIgnoresUnreadableEnvValues(t *testing.T) {
+	// valueFrom resolves in the kubelet; nothing is readable here, so the
+	// budget has to fall back rather than treat the empty value as zero.
+	from := []corev1.EnvVar{{
+		Name: drainTimeoutEnvVar,
+		ValueFrom: &corev1.EnvVarSource{
+			ConfigMapKeyRef: &corev1.ConfigMapKeySelector{Key: "drain"},
+		},
+	}}
+	if got := graceSecondsFor(nil, from); got != workerTerminationGraceSeconds {
+		t.Fatalf("valueFrom: grace = %d, want the floor %d", got, workerTerminationGraceSeconds)
+	}
+	for _, v := range []string{"", "abc", "0", "-5"} {
+		env := []corev1.EnvVar{{Name: drainTimeoutEnvVar, Value: v}}
+		if got := graceSecondsFor(nil, env); got != workerTerminationGraceSeconds {
+			t.Fatalf("env %q: grace = %d, want the floor %d", v, got, workerTerminationGraceSeconds)
+		}
+	}
+}
+
+// An extraPodSpec template is passed through verbatim, so the variable may sit
+// on the container rather than in ServiceSpec.Env -- the same asymmetry the
+// flag has, and the deployments most likely to have tuned the drain.
+func TestGraceReadsDrainEnvFromTheContainerToo(t *testing.T) {
+	spec := &corev1.PodSpec{Containers: []corev1.Container{{
+		Name: "main",
+		Env:  []corev1.EnvVar{{Name: drainTimeoutEnvVar, Value: "240"}},
+	}}}
+	injectWorkerRolloutDefaults(spec, 0, 8080, false, nil, nil)
+	if spec.TerminationGracePeriodSeconds == nil {
+		t.Fatal("grace not set")
+	}
+	want := int64(workerPreStopDrainSeconds + 240 + workerTeardownHeadroomSeconds)
+	if *spec.TerminationGracePeriodSeconds != want {
+		t.Fatalf("grace = %d, want %d", *spec.TerminationGracePeriodSeconds, want)
 	}
 }
