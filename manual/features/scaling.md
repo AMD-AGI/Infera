@@ -186,11 +186,16 @@ etcd deployment in two ways — and gains one stage.
 
 **Discovery is a Pod annotation, not an etcd lease.** Registering writes
 `infera.amd.com/worker-info` on the worker's own Pod; deregistering clears it.
-The registry additionally drops a Pod the moment it carries a
+The registry additionally marks a Pod `DRAINING` the moment it carries a
 `deletionTimestamp`, without waiting for the container to exit. That matters
 because a terminating Pod keeps `phase: Running` — without the check it would
 stay a routing candidate for the whole `preStop` delay, turning a hook meant to
 make shutdown graceful into extra seconds of accepting work about to be killed.
+
+The mark, rather than an outright removal, is what keeps the two timings above
+distinguishable on this backend too: the worker leaves routing immediately and
+its record stays until it clears its own annotation at the end of the drain, so
+`/v1/workers` shows a rollout in progress instead of a worker that vanished.
 
 **There is a `preStop` delay before `SIGTERM`.** The operator injects
 `sleep 15`, so the full sequence is:
@@ -359,60 +364,50 @@ active KV transfer. The PD handoff queues are counted in the drain, but that
 path has not been exercised on hardware.
 ```
 
-## Autoscaling
+## Scaling a deployment
 
-Infera ships no autoscaler. It does ship the standard interface one drives.
-
-### The `/scale` subresource
-
-An `InferaDeployment` cannot carry `/scale` itself, and that is a property of
-its shape rather than a missing feature: `spec.services` is a map with
-user-chosen keys, while the scale subresource requires `specReplicasPath` to be
-a *static* dot-notation JSONPath. There is no way to name "the replicas of an
-arbitrary map entry".
-
-So scaling gets its own object — one `InferaScalingAdapter` per scalable
-service:
-
-```yaml
-apiVersion: infera.amd.com/v1alpha1
-kind: InferaScalingAdapter
-metadata: {name: qwen-decode, namespace: infera}
-spec:
-  deploymentRef: qwen          # the InferaDeployment
-  serviceName: decode         # a key in its spec.services
-  replicas: 2
-```
+Edit the service's `replicas` in the `InferaDeployment`. That is the only
+supported way in, and it is the only write that survives:
 
 ```bash
-kubectl scale inferascalingadapter/qwen-decode --replicas=5
+kubectl patch inferadeployment qwen --type=merge \
+  -p '{"spec":{"services":{"decode":{"replicas":5}}}}'
 ```
 
-That is the whole integration. `kubectl scale`, `HorizontalPodAutoscaler`, KEDA
-and a custom planner all work through it with no per-tool support in the
-operator — a `scaleTargetRef` of kind `InferaScalingAdapter` is all an HPA
-needs.
+For a multi-node service the count is **groups**, not pods: `replicas: 5` with
+`numberOfNodes: 3` is fifteen pods and five servable instances, since only
+node-rank 0 of each group registers.
 
-**One writer, always.** While an adapter has `spec.replicas` set it owns that
-service's count: the InferaDeployment reconciler reads the adapter instead of
-the CR's own `replicas`. Clearing `spec.replicas`, or deleting the adapter, hands
-control back. Creating an adapter without `spec.replicas` is deliberately inert,
-so an autoscaler can be attached and watched before it is trusted.
+Pods removed by a scale-down drain first — the operator injects the `preStop`
+delay and a grace period sized from `--drain-timeout`, so the sequence is the
+same one `kubectl delete pod` follows.
 
-This matters because the reconciler assigns the whole child `.Spec` on every
-pass. Anything else writing that Deployment loses — which is exactly what
-happens to an HPA pointed straight at it: **measured, a `kubectl scale` to 3 was
-reverted to 1 in under 3 seconds.** Going through the adapter is not a
-convention, it is the only thing that survives.
+```{warning}
+Do **not** scale the generated `Deployment` or `LeaderWorkerSet` directly. Both
+carry a real `/scale` subresource, so the write succeeds and nothing reports an
+error — and then the next reconcile reverts it, because this reconciler assigns
+the whole child `.Spec` on every pass. Measured: a `kubectl scale` to 3 went
+back to 1 in under 3 seconds. The only symptom is a replica count that keeps
+snapping back.
+```
 
-`status.replicas` reports what the workload *observes*, not the desired count
-echoed back. An autoscaler computes `desired = ceil(current × metric/target)`;
-if `current` were the number it just asked for, it could not tell a scale-up had
-not landed and would keep multiplying through a 140-second model load.
+## Autoscaling
 
-### What is still missing
+Infera ships no autoscaler, and there is currently no `/scale` surface for an
+external one to drive.
 
-The plumbing is not the hard part. Two things are:
+An `InferaDeployment` cannot carry `/scale` itself, and that is a property of
+its shape rather than an omission: `spec.services` is a map with user-chosen
+keys, while the scale subresource requires `specReplicasPath` to be a *static*
+dot-notation JSONPath, and a CRD may declare only one. A single path could name
+one service — hardcoding `decode`, say — which leaves every other pool, and in
+a PD deployment specifically the prefill pool, with no handle at all.
+
+Pointing an autoscaler at the generated workload does not work either, for the
+reason in the warning above: those objects are derived state and are rewritten
+every pass.
+
+Two harder problems sit behind the plumbing anyway:
 
 - **A 140-second cold start sits inside a control loop that ticks every 15
   seconds.** A burst shorter than the cold start cannot be answered by adding

@@ -13,8 +13,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -88,27 +86,17 @@ func (r *InferaDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// 2. Each service -> Deployment (single-node) or LeaderWorkerSet (multi-node).
-	//
-	// Scaling adapters are resolved first: where one owns a service, its
-	// replica count wins over the CR's. Reading them here rather than letting
-	// the adapter write the workload keeps a single writer -- this reconciler
-	// assigns the whole child `.Spec` every pass, so a second writer would just
-	// be reverted.
-	overrides, err := r.replicaOverrides(ctx, idep)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
 	status := map[string]inferav1alpha1.ServiceStatus{}
 	for _, name := range sortedKeys(idep.Spec.Services) {
 		svc := idep.Spec.Services[name]
 		if svc.NumberOfNodes > 1 {
-			lws := buildLeaderWorkerSet(idep, name, svc, overrides)
+			lws := buildLeaderWorkerSet(idep, name, svc)
 			if err := r.applyUnstructured(ctx, idep, lws); err != nil {
 				return ctrl.Result{}, err
 			}
 			status[name] = r.lwsStatus(ctx, idep, name, svc)
 		} else {
-			dep := buildDeployment(idep, name, svc, overrides)
+			dep := buildDeployment(idep, name, svc)
 			if err := r.applyObject(ctx, idep, dep); err != nil {
 				return ctrl.Result{}, err
 			}
@@ -154,39 +142,6 @@ func (r *InferaDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	return ctrl.Result{RequeueAfter: 15 * time.Second}, nil
-}
-
-// replicaOverrides maps service name -> replica count for services owned by a
-// scaling adapter.
-//
-// An adapter with no `spec.replicas` is deliberately absent from the map rather
-// than contributing a zero: creating an adapter must be a no-op until something
-// actually scales, so an autoscaler can be attached and watched before it is
-// trusted. A missing CRD is likewise not an error -- the adapter is optional,
-// and an operator that refused to reconcile without it would break every
-// existing deployment on upgrade.
-func (r *InferaDeploymentReconciler) replicaOverrides(
-	ctx context.Context, idep *inferav1alpha1.InferaDeployment,
-) (map[string]int32, error) {
-	list := &inferav1alpha1.InferaScalingAdapterList{}
-	if err := r.List(ctx, list, client.InNamespace(idep.Namespace)); err != nil {
-		if meta.IsNoMatchError(err) || apierrors.IsNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	out := map[string]int32{}
-	for i := range list.Items {
-		a := &list.Items[i]
-		if a.Spec.DeploymentRef != idep.Name || a.Spec.Replicas == nil {
-			continue
-		}
-		if _, ok := idep.Spec.Services[a.Spec.ServiceName]; !ok {
-			continue // dangling adapter; its own controller reports Degraded
-		}
-		out[a.Spec.ServiceName] = *a.Spec.Replicas
-	}
-	return out, nil
 }
 
 // applyObject create-or-updates a typed object, setting the owner reference.
@@ -308,10 +263,16 @@ func sortedKeys(m map[string]inferav1alpha1.ServiceSpec) []string {
 
 // SetupWithManager registers the controller.
 func (r *InferaDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		For(&inferav1alpha1.InferaDeployment{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&appsv1.StatefulSet{}).
-		Owns(&corev1.Service{}).
-		Complete(r)
+		Owns(&corev1.Service{})
+	// Multi-node services are LeaderWorkerSets, so their status only reaches
+	// InferaDeployment.status on a resync unless we watch them. Guarded because
+	// the CRD is optional -- see lwsInstalled.
+	if lwsInstalled(mgr.GetRESTMapper()) {
+		b = b.Owns(lwsObject())
+	}
+	return b.Complete(r)
 }
