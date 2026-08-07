@@ -1,0 +1,69 @@
+--- a/agent/agent_throughput.py
++++ b/agent/agent_throughput.py
+@@ -326,6 +326,13 @@
+     actual_ttfts: List[float] = field(default_factory=list)  # Track TTFT (time to first token) in seconds
+     actual_tpots: List[float] = field(default_factory=list)  # Track TPOT (time per output token, excl. first) in seconds
+     actual_acceptance_lengths: List[float] = field(default_factory=list)  # Track per-request average acceptance length
++    # SOLO_M1: per-request end-to-end latency (TTFT + full generation), seconds.
++    # Never recorded upstream -- Case A had to back-solve E2E from TTFT and TPOT.
++    actual_e2es: List[float] = field(default_factory=list)
++    # SOLO_M1: TPOT with one entry per REQUEST (0.0 where the sample was
++    # filtered out), unlike actual_tpots which is filtered and therefore not
++    # index-aligned with the other per-request lists.
++    actual_tpots_aligned: List[float] = field(default_factory=list)
+     actual_prefix_sizes: List[int] = field(default_factory=list)  # Track prefix sizes used per request
+     request_timeline: List[Tuple[float, bool, str, bool]] = field(default_factory=list)  # (timestamp, is_new_session, session_id, is_forced)
+     inter_arrival_times: List[float] = field(default_factory=list)  # Track inter-arrival times between requests
+@@ -334,7 +341,7 @@
+     errors: int = 0
+     start_time: float = field(default_factory=time.time)
+ 
+-    def add_prefill(self, tokens: int, duration: float, cached_tokens: int = 0, generation_tps: float = 0.0, generation_tps_mtp: float = 0.0, actual_gen_length: int = 0, generation_time: float = 0.0, prefix_size: int = 0, reasoning_tokens: int = 0):
++    def add_prefill(self, tokens: int, duration: float, cached_tokens: int = 0, generation_tps: float = 0.0, generation_tps_mtp: float = 0.0, actual_gen_length: int = 0, generation_time: float = 0.0, prefix_size: int = 0, reasoning_tokens: int = 0, e2e: float = 0.0):
+         """Add a prefill measurement with optional cache info"""
+         now = time.time()
+         self.prefill_samples.append((now, tokens, duration, cached_tokens, generation_tps, generation_tps_mtp, generation_time, prefix_size))
+@@ -353,6 +360,14 @@
+         # window — otherwise the value is dominated by jitter / scheduling noise.
+         if actual_gen_length > 1 and generation_time >= MIN_GENERATION_TIME:
+             self.actual_tpots.append(generation_time / (actual_gen_length - 1))
++            _tpot_aligned = generation_time / (actual_gen_length - 1)
++        else:
++            # SOLO_M1: keep the array index-aligned. 0.0 marks "filtered", and
++            # the analysis drops zeros rather than treating them as fast tokens.
++            _tpot_aligned = 0.0
++        self.actual_tpots_aligned.append(_tpot_aligned)
++        # SOLO_M1: e2e defaults to 0.0 on the call sites that do not pass it.
++        self.actual_e2es.append(e2e)
+ 
+     def add_acceptance_length(self, avg_acc_len: float):
+         """Record average acceptance length for a completed request"""
+@@ -1563,6 +1578,9 @@
+         new_cache_hit_rates = metrics.actual_cache_hit_rates[last_distributions_index:current_distributions_len]
+         new_ideal_cache_hit_rates = metrics.ideal_cache_hit_rates[last_distributions_index:current_distributions_len]
+         new_ttfts = metrics.actual_ttfts[last_distributions_index:current_distributions_len]
++        # SOLO_M1: same slice bounds -> these concatenate row-wise with new_ttfts.
++        new_e2es = metrics.actual_e2es[last_distributions_index:current_distributions_len]
++        new_tpots = metrics.actual_tpots_aligned[last_distributions_index:current_distributions_len]
+         last_distributions_index = current_distributions_len
+ 
+         # Get new acceptance lengths since last update
+@@ -1616,6 +1634,8 @@
+             "new_cache_hit_rates": new_cache_hit_rates,
+             "new_ideal_cache_hit_rates": new_ideal_cache_hit_rates,
+             "new_ttfts": new_ttfts,
++            "new_e2es": new_e2es,      # SOLO_M1
++            "new_tpots": new_tpots,    # SOLO_M1 (0.0 = filtered, drop in analysis)
+             "new_acceptance_lengths": new_acceptance_lengths,
+             "new_acceptance_rates": new_acceptance_rates,
+             "new_inter_arrival_times": new_inter_arrival_times,
+@@ -2316,7 +2336,8 @@
+                 tokens_to_record = actual_prompt_tokens if actual_prompt_tokens > 0 else total_prompt_tokens
+                 metrics.add_prefill(tokens_to_record, ttft, cached_tokens, generation_tps, generation_tps_mtp,
+                                     completion_tokens, generation_time, current_prefix_tokens,
+-                                    reasoning_tokens=reasoning_tokens)
++                                    reasoning_tokens=reasoning_tokens,
++                                    e2e=total_time)  # SOLO_M1
+ 
+                 if chunk_token_counts:
+                     avg_acceptance_length = sum(chunk_token_counts) / len(chunk_token_counts)

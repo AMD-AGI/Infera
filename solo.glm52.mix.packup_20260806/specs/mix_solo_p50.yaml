@@ -1,0 +1,78 @@
+# =============================================================================
+# GLM-5.2 mix — Case-A p50 request shape at CONCURRENCY 1   (mission task 2.1)
+# -----------------------------------------------------------------------------
+# Derived from Optimus-AgenticBench/agent/workloads/glm52_crxx_caseA.fix.yaml by
+# copy + edit. Sibling files: mix_solo_p90.yaml, mix_solo_p99.yaml. The three
+# differ ONLY in the input_tokens / output_tokens triples.
+#
+# WHY THE TRIPLES ARE DEGENERATE
+#   PercentileSampler(p50, p90, p99) interpolates ln(value) against the normal
+#   quantiles, so a triple where all three are equal has zero slope everywhere
+#   and vmin == vmax == that value. Verified first-hand:
+#       PercentileSampler(74000, 74000, 74000).sample_int() -> 74000, every draw.
+#   That is how "measure the p50 shape" becomes an exact, repeatable request
+#   rather than a distribution that happens to have that median.
+#
+# WHY CONCURRENCY IS 1
+#   max_sessions is the real gate. The control loop spawns only while
+#   active_sessions < max_sessions, and a session that is in_flight counts as
+#   active — so while a request is on the wire no second session can be born.
+#   max_inflight 1 is belt-and-braces; if the driver ever prints its
+#   "Hit max_inflight" warning, the session bookkeeping is suspect and no number
+#   from the run should be trusted.
+#
+# NO THINK TIME
+#   turns_per_session = 1 means session_loop breaks out on the turn budget
+#   before it ever sleeps, so inter_turn_delay_s is unreachable. It is retained
+#   verbatim for provenance: deleting it would make this file look like a
+#   different workload, which it is not.
+# =============================================================================
+workload:
+
+  profile:
+    # p50 point, pinned. Case A: input p50 74,000 / output p50 320.
+    input_tokens:        { p50: 74000,  p90: 74000,  p99: 74000 }
+    output_tokens:       { p50: 320,    p90: 320,    p99: 320 }
+    # One request per session — this is what makes concurrency 1 hold.
+    turns_per_session:   { p50: 1,      p90: 1,      p99: 1 }
+    # UNREACHABLE at turns=1. Kept for provenance, not effect.
+    inter_turn_delay_s:  { p50: 4,      p90: 31,     p99: 240 }
+    # 0.89 of each prompt is a shared, globally-cached prefix; the rest is
+    # request-unique. Every request nests inside the SAME prefix, so the radix
+    # tree holds one hot path and there is no eviction pressure.
+    cache_hit_rate:      0.89
+    max_input_tokens:    260000
+
+  acc_len:               1.56
+  mtp_draft_tokens:      5
+  mtp_overhead_factor:   1.0
+
+  # --- Offered load: exactly one request in flight, always -------------------
+  initial_sessions:      1
+  new_session_rate:      1.0     # Bernoulli per ~1 s tick; respawn on the next tick
+  max_sessions:          1       # THE concurrency gate
+  max_inflight:          1       # safety valve; should never fire
+
+  # --- Measurement window ---------------------------------------------------
+  # ramp is a WARMUP EXCLUSION window, not a load ramp. It is what pre-warms the
+  # 65,860-token shared prefix so the measured repeats run at the intended cache
+  # hit rate — the mission's "在刷入 cache 保证 cache hit rate 的情况下".
+  ramp_duration:         180
+  # Sized for ~10 measured requests, not by wall clock. See run_solo.sh, which
+  # re-solves this from the observed E2E rather than trusting the estimate.
+  sustain_duration:      600
+
+  system_prompt_len:     2000
+  max_prompt_tokens:     260000
+  tokenizer:             /mnt/vast/xiaobo/models/GLM-5.2-MXFP4
+
+  # Documentation only: args.sla_cfg is parsed and never consumed. At
+  # concurrency 1 these are a latency FLOOR check, not a capacity check.
+  sla:
+    e2e_p50_ms:          4500
+    ttft_p90_ms:         30000
+    success_rate:        0.97
+
+  gpus:                  8
+  window:                30
+  random_seed:           1337

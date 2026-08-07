@@ -1,0 +1,88 @@
+===== captured 2026-08-06T08:12:14Z on chi2835 =====
+
+--- host ---
+6.8.0-107-generic
+cpu: 128 threads
+               total        used        free      shared  buff/cache   available
+Mem:            3023         771          97         374        2555        2252
+
+--- gpus ---
+GPU[0]		: Card Series: 		AMD Instinct MI355X
+GPU[0]		: Card Model: 		0x75a3
+VRAM 1741 / 2016 GB used
+driver: 6.16.13
+
+--- image ---
+container created: 2026-08-06T07:01:26.95052883Z
+image tag       : infera/engine-sglang:merged-e
+image id        : sha256:27667ee43291bed2bddb9caf44a63217fdb994d6f423f6ed3bf7e807340fae7a
+binds           : ["/mnt/vast:/mnt/vast"]
+
+--- versions inside the container ---
+sglang: 0.5.15.post1
+torch : 2.9.1+rocm7.2.0.git7e1940d4
+Name: amd-infera
+Version: 0.0.0
+Location: /opt/venv/lib/python3.10/site-packages
+
+--- the engine cmdline that actually ran (resolved, not requested) ---
+bash -c
+export SGLANG_USE_AITER=1
+SGLANG_ROCM_FUSED_DECODE_MLA=0 SGLANG_OPT_USE_TILELANG_INDEXER=1
+SGLANG_OPT_USE_TOPK_V2=0 SGLANG_OPT_USE_JIT_NORM=0
+SAFETENSORS_FAST_GPU=1 HIP_FORCE_DEV_KERNARG=1
+PYTHONHASHSEED=0 SGLANG_DP_USE_GATHERV=1;
+python3 -m
+infera.engine.sglang 
+ 
+ --model-path
+'/mnt/vast/xiaobo/models/GLM-5.2-MXFP4' --served-model-name
+'glm5.2-mxfp4' --tp-size
+8 --trust-remote-code
+ 
+ 
+--host '10.2.122.78'
+--port 30000
+ 
+ 
+--nsa-prefill-backend tilelang
+--nsa-decode-backend tilelang
+ 
+ 
+--kv-cache-dtype fp8_e4m3
+--mem-fraction-static 0.80
+--context-length 262144
+ 
+ 
+--chunked-prefill-size 65536
+--cuda-graph-max-bs 128
+ 
+ 
+--max-running-requests 256
+--watchdog-timeout 3600
+ 
+ 
+--reasoning-parser glm45
+ 
+ 
+--advertise-host 10.2.122.78
+
+--- router cmdline ---
+bash -c nohup python3 -m infera.server     --host 0.0.0.0 --port 8100 --router-backend rust     --discovery-backend etcd --etcd-endpoint 10.2.122.78:2379     --request-transport http --kv-event-transport zmq     --router-policy kv-aware --router-tokenizer-path /mnt/vast/xiaobo/models/GLM-5.2-MXFP4 --kv-prefill-overlap-weight 20.0 --kv-decode-overlap-weight 2.0 > /tmp/router.log 2>&1
+
+--- kvd cmdline + counters ---
+python3 -m infera.kvd --socket /tmp/kvd/kvd.sock --max-bytes 64G --long-path /tmp/kvd-long --long-bytes 64G --log-level INFO
+{
+  "entries": 67096,
+  "host_bytes": 82047568896,
+  "spillover_bytes": 0,
+  "long_bytes": 68718007296,
+  "gets_total": 56438,
+  "sets_total": 156525,
+  "hits_total": 54439,
+  "misses_total": 1999,
+  "evictions_total": 62025
+}
+
+--- resolved server_args (from the engine's own log) ---
+server_args=ServerArgs(model_path='/mnt/vast/xiaobo/models/GLM-5.2-MXFP4', tokenizer_path='/mnt/vast/xiaobo/models/GLM-5.2-MXFP4', tokenizer_mode='auto', tokenizer_backend='huggingface', tokenizer_worker_num=1, detokenizer_worker_num=1, skip_tokenizer_init=False, load_format='auto', model_loader_extra_config='{}', trust_remote_code=True, context_length=262144, is_embedding=False, enable_multimodal=None, revision=None, model_impl='auto', model_config_parser='auto', json_model_override_args='{}', dtype='auto', quantization=None, quantization_param_path=None, kv_cache_dtype='fp8_e4m3', enable_fp32_lm_head=False, modelopt_quant=None, modelopt_checkpoint_restore_path=None, modelopt_checkpoint_save_path=None, modelopt_export_path=None, quantize_and_serve=False, rl_quant_profile=None, enable_tf32_matmul=False, mem_fraction_static=0.8, max_running_requests=256, max_queued_requests=None, max_total_tokens=None, chunked_prefill_size=8192, enable_dynamic_chunking=False, max_prefill_tokens=16384, prefill_max_requests=None, schedule_policy='fcfs', enable_priority_scheduling=False, disable_priority_preemption=False, default_priority_value=None, abort_on_priority_when_disabled=False, schedule_low_priority_values_first=False, priority_scheduling_preemption_threshold=10, schedule_conservativeness=0.3, page_size=64, swa_full_tokens_ratio=0.8, disable_hybrid_swa_memory=False, radix_eviction_policy='lru', prefill_only_disable_kv_cache=False, disable_radix_cache=False, enable_page_major_kv_layout=False, enable_unified_memory=False, disable_chunked_prefix_cache=False, disable_overlap_schedule=False, num_continuous_decode_steps=1, scheduler_recv_interval=1, enable_mixed_chunk=False, nccl_port=None, dist_timeout=None, dist_init_addr=None, nnodes=1, node_rank=0, tp_size=8, dcp_size=1, pp_size=1, pp_max_micro_batch_size=None, pp_async_batch_depth=0, dp_size=8, load_balance_method='round_robin', attn_cp_size=1, moe_dp_size=1, enable_prefill_cp=False, cp_strategy=None, enable_dsa_prefill_context_parallel=False, dsa_prefill_cp_mode='round-robin-split', enable_prefill_context_parallel=False, prefill_cp_mode='in-seq-split', enable_dp_attention=True, enable_dp_attention_local_control_broadcast=False, enable_dp_lm_head=False, enable_attn_tp_input_scattered=False, disable_attn_tp_gather=False, enable_p2p_check=False, device='cuda', base_gpu_id=0, gpu_id_step=1, random_seed=932611662, watchdog_timeout=3600.0, soft_watchdog_timeout=None, sleep_on_idle=False, use_ray=False, custom_sigquit_handler=None, numa_node=None, gc_threshold=None, host='10.2.122.78', port=30000, fastapi_root_path='', grpc_mode=False, skip_server_warmup=False, warmups=None, enable_http2=False, ssl_keyfile=None, ssl_certfile=None, ssl_ca_certs=None, ssl_keyfile_password=None, enable_ssl_refresh=False, api_key=None, admin_api_key=None, served_model_name='glm5.2-mxfp4', weight_version='default', chat_template=None, hf_chat_template_name=None, completion_template=None, file_storage_path='sglang_storage', enable_cache_report=True, reasoning_parser='glm45', strip_thinking_cache=False, enable_strict_thinking=False, tool_call_parser=None, tool_server=None, sampling_defaults='model', asr_max_buffer_seconds=60, asr_max_concurrent_sessions=32, preferred_sampling_params=None, allow_auto_truncate=False, stream_interval=1, batch_notify_size=16, stream_response_default_include_usage=False, incremental_streaming_output=False, enable_streaming_session=False, enable_session_radix_cache=False, log_level='info', log_level_http=None, log_requests=False, log_requests_level=2, log_requests_format='text', log_requests_target=None, uvicorn_access_log_exclude_prefixes=[], crash_dump_folder=None, show_time_cost=False, enable_metrics=False, grpc_http_sidecar_port=None, enable_mfu_metrics=False, enable_metrics_for_all_schedulers=False, load_snapshot_publish_interval=15, tokenizer_metrics_custom_labels_header='x-custom-labels', tokenizer_metrics_allowed_custom_labels=None, extra_metric_labels=None, bucket_time_to_first_to
