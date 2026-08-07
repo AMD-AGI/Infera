@@ -284,7 +284,28 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
+        # Create-if-absent, exactly as `manual` does. This job deliberately has
+        # no `needs:` -- a wheel depends on neither the engine images nor the
+        # overlay -- but that means it can reach this step before `manual` (the
+        # only other job that creates the Release) has run, and `gh release
+        # upload` against a nonexistent release fails with "release not found".
+        # That is not hypothetical: it is how the pypi job died on the v0.2.4
+        # tag push (run 31217988270) while every step before it passed.
+        # Gating on `manual` instead would make the wheel wait on the GPU
+        # builds for no reason, so make whichever job gets there first create it.
+        run: |
+          set -euo pipefail
+          if ! gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            # `manual` may be creating it at this same moment, so losing the
+            # race is fine -- but only if a release really does exist after.
+            # Re-checking rather than swallowing the error keeps a genuine
+            # failure (bad permissions, wrong tag) from surfacing later as a
+            # confusing "release not found" on the upload.
+            gh release create "${GITHUB_REF_NAME}" \
+              --title "${GITHUB_REF_NAME}" --notes "Automated release build." \
+              || gh release view "${GITHUB_REF_NAME}" >/dev/null
+          fi
+          gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
       - name: Publish to PyPI
         # Skipped unless PYPI_API_TOKEN is set. amd-infera has never been
         # published, so claiming the name is a deliberate act, not something a
@@ -331,7 +352,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
+          set -euo pipefail
           tar -czf "infera-manual-${TAG}.tar.gz" -C manual/_build/html .
-          gh release view "$TAG" >/dev/null 2>&1 || \
-            gh release create "$TAG" --title "$TAG" --notes "Automated release build."
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            # `pypi` creates the Release too and neither job waits on the other,
+            # so losing the race is fine -- but re-check rather than swallow, so
+            # a genuine create failure does not resurface as "release not found".
+            gh release create "$TAG" --title "$TAG" --notes "Automated release build." \
+              || gh release view "$TAG" >/dev/null
+          fi
           gh release upload "$TAG" "infera-manual-${TAG}.tar.gz" --clobber
