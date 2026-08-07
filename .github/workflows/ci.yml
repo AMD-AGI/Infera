@@ -26,7 +26,11 @@ on:
         default: false
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  # PR number, not branch name: head_ref carries no repository, so two forks
+  # that both call a branch `main` or `fix-ci` would share a group and cancel
+  # each other's runs -- which reads as "my CI vanished" and is near impossible
+  # to trace back. Falls back to the ref for pushes to main.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
