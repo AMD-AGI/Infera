@@ -33,7 +33,7 @@ const (
 	lwsKind       = "LeaderWorkerSet"
 
 	// Graceful rolling-upgrade tuning for GPU worker pods.
-	workerPreStopDrainSeconds       = 15 // preStop sleep: let the router drop us before SIGTERM
+	workerPreStopDrainSeconds        = 15 // preStop sleep: let the router drop us before SIGTERM
 	workerDefaultDrainTimeoutSeconds = 30 // matches the worker's --drain-timeout default
 	// Teardown after the drain finishes: deregistering, stopping the KV plane,
 	// and engine.stop(), which SIGTERMs the engine's process group and waits up
@@ -41,7 +41,21 @@ const (
 	workerTeardownHeadroomSeconds = 50
 	// Floor, so short drain timeouts still leave room for a slow engine exit.
 	workerTerminationGraceSeconds int64 = 120
+
+	// The worker reads this as the default for --drain-timeout, so it sets the
+	// drain just as effectively as the flag does.
+	drainTimeoutEnvVar = "INFERA_DRAIN_TIMEOUT"
 )
+
+// drainSeconds parses a worker --drain-timeout value. The worker takes a
+// float; round up so a fractional value never shortens the budget.
+func drainSeconds(v string) (int, bool) {
+	f, err := strconv.ParseFloat(v, 64)
+	if err != nil || f <= 0 {
+		return 0, false
+	}
+	return int(math.Ceil(f)), true
+}
 
 // graceSecondsFor sizes terminationGracePeriodSeconds so the kubelet cannot
 // SIGKILL a worker in the middle of shutting down.
@@ -53,8 +67,27 @@ const (
 // nothing here parsed -- so raising it for long generations (the exact reason
 // anyone raises it) silently pushed shutdown past the grace and turned a
 // graceful drain back into a kill.
-func graceSecondsFor(args []string) int64 {
+//
+// The drain can be set two ways and both have to be read. The worker takes
+// $INFERA_DRAIN_TIMEOUT as the flag's *default*, so an env var raises the drain
+// exactly as effectively as the flag does -- and parsing only the flag left the
+// same silent overrun through a different door.
+func graceSecondsFor(args []string, env []corev1.EnvVar) int64 {
 	drain := workerDefaultDrainTimeoutSeconds
+	// Environment first so an explicit flag overrides it, matching argparse:
+	// the variable supplies the default, the flag replaces it.
+	for _, e := range env {
+		if e.Name != drainTimeoutEnvVar {
+			continue
+		}
+		// A valueFrom reference is resolved by the kubelet, not here, so its
+		// value is unknowable at build time and the budget falls back to the
+		// flag or the default. Worth knowing if a drain is ever cut short
+		// despite a ConfigMap saying otherwise.
+		if d, ok := drainSeconds(e.Value); ok {
+			drain = d
+		}
+	}
 	for i, a := range args {
 		v := ""
 		if a == "--drain-timeout" && i+1 < len(args) {
@@ -65,10 +98,8 @@ func graceSecondsFor(args []string) int64 {
 		if v == "" {
 			continue
 		}
-		// The worker takes a float; round up so a fractional value never
-		// shortens the budget.
-		if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
-			drain = int(math.Ceil(f))
+		if d, ok := drainSeconds(v); ok {
+			drain = d
 		}
 	}
 	need := int64(workerPreStopDrainSeconds + drain + workerTeardownHeadroomSeconds)
@@ -82,8 +113,8 @@ func graceSecondsFor(args []string) int64 {
 func labelsFor(idepName, svcName string) map[string]string {
 	return map[string]string{
 		"app.kubernetes.io/managed-by": "infera-operator",
-		"infera.amd.com/deployment":  idepName,
-		"infera.amd.com/service":     svcName,
+		"infera.amd.com/deployment":    idepName,
+		"infera.amd.com/service":       svcName,
 	}
 }
 
@@ -275,16 +306,21 @@ var mainContainerNames = map[string]struct{}{"main": {}, "infera": {}}
 // generations, plus a /health readiness probe for single-node workers (skipped
 // for multi-node LWS groups whose follower ranks > 0 do not serve /health).
 // Existing values are preserved; the grace is only raised, never lowered.
-func injectWorkerRolloutDefaults(spec *corev1.PodSpec, idx int, port int32, addReadiness bool, args []string) {
+func injectWorkerRolloutDefaults(
+	spec *corev1.PodSpec, idx int, port int32, addReadiness bool,
+	args []string, env []corev1.EnvVar,
+) {
 	if idx < 0 || idx >= len(spec.Containers) {
 		return
 	}
 	c := &spec.Containers[idx]
-	// The flag can arrive two ways: via ServiceSpec.Args on the rendered path,
-	// or written straight into the container by an extraPodSpec template, which
-	// is passed through verbatim. Reading only the first would miss exactly the
-	// deployments most likely to have tuned it.
+	// The drain can arrive several ways: via ServiceSpec.Args/Env on the
+	// rendered path, or written straight into the container by an extraPodSpec
+	// template, which is passed through verbatim. Reading only the first would
+	// miss exactly the deployments most likely to have tuned it. The container's
+	// own values go last so they win, being what the process actually sees.
 	drainArgs := append(append(append([]string{}, args...), c.Command...), c.Args...)
+	drainEnv := append(append([]corev1.EnvVar{}, env...), c.Env...)
 	if addReadiness && c.ReadinessProbe == nil {
 		// SGLang's /health runs a tiny prefill self-check that often takes
 		// >1s, so a 1s probe timeout (the k8s default) flaps the pod between
@@ -310,7 +346,7 @@ func injectWorkerRolloutDefaults(spec *corev1.PodSpec, idx int, port int32, addR
 			},
 		}
 	}
-	if want := graceSecondsFor(drainArgs); spec.TerminationGracePeriodSeconds == nil ||
+	if want := graceSecondsFor(drainArgs, drainEnv); spec.TerminationGracePeriodSeconds == nil ||
 		*spec.TerminationGracePeriodSeconds < want {
 		grace := want
 		spec.TerminationGracePeriodSeconds = &grace
@@ -361,7 +397,7 @@ func podTemplateFromExtra(idep *inferav1alpha1.InferaDeployment, svcName string,
 	// Graceful rolling-upgrade defaults for worker pods rendered by an external
 	// template: inject readiness/preStop/grace the template omitted.
 	if svc.ComponentType == inferav1alpha1.ComponentTypeWorker {
-		injectWorkerRolloutDefaults(&spec, idx, port, svc.NumberOfNodes <= 1 && !svc.SkipReadinessProbe, svc.Args)
+		injectWorkerRolloutDefaults(&spec, idx, port, svc.NumberOfNodes <= 1 && !svc.SkipReadinessProbe, svc.Args, svc.Env)
 	}
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{Labels: podLabelsFor(idep.Name, svcName, svc)},
@@ -420,7 +456,7 @@ func podTemplate(idep *inferav1alpha1.InferaDeployment, svcName string, svc infe
 	// readiness is skipped for multi-node LWS groups (follower ranks have no
 	// /health). The server (CPU-only) keeps the default fast shutdown.
 	if svc.ComponentType == inferav1alpha1.ComponentTypeWorker {
-		injectWorkerRolloutDefaults(&podSpec, 0, port, svc.NumberOfNodes <= 1 && !svc.SkipReadinessProbe, svc.Args)
+		injectWorkerRolloutDefaults(&podSpec, 0, port, svc.NumberOfNodes <= 1 && !svc.SkipReadinessProbe, svc.Args, svc.Env)
 	}
 	tmpl := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{Labels: podLabelsFor(idep.Name, svcName, svc)},
