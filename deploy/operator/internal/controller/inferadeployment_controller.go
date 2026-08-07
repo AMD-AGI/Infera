@@ -43,6 +43,13 @@ type InferaDeploymentReconciler struct {
 // (RBAC escalation-prevention: a grantor must hold what it grants) and so a
 // future operator path could read Pod status directly.
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;patch
+// The manager runtime needs the next two, not the reconciler: controller-runtime
+// takes a lease when --leader-elect is set (the chart sets it by default) and
+// records events. Nothing else here would emit them, so without these markers
+// config/rbac/role.yaml describes a manager that cannot acquire its lease --
+// and it is the file external consumers build their RBAC from.
+// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 func (r *InferaDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)

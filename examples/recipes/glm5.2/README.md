@@ -52,7 +52,8 @@ pinned host memory charged to the sidecar's limit.
 kubectl get nodes -o custom-columns=NODE:.metadata.name,GPU:.status.allocatable.'amd\.com/gpu'
 
 # the infera operator (provides the InferaDeployment CRD)
-helm install infera-operator deploy/operator/helm/infera-operator -n infera-system --create-namespace
+helm install infera-operator oci://docker.io/rocm/infera-operator --version 0.1.0 \
+  -n infera-system --create-namespace
 kubectl -n infera-system rollout status deploy/infera-operator
 ```
 
