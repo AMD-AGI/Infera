@@ -114,13 +114,6 @@ jobs:
           echo "=> run_e2e=$run"
           echo "run=$run" >> "$GITHUB_OUTPUT"
 
-  # Sign-off gate for the GPU tiers below — `needs:` cannot reach a job in
-  # another workflow, so dco.yml is called here as one. Skipped off a PR (there
-  # is nothing to check), which the tiers below read as "did not fail".
-  dco:
-    if: github.event_name == 'pull_request'
-    uses: ./.github/workflows/dco.yml
-
   lint:
     needs: [changes]
     if: needs.changes.outputs.code == 'true'
@@ -172,12 +165,11 @@ jobs:
   # Engine GPU tests. Same schedule as the e2e tiers (see e2e_gate): every PR
   # into main once it is out of draft, and every merge into main.
   engine:
-    needs: [lint, changes, dco, e2e_gate]
+    needs: [lint, changes, e2e_gate]
     if: >-
       !cancelled() &&
       needs.changes.outputs.code == 'true' &&
       needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
-      needs.dco.result != 'failure' && needs.dco.result != 'cancelled' &&
       (needs.e2e_gate.outputs.run == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: [self-hosted, crusoe]
     timeout-minutes: 60
@@ -202,19 +194,17 @@ jobs:
 
   # Full PD-mixed e2e (per engine, parallel). When it runs is e2e_gate's call.
   e2e-mixed:
-    # Skipped for docs-only changes. Gated behind lint and dco: run only if neither
-    # failed. `!cancelled()` + result checks (instead of a plain success dependency)
-    # is needed so e2e still runs when lint is *skipped* for a docs-only change
-    # or dco is skipped off a PR, but is held back when either fails. NOT
-    # `always()`: on cancel the server re-evaluates job-level `if`, and `always()`
-    # evaluates true, so the job is never cancelled — it keeps (or even starts)
-    # burning GPU nodes after "Cancel workflow".
-    needs: [lint, changes, dco, e2e_gate]
+    # Skipped for docs-only changes, and held back if lint failed. Checking
+    # lint's *result* rather than depending on its success keeps `!cancelled()`
+    # meaningful; `always()` would not work here, because on cancel the server
+    # re-evaluates job-level `if` and `always()` is true, so the job would never
+    # be cancelled — it would keep (or even start) burning GPU nodes after
+    # "Cancel workflow".
+    needs: [lint, changes, e2e_gate]
     if: >-
       !cancelled() &&
       needs.changes.outputs.code == 'true' &&
       needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
-      needs.dco.result != 'failure' && needs.dco.result != 'cancelled' &&
       (needs.e2e_gate.outputs.run == 'true' ||
        (github.event_name == 'workflow_dispatch' && inputs.run_e2e_mixed))
     strategy:
@@ -246,12 +236,11 @@ jobs:
   e2e-disag:
     # Gates mirror e2e-mixed, `!cancelled()` included: `always()` would keep this
     # holding a two-node pair after "Cancel workflow".
-    needs: [lint, changes, dco, e2e_gate]
+    needs: [lint, changes, e2e_gate]
     if: >-
       !cancelled() &&
       needs.changes.outputs.code == 'true' &&
       needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
-      needs.dco.result != 'failure' && needs.dco.result != 'cancelled' &&
       (needs.e2e_gate.outputs.run == 'true' ||
        (github.event_name == 'workflow_dispatch' && inputs.run_e2e_disag))
     strategy:
