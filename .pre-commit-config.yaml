@@ -39,6 +39,14 @@ repos:
         files: ^rust/.*\.rs$
         pass_filenames: false
 
+      # Go formatting gate (needs a local toolchain). Only the operator is Go.
+      # `go vet` and the tests are heavier, so they run in CI.
+      - id: gofmt
+        name: gofmt (go)
+        entry: scripts/check-gofmt.sh
+        language: script
+        files: ^deploy/operator/.*\.go$
+
       # Refuse a commit whose git email is a machine-generated local hostname
       # (git's fallback when user.email is unset), so an internal build-host
       # name can't leak into permanent public history. Skipped in CI.
