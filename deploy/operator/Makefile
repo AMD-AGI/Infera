@@ -40,6 +40,7 @@ manifests:
 ## changing.
 sync-chart-crd:
 	mkdir -p $(CHART_CRD_DIR)
+	rm -f $(CHART_CRD_DIR)/*.yaml
 	cp $(CRD_DIR)/*.yaml $(CHART_CRD_DIR)/
 
 build: generate
