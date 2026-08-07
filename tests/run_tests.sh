@@ -100,14 +100,21 @@ _cleanup_scratch() {
 # has to scancel it: job id from $_CUR_DISPATCH_OUT, else from the job tag.
 _CUR_DISPATCH_OUT=""
 _cancel_dispatched() {
-  local jids="" i suf csv
+  local jids="" i suf csv left queue
   if [ -n "$_CUR_DISPATCH_OUT" ] && [ -f "$_CUR_DISPATCH_OUT" ]; then
     jids=$(grep -oE 'srun: job [0-9]+' "$_CUR_DISPATCH_OUT" 2>/dev/null \
       | grep -oE '[0-9]+' | sort -u | tr '\n' ' ')
   fi
   if [ -z "$jids" ] && [ -n "${INFERA_E2E_JOB_TAG:-}" ]; then
     suf="-${INFERA_E2E_JOB_TAG}"
-    jids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \
+    # A failed lookup is not an empty queue. Capture before parsing: awk would
+    # filter the error away, leaving a bare "squeue failed" that has to be
+    # reproduced to diagnose. Then hand off to ci.yml's reclaim step.
+    if ! queue=$(squeue -h -u "$(id -un)" -o '%i %j' 2>&1); then
+      echo "[cleanup] squeue failed, leaving this run's jobs to the workflow's reclaim step: $queue" >&2
+      return 1
+    fi
+    jids=$(printf '%s\n' "$queue" \
       | awk -v suf="$suf" '$2 ~ /^infera-ci-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}' \
       | tr '\n' ' ')
   fi
@@ -118,8 +125,13 @@ _cancel_dispatched() {
   for i in 1 2 3 4 5; do
     scancel $jids >/dev/null 2>&1 || true
     sleep 2
-    [ -z "$(squeue -h -j "$csv" -o '%i' 2>/dev/null)" ] && return 0
+    # Only a query that answered may confirm the cancel: on Spur a gone job still
+    # exits 0 with no output. (Stock SLURM errors on an invalid id, so there this
+    # never confirms and the warning below is a false alarm -- the workflow's
+    # reclaim step is the backstop either way.)
+    left=$(squeue -h -j "$csv" -o '%i' 2>&1) && [ -z "$left" ] && return 0
   done
+  echo "[cleanup] could not confirm the cancel of $jids: ${left:-no output}" >&2
 }
 # Nodes the running PD-disagg attempt placed containers on. A killed run skips
 # pytest's teardown, so without this a cancel leaves prefill+decode on the GPUs.
@@ -195,11 +207,37 @@ QOS_WAIT="${INFERA_E2E_QOS_WAIT:-30}"
 # than a single-node srun, and giving up early only churns the pair-hold race.
 HOLD_WAIT="${INFERA_E2E_HOLD_WAIT:-60}"
 
+# A tier that could not run is not a tier that passed: returning 0 here is how a
+# runner whose python3 lacked pytest turned every e2e-disag leg green in 7s. Fail
+# and name the cause; a dev box that really has no SLURM opts out explicitly.
+#   $1=label  $2=what is wrong  $3=how to fix it
+_SKIPPED_TIERS=""
+_skip_or_fail() {
+  local label="$1" why="$2" fix="$3"
+  if [ "${INFERA_E2E_ALLOW_SKIP:-}" = 1 ]; then
+    _SKIPPED_TIERS="${_SKIPPED_TIERS:+$_SKIPPED_TIERS, }$label"
+    echo "[$label] SKIPPED (INFERA_E2E_ALLOW_SKIP=1): $why" >&2
+    return 0
+  fi
+  echo "[$label] FATAL: $why" >&2
+  echo "[$label] fix: $fix" >&2
+  echo "[$label] (or INFERA_E2E_ALLOW_SKIP=1 to skip this tier instead of failing)" >&2
+  return 1
+}
+
 _have_slurm() { command -v srun >/dev/null 2>&1; }
-# The nodes reservation $1 covers, one per line ('' if it is gone/expired).
-# Spur ignores the NAME arg and dumps all reservations; match the exact block.
+# The nodes reservation $1 covers, one per line. Non-zero means the QUERY failed;
+# exit 0 with no output means the reservation genuinely is not there. Spur keeps
+# the two separable: it ignores the NAME arg and dumps every reservation, so a
+# missing name still exits 0 and the awk below simply matches nothing.
+# Capture before parsing: under pipefail a later stage's status would otherwise
+# masquerade as a failed query, and callers now act on that distinction.
 _reservation_nodes() {
-  scontrol show reservation "$1" 2>/dev/null | awk -v r="ReservationName=$1" '
+  local out
+  # Forward scontrol's own words: callers can only say "cannot reach the
+  # scheduler", which is not enough to act on.
+  out=$(scontrol show reservation "$1" 2>&1) || { printf '%s\n' "$out" >&2; return 1; }
+  printf '%s\n' "$out" | awk -v r="ReservationName=$1" '
     BEGIN{RS="";FS="\n"}
     $1==r { for(i=1;i<=NF;i++) if($i ~ /Nodes=/){ n=$i; sub(/.*Nodes=/,"",n); sub(/[[:space:]].*/,"",n); print n; exit } }' \
     | tr ',' '\n' | sed '/^$/d'
@@ -217,7 +255,11 @@ _node_free() {
 # partition's idle ones.
 _candidate_nodes() {
   local n nodes=""
-  [ -n "${INFERA_E2E_RESERVATION:-}" ] && nodes="$(_reservation_nodes "$INFERA_E2E_RESERVATION")"
+  if [ -n "${INFERA_E2E_RESERVATION:-}" ]; then
+    # Query failed: offer nothing and let the caller keep waiting. Falling
+    # through would hand the PD pair unreserved nodes off the open partition.
+    nodes=$(_reservation_nodes "$INFERA_E2E_RESERVATION") || return 0
+  fi
   if [ -z "$nodes" ]; then
     sinfo -h -N -p "$SLURM_PART" -t idle -o '%n' 2>/dev/null | awk 'NF && !seen[$0]++'
     return
@@ -263,6 +305,9 @@ _rival_holder() {
 # Hold both PD nodes' GPUs for the whole run: disagg's per-step sruns leave them
 # idle in between, so SLURM would hand one out and the fixed ports (etcd 2379,
 # router 8000, ...) collide. Our own no-gres steps co-schedule. Sets _HOLDER_JID.
+# 0 = held, 1 = another holder won the pair, 2 = SLURM never placed the hold.
+# The caller reports 1 and 2 differently: they used to read alike, so a refused
+# sbatch was announced as a lost race and pointed triage away from the scheduler.
 _hold_pair() {
   local pair="$1" script="$SCRATCH/hold.sh" jid st rs waited qos=() i other
   # A real script file, not --wrap: on Spur --wrap always NODE_FAILs at -N2.
@@ -295,7 +340,7 @@ _hold_pair() {
     scancel "$jid" >/dev/null 2>&1
     echo "[e2e disagg] hold attempt $i on $pair not started (${st:-?}/${rs:-?}) — retrying" >&2
   done
-  return 1
+  return 2
 }
 # One renderD* per GPU; PCI vendor 0x1002 == AMD.
 _amd_gpu_count() {
@@ -310,11 +355,11 @@ _amd_gpu_count() {
 _local_eligible() { [ "$(_amd_gpu_count)" -ge 8 ] && command -v docker >/dev/null 2>&1; }
 
 # Spill helper (Spur has no srun --immediate): free count, -1 if the reservation
-# is gone/expired, -2 if scontrol is unavailable.
+# is gone/expired, -2 if scontrol is unavailable, -3 if the query itself failed.
 _reservation_free() {
   local rname="$1" nodes n free=0
   command -v scontrol >/dev/null 2>&1 || { echo -2; return; }
-  nodes=$(_reservation_nodes "$rname")
+  nodes=$(_reservation_nodes "$rname") || { echo -3; return; }
   [ -n "$nodes" ] || { echo -1; return; }
   for n in $nodes; do
     _node_free "$n" && free=$((free + 1))
@@ -322,8 +367,12 @@ _reservation_free() {
   echo "$free"
 }
 # Caps borrowed nodes at INFERA_E2E_SPILL_MAX; concurrent dispatchers can race it.
+# Non-zero if the query failed, so the caller does not read that as "none in
+# flight" and borrow past the cap exactly when the scheduler is already unwell.
 _spill_inflight() {
-  squeue -h -u "$(id -un)" -o '%j' 2>/dev/null | grep -c -- 'spill' || true
+  local out
+  out=$(squeue -h -u "$(id -un)" -o '%j' 2>&1) || { printf '%s\n' "$out" >&2; return 1; }
+  printf '%s\n' "$out" | grep -c -- 'spill' || true
 }
 
 # Report why the dispatch is still queued (a waiting job prints NOTHING, so a CI
@@ -358,8 +407,10 @@ _watch_job() {
 _dispatch_slurm() {
   local label="$1"; shift
   if ! _have_slurm; then
-    echo "[$label] WARNING: no SLURM (srun) — skipping" >&2
-    return 0
+    _skip_or_fail "$label" \
+      "no SLURM: srun is not on PATH, so this tier cannot be dispatched to a GPU node" \
+      "expose the SLURM client on this host, or run where docker + >=8 AMD GPUs are present"
+    return $?
   fi
   # srun's own client banners/errors (job id, "running on <node>", ...).
   local out="$SCRATCH/.dispatch-$label.out"
@@ -393,14 +444,16 @@ _dispatch_slurm() {
       rfree=$(_reservation_free "$INFERA_E2E_RESERVATION")
       smax="${INFERA_E2E_SPILL_MAX:-2}"
       if [ "$rfree" = "-1" ]; then
-        echo "[$label] WARNING: reservation '$INFERA_E2E_RESERVATION' not found — falling back to open partition '$SLURM_PART'" >&2
+        echo "[$label] WARNING: reservation '$INFERA_E2E_RESERVATION' does not exist — falling back to open partition '$SLURM_PART'" >&2
         mode="resv-gone->open"
       elif [ "$rfree" != "0" ]; then
-        # free>0, or -2 (no scontrol): use the reservation.
+        # free>0, or -2/-3 (cannot tell): keep the reservation. Only a query that
+        # answered may drop it -- reading a controller blink as "gone" is what
+        # sent a whole run to the open partition on 2026-08-06.
         resv=(--reservation="$INFERA_E2E_RESERVATION"); mode="resv"
       else
-        inflight=$(_spill_inflight)
-        if [ "$smax" -gt 0 ] && [ "$inflight" -lt "$smax" ]; then
+        # A failed count must not authorise a spill: queue on the reservation.
+        if inflight=$(_spill_inflight) && [ "$smax" -gt 0 ] && [ "$inflight" -lt "$smax" ]; then
           # spill marker sits before the run_id-engine suffix so ci.yml reclaim matches.
           jobname="infera-ci-${label}-spill${INFERA_E2E_JOB_TAG:+-$INFERA_E2E_JOB_TAG}"
           mode="spill($((inflight + 1))/$smax)"
@@ -515,7 +568,15 @@ run_engine() {
       cd /workspace
       PYT="python3 -m pytest -p no:cacheprovider -o addopts= -q -rfE"
       rc=0
-      for f in $(find "$INFERA_TEST_SCOPE" -name "test_*.py" | sort); do
+      # A scope that matches nothing iterates zero times and exits 0, so a rename
+      # or a typo in engine_tier would report PASS having tested nothing. Capture
+      # before sorting: through a pipe, find's own exit code would be sort's 0.
+      if ! files=$(find "$INFERA_TEST_SCOPE" -name "test_*.py") || [ -z "$files" ]; then
+        echo "[engine $INFERA_TEST_SCOPE] FATAL: scope unreadable or holds no test_*.py" >&2
+        echo "[engine $INFERA_TEST_SCOPE] scope unreadable or holds no test_*.py" >> /scratch/failures.txt
+        exit 1
+      fi
+      for f in $(printf "%s\n" "$files" | sort); do
         echo "----- pytest $f -----"
         # tee: stream live for CI, keep a copy for the classification below.
         $PYT "$f" 2>&1 | stdbuf -oL tee /scratch/.engine_f.out; code=${PIPESTATUS[0]}
@@ -524,7 +585,11 @@ run_engine() {
           139|134|137) line="CRASH(exit=$code)"; rc=1
               echo "[engine $INFERA_TEST_SCOPE] CRASH(exit=$code) $f" >> /scratch/failures.txt ;;
           0)  line=$(printf "%s" "$out" | grep -E "passed|failed|skipped|no tests ran" | tail -1) ;;
-          5)  line="no tests ran (whole file skipped — not a failure)" ;;
+          # Nothing collected. Each guarded file importorskips a module its own
+          # image ships, so a 5 means the image is broken — exactly when this must
+          # go red. Say so plainly: pytest words it "1 skipped", which reads benign.
+          5)  line="FAIL: no tests collected (exit=5)"; rc=1
+              echo "[engine $INFERA_TEST_SCOPE] $f (exit=5, no tests collected)" >> /scratch/failures.txt ;;
           *)  line=$(printf "%s" "$out" | grep -E "passed|failed|error|skipped" | tail -1)
               [ -z "$line" ] && line="(exit=$code)"; rc=1
               fails=$(printf "%s\n" "$out" | grep -aE "^(FAILED|ERROR) ")
@@ -603,26 +668,41 @@ run_e2e_disagg() {
   local engines=("$@")
   echo "===== e2e PD-disaggregated (cross-node, 2 nodes): ${engines[*]} ====="
   if ! _have_slurm; then
-    echo "[e2e disagg] WARNING: no SLURM (srun) — skipping PD-disaggregated tests" >&2
-    return 0
+    _skip_or_fail "e2e disagg" \
+      "no SLURM: srun is not on PATH, so the PD-disaggregated tests cannot run" \
+      "expose the SLURM client on this host"
+    return $?
   fi
-  python3 -c "import pytest, pytest_asyncio, httpx" >/dev/null 2>&1 \
-    || { echo "[e2e disagg] WARNING: missing host deps (pytest/pytest-asyncio/httpx) — skipping" >&2; return 0; }
+  # Name the interpreter actually consulted and quote its ImportError: "missing
+  # host deps" is true of every python3 on the box, and sent the last triage wrong.
+  local deps_err
+  if ! deps_err=$(python3 -c "import pytest, pytest_asyncio, httpx" 2>&1); then
+    _skip_or_fail "e2e disagg" \
+      "the disagg orchestrator runs pytest on THIS host, and $(command -v python3 || echo 'python3 (not on PATH)') cannot import its deps: ${deps_err##*$'\n'}" \
+      "pip install pytest pytest-asyncio httpx"
+    return $?
+  fi
 
   if [ -n "$SHARED_LOG_DIR" ]; then
     exec > >(stdbuf -oL tee -a "$SHARED_LOG_DIR/dispatch-disag-$$.log") 2>&1
   fi
 
   # An expired reservation is worse than none — every step's `srun --reservation`
-  # would fail. Drop it, as _dispatch_slurm does for the mixed tier.
-  if [ -n "${INFERA_E2E_RESERVATION:-}" ] && [ -z "$(_reservation_nodes "$INFERA_E2E_RESERVATION")" ]; then
-    echo "[e2e disagg] WARNING: reservation '$INFERA_E2E_RESERVATION' not found — falling back to open partition '$SLURM_PART'" >&2
-    unset INFERA_E2E_RESERVATION
+  # would fail. Drop it, as _dispatch_slurm does for the mixed tier, but only on
+  # a query that answered: a failed one says nothing about the pool.
+  local resv_nodes
+  if [ -n "${INFERA_E2E_RESERVATION:-}" ]; then
+    if ! resv_nodes=$(_reservation_nodes "$INFERA_E2E_RESERVATION"); then
+      echo "[e2e disagg] WARNING: cannot reach the scheduler to check reservation '$INFERA_E2E_RESERVATION' — keeping it" >&2
+    elif [ -z "$resv_nodes" ]; then
+      echo "[e2e disagg] WARNING: reservation '$INFERA_E2E_RESERVATION' does not exist — falling back to open partition '$SLURM_PART'" >&2
+      unset INFERA_E2E_RESERVATION
+    fi
   fi
 
   local rc=0 e prc out="$SCRATCH/.e2e-disag.out"
   local max_attempts=3 attempt exclude n1 n2 nodes ok
-  local races max_races="${INFERA_E2E_HOLD_RACE_MAX:-10}"
+  local races max_races="${INFERA_E2E_HOLD_RACE_MAX:-10}" hold_rc
   for e in "${engines[@]}"; do
     echo "----- e2e disagg — tests/e2e/pd_disag/$e -----"
     attempt=0; ok=0; exclude=""; races=0
@@ -643,13 +723,19 @@ run_e2e_disagg() {
       # Losing the race is not a node fault, so the pair must NOT join $exclude:
       # with a small pool the engine would exclude every node and then starve on
       # an idle cluster. Bounded so a pathological loser fails loudly instead.
-      if ! _hold_pair "$n1,$n2"; then
+      # Not `if ! _hold_pair`: inside that, $? is the negation's, not the call's.
+      _hold_pair "$n1,$n2"; hold_rc=$?
+      if [ "$hold_rc" -ne 0 ]; then
         races=$((races + 1))
         if [ "$races" -ge "$max_races" ]; then
-          echo "[e2e disagg] lost the node-hold race $races times — giving up on $e" >&2
+          if [ "$hold_rc" -eq 2 ]; then
+            echo "[e2e disagg] SLURM never placed a node hold in $races attempts — giving up on $e" >&2
+          else
+            echo "[e2e disagg] lost the node-hold race $races times — giving up on $e" >&2
+          fi
           break
         fi
-        echo "[e2e disagg] could not hold $n1,$n2 (race $races/$max_races) — re-picking in 30s" >&2
+        echo "[e2e disagg] could not hold $n1,$n2 (attempt $races/$max_races) — re-picking in 30s" >&2
         attempt=$((attempt - 1)); sleep 30; continue
       fi
       races=0
@@ -684,10 +770,15 @@ run_e2e_disagg() {
 # Report-only: both tiers can still run (degraded) without a reservation or with
 # a nearly full /home, and a hard exit here would cost a whole CI run to find out.
 _e2e_preflight() {
-  local avail
-  if [ -n "${INFERA_E2E_RESERVATION:-}" ] && command -v scontrol >/dev/null 2>&1 \
-     && [ -z "$(_reservation_nodes "$INFERA_E2E_RESERVATION")" ]; then
-    echo "[e2e] ERROR: reservation '$INFERA_E2E_RESERVATION' does not exist (gone or expired)" >&2
+  local avail resv_nodes
+  if [ -n "${INFERA_E2E_RESERVATION:-}" ] && command -v scontrol >/dev/null 2>&1; then
+    if ! resv_nodes=$(_reservation_nodes "$INFERA_E2E_RESERVATION"); then
+      # This line used to say "does not exist" for an unreachable controller too,
+      # which sent triage looking for a deleted reservation.
+      echo "[e2e] ERROR: cannot reach the scheduler to check reservation '$INFERA_E2E_RESERVATION' (scontrol failed)" >&2
+    elif [ -z "$resv_nodes" ]; then
+      echo "[e2e] ERROR: reservation '$INFERA_E2E_RESERVATION' does not exist (gone or expired)" >&2
+    fi
   fi
   avail=$(df -Pk /home 2>/dev/null | awk 'NR==2{print $4}')
   case "$avail" in
@@ -777,5 +868,11 @@ if [ -d "$E2E_LOG_DIR" ]; then
   ls -1 "$E2E_LOG_DIR"/*.log 2>/dev/null | sed 's|^|  |' || true
 fi
 
-[ "$rc" -eq 0 ] && echo "RESULT: PASS" || echo "RESULT: FAIL"
+if [ "$rc" -ne 0 ]; then
+  echo "RESULT: FAIL"
+elif [ -n "$_SKIPPED_TIERS" ]; then
+  echo "RESULT: PASS (SKIPPED: $_SKIPPED_TIERS)"
+else
+  echo "RESULT: PASS"
+fi
 exit "$rc"
