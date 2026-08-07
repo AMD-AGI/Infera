@@ -17,8 +17,6 @@ export PREFILL_NODE="${PREFILL_NODE:-node-0}"
 export DECODE_NODE="${DECODE_NODE:-node-1}"
 export PREFILL_IP="${PREFILL_IP:-$(getent ahostsv4 "$PREFILL_NODE" 2>/dev/null | awk 'NR==1{print $1}')}"
 export DECODE_IP="${DECODE_IP:-$(getent ahostsv4 "$DECODE_NODE" 2>/dev/null | awk 'NR==1{print $1}')}"
-: "${PREFILL_IP:=127.0.0.1}"
-: "${DECODE_IP:=$PREFILL_IP}"
 
 export ETCD_ENDPOINT="${ETCD_ENDPOINT:-${PREFILL_IP}:2379}"
 export ROUTER_PORT="${ROUTER_PORT:-8000}"
@@ -29,6 +27,26 @@ export BOOTSTRAP_PORT="${BOOTSTRAP_PORT:-8998}"
 export ROUTER_URL="${ROUTER_URL:-http://${PREFILL_IP}:${ROUTER_PORT}}"
 export PREFILL_URL="${PREFILL_URL:-http://${PREFILL_IP}:${PREFILL_PORT}}"
 export DECODE_URL="${DECODE_URL:-http://${DECODE_IP}:${DECODE_PORT}}"
+
+# Called by every script that dials one of the addresses above, and by no other --
+# build_image.sh and host_container.sh source this file and need no IP at all.
+#
+# The tempting default, loopback for a node that does not resolve, is the worst
+# kind of wrong here: etcd runs on the prefill node, so THAT leg registers happily
+# and its whole node looks healthy while the decode leg finds nothing listening on
+# its own loopback -- 20 minutes later, since registration comes after the weights
+# load. A half-set pair is worse still: DECODE_IP falling back to PREFILL_IP has
+# the decode leg advertise the prefill node's address, and then BOTH legs register
+# and only a real request finds the hole.
+require_ips() {
+  local bad=0
+  [[ -n "$PREFILL_IP" ]] || { echo "[env] PREFILL_IP unset and '$PREFILL_NODE' does not resolve" >&2; bad=1; }
+  [[ -n "$DECODE_IP" ]]  || { echo "[env] DECODE_IP unset and '$DECODE_NODE' does not resolve" >&2; bad=1; }
+  (( bad == 0 )) || {
+    echo "[env] export both, or point PREFILL_NODE/DECODE_NODE at names that resolve" >&2
+    exit 1
+  }
+}
 
 # --- image / container ------------------------------------------------------
 # Built by build_image.sh straight from deploy/docker/Dockerfile.sglang.gfx942.

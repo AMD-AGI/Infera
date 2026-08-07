@@ -13,6 +13,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/env.sh"
+require_ips
 
 TAG="${TAG:-random_isl${ISL}_osl${OSL}_c${CONC}_n${NUM_PROMPTS}}"
 OUT="$RESULT_DIR/$TAG"

@@ -7,6 +7,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 source "$HERE/env.sh"
+require_ips
 
 HOST_IP="${ETCD_HOST_IP:-$PREFILL_IP}"
 ETCD_IMAGE="${ETCD_IMAGE:-quay.io/coreos/etcd:v3.5.14}"
