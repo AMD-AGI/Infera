@@ -2,3 +2,5 @@ bin/
 testbin/
 *.test
 cover.out
+# Packaged Helm chart produced by `make helm-package`.
+*.tgz

@@ -7,6 +7,13 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - ""
+  resources:
   - pods
   verbs:
   - get
@@ -40,6 +47,18 @@ rules:
   - update
   - watch
 - apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - gateway.networking.k8s.io
   resources:
   - httproutes
@@ -51,6 +70,32 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - infera.amd.com
+  resources:
+  - inferadeployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - infera.amd.com
+  resources:
+  - inferadeployments/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - infera.amd.com
+  resources:
+  - inferadeployments/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - inference.networking.k8s.io
   resources:
@@ -88,29 +133,3 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - infera.amd.com
-  resources:
-  - inferadeployments
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - infera.amd.com
-  resources:
-  - inferadeployments/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - infera.amd.com
-  resources:
-  - inferadeployments/status
-  verbs:
-  - get
-  - patch
-  - update
