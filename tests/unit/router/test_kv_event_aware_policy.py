@@ -28,6 +28,7 @@ from infera.common.worker_pool import (
 )
 from infera.router.cache_control import extract_image_keys
 from infera.router.policy.kv_event_aware import KvEventAwarePolicy
+from infera.server import metrics
 
 # ----------------------------------------------------------------------
 # Stubs
@@ -212,6 +213,61 @@ def test_finished_removes_one_refcount_per_block_not_the_whole_set():
 
     policy.on_request_finished("w1", [10, 20])
     assert policy._active_block_refs["w1"] == {}
+
+
+# ----------------------------------------------------------------------
+# the policy_active_blocks gauge tracks the refcounts
+# ----------------------------------------------------------------------
+
+
+def _gauge(route_key: str) -> float:
+    return metrics.policy_active_blocks.labels(worker_id=route_key)._value.get()
+
+
+def test_gauge_follows_refcounts_through_start_and_finish():
+    """Regression: the gauge used to be published only from pick(), before
+    on_request_started refcounted the pick's own blocks. It therefore lagged by
+    one request and — with requests that finish before the next pick — sat at 0
+    forever, so `infera_policy_active_blocks` looked like it was never
+    populated even while routing worked."""
+    client = _StubKvClient({})
+    policy = KvEventAwarePolicy(client, _StubHasher([]))  # type: ignore[arg-type]
+
+    policy.on_request_started("w-gauge-1", [10, 20, 30])
+    assert _gauge("w-gauge-1") == 3
+
+    policy.on_request_finished("w-gauge-1", [10, 20, 30])
+    assert _gauge("w-gauge-1") == 0
+
+
+def test_gauge_is_live_during_serial_traffic():
+    """Serial traffic (finish before the next pick) is exactly the shape that
+    made the old gauge read a flat zero."""
+    client = _StubKvClient({})
+    hashes = [1, 2, 3]
+    policy = KvEventAwarePolicy(client, _StubHasher(hashes))  # type: ignore[arg-type]
+
+    for _ in range(3):
+        picked, blocks = policy.pick([_worker("w-gauge-2")], {"model": "m"})
+        policy.on_request_started(picked.route_key, blocks)
+        # Non-zero WHILE in flight — the old code reported 0 here.
+        assert _gauge(picked.route_key) == 3
+        policy.on_request_finished(picked.route_key, blocks)
+        assert _gauge(picked.route_key) == 0
+
+
+def test_removed_worker_stops_exporting_a_stale_active_count():
+    """A worker that goes away must not keep exporting its last in-flight
+    count, which would read as a permanently loaded worker."""
+    client = _StubKvClient({})
+    policy = KvEventAwarePolicy(client, _StubHasher([]))  # type: ignore[arg-type]
+
+    policy.on_request_started("w-gauge-3", [10, 20, 30])
+    assert _gauge("w-gauge-3") == 3
+
+    policy.on_worker_removed("w-gauge-3")
+    # Series dropped: re-reading the label creates a fresh child at 0.
+    assert _gauge("w-gauge-3") == 0
 
 
 def test_finished_with_unknown_blocks_is_safe():
