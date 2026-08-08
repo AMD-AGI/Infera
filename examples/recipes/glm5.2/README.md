@@ -41,6 +41,21 @@ payload missing Mooncake comes up green and serves with no KV transfer at all.
 
 ## 2. Prerequisites
 
+```{admonition} kv-aware needs the tokenizer on the ROUTER, not just the workers
+:class: warning
+The server pod mounts `/models` and passes `--router-tokenizer-path` a **local
+path** — both manifests already do this, and both matter. kv-aware tokenizes each
+request on the router to compare its prefix against what the workers cached, so
+the router needs the same tokenizer files the engines load.
+
+Point it at a hub id instead and it resolves an HF cache directory that may hold
+only `tokenizer_config.json`. The load fails, every request hashes to zero
+blocks, and kv-aware quietly becomes least-loaded — `--kv-overlap-weight` then
+has no effect at any value. Nothing else shows it: the server starts, `/health`
+is green, requests succeed. Watch for `kv-aware DEGRADED` in the server log and
+`infera_cache_locality_skipped_total{reason="no_tokenizer"}`.
+```
+
 **Hardware.** 8× MI355X (or MI300X+) on one node for `aggregated`; two such nodes on a
 shared RoCE fabric for `disaggregated`. ~700 GB of host RAM if you enable kvd — its L2 arena is
 pinned host memory charged to the sidecar's limit.

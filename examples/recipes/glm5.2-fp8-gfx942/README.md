@@ -69,6 +69,21 @@ the build log.
 
 ## 2. Prerequisites
 
+```{admonition} kv-aware needs the tokenizer on the ROUTER, not just the workers
+:class: warning
+The server pod mounts `/models` and passes `--router-tokenizer-path` a **local
+path** — both manifests already do this, and both matter. kv-aware tokenizes each
+request on the router to compare its prefix against what the workers cached, so
+the router needs the same tokenizer files the engines load.
+
+Point it at a hub id instead and it resolves an HF cache directory that may hold
+only `tokenizer_config.json`. The load fails, every request hashes to zero
+blocks, and kv-aware quietly becomes least-loaded — `--kv-overlap-weight` then
+has no effect at any value. Nothing else shows it: the server starts, `/health`
+is green, requests succeed. Watch for `kv-aware DEGRADED` in the server log and
+`infera_cache_locality_skipped_total{reason="no_tokenizer"}`.
+```
+
 **Hardware.** Two nodes, 8× gfx942 each, on a mutually routable RoCE fabric — the
 KV handoff is RDMA with no TCP fallback. The prefill node carries three Pods and so
 needs ~**670 GiB** of free host RAM: 512 for the engine (256 GB of hicache host tier
