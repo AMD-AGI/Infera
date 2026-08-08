@@ -24,7 +24,21 @@ COPY pyproject.toml README.md ./
 COPY infera ./infera
 # Include the [gaie] extra for parity with the other infera images so the
 # ext_proc EndpointPicker (infera.gaie) can run from here too.
-RUN pip install --no-cache-dir ".[gaie]"
+#
+# pip/setuptools/wheel are build tooling, removed in the same RUN that uses
+# them: nothing here imports setuptools or pkg_resources, and the daemon starts
+# as `python -m infera.kvd`. Same RUN because a delete in a later layer leaves
+# the files in the one below. By path, since pip cannot uninstall itself.
+RUN set -eu; \
+    pip install --no-cache-dir ".[gaie]"; \
+    sp="$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"; \
+    rm -rf "$sp/pip" "$sp/setuptools" "$sp/wheel" "$sp/pkg_resources" \
+           "$sp"/pip-*.dist-info "$sp"/setuptools-*.dist-info \
+           "$sp"/wheel-*.dist-info "$sp"/_distutils_hack; \
+    rm -f "$sp/distutils-precedence.pth"; \
+    python -c "import infera.kvd, infera.gaie"; \
+    ! python -c "import setuptools" 2>/dev/null \
+      || { echo "setuptools still importable after cleanup" >&2; exit 1; }
 
 # Default socket path matches the adapter's default and the kvd CLI default.
 # Operators usually override via --socket /run/infera-kvd/... on the
