@@ -148,8 +148,9 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=float,
         default=1.0,
         help="kv-aware only: weight on the cache-locality term in "
-        "cost = w * (request_blocks - hits) + active_blocks. Larger values "
-        "favour cache reuse over load balance (default: 1.0). Used for "
+        "cost = w * (request_blocks - hits) + load, where load counts blocks "
+        "in flight plus a decayed total of blocks recently dispatched. Larger "
+        "values favour cache reuse over load balance (default: 1.0). Used for "
         "mixed-pool routing and as the fallback when the prefill/decode "
         "weights below are unset.",
     )

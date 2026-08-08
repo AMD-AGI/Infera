@@ -222,3 +222,115 @@ async def test_finishing_a_request_returns_the_worker_to_contention(rig):
     assert _pick(policy, (a, b), prompt) == "a:1", (
         "A holds a block and is idle again; it must win once its load is released"
     )
+
+
+# --- load must survive between requests, not just during them ----------------
+
+
+async def test_serial_traffic_does_not_pin_every_request_to_one_worker(rig):
+    """The reported production failure, reduced to its smallest form.
+
+    Each request finishes before the next is picked, so nothing is ever in
+    flight when a decision is made. If in-flight blocks are the only load
+    signal, every worker reads 0, the first cold pick wins on candidate order,
+    and the cache it gains re-elects it for the rest of the run -- 100/0 on a
+    symmetric pair, at any overlap weight.
+
+    Distinct prefixes per request, so there is no locality reason to prefer
+    either worker.
+    """
+    policy, _client, a, b = rig
+    counts = {"a:1": 0, "b:1": 0}
+    for i in range(40):
+        prompt = list(range(i * 100, i * 100 + 40))
+        target, blocks = policy.pick([a, b], {"model": "m", "token_ids": prompt})
+        counts[target.worker.worker_id] += 1
+        # Started AND finished before the next pick: the paced-traffic shape.
+        policy.on_request_started(target.route_key, blocks)
+        policy.on_request_finished(target.route_key, blocks)
+
+    assert min(counts.values()) > 0, f"one worker got everything: {counts}"
+    assert abs(counts["a:1"] - counts["b:1"]) <= 4, f"serial traffic did not spread: {counts}"
+
+
+async def test_serial_traffic_spreads_even_at_a_high_overlap_weight(rig):
+    """A high --kv-prefill-overlap-weight must not reintroduce the pin.
+
+    The load term is unweighted, so a fix that keeps it bounded independently
+    of request size loses to one block of cache edge once the weight exceeds
+    that bound. 20.0 is the documented production prefill weight.
+    """
+    _policy, client, a, b = rig
+    policy = KvEventAwarePolicy(client, _IdentityHasher(), overlap_weight=20.0)
+    counts = {"a:1": 0, "b:1": 0}
+    for i in range(40):
+        prompt = list(range(i * 100, i * 100 + 40))
+        target, blocks = policy.pick([a, b], {"model": "m", "token_ids": prompt})
+        counts[target.worker.worker_id] += 1
+        policy.on_request_started(target.route_key, blocks)
+        policy.on_request_finished(target.route_key, blocks)
+
+    assert min(counts.values()) > 0, f"high weight pinned the fleet: {counts}"
+
+
+async def test_a_fully_cached_prompt_stays_on_its_holder_under_serial_traffic(rig):
+    """Balance must not cost affinity.
+
+    The recent-dispatch charge is the blocks the winner had to COMPUTE, so a
+    worker serving a prompt it already holds accrues nothing and keeps winning
+    it. Were the charge the request's total size instead, repeat requests would
+    ping-pong and every one after the first would miss.
+    """
+    policy, client, a, b = rig
+    prompt = list(range(40))
+    _store(client, "a:1", prompt)
+
+    for _ in range(20):
+        target, blocks = policy.pick([a, b], {"model": "m", "token_ids": prompt})
+        assert target.worker.worker_id == "a:1"
+        policy.on_request_started(target.route_key, blocks)
+        policy.on_request_finished(target.route_key, blocks)
+
+
+async def test_a_saturated_incumbent_yields_new_work_to_an_idle_worker(rig):
+    """Recent load has to be able to outweigh a shared-prefix edge.
+
+    A worker that has served a long run of traffic carries a large recent
+    total; a cold worker carries none. A new prompt sharing only a short prefix
+    with the incumbent must go to the idle worker.
+    """
+    policy, client, a, b = rig
+    shared = list(range(8))  # 2 blocks both would hit on
+    for i in range(20):
+        prompt = shared + list(range(1000 + i * 100, 1000 + i * 100 + 32))
+        target, blocks = policy.pick([a], {"model": "m", "token_ids": prompt})
+        policy.on_request_started(target.route_key, blocks)
+        # first_hash stays a single byte: _store packs it with bytes([...]).
+        _store(client, "a:1", prompt, first_hash=i * 10)
+        policy.on_request_finished(target.route_key, blocks)
+
+    fresh = shared + list(range(9000, 9032))
+    assert _pick(policy, (a, b), fresh) == "b:1", (
+        "a saturated worker kept new work on the strength of a 2-block prefix"
+    )
+
+
+async def test_recent_load_decays_so_an_idle_worker_returns_to_contention(rig):
+    """The charge is transient. A worker that took a burst and then went quiet
+    must not be written off permanently -- otherwise the fix trades one
+    starvation mode for another."""
+    policy, _client, a, b = rig
+    for i in range(20):
+        prompt = list(range(i * 100, i * 100 + 40))
+        target, blocks = policy.pick([a], {"model": "m", "token_ids": prompt})
+        policy.on_request_started(target.route_key, blocks)
+        policy.on_request_finished(target.route_key, blocks)
+
+    assert policy._recent_blocks.get("a:1", 0.0) > 0.0
+    for i in range(400):
+        prompt = list(range(50_000 + i * 100, 50_000 + i * 100 + 40))
+        target, blocks = policy.pick([b], {"model": "m", "token_ids": prompt})
+        policy.on_request_started(target.route_key, blocks)
+        policy.on_request_finished(target.route_key, blocks)
+
+    assert "a:1" not in policy._recent_blocks, "an idle worker never returned to 0"
