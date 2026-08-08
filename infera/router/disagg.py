@@ -182,6 +182,43 @@ class DisaggRouter(BaseRouter):
         stream: bool,
         path: str,
     ) -> Response:
+        """Record the breaker outcome for both roles around the dual dispatch.
+
+        Every exit of :meth:`_dispatch_pd` passes through here -- both the
+        policy-driven and gateway-driven entry points reach it -- which is the
+        only reason this is one place rather than a dozen. Failures are already
+        recorded inside, at the specific worker that caused them; what was
+        missing is the other half. Without it ``consecutive_failures`` never
+        resets, so "three failures in a row" quietly becomes "three failures
+        ever", and a worker that has probed successfully never closes.
+
+        Anything other than a clean response is neutral rather than a success
+        for either role: one of the two may well be at fault, and this layer
+        cannot tell which. Neutral is idempotent against the failure already
+        recorded below, and still frees the probe slot.
+        """
+        resp = await self._dispatch_pd(
+            obs, p_target, d_target, p_blocks, d_blocks, body, stream, path
+        )
+        ok = getattr(resp, "status_code", 200) < 400
+        for worker_id in (p_target.worker.worker_id, d_target.worker.worker_id):
+            if ok:
+                self.breaker.record_success(worker_id)
+            else:
+                self.breaker.record_neutral(worker_id)
+        return resp
+
+    async def _dispatch_pd(
+        self,
+        obs,
+        p_target: RouteTarget,
+        d_target: RouteTarget,
+        p_blocks: list[int],
+        d_blocks: list[int],
+        body: dict,
+        stream: bool,
+        path: str,
+    ) -> Response:
         """Run the PD dual-dispatch for already-selected prefill/decode targets:
         resolve the protocol, forge the bootstrap room/request id, and hand off
         to the concurrent or serial-pull dispatcher. Shared by the policy-driven

@@ -31,11 +31,15 @@ Scope, deliberately narrow:
 States are the usual three. ``closed`` routes normally. After
 ``failure_threshold`` consecutive failures the breaker goes ``open`` and the
 worker is excluded for ``cooldown`` seconds. It then becomes ``half_open`` and
-admits exactly one probe: success closes it and clears the count, failure
+admits one probe at a time: success closes it and clears the count, failure
 reopens it with the cooldown doubled, up to ``max_cooldown``. Backing off
 matters because the common cause -- a worker wedged on a bad KV handoff -- does
 not resolve on the first retry, and a fixed cooldown turns into a probe every
 ``cooldown`` seconds forever.
+
+"One at a time" is bounded by ``probe_timeout`` rather than by waiting for an
+outcome, because the outcome may never arrive: the slot is claimed while
+filtering candidates, and only the one the policy dispatches to reports back.
 """
 
 from __future__ import annotations
@@ -90,8 +94,9 @@ class _Entry:
     opens_until: float = 0.0
     # Cooldown applied on the *next* trip; doubles each time a probe fails.
     next_cooldown: float = 0.0
-    # True while a half-open probe is in flight, so only one is admitted.
-    probe_in_flight: bool = False
+    # When the outstanding half-open probe was admitted, so only one is in
+    # flight at a time. None means the slot is free.
+    probe_started_at: float | None = None
     trips: int = 0
 
 
@@ -106,6 +111,16 @@ class CircuitBreaker:
     failure_threshold: int = 3
     cooldown: float = 5.0
     max_cooldown: float = 60.0
+    #: How long a claimed probe slot is honoured before it is reclaimed.
+    #:
+    #: Claiming and releasing the slot are not paired: ``filter`` claims one for
+    #: every candidate it lets through, and the policy then dispatches exactly
+    #: one of them, so the rest are never told how they did. A 4xx, a client
+    #: disconnect or a request that never returns leaves the slot held too.
+    #: Bounding the claim keeps any of those from wedging a healthy worker out
+    #: of rotation permanently. The cost of reclaiming too early is one extra
+    #: probe; the cost of never reclaiming is a worker lost until restart.
+    probe_timeout: float = 60.0
     #: Injectable clock, so tests do not sleep.
     now: object = field(default=time.monotonic)
     _entries: dict[str, _Entry] = field(default_factory=dict, init=False)
@@ -137,17 +152,26 @@ class CircuitBreaker:
         e = self._entries.get(worker_id)
         if e is None or e.state is BreakerState.CLOSED:
             return True
+        now = self.now()
         if e.state is BreakerState.OPEN:
-            if self.now() < e.opens_until:
+            if now < e.opens_until:
                 return False
             e.state = BreakerState.HALF_OPEN
-            e.probe_in_flight = False
+            e.probe_started_at = None
             _observe(worker_id, e.state)
             logger.info("breaker: worker %s half-open, admitting one probe", worker_id)
-        # half_open: admit exactly one probe.
-        if e.probe_in_flight:
-            return False
-        e.probe_in_flight = True
+        # half_open: one probe at a time, and only for as long as a probe could
+        # plausibly still be running -- see probe_timeout for why the claim has
+        # to expire rather than wait for an outcome that may never come.
+        if e.probe_started_at is not None:
+            if now - e.probe_started_at < self.probe_timeout:
+                return False
+            logger.info(
+                "breaker: worker %s probe slot unclaimed after %.0fs; admitting another",
+                worker_id,
+                self.probe_timeout,
+            )
+        e.probe_started_at = now
         return True
 
     def filter(self, workers):
@@ -187,9 +211,41 @@ class CircuitBreaker:
             logger.info("breaker: worker %s recovered, closing", worker_id)
         e.consecutive_failures = 0
         e.state = BreakerState.CLOSED
-        e.probe_in_flight = False
+        e.probe_started_at = None
         e.next_cooldown = self.cooldown
         _observe(worker_id, e.state)
+
+    def record_neutral(self, worker_id: str) -> None:
+        """Release the probe slot without scoring the worker either way.
+
+        For an outcome that says nothing about worker health -- a 4xx, which
+        every worker would answer identically, or a 429, which is backpressure
+        the policy already routes around. Counting it as recovery is as wrong
+        as counting it as failure: it would reset the failure count and close
+        an open breaker, so a worker alternating 500s and 400s would never
+        accumulate the consecutive failures needed to trip. But the slot such a
+        request consumed must still come back, or one bad client can wedge a
+        recovering worker out of rotation.
+        """
+        e = self._entries.get(worker_id)
+        if e is None:
+            return
+        e.probe_started_at = None
+
+    def forget(self, worker_id: str) -> None:
+        """Drop everything remembered about a worker that has left the fleet.
+
+        Worker ids are addresses and a rebuilt Pod never reuses one, so without
+        this every rollout strands another entry -- and another pair of
+        Prometheus series, since both are labelled by worker id.
+        """
+        if self._entries.pop(worker_id, None) is None:
+            return
+        for collector in (metrics.worker_breaker_state, metrics.worker_breaker_trips_total):
+            try:
+                collector.remove(worker_id)
+            except Exception:  # noqa: BLE001 - never registered, or already gone
+                pass
 
     def record_failure(self, worker_id: str) -> None:
         """Record a pre-first-byte dispatch failure."""
@@ -198,7 +254,7 @@ class CircuitBreaker:
         e = self._entry(worker_id)
         e.consecutive_failures += 1
         was_probe = e.state is BreakerState.HALF_OPEN
-        e.probe_in_flight = False
+        e.probe_started_at = None
 
         if was_probe:
             # A failed probe reopens immediately and backs off further, without

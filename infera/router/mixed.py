@@ -93,7 +93,15 @@ class MixedRouter(BaseRouter):
                 tried.add(target.worker.worker_id)
                 try:
                     resp = await self._attempt(target, blocks, body, hints, path, stream, obs)
-                    self.breaker.record_success(target.worker.worker_id)
+                    # Only a clean response is evidence the worker is healthy.
+                    # A 4xx says the request was bad -- every worker would
+                    # answer the same -- so scoring it as recovery would reset
+                    # the failure count and reopen a breaker that should stay
+                    # shut. It still has to free the probe slot it took.
+                    if getattr(resp, "status_code", 200) < 400:
+                        self.breaker.record_success(target.worker.worker_id)
+                    else:
+                        self.breaker.record_neutral(target.worker.worker_id)
                     return resp
                 except _Retry as r:
                     # Pre-first-byte only: _Retry is never raised once bytes have
@@ -102,6 +110,8 @@ class MixedRouter(BaseRouter):
                     # is_worker_fault().
                     if is_worker_fault(getattr(r.response, "status_code", 0)):
                         self.breaker.record_failure(target.worker.worker_id)
+                    else:
+                        self.breaker.record_neutral(target.worker.worker_id)
                     last_error = r.response
                     logger.info(
                         "failover: worker %s failed before first byte; %d worker(s) tried",
