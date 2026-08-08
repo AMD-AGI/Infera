@@ -198,7 +198,10 @@ class KvEventAwarePolicy(Policy):
             cache_hits=cache_hits,
             request_blocks=len(picked_blocks),
         )
-        metrics.policy_active_blocks.labels(worker_id=picked.route_key).set(active(picked))
+        # policy_active_blocks is NOT published here: at this point the pick's
+        # own blocks have not been refcounted yet (on_request_started does that,
+        # after pick returns), so writing it here reports a one-request-stale
+        # count. It is published from _publish_active on every refcount change.
         metrics.cache_control_seen_total.labels(retention=hints.retention.value).inc()
 
         # Structured log: ops can grep `policy=kv-aware role=...` and correlate
@@ -232,8 +235,27 @@ class KvEventAwarePolicy(Policy):
         prefix = f"{worker_id}#dp"
         for key in [k for k in self._active_block_refs if k == worker_id or k.startswith(prefix)]:
             self._active_block_refs.pop(key, None)
+            # Drop the series too: a removed worker that keeps exporting its
+            # last in-flight count reads as a permanently loaded worker.
+            try:
+                metrics.policy_active_blocks.remove(key)
+            except KeyError:
+                pass
         for key in [k for k in self._mm_affinity if k == worker_id or k.startswith(prefix)]:
             self._mm_affinity.pop(key, None)
+
+    def _publish_active(self, route_key: str) -> None:
+        """Mirror ``route_key``'s in-flight block count into the gauge.
+
+        Must be called after every mutation of ``_active_block_refs``. Setting
+        it only where the refcounts change is the point: publishing from
+        ``pick()`` reports the count from *before* this request's blocks are
+        added, so the gauge trails by one request and reads a flat 0 whenever
+        requests finish before the next one is picked.
+        """
+        metrics.policy_active_blocks.labels(worker_id=route_key).set(
+            len(self._active_block_refs.get(route_key, {}))
+        )
 
     def on_request_started(self, route_key: str, blocks: list[int] | None = None) -> None:
         if not blocks:
@@ -241,6 +263,7 @@ class KvEventAwarePolicy(Policy):
         refs = self._active_block_refs.setdefault(route_key, {})
         for h in blocks:
             refs[h] = refs.get(h, 0) + 1
+        self._publish_active(route_key)
 
     def on_request_finished(self, route_key: str, blocks: list[int] | None = None) -> None:
         if not blocks:
@@ -254,6 +277,7 @@ class KvEventAwarePolicy(Policy):
                 refs.pop(h, None)
             else:
                 refs[h] = rc
+        self._publish_active(route_key)
 
     async def aclose(self) -> None:
         await self._kv.aclose()
