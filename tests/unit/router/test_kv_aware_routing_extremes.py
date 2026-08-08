@@ -334,3 +334,44 @@ async def test_recent_load_decays_so_an_idle_worker_returns_to_contention(rig):
         policy.on_request_finished(target.route_key, blocks)
 
     assert "a:1" not in policy._recent_blocks, "an idle worker never returned to 0"
+
+
+async def test_prompts_too_short_to_hash_still_spread(rig):
+    """A prompt under the index block size hashes to nothing. The load charge
+    must not be zero for those, or the term stays 0 on every candidate and the
+    tie sends the whole run to whichever worker sorts first -- the 100/0 split
+    reappearing on short prompts, which is what a user hit after the load-term
+    fix landed.
+
+    token_ids shorter than BS produce no blocks at all, which is the same state
+    the real hasher reaches on a sub-768-token prompt.
+    """
+    policy, _client, a, b = rig
+    counts = {"a:1": 0, "b:1": 0}
+    for i in range(30):
+        # Two tokens: fewer than BS, so hash_request returns [].
+        target, blocks = policy.pick([a, b], {"model": "m", "token_ids": [i, i + 1]})
+        assert blocks == [], "precondition: this prompt must hash to zero blocks"
+        counts[target.worker.worker_id] += 1
+        policy.on_request_started(target.route_key, blocks)
+        policy.on_request_finished(target.route_key, blocks)
+
+    assert min(counts.values()) > 0, f"unhashable prompts pinned one worker: {counts}"
+    assert abs(counts["a:1"] - counts["b:1"]) <= 2, f"did not spread: {counts}"
+
+
+async def test_a_fully_cached_pick_is_still_charged_nothing(rig):
+    """The zero-block floor must not leak into the fully-cached case: a worker
+    serving a prompt it already holds does no prefill, so it accrues no load and
+    keeps winning that prompt. Distinguishing the two is the whole point of
+    passing request_blocks alongside the miss count."""
+    policy, client, a, b = rig
+    prompt = list(range(40))
+    _store(client, "a:1", prompt)
+
+    for _ in range(15):
+        target, blocks = policy.pick([a, b], {"model": "m", "token_ids": prompt})
+        assert target.worker.worker_id == "a:1"
+        policy.on_request_started(target.route_key, blocks)
+        policy.on_request_finished(target.route_key, blocks)
+    assert policy._recent_blocks.get("a:1", 0.0) == 0.0, "fully-cached picks accrued load"
