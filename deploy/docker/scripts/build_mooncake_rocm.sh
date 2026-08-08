@@ -130,21 +130,12 @@ if [ -n "${ASIO_SO:-}" ]; then
 fi
 
 # ---- drop the Go toolchain dependencies.sh installed ------------------------
-# Upstream's dependencies.sh installs Go unconditionally, for the etcd metadata
-# client and the Rust/Go store. We build with USE_ETCD=OFF and WITH_STORE=OFF,
-# so nothing we ship links against it and nothing at runtime invokes it -- the
-# engine is a Python extension module over HIP/RDMA.
-#
-# Removed HERE, in the same RUN as the build, for the same reason cargo is in
-# Dockerfile.vllm: a scanner reads the flattened final filesystem, so a
-# toolchain deleted in a later layer is still reported. Left in place it put a
-# full Go distribution in the vLLM image and 72 stdlib CVE hits on the scan,
-# none of which describe code this image can execute.
-#
-# Only /usr/local/go is touched. On bases that ship their own Go under
-# $HOME/go (sglang, atom), that copy is the base's to manage, and it is
-# reported against the base image too -- removing it here would not change what
-# the diff-vs-baseline shows.
+# dependencies.sh installs Go unconditionally, for the etcd metadata client and
+# the Rust/Go store. We build with USE_ETCD=OFF and WITH_STORE=OFF, so nothing
+# we ship links against it -- the engine is a Python extension over HIP/RDMA.
+# Removed here, in the same RUN as the build, because a delete in a later layer
+# leaves the files in the one below. Only /usr/local/go: bases that ship their
+# own Go under $HOME/go own that copy.
 if [ -d /usr/local/go ]; then
     rm -rf /usr/local/go
     echo "removed /usr/local/go (installed by dependencies.sh; USE_ETCD=OFF, WITH_STORE=OFF)"
@@ -182,9 +173,7 @@ for _v in MC_ENABLE_HIP_TRANSPORT MC_DISABLE_HIP_TRANSPORT; do
 done
 echo "MC_HIP_GATE_VERIFY OK (HIP transport OFF by default)"
 # Assert the Go toolchain really is gone, so a future dependencies.sh that puts
-# it somewhere else fails the build instead of quietly reappearing in a scan.
-# Checked after the import test below would be too late -- keep it adjacent to
-# the other invariants this script guarantees about its own output.
+# it somewhere else fails the build instead of silently shipping it again.
 if [ -d /usr/local/go ]; then
     echo "ERROR: /usr/local/go still present after cleanup." >&2
     echo "       dependencies.sh moved the Go toolchain; update the rm above." >&2
