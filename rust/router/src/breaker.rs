@@ -19,7 +19,7 @@
 //! few integer writes; contention is not a concern at any plausible request
 //! rate, and a lock-free design here would buy nothing for the complexity.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -60,15 +60,28 @@ struct Entry {
     opens_until: Instant,
     /// Cooldown applied on the *next* trip; doubles each time a probe fails.
     next_cooldown: Duration,
-    /// Set while a half-open probe is in flight, so only one is admitted.
-    probe_in_flight: bool,
+    /// When the outstanding half-open probe was admitted, so only one runs at
+    /// a time. `None` means the slot is free.
+    probe_started_at: Option<Instant>,
     trips: u64,
 }
+
+/// How long a claimed probe slot is honoured before it is reclaimed.
+///
+/// Claiming and releasing are not paired: `filter` claims a slot for every
+/// candidate it lets through, and the policy dispatches to exactly one of them,
+/// so the rest are never told how they did. A 4xx records neither outcome
+/// either, and a cancelled request -- the client hung up, or the worker never
+/// answered, which is the very condition this guards against -- unwinds without
+/// reaching any record call. Any of those would otherwise hold the slot
+/// forever, leaving a recovered worker permanently out of rotation.
+const PROBE_TIMEOUT: Duration = Duration::from_secs(60);
 
 pub struct CircuitBreaker {
     failure_threshold: u32,
     cooldown: Duration,
     max_cooldown: Duration,
+    probe_timeout: Duration,
     entries: Mutex<HashMap<String, Entry>>,
 }
 
@@ -78,6 +91,7 @@ impl CircuitBreaker {
             failure_threshold,
             cooldown,
             max_cooldown,
+            probe_timeout: PROBE_TIMEOUT,
             entries: Mutex::new(HashMap::new()),
         }
     }
@@ -113,15 +127,24 @@ impl CircuitBreaker {
                     return false;
                 }
                 e.state = BreakerState::HalfOpen;
-                e.probe_in_flight = false;
+                e.probe_started_at = None;
                 tracing::info!(worker = worker_id, "breaker half-open, admitting one probe");
             }
             BreakerState::HalfOpen => {}
         }
-        if e.probe_in_flight {
-            return false;
+        // One probe at a time, but only for as long as one could plausibly
+        // still be running: the claim expires rather than waiting for an
+        // outcome that may never arrive. See PROBE_TIMEOUT.
+        if let Some(started) = e.probe_started_at {
+            if now.duration_since(started) < self.probe_timeout {
+                return false;
+            }
+            tracing::info!(
+                worker = worker_id,
+                "breaker: probe slot unclaimed, admitting another"
+            );
         }
-        e.probe_in_flight = true;
+        e.probe_started_at = Some(now);
         true
     }
 
@@ -156,9 +179,38 @@ impl CircuitBreaker {
             }
             e.consecutive_failures = 0;
             e.state = BreakerState::Closed;
-            e.probe_in_flight = false;
+            e.probe_started_at = None;
             e.next_cooldown = self.cooldown;
         }
+    }
+
+    /// Release the probe slot without scoring the worker either way.
+    ///
+    /// For an outcome that says nothing about worker health: a 4xx, which every
+    /// worker would answer identically, or a 429, which is backpressure the
+    /// policy already routes around. Counting either as recovery is as wrong as
+    /// counting it as failure -- it would reset the failure count and close an
+    /// open breaker, so a worker alternating 500s and 400s could never reach
+    /// the consecutive failures needed to trip, and one 429 from a worker the
+    /// all-open fallback reached would undo its backoff. The slot such a
+    /// request consumed still has to come back.
+    pub fn record_neutral(&self, worker_id: &str) {
+        let mut map = self.entries.lock().expect("breaker mutex poisoned");
+        if let Some(e) = map.get_mut(worker_id) {
+            e.probe_started_at = None;
+        }
+    }
+
+    /// Drop everything remembered about workers no longer in the fleet.
+    ///
+    /// Called with the full active set on each discovery snapshot, mirroring
+    /// `Policy::sync_workers`. Worker ids are addresses and a rebuilt Pod never
+    /// reuses one, so without this every rollout strands another entry -- and
+    /// another pair of Prometheus series, since /metrics exports one per entry
+    /// labelled by worker id.
+    pub fn retain_workers(&self, active: &HashSet<String>) {
+        let mut map = self.entries.lock().expect("breaker mutex poisoned");
+        map.retain(|id, _| active.contains(id));
     }
 
     /// Record a pre-first-byte dispatch failure. Callers must gate this on
@@ -177,12 +229,12 @@ impl CircuitBreaker {
             state: BreakerState::Closed,
             opens_until: now,
             next_cooldown: self.cooldown,
-            probe_in_flight: false,
+            probe_started_at: None,
             trips: 0,
         });
         e.consecutive_failures += 1;
         let was_probe = e.state == BreakerState::HalfOpen;
-        e.probe_in_flight = false;
+        e.probe_started_at = None;
 
         if was_probe {
             // A failed probe reopens immediately and backs off further, without
@@ -505,5 +557,75 @@ mod tests {
             1,
             "exactly one of 16 racing threads may probe"
         );
+    }
+
+    // filter() claims the probe slot for every candidate it lets through, but
+    // the policy dispatches to exactly one of them, so the others are never
+    // told how they did. Without a bound on the claim those workers sit in
+    // half-open holding a slot nothing will ever release -- healthy, and
+    // permanently unroutable until the process restarts.
+    #[test]
+    fn a_probe_slot_taken_but_never_dispatched_is_reclaimed() {
+        let b = CircuitBreaker::new(3, Duration::from_secs(5), Duration::from_secs(60));
+        let t = Instant::now();
+        for _ in 0..3 {
+            b.record_failure_at("w1", t);
+        }
+        let due = t + Duration::from_secs(6);
+        assert!(b.allows_at("w1", due), "cooldown elapsed -> a probe is due");
+
+        // The request went to another worker; nothing reports back for w1.
+        let later = due + PROBE_TIMEOUT + Duration::from_secs(1);
+        assert!(
+            b.allows_at("w1", later),
+            "an unused probe claim must not be permanent"
+        );
+    }
+
+    // 4xx says the request was bad, not the worker. Scoring it as recovery
+    // would reset the failure count and close an open breaker, so a worker
+    // alternating 500s and 400s could never reach three consecutive failures.
+    #[test]
+    fn a_neutral_outcome_frees_the_slot_without_scoring_it() {
+        let b = CircuitBreaker::new(3, Duration::from_secs(5), Duration::from_secs(60));
+        let t = Instant::now();
+        for _ in 0..3 {
+            b.record_failure_at("w1", t);
+        }
+        let due = t + Duration::from_secs(6);
+        assert!(b.allows_at("w1", due));
+
+        b.record_neutral("w1");
+        assert_eq!(
+            b.state_of("w1"),
+            BreakerState::HalfOpen,
+            "a 4xx is not a recovery"
+        );
+        assert!(
+            b.allows_at("w1", due),
+            "but the slot is free for a real probe"
+        );
+    }
+
+    // Worker ids are addresses and a rebuilt Pod never reuses one, so entries
+    // for departed workers accumulate for the process lifetime -- each also
+    // pinning a Prometheus series, which is the part that actually hurts.
+    #[test]
+    fn workers_gone_from_the_fleet_are_forgotten() {
+        let b = CircuitBreaker::new(3, Duration::from_secs(5), Duration::from_secs(60));
+        let t = Instant::now();
+        for _ in 0..3 {
+            b.record_failure_at("gone", t);
+            b.record_failure_at("stay", t);
+        }
+        assert_eq!(b.snapshot().len(), 2);
+
+        let active: HashSet<String> = ["stay".to_string()].into_iter().collect();
+        b.retain_workers(&active);
+
+        let snap = b.snapshot();
+        assert_eq!(snap.len(), 1);
+        assert!(snap.iter().any(|(id, _, _)| id == "stay"));
+        assert_eq!(b.state_of("gone"), BreakerState::Closed);
     }
 }

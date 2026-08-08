@@ -183,8 +183,10 @@ async fn unary_dual(
             }
             if is_worker_fault(st.as_u16()) {
                 state.breaker.record_failure(&p.worker.worker_id);
-            } else {
+            } else if st.is_success() {
                 state.breaker.record_success(&p.worker.worker_id);
+            } else {
+                state.breaker.record_neutral(&p.worker.worker_id);
             }
         }
         Err(e) => {
@@ -198,8 +200,10 @@ async fn unary_dual(
             let st = resp.status();
             if is_worker_fault(st.as_u16()) {
                 state.breaker.record_failure(&d.worker.worker_id);
-            } else {
+            } else if st.is_success() {
                 state.breaker.record_success(&d.worker.worker_id);
+            } else {
+                state.breaker.record_neutral(&d.worker.worker_id);
             }
             let ct = content_type(&resp);
             match resp.bytes().await {
@@ -254,8 +258,10 @@ fn spawn_prefill_drain(
                 // KVPoll, which is exactly the failure worth remembering.
                 if is_worker_fault(st.as_u16()) {
                     breaker.record_failure(&worker_id);
-                } else {
+                } else if st.is_success() {
                     breaker.record_success(&worker_id);
+                } else {
+                    breaker.record_neutral(&worker_id);
                 }
             }
             Err(e) => {
@@ -282,6 +288,8 @@ async fn open_decode(
                 if st.is_client_error() || st.is_server_error() {
                     if is_worker_fault(st.as_u16()) {
                         state.breaker.record_failure(&d.worker.worker_id);
+                    } else {
+                        state.breaker.record_neutral(&d.worker.worker_id);
                     }
                     let txt = resp.text().await.unwrap_or_default();
                     return Err(format!(
