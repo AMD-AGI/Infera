@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from infera.common.nats_request import TYPE_DATA, TYPE_DONE, TYPE_ERROR
 from infera.common.worker_pool import DisaggMode
 from infera.router.base import BaseRouter
+from infera.router.breaker import is_worker_fault
 from infera.router.cache_control import parse_cache_hints
 from infera.router.disagg_protocols import (
     ProtocolMismatch,
@@ -136,7 +137,7 @@ class DisaggRouter(BaseRouter):
             # skips prefill) vs D (load-heavy) differently.
             p_target, p_blocks = self.policy.pick(prefills, body, role_hint="prefill")
             d_target, d_blocks = self.policy.pick(decodes, body, role_hint="decode")
-            return await self._run_pd(
+            return await self._dispatch_pd(
                 obs, p_target, d_target, p_blocks, d_blocks, body, stream, path
             )
 
@@ -167,46 +168,32 @@ class DisaggRouter(BaseRouter):
                     },
                     status_code=503,
                 )
-            return await self._run_pd(
+            return await self._dispatch_pd(
                 obs, RouteTarget(p), RouteTarget(d), [], [], body, stream, path
             )
 
-    async def _run_pd(
-        self,
-        obs,
-        p_target: RouteTarget,
-        d_target: RouteTarget,
-        p_blocks: list[int],
-        d_blocks: list[int],
-        body: dict,
-        stream: bool,
-        path: str,
-    ) -> Response:
-        """Record the breaker outcome for both roles around the dual dispatch.
+    def _score_leg(self, worker_id: str, status: int) -> None:
+        """Record one PD leg's HTTP outcome against the worker that produced it.
 
-        Every exit of :meth:`_dispatch_pd` passes through here -- both the
-        policy-driven and gateway-driven entry points reach it -- which is the
-        only reason this is one place rather than a dozen. Failures are already
-        recorded inside, at the specific worker that caused them; what was
-        missing is the other half. Without it ``consecutive_failures`` never
-        resets, so "three failures in a row" quietly becomes "three failures
-        ever", and a worker that has probed successfully never closes.
+        The two legs are two different workers whose health is independent, so
+        each has to be scored from its own response. A decode that answers
+        cannot vouch for a prefill that did not: scoring both off one status
+        code let a prefill 500-ing every request be reset to healthy by the
+        decode leg beside it, and there is no status code at all for the
+        client-facing streaming response, whose 200 is a framework default set
+        before either leg has been dispatched.
 
-        Anything other than a clean response is neutral rather than a success
-        for either role: one of the two may well be at fault, and this layer
-        cannot tell which. Neutral is idempotent against the failure already
-        recorded below, and still frees the probe slot.
+        A 5xx is the worker's fault. A 4xx is the request's -- every worker
+        would answer the same, so it frees the probe slot without counting
+        either way. Anything below 400 is the evidence of health that resets
+        the consecutive-failure count.
         """
-        resp = await self._dispatch_pd(
-            obs, p_target, d_target, p_blocks, d_blocks, body, stream, path
-        )
-        ok = getattr(resp, "status_code", 200) < 400
-        for worker_id in (p_target.worker.worker_id, d_target.worker.worker_id):
-            if ok:
-                self.breaker.record_success(worker_id)
-            else:
-                self.breaker.record_neutral(worker_id)
-        return resp
+        if is_worker_fault(status):
+            self.breaker.record_failure(worker_id)
+        elif status < 400:
+            self.breaker.record_success(worker_id)
+        else:
+            self.breaker.record_neutral(worker_id)
 
     async def _dispatch_pd(
         self,
@@ -386,6 +373,8 @@ class DisaggRouter(BaseRouter):
                 self.breaker.record_failure(p.worker_id)
                 return _sanitized_error("PD request failed", exc, status_code=502)
 
+            self._score_leg(p.worker_id, p_resp.status_code)
+            self._score_leg(d.worker_id, d_resp.status_code)
             if p_resp.status_code >= 400:
                 logger.warning(
                     "prefill worker %s returned %d (decode may fail)",
@@ -593,6 +582,7 @@ class DisaggRouter(BaseRouter):
                     self.breaker.record_failure(p.worker_id)
                     return _sanitized_error("prefill leg failed", exc, status_code=502)
 
+            self._score_leg(p.worker_id, p_resp.status_code)
             if p_resp.status_code >= 400:
                 p_failed = True
                 obs["outcome"] = f"{p_resp.status_code // 100}xx"
@@ -679,6 +669,7 @@ class DisaggRouter(BaseRouter):
                     self.breaker.record_failure(d.worker_id)
                     return _sanitized_error("decode leg failed", exc, status_code=502)
 
+            self._score_leg(d.worker_id, d_resp.status_code)
             try:
                 d_payload = d_resp.json()
             except ValueError:
@@ -727,6 +718,10 @@ class DisaggRouter(BaseRouter):
                 yield f"data: {err}\n\n".encode()
                 return
 
+            # Headers are in hand, which is the pre-first-byte moment: what the
+            # decode worker did with the request is now known and nothing has
+            # reached the client yet.
+            self._score_leg(d_target.worker.worker_id, d_resp.status_code)
             if d_resp.status_code >= 400:
                 try:
                     body_bytes = await d_resp.aread()
@@ -883,6 +878,9 @@ class DisaggRouter(BaseRouter):
                     yield f"data: {err}\n\n".encode()
                     return
 
+                # Headers are in hand: the decode leg's outcome is known and
+                # nothing has reached the client yet.
+                self._score_leg(d_target.worker.worker_id, d_resp.status_code)
                 if d_resp.status_code >= 400:
                     # Engine accepted but rejected; surface its body verbatim.
                     try:
@@ -955,6 +953,9 @@ class DisaggRouter(BaseRouter):
             try:
                 p_resp = await asyncio.shield(p_task)
             except asyncio.CancelledError:
+                # The request was torn down from above, so the prefill worker
+                # was never given the chance to answer. That is not evidence
+                # about it either way, and scoring it would be inventing one.
                 logger.debug("prefill task cancelled (parent torn down)")
             except Exception as exc:
                 logger.warning(
@@ -965,8 +966,15 @@ class DisaggRouter(BaseRouter):
                     exc or "<no message>",
                 )
                 metrics.pd_bootstrap_failures_total.labels(reason="prefill_exception").inc()
+                self.breaker.record_failure(p.worker_id)
             else:
-                if getattr(p_resp, "status_code", 0) >= 400:
+                # The prefill leg is scored here rather than beside the decode
+                # leg above because this is where its own answer arrives: it
+                # runs concurrently, so nothing about it is known until now.
+                p_status = getattr(p_resp, "status_code", None)
+                if p_status is not None:
+                    self._score_leg(p.worker_id, p_status)
+                if p_status is not None and p_status >= 400:
                     logger.warning(
                         "prefill leg %s returned %d (decode will hang on KVPoll)",
                         p.worker_id,

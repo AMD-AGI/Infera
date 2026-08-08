@@ -91,7 +91,19 @@ async def test_decode_only_stream_records_failure_on_unreachable():
 
 @pytest.mark.asyncio
 async def test_dual_stream_records_failure_on_unreachable_decode():
+    """Only the decode leg is broken here. Failing both -- which is what a
+    transport that refuses everything does -- cannot show that the pools are
+    scored independently, because then prefill deserves to trip too.
+    """
     r = _router()
+
+    def _only_decode_is_down(request):
+        if "d1" in str(request.url):
+            raise httpx.ConnectError("refused", request=request)
+        return httpx.Response(200, json={"id": "x"})
+
+    r._client = httpx.AsyncClient(transport=httpx.MockTransport(_only_decode_is_down))
+
     p_target = RouteTarget(_w("p1"))
     d_target = RouteTarget(_w("d1"))
     for _ in range(3):
@@ -171,6 +183,72 @@ async def test_a_served_request_clears_the_failure_count():
 
     assert r.breaker.snapshot()["d1"]["consecutive_failures"] == 0
     assert r.breaker.state_of("d1").value == "closed"
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_a_healthy_leg_does_not_launder_a_broken_one():
+    """The two legs are two workers whose health is independent, so each is
+    scored from its own response.
+
+    Scoring both off the single client-facing status code let the decode leg's
+    200 count as evidence for a prefill that had just 500'd -- resetting its
+    failure count, and reopening a breaker that was already open.
+    """
+
+    def _prefill_is_broken(request):
+        if "p1" in str(request.url):
+            return httpx.Response(500, json={"error": "prefill exploded"})
+        return httpx.Response(200, json={"id": "x", "choices": [{"message": {"content": "hi"}}]})
+
+    r = DisaggRouter(
+        _RolePool(_pd_worker("p1", DisaggMode.PREFILL), _pd_worker("d1", DisaggMode.DECODE)),
+        _FakePolicy(),
+    )
+    r._client = httpx.AsyncClient(transport=httpx.MockTransport(_prefill_is_broken))
+
+    for _ in range(3):
+        resp = await r.dispatch({"model": "m"}, stream=False)
+        assert resp.status_code == 200, "decode answers, so the client still gets 200"
+
+    assert r.breaker.state_of("p1").value == "open", (
+        "a prefill that 500s every request must trip, even though the decode "
+        "leg beside it succeeds"
+    )
+    assert r.breaker.state_of("d1").value == "closed", "the healthy leg is untouched"
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_a_streaming_dispatch_is_not_scored_before_it_runs():
+    """A StreamingResponse is returned before its generator is touched: the
+    decode leg has not been POSTed and its 200 is Starlette's default, not an
+    outcome. Scoring it there records success for both roles before either was
+    dispatched and resets the count the legs are about to raise -- a decode
+    worker failing every request would never trip.
+
+    Drives dispatch(stream=True), which is the production path; the older tests
+    call the generators directly and so cannot see this.
+    """
+    r = DisaggRouter(
+        _RolePool(_pd_worker("p1", DisaggMode.PREFILL), _pd_worker("d1", DisaggMode.DECODE)),
+        _FakePolicy(),
+    )
+    r._client = httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda request: (_ for _ in ()).throw(httpx.ConnectError("refused", request=request))
+        )
+    )
+    r._DECODE_OPEN_MAX_RETRIES = 0
+
+    for i in range(3):
+        resp = await r.dispatch({"model": "m"}, stream=True)
+        assert await _drain(resp.body_iterator), f"request {i} produced no body"
+
+    assert r.breaker.state_of("d1").value == "open", (
+        "three unreachable decodes must trip the breaker; if this is closed the "
+        "wrapper scored the stream before the decode leg ran"
+    )
     await r.aclose()
 
 
