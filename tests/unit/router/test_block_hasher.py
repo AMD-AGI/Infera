@@ -203,3 +203,50 @@ def test_sglang_loader_returns_none_when_module_missing():
     """Router-only host without sglang: loader swallows ImportError -> None."""
     result = BlockHasher._load_via_sglang("nonexistent-model-id-12345")
     assert result is None or hasattr(result, "encode")
+
+
+# --- a tokenizer that will not load must be loud, not silent ----------------
+
+
+def test_unloadable_tokenizer_is_logged_once_not_per_request(caplog):
+    """A broken tokenizer disables cache-aware routing for the whole process.
+
+    Retrying the load per request re-logs it per request: one real deployment
+    produced 240 identical warnings across 120 requests, which buries the
+    finding instead of surfacing it. Load failures are cached, and the
+    consequence is stated once at ERROR.
+    """
+    import logging
+
+    hasher = BlockHasher(tokenizer_path="/nonexistent/definitely-not-a-model")
+    body = {"model": "m", "messages": [{"role": "user", "content": "hi"}]}
+
+    with caplog.at_level(logging.ERROR, logger="infera.router.kv_event.block_hasher"):
+        for _ in range(10):
+            assert hasher.hash_for(body, block_size=16) == []
+
+    degraded = [r for r in caplog.records if "kv-aware DEGRADED" in r.message]
+    assert len(degraded) == 1, f"expected exactly one ERROR, got {len(degraded)}"
+    # The message has to name the fix, not just the symptom.
+    assert "--router-tokenizer-path" in degraded[0].getMessage()
+
+
+def test_unloadable_tokenizer_increments_the_skipped_metric():
+    """Routing silently degrades to least-loaded when there is no tokenizer.
+    A counter makes that visible on a dashboard, rather than only in a log
+    line someone has to already suspect to go looking for."""
+    from infera.server import metrics
+
+    def read() -> float:
+        return (
+            metrics.REGISTRY.get_sample_value(
+                "infera_cache_locality_skipped_total", {"reason": "no_tokenizer"}
+            )
+            or 0.0
+        )
+
+    before = read()
+    hasher = BlockHasher(tokenizer_path="/nonexistent/also-not-a-model")
+    for _ in range(3):
+        hasher.hash_for({"model": "m", "prompt": "hi"}, block_size=16)
+    assert read() == before + 3
