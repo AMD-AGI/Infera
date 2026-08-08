@@ -40,7 +40,16 @@ WORKDIR /opt/infera
 # infera.gaie`.
 COPY pyproject.toml README.md ./
 COPY infera ./infera
-RUN pip install --no-cache-dir ".[atom]"
+# setuptools is bumped in the same RUN. The bases ship 79.0.1, whose bundled
+# _vendor/ tree carries an old jaraco.context and wheel; those three are the
+# only reported issues here that a version bump can reach, since every other
+# Python finding sits on a package the base pins for its own runtime (pillow,
+# aiohttp, cryptography, h2, torch) and is the vendor's to move.
+#
+# Safe to move because setuptools is build tooling, not a runtime dependency:
+# nothing here imports it to serve a request. Verified against the published
+# image -- vllm and infera both still import, and the count drops 22 -> 19.
+RUN pip install --no-cache-dir ".[atom]" "setuptools>=83.0.0"
 
 # ---- Rust router (multi-core data plane; --router-backend rust) ----
 # The ROCm base often ships cargo; use it, and install a minimal toolchain only

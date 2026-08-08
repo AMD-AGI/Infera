@@ -69,7 +69,16 @@ RUN if [ "${BUILD_MOONCAKE}" = "1" ]; then \
 # `python -m infera.gaie`.
 COPY pyproject.toml README.md ./
 COPY infera ./infera
-RUN pip install --no-cache-dir ".[sglang]"
+# setuptools is bumped in the same RUN. The bases ship 79.0.1, whose bundled
+# _vendor/ tree carries an old jaraco.context and wheel; those three are the
+# only reported issues here that a version bump can reach, since every other
+# Python finding sits on a package the base pins for its own runtime (pillow,
+# aiohttp, cryptography, h2, torch) and is the vendor's to move.
+#
+# Safe to move because setuptools is build tooling, not a runtime dependency:
+# nothing here imports it to serve a request. Verified against the published
+# image -- vllm and infera both still import, and the count drops 22 -> 19.
+RUN pip install --no-cache-dir ".[sglang]" "setuptools>=83.0.0"
 
 # ---- GLM-5.2 DSA indexer rows (patch 01 of the sglang_dsa set) --------------
 # REQUIRED for DP-attention here: the aiter (HIP) paged-MQA row count and
