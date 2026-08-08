@@ -226,3 +226,53 @@ def test_threshold_zero_disables_it():
     assert off.state_of("w1") is BreakerState.CLOSED
     ws = [W("a"), W("b")]
     assert len(off.filter(ws)) == 2
+
+
+def test_a_probe_slot_taken_but_never_dispatched_is_reclaimed(cb, clock):
+    """The wedge: filter() claims the probe slot for *every* candidate it lets
+    through, while the policy dispatches exactly one of them.
+
+    So a recovering worker routinely has its slot taken by a request that then
+    went elsewhere, and nothing records an outcome for it. Without a time bound
+    on the claim, that worker sits in half_open with the slot held forever --
+    permanently out of rotation while perfectly healthy, and only a router
+    restart brings it back.
+    """
+    good, bad = W("good"), W("bad")
+    for _ in range(3):
+        cb.record_failure("bad")
+    clock.advance(5.1)
+
+    # A request arrives, both are offered, the policy picks `good`.
+    assert bad in cb.filter([good, bad]), "cooldown elapsed -> bad is due a probe"
+    cb.record_success("good")
+
+    # `bad` never learns how its probe went, because it never got one.
+    clock.advance(cb.probe_timeout + 1.0)
+    assert bad in cb.filter([good, bad]), "an unused probe claim must not be permanent"
+
+
+def test_a_neutral_outcome_frees_the_slot_without_scoring_it(cb, clock):
+    """4xx is evidence about the request, not the worker, so it must neither
+    trip the breaker nor count as a recovery -- but the probe slot it consumed
+    still has to come back, or the worker is wedged by one bad client."""
+    for _ in range(3):
+        cb.record_failure("w1")
+    clock.advance(5.1)
+    assert cb.allows("w1") is True, "cooldown elapsed -> one probe admitted"
+
+    cb.record_neutral("w1")
+    assert cb.state_of("w1") is BreakerState.HALF_OPEN, "a 4xx is not a recovery"
+    assert cb.allows("w1") is True, "but the slot is free for a real probe"
+
+
+def test_forgetting_a_worker_drops_its_entry(cb):
+    """Worker ids are addresses, and a rebuilt pod never reuses one. Entries
+    kept for workers discovery has dropped grow without bound, and each also
+    pins a Prometheus series."""
+    for _ in range(3):
+        cb.record_failure("gone")
+    assert "gone" in cb.snapshot()
+    cb.forget("gone")
+    assert "gone" not in cb.snapshot()
+    assert cb.state_of("gone") is BreakerState.CLOSED
