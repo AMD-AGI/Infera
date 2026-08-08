@@ -67,10 +67,12 @@ Build the overlay before deploying:
 docker build -f deploy/overlay/Dockerfile.payload -t inferaimage/infera-overlay:v0.2.2 .
 ```
 
-The build harvests **one native tree per ABI family** — `NATIVE_IMAGE` supplies
-the vLLM one (CPython 3.12) and `SGLANG_NATIVE_IMAGE` the SGLang one (3.10).
-Mooncake and hipFile bind both the ROCm major and the CPython minor, so neither
-tree can stand in for the other.
+The build produces **one native tree per ABI family**, by two different routes:
+`NATIVE_IMAGE` supplies the vLLM one (CPython 3.12) by harvesting it, while the
+SGLang one (3.10) is compiled during the build itself, so that its Mooncake is
+known to carry the HIP-transport gate instead of inheriting whatever the engine
+image shipped. Mooncake and hipFile bind both the ROCm major and the CPython
+minor, so neither tree can stand in for the other.
 
 The families do not carry the same capabilities, and that is by design:
 

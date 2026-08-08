@@ -72,8 +72,13 @@ cd "$(dirname "$0")/../.."
 # inside the STOCK vendor bases so they can be pruned down to what those bases
 # lack. So it needs four refs, and getting any of them wrong is silent:
 #
-#   NATIVE_IMAGE / SGLANG_NATIVE_IMAGE  <- the engine images from THIS run, so a
-#       release never ships an overlay carrying a previous release's native code.
+#   NATIVE_IMAGE            <- the vLLM engine image from THIS run, so a release
+#       never ships an overlay carrying a previous release's native code. Only
+#       the vLLM (CPython 3.12) tree is harvested: the SGLang (3.10) family's
+#       Mooncake is COMPILED in Dockerfile.payload's `mooncake310` stage, so
+#       that the HIP-transport gate is guaranteed present rather than inherited
+#       from whatever the engine image happened to ship. There is deliberately
+#       no SGLANG_NATIVE_IMAGE here.
 #   VLLM_BASE_IMAGE / SGLANG_BASE_IMAGE <- read out of the engine Dockerfiles
 #       rather than repeated here. The prune keeps exactly what the base lacks,
 #       so a base ref that drifts from the one the engine image was built on
@@ -95,15 +100,14 @@ if [ "$engine" = overlay ]; then
   else                        esuf="local"
   fi
   native_vllm="${NATIVE_IMAGE:-${IMAGE}:vllm-${esuf}}"
-  native_sglang="${SGLANG_NATIVE_IMAGE:-${IMAGE}:sglang-${esuf}}"
 
   build_args=(
     --build-arg "VLLM_BASE_IMAGE=${vllm_base}"
     --build-arg "SGLANG_BASE_IMAGE=${sglang_base}"
     --build-arg "NATIVE_IMAGE=${native_vllm}"
-    --build-arg "SGLANG_NATIVE_IMAGE=${native_sglang}"
   )
-  echo "overlay: harvest  vllm=${native_vllm}  sglang=${native_sglang}"
+  echo "overlay: harvest  vllm=${native_vllm}"
+  echo "overlay: compile  sglang mooncake in-image (mooncake310 stage)"
   echo "overlay: deps on  vllm=${vllm_base}"
   echo "overlay: deps on  sglang=${sglang_base}"
 fi
