@@ -134,6 +134,11 @@ async fn mixed_dispatch(
                 // is_worker_fault().
                 if is_worker_fault(err_resp.status().as_u16()) {
                     state.breaker.record_failure(&wid);
+                } else {
+                    // A 4xx is not held against the worker, but the probe slot
+                    // it consumed has to come back or one bad client wedges a
+                    // recovering worker out of rotation.
+                    state.breaker.record_neutral(&wid);
                 }
                 last_err = Some(err_resp);
             }
