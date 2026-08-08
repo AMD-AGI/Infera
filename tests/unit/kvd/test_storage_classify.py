@@ -17,6 +17,7 @@ asserts on the ``pick_io_mode`` decision + the ``StorageInfo`` payload.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -750,3 +751,319 @@ def test_format_workers_decision_nfs_includes_nconnect(fake_run, fake_proc_mount
     out = format_workers_decision(info, workers, rationale)
     assert "nconnect" in out
     assert "8" in out
+
+
+# ----------------------------------------------------------------------
+# sysfs device walk — the path that covers what lsblk cannot resolve.
+#
+# Every case here builds a real directory tree shaped like sysfs and points
+# the module at it, so the walk is exercised end to end (symlinks, slaves/
+# recursion, partition→disk resolution) without depending on whatever disks
+# the test machine happens to have.
+# ----------------------------------------------------------------------
+
+
+@pytest.fixture
+def fake_sysfs(monkeypatch, tmp_path):
+    """Build a sysfs fixture tree and aim the module's walk at it.
+
+    ``devices`` maps each block device name to its shape:
+
+        rotational   "0" / "1"     ``queue/rotational``; whole disks only,
+                                   since that is where the kernel puts it
+        slaves       [names]       the devices this one is built on
+        subsystem    "nvme"/...    the bus its backing device sits on
+        devpath      "a/b/c"       where under ``/sys/devices`` that lands —
+                                   this is what carries ``/hostN/`` and ``/usb``
+        sas_address  True          the attribute that marks a SAS disk
+        parent_disk  "sda"         makes this device a partition of that disk
+
+    ``scsi_hosts`` maps a host name to its ``proc_name``, the attribute
+    util-linux reads to tell iSCSI and SATA apart.
+
+    Returns the path to probe: ``tmp_path`` itself, registered in the fake
+    ``/sys/dev/block`` under its own real ``st_dev`` so ``stat()`` lands on
+    the fixture topology on any machine.
+    """
+
+    def build(devices: dict, target: str, scsi_hosts: dict | None = None) -> Path:
+        root = tmp_path / "sys"
+        blk = root / "class" / "block"
+        blk.mkdir(parents=True)
+        (root / "dev" / "block").mkdir(parents=True)
+        devices_dir = root / "devices"
+
+        def node_dir(name: str, spec: dict) -> Path:
+            parent = spec.get("parent_disk")
+            if not parent:
+                d = blk / name
+                d.mkdir(parents=True, exist_ok=True)
+                return d
+            # A partition lives inside its disk's directory, and /sys/class
+            # only links to it — which is exactly what the walk relies on to
+            # find the disk that carries the queue/ and device/ attributes.
+            d = devices_dir / "block" / parent / name
+            d.mkdir(parents=True, exist_ok=True)
+            (d / "partition").write_text("1\n")
+            if not (blk / name).exists():
+                (blk / name).symlink_to(d)
+            return d
+
+        # Whole disks first: a partition's entry has to be able to point into
+        # its parent's directory.
+        ordered = sorted(devices.items(), key=lambda kv: bool(kv[1].get("parent_disk")))
+        for name, spec in ordered:
+            d = node_dir(name, spec)
+            if "rotational" in spec:
+                (d / "queue").mkdir(exist_ok=True)
+                (d / "queue" / "rotational").write_text(spec["rotational"] + "\n")
+            for child in spec.get("slaves", []):
+                (d / "slaves").mkdir(exist_ok=True)
+                (d / "slaves" / child).mkdir(exist_ok=True)
+            subsystem = spec.get("subsystem")
+            if subsystem:
+                phys = devices_dir / spec.get("devpath", f"pci0000:00/{name}")
+                phys.mkdir(parents=True, exist_ok=True)
+                bus = root / "bus" / subsystem
+                bus.mkdir(parents=True, exist_ok=True)
+                if not (phys / "subsystem").exists():
+                    (phys / "subsystem").symlink_to(bus)
+                if spec.get("sas_address"):
+                    (phys / "sas_address").write_text("0x5000c500a1b2c3d4\n")
+                if not (d / "device").exists():
+                    (d / "device").symlink_to(phys)
+
+        for host, proc_name in (scsi_hosts or {}).items():
+            hd = root / "class" / "scsi_host" / host
+            hd.mkdir(parents=True, exist_ok=True)
+            (hd / "proc_name").write_text(proc_name + "\n")
+
+        probe = tmp_path / "probe"
+        probe.mkdir(exist_ok=True)
+        st = probe.stat()
+        devno = f"{os.major(st.st_dev)}:{os.minor(st.st_dev)}"
+        (root / "dev" / "block" / devno).symlink_to(blk / target)
+
+        monkeypatch.setattr(storage_classify, "_SYSFS_ROOT", str(root))
+        return probe
+
+    return build
+
+
+def test_sysfs_walks_lvm_stack_down_to_nvme_members(fake_sysfs):
+    """The case lsblk cannot do: the logical volume's name is not a path,
+    so only a major:minor lookup reaches the members."""
+    probe = fake_sysfs(
+        {
+            "dm-8": {"slaves": ["dm-0", "dm-1"], "rotational": "0"},
+            "dm-0": {"slaves": ["nvme0n1"], "rotational": "0"},
+            "dm-1": {"slaves": ["nvme1n1"], "rotational": "0"},
+            "nvme0n1": {"subsystem": "nvme", "rotational": "0"},
+            "nvme1n1": {"subsystem": "nvme", "rotational": "0"},
+        },
+        target="dm-8",
+    )
+    devices = storage_classify._sysfs_for_path(probe)
+    assert [d.dev for d in devices] == ["nvme0n1", "nvme1n1"]
+    assert all(d.transport == "nvme" and not d.rotational for d in devices)
+
+
+def test_sysfs_walks_md_stack(fake_sysfs):
+    probe = fake_sysfs(
+        {
+            "md0": {"slaves": ["sda", "sdb"], "rotational": "0"},
+            "sda": {"subsystem": "scsi", "devpath": "pci0000:00/ata1/host1/sda", "rotational": "0"},
+            "sdb": {"subsystem": "scsi", "devpath": "pci0000:00/ata2/host2/sdb", "rotational": "0"},
+        },
+        target="md0",
+        scsi_hosts={"host1": "ahci", "host2": "ahci"},
+    )
+    devices = storage_classify._sysfs_for_path(probe)
+    assert [d.dev for d in devices] == ["sda", "sdb"]
+    assert all(d.transport == "sata" for d in devices)
+
+
+def test_sysfs_dedupes_a_leaf_reached_through_two_parents(fake_sysfs):
+    """An LVM RAID mirrors each leg through its own rimage, so the same
+    physical disk can be reachable more than once."""
+    probe = fake_sysfs(
+        {
+            "dm-9": {"slaves": ["dm-2", "dm-3"], "rotational": "0"},
+            "dm-2": {"slaves": ["nvme0n1"], "rotational": "0"},
+            "dm-3": {"slaves": ["nvme0n1"], "rotational": "0"},
+            "nvme0n1": {"subsystem": "nvme", "rotational": "0"},
+        },
+        target="dm-9",
+    )
+    assert [d.dev for d in storage_classify._sysfs_for_path(probe)] == ["nvme0n1"]
+
+
+def test_sysfs_resolves_a_partition_to_its_parent_disk(fake_sysfs):
+    """Partitions carry neither queue/ nor device/ — both belong to the disk."""
+    probe = fake_sysfs(
+        {
+            "sda": {
+                "subsystem": "scsi",
+                "devpath": "platform/host0/session1/target0:0:0/0:0:0:1",
+                "rotational": "1",
+            },
+            "sda1": {"parent_disk": "sda"},
+        },
+        target="sda1",
+        scsi_hosts={"host0": "iscsi_tcp"},
+    )
+    devices = storage_classify._sysfs_for_path(probe)
+    assert [(d.dev, d.transport, d.rotational) for d in devices] == [("sda1", "iscsi", True)]
+
+
+def test_sysfs_reads_sas_from_the_device_attribute(fake_sysfs):
+    probe = fake_sysfs(
+        {
+            "sdc": {
+                "subsystem": "scsi",
+                "devpath": "pci0000:00/host3/sdc",
+                "sas_address": True,
+                "rotational": "0",
+            }
+        },
+        target="sdc",
+        scsi_hosts={"host3": "mpt3sas"},
+    )
+    assert storage_classify._sysfs_for_path(probe)[0].transport == "sas"
+
+
+def test_sysfs_does_not_name_a_bus_from_machine_wide_state(fake_sysfs, tmp_path):
+    """A RAID card presenting a logical volume supplies no per-device signal,
+    so it has to stay unknown. Answering from something machine-wide instead —
+    "this box has an fc_host, so call it fc" — labels a local disk a SAN.
+    """
+    probe = fake_sysfs(
+        {
+            "sdf": {
+                "subsystem": "scsi",
+                "devpath": "pci0000:00/host2/target2:2:0/2:2:0:0",
+                "rotational": "0",
+            }
+        },
+        target="sdf",
+        scsi_hosts={"host2": "megaraid_sas"},
+    )
+    # An FC HBA elsewhere in the box, on a host this disk has nothing to do with.
+    (tmp_path / "sys" / "class" / "fc_host" / "host9").mkdir(parents=True)
+    assert storage_classify._sysfs_for_path(probe)[0].transport == ""
+
+
+def test_sysfs_names_fc_when_the_hba_is_this_disk_s_own_host(fake_sysfs, tmp_path):
+    """The other half of the pair: a real SAN is worth naming, because
+    'SAN fc → buffered' reads a great deal better in the startup log than an
+    unknown transport, which also logs a WARN."""
+    probe = fake_sysfs(
+        {
+            "sdg": {
+                "subsystem": "scsi",
+                "devpath": "pci0000:00/host4/rport-4:0-0/target4:0:0/4:0:0:0",
+                "rotational": "0",
+            }
+        },
+        target="sdg",
+        scsi_hosts={"host4": "lpfc"},
+    )
+    (tmp_path / "sys" / "class" / "fc_host" / "host4").mkdir(parents=True)
+    assert storage_classify._sysfs_for_path(probe)[0].transport == "fc"
+
+
+def test_sysfs_returns_nothing_when_the_devno_is_not_registered(fake_sysfs, tmp_path):
+    """A filesystem with no block device behind it — NFS reports a synthetic
+    st_dev that has no /sys/dev/block entry."""
+    fake_sysfs({"nvme0n1": {"subsystem": "nvme", "rotational": "0"}}, target="nvme0n1")
+    monkey_root = Path(str(tmp_path / "sys" / "dev" / "block"))
+    for entry in monkey_root.iterdir():
+        entry.unlink()
+    assert storage_classify._sysfs_for_path(tmp_path / "probe") == []
+
+
+def test_sysfs_leaves_transport_blank_for_an_unrecognised_bus(fake_sysfs):
+    """Unknown is still a useful answer — it keeps the conservative default
+    rather than guessing O_DIRECT onto something that would hate it."""
+    probe = fake_sysfs(
+        {"xvda": {"subsystem": "xen", "rotational": "0"}},
+        target="xvda",
+    )
+    devices = storage_classify._sysfs_for_path(probe)
+    assert [(d.dev, d.transport) for d in devices] == [("xvda", "")]
+
+
+# --- and the same thing end to end, through pick_io_mode ---------------
+
+
+def _lvm_on_nvme(fake_sysfs):
+    return fake_sysfs(
+        {
+            "dm-8": {"slaves": ["nvme0n1"], "rotational": "0"},
+            "nvme0n1": {"subsystem": "nvme", "rotational": "0"},
+        },
+        target="dm-8",
+    )
+
+
+def test_lsblk_failing_outright_is_recovered_by_sysfs(fake_run, fake_sysfs):
+    """Inside a container /dev holds only what --device put there, so lsblk
+    cannot open the node at all. Before the sysfs fallback this mount was
+    classified 'unknown device' and ran buffered on NVMe."""
+    probe = _lvm_on_nvme(fake_sysfs)
+    fake_run(
+        {
+            "findmnt": "/dev/mapper/nvme_vg-nvme_lv xfs\n",
+            "lsblk": ("lsblk: not a block device\n", 32),
+        }
+    )
+    o_direct, rationale = pick_io_mode(probe)
+    assert o_direct is True
+    assert "nvme" in rationale
+
+
+def test_lsblk_answering_without_a_transport_is_recovered_by_sysfs(fake_run, fake_sysfs):
+    """On the host lsblk does resolve the LV, but the --inverse walk that
+    would supply the transport is handed /dev/<vg>-<lv>, which is not a
+    path that exists. The row comes back bare."""
+    probe = _lvm_on_nvme(fake_sysfs)
+    fake_run(
+        {
+            "findmnt": "/dev/mapper/nvme_vg-nvme_lv xfs\n",
+            "lsblk": "nvme_vg-nvme_lv  0\n",  # blank TRAN, and no inverse answer
+        }
+    )
+    info = classify_storage(probe)
+    assert [d.dev for d in info.devices] == ["nvme0n1"]
+    assert pick_io_mode(probe)[0] is True
+
+
+def test_a_complete_lsblk_answer_is_not_second_guessed(fake_run, fake_sysfs):
+    """sysfs is a fallback, not an override: when lsblk names a transport it
+    wins, even where the fixture topology would say something else."""
+    probe = _lvm_on_nvme(fake_sysfs)  # sysfs here would say nvme → O_DIRECT
+    fake_run(
+        {
+            "findmnt": "/dev/sdb1 ext4\n",
+            "lsblk": "sdb sata 0\n",
+        }
+    )
+    o_direct, rationale = pick_io_mode(probe)
+    assert o_direct is False
+    assert "sata" in rationale
+
+
+def test_both_probes_failing_still_lands_on_conservative_buffered(fake_run, monkeypatch, tmp_path):
+    """No lsblk answer and no sysfs either — the posture that protects an
+    HDD or a SAN from having O_DIRECT guessed onto it."""
+    fake_run(
+        {
+            "findmnt": "/dev/mapper/vg-lv xfs\n",
+            "lsblk": ("", 32),
+        }
+    )
+    monkeypatch.setattr(storage_classify, "_SYSFS_ROOT", str(tmp_path / "no-sysfs-here"))
+    info = classify_storage(tmp_path)
+    assert info.devices == []
+    assert any("sysfs" in w for w in info.warnings)
+    assert pick_io_mode(tmp_path) == (False, "unknown device, conservative buffered")

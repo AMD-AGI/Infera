@@ -43,15 +43,56 @@ _NONE_RETENTION_DAMPENER = 0.1
 _MM_AFFINITY_CAP = 256
 _MM_IMAGE_BLOCK_WEIGHT = 48.0
 
+# Per-pick decay on each worker's recent-dispatch total (half-life ~23 picks).
+#
+# The load half of the cost function counts blocks that are *in flight*, which
+# is 0 for every worker whenever a request finishes before the next one is
+# picked. Session-paced agent traffic has exactly that shape, so on that
+# workload the cost function loses its load term entirely: a cold fleet ties,
+# the tie goes to whichever candidate is enumerated first, and the cache that
+# winner picks up re-elects it on every later request. The result is a
+# permanent 100/0 split across symmetric workers at any overlap weight.
+#
+# `recent` keeps the load signal alive across requests that never overlap in
+# time. A pick is charged the blocks the winner MISSED, not the blocks the
+# request contains: prefill work is proportional to what the worker has to
+# compute, and a block already in its cache costs it nothing. Charging misses
+# rather than totals is what lets the term coexist with cache affinity --
+# a worker serving a fully-cached prompt accrues no load, so it keeps winning
+# that prompt, while a worker handed a cold prompt accrues the whole thing and
+# the next cold prompt goes elsewhere.
+#
+# Misses are in blocks, the same unit as in-flight load, so the two sum without
+# a conversion factor and the term scales with request size. Charging one point
+# per request instead would cap the term at 1/(1 - decay) no matter how large
+# the requests were, which a single block of cache edge outvotes outright at
+# any overlap weight above that cap -- leaving the split unfixed on exactly the
+# prefill-weighted pools (typical production weight: 20.0) that most need
+# spreading.
+#
+# The decay sets how long a worker carries what it was handed. Too fast and the
+# term cannot accumulate enough to displace an incumbent between one session
+# and the next; measured against the field trace, 0.9 still left w=20 fully
+# pinned while anything from 0.95 up balanced it.
+_RECENT_DECAY = 0.97
+
 
 class KvEventAwarePolicy(Policy):
     """Pick the worker minimising
 
-        cost(w) = overlap_weight * (request_blocks - hits(w)) + active_blocks(w)
+        cost(w) = overlap_weight * (request_blocks - hits(w)) + load(w)
+        load(w) = active_blocks(w) + recent_blocks(w)
 
     where ``active_blocks(w)`` is a refcounted set of distinct in-flight
     block hashes (deduped across requests sharing prefixes), not a sum of
-    prompt lengths.
+    prompt lengths, and ``recent_blocks(w)`` is a decayed sum of the block
+    counts recently dispatched to ``w``.
+
+    Both halves are load-bearing. ``active_blocks`` alone is 0 for every
+    worker under traffic paced so that a request finishes before the next is
+    picked -- the normal shape of multi-turn agent sessions -- which drops the
+    load term out of the comparison and pins the whole fleet's traffic onto
+    one worker. See ``_RECENT_DECAY``.
 
     For PD-disaggregated routing, the disagg-bootstrap router passes
     ``role_hint="prefill"`` or ``role_hint="decode"`` to ``pick``. The
@@ -87,8 +128,11 @@ class KvEventAwarePolicy(Policy):
         self._w_decode = (
             decode_overlap_weight if decode_overlap_weight is not None else overlap_weight
         )
-        # worker_id -> {block_hash -> refcount}; len() is the load term.
+        # worker_id -> {block_hash -> refcount}; len() is the in-flight load.
         self._active_block_refs: dict[str, dict[int, int]] = {}
+        # route_key -> decayed sum of recently dispatched block counts. Carries
+        # the load signal across requests that never overlap in time.
+        self._recent_blocks: dict[str, float] = {}
         # route_key -> ordered set of recent image keys (MRU last, bounded LRU).
         # Multimodal affinity: a request whose image a worker already holds
         # costs less there, co-locating repeat images onto the warm vision
@@ -170,17 +214,21 @@ class KvEventAwarePolicy(Policy):
         def active(t: RouteTarget) -> int:
             return len(self._active_block_refs.get(t.route_key, {}))
 
+        def load(t: RouteTarget) -> float:
+            """Blocks in flight now, plus blocks dispatched recently."""
+            return active(t) + self._recent_blocks.get(t.route_key, 0.0)
+
         def cost(t: RouteTarget) -> float:
             total = len(hashes_for.get((t.worker.engine, t.worker.kv_block_size), []))
             hits = self._cache_hits(t, hashes_for)
             # Image miss term: images this worker does NOT already hold cost
             # w_mm each; the worker with the warm vision cache pays 0 → wins.
             mm_miss = len(mm_keys) - self._mm_hits(t.route_key, mm_keys)
-            return w_overlap * (total - hits) + w_mm * mm_miss + active(t)
+            return w_overlap * (total - hits) + w_mm * mm_miss + load(t)
 
-        # Tie-break by lower active so equal-cost candidates fall back to
+        # Tie-break by lower load so equal-cost candidates fall back to
         # least-loaded.
-        picked = min(targets, key=lambda t: (cost(t), active(t)))
+        picked = min(targets, key=lambda t: (cost(t), load(t)))
         picked_blocks = list(
             hashes_for.get((picked.worker.engine, picked.worker.kv_block_size), [])
         )
@@ -189,16 +237,25 @@ class KvEventAwarePolicy(Policy):
         mm_affinity_hits = self._mm_hits(picked.route_key, mm_keys)
         self._record_mm(picked.route_key, mm_keys)
 
+        cache_hits = self._cache_hits(picked, hashes_for)
+        # Charge the winner for the blocks it will have to compute. Done here
+        # rather than in on_request_started because the hooks run on the
+        # dispatch path, which skips them on the failure routes -- and a pick
+        # that goes uncharged is invisible to the next one.
+        self._record_dispatch(picked.route_key, len(picked_blocks) - cache_hits)
+
         # Telemetry: record the pick decision per role + target, plus
         # the retention bucket we observed on this request.
-        cache_hits = self._cache_hits(picked, hashes_for)
         metrics.record_pick(
             role=role_hint or "mixed",
             worker_id=picked.route_key,
             cache_hits=cache_hits,
             request_blocks=len(picked_blocks),
         )
-        metrics.policy_active_blocks.labels(worker_id=picked.route_key).set(active(picked))
+        # policy_active_blocks is NOT published here: at this point the pick's
+        # own blocks have not been refcounted yet (on_request_started does that,
+        # after pick returns), so writing it here reports a one-request-stale
+        # count. It is published from _publish_active on every refcount change.
         metrics.cache_control_seen_total.labels(retention=hints.retention.value).inc()
 
         # Structured log: ops can grep `policy=kv-aware role=...` and correlate
@@ -232,8 +289,53 @@ class KvEventAwarePolicy(Policy):
         prefix = f"{worker_id}#dp"
         for key in [k for k in self._active_block_refs if k == worker_id or k.startswith(prefix)]:
             self._active_block_refs.pop(key, None)
+            # Drop the series too: a removed worker that keeps exporting its
+            # last in-flight count reads as a permanently loaded worker.
+            try:
+                metrics.policy_active_blocks.remove(key)
+            except KeyError:
+                pass
         for key in [k for k in self._mm_affinity if k == worker_id or k.startswith(prefix)]:
             self._mm_affinity.pop(key, None)
+        # Iterated separately from _active_block_refs: a worker can carry a
+        # recent total with nothing in flight, which is the state this term
+        # exists to represent.
+        for key in [k for k in self._recent_blocks if k == worker_id or k.startswith(prefix)]:
+            self._recent_blocks.pop(key, None)
+
+    def _record_dispatch(self, route_key: str, missed_blocks: int) -> None:
+        """Decay every worker's recent total, then charge the pick's misses.
+
+        Decaying on each pick rather than on a wall-clock timer keeps routing a
+        pure function of the request sequence: same requests in, same decisions
+        out, which is what makes the behaviour testable. Totals that decay to
+        nothing are dropped so an idle worker returns to a clean 0.
+
+        A fully-cached pick charges 0 -- the worker has no prefill to do, so it
+        takes on no load and stays the right answer for that prompt.
+        """
+        for key in list(self._recent_blocks):
+            decayed = self._recent_blocks[key] * _RECENT_DECAY
+            if decayed < 1e-3:
+                del self._recent_blocks[key]
+            else:
+                self._recent_blocks[key] = decayed
+        if missed_blocks <= 0:
+            return
+        self._recent_blocks[route_key] = self._recent_blocks.get(route_key, 0.0) + missed_blocks
+
+    def _publish_active(self, route_key: str) -> None:
+        """Mirror ``route_key``'s in-flight block count into the gauge.
+
+        Must be called after every mutation of ``_active_block_refs``. Setting
+        it only where the refcounts change is the point: publishing from
+        ``pick()`` reports the count from *before* this request's blocks are
+        added, so the gauge trails by one request and reads a flat 0 whenever
+        requests finish before the next one is picked.
+        """
+        metrics.policy_active_blocks.labels(worker_id=route_key).set(
+            len(self._active_block_refs.get(route_key, {}))
+        )
 
     def on_request_started(self, route_key: str, blocks: list[int] | None = None) -> None:
         if not blocks:
@@ -241,6 +343,7 @@ class KvEventAwarePolicy(Policy):
         refs = self._active_block_refs.setdefault(route_key, {})
         for h in blocks:
             refs[h] = refs.get(h, 0) + 1
+        self._publish_active(route_key)
 
     def on_request_finished(self, route_key: str, blocks: list[int] | None = None) -> None:
         if not blocks:
@@ -254,6 +357,7 @@ class KvEventAwarePolicy(Policy):
                 refs.pop(h, None)
             else:
                 refs[h] = rc
+        self._publish_active(route_key)
 
     async def aclose(self) -> None:
         await self._kv.aclose()

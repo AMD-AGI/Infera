@@ -8,11 +8,11 @@
 replicaCount: 1
 
 image:
-  # Operator manager image. NOTE: distinct repo name from the chart
-  # (infera-operator) to avoid an OCI tag collision when both are pushed to
-  # the same namespace.
-  repository: docker.io/inferaimage/infera-operator-manager
-  tag: "0.1.2"
+  # Operator manager image. It lives as an `operator-` tag of the shared
+  # rocm/infera repo; the chart itself is a separate OCI repo
+  # (rocm/infera-operator), so their tags cannot collide.
+  repository: docker.io/rocm/infera
+  tag: "operator-v0.1.0"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []

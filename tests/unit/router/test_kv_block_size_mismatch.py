@@ -82,18 +82,30 @@ def test_worker_without_block_size_is_not_subscribed(caplog):
     assert client._subs == {}
 
 
-async def test_mismatched_event_does_not_raise_and_indexes_what_it_can():
+async def test_mismatched_event_indexes_blocks_but_not_hashes():
     """The real shape of the bug: 768 tokens, 1 block hash, subscriber at 1.
 
-    Before the fix this raised IndexError on i=1 and killed the subscriber.
+    The first fix stopped this raising IndexError. The second dropped the event
+    whole, on the reasoning that a partial index binds an engine hash to a block
+    it may not describe. That reasoning is right about the HASH and wrong about
+    the BLOCK, and measuring it showed the cost: on a hybrid model emitting
+    these shapes, dropping cut full-prefix hits from 22/32 to 18/32.
+
+    The view entries are correct -- each is chained from a resolved parent over
+    a contiguous token span, which is exactly what a query reproduces. Only the
+    hash-to-block pairing is unknown, and only `map` uses it.
+
+    So: index the blocks, withhold the hashes. A later event naming one of those
+    hashes as its parent then misses and is dropped, which under-reports hits
+    rather than chaining off the wrong node.
     """
     client = KvEventClient()
     sub = await _subscribed(client, 1)
 
     client._handle_event(sub, _stored(tokens=768, hashes=1, block_size=768), rank=0)
 
-    assert len(sub.map_for(0)) == 1, "only the hashes actually supplied may be indexed"
-    assert len(sub.view_for(0)) == 1
+    assert len(sub.view_for(0)) == 768, "the blocks the span covers are indexable"
+    assert len(sub.map_for(0)) == 0, "their hashes are not"
 
 
 async def test_block_size_disagreement_is_reported_once(caplog):
@@ -123,16 +135,23 @@ async def test_agreeing_event_is_unaffected():
 
 
 @pytest.mark.parametrize(
-    "tokens,hashes,expect",
+    "tokens,hashes,view,mapped",
     [
-        (8, 1, 1),  # more tokens than hashes cover — the observed failure
-        (4, 3, 1),  # fewer tokens than hashes — the mirror case
-        (0, 0, 0),  # empty event
+        (8, 2, 2, 2),  # agreeing: 2 hashes x block_size 4 == 8 tokens
+        (8, 1, 2, 0),  # more tokens than hashes cover — the observed failure
+        (4, 3, 1, 0),  # fewer tokens than hashes — the mirror case
+        (0, 0, 0, 0),  # empty event
     ],
 )
-async def test_bound_is_the_minimum_of_both(tokens, hashes, expect):
+async def test_view_follows_the_tokens_and_the_map_follows_agreement(tokens, hashes, view, mapped):
+    """The view is bounded by the token span, the map by the lengths agreeing.
+
+    Both disagreement directions withhold the hashes: the direction of the error
+    does not tell you which block the surviving hash belongs to.
+    """
     client = KvEventClient()
     sub = await _subscribed(client, 4)
 
     client._handle_event(sub, _stored(tokens=tokens, hashes=hashes, block_size=4), rank=0)
-    assert len(sub.map_for(0)) == expect
+    assert len(sub.view_for(0)) == view
+    assert len(sub.map_for(0)) == mapped
