@@ -237,7 +237,7 @@ func buildInferencePool(idep *inferav1alpha1.InferaDeployment) *unstructured.Uns
 		"selector": map[string]any{
 			"matchLabels": map[string]any{
 				"infera.amd.com/deployment": idep.Name,
-				gaieFrontendLabel:             "true",
+				gaieFrontendLabel:           "true",
 			},
 		},
 		"endpointPickerRef": map[string]any{

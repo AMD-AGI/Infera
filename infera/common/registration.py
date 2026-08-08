@@ -12,6 +12,7 @@ import logging
 import httpx
 
 from infera.common.discovery import DEFAULT_PREFIX, _b64, _normalize_endpoint
+from infera.common.worker_pool import WorkerStatus
 from infera.engine.base import EngineConfig
 
 logger = logging.getLogger(__name__)
@@ -19,12 +20,17 @@ logger = logging.getLogger(__name__)
 _DEFAULT_LEASE_TTL = 30  # seconds
 
 
-def build_worker_payload(config: EngineConfig) -> dict:
+def build_worker_payload(config: EngineConfig, *, status: WorkerStatus | None = None) -> dict:
     """Build the worker registration record shared by every backend.
 
     The same dict is PUT to etcd (RegistrationClient) or stored in the worker
     Pod annotation (K8sRegistrationClient), so the server-side parse
     (discovery.worker_info_from_json) is transport-agnostic.
+
+    ``status`` is omitted for a healthy worker, which keeps the record identical
+    to what older workers wrote and lets the parser's ACTIVE default stand. It
+    is set only to announce DRAINING, so the field's presence means something
+    happened rather than being ambient.
     """
     worker_id = f"{config.host}:{config.port}"
     payload: dict = {
@@ -40,6 +46,8 @@ def build_worker_payload(config: EngineConfig) -> dict:
         "dp_size": config.dp_size,
         "request_transport": getattr(config, "request_transport", "http"),
     }
+    if status is not None and status is not WorkerStatus.ACTIVE:
+        payload["status"] = status.value
     if config.kv is not None:
         payload["kv"] = config.kv.to_dict()
     return payload
@@ -97,6 +105,36 @@ class RegistrationClient:
             config.disagg_mode,
         )
         return worker_id
+
+    async def announce_draining(self) -> bool:
+        """Rewrite the record as DRAINING, keeping the lease alive.
+
+        ``list_active`` filters DRAINING out, so this stops new work being
+        routed here without deleting the record — which is the difference that
+        matters during a shutdown. A worker that simply vanishes is
+        indistinguishable from one that crashed; one that is visibly draining
+        tells an operator (and ``/v1/workers``) that a rolling update is
+        proceeding normally and roughly how far along it is.
+
+        On the Kubernetes backend this is largely redundant with the registry's
+        ``deletionTimestamp`` check, which removes a condemned Pod without the
+        worker having to say anything. It is not redundant on etcd, where
+        nothing else observes that the process is going away.
+        """
+        if self._lease_id is None or self._key is None or self._config is None:
+            return False
+        try:
+            value = json.dumps(build_worker_payload(self._config, status=WorkerStatus.DRAINING))
+            r = await self._http.post(
+                "/v3/kv/put",
+                json={"key": _b64(self._key), "value": _b64(value), "lease": self._lease_id},
+            )
+            r.raise_for_status()
+            logger.info("worker %s announced DRAINING", self._worker_id)
+            return True
+        except Exception as exc:  # noqa: BLE001 - shutdown must continue
+            logger.warning("could not announce DRAINING: %s", exc)
+            return False
 
     async def deregister(self) -> None:
         if self._lease_id is not None:

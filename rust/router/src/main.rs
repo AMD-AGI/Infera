@@ -7,12 +7,13 @@
 //! crate (see `lib.rs`); this just wires config → discovery → server.
 
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use arc_swap::ArcSwap;
 use tracing_subscriber::EnvFilter;
 
 use infera_router::block_hasher::BlockHasher;
+use infera_router::breaker;
 use infera_router::config::Config;
 use infera_router::handlers::{app, AppState};
 use infera_router::kv_event::KvEventClient;
@@ -55,12 +56,21 @@ async fn main() -> anyhow::Result<()> {
     // without locking, so reads scale across cores.
     let pool = Arc::new(ArcSwap::from_pointee(Snapshot::empty()));
 
+    // Built before discovery starts: the reconcile loop prunes its entries
+    // against the live fleet, the same way it reconciles the policy's.
+    let breaker = Arc::new(breaker::CircuitBreaker::new(
+        cfg.breaker_failure_threshold,
+        Duration::from_secs_f64(cfg.breaker_cooldown_s),
+        Duration::from_secs_f64(cfg.breaker_max_cooldown_s),
+    ));
+
     {
         let pool = pool.clone();
         let policy = policy.clone();
+        let breaker = breaker.clone();
         let base = cfg.etcd_base();
         let prefix = cfg.etcd_prefix.clone();
-        tokio::spawn(async move { discovery::run(base, prefix, pool, policy).await });
+        tokio::spawn(async move { discovery::run(base, prefix, pool, policy, breaker).await });
     }
 
     let state = AppState {
@@ -69,6 +79,7 @@ async fn main() -> anyhow::Result<()> {
         http: proxy::build_upstream_client()?,
         started: Instant::now(),
         retries: cfg.request_max_retries,
+        breaker,
     };
 
     let addr = format!("{}:{}", cfg.host, cfg.port);

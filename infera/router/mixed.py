@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from infera.common.nats_request import TYPE_DATA, TYPE_DONE, TYPE_ERROR
 from infera.common.worker_pool import DisaggMode
 from infera.router.base import BaseRouter
+from infera.router.breaker import is_worker_fault
 from infera.router.cache_control import parse_cache_hints
 from infera.router.dp_routing import dp_rank_header
 from infera.router.engine_priority import inject_engine_priority
@@ -82,13 +83,35 @@ class MixedRouter(BaseRouter):
                     for w in self.pool.list_active(model=model, mode=DisaggMode.MIXED)
                     if w.worker_id not in tried
                 ]
+                # Drop workers the breaker has open. Falls back to the unfiltered
+                # list when every candidate is open -- a request served by a
+                # probably-bad worker beats turning a partial outage into a 503.
+                candidates = self.breaker.filter(candidates)
                 if not candidates:
                     break
                 target, blocks = self.policy.pick(candidates, body)
                 tried.add(target.worker.worker_id)
                 try:
-                    return await self._attempt(target, blocks, body, hints, path, stream, obs)
+                    resp = await self._attempt(target, blocks, body, hints, path, stream, obs)
+                    # Only a clean response is evidence the worker is healthy.
+                    # A 4xx says the request was bad -- every worker would
+                    # answer the same -- so scoring it as recovery would reset
+                    # the failure count and reopen a breaker that should stay
+                    # shut. It still has to free the probe slot it took.
+                    if getattr(resp, "status_code", 200) < 400:
+                        self.breaker.record_success(target.worker.worker_id)
+                    else:
+                        self.breaker.record_neutral(target.worker.worker_id)
+                    return resp
                 except _Retry as r:
+                    # Pre-first-byte only: _Retry is never raised once bytes have
+                    # been streamed, so a mid-stream failure cannot trip this.
+                    # 4xx is retried but not held against the worker -- see
+                    # is_worker_fault().
+                    if is_worker_fault(getattr(r.response, "status_code", 0)):
+                        self.breaker.record_failure(target.worker.worker_id)
+                    else:
+                        self.breaker.record_neutral(target.worker.worker_id)
                     last_error = r.response
                     logger.info(
                         "failover: worker %s failed before first byte; %d worker(s) tried",
@@ -242,6 +265,10 @@ class MixedRouter(BaseRouter):
                     )
                 ) from None
             obs["outcome"] = "ok" if status < 400 else f"{status // 100}xx"
+            # Same rule as the HTTP path below: a 5xx before any data is a
+            # worker fault and retryable; a 4xx belongs to the request.
+            if is_worker_fault(status):
+                raise _Retry(JSONResponse(content=payload_json, status_code=status))
             return JSONResponse(content=payload_json, status_code=status)
 
         # Direct HTTP forward.
@@ -275,6 +302,16 @@ class MixedRouter(BaseRouter):
                 )
             ) from None
         obs["outcome"] = "ok" if resp.status_code < 400 else f"{resp.status_code // 100}xx"
+        # A 5xx here is the worker failing before a single byte reached the
+        # client, which is exactly the case failover exists for -- and until now
+        # this path returned it verbatim instead, so a unary request over HTTP
+        # never failed over and never fed the circuit breaker. The streaming
+        # path and the Rust router both retry it; this brings the third one into
+        # line. 4xx still passes straight through: the request itself is bad and
+        # every worker would say the same, so retrying only triples the latency
+        # of an error the client needs to see.
+        if is_worker_fault(resp.status_code):
+            raise _Retry(JSONResponse(content=payload_json, status_code=resp.status_code))
         return JSONResponse(content=payload_json, status_code=resp.status_code)
 
     async def _normalized_stream(

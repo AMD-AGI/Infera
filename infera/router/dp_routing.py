@@ -15,6 +15,12 @@ from __future__ import annotations
 from infera.common.worker_pool import EngineType
 from infera.router.policy.target import RouteTarget
 
+#: Both engines honour this (SGLang ``DataParallelController``, vLLM
+#: ``_get_data_parallel_rank``, case-insensitively). Named rather than inlined
+#: so anything asserting on it -- tests, the fake worker -- breaks loudly on a
+#: rename instead of silently never matching. Mirrors Rust's DP_RANK_HEADER.
+DP_RANK_HEADER = "X-Data-Parallel-Rank"
+
 
 def dp_rank_header(target: RouteTarget) -> dict[str, str] | None:
     """``X-Data-Parallel-Rank`` header pinning the request to a DP rank. Both
@@ -22,7 +28,7 @@ def dp_rank_header(target: RouteTarget) -> dict[str, str] | None:
     case-insensitive) honour it; no-op when the target carries no rank."""
     if target.dp_rank is None:
         return None
-    return {"X-Data-Parallel-Rank": str(target.dp_rank)}
+    return {DP_RANK_HEADER: str(target.dp_rank)}
 
 
 def inject_disagg_prefill_dp_rank(

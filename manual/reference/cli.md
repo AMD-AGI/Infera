@@ -22,6 +22,9 @@ the **same** on the server and every worker. See
 | `--kv-prefill-overlap-weight` | (unset) | KV-aware PD: prefill-side weight (typical `20.0`); overrides the global |
 | `--kv-decode-overlap-weight` | (unset) | KV-aware PD: decode-side weight (typical `2.0`); overrides the global |
 | `--request-max-retries` | `1` | retry on an alternate worker on pre-response failure (never mid-stream); `0` disables |
+| `--breaker-failure-threshold` | `3` | consecutive worker faults (5xx / unreachable) before a worker leaves rotation; `0` disables the breaker |
+| `--breaker-cooldown-s` | `5` | how long a tripped worker is excluded before one probe request is admitted |
+| `--breaker-max-cooldown-s` | `60` | ceiling for that cooldown, which doubles on each failed probe |
 | `--discovery-backend` | `kubernetes` | `kubernetes` \| `etcd` |
 | `--etcd-endpoint` | — | required for `--discovery-backend etcd` |
 | `--etcd-prefix` | `/infera/workers/` | etcd key prefix the fleet registers under |

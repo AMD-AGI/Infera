@@ -34,6 +34,7 @@ from infera.common.worker_pool import (
     CanaryVerifier,
     WorkerInfo,
     WorkerPool,
+    WorkerStatus,
 )
 
 logger = logging.getLogger(__name__)
@@ -94,8 +95,13 @@ class KubernetesRegistry:
         resp = await self._http.get(f"/api/v1/namespaces/{self._namespace}/pods", params=params)
         resp.raise_for_status()
         body = resp.json()
+        seen: set[str] = set()
         for pod in body.get("items", []) or []:
+            name = ((pod.get("metadata") or {}).get("name")) or ""
+            if name:
+                seen.add(name)
             self._handle_pod(pod, deleted=False)
+        self._reconcile_absent(seen)
         rv = (body.get("metadata") or {}).get("resourceVersion")
         logger.info(
             "k8s (re)list: %d worker(s) for selector %r in ns %s (rv=%s)",
@@ -211,6 +217,26 @@ class KubernetesRegistry:
         phase = ((pod.get("status") or {}).get("phase")) or ""
         return phase == "Running"
 
+    @staticmethod
+    def _pod_terminating(pod: dict) -> bool:
+        """True once the API server has stamped the Pod for deletion.
+
+        A terminating Pod keeps ``phase: Running`` until its containers exit, so
+        a liveness check alone cannot see it. That gap is not academic: the
+        operator injects a ``preStop sleep`` before SIGTERM, and for the whole
+        of that delay the Pod is condemned, still Running, and — without this
+        check — still a routing candidate. The router would keep assigning new
+        work right up to the moment the process is killed, so the sleep that
+        exists to make shutdown graceful instead buys more requests that are
+        guaranteed to be cut.
+
+        Reading ``deletionTimestamp`` closes that: the worker leaves the pool
+        the instant deletion is requested, in-flight work finishes on the
+        connections it already has, and the preStop delay becomes what it was
+        meant to be — drain time.
+        """
+        return bool((pod.get("metadata") or {}).get("deletionTimestamp"))
+
     def _handle_pod(self, pod: dict, *, deleted: bool) -> None:
         meta = pod.get("metadata") or {}
         pod_name = meta.get("name") or ""
@@ -219,11 +245,21 @@ class KubernetesRegistry:
         annotations = meta.get("annotations") or {}
         raw = annotations.get(WORKER_INFO_ANNOTATION)
 
-        # Removal: explicit DELETE, pod no longer Running, or annotation gone.
+        # Gone for good: explicit DELETE, annotation cleared (the worker
+        # deregistered, so its drain is over), or no longer Running.
         if deleted or raw is None or not self._pod_running(pod):
             worker_id = self._pod_to_worker.pop(pod_name, None)
             if worker_id is not None:
                 self._remove(worker_id)
+            return
+
+        # Condemned but still serving. Checked separately from Running because a
+        # terminating Pod stays Running until its containers exit; it leaves
+        # routing now and the record survives until it actually goes.
+        if self._pod_terminating(pod):
+            worker_id = self._pod_to_worker.get(pod_name)
+            if worker_id is not None:
+                self._mark_draining(worker_id)
             return
 
         try:
@@ -273,17 +309,73 @@ class KubernetesRegistry:
             except Exception:
                 logger.exception("on_worker_added callback failed")
 
+    def _reconcile_absent(self, seen: set[str]) -> None:
+        """Drop workers whose Pod is missing from a full list.
+
+        A list is a complete snapshot, so anything still tracked that it does
+        not mention has been deleted -- and the event saying so was lost. That
+        is a routine occurrence rather than an edge case: the re-list exists
+        because etcd compaction expires the watch's resourceVersion every few
+        minutes, and any Pod deleted inside a reconnect window produces no
+        event anyone observes.
+
+        It matters more now that a draining worker keeps its record. Removal
+        used to happen the instant a Pod was condemned, which bounded how long
+        a stale entry could survive; waiting for a later event instead makes a
+        missed one permanent. A phantom is filtered out of routing by its
+        DRAINING status, so nothing is dispatched to it -- but it is reported
+        by `/v1/workers` forever, and it keeps its model's tokenizer canary
+        pinned, which would reject a genuinely different worker later.
+        """
+        for pod_name in [p for p in self._pod_to_worker if p not in seen]:
+            worker_id = self._pod_to_worker.pop(pod_name)
+            logger.info("k8s: pod %s absent from list; dropping worker %s", pod_name, worker_id)
+            self._remove(worker_id)
+
+    def _mark_draining(self, worker_id: str) -> None:
+        """Take a condemned worker out of routing without dropping its record.
+
+        ``list_active`` filters DRAINING, so this stops new work reaching the
+        worker just as removal would -- but ``list_all`` still shows it, and
+        that difference is the whole point. Deleting the record makes a Pod
+        that is finishing its in-flight generations look exactly like one that
+        crashed, so ``/v1/workers`` cannot distinguish an orderly rollout from
+        a fleet losing workers, at precisely the moment someone is watching.
+
+        The record does not linger: the worker clears its own annotation when
+        the drain completes, which lands here as "annotation gone" and removes
+        it for real.
+
+        Callbacks fire here rather than at that later removal because routing
+        is what they act on -- the KV subscriber and the policy's block
+        accounting must stop treating a departing worker as a target now, not
+        when its Pod object finally disappears. ``_remove`` therefore skips
+        them if it already announced, so each worker is announced exactly once.
+        """
+        existing = self._pool.get(worker_id)
+        if existing is None or existing.status is WorkerStatus.DRAINING:
+            return  # never registered, or already announced
+        existing.status = WorkerStatus.DRAINING
+        logger.info("k8s: worker %s draining (pod terminating, record kept)", worker_id)
+        self._notify_removed(worker_id)
+
     def _remove(self, worker_id: str) -> None:
         existing = self._pool.get(worker_id)
         if existing is None:
             return
+        announced = existing.status is WorkerStatus.DRAINING
         self._pool.remove(worker_id)
         remaining = [w for w in self._pool.list_all() if w.model_name == existing.model_name]
         if not remaining:
             self._canary.forget(existing.model_name)
         logger.info("k8s: worker %s removed (pod deleted / not ready)", worker_id)
-        if self._on_removed is not None:
-            try:
-                self._on_removed(worker_id)
-            except Exception:
-                logger.exception("on_worker_removed callback failed")
+        if not announced:
+            self._notify_removed(worker_id)
+
+    def _notify_removed(self, worker_id: str) -> None:
+        if self._on_removed is None:
+            return
+        try:
+            self._on_removed(worker_id)
+        except Exception:
+            logger.exception("on_worker_removed callback failed")

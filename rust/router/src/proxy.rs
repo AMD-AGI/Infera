@@ -18,6 +18,7 @@ use axum::response::Response;
 use futures::Stream;
 use serde_json::Value;
 
+use crate::breaker::is_worker_fault;
 use crate::dp;
 use crate::handlers::AppState;
 use crate::policy::{ActiveGuard, Role};
@@ -108,6 +109,10 @@ async fn mixed_dispatch(
         if avail.is_empty() {
             break;
         }
+        // Drop workers the breaker has open. Falls back to the unfiltered list
+        // when every candidate is open — a request served by a probably-bad
+        // worker beats turning a partial outage into a 503.
+        let avail = state.breaker.filter(&avail, |w| w.worker_id.as_str());
         let pick = state.policy.pick(&avail, request, Role::Mixed);
         tried.insert(pick.target.worker.worker_id.clone());
         // Load guard: started here, dropped when this attempt fails (fail-over)
@@ -116,9 +121,27 @@ async fn mixed_dispatch(
             state.policy.clone(),
             vec![(pick.target.route_key(), pick.blocks.clone())],
         );
+        let wid = pick.target.worker.worker_id.clone();
         match attempt(state, &pick.target, &raw, stream, path, guard).await {
-            Ok(resp) => return resp,
-            Err(err_resp) => last_err = Some(err_resp),
+            Ok(resp) => {
+                state.breaker.record_success(&wid);
+                return resp;
+            }
+            Err(err_resp) => {
+                // `attempt` only returns Err before any byte reached the client,
+                // so a mid-stream failure can never trip the breaker. 4xx is
+                // failed over but not held against the worker — see
+                // is_worker_fault().
+                if is_worker_fault(err_resp.status().as_u16()) {
+                    state.breaker.record_failure(&wid);
+                } else {
+                    // A 4xx is not held against the worker, but the probe slot
+                    // it consumed has to come back or one bad client wedges a
+                    // recovering worker out of rotation.
+                    state.breaker.record_neutral(&wid);
+                }
+                last_err = Some(err_resp);
+            }
         }
     }
     last_err.unwrap_or_else(|| json_error(StatusCode::SERVICE_UNAVAILABLE, "all workers failed"))

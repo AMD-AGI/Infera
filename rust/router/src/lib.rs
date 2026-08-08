@@ -15,6 +15,7 @@
 //! Modules are `pub` so the binary and the `tests/` suite share one API.
 
 pub mod block_hasher;
+pub mod breaker;
 pub mod cache_control;
 pub mod config;
 pub mod disagg;

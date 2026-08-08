@@ -27,6 +27,19 @@ pub struct Config {
     #[arg(long, default_value_t = 1)]
     pub request_max_retries: usize,
 
+    /// Consecutive pre-first-byte worker faults before a worker is taken out
+    /// of rotation. Failover alone forgets between requests; this remembers.
+    #[arg(long, default_value_t = 3)]
+    pub breaker_failure_threshold: u32,
+
+    /// Seconds a tripped worker is excluded before one probe is admitted.
+    #[arg(long, default_value_t = 5.0)]
+    pub breaker_cooldown_s: f64,
+
+    /// Ceiling for the cooldown, which doubles on each failed probe.
+    #[arg(long, default_value_t = 60.0)]
+    pub breaker_max_cooldown_s: f64,
+
     /// `round-robin` or `kv-aware` (DP-attention cache-locality routing).
     #[arg(long, default_value = "round-robin")]
     pub router_policy: String,

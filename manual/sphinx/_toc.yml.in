@@ -45,6 +45,8 @@ subtrees:
         title: KV-aware routing
       - file: features/routing_and_transport.md
         title: Routing and transport
+      - file: features/scaling.md
+        title: Scaling a fleet
 
   - caption: Serving
     entries:
