@@ -3,8 +3,7 @@
 # SPDX-License-Identifier: MIT
 # what: a REFERENCE throughput sweep against the router, using sglang's own bench_serving.
 # why : it ships inside the engine image, so there is nothing extra to install, and it is
-#       enough to confirm the deployment performs sanely. It is NOT the agentic benchmark —
-#       see results/ for what the agentic numbers look like and where those harnesses live.
+#       enough to confirm the deployment performs sanely. It is NOT the agentic benchmark.
 # how : bash cluster/<your-cluster>.sh bench [conc ...]
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; source "$DIR/../common.sh"

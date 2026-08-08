@@ -82,7 +82,8 @@ kubectl -n infera get pods -w
 kubectl get nodes -o custom-columns=NODE:.metadata.name,GPU:.status.allocatable.'amd\.com/gpu'
 
 # the operator (provides the InferaDeployment CRD)
-helm install infera-operator deploy/operator/helm/infera-operator -n infera-system --create-namespace
+helm install infera-operator oci://docker.io/rocm/infera-operator --version 0.1.0 \
+  -n infera-system --create-namespace
 ```
 
 The weights are expected in the `model-cache` PVC. On k3s, install with `--data-dir`

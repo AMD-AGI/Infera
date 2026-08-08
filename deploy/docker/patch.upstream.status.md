@@ -5,8 +5,9 @@ project it patches. Kept here so "why do we still carry this?" has one answer
 per row, and so a patch that upstream has since merged gets dropped instead of
 quietly outliving its reason.
 
-**Verified with `gh` on 2026-08-01**, except the `patches/sglang_rocm/` section,
-verified 2026-08-03. State drifts; re-check before relying on a row. `gh search`
+**Verified with `gh` on 2026-08-01**, except the `patches/sglang_rocm/` section:
+2026-08-03 for the host allocator, 2026-08-04 for the staged write-back.
+State drifts; re-check before relying on a row. `gh search`
 matches titles and bodies, **not diff content**, so "no upstream PR" means "none
 found by search", not "none exists" — where a row could be checked by reading
 upstream source instead, it says so.
@@ -71,11 +72,17 @@ PD + DP-attention + MTP, i.e. **no CI covers this topology today**.
 > state was read from the web UI on 2026-08-03, and no upstream PR search was run.
 > "none found" here is weaker than elsewhere on the page.
 
-## sglang ROCm — `patches/sglang_rocm/` (baked by `Dockerfile.sglang`)
+## sglang ROCm — `patches/sglang_rocm/` (baked by `Dockerfile.sglang`, `Dockerfile.sglang.gfx942`)
 
 | patch | fixes | upstream issue | upstream PR | ours? | PR state |
 |---|---|---|---|---|---|
 | `sglang_rocm/patch_hicache_rocm_host_alloc.py` | hicache allocates host pools with `mmap` + `hipHostRegister`, which on ROCm maps the pages at a device address ≠ the host VA, but the pools hand raw host `data_ptr()`s to GPU kernels via device-side pointer tables → `Memory access fault by GPU node-N on address <host VA>` on the first kvd write-back | none found | none found | — | — |
+| `sglang_rocm/patch_hicache_rocm_staged_write_back.py` | `pool_host/mla.py` enables the staged write-back JIT on HIP while `DSAIndexerPoolHost` — in the same `HostPoolGroup` for any DSA model — still gates it on `_is_cuda`. The group ANDs the flag, so the controller puts the destination indices on the GPU; the anchor MLA pool then reads its own flag and launches the JIT anyway → `Tensor match failed … device=rocm:0 … allowed options: [cpu, rocm_host]`, scheduler exit −3 on the first write-back | none found | [sglang#28534](https://github.com/sgl-project/sglang/pull/28534) `[AMD] Enable JIT staged HiCache write-back and fix CPU-index crash` — added the HIP enablement and aligned `cache_controller.py`, `memory_pool_host.py`, `pool_host/mha.py`; **never touched `pool_host/mla.py`** | no (`AMD-yanfeiwang`) | **MERGED** 2026-07-09 |
+
+**`patch_hicache_rocm_host_alloc.py`** — the fault is **gfx950-only so far**: MI300X
+(amdgpu 6.14.14, ROCm 7.2.0) measures the two addresses equal, so
+`Dockerfile.sglang.gfx942` carries this one preventively rather than to fix a crash.
+Don't read its row above as evidence the fault was seen on both arches.
 
 > Verified on 2026-08-03 by **reading upstream `main` directly** (contents API,
 > `pool_host/common.py`): `ALLOC_MEMORY_FUNCS` still overrides only `"npu"` and
@@ -90,6 +97,54 @@ PD + DP-attention + MTP, i.e. **no CI covers this topology today**.
 > [#32503](https://github.com/sgl-project/sglang/pull/32503) /
 > [#32792](https://github.com/sgl-project/sglang/pull/32792) (OPEN, Intel XPU
 > HiCache) touch this same dict — expect an anchor conflict, not a fix.
+
+**`patch_hicache_rocm_staged_write_back.py`** — **not** preventive: without it the
+v0.5.16 gfx942 base kills the prefill scheduler on the first reused prefix, so that
+image needs it to run kvd at all. A **no-op on the mi35x image**, which has nothing to
+fix — every `can_use_write_back_jit` gate at v0.5.15.post1 is still `_is_cuda` (MHA,
+MLA, both V4 pools and `DSAIndexerPoolHost`, all in `memory_pool_host.py` before
+MLA/MHA moved into `pool_host/`), and `_is_hip` appears only in the kernel import
+guard, so the group's AND and its anchor agree on False. #28534 introduced the
+disagreement after that tag; the absent `pool_host/mla.py` is only how the script
+notices. Both `_is_cuda or _is_hip` in `pool_host/mla.py` and the CUDA-only gates on
+the other pools are still on upstream `main` (read from the raw files, so stronger
+than a search miss), i.e. **main is affected** — and #28534's own reasoning argues for
+the opposite repair, teaching the remaining pools the JIT rather than gating MLA down,
+so expect upstream to close this differently than we did.
+
+> **That repair is already in flight (checked 2026-08-04):**
+> [sglang#30350](https://github.com/sgl-project/sglang/pull/30350) `Add HiCache JIT
+> test and benchmark for ROCm/HIP CI support` (**OPEN**, `Emmanuel0612`) adds
+> `_is_cuda_alike = _is_cuda or _is_hip` and flips exactly the three CUDA-only gates
+> (`DSAIndexerPoolHost`, `DeepSeekV4PagedHostPool`, `DeepSeekV4StateHostPool`), so the
+> group AND stops reading False on ROCm — **including the V4 stack our patch does not
+> cover**. It also teaches `staged_write_back.cuh` to accept kDLROCM/kDLROCMHost (the
+> TensorMatcher check that emits our crash) and adds an AMD CI lane for the HiCache
+> JIT; the author reports 47/47 on MI355X. Stalled rather than rejected: amd-bot
+> called its AMD suites green on 07-09 alongside a merge conflict, conflicts were
+> cleared 07-13, nothing since 07-16, and #28534 landed in between. **Our leverage is
+> a gfx942 reproduction on that thread, not a competing PR** — it has no MI300X
+> datapoint.
+>
+> **Anchor drift cannot be the drop signal.** #30350 never touches
+> `pool_host/mla.py`, so our anchor would keep matching and the patch would keep
+> applying on top of the fix — not a crash, since both gates read False again, but a
+> silent forfeit of the staged kernel #30350 enables. `check_group_still_poisoned()`
+> checks the *precondition* instead: once `DSAIndexerPoolHost` stops gating on
+> `_is_cuda` alone, the script refuses and exits 1 telling the operator to drop it.
+>
+> **Exercised 2026-08-04** against the v0.5.16 *and* current-`main` copies of both
+> files, on throwaway trees. Stock: applies, exit 0. Re-run: "already applied", exit
+> 0. #30350 simulated by flipping the three CUDA-only gates: refuses, exit 1, with
+> `mla.py` byte-identical to pristine. `pool_host/mla.py` removed (the v0.5.15.post1
+> shape): tolerated, exit 0. Anchor or pool renamed: exit 1.
+>
+> Scope: `DSAIndexerPoolHost` is not the only CUDA-only member that can poison the
+> group's AND, and `build_deepseek_v4_hicache_stack` puts `DeepSeekV4PagedHostPool`
+> in a group anchored by `LogicalHostPool` (flag unconditionally True). Expect the
+> same crash on a V4 hicache stack on gfx942; **this patch gates `mla.py` only**. No
+> V4 stack runs on this branch, so that gate would be untested — the script's SCOPE
+> section records it for whoever gets there.
 
 ## Mooncake C++ — `patches/mooncake_cpp/` (built by `Dockerfile.sglang`, `Dockerfile.vllm`, `Dockerfile.atom`)
 
@@ -165,8 +220,10 @@ Mooncake diffs), `sglang_dsa/README.md`, `sglang_disagg/README.md` and
 ## Maintenance
 
 A row is ready to delete when its upstream PR is **merged and present in the
-pinned base**. Merged-but-not-in-base still needs the local patch — the two
-`MERGED` rows above (sglang#30265, Mooncake#2644) are exactly that case.
+pinned base**. Merged-but-not-in-base still needs the local patch — sglang#30265
+and Mooncake#2644 are exactly that case. The staged write-back row is the
+exception: its `MERGED` PR (sglang#28534) is what *introduced* the defect, so that
+patch drops on sglang#30350 instead.
 
 When adding a patch, add its row here in the same commit, and put the full
 argument — evidence, alternatives, how it differs from our own upstream PR — in

@@ -91,6 +91,8 @@ class WorkerSubscription:
     # Latched: the block-size mismatch is per-subscription, not per-event, so
     # logging it on every event would bury the fact under thousands of copies.
     block_size_mismatch_logged: bool = False
+    length_mismatch_logged: bool = False
+    non_indexable_group_logged: bool = False
 
     def view_for(self, rank: int | None) -> set[int]:
         return self.views.setdefault(rank or 0, set())
@@ -242,7 +244,40 @@ class KvEventClient:
             sub.view_for(rank).clear()
             sub.map_for(rank).clear()
 
+    # vLLM emits one BlockStored per KV-CACHE GROUP. Only the attention groups
+    # pair one hash with one block; see `events.BlockStored`. Mirrors Dynamo's
+    # `is_main_attention()` filter, which is why Dynamo survives hybrid models.
+    #
+    # `mla_attention` is NOT optional here. Kimi-K3's attention layers are MLA,
+    # so `get_kv_cache_spec_kind` reports MLA_ATTENTION and a filter written as
+    # `== "full_attention"` would discard 100% of that model's usable events --
+    # the same empty view this filter exists to prevent, arrived at from the
+    # other direction.
+    _INDEXABLE_SPEC_KINDS = frozenset({"full_attention", "mla_attention", "sink_full_attention"})
+
+    def _is_indexable_group(self, sub: WorkerSubscription, ev: object) -> bool:
+        kind = getattr(ev, "kv_cache_spec_kind", None)
+        if kind is None:
+            # SGLang, and vLLM builds before the field existed. Fail OPEN: those
+            # engines were being indexed before this filter and a closed default
+            # would silently switch kv-aware routing off for them.
+            return True
+        if kind in self._INDEXABLE_SPEC_KINDS:
+            return True
+        if not sub.non_indexable_group_logged:
+            sub.non_indexable_group_logged = True
+            logger.info(
+                "kv events from %s include non-attention groups (first seen: %s, "
+                "group_idx=%s); indexing only the attention group(s)",
+                sub.worker_id,
+                kind,
+                getattr(ev, "group_idx", None),
+            )
+        return False
+
     def _on_block_stored(self, sub: WorkerSubscription, ev: object, rank: int | None) -> None:
+        if not self._is_indexable_group(sub, ev):
+            return
         view, m = sub.view_for(rank), sub.map_for(rank)
         if ev.parent_block_hash is None:
             parent = ROUTER_SEED
@@ -277,19 +312,39 @@ class KvEventClient:
         # then used to index block_hashes, so any disagreement between them was an
         # IndexError — surfacing as "list index out of range", a message that points
         # nowhere near the block size.
-        n = min(len(tokens) // bs, len(ev.block_hashes))
-        if n * bs != len(tokens) or n != len(ev.block_hashes):
+        # Index every block the token span covers, but only trust a block hash
+        # when the two lengths agree.
+        #
+        # Measured on a hybrid model (Qwen3.5-0.8B, same event shapes as
+        # Kimi-K3): dropping a length-disagreeing event whole costs more than it
+        # saves -- 18/32 requests hit a full prefix versus 22/32 when the
+        # leading blocks are indexed. The view entries ARE correct; they are
+        # chained from a resolved parent over a contiguous token span. What is
+        # not correct is the hash-to-block pairing.
+        #
+        # So index the view and skip the map. `map[engine_hash] -> router_hash`
+        # is what a later event resolves its parent against, and on a sparse
+        # event the surviving hash need not describe the leading chunk -- vLLM
+        # gives no offset. Writing it binds an engine hash to the wrong block
+        # and poisons the chain from there on; withholding it makes a later
+        # event miss its parent and be dropped, which under-reports hits instead
+        # of mis-reporting them.
+        n = len(tokens) // bs
+        aligned = n == len(ev.block_hashes)
+        if not aligned and not sub.length_mismatch_logged:
+            sub.length_mismatch_logged = True
             logger.warning(
                 "kv event from %s covers %d tokens and %d block hashes, which do not "
-                "agree at block_size=%d; indexing %d block(s) and dropping the rest",
+                "agree at block_size=%d; indexing the blocks but not their hashes, so "
+                "later events chaining off them will be dropped",
                 sub.worker_id,
                 len(tokens),
                 len(ev.block_hashes),
                 bs,
-                n,
             )
         for i in range(n):
             chunk = tokens[i * bs : (i + 1) * bs]
             parent = hash_chunk(parent, chunk)
             view.add(parent)
-            m[ev.block_hashes[i]] = parent
+            if aligned:
+                m[ev.block_hashes[i]] = parent
