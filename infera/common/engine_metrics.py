@@ -27,9 +27,12 @@ Provenance, because it is uneven and matters:
 
 from __future__ import annotations
 
+import logging
 import re
 
 from infera.common.worker_pool import EngineType
+
+logger = logging.getLogger(__name__)
 
 #: metric key -> per-engine exposition name(s). A missing engine means "we do
 #: not know", which callers must distinguish from "the value is zero". Several
@@ -126,17 +129,32 @@ def inflight_from_metrics(text: str, engine: EngineType) -> float | None:
     """
     total = 0.0
     seen = False
+    missing: list[str] = []
     for key in ("requests_running", "requests_waiting"):
         name = metric_name(key, engine)
         if name is None:
             continue
         value = parse_metric(text, name)
         if value is None:
+            missing.append(name)
             continue
         total += value
         seen = True
     if not seen:
         return None
+    if missing:
+        # Partial readings are still worth acting on -- refusing them outright
+        # would mean one renamed series stops the drain waiting for anything at
+        # all, which is the worse failure. But it must not pass silently: the
+        # absent series contributes zero, so a drain can finish while the work
+        # it describes is still outstanding. These names do drift; the vLLM KV
+        # gauge was renamed under exactly this module.
+        logger.warning(
+            "drain: %s not found on the %s metrics page; its work counts as zero, "
+            "so in-flight requests may be cut. Check the exposition names.",
+            ", ".join(missing),
+            engine.value,
+        )
     # Absent PD queues are genuinely zero here rather than unknown: the engine
     # published a metrics page and simply is not running disaggregated.
     for name in _DRAIN_EXTRA.get(engine, ()):

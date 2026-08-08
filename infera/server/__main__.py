@@ -93,6 +93,18 @@ async def main(args) -> None:
         # older than what's already in the index.
         writer.set_reconciler(reconciler)
 
+    # Per-worker failure memory, shared by every router this process builds.
+    # DirectRouter never selects, so it holds one but does not consult it.
+    #
+    # Built here rather than beside the routers because on_worker_removed
+    # closes over it and the registry starts first, so a worker that leaves
+    # during startup would otherwise hit an unbound name.
+    breaker = CircuitBreaker(
+        failure_threshold=args.breaker_failure_threshold,
+        cooldown=args.breaker_cooldown_s,
+        max_cooldown=args.breaker_max_cooldown_s,
+    )
+
     # Per-worker snapshot of fields we need at removal time. The Registry
     # has already evicted the WorkerInfo from its pool by the time
     # on_worker_removed fires, so we stash the kv block at registration.
@@ -152,6 +164,11 @@ async def main(args) -> None:
             policy.on_worker_removed(worker_id)
         except Exception:
             logger.exception("policy.on_worker_removed failed for %s", worker_id)
+
+        # A worker id is an address, and a rebuilt Pod never reuses one, so an
+        # entry left here outlives the fleet member it describes -- one more
+        # per rollout, each pinning a Prometheus series labelled by that id.
+        breaker.forget(worker_id)
 
         # Phase 1 reconciler/subscriber cleanup.
         snap = kv_snapshots.pop(worker_id, None)
@@ -224,13 +241,6 @@ async def main(args) -> None:
         logger.info("request transport: nats (per-instance subjects)")
 
     # --- Router + FastAPI app ---
-    # Per-worker failure memory, shared by every router this process builds.
-    # DirectRouter never selects, so it holds one but does not consult it.
-    breaker = CircuitBreaker(
-        failure_threshold=args.breaker_failure_threshold,
-        cooldown=args.breaker_cooldown_s,
-        max_cooldown=args.breaker_max_cooldown_s,
-    )
     # router-mode=direct trusts an upstream GAIE EPP's per-request worker
     # selection (x-worker-instance-id header); auto selects in-process.
     if args.router_mode == "direct":

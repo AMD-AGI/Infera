@@ -18,6 +18,7 @@ generations, and it would do so silently.
 from __future__ import annotations
 
 import asyncio
+import logging
 
 import httpx
 import pytest
@@ -57,6 +58,26 @@ def test_unknown_engine_yields_none():
 def test_partial_metrics_still_count():
     text = "sglang:num_running_reqs 1\n"
     assert inflight_from_metrics(text, EngineType.SGLANG) == 1.0
+
+
+def test_a_missing_series_says_so(caplog):
+    """Counting only what is readable is the right call -- refusing a partial
+    page would let one renamed series stop the drain waiting at all. But the
+    absent series contributes zero, so queued work can be cut while the drain
+    reports itself finished. That has to be audible: these names do drift, and
+    the vLLM KV gauge was renamed under this very module.
+    """
+    text = "sglang:num_running_reqs 1\n"  # num_queue_reqs absent
+    with caplog.at_level(logging.WARNING, logger="infera.common.engine_metrics"):
+        assert inflight_from_metrics(text, EngineType.SGLANG) == 1.0
+    assert "sglang:num_queue_reqs" in caplog.text
+    caplog.clear()
+
+    # A complete page must stay quiet, or the warning is noise on every poll.
+    both = "sglang:num_running_reqs 1\nsglang:num_queue_reqs 2\n"
+    with caplog.at_level(logging.WARNING, logger="infera.common.engine_metrics"):
+        assert inflight_from_metrics(both, EngineType.SGLANG) == 3.0
+    assert caplog.text == ""
 
 
 # --- the drain loop -----------------------------------------------------------
