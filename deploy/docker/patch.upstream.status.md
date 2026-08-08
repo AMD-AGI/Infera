@@ -5,8 +5,13 @@ project it patches. Kept here so "why do we still carry this?" has one answer
 per row, and so a patch that upstream has since merged gets dropped instead of
 quietly outliving its reason.
 
+One section runs the other way. **Filed upstream, not patched here** records a
+defect we reported but chose to carry rather than fix locally, so that decision
+has an answer too instead of being re-argued each time someone finds the PR.
+
 **Verified with `gh` on 2026-08-01**, except the `patches/sglang_rocm/` section:
-2026-08-03 for the host allocator, 2026-08-04 for the staged write-back.
+2026-08-03 for the host allocator, 2026-08-04 for the staged write-back, and
+**Filed upstream, not patched here**: 2026-08-05.
 State drifts; re-check before relying on a row. `gh search`
 matches titles and bodies, **not diff content**, so "no upstream PR" means "none
 found by search", not "none exists" — where a row could be checked by reading
@@ -210,6 +215,48 @@ ATOM is an internal engine; there is no public upstream to file against.
 |---|---|---|---|---|---|
 | `hipfile_async/hipfile_async.patch` (+ `file_async_fragment.py`, `patch_hipfile_async.sh`) | the ROCm hipFile binding exposes no async API; adds `write_async`/`read_async`, `Stream`, `supports_async()`. Cython stack-locals passed as `&local` die before the driver dereferences them → `bytes_done` reads 0 and intermittent `HipFileException 5022`, so the wrapper calls `libhipfile.so` via ctypes with heap-allocated slots | none found | none found | — | — |
 
+## Filed upstream, not patched here
+
+Reported upstream, deliberately **not** carried as a local diff. Same columns as
+above minus `patch`. The reason a row carries no diff is the thing to re-check —
+it is a statement about our workloads, not about the upstream fix.
+
+| fixes | upstream issue | upstream PR | ours? | PR state |
+|---|---|---|---|---|
+| a decode step commits `accept_len` tokens under MTP, but `cumulate_penalty_output_tokens` feeds only `output_ids[-1]` to the sampling penalizers → every other accepted token never enters penalty state and is never backfilled, so `frequency_penalty` is effectively divided by the accepted length and `min_new_tokens` counts decode steps instead of tokens, masking EOS to `-inf` for ~`accept_len`× longer than the request asked | [sglang#28180](https://github.com/sgl-project/sglang/issues/28180) `[DFlash] Infinite loop when using repetition_penalty — missing token accumulation and scaling penalties` names the mechanism but attributes it to `BatchedRepetitionPenalizer` not being registered, which it now is — so that attribution no longer holds while the issue stays OPEN; [#29512](https://github.com/sgl-project/sglang/issues/29512) `glm-5.2-w4afp8 … llm repeat and repeat` (OPEN) is the same symptom on **the model family these legs serve**, though on a different quant and an older sglang, and nothing in it establishes this root cause | [sglang#33643](https://github.com/sgl-project/sglang/pull/33643) `[Bug] Accumulate sampling penalties per accepted token under speculative decoding` | **yes** (`dorado269`) | OPEN, **DRAFT** |
+
+**Why no local patch.** The path is gated: `eagle_prepare_for_decode` calls
+`cumulate_penalty_output_tokens()` only when `penalizer_orchestrator.is_required`,
+which is true only if some in-flight request carries a non-default
+`frequency_penalty`, `presence_penalty`, `repetition_penalty` or `min_new_tokens`.
+Nothing in this repo sets one — no launcher, recipe, bench harness or router
+default (grepped 2026-08-05; the only `penalty` hits are unrelated prose about
+load and seek penalties). On our legs the buggy function is never called.
+
+> The non-obvious way it turns on is the model, not us. `--sampling-defaults`
+> defaults to **`model`**, so sglang copies `repetition_penalty` out of the served
+> weights' `generation_config.json` into every chat request's defaults
+> (`configs/model_config.py::get_default_sampling_params` →
+> `entrypoints/openai/serving_chat.py`). Upstream `zai-org/GLM-5.2` carries only
+> `temperature` and `top_p` there — **read from the raw file on 2026-08-05**, so
+> stronger than a search miss. We serve the **MXFP4** derivative, which was not on
+> the host to check; a requant that adds a `repetition_penalty` flips this row.
+>
+> Even then it is the mild end of the defect. `repetition_penalty` accumulates
+> with an idempotent `scatter_` (set, not add), so a dropped token *delays* the
+> penalty rather than losing it — unlike `frequency_penalty`'s `scatter_add_`,
+> where the count is gone for good, and unlike `min_new_tokens`, which is a wrong
+> hard constraint rather than a weakened preference. The GLM-5.2 legs run
+> `--speculative-num-draft-tokens 4`, so the undercount would be up to 4×.
+>
+> **Patch locally** if a workload starts sending penalties over the
+> OpenAI-compatible API before #33643 lands — external clients can set them even
+> though our own configs do not. The fix is confined to
+> `cumulate_penalty_output_tokens` plus a mask threaded through `penaltylib/`, so
+> it ports as a small diff. **Drop this row** once #33643 is merged and present in
+> the pinned base; there is no anchor to fail loudly here, so it needs re-reading
+> rather than a script.
+
 ## Not patches
 
 Every file under `patches/` is covered above except these, which carry no fix of
@@ -228,3 +275,8 @@ patch drops on sglang#30350 instead.
 When adding a patch, add its row here in the same commit, and put the full
 argument — evidence, alternatives, how it differs from our own upstream PR — in
 the patch's own header. This table is the index, not the record.
+
+Rows under **Filed upstream, not patched here** are the exception: with no patch
+file, there is no header to hold the argument, so it stays inline. Re-check the
+gate that keeps the row patch-free, not just the PR state — a config change on
+our side can make a deferred defect live without anything upstream moving.
