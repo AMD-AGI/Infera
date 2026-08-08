@@ -74,33 +74,18 @@ func drainSeconds(v string) (int, bool) {
 // $INFERA_DRAIN_TIMEOUT as the flag's *default*, so an env var raises the drain
 // exactly as effectively as the flag does -- and parsing only the flag left the
 // same silent overrun through a different door.
-func graceSecondsFor(args []string, env []corev1.EnvVar) int64 {
+//
+// Sources are given in increasing priority, and precedence is resolved per
+// source rather than globally. It has to be: on the extraPodSpec path the
+// template is passed through verbatim, so a --drain-timeout in ServiceSpec.Args
+// is never rendered into the container and does not affect the drain at all.
+// Letting that inert flag outrank the variable the container really reads sizes
+// the budget for a drain that never happens, while the real one runs long and
+// is killed partway through -- the exact failure this function exists to stop.
+func graceSecondsFor(sources ...drainSource) int64 {
 	drain := workerDefaultDrainTimeoutSeconds
-	// Environment first so an explicit flag overrides it, matching argparse:
-	// the variable supplies the default, the flag replaces it.
-	for _, e := range env {
-		if e.Name != drainTimeoutEnvVar {
-			continue
-		}
-		// A valueFrom reference is resolved by the kubelet, not here, so its
-		// value is unknowable at build time and the budget falls back to the
-		// flag or the default. Worth knowing if a drain is ever cut short
-		// despite a ConfigMap saying otherwise.
-		if d, ok := drainSeconds(e.Value); ok {
-			drain = d
-		}
-	}
-	for i, a := range args {
-		v := ""
-		if a == "--drain-timeout" && i+1 < len(args) {
-			v = args[i+1]
-		} else if strings.HasPrefix(a, "--drain-timeout=") {
-			v = strings.TrimPrefix(a, "--drain-timeout=")
-		}
-		if v == "" {
-			continue
-		}
-		if d, ok := drainSeconds(v); ok {
+	for _, s := range sources {
+		if d, ok := s.drainTimeout(); ok {
 			drain = d
 		}
 	}
@@ -109,6 +94,48 @@ func graceSecondsFor(args []string, env []corev1.EnvVar) int64 {
 		return workerTerminationGraceSeconds
 	}
 	return need
+}
+
+// drainSource is one place a drain timeout can be configured: a set of args and
+// env vars that travel together, either both from ServiceSpec or both from the
+// container itself.
+type drainSource struct {
+	args []string
+	env  []corev1.EnvVar
+}
+
+// drainTimeout resolves this source alone, reporting whether it set anything.
+// Env first so an explicit flag overrides it, matching argparse: the variable
+// supplies the default, the flag replaces it.
+func (s drainSource) drainTimeout() (int, bool) {
+	out, found := 0, false
+	for _, e := range s.env {
+		if e.Name != drainTimeoutEnvVar {
+			continue
+		}
+		// A valueFrom reference is resolved by the kubelet, not here, so its
+		// value is unknowable at build time and the budget falls back to the
+		// flag or the default. Worth knowing if a drain is ever cut short
+		// despite a ConfigMap saying otherwise.
+		if d, ok := drainSeconds(e.Value); ok {
+			out, found = d, true
+		}
+	}
+	for i, a := range s.args {
+		v := ""
+		if a == "--drain-timeout" && i+1 < len(s.args) {
+			v = s.args[i+1]
+		} else if strings.HasPrefix(a, "--drain-timeout=") {
+			v = strings.TrimPrefix(a, "--drain-timeout=")
+		}
+		if v == "" {
+			continue
+		}
+		if d, ok := drainSeconds(v); ok {
+			out, found = d, true
+		}
+	}
+	return out, found
 }
 
 // Identity labels on every workload this operator builds. They are the only
@@ -334,13 +361,17 @@ func injectWorkerRolloutDefaults(
 		return
 	}
 	c := &spec.Containers[idx]
-	// The drain can arrive several ways: via ServiceSpec.Args/Env on the
-	// rendered path, or written straight into the container by an extraPodSpec
-	// template, which is passed through verbatim. Reading only the first would
-	// miss exactly the deployments most likely to have tuned it. The container's
-	// own values go last so they win, being what the process actually sees.
-	drainArgs := append(append(append([]string{}, args...), c.Command...), c.Args...)
-	drainEnv := append(append([]corev1.EnvVar{}, env...), c.Env...)
+	// The drain can arrive two ways: via ServiceSpec.Args/Env on the rendered
+	// path, or written straight into the container by an extraPodSpec template,
+	// which is passed through verbatim. Reading only the first would miss
+	// exactly the deployments most likely to have tuned it. They stay separate
+	// sources, listed in increasing priority, because the container's is what
+	// the process actually reads -- see graceSecondsFor.
+	fromService := drainSource{args: args, env: env}
+	fromContainer := drainSource{
+		args: append(append([]string{}, c.Command...), c.Args...),
+		env:  c.Env,
+	}
 	if addReadiness && c.ReadinessProbe == nil {
 		// SGLang's /health runs a tiny prefill self-check that often takes
 		// >1s, so a 1s probe timeout (the k8s default) flaps the pod between
@@ -366,7 +397,7 @@ func injectWorkerRolloutDefaults(
 			},
 		}
 	}
-	if want := graceSecondsFor(drainArgs, drainEnv); spec.TerminationGracePeriodSeconds == nil ||
+	if want := graceSecondsFor(fromService, fromContainer); spec.TerminationGracePeriodSeconds == nil ||
 		*spec.TerminationGracePeriodSeconds < want {
 		grace := want
 		spec.TerminationGracePeriodSeconds = &grace

@@ -136,7 +136,7 @@ func (r *InferaDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	} else {
 		idep.Status.GAIE = nil
 	}
-	idep.Status.State = rollupState(status)
+	idep.Status.State = rollupState(status, idep.Spec.Services)
 	if err := r.Status().Update(ctx, idep); err != nil {
 		lg.Error(err, "status update failed")
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
@@ -164,11 +164,47 @@ func (r *InferaDeploymentReconciler) applyUnstructured(ctx context.Context, idep
 	existing.SetNamespace(desired.GetNamespace())
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, existing, func() error {
 		spec, _, _ := unstructured.NestedMap(desired.Object, "spec")
-		_ = unstructured.SetNestedMap(existing.Object, spec, "spec")
+		current, _, _ := unstructured.NestedMap(existing.Object, "spec")
+		if current == nil {
+			current = map[string]any{}
+		}
+		_ = unstructured.SetNestedMap(existing.Object, mergeSpec(current, spec), "spec")
 		existing.SetLabels(desired.GetLabels())
 		return controllerutil.SetControllerReference(idep, existing, r.Scheme)
 	})
 	return err
+}
+
+// mergeSpec overlays the fields the operator sets onto what is already there,
+// leaving anything it does not mention alone.
+//
+// Replacing .spec wholesale would be simpler, but these objects are only
+// partly ours: buildLeaderWorkerSet writes three fields and the API server
+// defaults the other nine from the CRD. Overwriting the whole map strips those
+// defaults on every pass, the API server restores them, and the next pass
+// strips them again -- so CreateOrUpdate sees a difference every single time
+// and issues a write. Harmless-but-wasteful once per resync; a write loop now
+// that the reconciler watches LeaderWorkerSet, since each write enqueues the
+// reconcile that produces the next one.
+//
+// Nested maps merge; anything else replaces. Lists are owned outright -- a
+// container list merged element-wise would be neither what was asked for nor
+// what was there.
+func mergeSpec(into, from map[string]any) map[string]any {
+	for k, v := range from {
+		sub, isMap := v.(map[string]any)
+		if !isMap {
+			into[k] = v
+			continue
+		}
+		existing, ok := into[k].(map[string]any)
+		if !ok {
+			into[k] = v
+			continue
+		}
+		into[k] = mergeSpec(existing, sub)
+	}
+	return into
 }
 
 func (r *InferaDeploymentReconciler) deploymentStatus(ctx context.Context, idep *inferav1alpha1.InferaDeployment, name string, svc inferav1alpha1.ServiceSpec) inferav1alpha1.ServiceStatus {
@@ -236,20 +272,39 @@ func copySpec(existing, desired client.Object) {
 	}
 }
 
-func rollupState(svcs map[string]inferav1alpha1.ServiceStatus) inferav1alpha1.DeploymentState {
+// rollupState answers whether every service has the capacity the spec asked
+// for, so it compares against the spec rather than against the status.
+//
+// ServiceStatus.Replicas is what the workload reports, which is the right
+// thing for a reader watching a scale-up land but the wrong side of this
+// comparison: `ReadyReplicas < Replicas` only sees Pods that exist and are
+// not ready. A replica that was never created -- unschedulable, out of quota,
+// no GPU -- is absent from both numbers, so they agree and the deployment
+// calls itself ready on a fraction of its fleet.
+func rollupState(
+	svcs map[string]inferav1alpha1.ServiceStatus,
+	specs map[string]inferav1alpha1.ServiceSpec,
+) inferav1alpha1.DeploymentState {
 	if len(svcs) == 0 {
 		return inferav1alpha1.StatePending
 	}
-	allReady := true
-	for _, s := range svcs {
-		if s.ReadyReplicas < s.Replicas || s.Replicas == 0 {
-			allReady = false
+	for name, s := range svcs {
+		spec, ok := specs[name]
+		if !ok {
+			// Reported but no longer in the spec: on its way out, and not a
+			// reason to hold the deployment back.
+			continue
+		}
+		want := replicasOf(spec)
+		if want == 0 {
+			// Deliberately scaled to zero; nothing to wait for.
+			continue
+		}
+		if s.ReadyReplicas < want {
+			return inferav1alpha1.StatePending
 		}
 	}
-	if allReady {
-		return inferav1alpha1.StateReady
-	}
-	return inferav1alpha1.StatePending
+	return inferav1alpha1.StateReady
 }
 
 func sortedKeys(m map[string]inferav1alpha1.ServiceSpec) []string {

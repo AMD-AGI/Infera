@@ -47,7 +47,7 @@ func TestGraceSecondsFor(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := graceSecondsFor(c.args, nil); got != c.want {
+			if got := graceSecondsFor(drainSource{args: c.args}); got != c.want {
 				t.Fatalf("graceSecondsFor(%v) = %d, want %d", c.args, got, c.want)
 			}
 		})
@@ -58,7 +58,7 @@ func TestGraceSecondsFor(t *testing.T) {
 func TestGraceCoversTheWholeShutdown(t *testing.T) {
 	for _, drain := range []int{30, 60, 120, 300} {
 		args := []string{"--drain-timeout", itoa(drain)}
-		grace := graceSecondsFor(args, nil)
+		grace := graceSecondsFor(drainSource{args: args})
 		need := int64(workerPreStopDrainSeconds + drain + workerTeardownHeadroomSeconds)
 		if grace < need {
 			t.Fatalf("drain=%d: grace %d < required %d -- kubelet would SIGKILL mid-drain",
@@ -108,7 +108,7 @@ func TestGraceReadsDrainTimeoutFromTheEnvironment(t *testing.T) {
 		{Name: drainTimeoutEnvVar, Value: "300"},
 	}
 	want := int64(workerPreStopDrainSeconds + 300 + workerTeardownHeadroomSeconds)
-	if got := graceSecondsFor(nil, env); got != want {
+	if got := graceSecondsFor(drainSource{env: env}); got != want {
 		t.Fatalf("env-set drain: grace = %d, want %d", got, want)
 	}
 }
@@ -120,7 +120,7 @@ func TestGraceFlagOverridesTheEnvironment(t *testing.T) {
 	env := []corev1.EnvVar{{Name: drainTimeoutEnvVar, Value: "300"}}
 	args := []string{"--drain-timeout", "60"}
 	want := int64(workerPreStopDrainSeconds + 60 + workerTeardownHeadroomSeconds)
-	if got := graceSecondsFor(args, env); got != want {
+	if got := graceSecondsFor(drainSource{args: args, env: env}); got != want {
 		t.Fatalf("flag with env set: grace = %d, want the flag's %d", got, want)
 	}
 }
@@ -134,12 +134,12 @@ func TestGraceIgnoresUnreadableEnvValues(t *testing.T) {
 			ConfigMapKeyRef: &corev1.ConfigMapKeySelector{Key: "drain"},
 		},
 	}}
-	if got := graceSecondsFor(nil, from); got != workerTerminationGraceSeconds {
+	if got := graceSecondsFor(drainSource{env: from}); got != workerTerminationGraceSeconds {
 		t.Fatalf("valueFrom: grace = %d, want the floor %d", got, workerTerminationGraceSeconds)
 	}
 	for _, v := range []string{"", "abc", "0", "-5"} {
 		env := []corev1.EnvVar{{Name: drainTimeoutEnvVar, Value: v}}
-		if got := graceSecondsFor(nil, env); got != workerTerminationGraceSeconds {
+		if got := graceSecondsFor(drainSource{env: env}); got != workerTerminationGraceSeconds {
 			t.Fatalf("env %q: grace = %d, want the floor %d", v, got, workerTerminationGraceSeconds)
 		}
 	}
@@ -160,5 +160,42 @@ func TestGraceReadsDrainEnvFromTheContainerToo(t *testing.T) {
 	want := int64(workerPreStopDrainSeconds + 240 + workerTeardownHeadroomSeconds)
 	if *spec.TerminationGracePeriodSeconds != want {
 		t.Fatalf("grace = %d, want %d", *spec.TerminationGracePeriodSeconds, want)
+	}
+}
+
+// On the extraPodSpec path the template is passed through verbatim, so
+// ServiceSpec.Args is never rendered into the container -- a --drain-timeout
+// sitting there is inert. It must not outrank the variable the container will
+// actually read, or the budget is sized for a drain that never happens while
+// the real one runs long and gets SIGKILLed partway through. Precedence is by
+// source: what the process sees wins, and only within a source does a flag
+// beat a variable.
+func TestAnInertServiceSpecFlagDoesNotOutrankTheContainer(t *testing.T) {
+	spec := &corev1.PodSpec{Containers: []corev1.Container{{
+		Name: "main",
+		Env:  []corev1.EnvVar{{Name: drainTimeoutEnvVar, Value: "600"}},
+	}}}
+	injectWorkerRolloutDefaults(spec, 0, 8080, false, []string{"--drain-timeout", "30"}, nil)
+
+	want := int64(workerPreStopDrainSeconds + 600 + workerTeardownHeadroomSeconds)
+	if got := *spec.TerminationGracePeriodSeconds; got != want {
+		t.Fatalf("grace = %d, want %d -- the container drains for 600s, so %d "+
+			"leaves the kubelet killing it partway through", got, want, got)
+	}
+}
+
+// The same precedence, the other way round: a flag the container really runs
+// with beats a variable from ServiceSpec.
+func TestTheContainerFlagBeatsAServiceSpecVariable(t *testing.T) {
+	spec := &corev1.PodSpec{Containers: []corev1.Container{{
+		Name: "main",
+		Args: []string{"--drain-timeout=300"},
+	}}}
+	env := []corev1.EnvVar{{Name: drainTimeoutEnvVar, Value: "45"}}
+	injectWorkerRolloutDefaults(spec, 0, 8080, false, nil, env)
+
+	want := int64(workerPreStopDrainSeconds + 300 + workerTeardownHeadroomSeconds)
+	if got := *spec.TerminationGracePeriodSeconds; got != want {
+		t.Fatalf("grace = %d, want %d", got, want)
 	}
 }
