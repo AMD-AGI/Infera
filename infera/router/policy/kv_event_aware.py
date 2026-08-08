@@ -76,6 +76,16 @@ _MM_IMAGE_BLOCK_WEIGHT = 48.0
 # pinned while anything from 0.95 up balanced it.
 _RECENT_DECAY = 0.97
 
+# Load charged for a pick we have no block information about: the hasher
+# returned nothing, because the prompt is shorter than the index block size
+# (768 tokens by default) or tokenisation failed. Such a request still costs
+# the worker something, and charging 0 would hold the load term at 0 for every
+# candidate -- restoring the permanent tie, and with it the 100/0 split, on any
+# workload whose prompts are short. One block is the smallest honest estimate:
+# enough to break the tie and rotate workers, small enough that a real
+# multi-block request still outweighs it.
+_UNKNOWN_COST_BLOCKS = 1.0
+
 
 class KvEventAwarePolicy(Policy):
     """Pick the worker minimising
@@ -242,7 +252,7 @@ class KvEventAwarePolicy(Policy):
         # rather than in on_request_started because the hooks run on the
         # dispatch path, which skips them on the failure routes -- and a pick
         # that goes uncharged is invisible to the next one.
-        self._record_dispatch(picked.route_key, len(picked_blocks) - cache_hits)
+        self._record_dispatch(picked.route_key, len(picked_blocks) - cache_hits, len(picked_blocks))
 
         # Telemetry: record the pick decision per role + target, plus
         # the retention bucket we observed on this request.
@@ -303,16 +313,27 @@ class KvEventAwarePolicy(Policy):
         for key in [k for k in self._recent_blocks if k == worker_id or k.startswith(prefix)]:
             self._recent_blocks.pop(key, None)
 
-    def _record_dispatch(self, route_key: str, missed_blocks: int) -> None:
-        """Decay every worker's recent total, then charge the pick's misses.
+    def _record_dispatch(self, route_key: str, missed_blocks: int, request_blocks: int) -> None:
+        """Decay every worker's recent total, then charge for the pick.
 
         Decaying on each pick rather than on a wall-clock timer keeps routing a
         pure function of the request sequence: same requests in, same decisions
         out, which is what makes the behaviour testable. Totals that decay to
         nothing are dropped so an idle worker returns to a clean 0.
 
-        A fully-cached pick charges 0 -- the worker has no prefill to do, so it
-        takes on no load and stays the right answer for that prompt.
+        Two different situations both arrive here with zero misses, and they
+        must not be charged the same way:
+
+        - ``request_blocks > 0`` and every one of them hit. The worker has no
+          prefill to do, so it takes on no load and stays the right answer for
+          that prompt. Charge nothing.
+        - ``request_blocks == 0``. The hasher produced no blocks at all -- the
+          prompt is shorter than the index block size, or tokenisation failed.
+          We know nothing about this request's cost, but the worker still has
+          to serve it. Charging nothing here leaves the load term at 0 for
+          every candidate forever, which is the exact tie that sends every
+          request to whichever worker sorts first: the 100/0 split this term
+          exists to prevent, reappearing on short prompts. Charge the floor.
         """
         for key in list(self._recent_blocks):
             decayed = self._recent_blocks[key] * _RECENT_DECAY
@@ -320,9 +341,12 @@ class KvEventAwarePolicy(Policy):
                 del self._recent_blocks[key]
             else:
                 self._recent_blocks[key] = decayed
-        if missed_blocks <= 0:
+        charge = float(missed_blocks)
+        if request_blocks <= 0:
+            charge = _UNKNOWN_COST_BLOCKS
+        if charge <= 0:
             return
-        self._recent_blocks[route_key] = self._recent_blocks.get(route_key, 0.0) + missed_blocks
+        self._recent_blocks[route_key] = self._recent_blocks.get(route_key, 0.0) + charge
 
     def _publish_active(self, route_key: str) -> None:
         """Mirror ``route_key``'s in-flight block count into the gauge.
