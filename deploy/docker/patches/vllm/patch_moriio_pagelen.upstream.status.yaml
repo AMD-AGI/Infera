@@ -1,0 +1,165 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - gh-search
+  - upstream-source-read
+  - local-repro
+
+patch:
+  path: deploy/docker/patches/vllm/patch_moriio_pagelen.py
+  kind: python-anchor-script
+  idempotent: true
+  applied_by:
+    - Dockerfile.vllm
+    - deploy/overlay/Dockerfile.payload
+    - deploy/overlay/infera-exec
+  opt_in_flag: null
+
+target:
+  library: vllm
+  component: moriio
+  repo: vllm-project/vllm
+  files:
+    - vllm/distributed/kv_transfer/kv_connector/v1/moriio/moriio_layout.py
+  versions:
+    - surface: Dockerfile.vllm
+      ref: v0.25.1
+      commit: null
+      pinned_ref_on_main: false
+      release_branch: null
+      unpinned_risk: >-
+        Consumed as a published image digest rather than a git ref; the digest is the pin.
+      images:
+        - tag: vllm/vllm-openai-rocm:v0.25.1
+          digest: sha256:84459732ca98b40fe2f5338a3f050be6d522504e47a484a5180d58fb75956f86
+          digest_source: dockerfile-pin
+          note: >-
+            v0.25.1 refactored the MoRIIO connector into moriio_layout.py, which is why
+            three sibling patches became no-ops and were dropped while this one stayed
+            load-bearing.
+
+upstream_main_affected:
+  value: true
+  evidence: >-
+    Read from upstream main on 2026-08-05: moriio_layout.py's MLA branch still computes
+    `block_len = block_size * slot_size_bytes` and `block_stride = stride[0]` from the
+    tensor shape. Main is affected.
+
+applies_to:
+  - engine: vllm
+    surface: Dockerfile.vllm (v0.25.1 base)
+    effect: op
+    required_to_run: true
+    evidence: >-
+      Required for DeepSeek-V4 and GLM-5.1 over MoRIIO PD — without it the output is wrong
+      while direct prefill is correct. Dockerfile.vllm's step-2 header calls it out by name
+      as ACTIVE ON v0.25.1.
+  - engine: vllm
+    surface: deploy/overlay/infera-exec
+    effect: op
+    required_to_run: true
+    evidence: Same patch on the runtime-overlay path.
+
+alive_because:
+  reason: no-upstream-pr
+  detail: >-
+    No upstream issue and no upstream PR, ours included, for a silent correctness bug on
+    main. Searched again on 2026-08-05 across vLLM on both the symptom and the symbol.
+    MoRIIO attracts little third-party traffic, so read this as genuinely unreported rather
+    than as a stale search.
+  consumers:
+    - Dockerfile.vllm and the overlay payload, for DSv4 and GLM-5.1 MoRIIO PD
+  drop_when: >-
+    A base vLLM derives the MLA per-block geometry from spec.page_size_bytes instead of the
+    tensor shape.
+  drop_signal: anchor-drift-fails-loudly
+  silent_misapply_risk: null
+
+history:
+  born:
+    date: 2026-07-23
+    commit: 78fd0ff
+    subject: "Fix MoRIIO MLA page-length transfer geometry on v0.25.1 (DSv4 / GLM-5.1 PD)"
+  last_modified:
+    date: 2026-07-23
+    commit: 78fd0ff
+    subject: "Fix MoRIIO MLA page-length transfer geometry on v0.25.1 (DSv4 / GLM-5.1 PD)"
+    reason: >-
+      Written against v0.25.1's refactored moriio_layout.py and unchanged since. Its three
+      GLM-5.1 siblings were dropped in the same era for becoming no-ops on this base; this
+      one survived because the refactor did not fix the geometry.
+
+upstream_issues: null
+
+upstream_prs: null
+
+related_refs: null
+
+problem:
+  what: >-
+    MoRIIO's MLA transfer path derives the per-block transfer SIZE and STRIDE from the
+    tensor shape rather than from the authoritative page size, so block-scaled fp8 MLA
+    caches move the wrong bytes and PD output is silently wrong.
+  why: >-
+    get_layer_transfer_geometry's MLA (3-dim) branch computes slot_size_bytes = latent_dim *
+    element_size, block_len = block_size * slot_size_bytes and block_stride = stride[0].
+    The authoritative per-scheduler-block page is spec.page_size_bytes, and the
+    shape-derived values disagree with it in two independent ways. For DeepSeek-V4
+    fp8_ds_mla (UE8M0 block-scaled, 576-byte aligned) the page is PADDED, so page_size_bytes
+    > block_size*inner*es and the dropped tail is exactly the per-block scale — decode
+    dequantizes with a stale scale, so facts garble while structure survives. For GLM-5.1
+    the cache is laid out per KERNEL block of size 1 (shape[1] == 1, ~1.25M blocks) while
+    the scheduler pages at block_size 16, so the shape-derived values are 16x too small and
+    only 1/16 of each block moves, to the wrong offset — total garbage.
+  how: >-
+    Use spec.page_size_bytes, which is both alignment-aware and kernel/logical-block-ratio
+    aware. block_stride is in ELEMENTS, so it becomes page_size_bytes // element_size.
+    This is what Mooncake already does, which is why Mooncake PD is correct on the same
+    nodes and model — that differential is how the bug was localised.
+  before_fix: >-
+    DSv4 gives right structure with wrong facts ("The capital of France is" -> "a good
+    idea..."); GLM-5.1 gives total garbage ("is is is is..."). READ and WRITE modes fail
+    identically, and prefill queried directly is correct.
+  after_fix: >-
+    Verified 2026-07-22 on TP4 2-node MoRIIO PD at temp=0: DSv4-Pro France->Paris,
+    China->Beijing, PD output equal to prefill-direct. GLM-5.1-FP8 likewise correct.
+  context: >-
+    TP4 2-node MoRIIO PD, DeepSeek-V4 and GLM-5.1 (block-scaled fp8 MLA + DSA lightning
+    indexer, --kv-cache-dtype fp8). Byte-for-byte no-op for contiguous matched-block caches
+    (fp16/bf16 K/V — Qwen, Kimi), where page_size_bytes == stride[0]*es ==
+    block_size*inner*es. The K/V (5-dim) branches are untouched; they already handle the
+    ratio via kernel_blocks_per_block.
+  call_chain:
+    - "moriio_layout.py :: get_layer_transfer_geometry (MLA 3-dim branch)"
+    - "slot_size_bytes = latent_dim * element_size; block_len = block_size * slot_size_bytes; block_stride = stride[0]"
+    - "MoRIIO transfer moves block_len bytes at block_stride elements — disagrees with spec.page_size_bytes"
+    - "decode attends over partially-transferred / mis-scaled KV"
+  symptom_signature: >-
+    PD output wrong while prefill-direct is correct; DSv4 right-structure/wrong-fact,
+    GLM-5.1 degenerate repetition
+  silent: true
+
+verification:
+  date: 2026-07-22
+  hardware: TP4 across 2 nodes
+  software: vLLM v0.25.1, MoRIIO connector
+  workload: DSv4-Pro and GLM-5.1-FP8 MoRIIO PD, temp=0
+  result: >-
+    DSv4-Pro France->Paris and China->Beijing with PD == prefill-direct; GLM-5.1-FP8
+    correct. Diagnosed by differential against Mooncake on the same nodes plus live
+    per-layer geometry instrumentation.
+  notes: >-
+    The Mooncake differential is the transferable technique here: two connectors on the
+    same nodes and model, one correct, isolates the defect to the transport layer.
+
+scope_limits: >-
+  MLA (3-dim) branch only. The K/V (5-dim) branches already handle the kernel/logical ratio
+  and are deliberately untouched.
+
+open_actions:
+  - action: >-
+      Submit upstream. This is a silent correctness bug present on main with no issue and no
+      PR, and the fix is to use a value upstream already computes.
+    owner: unassigned
+    blocked_on: null

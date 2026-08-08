@@ -1,0 +1,162 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - gh-search
+  - local-repro
+
+patch:
+  path: deploy/docker/patches/vllm/patch_defer_kv_register.py
+  kind: python-anchor-script
+  idempotent: true
+  applied_by:
+    - Dockerfile.vllm
+    - deploy/overlay/Dockerfile.payload
+    - deploy/overlay/infera-exec
+  opt_in_flag: null
+
+target:
+  library: vllm
+  component: mooncake-connector
+  repo: vllm-project/vllm
+  files:
+    - vllm/v1/worker/gpu_model_runner.py
+    - vllm/v1/worker/gpu_worker.py
+  versions:
+    - surface: Dockerfile.vllm
+      ref: v0.25.1
+      commit: null
+      pinned_ref_on_main: false
+      release_branch: null
+      unpinned_risk: >-
+        Consumed as a published image digest rather than a git ref; the digest is the pin.
+      images:
+        - tag: vllm/vllm-openai-rocm:v0.25.1
+          digest: sha256:84459732ca98b40fe2f5338a3f050be6d522504e47a484a5180d58fb75956f86
+          digest_source: dockerfile-pin
+          note: vllm 0.25.1, torch 2.11.0, ROCm 7.2.3.
+
+upstream_main_affected:
+  value: true
+  evidence: >-
+    Weakest evidence of any record here. No upstream issue or PR was found by search, and
+    main was NOT read for this one, so "affected" is an inference from the defect never
+    having been reported rather than an observation. Treat as unverified until someone reads
+    compile_or_warm_up_model on main.
+
+applies_to:
+  - engine: vllm
+    surface: Dockerfile.vllm (v0.25.1 base)
+    effect: op
+    required_to_run: false
+    evidence: >-
+      Load-bearing at high GPU utilisation with bare ibv_reg_mr registration; at lower util
+      the crash it avoids does not fire, so the reordering is inert in effect.
+  - engine: vllm
+    surface: deploy/overlay/infera-exec
+    effect: op
+    required_to_run: false
+    evidence: Same patch on the runtime-overlay path.
+
+alive_because:
+  reason: no-upstream-pr
+  detail: >-
+    Nothing upstream, and nothing of ours. This one is also the hardest to upstream honestly:
+    what we carry is a reordering that AVOIDS a crash whose mechanism is not fully explained
+    — the None return from one TP worker's compile_or_warm_up_model is a symptom we routed
+    around rather than diagnosed.
+  consumers:
+    - >-
+      Dockerfile.vllm and the overlay payload, for high-util Mooncake PD with bare
+      ibv_reg_mr registration (MOONCAKE_HIP_DMABUF=0)
+  drop_when: >-
+    The high-util boot crash is diagnosed properly and fixed at its cause, or a base vLLM
+    stops aggregating compilation_times in a way that a None can kill.
+  drop_signal: self-guard-marker-skips
+  silent_misapply_risk: >-
+    The patch reorders when registration happens. If a future base changes the warmup
+    sequence such that the deferred point is no longer before the engine reports ready, P/D
+    pairing could break in a way this record's "registration still completes before ready"
+    claim would no longer cover. The anchors are narrow enough that a rewrite of that
+    function drops the patch rather than misplacing it, but the invariant is worth re-checking
+    on a base bump rather than assumed.
+
+history:
+  born:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+  last_modified:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+    reason: Unchanged since it was written.
+
+upstream_issues: null
+
+upstream_prs: null
+
+related_refs: null
+
+problem:
+  what: >-
+    With bare ibv_reg_mr registration, registering the Mooncake KV pool at its normal point —
+    inside gpu_model_runner.initialize_kv_cache, before compile_or_warm_up_model — trips a
+    decode-boot crash at high GPU utilisation.
+  why: >-
+    Not fully established, and this record should not pretend otherwise. The observable is
+    that one TP worker's compile_or_warm_up_model returns None, and vLLM's
+    `max(t.language_model for t in compilation_times)` aggregation then dies on it. Why
+    early registration makes that worker return None is unexplained; the working theory is
+    memory pressure from the pinned pool during warmup, which is consistent with it being
+    util-dependent but is not proven.
+  how: >-
+    Move the Mooncake register_kv_caches call to the very END of compile_or_warm_up_model,
+    after all warmup, cudagraph capture and the post-capture sampler/pooler dummy runs.
+    gpu_model_runner stashes the caches and the transfer group on self instead of registering;
+    gpu_worker performs the registration at the end. Registration still completes before the
+    engine reports ready, so P<->D pairing is unaffected.
+  before_fix: >-
+    "AttributeError: 'NoneType' object has no attribute 'language_model'" during decode boot
+    at high util.
+  after_fix: >-
+    Kimi-K2.6 at --gpu-memory-utilization 0.8 boots stably and DeepSeek-V4-Pro output is
+    correct, confirming the deferral does not break pairing or transfer.
+  context: >-
+    Reachable with bare ibv_reg_mr GPU registration (MOONCAKE_HIP_DMABUF=0, the default,
+    with host-libionic injection) at high --gpu-memory-utilization. Not observed at lower
+    util.
+  call_chain:
+    - "gpu_model_runner.py :: initialize_kv_cache -> kv_transfer_group.register_kv_caches(kv_caches)"
+    - "gpu_worker.py :: compile_or_warm_up_model — one TP worker returns None"
+    - "max(t.language_model for t in compilation_times) -> AttributeError on the None"
+  symptom_signature: "AttributeError: 'NoneType' object has no attribute 'language_model'"
+  silent: false
+
+verification:
+  date: 2026-07-20
+  hardware: AMD ROCm multi-node PD
+  software: vLLM with the Mooncake connector, bare ibv_reg_mr registration
+  workload: Kimi-K2.6 at --gpu-memory-utilization 0.8, and DeepSeek-V4-Pro for correctness
+  result: >-
+    Boot crash cleared and DSv4-Pro output correct, which is the check that the deferral did
+    not break pairing.
+  notes: >-
+    Validating correctness as well as boot was the right instinct: a reordering of KV
+    registration is exactly the kind of change that could boot fine and transfer nothing.
+
+scope_limits: >-
+  A workaround, not a fix — it changes WHEN registration happens, not why early registration
+  breaks warmup.
+
+open_actions:
+  - action: >-
+      Diagnose why one TP worker's compile_or_warm_up_model returns None under early
+      registration. Without that, this cannot be upstreamed and cannot be safely dropped.
+    owner: unassigned
+    blocked_on: null
+  - action: >-
+      Read compile_or_warm_up_model on upstream main to replace this record's inferred
+      upstream_main_affected with an observed one.
+    owner: unassigned
+    blocked_on: null

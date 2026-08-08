@@ -1,0 +1,169 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - gh-pr-issue-state
+  - upstream-source-read
+  - local-repro
+
+patch:
+  path: deploy/docker/patches/sglang/patch_glm52_nextn_quark_exclude.py
+  kind: python-anchor-script
+  idempotent: true
+  applied_by:
+    - Dockerfile.sglang
+  opt_in_flag: null
+
+target:
+  library: sglang
+  component: quantization
+  repo: sgl-project/sglang
+  files:
+    - python/sglang/srt/models/deepseek_nextn.py
+  versions:
+    - surface: Dockerfile.sglang
+      ref: v0.5.15.post1
+      commit: 0b3bb0cbe318
+      pinned_ref_on_main: false
+      release_branch: release/v0.5.15
+      images:
+        - tag: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
+          digest: null
+          digest_source: unresolved
+          note: >-
+            This release line was cut without #30265, which is the whole reason the
+            backport exists.
+
+upstream_main_affected:
+  value: false
+  evidence: >-
+    #30265 is MERGED and gives GLM-5.2 its own GlmMoeDsaForCausalLMNextN in
+    glm4_moe.py, so the GLM path on main is fixed. Read from main on 2026-08-05.
+    Note that the anchor STRING is still on main — see silent_misapply_risk.
+
+applies_to:
+  - engine: sglang
+    surface: Dockerfile.sglang (gfx950 / MI355X, v0.5.15.post1)
+    effect: op
+    required_to_run: true
+    evidence: >-
+      Without it the GLM-5.2 draft weight-load dies and MTP cannot start.
+      apply_sglang_dsa_patches.sh asserts this patch as a PREREQUISITE of the DSA set
+      by grepping deepseek_nextn.py for 'num_hidden_layers}.eh_proj'.
+  - engine: sglang
+    surface: Dockerfile.sglang.gfx942 (gfx942 / MI325X, v0.5.16)
+    effect: not-applied
+    required_to_run: false
+    evidence: >-
+      Deliberately not applied — v0.5.16 carries #30265, so the fix is already in that
+      base. Dockerfile.sglang.gfx942's header says so explicitly.
+
+alive_because:
+  reason: merged-not-in-pinned-base
+  detail: >-
+    #30265 merged upstream on 2026-07-08, but our mi35x base is the v0.5.15.post1
+    release tag and that release line was cut without it. Bumping a patch level does
+    not help: v0.5.15.post1 sits on release/v0.5.15, not main.
+  consumers:
+    - Dockerfile.sglang (GLM-5.2 MTP on the v0.5.15.post1 mi35x base)
+  drop_when: >-
+    Dockerfile.sglang moves to a base sglang that carries #30265 — v0.5.16 or later
+    already does, which is why the gfx942 image does not apply this.
+  drop_signal: base-version-only
+  silent_misapply_risk: >-
+    CORRECTED 2026-08-05. The patch's own header, and the previous status page, both
+    claimed the anchor would disappear on a fixed base and the script would no-op. It
+    does not. #30265 touched deepseek_nextn.py (+13/-11) only to lift the quark check
+    out of __init__ into _resolve_nextn_quant_config(); the literal
+    'ckpt_prefix = f"model.layers.{config.num_hidden_layers}"' is still on main at line
+    347, and this patch matches that string without leading indentation. On a
+    post-#30265 base it therefore still applies — and now edits the DeepSeek MTP path,
+    which GLM-5.2 no longer takes, narrowing that family's quark-exclude probe to
+    eh_proj alone while logging success. Decide the drop from the base version.
+
+history:
+  born:
+    date: 2026-07-28
+    commit: 0d8d0ff
+    subject: "fix(image): patch sglang for GLM-5.2 MTP nextn quark-exclude (backport #30265)"
+  last_modified:
+    date: 2026-07-28
+    commit: 0d8d0ff
+    subject: "fix(image): patch sglang for GLM-5.2 MTP nextn quark-exclude (backport #30265)"
+    reason: >-
+      Written as a deliberately narrow backport in one go — a one-line anchor swap
+      rather than a port of #30265's new model class.
+
+upstream_issues: null
+
+upstream_prs:
+  - ref: sgl-project/sglang#30265
+    url: https://github.com/sgl-project/sglang/pull/30265
+    title: "[AMD] Fix GLM-5.2 MTP Quark excludes"
+    state: MERGED
+    review_decision: APPROVED
+    merged_at: 2026-07-08
+    author: wangjiaxin99
+    ours: false
+    same_approach: false
+    approach_note: >-
+      #30265 is a superset: it adds a dedicated GlmMoeDsaForCausalLMNextN class in
+      glm4_moe.py plus model_config.py plumbing. Ours is a one-line probe change on the
+      shared DeepSeek nextn path. We took the narrow form on purpose — this is a
+      backport onto a frozen release base, not a general fix, and porting a new model
+      class into a running container is not something to do blind.
+    requested_action: null
+    in_pinned_base: false
+
+related_refs: null
+
+problem:
+  what: >-
+    GLM-5.2's MTP (nextn) layer is entirely bf16/unquantized, but sglang's quark
+    exclude check does not recognise it as excluded, so eh_proj is built as an MXFP4
+    (uint8) parameter and the draft weight-load fails.
+  why: >-
+    The quark quantization_config lists exclude entries at SUBMODULE level
+    ('model.layers.<N>.eh_proj'), while DeepseekV3ForCausalLMNextN probes the BARE layer
+    prefix ('model.layers.<N>'). should_ignore_layer() therefore returns False, the
+    layer is treated as quantized, and nextn_quant_config is not cleared.
+  how: >-
+    Probe the eh_proj submodule — an exact exclude entry — instead of the bare layer, so
+    the match succeeds, nextn_quant_config becomes None, and the whole bf16 MTP layer is
+    built bf16.
+  before_fix: >-
+    "AssertionError: param.shape=[6144,6144] uint8 vs loaded_weight.shape=[6144,12288]
+    bf16" during draft weight-load — reported on the status page previously as
+    '3072 vs 6144'.
+  after_fix: Coherent GLM-5.2 MTP output on the v0.5.15.post1 base.
+  context: >-
+    gfx950 / MI355X, sglang v0.5.15.post1, GLM-5.2 with quark MXFP4 weights and EAGLE
+    MTP. Not reachable on v0.5.16+, which carries #30265.
+  call_chain:
+    - "sglang/srt/models/deepseek_nextn.py :: DeepseekV3ForCausalLMNextN.__init__"
+    - "should_ignore_layer(mapped_prefix, quant_config.exclude_layers) — probes the bare layer prefix"
+    - "eh_proj built as an MXFP4 uint8 param"
+    - "draft weight-load shape assertion fails"
+  symptom_signature: "param.shape=[6144,6144] uint8 vs loaded_weight.shape=[6144,12288] bf16"
+  silent: false
+
+verification:
+  date: 2026-07-28
+  hardware: 8x MI355X (gfx950)
+  software: sglang v0.5.15.post1, ROCm 7.2.0
+  workload: GLM-5.2 quark MXFP4 with EAGLE MTP
+  result: Draft weight-load succeeds and MTP output is coherent.
+  notes: null
+
+scope_limits: >-
+  Narrow by design: it fixes the probe, not the model class. It does not give GLM-5.2
+  the dedicated nextn class #30265 added, and it must not be carried onto a base that
+  has one.
+
+open_actions:
+  - action: >-
+      Fix this patch's own header, which still claims the anchor disappears once
+      upstream carries #30265. It does not, and the claim is what makes a silent
+      misapply possible.
+    owner: unassigned
+    blocked_on: null

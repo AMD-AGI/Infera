@@ -50,10 +50,38 @@ third-party PR   NONE for either half.  Per-diff greps: #31683 does not touch
                  Weaker than it sounds: `gh search` matches titles and bodies,
                  not diff content, so an upstream PR could touch either site
                  without naming it.
-own PR           NONE.  Not upstreamed.  2a's evidence is runtime-state, not a
-                 revert, so it is harder to present upstream than patch 01 was;
-                 2b's upstream counterpart would be #32209's other half, which we
-                 could not make work here (see below).
+own PR           2a ONLY -- #33973 (OPEN, DRAFT, filed 2026-08-07 by dorado269),
+                 "[DSA] Remove the device-to-host syncs on the decode
+                 DP-divergent branch".  Carries 2a AND 2a2.  2b is deliberately
+                 NOT in it: one fix, one PR, and 2b overlaps #32209 while resting
+                 on a concurrency-32 failure whose cause is unidentified (below).
+                 So THIS PATCH OUTLIVES #33973 -- landing it retires only half.
+
+                 Still a draft: gfx950 was unreachable when it was opened, so it
+                 has NOT been re-run against the deadlock on hardware that
+                 reproduces it.  What WAS checked, on MI300X: `.max().item()`
+                 measurably blocks (~0.5-3 ms run to run, behind 30 queued
+                 4096^2 matmuls) while `.shape[1]` does not (~3 us) -- the point
+                 is that it blocks AT ALL on a branch only some ranks take, not
+                 the magnitude; widening the page table leaves
+                 every REAL top-k selection and score bit-identical; and
+                 DRAFT_EXTEND_V2 is not is_extend(), so every consumer of the two
+                 removed mirrors is unreachable.
+
+                 Two things the PR says that this header did not:
+                   * the strongest argument for 2a is that the backend ALREADY
+                     declares `needs_cpu_seq_lens = False`, with a comment saying
+                     it opts out of the D2H sync -- so the eager fallback
+                     contradicts its own contract; and
+                   * the CPU mirror this branch relies on comes from
+                     eagle_worker_common.prepare_for_draft_extend (line 105), on
+                     its gpu_only branch and for this same reason -- NOT from
+                     base_spec_worker, as stated further down in this file.
+                 A caveat found while validating: a row with seq_len < topk does
+                 return indices past its own seq_len, because top-k must return
+                 topk entries.  Those slots carry -inf and occur identically at
+                 BOTH widths, so they are a consequence of seq_len < topk, not of
+                 widening -- the property that holds is about the REAL selections.
 
 HOW 2a WAS ESTABLISHED
 --------------------------------------------------------------------------------

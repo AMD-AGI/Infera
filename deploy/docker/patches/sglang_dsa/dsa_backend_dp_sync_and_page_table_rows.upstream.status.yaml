@@ -1,0 +1,230 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-07
+verified_by:
+  - gh-pr-issue-state
+  - gh-search
+  - local-repro
+
+patch:
+  path: deploy/docker/patches/sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff
+  kind: context-diff
+  idempotent: false
+  applied_by:
+    - Dockerfile.sglang
+    - deploy/docker/scripts/apply_sglang_dsa_patches.sh
+  opt_in_flag: APPLY_SGLANG_DSA_PATCHES=1 with DSA_PATCH_SET=full (Dockerfile.sglang only)
+
+target:
+  library: sglang
+  component: dsa
+  repo: sgl-project/sglang
+  files:
+    - python/sglang/srt/layers/attention/dsa_backend.py
+  versions:
+    - surface: Dockerfile.sglang
+      ref: v0.5.15.post1
+      commit: 0b3bb0cbe318
+      pinned_ref_on_main: false
+      release_branch: release/v0.5.15
+      images:
+        - tag: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
+          digest: null
+          digest_source: unresolved
+          note: >-
+            Applied with `patch -p1 --fuzz=0`, cut against this tag. It cannot apply to
+            the gfx942 image's v0.5.16 base and is deliberately not attempted there.
+
+upstream_main_affected:
+  value: true
+  evidence: >-
+    No upstream PR exists for 2a at all, and #32209 (the only PR touching 2b) is still
+    OPEN, so neither half is on main. Established by search plus the absence of any
+    merged candidate, not by reading main — weaker than this repo's usual standard.
+
+applies_to:
+  - engine: sglang
+    surface: Dockerfile.sglang (gfx950 / MI355X, v0.5.15.post1)
+    effect: op
+    required_to_run: true
+    evidence: >-
+      apply_sglang_dsa_patches.sh asserts the dsa_backend.py:_glm52_match_page_table_rows
+      bytecode marker and patch 2a's source marker under DSA_PATCH_SET=full.
+  - engine: sglang
+    surface: Dockerfile.sglang.gfx942 (gfx942 / MI325X, v0.5.16)
+    effect: not-applied
+    required_to_run: false
+    evidence: >-
+      DSA_PATCH_SET=indexer skips it: the diff is --fuzz=0 against v0.5.15.post1 and
+      will not apply to v0.5.16. That image substitutes 2b at runtime with
+      --json-model-override-args '{"index_share_for_mtp_iteration":false}' and does not
+      address 2a at all — 2a's deadlock has not been observed on that base.
+
+alive_because:
+  reason: upstream-pr-open
+  detail: >-
+    SPLIT, and only half is upstream. 2a is now ours as sglang#33973 (DRAFT, opened
+    2026-08-07) — it had no upstream issue and no PR of any kind before that. 2b is NOT
+    in that PR and has no PR of ours: the one third-party PR (#32209) solves the same
+    row mismatch by trimming q/top-k instead of expanding the page table, and porting
+    that half here fails at concurrency 32 with the cause unidentified, so we can
+    neither adopt it nor justify a competing PR. This patch therefore stays until BOTH
+    halves land.
+  consumers:
+    - Dockerfile.sglang (GLM-5.2 DSA PD decode leg with DP-attention + MTP)
+  drop_when: >-
+    A base sglang removes the host sync from the DP-divergent branch (2a) and makes the
+    decode page table token-major under MTP (2b) — or #32209's trimming approach is
+    made to work at concurrency 32.
+  drop_signal: anchor-drift-fails-loudly
+  silent_misapply_risk: null
+
+history:
+  born:
+    date: 2026-08-01
+    commit: c91db76
+    subject: "sglang DSA: enable PD + DP-attention + EAGLE MTP for GLM-5.2 on gfx950"
+  last_modified:
+    date: 2026-08-01
+    commit: c91db76
+    subject: "sglang DSA: enable PD + DP-attention + EAGLE MTP for GLM-5.2 on gfx950"
+    reason: >-
+      Born and last touched in the same change — the diff was cut once against
+      v0.5.15.post1 and has not needed a revision.
+
+upstream_issues: null
+
+upstream_prs:
+  - ref: sgl-project/sglang#33973
+    url: https://github.com/sgl-project/sglang/pull/33973
+    title: "[DSA] Remove the device-to-host syncs on the decode DP-divergent branch"
+    state: OPEN
+    review_decision: REVIEW_REQUIRED
+    merged_at: null
+    author: dorado269
+    ours: true
+    same_approach: true
+    approach_note: >-
+      Opened 2026-08-07 as a DRAFT, carrying 2a AND 2a2 — and deliberately NOT 2b, which
+      overlaps #32209 and rests on an unexplained concurrency-32 failure. One fix, one
+      PR. Adapting it surfaced a stronger upstream argument than this record had: the
+      backend already declares `needs_cpu_seq_lens = False` with a comment saying it
+      opts out of the D2H sync, so the eager fallback contradicts its own contract.
+      Also corrects a citation in this record — the CPU mirror the DRAFT_EXTEND_V2 branch
+      relies on comes from eagle_worker_common.prepare_for_draft_extend (line 105), on
+      its gpu_only branch and for this same reason, not from base_spec_worker.
+    requested_action: >-
+      Draft until re-validated on gfx950 with PD + DP-attention + MTP.
+    in_pinned_base: false
+  - ref: sgl-project/sglang#32209
+    url: https://github.com/sgl-project/sglang/pull/32209
+    title: Fix PD decode hang with DP attention and GLM-5.2 MTP
+    state: OPEN
+    review_decision: REVIEW_REQUIRED
+    merged_at: null
+    author: HZY-Wade
+    ours: false
+    same_approach: false
+    approach_note: >-
+      Addresses 2b's row mismatch by TRIMMING q and top-k down to the request count,
+      where this diff EXPANDS the page table to the token count with repeat_interleave.
+      Porting the trimming half here fails at concurrency 32 and the cause is
+      unresolved, so we kept the expansion. Nothing upstream covers 2a.
+    requested_action: null
+    in_pinned_base: false
+
+related_refs:
+  - ref: sgl-project/sglang#32722
+    url: https://github.com/sgl-project/sglang/pull/32722
+    kind: pr
+    title: "[RED regression] Test GLM-5.2 PD + DP attention + MTP"
+    state: OPEN
+    state_reason: null
+    author: IvanShan177
+    relevance: missing-test-coverage
+    note: >-
+      Its existence proves no upstream CI covers this topology today, which is why this
+      whole family of defects survives in a released base.
+
+problem:
+  what: >-
+    Two independent defects in dsa_backend.py, both on the PD decode leg with MTP.
+    (2a) A blocking device-to-host sync sits on a branch only SOME DP ranks take, so
+    the DP collectives desynchronize and the group deadlocks. (2b) The page table has
+    one row per REQUEST while top-k has one row per TOKEN, so an assert kills every
+    rank.
+  why: >-
+    2a — `max_seqlen_k = int(forward_batch.seq_lens.max().item())` is a host sync, and
+    idle DP peers keep their host mirror and take the cheap arm, so the ranks do not
+    issue the same collective sequence. Two further unconditional `.cpu()` syncs on the
+    same branch have to go too; with the first fix alone the hang persists.
+    2b — `metadata.page_table_1` is per-request, while `topk_indices` has just been
+    padded to `q.shape[0]`, i.e. per-token. Equal for plain decode, unequal under MTP.
+  how: >-
+    2a — replace the sync with the sync-free `self.req_to_token.shape[1]`. Over-
+    allocating page-table columns is safe: the table is only indexed THROUGH top-k,
+    which masks per row by cache_seqlens, so extra columns get -inf and are never
+    selected. The idiom is already established in-tree three times (triton_backend.py,
+    trtllm_mha_backend.py, and DSA's own graph path). The removed `.cpu()` mirrors are
+    dead for DRAFT_EXTEND_V2, which is not is_extend(), so every consumer is
+    unreachable. 2b — expand the page table with repeat_interleave to reproduce the
+    token-major layout, at BOTH decode call sites; the rows `_pad_topk_indices` added
+    hold all -1 and the triton kernel already masks them, so only the row COUNT has to
+    match.
+  before_fix: >-
+    2a — the whole DP group hangs with no error. 2b — `assert page_table.shape[0] ==
+    topk_indices.shape[0]` in transform_index_page_table_decode_fast, and every rank
+    dies.
+  after_fix: >-
+    GLM-5.2 DSA serves PD with DP-attention and EAGLE MTP on gfx950. Both bytecode
+    markers assert clean in the build.
+  context: >-
+    gfx950 / MI355X, sglang v0.5.15.post1, GLM-5.2 DSA, PD disaggregation, DP-attention
+    with EAGLE MTP. The traceback for 2b named only the first decode call site; the
+    second pairs the same unpadded page table with a padded topk_indices, so both are
+    patched. The prefill sibling solves 2b with an explicit output_num_tokens; the
+    decode entry point has no equivalent.
+  call_chain:
+    - "dsa_backend.py :: init_forward_metadata (decode, DRAFT_EXTEND_V2)"
+    - "2a: seq_lens.max().item() — host sync on a DP-divergent branch"
+    - "2b: transform_index_page_table_decode_fast — asserts page_table rows == topk rows"
+  symptom_signature: "assert page_table.shape[0] == topk_indices.shape[0]"
+  silent: false
+
+verification:
+  date: 2026-08-01
+  hardware: 8x MI355X (gfx950)
+  software: sglang v0.5.15.post1, ROCm 7.2.0
+  workload: GLM-5.2-FP8 PD, DP-attention + EAGLE MTP
+  result: Deadlock and assert both cleared; every consumer of the removed mirrors walked by hand.
+  notes: >-
+    2a2's removals were established dead by reading each consumer: extend_prefix_lens_cpu
+    is read only inside the is_extend() arm, seq_lens_sum at the is_extend()-gated
+    capacity check, indexer_seq_lens_cpu is already None here, and both
+    _cal_indexer_k_start_end and dsa_indexer's k-only path open with
+    is_extend_without_speculative().
+
+scope_limits: >-
+  Cut --fuzz=0 against v0.5.15.post1 and not re-cut for v0.5.16, so the gfx942 image
+  runs without it. 2a's deadlock has not been observed on that base, and 2b is worked
+  around there with a runtime flag rather than fixed.
+
+open_actions:
+  - action: >-
+      Re-validate sglang#33973 (2a + 2a2) on gfx950 with PD + DP-attention + MTP and take
+      it out of draft. What WAS checked on MI300X against the PR's exact diff: that
+      `.max().item()` measurably blocks (~0.5-3 ms run to run, behind 30 queued 4096^2
+      matmuls) while `.shape[1]` does not (~3 us) — the point being that it blocks at
+      all on a branch only some ranks take, not the absolute figure; that widening the
+      page table leaves every REAL top-k
+      selection and score bit-identical; and that DRAFT_EXTEND_V2 is not is_extend(), so
+      every consumer of the two removed mirrors is unreachable. What was NOT: that the
+      group actually stops deadlocking.
+    owner: dorado269
+    blocked_on: MI355X cluster access (unreachable 2026-08-07)
+  - action: >-
+      Establish why #32209's trimming approach fails at concurrency 32 here, so 2b can
+      converge upstream instead of diverging. Until then 2b keeps this patch alive on
+      its own, even once #33973 lands.
+    owner: unassigned
+    blocked_on: null

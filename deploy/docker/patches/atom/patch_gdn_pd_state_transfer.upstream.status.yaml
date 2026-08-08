@@ -1,0 +1,146 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - local-repro
+  - patch-header-only
+
+patch:
+  path: deploy/docker/patches/atom/patch_gdn_pd_state_transfer.py
+  kind: python-anchor-script
+  idempotent: true
+  applied_by:
+    - Dockerfile.atom
+  opt_in_flag: null
+
+target:
+  library: atom
+  component: attention-metadata
+  repo: internal
+  files:
+    - atom/attention/backends/gdn_attn.py
+  versions:
+    - surface: Dockerfile.atom
+      ref: atom0.1.4
+      commit: null
+      pinned_ref_on_main: null
+      release_branch: null
+      unpinned_risk: >-
+        ATOM is an internal engine consumed only as a base image, so there is no public commit
+        to record and no way to express "on main". The image tag is the entire pin.
+      images:
+        - tag: rocm/atom:rocm7.2.4_ubuntu24.04_py3.12_pytorch_release_2.10.0_atom0.1.4_20260612
+          digest: null
+          digest_source: unresolved
+          note: >-
+            ROCm 7.2.4, Ubuntu 24.04, Python 3.12, PyTorch 2.10.0, ATOM 0.1.4, built 2026-06-12.
+            Dockerfile.atom pins the tag only.
+
+upstream_main_affected:
+  value: null
+  evidence: >-
+    No public upstream exists. ATOM is internal, so there is no repository to check and this
+    field is null by construction rather than by omission.
+
+applies_to:
+  - engine: atom
+    surface: Dockerfile.atom
+    effect: op
+    required_to_run: true
+    evidence: >-
+      Without it, hybrid GDN models cannot recall prompt context in PD at all: memory probes
+      measured single-node MIXED 5/5 recall against 2-node PD 0/5.
+
+alive_because:
+  reason: internal-engine-no-upstream
+  detail: >-
+    ATOM has no public upstream to file against, so this cannot be upstreamed in the sense the
+    other records use. The equivalent action is landing it in ATOM itself; until then the image
+    patch is the only delivery mechanism.
+  consumers:
+    - Dockerfile.atom, for hybrid GDN models (e.g. Qwen3.5-397B-A17B) in PD
+  drop_when: >-
+    ATOM's GDNAttentionMetadataBuilder publishes the mamba per-request state itself, at which
+    point the anchor is gone and the hunk is skipped with a warning.
+  drop_signal: anchor-drift-fails-loudly
+  silent_misapply_risk: null
+
+history:
+  born:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+  last_modified:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+    reason: Unchanged since it was written.
+
+upstream_issues: null
+
+upstream_prs: null
+
+related_refs: null
+
+problem:
+  what: >-
+    Hybrid GDN models produce garbage in PD disaggregation — they cannot recall anything from
+    the prompt — because the GatedDeltaNet recurrent state is never transferred from the
+    prefill worker to the decode worker.
+  why: >-
+    GDNAttentionMetadataBuilder inherits get_kv_transfer_tensors from
+    AiterAttentionMetadataBuilder, which registers only the full-attention paged KV cache as
+    block_regions and returns slot_regions=[]. The linear-attention layers' recurrent state —
+    conv_state plus temporal/ssm state, held per request in mamba_k_cache / mamba_v_cache — is
+    therefore not in the transfer set at all, so the decode worker decodes from a ZERO mamba
+    state.
+  how: >-
+    Override get_kv_transfer_tensors on GDNAttentionMetadataBuilder to also publish the mamba
+    per-request state as direct slot_regions, one region per GDN layer for K and V. The Mooncake
+    connector already supports exactly this path — register_kv_caches sets
+    _has_slot_regions=True and _execute_block_slot_transfer Phase 2a does a direct per-slot RDMA
+    write (src_base + src_slot*unit_bytes -> dst_base + dst_slot*unit_bytes) with no
+    staging, gather or scatter, because one request's state is contiguous within each layer
+    buffer of shape [n_gdn, num_slots, *state_shape]. unit_bytes is sized per CACHE GROUP
+    (= slots_per_req contiguous tensor slots) because the local_slot_index carried in
+    kv_transfer_params is the per-request cache-group index; with speculative decoding off,
+    slots_per_req == 1 and a group is a single slot.
+  before_fix: >-
+    Anything depending on prompt context comes out as token-salad or off-topic. Memory probes:
+    single-node MIXED 5/5 recall, 2-node PD 0/5.
+  after_fix: PD recall matches single-node mixed serving.
+  context: >-
+    Hybrid GDN models such as Qwen3.5-397B-A17B on ATOM in 2-node PD over Mooncake. What makes
+    this dangerous is the masking: world-knowledge facts stored in the WEIGHTS (Paris, Tokyo,
+    2+2) still look correct, so a smoke test passes while in-context recall is entirely broken.
+  call_chain:
+    - "GDNAttentionMetadataBuilder inherits get_kv_transfer_tensors from AiterAttentionMetadataBuilder"
+    - "returns block_regions = full-attention paged KV only, slot_regions = []"
+    - "mamba_k_cache / mamba_v_cache recurrent state is never transferred"
+    - "decode worker decodes from a zero mamba state"
+  symptom_signature: >-
+    in-context recall fails while weight-stored world knowledge answers correctly — 5/5 mixed
+    versus 0/5 PD
+  silent: true
+
+verification:
+  date: 2026-07-20
+  hardware: 2-node AMD ROCm PD
+  software: ATOM 0.1.4 base image
+  workload: Qwen3.5-397B-A17B hybrid GDN, memory-probe recall test
+  result: 0/5 PD recall becomes parity with the 5/5 single-node mixed baseline.
+  notes: >-
+    The probe design is the transferable part: testing only world knowledge would have passed.
+    Any PD correctness check for a hybrid model needs an in-context recall probe.
+
+scope_limits: >-
+  Assumes slots_per_req == 1 in the common case (speculative decoding off). With speculative
+  decoding on, a cache group spans several slots and the unit_bytes sizing is what makes that
+  correct — worth re-reading before enabling both together.
+
+open_actions:
+  - action: >-
+      Land the equivalent inside ATOM so the image patch can be dropped. There is no public
+      upstream, so this is the only path to retiring it.
+    owner: unassigned
+    blocked_on: null

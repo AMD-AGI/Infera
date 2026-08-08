@@ -1,0 +1,193 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - gh-pr-issue-state
+  - upstream-source-read
+  - local-repro
+
+patch:
+  path: deploy/docker/patches/vllm/patch_vllm_mooncake_prom_metrics.py
+  kind: python-anchor-script
+  idempotent: true
+  applied_by:
+    - Dockerfile.vllm
+    - deploy/overlay/Dockerfile.payload
+    - deploy/overlay/infera-exec
+  opt_in_flag: null
+
+target:
+  library: vllm
+  component: mooncake-connector
+  repo: vllm-project/vllm
+  files:
+    - vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py
+  versions:
+    - surface: Dockerfile.vllm
+      ref: v0.25.1
+      commit: null
+      pinned_ref_on_main: false
+      release_branch: null
+      unpinned_risk: >-
+        Consumed as a published image digest rather than a git ref; the digest is the pin.
+      images:
+        - tag: vllm/vllm-openai-rocm:v0.25.1
+          digest: sha256:84459732ca98b40fe2f5338a3f050be6d522504e47a484a5180d58fb75956f86
+          digest_source: dockerfile-pin
+          note: vllm 0.25.1, torch 2.11.0, ROCm 7.2.3.
+
+upstream_main_affected:
+  value: true
+  evidence: >-
+    Read from upstream main on 2026-08-05: mooncake_connector.py still has NO
+    build_prom_metrics. Main is affected; #50374 is the candidate fix and is unreviewed.
+
+applies_to:
+  - engine: vllm
+    surface: Dockerfile.vllm (v0.25.1 base)
+    effect: op
+    required_to_run: true
+    evidence: >-
+      Required for the PD + kvd-L3 recipe specifically: MultiConnector(InferaKvdConnector
+      + MooncakeConnector) with engine metrics enabled dies on the first stats collection
+      after the first request without it.
+  - engine: vllm
+    surface: deploy/overlay/infera-exec
+    effect: op
+    required_to_run: true
+    evidence: Same condition on the runtime-overlay path.
+
+alive_because:
+  reason: upstream-pr-open
+  detail: >-
+    Upstream now has a candidate, #50374, opened 2026-07-30 and still REVIEW_REQUIRED, plus
+    a second PR (#43836) that would solve it from the other side by making MultiConnector
+    skip children without metrics. Either would retire this. Neither has moved.
+  consumers:
+    - >-
+      Dockerfile.vllm and the overlay payload, for PD + kvd-L3 with engine metrics enabled
+      (i.e. without --disable-log-stats)
+  drop_when: >-
+    A base vLLM gives MooncakeConnector a build_prom_metrics (#50374), or makes
+    MultiConnector tolerant of children without one (#43836).
+  drop_signal: self-guard-marker-skips
+  silent_misapply_risk: null
+
+history:
+  born:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+  last_modified:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+    reason: Unchanged since it was written.
+
+upstream_issues: null
+
+upstream_prs:
+  - ref: vllm-project/vllm#50374
+    url: https://github.com/vllm-project/vllm/pull/50374
+    title: Add MooncakePromMetrics and wire via build_prom_metrics
+    state: OPEN
+    review_decision: REVIEW_REQUIRED
+    merged_at: null
+    author: pavithranrao
+    ours: false
+    same_approach: true
+    approach_note: >-
+      Same shape as ours — give the connector a build_prom_metrics — but a real metrics
+      class rather than our no-op adapter. Better; ours only has to satisfy the
+      registration contract because Mooncake's telemetry already flows through
+      get_kv_connector_stats.
+    requested_action: null
+    in_pinned_base: false
+  - ref: internal#178
+    url: https://github.com/AMD-AGI/Infera/pull/178
+    title: "Give InferaKvdConnector build_prom_metrics"
+    state: MERGED
+    review_decision: null
+    merged_at: null
+    author: null
+    ours: true
+    same_approach: true
+    approach_note: >-
+      Ours, and the direct ancestor of this patch: it fixed the InferaKvd half of the same
+      bug and stopped there, so KVD=1 with stats still died. That is why the Kimi-K2.6 PD
+      benchmarks had to run with L3 off or stats off, and why kvd's own L3 telemetry was
+      invisible. Worth recording as the shape of the mistake: fixing one child of a
+      MultiConnector fixes nothing, because the assert is over all of them.
+    requested_action: null
+    in_pinned_base: null
+
+related_refs:
+  - ref: vllm-project/vllm#43836
+    url: https://github.com/vllm-project/vllm/pull/43836
+    kind: pr
+    title: "MultiConnector: skip children without Prometheus metrics support"
+    state: OPEN
+    state_reason: null
+    author: null
+    relevance: alternative-repair
+    note: >-
+      The opposite side of the same fix — make the container tolerant instead of making
+      every child comply. Either landing retires this patch.
+
+problem:
+  what: >-
+    MooncakeConnector implements get_kv_connector_stats but not build_prom_metrics, so
+    under MultiConnector the Prometheus registration contract is violated and the engine
+    dies on the first stats collection after the first request.
+  why: >-
+    Without its own build_prom_metrics, MooncakeConnector inherits the base classmethod
+    that returns None. MultiConnector.build_prom_metrics only registers children whose
+    build_prom_metrics returns non-None, so Mooncake never lands in the registry — and
+    then MultiKVConnectorPromMetrics.observe asserts that every child IS registered.
+    Reachable only under MultiConnector; a single-connector setup never takes that path.
+  how: >-
+    Add a build_prom_metrics returning a no-op observe() adapter, mirroring
+    InferaKvdPromMetrics. It invents no counters and alters no existing metric — Mooncake's
+    transfer telemetry already flows through get_kv_connector_stats, so only the
+    registration contract needs satisfying. Doing this at image-build time rather than
+    monkey-patching from infera's Python at run time is deliberate: the runtime approach
+    loses an import-order race, because MultiConnector calls Mooncake's build_prom_metrics
+    before the infera module that would patch it is imported. Editing the vendored file
+    removes the race entirely.
+  before_fix: >-
+    "AssertionError: MooncakeConnector is not contained in the list of registered
+    connectors with Prometheus metrics support: dict_keys([...])" and the engine dies.
+  after_fix: >-
+    PD + kvd-L3 runs with engine metrics on, so the vllm:*prefix_cache_* counters and
+    kvd's L3 telemetry are visible — they were never missing, just gated behind engine
+    metrics being enabled at all.
+  context: >-
+    Exactly the PD + kvd-L3 recipe: MultiConnector(InferaKvdConnector + MooncakeConnector)
+    with engine metrics enabled. Unreachable with a single connector, and unreachable with
+    --disable-log-stats, which is how the Kimi-K2.6 benchmarks worked around it.
+  call_chain:
+    - "MultiConnector.build_prom_metrics -> registers only children returning non-None"
+    - "MooncakeConnector inherits the base build_prom_metrics -> None -> never registered"
+    - "MultiKVConnectorPromMetrics.observe asserts every child is registered -> engine dies"
+  symptom_signature: "MooncakeConnector is not contained in the list of registered connectors with Prometheus metrics support"
+  silent: false
+
+verification:
+  date: 2026-07-20
+  hardware: AMD ROCm PD with kvd L3
+  software: vLLM with MultiConnector(InferaKvd + Mooncake), engine metrics enabled
+  workload: PD + kvd-L3 with stats on
+  result: >-
+    The first-request assert is gone and L3 telemetry is visible for the first time.
+  notes: null
+
+scope_limits: >-
+  A no-op adapter: it satisfies registration and emits nothing of its own. If real
+  Mooncake Prometheus counters are wanted, that is #50374's job, not this patch's.
+
+open_actions:
+  - action: >-
+      Support #50374 with our datapoint rather than opening a competing PR, and note on
+      the thread that #43836 would also resolve it.
+    owner: unassigned
+    blocked_on: upstream review

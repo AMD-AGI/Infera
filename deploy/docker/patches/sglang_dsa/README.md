@@ -36,8 +36,11 @@ established, the upstream issue / third-party PR / our own PR, how it differs
 from our own upstream PR, and whether the IndexShare workaround substitutes for
 it. Read the `.diff` before changing it.
 
-Upstream linkage for these and every other patch in the repo is indexed in
-[`deploy/docker/patch.upstream.status.md`](../../patch.upstream.status.md).
+Each patch also has a machine-checked record beside it —
+`<patch-prefix>.upstream.status.yaml` — carrying its upstream state, per-engine
+effect and drop condition. Upstream linkage for these and every other patch in
+the repo is indexed in
+[`deploy/docker/patch.upstream.status.yaml`](../../patch.upstream.status.yaml).
 
 ## Applying
 

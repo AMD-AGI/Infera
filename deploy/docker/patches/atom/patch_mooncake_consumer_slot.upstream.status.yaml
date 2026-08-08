@@ -1,0 +1,123 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - local-repro
+  - patch-header-only
+
+patch:
+  path: deploy/docker/patches/atom/patch_mooncake_consumer_slot.py
+  kind: python-anchor-script
+  idempotent: true
+  applied_by:
+    - Dockerfile.atom
+  opt_in_flag: null
+
+target:
+  library: atom
+  component: mooncake-connector
+  repo: internal
+  files:
+    - atom/kv_transfer/disaggregation/mooncake/mooncake_connector.py
+  versions:
+    - surface: Dockerfile.atom
+      ref: atom0.1.4
+      commit: null
+      pinned_ref_on_main: null
+      release_branch: null
+      unpinned_risk: >-
+        Internal engine consumed as a base image; the tag is the entire pin.
+      images:
+        - tag: rocm/atom:rocm7.2.4_ubuntu24.04_py3.12_pytorch_release_2.10.0_atom0.1.4_20260612
+          digest: null
+          digest_source: unresolved
+          note: ATOM 0.1.4, built 2026-06-12. Tag-pinned only.
+
+upstream_main_affected:
+  value: null
+  evidence: No public upstream exists — ATOM is internal.
+
+applies_to:
+  - engine: atom
+    surface: Dockerfile.atom
+    effect: op
+    required_to_run: true
+    evidence: >-
+      Without it the decode worker crashes on the FIRST PD request for any model with
+      cache-group slot state but no registered slot_regions.
+
+alive_because:
+  reason: internal-engine-no-upstream
+  detail: >-
+    No public upstream. Note the coupling worth knowing: this defect is reached by exactly the
+    model class that the GDN state-transfer patch also serves — Qwen3.5's GDN layout, where
+    local_slot_index >= 0 while _has_slot_regions is False.
+  consumers:
+    - Dockerfile.atom, for hybrid models with slot state but no slot_regions (e.g. Qwen3.5 GDN)
+  drop_when: ATOM initialises consumer_staging_pool_idx unconditionally.
+  drop_signal: anchor-drift-fails-loudly
+  silent_misapply_risk: null
+
+history:
+  born:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+  last_modified:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+    reason: Unchanged since it was written.
+
+upstream_issues: null
+
+upstream_prs: null
+
+related_refs: null
+
+problem:
+  what: >-
+    In the Mooncake PD KV-transfer consumer, start_load_kv reads consumer_staging_pool_idx on a
+    path where it was never bound, so the decode worker dies with an UnboundLocalError on the
+    first PD request.
+  why: >-
+    The variable is bound only inside the `if self._has_slot_regions:` branch but referenced
+    unconditionally when recording a pending recv slot. Hybrid models that use cache-group slot
+    state but do NOT register slot_regions — Qwen3.5's GDN linear-attention layout, where
+    local_slot_index >= 0 while _has_slot_regions is False — take the else path and hit the
+    unbound read.
+  how: >-
+    Initialise consumer_staging_pool_idx = -1 at the top of the per-request loop. The WRITE_DONE
+    release path is already guarded by `if pool_idx >= 0:`, so -1 is safe and simply skips the
+    staging scatter and release for the block-only path.
+  before_fix: >-
+    "UnboundLocalError: cannot access local variable 'consumer_staging_pool_idx'" and the decode
+    worker crashes on the first PD request.
+  after_fix: The decode worker survives and the block-only path skips staging cleanly.
+  context: >-
+    ATOM Mooncake PD with a hybrid model that has cache-group slot state but no registered
+    slot_regions. Models that do register slot_regions never take the failing path.
+  call_chain:
+    - "atom/kv_transfer/disaggregation/mooncake/mooncake_connector.py :: start_load_kv"
+    - "consumer_staging_pool_idx bound only inside `if self._has_slot_regions:`"
+    - "else path records a pending recv slot and reads it anyway"
+    - "UnboundLocalError kills the decode worker on the first PD request"
+  symptom_signature: "UnboundLocalError: cannot access local variable 'consumer_staging_pool_idx'"
+  silent: false
+
+verification:
+  date: 2026-07-20
+  hardware: AMD ROCm PD
+  software: ATOM 0.1.4 base image
+  workload: Qwen3.5 GDN PD, first request
+  result: Crash cleared.
+  notes: >-
+    The -1 sentinel is safe only because the release path already tests pool_idx >= 0 — that
+    pre-existing guard is what makes a one-line fix correct here.
+
+scope_limits: null
+
+open_actions:
+  - action: Land the equivalent inside ATOM so the image patch can be dropped.
+    owner: unassigned
+    blocked_on: null

@@ -1,0 +1,183 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - gh-pr-issue-state
+  - gh-search
+  - local-repro
+
+patch:
+  path: deploy/docker/patches/mooncake_cpp/transfer_engine_impl.diff
+  kind: git-diff
+  idempotent: true
+  applied_by:
+    - deploy/docker/patches/mooncake_cpp/apply_mooncake_cpp_patches.sh
+    - Dockerfile.sglang
+    - Dockerfile.sglang.gfx942
+    - Dockerfile.vllm
+    - Dockerfile.atom
+    - deploy/overlay/Dockerfile.payload
+  opt_in_flag: MC_DISABLE_HIP_TRANSPORT / MC_ENABLE_HIP_TRANSPORT (runtime env; the gate itself is always compiled in)
+
+target:
+  library: mooncake
+  component: transfer-engine
+  repo: kvcache-ai/Mooncake
+  files:
+    - mooncake-transfer-engine/src/transfer_engine_impl.cpp
+  versions:
+    - surface: all images (MOONCAKE_GIT_REF)
+      ref: main @ 747003c
+      commit: 747003c058015c4077a266e7ccd7549bbc9baede
+      pinned_ref_on_main: true
+      release_branch: null
+      images: []
+
+upstream_main_affected:
+  value: true
+  evidence: >-
+    Mooncake#2725, which would add the env gate upstream, is still OPEN with no review
+    activity, so main still installs the HIP transport unconditionally. #2682, the PR
+    that introduced the unconditional install, is merged and in our pin.
+
+applies_to:
+  - engine: sglang
+    surface: Dockerfile.sglang / Dockerfile.sglang.gfx942
+    effect: op
+    required_to_run: true
+    evidence: >-
+      Cross-node PD does not work without it. Both sglang Dockerfiles additionally
+      ASSERT the gate is present in the .so they will load (REQUIRE_MOONCAKE_HIP_GATE=1
+      greps the binary for MC_ENABLE_HIP_TRANSPORT / MC_DISABLE_HIP_TRANSPORT), because
+      a build that silently skipped the rebuild ships stock #2682 and dies at run time.
+  - engine: vllm
+    surface: Dockerfile.vllm
+    effect: op
+    required_to_run: true
+    evidence: Same assertion layer (step 3b of Dockerfile.vllm), same reasoning.
+  - engine: atom
+    surface: Dockerfile.atom
+    effect: op
+    required_to_run: true
+    evidence: Same diff and pin.
+
+alive_because:
+  reason: upstream-pr-open
+  detail: >-
+    Ours as #2725, open and unreviewed. Until it merges AND the pin advances past it,
+    every ROCm image needs the local gate — and because the failure is a hard runtime
+    error on cross-node PD, the images assert the gate is compiled in rather than trust
+    the build.
+  consumers:
+    - every ROCm engine image doing cross-node PD over RDMA
+  drop_when: >-
+    #2725 merges and MOONCAKE_GIT_REF advances past it.
+  drop_signal: pin-advance-only
+  silent_misapply_risk: >-
+    Inverted here, and worth being clear about: the danger is not the patch outliving its
+    reason but the patch silently NOT being applied. That is what the
+    REQUIRE_MOONCAKE_HIP_GATE assertion exists for, plus
+    deploy/docker/scripts/verify_image_mooncake.sh for images built FROM an already
+    published image where the build stage never re-runs.
+
+history:
+  born:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+  last_modified:
+    date: 2026-08-01
+    commit: b7df12a
+    subject: "fix(mooncake): disable the HIP (hipIpc) transport on ROCm"
+    reason: >-
+      Turned into a real env-var gate. Before this the diff addressed the same defect
+      differently; b7df12a made it MC_DISABLE_HIP_TRANSPORT / MC_ENABLE_HIP_TRANSPORT so
+      the behaviour can be selected at run time and asserted in the shipped .so.
+
+upstream_issues:
+  - ref: kvcache-ai/Mooncake#2724
+    url: https://github.com/kvcache-ai/Mooncake/issues/2724
+    kind: issue
+    title: HIP transport is installed unconditionally and preferred over RDMA on ROCm
+    state: OPEN
+    state_reason: null
+    author: jiejingzhangamd
+    note: "Our report; #2725 is the fix for it."
+
+upstream_prs:
+  - ref: kvcache-ai/Mooncake#2725
+    url: https://github.com/kvcache-ai/Mooncake/pull/2725
+    title: "fix(hip): gate the HIP transport behind an env var (#2724)"
+    state: OPEN
+    review_decision: REVIEW_REQUIRED
+    merged_at: null
+    author: jiejingzhangamd
+    ours: true
+    same_approach: true
+    approach_note: Same gate, submitted upstream. No review activity yet.
+    requested_action: null
+    in_pinned_base: false
+
+related_refs:
+  - ref: kvcache-ai/Mooncake#2682
+    url: https://github.com/kvcache-ai/Mooncake/pull/2682
+    kind: pr
+    title: Add HIP (hipIpc) transport
+    state: MERGED
+    state_reason: fixed
+    author: null
+    relevance: introduced-the-defect
+    note: >-
+      This is what installs the HIP transport unconditionally and prefers it over RDMA.
+      It is IN our pin, which is why every image has to rebuild Mooncake rather than use
+      the one the base ships.
+
+problem:
+  what: >-
+    Mooncake installs the HIP (hipIpc) transport unconditionally and prefers it over
+    RDMA, so on a multi-node ROCm deployment the engine picks a transport that only works
+    within a node.
+  why: >-
+    hipIpc memory handles are node-local by construction. Upstream #2682 added the
+    transport and registered it without any topology or reachability test, and the
+    selection order puts it ahead of RDMA, so a cross-node target is attempted over
+    hipIpc and fails at handle-open time.
+  how: >-
+    Gate installation behind an explicit env var — MC_DISABLE_HIP_TRANSPORT to force it
+    off, MC_ENABLE_HIP_TRANSPORT to opt in — so ROCm multi-node deployments fall through
+    to RDMA. Compiling the gate in unconditionally is what lets the images assert on it.
+  before_fix: >-
+    Cross-node PD dies with hipIpcOpenMemHandle error 201.
+  after_fix: >-
+    Cross-node PD runs over RDMA. The strings MC_ENABLE_HIP_TRANSPORT and
+    MC_DISABLE_HIP_TRANSPORT are present in the shipped engine .so, which is what the
+    build-time assertion checks.
+  context: >-
+    Any ROCm multi-node deployment on a Mooncake carrying #2682. Not model-specific and
+    not arch-specific beyond being ROCm.
+  call_chain:
+    - "TransferEngineImpl::init -> installTransport(hip) with no reachability test"
+    - transport selection prefers hip over rdma
+    - "cross-node target -> hipIpcOpenMemHandle -> error 201"
+  symptom_signature: "hipIpcOpenMemHandle ... 201"
+  silent: false
+
+verification:
+  date: 2026-08-01
+  hardware: multi-node AMD ROCm with RDMA
+  software: "Mooncake main @ 747003c (i.e. including #2682)"
+  workload: cross-node PD KV transfer
+  result: hipIpcOpenMemHandle 201 cleared; RDMA is selected.
+  notes: >-
+    The build-time gate assertion is a separate Dockerfile layer on purpose so it runs in
+    both BUILD_MOONCAKE branches and shows up in `docker history`.
+
+scope_limits: >-
+  The gate does not decide anything by topology — it is an explicit switch. A single-node
+  ROCm deployment that would genuinely benefit from hipIpc has to opt in with
+  MC_ENABLE_HIP_TRANSPORT.
+
+open_actions:
+  - action: "Get #2725 reviewed; it has had no activity since it was opened."
+    owner: jiejingzhangamd
+    blocked_on: upstream review

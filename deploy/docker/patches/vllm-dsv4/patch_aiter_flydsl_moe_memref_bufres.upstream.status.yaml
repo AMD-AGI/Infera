@@ -1,0 +1,129 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - gh-search
+  - local-repro
+
+patch:
+  path: deploy/docker/patches/vllm-dsv4/patch_aiter_flydsl_moe_memref_bufres.py
+  kind: python-anchor-script
+  idempotent: true
+  applied_by:
+    - Dockerfile.vllm
+  opt_in_flag: BUILD_AITER=1 (build ARG; default 1 — the patch targets the aiter this step builds)
+
+target:
+  library: aiter
+  component: flydsl-moe
+  repo: ROCm/aiter
+  files:
+    - aiter/ops/flydsl/kernels/moe_gemm_2stage.py
+  versions:
+    - surface: Dockerfile.vllm (build_aiter_rocm.sh)
+      ref: v0.1.16.post1
+      commit: null
+      pinned_ref_on_main: null
+      release_branch: null
+      unpinned_risk: >-
+        AITER_GIT_REF pins a tag, not a commit, and aiter is built in-container so no digest
+        exists. The tag is the pin. Note the patch's own header records verification against
+        aiter 0.1.16.post2 / flydsl 0.2.0, one patch level ABOVE the tag the Dockerfile now
+        builds — the two have drifted and nobody re-verified.
+      images: []
+
+upstream_main_affected:
+  value: null
+  evidence: >-
+    Not established. aiter main was not read, and no search hit was found on either the
+    symptom or the symbol across vLLM and ROCm/aiter as of 2026-08-05. Recorded as null
+    rather than guessed: this is a fast-moving kernel library where a version-specific
+    fx.ptrtoint behaviour may simply have changed without a traceable fix.
+
+applies_to:
+  - engine: vllm
+    surface: Dockerfile.vllm (vllm-dsv4-patches loop)
+    effect: unverified
+    required_to_run: false
+    evidence: >-
+      Load-bearing for Kimi-K2.6 int4 W4A16 MoE when the anchors are present, and a
+      documented no-op for DSv4 MXFP4. Marked unverified because the patch was verified
+      against aiter 0.1.16.post2 while the Dockerfile now builds v0.1.16.post1, and nobody
+      has confirmed the anchors still match what that tag produces.
+
+alive_because:
+  reason: no-upstream-pr
+  detail: >-
+    No upstream issue and no upstream PR, ours included. Searched again on 2026-08-05 across
+    vLLM and ROCm/aiter, on the symptom and on the symbol.
+  consumers:
+    - Dockerfile.vllm, for Kimi-K2.6 int4 W4A16 MoE
+  drop_when: >-
+    aiter's flydsl accepts memref-typed pointer arguments in fx.ptrtoint, or the built aiter
+    version no longer contains the buffer-resource helper this reverts.
+  drop_signal: self-guard-marker-skips
+  silent_misapply_risk: >-
+    The patch REVERTS gemm1/gemm2 to an older buffer_ops formulation. If aiter later changes
+    those kernels for reasons unrelated to the memref problem, the anchors could still match
+    while the revert now discards a genuine improvement. The marker guard prevents double
+    application but cannot detect that case.
+
+history:
+  born:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+  last_modified:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+    reason: >-
+      Unchanged, while AITER_GIT_REF moved underneath it. That drift is the open action below.
+
+upstream_issues: null
+
+upstream_prs: null
+
+related_refs: null
+
+problem:
+  what: >-
+    vLLM passes tensors into aiter's flydsl 2-stage MoE GEMM, which arrive as flydsl memrefs,
+    and aiter 0.1.16's fx.ptrtoint rejects memrefs — the kernel build dies with an MLIRError.
+  why: >-
+    The gemm1/gemm2 buffer-resource construction was changed to go through fx.ptrtoint, which
+    assumes a raw pointer. A memref is not one, so the conversion raises during MLIR
+    construction rather than at a type boundary where it would be obvious.
+  how: >-
+    Revert the gemm1/gemm2 buffer-resource builds to the memref-friendly buffer_ops calls
+    (create_buffer_resource / extract_base_index). gemm3 is deliberately untouched.
+  before_fix: MLIRError crash in the 2-stage MoE GEMM on Kimi-K2.6 int4 W4A16.
+  after_fix: The MoE GEMM builds and runs. No-op for DSv4 MXFP4, which does not take this path.
+  context: >-
+    Kimi-K2.6 int4 W4A16 MoE on ROCm. Verified against aiter 0.1.16.post2 with flydsl 0.2.0 on
+    a vLLM dev748 base — note that BOTH of those differ from what Dockerfile.vllm builds today.
+  call_chain:
+    - "vLLM MoE layer passes tensors to the aiter flydsl 2-stage GEMM"
+    - "aiter/ops/flydsl/kernels/moe_gemm_2stage.py :: _ptr_buffer_resource -> fx.ptrtoint(ptr)"
+    - "ptr is a flydsl memref -> MLIRError during MLIR construction"
+  symptom_signature: MLIRError from fx.ptrtoint in moe_gemm_2stage
+  silent: false
+
+verification:
+  date: 2026-07-20
+  hardware: AMD ROCm
+  software: aiter 0.1.16.post2, flydsl 0.2.0, vLLM dev748
+  workload: Kimi-K2.6 int4 W4A16 MoE
+  result: MLIRError cleared.
+  notes: >-
+    This verification is now stale relative to the Dockerfile — recorded as-is rather than
+    restated against v0.1.16.post1, which would be a claim nobody has checked.
+
+scope_limits: gemm1 and gemm2 only; gemm3 is left alone.
+
+open_actions:
+  - action: >-
+      Re-verify against the aiter version Dockerfile.vllm actually builds (v0.1.16.post1). The
+      patch was verified on 0.1.16.post2 and the two have drifted apart.
+    owner: unassigned
+    blocked_on: null

@@ -33,7 +33,9 @@ RUN if [ "${BUILD_AITER}" = "1" ]; then \
 # Apply patches/vllm/ (general PD-transport / scheduler fixes) then patches/
 # vllm-dsv4/ (DSv4-specific: moriio_dsv4 {hybrid_blocksize, sparse_backend,
 # noncontig_register} + aiter flydsl). Each patch no-ops if its anchor is absent,
-# so a base bump degrades gracefully. legacy/ is upstream on this base, not applied.
+# so a base bump degrades gracefully. The retired legacy/ patches have moved to
+# patches/archived/vllm-dsv4/ (recorded in patches/archived/patch.archived.yaml) and are
+# no longer copied into the image at all.
 #
 # Removed on v0.25.1 (were no-op here): the three GLM-5.1 moriio patches
 # patch_moriio_dsa_write.py, patch_moriio_hetero.py and patch_vllm_moriio_blocksize.py.

@@ -1,0 +1,227 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - gh-pr-issue-state
+  - gh-search
+  - local-repro
+
+patch:
+  path: deploy/docker/patches/sglang_dsa/draft_cuda_graph_dp_vote.diff
+  kind: context-diff
+  idempotent: false
+  applied_by:
+    - Dockerfile.sglang
+    - deploy/docker/scripts/apply_sglang_dsa_patches.sh
+  opt_in_flag: APPLY_SGLANG_DSA_PATCHES=1 with DSA_PATCH_SET=full (Dockerfile.sglang only)
+
+target:
+  library: sglang
+  component: speculative-decoding
+  repo: sgl-project/sglang
+  files:
+    - python/sglang/srt/speculative/eagle_worker_v2.py
+    - python/sglang/srt/speculative/eagle_draft_cuda_graph_runner.py
+    - python/sglang/srt/layers/dp_attention.py
+    - python/sglang/srt/model_executor/forward_batch_info.py
+    - python/sglang/srt/managers/schedule_batch.py
+    - python/sglang/srt/disaggregation/decode.py
+  versions:
+    - surface: Dockerfile.sglang
+      ref: v0.5.15.post1
+      commit: 0b3bb0cbe318
+      pinned_ref_on_main: false
+      release_branch: release/v0.5.15
+      images:
+        - tag: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
+          digest: null
+          digest_source: unresolved
+          note: >-
+            --fuzz=0 against this tag. The gfx942 v0.5.16 image substitutes a runtime
+            flag instead of taking this diff.
+
+upstream_main_affected:
+  value: true
+  evidence: >-
+    #32209, the PR carrying this fix, is still OPEN, and the guard it repairs was
+    introduced by #30839/#31083 which are merged. So main has the guard and not the fix.
+
+applies_to:
+  - engine: sglang
+    surface: Dockerfile.sglang (gfx950 / MI355X, v0.5.15.post1)
+    effect: op
+    required_to_run: true
+    evidence: >-
+      apply_sglang_dsa_patches.sh asserts five bytecode markers for this diff
+      (dp_attn.py:can_draft_cuda_graph, eagle_worker_v2.py:requires_dp_attention_eager_forward,
+      eagle_draft_cuda_graph_runner.py:can_run_dp_draft_cuda_graph,
+      forward_batch_info.py:can_run_dp_draft_cuda_graph,
+      schedule_batch.py + decode.py:force_disable_draft_cuda_graph).
+  - engine: sglang
+    surface: Dockerfile.sglang.gfx942 (gfx942 / MI325X, v0.5.16)
+    effect: not-applied
+    required_to_run: false
+    evidence: >-
+      Substituted at runtime with
+      --json-model-override-args '{"index_share_for_mtp_iteration":false}', which makes
+      the rank-dependent term-4 seed unreachable rather than making the choice a group
+      decision. Cheaper, narrower, and it costs the IndexShare optimisation.
+
+alive_because:
+  reason: upstream-pr-open
+  detail: >-
+    #32209 carries this same fix with the same strategy and this diff adopts its
+    placement verbatim. We deliberately did NOT open a competing PR — the right move is
+    to converge on #32209, which is better placed. It has been open and unreviewed
+    since before our fix existed.
+  consumers:
+    - Dockerfile.sglang (GLM-5.2 PD decode leg with DP-attention + EAGLE MTP on gfx950)
+  drop_when: >-
+    #32209 merges and lands in a base sglang we build against, or the guard introduced
+    by #30839 is reworked so the choice is no longer per-rank.
+  drop_signal: anchor-drift-fails-loudly
+  silent_misapply_risk: null
+
+history:
+  born:
+    date: 2026-08-01
+    commit: c91db76
+    subject: "sglang DSA: enable PD + DP-attention + EAGLE MTP for GLM-5.2 on gfx950"
+  last_modified:
+    date: 2026-08-01
+    commit: c91db76
+    subject: "sglang DSA: enable PD + DP-attention + EAGLE MTP for GLM-5.2 on gfx950"
+    reason: >-
+      Cut once against v0.5.15.post1 in the change that enabled the topology; no
+      revision needed since.
+
+upstream_issues:
+  - ref: sgl-project/sglang#32527
+    url: https://github.com/sgl-project/sglang/issues/32527
+    kind: issue
+    title: "[BUG] EAGLE + DP Attention + PD Disaggregation: Deadlock when index_share_for_mtp_iteration is enabled for GLM-5.2"
+    state: OPEN
+    state_reason: null
+    author: Xavier1994
+    note: >-
+      The same defect, reported independently on 8x Blackwell / GLM-5.2-FP8 on
+      2026-07-27 — two days before we fixed it — with the same analysis. It proposes a
+      THIRD strategy: a dummy all-zeros seed so term 4 is always false. No activity
+      since it was filed.
+
+upstream_prs:
+  - ref: sgl-project/sglang#32209
+    url: https://github.com/sgl-project/sglang/pull/32209
+    title: Fix PD decode hang with DP attention and GLM-5.2 MTP
+    state: OPEN
+    review_decision: REVIEW_REQUIRED
+    merged_at: null
+    author: HZY-Wade
+    ours: false
+    same_approach: true
+    approach_note: >-
+      Same defect, same strategy — a group-wide decision instead of a per-rank one. This
+      diff adopts its placement verbatim so the two do not diverge. We opened no PR of
+      our own on purpose: a competing PR would be noise and #32209 is better placed.
+    requested_action: null
+    in_pinned_base: false
+
+related_refs:
+  - ref: sgl-project/sglang#30839
+    url: https://github.com/sgl-project/sglang/pull/30839
+    kind: pr
+    title: "[bug-fix] Stabilize GLM-5.2 MTP IndexShare across PD and CUDA graph replay"
+    state: MERGED
+    state_reason: fixed
+    author: zRzRzRzRzRzRzR
+    relevance: introduced-the-defect
+    note: >-
+      This is where the per-rank guard came from, cherry-picked to release/v0.5.15 as
+      #31083. So the deadlock is a regression in our baseline, not a legacy wart.
+  - ref: sgl-project/sglang#31083
+    url: https://github.com/sgl-project/sglang/pull/31083
+    kind: pr
+    title: "[Cherry-pick to release/v0.5.15] Stabilize GLM-5.2 MTP IndexShare across PD and CUDA graph replay (#30839)"
+    state: MERGED
+    state_reason: fixed
+    author: kpham-sgl
+    relevance: introduced-the-defect
+    note: The cherry-pick that put the guard into the exact release line we pin.
+  - ref: sgl-project/sglang#32196
+    url: https://github.com/sgl-project/sglang/pull/32196
+    kind: pr
+    title: "[PD] Keep EAGLE DP graph and token metadata consistent"
+    state: OPEN
+    state_reason: null
+    author: weireweire
+    relevance: adjacent-site
+    note: Same area, different site. Not a fix for this defect.
+  - ref: sgl-project/sglang#32722
+    url: https://github.com/sgl-project/sglang/pull/32722
+    kind: pr
+    title: "[RED regression] Test GLM-5.2 PD + DP attention + MTP"
+    state: OPEN
+    state_reason: null
+    author: IvanShan177
+    relevance: missing-test-coverage
+    note: >-
+      A test for exactly this topology. Its existence proves no CI covers it today,
+      which is why this family of defects reaches a released base.
+
+problem:
+  what: >-
+    EagleDraftWorker.draft() decides PER RANK whether to replay the draft CUDA graph or
+    run the multi-step draft eagerly. The two paths do not issue the same host-side
+    collective sequence, so when ranks disagree the whole DP group deadlocks.
+  why: >-
+    Two of the guard's four terms are rank-dependent by construction. `not
+    forward_batch.forward_mode.is_idle()` differs per rank every step. And
+    `draft_input.dsa_topk_indices is None` is, on the PD DECODE leg, seeded from
+    RDMA-shipped per-request payloads (eagle_disaggregation.py), so it is a function of
+    which requests a rank happens to hold. Single-node MIX never hangs because with no
+    disaggregation the top-k seed is produced locally by identical code on every rank,
+    so term 4 never flips asymmetrically.
+  how: >-
+    Make the choice a GROUP decision using one more int64 slot in the MLP-sync
+    all-gather the scheduler already performs, min()-reduced so any rank needing eager
+    takes the whole group eager. Inactive ranks contribute 1 (permissive) and so can
+    never drag the group into eager on their own. No new collective is introduced.
+  before_fix: >-
+    The first routed request hard-deadlocks the PD decode leg. No error, no traceback —
+    the group simply stops.
+  after_fix: >-
+    GLM-5.2 PD with DP-attention and EAGLE MTP serves normally on gfx950, with
+    IndexShare left enabled.
+  context: >-
+    gfx950 / MI355X, sglang v0.5.15.post1, GLM-5.2-FP8, PD disaggregation, DP-attention
+    with EAGLE MTP. Reproduces only under disaggregation; single-node mixed serving is
+    unaffected. Independently reported upstream on 8x Blackwell, so it is not
+    ROCm-specific.
+  call_chain:
+    - "sglang/srt/speculative/eagle_worker_v2.py :: EagleDraftWorker.draft()"
+    - "guard term 2: forward_batch.forward_mode.is_idle() — per-rank occupancy"
+    - "guard term 4: draft_input.dsa_topk_indices is None — seeded from RDMA payloads on the PD decode leg"
+    - "divergent branch -> mismatched host-side collective sequence -> group deadlock"
+  symptom_signature: silent hang on the first routed PD decode request, no log output
+  silent: false
+
+verification:
+  date: 2026-08-01
+  hardware: 8x MI355X (gfx950)
+  software: sglang v0.5.15.post1, ROCm 7.2.0
+  workload: GLM-5.2-FP8 PD, DP-attention + EAGLE MTP, IndexShare enabled
+  result: First-request deadlock cleared; the group takes the same path on every rank.
+  notes: >-
+    The all-gather slot rides the sync the scheduler already does, so the fix costs no
+    extra collective.
+
+scope_limits: >-
+  Cut --fuzz=0 against v0.5.15.post1. Not re-cut for v0.5.16 — the gfx942 image works
+  around the same defect with a runtime flag that disables IndexShare instead.
+
+open_actions:
+  - action: >-
+      Support #32209 upstream rather than opening a competing PR; add the ROCm datapoint
+      to that thread, and to #32527 which has had no follow-up.
+    owner: unassigned
+    blocked_on: "upstream review of #32209"

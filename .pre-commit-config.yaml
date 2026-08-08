@@ -28,6 +28,19 @@ repos:
       - id: ruff-check
         args: [--fix]
 
+  # Style gate for the hand-written YAML under deploy/docker/ only. check-yaml
+  # above answers "does this parse"; yamllint answers "does it say what its
+  # author meant" — an unquoted ` #` opens a comment, so a PR number mid-sentence
+  # silently truncates the value. Scoped by `files:` rather than turned loose on
+  # the repo: deploy/operator/ holds a much larger body of existing k8s YAML and
+  # is left alone deliberately. Config in .yamllint.yaml.
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.38.0
+    hooks:
+      - id: yamllint
+        args: [--strict]  # warnings fail too; a hook that exits 0 gets ignored
+        files: ^deploy/docker/.*\.ya?ml$
+
   # Rust formatting gate (needs a local toolchain: rustup + rustfmt). clippy and
   # tests are heavier, so they run in CI (.github/workflows/ci.yml, job `rust`).
   - repo: local
@@ -37,6 +50,21 @@ repos:
         entry: cargo fmt --manifest-path rust/Cargo.toml --all -- --check
         language: system
         files: ^rust/.*\.rs$
+        pass_filenames: false
+
+      # Every patch under deploy/docker/patches/ must have a status record that validates
+      # against its schema and agrees with the index, so a patch cannot be added — or
+      # silently outlive its upstream fix — without saying where it stands.
+      # language: python (not system) so pre-commit builds an env holding the two
+      # deps — the CI lint job installs pre-commit alone, never the project, so a
+      # system hook has no jsonschema. Kept in sync with pyproject's [dev] extra,
+      # which is what the pytest job uses.
+      - id: validate-patch-status
+        name: patch upstream status (schema + index cross-check)
+        entry: python scripts/validate-patch-status.py
+        language: python
+        additional_dependencies: ["jsonschema>=4.18", "PyYAML>=6"]
+        files: ^deploy/docker/(patch\.upstream\.status\.yaml|patches/)
         pass_filenames: false
 
       # Refuse a commit whose git email is a machine-generated local hostname

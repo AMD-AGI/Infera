@@ -1,0 +1,134 @@
+# yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
+schema_version: 1
+status_updated: 2026-08-05
+verified_by:
+  - gh-search
+  - local-repro
+
+patch:
+  path: deploy/docker/patches/vllm-dsv4/patch_moriio_dsv4_hybrid_blocksize.py
+  kind: python-anchor-script
+  idempotent: true
+  applied_by:
+    - Dockerfile.vllm
+  opt_in_flag: null
+
+target:
+  library: vllm
+  component: moriio
+  repo: vllm-project/vllm
+  files:
+    - vllm/distributed/kv_transfer/kv_connector/v1/moriio/moriio_connector.py
+  versions:
+    - surface: Dockerfile.vllm
+      ref: v0.25.1
+      commit: null
+      pinned_ref_on_main: false
+      release_branch: null
+      unpinned_risk: >-
+        Consumed as a published image digest rather than a git ref; the digest is the pin. The
+        patch's own header records verification against vllm 0.23.x, two minor versions back.
+      images:
+        - tag: vllm/vllm-openai-rocm:v0.25.1
+          digest: sha256:84459732ca98b40fe2f5338a3f050be6d522504e47a484a5180d58fb75956f86
+          digest_source: dockerfile-pin
+          note: vllm 0.25.1, torch 2.11.0, ROCm 7.2.3.
+
+upstream_main_affected:
+  value: null
+  evidence: >-
+    Not established — main was not read for this one and no search hit exists. MoRIIO attracts
+    little third-party traffic, so absence of a report says little either way.
+
+applies_to:
+  - engine: vllm
+    surface: Dockerfile.vllm (vllm-dsv4-patches loop)
+    effect: unverified
+    required_to_run: false
+    evidence: >-
+      Verified load-bearing on vllm 0.23.x for DSv4-Pro MoRIIO 1P1D — without it the prefill
+      worker dies at KV registration. Not re-verified on the v0.25.1 base, which refactored
+      the MoRIIO connector enough to retire three sibling patches, so op-vs-no-op here is
+      genuinely open.
+
+alive_because:
+  reason: no-upstream-pr
+  detail: >-
+    Nothing upstream and nothing of ours. All four DSv4 MoRIIO patches were searched again on
+    2026-08-05 across vLLM and ROCm/aiter, on the symptom and on the symbol, with no hits.
+  consumers:
+    - Dockerfile.vllm, for DeepSeek-V4 MoRIIO PD
+  drop_when: >-
+    A base vLLM drops the global block_size equality check, or the v0.25.1+ refactor is
+    confirmed to have removed the anchors (in which case the patch is already a no-op).
+  drop_signal: self-guard-marker-skips
+  silent_misapply_risk: >-
+    This patch REMOVES a check and DEMOTES a raise to a debug log. If upstream later adds a
+    genuinely load-bearing block-size validation at the same site, the patch would silence it.
+    The narrow anchors make that unlikely rather than impossible.
+
+history:
+  born:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+  last_modified:
+    date: 2026-07-20
+    commit: 89c86fb
+    subject: Infera v0.1.0
+    reason: >-
+      Unchanged across two base bumps. Its three GLM-5.1 siblings were deleted on the v0.25.1
+      move for having become no-ops; this one was kept without being re-verified.
+
+upstream_issues: null
+
+upstream_prs: null
+
+related_refs: null
+
+problem:
+  what: >-
+    A global block_size equality check in the MoRIIO connector kills the prefill worker at KV
+    registration for DeepSeek-V4, which legitimately registers per-layer caches with different
+    block sizes.
+  why: >-
+    The connector asserts `first_geometry.block_size == self.block_size` and raises on any
+    per-layer mismatch, but DSv4's KV geometry is hybrid by design — c128a sparse layers use
+    block size 2 while SWA and state layers use 256. The check is spurious because the actual
+    offset arithmetic already consults the per-layer self.block_lens dict, so nothing
+    downstream depends on the global equality.
+  how: >-
+    Drop the global assert and demote the per-layer mismatch raise to a debug log, leaving the
+    per-layer offset path untouched.
+  before_fix: The prefill worker dies at KV registration, so DSv4 MoRIIO PD never starts.
+  after_fix: DSv4-Pro serves over MoRIIO 1P1D.
+  context: >-
+    DeepSeek-V4-Pro with MoRIIOConnector 1P1D on ROCm; verified on vllm 0.23.x. Only hybrid
+    per-layer block-size models reach the check.
+  call_chain:
+    - "moriio_connector.py :: register_kv_caches"
+    - "assert first_geometry.block_size == self.block_size (global check)"
+    - "per-layer mismatch raise"
+    - "prefill worker dies before serving"
+  symptom_signature: block_size assertion at MoRIIO KV registration on a hybrid-KV model
+  silent: false
+
+verification:
+  date: 2026-07-20
+  hardware: AMD ROCm 1P1D
+  software: vllm 0.23.x ROCm, MoRIIOConnector
+  workload: DeepSeek-V4-Pro MoRIIO PD
+  result: Prefill worker survives registration and PD serves.
+  notes: Verification predates the v0.25.1 base by two minor versions.
+
+scope_limits: >-
+  Relaxes validation only; it does not make any transfer path block-size aware, because the
+  per-layer path already was.
+
+open_actions:
+  - action: >-
+      Re-verify all four DSv4 MoRIIO patches on the v0.25.1 base. The refactor that landed
+      moriio_layout.py already turned three sibling patches into no-ops, and these four were
+      carried across on the assumption they still apply.
+    owner: unassigned
+    blocked_on: null
