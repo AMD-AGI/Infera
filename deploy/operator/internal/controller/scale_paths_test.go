@@ -112,8 +112,9 @@ func TestEditingTheCRScales(t *testing.T) {
 
 // Editing the *child* is the path that does not survive, and that is the
 // intended behaviour of any operator: the child is derived state, so the next
-// pass restores it from the CR. This is why an HPA has to be pointed at a
-// scaling adapter and never at the generated Deployment.
+// pass restores it from the CR. The write succeeds and nothing reports an
+// error, which is why pointing an autoscaler at the generated Deployment looks
+// like it works right up until the next reconcile.
 func TestEditingTheChildIsReverted(t *testing.T) {
 	s := scaleScheme(t)
 	idep := idepWith(2)
