@@ -42,6 +42,13 @@ infera-kvd-l3-bench = "infera.kvd.bench.l3_bench:main"
 # node + PD preflight suite (gpu / network / storage / firmware / host probes)
 infera-preflight = "infera.tools.preflight.cli:main"
 
+# vLLM op-injection plugin (issue #40): inject custom Attention/MoE kernels into
+# stock vLLM out-of-tree — no fork. No-op unless ROCm is present and
+# INFERA_VLLM_OPS_DISABLE != 1. A general plugin (not a platform plugin) so it is
+# import-safe — it patches the resolved platform/MoE after vllm.platforms inits.
+[project.entry-points."vllm.general_plugins"]
+infera_ops = "infera.engine.vllm.ops.register:register_ops"
+
 [build-system]
 requires = ["setuptools>=69", "setuptools_scm[toml]>=8", "wheel"]
 build-backend = "setuptools.build_meta"
