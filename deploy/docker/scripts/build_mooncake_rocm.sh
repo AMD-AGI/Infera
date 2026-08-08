@@ -129,6 +129,18 @@ if [ -n "${ASIO_SO:-}" ]; then
     echo "installed libasio.so"
 fi
 
+# ---- drop the Go toolchain dependencies.sh installed ------------------------
+# dependencies.sh installs Go unconditionally, for the etcd metadata client and
+# the Rust/Go store. We build with USE_ETCD=OFF and WITH_STORE=OFF, so nothing
+# we ship links against it -- the engine is a Python extension over HIP/RDMA.
+# Removed here, in the same RUN as the build, because a delete in a later layer
+# leaves the files in the one below. Only /usr/local/go: bases that ship their
+# own Go under $HOME/go own that copy.
+if [ -d /usr/local/go ]; then
+    rm -rf /usr/local/go
+    echo "removed /usr/local/go (installed by dependencies.sh; USE_ETCD=OFF, WITH_STORE=OFF)"
+fi
+
 # ---- verify ----------------------------------------------------------------
 SO="$(python3 -c 'import mooncake.engine as e; print(e.__file__)')"
 echo "installed: $SO"
@@ -160,5 +172,13 @@ for _v in MC_ENABLE_HIP_TRANSPORT MC_DISABLE_HIP_TRANSPORT; do
     fi
 done
 echo "MC_HIP_GATE_VERIFY OK (HIP transport OFF by default)"
+# Assert the Go toolchain really is gone, so a future dependencies.sh that puts
+# it somewhere else fails the build instead of silently shipping it again.
+if [ -d /usr/local/go ]; then
+    echo "ERROR: /usr/local/go still present after cleanup." >&2
+    echo "       dependencies.sh moved the Go toolchain; update the rm above." >&2
+    exit 1
+fi
+echo "MC_NO_GO_VERIFY OK (/usr/local/go absent)"
 python3 -c "from mooncake.engine import TransferEngine; print('MOONCAKE IMPORT OK')"
 echo "MC_BUILD_DONE"
