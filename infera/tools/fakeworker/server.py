@@ -473,10 +473,14 @@ async def _serve(args) -> None:
         # races arrivals; keeping the record until the end is what makes the
         # worker visibly draining rather than simply gone.
         state.draining = True
-        try:
-            await reg.announce_draining()
-        except Exception as exc:  # noqa: BLE001 - shutdown must not raise
-            logger.warning("announce_draining failed: %s", exc)
+        # Only where the worker owns that signal: under Kubernetes the registry
+        # drops a Pod on its deletionTimestamp, before this process is even
+        # signalled, so there is nothing to announce.
+        if reg.announces_draining:
+            try:
+                await reg.announce_draining()
+            except Exception as exc:  # noqa: BLE001 - shutdown must not raise
+                logger.warning("announce_draining failed: %s", exc)
         if nats_req_server is not None:
             # The real drain: unsubscribe first so nothing new arrives, then
             # wait on the in-flight set infera actually holds. No polling and no
@@ -488,6 +492,9 @@ async def _serve(args) -> None:
             await asyncio.sleep(0.1)
         if state.running:
             logger.warning("drain timeout with %d request(s) still in flight", state.running)
+        # Cancelled only once the record is about to go: on etcd the heartbeat
+        # is what renews the lease, and a drain longer than one TTL would
+        # otherwise have the key collected mid-drain.
         hb_task.cancel()
         try:
             await reg.deregister()

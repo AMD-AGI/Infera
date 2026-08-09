@@ -26,7 +26,6 @@ import os
 from infera.common.discovery_k8s import WORKER_INFO_ANNOTATION
 from infera.common.k8s_client import in_cluster_namespace, make_client
 from infera.common.registration import build_worker_payload
-from infera.common.worker_pool import WorkerStatus
 from infera.engine.base import EngineConfig
 
 logger = logging.getLogger(__name__)
@@ -37,7 +36,25 @@ _DEFAULT_REFRESH = 30.0
 
 
 class K8sRegistrationClient:
-    """Worker-side self-registration by patching its own Pod annotation."""
+    """Worker-side self-registration by patching its own Pod annotation.
+
+    The annotation carries identity and nothing else -- who this worker is,
+    where to reach it, and what it can serve. All of that is fixed for the
+    life of the process, which is what makes the refresh below safe to run at
+    any time, including throughout a shutdown.
+
+    State is deliberately absent. Kubernetes stamps a condemned Pod with
+    ``deletionTimestamp`` before the worker is even signalled, and
+    ``KubernetesRegistry`` reads it, so the orchestrator already answers "is
+    this worker going away" earlier and more authoritatively than the worker
+    could. Writing the same fact into the annotation as well would make it a
+    race between two writers of one truth -- and the refresh below, which
+    rebuilds the payload from config, would be the one to win it.
+    """
+
+    #: See the class docstring: on this backend the orchestrator owns the
+    #: signal, so there is nothing for the worker to announce.
+    announces_draining = False
 
     def __init__(
         self,
@@ -80,31 +97,6 @@ class K8sRegistrationClient:
             config.disagg_mode,
         )
         return worker_id
-
-    async def announce_draining(self) -> bool:
-        """Rewrite the annotation as DRAINING instead of clearing it.
-
-        ``list_active`` filters DRAINING out, so new work stops being routed
-        here while the record — and therefore the worker's visibility in
-        ``/v1/workers`` — survives the drain. A worker that vanishes looks the
-        same as one that crashed.
-
-        Largely belt-and-braces on this backend: ``KubernetesRegistry`` already
-        drops a Pod the moment it carries a ``deletionTimestamp``, so a
-        kubectl-initiated shutdown has stopped receiving work before the worker
-        is even signalled. This covers the paths that do not go through Pod
-        deletion at all.
-        """
-        if self._config is None:
-            return False
-        try:
-            payload = build_worker_payload(self._config, status=WorkerStatus.DRAINING)
-            await self._patch_annotation(json.dumps(payload))
-            logger.info("worker %s announced DRAINING", self._worker_id)
-            return True
-        except Exception as exc:  # noqa: BLE001 - shutdown must continue
-            logger.warning("could not announce DRAINING: %s", exc)
-            return False
 
     async def deregister(self) -> None:
         # Best-effort: clear the annotation so a terminating-but-lingering Pod

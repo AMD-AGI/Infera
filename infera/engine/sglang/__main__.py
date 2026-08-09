@@ -409,19 +409,18 @@ async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config)
     except asyncio.CancelledError:
         pass
 
-    hb_task.cancel()
-    try:
-        await hb_task
-    except asyncio.CancelledError:
-        pass
-
     # Announce first, drain second, deregister last. Announcing DRAINING takes
     # this worker out of routing (list_active filters it) while leaving the
     # record in place, so for the whole drain it is visibly draining rather than
     # simply gone -- which is what distinguishes an orderly rollout from a crash
     # in /v1/workers. Deregistering first would work too, but it throws away
     # that signal at exactly the moment someone is watching for it.
-    await reg_client.announce_draining()
+    #
+    # Only where the worker owns that signal: under Kubernetes the registry has
+    # already dropped this Pod from routing on its deletionTimestamp, before
+    # this process was even signalled.
+    if reg_client.announces_draining:
+        await reg_client.announce_draining()
     if nats_req_server is not None:
         await nats_req_server.stop(drain=True, drain_timeout=args.drain_timeout)
     else:
@@ -435,6 +434,20 @@ async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config)
             engine=config.engine,
             timeout=args.drain_timeout,
         )
+
+    # The heartbeat runs until the record is gone, not until the drain starts.
+    # On etcd it is what keeps the lease alive: cancelling it earlier leaves at
+    # most one TTL of life, and a drain longer than that has etcd collect the
+    # key mid-drain -- the worker vanishing rather than visibly finishing,
+    # which is the outcome announcing DRAINING exists to avoid. It is safe to
+    # leave running because a refresh only re-asserts identity: on etcd it
+    # renews the lease without touching the value, and on Kubernetes it
+    # rewrites an annotation that carries no state to overwrite.
+    hb_task.cancel()
+    try:
+        await hb_task
+    except asyncio.CancelledError:
+        pass
 
     await reg_client.deregister()
 

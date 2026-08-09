@@ -56,6 +56,12 @@ def build_worker_payload(config: EngineConfig, *, status: WorkerStatus | None = 
 class RegistrationClient:
     """Worker-side self-registration via an etcd lease (HTTP/JSON gateway)."""
 
+    #: etcd knows only that a record exists and its lease is unexpired; nothing
+    #: outside the worker observes that the process is going away. So the
+    #: worker has to say so itself, or there is no way to express "still
+    #: finishing what I have, send me nothing new" -- only present or absent.
+    announces_draining = True
+
     def __init__(
         self,
         endpoint: str,

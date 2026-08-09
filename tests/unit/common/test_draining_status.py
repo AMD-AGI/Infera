@@ -119,3 +119,48 @@ async def test_announce_before_register_is_a_no_op():
     c._http = _FakeHttp()
     assert await c.announce_draining() is False
     assert c._http.puts == []
+
+
+# --- which backend owns the "going away" signal -------------------------------
+
+
+def test_each_backend_declares_who_owns_the_shutdown_signal():
+    """The two backends learn that a worker is leaving in different ways, and
+    only one of them needs the worker to say so.
+
+    Kubernetes stamps a condemned Pod with deletionTimestamp before the worker
+    is even signalled, and the registry reads that -- so the worker announcing
+    it as well would be a second, competing source of the same fact, written by
+    whoever patched the annotation last. etcd has no such signal: a record is
+    either there or it is not, so without the worker's own announcement there
+    is no way to express "still finishing, send me nothing new".
+    """
+    from infera.common.registration import RegistrationClient
+    from infera.common.registration_k8s import K8sRegistrationClient
+
+    assert RegistrationClient.announces_draining is True
+    assert K8sRegistrationClient.announces_draining is False
+
+    # The method exists only where it is meaningful, so a caller cannot
+    # accidentally write a status the Kubernetes registry will never read.
+    assert hasattr(RegistrationClient, "announce_draining")
+    assert not hasattr(K8sRegistrationClient, "announce_draining")
+
+
+@pytest.mark.asyncio
+async def test_a_k8s_heartbeat_is_identity_only_and_so_survives_a_drain():
+    """The heartbeat re-asserts the annotation to self-heal, and it must be
+    safe to keep running for the whole shutdown -- on etcd that is what keeps
+    the lease alive through the drain.
+
+    That only holds while the annotation carries identity and nothing else. If
+    it also carried state, a refresh landing mid-drain would overwrite it with
+    whatever the payload builder defaults to.
+    """
+    from infera.common.registration import build_worker_payload
+
+    cfg = _cfg()
+    first = build_worker_payload(cfg)
+    later = build_worker_payload(cfg)
+    assert first == later, "a refresh must be byte-identical, i.e. carry no state"
+    assert "status" not in first, "identity only; state belongs to the backend"
