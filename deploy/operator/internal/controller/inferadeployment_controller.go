@@ -7,6 +7,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"time"
 
@@ -65,6 +66,37 @@ func (r *InferaDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// cleanup; the operator holds no finalizer and has nothing else to do here.
 	if !idep.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
+	}
+
+	// Anything this operator builds runs in Kubernetes, and there the
+	// orchestrator is what knows a worker is leaving: a condemned Pod carries
+	// deletionTimestamp before the process is signalled, and the registry drops
+	// it from routing at that moment.
+	//
+	// Pointing such a deployment at an external etcd discards that. The server
+	// stops watching Pods, so nothing reads the deletionTimestamp, and the only
+	// remaining signal is the worker announcing DRAINING after SIGTERM -- which
+	// it receives only once the preStop delay injected below has elapsed. The
+	// combination keeps that delay while losing the early notice it exists to
+	// provide, so for its whole duration the router keeps handing new work to a
+	// Pod already on its way out. Refusing beats rendering a deployment whose
+	// drain is worse than either backend on its own.
+	if !useK8sDiscovery(idep) {
+		err := fmt.Errorf(
+			"spec.discoveryBackend=%q is not supported by the operator: an in-cluster "+
+				"deployment must use the default \"kubernetes\" backend, which learns of a "+
+				"departing worker from its Pod's deletionTimestamp. External etcd is for "+
+				"deployments outside Kubernetes",
+			idep.Spec.DiscoveryBackend,
+		)
+		lg.Error(err, "refusing to reconcile")
+		idep.Status.ObservedGeneration = idep.Generation
+		idep.Status.State = inferav1alpha1.StateFailed
+		if uerr := r.Status().Update(ctx, idep); uerr != nil {
+			lg.Error(uerr, "status update failed")
+		}
+		// Terminal: retrying cannot change a spec field, so surface it and stop.
+		return ctrl.Result{}, err
 	}
 
 	// 0. Kubernetes-native discovery RBAC: a namespaced ServiceAccount + Role so
