@@ -14,8 +14,13 @@ stopping worker processes; nothing has to be told about it.
 ```
 worker ready ──► register (etcd lease / Pod annotation) ──► router's watch fires
                                                             ──► receives traffic
-SIGTERM ──► announce DRAINING ──► drain in-flight ──► deregister ──► exit
+leaving ──► stop being routed to ──► drain in-flight ──► deregister ──► exit
 ```
+
+What triggers "stop being routed to" depends on the backend: under Kubernetes
+the orchestrator marks the Pod before the process is even signalled, on etcd the
+worker announces it after `SIGTERM`. See [Who says the worker is
+leaving](#who-says-the-worker-is-leaving).
 
 That shape is why scale-up and scale-down have very different costs. Scale-up is
 bounded by **model load**, which is minutes. Scale-down is bounded by the
@@ -53,10 +58,12 @@ grace period.
 
 The worker then, in this order:
 
-1. **Announces `DRAINING`.** The router filters draining workers out of routing
+1. **Stops being routed to.** The router filters draining workers out
    immediately, so no new work arrives. The record stays, so the worker remains
    visible in `/v1/workers` — a worker that vanishes looks exactly like one that
-   crashed.
+   crashed. On etcd the worker announces `DRAINING` here; under Kubernetes this
+   already happened when the Pod was condemned, before it was signalled at all
+   (see [Who says the worker is leaving](#who-says-the-worker-is-leaving)).
 2. **Drains.** On the NATS transport infera tracks in-flight requests directly.
    On HTTP the router talks straight to the engine, so infera asks the engine
    instead, polling its `/metrics` until running, queued, and PD-handoff queues
@@ -67,9 +74,9 @@ Requests already in flight run to completion. Requests that arrive during the
 drain go to other workers.
 
 **Two different timings, easily conflated.** A worker stops *receiving* new
-requests within a second of `SIGTERM` — that is the `DRAINING` announcement plus
-the router's watch, and it is the number that decides whether traffic is still
-being sent somewhere that is about to die. How long the *process* then lives is
+requests within a second of the shutdown starting — the router's watch picking
+up either the announcement or the `deletionTimestamp` — and it is the number
+that decides whether traffic is still being sent somewhere that is about to die. How long the *process* then lives is
 a separate and much larger number, set by the longest generation it was already
 serving. Measured: under a second to stop receiving, 38 s until the record
 disappeared, while a 40-second generation ran to completion in between.
@@ -203,8 +210,54 @@ its record stays until it clears its own annotation at the end of the drain, so
 ```
 deletion requested ──► deletionTimestamp set ──► registry drops the worker
                    ──► preStop sleep 15 (still serving what it has)
-                   ──► SIGTERM ──► DRAINING ──► drain ──► deregister ──► engine.stop()
+                   ──► SIGTERM ──► drain ──► deregister ──► engine.stop()
                    ──► [kubelet SIGKILL at terminationGracePeriodSeconds]
+```
+
+### Who says the worker is leaving
+
+The two discovery backends learn this in different ways, and only one of them
+needs the worker to say anything. The difference is not an inconsistency to be
+smoothed over — it is what each backend can actually observe.
+
+**Kubernetes: the orchestrator says so.** A condemned Pod carries
+`deletionTimestamp` from the moment deletion is requested, which is before the
+`preStop` hook runs and therefore before the process is signalled at all. The
+registry reads it and drops the worker from routing immediately — measured at
+under 100 ms against the 15 s `preStop` delay. The worker announcing the same
+thing later would add nothing: routing has already stopped, and the terminating
+check returns before the annotation is even parsed.
+
+So on this backend the annotation carries **identity only** — worker id, URL,
+model, engine, role, KV endpoints — all of it fixed for the life of the
+process. That is deliberate. The heartbeat re-asserts the annotation to
+self-heal, rebuilding it from config; if state lived there too, a refresh
+landing mid-drain would overwrite it with a payload that omits the status,
+which parses as `ACTIVE`, and the worker would be handed new work it is about
+to refuse.
+
+**etcd: the worker says so.** There is no orchestrator here. A record is either
+present with an unexpired lease or it is gone — nothing observes that the
+process is on its way out. Without the worker announcing `DRAINING` there is no
+way to express "still finishing what I have, send me nothing new", so on this
+backend the record does carry a status and the worker rewrites it before
+draining.
+
+The heartbeat runs until the record is deleted on both backends, which matters
+most here: it is what renews the lease. Stopping it when the drain starts would
+leave at most one TTL of life, and a drain longer than the remainder has etcd
+collect the key partway through — the worker vanishing rather than visibly
+finishing, which is the outcome announcing `DRAINING` exists to prevent.
+
+```{warning}
+`discoveryBackend: etcd` **is not supported for in-cluster deployments** and the
+operator refuses it. The combination keeps the `preStop` delay while losing the
+early notice it exists to provide: the server no longer watches Pods, so nothing
+reads the `deletionTimestamp`, and the only signal left arrives after `SIGTERM`
+— that is, after the delay has already elapsed. For its whole duration the
+router keeps handing new work to a Pod that is already condemned. Use the
+default `kubernetes` backend in Kubernetes; external etcd is for deployments
+outside it.
 ```
 
 ### Worst case, and the budget
