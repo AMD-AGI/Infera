@@ -52,12 +52,6 @@ class K8sRegistrationClient:
     rebuilds the payload from config, would be the one to win it.
     """
 
-    #: New work has already stopped arriving by the time a shutdown gets here --
-    #: the registry drops a condemned Pod on its deletionTimestamp. So clearing
-    #: the annotation is only cleanup, and can wait until the drain is over,
-    #: which keeps the worker visible in /v1/workers while it finishes.
-    deregister_stops_routing = False
-
     def __init__(
         self,
         pod_name: str | None = None,
@@ -100,19 +94,36 @@ class K8sRegistrationClient:
         )
         return worker_id
 
-    async def deregister(self) -> None:
-        # Best-effort: clear the annotation so a terminating-but-lingering Pod
-        # stops being routed before its DELETE event lands.
+    async def deregister(self) -> bool:
+        """Clear the annotation, reporting whether the record is actually gone.
+
+        This is what takes the worker out of routing, and the caller drains
+        afterwards -- so a failure means draining while still being dispatched
+        to. On a Pod that is being deleted the registry has already dropped it
+        from its deletionTimestamp and this is only cleanup; on every other way
+        a process gets SIGTERM (a probe restart, a node shutdown, a manual
+        kill) there is no such signal and this patch is the only one. Never
+        raises, because the teardown that follows still has to run.
+        """
+        ok = True
         try:
             await self._patch_annotation(None)
             logger.info("deregistered worker %s (annotation cleared)", self._worker_id)
-        except Exception as exc:
-            logger.warning("k8s deregister failed (pod likely terminating): %s", exc)
+        except Exception as exc:  # noqa: BLE001 - shutdown must continue
+            ok = False
+            logger.error(
+                "could not clear the worker annotation for %s (%s); if this Pod is not "
+                "being deleted, the router has no other signal and may keep sending "
+                "work here for the whole drain",
+                self._worker_id,
+                exc,
+            )
         self._worker_id = None
         try:
             await self._http.aclose()
         except Exception:
             pass
+        return ok
 
     async def heartbeat_loop(self, interval: float | None = None) -> None:
         """Periodically re-assert the annotation (self-heal); never expires it."""

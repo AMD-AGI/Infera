@@ -516,23 +516,14 @@ async def _serve(args) -> None:
             if state.running:
                 logger.warning("drain timeout with %d request(s) still in flight", state.running)
 
-        async def _deregister() -> None:
-            try:
-                await reg.deregister()
-            except Exception as exc:  # noqa: BLE001 - shutdown must not raise
-                logger.warning("deregister failed: %s", exc)
-
-        if reg.deregister_stops_routing:
-            # etcd: the record's presence is what makes this worker a candidate,
-            # so it has to go before the drain or the drain just races arrivals.
-            await _deregister()
-            await _drain()
-        else:
-            # Kubernetes: the registry dropped this Pod on its deletionTimestamp,
-            # before this process was signalled, so the record can stay until the
-            # end and keep the worker visible while it finishes.
-            await _drain()
-            await _deregister()
+        # Deregister before draining, mirroring the real entrypoints: removing
+        # the record is what stops new work arriving, on either backend.
+        try:
+            if not await reg.deregister():
+                logger.error("draining anyway, but new requests may still be routed here")
+        except Exception as exc:  # noqa: BLE001 - shutdown must not raise
+            logger.warning("deregister failed: %s", exc)
+        await _drain()
 
         server.should_exit = True
         stop.set()

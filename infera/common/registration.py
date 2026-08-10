@@ -55,12 +55,6 @@ def build_worker_payload(config: EngineConfig) -> dict:
 class RegistrationClient:
     """Worker-side self-registration via an etcd lease (HTTP/JSON gateway)."""
 
-    #: Removing the record is what stops new work arriving here: nothing outside
-    #: the worker observes that it is going away, so a shutdown has to
-    #: deregister before it drains. The record is therefore present or absent,
-    #: with no state in between.
-    deregister_stops_routing = True
-
     def __init__(
         self,
         endpoint: str,
@@ -111,7 +105,16 @@ class RegistrationClient:
         )
         return worker_id
 
-    async def deregister(self) -> None:
+    async def deregister(self) -> bool:
+        """Revoke the lease, reporting whether the record is actually gone.
+
+        The caller drains after this, and this is what stops new work arriving,
+        so a failure here is not cosmetic: the record survives on an unrenewed
+        lease for up to its TTL -- long enough to cover the whole drain -- and
+        the router keeps dispatching to a worker on its way out. Never raises,
+        because the teardown that follows still has to run.
+        """
+        ok = True
         if self._lease_id is not None:
             try:
                 await self._http.post("/v3/lease/revoke", json={"ID": self._lease_id})
@@ -120,8 +123,16 @@ class RegistrationClient:
                     self._worker_id,
                     self._lease_id,
                 )
-            except Exception as exc:
-                logger.warning("lease revoke failed: %s", exc)
+            except Exception as exc:  # noqa: BLE001 - shutdown must continue
+                ok = False
+                logger.error(
+                    "lease revoke failed for worker %s (%s); the record survives until "
+                    "its %ds lease expires, so the router may keep sending work here "
+                    "for the whole drain",
+                    self._worker_id,
+                    exc,
+                    self._lease_ttl,
+                )
             self._lease_id = None
         self._worker_id = None
         self._key = None
@@ -129,6 +140,7 @@ class RegistrationClient:
             await self._http.aclose()
         except Exception:
             pass
+        return ok
 
     async def heartbeat_loop(self, interval: float | None = None) -> None:
         """Refresh the etcd lease until cancelled.

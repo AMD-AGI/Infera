@@ -432,22 +432,23 @@ async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config)
                 timeout=args.drain_timeout,
             )
 
-    # Draining is only safe once new work has stopped arriving, and which step
-    # achieves that depends on the backend.
-    if reg_client.deregister_stops_routing:
-        # etcd: the record's presence is the only thing making this worker a
-        # candidate, so it has to go first. The worker disappears for the
-        # duration of the drain, which is the cost of a backend where nothing
-        # else can observe that it is leaving.
-        await reg_client.deregister()
-        await _drain()
-    else:
-        # Kubernetes: routing stopped when the Pod was condemned, before this
-        # process was signalled. Keeping the record until the end leaves the
-        # worker visible in /v1/workers while it finishes -- an orderly rollout
-        # rather than something indistinguishable from a crash.
-        await _drain()
-        await reg_client.deregister()
+    # Deregister before draining, on every backend: removing the record is what
+    # stops new work arriving, and waiting on in-flight work while still being
+    # dispatched to just races arrivals.
+    #
+    # On Kubernetes the registry does drop a Pod on its deletionTimestamp, well
+    # before this process is signalled -- but only when the Pod is being
+    # deleted. A liveness-probe restart, a node graceful shutdown or a manual
+    # kill all deliver SIGTERM with the Pod object untouched, and on those paths
+    # the annotation is still there and still parsed, so this worker stays
+    # routable until it clears it. Draining first would hand it new work for the
+    # whole drain window.
+    #
+    # The cost is that the worker is gone from /v1/workers while it finishes,
+    # rather than visibly draining.
+    if not await reg_client.deregister():
+        logger.error("draining anyway, but new requests may still be routed here")
+    await _drain()
 
     if kv_relay is not None:
         await kv_relay.stop()

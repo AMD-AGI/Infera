@@ -65,22 +65,6 @@ def test_a_draining_worker_is_excluded_but_still_visible():
 # --- which step stops new work arriving ---------------------------------------
 
 
-def test_each_backend_declares_what_stops_new_work():
-    """The shutdown order follows from this, so the two clients state it rather
-    than every caller testing the backend.
-
-    On etcd the record's presence is the only thing making a worker a candidate,
-    so deregistering has to precede the drain or the drain races arrivals. Under
-    Kubernetes routing already stopped when the Pod was condemned, so the record
-    can outlive the drain and keep the worker visible.
-    """
-    from infera.common.registration import RegistrationClient
-    from infera.common.registration_k8s import K8sRegistrationClient
-
-    assert RegistrationClient.deregister_stops_routing is True
-    assert K8sRegistrationClient.deregister_stops_routing is False
-
-
 def test_no_client_announces_a_status():
     """Neither backend writes state into the record any more.
 
