@@ -18,9 +18,10 @@ leaving ──► stop being routed to ──► drain in-flight ──► dereg
 ```
 
 What triggers "stop being routed to" depends on the backend: under Kubernetes
-the orchestrator marks the Pod before the process is even signalled, on etcd the
-worker announces it after `SIGTERM`. See [Who says the worker is
-leaving](#who-says-the-worker-is-leaving).
+the orchestrator marks the Pod before the process is even signalled, elsewhere
+removing the record is what does it. See [Who says the worker is
+leaving](#who-says-the-worker-is-leaving), and
+[Graceful shutdown](graceful_shutdown.md) for the feature as a whole.
 
 That shape is why scale-up and scale-down have very different costs. Scale-up is
 bounded by **model load**, which is minutes. Scale-down is bounded by the
@@ -61,9 +62,10 @@ The worker then, in this order:
 1. **Stops being routed to.** The router filters draining workers out
    immediately, so no new work arrives. The record stays, so the worker remains
    visible in `/v1/workers` — a worker that vanishes looks exactly like one that
-   crashed. On etcd the worker announces `DRAINING` here; under Kubernetes this
-   already happened when the Pod was condemned, before it was signalled at all
-   (see [Who says the worker is leaving](#who-says-the-worker-is-leaving)).
+   crashed. Under Kubernetes this already happened when the Pod was condemned,
+   before the process was signalled at all; elsewhere the worker deregisters
+   here, which stops new work but also removes it from the listing (see [Who
+   says the worker is leaving](#who-says-the-worker-is-leaving)).
 2. **Drains.** On the NATS transport infera tracks in-flight requests directly.
    On HTTP the router talks straight to the engine, so infera asks the engine
    instead, polling its `/metrics` until running, queued, and PD-handoff queues
@@ -75,7 +77,7 @@ drain go to other workers.
 
 **Two different timings, easily conflated.** A worker stops *receiving* new
 requests within a second of the shutdown starting — the router's watch picking
-up either the announcement or the `deletionTimestamp` — and it is the number
+up either the `deletionTimestamp` or the record's removal — and it is the number
 that decides whether traffic is still being sent somewhere that is about to die. How long the *process* then lives is
 a separate and much larger number, set by the longest generation it was already
 serving. Measured: under a second to stop receiving, 38 s until the record
@@ -109,7 +111,7 @@ Measured, same fake worker, same generation:
   request(s)` — it knows the count — the 300-chunk generation completed in full,
   and the worker deregistered **21.3 s** later, which is just the remaining
   generation time with no overhead.
-- **NATS, nothing in flight**: announce → deregister in **3 ms**.
+- **NATS, nothing in flight**: leaving rotation to exit in **3 ms**.
 - **HTTP with a real engine, nothing in flight**: at least the **6 s** settle
   window, because a single zero reading cannot be told apart from a gauge that
   has not refreshed yet.
@@ -236,18 +238,18 @@ landing mid-drain would overwrite it with a payload that omits the status,
 which parses as `ACTIVE`, and the worker would be handed new work it is about
 to refuse.
 
-**etcd: the worker says so.** There is no orchestrator here. A record is either
-present with an unexpired lease or it is gone — nothing observes that the
-process is on its way out. Without the worker announcing `DRAINING` there is no
-way to express "still finishing what I have, send me nothing new", so on this
-backend the record does carry a status and the worker rewrites it before
-draining.
+**etcd: removing the record says so.** There is no orchestrator here. A record
+is either present with an unexpired lease or it is gone — nothing observes that
+the process is on its way out, and there is no third state to put it in. So a
+shutdown deregisters *first*, which is what stops new requests arriving, and
+drains after. In-flight generations are still finished rather than cut; what is
+not available is the worker remaining visible while it does so.
 
-The heartbeat runs until the record is deleted on both backends, which matters
-most here: it is what renews the lease. Stopping it when the drain starts would
-leave at most one TTL of life, and a drain longer than the remainder has etcd
-collect the key partway through — the worker vanishing rather than visibly
-finishing, which is the outcome announcing `DRAINING` exists to prevent.
+That ordering is the one real difference. Under Kubernetes routing has already
+stopped by the time the process is signalled, so the record can be kept until
+the end and the drain is observable; on etcd the record is the only thing
+keeping the worker in rotation, so it has to go before the drain rather than
+after.
 
 ```{warning}
 `discoveryBackend: etcd` **is not supported for in-cluster deployments** and the
@@ -267,7 +269,6 @@ Every stage is individually bounded:
 | Stage | Bound | Set by |
 |---|---|---|
 | `preStop` | 15 s | operator |
-| announce `DRAINING` | 10 s | registration HTTP client timeout |
 | drain | `--drain-timeout` (default 30 s) | flag |
 | deregister | 10 s | registration HTTP client timeout |
 | `engine.stop()` | 30 s | `SIGTERM` to the engine's process group, then `SIGKILL` |
@@ -396,13 +397,16 @@ Two runs, both with traffic flowing throughout:
 
 **Scale up then down.** Two instances, continuous traffic, a third added and
 then one removed. **260 requests, 0 failures**, including in the 5-second
-windows around each transition. The removed instance's log shows the intended
-sequence:
+windows around each transition. The removed instance left rotation, drained the
+one generation it was holding (`engine idle for 6s, 1 request(s) completed`),
+and only then exited.
 
-```
-worker 127.0.0.1:20001 announced DRAINING
-drain: engine idle for 6s, 1 request(s) completed
-deregistered worker 127.0.0.1:20001 (lease revoked)
+```{note}
+This run predates the change that made the shutdown order backend-specific, so
+its logs show the worker announcing `DRAINING` before draining. On etcd the two
+steps are now the other way round — deregister, then drain — which is what stops
+new work arriving on a backend where nothing else can. The request counts are
+unaffected: both orderings stop new work before waiting on in-flight work.
 ```
 
 **PD scaling, measured.** A 1P1D fake fleet grown to 2P2D and shrunk back under
