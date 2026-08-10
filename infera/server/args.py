@@ -206,4 +206,28 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
         "backlog). Mid-stream failures are never retried. Default 1; 0 disables. "
         "Overrides $INFERA_REQUEST_MAX_RETRIES.",
     )
+    parser.add_argument(
+        "--breaker-failure-threshold",
+        type=int,
+        default=int(os.environ.get("INFERA_BREAKER_FAILURE_THRESHOLD", "3") or 3),
+        help="Consecutive pre-first-byte worker faults (5xx / unreachable; 4xx "
+        "and 429 excluded) before the router takes a worker out of rotation. "
+        "Failover alone forgets between requests, so a worker that is ACTIVE in "
+        "discovery but broken for inference is otherwise re-picked forever. "
+        "0 disables the breaker. Overrides $INFERA_BREAKER_FAILURE_THRESHOLD.",
+    )
+    parser.add_argument(
+        "--breaker-cooldown-s",
+        type=float,
+        default=float(os.environ.get("INFERA_BREAKER_COOLDOWN_S", "5") or 5),
+        help="Seconds a tripped worker is excluded before one probe request is "
+        "admitted. Overrides $INFERA_BREAKER_COOLDOWN_S.",
+    )
+    parser.add_argument(
+        "--breaker-max-cooldown-s",
+        type=float,
+        default=float(os.environ.get("INFERA_BREAKER_MAX_COOLDOWN_S", "60") or 60),
+        help="Ceiling for the cooldown, which doubles on each failed probe. "
+        "Overrides $INFERA_BREAKER_MAX_COOLDOWN_S.",
+    )
     return parser.parse_args(argv)

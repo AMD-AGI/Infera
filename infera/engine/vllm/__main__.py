@@ -24,6 +24,7 @@ from infera.common.net import free_tcp_port
 from infera.common.registration import RegistrationClient
 from infera.common.worker_pool import DisaggMode, KvRegistrationMetadata
 from infera.engine.base import watch_engine_death
+from infera.engine.drain import drain_engine_inflight
 from infera.engine.vllm.args import VllmWorkerArgs, parse_vllm_args
 from infera.engine.vllm.worker import VllmEngine
 
@@ -354,15 +355,47 @@ async def main() -> None:
     except asyncio.CancelledError:
         pass
 
+    # Stop the heartbeat before touching the record: it re-asserts registration
+    # from config, so a refresh landing after deregistration would put the
+    # worker straight back into the pool.
     hb_task.cancel()
     try:
         await hb_task
     except asyncio.CancelledError:
         pass
 
-    await reg_client.deregister()
-    if nats_req_server is not None:
-        await nats_req_server.stop(drain=True, drain_timeout=args.drain_timeout)
+    async def _drain() -> None:
+        if nats_req_server is not None:
+            await nats_req_server.stop(drain=True, drain_timeout=args.drain_timeout)
+        else:
+            # HTTP transport: the router talks straight to the engine, so infera
+            # never saw these requests and has to ask the engine what is still
+            # in flight.
+            await drain_engine_inflight(
+                host=config.host,
+                port=config.port,
+                engine=config.engine,
+                timeout=args.drain_timeout,
+            )
+
+    # Deregister before draining, on every backend: removing the record is what
+    # stops new work arriving, and waiting on in-flight work while still being
+    # dispatched to just races arrivals.
+    #
+    # On Kubernetes the registry does drop a Pod on its deletionTimestamp, well
+    # before this process is signalled -- but only when the Pod is being
+    # deleted. A liveness-probe restart, a node graceful shutdown or a manual
+    # kill all deliver SIGTERM with the Pod object untouched, and on those paths
+    # the annotation is still there and still parsed, so this worker stays
+    # routable until it clears it. Draining first would hand it new work for the
+    # whole drain window.
+    #
+    # The cost is that the worker is gone from /v1/workers while it finishes,
+    # rather than visibly draining.
+    if not await reg_client.deregister():
+        # deregister() already logged why, including whether it matters here.
+        logger.warning("draining anyway")
+    await _drain()
     if kv_relay is not None:
         await kv_relay.stop()
     await engine.stop()

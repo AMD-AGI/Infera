@@ -36,7 +36,21 @@ _DEFAULT_REFRESH = 30.0
 
 
 class K8sRegistrationClient:
-    """Worker-side self-registration by patching its own Pod annotation."""
+    """Worker-side self-registration by patching its own Pod annotation.
+
+    The annotation carries identity and nothing else -- who this worker is,
+    where to reach it, and what it can serve. All of that is fixed for the
+    life of the process, which is what makes the refresh below safe to run at
+    any time, including throughout a shutdown.
+
+    State is deliberately absent. Kubernetes stamps a condemned Pod with
+    ``deletionTimestamp`` before the worker is even signalled, and
+    ``KubernetesRegistry`` reads it, so the orchestrator already answers "is
+    this worker going away" earlier and more authoritatively than the worker
+    could. Writing the same fact into the annotation as well would make it a
+    race between two writers of one truth -- and the refresh below, which
+    rebuilds the payload from config, would be the one to win it.
+    """
 
     def __init__(
         self,
@@ -80,19 +94,36 @@ class K8sRegistrationClient:
         )
         return worker_id
 
-    async def deregister(self) -> None:
-        # Best-effort: clear the annotation so a terminating-but-lingering Pod
-        # stops being routed before its DELETE event lands.
+    async def deregister(self) -> bool:
+        """Clear the annotation, reporting whether the record is actually gone.
+
+        This is what takes the worker out of routing, and the caller drains
+        afterwards -- so a failure means draining while still being dispatched
+        to. On a Pod that is being deleted the registry has already dropped it
+        from its deletionTimestamp and this is only cleanup; on every other way
+        a process gets SIGTERM (a probe restart, a node shutdown, a manual
+        kill) there is no such signal and this patch is the only one. Never
+        raises, because the teardown that follows still has to run.
+        """
+        ok = True
         try:
             await self._patch_annotation(None)
             logger.info("deregistered worker %s (annotation cleared)", self._worker_id)
-        except Exception as exc:
-            logger.warning("k8s deregister failed (pod likely terminating): %s", exc)
+        except Exception as exc:  # noqa: BLE001 - shutdown must continue
+            ok = False
+            logger.error(
+                "could not clear the worker annotation for %s (%s); if this Pod is not "
+                "being deleted, the router has no other signal and may keep sending "
+                "work here for the whole drain",
+                self._worker_id,
+                exc,
+            )
         self._worker_id = None
         try:
             await self._http.aclose()
         except Exception:
             pass
+        return ok
 
     async def heartbeat_loop(self, interval: float | None = None) -> None:
         """Periodically re-assert the annotation (self-heal); never expires it."""

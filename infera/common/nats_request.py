@@ -71,6 +71,10 @@ REQUEST_SUBJECT_PREFIX = "infera.req"
 # stream's per-worker consumer pending count is a live backlog gauge.
 REQUEST_STREAM = "INFERA_REQUESTS"
 
+# How often a draining worker re-checks its JetStream backlog. Short, because
+# the messages are already accepted and every poll is one round-trip.
+_QUEUED_POLL_INTERVAL_S = 0.2
+
 # Reply framing headers.
 HDR_TYPE = "rs-type"
 HDR_STATUS = "rs-status"
@@ -440,6 +444,7 @@ class NatsRequestServer:
         self._url = url
         self._nc = None
         self._sub = None
+        self._js = None  # set only under the throttle (JetStream-backed path)
         self._cancel_sub = None
         self._http: httpx.AsyncClient | None = None
         # flag (entry-point CLI) > env > built-in default.
@@ -470,6 +475,7 @@ class NatsRequestServer:
             from nats.js.api import AckPolicy, ConsumerConfig
 
             js = self._nc.jetstream()
+            self._js = js
             await _ensure_request_stream(js)
             self._sub = await js.subscribe(
                 subject,
@@ -502,6 +508,18 @@ class NatsRequestServer:
         generations finish for up to ``drain_timeout`` seconds before cancelling
         any leftovers, so a worker being rolled does not sever active streams.
         With ``drain=False`` (default) in-flight tasks are cancelled at once."""
+        deadline = time.monotonic() + drain_timeout if (drain and drain_timeout > 0) else None
+
+        # 0. Under the throttle, requests land in a WorkQueue stream and are
+        # pulled from it -- so one can be accepted, queued, and invisible to
+        # `_inflight`, which only tracks what has been *delivered* here.
+        # `unsubscribe()` discards remaining messages ("remaining messages will
+        # be discarded", nats-py), so closing the door first would strand work
+        # the router already handed us: the client waits out the full idle
+        # timeout (900s by default) for a reply nobody will ever send.
+        if deadline is not None:
+            await self._await_queued(deadline)
+
         # 1. Stop accepting NEW requests immediately so nothing new lands while
         # we drain (unsubscribe the request subject first).
         if self._sub is not None:
@@ -511,15 +529,16 @@ class NatsRequestServer:
                 pass
             self._sub = None
         # 2. Optionally let in-flight requests finish (bounded by drain_timeout).
-        if drain and drain_timeout > 0:
+        if deadline is not None:
             inflight = [t for t in self._inflight.values() if not t.done()]
             if inflight:
+                remaining = max(0.0, deadline - time.monotonic())
                 logger.info(
                     "draining %d in-flight NATS request(s), up to %.0fs",
                     len(inflight),
-                    drain_timeout,
+                    remaining,
                 )
-                _done, pending = await asyncio.wait(inflight, timeout=drain_timeout)
+                _done, pending = await asyncio.wait(inflight, timeout=remaining)
                 if pending:
                     logger.warning(
                         "drain timeout; cancelling %d unfinished request(s)", len(pending)
@@ -529,7 +548,18 @@ class NatsRequestServer:
             if not task.done():
                 task.cancel()
         self._inflight.clear()
-        # 4. Drop the cancel listener and the connection.
+        # 4. Delete this worker's durable consumer. `unsubscribe()` only tears
+        # down the local subscription -- a durable survives on the server by
+        # definition, and its name is derived from worker_id, which a rebuilt
+        # Pod never reuses (the IP changes). Left behind, every rollout adds an
+        # orphan holding WorkQueue quota that nothing will ever consume.
+        if self._js is not None:
+            try:
+                await self._js.delete_consumer(REQUEST_STREAM, request_durable(self._worker_id))
+            except Exception as exc:  # noqa: BLE001 - shutdown must continue
+                logger.debug("could not delete request consumer: %s", exc)
+            self._js = None
+        # 5. Drop the cancel listener and the connection.
         if self._cancel_sub is not None:
             try:
                 await self._cancel_sub.unsubscribe()
@@ -545,6 +575,41 @@ class NatsRequestServer:
             except Exception:
                 pass
             self._nc = None
+
+    async def _await_queued(self, deadline: float) -> None:
+        """Let JetStream hand over everything already queued for this worker.
+
+        Only ``num_pending`` (accepted, not yet delivered) is waited on:
+        ``num_ack_pending`` is work already delivered, which is exactly what
+        ``_inflight`` tracks and step 2 waits for. Counting both would double
+        the wait for the same requests.
+
+        Never raises, and gives up rather than hanging when the consumer cannot
+        be read -- a shutdown that stalls on a broker hiccup is worse than one
+        that drops a queued request, and the caller's deadline is shared with
+        the in-flight wait that follows.
+        """
+        if self._js is None:
+            return
+        durable = request_durable(self._worker_id)
+        while True:
+            try:
+                info = await self._js.consumer_info(REQUEST_STREAM, durable)
+            except Exception as exc:  # noqa: BLE001 - shutdown must continue
+                logger.debug("drain: cannot read consumer backlog (%s); not waiting", exc)
+                return
+            queued = int(getattr(info, "num_pending", 0) or 0)
+            if queued <= 0:
+                return
+            if time.monotonic() >= deadline:
+                logger.warning(
+                    "drain timeout with %d request(s) still queued in JetStream; "
+                    "they will not be served",
+                    queued,
+                )
+                return
+            logger.info("drain: waiting for %d queued request(s) to be delivered", queued)
+            await asyncio.sleep(min(_QUEUED_POLL_INTERVAL_S, max(0.0, deadline - time.monotonic())))
 
     async def _reply(
         self, inbox: str, rtype: str, data: bytes = b"", status: int | None = None

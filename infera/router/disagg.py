@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from infera.common.nats_request import TYPE_DATA, TYPE_DONE, TYPE_ERROR
 from infera.common.worker_pool import DisaggMode
 from infera.router.base import BaseRouter
+from infera.router.breaker import is_worker_fault
 from infera.router.cache_control import parse_cache_hints
 from infera.router.disagg_protocols import (
     ProtocolMismatch,
@@ -119,6 +120,11 @@ class DisaggRouter(BaseRouter):
             model = body.get("model")
             prefills = self.pool.list_active(model=model, mode=DisaggMode.PREFILL)
             decodes = self.pool.list_active(model=model, mode=DisaggMode.DECODE)
+            # Independently per role: a wedged prefill and a wedged decode are
+            # different events against different pools, and one open breaker
+            # must not remove the other role's healthy workers.
+            prefills = self.breaker.filter(prefills)
+            decodes = self.breaker.filter(decodes)
             if not prefills or not decodes:
                 obs["outcome"] = "503"
                 metrics.pd_bootstrap_failures_total.labels(reason="no_pd_workers").inc()
@@ -131,7 +137,7 @@ class DisaggRouter(BaseRouter):
             # skips prefill) vs D (load-heavy) differently.
             p_target, p_blocks = self.policy.pick(prefills, body, role_hint="prefill")
             d_target, d_blocks = self.policy.pick(decodes, body, role_hint="decode")
-            return await self._run_pd(
+            return await self._dispatch_pd(
                 obs, p_target, d_target, p_blocks, d_blocks, body, stream, path
             )
 
@@ -162,11 +168,50 @@ class DisaggRouter(BaseRouter):
                     },
                     status_code=503,
                 )
-            return await self._run_pd(
+            return await self._dispatch_pd(
                 obs, RouteTarget(p), RouteTarget(d), [], [], body, stream, path
             )
 
-    async def _run_pd(
+    def _score_leg_headers(self, worker_id: str, status: int) -> None:
+        """Score a streaming leg from its response headers.
+
+        Headers are the pre-first-byte moment, so a failure recorded here is
+        exactly what the breaker wants. Success is not: a 200 header says the
+        request was accepted, nothing more, and the worker this class exists to
+        catch is the one that accepts a request and then produces nothing. That
+        profile would otherwise be scored as recovery -- resetting the failure
+        count and closing an open breaker -- so a 2xx is neutral here and the
+        success is recorded once the stream has actually delivered something.
+        """
+        if status < 400:
+            self.breaker.record_neutral(worker_id)
+        else:
+            self._score_leg(worker_id, status)
+
+    def _score_leg(self, worker_id: str, status: int) -> None:
+        """Record one PD leg's HTTP outcome against the worker that produced it.
+
+        The two legs are two different workers whose health is independent, so
+        each has to be scored from its own response. A decode that answers
+        cannot vouch for a prefill that did not: scoring both off one status
+        code let a prefill 500-ing every request be reset to healthy by the
+        decode leg beside it, and there is no status code at all for the
+        client-facing streaming response, whose 200 is a framework default set
+        before either leg has been dispatched.
+
+        A 5xx is the worker's fault. A 4xx is the request's -- every worker
+        would answer the same, so it frees the probe slot without counting
+        either way. Anything below 400 is the evidence of health that resets
+        the consecutive-failure count.
+        """
+        if is_worker_fault(status):
+            self.breaker.record_failure(worker_id)
+        elif status < 400:
+            self.breaker.record_success(worker_id)
+        else:
+            self.breaker.record_neutral(worker_id)
+
+    async def _dispatch_pd(
         self,
         obs,
         p_target: RouteTarget,
@@ -333,16 +378,34 @@ class DisaggRouter(BaseRouter):
                 with metrics.track_pd_leg(leg=leg, worker_id=worker_id):
                     return await self._client.post(url, json=leg_body, headers=leg_headers)
 
-            try:
-                p_resp, d_resp = await asyncio.gather(
-                    _post(p_url, "prefill", p.worker_id, p_body, p_headers),
-                    _post(d_url, "decode", d.worker_id, d_body, d_headers),
-                )
-            except httpx.HTTPError as exc:
+            # Gathered with return_exceptions so a failure can be attributed to
+            # the leg that produced it. Letting gather raise surfaces whichever
+            # one failed first with no way to tell which that was, and blaming a
+            # fixed leg means a decode outage evicts the healthy prefill worker
+            # while the broken decode is never scored at all.
+            p_resp, d_resp = await asyncio.gather(
+                _post(p_url, "prefill", p.worker_id, p_body, p_headers),
+                _post(d_url, "decode", d.worker_id, d_body, d_headers),
+                return_exceptions=True,
+            )
+            failed = None
+            for worker_id, leg, result in (
+                (p.worker_id, "prefill", p_resp),
+                (d.worker_id, "decode", d_resp),
+            ):
+                if isinstance(result, BaseException):
+                    self.breaker.record_failure(worker_id)
+                    if failed is None:
+                        failed = (leg, result)
+                else:
+                    self._score_leg(worker_id, result.status_code)
+            if failed is not None:
+                leg, exc = failed
+                if not isinstance(exc, httpx.HTTPError):
+                    raise exc
                 obs["outcome"] = "502"
                 metrics.pd_bootstrap_failures_total.labels(reason="worker_unreachable").inc()
-                return _sanitized_error("PD request failed", exc, status_code=502)
-
+                return _sanitized_error(f"PD {leg} leg failed", exc, status_code=502)
             if p_resp.status_code >= 400:
                 logger.warning(
                     "prefill worker %s returned %d (decode may fail)",
@@ -375,16 +438,22 @@ class DisaggRouter(BaseRouter):
         like the HTTP path. Strong ref guards against GC mid-flight."""
 
         async def _drain():
+            # Scored here for the same reason the HTTP legs are scored at their
+            # own responses: this transport never touches the HTTP client, so
+            # nothing else observes how this worker did.
             try:
                 async for kind, _st, data in self.nats_client.stream(p.worker_id, p_payload):
                     if kind == TYPE_ERROR:
                         logger.warning("prefill leg (nats) %s failed: %s", p.worker_id, data[:200])
                         metrics.pd_bootstrap_failures_total.labels(reason="prefill_exception").inc()
+                        self.breaker.record_failure(p.worker_id)
                         return
                     if kind == TYPE_DONE:
+                        self.breaker.record_success(p.worker_id)
                         return
             except Exception as exc:
                 logger.warning("prefill nats drain %s failed: %s", p.worker_id, exc)
+                self.breaker.record_failure(p.worker_id)
 
         task = asyncio.create_task(_drain(), name="nats-prefill-drain")
         self._pending_prefill_tasks.add(task)
@@ -431,6 +500,7 @@ class DisaggRouter(BaseRouter):
                 elif kind == TYPE_ERROR:
                     # st carries 504 on inactivity timeout; worker errors -> 502.
                     code = st or 502
+                    self._score_leg(d.worker_id, code)
                     obs["outcome"] = str(code)
                     return JSONResponse(
                         content={
@@ -454,6 +524,7 @@ class DisaggRouter(BaseRouter):
                     },
                     status_code=502,
                 )
+            self._score_leg(d.worker_id, status)
             obs["outcome"] = "ok" if status < 400 else f"{status // 100}xx"
             return JSONResponse(content=payload, status_code=status)
         finally:
@@ -467,14 +538,22 @@ class DisaggRouter(BaseRouter):
     async def _stream_dual_nats(self, p_target, p_blocks, d_target, d_blocks, d_payload, p_task):
         """Stream decode's reply over NATS while prefill drains in background."""
         d = d_target.worker
+        served = False
         try:
             async for kind, _st, data in self.nats_client.stream(d.worker_id, d_payload):
                 if kind == TYPE_DATA:
                     if data:
+                        if not served:
+                            # Bytes are flowing, so this worker is doing the
+                            # work; an accepted request alone would not show it.
+                            self.breaker.record_success(d.worker_id)
+                            served = True
                         yield data
                 elif kind == TYPE_ERROR:
                     logger.warning("decode (nats) %s stream failed: %s", d.worker_id, data[:200])
                     metrics.pd_bootstrap_failures_total.labels(reason="decode_stream_broken").inc()
+                    if not served:
+                        self.breaker.record_failure(d.worker_id)
                     yield (
                         f'data: {{"error":"decode {d.worker_id} nats stream failed"}}\n\n'
                     ).encode()
@@ -547,8 +626,10 @@ class DisaggRouter(BaseRouter):
                     p_failed = True
                     obs["outcome"] = "502"
                     metrics.pd_bootstrap_failures_total.labels(reason="prefill_unreachable").inc()
+                    self.breaker.record_failure(p.worker_id)
                     return _sanitized_error("prefill leg failed", exc, status_code=502)
 
+            self._score_leg(p.worker_id, p_resp.status_code)
             if p_resp.status_code >= 400:
                 p_failed = True
                 obs["outcome"] = f"{p_resp.status_code // 100}xx"
@@ -632,8 +713,10 @@ class DisaggRouter(BaseRouter):
                 except httpx.HTTPError as exc:
                     obs["outcome"] = "502"
                     metrics.pd_bootstrap_failures_total.labels(reason="decode_unreachable").inc()
+                    self.breaker.record_failure(d.worker_id)
                     return _sanitized_error("decode leg failed", exc, status_code=502)
 
+            self._score_leg(d.worker_id, d_resp.status_code)
             try:
                 d_payload = d_resp.json()
             except ValueError:
@@ -677,10 +760,12 @@ class DisaggRouter(BaseRouter):
                     exc or "<no message>",
                 )
                 metrics.pd_bootstrap_failures_total.labels(reason="decode_unreachable").inc()
+                self.breaker.record_failure(d_target.worker.worker_id)
                 err = json.dumps({"error": "decode unreachable"})
                 yield f"data: {err}\n\n".encode()
                 return
 
+            self._score_leg_headers(d_target.worker.worker_id, d_resp.status_code)
             if d_resp.status_code >= 400:
                 try:
                     body_bytes = await d_resp.aread()
@@ -709,8 +794,14 @@ class DisaggRouter(BaseRouter):
             _DONE_NEEDLE = b"data: [DONE]"
             _TAIL_KEEP = len(_DONE_NEEDLE) - 1
             tail = b""
+            served = False
             try:
                 async for chunk in d_resp.aiter_raw():
+                    if not served and chunk:
+                        # Bytes are flowing, so the worker is doing the work --
+                        # which the headers alone did not establish.
+                        self.breaker.record_success(d_target.worker.worker_id)
+                        served = True
                     if not done_seen:
                         window = tail + chunk
                         if _DONE_NEEDLE in window:
@@ -831,11 +922,13 @@ class DisaggRouter(BaseRouter):
                         exc or "<no message>",
                     )
                     metrics.pd_bootstrap_failures_total.labels(reason="decode_unreachable").inc()
+                    self.breaker.record_failure(d_target.worker.worker_id)
                     # json.dumps: exc text may contain chars that break SSE.
                     err = json.dumps({"error": "decode unreachable"})
                     yield f"data: {err}\n\n".encode()
                     return
 
+                self._score_leg_headers(d_target.worker.worker_id, d_resp.status_code)
                 if d_resp.status_code >= 400:
                     # Engine accepted but rejected; surface its body verbatim.
                     try:
@@ -867,7 +960,13 @@ class DisaggRouter(BaseRouter):
                 _DONE_NEEDLE = b"data: [DONE]"
                 _TAIL_KEEP = len(_DONE_NEEDLE) - 1
                 tail = b""
+                served = False
                 async for chunk in d_resp.aiter_raw():
+                    if not served and chunk:
+                        # Bytes are flowing, so the worker is doing the work --
+                        # which the headers alone did not establish.
+                        self.breaker.record_success(d_target.worker.worker_id)
+                        served = True
                     if not done_seen:
                         window = tail + chunk
                         if _DONE_NEEDLE in window:
@@ -908,6 +1007,9 @@ class DisaggRouter(BaseRouter):
             try:
                 p_resp = await asyncio.shield(p_task)
             except asyncio.CancelledError:
+                # The request was torn down from above, so the prefill worker
+                # was never given the chance to answer. That is not evidence
+                # about it either way, and scoring it would be inventing one.
                 logger.debug("prefill task cancelled (parent torn down)")
             except Exception as exc:
                 logger.warning(
@@ -918,8 +1020,15 @@ class DisaggRouter(BaseRouter):
                     exc or "<no message>",
                 )
                 metrics.pd_bootstrap_failures_total.labels(reason="prefill_exception").inc()
+                self.breaker.record_failure(p.worker_id)
             else:
-                if getattr(p_resp, "status_code", 0) >= 400:
+                # The prefill leg is scored here rather than beside the decode
+                # leg above because this is where its own answer arrives: it
+                # runs concurrently, so nothing about it is known until now.
+                p_status = getattr(p_resp, "status_code", None)
+                if p_status is not None:
+                    self._score_leg(p.worker_id, p_status)
+                if p_status is not None and p_status >= 400:
                     logger.warning(
                         "prefill leg %s returned %d (decode will hang on KVPoll)",
                         p.worker_id,

@@ -243,9 +243,25 @@ class SnapshotReconciler:
         model: str,
         compat_key: str,
     ) -> None:
-        """Tell the reconciler to periodically pull this (publisher, tree)."""
+        """Tell the reconciler to periodically pull this (publisher, tree).
+
+        Also pulls it now rather than on the next tick. The loop waits out the
+        full interval between sweeps, so without this a worker that joins while
+        the reconciler is running is invisible to kv-aware routing for up to
+        ``interval_s`` -- 30 s in production.
+
+        For a genuinely new worker that would be harmless, since its cache is
+        empty and an empty view is accurate. It is not harmless on a router
+        restart or a rolling upgrade: every existing worker arrives through this
+        same path with a warm cache, and until its snapshot lands the policy
+        scores them all as holding nothing.
+        """
         key = (publisher_id, endpoint, model, compat_key)
+        new = key not in self._targets
         self._targets[key] = None
+        if new:
+            self._urgent.add(key)
+            self._kick.set()
 
     def unregister_target(
         self,

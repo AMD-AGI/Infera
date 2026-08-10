@@ -7,6 +7,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	inferav1alpha1 "github.com/amd/infera/deploy/operator/api/v1alpha1"
 )
@@ -65,6 +67,43 @@ func (r *InferaDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// cleanup; the operator holds no finalizer and has nothing else to do here.
 	if !idep.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
+	}
+
+	// Anything this operator builds runs in Kubernetes, and there the
+	// orchestrator is what knows a worker is leaving: a condemned Pod carries
+	// deletionTimestamp before the process is signalled, and the registry drops
+	// it from routing at that moment.
+	//
+	// Pointing such a deployment at an external etcd discards that. The server
+	// stops watching Pods, so nothing reads the deletionTimestamp, and the only
+	// remaining signal is the worker's record disappearing when it deregisters
+	// on SIGTERM -- which it receives only once the preStop delay injected
+	// below has elapsed. The
+	// combination keeps that delay while losing the early notice it exists to
+	// provide, so for its whole duration the router keeps handing new work to a
+	// Pod already on its way out. Refusing beats rendering a deployment whose
+	// drain is worse than either backend on its own.
+	if !useK8sDiscovery(idep) {
+		err := fmt.Errorf(
+			"spec.discoveryBackend=%q is not supported by the operator: an in-cluster "+
+				"deployment must use the default \"kubernetes\" backend, which learns of a "+
+				"departing worker from its Pod's deletionTimestamp. External etcd is for "+
+				"deployments outside Kubernetes",
+			idep.Spec.DiscoveryBackend,
+		)
+		lg.Error(err, "refusing to reconcile")
+		idep.Status.ObservedGeneration = idep.Generation
+		idep.Status.State = inferav1alpha1.StateFailed
+		if uerr := r.Status().Update(ctx, idep); uerr != nil {
+			lg.Error(uerr, "status update failed")
+		}
+		// Wrapped as terminal so it is recorded once and dropped. A plain error
+		// is re-queued with exponential backoff and retried forever, and no
+		// amount of retrying edits a spec field -- it would only produce two
+		// error logs and a status write per attempt, with
+		// reconcile_errors_total climbing until someone changes the CR. Editing
+		// the CR re-triggers reconciliation on its own.
+		return ctrl.Result{}, reconcile.TerminalError(err)
 	}
 
 	// 0. Kubernetes-native discovery RBAC: a namespaced ServiceAccount + Role so
@@ -143,7 +182,7 @@ func (r *InferaDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	} else {
 		idep.Status.GAIE = nil
 	}
-	idep.Status.State = rollupState(status)
+	idep.Status.State = rollupState(status, idep.Spec.Services)
 	if err := r.Status().Update(ctx, idep); err != nil {
 		lg.Error(err, "status update failed")
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
@@ -171,27 +210,107 @@ func (r *InferaDeploymentReconciler) applyUnstructured(ctx context.Context, idep
 	existing.SetNamespace(desired.GetNamespace())
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, existing, func() error {
 		spec, _, _ := unstructured.NestedMap(desired.Object, "spec")
-		_ = unstructured.SetNestedMap(existing.Object, spec, "spec")
+		current, _, _ := unstructured.NestedMap(existing.Object, "spec")
+		if current == nil {
+			current = map[string]any{}
+		}
+		merged := mergeSpec(current, spec, ownedSpecFields(desired.GetKind()))
+		_ = unstructured.SetNestedMap(existing.Object, merged, "spec")
 		existing.SetLabels(desired.GetLabels())
 		return controllerutil.SetControllerReference(idep, existing, r.Scheme)
 	})
 	return err
 }
 
+// ownedSpecFields lists the top-level spec fields the operator owns outright
+// for a kind: it decides their entire contents, so one absent from the desired
+// object has been removed and must be cleared rather than kept.
+//
+// The distinction matters for fields the builders emit conditionally.
+// HTTPRoute.spec.hostnames is only written when the CR lists any, so without
+// this a user who deletes their hostnames would keep matching them forever --
+// the merge below would see nothing to overlay and leave the old value in
+// place. Fields not listed here belong to someone else, almost always the API
+// server's defaulting, and are left untouched.
+func ownedSpecFields(kind string) map[string]bool {
+	switch kind {
+	case httpRouteKind:
+		return map[string]bool{"parentRefs": true, "rules": true, "hostnames": true}
+	case inferencePoolKind:
+		return map[string]bool{"targetPorts": true, "selector": true, "endpointPickerRef": true}
+	case lwsKind:
+		return map[string]bool{"replicas": true, "leaderWorkerTemplate": true}
+	}
+	return nil
+}
+
+// mergeSpec overlays the fields the operator sets onto what is already there,
+// leaving anything it does not mention alone.
+//
+// Replacing .spec wholesale would be simpler, but these objects are only
+// partly ours: buildLeaderWorkerSet writes three fields and the API server
+// defaults the other nine from the CRD. Overwriting the whole map strips those
+// defaults on every pass, the API server restores them, and the next pass
+// strips them again -- so CreateOrUpdate sees a difference every single time
+// and issues a write. Harmless-but-wasteful once per resync; a write loop now
+// that the reconciler watches LeaderWorkerSet, since each write enqueues the
+// reconcile that produces the next one.
+//
+// Nested maps merge; anything else replaces. Lists are owned outright -- a
+// container list merged element-wise would be neither what was asked for nor
+// what was there.
+//
+// `owned` names the top-level fields the operator decides entirely. One of
+// those missing from `from` has been removed rather than left unmanaged, so it
+// is deleted; that is what lets a conditionally-emitted field like
+// HTTPRoute's hostnames be taken away again. Nested levels are not pruned:
+// below the top level the desired object and the server's defaults are
+// interleaved, with no way to tell them apart.
+func mergeSpec(into, from map[string]any, owned map[string]bool) map[string]any {
+	for k := range owned {
+		if _, still := from[k]; !still {
+			delete(into, k)
+		}
+	}
+	for k, v := range from {
+		sub, isMap := v.(map[string]any)
+		if !isMap {
+			into[k] = v
+			continue
+		}
+		existing, ok := into[k].(map[string]any)
+		if !ok {
+			into[k] = v
+			continue
+		}
+		into[k] = mergeSpec(existing, sub, nil)
+	}
+	return into
+}
+
 func (r *InferaDeploymentReconciler) deploymentStatus(ctx context.Context, idep *inferav1alpha1.InferaDeployment, name string, svc inferav1alpha1.ServiceSpec) inferav1alpha1.ServiceStatus {
-	st := inferav1alpha1.ServiceStatus{Kind: "Deployment", Replicas: replicasOf(svc)}
+	// Replicas is what the workload reports, not what the spec asked for.
+	// Echoing the desired value back makes status useless for exactly the
+	// reader that needs it most -- an autoscaler computing
+	// `desired = ceil(current * metric/target)` cannot tell a scale-up has not
+	// landed if `current` is the number it just asked for.
+	st := inferav1alpha1.ServiceStatus{Kind: "Deployment"}
 	dep := &appsv1.Deployment{}
 	if err := r.Get(ctx, client.ObjectKey{Name: idep.Name + "-" + name, Namespace: idep.Namespace}, dep); err == nil {
+		st.Replicas = dep.Status.Replicas
 		st.ReadyReplicas = dep.Status.ReadyReplicas
 	}
 	return st
 }
 
 func (r *InferaDeploymentReconciler) lwsStatus(ctx context.Context, idep *inferav1alpha1.InferaDeployment, name string, svc inferav1alpha1.ServiceSpec) inferav1alpha1.ServiceStatus {
-	st := inferav1alpha1.ServiceStatus{Kind: "LeaderWorkerSet", Replicas: replicasOf(svc)}
+	st := inferav1alpha1.ServiceStatus{Kind: "LeaderWorkerSet"}
 	u := &unstructured.Unstructured{}
 	u.SetGroupVersionKind(lwsGVK())
 	if err := r.Get(ctx, client.ObjectKey{Name: idep.Name + "-" + name, Namespace: idep.Namespace}, u); err == nil {
+		if v, ok, _ := unstructured.NestedInt64(u.Object, "status", "replicas"); ok {
+			st.Replicas = int32(v)
+		}
 		if v, ok, _ := unstructured.NestedInt64(u.Object, "status", "readyReplicas"); ok {
 			st.ReadyReplicas = int32(v)
 		}
@@ -234,20 +353,39 @@ func copySpec(existing, desired client.Object) {
 	}
 }
 
-func rollupState(svcs map[string]inferav1alpha1.ServiceStatus) inferav1alpha1.DeploymentState {
+// rollupState answers whether every service has the capacity the spec asked
+// for, so it compares against the spec rather than against the status.
+//
+// ServiceStatus.Replicas is what the workload reports, which is the right
+// thing for a reader watching a scale-up land but the wrong side of this
+// comparison: `ReadyReplicas < Replicas` only sees Pods that exist and are
+// not ready. A replica that was never created -- unschedulable, out of quota,
+// no GPU -- is absent from both numbers, so they agree and the deployment
+// calls itself ready on a fraction of its fleet.
+func rollupState(
+	svcs map[string]inferav1alpha1.ServiceStatus,
+	specs map[string]inferav1alpha1.ServiceSpec,
+) inferav1alpha1.DeploymentState {
 	if len(svcs) == 0 {
 		return inferav1alpha1.StatePending
 	}
-	allReady := true
-	for _, s := range svcs {
-		if s.ReadyReplicas < s.Replicas || s.Replicas == 0 {
-			allReady = false
+	for name, s := range svcs {
+		spec, ok := specs[name]
+		if !ok {
+			// Reported but no longer in the spec: on its way out, and not a
+			// reason to hold the deployment back.
+			continue
+		}
+		want := replicasOf(spec)
+		if want == 0 {
+			// Deliberately scaled to zero; nothing to wait for.
+			continue
+		}
+		if s.ReadyReplicas < want {
+			return inferav1alpha1.StatePending
 		}
 	}
-	if allReady {
-		return inferav1alpha1.StateReady
-	}
-	return inferav1alpha1.StatePending
+	return inferav1alpha1.StateReady
 }
 
 func sortedKeys(m map[string]inferav1alpha1.ServiceSpec) []string {
@@ -261,10 +399,16 @@ func sortedKeys(m map[string]inferav1alpha1.ServiceSpec) []string {
 
 // SetupWithManager registers the controller.
 func (r *InferaDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		For(&inferav1alpha1.InferaDeployment{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&appsv1.StatefulSet{}).
-		Owns(&corev1.Service{}).
-		Complete(r)
+		Owns(&corev1.Service{})
+	// Multi-node services are LeaderWorkerSets, so their status only reaches
+	// InferaDeployment.status on a resync unless we watch them. Guarded because
+	// the CRD is optional -- see lwsInstalled.
+	if lwsInstalled(mgr.GetRESTMapper()) {
+		b = b.Owns(lwsObject())
+	}
+	return b.Complete(r)
 }
