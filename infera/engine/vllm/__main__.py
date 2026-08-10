@@ -355,47 +355,45 @@ async def main() -> None:
     except asyncio.CancelledError:
         pass
 
-    # Announce first, drain second, deregister last. Announcing DRAINING takes
-    # this worker out of routing (list_active filters it) while leaving the
-    # record in place, so for the whole drain it is visibly draining rather than
-    # simply gone -- which is what distinguishes an orderly rollout from a crash
-    # in /v1/workers. Deregistering first would work too, but it throws away
-    # that signal at exactly the moment someone is watching for it.
-    #
-    # Only where the worker owns that signal: under Kubernetes the registry has
-    # already dropped this Pod from routing on its deletionTimestamp, before
-    # this process was even signalled.
-    if reg_client.announces_draining:
-        await reg_client.announce_draining()
-    if nats_req_server is not None:
-        await nats_req_server.stop(drain=True, drain_timeout=args.drain_timeout)
-    else:
-        # HTTP transport: the router talks straight to the engine, so infera
-        # never saw these requests and has to ask the engine what is still in
-        # flight. The DRAINING announcement above already stopped new work being
-        # routed here; this waits for the work already accepted.
-        await drain_engine_inflight(
-            host=config.host,
-            port=config.port,
-            engine=config.engine,
-            timeout=args.drain_timeout,
-        )
-
-    # The heartbeat runs until the record is gone, not until the drain starts.
-    # On etcd it is what keeps the lease alive: cancelling it earlier leaves at
-    # most one TTL of life, and a drain longer than that has etcd collect the
-    # key mid-drain -- the worker vanishing rather than visibly finishing,
-    # which is the outcome announcing DRAINING exists to avoid. It is safe to
-    # leave running because a refresh only re-asserts identity: on etcd it
-    # renews the lease without touching the value, and on Kubernetes it
-    # rewrites an annotation that carries no state to overwrite.
+    # Stop the heartbeat before touching the record: it re-asserts registration
+    # from config, so a refresh landing after deregistration would put the
+    # worker straight back into the pool.
     hb_task.cancel()
     try:
         await hb_task
     except asyncio.CancelledError:
         pass
 
-    await reg_client.deregister()
+    async def _drain() -> None:
+        if nats_req_server is not None:
+            await nats_req_server.stop(drain=True, drain_timeout=args.drain_timeout)
+        else:
+            # HTTP transport: the router talks straight to the engine, so infera
+            # never saw these requests and has to ask the engine what is still
+            # in flight.
+            await drain_engine_inflight(
+                host=config.host,
+                port=config.port,
+                engine=config.engine,
+                timeout=args.drain_timeout,
+            )
+
+    # Draining is only safe once new work has stopped arriving, and which step
+    # achieves that depends on the backend.
+    if reg_client.deregister_stops_routing:
+        # etcd: the record's presence is the only thing making this worker a
+        # candidate, so it has to go first. The worker disappears for the
+        # duration of the drain, which is the cost of a backend where nothing
+        # else can observe that it is leaving.
+        await reg_client.deregister()
+        await _drain()
+    else:
+        # Kubernetes: routing stopped when the Pod was condemned, before this
+        # process was signalled. Keeping the record until the end leaves the
+        # worker visible in /v1/workers while it finishes -- an orderly rollout
+        # rather than something indistinguishable from a crash.
+        await _drain()
+        await reg_client.deregister()
     if kv_relay is not None:
         await kv_relay.stop()
     await engine.stop()

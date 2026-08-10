@@ -52,9 +52,11 @@ class K8sRegistrationClient:
     rebuilds the payload from config, would be the one to win it.
     """
 
-    #: See the class docstring: on this backend the orchestrator owns the
-    #: signal, so there is nothing for the worker to announce.
-    announces_draining = False
+    #: New work has already stopped arriving by the time a shutdown gets here --
+    #: the registry drops a condemned Pod on its deletionTimestamp. So clearing
+    #: the annotation is only cleanup, and can wait until the drain is over,
+    #: which keeps the worker visible in /v1/workers while it finishes.
+    deregister_stops_routing = False
 
     def __init__(
         self,

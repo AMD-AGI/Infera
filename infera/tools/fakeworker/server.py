@@ -468,38 +468,49 @@ async def _serve(args) -> None:
     stop = asyncio.Event()
 
     async def _shutdown() -> None:
-        # Announce, drain, then deregister -- the same order as the real worker
-        # entrypoints. Stopping new work has to come first or the drain just
-        # races arrivals; keeping the record until the end is what makes the
-        # worker visibly draining rather than simply gone.
+        # Mirrors the real worker entrypoints, including which step stops new
+        # work arriving -- that differs by backend, see below.
         state.draining = True
-        # Only where the worker owns that signal: under Kubernetes the registry
-        # drops a Pod on its deletionTimestamp, before this process is even
-        # signalled, so there is nothing to announce.
-        if reg.announces_draining:
-            try:
-                await reg.announce_draining()
-            except Exception as exc:  # noqa: BLE001 - shutdown must not raise
-                logger.warning("announce_draining failed: %s", exc)
-        if nats_req_server is not None:
-            # The real drain: unsubscribe first so nothing new arrives, then
-            # wait on the in-flight set infera actually holds. No polling and no
-            # settle window -- unlike HTTP, where the count has to be inferred
-            # from the engine's lagging gauges.
-            await nats_req_server.stop(drain=True, drain_timeout=args.drain_timeout)
-        deadline = time.monotonic() + args.drain_timeout
-        while state.running and time.monotonic() < deadline:
-            await asyncio.sleep(0.1)
-        if state.running:
-            logger.warning("drain timeout with %d request(s) still in flight", state.running)
-        # Cancelled only once the record is about to go: on etcd the heartbeat
-        # is what renews the lease, and a drain longer than one TTL would
-        # otherwise have the key collected mid-drain.
+        # Stop the heartbeat first: it re-asserts registration from config, so a
+        # refresh landing after deregistration would put this worker back in the
+        # pool.
         hb_task.cancel()
-        try:
-            await reg.deregister()
-        except Exception as exc:  # noqa: BLE001 - shutdown must not raise
-            logger.warning("deregister failed: %s", exc)
+
+        deadline = time.monotonic() + args.drain_timeout
+
+        async def _drain() -> None:
+            if nats_req_server is not None:
+                # The real drain: unsubscribe first so nothing new arrives, then
+                # wait on the in-flight set infera actually holds. No polling and
+                # no settle window -- unlike HTTP, where the count has to be
+                # inferred from the engine's lagging gauges.
+                await nats_req_server.stop(
+                    drain=True,
+                    drain_timeout=max(0.0, deadline - time.monotonic()),
+                )
+            while state.running and time.monotonic() < deadline:
+                await asyncio.sleep(0.1)
+            if state.running:
+                logger.warning("drain timeout with %d request(s) still in flight", state.running)
+
+        async def _deregister() -> None:
+            try:
+                await reg.deregister()
+            except Exception as exc:  # noqa: BLE001 - shutdown must not raise
+                logger.warning("deregister failed: %s", exc)
+
+        if reg.deregister_stops_routing:
+            # etcd: the record's presence is what makes this worker a candidate,
+            # so it has to go before the drain or the drain just races arrivals.
+            await _deregister()
+            await _drain()
+        else:
+            # Kubernetes: the registry dropped this Pod on its deletionTimestamp,
+            # before this process was signalled, so the record can stay until the
+            # end and keep the worker visible while it finishes.
+            await _drain()
+            await _deregister()
+
         server.should_exit = True
         stop.set()
 
