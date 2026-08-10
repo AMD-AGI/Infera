@@ -165,6 +165,13 @@ const MM_IMAGE_BLOCK_WEIGHT: f64 = 48.0;
 /// routers are independent implementations of the same policy and must agree.
 const RECENT_DECAY: f64 = 0.97;
 
+/// Load charged for a pick we have no block information about -- the hasher
+/// returned nothing, because the prompt is shorter than the index block size or
+/// tokenisation failed. Charging 0 would hold the load term at 0 for every
+/// candidate and restore the permanent tie. Mirrors `_UNKNOWN_COST_BLOCKS` in
+/// infera/router/policy/kv_event_aware.py.
+const UNKNOWN_COST_BLOCKS: f64 = 1.0;
+
 /// Pick the worker minimising
 ///   `cost(w) = w_overlap * (request_blocks - hits(w)) + load(w)`
 ///   `load(w) = active_blocks(w) + recent_blocks(w)`
@@ -255,16 +262,29 @@ impl KvEventAwarePolicy {
     /// out. Totals that decay to nothing are dropped so an idle worker returns
     /// to a clean 0. A fully-cached pick charges nothing -- the worker has no
     /// prefill to do, so it takes on no load and stays the right answer.
-    fn record_dispatch(&self, route_key: &str, missed_blocks: usize) {
+    fn record_dispatch(&self, route_key: &str, missed_blocks: usize, request_blocks: usize) {
         let mut recent = self.recent.lock().expect("recent mutex poisoned");
         recent.retain(|_, v| {
             *v *= RECENT_DECAY;
             *v >= 1e-3
         });
-        if missed_blocks == 0 {
+        // Zero misses arrives here two different ways, and they must not be
+        // charged alike. request_blocks > 0 with no misses means a fully cached
+        // prompt: no prefill to do, so no load, and the holder keeps winning it.
+        // request_blocks == 0 means the hasher produced nothing -- a prompt
+        // under the index block size, or failed tokenisation. That request
+        // still costs the worker something, and charging 0 would hold the load
+        // term at 0 on every candidate, restoring the permanent tie and the
+        // 100/0 split on short-prompt workloads.
+        let charge = if request_blocks == 0 {
+            UNKNOWN_COST_BLOCKS
+        } else {
+            missed_blocks as f64
+        };
+        if charge <= 0.0 {
             return;
         }
-        *recent.entry(route_key.to_string()).or_insert(0.0) += missed_blocks as f64;
+        *recent.entry(route_key.to_string()).or_insert(0.0) += charge;
     }
 
     /// How many of `keys` this worker is recorded as holding (its warm images).
@@ -378,7 +398,7 @@ impl Policy for KvEventAwarePolicy {
         // rather than in on_request_started because the hooks run on the
         // dispatch path, which skips them on the failure routes -- and a pick
         // that goes uncharged is invisible to the next one.
-        self.record_dispatch(&picked_key, blocks.len().saturating_sub(hits));
+        self.record_dispatch(&picked_key, blocks.len().saturating_sub(hits), blocks.len());
         // Mark the chosen worker as now holding this request's images, so the
         // next request for the same image is drawn back to its warm cache.
         let mm_matched = self.mm_hits(&picked_key, &mm_keys);
@@ -521,7 +541,7 @@ mod tests {
         assert_eq!(pol.active_len("a"), 0);
         assert_eq!(pol.load_of("a"), 0.0);
 
-        pol.record_dispatch("a", 10);
+        pol.record_dispatch("a", 10, 10);
         assert_eq!(pol.active_len("a"), 0, "nothing in flight");
         assert!(
             pol.load_of("a") > 0.0,
@@ -531,13 +551,24 @@ mod tests {
     }
 
     #[test]
+    fn a_pick_with_no_block_information_is_still_charged() {
+        // A prompt under the index block size hashes to nothing. Charging 0 for
+        // it would hold the load term at 0 on every candidate, restoring the
+        // tie that sends every request to whichever worker sorts first.
+        let kv = Arc::new(KvEventClient::new());
+        let pol = KvEventAwarePolicy::new(kv, BlockHasher::disabled(), 1.0, None, None);
+        pol.record_dispatch("a", 0, 0);
+        assert!(pol.load_of("a") > 0.0, "unhashable pick accrued no load");
+    }
+
+    #[test]
     fn a_fully_cached_pick_is_charged_nothing() {
         // The charge is the blocks the winner had to COMPUTE. A worker serving
         // a prompt it already holds takes on no prefill work, so it accrues no
         // load and stays the right answer for that prompt.
         let kv = Arc::new(KvEventClient::new());
         let pol = KvEventAwarePolicy::new(kv, BlockHasher::disabled(), 1.0, None, None);
-        pol.record_dispatch("a", 0);
+        pol.record_dispatch("a", 0, 10);
         assert_eq!(pol.load_of("a"), 0.0);
     }
 
@@ -548,10 +579,10 @@ mod tests {
         // mode for another.
         let kv = Arc::new(KvEventClient::new());
         let pol = KvEventAwarePolicy::new(kv, BlockHasher::disabled(), 1.0, None, None);
-        pol.record_dispatch("bursty", 10);
+        pol.record_dispatch("bursty", 10, 10);
         assert!(pol.load_of("bursty") > 0.0);
         for _ in 0..500 {
-            pol.record_dispatch("other", 1);
+            pol.record_dispatch("other", 1, 1);
         }
         assert_eq!(
             pol.load_of("bursty"),
@@ -566,8 +597,8 @@ mod tests {
         // with nothing in flight, which is the state this term represents.
         let kv = Arc::new(KvEventClient::new());
         let pol = KvEventAwarePolicy::new(kv, BlockHasher::disabled(), 1.0, None, None);
-        pol.record_dispatch("gone#dp0", 5);
-        pol.record_dispatch("stay", 5);
+        pol.record_dispatch("gone#dp0", 5, 5);
+        pol.record_dispatch("stay", 5, 5);
         pol.sync_workers(&[worker("stay", 16, None)]);
         assert_eq!(pol.load_of("gone#dp0"), 0.0);
         assert!(pol.load_of("stay") > 0.0);

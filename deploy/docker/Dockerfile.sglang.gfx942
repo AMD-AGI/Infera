@@ -69,7 +69,16 @@ RUN if [ "${BUILD_MOONCAKE}" = "1" ]; then \
 # `python -m infera.gaie`.
 COPY pyproject.toml README.md ./
 COPY infera ./infera
-RUN pip install --no-cache-dir ".[sglang]"
+# setuptools is bumped in the same RUN. The bases ship 79.0.1, whose bundled
+# _vendor/ tree carries an old jaraco.context and wheel; those three are the
+# only reported issues here that a version bump can reach, since every other
+# Python finding sits on a package the base pins for its own runtime (pillow,
+# aiohttp, cryptography, h2, torch) and is the vendor's to move.
+#
+# Safe to move because setuptools is build tooling, not a runtime dependency:
+# nothing here imports it to serve a request. Verified against the published
+# image -- vllm and infera both still import, and the count drops 22 -> 19.
+RUN pip install --no-cache-dir ".[sglang]" "setuptools>=83.0.0"
 
 # ---- GLM-5.2 DSA indexer rows (patch 01 of the sglang_dsa set) --------------
 # REQUIRED for DP-attention here: the aiter (HIP) paged-MQA row count and
@@ -157,9 +166,19 @@ RUN set -eu; \
     rm -rf /tmp/sglang-rocm-patches
 
 # ---- Rust router (multi-core data plane; --router-backend rust) ----
-# The ROCm base ships cargo; use it (install a minimal toolchain only if
-# absent). Needs cc for linking and libclang (onig_sys/bindgen). Removes
-# the build tree, keeps the binary.
+# The ROCm base often ships cargo; use it, and install a minimal toolchain only
+# if absent. Needs cc for linking and libclang (onig_sys/bindgen).
+#
+# Build and remove in the SAME RUN. This is about what a scanner finds in the
+# final image, not about size: image scanning reads the flattened filesystem, so
+# a toolchain deleted in a later step is still reported, while one deleted here
+# is gone. A serving image has no business shipping a compiler toolchain.
+#
+# Removed unconditionally, including when the base supplied it. Who installed it
+# does not change whether it is present in the image being scanned, and nothing
+# at runtime needs cargo: the engines are Python, and the built infera-router
+# links only against base system libs (libc/libstdc++/libgcc/libm), none of
+# which the toolchain provides.
 COPY rust ./rust
 RUN set -eu; \
     command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; }; \
@@ -170,7 +189,10 @@ RUN set -eu; \
     export LIBCLANG_PATH="${LIBCLANG_PATH:-/opt/rocm/llvm/lib}"; \
     ( cd rust && cargo build --release --bin infera-router ); \
     cp rust/target/release/infera-router /usr/local/bin/infera-router; \
-    rm -rf rust
+    rm -rf rust "$HOME/.cargo" "$HOME/.rustup" /usr/local/cargo /usr/local/rustup; \
+    rm -f /usr/local/bin/cargo /usr/local/bin/rustc /usr/local/bin/rustup /usr/local/bin/rustdoc; \
+    ! command -v cargo >/dev/null || { echo "cargo still on PATH after cleanup: $(command -v cargo)" >&2; exit 1; }; \
+    /usr/local/bin/infera-router --help >/dev/null 2>&1 || { echo "infera-router unusable after cleanup" >&2; exit 1; }
 
 COPY deploy/docker/scripts/infera_inject_host_ionic.sh /usr/local/bin/infera-inject-host-ionic
 
