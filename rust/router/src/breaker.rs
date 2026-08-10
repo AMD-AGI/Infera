@@ -108,6 +108,20 @@ impl CircuitBreaker {
 
     /// A threshold of 0 turns the breaker off entirely, so an operator can fall
     /// back to plain failover without a code change.
+    /// Take the entry lock, recovering it if a previous holder panicked.
+    ///
+    /// Every request passes through the breaker, so `unwrap` here would turn
+    /// one panic into a panic on every subsequent request -- a local fault
+    /// escalated into total unavailability, which is the outcome this whole
+    /// class exists to avoid. The guarded state is a plain map of counters; a
+    /// panic mid-update can leave one worker's entry stale, never the process
+    /// unusable.
+    fn entries(&self) -> std::sync::MutexGuard<'_, HashMap<String, Entry>> {
+        self.entries
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
     fn enabled(&self) -> bool {
         self.failure_threshold > 0
     }
@@ -116,7 +130,7 @@ impl CircuitBreaker {
         if !self.enabled() {
             return true;
         }
-        let mut map = self.entries.lock().expect("breaker mutex poisoned");
+        let mut map = self.entries();
         let Some(e) = map.get_mut(worker_id) else {
             return true;
         };
@@ -172,7 +186,7 @@ impl CircuitBreaker {
     }
 
     pub fn record_success(&self, worker_id: &str) {
-        let mut map = self.entries.lock().expect("breaker mutex poisoned");
+        let mut map = self.entries();
         if let Some(e) = map.get_mut(worker_id) {
             if e.state != BreakerState::Closed {
                 tracing::info!(worker = worker_id, "breaker: worker recovered, closing");
@@ -195,7 +209,7 @@ impl CircuitBreaker {
     /// all-open fallback reached would undo its backoff. The slot such a
     /// request consumed still has to come back.
     pub fn record_neutral(&self, worker_id: &str) {
-        let mut map = self.entries.lock().expect("breaker mutex poisoned");
+        let mut map = self.entries();
         if let Some(e) = map.get_mut(worker_id) {
             e.probe_started_at = None;
         }
@@ -209,7 +223,7 @@ impl CircuitBreaker {
     /// another pair of Prometheus series, since /metrics exports one per entry
     /// labelled by worker id.
     pub fn retain_workers(&self, active: &HashSet<String>) {
-        let mut map = self.entries.lock().expect("breaker mutex poisoned");
+        let mut map = self.entries();
         map.retain(|id, _| active.contains(id));
     }
 
@@ -223,7 +237,7 @@ impl CircuitBreaker {
         if !self.enabled() {
             return;
         }
-        let mut map = self.entries.lock().expect("breaker mutex poisoned");
+        let mut map = self.entries();
         let e = map.entry(worker_id.to_string()).or_insert_with(|| Entry {
             consecutive_failures: 0,
             state: BreakerState::Closed,
@@ -246,21 +260,29 @@ impl CircuitBreaker {
         } else if e.consecutive_failures < self.failure_threshold {
             return;
         }
+        // A trip is an edge into exclusion, not every failure that lands while
+        // the worker is already excluded. A failed probe counts: it is a fresh
+        // verdict on a worker that was given another chance, and the doubling
+        // cooldown bounds how often one can happen. A failure while already
+        // open does not -- those arrive at the request rate, via the all-open
+        // fallback, and counting them turns the metric into a request counter
+        // that drowns out real trips and prints the warning on every request.
+        let newly_tripped = e.state != BreakerState::Open;
         e.state = BreakerState::Open;
         e.opens_until = now + e.next_cooldown;
-        e.trips += 1;
-        tracing::warn!(
-            worker = worker_id,
-            cooldown_s = e.next_cooldown.as_secs_f64(),
-            failures = e.consecutive_failures,
-            "breaker: worker open"
-        );
+        if newly_tripped {
+            e.trips += 1;
+            tracing::warn!(
+                worker = worker_id,
+                cooldown_s = e.next_cooldown.as_secs_f64(),
+                failures = e.consecutive_failures,
+                "breaker: worker open"
+            );
+        }
     }
 
     pub fn state_of(&self, worker_id: &str) -> BreakerState {
-        self.entries
-            .lock()
-            .expect("breaker mutex poisoned")
+        self.entries()
             .get(worker_id)
             .map(|e| e.state)
             .unwrap_or(BreakerState::Closed)
@@ -268,7 +290,7 @@ impl CircuitBreaker {
 
     /// `(worker_id, state, trips)` for metrics export.
     pub fn snapshot(&self) -> Vec<(String, BreakerState, u64)> {
-        let map = self.entries.lock().expect("breaker mutex poisoned");
+        let map = self.entries();
         let mut out: Vec<_> = map
             .iter()
             .map(|(k, e)| (k.clone(), e.state, e.trips))
@@ -627,5 +649,67 @@ mod tests {
         assert_eq!(snap.len(), 1);
         assert!(snap.iter().any(|(id, _, _)| id == "stay"));
         assert_eq!(b.state_of("gone"), BreakerState::Closed);
+    }
+
+    // `trips` answers "how often did this worker go bad", which is what an
+    // alert on rate(trips_total) is asking. Counting every failure that lands
+    // while the breaker is already open answers "how many requests hit a bad
+    // worker" instead -- a different and much larger number, dominated by
+    // whichever worker the all-open fallback keeps feeding.
+    #[test]
+    fn trips_count_outages_not_requests() {
+        let b = CircuitBreaker::new(3, Duration::from_secs(5), Duration::from_secs(60));
+        let t = Instant::now();
+        for _ in 0..3 {
+            b.record_failure_at("w1", t);
+        }
+        assert_eq!(b.snapshot()[0].2, 1, "three failures are one outage");
+
+        // Still open, still failing -- the all-open fallback keeps dispatching.
+        for _ in 0..20 {
+            b.record_failure_at("w1", t);
+        }
+        assert_eq!(
+            b.snapshot()[0].2,
+            1,
+            "failures while already open are not new trips"
+        );
+
+        // A failed probe does count: a fresh verdict on a worker that was given
+        // another chance, bounded by the doubling cooldown rather than the
+        // request rate.
+        let due = t + Duration::from_secs(6);
+        assert!(b.allows_at("w1", due));
+        b.record_failure_at("w1", due);
+        assert_eq!(b.snapshot()[0].2, 2, "a failed probe is a new verdict");
+    }
+
+    // The breaker sits on every request, so a poisoned lock must not be able to
+    // take the data plane with it: the guarded state is a map of counters, and
+    // a stale entry for one worker beats refusing to route at all.
+    #[test]
+    fn a_poisoned_lock_does_not_wedge_the_router() {
+        use std::sync::Arc;
+
+        let b = Arc::new(CircuitBreaker::new(
+            3,
+            Duration::from_secs(5),
+            Duration::from_secs(60),
+        ));
+        let t = Instant::now();
+        b.record_failure_at("w1", t);
+
+        let poisoner = Arc::clone(&b);
+        let _ = std::thread::spawn(move || {
+            let _guard = poisoner.entries();
+            panic!("poison the lock");
+        })
+        .join();
+
+        // Every accessor must still work rather than propagating the panic.
+        assert!(b.allows_at("w2", t));
+        b.record_failure_at("w2", t);
+        b.record_success("w2");
+        assert!(!b.snapshot().is_empty());
     }
 }

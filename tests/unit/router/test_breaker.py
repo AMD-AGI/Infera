@@ -276,3 +276,26 @@ def test_forgetting_a_worker_drops_its_entry(cb):
     cb.forget("gone")
     assert "gone" not in cb.snapshot()
     assert cb.state_of("gone") is BreakerState.CLOSED
+
+
+def test_trips_count_outages_not_requests(cb, clock):
+    """`trips` answers "how often did this worker go bad", which is what an
+    alert on its rate is asking. Counting every failure that lands while the
+    breaker is already open answers "how many requests hit a bad worker"
+    instead -- a much larger number, dominated by whichever worker the all-open
+    fallback keeps feeding."""
+    for _ in range(3):
+        cb.record_failure("w1")
+    assert cb.snapshot()["w1"]["trips"] == 1, "three failures are one outage"
+
+    for _ in range(20):
+        cb.record_failure("w1")
+    assert cb.snapshot()["w1"]["trips"] == 1, "failures while already open are not new trips"
+
+    # A failed probe does count: it is a fresh verdict on a worker that was
+    # given another chance, and the doubling cooldown bounds how often one can
+    # happen -- unlike the failures above, which arrive at the request rate.
+    clock.advance(cb.cooldown + 1)
+    assert cb.allows("w1") is True
+    cb.record_failure("w1")
+    assert cb.snapshot()["w1"]["trips"] == 2, "a failed probe is a new verdict"

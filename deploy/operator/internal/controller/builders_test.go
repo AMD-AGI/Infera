@@ -199,3 +199,52 @@ func TestTheContainerFlagBeatsAServiceSpecVariable(t *testing.T) {
 		t.Fatalf("grace = %d, want %d", got, want)
 	}
 }
+
+// A drain timeout arrives as free-form text from args or an env var, so the
+// parse has to survive whatever is there. Two directions matter.
+//
+// Below: Go leaves float-to-int conversion implementation-defined when the
+// value does not fit, and on amd64 `inf` and `NaN` both land on minInt64. The
+// floor then hides it, so a worker configured with an unusable value silently
+// gets the default budget instead of anything signalling a mistake. Python's
+// argparse accepts `inf` as a float, so this is reachable.
+//
+// Above: nothing bounded the result, so a typo like 86400 renders a Pod that
+// takes a day to delete, and 9e18 overflows into a nonsensical grace period.
+func TestDrainTimeoutRejectsValuesItCannotUse(t *testing.T) {
+	for _, v := range []string{"inf", "+Inf", "-Inf", "NaN", "abc", "", "0", "-5"} {
+		if got, ok := drainSeconds(v); ok {
+			t.Errorf("drainSeconds(%q) = %d, accepted; an unusable value must be refused "+
+				"so the budget falls back to the default", v, got)
+		}
+	}
+}
+
+func TestDrainTimeoutIsCappedAtSomethingSurvivable(t *testing.T) {
+	// Finite but implausible: clamped rather than refused, since the intent is
+	// legible even when the number is not. 9e18 also overflows an int, which is
+	// what made an unbounded path dangerous rather than merely silly.
+	for _, v := range []string{"86400", "1e30", "9e18"} {
+		got, ok := drainSeconds(v)
+		if !ok {
+			t.Fatalf("drainSeconds(%q): a finite positive value should parse", v)
+		}
+		if got != maxDrainTimeoutSeconds {
+			t.Errorf("drainSeconds(%q) = %d, want it clamped to %d: an unbounded grace "+
+				"period leaves a stuck Pod deletable only with --force",
+				v, got, maxDrainTimeoutSeconds)
+		}
+	}
+}
+
+func TestDrainTimeoutStillAcceptsOrdinaryValues(t *testing.T) {
+	for _, c := range []struct {
+		in   string
+		want int
+	}{{"30", 30}, {"0.5", 1}, {"120.4", 121}, {"300", 300}} {
+		got, ok := drainSeconds(c.in)
+		if !ok || got != c.want {
+			t.Errorf("drainSeconds(%q) = %d,%v; want %d,true", c.in, got, ok, c.want)
+		}
+	}
+}

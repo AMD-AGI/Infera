@@ -266,10 +266,20 @@ class CircuitBreaker:
             self._open(worker_id, e)
 
     def _open(self, worker_id: str, e: _Entry) -> None:
+        # A trip is an edge into exclusion, not every failure that lands while
+        # the worker is already excluded. A failed probe counts: it is a fresh
+        # verdict on a worker that was given another chance, and the doubling
+        # cooldown bounds how often one can happen. A failure while already
+        # open does not -- those arrive at the request rate, via the all-open
+        # fallback, and counting them turns the metric into a request counter
+        # that drowns out real trips and prints the warning on every request.
+        newly_tripped = e.state is not BreakerState.OPEN
         e.state = BreakerState.OPEN
         e.opens_until = self.now() + e.next_cooldown
-        e.trips += 1
         _observe(worker_id, e.state)
+        if not newly_tripped:
+            return
+        e.trips += 1
         try:
             metrics.worker_breaker_trips_total.labels(worker_id=worker_id).inc()
         except Exception:  # pragma: no cover - metrics must never break routing

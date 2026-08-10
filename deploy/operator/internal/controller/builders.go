@@ -51,10 +51,25 @@ const (
 
 // drainSeconds parses a worker --drain-timeout value. The worker takes a
 // float; round up so a fractional value never shortens the budget.
+// Ceiling on a parsed drain timeout, and therefore on the grace period derived
+// from it. An hour is far past any real generation; beyond that the value is
+// more likely a typo than an intention, and it is written into
+// terminationGracePeriodSeconds, where too large means a stuck Pod that only
+// `--force` can delete.
+const maxDrainTimeoutSeconds = 3600
+
 func drainSeconds(v string) (int, bool) {
 	f, err := strconv.ParseFloat(v, 64)
-	if err != nil || f <= 0 {
+	// NaN fails every comparison, so `f <= 0` does not catch it, and neither it
+	// nor an infinity survives the conversion below: Go leaves out-of-range
+	// float-to-int implementation-defined, and on amd64 both land on minInt64,
+	// which the floor then quietly turns back into the default budget. Refusing
+	// them means the fallback is at least a deliberate one.
+	if err != nil || math.IsNaN(f) || math.IsInf(f, 0) || f <= 0 {
 		return 0, false
+	}
+	if f > maxDrainTimeoutSeconds {
+		return maxDrainTimeoutSeconds, true
 	}
 	return int(math.Ceil(f)), true
 }

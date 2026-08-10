@@ -94,10 +94,29 @@ async fn metrics(State(st): State<AppState>) -> impl IntoResponse {
             crate::breaker::BreakerState::HalfOpen => 1,
             crate::breaker::BreakerState::Open => 2,
         };
+        // Escaped: worker ids come from discovery records, and a stray quote,
+        // backslash or newline in one would not corrupt a single line but end
+        // the whole exposition, failing every scrape of this endpoint.
+        let worker_id = escape_label_value(&worker_id);
         out.push_str(&format!(
             "infera_router_worker_breaker_state{{worker_id=\"{worker_id}\"}} {v}\n\
              infera_router_worker_breaker_trips_total{{worker_id=\"{worker_id}\"}} {trips}\n"
         ));
+    }
+    out
+}
+
+/// Escape a Prometheus label value: backslash, double quote and newline, per
+/// the text exposition format.
+fn escape_label_value(v: &str) -> String {
+    let mut out = String::with_capacity(v.len());
+    for c in v.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            _ => out.push(c),
+        }
     }
     out
 }
