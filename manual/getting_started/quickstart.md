@@ -82,10 +82,10 @@ three flags on **every** server and worker, or they won't find each other. See
 [Routing & transport](../features/routing_and_transport.md).
 
 One behaviour differs on this path: stopping a worker still lets its in-flight
-generations finish, but it deregisters first, so it disappears from
-`/v1/workers` while draining instead of being visibly on its way out. Leaving
-rotation *before* the process is signalled needs Kubernetes to say the Pod is
-going — see [Graceful shutdown](../features/graceful_shutdown.md).
+generations finish, but nothing takes it out of routing until it is signalled.
+Leaving rotation *before* the process is told to stop needs Kubernetes to
+report the Pod as going away — see
+[Graceful shutdown](../features/graceful_shutdown.md).
 ```
 
 ```{tip}

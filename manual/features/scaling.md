@@ -59,13 +59,12 @@ grace period.
 
 The worker then, in this order:
 
-1. **Stops being routed to.** The router filters draining workers out
-   immediately, so no new work arrives. The record stays, so the worker remains
-   visible in `/v1/workers` — a worker that vanishes looks exactly like one that
-   crashed. Under Kubernetes this already happened when the Pod was condemned,
-   before the process was signalled at all; elsewhere the worker deregisters
-   here, which stops new work but also removes it from the listing (see [Who
-   says the worker is leaving](#who-says-the-worker-is-leaving)).
+1. **Stops being routed to.** The worker removes its registration, which is
+   what stops new work arriving. Under Kubernetes a Pod being *deleted* has
+   already left routing well before this — the registry acts on its
+   deletionTimestamp, before the process is even signalled — so this is only
+   cleanup there (see [Who says the worker is
+   leaving](#who-says-the-worker-is-leaving)).
 2. **Drains.** On the NATS transport infera tracks in-flight requests directly.
    On HTTP the router talks straight to the engine, so infera asks the engine
    instead, polling its `/metrics` until running, queued, and PD-handoff queues
@@ -83,10 +82,10 @@ a separate and much larger number, set by the longest generation it was already
 serving. Measured: under a second to stop receiving, 38 s until the record
 disappeared, while a 40-second generation ran to completion in between.
 
-Watching `/v1/workers` measures the second one, not the first: it lists every
-worker including draining ones, precisely so a rollout is visible while it
-happens. To see the transition, read the `status` field rather than counting
-rows.
+Watching `/v1/workers` measures the second one, not the first. A Pod being
+deleted appears there as `draining` for the window between its deletion being
+requested and the process being signalled; after that it deregisters and
+disappears while it finishes its remaining work.
 
 ```{note}
 `--drain-timeout` is a **ceiling, not a delay** — a worker with nothing in flight
@@ -238,18 +237,19 @@ landing mid-drain would overwrite it with a payload that omits the status,
 which parses as `ACTIVE`, and the worker would be handed new work it is about
 to refuse.
 
-**etcd: removing the record says so.** There is no orchestrator here. A record
-is either present with an unexpired lease or it is gone — nothing observes that
-the process is on its way out, and there is no third state to put it in. So a
-shutdown deregisters *first*, which is what stops new requests arriving, and
-drains after. In-flight generations are still finished rather than cut; what is
-not available is the worker remaining visible while it does so.
+**Everywhere else: removing the record says so.** On etcd there is no
+orchestrator at all — a record is either present with an unexpired lease or it
+is gone, with no third state to put it in. The same is true on Kubernetes
+whenever the Pod is *not* being deleted: a liveness probe restarting the
+container, a node shutting down gracefully, someone killing the process. No
+deletionTimestamp is set, so the registry reads the annotation as usual and the
+worker stays routable until it clears it.
 
-That ordering is the one real difference. Under Kubernetes routing has already
-stopped by the time the process is signalled, so the record can be kept until
-the end and the drain is observable; on etcd the record is the only thing
-keeping the worker in rotation, so it has to go before the drain rather than
-after.
+So every shutdown deregisters *first* and drains after. In-flight generations
+are finished either way; the cost is that the worker is absent from
+`/v1/workers` while it drains rather than shown as draining. The head start —
+leaving routing before the process is signalled at all — is what deleting a Pod
+buys, and only that.
 
 ```{warning}
 `discoveryBackend: etcd` **is not supported for in-cluster deployments** and the
