@@ -9,9 +9,17 @@ starts real engines in containers, so the cheapest fleet anyone could build cost
 a GPU and a multi-minute weight load per member.
 
 ```bash
+export INFERA_ALLOW_FAKE_WORKER=1
 infera-fake-worker --model-name my-model --port 9101 \
   --discovery-backend etcd --etcd-endpoint http://127.0.0.1:2379
 ```
+
+`INFERA_ALLOW_FAKE_WORKER` is required, and the tool refuses to start without
+it. It ships in the same package as the server and registers through the real
+registration clients, so it can join a fleet and advertise any address it likes
+— which the router will then dial, sending it real prompts. That needs no
+privilege a worker does not already have, but it should be a deliberate act
+rather than something a stray command does by default.
 
 ## Why it can be trusted
 
@@ -91,7 +99,7 @@ proxies to this process's own HTTP surface exactly as it proxies to a real
 engine's — so the transport under test is the production one, not a stand-in.
 
 ```bash
-infera-fake-worker --model-name m --port 9101 \
+INFERA_ALLOW_FAKE_WORKER=1 infera-fake-worker --model-name m --port 9101 \
   --request-transport nats --nats-server nats://127.0.0.1:4222 \
   --discovery-backend etcd --etcd-endpoint http://127.0.0.1:2379
 ```

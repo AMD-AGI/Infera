@@ -219,3 +219,43 @@ async def test_draining_refuses_new_work():
         r = await c.post("/v1/completions", json={"model": "m", "max_tokens": 1})
         assert r.status_code == 503
         assert "infera_fake_worker_draining 1" in (await c.get("/metrics")).text
+
+
+def test_a_rank_header_cannot_forge_metrics_or_grow_without_bound():
+    """The DP-rank header is attacker-controlled and ends up as a Prometheus
+    label and a map key. Unvalidated, a quote or newline breaks out of the label
+    and forges series in whatever scrapes the endpoint, and every distinct value
+    adds a permanent entry to a map that /debug/routing returns in full."""
+    from infera.tools.fakeworker.server import _rank_label
+
+    assert _rank_label(None, 4) == "-"
+    assert _rank_label("2", 4) == "2"
+
+    for hostile in ('x"} 1\nup{job="prod"} 0', "a\\b", "1\n2", "", "  "):
+        got = _rank_label(hostile, 4)
+        assert got == "invalid", f"{hostile!r} -> {got!r}"
+
+    # Out of range is meaningless here, and unbounded if accepted.
+    assert _rank_label("4", 4) == "invalid"
+    assert _rank_label("-1", 4) == "invalid"
+    assert _rank_label("999999", 4) == "invalid"
+
+
+def test_it_refuses_to_start_without_an_explicit_opt_in(monkeypatch):
+    """It registers into real service discovery and answers with fabricated
+    text, and it ships in the same package as the server. Starting it should be
+    a decision, not a default."""
+    import pytest
+
+    from infera.tools.fakeworker.server import ALLOW_ENV, main
+
+    monkeypatch.delenv(ALLOW_ENV, raising=False)
+    with pytest.raises(SystemExit) as exc:
+        main([])
+    assert ALLOW_ENV in str(exc.value), "the error must say how to enable it"
+
+    # Enabled, it gets as far as parsing arguments.
+    monkeypatch.setenv(ALLOW_ENV, "1")
+    with pytest.raises(SystemExit) as exc:
+        main(["--nonsense-flag"])
+    assert ALLOW_ENV not in str(exc.value), "past the gate, argparse should be what refuses"

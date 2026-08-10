@@ -117,6 +117,29 @@ def deterministic_canary(model_name: str) -> list[int]:
     return [int.from_bytes(h[i : i + 2], "big") for i in range(0, 16, 2)]
 
 
+def _rank_label(raw: str | None, dp_size: int) -> str:
+    """Constrain a DP-rank header to something safe to use as a metric label.
+
+    The value is attacker-controlled and ends up interpolated into Prometheus
+    exposition text, where an embedded quote or newline would break out of the
+    label and forge series in whatever scrapes this endpoint. It is also a map
+    key, so accepting arbitrary strings grows that map without bound, one entry
+    per distinct value, and /debug/routing returns the whole thing.
+
+    Only a small integer within the configured fan-out is meaningful here, so
+    everything else collapses to one bucket.
+    """
+    if raw is None:
+        return "-"
+    try:
+        rank = int(raw)
+    except ValueError:
+        return "invalid"
+    if rank < 0 or (dp_size > 0 and rank >= dp_size):
+        return "invalid"
+    return str(rank)
+
+
 def build_app(cfg: EngineConfig, behaviour: Behaviour, state: State) -> FastAPI:
     app = FastAPI(title="infera fake worker")
 
@@ -173,7 +196,7 @@ def build_app(cfg: EngineConfig, behaviour: Behaviour, state: State) -> FastAPI:
 
         # Record what the router decided *before* deciding whether to serve, so
         # a refused request still shows up in the routing evidence.
-        rank = request.headers.get(DP_RANK_HEADER) or "-"
+        rank = _rank_label(request.headers.get(DP_RANK_HEADER), cfg.dp_size)
         state.by_dp_rank[rank] = state.by_dp_rank.get(rank, 0) + 1
         handoff = {
             k: body[k]
@@ -514,16 +537,54 @@ async def _serve(args) -> None:
         server.should_exit = True
         stop.set()
 
+    shutdown_task: asyncio.Task | None = None
+
+    def _on_signal() -> None:
+        # Guarded and strongly referenced. SIGTERM followed by SIGINT is routine
+        # for a terminating Pod, and two concurrent _shutdown() coroutines would
+        # deregister twice through an already-closed client and race each other
+        # inside the NATS server's stop(). asyncio holds only a weak reference
+        # to a task, so dropping the handle could have it collected mid-drain,
+        # leaving the process waiting on an event nobody will set.
+        nonlocal shutdown_task
+        if shutdown_task is None:
+            shutdown_task = asyncio.create_task(_shutdown(), name="fake-worker-shutdown")
+
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
-        loop.add_signal_handler(sig, lambda: asyncio.create_task(_shutdown()))
+        loop.add_signal_handler(sig, _on_signal)
 
     await stop.wait()
     await serve_task
 
 
+#: Opt-in required to start. See _require_opt_in.
+ALLOW_ENV = "INFERA_ALLOW_FAKE_WORKER"
+
+
+def _require_opt_in() -> None:
+    """Refuse to run unless explicitly enabled.
+
+    This ships in the same package as the server, and it registers through the
+    real registration clients -- so it can join a production fleet and advertise
+    any address it likes, which the router will then dial. Nothing about that is
+    a new privilege: it needs the worker credentials it would already have. But
+    a test tool in the production package should not be the thing that turns
+    "code execution in one pod" into "silently receiving prompts fleet-wide",
+    and a deliberate opt-in is cheap next to that.
+    """
+    if os.environ.get(ALLOW_ENV, "").strip().lower() in ("1", "true", "yes"):
+        return
+    raise SystemExit(
+        f"infera-fake-worker refuses to start: it registers into real service "
+        f"discovery and serves fabricated responses, so it must be enabled "
+        f"deliberately. Set {ALLOW_ENV}=1 if this is a test environment."
+    )
+
+
 def main(argv=None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    _require_opt_in()
     args = parse_args(argv)
     asyncio.run(_serve(args))
     return 0
