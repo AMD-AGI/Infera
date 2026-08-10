@@ -207,11 +207,34 @@ func (r *InferaDeploymentReconciler) applyUnstructured(ctx context.Context, idep
 		if current == nil {
 			current = map[string]any{}
 		}
-		_ = unstructured.SetNestedMap(existing.Object, mergeSpec(current, spec), "spec")
+		merged := mergeSpec(current, spec, ownedSpecFields(desired.GetKind()))
+		_ = unstructured.SetNestedMap(existing.Object, merged, "spec")
 		existing.SetLabels(desired.GetLabels())
 		return controllerutil.SetControllerReference(idep, existing, r.Scheme)
 	})
 	return err
+}
+
+// ownedSpecFields lists the top-level spec fields the operator owns outright
+// for a kind: it decides their entire contents, so one absent from the desired
+// object has been removed and must be cleared rather than kept.
+//
+// The distinction matters for fields the builders emit conditionally.
+// HTTPRoute.spec.hostnames is only written when the CR lists any, so without
+// this a user who deletes their hostnames would keep matching them forever --
+// the merge below would see nothing to overlay and leave the old value in
+// place. Fields not listed here belong to someone else, almost always the API
+// server's defaulting, and are left untouched.
+func ownedSpecFields(kind string) map[string]bool {
+	switch kind {
+	case httpRouteKind:
+		return map[string]bool{"parentRefs": true, "rules": true, "hostnames": true}
+	case inferencePoolKind:
+		return map[string]bool{"targetPorts": true, "selector": true, "endpointPickerRef": true}
+	case lwsKind:
+		return map[string]bool{"replicas": true, "leaderWorkerTemplate": true}
+	}
+	return nil
 }
 
 // mergeSpec overlays the fields the operator sets onto what is already there,
@@ -229,7 +252,19 @@ func (r *InferaDeploymentReconciler) applyUnstructured(ctx context.Context, idep
 // Nested maps merge; anything else replaces. Lists are owned outright -- a
 // container list merged element-wise would be neither what was asked for nor
 // what was there.
-func mergeSpec(into, from map[string]any) map[string]any {
+//
+// `owned` names the top-level fields the operator decides entirely. One of
+// those missing from `from` has been removed rather than left unmanaged, so it
+// is deleted; that is what lets a conditionally-emitted field like
+// HTTPRoute's hostnames be taken away again. Nested levels are not pruned:
+// below the top level the desired object and the server's defaults are
+// interleaved, with no way to tell them apart.
+func mergeSpec(into, from map[string]any, owned map[string]bool) map[string]any {
+	for k := range owned {
+		if _, still := from[k]; !still {
+			delete(into, k)
+		}
+	}
 	for k, v := range from {
 		sub, isMap := v.(map[string]any)
 		if !isMap {
@@ -241,7 +276,7 @@ func mergeSpec(into, from map[string]any) map[string]any {
 			into[k] = v
 			continue
 		}
-		into[k] = mergeSpec(existing, sub)
+		into[k] = mergeSpec(existing, sub, nil)
 	}
 	return into
 }
