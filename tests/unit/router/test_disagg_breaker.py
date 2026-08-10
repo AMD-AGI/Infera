@@ -15,9 +15,12 @@ turning a clean SSE error into a 500. Lint caught it, but nothing executed it.
 
 from __future__ import annotations
 
+import json
+
 import httpx
 import pytest
 
+from infera.common.nats_request import TYPE_DATA, TYPE_DONE, TYPE_ERROR
 from infera.common.worker_pool import DisaggMode, EngineType, WorkerInfo
 from infera.router.disagg import DisaggRouter
 from infera.router.policy.target import RouteTarget
@@ -138,7 +141,7 @@ class _RolePool:
         return list(self._by_mode.get(mode, []))
 
 
-def _pd_worker(wid, mode):
+def _pd_worker(wid, mode, transport="http"):
     meta = {"protocol": "sglang-bootstrap"}
     if mode is DisaggMode.PREFILL:
         meta["params"] = {"bootstrap_addr": f"{wid}:9000"}
@@ -147,9 +150,22 @@ def _pd_worker(wid, mode):
         url=f"http://{wid}",
         model_name="m",
         engine=EngineType.SGLANG,
-        request_transport="http",
+        request_transport=transport,
         disagg_mode=mode,
         disagg_meta=meta,
+    )
+
+
+def _nats_router(*, fail_decode):
+    """A PD pair that both registered for the NATS transport, which is what
+    selects the NATS dispatch path."""
+    return DisaggRouter(
+        _RolePool(
+            _pd_worker("p1", DisaggMode.PREFILL, transport="nats"),
+            _pd_worker("d1", DisaggMode.DECODE, transport="nats"),
+        ),
+        _FakePolicy(),
+        nats_client=_FakeNatsPD(fail_decode=fail_decode),
     )
 
 
@@ -268,3 +284,122 @@ async def test_a_tripped_pd_worker_recovers_after_a_good_probe():
 
     assert r.breaker.state_of("d1").value == "closed", "a good probe must close it"
     await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_a_decode_outage_does_not_trip_the_prefill_worker():
+    """asyncio.gather raises whichever leg failed, without saying which. Blaming
+    a fixed one means a decode that refuses connections evicts the healthy
+    prefill worker from rotation while the broken decode is never scored at
+    all -- the exact inversion of what the breaker is for."""
+
+    def _only_decode_is_down(request):
+        if "d1" in str(request.url):
+            raise httpx.ConnectError("refused", request=request)
+        return httpx.Response(200, json={"id": "x"})
+
+    r = DisaggRouter(
+        _RolePool(_pd_worker("p1", DisaggMode.PREFILL), _pd_worker("d1", DisaggMode.DECODE)),
+        _FakePolicy(),
+    )
+    r._client = httpx.AsyncClient(transport=httpx.MockTransport(_only_decode_is_down))
+
+    for _ in range(3):
+        await r.dispatch({"model": "m"}, stream=False)
+
+    assert r.breaker.state_of("d1").value == "open", "the leg that refused must be the one scored"
+    assert r.breaker.state_of("p1").value == "closed", "the healthy leg must not be evicted"
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_a_stream_that_dies_after_its_headers_is_not_a_success():
+    """A 200 header only means the request was accepted. Treating it as
+    recovery resets the failure count, so a decode worker that answers 200 and
+    then sends nothing -- which is precisely the "healthy to the platform,
+    broken for inference" profile the breaker exists for -- can never trip, and
+    erases real failures on its way."""
+    r = DisaggRouter(
+        _RolePool(_pd_worker("p1", DisaggMode.PREFILL), _pd_worker("d1", DisaggMode.DECODE)),
+        _FakePolicy(),
+    )
+
+    def _headers_then_nothing(request):
+        if "d1" in str(request.url):
+            # 200, then the body raises as soon as it is read.
+            return httpx.Response(200, stream=_DyingStream())
+        return httpx.Response(200, json={"id": "x"})
+
+    r._client = httpx.AsyncClient(transport=httpx.MockTransport(_headers_then_nothing))
+
+    for _ in range(2):
+        r.breaker.record_failure("d1")
+    before = r.breaker.snapshot()["d1"]["consecutive_failures"]
+    assert before == 2
+
+    resp = await r.dispatch({"model": "m"}, stream=True)
+    await _drain(resp.body_iterator)
+
+    after = r.breaker.snapshot()["d1"]["consecutive_failures"]
+    assert after >= before, (
+        f"consecutive_failures went {before} -> {after}: a stream that produced "
+        "no output was scored as evidence of health"
+    )
+    await r.aclose()
+
+
+class _DyingStream(httpx.AsyncByteStream):
+    """Headers arrive, then the body fails -- no bytes ever reach the client."""
+
+    async def __aiter__(self):
+        raise httpx.ReadError("connection died after headers")
+        yield b""  # unreachable; makes this an async generator
+
+
+@pytest.mark.asyncio
+async def test_the_nats_transport_scores_its_legs_too():
+    """The NATS paths do not use the HTTP client, so scoring placed at HTTP
+    response sites misses them entirely. A decode worker failing every request
+    over NATS would be invisible to the breaker, and -- worse -- one already
+    open could never be closed again, since nothing would ever record the
+    success that ends its half-open state."""
+    r = _nats_router(fail_decode=True)
+
+    for _ in range(3):
+        await r.dispatch({"model": "m"}, stream=False)
+
+    assert r.breaker.state_of("d1").value == "open", "a failing NATS decode leg must trip"
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_a_good_nats_probe_closes_the_breaker():
+    r = _nats_router(fail_decode=False)
+    for _ in range(3):
+        r.breaker.record_failure("d1")
+    r.breaker._entries["d1"].opens_until = 0.0
+
+    await r.dispatch({"model": "m"}, stream=False)
+
+    assert r.breaker.state_of("d1").value == "closed", (
+        "a NATS worker that answers cleanly must be able to recover; otherwise "
+        "it stays half-open forever, throttled to one request per probe window"
+    )
+    await r.aclose()
+
+
+class _FakeNatsPD:
+    """Scripted NATS transport: decode either answers or errors, prefill is fine."""
+
+    def __init__(self, *, fail_decode: bool):
+        self.fail_decode = fail_decode
+
+    async def admit(self, worker_id):
+        return True
+
+    async def stream(self, worker_id, payload):
+        if worker_id == "d1" and self.fail_decode:
+            yield (TYPE_ERROR, 502, b"decode exploded")
+            return
+        yield (TYPE_DATA, None, json.dumps({"id": "x"}).encode())
+        yield (TYPE_DONE, 200, b"")
