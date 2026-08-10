@@ -7,9 +7,9 @@
 
 Every engine exposes the same three facts — requests running, requests queued,
 KV cache in use — under a different name, and the names drift between releases.
-Anything that reads them (graceful drain, an autoscaler, the fake worker) needs
-the same mapping, so it lives here rather than being spelled out at each call
-site where one of them would quietly rot.
+Anything that reads them (graceful drain, an autoscaler) needs the same mapping,
+so it lives here rather than being spelled out at each call site where one of
+them would quietly rot.
 
 Provenance, because it is uneven and matters:
 

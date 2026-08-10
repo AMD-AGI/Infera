@@ -17,8 +17,8 @@ from infera.router.policy.target import RouteTarget
 
 #: Both engines honour this (SGLang ``DataParallelController``, vLLM
 #: ``_get_data_parallel_rank``, case-insensitively). Named rather than inlined
-#: so anything asserting on it -- tests, the fake worker -- breaks loudly on a
-#: rename instead of silently never matching. Mirrors Rust's DP_RANK_HEADER.
+#: so anything asserting on it breaks loudly on a rename instead of silently
+#: never matching. Mirrors Rust's DP_RANK_HEADER.
 DP_RANK_HEADER = "X-Data-Parallel-Rank"
 
 

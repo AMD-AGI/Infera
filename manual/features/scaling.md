@@ -106,7 +106,7 @@ information lives.
 | **NATS** (`--request-transport nats`) | infera — it owns the request path and holds the in-flight set | exact, no polling |
 | **HTTP** (default in the recipes) | only the engine — the router dials it directly and never sees the request | poll the engine's `/metrics`, behind a settle window |
 
-Measured, same fake worker, same generation:
+Measured with a GPU-free stand-in worker, same generation:
 
 - **NATS, one in-flight generation**: the log reads `draining 1 in-flight NATS
   request(s)` — it knows the count — the 300-chunk generation completed in full,
@@ -306,7 +306,7 @@ Two runs, both with a Pod deleted while holding in-flight work:
   concurrent 2500-token generations in flight, **4/4 completed with HTTP 200**
   and full-length output (6.5–13.3 kB), replacement Pod registered before the
   drain finished.
-- **Fake workers**, same path without a GPU: a 300-chunk generation completed
+- **GPU-free stand-in workers**, same path: a 300-chunk generation completed
   in full across the drain.
 
 ```{note}
@@ -418,7 +418,7 @@ last prefill away then returns 503 naming the empty pool.
 
 ```{warning}
 **Not measured:** multi-node workers, TP > 1, PD scaling with a *real* engine
-(the run above used fake workers, so no KV moved), and scale-down during an
+(the run above used GPU-free stand-ins, so no KV moved), and scale-down during an
 active KV transfer. The PD handoff queues are counted in the drain, but that
 path has not been exercised on hardware.
 ```

@@ -24,7 +24,6 @@ from infera.common.registration_k8s import K8sRegistrationClient
 ENTRYPOINTS = (
     "infera/engine/vllm/__main__.py",
     "infera/engine/sglang/__main__.py",
-    "infera/tools/fakeworker/server.py",
 )
 
 
