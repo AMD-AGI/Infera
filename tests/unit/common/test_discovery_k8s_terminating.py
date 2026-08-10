@@ -149,6 +149,26 @@ def test_the_record_goes_when_the_worker_deregisters():
     assert removed == ["10.0.0.1:8080"], "announced once, not once per stage"
 
 
+def test_a_worker_killed_without_its_pod_being_deleted_is_announced_once():
+    """The path deregistering-before-draining exists for.
+
+    A liveness probe restarting the container, a node shutting down gracefully,
+    someone killing the process -- all send SIGTERM with the Pod object
+    untouched. There is no deletionTimestamp, so the annotation the worker
+    clears on its way out is the only signal, and the callback behind it is what
+    stops the KV subscriber. A later DELETE for the same Pod must not repeat it.
+    """
+    reg, removed = _registry()
+    reg._handle_pod(_pod(), deleted=False)
+
+    reg._handle_pod(_pod(annotated=False), deleted=False)
+    assert _ids(reg) == [], "clearing the annotation must stop new work arriving"
+    assert removed == ["10.0.0.1:8080"], "the only signal on this path must announce"
+
+    reg._handle_pod(_pod(annotated=False), deleted=True)
+    assert removed == ["10.0.0.1:8080"], "the eventual DELETE must not announce again"
+
+
 def test_announced_once_across_draining_then_delete():
     """The callbacks stop a KV subscriber and clear block accounting. Firing
     them twice for one worker is not free, and firing them late (only at the
