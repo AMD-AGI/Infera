@@ -228,8 +228,7 @@ async def test_a_healthy_leg_does_not_launder_a_broken_one():
         assert resp.status_code == 200, "decode answers, so the client still gets 200"
 
     assert r.breaker.state_of("p1").value == "open", (
-        "a prefill that 500s every request must trip, even though the decode "
-        "leg beside it succeeds"
+        "a prefill that 500s every request must trip, even though the decode leg beside it succeeds"
     )
     assert r.breaker.state_of("d1").value == "closed", "the healthy leg is untouched"
     await r.aclose()
