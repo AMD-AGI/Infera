@@ -8,6 +8,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -15,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	inferav1alpha1 "github.com/amd/infera/deploy/operator/api/v1alpha1"
 )
@@ -41,7 +43,7 @@ func TestAnOperatorDeploymentRefusesTheExternalEtcdBackend(t *testing.T) {
 		WithObjects(idep).WithStatusSubresource(idep).Build()
 
 	r := &InferaDeploymentReconciler{Client: cl, Scheme: s}
-	_, err := r.Reconcile(context.Background(), ctrl.Request{
+	res, err := r.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{Name: "qwen", Namespace: "ns"},
 	})
 	if err == nil {
@@ -49,6 +51,18 @@ func TestAnOperatorDeploymentRefusesTheExternalEtcdBackend(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "discoveryBackend") {
 		t.Fatalf("error should name the field so the cause is obvious, got: %v", err)
+	}
+
+	// No amount of retrying changes a spec field, and controller-runtime
+	// re-queues a plain error with exponential backoff forever -- two error
+	// logs and a status write on every attempt, and reconcile_errors_total
+	// climbing until someone edits the CR. A terminal error is recorded once
+	// and dropped.
+	if !errors.Is(err, reconcile.TerminalError(nil)) {
+		t.Errorf("error must be terminal, or the request is re-queued forever: %v", err)
+	}
+	if res.Requeue || res.RequeueAfter != 0 { //nolint:staticcheck // Requeue kept for clarity
+		t.Errorf("refusal must not ask to be retried, got %+v", res)
 	}
 
 	// Refusing must not leave a half-built deployment behind.

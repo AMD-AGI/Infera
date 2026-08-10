@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	inferav1alpha1 "github.com/amd/infera/deploy/operator/api/v1alpha1"
 )
@@ -95,8 +96,13 @@ func (r *InferaDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if uerr := r.Status().Update(ctx, idep); uerr != nil {
 			lg.Error(uerr, "status update failed")
 		}
-		// Terminal: retrying cannot change a spec field, so surface it and stop.
-		return ctrl.Result{}, err
+		// Wrapped as terminal so it is recorded once and dropped. A plain error
+		// is re-queued with exponential backoff and retried forever, and no
+		// amount of retrying edits a spec field -- it would only produce two
+		// error logs and a status write per attempt, with
+		// reconcile_errors_total climbing until someone changes the CR. Editing
+		// the CR re-triggers reconciliation on its own.
+		return ctrl.Result{}, reconcile.TerminalError(err)
 	}
 
 	// 0. Kubernetes-native discovery RBAC: a namespaced ServiceAccount + Role so
