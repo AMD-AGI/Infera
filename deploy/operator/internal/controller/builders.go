@@ -37,8 +37,8 @@ const (
 	// Graceful rolling-upgrade tuning for GPU worker pods.
 	workerPreStopDrainSeconds        = 15 // preStop sleep: let the router drop us before SIGTERM
 	workerDefaultDrainTimeoutSeconds = 30 // matches the worker's --drain-timeout default
-	// Teardown after the drain finishes: deregistering, stopping the KV plane,
-	// and engine.stop(), which SIGTERMs the engine's process group and waits up
+	// Teardown after the drain finishes: stopping the KV plane and
+	// engine.stop(), which SIGTERMs the engine's process group and waits up
 	// to 30s before escalating to SIGKILL.
 	workerTeardownHeadroomSeconds = 50
 	// Floor, so short drain timeouts still leave room for a slow engine exit.

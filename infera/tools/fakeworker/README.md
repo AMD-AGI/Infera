@@ -108,9 +108,8 @@ Shutdown then goes through the real NATS drain — unsubscribe first, then wait 
 the in-flight set infera actually holds:
 
 ```
-worker 127.0.0.1:19951 announced DRAINING
+deregistered worker 127.0.0.1:19951 (lease 7587883597149818 revoked)
 draining 1 in-flight NATS request(s), up to 60s
-deregistered worker 127.0.0.1:19951
 ```
 
 ```{note}

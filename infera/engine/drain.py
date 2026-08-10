@@ -19,12 +19,12 @@ draining at all.
 
 Two behaviours are deliberate:
 
-* **Announce first, then drain, then deregister.** Ordering is the whole point.
-  Draining while still a routing candidate just means more work arrives, so the
-  worker announces DRAINING -- which takes it out of the candidate list -- before
-  waiting for the work it already has. Deregistering comes last, because a record
-  that disappears at the start of the drain is indistinguishable from a worker
-  that crashed.
+* **Deregister first, then drain.** Ordering is the whole point. Draining while
+  still a routing candidate just means more work arrives, and the count this
+  polls never reaches zero. Removing the record is what takes the worker out of
+  the candidate list, so it happens before waiting for the work already in hand.
+  The cost is that a worker finishing its in-flight requests is indistinguishable
+  from one that crashed; the alternative is a drain that cannot converge.
 * **An unreadable metric does not block shutdown.** If the engine's in-flight
   count cannot be determined — an unknown engine, a renamed series, a dead HTTP
   server — this logs loudly and returns rather than hanging until the timeout.

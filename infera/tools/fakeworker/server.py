@@ -520,7 +520,8 @@ async def _serve(args) -> None:
         # the record is what stops new work arriving, on either backend.
         try:
             if not await reg.deregister():
-                logger.error("draining anyway, but new requests may still be routed here")
+                # deregister() already logged why, including whether it matters.
+                logger.warning("draining anyway")
         except Exception as exc:  # noqa: BLE001 - shutdown must not raise
             logger.warning("deregister failed: %s", exc)
         await _drain()

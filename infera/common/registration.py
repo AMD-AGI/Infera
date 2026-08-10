@@ -117,7 +117,12 @@ class RegistrationClient:
         ok = True
         if self._lease_id is not None:
             try:
-                await self._http.post("/v3/lease/revoke", json={"ID": self._lease_id})
+                r = await self._http.post("/v3/lease/revoke", json={"ID": self._lease_id})
+                # httpx does not raise on 4xx/5xx, and etcd answering "lease not
+                # found" or a proxy returning 503 is exactly the failure this
+                # reports -- without this the refusal would be logged as a
+                # successful revoke.
+                r.raise_for_status()
                 logger.info(
                     "deregistered worker %s (lease %d revoked)",
                     self._worker_id,

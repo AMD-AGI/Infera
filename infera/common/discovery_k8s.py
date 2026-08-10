@@ -245,8 +245,9 @@ class KubernetesRegistry:
         annotations = meta.get("annotations") or {}
         raw = annotations.get(WORKER_INFO_ANNOTATION)
 
-        # Gone for good: explicit DELETE, annotation cleared (the worker
-        # deregistered, so its drain is over), or no longer Running.
+        # Not a routing candidate any more: explicit DELETE, annotation cleared
+        # (the worker deregistered, which is how its drain begins), or no longer
+        # Running.
         if deleted or raw is None or not self._pod_running(pod):
             worker_id = self._pod_to_worker.pop(pod_name, None)
             if worker_id is not None:
@@ -337,14 +338,14 @@ class KubernetesRegistry:
 
         ``list_active`` filters DRAINING, so this stops new work reaching the
         worker just as removal would -- but ``list_all`` still shows it, and
-        that difference is the whole point. Deleting the record makes a Pod
-        that is finishing its in-flight generations look exactly like one that
-        crashed, so ``/v1/workers`` cannot distinguish an orderly rollout from
-        a fleet losing workers, at precisely the moment someone is watching.
+        that difference is what makes a condemned Pod visible as such on
+        ``/v1/workers`` instead of looking like one that crashed. The window is
+        the preStop delay: from the deletion being requested to the process
+        being signalled.
 
-        The record does not linger: the worker clears its own annotation when
-        the drain completes, which lands here as "annotation gone" and removes
-        it for real.
+        The record does not linger: the worker clears its own annotation on
+        SIGTERM, before draining, which lands here as "annotation gone" and
+        removes it for real.
 
         Callbacks fire here rather than at that later removal because routing
         is what they act on -- the KV subscriber and the policy's block

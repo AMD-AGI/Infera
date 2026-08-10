@@ -69,7 +69,7 @@ The worker then, in this order:
    On HTTP the router talks straight to the engine, so infera asks the engine
    instead, polling its `/metrics` until running, queued, and PD-handoff queues
    all reach zero. Bounded by `--drain-timeout` (default 30 s).
-3. **Deregisters**, then stops the engine.
+3. **Stops the engine.**
 
 Requests already in flight run to completion. Requests that arrive during the
 drain go to other workers.
@@ -79,13 +79,15 @@ requests within a second of the shutdown starting — the router's watch picking
 up either the `deletionTimestamp` or the record's removal — and it is the number
 that decides whether traffic is still being sent somewhere that is about to die. How long the *process* then lives is
 a separate and much larger number, set by the longest generation it was already
-serving. Measured: under a second to stop receiving, 38 s until the record
-disappeared, while a 40-second generation ran to completion in between.
+serving. Measured: under a second to stop receiving, while a 40-second
+generation ran to completion afterwards.
 
-Watching `/v1/workers` measures the second one, not the first. A Pod being
-deleted appears there as `draining` for the window between its deletion being
-requested and the process being signalled; after that it deregisters and
-disappears while it finishes its remaining work.
+Watching `/v1/workers` measures neither. The record now goes when the drain
+*starts*, not when it ends, so its disappearance marks the beginning of the
+in-flight work rather than the end of it — a worker finishing a long generation
+is absent from that list for all of it. A Pod being deleted shows as `draining`
+only for the window between its deletion being requested and the process being
+signalled, which is the preStop hook's 15 s.
 
 ```{note}
 `--drain-timeout` is a **ceiling, not a delay** — a worker with nothing in flight

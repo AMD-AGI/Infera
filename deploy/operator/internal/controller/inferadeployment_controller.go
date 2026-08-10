@@ -76,8 +76,9 @@ func (r *InferaDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	//
 	// Pointing such a deployment at an external etcd discards that. The server
 	// stops watching Pods, so nothing reads the deletionTimestamp, and the only
-	// remaining signal is the worker announcing DRAINING after SIGTERM -- which
-	// it receives only once the preStop delay injected below has elapsed. The
+	// remaining signal is the worker's record disappearing when it deregisters
+	// on SIGTERM -- which it receives only once the preStop delay injected
+	// below has elapsed. The
 	// combination keeps that delay while losing the early notice it exists to
 	// provide, so for its whole duration the router keeps handing new work to a
 	// Pod already on its way out. Refusing beats rendering a deployment whose

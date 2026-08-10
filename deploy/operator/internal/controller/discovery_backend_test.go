@@ -28,7 +28,7 @@ import (
 //
 // Pointing such a deployment at an external etcd throws that away. The router
 // stops watching Pods, so nothing reads the deletionTimestamp, and the only
-// remaining signal is the worker announcing DRAINING after SIGTERM -- which
+// remaining signal is the worker's record disappearing on SIGTERM -- which
 // arrives once the preStop delay the operator itself injects has elapsed. The
 // combination keeps that delay and loses the early notice it exists to give,
 // so for its whole duration the router keeps handing new work to a Pod that is

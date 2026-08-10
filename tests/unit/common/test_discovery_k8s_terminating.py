@@ -135,9 +135,10 @@ def test_a_draining_worker_stays_visible():
     assert _all(reg) == {"10.0.0.1:8080": WorkerStatus.DRAINING}
 
 
-def test_the_record_goes_when_the_drain_finishes():
-    """The worker clears its own annotation once drained, which lands here as
-    'annotation gone'. Without that the draining record would be immortal."""
+def test_the_record_goes_when_the_worker_deregisters():
+    """The worker clears its own annotation on SIGTERM, before draining, which
+    lands here as 'annotation gone'. Without that the draining record would be
+    immortal."""
     reg, removed = _registry()
     reg._handle_pod(_pod(), deleted=False)
     reg._handle_pod(_pod(terminating=True), deleted=False)

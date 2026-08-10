@@ -6,13 +6,16 @@
 finishes the generations it already accepted before the process exits.
 **Why:** a severed generation cannot be retried — the tokens already streamed
 cannot be un-sent — so without this, every rolling upgrade or scale-down
-produces a burst of client errors. **Requires:** Kubernetes, with the default
-`kubernetes` discovery backend.
+produces a burst of client errors. **Requires:** nothing, for finishing in-flight
+work; Kubernetes with the default `kubernetes` discovery backend for the advance
+notice described below.
 ```
 
 ```{important}
-Supported **only on Kubernetes with the default `kubernetes` discovery
-backend**. This is not an implementation gap: it relies on the orchestrator
+Finishing in-flight work happens on every backend, bounded by `--drain-timeout`.
+What needs **Kubernetes with the default `kubernetes` discovery backend** is the
+*advance* notice — the router learning a worker is leaving before the process is
+signalled. That is not an implementation gap: it relies on the orchestrator
 knowing a Pod is being removed, which nothing outside Kubernetes can tell the
 router. `discoveryBackend: etcd` is rejected by the operator for in-cluster
 deployments.
@@ -63,4 +66,6 @@ Kubernetes.
 
 In both cases the worker is absent from `/v1/workers` while it drains rather
 than shown as draining, since removing the record is what stops new work
-arriving.
+arriving. A Pod being deleted does show as `draining`, but earlier — between its
+deletion being requested and the process being signalled, before the drain
+itself begins.

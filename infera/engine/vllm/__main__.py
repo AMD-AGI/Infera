@@ -393,7 +393,8 @@ async def main() -> None:
     # The cost is that the worker is gone from /v1/workers while it finishes,
     # rather than visibly draining.
     if not await reg_client.deregister():
-        logger.error("draining anyway, but new requests may still be routed here")
+        # deregister() already logged why, including whether it matters here.
+        logger.warning("draining anyway")
     await _drain()
     if kv_relay is not None:
         await kv_relay.stop()

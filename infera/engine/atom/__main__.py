@@ -156,7 +156,11 @@ async def main() -> None:
     except asyncio.CancelledError:
         pass
 
-    await reg_client.deregister()
+    if not await reg_client.deregister():
+        # deregister() already logged why. No drain step here, so nothing waits
+        # on the record being gone -- but a silent branch would be the wrong
+        # thing to inherit if one is ever added.
+        logger.warning("stopping anyway")
     await engine.stop()
 
 
