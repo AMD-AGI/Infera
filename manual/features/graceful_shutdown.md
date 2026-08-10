@@ -4,113 +4,46 @@
 :class: tip
 **What:** a worker being removed stops receiving new requests immediately, then
 finishes the generations it already accepted before the process exits.
-**Why:** without it, every request in flight on that worker is severed —
-a rolling upgrade or a scale-down turns into a burst of client errors.
-**Requires:** a Kubernetes deployment using the default `kubernetes` discovery
-backend. See [Outside Kubernetes](#outside-kubernetes) for what other
-deployments get instead.
+**Why:** a severed generation cannot be retried — the tokens already streamed
+cannot be un-sent — so without this, every rolling upgrade or scale-down
+produces a burst of client errors. **Requires:** Kubernetes, with the default
+`kubernetes` discovery backend.
 ```
 
 ```{important}
-The full behaviour described here — a worker leaving rotation *before* it is
-signalled, and staying visible while it finishes — is supported **only on
-Kubernetes with the default `kubernetes` discovery backend**. That is not an
-implementation gap: it depends on the orchestrator knowing a Pod is condemned,
-which nothing outside Kubernetes can tell the router.
+Supported **only on Kubernetes with the default `kubernetes` discovery
+backend**. This is not an implementation gap: it relies on the orchestrator
+knowing a Pod is being removed, which nothing outside Kubernetes can tell the
+router. `discoveryBackend: etcd` is rejected by the operator for in-cluster
+deployments.
 ```
 
-## What it prevents
+## What happens
 
-A generation can run for tens of seconds. If a worker is stopped while holding
-one, the client gets a truncated stream or a connection reset — and there is no
-retry that helps, because the tokens already sent cannot be un-sent.
+Removing a worker — a rolling update, a scale-down, draining a node — separates
+two things that would otherwise happen at once:
 
-That makes ordinary operations expensive. Rolling out a new image, scaling down
-after a burst, draining a node for maintenance: each replaces workers that are
-very likely mid-generation.
+1. **It stops receiving.** Kubernetes marks the Pod the moment its removal is
+   requested, which is *before* the worker process is signalled. The router sees
+   that mark and stops choosing the worker within milliseconds, so new requests
+   go elsewhere while it is still running.
+2. **It keeps serving.** The worker finishes the generations it already
+   accepted, bounded by `--drain-timeout`, and only then deregisters and exits.
 
-Graceful shutdown separates two things that would otherwise happen at once:
+Because the record is removed at the end rather than the beginning, the worker
+stays visible in `/v1/workers` while it drains — an operator can see a rollout
+progressing instead of workers appearing to crash.
 
-- **Stop receiving.** The worker leaves the routing candidate list. New requests
-  go elsewhere from that moment.
-- **Stop serving.** The worker keeps working on what it already accepted, and
-  only then exits.
+Deploying through the operator needs no configuration: it injects the `preStop`
+delay and sizes the termination grace period to cover the whole sequence. For
+hand-written manifests and the per-stage timings, see
+[Scaling a fleet](scaling.md).
 
-The gap between them is the drain.
+## Elsewhere
 
-## The sequence on Kubernetes
-
-```
-kubectl delete pod / scale down / rolling update
-  │
-  ├─► Kubernetes marks the Pod as condemned          ← under 100 ms
-  │   the router drops it from routing here
-  │
-  ├─► preStop delay (15 s), still serving what it has
-  │
-  ├─► SIGTERM
-  │   drain: wait for in-flight generations to finish
-  │   (bounded by --drain-timeout, default 30 s)
-  │
-  ├─► deregister, stop the engine
-  │
-  └─► [SIGKILL if the grace period expires]
-```
-
-The important part is the first step. Kubernetes marks a Pod the instant its
-deletion is requested — before the `preStop` hook runs, and therefore before the
-worker process is signalled at all. The router watches for that mark, so it
-stops choosing the worker in well under a second, while the worker itself does
-not learn it is leaving for another 15 seconds.
-
-Without that, the `preStop` delay would work against you: it is meant to give
-the router time to react, but if the router only finds out at `SIGTERM`, the
-delay is simply 15 more seconds of accepting work that is about to be drained.
-
-**The worker stays visible while it drains.** Its record is removed at the end,
-not the beginning, so `/v1/workers` reports it as draining rather than having it
-disappear. A worker that vanishes looks exactly like one that crashed; this way
-an operator can see a rollout progressing and how far along it is.
-
-## What you need to configure
-
-Nothing, if you deploy through the operator — it injects the `preStop` delay and
-sizes `terminationGracePeriodSeconds` to cover the whole sequence.
-
-For a hand-written manifest, two things matter:
-
-- **A `preStop` delay.** Without it `SIGTERM` arrives immediately and the drain
-  starts before the router has necessarily reacted.
-- **A `terminationGracePeriodSeconds` that covers the whole sequence**, which is
-  the `preStop` delay plus `--drain-timeout` plus teardown. Set it too low and
-  the kubelet sends `SIGKILL` partway through the drain — turning a graceful
-  shutdown back into an abrupt one, which is the failure this feature exists to
-  avoid. Raising `--drain-timeout` for long generations without raising the
-  grace period is the usual way to hit this.
-
-```{warning}
-`discoveryBackend: etcd` is **not supported for in-cluster deployments**, and
-the operator refuses it. The combination keeps the `preStop` delay while losing
-the early notice that delay exists to provide: the router no longer watches
-Pods, so nothing sees the Pod being condemned, and the only remaining signal
-arrives after `SIGTERM` — once the delay has already elapsed. For its whole
-duration the router keeps handing new work to a Pod on its way out, which is
-worse than either backend on its own.
-```
-
-## Outside Kubernetes
-
-Deployments on bare metal or under a container runtime use an external etcd for
-discovery, and there is no orchestrator to say a worker is leaving. A record is
-either present or absent; nothing observes that a process is on its way out.
-
-Shutdown there still drains, but in the other order: the worker removes its
-registration first — which is what stops new requests arriving — and then waits
-for its in-flight generations. In-flight work is still finished rather than cut.
-What is lost is the two properties that depend on the orchestrator:
-
-- **No early notice.** Routing stops when the process is signalled, not before.
-- **No visible draining.** The worker disappears from `/v1/workers` for the
-  duration of the drain rather than being reported as finishing.
-
-If you are running in Kubernetes, use the default backend and you get both.
+Deployments outside Kubernetes use an external etcd for discovery, where a
+worker record is simply present or absent and nothing observes that a process is
+leaving. Shutdown there still finishes in-flight work, but in the other order:
+the worker deregisters first — which is what stops new requests arriving — and
+drains after. In-flight generations are not cut; what is unavailable is the
+early notice and the visible draining above.
