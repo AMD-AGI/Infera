@@ -19,7 +19,7 @@ use infera_router::handlers::{app, AppState};
 use infera_router::kv_event::KvEventClient;
 use infera_router::policy::{KvEventAwarePolicy, Policy, RoundRobin};
 use infera_router::pool::Snapshot;
-use infera_router::{discovery, discovery_k8s, k8s, nats_request, proxy};
+use infera_router::{discovery, discovery_k8s, k8s, kv_event_nats, nats_request, proxy};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -36,7 +36,26 @@ async fn main() -> anyhow::Result<()> {
     // Build the routing policy from config. kv-aware owns a kv-event subscriber
     // + tokenizer; round-robin is stateless.
     let policy: Arc<dyn Policy> = if cfg.router_policy == "kv-aware" {
-        let kv = Arc::new(KvEventClient::new());
+        let over_nats = cfg.kv_event_transport == "nats";
+        let kv = Arc::new(if over_nats {
+            KvEventClient::nats_fed()
+        } else {
+            KvEventClient::new()
+        });
+        if over_nats {
+            // One subscription for the whole fleet, rather than a socket per
+            // worker. Failing to reach the broker must not take the router
+            // down: routing still works, it just loses cache locality.
+            let feed = kv.clone();
+            let url = cfg.nats_server.clone();
+            tokio::spawn(async move {
+                if let Err(e) = kv_event_nats::run(feed, url.as_deref()).await {
+                    tracing::error!(
+                        "kv events (nats) stopped: {e}; kv-aware routing degrades to load-only"
+                    );
+                }
+            });
+        }
         let hasher = match &cfg.kv_tokenizer_path {
             Some(p) => BlockHasher::load(p),
             None => BlockHasher::disabled(),

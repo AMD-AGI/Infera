@@ -64,9 +64,16 @@ pub struct Config {
     #[arg(long, default_value = "http")]
     pub request_transport: String,
 
-    /// NATS broker URL. Falls back to `NATS_SERVER`, then to localhost.
+    /// NATS broker URL. Falls back to `NATS_SERVER`, then to localhost. Used by
+    /// both the request transport and the kv-event feed.
     #[arg(long, env = "NATS_SERVER")]
     pub nats_server: Option<String>,
+
+    /// Where kv-aware routing gets its cache events: `zmq` (a socket per
+    /// worker) or `nats` (one subscription for the fleet). Ignored unless
+    /// `--router-policy kv-aware`.
+    #[arg(long, default_value = "zmq")]
+    pub kv_event_transport: String,
 
     /// Seconds to wait for the *next* reply chunk before giving up on a
     /// request. Reset on every chunk, so a long generation that keeps producing
@@ -145,6 +152,12 @@ impl Config {
             anyhow::bail!(
                 "rust backend supports --request-transport http|nats (got {:?})",
                 self.request_transport
+            );
+        }
+        if self.kv_event_transport != "zmq" && self.kv_event_transport != "nats" {
+            anyhow::bail!(
+                "rust backend supports --kv-event-transport zmq|nats (got {:?})",
+                self.kv_event_transport
             );
         }
         Ok(())
