@@ -26,6 +26,7 @@
 //! full control of which worker serves each request, which is the whole point
 //! of kv-aware placement.
 
+use std::collections::HashMap;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
@@ -71,6 +72,31 @@ pub fn resolve_url(explicit: Option<&str>) -> String {
         .unwrap_or_else(|| "nats://127.0.0.1:4222".to_string())
 }
 
+/// Idempotently create the WorkQueue stream covering `infera.req.>`.
+///
+/// Memory-backed: requests are ephemeral, so losing them when the broker
+/// restarts is acceptable -- the client gets an error and retries, which is
+/// better than paying disk for traffic that is worthless a second later.
+async fn ensure_request_stream(js: &async_nats::jetstream::Context) -> Result<()> {
+    use async_nats::jetstream::stream::{Config, DiscardPolicy, RetentionPolicy, StorageType};
+    let cfg = Config {
+        name: REQUEST_STREAM.to_string(),
+        subjects: vec![format!("{REQUEST_SUBJECT_PREFIX}.>")],
+        retention: RetentionPolicy::WorkQueue,
+        storage: StorageType::Memory,
+        discard: DiscardPolicy::Old,
+        max_messages: 1_000_000,
+        ..Default::default()
+    };
+    // The worker may have created it first; either way the config converges.
+    if js.create_stream(cfg.clone()).await.is_err() {
+        js.update_stream(&cfg)
+            .await
+            .context("creating or updating the request stream")?;
+    }
+    Ok(())
+}
+
 /// One frame of a reply stream.
 #[derive(Debug)]
 pub enum Frame {
@@ -84,8 +110,28 @@ pub enum Frame {
     },
 }
 
+/// JetStream stream backing the request path when admission throttling is on.
+/// WorkQueue retention means a request leaves the stream once its worker acks
+/// it, so a consumer's pending count is a live backlog gauge rather than a
+/// running total.
+pub const REQUEST_STREAM: &str = "INFERA_REQUESTS";
+
+/// Reply inbox carried as a header in JetStream mode: a JS-delivered message's
+/// `reply` field is the ack subject, not the publisher's inbox.
+pub const HDR_INBOX: &str = "rs-inbox";
+
+/// Short enough that a backlog reading is still meaningful, long enough that a
+/// burst of requests does not issue a `consumer_info` round-trip each.
+const PENDING_CACHE_TTL: Duration = Duration::from_millis(200);
+
 pub struct NatsRequestClient {
     nc: async_nats::Client,
+    /// Present only when throttling is on, which also switches publishes to
+    /// JetStream so the backlog is measurable at all.
+    js: Option<async_nats::jetstream::Context>,
+    /// Per-worker in-NATS backlog ceiling. Zero disables the throttle.
+    max_pending: usize,
+    pending_cache: std::sync::Mutex<HashMap<String, (tokio::time::Instant, u64)>>,
     /// Bounds the wait for the *next* chunk, reset on every one, so a steadily
     /// streaming long generation never trips it -- only a stall does. This is
     /// deliberately not an overall deadline. Zero disables it.
@@ -100,6 +146,7 @@ impl NatsRequestClient {
         url: Option<&str>,
         idle_timeout_s: f64,
         max_duration_s: f64,
+        max_pending: usize,
     ) -> Result<Self> {
         let url = resolve_url(url);
         let nc = async_nats::ConnectOptions::new()
@@ -110,12 +157,64 @@ impl NatsRequestClient {
             .connect(&url)
             .await
             .with_context(|| format!("connecting to NATS at {url}"))?;
-        tracing::info!("NATS request transport connected: {url}");
+        let js = if max_pending > 0 {
+            let js = async_nats::jetstream::new(nc.clone());
+            ensure_request_stream(&js).await?;
+            tracing::info!(
+                "NATS request transport connected (JetStream throttle on): \
+                 {url} max_pending={max_pending}"
+            );
+            Some(js)
+        } else {
+            tracing::info!("NATS request transport connected: {url}");
+            None
+        };
         Ok(Self {
             nc,
+            js,
+            max_pending,
+            pending_cache: std::sync::Mutex::new(HashMap::new()),
             idle_timeout: Duration::from_secs_f64(idle_timeout_s.max(0.0)),
             max_duration: Duration::from_secs_f64(max_duration_s.max(0.0)),
         })
+    }
+
+    /// Whether this worker may be dispatched to.
+    ///
+    /// Fails open: throttling off, no consumer yet, or a backlog that cannot be
+    /// read all admit. Refusing on a reading we could not take would turn a
+    /// monitoring gap into an outage.
+    pub async fn admit(&self, worker_id: &str) -> bool {
+        let js = match &self.js {
+            Some(js) if self.max_pending > 0 => js,
+            _ => return true,
+        };
+        if let Some(cached) = self.cached_pending(worker_id) {
+            return (cached as usize) < self.max_pending;
+        }
+        let backlog = match js.get_stream(REQUEST_STREAM).await {
+            Ok(stream) => match stream.consumer_info(&token(worker_id)).await {
+                // Both halves count: messages not yet delivered, and ones the
+                // worker has taken but not acked -- which is where a request
+                // being generated right now sits.
+                Ok(info) => info.num_pending + info.num_ack_pending as u64,
+                Err(_) => return true,
+            },
+            Err(_) => return true,
+        };
+        if let Ok(mut c) = self.pending_cache.lock() {
+            c.insert(
+                worker_id.to_string(),
+                (tokio::time::Instant::now(), backlog),
+            );
+        }
+        (backlog as usize) < self.max_pending
+    }
+
+    fn cached_pending(&self, worker_id: &str) -> Option<u64> {
+        let cache = self.pending_cache.lock().ok()?;
+        let (at, backlog) = cache.get(worker_id)?;
+        (at.elapsed() < PENDING_CACHE_TTL).then_some(*backlog)
     }
 
     /// Publish a request and return the reply inbox subscription to read frames
@@ -128,14 +227,32 @@ impl NatsRequestClient {
             .subscribe(inbox.clone())
             .await
             .context("subscribing to the reply inbox")?;
-        self.nc
-            .publish_with_reply(
-                request_subject(worker_id),
-                inbox.clone(),
-                payload.to_vec().into(),
-            )
-            .await
-            .context("publishing the request")?;
+        match &self.js {
+            // JetStream delivery replaces `reply` with the ack subject, so the
+            // inbox has to travel as a header instead. The reply itself still
+            // comes back over the core subscription above.
+            Some(js) => {
+                let mut headers = async_nats::HeaderMap::new();
+                headers.insert(HDR_INBOX, inbox.as_str());
+                js.publish_with_headers(
+                    request_subject(worker_id),
+                    headers,
+                    payload.to_vec().into(),
+                )
+                .await
+                .context("publishing the request to JetStream")?;
+            }
+            None => {
+                self.nc
+                    .publish_with_reply(
+                        request_subject(worker_id),
+                        inbox.clone(),
+                        payload.to_vec().into(),
+                    )
+                    .await
+                    .context("publishing the request")?;
+            }
+        }
         // Without this the publish can sit in the client's write buffer while
         // the caller is already waiting on the reply.
         self.nc.flush().await.context("flushing the request")?;

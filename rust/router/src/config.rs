@@ -79,6 +79,13 @@ pub struct Config {
     #[arg(long, default_value_t = 0.0, env = "INFERA_NATS_REQ_MAX_DURATION")]
     pub nats_req_max_duration_s: f64,
 
+    /// Refuse to dispatch to a worker whose in-NATS backlog has reached this
+    /// many messages, answering 429. Turning it on makes the request path
+    /// JetStream-backed, which is what makes the backlog measurable. 0 (the
+    /// default) keeps the transport pure core NATS.
+    #[arg(long, default_value_t = 0, env = "INFERA_NATS_REQ_MAX_PENDING")]
+    pub nats_req_max_pending: usize,
+
     /// kv-aware only: path to the model's HF fast tokenizer (`tokenizer.json` or
     /// its dir). Required for cache locality — without it kv-aware degrades to
     /// pure load balancing (block hashes can't be computed).

@@ -93,6 +93,7 @@ async fn main() -> anyhow::Result<()> {
                 cfg.nats_server.as_deref(),
                 cfg.nats_req_idle_timeout_s,
                 cfg.nats_req_max_duration_s,
+                cfg.nats_req_max_pending,
             )
             .await?,
         ))

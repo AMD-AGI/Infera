@@ -442,14 +442,30 @@ class DisaggRouter(BaseRouter):
             # own responses: this transport never touches the HTTP client, so
             # nothing else observes how this worker did.
             try:
-                async for kind, _st, data in self.nats_client.stream(p.worker_id, p_payload):
+                async for kind, st, data in self.nats_client.stream(p.worker_id, p_payload):
                     if kind == TYPE_ERROR:
                         logger.warning("prefill leg (nats) %s failed: %s", p.worker_id, data[:200])
                         metrics.pd_bootstrap_failures_total.labels(reason="prefill_exception").inc()
                         self.breaker.record_failure(p.worker_id)
                         return
                     if kind == TYPE_DONE:
-                        self.breaker.record_success(p.worker_id)
+                        # `done` means the request finished, not that it
+                        # succeeded: the worker proxies whatever its engine
+                        # returned, so a 500 arrives here exactly as a 200 does.
+                        # Scoring on the frame alone read every failed prefill
+                        # as health -- on the one leg whose reply is discarded,
+                        # so nothing else would ever notice.
+                        status = st or 200
+                        if status >= 400:
+                            logger.warning(
+                                "prefill leg (nats) %s returned %d (decode may hang on KVPoll)",
+                                p.worker_id,
+                                status,
+                            )
+                            metrics.pd_bootstrap_failures_total.labels(
+                                reason="prefill_status"
+                            ).inc()
+                        self._score_leg(p.worker_id, status)
                         return
             except Exception as exc:
                 logger.warning("prefill nats drain %s failed: %s", p.worker_id, exc)

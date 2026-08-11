@@ -227,10 +227,7 @@ async fn attempt_nats(
     Ok(Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "text/event-stream")
-        .body(Body::from_stream(GuardedBody {
-            inner: Box::pin(body),
-            _guard: guard,
-        }))
+        .body(Body::from_stream(guarded(body, guard)))
         .expect("stream response is valid"))
 }
 
@@ -239,9 +236,21 @@ fn trim(s: &str) -> &str {
 }
 
 /// `GuardedStream` for a non-reqwest stream: same job, different item type.
-struct GuardedBody {
+pub(crate) struct GuardedBody {
     inner: Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>>,
     _guard: ActiveGuard,
+}
+
+/// Tie a byte stream to an `ActiveGuard`, so the policy's in-flight count is
+/// released when the client finishes, disconnects, or drops.
+pub(crate) fn guarded(
+    inner: impl Stream<Item = Result<Bytes, std::io::Error>> + Send + 'static,
+    guard: ActiveGuard,
+) -> GuardedBody {
+    GuardedBody {
+        inner: Box::pin(inner),
+        _guard: guard,
+    }
 }
 
 impl Stream for GuardedBody {
