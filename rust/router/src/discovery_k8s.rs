@@ -374,12 +374,20 @@ fn handle_pod(pod: &Value, deleted: bool, tracked: &mut HashMap<String, Tracked>
 }
 
 /// Whether a re-registration carries anything the router acts on.
+///
+/// `disagg_meta` counts: it carries the prefill worker's bootstrap address, so
+/// an engine that restarted on a new port inside an otherwise unchanged Pod
+/// would keep the old one here and every PD handoff would go to an address
+/// nobody is listening on. `engine` counts for the same reason -- it selects
+/// the PD protocol.
 fn same_worker(a: &Worker, b: &Worker) -> bool {
     a.worker_id == b.worker_id
         && a.url == b.url
         && a.model_name == b.model_name
+        && a.engine == b.engine
         && a.status == b.status
         && a.disagg_mode == b.disagg_mode
+        && a.disagg_meta == b.disagg_meta
         && a.kv_events_endpoint == b.kv_events_endpoint
         && a.kv_block_size == b.kv_block_size
         && a.dp_rank == b.dp_rank
@@ -544,6 +552,40 @@ mod tests {
         .to_string());
         assert!(handle_pod(&moved, false, &mut t));
         assert_eq!(ids(&t), vec!["10.0.0.9:8080"]);
+    }
+
+    #[test]
+    fn a_changed_bootstrap_address_republishes() {
+        // The suppression of no-op MODIFIED events must not swallow a real
+        // change. A prefill engine restarting on a new port inside the same Pod
+        // keeps its worker_id and url, and only disagg_meta moves -- but that
+        // is the address every PD handoff is sent to.
+        let mut t = HashMap::new();
+        let mut pod = running("w-0");
+        let annotate = |p: &mut Value, port: u16| {
+            p["metadata"]["annotations"][WORKER_INFO_ANNOTATION] = json!(json!({
+                "worker_id": "10.0.0.1:8080",
+                "url": "http://10.0.0.1:8080",
+                "model_name": "m",
+                "engine": "sglang",
+                "disagg_mode": "prefill",
+                "disagg_meta": {
+                    "protocol": "sglang-bootstrap",
+                    "params": {"bootstrap_addr": format!("10.0.0.1:{port}")},
+                },
+            })
+            .to_string());
+        };
+        annotate(&mut pod, 9000);
+        assert!(handle_pod(&pod, false, &mut t));
+
+        let mut moved = running("w-0");
+        annotate(&mut moved, 9001);
+        assert!(
+            handle_pod(&moved, false, &mut t),
+            "a new bootstrap address has to reach the pool, or PD hands off to \
+             a port nobody is listening on"
+        );
     }
 
     #[test]

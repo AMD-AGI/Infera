@@ -23,6 +23,7 @@
 //!   and applying it would wipe a good view and collapse cache hits to zero.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
@@ -58,32 +59,68 @@ fn parse_token_rank(s: &str) -> Option<(String, i64)> {
 }
 
 /// Subscribe and keep feeding the client's views. Runs until the process ends.
+///
+/// Reconnects rather than returning, because every way this can stop is
+/// invisible from outside: the consumer ends, no more events arrive, and
+/// kv-aware quietly becomes load-only routing while `/health` stays green. An
+/// ephemeral consumer is reaped by the server a few seconds after its client
+/// goes away, so a broker restart ends the stream cleanly rather than as an
+/// error -- which is why a clean end is treated as something to recover from
+/// too.
 pub async fn run(client: Arc<KvEventClient>, url: Option<&str>) -> Result<()> {
     let url = crate::nats_request::resolve_url(url);
+    let shown = crate::nats_request::redact(&url);
+    let mut backoff = Duration::from_secs(1);
+    loop {
+        match feed_once(client.clone(), &url, &shown).await {
+            Ok(()) => tracing::warn!(
+                "kv events (nats): the event stream ended; reconnecting in {}s",
+                backoff.as_secs()
+            ),
+            Err(e) => tracing::warn!(
+                "kv events (nats): {e:#}; reconnecting in {}s",
+                backoff.as_secs()
+            ),
+        }
+        tokio::time::sleep(backoff).await;
+        backoff = (backoff * 2).min(Duration::from_secs(30));
+    }
+}
+
+/// One connection's worth of ingestion. Returns when the stream ends.
+async fn feed_once(client: Arc<KvEventClient>, url: &str, shown: &str) -> Result<()> {
     let nc = async_nats::ConnectOptions::new()
         .name("infera-router-kv")
         .retry_on_initial_connect()
-        .connect(&url)
+        .connect(url)
         .await
-        .with_context(|| format!("connecting to NATS at {url}"))?;
+        .with_context(|| format!("connecting to NATS at {shown}"))?;
     let js = async_nats::jetstream::new(nc);
-    ensure_event_stream(&js).await?;
+    // Best-effort: a worker's relay creates it too, and refusing to start here
+    // would give up on cache locality for the whole life of the process.
+    if let Err(e) = ensure_event_stream(&js).await {
+        tracing::warn!("kv events (nats): could not create the event stream: {e:#}");
+    }
 
     // The bucket bootstrap runs alongside the replay rather than before it:
     // waiting would delay live deltas, and the seeding rule (only where there
     // is no incremental view) makes the order harmless.
-    tokio::spawn({
+    let bucket = tokio::spawn({
         let client = client.clone();
         let js = js.clone();
         async move {
             if let Err(e) = watch_bucket(client, js).await {
-                tracing::warn!("kv events (nats): bucket bootstrap ended: {e}");
+                tracing::warn!("kv events (nats): bucket bootstrap ended: {e:#}");
             }
         }
     });
 
-    tracing::info!("kv events (nats): subscribed {KV_EVENTS_SUBJECT_PREFIX}.> at {url}");
-    consume_events(client, js).await
+    tracing::info!("kv events (nats): subscribed {KV_EVENTS_SUBJECT_PREFIX}.> at {shown}");
+    let outcome = consume_events(client, js).await;
+    // The next attempt starts its own; leaving this one would double-apply
+    // every bucket update.
+    bucket.abort();
+    outcome
 }
 
 async fn ensure_event_stream(js: &async_nats::jetstream::Context) -> Result<()> {

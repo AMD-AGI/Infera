@@ -73,6 +73,23 @@ async fn attempt_nats(
 
     let worker = &target.worker;
     let wid = worker.worker_id.clone();
+
+    // A worker at its backlog limit has not seen a byte of this request, so
+    // this is a pre-first-byte failure: returning Err lets the caller try a
+    // freer worker, and only a fleet-wide backlog reaches the client as 429.
+    // Without this the throttle changed the publish path to JetStream without
+    // ever refusing anything outside PD.
+    if !nats.admit(&wid).await {
+        return Err(Response::builder()
+            .status(StatusCode::TOO_MANY_REQUESTS)
+            .header(header::CONTENT_TYPE, "application/json")
+            .header("Retry-After", "1")
+            .body(Body::from(format!(
+                r#"{{"error":"worker {wid} request backlog over limit"}}"#
+            )))
+            .expect("429 response is valid"));
+    }
+
     let body: serde_json::Value = match serde_json::from_slice(raw) {
         Ok(v) => v,
         Err(e) => {
@@ -119,11 +136,13 @@ async fn attempt_nats(
     if !stream {
         let mut chunks: Vec<Bytes> = Vec::new();
         let mut status = StatusCode::OK;
+        let mut done_seen = false;
         loop {
             match reply.next().await {
                 Some(Frame::Data(b)) => chunks.push(b),
                 Some(Frame::Done { status: s }) => {
                     status = StatusCode::from_u16(s).unwrap_or(StatusCode::OK);
+                    done_seen = true;
                     break;
                 }
                 Some(Frame::Error { status: s, message }) => {
@@ -135,6 +154,16 @@ async fn attempt_nats(
                 }
                 None => break,
             }
+        }
+        // The subscription ended without the worker saying it was done. That
+        // is not a 200 with a short body: it is a worker that stopped talking
+        // mid-request, and reporting it as success would also record it as
+        // healthy against the breaker.
+        if !done_seen {
+            return Err(json_error(
+                StatusCode::BAD_GATEWAY,
+                &format!("worker {wid} closed the nats reply without finishing"),
+            ));
         }
         let total: usize = chunks.iter().map(|c| c.len()).sum();
         let mut buf = Vec::with_capacity(total);

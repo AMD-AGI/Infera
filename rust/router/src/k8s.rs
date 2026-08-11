@@ -49,11 +49,13 @@ pub fn make_client(timeout: Option<Duration>) -> Result<reqwest::Client> {
 
     let mut builder = reqwest::Client::builder().default_headers(headers);
     // The API server's certificate is signed by the cluster CA, which is not in
-    // the system roots.
+    // the system roots. Read as a bundle, not a single certificate: during a CA
+    // rotation the file holds both, and taking only the first would reject
+    // whichever one the API server is currently presenting.
     if let Ok(pem) = std::fs::read(format!("{SA_DIR}/ca.crt")) {
-        builder = builder.add_root_certificate(
-            reqwest::Certificate::from_pem(&pem).context("parsing the cluster CA")?,
-        );
+        for cert in reqwest::Certificate::from_pem_bundle(&pem).context("parsing the cluster CA")? {
+            builder = builder.add_root_certificate(cert);
+        }
     }
     builder = match timeout {
         Some(t) => builder.timeout(t),

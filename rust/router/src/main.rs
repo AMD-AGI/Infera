@@ -49,11 +49,15 @@ async fn main() -> anyhow::Result<()> {
             let feed = kv.clone();
             let url = cfg.nats_server.clone();
             tokio::spawn(async move {
-                if let Err(e) = kv_event_nats::run(feed, url.as_deref()).await {
-                    tracing::error!(
-                        "kv events (nats) stopped: {e}; kv-aware routing degrades to load-only"
-                    );
-                }
+                // `run` reconnects internally and does not return while the
+                // process lives, so anything arriving here has given up for
+                // good -- and a silent give-up is the failure mode that looks
+                // healthy from every angle.
+                let outcome = kv_event_nats::run(feed, url.as_deref()).await;
+                tracing::error!(
+                    "kv events (nats) stopped ({outcome:?}); kv-aware routing is \
+                     load-only for the rest of this process"
+                );
             });
         }
         let hasher = match &cfg.kv_tokenizer_path {

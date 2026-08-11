@@ -63,6 +63,29 @@ pub fn cancel_subject(worker_id: &str) -> String {
     format!("{CANCEL_SUBJECT_PREFIX}.{}", token(worker_id))
 }
 
+/// A broker URL with any credentials removed, for logging.
+///
+/// `nats://user:password@host:4222` is an ordinary way to write NATS_SERVER,
+/// and the URL is logged on every start and inside connection errors -- which
+/// is exactly what gets pasted into a ticket.
+pub fn redact(url: &str) -> String {
+    let (scheme, rest) = match url.split_once("://") {
+        Some(p) => p,
+        None => ("", url),
+    };
+    // userinfo ends at the last '@' before the host, and a password may contain
+    // anything, so split from the right.
+    let host = match rest.rsplit_once('@') {
+        Some((_, host)) => host,
+        None => return url.to_string(),
+    };
+    if scheme.is_empty() {
+        format!("<redacted>@{host}")
+    } else {
+        format!("{scheme}://<redacted>@{host}")
+    }
+}
+
 /// `NATS_SERVER` mirrors dynamo's convention, so one broker serves both.
 pub fn resolve_url(explicit: Option<&str>) -> String {
     explicit
@@ -156,12 +179,23 @@ impl NatsRequestClient {
             .retry_on_initial_connect()
             .connect(&url)
             .await
-            .with_context(|| format!("connecting to NATS at {url}"))?;
+            .with_context(|| format!("connecting to NATS at {}", redact(&url)))?;
+        let shown = redact(&url);
         let js = if max_pending > 0 {
             let js = async_nats::jetstream::new(nc.clone());
-            ensure_request_stream(&js).await?;
+            // Best-effort, like the Python side: the stream may not exist yet
+            // because the broker is still coming up, and refusing to start
+            // would take the router down with it -- which is the opposite of
+            // what retry_on_initial_connect is for. A worker creates it too,
+            // and admit() fails open until one of them succeeds.
+            if let Err(e) = ensure_request_stream(&js).await {
+                tracing::warn!(
+                    "could not create the request stream ({e:#}); admission \
+                     throttling stays open until it exists"
+                );
+            }
             tracing::info!(
-                "NATS request transport -> {url} (JetStream throttle on, \
+                "NATS request transport -> {shown} (JetStream throttle on, \
                  max_pending={max_pending})"
             );
             Some(js)
@@ -169,7 +203,7 @@ impl NatsRequestClient {
             // Not "connected": retry_on_initial_connect means this returns
             // before a link exists, so claiming one would be a lie whenever the
             // broker is down -- exactly when someone is reading the log.
-            tracing::info!("NATS request transport -> {url}");
+            tracing::info!("NATS request transport -> {shown}");
             None
         };
         Ok(Self {
@@ -237,13 +271,20 @@ impl NatsRequestClient {
             Some(js) => {
                 let mut headers = async_nats::HeaderMap::new();
                 headers.insert(HDR_INBOX, inbox.as_str());
+                // Awaited twice on purpose: the first await hands the message
+                // to the connection, the second waits for the server's ack.
+                // Without the second, a stream that does not exist or refuses
+                // the message looks like a successful publish, and the request
+                // fails much later as an idle timeout with no cause recorded.
                 js.publish_with_headers(
                     request_subject(worker_id),
                     headers,
                     payload.to_vec().into(),
                 )
                 .await
-                .context("publishing the request to JetStream")?;
+                .context("publishing the request to JetStream")?
+                .await
+                .context("JetStream did not ack the request")?;
             }
             None => {
                 self.nc
@@ -461,6 +502,28 @@ mod tests {
         ] {
             assert_eq!(token(id), want, "{id}");
         }
+    }
+
+    #[test]
+    fn credentials_never_reach_the_log() {
+        // The URL is logged on every start and quoted in connection errors.
+        assert_eq!(
+            redact("nats://user:hunter2@broker:4222"),
+            "nats://<redacted>@broker:4222"
+        );
+        // A password containing '@' still splits at the right place.
+        assert_eq!(
+            redact("nats://user:p@ss@broker:4222"),
+            "nats://<redacted>@broker:4222"
+        );
+        // Token-only form.
+        assert_eq!(
+            redact("nats://sometoken@broker:4222"),
+            "nats://<redacted>@broker:4222"
+        );
+        // Nothing to hide, nothing changed.
+        assert_eq!(redact("nats://broker:4222"), "nats://broker:4222");
+        assert_eq!(redact("broker:4222"), "broker:4222");
     }
 
     #[test]

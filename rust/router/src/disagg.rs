@@ -293,11 +293,13 @@ async fn dual_nats(
     if !stream {
         let mut buf: Vec<u8> = Vec::new();
         let mut status = StatusCode::OK;
+        let mut done_seen = false;
         loop {
             match reply.next().await {
                 Some(Frame::Data(b)) => buf.extend_from_slice(&b),
                 Some(Frame::Done { status: s }) => {
                     status = StatusCode::from_u16(s).unwrap_or(StatusCode::OK);
+                    done_seen = true;
                     break;
                 }
                 Some(Frame::Error { status: s, message }) => {
@@ -314,6 +316,17 @@ async fn dual_nats(
                 }
                 None => break,
             }
+        }
+        if !done_seen {
+            // The worker stopped talking without finishing. Scoring this as a
+            // 200 would record the exact profile the breaker exists to catch --
+            // a worker that accepts work and then goes quiet -- as health.
+            state.breaker.record_failure(&wid);
+            drop(guard);
+            return json_error(
+                StatusCode::BAD_GATEWAY,
+                &format!("decode {wid} closed the nats reply without finishing"),
+            );
         }
         score_leg(&state.breaker, &wid, status.as_u16());
         drop(guard);
