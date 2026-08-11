@@ -4,67 +4,43 @@
 #
 # ⚠️ The base tag is PINNED and must stay pinned: the GLM-5.2 DSA patches near
 # the end of this file are context diffs applied at --fuzz=0 against this exact
-# sglang commit. Bumping the base fails the build there rather than silently
+# sglang release. Bumping the base fails the build there rather than silently
 # mis-applying. Build with APPLY_SGLANG_DSA_PATCHES=0 if you need a newer base.
-ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
+ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.17-rocm720-mi35x
 FROM ${SGLANG_BASE_IMAGE}
 
 WORKDIR /opt/infera
 
-# ---- Mooncake unified rebuild: one engine.so, every PD path runtime-decided --
-# The v0.5.15.post1 base bundles Mooncake at upstream #2682. Rebuild it IN PLACE
-# (no extra version) so a single image supports every KV-transfer config and the
-# choice is made at RUNTIME:
-#   * HIP intra-node P2P transport — OFF on ROCm. #2682 installs it
-#     unconditionally and selectTransport prefers it over RDMA, which breaks
-#     cross-node PD: a hipIpc handle is host-local by construction, so a peer
-#     NODE's hipIpcOpenMemHandle fails ("invalid device context", 201).
-#     MC_ENABLE_HIP_TRANSPORT=1 opts back in for single-node-only P2P;
-#     MC_DISABLE_HIP_TRANSPORT=1 (infera's default) vetoes even that.
-#   * dma-buf GPUDirect (ibv_reg_dmabuf_mr) vs bare ibv_reg_mr+peermem — the
-#     dma-buf branch is COMPILED IN (fixing #2682's CMake propagation bug that
-#     silently drops it), and #2682's own runtime switch then decides per
-#     memory-type/kernel. Force bare with MOONCAKE_DISABLE_HIP_DMABUF=1 (infera's
-#     default — the AMD fleet is ionic/no-ODP, where dma-buf pins+doubles the KV
-#     pool); a dma-buf run opts in with MOONCAKE_DISABLE_HIP_DMABUF=0.
-# The HIP gate + auto-chunk-MR come from the SAME reusable mooncake_cpp diffs the
-# vLLM image applies (no duplicated source edit). Self-verifying (fails the build
-# if dma-buf/gate did not compile in); skip with BUILD_MOONCAKE=0. See the script.
+# ---- Mooncake: pinned upstream, no private source patches -------------------
+# The base bundles an older Mooncake. Rebuild its source checkout at the same
+# upstream revision used by the vLLM image. That revision already includes HIP
+# dma-buf build wiring, automatic cross-host RDMA routing, large-MR chunking,
+# chunk-offset correctness, and registration-error propagation. The build script
+# verifies those capabilities in the installed engine.so.
 ARG BUILD_MOONCAKE=1
-COPY deploy/docker/patches/mooncake_cpp/ /tmp/mooncake_cpp/
+ARG MOONCAKE_GIT_REF=faae8dd4a6309c3ecd47e0721a83b0250d686fa2
 COPY deploy/docker/scripts/build_mooncake_sglang.sh /tmp/build_mooncake_sglang.sh
 RUN if [ "${BUILD_MOONCAKE}" = "1" ]; then \
-        MC_CPP_PATCH_DIR=/tmp/mooncake_cpp bash /tmp/build_mooncake_sglang.sh; \
+        MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" bash /tmp/build_mooncake_sglang.sh; \
     else \
         echo "BUILD_MOONCAKE=0 — leaving base Mooncake as-is"; \
     fi \
-    && rm -rf /tmp/build_mooncake_sglang.sh /tmp/mooncake_cpp
+    && rm -f /tmp/build_mooncake_sglang.sh
 
-# ---- assert the gate is in the .so this image will LOAD -----------------------
-# Separate layer on purpose: it runs in BOTH BUILD_MOONCAKE branches, so
-# BUILD_MOONCAKE=0 can no longer silently ship a stock #2682 engine.so that
-# breaks cross-node PD. It also leaves a visible marker in `docker history`,
-# so you can tell from a published image whether the check ever ran.
-# This does NOT catch an image built FROM an already-published infera image
-# (the stage simply never re-runs) — for that, run the artifact-level check:
-#   deploy/docker/scripts/verify_image_mooncake.sh <image>
-# Set REQUIRE_MOONCAKE_HIP_GATE=0 to build an image deliberately without it.
-ARG REQUIRE_MOONCAKE_HIP_GATE=1
+# ---- assert cross-host routing in the .so this image will LOAD --------------
+# This separate artifact check also covers BUILD_MOONCAKE=0.
+ARG REQUIRE_MOONCAKE_CROSS_HOST_ROUTING=1
 RUN set -eu; \
-    if [ "${REQUIRE_MOONCAKE_HIP_GATE}" != "1" ]; then \
-        echo "REQUIRE_MOONCAKE_HIP_GATE=0 — skipping HIP-transport gate assertion"; \
+    if [ "${REQUIRE_MOONCAKE_CROSS_HOST_ROUTING}" != "1" ]; then \
+        echo "skipping Mooncake cross-host routing assertion"; \
     else \
         so_dir="$(python3 -c 'import mooncake, os; print(os.path.dirname(mooncake.__file__))')"; \
         so="$(ls "$so_dir"/engine*.so | head -1)"; \
-        for v in MC_ENABLE_HIP_TRANSPORT MC_DISABLE_HIP_TRANSPORT; do \
-            n="$(strings "$so" | grep -c "$v" || true)"; \
-            [ "$n" != "0" ] || { \
-                echo "ERROR: $so lacks $v — stock upstream #2682 installs the HIP" >&2; \
-                echo "       transport unconditionally and prefers it over RDMA, so" >&2; \
-                echo "       cross-node PD dies with hipIpcOpenMemHandle 201." >&2; \
-                exit 1; }; \
-        done; \
-        echo "MOONCAKE_HIP_GATE=present ($so)"; \
+        syms="$(strings "$so")"; \
+        printf '%s\n' "$syms" | grep -q "MC_DISABLE_HIP" || { \
+            echo "ERROR: $so lacks upstream cross-host HIP locality routing" >&2; \
+            exit 1; }; \
+        echo "MOONCAKE_CROSS_HOST_ROUTING=present ($so)"; \
     fi
 
 # ---- libionic (host ionic ABI match) -----------------------------------------
@@ -105,27 +81,15 @@ COPY infera ./infera
 # image -- vllm and infera both still import, and the count drops 22 -> 19.
 RUN pip install --no-cache-dir ".[sglang]" "setuptools>=83.0.0"
 
-# ---- sglang Python patches (GLM-5.2 MTP nextn quark-exclude; backport of sglang #30265) ----
-# The v0.5.15.post1 base predates sgl-project/sglang#30265, so GLM-5.2 EAGLE/MTP crashes at
-# draft weight-load: the bf16 MTP layer's eh_proj is built as an MXFP4 param because sglang
-# checks the bare layer prefix (not the submodule-level exclude entry). Each patch is
-# self-locating, idempotent, and no-ops once the base sglang carries the fix — drop the patch
-# dir then. Modeled on the vLLM patch loop.
-COPY deploy/docker/patches/sglang/ /tmp/sglang-patches/
-RUN for f in /tmp/sglang-patches/*.py; do echo "[sglang-patch] $f"; python "$f" || echo "[sglang-patch] skipped $f"; done \
-    && rm -rf /tmp/sglang-patches
-
-# ---- GLM-5.2 DSA patch set (PD + DP-attention + EAGLE MTP on gfx950) --------
-# WHAT: three patches that together make PD + DP-attention + EAGLE MTP work for
-# GLM-5.2; without them it crashes on the first batch or deadlocks the DP group.
-# Per-patch rationale and upstream linkage: patches/sglang_dsa/README.md.
+# ---- GLM-5.2 DSA patch set (PD + DP-attention on gfx950) --------------------
+# WHAT: four patches that together make PD + DP-attention work for GLM-5.2, with
+# EAGLE MTP on top; without them it crashes on the first batch or deadlocks the DP
+# group. patches/sglang_dsa/README.md carries the per-patch rationale.
 #
-# MUST stay after the loop above -- that supplies the nextn eh_proj prerequisite,
-# which the script asserts (DSA_PATCH_SET=full, the default, is the only arm that
-# needs it). Patches 02 and 04 are context diffs at --fuzz=0 against the pinned
-# base, so a base bump FAILS here instead of mis-applying. Patch 01 is an anchor
-# script instead: Dockerfile.sglang.gfx942 needs the same fix on a v0.5.16 base
-# where those diffs cannot apply, and one source of truth beats two.
+# Three of the four are context diffs at --fuzz=0 against the pinned base, so a
+# base bump FAILS here instead of mis-applying. The fourth is an anchor script
+# instead: Dockerfile.sglang.gfx942 needs the same fix on a v0.5.16 base where
+# those diffs cannot apply, and one source of truth beats two.
 #
 # The script also verifies each patch reached the BYTECODE, not just the source:
 # a stale __pycache__ silently reverts a patch and has voided an experiment here.
@@ -144,12 +108,11 @@ RUN if [ "${APPLY_SGLANG_DSA_PATCHES}" = "1" ]; then \
 # REQUIRED FOR CORRECTNESS on any PD deployment doing chunked prefill over mooncake:
 # without it every chunk but the last is RDMA-read while the forward is still writing
 # those pages, so prompts longer than one chunk come back partially wrong with nothing in
-# any log. Self-locating and idempotent like the patches/sglang/ loop, and reports
-# "already present" once the base sglang carries the fix. Order-independent w.r.t. the DSA
-# set above: it touches prefill.py / mooncake/conn.py, which no DSA diff does. NOT tolerant
-# like that loop, though: a script here exits non-zero only when its anchors drifted, i.e.
-# when the fix did not go in — and an engine image that silently corrupts long prompts is
-# worse than a failed build.
+# any log. Self-locating and idempotent, and reports "already present" once the base
+# sglang carries the fix. Order-independent w.r.t. the DSA set above: it touches
+# prefill.py / mooncake/conn.py, which no DSA diff does. A script here exits non-zero
+# when its anchors drifted, i.e. when the fix did not go in — an engine image that
+# silently corrupts long prompts is worse than a failed build.
 COPY deploy/docker/patches/sglang_disagg/ /tmp/sglang-disagg-patches/
 RUN set -eu; \
     for f in /tmp/sglang-disagg-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
@@ -199,6 +162,9 @@ RUN set -eu; \
 # at runtime needs cargo: the engines are Python, and the built infera-router
 # links only against base system libs (libc/libstdc++/libgcc/libm), none of
 # which the toolchain provides.
+#
+# The rc files go with it: rustup appends an unguarded `. "$HOME/.cargo/env"`,
+# which then errors on every login shell the image runs.
 COPY rust ./rust
 RUN set -eu; \
     command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; }; \
@@ -211,7 +177,9 @@ RUN set -eu; \
     cp rust/target/release/infera-router /usr/local/bin/infera-router; \
     rm -rf rust "$HOME/.cargo" "$HOME/.rustup" /usr/local/cargo /usr/local/rustup; \
     rm -f /usr/local/bin/cargo /usr/local/bin/rustc /usr/local/bin/rustup /usr/local/bin/rustdoc; \
+    sed -i '/\.cargo\/env/d' "$HOME/.profile" "$HOME/.bashrc" 2>/dev/null || true; \
     ! command -v cargo >/dev/null || { echo "cargo still on PATH after cleanup: $(command -v cargo)" >&2; exit 1; }; \
+    ! bash -lc true 2>&1 | grep -q cargo || { echo "a login shell still references cargo" >&2; exit 1; }; \
     /usr/local/bin/infera-router --help >/dev/null 2>&1 || { echo "infera-router unusable after cleanup" >&2; exit 1; }
 
 COPY deploy/docker/scripts/infera_inject_host_ionic.sh /usr/local/bin/infera-inject-host-ionic

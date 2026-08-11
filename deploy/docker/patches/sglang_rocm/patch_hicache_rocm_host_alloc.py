@@ -132,11 +132,10 @@ def find_common_py() -> str:
     return path
 
 
-OLD_IMPORT = "from sglang.srt.mem_cache.mmap_allocator import alloc_mmap"
-NEW_IMPORT = (
-    "from sglang.srt.mem_cache.mmap_allocator import alloc_mmap\n"
-    f"from sglang.srt.utils import is_hip  # {MARKER}"
-)
+# Anchor on the import's TAIL, not its module path: upstream has already moved
+# alloc_mmap once (mem_cache.mmap_allocator -> mem_cache.storage.mmap) and the
+# path is not what this patch depends on.
+ALLOC_MMAP_IMPORT = re.compile(r"^from [\w.]+ import alloc_mmap$", re.M)
 
 OLD = """ALLOC_MEMORY_FUNCS = defaultdict(
     lambda: alloc_with_host_register,
@@ -188,10 +187,15 @@ def main() -> int:
     # common.py does NOT import is_hip today (it only pulls in alloc_mmap), so
     # the import has to be added alongside the dispatch change.
     if "is_hip" not in src:
-        if OLD_IMPORT not in src:
-            print("[patch] ERROR: mmap_allocator import line not found; aborting.")
+        m = ALLOC_MMAP_IMPORT.search(src)
+        if not m:
+            print("[patch] ERROR: alloc_mmap import line not found; aborting.")
             return 1
-        src = src.replace(OLD_IMPORT, NEW_IMPORT, 1)
+        src = src.replace(
+            m.group(0),
+            f"{m.group(0)}\nfrom sglang.srt.utils import is_hip  # {MARKER}",
+            1,
+        )
 
     open(path, "w").write(src.replace(OLD, NEW))
     print(f"[patch] applied to {path}")

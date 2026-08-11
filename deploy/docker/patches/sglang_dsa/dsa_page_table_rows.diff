@@ -1,0 +1,89 @@
+dsa_page_table_rows -- decode page-table rows under MTP
+--------------------------------------------------------------------------------
+WHAT     `metadata.page_table_1` is one row per REQUEST; `topk_indices` has just
+         been padded to `q.shape[0]`, one row per TOKEN.  Equal for plain decode,
+         unequal under MTP -- `transform_index_page_table_decode` then trips
+         `assert page_table.shape[0] == topk_indices.shape[0]` and every rank dies.
+WHY      Expanding by repeat_interleave reproduces the token-major layout.  Rows
+         `_pad_topk_indices` added hold all -1 and the triton kernel masks them
+         (`valid_topk_mask = mask & (loaded_topk_indices >= 0)`), so only the row
+         COUNT has to match.  Applied at BOTH decode call sites -- the traceback
+         named only the first, but the second pairs the same unpadded page table
+         with a padded topk_indices.  The prefill sibling solves this with an
+         explicit `output_num_tokens`; the decode entry point has no equivalent.
+BASE     Cut against v0.5.17.  The two prefill call sites are deliberately NOT
+         wrapped; they are not the row-mismatch path.
+
+UPSTREAM NONE of ours.  sglang#32209 reconciles the same decode row counts by
+         TRIMMING q/top-k where this EXPANDS the page table.
+
+A NEGATIVE RESULT WORTH RECORDING
+--------------------------------------------------------------------------------
+Porting #32209's half onto this HIP/tilelang path looks like an obvious
+convergence and is not: it fails reproducibly at conc=32 (0/32 across seven runs,
+three node pairs, a rebuilt image).  Seventeen candidate causes were instrumented
+and eliminated; the root cause is NOT identified.  Until that is understood, this
+patch keeps its own form.
+
+RELATION TO THE INDEXSHARE WORKAROUND
+--------------------------------------------------------------------------------
+    --json-model-override-args '{"index_share_for_mtp_iteration":false}'
+
+Substitutes for this patch, and is the mechanism the gfx942 image relies on.  An
+arm with the override, and with this and draft_cuda_graph_dp_vote both asserted
+ABSENT from the bytecode, passed 4/4, 32/32 twice and 64/64 on 2 x 8 MI355X.
+--------------------------------------------------------------------------------
+--- a/python/sglang/srt/layers/attention/dsa_backend.py
++++ b/python/sglang/srt/layers/attention/dsa_backend.py
+@@ -167,6 +167,29 @@
+     return seqlens_32.contiguous().view(-1, 1)
+ 
+ 
++def _glm52_match_page_table_rows(page_table, topk_indices):
++    """GLM52_BUG2B: give page_table one row per TOKEN, matching topk_indices.
++
++    page_table_1 is per-REQUEST, topk_indices per-TOKEN -- equal for plain decode,
++    not under MTP, where decode then trips `assert page_table.shape[0] ==
++    topk_indices.shape[0]`. Padded rows are masked, so only the COUNT matters.
++    """
++    if topk_indices is None or page_table is None:
++        return page_table
++    n_topk = topk_indices.shape[0]
++    n_rows = page_table.shape[0]
++    if n_rows == n_topk:
++        return page_table
++    if n_rows > 0 and n_topk % n_rows == 0:
++        return page_table.repeat_interleave(n_topk // n_rows, dim=0)
++    # Non-integral ratio: trim or edge-pad so the shapes agree. Any row reached
++    # only through padded (-1) topk entries is masked, so its content is moot.
++    if n_rows > n_topk:
++        return page_table[:n_topk]
++    pad = page_table[-1:].expand(n_topk - n_rows, -1)
++    return torch.cat([page_table, pad], dim=0)
++
++
+ @dataclass(frozen=True)
+ class DSAFlashMLAMetadata:
+     """Metadata only needed by FlashMLA"""
+@@ -2264,7 +2287,9 @@
+             page_table_1 = self._get_fused_topk_page_table(topk_indices)
+         else:
+             page_table_1 = transform_index_page_table_decode(
+-                page_table=metadata.page_table_1,
++                page_table=_glm52_match_page_table_rows(
++                    metadata.page_table_1, topk_indices
++                ),
+                 topk_indices=topk_indices,
+                 page_size=1,
+             )
+@@ -3210,7 +3235,9 @@
+             if topk_indices is not None:
+                 topk_indices = self._pad_topk_indices(topk_indices, q.shape[0])
+             page_table_1 = transform_index_page_table_decode(
+-                page_table=metadata.page_table_1,
++                page_table=_glm52_match_page_table_rows(
++                    metadata.page_table_1, topk_indices
++                ),
+                 topk_indices=topk_indices,
+                 page_size=1,
+             )

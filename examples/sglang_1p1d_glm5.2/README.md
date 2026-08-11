@@ -296,10 +296,11 @@ so it was never KV exhaustion — it is activation memory, which lives in the
 all-reduce kernel deadlocks on this architecture during speculative verify. Letting
 the switch follow MTP would make any "MTP on vs off" comparison a two-variable one.
 
-**5. The DSA-on-ROCm env block is mandatory on gfx950.** Without
-`SGLANG_OPT_USE_TILELANG_INDEXER=1`, `SGLANG_OPT_USE_TOPK_V2=0` and
-`SGLANG_OPT_USE_JIT_NORM=0` the model still serves and still returns 200s — it just
-returns garbage. `engine/leg.sh` sets them; `smoke` catches it if they did not take.
+**5. `SGLANG_OPT_USE_TOPK_V2=0` is mandatory on gfx950.** Without it the model
+still serves and still returns 200s — it just returns garbage, because SGLang's
+`topk_v2` JIT kernel is CUDA-only. No launcher sets it: `infera.engine.sglang`
+defaults it off on ROCm (`infera/engine/rocm_dsa_env.py`), and `smoke` catches it
+if it did not take.
 
 **6. MTP and decode-side radix cache are mutually exclusive upstream.** SGLang raises
 on `--disaggregation-decode-enable-radix-cache` together with

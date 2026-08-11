@@ -41,7 +41,7 @@ VERIFIED: 2x 8xMI325X (gfx942), ROCm 7.2.0, sglang v0.5.16, GLM-5.2-FP8 1P1D ove
 mooncake RDMA, overlap scheduling ON, `chunked-prefill-size 131072` with
 `--enable-dp-attention`: needle 5/9 -> 9/9, a 29k depth sweep 4/9 -> 9/9, and the
 logs confirm the failing prompt is still really split into 4 chunks afterwards. The
-anchors below are present in both v0.5.15.post1 and v0.5.16.
+anchors below are present in v0.5.16 and v0.5.17 (checked by count, both bases).
 
 UPSTREAM: not submitted. The closest existing report,
 sgl-project/sglang#25583 (GLM-5-FP8 + NSA + 70k prompt, identical symptom), was
@@ -62,13 +62,20 @@ from pathlib import Path
 
 _TAG = "[mc-wait-event]"
 
-# Path under sglang/srt -> [(anchor, anchor + our addition)]. Each anchor must
-# occur exactly once; the replacement doubles as the already-applied marker.
-_EDITS: dict[str, list[tuple[str, str]]] = {
+# Path under sglang/srt -> [(anchor, anchor + our addition, expected occurrences)].
+# The anchor must occur exactly that many times and every one is replaced; the
+# replacement doubles as the already-applied marker.
+#
+# The three add_transfer_request call sites are anchored on the TAIL of their
+# argument list rather than on a named argument: upstream keeps adding arguments
+# there (num_kv_tokens landed between v0.5.16 and v0.5.17), and the tail is what
+# this patch actually appends to. Verified to occur 1x / 2x on both bases.
+_EDITS: dict[str, list[tuple[str, str, int]]] = {
     "disaggregation/common/utils.py": [
         (
             "from typing import List, Optional, Tuple, Union",
             "from typing import Any, List, Optional, Tuple, Union",
+            1,
         ),
         (
             """    trace_ctx: Union[TraceReqContext, TraceNullContext] = dataclasses.field(
@@ -83,12 +90,14 @@ _EDITS: dict[str, list[tuple[str, str]]] = {
     # this before the RDMA read or it can observe half-written KV.
     wait_event: Optional[Any] = None
 """,
+            1,
         ),
     ],
     "disaggregation/mooncake/conn.py": [
         (
             "from typing import List, Optional, Tuple, Union",
             "from typing import Any, List, Optional, Tuple, Union",
+            1,
         ),
         (
             """                kv_chunk: TransferKVChunk = queue.get()
@@ -100,6 +109,7 @@ _EDITS: dict[str, list[tuple[str, str]]] = {
                     kv_chunk.wait_event.synchronize()
                     kv_chunk.wait_event = None
 """,
+            1,
         ),
         (
             """        trace_ctx: Optional[Union[TraceReqContext, TraceNullContext]] = None,
@@ -111,19 +121,17 @@ _EDITS: dict[str, list[tuple[str, str]]] = {
     ):
         assert self.disaggregation_mode == DisaggregationMode.PREFILL
 """,
+            1,
         ),
         (
-            """                prefill_aux_index=aux_index,
-                state_indices=state_indices,
-                trace_ctx=trace_ctx,
+            """                trace_ctx=trace_ctx,
             )
 """,
-            """                prefill_aux_index=aux_index,
-                state_indices=state_indices,
-                trace_ctx=trace_ctx,
+            """                trace_ctx=trace_ctx,
                 wait_event=wait_event,
             )
 """,
+            1,
         ),
         (
             """        if should_skip:
@@ -141,34 +149,17 @@ _EDITS: dict[str, list[tuple[str, str]]] = {
 
         if not is_last_chunk:
 """,
+            1,
         ),
         (
-            """                index_slice,
-                False,
-                trace_ctx=self.trace_ctx.copy_for_thread(),
+            """                trace_ctx=self.trace_ctx.copy_for_thread(),
             )
 """,
-            """                index_slice,
-                False,
-                trace_ctx=self.trace_ctx.copy_for_thread(),
+            """                trace_ctx=self.trace_ctx.copy_for_thread(),
                 wait_event=wait_event,
             )
 """,
-        ),
-        (
-            """                aux_index=self.aux_index,
-                state_indices=state_indices,
-                trace_ctx=self.trace_ctx.copy_for_thread(),
-            )
-        self._record_transfer_indices(kv_indices, state_indices)
-""",
-            """                aux_index=self.aux_index,
-                state_indices=state_indices,
-                trace_ctx=self.trace_ctx.copy_for_thread(),
-                wait_event=wait_event,
-            )
-        self._record_transfer_indices(kv_indices, state_indices)
-""",
+            2,
         ),
     ],
     "disaggregation/prefill.py": [
@@ -186,6 +177,7 @@ _EDITS: dict[str, list[tuple[str, str]]] = {
                     req.disagg_kv_sender._early_send_wait_event = ev
                     self.send_kv_chunk(req, last_chunk=False, end_idx=req.tmp_end_idx)
 """,
+            1,
         ),
     ],
 }
@@ -212,16 +204,18 @@ def main():
             print(f"{_TAG} {f} is missing — sglang layout changed, re-anchor the patch")
             return 1
         src = out = f.read_text()
-        for old, new in edits:
+        for old, new, want in edits:
             if new in out:
                 continue  # this edit is already in the tree
             found = out.count(old)
-            if found != 1:
-                where = "absent" if found == 0 else f"{found}x ambiguous"
-                print(f"{_TAG} anchor {where} in {rel}: {old.splitlines()[0]!r}")
+            if found != want:
+                print(
+                    f"{_TAG} anchor found {found}x, want {want}x in {rel}: "
+                    f"{old.strip().splitlines()[0]!r}"
+                )
                 print(f"{_TAG} sglang drifted — re-cut the patch, nothing written")
                 return 1
-            out = out.replace(old, new, 1)
+            out = out.replace(old, new)
         if out != src:
             edited.append((f, out))
 

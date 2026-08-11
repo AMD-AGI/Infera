@@ -3,10 +3,16 @@
 # SPDX-License-Identifier: MIT
 #
 # Verify, AGAINST A BUILT IMAGE, that the Mooncake engine.so it will actually
-# load carries the HIP-transport gate.
+# load keeps cross-node PD on RDMA rather than HIP IPC.
+#
+# Two mechanisms qualify, one per build line:
+#   upstream locality routing — a hip+rdma segment falls through to RDMA for a
+#     cross-host target on its own (sglang images, ENABLE_MULTI_PROTOCOL=ON);
+#   the B.2 gate — installTransport("hip") is off by default (the vLLM image,
+#     which does not enable ENABLE_MULTI_PROTOCOL).
 #
 # WHY THIS EXISTS (and why the in-build check was not enough):
-#   build_mooncake_sglang.sh already self-verifies the gate and `exit 1`s if the
+#   build_mooncake_sglang.sh already self-verifies this and `exit 1`s if the
 #   rebuild did not take. That check can only fire if the build STEP RUNS. Both
 #   rocm/infera:sglang-v0.1.1 and :sglang-v0.1.2 shipped an UNPATCHED engine.so
 #   anyway, because the step was never in their build at all:
@@ -25,7 +31,7 @@
 # USAGE:
 #   deploy/docker/scripts/verify_image_mooncake.sh <image> [<image> ...]
 #
-# EXIT: 0 = every image carries the gate; 1 = at least one does not.
+# EXIT: 0 = every image carries one of the two mechanisms; 1 = one carries neither.
 set -uo pipefail
 
 if [ "$#" -lt 1 ]; then
@@ -33,12 +39,11 @@ if [ "$#" -lt 1 ]; then
     exit 2
 fi
 
-# Runs inside the image. Resolves the mooncake package the way Python would,
-# then asserts BOTH gate spellings are present in the binary that gets loaded:
-#   MC_ENABLE_HIP_TRANSPORT  — opt back in for intra-node-only P2P
-#   MC_DISABLE_HIP_TRANSPORT — hard veto (what infera/rocm_rdma_env.py sets)
-# A binary with neither is upstream #2682 stock: it installs the HIP transport
-# unconditionally and prefers it over RDMA, so cross-node PD cannot work.
+# Runs inside the image. Resolves the mooncake package the way Python would, then
+# counts the markers of each mechanism in the binary that gets loaded:
+#   MC_ENABLE_HIP_TRANSPORT + MC_DISABLE_HIP_TRANSPORT — the B.2 gate
+#   MC_DISABLE_HIP as a whole word — upstream locality routing (-w so that the
+#     longer gate spelling above does not count as this one)
 read -r -d '' PROBE <<'SH' || true
 set -u
 SO_DIR=$(python3 -c 'import mooncake, os; print(os.path.dirname(mooncake.__file__))' 2>/dev/null)
@@ -55,6 +60,7 @@ echo "ENGINE_SO $SO"
 for v in MC_ENABLE_HIP_TRANSPORT MC_DISABLE_HIP_TRANSPORT; do
     echo "COUNT $v $(strings "$SO" | grep -c "$v")"
 done
+echo "COUNT ROUTING $(strings "$SO" | grep -cw MC_DISABLE_HIP)"
 SH
 
 rc=0
@@ -83,19 +89,24 @@ for image in "$@"; do
     so="$(printf '%s\n' "$out" | awk '/^ENGINE_SO /{print $2}')"
     enable="$(printf '%s\n' "$out" | awk '/^COUNT MC_ENABLE_HIP_TRANSPORT /{print $3}')"
     disable="$(printf '%s\n' "$out" | awk '/^COUNT MC_DISABLE_HIP_TRANSPORT /{print $3}')"
+    routing="$(printf '%s\n' "$out" | awk '/^COUNT ROUTING /{print $3}')"
     echo "  engine.so                 : $so"
     echo "  MC_ENABLE_HIP_TRANSPORT   : ${enable:-0}"
     echo "  MC_DISABLE_HIP_TRANSPORT  : ${disable:-0}"
+    echo "  upstream locality routing : ${routing:-0}"
 
-    if [ "${enable:-0}" != "0" ] && [ "${disable:-0}" != "0" ]; then
-        echo "  OK: HIP-transport gate present (cross-node PD will use RDMA)"
+    if [ "${routing:-0}" != "0" ]; then
+        echo "  OK: upstream locality routing present (cross-node PD will use RDMA)"
+    elif [ "${enable:-0}" != "0" ] && [ "${disable:-0}" != "0" ]; then
+        echo "  OK: B.2 HIP-transport gate present (cross-node PD will use RDMA)"
     else
-        echo "  FAIL: engine.so has NO HIP-transport gate — this is stock upstream" >&2
-        echo "        #2682, which installs the HIP transport unconditionally and" >&2
+        echo "  FAIL: engine.so has neither upstream locality routing nor the B.2" >&2
+        echo "        gate, so it installs the HIP transport unconditionally and" >&2
         echo "        prefers it over RDMA. Cross-node PD will die in KV transfer" >&2
         echo "        with: hipIpcOpenMemHandle failed (201 - invalid device context)." >&2
-        echo "        Rebuild with deploy/docker/Dockerfile.sglang (BUILD_MOONCAKE=1)" >&2
-        echo "        FROM THE PINNED BASE — not FROM a previously published image." >&2
+        echo "        Rebuild from deploy/docker/Dockerfile.{sglang,vllm} with" >&2
+        echo "        BUILD_MOONCAKE=1, FROM THE PINNED BASE — not FROM a" >&2
+        echo "        previously published image." >&2
         rc=1
     fi
 done

@@ -108,9 +108,9 @@ curl -s localhost:8000/v1/chat/completions \
 ```
 
 Expect exactly `The capital of France is Paris.` **Garbage or repeated tokens**
-means the ROCm DSA indexer env vars did not take effect — check that
-`SGLANG_OPT_USE_TILELANG_INDEXER=1`, `SGLANG_OPT_USE_TOPK_V2=0` and
-`SGLANG_OPT_USE_JIT_NORM=0` are set on the worker.
+mean SGLang's CUDA-only DSA `topk_v2` kernel is in play. `infera.engine.sglang`
+turns it off on ROCm for you (`infera/engine/rocm_dsa_env.py`); check the worker
+log for `SGLANG_OPT_USE_TOPK_V2` in the applied-defaults line.
 
 GLM-5.2 is a thinking model, so the manifest passes `--reasoning-parser glm45`
 and the trace lands in `reasoning_content`, leaving `content` clean. Without it

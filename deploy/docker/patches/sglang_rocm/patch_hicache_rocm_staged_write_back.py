@@ -117,18 +117,16 @@ UPSTREAM STATUS (2026-08-04)
   stops gating on `_is_cuda` alone (line 1777 at v0.5.16, 1830 on main).
 
 THE TWO IMAGES THAT RUN THIS
-  `Dockerfile.sglang.gfx942` (MI300X / MI325X, base v0.5.16) is the one that needs
-  it: mla.py carries the `_is_cuda or _is_hip` gate and `DSAIndexerPoolHost` is
-  still CUDA-only, so both checks below find what they expect.
+  Both need it, and for the same reason: `pool_host/mla.py` carries the
+  `_is_cuda or _is_hip` gate while `DSAIndexerPoolHost` is still CUDA-only, so
+  the group's AND disagrees with its anchor.
 
-  `Dockerfile.sglang` (MI355X, base v0.5.15.post1) exits 0 at the first check and
-  has no bug to exit from. Every write-back gate on that base is still `_is_cuda` --
-  MHA (196), MLA (1405), both V4 pools (2478, 2887) and `DSAIndexerPoolHost` (3387),
-  all in `memory_pool_host.py` before MLA and MHA moved into `pool_host/` -- and
-  `_is_hip` appears only in the kernel import guard. So the group's AND and its
-  anchor both read False, they agree, and the non-JIT kernel runs. #28534 introduced
-  the disagreement after that tag; the absent `pool_host/mla.py` is just how this
-  script notices.
+  `Dockerfile.sglang.gfx942` (MI300X / MI325X, base v0.5.16).
+
+  `Dockerfile.sglang` (MI355X) since the base moved to v0.5.17; on the earlier
+  v0.5.15.post1 base it exited 0 at the first check, because every write-back
+  gate there was still `_is_cuda` and the absent `pool_host/mla.py` is how this
+  script noticed. #28534 introduced the disagreement after that tag.
 
 EXIT CODES
   0  applied; already applied; or nothing to gate -- no `pool_host/mla.py`, or an

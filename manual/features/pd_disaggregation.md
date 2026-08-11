@@ -191,14 +191,15 @@ Intra-host PD "just works." Cross-host PD moves the KV over RDMA and needs care:
   `NCCL_IB_GID_INDEX=1` for the collectives path). Infera sets these defaults on
   ROCm for you; the default index 0 is link-local and times out on `QP → RTR`
   between hosts.
-- **Force RDMA, not the intra-node shortcut** — Mooncake: `MC_DISABLE_HIP_TRANSPORT=1`.
-  Our image already defaults the HIP (hipIpc) transport OFF, so this is
-  belt-and-braces. Upstream Mooncake installs it unconditionally and prefers it
-  over RDMA for GPU→GPU; because a hipIpc handle is host-local by construction, a
-  peer node can never open it and KV transfer dies with
-  `hipIpcOpenMemHandle failed (Error code: 201 - invalid device context)` — even
-  though RDMA itself is healthy. If you see that line, your image predates the
-  gate; check it with `deploy/docker/scripts/verify_image_mooncake.sh <image>`.
+- **RDMA, not the intra-node shortcut** — a hipIpc handle is host-local by
+  construction, so a peer node can never open it and KV transfer dies with
+  `hipIpcOpenMemHandle failed (Error code: 201 - invalid device context)` even
+  though RDMA itself is healthy. Our images handle this already, by one of two
+  mechanisms: the sglang image relies on upstream locality routing, which sends a
+  cross-host target to RDMA on its own; the vLLM image keeps the HIP transport off
+  by default instead (`MC_DISABLE_HIP_TRANSPORT=1` is then belt-and-braces). If you
+  see that line, check the image with
+  `deploy/docker/scripts/verify_image_mooncake.sh <image>`.
 - **Routable addresses + shared etcd** — `--advertise-host <node-ip>`, all
   workers/servers on one reachable `--etcd-endpoint`.
 

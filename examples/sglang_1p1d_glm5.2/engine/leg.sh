@@ -77,11 +77,10 @@ export SGLANG_DISAGGREGATION_BOOTSTRAP_TIMEOUT="${BOOTSTRAP_TIMEOUT:-1800}"
 export SGLANG_DISAGGREGATION_WAITING_TIMEOUT="${BOOTSTRAP_TIMEOUT:-1800}"
 export INFERA_SGLANG_READY_TIMEOUT="${READY_TIMEOUT:-3600}"
 
-# ---- GLM-5.2 DSA-on-ROCm recipe (mandatory on gfx950) -----------------------------------
-# Without these the model still serves and still returns 200s — it just returns garbage,
-# because the sparse-attention indexer takes a path not ported to ROCm. See README note 5.
-export SGLANG_USE_AITER=1 SGLANG_ROCM_FUSED_DECODE_MLA=0
-export SGLANG_OPT_USE_TILELANG_INDEXER=1 SGLANG_OPT_USE_TOPK_V2=0 SGLANG_OPT_USE_JIT_NORM=0
+# ---- GLM-5.2 on ROCm -------------------------------------------------------------------
+# The correctness-critical one, SGLANG_OPT_USE_TOPK_V2=0, is not here: infera.engine.sglang
+# applies it itself (infera/engine/rocm_dsa_env.py). See README note 5.
+export SGLANG_USE_AITER=1
 export SAFETENSORS_FAST_GPU=1 HIP_FORCE_DEV_KERNARG=1
 [ "$DPA" = "1" ] && export SGLANG_DP_USE_GATHERV=1
 # Stable block hashes -> stable kvd keys across restarts, so an L3 entry written by one run is
@@ -163,8 +162,7 @@ docker exec -d "$CTR" env \
   SGLANG_DISAGGREGATION_BOOTSTRAP_TIMEOUT="$SGLANG_DISAGGREGATION_BOOTSTRAP_TIMEOUT" \
   SGLANG_DISAGGREGATION_WAITING_TIMEOUT="$SGLANG_DISAGGREGATION_WAITING_TIMEOUT" \
   INFERA_SGLANG_READY_TIMEOUT="$INFERA_SGLANG_READY_TIMEOUT" \
-  SGLANG_USE_AITER=1 SGLANG_ROCM_FUSED_DECODE_MLA=0 \
-  SGLANG_OPT_USE_TILELANG_INDEXER=1 SGLANG_OPT_USE_TOPK_V2=0 SGLANG_OPT_USE_JIT_NORM=0 \
+  SGLANG_USE_AITER=1 \
   SAFETENSORS_FAST_GPU=1 HIP_FORCE_DEV_KERNARG=1 PYTHONHASHSEED=0 \
   ${SGLANG_DP_USE_GATHERV:+SGLANG_DP_USE_GATHERV=1} \
   bash -c "python3 -m infera.engine.sglang \
