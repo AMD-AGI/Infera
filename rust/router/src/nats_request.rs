@@ -318,6 +318,29 @@ impl NatsRequestClient {
     }
 }
 
+/// A read either produced something for the caller, or landed on a message
+/// that was never a worker reply.
+enum Skip {
+    Frame(Option<Frame>),
+    NotAReply,
+}
+
+/// Whether a payload is JetStream's `{"stream":..,"seq":..}` storage ack.
+///
+/// Deliberately narrow: only a body with both fields and nothing a worker would
+/// send. A worker reply is either the engine's bytes or an error string, and an
+/// engine answering with exactly this shape and no `rs-type` header is not a
+/// case worth trading correctness for.
+fn is_jetstream_ack(payload: &[u8]) -> bool {
+    if payload.len() > 256 {
+        return false;
+    }
+    match serde_json::from_slice::<serde_json::Value>(payload) {
+        Ok(v) => v.get("stream").is_some_and(|s| s.is_string()) && v.get("seq").is_some(),
+        Err(_) => false,
+    }
+}
+
 /// The reply side of one request. Dropping it before the stream finished tells
 /// the worker to abort, so it stops generating tokens nobody will read.
 pub struct ReplyStream {
@@ -342,8 +365,20 @@ impl ReplyStream {
     /// Next frame, or a synthesised error frame when a deadline expires.
     /// Returns `None` only if the subscription ends without a terminal frame.
     pub async fn next(&mut self) -> Option<Frame> {
+        // Loops only to skip messages that are not worker replies at all; every
+        // other path returns. The deadlines are recomputed each time round, so
+        // a skipped message cannot extend them.
+        loop {
+            match self.next_inner().await {
+                Skip::Frame(f) => return f,
+                Skip::NotAReply => continue,
+            }
+        }
+    }
+
+    async fn next_inner(&mut self) -> Skip {
         if self.finished {
-            return None;
+            return Skip::Frame(None);
         }
         // Budget is the smaller of the idle gap and whatever is left of the
         // total, so whichever deadline is nearer fires first.
@@ -353,7 +388,7 @@ impl ReplyStream {
             .map(|d| d.saturating_duration_since(tokio::time::Instant::now()));
         if let Some(left) = total_left {
             if left.is_zero() {
-                return Some(self.expired_total());
+                return Skip::Frame(Some(self.expired_total()));
             }
         }
         let budget = match (idle, total_left) {
@@ -368,7 +403,7 @@ impl ReplyStream {
                 Ok(m) => m,
                 Err(_) => {
                     self.finished = true;
-                    return Some(
+                    return Skip::Frame(Some(
                         if self
                             .deadline
                             .is_some_and(|d| tokio::time::Instant::now() >= d)
@@ -383,7 +418,7 @@ impl ReplyStream {
                                 ),
                             }
                         },
-                    );
+                    ));
                 }
             },
             None => self.sub.next().await,
@@ -393,16 +428,27 @@ impl ReplyStream {
             Some(m) => m,
             None => {
                 self.finished = true;
-                return None;
+                return Skip::Frame(None);
             }
         };
 
         let hdrs = msg.headers.as_ref();
+        // A JetStream storage ack, not a worker reply. It arrives whenever the
+        // INFERA_REQUESTS stream exists -- created by any router with the
+        // throttle on -- while this one publishes over core NATS, because the
+        // stream captures `infera.req.>` and answers the publisher's reply
+        // subject. Mistaking it for a data frame is worse than a stray byte:
+        // the streaming path commits on the first data frame, so it would be
+        // sent to the client as the start of a body and recorded as the worker
+        // having produced something.
+        if hdrs.and_then(|h| h.get(HDR_TYPE)).is_none() && is_jetstream_ack(&msg.payload) {
+            return Skip::NotAReply;
+        }
         let rtype = hdrs
             .and_then(|h| h.get(HDR_TYPE))
             .map(|v| v.as_str())
             .unwrap_or(TYPE_DATA);
-        match rtype {
+        Skip::Frame(match rtype {
             TYPE_DONE => {
                 self.finished = true;
                 self.terminal_frame_seen = true;
@@ -421,7 +467,7 @@ impl ReplyStream {
                 })
             }
             _ => Some(Frame::Data(msg.payload)),
-        }
+        })
     }
 
     fn expired_total(&mut self) -> Frame {
@@ -502,6 +548,26 @@ mod tests {
         ] {
             assert_eq!(token(id), want, "{id}");
         }
+    }
+
+    #[test]
+    fn a_jetstream_ack_is_not_mistaken_for_a_worker_reply() {
+        // Sent to the publisher's reply subject whenever the INFERA_REQUESTS
+        // stream exists but this router publishes over core NATS -- which
+        // happens the moment any router in the fleet turns the throttle on.
+        // Taken as a data frame it would commit the streaming path and be sent
+        // to the client as the start of the body.
+        assert!(is_jetstream_ack(br#"{"stream":"INFERA_REQUESTS","seq":2}"#));
+        assert!(is_jetstream_ack(
+            br#"{"stream":"X","seq":1,"domain":"hub"}"#
+        ));
+
+        // Real replies must never be swallowed.
+        assert!(!is_jetstream_ack(br#"{"id":"x","choices":[]}"#));
+        assert!(!is_jetstream_ack(b"data: {\"delta\":\"hi\"}\n\n"));
+        assert!(!is_jetstream_ack(b""));
+        assert!(!is_jetstream_ack(br#"{"stream":true,"seq":1}"#));
+        assert!(!is_jetstream_ack(br#"{"stream":"only"}"#));
     }
 
     #[test]

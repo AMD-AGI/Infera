@@ -131,6 +131,43 @@ async fn a_published_batch_reaches_the_cache_view() {
     );
 }
 
+/// Admission has to fail open, or a monitoring gap becomes an outage.
+///
+/// With the throttle off there is no JetStream context at all; with it on, a
+/// worker that has not created its consumer yet cannot be measured. Refusing
+/// either would turn "cannot tell" into "will not serve" -- and since this now
+/// gates the mixed path too, getting it wrong would refuse every request in the
+/// fleet.
+#[tokio::test]
+async fn admission_admits_when_the_backlog_cannot_be_measured() {
+    let url = match broker_url() {
+        Some(u) => u,
+        None => {
+            eprintln!("skipping: set INFERA_TEST_NATS to a reachable broker");
+            return;
+        }
+    };
+    let wid = "10.0.3.1:9000";
+
+    // Throttle off: no JetStream, nothing to measure, everything admitted.
+    let off = infera_router::nats_request::NatsRequestClient::connect(Some(&url), 900.0, 0.0, 0)
+        .await
+        .expect("client");
+    assert!(
+        off.admit(wid).await,
+        "the throttle is off; nothing may be refused"
+    );
+
+    // Throttle on, but this worker has no consumer -- it has never subscribed.
+    let on = infera_router::nats_request::NatsRequestClient::connect(Some(&url), 900.0, 0.0, 1)
+        .await
+        .expect("client");
+    assert!(
+        on.admit(wid).await,
+        "a worker with no consumer cannot be measured, and must not be refused"
+    );
+}
+
 /// A worker that goes quiet must still be told to stop.
 ///
 /// The idle timeout returns 504 to the client, but the worker is unaware and
