@@ -86,8 +86,6 @@ def exec_rust(args: argparse.Namespace) -> None:
         args.host,
         "--port",
         str(args.port),
-        "--etcd-endpoint",
-        args.etcd_endpoint,
         "--etcd-prefix",
         args.etcd_prefix,
         "--router-policy",
@@ -105,7 +103,12 @@ def exec_rust(args: argparse.Namespace) -> None:
         "--breaker-max-cooldown-s",
         str(args.breaker_max_cooldown_s),
     ]
-    if args.discovery_backend == "kubernetes":
+    # Only when it means something: --etcd-endpoint has no default, so passing
+    # it unconditionally hands execvp a None on the kubernetes path -- which is
+    # the path this backend exists to serve.
+    if args.discovery_backend == "etcd":
+        argv += ["--etcd-endpoint", args.etcd_endpoint]
+    else:
         argv += ["--k8s-label-selector", args.k8s_label_selector]
         # Left unset, the Rust side reads the Pod's own namespace, which is
         # what the Python backend does too.
@@ -114,6 +117,18 @@ def exec_rust(args: argparse.Namespace) -> None:
     argv += ["--kv-event-transport", args.kv_event_transport]
     if args.nats_server:
         argv += ["--nats-server", args.nats_server]
+    # Only when given: these default to None because the resolution order is
+    # flag > env > built-in, and the Rust side reads the same environment
+    # variables. Forwarding a None would override the environment with the
+    # string "None"; forwarding nothing at all silently dropped a flag the user
+    # did pass.
+    for flag, value in (
+        ("--nats-req-idle-timeout-s", args.nats_req_idle_timeout),
+        ("--nats-req-max-duration-s", args.nats_req_max_duration),
+        ("--nats-req-max-pending", args.nats_req_max_pending),
+    ):
+        if value is not None:
+            argv += [flag, str(value)]
     # kv-aware needs the tokenizer + overlap weights, or it degrades to
     # load-only routing (no cache locality). Resolve HF ids to a local path
     # (same as the Python router) since the Rust binary loads from disk.

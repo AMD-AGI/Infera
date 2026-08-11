@@ -28,7 +28,7 @@ use crate::policy::{ActiveGuard, Role};
 use crate::pool::{DisaggMode, RouteTarget, Snapshot};
 use crate::protocol;
 use crate::proxy::GuardedStream;
-use crate::util::json_error;
+use crate::util::{json_error, truncate_chars};
 
 const DECODE_OPEN_RETRIES: u32 = 3;
 
@@ -308,7 +308,7 @@ async fn dual_nats(
                     score_leg(&state.breaker, &wid, code.as_u16());
                     tracing::warn!(
                         "decode (nats) {wid} failed: {}",
-                        &message[..message.len().min(200)]
+                        truncate_chars(&message, 200)
                     );
                     return json_error(code, &format!("decode {wid} nats failed"));
                 }
@@ -348,7 +348,7 @@ async fn dual_nats(
                 Some(Frame::Error { message, .. }) => {
                     tracing::warn!(
                         "decode (nats) {wid} stream failed: {}",
-                        &message[..message.len().min(200)]
+                        truncate_chars(&message, 200)
                     );
                     if !served {
                         breaker.record_failure(&wid);
@@ -431,7 +431,7 @@ fn spawn_prefill_drain_nats(
                 Some(Frame::Error { message, .. }) => {
                     tracing::warn!(
                         "prefill (nats) {worker_id} failed: {} (decode may hang on KVPoll)",
-                        &message[..message.len().min(200)]
+                        truncate_chars(&message, 200)
                     );
                     breaker.record_failure(&worker_id);
                     return;

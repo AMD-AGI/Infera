@@ -24,7 +24,7 @@ use crate::dp;
 use crate::handlers::AppState;
 use crate::policy::{ActiveGuard, Role};
 use crate::pool::{DisaggMode, RouteTarget, Snapshot};
-use crate::util::json_error;
+use crate::util::{json_error, truncate_chars};
 
 /// A byte stream that owns an `ActiveGuard`: when the streamed body ends (client
 /// done, disconnect, or drop), the guard drops and fires `on_request_finished`,
@@ -232,7 +232,7 @@ async fn attempt_nats(
 }
 
 fn trim(s: &str) -> &str {
-    &s[..s.len().min(500)]
+    truncate_chars(s, 500)
 }
 
 /// `GuardedStream` for a non-reqwest stream: same job, different item type.
@@ -411,7 +411,7 @@ async fn attempt(
                 "worker {} error {}: {}",
                 worker.worker_id,
                 status.as_u16(),
-                &body[..body.len().min(500)]
+                truncate_chars(&body, 500)
             ),
         ));
     }

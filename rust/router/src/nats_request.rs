@@ -272,6 +272,7 @@ impl NatsRequestClient {
             },
             max_duration: self.max_duration,
             finished: false,
+            terminal_frame_seen: false,
         })
     }
 }
@@ -286,7 +287,14 @@ pub struct ReplyStream {
     idle_timeout: Duration,
     deadline: Option<tokio::time::Instant>,
     max_duration: Duration,
+    /// Nothing more can be read. Set by every terminal path, including the
+    /// deadlines.
     finished: bool,
+    /// The *worker* ended this exchange, with a `done` or an `error` frame.
+    /// Kept apart from `finished` because a timeout also stops the read but
+    /// means the opposite: the worker is still generating, and is exactly who
+    /// needs to be told to stop.
+    terminal_frame_seen: bool,
 }
 
 impl ReplyStream {
@@ -356,6 +364,7 @@ impl ReplyStream {
         match rtype {
             TYPE_DONE => {
                 self.finished = true;
+                self.terminal_frame_seen = true;
                 let status = hdrs
                     .and_then(|h| h.get(HDR_STATUS))
                     .and_then(|v| v.as_str().parse::<u16>().ok())
@@ -364,6 +373,7 @@ impl ReplyStream {
             }
             TYPE_ERROR => {
                 self.finished = true;
+                self.terminal_frame_seen = true;
                 Some(Frame::Error {
                     status: None,
                     message: String::from_utf8_lossy(&msg.payload).into_owned(),
@@ -391,7 +401,11 @@ impl ReplyStream {
 
 impl Drop for ReplyStream {
     fn drop(&mut self) {
-        if self.finished {
+        // Deliberately not `finished`: a deadline also stops the read, but the
+        // worker knows nothing about it and is still generating. That is the
+        // case the total-duration cap exists for, and gating on `finished`
+        // silently disabled it.
+        if self.terminal_frame_seen {
             return;
         }
         // Timed out, or the client hung up. Either way the worker is still

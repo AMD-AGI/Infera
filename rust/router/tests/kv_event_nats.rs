@@ -21,6 +21,7 @@ use std::time::{Duration, Instant};
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
+use futures::StreamExt;
 use infera_router::kv_event::KvEventClient;
 use infera_router::kv_event_nats::{self, KV_EVENTS_SUBJECT_PREFIX, KV_VIEW_BUCKET};
 use infera_router::pool::Worker;
@@ -127,6 +128,66 @@ async fn a_published_batch_reaches_the_cache_view() {
         2,
         "both blocks of the chain must be replayed, including the one published \
          before this router existed"
+    );
+}
+
+/// A worker that goes quiet must still be told to stop.
+///
+/// The idle timeout returns 504 to the client, but the worker is unaware and
+/// keeps generating into an inbox nobody reads — burning a GPU on a reply that
+/// is already discarded. That is the entire reason the deadlines exist, so the
+/// cancel has to go out on the timeout path, not only when a client hangs up.
+#[tokio::test]
+async fn a_timed_out_request_cancels_the_worker() {
+    let url = match broker_url() {
+        Some(u) => u,
+        None => {
+            eprintln!("skipping: set INFERA_TEST_NATS to a reachable broker");
+            return;
+        }
+    };
+    let wid = format!("10.0.2.1:{}", 9000 + (std::process::id() % 500));
+
+    // Watch for the cancel the router should publish.
+    let nc = async_nats::connect(&url).await.expect("connect");
+    let mut cancels = nc
+        .subscribe(infera_router::nats_request::cancel_subject(&wid))
+        .await
+        .expect("subscribe cancel");
+
+    // A worker that accepts the request and then goes quiet — the shape the
+    // idle timeout exists for. Publishing to nobody would instead get an
+    // immediate no-responders reply and never reach the deadline.
+    let mut requests = nc
+        .subscribe(infera_router::nats_request::request_subject(&wid))
+        .await
+        .expect("subscribe requests");
+    tokio::spawn(async move {
+        let _ = requests.next().await;
+        // Deliberately no reply.
+    });
+
+    let client = infera_router::nats_request::NatsRequestClient::connect(Some(&url), 0.4, 0.0, 0)
+        .await
+        .expect("client");
+    {
+        let mut reply = client.dispatch(&wid, b"{}").await.expect("dispatch");
+        match reply.next().await {
+            Some(infera_router::nats_request::Frame::Error { status, .. }) => {
+                assert_eq!(status, Some(504), "an idle timeout is a gateway timeout");
+            }
+            other => panic!("expected a 504 error frame, got {other:?}"),
+        }
+        // `reply` drops here, which is what publishes the cancel.
+    }
+
+    let got = tokio::time::timeout(Duration::from_secs(5), cancels.next())
+        .await
+        .expect("no cancel within 5s — a timed-out worker is never told to stop")
+        .expect("cancel subscription ended");
+    assert!(
+        String::from_utf8_lossy(&got.payload).starts_with("_INBOX."),
+        "the cancel payload is the request's reply inbox"
     );
 }
 
