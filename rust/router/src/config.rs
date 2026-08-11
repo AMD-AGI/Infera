@@ -44,9 +44,20 @@ pub struct Config {
     #[arg(long, default_value = "round-robin")]
     pub router_policy: String,
 
-    /// Only `etcd` is supported by the Rust backend.
+    /// `etcd` (external) or `kubernetes` (workers publish into their own Pod
+    /// annotation and the API server is watched).
     #[arg(long, default_value = "etcd")]
     pub discovery_backend: String,
+
+    /// kubernetes discovery: label selector identifying the fleet's worker
+    /// Pods. Required for that backend -- an empty selector would match every
+    /// Pod in the namespace.
+    #[arg(long, env = "INFERA_K8S_LABEL_SELECTOR")]
+    pub k8s_label_selector: Option<String>,
+
+    /// kubernetes discovery: namespace to watch. Defaults to the Pod's own.
+    #[arg(long)]
+    pub k8s_namespace: Option<String>,
 
     /// Only `http` is supported by the Rust backend.
     #[arg(long, default_value = "http")]
@@ -94,11 +105,18 @@ impl Config {
                  can't be computed, so routing degrades to pure load balancing"
             );
         }
-        if self.discovery_backend != "etcd" {
-            anyhow::bail!(
-                "rust backend supports only --discovery-backend etcd (got {:?})",
-                self.discovery_backend
-            );
+        match self.discovery_backend.as_str() {
+            "etcd" => {}
+            "kubernetes" => {
+                // Without a selector this would watch every Pod in the
+                // namespace and register anything carrying the annotation.
+                if self.k8s_label_selector.as_deref().unwrap_or("").is_empty() {
+                    anyhow::bail!("--discovery-backend kubernetes requires --k8s-label-selector");
+                }
+            }
+            other => anyhow::bail!(
+                "rust backend supports --discovery-backend etcd|kubernetes (got {other:?})"
+            ),
         }
         if self.request_transport != "http" {
             anyhow::bail!(

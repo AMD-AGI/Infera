@@ -19,7 +19,7 @@ use infera_router::handlers::{app, AppState};
 use infera_router::kv_event::KvEventClient;
 use infera_router::policy::{KvEventAwarePolicy, Policy, RoundRobin};
 use infera_router::pool::Snapshot;
-use infera_router::{discovery, proxy};
+use infera_router::{discovery, discovery_k8s, k8s, proxy};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -68,9 +68,23 @@ async fn main() -> anyhow::Result<()> {
         let pool = pool.clone();
         let policy = policy.clone();
         let breaker = breaker.clone();
-        let base = cfg.etcd_base();
-        let prefix = cfg.etcd_prefix.clone();
-        tokio::spawn(async move { discovery::run(base, prefix, pool, policy, breaker).await });
+        if cfg.discovery_backend == "kubernetes" {
+            // validate() has already established the selector is present.
+            let selector = cfg.k8s_label_selector.clone().unwrap_or_default();
+            let ns = cfg
+                .k8s_namespace
+                .clone()
+                .unwrap_or_else(k8s::in_cluster_namespace);
+            tracing::info!("discovery: kubernetes, selector {selector:?} in ns {ns}");
+            tokio::spawn(
+                async move { discovery_k8s::run(selector, ns, pool, policy, breaker).await },
+            );
+        } else {
+            let base = cfg.etcd_base();
+            let prefix = cfg.etcd_prefix.clone();
+            tracing::info!("discovery: etcd at {base}");
+            tokio::spawn(async move { discovery::run(base, prefix, pool, policy, breaker).await });
+        }
     }
 
     let state = AppState {
