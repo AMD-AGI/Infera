@@ -1,0 +1,5 @@
+extends:
+  - model_base.yaml
+
+model_name: "deepseek2-16b"
+tokenizer_path: "deepseek-ai/DeepSeek-V2-Lite"

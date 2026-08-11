@@ -1,0 +1,16 @@
+###############################################################################
+# Primus MaxText trainer base config (Plan A – thin overlay)
+#
+# This file only defines:
+#   1. Primus-private fields (trainable, sink_level, …)
+#   2. Primus defaults that DIFFER from MaxText base.yml
+#
+# All other MaxText defaults are inherited at runtime because
+# `base_config: "base.yml"` tells pyconfig._load_config to load
+# MaxText's configs/base.yml as the foundation.
+###############################################################################
+extends:
+  - ../module_base.yaml
+
+trainable: true
+base_config: "base.yml"
