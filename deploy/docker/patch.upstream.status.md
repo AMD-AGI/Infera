@@ -5,8 +5,10 @@ project it patches. Kept here so "why do we still carry this?" has one answer
 per row, and so a patch that upstream has since merged gets dropped instead of
 quietly outliving its reason.
 
-**Verified with `gh` on 2026-08-01**, except the `patches/sglang_rocm/` section:
-2026-08-03 for the host allocator, 2026-08-04 for the staged write-back.
+**PR states re-verified against the GitHub API on 2026-08-10**, when the sglang
+base moved to v0.5.17 and every patch was re-checked against that source. The
+2026-08-01/03/04 pass that preceded it predated our own 08-07 submissions and so
+recorded "no PR of ours" for three rows that had one.
 State drifts; re-check before relying on a row. `gh search`
 matches titles and bodies, **not diff content**, so "no upstream PR" means "none
 found by search", not "none exists" — where a row could be checked by reading
@@ -20,31 +22,20 @@ Column meanings:
 
 ## sglang — `patches/sglang_dsa/` (baked by `Dockerfile.sglang` and `Dockerfile.sglang.gfx942`, `APPLY_SGLANG_DSA_PATCHES=1`)
 
-Only patch 01 is baked by both: it is an anchor script, while 02 and 04 are
-`--fuzz=0` diffs pinned to v0.5.15.post1 and cannot apply to the gfx942 image's
-v0.5.16 base. That image substitutes 02b and 04 at runtime with
-`--json-model-override-args '{"index_share_for_mtp_iteration":false}'` and does
-not address 02a at all — `patches/sglang_dsa/README.md` carries the reasoning.
+Patch 01 is an anchor script and is baked by both images. The other three are
+`--fuzz=0` diffs cut against the mi35x base (v0.5.17) and are not applied by the
+gfx942 image, which substitutes `dsa_page_table_rows` and `draft_cuda_graph_dp_vote`
+at runtime with `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`
+— `patches/sglang_dsa/README.md` carries the reasoning.
 
 | patch | fixes | upstream issue | upstream PR | ours? | PR state |
 |---|---|---|---|---|---|
-| `sglang_dsa/patch_dsa_indexer_hip_dp_padded_rows.py` | HIP/aiter paged-MQA sizes its output from DP-padded rows while `lengths` is sized to real rows → `Expected lengths.size(0) == B` | none found | [sglang#33059](https://github.com/sgl-project/sglang/pull/33059) | **yes** (`dorado269`) | OPEN, `REVIEW_REQUIRED` |
+| `sglang_dsa/patch_dsa_indexer_hip_dp_padded_rows.py` | HIP/aiter paged-MQA sizes its output from DP-padded rows while `lengths` is sized to real rows → `Expected lengths.size(0) == B` | none found | [sglang#33059](https://github.com/sgl-project/sglang/pull/33059) | **yes** (`dorado269`) | OPEN |
 | ″ (same bug class, other platform) | — | none found | [sglang#32762](https://github.com/sgl-project/sglang/pull/32762) `[NPU] Fix DSA eager padding mismatch` — our diff is written in its shape | no (`stellaxcpeng`) | OPEN |
 | ″ (anchor collision, **not** a fix) | — | — | [sglang#32738](https://github.com/sgl-project/sglang/pull/32738) pads heads for DeepGEMM at the same two aiter call sites; [#31480](https://github.com/sgl-project/sglang/pull/31480) extracts the paged-MQA backend and restructures the `is_aiter()` dispatch | no | both OPEN (re-read 2026-08-03) |
-| `sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff` (2a) | `seq_lens.max().item()` is a host sync on a branch only *some* DP ranks take → DP collectives desync → deadlock | none found | none found | — | — |
-| `sglang_dsa/dsa_backend_dp_sync_and_page_table_rows.diff` (2b) | page table has one row per **request**, top-k one per **token** under MTP → `assert page_table.shape[0] == topk_indices.shape[0]` | none found | [sglang#32209](https://github.com/sgl-project/sglang/pull/32209) solves the same row mismatch by **trimming q/top-k**; porting that half here fails at conc=32 and is unresolved | no (`HZY-Wade`) | OPEN, `REVIEW_REQUIRED` |
-| `sglang_dsa/draft_cuda_graph_dp_vote.diff` | draft graph/eager choice is per-rank and diverges on the PD decode leg → group deadlock | [sglang#32527](https://github.com/sgl-project/sglang/issues/32527) (independent report, 8× Blackwell) | [sglang#32209](https://github.com/sgl-project/sglang/pull/32209) — same defect, same strategy; **this diff adopts its placement** | no (`HZY-Wade`) | OPEN, `REVIEW_REQUIRED` |
-
-Prerequisite for the set, applied earlier in the same Dockerfile and **asserted**
-by `scripts/apply_sglang_dsa_patches.sh`:
-
-| patch | fixes | upstream issue | upstream PR | ours? | PR state |
-|---|---|---|---|---|---|
-| `sglang/patch_glm52_nextn_quark_exclude.py` | GLM-5.2 MTP `eh_proj` is bf16 but the quark-exclude check probes the bare layer prefix → draft weight-load dies `3072 vs 6144` | none found | [sglang#30265](https://github.com/sgl-project/sglang/pull/30265) `[AMD] Fix GLM-5.2 MTP Quark excludes` — a **superset** (dedicated `GlmMoeDsaForCausalLMNextN`); ours is a narrow backport | no (`wangjiaxin99`) | **MERGED** 2026-07-08 |
-
-> Our base `v0.5.15.post1` (`0b3bb0c`) predates #30265 — the release line was cut
-> without it. **Drop this patch** when the base sglang carries #30265; the anchor
-> disappears and the script no-ops.
+| `sglang_dsa/dsa_dp_sync.diff` | `seq_lens.max().item()` is a host sync on a branch only *some* DP ranks take → DP collectives desync → deadlock | none found | [sglang#33973](https://github.com/sgl-project/sglang/pull/33973) — this file **is** that PR's diff, so it drops by deletion when it merges | **yes** (`dorado269`) | OPEN |
+| `sglang_dsa/dsa_page_table_rows.diff` | page table has one row per **request**, top-k one per **token** under MTP → `assert page_table.shape[0] == topk_indices.shape[0]` | none found | [sglang#32209](https://github.com/sgl-project/sglang/pull/32209) solves the same row mismatch by **trimming q/top-k**; porting that half here fails at conc=32 and is unresolved | no (`HZY-Wade`) | OPEN |
+| `sglang_dsa/draft_cuda_graph_dp_vote.diff` | the draft graph/eager choice is per-rank, so under PD + DP-attention + MTP a DP group splits across the two paths and deadlocks on the first routed request | [sglang#32527](https://github.com/sgl-project/sglang/issues/32527) | [sglang#32209](https://github.com/sgl-project/sglang/pull/32209) carries the same vote at the same site; we take only that half | no (`HZY-Wade`) | OPEN |
 
 Background, already present in the base and **not** patched by us:
 [sglang#30378](https://github.com/sgl-project/sglang/pull/30378) /
@@ -52,8 +43,8 @@ Background, already present in the base and **not** patched by us:
 seq_lens **values**; our patch 01 fixes the HIP-side row **count**.
 [#30839](https://github.com/sgl-project/sglang/pull/30839) /
 [#31083](https://github.com/sgl-project/sglang/pull/31083) (MERGED 2026-07-14)
-introduced the guard patch 04 repairs — so that deadlock is a regression in this
-baseline, not a legacy wart.
+introduced the guard `draft_cuda_graph_dp_vote.diff` repairs — so that deadlock is a
+regression in this baseline, not a legacy wart.
 [#32722](https://github.com/sgl-project/sglang/pull/32722) (OPEN) adds a test for
 PD + DP-attention + MTP, i.e. **no CI covers this topology today**.
 
@@ -61,7 +52,7 @@ PD + DP-attention + MTP, i.e. **no CI covers this topology today**.
 
 | patch | fixes | upstream issue | upstream PR | ours? | PR state |
 |---|---|---|---|---|---|
-| `sglang_disagg/patch_mooncake_early_send_wait_event.py` | `mooncake/conn.py` never waits on the forward's completion event and the overlap path records none, so chunked prefill hands a non-final chunk to the decode leg while the forward writing those pages is still running → prompts longer than one chunk come back **partially wrong**, with nothing in any log | [sglang#25583](https://github.com/sgl-project/sglang/issues/25583) reports the same corruption shape on GLM-5, but **aggregated** — no PD, no mooncake — so a shared root cause is unestablished; closed **inactive** 2026-07-18, no follow-up | none found | — | — |
+| `sglang_disagg/patch_mooncake_early_send_wait_event.py` | `mooncake/conn.py` never waits on the forward's completion event and the overlap path records none, so chunked prefill hands a non-final chunk to the decode leg while the forward writing those pages is still running → prompts longer than one chunk come back **partially wrong**, with nothing in any log | [sglang#25583](https://github.com/sgl-project/sglang/issues/25583) reports the same corruption shape on GLM-5, but **aggregated** — no PD, no mooncake — so a shared root cause is unestablished; closed **inactive** 2026-07-18, no follow-up | [sglang#33970](https://github.com/sgl-project/sglang/pull/33970) | **yes** (`dorado269`) | OPEN |
 
 > `prefill.py` already records the completion event this needs; only the `mori`
 > backend ever read it, and the patch mirrors what `mori` does. **Drop it** once a
@@ -76,7 +67,7 @@ PD + DP-attention + MTP, i.e. **no CI covers this topology today**.
 
 | patch | fixes | upstream issue | upstream PR | ours? | PR state |
 |---|---|---|---|---|---|
-| `sglang_rocm/patch_hicache_rocm_host_alloc.py` | hicache allocates host pools with `mmap` + `hipHostRegister`, which on ROCm maps the pages at a device address ≠ the host VA, but the pools hand raw host `data_ptr()`s to GPU kernels via device-side pointer tables → `Memory access fault by GPU node-N on address <host VA>` on the first kvd write-back | none found | none found | — | — |
+| `sglang_rocm/patch_hicache_rocm_host_alloc.py` | hicache allocates host pools with `mmap` + `hipHostRegister`, which on ROCm maps the pages at a device address ≠ the host VA, but the pools hand raw host `data_ptr()`s to GPU kernels via device-side pointer tables → `Memory access fault by GPU node-N on address <host VA>` on the first kvd write-back | none found | [sglang#33968](https://github.com/sgl-project/sglang/pull/33968) | **yes** (`dorado269`) | OPEN |
 | `sglang_rocm/patch_hicache_rocm_staged_write_back.py` | `pool_host/mla.py` enables the staged write-back JIT on HIP while `DSAIndexerPoolHost` — in the same `HostPoolGroup` for any DSA model — still gates it on `_is_cuda`. The group ANDs the flag, so the controller puts the destination indices on the GPU; the anchor MLA pool then reads its own flag and launches the JIT anyway → `Tensor match failed … device=rocm:0 … allowed options: [cpu, rocm_host]`, scheduler exit −3 on the first write-back | none found | [sglang#28534](https://github.com/sgl-project/sglang/pull/28534) `[AMD] Enable JIT staged HiCache write-back and fix CPU-index crash` — added the HIP enablement and aligned `cache_controller.py`, `memory_pool_host.py`, `pool_host/mha.py`; **never touched `pool_host/mla.py`** | no (`AMD-yanfeiwang`) | **MERGED** 2026-07-09 |
 
 **`patch_hicache_rocm_host_alloc.py`** — the fault is **gfx950-only so far**: MI300X
@@ -91,9 +82,9 @@ Don't read its row above as evidence the fault was seen on both arches.
 > (**MERGED**, MUSA) is the same one-line dispatch override for the same reason
 > and is the shape this patch copies.
 >
-> **No PR of ours has been filed** — it should be. **Drop this patch** when a
-> base sglang routes HIP to `alloc_with_pin_memory`; the anchor stops matching
-> and the script exits non-zero, so the drop is not silent. Note
+> **Drop this patch** when a base sglang routes HIP to `alloc_with_pin_memory`;
+> the anchor stops matching and the script exits non-zero, so the drop is not
+> silent. `ALLOC_MEMORY_FUNCS` still lists only `npu`/`musa` at v0.5.17. Note
 > [#32503](https://github.com/sgl-project/sglang/pull/32503) /
 > [#32792](https://github.com/sgl-project/sglang/pull/32792) (OPEN, Intel XPU
 > HiCache) touch this same dict — expect an anchor conflict, not a fix.
@@ -159,15 +150,10 @@ path is still pinned to `747003c` and would need a validated ref bump before use
 |---|---|---|---|---|---|
 | `mooncake_cpp/transfer_engine_impl.diff` | old single-protocol builds preferred HIP IPC for cross-host targets | none | [Mooncake#2753](https://github.com/kvcache-ai/Mooncake/pull/2753) | no | **MERGED**; still needed while the vLLM build leaves `ENABLE_MULTI_PROTOCOL` off |
 
-Two files were deleted once the pinned ref carried them: `rdma_auto_chunk_mr_2017.diff`
-after [Mooncake#2644](https://github.com/kvcache-ai/Mooncake/pull/2644) landed, and
-`rdma_transport_dmabuf_cmake.diff` after
-[Mooncake#2725](https://github.com/kvcache-ai/Mooncake/pull/2725) moved the
-`USE_HIP_DMABUF` wiring into `src/CMakeLists.txt`; the vLLM build now selects that
-path with `-DUSE_HIP_DMABUF` instead of a patch. The upstream source includes a GPU
-dma-buf chunk test, but it is not registered with CTest and does not cover a
-1 GiB-aligned allocation on ionic. That provider-specific case still needs a
-hardware regression test.
+Two files were deleted once the pinned ref carried them; see **Retired** below.
+The upstream source includes a GPU dma-buf chunk test, but it is not registered
+with CTest and does not cover a 1 GiB-aligned allocation on ionic. That
+provider-specific case still needs a hardware regression test.
 
 ## vLLM — `patches/vllm/` (baked by `Dockerfile.vllm`)
 
@@ -227,13 +213,28 @@ their own: `mooncake_cpp/apply_mooncake_cpp_patches.sh`,
 `sglang_dsa/README.md`, `sglang_disagg/README.md` and
 `vllm-dsv4/legacy/README.md`.
 
+## Retired
+
+Dropped because upstream carries the fix. Kept as the record of what this repo
+once had to work around; the strongest record of the ones we fixed ourselves is
+the upstream PR itself.
+
+| patch | fixed | superseded by | dropped at |
+|---|---|---|---|
+| `sglang/patch_glm52_nextn_quark_exclude.py` | GLM-5.2 MTP `eh_proj` built as an MXFP4 param because the quark-exclude check probed the bare layer prefix → draft weight-load died `3072 vs 6144` | [sglang#30265](https://github.com/sgl-project/sglang/pull/30265) (MERGED), whose `GlmMoeDsaForCausalLMNextN` overrides `_resolve_nextn_quant_config` outright | base v0.5.17. Keeping it would have been worse than useless: GLM no longer reaches the base-class path it edits, while DeepSeek-V4 still does. |
+| `mooncake_cpp/rdma_auto_chunk_mr_2017.diff` | buffers over the device `max_mr_size` silently truncated by `ibv_reg_mr` → `IBV_WC_REM_ACCESS_ERR` past the boundary | [Mooncake#2644](https://github.com/kvcache-ai/Mooncake/pull/2644) (MERGED, ours — `jiejingzhangamd`) | Mooncake ref `faae8dd4` |
+| `mooncake_cpp/rdma_transport_dmabuf_cmake.diff` | `USE_HIP_DMABUF` defined only on the `transfer_engine` target, so the `ibv_reg_dmabuf_mr` branch compiled out of `rdma_transport` | [Mooncake#2725](https://github.com/kvcache-ai/Mooncake/pull/2725) (MERGED) moved the wiring into `src/CMakeLists.txt`; the vLLM build now passes `-DUSE_HIP_DMABUF` | Mooncake ref `faae8dd4` |
+
 ## Maintenance
 
 A row is ready to delete when its upstream PR is **merged and present in the
-pinned base**. Merged-but-not-in-base still needs the local patch — sglang#30265
-is exactly that case. The staged write-back row is the exception: its `MERGED` PR
-(sglang#28534) is what *introduced* the defect, so that patch drops on
-sglang#30350 instead.
+pinned base**. Merged-but-not-in-base still needs the local patch. The staged
+write-back row is the exception: its `MERGED` PR (sglang#28534) is what
+*introduced* the defect, so that patch drops on sglang#30350 instead.
+
+Deleting a patch means moving its row to **Retired** in the same commit, not
+removing it. A patch that stops applying is not evidence that upstream fixed it —
+check the defect in the new base's source before dropping anything.
 
 When adding a patch, add its row here in the same commit, and put the full
 argument — evidence, alternatives, how it differs from our own upstream PR — in

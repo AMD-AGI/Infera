@@ -7,26 +7,20 @@
 #
 # TWO ARMS, because the set is not uniformly portable across our engine bases:
 #
-#   DSA_PATCH_SET=full     (default; Dockerfile.sglang, mi35x / v0.5.15.post1)
-#         patch 01 + 02 + 04.  02 and 04 are `--fuzz=0` context diffs pinned to
-#         that one release, so this arm only works on that base.
+#   DSA_PATCH_SET=full     (default; Dockerfile.sglang, mi35x / v0.5.17)
+#         patch 01 + dsa_dp_sync + dsa_page_table_rows + draft_cuda_graph_dp_vote.
+#         The three diffs are `--fuzz=0` against that one release, so this arm
+#         only works there.
 #   DSA_PATCH_SET=indexer  (Dockerfile.sglang.gfx942, mi30x / v0.5.16)
 #         patch 01 only -- an anchor script, not a pinned diff, which is what
 #         lets both bases share it.  Anchor coverage per base: patch 01's header.
 #
-#         02b and 04 are instead substituted at RUNTIME on this base by
+#         dsa_page_table_rows and draft_cuda_graph_dp_vote are instead substituted
+#         at RUNTIME on that base by
 #         `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`
 #         -- see patches/sglang_dsa/README.md; the gfx942 recipe MUST pass it.
-#         02a has no substitute and is not carried here: its diff does not apply
-#         to v0.5.16 and the fix has not been re-cut or measured on that base.
-#
-# DEPENDENCY (full arm only): the GLM-5.2 nextn eh_proj quark-exclude fix is NOT
-# in this set -- deploy/docker/patches/sglang/patch_glm52_nextn_quark_exclude.py
-# already carries it, and Dockerfile.sglang runs that loop BEFORE this script.
-# It is a hard prerequisite (without it GLM-5.2 MTP dies at draft weight-load
-# with a 3072-vs-6144 shape error), so we ASSERT it below rather than assume it.
-# The indexer arm does not: v0.5.16 carries sglang#30265 upstream, which is why
-# Dockerfile.sglang.gfx942 does not run patches/sglang/ at all.
+#         dsa_dp_sync has no substitute and is not carried there: it has not been
+#         re-cut or measured on v0.5.16.
 #
 # WHY BYTECODE VERIFICATION.  Python caches compiled modules in __pycache__ keyed
 # on the source mtime.  A patch script that restores a backup with shutil.copy2
@@ -56,9 +50,11 @@ esac
 PATCH01=patch_dsa_indexer_hip_dp_padded_rows.py
 
 # Applied in this order.  Order is not significant -- these touch files disjoint
-# from each other and from patch 01, except that 02 carries 2a and 2b in one diff.
+# from each other and from patch 01.  dsa_dp_sync.diff is upstream PR sglang#33973
+# verbatim, so it drops by deleting the file the day that merges.
 PATCHES=(
-  dsa_backend_dp_sync_and_page_table_rows.diff
+  dsa_dp_sync.diff
+  dsa_page_table_rows.diff
   draft_cuda_graph_dp_vote.diff
 )
 
@@ -68,14 +64,18 @@ PATCHES=(
 # one-directional revision; only `_p1v2_rows` proves real > padded is handled.
 MARKERS=("dsa_indexer.py:_p1v2_trim" "dsa_indexer.py:_p1v2_rows")
 if [ "$DSA_PATCH_SET" = "full" ]; then
+  # dsa_dp_sync introduces no identifier, but it does rewrite an assert message,
+  # and a string constant survives into the .pyc. Its own substitution
+  # (`self.req_to_token.shape[1]`) is NOT usable: two pre-existing graph-capture
+  # paths already spell it, so a count cannot tell them apart.
+  # draft_cuda_graph_dp_vote spans seven files; these two pin its ends -- the
+  # scheduler side that feeds the vote and the gate that consumes it.  Either one
+  # missing makes the patch inert rather than absent.
   MARKERS+=(
+    "dsa_backend.py:must not be None for DRAFT_EXTEND_V2"
     "dsa_backend.py:_glm52_match_page_table_rows"
-    "dp_attn.py:can_draft_cuda_graph"
-    "eagle_worker_v2.py:requires_dp_attention_eager_forward"
-    "eagle_draft_cuda_graph_runner.py:can_run_dp_draft_cuda_graph"
-    "forward_batch_info.py:can_run_dp_draft_cuda_graph"
-    "schedule_batch.py:force_disable_draft_cuda_graph"
     "decode.py:force_disable_draft_cuda_graph"
+    "eagle_draft_cuda_graph_runner.py:can_run_dp_draft_cuda_graph"
   )
 fi
 
@@ -97,28 +97,6 @@ find "$SGLANG_DIR/python/sglang/srt" -name __pycache__ -exec rm -rf {} + 2>/dev/
 
 echo "=== verifying every patch reached the bytecode ==="
 fail=0
-
-if [ "$DSA_PATCH_SET" = "full" ]; then
-  # PREREQUISITE, not one of our patches: patch_glm52_nextn_quark_exclude.py (run
-  # earlier by Dockerfile.sglang) must have made the nextn eh_proj edit.  Asserted
-  # here because GLM-5.2 MTP cannot load its draft weights without it, and because
-  # a silent "skipped" from that idempotent script would otherwise go unnoticed
-  # until the engine crashed at runtime.  The marker is a literal inside an
-  # f-string, so this is a SOURCE check -- the f-string is split across bytecode
-  # constants and does not appear whole in the .pyc.
-  n3=$(grep -c 'num_hidden_layers}.eh_proj' "$SRT/models/deepseek_nextn.py" || true)
-  echo "  PREREQ nextn eh_proj      -> src=$n3 (want 1)"
-  [ "$n3" -eq 1 ] || { echo "  ^ run deploy/docker/patches/sglang/ first" >&2; fail=1; }
-
-  # Patch 2a changes an expression and introduces no new identifier, and the same
-  # expression already appears on two pre-existing graph-capture paths -- so
-  # counting it gives 3, not 1.  Key off the unique comment the patch adds.  This
-  # is a SOURCE check by necessity; bytecode cannot show it.
-  n2a=$(grep -cF 'GLM52_BUG2A: BEFORE `seq_lens.max().item()`' \
-        "$SRT/layers/attention/dsa_backend.py" || true)
-  echo "  patch2a max_seqlen_k      -> src=$n2a (want 1)"
-  [ "$n2a" -eq 1 ] || fail=1
-fi
 
 for spec in "${MARKERS[@]}"; do
   f="${spec%%:*}"; m="${spec#*:}"

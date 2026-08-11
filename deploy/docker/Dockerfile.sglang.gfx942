@@ -7,11 +7,9 @@
 #       sglang #30839 (IndexShare across PD and CUDA-graph replay) and its own
 #       GlmMoeDsaForCausalLMNextN quant handling, both of which land in v0.5.16;
 #       on the previous v0.5.15 base the draft weight-load and PD warmup fail.
-#       That is also why this image does NOT apply patches/sglang/ (the nextn
-#       quark-exclude backport for the v0.5.15 mi35x base): v0.5.16 fixes GLM-5.2
-#       upstream, and the backport's anchor survives the refactor inside
-#       DeepSeek's own nextn path, so applying it here would rewrite a probe that
-#       is already correct.
+#       v0.5.16 also carries GlmMoeDsaForCausalLMNextN, which is why the nextn
+#       quark-exclude backport this repo used to keep is retired rather than
+#       applied here.
 # RUN : GLM-5.2 PD + DP-attention + MTP on this image REQUIRES every leg to pass
 #       `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`.
 #       It is not tuning — it stands in for two sglang_dsa patches this base

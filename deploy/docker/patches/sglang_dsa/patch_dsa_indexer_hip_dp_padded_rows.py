@@ -158,9 +158,9 @@ deliberately:
 
 RELATION TO THE INDEXSHARE WORKAROUND. NOT substituted.
 `--json-model-override-args '{"index_share_for_mtp_iteration":false}'` removes
-the rank divergence that patch 04 and patch 02b address, but this is an
-independent bug -- present regardless of IndexShare, and the arm that validated
-the override had THIS patch applied.
+the rank divergence that draft_cuda_graph_dp_vote and dsa_page_table_rows
+address, but this is an independent bug -- present regardless of IndexShare, and
+the arm that validated the override had THIS patch applied.
 
 Self-locating and idempotent. All edits or none: an anchor that is missing or no
 longer unique writes NOTHING and fails (exit 1), because a half-applied fix

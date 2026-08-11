@@ -1,15 +1,15 @@
 PATCH 04 -- draft CUDA graph, group-wide DP vote
 ================================================================================
 WHAT   `EagleDraftWorker.draft()` decides PER RANK whether to replay the draft
-       CUDA graph or run the multi-step draft eagerly.  The two paths do not
-       issue the same host-side collective sequence, and two of the guard's four
-       terms are rank-dependent by construction:
+       CUDA graph or run the multi-step draft eagerly (eagle_worker_v2.py:495).
+       The two paths do not issue the same host-side collective sequence, and
+       two of the guard's four terms are rank-dependent by construction:
          * `not forward_batch.forward_mode.is_idle()` -- occupancy differs per
            rank every step;
          * `draft_input.dsa_topk_indices is None` -- on the PD DECODE leg this is
            seeded from RDMA-shipped per-request payloads
-           (eagle_disaggregation.py:54-59), so it is a function of which requests
-           a rank happens to hold.
+           (eagle_disaggregation.py:71), so it is a function of which requests a
+           rank happens to hold.
        Make the choice a GROUP decision: one more int64 slot in the MLP-sync
        all-gather the scheduler ALREADY performs, min()-reduced so any rank
        needing eager takes the whole group eager.  Inactive ranks contribute 1
@@ -19,25 +19,25 @@ WHY    Without it the first routed request hard-deadlocks on the PD decode leg.
        produced locally by identical code on every rank, so term 4 never flips
        asymmetrically.
 
-UPSTREAM STATUS  (queried with `gh`, 2026-08-01 -- all OPEN, none merged)
+UPSTREAM STATUS  (re-queried 2026-08-11)
 --------------------------------------------------------------------------------
 issue            #32527  "[BUG] EAGLE + DP Attention + PD Disaggregation:
                  Deadlock when index_share_for_mtp_iteration is enabled for
                  GLM-5.2" (Xavier1994, OPEN).  SAME defect, reported
-                 independently on 8x Blackwell / GLM-5.2-FP8 on 2026-07-27, two
-                 days before we fixed it, with the same analysis.  It proposes a
-                 THIRD strategy: a dummy all-zeros seed so term 4 is always false.
+                 independently on 8x Blackwell / GLM-5.2-FP8, with the same
+                 analysis.  It proposes a THIRD strategy: a dummy all-zeros seed
+                 so term 4 is always false.
 third-party PR   #32209  "Fix PD decode hang with DP attention and GLM-5.2 MTP"
-                 (HZY-Wade, OPEN, REVIEW_REQUIRED).  SAME defect, SAME strategy.
-                 This diff adopts its placement verbatim.
+                 (HZY-Wade, OPEN).  SAME defect, SAME strategy.  This diff
+                 adopts its placement verbatim.
                  #32722  "[RED regression] Test GLM-5.2 PD + DP attention + MTP"
                  (IvanShan177, OPEN) -- a test for this topology.  Its existence
                  proves NO CI covers it today, which is why the family survives.
                  #32196  "[PD] Keep EAGLE DP graph and token metadata consistent"
                  (weireweire, OPEN) -- adjacent, different site.
-                 #30839 / #31083 (both MERGED 2026-07-14, cherry-picked to
-                 release/v0.5.15) INTRODUCED the guard -- so this deadlock is a
-                 regression in our baseline, not a legacy wart.
+                 #30839 / #31083 (both MERGED 2026-07-14) INTRODUCED the guard --
+                 so this deadlock is a regression in our baseline, not a legacy
+                 wart.
 own PR           NONE.  #32209 already carries this fix upstream and is better
                  placed; opening a competing PR would be noise.  The right move
                  is to converge on it, which this diff does.
@@ -48,53 +48,41 @@ Same idea, same placement, same slot semantics.  Ours is a SUBSET, adapted:
 
   scope      #32209 also ships a `_forward_trtllm` decode trim, a CUDA idle
              short-circuit in `forward_cuda`, and an eager draft-output slice.
-             We take only the vote.  Its decode-trim half is the one that fails
-             reproducibly here -- see the note in patch 02's header.
-  base       Ours applies to v0.5.15.post1 (`0b3bb0c`); #32209 targets `main`.
-  default    #32209 defaults `can_run_dp_draft_cuda_graph` to False, ours to
-             True.  Its scheduler sets the value on every DP path; on this base
-             the field can reach a non-DP forward unset, where False would refuse
-             the graph outright.  Permissive-by-default matches
-             `can_cuda_graph`'s treatment of idle ranks.
-  local-only The GLM52_P4V2 markers -- the build script greps them out of the
-             BYTECODE to prove the patch landed.  Stripped if ever upstreamed.
-  KNOWN GAP  #32209 also adds a default `requires_dp_attention_eager_forward`
-             returning False on `BaseSpecWorker`.  We do NOT.  Consequence: only
-             the EAGLE worker family is covered -- EAGLEWorkerV2 and its
-             subclasses StandaloneWorkerV2 / FrozenKVMTPWorkerV2.  The workers
-             that inherit BaseSpecWorker directly (MultiLayerEagleWorkerV2,
-             DFlashWorkerV2, NGRAMWorker) have no such method and BaseSpecWorker
-             has no __getattr__, so those spec algorithms would raise
-             AttributeError at the decode.py call site on every PD decode step.
-             Deliberate: this branch only ships EAGLE, and adding the base method
-             would be an unvalidated change to a file the measured image never
-             touched.  Anyone enabling another spec algorithm with PD must add it.
+             We take only the vote.
+  base       Ours applies to v0.5.17; #32209 targets `main`.
+  default    #32209 defaults the field to False, ours to True.  Its scheduler
+             sets the value on every DP path; on this base the field can reach a
+             non-DP forward unset, where False would refuse the graph outright.
+             Permissive-by-default matches how idle ranks are already treated.
+  names      Fields follow #32209 rather than carrying a local prefix, so if it
+             merges this patch is a plain delete.  Those identifiers are also
+             what the build script greps out of the BYTECODE to prove the patch
+             landed -- see apply_sglang_dsa_patches.sh.
 
-WHY V2, NOT V1
+RE-CUT FOR v0.5.17 (was cut against v0.5.15.post1)
 --------------------------------------------------------------------------------
-Two placements were implemented and both were MEASURED:
-
-  v1 (superseded)  a 1-element gloo all-reduce inside draft()
-                   -> one extra collective per draft call, 98.4% graph usage.
-  v2 (this diff)   one more slot in the existing MLP-sync all-gather
-                   -> zero extra collectives, 97.1% graph usage.
-
-v2 also separates the DRAFT-graph vote from the generic `can_cuda_graph` vote,
-so target-verify and draft-extend graphs are not collateral damage -- #32209
-reports that folding them together cost 9.7% of decode batches their generic
-graph replay.  v1 additionally had to use `get_tp_group()`, not
-`get_attention_tp_group()`: under DPA8 on tp8 the attention TP group is
-attn_tp_size = tp/dp = 1 rank wide, so voting on it is a no-op.  v2 rides the
-scheduler's existing gather and never faces that choice.
-v1's diff is preserved with its full evidence in the internal reproduction kits.
+Same mechanism; three differences this base makes:
+  * `MLPSyncBatchInfo.all_gather` derives the row width from the packed tensor
+    (`info_width = local_info_tensor.numel()`), so appending a slot bumps no
+    width constants -- the v0.5.15 cut had to edit two hardcoded 7s.
+  * `ModelWorkerBatch` is gone; `ScheduleBatch` feeds `ForwardBatch.init_new`
+    directly.  The v0.5.15 cut had to carry the field through
+    `get_model_worker_batch`; here the equivalent propagation would be dead and
+    is not made -- `ScheduleBatch.copy()` feeds only `process_batch_result`,
+    which never reads the gate.
+  * The slot the v0.5.15 cut sat next to was `can_run_breakable_cuda_graph`; here
+    it is `can_run_prefill_cuda_graph`.  Ours is slot 7 either way.
+That cut also omitted a default `requires_dp_attention_eager_forward` on
+`BaseSpecWorker`, which left MultiLayerEagleWorkerV2 / DFlashWorkerV2 /
+NGRAMWorker raising AttributeError at the decode.py call site.  This cut adds it,
+so the call site needs no defensive getattr and every spec algorithm is covered.
 
 TWO DETAILS THAT WOULD MAKE THIS SILENTLY INERT
 --------------------------------------------------------------------------------
 1. Under overlap scheduling the draft input resolves AFTER the scheduler-side
    vote, so `dsa_topk_indices` is stale and must not be read directly.  The
    predicate consults `future_dsa_topk_indices_available` -- exactly "will term 4
-   hold once resolved" (set at scheduler.py:3314, consumed at
-   overlap_utils.py:271).  An earlier revision wrongly assumed that attribute was
+   hold once resolved".  An earlier revision wrongly assumed that attribute was
    absent and required eager whenever `future_indices` was set; overlap
    scheduling sets it on EVERY decode iteration, so the draft graph was refused
    100% of the time (measured 0.0%, 200/200 calls) -- degrading this patch into
@@ -103,49 +91,151 @@ TWO DETAILS THAT WOULD MAKE THIS SILENTLY INERT
    iteration and breaks the idle-rank one, which matches the observed symptom of
    the failure moving earlier, into warmup.
 
-MECHANISM VERIFIED, NOT JUST OUTCOME
+EVIDENCE
 --------------------------------------------------------------------------------
-Over 2992 iterations with all 8 ranks logging: the LOCAL decision still diverges
-38 times (the defect is real and latent, not masked by timing), the ACTED-ON
-decision diverges 0 times, and the vote changed some rank's mind 190 times --
-each one an averted deadlock.  Same-node differential control, only this diff
-reverted: 0/4, deadlock, 120 s timeout on request 1.
+v0.5.17, 2 x 8 MI355X, GLM-5.2-FP8 1P1D, both legs TP8 + `--dp-size 8
+--enable-dp-attention` + EAGLE 3 steps / 4 draft tokens, IndexShare ON:
+  unpatched  first routed request never returns (120 s timeout); all ranks parked
+             in `all_gather_into_tensor` on the draft attention path.
+  patched    first request 2.3 s; 256/256 requests at conc=64 (ISL 1024 / OSL
+             512), accept len 2.31-4.00 against a ceiling of 4.
 A green stress result alone cannot distinguish this fix from forcing the draft
-path eager -- both pass every functional test.  The graph-usage counter can.
+path eager -- both pass every functional test.  What rules that out here is that
+the accept length reaches the ceiling and the deadlock is gone: the vote must be
+flipping, or the group decision would still be permissive and the hang would
+remain.  On the v0.5.15.post1 cut the finer instrumentation was run and is worth
+recording: over 2992 iterations with all 8 ranks logging, the LOCAL decision
+still diverged 38 times, the ACTED-ON decision diverged 0 times, the vote changed
+some rank's mind 190 times, and draft-graph usage stayed at 97.1%.
 
 ALTERNATIVE TO THIS PATCH: turn GLM-5.2 MTP IndexShare off
 --------------------------------------------------------------------------------
     --json-model-override-args '{"index_share_for_mtp_iteration":false}'
 
 Rather than making the decision uniform, this removes what makes it diverge: no
-seed, no divergence, no vote.  Measured on 2 x 8 MI355X with this patch and 02b
-BOTH asserted absent from the bytecode: 4/4, 32/32 twice, 64/64, zero tracebacks,
-accept length 2.98-3.01 -- no measurable cost.  It substitutes for THIS patch and
-for 02b; NOT for 01, NOT for the nextn eh_proj fix, NOT for 02a.
+seed, no divergence, no vote.  It substitutes for THIS patch and for
+dsa_page_table_rows; NOT for patch 01, NOT for dsa_dp_sync.  The gfx942 recipe
+takes exactly this route -- see apply_sglang_dsa_patches.sh.
 Two conditions easy to miss: MTP must be on the PREFILL leg too (else the seed
 never reaches decode and the setting is untested rather than tested), and that
-arm was taken to conc=64, not 128.
-WHY IT IS NOT THE DEFAULT: it is nearly free only because IndexShare's consumer
-is currently disabled under PD by `should_use_dsa_fused_topk`.  Upstream #31477
-("[Spec][PD] Enable fused TopK for GLM-5.2 MTP IndexShare", HanHan009527) exists
-to remove that limitation; once it lands the override starts costing (~3% TPOT,
-reported internally -- second-hand, not measured by us).  Checked with `gh`
-2026-08-01: #31477 is OPEN, REVIEW_REQUIRED, unmerged.  So: a good answer today
-if IndexShare is not wanted, a dated one if it is.
-The full arm, with anti-marker verification, is in the internal kits.
+arm was measured to conc=64, not 128.
+WHY IT IS NOT THE DEFAULT HERE: it is nearly free only while IndexShare's
+consumer stays disabled under PD by `should_use_dsa_fused_topk`.  Upstream #31477
+("[Spec][PD] Enable fused TopK for GLM-5.2 MTP IndexShare") MERGED 2026-08-05 to
+remove that limitation, and once a base carries it the override starts costing
+(~3% TPOT, reported internally -- second-hand, not measured by us).  v0.5.17 does
+NOT carry it: dsa/utils.py still returns `... and not pd_index_share_seed` under
+its TODO.  So the override remains a good answer on this base and a dated one on
+the next.
 
-diff --git a/python/sglang/srt/disaggregation/decode.py b/python/sglang/srt/disaggregation/decode.py
-index 2164cad..b1e9e0e 100644
+--- a/python/sglang/srt/managers/scheduler_components/dp_attn.py
++++ b/python/sglang/srt/managers/scheduler_components/dp_attn.py
+@@ -86,6 +86,9 @@
+     num_tokens_for_logprob: int
+     can_run_decode_cuda_graph: bool
+     can_run_prefill_cuda_graph: bool
++    # min()-reduced like the two above, so any rank needing eager takes the
++    # whole group eager.
++    can_run_draft_cuda_graph: bool
+     is_extend_in_batch: bool
+     local_can_run_tbo: bool
+     local_forward_mode: int
+@@ -108,6 +111,7 @@
+                 int(self.local_can_run_tbo),
+                 self.local_forward_mode,
+                 int(self.can_run_prefill_cuda_graph),
++                int(self.can_run_draft_cuda_graph),
+             ],
+             device=device,
+             dtype=dtype,
+@@ -123,6 +127,8 @@
+                 1,  # local_can_run_tbo
+                 ForwardMode.IDLE.value,  # local_forward_mode
+                 0,  # can_run_prefill_cuda_graph
++                # Permissive: an inactive rank must not drag the group into eager.
++                1,  # can_run_draft_cuda_graph
+             ],
+             device=device,
+             dtype=dtype,
+@@ -188,6 +194,7 @@
+         self.can_run_decode_cuda_graph = bool(tp0_info[:, 2].min().item())
+         self.is_extend_in_batch = bool(tp0_info[:, 3].max().item())
+         self.can_run_prefill_cuda_graph = bool(tp0_info[:, 6].min().item())
++        self.can_run_draft_cuda_graph = bool(tp0_info[:, 7].min().item())
+         if _ENABLE_METRICS_DP_ATTENTION:
+             self.dp_cooperation_info = DPCooperationInfo.create(tp0_info[:, 5].tolist())
+ 
+@@ -215,6 +222,7 @@
+     # Check forward mode for cuda graph
+     batch.can_run_dp_cuda_graph = mlp_sync_info.can_run_decode_cuda_graph
+     batch.can_run_dp_breakable_cuda_graph = mlp_sync_info.can_run_prefill_cuda_graph
++    batch.can_run_dp_draft_cuda_graph = mlp_sync_info.can_run_draft_cuda_graph
+ 
+ 
+ def prepare_mlp_sync_batch_raw(
+@@ -291,6 +299,12 @@
+         )
+     )
+ 
++    # Rank-local answer, recorded on the batch by the scheduler just before this
++    # call. A None batch is permissive, as it is for the two above.
++    can_run_draft_cuda_graph = not (
++        local_batch is not None and local_batch.force_disable_draft_cuda_graph
++    )
++
+     is_extend_in_batch = local_batch.forward_mode.is_extend() if local_batch else False
+     if local_batch is not None:
+         local_batch.is_extend_in_batch = is_extend_in_batch
+@@ -330,6 +344,7 @@
+         num_tokens_for_logprob=num_tokens_for_logprob,
+         can_run_decode_cuda_graph=can_run_decode_cuda_graph,
+         can_run_prefill_cuda_graph=can_run_prefill_cuda_graph,
++        can_run_draft_cuda_graph=can_run_draft_cuda_graph,
+         is_extend_in_batch=is_extend_in_batch,
+         local_can_run_tbo=local_can_run_tbo,
+         local_forward_mode=local_forward_mode,
+--- a/python/sglang/srt/managers/schedule_batch.py
++++ b/python/sglang/srt/managers/schedule_batch.py
+@@ -2037,6 +2037,11 @@
+     is_extend_in_batch: bool = False
+     can_run_dp_cuda_graph: bool = False
+     can_run_dp_breakable_cuda_graph: bool = False
++    # Group-wide draft-graph gate; permissive until the sync sets it.
++    can_run_dp_draft_cuda_graph: bool = True
++    # Rank-local request for an eager draft step; the MLP-sync all-gather turns
++    # it into the group-wide gate above.
++    force_disable_draft_cuda_graph: bool = False
+     tbo_split_seq_index: Optional[int] = None
+     # Rank-consistent forward mode for the recv skipper, derived from the MLP
+     # sync all-gather (the TBO-only `global_forward_mode` is None without TBO).
+--- a/python/sglang/srt/model_executor/forward_batch_info.py
++++ b/python/sglang/srt/model_executor/forward_batch_info.py
+@@ -477,6 +477,7 @@
+     is_extend_in_batch: bool = False
+     can_run_dp_cuda_graph: bool = False
+     can_run_dp_breakable_cuda_graph: bool = False
++    can_run_dp_draft_cuda_graph: bool = True
+     global_forward_mode: Optional[ForwardMode] = None
+ 
+     # For two-batch overlap
+@@ -787,6 +788,7 @@
+             is_extend_in_batch=batch.is_extend_in_batch,
+             can_run_dp_cuda_graph=batch.can_run_dp_cuda_graph,
+             can_run_dp_breakable_cuda_graph=batch.can_run_dp_breakable_cuda_graph,
++            can_run_dp_draft_cuda_graph=batch.can_run_dp_draft_cuda_graph,
+             global_forward_mode=batch.global_forward_mode,
+             is_prefill_only=batch.is_prefill_only,
+             spec_algorithm=batch.spec_algorithm,
 --- a/python/sglang/srt/disaggregation/decode.py
 +++ b/python/sglang/srt/disaggregation/decode.py
-@@ -1905,6 +1905,14 @@ class SchedulerDisaggregationDecodeMixin:
-             self.running_batch = self.update_running_batch(self.running_batch)
-             ret = self.running_batch if not self.running_batch.is_empty() else None
+@@ -2235,6 +2235,14 @@
+             running_batch = self.update_running_batch(running_batch)
+             ret = running_batch if not running_batch.is_empty() else None
  
-+        # GLM52_P4V2: record this rank's eager-draft request on the batch, so the
-+        # MLP-sync all-gather spreads it. Must precede maybe_prepare_mlp_sync_batch
-+        # -- that IS the collective. Upstream #32209 places it at this same line.
-+        if ret is not None and getattr(self, "draft_worker", None) is not None:
++        # Record this rank's eager-draft request on the batch, so the MLP-sync
++        # all-gather spreads it. Must precede maybe_prepare_mlp_sync_batch --
++        # that IS the collective.
++        if ret is not None and self.draft_worker is not None:
 +            ret.force_disable_draft_cuda_graph = (
 +                self.draft_worker.requires_dp_attention_eager_forward(ret)
 +            )
@@ -153,153 +243,15 @@ index 2164cad..b1e9e0e 100644
          ret = self.dp_attn_adapter.maybe_prepare_mlp_sync_batch(ret)
          if ret:
              set_schedule_time_batch(ret)
-diff --git a/python/sglang/srt/managers/schedule_batch.py b/python/sglang/srt/managers/schedule_batch.py
-index 55c88af..23687c1 100644
---- a/python/sglang/srt/managers/schedule_batch.py
-+++ b/python/sglang/srt/managers/schedule_batch.py
-@@ -1782,6 +1782,10 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
-     is_extend_in_batch: bool = False
-     all_extend_in_batch: bool = False  # plumbing for downstream forks (PR #19639)
-     can_run_dp_cuda_graph: bool = False
-+    can_run_dp_draft_cuda_graph: bool = True  # GLM52_P4V2
-+    # GLM52_P4V2: rank-local request for an eager draft step; the MLP-sync
-+    # all-gather turns it into the group-wide can_run_dp_draft_cuda_graph.
-+    force_disable_draft_cuda_graph: bool = False
-     can_run_dp_breakable_cuda_graph: bool = False
-     tbo_split_seq_index: Optional[int] = None
- 
-@@ -2852,6 +2856,8 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
-             global_num_tokens=self.global_num_tokens,
-             global_num_tokens_for_logprob=self.global_num_tokens_for_logprob,
-             can_run_dp_cuda_graph=self.can_run_dp_cuda_graph,
-+            can_run_dp_draft_cuda_graph=self.can_run_dp_draft_cuda_graph,  # GLM52_P4V2
-+            force_disable_draft_cuda_graph=self.force_disable_draft_cuda_graph,
-             can_run_dp_breakable_cuda_graph=self.can_run_dp_breakable_cuda_graph,
-             is_extend_in_batch=self.is_extend_in_batch,
-             all_extend_in_batch=self.all_extend_in_batch,
-diff --git a/python/sglang/srt/managers/scheduler_components/dp_attn.py b/python/sglang/srt/managers/scheduler_components/dp_attn.py
-index b473a11..ff0ef42 100644
---- a/python/sglang/srt/managers/scheduler_components/dp_attn.py
-+++ b/python/sglang/srt/managers/scheduler_components/dp_attn.py
-@@ -37,6 +37,9 @@ class MLPSyncBatchInfo:
-     num_tokens: int
-     num_tokens_for_logprob: int
-     can_cuda_graph: bool
-+    # GLM52_P4V2: slot 7 of the gathered tensor. min()-reduced like
-+    # can_cuda_graph, so ANY rank needing eager takes the whole group eager.
-+    can_draft_cuda_graph: bool
-     is_extend_in_batch: bool
-     local_can_run_tbo: bool
-     local_forward_mode: int
-@@ -60,6 +63,7 @@ class MLPSyncBatchInfo:
-                 int(self.local_can_run_tbo),
-                 self.local_forward_mode,
-                 int(self.can_run_breakable_cuda_graph),
-+                int(self.can_draft_cuda_graph),  # GLM52_P4V2
-             ],
-             device=device,
-             dtype=dtype,
-@@ -75,6 +79,8 @@ class MLPSyncBatchInfo:
-                 1,  # local_can_run_tbo
-                 ForwardMode.IDLE.value,  # local_forward_mode
-                 0,  # can_run_breakable_cuda_graph
-+                1,  # can_draft_cuda_graph -- GLM52_P4V2, permissive: an
-+                    # inactive rank must not drag the group into eager.
-             ],
-             device=device,
-             dtype=dtype,
-@@ -82,8 +88,9 @@ class MLPSyncBatchInfo:
- 
-     def all_gather(self, device, group: torch.distributed.ProcessGroup):
-         local_info_tensor = self._get_local_tensor(device=device)
-+        # GLM52_P4V2: 7 -> 8 slots (can_draft_cuda_graph appended).
-         global_info_tensor = torch.empty(
--            (self.dp_size, self.tp_size * self.cp_size, 7),
-+            (self.dp_size, self.tp_size * self.cp_size, 8),
-             dtype=torch.int64,
-             device=device,
-         )
-@@ -99,7 +106,9 @@ class MLPSyncBatchInfo:
-             tp_active_ranks = get_tp_group().active_ranks
- 
-         # Set fallback values for inactive ranks
--        tp_info = global_info_tensor.view(self.dp_size * self.tp_size * self.cp_size, 7)
-+        tp_info = global_info_tensor.view(  # GLM52_P4V2: 7 -> 8
-+            self.dp_size * self.tp_size * self.cp_size, 8
-+        )
-         tp_info[tp_active_ranks == 0] = self._get_fallback_tensor(device=device)
- 
-         tp0_info = global_info_tensor[:, 0, :]
-@@ -111,6 +120,8 @@ class MLPSyncBatchInfo:
-         self.can_cuda_graph = bool(tp0_info[:, 2].min().item())
-         self.is_extend_in_batch = bool(tp0_info[:, 3].max().item())
-         self.can_run_breakable_cuda_graph = bool(tp0_info[:, 6].min().item())
-+        # GLM52_P4V2: min() -- one rank needing eager takes the whole group.
-+        self.can_draft_cuda_graph = bool(tp0_info[:, 7].min().item())
-         if _ENABLE_METRICS_DP_ATTENTION:
-             self.dp_cooperation_info = DPCooperationInfo.create(tp0_info[:, 5].tolist())
- 
-@@ -137,6 +148,7 @@ def _update_gather_batch(
- 
-     # Check forward mode for cuda graph
-     batch.can_run_dp_cuda_graph = mlp_sync_info.can_cuda_graph
-+    batch.can_run_dp_draft_cuda_graph = mlp_sync_info.can_draft_cuda_graph  # GLM52_P4V2
-     batch.can_run_dp_breakable_cuda_graph = mlp_sync_info.can_run_breakable_cuda_graph
- 
- 
-@@ -189,6 +201,13 @@ def prepare_mlp_sync_batch_raw(
-         and local_batch.forward_mode in (ForwardMode.EXTEND, ForwardMode.MIXED)
-         and not disable_cuda_graph
-     )
-+    # GLM52_P4V2: rank-local answer set by the scheduler just before this call.
-+    # Default True (permissive) when the batch is None or the attribute is
-+    # absent, matching can_cuda_graph's treatment of idle ranks.
-+    can_draft_cuda_graph = not (
-+        local_batch is not None
-+        and getattr(local_batch, "force_disable_draft_cuda_graph", False)
-+    )
- 
-     is_extend_in_batch = local_batch.forward_mode.is_extend() if local_batch else False
-     if local_batch is not None:
-@@ -214,6 +233,7 @@ def prepare_mlp_sync_batch_raw(
-         num_tokens=num_tokens,
-         num_tokens_for_logprob=num_tokens_for_logprob,
-         can_cuda_graph=can_cuda_graph,
-+        can_draft_cuda_graph=can_draft_cuda_graph,  # GLM52_P4V2
-         is_extend_in_batch=is_extend_in_batch,
-         local_can_run_tbo=local_can_run_tbo,
-         local_forward_mode=local_forward_mode,
-diff --git a/python/sglang/srt/model_executor/forward_batch_info.py b/python/sglang/srt/model_executor/forward_batch_info.py
-index 031ab4f..09c43f6 100644
---- a/python/sglang/srt/model_executor/forward_batch_info.py
-+++ b/python/sglang/srt/model_executor/forward_batch_info.py
-@@ -389,6 +389,7 @@ class ForwardBatch(ForwardBatchDeepSeekMHAMixin):
-     # Mirrors ScheduleBatch.all_extend_in_batch; kept for downstream forks.
-     all_extend_in_batch: bool = False
-     can_run_dp_cuda_graph: bool = False
-+    can_run_dp_draft_cuda_graph: bool = True  # GLM52_P4V2
-     can_run_dp_breakable_cuda_graph: bool = False
-     global_forward_mode: Optional[ForwardMode] = None
- 
-@@ -704,6 +705,7 @@ class ForwardBatch(ForwardBatchDeepSeekMHAMixin):
-             is_extend_in_batch=batch.is_extend_in_batch,
-             all_extend_in_batch=batch.all_extend_in_batch,
-             can_run_dp_cuda_graph=batch.can_run_dp_cuda_graph,
-+            can_run_dp_draft_cuda_graph=batch.can_run_dp_draft_cuda_graph,  # GLM52_P4V2
-             can_run_dp_breakable_cuda_graph=batch.can_run_dp_breakable_cuda_graph,
-             global_forward_mode=batch.global_forward_mode,
-             is_prefill_only=batch.is_prefill_only,
-diff --git a/python/sglang/srt/speculative/eagle_draft_cuda_graph_runner.py b/python/sglang/srt/speculative/eagle_draft_cuda_graph_runner.py
-index 7cf1291..f60254f 100644
 --- a/python/sglang/srt/speculative/eagle_draft_cuda_graph_runner.py
 +++ b/python/sglang/srt/speculative/eagle_draft_cuda_graph_runner.py
-@@ -305,7 +305,13 @@ class EAGLEDraftCudaGraphRunner(DecodeCudaGraphRunner):
+@@ -316,7 +316,13 @@
          )
  
          if self.require_mlp_sync:
 -            is_bs_supported = is_bs_supported and forward_batch.can_run_dp_cuda_graph
-+            # GLM52_P4V2: the group-wide draft-graph gate the scheduler
-+            # all-gathered. Without it the choice stays rank-local and deadlocks.
++            # The group-wide gate the scheduler all-gathered. Without it the
++            # draft graph/eager choice stays rank-local and deadlocks.
 +            is_bs_supported = (
 +                is_bs_supported
 +                and forward_batch.can_run_dp_cuda_graph
@@ -308,20 +260,17 @@ index 7cf1291..f60254f 100644
  
          return is_bs_supported
  
-diff --git a/python/sglang/srt/speculative/eagle_worker_v2.py b/python/sglang/srt/speculative/eagle_worker_v2.py
-index baa3674..d726ac4 100644
 --- a/python/sglang/srt/speculative/eagle_worker_v2.py
 +++ b/python/sglang/srt/speculative/eagle_worker_v2.py
-@@ -1105,6 +1105,27 @@ class EAGLEWorkerV2(BaseSpecWorker):
+@@ -1058,6 +1058,27 @@
          # draft_extend, which runs on the draft runner.
          return self._draft_worker.draft_runner
  
 +    def requires_dp_attention_eager_forward(self, batch) -> bool:
-+        """GLM52_P4V2: does THIS rank need the draft step to run eagerly?
++        """Does THIS rank need the draft step to run eagerly?
 +
-+        Rank-local half of upstream #32209's vote; the scheduler min()-reduces it
-+        over its existing MLP-sync all-gather, adding no collective. Condition is
-+        guard term 4 of `draft()`. Full account in the patch header.
++        The scheduler min()-reduces it over its existing MLP-sync all-gather,
++        adding no collective. Mirrors guard term 4 of `draft()`.
 +        """
 +        if not self._draft_worker.seed_dsa_topk_from_draft_extend:
 +            return False
@@ -330,13 +279,29 @@ index baa3674..d726ac4 100644
 +        if draft_input is None:
 +            return False
 +
-+        # Overlap resolves the draft input AFTER this vote, so dsa_topk_indices
-+        # is stale; read #32209's flag instead. Substituting `future_indices is
-+        # not None` refuses the graph 100% of the time -- see the patch header.
++        # Overlap resolves the draft input AFTER this vote, so dsa_topk_indices is
++        # stale; read the resolved-value flag instead -- gating on `future_indices
++        # is not None` alone refuses the graph on every overlap iteration.
++        # getattr because only EagleDraftInput declares future_indices.
 +        if getattr(draft_input, "future_indices", None) is not None:
 +            return not draft_input.future_dsa_topk_indices_available
-+        return getattr(draft_input, "dsa_topk_indices", None) is None
++        return draft_input.dsa_topk_indices is None
 +
      @property
      def spec_v2_attn_backends(self) -> tuple:
          # Every attn backend a spec_v2 forward touches; consumed by
+--- a/python/sglang/srt/speculative/base_spec_worker.py
++++ b/python/sglang/srt/speculative/base_spec_worker.py
+@@ -161,6 +161,12 @@
+         # elsewhere (eagle's draft_extend runs on the draft runner).
+         return self.target_worker.model_runner
+ 
++    def requires_dp_attention_eager_forward(self, batch) -> bool:
++        # Whether THIS rank must run the draft step eagerly, so the scheduler can
++        # make it a group decision. Only eagle's DSA top-k seeding can force
++        # eager; every other algorithm keeps the graph.
++        return False
++
+     @property
+     def spec_v2_attn_backends(self) -> tuple:
+         """Attn backends touched by spec_v2 forward; OR-ed by decide_needs_cpu_seq_lens.

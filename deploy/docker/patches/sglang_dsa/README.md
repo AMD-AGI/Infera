@@ -1,8 +1,8 @@
 # sglang DSA patches
 
-Three patches that together make **PD disaggregation + DP-attention + EAGLE MTP**
-work for GLM-5.2. Without them the combination crashes on the first batch or
-deadlocks the whole DP group under concurrency.
+Patches that make **PD disaggregation + DP-attention** work for GLM-5.2, and,
+with the fourth, **EAGLE MTP** on top. Without them the combination crashes on
+the first batch or deadlocks the whole DP group under concurrency.
 
 They apply to the sglang tree bundled in the ROCm engine images (an editable
 checkout at `/sgl-workspace/sglang`). The two engine bases do **not** carry the
@@ -10,18 +10,19 @@ same arm of the set — see [Applying](#applying):
 
 | image | base | arm |
 |---|---|---|
-| `Dockerfile.sglang` (gfx950 / MI355X) | `lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x` | all three |
+| `Dockerfile.sglang` (gfx950 / MI355X) | `lmsysorg/sglang:v0.5.17-rocm720-mi35x` | 01 + dp_sync + page_table_rows + draft_dp_vote |
 | `Dockerfile.sglang.gfx942` (gfx942 / MI325X) | `lmsysorg/sglang:v0.5.16-rocm720-mi30x` | **01 only**, plus a mandatory runtime flag |
 
 | # | patch | fixes |
 |---|---|---|
 | 01 | `patch_dsa_indexer_hip_dp_padded_rows.py` | the HIP/aiter paged-MQA row count and `lengths` disagree — **in both directions** → `Expected lengths.size(0) == B` |
-| 02 | `dsa_backend_dp_sync_and_page_table_rows.diff` | (a) a host sync on a branch only *some* DP ranks take → collectives desync → deadlock; (b) page table has one row per **request**, top-k one per **token** under MTP → assert |
+| 02a | `dsa_dp_sync.diff` | a host sync on a branch only *some* DP ranks take → collectives desync → deadlock. This file is upstream PR sglang#33973 verbatim |
+| 02b | `dsa_page_table_rows.diff` | page table has one row per **request**, top-k one per **token** under MTP → `assert page_table.shape[0] == topk_indices.shape[0]` |
 | 04 | `draft_cuda_graph_dp_vote.diff` | the draft graph/eager choice is made **per rank** from rank-dependent inputs and diverges on the PD decode leg → deadlock |
 
-Patch 01 is a **script** and 02/04 are **context diffs**, and that is the whole
-reason the two images can differ: 02 and 04 are `--fuzz=0` against
-v0.5.15.post1, while 01 anchors on source text. Its `GLM52_P1V2` edit sites are
+Patch 01 is a **script** and the rest are **context diffs**, and that is the
+whole reason the two images can differ: the diffs are `--fuzz=0` against one
+release, while 01 anchors on source text. Its `GLM52_P1V2` edit sites are
 byte-identical on both releases; its later `GLM52_P1V3` anchor (the bare
 `topk_transform` call) has been re-read against v0.5.15.post1 only — see the
 anchor note in the script's header.
@@ -34,7 +35,9 @@ the replacement, and only the script has it.
 **Each patch's own header is the record**: what it fixes, why, how it was
 established, the upstream issue / third-party PR / our own PR, how it differs
 from our own upstream PR, and whether the IndexShare workaround substitutes for
-it. Read the `.diff` before changing it.
+it. Read the `.diff` before changing it. The one exception is `dsa_dp_sync.diff`,
+kept byte-identical to sglang#33973 so it can be dropped by deletion the day that
+merges; its record is the table above and the upstream status ledger.
 
 Upstream linkage for these and every other patch in the repo is indexed in
 [`deploy/docker/patch.upstream.status.md`](../../patch.upstream.status.md).
@@ -47,7 +50,7 @@ which takes `DSA_PATCH_SET`:
 
 | arm | used by | applies | verification |
 |---|---|---|---|
-| `full` (default) | `Dockerfile.sglang` | 01 + 02 + 04 | 8 bytecode markers, the nextn prerequisite, and patch 2a's source marker |
+| `full` (default) | `Dockerfile.sglang` | 01 + 02a + 02b | 4 bytecode markers |
 | `indexer` | `Dockerfile.sglang.gfx942` | 01 | the `_p1v2_trim` bytecode marker |
 
 Set `APPLY_SGLANG_DSA_PATCHES=0` for a stock engine to A/B against.
@@ -57,13 +60,12 @@ Prefer the script over patching by hand: it also verifies each patch reached the
 patch and has already invalidated a full experiment here — the source showed the
 fix, the runtime did not have it.
 
-By hand, against sglang `0b3bb0cbe31873994c9f989fddfe2f87ca839fdd` (v0.5.15.post1):
+By hand, against the pinned base:
 
 ```bash
 cd /sgl-workspace/sglang
 python3 patch_dsa_indexer_hip_dp_padded_rows.py
-for d in dsa_backend_dp_sync_and_page_table_rows.diff \
-         draft_cuda_graph_dp_vote.diff; do
+for d in dsa_dp_sync.diff dsa_page_table_rows.diff; do
   patch -p1 --fuzz=0 < "$d"
 done
 ```
@@ -184,12 +186,10 @@ the build rather than mis-applying — but re-cut patch 01 when bumping past the
 
 ### Prerequisite
 
-`deploy/docker/patches/sglang/patch_glm52_nextn_quark_exclude.py` (a backport of
-sglang #30265) must run **first** — GLM-5.2 MTP cannot load its draft weights
-without it, dying with a `3072 vs 6144` shape mismatch. `Dockerfile.sglang` runs
-that loop before this one, and `apply_sglang_dsa_patches.sh` **asserts** the edit
-rather than assuming it: that script is idempotent, so a missing anchor would
-print `skipped`, exit 0, and surface only at runtime.
+There is no longer one. GLM-5.2 MTP used to need a backport of sglang #30265 to
+load its draft weights, carried here as `patches/sglang/`; v0.5.17 resolves the
+MTP quark excludes inside `GlmMoeDsaForCausalLMNextN`, so that patch is retired
+and the script no longer asserts it.
 
 An earlier revision of this directory carried the same edit as a fourth diff.
 Keeping both would have been worse than redundant — main's loop runs first, so
@@ -206,8 +206,10 @@ this section.
 mooncake/mlx5 + dma-buf, `--dp-size 8 --enable-dp-attention --ep-size 8` + EAGLE
 MTP(3,1,4), **draft CUDA graph enabled**.
 
-Final run (2026-07-31), from an image built by `Dockerfile.sglang` on this branch
-with patches applied **at build time** — nothing patched in the running container:
+Final run (2026-07-31) on the **v0.5.15.post1** base, when the set was 01 + 02 +
+04 and the nextn backport was still a prerequisite. Built by `Dockerfile.sglang`
+with patches applied **at build time** — nothing patched in the running container.
+Not re-measured since the base moved to v0.5.17:
 
 | Check | Target | Result |
 |---|---|---|
@@ -227,6 +229,24 @@ every functional test while disabling the feature under test.
 Raw measurements are held in internal reproduction kits, one per arm: the run
 above, the draft-graph fix with its differential control, the IndexShare-off
 workaround arm, and the failed #32209 port. Ask the patch author for access.
+
+### v0.5.17, patch 04 re-cut (2026-08-11)
+
+Only patch 04 was re-measured after the base moved; the rest of the set rests on
+the run above. 2 × 8×MI355X, GLM-5.2-**FP8** 1P1D, both legs `tp8 --dp-size 8
+--enable-dp-attention` + EAGLE MTP(3,1,4), IndexShare **on**, tilelang DSA
+backends. Patch applied to the built image and verified in bytecode, all four of
+its markers present:
+
+| Check | Result |
+|---|---|
+| First routed request, patch reverted | **deadlock**, 120 s timeout |
+| First routed request, patched | **2.3 s** |
+| conc=64, ISL 1024 / OSL 512 | **256/256**, `acc_len` 2.31–4.00 of a ceiling of 4 |
+
+Draft-graph replay share was **not** re-measured here — it needs an added probe.
+What stands in for it is that the deadlock is gone at all: were the vote never
+flipping, the group decision would stay permissive and the hang would remain.
 
 ### What this validation does NOT establish
 
@@ -277,8 +297,8 @@ workaround arm, and the failed #32209 port. Ask the patch author for access.
 On gfx950 this is an alternative. On **gfx942 it is the mechanism** — that image
 ships neither 04 nor 02b, so the flag below is required, not optional.
 
-Turning GLM-5.2's MTP **IndexShare** off avoids the same deadlock without patch
-04 or the page-table half of patch 02:
+Turning GLM-5.2's MTP **IndexShare** off avoids the same deadlock without 04 or
+02b:
 
 ```
 --json-model-override-args '{"index_share_for_mtp_iteration":false}'
@@ -290,10 +310,9 @@ seed and the guard term stops diverging, so no vote is needed.
 | patch | substituted by IndexShare-off? |
 |---|---|
 | 01 `dsa_indexer_hip_dp_padded_rows` | **No** — independent bug, present regardless |
-| 02a `dsa_backend` DP host-sync | **No** — a host sync is invisible to the graph/eager decision either mechanism changes |
-| 02b `dsa_backend` page-table rows | **Yes**, in effect — the arm ran without it and passed |
+| 02a `dsa_dp_sync` | **No** — a host sync is invisible to the graph/eager decision either mechanism changes |
+| 02b `dsa_page_table_rows` | **Yes**, in effect — the arm ran without it and passed |
 | 04 `draft_cuda_graph_dp_vote` | **Yes** — this is what it targets |
-| nextn `eh_proj` (the prerequisite) | **No** — weight-load bug, unrelated |
 
 Measured with 02b and 04 asserted **absent from the bytecode**: 4/4, 32/32 twice,
 64/64, zero tracebacks, accept length 2.98–3.01 — no measurable cost. Two
@@ -302,13 +321,13 @@ seed never reaches decode and the setting is untested rather than tested), and
 that arm was taken to conc=64, not 128.
 
 **Why the patches remain the default where they can be.** The override is nearly
-free only because IndexShare's consumer is currently disabled under PD by
-`should_use_dsa_fused_topk`. Upstream PR #31477 exists to remove that limitation;
-once it lands the override starts costing (~3 % TPOT, reported internally —
-second-hand, not measured by us). Checked with `gh` on 2026-08-01: #31477 is
-**open**, `REVIEW_REQUIRED`, unmerged. A good answer today if IndexShare is not
-wanted, a dated one if it is.
+free only while IndexShare's consumer stays disabled under PD by
+`should_use_dsa_fused_topk`. Upstream PR #31477 removes that limitation and
+**merged 2026-08-05**; on a base that carries it the override starts costing
+(~3 % TPOT, reported internally — second-hand, not measured by us). Neither of
+our bases carries it yet: v0.5.17's `dsa/utils.py` still returns
+`... and not pd_index_share_seed` under its TODO. So the override is still a good
+answer on both bases today, and a dated one on whichever base comes next.
 
 That dating is the standing cost of the gfx942 arm, which has no other option
-until 02 and 04 are re-cut against v0.5.16. When #31477 lands, port them rather
-than paying the TPOT.
+until 02b and 04 are re-cut against v0.5.16 — 04's v0.5.17 cut is the template.
