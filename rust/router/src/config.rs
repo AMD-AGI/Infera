@@ -59,9 +59,25 @@ pub struct Config {
     #[arg(long)]
     pub k8s_namespace: Option<String>,
 
-    /// Only `http` is supported by the Rust backend.
+    /// `http` (dial the worker directly) or `nats` (publish onto the worker's
+    /// own subject and stream the reply back over an inbox).
     #[arg(long, default_value = "http")]
     pub request_transport: String,
+
+    /// NATS broker URL. Falls back to `NATS_SERVER`, then to localhost.
+    #[arg(long, env = "NATS_SERVER")]
+    pub nats_server: Option<String>,
+
+    /// Seconds to wait for the *next* reply chunk before giving up on a
+    /// request. Reset on every chunk, so a long generation that keeps producing
+    /// tokens never trips it -- only a stall does. 0 disables it.
+    #[arg(long, default_value_t = 900.0, env = "INFERA_NATS_REQ_IDLE_TIMEOUT")]
+    pub nats_req_idle_timeout_s: f64,
+
+    /// Hard cap on a whole request's wall clock regardless of token flow, for
+    /// runaway generations. 0 (the default) disables it.
+    #[arg(long, default_value_t = 0.0, env = "INFERA_NATS_REQ_MAX_DURATION")]
+    pub nats_req_max_duration_s: f64,
 
     /// kv-aware only: path to the model's HF fast tokenizer (`tokenizer.json` or
     /// its dir). Required for cache locality — without it kv-aware degrades to
@@ -118,9 +134,9 @@ impl Config {
                 "rust backend supports --discovery-backend etcd|kubernetes (got {other:?})"
             ),
         }
-        if self.request_transport != "http" {
+        if self.request_transport != "http" && self.request_transport != "nats" {
             anyhow::bail!(
-                "rust backend supports only --request-transport http (got {:?})",
+                "rust backend supports --request-transport http|nats (got {:?})",
                 self.request_transport
             );
         }

@@ -31,6 +31,10 @@ base64 = "0.22"
 rand = "0.8"
 # kv-aware routing: XXH3 chained block hashing (matches the Python xxhash side),
 # ZMQ SUB kv-event stream + msgpack decode, and HF fast-tokenizer + chat template.
+# NATS request transport: core publish/inbox for the request path, JetStream
+# for the optional admission throttle. Hand-rolling the protocol the way the
+# etcd gateway is hand-rolled is not viable here.
+async-nats = "0.50"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 zmq = "0.10"
 rmpv = "1"

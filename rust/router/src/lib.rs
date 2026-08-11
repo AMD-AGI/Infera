@@ -26,6 +26,7 @@ pub mod handlers;
 pub mod hasher;
 pub mod k8s;
 pub mod kv_event;
+pub mod nats_request;
 pub mod policy;
 pub mod pool;
 pub mod protocol;

@@ -30,6 +30,11 @@ pub struct AppState {
     /// Per-worker failure memory. Shared across threads and across requests —
     /// that persistence across requests is the whole point (see breaker.rs).
     pub breaker: Arc<CircuitBreaker>,
+    /// Present only with `--request-transport nats`. Which workers actually go
+    /// over it is still per-worker: one that failed to start its NATS consumer
+    /// registers itself as `http` and is dialled directly, exactly as on the
+    /// Python side.
+    pub nats: Option<Arc<crate::nats_request::NatsRequestClient>>,
 }
 
 pub fn app(state: AppState) -> Router {

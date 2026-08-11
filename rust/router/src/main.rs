@@ -19,7 +19,7 @@ use infera_router::handlers::{app, AppState};
 use infera_router::kv_event::KvEventClient;
 use infera_router::policy::{KvEventAwarePolicy, Policy, RoundRobin};
 use infera_router::pool::Snapshot;
-use infera_router::{discovery, discovery_k8s, k8s, proxy};
+use infera_router::{discovery, discovery_k8s, k8s, nats_request, proxy};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -87,6 +87,19 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
+    let nats = if cfg.request_transport == "nats" {
+        Some(Arc::new(
+            nats_request::NatsRequestClient::connect(
+                cfg.nats_server.as_deref(),
+                cfg.nats_req_idle_timeout_s,
+                cfg.nats_req_max_duration_s,
+            )
+            .await?,
+        ))
+    } else {
+        None
+    };
+
     let state = AppState {
         pool,
         policy,
@@ -94,6 +107,7 @@ async fn main() -> anyhow::Result<()> {
         started: Instant::now(),
         retries: cfg.request_max_retries,
         breaker,
+        nats,
     };
 
     let addr = format!("{}:{}", cfg.host, cfg.port);

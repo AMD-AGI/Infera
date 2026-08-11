@@ -108,6 +108,7 @@ fn make_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
         started: Instant::now(),
         retries,
         breaker: Arc::new(CircuitBreaker::default()),
+        nats: None,
     }
 }
 
@@ -202,6 +203,7 @@ fn make_kv_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
         started: Instant::now(),
         retries,
         breaker: Arc::new(CircuitBreaker::default()),
+        nats: None,
     }
 }
 
