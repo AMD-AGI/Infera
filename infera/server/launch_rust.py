@@ -21,12 +21,17 @@ from pathlib import Path
 
 # (arg attr, required value, human name for the error message)
 _REQUIRED = [
-    ("request_transport", "http", "the NATS request transport"),
     ("router_mode", "auto", "GAIE direct mode"),
 ]
 
 # Discovery backends the Rust binary implements.
 _SUPPORTED_DISCOVERY = ("etcd", "kubernetes")
+
+# Request transports the Rust binary implements.
+_SUPPORTED_TRANSPORT = ("http", "nats")
+
+# kv-event sources the Rust binary implements.
+_SUPPORTED_KV_TRANSPORT = ("zmq", "nats")
 
 # Routing policies the Rust backend implements.
 _SUPPORTED_POLICIES = ("round-robin", "kv-aware")
@@ -57,6 +62,10 @@ def exec_rust(args: argparse.Namespace) -> None:
         unsupported.append(f"--router-policy {args.router_policy}")
     if args.discovery_backend not in _SUPPORTED_DISCOVERY:
         unsupported.append(f"--discovery-backend {args.discovery_backend}")
+    if args.request_transport not in _SUPPORTED_TRANSPORT:
+        unsupported.append(f"--request-transport {args.request_transport}")
+    if args.kv_event_transport not in _SUPPORTED_KV_TRANSPORT:
+        unsupported.append(f"--kv-event-transport {args.kv_event_transport}")
     if unsupported:
         raise SystemExit(
             "--router-backend rust does not support " + ", ".join(unsupported) + ".\n"
@@ -102,6 +111,9 @@ def exec_rust(args: argparse.Namespace) -> None:
         # what the Python backend does too.
         if args.k8s_namespace:
             argv += ["--k8s-namespace", args.k8s_namespace]
+    argv += ["--kv-event-transport", args.kv_event_transport]
+    if args.nats_server:
+        argv += ["--nats-server", args.nats_server]
     # kv-aware needs the tokenizer + overlap weights, or it degrades to
     # load-only routing (no cache locality). Resolve HF ids to a local path
     # (same as the Python router) since the Rust binary loads from disk.
