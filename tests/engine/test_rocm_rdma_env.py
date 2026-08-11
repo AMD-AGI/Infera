@@ -102,37 +102,37 @@ def test_aiter_noop_off_rocm(monkeypatch):
 
 
 def _on_rocm_without_affinity_env(monkeypatch):
-    for v in (rre._MC_DEST_AFFINITY, rre._MC_HCA_PEER_AFFINITY):
+    for v in (rre.MC_DEST_AFFINITY, rre.MC_HCA_PEER_AFFINITY):
         monkeypatch.delenv(v, raising=False)
     monkeypatch.setattr(rre, "_is_rocm", lambda: True)
 
 
 def test_dest_affinity_defaults_on(monkeypatch):
     _on_rocm_without_affinity_env(monkeypatch)
-    assert rre.apply_rocm_rdma_env_defaults()[rre._MC_DEST_AFFINITY] == "1"
-    assert os.environ[rre._MC_DEST_AFFINITY] == "1"
+    assert rre.apply_rocm_rdma_env_defaults()[rre.MC_DEST_AFFINITY] == "1"
+    assert os.environ[rre.MC_DEST_AFFINITY] == "1"
 
 
 def test_dest_affinity_opt_out_unsets_the_var(monkeypatch):
     """A false-y value must DISABLE it, not just be left in the environment."""
     _on_rocm_without_affinity_env(monkeypatch)
     for value in ("0", "False"):
-        monkeypatch.setenv(rre._MC_DEST_AFFINITY, value)
-        assert rre._MC_DEST_AFFINITY not in rre.apply_rocm_rdma_env_defaults()
-        assert rre._MC_DEST_AFFINITY not in os.environ
+        monkeypatch.setenv(rre.MC_DEST_AFFINITY, value)
+        assert rre.MC_DEST_AFFINITY not in rre.apply_rocm_rdma_env_defaults()
+        assert rre.MC_DEST_AFFINITY not in os.environ
 
 
 def test_dest_affinity_defers_to_explicit_hca_peer_affinity(monkeypatch):
     _on_rocm_without_affinity_env(monkeypatch)
-    monkeypatch.setenv(rre._MC_HCA_PEER_AFFINITY, "true")
-    assert rre._MC_DEST_AFFINITY not in rre.apply_rocm_rdma_env_defaults()
-    assert rre._MC_DEST_AFFINITY not in os.environ
+    monkeypatch.setenv(rre.MC_HCA_PEER_AFFINITY, "true")
+    assert rre.MC_DEST_AFFINITY not in rre.apply_rocm_rdma_env_defaults()
+    assert rre.MC_DEST_AFFINITY not in os.environ
 
 
 def test_dest_affinity_applies_when_hca_peer_affinity_is_off(monkeypatch):
     _on_rocm_without_affinity_env(monkeypatch)
-    monkeypatch.setenv(rre._MC_HCA_PEER_AFFINITY, "0")
-    assert rre.apply_rocm_rdma_env_defaults()[rre._MC_DEST_AFFINITY] == "1"
+    monkeypatch.setenv(rre.MC_HCA_PEER_AFFINITY, "0")
+    assert rre.apply_rocm_rdma_env_defaults()[rre.MC_DEST_AFFINITY] == "1"
 
 
 # --- GPU MR path: follow the host, not a fleet-wide guess --------------------

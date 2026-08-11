@@ -36,9 +36,10 @@ _ROCM_RDMA_DEFAULTS: dict[str, str] = {
     "MORI_IB_GID_INDEX": "1",  # MoRI transfer engine: ionic RoCE v2 GID
 }
 
-# Mooncake's two mutually exclusive peer-HCA selection policies.
-_MC_DEST_AFFINITY = "MC_ENABLE_DEST_DEVICE_AFFINITY"
-_MC_HCA_PEER_AFFINITY = "MC_ENABLE_HCA_PEER_AFFINITY"
+# Mooncake's two mutually exclusive peer-HCA selection policies. Public so the
+# preflight Mooncake probe measures these same names rather than its own copy.
+MC_DEST_AFFINITY = "MC_ENABLE_DEST_DEVICE_AFFINITY"
+MC_HCA_PEER_AFFINITY = "MC_ENABLE_HCA_PEER_AFFINITY"
 
 # Which of Mooncake's two GPU MR paths to take. Both are compiled into our images;
 # this picks one per host. Unset = Mooncake's own auto mode (dma-buf).
@@ -81,18 +82,18 @@ def _apply_dest_device_affinity_default() -> str | None:
     selection when the peer has no NIC of that name; on a rail-isolated fabric
     it stops a local rail from picking an unreachable peer rail.
     """
-    value = os.environ.get(_MC_DEST_AFFINITY, "")
+    value = os.environ.get(MC_DEST_AFFINITY, "")
     if value:
         # Mooncake only tests whether the var is PRESENT, so an explicit "0"
         # would still enable it. Honour the opt-out by removing it entirely.
         if value.lower() in ("0", "false"):
-            del os.environ[_MC_DEST_AFFINITY]
+            del os.environ[MC_DEST_AFFINITY]
         return None
     # Mooncake disables BOTH policies when both are set, which is worse than
     # either alone, so an explicitly configured peer affinity wins.
-    if os.environ.get(_MC_HCA_PEER_AFFINITY, "").lower() in ("1", "true"):
+    if os.environ.get(MC_HCA_PEER_AFFINITY, "").lower() in ("1", "true"):
         return None
-    os.environ[_MC_DEST_AFFINITY] = "1"
+    os.environ[MC_DEST_AFFINITY] = "1"
     return "1"
 
 
@@ -143,7 +144,7 @@ def apply_rocm_rdma_env_defaults() -> dict[str, str]:
             applied[key] = value
     affinity = _apply_dest_device_affinity_default()
     if affinity:
-        applied[_MC_DEST_AFFINITY] = affinity
+        applied[MC_DEST_AFFINITY] = affinity
     mr_path = _apply_gpu_mr_path_default()
     if mr_path:
         applied[_MC_DISABLE_DMABUF] = mr_path

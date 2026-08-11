@@ -27,6 +27,8 @@ Production env knobs we replicate (Infera rocm_rdma_env defaults / PD doc):
     cross-node). Mooncake's own default is ~max index and can be wrong.
   - MC_DISABLE_HIP_TRANSPORT=1: force RDMA over the intra-node HIP/XGMI shortcut
     (which advertises an empty segment the peer rejects cross-node).
+  - MC_ENABLE_DEST_DEVICE_AFFINITY=1: take the same-named peer HCA, else Mooncake
+    can hand a VRAM transfer a peer rail the local one cannot reach.
 
 It catches the silent misconfigurations that make cross-node KV slow or broken:
   - TCP fallback: with RDMA HCAs present Mooncake force-installs RDMA and ignores
@@ -73,6 +75,8 @@ import os
 import subprocess
 import sys
 import time
+
+from infera.engine.rocm_rdma_env import MC_DEST_AFFINITY, MC_HCA_PEER_AFFINITY
 
 from ..finding import Finding
 from .netperf import (
@@ -408,6 +412,10 @@ def _spawn(
     # and skew every variant, so clear it too rather than letting the caller's
     # shell leak into the measurement.
     env.pop("MC_ENABLE_HIP_TRANSPORT", None)
+    # Both peer-HCA policies too: Mooncake only tests PRESENCE, and setting both
+    # disables both, so an inherited value cannot be left to fight the one below.
+    env.pop(MC_DEST_AFFINITY, None)
+    env.pop(MC_HCA_PEER_AFFINITY, None)
     if protocol == "rdma":
         # Documented cross-node requirement (Infera rocm_rdma_env default): force
         # RDMA, not the intra-node HIP (hipIpc) transport, whose handles are
@@ -415,6 +423,10 @@ def _spawn(
         # variants so rdma-default varies ONLY in the missing MC_GID_INDEX it is
         # meant to demonstrate.
         env["MC_DISABLE_HIP_TRANSPORT"] = "1"
+        # Same-name peer HCA, the other rocm_rdma_env default. Without it the VRAM
+        # variants can be handed an unreachable peer rail and fail in one direction
+        # only, while ib_write_bw and Mori report the fabric healthy.
+        env[MC_DEST_AFFINITY] = "1"
     if env_kind == "gid":
         env["MC_GID_INDEX"] = str(_ref_gid())
     elif env_kind == "tcp":
