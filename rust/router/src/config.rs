@@ -59,9 +59,15 @@ pub struct Config {
     #[arg(long)]
     pub k8s_namespace: Option<String>,
 
-    /// `http` (dial the worker directly) or `nats` (publish onto the worker's
-    /// own subject and stream the reply back over an inbox).
-    #[arg(long, default_value = "http")]
+    /// `nats` (publish onto the worker's own subject and stream the reply back
+    /// over an inbox) or `http` (dial the worker directly).
+    ///
+    /// Defaults to `nats` because the Python backend does. This binary is a
+    /// drop-in for it, and the launcher forwards whatever Python resolved --
+    /// so a different default here would mean the same deployment behaved one
+    /// way through `python -m infera.server --router-backend rust` and another
+    /// way run directly.
+    #[arg(long, default_value = "nats")]
     pub request_transport: String,
 
     /// NATS broker URL. Falls back to `NATS_SERVER`, then to localhost. Used by
@@ -69,10 +75,11 @@ pub struct Config {
     #[arg(long, env = "NATS_SERVER")]
     pub nats_server: Option<String>,
 
-    /// Where kv-aware routing gets its cache events: `zmq` (a socket per
-    /// worker) or `nats` (one subscription for the fleet). Ignored unless
-    /// `--router-policy kv-aware`.
-    #[arg(long, default_value = "zmq")]
+    /// Where kv-aware routing gets its cache events: `nats` (one subscription
+    /// for the fleet) or `zmq` (a socket per worker). Ignored unless
+    /// `--router-policy kv-aware`. Defaults to `nats`, as the Python backend
+    /// does.
+    #[arg(long, default_value = "nats")]
     pub kv_event_transport: String,
 
     /// Seconds to wait for the *next* reply chunk before giving up on a
@@ -182,6 +189,24 @@ mod tests {
 
     fn with_endpoint(ep: &str) -> Config {
         Config::try_parse_from(["infera-router", "--etcd-endpoint", ep]).unwrap()
+    }
+
+    /// The defaults have to be the Python backend's, because the launcher
+    /// forwards whatever Python resolved and this binary is meant to be a
+    /// drop-in. When these drifted apart, the same deployment ran over NATS
+    /// through `python -m infera.server --router-backend rust` and over plain
+    /// HTTP when the binary was run directly -- with nothing in either log
+    /// saying which transport was in use.
+    ///
+    /// Values are from infera/server/args.py; changing one side means changing
+    /// both.
+    #[test]
+    fn transport_defaults_match_the_python_backend() {
+        let c = Config::try_parse_from(["infera-router"]).unwrap();
+        assert_eq!(c.request_transport, "nats");
+        assert_eq!(c.kv_event_transport, "nats");
+        assert_eq!(c.discovery_backend, "etcd");
+        assert_eq!(c.router_policy, "round-robin");
     }
 
     #[test]

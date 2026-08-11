@@ -130,6 +130,39 @@ async fn main() -> anyhow::Result<()> {
         nats,
     };
 
+    // A worker that reached the broker registers itself as `nats`, and one that
+    // could not registers as `http` -- so the transport is negotiated per
+    // worker and a broker outage heals itself. The case that does not heal is a
+    // router with no NATS at all facing workers that have it: those workers can
+    // never be dispatched to. That surfaces today as a 502 per request, which
+    // is accurate but says nothing about what to change, so say it once, here.
+    if state.nats.is_none() {
+        let pool = state.pool.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_secs(10)).await;
+                let stranded: Vec<String> = pool
+                    .load()
+                    .all
+                    .iter()
+                    .filter(|w| w.request_transport == "nats")
+                    .map(|w| w.worker_id.clone())
+                    .collect();
+                if !stranded.is_empty() {
+                    tracing::error!(
+                        "{} worker(s) registered the nats request transport, but this \
+                         router has none and cannot dispatch to them: {}. Either start \
+                         it with --request-transport nats --nats-server <url>, or start \
+                         those workers with --request-transport http.",
+                        stranded.len(),
+                        stranded.join(", ")
+                    );
+                    return;
+                }
+            }
+        });
+    }
+
     let addr = format!("{}:{}", cfg.host, cfg.port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!("infera-router listening on http://{}", addr);

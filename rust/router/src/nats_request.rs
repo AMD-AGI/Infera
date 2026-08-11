@@ -161,12 +161,15 @@ impl NatsRequestClient {
             let js = async_nats::jetstream::new(nc.clone());
             ensure_request_stream(&js).await?;
             tracing::info!(
-                "NATS request transport connected (JetStream throttle on): \
-                 {url} max_pending={max_pending}"
+                "NATS request transport -> {url} (JetStream throttle on, \
+                 max_pending={max_pending})"
             );
             Some(js)
         } else {
-            tracing::info!("NATS request transport connected: {url}");
+            // Not "connected": retry_on_initial_connect means this returns
+            // before a link exists, so claiming one would be a lie whenever the
+            // broker is down -- exactly when someone is reading the log.
+            tracing::info!("NATS request transport -> {url}");
             None
         };
         Ok(Self {
