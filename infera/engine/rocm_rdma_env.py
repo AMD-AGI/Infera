@@ -90,9 +90,15 @@ def _apply_dest_device_affinity_default() -> str | None:
             del os.environ[MC_DEST_AFFINITY]
         return None
     # Mooncake disables BOTH policies when both are set, which is worse than
-    # either alone, so an explicitly configured peer affinity wins.
-    if os.environ.get(MC_HCA_PEER_AFFINITY, "").lower() in ("1", "true"):
-        return None
+    # either alone.
+    hca = os.environ.get(MC_HCA_PEER_AFFINITY, "")
+    if hca:
+        # Mooncake only tests whether the var is PRESENT, so an explicit "0"
+        # would still enable it. Honour the opt-out by removing it entirely.
+        if hca.lower() in ("0", "false"):
+            del os.environ[MC_HCA_PEER_AFFINITY]
+        else:
+            return None
     os.environ[MC_DEST_AFFINITY] = "1"
     return "1"
 
