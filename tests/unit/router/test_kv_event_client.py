@@ -42,8 +42,10 @@ from infera.router.kv_event.events import (
     AllBlocksCleared,
     BlockRemoved,
     BlockStored,
+    KVEventBatch,
     SglangBlockStored,
     SglangKVEventBatch,
+    batch_type_for_engine,
 )
 from infera.router.kv_event.hasher import ROUTER_SEED, hash_chunk
 
@@ -333,6 +335,32 @@ def test_on_worker_removed_unknown_id_is_noop():
 # ----------------------------------------------------------------------
 # Wire-format / transport layer
 # ----------------------------------------------------------------------
+
+
+def test_atom_decoder_matches_infera_atom_hook_wire_format():
+    """ATOM's Infera hook publishes the same tagged-map schema as vLLM.
+
+    Selecting SGLang's tagged-array decoder for an ATOM worker rejects every
+    event and leaves KV-aware routing with an empty cache view.
+    """
+    payload = msgspec.msgpack.encode(
+        KVEventBatch(
+            ts=1.0,
+            events=[
+                _make_stored(
+                    block_hashes=[111],
+                    parent_block_hash=None,
+                    token_ids=[1, 2, 3, 4],
+                )
+            ],
+        )
+    )
+
+    decoded = msgspec.msgpack.decode(payload, type=batch_type_for_engine(EngineType.ATOM))
+
+    assert isinstance(decoded, KVEventBatch)
+    assert isinstance(decoded.events[0], BlockStored)
+    assert decoded.events[0].block_hashes == [111]
 
 
 @pytest.mark.asyncio
