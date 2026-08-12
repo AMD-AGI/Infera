@@ -353,6 +353,24 @@ def _print_des(des: Dict[str, object]) -> None:
     _row("ITL (inter-token)", point.itl)
     _row("End-to-end latency", point.e2e)
 
+    pfx = getattr(point, "prefix", None) or {}
+    if pfx and pfx.get("num_instances", 0):
+        _routes = ("round_robin", "random", "prefix_aware")
+        ri = int(pfx.get("routing", -1))
+        rname = _routes[ri] if 0 <= ri < len(_routes) else "?"
+        print("-" * 100)
+        print(
+            f"  Fleet: {int(pfx['num_instances'])} instance(s), routing={rname} | "
+            f"prefix pool: {int(pfx.get('num_prefixes', 0))} prefixes x "
+            f"{int(pfx.get('prefix_len', 0))} tok"
+        )
+        print(
+            f"  Prefix-cache hit rate: {pfx.get('hit_rate', 0.0) * 100:.1f}% "
+            f"(avg {pfx.get('avg_cached_tokens', 0.0):.0f} cached tok/req; "
+            f"per-instance {pfx.get('min_inst_hit_rate', 0.0) * 100:.0f}–"
+            f"{pfx.get('max_inst_hit_rate', 0.0) * 100:.0f}%)"
+        )
+
     pk = getattr(point, "packing", None) or {}
     if pk:
         print("-" * 100)
@@ -594,6 +612,12 @@ def launch_projection_from_cli(args, overrides):
                 kv_cache_tokens=int(getattr(args, "des_kv_cache_tokens", 0) or 0),
                 workload_file=workload_file,
                 record_steps=bool(dump_steps),
+                num_instances=int(getattr(args, "des_instances", 1) or 1),
+                routing=(getattr(args, "des_routing", "round_robin") or "round_robin"),
+                num_prefixes=int(getattr(args, "des_num_prefixes", 0) or 0),
+                prefix_len=int(getattr(args, "des_prefix_len", 0) or 0),
+                prefix_zipf=float(getattr(args, "des_prefix_zipf", 0.0) or 0.0),
+                cache_slots=int(getattr(args, "des_cache_slots", 0) or 0),
             )
             _print_des(des)
             results["des"] = des

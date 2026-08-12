@@ -82,6 +82,47 @@ effect. Set it per workload in a YAML `inference:` block
 (`prefix_cache_hit_rate: 0.8`) so the tuning agent scores every recipe under the
 same reuse assumption.
 
+## Multi-instance KV-aware routing (DES)
+
+The discrete-event simulator can model a **fleet of `N` engine replicas behind a
+router** sharing a **prefix pool**, so prefix-cache hits are *derived from
+routing + locality* instead of the static `--prefix-cache-hit-rate` above. Each
+request draws one of `P` shared prefixes (a system-prompt / template of `L`
+tokens); each instance keeps its own resident-prefix set; a request that lands
+on an instance already holding its prefix is a hit (only the suffix is
+prefilled).
+
+```bash
+infera-projection inference ... \
+  --request-rate 40 --arrival-model poisson --des-num-requests 400 \
+  --des-instances 8 --des-routing prefix_aware \
+  --des-num-prefixes 32 --des-prefix-len 3072
+```
+
+Routing policies (`--des-routing`):
+
+- `prefix_aware` — **KV-aware routing**: a prefix's requests always hit the same
+  home instance, so it is warmed once and reused (misses ≈ `P`, independent of
+  `N`).
+- `round_robin` / `random` — scatter prefixes, so every instance re-warms them
+  (misses ≈ `P · N`).
+
+Example (gpt_oss_120B TP2, input=4096, 8 instances, 32 prefixes × 3072 tok,
+Poisson @ 40 req/s, analytical):
+
+| routing | prefix-cache hit rate | TTFT mean / p99 |
+| --- | --- | --- |
+| round_robin | 48% | 55.0 / 62.9 ms |
+| prefix_aware | 92% | 49.0 / 58.3 ms |
+
+The model also exposes the real **cache-locality vs. load-balance** trade-off:
+KV-aware routing maximizes reuse but can imbalance load across instances, which
+the pooled fleet metrics reflect. Set `N=1` with a prefix pool to model
+single-engine temporal reuse (automatic prefix caching) alone. Knobs:
+`--des-instances`, `--des-routing`, `--des-num-prefixes`, `--des-prefix-len`,
+`--des-prefix-zipf` (popularity skew), `--des-cache-slots` (per-instance LRU
+capacity).
+
 ## Confidence ladder
 
 A 1-GPU anchor cannot observe cross-GPU communication (EP all-to-all, TP

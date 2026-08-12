@@ -668,6 +668,54 @@ def _add_inference_args(parser):
         help="DES: write per-step batch-composition records (query/KV shapes per "
         "request per step) + packing summary to this JSON path.",
     )
+    # ---- DES multi-instance routing + shared prefix pool ----
+    serv.add_argument(
+        "--des-instances",
+        type=int,
+        default=None,
+        help="DES: number of engine replicas behind a router (data-parallel "
+        "copies of this recipe). >1 enables the multi-instance fleet model. "
+        "Default: 1 (single engine).",
+    )
+    serv.add_argument(
+        "--des-routing",
+        type=str,
+        default=None,
+        choices=["round_robin", "random", "prefix_aware"],
+        help="DES: request routing policy across instances. 'prefix_aware' is "
+        "KV-aware routing (co-locate a prefix's requests on one instance so it "
+        "is warmed once and reused); 'round_robin'/'random' scatter prefixes "
+        "(each instance re-warms them). Default: round_robin.",
+    )
+    serv.add_argument(
+        "--des-num-prefixes",
+        type=int,
+        default=None,
+        help="DES: number of distinct shared prefixes in the workload (e.g. "
+        "system-prompt / template variants). Requests sharing a prefix reuse its "
+        "KV on a cache hit. 0 = no shared prefixes (every request unique).",
+    )
+    serv.add_argument(
+        "--des-prefix-len",
+        type=int,
+        default=None,
+        help="DES: shared-prefix length in tokens (the cached span on a hit). "
+        "0 (with --des-num-prefixes>0) defaults to half the prompt.",
+    )
+    serv.add_argument(
+        "--des-prefix-zipf",
+        type=float,
+        default=None,
+        help="DES: prefix popularity skew. 0 = uniform; >0 = power-law (a few hot "
+        "prefixes dominate, as with shared system prompts). Default: uniform.",
+    )
+    serv.add_argument(
+        "--des-cache-slots",
+        type=int,
+        default=None,
+        help="DES: per-instance prefix-cache capacity (distinct prefixes kept "
+        "resident, LRU-evicted). 0 = unbounded within the run. Default: 0.",
+    )
     # ---- Kernel backend + fused ops + sparse attention + expert precision ----
     kern = parser.add_argument_group("inference kernel backend & ops")
     kern.add_argument(

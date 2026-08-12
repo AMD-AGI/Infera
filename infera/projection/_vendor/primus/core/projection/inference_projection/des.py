@@ -97,6 +97,8 @@ class _Req:
     prompt_len: int
     output_len: int
     num_computed: int = 0        # prompt tokens already processed (prefill progress)
+    prefix_id: int = -1          # shared-prefix identity (-1 = unique / no pool)
+    cached_prefix: int = 0       # prompt tokens served from a prefix-cache hit
     generated: int = 0           # output tokens emitted so far
     prefill_done: bool = False
     status: str = "WAITING"      # WAITING | RUNNING | FINISHED
@@ -139,8 +141,14 @@ class DESResult:
     e2e: Dict[str, float] = field(default_factory=dict)
     # batch-composition / packing summary (serving_sim-style)
     packing: Dict[str, float] = field(default_factory=dict)
+    # multi-instance routing / prefix-cache summary (only when instances>1 or a
+    # prefix pool is configured)
+    prefix: Dict[str, float] = field(default_factory=dict)
     # optional per-step records (only when record_steps=True)
     steps: Optional[List[dict]] = None
+    # optional raw per-request latency samples (only when return_samples=True);
+    # used to pool distributions across instances in the multi-instance driver.
+    samples: Optional[Dict[str, List[float]]] = None
 
 
 class _CostKernel:
@@ -294,6 +302,8 @@ def simulate_once(
     kv_cache_tokens: int = 0,
     workload_file: Optional[str] = None,
     record_steps: bool = False,
+    prebuilt: Optional[List["_Req"]] = None,
+    return_samples: bool = False,
 ) -> DESResult:
     """Run one single-engine DES at a fixed offered load.
 
@@ -318,7 +328,11 @@ def simulate_once(
     rng = random.Random(seed)
 
     # ---- workload (arrivals + per-request lengths) ----
-    if workload_file:
+    if prebuilt is not None:
+        # Caller supplied a fully-formed request list (multi-instance router:
+        # arrivals, lengths, prefix ids + seeded ``num_computed`` for hits).
+        pending = prebuilt
+    elif workload_file:
         rows = _load_workload_file(workload_file)
         rows.sort(key=lambda r: r[0])
         pending = [
@@ -603,6 +617,17 @@ def simulate_once(
         "kv_utilization": (pk_kv_peak / kv_pool) if kv_pool > 0 else 0.0,
     }
 
+    samples = None
+    if return_samples:
+        samples = {
+            "ttft": ttft,
+            "ttft_arrival": ttft_arrival,
+            "queue_wait": queue_wait,
+            "tpot": tpot,
+            "itl": itl_all,
+            "e2e": e2e,
+        }
+
     return DESResult(
         arrival_model=arrival_model,
         offered_rate=rate_per_s,
@@ -620,7 +645,236 @@ def simulate_once(
         e2e=dist(e2e),
         packing=packing,
         steps=step_records if record_steps else None,
+        samples=samples,
     )
+
+
+_ROUTING_POLICIES = ("round_robin", "random", "prefix_aware")
+
+
+def _draw_prefix_ids(
+    n: int, num_prefixes: int, zipf: float, rng: random.Random
+) -> List[int]:
+    """Assign each of ``n`` requests a shared-prefix id in ``[0, num_prefixes)``.
+
+    ``zipf <= 0`` → uniform popularity; ``zipf > 0`` → power-law skew (a few
+    hot prefixes dominate, as with shared system prompts / popular templates).
+    """
+    if num_prefixes <= 0:
+        return [-1] * n
+    if zipf and zipf > 0:
+        weights = [1.0 / ((k + 1) ** zipf) for k in range(num_prefixes)]
+        total = sum(weights)
+        cum, acc = [], 0.0
+        for w in weights:
+            acc += w / total
+            cum.append(acc)
+        out = []
+        for _ in range(n):
+            u = rng.random()
+            lo = 0
+            for k, c in enumerate(cum):
+                if u <= c:
+                    lo = k
+                    break
+            else:
+                lo = num_prefixes - 1
+            out.append(lo)
+        return out
+    return [rng.randrange(num_prefixes) for _ in range(n)]
+
+
+def _route_instance(req: "_Req", policy: str, num_instances: int, rng: random.Random) -> int:
+    """Pick the target instance for a request under the routing policy."""
+    if num_instances <= 1:
+        return 0
+    if policy == "random":
+        return rng.randrange(num_instances)
+    if policy == "prefix_aware" and req.prefix_id >= 0:
+        # KV-aware routing: a prefix's requests always land on its home instance
+        # (consistent hashing), so the prefix is warmed once and reused there.
+        return req.prefix_id % num_instances
+    # round_robin (and prefix_aware with no pool): scatter by arrival order.
+    return req.idx % num_instances
+
+
+def _route_and_warm(
+    reqs: List["_Req"],
+    *,
+    policy: str,
+    num_instances: int,
+    prefix_len: int,
+    cache_slots: int,
+    rng: random.Random,
+) -> Tuple[List[List["_Req"]], Dict[str, float]]:
+    """Route requests to instances and derive per-request prefix-cache hits.
+
+    Each instance keeps an LRU set of resident prefix ids. A request whose
+    prefix is resident on the instance it is routed to is a **hit**: its
+    ``cached_prefix`` tokens are seeded into ``num_computed`` so the scheduler
+    only prefills the non-cached suffix. A miss warms the prefix for later
+    requests on that instance. Returns per-instance sub-streams (arrival-sorted)
+    plus a summary (hit rate, avg cached tokens, per-instance hit rates).
+    """
+    per_inst: List[List["_Req"]] = [[] for _ in range(num_instances)]
+    # Per-instance LRU of resident prefix ids (most-recent last).
+    resident: List[List[int]] = [[] for _ in range(num_instances)]
+    hits = 0
+    cached_total = 0
+    inst_hits = [0] * num_instances
+    inst_reqs = [0] * num_instances
+
+    for r in sorted(reqs, key=lambda x: (x.arrival_ms, x.idx)):
+        inst = _route_instance(r, policy, num_instances, rng)
+        inst_reqs[inst] += 1
+        pid = r.prefix_id
+        if pid >= 0 and prefix_len > 0:
+            lru = resident[inst]
+            hit = pid in lru
+            if hit:
+                cached = max(0, min(prefix_len, r.prompt_len - 1))
+                r.cached_prefix = cached
+                r.num_computed = cached
+                hits += 1
+                inst_hits[inst] += 1
+                cached_total += cached
+                lru.remove(pid)
+            lru.append(pid)  # mark most-recently-used
+            if cache_slots > 0 and len(lru) > cache_slots:
+                lru.pop(0)   # evict least-recently-used
+        per_inst[inst].append(r)
+
+    n = len(reqs)
+    summary = {
+        "num_instances": float(num_instances),
+        "num_prefixes": float(max(0, max((r.prefix_id for r in reqs), default=-1) + 1)),
+        "prefix_len": float(prefix_len),
+        "hit_rate": (hits / n) if n else 0.0,
+        "avg_cached_tokens": (cached_total / n) if n else 0.0,
+        "min_inst_hit_rate": min(
+            (inst_hits[i] / inst_reqs[i]) for i in range(num_instances) if inst_reqs[i]
+        ) if any(inst_reqs) else 0.0,
+        "max_inst_hit_rate": max(
+            (inst_hits[i] / inst_reqs[i]) for i in range(num_instances) if inst_reqs[i]
+        ) if any(inst_reqs) else 0.0,
+    }
+    return per_inst, summary
+
+
+def _aggregate_instances(results: List[DESResult], prefix_summary: Dict[str, float]) -> DESResult:
+    """Pool per-instance DESResults into one fleet-level DESResult.
+
+    Latency distributions are recomputed from the pooled raw samples; system
+    throughput / achieved rate sum across instances; makespan is the slowest
+    instance; utilization is the per-instance mean.
+    """
+    def _pool(key: str) -> List[float]:
+        out: List[float] = []
+        for r in results:
+            if r.samples and r.samples.get(key):
+                out.extend(r.samples[key])
+        return out
+
+    def dist(xs: List[float]) -> Dict[str, float]:
+        return {
+            "mean": (sum(xs) / len(xs)) if xs else 0.0,
+            "p50": _pct(xs, 0.50),
+            "p90": _pct(xs, 0.90),
+            "p99": _pct(xs, 0.99),
+        }
+
+    n_inst = max(1, len(results))
+    makespan = max((r.makespan_ms for r in results), default=0.0)
+    return DESResult(
+        arrival_model=results[0].arrival_model if results else "poisson",
+        offered_rate=sum(r.offered_rate for r in results),
+        achieved_rate=sum(r.achieved_rate for r in results),
+        utilization=sum(r.utilization for r in results) / n_inst,
+        num_requests=sum(r.num_requests for r in results),
+        makespan_ms=makespan,
+        system_throughput_tps=sum(r.system_throughput_tps for r in results),
+        saturated=any(r.saturated for r in results),
+        ttft=dist(_pool("ttft")),
+        ttft_arrival=dist(_pool("ttft_arrival")),
+        queue_wait=dist(_pool("queue_wait")),
+        tpot=dist(_pool("tpot")),
+        itl=dist(_pool("itl")),
+        e2e=dist(_pool("e2e")),
+        packing={},
+        prefix=prefix_summary,
+    )
+
+
+def simulate_multi_instance(
+    inference_config: InferenceConfig,
+    projector: InferencePerformanceProjector,
+    *,
+    rate_per_s: float,
+    arrival_model: str,
+    num_requests: int,
+    seed: int,
+    warmup_frac: float,
+    burstiness: float,
+    range_ratio: float,
+    kv_cache_tokens: int,
+    num_instances: int,
+    routing: str,
+    num_prefixes: int,
+    prefix_len: int,
+    prefix_zipf: float,
+    cache_slots: int,
+) -> DESResult:
+    """Route one arrival stream across ``num_instances`` replicas and pool.
+
+    Prefix-cache hits are *derived* from the routing policy + per-instance
+    locality (not a static rate): ``prefix_aware`` (KV-aware) routing co-locates
+    a prefix's requests on one instance, so it is warmed once and reused;
+    ``round_robin`` / ``random`` scatter prefixes, forcing every instance to
+    re-warm them (more cold misses, higher TTFT).
+    """
+    req = inference_config.request_config
+    input_len = max(1, req.input_seq_len)
+    output_len = max(1, req.output_seq_len)
+    rng = random.Random(seed)
+
+    arrivals = _generate_arrivals(num_requests, rate_per_s, arrival_model, rng, burstiness)
+    reqs = _build_workload(len(arrivals), arrivals, input_len, output_len, range_ratio, rng)
+    # A prefix pool with ``prefix_len == 0`` defaults to half the prompt.
+    eff_prefix_len = prefix_len if prefix_len > 0 else (input_len // 2 if num_prefixes > 0 else 0)
+    for r, pid in zip(reqs, _draw_prefix_ids(len(reqs), num_prefixes, prefix_zipf, rng)):
+        r.prefix_id = pid
+
+    per_inst, prefix_summary = _route_and_warm(
+        reqs,
+        policy=routing,
+        num_instances=num_instances,
+        prefix_len=eff_prefix_len,
+        cache_slots=cache_slots,
+        rng=rng,
+    )
+    prefix_summary["routing"] = float(_ROUTING_POLICIES.index(routing)) if routing in _ROUTING_POLICIES else -1.0
+
+    results: List[DESResult] = []
+    for i, sub in enumerate(per_inst):
+        if not sub:
+            continue
+        # Per-instance offered rate ≈ its share of the global stream.
+        inst_rate = rate_per_s * (len(sub) / len(reqs)) if reqs else rate_per_s
+        results.append(
+            simulate_once(
+                inference_config,
+                projector,
+                rate_per_s=inst_rate,
+                arrival_model=arrival_model,
+                seed=seed + i,
+                warmup_frac=warmup_frac,
+                kv_cache_tokens=kv_cache_tokens,
+                prebuilt=sub,
+                return_samples=True,
+            )
+        )
+    agg = _aggregate_instances(results, prefix_summary)
+    return agg
 
 
 def run_des(
@@ -638,6 +892,12 @@ def run_des(
     kv_cache_tokens: int = 0,
     workload_file: Optional[str] = None,
     record_steps: bool = False,
+    num_instances: int = 1,
+    routing: str = "round_robin",
+    num_prefixes: int = 0,
+    prefix_len: int = 0,
+    prefix_zipf: float = 0.0,
+    cache_slots: int = 0,
 ) -> Dict[str, object]:
     """Run the DES at the configured load and (optionally) a load sweep.
 
@@ -647,6 +907,27 @@ def run_des(
     trace the throughput-vs-latency knee.
     """
     out: Dict[str, object] = {}
+    multi = (num_instances or 1) > 1 or (num_prefixes or 0) > 0
+    if multi and not workload_file:
+        out["point"] = simulate_multi_instance(
+            inference_config,
+            projector,
+            rate_per_s=rate_per_s,
+            arrival_model=arrival_model if arrival_model in ("poisson", "deterministic") else "poisson",
+            num_requests=num_requests,
+            seed=seed,
+            warmup_frac=warmup_frac,
+            burstiness=burstiness,
+            range_ratio=range_ratio,
+            kv_cache_tokens=kv_cache_tokens,
+            num_instances=max(1, num_instances or 1),
+            routing=routing if routing in _ROUTING_POLICIES else "round_robin",
+            num_prefixes=max(0, num_prefixes or 0),
+            prefix_len=max(0, prefix_len or 0),
+            prefix_zipf=max(0.0, prefix_zipf or 0.0),
+            cache_slots=max(0, cache_slots or 0),
+        )
+        return out
     out["point"] = simulate_once(
         inference_config,
         projector,
