@@ -14,7 +14,7 @@ __all__ = ["launch_projection_from_cli"]
 
 
 def launch_projection_from_cli(args, overrides):
-    from infera.projection._vendor.primus.core.projection.inference_projection import (
+    from infera.projection._vendor.projection_core.core.projection.inference_projection import (
         launch_projection_from_cli as _impl,
     )
     return _impl(args, overrides)

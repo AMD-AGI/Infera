@@ -54,7 +54,7 @@ infera-kvd-l3-bench = "infera.kvd.bench.l3_bench:main"
 infera-preflight = "infera.tools.preflight.cli:main"
 # inference/serving projection + tuning-agent recipe search
 infera-projection = "infera.projection.cli:main"
-infera-tuning = "infera.projection._vendor.primus.agents.tuning_agent.cli:main"
+infera-tuning = "infera.projection._vendor.projection_core.agents.tuning_agent.cli:main"
 [build-system]
 requires = ["setuptools>=69", "setuptools_scm[toml]>=8", "wheel"]
 build-backend = "setuptools.build_meta"
@@ -66,7 +66,7 @@ include = ["infera*"]
 # package path, so they must ship as package data (not just source).
 [tool.setuptools.package-data]
 "infera.projection" = ["examples/*.yaml"]
-"infera.projection._vendor.primus.configs" = ["**/*.yaml"]
+"infera.projection._vendor.projection_core.configs" = ["**/*.yaml"]
 
 # Version from git tags; release with `git tag vX.Y.Z`.
 [tool.setuptools_scm]

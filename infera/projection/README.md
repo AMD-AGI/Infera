@@ -10,12 +10,12 @@ project TTFT / ITL / throughput / KV-cache for every serving recipe
 
 - `cli.py` — `infera-projection` entry point (inference/serving projection).
 - `_vendor/` — the vendored Primus projection engine and tuning agent. Imports
-  are rewritten to `infera.projection._vendor.primus.*`; nothing depends on an
+  are rewritten to `infera.projection._vendor.projection_core.*`; nothing depends on an
   installed `primus`. The Megatron/training closure is intentionally **not**
   vendored (the inference path never needs it).
 - `examples/exp_pretrain.yaml` — an example model/experiment config. The model
   preset is selected via `PRIMUS_MODEL` and resolved from the vendored
-  `_vendor/primus/configs/` preset tree.
+  `_vendor/projection_core/configs/` preset tree.
 
 ## Install
 
@@ -142,4 +142,4 @@ ordering. Pure-TP recipes self-anchor at the target TP.
 
 `infera-tuning` runs a deterministic seed sweep then a DSPy planner/RLM loop
 that proposes recipes and scores them through the projector — no GPU in the
-default path. See `_vendor/primus/agents/tuning_agent/`.
+default path. See `_vendor/projection_core/agents/tuning_agent/`.
