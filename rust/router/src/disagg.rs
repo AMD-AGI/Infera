@@ -541,7 +541,7 @@ async fn open_decode(
                         "decode {} error {}: {}",
                         d.worker.worker_id,
                         st.as_u16(),
-                        &txt[..txt.len().min(300)]
+                        truncate_chars(&txt, 300)
                     ));
                 }
                 state.breaker.record_success(&d.worker.worker_id);

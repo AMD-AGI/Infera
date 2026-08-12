@@ -36,6 +36,10 @@ pub const KV_EVENTS_SUBJECT_PREFIX: &str = "infera.kv.events";
 pub const KV_EVENTS_STREAM: &str = "INFERA_KV_EVENTS";
 pub const KV_VIEW_BUCKET: &str = "infera_kv_view";
 
+/// How long a connection has to last before it counts as healthy, resetting
+/// the reconnect backoff.
+const HEALTHY_CONNECTION: Duration = Duration::from_secs(60);
+
 /// `infera.kv.events.<token>.<rank>` -> (worker_id, rank).
 pub fn parse_kv_subject(subject: &str) -> Option<(String, i64)> {
     let rest = subject
@@ -72,6 +76,7 @@ pub async fn run(client: Arc<KvEventClient>, url: Option<&str>) -> Result<()> {
     let shown = crate::nats_request::redact(&url);
     let mut backoff = Duration::from_secs(1);
     loop {
+        let started = tokio::time::Instant::now();
         match feed_once(client.clone(), &url, &shown).await {
             Ok(()) => tracing::warn!(
                 "kv events (nats): the event stream ended; reconnecting in {}s",
@@ -81,6 +86,14 @@ pub async fn run(client: Arc<KvEventClient>, url: Option<&str>) -> Result<()> {
                 "kv events (nats): {e:#}; reconnecting in {}s",
                 backoff.as_secs()
             ),
+        }
+        // A connection that lasted is evidence the broker is healthy, so the
+        // next interruption should not inherit the backoff a start-up flap
+        // built up. Without this a few early retries pin it at 30s for the
+        // life of the process, and every later reconnect blinds kv-aware for
+        // that long.
+        if started.elapsed() >= HEALTHY_CONNECTION {
+            backoff = Duration::from_secs(1);
         }
         tokio::time::sleep(backoff).await;
         backoff = (backoff * 2).min(Duration::from_secs(30));
@@ -102,22 +115,33 @@ async fn feed_once(client: Arc<KvEventClient>, url: &str, shown: &str) -> Result
         tracing::warn!("kv events (nats): could not create the event stream: {e:#}");
     }
 
+    tracing::info!("kv events (nats): subscribed {KV_EVENTS_SUBJECT_PREFIX}.> at {shown}");
     // The bucket bootstrap runs alongside the replay rather than before it:
     // waiting would delay live deltas, and the seeding rule (only where there
     // is no incremental view) makes the order harmless.
+    //
+    // It retries on its own rather than ending the connection, because the two
+    // are not equally important: the event stream is the authoritative,
+    // ordered source, and the bucket only shortcuts a cold start. Tying them
+    // together would let a transient bucket error throw away a healthy event
+    // subscription and force a full replay.
     let bucket = tokio::spawn({
         let client = client.clone();
         let js = js.clone();
         async move {
-            if let Err(e) = watch_bucket(client, js).await {
-                tracing::warn!("kv events (nats): bucket bootstrap ended: {e:#}");
+            let mut backoff = Duration::from_secs(1);
+            loop {
+                if let Err(e) = watch_bucket(client.clone(), js.clone()).await {
+                    tracing::warn!("kv events (nats): bucket watch: {e:#}");
+                }
+                tokio::time::sleep(backoff).await;
+                backoff = (backoff * 2).min(Duration::from_secs(30));
             }
         }
     });
 
-    tracing::info!("kv events (nats): subscribed {KV_EVENTS_SUBJECT_PREFIX}.> at {shown}");
     let outcome = consume_events(client, js).await;
-    // The next attempt starts its own; leaving this one would double-apply
+    // The next connection starts its own; leaving this one would double-apply
     // every bucket update.
     bucket.abort();
     outcome

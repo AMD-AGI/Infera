@@ -53,7 +53,16 @@ pub fn make_client(timeout: Option<Duration>) -> Result<reqwest::Client> {
     // rotation the file holds both, and taking only the first would reject
     // whichever one the API server is currently presenting.
     if let Ok(pem) = std::fs::read(format!("{SA_DIR}/ca.crt")) {
-        for cert in reqwest::Certificate::from_pem_bundle(&pem).context("parsing the cluster CA")? {
+        let certs =
+            reqwest::Certificate::from_pem_bundle(&pem).context("parsing the cluster CA")?;
+        // A bundle with nothing in it parses fine -- unrecognised sections are
+        // skipped -- and would leave the client with no cluster CA at all.
+        // Failing here names the cause; carrying on turns it into every API
+        // call failing later on an unknown issuer.
+        if certs.is_empty() {
+            anyhow::bail!("{SA_DIR}/ca.crt contains no certificates");
+        }
+        for cert in certs {
             builder = builder.add_root_certificate(cert);
         }
     }

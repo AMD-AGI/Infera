@@ -312,6 +312,7 @@ impl NatsRequestClient {
                 Some(tokio::time::Instant::now() + self.max_duration)
             },
             max_duration: self.max_duration,
+            idle_since: tokio::time::Instant::now(),
             finished: false,
             terminal_frame_seen: false,
         })
@@ -325,20 +326,24 @@ enum Skip {
     NotAReply,
 }
 
-/// Whether a payload is JetStream's `{"stream":..,"seq":..}` storage ack.
+/// Whether a payload is a JetStream publish acknowledgement rather than a
+/// worker's reply.
 ///
-/// Deliberately narrow: only a body with both fields and nothing a worker would
-/// send. A worker reply is either the engine's bytes or an error string, and an
-/// engine answering with exactly this shape and no `rs-type` header is not a
-/// case worth trading correctness for.
+/// Both forms count. A success is `{"stream":..,"seq":..}`; a refusal carries
+/// an `error` object and no sequence at all, which is the case where treating
+/// it as data would hand the client a JetStream error document as the start of
+/// its response.
+///
+/// No length ceiling: an ack with a long `domain` would slip past one, and the
+/// `rs-type` check above already keeps this off the path for every real reply.
 fn is_jetstream_ack(payload: &[u8]) -> bool {
-    if payload.len() > 256 {
-        return false;
-    }
-    match serde_json::from_slice::<serde_json::Value>(payload) {
-        Ok(v) => v.get("stream").is_some_and(|s| s.is_string()) && v.get("seq").is_some(),
-        Err(_) => false,
-    }
+    let v: serde_json::Value = match serde_json::from_slice(payload) {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
+    let success = v.get("stream").is_some_and(|s| s.is_string()) && v.get("seq").is_some();
+    let refusal = v.get("error").is_some_and(|e| e.is_object());
+    success || refusal
 }
 
 /// The reply side of one request. Dropping it before the stream finished tells
@@ -349,6 +354,10 @@ pub struct ReplyStream {
     worker_id: String,
     nc: async_nats::Client,
     idle_timeout: Duration,
+    /// When the idle window started: the last time a frame reached the caller.
+    /// Held here rather than restarted per read so that skipping a message
+    /// cannot extend it.
+    idle_since: tokio::time::Instant,
     deadline: Option<tokio::time::Instant>,
     max_duration: Duration,
     /// Nothing more can be read. Set by every terminal path, including the
@@ -365,12 +374,18 @@ impl ReplyStream {
     /// Next frame, or a synthesised error frame when a deadline expires.
     /// Returns `None` only if the subscription ends without a terminal frame.
     pub async fn next(&mut self) -> Option<Frame> {
-        // Loops only to skip messages that are not worker replies at all; every
-        // other path returns. The deadlines are recomputed each time round, so
-        // a skipped message cannot extend them.
+        // Loops only to skip messages that were never worker replies; every
+        // other path returns. Both deadlines are measured from `idle_since`
+        // and the total's absolute instant, neither of which a skipped message
+        // resets -- so a peer that keeps publishing them cannot hold the
+        // request open, which is what a per-iteration timeout would have let
+        // it do.
         loop {
             match self.next_inner().await {
-                Skip::Frame(f) => return f,
+                Skip::Frame(f) => {
+                    self.idle_since = tokio::time::Instant::now();
+                    return f;
+                }
                 Skip::NotAReply => continue,
             }
         }
@@ -381,8 +396,12 @@ impl ReplyStream {
             return Skip::Frame(None);
         }
         // Budget is the smaller of the idle gap and whatever is left of the
-        // total, so whichever deadline is nearer fires first.
-        let idle = (!self.idle_timeout.is_zero()).then_some(self.idle_timeout);
+        // total, so whichever deadline is nearer fires first. The idle part is
+        // what remains of the window since the last frame reached the caller,
+        // not a fresh window per read -- otherwise skipping a message would
+        // silently extend it.
+        let idle = (!self.idle_timeout.is_zero())
+            .then(|| self.idle_timeout.saturating_sub(self.idle_since.elapsed()));
         let total_left = self
             .deadline
             .map(|d| d.saturating_duration_since(tokio::time::Instant::now()));
@@ -561,6 +580,14 @@ mod tests {
         assert!(is_jetstream_ack(
             br#"{"stream":"X","seq":1,"domain":"hub"}"#
         ));
+        // A refusal carries no sequence at all. Read as data it would hand the
+        // client a JetStream error document as the start of its response.
+        assert!(is_jetstream_ack(
+            br#"{"type":"io.nats.jetstream.api.v1.pub_ack_response","error":{"code":400}}"#
+        ));
+        // Long enough to have slipped past the old 256-byte ceiling.
+        let padded = format!(r#"{{"stream":"S","seq":1,"domain":"{}"}}"#, "d".repeat(300));
+        assert!(is_jetstream_ack(padded.as_bytes()));
 
         // Real replies must never be swallowed.
         assert!(!is_jetstream_ack(br#"{"id":"x","choices":[]}"#));

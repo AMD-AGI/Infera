@@ -27,10 +27,18 @@ use infera_router::kv_event_nats::{self, KV_EVENTS_SUBJECT_PREFIX, KV_VIEW_BUCKE
 use infera_router::pool::Worker;
 use rmpv::Value as Mv;
 
-fn broker_url() -> Option<String> {
+/// These need a live broker, so they are `#[ignore]`d: a test that silently
+/// returns would be reported as passing, and these are what guard the fixes
+/// nothing else can reach -- the subject encoding, the replay policy, that a
+/// timeout cancels its worker, that admission fails open. `cargo test` prints
+/// them as ignored, which is a truthful "not run".
+///
+///     INFERA_TEST_NATS=nats://127.0.0.1:4222 cargo test -- --ignored
+fn broker_url() -> String {
     std::env::var("INFERA_TEST_NATS")
         .ok()
         .filter(|s| !s.is_empty())
+        .expect("set INFERA_TEST_NATS to a reachable broker to run the ignored tests")
 }
 
 fn worker(id: &str, block_size: i64) -> Worker {
@@ -54,6 +62,24 @@ fn block_stored(hashes: &[u64], parent: Option<u64>, token_ids: &[u32], bs: i64)
 
 /// `KVEventBatch = [ts, events, attn_dp_rank?]` -- msgspec `array_like`, the
 /// same shape the ZMQ test builds.
+/// The event stream, with the configuration the router and the relay both
+/// create it with. Idempotent, so it does not matter who gets there first.
+async fn ensure_event_stream(js: &async_nats::jetstream::Context) {
+    let cfg = Config {
+        name: kv_event_nats::KV_EVENTS_STREAM.to_string(),
+        subjects: vec![format!("{KV_EVENTS_SUBJECT_PREFIX}.>")],
+        retention: RetentionPolicy::Limits,
+        storage: StorageType::File,
+        discard: DiscardPolicy::Old,
+        max_bytes: 256 * 1024 * 1024,
+        max_messages: 1_000_000,
+        ..Default::default()
+    };
+    if js.create_stream(cfg.clone()).await.is_err() {
+        js.update_stream(&cfg).await.expect("event stream");
+    }
+}
+
 fn batch(events: Vec<Mv>) -> Vec<u8> {
     let v = Mv::Array(vec![Mv::from(0.0_f64), Mv::Array(events)]);
     let mut buf = Vec::new();
@@ -62,14 +88,9 @@ fn batch(events: Vec<Mv>) -> Vec<u8> {
 }
 
 #[tokio::test]
+#[ignore = "needs a broker: INFERA_TEST_NATS"]
 async fn a_published_batch_reaches_the_cache_view() {
-    let url = match broker_url() {
-        Some(u) => u,
-        None => {
-            eprintln!("skipping: set INFERA_TEST_NATS to a reachable broker");
-            return;
-        }
-    };
+    let url = broker_url();
     let wid = format!("10.0.0.1:{}", 9000 + (std::process::id() % 500));
     let token = URL_SAFE_NO_PAD.encode(wid.as_bytes());
 
@@ -79,6 +100,11 @@ async fn a_published_batch_reaches_the_cache_view() {
     // messages would build an empty view for a worker that had already cached.
     let nc = async_nats::connect(&url).await.expect("connect");
     let js = async_nats::jetstream::new(nc.clone());
+    // A worker's relay creates this in production, and the router creates it
+    // too -- but neither has run yet here, and publishing to a subject no
+    // stream captures is rejected. Without this the test only passed on a
+    // broker where an earlier run had left the stream behind.
+    ensure_event_stream(&js).await;
     let subject = format!("{KV_EVENTS_SUBJECT_PREFIX}.{token}.0");
     js.publish(
         subject.clone(),
@@ -139,14 +165,9 @@ async fn a_published_batch_reaches_the_cache_view() {
 /// gates the mixed path too, getting it wrong would refuse every request in the
 /// fleet.
 #[tokio::test]
+#[ignore = "needs a broker: INFERA_TEST_NATS"]
 async fn admission_admits_when_the_backlog_cannot_be_measured() {
-    let url = match broker_url() {
-        Some(u) => u,
-        None => {
-            eprintln!("skipping: set INFERA_TEST_NATS to a reachable broker");
-            return;
-        }
-    };
+    let url = broker_url();
     let wid = "10.0.3.1:9000";
 
     // Throttle off: no JetStream, nothing to measure, everything admitted.
@@ -175,14 +196,9 @@ async fn admission_admits_when_the_backlog_cannot_be_measured() {
 /// is already discarded. That is the entire reason the deadlines exist, so the
 /// cancel has to go out on the timeout path, not only when a client hangs up.
 #[tokio::test]
+#[ignore = "needs a broker: INFERA_TEST_NATS"]
 async fn a_timed_out_request_cancels_the_worker() {
-    let url = match broker_url() {
-        Some(u) => u,
-        None => {
-            eprintln!("skipping: set INFERA_TEST_NATS to a reachable broker");
-            return;
-        }
-    };
+    let url = broker_url();
     let wid = format!("10.0.2.1:{}", 9000 + (std::process::id() % 500));
 
     // Watch for the cancel the router should publish.
@@ -229,14 +245,9 @@ async fn a_timed_out_request_cancels_the_worker() {
 }
 
 #[tokio::test]
+#[ignore = "needs a broker: INFERA_TEST_NATS"]
 async fn the_bucket_bootstraps_a_cold_start_without_clobbering_a_live_view() {
-    let url = match broker_url() {
-        Some(u) => u,
-        None => {
-            eprintln!("skipping: set INFERA_TEST_NATS to a reachable broker");
-            return;
-        }
-    };
+    let url = broker_url();
     let wid = format!("10.0.1.1:{}", 9000 + (std::process::id() % 500));
     let token = URL_SAFE_NO_PAD.encode(wid.as_bytes());
 

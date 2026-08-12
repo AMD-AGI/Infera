@@ -348,7 +348,7 @@ fn handle_pod(pod: &Value, deleted: bool, tracked: &mut HashMap<String, Tracked>
     let existed = tracked.contains_key(&name);
     let unchanged = tracked
         .get(&name)
-        .is_some_and(|t| !t.announced && same_worker(&t.worker, &worker));
+        .is_some_and(|t| !t.announced && *t.worker == worker);
     if unchanged {
         // Pods generate MODIFIED events for things the router does not care
         // about -- status conditions, resourceVersion bumps on every heartbeat
@@ -371,28 +371,6 @@ fn handle_pod(pod: &Value, deleted: bool, tracked: &mut HashMap<String, Tracked>
         },
     );
     true
-}
-
-/// Whether a re-registration carries anything the router acts on.
-///
-/// `disagg_meta` counts: it carries the prefill worker's bootstrap address, so
-/// an engine that restarted on a new port inside an otherwise unchanged Pod
-/// would keep the old one here and every PD handoff would go to an address
-/// nobody is listening on. `engine` counts for the same reason -- it selects
-/// the PD protocol.
-fn same_worker(a: &Worker, b: &Worker) -> bool {
-    a.worker_id == b.worker_id
-        && a.url == b.url
-        && a.model_name == b.model_name
-        && a.engine == b.engine
-        && a.status == b.status
-        && a.disagg_mode == b.disagg_mode
-        && a.disagg_meta == b.disagg_meta
-        && a.kv_events_endpoint == b.kv_events_endpoint
-        && a.kv_block_size == b.kv_block_size
-        && a.dp_rank == b.dp_rank
-        && a.dp_size == b.dp_size
-        && a.request_transport == b.request_transport
 }
 
 fn publish(
