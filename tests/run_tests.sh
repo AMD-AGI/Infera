@@ -199,10 +199,17 @@ _default_partition() {
 SLURM_PART="${INFERA_E2E_SLURM_PARTITION:-$(_default_partition)}"
 SLURM_PART="${SLURM_PART:-amd-spur}"
 SLURM_TIME="${INFERA_E2E_SLURM_TIME:-02:00:00}"
-# Burst QoS is a fallback, never used up front: a dispatch queued this long on
-# the group node limit is resubmitted with it (see _watch_job / _dispatch_slurm).
+# Burst QoS is a fallback, never used up front: a dispatch still queued after
+# QOS_WAIT is cancelled and resubmitted with it, once (see _dispatch_slurm).
 QOS_FALLBACK="${INFERA_E2E_SLURM_QOS_FALLBACK:-amd-burst-qos}"
-QOS_WAIT="${INFERA_E2E_QOS_WAIT:-30}"
+# Remembered across _hold_pair calls: the group node limit belongs to the run,
+# not to the pair being tried, so a per-call array spends HOLD_WAIT rediscovering
+# the same answer on every round of the outer retry loop.
+_HOLD_QOS=()
+# How long a dispatch may sit queued before it is retried on QOS_FALLBACK. Timed
+# rather than matched on a reason: one group node limit reads QOSGrpNodeLimit when
+# the job names its nodes and plain None when it does not.
+QOS_WAIT="${INFERA_E2E_QOS_WAIT:-120}"
 # _hold_pair's own window: its -N2 --gres=gpu:8 batch job needs longer to start
 # than a single-node srun, and giving up early only churns the pair-hold race.
 HOLD_WAIT="${INFERA_E2E_HOLD_WAIT:-60}"
@@ -227,16 +234,18 @@ _skip_or_fail() {
 
 _have_slurm() { command -v srun >/dev/null 2>&1; }
 # The nodes reservation $1 covers, one per line. Non-zero means the QUERY failed;
-# exit 0 with no output means the reservation genuinely is not there. Spur keeps
-# the two separable: it ignores the NAME arg and dumps every reservation, so a
-# missing name still exits 0 and the awk below simply matches nothing.
+# exit 0 with no output means the reservation genuinely is not there. Callers act
+# on that distinction, and naming the reservation destroys it: `scontrol show
+# reservation NAME` exits 1 for a name that is not there, the same status an
+# unreachable controller gives. Asking for all of them exits 0 whenever the
+# controller answered, and the awk below already filters by name.
 # Capture before parsing: under pipefail a later stage's status would otherwise
-# masquerade as a failed query, and callers now act on that distinction.
+# masquerade as a failed query.
 _reservation_nodes() {
   local out
   # Forward scontrol's own words: callers can only say "cannot reach the
   # scheduler", which is not enough to act on.
-  out=$(scontrol show reservation "$1" 2>&1) || { printf '%s\n' "$out" >&2; return 1; }
+  out=$(scontrol show reservation 2>&1) || { printf '%s\n' "$out" >&2; return 1; }
   printf '%s\n' "$out" | awk -v r="ReservationName=$1" '
     BEGIN{RS="";FS="\n"}
     $1==r { for(i=1;i<=NF;i++) if($i ~ /Nodes=/){ n=$i; sub(/.*Nodes=/,"",n); sub(/[[:space:]].*/,"",n); print n; exit } }' \
@@ -245,14 +254,20 @@ _reservation_nodes() {
 # Ask the NODE, not squeue: a multi-node job's %N is a compacted hostlist
 # (crsuse2-m2m-[090,183]) holding neither full name, and Spur has no `scontrol
 # show hostnames`. Unreadable => busy, never hand out what we cannot verify.
+# Allocation is only half of "free": Spur leaves a node inside another team's
+# reservation reading State=IDLE with CPUAlloc=0, and puts the membership in
+# ActiveReservation instead. sbatch then refuses it with ReqNodeNotAvail.
 _node_free() {
-  local alloc
-  alloc=$(scontrol show node "$1" 2>/dev/null | grep -oE 'CPUAlloc=[0-9]+' | head -1 | cut -d= -f2)
-  [ -n "$alloc" ] && [ "$alloc" -eq 0 ] 2>/dev/null
+  local out alloc resv
+  out=$(scontrol show node "$1" 2>/dev/null) || return 1
+  alloc=$(printf '%s\n' "$out" | grep -oE 'CPUAlloc=[0-9]+' | head -1 | cut -d= -f2)
+  [ -n "$alloc" ] && [ "$alloc" -eq 0 ] 2>/dev/null || return 1
+  resv=$(printf '%s\n' "$out" | grep -oE 'ActiveReservation=[^[:space:]]+' | head -1 | cut -d= -f2)
+  [ -z "$resv" ] || [ "$resv" = "${INFERA_E2E_RESERVATION:-}" ]
 }
-# Free nodes for the PD-disagg pair, one per line: the reservation's own (a
-# reserved node reads 'resv', never 'idle', so sinfo would miss it), else the
-# partition's idle ones.
+# Free nodes for the PD-disagg pair, one per line: the reservation's own, else
+# the partition's idle ones. Both go through _node_free, which is what keeps
+# another team's reserved nodes out of the second list.
 _candidate_nodes() {
   local n nodes=""
   if [ -n "${INFERA_E2E_RESERVATION:-}" ]; then
@@ -260,10 +275,8 @@ _candidate_nodes() {
     # through would hand the PD pair unreserved nodes off the open partition.
     nodes=$(_reservation_nodes "$INFERA_E2E_RESERVATION") || return 0
   fi
-  if [ -z "$nodes" ]; then
-    sinfo -h -N -p "$SLURM_PART" -t idle -o '%n' 2>/dev/null | awk 'NF && !seen[$0]++'
-    return
-  fi
+  [ -n "$nodes" ] ||
+    nodes=$(sinfo -h -N -p "$SLURM_PART" -t idle -o '%n' 2>/dev/null | awk 'NF && !seen[$0]++')
   for n in $nodes; do
     _node_free "$n" && echo "$n"
   done
@@ -309,14 +322,14 @@ _rival_holder() {
 # The caller reports 1 and 2 differently: they used to read alike, so a refused
 # sbatch was announced as a lost race and pointed triage away from the scheduler.
 _hold_pair() {
-  local pair="$1" script="$SCRATCH/hold.sh" jid st rs waited qos=() i other
+  local pair="$1" script="$SCRATCH/hold.sh" jid st rs waited i other
   # A real script file, not --wrap: on Spur --wrap always NODE_FAILs at -N2.
   printf '#!/bin/bash\nsleep %s\n' "${INFERA_E2E_HOLD_SLEEP:-10800}" > "$script"
   for i in 1 2 3; do
     jid=$(sbatch --parsable -N2 -n2 -w "$pair" --gres=gpu:8 -p "$SLURM_PART" \
       -t "$SLURM_TIME" -J "infera-ci-hold-${INFERA_E2E_JOB_TAG:-local}" \
       ${INFERA_E2E_RESERVATION:+--reservation="$INFERA_E2E_RESERVATION"} \
-      "${qos[@]}" "$script" 2>/dev/null) || continue
+      "${_HOLD_QOS[@]}" "$script" 2>/dev/null) || continue
     waited=0
     while [ "$waited" -lt "$HOLD_WAIT" ]; do
       st=$(scontrol show job "$jid" 2>/dev/null | grep -oE 'JobState=[A-Z_]+' | cut -d= -f2)
@@ -336,7 +349,7 @@ _hold_pair() {
     done
     # Read the reason BEFORE cancelling; the burst QoS is the way past a group
     # node limit, and a launch failure is Spur being flaky — both just retry.
-    [ "${#qos[@]}" -eq 0 ] && [ "${rs#QOSGrp}" != "$rs" ] && qos=(-q "$QOS_FALLBACK")
+    [ "${#_HOLD_QOS[@]}" -eq 0 ] && [ "${rs#QOSGrp}" != "$rs" ] && _HOLD_QOS=(-q "$QOS_FALLBACK")
     scancel "$jid" >/dev/null 2>&1
     echo "[e2e disagg] hold attempt $i on $pair not started (${st:-?}/${rs:-?}) — retrying" >&2
   done
@@ -391,10 +404,17 @@ _watch_job() {
     state=$(squeue -h -j "$jid" -o '%T' 2>/dev/null)
     reason=$(squeue -h -j "$jid" -o '%r' 2>/dev/null)
     [ "$state" = "PENDING" ] || continue
-    if [ "$reason" = "JobHoldMaxRequeue" ]; then
-      : > "$hold"; scancel "$jid" >/dev/null 2>&1; return
-    fi
-    if [ "$reason" = "QOSGrpNodeLimit" ] && [ "$waited" -ge "$QOS_WAIT" ]; then
+    # Neither clears on its own, and JobLaunchFailure names no node -- squeue and
+    # scontrol both leave the node list empty -- so cancelling and letting the
+    # scheduler choose again is the only move. Trailing * because %r appends the
+    # detail: "JobLaunchFailure (dispatch confirmation failed: 0 of 1 confirmed)".
+    case "$reason" in
+      JobHoldMaxRequeue* | JobLaunchFailure*)
+        printf '%s\n' "${reason%% (*}" > "$hold"; scancel "$jid" >/dev/null 2>&1; return ;;
+    esac
+    # Timed, and armed only while the caller has somewhere to escape to: see
+    # QOS_WAIT, and $qwatch in _dispatch_slurm.
+    if [ -n "$qos" ] && [ "$waited" -ge "$QOS_WAIT" ]; then
       : > "$qos"; scancel "$jid" >/dev/null 2>&1; return
     fi
     if [ "$waited" -ge "$next" ]; then
@@ -483,34 +503,34 @@ _dispatch_slurm() {
         -J "$jobname" "${xflag[@]}" "${resv[@]}" "${qos[@]}" \
         "${remote[@]}" > "$out" 2>&1 &
     local srunpid=$!
-    _watch_job "$out" "$holdflag" "$qosflag" "$label" &
+    # Empty once switched: burst is where the escape leads, so queueing there is
+    # just queueing and the job timeout is the backstop.
+    local qwatch="$qosflag"; [ "${#qos[@]}" -gt 0 ] && qwatch=""
+    _watch_job "$out" "$holdflag" "$qwatch" "$label" &
     local holdpid=$!
     wait "$srunpid"; prc=$?
     kill "$holdpid" 2>/dev/null; wait "$holdpid" 2>/dev/null
     # Let tail catch the final (NFS-propagated) lines before stopping it.
     sleep 3; kill "$tailpid" 2>/dev/null; wait "$tailpid" 2>/dev/null
     [ "$prc" -eq 0 ] && break
-    # Held job: the watchdog already cancelled it — resubmit without burning a
-    # real attempt, and fail the tier once the hold retries are exhausted.
+    # The watchdog already cancelled it — resubmit without burning a real
+    # attempt, and fail the tier once these retries are exhausted.
     if [ -f "$holdflag" ]; then
       held=$((held + 1)); prc=1
+      local why; why=$(cat "$holdflag" 2>/dev/null)
       if [ "$held" -ge "$max_held" ]; then
-        echo "[$label] job stuck in JobHoldMaxRequeue after $held retries — giving up" >&2
+        echo "[$label] job stuck in ${why:-a scheduler hold} after $held retries — giving up" >&2
         break
       fi
-      echo "[$label] job held (JobHoldMaxRequeue) — cancelled, retry $held/$max_held in 5s" >&2
+      echo "[$label] job ${why:-held} — cancelled, retry $held/$max_held in 5s" >&2
       attempt=$((attempt - 1)); sleep 5; continue
     fi
-    # Queued on the group node limit past $QOS_WAIT: the watchdog cancelled it —
-    # resubmit once on the burst QoS (not a real attempt); refused again = fail.
+    # Still queued after $QOS_WAIT: the watchdog cancelled it — resubmit on the
+    # burst QoS, not spending a real attempt.
     if [ -f "$qosflag" ]; then
       prc=1
-      if [ "${#qos[@]}" -gt 0 ]; then
-        echo "[$label] still QOSGrpNodeLimit on --qos=$QOS_FALLBACK — giving up" >&2
-        break
-      fi
       qos=(--qos="$QOS_FALLBACK")
-      echo "[$label] QOSGrpNodeLimit for ${QOS_WAIT}s — resubmitting with --qos=$QOS_FALLBACK" >&2
+      echo "[$label] queued ${QOS_WAIT}s on the default QoS — resubmitting with --qos=$QOS_FALLBACK" >&2
       attempt=$((attempt - 1)); continue
     fi
     # Docker errors land in $logf (shared) or $out (local); "running on <node>"
@@ -720,13 +740,16 @@ run_e2e_disagg() {
         echo "[e2e disagg] WARNING: no 2 free nodes in '$SLURM_PART' within ${INFERA_E2E_WAIT_NODES_TIMEOUT:-6400}s — skipping $e" >&2
         break
       fi
-      # Losing the race is not a node fault, so the pair must NOT join $exclude:
-      # with a small pool the engine would exclude every node and then starve on
-      # an idle cluster. Bounded so a pathological loser fails loudly instead.
+      # Losing the race (1) is not a node fault, so that pair must NOT join
+      # $exclude: with a small pool the engine would exclude every node and then
+      # starve on an idle cluster. SLURM never placing the hold (2) is the
+      # opposite -- a node reading State=IDLE, CPUAlloc=0 and unreserved can still
+      # answer Priority, so re-picking an order-stable list returns the same pair.
       # Not `if ! _hold_pair`: inside that, $? is the negation's, not the call's.
       _hold_pair "$n1,$n2"; hold_rc=$?
       if [ "$hold_rc" -ne 0 ]; then
         races=$((races + 1))
+        [ "$hold_rc" -eq 2 ] && exclude="${exclude:+$exclude,}$n1,$n2"
         if [ "$races" -ge "$max_races" ]; then
           if [ "$hold_rc" -eq 2 ]; then
             echo "[e2e disagg] SLURM never placed a node hold in $races attempts — giving up on $e" >&2

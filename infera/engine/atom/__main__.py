@@ -91,6 +91,20 @@ async def main() -> None:
         kv_events_endpoint = f"tcp://{advertise_host}:{port}"
         kv_block_size = args.kv_block_size
 
+    # Ionic RoCE-v2 RDMA env defaults for the Mooncake transfer engine
+    # (set-if-unset; an operator/launcher still overrides via env). Must run
+    # BEFORE engine.start() spawns the ATOM subprocess so it's inherited.
+    # Without these the transfer engine silently falls back to TCP.
+    from infera.engine.rocm_rdma_env import (
+        apply_kv_host_ip_default,
+        apply_rocm_rdma_env_defaults,
+    )
+
+    apply_rocm_rdma_env_defaults()
+    # Pin ATOM_HOST_IP to the RDMA rail (else ATOM's get_ip() picks the public NIC
+    # and KV transfer targets the wrong interface). Must follow the GID default.
+    apply_kv_host_ip_default()
+
     # MI325X (gfx942) + DeepSeek-V4: enforce the support matrix (raise on an
     # unsupported quant/engine combo) and apply the fp8 env defaults (Flash also
     # gets MTP CLI). No-op on other arches / non-dsv4 models. Must run before the

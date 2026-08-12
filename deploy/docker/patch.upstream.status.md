@@ -140,11 +140,13 @@ so expect upstream to close this differently than we did.
 ## Mooncake C++ — `patches/mooncake_cpp/`
 
 SGLang now builds Mooncake `faae8dd4` directly and carries no private Mooncake
-source patch. The one file below is still applied by the vLLM build, and must be
-removed there once it enables upstream multi-protocol routing. `Dockerfile.atom`
-copies the patch dir too, but only rebuilds Mooncake under
-`MOONCAKE_HIP_DMABUF=1` — not its default, and nothing in this repo passes it. That
-path is still pinned to `747003c` and would need a validated ref bump before use.
+source patch. The one file below is still applied by the vLLM and ATOM builds, and
+must be removed there once they enable upstream multi-protocol routing.
+
+`Dockerfile.atom` stayed on `747003c` through the retirement of B.1 and B.3 below,
+on the premise that nothing passed the `MOONCAKE_HIP_DMABUF=1` its rebuild was
+gated on; `ci.yml`'s `INFERA_E2E_BUILD_ARGS` reaches every engine's build, and at
+that ref B.1's wiring is absent, so the image failed its own dma-buf assertion.
 
 | patch | fixes | upstream issue | upstream PR | ours? | PR state |
 |---|---|---|---|---|---|
