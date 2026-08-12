@@ -54,8 +54,8 @@ _INFER_SMALL_MSG_BYTES = 2 << 20   # crossover below which the floor applies
 # comm_microbench.py): AllReduce ~26 us, AllToAll ~30 us, both latency-bound and
 # flat across the 6-184 KB / 23-737 KB decode message range. These replace the
 # earlier hand-set 15/18 us guesses. Override via env for other fabrics.
-_INFER_AR_OVERHEAD_US = float(os.getenv("PRIMUS_INFER_AR_FLOOR_US", "26.0") or 26.0)
-_INFER_A2A_OVERHEAD_US = float(os.getenv("PRIMUS_INFER_A2A_FLOOR_US", "30.0") or 30.0)
+_INFER_AR_OVERHEAD_US = float(os.getenv("INFERASIM_INFER_AR_FLOOR_US", "26.0") or 26.0)
+_INFER_A2A_OVERHEAD_US = float(os.getenv("INFERASIM_INFER_A2A_FLOOR_US", "30.0") or 30.0)
 
 
 def deepep_overlap_efficiency(model_config) -> float:

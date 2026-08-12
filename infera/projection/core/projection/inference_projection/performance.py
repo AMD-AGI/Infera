@@ -147,7 +147,7 @@ class InferencePerformanceProjector:
         # (vLLM-fused MoE) TP-scaling ratio — validated to beat a 2-point measured
         # fit at high TP; "fit" forces the measured shardable/invariant fit;
         # "blind" the naive TP^-1. Env override for A/B testing.
-        self._scaling_mode = (os.getenv("PRIMUS_RESTORE_SCALING") or "origami").strip().lower()
+        self._scaling_mode = (os.getenv("INFERASIM_RESTORE_SCALING") or "origami").strip().lower()
         self._lm_ratio_bench = None
 
         # In benchmark mode the projection is driven *entirely* by measured
@@ -213,9 +213,9 @@ class InferencePerformanceProjector:
         # Mirror the routing-imbalance knobs onto the (shared) model_config so the
         # expert-GEMM simulator can apply imbalance *inside* the roofline, per
         # view (EP lives on each view's parallel config). Default ("roofline")
-        # mode; PRIMUS_MOE_IMB_ROOFLINE=0 falls back to the outer multiplier.
+        # mode; INFERASIM_MOE_IMB_ROOFLINE=0 falls back to the outer multiplier.
         self._imb_roofline = os.getenv(
-            "PRIMUS_MOE_IMB_ROOFLINE", "1"
+            "INFERASIM_MOE_IMB_ROOFLINE", "1"
         ).strip().lower() not in ("0", "false", "no")
         try:
             mc.ep_load_balance = float(self.cfg.request_config.ep_load_balance or 1.0)
@@ -550,7 +550,7 @@ class InferencePerformanceProjector:
             for _ph in ("prefill", "decode"):
                 if len(self._meas_whole.get(_ph, [])) < 2:
                     print(
-                        f"[Primus:Inference] WARNING: {_ph} benchmark has a single "
+                        f"[inferasim:Inference] WARNING: {_ph} benchmark has a single "
                         f"batch point — batch transport will hold it flat. Re-run the "
                         f"benchmark with a batch sweep for an accurate {_ph} batch curve."
                     )
@@ -617,10 +617,10 @@ class InferencePerformanceProjector:
         # in ``sim(target)/sim(bench)`` instead of cancelling it.
         self._imb_tgt = self._moe_imbalance
         self._imb_bench = self._moe_imbalance_for_ep(self._bench_ep)
-        # Diagnostic escape hatch: PRIMUS_ORIGAMI_IMB_PERVIEW=0 restores the old
+        # Diagnostic escape hatch: INFERASIM_ORIGAMI_IMB_PERVIEW=0 restores the old
         # behaviour (single target imbalance on both views, which cancels in the
         # ratio) for before/after validation of the per-view fix.
-        if os.getenv("PRIMUS_ORIGAMI_IMB_PERVIEW", "1").strip().lower() in ("0", "false", "no"):
+        if os.getenv("INFERASIM_ORIGAMI_IMB_PERVIEW", "1").strip().lower() in ("0", "false", "no"):
             self._imb_bench = self._moe_imbalance
 
         # Origami-ratio setup: build guaranteed-simulating profiler trees at the
@@ -656,7 +656,7 @@ class InferencePerformanceProjector:
                 self._lm_ratio_bench.set_simulation_backends(self._gemm_sim, self._sdpa_sim)
             except Exception as e:  # pragma: no cover - arch-dependent
                 self._lm_ratio_bench = None
-                print(f"[Primus:Inference] origami-ratio unavailable ({e}); "
+                print(f"[inferasim:Inference] origami-ratio unavailable ({e}); "
                       "falling back to measured fit / blind TP^-1.")
 
     def _comm_model_at_tp(self, tp: int, ep: int, pp: int) -> "InferenceCollectiveModel":
@@ -727,7 +727,7 @@ class InferencePerformanceProjector:
         if (self._scaling_mode == "origami" and self._restore
                 and getattr(self, "_lm_ratio_bench", None) is not None):
             print(
-                f"[Primus:Inference] TP scaling: origami-ratio (simulate vLLM-fused "
+                f"[inferasim:Inference] TP scaling: origami-ratio (simulate vLLM-fused "
                 f"MoE) — scaling measured TP={self._bench_tp} anchor to TP="
                 f"{self._tgt_tp} by sim(target)/sim(bench)."
             )
@@ -740,7 +740,7 @@ class InferencePerformanceProjector:
             tps = sorted((self._bench_scaling_raw.get("decode") or {}).get(batch, {}))
             total = shardable + invariant
             print(
-                f"[Primus:Inference] TP scaling fitted from benchmark TP="
+                f"[inferasim:Inference] TP scaling fitted from benchmark TP="
                 f"{','.join(str(t) for t in tps)} at batch {batch}: "
                 f"{shardable:.2f} ms shardable + {invariant:.2f} ms TP-invariant"
                 f" ({invariant / total * 100:.0f}% does not shrink with TP)"
@@ -753,7 +753,7 @@ class InferencePerformanceProjector:
             max_tp = max(tps) if tps else self._bench_tp
             if self._tgt_tp > max_tp:
                 print(
-                    f"[Primus:Inference] WARNING: target TP={self._tgt_tp} is ABOVE the "
+                    f"[inferasim:Inference] WARNING: target TP={self._tgt_tp} is ABOVE the "
                     f"measured range (TP<={max_tp}); this decode step is EXTRAPOLATED and "
                     f"tends to under-predict latency / over-predict throughput. Add a "
                     f"benchmark at TP>={self._tgt_tp} to make it exact."
@@ -761,7 +761,7 @@ class InferencePerformanceProjector:
             return
         if self._bench_tp != self._tgt_tp:
             print(
-                f"[Primus:Inference] WARNING: restoring benchmark TP="
+                f"[inferasim:Inference] WARNING: restoring benchmark TP="
                 f"{self._bench_tp} to TP={self._tgt_tp} assuming the whole step is"
                 " TP-shardable and scales as TP^-1. Real decode steps keep a"
                 " TP-invariant remainder, so this under-predicts step latency."
@@ -897,7 +897,7 @@ class InferencePerformanceProjector:
         if self._scaling_mode == "origami":
             r = self._origami_ratio(batch, tokens, phase)
             if r is not None and r > 0.0:
-                if os.getenv("PRIMUS_DEBUG_RESTORE"):
+                if os.getenv("INFERASIM_DEBUG_RESTORE"):
                     print(f"[dbg-restore] phase={phase} b={batch} ratio={r:.4f} "
                           f"ms_bench={ms_bench:.3f} restored={ms_bench * r:.3f}")
                 return ms_bench * r
@@ -1037,8 +1037,8 @@ class InferencePerformanceProjector:
             # sweep show the exposed decode A2A is near-zero, not the ~30us
             # isolated collective latency; charging it fully makes EP>1 look
             # slower than silicon. The attention TP-AR stays on the configured
-            # ceiling (serial reduction). Toggle: PRIMUS_MOE_A2A_OVERLAP=0.
-            a2a_overlap = os.getenv("PRIMUS_MOE_A2A_OVERLAP", "1") != "0"
+            # ceiling (serial reduction). Toggle: INFERASIM_MOE_A2A_OVERLAP=0.
+            a2a_overlap = os.getenv("INFERASIM_MOE_A2A_OVERLAP", "1") != "0"
             if a2a_overlap and has_moe and moe_compute > 0.0 and new_ep_a2a > 0.0:
                 keep_a2a = 1.0 - min(1.0, moe_compute / new_ep_a2a)
             else:

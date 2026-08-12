@@ -192,7 +192,7 @@ def _reduce_parallelism(target_tp, target_pp, target_ep, benchmark_gpus):
     return bench_tp, bench_pp, bench_ep
 
 
-_ZIPF_MARKER = "PRIMUS_ZIPF_ROUTING"
+_ZIPF_MARKER = "INFERASIM_ZIPF_ROUTING"
 # Bump when the injected strategy changes; the installer replaces older blocks.
 _ZIPF_VERSION = "v2-pooled"
 
@@ -211,7 +211,7 @@ class _PrimusZipfRouting(RoutingStrategy):
     subset of experts are triggered. This reflects production routing far better
     than uniform-random selection on dummy weights, where (a) every expert tends
     to get ~equal load and (b) the grouped/sorted MoE GEMM problem sizes are
-    unrepresentative. ``s`` (PRIMUS_ZIPF_S) controls the skew (s=0 -> uniform).
+    unrepresentative. ``s`` (INFERASIM_ZIPF_S) controls the skew (s=0 -> uniform).
     """
 
     def __init__(self, s: float = 1.0, seed: int = 1234):
@@ -239,7 +239,7 @@ class _PrimusZipfRouting(RoutingStrategy):
         key = (num_experts, top_k, str(device))
         got = self._pools.get(key)
         if got is None:
-            rows = int(_primus_os.environ.get("PRIMUS_ROUTING_POOL", "65536"))
+            rows = int(_primus_os.environ.get("INFERASIM_ROUTING_POOL", "65536"))
             rows = max(rows, 8192)
             probs = self._probs(num_experts, device)
             ids = _primus_torch.multinomial(
@@ -283,7 +283,7 @@ class _PrimusZipfRouting(RoutingStrategy):
 
 
 RoutingSimulator.register_strategy(
-    "zipf", _PrimusZipfRouting(s=float(_primus_os.environ.get("PRIMUS_ZIPF_S", "1.0")))
+    "zipf", _PrimusZipfRouting(s=float(_primus_os.environ.get("INFERASIM_ZIPF_S", "1.0")))
 )
 # === END {marker} ===
 '''.format(marker=_ZIPF_MARKER, version=_ZIPF_VERSION)
@@ -300,7 +300,7 @@ def _install_zipf_routing(zipf_s: float) -> bool:
     """
     import importlib.util
 
-    os.environ["PRIMUS_ZIPF_S"] = str(zipf_s)
+    os.environ["INFERASIM_ZIPF_S"] = str(zipf_s)
     spec = importlib.util.find_spec(
         "vllm.model_executor.layers.fused_moe.router.routing_simulator_router"
     )
@@ -540,16 +540,16 @@ def run_vllm_benchmark(args) -> dict:
             zipf_s = _s_for_imbalance(n_experts, float(imbalance_target))
             imbalance_realized = _imbalance_for_s(n_experts, zipf_s)
             routing = "zipf"
-            print(f"[Primus:Inference:vLLM-Benchmark] MoE imbalance "
+            print(f"[inferasim:Inference:vLLM-Benchmark] MoE imbalance "
                   f"I={float(imbalance_target):.2f} -> zipf s={zipf_s:.3f} "
                   f"(N={n_experts} experts, realized I={imbalance_realized:.2f})")
         else:
-            print("[Primus:Inference:vLLM-Benchmark] WARNING: could not read "
+            print("[inferasim:Inference:vLLM-Benchmark] WARNING: could not read "
                   "expert count; falling back to --zipf-s")
     if routing == "zipf":
         if _install_zipf_routing(zipf_s):
             routing_applied = f"zipf(s={zipf_s})"
-            print(f"[Primus:Inference:vLLM-Benchmark] MoE routing = {routing_applied}")
+            print(f"[inferasim:Inference:vLLM-Benchmark] MoE routing = {routing_applied}")
     elif routing in ("uniform", "uniform_random"):
         os.environ["VLLM_MOE_ROUTING_SIMULATION_STRATEGY"] = "uniform_random"
         routing_applied = "uniform_random"
@@ -616,7 +616,7 @@ def run_vllm_benchmark(args) -> dict:
     )
     reduced_parallelism = (bench_tp, bench_pp, bench_ep) != (target_tp, target_pp, target_ep)
     if reduced_parallelism:
-        print(f"[Primus:Inference:vLLM-Benchmark] REDUCE PARALLELISM (pp->ep->tp) to fit "
+        print(f"[inferasim:Inference:vLLM-Benchmark] REDUCE PARALLELISM (pp->ep->tp) to fit "
               f"{benchmark_gpus} GPU(s): TP {target_tp}->{bench_tp}, EP {target_ep}->{bench_ep}, "
               f"PP {target_pp}->{bench_pp} (performance.py restores to target)")
 
@@ -641,7 +641,7 @@ def run_vllm_benchmark(args) -> dict:
         # ROCm GPU-subset topologies (``allocate_shared_buffer_and_handle`` ->
         # HIP invalid argument), e.g. a 4-GPU subset while another tenant holds a
         # GPU. Opt-in fallback to NCCL all-reduce via env, no-op otherwise.
-        if os.environ.get("PRIMUS_BENCH_DISABLE_CAR"):
+        if os.environ.get("INFERASIM_BENCH_DISABLE_CAR"):
             kwargs["disable_custom_all_reduce"] = True
         # Expert parallelism: shard MoE experts across the TP ranks (EP = TP)
         # instead of tensor-slicing each expert. Required to expose the
@@ -683,7 +683,7 @@ def run_vllm_benchmark(args) -> dict:
                 entry["seed"] = sd
                 raw.append(entry)
                 if len(seeds) > 1:
-                    print(f"[Primus:Inference:vLLM-Benchmark]   batch={b} seed={sd} "
+                    print(f"[inferasim:Inference:vLLM-Benchmark]   batch={b} seed={sd} "
                           f"prefill={entry['prefill_ms']:.2f}ms "
                           f"decode_step={entry['decode_ms']:.2f}ms")
         sweep = []
@@ -710,7 +710,7 @@ def run_vllm_benchmark(args) -> dict:
             sweep.append(entry)
             spread = (f" (+/-{entry['decode_ms_std']:.2f} over {len(dvals)} seeds)"
                       if len(dvals) > 1 else "")
-            print(f"[Primus:Inference:vLLM-Benchmark] batch={b} "
+            print(f"[inferasim:Inference:vLLM-Benchmark] batch={b} "
                   f"prefill={entry['prefill_ms']:.2f}ms "
                   f"decode_step={entry['decode_ms']:.2f}ms{spread}")
         return sweep, raw
@@ -721,7 +721,7 @@ def run_vllm_benchmark(args) -> dict:
         engine_caps = _engine_capture_sizes(llm)
         caps = engine_caps or _default_capture_sizes(concurrency)
         bs = _capture_batches_up_to(caps, concurrency)
-        print(f"[Primus:Inference:vLLM-Benchmark] concurrency={concurrency} -> "
+        print(f"[inferasim:Inference:vLLM-Benchmark] concurrency={concurrency} -> "
               f"capture-size batches {bs} "
               f"(source={'engine' if engine_caps else 'default'})")
         return bs, caps
@@ -738,7 +738,7 @@ def run_vllm_benchmark(args) -> dict:
                                    random_tokens=random_tokens, vocab=args.vocab,
                                    seed=seeds[0])
                 pts.append({"batch": b, "context": c, "decode_ms": e["decode_ms"]})
-                print(f"[Primus:Inference:vLLM-Benchmark]   decode-ctx b={b} "
+                print(f"[inferasim:Inference:vLLM-Benchmark]   decode-ctx b={b} "
                       f"ctx={c} decode_step={e['decode_ms']:.2f}ms")
         return pts
 
@@ -760,14 +760,14 @@ def run_vllm_benchmark(args) -> dict:
         full_layers = int(args.full_layers or _full_num_layers(args.model, args.trust_remote_code) or 0)
         if full_layers <= 0:
             raise SystemExit(
-                "[Primus:Inference:vLLM-Benchmark] --bench-layers restore needs the full "
+                "[inferasim:Inference:vLLM-Benchmark] --bench-layers restore needs the full "
                 "layer count; could not read it from the HF config. Pass --full-layers."
             )
-        print(f"[Primus:Inference:vLLM-Benchmark] REDUCE->BENCHMARK->RESTORE: "
+        print(f"[inferasim:Inference:vLLM-Benchmark] REDUCE->BENCHMARK->RESTORE: "
               f"bench layer counts {bench_counts} -> restore to {full_layers} layers")
         bench_sweeps = {}
         for li, L in enumerate(bench_counts):
-            print(f"[Primus:Inference:vLLM-Benchmark] --- benchmarking {L} layers ---")
+            print(f"[inferasim:Inference:vLLM-Benchmark] --- benchmarking {L} layers ---")
             llm = _build_llm(L)
             if batches is None:
                 batches, capture_sizes = _resolve_capture_batches(llm)
@@ -790,7 +790,7 @@ def run_vllm_benchmark(args) -> dict:
                 "per_layer_prefill_ms": bp, "overhead_prefill_ms": ap,
                 "per_layer_decode_ms": bd, "overhead_decode_ms": ad,
             })
-            print(f"[Primus:Inference:vLLM-Benchmark] RESTORED batch={b} "
+            print(f"[inferasim:Inference:vLLM-Benchmark] RESTORED batch={b} "
                   f"prefill={full_prefill:.2f}ms decode_step={full_decode:.2f}ms "
                   f"(per-layer decode={bd:.3f}ms, overhead={ad:.2f}ms)")
         restore_meta = {
@@ -1000,10 +1000,10 @@ def main():
                          "measured/expected production value (random data ~ low I, "
                          "domain-clustered traffic ~ higher I).")
     ap.add_argument("--save", required=True)
-    ap.add_argument("--cache-dir", default=os.environ.get("PRIMUS_BENCH_CACHE"),
+    ap.add_argument("--cache-dir", default=os.environ.get("INFERASIM_BENCH_CACHE"),
                     help="Directory of cached results keyed by run config. On a "
                          "cache HIT the vLLM engine is never built (skips ~all the "
-                         "wall time). Defaults to $PRIMUS_BENCH_CACHE; caching is "
+                         "wall time). Defaults to $INFERASIM_BENCH_CACHE; caching is "
                          "off when neither is set.")
     ap.add_argument("--no-cache", action="store_true",
                     help="Ignore any cached result and do not write one.")
@@ -1020,10 +1020,10 @@ def main():
             result = json.load(f)
         with open(args.save, "w") as f:
             json.dump(result, f)
-        print(f"[Primus:Inference:vLLM-Benchmark] CACHE HIT {cpath} "
+        print(f"[inferasim:Inference:vLLM-Benchmark] CACHE HIT {cpath} "
               f"(config key {key}); skipped vLLM run")
-        print("[Primus:Inference:vLLM-Benchmark] " + json.dumps(result))
-        print(f"[Primus:Inference:vLLM-Benchmark] wrote {args.save}")
+        print("[inferasim:Inference:vLLM-Benchmark] " + json.dumps(result))
+        print(f"[inferasim:Inference:vLLM-Benchmark] wrote {args.save}")
         return
 
     result = run_vllm_benchmark(args)
@@ -1033,10 +1033,10 @@ def main():
         os.makedirs(cache_dir, exist_ok=True)
         with open(cpath, "w") as f:
             json.dump(result, f)
-        print(f"[Primus:Inference:vLLM-Benchmark] cached result -> {cpath} "
+        print(f"[inferasim:Inference:vLLM-Benchmark] cached result -> {cpath} "
               f"(config key {key})")
-    print("[Primus:Inference:vLLM-Benchmark] " + json.dumps(result))
-    print(f"[Primus:Inference:vLLM-Benchmark] wrote {args.save}")
+    print("[inferasim:Inference:vLLM-Benchmark] " + json.dumps(result))
+    print(f"[inferasim:Inference:vLLM-Benchmark] wrote {args.save}")
 
 
 if __name__ == "__main__":

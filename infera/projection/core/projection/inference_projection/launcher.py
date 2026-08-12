@@ -110,7 +110,7 @@ def _print_performance(inference_config, perf) -> None:
     req = inference_config.request_config
     mc = inference_config.model_config
     print("\n" + "=" * 100)
-    print("[Primus:Inference] Performance Projection")
+    print("[inferasim:Inference] Performance Projection")
     print("=" * 100)
     print(
         f"  Workload: input={req.input_seq_len} tok, output={req.output_seq_len} tok, "
@@ -290,13 +290,13 @@ def _emit_restore_confidence(anchor_paths, target_gpus: int) -> None:
             return
         v = confidence_ladder(target_gpus, anchors_by_gpu)
         rungs = ",".join(str(g) for g in sorted(anchors_by_gpu))
-        cap_on = os.getenv("PRIMUS_DECODE_ETP_CAP", "0").strip().lower() in ("1", "true", "yes")
+        cap_on = os.getenv("INFERASIM_DECODE_ETP_CAP", "0").strip().lower() in ("1", "true", "yes")
         if v["confidence"] == "high":
             # In-regime anchor: the raw origami restore is trustworthy. The ETP
             # cap is unnecessary here and would over-correct a near-target anchor.
-            note = " (ETP cap is ON — consider PRIMUS_DECODE_ETP_CAP=0; it can over-correct an in-regime anchor)" if cap_on else ""
+            note = " (ETP cap is ON — consider INFERASIM_DECODE_ETP_CAP=0; it can over-correct an in-regime anchor)" if cap_on else ""
             print(
-                f"[Primus:Inference] restore confidence: HIGH — target {target_gpus} GPUs "
+                f"[inferasim:Inference] restore confidence: HIGH — target {target_gpus} GPUs "
                 f"from in-regime {v['gpus']}-GPU anchor (rungs measured: {rungs}). {v['reason']}.{note}"
             )
         else:
@@ -309,7 +309,7 @@ def _emit_restore_confidence(anchor_paths, target_gpus: int) -> None:
                 " (ETP cap OFF: expect the raw decode over-projection until you climb.)"
             )
             print(
-                f"[Primus:Inference] restore confidence: LOW — {v['reason']} "
+                f"[inferasim:Inference] restore confidence: LOW — {v['reason']} "
                 f"(rungs measured: {rungs}). Benchmark at {v['next_gpus']} GPUs "
                 f"(--benchmark-gpus {v['next_gpus']}) and pass it via "
                 f"--load-benchmark-scaling to converge.{stopgap}"
@@ -321,7 +321,7 @@ def _emit_restore_confidence(anchor_paths, target_gpus: int) -> None:
 def _print_des(des: Dict[str, object]) -> None:
     point = des["point"]
     print("\n" + "=" * 100)
-    print("[Primus:Inference] Discrete-Event Simulation (arrival-driven)")
+    print("[inferasim:Inference] Discrete-Event Simulation (arrival-driven)")
     print("=" * 100)
     sat = " [SATURATED]" if point.saturated else ""
     print(
@@ -411,7 +411,7 @@ def launch_projection_from_cli(args, overrides):
     """Entry point for ``primus projection inference``."""
     cfg_path = Path(args.config)
     if not cfg_path.exists():
-        raise FileNotFoundError(f"[Primus:Inference] Config file '{cfg_path}' not found.")
+        raise FileNotFoundError(f"[inferasim:Inference] Config file '{cfg_path}' not found.")
 
     primus_config, _unknown = load_primus_config(args, overrides or [])
 
@@ -496,11 +496,11 @@ def launch_projection_from_cli(args, overrides):
 
         with open(load_bench) as _f:
             benchmark_layer_times = _json.load(_f)
-        print(f"[Primus:Inference] loaded GPU benchmark from {load_bench}")
+        print(f"[inferasim:Inference] loaded GPU benchmark from {load_bench}")
         for _p in _scaling_bench_paths(args):
             with open(_p) as _f:
                 scaling_benchmarks.append(_json.load(_f))
-            print(f"[Primus:Inference] loaded TP-scaling benchmark from {_p}")
+            print(f"[inferasim:Inference] loaded TP-scaling benchmark from {_p}")
 
     # Decode latency floor: a sharded probe's measured decode curve caps the
     # restored decode step from below (decode = max(restored, floor)). Above the
@@ -521,7 +521,7 @@ def launch_projection_from_cli(args, overrides):
         }
         if decode_floor:
             print(
-                f"[Primus:Inference] loaded decode latency floor from {floor_bench} "
+                f"[inferasim:Inference] loaded decode latency floor from {floor_bench} "
                 f"({len(decode_floor)} batch points, "
                 f"min {min(decode_floor.values()):.2f} ms)"
             )
@@ -533,7 +533,7 @@ def launch_projection_from_cli(args, overrides):
         benchmark_layer_times = spawn_inference_benchmark(args, overrides)
         if benchmark_layer_times is None:
             print(
-                "[Primus:Inference] benchmark unavailable — falling back to "
+                "[inferasim:Inference] benchmark unavailable — falling back to "
                 "simulation for the performance projection."
             )
 
@@ -556,7 +556,7 @@ def launch_projection_from_cli(args, overrides):
                     scaling_benchmarks[_i] = benchmark_layer_times
                     benchmark_layer_times = _sb
                     print(
-                        f"[Primus:Inference] using the TP={tgt_tp} benchmark as the "
+                        f"[inferasim:Inference] using the TP={tgt_tp} benchmark as the "
                         f"primary anchor (exact); other anchors fit the TP-scaling law."
                     )
                     break
@@ -643,6 +643,6 @@ def launch_projection_from_cli(args, overrides):
                 }
                 with open(dump_steps, "w") as _f:
                     _json.dump(payload, _f)
-                print(f"[Primus:Inference] wrote {len(des['point'].steps)} DES step records to {dump_steps}")
+                print(f"[inferasim:Inference] wrote {len(des['point'].steps)} DES step records to {dump_steps}")
 
     return results

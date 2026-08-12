@@ -8,7 +8,7 @@
 Factory functions for creating simulation backends.
 
 Backend selection for GEMM:
-  1. If ``PRIMUS_GEMM_BACKEND`` is set, use that backend explicitly.
+  1. If ``INFERASIM_GEMM_BACKEND`` is set, use that backend explicitly.
   2. Otherwise, use **origami** (the default, open-source backend).
 
 SDPA always uses the built-in analytical simulator.
@@ -49,7 +49,7 @@ def get_gemm_simulation_backend(
     Raises:
         RuntimeError: If require_simulation is True and the backend is not available.
     """
-    name = backend_name or os.getenv("PRIMUS_GEMM_BACKEND", None)
+    name = backend_name or os.getenv("INFERASIM_GEMM_BACKEND", None)
 
     if name is not None:
         name = name.lower().strip()
@@ -70,7 +70,7 @@ def get_gemm_simulation_backend(
         )
 
     if is_rank_0 and require_simulation:
-        print("[Primus:Simulation] Using GEMM backend: origami")
+        print("[inferasim:Simulation] Using GEMM backend: origami")
     return backend
 
 
@@ -98,7 +98,7 @@ def get_sdpa_simulation_backend(
 
     is_rank_0 = int(os.getenv("RANK", "0")) == 0
     if is_rank_0:
-        print("[Primus:Simulation] Using SDPA backend: sdpa_simulator (FAv3 Origami 1-CU)")
+        print("[inferasim:Simulation] Using SDPA backend: sdpa_simulator (FAv3 Origami 1-CU)")
 
     return SDPASimulator(
         gpu_arch=gpu_arch,

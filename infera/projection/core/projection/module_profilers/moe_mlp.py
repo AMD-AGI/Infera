@@ -177,7 +177,7 @@ class MoEMLPProfiler(BaseModuleProfiler):
         # ``etp`` ranks (attention/token/EP sharding still apply). Prefill (large
         # M, compute-bound, seq_len>1) keeps the full ``etp`` speedup. Only the
         # extra TP-over-EP factor is capped; EP-only sharding (etp==1) is a no-op.
-        # Toggle: opt-in via PRIMUS_DECODE_ETP_CAP=1 to apply the cap; the default
+        # Toggle: opt-in via INFERASIM_DECODE_ETP_CAP=1 to apply the cap; the default
         # (unset/0) leaves the uncapped weight relief because the confidence ladder
         # self-anchors pure-TP configs at the target instead of relying on this
         # analytical correction, which can over-correct an in-regime anchor.
@@ -185,7 +185,7 @@ class MoEMLPProfiler(BaseModuleProfiler):
         if (
             int(seq_len) <= 1
             and expert_tp > 1
-            and os.getenv("PRIMUS_DECODE_ETP_CAP", "0").strip().lower()
+            and os.getenv("INFERASIM_DECODE_ETP_CAP", "0").strip().lower()
             in ("1", "true", "yes")
         ):
             weight_expert_tp = 1
@@ -221,11 +221,11 @@ class MoEMLPProfiler(BaseModuleProfiler):
         # bound decode (small M) and grows to the full factor at compute-bound
         # prefill / high batch — matching measured EP=8 decode (~flat vs EP=1).
         # EP-gated (no cross-rank imbalance when EP<=1) and per-view (each view's
-        # own ``ep_size``). Toggle: PRIMUS_MOE_IMB_ROOFLINE=0 disables (imbalance
+        # own ``ep_size``). Toggle: INFERASIM_MOE_IMB_ROOFLINE=0 disables (imbalance
         # then handled by the legacy outer multiplier in performance.py).
         imbalance = 1.0
         if (
-            os.getenv("PRIMUS_MOE_IMB_ROOFLINE", "1").strip().lower() not in ("0", "false", "no")
+            os.getenv("INFERASIM_MOE_IMB_ROOFLINE", "1").strip().lower() not in ("0", "false", "no")
             and ep_size > 1
             and num_experts > 1
         ):
@@ -266,7 +266,7 @@ class MoEMLPProfiler(BaseModuleProfiler):
         # order: explicit env / model_config override, else turbo flag, else legacy.
         # vLLM serving should use ``vllm_fused``; Megatron training keeps turbo/legacy.
         kernel = (
-            os.getenv("PRIMUS_MOE_SIM_KERNEL")
+            os.getenv("INFERASIM_MOE_SIM_KERNEL")
             or getattr(self.config.model_config, "moe_sim_kernel", None)
             or ("turbo" if use_turbo else "legacy")
         ).lower()

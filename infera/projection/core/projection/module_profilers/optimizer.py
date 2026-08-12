@@ -101,7 +101,7 @@ class OptimizerProfiler(BaseModuleProfiler):
         bw = self._gemm_backend.hbm_bandwidth_gbps
         assert bw is not None, (
             f"GEMM backend '{self._gemm_backend.name()}' does not report hbm_bandwidth_gbps. "
-            "Ensure the target GPU architecture is specified via --gpu-arch or PRIMUS_GPU_ARCH."
+            "Ensure the target GPU architecture is specified via --gpu-arch or INFERASIM_GPU_ARCH."
         )
         return bw
 

@@ -123,7 +123,7 @@ def _split_known_unknown(ns: SimpleNamespace, overrides: dict) -> Tuple[dict, di
                 known[k] = v
         else:
             unknown[k] = v
-            # print(f"[PrimusConfig] Unknown key '{k}' delegated to backend.")
+            # print(f"[inferasim] Unknown key '{k}' delegated to backend.")
     return known, unknown
 
 
@@ -172,7 +172,7 @@ def _load_legacy_primus_config(args: argparse.Namespace, overrides: List[str]) -
         _deep_merge_namespace(pre_trainer_cfg, known_overrides)
 
     if unknown_overrides:
-        print(f"[PrimusConfig] Detected unknown override keys: {list(unknown_overrides.keys())}")
+        print(f"[inferasim] Detected unknown override keys: {list(unknown_overrides.keys())}")
 
     return primus_config, unknown_overrides
 
@@ -201,7 +201,7 @@ class PrimusParser(object):
 
     def parse_exp(self, config_file: str):
         self.exp = yaml_utils.parse_yaml_to_namespace(config_file)
-        self.exp.name = constant_vars.PRIMUS_CONFIG_NAME
+        self.exp.name = constant_vars.INFERASIM_CONFIG_NAME
         self.exp.config_file = config_file
 
     def parse_meta_info(self):
@@ -326,5 +326,5 @@ class PrimusParser(object):
         path.parent.mkdir(parents=True, exist_ok=True)
         data = yaml_utils.nested_namespace_to_dict(self.exp)
         yaml_utils.dump_namespace_to_yaml(data, str(path))
-        print(f"[PrimusConfig] Exported merged config to {path}")
+        print(f"[inferasim] Exported merged config to {path}")
         return path

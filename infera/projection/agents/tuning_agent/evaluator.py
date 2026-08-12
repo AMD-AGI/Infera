@@ -637,7 +637,7 @@ def _build_env(agent_cfg: AgentConfig, primus_root: Path, profiling_mode: str | 
         env["NNODES"] = str(agent_cfg.target_cluster.num_nodes)
     env["GPUS_PER_NODE"] = str(agent_cfg.target_cluster.gpus_per_node)
     env.setdefault("HSA_NO_SCRATCH_RECLAIM", "1")
-    env["PRIMUS_GPU_ARCH"] = agent_cfg.target_cluster.gpu_arch
+    env["INFERASIM_GPU_ARCH"] = agent_cfg.target_cluster.gpu_arch
 
     # PYTHONPATH discipline: the subprocess runs the OUTER ``primus/cli/
     # main.py`` and only needs ``primus_root`` on the path.  When the agent
@@ -812,14 +812,14 @@ class Evaluator:
         parallelism, for benchmark-calibrated serving projection.
 
         A single artifact per (TP, PP, EP) serves every serving-knob trial at
-        that parallelism. Looks in ``$PRIMUS_INFER_BENCH_CACHE`` for a file
+        that parallelism. Looks in ``$INFERASIM_INFER_BENCH_CACHE`` for a file
         named ``<model>_tp{tp}_pp{pp}_ep{ep}.json`` (EP forced to 1 for dense
-        models); otherwise honours a single forced ``$PRIMUS_INFER_BENCH_ARTIFACT``.
+        models); otherwise honours a single forced ``$INFERASIM_INFER_BENCH_ARTIFACT``.
         Returns ``None`` when no artifact is available."""
-        forced = os.environ.get("PRIMUS_INFER_BENCH_ARTIFACT")
+        forced = os.environ.get("INFERASIM_INFER_BENCH_ARTIFACT")
         if forced and Path(forced).exists():
             return Path(forced)
-        cache = os.environ.get("PRIMUS_INFER_BENCH_CACHE")
+        cache = os.environ.get("INFERASIM_INFER_BENCH_CACHE")
         if not cache:
             return None
         ep = cfg.ep if getattr(self.arch, "is_moe", False) else 1
@@ -874,7 +874,7 @@ class Evaluator:
         cached ``<model>_tp2_pp1_ep2.json`` probe, else ``None``."""
         if not getattr(self.arch, "is_moe", False) or int(getattr(cfg, "ep", 1)) <= 1:
             return None
-        cache = os.environ.get("PRIMUS_INFER_BENCH_CACHE")
+        cache = os.environ.get("INFERASIM_INFER_BENCH_CACHE")
         if not cache:
             return None
         probe = Path(cache) / f"{self.arch.model_name}_tp2_pp1_ep2.json"
@@ -922,8 +922,8 @@ class Evaluator:
         # trial (batch, concurrency, kv-dtype, chunked-prefill, spec-decode) at
         # that parallelism reuses it via ``--load-benchmark``, since those knobs
         # are resolved by the DES on top of the measured step. Resolution order:
-        #   1. cached artifact for this parallelism ($PRIMUS_INFER_BENCH_CACHE),
-        #   2. a single forced artifact ($PRIMUS_INFER_BENCH_ARTIFACT), or
+        #   1. cached artifact for this parallelism ($INFERASIM_INFER_BENCH_CACHE),
+        #   2. a single forced artifact ($INFERASIM_INFER_BENCH_ARTIFACT), or
         #   3. spawn a live benchmark (--profiling-mode benchmark) on the host.
         load_bench = None
         profiling_mode = None
@@ -932,12 +932,12 @@ class Evaluator:
         if is_bench:
             load_bench = self._resolve_inference_bench_artifact(cfg)
             if load_bench is None:
-                if os.environ.get("PRIMUS_INFER_BENCH_CACHE_ONLY"):
+                if os.environ.get("INFERASIM_INFER_BENCH_CACHE_ONLY"):
                     result.legal = False
                     result.reason = (
                         f"benchmark mode: no cached benchmark artifact for "
                         f"TP={cfg.tp} PP={cfg.pp} EP={cfg.ep} "
-                        f"(set PRIMUS_INFER_BENCH_CACHE or pre-benchmark this parallelism)"
+                        f"(set INFERASIM_INFER_BENCH_CACHE or pre-benchmark this parallelism)"
                     )
                     return result
                 profiling_mode = "benchmark"

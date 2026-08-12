@@ -1,7 +1,7 @@
-work_group: ${PRIMUS_TEAM:amd}
-user_name: ${PRIMUS_USER:root}
-exp_name: ${PRIMUS_EXP_NAME:qwen3_5_35B_A3B-pretrain}
-workspace: ${PRIMUS_WORKSPACE:./output}
+work_group: ${INFERASIM_TEAM:amd}
+user_name: ${INFERASIM_USER:root}
+exp_name: ${INFERASIM_EXP_NAME:qwen3_5_35B_A3B-pretrain}
+workspace: ${INFERASIM_WORKSPACE:./output}
 
 modules:
   pre_trainer:
@@ -9,7 +9,7 @@ modules:
     config: pre_trainer.yaml
 
     # model to run
-    model: ${PRIMUS_MODEL:qwen3_5_35B_A3B}.yaml
+    model: ${INFERASIM_MODEL:qwen3_5_35B_A3B}.yaml
     overrides:
       # log
       wandb_project: "Primus_Qwen3_5_35B_A3B_Pretrain"
@@ -24,8 +24,8 @@ modules:
       train_iters: 50
       micro_batch_size: 2
       global_batch_size: 256
-      seq_length: ${PRIMUS_SEQ_LENGTH:8192}
-      max_position_embeddings: ${PRIMUS_MAX_POSITION_EMBEDDINGS:8192}
+      seq_length: ${INFERASIM_SEQ_LENGTH:8192}
+      max_position_embeddings: ${INFERASIM_MAX_POSITION_EMBEDDINGS:8192}
       lr: 1.0e-5
       min_lr: 0.0
       lr_warmup_iters: 2
@@ -44,15 +44,15 @@ modules:
       recompute_num_layers: 0
 
       # parallel
-      tensor_model_parallel_size: ${PRIMUS_TP:1}
-      pipeline_model_parallel_size: ${PRIMUS_PP:1}
-      expert_model_parallel_size: ${PRIMUS_EP:8}
+      tensor_model_parallel_size: ${INFERASIM_TP:1}
+      pipeline_model_parallel_size: ${INFERASIM_PP:1}
+      expert_model_parallel_size: ${INFERASIM_EP:8}
       overlap_grad_reduce: true
       overlap_param_gather: true
 
       # data
       mock_data: true
-      train_data_path: ${PRIMUS_TOKENIZED_DATA_PATH:null}
+      train_data_path: ${INFERASIM_TOKENIZED_DATA_PATH:null}
       valid_data_path: null
       test_data_path: null
 

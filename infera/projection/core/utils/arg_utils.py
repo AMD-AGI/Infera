@@ -141,7 +141,7 @@ def parse_cli_overrides(overrides: list, type_mode: str = "modern") -> dict:
             continue
 
         # Fallback: invalid format, emit warning and skip
-        print(f"[Primus] Warning: Skipping invalid override format: {item}")
+        print(f"[inferasim] Warning: Skipping invalid override format: {item}")
         i += 1
 
     if type_mode not in ("modern", "legacy"):

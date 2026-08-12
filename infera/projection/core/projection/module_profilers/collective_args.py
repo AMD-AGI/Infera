@@ -226,7 +226,7 @@ def get_default_args(
 
                 setattr(args, key, value)
             else:
-                print(f"[Primus:WARNING] Unknown hardware parameter '{key}' in config. Skipping.")
+                print(f"[inferasim:WARNING] Unknown hardware parameter '{key}' in config. Skipping.")
 
     # Set nics_per_node to gpus_per_node if not explicitly set
     if args.nics_per_node is None:

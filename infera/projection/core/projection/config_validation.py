@@ -157,7 +157,7 @@ def assert_recompute_pipeline_compat(
         return
 
     raise AssertionError(
-        "[Primus:Projection] Invalid config: activation recomputation cannot be combined "
+        "[inferasim:Projection] Invalid config: activation recomputation cannot be combined "
         "with split-wgrad pipeline schedules (wgrad closures pin recomputed linear inputs, "
         "so analytical memory savings and runtime peak memory are both wrong). "
         f"schedule={sched!r}, recompute_granularity={getattr(mp, 'recompute_granularity', None)!r}, "

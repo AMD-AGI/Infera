@@ -1,7 +1,7 @@
-work_group: ${PRIMUS_TEAM:amd}
-user_name: ${PRIMUS_USER:root}
-exp_name: ${PRIMUS_EXP_NAME:minimax_m2.5-pretrain}
-workspace: ${PRIMUS_WORKSPACE:./output}
+work_group: ${INFERASIM_TEAM:amd}
+user_name: ${INFERASIM_USER:root}
+exp_name: ${INFERASIM_EXP_NAME:minimax_m2.5-pretrain}
+workspace: ${INFERASIM_WORKSPACE:./output}
 
 modules:
   pre_trainer:
@@ -9,7 +9,7 @@ modules:
     config: pre_trainer.yaml
 
     # model to run
-    model: ${PRIMUS_MODEL:minimax_m2.5}.yaml
+    model: ${INFERASIM_MODEL:minimax_m2.5}.yaml
     overrides:
       # log
       wandb_project: "Primus_MiniMax_M2.5_Pretrain"
@@ -24,8 +24,8 @@ modules:
       train_iters: 10
       micro_batch_size: 3
       global_batch_size: 768
-      seq_length: ${PRIMUS_SEQ_LENGTH:4096}
-      max_position_embeddings: ${PRIMUS_MAX_POSITION_EMBEDDINGS:4096}
+      seq_length: ${INFERASIM_SEQ_LENGTH:4096}
+      max_position_embeddings: ${INFERASIM_MAX_POSITION_EMBEDDINGS:4096}
       num_layers: 62
       lr: 2.2e-4
       min_lr: 2.2e-5
@@ -40,7 +40,7 @@ modules:
       norm_epsilon: 1.0e-6
 
       # parallel (optimized: PP=4 with VPP=2 for reduced pipeline bubble)
-      tensor_model_parallel_size: ${PRIMUS_TP:1}
+      tensor_model_parallel_size: ${INFERASIM_TP:1}
       pipeline_model_parallel_size: 4
       expert_model_parallel_size: 8
       virtual_pipeline_model_parallel_size: 2
@@ -56,7 +56,7 @@ modules:
 
       # data
       mock_data: true
-      train_data_path: ${PRIMUS_TOKENIZED_DATA_PATH:null}
+      train_data_path: ${INFERASIM_TOKENIZED_DATA_PATH:null}
       valid_data_path: null
       test_data_path: null
 

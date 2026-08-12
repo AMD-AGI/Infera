@@ -624,17 +624,17 @@ class LanguageModelProfiler(BaseModuleProfiler):
         mode_label = "Simulating" if is_simulation_mode else "Benchmarking"
         if is_rank_0:
             if model is not None:
-                print(f"\n[Primus:Performance Projection] Found {len(all_layers)} transformer layers")
+                print(f"\n[inferasim:Performance Projection] Found {len(all_layers)} transformer layers")
             else:
-                print("\n[Primus:Performance Projection] Pure simulation mode (no model)")
-            print(f"[Primus:Performance Projection] This rank is responsible for layers: {self.layers}")
+                print("\n[inferasim:Performance Projection] Pure simulation mode (no model)")
+            print(f"[inferasim:Performance Projection] This rank is responsible for layers: {self.layers}")
             if is_simulation_mode:
                 backends = []
                 if self._gemm_backend is not None:
                     backends.append(f"GEMM={self._gemm_backend.name()}")
                 if self._sdpa_backend is not None:
                     backends.append(f"SDPA={self._sdpa_backend.name()}")
-                print(f"[Primus:Performance Projection] Mode: SIMULATION ({', '.join(backends)})")
+                print(f"[inferasim:Performance Projection] Mode: SIMULATION ({', '.join(backends)})")
 
         embedding_stats = None
         output_stats = None
@@ -645,10 +645,10 @@ class LanguageModelProfiler(BaseModuleProfiler):
         if 0 in self.layers:
             if model is not None and embedding_module is None and not is_simulation_mode:
                 if is_rank_0:
-                    print("[Primus:Performance Projection] WARNING: Embedding module not found on this rank.")
+                    print("[inferasim:Performance Projection] WARNING: Embedding module not found on this rank.")
             else:
                 if is_rank_0:
-                    print(f"[Primus:Performance Projection] {mode_label} embedding layer...")
+                    print(f"[inferasim:Performance Projection] {mode_label} embedding layer...")
                 profiler = self.sub_profilers["embedding"]
                 if embedding_module is not None:
                     module = (
@@ -684,11 +684,11 @@ class LanguageModelProfiler(BaseModuleProfiler):
             if model is not None and output_module is None and not is_simulation_mode:
                 if is_rank_0:
                     print(
-                        "[Primus:Performance Projection] WARNING: Output layer module not found on this rank."
+                        "[inferasim:Performance Projection] WARNING: Output layer module not found on this rank."
                     )
             else:
                 if is_rank_0:
-                    print(f"[Primus:Performance Projection] {mode_label} output layer...")
+                    print(f"[inferasim:Performance Projection] {mode_label} output layer...")
                 profiler = self.sub_profilers["output_layer"]
                 if output_module is not None:
                     profiler.set_module(output_module)
@@ -744,7 +744,7 @@ class LanguageModelProfiler(BaseModuleProfiler):
                 continue
 
             if is_rank_0:
-                print(f"\n[Primus:Performance Projection] {mode_label} Layer {layer_idx} ({layer_type})...")
+                print(f"\n[inferasim:Performance Projection] {mode_label} Layer {layer_idx} ({layer_type})...")
 
             # Get the appropriate profiler
             if is_moe:

@@ -1,7 +1,7 @@
-work_group: ${PRIMUS_TEAM:amd}
-user_name: ${PRIMUS_USER:root}
-exp_name: &exp_name ${PRIMUS_EXP_NAME:exp_pretrain}
-workspace: ${PRIMUS_WORKSPACE:./output}
+work_group: ${INFERASIM_TEAM:amd}
+user_name: ${INFERASIM_USER:root}
+exp_name: &exp_name ${INFERASIM_EXP_NAME:exp_pretrain}
+workspace: ${INFERASIM_WORKSPACE:./output}
 
 modules:
   pre_trainer:
@@ -9,7 +9,7 @@ modules:
     config: pre_trainer.yaml
 
     # model to run
-    model: ${PRIMUS_MODEL:llama2_7B}.yaml
+    model: ${INFERASIM_MODEL:llama2_7B}.yaml
     overrides:
       # log
       wandb_project: "Primus_DeepSeek_Pretrain"
@@ -41,8 +41,8 @@ modules:
       train_iters: 3
       micro_batch_size: 1
       global_batch_size: 16
-      seq_length: ${PRIMUS_SEQ_LENGTH:4096}
-      max_position_embeddings: ${PRIMUS_MAX_POSITION_EMBEDDINGS:4096}
+      seq_length: ${INFERASIM_SEQ_LENGTH:4096}
+      max_position_embeddings: ${INFERASIM_MAX_POSITION_EMBEDDINGS:4096}
       lr: 1.0e-5
       min_lr: 0.0
       lr_warmup_iters: 2
@@ -56,14 +56,14 @@ modules:
       norm_epsilon: 1.0e-6
 
       # parallel
-      tensor_model_parallel_size: ${PRIMUS_TP:1}
-      pipeline_model_parallel_size: ${PRIMUS_PP:1}
-      expert_model_parallel_size: ${PRIMUS_EP:1}
+      tensor_model_parallel_size: ${INFERASIM_TP:1}
+      pipeline_model_parallel_size: ${INFERASIM_PP:1}
+      expert_model_parallel_size: ${INFERASIM_EP:1}
       overlap_grad_reduce: true
       overlap_param_gather: true
 
       # data
-      train_data_path: ${PRIMUS_TOKENIZED_DATA_PATH:null}
+      train_data_path: ${INFERASIM_TOKENIZED_DATA_PATH:null}
       valid_data_path: null
       test_data_path: null
 

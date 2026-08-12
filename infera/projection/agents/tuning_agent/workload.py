@@ -305,7 +305,7 @@ def _parse_layer_ids(value: Any) -> list[int] | None:
 
 
 def _strip_env(value: Any) -> Any:
-    """Some configs use ${PRIMUS_TP:1} style. Strip to the default."""
+    """Some configs use ${INFERASIM_TP:1} style. Strip to the default."""
     if isinstance(value, str) and value.startswith("${") and ":" in value and value.endswith("}"):
         return value.split(":", 1)[1].rstrip("}")
     return value
@@ -320,7 +320,7 @@ def _coerce_opt_int(value: Any) -> int | None:
 
 
 def _expand_primus_templates(s: str) -> str:
-    """Expand ``${PRIMUS_*:default}`` segments (e.g. ``${PRIMUS_MODEL:foo}.yaml``)."""
+    """Expand ``${INFERASIM_*:default}`` segments (e.g. ``${INFERASIM_MODEL:foo}.yaml``)."""
     return re.sub(r"\$\{[A-Za-z0-9_]+:([^}]*)\}", r"\1", s)
 
 
@@ -328,12 +328,12 @@ def _find_primus_root(start: Path) -> Path:
     """Find the projection root (the dir holding ``configs/models``).
 
     Resolution order:
-      1. ``$PRIMUS_ROOT`` env var (handy when the workload yaml lives outside
+      1. ``$INFERASIM_ROOT`` env var (handy when the workload yaml lives outside
          the project tree, e.g. patched yamls in a side directory).
       2. Walk up from ``start`` looking for ``configs/models``.
       3. Fall back to CWD (last resort).
     """
-    env_root = os.environ.get("PRIMUS_ROOT")
+    env_root = os.environ.get("INFERASIM_ROOT")
     if env_root:
         p = Path(env_root)
         if (p / "configs" / "models").is_dir():

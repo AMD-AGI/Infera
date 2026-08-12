@@ -9,7 +9,7 @@ from functools import partial
 from infera.projection.modules.module_utils import log_rank_0
 
 
-def lazy_import(paths, symbol, log_prefix="[Primus]"):
+def lazy_import(paths, symbol, log_prefix="[inferasim]"):
     """
     Try to import a symbol from a list of module paths.
 
@@ -48,12 +48,12 @@ def get_model_provider(model_type="gpt"):
     # Try to import model_provider
     if model_type == "mamba":
         model_provider = lazy_import(
-            ["model_provider", "pretrain_mamba"], "model_provider", log_prefix="[Primus][MegatronCompat]"
+            ["model_provider", "pretrain_mamba"], "model_provider", log_prefix="[inferasim][MegatronCompat]"
         )
         # Try to import mamba_builder (for Mamba models)
         try:
             mamba_builder = lazy_import(
-                ["mamba_builders"], "mamba_builder", log_prefix="[Primus][MegatronCompat]"
+                ["mamba_builders"], "mamba_builder", log_prefix="[inferasim][MegatronCompat]"
             )
             return partial(model_provider, mamba_builder)
         except ImportError:
@@ -61,12 +61,12 @@ def get_model_provider(model_type="gpt"):
     else:
         # Default GPT behavior
         model_provider = lazy_import(
-            ["model_provider", "pretrain_gpt"], "model_provider", log_prefix="[Primus][MegatronCompat]"
+            ["model_provider", "pretrain_gpt"], "model_provider", log_prefix="[inferasim][MegatronCompat]"
         )
 
         # Try to import gpt_builder (only exists in newer versions)
         try:
-            gpt_builder = lazy_import(["gpt_builders"], "gpt_builder", log_prefix="[Primus][MegatronCompat]")
+            gpt_builder = lazy_import(["gpt_builders"], "gpt_builder", log_prefix="[inferasim][MegatronCompat]")
             return partial(model_provider, gpt_builder)
         except ImportError:
             return model_provider
@@ -85,5 +85,5 @@ def get_custom_fsdp():
             "megatron.core.distributed.custom_fsdp",
         ],
         "FullyShardedDataParallel",
-        log_prefix="[Primus][MegatronCompat]",
+        log_prefix="[inferasim][MegatronCompat]",
     )

@@ -18,17 +18,17 @@ def _bench_iter_count(default_warmup: int, default_iters: int) -> Tuple[int, int
     Env vars (intended for debugging slow MoE benches that hit NCCL
     collective watchdog timeouts):
 
-    * ``PRIMUS_BENCH_WARMUP_ITERS``    — replaces hardcoded warmup count
-    * ``PRIMUS_BENCH_NUM_ITERATIONS``  — replaces ``num_iterations`` default
+    * ``INFERASIM_BENCH_WARMUP_ITERS``    — replaces hardcoded warmup count
+    * ``INFERASIM_BENCH_NUM_ITERATIONS``  — replaces ``num_iterations`` default
 
     Defaults preserve original measurement fidelity (20 warmup, 64 iters).
     """
     try:
-        warmup = int(os.environ.get("PRIMUS_BENCH_WARMUP_ITERS", default_warmup))
+        warmup = int(os.environ.get("INFERASIM_BENCH_WARMUP_ITERS", default_warmup))
     except ValueError:
         warmup = default_warmup
     try:
-        iters = int(os.environ.get("PRIMUS_BENCH_NUM_ITERATIONS", default_iters))
+        iters = int(os.environ.get("INFERASIM_BENCH_NUM_ITERATIONS", default_iters))
     except ValueError:
         iters = default_iters
     return max(1, warmup), max(1, iters)
@@ -39,11 +39,11 @@ def _bench_central_value(times: list[float]) -> float:
 
     Defaults to *median* so a single slow first-iter (e.g. a backward JIT
     compile that wasn't covered by warmup) does not poison the average.
-    Set ``PRIMUS_BENCH_AGGREGATE=mean`` to recover the historical mean.
+    Set ``INFERASIM_BENCH_AGGREGATE=mean`` to recover the historical mean.
     """
     if not times:
         return 0.0
-    mode = os.environ.get("PRIMUS_BENCH_AGGREGATE", "median").strip().lower()
+    mode = os.environ.get("INFERASIM_BENCH_AGGREGATE", "median").strip().lower()
     if mode == "mean":
         return sum(times) / len(times)
     sorted_times = sorted(times)
@@ -172,7 +172,7 @@ def _time_forward_cuda_graph(layer_module, inputs, fp8_context, num_iterations, 
     except Exception as exc:  # noqa: BLE001 - any capture failure → eager fallback
         if int(os.getenv("RANK", "0")) == 0:
             print(
-                "[Primus:Inference:Benchmark] CUDA-graph capture failed "
+                "[inferasim:Inference:Benchmark] CUDA-graph capture failed "
                 f"({type(exc).__name__}: {exc}); falling back to eager timing."
             )
         return None
@@ -421,11 +421,11 @@ def benchmark_layer(
 # router class (upstream / Primus / Primus-Turbo) the model happens to use.
 #
 # The patch is enabled by default during projection benches and can be
-# disabled by setting ``PRIMUS_BENCH_MOE_KERNEL_PAD=0``.
+# disabled by setting ``INFERASIM_BENCH_MOE_KERNEL_PAD=0``.
 
 
 def _kernel_pad_enabled() -> bool:
-    raw = os.environ.get("PRIMUS_BENCH_MOE_KERNEL_PAD", "1").strip().lower()
+    raw = os.environ.get("INFERASIM_BENCH_MOE_KERNEL_PAD", "1").strip().lower()
     return raw not in {"", "0", "false", "no", "off"}
 
 
@@ -541,7 +541,7 @@ def benchmark_moe_layer_decomposed(
     composable_kernel JIT recompiles the FP8 grouped GEMM for every unique
     expert load count, which dominates iteration time for high-expert MoE
     models (Qwen3 235B, DeepSeek v3).  Set
-    ``PRIMUS_BENCH_MOE_KERNEL_PAD=0`` to opt out and recover stochastic
+    ``INFERASIM_BENCH_MOE_KERNEL_PAD=0`` to opt out and recover stochastic
     routing.
 
     Args:
@@ -617,7 +617,7 @@ def benchmark_moe_layer_decomposed(
                 f"round-robin routing on {len(routing_descriptors)} router(s) "
                 f"(topk={topk}, num_experts={num_experts}, "
                 f"M_per_expert={m_per_expert}). "
-                f"Set PRIMUS_BENCH_MOE_KERNEL_PAD=0 to disable."
+                f"Set INFERASIM_BENCH_MOE_KERNEL_PAD=0 to disable."
             )
         elif is_rank_0:
             print(

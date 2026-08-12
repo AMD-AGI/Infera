@@ -140,7 +140,7 @@ def project_inference_memory(
 def _print_memory(inference_config: InferenceConfig, r: InferenceMemoryResult) -> None:
     req = inference_config.request_config
     print("\n" + "=" * 100)
-    print(f"[Primus:Inference] Memory Projection (Rank {r.rank})")
+    print(f"[inferasim:Inference] Memory Projection (Rank {r.rank})")
     print("=" * 100)
     print(f"  Params (this rank):       {r.num_params / 1e9:.4f} B")
     print(f"  Weights ({req.weight_dtype}):           {r.weight_bytes / _GB:.4f} GB")

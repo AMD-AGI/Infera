@@ -24,7 +24,7 @@ full-node sweep per recipe — and simulate the fleet under load.
   projector as a subprocess through the public CLI.
 - `configs/` — the model/preset tree resolved at runtime (`configs/models/...`).
 - `examples/exp_pretrain.yaml` — an example model/experiment config. The model
-  preset is selected via `PRIMUS_MODEL` and resolved from the `configs/` tree.
+  preset is selected via `INFERASIM_MODEL` and resolved from the `configs/` tree.
 
 ## Install
 
@@ -37,12 +37,14 @@ pip install ".[projection-tuning]"   # + the DSPy tuning agent
 
 Two console scripts are installed: `inferasim` (projection + DES) and
 `inferasim-tune` (recipe search). The pre-rebrand names `infera-projection` /
-`infera-tuning` remain as back-compat aliases.
+`infera-tuning` remain as back-compat aliases. Env vars are canonically
+`INFERASIM_*` (e.g. `INFERASIM_MODEL`, `INFERASIM_GPU_ARCH`, `INFERASIM_ROOT`);
+legacy `PRIMUS_*` names are still honored via a bidirectional alias shim.
 
 ## Project a recipe from a saved anchor (no GPU)
 
 ```bash
-PRIMUS_MODEL=gpt_oss_120B PRIMUS_TP=2 PRIMUS_EP=2 \
+INFERASIM_MODEL=gpt_oss_120B INFERASIM_TP=2 INFERASIM_EP=2 \
 inferasim inference \
   --config infera/projection/examples/exp_pretrain.yaml \
   --inference-mode performance --serving-model continuous \

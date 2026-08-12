@@ -19,9 +19,9 @@ Installation:
     pip install git+https://github.com/ROCm/rocm-libraries.git#subdirectory=shared/origami/python
 
 Environment variables:
-    PRIMUS_GEMM_BACKEND  – set to "origami" (or leave unset) to use this backend.
-    PRIMUS_GPU_ARCH      – GPU architecture override (e.g. "gfx942", "gfx950").
-    PRIMUS_GPU_DEVICE    – GPU device index for hardware detection (default: 0).
+    INFERASIM_GEMM_BACKEND  – set to "origami" (or leave unset) to use this backend.
+    INFERASIM_GPU_ARCH      – GPU architecture override (e.g. "gfx942", "gfx950").
+    INFERASIM_GPU_DEVICE    – GPU device index for hardware detection (default: 0).
 """
 
 from __future__ import annotations
@@ -186,9 +186,9 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
 
     1. **From the local GPU** – ``origami.get_hardware_for_device(device_idx)``
        is called when a ROCm-capable GPU is present.  The device index defaults
-       to 0 and can be overridden via the ``PRIMUS_GPU_DEVICE`` env var.
+       to 0 and can be overridden via the ``INFERASIM_GPU_DEVICE`` env var.
     2. **From a known profile** – when no GPU is available *and* a
-       ``--gpu-arch`` / ``PRIMUS_GPU_ARCH`` is provided, the backend falls back
+       ``--gpu-arch`` / ``INFERASIM_GPU_ARCH`` is provided, the backend falls back
        to ``origami.get_hardware_for_arch`` with hard-coded parameters for
        MI300X, MI355X, etc.
     """
@@ -203,22 +203,22 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
         Args:
             gpu_arch: Target GPU architecture string (e.g. "gfx942", "mi300x").
                       If *None*, auto-detected from the current GPU or the
-                      ``PRIMUS_GPU_ARCH`` env var.
+                      ``INFERASIM_GPU_ARCH`` env var.
             gpu_clock_mhz: Override the compute clock frequency in MHz.
                       If *None*, uses the profile default or the
-                      ``PRIMUS_GPU_CLOCK_MHZ`` env var.
+                      ``INFERASIM_GPU_CLOCK_MHZ`` env var.
             n_cu_override: Override the number of Compute Units used by
                       Origami's performance model.  Set to ``1`` for
                       per-tile / single-CU simulation (e.g. SDPA tile-level
                       modelling).  If *None*, the profile's default CU
                       count is used.
         """
-        self._gpu_arch = gpu_arch or os.getenv("PRIMUS_GPU_ARCH", None)
+        self._gpu_arch = gpu_arch or os.getenv("INFERASIM_GPU_ARCH", None)
         if self._gpu_arch is not None:
             self._gpu_arch = self._gpu_arch.lower().strip()
 
         # Clock override: CLI > env var > profile default
-        _env_clock = os.getenv("PRIMUS_GPU_CLOCK_MHZ", None)
+        _env_clock = os.getenv("INFERASIM_GPU_CLOCK_MHZ", None)
         self._clock_override_mhz: Optional[int] = gpu_clock_mhz or (int(_env_clock) if _env_clock else None)
 
         self._n_cu_override = n_cu_override
@@ -246,10 +246,10 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
         """Peak HBM bandwidth for the target architecture (GB/s).
 
         Resolved from the arch profile (``_KNOWN_PROFILES``) or the
-        ``PRIMUS_GPU_ARCH`` env var.  Returns ``None`` only when no
+        ``INFERASIM_GPU_ARCH`` env var.  Returns ``None`` only when no
         architecture could be determined.
         """
-        arch = self._gpu_arch or os.getenv("PRIMUS_GPU_ARCH", "mi300x")
+        arch = self._gpu_arch or os.getenv("INFERASIM_GPU_ARCH", "mi300x")
         arch = arch.lower().strip()
         profile = _KNOWN_PROFILES.get(arch)
         return profile.hbm_bandwidth_gbps if profile is not None else None
@@ -257,7 +257,7 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
     @property
     def peak_tflops_bf16(self) -> float:
         """Peak dense BF16 matrix throughput (TFLOP/s) for the roofline cap."""
-        arch = self._gpu_arch or os.getenv("PRIMUS_GPU_ARCH", "mi300x")
+        arch = self._gpu_arch or os.getenv("INFERASIM_GPU_ARCH", "mi300x")
         arch = arch.lower().strip()
         profile = _KNOWN_PROFILES.get(arch)
         return profile.peak_tflops_bf16 if profile is not None else 1307.0
@@ -441,7 +441,7 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
             resolved = self._resolve_fp8_mi()
             if resolved is None:
                 raise RuntimeError(
-                    "[Primus:Origami] No FP8/INT8 matrix instruction available for "
+                    "[inferasim:Origami] No FP8/INT8 matrix instruction available for "
                     f"arch '{self._gpu_arch}'. FP8 projection is unsupported on this "
                     "hardware/Origami build."
                 )
@@ -470,7 +470,7 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
         is_rank_0 = int(os.getenv("RANK", "0")) == 0
         if is_rank_0:
             print(
-                f"[Primus:Origami] Initialised: "
+                f"[inferasim:Origami] Initialised: "
                 f"N_CU={self._hardware.N_CU}, "
                 f"NUM_XCD={self._hardware.NUM_XCD}, "
                 f"clock={self._clock_ghz} GHz, "
@@ -518,19 +518,19 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
                     override_tag = " (overridden via --gpu-clock-mhz)"
                 cu_tag = f" (n_cu_override={n_cu})" if self._n_cu_override is not None else ""
                 print(
-                    f"[Primus:Origami] Using hardware profile for "
+                    f"[inferasim:Origami] Using hardware profile for "
                     f"'{self._gpu_arch}': N_CU={n_cu}, "
                     f"clock={clock_khz / 1e6:.1f} GHz{override_tag}{cu_tag}"
                 )
             return hw
 
         # 2. Try local GPU
-        device_idx = int(os.getenv("PRIMUS_GPU_DEVICE", "0"))
+        device_idx = int(os.getenv("INFERASIM_GPU_DEVICE", "0"))
         try:
             hw = _origami.get_hardware_for_device(device_idx)
             if is_rank_0:
                 print(
-                    f"[Primus:Origami] Hardware detected from device {device_idx}: "
+                    f"[inferasim:Origami] Hardware detected from device {device_idx}: "
                     f"N_CU={hw.N_CU}, NUM_XCD={hw.NUM_XCD}, "
                     f"clock={hw.compute_clock_ghz} GHz"
                 )
@@ -542,7 +542,7 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
         if self._gpu_arch is None:
             raise RuntimeError(
                 "Origami could not detect a GPU and no --gpu-arch / "
-                "PRIMUS_GPU_ARCH was specified.  Either run on a machine with "
+                "INFERASIM_GPU_ARCH was specified.  Either run on a machine with "
                 "a ROCm GPU or provide a target architecture "
                 "(e.g. --gpu-arch mi300x)."
             )
@@ -574,7 +574,7 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
                 override_tag = " (overridden via --gpu-clock-mhz)"
             cu_tag = f" (n_cu_override={n_cu})" if self._n_cu_override is not None else ""
             print(
-                f"[Primus:Origami] Using known hardware profile for "
+                f"[inferasim:Origami] Using known hardware profile for "
                 f"'{self._gpu_arch}': N_CU={n_cu}, "
                 f"clock={clock_khz / 1e6:.1f} GHz{override_tag}{cu_tag}"
             )

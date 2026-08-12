@@ -1,6 +1,6 @@
-work_group: ${PRIMUS_TEAM:tas}
-user_name: ${PRIMUS_USER:qyy}
-exp_name: ${PRIMUS_EXP_NAME:gpt_oss_120B-pretrain}
+work_group: ${INFERASIM_TEAM:tas}
+user_name: ${INFERASIM_USER:qyy}
+exp_name: ${INFERASIM_EXP_NAME:gpt_oss_120B-pretrain}
 workspace: ./output
 
 modules:
@@ -9,7 +9,7 @@ modules:
     config: pre_trainer.yaml
 
     # model to run
-    model: ${PRIMUS_MODEL:gpt_oss_120B}.yaml
+    model: ${INFERASIM_MODEL:gpt_oss_120B}.yaml
     overrides:
       # log
       wandb_project: "Primus_GPT_OSS_120B_Pretrain"
@@ -49,8 +49,8 @@ modules:
       train_iters: 10
       micro_batch_size: 8
       global_batch_size: 2048
-      seq_length: ${PRIMUS_SEQ_LENGTH:4096}
-      max_position_embeddings: ${PRIMUS_MAX_POSITION_EMBEDDINGS:4096}
+      seq_length: ${INFERASIM_SEQ_LENGTH:4096}
+      max_position_embeddings: ${INFERASIM_MAX_POSITION_EMBEDDINGS:4096}
       lr: 1.0e-5
       min_lr: 0.0
       lr_warmup_iters: 2
@@ -64,10 +64,10 @@ modules:
       norm_epsilon: 1.0e-6
 
       # parallel
-      tensor_model_parallel_size: ${PRIMUS_TP:1}
-      pipeline_model_parallel_size: ${PRIMUS_PP:2}
-      virtual_pipeline_model_parallel_size: ${PRIMUS_VP:2}
-      expert_model_parallel_size: ${PRIMUS_EP:8}
+      tensor_model_parallel_size: ${INFERASIM_TP:1}
+      pipeline_model_parallel_size: ${INFERASIM_PP:2}
+      virtual_pipeline_model_parallel_size: ${INFERASIM_VP:2}
+      expert_model_parallel_size: ${INFERASIM_EP:8}
       overlap_grad_reduce: true
       overlap_param_gather: true
 

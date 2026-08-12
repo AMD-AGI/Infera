@@ -404,11 +404,11 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  → memory/GPU   = {best.result.get('memory_per_gpu_gb')} GB")
 
     print("\n=== EXPORTS for primus-cli ===")
-    print(f"  export PRIMUS_TP={cfg.get('tp')}")
-    print(f"  export PRIMUS_PP={cfg.get('pp')}")
-    print(f"  export PRIMUS_EP={cfg.get('ep')}")
+    print(f"  export INFERASIM_TP={cfg.get('tp')}")
+    print(f"  export INFERASIM_PP={cfg.get('pp')}")
+    print(f"  export INFERASIM_EP={cfg.get('ep')}")
     if cfg.get("cp"):
-        print(f"  export PRIMUS_CP={cfg.get('cp')}   # not all configs honour this")
+        print(f"  export INFERASIM_CP={cfg.get('cp')}   # not all configs honour this")
     print(f"  # then pass --micro-batch-size {cfg.get('mbs')} --global-batch-size {cfg.get('gbs')}")
 
     if not summary_path.exists():

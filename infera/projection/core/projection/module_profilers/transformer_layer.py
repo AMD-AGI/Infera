@@ -515,7 +515,7 @@ class MoETransformerLayerProfiler(BaseModuleProfiler):
             if self._gemm_backend is not None or self._sdpa_backend is not None:
                 # Use simulation mode
                 self._cached_results = self._get_simulated_results(batch_size, seq_len)
-            elif os.environ.get("PRIMUS_BENCH_MOE_LAYER_WHOLE", "0").strip().lower() in (
+            elif os.environ.get("INFERASIM_BENCH_MOE_LAYER_WHOLE", "0").strip().lower() in (
                 "1",
                 "true",
                 "yes",

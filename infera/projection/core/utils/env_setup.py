@@ -34,12 +34,12 @@ def setup_huggingface_cache(data_path: str, force: bool = False) -> str:
     """
     if "HF_HOME" in os.environ and not force:
         hf_home = os.environ["HF_HOME"]
-        print(f"[Primus:Env] HF_HOME already set: {hf_home}")
+        print(f"[inferasim:Env] HF_HOME already set: {hf_home}")
         return hf_home
 
     hf_home = os.path.join(data_path, "huggingface")
     os.environ["HF_HOME"] = hf_home
-    print(f"[Primus:Env] Set HF_HOME={hf_home}")
+    print(f"[inferasim:Env] Set HF_HOME={hf_home}")
 
     _ensure_directory(hf_home)
 
@@ -59,12 +59,12 @@ def setup_torch_cache(data_path: str, force: bool = False) -> str:
     """
     if "TORCH_HOME" in os.environ and not force:
         torch_home = os.environ["TORCH_HOME"]
-        print(f"[Primus:Env] TORCH_HOME already set: {torch_home}")
+        print(f"[inferasim:Env] TORCH_HOME already set: {torch_home}")
         return torch_home
 
     torch_home = os.path.join(data_path, "torch")
     os.environ["TORCH_HOME"] = torch_home
-    print(f"[Primus:Env] Set TORCH_HOME={torch_home}")
+    print(f"[inferasim:Env] Set TORCH_HOME={torch_home}")
 
     _ensure_directory(torch_home)
 
@@ -84,12 +84,12 @@ def setup_transformers_cache(data_path: str, force: bool = False) -> str:
     """
     if "TRANSFORMERS_CACHE" in os.environ and not force:
         transformers_cache = os.environ["TRANSFORMERS_CACHE"]
-        print(f"[Primus:Env] TRANSFORMERS_CACHE already set: {transformers_cache}")
+        print(f"[inferasim:Env] TRANSFORMERS_CACHE already set: {transformers_cache}")
         return transformers_cache
 
     transformers_cache = os.path.join(data_path, "transformers")
     os.environ["TRANSFORMERS_CACHE"] = transformers_cache
-    print(f"[Primus:Env] Set TRANSFORMERS_CACHE={transformers_cache}")
+    print(f"[inferasim:Env] Set TRANSFORMERS_CACHE={transformers_cache}")
 
     _ensure_directory(transformers_cache)
 
@@ -150,11 +150,11 @@ def set_env_var(
     """
     if key in os.environ and not force:
         if verbose:
-            print(f"[Primus:Env] {key} already set: {os.environ[key]}")
+            print(f"[inferasim:Env] {key} already set: {os.environ[key]}")
         return os.environ[key]
 
     os.environ[key] = value
     if verbose:
-        print(f"[Primus:Env] Set {key}={value}")
+        print(f"[inferasim:Env] Set {key}={value}")
 
     return value

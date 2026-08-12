@@ -168,12 +168,12 @@ def _get_hardware_spec(
     If *gpu_clock_mhz* is provided, the profile's TFLOPS values are scaled
     proportionally (compute throughput is linear in clock frequency).
     """
-    arch = gpu_arch or os.getenv("PRIMUS_GPU_ARCH", "mi300x")
+    arch = gpu_arch or os.getenv("INFERASIM_GPU_ARCH", "mi300x")
     arch = arch.lower().strip()
     spec = _HW_PROFILES.get(arch, _HW_PROFILES["mi300x"])
 
     # Apply clock override — scale TFLOPS linearly
-    clock_override = gpu_clock_mhz or (int(v) if (v := os.getenv("PRIMUS_GPU_CLOCK_MHZ")) else None)
+    clock_override = gpu_clock_mhz or (int(v) if (v := os.getenv("INFERASIM_GPU_CLOCK_MHZ")) else None)
     if clock_override is not None:
         # Derive the profile's implicit clock from a known reference.
         _PROFILE_CLOCK_MHZ = {
@@ -342,14 +342,14 @@ class SDPASimulator(SDPASimulationBackend):
             if backend.is_available():
                 is_rank_0 = int(os.getenv("RANK", "0")) == 0
                 if is_rank_0:
-                    print("[Primus:SDPA] Using Origami 1-CU tile-level simulation " "for Flash Attention")
+                    print("[inferasim:SDPA] Using Origami 1-CU tile-level simulation " "for Flash Attention")
                 return backend
         except Exception as exc:
             # If Origami is not available or fails to initialize, fall back to
             # the analytic SDPA model by returning None here.
             is_rank_0 = int(os.getenv("RANK", "0")) == 0
             if is_rank_0:
-                print("[Primus:SDPA] Origami 1-CU tile-level simulation disabled " f"due to error: {exc}")
+                print("[inferasim:SDPA] Origami 1-CU tile-level simulation disabled " f"due to error: {exc}")
         return None
 
     def _simulate_tile_level(

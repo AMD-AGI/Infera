@@ -230,7 +230,7 @@ def _add_performance_args(parser):
         default=None,
         help=(
             "Target GPU architecture for simulation (e.g. 'mi300x', 'gfx942', 'mi355x', 'gfx950').\n"
-            "If not specified, auto-detected or uses PRIMUS_GPU_ARCH env var.\n"
+            "If not specified, auto-detected or uses INFERASIM_GPU_ARCH env var.\n"
         ),
     )
     parser.add_argument(
@@ -242,7 +242,7 @@ def _add_performance_args(parser):
             "Override the GPU compute clock frequency in MHz for simulation.\n"
             "If not specified, uses the default from the hardware profile for the\n"
             "given --gpu-arch (e.g. 2100 MHz for MI300X/MI325X).\n"
-            "Can also be set via the PRIMUS_GPU_CLOCK_MHZ env var.\n"
+            "Can also be set via the INFERASIM_GPU_CLOCK_MHZ env var.\n"
             "Example: --gpu-clock-mhz 1500\n"
         ),
     )
