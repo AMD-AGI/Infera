@@ -199,14 +199,17 @@ _default_partition() {
 SLURM_PART="${INFERA_E2E_SLURM_PARTITION:-$(_default_partition)}"
 SLURM_PART="${SLURM_PART:-amd-spur}"
 SLURM_TIME="${INFERA_E2E_SLURM_TIME:-02:00:00}"
-# Burst QoS is a fallback, never used up front: a dispatch queued this long on
-# the group node limit is resubmitted with it (see _watch_job / _dispatch_slurm).
+# Burst QoS is a fallback, never used up front: a dispatch still queued after
+# QOS_WAIT is cancelled and resubmitted with it, once (see _dispatch_slurm).
 QOS_FALLBACK="${INFERA_E2E_SLURM_QOS_FALLBACK:-amd-burst-qos}"
 # Remembered across _hold_pair calls: the group node limit belongs to the run,
 # not to the pair being tried, so a per-call array spends HOLD_WAIT rediscovering
 # the same answer on every round of the outer retry loop.
 _HOLD_QOS=()
-QOS_WAIT="${INFERA_E2E_QOS_WAIT:-30}"
+# How long a dispatch may sit queued before it is retried on QOS_FALLBACK. Timed
+# rather than matched on a reason: one group node limit reads QOSGrpNodeLimit when
+# the job names its nodes and plain None when it does not.
+QOS_WAIT="${INFERA_E2E_QOS_WAIT:-120}"
 # _hold_pair's own window: its -N2 --gres=gpu:8 batch job needs longer to start
 # than a single-node srun, and giving up early only churns the pair-hold race.
 HOLD_WAIT="${INFERA_E2E_HOLD_WAIT:-60}"
@@ -409,7 +412,9 @@ _watch_job() {
       JobHoldMaxRequeue* | JobLaunchFailure*)
         printf '%s\n' "${reason%% (*}" > "$hold"; scancel "$jid" >/dev/null 2>&1; return ;;
     esac
-    if [ "$reason" = "QOSGrpNodeLimit" ] && [ "$waited" -ge "$QOS_WAIT" ]; then
+    # Timed, and armed only while the caller has somewhere to escape to: see
+    # QOS_WAIT, and $qwatch in _dispatch_slurm.
+    if [ -n "$qos" ] && [ "$waited" -ge "$QOS_WAIT" ]; then
       : > "$qos"; scancel "$jid" >/dev/null 2>&1; return
     fi
     if [ "$waited" -ge "$next" ]; then
@@ -498,7 +503,10 @@ _dispatch_slurm() {
         -J "$jobname" "${xflag[@]}" "${resv[@]}" "${qos[@]}" \
         "${remote[@]}" > "$out" 2>&1 &
     local srunpid=$!
-    _watch_job "$out" "$holdflag" "$qosflag" "$label" &
+    # Empty once switched: burst is where the escape leads, so queueing there is
+    # just queueing and the job timeout is the backstop.
+    local qwatch="$qosflag"; [ "${#qos[@]}" -gt 0 ] && qwatch=""
+    _watch_job "$out" "$holdflag" "$qwatch" "$label" &
     local holdpid=$!
     wait "$srunpid"; prc=$?
     kill "$holdpid" 2>/dev/null; wait "$holdpid" 2>/dev/null
@@ -517,16 +525,12 @@ _dispatch_slurm() {
       echo "[$label] job ${why:-held} — cancelled, retry $held/$max_held in 5s" >&2
       attempt=$((attempt - 1)); sleep 5; continue
     fi
-    # Queued on the group node limit past $QOS_WAIT: the watchdog cancelled it —
-    # resubmit once on the burst QoS (not a real attempt); refused again = fail.
+    # Still queued after $QOS_WAIT: the watchdog cancelled it — resubmit on the
+    # burst QoS, not spending a real attempt.
     if [ -f "$qosflag" ]; then
       prc=1
-      if [ "${#qos[@]}" -gt 0 ]; then
-        echo "[$label] still QOSGrpNodeLimit on --qos=$QOS_FALLBACK — giving up" >&2
-        break
-      fi
       qos=(--qos="$QOS_FALLBACK")
-      echo "[$label] QOSGrpNodeLimit for ${QOS_WAIT}s — resubmitting with --qos=$QOS_FALLBACK" >&2
+      echo "[$label] queued ${QOS_WAIT}s on the default QoS — resubmitting with --qos=$QOS_FALLBACK" >&2
       attempt=$((attempt - 1)); continue
     fi
     # Docker errors land in $logf (shared) or $out (local); "running on <node>"
