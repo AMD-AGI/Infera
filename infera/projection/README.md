@@ -1,21 +1,30 @@
-# Infera Projection & Tuning
+# inferasim — Infera's serving simulator & projector
 
-Inference/serving **performance projection** and an **LLM tuning agent** for
-recipe search, ported from Primus. The core idea: *measure sparsely, transport
-analytically*. Benchmark one cheap sub-scale anchor on a single GPU, then
-project TTFT / ITL / throughput / KV-cache for every serving recipe
-(TP/EP/PP, batch, concurrency, dtype) — no full-node sweep per recipe.
+**inferasim** is a workload-driven *simulate-then-verify* surface for the serving
+stack. It combines **analytical + GPU-calibrated performance projection**, a
+**discrete-event serving simulator** (arrival-driven, KV-aware, multi-instance
+routing), and an **LLM tuning agent** for recipe search — so you can screen
+thousands of serving configurations in simulation and validate only the
+shortlist on real GPUs (Hyperloom/Infera).
+
+The core idea: *measure sparsely, transport analytically*. Benchmark one cheap
+sub-scale anchor on a single GPU, then project TTFT / ITL / throughput /
+KV-cache for every serving recipe (TP/EP/PP, batch, concurrency, dtype) — no
+full-node sweep per recipe — and simulate the fleet under load.
 
 ## What's here
 
-- `cli.py` — `infera-projection` entry point (inference/serving projection).
-- `_vendor/` — the vendored Primus projection engine and tuning agent. Imports
-  are rewritten to `infera.projection._vendor.projection_core.*`; nothing depends on an
-  installed `primus`. The Megatron/training closure is intentionally **not**
-  vendored (the inference path never needs it).
+- `cli.py` — the `inferasim` entry point (inference/serving projection + DES).
+- `core/`, `modules/`, `platforms/` — first-class projection engine + DES,
+  imported as `infera.projection.*`; nothing depends on an installed `primus`.
+  The Megatron/training closure is intentionally **not** included (the
+  inference path never needs it).
+- `agents/tuning_agent/` — the recipe-search tuning agent (`inferasim-tune`).
+- `_tuning_shim/` — a thin compatibility shim so the tuning agent can spawn the
+  projector as a subprocess through the public CLI.
+- `configs/` — the model/preset tree resolved at runtime (`configs/models/...`).
 - `examples/exp_pretrain.yaml` — an example model/experiment config. The model
-  preset is selected via `PRIMUS_MODEL` and resolved from the vendored
-  `_vendor/projection_core/configs/` preset tree.
+  preset is selected via `PRIMUS_MODEL` and resolved from the `configs/` tree.
 
 ## Install
 
@@ -26,11 +35,15 @@ pip install ".[projection-tuning]"   # + the DSPy tuning agent
 
 `torch` and the serving engine (`vllm`) come from the engine base image, not pip.
 
+Two console scripts are installed: `inferasim` (projection + DES) and
+`inferasim-tune` (recipe search). The pre-rebrand names `infera-projection` /
+`infera-tuning` remain as back-compat aliases.
+
 ## Project a recipe from a saved anchor (no GPU)
 
 ```bash
 PRIMUS_MODEL=gpt_oss_120B PRIMUS_TP=2 PRIMUS_EP=2 \
-infera-projection inference \
+inferasim inference \
   --config infera/projection/examples/exp_pretrain.yaml \
   --inference-mode performance --serving-model continuous \
   --input-len 1024 --output-len 1024 --inference-batch-size 32 \
@@ -41,7 +54,7 @@ infera-projection inference \
 ## Harvest a GPU-calibrated anchor (needs a ROCm GPU + vLLM)
 
 ```bash
-infera-projection anchor --model gpt_oss_120B --benchmark-gpus 1 --save anchor.json
+inferasim anchor --model gpt_oss_120B --benchmark-gpus 1 --save anchor.json
 ```
 
 The anchor JSON is engine-neutral (`"backend"` field + per-batch decode/prefill
@@ -56,7 +69,7 @@ automatic prefix caching. Model that reuse with `--prefix-cache-hit-rate R`
 (alias `--prefix-hit-fraction`), `R` in `[0, 1)`:
 
 ```bash
-infera-projection inference ... --input-len 4096 --prefix-cache-hit-rate 0.8
+inferasim inference ... --input-len 4096 --prefix-cache-hit-rate 0.8
 ```
 
 Semantics: the cached prefix (`R * input_len` tokens) skips prefill compute;
@@ -100,7 +113,7 @@ on an instance already holding its prefix is a hit (only the suffix is
 prefilled).
 
 ```bash
-infera-projection inference ... \
+inferasim inference ... \
   --request-rate 40 --arrival-model poisson --des-num-requests 400 \
   --des-instances 8 --des-routing prefix_aware \
   --des-num-prefixes 32 --des-prefix-len 3072
@@ -140,6 +153,6 @@ ordering. Pure-TP recipes self-anchor at the target TP.
 
 ## Tuning agent
 
-`infera-tuning` runs a deterministic seed sweep then a DSPy planner/RLM loop
+`inferasim-tune` runs a deterministic seed sweep then a DSPy planner/RLM loop
 that proposes recipes and scores them through the projector — no GPU in the
-default path. See `_vendor/projection_core/agents/tuning_agent/`.
+default path. See `agents/tuning_agent/`.

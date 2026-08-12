@@ -3,11 +3,12 @@
 #
 # SPDX-License-Identifier: MIT
 ###############################################################################
-"""Infera inference/serving projection CLI.
+"""inferasim inference/serving projection CLI.
 
 Analytical + GPU-calibrated projection of TTFT / ITL / throughput / KV-cache
-for a serving recipe. Vendored from Primus (see ``_vendor/``); only the
-inference suite is exposed here.
+for a serving recipe, plus discrete-event serving simulation. This is the
+``inferasim`` product surface over the first-class ``infera.projection.*``
+modules.
 
 Examples
 --------
@@ -25,8 +26,8 @@ Harvest a GPU-calibrated anchor (needs a ROCm GPU + vLLM), then project::
 import argparse
 import sys
 
-from infera.projection._vendor.projection_core.core.launcher.parser import add_pretrain_parser
-from infera.projection._vendor.projection_core.core.projection.inference_projection import (
+from infera.projection.core.launcher.parser import add_pretrain_parser
+from infera.projection.core.projection.inference_projection import (
     launch_projection_from_cli,
 )
 
@@ -812,7 +813,7 @@ def main(argv=None):
     args, overrides = parser.parse_known_args(argv)
 
     if getattr(args, "func", None) == "anchor":
-        from infera.projection._vendor.projection_core.core.projection.inference_projection import (
+        from infera.projection.core.projection.inference_projection import (
             benchmark_vllm,
         )
         return benchmark_vllm.main(args._bench_argv)
