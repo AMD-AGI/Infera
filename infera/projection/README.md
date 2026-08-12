@@ -48,6 +48,40 @@ The anchor JSON is engine-neutral (`"backend"` field + per-batch decode/prefill
 measurements), so an SGLang/ATOM harvester on Infera's own engine layer can be
 added later without touching the projector.
 
+## Prefix-cache reuse (`--prefix-cache-hit-rate`)
+
+Agentic and multi-turn traffic shares long prefixes (system prompts, tool
+schemas, conversation history) that Infera / vLLM / SGLang keep resident via
+automatic prefix caching. Model that reuse with `--prefix-cache-hit-rate R`
+(alias `--prefix-hit-fraction`), `R` in `[0, 1)`:
+
+```bash
+infera-projection inference ... --input-len 4096 --prefix-cache-hit-rate 0.8
+```
+
+Semantics: the cached prefix (`R * input_len` tokens) skips prefill compute;
+only the non-cached suffix is run through the network, and it still attends over
+the full context (cached prefix + suffix). So **TTFT and the prefill share of
+continuous-batching pollution scale with `(1 - R)`**, while decode / KV sizing
+are unchanged. `R = 0` (default) is a cold cache and is identical to prior
+behaviour. At least one token is always prefilled, so `R` is clamped below 1.
+
+Example (gpt_oss_120B, TP2, input=4096, batch=32, MI355X, analytical):
+
+| hit rate | TTFT |
+| --- | --- |
+| 0.0 (cold) | 52.5 ms |
+| 0.5 | 44.0 ms |
+| 0.8 | 38.8 ms |
+| 0.95 | 23.5 ms |
+
+The discount shrinks each recipe's prefill/TTFT component monotonically, so
+TTFT-ordered rankings are stable in the common case — though compute-bound
+recipes benefit more than comm-bound ones, which is the intended (physical)
+effect. Set it per workload in a YAML `inference:` block
+(`prefix_cache_hit_rate: 0.8`) so the tuning agent scores every recipe under the
+same reuse assumption.
+
 ## Confidence ladder
 
 A 1-GPU anchor cannot observe cross-GPU communication (EP all-to-all, TP

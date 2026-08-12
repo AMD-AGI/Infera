@@ -375,6 +375,17 @@ def _add_inference_args(parser):
         help="Chunked-prefill chunk size in tokens (0 disables).",
     )
     parser.add_argument(
+        "--prefix-cache-hit-rate",
+        "--prefix-hit-fraction",
+        dest="prefix_cache_hit_rate",
+        type=float,
+        default=None,
+        help="Prefix-cache hit rate in [0,1): fraction of each prompt already "
+        "resident in the KV cache (automatic prefix caching / shared prefix "
+        "reuse). Cached tokens skip prefill, so TTFT scales with (1 - rate). "
+        "Default: 0 (cold cache).",
+    )
+    parser.add_argument(
         "--speculative-num-tokens",
         type=int,
         default=None,

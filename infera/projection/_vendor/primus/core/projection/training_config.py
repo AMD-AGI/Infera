@@ -183,6 +183,16 @@ class InferenceRequestConfig:
     # Chunked prefill: split a long prompt into chunks of this many tokens
     # (0 disables; the whole prompt is one forward).
     chunked_prefill_size: int = 0
+    # Prefix-cache hit rate in [0, 1): the fraction of each prompt's tokens
+    # already resident in the paged KV cache (an automatically-cached / reused
+    # shared prefix). Cached tokens skip prefill compute -- only the non-cached
+    # suffix is run through the network -- so TTFT and the prefill share of
+    # continuous-batching pollution scale with ``(1 - prefix_cache_hit_rate)``.
+    # The suffix tokens still attend over the FULL context (cached prefix +
+    # suffix), so decode/KV sizing is unchanged. ``0`` = cold cache (legacy
+    # behaviour). Models vLLM/SGLang automatic prefix caching and Infera's
+    # cross-request prefix reuse (shared system prompts, agentic multi-turn).
+    prefix_cache_hit_rate: float = 0.0
     # Speculative decoding: number of draft tokens proposed per verify step
     # (0 disables) and the expected acceptance rate in [0, 1].
     speculative_num_tokens: int = 0
@@ -301,6 +311,18 @@ class InferenceRequestConfig:
         if self.max_concurrency is not None:
             return int(self.max_concurrency)
         return int(self.batch_size)
+
+    def resolved_prefix_cache_hit_rate(self) -> float:
+        """Prefix-cache hit rate clamped to ``[0, 0.999]``.
+
+        Capped just below 1.0 so at least one prompt token is always prefilled
+        (a request with a 100%-cached prompt still runs one forward to produce
+        its first token). ``0`` = cold cache.
+        """
+        h = float(self.prefix_cache_hit_rate or 0.0)
+        if h <= 0.0:
+            return 0.0
+        return min(h, 0.999)
 
     def resolved_decode_step_overhead_us(self) -> float:
         """Per-decode-step launch overhead, honoring the cudagraph preset.

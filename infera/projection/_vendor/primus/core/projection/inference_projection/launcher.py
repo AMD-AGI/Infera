@@ -29,6 +29,7 @@ _ARG_TO_FIELD = {
     "weight_dtype": "weight_dtype",
     "kv_cache_dtype": "kv_cache_dtype",
     "chunked_prefill_size": "chunked_prefill_size",
+    "prefix_cache_hit_rate": "prefix_cache_hit_rate",
     "speculative_num_tokens": "speculative_num_tokens",
     "speculative_acceptance_rate": "speculative_acceptance_rate",
     "serving_model": "serving_model",
@@ -118,6 +119,8 @@ def _print_performance(inference_config, perf) -> None:
     feats = []
     if req.chunked_prefill_size:
         feats.append(f"chunked_prefill={req.chunked_prefill_size}")
+    if req.resolved_prefix_cache_hit_rate() > 0.0:
+        feats.append(f"prefix_cache_hit={req.resolved_prefix_cache_hit_rate():.2f}")
     if req.speculative_num_tokens:
         feats.append(
             f"speculative(k={req.speculative_num_tokens}, "

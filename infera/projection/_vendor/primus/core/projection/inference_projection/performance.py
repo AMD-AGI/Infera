@@ -1097,25 +1097,49 @@ class InferencePerformanceProjector:
 
     # -- prefill ---------------------------------------------------------------
 
+    def _prefix_cached_tokens(self, input_len: int) -> int:
+        """Prompt tokens served from the prefix cache (skip prefill compute).
+
+        The non-cached suffix (``input_len - cached``) is what must actually be
+        run through the network. At least one token always remains uncached so a
+        fully-cached prompt still does one forward to emit its first token.
+        """
+        hit = self.cfg.request_config.resolved_prefix_cache_hit_rate()
+        if hit <= 0.0 or input_len <= 1:
+            return 0
+        return max(0, min(int(input_len * hit), input_len - 1))
+
     def prefill_latency_ms(self, batch: int, input_len: int) -> float:
-        """Time to process the prompt (→ first token).  Honors chunked prefill."""
+        """Time to process the prompt (→ first token).  Honors chunked prefill.
+
+        With a prefix-cache hit rate the cached prefix is already resident, so
+        only the non-cached suffix is prefilled; the suffix still attends over
+        the full context (cached prefix + suffix).
+        """
+        cached = self._prefix_cached_tokens(input_len)
+        new_tokens = input_len - cached
+
         # Benchmark-based: use the measured full-prompt prefill step directly.
         if self._measured_mode:
             if self._meas_whole.get("prefill") or self._meas_layer:
                 # Measured anchor is at ``ref_input``; scale by the per-token
-                # prefill rate when the requested prompt differs in length.
-                if self._meas_ref_input and input_len != self._meas_ref_input:
-                    return self._measured_prefill_tokens_ms(batch * input_len)
+                # prefill rate when the effective prompt differs in length. A
+                # prefix-cache hit only computes ``new_tokens`` (not input_len).
+                if cached or (self._meas_ref_input and input_len != self._meas_ref_input):
+                    return self._measured_prefill_tokens_ms(batch * new_tokens)
                 return self._measured_full_prefill_ms(batch)
 
         chunk = int(self.cfg.request_config.chunked_prefill_size or 0)
-        if chunk <= 0 or chunk >= input_len:
-            ft = self._forward_times(batch, input_len, "prefill", input_len)
+        if chunk <= 0 or chunk >= new_tokens:
+            # Single forward over the ``new_tokens`` suffix; attention context is
+            # the full prompt (``input_len``) since it also reads the cached KV.
+            ft = self._forward_times(batch, new_tokens, "prefill", input_len)
             return ft.total_ms
 
-        # Chunked prefill: each chunk attends to all preceding context.
+        # Chunked prefill: each chunk attends to all preceding context. The
+        # cached prefix is already resident, so chunking starts after it.
         total = 0.0
-        processed = 0
+        processed = cached
         while processed < input_len:
             this = min(chunk, input_len - processed)
             kv_len = processed + this
@@ -1286,12 +1310,15 @@ class InferencePerformanceProjector:
 
         # Prefill of a newly-admitted request is split into chunks; with chunked
         # prefill each mixed step carries only one chunk (less pollution/step).
+        # A prefix-cache hit skips the cached prefix, so only the non-cached
+        # suffix (``prefill_span``) pollutes the decode stream.
+        prefill_span = max(1, ISL - self._prefix_cached_tokens(ISL))
         chunk = int(req.chunked_prefill_size or 0)
-        if chunk <= 0 or chunk >= ISL:
+        if chunk <= 0 or chunk >= prefill_span:
             n_chunks = 1
-            chunk_tokens = ISL
+            chunk_tokens = prefill_span
         else:
-            n_chunks = max(1, math.ceil(ISL / chunk))
+            n_chunks = max(1, math.ceil(prefill_span / chunk))
             chunk_tokens = chunk
 
         # Scheduler per-step token budget (vLLM ``max_num_batched_tokens``). A
@@ -1310,7 +1337,7 @@ class InferencePerformanceProjector:
             eff_chunk = min(chunk_tokens, max(1, cap - decode_tokens_mixed))
             if eff_chunk < chunk_tokens:
                 chunk_tokens = eff_chunk
-                n_chunks = max(1, math.ceil(ISL / eff_chunk))
+                n_chunks = max(1, math.ceil(prefill_span / eff_chunk))
 
         penalty = max(0.0, req.resolved_mixed_batch_penalty())
         ov = self._decode_step_overhead_ms()
