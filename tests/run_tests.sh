@@ -202,6 +202,10 @@ SLURM_TIME="${INFERA_E2E_SLURM_TIME:-02:00:00}"
 # Burst QoS is a fallback, never used up front: a dispatch queued this long on
 # the group node limit is resubmitted with it (see _watch_job / _dispatch_slurm).
 QOS_FALLBACK="${INFERA_E2E_SLURM_QOS_FALLBACK:-amd-burst-qos}"
+# Remembered across _hold_pair calls: the group node limit belongs to the run,
+# not to the pair being tried, so a per-call array spends HOLD_WAIT rediscovering
+# the same answer on every round of the outer retry loop.
+_HOLD_QOS=()
 QOS_WAIT="${INFERA_E2E_QOS_WAIT:-30}"
 # _hold_pair's own window: its -N2 --gres=gpu:8 batch job needs longer to start
 # than a single-node srun, and giving up early only churns the pair-hold race.
@@ -315,14 +319,14 @@ _rival_holder() {
 # The caller reports 1 and 2 differently: they used to read alike, so a refused
 # sbatch was announced as a lost race and pointed triage away from the scheduler.
 _hold_pair() {
-  local pair="$1" script="$SCRATCH/hold.sh" jid st rs waited qos=() i other
+  local pair="$1" script="$SCRATCH/hold.sh" jid st rs waited i other
   # A real script file, not --wrap: on Spur --wrap always NODE_FAILs at -N2.
   printf '#!/bin/bash\nsleep %s\n' "${INFERA_E2E_HOLD_SLEEP:-10800}" > "$script"
   for i in 1 2 3; do
     jid=$(sbatch --parsable -N2 -n2 -w "$pair" --gres=gpu:8 -p "$SLURM_PART" \
       -t "$SLURM_TIME" -J "infera-ci-hold-${INFERA_E2E_JOB_TAG:-local}" \
       ${INFERA_E2E_RESERVATION:+--reservation="$INFERA_E2E_RESERVATION"} \
-      "${qos[@]}" "$script" 2>/dev/null) || continue
+      "${_HOLD_QOS[@]}" "$script" 2>/dev/null) || continue
     waited=0
     while [ "$waited" -lt "$HOLD_WAIT" ]; do
       st=$(scontrol show job "$jid" 2>/dev/null | grep -oE 'JobState=[A-Z_]+' | cut -d= -f2)
@@ -342,7 +346,7 @@ _hold_pair() {
     done
     # Read the reason BEFORE cancelling; the burst QoS is the way past a group
     # node limit, and a launch failure is Spur being flaky — both just retry.
-    [ "${#qos[@]}" -eq 0 ] && [ "${rs#QOSGrp}" != "$rs" ] && qos=(-q "$QOS_FALLBACK")
+    [ "${#_HOLD_QOS[@]}" -eq 0 ] && [ "${rs#QOSGrp}" != "$rs" ] && _HOLD_QOS=(-q "$QOS_FALLBACK")
     scancel "$jid" >/dev/null 2>&1
     echo "[e2e disagg] hold attempt $i on $pair not started (${st:-?}/${rs:-?}) — retrying" >&2
   done
@@ -726,13 +730,16 @@ run_e2e_disagg() {
         echo "[e2e disagg] WARNING: no 2 free nodes in '$SLURM_PART' within ${INFERA_E2E_WAIT_NODES_TIMEOUT:-6400}s — skipping $e" >&2
         break
       fi
-      # Losing the race is not a node fault, so the pair must NOT join $exclude:
-      # with a small pool the engine would exclude every node and then starve on
-      # an idle cluster. Bounded so a pathological loser fails loudly instead.
+      # Losing the race (1) is not a node fault, so that pair must NOT join
+      # $exclude: with a small pool the engine would exclude every node and then
+      # starve on an idle cluster. SLURM never placing the hold (2) is the
+      # opposite -- a node reading State=IDLE, CPUAlloc=0 and unreserved can still
+      # answer Priority, so re-picking an order-stable list returns the same pair.
       # Not `if ! _hold_pair`: inside that, $? is the negation's, not the call's.
       _hold_pair "$n1,$n2"; hold_rc=$?
       if [ "$hold_rc" -ne 0 ]; then
         races=$((races + 1))
+        [ "$hold_rc" -eq 2 ] && exclude="${exclude:+$exclude,}$n1,$n2"
         if [ "$races" -ge "$max_races" ]; then
           if [ "$hold_rc" -eq 2 ]; then
             echo "[e2e disagg] SLURM never placed a node hold in $races attempts — giving up on $e" >&2
