@@ -15,14 +15,22 @@ from ...harness.matrix import DEEPSEEK_V4_PRO, GLM_5_1_FP8, GPT_OSS, KIMI_K26_MX
 # [enable, model, tp, ep, dp_attn] (+ optional opts dict). A tuple/list on an axis
 # enumerates it (e.g. (True, False) runs both). MoE models can exercise ep.
 CASES = [
-    # gpt-oss-120b: tp2, ep on/off.
+    # gpt-oss-120b: tp2, ep on/off. On triton, not the default aiter backend: the
+    # CK batch_prefill instance this case needs (page_size < kN0 over a >2GB KV
+    # cache, gfx950) is absent from the aiter in the v0.5.17 base, so both TP ranks
+    # raise "no matching kernel found" and the engine dies before serving. Drop this
+    # once a base image carries the instance; aiter stays on for MoE either way.
     [
         True,
         GPT_OSS,
         2,
         True,
         False,
-        {"env": {"SGLANG_USE_AITER": "1"}, "server_ready_timeout": 1800},
+        {
+            "env": {"SGLANG_USE_AITER": "1"},
+            "server_ready_timeout": 1800,
+            "args": ["--attention-backend", "triton"],
+        },
     ],
     [
         True,
