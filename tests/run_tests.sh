@@ -247,14 +247,20 @@ _reservation_nodes() {
 # Ask the NODE, not squeue: a multi-node job's %N is a compacted hostlist
 # (crsuse2-m2m-[090,183]) holding neither full name, and Spur has no `scontrol
 # show hostnames`. Unreadable => busy, never hand out what we cannot verify.
+# Allocation is only half of "free": Spur leaves a node inside another team's
+# reservation reading State=IDLE with CPUAlloc=0, and puts the membership in
+# ActiveReservation instead. sbatch then refuses it with ReqNodeNotAvail.
 _node_free() {
-  local alloc
-  alloc=$(scontrol show node "$1" 2>/dev/null | grep -oE 'CPUAlloc=[0-9]+' | head -1 | cut -d= -f2)
-  [ -n "$alloc" ] && [ "$alloc" -eq 0 ] 2>/dev/null
+  local out alloc resv
+  out=$(scontrol show node "$1" 2>/dev/null) || return 1
+  alloc=$(printf '%s\n' "$out" | grep -oE 'CPUAlloc=[0-9]+' | head -1 | cut -d= -f2)
+  [ -n "$alloc" ] && [ "$alloc" -eq 0 ] 2>/dev/null || return 1
+  resv=$(printf '%s\n' "$out" | grep -oE 'ActiveReservation=[^[:space:]]+' | head -1 | cut -d= -f2)
+  [ -z "$resv" ] || [ "$resv" = "${INFERA_E2E_RESERVATION:-}" ]
 }
-# Free nodes for the PD-disagg pair, one per line: the reservation's own (a
-# reserved node reads 'resv', never 'idle', so sinfo would miss it), else the
-# partition's idle ones.
+# Free nodes for the PD-disagg pair, one per line: the reservation's own, else
+# the partition's idle ones. Both go through _node_free, which is what keeps
+# another team's reserved nodes out of the second list.
 _candidate_nodes() {
   local n nodes=""
   if [ -n "${INFERA_E2E_RESERVATION:-}" ]; then
@@ -262,10 +268,8 @@ _candidate_nodes() {
     # through would hand the PD pair unreserved nodes off the open partition.
     nodes=$(_reservation_nodes "$INFERA_E2E_RESERVATION") || return 0
   fi
-  if [ -z "$nodes" ]; then
-    sinfo -h -N -p "$SLURM_PART" -t idle -o '%n' 2>/dev/null | awk 'NF && !seen[$0]++'
-    return
-  fi
+  [ -n "$nodes" ] ||
+    nodes=$(sinfo -h -N -p "$SLURM_PART" -t idle -o '%n' 2>/dev/null | awk 'NF && !seen[$0]++')
   for n in $nodes; do
     _node_free "$n" && echo "$n"
   done
