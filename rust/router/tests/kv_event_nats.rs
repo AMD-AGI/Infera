@@ -62,6 +62,25 @@ fn block_stored(hashes: &[u64], parent: Option<u64>, token_ids: &[u32], bs: i64)
 
 /// `KVEventBatch = [ts, events, attn_dp_rank?]` -- msgspec `array_like`, the
 /// same shape the ZMQ test builds.
+/// The event stream, with the configuration the router and the relay both
+/// create it with. Idempotent, so it does not matter who gets there first.
+async fn ensure_event_stream(js: &async_nats::jetstream::Context) {
+    use async_nats::jetstream::stream::{Config, DiscardPolicy, RetentionPolicy, StorageType};
+    let cfg = Config {
+        name: "INFERA_KV_EVENTS".to_string(),
+        subjects: vec![format!("{KV_EVENTS_SUBJECT_PREFIX}.>")],
+        retention: RetentionPolicy::Limits,
+        storage: StorageType::File,
+        discard: DiscardPolicy::Old,
+        max_bytes: 256 * 1024 * 1024,
+        max_messages: 1_000_000,
+        ..Default::default()
+    };
+    if js.create_stream(cfg.clone()).await.is_err() {
+        js.update_stream(&cfg).await.expect("event stream");
+    }
+}
+
 fn batch(events: Vec<Mv>) -> Vec<u8> {
     let v = Mv::Array(vec![Mv::from(0.0_f64), Mv::Array(events)]);
     let mut buf = Vec::new();
@@ -82,6 +101,11 @@ async fn a_published_batch_reaches_the_cache_view() {
     // messages would build an empty view for a worker that had already cached.
     let nc = async_nats::connect(&url).await.expect("connect");
     let js = async_nats::jetstream::new(nc.clone());
+    // A worker's relay creates this in production, and the router creates it
+    // too -- but neither has run yet here, and publishing to a subject no
+    // stream captures is rejected. Without this the test only passed on a
+    // broker where an earlier run had left the stream behind.
+    ensure_event_stream(&js).await;
     let subject = format!("{KV_EVENTS_SUBJECT_PREFIX}.{token}.0");
     js.publish(
         subject.clone(),
