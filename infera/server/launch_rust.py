@@ -21,10 +21,17 @@ from pathlib import Path
 
 # (arg attr, required value, human name for the error message)
 _REQUIRED = [
-    ("discovery_backend", "etcd", "kubernetes discovery"),
-    ("request_transport", "http", "the NATS request transport"),
     ("router_mode", "auto", "GAIE direct mode"),
 ]
+
+# Discovery backends the Rust binary implements.
+_SUPPORTED_DISCOVERY = ("etcd", "kubernetes")
+
+# Request transports the Rust binary implements.
+_SUPPORTED_TRANSPORT = ("http", "nats")
+
+# kv-event sources the Rust binary implements.
+_SUPPORTED_KV_TRANSPORT = ("zmq", "nats")
 
 # Routing policies the Rust backend implements.
 _SUPPORTED_POLICIES = ("round-robin", "kv-aware")
@@ -53,13 +60,24 @@ def exec_rust(args: argparse.Namespace) -> None:
         unsupported.append("the profiling control plane")
     if args.router_policy not in _SUPPORTED_POLICIES:
         unsupported.append(f"--router-policy {args.router_policy}")
+    if args.discovery_backend not in _SUPPORTED_DISCOVERY:
+        unsupported.append(f"--discovery-backend {args.discovery_backend}")
+    if args.request_transport not in _SUPPORTED_TRANSPORT:
+        unsupported.append(f"--request-transport {args.request_transport}")
+    if args.kv_event_transport not in _SUPPORTED_KV_TRANSPORT:
+        unsupported.append(f"--kv-event-transport {args.kv_event_transport}")
     if unsupported:
         raise SystemExit(
             "--router-backend rust does not support " + ", ".join(unsupported) + ".\n"
             "Use --router-backend python for these."
         )
-    if not args.etcd_endpoint:
+    if args.discovery_backend == "etcd" and not args.etcd_endpoint:
         raise SystemExit("--router-backend rust requires --etcd-endpoint")
+    if args.discovery_backend == "kubernetes" and not args.k8s_label_selector:
+        raise SystemExit(
+            "--router-backend rust with kubernetes discovery requires "
+            "--k8s-label-selector (or INFERA_K8S_LABEL_SELECTOR)"
+        )
 
     binary = _find_binary()
     argv = [
@@ -68,8 +86,6 @@ def exec_rust(args: argparse.Namespace) -> None:
         args.host,
         "--port",
         str(args.port),
-        "--etcd-endpoint",
-        args.etcd_endpoint,
         "--etcd-prefix",
         args.etcd_prefix,
         "--router-policy",
@@ -87,6 +103,32 @@ def exec_rust(args: argparse.Namespace) -> None:
         "--breaker-max-cooldown-s",
         str(args.breaker_max_cooldown_s),
     ]
+    # Only when it means something: --etcd-endpoint has no default, so passing
+    # it unconditionally hands execvp a None on the kubernetes path -- which is
+    # the path this backend exists to serve.
+    if args.discovery_backend == "etcd":
+        argv += ["--etcd-endpoint", args.etcd_endpoint]
+    else:
+        argv += ["--k8s-label-selector", args.k8s_label_selector]
+        # Left unset, the Rust side reads the Pod's own namespace, which is
+        # what the Python backend does too.
+        if args.k8s_namespace:
+            argv += ["--k8s-namespace", args.k8s_namespace]
+    argv += ["--kv-event-transport", args.kv_event_transport]
+    if args.nats_server:
+        argv += ["--nats-server", args.nats_server]
+    # Only when given: these default to None because the resolution order is
+    # flag > env > built-in, and the Rust side reads the same environment
+    # variables. Forwarding a None would override the environment with the
+    # string "None"; forwarding nothing at all silently dropped a flag the user
+    # did pass.
+    for flag, value in (
+        ("--nats-req-idle-timeout-s", args.nats_req_idle_timeout),
+        ("--nats-req-max-duration-s", args.nats_req_max_duration),
+        ("--nats-req-max-pending", args.nats_req_max_pending),
+    ):
+        if value is not None:
+            argv += [flag, str(value)]
     # kv-aware needs the tokenizer + overlap weights, or it degrades to
     # load-only routing (no cache locality). Resolve HF ids to a local path
     # (same as the Python router) since the Rust binary loads from disk.

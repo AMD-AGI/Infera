@@ -156,7 +156,7 @@ def _pd_worker(wid, mode, transport="http"):
     )
 
 
-def _nats_router(*, fail_decode):
+def _nats_router(*, fail_decode, prefill_status=200):
     """A PD pair that both registered for the NATS transport, which is what
     selects the NATS dispatch path."""
     return DisaggRouter(
@@ -165,7 +165,7 @@ def _nats_router(*, fail_decode):
             _pd_worker("d1", DisaggMode.DECODE, transport="nats"),
         ),
         _FakePolicy(),
-        nats_client=_FakeNatsPD(fail_decode=fail_decode),
+        nats_client=_FakeNatsPD(fail_decode=fail_decode, prefill_status=prefill_status),
     )
 
 
@@ -372,6 +372,43 @@ async def test_the_nats_transport_scores_its_legs_too():
 
 
 @pytest.mark.asyncio
+async def test_a_prefill_that_failed_over_nats_is_not_recorded_as_healthy():
+    """A `done` frame says the request finished, not that it succeeded.
+
+    The worker proxies whatever its engine returned, so a 500 comes back as
+    `done` with rs-status 500 -- an `error` frame means the transport failed,
+    which is a different thing. Scoring on the frame kind alone therefore reads
+    every failed prefill as evidence of health, and this is the one leg where
+    that is invisible from anywhere else: its reply is discarded, so nothing
+    else observes it, and a prefill that never registers its bootstrap_room
+    leaves every decode paired with it hanging on KVPoll. The HTTP path already
+    scores the same status correctly.
+    """
+    r = _nats_router(fail_decode=False, prefill_status=500)
+
+    for _ in range(3):
+        await r.dispatch({"model": "m"}, stream=False)
+
+    assert r.breaker.state_of("p1").value == "open", (
+        "a prefill leg failing every request must trip its breaker"
+    )
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_a_prefill_4xx_over_nats_is_not_held_against_the_worker():
+    """A 4xx is the request's fault -- every worker would answer the same, so
+    it must not accumulate towards tripping."""
+    r = _nats_router(fail_decode=False, prefill_status=400)
+
+    for _ in range(5):
+        await r.dispatch({"model": "m"}, stream=False)
+
+    assert r.breaker.state_of("p1").value == "closed"
+    await r.aclose()
+
+
+@pytest.mark.asyncio
 async def test_a_good_nats_probe_closes_the_breaker():
     r = _nats_router(fail_decode=False)
     for _ in range(3):
@@ -388,10 +425,16 @@ async def test_a_good_nats_probe_closes_the_breaker():
 
 
 class _FakeNatsPD:
-    """Scripted NATS transport: decode either answers or errors, prefill is fine."""
+    """Scripted NATS transport: decode either answers or errors, prefill is fine.
 
-    def __init__(self, *, fail_decode: bool):
+    ``prefill_status`` models a prefill whose *engine* failed. That is not an
+    error frame: the worker proxies whatever the engine said, so a 500 arrives
+    as ``done`` with ``rs-status: 500`` exactly as a 200 would.
+    """
+
+    def __init__(self, *, fail_decode: bool, prefill_status: int = 200):
         self.fail_decode = fail_decode
+        self.prefill_status = prefill_status
 
     async def admit(self, worker_id):
         return True
@@ -399,6 +442,10 @@ class _FakeNatsPD:
     async def stream(self, worker_id, payload):
         if worker_id == "d1" and self.fail_decode:
             yield (TYPE_ERROR, 502, b"decode exploded")
+            return
+        if worker_id == "p1" and self.prefill_status != 200:
+            yield (TYPE_DATA, None, b'{"error":"prefill exploded"}')
+            yield (TYPE_DONE, self.prefill_status, b"")
             return
         yield (TYPE_DATA, None, json.dumps({"id": "x"}).encode())
         yield (TYPE_DONE, 200, b"")

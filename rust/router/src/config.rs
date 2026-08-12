@@ -44,13 +44,61 @@ pub struct Config {
     #[arg(long, default_value = "round-robin")]
     pub router_policy: String,
 
-    /// Only `etcd` is supported by the Rust backend.
+    /// `etcd` (external) or `kubernetes` (workers publish into their own Pod
+    /// annotation and the API server is watched).
     #[arg(long, default_value = "etcd")]
     pub discovery_backend: String,
 
-    /// Only `http` is supported by the Rust backend.
-    #[arg(long, default_value = "http")]
+    /// kubernetes discovery: label selector identifying the fleet's worker
+    /// Pods. Required for that backend -- an empty selector would match every
+    /// Pod in the namespace.
+    #[arg(long, env = "INFERA_K8S_LABEL_SELECTOR")]
+    pub k8s_label_selector: Option<String>,
+
+    /// kubernetes discovery: namespace to watch. Defaults to the Pod's own.
+    #[arg(long)]
+    pub k8s_namespace: Option<String>,
+
+    /// `nats` (publish onto the worker's own subject and stream the reply back
+    /// over an inbox) or `http` (dial the worker directly).
+    ///
+    /// Defaults to `nats` because the Python backend does. This binary is a
+    /// drop-in for it, and the launcher forwards whatever Python resolved --
+    /// so a different default here would mean the same deployment behaved one
+    /// way through `python -m infera.server --router-backend rust` and another
+    /// way run directly.
+    #[arg(long, default_value = "nats")]
     pub request_transport: String,
+
+    /// NATS broker URL. Falls back to `NATS_SERVER`, then to localhost. Used by
+    /// both the request transport and the kv-event feed.
+    #[arg(long, env = "NATS_SERVER")]
+    pub nats_server: Option<String>,
+
+    /// Where kv-aware routing gets its cache events: `nats` (one subscription
+    /// for the fleet) or `zmq` (a socket per worker). Ignored unless
+    /// `--router-policy kv-aware`. Defaults to `nats`, as the Python backend
+    /// does.
+    #[arg(long, default_value = "nats")]
+    pub kv_event_transport: String,
+
+    /// Seconds to wait for the *next* reply chunk before giving up on a
+    /// request. Reset on every chunk, so a long generation that keeps producing
+    /// tokens never trips it -- only a stall does. 0 disables it.
+    #[arg(long, default_value_t = 900.0, env = "INFERA_NATS_REQ_IDLE_TIMEOUT")]
+    pub nats_req_idle_timeout_s: f64,
+
+    /// Hard cap on a whole request's wall clock regardless of token flow, for
+    /// runaway generations. 0 (the default) disables it.
+    #[arg(long, default_value_t = 0.0, env = "INFERA_NATS_REQ_MAX_DURATION")]
+    pub nats_req_max_duration_s: f64,
+
+    /// Refuse to dispatch to a worker whose in-NATS backlog has reached this
+    /// many messages, answering 429. Turning it on makes the request path
+    /// JetStream-backed, which is what makes the backlog measurable. 0 (the
+    /// default) keeps the transport pure core NATS.
+    #[arg(long, default_value_t = 0, env = "INFERA_NATS_REQ_MAX_PENDING")]
+    pub nats_req_max_pending: usize,
 
     /// kv-aware only: path to the model's HF fast tokenizer (`tokenizer.json` or
     /// its dir). Required for cache locality — without it kv-aware degrades to
@@ -94,16 +142,29 @@ impl Config {
                  can't be computed, so routing degrades to pure load balancing"
             );
         }
-        if self.discovery_backend != "etcd" {
+        match self.discovery_backend.as_str() {
+            "etcd" => {}
+            "kubernetes" => {
+                // Without a selector this would watch every Pod in the
+                // namespace and register anything carrying the annotation.
+                if self.k8s_label_selector.as_deref().unwrap_or("").is_empty() {
+                    anyhow::bail!("--discovery-backend kubernetes requires --k8s-label-selector");
+                }
+            }
+            other => anyhow::bail!(
+                "rust backend supports --discovery-backend etcd|kubernetes (got {other:?})"
+            ),
+        }
+        if self.request_transport != "http" && self.request_transport != "nats" {
             anyhow::bail!(
-                "rust backend supports only --discovery-backend etcd (got {:?})",
-                self.discovery_backend
+                "rust backend supports --request-transport http|nats (got {:?})",
+                self.request_transport
             );
         }
-        if self.request_transport != "http" {
+        if self.kv_event_transport != "zmq" && self.kv_event_transport != "nats" {
             anyhow::bail!(
-                "rust backend supports only --request-transport http (got {:?})",
-                self.request_transport
+                "rust backend supports --kv-event-transport zmq|nats (got {:?})",
+                self.kv_event_transport
             );
         }
         Ok(())
@@ -128,6 +189,24 @@ mod tests {
 
     fn with_endpoint(ep: &str) -> Config {
         Config::try_parse_from(["infera-router", "--etcd-endpoint", ep]).unwrap()
+    }
+
+    /// The defaults have to be the Python backend's, because the launcher
+    /// forwards whatever Python resolved and this binary is meant to be a
+    /// drop-in. When these drifted apart, the same deployment ran over NATS
+    /// through `python -m infera.server --router-backend rust` and over plain
+    /// HTTP when the binary was run directly -- with nothing in either log
+    /// saying which transport was in use.
+    ///
+    /// Values are from infera/server/args.py; changing one side means changing
+    /// both.
+    #[test]
+    fn transport_defaults_match_the_python_backend() {
+        let c = Config::try_parse_from(["infera-router"]).unwrap();
+        assert_eq!(c.request_transport, "nats");
+        assert_eq!(c.kv_event_transport, "nats");
+        assert_eq!(c.discovery_backend, "etcd");
+        assert_eq!(c.router_policy, "round-robin");
     }
 
     #[test]

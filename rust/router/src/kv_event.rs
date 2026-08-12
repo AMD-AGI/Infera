@@ -76,6 +76,10 @@ pub struct KvEventClient {
     ctx: zmq::Context,
     state: Arc<Mutex<HashMap<String, WorkerViews>>>,
     threads: Mutex<SubThreads>,
+    /// True when events arrive over one NATS subscription instead of a ZMQ
+    /// socket per worker. Registration still happens per worker -- the views
+    /// need a block size to be written into -- but no socket is opened.
+    nats_fed: bool,
 }
 
 impl Default for KvEventClient {
@@ -90,6 +94,54 @@ impl KvEventClient {
             ctx: zmq::Context::new(),
             state: Arc::new(Mutex::new(HashMap::new())),
             threads: Mutex::new(HashMap::new()),
+            nats_fed: false,
+        }
+    }
+
+    /// A client fed by `kv_event_nats`, which writes into the same views.
+    pub fn nats_fed() -> Self {
+        KvEventClient {
+            nats_fed: true,
+            ..Self::new()
+        }
+    }
+
+    /// Decode one worker's event batch and apply it, sharing the decoder and
+    /// the view logic with the ZMQ path so the two cannot drift.
+    pub(crate) fn apply_encoded_batch(&self, worker_id: &str, rank: i64, payload: &[u8]) {
+        match decode_batch(payload) {
+            Ok(events) => apply_events(&self.state, worker_id, rank, &events),
+            Err(e) => tracing::warn!(worker = %worker_id, err = %e, "kv decode failed (nats)"),
+        }
+    }
+
+    /// Seed a rank's view from the KV bucket, for a cold start.
+    ///
+    /// Two guards, both load-bearing. An empty snapshot is never applied: a
+    /// desynced relay can publish one, and it would wipe a view built from the
+    /// ordered stream and collapse cache hits to zero. And a rank that already
+    /// has an incremental view keeps it, because the stream is the
+    /// authoritative source and the bucket only exists to shortcut a cold
+    /// start.
+    pub(crate) fn seed_rank_view(&self, worker_id: &str, rank: i64, snapshot: Vec<u64>) {
+        if snapshot.is_empty() {
+            return;
+        }
+        let mut state = self.state.lock().expect("kv view mutex poisoned");
+        let wv = match state.get_mut(worker_id) {
+            Some(w) => w,
+            None => return, // not tracking this worker (yet)
+        };
+        let view = wv.views.entry(rank).or_default();
+        if view.is_empty() {
+            *view = snapshot.into_iter().collect();
+        }
+    }
+
+    pub(crate) fn drop_rank_view(&self, worker_id: &str, rank: i64) {
+        let mut state = self.state.lock().expect("kv view mutex poisoned");
+        if let Some(wv) = state.get_mut(worker_id) {
+            wv.views.remove(&rank);
         }
     }
 
@@ -125,6 +177,29 @@ impl KvEventClient {
     }
 
     pub fn on_worker_added(&self, w: &Worker) {
+        if self.nats_fed {
+            // No per-worker socket: ingestion is the one global subscription.
+            // A missing block size is not a 1 -- that produces a view which
+            // never matches and hides the fault -- so the worker is left
+            // untracked and kv-aware routing simply skips it.
+            let block_size = match w.kv_block_size {
+                Some(bs) if bs > 0 => bs as usize,
+                _ => {
+                    tracing::error!(
+                        worker = %w.worker_id,
+                        "kv events (nats): NOT tracking -- it registered no kv_block_size, \
+                         so kv-aware routing is off for this worker"
+                    );
+                    return;
+                }
+            };
+            let mut state = self.state.lock().expect("kv view mutex poisoned");
+            state
+                .entry(w.worker_id.clone())
+                .or_insert_with(|| WorkerViews::new(block_size));
+            tracing::info!(worker = %w.worker_id, block_size, "kv events (nats): tracking");
+            return;
+        }
         let endpoint = match &w.kv_events_endpoint {
             Some(ep) if !ep.is_empty() => ep.clone(),
             _ => return,

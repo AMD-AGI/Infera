@@ -9,6 +9,7 @@
 
 use std::collections::HashSet;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
@@ -23,7 +24,7 @@ use crate::dp;
 use crate::handlers::AppState;
 use crate::policy::{ActiveGuard, Role};
 use crate::pool::{DisaggMode, RouteTarget, Snapshot};
-use crate::util::json_error;
+use crate::util::{json_error, truncate_chars};
 
 /// A byte stream that owns an `ActiveGuard`: when the streamed body ends (client
 /// done, disconnect, or drop), the guard drops and fires `on_request_finished`,
@@ -49,6 +50,241 @@ impl Stream for GuardedStream {
     type Item = reqwest::Result<Bytes>;
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // GuardedStream is Unpin (Pin<Box<..>> + ActiveGuard are both Unpin).
+        self.get_mut().inner.as_mut().poll_next(cx)
+    }
+}
+
+/// One attempt over NATS, with the same contract as the HTTP one: `Err` only
+/// before any byte reached the client, so the caller may fail over.
+///
+/// Streaming commits on the first data frame -- after that a failure can only
+/// be reported inside the stream, because the client already has a 200 and
+/// part of a body. Unary accumulates server-side, so anything that goes wrong
+/// is still failoverable.
+async fn attempt_nats(
+    nats: &Arc<crate::nats_request::NatsRequestClient>,
+    target: &RouteTarget,
+    raw: &Bytes,
+    stream: bool,
+    path: &str,
+    guard: ActiveGuard,
+) -> Result<Response, Response> {
+    use crate::nats_request::Frame;
+
+    let worker = &target.worker;
+    let wid = worker.worker_id.clone();
+
+    // A worker at its backlog limit has not seen a byte of this request, so
+    // this is a pre-first-byte failure: returning Err lets the caller try a
+    // freer worker, and only a fleet-wide backlog reaches the client as 429.
+    // Without this the throttle changed the publish path to JetStream without
+    // ever refusing anything outside PD.
+    if !nats.admit(&wid).await {
+        return Err(Response::builder()
+            .status(StatusCode::TOO_MANY_REQUESTS)
+            .header(header::CONTENT_TYPE, "application/json")
+            .header("Retry-After", "1")
+            .body(Body::from(format!(
+                r#"{{"error":"worker {wid} request backlog over limit"}}"#
+            )))
+            .expect("429 response is valid"));
+    }
+
+    let body: serde_json::Value = match serde_json::from_slice(raw) {
+        Ok(v) => v,
+        Err(e) => {
+            return Err(json_error(
+                StatusCode::BAD_REQUEST,
+                &format!("request body is not JSON: {e}"),
+            ))
+        }
+    };
+    // Same envelope the Python router publishes; the worker side is shared.
+    let mut headers = serde_json::Map::new();
+    if let Some(r) = target.dp_rank {
+        headers.insert(
+            dp::DP_RANK_HEADER.to_string(),
+            serde_json::Value::String(r.to_string()),
+        );
+    }
+    let payload = serde_json::json!({
+        "path": path,
+        "stream": stream,
+        "headers": if headers.is_empty() { serde_json::Value::Null } else { serde_json::Value::Object(headers) },
+        "body": body,
+    });
+    let encoded = match serde_json::to_vec(&payload) {
+        Ok(v) => v,
+        Err(e) => {
+            return Err(json_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                &format!("encoding the nats request: {e}"),
+            ))
+        }
+    };
+
+    let mut reply = match nats.dispatch(&wid, &encoded).await {
+        Ok(r) => r,
+        Err(e) => {
+            return Err(json_error(
+                StatusCode::BAD_GATEWAY,
+                &format!("worker {wid} unreachable over nats: {e}"),
+            ))
+        }
+    };
+
+    if !stream {
+        let mut chunks: Vec<Bytes> = Vec::new();
+        let mut status = StatusCode::OK;
+        let mut done_seen = false;
+        loop {
+            match reply.next().await {
+                Some(Frame::Data(b)) => chunks.push(b),
+                Some(Frame::Done { status: s }) => {
+                    status = StatusCode::from_u16(s).unwrap_or(StatusCode::OK);
+                    done_seen = true;
+                    break;
+                }
+                Some(Frame::Error { status: s, message }) => {
+                    return Err(json_error(
+                        s.and_then(|c| StatusCode::from_u16(c).ok())
+                            .unwrap_or(StatusCode::BAD_GATEWAY),
+                        &format!("worker {wid} nats failed: {}", trim(&message)),
+                    ))
+                }
+                None => break,
+            }
+        }
+        // The subscription ended without the worker saying it was done. That
+        // is not a 200 with a short body: it is a worker that stopped talking
+        // mid-request, and reporting it as success would also record it as
+        // healthy against the breaker.
+        if !done_seen {
+            return Err(json_error(
+                StatusCode::BAD_GATEWAY,
+                &format!("worker {wid} closed the nats reply without finishing"),
+            ));
+        }
+        let total: usize = chunks.iter().map(|c| c.len()).sum();
+        let mut buf = Vec::with_capacity(total);
+        for c in &chunks {
+            buf.extend_from_slice(c);
+        }
+        // A 5xx before any data is a worker fault and retryable; a 4xx belongs
+        // to the request and every worker would answer the same, so it is
+        // returned rather than retried. Same rule as the HTTP path.
+        if is_worker_fault(status.as_u16()) {
+            return Err(Response::builder()
+                .status(status)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(buf))
+                .expect("unary response is valid"));
+        }
+        let _guard = guard;
+        return Ok(Response::builder()
+            .status(status)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(buf))
+            .expect("unary response is valid"));
+    }
+
+    // Peek one frame: data commits to this worker, anything else can still be
+    // retried elsewhere.
+    let first = match reply.next().await {
+        Some(Frame::Data(b)) => b,
+        Some(Frame::Error { status: s, message }) => {
+            return Err(json_error(
+                s.and_then(|c| StatusCode::from_u16(c).ok())
+                    .unwrap_or(StatusCode::BAD_GATEWAY),
+                &format!("worker {wid} nats stream failed: {}", trim(&message)),
+            ))
+        }
+        Some(Frame::Done { status }) => {
+            let code = StatusCode::from_u16(status).unwrap_or(StatusCode::OK);
+            if is_worker_fault(code.as_u16()) {
+                return Err(json_error(
+                    code,
+                    &format!("worker {wid} ended the stream with {code}"),
+                ));
+            }
+            // Nothing to stream, but not a fault: answer with an empty body
+            // rather than failing over a request the worker considers done.
+            let _guard = guard;
+            return Ok(Response::builder()
+                .status(code)
+                .header(header::CONTENT_TYPE, "text/event-stream")
+                .body(Body::empty())
+                .expect("stream response is valid"));
+        }
+        None => {
+            return Err(json_error(
+                StatusCode::BAD_GATEWAY,
+                &format!("worker {wid} closed the nats reply with no frames"),
+            ))
+        }
+    };
+
+    // Committed. The guard moves into the body so the policy's in-flight count
+    // is released when the client finishes, disconnects, or drops -- and the
+    // ReplyStream moves in with it, so dropping the body cancels the worker.
+    // `None` for the reply state ends the stream.
+    let body = futures::stream::unfold(
+        (Some(reply), Some(first), wid.clone()),
+        |(reply, pending, wid)| async move {
+            if let Some(b) = pending {
+                return Some((Ok::<Bytes, std::io::Error>(b), (reply, None, wid)));
+            }
+            let mut r = reply?;
+            match r.next().await {
+                Some(Frame::Data(b)) => Some((Ok(b), (Some(r), None, wid))),
+                Some(Frame::Error { message, .. }) => {
+                    tracing::warn!(
+                        "stream from worker {wid} failed mid-stream: {}",
+                        trim(&message)
+                    );
+                    // The client already has a 200 and part of a body, so the
+                    // failure can only be delivered inside the stream.
+                    let chunk = Bytes::from(format!(
+                        "data: {{\"error\":\"worker {wid} stream failed mid-stream\"}}\n\n"
+                    ));
+                    Some((Ok(chunk), (None, None, wid)))
+                }
+                Some(Frame::Done { .. }) | None => None,
+            }
+        },
+    );
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/event-stream")
+        .body(Body::from_stream(guarded(body, guard)))
+        .expect("stream response is valid"))
+}
+
+fn trim(s: &str) -> &str {
+    truncate_chars(s, 500)
+}
+
+/// `GuardedStream` for a non-reqwest stream: same job, different item type.
+pub(crate) struct GuardedBody {
+    inner: Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>>,
+    _guard: ActiveGuard,
+}
+
+/// Tie a byte stream to an `ActiveGuard`, so the policy's in-flight count is
+/// released when the client finishes, disconnects, or drops.
+pub(crate) fn guarded(
+    inner: impl Stream<Item = Result<Bytes, std::io::Error>> + Send + 'static,
+    guard: ActiveGuard,
+) -> GuardedBody {
+    GuardedBody {
+        inner: Box::pin(inner),
+        _guard: guard,
+    }
+}
+
+impl Stream for GuardedBody {
+    type Item = Result<Bytes, std::io::Error>;
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.get_mut().inner.as_mut().poll_next(cx)
     }
 }
@@ -160,6 +396,21 @@ async fn attempt(
     guard: ActiveGuard,
 ) -> Result<Response, Response> {
     let worker = &target.worker;
+    // Per worker, not per router: a worker whose NATS consumer failed to start
+    // registers as `http` and is dialled directly even when the transport is
+    // otherwise NATS.
+    if worker.request_transport == "nats" {
+        if let Some(nats) = state.nats.clone() {
+            return attempt_nats(&nats, target, raw, stream, path, guard).await;
+        }
+        return Err(json_error(
+            StatusCode::BAD_GATEWAY,
+            &format!(
+                "worker {} registered the nats transport but this router has none",
+                worker.worker_id
+            ),
+        ));
+    }
     let url = format!("{}{}", worker.url, path);
     let mut req = state
         .http
@@ -189,7 +440,7 @@ async fn attempt(
                 "worker {} error {}: {}",
                 worker.worker_id,
                 status.as_u16(),
-                &body[..body.len().min(500)]
+                truncate_chars(&body, 500)
             ),
         ));
     }
