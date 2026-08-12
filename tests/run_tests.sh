@@ -227,16 +227,18 @@ _skip_or_fail() {
 
 _have_slurm() { command -v srun >/dev/null 2>&1; }
 # The nodes reservation $1 covers, one per line. Non-zero means the QUERY failed;
-# exit 0 with no output means the reservation genuinely is not there. Spur keeps
-# the two separable: it ignores the NAME arg and dumps every reservation, so a
-# missing name still exits 0 and the awk below simply matches nothing.
+# exit 0 with no output means the reservation genuinely is not there. Callers act
+# on that distinction, and naming the reservation destroys it: `scontrol show
+# reservation NAME` exits 1 for a name that is not there, the same status an
+# unreachable controller gives. Asking for all of them exits 0 whenever the
+# controller answered, and the awk below already filters by name.
 # Capture before parsing: under pipefail a later stage's status would otherwise
-# masquerade as a failed query, and callers now act on that distinction.
+# masquerade as a failed query.
 _reservation_nodes() {
   local out
   # Forward scontrol's own words: callers can only say "cannot reach the
   # scheduler", which is not enough to act on.
-  out=$(scontrol show reservation "$1" 2>&1) || { printf '%s\n' "$out" >&2; return 1; }
+  out=$(scontrol show reservation 2>&1) || { printf '%s\n' "$out" >&2; return 1; }
   printf '%s\n' "$out" | awk -v r="ReservationName=$1" '
     BEGIN{RS="";FS="\n"}
     $1==r { for(i=1;i<=NF;i++) if($i ~ /Nodes=/){ n=$i; sub(/.*Nodes=/,"",n); sub(/[[:space:]].*/,"",n); print n; exit } }' \
