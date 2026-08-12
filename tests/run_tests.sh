@@ -401,9 +401,14 @@ _watch_job() {
     state=$(squeue -h -j "$jid" -o '%T' 2>/dev/null)
     reason=$(squeue -h -j "$jid" -o '%r' 2>/dev/null)
     [ "$state" = "PENDING" ] || continue
-    if [ "$reason" = "JobHoldMaxRequeue" ]; then
-      : > "$hold"; scancel "$jid" >/dev/null 2>&1; return
-    fi
+    # Neither clears on its own, and JobLaunchFailure names no node -- squeue and
+    # scontrol both leave the node list empty -- so cancelling and letting the
+    # scheduler choose again is the only move. Trailing * because %r appends the
+    # detail: "JobLaunchFailure (dispatch confirmation failed: 0 of 1 confirmed)".
+    case "$reason" in
+      JobHoldMaxRequeue* | JobLaunchFailure*)
+        printf '%s\n' "${reason%% (*}" > "$hold"; scancel "$jid" >/dev/null 2>&1; return ;;
+    esac
     if [ "$reason" = "QOSGrpNodeLimit" ] && [ "$waited" -ge "$QOS_WAIT" ]; then
       : > "$qos"; scancel "$jid" >/dev/null 2>&1; return
     fi
@@ -500,15 +505,16 @@ _dispatch_slurm() {
     # Let tail catch the final (NFS-propagated) lines before stopping it.
     sleep 3; kill "$tailpid" 2>/dev/null; wait "$tailpid" 2>/dev/null
     [ "$prc" -eq 0 ] && break
-    # Held job: the watchdog already cancelled it — resubmit without burning a
-    # real attempt, and fail the tier once the hold retries are exhausted.
+    # The watchdog already cancelled it — resubmit without burning a real
+    # attempt, and fail the tier once these retries are exhausted.
     if [ -f "$holdflag" ]; then
       held=$((held + 1)); prc=1
+      local why; why=$(cat "$holdflag" 2>/dev/null)
       if [ "$held" -ge "$max_held" ]; then
-        echo "[$label] job stuck in JobHoldMaxRequeue after $held retries — giving up" >&2
+        echo "[$label] job stuck in ${why:-a scheduler hold} after $held retries — giving up" >&2
         break
       fi
-      echo "[$label] job held (JobHoldMaxRequeue) — cancelled, retry $held/$max_held in 5s" >&2
+      echo "[$label] job ${why:-held} — cancelled, retry $held/$max_held in 5s" >&2
       attempt=$((attempt - 1)); sleep 5; continue
     fi
     # Queued on the group node limit past $QOS_WAIT: the watchdog cancelled it —
