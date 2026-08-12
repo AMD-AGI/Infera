@@ -80,13 +80,16 @@ async fn attempt_nats(
     // Without this the throttle changed the publish path to JetStream without
     // ever refusing anything outside PD.
     if !nats.admit(&wid).await {
+        // Built through serde rather than formatted: a worker id comes from a
+        // Pod annotation and a quote in it would produce malformed JSON.
+        let body =
+            serde_json::json!({ "error": format!("worker {wid} request backlog over limit") })
+                .to_string();
         return Err(Response::builder()
             .status(StatusCode::TOO_MANY_REQUESTS)
             .header(header::CONTENT_TYPE, "application/json")
             .header("Retry-After", "1")
-            .body(Body::from(format!(
-                r#"{{"error":"worker {wid} request backlog over limit"}}"#
-            )))
+            .body(Body::from(body))
             .expect("429 response is valid"));
     }
 
