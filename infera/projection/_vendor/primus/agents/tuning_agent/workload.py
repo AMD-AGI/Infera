@@ -345,4 +345,10 @@ def _find_primus_root(start: Path) -> Path:
         if cur.parent == cur:
             break
         cur = cur.parent
+    # Vendored-in-Infera fallback: this file lives at
+    # <_vendor>/primus/agents/tuning_agent/workload.py, so parents[3] == <_vendor>,
+    # which contains primus/configs/models. Lets tuning run with zero env setup.
+    vendored_root = Path(__file__).resolve().parents[3]
+    if (vendored_root / "primus" / "configs" / "models").is_dir():
+        return vendored_root
     return Path.cwd()

@@ -656,6 +656,16 @@ def _build_env(agent_cfg: AgentConfig, primus_root: Path, profiling_mode: str | 
     parts = [p for p in parts if inner_marker not in p]
     parts = [p for p in parts if Path(p) != Path(primus_root)]
     parts.insert(0, str(primus_root))
+    # Vendored-in-Infera: the spawned projector runs the primus/cli/main.py
+    # shim, which imports ``infera.projection.cli``. Ensure the Infera repo root
+    # (the dir that contains the ``infera`` package) is importable. primus_root
+    # is <repo>/infera/projection/_vendor, so parents[2] is <repo>.
+    try:
+        infera_root = Path(primus_root).resolve().parents[2]
+        if (infera_root / "infera" / "__init__.py").exists():
+            parts.append(str(infera_root))
+    except IndexError:
+        pass
     env["PYTHONPATH"] = sep.join(parts)
     return env
 
