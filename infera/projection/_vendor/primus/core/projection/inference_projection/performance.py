@@ -1123,11 +1123,19 @@ class InferencePerformanceProjector:
         if self._measured_mode:
             if self._meas_whole.get("prefill") or self._meas_layer:
                 # Measured anchor is at ``ref_input``; scale by the per-token
-                # prefill rate when the effective prompt differs in length. A
-                # prefix-cache hit only computes ``new_tokens`` (not input_len).
-                if cached or (self._meas_ref_input and input_len != self._meas_ref_input):
-                    return self._measured_prefill_tokens_ms(batch * new_tokens)
-                return self._measured_full_prefill_ms(batch)
+                # prefill rate when the effective prompt differs in length.
+                if self._meas_ref_input and input_len != self._meas_ref_input:
+                    base = self._measured_prefill_tokens_ms(batch * input_len)
+                else:
+                    base = self._measured_full_prefill_ms(batch)
+                # Prefix-cache hit: discount the SAME baseline proportionally to
+                # the non-cached suffix. Scaling the chosen cost method (rather
+                # than switching to a different one) keeps prefill continuous at
+                # the first hit -- the token-rate and full-prefill anchors can
+                # differ by the batch factor, so a method switch would cliff.
+                if cached:
+                    base *= new_tokens / max(1, input_len)
+                return base
 
         chunk = int(self.cfg.request_config.chunked_prefill_size or 0)
         if chunk <= 0 or chunk >= new_tokens:

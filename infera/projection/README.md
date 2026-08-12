@@ -75,6 +75,13 @@ Example (gpt_oss_120B, TP2, input=4096, batch=32, MI355X, analytical):
 | 0.8 | 38.8 ms |
 | 0.95 | 23.5 ms |
 
+Works in both **analytical** and **benchmark-calibrated** (`--load-benchmark`)
+mode. Analytically the suffix is re-projected over the full context; with a
+measured anchor the discount is a proportional token scaling of the measured
+prefill (prefill is ~linear in tokens), so `hit=0.8` gives 5x lower measured
+TTFT continuously from `hit=0`. The multi-instance DES below also honors a
+loaded anchor — its step durations already come from the (measured) cost kernel.
+
 The discount shrinks each recipe's prefill/TTFT component monotonically, so
 TTFT-ordered rankings are stable in the common case — though compute-bound
 recipes benefit more than comm-bound ones, which is the intended (physical)
