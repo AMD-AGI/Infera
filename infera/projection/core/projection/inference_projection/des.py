@@ -43,6 +43,7 @@ import csv
 import json
 import math
 import random
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
@@ -99,6 +100,7 @@ class _Req:
     num_computed: int = 0        # prompt tokens already processed (prefill progress)
     prefix_id: int = -1          # shared-prefix identity (-1 = unique / no pool)
     cached_prefix: int = 0       # prompt tokens served from a prefix-cache hit
+    blocks: List[int] = field(default_factory=list)  # ordered KV block-hash ids
     generated: int = 0           # output tokens emitted so far
     prefill_done: bool = False
     status: str = "WAITING"      # WAITING | RUNNING | FINISHED
@@ -649,7 +651,122 @@ def simulate_once(
     )
 
 
-_ROUTING_POLICIES = ("round_robin", "random", "prefix_aware")
+_ROUTING_POLICIES = ("round_robin", "random", "prefix_aware", "kv")
+
+# Default KV block size (tokens per paged block). 512 matches the Mooncake
+# trace convention; also used to blockify synthetic shared prefixes.
+_DEFAULT_BLOCK_SIZE = 512
+
+
+class _BlockCache:
+    """Per-instance paged-KV block store (content-addressed, LRU-evicted).
+
+    Models engine-style automatic prefix caching: a prompt is an ordered
+    sequence of block-hash ids; a **hit** is the longest *contiguous prefix* of
+    that sequence already resident (prefix caching only reuses a leading run of
+    matching blocks). Capacity is finite in blocks; least-recently-used blocks
+    are evicted under pressure. This is the reuse store the KV-aware router scores
+    routes against, and what a single engine hits across a sequential stream.
+    """
+
+    def __init__(self, capacity_blocks: int = 0) -> None:
+        self.capacity = int(capacity_blocks or 0)   # 0 = unbounded
+        self._lru: "OrderedDict[int, None]" = OrderedDict()
+        self.evictions = 0
+
+    def prefix_match(self, blocks: List[int]) -> int:
+        """Number of leading blocks already resident (contiguous from the head)."""
+        m = 0
+        for b in blocks:
+            if b in self._lru:
+                m += 1
+            else:
+                break
+        return m
+
+    def insert(self, blocks: List[int]) -> None:
+        """Warm a request's blocks (mark MRU); evict LRU beyond capacity."""
+        for b in blocks:
+            if b in self._lru:
+                self._lru.move_to_end(b)
+            else:
+                self._lru[b] = None
+        if self.capacity > 0:
+            while len(self._lru) > self.capacity:
+                self._lru.popitem(last=False)
+                self.evictions += 1
+
+    def __len__(self) -> int:  # pragma: no cover - trivial
+        return len(self._lru)
+
+
+class _BlockHasher:
+    """Deterministic ``tuple -> small int`` block-hash id allocator."""
+
+    def __init__(self) -> None:
+        self._m: Dict[tuple, int] = {}
+
+    def hid(self, key: tuple) -> int:
+        h = self._m.get(key)
+        if h is None:
+            h = len(self._m)
+            self._m[key] = h
+        return h
+
+
+def _blocks_from_prefix(
+    idx: int, prompt_len: int, prefix_id: int, prefix_len: int, block_size: int, hasher: _BlockHasher
+) -> List[int]:
+    """Blockify a synthetic prompt: leading blocks shared by same-``prefix_id``
+    requests, trailing blocks unique to this request.
+
+    Reproduces shared-prefix reuse at block granularity so the block cache sees
+    the same overlap a real workload would, without needing token content.
+    """
+    bs = max(1, block_size)
+    n_blocks = max(1, math.ceil(prompt_len / bs))
+    n_shared = min(n_blocks, math.ceil(prefix_len / bs)) if (prefix_id >= 0 and prefix_len > 0) else 0
+    blocks = [hasher.hid(("P", prefix_id, b)) for b in range(n_shared)]
+    blocks += [hasher.hid(("U", idx, b)) for b in range(n_blocks - n_shared)]
+    return blocks
+
+
+def _load_mooncake_trace(path: str) -> List[Tuple[float, int, int, List[int]]]:
+    """Load a Mooncake-format trace: ``(arrival_ms, isl, osl, hash_ids)`` rows.
+
+    Accepts JSON-lines (one object per line) or a JSON array. Each record uses
+    ``timestamp`` (ms), ``input_length``, ``output_length`` and ``hash_ids`` (the
+    ordered list of block-hash ids for the prompt). The block hashes drive
+    content-addressed prefix-cache matching directly -- consecutive requests that
+    share a system prompt share leading ``hash_ids``.
+    """
+    records: List[dict] = []
+    with open(path) as f:
+        text = f.read()
+    stripped = text.lstrip()
+    if stripped.startswith("["):
+        records = json.loads(stripped)
+    else:
+        for line in text.splitlines():
+            line = line.strip()
+            if line:
+                records.append(json.loads(line))
+
+    def _g(r: dict, *names: str, default=0):
+        low = {str(k).lower(): v for k, v in r.items()}
+        for nm in names:
+            if nm in low and low[nm] not in (None, ""):
+                return low[nm]
+        return default
+
+    rows: List[Tuple[float, int, int, List[int]]] = []
+    for r in records:
+        ts = float(_g(r, "timestamp", "arrival", "arrival_ms", "time", default=0.0))
+        isl = int(_g(r, "input_length", "isl", "input_len", "prompt_len", default=1))
+        osl = int(_g(r, "output_length", "osl", "output_len", default=1))
+        hids = _g(r, "hash_ids", "block_hashes", "blocks", default=[]) or []
+        rows.append((ts, max(1, isl), max(1, osl), [int(x) for x in hids]))
+    return rows
 
 
 def _draw_prefix_ids(
@@ -684,71 +801,81 @@ def _draw_prefix_ids(
     return [rng.randrange(num_prefixes) for _ in range(n)]
 
 
-def _route_instance(req: "_Req", policy: str, num_instances: int, rng: random.Random) -> int:
-    """Pick the target instance for a request under the routing policy."""
-    if num_instances <= 1:
-        return 0
-    if policy == "random":
-        return rng.randrange(num_instances)
-    if policy == "prefix_aware" and req.prefix_id >= 0:
-        # KV-aware routing: a prefix's requests always land on its home instance
-        # (consistent hashing), so the prefix is warmed once and reused there.
-        return req.prefix_id % num_instances
-    # round_robin (and prefix_aware with no pool): scatter by arrival order.
-    return req.idx % num_instances
-
-
 def _route_and_warm(
     reqs: List["_Req"],
     *,
     policy: str,
     num_instances: int,
-    prefix_len: int,
-    cache_slots: int,
+    block_size: int,
+    cache_blocks: int,
     rng: random.Random,
 ) -> Tuple[List[List["_Req"]], Dict[str, float]]:
-    """Route requests to instances and derive per-request prefix-cache hits.
+    """Route requests across instances and derive per-request prefix-cache hits
+    from a content-addressed block cache (as real serving engines do).
 
-    Each instance keeps an LRU set of resident prefix ids. A request whose
-    prefix is resident on the instance it is routed to is a **hit**: its
+    Each instance owns a :class:`_BlockCache`. Requests are processed in arrival
+    order; for each one the router picks a target, the number of resident leading
+    blocks (longest contiguous prefix match) becomes the cache hit -- its
     ``cached_prefix`` tokens are seeded into ``num_computed`` so the scheduler
-    only prefills the non-cached suffix. A miss warms the prefix for later
-    requests on that instance. Returns per-instance sub-streams (arrival-sorted)
-    plus a summary (hit rate, avg cached tokens, per-instance hit rates).
+    only prefills the uncached suffix -- and the request's blocks are then warmed
+    into that instance (LRU-evicted under ``cache_blocks`` capacity).
+
+    Routing policies: ``kv`` routes to the instance with the most matching
+    resident blocks (ties → least loaded), i.e. overlap-scored KV-aware routing;
+    ``prefix_aware`` consistently hashes the leading block so same-prefix
+    requests co-locate; ``round_robin``/``random`` ignore locality.
     """
     per_inst: List[List["_Req"]] = [[] for _ in range(num_instances)]
-    # Per-instance LRU of resident prefix ids (most-recent last).
-    resident: List[List[int]] = [[] for _ in range(num_instances)]
+    caches = [_BlockCache(cache_blocks) for _ in range(num_instances)]
     hits = 0
     cached_total = 0
+    blocks_total = 0
+    blocks_hit = 0
     inst_hits = [0] * num_instances
     inst_reqs = [0] * num_instances
 
     for r in sorted(reqs, key=lambda x: (x.arrival_ms, x.idx)):
-        inst = _route_instance(r, policy, num_instances, rng)
+        blocks = r.blocks or []
+        if num_instances <= 1:
+            inst = 0
+        elif policy == "kv":
+            best_i, best_m = 0, -1
+            for i in range(num_instances):
+                m = caches[i].prefix_match(blocks)
+                if m > best_m or (m == best_m and inst_reqs[i] < inst_reqs[best_i]):
+                    best_i, best_m = i, m
+            inst = best_i
+        elif policy == "prefix_aware":
+            key = blocks[0] if blocks else r.idx
+            inst = key % num_instances
+        elif policy == "random":
+            inst = rng.randrange(num_instances)
+        else:  # round_robin
+            inst = r.idx % num_instances
+
         inst_reqs[inst] += 1
-        pid = r.prefix_id
-        if pid >= 0 and prefix_len > 0:
-            lru = resident[inst]
-            hit = pid in lru
-            if hit:
-                cached = max(0, min(prefix_len, r.prompt_len - 1))
-                r.cached_prefix = cached
-                r.num_computed = cached
-                hits += 1
-                inst_hits[inst] += 1
-                cached_total += cached
-                lru.remove(pid)
-            lru.append(pid)  # mark most-recently-used
-            if cache_slots > 0 and len(lru) > cache_slots:
-                lru.pop(0)   # evict least-recently-used
+        matched = caches[inst].prefix_match(blocks)
+        cached = max(0, min(matched * block_size, r.prompt_len - 1))
+        if cached > 0:
+            r.cached_prefix = cached
+            r.num_computed = cached
+            hits += 1
+            inst_hits[inst] += 1
+            cached_total += cached
+        blocks_total += len(blocks)
+        blocks_hit += matched
+        caches[inst].insert(blocks)
         per_inst[inst].append(r)
 
     n = len(reqs)
     summary = {
         "num_instances": float(num_instances),
         "num_prefixes": float(max(0, max((r.prefix_id for r in reqs), default=-1) + 1)),
-        "prefix_len": float(prefix_len),
+        "prefix_len": float(cached_total / max(1, hits)) if hits else 0.0,
+        "block_size": float(block_size),
+        "cache_blocks": float(cache_blocks),
+        "evictions": float(sum(c.evictions for c in caches)),
+        "block_hit_rate": (blocks_hit / blocks_total) if blocks_total else 0.0,
         "hit_rate": (hits / n) if n else 0.0,
         "avg_cached_tokens": (cached_total / n) if n else 0.0,
         "min_inst_hit_rate": min(
@@ -822,37 +949,53 @@ def simulate_multi_instance(
     num_prefixes: int,
     prefix_len: int,
     prefix_zipf: float,
-    cache_slots: int,
+    block_size: int,
+    cache_blocks: int,
+    mooncake_rows: Optional[List[Tuple[float, int, int, List[int]]]] = None,
 ) -> DESResult:
     """Route one arrival stream across ``num_instances`` replicas and pool.
 
-    Prefix-cache hits are *derived* from the routing policy + per-instance
-    locality (not a static rate): ``prefix_aware`` (KV-aware) routing co-locates
-    a prefix's requests on one instance, so it is warmed once and reused;
-    ``round_robin`` / ``random`` scatter prefixes, forcing every instance to
-    re-warm them (more cold misses, higher TTFT).
+    Prefix-cache hits are *derived* from a content-addressed block cache + the
+    routing policy (not a static rate): ``kv`` / ``prefix_aware`` routing
+    co-locate requests that share leading KV blocks on one instance, so a prefix
+    is warmed once and reused; ``round_robin`` / ``random`` scatter them, forcing
+    every instance to re-warm (more cold misses, higher TTFT). Block sequences
+    come from a Mooncake trace (``mooncake_rows``) or are synthesised from the
+    shared-prefix pool.
     """
     req = inference_config.request_config
     input_len = max(1, req.input_seq_len)
     output_len = max(1, req.output_seq_len)
     rng = random.Random(seed)
+    bs = int(block_size) if block_size and block_size > 0 else _DEFAULT_BLOCK_SIZE
+    hasher = _BlockHasher()
 
-    arrivals = _generate_arrivals(num_requests, rate_per_s, arrival_model, rng, burstiness)
-    reqs = _build_workload(len(arrivals), arrivals, input_len, output_len, range_ratio, rng)
-    # A prefix pool with ``prefix_len == 0`` defaults to half the prompt.
-    eff_prefix_len = prefix_len if prefix_len > 0 else (input_len // 2 if num_prefixes > 0 else 0)
-    for r, pid in zip(reqs, _draw_prefix_ids(len(reqs), num_prefixes, prefix_zipf, rng)):
-        r.prefix_id = pid
+    if mooncake_rows is not None:
+        # Trace-driven: arrivals, lengths and block hashes all come from the file.
+        rows = sorted(mooncake_rows, key=lambda x: x[0])
+        reqs = [
+            _Req(idx=i, arrival_ms=a, prompt_len=isl, output_len=osl, blocks=list(hids))
+            for i, (a, isl, osl, hids) in enumerate(rows)
+        ]
+    else:
+        arrivals = _generate_arrivals(num_requests, rate_per_s, arrival_model, rng, burstiness)
+        reqs = _build_workload(len(arrivals), arrivals, input_len, output_len, range_ratio, rng)
+        # A prefix pool with ``prefix_len == 0`` defaults to half the prompt.
+        eff_prefix_len = prefix_len if prefix_len > 0 else (input_len // 2 if num_prefixes > 0 else 0)
+        for r, pid in zip(reqs, _draw_prefix_ids(len(reqs), num_prefixes, prefix_zipf, rng)):
+            r.prefix_id = pid
+            r.blocks = _blocks_from_prefix(r.idx, r.prompt_len, pid, eff_prefix_len, bs, hasher)
 
     per_inst, prefix_summary = _route_and_warm(
         reqs,
         policy=routing,
         num_instances=num_instances,
-        prefix_len=eff_prefix_len,
-        cache_slots=cache_slots,
+        block_size=bs,
+        cache_blocks=cache_blocks,
         rng=rng,
     )
     prefix_summary["routing"] = float(_ROUTING_POLICIES.index(routing)) if routing in _ROUTING_POLICIES else -1.0
+    prefix_summary["trace_driven"] = 1.0 if mooncake_rows is not None else 0.0
 
     results: List[DESResult] = []
     for i, sub in enumerate(per_inst):
@@ -898,6 +1041,9 @@ def run_des(
     prefix_len: int = 0,
     prefix_zipf: float = 0.0,
     cache_slots: int = 0,
+    block_size: int = 0,
+    cache_blocks: int = 0,
+    mooncake_trace: Optional[str] = None,
 ) -> Dict[str, object]:
     """Run the DES at the configured load and (optionally) a load sweep.
 
@@ -907,12 +1053,22 @@ def run_des(
     trace the throughput-vs-latency knee.
     """
     out: Dict[str, object] = {}
-    multi = (num_instances or 1) > 1 or (num_prefixes or 0) > 0
+    # ``cache_blocks`` is the block-cache capacity; fall back to the legacy
+    # ``cache_slots`` flag when the new one is unset.
+    eff_cache_blocks = max(0, cache_blocks or cache_slots or 0)
+    mooncake_rows = _load_mooncake_trace(mooncake_trace) if mooncake_trace else None
+    # A block cache is modelled whenever there is a fleet, a synthetic prefix
+    # pool, or a trace to replay.
+    multi = (num_instances or 1) > 1 or (num_prefixes or 0) > 0 or mooncake_rows is not None
     if multi and not workload_file:
+        eff_rate = rate_per_s
+        if mooncake_rows:
+            span_s = (max(r[0] for r in mooncake_rows) - min(r[0] for r in mooncake_rows)) / 1000.0
+            eff_rate = (len(mooncake_rows) / span_s) if span_s > 0 else rate_per_s
         out["point"] = simulate_multi_instance(
             inference_config,
             projector,
-            rate_per_s=rate_per_s,
+            rate_per_s=eff_rate,
             arrival_model=arrival_model if arrival_model in ("poisson", "deterministic") else "poisson",
             num_requests=num_requests,
             seed=seed,
@@ -925,7 +1081,9 @@ def run_des(
             num_prefixes=max(0, num_prefixes or 0),
             prefix_len=max(0, prefix_len or 0),
             prefix_zipf=max(0.0, prefix_zipf or 0.0),
-            cache_slots=max(0, cache_slots or 0),
+            block_size=max(0, block_size or 0),
+            cache_blocks=eff_cache_blocks,
+            mooncake_rows=mooncake_rows,
         )
         return out
     out["point"] = simulate_once(

@@ -104,46 +104,66 @@ effect. Set it per workload in a YAML `inference:` block
 (`prefix_cache_hit_rate: 0.8`) so the tuning agent scores every recipe under the
 same reuse assumption.
 
-## Multi-instance KV-aware routing (DES)
+## Block-level KV cache + KV-aware routing (DES)
 
-The discrete-event simulator can model a **fleet of `N` engine replicas behind a
-router** sharing a **prefix pool**, so prefix-cache hits are *derived from
-routing + locality* instead of the static `--prefix-cache-hit-rate` above. Each
-request draws one of `P` shared prefixes (a system-prompt / template of `L`
-tokens); each instance keeps its own resident-prefix set; a request that lands
-on an instance already holding its prefix is a hit (only the suffix is
-prefilled).
+The discrete-event simulator models prefix caching the way real serving engines
+do: a **content-addressed, paged KV block cache** per engine instance. A prompt is an
+ordered sequence of **block-hash ids**; a **hit** is the longest *contiguous
+leading run* of blocks already resident. The cache is finite (capacity in
+blocks) and **LRU-evicts under pressure**, so hit rate is an *emergent* property
+of workload content + capacity + routing — not a static number. On a hit, the
+matched blocks' tokens are seeded as already-computed, so only the uncached
+suffix prefills (decode/KV sizing unchanged).
+
+Block sequences come from either a **Mooncake trace** (real `hash_ids`) or a
+**synthetic prefix pool**.
+
+### Mooncake trace replay
+
+```bash
+inferasim inference ... \
+  --des-mooncake-trace trace.jsonl \
+  --des-instances 4 --des-routing kv --des-block-size 512
+```
+
+A Mooncake trace is JSONL/JSON with `timestamp` (ms), `input_length`,
+`output_length`, and `hash_ids` (the block-hash sequence). Consecutive requests
+that share a system prompt share leading `hash_ids`, which drives real
+content-addressed reuse. This enables the DES without `--request-rate`.
+
+### Synthetic prefix pool
 
 ```bash
 inferasim inference ... \
   --request-rate 40 --arrival-model poisson --des-num-requests 400 \
-  --des-instances 8 --des-routing prefix_aware \
+  --des-instances 8 --des-routing kv \
   --des-num-prefixes 32 --des-prefix-len 3072
 ```
 
-Routing policies (`--des-routing`):
+Each request draws one of `P` shared prefixes (a system-prompt/template of `L`
+tokens, blockified at `--des-block-size`); `--des-prefix-zipf` skews popularity.
 
-- `prefix_aware` — **KV-aware routing**: a prefix's requests always hit the same
-  home instance, so it is warmed once and reused (misses ≈ `P`, independent of
-  `N`).
-- `round_robin` / `random` — scatter prefixes, so every instance re-warms them
+### Routing policies (`--des-routing`)
+
+- `kv` — **overlap-scored KV-aware routing** (global prefix-index style): route to
+  the instance holding the most of a request's leading KV blocks (ties → least
+  loaded). Maximizes reuse.
+- `prefix_aware` — consistently hash the leading block so same-prefix requests
+  co-locate on one home instance (misses ≈ `P`, independent of `N`).
+- `round_robin` / `random` — ignore locality, so every instance re-warms
   (misses ≈ `P · N`).
 
-Example (gpt_oss_120B TP2, input=4096, 8 instances, 32 prefixes × 3072 tok,
-Poisson @ 40 req/s, analytical):
+The fleet report surfaces the real **cache-locality vs. load-balance**
+trade-off: `kv`/`prefix_aware` maximize reuse but can overconcentrate hot
+prefixes onto one instance (lower throughput / longer makespan), which the
+pooled metrics and per-instance hit-rate spread reflect. Set `N=1` to model a
+single engine's automatic prefix caching (temporal reuse across the stream);
+add `--des-kv-blocks` to study capacity pressure (evictions).
 
-| routing | prefix-cache hit rate | TTFT mean / p99 |
-| --- | --- | --- |
-| round_robin | 48% | 55.0 / 62.9 ms |
-| prefix_aware | 92% | 49.0 / 58.3 ms |
-
-The model also exposes the real **cache-locality vs. load-balance** trade-off:
-KV-aware routing maximizes reuse but can imbalance load across instances, which
-the pooled fleet metrics reflect. Set `N=1` with a prefix pool to model
-single-engine temporal reuse (automatic prefix caching) alone. Knobs:
-`--des-instances`, `--des-routing`, `--des-num-prefixes`, `--des-prefix-len`,
-`--des-prefix-zipf` (popularity skew), `--des-cache-slots` (per-instance LRU
-capacity).
+Knobs: `--des-instances`, `--des-routing`, `--des-block-size`, `--des-kv-blocks`
+(per-instance block capacity, LRU-evicted; `--des-cache-slots` is a legacy
+alias), `--des-mooncake-trace`, `--des-num-prefixes`, `--des-prefix-len`,
+`--des-prefix-zipf`.
 
 ## Confidence ladder
 

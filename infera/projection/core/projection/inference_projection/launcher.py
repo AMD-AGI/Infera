@@ -355,17 +355,29 @@ def _print_des(des: Dict[str, object]) -> None:
 
     pfx = getattr(point, "prefix", None) or {}
     if pfx and pfx.get("num_instances", 0):
-        _routes = ("round_robin", "random", "prefix_aware")
+        _routes = ("round_robin", "random", "prefix_aware", "kv")
         ri = int(pfx.get("routing", -1))
         rname = _routes[ri] if 0 <= ri < len(_routes) else "?"
+        trace_driven = bool(pfx.get("trace_driven", 0.0))
+        source = (
+            "mooncake trace"
+            if trace_driven
+            else f"prefix pool: {int(pfx.get('num_prefixes', 0))} prefixes"
+        )
         print("-" * 100)
         print(
-            f"  Fleet: {int(pfx['num_instances'])} instance(s), routing={rname} | "
-            f"prefix pool: {int(pfx.get('num_prefixes', 0))} prefixes x "
-            f"{int(pfx.get('prefix_len', 0))} tok"
+            f"  Fleet: {int(pfx['num_instances'])} instance(s), routing={rname} | {source}"
+        )
+        bs = int(pfx.get("block_size", 0))
+        cap = int(pfx.get("cache_blocks", 0))
+        cap_str = f"{cap} blocks" if cap > 0 else "unbounded"
+        print(
+            f"  KV block cache: block_size={bs} tok, capacity/instance={cap_str}, "
+            f"evictions={int(pfx.get('evictions', 0))}, "
+            f"block-reuse={pfx.get('block_hit_rate', 0.0) * 100:.1f}%"
         )
         print(
-            f"  Prefix-cache hit rate: {pfx.get('hit_rate', 0.0) * 100:.1f}% "
+            f"  Prefix-cache hit rate: {pfx.get('hit_rate', 0.0) * 100:.1f}% of requests "
             f"(avg {pfx.get('avg_cached_tokens', 0.0):.0f} cached tok/req; "
             f"per-instance {pfx.get('min_inst_hit_rate', 0.0) * 100:.0f}–"
             f"{pfx.get('max_inst_hit_rate', 0.0) * 100:.0f}%)"
@@ -593,9 +605,10 @@ def launch_projection_from_cli(args, overrides):
         arrival_model = (getattr(req, "arrival_model", "closed") or "closed").lower()
         workload_file = getattr(args, "des_workload_file", None)
         dump_steps = getattr(args, "des_dump_steps", None)
+        mooncake_trace = getattr(args, "des_mooncake_trace", None)
         run_des_enabled = (
             arrival_model in ("poisson", "deterministic") and (req.request_rate or 0) > 0
-        ) or bool(workload_file)
+        ) or bool(workload_file) or bool(mooncake_trace)
         if run_des_enabled:
             from .des import run_des
 
@@ -618,6 +631,9 @@ def launch_projection_from_cli(args, overrides):
                 prefix_len=int(getattr(args, "des_prefix_len", 0) or 0),
                 prefix_zipf=float(getattr(args, "des_prefix_zipf", 0.0) or 0.0),
                 cache_slots=int(getattr(args, "des_cache_slots", 0) or 0),
+                block_size=int(getattr(args, "des_block_size", 0) or 0),
+                cache_blocks=int(getattr(args, "des_kv_blocks", 0) or 0),
+                mooncake_trace=mooncake_trace,
             )
             _print_des(des)
             results["des"] = des

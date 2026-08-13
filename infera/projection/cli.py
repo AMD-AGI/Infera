@@ -682,11 +682,12 @@ def _add_inference_args(parser):
         "--des-routing",
         type=str,
         default=None,
-        choices=["round_robin", "random", "prefix_aware"],
-        help="DES: request routing policy across instances. 'prefix_aware' is "
-        "KV-aware routing (co-locate a prefix's requests on one instance so it "
-        "is warmed once and reused); 'round_robin'/'random' scatter prefixes "
-        "(each instance re-warms them). Default: round_robin.",
+        choices=["round_robin", "random", "prefix_aware", "kv"],
+        help="DES: request routing policy across instances. 'kv' is overlap-scored "
+        "KV-aware routing (send each request to the instance holding the most of "
+        "its leading KV blocks); 'prefix_aware' consistently hashes the leading "
+        "block so same-prefix requests co-locate; 'round_robin'/'random' ignore "
+        "locality (each instance re-warms). Default: round_robin.",
     )
     serv.add_argument(
         "--des-num-prefixes",
@@ -714,8 +715,33 @@ def _add_inference_args(parser):
         "--des-cache-slots",
         type=int,
         default=None,
-        help="DES: per-instance prefix-cache capacity (distinct prefixes kept "
-        "resident, LRU-evicted). 0 = unbounded within the run. Default: 0.",
+        help="DES: legacy alias for --des-kv-blocks (per-instance block-cache "
+        "capacity). 0 = unbounded within the run. Default: 0.",
+    )
+    serv.add_argument(
+        "--des-block-size",
+        type=int,
+        default=None,
+        help="DES: KV paged-block size in tokens for the content-addressed prefix "
+        "cache. A cache hit reuses whole leading blocks. Default: 512 (Mooncake "
+        "convention).",
+    )
+    serv.add_argument(
+        "--des-kv-blocks",
+        type=int,
+        default=None,
+        help="DES: per-instance KV block-cache capacity (blocks kept resident, "
+        "LRU-evicted under pressure). 0 = unbounded within the run. Default: 0.",
+    )
+    serv.add_argument(
+        "--des-mooncake-trace",
+        type=str,
+        default=None,
+        help="DES: replay a Mooncake-format trace (JSONL/JSON with timestamp, "
+        "input_length, output_length, hash_ids). The hash_ids drive real "
+        "content-addressed prefix-cache matching. Enables the DES without "
+        "--request-rate; combine with --des-instances/--des-routing to study a "
+        "fleet.",
     )
     # ---- Kernel backend + fused ops + sparse attention + expert precision ----
     kern = parser.add_argument_group("inference kernel backend & ops")
