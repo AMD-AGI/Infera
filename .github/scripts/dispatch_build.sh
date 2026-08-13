@@ -1,22 +1,34 @@
 #!/usr/bin/env bash
 # Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
-# Build+push an engine image on a SLURM node (the runner has no docker). Spur's
-# srun propagates the caller's env, so the token is set inline on the srun call.
-#   .github/scripts/dispatch_build.sh <sglang|vllm|atom|kvd|server>
+# Build (and by default push) an engine image on a SLURM node (the runner has no
+# docker). Spur's srun propagates the caller's env, so the token is set inline on
+# the srun call.
+#   .github/scripts/dispatch_build.sh <sglang|vllm|atom|kvd|server|overlay> [cmd]
+#
+# cmd defaults to `ship` (login+build+push), which is what release.yml wants. CI
+# passes `build` to verify an image compiles without publishing it — that needs no
+# registry credentials, so the token is only required for the pushing commands.
 set -uo pipefail
 
-engine="${1:?usage: dispatch_build.sh <engine>}"
+engine="${1:?usage: dispatch_build.sh <engine> [build|push|ship]}"
+cmd="${2:-ship}"
 BTP="$(dirname "$(readlink -f "$0")")/build_test_push.sh"
 
 # Keep the token out of this script's env; _run_srun re-exports it for srun only.
 token="${INFERAIMAGE_DOCKERHUB_TOKEN:-}"
 unset INFERAIMAGE_DOCKERHUB_TOKEN
-[ -n "$token" ] || { echo "INFERAIMAGE_DOCKERHUB_TOKEN is empty" >&2; exit 1; }
+case "$cmd" in
+  ship | push)
+    [ -n "$token" ] || { echo "INFERAIMAGE_DOCKERHUB_TOKEN is empty" >&2; exit 1; } ;;
+esac
 
 part="${INFERA_E2E_SLURM_PARTITION:-amd-spur}"
 resv=(); [ -n "${INFERA_E2E_RESERVATION:-}" ] && resv=(--reservation="$INFERA_E2E_RESERVATION")
 jobname="infera-build-${INFERA_E2E_JOB_TAG:-$engine}"
+# Forwarded to build_test_push.sh so a verify-only run can stop at a stage that
+# needs no engine image from this run (see BUILD_TARGET there).
+target="${BUILD_TARGET:-}"
 
 # $out holds srun client banners; remote build output goes to $logf on shared
 # NFS so tail -F can stream it live to GHA (buffered srun stdout would not show).
@@ -30,13 +42,14 @@ if [ -n "${GITHUB_ACTIONS:-}" ] || [ "${CI:-}" = "true" ] || [ -n "${INFERA_DISP
   tailf="$logf"
 fi
 
-remote=(bash "$BTP" ship "$engine")
+remote=(bash "$BTP" "$cmd" "$engine")
 [ "$shared" -eq 1 ] && \
-  remote=(bash -c 'lf="$1"; shift; exec >"$lf" 2>&1; exec bash "$@"' _ "$logf" "$BTP" ship "$engine")
+  remote=(bash -c 'lf="$1"; shift; exec >"$lf" 2>&1; exec bash "$@"' _ "$logf" "$BTP" "$cmd" "$engine")
 
 _run_srun() {
   (
     export INFERAIMAGE_DOCKERHUB_TOKEN="$token"
+    export BUILD_TARGET="$target"
     srun -N1 -p "$part" -t 02:00:00 \
       -J "$jobname" "${resv[@]}" \
       "${remote[@]}"
