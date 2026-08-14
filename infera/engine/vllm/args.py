@@ -275,8 +275,10 @@ def parse_vllm_args(argv: list[str] | None = None) -> VllmWorkerArgs:
         default=float(__import__("os").environ.get("INFERA_DRAIN_TIMEOUT", "30") or 30),
         help="Graceful shutdown: on SIGTERM the worker stops accepting new NATS "
         "requests and lets in-flight generations finish for up to this many "
-        "seconds before cancelling leftovers (rolling-upgrade drain). Default 30; "
-        "0 = cancel in-flight immediately. Overrides $INFERA_DRAIN_TIMEOUT.",
+        "seconds (rolling-upgrade drain). How long one generation is worth "
+        "waiting for: whatever is still running at the deadline is cancelled, "
+        "or handed back to the router when it enabled --migration-limit. "
+        "Default 30; 0 = do not wait. Overrides $INFERA_DRAIN_TIMEOUT.",
     )
     parser.add_argument(
         "--advertise-host",

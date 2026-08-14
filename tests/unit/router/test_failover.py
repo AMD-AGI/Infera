@@ -121,7 +121,7 @@ async def test_stream_no_retry_after_first_byte():
     resp = await r.dispatch({"model": "m"}, stream=True)
     body = await _drain_stream(resp)
     assert b"partial" in body  # first chunk delivered
-    assert b"stream failed mid-stream" in body  # error surfaced inline
+    assert b"failed mid-stream" in body  # error surfaced inline
     assert b"SHOULD-NOT-BE-USED" not in body
     assert nats.streamed == ["w1"]  # committed to w1, no failover
     await r.aclose()

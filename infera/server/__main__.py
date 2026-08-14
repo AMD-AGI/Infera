@@ -259,7 +259,14 @@ async def main(args) -> None:
             nats_client=nats_request_client,
             request_max_retries=args.request_max_retries,
             breaker=breaker,
+            migration_limit=args.migration_limit,
         )
+        if args.migration_limit:
+            logger.info(
+                "request migration enabled (limit=%d): a generation whose worker "
+                "goes away mid-stream continues on another one",
+                args.migration_limit,
+            )
     app = init_app(
         registry,
         router,
