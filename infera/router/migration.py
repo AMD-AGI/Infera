@@ -102,6 +102,31 @@ def as_chat_chunk(raw: bytes) -> bytes:
     return b"\n".join(out) if rewritten else raw
 
 
+def _asks_for_several_completions(body: dict) -> bool:
+    """Whether this request produces more than one generation.
+
+    `n` and `best_of` are the direct forms. A list-valued `prompt` is the
+    indirect one: completions accepts a batch, and each entry is its own
+    generation. A batch of exactly one is still a batch -- the reply is indexed
+    per prompt -- so length is not what decides it.
+
+    The exception is a pre-tokenized prompt, `[int, ...]`, which is a single
+    generation expressed as token ids rather than a batch of anything.
+    """
+    for key in ("n", "best_of"):
+        value = body.get(key)
+        if isinstance(value, int) and value > 1:
+            return True
+    prompt = body.get("prompt")
+    if isinstance(prompt, list) and not _is_token_array(prompt):
+        return True
+    return False
+
+
+def _is_token_array(prompt: list) -> bool:
+    return bool(prompt) and all(isinstance(x, int) and not isinstance(x, bool) for x in prompt)
+
+
 @dataclass(frozen=True)
 class Continuation:
     """The request that makes another worker finish this generation."""
@@ -136,6 +161,12 @@ class MigrationState:
         # reconstructed exactly must not be migrated at all: continuing from a
         # partial prefix would silently drop output the client already read.
         self.poisoned = False
+        # A request asking for several completions has no single prefix to
+        # carry: what is accumulated is one choice's output, and every other one
+        # would resume from it. Rejected up front rather than on the first
+        # chunk, since the shape of the request already says so.
+        if _asks_for_several_completions(body):
+            self._poison("more than one completion was asked for")
 
     @property
     def produced_text(self) -> str:
@@ -170,10 +201,11 @@ class MigrationState:
         """Record one chunk, and return what should go to the client.
 
         The ids are asked for by the router, not the caller, so they are taken
-        out on the way past: whether migration is enabled must not change the
-        shape of the response.
+        out on the way past. That happens whatever the state of this object:
+        giving up on migrating a request is the router's own business, and must
+        not change the shape of what the caller receives.
         """
-        if self.poisoned or not chunk:
+        if not chunk:
             return chunk
         out_lines: list[bytes] = []
         rewritten = False
@@ -185,10 +217,13 @@ class MigrationState:
             try:
                 obj = json.loads(stripped[len(_DATA_PREFIX) :])
             except ValueError:
-                # Not JSON: this is not a stream we know how to reconstruct.
+                # Not JSON: this is not a stream we know how to reconstruct, and
+                # not one to rewrite either -- it passes through as it arrived.
                 self._poison("chunk is not JSON")
-                return chunk
-            self._record(obj)
+                out_lines.append(line)
+                continue
+            if not self.poisoned:
+                self._record(obj)
             if strip_token_ids(obj):
                 # Rebuild only the lines that carried ids; everything else keeps
                 # the engine's own bytes.
@@ -199,6 +234,11 @@ class MigrationState:
         return b"\n".join(out_lines) if rewritten else chunk
 
     def _record(self, obj: object) -> None:
+        if isinstance(obj, dict) and len(obj.get("choices") or []) > 1:
+            # Not asked for, but arrived anyway. Accumulating the first choice
+            # would give every other one a prefix belonging to it.
+            self._poison("the engine returned more than one choice")
+            return
         if self._prompt_ids is None:
             self._prompt_ids = prompt_from_chunk(obj)
         ids = deltas_from_chunk(obj)
@@ -214,6 +254,12 @@ class MigrationState:
             self._output_ids.extend(ids)
         delta = self._delta_of(obj)
         if delta is None:
+            return
+        if not ids and not isinstance(self._original_body.get("prompt", ""), str):
+            # A pre-tokenized prompt can be extended with ids and nothing else.
+            # Text output the engine did not account for therefore leaves this
+            # request with no way to be continued at all.
+            self._poison("a pre-tokenized prompt cannot be extended with text")
             return
         self._text.append(delta)
         self._chunks_with_text += 1
@@ -307,7 +353,12 @@ class MigrationState:
             messages.append({"role": "assistant", "content": carried})
             body["messages"] = messages
         else:
-            body["prompt"] = f"{body.get('prompt', '')}{carried}"
+            original = body.get("prompt", "")
+            if not isinstance(original, str):
+                # Guarded against at construction; asserted here because
+                # formatting silently produces a repr rather than failing.
+                raise AssertionError("text continuation of a non-string prompt")
+            body["prompt"] = f"{original}{carried}"
         return Continuation(body=body, path=self._path, exact=False)
 
     def _base_body(self) -> dict:

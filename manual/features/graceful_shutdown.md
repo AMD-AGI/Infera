@@ -80,10 +80,14 @@ those; otherwise the decoded text is carried instead, which reads the same but
 may not tokenize identically. The choice is automatic, and nothing fails because
 the ids were unavailable.
 
+Requests asking for more than one completion — `n`, `best_of`, or a batch of
+prompts — are excluded: there is no single generation to carry.
+
 A request can also stop being migratable partway through, and then ends with an
-error rather than an approximation: streams the router cannot parse, and, on the
-text path, tool calls or reasoning content, which do not appear in the text the
-client receives.
+error rather than an approximation: streams the router cannot parse, tool calls
+or reasoning content on the text path, since they do not appear in the text the
+client receives, and a pre-tokenized prompt whose engine stops reporting ids,
+which leaves nothing that can be extended.
 
 ### Observing it
 
