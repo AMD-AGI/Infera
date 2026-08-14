@@ -15,12 +15,19 @@ kv-aware routing works identically — NATS is only the transport.
 Wire protocol (one request -> N reply messages on a fresh inbox):
 
   request  (server -> ``infera.req.<token(worker_id)>``, reply=<inbox>):
-      JSON  {"path": str, "stream": bool, "headers": {..}|null, "body": {..}}
+      JSON  {"path": str, "stream": bool, "headers": {..}|null, "body": {..},
+             "migratable": bool}
 
   reply    (worker -> <inbox>), framed by the ``rs-type`` header:
       data : payload = raw response bytes (an SSE chunk, or the full JSON body)
       done : payload = b"" , header ``rs-status`` = HTTP status code
       error: payload = utf-8 error text  (transport/proxy failure)
+
+``migratable`` says the router can continue this generation on another worker
+(see infera.router.migration), which is what lets a draining worker hand it back
+early instead of holding the shutdown open. It is a promise about the *router*,
+so the worker must not assume it: without it, a request is drained the slow way
+and severing it early would just be an error the client did not have to see.
 
 The worker side proxies to its own local engine HTTP (127.0.0.1:<port>), so the
 engine itself is unchanged; the consumer is a thin task started alongside it
@@ -84,6 +91,12 @@ HDR_INBOX = "rs-inbox"
 TYPE_DATA = "data"
 TYPE_DONE = "done"
 TYPE_ERROR = "error"
+
+# The error payload a worker sends when it hands a generation back at the start
+# of a drain rather than holding the shutdown open for it. The router reads it
+# to tell "this worker is leaving on purpose" apart from a worker that broke,
+# which are the same event to the client but not to an operator reading metrics.
+DRAINING_NOTICE = b"infera: worker draining"
 
 # Throttle knob (single variable, default OFF). When > 0, the per-instance
 # request path is JetStream-backed and the router refuses to dispatch to a
@@ -454,6 +467,11 @@ class NatsRequestServer:
         # In-flight proxy tasks keyed by reply inbox, so a cancel signal can
         # abort the matching request's engine call.
         self._inflight: dict[str, asyncio.Task] = {}
+        # Inboxes whose router can continue the generation on another worker.
+        self._migratable: set[str] = set()
+        # Inboxes already told the worker is draining, so the cancellation that
+        # follows does not report itself a second time.
+        self._handed_back: set[str] = set()
 
     async def start(self) -> None:
         self._nc = await _connect(self._url, "infera-worker-req")
@@ -541,8 +559,17 @@ class NatsRequestServer:
                 _done, pending = await asyncio.wait(inflight, timeout=remaining)
                 if pending:
                     logger.warning(
-                        "drain timeout; cancelling %d unfinished request(s)", len(pending)
+                        "drain timeout; %d request(s) did not finish in time", len(pending)
                     )
+        # 2b. Whatever is still running was about to be cancelled. Hand the
+        # resumable part back to the router instead: migration is the
+        # alternative to cutting these, not a shortcut past the wait above.
+        # Moving a generation costs the next worker a re-read of everything
+        # produced so far, so it is worth doing only once the request has been
+        # given the window it was promised -- or, with no window configured,
+        # once it is clear there will not be one.
+        if drain:
+            await self._hand_back_migratable()
         # 3. Cancel whatever is left (all of it on the non-drain path).
         for task in list(self._inflight.values()):
             if not task.done():
@@ -611,6 +638,39 @@ class NatsRequestServer:
             logger.info("drain: waiting for %d queued request(s) to be delivered", queued)
             await asyncio.sleep(min(_QUEUED_POLL_INTERVAL_S, max(0.0, deadline - time.monotonic())))
 
+    async def _hand_back_migratable(self) -> None:
+        """Give the router back what it can finish elsewhere, instead of cutting it.
+
+        Called once the drain window has run out, on the requests that outlived
+        it. Everything here was going to be cancelled a moment later, so the
+        choice this makes is not whether these generations survive the drain --
+        it is whether the client learns that they did not.
+
+        The notice goes out *before* the task is cancelled: cancellation also
+        sends an error, but a generic one, and the router would then treat a
+        planned handover as a worker that broke.
+        """
+        handed = [i for i in self._migratable if not self._done(i)]
+        if not handed:
+            return
+        logger.info("drain: handing %d resumable request(s) back to the router", len(handed))
+        for inbox in handed:
+            self._handed_back.add(inbox)
+            try:
+                await self._reply(inbox, TYPE_ERROR, DRAINING_NOTICE)
+            except Exception as exc:  # noqa: BLE001 - shutdown must continue
+                logger.debug("could not hand back %s: %s", inbox[-12:], exc)
+            task = self._inflight.get(inbox)
+            if task is not None and not task.done():
+                # Stops the engine generating for a stream nobody reads now that
+                # the router has been told to take it elsewhere.
+                task.cancel()
+        self._migratable.clear()
+
+    def _done(self, inbox: str) -> bool:
+        task = self._inflight.get(inbox)
+        return task is None or task.done()
+
     async def _reply(
         self, inbox: str, rtype: str, data: bytes = b"", status: int | None = None
     ) -> None:
@@ -631,6 +691,13 @@ class NatsRequestServer:
         # (which tears down the engine connection -> engine stops generating).
         task = asyncio.create_task(self._proxy(inbox, msg), name=f"nats-req-{inbox[-12:]}")
         self._inflight[inbox] = task
+        # Remembered for drain: only a request the router said it can continue
+        # elsewhere may be handed back early.
+        try:
+            if json.loads(msg.data).get("migratable"):
+                self._migratable.add(inbox)
+        except Exception:  # noqa: BLE001 - a body _proxy will reject anyway
+            pass
 
     async def _on_cancel(self, msg) -> None:
         # nats-py requires subscription callbacks to be coroutines.
@@ -661,12 +728,15 @@ class NatsRequestServer:
         except asyncio.CancelledError:
             # Router gave up (timeout / client disconnect). The engine connection
             # is torn down by exiting the stream context; best-effort error reply
-            # (the router may have already unsubscribed).
-            logger.info("NATS request aborted (cancelled): %s", inbox[-12:])
-            try:
-                await self._reply(inbox, TYPE_ERROR, b"request cancelled")
-            except Exception:
-                pass
+            # (the router may have already unsubscribed). A request handed back
+            # for drain was cancelled by us and has already been told why, so it
+            # must not get a second, contradictory error frame.
+            if inbox not in self._handed_back:
+                logger.info("NATS request aborted (cancelled): %s", inbox[-12:])
+                try:
+                    await self._reply(inbox, TYPE_ERROR, b"request cancelled")
+                except Exception:
+                    pass
         except Exception as exc:
             logger.warning("NATS request proxy failed: %s", exc)
             try:
@@ -675,6 +745,8 @@ class NatsRequestServer:
                 pass
         finally:
             self._inflight.pop(inbox, None)
+            self._migratable.discard(inbox)
+            self._handed_back.discard(inbox)
             # Ack only after the request is fully proxied so the backlog gauge
             # (num_ack_pending) reflects genuinely in-flight work.
             await self._ack(msg)
