@@ -82,26 +82,31 @@ FROM ${NATIVE_IMAGE} AS native312
 COPY deploy/overlay/harvest_native.sh /tmp/harvest_native.sh
 RUN sh /tmp/harvest_native.sh
 
-# Mooncake for the SGLang family is BUILT HERE, not harvested. The published
-# engine images ship the base's own Mooncake: in rocm/infera:sglang-v0.1.1 and
-# v0.1.2 the engine.so has mtime 2026-07-15 04:57:53 — byte-identical to the base
-# — and `strings` finds no MC_ENABLE_HIP_TRANSPORT, so the B.2 HIP-transport gate
-# never reached them even though it landed on 2026-07-21, before both builds.
+# Mooncake for the SGLang family is BUILT HERE, not harvested. Harvesting it from
+# an engine image inherits whatever that image happened to have — in
+# rocm/infera:sglang-v0.1.1 and v0.1.2 the engine.so was byte-identical to the
+# base's — so building it means the overlay carries a payload we can state
+# properties about.
 #
-# Without the gate, Mooncake registers the HIP (hipIpc) transport unconditionally
-# and prefers it for GPU-to-GPU, and cross-node PD then dies in
-# hipIpcOpenMemHandle — an IPC handle is host-local, so a peer node can never open
-# it. Harvesting Mooncake from an engine image inherits whatever that image
-# happened to have; building it here means the overlay carries a payload we can
-# state properties about.
+# The problem being solved: Mooncake used to register the HIP (hipIpc) transport
+# unconditionally and prefer it for GPU-to-GPU, so cross-node PD died in
+# hipIpcOpenMemHandle — an IPC handle is host-local, so a peer NODE can never open
+# it. Infera carried a private B.2 patch gating installTransport("hip") behind
+# MC_ENABLE_HIP_TRANSPORT. That gate is obsolete at the pinned ref: upstream now
+# routes per target with isHipReachableTarget(), skipping "hip" buffers for a
+# cross-host peer and falling back to rdma/tcp on its own.
+#
+# So this stage mirrors Dockerfile.sglang exactly — same builder, pure upstream,
+# no private patch dir. Asserting MC_ENABLE_HIP_TRANSPORT here would assert a
+# string only the dropped patch produced, which is what broke this build when
+# a3037b7b made the builder patch-free. Assert the mechanism that replaced it.
 FROM ${SGLANG_BASE_IMAGE} AS mooncake310
-COPY deploy/docker/patches/mooncake_cpp/ /tmp/mooncake_cpp/
 COPY deploy/docker/scripts/build_mooncake_sglang.sh /tmp/build_mooncake_sglang.sh
-RUN MC_CPP_PATCH_DIR=/tmp/mooncake_cpp bash /tmp/build_mooncake_sglang.sh \
+RUN bash /tmp/build_mooncake_sglang.sh \
     && python3 -c "import mooncake.engine as e; print(e.__file__)" \
     && strings "$(python3 -c 'import mooncake.engine as e; print(e.__file__)')" \
-         | grep -q MC_ENABLE_HIP_TRANSPORT \
-    && echo "mooncake310: HIP-transport gate verified present"
+         | grep -q isHipReachableTarget \
+    && echo "mooncake310: cross-host HIP locality routing verified present"
 
 FROM mooncake310 AS native310
 COPY deploy/overlay/harvest_native.sh /tmp/harvest_native.sh

@@ -114,9 +114,21 @@ fi
 
 case "$cmd" in
   build)
+    # BUILD_TARGET stops at one stage instead of building the whole file. CI uses
+    # it to verify the overlay compiles on a PR: the final image harvests from
+    # ${IMAGE}:vllm-<id>, which only exists after a release run has pushed it, but
+    # every stage up to native310 needs nothing but the public vendor bases.
+    # Tagging a partial build would publish a half image under a real name, so a
+    # targeted build is left untagged.
+    tag_args=()
+    if [ -n "${BUILD_TARGET:-}" ]; then
+      echo "build: --target ${BUILD_TARGET} (verify only, not tagged)"
+      tag_args=(--target "$BUILD_TARGET")
+    else
+      for r in "${refs[@]}"; do tag_args+=(-t "$r"); done
+    fi
     # --network=host: RUN steps need DNS, and these nodes resolve via 127.0.0.1
     # which a default bridge build netns can't reach.
-    tag_args=(); for r in "${refs[@]}"; do tag_args+=(-t "$r"); done
     docker build --network=host ${build_args[@]+"${build_args[@]}"} \
                  "${tag_args[@]}" -f "$dockerfile" .
     ;;
