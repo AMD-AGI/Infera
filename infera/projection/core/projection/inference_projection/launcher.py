@@ -59,6 +59,7 @@ _ARG_TO_FIELD = {
     "act_quant_dtype": "act_quant_dtype",
     "kernel_launch_latency_us": "kernel_launch_latency_us",
     "kernels_per_layer": "kernels_per_layer",
+    "decode_kernel_occupancy_us": "decode_kernel_occupancy_us",
 }
 
 # Feature B (custom collective ops): CLI arg → ``collective_<field>`` key.

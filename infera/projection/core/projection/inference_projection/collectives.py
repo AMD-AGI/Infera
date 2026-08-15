@@ -48,11 +48,27 @@ _FUSED_RMSNORM_AR_SPEEDUP = 0.8    # RMSNorm+AR fusion hides part of the AR.
 # The base fixed collective overhead is calibrated for training's large messages;
 # a graph-captured intra-node serving collective does not pay it, so the intra-node
 # path uses ``max(floor, bandwidth)`` instead. Multi-node keeps the base model.
-# Measured intra-node decode collective latencies (MI355X, 8-GPU RCCL, tmp_bench
-# comm_microbench.py): AllReduce ~26 us, AllToAll ~30 us, both latency-bound and
-# flat across the 6-184 KB / 23-737 KB decode message range. These replace the
-# earlier hand-set 15/18 us guesses. Override via env for other fabrics.
-_INFER_AR_OVERHEAD_US = float(os.getenv("INFERASIM_INFER_AR_FLOOR_US", "26.0") or 26.0)
+#
+# The AllReduce floor was 26 us, from an 8-GPU **RCCL** microbenchmark. That is
+# the wrong kernel for a serving projection: vLLM runs with
+# ``disable_custom_all_reduce=False`` by default and dispatches small decode
+# messages to its own one-shot all-reduce, not to RCCL. Charging the RCCL
+# latency put a flat 1.872 ms (2 AR/layer x 26 us x 36 layers) into every
+# gpt-oss decode step at TP>1 -- independent of batch *and* of TP, since the
+# floor always won over the bandwidth term even at a 1.5 MB message.
+#
+# The measured TP ladder bounds the real cost directly: solving
+# ``step(tp) = floor + compute(1)/tp`` over TP=1,2,4,8 gives a floor that is
+# TP-invariant at 2.6-3.2 ms, and TP=1 carries no collective at all. Anything
+# the collective contributed at TP>=2 would have to fit inside that fit's
+# scatter, which bounds it under ~0.6 ms over 72 all-reduces, i.e. under ~8 us
+# each. 3 us is the round-trip a one-shot all-reduce pays on Infinity Fabric and
+# sits inside that bound.
+#
+# This is an interim value: it is bounded by measurement rather than measured.
+# bench/hyperloom_validation/measure_comm_floor.py measures latency against
+# message size on the path vLLM actually uses and should replace it.
+_INFER_AR_OVERHEAD_US = float(os.getenv("INFERASIM_INFER_AR_FLOOR_US", "3.0") or 3.0)
 _INFER_A2A_OVERHEAD_US = float(os.getenv("INFERASIM_INFER_A2A_FLOOR_US", "30.0") or 30.0)
 
 

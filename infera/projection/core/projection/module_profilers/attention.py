@@ -166,18 +166,23 @@ class AttentionProfiler(BaseModuleProfiler):
 
         return tokens_per_rank * (activation_width + ln_width) * bytes_per_value
 
-    def _simulate_mla_gemms(self, batch_tokens: int, dtype: str) -> float:
+    def _simulate_mla_gemms(self, batch_tokens: int, dtype: str, tp_size: int = 1) -> float:
         """Simulate MLA (Multi-Latent Attention) projection GEMMs (forward-only).
 
         MLA uses LoRA-factored Q and compressed KV projections instead of
         standard Q/K/V projections:
           Forward  (6 GEMMs): Q_down, Q_up, KV_down, KV_up, RoPE_proj, O_proj
+
+        Tensor parallelism shards the head axis only. The down-projections
+        produce the shared latent and are replicated on every rank; the
+        up-projections are column-parallel over heads and the output projection
+        is row-parallel over them, so only those carry ``heads // tp``.
         """
         args = self.config.model_config
         backend = self._gemm_backend
 
         hidden = args.hidden_size
-        heads = args.num_attention_heads
+        heads = max(1, args.num_attention_heads // max(1, tp_size))
         q_lora_rank = args.q_lora_rank
         kv_lora_rank = args.kv_lora_rank
         qk_head_dim = args.qk_head_dim
@@ -230,9 +235,16 @@ class AttentionProfiler(BaseModuleProfiler):
         tp_size = max(1, mp.tensor_model_parallel_size)
         cp_size = max(1, mp.context_model_parallel_size)
 
-        # Floor at 1: single-token decode with TP>1 can underflow to 0,
-        # which would divide-by-zero inside the GEMM/SDPA simulators.
-        batch_tokens = max(1, batch_size * seq_len // tp_size // cp_size)
+        # Tensor parallelism shards attention *heads*, not tokens: every rank
+        # holds the whole token axis and a 1/tp slice of the heads. Dividing the
+        # token count by ``tp`` instead (and then sizing the projection GEMMs
+        # with the *full* head count, as below) gets the FLOPs right by accident
+        # but the shape and the weight bytes wrong -- each rank was charged for
+        # streaming the entire Q/K/V/O weight matrices. At decode those bytes
+        # are the whole cost, which is why the modelled attention time barely
+        # moved from TP=1 to TP=8 while the measured ladder shards strongly.
+        # Context parallelism does shard the token axis, so it stays.
+        batch_tokens = max(1, batch_size * seq_len // cp_size)
         slen_per_cp = max(1, seq_len // cp_size)
 
         fwd_time = 0.0
@@ -243,7 +255,7 @@ class AttentionProfiler(BaseModuleProfiler):
 
             if getattr(args, "multi_latent_attention", False):
                 # MLA: LoRA-factored Q and compressed KV projections (6 GEMMs)
-                fwd_time += self._simulate_mla_gemms(batch_tokens, gemm_dtype)
+                fwd_time += self._simulate_mla_gemms(batch_tokens, gemm_dtype, tp_size)
             else:
                 # Standard attention: Q, K, V, O projections (4 GEMMs)
                 num_query_groups = (
@@ -251,12 +263,14 @@ class AttentionProfiler(BaseModuleProfiler):
                     if args.group_query_attention and args.num_query_groups
                     else args.num_attention_heads
                 )
+                # Per-rank head slices: TP splits Q heads and KV groups, so each
+                # rank's projection weights are 1/tp of the full matrices.
                 gemm_result = self._gemm_backend.simulate_attention_gemms(
                     batch_tokens=batch_tokens,
                     hidden_size=args.hidden_size,
-                    num_attention_heads=args.num_attention_heads,
+                    num_attention_heads=max(1, args.num_attention_heads // tp_size),
                     kv_channels=args.kv_channels,
-                    num_query_groups=num_query_groups,
+                    num_query_groups=max(1, num_query_groups // tp_size),
                     dtype=gemm_dtype,
                 )
                 fwd_time += gemm_result.forward_time_ms

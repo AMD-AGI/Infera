@@ -608,6 +608,16 @@ def _add_inference_args(parser):
         "by the launch-latency floor. Default 12.",
     )
     serv.add_argument(
+        "--decode-kernel-occupancy-us",
+        type=float,
+        default=None,
+        help="Per-kernel GPU occupancy (us): the minimum time a kernel holds "
+        "the device regardless of how little data it touches. Added to the "
+        "decode step (not a max) and not cancelled by CUDA-graph capture, "
+        "which removes host dispatch but not kernel execution. Default 5.96 "
+        "from the MI355X TP ladder; 0 disables.",
+    )
+    serv.add_argument(
         "--detokenize-overhead-us",
         type=float,
         default=None,

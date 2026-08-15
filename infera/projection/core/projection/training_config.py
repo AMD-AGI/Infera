@@ -238,6 +238,39 @@ class InferenceRequestConfig:
     # (norms, projections, attention, activation, residuals, MoE router/permute/
     # grouped-GEMM/combine). Only consulted for the launch-latency floor above.
     kernels_per_layer: int = 12
+    # Per-kernel GPU *occupancy* (microseconds): the minimum wall time a kernel
+    # holds the GPU regardless of how little data it touches (wave launch,
+    # memory latency, barriers). This is distinct from
+    # ``kernel_launch_latency_us`` above in two ways that matter physically:
+    #
+    #   * it survives CUDA-graph capture. Graph replay removes the *host-side*
+    #     dispatch, but the kernels still execute and still occupy the device.
+    #   * it is *additive*, not a ``max``. A decode step runs a few large
+    #     data-bound kernels (the expert GEMMs) alongside many small
+    #     latency-bound ones (norms, rope, KV write, router, activation,
+    #     residuals). The large ones are priced by bytes and the small ones by
+    #     occupancy, so the two costs are paid together. Taking ``max`` of the
+    #     totals makes the small-kernel cost vanish exactly when the batch is
+    #     large, which is where it was measured to still be present.
+    #
+    # Measured on MI355X by over-determining ``step(tp) = floor + compute(1)/tp``
+    # across TP=1,2,4,8 with real weights (bench/hyperloom_validation/
+    # measure_step_floor.sh). For gpt-oss-120b the floor is 2.61-3.26 ms over
+    # batch 1..64 -- flat to 22% across a 64x batch range, with 1-6% residual
+    # against the 1/tp form -- against 36 layers.
+    #
+    # The default is the batch-1 solve, 2.61 ms, divided by the kernel count
+    # ``36 * kernels_per_layer + 6 = 438``: 5.96 us. Batch 1 is used rather than
+    # the mean over the sweep because the terms that legitimately grow with
+    # batch (KV streaming, collectives) are modelled separately, and taking the
+    # mean would charge their growth twice.
+    #
+    # This is one architecture's ladder divided by an assumed kernel count, so
+    # it is a per-kernel figure only if the count is right. measure_kernel_floor.py
+    # measures the count and the per-kernel minimum directly and should replace
+    # it; until then, treat cross-model agreement as the test of whether this is
+    # hardware physics or one model's tuning. 0 = disabled.
+    decode_kernel_occupancy_us: float = 5.96
     # Per-output-token host cost for detokenization + response streaming
     # (microseconds/token). The serving harness (vLLM / InferenceX) measures ITL
     # client-side, so its per-token latency carries detok+stream that the GPU
@@ -441,6 +474,23 @@ class InferenceRequestConfig:
         if self.fused_kernels:
             n_kernels *= _FUSED_KERNEL_OVERHEAD_FACTOR
         return n_kernels * lat_us / 1000.0
+
+    def resolved_decode_occupancy_ms(self, num_layers: int) -> float:
+        """Additive per-kernel GPU occupancy for one decode step (ms).
+
+        Same kernel count as the launch floor, but priced at the device-side
+        occupancy minimum and *not* cancelled by graph capture: replay removes
+        the host dispatch, not the kernels. Fusing genuinely removes kernels, so
+        ``fused_kernels`` still shrinks the count.
+        """
+        occ_us = float(self.decode_kernel_occupancy_us or 0.0)
+        if occ_us <= 0.0:
+            return 0.0
+        kpl = max(1, int(self.kernels_per_layer or 12))
+        n_kernels = max(1, int(num_layers)) * kpl + 6
+        if self.fused_kernels:
+            n_kernels *= _FUSED_KERNEL_OVERHEAD_FACTOR
+        return n_kernels * occ_us / 1000.0
 
     def resolved_mixed_batch_penalty(self) -> float:
         """Mixed-step penalty fraction, honoring the cudagraph preset."""

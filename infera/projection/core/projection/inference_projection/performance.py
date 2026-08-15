@@ -1254,6 +1254,19 @@ class InferencePerformanceProjector:
         """Fixed per-step host/launch overhead (CUDA-graph-reducible)."""
         return max(0.0, self.cfg.request_config.resolved_decode_step_overhead_us()) / 1000.0
 
+    def _decode_occupancy_ms(self) -> float:
+        """Additive per-kernel GPU occupancy for a decode step (ms).
+
+        Only for the pure-simulate path: a measured anchor already contains the
+        occupancy of its own kernels, so adding it there would double-count.
+        Because the term is identical at every parallelism, it cancels in the
+        ``s_tgt - s_bench`` difference the anchor restore takes, which is the
+        correct behaviour -- sharding does not remove kernels.
+        """
+        return self.cfg.request_config.resolved_decode_occupancy_ms(
+            self.cfg.model_config.num_layers
+        )
+
     def _launch_latency_floor_ms(self) -> float:
         """Small-tensor kernel-launch floor for the pure-simulate decode step.
 
@@ -1316,6 +1329,10 @@ class InferencePerformanceProjector:
         ft = self._forward_times(batch, q_len, "decode", kv_len)
         per_token = ft.total_ms / max(1, q_len)
         step = ft.total_ms + self._draft_overhead_ms(per_token) + self._decode_step_overhead_ms()
+        # Per-kernel GPU occupancy adds to the data-movement time rather than
+        # capping it: the small latency-bound kernels of a decode layer run
+        # alongside the large data-bound expert GEMMs, so both costs are paid.
+        step += self._decode_occupancy_ms()
         # Pure-simulate: at low batch the roofline step underflows the real
         # launch-bound decode; apply the small-tensor launch-latency floor.
         return max(step, self._decode_floor_ms(batch), self._launch_latency_floor_ms())

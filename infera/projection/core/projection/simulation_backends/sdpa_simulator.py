@@ -101,6 +101,12 @@ class GPUHardwareSpec:
     n_xcd: int = 8  # MI300X has 8 XCDs
 
 
+# Achievable fraction of peak HBM bandwidth for the KV stream. Kept equal to the
+# GEMM path's ``_ROOFLINE_MEM_EFF`` so a single number governs achievable HBM
+# across the whole cost model rather than two that can drift apart.
+_SDPA_MEM_EFF = 0.70
+
+
 # Pre-defined hardware profiles
 _HW_PROFILES: Dict[str, GPUHardwareSpec] = {
     "mi300x": GPUHardwareSpec(
@@ -400,7 +406,7 @@ class SDPASimulator(SDPASimulationBackend):
             dtype=dtype,
         )
 
-        fwd_time_ms = (r_fwd_qk.forward_time_ms + r_fwd_pv.forward_time_ms) * fwd_waves
+        fwd_tile_ms = (r_fwd_qk.forward_time_ms + r_fwd_pv.forward_time_ms) * fwd_waves
 
         # ==============================================================
         # METADATA (FLOPs, bytes — for achieved-TFLOPS reporting)
@@ -419,6 +425,22 @@ class SDPASimulator(SDPASimulationBackend):
             + B * H_Q * S_Q * 4  # logsumexp (fp32)
         )
 
+        # HBM roofline on the KV stream.
+        #
+        # The tile model prices the per-workgroup GEMMs on one CU and scales by
+        # wave count, which captures compute but never bounds the result by the
+        # bandwidth of the device the KV cache actually lives in. At decode that
+        # is the whole cost: S_Q=1, so there is no arithmetic intensity to hide
+        # behind, and every resident sequence's K and V must be read from HBM.
+        # Without this bound the model returned 0.27 ms for 19.3 GB of KV at
+        # batch 256 on gpt-oss-120b — 71 TB/s against an 8 TB/s part.
+        #
+        # Prefill is unaffected: there the tile term is far above this floor, so
+        # the max is a no-op.
+        bw = max(1e-6, self._hw.hbm_bandwidth_gbps) * _SDPA_MEM_EFF
+        fwd_mem_ms = fwd_bytes / (bw * 1e9) * 1e3
+        fwd_time_ms = max(fwd_tile_ms, fwd_mem_ms)
+
         fwd_achieved_tflops = (fwd_flops / (fwd_time_ms * 1e-3)) / 1e12 if fwd_time_ms > 0 else 0
 
         return SimulationResult(
@@ -428,9 +450,9 @@ class SDPASimulator(SDPASimulationBackend):
             metadata={
                 "backend": "sdpa_simulator (FAv3 tile-level, Origami 1-CU)",
                 # Standard metadata keys (for compatibility)
-                "fwd_compute_bound": True,
-                "fwd_compute_ms": fwd_time_ms,
-                "fwd_memory_ms": 0.0,  # included in per-tile Origami model
+                "fwd_compute_bound": fwd_tile_ms >= fwd_mem_ms,
+                "fwd_compute_ms": fwd_tile_ms,
+                "fwd_memory_ms": fwd_mem_ms,
                 "fwd_flops": fwd_flops,
                 "fwd_bytes": fwd_bytes,
                 "seq_len_q": S_Q,
