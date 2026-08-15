@@ -101,6 +101,7 @@ def project_spec(**overrides):
         ("--max-num-batched-tokens", "max_num_batched_tokens"),
         ("--stream-interval", "stream_interval"),
         ("--decode-admission-steps", "decode_admission_steps"),
+        ("--decode-kernel-occupancy-us", "decode_kernel_occupancy_us"),
     ):
         if spec.get(key) is not None:
             argv += [flag, str(spec[key])]
