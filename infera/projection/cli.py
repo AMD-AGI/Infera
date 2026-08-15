@@ -624,6 +624,22 @@ def _add_inference_args(parser):
              "and end-to-end latency only (not throughput). Default 0.",
     )
     serv.add_argument(
+        "--stream-interval",
+        type=int,
+        default=None,
+        help="Output tokens buffered per streaming flush (vLLM/SGLang --stream-interval). "
+             "The client's first token, and so the measured TTFT, arrives only after this "
+             "many tokens are decoded. Default 1 (flush every token).",
+    )
+    serv.add_argument(
+        "--decode-admission-steps",
+        type=int,
+        default=None,
+        help="Decode-scheduler admission granularity in decode steps, i.e. "
+             "--num-continuous-decode-steps x --scheduler-recv-interval. A prefilled request "
+             "waits part of this window before joining the running batch; TTFT-only. Default 0.",
+    )
+    serv.add_argument(
         "--mixed-batch-penalty",
         type=float,
         default=None,

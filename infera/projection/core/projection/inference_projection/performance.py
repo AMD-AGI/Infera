@@ -1492,7 +1492,61 @@ class InferencePerformanceProjector:
             "mixed_step_fraction": mixed_fraction,
             "tpot_pollution_pct": pollution_pct,
             "concurrency": float(C),
+            "prefill_chunks": float(n_chunks),
         }
+
+    def _first_token_delay_ms(self, itl_ms: float, step_ms: float, output_len: int) -> tuple:
+        """Scheduler delays between "prefill done" and "client sees token 1".
+
+        Two engine knobs sit on this path and neither costs throughput, which is
+        why they are set aggressively in production and why a FLOPs-only TTFT
+        misses them by an order of magnitude:
+
+        ``admit_ms``
+            The decode scheduler polls its receive queue every
+            ``decode_admission_steps`` decode steps, so a request that is ready
+            mid-window waits the rest of it -- half the window on average.  This
+            is real added wall time.
+
+        ``buffered_ms``
+            The server flushes the stream only every ``stream_interval`` tokens,
+            so the client's first token arrives with the flush that carries it.
+            This is *not* added wall time: it moves generation time the client
+            already waits out of TPOT and into TTFT, which is why the caller
+            deducts it from the decode span rather than adding it to end-to-end
+            latency.
+        """
+        req = self.cfg.request_config
+        admit_ms = 0.5 * max(0, int(req.decode_admission_steps)) * max(0.0, step_ms)
+        buffered = min(max(0, int(req.stream_interval) - 1), max(0, output_len - 1))
+        return admit_ms, buffered * max(0.0, itl_ms)
+
+    @staticmethod
+    def _closed_loop_wait_ms(service_ms: float, think_ms: float, clients: int) -> float:
+        """Mean response time of one shared server under a closed load.
+
+        A serving benchmark run with ``--max-concurrency C`` is a closed
+        network: ``C`` clients each alternate between waiting on the engine
+        (``service_ms``, here the prefill) and generating (``think_ms``, the
+        decode span, during which the client is not queued for prefill). Exact
+        mean-value analysis walks the population up from 1 to ``C``; a request
+        arriving into a population of ``k`` sees the queue that ``k-1`` others
+        left behind.
+
+        The two limits are the ones that matter. Lightly loaded (long
+        generations, short prompts) it returns ``service_ms`` — no queueing.
+        Saturated (prompts dominate) it approaches ``C * service_ms - think_ms``,
+        the FIFO sweep. Pricing TTFT at either limit alone is wrong by the
+        ratio between them, which across Hyperloom's workloads is ~20x.
+        """
+        service_ms = max(0.0, service_ms)
+        think_ms = max(0.0, think_ms)
+        resp, queued = service_ms, 0.0
+        for k in range(1, max(1, int(clients)) + 1):
+            resp = service_ms * (1.0 + queued)
+            denom = resp + think_ms
+            queued = (k * resp / denom) if denom > 0 else 0.0
+        return resp
 
     def _request_rate_queueing(
         self, system_decode_tps: float, output_len: int, ttft_ms: float, request_latency_ms: float
@@ -1735,15 +1789,14 @@ class InferencePerformanceProjector:
 
         # TTFT is a per-request quantity, but one engine prefills every
         # concurrent request, so a request also waits behind the prompts queued
-        # ahead of it. A closed-loop harness (``--max-concurrency N
-        # --request-rate inf``, what every serving benchmark runs) keeps all N
-        # outstanding, so the scheduler sweeps them FIFO within its token budget
-        # and the average request sits half way down that sweep. Pricing TTFT at
-        # a single prompt instead understates it by ~N/2.
+        # ahead of it. Under continuous batching a prompt is admitted as chunks
+        # riding mixed steps, so its own service time is ``chunks * mixed_step``
+        # and the queue it waits in is the closed-loop one below.
         continuous = self._use_continuous_batching(concurrency, output_len)
+        m = self._continuous_decode_metrics(input_len, output_len, concurrency) if continuous else None
         if continuous:
-            sweep_ms = self.prefill_latency_ms(concurrency, input_len)
-            ttft = sweep_ms * (concurrency + 1) / (2.0 * concurrency)
+            prefill_service_ms = max(m["prefill_chunks"] * m["mixed_step_ms"], 0.0)
+            ttft = self._closed_loop_wait_ms(prefill_service_ms, m["decode_total_ms"], concurrency)
             prefill_full_ms = self.prefill_latency_ms(batch, input_len)
         else:
             ttft = prefill_full_ms = self.prefill_latency_ms(batch, input_len)
@@ -1757,7 +1810,6 @@ class InferencePerformanceProjector:
 
         if continuous:
             # Continuous batching: TPOT is the blended pure/mixed steady state.
-            m = self._continuous_decode_metrics(input_len, output_len, concurrency)
             decode_total = m["decode_total_ms"]
             itl = m["tpot_ms"]
             step_latency = m["pure_step_ms"]
@@ -1789,6 +1841,13 @@ class InferencePerformanceProjector:
         if detok_ms:
             itl += detok_ms
             decode_total += detok_ms * max(0, output_len)
+            per_req_decode_tps = (1000.0 / itl) if itl > 0 else 0.0
+
+        admit_ms, buffered_ms = self._first_token_delay_ms(itl, step_latency, output_len)
+        ttft += admit_ms + buffered_ms
+        decode_total = max(0.0, decode_total - buffered_ms)
+        if output_len > 1:
+            itl = decode_total / (output_len - 1)
             per_req_decode_tps = (1000.0 / itl) if itl > 0 else 0.0
 
         request_latency = ttft + decode_total
@@ -1878,26 +1937,31 @@ class InferencePerformanceProjector:
             decode_cfg, args=self._args_ref, benchmark_layer_times=self._bench_measured
         )
 
-        # Prefill phase on the prefill pool (drives TTFT + prefill throughput).
-        # One pool prefills every concurrent request, so a request waits behind
-        # the prompts queued ahead of it and the average one sits half way down
-        # that FIFO sweep -- the same closed-loop wave as the co-located path,
-        # spread over the prefill replicas.
-        per_replica = max(1, batch // max(1, disagg.prefill_replicas))
-        sweep_ms = prefill_proj.prefill_latency_ms(per_replica, input_len)
-        ttft_compute = sweep_ms * (per_replica + 1) / (2.0 * per_replica)
-        prefill_full_ms = prefill_proj.prefill_latency_ms(batch, input_len)
-        kv_transfer = self._kv_transfer_ms(decode_proj, batch, input_len)
-        # Host prompt-tokenization cost (latency-only, TTFT side).
-        tok_ms = max(0.0, req.tokenize_overhead_us) / 1000.0 * max(0, input_len)
-        ttft = ttft_compute + kv_transfer + tok_ms
-
         # Decode phase on the decode pool (drives ITL + decode throughput).
+        # Computed first because the prefill queue below needs the generation
+        # span as its think time.
         decode_total = decode_proj.decode_total_ms(batch, input_len, output_len)
         mid_ctx = input_len + output_len // 2
         spec_k = int(req.speculative_num_tokens or 0)
         q_len = (spec_k + 1) if spec_k > 0 else 1
         step_latency = decode_proj._decode_step_latency_ms(batch, mid_ctx, q_len=q_len)
+
+        # Prefill phase on the prefill pool (drives TTFT + prefill throughput).
+        # The pool is dedicated, so a prompt's own service time is an
+        # uncontended single-request prefill; what it waits behind is the other
+        # clients of the same replica, which the closed-loop queue prices with
+        # the generation span (plus its KV handoff) as think time.
+        per_replica = max(1, batch // max(1, disagg.prefill_replicas))
+        kv_transfer = self._kv_transfer_ms(decode_proj, batch, input_len)
+        ttft_compute = self._closed_loop_wait_ms(
+            prefill_proj.prefill_latency_ms(1, input_len),
+            decode_total + kv_transfer,
+            per_replica,
+        )
+        prefill_full_ms = prefill_proj.prefill_latency_ms(batch, input_len)
+        # Host prompt-tokenization cost (latency-only, TTFT side).
+        tok_ms = max(0.0, req.tokenize_overhead_us) / 1000.0 * max(0, input_len)
+        ttft = ttft_compute + kv_transfer + tok_ms
 
         itl = (decode_total / output_len) if output_len > 0 else step_latency
         # Per-token detokenization + streaming (latency-only; see the co-located
@@ -1906,6 +1970,12 @@ class InferencePerformanceProjector:
         if detok_ms:
             itl += detok_ms
             decode_total += detok_ms * max(0, output_len)
+
+        admit_ms, buffered_ms = self._first_token_delay_ms(itl, step_latency, output_len)
+        ttft += admit_ms + buffered_ms
+        decode_total = max(0.0, decode_total - buffered_ms)
+        if output_len > 1:
+            itl = decode_total / (output_len - 1)
         request_latency = ttft + decode_total
         per_req_decode_tps = (1000.0 / itl) if itl > 0 else 0.0
 

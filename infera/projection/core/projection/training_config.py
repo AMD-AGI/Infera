@@ -251,6 +251,24 @@ class InferenceRequestConfig:
     # TTFT. Added to TTFT + end-to-end latency only. 0 = ignore (GPU-prefill
     # model). Symmetric with ``detokenize_overhead_us`` on the decode side.
     tokenize_overhead_us: float = 0.0
+    # Output tokens buffered per streaming flush (vLLM/SGLang
+    # ``--stream-interval``). The server detokenizes and flushes the SSE stream
+    # only every N tokens, so the client's *first* token -- and therefore the
+    # measured TTFT -- lands only after N tokens have been decoded. Serving
+    # harnesses raise this to cut host detokenization cost, and it is a leading
+    # TTFT term at high N: SGLang's PD default of 30 adds ~29 TPOTs. ``1`` =
+    # flush every token (legacy behaviour, no TTFT contribution).
+    stream_interval: int = 1
+    # Decode-scheduler admission granularity, in decode steps. A request whose
+    # prefill is done is not admitted to the running batch immediately: the
+    # scheduler polls its receive queue only every ``--scheduler-recv-interval``
+    # loop iterations, and each iteration advances ``--num-continuous-decode-
+    # steps`` decode steps, so the product bounds the admission delay. The
+    # request waits a uniform fraction of that window on average. This is a pure
+    # TTFT term (throughput is unaffected -- that is the point of the knob) and
+    # it dominates TTFT in disaggregated serving, where prefill compute is off
+    # the critical path. ``0`` = admit immediately (legacy behaviour).
+    decode_admission_steps: int = 0
     # Extra cost fraction applied to a *mixed* (prefill+decode) step to model
     # vLLM's less-efficient PIECEWISE CUDA-graph path vs the FULL graph used for
     # uniform pure-decode steps. 0 = no penalty.

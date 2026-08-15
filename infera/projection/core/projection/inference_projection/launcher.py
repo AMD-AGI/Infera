@@ -36,6 +36,8 @@ _ARG_TO_FIELD = {
     "decode_step_overhead_us": "decode_step_overhead_us",
     "detokenize_overhead_us": "detokenize_overhead_us",
     "tokenize_overhead_us": "tokenize_overhead_us",
+    "stream_interval": "stream_interval",
+    "decode_admission_steps": "decode_admission_steps",
     "mixed_batch_penalty": "mixed_batch_penalty",
     "cudagraph_mode": "cudagraph_mode",
     "kv_cache_memory_fraction": "kv_cache_memory_fraction",
@@ -626,7 +628,10 @@ def launch_projection_from_cli(args, overrides):
             _anchor_paths.append(args.decode_floor_benchmark)
         _emit_restore_confidence(_anchor_paths, _tgt_tp * _tgt_pp)
 
-    results = {}
+    # The fully-merged config, so programmatic callers can see what the model
+    # preset, module defaults and CLI overrides actually resolved to rather
+    # than re-deriving it.
+    results = {"config": inference_config}
     if mode in ("memory", "both"):
         results["memory"] = project_inference_memory(
             inference_config, hbm_capacity_gb=hbm_gb, verbose=True
