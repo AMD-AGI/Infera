@@ -17,13 +17,13 @@ class AttentionProfiler(BaseModuleProfiler):
     def __init__(self, config, sub_profilers=None):
         super().__init__(config, sub_profilers)
         self.module = None  # Will be set during benchmarking
-        self._cached_results = None  # Cache for (forward_time, backward_time, activation_memory)
+        self._cached_results = None  # Cache for (forward_time, activation_memory)
         self._cache_key = None  # Cache key (batch_size, seq_len)
         self._gemm_backend = None  # Optional: GEMM simulation backend
         self._sdpa_backend = None  # Optional: SDPA simulation backend
-        # Inference phase: None=training (default), "prefill" or "decode".
-        # When set, the SDPA simulation uses a distinct KV-cache length and
-        # drops the backward pass (forward-only serving).
+        # Inference phase: None (default), "prefill" or "decode".
+        # When set, the SDPA simulation uses a distinct KV-cache length for
+        # forward-only serving.
         self._inference_phase = None
         self._kv_seq_len = None
 
@@ -166,13 +166,12 @@ class AttentionProfiler(BaseModuleProfiler):
 
         return tokens_per_rank * (activation_width + ln_width) * bytes_per_value
 
-    def _simulate_mla_gemms(self, batch_tokens: int, dtype: str) -> tuple[float, float]:
-        """Simulate MLA (Multi-Latent Attention) projection GEMMs.
+    def _simulate_mla_gemms(self, batch_tokens: int, dtype: str) -> float:
+        """Simulate MLA (Multi-Latent Attention) projection GEMMs (forward-only).
 
         MLA uses LoRA-factored Q and compressed KV projections instead of
         standard Q/K/V projections:
           Forward  (6 GEMMs): Q_down, Q_up, KV_down, KV_up, RoPE_proj, O_proj
-          Backward (12 GEMMs): dgrad + wgrad for each of the 6 projections
         """
         args = self.config.model_config
         backend = self._gemm_backend
@@ -186,7 +185,6 @@ class AttentionProfiler(BaseModuleProfiler):
         v_head_dim = args.v_head_dim
 
         fwd_time = 0.0
-        bwd_time = 0.0
         T = batch_tokens
 
         # ---------- Forward ----------
@@ -223,53 +221,9 @@ class AttentionProfiler(BaseModuleProfiler):
         r = backend.simulate_gemm(T, hidden, o_in, dtype)
         fwd_time += r.forward_time_ms
 
-        # ---------- Backward (dgrad + wgrad for each projection) ----------
-        if q_lora_rank is not None:
-            # Q down-proj dgrad: [T, q_down_out] × [q_down_out, hidden] → [T, hidden]
-            r = backend.simulate_gemm(T, hidden, q_down_out, dtype)
-            bwd_time += r.forward_time_ms
-            # Q down-proj wgrad: [hidden, T] × [T, q_down_out] → [hidden, q_down_out]
-            r = backend.simulate_gemm(hidden, q_down_out, T, dtype)
-            bwd_time += r.forward_time_ms
-            # Q up-proj dgrad: [T, q_up_out] × [q_up_out, q_lora_rank] → [T, q_lora_rank]
-            r = backend.simulate_gemm(T, q_lora_rank, q_up_out, dtype)
-            bwd_time += r.forward_time_ms
-            # Q up-proj wgrad: [q_lora_rank, T] × [T, q_up_out] → [q_lora_rank, q_up_out]
-            r = backend.simulate_gemm(q_lora_rank, q_up_out, T, dtype)
-            bwd_time += r.forward_time_ms
-        else:
-            # Direct Q dgrad + wgrad
-            r = backend.simulate_gemm(T, hidden, q_up_out, dtype)
-            bwd_time += r.forward_time_ms
-            r = backend.simulate_gemm(hidden, q_up_out, T, dtype)
-            bwd_time += r.forward_time_ms
+        return fwd_time
 
-        # KV down-proj dgrad + wgrad
-        r = backend.simulate_gemm(T, hidden, kv_down_out, dtype)
-        bwd_time += r.forward_time_ms
-        r = backend.simulate_gemm(hidden, kv_down_out, T, dtype)
-        bwd_time += r.forward_time_ms
-        # KV up-proj dgrad + wgrad
-        r = backend.simulate_gemm(T, kv_lora_rank, kv_up_out, dtype)
-        bwd_time += r.forward_time_ms
-        r = backend.simulate_gemm(kv_lora_rank, kv_up_out, T, dtype)
-        bwd_time += r.forward_time_ms
-
-        # RoPE proj dgrad + wgrad
-        r = backend.simulate_gemm(T, hidden, qk_pos_emb_head_dim, dtype)
-        bwd_time += r.forward_time_ms
-        r = backend.simulate_gemm(hidden, qk_pos_emb_head_dim, T, dtype)
-        bwd_time += r.forward_time_ms
-
-        # O proj dgrad + wgrad
-        r = backend.simulate_gemm(T, o_in, hidden, dtype)
-        bwd_time += r.forward_time_ms
-        r = backend.simulate_gemm(o_in, hidden, T, dtype)
-        bwd_time += r.forward_time_ms
-
-        return fwd_time, bwd_time
-
-    def _get_simulated_results(self, batch_size: int, seq_len: int) -> tuple[float, float, int]:
+    def _get_simulated_results(self, batch_size: int, seq_len: int) -> tuple[float, int]:
         """Get simulated results from GEMM + SDPA simulation backends."""
         args = self.config.model_config
         mp = self.config.model_parallel_config
@@ -282,21 +236,16 @@ class AttentionProfiler(BaseModuleProfiler):
         slen_per_cp = max(1, seq_len // cp_size)
 
         fwd_time = 0.0
-        bwd_time = 0.0
 
         # 1. Simulate linear projection GEMMs using GEMM backend
         if self._gemm_backend is not None:
             gemm_dtype = "fp8" if getattr(args, "fp8", None) else "bf16"
 
             if getattr(args, "multi_latent_attention", False):
-                # MLA: LoRA-factored Q and compressed KV projections
-                # 6 forward GEMMs + 12 backward GEMMs
-                mla_fwd, mla_bwd = self._simulate_mla_gemms(batch_tokens, gemm_dtype)
-                fwd_time += mla_fwd
-                bwd_time += mla_bwd
+                # MLA: LoRA-factored Q and compressed KV projections (6 GEMMs)
+                fwd_time += self._simulate_mla_gemms(batch_tokens, gemm_dtype)
             else:
-                # Standard attention: Q, K, V, O projections
-                # 4 forward GEMMs + 8 backward GEMMs
+                # Standard attention: Q, K, V, O projections (4 GEMMs)
                 num_query_groups = (
                     args.num_query_groups
                     if args.group_query_attention and args.num_query_groups
@@ -311,7 +260,6 @@ class AttentionProfiler(BaseModuleProfiler):
                     dtype=gemm_dtype,
                 )
                 fwd_time += gemm_result.forward_time_ms
-                bwd_time += gemm_result.backward_time_ms
 
         # 2. Simulate SDPA core computation using SDPA backend
         if self._sdpa_backend is not None:
@@ -352,7 +300,6 @@ class AttentionProfiler(BaseModuleProfiler):
                     head_dim_v=sdpa_head_dim_v,
                 )
                 fwd_time += sdpa_result.forward_time_ms
-                # bwd_time intentionally left untouched (serving is fwd-only).
             else:
                 sdpa_result = self._sdpa_backend.simulate_sdpa(
                     batch_size=batch_size,
@@ -364,12 +311,11 @@ class AttentionProfiler(BaseModuleProfiler):
                     head_dim_v=sdpa_head_dim_v,
                 )
                 fwd_time += sdpa_result.forward_time_ms
-                bwd_time += sdpa_result.backward_time_ms
 
         activation_memory = self.estimated_activation_memory(batch_size, seq_len)
-        return (fwd_time, bwd_time, activation_memory)
+        return (fwd_time, activation_memory)
 
-    def _get_benchmark_results(self, batch_size: int, seq_len: int) -> tuple[float, float, int]:
+    def _get_benchmark_results(self, batch_size: int, seq_len: int) -> tuple[float, int]:
         """Get or compute benchmark results (cached)."""
         cache_key = (batch_size, seq_len, self._inference_phase, self._kv_seq_len)
 
@@ -395,13 +341,9 @@ class AttentionProfiler(BaseModuleProfiler):
         return self._cached_results
 
     def measured_forward_time(self, batch_size: int, seq_len: int) -> float:
-        forward_time, _, _ = self._get_benchmark_results(batch_size, seq_len)
+        forward_time, _ = self._get_benchmark_results(batch_size, seq_len)
         return forward_time
 
-    def measured_backward_time(self, batch_size: int, seq_len: int) -> float:
-        _, backward_time, _ = self._get_benchmark_results(batch_size, seq_len)
-        return backward_time
-
     def measured_activation_memory(self, batch_size: int, seq_len: int) -> int:
-        _, _, activation_memory = self._get_benchmark_results(batch_size, seq_len)
+        _, activation_memory = self._get_benchmark_results(batch_size, seq_len)
         return activation_memory

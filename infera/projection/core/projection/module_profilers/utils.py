@@ -186,34 +186,30 @@ def benchmark_layer(
     input_shapes: List[Union[Tuple[int, ...], Tuple[Tuple[int, ...], torch.dtype]]],
     num_iterations: int = 64,  # Match typical microbatch count
     transformer_config=None,  # Optional: pass config to enable FP8 context
-    forward_only: bool = False,  # Inference: time forward only, under no_grad
     use_cuda_graph: bool = False,  # Inference: capture + replay under a CUDA/HIP graph
-) -> tuple[float, float, int]:
+) -> tuple[float, int]:
     """
-    Benchmark both forward and backward passes of a transformer layer using CUDA events.
+    Benchmark the forward pass of a transformer layer using CUDA events.
 
-    When ``forward_only`` is set (used by the inference projection's benchmark
-    mode) the backward pass is skipped entirely and the forward is run under
-    ``torch.no_grad()`` so the measurement reflects a serving forward pass (no
-    autograd graph construction). The returned backward time is ``0.0``.
+    This is serving-oriented (forward-only): the forward runs under
+    ``torch.no_grad()`` so the measurement reflects a serving forward pass with
+    no autograd graph construction.
 
     Optimizations for accurate timing:
     1. Warmup (20 iterations) to fully warm GPU caches and JIT
     2. Many benchmark iterations (64) for stable steady-state measurement
-    3. Separate forward/backward timing with CUDA events for accurate splits
-    4. Pre-allocated grad_outputs tensors reused across iterations
-    5. FP8 autocast context when enabled (critical for accurate FP8 timing!)
+    3. FP8 autocast context when enabled (critical for accurate FP8 timing!)
 
     Args:
         layer_module: The transformer layer module
         input_shapes: List of input shapes. Each element can be:
-                      - A tuple of integers (shape), defaults to bfloat16 and requires_grad=True
-                      - A tuple of ((shape), dtype), defaults to requires_grad=True if float, False otherwise
+                      - A tuple of integers (shape), defaults to bfloat16
+                      - A tuple of ((shape), dtype)
         num_iterations: Number of iterations to average over
         transformer_config: Optional TransformerConfig to enable FP8 autocast
 
     Returns:
-        Tuple of (average forward time in ms, average backward time in ms, activation memory in bytes)
+        Tuple of (average forward time in ms, activation memory in bytes)
     """
     # Get device from module parameters
     try:
@@ -253,54 +249,13 @@ def benchmark_layer(
     # WARMUP (20 iterations) - fully warm GPU caches, JIT, and allocators
     # This matches the "warmed up" state of actual training after many iterations
     # ===========================================================================
-    grad_outputs = None
-    output_indices = []
     num_warmup, num_iterations = _bench_iter_count(20, num_iterations)
 
-    if forward_only:
-        # Inference warmup: forward-only under no_grad (no autograd graph).
-        with fp8_context:
-            for _ in range(num_warmup):
-                with torch.no_grad():
-                    layer_module(*inputs)
-        if device.type == "cuda":
-            torch.cuda.synchronize(device)
-
+    # Warmup: forward-only under no_grad (no autograd graph).
     with fp8_context:
-        for _ in range(num_warmup if not forward_only else 0):
-            outputs = layer_module(*inputs)
-            if not isinstance(outputs, (tuple, list)):
-                outputs = (outputs,)
-
-            # Create grad_outputs once during warmup (reused for all subsequent iterations)
-            if grad_outputs is None:
-                grad_outputs = []
-                for i, out in enumerate(outputs):
-                    # Filter on ``grad_fn is not None`` rather than
-                    # ``requires_grad`` so we only pick outputs that are
-                    # actually nodes in the autograd graph.  ``requires_grad``
-                    # alone is True for leaf parameters and for tensors that
-                    # came out of a custom autograd Function whose backward
-                    # link was dropped -- calling ``torch.autograd.backward``
-                    # on those does NOT walk the forward graph, which means
-                    # saved-for-backward activations are never released and
-                    # get destructed inside the *next* forward call (showing
-                    # up as a 100-1000x inflation of forward time on MoE
-                    # transformer layers under ``rec=none``).
-                    if isinstance(out, torch.Tensor) and out.requires_grad and out.grad_fn is not None:
-                        grad_outputs.append(torch.randn_like(out))
-                        output_indices.append(i)
-
-            valid_outputs = [outputs[i] for i in output_indices]
-            if valid_outputs:
-                torch.autograd.backward(valid_outputs, grad_outputs)
-
-            layer_module.zero_grad(set_to_none=True)
-            for inp in inputs:
-                if inp.requires_grad:
-                    inp.grad = None
-
-    # Synchronize after warmup - GPU is now in "hot" state
+        for _ in range(num_warmup):
+            with torch.no_grad():
+                layer_module(*inputs)
     if device.type == "cuda":
         torch.cuda.synchronize(device)
 
@@ -311,8 +266,7 @@ def benchmark_layer(
         torch.cuda.synchronize(device)
     mem_before = torch.cuda.memory_allocated(device)
 
-    _mem_grad_ctx = torch.no_grad() if forward_only else nullcontext()
-    with fp8_context, _mem_grad_ctx:
+    with fp8_context, torch.no_grad():
         for _ in range(num_iterations):
             outputs = layer_module(*inputs)
 
@@ -326,77 +280,37 @@ def benchmark_layer(
     del outputs
 
     # ===========================================================================
-    # BENCHMARK: Measure forward and backward separately with CUDA events
+    # BENCHMARK: Measure forward with CUDA events (forward-only serving path)
     # ===========================================================================
     forward_times = []
-    backward_times = []
 
-    if forward_only:
-        # Preferred: capture the forward into a CUDA/HIP graph and time replays.
-        # Replay collapses all of the layer's kernel launches into a single
-        # graph launch, removing the per-kernel host-launch overhead that
-        # dominates a memory-bound (small-M) decode step -- this is exactly how
-        # real serving engines (vLLM/SGLang) run decode.  Falls back to eager
-        # timing if capture is unsupported for any kernel on this stack.
-        if use_cuda_graph and device.type == "cuda":
-            graph_ms = _time_forward_cuda_graph(
-                layer_module, inputs, fp8_context, num_iterations, device
-            )
-            if graph_ms is not None:
-                return graph_ms, 0.0, int(activation_memory)
+    # Preferred: capture the forward into a CUDA/HIP graph and time replays.
+    # Replay collapses all of the layer's kernel launches into a single
+    # graph launch, removing the per-kernel host-launch overhead that
+    # dominates a memory-bound (small-M) decode step -- this is exactly how
+    # real serving engines (vLLM/SGLang) run decode.  Falls back to eager
+    # timing if capture is unsupported for any kernel on this stack.
+    if use_cuda_graph and device.type == "cuda":
+        graph_ms = _time_forward_cuda_graph(
+            layer_module, inputs, fp8_context, num_iterations, device
+        )
+        if graph_ms is not None:
+            return graph_ms, int(activation_memory)
 
-        with fp8_context, torch.no_grad():
-            for _ in range(num_iterations):
-                forward_start = torch.cuda.Event(enable_timing=True)
-                forward_end = torch.cuda.Event(enable_timing=True)
-
-                forward_start.record()
-                layer_module(*inputs)
-                forward_end.record()
-
-                torch.cuda.synchronize(device)
-                forward_times.append(forward_start.elapsed_time(forward_end))
-
-        avg_forward_time = _bench_central_value(forward_times)
-        return avg_forward_time, 0.0, int(activation_memory)
-
-    with fp8_context:
+    with fp8_context, torch.no_grad():
         for _ in range(num_iterations):
-            # --- Forward pass ---
             forward_start = torch.cuda.Event(enable_timing=True)
             forward_end = torch.cuda.Event(enable_timing=True)
 
             forward_start.record()
-            outputs = layer_module(*inputs)
+            layer_module(*inputs)
             forward_end.record()
 
-            # --- Backward pass ---
-            backward_start = torch.cuda.Event(enable_timing=True)
-            backward_end = torch.cuda.Event(enable_timing=True)
-
-            if not isinstance(outputs, (tuple, list)):
-                outputs = (outputs,)
-            valid_outputs = [outputs[i] for i in output_indices]
-
-            backward_start.record()
-            if valid_outputs:
-                torch.autograd.backward(valid_outputs, grad_outputs)
-            backward_end.record()
-
             torch.cuda.synchronize(device)
-
             forward_times.append(forward_start.elapsed_time(forward_end))
-            backward_times.append(backward_start.elapsed_time(backward_end))
-
-            layer_module.zero_grad(set_to_none=True)
-            for inp in inputs:
-                if inp.requires_grad:
-                    inp.grad = None
 
     avg_forward_time = _bench_central_value(forward_times)
-    avg_backward_time = _bench_central_value(backward_times)
-
-    return avg_forward_time, avg_backward_time, int(activation_memory)
+    return avg_forward_time, int(activation_memory)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -521,9 +435,9 @@ def benchmark_moe_layer_decomposed(
     input_shapes: List[Union[Tuple[int, ...], Tuple[Tuple[int, ...], torch.dtype]]],
     num_iterations: int = 64,
     transformer_config=None,
-) -> tuple[float, float, int, float, float]:
+) -> tuple[float, int, float]:
     """
-    Benchmark an MoE layer with decomposed A2A timing.
+    Benchmark an MoE layer (forward-only) with decomposed A2A timing.
 
     This function works exactly like ``benchmark_layer`` but additionally
     measures the All-to-All dispatch and combine times separately by
@@ -551,9 +465,8 @@ def benchmark_moe_layer_decomposed(
         transformer_config: Optional config for FP8 context.
 
     Returns:
-        Tuple of (avg_forward_ms, avg_backward_ms, activation_memory_bytes,
-                  avg_a2a_forward_ms, avg_a2a_backward_ms)
-        where a2a_forward/backward is the dispatch+combine time per direction.
+        Tuple of (avg_forward_ms, activation_memory_bytes, avg_a2a_forward_ms)
+        where a2a_forward is the dispatch+combine time per forward.
     """
     # Get device from module parameters
     try:
@@ -627,38 +540,13 @@ def benchmark_moe_layer_decomposed(
 
     try:
         # =====================================================================
-        # WARMUP (20 iterations) - same as benchmark_layer
+        # WARMUP (20 iterations) - forward-only, same as benchmark_layer
         # =====================================================================
-        grad_outputs = None
-        output_indices = []
         num_warmup, num_iterations = _bench_iter_count(20, num_iterations)
 
-        with fp8_context:
+        with fp8_context, torch.no_grad():
             for _ in range(num_warmup):
-                outputs = moe_module(*inputs)
-                if not isinstance(outputs, (tuple, list)):
-                    outputs = (outputs,)
-
-                if grad_outputs is None:
-                    grad_outputs = []
-                    for i, out in enumerate(outputs):
-                        # See note in ``benchmark_layer``: filter on
-                        # ``grad_fn is not None`` so backward actually
-                        # walks the autograd graph (and releases saved
-                        # tensors), instead of being a no-op on detached
-                        # custom-autograd outputs / leaf parameters.
-                        if isinstance(out, torch.Tensor) and out.requires_grad and out.grad_fn is not None:
-                            grad_outputs.append(torch.randn_like(out))
-                            output_indices.append(i)
-
-                valid_outputs = [outputs[i] for i in output_indices]
-                if valid_outputs:
-                    torch.autograd.backward(valid_outputs, grad_outputs)
-
-                moe_module.zero_grad(set_to_none=True)
-                for inp in inputs:
-                    if inp.requires_grad:
-                        inp.grad = None
+                moe_module(*inputs)
 
         if device.type == "cuda":
             torch.cuda.synchronize(device)
@@ -670,7 +558,7 @@ def benchmark_moe_layer_decomposed(
             torch.cuda.synchronize(device)
         mem_before = torch.cuda.memory_allocated(device)
 
-        with fp8_context:
+        with fp8_context, torch.no_grad():
             for _ in range(num_iterations):
                 outputs = moe_module(*inputs)
 
@@ -684,7 +572,7 @@ def benchmark_moe_layer_decomposed(
         del outputs
 
         # =====================================================================
-        # BENCHMARK with decomposed A2A timing
+        # BENCHMARK with decomposed A2A timing (forward-only)
         # =====================================================================
         # Monkey-patch dispatch() and combine() to insert CUDA events.
         # MoELayer.forward() calls self.dispatch(...) and self.combine(...)
@@ -718,41 +606,19 @@ def benchmark_moe_layer_decomposed(
         moe_module.combine = timed_combine
 
         forward_times = []
-        backward_times = []
 
         try:
-            with fp8_context:
+            with fp8_context, torch.no_grad():
                 for _ in range(num_iterations):
-                    # --- Forward pass ---
                     forward_start = torch.cuda.Event(enable_timing=True)
                     forward_end = torch.cuda.Event(enable_timing=True)
 
                     forward_start.record()
-                    outputs = moe_module(*inputs)
+                    moe_module(*inputs)
                     forward_end.record()
 
-                    # --- Backward pass ---
-                    backward_start = torch.cuda.Event(enable_timing=True)
-                    backward_end = torch.cuda.Event(enable_timing=True)
-
-                    if not isinstance(outputs, (tuple, list)):
-                        outputs = (outputs,)
-                    valid_outputs = [outputs[i] for i in output_indices]
-
-                    backward_start.record()
-                    if valid_outputs:
-                        torch.autograd.backward(valid_outputs, grad_outputs)
-                    backward_end.record()
-
                     torch.cuda.synchronize(device)
-
                     forward_times.append(forward_start.elapsed_time(forward_end))
-                    backward_times.append(backward_start.elapsed_time(backward_end))
-
-                    moe_module.zero_grad(set_to_none=True)
-                    for inp in inputs:
-                        if inp.requires_grad:
-                            inp.grad = None
         finally:
             moe_module.dispatch = original_dispatch
             moe_module.combine = original_combine
@@ -760,7 +626,6 @@ def benchmark_moe_layer_decomposed(
         _uninstall_routing_patches(routing_restores)
 
     avg_forward_time = _bench_central_value(forward_times)
-    avg_backward_time = _bench_central_value(backward_times)
 
     # Compute average A2A forward time (dispatch + combine)
     # Each forward iteration produces one dispatch event and one combine event.
@@ -772,15 +637,10 @@ def benchmark_moe_layer_decomposed(
 
     avg_a2a_fwd = _bench_central_value(a2a_fwd_times)
 
-    # Backward A2A is approximately equal to forward A2A (same message sizes).
-    # We don't instrument the backward autograd graph, so we use this assumption.
-    avg_a2a_bwd = avg_a2a_fwd
-
     if is_rank_0:
         compute_fwd = avg_forward_time - avg_a2a_fwd
-        compute_bwd = avg_backward_time - avg_a2a_bwd
-        print(f"  [MoE Decomposed] Total fwd: {avg_forward_time:.2f} ms, bwd: {avg_backward_time:.2f} ms")
-        print(f"  [MoE Decomposed] A2A   fwd: {avg_a2a_fwd:.2f} ms, bwd(est): {avg_a2a_bwd:.2f} ms")
-        print(f"  [MoE Decomposed] Compute fwd: {compute_fwd:.2f} ms, bwd: {compute_bwd:.2f} ms")
+        print(f"  [MoE Decomposed] Total fwd: {avg_forward_time:.2f} ms")
+        print(f"  [MoE Decomposed] A2A   fwd: {avg_a2a_fwd:.2f} ms")
+        print(f"  [MoE Decomposed] Compute fwd: {compute_fwd:.2f} ms")
 
-    return avg_forward_time, avg_backward_time, int(activation_memory), avg_a2a_fwd, avg_a2a_bwd
+    return avg_forward_time, int(activation_memory), avg_a2a_fwd

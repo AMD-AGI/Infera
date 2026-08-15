@@ -17,7 +17,7 @@ class DenseMLPProfiler(BaseModuleProfiler):
     def __init__(self, config, sub_profilers=None):
         super().__init__(config, sub_profilers)
         self.module = None  # Will be set during benchmarking
-        self._cached_results = None  # Cache for (forward_time, backward_time, activation_memory)
+        self._cached_results = None  # Cache for (forward_time, activation_memory)
         self._cache_key = None  # Cache key (batch_size, seq_len)
         self._gemm_backend = None  # Optional: GEMM simulation backend
 
@@ -66,7 +66,7 @@ class DenseMLPProfiler(BaseModuleProfiler):
         # Peak memory is input + intermediate (both needed for backward)
         return intermediate_memory + activation_memory + output_memory
 
-    def _get_simulated_results(self, batch_size: int, seq_len: int) -> Tuple[float, float, int]:
+    def _get_simulated_results(self, batch_size: int, seq_len: int) -> Tuple[float, int]:
         """Get simulated results from the GEMM simulation backend."""
         tp_size = self.config.model_parallel_config.tensor_model_parallel_size
         cp_size = self.config.model_parallel_config.context_model_parallel_size
@@ -84,11 +84,10 @@ class DenseMLPProfiler(BaseModuleProfiler):
         activation_memory = self.estimated_activation_memory(batch_size, seq_len)
         return (
             sim_result.forward_time_ms,
-            sim_result.backward_time_ms,
             activation_memory,
         )
 
-    def _get_benchmark_results(self, batch_size: int, seq_len: int) -> Tuple[float, float, int]:
+    def _get_benchmark_results(self, batch_size: int, seq_len: int) -> Tuple[float, int]:
         """Get or compute benchmark results (cached)."""
         cache_key = (batch_size, seq_len)
         if self._cached_results is None or self._cache_key != cache_key:
@@ -103,15 +102,11 @@ class DenseMLPProfiler(BaseModuleProfiler):
         return self._cached_results
 
     def measured_forward_time(self, batch_size: int, seq_len: int) -> float:
-        forward_time, _, _ = self._get_benchmark_results(batch_size, seq_len)
+        forward_time, _ = self._get_benchmark_results(batch_size, seq_len)
         return forward_time
 
-    def measured_backward_time(self, batch_size: int, seq_len: int) -> float:
-        _, backward_time, _ = self._get_benchmark_results(batch_size, seq_len)
-        return backward_time
-
     def measured_activation_memory(self, batch_size: int, seq_len: int) -> int:
-        _, _, activation_memory = self._get_benchmark_results(batch_size, seq_len)
+        _, activation_memory = self._get_benchmark_results(batch_size, seq_len)
         return activation_memory
 
 

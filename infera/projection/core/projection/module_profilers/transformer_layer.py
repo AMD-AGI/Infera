@@ -33,10 +33,10 @@ _LOGGER = logging.getLogger(__name__)
 
 def _estimate_layernorm_residual_time_ms(
     config, batch_size: int, seq_len: int, gemm_backend=None
-) -> tuple[float, float]:
+) -> float:
     """
-    Estimate the combined LayerNorm (×2) and Residual Add (×2) time per
-    transformer layer, returning ``(fwd_ms, bwd_ms)``.
+    Estimate the combined LayerNorm (×2) and Residual Add (×2) forward time
+    per transformer layer, returning ``fwd_ms``.
 
     Each transformer layer has:
     - 2 LayerNorm ops  (input LN, pre-MLP LN)
@@ -53,12 +53,6 @@ def _estimate_layernorm_residual_time_ms(
       - 2× RMSNorm fwd: read input + write output + write variance ≈ 3 passes each → 6
       - 2× Residual Add fwd: read 2 inputs + write output ≈ 3 passes each → 6
       - Total: 12 passes
-
-    **Backward memory passes**:
-      - 2× RMSNorm bwd: read grad_output + read input + read variance +
-        write grad_input + reduction for grad_scale ≈ 5 passes each → 10
-      - 2× Residual Add bwd: read grad + write grad ≈ 2 passes each → 4
-      - Total: 14 passes
     """
     from .moe_mlp import _ACTIVATION_BW_FRACTION
 
@@ -81,10 +75,7 @@ def _estimate_layernorm_residual_time_ms(
     # Forward: 12 memory passes
     fwd_ms = 12 * tensor_bytes / (eff_bw * 1e6)
 
-    # Backward: 14 memory passes
-    bwd_ms = 14 * tensor_bytes / (eff_bw * 1e6)
-
-    return fwd_ms, bwd_ms
+    return fwd_ms
 
 
 def _moe_tp_allreduce_count(config) -> int:
@@ -317,15 +308,13 @@ class DenseTransformerLayerProfiler(BaseModuleProfiler):
             + self.sub_profilers["residual_add"].estimated_activation_memory(batch_size, seq_len) * 2
         )
 
-    def _get_simulated_results(self, batch_size: int, seq_len: int) -> tuple[float, float, int]:
+    def _get_simulated_results(self, batch_size: int, seq_len: int) -> tuple[float, int]:
         """Aggregate simulated results from sub-profilers, including TP AllReduce."""
         attn_fwd = self.sub_profilers["self_attention"].measured_forward_time(batch_size, seq_len)
-        attn_bwd = self.sub_profilers["self_attention"].measured_backward_time(batch_size, seq_len)
         mlp_fwd = self.sub_profilers["mlp"].measured_forward_time(batch_size, seq_len)
-        mlp_bwd = self.sub_profilers["mlp"].measured_backward_time(batch_size, seq_len)
 
         # Add TP AllReduce communication overhead (simulation only).
-        # Each transformer layer has 2 AllReduces per direction:
+        # Each transformer layer has 2 AllReduces per forward:
         #   - After attention row-parallel output projection
         #   - After MLP row-parallel down projection
         # (With sequence parallelism these become RS+AG pairs with equal volume.)
@@ -333,16 +322,15 @@ class DenseTransformerLayerProfiler(BaseModuleProfiler):
 
         # Add LayerNorm + Residual Add overhead (simulation only).
         # These element-wise ops are missing from GEMM/SDPA simulation.
-        ln_res_fwd_ms, ln_res_bwd_ms = _estimate_layernorm_residual_time_ms(
+        ln_res_fwd_ms = _estimate_layernorm_residual_time_ms(
             self.config, batch_size, seq_len, self._gemm_backend
         )
 
         fwd_time = attn_fwd + mlp_fwd + 2 * tp_ar_ms + ln_res_fwd_ms
-        bwd_time = attn_bwd + mlp_bwd + 2 * tp_ar_ms + ln_res_bwd_ms
         activation_memory = self.estimated_activation_memory(batch_size, seq_len)
-        return (fwd_time, bwd_time, activation_memory)
+        return (fwd_time, activation_memory)
 
-    def _get_benchmark_results(self, batch_size: int, seq_len: int) -> tuple[float, float, int]:
+    def _get_benchmark_results(self, batch_size: int, seq_len: int) -> tuple[float, int]:
         """Get or compute benchmark results (cached)."""
         cache_key = (batch_size, seq_len)
         if self._cached_results is None or self._cache_key != cache_key:
@@ -361,15 +349,11 @@ class DenseTransformerLayerProfiler(BaseModuleProfiler):
         return self._cached_results
 
     def measured_forward_time(self, batch_size: int, seq_len: int) -> float:
-        forward_time, _, _ = self._get_benchmark_results(batch_size, seq_len)
+        forward_time, _ = self._get_benchmark_results(batch_size, seq_len)
         return forward_time
 
-    def measured_backward_time(self, batch_size: int, seq_len: int) -> float:
-        _, backward_time, _ = self._get_benchmark_results(batch_size, seq_len)
-        return backward_time
-
     def measured_activation_memory(self, batch_size: int, seq_len: int) -> int:
-        _, _, activation_memory = self._get_benchmark_results(batch_size, seq_len)
+        _, activation_memory = self._get_benchmark_results(batch_size, seq_len)
         return activation_memory
 
 
@@ -445,7 +429,7 @@ class MoETransformerLayerProfiler(BaseModuleProfiler):
             + self.sub_profilers["residual_add"].estimated_activation_memory(batch_size, seq_len) * 2
         )
 
-    def _get_simulated_results(self, batch_size: int, seq_len: int) -> tuple[float, float, int]:
+    def _get_simulated_results(self, batch_size: int, seq_len: int) -> tuple[float, int]:
         """Aggregate simulated results from sub-profilers.
 
         Includes TP AllReduce, MoE All-to-All communication overhead, and
@@ -454,12 +438,10 @@ class MoETransformerLayerProfiler(BaseModuleProfiler):
         explicitly in simulation mode.
         """
         attn_fwd = self.sub_profilers["self_attention"].measured_forward_time(batch_size, seq_len)
-        attn_bwd = self.sub_profilers["self_attention"].measured_backward_time(batch_size, seq_len)
         mlp_fwd = self.sub_profilers["mlp"].measured_forward_time(batch_size, seq_len)
-        mlp_bwd = self.sub_profilers["mlp"].measured_backward_time(batch_size, seq_len)
 
         # Add TP AllReduce communication overhead (simulation only).
-        # Each transformer layer has 2 AllReduces per direction:
+        # Each transformer layer has 2 AllReduces per forward:
         #   - After attention row-parallel output projection
         #   - After MLP row-parallel down projection
         # (With sequence parallelism these become RS+AG pairs with equal volume.)
@@ -474,7 +456,7 @@ class MoETransformerLayerProfiler(BaseModuleProfiler):
 
         # Add LayerNorm + Residual Add overhead (simulation only).
         # These element-wise ops are missing from GEMM/SDPA simulation.
-        ln_res_fwd_ms, ln_res_bwd_ms = _estimate_layernorm_residual_time_ms(
+        ln_res_fwd_ms = _estimate_layernorm_residual_time_ms(
             self.config, batch_size, seq_len, self._gemm_backend
         )
 
@@ -482,33 +464,27 @@ class MoETransformerLayerProfiler(BaseModuleProfiler):
         # the expert output is combined by the A2A, leaving just attention's AR.
         n_moe_ar = _moe_tp_allreduce_count(self.config)
         fwd_time = attn_fwd + mlp_fwd + n_moe_ar * tp_ar_ms + moe_a2a_ms + ln_res_fwd_ms
-        bwd_time = attn_bwd + mlp_bwd + n_moe_ar * tp_ar_ms + moe_a2a_ms + ln_res_bwd_ms
         activation_memory = self.estimated_activation_memory(batch_size, seq_len)
-        return (fwd_time, bwd_time, activation_memory)
+        return (fwd_time, activation_memory)
 
-    def _get_benchmark_composite_results(self, batch_size: int, seq_len: int) -> tuple[float, float, int]:
+    def _get_benchmark_composite_results(self, batch_size: int, seq_len: int) -> tuple[float, int]:
         """Aggregate measured sub-profiler times (mirrors :meth:`_get_simulated_results`).
 
-        Whole-layer ``benchmark_layer`` on MoE stacks systematically over-estimates
-        backward latency (extra autograd / cross-submodule work) while isolated
-        attention + decomposed MoE MLP benches match Origami simulation and
-        measured training much more closely.
+        Isolated attention + decomposed MoE MLP benches match Origami simulation
+        and measured serving much more closely than a whole-layer bench.
         """
         attn_fwd = self.sub_profilers["self_attention"].measured_forward_time(batch_size, seq_len)
-        attn_bwd = self.sub_profilers["self_attention"].measured_backward_time(batch_size, seq_len)
         mlp_fwd = self.sub_profilers["mlp"].measured_forward_time(batch_size, seq_len)
-        mlp_bwd = self.sub_profilers["mlp"].measured_backward_time(batch_size, seq_len)
         tp_ar_ms = _estimate_tp_allreduce_time_ms(self.config, batch_size, seq_len)
-        ln_res_fwd_ms, ln_res_bwd_ms = _estimate_layernorm_residual_time_ms(
+        ln_res_fwd_ms = _estimate_layernorm_residual_time_ms(
             self.config, batch_size, seq_len, self._gemm_backend
         )
         # Decomposed MoE MLP benchmark already includes measured dispatch/combine A2A.
         fwd_time = attn_fwd + mlp_fwd + 2 * tp_ar_ms + ln_res_fwd_ms
-        bwd_time = attn_bwd + mlp_bwd + 2 * tp_ar_ms + ln_res_bwd_ms
         activation_memory = self.estimated_activation_memory(batch_size, seq_len)
-        return (fwd_time, bwd_time, activation_memory)
+        return (fwd_time, activation_memory)
 
-    def _get_benchmark_results(self, batch_size: int, seq_len: int) -> tuple[float, float, int]:
+    def _get_benchmark_results(self, batch_size: int, seq_len: int) -> tuple[float, int]:
         """Get or compute benchmark results (cached)."""
         cache_key = (batch_size, seq_len)
         if self._cached_results is None or self._cache_key != cache_key:
@@ -544,15 +520,11 @@ class MoETransformerLayerProfiler(BaseModuleProfiler):
         return self._cached_results
 
     def measured_forward_time(self, batch_size: int, seq_len: int) -> float:
-        forward_time, _, _ = self._get_benchmark_results(batch_size, seq_len)
+        forward_time, _ = self._get_benchmark_results(batch_size, seq_len)
         return forward_time
 
-    def measured_backward_time(self, batch_size: int, seq_len: int) -> float:
-        _, backward_time, _ = self._get_benchmark_results(batch_size, seq_len)
-        return backward_time
-
     def measured_activation_memory(self, batch_size: int, seq_len: int) -> int:
-        _, _, activation_memory = self._get_benchmark_results(batch_size, seq_len)
+        _, activation_memory = self._get_benchmark_results(batch_size, seq_len)
         return activation_memory
 
 

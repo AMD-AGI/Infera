@@ -76,19 +76,6 @@ class _FAv3TileConfig:
 # Forward:  256 Q-rows, 64 KV-cols/iter, 8 wavefronts
 _FAV3_FWD = _FAv3TileConfig(q_tile_m=256, kv_tile_n=64, n_wavefronts=8)
 
-# Backward: 16 Q-rows/inner-iter, 256 KV-cols/workgroup, 4 wavefronts
-_FAV3_BWD = _FAv3TileConfig(q_tile_m=16, kv_tile_n=256, n_wavefronts=4)
-
-
-# =========================================================================
-# Backward dQ atomic latencies (for tile-level model)
-# =========================================================================
-# dQ is accumulated via buffer_atomic_add_f32 across KV-workgroups.
-# Latency estimates for CDNA3 (gfx942) at typical clocks:
-_ATOMIC_LATENCY_GLOBAL_NS = 400  # HBM read-modify-write latency per atomic op
-_ATOMIC_LATENCY_LOCAL_NS = 40  # L1 / LDS atomic latency per op
-_WARP_SIZE = 64  # CDNA wavefront width
-
 
 # =========================================================================
 # GPU hardware specs
@@ -213,8 +200,7 @@ class SDPASimulator(SDPASimulationBackend):
     naturally captures wave quantisation and per-tile efficiency without
     needing an empirical ``compute_efficiency`` parameter.
 
-    Also models the backward dQ atomic overhead from
-    ``buffer_atomic_add_f32`` accumulation across KV-workgroups.
+    Forward-only (serving): the backward pass is not modelled.
 
     **Origami is required** — instantiation will fail if the Origami
     backend is not available.
@@ -382,21 +368,11 @@ class SDPASimulator(SDPASimulationBackend):
           2. Sum the per-tile GEMM times (additive, sequential execution).
           3. Multiply by ``num_waves = ⌈workgroups / N_CU⌉`` to account for
              CU-level parallelism across tiles.
-          4. Add dQ atomic overhead (backward only).
 
         Forward per-workgroup (q_tile_m=256 Q rows, sweeps all S_K):
           QKᵀ: Q_tile[256, D_qk] × Kᵀ[D_qk, S_K] → S[256, S_K]
           PV:  P_tile[256, S_K]  × V[S_K, D_v]     → O[256, D_v]
           Workgroups = ⌈S_Q / 256⌉ × B × H_Q
-
-        Backward per-workgroup (kv_tile_n=256 KV cols, sweeps all S_Q):
-          5 GEMMs per workgroup (FA backward algorithm):
-            1. QKᵀ recompute: Q[S_Q, D_qk] × Kᵀ[D_qk, 256] → S[S_Q, 256]
-            2. dP = dO × Vᵀ:  dO[S_Q, D_v]  × Vᵀ[D_v, 256] → dP[S_Q, 256]
-            3. dV = Pᵀ × dO:  Pᵀ[256, S_Q]  × dO[S_Q, D_v] → dV[256, D_v]
-            4. dQ = dS × K:   dS[S_Q, 256]   × K[256, D_qk]  → dQ[S_Q, D_qk]
-            5. dK = dSᵀ × Q:  dSᵀ[256, S_Q]  × Q[S_Q, D_qk] → dK[256, D_qk]
-          Workgroups = ⌈S_K / 256⌉ × B × H_Q
         """
         assert self._tile_gemm is not None
         N_CU = self._hw.n_cu
@@ -427,90 +403,12 @@ class SDPASimulator(SDPASimulationBackend):
         fwd_time_ms = (r_fwd_qk.forward_time_ms + r_fwd_pv.forward_time_ms) * fwd_waves
 
         # ==============================================================
-        # BACKWARD
-        # ==============================================================
-        kv_tile = _FAV3_BWD.kv_tile_n  # 256
-        bwd_n_wgs = math.ceil(S_K / kv_tile) * B * H_Q
-        bwd_waves = math.ceil(bwd_n_wgs / N_CU)
-
-        # Per-workgroup GEMMs (5 operations, full Q-sweep on 1 CU):
-        # 1. QKᵀ recompute: [S_Q, D_qk, kv_tile]
-        r_bwd_qk = self._tile_gemm.simulate_gemm(
-            m=S_Q,
-            n=kv_tile,
-            k=D_qk,
-            dtype=dtype,
-        )
-        # 2. dP = dO × Vᵀ: [S_Q, D_v, kv_tile]
-        r_bwd_dp = self._tile_gemm.simulate_gemm(
-            m=S_Q,
-            n=kv_tile,
-            k=D_v,
-            dtype=dtype,
-        )
-        # 3. dV = Pᵀ × dO: [kv_tile, S_Q, D_v]
-        r_bwd_dv = self._tile_gemm.simulate_gemm(
-            m=kv_tile,
-            n=D_v,
-            k=S_Q,
-            dtype=dtype,
-        )
-        # 4. dQ = dS × K: [S_Q, kv_tile, D_qk]
-        r_bwd_dq = self._tile_gemm.simulate_gemm(
-            m=S_Q,
-            n=D_qk,
-            k=kv_tile,
-            dtype=dtype,
-        )
-        # 5. dK = dSᵀ × Q: [kv_tile, S_Q, D_qk]
-        r_bwd_dk = self._tile_gemm.simulate_gemm(
-            m=kv_tile,
-            n=D_qk,
-            k=S_Q,
-            dtype=dtype,
-        )
-
-        bwd_compute_ms = (
-            r_bwd_qk.forward_time_ms
-            + r_bwd_dp.forward_time_ms
-            + r_bwd_dv.forward_time_ms
-            + r_bwd_dq.forward_time_ms
-            + r_bwd_dk.forward_time_ms
-        ) * bwd_waves
-
-        # ── Backward dQ atomics (latency-based model) ──
-        # Each KV-workgroup atomically accumulates dQ via buffer_atomic_add_f32.
-        # The latency model counts warp-level reduction updates (global and
-        # local) and multiplies by the per-op latency.
-        num_k_tiles = math.ceil(kv_tile / kv_tile)  # = 1
-        warp_updates_global = math.ceil(num_k_tiles * math.ceil(D_qk / _WARP_SIZE))
-        total_updates_global = warp_updates_global * bwd_waves
-
-        warp_updates_local = math.ceil(kv_tile * math.ceil(D_qk / _WARP_SIZE))
-        total_updates_local = warp_updates_local * bwd_waves
-
-        bwd_atomic_ms = (
-            _ATOMIC_LATENCY_GLOBAL_NS * total_updates_global + _ATOMIC_LATENCY_LOCAL_NS * total_updates_local
-        ) / 1e6  # ns → ms
-
-        bwd_time_ms = bwd_compute_ms + bwd_atomic_ms
-
-        # ==============================================================
         # METADATA (FLOPs, bytes — for achieved-TFLOPS reporting)
         # ==============================================================
         fwd_flops = (
             2.0 * B * H_Q * S_Q * S_K * D_qk  # QKᵀ
             + 2.0 * B * H_Q * S_Q * S_K * D_v  # PV
             + 5.0 * B * H_Q * S_Q * S_K  # softmax
-        ) * causal_factor
-
-        bwd_flops = (
-            2.0 * B * H_Q * S_Q * S_K * D_qk  # QKᵀ recomp
-            + 2.0 * B * H_Q * S_Q * S_K * D_v  # dP
-            + 2.0 * B * H_Q * S_K * S_Q * D_v  # dV
-            + 2.0 * B * H_Q * S_Q * S_K * D_qk  # dQ
-            + 2.0 * B * H_Q * S_K * S_Q * D_qk  # dK
-            + 5.0 * B * H_Q * S_Q * S_K  # softmax bwd
         ) * causal_factor
 
         fwd_bytes = (
@@ -520,22 +418,11 @@ class SDPASimulator(SDPASimulationBackend):
             + B * H_Q * S_Q * D_v * bpe  # O
             + B * H_Q * S_Q * 4  # logsumexp (fp32)
         )
-        bwd_bytes = (
-            B * H_Q * S_Q * D_qk * bpe  # Q
-            + B * H_K * S_K * D_qk * bpe  # K
-            + B * H_K * S_K * D_v * bpe  # V
-            + B * H_Q * S_Q * D_v * bpe  # O
-            + B * H_Q * S_Q * D_v * bpe  # dO
-            + B * H_Q * S_Q * 4  # logsumexp (fp32)
-            + B * H_K * S_K * D_qk * bpe  # dK
-            + B * H_K * S_K * D_v * bpe  # dV
-        )
 
         fwd_achieved_tflops = (fwd_flops / (fwd_time_ms * 1e-3)) / 1e12 if fwd_time_ms > 0 else 0
 
         return SimulationResult(
             forward_time_ms=fwd_time_ms,
-            backward_time_ms=bwd_time_ms,
             tflops=fwd_achieved_tflops,
             bandwidth_gbps=((fwd_bytes / (fwd_time_ms * 1e-3)) / 1e9 if fwd_time_ms > 0 else 0),
             metadata={
@@ -544,14 +431,8 @@ class SDPASimulator(SDPASimulationBackend):
                 "fwd_compute_bound": True,
                 "fwd_compute_ms": fwd_time_ms,
                 "fwd_memory_ms": 0.0,  # included in per-tile Origami model
-                "bwd_bottleneck": "compute+atomic",
-                "bwd_compute_ms": bwd_compute_ms,
-                "bwd_memory_ms": 0.0,  # included in per-tile Origami model
-                "bwd_atomic_ms": bwd_atomic_ms,
                 "fwd_flops": fwd_flops,
-                "bwd_flops": bwd_flops,
                 "fwd_bytes": fwd_bytes,
-                "bwd_bytes": bwd_bytes,
                 "seq_len_q": S_Q,
                 "seq_len_kv": S_K,
                 "num_heads_q": H_Q,
@@ -562,19 +443,10 @@ class SDPASimulator(SDPASimulationBackend):
                 "fwd_n_workgroups": fwd_n_wgs,
                 "fwd_qk_per_tile_ms": r_fwd_qk.forward_time_ms,
                 "fwd_pv_per_tile_ms": r_fwd_pv.forward_time_ms,
-                "bwd_waves": bwd_waves,
-                "bwd_n_workgroups": bwd_n_wgs,
-                "bwd_qk_recomp_per_tile_ms": r_bwd_qk.forward_time_ms,
-                "bwd_dp_per_tile_ms": r_bwd_dp.forward_time_ms,
-                "bwd_dv_per_tile_ms": r_bwd_dv.forward_time_ms,
-                "bwd_dq_per_tile_ms": r_bwd_dq.forward_time_ms,
-                "bwd_dk_per_tile_ms": r_bwd_dk.forward_time_ms,
                 "n_cu": N_CU,
                 # FAv3 tile parameters
                 "fwd_q_tile_m": _FAV3_FWD.q_tile_m,
                 "fwd_kv_tile_n": _FAV3_FWD.kv_tile_n,
-                "bwd_q_tile_m": _FAV3_BWD.q_tile_m,
-                "bwd_kv_tile_n": _FAV3_BWD.kv_tile_n,
             },
         )
 

@@ -398,6 +398,44 @@ def _add_inference_args(parser):
         default=None,
         help="Expected per-token acceptance rate for speculative decoding [0,1].",
     )
+    # ---- Token sampling / logits post-processing ----
+    parser.add_argument(
+        "--no-sampling",
+        dest="no_sampling",
+        action="store_true",
+        help="Drop the token-sampling / logits post-processing cost from each "
+        "step (compare against a logits-free forward). Default: sampling modelled.",
+    )
+    parser.add_argument(
+        "--sampling-top-k",
+        type=int,
+        default=None,
+        help="Top-k sampling width (adds a partial-sort pass over the logits). "
+        "0 = greedy/argmax (cheapest). Default: 0.",
+    )
+    parser.add_argument(
+        "--sampling-top-p",
+        type=float,
+        default=None,
+        help="Top-p (nucleus) sampling threshold in (0,1]. <1 adds a "
+        "threshold+renormalize pass over the logits. Default: 1.0 (off).",
+    )
+    parser.add_argument(
+        "--sampling-temperature",
+        type=float,
+        default=None,
+        help="Sampling temperature. !=1 adds a fused logits-scale pass. "
+        "Default: 1.0.",
+    )
+    # ---- Runtime activation quantization / cast ----
+    parser.add_argument(
+        "--act-quant-dtype",
+        choices=["none", "bf16", "fp8", "mxfp4"],
+        default=None,
+        help="Precision the runtime casts activations to before each "
+        "low-precision GEMM (memory-bound cast overhead). Default: auto-detect "
+        "from --weight-dtype / model fp8; 'none'/'bf16' drops the cast.",
+    )
     # ---- Capacity ----
     parser.add_argument(
         "--hbm-capacity-gb",
@@ -553,6 +591,21 @@ def _add_inference_args(parser):
         type=float,
         default=None,
         help="Fixed per-decode-step host/launch overhead (us). CUDA graphs reduce this. Default 0.",
+    )
+    serv.add_argument(
+        "--kernel-launch-latency-us",
+        type=float,
+        default=None,
+        help="Per-kernel launch latency (us) for the small-tensor launch-bound "
+        "decode floor in pure-simulate mode: step = max(step, n_kernels*lat). "
+        "Disabled by CUDA-graph capture. Default 0 (off).",
+    )
+    serv.add_argument(
+        "--kernels-per-layer",
+        type=int,
+        default=None,
+        help="Representative kernel launches per transformer layer, used only "
+        "by the launch-latency floor. Default 12.",
     )
     serv.add_argument(
         "--detokenize-overhead-us",

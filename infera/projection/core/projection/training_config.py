@@ -209,6 +209,20 @@ class InferenceRequestConfig:
     # batch the step is launch-bound; CUDA-graph capture shrinks this. Added to
     # every decode/mixed step. 0 = ignore (pure kernel-compute model).
     decode_step_overhead_us: float = 0.0
+    # Per-kernel launch latency (microseconds) for the small-tensor launch-bound
+    # floor used by the pure-simulate (GPU-free) decode path. A decode step
+    # issues ~``kernels_per_layer`` kernels per layer plus a handful for the
+    # head/sampling; at low batch the roofline GEMM/attention times underflow
+    # the real step, which is set by host-side kernel-launch dispatch. The floor
+    # is ``n_kernels * kernel_launch_latency_us`` and is applied as
+    # ``step = max(step, floor)`` in simulation only. CUDA-graph replay collapses
+    # the launches, so a "full"/"piecewise" ``cudagraph_mode`` disables it and
+    # ``fused_kernels`` shrinks it. 0 = disabled (legacy behaviour).
+    kernel_launch_latency_us: float = 0.0
+    # Representative number of distinct kernel launches per transformer layer
+    # (norms, projections, attention, activation, residuals, MoE router/permute/
+    # grouped-GEMM/combine). Only consulted for the launch-latency floor above.
+    kernels_per_layer: int = 12
     # Per-output-token host cost for detokenization + response streaming
     # (microseconds/token). The serving harness (vLLM / InferenceX) measures ITL
     # client-side, so its per-token latency carries detok+stream that the GPU
@@ -288,12 +302,31 @@ class InferenceRequestConfig:
     # expert kernels: mxfp4 | fp8 | bf16. ``None`` = follow bf16 (no speedup).
     moe_expert_dtype: Optional[str] = None
 
+    # ---- Runtime activation quantization / cast ----
+    # Precision the runtime casts activations to before each low-precision GEMM
+    # (fp8 | mxfp4). These cast kernels (read bf16, amax, write packed + scale)
+    # are memory-bound overhead the GEMM simulator does not see. ``None``
+    # auto-detects from ``weight_dtype`` / model fp8; ``"bf16"`` / ``"none"``
+    # drops the cast term (e.g. a bf16 serving path).
+    act_quant_dtype: Optional[str] = None
+
     # ---- Speculative decoding draft cost ----
     # Draft-model forward cost per proposed draft token, as a fraction of one
     # target decode step. The draft runs ``speculative_num_tokens`` times per
     # verify step; this charges that extra compute (``0`` = ignore the draft
     # cost, the legacy behaviour that only credited the accepted-token speedup).
     speculative_draft_cost_factor: float = 0.0
+
+    # ---- Token sampling / logits post-processing ----
+    # The per-step cost of turning LM-head logits into sampled tokens (a
+    # memory-bound reduction over the vocabulary). ``sampling_enabled=False``
+    # drops the term (e.g. to compare against a logits-free step). ``top_k`` /
+    # ``top_p`` / ``temperature`` shape how many streaming passes the sampler
+    # makes over the logits (greedy/argmax is the cheapest).
+    sampling_enabled: bool = True
+    sampling_top_k: int = 0
+    sampling_top_p: float = 1.0
+    sampling_temperature: float = 1.0
 
     # ---- Fused custom ops (RMSNorm / RoPE / quant / KV-store+quant) ----
     # Fused elementwise kernels mainly cut per-step kernel-launch overhead.
@@ -339,6 +372,29 @@ class InferenceRequestConfig:
         if self.fused_kernels:
             base *= _FUSED_KERNEL_OVERHEAD_FACTOR
         return base
+
+    def resolved_kernel_launch_floor_ms(self, num_layers: int) -> float:
+        """Small-tensor launch-latency floor (ms) for the pure-simulate decode.
+
+        A launch-bound decode step's wall time is set by dispatching one kernel
+        per op rather than the (tiny) small-M GEMM/attention compute. Estimated
+        as ``n_kernels * kernel_launch_latency_us`` where ``n_kernels`` scales
+        with model depth. Returns 0.0 when disabled, or when CUDA-graph capture
+        collapses the launches (``cudagraph_mode`` full/piecewise). Fused
+        elementwise kernels shrink the launch count.
+        """
+        lat_us = float(self.kernel_launch_latency_us or 0.0)
+        if lat_us <= 0.0:
+            return 0.0
+        # Graph replay issues a single launch for the captured region.
+        if str(self.cudagraph_mode or "").lower() in ("full", "piecewise"):
+            return 0.0
+        kpl = max(1, int(self.kernels_per_layer or 12))
+        # + a handful for embedding / final norm / LM head / sampling.
+        n_kernels = max(1, int(num_layers)) * kpl + 6
+        if self.fused_kernels:
+            n_kernels *= _FUSED_KERNEL_OVERHEAD_FACTOR
+        return n_kernels * lat_us / 1000.0
 
     def resolved_mixed_batch_penalty(self) -> float:
         """Mixed-step penalty fraction, honoring the cudagraph preset."""
@@ -399,6 +455,26 @@ class InferenceRequestConfig:
         if not self.moe_expert_dtype:
             return 1.0
         return _MOE_EXPERT_DTYPE_SPEEDUP.get(str(self.moe_expert_dtype).lower(), 1.0)
+
+    def resolved_act_quant_dtype(self, model_fp8=None) -> Optional[str]:
+        """Precision of the runtime activation cast, or ``None`` to disable.
+
+        An explicit ``act_quant_dtype`` wins (``"bf16"`` / ``"none"`` disables);
+        otherwise infer from ``weight_dtype`` (fp8 / mxfp4) or the model's fp8
+        flag. bf16 serving has no runtime activation cast.
+        """
+        v = self.act_quant_dtype
+        if v is None:
+            wd = str(self.weight_dtype or "").lower()
+            if "mxfp4" in wd:
+                return "mxfp4"
+            if "fp8" in wd:
+                return "fp8"
+            if model_fp8:
+                return "fp8"
+            return None
+        v = str(v).lower()
+        return None if v in ("none", "bf16", "") else v
 
 
 # Representative attention-backend compute multipliers (relative to Triton).

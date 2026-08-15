@@ -17,7 +17,7 @@ class EmbeddingProfiler(BaseModuleProfiler):
     def __init__(self, config, sub_profilers=None):
         super().__init__(config, sub_profilers)
         self.module = None  # Will be set during benchmarking
-        self._cached_results = None  # Cache for (forward_time, backward_time, activation_memory)
+        self._cached_results = None  # Cache for (forward_time, activation_memory)
         self._cache_key = None  # Cache key (batch_size, seq_len)
         self._simulation_mode = False  # Set to True when simulation backends are active
 
@@ -47,7 +47,7 @@ class EmbeddingProfiler(BaseModuleProfiler):
             * 2
         )  # bf16
 
-    def _get_simulated_results(self, batch_size: int, seq_len: int) -> tuple[float, float, int]:
+    def _get_simulated_results(self, batch_size: int, seq_len: int) -> tuple[float, int]:
         """Estimate embedding time analytically (lookup is memory-bound, very fast)."""
         tp_size = self.config.model_parallel_config.tensor_model_parallel_size
         cp_size = self.config.model_parallel_config.context_model_parallel_size
@@ -59,11 +59,10 @@ class EmbeddingProfiler(BaseModuleProfiler):
         # Assume ~4 TB/s effective bandwidth (MI300X), 1 read + 1 write pass
         bw_bytes_per_ms = 4e9  # ~4 TB/s → bytes/ms
         fwd_time = max(0.01, output_bytes / bw_bytes_per_ms)
-        bwd_time = fwd_time  # Gradient scatter is similar cost
         activation_memory = self.estimated_activation_memory(batch_size, seq_len)
-        return (fwd_time, bwd_time, activation_memory)
+        return (fwd_time, activation_memory)
 
-    def _get_benchmark_results(self, batch_size: int, seq_len: int) -> tuple[float, float, int]:
+    def _get_benchmark_results(self, batch_size: int, seq_len: int) -> tuple[float, int]:
         """Get or compute benchmark results (cached)."""
         cache_key = (batch_size, seq_len)
 
@@ -86,13 +85,9 @@ class EmbeddingProfiler(BaseModuleProfiler):
         return self._cached_results
 
     def measured_forward_time(self, batch_size: int, seq_len: int) -> float:
-        forward_time, _, _ = self._get_benchmark_results(batch_size, seq_len)
+        forward_time, _ = self._get_benchmark_results(batch_size, seq_len)
         return forward_time
 
-    def measured_backward_time(self, batch_size: int, seq_len: int) -> float:
-        _, backward_time, _ = self._get_benchmark_results(batch_size, seq_len)
-        return backward_time
-
     def measured_activation_memory(self, batch_size: int, seq_len: int) -> int:
-        _, _, activation_memory = self._get_benchmark_results(batch_size, seq_len)
+        _, activation_memory = self._get_benchmark_results(batch_size, seq_len)
         return activation_memory

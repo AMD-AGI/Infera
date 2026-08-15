@@ -25,9 +25,8 @@ from typing import Any, Dict, Optional
 class SimulationResult:
     """Result from a simulation backend."""
 
-    # Predicted time in milliseconds
+    # Predicted time in milliseconds (forward-only; serving path)
     forward_time_ms: float = 0.0
-    backward_time_ms: float = 0.0
 
     # Optional: predicted TFLOPS / bandwidth
     tflops: Optional[float] = None
@@ -130,7 +129,7 @@ class GEMMSimulationBackend(ABC):
                 approximation of grouped GEMM.  Defaults to 1 (dense MLP).
 
         Returns:
-            SimulationResult with forward_time_ms and backward_time_ms.
+            SimulationResult with forward_time_ms populated (forward-only).
         """
         # Use batched GEMM (batch=num_experts) as approximation of grouped GEMM.
         # Valid under uniform token distribution (all experts get the same M).
@@ -146,28 +145,6 @@ class GEMMSimulationBackend(ABC):
             down_fwd = self.simulate_gemm(batch_tokens, hidden_size, ffn_hidden_size, dtype, batch=b)
 
             fwd_time = gate_fwd.forward_time_ms + up_fwd.forward_time_ms + down_fwd.forward_time_ms
-
-            # Backward: simulate actual dgrad + wgrad GEMMs per projection
-            # Gate dgrad:  [tokens, ffn] x [ffn, hidden] -> [tokens, hidden]
-            gate_dgrad = self.simulate_gemm(batch_tokens, hidden_size, ffn_hidden_size, dtype, batch=b)
-            # Gate wgrad:  [hidden, tokens] x [tokens, ffn] -> [hidden, ffn]
-            gate_wgrad = self.simulate_gemm(hidden_size, ffn_hidden_size, batch_tokens, dtype, batch=b)
-            # Up dgrad + wgrad: same shapes as gate
-            up_dgrad = self.simulate_gemm(batch_tokens, hidden_size, ffn_hidden_size, dtype, batch=b)
-            up_wgrad = self.simulate_gemm(hidden_size, ffn_hidden_size, batch_tokens, dtype, batch=b)
-            # Down dgrad:  [tokens, hidden] x [hidden, ffn] -> [tokens, ffn]
-            down_dgrad = self.simulate_gemm(batch_tokens, ffn_hidden_size, hidden_size, dtype, batch=b)
-            # Down wgrad:  [ffn, tokens] x [tokens, hidden] -> [ffn, hidden]
-            down_wgrad = self.simulate_gemm(ffn_hidden_size, hidden_size, batch_tokens, dtype, batch=b)
-
-            bwd_time = (
-                gate_dgrad.forward_time_ms
-                + gate_wgrad.forward_time_ms
-                + up_dgrad.forward_time_ms
-                + up_wgrad.forward_time_ms
-                + down_dgrad.forward_time_ms
-                + down_wgrad.forward_time_ms
-            )
         else:
             # Up projection fwd:  [tokens, hidden] x [hidden, ffn] -> [tokens, ffn]
             up_fwd = self.simulate_gemm(batch_tokens, ffn_hidden_size, hidden_size, dtype, batch=b)
@@ -176,24 +153,7 @@ class GEMMSimulationBackend(ABC):
 
             fwd_time = up_fwd.forward_time_ms + down_fwd.forward_time_ms
 
-            # Backward: simulate actual dgrad + wgrad GEMMs per projection
-            # Up dgrad:  [tokens, ffn] x [ffn, hidden] -> [tokens, hidden]
-            up_dgrad = self.simulate_gemm(batch_tokens, hidden_size, ffn_hidden_size, dtype, batch=b)
-            # Up wgrad:  [hidden, tokens] x [tokens, ffn] -> [hidden, ffn]
-            up_wgrad = self.simulate_gemm(hidden_size, ffn_hidden_size, batch_tokens, dtype, batch=b)
-            # Down dgrad:  [tokens, hidden] x [hidden, ffn] -> [tokens, ffn]
-            down_dgrad = self.simulate_gemm(batch_tokens, ffn_hidden_size, hidden_size, dtype, batch=b)
-            # Down wgrad:  [ffn, tokens] x [tokens, hidden] -> [ffn, hidden]
-            down_wgrad = self.simulate_gemm(ffn_hidden_size, hidden_size, batch_tokens, dtype, batch=b)
-
-            bwd_time = (
-                up_dgrad.forward_time_ms
-                + up_wgrad.forward_time_ms
-                + down_dgrad.forward_time_ms
-                + down_wgrad.forward_time_ms
-            )
-
-        return SimulationResult(forward_time_ms=fwd_time, backward_time_ms=bwd_time)
+        return SimulationResult(forward_time_ms=fwd_time)
 
     def simulate_attention_gemms(
         self,
@@ -212,10 +172,9 @@ class GEMMSimulationBackend(ABC):
         Default implementation calls ``simulate_gemm`` for Q, K, V, O projections.
 
         Returns:
-            SimulationResult with forward_time_ms and backward_time_ms.
+            SimulationResult with forward_time_ms populated (forward-only).
         """
         fwd_time = 0.0
-        bwd_time = 0.0
 
         # Q projection fwd: [tokens, hidden] x [hidden, heads*kv_channels]
         q_out = num_attention_heads * kv_channels
@@ -235,31 +194,7 @@ class GEMMSimulationBackend(ABC):
         o_fwd = self.simulate_gemm(batch_tokens, hidden_size, q_out, dtype)
         fwd_time += o_fwd.forward_time_ms
 
-        # Backward: simulate actual dgrad + wgrad GEMMs per projection
-        # Q dgrad:  [tokens, q_out] x [q_out, hidden] -> [tokens, hidden]
-        q_dgrad = self.simulate_gemm(batch_tokens, hidden_size, q_out, dtype)
-        # Q wgrad:  [hidden, tokens] x [tokens, q_out] -> [hidden, q_out]
-        q_wgrad = self.simulate_gemm(hidden_size, q_out, batch_tokens, dtype)
-        bwd_time += q_dgrad.forward_time_ms + q_wgrad.forward_time_ms
-
-        # K dgrad:  [tokens, k_out] x [k_out, hidden] -> [tokens, hidden]
-        k_dgrad = self.simulate_gemm(batch_tokens, hidden_size, k_out, dtype)
-        # K wgrad:  [hidden, tokens] x [tokens, k_out] -> [hidden, k_out]
-        k_wgrad = self.simulate_gemm(hidden_size, k_out, batch_tokens, dtype)
-        bwd_time += k_dgrad.forward_time_ms + k_wgrad.forward_time_ms
-
-        # V dgrad + wgrad: same shapes as K
-        v_dgrad = self.simulate_gemm(batch_tokens, hidden_size, k_out, dtype)
-        v_wgrad = self.simulate_gemm(hidden_size, k_out, batch_tokens, dtype)
-        bwd_time += v_dgrad.forward_time_ms + v_wgrad.forward_time_ms
-
-        # O dgrad:  [tokens, hidden] x [hidden, q_out] -> [tokens, q_out]
-        o_dgrad = self.simulate_gemm(batch_tokens, q_out, hidden_size, dtype)
-        # O wgrad:  [q_out, tokens] x [tokens, hidden] -> [q_out, hidden]
-        o_wgrad = self.simulate_gemm(q_out, hidden_size, batch_tokens, dtype)
-        bwd_time += o_dgrad.forward_time_ms + o_wgrad.forward_time_ms
-
-        return SimulationResult(forward_time_ms=fwd_time, backward_time_ms=bwd_time)
+        return SimulationResult(forward_time_ms=fwd_time)
 
 
 class SDPASimulationBackend(ABC):
@@ -310,6 +245,6 @@ class SDPASimulationBackend(ABC):
                 MLA this should be set to ``v_head_dim`` (e.g. 128).
 
         Returns:
-            SimulationResult with forward_time_ms and backward_time_ms.
+            SimulationResult with forward_time_ms populated (forward-only).
         """
         ...

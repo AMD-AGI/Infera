@@ -378,7 +378,6 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
 
         return SimulationResult(
             forward_time_ms=time_ms,
-            backward_time_ms=0.0,  # Caller computes bwd from fwd
             tflops=tflops,
             metadata={
                 "backend": "origami",

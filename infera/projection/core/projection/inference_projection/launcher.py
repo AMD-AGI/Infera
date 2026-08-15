@@ -49,6 +49,12 @@ _ARG_TO_FIELD = {
     "sparse_attention_topk": "sparse_attention_topk",
     "moe_expert_dtype": "moe_expert_dtype",
     "speculative_draft_cost_factor": "speculative_draft_cost_factor",
+    "sampling_top_k": "sampling_top_k",
+    "sampling_top_p": "sampling_top_p",
+    "sampling_temperature": "sampling_temperature",
+    "act_quant_dtype": "act_quant_dtype",
+    "kernel_launch_latency_us": "kernel_launch_latency_us",
+    "kernels_per_layer": "kernels_per_layer",
 }
 
 # Feature B (custom collective ops): CLI arg → ``collective_<field>`` key.
@@ -99,6 +105,8 @@ def _collect_inference_overrides(args) -> Dict[str, object]:
     # clobber a value carried by a YAML ``inference:`` block.
     if getattr(args, "fused_kernels", False):
         overrides["fused_kernels"] = True
+    if getattr(args, "no_sampling", False):
+        overrides["sampling_enabled"] = False
     if getattr(args, "quick_reduce", False):
         overrides["collective_quick_reduce"] = True
     if getattr(args, "fuse_rmsnorm_allreduce", False):
@@ -128,6 +136,19 @@ def _print_performance(inference_config, perf) -> None:
         )
     if req.kv_cache_dtype != "bf16":
         feats.append(f"kv_dtype={req.kv_cache_dtype}")
+    if not getattr(req, "sampling_enabled", True):
+        feats.append("sampling=off")
+    elif getattr(req, "sampling_top_k", 0) or 0.0 < getattr(req, "sampling_top_p", 1.0) < 1.0:
+        feats.append(
+            "sampling("
+            + (f"top_k={req.sampling_top_k}" if req.sampling_top_k else f"top_p={req.sampling_top_p}")
+            + ")"
+        )
+    _adq = req.resolved_act_quant_dtype(getattr(mc, "fp8", None))
+    if _adq:
+        feats.append(f"act_quant={_adq}")
+    if getattr(req, "kernel_launch_latency_us", 0.0):
+        feats.append(f"launch_floor={req.kernel_launch_latency_us:g}us/kernel")
     if getattr(mc, "use_turbo_deepep", False):
         sync_free = getattr(mc, "turbo_sync_free_moe_stage", 0) or 0
         feats.append("deepep" + (f"(sync_free={sync_free})" if sync_free else ""))

@@ -30,6 +30,8 @@ from infera.projection.core.projection.module_profilers.language_model import (
     build_profiler,
     get_language_model_profiler_spec,
 )
+from infera.projection.core.projection.module_profilers.quantization import QuantCastProfiler
+from infera.projection.core.projection.module_profilers.sampling import SamplingProfiler
 from infera.projection.core.projection.module_profilers.transformer_layer import (
     _estimate_moe_a2a_time_ms,
     _estimate_tp_allreduce_time_ms,
@@ -91,6 +93,10 @@ class PhaseForwardTimes:
     output_ms: float
     dense_layer_ms: float
     moe_layer_ms: float
+    # Token sampling / logits post-processing (memory-bound vocab reduction).
+    sampling_ms: float = 0.0
+    # Runtime activation quantization / cast (fp8 / mxfp4) over all layers.
+    quant_ms: float = 0.0
     # Explicit communication (exposed, i.e. after overlap) for this forward.
     comm: CommBreakdown = field(default_factory=CommBreakdown)
 
@@ -101,6 +107,8 @@ class PhaseForwardTimes:
             + self.embedding_ms
             + self.final_norm_ms
             + self.output_ms
+            + self.sampling_ms
+            + self.quant_ms
             + self.comm.pp_p2p_ms
         )
 
@@ -190,6 +198,29 @@ class InferencePerformanceProjector:
         self._view = view
         self._lm = build_profiler(get_language_model_profiler_spec(view))
         self._lm.set_simulation_backends(self._gemm, self._sdpa)
+
+        # Token-sampling / logits post-processing model (memory-bound reduction
+        # over the vocab, forward-only). Priced off the target GPU's HBM BW.
+        req0 = inference_config.request_config
+        self._sampling_enabled = bool(getattr(req0, "sampling_enabled", True))
+        _hbm = getattr(self._gemm, "hbm_bandwidth_gbps", None)
+        self._sampler = SamplingProfiler(
+            inference_config.model_config.padded_vocab_size,
+            hbm_bandwidth_gbps=_hbm,
+            top_k=int(getattr(req0, "sampling_top_k", 0) or 0),
+            top_p=float(getattr(req0, "sampling_top_p", 1.0) or 1.0),
+            temperature=float(getattr(req0, "sampling_temperature", 1.0) or 1.0),
+        )
+
+        # Runtime activation quantization / cast (fp8 / mxfp4). Auto-detected
+        # from weight_dtype / model fp8 unless explicitly set; ``None`` (bf16
+        # serving) disables the term.
+        self._act_quant_dtype = req0.resolved_act_quant_dtype(
+            getattr(inference_config.model_config, "fp8", None)
+        )
+        self._quant = QuantCastProfiler(
+            view, hbm_bandwidth_gbps=_hbm, dtype=self._act_quant_dtype or "fp8"
+        )
 
         mc = inference_config.model_config
         self._moe_pattern = mc.moe_pattern or [0] * mc.num_layers
@@ -1085,11 +1116,28 @@ class InferencePerformanceProjector:
         head_tokens = q_len if phase == "decode" else 1
         out = _safe_forward(lm.sub_profilers.get("output_layer"), batch, head_tokens)
 
+        # Token sampling / logits post-processing: one sampled token per
+        # sequence per step (``head_tokens`` per sequence for speculative
+        # verification), a memory-bound reduction over the vocabulary.
+        sampling_ms = 0.0
+        if self._sampling_enabled:
+            sampling_ms = self._sampler.forward_time_ms(batch * head_tokens)
+
+        # Runtime activation quantization / cast, summed over all layers (same
+        # per-layer-type accounting as ``layers`` above).
+        quant_ms = 0.0
+        if self._act_quant_dtype:
+            dense_q = self._quant.dense_layer_ms(batch, q_len) if has_dense else 0.0
+            moe_q = self._quant.moe_layer_ms(batch, q_len) if has_moe else 0.0
+            quant_ms = self._n_dense * dense_q + self._n_moe * moe_q
+
         return PhaseForwardTimes(
             layers_ms=layers,
             embedding_ms=emb,
             final_norm_ms=fnorm,
             output_ms=out,
+            sampling_ms=sampling_ms,
+            quant_ms=quant_ms,
             dense_layer_ms=dense_fwd,
             moe_layer_ms=moe_fwd,
             comm=comm,
@@ -1162,6 +1210,16 @@ class InferencePerformanceProjector:
         """Fixed per-step host/launch overhead (CUDA-graph-reducible)."""
         return max(0.0, self.cfg.request_config.resolved_decode_step_overhead_us()) / 1000.0
 
+    def _launch_latency_floor_ms(self) -> float:
+        """Small-tensor kernel-launch floor for the pure-simulate decode step.
+
+        Depth-scaled launch-bound floor (``n_kernels * launch_latency_us``);
+        0.0 when disabled or when CUDA-graph capture collapses the launches.
+        """
+        return self.cfg.request_config.resolved_kernel_launch_floor_ms(
+            self.cfg.model_config.num_layers
+        )
+
     def _decode_floor_ms(self, batch: int) -> float:
         """Hardware decode latency floor at ``batch`` from a sharded probe.
 
@@ -1214,7 +1272,9 @@ class InferencePerformanceProjector:
         ft = self._forward_times(batch, q_len, "decode", kv_len)
         per_token = ft.total_ms / max(1, q_len)
         step = ft.total_ms + self._draft_overhead_ms(per_token) + self._decode_step_overhead_ms()
-        return max(step, self._decode_floor_ms(batch))
+        # Pure-simulate: at low batch the roofline step underflows the real
+        # launch-bound decode; apply the small-tensor launch-latency floor.
+        return max(step, self._decode_floor_ms(batch), self._launch_latency_floor_ms())
 
     # -- DES event-duration kernel --------------------------------------------
     # Public wrappers used by the discrete-event simulator (``des.py``) so that
@@ -1252,7 +1312,8 @@ class InferencePerformanceProjector:
             if num_decode > 0
             else 0.0
         )
-        return (prefill_piece + dec_piece) * (1.0 + penalty) + ov
+        step = (prefill_piece + dec_piece) * (1.0 + penalty) + ov
+        return max(step, self._launch_latency_floor_ms())
 
     def decode_total_ms(self, batch: int, input_len: int, output_len: int) -> float:
         """Integrate per-token decode latency over the growing KV cache.
@@ -1390,7 +1451,10 @@ class InferencePerformanceProjector:
         # roofline knee the pure-decode step can't drop below the fixed
         # per-step launch/dispatch overhead. A mixed step carries this decode
         # work plus a prefill chunk, so the same floor is a valid lower bound.
+        # Pure-simulate also carries the small-tensor kernel-launch floor.
         floor = self._decode_floor_ms(C)
+        if not self._measured_mode:
+            floor = max(floor, self._launch_latency_floor_ms())
         if floor > 0.0:
             t_pure = max(t_pure, floor)
             t_mixed = max(t_mixed, floor)

@@ -35,12 +35,11 @@ class MoEMLPProfiler(BaseModuleProfiler):
     def __init__(self, config, sub_profilers=None):
         super().__init__(config, sub_profilers)
         self.module = None  # Will be set during benchmarking
-        self._cached_results = None  # Cache for (forward_time, backward_time, activation_memory)
+        self._cached_results = None  # Cache for (forward_time, activation_memory)
         self._cache_key = None  # Cache key (batch_size, seq_len)
         self._gemm_backend = None  # Optional: GEMM simulation backend
-        # Decomposed A2A timings (populated during benchmarking)
+        # Decomposed A2A timing (populated during benchmarking)
         self._a2a_fwd_ms = 0.0  # Measured A2A dispatch+combine forward time
-        self._a2a_bwd_ms = 0.0  # Measured A2A dispatch+combine backward time (estimated)
 
     def set_module(self, module):
         """Set the actual MoE MLP module for benchmarking."""
@@ -116,7 +115,7 @@ class MoEMLPProfiler(BaseModuleProfiler):
 
         return total
 
-    def _get_simulated_results(self, batch_size: int, seq_len: int) -> tuple[float, float, int]:
+    def _get_simulated_results(self, batch_size: int, seq_len: int) -> tuple[float, int]:
         """Get simulated results from the GEMM simulation backend for MoE MLP.
 
         In addition to expert GEMM time, this method estimates several
@@ -291,37 +290,12 @@ class MoEMLPProfiler(BaseModuleProfiler):
                 up_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=B)
                 down_fwd = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=B)
                 expert_fwd_ms = gate_fwd.forward_time_ms + up_fwd.forward_time_ms + down_fwd.forward_time_ms
-                gate_dg = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=B)
-                gate_wg = self._gemm_backend.simulate_gemm(H, F, M, gemm_dtype, batch=B)
-                up_dg = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=B)
-                up_wg = self._gemm_backend.simulate_gemm(H, F, M, gemm_dtype, batch=B)
-                down_dg = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=B)
-                down_wg = self._gemm_backend.simulate_gemm(F, H, M, gemm_dtype, batch=B)
-                expert_bwd_ms = (
-                    gate_dg.forward_time_ms
-                    + gate_wg.forward_time_ms
-                    + up_dg.forward_time_ms
-                    + up_wg.forward_time_ms
-                    + down_dg.forward_time_ms
-                    + down_wg.forward_time_ms
-                )
             else:
                 up_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=B)
                 down_fwd = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=B)
                 expert_fwd_ms = up_fwd.forward_time_ms + down_fwd.forward_time_ms
-                up_dg = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=B)
-                up_wg = self._gemm_backend.simulate_gemm(H, F, M, gemm_dtype, batch=B)
-                down_dg = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=B)
-                down_wg = self._gemm_backend.simulate_gemm(F, H, M, gemm_dtype, batch=B)
-                expert_bwd_ms = (
-                    up_dg.forward_time_ms
-                    + up_wg.forward_time_ms
-                    + down_dg.forward_time_ms
-                    + down_wg.forward_time_ms
-                )
 
             expert_fwd = expert_fwd_ms
-            expert_bwd = expert_bwd_ms
         else:
             # ── Legacy model: individual GEMM × num_local_experts ──
             if self.config.model_config.swiglu:
@@ -329,37 +303,12 @@ class MoEMLPProfiler(BaseModuleProfiler):
                 up_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=1)
                 down_fwd = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=1)
                 expert_fwd_ms = gate_fwd.forward_time_ms + up_fwd.forward_time_ms + down_fwd.forward_time_ms
-                gate_dg = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=1)
-                gate_wg = self._gemm_backend.simulate_gemm(H, F, M, gemm_dtype, batch=1)
-                up_dg = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=1)
-                up_wg = self._gemm_backend.simulate_gemm(H, F, M, gemm_dtype, batch=1)
-                down_dg = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=1)
-                down_wg = self._gemm_backend.simulate_gemm(F, H, M, gemm_dtype, batch=1)
-                expert_bwd_ms = (
-                    gate_dg.forward_time_ms
-                    + gate_wg.forward_time_ms
-                    + up_dg.forward_time_ms
-                    + up_wg.forward_time_ms
-                    + down_dg.forward_time_ms
-                    + down_wg.forward_time_ms
-                )
             else:
                 up_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=1)
                 down_fwd = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=1)
                 expert_fwd_ms = up_fwd.forward_time_ms + down_fwd.forward_time_ms
-                up_dg = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=1)
-                up_wg = self._gemm_backend.simulate_gemm(H, F, M, gemm_dtype, batch=1)
-                down_dg = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=1)
-                down_wg = self._gemm_backend.simulate_gemm(F, H, M, gemm_dtype, batch=1)
-                expert_bwd_ms = (
-                    up_dg.forward_time_ms
-                    + up_wg.forward_time_ms
-                    + down_dg.forward_time_ms
-                    + down_wg.forward_time_ms
-                )
 
             expert_fwd = expert_fwd_ms * active_local_experts
-            expert_bwd = expert_bwd_ms * active_local_experts
 
             # NOTE: Legacy grouped GEMM is not properly modelled. Origami
             # simulates ideal single-kernel execution
@@ -370,7 +319,6 @@ class MoEMLPProfiler(BaseModuleProfiler):
                 )
 
         fwd_time = expert_fwd
-        bwd_time = expert_bwd
 
         # Effective HBM bandwidths for the memory-bound (non-GEMM) MoE terms.
         # Derived from the target GPU's peak HBM bandwidth so the model adapts
@@ -399,23 +347,17 @@ class MoEMLPProfiler(BaseModuleProfiler):
         router_logits_bytes = 2 * batch_tokens * num_experts * 4  # fp32 logits read + write
         topk_overhead_ms = router_logits_bytes / (activation_bw_gbps * 1e6)
         router_fwd_ms += topk_overhead_ms
-        # Backward: dgrad + wgrad for gate linear
-        router_bwd_ms = 2.0 * router_gemm.forward_time_ms + topk_overhead_ms
 
         fwd_time += router_fwd_ms
-        bwd_time += router_bwd_ms
 
         # ── 3. Token permutation overhead (dispatch + combine) ──
         # Dispatch: gather tokens by expert assignment → irregular memory access
         # Combine: scatter expert outputs back → weighted reduce
 
         dispatch_bytes = (batch_tokens + topk_tokens) * hidden_size * bytes_per_el
-        combine_bytes = (topk_tokens + batch_tokens) * hidden_size * bytes_per_el
         permute_fwd_ms = dispatch_bytes / (permute_eff_bw_gbps * 1e6)
-        permute_bwd_ms = combine_bytes / (permute_eff_bw_gbps * 1e6)
 
         fwd_time += permute_fwd_ms
-        bwd_time += permute_bwd_ms
 
         # ── 4. Activation function overhead (SwiGLU / GELU) ──
         # Uses the per-rank (tensor-sharded) intermediate ``F``, not full moe_ffn.
@@ -426,7 +368,6 @@ class MoEMLPProfiler(BaseModuleProfiler):
         activation_ms = act_bytes / (activation_bw_gbps * 1e6)
 
         fwd_time += activation_ms
-        bwd_time += activation_ms
 
         # ── 5. Shared experts (if any) ──
         shared_sz = self.config.model_config.moe_shared_expert_intermediate_size
@@ -439,47 +380,39 @@ class MoEMLPProfiler(BaseModuleProfiler):
                 swiglu=self.config.model_config.swiglu,
             )
             fwd_time += shared_result.forward_time_ms
-            bwd_time += shared_result.backward_time_ms
 
         activation_memory = self.estimated_activation_memory(batch_size, seq_len)
-        return (fwd_time, bwd_time, activation_memory)
+        return (fwd_time, activation_memory)
 
-    def _get_benchmark_results(self, batch_size: int, seq_len: int) -> tuple[float, float, int]:
+    def _get_benchmark_results(self, batch_size: int, seq_len: int) -> tuple[float, int]:
         """Get or compute benchmark results (cached).
 
         When benchmarking (not simulating), uses decomposed MoE benchmarking
-        to separately measure A2A communication time.  The A2A times are
-        stored in ``self._a2a_fwd_ms`` / ``self._a2a_bwd_ms`` and can be
-        retrieved via :meth:`measured_a2a_forward_time` /
-        :meth:`measured_a2a_backward_time`.
+        to separately measure A2A communication time.  The A2A forward time is
+        stored in ``self._a2a_fwd_ms`` and can be retrieved via
+        :meth:`measured_a2a_forward_time`.
         """
         cache_key = (batch_size, seq_len)
         if self._cached_results is None or self._cache_key != cache_key:
             if self._gemm_backend is not None:
                 self._cached_results = self._get_simulated_results(batch_size, seq_len)
                 self._a2a_fwd_ms = 0.0
-                self._a2a_bwd_ms = 0.0
             else:
-                fwd, bwd, act_mem, a2a_fwd, a2a_bwd = benchmark_moe_layer_decomposed(
+                fwd, act_mem, a2a_fwd = benchmark_moe_layer_decomposed(
                     self.module,
                     [(seq_len, batch_size, self.config.model_config.hidden_size)],
                 )
-                self._cached_results = (fwd, bwd, act_mem)
+                self._cached_results = (fwd, act_mem)
                 self._a2a_fwd_ms = a2a_fwd
-                self._a2a_bwd_ms = a2a_bwd
             self._cache_key = cache_key
         return self._cached_results
 
     def measured_forward_time(self, batch_size: int, seq_len: int) -> float:
-        forward_time, _, _ = self._get_benchmark_results(batch_size, seq_len)
+        forward_time, _ = self._get_benchmark_results(batch_size, seq_len)
         return forward_time
 
-    def measured_backward_time(self, batch_size: int, seq_len: int) -> float:
-        _, backward_time, _ = self._get_benchmark_results(batch_size, seq_len)
-        return backward_time
-
     def measured_activation_memory(self, batch_size: int, seq_len: int) -> int:
-        _, _, activation_memory = self._get_benchmark_results(batch_size, seq_len)
+        _, activation_memory = self._get_benchmark_results(batch_size, seq_len)
         return activation_memory
 
     def measured_a2a_forward_time(self, batch_size: int, seq_len: int) -> float:
@@ -490,15 +423,6 @@ class MoEMLPProfiler(BaseModuleProfiler):
         """
         self._get_benchmark_results(batch_size, seq_len)  # ensure cache
         return self._a2a_fwd_ms
-
-    def measured_a2a_backward_time(self, batch_size: int, seq_len: int) -> float:
-        """Return the estimated A2A backward time in ms (≈ forward A2A).
-
-        Must be called after :meth:`measured_backward_time` so that the cache
-        is populated.  Returns 0.0 in simulation mode.
-        """
-        self._get_benchmark_results(batch_size, seq_len)  # ensure cache
-        return self._a2a_bwd_ms
 
 
 def get_moe_mlp_profiler_spec(config: TrainingConfig) -> ModuleProfilerSpec:

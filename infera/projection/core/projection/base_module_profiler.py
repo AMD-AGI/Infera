@@ -38,21 +38,13 @@ class BaseModuleProfiler(ABC):
         """Return measured memory usage in bytes (via profiler/runtime stats)."""
         raise NotImplementedError
 
-    # -------- Performance related --------
+    # -------- Performance related (forward-only; serving path) --------
     def estimated_forward_time(self, batch_size: int, seq_len: int) -> int:
         """Return estimated forward latency for forward pass in milliseconds."""
         raise NotImplementedError
 
-    def estimated_backward_time(self, batch_size: int, seq_len: int) -> int:
-        """Return estimated latency for backward pass in milliseconds."""
-        raise NotImplementedError
-
     def measured_forward_time(self, batch_size: int, seq_len: int) -> float:
         """Return measured forward latency in milliseconds."""
-        raise NotImplementedError
-
-    def measured_backward_time(self, batch_size: int, seq_len: int) -> float:
-        """Return measured backward latency in milliseconds."""
         raise NotImplementedError
 
     # -------- Debugging / summary --------

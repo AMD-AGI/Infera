@@ -15,7 +15,7 @@ class OutputLayerProfiler(BaseModuleProfiler):
     def __init__(self, config, sub_profilers=None):
         super().__init__(config, sub_profilers)
         self.module = None  # Will be set during benchmarking
-        self._cached_results = None  # Cache for (forward_time, backward_time, activation_memory)
+        self._cached_results = None  # Cache for (forward_time, activation_memory)
         self._cache_key = None  # Cache key (batch_size, seq_len)
         self._gemm_backend = None  # Optional: GEMM simulation backend
 
@@ -45,7 +45,7 @@ class OutputLayerProfiler(BaseModuleProfiler):
             * 2
         )  # bf16
 
-    def _get_simulated_results(self, batch_size: int, seq_len: int) -> tuple[float, float, int]:
+    def _get_simulated_results(self, batch_size: int, seq_len: int) -> tuple[float, int]:
         """Simulate output layer using GEMM backend (vocab projection GEMM)."""
         tp_size = self.config.model_parallel_config.tensor_model_parallel_size
         cp_size = self.config.model_parallel_config.context_model_parallel_size
@@ -62,27 +62,10 @@ class OutputLayerProfiler(BaseModuleProfiler):
         )
         fwd_time = fwd_result.forward_time_ms
 
-        # Backward: simulate actual dgrad + wgrad GEMMs
-        # dgrad: [batch_tokens, vocab_size] x [vocab_size, hidden_size] -> [batch_tokens, hidden_size]
-        dgrad_result = self._gemm_backend.simulate_gemm(
-            m=batch_tokens,
-            n=hidden_size,
-            k=vocab_size,
-            dtype="bf16",
-        )
-        # wgrad: [hidden_size, batch_tokens] x [batch_tokens, vocab_size] -> [hidden_size, vocab_size]
-        wgrad_result = self._gemm_backend.simulate_gemm(
-            m=hidden_size,
-            n=vocab_size,
-            k=batch_tokens,
-            dtype="bf16",
-        )
-        bwd_time = dgrad_result.forward_time_ms + wgrad_result.forward_time_ms
-
         activation_memory = self.estimated_activation_memory(batch_size, seq_len)
-        return (fwd_time, bwd_time, activation_memory)
+        return (fwd_time, activation_memory)
 
-    def _get_benchmark_results(self, batch_size: int, seq_len: int) -> tuple[float, float, int]:
+    def _get_benchmark_results(self, batch_size: int, seq_len: int) -> tuple[float, int]:
         """Get or compute benchmark results (cached)."""
         cache_key = (batch_size, seq_len)
 
@@ -105,13 +88,9 @@ class OutputLayerProfiler(BaseModuleProfiler):
         return self._cached_results
 
     def measured_forward_time(self, batch_size: int, seq_len: int) -> float:
-        forward_time, _, _ = self._get_benchmark_results(batch_size, seq_len)
+        forward_time, _ = self._get_benchmark_results(batch_size, seq_len)
         return forward_time
 
-    def measured_backward_time(self, batch_size: int, seq_len: int) -> float:
-        _, backward_time, _ = self._get_benchmark_results(batch_size, seq_len)
-        return backward_time
-
     def measured_activation_memory(self, batch_size: int, seq_len: int) -> int:
-        _, _, activation_memory = self._get_benchmark_results(batch_size, seq_len)
+        _, activation_memory = self._get_benchmark_results(batch_size, seq_len)
         return activation_memory
