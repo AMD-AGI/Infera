@@ -119,19 +119,29 @@ def test_occupancy_reaches_the_continuous_batching_path():
     )
 
 
-def test_small_decode_collective_is_not_charged_rccl_latency():
-    """vLLM dispatches small decode messages to its own all-reduce, not RCCL.
+def test_decode_all_reduce_matches_the_measured_custom_kernel():
+    """The decode all-reduce must track what vLLM's own kernel actually costs.
 
-    The 26 us RCCL floor put a flat 1.872 ms into every gpt-oss decode step at
-    TP>1 -- independent of batch and of TP, because the floor beat the
-    bandwidth term even at a 1.5 MB message. The ladder bounds the real cost
-    under ~8 us per all-reduce.
+    vLLM dispatches everything under 8 MB to its custom all-reduce, not RCCL, so
+    the 26 us RCCL floor was the wrong kernel: it put a flat 1.872 ms into every
+    gpt-oss decode step at TP>1, independent of batch *and* of TP, because the
+    floor beat the bandwidth term even at a 1.5 MB message.
+
+    Measured with bench/hyperloom_validation/measure_allreduce.py at hidden 2880:
+    9.9 us at batch 1 (5.8 KB) and 25.1 us at batch 256 (1.5 MB) on 8 ranks.
     """
-    from infera.projection.core.projection.inference_projection import collectives
-
-    assert collectives._INFER_AR_OVERHEAD_US <= 8.0, (
-        "intra-node decode all-reduce floor exceeds what the TP ladder allows"
+    from infera.projection.core.projection.inference_projection.collectives import (
+        _measured_intra_node_ar_us,
     )
+
+    small = _measured_intra_node_ar_us(1 * 2880 * 2, gpus=8)
+    large = _measured_intra_node_ar_us(256 * 2880 * 2, gpus=8)
+
+    assert small == pytest.approx(9.9, rel=0.30), f"batch-1 all-reduce {small:.1f} us"
+    assert large == pytest.approx(25.1, rel=0.30), f"batch-256 all-reduce {large:.1f} us"
+    # The defect that started this was flatness, not the constant: a 256x larger
+    # message has to cost meaningfully more, or batch cannot move the comm term.
+    assert large > 2.0 * small, "all-reduce is flat in message size again"
 
 
 @pytest.mark.parametrize(

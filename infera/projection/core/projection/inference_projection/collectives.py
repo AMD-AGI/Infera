@@ -51,25 +51,48 @@ _FUSED_RMSNORM_AR_SPEEDUP = 0.8    # RMSNorm+AR fusion hides part of the AR.
 #
 # The AllReduce floor was 26 us, from an 8-GPU **RCCL** microbenchmark. That is
 # the wrong kernel for a serving projection: vLLM runs with
-# ``disable_custom_all_reduce=False`` by default and dispatches small decode
-# messages to its own one-shot all-reduce, not to RCCL. Charging the RCCL
-# latency put a flat 1.872 ms (2 AR/layer x 26 us x 36 layers) into every
-# gpt-oss decode step at TP>1 -- independent of batch *and* of TP, since the
-# floor always won over the bandwidth term even at a 1.5 MB message.
-#
-# The measured TP ladder bounds the real cost directly: solving
-# ``step(tp) = floor + compute(1)/tp`` over TP=1,2,4,8 gives a floor that is
-# TP-invariant at 2.6-3.2 ms, and TP=1 carries no collective at all. Anything
-# the collective contributed at TP>=2 would have to fit inside that fit's
-# scatter, which bounds it under ~0.6 ms over 72 all-reduces, i.e. under ~8 us
-# each. 3 us is the round-trip a one-shot all-reduce pays on Infinity Fabric and
-# sits inside that bound.
-#
-# This is an interim value: it is bounded by measurement rather than measured.
-# bench/hyperloom_validation/measure_comm_floor.py measures latency against
-# message size on the path vLLM actually uses and should replace it.
-_INFER_AR_OVERHEAD_US = float(os.getenv("INFERASIM_INFER_AR_FLOOR_US", "3.0") or 3.0)
+# ``disable_custom_all_reduce=False`` by default and dispatches decode messages
+# to its own one-shot/two-shot all-reduce for anything under 8 MB, not to RCCL.
+# Charging the RCCL latency put a flat 1.872 ms (2 AR/layer x 26 us x 36 layers)
+# into every gpt-oss decode step at TP>1 -- independent of batch *and* of TP,
+# since the floor always won over the bandwidth term even at a 1.5 MB message.
+_INFER_AR_OVERHEAD_US = float(os.getenv("INFERASIM_INFER_AR_FLOOR_US", "10.0") or 10.0)
 _INFER_A2A_OVERHEAD_US = float(os.getenv("INFERASIM_INFER_A2A_FLOOR_US", "30.0") or 30.0)
+
+# Intra-node decode all-reduce, measured on MI355X with
+# ``bench/hyperloom_validation/measure_allreduce.py`` against vLLM's own custom
+# all-reduce -- the kernel a decode step actually runs -- over the message sizes
+# a decode step actually produces (6 KB to 3 MB, i.e. batch 1 to 512 at hidden
+# 2880). Maps world size -> (floor_us, effective GB/s), fitting
+#
+#     t_us = floor_us + bytes / bw
+#
+# at r^2 >= 0.99 on every world size.
+#
+# Two things here were wrong before and both mattered. The composition is
+# *additive*, not ``max(floor, bandwidth)``: at 1.5 MB the transfer and the
+# floor are within 2x of each other, so taking the max drops a term that is
+# genuinely there. And the bandwidth is far below the 717 GB/s node link --
+# these messages are too small to saturate it, and no clean ring or one-shot
+# factor maps one onto the other, so the achieved figure has to be measured
+# rather than derived. Together those put the modelled all-reduce 3-5x under
+# measurement at batch 256, which was the entire batch-256 TP residual.
+_INFER_AR_MEASURED_GBPS = {2: (7.81, 65.9), 4: (10.06, 120.7), 8: (11.40, 117.6)}
+
+
+def _measured_intra_node_ar_us(msg_bytes: float, gpus: int) -> float | None:
+    """Measured intra-node all-reduce latency (us), or ``None`` if unmeasured.
+
+    Falls back to the largest measured world size at or below ``gpus`` so an
+    odd TP degree still gets a measured shape rather than the training model.
+    """
+    if gpus < 2:
+        return 0.0
+    keys = [w for w in sorted(_INFER_AR_MEASURED_GBPS) if w <= gpus]
+    if not keys:
+        return None
+    floor_us, bw_gbps = _INFER_AR_MEASURED_GBPS[keys[-1]]
+    return floor_us + (msg_bytes / (bw_gbps * 1e9)) * 1e6
 
 
 def deepep_overlap_efficiency(model_config) -> float:
@@ -285,9 +308,16 @@ class InferenceCollectiveModel:
         could cost ~8x more and then stay flat — the constant, not bandwidth, was
         setting the price.  Multi-node collectives keep the base model, whose NIC
         overheads are real and were not part of the intra-node measurement.
+
+        The all-reduce is measured directly on the kernel vLLM runs, so it uses
+        that fit in preference to the training model's bandwidth term.
         """
         if gpus > self._args.node_size:
             return us
+        if not is_a2a:
+            measured = _measured_intra_node_ar_us(msg, gpus)
+            if measured is not None:
+                return measured
         if is_a2a:
             peers = min(gpus - 1, self._args.node_size - 1)
             baked = (

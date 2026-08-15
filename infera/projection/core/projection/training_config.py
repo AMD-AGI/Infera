@@ -253,24 +253,26 @@ class InferenceRequestConfig:
     #     totals makes the small-kernel cost vanish exactly when the batch is
     #     large, which is where it was measured to still be present.
     #
-    # Measured on MI355X by over-determining ``step(tp) = floor + compute(1)/tp``
-    # across TP=1,2,4,8 with real weights (bench/hyperloom_validation/
-    # measure_step_floor.sh). For gpt-oss-120b the floor is 2.61-3.26 ms over
-    # batch 1..64 -- flat to 22% across a 64x batch range, with 1-6% residual
-    # against the 1/tp form -- against 36 layers.
+    # Measured on MI355X by solving ``step(tp) = floor + compute(1)/tp`` across
+    # TP=1,2,4,8 with real weights (bench/hyperloom_validation/
+    # measure_step_floor.sh), after subtracting the *measured* per-step
+    # all-reduce from each TP>1 rung. Subtracting it matters: TP=1 runs no
+    # collective at all, so a floor fit that leaves comm in absorbs it and the
+    # same milliseconds then get charged twice once comm is modelled explicitly.
+    # That is what the earlier 5.96 us did -- it came from a 2.61 ms floor that
+    # silently contained ~0.8 ms of all-reduce.
     #
-    # The default is the batch-1 solve, 2.61 ms, divided by the kernel count
-    # ``36 * kernels_per_layer + 6 = 438``: 5.96 us. Batch 1 is used rather than
-    # the mean over the sweep because the terms that legitimately grow with
-    # batch (KV streaming, collectives) are modelled separately, and taking the
-    # mean would charge their growth twice.
+    # With comm removed the floor is flat where it should be: 1.83-2.07 ms over
+    # batch 1..64 on the TP=8 rung, which is the most floor-dominated one. The
+    # default is that mean, 1.91 ms, over the kernel count
+    # ``36 * kernels_per_layer + 6 = 438``: 4.35 us.
     #
     # This is one architecture's ladder divided by an assumed kernel count, so
     # it is a per-kernel figure only if the count is right. measure_kernel_floor.py
     # measures the count and the per-kernel minimum directly and should replace
     # it; until then, treat cross-model agreement as the test of whether this is
     # hardware physics or one model's tuning. 0 = disabled.
-    decode_kernel_occupancy_us: float = 5.96
+    decode_kernel_occupancy_us: float = 4.35
     # Per-output-token host cost for detokenization + response streaming
     # (microseconds/token). The serving harness (vLLM / InferenceX) measures ITL
     # client-side, so its per-token latency carries detok+stream that the GPU
