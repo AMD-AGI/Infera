@@ -66,6 +66,15 @@ class ModelConfig:
     v_head_dim: int = 0
     q_lora_rank: int = 0
     kv_lora_rank: int = 0
+    # Sliding-window (local) attention: each query attends to at most the last
+    # ``sink_sliding_window`` KV tokens (0 = full/global attention). Several
+    # models (gpt-oss, Mistral, Gemma-2/3, Qwen2.5) cap the attention span this
+    # way, which bounds both decode attention compute and KV-cache footprint at
+    # long context. ``sink_window_even_layers_only`` models the common
+    # interleave where only alternating layers are windowed (the rest stay
+    # full-attention), i.e. half the layers.
+    sink_sliding_window: int = 0
+    sink_window_even_layers_only: bool = False
     # FFN & MoE
     swiglu: bool = False
     num_experts: int = 0
@@ -296,6 +305,19 @@ class InferenceRequestConfig:
     # attention roughly constant in context length.
     sparse_attention_topk: int = 0
 
+    # ---- Sliding-window / local attention ----
+    # Override the model's sliding-window size (KV tokens each query attends to;
+    # 0 = full attention). ``None`` follows the model config's
+    # ``sink_sliding_window``. When set (or inherited) and the context exceeds
+    # the window, decode/prefill attention compute and KV-cache footprint are
+    # bounded by the window instead of the full context.
+    sliding_window: Optional[int] = None
+    # Fraction of attention layers that are windowed (the remainder use full
+    # attention) for models that interleave local/global layers. ``None``
+    # follows the model's ``sink_window_even_layers_only`` flag (0.5 when set,
+    # else 1.0 = every layer windowed).
+    sliding_window_layer_fraction: Optional[float] = None
+
     # ---- MoE expert compute precision ----
     # Expert grouped-GEMM compute dtype (separate from ``weight_dtype`` which
     # sizes resident weights). Models the expert-MLP speedup of low-precision
@@ -445,6 +467,49 @@ class InferenceRequestConfig:
         if topk <= 0 or context_len <= topk:
             return 1.0
         return max(_SPARSE_ATTENTION_FLOOR, float(topk) / float(max(1, context_len)))
+
+    def resolved_sliding_window(self, model_window: int = 0) -> int:
+        """Sliding-window size in KV tokens (0 = full attention).
+
+        An explicit ``sliding_window`` override wins; otherwise inherit the
+        model's ``sink_sliding_window``. Non-positive values disable windowing.
+        """
+        w = self.sliding_window
+        if w is None:
+            w = model_window
+        w = int(w or 0)
+        return w if w > 0 else 0
+
+    def resolved_sliding_window_fraction(self, even_layers_only: bool = False) -> float:
+        """Fraction of attention layers that are windowed, clamped to [0, 1].
+
+        ``sliding_window_layer_fraction`` wins when set; otherwise 0.5 for an
+        even-layers-only interleave (e.g. gpt-oss) or 1.0 when every layer is
+        windowed.
+        """
+        f = self.sliding_window_layer_fraction
+        if f is None:
+            f = 0.5 if even_layers_only else 1.0
+        return min(1.0, max(0.0, float(f)))
+
+    def effective_attn_kv(
+        self, kv_len: int, model_window: int = 0, even_layers_only: bool = False
+    ) -> int:
+        """KV length an average attention layer reads under sliding-window.
+
+        Full attention (or short context) returns ``kv_len`` unchanged. When a
+        window is active and the context exceeds it, windowed layers read only
+        ``window`` tokens while full layers still read ``kv_len``; the two are
+        blended by the windowed-layer fraction so a single length represents the
+        average layer (attention decode cost is ~linear in KV read). Used for
+        both decode and prefill attention compute.
+        """
+        kv = int(max(1, kv_len))
+        w = self.resolved_sliding_window(model_window)
+        if w <= 0 or kv <= w:
+            return kv
+        frac = self.resolved_sliding_window_fraction(even_layers_only)
+        return int(round(frac * w + (1.0 - frac) * kv))
 
     def resolved_moe_expert_dtype_speedup(self) -> float:
         """Expert grouped-GEMM compute multiplier for the expert dtype.

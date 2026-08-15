@@ -982,7 +982,16 @@ class InferencePerformanceProjector:
 
     def _forward_times(self, batch: int, q_len: int, phase: str, kv_len: int) -> PhaseForwardTimes:
         lm = self._lm
-        lm.set_inference_phase(phase, kv_len)
+        # Sliding-window / local attention: cap the KV length each attention
+        # layer reads at the window (blended across windowed/full layers for
+        # interleaved models). Full attention leaves ``kv_len`` unchanged.
+        mc = self.cfg.model_config
+        attn_kv = self.cfg.request_config.effective_attn_kv(
+            kv_len,
+            model_window=getattr(mc, "sink_sliding_window", 0),
+            even_layers_only=getattr(mc, "sink_window_even_layers_only", False),
+        )
+        lm.set_inference_phase(phase, attn_kv)
 
         dense_p = lm.sub_profilers.get("dense_transformer_layer")
         moe_p = lm.sub_profilers.get("moe_transformer_layer")

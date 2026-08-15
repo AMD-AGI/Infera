@@ -815,6 +815,23 @@ def _add_inference_args(parser):
         "Default: 0 (dense).",
     )
     kern.add_argument(
+        "--sliding-window",
+        type=int,
+        default=None,
+        help="Sliding-window (local) attention size in KV tokens each query "
+        "attends to (0 = force full attention). Default: follow the model's "
+        "sink_sliding_window. Bounds decode attention compute and KV-cache "
+        "footprint at long context.",
+    )
+    kern.add_argument(
+        "--sliding-window-layer-fraction",
+        type=float,
+        default=None,
+        help="Fraction of attention layers that are windowed for models that "
+        "interleave local/global layers. Default: 0.5 when the model is "
+        "even-layers-only, else 1.0 (every layer windowed).",
+    )
+    kern.add_argument(
         "--moe-expert-dtype",
         type=str,
         default=None,

@@ -96,13 +96,31 @@ def estimate_kv_cache(
     # internal fragmentation real serving engines (vLLM, SGLang) pay.  ``0``
     # disables paging (contiguous allocation, legacy behaviour).
     block = int(req.kv_block_size or 0)
-    alloc_context_len = context_len
-    if block > 0:
-        alloc_context_len = math.ceil(context_len / block) * block
+
+    def _alloc(ctx: int) -> int:
+        if block > 0:
+            return math.ceil(ctx / block) * block
+        return int(ctx)
+
+    alloc_context_len = _alloc(context_len)
+
+    # Sliding-window / local attention caps a sequence's resident KV at the
+    # window (steady state), not the full context. Interleaved models keep some
+    # layers full-attention, so blend the per-sequence context by the windowed-
+    # layer fraction. Full attention (window 0 or context <= window) is a no-op.
+    mc = inference_config.model_config
+    window = req.resolved_sliding_window(getattr(mc, "sink_sliding_window", 0))
+    if window > 0 and window < context_len:
+        frac = req.resolved_sliding_window_fraction(
+            getattr(mc, "sink_window_even_layers_only", False)
+        )
+        effective_context = frac * _alloc(window) + (1.0 - frac) * alloc_context_len
+    else:
+        effective_context = alloc_context_len
 
     per_token_per_layer = kv_bytes_per_token_per_layer(inference_config)
     per_token = per_token_per_layer * max(1, layers_on_rank)
-    per_sequence = per_token * alloc_context_len
+    per_sequence = per_token * effective_context
     total = per_sequence * concurrency
 
     return KVCacheBreakdown(
