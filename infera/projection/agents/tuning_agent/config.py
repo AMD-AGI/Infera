@@ -134,6 +134,20 @@ class OptimizationConfig:
             "max_concurrency": None,
         }
     )
+    # Latency service-level objectives, in milliseconds (inference mode). A
+    # trial that misses any of them is rejected the same way an over-memory one
+    # is, which turns the single-objective search into the constrained one
+    # serving actually poses: maximize throughput *subject to* a latency
+    # promise. Without this, "max_throughput" always walks to the largest batch
+    # that fits, and the interactive configuration never appears in the
+    # results. ``None`` leaves an SLO unconstrained.
+    slo: dict[str, Any] = field(
+        default_factory=lambda: {
+            "ttft_ms": None,
+            "tpot_ms": None,
+            "request_latency_ms": None,
+        }
+    )
 
 
 @dataclass
@@ -207,6 +221,7 @@ def load_config(target_cluster_yaml: Path, workload_yaml: Path, out_dir: Path | 
         memory_safety_margin=float(opt_raw.get("memory_safety_margin", 0.10)),
         hbm_capacity_gb=float(opt_raw.get("hbm_capacity_gb", 192.0)),
         inference={**OptimizationConfig().inference, **(opt_raw.get("inference") or {})},
+        slo={**OptimizationConfig().slo, **(opt_raw.get("slo") or {})},
         budget=Budget(
             max_proposals=int(budget_raw.get("max_proposals", 30)),
             max_perf_calls=int(budget_raw.get("max_perf_calls", 30)),

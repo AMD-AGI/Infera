@@ -986,6 +986,12 @@ class Evaluator:
                 f"(HBM={self.cfg.optimization.hbm_capacity_gb} GB, "
                 f"margin={self.cfg.optimization.memory_safety_margin})"
             )
+            return result
+
+        misses = _slo_violations(result, self.cfg.optimization.slo)
+        if misses:
+            result.legal = False
+            result.reason = "misses latency SLO: " + ", ".join(misses)
         return result
 
     # ── internal ──────────────────────────────────────────────────────────
@@ -1252,6 +1258,34 @@ def _tail(s: str, n: int) -> str:
     if not s:
         return ""
     return s if len(s) <= n else s[-n:]
+
+
+# Projected metric backing each SLO key, with the label to report it under.
+_SLO_METRICS = {
+    "ttft_ms": ("ttft_ms", "TTFT"),
+    "tpot_ms": ("itl_ms", "TPOT"),
+    "itl_ms": ("itl_ms", "TPOT"),
+    "request_latency_ms": ("request_latency_ms", "end-to-end latency"),
+}
+
+
+def _slo_violations(result: EvalResult, slo: dict) -> list[str]:
+    """Latency budgets this trial misses, phrased for the search log.
+
+    The reason string is what the LLM planner reads back, so it names the
+    budget and the overshoot rather than just failing the trial -- that is the
+    signal telling it to trade concurrency away, not to try another dtype.
+    """
+    misses = []
+    for key, budget in (slo or {}).items():
+        spec = _SLO_METRICS.get(key)
+        if spec is None or budget in (None, ""):
+            continue
+        attr, label = spec
+        value = getattr(result, attr, None)
+        if value is not None and float(value) > float(budget):
+            misses.append(f"{label} {float(value):.1f} ms > {float(budget):.1f} ms")
+    return misses
 
 
 def _synth_tps_from_memory(cfg: TrialConfig, result: EvalResult, arch: ArchitectureRecord) -> float:

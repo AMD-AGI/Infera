@@ -221,6 +221,11 @@ def _result_for_llm(r: EvalResult, score: float | None) -> dict:
     }
 
 
+def _active_slo(slo: dict | None) -> dict:
+    """The latency budgets that are actually set, in millseconds."""
+    return {k: float(v) for k, v in (slo or {}).items() if v not in (None, "")}
+
+
 def _best_by_score(history: History, objective: str):
     """Objective-aware incumbent (score_result handles minimize metrics)."""
     best = None
@@ -375,10 +380,14 @@ def build_inference_tools(
         )
 
     def get_objective() -> str:
-        """The objective metric being optimized and its direction."""
+        """The objective metric being optimized, its direction, and any latency SLO."""
         obj = resolve_objective(objective)
         return json.dumps(
-            {"objective": obj, "direction": "minimize" if objective_is_minimize(obj) else "maximize"}
+            {
+                "objective": obj,
+                "direction": "minimize" if objective_is_minimize(obj) else "maximize",
+                "latency_slo_ms": _active_slo(evaluator.cfg.optimization.slo) or None,
+            }
         )
 
     def get_budget_status() -> str:
@@ -458,6 +467,13 @@ def run_inference_agent(
     obj_resolved = resolve_objective(objective)
     direction = "minimize" if objective_is_minimize(obj_resolved) else "maximize"
     obj_blob = f"{obj_resolved} ({direction})"
+    slo = _active_slo(agent_cfg.optimization.slo)
+    if slo:
+        budgets = ", ".join(f"{k} <= {v:g} ms" for k, v in sorted(slo.items()))
+        obj_blob += (
+            f", subject to {budgets}. A config that misses a budget is rejected "
+            f"outright, so push concurrency and batch only as far as the budget allows."
+        )
 
     session_log: list[dict] = []
     cb = _RLMProgressCallback(session_log)
