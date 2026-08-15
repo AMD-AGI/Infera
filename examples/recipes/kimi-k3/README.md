@@ -152,6 +152,7 @@ on this hardware.
 | `--enable-prefix-caching` is safe here | Kimi-K3 is hybrid, so vLLM runs it in Mamba cache `align` mode and calls that experimental. Measured: 72.7% hit rate on a shared prefix, output still correct. An earlier note claimed it fails engine init — that was an older base image. |
 | `--load-format auto` | `fastsafetensors` needs GDS; without it the load stalls in 30-second queue waits. |
 | `startupProbe`, not readiness | weight load outlives any sane readiness deadline. |
+| the **server** pod mounts `/models` too, and `--router-tokenizer-path` is a **local path** | kv-aware tokenizes each request on the router to compare its prefix against what the workers cached, so the router needs the same tokenizer files the engines load. Point it at a hub id and it resolves an HF cache directory that may hold only `tokenizer_config.json`: the load fails, every request hashes to zero blocks, and kv-aware quietly becomes least-loaded with `--kv-overlap-weight` having no effect at any value. Nothing else shows it — the server starts, `/health` is green, requests succeed. Seen on a fleet whose router had been moved to a CPU node with no model volume. Watch for `kv-aware DEGRADED` in the server log and `infera_cache_locality_skipped_total{reason="no_tokenizer"}` |
 
 ## Validation status
 

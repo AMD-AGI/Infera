@@ -76,6 +76,13 @@ spec:
             imagePullPolicy: IfNotPresent
             command: ["/overlay/bin/infera-exec","python3","-m","infera.server",
                       "--host","0.0.0.0","--port","8000",
+                      # kv-aware needs the router to tokenize exactly as the workers do, so this
+                      # is a LOCAL path into the same model volume the workers mount -- not a hub
+                      # id. Point it at a hub id and the router resolves a cache directory that may
+                      # be missing the model's custom tokenizer files; the load then fails,
+                      # hash_for returns no blocks, and kv-aware silently degrades to least-loaded
+                      # with --kv-overlap-weight having no effect. Watch for `kv-aware DEGRADED` in
+                      # the server log and infera_cache_locality_skipped_total{reason="no_tokenizer"}.
                       "--router-tokenizer-path","/models/GLM-5.2-MXFP4",
                       "--request-transport","http","--kv-event-transport","zmq"]
             env:

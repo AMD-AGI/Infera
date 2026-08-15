@@ -10,6 +10,7 @@ from typing import Any
 
 from infera.common.worker_pool import EngineType
 from infera.router.kv_event.hasher import hash_request
+from infera.server import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,11 @@ class BlockHasher:
         # fast-vs-slow / special-token config).
         self._tokenizer_path = tokenizer_path
         self._tokenizers: dict[tuple[Any, str], Any] = {}
+        # Keys we have already failed to load. Without this every request
+        # retries the load and re-logs the failure -- one broken deployment
+        # produced 240 identical WARNINGs in a 120-request run, which buries
+        # the one line that matters rather than surfacing it.
+        self._failed: set[tuple[Any, str]] = set()
 
     def hash_for(
         self, body: dict, *, block_size: int, engine: EngineType | None = None
@@ -42,6 +48,13 @@ class BlockHasher:
 
         tokenizer = self._get_tokenizer(model_id, engine)
         if tokenizer is None:
+            # Every request lands here once the tokenizer fails to load, and
+            # each one routes with no cache information at all -- kv-aware is
+            # silently doing least-loaded. Nothing else says so: the server
+            # starts, /health is green, requests succeed. Count it so the
+            # degradation is visible on a dashboard rather than only in a
+            # WARNING somebody has to already suspect to go looking for.
+            metrics.cache_locality_skipped_total.labels(reason="no_tokenizer").inc()
             return []
 
         # Tokenisation failure (e.g. apply_chat_template on a base model
@@ -74,9 +87,26 @@ class BlockHasher:
         key = (engine, source)
         if key in self._tokenizers:
             return self._tokenizers[key]
+        if key in self._failed:
+            return None
         tok = self._load(source, engine)
-        if tok is not None:
-            self._tokenizers[key] = tok
+        if tok is None:
+            self._failed.add(key)
+            # Logged once per (engine, source), at ERROR: this is not a
+            # per-request hiccup, it disables cache-aware routing outright for
+            # the life of the process. The individual loader warnings above say
+            # what failed; this says what it costs.
+            logger.error(
+                "kv-aware DEGRADED: no tokenizer for %s -- every request will "
+                "route with zero cache information, i.e. least-loaded, and "
+                "--kv-overlap-weight will have no effect. Point "
+                "--router-tokenizer-path at the same files the workers load "
+                "(the recipes mount the model volume into the server pod and "
+                "pass a local path, not a hub id).",
+                source,
+            )
+            return None
+        self._tokenizers[key] = tok
         return tok
 
     def _load(self, source: str, engine: EngineType | None) -> Any | None:
