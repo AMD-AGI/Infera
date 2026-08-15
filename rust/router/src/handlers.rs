@@ -45,10 +45,10 @@ pub fn app(state: AppState) -> Router {
         .route("/v1/workers", get(workers))
         .route("/v1/models", get(models))
         .route("/metrics", get(metrics))
-        // axum's 2 MiB default on the `Bytes` extractors above 413s long-context
-        // prompts the engines accept. Prompt size is `--context-length`'s job,
-        // and the Python backend imposes no limit of its own either.
-        .layer(DefaultBodyLimit::disable())
+        // axum's default 2 MiB cap on `Bytes` would 413 long-context prompts, but
+        // fully disabling the limit allows unbounded buffering into memory (DoS).
+        // Raise the limit enough for expected prompts; the engine still enforces `--context-length`.
+        .layer(DefaultBodyLimit::max(8 * 1024 * 1024))
         .with_state(state)
 }
 

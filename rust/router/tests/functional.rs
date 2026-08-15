@@ -167,7 +167,7 @@ async fn mixed_forwards_body_over_axum_default_limit() {
         0,
     );
     let router = spawn_router(state).await;
-    let prompt = "x".repeat(4 << 20);
+    let prompt = "x".repeat((2 << 20) + 4096);
 
     let resp = client()
         .post(format!("{router}/v1/chat/completions"))
