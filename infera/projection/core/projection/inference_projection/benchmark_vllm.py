@@ -427,6 +427,25 @@ def _free_llm(llm) -> None:
         pass
 
 
+def _speculative_config(args) -> "dict | None":
+    """vLLM ``speculative_config`` from the CLI, or None when not requested.
+
+    Returns None unless ``--speculative-method`` is given, so the default path is
+    byte-identical to the pre-speculative behaviour.
+    """
+    method = getattr(args, "speculative_method", None)
+    if not method:
+        return None
+    cfg = {"method": str(method)}
+    k = getattr(args, "speculative_num_tokens", None)
+    if k:
+        cfg["num_speculative_tokens"] = int(k)
+    draft = getattr(args, "speculative_draft_model", None)
+    if draft:
+        cfg["model"] = str(draft)
+    return cfg
+
+
 def _measure(llm, prompts, out_len: int, reps: int) -> float:
     """Best (min) wall time over ``reps`` runs of generating ``out_len`` tokens."""
     from vllm import SamplingParams
@@ -610,6 +629,7 @@ def run_vllm_benchmark(args) -> dict:
     target_tp = max(1, int(args.tp))
     target_pp = max(1, int(getattr(args, "pp", 1) or 1))
     target_ep = target_tp if args.enable_expert_parallel else 1
+    spec_config = _speculative_config(args)
     benchmark_gpus = getattr(args, "benchmark_gpus", None)
     bench_tp, bench_pp, bench_ep = _reduce_parallelism(
         target_tp, target_pp, target_ep, benchmark_gpus
@@ -650,6 +670,13 @@ def run_vllm_benchmark(args) -> dict:
         # single-rank (EP=1) grouped GEMM hides (FLOPs conserved under skew).
         if bench_ep > 1:
             kwargs["enable_expert_parallel"] = True
+        # Speculative decoding changes the tokens-emitted-per-step ratio, so the
+        # differenced decode timing below reports per-*output-token* latency with
+        # the draft acceptance already folded in — which is what a served TPOT
+        # measures. The acceptance rate is data- and model-dependent and cannot
+        # be derived analytically, hence the regime-defining classification.
+        if spec_config is not None:
+            kwargs["speculative_config"] = spec_config
         # The benchmark drives the engine purely with ``prompt_token_ids`` (never
         # text), so the tokenizer is unnecessary. Skipping its init avoids a hard
         # dependency on sentencepiece/tiktoken for models whose fast tokenizer
@@ -844,6 +871,12 @@ def run_vllm_benchmark(args) -> dict:
             "quantization": args.quantization,
             "kv_cache_dtype": args.kv_cache_dtype,
             "enforce_eager": args.enforce_eager,
+            # Speculative decoding is recorded explicitly (including the "off"
+            # case) so an anchor is never ambiguous about it: a missing key means
+            # "measured before this was tracked", which is not the same as "off".
+            "speculative_method": (spec_config or {}).get("method"),
+            "speculative_num_tokens": (spec_config or {}).get("num_speculative_tokens"),
+            "speculative_draft_model": (spec_config or {}).get("model"),
             "use_aiter": os.environ.get("VLLM_ROCM_USE_AITER", "0") == "1",
             "load_format": args.load_format,
             "real_weights": real_weights,
@@ -985,6 +1018,19 @@ def main():
                          "tensor-slicing each expert; exposes imbalance-sensitive "
                          "busiest-rank + all-to-all effects")
     ap.add_argument("--enforce-eager", action="store_true")
+    ap.add_argument("--speculative-method", default=None,
+                    help="speculative-decoding method, e.g. 'deepseek_mtp' "
+                         "(DeepSeek V3/R1 NextN head) or 'ngram'. Changes how "
+                         "many tokens a step emits, so it is regime-defining: "
+                         "an anchor measured without it cannot be transported "
+                         "to a target that uses it")
+    ap.add_argument("--speculative-num-tokens", type=int, default=None,
+                    help="draft tokens proposed per step (k). Bounded above by "
+                         "the checkpoint's num_nextn_predict_layers for "
+                         "'deepseek_mtp'")
+    ap.add_argument("--speculative-draft-model", default=None,
+                    help="draft model path for methods that need a separate "
+                         "checkpoint (unused for 'deepseek_mtp')")
     ap.add_argument("--no-aiter", action="store_true",
                     help="disable AMD AITER kernels (default: enabled on ROCm)")
     ap.add_argument("--routing-dist", default="zipf",

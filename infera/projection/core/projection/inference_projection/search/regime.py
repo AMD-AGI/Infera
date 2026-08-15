@@ -37,6 +37,13 @@ import json
 from typing import Any, Dict, Iterable, Optional
 
 # Regime-defining axes: differ on any of these → a different measured anchor.
+#
+# ``speculative`` is regime-defining rather than transportable because a
+# speculative step emits a variable number of tokens: per-output-token latency
+# becomes ``step_cost(batch * (k + 1)) / (1 + a + ... + a**k)``, and the
+# acceptance rate ``a`` depends on the model, the draft head and the data. There
+# is no way to derive ``a`` analytically from a non-speculative anchor, so a
+# target that speculates needs its own measurement.
 REGIME_AXES = (
     "model",
     "weight_dtype",
@@ -45,7 +52,12 @@ REGIME_AXES = (
     "attention_backend",
     "cudagraph",
     "aiter",
+    "speculative",
 )
+
+# Canonical value of the ``speculative`` axis when speculation is off. Distinct
+# from ``None``, which means "this artifact predates speculative tracking".
+SPECULATIVE_OFF = "off"
 
 # Transportable axes: reconstructed analytically from an anchor in the same
 # regime (the projector's restore + interpolation already implement these).
@@ -113,11 +125,47 @@ def regime_distance(
     d = 0
     for k in REGIME_AXES:
         av, bv = a.get(k), b.get(k)
-        if ignore_missing and (av is None or bv is None or av == "" or bv == ""):
+        missing = av is None or bv is None or av == "" or bv == ""
+        if k == "speculative" and missing:
+            # Asymmetric on purpose. An artifact with no recorded speculative
+            # setting predates the tracking, and everything measured then ran
+            # without speculation — so treating unknown as "off" is right when
+            # the other side is also off. The reverse is the dangerous case:
+            # silently reusing a non-speculative anchor for a speculating target
+            # under-predicts throughput by the whole acceptance factor, which is
+            # a large error that looks like a plausible number. Count it.
+            other = bv if (av is None or av == "") else av
+            if other and _canon(other) != SPECULATIVE_OFF:
+                d += 1
+            continue
+        if ignore_missing and missing:
             continue
         if _canon(av) != _canon(bv):
             d += 1
     return d
+
+
+def speculative_axis(
+    method: Optional[str], num_tokens: Optional[int] = None
+) -> Optional[str]:
+    """Canonical ``speculative`` axis value: ``None``, ``"off"`` or ``"spec:k"``.
+
+    ``None`` propagates as "unknown" (artifact predates the tracking); an
+    explicit absence of a method canonicalizes to :data:`SPECULATIVE_OFF`.
+
+    The *method* deliberately does not appear in the value. A structural
+    ``InferenceConfig`` has no notion of which draft head is used — it models
+    speculation as ``k`` plus an acceptance rate — so hashing the method name
+    would make every config-side target mismatch every benchmark-side anchor.
+    ``k`` is included because it changes the tokens emitted per step. The method
+    is still recorded in the artifact ``meta`` for provenance.
+    """
+    if method is None:
+        return None
+    m = str(method).strip().lower()
+    if not m or m in ("none", "off", "0", "false"):
+        return SPECULATIVE_OFF
+    return f"spec:{int(num_tokens)}" if num_tokens else "spec"
 
 
 # --------------------------------------------------------------------------
@@ -141,6 +189,15 @@ def recipe_from_meta(meta: Dict[str, Any], *, model: Optional[str] = None) -> Di
         "attention_backend": meta.get("attention_backend"),
         "cudagraph": "eager" if meta.get("enforce_eager") else "graph",
         "aiter": bool(meta.get("use_aiter")),
+        # Absent key => unknown (pre-tracking artifact), not "off".
+        "speculative": (
+            speculative_axis(
+                meta.get("speculative_method") or "",
+                meta.get("speculative_num_tokens"),
+            )
+            if "speculative_method" in meta
+            else None
+        ),
         # transport (benchmark space)
         "tp": meta.get("benchmark_tp") or meta.get("tp"),
         "pp": meta.get("benchmark_pp") or meta.get("pp"),
@@ -169,6 +226,10 @@ def recipe_from_bench_args(args: Any, env: Optional[Dict[str, str]] = None) -> D
         "attention_backend": None,
         "cudagraph": "eager" if getattr(args, "enforce_eager", False) else "graph",
         "aiter": aiter_on,
+        "speculative": speculative_axis(
+            getattr(args, "speculative_method", None) or "",
+            getattr(args, "speculative_num_tokens", None),
+        ),
         "tp": getattr(args, "tp", 1),
         "pp": getattr(args, "pp", 1),
         "ep": ep,
@@ -203,6 +264,10 @@ def recipe_from_inference_config(cfg: Any) -> Dict[str, Any]:
         "attention_backend": g(req, "attention_backend"),
         "cudagraph": _cudagraph_from_mode(g(req, "cudagraph_mode")),
         "aiter": None,  # not represented on the config side; ignored in distance
+        "speculative": speculative_axis(
+            "spec" if g(req, "speculative_num_tokens") else "",
+            g(req, "speculative_num_tokens"),
+        ),
         "tp": tp,
         "pp": int(g(mp, "pipeline_model_parallel_size", 1) or 1),
         "ep": ep,

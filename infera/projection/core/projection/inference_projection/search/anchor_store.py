@@ -27,11 +27,17 @@ Design choices (v1, deliberately simple and greppable):
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
 from . import regime
+
+
+def _axes_version() -> str:
+    """Short fingerprint of the regime axis set an index was written under."""
+    return hashlib.sha256(",".join(regime.REGIME_AXES).encode()).hexdigest()[:12]
 
 
 class AnchorStore:
@@ -46,17 +52,49 @@ class AnchorStore:
     # -- persistence -----------------------------------------------------------
 
     def _load_index(self) -> None:
-        if os.path.exists(self.index_path):
+        if not os.path.exists(self.index_path):
+            return
+        try:
+            with open(self.index_path) as f:
+                doc = json.load(f)
+        except (OSError, ValueError):
+            self._entries = []
+            return
+        self._entries = doc.get("anchors", [])
+        # Signatures and per-entry regime dicts are only comparable within one
+        # definition of the regime axes. When an axis is added, an index written
+        # by the older definition describes each anchor on fewer axes than a
+        # fresh recipe does, so it is re-derived from the artifacts rather than
+        # silently compared against the new axis set.
+        if doc.get("axes_version") != _axes_version():
+            self._rebuild_entries()
+
+    def _rebuild_entries(self) -> None:
+        """Re-derive every entry from its artifact under the current axis set."""
+        rebuilt = []
+        for entry in self._entries:
+            path = entry.get("path")
+            if not path or not os.path.exists(path):
+                continue
             try:
-                with open(self.index_path) as f:
-                    self._entries = json.load(f).get("anchors", [])
+                with open(path) as f:
+                    art = json.load(f)
             except (OSError, ValueError):
-                self._entries = []
+                continue
+            # A signature stamped by an older axis set is stale by definition.
+            art.get("meta", {}).pop("regime_signature", None)
+            rebuilt.append(self._make_entry(os.path.abspath(path), art))
+        self._entries = rebuilt
+        self._save_index()
 
     def _save_index(self) -> None:
         os.makedirs(self.root, exist_ok=True)
         with open(self.index_path, "w") as f:
-            json.dump({"anchors": self._entries}, f, indent=2)
+            json.dump(
+                {"axes_version": _axes_version(), "anchors": self._entries},
+                f,
+                indent=2,
+            )
 
     # -- ingestion -------------------------------------------------------------
 
