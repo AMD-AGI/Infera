@@ -26,7 +26,7 @@ LOGGING_BANNER = ">>>>>>>>>>"
 # "[<cyan>{name}</cyan>:<cyan>{function}</cyan>:<yellow>{line}</yellow>]: <level>{message}</level>"
 # "[<cyan>{name}</cyan>:<cyan>{function}</cyan>:<yellow>{line}</yellow>]: <level>{message}</level>"
 master_stderr_sink_format = (
-    "<blue>(PrimusMaster  pid={process}) </>"
+    "<blue>(InferaSimMaster  pid={process}) </>"
     "[<green>{time:YYYYMMDD HH:mm:ss}</>]"
     "[<cyan>node-{extra[rank]}/{extra[world_size]}</>]"
     "<level>{extra[level_padded]}</level>"
@@ -39,7 +39,7 @@ stderr_sink_format = (
     "<level>{message}</level>"
 )
 master_file_sink_format = (
-    "<blue>(PrimusMaster  pid={process}, ip={extra[node_ip]}) </>"
+    "<blue>(InferaSimMaster  pid={process}, ip={extra[node_ip]}) </>"
     "[<green>{time:YYYYMMDD HH:mm:ss}</>]"
     "[<blue>{extra[user]}/{extra[team]}</>]"
     "[<magenta>{extra[module_name]: <11}</>]"
@@ -224,7 +224,7 @@ def setup_logger(
 
         This handler adds module location formatting ([module.py:line])
         to all intercepted logs, ensuring consistent format across both
-        Primus code and third-party libraries (like Megatron).
+        first-party code and third-party libraries (like Megatron).
         """
 
         def emit(self, record):

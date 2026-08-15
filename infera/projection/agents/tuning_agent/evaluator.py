@@ -81,7 +81,7 @@ class EvalResult:
 
 
 def _build_pipeline_layout(num_layers: int, pp: int, vpp: int) -> str | None:
-    """Build a Primus ``pipeline_model_parallel_layout`` string for the
+    """Build a ``pipeline_model_parallel_layout`` string for the
     given (pp, vpp) split of ``num_layers``.
 
     Output format matches the published DeepSeek V3 reference:
@@ -152,9 +152,9 @@ def write_trial_yaml(arch: ArchitectureRecord, cfg: TrialConfig, out_dir: Path, 
     overrides["expert_model_parallel_size"] = cfg.ep
     overrides["context_parallel_size"] = cfg.cp
     if cfg.vpp is not None:
-        # Primus's projection reads ``virtual_pipeline_model_parallel_size``
+        # The projection reads ``virtual_pipeline_model_parallel_size``
         # (Megatron-LM core API), while the runtime trainer reads
-        # ``num_virtual_stages_per_pipeline_rank`` (Primus's own override).
+        # ``num_virtual_stages_per_pipeline_rank`` (its own override).
         # Set both to keep them coherent across projection + benchmark.
         overrides["num_virtual_stages_per_pipeline_rank"] = cfg.vpp
         overrides["virtual_pipeline_model_parallel_size"] = cfg.vpp
@@ -233,7 +233,7 @@ def write_trial_yaml(arch: ArchitectureRecord, cfg: TrialConfig, out_dir: Path, 
         overrides["fp8"] = cfg.fp8
 
     # Multi-Latent-Attention models (DeepSeek V2/V3, Kimi-K2, Qwen-V2) auto-
-    # enable ``use_turbo_parallel_linear`` inside Primus's projection. Two
+    # enable ``use_turbo_parallel_linear`` inside the projection. Two
     # things go wrong on the v26.2 container ``primus_turbo==0.2.0``:
     #   * The default ``fp8_recipe: delayed`` is incompatible with that path
     #     (``primus/modules/trainer/megatron/utils.py:464`` asserts).
@@ -263,7 +263,7 @@ def write_trial_yaml(arch: ArchitectureRecord, cfg: TrialConfig, out_dir: Path, 
         overrides["recompute_num_layers"] = cfg.recompute_num_layers or 1
         # Some workload yamls (DeepSeek V3) ship a more granular
         # ``recompute_layer_ids`` (a comma-separated string of layer
-        # indices) which Primus's arg parser then asserts must be a real
+        # indices) which the arg parser then asserts must be a real
         # YAML list. The agent's recompute_num_layers replaces that
         # finer-grained list, so drop it when we're driving the recompute
         # strategy.
@@ -313,7 +313,7 @@ _RE_BENCH_POINT = re.compile(rf"Point estimate \(per rank\):\s*{_FLOAT}\s*GB", r
 _RE_BENCH_UPPER = re.compile(rf"Upper bound\s*\(per rank\):\s*{_FLOAT}\s*GB", re.IGNORECASE)
 _RE_ITER_MS = re.compile(rf"Iteration Time:\s*{_FLOAT}\s*ms", re.IGNORECASE)
 _RE_TPS = re.compile(rf"Tokens/s/GPU:\s*{_FLOAT}", re.IGNORECASE)
-# Primus's projection prints both "TFLOPs/s/GPU" and "TFLOP/s/GPU" depending
+# The projection prints both "TFLOPs/s/GPU" and "TFLOP/s/GPU" depending
 # on version and output source.
 _RE_TFLOPS = re.compile(rf"TFLOPs?/s/GPU:\s*{_FLOAT}", re.IGNORECASE)
 _RE_MFU = re.compile(rf"\bMFU(?:\s*\(.*?\))?:\s*{_FLOAT}", re.IGNORECASE)
@@ -361,9 +361,9 @@ def _parse_metrics(stdout: str) -> dict:
 
 
 def _python_invoker(
-    primus_root: Path, profiling_mode: str | None = None, nproc_per_node: int | None = None
+    config_root: Path, profiling_mode: str | None = None, nproc_per_node: int | None = None
 ) -> list[str]:
-    """Pick how to invoke `primus/cli/main.py`.
+    """Pick how to invoke the projector CLI (the ``cli/main.py`` shim).
 
     For ``simulate`` (and ``memory``) we use ``sys.executable`` directly so
     Origami / memory analytics run in a single process. For ``benchmark``
@@ -373,7 +373,7 @@ def _python_invoker(
     """
     import sys as _sys
 
-    main_py = str(primus_root / "_tuning_shim" / "main.py")
+    main_py = str(config_root / "_tuning_shim" / "main.py")
     if profiling_mode == "benchmark" and nproc_per_node and nproc_per_node > 0:
         return [
             _sys.executable,
@@ -392,7 +392,7 @@ def _build_perf_cmd(
     cfg: TrialConfig,
     agent_cfg: AgentConfig,
     profiling_mode: str,
-    primus_root: Path,
+    config_root: Path,
     *,
     save_benchmark: Path | None = None,
 ) -> list[str]:
@@ -402,7 +402,7 @@ def _build_perf_cmd(
         else agent_cfg.target_cluster.gpus_per_node
     )
     cmd: list[str] = [
-        *_python_invoker(primus_root, profiling_mode=profiling_mode, nproc_per_node=bench_gpus),
+        *_python_invoker(config_root, profiling_mode=profiling_mode, nproc_per_node=bench_gpus),
         "projection",
         "performance",
         "--config",
@@ -431,7 +431,7 @@ def _build_perf_cmd(
     cmd += ["--micro-batch-size", str(cfg.mbs)]
     cmd += ["--global-batch-size", str(cfg.gbs)]
 
-    # Tier-A optimisations from the Primus Projection skill — these have
+    # Tier-A optimisations from the projection guidelines — these have
     # CLI flags on `projection performance` that take precedence over yaml
     # overrides (so we pass them explicitly even when the yaml carries the
     # corresponding key, to make the agent's signature self-describing).
@@ -450,7 +450,7 @@ def _build_memory_cmd(
     yaml_path: Path,
     cfg: TrialConfig,
     agent_cfg: AgentConfig,
-    primus_root: Path,
+    config_root: Path,
     *,
     memory_mode: str = "simulate",
     load_benchmark: Path | None = None,
@@ -464,7 +464,7 @@ def _build_memory_cmd(
     the agent gets *bench-anchored* memory without paying for two benches).
     """
     cmd: list[str] = [
-        *_python_invoker(primus_root),
+        *_python_invoker(config_root),
         "projection",
         "memory",
         "--config",
@@ -525,7 +525,7 @@ def _build_inference_cmd(
     yaml_path: Path,
     cfg,
     agent_cfg: AgentConfig,
-    primus_root: Path,
+    config_root: Path,
     load_benchmark: Path | None = None,
     profiling_mode: str | None = None,
     bench_gpus: int | None = None,
@@ -537,7 +537,7 @@ def _build_inference_cmd(
     # artifact (one measurement per parallelism, reused across all serving-knob
     # trials) skips the spawn and just calibrates.
     cmd: list[str] = [
-        *_python_invoker(primus_root),
+        *_python_invoker(config_root),
         "projection", "inference",
         "--config", str(yaml_path),
         "--inference-mode", "both",
@@ -620,7 +620,7 @@ def _build_inference_cmd(
     return cmd
 
 
-def _build_env(agent_cfg: AgentConfig, primus_root: Path, profiling_mode: str | None = None) -> dict:
+def _build_env(agent_cfg: AgentConfig, config_root: Path, profiling_mode: str | None = None) -> dict:
     env = os.environ.copy()
     # For memory + simulate: pass the real target-cluster shape so
     # `projection memory`'s ``get_dp_size`` doesn't enter the "recompute min
@@ -639,29 +639,26 @@ def _build_env(agent_cfg: AgentConfig, primus_root: Path, profiling_mode: str | 
     env.setdefault("HSA_NO_SCRATCH_RECLAIM", "1")
     env["INFERASIM_GPU_ARCH"] = agent_cfg.target_cluster.gpu_arch
 
-    # PYTHONPATH discipline: the subprocess runs the OUTER ``primus/cli/
-    # main.py`` and only needs ``primus_root`` on the path.  When the agent
-    # is launched with the tuning-agent subtree on PYTHONPATH (so it can
-    # import its own modules), that subtree contains a *nested* ``primus/``
-    # package — without forcing primus_root to the front of PYTHONPATH and
-    # stripping any nested "primus/agents/tuning-agent" entries, the inner
-    # nested copy shadows the outer one and the subprocess imports stale
-    # CLI modules (e.g. one that doesn't know ``--save-benchmark``).  Fix:
-    # always put primus_root first; drop any path under the tuning-agent
-    # subtree.
+    # PYTHONPATH discipline: the subprocess runs the ``cli/main.py`` shim and
+    # only needs ``config_root`` on the path.  When the agent is launched with
+    # the tuning-agent subtree on PYTHONPATH (so it can import its own modules),
+    # a stale nested copy of the package there could shadow the outer one and
+    # make the subprocess import stale CLI modules (e.g. one that doesn't know
+    # ``--save-benchmark``).  Fix: always put config_root first; drop any path
+    # under the tuning-agent subtree.
     sep = os.pathsep
     py_path = env.get("PYTHONPATH", "")
     parts = [p for p in py_path.split(sep) if p]
     inner_marker = str(Path("agents") / "tuning_agent")
     parts = [p for p in parts if inner_marker not in p]
-    parts = [p for p in parts if Path(p) != Path(primus_root)]
-    parts.insert(0, str(primus_root))
+    parts = [p for p in parts if Path(p) != Path(config_root)]
+    parts.insert(0, str(config_root))
     # The spawned projector runs the ``_tuning_shim/main.py`` shim, which imports
     # ``infera.projection.cli``. Ensure the Infera repo root (the dir that
-    # contains the ``infera`` package) is importable. primus_root is
+    # contains the ``infera`` package) is importable. config_root is
     # <repo>/infera/projection, so parents[1] is <repo>.
     try:
-        infera_root = Path(primus_root).resolve().parents[1]
+        infera_root = Path(config_root).resolve().parents[1]
         if (infera_root / "infera" / "__init__.py").exists():
             parts.append(str(infera_root))
     except IndexError:
@@ -753,9 +750,9 @@ class Evaluator:
 
     ``mode`` selects how candidates are scored:
 
-    * ``"dry"`` — never call ``primus-cli``; both memory and tps are
-      synthesised. Useful for testing the agent loop on hosts without a Primus
-      install.
+    * ``"dry"`` — never call the projector CLI; both memory and tps are
+      synthesised. Useful for testing the agent loop on hosts without a
+      projector install.
     * ``"memory-real"`` — call ``projection memory`` for real (no GPU
       required), then synthesise a tokens/s/GPU heuristic from the measured
       memory + parallelism axes. Useful when ``projection performance``
@@ -769,13 +766,13 @@ class Evaluator:
         self,
         agent_cfg: AgentConfig,
         arch: ArchitectureRecord,
-        primus_root: Path,
+        config_root: Path,
         dry_run: bool = False,
         mode: str = "full",
     ):
         self.cfg = agent_cfg
         self.arch = arch
-        self.primus_root = primus_root
+        self.config_root = config_root
         # ``dry_run`` is kept for back-compat with earlier callers.
         if dry_run:
             mode = "dry"
@@ -949,13 +946,13 @@ class Evaluator:
         decode_floor = self._resolve_decode_floor(cfg) if is_bench else None
 
         cmd = _build_inference_cmd(
-            yaml_path, cfg, self.cfg, self.primus_root,
+            yaml_path, cfg, self.cfg, self.config_root,
             load_benchmark=load_bench, profiling_mode=profiling_mode, bench_gpus=bench_gpus,
             decode_floor=decode_floor,
         )
         rc, out, dur = _run(
-            cmd, cwd=self.primus_root,
-            env=_build_env(self.cfg, self.primus_root,
+            cmd, cwd=self.config_root,
+            env=_build_env(self.cfg, self.config_root,
                            profiling_mode=("benchmark" if profiling_mode else None)),
             timeout=(3600 if profiling_mode == "benchmark" else 600),
         )
@@ -1009,7 +1006,7 @@ class Evaluator:
             return result
 
         if self.mode == "dry":
-            # synthesise a metric so the loop is testable without primus-cli
+            # synthesise a metric so the loop is testable without the projector CLI
             result.memory_per_gpu_gb = 100.0
             result.tokens_per_s_per_gpu = 1000.0 + (cfg.tp + cfg.pp + cfg.ep)
             result.iteration_ms = 1000.0
@@ -1026,9 +1023,9 @@ class Evaluator:
             return self._evaluate_benchmark(cfg, tag, yaml_path, result)
 
         # 1. memory (cheap, always run for legality + headroom check)
-        mem_cmd = _build_memory_cmd(yaml_path, cfg, self.cfg, self.primus_root)
+        mem_cmd = _build_memory_cmd(yaml_path, cfg, self.cfg, self.config_root)
         rc, out, dur = _run(
-            mem_cmd, cwd=self.primus_root, env=_build_env(self.cfg, self.primus_root), timeout=300
+            mem_cmd, cwd=self.config_root, env=_build_env(self.cfg, self.config_root), timeout=300
         )
         self.n_memory_calls += 1
         result.cmd = mem_cmd
@@ -1054,7 +1051,7 @@ class Evaluator:
         # memory cap enforcement
         #
         # Caveat for `recompute_granularity in {"selective", "none", None}`:
-        # Primus's analytic memory model only models ``full`` recompute
+        # the analytic memory model only models ``full`` recompute
         # (see core/projection/module_profilers/language_model.py:504). For
         # ``selective`` and ``none`` it stores **all** per-layer activations,
         # which over-counts vs. real Megatron runs (selective saves ~50%
@@ -1106,11 +1103,11 @@ class Evaluator:
         # 2. performance (simulate path only — benchmark goes through
         # ``_evaluate_benchmark`` via the early-return above).
         profiling_mode = "simulate"
-        perf_cmd = _build_perf_cmd(yaml_path, cfg, self.cfg, profiling_mode, self.primus_root)
+        perf_cmd = _build_perf_cmd(yaml_path, cfg, self.cfg, profiling_mode, self.config_root)
         rc2, out2, dur2 = _run(
             perf_cmd,
-            cwd=self.primus_root,
-            env=_build_env(self.cfg, self.primus_root, profiling_mode=profiling_mode),
+            cwd=self.config_root,
+            env=_build_env(self.cfg, self.config_root, profiling_mode=profiling_mode),
             timeout=600,
         )
         self.n_simulate_calls += 1
@@ -1156,13 +1153,13 @@ class Evaluator:
                 cfg,
                 self.cfg,
                 "benchmark",
-                self.primus_root,
+                self.config_root,
                 save_benchmark=artifact,
             )
             rc1, out1, dur1 = _run(
                 perf_cmd,
-                cwd=self.primus_root,
-                env=_build_env(self.cfg, self.primus_root, profiling_mode="benchmark"),
+                cwd=self.config_root,
+                env=_build_env(self.cfg, self.config_root, profiling_mode="benchmark"),
                 timeout=3600,
             )
             self.n_benchmark_calls += 1
@@ -1191,18 +1188,18 @@ class Evaluator:
                 yaml_path,
                 cfg,
                 self.cfg,
-                self.primus_root,
+                self.config_root,
                 memory_mode="benchmark",
                 load_benchmark=artifact,
                 safety_margin=self.cfg.optimization.memory_safety_margin,
             )
             rc2, out2, dur2 = _run(
                 mem_cmd,
-                cwd=self.primus_root,
+                cwd=self.config_root,
                 # Memory-from-artifact path doesn't need megatron; pass
                 # default env (NNODES=target so projection sees the right
                 # cluster shape for analytical extrapolation).
-                env=_build_env(self.cfg, self.primus_root),
+                env=_build_env(self.cfg, self.config_root),
                 timeout=300,
             )
             self.n_memory_calls += 1

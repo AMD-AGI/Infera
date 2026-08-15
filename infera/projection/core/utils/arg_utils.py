@@ -5,7 +5,7 @@
 ###############################################################################
 
 """
-Argument parsing utilities for Primus CLI.
+Argument parsing utilities for the InferaSim CLI.
 """
 
 import ast

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from typing import Any, Dict, List, Tuple
 
 from infera.projection.core.config.preset_loader import PresetLoader
-from infera.projection.core.launcher.config import PrimusConfig
+from infera.projection.core.launcher.config import InferaSimConfig
 from infera.projection.core.utils import constant_vars, yaml_utils
 from infera.projection.core.utils.arg_utils import parse_cli_overrides
 
@@ -65,7 +65,7 @@ def add_posttrain_parser(parser: argparse.ArgumentParser):
 
 
 def _parse_args(extra_args_provider=None, ignore_unknown_args=False) -> Tuple[argparse.Namespace, List[str]]:
-    parser = argparse.ArgumentParser(description="Primus Arguments", allow_abbrev=False)
+    parser = argparse.ArgumentParser(description="InferaSim Arguments", allow_abbrev=False)
     parser = _add_common_train_args(parser, include_data_path=False)
 
     # Custom arguments.
@@ -130,20 +130,20 @@ def _split_known_unknown(ns: SimpleNamespace, overrides: dict) -> Tuple[dict, di
 def parse_args(extra_args_provider=None, ignore_unknown_args=False):
     args, unknown_args = _parse_args(extra_args_provider, ignore_unknown_args=True)
 
-    config_parser = PrimusParser()
-    primus_config = config_parser.parse(args)
+    config_parser = InferaSimParser()
+    config = config_parser.parse(args)
 
     overrides = parse_cli_overrides(unknown_args, type_mode="legacy")
-    pre_trainer_cfg = primus_config.get_module_config("pre_trainer")
+    pre_trainer_cfg = config.get_module_config("pre_trainer")
     _check_keys_exist(pre_trainer_cfg, overrides)
     _deep_merge_namespace(pre_trainer_cfg, overrides)
 
-    return primus_config
+    return config
 
 
-def _load_legacy_primus_config(args: argparse.Namespace, overrides: List[str]) -> Tuple[Any, Dict[str, Any]]:
+def _load_config(args: argparse.Namespace, overrides: List[str]) -> Tuple[Any, Dict[str, Any]]:
     """
-    Build the Primus configuration with optional command-line overrides.
+    Build the configuration with optional command-line overrides.
 
     Args:
         args: Parsed CLI arguments.
@@ -151,21 +151,17 @@ def _load_legacy_primus_config(args: argparse.Namespace, overrides: List[str]) -
                    ["training.steps", "1000", "optimizer.lr", "0.001"]
 
     Returns:
-        The merged Primus configuration namespace.
+        The merged configuration namespace.
     """
     # 1 Parse the base config from args
-    config_parser = PrimusParser()
-    primus_config = config_parser.parse(args)
+    config_parser = InferaSimParser()
+    config = config_parser.parse(args)
 
     # 2 Parse overrides from flat list to dict/namespace
     override_ns = parse_cli_overrides(overrides, type_mode="legacy")
 
     # 3 Apply overrides to pre_trainer module config
-    pre_trainer_cfg = primus_config.get_module_config("pre_trainer")
-    # _check_keys_exist(pre_trainer_cfg, override_ns)
-    # _deep_merge_namespace(pre_trainer_cfg, override_ns)
-
-    # return primus_config
+    pre_trainer_cfg = config.get_module_config("pre_trainer")
     known_overrides, unknown_overrides = _split_known_unknown(pre_trainer_cfg, override_ns)
 
     if known_overrides:
@@ -174,30 +170,26 @@ def _load_legacy_primus_config(args: argparse.Namespace, overrides: List[str]) -
     if unknown_overrides:
         print(f"[inferasim] Detected unknown override keys: {list(unknown_overrides.keys())}")
 
-    return primus_config, unknown_overrides
+    return config, unknown_overrides
 
 
-def load_primus_config(args: argparse.Namespace, overrides: List[str]) -> Tuple[Any, Dict[str, Any]]:
-    """
-    Legacy compatibility API.
-
-    Prefer `primus.core.config.primus_config.load_primus_config` in new code.
-    """
-    return _load_legacy_primus_config(args, overrides)
+def load_config(args: argparse.Namespace, overrides: List[str]) -> Tuple[Any, Dict[str, Any]]:
+    """Parse the experiment config and apply CLI overrides."""
+    return _load_config(args, overrides)
 
 
-class PrimusParser(object):
+class InferaSimParser(object):
     def __init__(self):
         pass
 
-    def parse(self, cli_args: argparse.Namespace) -> PrimusConfig:
+    def parse(self, cli_args: argparse.Namespace) -> InferaSimConfig:
         exp_yaml_cfg = cli_args.config
-        self.primus_home = Path(os.path.dirname(__file__)).parent.parent.absolute()
+        self.config_home = Path(os.path.dirname(__file__)).parent.parent.absolute()
         self.parse_exp(exp_yaml_cfg)
         self.parse_meta_info()
         self.parse_platform()
         self.parse_modules()
-        return PrimusConfig(cli_args, self.exp)
+        return InferaSimConfig(cli_args, self.exp)
 
     def parse_exp(self, config_file: str):
         self.exp = yaml_utils.parse_yaml_to_namespace(config_file)
@@ -218,7 +210,7 @@ class PrimusParser(object):
             )
 
         # Load platform config
-        config_path = os.path.join(self.primus_home, "configs/platforms", self.exp.platform.config)
+        config_path = os.path.join(self.config_home, "configs/platforms", self.exp.platform.config)
         platform_config = yaml_utils.parse_yaml_to_namespace(config_path)
         platform_config.config = self.exp.platform.config
 
@@ -267,7 +259,7 @@ class PrimusParser(object):
 
         # If we only have a model but no config, assume this module has already
         # been flattened (e.g., from a previously exported config) and skip
-        # re-processing. This allows PrimusParser.export → parse cycles.
+        # re-processing. This allows InferaSimParser.export → parse cycles.
         if not has_config and has_model:
             return
 
@@ -320,7 +312,7 @@ class PrimusParser(object):
 
     def export(self, export_path):
         """
-        Export the merged Primus config (exp) to YAML.
+        Export the merged config (exp) to YAML.
         """
         path = Path(export_path).resolve()
         path.parent.mkdir(parents=True, exist_ok=True)

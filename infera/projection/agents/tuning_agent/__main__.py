@@ -1,4 +1,4 @@
-"""`python -m primus.agents.tuning_agent` entry point."""
+"""`python -m infera.projection.agents.tuning_agent` entry point."""
 
 from .cli import main
 

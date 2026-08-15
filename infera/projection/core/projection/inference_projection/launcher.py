@@ -3,7 +3,7 @@
 #
 # See LICENSE for license information.
 ###############################################################################
-"""CLI launcher for ``primus projection inference``."""
+"""CLI launcher for ``inferasim projection inference``."""
 
 from __future__ import annotations
 
@@ -11,9 +11,9 @@ import os
 from pathlib import Path
 from typing import Dict
 
-from infera.projection.core.launcher.parser import load_primus_config
+from infera.projection.core.launcher.parser import load_config
 from infera.projection.core.projection.training_config import (
-    convert_primus_config_to_inference_config,
+    convert_config_to_inference_config,
 )
 
 from .memory import project_inference_memory
@@ -441,12 +441,12 @@ def _print_des(des: Dict[str, object]) -> None:
 
 
 def launch_projection_from_cli(args, overrides):
-    """Entry point for ``primus projection inference``."""
+    """Entry point for ``inferasim projection inference``."""
     cfg_path = Path(args.config)
     if not cfg_path.exists():
         raise FileNotFoundError(f"[inferasim:Inference] Config file '{cfg_path}' not found.")
 
-    primus_config, _unknown = load_primus_config(args, overrides or [])
+    config, _unknown = load_config(args, overrides or [])
 
     # Internal: this process *is* the GPU benchmark worker (spawned under
     # torchrun by the parent). Build the real model, time forward-only layers,
@@ -454,12 +454,12 @@ def launch_projection_from_cli(args, overrides):
     if getattr(args, "inference_bench_worker", False):
         from .benchmark import run_inference_benchmark_worker
 
-        run_inference_benchmark_worker(primus_config, _unknown, args)
+        run_inference_benchmark_worker(config, _unknown, args)
         return {}
 
     inf_overrides = _collect_inference_overrides(args)
-    inference_config = convert_primus_config_to_inference_config(
-        primus_config, inference_overrides=inf_overrides
+    inference_config = convert_config_to_inference_config(
+        config, inference_overrides=inf_overrides
     )
 
     # Serving weight precision drives the *compute* GEMM dtype, not just the

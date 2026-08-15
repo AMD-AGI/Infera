@@ -12,8 +12,7 @@ AMD GPUs (part of the ROCm ecosystem).  It predicts kernel execution time
 based on matrix dimensions, data type, tile configuration, and hardware
 characteristics.
 
-This is the **default** backend for GEMM simulation in Primus performance
-projection.
+This is the **default** backend for GEMM simulation in performance projection.
 
 Installation:
     pip install git+https://github.com/ROCm/rocm-libraries.git#subdirectory=shared/origami/python
@@ -111,7 +110,7 @@ _ROOFLINE_MEM_EFF = 0.70
 _ROOFLINE_COMPUTE_EFF = 0.40
 
 # ---------------------------------------------------------------------------
-# Dtype mapping:  Primus string  →  origami datatype string
+# Dtype mapping:  config dtype string  →  origami datatype string
 # (origami.string_to_datatype accepts these short-hand names)
 # ---------------------------------------------------------------------------
 _DTYPE_MAP: Dict[str, str] = {

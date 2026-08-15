@@ -80,7 +80,7 @@ class TargetCluster:
     num_nodes: int = 1
     gpus_per_node: int = 8
     gpu_arch: str = "mi355x"
-    hardware_config: str | None = None  # path to existing primus hardware yaml
+    hardware_config: str | None = None  # path to existing hardware yaml
     gpu_clock_mhz: int | None = None
 
 

@@ -5,7 +5,7 @@
 ###############################################################################
 
 # yaml configs
-INFERASIM_CONFIG_NAME = "PrimusConfig"
+INFERASIM_CONFIG_NAME = "InferaSimConfig"
 
 # local platform
 LOCAL_NUM_NODES = 1

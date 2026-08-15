@@ -1,16 +1,16 @@
 """Command-line entry point.
 
 Usage:
-    python -m primus.agents.tuning_agent \
+    python -m infera.projection.agents.tuning_agent \
         --workload examples/megatron/configs/MI355X/mixtral_8x22B_v0.1-BF16-pretrain.yaml \
         --target-cluster examples/agents/tuning_agent/target_cluster.yaml \
         [--out-dir tuning_runs/mi355x-2nodes] \
         [--dry-run] [--seed-only] [--no-agent]
 
 Sub-modes:
-    --mode dry           synthesise metrics; never call primus-cli (good
+    --mode dry           synthesise metrics; never call the projector CLI (good
                          for testing the agent loop on hosts without a
-                         Primus / torch / origami install).
+                         torch / origami install).
     --mode memory-real   call ``projection memory`` for real (no GPU
                          needed) and synthesise tps from a memory + axes
                          heuristic. Use when ``projection performance``
@@ -40,7 +40,7 @@ from .legality import derive_legality
 from .plan import build_seed_plan
 from .plotting import plot_history
 from .scratchpad import Scratchpad
-from .workload import _find_primus_root, resolve_workload
+from .workload import _find_config_root, resolve_workload
 
 
 class _NS:
@@ -59,13 +59,13 @@ class _NS:
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        prog="primus.agents.tuning_agent",
+        prog="infera.projection.agents.tuning_agent",
         description=(
-            "LLM-driven search for an optimal Primus training configuration "
+            "LLM-driven search for an optimal training configuration "
             "(parallelism plus batching, schedule, memory, MoE-comm, and precision knobs)."
         ),
     )
-    p.add_argument("--workload", required=True, type=Path, help="Path to a Primus pretrain YAML.")
+    p.add_argument("--workload", required=True, type=Path, help="Path to a pretrain YAML.")
     p.add_argument("--target-cluster", required=True, type=Path, help="Path to target_cluster.yaml.")
     p.add_argument(
         "--out-dir", type=Path, default=None, help="Output directory for trials, plot, scratchpad."
@@ -110,7 +110,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     return p.parse_args(argv)
 
 
-def _run_inference(args, agent_cfg, arch, primus_root) -> int:
+def _run_inference(args, agent_cfg, arch, config_root) -> int:
     """Inference / serving tuning loop.
 
     Two stages (mirrors the training path):
@@ -138,7 +138,7 @@ def _run_inference(args, agent_cfg, arch, primus_root) -> int:
     history = History.load(history_path)
     scratchpad = Scratchpad(scratchpad_path)
     eval_mode = "dry" if args.dry_run else args.mode
-    evaluator = Evaluator(agent_cfg, arch, primus_root, mode=eval_mode)
+    evaluator = Evaluator(agent_cfg, arch, config_root, mode=eval_mode)
 
     leg = derive_inference_legality(arch, agent_cfg.target_cluster)
     print(f"[tuning-agent] MODE: inference  objective={objective} ({direction})")
@@ -261,14 +261,14 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     agent_cfg = load_config(target_cluster_yaml, workload_yaml, out_dir=args.out_dir)
-    primus_root = _find_primus_root(workload_yaml)
+    config_root = _find_config_root(workload_yaml)
 
     # ── resolve workload ────────────────────────────────────────────────
     print(f"[tuning-agent] workload:        {workload_yaml}")
     print(f"[tuning-agent] target cluster:  {target_cluster_yaml}")
     print(f"[tuning-agent] out dir:         {agent_cfg.out_dir}")
-    print(f"[tuning-agent] primus root:     {primus_root}")
-    arch = resolve_workload(workload_yaml, primus_root=primus_root)
+    print(f"[tuning-agent] repo root:       {config_root}")
+    arch = resolve_workload(workload_yaml, config_root=config_root)
     print(
         f"[tuning-agent] resolved model:  {arch.model_name} "
         f"(layers={arch.num_layers}, hidden={arch.hidden_size}, "
@@ -279,7 +279,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.inference:
         agent_cfg.optimization.mode = "inference"
     if agent_cfg.optimization.mode == "inference":
-        return _run_inference(args, agent_cfg, arch, primus_root)
+        return _run_inference(args, agent_cfg, arch, config_root)
 
     legality = derive_legality(arch, agent_cfg.target_cluster)
     print(
@@ -303,7 +303,7 @@ def main(argv: list[str] | None = None) -> int:
     history = History.load(history_path)
     scratchpad = Scratchpad(scratchpad_path)
     eval_mode = "dry" if args.dry_run else args.mode
-    evaluator = Evaluator(agent_cfg, arch, primus_root, mode=eval_mode)
+    evaluator = Evaluator(agent_cfg, arch, config_root, mode=eval_mode)
     print(f"[tuning-agent] evaluator mode:  {eval_mode}")
     print(f"[tuning-agent] profiling mode:  {args.profiling_mode}")
     if args.profiling_mode == "benchmark" and not agent_cfg.benchmark_host.has_gpu:
@@ -330,7 +330,7 @@ def main(argv: list[str] | None = None) -> int:
         if eval_mode == "full" and args.profiling_mode == "benchmark":
             # Benchmark mode: skip the strict simulate-mode memory pre-filter
             # and let `evaluate_benchmark` apply its advisory check (which
-            # accounts for Primus's analytic memory model NOT honouring
+            # accounts for the analytic memory model NOT honouring
             # selective recompute — see evaluator.py for details). The actual
             # GPU run is the ground truth: real OOM => FAIL, real success
             # => trustworthy tps even if the analytic model said no.
@@ -403,7 +403,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  → MFU          = {best.result.get('mfu')}")
     print(f"  → memory/GPU   = {best.result.get('memory_per_gpu_gb')} GB")
 
-    print("\n=== EXPORTS for primus-cli ===")
+    print("\n=== EXPORTS for inferasim ===")
     print(f"  export INFERASIM_TP={cfg.get('tp')}")
     print(f"  export INFERASIM_PP={cfg.get('pp')}")
     print(f"  export INFERASIM_EP={cfg.get('ep')}")

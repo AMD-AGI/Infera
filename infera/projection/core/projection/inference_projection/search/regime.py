@@ -16,8 +16,8 @@ Every inference recipe parameter is one of two kinds (see the design note §2):
 
 This module is the single source of truth for that split.  It is deliberately
 **stdlib-only** so the dependency-light ``benchmark_vllm.py`` (which runs inside
-a bare vLLM container without Primus) can import it to key its result cache with
-the exact same scheme the anchor store uses.
+a bare vLLM container) can import it to key its result cache with the exact same
+scheme the anchor store uses.
 
 Public API
 ----------

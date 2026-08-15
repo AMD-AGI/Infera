@@ -232,7 +232,7 @@ class SDPASimulator(SDPASimulationBackend):
             raise RuntimeError(
                 "SDPASimulator requires the Origami backend but it is not "
                 "available.  Please install the 'origami' package or ensure "
-                "primus.core.projection.simulation_backends.origami_backend "
+                "infera.projection.core.projection.simulation_backends.origami_backend "
                 "is importable."
             )
 

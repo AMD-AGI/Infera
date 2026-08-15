@@ -756,8 +756,8 @@ def megatron_derive_default_args(args):
     return args
 
 
-def convert_primus_config_to_projection_config(primus_config) -> TrainingConfig:
-    args = primus_config.get_module_config("pre_trainer")
+def convert_config_to_projection_config(config) -> TrainingConfig:
+    args = config.get_module_config("pre_trainer")
     framework = getattr(args, "framework", "")
     if framework == "megatron":
         args = megatron_derive_default_args(args)
@@ -777,23 +777,23 @@ def convert_primus_config_to_projection_config(primus_config) -> TrainingConfig:
     return training_config
 
 
-def convert_primus_config_to_inference_config(
-    primus_config,
+def convert_config_to_inference_config(
+    config,
     *,
     inference_overrides: Optional[dict] = None,
 ) -> InferenceConfig:
-    """Build an :class:`InferenceConfig` from a primus config.
+    """Build an :class:`InferenceConfig` from an experiment config.
 
-    Reuses :func:`convert_primus_config_to_projection_config` for the model
+    Reuses :func:`convert_config_to_projection_config` for the model
     and parallelism config, then layers an :class:`InferenceRequestConfig`
     on top.  ``inference_overrides`` (typically parsed from CLI flags) takes
     precedence over any ``inference:`` block embedded in the YAML.
     """
-    training_config = convert_primus_config_to_projection_config(primus_config)
+    training_config = convert_config_to_projection_config(config)
 
     # Allow an optional ``inference:`` block in the pre_trainer module config
     # (so a single workload YAML can carry a default serving profile).
-    args = primus_config.get_module_config("pre_trainer")
+    args = config.get_module_config("pre_trainer")
     yaml_inf = getattr(args, "inference", None) or {}
     if not isinstance(yaml_inf, dict):
         yaml_inf = {}

@@ -332,7 +332,7 @@ def benchmark_layer(
 # compile.  This is the same load-balancing technique Megatron already uses
 # under ``moe_router_force_load_balancing`` for benchmarking, but installed
 # directly from the projection bench code so it works regardless of which
-# router class (upstream / Primus / Primus-Turbo) the model happens to use.
+# router class (upstream / Primus-Turbo) the model happens to use.
 #
 # The patch is enabled by default during projection benches and can be
 # disabled by setting ``INFERASIM_BENCH_MOE_KERNEL_PAD=0``.
@@ -427,7 +427,7 @@ def _uninstall_routing_patches(restores) -> None:
             restore()
         except Exception as exc:
             # Best-effort cleanup: do not fail teardown if one restore callback fails.
-            print(f"[primus] warning: failed to restore routing patch: {exc}")
+            print(f"[inferasim] warning: failed to restore routing patch: {exc}")
 
 
 def benchmark_moe_layer_decomposed(

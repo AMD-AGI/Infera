@@ -8,12 +8,12 @@ import os
 import socket
 from abc import ABC, abstractmethod
 
-from infera.projection.core.utils.global_vars import get_primus_config
+from infera.projection.core.utils.global_vars import get_config
 
 
 class BasePlatform(ABC):
     def __init__(self, name="local"):
-        self.global_args = get_primus_config()
+        self.global_args = get_config()
         self.args = self.global_args.platform_config
         self.enable_autotask_manager = False
 

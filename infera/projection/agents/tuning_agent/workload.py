@@ -1,5 +1,5 @@
-"""Workload resolver — flattens a Primus pretrain YAML + the extends-chain
-of its model file into a single ArchitectureRecord that the agent uses.
+"""Workload resolver — flattens a pretrain YAML + the extends-chain of its
+model file into a single ArchitectureRecord that the agent uses.
 
 The workload YAML looks like:
 
@@ -11,9 +11,9 @@ The workload YAML looks like:
           tensor_model_parallel_size: 1
           ...
 
-The model file lives at primus/configs/models/<framework>/<model> and
-typically `extends:` a base file. We chain those, then merge the workload
-overrides, and project a small dict that is safe to put into an LLM prompt.
+The model file lives at configs/models/<framework>/<model> and typically
+`extends:` a base file. We chain those, then merge the workload overrides, and
+project a small dict that is safe to put into an LLM prompt.
 """
 
 from __future__ import annotations
@@ -82,8 +82,8 @@ class ArchitectureRecord:
     pipeline_model_parallel_layout: str | None = None
     overlap_grad_reduce: bool = True
     overlap_param_gather: bool = True
-    # Tier-A/B knobs from the Primus Projection skill — captured here so the
-    # planner can avoid redundant sweeps (e.g. don't toggle FP8 if already on).
+    # Tier-A/B knobs from the projection optimization guidelines — captured here
+    # so the planner can avoid redundant sweeps (e.g. don't toggle FP8 if on).
     fp8: str | None = None
     cross_entropy_loss_fusion: bool | None = None
     use_torch_fsdp2: bool | None = None
@@ -110,7 +110,7 @@ class ArchitectureRecord:
 
 
 def _vpp_from_layout(layout: str | None, pp: int) -> int | None:
-    """Infer VPP from a Primus `pipeline_model_parallel_layout` string.
+    """Infer VPP from a `pipeline_model_parallel_layout` string.
 
     The layout encodes per-stage layer assignments separated by ``|``. The
     total stage count must equal ``PP * VPP``. For DeepSeek V3 the workload
@@ -174,8 +174,8 @@ def _detect_attention_type(model: dict) -> str:
     return "standard"
 
 
-def resolve_workload(workload_yaml: Path, primus_root: Path | None = None) -> ArchitectureRecord:
-    """Resolve a Primus pretrain YAML into an ArchitectureRecord."""
+def resolve_workload(workload_yaml: Path, config_root: Path | None = None) -> ArchitectureRecord:
+    """Resolve a pretrain YAML into an ArchitectureRecord."""
     workload_yaml = workload_yaml.resolve()
     raw = _load_yaml(workload_yaml)
 
@@ -185,14 +185,14 @@ def resolve_workload(workload_yaml: Path, primus_root: Path | None = None) -> Ar
     if not model_filename:
         raise ValueError(f"{workload_yaml} has no modules.pre_trainer.model")
     if isinstance(model_filename, str):
-        model_filename = _expand_primus_templates(model_filename)
+        model_filename = _expand_templates(model_filename)
 
     overrides = pre_trainer.get("overrides") or {}
 
-    # Find the model file. Convention: primus/configs/models/<framework>/<file>
-    if primus_root is None:
-        primus_root = _find_primus_root(workload_yaml)
-    model_path = primus_root / "configs" / "models" / framework / model_filename
+    # Find the model file. Convention: configs/models/<framework>/<file>
+    if config_root is None:
+        config_root = _find_config_root(workload_yaml)
+    model_path = config_root / "configs" / "models" / framework / model_filename
     if not model_path.is_file():
         # fallback: try resolving relative to workload
         candidate = workload_yaml.parent / model_filename
@@ -281,7 +281,7 @@ def resolve_workload(workload_yaml: Path, primus_root: Path | None = None) -> Ar
 
 
 def _parse_layer_ids(value: Any) -> list[int] | None:
-    """Parse a Primus ``recompute_layer_ids`` field into a list of layer ints.
+    """Parse a ``recompute_layer_ids`` field into a list of layer ints.
 
     Accepts both the published string form (``"0,3,4,7,...,51"`` — what
     DeepSeek V3 ships) and a YAML list. Returns None when the field is
@@ -319,12 +319,12 @@ def _coerce_opt_int(value: Any) -> int | None:
     return int(value)
 
 
-def _expand_primus_templates(s: str) -> str:
+def _expand_templates(s: str) -> str:
     """Expand ``${INFERASIM_*:default}`` segments (e.g. ``${INFERASIM_MODEL:foo}.yaml``)."""
     return re.sub(r"\$\{[A-Za-z0-9_]+:([^}]*)\}", r"\1", s)
 
 
-def _find_primus_root(start: Path) -> Path:
+def _find_config_root(start: Path) -> Path:
     """Find the projection root (the dir holding ``configs/models``).
 
     Resolution order:

@@ -22,8 +22,7 @@ from .workload import ArchitectureRecord
 class TrialConfig:
     """All knobs the agent sweeps.
 
-    Categorisation follows the Primus Projection skill
-    (``Primus/.skills/primus-projection.md``):
+    Categorisation follows the projection optimization guidelines:
 
     * **Parallelism**: ``tp``, ``pp``, ``ep``, ``cp``, ``vpp``
     * **Pipeline schedule**: ``pp_schedule``, ``enable_zero_bubble``
@@ -179,9 +178,9 @@ class AxisLegality:
             "vpp": self.vpp,
             "pp_schedules_by_vpp": {str(k): v for k, v in self.pp_schedules_by_vpp.items()},
             "recompute_granularity": self.recompute_granularity,
-            # Tier-A/B optimisation axes from the Primus Projection skill.
+            # Tier-A/B optimisation axes from the projection guidelines.
             # Boolean flags accept true/false/null (null = inherit yaml).
-            "use_turbo_deepep": [None, False, True],  # MoE only; +35% per skill
+            "use_turbo_deepep": [None, False, True],  # MoE only; +35%
             "sync_free_stage": [None, 0, 1, 2, 3],  # MoE only; 2/3 auto-enables DeepEP
             "fp8": [None, "hybrid"],  # ~2x compute on linear layers
             "enable_zero_bubble": [None, False, True],  # pairs with VPP=1 zerobubble schedules
@@ -407,7 +406,7 @@ def validate(
     if not rec_ok:
         return False, rec_reason
 
-    # New axes from the Primus Projection skill ----------------------------
+    # New axes from the projection guidelines -----------------------------
     if cfg.sync_free_stage is not None and cfg.sync_free_stage not in (0, 1, 2, 3):
         return False, f"sync_free_stage must be in {{0,1,2,3}}, got {cfg.sync_free_stage}"
 

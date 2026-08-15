@@ -16,9 +16,8 @@ full-node sweep per recipe — and simulate the fleet under load.
 
 - `cli.py` — the `inferasim` entry point (inference/serving projection + DES).
 - `core/`, `modules/`, `platforms/` — first-class projection engine + DES,
-  imported as `infera.projection.*`; nothing depends on an installed `primus`.
-  The Megatron/training closure is intentionally **not** included (the
-  inference path never needs it).
+  imported as `infera.projection.*`. The Megatron/training closure is
+  intentionally **not** included (the inference path never needs it).
 - `agents/tuning_agent/` — the recipe-search tuning agent (`inferasim-tune`).
 - `_tuning_shim/` — a thin compatibility shim so the tuning agent can spawn the
   projector as a subprocess through the public CLI.
@@ -36,10 +35,9 @@ pip install ".[projection-tuning]"   # + the DSPy tuning agent
 `torch` and the serving engine (`vllm`) come from the engine base image, not pip.
 
 Two console scripts are installed: `inferasim` (projection + DES) and
-`inferasim-tune` (recipe search). The pre-rebrand names `infera-projection` /
-`infera-tuning` remain as back-compat aliases. Env vars are canonically
-`INFERASIM_*` (e.g. `INFERASIM_MODEL`, `INFERASIM_GPU_ARCH`, `INFERASIM_ROOT`);
-legacy `PRIMUS_*` names are still honored via a bidirectional alias shim.
+`inferasim-tune` (recipe search); `infera-projection` / `infera-tuning` remain as
+aliases. Env vars are `INFERASIM_*` (e.g. `INFERASIM_MODEL`, `INFERASIM_GPU_ARCH`,
+`INFERASIM_ROOT`).
 
 ## Project a recipe from a saved anchor (no GPU)
 

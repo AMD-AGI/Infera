@@ -18,7 +18,7 @@ from typing import Any, Optional
 
 from infera.projection.core.projection.training_config import ModelParallelConfig, TrainingConfig
 
-# Schedules that split backward into B (dgrad) and W (wgrad) in Primus/Megatron.
+# Schedules that split backward into B (dgrad) and W (wgrad) in Megatron.
 # Includes projection CLI names and runtime ``pp_algorithm`` names.
 SPLIT_WGRAD_PIPELINE_SCHEDULES = frozenset(
     {
@@ -133,14 +133,14 @@ def check_recompute_pipeline_compat(
 def assert_recompute_pipeline_compat(
     training_config: TrainingConfig,
     *,
-    primus_config: Any = None,
+    config: Any = None,
     pipeline_schedule_algorithm: Optional[str] = None,
 ) -> None:
     """Raise AssertionError when recompute + split-wgrad schedule are combined."""
     mp = training_config.model_parallel_config
     module_cfg = None
-    if primus_config is not None:
-        module_cfg = primus_config.get_module_config("pre_trainer")
+    if config is not None:
+        module_cfg = config.get_module_config("pre_trainer")
 
     if not recompute_is_enabled(mp, module_cfg=module_cfg):
         return

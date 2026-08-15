@@ -3,17 +3,17 @@
 #
 # SPDX-License-Identifier: MIT
 ###############################################################################
-"""Compatibility shim so the vendored tuning agent can spawn the projector the
-same way it did in Primus.
+"""Compatibility shim so the tuning agent can spawn the projector via a
+``cli/main.py projection inference ...`` invocation.
 
 The tuning-agent evaluator shells out to::
 
-    python <primus_root>/primus/cli/main.py projection inference ...
+    python <repo_root>/cli/main.py projection inference ...
 
-In Infera the projection CLI lives at ``infera.projection.cli``. This shim maps
-the ``projection inference`` invocation onto it, so the evaluator's command
-builders keep working unchanged. Only the ``inference`` suite is supported
-(the Megatron ``performance`` / ``memory`` training suites were not ported).
+The projection CLI lives at ``infera.projection.cli``. This shim maps the
+``projection inference`` invocation onto it, so the evaluator's command builders
+keep working unchanged. Only the ``inference`` suite is supported (the Megatron
+``performance`` / ``memory`` training suites are not part of the serving path).
 """
 import sys
 
@@ -29,8 +29,8 @@ def main(argv=None):
     suite = suite_argv[0] if suite_argv else None
     if suite != "inference":
         raise SystemExit(
-            f"infera projection shim: only the 'inference' suite is ported "
-            f"(got {suite!r}). Training 'performance'/'memory' suites live in Primus."
+            f"infera projection shim: only the 'inference' suite is supported "
+            f"(got {suite!r})."
         )
     from infera.projection.cli import main as _projection_main
 

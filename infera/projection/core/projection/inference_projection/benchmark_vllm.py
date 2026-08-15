@@ -1,4 +1,4 @@
-"""vLLM inference benchmark backend for the Primus inference projector.
+"""vLLM inference benchmark backend for the inference projector.
 
 Unlike the Megatron benchmark worker (which times *training* transformer layers
 forward-only), this measures the **real inference engine**: it loads the model
@@ -46,7 +46,7 @@ Both axes compose. Without ``--bench-layers`` the model is measured at full dept
 ``--benchmark-gpus`` it runs at the full target parallelism (no restore needed).
 
 This module is intentionally dependency-light (only ``vllm`` + stdlib) so it can
-run inside a vLLM container that does not have Primus installed::
+run inside a bare vLLM container::
 
     # full model (no reduction)
     python3 benchmark_vllm.py --model openai/gpt-oss-120b --tp 1 \
@@ -198,12 +198,12 @@ _ZIPF_VERSION = "v2-pooled"
 
 _ZIPF_PATCH = '''
 
-# === BEGIN {marker} {version} (appended by Primus benchmark; idempotent) ===
-import os as _primus_os
-import torch as _primus_torch
+# === BEGIN {marker} {version} (appended by InferaSim benchmark; idempotent) ===
+import os as _isim_os
+import torch as _isim_torch
 
 
-class _PrimusZipfRouting(RoutingStrategy):
+class _ISimZipfRouting(RoutingStrategy):
     """Zipfian token->expert routing for a realistic MoE benchmark load.
 
     Expert popularity follows p(rank) ~ 1/rank**s over a fixed random ranking,
@@ -224,12 +224,12 @@ class _PrimusZipfRouting(RoutingStrategy):
         key = (num_experts, str(device))
         p = self._cache.get(key)
         if p is None:
-            g = _primus_torch.Generator().manual_seed(self.seed)
-            perm = _primus_torch.randperm(num_experts, generator=g)
-            ranks = _primus_torch.empty(num_experts, dtype=_primus_torch.double)
-            ranks[perm] = _primus_torch.arange(1, num_experts + 1, dtype=_primus_torch.double)
+            g = _isim_torch.Generator().manual_seed(self.seed)
+            perm = _isim_torch.randperm(num_experts, generator=g)
+            ranks = _isim_torch.empty(num_experts, dtype=_isim_torch.double)
+            ranks[perm] = _isim_torch.arange(1, num_experts + 1, dtype=_isim_torch.double)
             w = 1.0 / ranks.pow(self.s)
-            p = (w / w.sum()).to(device=device, dtype=_primus_torch.float32)
+            p = (w / w.sum()).to(device=device, dtype=_isim_torch.float32)
             self._cache[key] = p
         return p
 
@@ -239,20 +239,20 @@ class _PrimusZipfRouting(RoutingStrategy):
         key = (num_experts, top_k, str(device))
         got = self._pools.get(key)
         if got is None:
-            rows = int(_primus_os.environ.get("INFERASIM_ROUTING_POOL", "65536"))
+            rows = int(_isim_os.environ.get("INFERASIM_ROUTING_POOL", "65536"))
             rows = max(rows, 8192)
             probs = self._probs(num_experts, device)
-            ids = _primus_torch.multinomial(
+            ids = _isim_torch.multinomial(
                 probs.unsqueeze(0).expand(rows, -1).contiguous(),
                 top_k, replacement=False,
-            ).to(_primus_torch.int32)
-            weights = _primus_torch.full(
-                (rows, top_k), 1.0 / top_k, device=device, dtype=_primus_torch.float32
+            ).to(_isim_torch.int32)
+            weights = _isim_torch.full(
+                (rows, top_k), 1.0 / top_k, device=device, dtype=_isim_torch.float32
             )
             # Device-side: a host counter would be frozen into the CUDA graph at
             # capture, making every replay reuse the same slice of the pool.
-            cursor = _primus_torch.zeros((), device=device, dtype=_primus_torch.int64)
-            arange = _primus_torch.arange(rows, device=device, dtype=_primus_torch.int64)
+            cursor = _isim_torch.zeros((), device=device, dtype=_isim_torch.int64)
+            arange = _isim_torch.arange(rows, device=device, dtype=_isim_torch.int64)
             got = (ids, weights, cursor, arange, rows)
             self._pools[key] = got
         return got
@@ -261,18 +261,18 @@ class _PrimusZipfRouting(RoutingStrategy):
         num_tokens = hidden_states.shape[0]
         num_experts = router_logits.shape[-1]
         if indices_type is None:
-            indices_type = _primus_torch.long
+            indices_type = _isim_torch.long
         ids, weights, cursor, arange, rows = self._pool(
             num_experts, top_k, hidden_states.device
         )
         if num_tokens > rows:      # larger than the pool: sample directly
             probs = self._probs(num_experts, hidden_states.device)
             p = probs.unsqueeze(0).expand(num_tokens, -1).contiguous()
-            topk_ids = _primus_torch.multinomial(p, top_k, replacement=False)
+            topk_ids = _isim_torch.multinomial(p, top_k, replacement=False)
             return (
-                _primus_torch.full(
+                _isim_torch.full(
                     (num_tokens, top_k), 1.0 / top_k,
-                    device=hidden_states.device, dtype=_primus_torch.float32,
+                    device=hidden_states.device, dtype=_isim_torch.float32,
                 ),
                 topk_ids.to(indices_type),
             )
@@ -283,7 +283,7 @@ class _PrimusZipfRouting(RoutingStrategy):
 
 
 RoutingSimulator.register_strategy(
-    "zipf", _PrimusZipfRouting(s=float(_primus_os.environ.get("INFERASIM_ZIPF_S", "1.0")))
+    "zipf", _ISimZipfRouting(s=float(_isim_os.environ.get("INFERASIM_ZIPF_S", "1.0")))
 )
 # === END {marker} ===
 '''.format(marker=_ZIPF_MARKER, version=_ZIPF_VERSION)

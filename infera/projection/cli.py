@@ -20,7 +20,7 @@ Project a recipe from a saved 1-GPU anchor (no GPU needed)::
 
 Harvest a GPU-calibrated anchor (needs a ROCm GPU + vLLM), then project::
 
-    python -m infera.projection anchor --model <hf-or-primus-model> \
+    python -m infera.projection anchor --model <hf-or-model-name> \
         --benchmark-gpus 1 --save anchor.json
 """
 import argparse
@@ -31,7 +31,7 @@ from infera.projection.core.projection.inference_projection import (
     launch_projection_from_cli,
 )
 
-import argparse as _argparse  # noqa: F401  (used by vendored arg helpers)
+import argparse as _argparse  # noqa: F401  (used by arg helpers)
 
 def _add_pipeline_schedule_algorithm_arg(parser):
     parser.add_argument(
@@ -875,7 +875,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_inference_args(inference)
     inference.set_defaults(profiling_mode="simulate", func="inference")
 
-    # anchor-harvest is a thin shim over the vendored vLLM harness
+    # anchor-harvest is a thin shim over the vLLM harness
     anchor = sub.add_parser(
         "anchor",
         help="Harvest a GPU-calibrated anchor via the vLLM benchmark harness.",

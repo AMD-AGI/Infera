@@ -5,10 +5,10 @@
 ###############################################################################
 
 """
-Environment setup utilities for Primus training.
+Environment setup utilities.
 
 This module provides functions to configure environment variables for various
-third-party libraries and frameworks used in training.
+third-party libraries and frameworks.
 """
 
 import os

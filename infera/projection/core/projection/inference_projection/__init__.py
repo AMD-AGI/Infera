@@ -3,10 +3,9 @@
 #
 # See LICENSE for license information.
 ###############################################################################
-"""Inference (serving) projection for Primus.
+"""Inference (serving) projection.
 
-This package mirrors the training-oriented :mod:`performance_projection` and
-:mod:`memory_projection` packages but models *autoregressive inference*:
+This package models *autoregressive inference*:
 
   * **Forward-only** compute — no backward pass, optimizer or gradients.
   * **Two phases** — prefill (prompt → first token, drives TTFT) and decode
@@ -16,7 +15,7 @@ This package mirrors the training-oriented :mod:`performance_projection` and
     batching / concurrency, and speculative decoding.
 
 The CLI entry point is :func:`launch_projection_from_cli`, wired from
-``primus projection inference`` (see ``primus/cli/subcommands/projection.py``).
+``inferasim projection inference``.
 """
 
 from .launcher import launch_projection_from_cli

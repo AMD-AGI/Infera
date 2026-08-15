@@ -174,7 +174,7 @@ class TuningPlanSignature(dspy.Signature):
             "recompute_granularity, recompute_num_layers, overlap_grad_reduce, "
             "use_turbo_deepep, sync_free_stage, target_ep_size, fp8, "
             "cross_entropy_loss_fusion, use_distributed_optimizer, use_torch_fsdp2. "
-            "Per the Primus Projection skill (.skills/primus-projection.md), "
+            "Per the projection optimization guidelines, "
             "prioritise in this order for MoE: "
             "(1) DeepEP (use_turbo_deepep=true) — biggest single win (~35%), "
             "(2) SyncFree stage 2 then 3 (auto-enables DeepEP), "

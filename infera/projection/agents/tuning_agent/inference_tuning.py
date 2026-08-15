@@ -5,9 +5,10 @@ target distributed *training*).  It defines the serving search space — the
 knobs that actually move TTFT / inter-token latency / throughput / KV-cache
 capacity — and a deterministic seed sweep over them.
 
-The oracle is ``primus projection inference`` (see
-``primus/core/projection/inference_projection``); the evaluator builds the
-command and parses the metrics (see ``evaluator.Evaluator.evaluate_inference``).
+The oracle is ``inferasim projection inference`` (see
+``infera.projection.core.projection.inference_projection``); the evaluator builds
+the command and parses the metrics (see
+``evaluator.Evaluator.evaluate_inference``).
 
 Search axes (vs. the training axes):
   * **tp / pp / ep / cp** — serving parallelism (no backward, no optimizer).

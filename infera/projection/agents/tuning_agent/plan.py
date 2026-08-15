@@ -2,8 +2,7 @@
 
 Before the LLM ever proposes anything, we evaluate a small structured set
 of legal configurations so the agent starts informed. The seed strategy
-follows the *Optimization Exploration Guidelines* in the Primus Projection
-skill (``Primus/.skills/primus-projection.md``) — i.e. high-leverage
+follows the projection optimization guidelines — i.e. high-leverage
 optimizations first, qualitative parallelism reshapes last.
 
 Order of returned candidates (small ``--seed-budget`` runs the first N):
@@ -109,7 +108,7 @@ def build_seed_plan(arch: ArchitectureRecord, agent_cfg: AgentConfig, max_candid
     pp_set = _coarse(legality.pp, world_size, anchor=arch.pipeline_model_parallel_size)
     # Context parallel only helps when sequences are long enough that the
     # per-rank attention payload offsets the all-gather/ring overhead. The
-    # rule of thumb (cf. Primus Projection skill, Megatron CP guidance) is
+    # rule of thumb (cf. the projection guidelines, Megatron CP guidance) is
     # ``seq_length > ~32k``; for shorter sequences CP just shrinks the
     # data-parallel dim and adds comm. Workloads that *baseline* with CP>1
     # are honored as-is so the agent can still tune them.
@@ -280,7 +279,7 @@ def build_seed_plan(arch: ArchitectureRecord, agent_cfg: AgentConfig, max_candid
 
     # ── 2b. Layout-aware PP × VPP exploration ────────────────────────────
     # For workloads whose num_layers is non-divisor-friendly (DeepSeek V3 =
-    # 61, prime), the Primus runtime distributes layers via an explicit
+    # 61, prime), the runtime distributes layers via an explicit
     # ``pipeline_model_parallel_layout`` string. The published DSv3 ref uses
     # PP=8 / VPP=2 (16 stages of 3-4 layers each) — *not* PP=16. Without
     # this step the agent would never see the published reference because
@@ -561,8 +560,7 @@ def build_seed_plan(arch: ArchitectureRecord, agent_cfg: AgentConfig, max_candid
         f"(tp={tp_set}, pp={pp_set}, ep={ep_set}, cp={cp_set}"
         + (f", CP gated by seq_length={seq_len}<={CP_SEQ_THRESHOLD}" if not cp_allowed else "")
         + "). "
-        f"Generated {len(candidates)} legal seeds. Order follows the Primus "
-        f"Projection skill's optimization priority (DeepEP > SyncFree > FP8 "
-        f"> recompute > schedule)."
+        f"Generated {len(candidates)} legal seeds. Order follows the projection "
+        f"optimization priority (DeepEP > SyncFree > FP8 > recompute > schedule)."
     )
     return SeedPlan(candidates=candidates, rationale=rationale)

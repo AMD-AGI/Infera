@@ -24,7 +24,7 @@ class PresetLoader:
     def load(name: str, framework: str, config_type: str = "models") -> Dict:
         """
         Load:
-            primus/configs/<config_type>/<framework>/<name>[.yaml]
+            configs/<config_type>/<framework>/<name>[.yaml]
 
         And automatically resolve:
             - extends: [...]
@@ -38,8 +38,8 @@ class PresetLoader:
         else:
             filename = f"{name}.yaml"
 
-        # Resolve base directory: primus/configs
-        # MODELS_ROOT.__file__ -> primus/configs/models/__init__.py
+        # Resolve base directory: configs
+        # MODELS_ROOT.__file__ -> configs/models/__init__.py
         models_dir = os.path.dirname(MODELS_ROOT.__file__)
         configs_root = os.path.dirname(models_dir)
 
