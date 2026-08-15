@@ -18,12 +18,18 @@ kv_channels: 64
 group_query_attention: true
 num_query_groups: 8
 
+# Local (sliding-window) attention: gpt-oss alternates 128-token windowed
+# layers with full-attention layers, which bounds both decode attention cost
+# and the KV-cache footprint of the windowed half at long context.
+sink_sliding_window: 128
+sink_window_even_layers_only: true
+
 # moe
 moe_layer_freq: 1
 num_experts: 128
 moe_router_topk: 4
 moe_ffn_hidden_size: 2880 # moe_intermediate_size
-moe_shared_expert_intermediate_size: 2880 # num_shared_experts * moe_ffn_hidden_size
+moe_shared_expert_intermediate_size: null # gpt-oss has no shared expert
 
 
 # device limited routing

@@ -10,10 +10,10 @@ use_turbo_attention: false
 # sink attention settings (PR 208) - GPT-OSS style learned sinks
 # reference: gpt-oss/gpt_oss/triton/attention.py
 use_sink_attention: false
-# sliding window size for sink attention (gpt-oss uses 128)
-sink_sliding_window: 0
-# apply sliding window only to even layers (gpt-oss pattern)
-sink_window_even_layers_only: true
+# The window itself (sink_sliding_window / sink_window_even_layers_only) is a
+# property of the model, not of the kernel, so it lives in the model preset
+# (see configs/models/megatron/gpt_oss_*.yaml). Declaring it here would shadow
+# the model's value: module keys win over model keys when the two are merged.
 # attention float8 path
 enable_turbo_attention_float8: false
 
