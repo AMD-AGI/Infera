@@ -1733,15 +1733,20 @@ class InferencePerformanceProjector:
         q_len = (spec_k + 1) if spec_k > 0 else 1
         replica_gpus = _replica_gpus(self.cfg)
 
-        # TTFT is a per-request quantity: a request's first token follows the
-        # prefill of its OWN prompt. Under continuous batching, pricing the whole
-        # concurrent batch here would scale every prefill collective message by
-        # the batch size (e.g. a batch-x larger EP All-to-All) and massively
-        # over-state TTFT. Price TTFT at a single request; the batched prefill
-        # still drives aggregate prefill throughput below.
+        # TTFT is a per-request quantity, but one engine prefills every
+        # concurrent request, so a request also waits behind the prompts queued
+        # ahead of it. A closed-loop harness (``--max-concurrency N
+        # --request-rate inf``, what every serving benchmark runs) keeps all N
+        # outstanding, so the scheduler sweeps them FIFO within its token budget
+        # and the average request sits half way down that sweep. Pricing TTFT at
+        # a single prompt instead understates it by ~N/2.
         continuous = self._use_continuous_batching(concurrency, output_len)
-        ttft = self.prefill_latency_ms(1 if continuous else batch, input_len)
-        prefill_full_ms = self.prefill_latency_ms(batch, input_len) if continuous else ttft
+        if continuous:
+            sweep_ms = self.prefill_latency_ms(concurrency, input_len)
+            ttft = sweep_ms * (concurrency + 1) / (2.0 * concurrency)
+            prefill_full_ms = self.prefill_latency_ms(batch, input_len)
+        else:
+            ttft = prefill_full_ms = self.prefill_latency_ms(batch, input_len)
         # Host prompt-tokenization cost (client sends text; server tokenizes it
         # after the TTFT clock starts). Latency-only, TTFT side -- symmetric with
         # the decode-side detokenization term below. Applied after prefill_full_ms
@@ -1874,9 +1879,13 @@ class InferencePerformanceProjector:
         )
 
         # Prefill phase on the prefill pool (drives TTFT + prefill throughput).
-        # TTFT is per-request (a single prompt's prefill); the batched prefill
-        # drives aggregate prefill throughput below.
-        ttft_compute = prefill_proj.prefill_latency_ms(1, input_len)
+        # One pool prefills every concurrent request, so a request waits behind
+        # the prompts queued ahead of it and the average one sits half way down
+        # that FIFO sweep -- the same closed-loop wave as the co-located path,
+        # spread over the prefill replicas.
+        per_replica = max(1, batch // max(1, disagg.prefill_replicas))
+        sweep_ms = prefill_proj.prefill_latency_ms(per_replica, input_len)
+        ttft_compute = sweep_ms * (per_replica + 1) / (2.0 * per_replica)
         prefill_full_ms = prefill_proj.prefill_latency_ms(batch, input_len)
         kv_transfer = self._kv_transfer_ms(decode_proj, batch, input_len)
         # Host prompt-tokenization cost (latency-only, TTFT side).
