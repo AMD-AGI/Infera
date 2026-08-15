@@ -132,3 +132,39 @@ def test_small_decode_collective_is_not_charged_rccl_latency():
     assert collectives._INFER_AR_OVERHEAD_US <= 8.0, (
         "intra-node decode all-reduce floor exceeds what the TP ladder allows"
     )
+
+
+@pytest.mark.parametrize(
+    "name, k, ffn, experts", [("deepseek", 7168, 2048, 103), ("gpt_oss", 2880, 2880, 111)]
+)
+def test_expert_gemm_keeps_near_ideal_relief_when_sharded(name, k, ffn, experts):
+    """Sharding the FFN dimension of the grouped expert GEMM must stay near 1/etp.
+
+    Measured on MI355X: the grouped GEMM holds 57-78% of peak bandwidth across
+    etp=1..8 and delivers 6.85-7.54x of the ideal 8x. So the roofline's
+    near-ideal relief is right, and the batch-256 TP under-prediction does *not*
+    come from here -- a plausible-sounding efficiency penalty tuned in at this
+    spot would be a fudge factor covering for a term that lives elsewhere.
+
+    Timing one expert at a time instead suggests a large penalty, but that is a
+    benchmark artifact: a lone [1 x k] x [k x n] call is latency-bound and reads
+    ~10% of peak, which is not the kernel MoE decode actually issues.
+    """
+    from infera.projection.core.projection.simulation_backends.origami_backend import (
+        OrigamiGEMMBackend,
+    )
+
+    backend = OrigamiGEMMBackend(gpu_arch="mi355x")
+    if not backend.is_available():
+        pytest.skip("origami not installed")
+
+    def t(etp):
+        return backend.simulate_gemm(
+            m=1, n=max(1, ffn // etp), k=k, dtype="bf16", batch=experts
+        ).forward_time_ms
+
+    relief = t(1) / t(8)
+    assert 5.5 <= relief <= 8.4, (
+        f"{name} expert GEMM relief at etp=8 is {relief:.2f}x; "
+        "measurement puts it at 6.85-7.54x of the ideal 8x"
+    )
