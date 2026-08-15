@@ -171,6 +171,12 @@ until per-GPU decode is flat within ±5% across an adjacent GPU-count pair,
 bounding the restore error (≤10% decode MAPE target) and preserving recipe rank
 ordering. Pure-TP recipes self-anchor at the target TP.
 
+The ladder stops at **4 GPUs** by default (`LADDER_MAX_GPUS`). A flat pair at
+rung `g` certifies targets up to `2*g`, so rungs 1/2/4 certify an 8-GPU target
+with at most three cheap benchmark runs. Targets beyond that are projected from
+the top rung and reported as extrapolated (`capped`) rather than certified —
+raise `INFERASIM_LADDER_MAX_GPUS` when a larger benchmark host is available.
+
 ## Tuning agent
 
 `inferasim-tune` runs a deterministic seed sweep then a DSPy planner/RLM loop

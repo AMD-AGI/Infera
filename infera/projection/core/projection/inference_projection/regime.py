@@ -16,12 +16,34 @@ rejected — it false-positives on models whose sharding gives no relief.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Optional
 
 # per-GPU decode throughput must rise by more than this (1 GPU -> 2 GPU) for a
 # model to count as single-GPU-overhead-saturated. ~5% clears run-to-run noise.
 SUPERLINEAR_THRESH = 1.05
+
+# Highest rung the ladder will benchmark. Each rung costs a real GPU run, and a
+# flat pair at rung ``g`` certifies targets up to ``2*g`` — so a 4-GPU cap still
+# certifies 8-GPU targets while keeping calibration to at most three cheap rungs
+# (1, 2, 4). Larger targets are still projected from the top rung, just reported
+# as extrapolated rather than certified. Raise via ``INFERASIM_LADDER_MAX_GPUS``
+# or the explicit ``max_gpus`` argument.
+LADDER_MAX_GPUS = 4
+
+
+def ladder_max_gpus(max_gpus: Optional[int] = None) -> int:
+    """Resolve the ladder's top rung: explicit argument, env override, default."""
+    if max_gpus:
+        return max(1, int(max_gpus))
+    env = os.getenv("INFERASIM_LADDER_MAX_GPUS", "").strip()
+    if env:
+        try:
+            return max(1, int(env))
+        except ValueError:
+            pass
+    return LADDER_MAX_GPUS
 
 
 def _decode_ms(path) -> tuple[dict, dict]:
@@ -97,7 +119,7 @@ def relief_between(anchor_lo, anchor_hi, batch: int = 32) -> Optional[float]:
 
 
 def confidence_ladder(target_gpus: int, anchors_by_gpu: dict, batch: int = 32,
-                      tol: float = CONF_TOL) -> dict:
+                      tol: float = CONF_TOL, max_gpus: Optional[int] = None) -> dict:
     """Pick the cheapest in-regime anchor for ``target_gpus`` from a rung set.
 
     ``anchors_by_gpu`` maps ``gpu_count -> anchor_path`` (e.g.
@@ -115,18 +137,26 @@ def confidence_ladder(target_gpus: int, anchors_by_gpu: dict, batch: int = 32,
           "converged": bool,            # a flattened (or >=target) rung was found
           "next_gpus": <int or None>,   # GPU count to benchmark next if not converged
           "relief": <float or None>,    # relief measured into the chosen rung
+          "capped": bool,               # climbing stopped at the ladder cap
           "reason": str,
         }
+
+    ``max_gpus`` caps the rung the ladder will ask for (default
+    :data:`LADDER_MAX_GPUS`). When the top measured rung is already at the cap
+    and nothing certifies the target, ``next_gpus`` is ``None`` and ``capped``
+    is set so callers stop climbing instead of asking for an un-runnable rung.
     """
+    cap = ladder_max_gpus(max_gpus)
     rungs = sorted(g for g in anchors_by_gpu if anchors_by_gpu.get(g))
     if not rungs:
         return {"anchor": None, "gpus": None, "confidence": "low", "converged": False,
-                "next_gpus": 1, "relief": None, "reason": "no anchors available"}
+                "next_gpus": 1, "relief": None, "capped": False,
+                "reason": "no anchors available"}
 
     if target_gpus <= 1:
         g = rungs[0]
         return {"anchor": anchors_by_gpu[g], "gpus": g, "confidence": "high",
-                "converged": True, "next_gpus": None, "relief": None,
+                "converged": True, "next_gpus": None, "relief": None, "capped": False,
                 "reason": "single-GPU target"}
 
     # A measured rung at or above the target is exact (interpolation, not restore).
@@ -134,7 +164,7 @@ def confidence_ladder(target_gpus: int, anchors_by_gpu: dict, batch: int = 32,
     if at_or_above:
         g = min(at_or_above)
         return {"anchor": anchors_by_gpu[g], "gpus": g, "confidence": "high",
-                "converged": True, "next_gpus": None, "relief": None,
+                "converged": True, "next_gpus": None, "relief": None, "capped": False,
                 "reason": f"anchor at {g} GPUs >= target {target_gpus} (exact)"}
 
     # A rung ``g`` is *verified in-regime* when the per-GPU throughput is FLAT
@@ -155,24 +185,32 @@ def confidence_ladder(target_gpus: int, anchors_by_gpu: dict, batch: int = 32,
     if certifying:
         g, r = min(certifying, key=lambda t: t[0])
         return {"anchor": anchors_by_gpu[g], "gpus": g, "confidence": "high",
-                "converged": True, "next_gpus": None, "relief": r,
+                "converged": True, "next_gpus": None, "relief": r, "capped": False,
                 "reason": f"per-GPU throughput flat within one doubling of target "
                           f"(relief into {g} GPUs {r:.2f}x, {g}*2>={target_gpus}) -> "
                           f"{g}-GPU anchor certifies the restore"}
 
     # Not certified: either no flat adjacent pair, or the only flat pair is >1
-    # doubling below the target. Climb -- benchmark the next rung toward target.
+    # doubling below the target. Climb -- benchmark the next rung toward target,
+    # unless the top rung already sits at the ladder cap (then there is no rung
+    # left to ask for and the restore is reported as extrapolated).
     top = rungs[-1]
     r_top = relief_between(anchors_by_gpu[rungs[-2]], anchors_by_gpu[top], batch) if len(rungs) >= 2 else None
-    nxt = min(target_gpus, top * 2)
     rtxt = f"{r_top:.2f}x" if r_top is not None else "n/a"
     if verified:
         why = (f"flat only at {max(g for g, _ in verified)} GPUs, >1 doubling below "
                f"target {target_gpus} (high-scale comm/imbalance unprobed)")
     else:
         why = f"no flat adjacent pair yet (relief into top rung {rtxt})"
+
+    nxt = min(target_gpus, top * 2, cap)
+    if nxt <= top:
+        return {"anchor": anchors_by_gpu[top], "gpus": top, "confidence": "low",
+                "converged": False, "next_gpus": None, "relief": r_top, "capped": True,
+                "reason": f"{why}; ladder capped at {cap} GPUs, so target {target_gpus} "
+                          f"is extrapolated from the {top}-GPU anchor"}
     return {"anchor": anchors_by_gpu[top], "gpus": top, "confidence": "low",
-            "converged": False, "next_gpus": nxt, "relief": r_top,
+            "converged": False, "next_gpus": nxt, "relief": r_top, "capped": False,
             "reason": f"{why}; benchmark at {nxt} GPUs to converge"}
 
 
@@ -185,8 +223,12 @@ def climb_anchor_ladder(target_gpus: int, bench_fn, max_gpus: Optional[int] = No
     re-evaluates :func:`confidence_ladder`, and stops when it converges or hits
     ``max_gpus``/``target_gpus``. Returns the final ``confidence_ladder`` dict
     augmented with ``"rungs_measured"``.
+
+    ``max_gpus`` defaults to :data:`LADDER_MAX_GPUS` (overridable via
+    ``INFERASIM_LADDER_MAX_GPUS``) so calibration never spends more than a few
+    cheap rungs; a larger target is projected from the top rung instead.
     """
-    cap = min(target_gpus, max_gpus) if max_gpus else target_gpus
+    cap = min(target_gpus, ladder_max_gpus(max_gpus))
     anchors: dict = {}
     g = max(1, start_gpus)
     rungs_measured = []
@@ -196,7 +238,7 @@ def climb_anchor_ladder(target_gpus: int, bench_fn, max_gpus: Optional[int] = No
             if path:
                 anchors[g] = path
                 rungs_measured.append(g)
-        verdict = confidence_ladder(target_gpus, anchors, batch, tol)
+        verdict = confidence_ladder(target_gpus, anchors, batch, tol, max_gpus=cap)
         verdict["rungs_measured"] = list(rungs_measured)
         if verdict["converged"] or g >= cap:
             return verdict

@@ -339,11 +339,22 @@ def _emit_restore_confidence(anchor_paths, target_gpus: int) -> None:
                 if cap_on else
                 " (ETP cap OFF: expect the raw decode over-projection until you climb.)"
             )
+            if v.get("next_gpus"):
+                advice = (
+                    f"Benchmark at {v['next_gpus']} GPUs (--benchmark-gpus "
+                    f"{v['next_gpus']}) and pass it via --load-benchmark-scaling "
+                    f"to converge."
+                )
+            else:
+                # Ladder cap reached: there is no further rung to ask for. Raise
+                # the cap only if a higher-GPU benchmark is actually available.
+                advice = (
+                    "No further rung available at the current ladder cap; raise "
+                    "INFERASIM_LADDER_MAX_GPUS if you can benchmark more GPUs."
+                )
             print(
                 f"[inferasim:Inference] restore confidence: LOW — {v['reason']} "
-                f"(rungs measured: {rungs}). Benchmark at {v['next_gpus']} GPUs "
-                f"(--benchmark-gpus {v['next_gpus']}) and pass it via "
-                f"--load-benchmark-scaling to converge.{stopgap}"
+                f"(rungs measured: {rungs}). {advice}{stopgap}"
             )
     except Exception:
         pass
