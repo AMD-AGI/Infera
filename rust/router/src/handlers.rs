@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use axum::body::Bytes;
-use axum::extract::State;
+use axum::extract::{DefaultBodyLimit, State};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -45,6 +45,10 @@ pub fn app(state: AppState) -> Router {
         .route("/v1/workers", get(workers))
         .route("/v1/models", get(models))
         .route("/metrics", get(metrics))
+        // axum's default 2 MiB cap on `Bytes` would 413 long-context prompts, but
+        // fully disabling the limit allows unbounded buffering into memory (DoS).
+        // Raise the limit enough for expected prompts; the engine still enforces `--context-length`.
+        .layer(DefaultBodyLimit::max(8 * 1024 * 1024))
         .with_state(state)
 }
 
