@@ -251,6 +251,9 @@ class InferencePerformanceProjector:
         try:
             mc.ep_load_balance = float(self.cfg.request_config.ep_load_balance or 1.0)
             mc.redundant_experts = int(self.cfg.request_config.redundant_experts or 0)
+            # Expert weight precision, read by the MoE profiler so the expert
+            # grouped-GEMM roofline streams the right number of weight bytes.
+            mc.moe_expert_dtype = self.cfg.request_config.moe_expert_dtype
         except Exception:
             pass
 
@@ -259,7 +262,11 @@ class InferencePerformanceProjector:
         # compute speedup.  All affect the *simulation* path only (the measured
         # path bundles these into the whole-model step).  Defaults are no-ops.
         self._attn_backend_mult = inference_config.request_config.resolved_attention_backend_multiplier()
-        self._moe_expert_speedup = inference_config.request_config.resolved_moe_expert_dtype_speedup()
+        # The expert dtype is now priced inside the expert GEMM roofline (real
+        # operand bytes + matrix throughput), so there is no outer multiplier to
+        # apply. Kept at 1.0 rather than removed so the restore/ratio paths that
+        # reference it stay arithmetically identical.
+        self._moe_expert_speedup = 1.0
 
         # Feature B: explicit, knob-driven communication model. When enabled we
         # replace the layer profiler's *implicit* TP-AllReduce / EP-AllToAll
@@ -844,8 +851,8 @@ class InferencePerformanceProjector:
             return 0.0
         return self._comm_tgt.pp_p2p_ms(batch, tokens) - self._comm_bench.pp_p2p_ms(batch, tokens)
 
-    def _origami_ratio(self, batch: int, tokens: int, phase: str) -> Optional[float]:
-        """Simulator TP-scaling ratio sim(target)/sim(bench) for the whole step.
+    def _origami_steps(self, batch: int, tokens: int, phase: str) -> Optional[tuple]:
+        """Simulated whole-step time at the target and bench views, ``(tgt, bench)``.
 
         Reuses the analytical ``_forward_times`` at the bench and target views by
         temporarily swapping the profiler tree / comm model / view / sim backends
@@ -900,7 +907,7 @@ class InferencePerformanceProjector:
             return None
         if s_bench <= 0.0 or s_tgt <= 0.0:
             return None
-        return s_tgt / s_bench
+        return s_tgt, s_bench
 
     def _restore_whole(self, ms_bench: float, batch: int, tokens: int, phase: str = "decode") -> float:
         """Restore a whole-model (vLLM) step latency measured at the benchmark's
@@ -926,12 +933,25 @@ class InferencePerformanceProjector:
         # comm growth) better than a 2-point linear fit; the ~5x absolute origami
         # bias cancels in the ratio. Falls through to fit/blind if unavailable.
         if self._scaling_mode == "origami":
-            r = self._origami_ratio(batch, tokens, phase)
-            if r is not None and r > 0.0:
+            steps = self._origami_steps(batch, tokens, phase)
+            if steps is not None:
+                s_tgt, s_bench = steps
+                if phase == "decode":
+                    # A decode step is a fixed per-step cost (kernel dispatch and
+                    # occupancy, resident collectives) plus work that shards. Only
+                    # the second part responds to parallelism, so move the anchor
+                    # by the simulator's *difference*, not its ratio: scaling the
+                    # whole measured step re-scales the fixed part too, which for
+                    # an already floor-bound anchor (e.g. TP=8) inflates a
+                    # less-sharded target several-fold.
+                    restored = max(ms_bench * 0.05, ms_bench + (s_tgt - s_bench))
+                else:
+                    restored = ms_bench * (s_tgt / s_bench)
                 if os.getenv("INFERASIM_DEBUG_RESTORE"):
-                    print(f"[dbg-restore] phase={phase} b={batch} ratio={r:.4f} "
-                          f"ms_bench={ms_bench:.3f} restored={ms_bench * r:.3f}")
-                return ms_bench * r
+                    print(f"[dbg-restore] phase={phase} b={batch} "
+                          f"sim_tgt={s_tgt:.3f} sim_bench={s_bench:.3f} "
+                          f"ms_bench={ms_bench:.3f} restored={restored:.3f}")
+                return restored
 
         def _comm_total(cm) -> float:
             dense = cm.layer_comm_ms(batch, tokens, is_moe=False).total_ms if self._n_dense else 0.0
@@ -1139,6 +1159,21 @@ class InferencePerformanceProjector:
             dense_q = self._quant.dense_layer_ms(batch, q_len) if has_dense else 0.0
             moe_q = self._quant.moe_layer_ms(batch, q_len) if has_moe else 0.0
             quant_ms = self._n_dense * dense_q + self._n_moe * moe_q
+
+        if os.getenv("INFERASIM_DEBUG_BREAKDOWN"):
+            attn_ms = 0.0
+            mlp_ms = 0.0
+            if has_moe and hasattr(moe_p, "get_sub_profiler"):
+                _a = moe_p.get_sub_profiler("self_attention")
+                _m = moe_p.get_sub_profiler("mlp")
+                attn_ms = self._n_moe * (_a.measured_forward_time(batch, q_len) if _a else 0.0)
+                mlp_ms = self._n_moe * (_m.measured_forward_time(batch, q_len) if _m else 0.0)
+            print(
+                f"  [breakdown/{phase}] batch={batch} q_len={q_len} kv={kv_len}"
+                f"  layers={layers:.3f} (moe_attn={attn_ms:.3f} moe_mlp={mlp_ms:.3f})"
+                f"  emb={emb:.3f} head={out:.3f} sampling={sampling_ms:.3f}"
+                f"  quant={quant_ms:.3f} comm={comm.total_ms:.3f}"
+            )
 
         return PhaseForwardTimes(
             layers_ms=layers,

@@ -55,10 +55,15 @@ def test_admission_granularity_is_real_added_time():
 
 
 def test_admission_wait_averages_half_the_window():
+    """The wait is half the window, counted in *decode steps*.
+
+    Not in TPOT: under continuous batching TPOT also carries the mixed
+    prefill+decode steps, which the scheduler does not wait on.
+    """
     plain = project_spec(**BASE)
     polled = project_spec(**BASE, decode_admission_steps=80)
     added = polled["ttft_ms"] - plain["ttft_ms"]
-    assert added == pytest.approx(40 * plain["tpot_ms"], rel=0.15)
+    assert added == pytest.approx(40 * plain["decode_step_ms"], rel=0.15)
 
 
 def test_neither_knob_changes_throughput():

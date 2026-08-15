@@ -138,4 +138,10 @@ def project_spec(**overrides):
         "memory_gb": float(getattr(mem, "total_bytes", 0) or 0) / gib,
         "kv_cache_gb": float(getattr(mem, "kv_cache_bytes", 0) or 0) / gib,
         "sustainable_concurrency": extras.get("sustainable_concurrency", 0),
+        # The pure (unmixed) decode step. Distinct from ``tpot_ms``, which under
+        # continuous batching blends in the more expensive mixed prefill+decode
+        # steps; scheduler waits are counted in whole decode steps, not TPOT.
+        "decode_step_ms": extras.get(
+            "pure_step_latency_ms", getattr(perf, "decode_step_latency_ms", None)
+        ),
     }

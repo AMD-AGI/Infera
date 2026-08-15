@@ -143,9 +143,17 @@ class MoEMLPProfiler(BaseModuleProfiler):
         ep_size = self.config.model_parallel_config.expert_model_parallel_size
 
         hidden_size = self.config.model_config.hidden_size
-        batch_tokens = max(1, batch_size * seq_len // tp_size // cp_size)
         topk = self.config.model_config.moe_router_topk
-        topk_tokens = batch_tokens * topk
+
+        # Tokens are NOT sharded by tensor parallelism: TP splits the hidden and
+        # FFN dimensions while every TP rank holds the whole token axis. Only
+        # context parallelism shards tokens, and expert parallelism redistributes
+        # them across ranks via the dispatch all-to-all (accounted for below by
+        # dividing the *routings* by ``ep_size``, not the token count by ``tp_size``).
+        tokens_global = max(1, batch_size * seq_len // max(1, cp_size))
+        routings_global = tokens_global * topk
+        # The router runs on every token on every TP rank (the gate is replicated).
+        batch_tokens = tokens_global
 
         if self.config.model_config.moe_ffn_hidden_size is not None:
             moe_ffn = self.config.model_config.moe_ffn_hidden_size
@@ -199,19 +207,30 @@ class MoEMLPProfiler(BaseModuleProfiler):
         #   P(hit) = 1 - (1 - topk/E)^tokens
         # This is a no-op for prefill/training (tokens large -> P(hit) -> 1) and
         # only reshapes the small-batch decode curve.
-        routing_tokens = max(1, int(batch_size) * int(seq_len))
+        routing_tokens = tokens_global
         if num_experts > 1 and num_local_experts > 1:
             hit_frac = 1.0 - (1.0 - min(1.0, topk / num_experts)) ** routing_tokens
+            active_global_experts = max(
+                1, min(num_experts, int(round(num_experts * hit_frac)))
+            )
             active_local_experts = max(
                 1, min(num_local_experts, int(round(num_local_experts * hit_frac)))
             )
         else:
+            active_global_experts = max(1, num_experts)
             active_local_experts = max(1, num_local_experts)
 
-        # Tokens concentrate on the experts actually hit. Floor at 1: small decode
-        # batches yield < 1 token per expert, which would size a 0-row grouped
-        # GEMM and divide-by-zero in the simulator.
-        tokens_per_expert = max(1, topk_tokens // max(active_local_experts, 1))
+        # Rows per expert GEMM. Every routing lands on exactly one expert, so the
+        # rows an expert sees are the global routings spread over the experts
+        # actually hit -- a quantity that depends on neither TP (which replicates
+        # tokens) nor EP (which divides routings and experts by the same factor).
+        # Floor at 1: small decode batches yield < 1 token per expert, which would
+        # size a 0-row grouped GEMM and divide-by-zero in the simulator.
+        tokens_per_expert = max(1, routings_global // max(active_global_experts, 1))
+
+        # Routings this rank's local experts actually process, used by the
+        # permute / activation terms below (the dispatch A2A is what moves them).
+        topk_tokens = max(1, routings_global // max(1, ep_size))
 
         # MoE routing imbalance (busiest EP rank), applied *inside* the roofline:
         # the hottest rank sees ``imbalance``x the mean token load, so scale its
@@ -235,9 +254,18 @@ class MoEMLPProfiler(BaseModuleProfiler):
                 imbalance = max(1.0, imbalance)
         tokens_per_expert = max(1, int(round(tokens_per_expert * imbalance)))
 
-        # FP8-hybrid: MoE expert MLP projections run in FP8
-        gemm_dtype = "fp8" if getattr(self.config.model_config, "fp8", None) else "bf16"
-        bytes_per_el = 1 if gemm_dtype == "fp8" else 2
+        # The expert grouped-GEMM runs at the *expert weight* precision, which is
+        # not necessarily the activation precision: gpt-oss ships mxfp4 experts,
+        # DeepSeek ships fp8. Passing it through means the roofline streams the
+        # real number of weight bytes instead of applying a speedup multiplier
+        # after the fact -- at decode the step is weight-bound, so this width is
+        # the dominant term.
+        gemm_dtype = (
+            getattr(self.config.model_config, "moe_expert_dtype", None)
+            or ("fp8" if getattr(self.config.model_config, "fp8", None) else "bf16")
+        )
+        # Activations keep their own precision; they are not the expert weights.
+        bytes_per_el = 1 if getattr(self.config.model_config, "fp8", None) else 2
 
         # ── 1. Routed expert GEMMs ──
         # ``F`` is the per-rank FFN intermediate after expert tensor-sharding, so

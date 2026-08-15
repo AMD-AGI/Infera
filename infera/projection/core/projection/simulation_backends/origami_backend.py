@@ -113,6 +113,54 @@ _ROOFLINE_COMPUTE_EFF = 0.40
 # Dtype mapping:  config dtype string  →  origami datatype string
 # (origami.string_to_datatype accepts these short-hand names)
 # ---------------------------------------------------------------------------
+# Physical operand width, in bytes per element, of each precision the expert /
+# projection GEMMs can run at. ``mxfp4`` is block-scaled: 4-bit elements plus one
+# E8M0 scale per block of 32 = 4 + 8/32 bits = 0.53125 B/el.
+_OPERAND_BYTES: Dict[str, float] = {
+    "fp32": 4.0,
+    "bf16": 2.0,
+    "fp16": 2.0,
+    "fp8": 1.0,
+    "fp8_e4m3": 1.0,
+    "fp8_e5m2": 1.0,
+    "int8": 1.0,
+    "mxfp4": 0.53125,
+    "fp4": 0.5,
+    "int4": 0.5,
+}
+
+# Dense matrix-throughput of each precision relative to BF16 on CDNA3/CDNA4:
+# each halving of operand width doubles the MFMA rate.
+_PEAK_MULTIPLE: Dict[str, float] = {
+    "fp32": 0.5,
+    "bf16": 1.0,
+    "fp16": 1.0,
+    "fp8": 2.0,
+    "fp8_e4m3": 2.0,
+    "fp8_e5m2": 2.0,
+    "int8": 2.0,
+    "mxfp4": 4.0,
+    "fp4": 4.0,
+    "int4": 4.0,
+}
+
+
+def _dtype_operand_bytes(sim_dtype: str, native_fp8: bool = False) -> float:
+    key = str(sim_dtype or "bf16").lower().strip()
+    if key in _OPERAND_BYTES:
+        return _OPERAND_BYTES[key]
+    # Unknown precision that the caller flagged as fp8-native, or any non-bf16
+    # name we do not recognise, is at worst fp8-width.
+    return 1.0 if native_fp8 else 2.0
+
+
+def _dtype_peak_multiple(sim_dtype: str, native_fp8: bool = False) -> float:
+    key = str(sim_dtype or "bf16").lower().strip()
+    if key in _PEAK_MULTIPLE:
+        return _PEAK_MULTIPLE[key]
+    return 2.0 if native_fp8 else 1.0
+
+
 _DTYPE_MAP: Dict[str, str] = {
     "bf16": "bf16",
     "fp16": "f16",
@@ -273,12 +321,14 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
         artifact while leaving compute-bound GEMMs untouched.
         """
         bw = self.hbm_bandwidth_gbps or _FALLBACK_HBM_BW_GBPS  # GB/s
-        # FP8 halves operand bytes and doubles matrix throughput; when FP8 is
-        # simulated as a BF16 fallback the peak still reflects FP8 silicon.
-        is_fp8 = native_fp8 or sim_dtype != "bf16"
-        in_bytes = 1 if is_fp8 else 2
+        # Operand width and matrix throughput both follow the *actual* operand
+        # precision. Narrower weights are not a tuning multiplier: they are
+        # fewer bytes to stream and a wider matrix instruction, and at decode
+        # (small M) the byte count is what sets the step. mxfp4 is block-scaled,
+        # so it is 4 bits plus one E8M0 scale per 32 elements = 0.53125 B/el.
+        in_bytes = _dtype_operand_bytes(sim_dtype, native_fp8)
         out_bytes = 2  # outputs kept at BF16 for accumulation fidelity
-        peak_tflops = self.peak_tflops_bf16 * (2.0 if is_fp8 else 1.0)
+        peak_tflops = self.peak_tflops_bf16 * _dtype_peak_multiple(sim_dtype, native_fp8)
 
         mem_bytes = (float(m) * k + float(n) * k) * in_bytes + float(m) * n * out_bytes
         mem_bytes *= max(1, batch)
