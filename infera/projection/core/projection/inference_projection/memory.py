@@ -65,8 +65,14 @@ def _forward_activation_bytes(inference_config: InferenceConfig, profiler) -> in
     """
     req = inference_config.request_config
     batch = max(1, req.batch_size)
-    chunk = int(req.chunked_prefill_size or 0)
-    tokens = chunk if 0 < chunk < req.input_seq_len else req.input_seq_len
+    # The working set is one scheduler step's worth of tokens. The engine's
+    # prefill budget (vLLM --max-num-batched-tokens / SGLang
+    # --chunked-prefill-size) caps that step across the WHOLE batch, not per
+    # sequence, so it bounds the product rather than one sequence's prompt.
+    tokens = batch * req.input_seq_len
+    budget = int(req.max_num_batched_tokens or 0) or int(req.chunked_prefill_size or 0)
+    if budget > 0:
+        tokens = min(tokens, budget)
 
     layer = profiler.sub_profilers.get("dense_transformer_layer")
     moe_layer = profiler.sub_profilers.get("moe_transformer_layer")
@@ -76,7 +82,7 @@ def _forward_activation_bytes(inference_config: InferenceConfig, profiler) -> in
         chosen = moe_layer
     if chosen is None:
         return 0
-    per_layer = chosen.estimated_activation_memory(batch, tokens)
+    per_layer = chosen.estimated_activation_memory(1, tokens)
     inflight_layers = min(_layers_on_rank(inference_config), 2)
     return int(per_layer * inflight_layers)
 
@@ -96,7 +102,13 @@ def project_inference_memory(
     )
     profiler = build_profiler(get_language_model_profiler_spec(view))
 
-    num_params = profiler.estimated_num_params(rank=eff_rank)
+    # ``estimated_num_params`` counts this rank's pipeline and expert share but
+    # not its tensor-parallel slice: every weight matrix a served model holds
+    # (QKV/O, MLP, expert FFN, vocab) is sharded across the TP group, so the
+    # rank owns 1/TP of them. Only norms and the router are replicated, and
+    # those are well under a percent of the total.
+    tp = max(1, inference_config.model_parallel_config.tensor_model_parallel_size)
+    num_params = profiler.estimated_num_params(rank=eff_rank) // tp
     weight_bytes = int(num_params * dtype_num_bytes(inference_config.request_config.weight_dtype))
 
     layers_on_rank = _layers_on_rank(inference_config)

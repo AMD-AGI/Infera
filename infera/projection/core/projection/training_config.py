@@ -129,6 +129,10 @@ def dtype_num_bytes(dtype: Optional[str]) -> float:
     Accepts the informal names used throughout the projection layer
     (``bf16``, ``fp16``, ``fp8``, ``int8``, ``fp32``).  Unknown / ``None``
     values fall back to bf16 (2 bytes) which is the projection default.
+
+    ``mxfp4`` is block-scaled: 4-bit elements plus one E8M0 scale per block of
+    32, i.e. 4 + 8/32 bits = 0.53125 bytes per element. That 6% over the raw
+    nibble is the difference between a checkpoint fitting and not.
     """
     if dtype is None:
         return 2.0
@@ -148,6 +152,8 @@ def dtype_num_bytes(dtype: Optional[str]) -> float:
         "uint8": 1.0,
         "fp4": 0.5,
         "int4": 0.5,
+        "mxfp4": 0.53125,
+        "mxfp8": 1.03125,
     }.get(key, 2.0)
 
 
