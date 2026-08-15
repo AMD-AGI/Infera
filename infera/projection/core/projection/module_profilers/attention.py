@@ -12,6 +12,15 @@ from infera.projection.core.projection.base_module_profiler import BaseModulePro
 
 from .utils import benchmark_layer
 
+# Bytes per element the KV cache is stored at. The cache dtype is set
+# independently of the compute dtype (fp8 KV with bf16 activations is common),
+# and at decode the cache read is the dominant attention cost.
+_KV_CACHE_BYTES = {
+    "fp8": 1.0, "fp8_e4m3": 1.0, "fp8_e5m2": 1.0, "int8": 1.0,
+    "bf16": 2.0, "fp16": 2.0, "auto": 2.0, "": 2.0,
+    "fp32": 4.0,
+}
+
 
 class AttentionProfiler(BaseModuleProfiler):
     def __init__(self, config, sub_profilers=None):
@@ -299,6 +308,23 @@ class AttentionProfiler(BaseModuleProfiler):
                 )
                 kv_heads_per_rank = max(1, num_query_groups // tp_size)
                 kv_len = self._kv_seq_len if self._kv_seq_len is not None else slen_per_cp
+                # Bytes the KV cache holds per token on this rank, for the SDPA
+                # HBM roofline. MLA caches one compressed latent
+                # (``kv_lora_rank`` + the RoPE dims) that every head shares and
+                # that TP replicates rather than shards, so it is nothing like
+                # the per-head K+V footprint the head counts would imply --
+                # for DeepSeek-R1 at TP=8 the difference is ~9x.
+                kv_bpe = _KV_CACHE_BYTES.get(
+                    str(getattr(args, "kv_cache_dtype", "") or "").lower(), 2.0
+                )
+                if getattr(args, "multi_latent_attention", False):
+                    kv_bytes_per_token = (
+                        args.kv_lora_rank + args.qk_pos_emb_head_dim
+                    ) * kv_bpe
+                else:
+                    kv_bytes_per_token = (
+                        kv_heads_per_rank * (sdpa_head_dim + (sdpa_head_dim_v or sdpa_head_dim)) * kv_bpe
+                    )
                 # Prefill keeps causal masking; decode (single query) attends
                 # to the whole cache so masking is irrelevant.
                 causal = self._inference_phase == "prefill"
@@ -311,6 +337,7 @@ class AttentionProfiler(BaseModuleProfiler):
                     dtype="bf16",
                     seq_len_kv=int(kv_len),
                     num_heads_kv=kv_heads_per_rank,
+                    kv_bytes_per_token=kv_bytes_per_token,
                     head_dim_v=sdpa_head_dim_v,
                 )
                 fwd_time += sdpa_result.forward_time_ms

@@ -1494,15 +1494,22 @@ class InferencePerformanceProjector:
             # context distribution [ISL, ISL+OSL].
             n_samples = min(8, max(2, int(OSL)))
             ctx_lo, ctx_hi = ISL, ISL + OSL
+            # Per-kernel GPU occupancy is a property of the step's kernels, not
+            # of which code path prices it, so both the pure and the mixed step
+            # pay it -- a mixed step runs the same decode kernels and adds a
+            # prefill chunk on top. Charging it only in
+            # ``_decode_step_latency_ms`` left the continuous-batching path
+            # (every vLLM workload) without it.
+            occ = self._decode_occupancy_ms()
             pure, mixed = [], []
             for i in range(n_samples):
                 frac = i / (n_samples - 1) if n_samples > 1 else 0.0
                 ctx = int(ctx_lo + frac * (ctx_hi - ctx_lo))
                 pure_fwd = self._forward_times(C, q_len, "decode", ctx).total_ms
-                t_pure = pure_fwd + self._draft_overhead_ms(pure_fwd / max(1, q_len)) + ov
+                t_pure = pure_fwd + self._draft_overhead_ms(pure_fwd / max(1, q_len)) + ov + occ
                 prefill_piece = self._forward_times(1, chunk_tokens, "prefill", min(ctx, ISL)).total_ms
                 dec_piece = self._forward_times(max(1, C - 1), q_len, "decode", ctx).total_ms
-                t_mixed = (prefill_piece + dec_piece) * (1.0 + penalty) + ov
+                t_mixed = (prefill_piece + dec_piece) * (1.0 + penalty) + ov + occ
                 pure.append(t_pure)
                 mixed.append(t_mixed)
             t_pure = sum(pure) / len(pure)

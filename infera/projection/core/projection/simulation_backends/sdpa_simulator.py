@@ -263,6 +263,7 @@ class SDPASimulator(SDPASimulationBackend):
         seq_len_kv: Optional[int] = None,
         num_heads_kv: Optional[int] = None,
         head_dim_v: Optional[int] = None,
+        kv_bytes_per_token: Optional[float] = None,
     ) -> SimulationResult:
         """
         Simulate FAv3 SDPA execution time using Origami 1-CU tile-level
@@ -285,6 +286,12 @@ class SDPASimulator(SDPASimulationBackend):
             head_dim_v: Value head dimension for P·V (D_v).  Defaults to
                 ``head_dim`` (standard attention).  For MLA set to
                 ``v_head_dim`` (e.g. 128).
+            kv_bytes_per_token: Bytes the KV cache actually holds per token per
+                rank, for the HBM roofline. Defaults to the per-head K+V size,
+                which is right for MHA/GQA. MLA must pass its own value: the
+                cache holds one compressed latent shared by every head, so
+                deriving it from head counts overstates it by ~an order of
+                magnitude and turns the roofline into the dominant term.
         """
         B = batch_size
         H_Q = num_heads
@@ -306,6 +313,7 @@ class SDPASimulator(SDPASimulationBackend):
             causal,
             dtype,
             bpe,
+            kv_bytes_per_token,
         )
 
     # ------------------------------------------------------------------
@@ -356,6 +364,7 @@ class SDPASimulator(SDPASimulationBackend):
         causal: bool,
         dtype: str,
         bpe: int,
+        kv_bytes_per_token: Optional[float] = None,
     ) -> SimulationResult:
         """
         Tile-level SDPA simulation using Origami on a single CU.
@@ -417,10 +426,18 @@ class SDPASimulator(SDPASimulationBackend):
             + 5.0 * B * H_Q * S_Q * S_K  # softmax
         ) * causal_factor
 
+        # KV cache footprint per token. MHA/GQA store K and V per KV head; MLA
+        # stores a single compressed latent that all heads share, so its caller
+        # supplies the real figure instead of letting head counts imply one.
+        kv_per_token = (
+            float(kv_bytes_per_token)
+            if kv_bytes_per_token is not None
+            else H_K * (D_qk + D_v) * bpe
+        )
+
         fwd_bytes = (
             B * H_Q * S_Q * D_qk * bpe  # Q
-            + B * H_K * S_K * D_qk * bpe  # K
-            + B * H_K * S_K * D_v * bpe  # V
+            + B * S_K * kv_per_token  # K and V from the cache
             + B * H_Q * S_Q * D_v * bpe  # O
             + B * H_Q * S_Q * 4  # logsumexp (fp32)
         )
