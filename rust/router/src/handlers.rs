@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use axum::body::Bytes;
-use axum::extract::State;
+use axum::extract::{DefaultBodyLimit, State};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -45,6 +45,10 @@ pub fn app(state: AppState) -> Router {
         .route("/v1/workers", get(workers))
         .route("/v1/models", get(models))
         .route("/metrics", get(metrics))
+        // axum's 2 MiB default on the `Bytes` extractors above 413s long-context
+        // prompts the engines accept. Prompt size is `--context-length`'s job,
+        // and the Python backend imposes no limit of its own either.
+        .layer(DefaultBodyLimit::disable())
         .with_state(state)
 }
 

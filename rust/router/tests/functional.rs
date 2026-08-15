@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 
 use arc_swap::ArcSwap;
 use axum::body::{Body, Bytes};
-use axum::extract::State;
+use axum::extract::{DefaultBodyLimit, State};
 use axum::http::header::CONTENT_TYPE;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
@@ -83,6 +83,9 @@ async fn spawn_mock(status: u16, sse: bool, reply: Value) -> (String, Arc<MockSt
     let router = Router::new()
         .route("/v1/chat/completions", post(mock_handle))
         .route("/v1/completions", post(mock_handle))
+        // Stand in for a real engine, which caps a prompt by context length
+        // rather than by request bytes.
+        .layer(DefaultBodyLimit::disable())
         .with_state(state.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
@@ -150,6 +153,32 @@ async fn mixed_unary_ok() {
     assert_eq!(resp.status(), 200);
     assert_eq!(resp.json::<Value>().await.unwrap()["answer"], 42);
     assert_eq!(mock.hit_count(), 1);
+}
+
+/// A long-context prompt is a normal request, not an oversized one: axum's
+/// default 2 MiB body cap used to 413 it before it reached a worker.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn mixed_forwards_body_over_axum_default_limit() {
+    let (url, mock) = spawn_mock(200, false, json!({"answer": 42})).await;
+    let state = make_state(
+        vec![worker(json!({
+            "worker_id": "w1", "url": url, "model_name": "m", "disagg_mode": "mixed"
+        }))],
+        0,
+    );
+    let router = spawn_router(state).await;
+    let prompt = "x".repeat(4 << 20);
+
+    let resp = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m", "prompt": prompt}))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 200);
+    let hits = mock.hits.lock().unwrap();
+    assert_eq!(hits[0].body["prompt"].as_str().unwrap().len(), prompt.len());
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
