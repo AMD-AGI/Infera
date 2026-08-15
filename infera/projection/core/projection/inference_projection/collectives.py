@@ -43,13 +43,11 @@ _PROTOCOLS = ("simple", "ll", "ll64", "ll128")
 _QUICK_REDUCE_SPEEDUP = 0.6        # ROCm low-latency quantized AR (small msgs).
 _FUSED_RMSNORM_AR_SPEEDUP = 0.8    # RMSNorm+AR fusion hides part of the AR.
 
-# Small-message (inference-decode) latency floor.
+# Intra-node serving collective latency floor.
 #
-# The base fixed collective overhead is calibrated for training's large
-# messages; decode moves only small messages per step, where a latency floor
-# dominates.  Below the crossover we use the measured intra-node floor instead;
-# larger / multi-node messages keep the existing model unchanged.
-_INFER_SMALL_MSG_BYTES = 2 << 20   # crossover below which the floor applies
+# The base fixed collective overhead is calibrated for training's large messages;
+# a graph-captured intra-node serving collective does not pay it, so the intra-node
+# path uses ``max(floor, bandwidth)`` instead. Multi-node keeps the base model.
 # Measured intra-node decode collective latencies (MI355X, 8-GPU RCCL, tmp_bench
 # comm_microbench.py): AllReduce ~26 us, AllToAll ~30 us, both latency-bound and
 # flat across the 6-184 KB / 23-737 KB decode message range. These replace the
@@ -255,19 +253,24 @@ class InferenceCollectiveModel:
         )
 
     def _floor_small_msg_overhead(self, us: float, msg: int, gpus: int, *, is_a2a: bool) -> float:
-        """Use the measured small-message latency floor for tiny decode collectives.
+        """Replace the training-scale fixed overhead with the measured intra-node floor.
 
-        Only applies below the latency/bandwidth crossover and for intra-node
-        collectives (the regime the microbenchmark measured).  At these sizes the
-        graph-captured floor (~15 us AR / ~18 us A2A at the 180 KB / 740 KB decode
-        sizes) *already includes* the data transfer, so it replaces the model's
-        whole ``bandwidth-transfer + fixed-overhead`` total rather than being added
-        to it (adding it on top would double-count the transfer).  The floor is
-        flat across the small-message region; ``max`` with the model's bandwidth
-        term keeps it correct as the message approaches the crossover.  No-op for
-        messages at or above the crossover, or across multiple nodes.
+        The base collective model carries a fixed RCCL overhead calibrated for
+        training's very large messages (hundreds of MB), where it is negligible
+        next to the transfer.  A graph-captured intra-node serving collective does
+        not pay it at any size, so it is stripped and the cost becomes
+        ``max(measured latency floor, bandwidth transfer)``: the floor dominates
+        the small decode messages the microbenchmark covered, and the bandwidth
+        term takes over smoothly as the message grows (prefill-scale messages are
+        bandwidth-dominated, so the result is unchanged there).
+
+        Applying this continuously matters: keying it on a message-size crossover
+        made the fixed overhead reappear in one step, so a 1.25x larger message
+        could cost ~8x more and then stay flat — the constant, not bandwidth, was
+        setting the price.  Multi-node collectives keep the base model, whose NIC
+        overheads are real and were not part of the intra-node measurement.
         """
-        if msg >= _INFER_SMALL_MSG_BYTES or gpus > self._args.node_size:
+        if gpus > self._args.node_size:
             return us
         if is_a2a:
             peers = min(gpus - 1, self._args.node_size - 1)
