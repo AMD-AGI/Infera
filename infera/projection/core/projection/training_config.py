@@ -103,6 +103,20 @@ class ModelConfig:
     # fit is really doing is absorbing an unrelated error into a knob that
     # happens to have the right shape. The mid-batch residual is not routing skew.
     moe_routing_skew: float = 0.0
+    # How many distinct experts the router really reaches, as a fraction of what
+    # independent per-token routing predicts, keyed by token count. Measured by
+    # pushing token representations through the checkpoint's own router weights
+    # (bench/hyperloom_validation/measure_router_coverage.py) -- no GPU needed,
+    # since a router is one linear layer per block.
+    #
+    # It exists because independence is the wrong assumption. Real token
+    # representations are correlated, so tokens pick overlapping experts and a
+    # step reads fewer distinct ones. For gpt-oss-120b the coverage falls to
+    # 0.70 of the independent prediction around batch 32-64 and returns toward 1
+    # at both ends -- a shape no marginal-skew law can produce, and the same
+    # probe on uncorrelated Gaussian inputs stays at 0.90-1.0, which is what
+    # identifies correlation rather than skew as the cause.
+    moe_router_coverage: dict = None
     # Misc
     share_embeddings_and_output_weights: bool = False
     # Precision – None means bf16, "hybrid" means FP8-hybrid (linear GEMMs in FP8)

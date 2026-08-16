@@ -60,6 +60,30 @@ def _grouped_gemm_efficiency(active_experts: int) -> float:
     )
 
 
+def _router_coverage(curve, tokens: int) -> float:
+    """Measured distinct-expert coverage, relative to independent routing.
+
+    ``curve`` maps a token count to the fraction of the independent-routing
+    prediction the real router actually reaches, as measured from the
+    checkpoint. Interpolated in log(tokens) because the batch points are spaced
+    by doubling, and held flat outside the measured range.
+    """
+    if not curve:
+        return 1.0
+    pts = sorted((int(b), float(v)) for b, v in curve.items())
+    if tokens <= pts[0][0]:
+        return pts[0][1]
+    if tokens >= pts[-1][0]:
+        return pts[-1][1]
+    import math
+
+    for (b0, v0), (b1, v1) in zip(pts, pts[1:]):
+        if b0 <= tokens <= b1:
+            w = (math.log(tokens) - math.log(b0)) / (math.log(b1) - math.log(b0))
+            return v0 + w * (v1 - v0)
+    return pts[-1][1]
+
+
 def _expert_hit_fraction(
     num_experts: int, topk: int, tokens: int, skew: float = 0.0
 ) -> float:
@@ -264,6 +288,15 @@ class MoEMLPProfiler(BaseModuleProfiler):
         if num_experts > 1 and num_local_experts > 1:
             skew = float(getattr(self.config.model_config, "moe_routing_skew", 0.0) or 0.0)
             hit_frac = _expert_hit_fraction(num_experts, topk, routing_tokens, skew)
+            # Both laws above treat tokens as routing independently. Real tokens
+            # do not: their representations are correlated, so they pick
+            # overlapping experts and a step touches fewer distinct ones than
+            # independence predicts. Measured from the checkpoint's own router,
+            # this is a no-op when unmeasured.
+            hit_frac *= _router_coverage(
+                getattr(self.config.model_config, "moe_router_coverage", None),
+                routing_tokens,
+            )
             active_global_experts = max(
                 1, min(num_experts, int(round(num_experts * hit_frac)))
             )

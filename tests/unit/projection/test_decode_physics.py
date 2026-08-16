@@ -144,6 +144,32 @@ def test_decode_all_reduce_matches_the_measured_custom_kernel():
     assert large > 2.0 * small, "all-reduce is flat in message size again"
 
 
+def test_measured_router_coverage_reshapes_the_expert_count():
+    """Real tokens route in a correlated way, so a step touches fewer experts.
+
+    Measured from gpt-oss-120b's own router weights: coverage falls to ~0.70 of
+    the independent-routing prediction around batch 32-64 and returns toward 1
+    at both ends. The same probe on uncorrelated inputs stays near 1, which is
+    what makes this token correlation rather than expert-popularity skew -- and
+    is why no marginal-skew law reproduces the shape.
+    """
+    from infera.projection.core.projection.module_profilers.moe_mlp import (
+        _router_coverage,
+    )
+
+    curve = {1: 1.0, 8: 0.85, 32: 0.71, 64: 0.70, 256: 0.84}
+    assert _router_coverage(curve, 32) == pytest.approx(0.71)
+    # Between measured points, interpolated rather than snapped.
+    mid = _router_coverage(curve, 16)
+    assert 0.71 < mid < 0.85
+    # Held flat outside the measured range instead of extrapolated off a cliff.
+    assert _router_coverage(curve, 1) == pytest.approx(1.0)
+    assert _router_coverage(curve, 4096) == pytest.approx(0.84)
+    # Unmeasured models keep independent routing.
+    assert _router_coverage(None, 32) == 1.0
+    assert _router_coverage({}, 32) == 1.0
+
+
 def test_small_expert_groups_do_not_saturate_bandwidth():
     """A few experts cannot saturate HBM; ~16 can.
 

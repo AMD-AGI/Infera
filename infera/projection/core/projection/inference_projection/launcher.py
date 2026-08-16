@@ -584,6 +584,20 @@ def launch_projection_from_cli(args, overrides):
     if _skew is not None:
         inference_config.model_config.moe_routing_skew = float(_skew)
 
+    _cov = getattr(args, "moe_router_coverage", None)
+    if _cov:
+        import json as _json
+
+        with open(_cov) as _f:
+            _blob = _json.load(_f)
+        _curve = _blob.get("coverage_vs_uniform", _blob)
+        inference_config.model_config.moe_router_coverage = {
+            int(k): float(v) for k, v in _curve.items()
+        }
+        print(f"[inferasim:Inference] measured router coverage from {_cov} "
+              f"({len(_curve)} batch points, "
+              f"min {min(float(v) for v in _curve.values()):.2f}x independent)")
+
     explicit_wdt = getattr(args, "weight_dtype", None)
     if explicit_wdt is not None:
         wdt = str(explicit_wdt).lower()
