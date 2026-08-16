@@ -41,3 +41,26 @@ moe_router_group_topk: 4 # int
 # moe_router_group_topk: 2 # int
 
 moe_router_topk_scaling_factor: 2.5 # float
+
+# How many distinct experts the trained router actually reaches, as a fraction
+# of what independent routing predicts, measured from the checkpoint's own
+# router weights with bench/hyperloom_validation/measure_router_coverage.py
+# (six layers probed, midpoint of the two probes).
+#
+# Milder than gpt-oss, which bottoms at 0.78: with 256 experts and top-8 there
+# is far more room before selections collide. The mechanism differs too. For
+# gpt-oss the uncorrelated gaussian control stays near 1.0 while real embeddings
+# fall away, so the cause is that real tokens are correlated and pick
+# overlapping experts. Here the control falls almost as far (0.90 against 0.88),
+# so most of the reduction is skew in the router weights themselves -- some
+# experts are simply more popular whatever the input.
+moe_router_coverage: # [tokens in the step, coverage]
+  - [1, 1.00]
+  - [2, 1.00]
+  - [4, 0.98]
+  - [8, 0.96]
+  - [16, 0.94]
+  - [32, 0.91]
+  - [64, 0.89]
+  - [128, 0.92]
+  - [256, 0.96]
