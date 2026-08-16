@@ -6,11 +6,8 @@
 
 from typing import Optional
 
-import torch
-
 from infera.projection.core.projection.base_module_profiler import BaseModuleProfiler
 
-from .utils import benchmark_layer
 
 # Bytes per element the KV cache is stored at. The cache dtype is set
 # independently of the compute dtype (fp8 KV with bf16 activations is common),
@@ -365,12 +362,22 @@ class AttentionProfiler(BaseModuleProfiler):
                 # Use simulation mode
                 self._cached_results = self._get_simulated_results(batch_size, seq_len)
             else:
-                # Use actual GPU benchmarking
+                # Use actual GPU benchmarking. torch is imported here rather than
+                # at module scope because it costs ~0.66 s and only this branch
+                # needs it; see the note in embedding.py.
+                import torch
+
                 # Context parallel / Sequence parallel adjustment
                 cp_size = self.config.model_parallel_config.context_model_parallel_size
                 # Effective sequence length per rank if CP is used
                 slen_per_cp = seq_len // cp_size
 
+
+                # Imported here, not at module scope: this pulls in torch, which costs
+                # ~0.66 s and is only needed to benchmark on a real GPU. A simulate-only
+                # projection should not pay for it -- Hyperloom spawns one process per
+                # config, where that import dwarfed the ~28 ms the projection takes.
+                from .utils import benchmark_layer
                 self._cached_results = benchmark_layer(
                     self.module,
                     [

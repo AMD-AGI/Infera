@@ -10,7 +10,6 @@ from infera.projection.core.projection.base_module_profiler import BaseModulePro
 from infera.projection.core.projection.profiler_spec import ModuleProfilerSpec
 from infera.projection.core.projection.training_config import TrainingConfig
 
-from .utils import benchmark_layer
 
 
 class DenseMLPProfiler(BaseModuleProfiler):
@@ -94,6 +93,12 @@ class DenseMLPProfiler(BaseModuleProfiler):
             if self._gemm_backend is not None:
                 self._cached_results = self._get_simulated_results(batch_size, seq_len)
             else:
+
+                # Imported here, not at module scope: this pulls in torch, which costs
+                # ~0.66 s and is only needed to benchmark on a real GPU. A simulate-only
+                # projection should not pay for it -- Hyperloom spawns one process per
+                # config, where that import dwarfed the ~28 ms the projection takes.
+                from .utils import benchmark_layer
                 self._cached_results = benchmark_layer(
                     self.module,
                     [(seq_len, batch_size, self.config.model_config.hidden_size)],

@@ -20,11 +20,6 @@ from .layer_norm import LayerNormProfiler
 from .moe_mlp import MoEMLPProfiler
 from .residual_add import ResidualAddProfiler
 from .router import RouterProfiler
-from .utils import (
-    _install_balanced_routing_patches,
-    _kernel_pad_enabled,
-    benchmark_layer,
-)
 
 # ── Fallback HBM bandwidth for elementwise overhead estimation ──
 _FALLBACK_HBM_BW_GBPS = 5300.0  # MI300X default
@@ -338,6 +333,13 @@ class DenseTransformerLayerProfiler(BaseModuleProfiler):
                 # Use simulation mode
                 self._cached_results = self._get_simulated_results(batch_size, seq_len)
             else:
+                # Imported here, not at module scope: this pulls in torch, which
+                # costs ~0.66 s and is only needed to benchmark on a real GPU. A
+                # simulate-only projection should not pay for it -- Hyperloom
+                # spawns one process per config, where that import dwarfed the
+                # ~28 ms the projection takes.
+                from .utils import benchmark_layer
+
                 # Get TransformerConfig from the layer module itself (has fp8 setting)
                 transformer_config = getattr(self.layer_module, "config", None)
                 self._cached_results = benchmark_layer(
@@ -499,6 +501,12 @@ class MoETransformerLayerProfiler(BaseModuleProfiler):
                 # Legacy whole-layer timing (often ~1.5-1.7x pessimistic on backward).
                 transformer_config = getattr(self.layer_module, "config", None)
                 routing_restores = []
+                from .utils import (
+                    _install_balanced_routing_patches,
+                    _kernel_pad_enabled,
+                    benchmark_layer,
+                )
+
                 if _kernel_pad_enabled():
                     routing_restores, _ = _install_balanced_routing_patches(self.layer_module)
                 try:

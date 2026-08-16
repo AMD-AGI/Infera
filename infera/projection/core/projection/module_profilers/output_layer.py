@@ -8,7 +8,6 @@ from typing import Optional
 
 from infera.projection.core.projection.base_module_profiler import BaseModuleProfiler
 
-from .utils import benchmark_layer
 
 
 class OutputLayerProfiler(BaseModuleProfiler):
@@ -78,6 +77,12 @@ class OutputLayerProfiler(BaseModuleProfiler):
                 # Effective sequence length per rank if CP is used
                 slen_per_cp = seq_len // cp_size
 
+
+                # Imported here, not at module scope: this pulls in torch, which costs
+                # ~0.66 s and is only needed to benchmark on a real GPU. A simulate-only
+                # projection should not pay for it -- Hyperloom spawns one process per
+                # config, where that import dwarfed the ~28 ms the projection takes.
+                from .utils import benchmark_layer
                 self._cached_results = benchmark_layer(
                     self.module,
                     [

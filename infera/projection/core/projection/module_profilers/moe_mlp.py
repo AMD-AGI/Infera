@@ -11,7 +11,6 @@ from infera.projection.core.projection.base_module_profiler import BaseModulePro
 from infera.projection.core.projection.profiler_spec import ModuleProfilerSpec
 from infera.projection.core.projection.training_config import TrainingConfig
 
-from .utils import benchmark_moe_layer_decomposed
 
 # Efficiency fractions for non-GEMM MoE overhead estimation.
 # These express achievable bandwidth as a fraction of peak HBM bandwidth.
@@ -451,6 +450,12 @@ class MoEMLPProfiler(BaseModuleProfiler):
                 self._cached_results = self._get_simulated_results(batch_size, seq_len)
                 self._a2a_fwd_ms = 0.0
             else:
+
+                # Imported here, not at module scope: this pulls in torch, which costs
+                # ~0.66 s and is only needed to benchmark on a real GPU. A simulate-only
+                # projection should not pay for it -- Hyperloom spawns one process per
+                # config, where that import dwarfed the ~28 ms the projection takes.
+                from .utils import benchmark_moe_layer_decomposed
                 fwd, act_mem, a2a_fwd = benchmark_moe_layer_decomposed(
                     self.module,
                     [(seq_len, batch_size, self.config.model_config.hidden_size)],
