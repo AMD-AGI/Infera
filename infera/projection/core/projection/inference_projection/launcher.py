@@ -493,6 +493,13 @@ def launch_projection_from_cli(args, overrides):
     # on a BF16 model) silently kept the training precision for compute. Only
     # applied when the flag is explicitly set (default ``None``) so omitting it
     # preserves the model's native precision.
+    # How unevenly the router spreads tokens over experts. It belongs to the
+    # model's trained router, but stays overridable so a measured imbalance can
+    # be supplied per run.
+    _skew = getattr(args, "moe_routing_skew", None)
+    if _skew is not None:
+        inference_config.model_config.moe_routing_skew = float(_skew)
+
     explicit_wdt = getattr(args, "weight_dtype", None)
     if explicit_wdt is not None:
         wdt = str(explicit_wdt).lower()

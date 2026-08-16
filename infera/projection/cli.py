@@ -614,8 +614,17 @@ def _add_inference_args(parser):
         help="Per-kernel GPU occupancy (us): the minimum time a kernel holds "
         "the device regardless of how little data it touches. Added to the "
         "decode step (not a max) and not cancelled by CUDA-graph capture, "
-        "which removes host dispatch but not kernel execution. Default 5.96 "
+        "which removes host dispatch but not kernel execution. Default 4.35 "
         "from the MI355X TP ladder; 0 disables.",
+    )
+    serv.add_argument(
+        "--moe-routing-skew",
+        type=float,
+        default=None,
+        help="Zipf exponent of the MoE router's popularity law (0 = uniform). "
+        "Sets how many distinct experts a decode step touches, which is what a "
+        "weight-bandwidth-bound MoE step costs. Converts from a measured "
+        "max/mean expert load by I(s) = N / H_N(s).",
     )
     serv.add_argument(
         "--detokenize-overhead-us",

@@ -144,6 +144,32 @@ def test_decode_all_reduce_matches_the_measured_custom_kernel():
     assert large > 2.0 * small, "all-reduce is flat in message size again"
 
 
+def test_realistic_router_imbalance_barely_moves_the_expert_count():
+    """Routing skew is not a free knob for fixing decode error.
+
+    Fitting the skew to the measured ladder finds a clean optimum at s=0.8 --
+    6.7% MAPE against 9.5% at uniform -- which is tempting and wrong: s=0.8 is a
+    14.6x max/mean expert load, and a router trained with a balance loss runs
+    nearer 1.5x. At realistic imbalance the distinct-expert count barely moves,
+    so a large gain from this knob means it is absorbing something else.
+    """
+    from infera.projection.core.projection.module_profilers.moe_mlp import (
+        _expert_hit_fraction,
+    )
+
+    experts, topk, tokens = 128, 4, 16  # gpt-oss-120b at batch 16
+    uniform = _expert_hit_fraction(experts, topk, tokens, skew=0.0)
+    # s=0.3 is already a 3.1x max/mean load, more skew than a balanced router.
+    realistic = _expert_hit_fraction(experts, topk, tokens, skew=0.3)
+
+    assert realistic == pytest.approx(uniform, rel=0.10), (
+        f"realistic skew moved the count {uniform:.3f} -> {realistic:.3f}; "
+        "if this becomes large the knob is doing someone else's job"
+    )
+    # It must still be a real term: heavy skew has to reduce the count.
+    assert _expert_hit_fraction(experts, topk, tokens, skew=1.0) < 0.8 * uniform
+
+
 @pytest.mark.parametrize(
     "name, k, ffn, experts", [("deepseek", 7168, 2048, 103), ("gpt_oss", 2880, 2880, 111)]
 )

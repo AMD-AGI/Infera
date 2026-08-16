@@ -82,6 +82,27 @@ class ModelConfig:
     moe_pattern: list = None
     moe_router_topk: int = 0
     moe_shared_expert_intermediate_size: int = 0
+    # How unevenly the router spreads tokens over experts, as the exponent of a
+    # Zipf popularity law (0 = uniform). It sets how many *distinct* experts a
+    # decode step touches, which is what a weight-bandwidth-bound MoE step costs.
+    # Relates to a measured max/mean expert load by ``I(s) = N / H_N(s)``, so an
+    # imbalance figure from a profile converts straight into this.
+    #
+    # Default 0 -- uniform -- because for a load-balanced router that is very
+    # nearly right, and the alternative is worse than it looks. Real gpt-oss vLLM
+    # sweeps under forced Zipf routing confirm a decode step is linear in this
+    # count to +-1.5% at ~0.06 ms per expert, so the count is the whole story.
+    # But at gpt-oss's 128 experts and top-4, Zipf s=0.3 (a 3.1x max/mean load,
+    # already more skew than a router with an aux balance loss shows) gives 49.4
+    # distinct experts at batch 16 against uniform's 51.0 -- a 3% difference.
+    # Realistic imbalance simply does not move the distinct count much.
+    #
+    # Worth stating because fitting this to the measured TP ladder *does* find a
+    # clean optimum, at s=0.8 for 6.7% MAPE against 9.5% at uniform. That is a
+    # 14.6x max/mean expert load, which no load-balanced router has, so what the
+    # fit is really doing is absorbing an unrelated error into a knob that
+    # happens to have the right shape. The mid-batch residual is not routing skew.
+    moe_routing_skew: float = 0.0
     # Misc
     share_embeddings_and_output_weights: bool = False
     # Precision – None means bf16, "hybrid" means FP8-hybrid (linear GEMMs in FP8)
