@@ -464,6 +464,90 @@ def _print_des(des: Dict[str, object]) -> None:
     print("=" * 100)
 
 
+def _normalise_model_id(name):
+    """Compare model names across the id and preset spellings of the same model."""
+    return "".join(c for c in str(name or "").lower() if c.isalnum())
+
+
+def _anchor_model_filter(store):
+    """Which model's anchors this projection may use, or None for any.
+
+    A structural config carries no HF model name, so a store holding one model's
+    anchors needs no filter. A store holding several does: without one, the
+    nearest-anchor search would happily calibrate gpt-oss against DeepSeek's
+    warmup, which is the kind of mistake that produces a confident wrong number.
+    Resolved against INFERASIM_MODEL, whose preset spelling ("gpt_oss_120B") is
+    matched loosely against the artifact's id ("openai/gpt-oss-120b").
+    """
+    models = {e.get("model") for e in store.entries() if e.get("model")}
+    if len(models) <= 1:
+        return None
+    preset = _normalise_model_id(os.environ.get("INFERASIM_MODEL"))
+    if preset:
+        hits = [m for m in models if preset in _normalise_model_id(m)
+                or _normalise_model_id(m) in preset]
+        if len(hits) == 1:
+            return hits[0]
+    raise ValueError(
+        f"store holds anchors for {len(models)} models {sorted(models)} and the "
+        "target model could not be identified; set INFERASIM_MODEL or use a "
+        "per-model store"
+    )
+
+
+def _anchor_from_store(args, inference_config):
+    """Find a warmup measurement this projection can be calibrated against.
+
+    The point of a warmup store is that a deployment is measured once and then
+    reused, rather than re-measured for every config a search wants to score.
+    What makes that safe is the regime: anchors are only interchangeable with
+    targets that run the same kernels, so an anchor at a different dtype,
+    attention backend, cudagraph mode or speculation setting is reported and
+    refused rather than silently applied.
+
+    Returns the anchor path to load, or None to project analytically.
+    """
+    root = getattr(args, "anchor_store", None) or os.environ.get(
+        "INFERASIM_ANCHOR_STORE"
+    )
+    if not root:
+        return None
+    if not os.path.isdir(root):
+        print(f"[inferasim:Inference] anchor store '{root}' does not exist — "
+              "projecting analytically.")
+        return None
+
+    try:
+        from .search.anchor_store import AnchorStore
+        from .search.regime import recipe_from_inference_config
+
+        store = AnchorStore(root)
+        recipe = recipe_from_inference_config(inference_config)
+        model = _anchor_model_filter(store)
+        entry, distance = store.nearest(recipe, model=model)
+    except Exception as exc:  # noqa: BLE001 - a broken store must not fail a projection
+        print(f"[inferasim:Inference] anchor store unusable ({exc}) — "
+              "projecting analytically.")
+        return None
+
+    if entry is None:
+        print(f"[inferasim:Inference] no anchor in {root} for this model — "
+              "projecting analytically.")
+        return None
+    if distance:
+        print(f"[inferasim:Inference] nearest anchor differs on {distance} regime "
+              f"axis(es) ({entry.get('path')}); it describes different kernels, so "
+              "projecting analytically instead. Warm up in this regime to calibrate.")
+        return None
+
+    path = entry.get("path")
+    tr = entry.get("transport") or {}
+    print(f"[inferasim:Inference] calibrating from warmup anchor {path} "
+          f"(same regime, measured at TP={tr.get('tp')} EP={tr.get('ep')} "
+          f"PP={tr.get('pp')})")
+    return path
+
+
 def launch_projection_from_cli(args, overrides):
     """Entry point for ``inferasim projection inference``."""
     cfg_path = Path(args.config)
@@ -553,6 +637,8 @@ def launch_projection_from_cli(args, overrides):
     benchmark_layer_times = None
     scaling_benchmarks: list = []
     load_bench = getattr(args, "load_benchmark", None)
+    if not load_bench and mode in ("performance", "both"):
+        load_bench = _anchor_from_store(args, inference_config)
     if load_bench and mode in ("performance", "both"):
         # Reuse a previously-saved GPU layer benchmark (skips the spawn). Lets a
         # concurrency sweep calibrate against one bench run.

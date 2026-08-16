@@ -177,13 +177,22 @@ def recipe_from_meta(meta: Dict[str, Any], *, model: Optional[str] = None) -> Di
     *benchmark* parallelism (what it actually ran at) is recorded on the
     transport axes so the anchor's coverage is described in benchmark space;
     the restore to the target happens at reconstruction time."""
-    quant = meta.get("quantization")
+    # Weight dtype is what the run actually executed in, which is not the same
+    # as what was asked for: plenty of checkpoints ship already quantized
+    # (gpt-oss in mxfp4, DeepSeek-R1 in fp8) and vLLM resolves the dtype from the
+    # checkpoint when ``--quantization`` is unset. Reading an unset flag as bf16
+    # therefore mislabels those runs, and an anchor labelled bf16 can never match
+    # the mxfp4 target it was actually measured for -- the warmup becomes
+    # unusable for its own deployment.
+    #
+    # Prefer the resolved dtype the benchmark recorded; fall back to the
+    # requested quantization; otherwise leave it unknown rather than assert a
+    # value, since an unknown axis is skipped by ``regime_distance`` while a
+    # wrong one forces a mismatch.
+    quant = meta.get("weight_dtype") or meta.get("quantization")
     return {
         "model": model or meta.get("model"),
-        # A null quantization / kv-dtype means "model default" which is bf16 for
-        # an un-quantized checkpoint; canonicalize to "bf16" so it matches a
-        # config that spells the same regime as bf16 (avoids false mismatches).
-        "weight_dtype": quant if quant else "bf16",
+        "weight_dtype": quant if quant else None,
         "kv_cache_dtype": meta.get("kv_cache_dtype") or "bf16",
         "moe_expert_dtype": meta.get("moe_expert_dtype"),
         "attention_backend": meta.get("attention_backend"),

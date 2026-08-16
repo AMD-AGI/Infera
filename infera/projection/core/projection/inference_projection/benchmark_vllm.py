@@ -130,6 +130,40 @@ def _s_for_imbalance(num_experts: int, imbalance: float, tol: float = 1e-4) -> f
     return 0.5 * (lo + hi)
 
 
+def _resolved_weight_dtype(args) -> str | None:
+    """The weight dtype the run really used, not just the one requested.
+
+    An explicit ``--quantization`` settles it. Otherwise vLLM takes the dtype
+    from the checkpoint, so read it from the HF config's quantization block --
+    that is how a natively-quantized model (gpt-oss in mxfp4, DeepSeek-R1 in
+    fp8) reports itself. Returns None when it cannot be determined, which is
+    honest and skipped by regime matching, rather than guessing bf16.
+    """
+    explicit = getattr(args, "quantization", None)
+    if explicit:
+        return str(explicit)
+    try:
+        from transformers import AutoConfig
+
+        cfg = AutoConfig.from_pretrained(
+            getattr(args, "model", ""),
+            trust_remote_code=bool(getattr(args, "trust_remote_code", False)),
+        )
+    except Exception:  # noqa: BLE001 - metadata is best-effort, never fatal
+        return None
+    qcfg = getattr(cfg, "quantization_config", None)
+    if isinstance(qcfg, dict):
+        method = qcfg.get("quant_method") or qcfg.get("quant_algo")
+        if method:
+            return str(method).lower()
+    elif qcfg is not None:
+        method = getattr(qcfg, "quant_method", None)
+        if method:
+            return str(method).lower()
+    dtype = getattr(cfg, "torch_dtype", None)
+    return str(dtype).replace("torch.", "") if dtype else None
+
+
 def _num_experts(model: str, trust_remote_code: bool) -> int:
     """Best-effort number of routed experts from the HF config (0 if unknown)."""
     try:
@@ -869,6 +903,11 @@ def run_vllm_benchmark(args) -> dict:
             "restored": restore_meta is not None,
             "restore": restore_meta,
             "quantization": args.quantization,
+            # What the run actually executed in, which an unset --quantization
+            # does not tell you: vLLM resolves the dtype from the checkpoint, and
+            # plenty ship already quantized. Recorded explicitly so the anchor
+            # can be matched to the deployment it was measured for.
+            "weight_dtype": _resolved_weight_dtype(args),
             "kv_cache_dtype": args.kv_cache_dtype,
             "enforce_eager": args.enforce_eager,
             # Speculative decoding is recorded explicitly (including the "off"

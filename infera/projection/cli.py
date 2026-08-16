@@ -618,6 +618,18 @@ def _add_inference_args(parser):
         "from the MI355X TP ladder; 0 disables.",
     )
     serv.add_argument(
+        "--anchor-store",
+        type=str,
+        default=None,
+        metavar="DIR",
+        help="Directory of warmup measurements to reuse. When set and no "
+        "explicit --load-benchmark is given, the closest anchor measured in the "
+        "same regime (model, dtypes, attention backend, cudagraph, speculation) "
+        "calibrates this projection. An anchor from a different regime is "
+        "reported and NOT used, because it describes different kernels. "
+        "Defaults to $INFERASIM_ANCHOR_STORE.",
+    )
+    serv.add_argument(
         "--moe-routing-skew",
         type=float,
         default=None,
