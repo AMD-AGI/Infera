@@ -110,6 +110,39 @@ def _artifact(tmp_path, name, *, tp=8, sweep=True, sub=None):
     return d / name
 
 
+@pytest.mark.parametrize(
+    "target, artifact, same",
+    [
+        # A local mount and an org prefix are provenance, not identity.
+        ("/models/DeepSeek-R1", "deepseek-ai/DeepSeek-R1", True),
+        ("/models/gpt-oss-120b", "openai/gpt-oss-120b", True),
+        # A preset drops decoration the id keeps.
+        ("gpt_oss_120B", "openai/gpt-oss-120b", True),
+        ("qwen3_8B", "Qwen/Qwen3-8B", True),
+        # Different checkpoints stay different, including same-family ones: an
+        # anchor measures routing behaviour, which is weights, not architecture.
+        ("deepseek_v3", "deepseek-ai/DeepSeek-R1", False),
+        ("/models/Qwen3-8B", "Qwen/Qwen3-30B-A3B", False),
+        ("/models/qwen3_8B", "openai/gpt-oss-120b", False),
+        # An unnamed side cannot be claimed to match.
+        ("", "openai/gpt-oss-120b", False),
+    ],
+)
+def test_which_names_refer_to_the_same_model(target, artifact, same):
+    """One definition of model identity, shared by Infera and the bridge.
+
+    Both sides had their own and the bridge's was inert: it compared a checkout
+    path to a HuggingFace id for equality, which never holds, so every workload
+    matched nothing and then fell back to using any anchor at all.
+    """
+    from infera.projection.core.projection.inference_projection.search.regime import (
+        models_match,
+    )
+
+    assert models_match(target, artifact) is same
+    assert models_match(artifact, target) is same, "matching is symmetric"
+
+
 def test_a_directory_of_measurements_is_not_empty_just_because_nobody_indexed_it(tmp_path):
     """The store reads its own directory instead of trusting a manifest.
 

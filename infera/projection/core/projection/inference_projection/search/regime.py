@@ -103,12 +103,21 @@ def normalise_model_id(name: Any) -> str:
 def models_match(a: Any, b: Any) -> bool:
     """Whether two model names plausibly name the same model.
 
-    Containment rather than equality, because the spellings nest: a path ends
-    with the id, and a preset drops the org prefix. Deliberately generous --
-    the caller's alternative is refusing to reuse a warmup that is genuinely
-    for this model, and the regime axes still have to agree afterwards.
+    Compared on the last path segment, because everything before it is
+    provenance rather than identity: "/models/DeepSeek-R1" and
+    "deepseek-ai/DeepSeek-R1" are the same checkpoint, but their full strings
+    have no containment relation in either direction -- the local mount point
+    and the org prefix each break it.
+
+    Containment rather than equality on that segment, since a preset drops
+    decoration the id keeps. Deliberately generous: the caller's alternative is
+    refusing to reuse a warmup that is genuinely for this model, and the regime
+    axes still have to agree before it is used for anything.
     """
-    na, nb = normalise_model_id(a), normalise_model_id(b)
+    def leaf(v: Any) -> str:
+        return normalise_model_id(str(v or "").rstrip("/").rsplit("/", 1)[-1])
+
+    na, nb = leaf(a), leaf(b)
     if not na or not nb:
         return False
     return na in nb or nb in na
