@@ -31,6 +31,24 @@ moe_router_topk: 4
 moe_ffn_hidden_size: 2880 # moe_intermediate_size
 moe_shared_expert_intermediate_size: null # gpt-oss has no shared expert
 
+# How many distinct experts this router really reaches per step, as a fraction
+# of what independent per-token routing predicts. Measured from the checkpoint's
+# own router weights by bench/hyperloom_validation/measure_router_coverage.py.
+# Real token representations are correlated, so tokens pick overlapping experts
+# and a decode step reads fewer distinct ones than independence assumes -- worth
+# 9.4% -> 7.4% MAPE against the measured TP ladder, and it removes a +29%
+# over-prediction at batch 32.
+moe_router_coverage: # [tokens in the step, coverage]
+  - [1, 1.00]
+  - [2, 0.98]
+  - [4, 0.95]
+  - [8, 0.90]
+  - [16, 0.84]
+  - [32, 0.79]
+  - [64, 0.78]
+  - [128, 0.83]
+  - [256, 0.90]
+
 
 # device limited routing
 expert_model_parallel_size: 8

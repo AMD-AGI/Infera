@@ -70,7 +70,13 @@ def _router_coverage(curve, tokens: int) -> float:
     """
     if not curve:
         return 1.0
-    pts = sorted((int(b), float(v)) for b, v in curve.items())
+    # Accepts a mapping, or the [[batch, coverage], ...] form a YAML preset uses
+    # (the config loader turns mappings into namespaces and cannot hold the
+    # integer keys this is naturally keyed by).
+    items = curve.items() if hasattr(curve, "items") else (
+        (p[0], p[1]) for p in curve
+    )
+    pts = sorted((int(b), float(v)) for b, v in items)
     if tokens <= pts[0][0]:
         return pts[0][1]
     if tokens >= pts[-1][0]:
