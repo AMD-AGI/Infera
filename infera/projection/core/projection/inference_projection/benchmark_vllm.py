@@ -186,6 +186,39 @@ def _num_experts(model: str, trust_remote_code: bool) -> int:
     return 0
 
 
+WARMUP_GPU_CAP = 4
+
+
+def warmup_gpu_count(target_tp, target_ep=1, target_pp=1):
+    """How many GPUs a warmup needs: the config's own footprint, capped at four.
+
+    A config spanning ``tp * ep`` GPUs is measured on that many when it fits in
+    four, and on four when it does not. Everything larger is projected from
+    there rather than measured, which is what keeps a warmup to one short run
+    instead of a ladder over every parallelism a search might ask about.
+
+    Four is not an arbitrary cap. Scoring each rung of the measured TP ladder as
+    an anchor for the degrees it did *not* measure, a four-GPU anchor was the
+    best single choice at 6.6% -- better than the full-node eight-GPU anchor at
+    7.6% -- because it interpolates in both directions where an end rung has to
+    extrapolate. It also asks for at most half a node, so a warmup does not wait
+    on a full one.
+    """
+    tp = max(1, int(target_tp or 1))
+    pp = max(1, int(target_pp or 1))
+    ep = max(1, int(target_ep or 1))
+    gpus = min(tp * ep, WARMUP_GPU_CAP)
+    # Never ask for more GPUs than the target itself occupies. In vLLM expert
+    # parallelism is not an independent GPU axis (EP follows TP), so a TP=2 EP=2
+    # target really runs on two GPUs and a four-GPU warmup for it does not exist.
+    gpus = min(gpus, tp * pp)
+    # And it has to stay a split the model can be built at: TP must divide the
+    # target, so step down until it does.
+    while gpus > 1 and tp % gpus:
+        gpus //= 2
+    return max(1, gpus)
+
+
 def _reduce_parallelism(target_tp, target_pp, target_ep, benchmark_gpus):
     """Reduce parallelism to fit ``benchmark_gpus`` GPUs, in the same
     ``pp -> ep -> tp`` order as the Megatron sub-node benchmark
@@ -665,6 +698,12 @@ def run_vllm_benchmark(args) -> dict:
     target_ep = target_tp if args.enable_expert_parallel else 1
     spec_config = _speculative_config(args)
     benchmark_gpus = getattr(args, "benchmark_gpus", None)
+    if benchmark_gpus is None:
+        benchmark_gpus = warmup_gpu_count(target_tp, target_ep, target_pp)
+        print(f"[inferasim:Inference:vLLM-Benchmark] warmup size not given; "
+              f"measuring on {benchmark_gpus} GPU(s) for a TP={target_tp} "
+              f"EP={target_ep} target (footprint capped at {WARMUP_GPU_CAP}). "
+              f"Pass --benchmark-gpus to measure on a different number.")
     bench_tp, bench_pp, bench_ep = _reduce_parallelism(
         target_tp, target_pp, target_ep, benchmark_gpus
     )
