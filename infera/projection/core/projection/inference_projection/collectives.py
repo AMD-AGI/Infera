@@ -108,8 +108,14 @@ def _measured_intra_node_ar_us(msg_bytes: float, gpus: int) -> float | None:
     keys = [w for w in sorted(_INFER_AR_MEASURED_GBPS) if w <= gpus]
     if not keys:
         return None
-    floor_us, bw_gbps = _INFER_AR_MEASURED_GBPS[keys[-1]]
-    return floor_us + (msg_bytes / (bw_gbps * 1e9)) * 1e6
+    _floor_us, bw_gbps = _INFER_AR_MEASURED_GBPS[keys[-1]]
+    # Only the bandwidth term. The fitted floor is what a *standalone* all-reduce
+    # costs, and most of it is the per-kernel occupancy every kernel pays -- which
+    # the decode step already charges for all of its kernels, this one included.
+    # Adding both counted it twice, and visibly: the resulting step floor rose
+    # from 1.91 ms at TP=1 to 2.73 ms at TP=8, while the measured floor is flat
+    # at 2.72 ms +/- 0.2 across all four rungs, as a fixed cost should be.
+    return (msg_bytes / (bw_gbps * 1e9)) * 1e6
 
 
 def deepep_overlap_efficiency(model_config) -> float:

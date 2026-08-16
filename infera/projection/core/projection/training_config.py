@@ -336,23 +336,25 @@ class InferenceRequestConfig:
     #
     # Measured on MI355X by solving ``step(tp) = floor + compute(1)/tp`` across
     # TP=1,2,4,8 with real weights (bench/hyperloom_validation/
-    # measure_step_floor.sh), after subtracting the *measured* per-step
-    # all-reduce from each TP>1 rung. Subtracting it matters: TP=1 runs no
-    # collective at all, so a floor fit that leaves comm in absorbs it and the
-    # same milliseconds then get charged twice once comm is modelled explicitly.
-    # That is what the earlier 5.96 us did -- it came from a 2.61 ms floor that
-    # silently contained ~0.8 ms of all-reduce.
+    # measure_step_floor.sh).
     #
-    # With comm removed the floor is flat where it should be: 1.83-2.07 ms over
-    # batch 1..64 on the TP=8 rung, which is the most floor-dominated one. That
-    # mean, 1.91 ms, is the calibrated quantity.
+    # The floor keeps *all* of the fixed cost, including the collectives'. An
+    # earlier version subtracted the measured all-reduce from each TP>1 rung to
+    # avoid double-counting once comm was modelled explicitly -- but comm is then
+    # added back with its own fitted floor, which restores the double count. It
+    # showed: the resulting step floor ran from 1.91 ms at TP=1 to 2.73 ms at
+    # TP=8, whereas subtracting only each rung's *data movement* leaves a floor
+    # of 2.93, 2.56, 2.57, 2.82 ms at TP=1,2,4,8 -- flat, as a fixed cost should
+    # be, since sharding does not remove kernels. So the floor is that mean,
+    # 2.72 ms, and a small all-reduce now contributes only its bandwidth term,
+    # its own occupancy already being one of the kernels counted here.
     #
     # What is calibrated is the *product* of a kernel count and a per-kernel
     # minimum, and only the product was measured. Splitting it wrongly does not
     # show up on the model it was fitted to and does show up on every other one:
-    # gpt-oss runs about 15 kernels in a decode layer, so the same 1.91 ms is
-    # 3.50 us across ``36 * 15 + 6 = 546`` kernels rather than 4.35 us across an
-    # assumed 438. DeepSeek-R1 runs about 23 -- MLA splits the attention
+    # gpt-oss runs about 15 kernels in a decode layer, so the same 2.72 ms is
+    # 4.98 us across ``36 * 15 + 6 = 546`` kernels rather than being spread over
+    # an assumed 438. DeepSeek-R1 runs about 23 -- MLA splits the attention
     # projections and a shared expert adds a third GEMM pair -- and at 61 layers
     # that difference is worth 1.7 ms of floor, which is most of why its decode
     # step was under-predicted by 31% at batch 4.
@@ -362,7 +364,7 @@ class InferenceRequestConfig:
     # both directly and should replace the estimate; until then, cross-model
     # agreement is the test of whether this is hardware physics or one model's
     # tuning. 0 = disabled.
-    decode_kernel_occupancy_us: float = 3.50
+    decode_kernel_occupancy_us: float = 4.98
     # Per-output-token host cost for detokenization + response streaming
     # (microseconds/token). The serving harness (vLLM / InferenceX) measures ITL
     # client-side, so its per-token latency carries detok+stream that the GPU

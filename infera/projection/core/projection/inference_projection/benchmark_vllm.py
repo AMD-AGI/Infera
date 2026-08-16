@@ -1063,11 +1063,17 @@ def main():
                          "assuming decode is flat in context.")
     ap.add_argument("--seed", type=int, default=0,
                     help="single RNG seed for random token content (default 0)")
-    ap.add_argument("--seeds", default=None,
+    ap.add_argument("--seeds", default="0,1,2",
                     help="comma list of seeds to sweep in ONE engine build, e.g. "
                          "'0,1,2'. Each seed re-rolls random token content and adds "
                          "an independent timing sample; the emitted sweep carries the "
-                         "per-batch mean + std across seeds (no engine re-init).")
+                         "per-batch mean + std across seeds (no engine re-init). "
+                         "Three by default because a single seed gives an artifact "
+                         "with no error bar at all: two independent single-seed runs "
+                         "of one identical config disagree by 6.1% on average and "
+                         "12.1% at worst, which is large enough to be mistaken for "
+                         "model error. Seeds are nearly free -- they reuse the engine, "
+                         "and the build is almost all of the cost.")
     ap.add_argument("--max-model-len", type=int, default=None)
     ap.add_argument("--bench-layers", default=None,
                     help="comma list of REDUCED layer counts to benchmark and "

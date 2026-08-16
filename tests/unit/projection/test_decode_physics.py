@@ -129,19 +129,48 @@ def test_decode_all_reduce_matches_the_measured_custom_kernel():
 
     Measured with bench/hyperloom_validation/measure_allreduce.py at hidden 2880:
     9.9 us at batch 1 (5.8 KB) and 25.1 us at batch 256 (1.5 MB) on 8 ranks.
+
+    What the model charges is the *marginal* cost over per-kernel occupancy,
+    since the all-reduce is one of the step's kernels and its occupancy is
+    already counted there. So the measured standalone time is reproduced by
+    adding the occupancy floor back, and that is what this checks.
+    """
+    from infera.projection.core.projection.inference_projection.collectives import (
+        _INFER_AR_MEASURED_GBPS,
+        _measured_intra_node_ar_us,
+    )
+
+    floor_us = _INFER_AR_MEASURED_GBPS[8][0]
+    small = _measured_intra_node_ar_us(1 * 2880 * 2, gpus=8)
+    large = _measured_intra_node_ar_us(256 * 2880 * 2, gpus=8)
+
+    assert small + floor_us == pytest.approx(9.9, rel=0.30), (
+        f"batch-1 all-reduce {small + floor_us:.1f} us"
+    )
+    assert large + floor_us == pytest.approx(25.1, rel=0.30), (
+        f"batch-256 all-reduce {large + floor_us:.1f} us"
+    )
+    # The defect that started this was flatness, not the constant: a 256x larger
+    # message has to cost meaningfully more, or batch cannot move the comm term.
+    assert large > 2.0 * small, "all-reduce is flat in message size again"
+
+
+def test_a_small_all_reduce_is_not_charged_its_occupancy_twice():
+    """A decode step already pays per-kernel occupancy for every kernel it runs,
+    the collective included. Charging the collective's own fitted floor on top
+    made the step's fixed cost climb with TP -- 1.91 ms at TP=1 to 2.73 ms at
+    TP=8 -- when the measured floor is flat at 2.72 ms across all four rungs,
+    because sharding does not remove kernels.
     """
     from infera.projection.core.projection.inference_projection.collectives import (
         _measured_intra_node_ar_us,
     )
 
-    small = _measured_intra_node_ar_us(1 * 2880 * 2, gpus=8)
-    large = _measured_intra_node_ar_us(256 * 2880 * 2, gpus=8)
-
-    assert small == pytest.approx(9.9, rel=0.30), f"batch-1 all-reduce {small:.1f} us"
-    assert large == pytest.approx(25.1, rel=0.30), f"batch-256 all-reduce {large:.1f} us"
-    # The defect that started this was flatness, not the constant: a 256x larger
-    # message has to cost meaningfully more, or batch cannot move the comm term.
-    assert large > 2.0 * small, "all-reduce is flat in message size again"
+    tiny = _measured_intra_node_ar_us(1 * 2880 * 2, gpus=8)
+    assert tiny < 1.0, (
+        f"a 5.8 KB all-reduce should cost well under a microsecond of transfer "
+        f"beyond the occupancy every kernel pays, got {tiny:.2f} us"
+    )
 
 
 def test_a_layer_costs_the_kernels_it_actually_runs():
