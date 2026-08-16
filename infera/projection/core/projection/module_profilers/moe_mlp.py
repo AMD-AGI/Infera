@@ -30,6 +30,36 @@ _ACTIVATION_BW_FRACTION = 0.566
 _FALLBACK_HBM_BW_GBPS = 5300.0  # MI300X default
 
 
+
+# Measured grouped-GEMM bandwidth on MI355X at M=1, as a fraction of peak HBM,
+# against the number of experts in the group (bench/.../measure_gemm_bandwidth):
+#
+#   experts     1     2     4     8    16    32    64   128   256
+#   gpt-oss   14%   27%   46%   65%   85%   67%   75%   73%   77%
+#   deepseek  25%   44%   65%   74%   74%   78%   80%   81%   82%
+#
+# A group of a few experts cannot saturate HBM -- too few independent streams to
+# cover latency -- and both models saturate by ~16 experts. Crucially the same
+# sweep at fixed expert count across etp=1..8 holds 72-78%, so this is set by how
+# many experts are in the group, NOT by how many bytes each rank reads. That
+# distinction is the whole point: TP sharding cuts the bytes without cutting the
+# group, so it must not be charged this penalty, and the measured TP relief is
+# indeed near-ideal.
+_GROUPED_GEMM_PLATEAU = 0.78
+_GROUPED_GEMM_EXPERT_SCALE = 4.0
+
+
+def _grouped_gemm_efficiency(active_experts: int) -> float:
+    """Fraction of peak HBM bandwidth a group of ``active_experts`` reaches."""
+    if active_experts <= 0:
+        return _GROUPED_GEMM_PLATEAU
+    import math
+
+    return _GROUPED_GEMM_PLATEAU * (
+        1.0 - math.exp(-float(active_experts) / _GROUPED_GEMM_EXPERT_SCALE)
+    )
+
+
 def _expert_hit_fraction(
     num_experts: int, topk: int, tokens: int, skew: float = 0.0
 ) -> float:
@@ -346,6 +376,16 @@ class MoEMLPProfiler(BaseModuleProfiler):
                 up_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=B)
                 down_fwd = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=B)
                 expert_fwd_ms = up_fwd.forward_time_ms + down_fwd.forward_time_ms
+
+            # The backend's roofline streams expert weights at its saturated
+            # bandwidth, which a small group does not reach. Charge the measured
+            # shortfall for this group size. A no-op once the group saturates
+            # (~16 experts), so it only reshapes the small-batch decode curve --
+            # which is exactly where the group is small enough to matter.
+            if int(seq_len) <= 1 and B > 0:
+                expert_fwd_ms *= max(
+                    1.0, _GROUPED_GEMM_PLATEAU / _grouped_gemm_efficiency(B)
+                )
 
             expert_fwd = expert_fwd_ms
         else:

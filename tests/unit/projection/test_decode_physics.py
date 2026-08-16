@@ -144,6 +144,29 @@ def test_decode_all_reduce_matches_the_measured_custom_kernel():
     assert large > 2.0 * small, "all-reduce is flat in message size again"
 
 
+def test_small_expert_groups_do_not_saturate_bandwidth():
+    """A few experts cannot saturate HBM; ~16 can.
+
+    Measured on MI355X at M=1 (gpt-oss): 14% of peak for one expert, 46% for
+    four, 85% by sixteen. The same sweep at fixed expert count across etp=1..8
+    stays at 72-78%, so this is set by the size of the *group*, not by the bytes
+    each rank reads -- which is why TP sharding must not be charged for it.
+    """
+    from infera.projection.core.projection.module_profilers.moe_mlp import (
+        _GROUPED_GEMM_PLATEAU,
+        _grouped_gemm_efficiency,
+    )
+
+    assert _grouped_gemm_efficiency(1) < 0.30, "one expert should be far off peak"
+    assert _grouped_gemm_efficiency(4) == pytest.approx(0.46, abs=0.12)
+    # Saturated by ~16, so the term stops mattering above small batch.
+    assert _grouped_gemm_efficiency(16) > 0.95 * _GROUPED_GEMM_PLATEAU
+    assert _grouped_gemm_efficiency(128) == pytest.approx(_GROUPED_GEMM_PLATEAU, rel=0.02)
+    # Monotone: more streams can never read slower.
+    vals = [_grouped_gemm_efficiency(n) for n in (1, 2, 4, 8, 16, 32)]
+    assert vals == sorted(vals)
+
+
 def test_realistic_router_imbalance_barely_moves_the_expert_count():
     """Routing skew is not a free knob for fixing decode error.
 
