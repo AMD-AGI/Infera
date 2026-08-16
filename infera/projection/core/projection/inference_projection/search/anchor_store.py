@@ -43,13 +43,79 @@ def _axes_version() -> str:
 class AnchorStore:
     """A directory of benchmark artifacts with nearest-in-regime lookup."""
 
-    def __init__(self, root: str):
+    #: How deep below the root to look for artifacts nobody indexed. Benchmark
+    #: harnesses write into a per-run subdirectory, so the artifacts sit one or
+    #: two levels down; beyond that a store root has been pointed somewhere too
+    #: broad and walking it is a cost, not a feature.
+    DISCOVERY_DEPTH = 3
+
+    def __init__(self, root: str, discover: bool = True):
         self.root = os.path.abspath(root)
         self.index_path = os.path.join(self.root, "index.json")
         self._entries: List[Dict[str, Any]] = []
         self._load_index()
+        if discover:
+            self.discover()
 
     # -- persistence -----------------------------------------------------------
+
+    def discover(self) -> int:
+        """Index any artifact under the root that nothing has indexed yet.
+
+        Without this the store only ever sees what some caller remembered to
+        hand it, which makes a directory full of perfectly good measurements
+        look empty and silently downgrades every projection to uncalibrated.
+        That failure is invisible at the call site -- you get an answer, just a
+        worse one -- so the store reads its own directory instead of trusting
+        someone else to have kept the manifest current.
+
+        Returns the number of newly indexed artifacts.
+        """
+        known = {e.get("path") for e in self._entries}
+        found = 0
+        for path in self._walk_artifacts():
+            if path in known:
+                continue
+            try:
+                with open(path) as f:
+                    art = json.load(f)
+            except (OSError, ValueError):
+                continue
+            if not self._looks_like_artifact(art):
+                continue
+            self._entries.append(self._make_entry(path, art))
+            found += 1
+        if found:
+            self._save_index()
+        return found
+
+    def _walk_artifacts(self):
+        """Absolute paths of candidate JSON files within the depth limit."""
+        root_depth = self.root.rstrip(os.sep).count(os.sep)
+        for dirpath, dirnames, filenames in os.walk(self.root):
+            if dirpath.count(os.sep) - root_depth >= self.DISCOVERY_DEPTH:
+                dirnames[:] = []
+            for name in filenames:
+                if name == "index.json" or not name.endswith(".json"):
+                    continue
+                yield os.path.abspath(os.path.join(dirpath, name))
+
+    @staticmethod
+    def _looks_like_artifact(art: Any) -> bool:
+        """Whether a parsed JSON file is a benchmark artifact we can anchor on.
+
+        Deliberately strict. A store root will contain reports, configs and
+        other JSON, and indexing one of those produces an anchor with no curve
+        that then loses a lookup in a way nobody can trace back to here.
+        """
+        return (
+            isinstance(art, dict)
+            and isinstance(art.get("meta"), dict)
+            and isinstance(art.get("sweep"), list)
+            and any(
+                isinstance(e, dict) and e.get("decode_ms") for e in art["sweep"]
+            )
+        )
 
     def _load_index(self) -> None:
         if not os.path.exists(self.index_path):
