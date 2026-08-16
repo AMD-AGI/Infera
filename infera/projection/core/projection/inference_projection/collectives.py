@@ -329,14 +329,38 @@ class InferenceCollectiveModel:
         Applying this continuously matters: keying it on a message-size crossover
         made the fixed overhead reappear in one step, so a 1.25x larger message
         could cost ~8x more and then stay flat — the constant, not bandwidth, was
-        setting the price.  Multi-node collectives keep the base model, whose NIC
-        overheads are real and were not part of the intra-node measurement.
+        setting the price.
 
         The all-reduce is measured directly on the kernel vLLM runs, so it uses
         that fit in preference to the training model's bandwidth term.
+
+        Multi-node used to keep the base model whole, on the grounds that its NIC
+        overheads are real and were not part of the intra-node measurement. The
+        network terms are indeed real and are kept. The *fixed* terms are not:
+        RCCL setup is algorithm selection, communicator state and the kernel
+        launch chain, which is host-side work that does not know whether a peer
+        is across the node or across the room. Intra-node measurement prices that
+        same work at about 10 us; the training-calibrated constant charges 200,
+        plus a 260 us NIC warmup adder for messages below 32 MB. A decode message
+        is a couple of MB and a step runs one per layer, so on a 48-layer model
+        that was 22 ms of fixed cost per token -- and it never amortises, because
+        the adder is charged again on every step of a stream that has already
+        moved gigabytes through a warm communicator.
+
+        The visible effect was that TP16 projected 6.5x slower than TP8 for the
+        same model, which would have told a Hyperloom search never to go
+        multi-node. Note this path remains the least validated part of the model:
+        there is no inter-node inference measurement in the artifact set, so the
+        network terms here are analytical where the intra-node ones are measured.
         """
         if gpus > self._args.node_size:
-            return us
+            baked = (
+                _alltoall_overhead_us(self._args, gpus)
+                if is_a2a
+                else _allreduce_overhead_us(self._args, msg, gpus)
+            )
+            floor = _INFER_A2A_OVERHEAD_US if is_a2a else _INFER_AR_OVERHEAD_US
+            return max(floor, us - baked)
         if not is_a2a:
             measured = _measured_intra_node_ar_us(msg, gpus)
             if measured is not None:

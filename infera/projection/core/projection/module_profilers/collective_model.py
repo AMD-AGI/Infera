@@ -55,6 +55,19 @@ def get_effective_node_bw(args, group_size=None, a2a=False):
     return bw
 
 
+def remote_contention_factor(args, num_nodes: int) -> float:
+    """Inter-node bandwidth derate from multiplexing one NIC over more peers.
+
+    Matches ``1 - c*(n-1)`` to first order across the two- and four-node range
+    that ``a2a_remote_contention`` was calibrated on, but stays positive at any
+    node count. The subtractive form crossed zero and took the projector's
+    bandwidth with it, so wide configs raised ZeroDivisionError instead of
+    being scored -- and a search cannot choose a config it cannot price.
+    """
+    c = getattr(args, "a2a_remote_contention", 0.0)
+    return 1.0 / (1.0 + max(0.0, c) * max(0, num_nodes - 1))
+
+
 def get_bandwidth_and_latency(args, domain_size):
     """
     Determine bandwidth and latency for a given communication domain size.
@@ -223,8 +236,7 @@ def direct_alltoall(args, msg_size, gpus, groups=["ep"], protocol=None, original
     # plus a multi-destination contention derate (NIC QP multiplexing cost grows with node count).
     raw_pod = getattr(args, "_raw_pod_bw", args.pod_bw / args.bw_eff)
     p2p_eff = getattr(args, "p2p_bw_eff", 0.80)
-    remote_contention = getattr(args, "a2a_remote_contention", 0.0)
-    contention_factor = max(0.0, 1.0 - remote_contention * (num_nodes - 1))
+    contention_factor = remote_contention_factor(args, num_nodes)
     effective_pod_bw = raw_pod * p2p_eff * contention_factor
     if args.switch_topology:
         total_inter_volume = inter_node_volume_per_gpu * gpus_per_node
@@ -527,9 +539,12 @@ def single_shot_alltoall(args, msg_size, gpus, groups=None, protocol=None):
     intra_node_fanout, inter_node_fanout = get_max_fanout(args)
     msg_size_per_peer = ceil(msg_size / gpus)
     # Account for TP striding: with TP (hp) > 1, each EP rank occupies
-    # hp GPUs, so only node_size/hp EP ranks fit on a single node.
+    # hp GPUs, so only node_size/hp EP ranks fit on a single node. Once TP is
+    # wider than a node that quotient floors to zero, which is not "no ranks
+    # per node" but one rank spread over several nodes -- and a zero here
+    # propagated into a zero NIC count and a division by zero downstream.
     hp = getattr(args, "hp", 1)
-    gpus_per_node = min(gpus, args.node_size // max(hp, 1))
+    gpus_per_node = min(gpus, max(1, args.node_size // max(hp, 1)))
     nics_per_node = args.nics_per_node if args.nics_per_node else gpus_per_node
     intra_node_gpus = gpus_per_node - 1
     inter_node_gpus = max(0, gpus - gpus_per_node)
@@ -549,8 +564,7 @@ def single_shot_alltoall(args, msg_size, gpus, groups=None, protocol=None):
         raw_pod = getattr(args, "_raw_pod_bw", args.pod_bw / args.bw_eff)
         p2p_eff = getattr(args, "p2p_bw_eff", 0.80)
         num_nodes_a2a = int(np.ceil(gpus / args.node_size))
-        remote_contention = getattr(args, "a2a_remote_contention", 0.0)
-        contention_factor = max(0.0, 1.0 - remote_contention * (num_nodes_a2a - 1))
+        contention_factor = remote_contention_factor(args, num_nodes_a2a)
         eff_pod_bw = raw_pod * p2p_eff * contention_factor
         if args.switch_topology:
             total_inter_volume = inter_node_msg_size_per_gpu * gpus_per_node
@@ -578,9 +592,12 @@ def hierarchical_alltoall(args, msg_size, gpus, groups=None, protocol=None):
         return 0
 
     # Account for TP striding: with TP (hp) > 1, each EP rank occupies
-    # hp GPUs, so only node_size/hp EP ranks fit on a single node.
+    # hp GPUs, so only node_size/hp EP ranks fit on a single node. Once TP is
+    # wider than a node that quotient floors to zero, which is not "no ranks
+    # per node" but one rank spread over several nodes -- and a zero here
+    # propagated into a zero NIC count and a division by zero downstream.
     hp = getattr(args, "hp", 1)
-    gpus_per_node = min(gpus, args.node_size // max(hp, 1))
+    gpus_per_node = min(gpus, max(1, args.node_size // max(hp, 1)))
     num_nodes = ceil(gpus / max(gpus_per_node, 1))
     nics_per_node = args.nics_per_node if args.nics_per_node else gpus_per_node
 
@@ -599,8 +616,7 @@ def hierarchical_alltoall(args, msg_size, gpus, groups=None, protocol=None):
     # Inter-node time — A2A uses P2P-like NIC streams with multi-dest contention
     raw_pod = getattr(args, "_raw_pod_bw", args.pod_bw / args.bw_eff)
     p2p_eff = getattr(args, "p2p_bw_eff", 0.80)
-    remote_contention = getattr(args, "a2a_remote_contention", 0.0)
-    contention_factor = max(0.0, 1.0 - remote_contention * (num_nodes - 1))
+    contention_factor = remote_contention_factor(args, num_nodes)
     eff_pod_bw = raw_pod * p2p_eff * contention_factor
     if args.switch_topology:
         total_inter_volume = inter_node_volume_per_gpu * gpus_per_node

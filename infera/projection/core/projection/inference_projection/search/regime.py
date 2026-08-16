@@ -90,6 +90,30 @@ def _canon(v: Any) -> str:
     return str(v).strip().lower()
 
 
+def normalise_model_id(name: Any) -> str:
+    """Reduce a model name to a form comparable across its spellings.
+
+    The same model reaches us as a preset ("gpt_oss_120B"), a HuggingFace id
+    ("openai/gpt-oss-120b") and a checkout path ("/models/gpt-oss-120b"), so
+    separators and case carry no information and only get in the way.
+    """
+    return "".join(c for c in str(name or "").lower() if c.isalnum())
+
+
+def models_match(a: Any, b: Any) -> bool:
+    """Whether two model names plausibly name the same model.
+
+    Containment rather than equality, because the spellings nest: a path ends
+    with the id, and a preset drops the org prefix. Deliberately generous --
+    the caller's alternative is refusing to reuse a warmup that is genuinely
+    for this model, and the regime axes still have to agree afterwards.
+    """
+    na, nb = normalise_model_id(a), normalise_model_id(b)
+    if not na or not nb:
+        return False
+    return na in nb or nb in na
+
+
 def _sig(recipe: Dict[str, Any], axes: Iterable[str]) -> str:
     payload = {k: _canon(recipe.get(k)) for k in axes}
     blob = json.dumps(payload, sort_keys=True)

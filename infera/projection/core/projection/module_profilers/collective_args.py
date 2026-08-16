@@ -109,8 +109,15 @@ class CollectiveArgs:
     # remote peers through a single NIC. As the number of remote destinations
     # grows, the NIC must multiplex between more QPs, causing PFC/switching
     # overhead and reduced per-flow efficiency. Applied as:
-    #   effective_pod_bw *= 1 - a2a_remote_contention * (num_nodes - 1)
+    #   effective_pod_bw /= 1 + a2a_remote_contention * (num_nodes - 1)
     # Calibrated: 2N has no derate; 4N has 8% derate matching measured BW drop.
+    #
+    # The derate was originally written as a subtraction, which matches this to
+    # first order over the two- and four-node range it was calibrated on but
+    # reaches exactly zero bandwidth at 26 nodes -- and, once TP spans a node,
+    # at far fewer. That is not a slow projection, it is a division by zero:
+    # multi-node configs crashed the projector rather than being scored. A
+    # reciprocal derates without ever claiming a link carries nothing.
 
 
 def get_default_args(

@@ -464,11 +464,6 @@ def _print_des(des: Dict[str, object]) -> None:
     print("=" * 100)
 
 
-def _normalise_model_id(name):
-    """Compare model names across the id and preset spellings of the same model."""
-    return "".join(c for c in str(name or "").lower() if c.isalnum())
-
-
 def _anchor_model_filter(store):
     """Which model's anchors this projection may use, or None for any.
 
@@ -479,13 +474,14 @@ def _anchor_model_filter(store):
     Resolved against INFERASIM_MODEL, whose preset spelling ("gpt_oss_120B") is
     matched loosely against the artifact's id ("openai/gpt-oss-120b").
     """
+    from .search.regime import models_match
+
     models = {e.get("model") for e in store.entries() if e.get("model")}
     if len(models) <= 1:
         return None
-    preset = _normalise_model_id(os.environ.get("INFERASIM_MODEL"))
+    preset = os.environ.get("INFERASIM_MODEL")
     if preset:
-        hits = [m for m in models if preset in _normalise_model_id(m)
-                or _normalise_model_id(m) in preset]
+        hits = [m for m in models if models_match(preset, m)]
         if len(hits) == 1:
             return hits[0]
     raise ValueError(
