@@ -1263,8 +1263,13 @@ class InferencePerformanceProjector:
         ``s_tgt - s_bench`` difference the anchor restore takes, which is the
         correct behaviour -- sharding does not remove kernels.
         """
+        from infera.projection.core.projection.training_config import (
+            decode_kernels_per_layer,
+        )
+
         return self.cfg.request_config.resolved_decode_occupancy_ms(
-            self.cfg.model_config.num_layers
+            self.cfg.model_config.num_layers,
+            decode_kernels_per_layer(self.cfg.model_config),
         )
 
     def _launch_latency_floor_ms(self) -> float:

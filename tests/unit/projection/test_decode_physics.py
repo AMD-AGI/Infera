@@ -144,6 +144,35 @@ def test_decode_all_reduce_matches_the_measured_custom_kernel():
     assert large > 2.0 * small, "all-reduce is flat in message size again"
 
 
+def test_a_layer_costs_the_kernels_it_actually_runs():
+    """The per-step floor is a kernel count times a hardware minimum, and only
+    their product was measured. Getting the split wrong is invisible on the
+    model it was fitted to and wrong everywhere else: DeepSeek-R1 splits its
+    attention projections for MLA and runs a shared expert every step, so its
+    layer issues meaningfully more kernels than gpt-oss's.
+    """
+    from types import SimpleNamespace
+
+    from infera.projection.core.projection.training_config import (
+        decode_kernels_per_layer,
+    )
+
+    gpt_oss = SimpleNamespace(num_experts=128, multi_latent_attention=False,
+                              moe_shared_expert_intermediate_size=None)
+    deepseek = SimpleNamespace(num_experts=256, multi_latent_attention=True,
+                               moe_shared_expert_intermediate_size=2048)
+    dense = SimpleNamespace(num_experts=0, multi_latent_attention=False,
+                            moe_shared_expert_intermediate_size=None)
+
+    n_gpt, n_ds, n_dense = (decode_kernels_per_layer(m)
+                            for m in (gpt_oss, deepseek, dense))
+    assert n_dense < n_gpt < n_ds, (
+        "a dense layer runs fewest, MLA plus a shared expert the most"
+    )
+    # MLA adds five kernels over fused QKV; a shared expert adds three.
+    assert n_ds - n_gpt == 8
+
+
 def test_measured_router_coverage_reshapes_the_expert_count():
     """Real tokens route in a correlated way, so a step touches fewer experts.
 

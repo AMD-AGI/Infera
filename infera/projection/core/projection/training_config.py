@@ -158,6 +158,52 @@ class TrainingConfig:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+def decode_kernels_per_layer(model_config) -> int:
+    """How many kernels one transformer layer issues in a decode step.
+
+    A decode step is largely a stream of small kernels, and their number is set
+    by the architecture rather than being the same everywhere. It matters
+    because each one holds the GPU for a minimum time no matter how little data
+    it touches, so the count multiplies a hardware floor -- and at 61 layers a
+    wrong count per layer is milliseconds per step.
+
+    Counted from what the layer has to run, not fitted:
+
+      framing        input norm, post-attention norm, two residual adds
+      attention      one fused QKV projection, RoPE, the attention kernel and
+                     the output projection. Multi-head latent attention instead
+                     splits into down/up projections for Q and KV with a norm on
+                     each compressed vector, which is five more.
+      MLP            dense: gate/up, activation, down. Mixture-of-experts adds a
+                     router projection, top-k selection, the permutation that
+                     groups tokens by expert, and the combine that undoes it.
+      shared expert  its own gate/up, activation and down, run every step.
+
+    Collectives are excluded: they are modelled separately, and charging them
+    here as well would count the same microseconds twice.
+    """
+    kernels = 4  # two norms, two residual adds
+
+    if getattr(model_config, "multi_latent_attention", False):
+        # q_a, q_a_norm, q_b, kv_a, kv_a_norm, kv_b, rope, attention, o_proj
+        kernels += 9
+    else:
+        kernels += 4  # qkv, rope, attention, o_proj
+
+    num_experts = int(getattr(model_config, "num_experts", 0) or 0)
+    if num_experts > 1:
+        # router, top-k, permute, grouped gate/up, activation, grouped down,
+        # combine
+        kernels += 7
+    else:
+        kernels += 3  # gate/up, activation, down
+
+    if int(getattr(model_config, "moe_shared_expert_intermediate_size", 0) or 0) > 0:
+        kernels += 3
+
+    return kernels
+
+
 def dtype_num_bytes(dtype: Optional[str]) -> float:
     """Return the byte width of a (loosely-named) tensor dtype.
 
@@ -298,16 +344,25 @@ class InferenceRequestConfig:
     # silently contained ~0.8 ms of all-reduce.
     #
     # With comm removed the floor is flat where it should be: 1.83-2.07 ms over
-    # batch 1..64 on the TP=8 rung, which is the most floor-dominated one. The
-    # default is that mean, 1.91 ms, over the kernel count
-    # ``36 * kernels_per_layer + 6 = 438``: 4.35 us.
+    # batch 1..64 on the TP=8 rung, which is the most floor-dominated one. That
+    # mean, 1.91 ms, is the calibrated quantity.
     #
-    # This is one architecture's ladder divided by an assumed kernel count, so
-    # it is a per-kernel figure only if the count is right. measure_kernel_floor.py
-    # measures the count and the per-kernel minimum directly and should replace
-    # it; until then, treat cross-model agreement as the test of whether this is
-    # hardware physics or one model's tuning. 0 = disabled.
-    decode_kernel_occupancy_us: float = 4.35
+    # What is calibrated is the *product* of a kernel count and a per-kernel
+    # minimum, and only the product was measured. Splitting it wrongly does not
+    # show up on the model it was fitted to and does show up on every other one:
+    # gpt-oss runs about 15 kernels in a decode layer, so the same 1.91 ms is
+    # 3.50 us across ``36 * 15 + 6 = 546`` kernels rather than 4.35 us across an
+    # assumed 438. DeepSeek-R1 runs about 23 -- MLA splits the attention
+    # projections and a shared expert adds a third GEMM pair -- and at 61 layers
+    # that difference is worth 1.7 ms of floor, which is most of why its decode
+    # step was under-predicted by 31% at batch 4.
+    #
+    # So the per-layer count is derived per architecture (``decode_kernels_per_
+    # layer``) and this stays a hardware figure. measure_kernel_floor.py measures
+    # both directly and should replace the estimate; until then, cross-model
+    # agreement is the test of whether this is hardware physics or one model's
+    # tuning. 0 = disabled.
+    decode_kernel_occupancy_us: float = 3.50
     # Per-output-token host cost for detokenization + response streaming
     # (microseconds/token). The serving harness (vLLM / InferenceX) measures ITL
     # client-side, so its per-token latency carries detok+stream that the GPU
@@ -512,18 +567,23 @@ class InferenceRequestConfig:
             n_kernels *= _FUSED_KERNEL_OVERHEAD_FACTOR
         return n_kernels * lat_us / 1000.0
 
-    def resolved_decode_occupancy_ms(self, num_layers: int) -> float:
+    def resolved_decode_occupancy_ms(self, num_layers: int,
+                                     kernels_per_layer: int | None = None) -> float:
         """Additive per-kernel GPU occupancy for one decode step (ms).
 
         Same kernel count as the launch floor, but priced at the device-side
         occupancy minimum and *not* cancelled by graph capture: replay removes
         the host dispatch, not the kernels. Fusing genuinely removes kernels, so
         ``fused_kernels`` still shrinks the count.
+
+        ``kernels_per_layer`` is what the architecture actually issues, counted
+        by :func:`decode_kernels_per_layer`. An explicit ``self.kernels_per_layer``
+        still wins, for measuring a specific engine.
         """
         occ_us = float(self.decode_kernel_occupancy_us or 0.0)
         if occ_us <= 0.0:
             return 0.0
-        kpl = max(1, int(self.kernels_per_layer or 12))
+        kpl = max(1, int(kernels_per_layer or self.kernels_per_layer or 12))
         n_kernels = max(1, int(num_layers)) * kpl + 6
         if self.fused_kernels:
             n_kernels *= _FUSED_KERNEL_OVERHEAD_FACTOR
