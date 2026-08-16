@@ -79,15 +79,32 @@ _INFER_A2A_OVERHEAD_US = float(os.getenv("INFERASIM_INFER_A2A_FLOOR_US", "30.0")
 # measurement at batch 256, which was the entire batch-256 TP residual.
 _INFER_AR_MEASURED_GBPS = {2: (7.81, 65.9), 4: (10.06, 120.7), 8: (11.40, 117.6)}
 
+# Above this message size vLLM stops using its own all-reduce and hands the
+# message to RCCL, so the fit above no longer describes the kernel that runs.
+# The distinction matters far more than it sounds: a decode message is a couple
+# of MB, but a prefill message is tokens x hidden, which at batch 64 is 377 MB --
+# 250x larger and nowhere near the sizes the fit was measured over. Applying the
+# small-message bandwidth there charged 232 ms of all-reduce to a prefill that
+# measured 177 ms in total, i.e. more communication than the whole step.
+_VLLM_CUSTOM_AR_MAX_BYTES = float(
+    os.getenv("INFERASIM_CUSTOM_AR_MAX_MB", "8") or 8
+) * 1024 * 1024
+
 
 def _measured_intra_node_ar_us(msg_bytes: float, gpus: int) -> float | None:
     """Measured intra-node all-reduce latency (us), or ``None`` if unmeasured.
+
+    ``None`` also means "not this kernel": above vLLM's custom all-reduce size
+    limit the message goes to RCCL, whose large-message bandwidth the base
+    collective model already describes, so the caller should fall back to it.
 
     Falls back to the largest measured world size at or below ``gpus`` so an
     odd TP degree still gets a measured shape rather than the training model.
     """
     if gpus < 2:
         return 0.0
+    if msg_bytes > _VLLM_CUSTOM_AR_MAX_BYTES:
+        return None
     keys = [w for w in sorted(_INFER_AR_MEASURED_GBPS) if w <= gpus]
     if not keys:
         return None

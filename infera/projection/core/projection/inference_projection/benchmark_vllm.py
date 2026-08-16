@@ -736,6 +736,14 @@ def run_vllm_benchmark(args) -> dict:
         # GPU. Opt-in fallback to NCCL all-reduce via env, no-op otherwise.
         if os.environ.get("INFERASIM_BENCH_DISABLE_CAR"):
             kwargs["disable_custom_all_reduce"] = True
+        # Prefix caching has to be off for the prefill timing to mean anything.
+        # The sweep runs the same prompts for warmup and for every timed call, so
+        # with caching on (vLLM's default) every timed prefill is a cache hit and
+        # prefill_ms measures block lookup rather than prompt processing -- which
+        # is how artifacts came to imply 443k tok/s of prefill on a single GPU,
+        # around the arithmetic peak. Decode is unaffected either way, since it is
+        # differenced between two runs that both hit the cache.
+        kwargs["enable_prefix_caching"] = False
         # Expert parallelism: shard MoE experts across the TP ranks (EP = TP)
         # instead of tensor-slicing each expert. Required to expose the
         # imbalance-sensitive effects — the MoE step is then gated by the BUSIEST
