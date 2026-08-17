@@ -465,14 +465,54 @@ curl -X POST http://router:8000/v1/admin/scale \
   -d '{"services": {"prefill": 4, "decode": 8}}'
 ```
 
-Both pools move in one write, so a rebalance cannot half-apply. `GET` on the
-same path reports each pool's requested size alongside what the cluster has
-actually got, which is how a caller tells "not scaled" from "still scaling".
+Counts are absolute rather than deltas, and every pool named in one request moves
+in a single write, so a rebalance cannot half-apply. Pools not named are left
+alone.
+
+`GET` on the same path returns the same shape, as does the `POST` once it has
+written:
+
+```json
+{
+  "deployment": "qwen",
+  "namespace": "infera",
+  "services": {
+    "decode": {
+      "role": "decode",
+      "replicas": 8,
+      "current_replicas": 5,
+      "ready_replicas": 4,
+      "nodes_per_replica": 1
+    }
+  }
+}
+```
+
+The three replica counts are separate:
+
+- **`replicas`** — what was asked for, the value on the CR.
+- **`current_replicas`** — Pods that exist.
+- **`ready_replicas`** — workers registered and serving.
+
+They converge from left to right, and the gaps are the useful part: a Pod
+appears within seconds of the write and serves once its model is loaded, which
+is minutes. `ready_replicas` reaching `replicas` is what says a scale-up has
+landed; anything else means it is still in progress.
+
+`nodes_per_replica` above 1 makes `replicas` a count of **groups** rather than
+Pods — see below.
 
 The API refuses to take a pool to zero: an empty pool stops serving, and in a PD
 deployment an empty prefill or decode pool fails *every* request rather than
 only the ones that would have landed there. Retiring a pool is a `kubectl` edit,
-where the intent is unambiguous.
+where the intent is unambiguous. A negative count and a service name that is not
+in the CR are refused the same way, the latter listing the names that are:
+
+```json
+{"detail": "no such service(s): prefil. This deployment has: decode, prefill, server"}
+```
+
+A refused request writes nothing, so nothing is left half-applied.
 
 ```{note}
 Both paths write the `InferaDeployment`, so both need one. Deployments outside
