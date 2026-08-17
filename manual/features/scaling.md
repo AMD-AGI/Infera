@@ -416,11 +416,33 @@ continuous traffic: **200 requests, 0 failures**, both pools scaling
 independently and the drained workers finishing their in-flight work. Taking the
 last prefill away then returns 503 naming the empty pool.
 
+**Scaling over the API, measured.** A PD deployment at 1 prefill / 2 decode
+resized to 3 / 4 by one `POST /v1/admin/scale`. The CR carried both new counts
+immediately and the Pods reached them **within 35 s**, an operator resync apart.
+Reading back during that window distinguished the two: `replicas` already 3 and
+4 while `current_replicas` still read 1 and 2, which is what tells "not scaled"
+from "still scaling".
+
+Refusals were checked against the cluster rather than only in unit tests, since
+what matters is that a rejected request leaves nothing behind: scaling a pool to
+zero, naming a service that does not exist, and a negative count were each
+refused with the CR unchanged. A server started without `--enable-scaling-api`
+answered 403.
+
+The RBAC the operator generates was read back from the cluster: `get` and
+`patch` on `inferadeployments`, restricted by `resourceNames` to the one
+deployment, alongside the unchanged Pod grant.
+
 ```{warning}
 **Not measured:** multi-node workers, TP > 1, PD scaling with a *real* engine
-(the run above used GPU-free stand-ins, so no KV moved), and scale-down during an
-active KV transfer. The PD handoff queues are counted in the drain, but that
+(the runs above used GPU-free stand-ins, so no KV moved), and scale-down during
+an active KV transfer. The PD handoff queues are counted in the drain, but that
 path has not been exercised on hardware.
+
+The API run used stand-ins for the same reason — it exercises the path from
+request to Pod count, which does not involve inference. What it therefore does
+not show is a *scaled-up* worker going on to serve, or a *scaled-down* one
+draining real work; those are the drain measurements above.
 ```
 
 ## Scaling a deployment
