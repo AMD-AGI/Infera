@@ -24,12 +24,11 @@ from typing import Optional
 # model to count as single-GPU-overhead-saturated. ~5% clears run-to-run noise.
 SUPERLINEAR_THRESH = 1.05
 
-# Highest rung the ladder will benchmark. Each rung costs a real GPU run, and a
-# flat pair at rung ``g`` certifies targets up to ``2*g`` — so a 4-GPU cap still
-# certifies 8-GPU targets while keeping calibration to at most three cheap rungs
-# (1, 2, 4). Larger targets are still projected from the top rung, just reported
-# as extrapolated rather than certified. Raise via ``INFERASIM_LADDER_MAX_GPUS``
-# or the explicit ``max_gpus`` argument.
+# Largest anchor this will consider in regime, matching the four-GPU warmup cap
+# in ``benchmark_vllm.warmup_gpu_count``. A flat pair at ``g`` certifies targets
+# up to ``2*g``, so four still certifies an 8-GPU target; anything larger is
+# projected and reported as extrapolated rather than certified. This is a bound
+# on which anchors count, not an instruction to go and measure more of them.
 LADDER_MAX_GPUS = 4
 
 
@@ -214,32 +213,18 @@ def confidence_ladder(target_gpus: int, anchors_by_gpu: dict, batch: int = 32,
             "reason": f"{why}; benchmark at {nxt} GPUs to converge"}
 
 
-def climb_anchor_ladder(target_gpus: int, bench_fn, max_gpus: Optional[int] = None,
-                        batch: int = 32, tol: float = CONF_TOL, start_gpus: int = 1) -> dict:
-    """Iteratively benchmark rungs 1,2,4,... until confidence is high.
-
-    ``bench_fn(gpus) -> anchor_path`` runs (or fetches) the decode benchmark at
-    ``gpus`` GPUs and returns its anchor file. The loop doubles the GPU count,
-    re-evaluates :func:`confidence_ladder`, and stops when it converges or hits
-    ``max_gpus``/``target_gpus``. Returns the final ``confidence_ladder`` dict
-    augmented with ``"rungs_measured"``.
-
-    ``max_gpus`` defaults to :data:`LADDER_MAX_GPUS` (overridable via
-    ``INFERASIM_LADDER_MAX_GPUS``) so calibration never spends more than a few
-    cheap rungs; a larger target is projected from the top rung instead.
-    """
-    cap = min(target_gpus, ladder_max_gpus(max_gpus))
-    anchors: dict = {}
-    g = max(1, start_gpus)
-    rungs_measured = []
-    while True:
-        if g not in anchors:
-            path = bench_fn(g)
-            if path:
-                anchors[g] = path
-                rungs_measured.append(g)
-        verdict = confidence_ladder(target_gpus, anchors, batch, tol, max_gpus=cap)
-        verdict["rungs_measured"] = list(rungs_measured)
-        if verdict["converged"] or g >= cap:
-            return verdict
-        g = min(cap, g * 2)
+# A climbing loop used to live here: benchmark rung 1, check confidence, double
+# to 2, check again, double to 4. It was removed because scoring it against the
+# measured ladder showed it never earned the GPUs. Holding out one TP at a time
+# and comparing every rung set that excluded it, the best multi-rung ladder beat
+# the best single rung in none of four targets -- it tied exactly at tp2, tp4 and
+# tp8, because the second rung told the scaling fit nothing the first had not,
+# and it lost 1.3 points at tp1, because the extra rung pulled the fit toward a
+# regime the target was not in. At tp8 every anchor was worse than projecting
+# cold. See ``bench/hyperloom_validation/ladder_decision.py``.
+#
+# The policy is now the flat rule in ``benchmark_vllm.warmup_gpu_count``: measure
+# a config on its own footprint when that fits in four GPUs, on four when it does
+# not, and project everything else. ``confidence_ladder`` survives because
+# choosing among anchors that already exist is free; spending GPUs to create
+# more of them is not.

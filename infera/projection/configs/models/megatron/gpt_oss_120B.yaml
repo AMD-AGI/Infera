@@ -38,6 +38,16 @@ moe_shared_expert_intermediate_size: null # gpt-oss has no shared expert
 # and a decode step reads fewer distinct ones than independence assumes -- worth
 # 9.4% -> 7.4% MAPE against the measured TP ladder, and it removes a +29%
 # over-prediction at batch 32.
+# Fitted against measured decode latency, not against the router's own expert
+# counts, and the difference matters. Hooking the running router says it touches
+# 33.6 distinct experts at batch 64 where independent routing predicts 111.2 --
+# a true coverage of 0.30, not 0.78. Substituting the measured counts makes the
+# projection 20-33% low across every batch and context, so the numbers below are
+# absorbing a second error as well as routing: with a third of the experts
+# active, each one processes three times the tokens, and the grouped-GEMM
+# efficiency term does not currently give that back. Until the count and the
+# efficiency are separated, this curve is an effective count, not a physical one.
+# Measured counts: bench_scratch/real_fidelity/routed_experts.json.
 moe_router_coverage: # [tokens in the step, coverage]
   - [1, 1.00]
   - [2, 0.98]

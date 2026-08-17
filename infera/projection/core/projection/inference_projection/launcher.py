@@ -337,24 +337,24 @@ def _emit_restore_confidence(anchor_paths, target_gpus: int) -> None:
             # Out-of-regime: with the cap OFF this restore is NOT trustworthy. The
             # honest fix is to climb, not to mask it with the cap.
             stopgap = (
-                " The ETP cap is currently masking this (a blunt, model-dependent "
-                "correction); prefer climbing over relying on it."
+                " The ETP cap is currently masking this with a blunt, "
+                "model-dependent correction; prefer reporting the extrapolation "
+                "honestly over relying on it."
                 if cap_on else
-                " (ETP cap OFF: expect the raw decode over-projection until you climb.)"
+                " (ETP cap OFF: expect the raw decode over-projection.)"
             )
-            if v.get("next_gpus"):
-                advice = (
-                    f"Benchmark at {v['next_gpus']} GPUs (--benchmark-gpus "
-                    f"{v['next_gpus']}) and pass it via --load-benchmark-scaling "
-                    f"to converge."
-                )
-            else:
-                # Ladder cap reached: there is no further rung to ask for. Raise
-                # the cap only if a higher-GPU benchmark is actually available.
-                advice = (
-                    "No further rung available at the current ladder cap; raise "
-                    "INFERASIM_LADDER_MAX_GPUS if you can benchmark more GPUs."
-                )
+            # This used to tell the operator to benchmark another rung and climb
+            # until the restore converged. It no longer does: scored against the
+            # measured ladder, a second rung beat the best single rung in none of
+            # four targets, so the advice was spending GPUs to buy nothing. The
+            # number is still worth flagging as an extrapolation -- it just is
+            # not worth another run.
+            advice = (
+                "Treat the number as extrapolated, not measured. Climbing to "
+                "another rung does not reliably fix this: a second anchor tied "
+                "or lost against a single four-GPU anchor on every target we "
+                "scored."
+            )
             print(
                 f"[inferasim:Inference] restore confidence: LOW — {v['reason']} "
                 f"(rungs measured: {rungs}). {advice}{stopgap}"

@@ -90,6 +90,49 @@ _VLLM_CUSTOM_AR_MAX_BYTES = float(
     os.getenv("INFERASIM_CUSTOM_AR_MAX_MB", "8") or 8
 ) * 1024 * 1024
 
+# Intra-node expert-parallel all-to-all, measured the same way with
+# ``bench/hyperloom_validation/measure_alltoall.py`` and fitted by
+# ``fit_alltoall.py`` to the same ``t_us = floor_us + bytes / bw`` shape, at
+# r^2 >= 0.996. Maps world size -> (floor_us, effective GB/s), against the bytes
+# that actually cross a link -- ``(N-1)/N`` of the buffer, since a rank's own
+# shard never moves.
+#
+# The all-reduce got measured here and the all-to-all did not, and the asymmetry
+# was expensive. The all-to-all kept a guessed 30 us constant composed as
+# ``max(floor, bandwidth)``, and since a decode message never gets big enough for
+# the bandwidth term to win, the constant set the price at every batch. A gpt-oss
+# step runs 36 MoE layers with a dispatch and a combine each, so that was
+# 72 x 30 us = 2.16 ms of fixed cost per step against a ~3 ms step -- while the
+# measured cost of turning expert parallelism on at batch 1 is about 0.25 ms.
+# The model therefore priced EP as catastrophic at low batch (-63% at TP4 batch 1
+# against -10% measured) and, because the phantom cost did not grow with the
+# batch, as a *win* at high batch where measurement says it loses. That inverted
+# real ranking decisions, which is the one failure mode a search cannot absorb.
+_INFER_A2A_MEASURED_GBPS = {2: (26.59, 57.2), 4: (22.52, 148.3), 8: (18.6, 290.3)}
+
+
+def _measured_intra_node_a2a_us(msg_bytes: float, gpus: int) -> float | None:
+    """Measured intra-node all-to-all bandwidth term (us), or ``None``.
+
+    Bandwidth only, for exactly the reason the all-reduce is bandwidth only: the
+    fitted floor is what a *standalone* collective costs, and most of it is the
+    per-kernel launch and occupancy that the decode step already charges for
+    every kernel it runs, this one included. Charging it twice is what the 30 us
+    constant was doing.
+
+    ``msg_bytes`` is the whole buffer; only ``(N-1)/N`` of it leaves the device.
+    Falls back to the largest measured world size at or below ``gpus`` so an odd
+    EP degree still gets a measured shape rather than a training-scale constant.
+    """
+    if gpus < 2:
+        return 0.0
+    keys = [w for w in sorted(_INFER_A2A_MEASURED_GBPS) if w <= gpus]
+    if not keys:
+        return None
+    _floor_us, bw_gbps = _INFER_A2A_MEASURED_GBPS[keys[-1]]
+    crossing = msg_bytes * (gpus - 1) / gpus
+    return (crossing / (bw_gbps * 1e9)) * 1e6
+
 
 def _measured_intra_node_ar_us(msg_bytes: float, gpus: int) -> float | None:
     """Measured intra-node all-reduce latency (us), or ``None`` if unmeasured.
@@ -361,10 +404,13 @@ class InferenceCollectiveModel:
             )
             floor = _INFER_A2A_OVERHEAD_US if is_a2a else _INFER_AR_OVERHEAD_US
             return max(floor, us - baked)
-        if not is_a2a:
-            measured = _measured_intra_node_ar_us(msg, gpus)
-            if measured is not None:
-                return measured
+        measured = (
+            _measured_intra_node_a2a_us(msg, gpus)
+            if is_a2a
+            else _measured_intra_node_ar_us(msg, gpus)
+        )
+        if measured is not None:
+            return measured
         if is_a2a:
             peers = min(gpus - 1, self._args.node_size - 1)
             baked = (

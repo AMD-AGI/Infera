@@ -1005,12 +1005,38 @@ class InferencePerformanceProjector:
         # Sliding-window / local attention: cap the KV length each attention
         # layer reads at the window (blended across windowed/full layers for
         # interleaved models). Full attention leaves ``kv_len`` unchanged.
+        #
+        # Decode gets no such cap, because the engine does not deliver it. vLLM
+        # only shrinks a windowed layer's KV through its hybrid KV-cache
+        # manager, and on the runs behind this model that manager was never
+        # active -- it reported 2,751,958 KV tokens for gpt-oss-120b on a 288 GB
+        # part, which is every one of the 36 layers holding full context, not 18
+        # of them windowed to 128. The decode step follows: measured, it grows
+        # 2.26x from 1k to 16k context at batch 64, where crediting the window
+        # predicts 1.49x and leaves the projection 28.8% low. Charging the full
+        # read predicts 1.94x and lands within 3.9%, and takes this sweep from
+        # 8.2% to 5.8% MAPE.
+        #
+        # Prefill keeps the cap: there the window is a masking decision inside a
+        # compute-bound kernel rather than a streaming cost, and nothing here
+        # measured it.
         mc = self.cfg.model_config
-        attn_kv = self.cfg.request_config.effective_attn_kv(
-            kv_len,
-            model_window=getattr(mc, "sink_sliding_window", 0),
-            even_layers_only=getattr(mc, "sink_window_even_layers_only", False),
-        )
+        attn_kv = int(max(1, kv_len))
+        if phase != "decode":
+            attn_kv = self.cfg.request_config.effective_attn_kv(
+                kv_len,
+                model_window=getattr(mc, "sink_sliding_window", 0),
+                even_layers_only=getattr(mc, "sink_window_even_layers_only", False),
+            )
+        # The attention profiler sizes its KV roofline from ``kv_cache_dtype`` on
+        # the *model* config, and the serving request carries it on the request
+        # config, so the two never met: every projection priced the cache at two
+        # bytes an element no matter what was asked for. Quantising the KV cache
+        # is one of the larger serving levers -- decode attention is a stream out
+        # of that cache, so fp8 halves the traffic, and at long context that is
+        # most of the step -- and the model was blind to it in both directions,
+        # scoring an fp8 candidate as bf16 and a bf16 one as if it were fp8.
+        mc.kv_cache_dtype = self.cfg.request_config.kv_cache_dtype
         lm.set_inference_phase(phase, attn_kv)
 
         dense_p = lm.sub_profilers.get("dense_transformer_layer")
