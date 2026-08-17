@@ -195,6 +195,56 @@ The router picked one of the two workers for you — that's a working Infera sta
   (`--discovery-backend etcd --request-transport http --kv-event-transport zmq`).
 ```
 
+## 6. Scale it
+
+On this page's path, scaling is starting and stopping workers: repeat step 3 on
+another port for one more, `SIGTERM` one to remove it. Nothing needs to be told
+— workers register and deregister themselves.
+
+On Kubernetes, where the operator owns an `InferaDeployment`, the server can do
+it for you. Start it with `--enable-scaling-api` (off by default), then:
+
+```bash
+curl localhost:8000/v1/admin/scale                      # read
+curl -X POST localhost:8000/v1/admin/scale \            # write
+  -H 'Content-Type: application/json' \
+  -d '{"services": {"prefill": 4, "decode": 8}}'
+```
+
+Counts are absolute, not deltas, and every pool named in one request moves in a
+single write. Both calls answer with the same shape:
+
+```json
+{
+  "deployment": "qwen",
+  "services": {
+    "decode": {
+      "role": "decode",
+      "replicas": 8,
+      "current_replicas": 5,
+      "ready_replicas": 4,
+      "nodes_per_replica": 1
+    }
+  }
+}
+```
+
+The three replica counts are separate on purpose:
+
+- **`replicas`** — what you asked for.
+- **`current_replicas`** — Pods that exist.
+- **`ready_replicas`** — workers actually serving.
+
+They converge from left to right. A new worker exists within seconds and serves
+once its model is loaded, which is minutes; watching `ready_replicas` is how you
+know a scale-up has landed.
+
+```{note}
+This needs a deployment the operator created — on the etcd path above there is
+no `InferaDeployment` to write, and the API answers 409. See
+[Scaling a fleet](../features/scaling.md).
+```
+
 ## Where to go next
 
 - **Route by cache locality** instead of round-robin →
@@ -203,5 +253,7 @@ The router picked one of the two workers for you — that's a working Infera sta
   [PD disaggregation](../features/pd_disaggregation.md)
 - **Keep KV warm** across restarts on RAM/NVMe →
   [KV-Cache Offload](../features/kv_cache_offload.md)
+- **Add and remove workers** while traffic flows →
+  [Scaling a fleet](../features/scaling.md)
 - **Deploy for real** with Kubernetes →
   [Deployment](../serving/deployment.md)
