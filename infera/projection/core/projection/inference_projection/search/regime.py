@@ -265,7 +265,11 @@ def recipe_from_bench_args(args: Any, env: Optional[Dict[str, str]] = None) -> D
         "weight_dtype": getattr(args, "quantization", None) or "bf16",
         "kv_cache_dtype": getattr(args, "kv_cache_dtype", None) or "bf16",
         "moe_expert_dtype": None,
-        "attention_backend": env.get("VLLM_ATTENTION_BACKEND"),
+        # A flag since vLLM 0.25; the env var it replaced is read as a fallback
+        # so anchors measured under the older name still match.
+        "attention_backend": (
+            getattr(args, "attention_backend", None) or env.get("VLLM_ATTENTION_BACKEND")
+        ),
         "cudagraph": "eager" if getattr(args, "enforce_eager", False) else "graph",
         "aiter": aiter_on,
         "speculative": speculative_axis(

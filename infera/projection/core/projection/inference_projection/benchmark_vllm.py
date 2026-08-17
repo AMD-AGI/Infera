@@ -432,6 +432,23 @@ def _engine_kwargs_from_server_args(server_args: str) -> dict:
     return {k: v for k, v in given.items() if k != "model" and v != defaults.get(k)}
 
 
+def _server_arg_value(server_args: str, flag: str):
+    """Read one flag's value out of a server-arg string, without importing vLLM.
+
+    The regime signature needs the attention backend before the engine is built,
+    and it has to come from the flag: vLLM 0.25 removed ``VLLM_ATTENTION_BACKEND``
+    in favour of ``--attention-backend``, so reading the environment silently
+    reports "unset" for a run that pinned a backend.
+    """
+    tokens = shlex.split(server_args or "")
+    for i, tok in enumerate(tokens):
+        if tok == flag and i + 1 < len(tokens):
+            return tokens[i + 1]
+        if tok.startswith(flag + "="):
+            return tok.split("=", 1)[1]
+    return None
+
+
 def _full_num_layers(model: str, trust_remote_code: bool) -> int:
     """Best-effort full transformer layer count from the HF config (0 if unknown)."""
     try:
@@ -1001,7 +1018,9 @@ def run_vllm_benchmark(args) -> dict:
             "env_overrides": dict(
                 kv.split("=", 1) for kv in getattr(args, "env", None) or []
             ) or None,
-            "attention_backend": os.environ.get("VLLM_ATTENTION_BACKEND"),
+            "attention_backend": _server_arg_value(
+                getattr(args, "server_args", "") or "", "--attention-backend"
+            ),
             "load_format": args.load_format,
             "real_weights": real_weights,
             "random_tokens": random_tokens,
@@ -1051,11 +1070,12 @@ _CACHE_EXTRA_ARGS = (
 
 
 def _regime_env() -> dict:
-    """The env vars that define which kernels ran, for the regime signature."""
-    return {
-        "VLLM_ROCM_USE_AITER": os.environ.get("VLLM_ROCM_USE_AITER", "0"),
-        "VLLM_ATTENTION_BACKEND": os.environ.get("VLLM_ATTENTION_BACKEND"),
-    }
+    """The env vars that define which kernels ran, for the regime signature.
+
+    The attention backend is deliberately not here: since vLLM 0.25 it is a
+    server flag, and it reaches the regime through ``args`` instead.
+    """
+    return {"VLLM_ROCM_USE_AITER": os.environ.get("VLLM_ROCM_USE_AITER", "0")}
 
 
 def _cache_key(args) -> str:
@@ -1211,6 +1231,9 @@ def main():
     for item in args.env:
         key, _, value = item.partition("=")
         os.environ[key] = value
+    # Lift the backend out of the flag string so it reaches the regime axes,
+    # which cannot parse server flags themselves.
+    args.attention_backend = _server_arg_value(args.server_args, "--attention-backend")
 
     cache_dir = args.cache_dir
     key = _cache_key(args) if cache_dir else None

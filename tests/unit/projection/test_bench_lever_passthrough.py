@@ -32,6 +32,7 @@ def bench_args(**over):
         quantization=None, kv_cache_dtype=None, enforce_eager=False,
         num_hidden_layers=None, batch=32, input_len=1024, output_len=1024,
         speculative_method=None, speculative_num_tokens=None, no_aiter=False,
+        attention_backend=None,
     )
     defaults.update(over)
     return argparse.Namespace(**defaults)
@@ -49,13 +50,25 @@ def test_env_overrides_are_applied_before_vllm_is_imported(monkeypatch):
     monkeypatch.delenv("VLLM_ROCM_USE_AITER", raising=False)
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", action="append", default=[])
-    args = parser.parse_args(["--env", "VLLM_ROCM_USE_AITER=0",
-                              "--env", "VLLM_ATTENTION_BACKEND=TRITON_ATTN"])
+    args = parser.parse_args(["--env", "VLLM_ROCM_USE_AITER=0"])
     for item in sorted(args.env):
         key, _, value = item.partition("=")
         monkeypatch.setenv(key, value)
     assert benchmark_vllm._regime_env()["VLLM_ROCM_USE_AITER"] == "0"
-    assert benchmark_vllm._regime_env()["VLLM_ATTENTION_BACKEND"] == "TRITON_ATTN"
+
+
+def test_attention_backend_is_read_from_the_flag_not_the_environment():
+    """vLLM 0.25 replaced ``VLLM_ATTENTION_BACKEND`` with ``--attention-backend``.
+
+    Setting the retired env var selects nothing, so a run that "pinned" a backend
+    that way silently runs the default one. The regime has to read the flag or it
+    will label two different kernel stacks identically.
+    """
+    read = benchmark_vllm._server_arg_value
+    assert read("--attention-backend TRITON_ATTN", "--attention-backend") == "TRITON_ATTN"
+    assert read("--attention-backend=TRITON_ATTN", "--attention-backend") == "TRITON_ATTN"
+    assert read("--max-num-seqs 512", "--attention-backend") is None
+    assert read("", "--attention-backend") is None
 
 
 def test_explicit_aiter_off_survives_the_default(monkeypatch):
@@ -75,20 +88,25 @@ def test_aiter_defaults_on_when_unset(monkeypatch):
 
 def test_attention_backend_is_part_of_the_regime():
     """An anchor measured on one attention backend cannot serve another."""
-    triton = recipe_from_bench_args(bench_args(),
-                                    {"VLLM_ROCM_USE_AITER": "1",
-                                     "VLLM_ATTENTION_BACKEND": "TRITON_ATTN"})
-    default = recipe_from_bench_args(bench_args(),
-                                     {"VLLM_ROCM_USE_AITER": "1",
-                                      "VLLM_ATTENTION_BACKEND": "ROCM_AITER_FA"})
+    triton = recipe_from_bench_args(
+        bench_args(attention_backend="TRITON_ATTN"), {"VLLM_ROCM_USE_AITER": "1"})
+    default = recipe_from_bench_args(
+        bench_args(attention_backend="ROCM_AITER_FA"), {"VLLM_ROCM_USE_AITER": "1"})
     assert triton["attention_backend"] == "TRITON_ATTN"
     assert regime_distance(triton, default) == 1
     assert regime_signature(triton) != regime_signature(default)
 
 
+def test_the_retired_env_var_still_matches_anchors_measured_under_it():
+    """Older anchors recorded the backend in the environment; keep reading those."""
+    legacy = recipe_from_bench_args(bench_args(), {"VLLM_ATTENTION_BACKEND": "TRITON_ATTN"})
+    flagged = recipe_from_bench_args(bench_args(attention_backend="TRITON_ATTN"), {})
+    assert regime_signature(legacy) == regime_signature(flagged)
+
+
 def test_unset_attention_backend_is_unknown_not_a_match():
     """Absent means "not recorded", which must not be read as a specific backend."""
-    recorded = recipe_from_bench_args(bench_args(), {"VLLM_ATTENTION_BACKEND": "TRITON_ATTN"})
+    recorded = recipe_from_bench_args(bench_args(attention_backend="TRITON_ATTN"), {})
     unknown = recipe_from_bench_args(bench_args(), {})
     assert unknown["attention_backend"] is None
     # An axis absent on either side is not counted, so an old anchor still
