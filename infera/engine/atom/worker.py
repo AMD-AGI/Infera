@@ -120,7 +120,9 @@ class AtomEngine(BaseEngine):
 
     async def stop(self) -> None:
         logger.info("ATOM engine stopping")
-        if self._proc is not None:
+        try:
+            if self._proc is None:
+                return
             # The subprocess is a session leader (start_new_session=True), so
             # its pid doubles as the process-group id for the whole ATOM tree.
             pgid = self._proc.pid
@@ -128,15 +130,19 @@ class AtomEngine(BaseEngine):
                 try:
                     os.killpg(pgid, signal.SIGTERM)
                 except ProcessLookupError:
-                    pass
-                else:
-                    # Graceful window kept short so we always reach SIGKILL
-                    # within the launcher's own teardown budget.
-                    for _ in range(15):
-                        if self._proc.poll() is not None:
-                            break
-                        await asyncio.sleep(1)
-            # ATOM/AITER helpers can outlive the leader and retain GPU VRAM.
+                    return
+                # Graceful window kept short so we always reach the SIGKILL
+                # sweep within the launcher's own teardown budget (the parent
+                # harness SIGKILLs this process group ~25s after SIGTERM).
+                for _ in range(15):
+                    if self._proc.poll() is not None:
+                        break
+                    await asyncio.sleep(1)
+            # The leader (ATOM's openai_server) exiting does NOT mean the whole
+            # group is gone: ATOM/AITER helpers — e.g. the shared-memory
+            # broadcast worker — can hang and ignore SIGTERM, holding GPU VRAM
+            # until the container dies and starving the next worker (HIP-OOM).
+            # Always sweep the group with SIGKILL so VRAM is released.
             try:
                 os.killpg(pgid, signal.SIGKILL)
             except ProcessLookupError:
@@ -145,9 +151,10 @@ class AtomEngine(BaseEngine):
                 self._proc.wait(timeout=10)
             except Exception:
                 pass
-        if self._kv_event_proxy is not None:
-            self._kv_event_proxy.stop()
-            self._kv_event_proxy = None
+        finally:
+            if self._kv_event_proxy is not None:
+                self._kv_event_proxy.stop()
+                self._kv_event_proxy = None
 
     async def _wait_ready(self, timeout: float | None = None) -> None:
         if timeout is None:
