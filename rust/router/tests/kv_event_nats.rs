@@ -65,6 +65,7 @@ fn block_stored(hashes: &[u64], parent: Option<u64>, token_ids: &[u32], bs: i64)
 /// The event stream, with the configuration the router and the relay both
 /// create it with. Idempotent, so it does not matter who gets there first.
 async fn ensure_event_stream(js: &async_nats::jetstream::Context) {
+    use async_nats::jetstream::stream::{Config, DiscardPolicy, RetentionPolicy, StorageType};
     let cfg = Config {
         name: kv_event_nats::KV_EVENTS_STREAM.to_string(),
         subjects: vec![format!("{KV_EVENTS_SUBJECT_PREFIX}.>")],

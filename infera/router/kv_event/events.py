@@ -132,11 +132,11 @@ ALL_CLEARED_TYPES = (AllBlocksCleared, SglangAllBlocksCleared)
 def batch_type_for_engine(engine) -> type:
     """KVEventBatch schema matching a worker's engine wire format.
 
-    vLLM emits tagged-MAP events; SGLang (and anything else, the historical
-    default) emits tagged-ARRAY events.
+    vLLM and Infera's ATOM event hook emit tagged-MAP events; SGLang (the
+    historical default) emits tagged-ARRAY events.
     """
     from infera.common.worker_pool import EngineType
 
-    if engine == EngineType.VLLM:
+    if engine in (EngineType.VLLM, EngineType.ATOM):
         return KVEventBatch
     return SglangKVEventBatch
