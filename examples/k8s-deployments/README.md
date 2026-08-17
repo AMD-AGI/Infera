@@ -23,6 +23,7 @@ kubectl apply -f single-node-aggregated.yaml   # then any topology below
 | `pd-disaggregated.yaml` | Router + prefill pool + decode pool | KV streamed prefill→decode over RoCE RDMA (mori). Needs `rdma/hca` + the RDMA placeholders. |
 | `multinode-tp-aggregated.yaml` | One worker spanning 2 nodes (tp=2) | Cross-node tensor parallel via LeaderWorkerSet. Needs the LWS CRD/controller. |
 | `kgateway-gaie-aggregated.yaml` | Worker behind an Inference Gateway | Operator injects EPP + InferencePool + frontend sidecar. Needs the InferencePool CRD; full data path needs a Gateway (e.g. kgateway). |
+| `sla-planner.yaml` | Add-on for `pd-disaggregated.yaml` | Resizes the prefill/decode pools to hold TTFT/ITL targets. Needs profiling data for your model; start it with `--no-operation`. See [SLA planner](../../manual/features/sla_planner.md). |
 
 The router reaches workers over HTTP and workers publish KV events over zmq, so
 no NATS broker is deployed (`nats.deploy: false`).
@@ -61,3 +62,10 @@ Common (all files):
 |-------------|---------|
 | `<GATEWAY_CLASS>` | GatewayClass name (e.g. `kgateway`). |
 | `<MODEL_HF_ID>` | HF id for the EPP/sidecar tokenizer (they have no model mount) and served model name; must match the worker tokenizer. |
+
+`sla-planner.yaml` (SLA planner):
+
+| Placeholder | Meaning |
+|-------------|---------|
+| `<SERVER_IMAGE>` | Image containing `infera.planner` (the server image will do). |
+| `<DEPLOYMENT_NAME>` | `metadata.name` of the `InferaDeployment` to resize, e.g. `qwen-pd`. |

@@ -45,6 +45,8 @@ subtrees:
         title: KV-aware routing
       - file: features/routing_and_transport.md
         title: Routing and transport
+      - file: features/sla_planner.md
+        title: SLA planner
 
   - caption: Serving
     entries:

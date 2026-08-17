@@ -203,6 +203,9 @@ class DisaggRouter(BaseRouter):
         p_url = f"{p.url}{path}"
         d_url = f"{d.url}{path}"
 
+        # Fallback ISL for the streaming path, where the reply carries no usage.
+        obs.observe_blocks(p_blocks, p.kv_block_size)
+
         # request_id_for may raise (e.g. malformed disagg_meta); compute before
         # on_request_started so no started/finished bookkeeping is needed on
         # the failure path.
@@ -311,8 +314,10 @@ class DisaggRouter(BaseRouter):
 
         if stream:
             obs["outcome"] = "ok"  # commit at hand-off
+            obs.claim_stream()
             return StreamingResponse(
                 self._stream_dual(
+                    obs,
                     p_target,
                     p_blocks,
                     d_target,
@@ -363,6 +368,7 @@ class DisaggRouter(BaseRouter):
                     status_code=502,
                 )
             obs["outcome"] = "ok" if d_resp.status_code < 400 else f"{d_resp.status_code // 100}xx"
+            obs.observe_usage(payload)
             return JSONResponse(content=payload, status_code=d_resp.status_code)
         finally:
             self.policy.on_request_finished(p_target.route_key, p_blocks)
@@ -417,8 +423,11 @@ class DisaggRouter(BaseRouter):
 
         if stream:
             obs["outcome"] = "ok"
+            obs.claim_stream()
             return StreamingResponse(
-                self._stream_dual_nats(p_target, p_blocks, d_target, d_blocks, d_payload, p_task),
+                self._stream_dual_nats(
+                    obs, p_target, p_blocks, d_target, d_blocks, d_payload, p_task
+                ),
                 media_type="text/event-stream",
             )
 
@@ -455,6 +464,7 @@ class DisaggRouter(BaseRouter):
                     status_code=502,
                 )
             obs["outcome"] = "ok" if status < 400 else f"{status // 100}xx"
+            obs.observe_usage(payload)
             return JSONResponse(content=payload, status_code=status)
         finally:
             try:
@@ -464,13 +474,16 @@ class DisaggRouter(BaseRouter):
             self.policy.on_request_finished(p_target.route_key, p_blocks)
             self.policy.on_request_finished(d_target.route_key, d_blocks)
 
-    async def _stream_dual_nats(self, p_target, p_blocks, d_target, d_blocks, d_payload, p_task):
+    async def _stream_dual_nats(
+        self, obs, p_target, p_blocks, d_target, d_blocks, d_payload, p_task
+    ):
         """Stream decode's reply over NATS while prefill drains in background."""
         d = d_target.worker
         try:
             async for kind, _st, data in self.nats_client.stream(d.worker_id, d_payload):
                 if kind == TYPE_DATA:
                     if data:
+                        obs.observe_stream_chunk(data)
                         yield data
                 elif kind == TYPE_ERROR:
                     logger.warning("decode (nats) %s stream failed: %s", d.worker_id, data[:200])
@@ -490,6 +503,7 @@ class DisaggRouter(BaseRouter):
                 pass
             self.policy.on_request_finished(p_target.route_key, p_blocks)
             self.policy.on_request_finished(d_target.route_key, d_blocks)
+            obs.close()
 
     async def _dispatch_serial(
         self,
@@ -618,10 +632,11 @@ class DisaggRouter(BaseRouter):
 
         if stream:
             obs["outcome"] = "ok"  # commit at hand-off
+            obs.claim_stream()
             # No prefill task to babysit (already finished); D's stream
             # is self-contained. _stream_decode_only's finally finishes D.
             return StreamingResponse(
-                self._stream_decode_only(d_target, d_blocks, d_url, d_body, d_headers),
+                self._stream_decode_only(obs, d_target, d_blocks, d_url, d_body, d_headers),
                 media_type="text/event-stream",
             )
 
@@ -646,12 +661,14 @@ class DisaggRouter(BaseRouter):
                     status_code=502,
                 )
             obs["outcome"] = "ok" if d_resp.status_code < 400 else f"{d_resp.status_code // 100}xx"
+            obs.observe_usage(d_payload)
             return JSONResponse(content=d_payload, status_code=d_resp.status_code)
         finally:
             self.policy.on_request_finished(d_target.route_key, d_blocks)
 
     async def _stream_decode_only(
         self,
+        obs,
         d_target,
         d_blocks: list[int],
         d_url: str,
@@ -716,6 +733,7 @@ class DisaggRouter(BaseRouter):
                         if _DONE_NEEDLE in window:
                             done_seen = True
                         tail = window[-_TAIL_KEEP:]
+                    obs.observe_stream_chunk(chunk)
                     yield chunk
             except httpx.HTTPError as exc:
                 if done_seen:
@@ -741,6 +759,7 @@ class DisaggRouter(BaseRouter):
                 except Exception:
                     pass
             self.policy.on_request_finished(d_target.route_key, d_blocks)
+            obs.close()
 
     async def _open_decode_stream(
         self,
@@ -785,6 +804,7 @@ class DisaggRouter(BaseRouter):
 
     async def _stream_dual(
         self,
+        obs,
         p_target,
         p_blocks: list[int],
         d_target,
@@ -873,6 +893,7 @@ class DisaggRouter(BaseRouter):
                         if _DONE_NEEDLE in window:
                             done_seen = True
                         tail = window[-_TAIL_KEEP:]
+                    obs.observe_stream_chunk(chunk)
                     yield chunk
             except httpx.HTTPError as exc:
                 if done_seen:
@@ -928,3 +949,4 @@ class DisaggRouter(BaseRouter):
                     metrics.pd_bootstrap_failures_total.labels(reason="prefill_5xx").inc()
             self.policy.on_request_finished(p_target.route_key, p_blocks)
             self.policy.on_request_finished(d_target.route_key, d_blocks)
+            obs.close()

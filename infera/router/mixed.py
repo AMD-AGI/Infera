@@ -117,6 +117,9 @@ class MixedRouter(BaseRouter):
         forwarded_body.pop("_infera_cache_hints", None)
         forwarded_body.pop("_infera_request_id", None)
 
+        # Fallback ISL for the streaming path, where the reply carries no usage.
+        obs.observe_blocks(blocks, worker.kv_block_size)
+
         use_nats = self.nats_client is not None and worker.request_transport == "nats"
         self.policy.on_request_started(target.route_key, blocks)
 
@@ -157,14 +160,17 @@ class MixedRouter(BaseRouter):
 
         if kind == TYPE_DATA:
             obs["outcome"] = "ok"  # committed once first byte is in hand
+            obs.claim_stream()
 
             async def generate():
                 try:
                     if data0:
+                        obs.observe_stream_chunk(data0)
                         yield data0
                     async for k, _st, d in agen:
                         if k == TYPE_DATA:
                             if d:
+                                obs.observe_stream_chunk(d)
                                 yield d
                         elif k == TYPE_ERROR:
                             logger.warning(
@@ -181,6 +187,7 @@ class MixedRouter(BaseRouter):
                             return
                 finally:
                     self.policy.on_request_finished(target.route_key, blocks)
+                    obs.close()
 
             return StreamingResponse(generate(), media_type="text/event-stream")
 
@@ -242,6 +249,7 @@ class MixedRouter(BaseRouter):
                     )
                 ) from None
             obs["outcome"] = "ok" if status < 400 else f"{status // 100}xx"
+            obs.observe_usage(payload_json)
             return JSONResponse(content=payload_json, status_code=status)
 
         # Direct HTTP forward.
@@ -275,6 +283,7 @@ class MixedRouter(BaseRouter):
                 )
             ) from None
         obs["outcome"] = "ok" if resp.status_code < 400 else f"{resp.status_code // 100}xx"
+        obs.observe_usage(payload_json)
         return JSONResponse(content=payload_json, status_code=resp.status_code)
 
     async def _normalized_stream(

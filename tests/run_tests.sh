@@ -32,7 +32,8 @@ ETCD_IMG="quay.io/coreos/etcd:v3.5.14"
 # a killed/cancelled prior run left on the same (reused) node.
 CTR_PREFIX="infera-utest-"
 ETCD_CTR="${CTR_PREFIX}etcd"
-PIPDEPS='pip install -q pytest pytest-asyncio nats-py 2>/dev/null || true'
+# numpy is for the SLA planner's performance model (tests/unit/planner).
+PIPDEPS='pip install -q pytest pytest-asyncio nats-py numpy 2>/dev/null || true'
 
 # --init reaps orphaned engine subprocesses; the rest is ROCm device passthrough
 # (+ host /boot so ais-check can read the kernel's P2PDMA support).

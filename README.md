@@ -51,6 +51,7 @@ Around them:
 - **OpenAI- and Anthropic-compatible API** — `/v1/chat/completions`, `/v1/completions`, and `/v1/messages` (Anthropic Messages, translated in-process).
 - **Self-registering fleet** — workers register into etcd and heartbeat, so the router works from a live view and never routes to a worker that is gone; run any number of stateless server replicas.
 - **Kubernetes-native** — an operator reconciles an `InferaDeployment` CRD (aggregated / PD / multi-node), with an optional Gateway API (GAIE) endpoint picker.
+- **SLA planner** — `python -m infera.planner` sizes the prefill and decode pools to hold your time-to-first-token and inter-token-latency targets, from measured latency plus an offline profile of your model.
 
 ## Architecture
 

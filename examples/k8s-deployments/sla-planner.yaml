@@ -1,0 +1,164 @@
+# SLA planner: resize the prefill/decode pools to hold TTFT/ITL targets.
+#
+# Deploy this alongside a PD deployment (see pd-disaggregated.yaml). The planner
+# scrapes the server's /metrics, compares the observed latencies against
+# pre-deployment profiling results, and patches spec.services.{prefill,decode}
+# .replicas on the InferaDeployment. The operator's existing reconcile loop turns
+# that into pod counts, so nothing about the deployment itself has to change.
+#
+# Fill in the <PLACEHOLDERS> for your cluster:
+#   <NAMESPACE>          namespace holding the InferaDeployment
+#   <SERVER_IMAGE>       infera server image (the planner ships in the same wheel)
+#   <IMAGE_PULL_SECRET>  docker-registry secret in <NAMESPACE> for that image
+#   <DEPLOYMENT_NAME>    metadata.name of the InferaDeployment to resize
+#
+# Before handing over control, run once with --no-operation and watch the logs:
+# it prints the decision it would have made each interval, which is how you find
+# out that profiling data has gone stale without paying for it in replicas.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: infera-planner
+  namespace: <NAMESPACE>
+---
+# The planner only ever reads and patches the one custom resource. It does not
+# touch Deployments, LeaderWorkerSets or Pods -- the operator owns those.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: infera-planner
+  namespace: <NAMESPACE>
+rules:
+  - apiGroups: ["infera.amd.com"]
+    resources: ["inferadeployments"]
+    verbs: ["get", "list", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: infera-planner
+  namespace: <NAMESPACE>
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: infera-planner
+subjects:
+  - kind: ServiceAccount
+    name: infera-planner
+    namespace: <NAMESPACE>
+---
+# Pre-deployment profiling results. Replace these numbers with a sweep of your
+# own model on your own GPUs -- they are only shaped correctly, not accurate for
+# anything. See manual/features/sla_planner.md for how to produce them.
+#
+# decode.itl_ms[i][j] and decode.thpt_per_gpu[i][j] are measured at
+# context_length[i] and kv_usage[j]; both grids must be fully populated.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: infera-planner-profile
+  namespace: <NAMESPACE>
+data:
+  profile.json: |
+    {
+      "prefill": {
+        "isl":          [512, 1024, 2048, 4096, 8192],
+        "ttft_ms":      [60, 110, 215, 430, 880],
+        "thpt_per_gpu": [8500, 9300, 9500, 9500, 9300]
+      },
+      "decode": {
+        "kv_usage":       [0.1, 0.3, 0.5, 0.7, 0.9],
+        "context_length": [1024, 4096, 16384],
+        "itl_ms": [
+          [11, 13, 16, 21, 30],
+          [13, 16, 20, 27, 39],
+          [18, 23, 30, 41, 60]
+        ],
+        "thpt_per_gpu": [
+          [900, 2300, 3100, 3300, 3000],
+          [750, 1900, 2500, 2600, 2300],
+          [520, 1300, 1700, 1750, 1500]
+        ],
+        "max_kv_tokens": 262144
+      },
+      "prefill_engine_num_gpu": 1,
+      "decode_engine_num_gpu": 1
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: infera-planner
+  namespace: <NAMESPACE>
+  labels:
+    app: infera-planner
+spec:
+  # Two planners would fight over the same replica counts; keep this at 1.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: infera-planner
+  template:
+    metadata:
+      labels:
+        app: infera-planner
+    spec:
+      serviceAccountName: infera-planner
+      imagePullSecrets:
+        - name: <IMAGE_PULL_SECRET>
+      containers:
+        - name: planner
+          image: <SERVER_IMAGE>
+          imagePullPolicy: IfNotPresent
+          command:
+            - python3
+            - -m
+            - infera.planner
+            # A ClusterIP Service load-balances each scrape to an arbitrary
+            # replica, which breaks the fleet-wide sum. With more than one server
+            # replica, pass --metrics-url once per pod IP (or point at a headless
+            # Service and resolve it yourself) instead of the Service name.
+            - --metrics-url=http://<DEPLOYMENT_NAME>-server.<NAMESPACE>.svc:8000/metrics
+            - --profile-results=/etc/infera/planner/profile.json
+            # Targets: first token within 500ms, then a token every 50ms.
+            - --ttft=500
+            - --itl=50
+            # Long enough that a replica added last interval is serving traffic
+            # before the next decision is taken.
+            - --adjustment-interval=180
+            - --connector=kubernetes
+            - --deployment-name=<DEPLOYMENT_NAME>
+            # Keys under spec.services, not pod names.
+            - --prefill-service=prefill
+            - --decode-service=decode
+            # The planner will never exceed this many GPUs across both pools.
+            - --max-gpu-budget=8
+            - --min-endpoint=1
+            # Start here to validate the profiling data, then remove it:
+            # - --no-operation
+          ports:
+            - name: metrics
+              containerPort: 9085
+          resources:
+            requests: {cpu: "500m", memory: 512Mi}
+            limits: {cpu: "1", memory: 1Gi}
+          volumeMounts:
+            - {name: profile, mountPath: /etc/infera/planner, readOnly: true}
+      volumes:
+        - name: profile
+          configMap:
+            name: infera-planner-profile
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: infera-planner
+  namespace: <NAMESPACE>
+  labels:
+    app: infera-planner
+spec:
+  selector:
+    app: infera-planner
+  ports:
+    - {name: metrics, port: 9085, targetPort: metrics}
