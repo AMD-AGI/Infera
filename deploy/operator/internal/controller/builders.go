@@ -317,11 +317,16 @@ func envFor(idep *inferav1alpha1.InferaDeployment, svc inferav1alpha1.ServiceSpe
 	}
 	if useK8sDiscovery(idep) {
 		// Pod identity for self-registration (worker) + selector for the server.
+		// POD_IP is what a worker advertises: it binds 0.0.0.0, and the address
+		// it registers is the one the router dials, so without this it
+		// registers its bind host and every request to it is unreachable.
 		env = append(env,
 			corev1.EnvVar{Name: "POD_NAME", ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}}},
 			corev1.EnvVar{Name: "POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"}}},
+			corev1.EnvVar{Name: "POD_IP", ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"}}},
 		)
 		if svc.ComponentType == inferav1alpha1.ComponentTypeServer {
 			env = append(env, corev1.EnvVar{
@@ -477,6 +482,8 @@ func podTemplateFromExtra(idep *inferav1alpha1.InferaDeployment, svcName string,
 					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}}},
 				corev1.EnvVar{Name: "POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
 					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"}}},
+				corev1.EnvVar{Name: "POD_IP", ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"}}},
 			)
 			// The server reads its watch scope from an env var so we don't have
 			// to rewrite the externally-supplied entrypoint command.
