@@ -1,7 +1,8 @@
 #!/bin/bash
 # Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
-# Inject host libionic provider before exec'ing the worker command.
+# Image entrypoint: fix up the container environment, then exec the worker
+# command. Two fixups — the host libionic provider, and the open-file limit.
 #
 # Background: On AMD MI355X + Pensando ionic hosts, the userspace
 # libionic.so ABI is tied to the host kernel module's ABI. The
@@ -29,6 +30,14 @@
 
 set -e
 
+# Open files: the runtime gives every container a 1024 soft limit regardless of
+# the host's. The router holds one client socket plus one upstream socket per PD
+# leg per in-flight request, so a few hundred concurrent requests exhaust it and
+# accept() fails with EMFILE -- the router then stops forwarding to prefill and
+# decode times out waiting for KV that was never produced. Raising the soft limit
+# to the hard one needs no privilege; `docker run --ulimit` still overrides both.
+ulimit -n "$(ulimit -Hn)" 2>/dev/null || true
+
 SRC=/host-libionic/libionic.so
 if [ -e "$SRC" ]; then
     # Follow the symlink chain: libionic.so -> libionic.so.1 -> libionic.so.1.x.y.z
@@ -43,5 +52,11 @@ if [ -e "$SRC" ]; then
         echo "infera-inject-host-ionic: container has no libionic.so.1; skipping" >&2
     fi
 fi
+
+# A leading flag means the caller expects the old `ENTRYPOINT ["/bin/bash"]`
+# contract (`docker run <img> -c '...'`), which a bare exec cannot honour.
+case "${1:-}" in
+    -*) exec /bin/bash "$@" ;;
+esac
 
 exec "$@"

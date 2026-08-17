@@ -9,12 +9,13 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use axum::body::Bytes;
-use axum::extract::State;
+use axum::extract::{DefaultBodyLimit, State};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde_json::json;
 
+use crate::breaker::CircuitBreaker;
 use crate::policy::Policy;
 use crate::pool::SharedPool;
 use crate::proxy;
@@ -26,6 +27,14 @@ pub struct AppState {
     pub http: reqwest::Client,
     pub started: Instant,
     pub retries: usize,
+    /// Per-worker failure memory. Shared across threads and across requests —
+    /// that persistence across requests is the whole point (see breaker.rs).
+    pub breaker: Arc<CircuitBreaker>,
+    /// Present only with `--request-transport nats`. Which workers actually go
+    /// over it is still per-worker: one that failed to start its NATS consumer
+    /// registers itself as `http` and is dialled directly, exactly as on the
+    /// Python side.
+    pub nats: Option<Arc<crate::nats_request::NatsRequestClient>>,
 }
 
 pub fn app(state: AppState) -> Router {
@@ -36,6 +45,10 @@ pub fn app(state: AppState) -> Router {
         .route("/v1/workers", get(workers))
         .route("/v1/models", get(models))
         .route("/metrics", get(metrics))
+        // axum's default 2 MiB cap on `Bytes` would 413 long-context prompts, but
+        // fully disabling the limit allows unbounded buffering into memory (DoS).
+        // Raise the limit enough for expected prompts; the engine still enforces `--context-length`.
+        .layer(DefaultBodyLimit::max(8 * 1024 * 1024))
         .with_state(state)
 }
 
@@ -75,11 +88,44 @@ async fn models(State(st): State<AppState>) -> impl IntoResponse {
 
 async fn metrics(State(st): State<AppState>) -> impl IntoResponse {
     let snap = st.pool.load();
-    format!(
+    let mut out = format!(
         "# infera-router (rust)\n\
          infera_router_active_workers {}\n\
          infera_router_uptime_seconds {}\n",
         snap.active_count(),
         st.started.elapsed().as_secs()
-    )
+    );
+    // Non-zero state means the router is routing around a worker that
+    // discovery still reports ACTIVE — the gap this metric exists to show.
+    for (worker_id, state, trips) in st.breaker.snapshot() {
+        let v = match state {
+            crate::breaker::BreakerState::Closed => 0,
+            crate::breaker::BreakerState::HalfOpen => 1,
+            crate::breaker::BreakerState::Open => 2,
+        };
+        // Escaped: worker ids come from discovery records, and a stray quote,
+        // backslash or newline in one would not corrupt a single line but end
+        // the whole exposition, failing every scrape of this endpoint.
+        let worker_id = escape_label_value(&worker_id);
+        out.push_str(&format!(
+            "infera_router_worker_breaker_state{{worker_id=\"{worker_id}\"}} {v}\n\
+             infera_router_worker_breaker_trips_total{{worker_id=\"{worker_id}\"}} {trips}\n"
+        ));
+    }
+    out
+}
+
+/// Escape a Prometheus label value: backslash, double quote and newline, per
+/// the text exposition format.
+fn escape_label_value(v: &str) -> String {
+    let mut out = String::with_capacity(v.len());
+    for c in v.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            _ => out.push(c),
+        }
+    }
+    out
 }

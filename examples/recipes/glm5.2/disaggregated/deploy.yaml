@@ -1,0 +1,217 @@
+# GLM-5.2-MXFP4 — pd — Kubernetes recipe
+#
+#   base image   lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x      (stock vendor image, unmodified)
+#   overlay      inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44                     (infera + router + kvd + native deps)
+#   engine       infera.engine.sglang   TP8
+#
+# Deploy:  kubectl apply -f examples/recipes/glm5.2/disaggregated/deploy.yaml
+# Docs:    examples/recipes/glm5.2/README.md
+#
+# Expects the `model-cache` PVC to hold the weights at /models/GLM-5.2-MXFP4
+# (examples/k8s-deployments/model-cache/). Swap the `model` volume for a
+# hostPath if you keep weights on the node instead.
+#
+# PD REQUIRES the prefill and decode nodes to sit on a MUTUALLY ROUTABLE RoCE
+# fabric — the KV transfer is RDMA, not TCP, and there is no fallback. Set
+# <PREFILL_NODE>/<DECODE_NODE> to two such nodes.
+#
+# THE `model-cache` PVC BELOW CANNOT WORK FOR PD AS SHIPPED. It is provisioned
+# ReadWriteOnce on the `local-path` storage class, which pins the volume to one
+# node -- so the role scheduled on the other node cannot mount it and the Pod
+# never starts. PD needs each node to hold the weights itself. Replace both
+# `model` volumes with a hostPath per node:
+#
+#   prefill:  - {name: model, hostPath: {path: <PREFILL_MODEL_DIR>, type: Directory}}
+#   decode:   - {name: model, hostPath: {path: <DECODE_MODEL_DIR>,  type: Directory}}
+#
+# The two paths need not match, and on a mixed fleet they usually do not. Each
+# must be LOCAL storage on its own node: the obvious shared-looking mount may be
+# an NFS export of the peer's array, which turns an 8-minute weight load into a
+# ~95-minute one, exceeds the ready timeout, and restarts forever.
+#
+# VALIDATED cross-node on k3s (MI355X, chi2800 prefill / chi2866 decode) with
+# amd/GLM-5.2-MXFP4 (282 shards, 408 GB per node) and the hostPath substitution
+# above: both roles Ready in ~4 min, 0 restarts, correct answer. The KV handoff
+# was confirmed rather than inferred -- the decode side logged only `Decode
+# batch` and never a `Prefill batch`, so it did not recompute the prompt locally.
+#
+# DECODE-SIDE DP ATTENTION WORKS. Adding `--dp-size 2 --enable-dp-attention` to
+# the decode role only (keeping `--tp-size 8`, since SGLang's tp-size stays the
+# total) came up in ~3 min with 0 restarts, served 3/3 requests, kept the same
+# `Decode batch`-only signature, and exercised both attention ranks (DP0 and DP1
+# both logged). No `Address already in use`, though that run predates the fix in
+# `free_tcp_port_block` and so proves less than it looks: the collision that
+# function guards against needs two engines on ONE host, and a cross-node PD pair
+# never exercises it. The scan start is randomised on main now, so the risk is
+# retired either way.
+---
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: glm52-pd
+  namespace: infera
+spec:
+  backendFramework: sglang
+  discoveryBackend: kubernetes
+  nats:
+    deploy: false
+  services:
+    server:
+      componentType: server
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <PREFILL_NODE>}
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it. The vendor image is never forked,
+        # so following an upstream bump costs nothing in this repo.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
+        containers:
+          - name: main
+            image: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x@sha256:40e940a0c55b87105c773d8b484616616b3a91662bfa223c48ff721d9793dc8d
+            imagePullPolicy: IfNotPresent
+            command: ["/overlay/bin/infera-exec","python3","-m","infera.server",
+                      "--host","0.0.0.0","--port","8000",
+                      "--router-tokenizer-path","/models/GLM-5.2-MXFP4",
+                      "--request-transport","http","--kv-event-transport","zmq"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources: {requests: {cpu: "8", memory: 16Gi}, limits: {cpu: "8", memory: 16Gi}}
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay, readOnly: true}
+              - {name: model, mountPath: /models, readOnly: true}
+        volumes:
+          - {name: overlay, emptyDir: {}}
+          - {name: model, persistentVolumeClaim: {claimName: model-cache}}
+    prefill:
+      componentType: worker
+      role: prefill
+      replicas: 1
+      port: 30000
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <PREFILL_NODE>}
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it. The vendor image is never forked,
+        # so following an upstream bump costs nothing in this repo.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
+        containers:
+          - name: main
+            image: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x@sha256:40e940a0c55b87105c773d8b484616616b3a91662bfa223c48ff721d9793dc8d
+            imagePullPolicy: IfNotPresent
+            command: ["/overlay/bin/infera-exec",
+                      "python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
+                      "--model-path","/models/GLM-5.2-MXFP4",
+                      "--served-model-name","glm5.2-mxfp4",
+                      "--disaggregation-mode","prefill",
+                      "--disaggregation-transfer-backend","mooncake",
+                      "--tp-size","8","--trust-remote-code",
+                      "--nsa-prefill-backend","tilelang","--nsa-decode-backend","tilelang",
+                      "--kv-cache-dtype","fp8_e4m3","--mem-fraction-static","0.85",
+                      "--context-length","32768","--chunked-prefill-size","8192",
+                      "--max-running-requests","24","--cuda-graph-max-bs","24",
+                      "--reasoning-parser","glm45",
+                      "--kv-event-transport","zmq","--request-transport","http"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+              - {name: SGLANG_USE_AITER, value: "1"}
+              - {name: ROCM_QUICK_REDUCE_QUANTIZATION, value: "INT4"}
+              - {name: SAFETENSORS_FAST_GPU, value: "1"}
+              - {name: HIP_FORCE_DEV_KERNARG, value: "1"}
+              - {name: HSA_NO_SCRATCH_RECLAIM, value: "1"}
+            # PD's KV transport is Mooncake, which lives in the overlay's native
+            # tree. Name it so a payload lacking it fails at startup instead of only
+            # warning and quietly serving with no KV transfer at all.
+              - {name: INFERA_REQUIRE_NATIVE, value: "mooncake"}
+            startupProbe:
+              httpGet: {path: /health, port: 30000}
+              periodSeconds: 10
+              timeoutSeconds: 10
+              failureThreshold: 180     # weight load is slow; do not use a readinessProbe here
+            resources:
+              requests: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}
+              limits: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay, readOnly: true}
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: dshm, mountPath: /dev/shm}
+        volumes:
+          - {name: overlay, emptyDir: {}}
+          - {name: model, persistentVolumeClaim: {claimName: model-cache}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 64Gi}}
+    decode:
+      componentType: worker
+      role: decode
+      replicas: 1
+      port: 30000
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <DECODE_NODE>}
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it. The vendor image is never forked,
+        # so following an upstream bump costs nothing in this repo.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
+        containers:
+          - name: main
+            image: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x@sha256:40e940a0c55b87105c773d8b484616616b3a91662bfa223c48ff721d9793dc8d
+            imagePullPolicy: IfNotPresent
+            command: ["/overlay/bin/infera-exec",
+                      "python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
+                      "--model-path","/models/GLM-5.2-MXFP4",
+                      "--served-model-name","glm5.2-mxfp4",
+                      "--disaggregation-mode","decode",
+                      "--disaggregation-transfer-backend","mooncake",
+                      "--tp-size","8","--trust-remote-code",
+                      "--nsa-prefill-backend","tilelang","--nsa-decode-backend","tilelang",
+                      "--kv-cache-dtype","fp8_e4m3","--mem-fraction-static","0.85",
+                      "--context-length","32768","--chunked-prefill-size","8192",
+                      "--max-running-requests","24","--cuda-graph-max-bs","24",
+                      "--reasoning-parser","glm45",
+                      "--kv-event-transport","zmq","--request-transport","http"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+              - {name: SGLANG_USE_AITER, value: "1"}
+              - {name: ROCM_QUICK_REDUCE_QUANTIZATION, value: "INT4"}
+              - {name: SAFETENSORS_FAST_GPU, value: "1"}
+              - {name: HIP_FORCE_DEV_KERNARG, value: "1"}
+              - {name: HSA_NO_SCRATCH_RECLAIM, value: "1"}
+            # PD's KV transport is Mooncake, which lives in the overlay's native
+            # tree. Name it so a payload lacking it fails at startup instead of only
+            # warning and quietly serving with no KV transfer at all.
+              - {name: INFERA_REQUIRE_NATIVE, value: "mooncake"}
+            startupProbe:
+              httpGet: {path: /health, port: 30000}
+              periodSeconds: 10
+              timeoutSeconds: 10
+              failureThreshold: 180     # weight load is slow; do not use a readinessProbe here
+            resources:
+              requests: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}
+              limits: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay, readOnly: true}
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: dshm, mountPath: /dev/shm}
+        volumes:
+          - {name: overlay, emptyDir: {}}
+          - {name: model, persistentVolumeClaim: {claimName: model-cache}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 64Gi}}

@@ -1,14 +1,38 @@
 --- a/mooncake-transfer-engine/src/transfer_engine_impl.cpp
 +++ b/mooncake-transfer-engine/src/transfer_engine_impl.cpp
-@@ -402,7 +402,10 @@
+@@ -402,7 +402,34 @@ int TransferEngineImpl::init(const std::string& metadata_conn_string,
  #ifdef USE_HIP
          // HIP transport handles intra-node GPU P2P via XGMI/IPC and can
          // coexist with the cross-node transport (RDMA/TCP) selected above.
 -        {
-+        // FIX(yihou): default OFF — else GPU bufs register as a "hip" IPC segment
-+        // a cross-node peer can't open ("Corrupted segment descriptor hipbuffer").
-+        // Set MC_ENABLE_HIP_TRANSPORT=1 to opt back in for intra-node P2P.
-+        if (getenv("MC_ENABLE_HIP_TRANSPORT")) {
++        //
++        // infera: the HIP (hipIpc) transport is DISABLED BY DEFAULT on ROCm.
++        // Upstream #2682 installs it unconditionally and selectTransport then
++        // PREFERS it over RDMA for GPU->GPU, which breaks cross-node PD: a HIP
++        // IPC handle is host-local by construction, so opening a peer NODE's
++        // handle can never work -- hipIpcOpenMemHandle fails with "invalid
++        // device context" (error 201) and KV transfer dies even when RDMA
++        // itself is healthy. There is no upstream knob for this: MC_USE_HIP_IPC
++        // only picks IPC-vs-fabric *within* the HIP transport, it cannot
++        // prevent the transport from being installed.
++        //
++        // Escape hatch for a single-node-only deployment that wants XGMI P2P:
++        //   MC_ENABLE_HIP_TRANSPORT=1
++        // MC_DISABLE_HIP_TRANSPORT=1 always wins, so the spelling used by
++        // infera's rocm_rdma_env.py, the manual and the tests agrees with the
++        // gate instead of being a silent no-op.
++        const char* mc_hip_enable = getenv("MC_ENABLE_HIP_TRANSPORT");
++        const char* mc_hip_disable = getenv("MC_DISABLE_HIP_TRANSPORT");
++        const bool mc_hip_wanted =
++            mc_hip_enable && strcmp(mc_hip_enable, "0") != 0;
++        const bool mc_hip_vetoed =
++            mc_hip_disable && strcmp(mc_hip_disable, "0") != 0;
++        if (!mc_hip_wanted || mc_hip_vetoed) {
++            LOG(INFO) << "HIP transport NOT installed (default OFF on ROCm: "
++                         "hipIpc handles are host-local, so they break "
++                         "cross-node PD). Set MC_ENABLE_HIP_TRANSPORT=1 to opt "
++                         "in for intra-node-only GPU P2P.";
++        } else {
              Transport* hip_transport =
                  multi_transports_->installTransport("hip", nullptr);
              if (!hip_transport) {

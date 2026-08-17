@@ -5,8 +5,13 @@ name: DCO
 # See CONTRIBUTING.md > Developer Certificate of Origin.
 
 on:
+  # One check, on a PR into any branch. ci.yml used to call this as a job too so
+  # its GPU tiers could gate on the sign-off, which ran it twice per PR under two
+  # different check names; lint already holds those tiers back, so the second
+  # copy bought nothing. workflow_call stays for any future caller.
   pull_request:
     branches: ["**"]
+  workflow_call:
 
 permissions:
   contents: read

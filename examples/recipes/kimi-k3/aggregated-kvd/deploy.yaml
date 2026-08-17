@@ -1,0 +1,156 @@
+# Kimi-K3 — mixed-kvd — Kubernetes recipe
+#
+#   base image   vllm/vllm-openai-rocm:kimi-k3      (stock vendor image, unmodified)
+#   overlay      inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44                     (infera + router + kvd + native deps)
+#   engine       infera.engine.vllm   TP8
+#
+# Deploy:  kubectl apply -f examples/recipes/kimi-k3/aggregated-kvd/deploy.yaml
+# Docs:    examples/recipes/kimi-k3/README.md
+#
+# Expects the `model-cache` PVC to hold the weights at /models/Kimi-K3
+# (examples/k8s-deployments/model-cache/). Swap the `model` volume for a
+# hostPath if you keep weights on the node instead.
+#
+# This is the GPU-direct L3 path: on vLLM, kvd loads L3 straight
+# into VRAM through hipFile. SGLang's route (`--infera-kvd-socket`) goes
+# through host memory instead — GPU-direct L3 is vLLM-only.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kvd-l3
+  namespace: infera
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: {requests: {storage: 200Gi}}   # L3 spill; size to your working set
+  storageClassName: local-path                 # k3s default; use fast local NVMe in production
+---
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: kimi-k3-mixed-kvd
+  namespace: infera
+spec:
+  backendFramework: vllm
+  discoveryBackend: kubernetes
+  nats:
+    deploy: false
+  services:
+    server:
+      componentType: server
+      extraPodSpec:
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it. The vendor image is never forked,
+        # so following an upstream bump costs nothing in this repo.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
+        containers:
+          - name: main
+            image: vllm/vllm-openai-rocm:kimi-k3@sha256:5aa7e626ff73672f5ca7aae46754570488c23d33ca1ac90756a1d2d1a3fe099b
+            imagePullPolicy: IfNotPresent
+            command: ["/overlay/bin/infera-exec","python3","-m","infera.server",
+                      "--host","0.0.0.0","--port","8000",
+                      "--router-tokenizer-path","/models/Kimi-K3",
+                      "--request-transport","http","--kv-event-transport","zmq"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources: {requests: {cpu: "8", memory: 16Gi}, limits: {cpu: "8", memory: 16Gi}}
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay, readOnly: true}
+              - {name: model, mountPath: /models, readOnly: true}
+        volumes:
+          - {name: overlay, emptyDir: {}}
+          - {name: model, persistentVolumeClaim: {claimName: model-cache}}
+    worker:
+      componentType: worker
+      role: mixed
+      replicas: 1
+      extraPodSpec:
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it. The vendor image is never forked,
+        # so following an upstream bump costs nothing in this repo.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
+        containers:
+          - name: main
+            image: vllm/vllm-openai-rocm:kimi-k3@sha256:5aa7e626ff73672f5ca7aae46754570488c23d33ca1ac90756a1d2d1a3fe099b
+            imagePullPolicy: IfNotPresent
+            command: ["/overlay/bin/infera-exec",
+                      "python3","-m","infera.engine.vllm","--host","0.0.0.0","--port","30000",
+                      "--model","/models/Kimi-K3",
+                      "--served-model-name","kimi-k3",
+                      "--tensor-parallel-size","8","--gpu-memory-utilization","0.95",
+                      "--trust-remote-code","--load-format","auto",
+                      "--mm-encoder-tp-mode","data","--kv-cache-dtype","auto",
+                      "--enable-prefix-caching","--max-num-seqs","128","--max-num-batched-tokens","4096",
+                      "--enable-auto-tool-choice","--tool-call-parser","kimi_k3",
+                      "--reasoning-parser","kimi_k3",
+                      "--kv-transfer-config","{\"kv_connector\":\"InferaKvdConnector\",\"kv_role\":\"kv_both\",\"kv_connector_module_path\":\"infera.engine.vllm.kvd_connector\"}",
+                      "--kv-event-transport","zmq","--request-transport","http"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+              - {name: HF_HUB_OFFLINE, value: "1"}
+              - {name: VLLM_ROCM_USE_AITER, value: "1"}
+              - {name: SAFETENSORS_FAST_GPU, value: "1"}
+              - {name: INFERA_KVD_SOCKET, value: "/kvd/kvd.sock"}
+            # kvd's GPU-direct L3 is hipFile, which lives in the overlay's native
+            # tree. Name it so a payload lacking it fails at startup instead of only
+            # warning and quietly serving from host memory.
+              - {name: INFERA_REQUIRE_NATIVE, value: "hipfile"}
+            startupProbe:
+              httpGet: {path: /health, port: 30000}
+              periodSeconds: 10
+              timeoutSeconds: 10
+              failureThreshold: 120     # weight load is slow; do not use a readinessProbe here
+            resources:
+              requests: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}
+              limits: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay, readOnly: true}
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: kvd-sock, mountPath: /kvd}
+              - {name: dshm, mountPath: /dev/shm}
+          # ---- kvd sidecar: L2 pinned host RAM + L3 on a PVC ----
+          # Same image as `main` (already on the node, so no extra pull) running
+          # infera.kvd out of the shared overlay. The overlay image itself is a
+          # busybox carrying the payload — it has no interpreter to run kvd with.
+          - name: kvd
+            image: vllm/vllm-openai-rocm:kimi-k3@sha256:5aa7e626ff73672f5ca7aae46754570488c23d33ca1ac90756a1d2d1a3fe099b
+            imagePullPolicy: IfNotPresent
+            command: ["/overlay/bin/infera-exec","python3","-m","infera.kvd",
+                      "--socket","/kvd/kvd.sock",
+                      "--max-bytes","34359738368",                            # 32 GiB L2 arena
+                      "--long-path","/l3/long","--long-bytes","107374182400"] # 100 GiB L3 on the PVC
+            env:
+              - {name: INFERA_REQUIRE_NATIVE, value: "hipfile"}
+            securityContext:
+              capabilities: {add: ["IPC_LOCK"]}     # required to mlock the arena
+            resources:
+              # Must exceed --max-bytes: the arena is pinned host RAM charged here.
+              requests: {cpu: "4", memory: 40Gi}
+              limits: {cpu: "4", memory: 40Gi}
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay, readOnly: true}
+              - {name: kvd-sock, mountPath: /kvd}
+              - {name: kvd-l3, mountPath: /l3}
+        volumes:
+          - {name: overlay, emptyDir: {}}
+          - {name: model, persistentVolumeClaim: {claimName: model-cache}}
+          # engine <-> kvd UDS: a plain emptyDir shared by the two containers
+          - {name: kvd-sock, emptyDir: {}}
+          - {name: kvd-l3, persistentVolumeClaim: {claimName: kvd-l3}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 64Gi}}

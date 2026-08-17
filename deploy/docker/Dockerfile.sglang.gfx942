@@ -3,10 +3,56 @@
 #       gfx950 (mi35x) and one image can't serve both; no dsv4 source patch since
 #       gfx942 runs dsv4 FP8 natively / fails fast on FP4 (FP4 dsv4 -> vLLM).
 # HOW : fp8 env + CLI knobs are applied at launch by infera.engine.dsv4_gfx942.
-ARG SGLANG_BASE_IMAGE=lmsysorg/sglang-rocm:v0.5.15-rocm720-mi30x-20260713
+# BASE: v0.5.16 is the sglang this image is validated on — GLM-5.2 MTP needs
+#       sglang #30839 (IndexShare across PD and CUDA-graph replay) and its own
+#       GlmMoeDsaForCausalLMNextN quant handling, both of which land in v0.5.16;
+#       on the previous v0.5.15 base the draft weight-load and PD warmup fail.
+#       v0.5.16 also carries GlmMoeDsaForCausalLMNextN, which is why the nextn
+#       quark-exclude backport this repo used to keep is retired rather than
+#       applied here.
+# RUN : GLM-5.2 PD + DP-attention + MTP on this image REQUIRES every leg to pass
+#       `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`.
+#       It is not tuning — it stands in for two sglang_dsa patches this base
+#       cannot take. Full reasoning at the DSA patch block below.
+ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.16-rocm720-mi30x
 FROM ${SGLANG_BASE_IMAGE}
 
 WORKDIR /opt/infera
+
+# ---- libionic (host ionic ABI match) -----------------------------------------
+# WHY: the sglang base ships libionic with an old kernel ABI (e.g. 54.0-149 = ABI
+# 1); the ionic RoCE kernel driver needs ABI 4 (54.0-187) or ibv_get_device_list
+# returns 0 HCAs -> RDMA silently degrades to TCP and cross-node PD KV transfer
+# fails ("remote mooncake session not alive"). HOW: bake the ABI-4 deb so RDMA
+# works even without the runtime host-libionic injection (which the entrypoint
+# still does as a belt-and-braces match when /host-libionic is mounted).
+ARG INSTALL_LIBIONIC=1
+ARG LIBIONIC_DEB_URL=https://repo.radeon.com/amdainic/pensando/ubuntu/1.117.5-a-77/pool/main/r/rdma-core/libionic1_54.0-187-1_amd64.deb
+RUN if [ "${INSTALL_LIBIONIC}" = "1" ]; then \
+        (curl -4 -fsSL --retry 3 -o /tmp/libionic.deb "${LIBIONIC_DEB_URL}" \
+          && dpkg -i --force-downgrade /tmp/libionic.deb \
+          && ldconfig \
+          && echo "libionic: $(dpkg -l | awk '/libionic1/{print $3}')" \
+          && rm -f /tmp/libionic.deb) \
+        || echo "[libionic] install failed (offline build?) — inject at runtime instead"; \
+    else \
+        echo "INSTALL_LIBIONIC=0 — libionic injected at container start"; \
+    fi
+
+# ---- Mooncake: same pinned upstream revision as MI355X/vLLM -----------------
+# Build with gfx942 explicitly because docker build has no GPU to probe. The
+# shared script verifies HIP dma-buf and automatic cross-host RDMA routing in the
+# installed engine.so.
+ARG BUILD_MOONCAKE=1
+ARG MOONCAKE_GIT_REF=faae8dd4a6309c3ecd47e0721a83b0250d686fa2
+COPY deploy/docker/scripts/build_mooncake_sglang.sh /tmp/build_mooncake_sglang.sh
+RUN if [ "${BUILD_MOONCAKE}" = "1" ]; then \
+        MC_GPU_ARCH=gfx942 MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" \
+            bash /tmp/build_mooncake_sglang.sh; \
+    else \
+        echo "BUILD_MOONCAKE=0 — leaving base Mooncake as-is"; \
+    fi \
+    && rm -f /tmp/build_mooncake_sglang.sh
 
 # Install infera + its declared deps from pyproject (single source of truth).
 # The base already ships torch/sglang and most of infera's runtime stack; pip
@@ -15,12 +61,119 @@ WORKDIR /opt/infera
 # `python -m infera.gaie`.
 COPY pyproject.toml README.md ./
 COPY infera ./infera
-RUN pip install --no-cache-dir ".[sglang]"
+# setuptools is bumped in the same RUN. The bases ship 79.0.1, whose bundled
+# _vendor/ tree carries an old jaraco.context and wheel; those three are the
+# only reported issues here that a version bump can reach, since every other
+# Python finding sits on a package the base pins for its own runtime (pillow,
+# aiohttp, cryptography, h2, torch) and is the vendor's to move.
+#
+# Safe to move because setuptools is build tooling, not a runtime dependency:
+# nothing here imports it to serve a request. Verified against the published
+# image -- vllm and infera both still import, and the count drops 22 -> 19.
+RUN pip install --no-cache-dir ".[sglang]" "setuptools>=83.0.0"
+
+# ---- GLM-5.2 DSA indexer rows (patch 01 of the sglang_dsa set) --------------
+# REQUIRED for DP-attention here: the aiter (HIP) paged-MQA row count and
+# `lengths` disagree -- in BOTH directions -- so top-k dies with "Expected
+# lengths.size(0) == B" as soon as concurrency > 1.
+# ROCm-specific and independent of IndexShare, so nothing at runtime substitutes
+# for it. Same fix Dockerfile.sglang applies; it is an anchor script rather than
+# a pinned diff precisely so both bases can share one source of truth. Its
+# `GLM52_P1V2` edit sites are byte-identical on v0.5.15.post1 and v0.5.16; the
+# later `GLM52_P1V3` anchor has been re-read against v0.5.15.post1 only (see the
+# anchor note in the script's header). A drifted anchor writes nothing and exits
+# non-zero, so this build fails rather than shipping a half-applied fix.
+#
+# ONLY patch 01 (DSA_PATCH_SET=indexer). Patches 02 and 04 are `--fuzz=0` context
+# diffs cut against v0.5.15.post1 and do not apply to this v0.5.16 base:
+#   02b, 04  substituted at RUNTIME on this image, and the 1P1D bring-up behind
+#            it was validated that way — every leg MUST launch with
+#            `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`.
+#            IndexShare is the source of the rank divergence those two repair, so
+#            removing the seed removes the deadlock. Leave IndexShare ON here and
+#            the decode leg deadlocks on the first request.
+#   02a      NOT carried and NOT substituted: a host sync on a branch only some
+#            DP ranks take. Not re-cut for v0.5.16 and not observed on this base
+#            (FP8, dp8, conc<=128) — see patches/sglang_dsa/README.md.
+ARG APPLY_SGLANG_DSA_PATCHES=1
+COPY deploy/docker/patches/sglang_dsa/ /tmp/sglang_dsa/
+COPY deploy/docker/scripts/apply_sglang_dsa_patches.sh /tmp/apply_sglang_dsa_patches.sh
+RUN if [ "${APPLY_SGLANG_DSA_PATCHES}" = "1" ]; then \
+        DSA_PATCH_SET=indexer PATCH_DIR=/tmp/sglang_dsa \
+            bash /tmp/apply_sglang_dsa_patches.sh; \
+    else \
+        echo "APPLY_SGLANG_DSA_PATCHES=0 — stock indexer, DP-attention will crash at conc>1"; \
+    fi \
+    && rm -rf /tmp/apply_sglang_dsa_patches.sh /tmp/sglang_dsa
+
+# ---- sglang PD patches (mooncake early-send KV wait event) ----
+# REQUIRED FOR CORRECTNESS on any PD deployment doing chunked prefill over
+# mooncake: without it every chunk but the last is RDMA-read while the forward is
+# still writing those pages, and prompts longer than one chunk come back
+# partially wrong with nothing in any log. Each script is self-locating and
+# idempotent, and reports "already present" once the base sglang carries the fix.
+# Unlike the backport loop in Dockerfile.sglang this one is NOT tolerant: a script
+# here exits non-zero only when its anchors drifted, i.e. when the fix did not go
+# in — and an engine image that silently corrupts long prompts is worse than a
+# failed build.
+COPY deploy/docker/patches/sglang_disagg/ /tmp/sglang-disagg-patches/
+RUN set -eu; \
+    for f in /tmp/sglang-disagg-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
+    rm -rf /tmp/sglang-disagg-patches
+
+# ---- sglang ROCm patches (hicache host allocator, staged write-back) --------
+# Two independent hicache-on-ROCm fixes, both needed once kvd is enabled.
+#
+# (1) host allocator. hicache allocates its host pools with mmap +
+# hipHostRegister and then hands the raw host data_ptr()s to GPU kernels through
+# device-side pointer tables, which is only correct while hipHostRegister happens
+# to map the pages at the host VA. The patch moves ROCm to hipHostMalloc, whose
+# device pointer IS the host pointer by contract.
+#
+# PREVENTIVE ON THIS BASE, not a fix for a crash seen here. On gfx950 the two
+# addresses differ and the first kvd write-back aborts the process with "Memory
+# access fault by GPU node-N"; on gfx942 they were measured equal (MI300X, amdgpu
+# 6.14.14, ROCm 7.2.0, this base image: 8 MiB / 512 MiB / 4 GiB and 78 sequential
+# registrations totalling 7.3 GB, 0 mismatches). That identity is an accident of
+# the driver rather than an API guarantee, gfx942 is `xnack-` too so a regression
+# would fault rather than migrate, and the switch costs nothing measurable while
+# SGLANG_HUGEPAGE_SIZE is unset -- both allocators then hand out 4 KiB pages.
+#
+# (2) staged write-back JIT. NOT preventive: without it this base kills the
+# prefill scheduler (exit -3, "Tensor match failed ... device=rocm:0") on the
+# first page written back to the host tier, i.e. on the first request that reuses
+# a prefix. pool_host/mla.py opts HIP into a JIT kernel whose ROCm build wants
+# host-resident indices while the caller passes a GPU tensor; the patch gates it
+# on CUDA like every other host pool does. v0.5.15.post1 has no pool_host/mla.py,
+# so the same script is a no-op on the mi35x image.
+#
+# Order-independent w.r.t. everything above: they touch
+# mem_cache/pool_host/{common,mla}.py, which no other patch here does. NOT
+# tolerant, like the disagg loop: a non-zero exit means the base drifted, and
+# either fix half-applied is worse than a failed build. The one tolerated miss
+# is an absent pool_host/mla.py, which means the base predates the JIT path.
+COPY deploy/docker/patches/sglang_rocm/ /tmp/sglang-rocm-patches/
+RUN set -eu; \
+    for f in /tmp/sglang-rocm-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
+    rm -rf /tmp/sglang-rocm-patches
 
 # ---- Rust router (multi-core data plane; --router-backend rust) ----
-# The ROCm base ships cargo; use it (install a minimal toolchain only if
-# absent). Needs cc for linking and libclang (onig_sys/bindgen). Removes
-# the build tree, keeps the binary.
+# The ROCm base often ships cargo; use it, and install a minimal toolchain only
+# if absent. Needs cc for linking and libclang (onig_sys/bindgen).
+#
+# Build and remove in the SAME RUN. This is about what a scanner finds in the
+# final image, not about size: image scanning reads the flattened filesystem, so
+# a toolchain deleted in a later step is still reported, while one deleted here
+# is gone. A serving image has no business shipping a compiler toolchain.
+#
+# Removed unconditionally, including when the base supplied it. Who installed it
+# does not change whether it is present in the image being scanned, and nothing
+# at runtime needs cargo: the engines are Python, and the built infera-router
+# links only against base system libs (libc/libstdc++/libgcc/libm), none of
+# which the toolchain provides.
+#
+# The rc files go with it: rustup appends an unguarded `. "$HOME/.cargo/env"`,
+# which then errors on every login shell the image runs.
 COPY rust ./rust
 RUN set -eu; \
     command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; }; \
@@ -31,7 +184,12 @@ RUN set -eu; \
     export LIBCLANG_PATH="${LIBCLANG_PATH:-/opt/rocm/llvm/lib}"; \
     ( cd rust && cargo build --release --bin infera-router ); \
     cp rust/target/release/infera-router /usr/local/bin/infera-router; \
-    rm -rf rust
+    rm -rf rust "$HOME/.cargo" "$HOME/.rustup" /usr/local/cargo /usr/local/rustup; \
+    rm -f /usr/local/bin/cargo /usr/local/bin/rustc /usr/local/bin/rustup /usr/local/bin/rustdoc; \
+    sed -i '/\.cargo\/env/d' "$HOME/.profile" "$HOME/.bashrc" 2>/dev/null || true; \
+    ! command -v cargo >/dev/null || { echo "cargo still on PATH after cleanup: $(command -v cargo)" >&2; exit 1; }; \
+    ! bash -lc true 2>&1 | grep -q cargo || { echo "a login shell still references cargo" >&2; exit 1; }; \
+    /usr/local/bin/infera-router --help >/dev/null 2>&1 || { echo "infera-router unusable after cleanup" >&2; exit 1; }
 
 COPY deploy/docker/scripts/infera_inject_host_ionic.sh /usr/local/bin/infera-inject-host-ionic
 

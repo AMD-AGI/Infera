@@ -30,6 +30,7 @@ from infera.common.disagg_preflight import (
 )
 from infera.common.registration import RegistrationClient
 from infera.engine.base import watch_engine_death
+from infera.engine.drain import drain_engine_inflight
 from infera.engine.sglang.args import SglangWorkerArgs, parse_sglang_args
 from infera.engine.sglang.kv_wiring import (
     SglangKvWiring,
@@ -114,7 +115,16 @@ async def _maybe_start_kv_plane(
 
     # 0.0.0.0 bind is fine inside the worker but useless on the wire;
     # the registered endpoint must be reachable by the server.
-    advertise_host = args.server_args.host
+    #
+    # Use the resolved advertise host, not the bind host. main() sets
+    # args.advertise_host from POD_IP under Kubernetes discovery precisely so these
+    # endpoints can be reached — its own comment says "the registered url/worker_id
+    # and kv endpoints all derive from this" — but this path ignored it and
+    # published the bind address. With the usual `--host 0.0.0.0` the router then
+    # polled `http://0.0.0.0:8801` for every worker and logged "All connection
+    # attempts failed" on a loop, while both workers registered and looked healthy.
+    # The vLLM worker already does `args.advertise_host or args.host`.
+    advertise_host = args.advertise_host or args.server_args.host
     events_advertise = args.kv_events_advertise or resolve_advertise_endpoint(
         args.kv_events_bind, advertise_host
     )
@@ -210,12 +220,16 @@ async def main() -> None:
     # BEFORE engine.start() spawns the sglang subprocess so it's inherited.
     # Without these the transfer engine silently falls back to TCP / hangs.
     from infera.engine.dsv4_gfx942 import apply_gfx942_dsv4
+    from infera.engine.rocm_dsa_env import apply_rocm_dsa_env_defaults
     from infera.engine.rocm_rdma_env import (
         apply_kv_host_ip_default,
         apply_rocm_rdma_env_defaults,
     )
 
     apply_rocm_rdma_env_defaults()
+    # Disable sglang's CUDA-only DSA topk_v2 JIT on ROCm (set-if-unset), else every
+    # non-DeepseekV4 DSA arch dies in CUDA-graph capture. See rocm_dsa_env.py.
+    apply_rocm_dsa_env_defaults()
     # Pin the KV host IP to the RDMA rail (else get_ip() picks the public NIC and
     # KV transfer targets the wrong interface). Must follow the GID default above.
     apply_kv_host_ip_default()
@@ -395,15 +409,47 @@ async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config)
     except asyncio.CancelledError:
         pass
 
+    # Stop the heartbeat before touching the record: it re-asserts registration
+    # from config, so a refresh landing after deregistration would put the
+    # worker straight back into the pool.
     hb_task.cancel()
     try:
         await hb_task
     except asyncio.CancelledError:
         pass
 
-    await reg_client.deregister()
-    if nats_req_server is not None:
-        await nats_req_server.stop(drain=True, drain_timeout=args.drain_timeout)
+    async def _drain() -> None:
+        if nats_req_server is not None:
+            await nats_req_server.stop(drain=True, drain_timeout=args.drain_timeout)
+        else:
+            # HTTP transport: the router talks straight to the engine, so infera
+            # never saw these requests and has to ask the engine what is still
+            # in flight.
+            await drain_engine_inflight(
+                host=config.host,
+                port=config.port,
+                engine=config.engine,
+                timeout=args.drain_timeout,
+            )
+
+    # Deregister before draining, on every backend: removing the record is what
+    # stops new work arriving, and waiting on in-flight work while still being
+    # dispatched to just races arrivals.
+    #
+    # On Kubernetes the registry does drop a Pod on its deletionTimestamp, well
+    # before this process is signalled -- but only when the Pod is being
+    # deleted. A liveness-probe restart, a node graceful shutdown or a manual
+    # kill all deliver SIGTERM with the Pod object untouched, and on those paths
+    # the annotation is still there and still parsed, so this worker stays
+    # routable until it clears it. Draining first would hand it new work for the
+    # whole drain window.
+    #
+    # The cost is that the worker is gone from /v1/workers while it finishes,
+    # rather than visibly draining.
+    if not await reg_client.deregister():
+        # deregister() already logged why, including whether it matters here.
+        logger.warning("draining anyway")
+    await _drain()
 
     if kv_relay is not None:
         await kv_relay.stop()

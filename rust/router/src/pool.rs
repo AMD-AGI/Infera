@@ -36,7 +36,11 @@ fn default_transport() -> String {
 
 /// Mirror of `infera.common.worker_pool.WorkerInfo` as registered in etcd.
 /// Extra fields in the payload (e.g. `kv`) are ignored.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// `PartialEq` so discovery can tell a real re-registration from a heartbeat
+/// that changed nothing. Derived rather than hand-written: a field added later
+/// and forgotten there is a change the router silently ignores, which is
+/// exactly how the prefill bootstrap address once went stale.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Worker {
     pub worker_id: String,
     pub url: String,

@@ -1,0 +1,121 @@
+# Kimi-K3 — mixed — Kubernetes recipe
+#
+#   base image   vllm/vllm-openai-rocm:kimi-k3      (stock vendor image, unmodified)
+#   overlay      inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44                     (infera + router + kvd + native deps)
+#   engine       infera.engine.vllm   TP8
+#
+# Deploy:  kubectl apply -f examples/recipes/kimi-k3/aggregated/deploy.yaml
+# Docs:    examples/recipes/kimi-k3/README.md
+#
+# Expects the `model-cache` PVC to hold the weights at /models/Kimi-K3
+# (examples/k8s-deployments/model-cache/). Swap the `model` volume for a
+# hostPath if you keep weights on the node instead.
+#
+# `--kv-cache-dtype auto` is REQUIRED. infera otherwise injects
+# fp8_e4m3, which selects the batch-1-only `mla_gluon` kernel and the
+# engine dies with `requires batch_size=1, got 128`.
+# --enable-prefix-caching WORKS, and is on below. Kimi-K3 is hybrid, so
+# vLLM runs it in Mamba cache "align" mode (it does not declare
+# SupportsMambaPrefixCaching) and calls that mode experimental. Measured
+# here: 72.7% hit rate across requests sharing a long prefix, and a fact
+# buried after 1000 shared records still retrieved correctly. An earlier
+# note said this fails engine init; that was true of an older base image.
+# "align" mode requires chunked prefill, which vLLM enables by default.
+# Do NOT use --load-format fastsafetensors without GDS.
+---
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: kimi-k3-mixed
+  namespace: infera
+spec:
+  backendFramework: vllm
+  discoveryBackend: kubernetes
+  nats:
+    deploy: false
+  services:
+    server:
+      componentType: server
+      extraPodSpec:
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it. The vendor image is never forked,
+        # so following an upstream bump costs nothing in this repo.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
+        containers:
+          - name: main
+            image: vllm/vllm-openai-rocm:kimi-k3@sha256:5aa7e626ff73672f5ca7aae46754570488c23d33ca1ac90756a1d2d1a3fe099b
+            imagePullPolicy: IfNotPresent
+            command: ["/overlay/bin/infera-exec","python3","-m","infera.server",
+                      "--host","0.0.0.0","--port","8000",
+                      "--router-tokenizer-path","/models/Kimi-K3",
+                      "--request-transport","http","--kv-event-transport","zmq"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources: {requests: {cpu: "8", memory: 16Gi}, limits: {cpu: "8", memory: 16Gi}}
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay, readOnly: true}
+              - {name: model, mountPath: /models, readOnly: true}
+        volumes:
+          - {name: overlay, emptyDir: {}}
+          - {name: model, persistentVolumeClaim: {claimName: model-cache}}
+    worker:
+      componentType: worker
+      role: mixed
+      replicas: 1
+      extraPodSpec:
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it. The vendor image is never forked,
+        # so following an upstream bump costs nothing in this repo.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
+        containers:
+          - name: main
+            image: vllm/vllm-openai-rocm:kimi-k3@sha256:5aa7e626ff73672f5ca7aae46754570488c23d33ca1ac90756a1d2d1a3fe099b
+            imagePullPolicy: IfNotPresent
+            command: ["/overlay/bin/infera-exec",
+                      "python3","-m","infera.engine.vllm","--host","0.0.0.0","--port","30000",
+                      "--model","/models/Kimi-K3",
+                      "--served-model-name","kimi-k3",
+                      "--tensor-parallel-size","8","--gpu-memory-utilization","0.95",
+                      "--trust-remote-code","--load-format","auto",
+                      "--mm-encoder-tp-mode","data","--kv-cache-dtype","auto",
+                      "--enable-prefix-caching","--max-num-seqs","128","--max-num-batched-tokens","4096",
+                      "--enable-auto-tool-choice","--tool-call-parser","kimi_k3",
+                      "--reasoning-parser","kimi_k3",
+                      "--kv-event-transport","zmq","--request-transport","http"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+              - {name: HF_HUB_OFFLINE, value: "1"}
+              - {name: VLLM_ROCM_USE_AITER, value: "1"}
+              - {name: SAFETENSORS_FAST_GPU, value: "1"}
+            startupProbe:
+              httpGet: {path: /health, port: 30000}
+              periodSeconds: 10
+              timeoutSeconds: 10
+              failureThreshold: 120     # weight load is slow; do not use a readinessProbe here
+            resources:
+              requests: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}
+              limits: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay, readOnly: true}
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: dshm, mountPath: /dev/shm}
+        volumes:
+          - {name: overlay, emptyDir: {}}
+          - {name: model, persistentVolumeClaim: {claimName: model-cache}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 64Gi}}

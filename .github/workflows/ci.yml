@@ -1,24 +1,40 @@
 name: CI
 
 on:
+  # One event per state of the code: the PR is the pre-merge gate, main is the
+  # post-merge check. Firing push on every branch ran both for the same commit,
+  # so the jobs were split by hand -- unit on push, GPU on the PR -- which left
+  # the PR's own check list reading "skipped" for tests that ran in a push run
+  # it does not link to, and two check runs named `unit` on one commit.
+  # A branch with no PR now runs nothing; open a draft to get CI.
   push:
-    branches: ["**"]   # every branch: runs everything EXCEPT e2e (see e2e-mixed if:)
+    branches: [main]
   pull_request:
     branches: [main]
+    # ready_for_review so marking a draft ready re-runs and picks up the GPU
+    # tiers that drafts skip (see e2e_gate).
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:   # manual "Run workflow" button (Actions tab)
     inputs:
-      run_e2e:
+      run_e2e_mixed:
         description: "also run e2e-mixed"
+        type: boolean
+        default: false
+      run_e2e_disag:
+        description: "also run e2e-disag"
         type: boolean
         default: false
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  # PR number, not branch name: head_ref carries no repository, so two forks
+  # that both call a branch `main` or `fix-ci` would share a group and cancel
+  # each other's runs -- which reads as "my CI vanished" and is near impossible
+  # to trace back. Falls back to the ref for pushes to main.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
-  actions: read
 
 jobs:
   # Classify the change: does it touch package code, or only docs/examples? A
@@ -35,6 +51,16 @@ jobs:
           fetch-depth: 0
       - id: f
         run: |
+          # Someone pressed "Run workflow": run everything, whatever the last
+          # commit happened to touch. There is no diff base on this event, so the
+          # logic below would fall back to HEAD~1 and skip the whole run off a
+          # docs-only commit -- and since a branch push no longer starts CI, this
+          # button is the only way to force one.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "manual run — treating as a code change"
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             range="${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}"
           else
@@ -59,22 +85,38 @@ jobs:
           echo "=> code=$code"
           echo "code=$code" >> "$GITHUB_OUTPUT"
 
-  pre_check:
+  # Should the GPU tiers run for THIS event? Every PR into main, and every merge
+  # into main. Re-running on main is deliberate duplication: two PRs can each
+  # pass alone and break together, and only the merged result shows that.
+  # Drafts are the exception — iterating on one must not cost a GPU run per
+  # push, so they get lint and unit only until they are marked ready.
+  e2e_gate:
     runs-on: ubuntu-latest
     outputs:
-      should_skip: ${{ steps.skip.outputs.should_skip }}
+      run: ${{ steps.decide.outputs.run }}
     steps:
-      - id: skip
-        uses: fkirc/skip-duplicate-actions@f75f66ce1886f00957d99748a42c724f4330bdcf # v5
-        with:
-          skip_after_successful_duplicate: "true"
-          concurrent_skipping: "never"
+      - id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+        run: |
+          run=false
+          if [ "$EVENT" = pull_request ] && [ "$DRAFT" = true ]; then
+            echo "draft pull request — lint and unit only until it is marked ready"
+          elif [ "$EVENT" = pull_request ]; then
+            run=true; echo "pull request into main — GPU tiers run pre-merge"
+          elif [ "$EVENT" = push ] && [ "$REF" = refs/heads/main ]; then
+            run=true; echo "merged into main — GPU tiers run again on the result"
+          else
+            echo "neither a pull request into main nor a push to main — no GPU tiers"
+          fi
+          echo "=> run_e2e=$run"
+          echo "run=$run" >> "$GITHUB_OUTPUT"
 
   lint:
-    needs: [pre_check, changes]
-    if: >-
-      needs.pre_check.outputs.should_skip != 'true' &&
-      needs.changes.outputs.code == 'true'
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -86,14 +128,9 @@ jobs:
         run: pre-commit run --all-files --show-diff-on-failure
 
   unit:
-    needs: [lint, pre_check, changes]
-    # Skip on docs-only changes, and on same-repo PRs (already covered by the
-    # branch push event); still run on push and on fork PRs.
-    if: >-
-      needs.pre_check.outputs.should_skip != 'true' &&
-      needs.changes.outputs.code == 'true' &&
-      (github.event_name != 'pull_request' ||
-       github.event.pull_request.head.repo.full_name != github.repository)
+    needs: [lint, changes]
+    # Skip on docs-only changes.
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -109,14 +146,9 @@ jobs:
   # Rust router: clippy + unit/integration tests. GH-hosted ubuntu-latest
   # ships a stable toolchain (with clippy), so no toolchain setup is needed.
   rust:
-    needs: [lint, pre_check, changes]
-    # Skip on docs-only changes, and on same-repo PRs (already covered by the
-    # branch push event); still run on push and on fork PRs.
-    if: >-
-      needs.pre_check.outputs.should_skip != 'true' &&
-      needs.changes.outputs.code == 'true' &&
-      (github.event_name != 'pull_request' ||
-       github.event.pull_request.head.repo.full_name != github.repository)
+    needs: [lint, changes]
+    # Skip on docs-only changes.
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -130,16 +162,15 @@ jobs:
       - name: cargo test
         run: cargo test
 
-  # Engine GPU tests — run on each branch push (same-repo PRs reuse that run).
+  # Engine GPU tests. Same schedule as the e2e tiers (see e2e_gate): every PR
+  # into main once it is out of draft, and every merge into main.
   engine:
-    needs: [lint, pre_check, changes]
-    # Skip on docs-only changes, and on same-repo PRs (already covered by the
-    # branch push event); still run on push and on fork PRs.
+    needs: [lint, changes, e2e_gate]
     if: >-
-      needs.pre_check.outputs.should_skip != 'true' &&
+      !cancelled() &&
       needs.changes.outputs.code == 'true' &&
-      (github.event_name != 'pull_request' ||
-       github.event.pull_request.head.repo.full_name != github.repository)
+      needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
+      (needs.e2e_gate.outputs.run == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: [self-hosted, crusoe]
     timeout-minutes: 60
     env:
@@ -152,36 +183,66 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+      # exec, so run_tests.sh IS the step's entry process: on cancel the runner
+      # signals only that one pid, and a wrapping bash would not forward it, so
+      # the script's INT/TERM trap (scancel of the dispatched job) never ran.
       - name: engine tests
-        run: bash tests/run_tests.sh engine
+        run: exec bash tests/run_tests.sh engine
       - name: reclaim this job's SLURM jobs (on cancel/failure)
         if: always() && (cancelled() || failure())
-        run: |
-          suf="-${{ github.run_id }}-engine"
-          for i in 1 2 3 4 5; do
-            ids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \
-              | awk -v suf="$suf" '$2 ~ /^infera-ci-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}')
-            [ -z "$ids" ] && { echo "no (more) SLURM jobs to reclaim"; break; }
-            echo "reclaiming SLURM job(s): $ids (try $i)"; scancel $ids 2>&1 || true
-            sleep 5
-          done
+        run: .github/scripts/reclaim_slurm_jobs.sh infera-ci- "-${{ github.run_id }}-engine"
 
-  # Full PD-mixed e2e (per engine, parallel) — ONLY when code lands on main
-  # (push/merge to main). Skipped on other branches and on PRs.
-  e2e-mixed:
-    # Run on PRs into main (pre-merge; pull_request already filters base=main), so
-    # the merge is validated BEFORE landing and not re-run on the main push after.
-    # Also on manual dispatch when run_e2e is checked. Skipped for docs-only PRs.
-    # Gated behind lint: run only if lint did not fail. `always()` + result check
-    # (instead of a plain success dependency) is needed so e2e still runs when lint
-    # is *skipped* as a duplicate (pre_check), but is held back when lint fails.
-    needs: [lint, changes]
+  # Overlay payload: verify it still COMPILES. Until now the overlay was built
+  # only by release.yml, i.e. first built on a tag push -- so a change that broke
+  # it sat on main until release day. It did: a3037b7b made the sglang Mooncake
+  # builder patch-free, and Dockerfile.payload kept asserting a string only the
+  # dropped patch produced, breaking every overlay build with nothing to catch it.
+  #
+  # Build-only, no push, and stopped at native310 via BUILD_TARGET: the stages
+  # past it harvest from ${IMAGE}:vllm-<id>, which does not exist for a PR. What
+  # is left is exactly the part that broke -- the Mooncake compile and its
+  # capability assertions -- and it needs only the public vendor bases and no GPU.
+  overlay:
+    needs: [lint, changes, e2e_gate]
     if: >-
-      always() &&
+      !cancelled() &&
       needs.changes.outputs.code == 'true' &&
       needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
-      (github.event_name == 'pull_request' ||
-       (github.event_name == 'workflow_dispatch' && inputs.run_e2e))
+      (needs.e2e_gate.outputs.run == 'true' || github.event_name == 'workflow_dispatch')
+    runs-on: [self-hosted, crusoe]
+    timeout-minutes: 60
+    env:
+      INFERA_E2E_SLURM_PARTITION: amd-spur
+      INFERA_E2E_RESERVATION: infera-cicd-reserved
+      INFERA_E2E_JOB_TAG: ${{ github.run_id }}-overlay
+      BUILD_TARGET: native310
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      # exec, so dispatch_build.sh IS the step's entry process and a CI cancel
+      # reaches it directly -- see the engine job.
+      - name: overlay build (verify only, no push)
+        run: exec bash .github/scripts/dispatch_build.sh overlay build
+      - name: reclaim this job's SLURM jobs (on cancel/failure)
+        if: always() && (cancelled() || failure())
+        run: .github/scripts/reclaim_slurm_jobs.sh infera-build- "-${{ github.run_id }}-overlay"
+
+  # Full PD-mixed e2e (per engine, parallel). When it runs is e2e_gate's call.
+  e2e-mixed:
+    # Skipped for docs-only changes, and held back if lint failed. Checking
+    # lint's *result* rather than depending on its success keeps `!cancelled()`
+    # meaningful; `always()` would not work here, because on cancel the server
+    # re-evaluates job-level `if` and `always()` is true, so the job would never
+    # be cancelled — it would keep (or even start) burning GPU nodes after
+    # "Cancel workflow".
+    needs: [lint, changes, e2e_gate]
+    if: >-
+      !cancelled() &&
+      needs.changes.outputs.code == 'true' &&
+      needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
+      (needs.e2e_gate.outputs.run == 'true' ||
+       (github.event_name == 'workflow_dispatch' && inputs.run_e2e_mixed))
     strategy:
       fail-fast: false
       matrix:
@@ -201,34 +262,69 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+      # exec: see the engine job — keeps run_tests.sh's INT/TERM trap reachable.
       - name: e2e ${{ matrix.engine }} mixed
-        run: bash tests/run_tests.sh e2e ${{ matrix.engine }} mixed
+        run: exec bash tests/run_tests.sh e2e ${{ matrix.engine }} mixed
       - name: reclaim this job's SLURM jobs (on cancel/failure)
         if: always() && (cancelled() || failure())
-        run: |
-          # Retry: a single scancel can hit a transient Spur controller error.
-          suf="-${{ github.run_id }}-${{ matrix.engine }}"
-          for i in 1 2 3 4 5; do
-            ids=$(squeue -h -u "$(id -un)" -o '%i %j' 2>/dev/null \
-              | awk -v suf="$suf" '$2 ~ /^infera-ci-/ && substr($2, length($2)-length(suf)+1)==suf {print $1}')
-            [ -z "$ids" ] && { echo "no (more) SLURM jobs to reclaim"; break; }
-            echo "reclaiming SLURM job(s): $ids (try $i)"; scancel $ids 2>&1 || true
-            sleep 5
-          done
+        run: .github/scripts/reclaim_slurm_jobs.sh infera-ci- "-${{ github.run_id }}-${{ matrix.engine }}"
+
+  e2e-disag:
+    # Gates mirror e2e-mixed, `!cancelled()` included: `always()` would keep this
+    # holding a two-node pair after "Cancel workflow".
+    needs: [lint, changes, e2e_gate]
+    if: >-
+      !cancelled() &&
+      needs.changes.outputs.code == 'true' &&
+      needs.lint.result != 'failure' && needs.lint.result != 'cancelled' &&
+      (needs.e2e_gate.outputs.run == 'true' ||
+       (github.event_name == 'workflow_dispatch' && inputs.run_e2e_disag))
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [vllm, sglang, atom]
+    runs-on: [self-hosted, crusoe]
+    timeout-minutes: 120
+    env:
+      INFERA_E2E_SLURM_PARTITION: amd-spur
+      INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
+      # Ceiling on every disagg srun step, inside the job timeout above so the
+      # scheduler reclaims a node even if the runner is killed first.
+      INFERA_E2E_SLURM_TIME: "01:50:00"
+      # Disagg is many short sruns; the reservation keeps the pair held across
+      # them. QoS is left at the cluster default — the harness falls back to the
+      # burst QoS by itself if a step is refused for a group node limit.
+      INFERA_E2E_RESERVATION: infera-cicd-reserved
+      # No ib_peer_mem here, so bare ibv_reg_mr cannot pin VRAM: Mooncake must
+      # register via dma-buf, compiled in at build time and selected at run time.
+      # The rail is mlx5 (ionic dma-buf dies on a production KV pool); its
+      # routable GID is index 3, its 0 and 1 are link-local.
+      INFERA_E2E_GID_INDEX: "3"
+      INFERA_E2E_WORKER_ENV: MC_TE_FILTERS=mlx5_0,MOONCAKE_DISABLE_HIP_DMABUF=0
+      INFERA_E2E_BUILD_ARGS: MOONCAKE_HIP_DMABUF=1
+      INFERA_E2E_JOB_TAG: ${{ github.run_id }}-${{ matrix.engine }}-disag
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      # exec: see the engine job — keeps run_tests.sh's INT/TERM trap reachable,
+      # which is what releases the held node pair on cancel.
+      - name: e2e ${{ matrix.engine }} disag
+        run: exec bash tests/run_tests.sh e2e ${{ matrix.engine }} disag
+      - name: reclaim this job's SLURM jobs (on cancel/failure)
+        if: always() && (cancelled() || failure())
+        # Catches the infera-ci-hold-* pair holder too: it is a -N2 --gres=gpu:8
+        # batch job, so a leaked one keeps TWO reserved nodes out of the pool.
+        run: .github/scripts/reclaim_slurm_jobs.sh infera-ci- "-${{ github.run_id }}-${{ matrix.engine }}-disag"
 
   unit-torch-cpu:
-    needs: [lint, pre_check, changes]
-    # Skip on docs-only changes, and on same-repo PRs (already covered by the
-    # branch push event); still run on push and on fork PRs.
-    if: >-
-      needs.pre_check.outputs.should_skip != 'true' &&
-      needs.changes.outputs.code == 'true' &&
-      (github.event_name != 'pull_request' ||
-       github.event.pull_request.head.repo.full_name != github.repository)
+    needs: [lint, changes]
+    # Skip on docs-only changes.
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.10"
       - run: pip install -e ".[dev]"

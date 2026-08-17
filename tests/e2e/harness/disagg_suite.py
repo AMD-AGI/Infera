@@ -21,10 +21,42 @@ Nothing infera runs on the driver host — it only drives srun/docker + probes.
 
 from __future__ import annotations
 
+import re
+
 from . import resources, scenarios
+from .adapter import emit_reporter_line
 from .params import EngineParams
 
 __all__ = ["run_disagg_case"]
+
+# The two ways Mooncake reports its transport. Either fallback still delivers the
+# KV over sockets and still passes the correctness probes, so the log is the only
+# place a run that never touched RDMA can be told apart from one that did.
+_TRANSPORT_BANNER = re.compile(r"installTransport, type=(\w+)")
+_NO_HCA = re.compile(r"Topology discovery complete\. Found 0 HCAs")
+
+
+def assert_rdma_kv_transport(server: dict) -> None:
+    """Fail if a PD worker moved KV over anything but RDMA. A worker whose log
+    says nothing about Mooncake is reported "unverified" rather than failed, so
+    this never blocks an engine whose transport it cannot read."""
+    launcher, workers = server.get("launcher"), server.get("workers") or []
+    for h in workers:
+        log = launcher.collect_logs(h)
+        where = f"{h.role} @ {h.node}"
+        assert not _NO_HCA.search(log), (
+            f"{where}: Mooncake found 0 RDMA devices and served KV over TCP — the "
+            f"engine asked for a NIC this fabric does not have; see {h.log_path}"
+        )
+        kinds = sorted(set(_TRANSPORT_BANNER.findall(log)))
+        if not kinds:
+            emit_reporter_line(f"[e2e disagg transport] {where}: unverified (no Mooncake log)")
+            continue
+        emit_reporter_line(f"[e2e disagg transport] {where}: {', '.join(kinds)}")
+        assert kinds == ["rdma"], (
+            f"{where} did not run KV over RDMA alone (installed: {', '.join(kinds)}); "
+            f"see {h.log_path}"
+        )
 
 
 async def run_disagg_case(params: EngineParams, disagg_stack) -> None:
@@ -44,3 +76,6 @@ async def run_disagg_case(params: EngineParams, disagg_stack) -> None:
     # probe is tolerant — so completions-only PD engines (e.g. ATOM) pass on the
     # counting probe alone while the P->D KV transfer is still exercised end-to-end.
     await scenarios.assert_correctness(server["url"], params.model)
+
+    # …and that it got there over RDMA, which correctness alone cannot show.
+    assert_rdma_kv_transport(server)

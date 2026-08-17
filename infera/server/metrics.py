@@ -181,6 +181,24 @@ active_workers = Gauge(
 )
 
 
+worker_breaker_state = Gauge(
+    "infera_router_worker_breaker_state",
+    "Router-side circuit breaker per worker: 0=closed, 1=half_open, 2=open. "
+    "Non-zero means the router is routing around a worker that discovery still "
+    "reports ACTIVE — the gap this metric exists to make visible.",
+    labelnames=("worker_id",),
+    registry=REGISTRY,
+)
+
+worker_breaker_trips_total = Counter(
+    "infera_router_worker_breaker_trips_total",
+    "Times a worker's breaker has opened. A worker tripping repeatedly while "
+    "staying ACTIVE is broken for inference but healthy to the platform.",
+    labelnames=("worker_id",),
+    registry=REGISTRY,
+)
+
+
 # ----------------------------------------------------------------------
 # KV-aware policy internals
 # ----------------------------------------------------------------------

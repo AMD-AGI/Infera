@@ -113,6 +113,47 @@ idle-timeout-before-first-token, or a 429 admission reject. It never retries
 mid-stream (once tokens flow, a failure surfaces to the client). Raise it for more
 resilience; set `0` to fail fast.
 
+### Circuit breaker
+
+Failover on its own has no memory. Its `tried` set lives for one request, so a
+worker that is broken for inference but healthy to discovery — it accepts the
+connection, answers `/health`, stays `ACTIVE` — gets re-picked by the *next*
+request, and every request after that pays the failover cost again.
+
+The breaker is that missing memory. After `--breaker-failure-threshold`
+consecutive faults a worker is dropped from the candidate list for
+`--breaker-cooldown-s`, then one probe request is admitted: if it succeeds the
+worker is restored, if it fails the cooldown doubles, up to
+`--breaker-max-cooldown-s`.
+
+| Flag | Env | Default | Meaning |
+|---|---|---|---|
+| `--breaker-failure-threshold` | `INFERA_BREAKER_FAILURE_THRESHOLD` | `3` | consecutive faults before removal; `0` disables |
+| `--breaker-cooldown-s` | `INFERA_BREAKER_COOLDOWN_S` | `5` | exclusion window before a probe |
+| `--breaker-max-cooldown-s` | `INFERA_BREAKER_MAX_COOLDOWN_S` | `60` | cap on the doubling backoff |
+
+Two exclusions are deliberate. **4xx never counts** — a malformed request returns
+400 from every worker it reaches, so counting it would trip the entire healthy
+fleet on one bad client. **429 never counts** either: it means "full right now",
+which the policy's load accounting already routes around, and a doubling cooldown
+is far too heavy a response to transient backpressure.
+
+If *every* candidate is open the router dispatches anyway rather than returning
+503 — a request served by a probably-bad worker beats turning a partial outage
+into a total one.
+
+The breaker never writes `WorkerStatus`; that field belongs to discovery. This is
+the router's private opinion, and it is visible as
+`infera_router_worker_breaker_state` (0 closed / 1 half-open / 2 open) and
+`infera_router_worker_breaker_trips_total`. A worker tripping repeatedly while
+discovery still reports it `ACTIVE` is the signal worth alerting on.
+
+Both the Python and Rust routers implement this identically, with the same flags.
+
+The breaker is the router's view of a worker that is failing. For the orderly
+case — a worker being removed on purpose — see [Scaling a fleet](scaling.md),
+which covers draining in-flight generations before shutdown.
+
 ## KV-event transport
 
 Powers [KV-aware routing](kv_aware_routing.md). `--kv-event-transport`:

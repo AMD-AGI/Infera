@@ -1,0 +1,17 @@
+# Model cache PVC. A download Job (model-download.yaml) populates it once, then
+# serving pods mount it read-only at /models. Size it to your model: Kimi-K3 is
+# ~1.5 TB, so the default below leaves headroom; a small model (Qwen3-0.6B) needs
+# only ~20Gi. Use a ReadWriteMany class (a shared CSI) if prefill/decode workers
+# span nodes.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache
+  namespace: infera
+spec:
+  accessModes:
+    - ReadWriteOnce          # local-path is single-node RWO; use ReadWriteMany on a shared CSI for multi-node
+  resources:
+    requests:
+      storage: 2000Gi        # safe for Kimi-K3 (~1.5 TB); a small model needs only ~20Gi
+  storageClassName: local-path   # k3s default; edit for your cluster's class

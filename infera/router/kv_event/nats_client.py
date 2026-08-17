@@ -55,16 +55,25 @@ class NatsKvEventClient(KvEventClient):
         # somewhere to write. Ingestion is the single global NATS sub.
         if w.worker_id in self._subs:
             return
+        # Same rule as the ZMQ client: a missing block size is not a 1. See the
+        # comment there — 1 produces a view that never matches and hides the fault.
+        if not w.kv_block_size:
+            logger.error(
+                "kv events (nats): NOT tracking %s — it registered no kv_block_size, so "
+                "kv-aware routing is off for this worker.",
+                w.worker_id,
+            )
+            return
         self._subs[w.worker_id] = WorkerSubscription(
             worker_id=w.worker_id,
             endpoint="(nats)",
-            block_size=w.kv_block_size or 1,
+            block_size=w.kv_block_size,
             multiplexed=is_rank_multiplexed(w),
         )
         logger.info(
             "kv events (nats): tracking %s (block_size=%d)",
             w.worker_id,
-            w.kv_block_size or 1,
+            w.kv_block_size,
         )
         # Lazily bring up the broker subscription on first worker.
         asyncio.create_task(self._ensure_started(), name="kv-nats-start")

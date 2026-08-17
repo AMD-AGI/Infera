@@ -25,6 +25,13 @@ def build_worker_payload(config: EngineConfig) -> dict:
     The same dict is PUT to etcd (RegistrationClient) or stored in the worker
     Pod annotation (K8sRegistrationClient), so the server-side parse
     (discovery.worker_info_from_json) is transport-agnostic.
+
+    Identity only, and every field is fixed for the life of the process. No
+    status is written: the record's own presence is the etcd backend's answer to
+    "is this worker available", and under Kubernetes the Pod's deletionTimestamp
+    answers it earlier than the worker could. Keeping the payload stateless is
+    also what makes the heartbeat safe -- it rebuilds this from config, so any
+    state written here would be erased by the next refresh.
     """
     worker_id = f"{config.host}:{config.port}"
     payload: dict = {
@@ -98,17 +105,39 @@ class RegistrationClient:
         )
         return worker_id
 
-    async def deregister(self) -> None:
+    async def deregister(self) -> bool:
+        """Revoke the lease, reporting whether the record is actually gone.
+
+        The caller drains after this, and this is what stops new work arriving,
+        so a failure here is not cosmetic: the record survives on an unrenewed
+        lease for up to its TTL -- long enough to cover the whole drain -- and
+        the router keeps dispatching to a worker on its way out. Never raises,
+        because the teardown that follows still has to run.
+        """
+        ok = True
         if self._lease_id is not None:
             try:
-                await self._http.post("/v3/lease/revoke", json={"ID": self._lease_id})
+                r = await self._http.post("/v3/lease/revoke", json={"ID": self._lease_id})
+                # httpx does not raise on 4xx/5xx, and etcd answering "lease not
+                # found" or a proxy returning 503 is exactly the failure this
+                # reports -- without this the refusal would be logged as a
+                # successful revoke.
+                r.raise_for_status()
                 logger.info(
                     "deregistered worker %s (lease %d revoked)",
                     self._worker_id,
                     self._lease_id,
                 )
-            except Exception as exc:
-                logger.warning("lease revoke failed: %s", exc)
+            except Exception as exc:  # noqa: BLE001 - shutdown must continue
+                ok = False
+                logger.error(
+                    "lease revoke failed for worker %s (%s); the record survives until "
+                    "its %ds lease expires, so the router may keep sending work here "
+                    "for the whole drain",
+                    self._worker_id,
+                    exc,
+                    self._lease_ttl,
+                )
             self._lease_id = None
         self._worker_id = None
         self._key = None
@@ -116,6 +145,7 @@ class RegistrationClient:
             await self._http.aclose()
         except Exception:
             pass
+        return ok
 
     async def heartbeat_loop(self, interval: float | None = None) -> None:
         """Refresh the etcd lease until cancelled.

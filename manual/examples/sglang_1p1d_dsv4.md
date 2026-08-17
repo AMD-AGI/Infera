@@ -191,7 +191,7 @@ srun --nodelist=<prefill-host>,<decode-host> -N2 --ntasks-per-node=1 \
 
 It writes a per-host JSON + a combined HTML report; healthy same-rail RoCE is
 ~325–345 Gb/s, and Mooncake should show an `rdma` (not just `tcp`) number. See
-`infera/tools/preflight/README.md` for the full check list.
+[Preflight](../reference/preflight) for the full check list.
 
 ---
 

@@ -26,7 +26,9 @@ from infera.common.worker_pool import (
     WorkerInfo,
     WorkerStatus,
 )
+from infera.router.cache_control import extract_image_keys
 from infera.router.policy.kv_event_aware import KvEventAwarePolicy
+from infera.server import metrics
 
 # ----------------------------------------------------------------------
 # Stubs
@@ -211,6 +213,61 @@ def test_finished_removes_one_refcount_per_block_not_the_whole_set():
 
     policy.on_request_finished("w1", [10, 20])
     assert policy._active_block_refs["w1"] == {}
+
+
+# ----------------------------------------------------------------------
+# the policy_active_blocks gauge tracks the refcounts
+# ----------------------------------------------------------------------
+
+
+def _gauge(route_key: str) -> float:
+    return metrics.policy_active_blocks.labels(worker_id=route_key)._value.get()
+
+
+def test_gauge_follows_refcounts_through_start_and_finish():
+    """Regression: the gauge used to be published only from pick(), before
+    on_request_started refcounted the pick's own blocks. It therefore lagged by
+    one request and — with requests that finish before the next pick — sat at 0
+    forever, so `infera_policy_active_blocks` looked like it was never
+    populated even while routing worked."""
+    client = _StubKvClient({})
+    policy = KvEventAwarePolicy(client, _StubHasher([]))  # type: ignore[arg-type]
+
+    policy.on_request_started("w-gauge-1", [10, 20, 30])
+    assert _gauge("w-gauge-1") == 3
+
+    policy.on_request_finished("w-gauge-1", [10, 20, 30])
+    assert _gauge("w-gauge-1") == 0
+
+
+def test_gauge_is_live_during_serial_traffic():
+    """Serial traffic (finish before the next pick) is exactly the shape that
+    made the old gauge read a flat zero."""
+    client = _StubKvClient({})
+    hashes = [1, 2, 3]
+    policy = KvEventAwarePolicy(client, _StubHasher(hashes))  # type: ignore[arg-type]
+
+    for _ in range(3):
+        picked, blocks = policy.pick([_worker("w-gauge-2")], {"model": "m"})
+        policy.on_request_started(picked.route_key, blocks)
+        # Non-zero WHILE in flight — the old code reported 0 here.
+        assert _gauge(picked.route_key) == 3
+        policy.on_request_finished(picked.route_key, blocks)
+        assert _gauge(picked.route_key) == 0
+
+
+def test_removed_worker_stops_exporting_a_stale_active_count():
+    """A worker that goes away must not keep exporting its last in-flight
+    count, which would read as a permanently loaded worker."""
+    client = _StubKvClient({})
+    policy = KvEventAwarePolicy(client, _StubHasher([]))  # type: ignore[arg-type]
+
+    policy.on_request_started("w-gauge-3", [10, 20, 30])
+    assert _gauge("w-gauge-3") == 3
+
+    policy.on_worker_removed("w-gauge-3")
+    # Series dropped: re-reading the label creates a fresh child at 0.
+    assert _gauge("w-gauge-3") == 0
 
 
 def test_finished_with_unknown_blocks_is_safe():
@@ -551,17 +608,18 @@ def test_implicit_none_uses_neutral_amplifier_not_dampener():
 
 
 # ----------------------------------------------------------------------
-# Multimodal silent-corruption guard
+# Multimodal image-affinity routing
 #
 # The router-side hasher is text-only. For vision/audio requests the
 # placeholder token id is the same regardless of which image, so two
 # requests with the same surrounding tokens but different images
-# produce the same chain hash. If the policy trusted cache locality on
-# such a request, it would route to a worker that has the OTHER
-# image's KV cached and serve wrong KV — silent corruption.
-#
-# The fix: when has_multimodal_content=True, the policy forces
-# overlap_weight=0 so cost() = active(w), pure load balance.
+# produce the same chain hash — trusting text cache locality would serve
+# a DIFFERENT image's KV (silent corruption). So the policy drops text
+# overlap (w_overlap=0) and instead steers by IMAGE AFFINITY: a per-worker
+# LRU of image keys (xxh3 of the image reference). A repeat image co-locates
+# on the worker holding its warm vision cache; an unseen image has no
+# affinity anywhere and falls back to load balance (these first tests
+# exercise that new-image path — same outcome as the old force-load design).
 # ----------------------------------------------------------------------
 
 
@@ -693,6 +751,77 @@ def test_text_only_request_does_NOT_increment_skipped_metric():
     policy.pick([_worker("w1"), _worker("w2")], text_body)
     after = metrics.cache_locality_skipped_total.labels(reason="multimodal")._value.get()
     assert after == before
+
+
+def _mm_request_url(url: str) -> dict:
+    """MM request carrying a specific image URL (drives the affinity key)."""
+    return {
+        "model": "test/m",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "describe"},
+                    {"type": "image_url", "image_url": {"url": url}},
+                ],
+            }
+        ],
+    }
+
+
+def test_mm_affinity_sticks_repeat_image_to_one_worker():
+    """A repeated image co-locates on the worker holding its warm vision cache,
+    even when the OTHER worker is (lightly) less loaded."""
+    client = _StubKvClient({"w1": set(), "w2": set()})
+    policy = KvEventAwarePolicy(client, _StubHasher([]), overlap_weight=1.0)  # type: ignore[arg-type]
+    workers = [_worker("w1"), _worker("w2")]
+    req = _mm_request_url("https://cdn/cat.png")
+
+    # First pick records the image on the tie-winner (min → first = w1).
+    first = policy.pick(workers, req)[0].worker.worker_id
+    other = "w2" if first == "w1" else "w1"
+    # Load the OTHER worker (well under w_mm) — affinity must still win.
+    policy.on_request_started(other, [1, 2, 3])
+    for _ in range(5):
+        picked, _ = policy.pick(workers, req)
+        assert picked.worker.worker_id == first
+
+
+def test_mm_affinity_new_image_balances_by_load():
+    """An unseen image has no affinity anywhere → routes by load."""
+    client = _StubKvClient({"w1": set(), "w2": set()})
+    policy = KvEventAwarePolicy(client, _StubHasher([]), overlap_weight=1.0)  # type: ignore[arg-type]
+    workers = [_worker("w1"), _worker("w2")]
+    # Warm w1 with a cat and load it heavily.
+    policy._record_mm("w1", extract_image_keys(_mm_request_url("https://cdn/cat.png")))
+    policy.on_request_started("w1", [1, 2, 3, 4, 5])
+    # A brand-new image (dog) → least-loaded w2 wins.
+    picked, _ = policy.pick(workers, _mm_request_url("https://cdn/dog.png"))
+    assert picked.worker.worker_id == "w2"
+
+
+def test_mm_affinity_lru_capped():
+    """Per-worker affinity is a bounded LRU — the oldest keys are evicted."""
+    from infera.router.policy.kv_event_aware import _MM_AFFINITY_CAP
+
+    client = _StubKvClient()
+    policy = KvEventAwarePolicy(client, _StubHasher([]))  # type: ignore[arg-type]
+    keys = list(range(_MM_AFFINITY_CAP + 50))
+    for k in keys:
+        policy._record_mm("w", [k])
+    assert policy._mm_hits("w", keys[:50]) == 0  # oldest 50 evicted
+    assert policy._mm_hits("w", keys[50:]) == _MM_AFFINITY_CAP  # newest retained
+
+
+def test_mm_affinity_pruned_on_worker_removed():
+    """Affinity for a departed worker (and its dp ranks) is pruned."""
+    client = _StubKvClient()
+    policy = KvEventAwarePolicy(client, _StubHasher([]))  # type: ignore[arg-type]
+    policy._record_mm("gone#dp0", [1, 2])
+    policy._record_mm("stay", [3])
+    policy.on_worker_removed("gone")
+    assert policy._mm_hits("gone#dp0", [1, 2]) == 0
+    assert policy._mm_hits("stay", [3]) == 1
 
 
 def test_retention_hint_works_via_parse_cache_hints():

@@ -83,6 +83,41 @@ cost of prefill), while decode should mostly balance load. So the router takes
 
 Leave them unset to fall back to the single `--kv-overlap-weight` for both.
 
+## Multimodal (image) affinity
+
+Vision/audio requests can't use the block-hash cache locality above: the router
+tokenizes **text only**, and the image-placeholder token id is identical no
+matter which image was sent — so two requests with the same surrounding text but
+different images hash to the same blocks. Trusting that would serve one image's
+KV for another (silent corruption).
+
+So when a request carries image content the kv-aware policy drops the text
+overlap term and routes by **image affinity** instead. It derives a stable key
+per image — `XXH3` of the image *reference*: the `http(s)` URL, or the whole
+`data:` URI whose base64 payload content-hashes the bytes — and keeps a small
+per-worker LRU of the images each worker recently served. A repeat image is
+drawn back to the worker already holding its warm vision/prefix cache; an unseen
+image has no affinity and falls back to load balance.
+
+This is **engine-agnostic** — the key indexes the router's *own* image→worker
+map, never the engine's KV hashes — so SGLang, vLLM and ATOM share one code
+path. Under [PD disaggregation](pd_disaggregation.md) it applies in the
+**prefill** pool (the image is encoded during prefill); decode routes by load.
+
+**No extra configuration.** It's part of `--router-policy kv-aware` and kicks in
+automatically whenever a request body carries `image_url` / `image` /
+`input_audio` blocks (OpenAI or Anthropic shape) or a top-level `images` list.
+The pick log shows it:
+
+```text
+pick policy=kv-aware role=prefill picked=<worker> mm_images=1 mm_affinity_hits=1
+```
+
+`mm_images` is how many images the request carried; `mm_affinity_hits` is how
+many of them the chosen worker already held — `0` on the first request for a
+given image, `≥1` once that worker is warm. A runnable PD demo lives in
+[`examples/vlm_pd_mm_routing`](https://github.com/AMD-AGI/Infera/tree/main/examples/vlm_pd_mm_routing).
+
 ## Turn it on
 
 Two halves: events on the **workers**, the policy on the **server**. The

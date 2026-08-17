@@ -1,0 +1,267 @@
+# Kimi-K3 (optimized build) — mixed-dspark — Kubernetes recipe
+#
+# A separate model entry from `kimi-k3/` because it is a different artifact, not a
+# different setting: this uses johnqin2025/kimi-k3-dspark, which carries an FP8
+# pre-route / shared-expert kernel cluster, an FP8 latent-MoE tail, a fused MLA
+# output gate and a tri-projection dispatch. Same vLLM commit as the stock
+# kimi-k3 image (g5f76ae224), so the delta is kernels, not engine version.
+#
+#   base image   johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260802
+#   overlay      inferaimage/infera-overlay v0.2.2
+#
+# Fill in <MODEL_DIR>: the directory holding Kimi-K3 and Kimi-K3-DSpark. Use LOCAL NVMe —
+# 96 shards load in ~8 min from local disk and ~95 min from NFS, and the slow path
+# does not merely run late, it exceeds the ready timeout and restarts forever.
+#
+# Deploy:  THIS FILE CONTAINS PLACEHOLDERS — it cannot be applied directly.
+#          sed 's|<MODEL_DIR>|/your/models|; s|<NODE>|nodeA|' .../mixed-dspark/deploy.yaml | kubectl apply -f -
+#
+# MEASURED, this manifest, 8x MI355X TP8, 1M context, on the image it pins:
+#   speculation engaged: num_spec_tokens=7, CUDA-graph captured,
+#   "running the draft eagerly" count 0
+#
+# THE OLD CONCURRENCY CEILING IS GONE. On the 20260801 image this manifest died at
+# c>=16 with
+#   AssertionError: AiterMLA flattened verify requires a uniform decode query len
+# The image this file pins fixes it: c=16/32/64 all complete, 0 restarts, and the
+# assertion appears zero times. That is binary, not a measurement. If you pin the
+# older digest, the old ceiling still applies to you.
+#
+# Throughput figures were withdrawn from the README -- see ../mixed/deploy.yaml.
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: kimi-k3-opt-dspark
+  namespace: infera
+spec:
+  backendFramework: vllm
+  discoveryBackend: kubernetes
+  nats:
+    deploy: false
+  services:
+    server:
+      componentType: server
+      extraPodSpec:
+        # Both pods mount the weights as a hostPath, and both are scheduled
+        # independently — so without this they can land on different nodes. Where
+        # the fleet's model paths differ per node, the one that guesses wrong
+        # crashloops with
+        #   ValueError: '/models/Kimi-K3': not a local path and HF resolution failed
+        # which reads as a bad model name, not as a bad node. Pin both.
+        nodeSelector: {kubernetes.io/hostname: <NODE>}
+        initContainers:
+        - name: infera-overlay
+          image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
+          imagePullPolicy: IfNotPresent
+          command:
+          - sh
+          - -c
+          - cp -a /payload/. /overlay/
+          volumeMounts:
+          - name: overlay
+            mountPath: /overlay
+        containers:
+        - name: main
+          image: johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260802@sha256:5f3007aff1bc231eceb9f024e56ee80e44f9ca101a521aa50fe6bfa6c979d6b8
+          imagePullPolicy: IfNotPresent
+          command:
+          - /overlay/bin/infera-exec
+          - python3
+          - -m
+          - infera.server
+          - --host
+          - 0.0.0.0
+          - --port
+          - '8000'
+          - --router-tokenizer-path
+          - /models/Kimi-K3
+          - --request-transport
+          - http
+          - --kv-event-transport
+          - zmq
+          env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          resources:
+            requests:
+              cpu: '8'
+              memory: 16Gi
+            limits:
+              cpu: '8'
+              memory: 16Gi
+          volumeMounts:
+          - name: overlay
+            mountPath: /overlay
+            readOnly: true
+          - name: model
+            mountPath: /models
+            readOnly: true
+        volumes:
+        - name: overlay
+          emptyDir: {}
+        - name: model
+          hostPath:
+            path: <MODEL_DIR>
+            type: Directory
+    worker:
+      componentType: worker
+      role: mixed
+      replicas: 1
+      extraPodSpec:
+        # Both pods mount the weights as a hostPath, and both are scheduled
+        # independently — so without this they can land on different nodes. Where
+        # the fleet's model paths differ per node, the one that guesses wrong
+        # crashloops with
+        #   ValueError: '/models/Kimi-K3': not a local path and HF resolution failed
+        # which reads as a bad model name, not as a bad node. Pin both.
+        nodeSelector: {kubernetes.io/hostname: <NODE>}
+        initContainers:
+        - name: infera-overlay
+          image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
+          imagePullPolicy: IfNotPresent
+          command:
+          - sh
+          - -c
+          - cp -a /payload/. /overlay/
+          volumeMounts:
+          - name: overlay
+            mountPath: /overlay
+        containers:
+        - name: main
+          image: johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260802@sha256:5f3007aff1bc231eceb9f024e56ee80e44f9ca101a521aa50fe6bfa6c979d6b8
+          imagePullPolicy: IfNotPresent
+          command:
+          - /overlay/bin/infera-exec
+          - python3
+          - -m
+          - infera.engine.vllm
+          - --host
+          - 0.0.0.0
+          - --port
+          - '30000'
+          - --model
+          - /models/Kimi-K3
+          - --served-model-name
+          - kimi-k3
+          - --tensor-parallel-size
+          - '8'
+          - --gpu-memory-utilization
+          - '0.88'
+          - --trust-remote-code
+          - --load-format
+          - auto
+          - --mm-encoder-tp-mode
+          - data
+          - --kv-cache-dtype
+          - auto
+          - --enable-prefix-caching
+          - --max-num-seqs
+          - '64'
+          - --max-num-batched-tokens
+          - '4096'
+          - --enable-auto-tool-choice
+          - --tool-call-parser
+          - kimi_k3
+          - --reasoning-parser
+          - kimi_k3
+          - --kv-event-transport
+          - zmq
+          - --request-transport
+          - http
+          - --max-model-len
+          - '1048576'
+          - --speculative-config
+          - '{"method": "dspark", "model": "/models/Kimi-K3-DSpark", "num_speculative_tokens": 7, "attention_backend": "ROCM_AITER_MLA"}'
+          env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          - name: VLLM_ROCM_USE_AITER
+            value: '1'
+          - name: VLLM_ROCM_USE_AITER_FP4BMM
+            value: '1'
+          - name: AITER_SITUV2_A8W4
+            value: '1'
+          - name: AITER_BF16_FP8_MOE_BOUND
+            value: '0'
+          - name: HIP_FORCE_DEV_KERNARG
+            value: '1'
+          - name: HSA_NO_SCRATCH_RECLAIM
+            value: '1'
+          - name: HSA_ENABLE_IPC_MODE_LEGACY
+            value: '1'
+          - name: SAFETENSORS_FAST_GPU
+            value: '1'
+          - name: VLLM_USE_BREAKABLE_CUDAGRAPH
+            value: '0'
+          - name: VLLM_ENABLE_K3_LATENT_MOE_TAIL_FUSION
+            value: '1'
+          - name: VLLM_ROCM_USE_KIMI_K3_PREROUTE_BF16
+            value: '0'
+          - name: VLLM_ROCM_USE_KIMI_K3_PREROUTE_FP8
+            value: '1'
+          - name: VLLM_ROCM_USE_KIMI_K3_LATENT_TAIL_FP8
+            value: '1'
+          - name: KIMI_K3_DUAL_PROJ_FP8_WEIGHT_CACHE_MODIFIER
+            value: '2'
+          - name: KIMI_K3_SHARED_DOWN_FP8_WEIGHT_CACHE_MODIFIER
+            value: '2'
+          - name: INFERA_ENGINE_READY_TIMEOUT
+            value: '7200'
+          - name: HF_HUB_OFFLINE
+            value: '1'
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 30000
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 300
+          resources:
+            requests:
+              cpu: '32'
+              memory: 512Gi
+              amd.com/gpu: 8
+            limits:
+              cpu: '32'
+              memory: 512Gi
+              amd.com/gpu: 8
+          volumeMounts:
+          - name: overlay
+            mountPath: /overlay
+            readOnly: true
+          - name: model
+            mountPath: /models
+            readOnly: true
+          - name: dshm
+            mountPath: /dev/shm
+        volumes:
+        - name: overlay
+          emptyDir: {}
+        - name: model
+          hostPath:
+            path: <MODEL_DIR>
+            type: Directory
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Gi

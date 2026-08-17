@@ -8,21 +8,28 @@
 //! ceiling.
 //!
 //! Supports mixed dispatch + round-robin + kv-aware (DP-attention cache
-//! locality) routing + etcd discovery + SSE relay + SGLang-bootstrap PD.
-//! Configs outside this set (NATS transport, other PD connectors, edge
-//! endpoints) are served by the Python backend.
+//! locality) routing, etcd and Kubernetes discovery, HTTP and NATS request
+//! transports, ZMQ and NATS kv-event feeds, SSE relay, and SGLang-bootstrap PD
+//! -- which together cover what the operator deploys by default. Configs
+//! outside this set (other PD connectors, GAIE direct mode, the profiling
+//! control plane) are served by the Python backend.
 //!
 //! Modules are `pub` so the binary and the `tests/` suite share one API.
 
 pub mod block_hasher;
+pub mod breaker;
 pub mod cache_control;
 pub mod config;
 pub mod disagg;
 pub mod discovery;
+pub mod discovery_k8s;
 pub mod dp;
 pub mod handlers;
 pub mod hasher;
+pub mod k8s;
 pub mod kv_event;
+pub mod kv_event_nats;
+pub mod nats_request;
 pub mod policy;
 pub mod pool;
 pub mod protocol;

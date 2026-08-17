@@ -11,20 +11,23 @@
 #   (MI300X/MI355X + Pensando ionic) we must build Mooncake ourselves.
 #
 # Two build modes via MOONCAKE_DMABUF (default 0): 0 = release -DUSE_HIP=ON (VRAM
-#   RDMA via host-libionic injection); 1 = main @ pinned ref + B-group C++ patches
-#   (B.2 hip-transport gate + B.3 auto-chunk MR) for DSv4 cross-node RDMA.
-#   NOTE: the dma-buf GPUDirect path (B.1 CMake + -DUSE_HIP_DMABUF=ON) was dropped
-#   in #154 — it exhausts a KFD resource at high util (HIP-209). Both modes now use
-#   bare ibv_reg_mr; the flag name is kept only for its Dockerfile call sites.
+#   RDMA via host-libionic injection); 1 = main @ pinned ref + the B.2
+#   hip-transport gate, for DSv4 cross-node RDMA.
+#
+# GPU MR registration path via MOONCAKE_HIP_DMABUF (default 0, mode 1 only):
+#   0 = bare ibv_reg_mr, needs the legacy ib_peer_mem module; 1 = dma-buf
+#   GPUDirect, the only path that registers VRAM where ib_peer_mem is absent.
+#   It maps straight onto upstream's USE_HIP_DMABUF cmake option.
 #
 # Idempotent: reuses an existing build artifact if present.
 #
 # Environment overrides:
-#   MOONCAKE_DMABUF    0 (release ref) | 1 (main ref + B-group patches); no dma-buf
-#   MOONCAKE_GIT_REF   git tag/branch/commit (default depends on MOONCAKE_DMABUF)
-#   MOONCAKE_REPO      git remote   (default https://github.com/kvcache-ai/Mooncake.git)
-#   MC_ROOT            checkout dir (default /opt/mooncake/Mooncake)
-#   MC_CPP_PATCH_DIR   B-group patch dir (mode 1 only)
+#   MOONCAKE_DMABUF      0 (release ref) | 1 (main ref + B-group patches)
+#   MOONCAKE_HIP_DMABUF  0 (bare ibv_reg_mr) | 1 (dma-buf GPUDirect; mode 1 only)
+#   MOONCAKE_GIT_REF     git tag/branch/commit (default depends on MOONCAKE_DMABUF)
+#   MOONCAKE_REPO        git remote   (default https://github.com/kvcache-ai/Mooncake.git)
+#   MC_ROOT              checkout dir (default /opt/mooncake/Mooncake)
+#   MC_CPP_PATCH_DIR     B-group patch dir (mode 1 only)
 #
 # Usage (inside a ROCm container with hipcc/cmake/ninja/git):
 #   bash deploy/docker/scripts/build_mooncake_rocm.sh                    # release ref
@@ -36,21 +39,34 @@ export DEBIAN_FRONTEND=noninteractive
 
 # ---- mode-dependent settings (all resolved up front) -----------------------
 MOONCAKE_DMABUF="${MOONCAKE_DMABUF:-0}"
+MOONCAKE_HIP_DMABUF="${MOONCAKE_HIP_DMABUF:-0}"
+export MOONCAKE_HIP_DMABUF
 MOONCAKE_REPO="${MOONCAKE_REPO:-https://github.com/kvcache-ai/Mooncake.git}"
 MC_ROOT="${MC_ROOT:-/opt/mooncake/Mooncake}"
 MC_CPP_PATCH_DIR="${MC_CPP_PATCH_DIR:-$SCRIPT_DIR/patches/mooncake_cpp}"
 
 if [ "$MOONCAKE_DMABUF" = "1" ]; then
-    MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF:-747003c058015c4077a266e7ccd7549bbc9baede}"
-    MODE_DESC="main + B-group C++ patches (bare ibv_reg_mr, no dma-buf)"
-    # main defaults RUST store ON; turn it off and pin pybind11. USE_HIP_DMABUF is
-    # intentionally NOT set — the dma-buf path was dropped in #154 (HIP-209).
-    EXTRA_CMAKE=(-DWITH_STORE_RUST=OFF
-        -Dpybind11_DIR=/usr/local/lib/python3.12/dist-packages/pybind11/share/cmake/pybind11)
+    MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF:-faae8dd4a6309c3ecd47e0721a83b0250d686fa2}"
+    # Upstream defaults USE_HIP_DMABUF ON, so pass it either way rather than
+    # letting MOONCAKE_HIP_DMABUF=0 silently still compile the dma-buf path in.
+    if [ "$MOONCAKE_HIP_DMABUF" = "1" ]; then
+        MODE_DESC="main + B.2 gate + dma-buf GPUDirect (ibv_reg_dmabuf_mr)"
+        DMABUF_CMAKE=(-DUSE_HIP_DMABUF=ON)
+    else
+        MODE_DESC="main + B.2 gate (bare ibv_reg_mr, needs ib_peer_mem)"
+        DMABUF_CMAKE=(-DUSE_HIP_DMABUF=OFF)
+    fi
+    # main defaults RUST store ON; turn it off and pin pybind11. pybind11_DIR is
+    # auto-detected from the ACTIVE interpreter, since the engine images lay
+    # Python out differently (vLLM /usr/local, sglang + ATOM /opt/venv).
+    PYBIND11_CMAKE_DIR="$(python3 -c 'import pybind11; print(pybind11.get_cmake_dir())' 2>/dev/null \
+        || echo /usr/local/lib/python3.12/dist-packages/pybind11/share/cmake/pybind11)"
+    EXTRA_CMAKE=(-DWITH_STORE_RUST=OFF -Dpybind11_DIR="$PYBIND11_CMAKE_DIR")
 else
     MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF:-v0.3.7.post2}"
     MODE_DESC="release, no dma-buf (host-libionic injection)"
     EXTRA_CMAKE=()
+    DMABUF_CMAKE=()
 fi
 
 echo "============================================"
@@ -92,10 +108,11 @@ bash dependencies.sh -y 2>&1 | tail -15 || echo "dependencies.sh returned $? (co
 export CMAKE_PREFIX_PATH="/opt/rocm:/opt/rocm/lib/cmake:/usr/local/lib/python3.12/dist-packages/pybind11/share/cmake/pybind11:${CMAKE_PREFIX_PATH:-}"
 ENGINE_SO_GLOB="build/mooncake-integration/engine.cpython-*-x86_64-linux-gnu.so"
 if ! ls $ENGINE_SO_GLOB >/dev/null 2>&1; then
-    echo "=== cmake configure (USE_HIP=ON ${EXTRA_CMAKE[*]:-}) ==="
+    echo "=== cmake configure (USE_HIP=ON ${DMABUF_CMAKE[*]:-} ${EXTRA_CMAKE[*]:-}) ==="
     rm -rf build && mkdir build && cd build
     cmake .. -DUSE_HIP=ON -DUSE_ETCD=OFF -DWITH_STORE=OFF \
-        -DBUILD_UNIT_TESTS=OFF -DBUILD_EXAMPLES=OFF "${EXTRA_CMAKE[@]}" \
+        -DBUILD_UNIT_TESTS=OFF -DBUILD_EXAMPLES=OFF \
+        "${DMABUF_CMAKE[@]}" "${EXTRA_CMAKE[@]}" \
         -GNinja 2>&1 | tail -25
     echo "=== ninja build ==="
     ninja 2>&1 | tail -25
@@ -119,10 +136,57 @@ if [ -n "${ASIO_SO:-}" ]; then
     echo "installed libasio.so"
 fi
 
+# ---- drop the Go toolchain dependencies.sh installed ------------------------
+# dependencies.sh installs Go unconditionally, for the etcd metadata client and
+# the Rust/Go store. We build with USE_ETCD=OFF and WITH_STORE=OFF, so nothing
+# we ship links against it -- the engine is a Python extension over HIP/RDMA.
+# Removed here, in the same RUN as the build, because a delete in a later layer
+# leaves the files in the one below. Only /usr/local/go: bases that ship their
+# own Go under $HOME/go own that copy.
+if [ -d /usr/local/go ]; then
+    rm -rf /usr/local/go
+    echo "removed /usr/local/go (installed by dependencies.sh; USE_ETCD=OFF, WITH_STORE=OFF)"
+fi
+
 # ---- verify ----------------------------------------------------------------
 SO="$(python3 -c 'import mooncake.engine as e; print(e.__file__)')"
 echo "installed: $SO"
-# (The dma-buf symbol check was removed with B.1 in #154 — the build no longer
-# compiles hsa_amd_portable_export_dmabuf; bare ibv_reg_mr is the only path.)
+# Assert the dmabuf verbs really compiled in — a CMake define that failed to
+# reach rdma_transport would silently leave the bare ibv_reg_mr path. Capture
+# `nm -D` into a var first so pipefail can't trip on grep's exit status.
+if [ "$MOONCAKE_HIP_DMABUF" = "1" ]; then
+    _dynsyms="$(nm -D "$SO" 2>/dev/null || true)"
+    if printf '%s\n' "$_dynsyms" | grep -qE 'ibv_reg_dmabuf_mr|hsa_amd_portable_export_dmabuf'; then
+        echo "MC_DMABUF_VERIFY OK (dma-buf GPUDirect symbols present)"
+    else
+        echo "ERROR: MOONCAKE_HIP_DMABUF=1 but dma-buf symbols absent from $SO" >&2
+        echo "       -> USE_HIP_DMABUF did not reach rdma_transport; check build log." >&2
+        exit 1
+    fi
+fi
+# Assert the B.2 HIP-transport gate compiled in. This build does not enable
+# upstream's ENABLE_MULTI_PROTOCOL locality routing, so without the gate the
+# binary installs the HIP transport unconditionally and selectTransport
+# prefers it over RDMA, so cross-node PD dies in KV transfer with
+# "hipIpcOpenMemHandle failed (201 - invalid device context)" — an IPC handle is
+# host-local, so a peer NODE can never open it. Both spellings must be present:
+# MC_ENABLE_HIP_TRANSPORT (opt back in) and MC_DISABLE_HIP_TRANSPORT (hard veto,
+# the spelling infera's rocm_rdma_env.py sets).
+for _v in MC_ENABLE_HIP_TRANSPORT MC_DISABLE_HIP_TRANSPORT; do
+    if ! strings "$SO" | grep -c "$_v" | grep -qv '^0$'; then
+        echo "ERROR: $SO lacks $_v — the B.2 HIP-transport gate did not take." >&2
+        echo "       Cross-node PD would break (hipIpcOpenMemHandle 201)." >&2
+        exit 1
+    fi
+done
+echo "MC_HIP_GATE_VERIFY OK (HIP transport OFF by default)"
+# Assert the Go toolchain really is gone, so a future dependencies.sh that puts
+# it somewhere else fails the build instead of silently shipping it again.
+if [ -d /usr/local/go ]; then
+    echo "ERROR: /usr/local/go still present after cleanup." >&2
+    echo "       dependencies.sh moved the Go toolchain; update the rm above." >&2
+    exit 1
+fi
+echo "MC_NO_GO_VERIFY OK (/usr/local/go absent)"
 python3 -c "from mooncake.engine import TransferEngine; print('MOONCAKE IMPORT OK')"
 echo "MC_BUILD_DONE"

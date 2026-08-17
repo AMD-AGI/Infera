@@ -7,18 +7,19 @@
 //! crate (see `lib.rs`); this just wires config → discovery → server.
 
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use arc_swap::ArcSwap;
 use tracing_subscriber::EnvFilter;
 
 use infera_router::block_hasher::BlockHasher;
+use infera_router::breaker;
 use infera_router::config::Config;
 use infera_router::handlers::{app, AppState};
 use infera_router::kv_event::KvEventClient;
 use infera_router::policy::{KvEventAwarePolicy, Policy, RoundRobin};
 use infera_router::pool::Snapshot;
-use infera_router::{discovery, proxy};
+use infera_router::{discovery, discovery_k8s, k8s, kv_event_nats, nats_request, proxy};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -35,7 +36,30 @@ async fn main() -> anyhow::Result<()> {
     // Build the routing policy from config. kv-aware owns a kv-event subscriber
     // + tokenizer; round-robin is stateless.
     let policy: Arc<dyn Policy> = if cfg.router_policy == "kv-aware" {
-        let kv = Arc::new(KvEventClient::new());
+        let over_nats = cfg.kv_event_transport == "nats";
+        let kv = Arc::new(if over_nats {
+            KvEventClient::nats_fed()
+        } else {
+            KvEventClient::new()
+        });
+        if over_nats {
+            // One subscription for the whole fleet, rather than a socket per
+            // worker. Failing to reach the broker must not take the router
+            // down: routing still works, it just loses cache locality.
+            let feed = kv.clone();
+            let url = cfg.nats_server.clone();
+            tokio::spawn(async move {
+                // `run` reconnects internally and does not return while the
+                // process lives, so anything arriving here has given up for
+                // good -- and a silent give-up is the failure mode that looks
+                // healthy from every angle.
+                let outcome = kv_event_nats::run(feed, url.as_deref()).await;
+                tracing::error!(
+                    "kv events (nats) stopped ({outcome:?}); kv-aware routing is \
+                     load-only for the rest of this process"
+                );
+            });
+        }
         let hasher = match &cfg.kv_tokenizer_path {
             Some(p) => BlockHasher::load(p),
             None => BlockHasher::disabled(),
@@ -55,13 +79,50 @@ async fn main() -> anyhow::Result<()> {
     // without locking, so reads scale across cores.
     let pool = Arc::new(ArcSwap::from_pointee(Snapshot::empty()));
 
+    // Built before discovery starts: the reconcile loop prunes its entries
+    // against the live fleet, the same way it reconciles the policy's.
+    let breaker = Arc::new(breaker::CircuitBreaker::new(
+        cfg.breaker_failure_threshold,
+        Duration::from_secs_f64(cfg.breaker_cooldown_s),
+        Duration::from_secs_f64(cfg.breaker_max_cooldown_s),
+    ));
+
     {
         let pool = pool.clone();
         let policy = policy.clone();
-        let base = cfg.etcd_base();
-        let prefix = cfg.etcd_prefix.clone();
-        tokio::spawn(async move { discovery::run(base, prefix, pool, policy).await });
+        let breaker = breaker.clone();
+        if cfg.discovery_backend == "kubernetes" {
+            // validate() has already established the selector is present.
+            let selector = cfg.k8s_label_selector.clone().unwrap_or_default();
+            let ns = cfg
+                .k8s_namespace
+                .clone()
+                .unwrap_or_else(k8s::in_cluster_namespace);
+            tracing::info!("discovery: kubernetes, selector {selector:?} in ns {ns}");
+            tokio::spawn(
+                async move { discovery_k8s::run(selector, ns, pool, policy, breaker).await },
+            );
+        } else {
+            let base = cfg.etcd_base();
+            let prefix = cfg.etcd_prefix.clone();
+            tracing::info!("discovery: etcd at {base}");
+            tokio::spawn(async move { discovery::run(base, prefix, pool, policy, breaker).await });
+        }
     }
+
+    let nats = if cfg.request_transport == "nats" {
+        Some(Arc::new(
+            nats_request::NatsRequestClient::connect(
+                cfg.nats_server.as_deref(),
+                cfg.nats_req_idle_timeout_s,
+                cfg.nats_req_max_duration_s,
+                cfg.nats_req_max_pending,
+            )
+            .await?,
+        ))
+    } else {
+        None
+    };
 
     let state = AppState {
         pool,
@@ -69,7 +130,42 @@ async fn main() -> anyhow::Result<()> {
         http: proxy::build_upstream_client()?,
         started: Instant::now(),
         retries: cfg.request_max_retries,
+        breaker,
+        nats,
     };
+
+    // A worker that reached the broker registers itself as `nats`, and one that
+    // could not registers as `http` -- so the transport is negotiated per
+    // worker and a broker outage heals itself. The case that does not heal is a
+    // router with no NATS at all facing workers that have it: those workers can
+    // never be dispatched to. That surfaces today as a 502 per request, which
+    // is accurate but says nothing about what to change, so say it once, here.
+    if state.nats.is_none() {
+        let pool = state.pool.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_secs(10)).await;
+                let stranded: Vec<String> = pool
+                    .load()
+                    .all
+                    .iter()
+                    .filter(|w| w.request_transport == "nats")
+                    .map(|w| w.worker_id.clone())
+                    .collect();
+                if !stranded.is_empty() {
+                    tracing::error!(
+                        "{} worker(s) registered the nats request transport, but this \
+                         router has none and cannot dispatch to them: {}. Either start \
+                         it with --request-transport nats --nats-server <url>, or start \
+                         those workers with --request-transport http.",
+                        stranded.len(),
+                        stranded.join(", ")
+                    );
+                    return;
+                }
+            }
+        });
+    }
 
     let addr = format!("{}:{}", cfg.host, cfg.port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;

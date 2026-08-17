@@ -80,6 +80,12 @@ kubernetes` (needs a k8s API + label selector) and `--request-transport nats`
 `etcd` discovery + `http` request transport + `zmq` KV events. Set the same
 three flags on **every** server and worker, or they won't find each other. See
 [Routing & transport](../features/routing_and_transport.md).
+
+One behaviour differs on this path: stopping a worker still lets its in-flight
+generations finish, but nothing takes it out of routing until it is signalled.
+Leaving rotation *before* the process is told to stop needs Kubernetes to
+report the Pod as going away — see
+[Graceful shutdown](../features/graceful_shutdown.md).
 ```
 
 ```{tip}

@@ -6,17 +6,17 @@
 """ROCm / ionic-RoCE RDMA env defaults for the PD KV-transfer backends.
 
 On AMD/ROCm the Mooncake and MoRI transfer engines need the ionic RoCE-v2 GID
-index (and, for Mooncake, the HIP-transport disable) to actually move KV over
-RDMA — without them they silently fall back to TCP or hang. These were
-previously set ONLY by the launch scripts (deploy launchers, the SLURM repro
-harness), so any launch path that forgot them got a degraded/broken transport
-even though the engine "came up". Bake them in as DEFAULTS here, set-if-unset,
-so an operator or launcher can still override any of them via the environment.
+index and, for Mooncake, same-name peer-HCA selection. These were previously set
+only by launch scripts, so a forgotten knob produced a degraded or broken
+transport even though the engine started. Apply them here before the inference
+subprocess is spawned. Mooncake itself now keeps HIP for same-host transfers and
+automatically chooses RDMA for cross-host targets.
 
 Gated on ROCm (probe ``/dev/kfd``); a no-op on NVIDIA hosts. GID index ``1`` is
-the ionic RoCE-v2 value used across our AMD fleet; a different fabric overrides
-via env. Each transfer engine reads only the vars it recognizes, so set-defaulting
-both the Mooncake (``MC_*``) and MoRI (``MORI_*``) vars is harmless for either backend.
+the routable RoCE-v2 index on a typical ionic fabric; a fabric that differs
+overrides via env. Each transfer engine reads only the vars it recognizes, so
+set-defaulting both the Mooncake (``MC_*``) and MoRI (``MORI_*``) vars is
+harmless for either backend.
 """
 
 from __future__ import annotations
@@ -33,15 +33,22 @@ logger = logging.getLogger(__name__)
 # separate concern, irrelevant for intra-node TP, so it's intentionally not here.)
 _ROCM_RDMA_DEFAULTS: dict[str, str] = {
     "MC_GID_INDEX": "1",  # Mooncake transfer engine: ionic RoCE v2 GID
-    "MC_DISABLE_HIP_TRANSPORT": "1",  # Mooncake: use RDMA, not the HIP P2P transport
-    # The unified sglang image compiles the dma-buf MR path IN, but the whole AMD
-    # fleet is ionic (no ODP): ibv_reg_dmabuf_mr there PINS + DUPLICATES the KV
-    # pool in VRAM (and can exhaust a KFD resource). Default the safe bare
-    # ibv_reg_mr path ON; a dma-buf run (mlx5 / capped pool) opts back in by
-    # setting MOONCAKE_DISABLE_HIP_DMABUF=0 (or 'unset') in the launch env.
-    "MOONCAKE_DISABLE_HIP_DMABUF": "1",
     "MORI_IB_GID_INDEX": "1",  # MoRI transfer engine: ionic RoCE v2 GID
 }
+
+# Mooncake's two mutually exclusive peer-HCA selection policies. Public so the
+# preflight Mooncake probe measures these same names rather than its own copy.
+MC_DEST_AFFINITY = "MC_ENABLE_DEST_DEVICE_AFFINITY"
+MC_HCA_PEER_AFFINITY = "MC_ENABLE_HCA_PEER_AFFINITY"
+
+# Which of Mooncake's two GPU MR paths to take. Both are compiled into our images;
+# this picks one per host. Unset = Mooncake's own auto mode (dma-buf).
+_MC_DISABLE_DMABUF = "MOONCAKE_DISABLE_HIP_DMABUF"
+# A loaded peer-memory module is what makes bare ibv_reg_mr work on a device
+# pointer. ROCm-only here, so the NVIDIA modules the preflight probe also looks
+# for are omitted.
+_PROC_MODULES = "/proc/modules"
+_PEERMEM_MODULES = ("ib_peer_mem", "amdp2p")
 
 
 def _is_rocm() -> bool:
@@ -68,6 +75,65 @@ def apply_vllm_aiter_default() -> str | None:
     return "1"
 
 
+def _apply_dest_device_affinity_default() -> str | None:
+    """Default Mooncake to the same-named peer HCA. Returns the value applied.
+
+    A no-op on a single-HCA host, and Mooncake falls back to its normal
+    selection when the peer has no NIC of that name; on a rail-isolated fabric
+    it stops a local rail from picking an unreachable peer rail.
+    """
+    value = os.environ.get(MC_DEST_AFFINITY, "")
+    if value:
+        # Mooncake only tests whether the var is PRESENT, so an explicit "0"
+        # would still enable it. Honour the opt-out by removing it entirely.
+        if value.lower() in ("0", "false"):
+            del os.environ[MC_DEST_AFFINITY]
+        return None
+    # Mooncake disables BOTH policies when both are set, which is worse than
+    # either alone.
+    hca = os.environ.get(MC_HCA_PEER_AFFINITY, "")
+    if hca:
+        # Mooncake only tests whether the var is PRESENT, so an explicit "0"
+        # would still enable it. Honour the opt-out by removing it entirely.
+        if hca.lower() in ("0", "false"):
+            del os.environ[MC_HCA_PEER_AFFINITY]
+        else:
+            return None
+    os.environ[MC_DEST_AFFINITY] = "1"
+    return "1"
+
+
+def _peermem_loaded() -> bool:
+    """True iff a GPU peer-memory kernel module is loaded.
+
+    Unreadable ``/proc/modules`` reports absent: that steers the caller to dma-buf,
+    which at worst risks HIP-209 under load, where the other direction cannot
+    register VRAM at all.
+    """
+    try:
+        with open(_PROC_MODULES) as f:
+            loaded = {line.split()[0] for line in f if line.split()}
+    except OSError:
+        return False
+    return any(m in loaded for m in _PEERMEM_MODULES)
+
+
+def _apply_gpu_mr_path_default() -> str | None:
+    """Pick Mooncake's GPU MR path for this host. Returns the value applied.
+
+    With a peer-memory module loaded, bare ``ibv_reg_mr`` works and is the safer
+    path (dma-buf at high util there exhausts a KFD resource -> HIP-209 on a later
+    hipModuleLoad). Without one, bare registration fails outright on a device
+    pointer, so leave the variable unset and let Mooncake select dma-buf.
+    """
+    if os.environ.get(_MC_DISABLE_DMABUF, ""):
+        return None  # operator override wins
+    if not _peermem_loaded():
+        return None
+    os.environ[_MC_DISABLE_DMABUF] = "1"
+    return "1"
+
+
 def apply_rocm_rdma_env_defaults() -> dict[str, str]:
     """Set ionic-RoCE RDMA env defaults (set-if-unset) on ROCm; no-op elsewhere.
 
@@ -82,6 +148,12 @@ def apply_rocm_rdma_env_defaults() -> dict[str, str]:
         if os.environ.get(key) in (None, ""):
             os.environ[key] = value
             applied[key] = value
+    affinity = _apply_dest_device_affinity_default()
+    if affinity:
+        applied[MC_DEST_AFFINITY] = affinity
+    mr_path = _apply_gpu_mr_path_default()
+    if mr_path:
+        applied[_MC_DISABLE_DMABUF] = mr_path
     if applied:
         logger.info(
             "ROCm RDMA env defaults applied (set-if-unset; override via env): %s",
@@ -170,18 +242,53 @@ def _is_private_ipv4(ip: str) -> bool:
     return False
 
 
+# Interface name prefixes that are virtual by construction — container bridges,
+# CNI plugins, veth pairs, tunnels. None can carry RoCE, and several are private
+# RFC1918, which is exactly what makes them dangerous to a "first private IPv4"
+# scan.
+_VIRTUAL_IF_PREFIXES = (
+    "docker",
+    "cni",
+    "flannel",
+    "cali",
+    "cilium",
+    "weave",
+    "kube-",
+    "veth",
+    "br-",
+    "virbr",
+    "tunl",
+    "gre",
+    "ip6tnl",
+    "dummy",
+    "bond-dummy",
+)
+
+
 def _private_rail_ipv4() -> str | None:
     """First private (RFC1918) NIC IPv4, sorted by ifname for determinism.
 
     The KV-transfer P2P-handshake host must be a peer-reachable, NON-public
     address; ``get_ip()`` (route to 8.8.8.8) returns the PUBLIC NIC on a
-    multi-homed host. Skip loopback and the docker bridge."""
+    multi-homed host.
+
+    Skip virtual interfaces, not just loopback and docker. On a Kubernetes node
+    the CNI bridge is private, RFC1918 and — sorted by name — comes FIRST, so a
+    naive scan picks `cni0` (10.42.0.1) and pins the KV host IP to an address the
+    peer cannot reach. Observed on k3s/flannel: prefill advertised 10.42.0.1 and
+    decode 10.42.1.1, each the other node's unreachable bridge gateway. The host
+    interface list there begins:
+
+        cni0  docker0  enp105s0  enp121s0 ...
+
+    so ordering alone guarantees the wrong answer. These names are virtual by
+    construction and can never be an RDMA rail."""
     try:
         ifs = sorted(os.listdir(_NET_PATH))
     except OSError:
         return None
     for n in ifs:
-        if n == "lo" or n.startswith("docker"):
+        if n == "lo" or n.startswith(_VIRTUAL_IF_PREFIXES):
             continue
         ip = _ifaddr_ipv4(n)
         if ip and _is_private_ipv4(ip):

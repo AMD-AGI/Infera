@@ -237,6 +237,74 @@ async def test_full_pipeline_handles_chained_parent_block_hash():
 
 
 @pytest.mark.asyncio
+async def test_bigram_block_stored_matches_flat_request_tokens():
+    """MTP/EAGLE shape: SGLang keys its radix tree on bigrams when speculative
+    decoding is on, so each stored page reports its tokens as the overlapping
+    pairs ``(t[i], t[i+1])`` rather than bare ints. The router must map those
+    back onto the flat token slice, or a view built from MTP events can never
+    match a request -- which is what kv-aware routing does on every prefill.
+
+    Flat tokens [1..9] with page_size 4 give 8 bigrams -> two pages, whose
+    first elements are [1,2,3,4] and [5,6,7,8].
+    """
+    port = _free_port()
+    ep = f"tcp://127.0.0.1:{port}"
+
+    ctx = zmq.Context()
+    pub = ctx.socket(zmq.PUB)
+    pub.bind(ep)
+
+    client = KvEventClient()
+    policy = KvEventAwarePolicy(client, _IdentityHasher())
+    w = _worker("w1", endpoint=ep, kv_block_size=4)
+    policy.on_worker_added(w)
+
+    try:
+        encoder = msgspec.msgpack.Encoder()
+        # One event per page, chained -- exactly how _record_store_event emits.
+        batch = SglangKVEventBatch(
+            ts=1.0,
+            events=[
+                SglangBlockStored(
+                    block_hashes=[2001],
+                    parent_block_hash=None,
+                    token_ids=[(1, 2), (2, 3), (3, 4), (4, 5)],
+                    block_size=4,
+                    lora_id=None,
+                    medium="device",
+                ),
+                SglangBlockStored(
+                    block_hashes=[2002],
+                    parent_block_hash=2001,
+                    token_ids=[(5, 6), (6, 7), (7, 8), (8, 9)],
+                    block_size=4,
+                    lora_id=None,
+                    medium="device",
+                ),
+            ],
+        )
+        payload = encoder.encode(batch)
+
+        ok = await _publish_until_visible(
+            pub,
+            payload,
+            predicate=lambda: len(client.cache_view("w1")) == 2,
+            deadline_s=3.0,
+        )
+        assert ok, f"bigram events never applied; view={client.cache_view('w1')}"
+
+        picked, blocks = policy.pick(
+            [w], {"model": "test/m", "token_ids": [1, 2, 3, 4, 5, 6, 7, 8]}
+        )
+        hits = policy._cache_hits(RouteTarget(w), {(EngineType.SGLANG, 4): blocks})
+        assert hits == 2, "bigram view must hash to the same blocks as flat tokens"
+    finally:
+        pub.close(linger=0)
+        ctx.term()
+        await client.aclose()
+
+
+@pytest.mark.asyncio
 async def test_request_with_misaligned_tokens_gets_zero_hits():
     """Worker cached [1..8]; request asks for [9..16]. cache_hits = 0,
     so the cost reduces to overlap_weight * total + active. With one

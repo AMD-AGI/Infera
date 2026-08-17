@@ -1,0 +1,91 @@
+# Single-node aggregated — CONCRETE, ready-to-apply validation recipe.
+# 1 router (server, no GPU) + 1 mixed worker (sglang, tp=1, 1 amd.com/gpu),
+# Qwen3-0.6B mounted from a host dir via hostPath (no PVC/CSI needed). This is a
+# filled-in copy of single-node-aggregated.yaml used to validate the operator +
+# engine path end to end on a single box (k3s). Adjust the two host values for
+# your node:
+#   image        rocm/infera:sglang-v0.1.1   (must be present in the node runtime)
+#   model dir    /mnt/k3local/models/qwen    (contains Qwen3-0.6B/)
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: qwen-agg
+  namespace: infera
+spec:
+  backendFramework: sglang
+  discoveryBackend: kubernetes
+  nats:
+    deploy: false
+  services:
+    server:
+      componentType: server
+      extraPodSpec:
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it, so following an upstream bump
+        # is an image-tag edit rather than a rebuild of ours.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay:v0.2.2
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
+        containers:
+          - name: main
+            image: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
+            imagePullPolicy: IfNotPresent
+            command: ["/overlay/bin/infera-exec","python3","-m","infera.server","--host","0.0.0.0","--port","8000",
+                      "--router-tokenizer-path","/models/Qwen3-0.6B",
+                      "--request-transport","http","--kv-event-transport","zmq"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources:
+              requests: {cpu: "4", memory: 8Gi}
+              limits: {cpu: "4", memory: 8Gi}
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay, readOnly: true}
+              - {name: model, mountPath: /models, readOnly: true}
+        volumes:
+          - {name: overlay, emptyDir: {}}
+          - {name: model, hostPath: {path: /mnt/k3local/models/qwen, type: Directory}}
+    worker:
+      componentType: worker
+      role: mixed
+      replicas: 1
+      extraPodSpec:
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it, so following an upstream bump
+        # is an image-tag edit rather than a rebuild of ours.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay:v0.2.2
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
+        containers:
+          - name: main
+            image: lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x
+            imagePullPolicy: IfNotPresent
+            command: ["/overlay/bin/infera-exec","python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
+                      "--model-path","/models/Qwen3-0.6B",
+                      "--tp-size","1","--attention-backend","aiter","--trust-remote-code",
+                      "--mem-fraction-static","0.8",
+                      "--kv-event-transport","zmq","--request-transport","http"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources:
+              requests: {cpu: "16", memory: 64Gi, amd.com/gpu: 1}
+              limits: {cpu: "16", memory: 64Gi, amd.com/gpu: 1}
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay, readOnly: true}
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: dshm, mountPath: /dev/shm}
+        volumes:
+          - {name: overlay, emptyDir: {}}
+          - {name: model, hostPath: {path: /mnt/k3local/models/qwen, type: Directory}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 32Gi}}

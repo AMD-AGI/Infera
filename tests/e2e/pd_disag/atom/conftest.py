@@ -17,10 +17,9 @@ ATOM quirks vs vllm/sglang:
 - OpenAI HTTP port is ``--server-port`` (``--port`` is the torch MASTER_PORT).
 - PD requests only work over ``/v1/completions`` (the shared disagg correctness
   uses the counting probe, which is completions-based — see disagg_suite).
-- Cross-node RDMA needs the prefill/decode ``ib_device`` on the SAME subnet/rail
-  (same-named ionic_N can differ by subnet across nodes). Set
-  ``INFERA_E2E_ATOM_IB_DEVICE`` to pin it when auto-selection picks a mismatched
-  rail (see the regression doc's "how to pick IB_DEV").
+- Cross-node RDMA needs both roles' ``ib_device`` on the same subnet/rail; it
+  follows the cluster's ``MC_TE_FILTERS`` and ``INFERA_E2E_ATOM_IB_DEVICE``
+  overrides that.
 """
 
 from __future__ import annotations
@@ -29,6 +28,7 @@ import json
 import os
 
 from ...harness import EngineAdapter, EngineParams
+from ...harness.cluster import kv_transport_env
 from ...harness.disagg_fixtures import make_disagg_stack_fixture
 from ...harness.params import DisaggRole
 
@@ -71,8 +71,13 @@ class AtomDisaggAdapter(EngineAdapter):
             "http_port": port,
             "proxy_ip": advertise_host,
         }
-        # Cross-node rail pairing: pin the ionic device when set (see module note).
-        ib_device = os.environ.get("INFERA_E2E_ATOM_IB_DEVICE")
+        # ATOM names its own Mooncake NIC and guesses the MI300X "rdma<N>"; where
+        # devices are named otherwise that discovers 0 HCAs and Mooncake drops to
+        # TCP. Default to the rail the cluster pinned for every engine.
+        ib_device = (
+            os.environ.get("INFERA_E2E_ATOM_IB_DEVICE")
+            or kv_transport_env().get("MC_TE_FILTERS", "").split(",")[0]
+        )
         if ib_device:
             kv_cfg["ib_device"] = ib_device
 
@@ -126,8 +131,4 @@ class AtomDisaggAdapter(EngineAdapter):
         return env
 
 
-# shell_entrypoint=True: the ATOM image is ENTRYPOINT ["/bin/bash"] (vllm/sglang
-# use the host-ionic injector instead), so the launcher must override it.
-disagg_stack = make_disagg_stack_fixture(
-    AtomDisaggAdapter, image=IMAGE, dockerfile=DOCKERFILE, shell_entrypoint=True
-)
+disagg_stack = make_disagg_stack_fixture(AtomDisaggAdapter, image=IMAGE, dockerfile=DOCKERFILE)

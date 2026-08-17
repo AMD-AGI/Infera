@@ -1,0 +1,240 @@
+# Kimi-K3 — pd — Kubernetes recipe
+#
+#   base image   vllm/vllm-openai-rocm:kimi-k3      (stock vendor image, unmodified)
+#   overlay      inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44                     (infera + router + kvd + native deps)
+#   engine       infera.engine.vllm   TP8
+#
+# Deploy:  kubectl apply -f examples/recipes/kimi-k3/disaggregated/deploy.yaml
+# Docs:    examples/recipes/kimi-k3/README.md
+#
+# Expects the `model-cache` PVC to hold the weights at /models/Kimi-K3
+# (examples/k8s-deployments/model-cache/). Swap the `model` volume for a
+# hostPath if you keep weights on the node instead.
+#
+# PD REQUIRES the prefill and decode nodes to sit on a MUTUALLY ROUTABLE RoCE
+# fabric — the KV transfer is RDMA, not TCP, and there is no fallback. Set
+# <PREFILL_NODE>/<DECODE_NODE> to two such nodes. Not validated for this model;
+# examples/k8s-deployments/pd-1p1d-mooncake.yaml is the validated reference.
+---
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: kimi-k3-pd
+  namespace: infera
+spec:
+  backendFramework: vllm
+  discoveryBackend: kubernetes
+  nats:
+    deploy: false
+  services:
+    server:
+      componentType: server
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <PREFILL_NODE>}
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it. The vendor image is never forked,
+        # so following an upstream bump costs nothing in this repo.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
+        containers:
+          - name: main
+            image: vllm/vllm-openai-rocm:kimi-k3@sha256:5aa7e626ff73672f5ca7aae46754570488c23d33ca1ac90756a1d2d1a3fe099b
+            imagePullPolicy: IfNotPresent
+            command: ["/overlay/bin/infera-exec","python3","-m","infera.server",
+                      "--host","0.0.0.0","--port","8000",
+                      "--router-tokenizer-path","/models/Kimi-K3",
+                      "--request-transport","http","--kv-event-transport","zmq"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            resources: {requests: {cpu: "8", memory: 16Gi}, limits: {cpu: "8", memory: 16Gi}}
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay, readOnly: true}
+              - {name: model, mountPath: /models, readOnly: true}
+        volumes:
+          - {name: overlay, emptyDir: {}}
+          - {name: model, persistentVolumeClaim: {claimName: model-cache}}
+    prefill:
+      componentType: worker
+      role: prefill
+      replicas: 1
+      port: 30000
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <PREFILL_NODE>}
+        # hostNetwork is REQUIRED: the RDMA rails are host interfaces and the
+        # flannel pod network cannot reach them, so Mooncake has no path to the
+        # peer while the engine looks healthy.
+        hostNetwork: true
+        dnsPolicy: ClusterFirstWithHostNet
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it. The vendor image is never forked,
+        # so following an upstream bump costs nothing in this repo.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
+        containers:
+          - name: main
+            image: vllm/vllm-openai-rocm:kimi-k3@sha256:5aa7e626ff73672f5ca7aae46754570488c23d33ca1ac90756a1d2d1a3fe099b
+            imagePullPolicy: IfNotPresent
+            command: ["/overlay/bin/infera-exec",
+                      "python3","-m","infera.engine.vllm","--host","0.0.0.0","--port","30000",
+                      "--model","/models/Kimi-K3",
+                      "--served-model-name","kimi-k3",
+                      "--tensor-parallel-size","8","--gpu-memory-utilization","0.95",
+                      "--trust-remote-code","--load-format","auto",
+                      "--mm-encoder-tp-mode","data","--kv-cache-dtype","auto",
+                      "--enable-prefix-caching","--max-num-seqs","128","--max-num-batched-tokens","4096",
+                      "--enable-auto-tool-choice","--tool-call-parser","kimi_k3",
+                      "--reasoning-parser","kimi_k3",
+                      "--data-parallel-address","$(POD_IP)",
+                      # Mooncake's bootstrap server BINDS 0.0.0.0 (fine) but ADVERTISES
+                      # parallel_config.data_parallel_master_ip, which defaults to
+                      # 127.0.0.1 and is whatever --host implies otherwise. With the
+                      # usual 0.0.0.0 the prefiller registers "http://0.0.0.0:8998" and
+                      # the decoder cannot reach it:
+                      #   Failed to connect to bootstrap server http://0.0.0.0:8998
+                      #   Failed to find remote engine_id ...
+                      # while both workers look healthy and the request just hangs to
+                      # a 480 s connector timeout. $(POD_IP) is expanded by kubelet
+                      # from the downward API env below.
+                      "--kv-transfer-config","{\"kv_connector\":\"MooncakeConnector\",\"kv_role\":\"kv_producer\"}",
+                      "--kv-event-transport","zmq","--request-transport","http"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+              # Load time tracks the STORAGE: Kimi-K3 reads 96 shards in ~8 min from
+              # local NVMe and ~95 min from NFS. infera's 1800 s default makes the
+              # worker kill itself mid-load and restart forever on the slow path.
+              - {name: INFERA_ENGINE_READY_TIMEOUT, value: "7200"}
+              - {name: HF_HUB_OFFLINE, value: "1"}
+              - {name: VLLM_ROCM_USE_AITER, value: "1"}
+              - {name: SAFETENSORS_FAST_GPU, value: "1"}
+            # PD's KV transport is Mooncake, which lives in the overlay's native
+            # tree. Name it so a payload lacking it fails at startup instead of only
+            # warning and quietly serving with no KV transfer at all.
+              - {name: INFERA_REQUIRE_NATIVE, value: "mooncake"}            # RDMA needs the device nodes and pinned memory. Without these the
+            # engine starts, registers, and only fails when KV actually moves.
+            securityContext: {privileged: true, capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}}
+            startupProbe:
+              httpGet: {path: /health, port: 30000}
+              periodSeconds: 10
+              timeoutSeconds: 10
+              failureThreshold: 120     # weight load is slow; do not use a readinessProbe here
+            resources:
+              requests: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}
+              limits: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay, readOnly: true}
+              - {name: model, mountPath: /models, readOnly: true}
+              # The vendor base's libionic must match the host ionic kernel ABI, or
+              # libibverbs rejects every device ("No RDMA devices found") and Mooncake
+              # falls back to HIP IPC, which cannot work across nodes.
+              - {name: host-libionic, mountPath: /host-libionic/libionic.so, readOnly: true}
+              - {name: dshm, mountPath: /dev/shm}
+        volumes:
+          - {name: overlay, emptyDir: {}}
+          - {name: model, persistentVolumeClaim: {claimName: model-cache}}
+          - name: host-libionic
+            hostPath: {path: /usr/lib/x86_64-linux-gnu/libionic.so.1, type: File}
+          - {name: ib, hostPath: {path: /dev/infiniband, type: Directory}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 64Gi}}
+    decode:
+      componentType: worker
+      role: decode
+      replicas: 1
+      port: 30000
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <DECODE_NODE>}
+        # hostNetwork is REQUIRED: the RDMA rails are host interfaces and the
+        # flannel pod network cannot reach them, so Mooncake has no path to the
+        # peer while the engine looks healthy.
+        hostNetwork: true
+        dnsPolicy: ClusterFirstWithHostNet
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it. The vendor image is never forked,
+        # so following an upstream bump costs nothing in this repo.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
+        containers:
+          - name: main
+            image: vllm/vllm-openai-rocm:kimi-k3@sha256:5aa7e626ff73672f5ca7aae46754570488c23d33ca1ac90756a1d2d1a3fe099b
+            imagePullPolicy: IfNotPresent
+            command: ["/overlay/bin/infera-exec",
+                      "python3","-m","infera.engine.vllm","--host","0.0.0.0","--port","30000",
+                      "--model","/models/Kimi-K3",
+                      "--served-model-name","kimi-k3",
+                      "--tensor-parallel-size","8","--gpu-memory-utilization","0.95",
+                      "--trust-remote-code","--load-format","auto",
+                      "--mm-encoder-tp-mode","data","--kv-cache-dtype","auto",
+                      "--max-num-seqs","128","--max-num-batched-tokens","4096",
+                      "--enable-auto-tool-choice","--tool-call-parser","kimi_k3",
+                      "--reasoning-parser","kimi_k3",
+                      "--data-parallel-address","$(POD_IP)",
+                      # Mooncake's bootstrap server BINDS 0.0.0.0 (fine) but ADVERTISES
+                      # parallel_config.data_parallel_master_ip, which defaults to
+                      # 127.0.0.1 and is whatever --host implies otherwise. With the
+                      # usual 0.0.0.0 the prefiller registers "http://0.0.0.0:8998" and
+                      # the decoder cannot reach it:
+                      #   Failed to connect to bootstrap server http://0.0.0.0:8998
+                      #   Failed to find remote engine_id ...
+                      # while both workers look healthy and the request just hangs to
+                      # a 480 s connector timeout. $(POD_IP) is expanded by kubelet
+                      # from the downward API env below.
+                      "--kv-transfer-config","{\"kv_connector\":\"MooncakeConnector\",\"kv_role\":\"kv_consumer\"}",
+                      "--kv-event-transport","zmq","--request-transport","http"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+              # Load time tracks the STORAGE: Kimi-K3 reads 96 shards in ~8 min from
+              # local NVMe and ~95 min from NFS. infera's 1800 s default makes the
+              # worker kill itself mid-load and restart forever on the slow path.
+              - {name: INFERA_ENGINE_READY_TIMEOUT, value: "7200"}
+              - {name: HF_HUB_OFFLINE, value: "1"}
+              - {name: VLLM_ROCM_USE_AITER, value: "1"}
+              - {name: SAFETENSORS_FAST_GPU, value: "1"}
+            # PD's KV transport is Mooncake, which lives in the overlay's native
+            # tree. Name it so a payload lacking it fails at startup instead of only
+            # warning and quietly serving with no KV transfer at all.
+              - {name: INFERA_REQUIRE_NATIVE, value: "mooncake"}            # RDMA needs the device nodes and pinned memory. Without these the
+            # engine starts, registers, and only fails when KV actually moves.
+            securityContext: {privileged: true, capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}}
+            startupProbe:
+              httpGet: {path: /health, port: 30000}
+              periodSeconds: 10
+              timeoutSeconds: 10
+              failureThreshold: 120     # weight load is slow; do not use a readinessProbe here
+            resources:
+              requests: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}
+              limits: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay, readOnly: true}
+              - {name: model, mountPath: /models, readOnly: true}
+              # The vendor base's libionic must match the host ionic kernel ABI, or
+              # libibverbs rejects every device ("No RDMA devices found") and Mooncake
+              # falls back to HIP IPC, which cannot work across nodes.
+              - {name: host-libionic, mountPath: /host-libionic/libionic.so, readOnly: true}
+              - {name: dshm, mountPath: /dev/shm}
+        volumes:
+          - {name: overlay, emptyDir: {}}
+          - {name: model, persistentVolumeClaim: {claimName: model-cache}}
+          - name: host-libionic
+            hostPath: {path: /usr/lib/x86_64-linux-gnu/libionic.so.1, type: File}
+          - {name: ib, hostPath: {path: /dev/infiniband, type: Directory}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 64Gi}}

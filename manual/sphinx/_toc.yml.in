@@ -45,8 +45,12 @@ subtrees:
         title: KV-aware routing
       - file: features/routing_and_transport.md
         title: Routing and transport
+      - file: features/scaling.md
+        title: Scaling a fleet
       - file: features/sla_planner.md
         title: SLA planner
+      - file: features/graceful_shutdown.md
+        title: Graceful shutdown
 
   - caption: Serving
     entries:
@@ -55,8 +59,26 @@ subtrees:
       - file: serving/kubernetes.md
         title: Kubernetes
 
+  - caption: Recipes
+    entries:
+      - file: recipes/index.md
+        title: Recipes — by model
+        entries:
+          - file: recipes/glm5.2.md
+            title: GLM-5.2-MXFP4 (SGLang)
+          - file: recipes/kimi-k3.md
+            title: Kimi-K3 (vLLM)
+          - file: recipes/kimi-k3-optimized.md
+            title: Kimi-K3 optimized (DSpark)
+
   - caption: Examples
     entries:
+      - file: examples/k8s_kimi_k3.md
+        title: Kubernetes recipe — Kimi-K3 (vLLM, mixed)
+      - file: examples/k8s_pd_1p1d_mooncake.md
+        title: Kubernetes recipe — PD 1P1D (SGLang, Mooncake)
+      - file: examples/k8s_glm5.2_sglang.md
+        title: Kubernetes recipe — GLM-5.2 (SGLang, DSA)
       - file: examples/sglang_1p2d_kimi2.6.md
         title: SGLang 1P2D — Kimi-K2.6
       - file: examples/sglang_mix_dsv4.md
@@ -72,5 +94,7 @@ subtrees:
         title: Environment variables
       - file: reference/benchmarking.md
         title: Benchmarking
+      - file: reference/preflight.md
+        title: Preflight
       - file: reference/troubleshooting.md
         title: Troubleshooting

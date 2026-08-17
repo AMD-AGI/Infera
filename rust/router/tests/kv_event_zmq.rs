@@ -37,6 +37,23 @@ fn block_stored(block_hashes: &[u64], parent: Option<u64>, token_ids: &[u32], bs
     ])
 }
 
+/// The same event as SGLang emits it under EAGLE/MTP: `token_ids` carries the
+/// overlapping bigrams `(t[i], t[i+1])` that key the radix tree, not bare ints.
+fn block_stored_bigram(block_hashes: &[u64], parent: Option<u64>, flat: &[u32], bs: i64) -> Mv {
+    let pairs: Vec<Mv> = flat
+        .windows(2)
+        .map(|w| Mv::Array(vec![Mv::from(w[0]), Mv::from(w[1])]))
+        .collect();
+    Mv::Array(vec![
+        Mv::String("BlockStored".into()),
+        Mv::Array(block_hashes.iter().map(|&h| Mv::from(h)).collect()),
+        parent.map(Mv::from).unwrap_or(Mv::Nil),
+        Mv::Array(pairs),
+        Mv::from(bs),
+        Mv::Nil, // lora_id
+    ])
+}
+
 /// Encode a KVEventBatch: array_like `[ts, events, attn_dp_rank?]`.
 fn batch(events: Vec<Mv>) -> Vec<u8> {
     let v = Mv::Array(vec![Mv::from(0.0_f64), Mv::Array(events)]);
@@ -87,6 +104,58 @@ fn subscriber_decodes_real_zmq_msgpack_into_view() {
     // A divergent second block breaks the prefix at 1 (same chain semantics).
     let q2 = hash_request(&[1, 2, 3, 4, 9, 9, 9, 9], 4);
     assert_eq!(client.prefix_hits("w", None, &q2), 1);
+
+    client.shutdown();
+}
+
+/// The MTP shape, over the same real socket.
+///
+/// This is the wire-level twin of the in-crate `decodes_sglang_bigram_batch_under_mtp`
+/// unit test, and the one that would have caught the original bug in a live
+/// deployment: a `--router-backend rust` router subscribed to an MTP-enabled
+/// SGLang leg received pairs, decoded every element to `None`, and kept an empty
+/// view forever. Nothing errored — kv-aware simply degraded to load balancing.
+///
+/// The assertion is that the bigram view hashes to *the same blocks* the query
+/// side computes over the flat tokens, not merely that it is non-empty.
+#[test]
+fn subscriber_decodes_bigram_tokens_under_mtp() {
+    let ctx = zmq::Context::new();
+    let pub_sock = ctx.socket(zmq::PUB).unwrap();
+    pub_sock.bind("tcp://127.0.0.1:*").unwrap();
+    let endpoint = pub_sock.get_last_endpoint().unwrap().unwrap();
+
+    let client = KvEventClient::new();
+    client.on_worker_added(&worker("w", &endpoint, 4));
+
+    // Flat tokens 1..=9 -> 8 bigrams -> two blocks of 4 whose first elements are
+    // [1,2,3,4] and [5,6,7,8]: exactly the slice the query side chunks.
+    let payload = batch(vec![block_stored_bigram(
+        &[333, 444],
+        None,
+        &[1, 2, 3, 4, 5, 6, 7, 8, 9],
+        4,
+    )]);
+    let query = hash_request(&[1, 2, 3, 4, 5, 6, 7, 8], 4);
+    assert_eq!(query.len(), 2);
+
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut hits = 0;
+    while Instant::now() < deadline {
+        pub_sock
+            .send_multipart([b"kv-events".as_ref(), payload.as_ref()], 0)
+            .unwrap();
+        std::thread::sleep(Duration::from_millis(50));
+        hits = client.prefix_hits("w", None, &query);
+        if hits == 2 {
+            break;
+        }
+    }
+    assert_eq!(
+        hits, 2,
+        "bigram token_ids must mirror to the same blocks as the flat slice; \
+         0 here is the original bug (every pair dropped, view stays empty)"
+    );
 
     client.shutdown();
 }

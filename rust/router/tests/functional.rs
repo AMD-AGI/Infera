@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 
 use arc_swap::ArcSwap;
 use axum::body::{Body, Bytes};
-use axum::extract::State;
+use axum::extract::{DefaultBodyLimit, State};
 use axum::http::header::CONTENT_TYPE;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
@@ -20,8 +20,11 @@ use axum::routing::post;
 use axum::{Json, Router};
 use serde_json::{json, Value};
 
+use infera_router::block_hasher::BlockHasher;
+use infera_router::breaker::CircuitBreaker;
 use infera_router::handlers::{app, AppState};
-use infera_router::policy::RoundRobin;
+use infera_router::kv_event::KvEventClient;
+use infera_router::policy::{KvEventAwarePolicy, RoundRobin};
 use infera_router::pool::{Snapshot, Worker};
 use infera_router::proxy;
 
@@ -80,6 +83,9 @@ async fn spawn_mock(status: u16, sse: bool, reply: Value) -> (String, Arc<MockSt
     let router = Router::new()
         .route("/v1/chat/completions", post(mock_handle))
         .route("/v1/completions", post(mock_handle))
+        // Stand in for a real engine, which caps a prompt by context length
+        // rather than by request bytes.
+        .layer(DefaultBodyLimit::disable())
         .with_state(state.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
@@ -104,6 +110,8 @@ fn make_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
         http: proxy::build_upstream_client().unwrap(),
         started: Instant::now(),
         retries,
+        breaker: Arc::new(CircuitBreaker::default()),
+        nats: None,
     }
 }
 
@@ -147,6 +155,32 @@ async fn mixed_unary_ok() {
     assert_eq!(mock.hit_count(), 1);
 }
 
+/// A long-context prompt is a normal request, not an oversized one: axum's
+/// default 2 MiB body cap used to 413 it before it reached a worker.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn mixed_forwards_body_over_axum_default_limit() {
+    let (url, mock) = spawn_mock(200, false, json!({"answer": 42})).await;
+    let state = make_state(
+        vec![worker(json!({
+            "worker_id": "w1", "url": url, "model_name": "m", "disagg_mode": "mixed"
+        }))],
+        0,
+    );
+    let router = spawn_router(state).await;
+    let prompt = "x".repeat((2 << 20) + 4096);
+
+    let resp = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m", "prompt": prompt}))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 200);
+    let hits = mock.hits.lock().unwrap();
+    assert_eq!(hits[0].body["prompt"].as_str().unwrap().len(), prompt.len());
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn mixed_round_robin_spreads_load() {
     let (url_a, a) = spawn_mock(200, false, json!({"w": "a"})).await;
@@ -176,6 +210,83 @@ async fn mixed_round_robin_spreads_load() {
     // 4 requests, round-robin over 2 workers → 2 each.
     assert_eq!(a.hit_count(), 2);
     assert_eq!(b.hit_count(), 2);
+}
+
+// ---------------------------------------------------------------------------
+// Multimodal image-affinity routing (engine-agnostic: same OpenAI vision body
+// that both sglang and vLLM receive flows the full path handlers → parse →
+// extract_image_keys → KvEventAwarePolicy affinity → upstream).
+// ---------------------------------------------------------------------------
+
+fn make_kv_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
+    AppState {
+        pool: Arc::new(ArcSwap::from_pointee(Snapshot::build(workers))),
+        policy: Arc::new(KvEventAwarePolicy::new(
+            Arc::new(KvEventClient::new()),
+            BlockHasher::disabled(),
+            20.0,
+            None,
+            None,
+        )),
+        http: proxy::build_upstream_client().unwrap(),
+        started: Instant::now(),
+        retries,
+        breaker: Arc::new(CircuitBreaker::default()),
+        nats: None,
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn mm_affinity_colocates_repeat_image() {
+    let (url_a, a) = spawn_mock(200, false, json!({"w": "a"})).await;
+    let (url_b, b) = spawn_mock(200, false, json!({"w": "b"})).await;
+    let state = make_kv_state(
+        vec![
+            worker(json!({"worker_id": "a", "url": url_a, "model_name": "m",
+                          "disagg_mode": "mixed", "kv_block_size": 16})),
+            worker(json!({"worker_id": "b", "url": url_b, "model_name": "m",
+                          "disagg_mode": "mixed", "kv_block_size": 16})),
+        ],
+        0,
+    );
+    let router = spawn_router(state).await;
+
+    // Standard OpenAI vision request — the identical body an OpenAI client sends
+    // to either sglang or vLLM. The router keys affinity off the image URL.
+    let img = json!({"model": "m", "stream": false, "messages": [{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "what is in this image?"},
+            {"type": "image_url", "image_url": {"url": "https://cdn.example/cat.png"}}
+        ]
+    }]});
+
+    for _ in 0..5 {
+        let r = client()
+            .post(format!("{router}/v1/chat/completions"))
+            .json(&img)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(r.status(), 200);
+    }
+
+    // All five identical-image requests land on ONE worker (its warm vision
+    // cache), instead of round-robining across both.
+    let (ha, hb) = (a.hit_count(), b.hit_count());
+    assert_eq!(ha + hb, 5, "all requests served");
+    assert!(
+        ha == 5 || hb == 5,
+        "image affinity co-locates repeats: a={ha} b={hb}"
+    );
+
+    // The image survived the hop to the upstream (routing didn't strip content).
+    let winner = if ha == 5 { &a } else { &b };
+    let body = &winner.hits.lock().unwrap()[0].body;
+    assert_eq!(
+        body["messages"][0]["content"][1]["image_url"]["url"],
+        "https://cdn.example/cat.png"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -208,6 +319,86 @@ async fn mixed_failover_to_healthy_worker() {
     assert_eq!(resp.json::<Value>().await.unwrap()["ok"], true);
     assert_eq!(bad.hit_count(), 1);
     assert_eq!(ok.hit_count(), 1);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn breaker_stops_reselecting_a_dead_worker() {
+    // The regression behind issue #82, end to end through the real router
+    // rather than against the breaker in isolation.
+    //
+    // Failover already made every one of these ten requests succeed, so a test
+    // that only checked status codes passed before the fix and after it. What
+    // was broken is the *cost*: `tried` is per-request, so RoundRobin kept
+    // offering the dead worker its turn -- 5 of 10 requests paid a wasted
+    // upstream round trip. The assertion that matters is bad.hit_count(), which
+    // is 5 without the breaker and 3 with it.
+    let (url_bad, bad) = spawn_mock(500, false, json!(null)).await;
+    let (url_ok, ok) = spawn_mock(200, false, json!({"ok": true})).await;
+    let state = make_state(
+        vec![
+            worker(
+                json!({"worker_id": "bad", "url": url_bad, "model_name": "m", "disagg_mode": "mixed"}),
+            ),
+            worker(
+                json!({"worker_id": "ok", "url": url_ok, "model_name": "m", "disagg_mode": "mixed"}),
+            ),
+        ],
+        1,
+    );
+    let router = spawn_router(state).await;
+
+    for _ in 0..10 {
+        let resp = client()
+            .post(format!("{router}/v1/chat/completions"))
+            .json(&json!({"model": "m"}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(
+            resp.status(),
+            200,
+            "failover must still serve every request"
+        );
+    }
+
+    // Default threshold is 3. RoundRobin offers `bad` on every other request,
+    // so it takes 3 of its turns to trip; after that it is out of rotation and
+    // the 5s cooldown does not elapse within the test.
+    assert_eq!(
+        bad.hit_count(),
+        3,
+        "dead worker must stop being re-picked after the threshold (was 5 before the fix)"
+    );
+    assert_eq!(ok.hit_count(), 10, "healthy worker still serves everything");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn breaker_ignores_client_errors() {
+    // A 400 comes from the request, not the worker: it would be returned by
+    // every worker in the fleet, so counting it would circuit-break all of
+    // them. Ten bad requests must leave the worker in rotation.
+    let (url, w) = spawn_mock(400, false, json!(null)).await;
+    let state = make_state(
+        vec![worker(
+            json!({"worker_id": "w1", "url": url, "model_name": "m", "disagg_mode": "mixed"}),
+        )],
+        0,
+    );
+    let router = spawn_router(state).await;
+
+    for _ in 0..10 {
+        let _ = client()
+            .post(format!("{router}/v1/chat/completions"))
+            .json(&json!({"model": "m"}))
+            .send()
+            .await
+            .unwrap();
+    }
+    assert_eq!(
+        w.hit_count(),
+        10,
+        "4xx must not take a healthy worker out of rotation"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

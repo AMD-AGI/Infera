@@ -1,0 +1,263 @@
+# Kimi-K3 — pd (SGLang) — Kubernetes recipe
+#
+# The SGLang half of Kimi-K3 PD. The vLLM half is ../pd/deploy.yaml; pick by which
+# engine you want, not by which is "the" PD path — they disaggregate differently:
+#
+#   SGLang   --disaggregation-mode + a Mooncake bootstrap handshake
+#   vLLM     --kv-transfer-config with a MooncakeConnector
+#
+#   base image   lmsysorg/sglang-rocm:rocm720-mi35x-k3-20260727   (the SGLang build
+#                carrying Kimi-K3 support; the general v0.5.15 tag has none)
+#   overlay      inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
+#
+#   <PREFILL_MODEL_DIR> / <DECODE_MODEL_DIR>
+#       the model directory on EACH node. They need NOT match: every pod mounts its
+#       own node's copy, so nodes that name their local NVMe differently
+#       (/mnt/k3local vs /mnt/shared here) are fine.
+#
+# Put the weights on LOCAL disk on both nodes. Kimi-K3 loads its 96 shards in
+# ~8 min from NVMe and ~95 min from NFS when both PD nodes read the same mount —
+# and the second case does not merely run slow, it exceeds infera's ready timeout,
+# so the worker restarts mid-load and never finishes. If you must use NFS, raise
+# INFERA_ENGINE_READY_TIMEOUT accordingly.
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: kimi-k3-pd-sglang
+  namespace: infera
+spec:
+  backendFramework: sglang
+  discoveryBackend: kubernetes
+  nats:
+    deploy: false
+  services:
+    server:
+      componentType: server
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <PREFILL_NODE>}
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it, so following an upstream bump
+        # is an image-tag edit rather than a rebuild of ours.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
+        containers:
+          - name: main
+            image: lmsysorg/sglang-rocm:rocm720-mi35x-k3-20260727@sha256:3c01f73fe23aebf4a8853de0899a70b75c2af6c0409d2331353847aac4d3f906      # libionic (ABI 4) baked
+            imagePullPolicy: IfNotPresent
+            command: ["/overlay/bin/infera-exec","python3","-m","infera.server","--host","0.0.0.0","--port","8000",
+                      "--router-tokenizer-path","/models/Kimi-K3",
+                      "--request-transport","http","--kv-event-transport","zmq"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+              # Weight-load time tracks the STORAGE, not the model. Kimi-K3 read its
+              # 96 shards in 502 s from local NVMe and ~95 min from NFS with both PD
+              # nodes competing for the same mount. infera's default 1800 s ready
+              # timeout is generous for the first and impossible for the second — the
+              # worker kills itself mid-load, restarts, and never finishes.
+              - {name: INFERA_ENGINE_READY_TIMEOUT, value: "7200"}
+            resources: {requests: {cpu: "4", memory: 8Gi}, limits: {cpu: "4", memory: 8Gi}}
+            volumeMounts: [{name: overlay, mountPath: /overlay, readOnly: true}, {name: model, mountPath: /models, readOnly: true}]
+        volumes: [{name: overlay, emptyDir: {}}, {name: model, hostPath: {path: <PREFILL_MODEL_DIR>, type: Directory}}]
+    prefill:
+      componentType: worker
+      role: prefill
+      replicas: 1
+      port: 30000
+      skipReadinessProbe: true
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <PREFILL_NODE>}
+        hostNetwork: true
+        dnsPolicy: ClusterFirstWithHostNet
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it, so following an upstream bump
+        # is an image-tag edit rather than a rebuild of ours.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
+        containers:
+          - name: main
+            image: lmsysorg/sglang-rocm:rocm720-mi35x-k3-20260727@sha256:3c01f73fe23aebf4a8853de0899a70b75c2af6c0409d2331353847aac4d3f906
+            imagePullPolicy: IfNotPresent
+            securityContext: {privileged: true, capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}}
+            command: ["/overlay/bin/infera-exec","python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
+                      "--disaggregation-mode","prefill","--model-path","/models/Kimi-K3",
+                      "--tp-size","8","--attention-backend","aiter","--trust-remote-code",
+                      "--mem-fraction-static","0.97",
+                      # 0.93, not the 0.8 inherited from this manifest's Qwen-0.6B
+                      # ancestor. Kimi-K3 is ~190 GB per rank at TP8, and at 0.8 the
+                      # hybrid Mamba state cache is computed AFTER the weights land:
+                      #   Not enough GPU memory for hybrid (mamba/linear-attention)
+                      #   state cache. Computed max_mamba_cache_size=-554
+                      #   (total_rest_memory=-60.99 GB)
+                      # i.e. in deficit before any cache is allocated. The engine exits
+                      # and the wrapper reports a bare "-9", which reads as OOM and is
+                      # not — chasing the container memory limit first is a dead end.
+                      # Measured, both knobs the engine itself suggests:
+                      #   mem-fraction 0.80 -> total_rest_memory -60.99 GB
+                      #   mem-fraction 0.93 -> total_rest_memory -30.39 GB
+                      # so 0.97 plus a capped --max-running-requests (mamba cache is
+                      # 53.57 MB per request) and a 32k context.
+                      "--context-length","32768",
+                      "--max-running-requests","16",
+                      # Pin the hybrid state cache instead of letting it be derived.
+                      # SGLang sizes it from whatever GPU memory is left AFTER the
+                      # weights, and on Kimi-K3 at TP8 that residual is negative, so
+                      # the derivation yields a negative cache and the engine exits:
+                      #   0.80 -> total_rest_memory -60.99 GB
+                      #   0.93 -> -30.39 GB
+                      #   0.97 -> -20.98 GB
+                      # Raising mem-fraction shrinks the gap but cannot close it —
+                      # the residual is the wrong side of zero to begin with. An
+                      # explicit size skips the derivation. 16 requests x 53.57 MB.
+                      "--max-mamba-cache-size","16",
+                      # --language-only is what makes --mem-fraction-static stick.
+                      # Kimi-K3 is multimodal, so SGLang runs adjust_mem_fraction_for_vlm()
+                      # and SCALES the value you passed:
+                      #   mem_fraction_static = original * final_overall_factor
+                      # 0.97 became 0.8245, and the engine then failed telling us to
+                      # "raise --mem-fraction-static above 0.901" — advice that cannot
+                      # work, since the raised value is scaled down again. The guard is
+                      # `if model_config.is_multimodal and not self.language_only`.
+                      # Text-only PD does not need the vision tower, so opt out.
+                      "--language-only",
+                      "--kv-event-transport","zmq","--request-transport","http",
+                      "--disaggregation-transfer-backend","mooncake"]
+            env:
+              - {name: SGLANG_USE_AITER, value: "1"}
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+              # Weight-load time tracks the STORAGE, not the model. Kimi-K3 read its
+              # 96 shards in 502 s from local NVMe and ~95 min from NFS with both PD
+              # nodes competing for the same mount. infera's default 1800 s ready
+              # timeout is generous for the first and impossible for the second — the
+              # worker kills itself mid-load, restarts, and never finishes.
+              - {name: INFERA_ENGINE_READY_TIMEOUT, value: "7200"}
+            resources: {requests: {cpu: "16", memory: 768Gi, amd.com/gpu: 1}, limits: {cpu: "16", memory: 768Gi, amd.com/gpu: 1}}
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay, readOnly: true}
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: dshm, mountPath: /dev/shm}
+              - {name: ib, mountPath: /dev/infiniband}
+              # The vendor base's libionic must match the host ionic kernel ABI or
+              # libibverbs rejects every device ("does not support the kernel ABI"),
+              # which reads as "No RDMA devices found" and sends Mooncake down its
+              # HIP-IPC path — where cross-node PD cannot work. infera-exec swaps it
+              # in from here.
+              - {name: host-libionic, mountPath: /host-libionic/libionic.so, readOnly: true}
+        volumes:
+          - {name: overlay, emptyDir: {}}
+          - {name: model, hostPath: {path: <PREFILL_MODEL_DIR>, type: Directory}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 16Gi}}
+          - {name: ib, hostPath: {path: /dev/infiniband, type: Directory}}
+          - name: host-libionic
+            hostPath: {path: /usr/lib/x86_64-linux-gnu/libionic.so.1, type: File}
+    decode:
+      componentType: worker
+      role: decode
+      replicas: 1
+      port: 30000
+      skipReadinessProbe: true
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <DECODE_NODE>}
+        hostNetwork: true
+        dnsPolicy: ClusterFirstWithHostNet
+        # The overlay payload is dropped into an emptyDir here; the STOCK vendor
+        # image below then runs infera out of it, so following an upstream bump
+        # is an image-tag edit rather than a rebuild of ours.
+        initContainers:
+          - name: infera-overlay
+            image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
+            imagePullPolicy: IfNotPresent
+            command: ["sh","-c","cp -a /payload/. /overlay/"]
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay}
+        containers:
+          - name: main
+            image: lmsysorg/sglang-rocm:rocm720-mi35x-k3-20260727@sha256:3c01f73fe23aebf4a8853de0899a70b75c2af6c0409d2331353847aac4d3f906
+            imagePullPolicy: IfNotPresent
+            securityContext: {privileged: true, capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}}
+            command: ["/overlay/bin/infera-exec","python3","-m","infera.engine.sglang","--host","0.0.0.0","--port","30000",
+                      "--disaggregation-mode","decode","--model-path","/models/Kimi-K3",
+                      "--tp-size","8","--attention-backend","aiter","--trust-remote-code",
+                      "--mem-fraction-static","0.97",
+                      # 0.93, not the 0.8 inherited from this manifest's Qwen-0.6B
+                      # ancestor. Kimi-K3 is ~190 GB per rank at TP8, and at 0.8 the
+                      # hybrid Mamba state cache is computed AFTER the weights land:
+                      #   Not enough GPU memory for hybrid (mamba/linear-attention)
+                      #   state cache. Computed max_mamba_cache_size=-554
+                      #   (total_rest_memory=-60.99 GB)
+                      # i.e. in deficit before any cache is allocated. The engine exits
+                      # and the wrapper reports a bare "-9", which reads as OOM and is
+                      # not — chasing the container memory limit first is a dead end.
+                      # Measured, both knobs the engine itself suggests:
+                      #   mem-fraction 0.80 -> total_rest_memory -60.99 GB
+                      #   mem-fraction 0.93 -> total_rest_memory -30.39 GB
+                      # so 0.97 plus a capped --max-running-requests (mamba cache is
+                      # 53.57 MB per request) and a 32k context.
+                      "--context-length","32768",
+                      "--max-running-requests","16",
+                      # Pin the hybrid state cache instead of letting it be derived.
+                      # SGLang sizes it from whatever GPU memory is left AFTER the
+                      # weights, and on Kimi-K3 at TP8 that residual is negative, so
+                      # the derivation yields a negative cache and the engine exits:
+                      #   0.80 -> total_rest_memory -60.99 GB
+                      #   0.93 -> -30.39 GB
+                      #   0.97 -> -20.98 GB
+                      # Raising mem-fraction shrinks the gap but cannot close it —
+                      # the residual is the wrong side of zero to begin with. An
+                      # explicit size skips the derivation. 16 requests x 53.57 MB.
+                      "--max-mamba-cache-size","16",
+                      # --language-only is what makes --mem-fraction-static stick.
+                      # Kimi-K3 is multimodal, so SGLang runs adjust_mem_fraction_for_vlm()
+                      # and SCALES the value you passed:
+                      #   mem_fraction_static = original * final_overall_factor
+                      # 0.97 became 0.8245, and the engine then failed telling us to
+                      # "raise --mem-fraction-static above 0.901" — advice that cannot
+                      # work, since the raised value is scaled down again. The guard is
+                      # `if model_config.is_multimodal and not self.language_only`.
+                      # Text-only PD does not need the vision tower, so opt out.
+                      "--language-only",
+                      "--kv-event-transport","zmq","--request-transport","http",
+                      "--disaggregation-transfer-backend","mooncake"]
+            env:
+              - {name: SGLANG_USE_AITER, value: "1"}
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+              # Weight-load time tracks the STORAGE, not the model. Kimi-K3 read its
+              # 96 shards in 502 s from local NVMe and ~95 min from NFS with both PD
+              # nodes competing for the same mount. infera's default 1800 s ready
+              # timeout is generous for the first and impossible for the second — the
+              # worker kills itself mid-load, restarts, and never finishes.
+              - {name: INFERA_ENGINE_READY_TIMEOUT, value: "7200"}
+            resources: {requests: {cpu: "16", memory: 768Gi, amd.com/gpu: 1}, limits: {cpu: "16", memory: 768Gi, amd.com/gpu: 1}}
+            volumeMounts:
+              - {name: overlay, mountPath: /overlay, readOnly: true}
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: dshm, mountPath: /dev/shm}
+              - {name: ib, mountPath: /dev/infiniband}
+              # The vendor base's libionic must match the host ionic kernel ABI or
+              # libibverbs rejects every device ("does not support the kernel ABI"),
+              # which reads as "No RDMA devices found" and sends Mooncake down its
+              # HIP-IPC path — where cross-node PD cannot work. infera-exec swaps it
+              # in from here.
+              - {name: host-libionic, mountPath: /host-libionic/libionic.so, readOnly: true}
+        volumes:
+          - {name: overlay, emptyDir: {}}
+          - {name: model, hostPath: {path: <DECODE_MODEL_DIR>, type: Directory}}
+          - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 16Gi}}
+          - {name: ib, hostPath: {path: /dev/infiniband, type: Directory}}
+          - name: host-libionic
+            hostPath: {path: /usr/lib/x86_64-linux-gnu/libionic.so.1, type: File}

@@ -1,0 +1,279 @@
+# Kimi-K3 (optimized build) — pd — Kubernetes recipe
+#
+#   base image   johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260802
+#   overlay      inferaimage/infera-overlay v0.2.2
+#   engine       infera.engine.vllm   TP8 per role, 1P1D
+#
+# Deploy:  THIS FILE CONTAINS PLACEHOLDERS — it cannot be applied directly.
+#          see README section 0 for the placeholders, section 4 for the command
+# Docs:    examples/recipes/kimi-k3-optimized/README.md
+#
+# NO SPECULATION HERE — that is ../pd-dspark/, which is validated. This file is
+# the control: same image, same nodes, same everything, minus one argument. Keep
+# it that way, so the pair stays a measurement of speculation rather than of two
+# unrelated configs.
+#
+# PD REQUIRES the two nodes to sit on a MUTUALLY ROUTABLE RoCE fabric. The KV
+# handoff is RDMA and there is no TCP fallback. Set <PREFILL_NODE>/<DECODE_NODE>.
+#
+# MEASURED, this manifest, 1P1D over 2x 8x MI355X = 16 GPUs, 1M context:
+#   median TPOT   23.20 ms at c=4 rising to 38.12 ms at c=64
+#   decode side held External prefix cache hit rate at 98.9-99.9% across all five
+#   concurrencies, with prompt throughput near zero and prefill the mirror image
+#   -- so the handoff was real rather than failing open. Verified independently.
+#
+# Throughput figures were withdrawn from the README -- see ../mixed/deploy.yaml.
+# PD never won on tokens per GPU at any concurrency measured; what it buys is
+# headroom past one node's ceiling, and lower TPOT at high concurrency.
+# The tell that the handoff is real is on the DECODE side, and it is not
+# throughput: `External prefix cache hit rate: 100.0%` with `Avg prompt
+# throughput` near zero means the decoder computed no prefill and took the KV
+# from the wire. A correct answer proves nothing here — if the handoff fails
+# open, the decoder just re-prefills locally and returns the same text.
+#
+# THE WEIGHTS ARE A hostPath, SO EACH NODE NEEDS ITS OWN COPY — and the paths do
+# not have to match, which is why there are two placeholders. Both must be LOCAL
+# storage. On the fleet this was validated on, the obvious "shared" mount is an
+# NFS export of the other node's RAID: using it on both sides turns an 8-minute
+# weight load into a ~95-minute one on the NFS side, which then exceeds the ready
+# timeout and restarts forever. Check with `df -hT <dir>` on each node and take
+# the local device, not the convenient common name.
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: kimi-k3-opt-pd
+  namespace: infera
+spec:
+  backendFramework: vllm
+  discoveryBackend: kubernetes
+  nats:
+    deploy: false
+  services:
+    server:
+      componentType: server
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <PREFILL_NODE>}
+        initContainers:
+        - name: infera-overlay
+          image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
+          imagePullPolicy: IfNotPresent
+          command: ["sh","-c","cp -a /payload/. /overlay/"]
+          volumeMounts:
+          - {name: overlay, mountPath: /overlay}
+        containers:
+        - name: main
+          image: johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260802@sha256:5f3007aff1bc231eceb9f024e56ee80e44f9ca101a521aa50fe6bfa6c979d6b8
+          imagePullPolicy: IfNotPresent
+          command: ["/overlay/bin/infera-exec","python3","-m","infera.server",
+                    "--host","0.0.0.0","--port","8000",
+                    "--router-tokenizer-path","/models/Kimi-K3",
+                    "--request-transport","http","--kv-event-transport","zmq"]
+          env:
+          - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+          - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+          - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+          resources:
+            requests: {cpu: '8', memory: 16Gi}
+            limits: {cpu: '8', memory: 16Gi}
+          volumeMounts:
+          - {name: overlay, mountPath: /overlay, readOnly: true}
+          - {name: model, mountPath: /models, readOnly: true}
+        volumes:
+        - {name: overlay, emptyDir: {}}
+        - name: model
+          hostPath: {path: <PREFILL_MODEL_DIR>, type: Directory}
+
+    prefill:
+      componentType: worker
+      role: prefill
+      replicas: 1
+      port: 30000
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <PREFILL_NODE>}
+        # hostNetwork is REQUIRED: the RDMA rails are host interfaces and the
+        # flannel pod network cannot reach them, so Mooncake has no path to the
+        # peer while the engine looks perfectly healthy.
+        hostNetwork: true
+        dnsPolicy: ClusterFirstWithHostNet
+        initContainers:
+        - name: infera-overlay
+          image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
+          imagePullPolicy: IfNotPresent
+          command: ["sh","-c","cp -a /payload/. /overlay/"]
+          volumeMounts:
+          - {name: overlay, mountPath: /overlay}
+        containers:
+        - name: main
+          image: johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260802@sha256:5f3007aff1bc231eceb9f024e56ee80e44f9ca101a521aa50fe6bfa6c979d6b8
+          imagePullPolicy: IfNotPresent
+          command: ["/overlay/bin/infera-exec",
+                    "python3","-m","infera.engine.vllm","--host","0.0.0.0","--port","30000",
+                    "--model","/models/Kimi-K3",
+                    "--served-model-name","kimi-k3",
+                    "--tensor-parallel-size","8",
+                    # 0.88, not the 0.95 the stock kimi-k3 recipe uses: 0.88 is the
+                    # value validated on THIS image at 1M context. Carrying a number
+                    # over from a different base is how the mixed-dspark run OOMed.
+                    "--gpu-memory-utilization","0.88",
+                    "--trust-remote-code","--load-format","auto",
+                    "--mm-encoder-tp-mode","data","--kv-cache-dtype","auto",
+                    "--enable-prefix-caching",
+                    "--max-num-seqs","64","--max-num-batched-tokens","4096",
+                    "--max-model-len","1048576",
+                    "--enable-auto-tool-choice","--tool-call-parser","kimi_k3",
+                    "--reasoning-parser","kimi_k3",
+                    # Mooncake's bootstrap server BINDS 0.0.0.0 (fine) but ADVERTISES
+                    # parallel_config.data_parallel_master_ip. With the usual 0.0.0.0
+                    # the prefiller registers "http://0.0.0.0:8998" and the decoder
+                    # cannot reach it:
+                    #   Failed to connect to bootstrap server http://0.0.0.0:8998
+                    #   Failed to find remote engine_id ...
+                    # while both workers look healthy and the request just hangs to a
+                    # 480 s connector timeout.
+                    "--data-parallel-address","$(POD_IP)",
+                    "--kv-transfer-config","{\"kv_connector\":\"MooncakeConnector\",\"kv_role\":\"kv_producer\"}",
+                    "--kv-event-transport","zmq","--request-transport","http"]
+          env:
+          - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+          - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+          - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+          # PD's KV transport is Mooncake, which lives in the overlay's native tree.
+          # Name it so a payload lacking it fails at startup instead of warning and
+          # quietly serving with no KV transfer at all.
+          - {name: INFERA_REQUIRE_NATIVE, value: mooncake}
+          - {name: INFERA_ENGINE_READY_TIMEOUT, value: '7200'}
+          - {name: HF_HUB_OFFLINE, value: '1'}
+          - {name: SAFETENSORS_FAST_GPU, value: '1'}
+          # --- the optimized-kernel cluster. Identical to ../mixed/. Without it the
+          # MoE asks aiter for a kernel that was never generated:
+          #   ValueError: Invalid FlyDSL kernel name: flydsl_moe1_..._t16x64x256_...
+          - {name: VLLM_ROCM_USE_AITER, value: '1'}
+          - {name: VLLM_ROCM_USE_AITER_FP4BMM, value: '1'}
+          - {name: AITER_SITUV2_A8W4, value: '1'}
+          - {name: AITER_BF16_FP8_MOE_BOUND, value: '0'}
+          - {name: HIP_FORCE_DEV_KERNARG, value: '1'}
+          - {name: HSA_NO_SCRATCH_RECLAIM, value: '1'}
+          - {name: HSA_ENABLE_IPC_MODE_LEGACY, value: '1'}
+          - {name: VLLM_USE_BREAKABLE_CUDAGRAPH, value: '0'}
+          - {name: VLLM_ENABLE_K3_LATENT_MOE_TAIL_FUSION, value: '1'}
+          # Must be 0. The pre-route dispatch tries BF16 first, so a 1 here shadows
+          # the FP8 cluster entirely — silently, at ~40% of throughput.
+          - {name: VLLM_ROCM_USE_KIMI_K3_PREROUTE_BF16, value: '0'}
+          - {name: VLLM_ROCM_USE_KIMI_K3_PREROUTE_FP8, value: '1'}
+          - {name: VLLM_ROCM_USE_KIMI_K3_LATENT_TAIL_FP8, value: '1'}
+          - {name: KIMI_K3_DUAL_PROJ_FP8_WEIGHT_CACHE_MODIFIER, value: '2'}
+          - {name: KIMI_K3_SHARED_DOWN_FP8_WEIGHT_CACHE_MODIFIER, value: '2'}
+          # RDMA needs the device nodes and pinned memory. Without these the engine
+          # starts, registers, and only fails when KV actually moves.
+          securityContext:
+            privileged: true
+            capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}
+          startupProbe:
+            httpGet: {path: /health, port: 30000}
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 300     # weight load is slow; do not use a readinessProbe here
+          resources:
+            requests: {cpu: '32', memory: 512Gi, amd.com/gpu: 8}
+            limits: {cpu: '32', memory: 512Gi, amd.com/gpu: 8}
+          volumeMounts:
+          - {name: overlay, mountPath: /overlay, readOnly: true}
+          - {name: model, mountPath: /models, readOnly: true}
+          # The vendor base's libionic must match the host ionic kernel ABI, or
+          # libibverbs rejects every device ("No RDMA devices found") and Mooncake
+          # falls back to HIP IPC — which cannot open a peer NODE's handle, so PD
+          # dies while a single-node smoke test passes.
+          - {name: host-libionic, mountPath: /host-libionic/libionic.so, readOnly: true}
+          - {name: ib, mountPath: /dev/infiniband}
+          - {name: dshm, mountPath: /dev/shm}
+        volumes:
+        - {name: overlay, emptyDir: {}}
+        - name: model
+          hostPath: {path: <PREFILL_MODEL_DIR>, type: Directory}
+        - name: host-libionic
+          hostPath: {path: /usr/lib/x86_64-linux-gnu/libionic.so.1, type: File}
+        - {name: ib, hostPath: {path: /dev/infiniband, type: Directory}}
+        - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 64Gi}}
+
+    decode:
+      componentType: worker
+      role: decode
+      replicas: 1
+      port: 30000
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <DECODE_NODE>}
+        hostNetwork: true
+        dnsPolicy: ClusterFirstWithHostNet
+        initContainers:
+        - name: infera-overlay
+          image: inferaimage/infera-overlay@sha256:6918eff34f201548a738dd592d2a1ece0627354d2e88f24a87cfa8f787a72a44
+          imagePullPolicy: IfNotPresent
+          command: ["sh","-c","cp -a /payload/. /overlay/"]
+          volumeMounts:
+          - {name: overlay, mountPath: /overlay}
+        containers:
+        - name: main
+          image: johnqin2025/kimi-k3-dspark:1.1.0-mi355x-rocm7.2.3-20260802@sha256:5f3007aff1bc231eceb9f024e56ee80e44f9ca101a521aa50fe6bfa6c979d6b8
+          imagePullPolicy: IfNotPresent
+          command: ["/overlay/bin/infera-exec",
+                    "python3","-m","infera.engine.vllm","--host","0.0.0.0","--port","30000",
+                    "--model","/models/Kimi-K3",
+                    "--served-model-name","kimi-k3",
+                    "--tensor-parallel-size","8",
+                    "--gpu-memory-utilization","0.88",
+                    "--trust-remote-code","--load-format","auto",
+                    "--mm-encoder-tp-mode","data","--kv-cache-dtype","auto",
+                    "--max-num-seqs","64","--max-num-batched-tokens","4096",
+                    "--max-model-len","1048576",
+                    "--enable-auto-tool-choice","--tool-call-parser","kimi_k3",
+                    "--reasoning-parser","kimi_k3",
+                    "--data-parallel-address","$(POD_IP)",
+                    "--kv-transfer-config","{\"kv_connector\":\"MooncakeConnector\",\"kv_role\":\"kv_consumer\"}",
+                    "--kv-event-transport","zmq","--request-transport","http"]
+          env:
+          - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+          - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+          - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+          - {name: INFERA_REQUIRE_NATIVE, value: mooncake}
+          - {name: INFERA_ENGINE_READY_TIMEOUT, value: '7200'}
+          - {name: HF_HUB_OFFLINE, value: '1'}
+          - {name: SAFETENSORS_FAST_GPU, value: '1'}
+          - {name: VLLM_ROCM_USE_AITER, value: '1'}
+          - {name: VLLM_ROCM_USE_AITER_FP4BMM, value: '1'}
+          - {name: AITER_SITUV2_A8W4, value: '1'}
+          - {name: AITER_BF16_FP8_MOE_BOUND, value: '0'}
+          - {name: HIP_FORCE_DEV_KERNARG, value: '1'}
+          - {name: HSA_NO_SCRATCH_RECLAIM, value: '1'}
+          - {name: HSA_ENABLE_IPC_MODE_LEGACY, value: '1'}
+          - {name: VLLM_USE_BREAKABLE_CUDAGRAPH, value: '0'}
+          - {name: VLLM_ENABLE_K3_LATENT_MOE_TAIL_FUSION, value: '1'}
+          - {name: VLLM_ROCM_USE_KIMI_K3_PREROUTE_BF16, value: '0'}
+          - {name: VLLM_ROCM_USE_KIMI_K3_PREROUTE_FP8, value: '1'}
+          - {name: VLLM_ROCM_USE_KIMI_K3_LATENT_TAIL_FP8, value: '1'}
+          - {name: KIMI_K3_DUAL_PROJ_FP8_WEIGHT_CACHE_MODIFIER, value: '2'}
+          - {name: KIMI_K3_SHARED_DOWN_FP8_WEIGHT_CACHE_MODIFIER, value: '2'}
+          securityContext:
+            privileged: true
+            capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}
+          startupProbe:
+            httpGet: {path: /health, port: 30000}
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 300
+          resources:
+            requests: {cpu: '32', memory: 512Gi, amd.com/gpu: 8}
+            limits: {cpu: '32', memory: 512Gi, amd.com/gpu: 8}
+          volumeMounts:
+          - {name: overlay, mountPath: /overlay, readOnly: true}
+          - {name: model, mountPath: /models, readOnly: true}
+          - {name: host-libionic, mountPath: /host-libionic/libionic.so, readOnly: true}
+          - {name: ib, mountPath: /dev/infiniband}
+          - {name: dshm, mountPath: /dev/shm}
+        volumes:
+        - {name: overlay, emptyDir: {}}
+        - name: model
+          hostPath: {path: <DECODE_MODEL_DIR>, type: Directory}
+        - name: host-libionic
+          hostPath: {path: /usr/lib/x86_64-linux-gnu/libionic.so.1, type: File}
+        - {name: ib, hostPath: {path: /dev/infiniband, type: Directory}}
+        - {name: dshm, emptyDir: {medium: Memory, sizeLimit: 64Gi}}

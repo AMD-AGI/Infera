@@ -19,8 +19,8 @@ import (
 func natsLabels(idepName string) map[string]string {
 	return map[string]string{
 		"app.kubernetes.io/managed-by": "infera-operator",
-		"infera.amd.com/deployment":  idepName,
-		"infera.amd.com/component":   "nats",
+		"infera.amd.com/deployment":    idepName,
+		"infera.amd.com/component":     "nats",
 	}
 }
 

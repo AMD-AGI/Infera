@@ -58,6 +58,9 @@ enum Event {
         block_hashes: Vec<u64>,
         parent_block_hash: Option<u64>,
         token_ids: Vec<u32>,
+        /// vLLM's `kv_cache_spec_kind`. `None` on SGLang and on vLLM builds
+        /// predating the field; see `is_indexable_spec_kind`.
+        spec_kind: Option<String>,
     },
     Removed {
         block_hashes: Vec<u64>,
@@ -73,6 +76,10 @@ pub struct KvEventClient {
     ctx: zmq::Context,
     state: Arc<Mutex<HashMap<String, WorkerViews>>>,
     threads: Mutex<SubThreads>,
+    /// True when events arrive over one NATS subscription instead of a ZMQ
+    /// socket per worker. Registration still happens per worker -- the views
+    /// need a block size to be written into -- but no socket is opened.
+    nats_fed: bool,
 }
 
 impl Default for KvEventClient {
@@ -87,6 +94,54 @@ impl KvEventClient {
             ctx: zmq::Context::new(),
             state: Arc::new(Mutex::new(HashMap::new())),
             threads: Mutex::new(HashMap::new()),
+            nats_fed: false,
+        }
+    }
+
+    /// A client fed by `kv_event_nats`, which writes into the same views.
+    pub fn nats_fed() -> Self {
+        KvEventClient {
+            nats_fed: true,
+            ..Self::new()
+        }
+    }
+
+    /// Decode one worker's event batch and apply it, sharing the decoder and
+    /// the view logic with the ZMQ path so the two cannot drift.
+    pub(crate) fn apply_encoded_batch(&self, worker_id: &str, rank: i64, payload: &[u8]) {
+        match decode_batch(payload) {
+            Ok(events) => apply_events(&self.state, worker_id, rank, &events),
+            Err(e) => tracing::warn!(worker = %worker_id, err = %e, "kv decode failed (nats)"),
+        }
+    }
+
+    /// Seed a rank's view from the KV bucket, for a cold start.
+    ///
+    /// Two guards, both load-bearing. An empty snapshot is never applied: a
+    /// desynced relay can publish one, and it would wipe a view built from the
+    /// ordered stream and collapse cache hits to zero. And a rank that already
+    /// has an incremental view keeps it, because the stream is the
+    /// authoritative source and the bucket only exists to shortcut a cold
+    /// start.
+    pub(crate) fn seed_rank_view(&self, worker_id: &str, rank: i64, snapshot: Vec<u64>) {
+        if snapshot.is_empty() {
+            return;
+        }
+        let mut state = self.state.lock().expect("kv view mutex poisoned");
+        let wv = match state.get_mut(worker_id) {
+            Some(w) => w,
+            None => return, // not tracking this worker (yet)
+        };
+        let view = wv.views.entry(rank).or_default();
+        if view.is_empty() {
+            *view = snapshot.into_iter().collect();
+        }
+    }
+
+    pub(crate) fn drop_rank_view(&self, worker_id: &str, rank: i64) {
+        let mut state = self.state.lock().expect("kv view mutex poisoned");
+        if let Some(wv) = state.get_mut(worker_id) {
+            wv.views.remove(&rank);
         }
     }
 
@@ -122,6 +177,29 @@ impl KvEventClient {
     }
 
     pub fn on_worker_added(&self, w: &Worker) {
+        if self.nats_fed {
+            // No per-worker socket: ingestion is the one global subscription.
+            // A missing block size is not a 1 -- that produces a view which
+            // never matches and hides the fault -- so the worker is left
+            // untracked and kv-aware routing simply skips it.
+            let block_size = match w.kv_block_size {
+                Some(bs) if bs > 0 => bs as usize,
+                _ => {
+                    tracing::error!(
+                        worker = %w.worker_id,
+                        "kv events (nats): NOT tracking -- it registered no kv_block_size, \
+                         so kv-aware routing is off for this worker"
+                    );
+                    return;
+                }
+            };
+            let mut state = self.state.lock().expect("kv view mutex poisoned");
+            state
+                .entry(w.worker_id.clone())
+                .or_insert_with(|| WorkerViews::new(block_size));
+            tracing::info!(worker = %w.worker_id, block_size, "kv events (nats): tracking");
+            return;
+        }
         let endpoint = match &w.kv_events_endpoint {
             Some(ep) if !ep.is_empty() => ep.clone(),
             _ => return,
@@ -313,7 +391,30 @@ fn apply_events(
                 block_hashes,
                 parent_block_hash,
                 token_ids,
+                spec_kind,
             } => {
+                if !is_indexable_spec_kind(spec_kind.as_deref()) {
+                    continue;
+                }
+                // Index every block the token span covers, but only trust a
+                // block hash when the two lengths agree.
+                //
+                // Measured on a hybrid model (Qwen3.5-0.8B, the same shapes
+                // Kimi-K3 emits): dropping a length-disagreeing event whole
+                // costs more than it saves -- 18/32 requests hit a full prefix
+                // versus 22/32 when the leading blocks are indexed. The view
+                // entries ARE correct: chained from a resolved parent over a
+                // contiguous span. The hash-to-block PAIRING is what is not.
+                //
+                // So fill the view and skip the map. `map` is what a later
+                // event resolves its parent against, and on a sparse event the
+                // surviving hash need not describe the leading chunk -- vLLM
+                // gives no offset. Writing it binds an engine hash to the wrong
+                // block and poisons the chain from there; withholding it makes
+                // a later event miss its parent and be dropped, which
+                // under-reports hits instead of mis-reporting them.
+                let n = token_ids.len() / bs;
+                let aligned = n == block_hashes.len();
                 let mut parent = match parent_block_hash {
                     None => ROUTER_SEED,
                     Some(ph) => match map.get(ph) {
@@ -321,13 +422,12 @@ fn apply_events(
                         None => continue, // chain broken: missing parent, drop
                     },
                 };
-                let n = token_ids.len() / bs;
                 for i in 0..n {
                     let chunk = &token_ids[i * bs..(i + 1) * bs];
                     parent = hash_chunk(parent, chunk);
                     view.insert(parent);
-                    if let Some(wh) = block_hashes.get(i) {
-                        map.insert(*wh, parent);
+                    if aligned {
+                        map.insert(block_hashes[i], parent);
                     }
                 }
             }
@@ -377,6 +477,8 @@ fn parse_event(ev: &rmpv::Value) -> Option<Event> {
     match tag {
         // [tag, block_hashes, parent_block_hash, token_ids, block_size, lora_id, medium?]
         "BlockStored" => Some(Event::Stored {
+            // SGLang's array form has no group fields; None => fail open.
+            spec_kind: None,
             block_hashes: a.get(1).map(as_u64_vec).unwrap_or_default(),
             parent_block_hash: a.get(2).and_then(as_u64_any),
             token_ids: a.get(3).map(as_u32_vec).unwrap_or_default(),
@@ -390,9 +492,44 @@ fn parse_event(ev: &rmpv::Value) -> Option<Event> {
     }
 }
 
+/// Which KV-cache groups carry a usable hash-per-block.
+///
+/// vLLM emits one `BlockStored` per group. On a hybrid model -- Kimi-K3 is 3
+/// KDA/Mamba groups plus 1 MLA group -- the Mamba groups run prefix caching in
+/// "align" mode, where all but one block per step is a null block skipped when
+/// the hash list is built, while `token_ids` still spans the whole range.
+/// Measured: Mamba groups report 3840 tokens against ONE hash at
+/// block_size=768; the MLA group reports 3840 against five.
+///
+/// Those events cannot be indexed -- nothing says which chunk the surviving
+/// hash covers. They also actively corrupt the view: vLLM's block hash does not
+/// mix in the group id, so at equal block sizes a Mamba hash collides with an
+/// attention hash and overwrites its entry in the engine-hash -> router-hash
+/// map, breaking the parent chain for every block after it.
+///
+/// `mla_attention` is mandatory in this set. Kimi-K3's attention layers are
+/// MLA, so a filter written as `== "full_attention"` would drop 100% of its
+/// usable events -- the same empty view, reached from the other side.
+///
+/// `None` means SGLang or a vLLM build predating the field: fail OPEN, since
+/// those streams were indexed before this filter existed. Upstream: vllm#44451.
+fn is_indexable_spec_kind(kind: Option<&str>) -> bool {
+    match kind {
+        None => true,
+        Some(k) => matches!(
+            k,
+            "full_attention" | "mla_attention" | "sink_full_attention"
+        ),
+    }
+}
+
 /// vLLM tagged-MAP event: `{"type": <tag>, <field>: <value>, ...}` (msgspec
-/// `tag=True` map; the tag key is "type"). Fields are matched by NAME, so vLLM's
-/// extra fields (lora_name, extra_keys, group_idx, kv_cache_spec_*) are ignored.
+/// `tag=True` map; the tag key is "type"). Fields are matched by NAME.
+///
+/// `kv_cache_spec_kind` IS read: vLLM emits one event per KV-cache group and
+/// only the attention groups pair one hash with one block. Ignoring it, as this
+/// did, meant a hybrid model's Mamba groups were indexed too -- see
+/// `is_indexable_spec_kind`.
 fn parse_event_map(ev: &rmpv::Value) -> Option<Event> {
     let map = ev.as_map()?;
     let get = |k: &str| {
@@ -405,6 +542,9 @@ fn parse_event_map(ev: &rmpv::Value) -> Option<Event> {
             block_hashes: get("block_hashes").map(as_u64_vec).unwrap_or_default(),
             parent_block_hash: get("parent_block_hash").and_then(as_u64_any),
             token_ids: get("token_ids").map(as_u32_vec).unwrap_or_default(),
+            spec_kind: get("kv_cache_spec_kind")
+                .and_then(|v| v.as_str())
+                .map(str::to_owned),
         }),
         "BlockRemoved" => Some(Event::Removed {
             block_hashes: get("block_hashes").map(as_u64_vec).unwrap_or_default(),
@@ -428,13 +568,23 @@ fn as_u64_vec(v: &rmpv::Value) -> Vec<u64> {
         .unwrap_or_default()
 }
 
+/// One flat token id from a `BlockStored`'s `token_ids`, in either view the
+/// engine may report. Under EAGLE/MTP, SGLang keys its radix tree on bigrams and
+/// sends each block's tokens as the overlapping pairs `(t[i], t[i+1])`; the first
+/// element of each pair rebuilds `t[start:end]`, which is the flat slice
+/// `hash_request` chunks on the query side (radix nodes split on page boundaries,
+/// so the two chunkings stay aligned). Read as ints, a pair is not an integer, so
+/// every element would be dropped and the view would silently stay empty.
+fn as_u32_any(v: &rmpv::Value) -> Option<u32> {
+    match v {
+        rmpv::Value::Array(pair) => pair.first().and_then(as_u64_any).map(|n| n as u32),
+        _ => as_u64_any(v).map(|n| n as u32),
+    }
+}
+
 fn as_u32_vec(v: &rmpv::Value) -> Vec<u32> {
     v.as_array()
-        .map(|a| {
-            a.iter()
-                .filter_map(|x| as_u64_any(x).map(|n| n as u32))
-                .collect()
-        })
+        .map(|a| a.iter().filter_map(as_u32_any).collect())
         .unwrap_or_default()
 }
 
@@ -508,6 +658,42 @@ mod tests {
             c.prefix_hits("sgl", Some(0), &q),
             0,
             "other DP rank untouched"
+        );
+        c.shutdown();
+    }
+
+    #[test]
+    fn decodes_sglang_bigram_batch_under_mtp() {
+        // With MTP/EAGLE the radix key is a bigram view, so token_ids arrives as
+        // overlapping (t[i], t[i+1]) PAIRS. The view must still hash to what the
+        // query side computes over the flat tokens, or kv-aware never hits.
+        let c = KvEventClient::new();
+        c.on_worker_added(&worker("sgl", Some("tcp://127.0.0.1:6005"), 16, Some(2)));
+        // 16 bigrams over flat tokens 1..=17 -> one block whose first elements
+        // are exactly 1..=16.
+        let pairs: Vec<Mv> = (1u32..=16)
+            .map(|t| Mv::Array(vec![Mv::from(t), Mv::from(t + 1)]))
+            .collect();
+        let stored = Mv::Array(vec![
+            Mv::String("BlockStored".into()),
+            ints(&[910]),
+            Mv::Nil,
+            Mv::Array(pairs),
+            Mv::from(16i64),
+            Mv::Nil,
+        ]);
+        let batch = enc(Mv::Array(vec![
+            Mv::from(1.0),
+            Mv::Array(vec![stored]),
+            Mv::from(0i64),
+        ]));
+        feed_wire(&c, "sgl", 0, &batch);
+        let q = crate::hasher::hash_request(&seq(1, 16), 16);
+        assert_eq!(q.len(), 1);
+        assert_eq!(
+            c.prefix_hits("sgl", Some(0), &q),
+            1,
+            "bigram pairs must hash like the flat token slice"
         );
         c.shutdown();
     }
@@ -668,6 +854,164 @@ mod tests {
         c.shutdown();
     }
 
+    /// vLLM emits one BlockStored per KV-cache GROUP. Only the attention groups
+    /// pair one hash with one block; a hybrid model's Mamba groups report the
+    /// whole token span against a single hash (measured on Kimi-K3: 3840 tokens,
+    /// 1 hash, block_size 768, against the MLA group's 3840/5).
+    #[test]
+    fn non_attention_groups_are_not_indexed() {
+        let c = KvEventClient::new();
+        c.on_worker_added(&worker("w", Some("tcp://127.0.0.1:5601"), 4, None));
+
+        for kind in ["mamba", "sliding_window", "encoder_only_attention"] {
+            apply_events(
+                &c.state,
+                "w",
+                0,
+                &[Event::Stored {
+                    block_hashes: vec![111, 222],
+                    parent_block_hash: None,
+                    spec_kind: Some(kind.to_string()),
+                    token_ids: vec![1, 2, 3, 4, 5, 6, 7, 8],
+                }],
+            );
+        }
+        let q = crate::hasher::hash_request(&[1, 2, 3, 4, 5, 6, 7, 8], 4);
+        assert_eq!(c.prefix_hits("w", None, &q), 0);
+        c.shutdown();
+    }
+
+    /// `mla_attention` is mandatory in the allowed set: Kimi-K3's attention
+    /// layers are MLA, so a filter written as `== "full_attention"` would drop
+    /// 100% of that model's usable events.
+    #[test]
+    fn attention_groups_are_indexed() {
+        for kind in ["full_attention", "mla_attention", "sink_full_attention"] {
+            let c = KvEventClient::new();
+            c.on_worker_added(&worker("w", Some("tcp://127.0.0.1:5602"), 4, None));
+            apply_events(
+                &c.state,
+                "w",
+                0,
+                &[Event::Stored {
+                    block_hashes: vec![111, 222],
+                    parent_block_hash: None,
+                    spec_kind: Some(kind.to_string()),
+                    token_ids: vec![1, 2, 3, 4, 5, 6, 7, 8],
+                }],
+            );
+            let q = crate::hasher::hash_request(&[1, 2, 3, 4, 5, 6, 7, 8], 4);
+            assert_eq!(c.prefix_hits("w", None, &q), 2, "kind={kind}");
+            c.shutdown();
+        }
+    }
+
+    /// A sparse event -- more token blocks than hashes -- still contributes its
+    /// blocks to the view; only the hashes are withheld, because nothing says
+    /// which chunk the surviving one describes. Measured: dropping the event
+    /// whole cut full-prefix hits from 22/32 to 18/32 on a hybrid model.
+    #[test]
+    fn sparse_event_indexes_blocks_but_not_hashes() {
+        let c = KvEventClient::new();
+        c.on_worker_added(&worker("w", Some("tcp://127.0.0.1:5603"), 4, None));
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[Event::Stored {
+                block_hashes: vec![111], // one hash for two blocks of tokens
+                parent_block_hash: None,
+                spec_kind: Some("mla_attention".to_string()),
+                token_ids: vec![1, 2, 3, 4, 5, 6, 7, 8],
+            }],
+        );
+        let q = crate::hasher::hash_request(&[1, 2, 3, 4, 5, 6, 7, 8], 4);
+        assert_eq!(c.prefix_hits("w", None, &q), 2, "blocks are visible");
+
+        // The hash was not mapped, so a child naming it as parent is dropped
+        // rather than chained off a block it may not describe.
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[Event::Stored {
+                block_hashes: vec![222],
+                parent_block_hash: Some(111),
+                spec_kind: Some("mla_attention".to_string()),
+                token_ids: vec![9, 10, 11, 12],
+            }],
+        );
+        let q2 = crate::hasher::hash_request(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 4);
+        assert_eq!(
+            c.prefix_hits("w", None, &q2),
+            2,
+            "child dropped, not mis-chained"
+        );
+        c.shutdown();
+    }
+
+    /// The property the filter exists for. Both groups get the SAME block hash
+    /// (vLLM mixes no group id in), so a Mamba event arriving AFTER the
+    /// attention event overwrites `map[hash] -> router_hash` with a hash over
+    /// its own tokens; the next chunk then chains off the wrong node and the
+    /// view holds a block no query can reproduce.
+    #[test]
+    fn a_later_mamba_event_cannot_poison_the_attention_chain() {
+        let c = KvEventClient::new();
+        c.on_worker_added(&worker("w", Some("tcp://127.0.0.1:5604"), 4, None));
+
+        let stored = |hashes: Vec<u64>, parent, kind: &str, toks: Vec<u32>| Event::Stored {
+            block_hashes: hashes,
+            parent_block_hash: parent,
+            spec_kind: Some(kind.to_string()),
+            token_ids: toks,
+        };
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[stored(
+                vec![111, 222],
+                None,
+                "mla_attention",
+                vec![1, 2, 3, 4, 5, 6, 7, 8],
+            )],
+        );
+        // same hashes, different tokens, arriving second
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[stored(
+                vec![111, 222],
+                None,
+                "mamba",
+                vec![90, 91, 92, 93, 94, 95, 96, 97],
+            )],
+        );
+        // follow-on chunk, parented on the attention group's second block
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[stored(
+                vec![333],
+                Some(222),
+                "mla_attention",
+                vec![9, 10, 11, 12],
+            )],
+        );
+
+        let q = crate::hasher::hash_request(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 4);
+        assert_eq!(q.len(), 3);
+        assert_eq!(
+            c.prefix_hits("w", None, &q),
+            3,
+            "a later non-attention event overwrote the attention group's hash map"
+        );
+        c.shutdown();
+    }
+
     // Drive the view-maintenance chain directly (no sockets) — this is the core
     // correctness property: a BlockStored feeds token_ids through the SAME chain
     // as the query side, so prefix_hits matches hash_request.
@@ -684,6 +1028,7 @@ mod tests {
             &[Event::Stored {
                 block_hashes: vec![111, 222],
                 parent_block_hash: None,
+                spec_kind: None,
                 token_ids: vec![1, 2, 3, 4, 5, 6, 7, 8],
             }],
         );
@@ -710,6 +1055,7 @@ mod tests {
             &[Event::Stored {
                 block_hashes: vec![111, 222],
                 parent_block_hash: None,
+                spec_kind: None,
                 token_ids: vec![1, 2, 3, 4, 5, 6, 7, 8],
             }],
         );
@@ -741,6 +1087,7 @@ mod tests {
             &[Event::Stored {
                 block_hashes: vec![1],
                 parent_block_hash: None,
+                spec_kind: None,
                 token_ids: vec![1, 2, 3, 4],
             }],
         );

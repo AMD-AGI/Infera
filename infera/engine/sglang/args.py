@@ -260,23 +260,45 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
         and getattr(sglang_parsed, "disaggregation_transfer_backend", None) == "mooncake"
         and "--disaggregation-decode-enable-radix-cache" not in remaining
     ):
-        remaining.append("--disaggregation-decode-enable-radix-cache")
-
-    server_args = ServerArgs.from_cli_args(sglang_parsed)
+        # SGLang rejects this flag under speculative decoding, so appending it
+        # kills an EAGLE/MTP decode leg at parse time. Skipping it costs only the
+        # decode-side KV view; prefix-aware routing runs on the prefill one.
+        if getattr(sglang_parsed, "speculative_algorithm", None) is not None:
+            logger.info(
+                "kv-events on, but --disaggregation-decode-enable-radix-cache is "
+                "incompatible with --speculative-algorithm %s; not appending it. "
+                "The decode leg will use SGLang's chunk cache and contribute "
+                "little to the router KV view; prefix-aware routing runs on the "
+                "prefill-side view.",
+                sglang_parsed.speculative_algorithm,
+            )
+        else:
+            remaining.append("--disaggregation-decode-enable-radix-cache")
 
     # infera product default: fp8 KV cache (fp8_e4m3) unless the operator passed
     # --kv-cache-dtype explicitly. fp8 halves the KV footprint -> ~2x the KV that
     # fits in VRAM and halves PD KV-transfer + RDMA memory-registration volume
     # (bf16 hit ionic ibv_reg_mr ENOMEM at high concurrency / long inputs). Small
     # accuracy cost; opt out with --kv-cache-dtype auto|bf16 or INFERA_DEFAULT_KV_FP8=0.
+    #
+    # Applied to the PARSED ARGS, before ServerArgs resolves them. Newer SGLang
+    # freezes server_args once resolved and raises on assignment:
+    #
+    #   AttributeError: server_args.kv_cache_dtype assigned after resolution;
+    #   server_args is read-only -- use get_context().override(source, ...)
+    #
+    # which took down every worker on the Kimi-K3 build. Setting it pre-resolution
+    # needs no override API and works on both the old and new SGLang.
     if os.environ.get("INFERA_DEFAULT_KV_FP8", "1") != "0" and not any(
         t == "--kv-cache-dtype" or t.startswith("--kv-cache-dtype=") for t in remaining
     ):
-        server_args.kv_cache_dtype = "fp8_e4m3"
+        sglang_parsed.kv_cache_dtype = "fp8_e4m3"
         logger.info(
             "infera default: kv_cache_dtype=fp8_e4m3 "
             "(override with --kv-cache-dtype or INFERA_DEFAULT_KV_FP8=0)"
         )
+
+    server_args = ServerArgs.from_cli_args(sglang_parsed)
 
     from infera.engine.sglang.hicache_validate import warn_if_hicache_prefetch_disabled
 

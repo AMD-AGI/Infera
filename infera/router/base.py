@@ -10,6 +10,7 @@ from abc import ABC, abstractmethod
 from fastapi import Response
 
 from infera.common.worker_pool import WorkerPool
+from infera.router.breaker import CircuitBreaker
 from infera.router.policy.base import Policy
 
 
@@ -28,6 +29,7 @@ class BaseRouter(ABC):
         policy: Policy,
         nats_client=None,
         request_max_retries: int = 1,
+        breaker: CircuitBreaker | None = None,
     ) -> None:
         self.pool = pool
         self.policy = policy
@@ -40,6 +42,11 @@ class BaseRouter(ABC):
         # disables retries (single attempt). Mid-stream failures are never
         # retried (output already partially sent).
         self.request_max_retries = max(0, request_max_retries)
+        # Per-worker failure memory across requests. Failover alone forgets a
+        # bad worker the moment the request ends, so the next one re-picks it.
+        # Subclasses that select their own target consult this when filtering
+        # candidates; DirectRouter does not select and leaves it unused.
+        self.breaker = breaker if breaker is not None else CircuitBreaker()
 
     @abstractmethod
     async def dispatch(

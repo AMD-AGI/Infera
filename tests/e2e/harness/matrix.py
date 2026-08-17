@@ -12,22 +12,27 @@ matrix.py``), so per-engine model/knob choices stay local to that engine.
 
 Declarative case table
 -----------------------
-Each engine grid is a list of rows, ``[model, tp, ep, dp_attn]`` with an
+Each engine grid is a list of rows, ``[enable, model, tp, ep, dp_attn]`` with an
 optional trailing ``opts`` dict::
 
     CASES = [
-        # model, tp, ep, dp_attn
-        ["openai/gpt-oss-120b", 2, False, False],
+        # enable, model, tp, ep, dp_attn
+        [True, "openai/gpt-oss-120b", 2, False, False],
         # ...with per-case extra launch args / extra env:
-        ["openai/gpt-oss-120b", 2, [False, True], False, {
+        [True, "openai/gpt-oss-120b", 2, [False, True], False, {
             "args": ["--kv-cache-dtype", "fp8_e4m3",   # verbatim launch args
                      "--attention-backend", "aiter"],
             "env":  {"SGLANG_USE_AITER": "1"},         # worker subprocess env
         }],
+        # kept in the tree, not run until someone flips it:
+        [False, "deepseek-ai/DeepSeek-V4-Pro", 8, False, False],
     ]
 
 and is expanded with :func:`expand_cases`. Row axes:
 
+- ``enable``   ``True`` collects the row; ``False`` keeps the (often long and
+               hard-won) launch recipe in the tree without running it, so
+               parking a case no longer means commenting the block out.
 - ``model``    HF repo id (the logical id — used for the pytest id and the MoE
                lookup; the *launched* path is resolved via :func:`resolve_model`).
 - ``tp``       tensor-parallel size — an ``int`` or a list of ints.
@@ -192,15 +197,18 @@ def _axis(value) -> tuple:
 def expand_cases(table) -> list[EngineParams]:
     """Expand a declarative case table (see the module docstring) to params.
 
-    Each row is ``[model, tp, ep, dp_attn]`` with an optional trailing ``opts``
-    dict (``args`` / ``env``). Each axis is normalised via :func:`_axis`
-    (a list/tuple enumerates), then the cartesian product of the axes
-    yields one :class:`EngineParams` per combination.
+    Each row is ``[enable, model, tp, ep, dp_attn]`` with an optional trailing
+    ``opts`` dict (``args`` / ``env``). Rows with ``enable`` false are dropped
+    here, so a parked case is never collected. Each axis is normalised via
+    :func:`_axis` (a list/tuple enumerates), then the cartesian product of the
+    axes yields one :class:`EngineParams` per combination.
     """
     params: list[EngineParams] = []
     for row in table:
-        model_id, tp, ep, dp_attn = row[0], row[1], row[2], row[3]
-        opts = row[4] if len(row) > 4 and row[4] else {}
+        enable, model_id, tp, ep, dp_attn = row[0], row[1], row[2], row[3], row[4]
+        opts = row[5] if len(row) > 5 and row[5] else {}
+        if not enable:
+            continue
         for t, e, d in itertools.product(_axis(tp), _axis(ep), _axis(dp_attn)):
             params.append(
                 make_params(

@@ -32,6 +32,10 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Named because two places have to agree on it: the appender below, and the
+# prefetch_threshold fallback in `_finish_wiring` that only holds if we append.
+_EXTRA_CONFIG_FLAG = "--hicache-storage-backend-extra-config"
+
 
 def _has_cli_flag(argv: list[str], flag: str) -> bool:
     return flag in argv or any(item.startswith(f"{flag}=") for item in argv)
@@ -59,14 +63,14 @@ def _append_sglang_hicache_argv(args: Any) -> None:
         argv += ["--hicache-storage-backend", "dynamic"]
         logger.info("--infera-kvd-socket appends --hicache-storage-backend dynamic")
 
-    if not _has_cli_flag(argv, "--hicache-storage-backend-extra-config"):
+    if not _has_cli_flag(argv, _EXTRA_CONFIG_FLAG):
         cfg = {
             "backend_name": "infera-kvd",
             "module_path": "infera.engine.sglang.kvd_adapter",
             "class_name": "InferaKvdBackend",
             "prefetch_threshold": 64,
         }
-        argv += ["--hicache-storage-backend-extra-config", json.dumps(cfg)]
+        argv += [_EXTRA_CONFIG_FLAG, json.dumps(cfg)]
         logger.info("--infera-kvd-socket appends dynamic backend extra config")
 
 
@@ -118,12 +122,38 @@ def _finish_wiring(args: Any, socket_path: str) -> None:
     # subprocess re-parses argv, so this does not affect the running engine;
     # `_append_sglang_hicache_argv` is what actually selects the backend.
     sa = args.server_args
+
+    def _set_metadata(field: str, value: Any) -> bool:
+        """Best-effort ``setattr`` on ServerArgs. True if the value landed.
+
+        ServerArgs.__setattr__ raises AttributeError for any public field
+        assigned after resolution ("server_args is read-only -- use
+        get_context().override(source, ...)"), and on the v0.5.17 base that
+        guard is unconditional where it used to be gated on
+        SGLANG_STRICT_CONFIG_MUTATION. Every write in this function is
+        metadata-only, so being refused must not be fatal: it would take down a
+        leg over a field the engine subprocess never reads (observed on
+        lmsysorg/sglang:v0.5.17-rocm720-mi35x, where a kvd prefill leg died at
+        startup on enable_hierarchical_cache).
+        """
+        try:
+            setattr(sa, field, value)
+            return True
+        except AttributeError as exc:
+            logger.debug(
+                "ServerArgs.%s is read-only on this SGLang (%s); skipping the "
+                "metadata sync. The engine reads these off the forwarded argv.",
+                field,
+                exc,
+            )
+            return False
+
     if hasattr(sa, "enable_hierarchical_cache") and not sa.enable_hierarchical_cache:
-        sa.enable_hierarchical_cache = True
-        logger.info("--infera-kvd-socket implies --enable-hierarchical-cache")
+        if _set_metadata("enable_hierarchical_cache", True):
+            logger.info("--infera-kvd-socket implies --enable-hierarchical-cache")
     if hasattr(sa, "hicache_storage_backend") and not sa.hicache_storage_backend:
-        sa.hicache_storage_backend = "infera-kvd"
-        logger.info("--infera-kvd-socket implies --hicache-storage-backend infera-kvd")
+        if _set_metadata("hicache_storage_backend", "infera-kvd"):
+            logger.info("--infera-kvd-socket implies --hicache-storage-backend infera-kvd")
     # PR #9 review fix P1 (prefetch_threshold silent perf failure):
     # SGLang's default prefetch_threshold is 256 tokens. The runbook on
     # MI355X documents that 64 is needed for cache_control workloads
@@ -131,9 +161,11 @@ def _finish_wiring(args: Any, socket_path: str) -> None:
     # the override, prompts under 256 tokens never trigger L3 prefetch
     # → `gets_total = 0` and operators see no cache reuse.
     #
-    # Try common field names across SGLang versions and lower the
-    # default; if none match (older SGLang), log a clear WARNING with
-    # the override the operator should pass via extra-config.
+    # Try common field names across SGLang versions and lower the default. Not
+    # finding one is normal rather than a problem: on bases where the threshold
+    # lives in the backend's extra config instead of ServerArgs,
+    # `_append_sglang_hicache_argv` below carries the same 64 on the argv, which
+    # is the copy the subprocess actually reads.
     _PREFETCH_FIELDS = (
         "hicache_storage_prefetch_threshold",
         "hicache_prefetch_threshold",
@@ -144,12 +176,12 @@ def _finish_wiring(args: Any, socket_path: str) -> None:
         if hasattr(sa, field):
             current = getattr(sa, field)
             if current is None or current == 256:
-                setattr(sa, field, 64)
-                logger.info(
-                    "--infera-kvd-socket lowered SGLang.%s to 64 "
-                    "(cache_control workloads on short prompts)",
-                    field,
-                )
+                if _set_metadata(field, 64):
+                    logger.info(
+                        "--infera-kvd-socket lowered SGLang.%s to 64 "
+                        "(cache_control workloads on short prompts)",
+                        field,
+                    )
             else:
                 logger.info(
                     "SGLang.%s already set to %s — leaving operator value in place",
@@ -159,22 +191,58 @@ def _finish_wiring(args: Any, socket_path: str) -> None:
             overridden = True
             break
     if not overridden:
-        logger.warning(
-            "SGLang version has no recognized prefetch_threshold field "
-            "(tried %s). Prompts under 256 tokens may not trigger L3 "
-            "prefetch. Pass an explicit override via --hicache-storage-"
-            'config / extra-config JSON: {"prefetch_threshold":64}.',
-            ", ".join(_PREFETCH_FIELDS),
-        )
+        # `_append_sglang_hicache_argv` only adds its extra config when the operator
+        # supplied none, so whether the 64 still reaches the engine depends on that.
+        if _has_cli_flag(getattr(args, "sglang_argv", None) or [], _EXTRA_CONFIG_FLAG):
+            logger.warning(
+                "No prefetch_threshold field on this SGLang's ServerArgs (tried %s) "
+                "and %s is already on the argv, so infera cannot supply the default. "
+                'Add {"prefetch_threshold": 64} to that JSON yourself, or prompts '
+                "under 256 tokens will not trigger L3 prefetch.",
+                ", ".join(_PREFETCH_FIELDS),
+                _EXTRA_CONFIG_FLAG,
+            )
+        else:
+            logger.info(
+                "No prefetch_threshold field on this SGLang's ServerArgs (tried %s); "
+                "the %s appended below carries prefetch_threshold=64, which is the "
+                "copy the engine subprocess reads.",
+                ", ".join(_PREFETCH_FIELDS),
+                _EXTRA_CONFIG_FLAG,
+            )
 
     _append_sglang_hicache_argv(args)
     logger.info("infera-kvd HiCacheStorage backend ready (socket=%s)", socket_path)
+
+
+def _skip_kvd_on_decode_leg(args: Any) -> bool:
+    """True if this is a PD decode leg, where kvd would be write-only.
+
+    SGLang only prefetches from hicache storage on the aggregated and PREFILL
+    branches of ``Scheduler._add_request_to_queue``; the DECODE branch has no
+    ``_prefetch_kvcache`` call, and that method is the sole caller of
+    ``prefetch_from_storage``. The backup path still runs, so a decode leg fills
+    L3 and never reads it -- measured at 180 sets / 0 gets against a prefill
+    leg's 102 sets / 102 gets on the same run.
+    """
+    mode = getattr(getattr(args, "server_args", None), "disaggregation_mode", None)
+    if str(mode) != "decode":
+        return False
+    logger.info(
+        "PD decode leg: not wiring infera-kvd. SGLang issues no storage prefetch "
+        "on the decode branch (scheduler._add_request_to_queue), so L3 here would "
+        "be write-only -- host memory and D2H bandwidth for zero reads. kvd stays "
+        "on the prefill leg, which is where prefix reuse is decided."
+    )
+    return True
 
 
 async def awire_infera_kvd_backend(args: Any) -> None:
     """Async variant for callers already inside an event loop."""
     socket_path = args.infera_kvd_socket
     if not socket_path:
+        return
+    if _skip_kvd_on_decode_leg(args):
         return
 
     # The adapter (constructed later by SGLang) reads this env var;

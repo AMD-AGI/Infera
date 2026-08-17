@@ -1,0 +1,215 @@
+#!/usr/bin/env python3
+"""Fix the hicache host-pool allocator on ROCm: use hipHostMalloc, not
+mmap + hipHostRegister.
+
+THE BUG
+-------
+SGLang allocates every hierarchical-cache host pool through
+
+    ALLOC_MEMORY_FUNCS[device] -> alloc_with_host_register(...)
+        buffer = alloc_mmap(dims, dtype)          # anonymous mmap
+        cudaHostRegister(buffer.data_ptr(), n, 0) # page-lock it
+
+and then stores the resulting **host** virtual addresses in a device-side
+pointer table that a GPU kernel dereferences:
+
+    memory_pool_host.py :: DSAIndexerPoolHost.init_kv_buffer
+        self.index_k_data_ptrs = torch.tensor(
+            [x.data_ptr() for x in self.index_k_data_refs],  # HOST VAs
+            dtype=torch.uint64, device=<gpu>)
+    ... -> transfer_kv_all_layer_mla(dst_layers=self.index_k_data_ptrs, ...)
+
+On CUDA that is fine: cudaHostRegister maps the pages at the *same* address in
+the device address space, so a host VA is directly dereferenceable from a kernel.
+
+On ROCm it is not. hipHostRegister maps the pages at a **different** device
+address, which you must obtain with hipHostGetDevicePointer. Measured on this
+stack (MI355X / gfx950 / ROCm 7.2.0), 8 MiB buffer:
+
+    [pin_memory]            host=0x7d7c2f600000  devPtr=0x7d7c2f600000  same=True
+    [mmap + hipHostRegister]host=0x7d3bee790000  devPtr=0x7d3bede00000  same=False
+    [+hipHostRegisterMapped]host=0x7d3bed600000  devPtr=0x7d3becc00000  same=False
+    [+Portable|Mapped]      host=0x7d3bec400000  devPtr=0x7d3a97600000  same=False
+    [MAP_PRIVATE]           host=0x7d3a96e00000  devPtr=0x7d3a96400000  same=False
+
+So the kernel is handed an address that is not mapped on the device, and the
+first write-back aborts the process with
+
+    Memory access fault by GPU node-2 (Agent handle: ...) on address <host VA>.
+    Reason: Unknown.
+
+The fault address equals the host pointer exactly, which is the fingerprint.
+gfx950 reports `xnack-`, so there is no page-migration path to paper over it.
+
+THE FIX
+-------
+Register ROCm in ALLOC_MEMORY_FUNCS to use `alloc_with_pin_memory`, i.e.
+torch's `pin_memory=True` (hipHostMalloc underneath), which returns memory whose
+device pointer *is* the host pointer. Exactly what the "npu" and "musa" entries
+already do for the same reason.
+
+This is the smallest change that makes the existing pointer-table design correct
+on ROCm. The alternative -- translate every host pointer through
+hipHostGetDevicePointer before building the tables -- touches ~10 call sites in
+memory_pool_host.py and is the right upstream shape, but it is not a patch to
+apply blind to a running container.
+
+Cost: the hugepage path in alloc_mmap (SGLANG_HUGEPAGE_SIZE) is bypassed on
+ROCm. That env var is unset here.
+
+VERIFIED
+--------
+Standalone repro of the exact write-back kernel, 78 layers, 7.33 GB host indexer
+buffer, page ranges head / tail / last:
+  * mmap+hipHostRegister -> Memory access fault, every variant
+  * pin_memory           -> ALL OK, no fault
+The repro and its logs are in the internal reproduction kit -- ask the patch
+author.
+
+NOT REPRODUCIBLE ON gfx942 -- and the patch is applied there anyway
+------------------------------------------------------------------
+Re-measured on MI300X (gfx942:sramecc+:xnack-, amdgpu 6.14.14, ROCm 7.2.0,
+lmsysorg/sglang:v0.5.16-rocm720-mi30x): hipHostRegister returns a device pointer
+EQUAL to the host VA for 8 MiB / 512 MiB / 4 GiB, with and without
+hipHostRegisterMapped, and across 78 sequential registrations totalling 7.3 GB --
+0 mismatches. So the stock allocator does not fault there, and this patch fixes
+nothing observable on that arch today. Re-check on a new arch or after a driver
+bump by comparing `data_ptr()` with hipHostGetDevicePointer for each strategy
+`alloc_mmap` can take; do not assume either outcome.
+
+`Dockerfile.sglang.gfx942` applies it regardless. The identity above is a
+property of that driver, not of the API -- hipHostRegister's contract is that you
+call hipHostGetDevicePointer -- and gfx950 already breaks it on the same ROCm
+release. gfx942 is `xnack-` too, so a driver bump that diverged would fault
+rather than migrate, and the failure lands on the kvd write-back path where it is
+expensive to diagnose. The switch costs nothing measurable on either arch while
+SGLANG_HUGEPAGE_SIZE is unset: alloc_mmap then takes its plain-page branch, so
+both allocators hand out 4 KiB pages.
+
+UPSTREAM STATUS (queried with `gh` on 2026-08-03)
+  issue          NONE FOUND. Searched sgl-project/sglang issues for
+                 "hipHostRegister", "hicache ROCm host" and "Memory access fault
+                 by GPU node". The last returns AMD faults from unrelated areas
+                 (#23784 EAGLE3 at high concurrency, #23288 HiSparse page_size,
+                 #10195 EP on MI300) -- none is this allocator. Weak evidence:
+                 `gh search` matches titles and bodies, not diff content, so an
+                 upstream change to this same dispatch that never names it would
+                 not show up. The direct read below is the stronger check.
+  upstream code  Read `pool_host/common.py` on sgl-project/sglang `main` via the
+                 contents API on 2026-08-03: ALLOC_MEMORY_FUNCS still defaults to
+                 `alloc_with_host_register` with only "npu" and "musa" overridden.
+                 No HIP entry. So the defect is live on main, not just on our base.
+  third-party PR #23361 "[MUSA][19/N] Support HiCache with pin_memory allocator"
+                 (MERGED 2026-04-22). NOT this fix, but it is the SHAPE this
+                 patch copies: same one-line dispatch override, same reason
+                 (host VA is not the device VA on that platform). #32503 /
+                 #32792 (both OPEN) add Intel XPU HiCache and will touch the same
+                 dict -- a merge conflict risk for this anchor, not a fix for it.
+  own PR         NONE. Not filed. It should be: upstream main is affected, the
+                 one-line form matches an already-merged precedent (#23361), and
+                 the device-pointer measurements above are the evidence. Blocked
+                 only on someone opening it.
+
+Idempotent and self-locating. Run inside the container, then delete stale .pyc.
+"""
+
+import importlib.util
+import os
+import re
+import sys
+
+MARKER = "GLM52_ROCM_HOST_ALLOC"
+
+
+def find_common_py() -> str:
+    spec = importlib.util.find_spec("sglang")
+    if spec is None or not spec.submodule_search_locations:
+        sys.exit("cannot locate the sglang package")
+    root = list(spec.submodule_search_locations)[0]
+    path = os.path.join(root, "srt", "mem_cache", "pool_host", "common.py")
+    if not os.path.isfile(path):
+        sys.exit(f"not found: {path}")
+    return path
+
+
+# Anchor on the import's TAIL, not its module path: upstream has already moved
+# alloc_mmap once (mem_cache.mmap_allocator -> mem_cache.storage.mmap) and the
+# path is not what this patch depends on.
+ALLOC_MMAP_IMPORT = re.compile(r"^from [\w.]+ import alloc_mmap$", re.M)
+
+OLD = """ALLOC_MEMORY_FUNCS = defaultdict(
+    lambda: alloc_with_host_register,
+    {
+        "npu": alloc_with_pin_memory,
+        "musa": alloc_with_pin_memory,
+    },
+)"""
+
+NEW = f"""# {MARKER}: WHY hipHostRegister's device address != the host VA, but these
+# pools pass host data_ptr()s to GPU kernels -> "Memory access fault". HOW use
+# hipHostMalloc, as "npu"/"musa". See infera patch_hicache_rocm_host_alloc.py.
+
+# A real literal, not a comment: `strings *.pyc` must prove this reached the
+# BYTECODE, and the compiler discards comments.
+{MARKER} = "applied"
+
+_ALLOC_MEMORY_FUNCS_OVERRIDES = {{
+    "npu": alloc_with_pin_memory,
+    "musa": alloc_with_pin_memory,
+}}
+if is_hip():
+    _ALLOC_MEMORY_FUNCS_OVERRIDES["cuda"] = alloc_with_pin_memory
+
+ALLOC_MEMORY_FUNCS = defaultdict(
+    lambda: alloc_with_pin_memory if is_hip() else alloc_with_host_register,
+    _ALLOC_MEMORY_FUNCS_OVERRIDES,
+)"""
+
+
+def main() -> int:
+    path = find_common_py()
+    src = open(path).read()
+
+    if MARKER in src:
+        print(f"[patch] already applied: {path}")
+        return 0
+
+    if OLD not in src:
+        print(
+            "[patch] ERROR: ALLOC_MEMORY_FUNCS block not found in the expected "
+            "shape. Refusing to guess -- inspect the file:"
+        )
+        print(f"        {path}")
+        for m in re.finditer(r"ALLOC_MEMORY_FUNCS.*", src):
+            print("        |", m.group(0))
+        return 1
+
+    # common.py does NOT import is_hip today (it only pulls in alloc_mmap), so
+    # the import has to be added alongside the dispatch change.
+    if "is_hip" not in src:
+        m = ALLOC_MMAP_IMPORT.search(src)
+        if not m:
+            print("[patch] ERROR: alloc_mmap import line not found; aborting.")
+            return 1
+        src = src.replace(
+            m.group(0),
+            f"{m.group(0)}\nfrom sglang.srt.utils import is_hip  # {MARKER}",
+            1,
+        )
+
+    open(path, "w").write(src.replace(OLD, NEW))
+    print(f"[patch] applied to {path}")
+
+    pyc = os.path.join(os.path.dirname(path), "__pycache__")
+    n = 0
+    if os.path.isdir(pyc):
+        for f in os.listdir(pyc):
+            if f.startswith("common."):
+                os.remove(os.path.join(pyc, f))
+                n += 1
+    print(f"[patch] removed {n} stale .pyc")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -17,10 +17,17 @@ use futures::StreamExt;
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::breaker::CircuitBreaker;
 use crate::policy::Policy;
 use crate::pool::{SharedPool, Snapshot, Worker};
 
-pub async fn run(base: String, prefix: String, pool: SharedPool, policy: Arc<dyn Policy>) {
+pub async fn run(
+    base: String,
+    prefix: String,
+    pool: SharedPool,
+    policy: Arc<dyn Policy>,
+    breaker: Arc<CircuitBreaker>,
+) {
     let prefix = if prefix.ends_with('/') {
         prefix
     } else {
@@ -28,7 +35,7 @@ pub async fn run(base: String, prefix: String, pool: SharedPool, policy: Arc<dyn
     };
     let mut backoff = 1u64;
     loop {
-        match discover_once(&base, &prefix, &pool, &policy).await {
+        match discover_once(&base, &prefix, &pool, &policy, &breaker).await {
             Ok(()) => backoff = 1,
             Err(e) => {
                 tracing::warn!("etcd discovery error: {e}; retry in {backoff}s");
@@ -64,6 +71,7 @@ async fn discover_once(
     prefix: &str,
     pool: &SharedPool,
     policy: &Arc<dyn Policy>,
+    breaker: &Arc<CircuitBreaker>,
 ) -> anyhow::Result<()> {
     let client = reqwest::Client::builder().build()?;
     let re = range_end(prefix);
@@ -95,7 +103,7 @@ async fn discover_once(
         workers.len(),
         prefix
     );
-    publish(pool, policy, &workers);
+    publish(pool, policy, breaker, &workers);
 
     // 2. watch for changes (long-lived NDJSON stream)
     let create = serde_json::json!({
@@ -121,7 +129,7 @@ async fn discover_once(
             }
             if let Ok(msg) = serde_json::from_slice::<Value>(line) {
                 if apply_watch(prefix, &msg, &mut workers) {
-                    publish(pool, policy, &workers);
+                    publish(pool, policy, breaker, &workers);
                 }
             }
         }
@@ -129,11 +137,20 @@ async fn discover_once(
     Ok(())
 }
 
-fn publish(pool: &SharedPool, policy: &Arc<dyn Policy>, workers: &HashMap<String, Arc<Worker>>) {
+fn publish(
+    pool: &SharedPool,
+    policy: &Arc<dyn Policy>,
+    breaker: &Arc<CircuitBreaker>,
+    workers: &HashMap<String, Arc<Worker>>,
+) {
     let all: Vec<Arc<Worker>> = workers.values().cloned().collect();
     // Let cost-aware policies reconcile per-worker state (kv-event subscriptions,
     // load bookkeeping) against the new fleet before we swap the snapshot in.
     policy.sync_workers(&all);
+    // Same reconcile for the breaker: a worker id is an address no rebuilt Pod
+    // reuses, so entries for departed workers would otherwise accumulate for
+    // the process lifetime, each pinning a Prometheus series.
+    breaker.retain_workers(&workers.keys().cloned().collect());
     pool.store(Arc::new(Snapshot::build(all)));
 }
 

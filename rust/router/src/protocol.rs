@@ -108,7 +108,10 @@ fn required_param<'a>(w: &'a Worker, key: &str) -> anyhow::Result<&'a str> {
 pub fn annotate_vllm_prefill(body: &mut Map<String, Value>, room: u64) {
     body.insert("max_tokens".into(), Value::from(1));
     body.insert("stream".into(), Value::from(false));
-    body.remove("stream_options");
+    // Not remove(): preserve_order redefines it as a swap, which would reorder
+    // the forwarded body. shift_remove is gated on that feature, so dropping it
+    // breaks the build rather than silently changing what we send.
+    body.shift_remove("stream_options");
     if body.contains_key("max_completion_tokens") {
         body.insert("max_completion_tokens".into(), Value::from(1));
     }
