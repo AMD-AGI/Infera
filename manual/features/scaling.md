@@ -425,12 +425,39 @@ path has not been exercised on hardware.
 
 ## Scaling a deployment
 
-Edit the service's `replicas` in the `InferaDeployment`. That is the only
-supported way in, and it is the only write that survives:
+Edit the service's `replicas` in the `InferaDeployment`. That is the write that
+counts — every supported path ends there:
 
 ```bash
 kubectl patch inferadeployment qwen --type=merge \
   -p '{"spec":{"services":{"decode":{"replicas":5}}}}'
+```
+
+Or over the server's admin API, for an orchestration layer that would otherwise
+need cluster credentials and knowledge of the CR's shape:
+
+```bash
+infera-server --enable-scaling-api   # off by default
+
+curl -X POST http://router:8000/v1/admin/scale \
+  -H 'Content-Type: application/json' \
+  -d '{"services": {"prefill": 4, "decode": 8}}'
+```
+
+Both pools move in one write, so a rebalance cannot half-apply. `GET` on the
+same path reports each pool's requested size alongside what the cluster has
+actually got, which is how a caller tells "not scaled" from "still scaling".
+
+The API refuses to take a pool to zero: an empty pool stops serving, and in a PD
+deployment an empty prefill or decode pool fails *every* request rather than
+only the ones that would have landed there. Retiring a pool is a `kubectl` edit,
+where the intent is unambiguous.
+
+```{note}
+The server finds the deployment to scale from its own Pod labels, so this needs
+a deployment the operator created, and the RBAC that ships with it. A cluster
+running an operator from before this feature has a server that cannot write:
+re-apply the operator manifests to get the grant.
 ```
 
 For a multi-node service the count is **groups**, not pods: `replicas: 5` with
@@ -452,15 +479,18 @@ snapping back.
 
 ## Autoscaling
 
-Infera ships no autoscaler, and there is currently no `/scale` surface for an
-external one to drive.
+Infera ships no autoscaler. `/v1/admin/scale` gives an external one somewhere to
+push a decision to, but it is an entry point rather than a control loop: nothing
+in Infera watches load and decides.
 
-An `InferaDeployment` cannot carry `/scale` itself, and that is a property of
-its shape rather than an omission: `spec.services` is a map with user-chosen
-keys, while the scale subresource requires `specReplicasPath` to be a *static*
-dot-notation JSONPath, and a CRD may declare only one. A single path could name
-one service — hardcoding `decode`, say — which leaves every other pool, and in
-a PD deployment specifically the prefill pool, with no handle at all.
+An `InferaDeployment` cannot carry a Kubernetes `/scale` subresource, and that
+is a property of its shape rather than an omission: `spec.services` is a map
+with user-chosen keys, while the scale subresource requires `specReplicasPath`
+to be a *static* dot-notation JSONPath, and a CRD may declare only one. A single
+path could name one service — hardcoding `decode`, say — which leaves every
+other pool, and in a PD deployment specifically the prefill pool, with no handle
+at all. The admin API sidesteps that by naming the service in the request
+instead of the path.
 
 Pointing an autoscaler at the generated workload does not work either, for the
 reason in the warning above: those objects are derived state and are rewritten

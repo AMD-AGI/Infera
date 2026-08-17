@@ -615,11 +615,30 @@ func buildDiscoveryRole(idep *inferav1alpha1.InferaDeployment) *rbacv1.Role {
 			Namespace: idep.Namespace,
 			Labels:    labelsFor(idep.Name, "disc"),
 		},
-		Rules: []rbacv1.PolicyRule{{
-			APIGroups: []string{""},
-			Resources: []string{"pods"},
-			Verbs:     []string{"get", "list", "watch", "patch"},
-		}},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{""},
+				Resources: []string{"pods"},
+				Verbs:     []string{"get", "list", "watch", "patch"},
+			},
+			{
+				// The server's scaling API writes replica counts back to the CR
+				// it belongs to. Named via ResourceNames so the grant reaches
+				// exactly this deployment: every Pod here shares one identity,
+				// so an unrestricted grant would also let any worker resize the
+				// fleet, and a worker has no business doing that.
+				//
+				// Present whether or not --enable-scaling-api is set. The flag
+				// lives on the server's command line and the operator does not
+				// parse it; a permission nothing exercises costs nothing, while
+				// discovering it is absent only after enabling the feature
+				// costs a redeploy.
+				APIGroups:     []string{inferav1alpha1.GroupVersion.Group},
+				Resources:     []string{"inferadeployments"},
+				ResourceNames: []string{idep.Name},
+				Verbs:         []string{"get", "patch"},
+			},
+		},
 	}
 }
 

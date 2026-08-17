@@ -22,6 +22,7 @@ from infera.router.kv_event.client import KvEventClient
 from infera.router.policy.target import expand_targets
 from infera.server import metrics
 from infera.server.profiling import fan_out_profile, select_targets
+from infera.server.scaling import DeploymentScaler, ScalingError
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,10 @@ _kvd_socket_path: str | None = None
 _enable_profiling: bool = False
 _profile_client: httpx.AsyncClient | None = None
 
+# Pool resizing. Off by default: it writes to the cluster, and /v1/admin carries
+# no authentication of its own, so it is opt-in the way profiling is.
+_scaler: DeploymentScaler | None = None
+
 
 def init_app(
     reg: Registry,
@@ -73,14 +78,16 @@ def init_app(
     kv: KvEventClient | None = None,
     kvd_socket_path: str | None = None,
     enable_profiling: bool = False,
+    scaler: DeploymentScaler | None = None,
 ) -> FastAPI:
     global registry, router, kv_client, _kvd_socket_path
-    global _enable_profiling
+    global _enable_profiling, _scaler
     registry = reg
     router = rtr
     kv_client = kv
     _kvd_socket_path = kvd_socket_path
     _enable_profiling = enable_profiling
+    _scaler = scaler
     return app
 
 
@@ -93,9 +100,10 @@ def _get_profile_client() -> httpx.AsyncClient:
 
 
 # ------------------------------------------------------------------
-# Read-only worker inspection
-# (Workers register themselves directly with etcd; the server is purely
-# a reader of that state, so there are no write endpoints here.)
+# Worker inspection
+# (Workers register themselves, so the registry is read-only here. The one
+# write in this file is /v1/admin/scale, which edits the InferaDeployment
+# rather than any registry state -- see infera.server.scaling.)
 # ------------------------------------------------------------------
 
 
@@ -171,6 +179,64 @@ async def profile_start(request: Request) -> dict:
 @app.post("/v1/admin/profile/stop")
 async def profile_stop(request: Request) -> dict:
     return await _profile_action("stop", request)
+
+
+# ------------------------------------------------------------------
+# Pool sizes
+# (Off unless --enable-scaling-api. Edits the InferaDeployment the operator
+# reconciles from; see infera.server.scaling for why not the workloads.)
+# ------------------------------------------------------------------
+
+
+def _require_scaler() -> DeploymentScaler:
+    if _scaler is None:
+        raise HTTPException(
+            status_code=403,
+            detail="scaling API disabled; start the server with --enable-scaling-api",
+        )
+    return _scaler
+
+
+@app.get("/v1/admin/scale")
+async def scale_get() -> dict:
+    """Each pool's requested and observed size."""
+    scaler = _require_scaler()
+    try:
+        return await scaler.snapshot()
+    except ScalingError as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
+
+
+@app.post("/v1/admin/scale")
+async def scale_set(request: Request) -> dict:
+    """Resize pools, all of the named ones or none.
+
+    Body: ``{"services": {"prefill": {"replicas": 4}, "decode": {"replicas": 8}}}``
+    Returns the snapshot after the write, so a caller sees both what it asked
+    for and how far the cluster has got.
+    """
+    scaler = _require_scaler()
+    try:
+        body = await request.json()
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="body must be JSON") from exc
+
+    services = (body or {}).get("services")
+    if not isinstance(services, dict):
+        raise HTTPException(
+            status_code=400,
+            detail='body must be {"services": {"<name>": {"replicas": N}}}',
+        )
+    requested: dict[str, object] = {}
+    for name, cfg in services.items():
+        # Accept the nested form the CR uses, so a caller can paste from one to
+        # the other, and the bare number for the common single-value case.
+        requested[name] = cfg.get("replicas") if isinstance(cfg, dict) else cfg
+
+    try:
+        return await scaler.scale(requested)
+    except ScalingError as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
 
 
 @app.get("/v1/workers")
