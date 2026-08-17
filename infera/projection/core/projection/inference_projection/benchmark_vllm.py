@@ -67,6 +67,7 @@ import hashlib
 import json
 import math
 import os
+import shlex
 import statistics
 import sys
 import time
@@ -409,6 +410,28 @@ def _enable_aiter() -> None:
     os.environ.setdefault("VLLM_ROCM_USE_AITER", "1")
 
 
+def _engine_kwargs_from_server_args(server_args: str) -> dict:
+    """Translate a server flag string (``--max-num-seqs 512 --enable-chunked-prefill``)
+    into ``LLM()`` kwargs using vLLM's own parser, so a flag means here exactly what
+    it means to a real server. Only flags that differ from the default are returned,
+    which keeps the rest of this module's defaults intact.
+    """
+    tokens = shlex.split(server_args or "")
+    if not tokens:
+        return {}
+    from vllm.engine.arg_utils import EngineArgs
+
+    try:
+        from vllm.utils import FlexibleArgumentParser
+    except ImportError:  # moved in vLLM 0.25
+        from vllm.utils.argparse_utils import FlexibleArgumentParser
+
+    parser = EngineArgs.add_cli_args(FlexibleArgumentParser())
+    defaults = vars(parser.parse_args([]))
+    given = vars(parser.parse_args(tokens))
+    return {k: v for k, v in given.items() if k != "model" and v != defaults.get(k)}
+
+
 def _full_num_layers(model: str, trust_remote_code: bool) -> int:
     """Best-effort full transformer layer count from the HF config (0 if unknown)."""
     try:
@@ -713,6 +736,11 @@ def run_vllm_benchmark(args) -> dict:
               f"{benchmark_gpus} GPU(s): TP {target_tp}->{bench_tp}, EP {target_ep}->{bench_ep}, "
               f"PP {target_pp}->{bench_pp} (performance.py restores to target)")
 
+    server_kwargs = _engine_kwargs_from_server_args(getattr(args, "server_args", ""))
+    if server_kwargs:
+        print(f"[inferasim:Inference:vLLM-Benchmark] server args -> engine kwargs: "
+              f"{json.dumps(server_kwargs, default=str)}")
+
     def _build_llm(num_layers_override):
         """Build a vLLM engine at the (possibly reduced) benchmark parallelism,
         optionally overriding the transformer layer count."""
@@ -772,6 +800,9 @@ def run_vllm_benchmark(args) -> dict:
         # deliberately NOT reduced — see the reduce-parallelism note above.
         if num_layers_override:
             kwargs["hf_overrides"] = {"num_hidden_layers": int(num_layers_override)}
+        # Applied last so a caller's server flags win over this module's defaults:
+        # screening a variant is only meaningful if its own flags are what ran.
+        kwargs.update(server_kwargs)
         return LLM(**kwargs)
 
     def _sweep(llm):
@@ -964,6 +995,13 @@ def run_vllm_benchmark(args) -> dict:
             "speculative_num_tokens": (spec_config or {}).get("num_speculative_tokens"),
             "speculative_draft_model": (spec_config or {}).get("model"),
             "use_aiter": os.environ.get("VLLM_ROCM_USE_AITER", "0") == "1",
+            # The lever set this run actually executed under. Without these an
+            # anchor cannot be told apart from one measured on different flags.
+            "server_args": getattr(args, "server_args", "") or None,
+            "env_overrides": dict(
+                kv.split("=", 1) for kv in getattr(args, "env", None) or []
+            ) or None,
+            "attention_backend": os.environ.get("VLLM_ATTENTION_BACKEND"),
             "load_format": args.load_format,
             "real_weights": real_weights,
             "random_tokens": random_tokens,
@@ -984,9 +1022,8 @@ def run_vllm_benchmark(args) -> dict:
     # re-deriving it (falls back silently if the shared module is unavailable).
     if _HAVE_REGIME:
         try:
-            env = {"VLLM_ROCM_USE_AITER": os.environ.get("VLLM_ROCM_USE_AITER", "0")}
             result["meta"]["regime_signature"] = _regime_signature(
-                _regime_recipe_from_bench_args(args, env)
+                _regime_recipe_from_bench_args(args, _regime_env())
             )
         except Exception:  # noqa: BLE001
             pass
@@ -1009,12 +1046,20 @@ _CACHE_EXTRA_ARGS = (
     "random_tokens", "vocab", "gpu_mem_util", "routing_dist", "zipf_s",
     "moe_imbalance", "load_format", "skip_tokenizer_init", "no_aiter",
     "max_model_len", "output_len", "seed", "seeds", "concurrency",
-    "decode_context_grid",
+    "decode_context_grid", "server_args", "env",
 )
 
 
+def _regime_env() -> dict:
+    """The env vars that define which kernels ran, for the regime signature."""
+    return {
+        "VLLM_ROCM_USE_AITER": os.environ.get("VLLM_ROCM_USE_AITER", "0"),
+        "VLLM_ATTENTION_BACKEND": os.environ.get("VLLM_ATTENTION_BACKEND"),
+    }
+
+
 def _cache_key(args) -> str:
-    env = {"VLLM_ROCM_USE_AITER": os.environ.get("VLLM_ROCM_USE_AITER", "0")}
+    env = _regime_env()
     if _HAVE_REGIME:
         recipe = _regime_recipe_from_bench_args(args, env)
         extra = {k: getattr(args, k, None) for k in _CACHE_EXTRA_ARGS}
@@ -1125,6 +1170,18 @@ def main():
                          "checkpoint (unused for 'deepseek_mtp')")
     ap.add_argument("--no-aiter", action="store_true",
                     help="disable AMD AITER kernels (default: enabled on ROCm)")
+    ap.add_argument("--server-args", default="",
+                    help="vLLM server flags to apply to the engine, as one string "
+                         "(e.g. '--max-num-seqs 512 --enable-chunked-prefill'). "
+                         "Parsed with vLLM's own parser and applied as LLM() "
+                         "kwargs, so a flag means what it means to a real server. "
+                         "This is what lets a reduced-scale run screen a serving "
+                         "variant: the variant's own flags are what execute.")
+    ap.add_argument("--env", action="append", default=[], metavar="K=V",
+                    help="environment override applied before vLLM is imported "
+                         "(repeatable), e.g. --env VLLM_ROCM_USE_AITER=0. Needed "
+                         "for levers vLLM reads from the environment rather than "
+                         "from a flag.")
     ap.add_argument("--routing-dist", default="zipf",
                     choices=["zipf", "uniform", "normal", "none"],
                     help="MoE token->expert distribution for the benchmark "
@@ -1148,6 +1205,12 @@ def main():
     ap.add_argument("--force", action="store_true",
                     help="Re-run and OVERWRITE the cached result for this config.")
     args = ap.parse_args()
+    # Before anything imports vLLM: several ROCm levers are read once at import.
+    # Sorted so the same lever set always produces the same cache key.
+    args.env = sorted(args.env)
+    for item in args.env:
+        key, _, value = item.partition("=")
+        os.environ[key] = value
 
     cache_dir = args.cache_dir
     key = _cache_key(args) if cache_dir else None
