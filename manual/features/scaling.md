@@ -416,28 +416,19 @@ continuous traffic: **200 requests, 0 failures**, both pools scaling
 independently and the drained workers finishing their in-flight work. Taking the
 last prefill away then returns 503 naming the empty pool.
 
-**Scaling over the API, measured.** A PD deployment at 1 prefill / 2 decode
-resized to 3 / 4 by one `POST /v1/admin/scale`. The CR carried both new counts
-immediately and the Pods reached them **within 35 s**, an operator resync apart.
-Reading back during that window distinguished the two: `replicas` already 3 and
-4 while `current_replicas` still read 1 and 2, which is what tells "not scaled"
-from "still scaling".
+**Scaling over the API.** A PD deployment at 1 prefill / 2 decode resized to
+3 / 4 by one `POST /v1/admin/scale`: the CR carried both new counts immediately
+and the Pods reached them **within 35 s**. During that window the read reported
+`replicas` 3 and 4 against `current_replicas` 1 and 2.
 
-**And with a real engine.** One vLLM worker (Qwen3-8B, one MI300X) scaled to two
-over the API, then back. The added worker loaded weights, registered, and
-**served 4 of the 8 requests** sent after it joined — the count that matters,
-since a Pod that exists is not the same as a worker that answers. Scaling back
-down left the survivor serving normally.
+**Scaling over the API, real engine.** One vLLM worker (Qwen3-8B, one MI300X)
+scaled to two and back. The added worker loaded weights, registered, and
+**served 4 of the 8 requests** issued after it joined; the remaining worker
+served normally after the scale-down.
 
-Refusals were checked against the cluster rather than only in unit tests, since
-what matters is that a rejected request leaves nothing behind: scaling a pool to
-zero, naming a service that does not exist, and a negative count were each
-refused with the CR unchanged. A server started without `--enable-scaling-api`
-answered 403.
-
-The RBAC the operator generates was read back from the cluster: `get` and
-`patch` on `inferadeployments`, restricted by `resourceNames` to the one
-deployment, alongside the unchanged Pod grant.
+A pool scaled to zero, an unknown service name and a negative count are each
+refused with the CR unchanged, and a server without `--enable-scaling-api`
+answers 403.
 
 ```{warning}
 **Not measured:** multi-node workers, TP > 1, PD scaling with a *real* engine
@@ -445,11 +436,9 @@ deployment, alongside the unchanged Pod grant.
 an active KV transfer. The PD handoff queues are counted in the drain, but that
 path has not been exercised on hardware.
 
-The API was measured both ways: with stand-ins for the PD run, since the path
-from request to Pod count does not involve inference, and with a real engine for
-the single-pool run, which is where "the added worker serves" was checked. What
-neither shows is a *scaled-down* worker draining real work — that is the drain
-measurement above.
+The PD API run used stand-ins; the real-engine API run was a single mixed pool.
+Neither covers a scale-down draining real work — that is the drain measurement
+above.
 ```
 
 ## Scaling a deployment
