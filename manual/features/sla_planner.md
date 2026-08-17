@@ -281,6 +281,8 @@ a no-op.
 
 ## See also
 
+- [Scaling a fleet](scaling.md) — what actually happens when a replica count
+  changes, and how long each direction takes.
 - [Prefill-decode disaggregation](pd_disaggregation.md) — the deployment shape
   the planner resizes.
 - [KV-aware routing](kv_aware_routing.md) — why the prefill correction factor
