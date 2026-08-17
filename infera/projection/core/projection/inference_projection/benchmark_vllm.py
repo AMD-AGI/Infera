@@ -413,8 +413,13 @@ def _enable_aiter() -> None:
 def _engine_kwargs_from_server_args(server_args: str) -> dict:
     """Translate a server flag string (``--max-num-seqs 512 --enable-chunked-prefill``)
     into ``LLM()`` kwargs using vLLM's own parser, so a flag means here exactly what
-    it means to a real server. Only flags that differ from the default are returned,
-    which keeps the rest of this module's defaults intact.
+    it means to a real server.
+
+    Returned are the flags the caller actually NAMED, plus any whose parsed value
+    differs from vLLM's default. Naming has to count on its own: this module
+    overrides some of vLLM's defaults for its own reasons (prefix caching, for
+    one), and a caller asking for vLLM's default back would otherwise be dropped
+    for agreeing with it.
     """
     tokens = shlex.split(server_args or "")
     if not tokens:
@@ -427,9 +432,18 @@ def _engine_kwargs_from_server_args(server_args: str) -> dict:
         from vllm.utils.argparse_utils import FlexibleArgumentParser
 
     parser = EngineArgs.add_cli_args(FlexibleArgumentParser())
+    named = {
+        action.dest
+        for action in parser._actions
+        for opt in action.option_strings
+        if any(tok == opt or tok.startswith(opt + "=") for tok in tokens)
+    }
     defaults = vars(parser.parse_args([]))
     given = vars(parser.parse_args(tokens))
-    return {k: v for k, v in given.items() if k != "model" and v != defaults.get(k)}
+    return {
+        k: v for k, v in given.items()
+        if k != "model" and (k in named or v != defaults.get(k))
+    }
 
 
 def _server_arg_value(server_args: str, flag: str):
