@@ -443,6 +443,9 @@ above.
 
 ## Scaling a deployment
 
+This section is about deployments the operator manages. Elsewhere — external
+etcd, no CR — scaling is starting and stopping worker processes, as above.
+
 Edit the service's `replicas` in the `InferaDeployment`. That is the write that
 counts — every supported path ends there:
 
@@ -472,10 +475,16 @@ only the ones that would have landed there. Retiring a pool is a `kubectl` edit,
 where the intent is unambiguous.
 
 ```{note}
-The server finds the deployment to scale from its own Pod labels, so this needs
-a deployment the operator created, and the RBAC that ships with it. A cluster
-running an operator from before this feature has a server that cannot write:
-re-apply the operator manifests to get the grant.
+Both paths write the `InferaDeployment`, so both need one. Deployments outside
+Kubernetes — the external-etcd shape described in [Across
+machines](#across-machines) — have no CR and no operator to reconcile it, and
+scale there by starting and stopping worker processes, as
+[Scaling up](#scaling-up) and [Scaling down](#scaling-down) describe. The API
+answers 409 on a server that was not created by the operator.
+
+Where there is an operator, the API also needs the RBAC that ships with it. A
+cluster running an operator from before this feature has a server that cannot
+write; re-apply the operator manifests to get the grant.
 ```
 
 For a multi-node service the count is **groups**, not pods: `replicas: 5` with
