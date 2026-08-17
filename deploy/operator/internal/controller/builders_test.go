@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+
+	inferav1alpha1 "github.com/amd/infera/deploy/operator/api/v1alpha1"
 )
 
 // The grace period is the only thing standing between a graceful drain and a
@@ -246,5 +248,70 @@ func TestDrainTimeoutStillAcceptsOrdinaryValues(t *testing.T) {
 		if !ok || got != c.want {
 			t.Errorf("drainSeconds(%q) = %d,%v; want %d,true", c.in, got, ok, c.want)
 		}
+	}
+}
+
+// Pod identity is what k8s discovery is built on: a worker patches its own Pod
+// annotation to register, and the server reads its own labels to find the
+// deployment it belongs to. Both need POD_NAME, which the operator injects --
+// on the path that renders the pod itself. A template supplied through
+// extraPodSpec took a different path and got the watch selector but not the
+// identity, so registration and the scaling API both failed on exactly the
+// deployments the PD example tells people to write.
+func TestExtraPodSpecStillGetsPodIdentity(t *testing.T) {
+	for _, ct := range []inferav1alpha1.ComponentType{
+		inferav1alpha1.ComponentTypeServer,
+		inferav1alpha1.ComponentTypeWorker,
+	} {
+		idep := idepWith(1)
+		idep.Spec.DiscoveryBackend = "kubernetes"
+		svc := inferav1alpha1.ServiceSpec{
+			ComponentType: ct,
+			ExtraPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: "main", Image: "x"}},
+			},
+		}
+		tmpl := podTemplateFromExtra(idep, "svc", svc)
+		got := map[string]bool{}
+		for _, e := range tmpl.Spec.Containers[0].Env {
+			got[e.Name] = true
+		}
+		for _, want := range []string{"POD_NAME", "POD_NAMESPACE"} {
+			if !got[want] {
+				t.Errorf("%s: extraPodSpec container has no %s; "+
+					"self-registration and the scaling API both need it", ct, want)
+			}
+		}
+	}
+}
+
+// A template that sets these itself keeps its own values: a duplicate env name
+// is not an error, the last one wins, and appending ours would silently
+// override whatever the author had in mind.
+func TestExtraPodSpecKeepsItsOwnPodIdentity(t *testing.T) {
+	idep := idepWith(1)
+	idep.Spec.DiscoveryBackend = "kubernetes"
+	svc := inferav1alpha1.ServiceSpec{
+		ComponentType: inferav1alpha1.ComponentTypeWorker,
+		ExtraPodSpec: &corev1.PodSpec{Containers: []corev1.Container{{
+			Name:  "main",
+			Image: "x",
+			Env:   []corev1.EnvVar{{Name: "POD_NAME", Value: "chosen-by-the-author"}},
+		}}},
+	}
+	tmpl := podTemplateFromExtra(idep, "svc", svc)
+
+	seen := 0
+	for _, e := range tmpl.Spec.Containers[0].Env {
+		if e.Name != "POD_NAME" {
+			continue
+		}
+		seen++
+		if e.Value != "chosen-by-the-author" {
+			t.Errorf("POD_NAME = %q, want the template's own value", e.Value)
+		}
+	}
+	if seen != 1 {
+		t.Errorf("POD_NAME appears %d times, want 1", seen)
 	}
 }

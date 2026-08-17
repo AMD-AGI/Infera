@@ -424,6 +424,24 @@ func injectWorkerRolloutDefaults(
 // exposes the service port (so buildServerService has a target). Used when
 // ServiceSpec.ExtraPodSpec is set (an external orchestrator renders the full
 // pod template).
+// appendEnvIfAbsent adds each variable the container does not already declare.
+//
+// A template supplied by an external orchestrator may well set these itself,
+// and a duplicate name in a container's env is not an error -- the last one
+// wins, silently overriding what the author wrote.
+func appendEnvIfAbsent(env []corev1.EnvVar, add ...corev1.EnvVar) []corev1.EnvVar {
+	present := make(map[string]bool, len(env))
+	for _, e := range env {
+		present[e.Name] = true
+	}
+	for _, e := range add {
+		if !present[e.Name] {
+			env = append(env, e)
+		}
+	}
+	return env
+}
+
 func podTemplateFromExtra(idep *inferav1alpha1.InferaDeployment, svcName string, svc inferav1alpha1.ServiceSpec) corev1.PodTemplateSpec {
 	spec := *svc.ExtraPodSpec.DeepCopy()
 	port := servicePort(svc)
@@ -448,11 +466,27 @@ func podTemplateFromExtra(idep *inferav1alpha1.InferaDeployment, svcName string,
 			spec.Containers[idx].Ports = append(spec.Containers[idx].Ports,
 				corev1.ContainerPort{ContainerPort: port})
 		}
-		// k8s discovery: the server reads its watch scope from an env var so we
-		// don't have to rewrite the externally-supplied entrypoint command.
-		if useK8sDiscovery(idep) && svc.ComponentType == inferav1alpha1.ComponentTypeServer {
-			spec.Containers[idx].Env = append(spec.Containers[idx].Env, corev1.EnvVar{
-				Name: "INFERA_K8S_LABEL_SELECTOR", Value: discoveryLabelSelector(idep.Name)})
+		if useK8sDiscovery(idep) {
+			// Pod identity, for both component types: a worker registers by
+			// patching its own Pod annotation, and the server finds the
+			// deployment it belongs to from its own Pod labels. Rendering the
+			// template elsewhere does not change that either needs to know
+			// which Pod it is.
+			spec.Containers[idx].Env = appendEnvIfAbsent(spec.Containers[idx].Env,
+				corev1.EnvVar{Name: "POD_NAME", ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}}},
+				corev1.EnvVar{Name: "POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"}}},
+			)
+			// The server reads its watch scope from an env var so we don't have
+			// to rewrite the externally-supplied entrypoint command.
+			if svc.ComponentType == inferav1alpha1.ComponentTypeServer {
+				spec.Containers[idx].Env = appendEnvIfAbsent(spec.Containers[idx].Env,
+					corev1.EnvVar{
+						Name:  "INFERA_K8S_LABEL_SELECTOR",
+						Value: discoveryLabelSelector(idep.Name),
+					})
+			}
 		}
 	}
 	// Bind the discovery ServiceAccount (workers patch their own Pod; the
