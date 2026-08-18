@@ -52,12 +52,22 @@ REGIME_AXES = (
     "attention_backend",
     "cudagraph",
     "aiter",
+    "aiter_ops",
     "speculative",
 )
 
 # Canonical value of the ``speculative`` axis when speculation is off. Distinct
 # from ``None``, which means "this artifact predates speculative tracking".
 SPECULATIVE_OFF = "off"
+
+# Canonical value of the ``aiter_ops`` axis when no per-op override is set.
+# Distinct from ``None``, which means "this artifact predates the tracking".
+AITER_OPS_DEFAULT = "default"
+
+# ``VLLM_ROCM_USE_AITER`` is the master switch; each kernel family is gated
+# behind its own ``VLLM_ROCM_USE_AITER_<OP>``. The trailing underscore keeps the
+# master switch itself out of the per-op axis, where ``aiter`` already carries it.
+_AITER_OP_PREFIX = "VLLM_ROCM_USE_AITER_"
 
 # Transportable axes: reconstructed analytically from an anchor in the same
 # regime (the projector's restore + interpolation already implement these).
@@ -171,6 +181,17 @@ def regime_distance(
             if other and _canon(other) != SPECULATIVE_OFF:
                 d += 1
             continue
+        if k == "aiter_ops" and missing:
+            # Asymmetric for the same reason as ``speculative``. An artifact
+            # with no recorded per-op state predates the tracking, and those
+            # runs were measured on the default kernel set -- so unknown may
+            # match a target that is also on defaults. It may not match one that
+            # overrides an op: that anchor was taken on different kernels, and
+            # reusing it returns a confident number for a stack never run.
+            other = bv if (av is None or av == "") else av
+            if other and _canon(other) != AITER_OPS_DEFAULT:
+                d += 1
+            continue
         if ignore_missing and missing:
             continue
         if _canon(av) != _canon(bv):
@@ -199,6 +220,31 @@ def speculative_axis(
     if not m or m in ("none", "off", "0", "false"):
         return SPECULATIVE_OFF
     return f"spec:{int(num_tokens)}" if num_tokens else "spec"
+
+
+def aiter_ops_axis(env: Optional[Dict[str, str]]) -> Optional[str]:
+    """Canonical ``aiter_ops`` value: ``None``, ``"default"`` or ``"op=v,..."``.
+
+    A recipe can turn off one AITER kernel family while the master switch stays
+    on, so the ``aiter`` boolean alone does not identify which kernels ran: every
+    such recipe hashes equal to base, and an anchor measured on one is handed
+    back for the other.
+
+    Every ``VLLM_ROCM_USE_AITER_*`` variable present is folded in, rather than a
+    fixed list, so a switch vLLM adds later is tracked without a change here.
+
+    ``None`` propagates as "unknown" (no environment was recorded); an
+    environment with no per-op override canonicalizes to
+    :data:`AITER_OPS_DEFAULT`.
+    """
+    if env is None:
+        return None
+    ops = sorted(
+        (k[len(_AITER_OP_PREFIX):].lower(), _canon(v))
+        for k, v in env.items()
+        if str(k).upper().startswith(_AITER_OP_PREFIX)
+    )
+    return ",".join(f"{op}={val}" for op, val in ops) if ops else AITER_OPS_DEFAULT
 
 
 # --------------------------------------------------------------------------
@@ -231,6 +277,8 @@ def recipe_from_meta(meta: Dict[str, Any], *, model: Optional[str] = None) -> Di
         "attention_backend": meta.get("attention_backend"),
         "cudagraph": "eager" if meta.get("enforce_eager") else "graph",
         "aiter": bool(meta.get("use_aiter")),
+        # Absent key => unknown (pre-tracking artifact), not "default".
+        "aiter_ops": meta.get("aiter_ops"),
         # Absent key => unknown (pre-tracking artifact), not "off".
         "speculative": (
             speculative_axis(
@@ -272,6 +320,7 @@ def recipe_from_bench_args(args: Any, env: Optional[Dict[str, str]] = None) -> D
         ),
         "cudagraph": "eager" if getattr(args, "enforce_eager", False) else "graph",
         "aiter": aiter_on,
+        "aiter_ops": aiter_ops_axis(env),
         "speculative": speculative_axis(
             getattr(args, "speculative_method", None) or "",
             getattr(args, "speculative_num_tokens", None),
@@ -309,7 +358,9 @@ def recipe_from_inference_config(cfg: Any) -> Dict[str, Any]:
         "moe_expert_dtype": g(req, "moe_expert_dtype"),
         "attention_backend": g(req, "attention_backend"),
         "cudagraph": _cudagraph_from_mode(g(req, "cudagraph_mode")),
-        "aiter": None,  # not represented on the config side; ignored in distance
+        # Neither is represented on the config side; both are ignored in distance.
+        "aiter": None,
+        "aiter_ops": None,
         "speculative": speculative_axis(
             "spec" if g(req, "speculative_num_tokens") else "",
             g(req, "speculative_num_tokens"),

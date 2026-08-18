@@ -16,6 +16,7 @@ from __future__ import annotations
 import pytest
 
 from infera.projection.core.projection.inference_projection.search.regime import (
+    aiter_ops_axis,
     recipe_from_meta,
     regime_distance,
 )
@@ -52,6 +53,60 @@ def test_different_dtypes_are_still_different_regimes():
     a = recipe_from_meta({"model": "m", "weight_dtype": "mxfp4"})
     b = recipe_from_meta({"model": "m", "weight_dtype": "fp8"})
     assert regime_distance(a, b) >= 1
+
+
+def test_turning_off_one_aiter_kernel_is_a_different_regime():
+    """The master switch alone does not say which kernels ran.
+
+    A recipe can leave ``VLLM_ROCM_USE_AITER=1`` on and still turn off a single
+    kernel family, so keying on the master switch made every such recipe hash
+    equal to base -- and an anchor measured on base was handed back for a
+    deployment that never runs those kernels.
+    """
+    on = {"VLLM_ROCM_USE_AITER": "1"}
+    mha_off = dict(on, VLLM_ROCM_USE_AITER_MHA="0")
+    assert aiter_ops_axis(on) == "default"
+    assert aiter_ops_axis(mha_off) == "mha=0"
+
+    base = recipe_from_meta({"model": "m", "aiter_ops": aiter_ops_axis(on)})
+    swapped = recipe_from_meta({"model": "m", "aiter_ops": aiter_ops_axis(mha_off)})
+    assert regime_distance(base, swapped) >= 1
+
+
+def test_two_different_kernel_swaps_do_not_share_an_anchor():
+    """Turning off MHA and turning off MoE are not the same measurement."""
+    env = {"VLLM_ROCM_USE_AITER": "1"}
+    a = recipe_from_meta({"model": "m",
+                          "aiter_ops": aiter_ops_axis(dict(env, VLLM_ROCM_USE_AITER_MHA="0"))})
+    b = recipe_from_meta({"model": "m",
+                          "aiter_ops": aiter_ops_axis(dict(env, VLLM_ROCM_USE_AITER_MOE="0"))})
+    assert regime_distance(a, b) >= 1
+
+
+def test_a_switch_added_later_is_tracked_without_a_code_change():
+    """Every ``VLLM_ROCM_USE_AITER_*`` var is folded in, not a fixed list."""
+    invented = {"VLLM_ROCM_USE_AITER": "1", "VLLM_ROCM_USE_AITER_SOMETHING_NEW": "0"}
+    assert aiter_ops_axis(invented) == "something_new=0"
+
+
+def test_an_unrecorded_op_set_matches_defaults_but_not_a_swap():
+    """Unknown is not the same as "no overrides".
+
+    Artifacts predating this tracking ran on the default kernel set, so unknown
+    may serve a target that is also on defaults. It may not serve one that swaps
+    a kernel: that would be the original bug, reintroduced through the old
+    artifacts.
+    """
+    old = recipe_from_meta({"model": "m"})
+    assert old["aiter_ops"] is None
+
+    env = {"VLLM_ROCM_USE_AITER": "1"}
+    defaults = recipe_from_meta({"model": "m", "aiter_ops": aiter_ops_axis(env)})
+    swapped = recipe_from_meta(
+        {"model": "m", "aiter_ops": aiter_ops_axis(dict(env, VLLM_ROCM_USE_AITER_MOE="0"))}
+    )
+    assert regime_distance(old, defaults) == 0
+    assert regime_distance(old, swapped) >= 1
 
 
 class _FakeStore:

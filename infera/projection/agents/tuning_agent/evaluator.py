@@ -689,57 +689,6 @@ def _run(cmd: list[str], cwd: Path, env: dict, timeout: int) -> tuple[int, str, 
         )
 
 
-def _ladder_anchor_from_cache(
-    model_name: str, is_moe: bool, tp: int, pp: int, ep: int, cache: Path
-) -> Path | None:
-    """Pick the cheapest in-regime cached anchor for a target via the ladder.
-
-    Scans *all* cached benchmark artifacts for ``model_name`` (not just tp1/tp2),
-    keeps those in the target's sharding family and at/below the target GPU count
-    (``tp*pp``; EP overlaps the TP GPU set), and asks
-    :func:`inference_projection.regime.confidence_ladder` for the anchor to
-    restore from. Returns that anchor's path, or ``None`` if none are cached.
-
-    Family rule: the single-GPU ``tp1_pp1_ep1`` base is always eligible; above it
-    an EP-sharded target (``ep>1``) draws only EP-sharded rungs and a pure-TP
-    target (``ep==1``) draws only pure-TP rungs, so the per-GPU relief the ladder
-    measures compares like with like.
-    """
-    try:
-        from infera.projection.core.projection.inference_projection.regime import confidence_ladder
-    except Exception:
-        return None
-    import json as _json
-
-    target_gpus = tp * pp
-    want_ep_sharded = bool(is_moe) and ep > 1
-    rungs: dict[int, Path] = {}
-    for path in sorted(cache.glob(f"{model_name}_tp*_pp*_ep*.json")):
-        try:
-            meta = (_json.load(open(path)) or {}).get("meta", {}) or {}
-        except Exception:
-            continue
-        a_tp = int(meta.get("tp", 1) or 1)
-        a_pp = int(meta.get("pp", 1) or 1)
-        a_ep = int(meta.get("ep", 1) or 1)
-        g = a_tp * a_pp
-        if g > target_gpus:
-            continue
-        if g == 1:
-            eligible = True
-        elif want_ep_sharded:
-            eligible = a_ep > 1
-        else:
-            eligible = a_ep == 1
-        if eligible:
-            rungs.setdefault(g, path)
-    if not rungs:
-        return None
-    verdict = confidence_ladder(target_gpus, {g: str(p) for g, p in rungs.items()})
-    chosen = verdict.get("anchor")
-    return Path(chosen) if chosen else None
-
-
 # ---------------------------------------------------------------------------
 # Public evaluator class
 # ---------------------------------------------------------------------------
@@ -823,39 +772,37 @@ class Evaluator:
         cand = Path(cache) / f"{self.arch.model_name}_tp{cfg.tp}_pp{cfg.pp}_ep{ep}.json"
         if cand.exists():
             return cand
-        # No exact-parallelism artifact: fall back to a regime-appropriate base
-        # anchor and let the projector restore. For a sharded target, escalate to
-        # a 2-GPU in-regime anchor when the model shows super-linear sharding
-        # relief (heavy single-GPU overhead a 1-GPU restore can't extrapolate);
-        # otherwise the 1-GPU anchor suffices. See inference_projection.regime.
+        # No exact-parallelism artifact: fall back to a base anchor and let the
+        # projector restore.
         return self._select_regime_base_anchor(cfg, Path(cache), ep)
 
     def _select_regime_base_anchor(self, cfg, cache: Path, ep: int) -> Path | None:
-        is_moe = bool(getattr(self.arch, "is_moe", False))
-        # Full confidence ladder over EVERY cached rung (tp1..tpN): climb to the
-        # closest in-regime anchor rather than stopping at the tp1/tp2 pair.
-        chosen = _ladder_anchor_from_cache(
-            self.arch.model_name, is_moe, cfg.tp, cfg.pp, cfg.ep, cache
-        )
-        if chosen is not None:
-            return chosen
-        # Backward-compatible fallback: original tp1 (+ optional tp2) 2-rung pick.
-        from infera.projection.core.projection.inference_projection.regime import select_anchor
+        """The cached anchor closest to the target from below.
 
-        m = self.arch.model_name
-        a1 = cache / f"{m}_tp1_pp1_ep1.json"
-        if not a1.exists():
-            return None
-        a2 = next(
-            (cache / n for n in (f"{m}_tp2_pp1_ep2.json", f"{m}_tp2_pp1_ep1.json")
-             if (cache / n).exists()),
-            None,
-        )
-        target_gpus = cfg.tp * cfg.pp * (ep if is_moe else 1)
-        chosen, _in_regime, _reason = select_anchor(
-            target_gpus, str(a1), str(a2) if a2 else None
-        )
-        return Path(chosen)
+        Anchors are measured at ``min(tp, 4)`` and everything above is projected,
+        so there is no ladder to climb -- the nearest rung is the anchor. Family
+        rule: the single-GPU base is always eligible; above it an EP-sharded
+        target draws only EP-sharded rungs and a pure-TP target only pure-TP
+        ones, so the restore compares like with like.
+        """
+        import json as _json
+
+        want_ep_sharded = bool(getattr(self.arch, "is_moe", False)) and cfg.ep > 1
+        target_gpus = cfg.tp * cfg.pp
+        best: tuple[int, Path] | None = None
+        for path in sorted(cache.glob(f"{self.arch.model_name}_tp*_pp*_ep*.json")):
+            try:
+                meta = (_json.load(open(path)) or {}).get("meta", {}) or {}
+            except Exception:
+                continue
+            gpus = int(meta.get("tp", 1) or 1) * int(meta.get("pp", 1) or 1)
+            if gpus > target_gpus:
+                continue
+            if gpus > 1 and (int(meta.get("ep", 1) or 1) > 1) != want_ep_sharded:
+                continue
+            if best is None or gpus > best[0]:
+                best = (gpus, path)
+        return best[1] if best else None
 
     def _resolve_decode_floor(self, cfg) -> Path | None:
         """Decode latency floor probe for an EP-sharded MoE target.

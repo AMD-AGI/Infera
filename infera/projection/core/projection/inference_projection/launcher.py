@@ -299,18 +299,19 @@ def _scaling_bench_paths(args) -> list:
 
 
 def _emit_restore_confidence(anchor_paths, target_gpus: int) -> None:
-    """Advisory: is the target being restored from an in-regime anchor?
+    """Advisory: how far past its anchor is this target being extrapolated?
 
-    Runs the confidence ladder over the GPU counts of the loaded anchors and
-    prints whether the restore is trustworthy or the run should benchmark at a
-    higher GPU count first. Best-effort — never raises into the projection.
+    Anchors are measured at ``min(tp, 4)`` and everything above is projected, so
+    the only question left is reach: a flat anchor carries one doubling, and a
+    target beyond that is extrapolated rather than restored. Climbing to another
+    rung is not the fix -- scored against the measured ladder, a second anchor
+    tied or lost against a single four-GPU anchor on every target.
+    Best-effort — never raises into the projection.
     """
     try:
         import json as _json
 
-        from .regime import confidence_ladder
-
-        anchors_by_gpu = {}
+        gpus = []
         for p in anchor_paths:
             if not p:
                 continue
@@ -318,24 +319,22 @@ def _emit_restore_confidence(anchor_paths, target_gpus: int) -> None:
                 meta = (_json.load(open(p)) or {}).get("meta", {})
             except Exception:
                 continue
-            gpus = int(meta.get("tp", 1) or 1) * int(meta.get("pp", 1) or 1)
-            anchors_by_gpu.setdefault(gpus, p)  # keep first path per GPU count
-        if not anchors_by_gpu or target_gpus <= 1:
+            gpus.append(int(meta.get("tp", 1) or 1) * int(meta.get("pp", 1) or 1))
+        if not gpus or target_gpus <= 1:
             return
-        v = confidence_ladder(target_gpus, anchors_by_gpu)
-        rungs = ",".join(str(g) for g in sorted(anchors_by_gpu))
+        best = max(gpus)
+        rungs = ",".join(str(g) for g in sorted(set(gpus)))
         cap_on = os.getenv("INFERASIM_DECODE_ETP_CAP", "0").strip().lower() in ("1", "true", "yes")
-        if v["confidence"] == "high":
-            # In-regime anchor: the raw origami restore is trustworthy. The ETP
-            # cap is unnecessary here and would over-correct a near-target anchor.
-            note = " (ETP cap is ON — consider INFERASIM_DECODE_ETP_CAP=0; it can over-correct an in-regime anchor)" if cap_on else ""
+        if best * 2 >= target_gpus:
+            # The raw origami restore is trustworthy here, and the ETP cap would
+            # over-correct an anchor this close to the target.
+            note = (" (ETP cap is ON — consider INFERASIM_DECODE_ETP_CAP=0; it can "
+                    "over-correct a near-target anchor)") if cap_on else ""
             print(
                 f"[inferasim:Inference] restore confidence: HIGH — target {target_gpus} GPUs "
-                f"from in-regime {v['gpus']}-GPU anchor (rungs measured: {rungs}). {v['reason']}.{note}"
+                f"is within one doubling of the {best}-GPU anchor (anchors: {rungs}).{note}"
             )
         else:
-            # Out-of-regime: with the cap OFF this restore is NOT trustworthy. The
-            # honest fix is to climb, not to mask it with the cap.
             stopgap = (
                 " The ETP cap is currently masking this with a blunt, "
                 "model-dependent correction; prefer reporting the extrapolation "
@@ -343,21 +342,10 @@ def _emit_restore_confidence(anchor_paths, target_gpus: int) -> None:
                 if cap_on else
                 " (ETP cap OFF: expect the raw decode over-projection.)"
             )
-            # This used to tell the operator to benchmark another rung and climb
-            # until the restore converged. It no longer does: scored against the
-            # measured ladder, a second rung beat the best single rung in none of
-            # four targets, so the advice was spending GPUs to buy nothing. The
-            # number is still worth flagging as an extrapolation -- it just is
-            # not worth another run.
-            advice = (
-                "Treat the number as extrapolated, not measured. Climbing to "
-                "another rung does not reliably fix this: a second anchor tied "
-                "or lost against a single four-GPU anchor on every target we "
-                "scored."
-            )
             print(
-                f"[inferasim:Inference] restore confidence: LOW — {v['reason']} "
-                f"(rungs measured: {rungs}). {advice}{stopgap}"
+                f"[inferasim:Inference] restore confidence: LOW — target {target_gpus} GPUs is "
+                f"more than one doubling above the {best}-GPU anchor (anchors: {rungs}). "
+                f"Treat the number as extrapolated, not measured.{stopgap}"
             )
     except Exception:
         pass

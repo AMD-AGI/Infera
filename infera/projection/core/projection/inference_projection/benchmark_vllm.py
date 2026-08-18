@@ -79,6 +79,7 @@ import time
 try:  # pragma: no cover - import shim for in-container script execution
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from search.regime import (  # type: ignore
+        aiter_ops_axis as _regime_aiter_ops,
         config_key as _regime_config_key,
         recipe_from_bench_args as _regime_recipe_from_bench_args,
         regime_signature as _regime_signature,
@@ -191,12 +192,12 @@ WARMUP_GPU_CAP = 4
 
 
 def warmup_gpu_count(target_tp, target_ep=1, target_pp=1):
-    """How many GPUs a warmup needs: the config's own footprint, capped at four.
+    """How many GPUs a warmup needs: ``min(tp, 4)``, stepped down to divide ``tp``.
 
-    A config spanning ``tp * ep`` GPUs is measured on that many when it fits in
-    four, and on four when it does not. Everything larger is projected from
-    there rather than measured, which is what keeps a warmup to one short run
-    instead of a ladder over every parallelism a search might ask about.
+    ``target_ep`` and ``target_pp`` are accepted and ignored. Neither widens a
+    warmup: in vLLM expert parallelism shards experts across the TP group rather
+    than adding GPUs, and a pipeline stage is measured one stage at a time. So
+    the target's warmup footprint is its TP degree, capped at four.
 
     Four is not an arbitrary cap. Scoring each rung of the measured TP ladder as
     an anchor for the degrees it did *not* measure, a four-GPU anchor was the
@@ -206,15 +207,9 @@ def warmup_gpu_count(target_tp, target_ep=1, target_pp=1):
     on a full one.
     """
     tp = max(1, int(target_tp or 1))
-    pp = max(1, int(target_pp or 1))
-    ep = max(1, int(target_ep or 1))
-    gpus = min(tp * ep, WARMUP_GPU_CAP)
-    # Never ask for more GPUs than the target itself occupies. In vLLM expert
-    # parallelism is not an independent GPU axis (EP follows TP), so a TP=2 EP=2
-    # target really runs on two GPUs and a four-GPU warmup for it does not exist.
-    gpus = min(gpus, tp * pp)
-    # And it has to stay a split the model can be built at: TP must divide the
-    # target, so step down until it does.
+    gpus = min(tp, WARMUP_GPU_CAP)
+    # The warmup still has to be a split the model can be built at, so a degree
+    # the cap does not divide (tp=6) steps down until it does.
     while gpus > 1 and tp % gpus:
         gpus //= 2
     return max(1, gpus)
@@ -1026,6 +1021,10 @@ def run_vllm_benchmark(args) -> dict:
             "speculative_num_tokens": (spec_config or {}).get("num_speculative_tokens"),
             "speculative_draft_model": (spec_config or {}).get("model"),
             "use_aiter": os.environ.get("VLLM_ROCM_USE_AITER", "0") == "1",
+            # The per-op AITER overrides this run executed under. Absent means
+            # "measured before this was tracked", which is not the same as
+            # "no overrides" -- see ``aiter_ops_axis``.
+            "aiter_ops": _regime_aiter_ops(_regime_env()) if _HAVE_REGIME else None,
             # The lever set this run actually executed under. Without these an
             # anchor cannot be told apart from one measured on different flags.
             "server_args": getattr(args, "server_args", "") or None,
@@ -1080,16 +1079,28 @@ _CACHE_EXTRA_ARGS = (
     "moe_imbalance", "load_format", "skip_tokenizer_init", "no_aiter",
     "max_model_len", "output_len", "seed", "seeds", "concurrency",
     "decode_context_grid", "server_args", "env",
+    # Serving and offline anchors of the same config are different measurements,
+    # as are two engines serving it, so none of them may share a cache entry.
+    "offline", "serving_backend",
 )
 
 
 def _regime_env() -> dict:
     """The env vars that define which kernels ran, for the regime signature.
 
+    The master AITER switch and every per-op override, because a run with
+    ``VLLM_ROCM_USE_AITER_MHA=0`` executes a different attention kernel from one
+    without it. Keying on the master switch alone makes the two indistinguishable
+    here, which lets the anchor store hand one back for the other and lets the
+    result cache serve one's measurement as the other's hit.
+
     The attention backend is deliberately not here: since vLLM 0.25 it is a
     server flag, and it reaches the regime through ``args`` instead.
     """
-    return {"VLLM_ROCM_USE_AITER": os.environ.get("VLLM_ROCM_USE_AITER", "0")}
+    env = {"VLLM_ROCM_USE_AITER": os.environ.get("VLLM_ROCM_USE_AITER", "0")}
+    env.update({k: v for k, v in os.environ.items()
+                if k.upper().startswith("VLLM_ROCM_USE_AITER_")})
+    return env
 
 
 def _cache_key(args) -> str:
@@ -1100,7 +1111,8 @@ def _cache_key(args) -> str:
         return _regime_config_key(recipe, extra)
     # Inline fallback: hash every config-affecting arg + the AITER env.
     payload = {k: v for k, v in sorted(vars(args).items()) if k not in _CACHE_IGNORE_ARGS}
-    payload["_env_VLLM_ROCM_USE_AITER"] = env["VLLM_ROCM_USE_AITER"]
+    for name, value in sorted(env.items()):
+        payload[f"_env_{name}"] = value
     blob = json.dumps(payload, sort_keys=True, default=str)
     return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
@@ -1228,6 +1240,14 @@ def main():
                          "the Zipf exponent at the model's expert count. Use a "
                          "measured/expected production value (random data ~ low I, "
                          "domain-clustered traffic ~ higher I).")
+    ap.add_argument("--serving-backend", default="vllm", choices=("vllm", "sglang"),
+                    help="Which engine to launch for the anchor. Ignored with "
+                         "--offline, which is vLLM-only.")
+    ap.add_argument("--offline", action="store_true",
+                    help="Measure with the offline LLM() entrypoint instead of a "
+                         "real server. Off by default: the two do not resolve the "
+                         "same kernels, so an offline anchor can mispredict a "
+                         "served target badly. See benchmark_serving.py.")
     ap.add_argument("--save", required=True)
     ap.add_argument("--cache-dir", default=os.environ.get("INFERASIM_BENCH_CACHE"),
                     help="Directory of cached results keyed by run config. On a "
@@ -1264,7 +1284,14 @@ def main():
         print(f"[inferasim:Inference:vLLM-Benchmark] wrote {args.save}")
         return
 
-    result = run_vllm_benchmark(args)
+    if args.offline:
+        result = run_vllm_benchmark(args)
+    else:
+        try:  # package import; falls back to the flat form for script execution
+            from .benchmark_serving import run_serving_benchmark
+        except ImportError:
+            from benchmark_serving import run_serving_benchmark  # type: ignore
+        result = run_serving_benchmark(args)
     with open(args.save, "w") as f:
         json.dump(result, f)
     if cache_dir and not args.no_cache:
