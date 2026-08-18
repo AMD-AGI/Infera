@@ -583,6 +583,7 @@ class DisaggRouter(BaseRouter):
                     metrics.pd_bootstrap_failures_total.labels(reason="decode_stream_broken").inc()
                     if not served:
                         self.breaker.record_failure(d.worker_id)
+                    obs.mark_failed()
                     yield (
                         f'data: {{"error":"decode {d.worker_id} nats stream failed"}}\n\n'
                     ).encode()
@@ -795,6 +796,7 @@ class DisaggRouter(BaseRouter):
                 metrics.pd_bootstrap_failures_total.labels(reason="decode_unreachable").inc()
                 self.breaker.record_failure(d_target.worker.worker_id)
                 err = json.dumps({"error": "decode unreachable"})
+                obs.mark_failed()
                 yield f"data: {err}\n\n".encode()
                 return
 
@@ -821,6 +823,7 @@ class DisaggRouter(BaseRouter):
                         )
                     }
                 )
+                obs.mark_failed()
                 yield f"data: {err}\n\n".encode()
                 return
 
@@ -858,6 +861,7 @@ class DisaggRouter(BaseRouter):
                 )
                 metrics.pd_bootstrap_failures_total.labels(reason="decode_stream_broken").inc()
                 err = json.dumps({"error": "decode stream failed"})
+                obs.mark_failed()
                 yield f"data: {err}\n\n".encode()
         finally:
             if d_resp is not None:
@@ -961,6 +965,7 @@ class DisaggRouter(BaseRouter):
                     self.breaker.record_failure(d_target.worker.worker_id)
                     # json.dumps: exc text may contain chars that break SSE.
                     err = json.dumps({"error": "decode unreachable"})
+                    obs.mark_failed()
                     yield f"data: {err}\n\n".encode()
                     return
 
@@ -988,6 +993,7 @@ class DisaggRouter(BaseRouter):
                             )
                         }
                     )
+                    obs.mark_failed()
                     yield f"data: {err}\n\n".encode()
                     return
 
@@ -1031,6 +1037,7 @@ class DisaggRouter(BaseRouter):
                 )
                 metrics.pd_bootstrap_failures_total.labels(reason="decode_stream_broken").inc()
                 err = json.dumps({"error": "decode stream failed"})
+                obs.mark_failed()
                 yield f"data: {err}\n\n".encode()
         finally:
             if d_resp is not None:

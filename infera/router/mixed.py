@@ -196,6 +196,7 @@ class MixedRouter(BaseRouter):
                                 obs.observe_stream_chunk(d)
                                 yield d
                         elif k == TYPE_ERROR:
+                            obs.mark_failed()
                             logger.warning(
                                 "stream from worker %s failed mid-stream: %s",
                                 worker.worker_id,

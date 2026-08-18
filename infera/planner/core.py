@@ -140,13 +140,25 @@ class SlaPlanner:
         that cannot be corrected.
         """
         if not metrics.has_traffic:
-            logger.info(
-                "no traffic in the last window (requests=%.0f, isl=%.0f, osl=%.0f); "
-                "leaving the deployment alone",
-                metrics.num_req,
-                metrics.isl,
-                metrics.osl,
-            )
+            if metrics.num_req > 0 and metrics.osl <= 0:
+                # Requests completed but none produced a token. The count comes
+                # from the duration histogram, which is observed at hand-off;
+                # the SLA histograms disown a request whose stream turned out to
+                # carry an engine error. A whole window of this is a transport or
+                # engine outage, and scaling is not the remedy.
+                logger.warning(
+                    "%.0f requests completed but none produced tokens; the fleet is "
+                    "failing rather than overloaded, so the deployment is left alone",
+                    metrics.num_req,
+                )
+            else:
+                logger.info(
+                    "no traffic in the last window (requests=%.0f, isl=%.0f, osl=%.0f); "
+                    "leaving the deployment alone",
+                    metrics.num_req,
+                    metrics.isl,
+                    metrics.osl,
+                )
             planner_metrics.intervals_skipped_total.labels(reason="no_traffic").inc()
             return None
 

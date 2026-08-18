@@ -259,6 +259,9 @@ def record_pick(*, role: str, worker_id: str, cache_hits: int, request_blocks: i
 
 _SSE_DATA = b"data:"
 _SSE_DONE = b"data: [DONE]"
+# Every OpenAI-shaped token chunk carries a delta; usage frames and in-band
+# error frames do not. One scan for this separates the hot path from both.
+_SSE_DELTA = b'"delta"'
 # An SSE frame that grows past this without a newline is not a token frame
 # (or the peer is misbehaving); drop the partial rather than buffer forever.
 _MAX_PARTIAL_FRAME = 1 << 16
@@ -296,6 +299,19 @@ class RequestObserver(dict):
 
     def claim_stream(self) -> None:
         self._deferred = True
+
+    def mark_failed(self, outcome: str = "stream_failed") -> None:
+        """Disown a request that failed after its outcome was committed.
+
+        The streaming routers set ``outcome`` to "ok" at hand-off, before the
+        generator has run, because that is the point past which the client can
+        no longer be failed over. A decode leg that then turns out to be
+        unreachable would otherwise be closed as a success: it inflates the
+        request count the planner divides by, and contributes a one-frame OSL.
+        Under a decode outage that is most of the window, and the planner sizes
+        the fleet from it.
+        """
+        self["outcome"] = outcome
 
     def first_token(self) -> None:
         """Mark the arrival of the first reply token. Idempotent."""
@@ -351,16 +367,39 @@ class RequestObserver(dict):
         self._partial = tail if len(tail) <= _MAX_PARTIAL_FRAME else b""
         for frame in frames:
             frame = frame.strip()
-            if frame.startswith(_SSE_DATA) and not frame.startswith(_SSE_DONE):
+            if not frame.startswith(_SSE_DATA) or frame.startswith(_SSE_DONE):
+                continue
+            if _SSE_DELTA in frame:
+                # The overwhelming majority of frames: one generated token.
                 self._frames += 1
-                if b'"usage"' in frame:
-                    # A usage-only frame carries no token; it also gives us the
-                    # exact counts, which win over this whole estimate.
-                    self._frames -= 1
-                    try:
-                        self.observe_usage(json.loads(frame[len(_SSE_DATA) :]))
-                    except ValueError:
-                        pass
+                continue
+            # A data frame with no delta is not a token. Rare, so it can afford
+            # a full parse; keeping the hot path to a single substring scan is
+            # why the cheap test above is for delta rather than for each of the
+            # shapes handled below.
+            self._inspect_non_token_frame(frame)
+
+    def _inspect_non_token_frame(self, frame: bytes) -> None:
+        """Classify an SSE data frame that carries no generated token.
+
+        Two shapes matter. A usage frame gives exact ISL/OSL, which beat the
+        frame-count estimate. An **error** frame means the engine failed inside
+        an otherwise-clean 200 response -- a KV transfer that never arrived, for
+        instance. The router cannot see that: it forwarded a 200 stream and
+        committed the outcome as ok at hand-off. Counting it as a served token is
+        how a total KV-transport outage came to look like a fully successful
+        window, with the planner sizing the fleet from it.
+        """
+        try:
+            payload = json.loads(frame[len(_SSE_DATA) :])
+        except ValueError:
+            return
+        if not isinstance(payload, dict):
+            return
+        if payload.get("error") is not None:
+            self.mark_failed("engine_error")
+            return
+        self.observe_usage(payload)
 
     def close(self) -> None:
         """Emit the SLA histograms. Idempotent.

@@ -36,8 +36,21 @@ def histogram_totals(histogram: Histogram, **labels) -> tuple[float, float]:
 
 
 def sse(*payloads: dict) -> list[bytes]:
-    """Render OpenAI-style streaming frames, one token per frame."""
-    return [f"data: {json.dumps(p)}\n\n".encode() for p in payloads]
+    """Render realistic OpenAI streaming chunks, one token per frame.
+
+    The ``delta`` is not decoration: the observer tells a token frame from a
+    usage frame or an in-band error frame by its presence, so a stripped-down
+    fixture would exercise a different path than a real engine does.
+    """
+    out = []
+    for p in payloads:
+        chunk = {
+            "id": "chatcmpl-test",
+            "object": "chat.completion.chunk",
+            "choices": [{"index": 0, "delta": {"content": str(p.get("i", "x"))}}],
+        }
+        out.append(f"data: {json.dumps(chunk)}\n\n".encode())
+    return out
 
 
 class FakePolicy:
@@ -150,6 +163,36 @@ class TestRequestObserver:
         obs.observe_stream_chunk(b"".join(sse({"i": 0}, {"i": 1})))
         obs.observe_stream_chunk(b"data: [DONE]\n\n")
         assert obs._frames == 2
+
+    def test_an_in_band_engine_error_is_not_a_token(self):
+        """An engine can fail *inside* a 200 stream, and the router cannot see it.
+
+        Observed on a cross-node PD deployment whose KV transport session died
+        while both legs still answered /health with 200: the decode engine
+        reported `KVTransferError ... Failed to get kvcache from prefill
+        instance` as an ordinary SSE data frame. The router forwarded a clean
+        200, so no failure counter moved, and every request in the window was
+        recorded as one successfully served token. The planner then sized the
+        fleet from a window that was 100% failures.
+        """
+        obs = metrics.RequestObserver("disagg")
+        obs["outcome"] = "ok"  # the disagg router commits this at hand-off
+        obs.observe_stream_chunk(
+            b'data: {"error": {"message": "Decode transfer failed ... KVTransferError", '
+            b'"code": 500}}\n\n'
+        )
+        assert obs._frames == 0
+        assert obs["outcome"] != "ok", "an error frame must disown the request"
+
+    def test_an_error_frame_after_real_tokens_still_disowns_the_request(self):
+        # A truncated generation has a valid TTFT but a meaningless OSL, so it is
+        # dropped rather than reported as a short reply.
+        obs = metrics.RequestObserver("disagg")
+        obs["outcome"] = "ok"
+        obs.observe_stream_chunk(b"".join(sse({"i": 0}, {"i": 1}, {"i": 2})))
+        assert obs._frames == 3
+        obs.observe_stream_chunk(b'data: {"error": {"message": "stream died"}}\n\n')
+        assert obs["outcome"] != "ok"
 
     def test_a_usage_frame_supplies_exact_counts_instead_of_a_token(self):
         # Clients that ask for stream_options.include_usage get a trailing frame

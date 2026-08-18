@@ -22,7 +22,7 @@ import json
 
 import pytest
 
-from infera.common.nats_request import TYPE_DATA, TYPE_DONE
+from infera.common.nats_request import TYPE_DATA, TYPE_DONE, TYPE_ERROR
 from infera.common.worker_pool import DisaggMode, EngineType, WorkerInfo
 from infera.router.disagg import DisaggRouter
 from infera.router.policy.target import RouteTarget
@@ -198,4 +198,59 @@ class TestDisaggUnary:
         response = await router.dispatch({"model": "m"}, stream=True)
         assert response.status_code == 503
         assert histogram_totals(metrics.output_sequence_tokens, router="disagg") == before
+        await router.aclose()
+
+
+class TestStreamFailureIsNotCountedAsTraffic:
+    """A leg that dies after hand-off must not be recorded as a served request.
+
+    The streaming routers commit ``outcome="ok"`` when they return the
+    StreamingResponse, because that is the point past which the client can no
+    longer be failed over. If the decode leg then turns out to be unreachable,
+    the observer would close as a success -- inflating the request count the
+    planner divides by, and adding a one-frame OSL.
+
+    Observed on real hardware: a decode outage produced 201 `decode_unreachable`
+    failures while the request counter showed 100% ok, and the planner sized the
+    prefill pool from that window.
+    """
+
+    async def test_error_frame_disowns_the_request(self):
+        # The decode leg errors before sending a token: the generator emits one
+        # SSE error frame and returns.
+        router = router_for([(TYPE_ERROR, 502, b"decode exploded")])
+
+        req_before = histogram_totals(
+            metrics.request_duration_seconds, router="disagg", outcome="ok"
+        )
+        isl_before = histogram_totals(metrics.input_sequence_tokens, router="disagg")
+        osl_before = histogram_totals(metrics.output_sequence_tokens, router="disagg")
+
+        response = await router.dispatch({"model": "m"}, stream=True)
+        body = await drain(response)
+        assert b"error" in body, "the client must still be told the stream failed"
+
+        assert histogram_totals(metrics.input_sequence_tokens, router="disagg") == isl_before
+        assert histogram_totals(metrics.output_sequence_tokens, router="disagg") == osl_before
+        # The pre-existing duration histogram is observed at context exit, before
+        # the generator runs, so it still counts this one. That is why the SLA
+        # metrics carry their own gate rather than trusting that counter.
+        assert (
+            histogram_totals(metrics.request_duration_seconds, router="disagg", outcome="ok")[1]
+            == req_before[1] + 1
+        )
+        await router.aclose()
+
+    async def test_a_served_stream_is_still_recorded(self):
+        # The guard must not throw away good traffic: same shape, no error frame.
+        events = [(TYPE_DATA, None, c) for c in sse({"i": 0}, {"i": 1})]
+        events.append((TYPE_DONE, 200, b""))
+        router = router_for(events)
+
+        before = histogram_totals(metrics.output_sequence_tokens, router="disagg")
+        response = await router.dispatch({"model": "m"}, stream=True)
+        await drain(response)
+        after = histogram_totals(metrics.output_sequence_tokens, router="disagg")
+        assert after[1] == before[1] + 1
+        assert after[0] - before[0] == pytest.approx(2.0)
         await router.aclose()
