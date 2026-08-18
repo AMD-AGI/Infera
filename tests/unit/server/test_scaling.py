@@ -29,11 +29,12 @@ CR = {
         }
     },
     "status": {
+        "state": "ready",
         "services": {
             "server": {"replicas": 1, "readyReplicas": 1},
             "prefill": {"replicas": 2, "readyReplicas": 2},
             "decode": {"replicas": 4, "readyReplicas": 3},
-        }
+        },
     },
 }
 
@@ -54,14 +55,17 @@ class _Resp:
 class _FakeApi:
     """Stands in for the API server, recording what was written to it."""
 
-    def __init__(self, *, pod=POD, cr=None, get_status=200, patch_status=200):
+    def __init__(self, *, pod=POD, cr=None, get_status=200, patch_status=200, pods=None):
         self.pod = pod
+        self.pods = pods or []
         self.cr = json.loads(json.dumps(cr if cr is not None else CR))
         self.get_status = get_status
         self.patch_status = patch_status
         self.patches: list[dict] = []
 
-    async def get(self, path):
+    async def get(self, path, params=None):
+        if path.endswith("/pods"):
+            return _Resp(200, {"items": self.pods})
         if "/pods/" in path:
             return _Resp(200 if self.pod else 404, self.pod)
         if self.get_status != 200:
@@ -220,6 +224,145 @@ async def test_a_missing_deployment_is_reported_as_such(monkeypatch):
     with pytest.raises(ScalingError) as err:
         await _scaler().snapshot()
     assert err.value.status == 404
+
+
+# ------------------------------------------------------------------
+# Telling "still starting" from "never will"
+# ------------------------------------------------------------------
+
+
+def pending_pod(reason, message, *, kind="scheduling"):
+    if kind == "scheduling":
+        return {
+            "status": {
+                "phase": "Pending",
+                "conditions": [
+                    {
+                        "type": "PodScheduled",
+                        "status": "False",
+                        "reason": reason,
+                        "message": message,
+                    }
+                ],
+            }
+        }
+    return {
+        "status": {
+            "phase": "Pending",
+            "conditions": [{"type": "PodScheduled", "status": "True"}],
+            "containerStatuses": [{"state": {"waiting": {"reason": reason, "message": message}}}],
+        }
+    }
+
+
+def short_cr(want=8, ready=3):
+    """A pool the cluster could not fill: the replicas that were never created
+    are missing from the status, so the two counts agree with each other and
+    disagree with the spec."""
+    return {
+        "spec": {"services": {"decode": {"role": "decode", "replicas": want}}},
+        "status": {
+            "state": "pending",
+            "services": {"decode": {"replicas": ready, "readyReplicas": ready}},
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_the_operators_own_verdict_is_reported(api):
+    """It compares ready replicas against the spec, which is the comparison a
+    caller wants and the easy one to get wrong."""
+    assert (await _scaler().snapshot())["state"] == "ready"
+
+
+@pytest.mark.asyncio
+async def test_a_pool_the_scheduler_could_not_place_says_so(monkeypatch):
+    """The counts alone cannot distinguish this from a slow start: a replica
+    that was never created is absent from both of them."""
+    fake = _FakeApi(
+        cr=short_cr(),
+        pods=[
+            pending_pod("Unschedulable", "0/13 nodes are available: 8 Insufficient amd.com/gpu.")
+        ],
+    )
+    monkeypatch.setattr("infera.server.scaling.make_client", lambda **kw: fake)
+
+    pool = (await _scaler().snapshot())["services"]["decode"]
+
+    assert pool["replicas"] == 8
+    assert pool["ready_replicas"] == 3
+    assert "Insufficient amd.com/gpu" in pool["blocked"]
+    assert pool["blocked"].startswith("Unschedulable:")
+
+
+@pytest.mark.asyncio
+async def test_a_pod_that_will_never_start_is_reported_too(monkeypatch):
+    """Scheduled but stuck reads the same as starting, from the counts."""
+    fake = _FakeApi(
+        cr=short_cr(),
+        pods=[pending_pod("ImagePullBackOff", "Back-off pulling image", kind="waiting")],
+    )
+    monkeypatch.setattr("infera.server.scaling.make_client", lambda **kw: fake)
+
+    blocked = (await _scaler().snapshot())["services"]["decode"]["blocked"]
+    assert blocked.startswith("ImagePullBackOff:")
+
+
+@pytest.mark.asyncio
+async def test_a_pod_merely_starting_is_not_reported_as_blocked(monkeypatch):
+    """ContainerCreating resolves in seconds. Reporting it would make every
+    scale-up look stuck for as long as a model takes to load."""
+    fake = _FakeApi(
+        cr=short_cr(),
+        pods=[pending_pod("ContainerCreating", "", kind="waiting")],
+    )
+    monkeypatch.setattr("infera.server.scaling.make_client", lambda **kw: fake)
+
+    assert "blocked" not in (await _scaler().snapshot())["services"]["decode"]
+
+
+@pytest.mark.asyncio
+async def test_a_pool_that_is_up_is_not_investigated(monkeypatch):
+    """No gap, no Pod query: the common path should not pay for the rare one."""
+    fake = _FakeApi(
+        cr=short_cr(want=3, ready=3),
+        pods=[pending_pod("Unschedulable", "should not be read")],
+    )
+    monkeypatch.setattr("infera.server.scaling.make_client", lambda **kw: fake)
+
+    assert "blocked" not in (await _scaler().snapshot())["services"]["decode"]
+
+
+@pytest.mark.asyncio
+async def test_an_unreadable_pod_list_does_not_hide_the_counts(monkeypatch):
+    """The reason is a convenience; the numbers are the answer."""
+
+    class _NoPods(_FakeApi):
+        async def get(self, path, params=None):
+            if path.endswith("/pods"):
+                raise RuntimeError("forbidden")
+            return await super().get(path, params)
+
+    fake = _NoPods(cr=short_cr())
+    monkeypatch.setattr("infera.server.scaling.make_client", lambda **kw: fake)
+
+    pool = (await _scaler().snapshot())["services"]["decode"]
+    assert pool["ready_replicas"] == 3
+    assert "blocked" not in pool
+
+
+@pytest.mark.asyncio
+async def test_a_long_scheduler_message_is_cut_to_one_line(monkeypatch):
+    """Scheduler messages enumerate every node; the head carries the verdict."""
+    fake = _FakeApi(
+        cr=short_cr(),
+        pods=[pending_pod("Unschedulable", "node-a: no gpu.\n" + "x" * 900)],
+    )
+    monkeypatch.setattr("infera.server.scaling.make_client", lambda **kw: fake)
+
+    blocked = (await _scaler().snapshot())["services"]["decode"]["blocked"]
+    assert len(blocked) < 350
+    assert "\n" not in blocked
 
 
 # ------------------------------------------------------------------

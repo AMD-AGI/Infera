@@ -476,13 +476,15 @@ written:
 {
   "deployment": "qwen",
   "namespace": "infera",
+  "state": "pending",
   "services": {
     "decode": {
       "role": "decode",
       "replicas": 8,
-      "current_replicas": 5,
-      "ready_replicas": 4,
-      "nodes_per_replica": 1
+      "current_replicas": 3,
+      "ready_replicas": 3,
+      "nodes_per_replica": 1,
+      "blocked": "Unschedulable: 0/13 nodes are available: 8 Insufficient amd.com/gpu."
     }
   }
 }
@@ -494,10 +496,16 @@ The three replica counts are separate:
 - **`current_replicas`** — Pods that exist.
 - **`ready_replicas`** — workers registered and serving.
 
-They converge from left to right, and the gaps are the useful part: a Pod
-appears within seconds of the write and serves once its model is loaded, which
-is minutes. `ready_replicas` reaching `replicas` is what says a scale-up has
-landed; anything else means it is still in progress.
+A scale-up has landed when **`ready_replicas` reaches `replicas`**, and `state`
+says the same thing for the deployment as a whole. Compare against `replicas`
+rather than against `current_replicas`: a replica the scheduler could not place
+is missing from *both* observed counts, so they agree with each other while the
+pool is half its requested size — which is exactly the response above.
+
+`blocked` appears on a pool short of what it asked for, when the cluster says
+why: the scheduler's message for a Pod it could not place, or the kubelet's for
+one that will not start. It is absent while Pods are merely starting, since a
+model takes minutes to load and that is not a fault.
 
 `nodes_per_replica` above 1 makes `replicas` a count of **groups** rather than
 Pods — see below.
