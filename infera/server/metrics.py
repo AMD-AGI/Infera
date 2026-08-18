@@ -112,6 +112,20 @@ pd_dispatch_duration_seconds = Histogram(
     registry=REGISTRY,
 )
 
+migrations_total = Counter(
+    "infera_migrations_total",
+    "Live generations carried from one worker to another, by what prompted it.",
+    labelnames=("reason",),  # reason ∈ {stream_broken, worker_draining}
+    registry=REGISTRY,
+)
+
+migrations_failed_total = Counter(
+    "infera_migrations_failed_total",
+    "Generations that could not be carried, and so ended visibly to the client.",
+    labelnames=("reason",),  # reason ∈ {no_candidate, not_nats, no_first_byte, limit, poisoned}
+    registry=REGISTRY,
+)
+
 pd_bootstrap_failures_total = Counter(
     "infera_pd_bootstrap_failures_total",
     "PD bootstrap protocol failures (missing bootstrap_addr, P unreachable, etc.).",

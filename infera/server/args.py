@@ -214,8 +214,21 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Bounded failover: number of ALTERNATE mixed workers to try if a "
         "dispatch fails BEFORE any response data has reached the client "
         "(unreachable / NATS error / idle-timeout-before-first-token / 429 "
-        "backlog). Mid-stream failures are never retried. Default 1; 0 disables. "
+        "backlog). Mid-stream failures are not retried here; see "
+        "--migration-limit for those. Default 1; 0 disables. "
         "Overrides $INFERA_REQUEST_MAX_RETRIES.",
+    )
+    parser.add_argument(
+        "--migration-limit",
+        type=int,
+        default=int(os.environ.get("INFERA_MIGRATION_LIMIT", "0") or 0),
+        help="Carry a streaming generation to another worker when its own goes "
+        "away mid-stream, instead of ending the response with an error. The "
+        "text produced so far is appended to the prompt so the client sees one "
+        "uninterrupted stream. Requires the NATS transport, applies to mixed "
+        "(non-PD) workers, and does not preserve sampling state -- the "
+        "continuation is not byte-identical to what the original worker would "
+        "have produced. Default 0 (disabled). Overrides $INFERA_MIGRATION_LIMIT.",
     )
     parser.add_argument(
         "--breaker-failure-threshold",

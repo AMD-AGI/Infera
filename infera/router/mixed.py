@@ -13,13 +13,20 @@ import httpx
 from fastapi import Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from infera.common.nats_request import TYPE_DATA, TYPE_DONE, TYPE_ERROR
+from infera.common.nats_request import (
+    DRAINING_NOTICE,
+    TYPE_DATA,
+    TYPE_DONE,
+    TYPE_ERROR,
+)
 from infera.common.worker_pool import DisaggMode
 from infera.router.base import BaseRouter
 from infera.router.breaker import is_worker_fault
 from infera.router.cache_control import parse_cache_hints
 from infera.router.dp_routing import dp_rank_header
 from infera.router.engine_priority import inject_engine_priority
+from infera.router.migration import MigrationState, as_chat_chunk
+from infera.router.token_ids import supports_streaming_ids
 from infera.server import metrics
 
 logger = logging.getLogger(__name__)
@@ -45,8 +52,11 @@ class MixedRouter(BaseRouter):
     (the client already holds partial output).
     """
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args, migration_limit: int = 0, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        # How many times one generation may be carried to another worker. Zero
+        # disables it; see infera.router.migration for what carrying costs.
+        self._migration_limit = max(0, int(migration_limit or 0))
         # Bound connect time so unreachable workers fail fast; leave read open
         # for arbitrarily long generations. Bump connection limits well above
         # httpx defaults (100) so we can sustain high-concurrency benchmarks
@@ -140,6 +150,17 @@ class MixedRouter(BaseRouter):
         forwarded_body.pop("_infera_cache_hints", None)
         forwarded_body.pop("_infera_request_id", None)
 
+        # Ask for the sampled token ids only when a migration could actually use
+        # them: they cost the engine work and the client never sees them, since
+        # they are taken back out before the stream is forwarded.
+        if (
+            stream
+            and self._migration_limit > 0
+            and supports_streaming_ids(worker.engine, path)
+            and "return_token_ids" not in forwarded_body
+        ):
+            forwarded_body["return_token_ids"] = True
+
         use_nats = self.nats_client is not None and worker.request_transport == "nats"
         self.policy.on_request_started(target.route_key, blocks)
 
@@ -181,29 +202,83 @@ class MixedRouter(BaseRouter):
         if kind == TYPE_DATA:
             obs["outcome"] = "ok"  # committed once first byte is in hand
 
+            state = self._migration_state(forwarded_body, use_nats, path)
+
+            def passthrough(raw):
+                # observe() also takes the router-only token ids back out, so
+                # what is yielded is always what the caller asked for.
+                return state.observe(raw) if state is not None else raw
+
+            def to_client_shape(raw):
+                return as_chat_chunk(passthrough(raw))
+
             async def generate():
+                current, cur_target, cur_blocks = agen, target, blocks
+                transform = passthrough
                 try:
                     if data0:
-                        yield data0
-                    async for k, _st, d in agen:
-                        if k == TYPE_DATA:
-                            if d:
-                                yield d
-                        elif k == TYPE_ERROR:
-                            logger.warning(
-                                "stream from worker %s failed mid-stream: %s",
-                                worker.worker_id,
-                                d[:200],
+                        yield transform(data0)
+                    while True:
+                        async for k, _st, d in current:
+                            if k == TYPE_DATA:
+                                if d:
+                                    yield transform(d)
+                            elif k == TYPE_ERROR:
+                                # A drain notice is a planned handover, not a
+                                # fault: the worker is leaving and expects us to
+                                # take the generation elsewhere.
+                                draining = d.startswith(DRAINING_NOTICE)
+                                if draining:
+                                    reason = "worker_draining"
+                                    logger.info(
+                                        "worker %s is draining; taking its stream elsewhere",
+                                        cur_target.worker.worker_id,
+                                    )
+                                else:
+                                    reason = "stream_broken"
+                                    logger.warning(
+                                        "stream from worker %s failed mid-stream: %s",
+                                        cur_target.worker.worker_id,
+                                        d[:200],
+                                    )
+                                break
+                            else:  # done
+                                return
+                        else:
+                            # The generator ended without saying why, which is
+                            # the shape a crashed worker leaves behind.
+                            reason = "stream_broken"
+
+                        # The stream broke. Whatever the client already read has
+                        # to be honoured, so the only options are to carry the
+                        # generation to another worker or to end it visibly.
+                        resumed = None
+                        if state is not None and state.can_migrate():
+                            resumed = await self._resume_elsewhere(
+                                state, cur_target, path, obs, reason
                             )
+                        elif state is not None:
+                            # Migration was possible for this request and is not
+                            # any more, which is worth counting separately from
+                            # a deployment that never enabled it.
+                            metrics.migrations_failed_total.labels(
+                                reason="poisoned" if state.poisoned else "limit"
+                            ).inc()
+                        if resumed is None:
+                            what = "is shutting down" if reason == "worker_draining" else "failed"
                             yield (
-                                f'data: {{"error":"worker {worker.worker_id} '
-                                f'stream failed mid-stream"}}\n\n'
+                                f'data: {{"error":"worker {cur_target.worker.worker_id} '
+                                f'{what} mid-stream"}}\n\n'
                             ).encode()
                             return
-                        else:  # done
-                            return
+                        current, next_target, next_blocks, reshape = resumed
+                        transform = to_client_shape if reshape else passthrough
+                        # The previous attempt's load accounting ends here; the
+                        # new one is already counted by _resume_elsewhere.
+                        self.policy.on_request_finished(cur_target.route_key, cur_blocks)
+                        cur_target, cur_blocks = next_target, next_blocks
                 finally:
-                    self.policy.on_request_finished(target.route_key, blocks)
+                    self.policy.on_request_finished(cur_target.route_key, cur_blocks)
 
             return StreamingResponse(generate(), media_type="text/event-stream")
 
@@ -222,6 +297,99 @@ class MixedRouter(BaseRouter):
                 status_code=code,
             )
         )
+
+    def _migration_state(self, forwarded_body, use_nats, path):
+        """State for carrying this generation elsewhere, or None if it cannot be.
+
+        Only over NATS: on the HTTP path the router hands the connection to the
+        engine and never sees a frame, so there is nothing to accumulate and
+        nothing to resume from.
+        """
+        if not use_nats or self._migration_limit <= 0:
+            return None
+        return MigrationState(forwarded_body, limit=self._migration_limit, path=path)
+
+    async def _resume_elsewhere(self, state, failed_target, path, obs, reason):
+        """Continue this generation on a different worker.
+
+        Returns the new event stream and its target, or None when nobody else
+        can take it -- in which case the caller ends the stream visibly rather
+        than leaving the client waiting on a generation that stopped.
+        """
+        cont = state.next_continuation()
+        body = cont.body
+        # An exact chat continuation is issued against the completions endpoint,
+        # so what is sent and what the client is reading can differ.
+        send_path, client_path = cont.path, path
+        model = body.get("model")
+        candidates = [
+            w
+            for w in self.pool.list_active(model=model, mode=DisaggMode.MIXED)
+            if w.worker_id != failed_target.worker.worker_id
+        ]
+        # The failed worker is excluded even if it is the only one: it just
+        # dropped this stream, and handing the request back to it is how a
+        # migration loop starts.
+        candidates = self.breaker.filter(candidates)
+        if not candidates:
+            logger.warning("cannot migrate: no other worker serves model=%r", model)
+            metrics.migrations_failed_total.labels(reason="no_candidate").inc()
+            return None
+
+        target, blocks = self.policy.pick(candidates, body)
+        worker = target.worker
+        if worker.request_transport != "nats" or self.nats_client is None:
+            # The accumulated state is only resumable over NATS.
+            logger.warning("cannot migrate: worker %s is not on nats", worker.worker_id)
+            metrics.migrations_failed_total.labels(reason="not_nats").inc()
+            return None
+
+        self.policy.on_request_started(target.route_key, blocks)
+        agen = self._normalized_stream(
+            worker,
+            f"{worker.url}{send_path}",
+            body,
+            dp_rank_header(target),
+            send_path,
+            use_nats=True,
+        )
+        # Peek: a worker that cannot take it must not consume the migration
+        # budget silently, and the caller needs a stream that is already
+        # producing before it commits to it.
+        try:
+            kind, _st, first = await agen.__anext__()
+        except StopAsyncIteration:
+            kind, first = TYPE_DONE, b""
+        if kind != TYPE_DATA:
+            await agen.aclose()
+            self.policy.on_request_finished(target.route_key, blocks)
+            logger.warning("migration to %s failed before first byte", worker.worker_id)
+            metrics.migrations_failed_total.labels(reason="no_first_byte").inc()
+            return None
+
+        logger.info(
+            "migrated a live generation from %s to %s after %d token(s) (%s)",
+            failed_target.worker.worker_id,
+            worker.worker_id,
+            state.produced_tokens,
+            "exact token ids" if cont.exact else "carried text",
+        )
+        metrics.migrations_total.labels(reason=reason).inc()
+        obs["outcome"] = "ok"
+
+        async def resumed():
+            # The peeked frame is replayed unobserved: the caller runs every
+            # frame through the same transform, and recording it here as well
+            # would count its tokens twice.
+            if first:
+                yield TYPE_DATA, None, first
+            async for item in agen:
+                yield item
+
+        # Replies arrive in the shape of whatever endpoint was used, which is
+        # not necessarily the one the client is reading.
+        reshape = send_path != client_path
+        return resumed(), target, blocks, reshape
 
     async def _attempt_unary(
         self, worker, url, forwarded_body, dp_headers, path, use_nats, obs
@@ -320,7 +488,15 @@ class MixedRouter(BaseRouter):
         """Unify HTTP and NATS streaming into ``(kind, status, data)`` events
         where ``kind`` is one of TYPE_DATA / TYPE_DONE / TYPE_ERROR."""
         if use_nats:
-            payload = {"path": path, "stream": True, "headers": dp_headers, "body": forwarded_body}
+            payload = {
+                "path": path,
+                "stream": True,
+                "headers": dp_headers,
+                "body": forwarded_body,
+                # Lets a draining worker return this stream immediately instead
+                # of holding its shutdown open; only true when we can resume it.
+                "migratable": self._migration_limit > 0,
+            }
             async for kind, st, data in self.nats_client.stream(worker.worker_id, payload):
                 yield (kind, st, data)
             return

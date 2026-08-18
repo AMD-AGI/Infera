@@ -39,13 +39,16 @@ class AutoRouter(BaseRouter):
     a dumb dispatcher.
     """
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args, migration_limit: int = 0, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._mixed = MixedRouter(
             self.pool,
             self.policy,
             nats_client=self.nats_client,
             request_max_retries=self.request_max_retries,
+            # Only mixed workers can carry a generation elsewhere; the PD path
+            # has a second leg whose state would also have to move.
+            migration_limit=migration_limit,
             # One breaker shared by both sub-routers: otherwise each would build
             # its own default and the configured thresholds would never reach
             # them, since AutoRouter is what the server actually constructs.
