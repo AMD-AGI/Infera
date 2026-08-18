@@ -314,3 +314,53 @@ func TestEditingTheChildLWSIsAlsoReverted(t *testing.T) {
 		t.Fatalf("LWS scale survived reconciliation: %d groups, want it reverted to 2", got)
 	}
 }
+
+// The server's scaling API writes replica counts back to the CR, which needs a
+// grant the discovery identity did not previously carry. Every Pod in a
+// deployment shares that identity, so the grant has to name the one CR it may
+// touch: without ResourceNames a worker could resize the fleet it belongs to,
+// or any other deployment in the namespace.
+func TestTheDiscoveryRoleCanWriteOnlyItsOwnDeployment(t *testing.T) {
+	idep := idepWith(2)
+	role := buildDiscoveryRole(idep)
+
+	var found *rbacv1.PolicyRule
+	for i := range role.Rules {
+		for _, res := range role.Rules[i].Resources {
+			if res == "inferadeployments" {
+				found = &role.Rules[i]
+			}
+		}
+	}
+	if found == nil {
+		t.Fatal("no grant for inferadeployments: the scaling API would 403")
+	}
+	if len(found.ResourceNames) != 1 || found.ResourceNames[0] != idep.Name {
+		t.Fatalf("ResourceNames = %v, want exactly [%s]: an unscoped grant lets "+
+			"any Pod here resize any deployment in the namespace",
+			found.ResourceNames, idep.Name)
+	}
+	for _, verb := range found.Verbs {
+		switch verb {
+		case "get", "patch":
+		default:
+			t.Errorf("verb %q is more than the scaling API needs", verb)
+		}
+	}
+}
+
+// Pods are a separate rule and must stay unscoped: the server lists and watches
+// every worker Pod, which ResourceNames cannot express.
+func TestThePodGrantIsUnchanged(t *testing.T) {
+	role := buildDiscoveryRole(idepWith(1))
+	for _, rule := range role.Rules {
+		for _, res := range rule.Resources {
+			if res != "pods" {
+				continue
+			}
+			if len(rule.ResourceNames) != 0 {
+				t.Fatal("the Pod grant must not be scoped by name; discovery lists all of them")
+			}
+		}
+	}
+}
