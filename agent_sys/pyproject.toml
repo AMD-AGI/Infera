@@ -1,0 +1,33 @@
+[project]
+name = "agent-sys-helper"
+version = "0.1.0"
+description = "Agent work-system environment manager (env_mgr) and helpers"
+readme = "README.md"
+authors = [
+    { name = "yihou", email = "yihou@amd.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml>=6",
+    "packaging>=23",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+]
+
+[project.scripts]
+agent-sys-helper = "agent_sys_helper:main"
+env-mgr = "env_mgr.cli:main"
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = [".", "src"]
+include = ["env_mgr*", "agent_sys_helper*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
