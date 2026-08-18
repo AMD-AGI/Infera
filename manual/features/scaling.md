@@ -510,6 +510,29 @@ model takes minutes to load and that is not a fault.
 `nodes_per_replica` above 1 makes `replicas` a count of **groups** rather than
 Pods — see below.
 
+### Waiting for a scale-up
+
+The write returns as soon as the CR is updated; the operator does the rest, and
+reconciles every 15 seconds. Poll until `ready_replicas` reaches `replicas`.
+
+Nothing times out. A request for more replicas than the cluster can place is not
+rejected and does not expire — the Pods stay `Pending` and the operator keeps
+trying, indefinitely, until capacity appears or the count is lowered. That is
+the usual behaviour of a Kubernetes controller, and it means **deciding when to
+give up is the caller's**.
+
+`blocked` is what makes that decision early rather than on a timeout:
+
+- **absent, counts rising** — the scale-up is landing. A Pod exists within
+  seconds and serves once its model is loaded, which is minutes.
+- **present** — the cluster has said this will not start on its own. Waiting
+  longer will not help.
+
+To give up, write the previous count back. The operator removes the surplus
+Pods, `Pending` ones included. Existing workers are untouched throughout: Pods
+that cannot be placed never displace ones that are already serving, so a
+scale-up that fails leaves the pool exactly as it was.
+
 The API refuses to take a pool to zero: an empty pool stops serving, and in a PD
 deployment an empty prefill or decode pool fails *every* request rather than
 only the ones that would have landed there. Retiring a pool is a `kubectl` edit,
