@@ -103,6 +103,11 @@ class DeploymentScaler:
                 "the router's ServiceAccount cannot read its own Pod; re-apply the operator RBAC",
                 status=403,
             )
+        if resp.status_code == 404:
+            raise ScalingError(
+                f"router Pod {self._namespace}/{self._pod_name} not found; cannot resolve deployment to scale",
+                status=503,
+            )
         resp.raise_for_status()
         labels = (resp.json().get("metadata") or {}).get("labels") or {}
         name = labels.get(LABEL_DEPLOYMENT)
