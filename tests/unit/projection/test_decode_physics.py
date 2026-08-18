@@ -127,7 +127,7 @@ def test_decode_all_reduce_matches_the_measured_custom_kernel():
     gpt-oss decode step at TP>1, independent of batch *and* of TP, because the
     floor beat the bandwidth term even at a 1.5 MB message.
 
-    Measured with bench/hyperloom_validation/measure_allreduce.py at hidden 2880:
+    Measured at hidden 2880:
     9.9 us at batch 1 (5.8 KB) and 25.1 us at batch 256 (1.5 MB) on 8 ranks.
 
     What the model charges is the *marginal* cost over per-kernel occupancy,

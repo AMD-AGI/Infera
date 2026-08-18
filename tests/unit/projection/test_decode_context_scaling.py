@@ -15,9 +15,8 @@ tokens for gpt-oss-120b, which is all 36 layers holding full context rather than
 18 of them windowed.
 
 So decode now charges the full read. These assert the shape that fixed, against
-the measured sweep in bench/hyperloom_validation/context_cost.py, and not on
-exact milliseconds -- the point is that the curve climbs, not that any one
-number is right.
+a measured context sweep, and not on exact milliseconds -- the point is that the
+curve climbs, not that any one number is right.
 """
 
 from __future__ import annotations

@@ -59,8 +59,7 @@ _FUSED_RMSNORM_AR_SPEEDUP = 0.8    # RMSNorm+AR fusion hides part of the AR.
 _INFER_AR_OVERHEAD_US = float(os.getenv("INFERASIM_INFER_AR_FLOOR_US", "10.0") or 10.0)
 _INFER_A2A_OVERHEAD_US = float(os.getenv("INFERASIM_INFER_A2A_FLOOR_US", "30.0") or 30.0)
 
-# Intra-node decode all-reduce, measured on MI355X with
-# ``bench/hyperloom_validation/measure_allreduce.py`` against vLLM's own custom
+# Intra-node decode all-reduce, measured on MI355X against vLLM's own custom
 # all-reduce -- the kernel a decode step actually runs -- over the message sizes
 # a decode step actually produces (6 KB to 3 MB, i.e. batch 1 to 512 at hidden
 # 2880). Maps world size -> (floor_us, effective GB/s), fitting
@@ -90,12 +89,10 @@ _VLLM_CUSTOM_AR_MAX_BYTES = float(
     os.getenv("INFERASIM_CUSTOM_AR_MAX_MB", "8") or 8
 ) * 1024 * 1024
 
-# Intra-node expert-parallel all-to-all, measured the same way with
-# ``bench/hyperloom_validation/measure_alltoall.py`` and fitted by
-# ``fit_alltoall.py`` to the same ``t_us = floor_us + bytes / bw`` shape, at
-# r^2 >= 0.996. Maps world size -> (floor_us, effective GB/s), against the bytes
-# that actually cross a link -- ``(N-1)/N`` of the buffer, since a rank's own
-# shard never moves.
+# Intra-node expert-parallel all-to-all, measured the same way and fitted to
+# the same ``t_us = floor_us + bytes / bw`` shape, at r^2 >= 0.996. Maps world
+# size -> (floor_us, effective GB/s), against the bytes that actually cross a
+# link -- ``(N-1)/N`` of the buffer, since a rank's own shard never moves.
 #
 # The all-reduce got measured here and the all-to-all did not, and the asymmetry
 # was expensive. The all-to-all kept a guessed 30 us constant composed as

@@ -636,8 +636,7 @@ def _add_inference_args(parser):
         metavar="FILE",
         help="JSON of measured router coverage: how many distinct experts the "
         "real router reaches per step, as a fraction of what independent "
-        "per-token routing predicts, keyed by batch. Produced by "
-        "bench/hyperloom_validation/measure_router_coverage.py from the "
+        "per-token routing predicts, keyed by batch. Produced from the "
         "checkpoint's router weights (CPU only). Without it, routing is "
         "assumed independent, which over-counts experts at mid batch.",
     )

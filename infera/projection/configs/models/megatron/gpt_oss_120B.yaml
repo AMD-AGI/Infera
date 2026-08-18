@@ -33,7 +33,7 @@ moe_shared_expert_intermediate_size: null # gpt-oss has no shared expert
 
 # How many distinct experts this router really reaches per step, as a fraction
 # of what independent per-token routing predicts. Measured from the checkpoint's
-# own router weights by bench/hyperloom_validation/measure_router_coverage.py.
+# own router weights.
 # Real token representations are correlated, so tokens pick overlapping experts
 # and a decode step reads fewer distinct ones than independence assumes -- worth
 # 9.4% -> 7.4% MAPE against the measured TP ladder, and it removes a +29%

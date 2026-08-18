@@ -106,8 +106,7 @@ class ModelConfig:
     # How many distinct experts the router really reaches, as a fraction of what
     # independent per-token routing predicts, keyed by token count. Measured by
     # pushing token representations through the checkpoint's own router weights
-    # (bench/hyperloom_validation/measure_router_coverage.py) -- no GPU needed,
-    # since a router is one linear layer per block.
+    # -- no GPU needed, since a router is one linear layer per block.
     #
     # It exists because independence is the wrong assumption. Real token
     # representations are correlated, so tokens pick overlapping experts and a
@@ -335,8 +334,7 @@ class InferenceRequestConfig:
     #     large, which is where it was measured to still be present.
     #
     # Measured on MI355X by solving ``step(tp) = floor + compute(1)/tp`` across
-    # TP=1,2,4,8 with real weights (bench/hyperloom_validation/
-    # measure_step_floor.sh).
+    # TP=1,2,4,8 with real weights.
     #
     # The floor keeps *all* of the fixed cost, including the collectives'. An
     # earlier version subtracted the measured all-reduce from each TP>1 rung to

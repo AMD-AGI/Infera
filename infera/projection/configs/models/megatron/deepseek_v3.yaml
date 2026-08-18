@@ -44,8 +44,7 @@ moe_router_topk_scaling_factor: 2.5 # float
 
 # How many distinct experts the trained router actually reaches, as a fraction
 # of what independent routing predicts, measured from the checkpoint's own
-# router weights with bench/hyperloom_validation/measure_router_coverage.py
-# (six layers probed, midpoint of the two probes).
+# router weights (six layers probed, midpoint of the two probes).
 #
 # Milder than gpt-oss, which bottoms at 0.78: with 256 experts and top-8 there
 # is far more room before selections collide. The mechanism differs too. For

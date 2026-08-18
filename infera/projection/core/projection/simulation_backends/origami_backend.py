@@ -111,11 +111,11 @@ _ROOFLINE_COMPUTE_EFF = 0.40
 
 # A transfer only reaches peak bandwidth once it is big enough to saturate the
 # memory system, and a decode step's grouped expert GEMM is often not. Measured
-# on MI355X with ``bench/hyperloom_validation/measure_gemm_bandwidth.py`` over
-# 1..256 experts, achieved bandwidth climbs from 14% of peak on a single expert
-# to a ~80% plateau, and both models collapse onto one curve against *bytes
-# moved* -- 16.6 MB reads 13.7% and 29.4 MB reads 24.5% whichever model they
-# come from -- fitting ``0.80 * (1 - exp(-bytes / 78 MB))`` to a few percent.
+# on MI355X over 1..256 experts, achieved bandwidth climbs from 14% of peak on a
+# single expert to a ~80% plateau, and both models collapse onto one curve
+# against *bytes moved* -- 16.6 MB reads 13.7% and 29.4 MB reads 24.5% whichever
+# model they come from -- fitting ``0.80 * (1 - exp(-bytes / 78 MB))`` to a few
+# percent.
 #
 # That effect is real for a transfer in isolation and deliberately *not* wired in
 # here, because a decode step's expert GEMMs are not in isolation. The benchmark
