@@ -140,10 +140,10 @@ def sweep(
     dropped, so a search can tell "does not fit" from "was never tried".
     """
     if workload is None:
-        # .../infera/projection/core/projection/inference_projection -> repo root
+        # .../core/projection/inference_projection -> infera/projection/configs
         workload = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
-            "..", "..", "..", "..", "..", "bench", "hyperloom_validation",
+            "..", "..", "..", "configs",
             "inferasim_workload.yaml",
         )
         workload = os.path.normpath(workload)
