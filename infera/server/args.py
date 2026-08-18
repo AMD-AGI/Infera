@@ -197,6 +197,17 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
         "$INFERA_ENABLE_PROFILING=1.",
     )
     parser.add_argument(
+        "--enable-scaling-api",
+        action="store_true",
+        default=os.environ.get("INFERA_ENABLE_SCALING_API", "").lower() in ("1", "true", "yes"),
+        help="Enable pool resizing over the admin API: GET/POST /v1/admin/scale "
+        "reads and writes the replica counts on the InferaDeployment this "
+        "server belongs to. Needs the operator (the deployment is found from "
+        "this Pod's labels) and RBAC to patch inferadeployments. Default OFF "
+        "(returns 403), since /v1/admin carries no authentication of its own. "
+        "Also enabled via $INFERA_ENABLE_SCALING_API=1.",
+    )
+    parser.add_argument(
         "--request-max-retries",
         type=int,
         default=int(os.environ.get("INFERA_REQUEST_MAX_RETRIES", "1") or 1),

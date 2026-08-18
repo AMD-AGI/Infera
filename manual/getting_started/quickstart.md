@@ -195,6 +195,18 @@ The router picked one of the two workers for you — that's a working Infera sta
   (`--discovery-backend etcd --request-transport http --kv-event-transport zmq`).
 ```
 
+## 6. Scale it
+
+Repeat step 3 on another port to add a worker, `SIGTERM` one to remove it.
+Nothing needs to be told: workers register and deregister themselves, and the
+router routes to whatever is registered at that instant.
+
+On Kubernetes the server can do it for you, over
+[an admin API](../features/scaling.md#scaling-a-deployment) that resizes the
+pools of the `InferaDeployment` it belongs to — including prefill and decode
+independently. That path needs a deployment the operator created, so it is not
+available on this page's etcd setup.
+
 ## Where to go next
 
 - **Route by cache locality** instead of round-robin →
@@ -203,5 +215,7 @@ The router picked one of the two workers for you — that's a working Infera sta
   [PD disaggregation](../features/pd_disaggregation.md)
 - **Keep KV warm** across restarts on RAM/NVMe →
   [KV-Cache Offload](../features/kv_cache_offload.md)
+- **Add and remove workers** while traffic flows →
+  [Scaling a fleet](../features/scaling.md)
 - **Deploy for real** with Kubernetes →
   [Deployment](../serving/deployment.md)

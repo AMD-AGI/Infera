@@ -26,6 +26,7 @@ from infera.router.direct import DirectRouter
 from infera.router.policy.factory import build_policy
 from infera.server.app import init_app
 from infera.server.args import parse_server_args
+from infera.server.scaling import DeploymentScaler
 
 logging.basicConfig(level=logging.INFO)
 # httpx logs every outbound request (etcd keepalives every ~10s, and one
@@ -267,12 +268,25 @@ async def main(args) -> None:
                 "goes away mid-stream continues on another one",
                 args.migration_limit,
             )
+
+    scaler = None
+    if args.enable_scaling_api:
+        # Resolved lazily on first call: the deployment is read from this Pod's
+        # labels, and failing at startup over a permission the operator grants
+        # would take down a server whose main job does not need it.
+        scaler = DeploymentScaler(namespace=args.k8s_namespace or None)
+        logger.info(
+            "scaling API enabled: GET/POST /v1/admin/scale resizes this "
+            "deployment's pools (needs RBAC to patch inferadeployments)"
+        )
+
     app = init_app(
         registry,
         router,
         kv=policy.kv_client,
         kvd_socket_path=args.kvd_socket_path,
         enable_profiling=args.enable_profiling,
+        scaler=scaler,
     )
     app.include_router(
         make_stats_router(

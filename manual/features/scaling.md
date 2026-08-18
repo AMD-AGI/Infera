@@ -416,21 +416,146 @@ continuous traffic: **200 requests, 0 failures**, both pools scaling
 independently and the drained workers finishing their in-flight work. Taking the
 last prefill away then returns 503 naming the empty pool.
 
+**Scaling over the API.** A PD deployment at 1 prefill / 2 decode resized to
+3 / 4 by one `POST /v1/admin/scale`: the CR carried both new counts immediately
+and the Pods reached them **within 35 s**. During that window the read reported
+`replicas` 3 and 4 against `current_replicas` 1 and 2.
+
+**Scaling over the API, real engine.** One vLLM worker (Qwen3-8B, one MI300X)
+scaled to two and back. The added worker loaded weights, registered, and
+**served 4 of the 8 requests** issued after it joined; the remaining worker
+served normally after the scale-down.
+
+A pool scaled to zero, an unknown service name and a negative count are each
+refused with the CR unchanged, and a server without `--enable-scaling-api`
+answers 403.
+
 ```{warning}
 **Not measured:** multi-node workers, TP > 1, PD scaling with a *real* engine
-(the run above used GPU-free stand-ins, so no KV moved), and scale-down during an
-active KV transfer. The PD handoff queues are counted in the drain, but that
+(the runs above used GPU-free stand-ins, so no KV moved), and scale-down during
+an active KV transfer. The PD handoff queues are counted in the drain, but that
 path has not been exercised on hardware.
+
+The PD API run used stand-ins; the real-engine API run was a single mixed pool.
+Neither covers a scale-down draining real work — that is the drain measurement
+above.
 ```
 
 ## Scaling a deployment
 
-Edit the service's `replicas` in the `InferaDeployment`. That is the only
-supported way in, and it is the only write that survives:
+This section is about deployments the operator manages. Elsewhere — external
+etcd, no CR — scaling is starting and stopping worker processes, as above.
+
+Edit the service's `replicas` in the `InferaDeployment`. That is the write that
+counts — every supported path ends there:
 
 ```bash
 kubectl patch inferadeployment qwen --type=merge \
   -p '{"spec":{"services":{"decode":{"replicas":5}}}}'
+```
+
+Or over the server's admin API, for an orchestration layer that would otherwise
+need cluster credentials and knowledge of the CR's shape:
+
+```bash
+infera-server --enable-scaling-api   # off by default
+
+curl -X POST http://router:8000/v1/admin/scale \
+  -H 'Content-Type: application/json' \
+  -d '{"services": {"prefill": 4, "decode": 8}}'
+```
+
+Counts are absolute rather than deltas, and every pool named in one request moves
+in a single write, so a rebalance cannot half-apply. Pools not named are left
+alone.
+
+`GET` on the same path returns the same shape, as does the `POST` once it has
+written:
+
+```json
+{
+  "deployment": "qwen",
+  "namespace": "infera",
+  "state": "pending",
+  "services": {
+    "decode": {
+      "role": "decode",
+      "replicas": 8,
+      "current_replicas": 3,
+      "ready_replicas": 3,
+      "nodes_per_replica": 1,
+      "blocked": "Unschedulable: 0/13 nodes are available: 8 Insufficient amd.com/gpu."
+    }
+  }
+}
+```
+
+The three replica counts are separate:
+
+- **`replicas`** — what was asked for, the value on the CR.
+- **`current_replicas`** — Pods that exist.
+- **`ready_replicas`** — workers registered and serving.
+
+A scale-up has landed when **`ready_replicas` reaches `replicas`**, and `state`
+says the same thing for the deployment as a whole. Compare against `replicas`
+rather than against `current_replicas`: a replica the scheduler could not place
+is missing from *both* observed counts, so they agree with each other while the
+pool is half its requested size — which is exactly the response above.
+
+`blocked` appears on a pool short of what it asked for, when the cluster says
+why: the scheduler's message for a Pod it could not place, or the kubelet's for
+one that will not start. It is absent while Pods are merely starting, since a
+model takes minutes to load and that is not a fault.
+
+`nodes_per_replica` above 1 makes `replicas` a count of **groups** rather than
+Pods — see below.
+
+### Waiting for a scale-up
+
+The write returns as soon as the CR is updated; the operator does the rest, and
+reconciles every 15 seconds. Poll until `ready_replicas` reaches `replicas`.
+
+Nothing times out. A request for more replicas than the cluster can place is not
+rejected and does not expire — the Pods stay `Pending` and the operator keeps
+trying, indefinitely, until capacity appears or the count is lowered. That is
+the usual behaviour of a Kubernetes controller, and it means **deciding when to
+give up is the caller's**.
+
+`blocked` is what makes that decision early rather than on a timeout:
+
+- **absent, counts rising** — the scale-up is landing. A Pod exists within
+  seconds and serves once its model is loaded, which is minutes.
+- **present** — the cluster has said this will not start on its own. Waiting
+  longer will not help.
+
+To give up, write the previous count back. The operator removes the surplus
+Pods, `Pending` ones included. Existing workers are untouched throughout: Pods
+that cannot be placed never displace ones that are already serving, so a
+scale-up that fails leaves the pool exactly as it was.
+
+The API refuses to take a pool to zero: an empty pool stops serving, and in a PD
+deployment an empty prefill or decode pool fails *every* request rather than
+only the ones that would have landed there. Retiring a pool is a `kubectl` edit,
+where the intent is unambiguous. A negative count and a service name that is not
+in the CR are refused the same way, the latter listing the names that are:
+
+```json
+{"detail": "no such service(s): prefil. This deployment has: decode, prefill, server"}
+```
+
+A refused request writes nothing, so nothing is left half-applied.
+
+```{note}
+Both paths write the `InferaDeployment`, so both need one. Deployments outside
+Kubernetes — the external-etcd shape described in [Across
+machines](#across-machines) — have no CR and no operator to reconcile it, and
+scale there by starting and stopping worker processes, as
+[Scaling up](#scaling-up) and [Scaling down](#scaling-down) describe. The API
+answers 409 on a server that was not created by the operator.
+
+Where there is an operator, the API also needs the RBAC that ships with it. A
+cluster running an operator from before this feature has a server that cannot
+write; re-apply the operator manifests to get the grant.
 ```
 
 For a multi-node service the count is **groups**, not pods: `replicas: 5` with
@@ -452,15 +577,18 @@ snapping back.
 
 ## Autoscaling
 
-Infera ships no autoscaler, and there is currently no `/scale` surface for an
-external one to drive.
+Infera ships no autoscaler. `/v1/admin/scale` gives an external one somewhere to
+push a decision to, but it is an entry point rather than a control loop: nothing
+in Infera watches load and decides.
 
-An `InferaDeployment` cannot carry `/scale` itself, and that is a property of
-its shape rather than an omission: `spec.services` is a map with user-chosen
-keys, while the scale subresource requires `specReplicasPath` to be a *static*
-dot-notation JSONPath, and a CRD may declare only one. A single path could name
-one service — hardcoding `decode`, say — which leaves every other pool, and in
-a PD deployment specifically the prefill pool, with no handle at all.
+An `InferaDeployment` cannot carry a Kubernetes `/scale` subresource, and that
+is a property of its shape rather than an omission: `spec.services` is a map
+with user-chosen keys, while the scale subresource requires `specReplicasPath`
+to be a *static* dot-notation JSONPath, and a CRD may declare only one. A single
+path could name one service — hardcoding `decode`, say — which leaves every
+other pool, and in a PD deployment specifically the prefill pool, with no handle
+at all. The admin API sidesteps that by naming the service in the request
+instead of the path.
 
 Pointing an autoscaler at the generated workload does not work either, for the
 reason in the warning above: those objects are derived state and are rewritten
