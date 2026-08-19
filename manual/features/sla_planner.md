@@ -263,6 +263,7 @@ Intervals are skipped rather than guessed at, each counted under
 | `no_metrics` | The first interval (cumulative counters need a baseline), every replica unreachable, or a counter reset from a server restart. |
 | `no_traffic` | No completed request, or none that generated tokens. Nothing to conclude about the SLA. |
 | `no_decode_workers` | Traffic arrived but no decode replicas are registered, so the decode model cannot be calibrated. |
+| `no_latency_samples` | Traffic arrived but neither TTFT nor ITL was recorded, so there is nothing to correct the model against. A whole window of this means the clients are not streaming. |
 | `model_error` | The profiling data predicts a non-positive latency, i.e. it is degenerate. |
 
 A decision that matches the current replica counts is also not applied — patching
@@ -273,6 +274,11 @@ a no-op.
 
 - **Disaggregated deployments only.** The planner sizes a prefill pool and a
   decode pool. Aggregated (`role: mixed`) fleets are not covered.
+- **Streaming clients only.** A non-streaming reply arrives in one piece, so it
+  has no observable first-token boundary and contributes neither TTFT nor ITL.
+  Both corrections are derived from those two, so a fleet serving only
+  non-streaming requests gives the planner nothing to calibrate against and
+  every interval is skipped as `no_latency_samples`.
 - **One planner per deployment.** Two would fight over the same replica counts.
 - **The window is in memory.** A planner restart forfeits one interval while it
   re-establishes the baseline scrape.

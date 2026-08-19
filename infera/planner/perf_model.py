@@ -16,11 +16,11 @@ Two questions the planner needs answered, both from offline measurements:
 
 Interpolation is numpy-only. Prefill is a 1-D linear interpolation over the
 profiled ISL points; decode is bilinear over the profiled
-``context_length x kv_usage`` grid, which replaces the scattered cubic
-interpolation Dynamo's planner does with scipy. Queries outside the profiled
-range are clamped to the nearest edge rather than extrapolated -- a linear
-extrapolation of a saturating throughput curve invents capacity that isn't
-there.
+``context_length x kv_usage`` grid, which is what insisting on a full
+rectangular grid buys -- interpolating scattered samples instead would mean
+pulling in scipy. Queries outside the profiled range are clamped to the nearest
+edge rather than extrapolated -- a linear extrapolation of a saturating
+throughput curve invents capacity that isn't there.
 
 The model is stateless and cheap to query; runtime deviation from these
 predictions is handled by the correction factors in

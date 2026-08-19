@@ -230,6 +230,8 @@ def parse_planner_args(argv: list[str] | None = None) -> PlannerArgs:
         parser.error("--ttft and --itl must be positive")
     if ns.min_endpoint < 0:
         parser.error("--min-endpoint cannot be negative")
+    if ns.max_gpu_budget < 1:
+        parser.error("--max-gpu-budget must be at least 1")
 
     return PlannerArgs(
         ttft_ms=ns.ttft,

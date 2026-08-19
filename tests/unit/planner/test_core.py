@@ -227,6 +227,31 @@ class TestSkippedIntervals:
         planner = make_planner(flat_profile)
         assert planner.plan(metrics(num_decode=0)) is None
 
+    def test_a_window_without_latency_samples_is_not_actionable(self, flat_profile):
+        # TTFT and ITL are streaming-only measurements, so a workload of
+        # non-streaming requests reports real ISL/OSL and zero latency. Acting
+        # on that would read as an infinitely fast fleet.
+        planner = make_planner(flat_profile)
+        heavy = metrics(num_req=10_000.0, ttft=0.0, itl=0.0)
+        planner.observe(heavy)
+        assert planner.plan(heavy) is None
+
+    def test_a_missing_itl_alone_is_enough_to_skip(self, flat_profile):
+        # Every reply was a single token, so there is no inter-token interval to
+        # have measured; the decode correction would come out at zero.
+        planner = make_planner(flat_profile)
+        assert planner.plan(metrics(itl=0.0)) is None
+
+    def test_a_busy_window_is_never_shrunk_to_the_floor_for_want_of_latency(self, flat_profile):
+        # The regression this guards: 10000 requests x 1000 tokens over 100s
+        # needs 10 prefill replicas. With the latency averages at zero the
+        # prefill correction is 0, which multiplies that demand away to one.
+        planner = make_planner(flat_profile)
+        measured = metrics(num_req=10_000.0)
+        planner.observe(measured)
+        assert planner.plan(measured).num_prefill == 10
+        assert planner.plan(metrics(num_req=10_000.0, ttft=0.0, itl=0.0)) is None
+
 
 class TestLimits:
     def test_min_endpoint_keeps_both_pools_alive(self, flat_profile):

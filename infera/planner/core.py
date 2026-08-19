@@ -40,9 +40,6 @@ inflating demand on top of it would double-count.
 **4. Clamp.** ``--min-endpoint`` keeps both pools alive, and
 ``--max-gpu-budget`` caps the total. Hitting the budget means the SLA is not
 reachable with the GPUs on hand, which the planner records rather than hides.
-
-The algorithm is adapted from NVIDIA Dynamo's SLA planner (Apache-2.0); this is
-an independent implementation.
 """
 
 from __future__ import annotations
@@ -168,6 +165,22 @@ class SlaPlanner:
                 "cannot calibrate the decode model"
             )
             planner_metrics.intervals_skipped_total.labels(reason="no_decode_workers").inc()
+            return None
+
+        if not metrics.has_latency:
+            # Zero here means "never measured", not "instant": both corrections
+            # would come out at 0, which collapses prefill demand to nothing and
+            # loosens the ITL target to infinity -- the planner would shrink a
+            # busy fleet to --min-endpoint and call it sized.
+            logger.warning(
+                "traffic observed but no TTFT/ITL was recorded (ttft=%.0fms itl=%.1fms); "
+                "TTFT needs a streaming reply and ITL a reply of at least two tokens, so "
+                "a non-streaming workload leaves nothing to calibrate against and the "
+                "deployment is left alone",
+                metrics.ttft * _MS_PER_S,
+                metrics.itl * _MS_PER_S,
+            )
+            planner_metrics.intervals_skipped_total.labels(reason="no_latency_samples").inc()
             return None
 
         corrections = self.correction_factors(metrics)

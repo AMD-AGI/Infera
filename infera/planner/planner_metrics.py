@@ -79,7 +79,8 @@ decisions_total = Counter(
 intervals_skipped_total = Counter(
     "infera_planner_intervals_skipped_total",
     "Observation windows the planner declined to act on.",
-    labelnames=("reason",),  # no_metrics | no_traffic | no_decode_workers | model_error
+    # no_metrics | no_traffic | no_decode_workers | no_latency_samples | model_error
+    labelnames=("reason",),
     registry=REGISTRY,
 )
 

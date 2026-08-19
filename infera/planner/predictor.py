@@ -17,9 +17,9 @@ Two are built in and need nothing beyond numpy:
   * ``ewma`` -- exponentially weighted moving average, which rides through
     single-interval noise but lags a sustained ramp.
 
-The interface matches Dynamo's planner predictors (``add_data_point`` /
-``predict_next``) so a heavier forecaster -- ARIMA, Prophet -- can be dropped
-into :data:`PREDICTORS` later without touching the planner loop.
+The interface is deliberately just ``add_data_point`` / ``predict_next``, so a
+heavier forecaster -- ARIMA, Prophet -- can be dropped into :data:`PREDICTORS`
+later without touching the planner loop.
 """
 
 from __future__ import annotations

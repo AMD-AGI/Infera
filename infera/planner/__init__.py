@@ -17,7 +17,4 @@ request path. Every adjustment interval it:
      (:mod:`infera.planner.core`);
   5. hands the decision to a connector (:mod:`infera.planner.connectors`),
      which either patches an ``InferaDeployment`` or publishes it to etcd.
-
-The scaling algorithm is adapted from NVIDIA Dynamo's SLA planner
-(Apache-2.0); this is an independent implementation.
 """
