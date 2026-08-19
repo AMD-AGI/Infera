@@ -131,6 +131,79 @@ class TestPrefillReplicas:
         assert planner.plan(m).num_prefill == 1
 
 
+class TestPrefillTtftTarget:
+    """How ``--ttft`` sizes the prefill pool on top of the throughput need.
+
+    The fixture predicts 100ms TTFT at ISL 1000, so ``ttft=0.5`` is a
+    correction of 5.0: 100ms of service and 400ms of queueing on whatever
+    replicas were observed. Traffic is kept light enough that throughput alone
+    asks for a single replica, which leaves the TTFT term as the only thing
+    that can move the count.
+    """
+
+    def test_a_tight_target_adds_replicas_beyond_the_throughput_need(self, flat_profile):
+        planner = make_planner(flat_profile, ttft_ms=200.0)
+        # 400ms of queueing on 1 replica, against 100ms of headroom under the
+        # 200ms target -> 4 replicas bring the queue to 100ms.
+        m = metrics(ttft=0.5)
+        planner.observe(m)
+        decision = planner.plan(m)
+        assert decision.prefill_correction == pytest.approx(5.0)
+        assert decision.num_prefill == 4
+
+    def test_a_loose_target_leaves_throughput_in_charge(self, flat_profile):
+        planner = make_planner(flat_profile, ttft_ms=500.0)
+        # The same 400ms queue fits inside 400ms of headroom on one replica.
+        m = metrics(ttft=0.5)
+        planner.observe(m)
+        assert planner.plan(m).num_prefill == 1
+
+    def test_an_unqueued_fleet_is_not_scaled_for_ttft(self, flat_profile):
+        planner = make_planner(flat_profile, ttft_ms=150.0)
+        # Correction 1.0: TTFT is entirely service time, so there is no queue
+        # for replicas to divide even under a target this close to it.
+        m = metrics()
+        planner.observe(m)
+        assert planner.plan(m).num_prefill == 1
+
+    def test_cache_hits_count_as_reduced_service_time(self, flat_profile):
+        planner = make_planner(flat_profile, ttft_ms=60.0)
+        # A correction of 0.5 is prefix caching, not queueing: service is 50ms
+        # and the target is met, even though it sits below the profiled 100ms.
+        m = metrics(ttft=0.05)
+        planner.observe(m)
+        assert planner.plan(m).num_prefill == 1
+
+    def test_the_requirement_scales_with_the_fleet_it_was_measured_on(self, flat_profile):
+        planner = make_planner(flat_profile, ttft_ms=200.0)
+        # Still 400ms of queueing, but now with two replicas already absorbing
+        # it, so reaching 100ms of queue takes eight rather than four.
+        m = metrics(ttft=0.5, num_prefill=2)
+        planner.observe(m)
+        assert planner.plan(m).num_prefill == 8
+
+    def test_a_target_below_service_time_is_reported_not_chased(self, flat_profile, caplog):
+        planner = make_planner(flat_profile, ttft_ms=50.0)
+        # Prefilling 1000 tokens costs 100ms on an idle engine. No replica count
+        # recovers that, so the planner says so and sizes for throughput.
+        m = metrics(ttft=0.5)
+        planner.observe(m)
+        with caplog.at_level("WARNING", logger="infera.planner.core"):
+            decision = planner.plan(m)
+        assert decision.num_prefill == 1
+        assert "overruns the 50ms TTFT target" in caplog.text
+
+    def test_the_ttft_requirement_still_respects_the_gpu_budget(self, flat_profile):
+        planner = make_planner(flat_profile, ttft_ms=110.0, max_gpu_budget=6)
+        # 400ms of queue against 10ms of headroom asks for 40 replicas, which
+        # the budget cuts down -- and flags rather than silently satisfies.
+        m = metrics(ttft=0.5)
+        planner.observe(m)
+        decision = planner.plan(m)
+        assert decision.gpu_budget_exceeded
+        assert decision.num_prefill + decision.num_decode <= 6
+
+
 class TestDecodeReplicas:
     def test_token_rate_divided_by_the_throughput_that_fits_the_itl(self, flat_profile):
         planner = make_planner(flat_profile)
@@ -284,6 +357,17 @@ class TestLimits:
         m = metrics()
         planner.observe(m)
         assert not planner.plan(m).gpu_budget_exceeded
+
+    def test_prefill_rounding_cannot_crowd_out_the_decode_floor(self, flat_profile):
+        # 40 prefill against a budget of 6 rounds to 6 on its own, leaving
+        # nothing for decode -- whose floor then puts the total back over the
+        # budget. Decode's floor is reserved first, so prefill gets 5.
+        planner = make_planner(flat_profile, ttft_ms=110.0, max_gpu_budget=6)
+        m = metrics(ttft=0.5)
+        planner.observe(m)
+        decision = planner.plan(m)
+        assert decision.num_prefill == 5
+        assert decision.num_decode == 1
 
     def test_budget_split_never_overshoots(self, flat_profile):
         # Prefill replicas cost 4 GPUs each, decode 2, against a budget of 10.

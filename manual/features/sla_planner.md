@@ -111,13 +111,32 @@ smooths through single-interval noise at the cost of lagging a sustained ramp.
 ### 3. Solve each pool
 
 ```text
-prefill: ceil(req × isl / interval × min(1, p_correction) / thpt_per_gpu(isl) / gpus_per_replica)
+prefill: max(
+  ceil(req × isl / interval × min(1, p_correction) / thpt_per_gpu(isl) / gpus_per_replica),
+  ceil(queue_ms × replicas_now / (ttft_target − service_ms)),
+)
 decode:  ceil(req × osl / interval / thpt_per_gpu(itl_target / d_correction) / gpus_per_replica)
 ```
 
 The `min(1, ...)` on the prefill correction is deliberate. A correction above 1.0
 means requests are queueing, and adding replicas is what fixes queueing — letting
 it also multiply the demand would count the same problem twice.
+
+That leaves throughput alone unable to honour `--ttft`, which is what the second
+prefill term is for. The same correction factor splits the observed TTFT into the
+two parts that behave differently:
+
+```text
+service_ms = profiled_ttft(isl) × min(1, p_correction)   # cost once on an engine
+queue_ms   = profiled_ttft(isl) × max(0, p_correction − 1)  # cost of waiting for one
+```
+
+Replicas divide the queue and leave service untouched, so holding the target
+takes `queue_ms × replicas_now / (target − service_ms)` of them. Two cases impose
+nothing: a fleet with no queueing (`p_correction ≤ 1`) already meets any target
+its service time allows, and a target below `service_ms` is unreachable at any
+replica count — the planner logs that and sizes for throughput instead of
+scaling into a wall.
 
 Decode works the other way round: the correction tightens the ITL *target*
 instead of the demand, and the model is inverted to find the highest per-GPU

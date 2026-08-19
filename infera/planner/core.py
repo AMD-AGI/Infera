@@ -37,6 +37,18 @@ find the highest per-GPU throughput that still fits:
 means requests are queueing, and queueing is what adding replicas fixes, so
 inflating demand on top of it would double-count.
 
+Sizing prefill for throughput alone would leave ``--ttft`` with nothing to do,
+so the queue it implies is sized for as well and the larger of the two counts
+wins:
+
+    prefill_for_ttft: ceil(queue_ms * replicas_now / (ttft_target - service_ms))
+
+The split comes straight out of the correction factor: the profiled latency
+scaled by ``min(1, p_correction)`` is what a request costs once it reaches an
+engine, and the remainder is time spent waiting for one. Only the waiting part
+responds to more replicas, and it falls off in proportion to how many there
+are.
+
 **4. Clamp.** ``--min-endpoint`` keeps both pools alive, and
 ``--max-gpu-budget`` caps the total. Hitting the budget means the SLA is not
 reachable with the GPUs on hand, which the planner records rather than hides.
@@ -193,7 +205,7 @@ class SlaPlanner:
         next_isl = self._isl_predictor.predict_next()
         next_osl = self._osl_predictor.predict_next()
 
-        num_prefill = self._plan_prefill(next_num_req, next_isl, p_correction)
+        num_prefill = self._plan_prefill(next_num_req, next_isl, p_correction, metrics.num_prefill)
         num_decode = self._plan_decode(next_num_req, next_isl, next_osl, d_correction)
 
         num_prefill = max(num_prefill, self.args.min_endpoint)
@@ -213,18 +225,73 @@ class SlaPlanner:
             gpu_budget_exceeded=over_budget,
         )
 
-    def _plan_prefill(self, next_num_req: float, next_isl: float, p_correction: float) -> int:
-        """Replicas needed to prefill the predicted token rate.
+    def _plan_prefill(
+        self,
+        next_num_req: float,
+        next_isl: float,
+        p_correction: float,
+        observed_prefill: int,
+    ) -> int:
+        """Replicas needed to prefill the predicted token rate within the TTFT SLA.
 
-        The correction is capped at 1.0: above that, TTFT is inflated by
-        queueing, and more replicas are the cure rather than a reason to ask for
-        even more work. Below 1.0 -- prefix-cache hits shrinking the real prefill
-        -- it scales demand down honestly.
+        Two requirements, whichever is larger. Throughput comes first: the
+        correction is capped at 1.0 there, because above that TTFT is inflated
+        by queueing and more replicas are the cure rather than a reason to ask
+        for even more work, while below 1.0 -- prefix-cache hits shrinking the
+        real prefill -- it scales demand down honestly. A pool sized only for
+        throughput can still be missing the TTFT target by queueing, which is
+        what the second requirement covers.
         """
         token_rate = next_num_req * next_isl / self.args.adjustment_interval
         demand = token_rate * min(1.0, p_correction)
         thpt_per_gpu = self.perf.prefill.interpolate_thpt_per_gpu(next_isl)
-        return math.ceil(demand / thpt_per_gpu / self.prefill_num_gpu)
+        for_throughput = math.ceil(demand / thpt_per_gpu / self.prefill_num_gpu)
+        for_ttft = self._prefill_for_ttft(next_isl, p_correction, observed_prefill)
+        if for_ttft > for_throughput:
+            logger.info(
+                "prefill sized by the TTFT target rather than throughput: %d replicas "
+                "instead of %d, to hold TTFT at or under %.0fms",
+                for_ttft,
+                for_throughput,
+                self.args.ttft_ms,
+            )
+        return max(for_throughput, for_ttft)
+
+    def _prefill_for_ttft(self, next_isl: float, p_correction: float, observed_prefill: int) -> int:
+        """Replicas needed to bring queueing down to the TTFT target.
+
+        The observed TTFT splits along the correction factor. The profiled
+        latency scaled by ``min(1, p_correction)`` is what prefilling actually
+        costs once a request reaches an engine; the rest is time spent waiting
+        for one. Adding replicas cannot touch the first part, and divides the
+        second, so the count that fits the target is
+        ``queue x replicas_now / headroom``.
+
+        Returns 0 when the target imposes no requirement beyond throughput:
+        nothing is queueing, or service time alone already overruns the target
+        and no number of replicas would recover it.
+        """
+        profiled_ttft_ms = self.perf.prefill.interpolate_ttft(next_isl)
+        service_ms = profiled_ttft_ms * min(1.0, p_correction)
+        queue_ms = profiled_ttft_ms * max(0.0, p_correction - 1.0)
+        if queue_ms <= 0.0:
+            return 0
+
+        headroom_ms = self.args.ttft_ms - service_ms
+        if headroom_ms <= 0.0:
+            logger.warning(
+                "prefilling a %.0f-token prompt costs %.0fms on an unqueued engine, which "
+                "already overruns the %.0fms TTFT target; replicas divide queueing, not "
+                "service time, so prefill is sized for throughput alone",
+                next_isl,
+                service_ms,
+                self.args.ttft_ms,
+            )
+            return 0
+
+        # A fleet reporting no prefill replicas cannot be divided by; treat it
+        # as one so the ratio still means "relative to what is running".
+        return math.ceil(queue_ms * max(1, observed_prefill) / headroom_ms)
 
     def _plan_decode(
         self, next_num_req: float, next_isl: float, next_osl: float, d_correction: float
@@ -263,18 +330,29 @@ class SlaPlanner:
         """Shrink both pools proportionally until they fit ``--max-gpu-budget``.
 
         Prefill is scaled first and decode takes whatever GPUs remain, so the
-        rounding never overshoots the budget. Both pools still respect
-        ``--min-endpoint``, which can itself exceed the budget on a
-        deliberately undersized deployment -- the planner reports that rather
-        than scaling a pool to zero.
+        rounding never overshoots the budget. Decode's floor is set aside
+        before prefill takes its share: rounding prefill up can otherwise
+        consume the entire budget, and then ``--min-endpoint`` puts decode back
+        over it.
+
+        Both pools still respect ``--min-endpoint``, which can itself exceed
+        the budget on a deliberately undersized deployment -- the planner
+        reports that rather than scaling a pool to zero.
         """
         budget = self.args.max_gpu_budget
         required = num_prefill * self.prefill_num_gpu + num_decode * self.decode_num_gpu
         if required <= budget:
             return num_prefill, num_decode, False
 
+        reserved_for_decode = self.args.min_endpoint * self.decode_num_gpu
+        affordable_prefill = max(
+            self.args.min_endpoint * self.prefill_num_gpu, budget - reserved_for_decode
+        )
         scale = budget / required
-        capped_prefill = max(self.args.min_endpoint, round(num_prefill * scale))
+        capped_prefill = max(
+            self.args.min_endpoint,
+            min(round(num_prefill * scale), affordable_prefill // self.prefill_num_gpu),
+        )
         remaining = budget - capped_prefill * self.prefill_num_gpu
         capped_decode = max(self.args.min_endpoint, remaining // self.decode_num_gpu)
         logger.warning(

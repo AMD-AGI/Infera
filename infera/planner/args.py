@@ -77,14 +77,16 @@ def parse_planner_args(argv: list[str] | None = None) -> PlannerArgs:
         type=float,
         default=DEFAULT_TTFT_MS,
         metavar="MS",
-        help="Time-to-first-token target in milliseconds (default: %(default)s).",
+        help="Time-to-first-token target in milliseconds. Sizes the prefill pool "
+        "whenever queueing puts TTFT over it (default: %(default)s).",
     )
     sla.add_argument(
         "--itl",
         type=float,
         default=DEFAULT_ITL_MS,
         metavar="MS",
-        help="Inter-token-latency target in milliseconds (default: %(default)s).",
+        help="Inter-token-latency target in milliseconds. Sets the operating point "
+        "the decode pool is sized to hold (default: %(default)s).",
     )
 
     obs = parser.add_argument_group("observation")
