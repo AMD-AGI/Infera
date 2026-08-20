@@ -61,6 +61,14 @@ def test_a_negative_amount_is_rejected(kind):
         p.take(-1)
 
 
+def test_a_negative_amount_is_not_affordable(kind):
+    """Answering True would let a caller past its own guard and into `take`,
+    which then raises after earlier pools in the same acquisition were taken."""
+    p = pool(kind, 8, name="thing")
+    assert not p.can_afford(-1)
+    assert p.can_afford(0)
+
+
 def test_resource_mgr_cannot_be_instantiated():
     with pytest.raises(TypeError):
         ResourceMgr(registry=Registry(), name="x", capacity=1)

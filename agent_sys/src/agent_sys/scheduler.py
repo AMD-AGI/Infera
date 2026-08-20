@@ -7,6 +7,7 @@ point, not a counter maintained across events.
 
 import logging
 import threading
+from math import isfinite
 
 from agent_sys.ids import TaskId
 from agent_sys.models import RESUMABLE, WAITING, Task, TaskStatus
@@ -38,9 +39,18 @@ class Scheduler:
                     f"unknown agent spec {task.agent_spec!r}; registered: "
                     f"{sorted(agent_mgr.specs())}"
                 )
-            for name in task.resources:
+            for name, amount in task.resources.items():
                 if f"resource:{name}" not in self._r:
                     raise ValueError(f"task {task.id}: no resource pool named {name!r}")
+                # A negative or non-finite amount passes `can_afford` and then
+                # raises inside `take` — after earlier pools in the same
+                # acquisition have already been taken, which is exactly the
+                # partial reservation all-or-nothing exists to prevent.
+                if not isfinite(amount) or amount < 0:
+                    raise ValueError(
+                        f"task {task.id}: {name!r} amount must be a non-negative "
+                        f"finite number, got {amount}"
+                    )
 
             task_mgr.add(task)
             self._r.get("handoff_mgr").declare(task.outputs, producer_task_id=task.id)

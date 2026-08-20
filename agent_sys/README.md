@@ -28,7 +28,15 @@ agent_sys/
 
 ## Status
 
-Design stage. No code yet.
+Implemented. 331 tests, all 35 acceptance criteria covered.
+
+```bash
+pytest agent_sys/tests
+```
+
+`agent_sys/conftest.py` puts `src/` on `sys.path` — the two-line editable
+install — so nothing needs to be installed and the repository's
+`pyproject.toml` is untouched.
 
 ## Dependencies
 

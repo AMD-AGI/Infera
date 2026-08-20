@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Status | Draft, pending review |
-| Revision | 4 — 2026-08-20. Consumable balances and agents persist; `depends_on` checked at submit |
+| Status | Implemented — `src/` and `tests/` follow this document |
+| Revision | 5 — 2026-08-20. Implementation notes folded in: D9, O9, and the amount validation §8.2 gained |
 | Implements | `docs/spec.md` rev. 6 |
 | Language | Python ≥ 3.10. Standard library plus pydantic v2 |
 
@@ -860,7 +860,7 @@ called on a task whose stored status was already wrong.
 
 | Method | Body |
 |---|---|
-| `submit(task)` | validate id and resource names → `task_mgr.add` → `handoff_mgr.declare(task.outputs, task.id)` → `_warn_depends_on(task)` → `_move` to the pool `_ready` dictates → `try_dispatch` |
+| `submit(task)` | validate the agent spec, the resource names, and the resource **amounts** (D9) → `task_mgr.add` → `handoff_mgr.declare(task.outputs, task.id)` → `_warn_depends_on(task)` → `_move` to the pool `_ready` dictates → `try_dispatch` |
 | `expedite(task)` | reject unless every input passes `check_if_latest_valid` → `task.expedited = True` → `submit(task)` |
 | `remove_queued(tid)` | reject unless status in `WAITING` → `_move(CANCELLED)` |
 | `stop(tid)` | reject unless `RUNNING` → `_move(STOPPING)` → `runner.stop(tid, self.on_stopped)` |
@@ -1175,6 +1175,7 @@ adopted them. They are now specification, not deviation.
 | D6 | `declare(ids, producer_task_id)` | idempotent; skips ids already known | `update_task` re-declares. Overwriting would delete versions an agent had already written. |
 | D7 | `on_stopped` releases resources | consumables settle at the **full reservation** | `on_stopped` carries no usage figures, so actual spend is unknown. Assuming the agent spent what it reserved is the safe direction for a budget. |
 | D8 | "a dangling stack top is closed as interrupted" | `outcome = SUSPENDED`, `ended_at = now` | The spec does not name the outcome. `SUSPENDED` says the attempt was cut short rather than judged. |
+| D9 | `submit` validates resource **names** | also rejects an amount that is negative or non-finite, and `can_afford` returns `False` for a negative one | Found by review during implementation. A negative amount passes `can_afford`, so step 3's all-or-nothing check succeeds — and then `take` raises partway through step 3's loop, after earlier pools were already debited. That is precisely the partial reservation criterion 3 exists to make impossible. Rejecting at submit keeps a malformed task out of the dispatch loop entirely; the `can_afford` guard makes a pool safe regardless of who calls it. |
 
 ---
 
@@ -1194,3 +1195,4 @@ is why they were raised here rather than fixed here.
 | **O4** | **`Handoff.type` has no route from `submit`.** Spec §3.1 gives a handoff a `type`, but `Task` has no field naming the types of its outputs, so the scheduler declares them with `type=""` and nothing later fills it in. Either `Task` gains an `output_types: dict[HandoffId, str]` — a §3.2 change — or `type` is acknowledged as being for directly-declared external handoffs only. Nothing depends on it today: the scheduler is content-agnostic and never reads it. |
 | **O7** | **A consumable's capacity and its balance can disagree after a config change.** `resume_system` reads the stored `available` and ignores the `capacity` passed to the constructor, so raising a budget from 1M to 2M has no effect until the record is deleted by hand. That is the right default — the operator did not intend to hand back spend — but it means the constructor argument silently stops mattering. Either log when the two disagree at startup, or add the explicit `refill` that spec §10 already wants. Not built. |
 | **O8** | **`_warn_depends_on` reads a version that may not exist yet.** The check looks up each input's `producer_task_id`, which is `None` until the producing task is submitted and `declare`s the slot. Submitting a consumer before its producer therefore warns about nothing — the check silently passes on exactly the graph most likely to be miswired. Re-running it at dispatch would catch that, at the cost of warning repeatedly. Accepted for now: the warning is a convenience, and the scheduling behaviour it guards is unaffected either way. |
+| **O9** | **A handoff payload must be JSON-serialisable.** The scheduler is content-agnostic and `test_authority.py` proves it never inspects a payload — but `HandoffMgr.persist` dumps the whole handoff, so an arbitrary Python object raises `PydanticSerializationError` at the agent's `seal`, not at the scheduler. Found while writing the authority test and asserted there rather than left to be discovered by the first agent that returns a live object. The fix is the same one spec §8.2 already leaves open: decide where payloads live, and put a content store behind `Handoff.content`. |

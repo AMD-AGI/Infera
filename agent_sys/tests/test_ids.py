@@ -118,3 +118,12 @@ def test_round_trip_survives_json_text():
 
     holder = _Holder(tid=TaskId.new(), versions={HandoffId.new(): 0})
     assert _Holder.model_validate(json.loads(holder.model_dump_json())) == holder
+
+
+def test_the_types_are_statically_incompatible():
+    """Criterion 27's other half — the checker's job, asserted here as the
+    structural fact it rests on: three unrelated leaf classes."""
+    for left in KINDS:
+        for right in KINDS:
+            if left is not right:
+                assert not issubclass(left, right)

@@ -118,6 +118,24 @@ def test_an_unregistered_resource_is_rejected(scheduler, task_mgr):
     assert task_mgr.all() == []
 
 
+@pytest.mark.parametrize("amount", [-1, float("nan"), float("inf")])
+def test_a_malformed_resource_amount_is_rejected(scheduler, task_mgr, registry, amount):
+    """It would pass `can_afford` for other pools and then raise inside `take`,
+    leaving the partial reservation all-or-nothing exists to prevent."""
+    task = make_task(resources={"gpu": 1, "token": amount})
+    with pytest.raises(ValueError, match="token"):
+        scheduler.submit(task)
+
+    assert task_mgr.all() == []
+    assert registry.get("resource:gpu").available == 8  # nothing was taken
+
+
+def test_zero_is_a_legitimate_amount(scheduler, task_mgr):
+    task = make_task(resources={"gpu": 0})
+    scheduler.submit(task)
+    assert task_mgr.get(task.id).status is TaskStatus.RUNNING
+
+
 def test_a_registered_resource_is_accepted(scheduler, task_mgr):
     task = make_task(resources={"gpu": 2, "token": 500})
     scheduler.submit(task)

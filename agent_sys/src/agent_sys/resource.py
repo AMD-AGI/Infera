@@ -27,7 +27,10 @@ class ResourceMgr(ABC):
         self.available = float(capacity)
 
     def can_afford(self, amount: float) -> bool:
-        return amount <= self.available
+        # A negative amount is not "affordable": answering True would let a
+        # caller past its own guard and into `take`, which then raises after
+        # earlier pools in the same acquisition were already taken.
+        return 0 <= amount <= self.available
 
     def take(self, amount: float) -> None:
         """Reserve. Raises if it does not fit — the caller must check first."""
