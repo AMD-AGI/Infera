@@ -35,8 +35,9 @@ guarantees it does not obstruct them:
 
 - Retry, backoff, and failure recovery.
 - Cascading invalidation of downstream tasks.
-- Re-running a finished task. `SUCCEEDED` is final. A caller dissatisfied with a
-  result submits a *new* task and wires up its dependencies.
+- Re-running a `SUCCEEDED` task. That state is final; a caller dissatisfied with
+  a result submits a *new* task and wires up its dependencies. (`FAILED` and
+  `SUSPENDED` tasks *are* resumable — see §3.2.)
 - Agent internals: knowledge, prompts, agent configuration.
 - The runtime that actually executes an agent. That is `TaskRunner`, a registered
   interface; this system defines the interface and ships only a fake.
@@ -234,9 +235,10 @@ point. There is no dependency counter to keep in sync, and therefore nothing tha
 can go stale when an upstream producer re-runs.
 
 **Why the two waits are separate collections.** `WAITING_HANDOFF` is an unordered
-set: there is no decision to make, only a counter to watch. `WAITING_RESOURCE` is
-ordered: it is the single place in the system where a scheduling decision occurs.
-Merging them into one queue with a filter would hide that distinction.
+set: there is no decision to make there, only a question to re-ask.
+`WAITING_RESOURCE` is ordered: it is the single place in the system where a
+scheduling decision occurs. Merging them into one queue with a filter would hide
+that distinction.
 
 ### 3.3 Resource
 
@@ -281,7 +283,8 @@ post-hoc accounting alone bounds nothing.
               ┌────────────┐  ┌──────────────┐
               │  StoreMgr  │  │SchedulePolicy│
               │ (json file)│  │ (FIFO first) │
-              └────────────┘  └──────────────┘
+              └─────▲──────┘  └──────────────┘
+                    │  write-through from TaskMgr and HandoffMgr (§7)
 ```
 
 The two arrows into `HandoffMgr` are the whole story of §3.1: the scheduler only
@@ -308,7 +311,7 @@ component that needs a collaborator calls `registry.get(name)`.
 |---|---|
 | `handoff_mgr` | `HandoffMgr` |
 | `task_mgr` | `TaskMgr` |
-| `store_mgr` | `StoreMgr` — the persistence backend |
+| `store_mgr` | `StoreMgr` — the persistence backend, shared by `TaskMgr` and `HandoffMgr` |
 | `agent_mgr` | `AgentMgr` |
 | `runner` | a `TaskRunner` implementation |
 | `policy` | a `SchedulePolicy` implementation |
@@ -339,20 +342,24 @@ Persistence is a registered component like any other, not a sub-object of
 
 ```python
 class StoreMgr(Protocol):
-    def save(self, task: Task) -> None: ...
-    def load_all(self) -> list[Task]: ...
-    def delete(self, task_id: str) -> None: ...
+    def save(self, kind: str, key: str, record: dict) -> None: ...
+    def load_all(self, kind: str) -> list[dict]: ...
+    def delete(self, kind: str, key: str) -> None: ...
 ```
 
-The first implementation is `JsonFileStoreMgr`: one JSON file per task in a
-directory. No database. Chosen for inspectability while the shape of the data is
-still settling.
+`kind` separates the key spaces: `TaskMgr` writes `"task"`, `HandoffMgr` writes
+`"handoff"` (§7). Keeping the store ignorant of both types is what lets one
+implementation serve both managers.
+
+The first implementation is `JsonFileStoreMgr`: one JSON file per record, in a
+directory per kind. No database. Chosen for inspectability while the shape of the
+data is still settling.
 
 ### 4.3 Managers
 
 | Manager | Responsibility | Does *not* |
 |---|---|---|
-| `HandoffMgr` | Hold versions; record what an agent reports; answer `check_if_latest_valid` | **Judge validity, or advance state on its own** (§3.1). Store large payloads inline (§8.2) |
+| `HandoffMgr` | Hold versions; record what an agent reports; answer `check_if_latest_valid`; persist and restore them | **Judge validity, or advance state on its own** (§3.1). Store large payloads inline (§8.2) |
 | `TaskMgr` | Own task state and execution history; write through `store_mgr` | Make scheduling decisions |
 | `ResourceMgr` | Account for one named pool | Know about tasks |
 | `AgentMgr` | `get(name) -> Agent` | Anything else. Deliberately trivial |
@@ -374,6 +381,8 @@ Because eligibility is a query (§3.2), `WAITING_HANDOFF` membership is a hint
 about where a task was last seen, not a claim about its current readiness.
 Dispatch re-checks.
 
+---
+
 ## 5. Interfaces
 
 All of the following are registered in the `Registry` (§4.1) and resolved by name.
@@ -386,9 +395,9 @@ class Registry:
 
 # ---- store ----  (registered as "store_mgr", see §4.2)
 class StoreMgr(Protocol):
-    def save(self, task: Task) -> None: ...
-    def load_all(self) -> list[Task]: ...
-    def delete(self, task_id: str) -> None: ...
+    def save(self, kind: str, key: str, record: dict) -> None: ...
+    def load_all(self, kind: str) -> list[dict]: ...
+    def delete(self, kind: str, key: str) -> None: ...
 
 # ---- handoff ----
 # Called by the SCHEDULER (read-only):
@@ -400,8 +409,10 @@ class HandoffMgr:
     def latest_version(self, uuid: str) -> int | None:
         """For pinning into an Execution record (§3.2)."""
     def get(self, uuid: str) -> Handoff: ...
+    def restore(self) -> None:
+        """Reload handoffs and versions from the store, at startup (§6.4)."""
 
-# Called by the AGENT, through its runner (write):
+# Called by the AGENT, through its runner (write). Each of these persists:
     def new_version(self, uuid: str, agent_uuid: str) -> int:
         """Open version v+1 as GENERATING. Returns the new version number."""
     def record(self, uuid: str, version: int,
@@ -484,8 +495,9 @@ handoff_mgr = registry.get("handoff_mgr")
 task_mgr    = registry.get("task_mgr")
 
 # 1. re-check eligibility; a hint in WAITING_HANDOFF may have become ready,
-#    and one in WAITING_RESOURCE may have gone stale.
-for tid in pools[WAITING_HANDOFF] | pools[WAITING_RESOURCE]:
+#    and one in WAITING_RESOURCE may have gone stale. Snapshot first: move()
+#    mutates the very sets being scanned.
+for tid in list(pools[WAITING_HANDOFF] | pools[WAITING_RESOURCE]):
       task  = task_mgr.get(tid)
       ready = all(handoff_mgr.check_if_latest_valid(h) for h in task.inputs)
       move(tid, WAITING_RESOURCE if ready else WAITING_HANDOFF)
@@ -566,9 +578,8 @@ deliberate: the system does not cancel them, and does not pretend to.
 
 ```
 resume_system()
-  ├─ tasks = store_mgr.load_all()
-  ├─ rebuild handoffs: identity from every task's `outputs`,
-  │      versions from the `output_versions` recorded in execution history (§7)
+  ├─ tasks = store_mgr.load_all("task")
+  ├─ handoff_mgr.restore()            ← see below
   ├─ RUNNING → WAITING_RESOURCE       (leases do not survive a restart)
   ├─ STOPPING → SUSPENDED
   ├─ close any dangling execution record (ended_at unset) as interrupted
@@ -577,13 +588,54 @@ resume_system()
 ```
 
 Eligibility needs no reconstruction: it is a query, so recovery only has to
-rebuild the handoff versions the query reads.
+ensure the handoff versions the query reads are present.
+
+#### Handoffs must persist themselves
+
+An earlier draft claimed task records alone could rebuild handoff state, by
+replaying the `output_versions` in each execution history. **That does not work,
+and the reason is a direct consequence of §3.1.**
+
+A version's *status* is set by the agent, at a moment the scheduler never
+observes. A task record can say "attempt 0 produced version 0 of handoff H", but
+it cannot say whether the agent sealed that version `VALID` or `INVALID` — the
+scheduler was never told, by design. Reconstructing status from `result.ok` would
+be exactly the inference §3.1 forbids, and would get acceptance criterion 13
+wrong.
+
+Two further gaps in the same claim: a handoff supplied externally has no producing
+task to replay, and a version left `GENERATING` by a crashed agent appears in no
+completed execution record at all.
+
+So `HandoffMgr` owns its own persistence, symmetrically with `TaskMgr`:
+
+```python
+class HandoffMgr:
+    def restore(self) -> None:
+        """Reload handoffs and their versions from the store."""
+```
+
+It writes through on `declare`, `new_version`, and `record` — the same
+write-through discipline as §7 — using the same `store_mgr` under a separate key
+space. This costs one more persisted record type and removes an impossible
+reconstruction.
+
+A version left `GENERATING` across a restart stays `GENERATING`. Its agent is gone
+and will never seal it, so `check_if_latest_valid` stays false and consumers stay
+blocked — correct, and the same outcome as the crash case in §6.3. Resuming the
+producing task appends a fresh version rather than adopting the abandoned one.
+
+---
 
 ## 7. Persistence
 
-Only **task state** is persisted. It contains everything needed to rebuild the
-scheduler's pools and the handoff versions, so persisting the scheduler or the
-handoff manager separately would store the same facts twice.
+Two things are persisted: **task state** and **handoff versions**. The scheduler
+persists nothing of its own — its pools are an index over task status (§4.4), so
+reading tasks back rebuilds them.
+
+Handoff state cannot be derived from task records, because a version's status is
+set by an agent through a path the scheduler never observes (§6.4). Each manager
+therefore persists what it owns.
 
 - `StoreMgr` is a `Protocol`, registered under `store_mgr` (§4.2). `TaskMgr`
   resolves it from the registry when it writes; it is not a sub-object.
@@ -594,19 +646,22 @@ handoff manager separately would store the same facts twice.
   principal trigger but not the only one — submission, cancellation, and stop all
   mutate state and must survive a crash.
 
-The persisted task record therefore includes its **execution history** (§3.2),
-not merely its current status. The history carries the `output_versions` each run
-produced, which is what lets recovery rebuild handoff versions without a separate
-handoff store. Dropping the history would leave recovery unable to tell which
-version of an output is current.
+The persisted task record includes its **execution history** (§3.2), not merely
+its current status. The history is the audit trail — which agent ran, against
+which input versions — and it is recoverable from nowhere else.
 
-One limitation, stated rather than hidden: a version's *status* is reconstructed
-from the run that produced it, so a handoff written by something other than a task
-run — an externally supplied input, for instance — must be re-declared by whoever
-supplies it after a restart.
+`HandoffMgr` follows the same write-through discipline: `declare`, `new_version`,
+and `record` each persist. Because those calls come from agents, a handoff is
+persisted at the moment the agent acts rather than at task completion.
 
 Handoff *content* is a different question, deliberately left open (§8.2). The
 persisted record holds a reference, not a payload.
+
+**Not atomic.** A crash between `TaskMgr`'s write and `HandoffMgr`'s can leave the
+two disagreeing. Recovery tolerates this in the safe direction: anything short of
+a sealed `VALID` version reads as not-valid, so a consumer stays blocked rather
+than running against unverified content. Cross-manager atomicity is not attempted
+(§10).
 
 ---
 
@@ -683,6 +738,7 @@ The rationale is recorded in `agent_sys/README.md` as required by mission rule 3
 | Better ordering than FIFO | The composite rule from the prior art (priority tier → estimated cost → most-total-successors → FIFO) is a drop-in `SchedulePolicy`. Not built first. |
 | Cycle detection | A task whose inputs transitively depend on its own outputs will never run. A ten-line DFS at submit would reject it at the boundary. Not in the first version. |
 | **Re-run window** | A new version is opened by the producing agent when it starts writing (§3.1), so between `resume(t)` and that moment, `latest` is still the previous version. A downstream task dispatched in that window runs against stale-but-valid content. Accepted as the price of the scheduler never touching handoff state. Mitigations if it bites: have the runner open versions at `start`, or have `resume` mark outputs pending. Neither is built. |
+| Cross-manager atomicity | `TaskMgr` and `HandoffMgr` persist independently, so a crash between the two writes leaves them briefly inconsistent (§7). Recovery fails safe — a consumer stays blocked — but the window exists. A shared transaction, or a single append-only log both managers write to, is the known fix. Not built. |
 | Version retention | Nothing says when an old version's content may be discarded (§8.2). Unbounded re-runs mean unbounded payloads. |
 | Re-check cost | Eligibility is recomputed for every waiting task at every decision point (§6.2, step 1). Fine at this scale; a reverse handoff→consumer index is the known optimisation. |
 
@@ -707,9 +763,9 @@ test:
 7. A failed task releases its resources and leaves its dependents in
    `WAITING_HANDOFF`; an output whose version the agent left `GENERATING` does not
    satisfy `check_if_latest_valid`.
-8. `resume_system()` reconstructs pools and handoff versions from the store alone,
-   with `RUNNING` and `STOPPING` tasks demoted to `WAITING_RESOURCE` and
-   `SUSPENDED` respectively.
+8. `resume_system()` reconstructs pools from persisted tasks and versions from
+   persisted handoffs, with `RUNNING` and `STOPPING` tasks demoted to
+   `WAITING_RESOURCE` and `SUSPENDED` respectively.
 9. `expedite` places a task ahead of earlier-submitted eligible tasks, and is
    rejected when any input is not valid.
 10. Swapping `SchedulePolicy` changes dispatch order and nothing else.
@@ -734,3 +790,8 @@ test:
     invalidation call made anywhere in the system.
 18. Execution history grows by exactly one entry per run, each carrying the bound
     `agent_uuid` and the pinned input/output versions.
+19. A handoff sealed `INVALID` before a restart is still `INVALID` after
+    `restore()`, and one left `GENERATING` is still `GENERATING` — neither is
+    re-derived from the producing run's `ok` flag (§6.4).
+20. Resuming a task whose previous run left a `GENERATING` version appends a new
+    version rather than reusing the abandoned one.
