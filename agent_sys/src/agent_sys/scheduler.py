@@ -110,6 +110,17 @@ class Scheduler:
         resubmission" holds by construction rather than by assertion.
         """
         with self._lock:
+            # `model_copy(update=...)` writes straight to __dict__: it honours
+            # neither `extra="forbid"` nor `validate_assignment`. Unchecked, a
+            # misspelled field would be accepted and silently do nothing, and
+            # `id=` would leave the original cancelled and create a second task.
+            unknown = set(fields) - set(Task.model_fields)
+            if unknown:
+                raise ValueError(f"unknown task field(s): {sorted(unknown)}")
+            managed = set(fields) & {"id", "status", "history", "created_at"}
+            if managed:
+                raise ValueError(f"{sorted(managed)} cannot be set by an update")
+
             old = self._r.get("task_mgr").get(tid).model_copy(deep=True)
             self.remove_queued(tid)
             # model_copy preserves created_at: an update does not cost a task
@@ -194,20 +205,33 @@ class Scheduler:
             if task.status is not TaskStatus.WAITING_RESOURCE:
                 continue  # moved since selection — a synchronous runner re-entered
 
-            # 3. all-or-nothing: verify the FULL set before mutating anything
-            pools = {name: self._r.get(f"resource:{name}") for name in task.resources}
-            if not all(pools[n].can_afford(amount) for n, amount in task.resources.items()):
-                continue  # take nothing; stay queued
-            for name, amount in task.resources.items():
-                pools[name].take(amount)
+            # An input can have gone stale since step 1: an earlier task in this
+            # same pass may have opened one of them for writing. Pinning a
+            # GENERATING version would record an input whose content does not
+            # exist yet. Re-asked here, before any lease is taken.
+            if not self._ready(task):
+                self._move(tid, TaskStatus.WAITING_HANDOFF)
+                continue
 
-            # 4. bind an agent and launch. Everything from here on can fail —
-            # an unknown spec, an agent factory that is down, a runner whose
-            # harness is unreachable — and by then the lease is already taken.
-            # Releasing it is what stops one bad task from permanently
-            # shrinking a pool; not re-raising is what stops it from aborting
-            # the pass for every other queued task.
+            # 3. all-or-nothing: verify the FULL set before mutating anything.
+            # Resolving the pools is inside the guard, not before it: a pool an
+            # operator removed between restarts raises here, and outside the
+            # guard that KeyError would escape the whole pass — taking every
+            # healthy task's recovery down with it.
+            pools: dict = {}
             try:
+                pools = {name: self._r.get(f"resource:{name}") for name in task.resources}
+                if not all(pools[n].can_afford(amount) for n, amount in task.resources.items()):
+                    continue  # take nothing; stay queued
+                for name, amount in task.resources.items():
+                    pools[name].take(amount)
+
+                # 4. bind an agent and launch. Everything from here on can fail
+                # — an unknown spec, an agent factory that is down, a runner
+                # whose harness is unreachable — and by then the lease is
+                # already taken. Releasing it is what stops one bad task from
+                # permanently shrinking a pool; not re-raising is what stops it
+                # from aborting the pass for every other queued task.
                 # PUSH a record; the stack top is the binding
                 agent = self._r.get("agent_mgr").instantiate(task.agent_spec, tid)
                 task.push_execution(
@@ -262,11 +286,27 @@ class Scheduler:
         task in FAILED. FAILED rather than back in the queue: the pass would
         pick it up again on the next iteration and fail identically, forever.
         An operator resumes it once the cause is fixed.
+
+        Every step is individually guarded. This is the handler, so an exception
+        escaping *here* has nowhere left to go: it would propagate out of
+        `submit` or `resume_all` leaving the task RUNNING with a half-open
+        attempt, which nothing but a restart can clear. Reaching FAILED matters
+        more than any single step succeeding.
         """
+        # `pools` is empty when resolution itself failed — nothing was taken.
         for name, amount in task.resources.items():
-            pools[name].give_back(amount, actual=0.0)
-        if task.is_running:
-            task.close_execution({}, TaskStatus.FAILED, detail="failed to launch")
+            pool = pools.get(name)
+            if pool is None:
+                continue
+            try:
+                pool.give_back(amount, actual=0.0)
+            except Exception:
+                log.exception("%s: could not release %s of %r", tid, amount, name)
+        try:
+            if task.is_running:
+                task.close_execution({}, TaskStatus.FAILED, detail="failed to launch")
+        except Exception:
+            log.exception("%s: could not close the half-open attempt", tid)
         log.exception("%s: failed to launch; the reservation was released", tid)
         self._move(tid, TaskStatus.FAILED)
 

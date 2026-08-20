@@ -5,7 +5,8 @@ impossible: a task that does not fit takes nothing, so no queued task ever holds
 a resource.
 """
 
-from agent_sys.models import TaskStatus
+from agent_sys.bootstrap import build_registry
+from agent_sys.models import HandoffStatus, TaskStatus
 
 from .conftest import gpu, make_task, new_handoffs, token
 
@@ -307,3 +308,59 @@ def test_an_agent_factory_that_is_down_releases_the_lease(store):
     assert gpu(registry).available == 8
     assert token(registry).available == 1_000_000
     assert registry.get("task_mgr").get(task.id).status is TaskStatus.FAILED
+
+
+def test_an_input_opened_earlier_in_the_same_pass_is_not_dispatched_against(store):
+    """Eligibility is re-asked per task, not once per pass.
+
+    Step 1 re-checks every queued task, then the loop starts them one by one —
+    and each `start` can run agent code. A producer that opens its output slot
+    on start invalidates a handoff that a *later* task in the same pass has
+    already been cleared for. Without the per-task re-check that task pins a
+    GENERATING version: an input whose content does not exist yet, recorded in
+    the audit trail criterion 18 requires.
+    """
+    from agent_sys.runner import FakeRunner
+
+    (hid,) = new_handoffs(1)
+
+    class OpeningRunner(FakeRunner):
+        """A realistic producer: its agent opens the slot as the run starts."""
+
+        registry = None
+        armed = False
+
+        def start(self, task, agent, on_done):
+            super().start(task, agent, on_done)
+            if self.armed and hid in task.outputs:
+                self.registry.get("handoff_mgr").get(hid).open_next(task.id, agent.id)
+                self.registry.get("handoff_mgr").persist(hid)
+
+    runner = OpeningRunner()
+    registry = build_registry(store=store, runner=runner)
+    runner.registry = registry
+    registry.get("agent_mgr").register("profiler")
+    scheduler, task_mgr = registry.get("scheduler"), registry.get("task_mgr")
+
+    seed = make_task(outputs=[hid])
+    scheduler.submit(seed)
+    runner.produce(registry, seed.id)
+    runner.finish(seed.id)
+    assert registry.get("handoff_mgr").check_if_latest_valid(hid)
+
+    runner.armed = True
+    hog = make_task(resources={"gpu": 8})
+    scheduler.submit(hog)
+    # Both queue behind the hog; the refresher sorts first and so starts first.
+    refresher = make_task(outputs=[hid], resources={"gpu": 1})
+    consumer = make_task(inputs=[hid], resources={"gpu": 1})
+    scheduler.submit(refresher)
+    scheduler.submit(consumer)
+
+    runner.finish(hog.id)  # frees the pool: one pass selects both
+
+    assert registry.get("handoff_mgr").get(hid).latest.status is HandoffStatus.GENERATING
+    consumer_task = task_mgr.get(consumer.id)
+    assert consumer_task.status is TaskStatus.WAITING_HANDOFF
+    assert consumer_task.history == []  # nothing was pinned
+    assert registry.get("resource:gpu").available == 7  # only the refresher holds a lease

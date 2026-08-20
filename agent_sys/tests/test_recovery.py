@@ -415,3 +415,57 @@ def test_a_version_left_generating_by_a_crash_deadlocks_its_own_retry(
 
     with pytest.raises(HandoffStateError):
         fresh.get("runner").produce(fresh, task.id)
+
+
+def test_a_pool_removed_before_a_restart_does_not_take_recovery_down_with_it(store):
+    """The sibling of the removed-spec case. Resolving the pool sits inside the
+    dispatch guard, so a pool an operator deleted between restarts fails only
+    the tasks that name it — recovery still reaches every healthy task."""
+    from agent_sys.resource import GpuMgr
+
+    registry = Registry()
+    first = build_registry(store=store, resources=[GpuMgr(registry, capacity=8)])
+    first.get("agent_mgr").register("profiler")
+    hungry = [make_task(resources={"gpu": 4}) for _ in range(2)]
+    healthy = make_task()
+    for task in (*hungry, healthy):
+        first.get("scheduler").submit(task)
+
+    fresh = build_registry(store=store, resources=[])  # the pool is gone
+    fresh.get("agent_mgr").register("profiler")
+    resume_all(fresh)
+
+    task_mgr = fresh.get("task_mgr")
+    assert [task_mgr.get(t.id).status for t in hungry] == [TaskStatus.FAILED] * 2
+    assert task_mgr.get(healthy.id).status is TaskStatus.RUNNING
+    assert fresh.get("runner").started == [healthy.id]
+
+
+def test_a_failure_inside_the_abort_handler_still_parks_the_task(store):
+    """`_abort_launch` is the handler; an exception escaping it has nowhere to
+    go. It would propagate out of `submit`, leaving the task RUNNING with a
+    half-open attempt that only a restart can clear."""
+    from agent_sys.resource import GpuMgr
+    from agent_sys.runner import FakeRunner
+
+    class WedgedGpu(GpuMgr):
+        def give_back(self, amount, actual=None):
+            raise RuntimeError("the pool is wedged")
+
+    class DeadRunner(FakeRunner):
+        def start(self, task, agent, on_done):
+            raise RuntimeError("harness unreachable")
+
+    registry = Registry()
+    fresh = build_registry(
+        store=store, runner=DeadRunner(), resources=[WedgedGpu(registry, capacity=8)]
+    )
+    fresh.get("agent_mgr").register("profiler")
+    task = make_task(resources={"gpu": 2})
+
+    fresh.get("scheduler").submit(task)  # must not raise
+
+    stored = fresh.get("task_mgr").get(task.id)
+    assert stored.status is TaskStatus.FAILED
+    assert not stored.is_running  # the attempt was closed
+    fresh.get("scheduler").resume_task(task.id)  # and it is recoverable
