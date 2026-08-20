@@ -28,20 +28,24 @@ def check(scheduler, task_mgr, registry=None) -> None:
 
     if registry is None:
         return
-    # Resource conservation. A renewable pool's free capacity plus every live
-    # reservation must equal its total: this is what catches a leaked or
-    # double-booked lease, which the pool/status correspondence alone cannot see.
+    # Resource conservation. Free capacity plus every live reservation — plus,
+    # for a consumable, everything already settled — must equal the total. This
+    # is what catches a leaked or double-booked lease, which the pool/status
+    # correspondence alone cannot see.
     for pool_mgr in registry.resolve("resource:*"):
-        if not isinstance(pool_mgr, RenewableMgr):
-            continue  # a consumable legitimately shrinks as spend accrues
         reserved = sum(
             t.resources.get(pool_mgr.name, 0.0)
             for t in tasks
             if t.status in (TaskStatus.RUNNING, TaskStatus.STOPPING)
         )
-        assert pool_mgr.available + reserved == pool_mgr.capacity, (
+        # A consumable shrinks as spend accrues, so `spent` is part of the sum.
+        # It is the half where the subtle accounting lives: D12's bug was a
+        # reservation leaking into the durable record, and a renewable-only
+        # check could never have seen it.
+        spent = 0.0 if isinstance(pool_mgr, RenewableMgr) else pool_mgr.spent
+        assert pool_mgr.available + reserved + spent == pool_mgr.capacity, (
             f"{pool_mgr.name}: {pool_mgr.available} free + {reserved} reserved "
-            f"!= {pool_mgr.capacity}"
+            f"+ {spent} spent != {pool_mgr.capacity}"
         )
 
 

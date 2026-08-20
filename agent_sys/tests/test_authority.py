@@ -18,7 +18,13 @@ from agent_sys.store import MemoryStoreMgr
 from .conftest import make_task, new_handoffs
 
 WRITES = {"persist"}
-READS = {"declare", "check_if_latest_valid", "latest", "get", "get_many", "all_ids"}
+# `get` and `latest` hand back a *live, mutable* Handoff, so they are only reads
+# by convention — a drifting scheduler would reach state through exactly these.
+# Nothing in `scheduler.py` calls `handoff_mgr.get`, which
+# `test_the_scheduler_never_takes_a_mutable_handle` pins down; `latest` it does
+# call, and reads one integer off. See design O12 for what the spy cannot see.
+HANDLE_RETURNING = {"get", "latest"}
+READS = {"declare", "check_if_latest_valid", "get_many", "all_ids"} | HANDLE_RETURNING
 
 
 class SpyHandoffMgr(HandoffMgr):
@@ -187,3 +193,25 @@ def test_a_payload_must_be_serialisable(store):
 
     with pytest.raises(PydanticSerializationError):
         registry.get("runner").produce(registry, task.id, content=Opaque())
+
+
+def test_the_scheduler_never_takes_a_mutable_handle():
+    """`persist` is not the only way to write handoff state.
+
+    `HandoffMgr.get` returns a live `Handoff`, on which `open_next` and `seal`
+    are one call away — and those live on the model, where the spy cannot see
+    them (design O12). The boundary therefore rests on the scheduler never
+    taking such a handle in the first place, which is a property of the source,
+    not of a run. Checked statically because no test can observe it.
+    """
+    import inspect
+
+    from agent_sys import scheduler as scheduler_module
+
+    source = inspect.getsource(scheduler_module)
+    assert "handoff_mgr.get(" not in source, (
+        "the scheduler took a mutable Handoff; open_next and seal are one call away "
+        "and the authority spy cannot see them"
+    )
+    for verb in ("open_next", "seal("):
+        assert verb not in source, f"the scheduler calls {verb} directly"
