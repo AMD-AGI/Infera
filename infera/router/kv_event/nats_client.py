@@ -165,7 +165,7 @@ class NatsKvEventClient(KvEventClient):
             # safe to drop — a snapshot/late registration will reconcile.
             return
         try:
-            batch = self._decoder.decode(data)
+            batch = sub.decoder.decode(data)
         except Exception as exc:
             logger.warning("kv events (nats): decode failed for %s: %s", worker_id, exc)
             return
