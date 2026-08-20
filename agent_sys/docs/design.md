@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Status | Draft, pending review |
-| Revision | 1 — 2026-08-20 |
-| Implements | `docs/spec.md` rev. 3 |
-| Language | Python ≥ 3.10, standard library only |
+| Revision | 2 — 2026-08-20. Code under `src/`; pydantic models; typed ids; behaviour on the objects |
+| Implements | `docs/spec.md` rev. 4 |
+| Language | Python ≥ 3.10. Standard library plus pydantic v2 |
 
 ---
 
@@ -16,71 +16,167 @@ requirements. Where it makes a choice the spec left open, the choice is stated
 here; where implementing the spec exposed a contradiction in it, §13 says so
 rather than papering over it.
 
-The spec's 25 acceptance criteria are the definition of done. §11 maps every one
+The spec's 29 acceptance criteria are the definition of done. §11 maps every one
 of them to a named test.
 
-Everything is standard library. There is no third-party dependency other than
-`pytest` for the tests, which the repository already carries. §10 records why,
-per module, as `mission.md` rule 3 requires.
+The only runtime dependency is **pydantic v2**, which the repository already
+installs — `fastapi` pulls it. §10 records why, per module, as `mission.md`
+rule 3 requires.
 
 ---
 
 ## 2. Layout and import graph
 
-`agent_sys/` *is* the package. `docs/` and `tests/` sit inside it and are not
-imported.
+All code lives under `src/`. `docs/` and `tests/` are siblings of it, not
+children, and nothing importable sits at the `agent_sys/` top level.
 
 ```
 agent_sys/
 ├── README.md              build-versus-adopt record (mission rule 3)
-├── __init__.py            re-exports the public names
-├── core.py                enums + dataclasses. No behaviour, no imports
-├── registry.py            Registry, Resumable, RESUME_ORDER, resume_all
-├── store.py               StoreMgr Protocol, JsonFileStoreMgr, MemoryStoreMgr
-├── handoff.py             HandoffMgr
-├── task.py                TaskMgr
-├── resource.py            ResourceMgr, RenewableMgr, ConsumableMgr, GpuMgr, TokenMgr
-├── agent.py               AgentMgr
-├── runner.py              TaskRunner Protocol, FakeRunner
-├── policy.py              SchedulePolicy Protocol, FifoPolicy
-├── scheduler.py           Scheduler
-├── bootstrap.py           build_registry() — the composition root
+├── src/
+│   └── agent_sys/         the importable package
+│       ├── __init__.py    re-exports the public names
+│       ├── ids.py         TaskId, AgentId, HandoffId
+│       ├── models.py      Handoff, Task, Execution, Agent, TaskOutcome + enums
+│       ├── registry.py    Registry, Resumable, RESUME_ORDER, resume_all
+│       ├── store.py       StoreMgr Protocol, JsonFileStoreMgr, MemoryStoreMgr
+│       ├── handoff.py     HandoffMgr
+│       ├── task.py        TaskMgr
+│       ├── resource.py    ResourceMgr, RenewableMgr, ConsumableMgr, GpuMgr, TokenMgr
+│       ├── agent.py       AgentMgr
+│       ├── runner.py      TaskRunner Protocol, FakeRunner
+│       ├── policy.py      SchedulePolicy Protocol, FifoPolicy
+│       ├── scheduler.py   Scheduler
+│       └── bootstrap.py   build_registry() — the composition root
 ├── docs/
 │   ├── spec.md
 │   └── design.md
 └── tests/
 ```
 
+The `src/` layout is the packaging default for good reason: a test can only
+import `agent_sys` if it is genuinely installed or on the path, never by
+accident of the working directory. `conftest.py` at `agent_sys/` adds
+`src/` to `sys.path`, which is the two-line version of an editable install and
+avoids touching the repository's `pyproject.toml` while this is unreleased.
+
 ### Import graph
 
 ```
-                        core.py          (stdlib only)
-                           ▲
-   ┌─────────┬─────────┬───┴─────┬──────────┬─────────┐
+                     ids.py             (uuid only)
+                        ▲
+                    models.py           (pydantic + ids)
+                        ▲
+   ┌─────────┬─────────┬┴────────┬──────────┬─────────┐
 handoff    task     runner    policy   scheduler   agent
    ▲         ▲         ▲         ▲         ▲         ▲
    └─────────┴─────────┴────┬────┴─────────┴─────────┘
                             │
-                       bootstrap.py      (the only module that imports managers)
+                      bootstrap.py      (the only module that imports managers)
 
 registry.py — imported by the managers for the `Registry` type annotation only
-store.py, resource.py — stdlib only, imported by nobody but bootstrap and tests
+store.py, resource.py — imported by nobody but bootstrap and tests
 ```
+
+`ids.py` is separate from `models.py` because everything imports the ids and
+almost nothing needs to import the models — the managers deal in ids. Splitting
+them keeps that visible in the import lines.
 
 **No manager imports another manager.** A component holds the `Registry` and
 resolves collaborators by name at call time. `bootstrap.py` is the single
 composition root; it is the only place with a wide import fan-in, which is what a
 composition root is for.
 
-`core.py` importing nothing is load-bearing: it is what keeps the graph acyclic
-without anyone thinking about it.
+That `ids.py` and `models.py` import nothing from this package is load-bearing:
+it is what keeps the graph acyclic without anyone thinking about it.
 
 ---
 
-## 3. Data model — `core.py`
+## 3. Data model — `ids.py`, `models.py`
 
-Pure data. Every type is a dataclass or an enum; none has a method that touches
-another component.
+Every model owns its own state machine and touches no other component. What it
+does *not* own is its collection — that is the manager's (§6).
+
+### 3.1 Typed identities — `ids.py`
+
+```python
+class _Id(uuid.UUID):
+    """A UUID that is not interchangeable with a UUID of another kind."""
+    __slots__ = ()
+
+    @classmethod
+    def new(cls) -> "Self":
+        return cls(uuid.uuid4().hex)
+
+    def __eq__(self, other) -> bool:
+        return type(other) is type(self) and self.int == other.int
+
+    def __hash__(self) -> int:
+        return hash((type(self).__name__, self.int))
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({self})"
+
+    @classmethod
+    def _coerce(cls, v) -> "Self":
+        if isinstance(v, cls):
+            return v
+        if isinstance(v, uuid.UUID):
+            return cls(v.hex)
+        return cls(str(v))                      # UUID.__init__ rejects a malformed one
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source, handler):
+        return core_schema.no_info_plain_validator_function(
+            cls._coerce,
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                str, return_schema=core_schema.str_schema(), when_used="json"),
+        )
+
+class TaskId(_Id): ...
+class AgentId(_Id): ...
+class HandoffId(_Id): ...
+```
+
+Subclassing `uuid.UUID` rather than wrapping it: generation, parsing, ordering,
+and `str()` come from the standard library, and `UUID.__init__` already rejects a
+malformed value.
+
+The equality overrides are what make criterion 27 pass. `UUID.__eq__` compares
+`self.int` against any `UUID`, so without them a `TaskId` and a `HandoffId` built
+from the same bytes would be equal and would collide in one dict. Overriding
+`__eq__` alone silently sets `__hash__` to `None` and makes the type unhashable,
+so both are defined together.
+
+**`__get_pydantic_core_schema__` is required, not optional.** pydantic does *not*
+handle a `UUID` subclass natively — it raises `PydanticSchemaGenerationError` on
+the unknown type. The plain validator is the smallest thing that works, and
+`when_used="json"` keeps `model_dump()` returning real id objects while
+`model_dump(mode="json")` returns strings. Verified against pydantic 2.13:
+round-trip preserves the type for both plain fields and `dict[HandoffId, int]`
+keys.
+
+One thing it does not buy: `_coerce` accepts any string, so a `HandoffId`'s
+digits parsed into a `TaskId`-annotated field become a `TaskId`. Deserialisation
+cannot detect a mix-up that the serialised form does not record. The protection
+is static — `TaskId` and `HandoffId` are distinct classes, so passing one where
+the other is annotated is an error the checker reports — plus runtime
+distinctness for values that were never flattened to a string.
+
+### 3.2 Models — `models.py`
+
+```python
+class Model(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",              # a typo'd field is an error, not a silent drop
+        validate_assignment=True,    # task.status = X is validated
+        use_enum_values=False,       # keep enum members; compare with `is`
+    )
+```
+
+`validate_assignment` is the point of using pydantic here. State is mutated in
+place — `task.status = RUNNING` — and this makes every such assignment go
+through validation rather than trusting the caller.
 
 ```python
 class TaskStatus(str, Enum):
@@ -98,100 +194,156 @@ WAITING   = frozenset({TaskStatus.WAITING_HANDOFF, TaskStatus.WAITING_RESOURCE})
 RESUMABLE = frozenset({TaskStatus.FAILED, TaskStatus.SUSPENDED})
 
 class HandoffStatus(str, Enum):
-    GENERATING = "generating"
-    VALID      = "valid"
-    INVALID    = "invalid"
+    CREATED    = "created"       # declared; nothing written yet
+    GENERATING = "generating"    # an agent has it open
+    VALID      = "valid"         # sealed, usable
+    INVALID    = "invalid"       # sealed, not usable
 ```
 
-Both enums subclass `str`. This is not cosmetic: `json.dumps` serialises a
-`str`-Enum as its value with no encoder hook, which is what lets `store.py` stay
-type-ignorant (§5). Python 3.11's `StrEnum` would be the same thing; the repo
-targets 3.10, so `(str, Enum)` it is.
+Both enums subclass `str` so a dumped record is plain JSON. Python 3.11's
+`StrEnum` is the same thing; the repo targets 3.10, so `(str, Enum)` it is.
 
 These two exist because the guards in `remove_queued`, `update_task`, and
 `resume_task` would otherwise repeat the same tuple literal. There is no
 `LIVE` or `FINAL` set: every other guard tests a single status, and a constant
 with one call site is worse than the literal.
 
+#### `Handoff` — one class, owning its transitions
+
 ```python
-@dataclass
-class HandoffVersion:
-    version: int
-    status: HandoffStatus
-    produced_by_agent: str | None
-    timestamp: float
+class Handoff(Model):
+    uuid: HandoffId                        # the slot; shared by every version
+    version: int = 0                       # (uuid, version) is this artefact
+    type: str = ""
+    status: HandoffStatus = HandoffStatus.CREATED
+    produced_by: TaskId | None = None
+    produced_by_agent: AgentId | None = None
+    timestamp: datetime = Field(default_factory=_now)
     content: Any = None
 
-@dataclass
-class Handoff:
-    uuid: str
-    type: str = ""
-    produced_by: str | None = None
-    versions: list[HandoffVersion] = field(default_factory=list)
-
     @property
-    def latest(self) -> HandoffVersion | None:
-        return self.versions[-1] if self.versions else None
+    def is_valid(self) -> bool:
+        return self.status is HandoffStatus.VALID
 
-@dataclass
-class Execution:
+    def open(self, agent_id: AgentId) -> None:
+        if self.status is not HandoffStatus.CREATED:
+            raise HandoffStateError(f"{self!r}: cannot open a {self.status.value} handoff")
+        self.status, self.produced_by_agent = HandoffStatus.GENERATING, agent_id
+        self.timestamp = _now()
+
+    def seal(self, status: HandoffStatus, content: Any = None) -> None:
+        if self.status is not HandoffStatus.GENERATING:
+            raise HandoffStateError(f"{self!r}: cannot seal a {self.status.value} handoff")
+        if status not in (HandoffStatus.VALID, HandoffStatus.INVALID):
+            raise HandoffStateError(f"a verdict must be VALID or INVALID, got {status}")
+        self.status, self.content = status, content
+
+    def successor(self, agent_id: AgentId) -> "Handoff":
+        return Handoff(uuid=self.uuid, version=self.version + 1, type=self.type,
+                       status=HandoffStatus.GENERATING, produced_by=self.produced_by,
+                       produced_by_agent=agent_id)
+```
+
+The guards are the state machine. Criterion 26 tests them directly: seal a
+`CREATED` one, open a sealed one, seal twice — each raises. No caller can move a
+handoff illegally, because no caller is the one moving it.
+
+`successor` returns `GENERATING`, not `CREATED`: a re-run version exists only
+because an agent started writing it. `CREATED` is reachable only through
+`declare`.
+
+#### `Task` — same treatment
+
+```python
+class Execution(Model):
     attempt: int
-    agent_uuid: str
-    input_versions: dict[str, int] = field(default_factory=dict)
-    output_versions: dict[str, int] = field(default_factory=dict)
-    started_at: float = 0.0
-    ended_at: float | None = None
+    agent_id: AgentId
+    input_versions: dict[HandoffId, int] = Field(default_factory=dict)
+    output_versions: dict[HandoffId, int] = Field(default_factory=dict)
+    started_at: datetime = Field(default_factory=_now)
+    ended_at: datetime | None = None
     outcome: TaskStatus | None = None
 
-@dataclass
-class Task:
-    id: str
-    agent: str
-    inputs: list[str] = field(default_factory=list)
-    outputs: list[str] = field(default_factory=list)
-    resources: dict[str, float] = field(default_factory=dict)
+    @property
+    def is_open(self) -> bool:
+        return self.ended_at is None
+
+class Task(Model):
+    id: TaskId = Field(default_factory=TaskId.new)
+    agent: str                                      # a NAME, resolved via AgentMgr
+    inputs: list[HandoffId] = Field(default_factory=list)
+    outputs: list[HandoffId] = Field(default_factory=list)
+    resources: dict[str, float] = Field(default_factory=dict)   # pool NAME -> amount
     status: TaskStatus = TaskStatus.WAITING_HANDOFF
-    created_at: float = field(default_factory=time.time)
+    created_at: datetime = Field(default_factory=_now)
     expedited: bool = False
-    history: list[Execution] = field(default_factory=list)
+    history: list[Execution] = Field(default_factory=list)
 
     @property
     def current(self) -> Execution | None:
         return self.history[-1] if self.history else None
 
-@dataclass
-class Agent:
-    name: str
-    uuid: str
-    knowledge: Any = None        # left empty per mission.md
-    config: dict = field(default_factory=dict)
+    @property
+    def is_running(self) -> bool:
+        return self.current is not None and self.current.is_open
 
-@dataclass
-class TaskResult:
-    ok: bool
-    output_versions: dict[str, int] = field(default_factory=dict)
-    actual_usage: dict[str, float] = field(default_factory=dict)
+    def push_execution(self, agent_id: AgentId,
+                       input_versions: dict[HandoffId, int]) -> Execution:
+        if self.is_running:
+            raise TaskStateError(f"{self.id!r}: attempt {self.current.attempt} is still open")
+        self.history.append(Execution(attempt=len(self.history), agent_id=agent_id,
+                                      input_versions=input_versions))
+        return self.current
+
+    def close_execution(self, output_versions: dict[HandoffId, int],
+                        outcome: TaskStatus) -> None:
+        if not self.is_running:
+            raise TaskStateError(f"{self.id!r}: no open attempt to close")
+        self.current.output_versions = output_versions
+        self.current.ended_at, self.current.outcome = _now(), outcome
 ```
 
-`Handoff.latest` and `Task.current` are properties, not stored fields — spec §2
-principle 7. `Task.current` is the execution stack top: the live binding, not
-merely the newest entry.
+`push_execution` refusing to stack a second open attempt is what makes
+`is_running` trustworthy, and it is why `on_stopped` must close the record
+(spec §5.1) — otherwise the next `resume_task` would trip this guard.
+
+`Task.agent` and the keys of `Task.resources` are the two `str`s that are
+genuinely names, not identities. Both resolve to singletons registered by name.
+
+#### The rest
+
+```python
+class Agent(Model):
+    id: AgentId = Field(default_factory=AgentId.new)
+    name: str
+    knowledge: Any = None                            # left empty per mission.md
+    config: dict[str, Any] = Field(default_factory=dict)
+
+class RunOutcome(str, Enum):
+    COMPLETED = "completed"      # the run finished; says nothing about content
+    CRASHED   = "crashed"        # exception, kill, timeout
+
+class TaskOutcome(Model):
+    outcome: RunOutcome
+    output_versions: dict[HandoffId, int] = Field(default_factory=dict)
+    actual_usage: dict[str, float] = Field(default_factory=dict)
+    detail: str = ""                                 # for a human; never parsed
+```
+
+`Agent.id` is `AgentId`, not `uuid` — the field is an identity of a known kind
+and the name should say so.
 
 ### Serialisation
 
-`dataclasses.asdict` handles the write side for all of them, including nesting.
-The read side needs two hand-written constructors, because `asdict` has no
-inverse:
+`model_dump(mode="json")` out, `model_validate` in. Nothing hand-written per
+model: no `*_from_dict` constructors, no enum coercion, no `datetime` parsing.
+The `HandoffId` keys of `input_versions` survive the round trip, validated back
+into the declared key type by the schema in §3.1 — checked against pydantic 2.13,
+not assumed.
 
-```python
-def task_from_dict(d: dict) -> Task
-def handoff_from_dict(d: dict) -> Handoff
-```
-
-Each is a dozen lines: rebuild the nested list, coerce enum fields via
-`TaskStatus(d["status"])`. They live in `core.py` because they are pure data
-operations and putting them in `store.py` would give the store knowledge of the
-types it is designed not to have.
+This is the concrete payoff of adopting pydantic over `dataclasses`: the read
+side of persistence was going to be two hand-maintained constructors that drift
+from the models every time a field is added, and `asdict` has no inverse.
 
 ---
 
@@ -252,31 +404,50 @@ scheduler would satisfy `Resumable` by accident with the wrong method.
 
 ## 5. Persistence — `store.py`
 
+A full CRUD interface — spec §4.2.
+
 ```python
 class StoreMgr(Protocol):
-    def save(self, kind: str, key: str, record: dict) -> None: ...
-    def load_all(self, kind: str) -> list[dict]: ...
-    def delete(self, kind: str, key: str) -> None: ...
+    def create(self, kind: str, key: str, record: dict) -> None: ...   # raises if present
+    def read(self, kind: str, key: str) -> dict | None: ...
+    def read_all(self, kind: str) -> list[dict]: ...
+    def update(self, kind: str, key: str, record: dict) -> None: ...   # raises if absent
+    def delete(self, kind: str, key: str) -> None: ...                 # raises if absent
+    def exists(self, kind: str, key: str) -> bool: ...
 ```
+
+`create` and `update` are separate because their preconditions differ and both
+are worth enforcing: `TaskMgr.add` means *new* and a collision is a bug;
+`persist` means *existing* and writing a vanished record is equally a bug. An
+upsert would accept both mistakes silently. Criterion 29 tests the two
+rejections.
 
 Two implementations:
 
 ```python
 class MemoryStoreMgr:
-    """A dict of dicts. Survives a manager restart because the store object does."""
+    """dict[kind][key] -> deepcopy(record). Survives a manager restart because
+       the store object does; that is exactly what recovery needs to be testable."""
 
 class JsonFileStoreMgr:
     """<root>/<kind>/<quoted-key>.json, one file per record."""
 ```
 
-`JsonFileStoreMgr.save` writes to `<name>.json.tmp` and calls `Path.replace`,
-which is atomic on POSIX. That gives per-record atomicity for free. It does *not*
-give cross-record or cross-manager atomicity — spec §7 says so explicitly and
-§10 leaves it open.
+`MemoryStoreMgr` deep-copies on the way in and out. Without it a caller would
+hold a live reference into the store, and "reload from persistence" in a test
+would return the same objects it never actually wrote — recovery tests would
+pass vacuously.
 
-Keys are task ids and handoff uuids, used directly as filenames, so they go
-through `urllib.parse.quote(key, safe="")`. Callers pass opaque strings and
-should not have to know they become paths.
+`JsonFileStoreMgr` writes to `<name>.json.tmp` and calls `Path.replace`, which is
+atomic on POSIX. That gives per-record atomicity for free. It does *not* give
+cross-record or cross-manager atomicity — spec §7 says so and §10 leaves it open.
+
+Keys arrive as `str(some_id)` and become filenames, so they go through
+`urllib.parse.quote(key, safe="")`. Callers pass opaque strings and should not
+have to know they become paths.
+
+The store never sees a model — managers pass `model_dump(mode="json")` and
+validate on the way back. That is what lets one implementation serve both kinds.
 
 `MemoryStoreMgr` is the default in tests. Recovery is still testable with it:
 "restart" means constructing fresh managers over the *same* store object, which
@@ -288,12 +459,24 @@ is precisely what recovery does. `test_store.py` and one end-to-end case in
 ```
 <root>/
 ├── task/
-│   └── t1.json      {"id": "t1", "agent": "profiler", "status": "running",
-│                     "history": [{"attempt": 0, "agent_uuid": "...", ...}], ...}
+│   └── 3f2b...c1.json        {"id": "3f2b...c1", "agent": "profiler",
+│                              "status": "running", "created_at": "2026-08-20T...",
+│                              "history": [{"attempt": 0, "agent_id": "9a4e...",
+│                                           "input_versions": {"7d1c...": 0}}]}
 └── handoff/
-    └── h1.json      {"uuid": "h1", "produced_by": "t1",
-                      "versions": [{"version": 0, "status": "valid", ...}]}
+    ├── 7d1c...%3A0.json      {"uuid": "7d1c...", "version": 0, "status": "valid",
+    │                          "produced_by": "3f2b...c1", "produced_by_agent": "..."}
+    └── 7d1c...%3A1.json      {"uuid": "7d1c...", "version": 1, "status": "generating", ...}
 ```
+
+**One file per version, not per handoff.** The key is `f"{uuid}:{version}"`
+(the colon percent-encoded by the filename quoting), so appending v1 writes a new
+file and never rewrites v0's. Spec §3.1 says a sealed version is never rewritten;
+this makes that true on disk and not merely in memory.
+
+The cost is that `HandoffMgr.resume` must regroup by `uuid` and sort by version,
+since directory order is arbitrary. That is the two lines at the end of `resume`
+(§6.1).
 
 Directly readable, which is the whole reason for choosing files over sqlite while
 the shape of the data is still settling.
@@ -302,105 +485,132 @@ the shape of the data is still settling.
 
 ## 6. Managers
 
+Each manages a collection: add / get / query / remove over a set of one kind of
+thing, plus persistence of it. Transitions belong to the members (§3.2), so no
+manager has a `seal` or a `set_status`.
+
+`ResourceMgr` is the acknowledged exception — it manages a quantity, not a set.
+The name is kept because `mission.md` uses it.
+
 ### 6.1 `HandoffMgr` — `handoff.py`
 
-Holds `dict[str, Handoff]`. Every write persists under kind `"handoff"`.
+Owns the **lineages**: `dict[HandoffId, list[Handoff]]`, each list ordered by
+version. The lineage is a property of the collection, which is why it lives here
+and not as a field on any `Handoff`. Every write persists under kind
+`"handoff"`, keyed `f"{uuid}:{version}"` — one record per version, so a sealed
+version is never rewritten on disk either.
 
 ```python
 class HandoffMgr:
     def __init__(self, registry: Registry) -> None:
         self._r = registry
-        self._handoffs: dict[str, Handoff] = {}
+        self._lineages: dict[HandoffId, list[Handoff]] = {}
 
     # ---- scheduler-facing: read only ----
-    def declare(self, uuids, produced_by, types=None) -> None:
-        for u in uuids:
-            if u in self._handoffs:              # idempotent — see D6
+    def declare(self, ids, produced_by, types=None) -> None:
+        for hid in ids:
+            if hid in self._lineages:                 # idempotent — D6
                 continue
-            self._handoffs[u] = Handoff(uuid=u, produced_by=produced_by,
-                                        type=(types or {}).get(u, ""))
-            self._persist(u)
+            h = Handoff(uuid=hid, version=0, produced_by=produced_by,
+                        status=HandoffStatus.CREATED, type=(types or {}).get(hid, ""))
+            self._lineages[hid] = [h]
+            self._persist(h)
 
-    def check_if_latest_valid(self, uuid) -> bool:
-        h = self._handoffs.get(uuid)
-        return h is not None and h.latest is not None \
-               and h.latest.status is HandoffStatus.VALID
+    def check_if_latest_valid(self, hid) -> bool:
+        latest = self.latest(hid)
+        return latest is not None and latest.is_valid      # the Handoff answers
 
-    def latest_version(self, uuid) -> int | None:
-        h = self._handoffs.get(uuid)
-        return h.latest.version if h and h.latest else None
+    def latest(self, hid) -> Handoff | None:
+        lineage = self._lineages.get(hid)
+        return lineage[-1] if lineage else None
 
-    def get(self, uuid) -> Handoff: ...          # raises KeyError
+    def lineage(self, hid) -> list[Handoff]:
+        return list(self._lineages.get(hid, []))           # a copy; not the live list
+    def get(self, hid, version) -> Handoff: ...
+    def all_ids(self) -> list[HandoffId]: ...
+    def produced_by(self, tid) -> list[HandoffId]: ...
 
     # ---- agent-facing: write ----
-    def new_version(self, uuid, agent_uuid) -> int:
-        h = self.get(uuid)
-        v = HandoffVersion(version=len(h.versions), status=HandoffStatus.GENERATING,
-                           produced_by_agent=agent_uuid, timestamp=time.time())
-        h.versions.append(v)
-        self._persist(uuid)
-        return v.version
+    def append(self, handoff: Handoff) -> None:
+        """Place a version into its lineage. The transition already happened."""
+        lineage = self._lineages.setdefault(handoff.uuid, [])
+        if lineage and handoff.version != lineage[-1].version + 1:
+            raise ValueError(f"{handoff.uuid}: v{handoff.version} does not follow "
+                             f"v{lineage[-1].version}")
+        lineage.append(handoff)
+        self._persist(handoff)
 
-    def record(self, uuid, version, status, content=None) -> None:
-        v = self.get(uuid).versions[version]
-        if v.status is not HandoffStatus.GENERATING:
-            raise ValueError(f"{uuid} v{version} is already sealed as {v.status}")
-        v.status, v.content = status, content
-        self._persist(uuid)
+    def persist(self, handoff: Handoff) -> None:
+        """After an in-place open()/seal() on a member. Same record, updated."""
+        self._persist(handoff)
 
     def resume(self) -> None:
-        self._handoffs = {d["uuid"]: handoff_from_dict(d)
-                          for d in self._r.get("store_mgr").load_all("handoff")}
+        self._lineages = {}
+        for d in self._r.get("store_mgr").read_all("handoff"):
+            h = Handoff.model_validate(d)
+            self._lineages.setdefault(h.uuid, []).append(h)
+        for lineage in self._lineages.values():
+            lineage.sort(key=lambda h: h.version)          # file order is not version order
 ```
+
+The mgr does not decide anything about a handoff. An agent calls `h.open(...)`
+or `h.successor(...)` — those are the transitions — and then hands the result to
+`append` or `persist`. The only rule the mgr enforces is a collection rule:
+versions arrive contiguously.
 
 Three decisions worth stating:
 
-**`check_if_latest_valid` on an unknown uuid returns `False`, not an exception.**
-A consumer submitted before its producer references a uuid nobody has declared
-yet. `False` — "not ready" — is the correct answer and keeps `submit` ordering
-free (D5).
+**`check_if_latest_valid` delegates to `Handoff.is_valid`** rather than
+comparing a status itself. There is one definition of "usable", and it is on the
+object.
 
-**`declare` is idempotent.** `update_task` is `remove_queued` + `submit`, so
-`declare` runs twice for the same outputs. Overwriting would destroy versions an
-agent had already written (D6).
+**An unknown id returns `False`, not an exception** (D5). A consumer may be
+submitted before its producer declares the handoff; "not ready" is the right
+answer and keeps submission order unconstrained.
 
-**`new_version` numbers by `len(versions)`,** never by a stored counter. The list
-is the counter. One fact, one place.
+**`declare` is idempotent** (D6). `update_task` is `remove_queued` + `submit`, so
+it runs twice for the same outputs; overwriting would discard versions an agent
+had already written.
 
-`HandoffMgr` has no validation logic and never sets `VALID`/`INVALID` itself.
-That is the whole content of spec §3.1, and criterion 14 tests it with a spy.
+`HandoffMgr` has no validation logic and never sets `VALID`/`INVALID`. That is
+the whole content of spec §3.1, and criterion 14 tests it.
 
 ### 6.2 `TaskMgr` — `task.py`
 
-Holds `dict[str, Task]`. Every mutator persists under kind `"task"`.
+Owns `dict[TaskId, Task]`, persisted under kind `"task"`.
 
 | Method | Effect |
 |---|---|
-| `add(task)` | Store and persist. Raises if the id exists and is not `CANCELLED` (D3) |
+| `add(task)` | `store.create`; raises if the id exists and is not `CANCELLED` (D3) |
 | `get(tid)` / `all()` | Read |
-| `set_status(tid, status)` | Write status, persist |
-| `push_execution(tid, agent_uuid, input_versions)` | Append an `Execution` with `attempt=len(history)`, `started_at=now`, `ended_at=None` |
-| `close_execution(tid, output_versions, outcome)` | Seal `history[-1]`: set `output_versions`, `ended_at`, `outcome` |
-| `resume()` | Reload from the store; close any dangling stack top |
+| `by_status(status)` | The collection query the pools index would otherwise be the only way to get |
+| `remove(tid)` | Drop and `store.delete` |
+| `persist(tid)` | `store.update` after a caller mutated the task through its own methods |
+| `resume()` | Reload; close any dangling stack top |
+
+There is no `set_status` and no `push_execution` here. A caller does
+`task.status = RUNNING` or `task.push_execution(...)` — the transitions are the
+`Task`'s (§3.2), with its own guards — and then `mgr.persist(tid)`. The mgr's
+job is durability and lookup, not proxying its members' behaviour.
 
 ```python
 def resume(self) -> None:
-    self._tasks = {d["id"]: task_from_dict(d)
-                   for d in self._r.get("store_mgr").load_all("task")}
-    for t in self._tasks.values():
-        e = t.current
-        if e is not None and e.ended_at is None:      # interrupted by the restart
-            e.ended_at, e.outcome = time.time(), TaskStatus.SUSPENDED
-            self._persist(t.id)
+    self._tasks = {}
+    for d in self._r.get("store_mgr").read_all("task"):
+        t = Task.model_validate(d)
+        self._tasks[t.id] = t
+        if t.is_running:                     # the restart cut this attempt short
+            t.close_execution({}, TaskStatus.SUSPENDED)
+            self.persist(t.id)
 ```
 
-The interrupted attempt is closed as `SUSPENDED` — the attempt was cut short, not
-failed on its merits (D8). The *task's* landing state is a separate decision made
-by `Scheduler.resume()` a moment later, and it is `WAITING_RESOURCE`: a new
-attempt will be pushed on top.
+The interrupted attempt closes as `SUSPENDED` — cut short, not judged (D8). The
+*task's* landing state is a separate decision `Scheduler.resume()` makes a moment
+later, and it is `WAITING_RESOURCE`; a new attempt gets pushed on top.
 
-`push_execution` is the act of binding an agent. There is no `Task.agent_uuid` to
-assign — spec §3.2.
+Closing it here is not tidiness. `Task.push_execution` refuses to stack on an
+open attempt, so leaving it open would make the first `resume_task` after a
+restart raise.
 
 ### 6.3 `ResourceMgr` — `resource.py`
 
@@ -454,27 +664,60 @@ fixed.
 
 ### 6.4 `AgentMgr` — `agent.py`
 
+Owns two collections: the **specs**, a name → config table of what kinds of
+agent exist, and the **instances**, `dict[AgentId, Agent]`, of what has actually
+been created.
+
 ```python
 class AgentMgr:
     def __init__(self) -> None:
         self._specs: dict[str, dict] = {}
+        self._agents: dict[AgentId, Agent] = {}
 
+    # ---- the spec table ----
     def register(self, name: str, **config) -> None:
         self._specs[name] = config
+    def names(self) -> list[str]: ...
+    def is_registered(self, name: str) -> bool: ...
 
-    def get(self, name: str) -> Agent:
+    # ---- the instance collection ----
+    def instantiate(self, name: str) -> Agent:
         if name not in self._specs:
-            raise KeyError(f"no agent named {name!r}")
-        return Agent(name=name, uuid=str(uuid4()), config=dict(self._specs[name]))
+            raise KeyError(f"no agent named {name!r}; registered: {sorted(self._specs)}")
+        agent = Agent(name=name, config=dict(self._specs[name]))   # id auto-generated
+        self._agents[agent.id] = agent
+        return agent
+
+    def get(self, ref: AgentId | str) -> Agent:
+        """By id: that agent. By name: instantiate — the mission.md signature."""
+        return self._agents[ref] if isinstance(ref, AgentId) else self.instantiate(ref)
+
+    def by_name(self, name: str) -> list[Agent]: ...
+    def all(self) -> list[Agent]: ...
+    def retire(self, aid: AgentId) -> None: ...
 ```
 
-**`get` mints a fresh uuid on every call.** This is forced by criterion 21: after
-a resume, `history[-1].agent_uuid` must differ from the entry beneath it. A
-cached singleton would make every attempt report the same agent and the execution
-history would stop being an audit trail (D4).
+**The mgr keeps what it creates.** Previously it was a factory that instantiated
+and forgot, which left `Execution.agent_id` pointing at nothing — the audit
+trail (§3.2) would name agents nobody could resolve, and criterion 22 requires
+that a run be reconstructible from either end. Criterion 28 tests retention
+directly.
 
-`knowledge` and `config` stay empty per `mission.md`. `AgentMgr` is deliberately
-trivial and holds no state, so it does not implement `Resumable`.
+**`instantiate` mints a fresh id every call.** Forced by criterion 21: after a
+resume the stack top must report a different `agent_id` than the entry beneath.
+One run, one agent instance.
+
+`get` accepts both because `mission.md` asks for "提交agent名，返回agent对象" and
+the audit path needs lookup by id. The dispatch path calls `instantiate`
+explicitly — relying on the overload there would make "a new agent is created
+here" invisible at the call site.
+
+Instances are **not persisted**, so `AgentMgr` does not implement `Resumable`.
+An agent owns its own durability (spec §1.2), and after a restart the ids in the
+history refer to agents this process never made. That is a real gap and §14 O5
+records it.
+
+`knowledge` and `config` stay empty per `mission.md`.
 
 ---
 
@@ -485,9 +728,9 @@ trivial and holds no state, so it does not implement `Resumable`.
 ```python
 class TaskRunner(Protocol):
     def start(self, task: Task, agent: Agent,
-              on_done: Callable[[str, TaskResult], None]) -> None: ...
-    def stop(self, task_id: str,
-             on_stopped: Callable[[str], None]) -> None: ...
+              on_done: Callable[[TaskId, TaskOutcome], None]) -> None: ...
+    def stop(self, task_id: TaskId,
+             on_stopped: Callable[[TaskId], None]) -> None: ...
 ```
 
 `stop` takes a callback, symmetric with `start` (D2). The alternative — the
@@ -500,12 +743,29 @@ class FakeRunner:
     """Records what was started. The test drives completion explicitly."""
     def start(self, task, agent, on_done):
         self.running[task.id] = (task, agent, on_done)
-    def finish(self, task_id, result: TaskResult) -> None:
-        _, _, on_done = self.running.pop(task_id)
-        on_done(task_id, result)
     def stop(self, task_id, on_stopped):
         self.stop_requested.append(task_id)
         self._acks[task_id] = on_stopped
+
+    # ---- test-driven, standing in for the agent ----
+    def produce(self, registry, task_id, *, valid=True, content=None) -> None:
+        """What a real agent does to its outputs: open (or fork) a version and seal it."""
+        hm, task = registry.get("handoff_mgr"), registry.get("task_mgr").get(task_id)
+        agent_id = task.current.agent_id
+        for hid in task.outputs:
+            latest = hm.latest(hid)
+            if latest.status is HandoffStatus.CREATED:
+                latest.open(agent_id); hm.persist(latest); h = latest
+            else:                                     # a re-run forks a new version
+                h = latest.successor(agent_id); hm.append(h)
+            h.seal(VALID if valid else INVALID, content)
+            hm.persist(h)
+
+    def finish(self, task_id, outcome=RunOutcome.COMPLETED) -> None:
+        task, _, on_done = self.running.pop(task_id)
+        on_done(task_id, TaskOutcome(outcome=outcome, output_versions={
+            h: ... for h in task.outputs}))
+
     def ack_stop(self, task_id) -> None:
         self.running.pop(task_id, None)
         self._acks.pop(task_id)(task_id)
@@ -513,20 +773,23 @@ class FakeRunner:
 
 `FakeRunner` never calls `on_done` from inside `start`. Tests stay deterministic,
 and dispatch is not re-entered on the common path. Re-entrancy is still handled
-(§9) because a real synchronous runner is a perfectly reasonable implementation
-and must not deadlock or recurse.
+(§9) because a real synchronous runner is a reasonable implementation and must
+not deadlock or recurse.
 
-The fake also exposes an `agent_writes(...)` helper that performs the
-`new_version` → `record` pair on the agent's behalf, so tests can express "the
-agent produced a valid output" without a real agent. This is the only place a
-test writes handoff state, which is what makes the criterion-14 spy meaningful.
+`produce` is the agent's half of the contract in one place: it is the *only*
+thing in the test suite that calls `open`, `successor`, or `seal`. That is what
+makes criterion 14 meaningful — if the scheduler ever started writing handoff
+state, this would no longer be the only writer and the test would catch it.
+
+The `CREATED` / re-run branch is the whole reason `CREATED` is a real state: the
+first run adopts the declared v0 in place, a re-run forks v+1.
 
 ### 7.2 `SchedulePolicy` — `policy.py`
 
 ```python
 class SchedulePolicy(Protocol):
     def select(self, eligible: list[Task],
-               snapshot: dict[str, float]) -> list[str]: ...
+               snapshot: dict[str, float]) -> list[TaskId]: ...
 
 class FifoPolicy:
     def select(self, eligible, snapshot):
@@ -551,7 +814,7 @@ implementation.
 class Scheduler:
     def __init__(self, registry: Registry) -> None:
         self._r = registry
-        self.pools: dict[TaskStatus, set[str]] = {s: set() for s in TaskStatus}
+        self.pools: dict[TaskStatus, set[TaskId]] = {s: set() for s in TaskStatus}
         self._lock = threading.RLock()
         self._in_dispatch = False
         self._dispatch_again = False
@@ -563,17 +826,19 @@ load-bearing for scheduling; the rest make "which tasks are suspended" a lookup.
 ### 8.1 The single writer
 
 ```python
-def _move(self, tid: str, status: TaskStatus) -> None:
+def _move(self, tid: TaskId, status: TaskStatus) -> None:
     task_mgr = self._r.get("task_mgr")
     for pool in self.pools.values():
         pool.discard(tid)
     self.pools[status].add(tid)
-    if task_mgr.get(tid).status is not status:
-        task_mgr.set_status(tid, status)         # persists
+    task = task_mgr.get(tid)
+    if task.status is not status:
+        task.status = status          # the Task's own field, validated on assignment
+        task_mgr.persist(tid)         # the mgr's job: durability
 ```
 
-Every transition in the system goes through this method, and nothing else writes
-`pools` or calls `set_status`. Criterion 12 — the index never disagrees with
+Every transition in the system goes through this method, and nothing else assigns
+`task.status` or writes `pools`. Criterion 12 — the index never disagrees with
 `TaskMgr` — holds by construction because there is exactly one writer.
 
 Discarding from all eight pools rather than from the task's recorded status makes
@@ -590,8 +855,8 @@ called on a task whose stored status was already wrong.
 | `stop(tid)` | reject unless `RUNNING` → `_move(STOPPING)` → `runner.stop(tid, self.on_stopped)` |
 | `resume_task(tid)` | reject unless status in `RESUMABLE` → `_move` to the recomputed waiting pool → `try_dispatch` |
 | `update_task(tid, **fields)` | `remove_queued(tid)` → `submit(replace(old, **fields, status=WAITING_HANDOFF, history=[]))` |
-| `on_task_done(tid, result)` | reject unless `RUNNING` → release → `close_execution` → `_move(SUCCEEDED\|FAILED)` → `try_dispatch` |
-| `on_stopped(tid)` | reject unless `STOPPING` → release (consumables at full reservation) → `close_execution(..., SUSPENDED)` → `_move(SUSPENDED)` → `try_dispatch` |
+| `on_task_done(tid, outcome)` | reject unless `RUNNING` → release → `task.close_execution` → `_move(SUCCEEDED\|FAILED)` → `try_dispatch` |
+| `on_stopped(tid)` | reject unless `STOPPING` → release (consumables at full reservation) → `task.close_execution(..., SUSPENDED)` → `_move(SUSPENDED)` → `try_dispatch` |
 | `resume()` | `Resumable`: rebuild the index, demote interrupted runs, `try_dispatch` |
 | `try_dispatch()` | §8.3 |
 
@@ -648,12 +913,12 @@ def _dispatch_pass(self) -> None:
             pools[r].take(n)
 
         # 4. bind an agent by PUSHING a record; the stack top is the binding
-        agent = self._r.get("agent_mgr").get(task.agent)
-        task_mgr.push_execution(
-            tid, agent_uuid=agent.uuid,
-            input_versions={h: handoff_mgr.latest_version(h) for h in task.inputs},
+        agent = self._r.get("agent_mgr").instantiate(task.agent)
+        task.push_execution(                          # the Task's own transition
+            agent_id=agent.id,
+            input_versions={h: handoff_mgr.latest(h).version for h in task.inputs},
         )
-        self._move(tid, RUNNING)
+        self._move(tid, RUNNING)                      # _move persists both
         self._r.get("runner").start(task, agent, on_done=self.on_task_done)
 ```
 
@@ -761,10 +1026,11 @@ why. `README.md` carries the same table for readers who never open `docs/`.
 
 | Module | Considered | Chosen | Why |
 |---|---|---|---|
-| `core` | `pydantic`, `msgspec`, `attrs` | stdlib `dataclasses` + `enum` | No validation or coercion is required — these are internal records, not a wire format. `msgspec` is already a repository dependency and would be the drop-in if serialisation ever shows up in a profile; adopting it now would couple `agent_sys` to `infera`'s dependency set for no measured gain. |
+| `ids` | bare `str`, `NewType`, `typing.Annotated` | `uuid.UUID` subclasses | Generation, parsing, and formatting are solved in the stdlib. `NewType` gives static distinctness but erases at runtime, so two ids of different kinds would still be equal and collide in one dict. Subclassing gives both. It costs a ten-line `__get_pydantic_core_schema__` — pydantic does not accept a `UUID` subclass without one (§3.1). |
+| `models` | `dataclasses`, `msgspec`, `attrs` | **pydantic v2** | Already installed — `fastapi` pulls it, so this adds nothing to the dependency set. It supplies `model_dump` / `model_validate`, which removes the two hand-written `*_from_dict` constructors `dataclasses.asdict` would have required (it has no inverse) and which would drift from the models on every field added. `validate_assignment` also makes in-place mutation checked, which matters because status is assigned directly. `msgspec` is faster and also present, but has no validation-on-assignment and a thinner enum/`datetime` story. |
 | `registry` | `dependency-injector`, `pluggy`, `punq` | stdlib `dict` | Every candidate is built around constructor injection, which spec §4.1 explicitly rejects in favour of resolve-at-use-time. Their remaining feature — a name→instance map — is nine lines. |
 | `store` | `sqlite3` (stdlib), `shelve` (stdlib), `tinydb`, `diskcache` | `json` + `pathlib` | The user asked for filesystem + JSON. Records are inspectable with `cat`, which matters while the schema is still moving. `Path.replace` gives per-record atomicity. **`sqlite3` is the named upgrade path** — it is stdlib, and it would supply the cross-manager transaction §14 O2 wants — but it hides the data behind a client and buys nothing else today. The `StoreMgr` Protocol exists so that swap is a one-file change. |
-| `handoff` | content-addressed stores (git, DVC, S3) | own implementation | Versioning here is metadata bookkeeping, not content storage. Where payloads live is deliberately open (spec §8.2); when it is decided, a content store plugs in behind `HandoffVersion.content` without touching this module. |
+| `handoff` | content-addressed stores (git, DVC, S3) | own implementation | Versioning here is metadata bookkeeping, not content storage. Where payloads live is deliberately open (spec §8.2); when it is decided, a content store plugs in behind `Handoff.content` without touching this module. |
 | `task` | — | own implementation | A dict with write-through. Nothing to adopt. |
 | `resource` | `threading.Semaphore`, Prefect global concurrency limits | own implementation | A semaphore cannot express the consumable (reserve-then-settle) half, and cannot do the all-or-nothing multi-pool acquisition of §8.3 without a second layer on top. Prefect's limits do exactly what is wanted but live server-side; adopting a server for one primitive is the trade spec §9 rejected. |
 | `agent` | any agent framework | own implementation | Two methods, both trivial. `mission.md` leaves agent internals empty on purpose. |
@@ -773,12 +1039,11 @@ why. `README.md` carries the same table for readers who never open `docs/`.
 | `scheduler` | Prefect, Hatchet, Temporal, Ray, Airflow, Slurm | own implementation | Spec §9, from the prior-art survey. Every candidate is a platform whose scheduling core is not separable. |
 | tests | — | `pytest` | Already a dev dependency of the repository. |
 
-The short version: **nothing here has a mature off-the-shelf answer at the size
-this system needs it.** Every candidate is either a platform (adopt the server to
-get the primitive) or a library for a problem this system does not have (graph
-traversal, dependency injection, schema validation). The two genuine upgrade
-paths — `sqlite3` for the store, `msgspec` for serialisation — are both recorded
-above and both sit behind an interface that already exists.
+**pydantic v2 is adopted; everything else is standard library.** For the rest,
+every candidate is either a platform (adopt the server to get the primitive) or a
+library for a problem this system does not have — graph traversal, dependency
+injection. The named upgrade path is `sqlite3` for the store, and it sits behind
+an interface that already exists.
 
 ---
 
@@ -788,24 +1053,27 @@ above and both sit behind an interface that already exists.
 `testpaths = ["tests"]` only supplies a default when no path is given, so a bare
 `pytest` still collects exactly the existing suite and nothing changes for it.
 
-`agent_sys/tests/` gets an `__init__.py`, which makes it a package and keeps
-pytest's `prepend` import mode from putting the test directory on `sys.path`
-ahead of the repository root — the root is what `import agent_sys` needs.
+`agent_sys/conftest.py` puts `src/` on `sys.path`. That is the two-line editable
+install, and it keeps the repository's `pyproject.toml` untouched while this is
+unreleased — `[tool.setuptools.packages.find] include = ["infera*"]` means
+`agent_sys` is not packaged today and needs no entry there.
 
-Two other repository facts, checked rather than assumed:
-`[tool.setuptools.packages.find] include = ["infera*"]`, so `agent_sys` is not
-packaged and needs no change there; `norecursedirs` does not exclude it.
+`agent_sys/tests/` gets an `__init__.py` so pytest's `prepend` import mode does
+not put the test directory itself on `sys.path`.
 
 Every test builds its own `Registry` via `bootstrap.build_registry(...)` with a
 `MemoryStoreMgr` and a `FakeRunner`. Nothing is process-global.
 
 | File | Covers | Criteria |
 |---|---|---|
+| `test_ids.py` | cross-type inequality, hashing, `new()`, round-trip through `str` | 27 |
+| `test_models.py` | `Handoff` and `Task` state-machine guards; `model_dump`/`model_validate` round-trip incl. `HandoffId` dict keys | 26 |
 | `test_registry.py` | isolation, loud failure, `resolve` wildcard, replacement | 15 |
-| `test_store.py` | JSON round-trip, key quoting, atomic replace, `delete` | — |
+| `test_store.py` | CRUD, `create` on existing, `update` on missing, key quoting, atomic replace | 29 |
 | `test_resource.py` | renewable vs consumable release, settle-at-actual | 4 |
-| `test_handoff.py` | declare/idempotence, version append, seal-once, `check_if_latest_valid` on unknown/empty/generating/valid | 16 (part) |
-| `test_task.py` | execution push/close, attempt numbering, write-through | 18 |
+| `test_handoff.py` | declare/idempotence, lineage ordering, contiguity check, `check_if_latest_valid` on unknown/created/generating/valid | 16 (part) |
+| `test_task.py` | `add`/`by_status`/`remove`/`persist`, attempt numbering | 18 |
+| `test_agent.py` | spec table, `instantiate` retains, fresh id per call, `get` by id vs name, `by_name` | 28 |
 | `test_policy.py` | FIFO order, expedited first, swap changes order only | 10 |
 | `test_submit.py` | landing pool from input state, undeclared-resource rejection | 1, 2 |
 | `test_dispatch.py` | all-or-nothing, agent binding, pinned input versions | 3, 18 |
@@ -822,12 +1090,12 @@ Two of these carry more weight than their size suggests:
 
 **`test_authority.py`** registers a `HandoffMgr` subclass that appends every call
 to a log, then drives a full submit → dispatch → complete → resume → re-dispatch
-cycle in which the test itself makes the agent's writes. Each write is bracketed
-by a marker the test pushes into the same log, so "who called this" is recorded
-rather than inferred from the call stack. The assertion: every `new_version` and
-`record` entry falls between a pair of markers, and every entry outside them is
-one of `declare`, `check_if_latest_valid`, `latest_version`. This is the one
-mechanical check that spec §3.1's authority boundary has not eroded.
+cycle in which `FakeRunner.produce` makes the agent's writes. `produce` brackets
+itself with a marker in the same log, so "who called this" is recorded rather
+than inferred from the call stack. The assertion: every `append` and `persist`
+entry falls between a pair of markers, and every entry outside them is one of
+`declare`, `check_if_latest_valid`, `latest`. This is the one mechanical check
+that spec §3.1's authority boundary has not eroded.
 
 **`test_invariants.py`** runs a fixed sequence of a few dozen operations and, after
 each, asserts that the union of the pools equals the set of all task ids and that
@@ -848,20 +1116,23 @@ before the next begins.
 
 | # | Module | Depends on |
 |---|---|---|
-| 1 | `core` | — |
-| 2 | `registry` | — |
-| 3 | `store` | `core` (for the round-trip test only) |
-| 4 | `resource` | — |
-| 5 | `handoff` | 1–3 |
-| 6 | `task` | 1–3 |
-| 7 | `agent`, `runner`, `policy` | 1 |
-| 8 | `bootstrap` | 1–7 |
-| 9 | `scheduler` — submit and dispatch | 1–8 |
-| 10 | `scheduler` — lifecycle, completion, expedite | 9 |
-| 11 | `resume_all` and recovery | 9, 10 |
+| 1 | `ids` | — |
+| 2 | `models` | 1 |
+| 3 | `registry` | — |
+| 4 | `store` | 2 (for the round-trip test only) |
+| 5 | `resource` | — |
+| 6 | `handoff` | 1–4 |
+| 7 | `task` | 1–4 |
+| 8 | `agent`, `runner`, `policy` | 1, 2 |
+| 9 | `bootstrap` | 1–8 |
+| 10 | `scheduler` — submit and dispatch | 1–9 |
+| 11 | `scheduler` — lifecycle, completion, expedite | 10 |
+| 12 | `resume_all` and recovery | 10, 11 |
 
-Steps 1–8 are small enough that the interesting work is entirely in 9–11. That is
-the intent: the components are dull so the scheduler can be read in one sitting.
+Steps 1–9 are small enough that the interesting work is entirely in 10–12. That
+is the intent: the components are dull so the scheduler can be read in one
+sitting. Step 2 carries more than its size suggests — the state-machine guards
+live there, and everything downstream relies on them holding.
 
 Before step 1, per `mission.md` rule 5 and the global working rules: back up the
 project `CLAUDE.md`, write a fresh one, and create the scratch workspace. No
@@ -874,18 +1145,19 @@ temporary experiment leaves it.
 Each of these is a place where implementing the spec literally does not work.
 None changes an acceptance criterion; several are forced *by* one.
 
+Four deviations from revision 1 of this document — the `resume` name collision,
+`TaskRunner.stop`'s callback, `on_stopped` closing the execution record, and the
+`declare(types=...)` argument — are gone from this table because spec rev. 4
+adopted them. They are now specification, not deviation.
+
 | # | Spec says | Design does | Why |
 |---|---|---|---|
-| D1 | §5.1 lists both `resume(tid)` and `resume()` on `Scheduler` | task-level resume is `resume_task(tid)`; `resume()` is the `Resumable` one | Python cannot have two methods of one name. Worse, `resume(tid)` would satisfy `@runtime_checkable Resumable` by name alone, so `resume_all` would call it with no argument and raise. This is a genuine spec defect, not a style choice. |
-| D2 | `TaskRunner.stop(task_id)` | `stop(task_id, on_stopped)` | Otherwise the runner must resolve `scheduler` from the registry — the only component that would need to. The callback is symmetric with `start(..., on_done=)`. |
 | D3 | `submit` rejects a duplicate id | rejects an id that exists and is **not** `CANCELLED` | Forced by criterion 23. `update_task` must be `remove_queued` + `submit` under the same id, and `remove_queued` leaves the task `CANCELLED`. Reviving a cancelled id replaces the record with fresh history. |
-| D4 | `AgentMgr.get(name) -> Agent` | returns a **new** `Agent` with a fresh uuid on every call | Forced by criterion 21: after a resume the stack top must report a different `agent_uuid` than the entry beneath it. |
-| D5 | `check_if_latest_valid(uuid)` | returns `False` for an unknown uuid rather than raising | A consumer may be submitted before its producer declares the handoff. "Not ready" is the right answer and it keeps submission order unconstrained. |
-| D6 | `declare(uuids, produced_by)` | idempotent; skips uuids already known | `update_task` re-declares. Overwriting would delete versions an agent had already written. |
-| D7 | `on_stopped` releases resources | consumables settle at the **full reservation** | `on_stopped` carries no `TaskResult`, so actual usage is unknown. Assuming the agent spent what it reserved is the safe direction for a budget. |
+| D5 | `check_if_latest_valid(hid)` | returns `False` for an unknown id rather than raising | A consumer may be submitted before its producer declares the handoff. "Not ready" is the right answer and it keeps submission order unconstrained. |
+| D6 | `declare(ids, produced_by)` | idempotent; skips ids already known | `update_task` re-declares. Overwriting would delete versions an agent had already written. |
+| D7 | `on_stopped` releases resources | consumables settle at the **full reservation** | `on_stopped` carries no `TaskOutcome`, so actual usage is unknown. Assuming the agent spent what it reserved is the safe direction for a budget. |
 | D8 | "a dangling stack top is closed as interrupted" | `outcome = SUSPENDED`, `ended_at = now` | The spec does not name the outcome. `SUSPENDED` says the attempt was cut short rather than judged. |
-| E1 | `declare(uuids, produced_by)` | optional third argument `types: dict[str, str]` | Additive, and the only write path `Handoff.type` has. The scheduler does not use it — it passes nothing, because `Task` carries no type map (O4). It exists for a caller that declares an externally-supplied handoff directly. |
-| E2 | §5.1 `on_stopped` only releases and transitions | also calls `close_execution(..., outcome=SUSPENDED)` | A run is in progress exactly when `history[-1].ended_at is None` (spec §3.2). Leaving the stack top open on a stopped task would make that predicate lie, and the next `resume_task` would push a second open record on top of the first. |
+| D9 | `HandoffMgr.append(handoff)` | plus a `persist(handoff)` | `Handoff.open()` mutates the declared v0 **in place** — it does not create a version — so there is nothing to append, only an updated record to write. Two verbs because there are two situations: a first run adopts v0, a re-run forks v+1. |
 
 ---
 
@@ -898,4 +1170,5 @@ These are found by this design and are **not** in spec §10.
 | **O1** | **Consumable budgets do not survive a restart.** Spec §6.4 has `ResourceMgr.resume()` reset to full capacity, and §7 persists only tasks and handoffs. For a renewable pool that is exactly right — no lease survives. For a consumable one it resurrects every token ever spent, which is a correctness hole in one of the two mandated resource types. The fix is small: `ConsumableMgr` persists `available` under a third kind, `"resource"`, and `resume()` reads it back. It needs a spec change to §7 ("two things are persisted") and it keeps recovery step 3 independent of steps 1 and 2. **Recommended, pending review.** Implemented as specified until then. |
 | **O2** | A completion that arrives after `stop()` **raises into the runner**. `on_task_done` rejects a non-`RUNNING` task per spec §5.1, so a runner that finishes in the window between `stop()` and its own acknowledgement gets an exception where it expected a callback — and the finished work is discarded, since the task then goes `SUSPENDED`. Nothing leaks, because `on_stopped` still releases the resources. Two candidate fixes: accept `STOPPING` in `on_task_done` and treat the run as complete, or make the rejection a no-op return rather than a raise. The first is better and changes the state machine. Neither is done. |
 | **O3** | `Task.resources` names pools that must already be registered, and `submit` rejects unknown ones. Nothing yet rejects a task whose declared amount exceeds a pool's total capacity: it is accepted and waits in `WAITING_RESOURCE` forever. A one-line check at submit would surface it immediately. Not built. |
-| **O4** | **`Handoff.type` has no route from `submit`.** Spec §3.1 gives a handoff a `type`, but `Task` (§3.2) has no field naming the types of its outputs, so the scheduler declares them with `type=""` and nothing later fills it in. The field is dead on the scheduler path. Either `Task` gains an `output_types: dict[str, str]` — a §3.2 change — or `type` is acknowledged as being for directly-declared external handoffs only. Nothing depends on it today: the scheduler is content-agnostic and never reads it. |
+| **O4** | **`Handoff.type` has no route from `submit`.** Spec §3.1 gives a handoff a `type`, but `Task` (§3.2) has no field naming the types of its outputs, so the scheduler declares them with `type=""` and nothing later fills it in. The field is dead on the scheduler path. Either `Task` gains an `output_types: dict[HandoffId, str]` — a §3.2 change — or `type` is acknowledged as being for directly-declared external handoffs only. Nothing depends on it today: the scheduler is content-agnostic and never reads it. |
+| **O5** | **`AgentMgr` instances do not survive a restart.** The mgr now retains what it creates (§6.4), so `Execution.agent_id` resolves — until the process restarts. Agents are not persisted, because spec §1.2 makes an agent responsible for its own durability, so after `resume_all` every id in the restored history dangles and criterion 22 holds only within one process lifetime. Two candidate answers: persist the `Agent` record (id, name, config — not the agent's own state, which stays its business), or accept that the audit trail names agents the system cannot resolve after a restart and say so in §1.2. **The first is cheap and I recommend it**; it is one more `kind` in the store and one more `Resumable`. Not built, because it extends what §7 persists and that is a spec decision. |

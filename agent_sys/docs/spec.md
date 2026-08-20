@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Status | Draft, pending review |
-| Revision | 3 — 2026-08-20. Handoffs are versioned; agents own their state |
+| Revision | 4 — 2026-08-20. One `Handoff` class owning its transitions; typed ids; CRUD store |
 | Date | 2026-08-19 |
 | Scope | Task management substrate for the Infera AI-optimization agent loop |
 | Source | `mission.md`; prior-art report `agent-task-graph-prior-art.html` (rev. 2, 2026-08-18) |
@@ -61,7 +61,7 @@ guarantees it does not obstruct them:
 | 4 | The engine decides when, the agent decides what | The scheduler owns task state and never writes handoff state. An agent owns its handoffs' content and validity, and may submit tasks, but may not redirect the graph. |
 | 5 | Algorithm decoupled from mechanism | Ordering lives behind `SchedulePolicy`. The first implementation is naive FIFO. |
 | 6 | Simplicity is a requirement | Where a mature solution exists, use it (§9). Where none fits, the implementation stays small enough to read in one sitting. |
-| 7 | One fact, one place — reuse the implementation | Where two operations mean the same thing, one is expressed in terms of the other rather than reimplemented. `update_task` is `remove_queued` + `submit` (§5.1); "which agent is running this" is `history[-1].agent_uuid`, not a field (§3.2); eligibility is a query, not a cached counter (§3.2). Structural clarity comes first — this is not licence to collapse two genuinely different concerns into one. |
+| 7 | One fact, one place — reuse the implementation | Where two operations mean the same thing, one is expressed in terms of the other rather than reimplemented. `update_task` is `remove_queued` + `submit` (§5.1); "which agent is running this" is `history[-1].agent_id`, not a field (§3.2); eligibility is a query, not a cached counter (§3.2). Structural clarity comes first — this is not licence to collapse two genuinely different concerns into one. |
 
 ---
 
@@ -77,47 +77,69 @@ fills in the content later.
 This is what makes dependency resolution a lookup by uuid rather than a matching
 engine.
 
-#### Versions
+#### One class; the version is a field on it
 
-A handoff has a stable identity and an **append-only list of versions**. Each
-version is one attempt to produce the content; a re-run of the producing task
-appends a new one rather than overwriting.
+**A handoff is a handoff.** There is no separate "version" type. A `Handoff`
+object *is* one version of one handoff, carrying its own status, content, and
+provenance.
 
-| Handoff field | Type | Meaning |
+| Field | Type | Meaning |
 |---|---|---|
-| `uuid` | `str` | Stable identity, assigned at instantiation |
+| `uuid` | `HandoffId` | Identity of the **slot** in the graph. Shared by every version |
+| `version` | `int` | Monotonic from 0. `(uuid, version)` identifies this artefact |
 | `type` | `str` | Opaque to the scheduler; meaningful to agents |
-| `produced_by` | `str \| None` | **Task uuid** of the producer; `None` if externally supplied |
-| `versions` | `list[HandoffVersion]` | Append-only. The last entry is *latest* |
-
-| Version field | Type | Meaning |
-|---|---|---|
-| `version` | `int` | Monotonic, starting at 0 |
-| `status` | `HandoffStatus` | `GENERATING` while open; `VALID \| INVALID` once sealed |
-| `produced_by_agent` | `str \| None` | **Agent uuid** of the run that produced it |
-| `timestamp` | `float` | When this version was opened |
+| `status` | `HandoffStatus` | `CREATED → GENERATING → VALID \| INVALID` |
+| `produced_by` | `TaskId \| None` | Producing task; `None` if externally supplied |
+| `produced_by_agent` | `AgentId \| None` | The run that wrote this version |
+| `timestamp` | `datetime` | When this version was opened |
 | `content` | `Any` | Content, or a reference to it (§8.2) |
 
+Two identities, and the distinction is load-bearing:
+
+- **`uuid` names the slot.** A downstream task holds it from birth and never
+  changes it. This is what makes dependency resolution a lookup.
+- **`(uuid, version)` names a concrete artefact.** An execution record pins this
+  pair, so what a run consumed stays true forever.
+
+A re-run appends a new `Handoff` with the same `uuid` and the next `version`.
+The collection of versions sharing a `uuid` is a **lineage**, and `HandoffMgr`
+is what holds it (§4.3) — the lineage is a property of the set, not a field on
+any member.
+
 ```
-handoff declared          versions: []            check_if_latest_valid -> False
-  agent starts    ──→     v0 [GENERATING]         -> False
-  agent seals     ──→     v0 [VALID]              -> True      ← latest
-  producer re-run ──→     v0 [VALID], v1 [GENERATING]  -> False
-  agent seals     ──→     v0 [VALID], v1 [VALID]  -> True      ← latest
+declare           v0 [CREATED]                        check_if_latest_valid -> False
+  agent opens ──→ v0 [GENERATING]                                           -> False
+  agent seals ──→ v0 [VALID]                                                -> True
+  re-run      ──→ v0 [VALID], v1 [GENERATING]                               -> False
+  agent seals ──→ v0 [VALID], v1 [VALID]         ← latest                   -> True
 ```
 
-A version is `GENERATING` from the moment it is opened and becomes `VALID` or
-`INVALID` when the agent seals it. **A sealed version is never rewritten.**
-Re-running a producer appends `v+1`; `v` stays exactly as it was, which is what
-makes the execution history (§3.2) auditable.
+`CREATED` is the declared-but-untouched state: the slot exists so downstream
+tasks can name it, and nothing has been written. It is a real state, not the
+absence of one, and it is what a `declare` produces.
 
-There is no `CREATED` status. A handoff between `declare` and its agent's first
-write simply has an empty version list, and `check_if_latest_valid` returns
-`False` for it — the same answer as for a handoff mid-write or one sealed
-`INVALID`. The scheduler never needs to tell those cases apart; only agents do,
-and they can read `versions` directly.
+**A sealed version is never rewritten.** Re-running a producer appends `v+1`;
+`v` stays exactly as it was, which is what makes the execution history (§3.2)
+auditable.
 
-`HandoffStatus` is therefore `GENERATING | VALID | INVALID`.
+`HandoffStatus` is `CREATED | GENERATING | VALID | INVALID`. The scheduler
+distinguishes none of them — it asks one question, `check_if_latest_valid`, and
+the first three answer it identically. Agents read the status directly.
+
+#### Behaviour belongs to the handoff
+
+Opening a version, sealing it, and reporting whether it is usable are facts
+about a handoff, so they are methods on `Handoff`:
+
+| Method | Effect |
+|---|---|
+| `is_valid` | `status is VALID` |
+| `open(agent_id)` | `CREATED → GENERATING`, recording the agent. Raises otherwise |
+| `seal(status, content)` | `GENERATING → VALID \| INVALID`. Raises if not open |
+| `successor(agent_id)` | Return a new `Handoff`, same `uuid`, `version + 1`, `GENERATING` |
+
+`HandoffMgr` does not reimplement any of these. It manages the *collection*:
+which lineages exist, which member is latest, and how they persist (§4.3).
 
 #### Everything links back by uuid
 
@@ -125,13 +147,24 @@ Three identities exist — task, agent, handoff — and each artefact records wh
 task it belongs to. The links are uuid references, resolved through the owning
 manager; no object holds a pointer to another.
 
+**Each has its own type.** `TaskId`, `AgentId`, and `HandoffId` are distinct
+types, not interchangeable `str`s. A signature reading `list[str]` says nothing
+about which of the three it wants; `list[HandoffId]` says it exactly. They wrap
+`uuid.UUID`, so identity generation, comparison, and formatting come from the
+standard library rather than from string conventions.
+
 | From | To | Where | Purpose |
 |---|---|---|---|
-| handoff | task | `Handoff.produced_by` | which task is responsible for filling it |
-| handoff version | agent | `HandoffVersion.produced_by_agent` | which run wrote this version |
+| handoff | task | `Handoff.produced_by: TaskId` | which task is responsible for filling it |
+| handoff | agent | `Handoff.produced_by_agent: AgentId` | which run wrote this version |
 | agent | task | agent-side record | which task the agent was bound to |
-| task | agent | `history[-1].agent_uuid` | which agent is running it now (§3.2) |
-| task | handoff | `Task.inputs` / `Task.outputs` | declared dependencies |
+| task | agent | `history[-1].agent_id: AgentId` | which agent is running it now (§3.2) |
+| task | handoff | `Task.inputs` / `Task.outputs`: `list[HandoffId]` | declared dependencies |
+
+References are ids, never objects. An object reference would be a second copy of
+state the owning manager is authoritative for (§2, principle 3), and it would
+not survive persistence — a restored `Task` holding a stale `Handoff` instance
+is exactly the drift the id indirection prevents.
 
 Handoff and agent maintain the pairing between them from both sides: a version
 names the agent that wrote it, and the agent's own record names the handoffs it
@@ -145,17 +178,19 @@ question about the content, and only the agents on either side can answer it. Th
 producing agent opens a new version when it starts writing and records the verdict
 when it finishes. A consuming agent may re-check its inputs on its own terms.
 
-`HandoffMgr` records and serves. It has no validation logic, no content schema,
-and no opinion. It does not open versions on its own initiative and it never
-derives a status.
+`HandoffMgr` holds lineages and serves queries over them. It has no validation
+logic, no content schema, and no opinion. It does not open versions on its own
+initiative and it never derives a status. When an agent appends a version, the
+mgr's job is to place it in the right lineage and persist it — the transition
+itself happened on the `Handoff` (§3.1).
 
 The scheduler touches handoffs in exactly three ways, none of which set a status:
 
 | Call | When | Effect on state |
 |---|---|---|
-| `declare(uuids, produced_by)` | at `submit` | creates identity; **no version** |
+| `declare(ids, produced_by)` | at `submit` | creates v0 in state `CREATED` |
 | `check_if_latest_valid(uuid)` | at each decision point | none — a read |
-| `latest_version(uuid)` | at dispatch, to pin the history | none — a read |
+| `latest(hid)` | at dispatch, to pin the history | none — a read |
 
 Asking is not deciding: the scheduler reads a fact an agent established. This
 keeps it content-agnostic (§2, principle 2) while still resolving dependencies.
@@ -182,18 +217,22 @@ previous version, so a downstream task may be dispatched against it. See §10.
 
 | Field | Type | Meaning |
 |---|---|---|
-| `id` | `str` | Identity |
+| `id` | `TaskId` | Identity |
 | `agent` | `str` | Agent *name* — what to run, resolved through `AgentMgr` |
-| `inputs` | `list[str]` | Handoff uuids required to run |
-| `outputs` | `list[str]` | Handoff uuids this task will fill |
-| `resources` | `dict[str, float]` | Declared, never inferred, e.g. `{"gpu": 2, "token": 100_000}` |
+| `inputs` | `list[HandoffId]` | Handoffs required to run |
+| `outputs` | `list[HandoffId]` | Handoffs this task will fill |
+| `resources` | `dict[str, float]` | Pool **name** → amount. Declared, never inferred, e.g. `{"gpu": 2, "token": 100_000}` |
 | `status` | `TaskStatus` | See below |
-| `created_at` | `float` | FIFO ordering key |
+| `created_at` | `datetime` | FIFO ordering key |
 | `expedited` | `bool` | Set by `expedite()`; a policy hint |
 | `history` | `list[Execution]` | Append-only; one entry per run |
 
-Note `outputs` is a plain uuid list again. Verdicts live on handoff versions
-(§3.1), not on the task.
+`outputs` holds ids, not handoffs. Verdicts live on the handoff (§3.1), not on
+the task.
+
+`resources` is keyed by pool *name* — a `str` that is genuinely a name, not an
+identity. Resource pools are singletons registered under `resource:<name>`;
+there is no fourth id type.
 
 #### Execution history — a stack, not an archive
 
@@ -211,18 +250,18 @@ Everything below the top is immutable history.
 | Field | Type | Meaning |
 |---|---|---|
 | `attempt` | `int` | 0-based |
-| `agent_uuid` | `str` | Which agent instance ran it |
-| `input_versions` | `dict[str, int]` | uuid → version actually consumed |
-| `output_versions` | `dict[str, int]` | uuid → version produced |
-| `started_at` / `ended_at` | `float \| None` | `ended_at` is `None` while running |
+| `agent_id` | `AgentId` | Which agent instance ran it |
+| `input_versions` | `dict[HandoffId, int]` | Handoff → version actually consumed |
+| `output_versions` | `dict[HandoffId, int]` | Handoff → version produced |
+| `started_at` / `ended_at` | `datetime \| None` | `ended_at` is `None` while running |
 | `outcome` | `TaskStatus \| None` | Terminal status of this attempt |
 
 This is what makes a re-run auditable rather than destructive. `input_versions`
 pins exactly which upstream content a run saw, so a later re-run of an upstream
 producer cannot retroactively change the record of what happened.
 
-`Task` carries no `agent_uuid` of its own. Binding an agent means pushing a record
-whose `agent_uuid` is set; asking which agent is bound means reading the top. One
+`Task` carries no `agent_id` of its own. Binding an agent means pushing a record
+whose `agent_id` is set; asking which agent is bound means reading the top. One
 fact, one place (§2, principle 7).
 
 `Task.status` is *not* derived from the stack, and the two are not redundant.
@@ -261,7 +300,7 @@ remove_queued:  WAITING_HANDOFF | WAITING_RESOURCE  ──→  CANCELLED  [final
 a process instantaneously. It holds its resources until `on_stopped()` confirms.
 Recovery treats it as `SUSPENDED` (§6.4).
 
-`resume()` accepts `FAILED` and `SUSPENDED`. It rejects `SUCCEEDED` and
+`resume_task()` accepts `FAILED` and `SUSPENDED`. It rejects `SUCCEEDED` and
 `CANCELLED`. The resumed task re-enters `WAITING_RESOURCE` if
 `check_if_latest_valid` holds for every input, otherwise `WAITING_HANDOFF` — the
 landing pool is recomputed, not remembered. `resume()` does **not** touch the
@@ -309,13 +348,13 @@ post-hoc accounting alone bounds nothing.
 ┌──▼───────┐ ┌──▼────────┐ ┌──▼───────┐ ┌──▼─────────┐ ┌──▼───────┐ ┌───▼────────┐
 │Scheduler │ │HandoffMgr │ │ TaskMgr  │ │ResourceMgr │ │ AgentMgr │ │ TaskRunner │
 │          │ │           │ │          │ │ ├ GpuMgr   │ │          │ │            │
-│ pools =  │ │ versions; │ │  owns    │ │ └ TokenMgr │ │ get(name)│ │ start/stop │
-│  status  │ │ records   │ │  state   │ │            │ │          │ │            │
-│  index   │ │ only      │ │          │ │            │ │          │ │            │
+│ pools =  │ │ lineages  │ │  tasks   │ │ └ TokenMgr │ │  agents  │ │ start/stop │
+│  status  │ │ keyed by  │ │ keyed by │ │            │ │ keyed by │ │            │
+│  index   │ │ HandoffId │ │  TaskId  │ │ a counter  │ │ AgentId  │ │            │
 └────┬─────┘ └─────▲─────┘ └──────────┘ └────────────┘ └──────────┘ └─────┬──────┘
      │             │                                                       │
      │  check_if_latest_valid (read only)                                  │
-     └─────────────┘                       new_version / record ───────────┘
+     └─────────────┘                    open/seal, then append ────────────┘
                                            (agent, via the runner)
 
               ┌────────────┐  ┌──────────────┐
@@ -382,12 +421,28 @@ fixed name table.
 Persistence is a registered component like any other, not a sub-object of
 `TaskMgr`. `TaskMgr` resolves `store_mgr` when it writes.
 
+A store is a CRUD store; it offers all four operations.
+
 ```python
 class StoreMgr(Protocol):
-    def save(self, kind: str, key: str, record: dict) -> None: ...
-    def load_all(self, kind: str) -> list[dict]: ...
+    def create(self, kind: str, key: str, record: dict) -> None: ...  # raises if present
+    def read(self, kind: str, key: str) -> dict | None: ...
+    def read_all(self, kind: str) -> list[dict]: ...
+    def update(self, kind: str, key: str, record: dict) -> None: ...  # raises if absent
     def delete(self, kind: str, key: str) -> None: ...
+    def exists(self, kind: str, key: str) -> bool: ...
 ```
+
+`create` and `update` are separate rather than one upsert because their
+preconditions differ and are worth enforcing: `TaskMgr.add` means *new*, and a
+collision is a bug the store should surface; `set_status` means *existing*, and
+writing a record that vanished is equally a bug. A single `save` would silently
+accept both mistakes.
+
+`read` exists as the single-key counterpart to `read_all`. Recovery uses
+`read_all`; nothing in the scheduler path reads a single record today, because
+the managers hold their collections in memory. It is in the interface because a
+store missing point reads is not a store.
 
 `kind` separates the key spaces: `TaskMgr` writes `"task"`, `HandoffMgr` writes
 `"handoff"` (§7). Keeping the store ignorant of both types is what lets one
@@ -399,12 +454,26 @@ data is still settling.
 
 ### 4.3 Managers
 
-| Manager | Responsibility | Does *not* |
-|---|---|---|
-| `HandoffMgr` | Hold versions; record what an agent reports; answer `check_if_latest_valid`; persist and restore them | **Judge validity, or advance state on its own** (§3.1). Store large payloads inline (§8.2) |
-| `TaskMgr` | Own task state and execution history; write through `store_mgr` | Make scheduling decisions |
-| `ResourceMgr` | Account for one named pool | Know about tasks |
-| `AgentMgr` | `get(name) -> Agent` | Anything else. Deliberately trivial |
+**A manager owns a collection.** That is the word's basic meaning and every one
+of these honours it: a manager holds a set of things of one kind, and offers
+add / get / query / remove over that set, plus persistence of it. Behaviour
+belonging to a single member is a method on that member, not on its manager.
+
+| Manager | Owns the collection of | Offers | Does *not* |
+|---|---|---|---|
+| `HandoffMgr` | handoff lineages, keyed by `HandoffId` | declare, append a version, latest, lineage, query, persist | **Judge validity, or transition a handoff itself** (§3.1) — `Handoff.open` / `.seal` do that. Store large payloads inline (§8.2) |
+| `TaskMgr` | tasks, keyed by `TaskId` | add, get, all, by-status, remove, persist | Make scheduling decisions. Own the execution *transitions* — `Task.push_execution` / `.close_execution` do that |
+| `AgentMgr` | agents, keyed by `AgentId`, plus the name→spec table | register a spec, instantiate, get by id, list by name, retire | Run an agent, or know what it does |
+| `ResourceMgr` | one named pool's accounting | can_afford, take, give_back | Know about tasks. This is the one that manages a *quantity*, not a set — §3.3 |
+
+`ResourceMgr` is deliberately the exception, and the name is kept because
+`mission.md` uses it. What it manages is a counter with two release disciplines,
+not a collection.
+
+`AgentMgr` is no longer a bare factory. `mission.md` asks for `get(name) ->
+agent`, which stays, but an agent that is instantiated and then forgotten leaves
+`Execution.agent_id` pointing at nothing — the audit trail (§3.2) would name
+agents the system cannot resolve. So the mgr keeps what it created.
 
 ### 4.4 Pools as an index
 
@@ -450,30 +519,49 @@ def resume_all(registry: Registry) -> None: ...
 
 # ---- store ----  (registered as "store_mgr", see §4.2)
 class StoreMgr(Protocol):
-    def save(self, kind: str, key: str, record: dict) -> None: ...
-    def load_all(self, kind: str) -> list[dict]: ...
+    def create(self, kind: str, key: str, record: dict) -> None: ...
+    def read(self, kind: str, key: str) -> dict | None: ...
+    def read_all(self, kind: str) -> list[dict]: ...
+    def update(self, kind: str, key: str, record: dict) -> None: ...
     def delete(self, kind: str, key: str) -> None: ...
+    def exists(self, kind: str, key: str) -> bool: ...
 
-# ---- handoff ----
+# ---- handoff: the object owns its own transitions ----
+class Handoff(Model):
+    uuid: HandoffId
+    version: int
+    status: HandoffStatus
+    ...
+    @property
+    def is_valid(self) -> bool: ...
+    def open(self, agent_id: AgentId) -> None:
+        """CREATED -> GENERATING. Raises otherwise."""
+    def seal(self, status: HandoffStatus, content: Any = None) -> None:
+        """GENERATING -> VALID | INVALID. Raises if not open."""
+    def successor(self, agent_id: AgentId) -> "Handoff":
+        """A new Handoff: same uuid, version + 1, GENERATING."""
+
+# ---- handoff: the mgr owns the collection ----
 # Called by the SCHEDULER (read-only):
 class HandoffMgr:
-    def declare(self, uuids: list[str], produced_by: str) -> None:
-        """Instantiate handoffs with an empty version list. No status is set."""
-    def check_if_latest_valid(self, uuid: str) -> bool:
-        """True iff the newest version exists and is VALID. A read, not a judgement."""
-    def latest_version(self, uuid: str) -> int | None:
-        """For pinning into an Execution record (§3.2)."""
-    def get(self, uuid: str) -> Handoff: ...
+    def declare(self, ids: list[HandoffId], produced_by: TaskId,
+                types: dict[HandoffId, str] | None = None) -> None:
+        """Create v0 in state CREATED for each. Idempotent."""
+    def check_if_latest_valid(self, hid: HandoffId) -> bool:
+        """`latest(hid).is_valid`, False if unknown. A read, not a judgement."""
+    def latest(self, hid: HandoffId) -> Handoff | None:
+        """The newest version. For pinning into an Execution record (§3.2)."""
+    def lineage(self, hid: HandoffId) -> list[Handoff]:
+        """Every version, oldest first."""
+    def get(self, hid: HandoffId, version: int) -> Handoff: ...
+    def all_ids(self) -> list[HandoffId]: ...
+    def produced_by(self, tid: TaskId) -> list[HandoffId]: ...
     def resume(self) -> None:
-        """Reload handoffs and versions from the store, at startup (§6.4)."""
+        """Reload every lineage from the store, at startup (§6.4)."""
 
 # Called by the AGENT, through its runner (write). Each of these persists:
-    def new_version(self, uuid: str, agent_uuid: str) -> int:
-        """Open version v+1 as GENERATING. Returns the new version number."""
-    def record(self, uuid: str, version: int,
-               status: HandoffStatus,       # VALID | INVALID, decided by the agent
-               content: Any = None) -> None:
-        """Seal that version. Raises if it is already terminal."""
+    def append(self, handoff: Handoff) -> None:
+        """Place a version — from open() or successor() — into its lineage."""
 
 # ---- resource ----
 class ResourceMgr(ABC):
@@ -488,21 +576,53 @@ class ResourceMgr(ABC):
 class RenewableMgr(ResourceMgr):   # give_back returns the full amount
 class ConsumableMgr(ResourceMgr):  # give_back returns amount - actual
 
+# ---- agent ----
+class AgentMgr:
+    def register(self, name: str, **config) -> None:
+        """Declare a kind of agent. Names are the vocabulary Task.agent draws on."""
+    def instantiate(self, name: str) -> Agent:
+        """Mint a new Agent with a fresh AgentId and keep it. One run, one agent."""
+    def get(self, ref: AgentId | str) -> Agent:
+        """By id: that agent. By name: instantiate one — the mission.md signature."""
+    def by_name(self, name: str) -> list[Agent]: ...
+    def all(self) -> list[Agent]: ...
+    def retire(self, aid: AgentId) -> None: ...
+
+# ---- task ----
+class TaskMgr:
+    def add(self, task: Task) -> None: ...
+    def get(self, tid: TaskId) -> Task: ...
+    def all(self) -> list[Task]: ...
+    def by_status(self, status: TaskStatus) -> list[Task]: ...
+    def remove(self, tid: TaskId) -> None: ...
+    def persist(self, tid: TaskId) -> None:
+        """Write a task back after a caller mutated it through Task's own methods."""
+    def resume(self) -> None: ...
+
 # ---- runner ----
 class TaskRunner(Protocol):
-    def start(self, task: Task, agent: Any, on_done: Callable) -> None: ...
-    def stop(self, task_id: str) -> None: ...
+    def start(self, task: Task, agent: Agent,
+              on_done: Callable[[TaskId, TaskOutcome], None]) -> None: ...
+    def stop(self, task_id: TaskId,
+             on_stopped: Callable[[TaskId], None]) -> None: ...
 
 # ---- policy ----
 class SchedulePolicy(Protocol):
     def select(self, eligible: list[Task],
-               snapshot: dict[str, float]) -> list[str]: ...
+               snapshot: dict[str, float]) -> list[TaskId]: ...
 ```
 
-The split is deliberate. `can_afford` / `take` are separate so the scheduler can
-check every declared resource before mutating any of them (§6.2). The two halves
-of `HandoffMgr` are separate so the read/write asymmetry of §3.1 is visible in the
-interface: the scheduler calls only the first group, agents only the second.
+The splits are deliberate:
+
+- `can_afford` / `take` are separate so the scheduler can check every declared
+  resource before mutating any of them (§6.2).
+- The two halves of `HandoffMgr` are separate so the read/write asymmetry of
+  §3.1 is visible in the interface: the scheduler calls only the first group,
+  agents only the second.
+- Transitions are on `Handoff` and `Task`; collection operations are on their
+  managers. `HandoffMgr` has no `seal`, and `TaskMgr` no `set_status` — a caller
+  mutates the object and asks the mgr to `persist` it. The mgr is not a proxy
+  for its members' behaviour.
 
 ### 5.1 Scheduler API
 
@@ -511,16 +631,24 @@ interface: the scheduler calls only the first group, agents only the second.
 | `submit(task)` | `declare` its output handoffs; place in the pool its inputs dictate; dispatch | Duplicate id; undeclared resource pool |
 | `expedite(task)` | `submit`, but requires every input already valid and marks the task for front-of-queue ordering | Any input failing `check_if_latest_valid` |
 | `remove_queued(tid)` | `→ CANCELLED` | Task not in a waiting pool |
-| `stop(tid)` | `RUNNING → STOPPING`; calls `runner.stop(tid)` | Task not `RUNNING` |
-| `resume(tid)` | `FAILED \| SUSPENDED →` recomputed waiting pool; dispatch. Does not touch handoffs | `SUCCEEDED`, `CANCELLED`, or any live state |
+| `stop(tid)` | `RUNNING → STOPPING`; calls `runner.stop(tid, self.on_stopped)` | Task not `RUNNING` |
+| `resume_task(tid)` | `FAILED \| SUSPENDED →` recomputed waiting pool; dispatch. Does not touch handoffs | `SUCCEEDED`, `CANCELLED`, or any live state |
 | `update_task(tid, ...)` | Sugar: remove and re-submit under the same id, with new inputs/outputs/resources | Task not queued |
-| `on_task_done(tid, result)` | Release resources; close the execution record; dispatch | Task not `RUNNING` |
-| `on_stopped(tid)` | `STOPPING → SUSPENDED`; release resources | Task not `STOPPING` |
+| `on_task_done(tid, outcome)` | Release resources; close the execution record; dispatch | Task not `RUNNING` |
+| `on_stopped(tid)` | `STOPPING → SUSPENDED`; release resources; close the execution record | Task not `STOPPING` |
 | `resume()` | Rebuild the pool index from task status; demote interrupted runs. Called by `resume_all`, last (§6.4) | — |
 | `try_dispatch()` | Grant resources and start tasks, as capacity allows | — |
 
 `stop()` records intent and delegates; `on_stopped()` completes the transition
 (§3.2). A task in `STOPPING` still holds its resources.
+
+Task-level resume is `resume_task`, not `resume`. The bare name belongs to the
+`Resumable` protocol, and one class cannot have both — worse,
+`@runtime_checkable` matches on method *name* alone, so a `resume(tid)` would be
+called by `resume_all` with no argument and raise. `on_stopped` takes the
+callback the runner was handed, which is why `TaskRunner.stop` carries one: a
+runner that had to resolve `scheduler` from the registry would be the only
+component depending on it by name.
 
 ---
 
@@ -537,8 +665,8 @@ submit(task)
   └─ try_dispatch()
 ```
 
-`declare` creates the handoff so downstream tasks can reference its uuid. It does
-not open a version — the producing agent does that when it starts (§3.1).
+`declare` creates v0 in state `CREATED` so downstream tasks can reference the id.
+It does not open it — the producing agent does that when it starts (§3.1).
 
 ### 6.2 Dispatch — atomic, all-or-nothing
 
@@ -570,12 +698,13 @@ for tid in registry.get("policy").select(eligible, resource_snapshot()):
             pool(r).take(n)
 
       # 4. bind an agent by PUSHING a record; the stack top is the binding (§3.2)
-      agent = registry.get("agent_mgr").get(task.agent)
-      task_mgr.push_execution(
-            tid, agent_uuid=agent.uuid,
-            input_versions={h: handoff_mgr.latest_version(h) for h in task.inputs},
+      agent = registry.get("agent_mgr").instantiate(task.agent)
+      task.push_execution(                          # the Task's own transition
+            agent_id=agent.id,
+            input_versions={h: handoff_mgr.latest(h).version for h in task.inputs},
       )
-      task_mgr.set_status(tid, RUNNING)
+      task.status = RUNNING
+      task_mgr.persist(tid)                         # the mgr's job: durability
       registry.get("runner").start(task, agent, on_done=self.on_task_done)
 ```
 
@@ -596,33 +725,56 @@ an agent — there is no separate field to assign (§3.2).
 
 ### 6.3 Completion
 
-The runner reports a `TaskResult`. Handoff state has **already been written by
-the agent** through `new_version` / `record`; the scheduler neither sets nor
+The runner reports a `TaskOutcome`. Handoff state has **already been written by
+the agent** through `Handoff.open` / `.seal`; the scheduler neither sets nor
 infers it.
 
 ```python
-@dataclass
-class TaskResult:
-    ok: bool                            # did the run itself complete
-    output_versions: dict[str, int]     # uuid -> version this run produced
-    actual_usage: dict[str, float]      # for consumable settlement
+class RunOutcome(str, Enum):
+    COMPLETED = "completed"   # the run finished; say nothing about the content
+    CRASHED   = "crashed"     # the run did not finish: exception, kill, timeout
+
+class TaskOutcome(Model):
+    outcome: RunOutcome
+    output_versions: dict[HandoffId, int]  # what this run wrote
+    actual_usage: dict[str, float]         # pool name -> spent, for settlement
+    detail: str = ""                       # free text for a human; never parsed
 ```
 
+**Why this type exists at all**, rather than the runner calling three scheduler
+methods: it is the boundary between the runtime and the scheduler, and the
+scheduler must apply everything in it as one step — release resources, close the
+execution record, transition. A struct makes that one call. It is also the only
+thing a real runner has to construct, which is what keeps `TaskRunner`
+implementable against a CLI harness.
+
+**`ok: bool` was the wrong shape and is replaced.** A boolean invites reading
+"true" as "it worked", which is precisely the confusion §3.1 exists to prevent —
+the run completing and the output being usable are independent facts, and only
+the agent may assert the second. `RunOutcome.COMPLETED` says one thing only: the
+process finished. Whether it produced anything usable is on the handoff, where
+the agent put it.
+
+The mapping to task status is then mechanical: `COMPLETED → SUCCEEDED`,
+`CRASHED → FAILED`. Both release resources.
+
 ```
-on_task_done(tid, result)
-  ├─ release lease   (renewable: full; consumable: settle result.actual_usage)
-  ├─ TaskMgr.close_execution(tid, result.output_versions,      # seals the stack top
-  │                        outcome = SUCCEEDED if result.ok else FAILED)
-  ├─ TaskMgr.set_status(tid, SUCCEEDED if result.ok else FAILED)   → persisted
+on_task_done(tid, outcome)
+  ├─ release lease  (renewable: full; consumable: settle outcome.actual_usage)
+  ├─ status = SUCCEEDED if outcome.outcome is COMPLETED else FAILED
+  ├─ task.close_execution(outcome.output_versions, status)   # seals the stack top
+  ├─ task.status = status
+  ├─ TaskMgr.persist(tid)
   └─ try_dispatch()          # step 1 re-checks every waiter against latest
 ```
 
 There is no handoff manipulation in this flow at all. Downstream promotion is not
 pushed here; it falls out of the re-check in `try_dispatch`.
 
-`result.ok` and handoff validity are independent. An agent can complete cleanly
-and still record its output `INVALID` — it ran fine and concluded the result is
-unusable. The task is `SUCCEEDED`; its consumers stay in `WAITING_HANDOFF`.
+`RunOutcome` and handoff validity are independent. An agent can complete cleanly
+and still seal its output `INVALID` — it ran fine and concluded the result is
+unusable. The task is `SUCCEEDED`; its consumers stay in `WAITING_HANDOFF`. This
+is the confusion a bare `ok: bool` invited, and the reason it is gone.
 
 A failed task releases its resources and is recorded `FAILED`. Whatever its agent
 last wrote to the handoff stands; if the agent opened a version and never sealed
@@ -725,11 +877,11 @@ recovery and the API should not offer it.
 `HandoffMgr` restores from its own records, not from task records. The reason is
 not a crash window — it is that **the information is nowhere else.**
 
-`ok` and a version's verdict are independent facts (§6.3): an agent may finish
-cleanly and still seal its output `INVALID`. A task record carries only `ok`.
-Rebuilding handoff state from task records would therefore mean guessing
-`ok=True → VALID`, which is wrong in exactly the case §6.3 describes — not
-because of restart timing, but because the verdict was never written there at
+`RunOutcome` and a version's verdict are independent facts (§6.3): an agent may
+finish cleanly and still seal its output `INVALID`. A task record carries only
+the run outcome. Rebuilding handoff state from task records would therefore mean
+guessing `COMPLETED → VALID`, which is wrong in exactly the case §6.3 describes —
+not because of restart timing, but because the verdict was never written there at
 all. Guessing it would also be the inference §3.1 exists to prevent.
 
 Two further gaps: a handoff supplied externally has no producing task to replay,
@@ -764,9 +916,9 @@ The persisted task record includes its **execution history** (§3.2), not merely
 its current status. The history is the audit trail — which agent ran, against
 which input versions — and it is recoverable from nowhere else.
 
-`HandoffMgr` follows the same write-through discipline: `declare`, `new_version`,
-and `record` each persist. Because those calls come from agents, a handoff is
-persisted at the moment the agent acts rather than at task completion.
+`HandoffMgr` follows the same write-through discipline: `declare` and `append`
+each persist. Because `append` is called by agents, a handoff is persisted at the
+moment the agent acts rather than at task completion.
 
 Handoff *content* is a different question, deliberately left open (§8.2). The
 persisted record holds a reference, not a payload.
@@ -817,6 +969,13 @@ Per `mission.md` rule 3, mature solutions are preferred. The prior-art survey
 | Hatchet concurrency keys | **Rejected.** A platform, not a library. DAGs must be declared; this graph is dynamic. |
 | Ray, Temporal/Restate/Inngest/DBOS, Airflow/Dagster, Slurm/K8s | **Rejected.** Wrong layer or wrong problem; see prior-art §08. |
 
+Adopted as dependencies:
+
+| Adopted | For | Why |
+|---|---|---|
+| **pydantic v2** | every domain model in §3 | Already installed — `fastapi` is a repository dependency and pulls it. It supplies validation, `model_dump` / `model_validate` for §7, and enum and `datetime` coercion, all of which would otherwise be hand-written `*_from_dict` constructors with no inverse. The state machines of §3.1 and §3.2 are exactly what a validator should enforce rather than a comment. |
+| **`uuid.UUID`** | `TaskId`, `AgentId`, `HandoffId` | Identity generation, comparison, and formatting are a solved problem in the standard library. The three types wrap it so they stay mutually incompatible; a bare `str` makes `list[str]` unreadable and lets a `TaskId` be passed where a `HandoffId` belongs. |
+
 Adopted from prior art, as design rather than dependency:
 
 - **RCPSP** (Hartmann & Briskorn, EJOR 2021) — the formal name for this model.
@@ -851,7 +1010,7 @@ The rationale is recorded in `agent_sys/README.md` as required by mission rule 3
 | Fairness across submitters | Naive FIFO lets one submitter monopolise a pool. A future `SchedulePolicy` keyed by submitter is the reference solution. |
 | Better ordering than FIFO | The composite rule from the prior art (priority tier → estimated cost → most-total-successors → FIFO) is a drop-in `SchedulePolicy`. Not built first. |
 | Cycle detection | A task whose inputs transitively depend on its own outputs will never run. A ten-line DFS at submit would reject it at the boundary. Not in the first version. |
-| **Re-run window** | A new version is opened by the producing agent when it starts writing (§3.1), so between `resume(t)` and that moment, `latest` is still the previous version. A downstream task dispatched in that window runs against stale-but-valid content. Accepted as the price of the scheduler never touching handoff state. Mitigations if it bites: have the runner open versions at `start`, or have `resume` mark outputs pending. Neither is built. |
+| **Re-run window** | A new version is opened by the producing agent when it starts writing (§3.1), so between `resume_task(t)` and that moment, `latest` is still the previous version. A downstream task dispatched in that window runs against stale-but-valid content. Accepted as the price of the scheduler never touching handoff state. Mitigations if it bites: have the runner open versions at `start`, or have `resume` mark outputs pending. Neither is built. |
 | Cross-manager atomicity | `TaskMgr` and `HandoffMgr` persist independently, so a crash between the two writes leaves them briefly inconsistent (§7). Recovery fails safe — a consumer stays blocked — but the window exists. A shared transaction, or a single append-only log both managers write to, is the known fix. Not built. |
 | Version retention | Nothing says when an old version's content may be discarded (§8.2). Unbounded re-runs mean unbounded payloads. |
 | Re-check cost | Eligibility is recomputed for every waiting task at every decision point (§6.2, step 1). Fine at this scale; a reverse handoff→consumer index is the known optimisation. |
@@ -888,13 +1047,14 @@ test:
 12. A pool never disagrees with `TaskMgr`: after any sequence of operations, the
     union of the pools equals the set of all tasks, and each task appears in
     exactly the pool matching its stored status.
-13. A run reporting `ok=True` whose agent recorded its output `INVALID` becomes
+13. A run reporting `COMPLETED` whose agent sealed its output `INVALID` becomes
     `SUCCEEDED` while its consumers stay in `WAITING_HANDOFF` — completion and
     validity are independent (§6.3).
 14. **The scheduler never writes handoff state.** Across a full submit → dispatch →
-    complete → resume → re-dispatch cycle, a `HandoffMgr` spy records calls to
-    `new_version` and `record` originating only from the agent, and calls from the
-    scheduler only to `declare`, `check_if_latest_valid`, and `latest_version`.
+    complete → resume → re-dispatch cycle, a `HandoffMgr` spy records `append`
+    originating only from the agent, and calls from the scheduler only to
+    `declare`, `check_if_latest_valid`, and `latest`. No `Handoff.open` or
+    `.seal` is called from a scheduler frame.
 15. Two isolated `Registry()` instances do not share components, and `get()` on an
     unregistered name raises with that name in the message.
 16. Re-running a producer appends a version and leaves earlier ones byte-identical;
@@ -903,18 +1063,18 @@ test:
 17. A consumer dispatched after a producer's re-run reads the new version, with no
     invalidation call made anywhere in the system.
 18. Execution history grows by exactly one entry per run, each carrying the bound
-    `agent_uuid` and the pinned input/output versions.
+    `agent_id` and the pinned input/output versions.
 19. A handoff sealed `INVALID` before a restart is still `INVALID` after
     `resume_all`, and one left `GENERATING` is still `GENERATING` — neither is
-    re-derived from the producing run's `ok` flag (§6.4).
+    re-derived from the producing run's `RunOutcome` (§6.4).
 20. Resuming a task whose previous run left a `GENERATING` version appends a new
     version rather than reusing the abandoned one.
 21. The bound agent is readable only from `history[-1]`: `Task` exposes no
-    `agent_uuid`, and after a `resume` the top reports the new run's agent while
+    `agent_id`, and after a `resume` the top reports the new run's agent while
     the entry beneath still reports the previous one.
-22. Every handoff resolves to its owning task by uuid, and every version to the
-    agent that wrote it; a run is reconstructible starting from either the task or
-    the handoff (§3.1).
+22. Every handoff resolves to its owning task by id, and every version to the
+    agent that wrote it; both `AgentMgr.get(that id)` and `TaskMgr.get(that id)`
+    succeed, so a run is reconstructible starting from either end (§3.1).
 23. `update_task` produces the same observable state as `remove_queued` followed
     by `submit` with the new arguments — verified by comparing against that
     sequence, not by re-asserting the outcome (§2, principle 7).
@@ -923,3 +1083,13 @@ test:
 25. Resuming the scheduler against a `HandoffMgr` that has not resumed yet leaves
     every waiting task blocked — the failure the order exists to prevent, asserted
     directly so the ordering constraint is tested rather than assumed.
+26. A `Handoff` refuses an illegal transition: `seal` on a `CREATED` one, `open`
+    on a sealed one, and a second `seal` each raise. The state machine is
+    enforced by the object, not by whoever calls it.
+27. `TaskId`, `AgentId`, and `HandoffId` are mutually incompatible: passing one
+    where another is expected is a type error the checker reports, and equality
+    across two types with the same underlying UUID is `False`.
+28. `AgentMgr` retains what it instantiates: after a run, `get(execution.agent_id)`
+    returns that agent, and `by_name` lists every instance made under a name.
+29. A store rejects `create` on an existing key and `update` on a missing one, and
+    a round-trip through `read` returns a record equal to the one written.
