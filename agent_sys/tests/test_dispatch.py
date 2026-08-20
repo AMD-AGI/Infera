@@ -206,3 +206,104 @@ def test_a_synchronous_runner_does_not_recurse_per_task(store):
     assert runner.started == [t.id for t in tasks]
     assert runner.max_depth == 1
     assert all(registry.get("task_mgr").get(t.id).status is TaskStatus.SUCCEEDED for t in tasks)
+
+
+# ------------------------------------------------- a launch that never happens
+
+
+class BrokenRunner:
+    """`start` raises for the first task and works thereafter."""
+
+    def __init__(self) -> None:
+        self.started: list = []
+        self.n = 0
+
+    def start(self, task, agent, on_done) -> None:
+        self.n += 1
+        if self.n == 1:
+            raise RuntimeError("harness unreachable")
+        self.started.append(task.id)
+
+    def stop(self, task_id, on_stopped) -> None:
+        on_stopped(task_id)
+
+
+def test_a_runner_that_cannot_start_does_not_leak_the_lease(store, caplog):
+    """The reservation is taken before the runner is called, so a launch that
+    raises would otherwise shrink the pool permanently — the same shape as the
+    negative-amount bug, one step later in the sequence."""
+    from agent_sys.bootstrap import build_registry
+
+    registry = build_registry(store=store, runner=BrokenRunner())
+    registry.get("agent_mgr").register("profiler")
+    scheduler = registry.get("scheduler")
+
+    task = make_task(resources={"gpu": 3, "token": 500})
+    with caplog.at_level("ERROR"):
+        scheduler.submit(task)  # must not raise into the caller
+
+    assert gpu(registry).available == 8
+    assert token(registry).available == 1_000_000  # nothing ran, so nothing spent
+    assert registry.get("task_mgr").get(task.id).status is TaskStatus.FAILED
+    assert not registry.get("task_mgr").get(task.id).is_running
+    assert "failed to launch" in caplog.text
+
+
+def test_one_failed_launch_does_not_abort_the_pass(store):
+    """The other half: a raise must not take the rest of the queue with it."""
+    from agent_sys.bootstrap import build_registry
+
+    registry = build_registry(store=store, runner=BrokenRunner())
+    registry.get("agent_mgr").register("profiler")
+    scheduler = registry.get("scheduler")
+
+    doomed = make_task(resources={"gpu": 3})
+    healthy = make_task(resources={"gpu": 6})
+    scheduler.submit(doomed)
+    scheduler.submit(healthy)
+
+    assert registry.get("task_mgr").get(doomed.id).status is TaskStatus.FAILED
+    assert registry.get("task_mgr").get(healthy.id).status is TaskStatus.RUNNING
+    assert registry.get("runner").started == [healthy.id]
+
+
+def test_a_failed_launch_is_not_retried_forever(store):
+    """FAILED rather than back in the queue: the next pass would pick it up and
+    fail identically. An operator resumes it once the cause is fixed."""
+    from agent_sys.bootstrap import build_registry
+
+    registry = build_registry(store=store, runner=BrokenRunner())
+    registry.get("agent_mgr").register("profiler")
+    scheduler = registry.get("scheduler")
+
+    task = make_task()
+    scheduler.submit(task)
+    scheduler.try_dispatch()
+    scheduler.try_dispatch()
+
+    assert registry.get("task_mgr").get(task.id).status is TaskStatus.FAILED
+    assert len(registry.get("task_mgr").get(task.id).history) == 1
+
+    scheduler.resume_task(task.id)  # the operator's call, once it is fixed
+    assert registry.get("task_mgr").get(task.id).status is TaskStatus.RUNNING
+
+
+def test_an_agent_factory_that_is_down_releases_the_lease(store):
+    """`instantiate` raises after `take` — the narrowest window there is."""
+    from agent_sys.bootstrap import build_registry
+
+    registry = build_registry(store=store)
+    registry.get("agent_mgr").register("profiler")
+    scheduler = registry.get("scheduler")
+
+    def refuse(spec, task_id):
+        raise RuntimeError("agent factory down")
+
+    registry.get("agent_mgr").instantiate = refuse
+
+    task = make_task(resources={"gpu": 3, "token": 500})
+    scheduler.submit(task)
+
+    assert gpu(registry).available == 8
+    assert token(registry).available == 1_000_000
+    assert registry.get("task_mgr").get(task.id).status is TaskStatus.FAILED

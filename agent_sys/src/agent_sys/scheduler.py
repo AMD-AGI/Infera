@@ -67,8 +67,16 @@ class Scheduler:
                 raise ValueError(
                     f"cannot expedite {task.id}: inputs not valid: {[str(h) for h in unmet]}"
                 )
+            # Set the flag only once submit has accepted: otherwise a rejection
+            # for some *other* reason — a duplicate id, an unknown spec — still
+            # leaves the caller's object mutated.
+            was = task.expedited
             task.expedited = True
-            self.submit(task)
+            try:
+                self.submit(task)
+            except Exception:
+                task.expedited = was
+                raise
 
     def remove_queued(self, tid: TaskId) -> None:
         with self._lock:
@@ -185,18 +193,27 @@ class Scheduler:
             for name, amount in task.resources.items():
                 pools[name].take(amount)
 
-            # 4. bind an agent by PUSHING a record; the stack top is the binding
-            agent = self._r.get("agent_mgr").instantiate(task.agent_spec, tid)
-            task.push_execution(
-                agent_id=agent.id,
-                input_versions={
-                    hid: version.version
-                    for hid in task.inputs
-                    if (version := handoff_mgr.latest(hid)) is not None
-                },
-            )  # instantiate() bound agent.task_id; the agent fills agent.handoffs
-            self._move(tid, TaskStatus.RUNNING)  # _move persists both
-            self._r.get("runner").start(task, agent, on_done=self.on_task_done)
+            # 4. bind an agent and launch. Everything from here on can fail —
+            # an unknown spec, an agent factory that is down, a runner whose
+            # harness is unreachable — and by then the lease is already taken.
+            # Releasing it is what stops one bad task from permanently
+            # shrinking a pool; not re-raising is what stops it from aborting
+            # the pass for every other queued task.
+            try:
+                # PUSH a record; the stack top is the binding
+                agent = self._r.get("agent_mgr").instantiate(task.agent_spec, tid)
+                task.push_execution(
+                    agent_id=agent.id,
+                    input_versions={
+                        hid: version.version
+                        for hid in task.inputs
+                        if (version := handoff_mgr.latest(hid)) is not None
+                    },
+                )  # instantiate() bound agent.task_id; the agent fills agent.handoffs
+                self._move(tid, TaskStatus.RUNNING)  # _move persists both
+                self._r.get("runner").start(task, agent, on_done=self.on_task_done)
+            except Exception:
+                self._abort_launch(tid, task, pools)
 
     # -------------------------------------------------------------- recovery
 
@@ -228,6 +245,22 @@ class Scheduler:
         if task.status is not status:
             task.status = status
             task_mgr.persist(tid)
+
+    def _abort_launch(self, tid: TaskId, task: Task, pools: dict) -> None:
+        """Undo a dispatch that raised between `take` and a live runner.
+
+        Returns the whole reservation — nothing ran, so a consumable spent
+        nothing — closes the half-open attempt if one was pushed, and parks the
+        task in FAILED. FAILED rather than back in the queue: the pass would
+        pick it up again on the next iteration and fail identically, forever.
+        An operator resumes it once the cause is fixed.
+        """
+        for name, amount in task.resources.items():
+            pools[name].give_back(amount, actual=0.0)
+        if task.is_running:
+            task.close_execution({}, TaskStatus.FAILED, detail="failed to launch")
+        log.exception("%s: failed to launch; the reservation was released", tid)
+        self._move(tid, TaskStatus.FAILED)
 
     def _landing(self, task: Task) -> TaskStatus:
         return TaskStatus.WAITING_RESOURCE if self._ready(task) else TaskStatus.WAITING_HANDOFF

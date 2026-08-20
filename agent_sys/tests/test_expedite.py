@@ -99,3 +99,23 @@ def test_a_rejected_expedite_leaves_no_trace(scheduler, task_mgr, handoff_mgr):
     assert task_mgr.all() == []
     assert handoff_mgr.all_ids() == []
     assert not task.expedited
+
+
+def test_a_rejection_for_any_reason_leaves_the_caller_s_object_unmarked(scheduler):
+    """Not just the not-valid rejection: a duplicate id is refused by `submit`
+    after `expedite` has already set the flag, and the caller's object must not
+    be left mutated by a call that failed."""
+    original = make_task()
+    scheduler.submit(original)
+
+    from agent_sys.models import Task
+
+    duplicate = Task(id=original.id, agent_spec="profiler")
+    with pytest.raises(KeyError):
+        scheduler.expedite(duplicate)
+    assert not duplicate.expedited
+
+    unknown = make_task(spec="nope")
+    with pytest.raises(KeyError):
+        scheduler.expedite(unknown)
+    assert not unknown.expedited

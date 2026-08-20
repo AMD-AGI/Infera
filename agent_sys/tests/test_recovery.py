@@ -366,3 +366,22 @@ def test_a_generating_version_is_still_generating_after_a_restart(
     version = fresh.get("handoff_mgr").get(task.outputs[0]).latest
     assert version.status is HandoffStatus.GENERATING
     assert not fresh.get("handoff_mgr").check_if_latest_valid(task.outputs[0])
+
+
+def test_a_spec_removed_before_a_restart_does_not_take_recovery_down_with_it(scheduler, store):
+    """The spec table is deliberately not restored, so a task naming a spec the
+    operator has since removed cannot be dispatched. Recovery must fail that
+    one task, not abort — otherwise every healthy task behind it stays parked
+    with no later event to release it."""
+    for spec in ("profiler", "tuner", "profiler"):
+        scheduler.submit(make_task(spec=spec, resources={"gpu": 1}))
+
+    fresh = build_registry(store=store)
+    fresh.get("agent_mgr").register("tuner")  # "profiler" is gone
+    resume_all(fresh)
+
+    statuses = [t.status for t in fresh.get("task_mgr").all()]
+    assert statuses.count(TaskStatus.FAILED) == 2
+    assert statuses.count(TaskStatus.RUNNING) == 1
+    assert len(fresh.get("runner").started) == 1  # the healthy one still ran
+    assert fresh.get("resource:gpu").available == 7  # only its lease is held

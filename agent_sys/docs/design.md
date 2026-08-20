@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Status | Implemented — `src/` and `tests/` follow this document |
-| Revision | 5 — 2026-08-20. Implementation notes folded in: D9, O9, and the amount validation §8.2 gained |
+| Revision | 6 — 2026-08-20. Review findings: D10 (a launch that fails releases its lease) |
 | Implements | `docs/spec.md` rev. 6 |
 | Language | Python ≥ 3.10. Standard library plus pydantic v2 |
 
@@ -869,7 +869,7 @@ called on a task whose stored status was already wrong.
 | `on_task_done(tid, status, usage)` | reject unless `RUNNING` → release, settling consumables at `usage` → read `output_versions` from `handoff_mgr` → `task.close_execution` → `_move(status)` → `try_dispatch` |
 | `on_stopped(tid)` | reject unless `STOPPING` → release (consumables at full reservation) → `task.close_execution(..., SUSPENDED)` → `_move(SUSPENDED)` → `try_dispatch` |
 | `resume_system()` | `Resumable`: rebuild the index, demote interrupted runs, `try_dispatch` |
-| `try_dispatch()` | §8.3 |
+| `try_dispatch()` | §8.3. A task that cannot be launched is released and moved to `FAILED` (D10); the pass continues |
 
 `update_task` is written as literally those two calls, not as an equivalent
 reimplementation. Criterion 23 then holds by construction rather than by
@@ -944,6 +944,15 @@ entries.
 Step 4 pins input versions *before* the run starts. The history then records what
 the run actually saw, and a later re-run of an upstream producer cannot
 retroactively rewrite it.
+
+Step 4 is also the only part of the loop that can fail for reasons outside the
+scheduler's control — an unknown spec, an agent factory that is down, an
+unreachable harness — and by the time it runs the lease is already held. It is
+therefore wrapped: `_abort_launch` gives the whole reservation back at
+`actual=0`, closes the half-open attempt, and parks the task in `FAILED` without
+re-raising (D10). Both halves matter. Without the release, one bad task shrinks
+a pool permanently; without swallowing, one bad task aborts the pass and every
+other queued task stays queued with no later event to release it.
 
 The status re-check in the loop guards the one way the ordered list can go stale
 between selection and use: a synchronous runner that completes inside `start`
@@ -1176,6 +1185,7 @@ adopted them. They are now specification, not deviation.
 | D7 | `on_stopped` releases resources | consumables settle at the **full reservation** | `on_stopped` carries no usage figures, so actual spend is unknown. Assuming the agent spent what it reserved is the safe direction for a budget. |
 | D8 | "a dangling stack top is closed as interrupted" | `outcome = SUSPENDED`, `ended_at = now` | The spec does not name the outcome. `SUSPENDED` says the attempt was cut short rather than judged. |
 | D9 | `submit` validates resource **names** | also rejects an amount that is negative or non-finite, and `can_afford` returns `False` for a negative one | Found by review during implementation. A negative amount passes `can_afford`, so step 3's all-or-nothing check succeeds — and then `take` raises partway through step 3's loop, after earlier pools were already debited. That is precisely the partial reservation criterion 3 exists to make impossible. Rejecting at submit keeps a malformed task out of the dispatch loop entirely; the `can_afford` guard makes a pool safe regardless of who calls it. |
+| D10 | dispatch is "take, then bind, then start" | steps 3–4 are wrapped: a failure anywhere after `take` releases the whole reservation at `actual=0`, closes the half-open attempt, moves the task to `FAILED`, logs, and **does not re-raise** | Found by review. The lease is acquired before the agent is minted and before the runner is called, so an unknown spec, a downed agent factory, or an unreachable harness leaked it permanently — the same shape as D9, one step later. Two separate consequences needed fixing: the leak, and that the exception aborted the whole dispatch pass, so one bad task stopped every other queued task from ever starting. `FAILED` rather than back in the queue, because the next pass would retry it and fail identically forever; `resume_task` is the operator's move once the cause is fixed. This also keeps `resume_all` alive when the operator has removed a spec that persisted tasks still name. |
 
 ---
 
