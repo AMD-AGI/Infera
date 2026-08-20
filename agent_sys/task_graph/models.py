@@ -231,5 +231,5 @@ class Agent(Model):
     spec: str  # which kind
     task_id: TaskId | None = None  # what it is bound to
     handoffs: list[HandoffRef] = Field(default_factory=list)  # what it touched
-    knowledge: Any = None  # left empty per mission.md
+    knowledge: Any = None  # left empty by the task definition
     config: dict[str, Any] = Field(default_factory=dict)

@@ -107,7 +107,7 @@ def test_get_an_unknown_id_raises(mgr):
 
 
 def test_get_by_spec_name_makes_an_unbound_agent(mgr):
-    """The `get(name) -> agent` mission.md asks for."""
+    """The `get(name) -> agent` the task definition asks for."""
     agent = mgr.get("profiler")
     assert agent.spec == "profiler"
     assert agent.task_id is None

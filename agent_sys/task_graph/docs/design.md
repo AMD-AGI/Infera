@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| Status | Implemented — `src/` and `tests/` follow this document |
-| Revision | 9 — 2026-08-20. Package renamed `agent_sys` → `task_graph`, flattened alongside `env_mgr`; §2 rewritten. (rev. 8: D14–D18, O13) |
-| Implements | `docs/spec.md` rev. 6 |
+| Status | Implemented — `task_graph/` and `tests/task_graph/` follow this document |
+| Revision | 10 — 2026-08-20. References to the task-definition file made self-contained. (rev. 9: renamed `agent_sys` → `task_graph`, flattened alongside `env_mgr`) |
+| Implements | `docs/spec.md` rev. 7 |
 | Language | Python ≥ 3.10. Standard library plus pydantic v2 |
 
 ---
@@ -25,8 +25,8 @@ steps *is* the design decision — which is `try_dispatch` (§8.3) and nothing
 else.
 
 The only runtime dependency is **pydantic v2**, which the repository already
-installs — `fastapi` pulls it. §10 records why, per module, as `mission.md`
-rule 3 requires.
+installs — `fastapi` pulls it. §10 records why, per module, as the task
+definition requires.
 
 ---
 
@@ -42,7 +42,7 @@ agent_sys/
 ├── pyproject.toml         declares both packages; ruff and pytest settings
 ├── env_mgr/               the sibling component — not this document's subject
 ├── task_graph/            this package
-│   ├── README.md          build-versus-adopt record (mission rule 3)
+│   ├── README.md          build-versus-adopt record
 │   ├── docs/
 │   │   ├── spec.md
 │   │   └── design.md
@@ -343,7 +343,7 @@ class Agent(Model):
     spec: str                                      # which kind
     task_id: TaskId | None = None                  # what it is bound to
     handoffs: list[HandoffRef] = Field(default_factory=list)   # what it touched
-    knowledge: Any = None                          # left empty per mission.md
+    knowledge: Any = None                          # left empty by the task definition
     config: dict[str, Any] = Field(default_factory=dict)
 ```
 
@@ -520,7 +520,7 @@ thing, plus persistence of it. Transitions belong to the members (§3.2), so no
 manager has a `seal` or a `set_status`.
 
 `ResourceMgr` is the acknowledged exception — it manages a quantity, not a set.
-The name is kept because `mission.md` uses it.
+The name is kept because the task definition uses it.
 
 ### 6.1 `HandoffMgr` — `handoff.py`
 
@@ -653,7 +653,7 @@ The record is one row under kind `"resource"`, keyed by pool name:
 the directory holds one file per consumable and no more.
 
 `GpuMgr` and `TokenMgr` add nothing today beyond a default name. They exist
-because `mission.md` names them and because GPU-specific accounting (topology,
+because the task definition names them and because GPU-specific accounting (topology,
 per-node pools) has an obvious home when it arrives. That they are currently
 empty is the honest state, not an oversight.
 
@@ -684,7 +684,7 @@ class AgentMgr:
         Raises KeyError naming the registered specs if the spec is unknown."""
     def get(self, ref: AgentId | str) -> Agent:
         """By id: that instance. By spec name: instantiate one, unbound — the
-        `get(name) -> agent` mission.md asks for."""
+        `get(name) -> agent` the task definition asks for."""
     def by_spec(self, spec: str) -> list[Agent]: ...
     def by_task(self, tid: TaskId) -> list[Agent]: ...
     def all(self) -> list[Agent]: ...
@@ -706,8 +706,9 @@ is forced by criterion 21: after a resume the stack top must report a different
 `agent_id` than the entry beneath. The binding is the agent's half of the
 two-way link (§3.2).
 
-`get` accepts both forms because `mission.md` asks for "提交agent名，返回agent对象"
-and the audit path needs lookup by id. Dispatch calls `instantiate` explicitly —
+`get` accepts both forms because the task definition asks for "submit an agent
+name, get back an agent object" and the audit path needs lookup by id. Dispatch
+calls `instantiate` explicitly —
 relying on the overload there would make "a new agent is created here" invisible
 at the call site, and `instantiate` is where the task binding is supplied.
 
@@ -729,7 +730,7 @@ reads an agent during recovery — so the position is free; it is early because
 grouping the three independent reloads together reads better than scattering
 them.
 
-`knowledge` and `config` stay empty per `mission.md`.
+`knowledge` and `config` stay empty, as the task definition requires.
 
 ---
 
@@ -1026,7 +1027,7 @@ tests and an eventual entry point.
 
 ## 9. Concurrency
 
-`mission.md` asks for the most optimistic simple implementation and no extra code
+The task definition asks for the most optimistic simple implementation and no extra code
 for atomicity. The design is therefore:
 
 **Single-threaded by default.** All mutation happens on the caller's thread. The
@@ -1055,7 +1056,7 @@ defend against.
 
 ## 10. Build versus adopt
 
-`mission.md` rule 3 requires recording, per module, which library was chosen and
+The task definition requires recording, per module, which library was chosen and
 why. `README.md` carries the same table for readers who never open `docs/`.
 
 | Module | Considered | Chosen | Why |
@@ -1067,7 +1068,7 @@ why. `README.md` carries the same table for readers who never open `docs/`.
 | `handoff` | content-addressed stores (git, DVC, S3) | own implementation | Versioning here is metadata bookkeeping, not content storage. Where payloads live is deliberately open (spec §8.2); when it is decided, a content store plugs in behind `Handoff.content` without touching this module. |
 | `task` | — | own implementation | A dict with write-through. Nothing to adopt. |
 | `resource` | `threading.Semaphore`, Prefect global concurrency limits | own implementation | A semaphore cannot express the consumable (reserve-then-settle) half, and cannot do the all-or-nothing multi-pool acquisition of §8.3 without a second layer on top. Prefect's limits do exactly what is wanted but live server-side; adopting a server for one primitive is the trade spec §9 rejected. |
-| `agent` | any agent framework | own implementation | Two methods, both trivial. `mission.md` leaves agent internals empty on purpose. |
+| `agent` | any agent framework | own implementation | Two methods, both trivial. The task definition leaves agent internals empty on purpose. |
 | `runner` | Claude Code / Codex / Cursor CLIs, `subprocess` | Protocol + a fake | The real implementations are harness-specific and out of scope (spec §1.2). What this system owes is the seam. |
 | `policy` | `graphlib.TopologicalSorter`, `networkx`, OR-Tools | `sorted()` | Spec §9 records the rejections. FIFO is one `sorted` call; the composite priority rule from the prior art is a drop-in replacement behind the same Protocol. |
 | `scheduler` | Prefect, Hatchet, Temporal, Ray, Airflow, Slurm | own implementation | Spec §9, from the prior-art survey. Every candidate is a platform whose scheduling core is not separable. |
@@ -1171,8 +1172,7 @@ is the intent: the components are dull so the scheduler can be read in one
 sitting. Step 2 carries more than its size suggests — the state-machine guards
 live there, and everything downstream relies on them holding.
 
-Before step 1, per `mission.md` rule 5 and the global working rules: back up the
-project `CLAUDE.md`, write a fresh one, and create the scratch workspace. No
+Scratch experiments stay in `agent_sys/scratch/`, which is gitignored. No
 temporary experiment leaves it.
 
 ---

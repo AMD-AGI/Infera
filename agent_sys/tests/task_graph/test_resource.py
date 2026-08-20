@@ -203,7 +203,7 @@ def test_repeated_settlement_accumulates_durably():
 
 
 def test_gpu_is_renewable_and_token_is_consumable():
-    """`mission.md` names both; they add a default name and nothing else yet."""
+    """The task definition names both; they add a default name and nothing else yet."""
     gpu = pool(GpuMgr, 8)
     token = pool(TokenMgr, 1_000_000)
 

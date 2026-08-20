@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 class ResourceMgr(ABC):
     """A quantity, not a collection — the acknowledged exception to §6's rule.
 
-    The name is kept because `mission.md` uses it.
+    The name is kept because the task definition uses it.
     """
 
     def __init__(self, registry: Registry, name: str, capacity: float) -> None:

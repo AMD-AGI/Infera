@@ -49,7 +49,7 @@ pytest agent_sys/tests/task_graph
 Everything else is Python ≥ 3.10 standard library, plus `pytest` for the tests,
 already a dev dependency.
 
-`mission.md` rule 3 requires researching whether a mature solution exists before
+The task definition requires researching whether a mature solution exists before
 building, and recording the outcome. It does, for parts of this; the table below
 is that record. `docs/design.md` §10 carries the same table with the full
 reasoning, and `docs/spec.md` §9 records the platform-level rejections that came

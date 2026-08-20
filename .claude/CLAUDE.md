@@ -6,14 +6,21 @@ Implement `agent_sys`, the task-management substrate for Infera's agent-driven
 performance-optimization loop. **The design is frozen; this stage writes tests
 and code against it.**
 
-- **What to build**: [`agent_sys/docs/design.md`](../agent_sys/docs/design.md) rev. 4 —
+- **What to build**: [`agent_sys/task_graph/docs/design.md`](../agent_sys/task_graph/docs/design.md) rev. 10 —
   files, classes, interfaces, test plan (§11), implementation order (§12).
-- **What "done" means**: [`agent_sys/docs/spec.md`](../agent_sys/docs/spec.md) rev. 6 —
+- **What "done" means**: [`agent_sys/task_graph/docs/spec.md`](../agent_sys/task_graph/docs/spec.md) rev. 7 —
   35 acceptance criteria. Design §11 maps every one to a named test.
-- **Where**: `agent_sys/src/agent_sys/`, tests in `agent_sys/tests/`.
+- **Where**: `agent_sys/task_graph/`, tests in `agent_sys/tests/task_graph/`.
   Scratch experiments in `agent_sys/scratch/` (gitignored) and nowhere else.
 
-Run the suite with `pytest agent_sys/tests` from the repository root.
+`agent_sys/` is a container for two sibling components: `env_mgr` (from main)
+and `task_graph` (this work). Both are declared by `agent_sys/pyproject.toml`.
+
+```bash
+pip install -e agent_sys              # once
+pytest agent_sys/tests/task_graph     # this component
+pytest agent_sys                      # both
+```
 
 ## Method
 
@@ -35,8 +42,8 @@ reason the doc is trustworthy.
 
 ## Background
 
-`mission.md` (untracked, repository root, deliberately never committed) is the
-task definition. Its binding rules:
+The task definition is a local file, gitignored and deliberately never
+committed. Its binding rules, restated here so this document stands alone:
 
 | | |
 |---|---|
@@ -138,10 +145,10 @@ do not add them.
 ### Style
 
 `ruff` with the repository's settings: line length 100, double quotes,
-`target-version = "py310"`. `agent_sys` is not in
-`[tool.setuptools.packages.find] include = ["infera*"]` and does not need to be —
-`agent_sys/conftest.py` puts `src/` on `sys.path`, which is the two-line editable
-install. **Do not edit the repository's `pyproject.toml` for this work.**
+`target-version = "py310"`. `agent_sys/pyproject.toml` extends the repository's
+and adds only `known-first-party`. Neither package is in the repository's
+`[tool.setuptools.packages.find] include = ["infera*"]`, and neither needs to
+be. **Do not edit the repository's `pyproject.toml` for this work.**
 
 ## Other notable details
 

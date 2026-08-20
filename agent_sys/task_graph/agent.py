@@ -49,7 +49,7 @@ class AgentMgr:
     def get(self, ref: AgentId | str) -> Agent:
         """By id: that instance. By spec name: a new unbound one.
 
-        The second form is the `get(name) -> agent` `mission.md` asks for.
+        The second form is the `get(name) -> agent` the task definition asks for.
         Dispatch calls `instantiate` explicitly — relying on the overload there
         would make "a new agent is created here" invisible at the call site.
         """

@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Status | Draft, pending review |
-| Revision | 6 — 2026-08-20. Consumable balances and agents persist; `depends_on` is checked at submit |
+| Revision | 7 — 2026-08-20. References to the task-definition file made self-contained. (rev. 6: consumable balances and agents persist; `depends_on` checked at submit) |
 | Date | 2026-08-19 |
 | Scope | Task management substrate for the Infera AI-optimization agent loop |
-| Source | `mission.md`; prior-art report `agent-task-graph-prior-art.html` (rev. 2, 2026-08-18) |
+| Source | The task definition; an internal prior-art survey (rev. 2, 2026-08-18) |
 
 ---
 
@@ -410,8 +410,8 @@ A spec is a *kind* of agent; an `Agent` is one created to run one task.
 | `spec` | `str` | Which kind — the name `Task.agent_spec` gave |
 | `task_id` | `TaskId \| None` | The task it is bound to |
 | `handoffs` | `list[HandoffRef]` | Versions it touched, as `(HandoffId, version)` |
-| `knowledge` | `Any` | Left empty (`mission.md`) |
-| `config` | `dict` | Left empty (`mission.md`) |
+| `knowledge` | `Any` | Left empty by the task definition |
+| `config` | `dict` | Left empty by the task definition |
 
 `task_id` and `handoffs` are the agent's half of the two-way links (§3.1). Without
 them a run is reconstructible only from the task end, and the pairing the spec
@@ -593,10 +593,10 @@ belonging to a single member is a method on that member, not on its manager.
 | `ResourceMgr` | one named pool's accounting | can_afford, take, give_back | Know about tasks. This is the one that manages a *quantity*, not a set — §3.4 |
 
 `ResourceMgr` is deliberately the exception, and the name is kept because
-`mission.md` uses it. What it manages is a counter with two release disciplines,
+the task definition uses it. What it manages is a counter with two release disciplines,
 not a collection.
 
-`AgentMgr` is no longer a bare factory. `mission.md` asks for `get(name) ->
+`AgentMgr` is no longer a bare factory. The task definition asks for `get(name) ->
 agent`, which stays, but an agent that is instantiated and then forgotten leaves
 `Execution.agent_id` pointing at nothing — the audit trail (§3.2) would name
 agents the system cannot resolve. So the mgr keeps what it created.
@@ -724,7 +724,7 @@ class AgentMgr:
     def instantiate(self, spec: str, task_id: TaskId) -> Agent:
         """Mint a new Agent with a fresh AgentId, bound to that task, and keep it."""
     def get(self, ref: AgentId | str) -> Agent:
-        """By id: that agent. By spec name: the mission.md `get(name) -> agent`."""
+        """By id: that agent. By spec name: the required `get(name) -> agent`."""
     def by_spec(self, spec: str) -> list[Agent]: ...
     def by_task(self, tid: TaskId) -> list[Agent]: ...
     def all(self) -> list[Agent]: ...
@@ -1142,7 +1142,7 @@ mean N payloads, and nothing here says when an old one may be discarded.
 
 ## 9. Build-versus-adopt
 
-Per `mission.md` rule 3, mature solutions are preferred. The prior-art survey
+The task definition requires preferring a mature solution where one exists. The prior-art survey
 (rev. 2) evaluated the field and concluded: build it.
 
 | Candidate | Verdict |
@@ -1151,7 +1151,7 @@ Per `mission.md` rule 3, mature solutions are preferred. The prior-art survey
 | `networkx` | **Rejected.** No graph algorithms are required. Importing it invites modelling the system as a graph object that must then be kept in sync with the state machine doing the real work. |
 | Prefect global concurrency limits | **Rejected.** The closest existing match to the resource stage, including atomic multi-pool acquisition. But limits live server-side: adopting a server to obtain one primitive. |
 | Hatchet concurrency keys | **Rejected.** A platform, not a library. DAGs must be declared; this graph is dynamic. |
-| Ray, Temporal/Restate/Inngest/DBOS, Airflow/Dagster, Slurm/K8s | **Rejected.** Wrong layer or wrong problem; see prior-art §08. |
+| Ray, Temporal/Restate/Inngest/DBOS, Airflow/Dagster, Slurm/K8s | **Rejected.** Wrong layer or wrong problem; see the prior-art survey §08. |
 
 Adopted as dependencies:
 
@@ -1181,7 +1181,7 @@ Two departures from that survey, both consequences of decisions taken here:
   addition, and it is what lets a producer be re-run without the cascading
   invalidation the survey identifies as an unresolved design gap.
 
-The rationale is recorded in `agent_sys/task_graph/README.md` as required by mission rule 3.
+The rationale is recorded in `agent_sys/task_graph/README.md`, as the task definition requires.
 
 ---
 
