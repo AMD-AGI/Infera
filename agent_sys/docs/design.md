@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | Status | Draft, pending review |
-| Revision | 3 — 2026-08-20. Handoff owns its versions; interfaces not bodies |
-| Implements | `docs/spec.md` rev. 5 |
+| Revision | 4 — 2026-08-20. Consumable balances and agents persist; `depends_on` checked at submit |
+| Implements | `docs/spec.md` rev. 6 |
 | Language | Python ≥ 3.10. Standard library plus pydantic v2 |
 
 ---
@@ -16,7 +16,7 @@ requirements. Where it makes a choice the spec left open, the choice is stated
 here; where implementing the spec exposed a contradiction in it, §13 says so
 rather than papering over it.
 
-The spec's 31 acceptance criteria are the definition of done. §11 maps every one
+The spec's 35 acceptance criteria are the definition of done. §11 maps every one
 of them to a named test.
 
 **This document specifies interfaces, not bodies.** A method appears as a
@@ -398,7 +398,7 @@ for `resource:*` and returns registration order, which `dict` preserves.
 class Resumable(Protocol):
     def resume_system(self) -> None: ...
 
-RESUME_ORDER = ["handoff_mgr", "task_mgr", "resource:*", "scheduler"]
+RESUME_ORDER = ["handoff_mgr", "agent_mgr", "task_mgr", "resource:*", "scheduler"]
 
 def resume_all(registry: Registry) -> None:
     for pattern in RESUME_ORDER:
@@ -479,20 +479,27 @@ is precisely what recovery does. `test_store.py` and one end-to-end case in
 │                              "status": "running", "created_at": "2026-08-20T...",
 │                              "history": [{"attempt": 0, "agent_id": "9a4e...",
 │                                           "input_versions": {"7d1c...": 0}}]}
-└── handoff/
-    ├── 7d1c...%3A0.json      {"uuid": "7d1c...", "version": 0, "status": "valid",
-    │                    "producer_task_id": "3f2b...c1", "producer_agent_id": "9a4e..."}
-    └── 7d1c...%3A1.json      {"uuid": "7d1c...", "version": 1, "status": "generating", ...}
+├── handoff/
+│   └── 7d1c...9f.json        {"id": "7d1c...9f", "type": "profile",
+│                              "versions": [{"version": 0, "status": "valid",
+│                                            "producer_task_id": "3f2b...c1",
+│                                            "producer_agent_id": "9a4e..."}]}
+├── agent/
+│   └── 9a4e...20.json        {"id": "9a4e...20", "spec": "profiler",
+│                              "task_id": "3f2b...c1",
+│                              "handoffs": [{"handoff_id": "7d1c...9f", "version": 0}]}
+└── resource/
+    └── token.json            {"name": "token", "available": 700000.0}
 ```
 
-**One file per version, not per handoff.** The key is `f"{uuid}:{version}"`
-(the colon percent-encoded by the filename quoting), so appending v1 writes a new
-file and never rewrites v0's. Spec §3.1 says a sealed version is never rewritten;
-this makes that true on disk and not merely in memory.
+**Four kinds, one record each** — spec §7. A handoff's versions nest inside it
+rather than being separate files; the previous revision keyed on
+`f"{uuid}:{version}"`, which forced `resume_system` to regroup and sort because
+directory order is not version order.
 
-The cost is that `HandoffMgr.resume` must regroup by `uuid` and sort by version,
-since directory order is arbitrary. That is the two lines at the end of `resume`
-(§6.1).
+The `resource` directory holds one file per *consumable* pool and nothing else.
+A renewable pool writes no record, so its absence is not a missing file — it is
+the correct representation of a thing with no durable state.
 
 Directly readable, which is the whole reason for choosing files over sqlite while
 the shape of the data is still settling.
@@ -603,27 +610,40 @@ class ResourceMgr(ABC):
     @abstractmethod
     def give_back(self, amount: float, actual: float | None = None) -> None: ...
 
-    def resume_system(self) -> None:
-        self.available = self.capacity       # no lease survives a restart
+    @abstractmethod
+    def resume_system(self) -> None: ...     # the classes differ here — spec §3.4
 
 class RenewableMgr(ResourceMgr):
-    def can_afford(self, amount): return amount <= self.available
-    def take(self, amount):
-        if amount > self.available:
-            raise ValueError(f"{self.name}: cannot take {amount} of {self.available}")
-        self.available -= amount
-    def give_back(self, amount, actual=None):
-        self.available += amount                 # `actual` is meaningless here
+    def can_afford(self, amount) -> bool: ...        # amount <= available
+    def take(self, amount) -> None: ...              # raises if it does not fit
+    def give_back(self, amount, actual=None) -> None:
+        """Return the full amount. `actual` is meaningless for a renewable."""
+    def resume_system(self) -> None:
+        """available = capacity. No lease survives a restart, so nothing is held.
+        Persists nothing: there is nothing to remember."""
 
 class ConsumableMgr(ResourceMgr):
-    # can_afford / take identical to renewable; only release differs
-    def give_back(self, amount, actual=None):
-        spent = amount if actual is None else min(actual, amount)
-        self.available += amount - spent         # the reservation, less what was used
+    # can_afford / take identical to renewable; release and recovery differ
+    def give_back(self, amount, actual=None) -> None:
+        """Return `amount - spent`, where spent is `actual` (clamped to amount),
+        or the whole reservation when `actual` is None. THEN persist the
+        balance: this is the moment spend becomes final."""
+    def resume_system(self) -> None:
+        """Read the balance back. Missing record -> capacity (first run)."""
 
 class GpuMgr(RenewableMgr):    # name defaults to "gpu"
 class TokenMgr(ConsumableMgr): # name defaults to "token"
 ```
+
+**Only `give_back` persists, never `take`.** A reservation is a lease and dies
+with its process; a settlement is spend and must not be un-spent. The store write
+therefore sits in exactly one place, and a crash mid-run costs the reservation —
+which is correct, because the task holding it is not running any more (criterion
+33).
+
+The record is one row under kind `"resource"`, keyed by pool name:
+`{"name": "token", "available": 700000.0}`. Renewable pools write nothing, so
+the directory holds one file per consumable and no more.
 
 `GpuMgr` and `TokenMgr` add nothing today beyond a default name. They exist
 because `mission.md` names them and because GPU-specific accounting (topology,
@@ -633,9 +653,10 @@ empty is the honest state, not an oversight.
 `actual=None` on a consumable means "consumed everything reserved" — the
 conservative reading for a budget. `on_stopped` relies on it (D7).
 
-**`ConsumableMgr.resume_system()` refilling to capacity is wrong and is inherited from
-the spec.** See §14, O1. It is implemented as specified and flagged, not silently
-fixed.
+The `resume_system` split is why the renewable/consumable distinction lives at
+the abstract-base level rather than being a boolean flag: the two classes differ
+in *three* behaviours — release, persistence, recovery — and a flag would mean
+three conditionals kept in agreement by hand.
 
 ### 6.4 `AgentMgr` — `agent.py`
 
@@ -658,8 +679,15 @@ class AgentMgr:
         """By id: that instance. By spec name: instantiate one, unbound — the
         `get(name) -> agent` mission.md asks for."""
     def by_spec(self, spec: str) -> list[Agent]: ...
+    def by_task(self, tid: TaskId) -> list[Agent]: ...
     def all(self) -> list[Agent]: ...
     def retire(self, aid: AgentId) -> None: ...
+
+    # ---- persistence ----
+    def persist(self, aid: AgentId) -> None:
+        """Write an agent back after it appended to its `handoffs`."""
+    def resume_system(self) -> None:
+        """Reload instances under kind "agent". The spec table is NOT restored."""
 ```
 
 **The mgr keeps what it creates.** Previously it was a factory that instantiated
@@ -676,9 +704,23 @@ and the audit path needs lookup by id. Dispatch calls `instantiate` explicitly �
 relying on the overload there would make "a new agent is created here" invisible
 at the call site, and `instantiate` is where the task binding is supplied.
 
-Instances are **not persisted**, so `AgentMgr` does not implement `Resumable`.
-After a restart the ids in the restored history refer to agents this process
-never made. That is a real gap; §14 O5 records it and recommends closing it.
+**Instances persist; the spec table does not.** The asymmetry is the point:
+
+| | Restored by | Because |
+|---|---|---|
+| instances | `resume_system` | They are state — `task_id` and `handoffs` are links nothing else records, and every `agent_id` in a restored execution history points at one |
+| spec table | whoever builds the registry | It is configuration. Reading it back from a store would mean the system remembers a spec the operator has since removed |
+
+A restored instance is a *record*, not a live agent. Nothing tries to resume the
+agent's own process — that is out of scope (spec §1.2) — and nothing dispatches
+against a restored instance either: `instantiate` always creates a new one.
+Restoration exists so the audit trail resolves (criterion 34).
+
+`AgentMgr` therefore implements `Resumable` and sits at position 2 in
+`RESUME_ORDER` (§8.4). Nothing depends on it being there — no other component
+reads an agent during recovery — so the position is free; it is early because
+grouping the three independent reloads together reads better than scattering
+them.
 
 `knowledge` and `config` stay empty per `mission.md`.
 
@@ -818,7 +860,7 @@ called on a task whose stored status was already wrong.
 
 | Method | Body |
 |---|---|
-| `submit(task)` | validate id and resource names → `task_mgr.add` → `handoff_mgr.declare(task.outputs, task.id)` → `_move` to the pool `_ready` dictates → `try_dispatch` |
+| `submit(task)` | validate id and resource names → `task_mgr.add` → `handoff_mgr.declare(task.outputs, task.id)` → `_warn_depends_on(task)` → `_move` to the pool `_ready` dictates → `try_dispatch` |
 | `expedite(task)` | reject unless every input passes `check_if_latest_valid` → `task.expedited = True` → `submit(task)` |
 | `remove_queued(tid)` | reject unless status in `WAITING` → `_move(CANCELLED)` |
 | `stop(tid)` | reject unless `RUNNING` → `_move(STOPPING)` → `runner.stop(tid, self.on_stopped)` |
@@ -916,6 +958,13 @@ policy so a future cost-aware implementation has what it needs; FIFO ignores it.
 
 ### 8.4 Recovery
 
+`_warn_depends_on` implements spec §3.2's check: for each input, look up its
+latest version's `producer_task_id` and warn through `logging` if it is absent
+from `task.depends_on`. It warns and continues — rejecting would make declaration
+order matter, and repairing would make `depends_on` derived and unable to express
+a dependency that shares no handoff. Criterion 35 asserts both the warning and
+the submission.
+
 ```python
 def resume_system(self) -> None:
     self.pools = {s: set() for s in TaskStatus}
@@ -998,7 +1047,7 @@ why. `README.md` carries the same table for readers who never open `docs/`.
 | `ids` | bare `str`, `NewType`, `typing.Annotated` | `uuid.UUID` subclasses | Generation, parsing, and formatting are solved in the stdlib. `NewType` gives static distinctness but erases at runtime, so two ids of different kinds would still be equal and collide in one dict. Subclassing gives both. It costs a ten-line `__get_pydantic_core_schema__` — pydantic does not accept a `UUID` subclass without one (§3.1). |
 | `models` | `dataclasses`, `msgspec`, `attrs` | **pydantic v2** | Already installed — `fastapi` pulls it, so this adds nothing to the dependency set. It supplies `model_dump` / `model_validate`, which removes the two hand-written `*_from_dict` constructors `dataclasses.asdict` would have required (it has no inverse) and which would drift from the models on every field added. `validate_assignment` also makes in-place mutation checked, which matters because status is assigned directly. `msgspec` is faster and also present, but has no validation-on-assignment and a thinner enum/`datetime` story. |
 | `registry` | `dependency-injector`, `pluggy`, `punq` | stdlib `dict` | Every candidate is built around constructor injection, which spec §4.1 explicitly rejects in favour of resolve-at-use-time. Their remaining feature — a name→instance map — is nine lines. |
-| `store` | `sqlite3` (stdlib), `shelve` (stdlib), `tinydb`, `diskcache` | `json` + `pathlib` | The user asked for filesystem + JSON. Records are inspectable with `cat`, which matters while the schema is still moving. `Path.replace` gives per-record atomicity. **`sqlite3` is the named upgrade path** — it is stdlib, and it would supply the cross-manager transaction §14 O2 wants — but it hides the data behind a client and buys nothing else today. The `StoreMgr` Protocol exists so that swap is a one-file change. |
+| `store` | `sqlite3` (stdlib), `shelve` (stdlib), `tinydb`, `diskcache` | `json` + `pathlib` | The user asked for filesystem + JSON. Records are inspectable with `cat`, which matters while the schema is still moving. `Path.replace` gives per-record atomicity. **`sqlite3` is the named upgrade path** — it is stdlib, and it would supply the cross-manager transaction spec §10 wants — but it hides the data behind a client and buys nothing else today. The `StoreMgr` Protocol exists so that swap is a one-file change. |
 | `handoff` | content-addressed stores (git, DVC, S3) | own implementation | Versioning here is metadata bookkeeping, not content storage. Where payloads live is deliberately open (spec §8.2); when it is decided, a content store plugs in behind `Handoff.content` without touching this module. |
 | `task` | — | own implementation | A dict with write-through. Nothing to adopt. |
 | `resource` | `threading.Semaphore`, Prefect global concurrency limits | own implementation | A semaphore cannot express the consumable (reserve-then-settle) half, and cannot do the all-or-nothing multi-pool acquisition of §8.3 without a second layer on top. Prefect's limits do exactly what is wanted but live server-side; adopting a server for one primitive is the trade spec §9 rejected. |
@@ -1039,12 +1088,12 @@ Every test builds its own `Registry` via `bootstrap.build_registry(...)` with a
 | `test_models.py` | `HandoffVersion.seal` and `Task.push/close_execution` guards; `open_next` adopt-then-append; round-trip incl. `HandoffId` dict keys | 26, 30 |
 | `test_registry.py` | isolation, loud failure, `resolve` wildcard, replacement | 15 |
 | `test_store.py` | CRUD, `create` on existing, `update` on missing, key quoting, atomic replace | 29 |
-| `test_resource.py` | renewable vs consumable release, settle-at-actual | 4 |
+| `test_resource.py` | renewable vs consumable release, settle-at-actual, balance persists across a rebuild, unsettled reservation is not charged | 4, 32, 33 |
 | `test_handoff.py` | declare/idempotence, `check_if_latest_valid` on unknown/created/generating/valid, `get_many`, `produced_by_task` | 16 (part) |
 | `test_task.py` | `add`/`by_status`/`remove`/`persist`, attempt numbering | 18 |
-| `test_agent.py` | spec table, `instantiate` retains and binds `task_id`, fresh id per call, `get` by id vs spec, `by_spec` | 28 |
+| `test_agent.py` | spec table, `instantiate` retains and binds `task_id`, fresh id per call, `get` by id vs spec, `by_spec`, `by_task` | 28 |
 | `test_policy.py` | FIFO order, expedited first, swap changes order only | 10 |
-| `test_submit.py` | landing pool from input state, undeclared-resource rejection | 1, 2 |
+| `test_submit.py` | landing pool from input state, undeclared-resource rejection, the `depends_on` warning and that it does not reject | 1, 2, 35 |
 | `test_dispatch.py` | all-or-nothing, agent binding, pinned input versions | 3, 18 |
 | `test_lifecycle.py` | stop → on_stopped → resume_task, rejections, `update_task` | 5, 6, 11, 23 |
 | `test_completion.py` | resource release, `ok` vs validity independence, failure path | 4, 7, 13 |
@@ -1053,7 +1102,7 @@ Every test builds its own `Registry` via `bootstrap.build_registry(...)` with a
 | `test_linkage.py` | both link directions resolve; agent readable only from `history[-1]`; `depends_on` sorts topologically and drives no scheduling | 21, 22, 31 |
 | `test_authority.py` | the `HandoffMgr` spy: scheduler reads only | 14 |
 | `test_invariants.py` | pools vs `TaskMgr`, after arbitrary operation sequences | 12 |
-| `test_recovery.py` | `resume_all` order, skipping non-`Resumable`, demotion, verdicts not re-derived, the scheduler-first failure | 8, 19, 24, 25 |
+| `test_recovery.py` | `resume_all` order, skipping non-`Resumable`, demotion, verdicts not re-derived, agents resolve after a restart, the scheduler-first failure | 8, 19, 24, 25, 34 |
 
 Two of these carry more weight than their size suggests:
 
@@ -1133,11 +1182,15 @@ adopted them. They are now specification, not deviation.
 
 These are found by this design and are **not** in spec §10.
 
+Three entries from revision 3 are gone: O1 (consumable balances), O5 (agent
+persistence), and O6 (`depends_on` unchecked) were accepted and are now
+specified — spec §3.4, §7, and §3.2 respectively. They were spec decisions, which
+is why they were raised here rather than fixed here.
+
 | # | Question |
 |---|---|
-| **O1** | **Consumable budgets do not survive a restart.** Spec §6.4 has `ResourceMgr.resume_system()` reset to full capacity, and §7 persists only tasks and handoffs. For a renewable pool that is exactly right — no lease survives. For a consumable one it resurrects every token ever spent, which is a correctness hole in one of the two mandated resource types. The fix is small: `ConsumableMgr` persists `available` under a third kind, `"resource"`, and `resume_system()` reads it back. It needs a spec change to §7 ("two things are persisted") and it keeps recovery step 3 independent of steps 1 and 2. **Recommended, pending review.** Implemented as specified until then. |
 | **O2** | A completion that arrives after `stop()` **raises into the runner**. `on_task_done` rejects a non-`RUNNING` task per spec §5.1, so a runner that finishes in the window between `stop()` and its own acknowledgement gets an exception where it expected a callback — and the finished work is discarded, since the task then goes `SUSPENDED`. Nothing leaks, because `on_stopped` still releases the resources. Two candidate fixes: accept `STOPPING` in `on_task_done` and treat the run as complete, or make the rejection a no-op return rather than a raise. The first is better and changes the state machine. Neither is done. |
 | **O3** | `Task.resources` names pools that must already be registered, and `submit` rejects unknown ones. Nothing yet rejects a task whose declared amount exceeds a pool's total capacity: it is accepted and waits in `WAITING_RESOURCE` forever. A one-line check at submit would surface it immediately. Not built. |
 | **O4** | **`Handoff.type` has no route from `submit`.** Spec §3.1 gives a handoff a `type`, but `Task` has no field naming the types of its outputs, so the scheduler declares them with `type=""` and nothing later fills it in. Either `Task` gains an `output_types: dict[HandoffId, str]` — a §3.2 change — or `type` is acknowledged as being for directly-declared external handoffs only. Nothing depends on it today: the scheduler is content-agnostic and never reads it. |
-| **O6** | **Nothing checks `depends_on` against `inputs`.** They record the same dependency at two granularities — tasks and slots — and the submitter maintains both. A task whose `depends_on` omits the producer of one of its `inputs` will still schedule correctly, because scheduling reads `inputs`; but a topological sort will place it wrongly, and it will look ready when it is not. Deriving `depends_on` from `inputs` would need a handoff→producer lookup at submit, which `HandoffMgr.produced_by_task` can already answer; the reason not to is that a task may legitimately depend on a task it shares no handoff with. **A validating check at submit is the cheap answer** — warn when a producer of an input is missing from `depends_on`. Not built. |
-| **O5** | **`AgentMgr` instances do not survive a restart.** Now sharper than before: an `Agent` carries `task_id` and `handoffs` (§3.2), so it holds real link state, and criterion 22 asserts a run resolves from either end. The mgr now retains what it creates (§6.4), so `Execution.agent_id` resolves — until the process restarts. Agents are not persisted, because spec §1.2 makes an agent responsible for its own durability, so after `resume_all` every id in the restored history dangles and criterion 22 holds only within one process lifetime. Two candidate answers: persist the `Agent` record (id, name, config — not the agent's own state, which stays its business), or accept that the audit trail names agents the system cannot resolve after a restart and say so in §1.2. **The first is cheap and I recommend it**; it is one more `kind` in the store and one more `Resumable`. Not built, because it extends what §7 persists and that is a spec decision. |
+| **O7** | **A consumable's capacity and its balance can disagree after a config change.** `resume_system` reads the stored `available` and ignores the `capacity` passed to the constructor, so raising a budget from 1M to 2M has no effect until the record is deleted by hand. That is the right default — the operator did not intend to hand back spend — but it means the constructor argument silently stops mattering. Either log when the two disagree at startup, or add the explicit `refill` that spec §10 already wants. Not built. |
+| **O8** | **`_warn_depends_on` reads a version that may not exist yet.** The check looks up each input's `producer_task_id`, which is `None` until the producing task is submitted and `declare`s the slot. Submitting a consumer before its producer therefore warns about nothing — the check silently passes on exactly the graph most likely to be miswired. Re-running it at dispatch would catch that, at the cost of warning repeatedly. Accepted for now: the warning is a convenience, and the scheduling behaviour it guards is unaffected either way. |

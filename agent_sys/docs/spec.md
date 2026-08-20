@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Status | Draft, pending review |
-| Revision | 5 — 2026-08-20. Handoff owns its versions; per-version provenance; `depends_on`; no result object |
+| Revision | 6 — 2026-08-20. Consumable balances and agents persist; `depends_on` is checked at submit |
 | Date | 2026-08-19 |
 | Scope | Task management substrate for the Infera AI-optimization agent loop |
 | Source | `mission.md`; prior-art report `agent-task-graph-prior-art.html` (rev. 2, 2026-08-18) |
@@ -287,9 +287,35 @@ happened. `inputs` cannot be replaced by `input_versions`: a queued task has no
 history yet, and that is precisely when the scheduler needs to know what it
 depends on.
 
-Keeping `depends_on` consistent with `inputs` is the submitter's job. The system
-does not derive one from the other, and §10 records that nothing yet checks they
-agree.
+#### The two are checked against each other, not derived
+
+Two fields recording one dependency at two granularities can disagree, and a
+`depends_on` that omits the producer of one of its own `inputs` is silently
+wrong: the task still schedules correctly — scheduling reads `inputs` — but every
+traversal built on the graph places it wrongly.
+
+`submit` therefore **warns**, and does not reject or repair:
+
+```
+for each h in task.inputs:
+      producer = handoff_mgr.get(h).latest.producer_task_id
+      if producer is not None and producer not in task.depends_on:
+            warn(f"{task.id}: depends_on omits {producer}, which produces {h}")
+```
+
+Three deliberate choices in that:
+
+- **Warn, not reject.** A submitter may legitimately be building the graph out of
+  order, and a hard failure at submit would make declaration order matter — which
+  §6.1 is otherwise careful to avoid.
+- **Warn, not repair.** Filling the field in would make `depends_on` derived, and
+  then it could not express the case it exists for: a dependency on a task that
+  shares no handoff — an ordering constraint, an external side effect.
+- **Producers only.** The reverse direction — a `depends_on` entry with no
+  corresponding input — is legal by construction and is not checked.
+
+The check is one-directional, cheap, and catches the mistake that actually
+happens: adding an input and forgetting the edge.
 
 #### Execution history — a stack, not an archive
 
@@ -410,6 +436,25 @@ Consumables follow **reserve-then-settle**: reserve an estimate before the task
 starts, settle the actual amount on completion. An estimate alone overspends;
 post-hoc accounting alone bounds nothing.
 
+#### The two classes recover differently
+
+This follows from what they *are*, and it is the reason the distinction sits at
+the abstract-base level rather than being a flag:
+
+| Class | On restart | Because |
+|---|---|---|
+| Renewable | Reset to full capacity | A lease is held by a process that no longer exists. Nothing is outstanding, so everything is free |
+| Consumable | **Restore the balance from the store** | Spending already happened. A restart does not un-spend it |
+
+A consumable pool that reset to capacity would resurrect every token ever
+charged, and the budget would be bounded only by the interval between restarts.
+`ConsumableMgr` therefore persists its balance — the third thing this system
+stores (§7).
+
+The reservation part is still discarded: a reservation is a lease like any other,
+and its task is not running any more. Only the settled spend survives, which is
+exactly the part that was never a lease.
+
 ---
 
 ## 4. Architecture
@@ -441,7 +486,8 @@ post-hoc accounting alone bounds nothing.
               │  StoreMgr  │  │SchedulePolicy│
               │ (json file)│  │ (FIFO first) │
               └─────▲──────┘  └──────────────┘
-                    │  write-through from TaskMgr and HandoffMgr (§7)
+                    │  write-through, four kinds (§7):
+                    │  task · handoff · agent · resource
 ```
 
 The two arrows into `HandoffMgr` are the whole story of §3.1: the scheduler only
@@ -468,7 +514,7 @@ component that needs a collaborator calls `registry.get(name)`.
 |---|---|
 | `handoff_mgr` | `HandoffMgr` |
 | `task_mgr` | `TaskMgr` |
-| `store_mgr` | `StoreMgr` — the persistence backend, shared by `TaskMgr` and `HandoffMgr` |
+| `store_mgr` | `StoreMgr` — the persistence backend, shared by every manager that writes (§7) |
 | `agent_mgr` | `AgentMgr` |
 | `runner` | a `TaskRunner` implementation |
 | `policy` | a `SchedulePolicy` implementation |
@@ -543,7 +589,7 @@ belonging to a single member is a method on that member, not on its manager.
 |---|---|---|---|
 | `HandoffMgr` | handoffs, keyed by `HandoffId` | declare, get, query, persist | **Judge validity, or transition anything** (§3.1) — `Handoff.open_next` and `HandoffVersion.seal` do that. Store large payloads inline (§8.2) |
 | `TaskMgr` | tasks, keyed by `TaskId` | add, get, all, by-status, remove, persist | Make scheduling decisions. Own the execution *transitions* — `Task.push_execution` / `.close_execution` do that |
-| `AgentMgr` | agents, keyed by `AgentId`, plus the spec table | register a spec, instantiate, get by id, list by spec, retire | Run an agent, or know what it does |
+| `AgentMgr` | agents, keyed by `AgentId`, plus the spec table | register a spec, instantiate, get by id, list by spec or task, retire, persist | Run an agent, or know what it does |
 | `ResourceMgr` | one named pool's accounting | can_afford, take, give_back | Know about tasks. This is the one that manages a *quantity*, not a set — §3.4 |
 
 `ResourceMgr` is deliberately the exception, and the name is kept because
@@ -590,12 +636,12 @@ class Registry:
 @runtime_checkable
 class Resumable(Protocol):
     def resume_system(self) -> None: ...
-    # Implemented by HandoffMgr, TaskMgr, ResourceMgr, Scheduler.
-    # Not implemented by AgentMgr, SchedulePolicy, StoreMgr — they hold no state.
+    # Implemented by HandoffMgr, AgentMgr, TaskMgr, ResourceMgr, Scheduler.
+    # Not implemented by SchedulePolicy or StoreMgr — they hold no state.
     # Named resume_system, not resume: "rebuild yourself from persistence" is a
     # different act from Scheduler.resume_task(tid), and one class needs both.
 
-RESUME_ORDER = ["handoff_mgr", "task_mgr", "resource:*", "scheduler"]
+RESUME_ORDER = ["handoff_mgr", "agent_mgr", "task_mgr", "resource:*", "scheduler"]
 
 def resume_all(registry: Registry) -> None: ...
 
@@ -662,9 +708,14 @@ class ResourceMgr(ABC):
     def take(self, amount: float) -> None: ...
     @abstractmethod
     def give_back(self, amount: float, actual: float | None = None) -> None: ...
+    @abstractmethod
+    def resume_system(self) -> None: ...        # the two classes differ here (§3.4)
 
-class RenewableMgr(ResourceMgr):   # give_back returns the full amount
-class ConsumableMgr(ResourceMgr):  # give_back returns amount - actual
+class RenewableMgr(ResourceMgr):
+    # give_back returns the full amount; resume_system resets to capacity
+class ConsumableMgr(ResourceMgr):
+    # give_back returns amount - actual and PERSISTS the balance;
+    # resume_system reads it back
 
 # ---- agent ----
 class AgentMgr:
@@ -675,8 +726,13 @@ class AgentMgr:
     def get(self, ref: AgentId | str) -> Agent:
         """By id: that agent. By spec name: the mission.md `get(name) -> agent`."""
     def by_spec(self, spec: str) -> list[Agent]: ...
+    def by_task(self, tid: TaskId) -> list[Agent]: ...
     def all(self) -> list[Agent]: ...
     def retire(self, aid: AgentId) -> None: ...
+    def persist(self, aid: AgentId) -> None:
+        """Write an agent back after it appended to its `handoffs`."""
+    def resume_system(self) -> None:
+        """Reload instances. The spec table is configuration, not state (§6.4)."""
 
 # ---- task ----
 class TaskMgr:
@@ -721,7 +777,7 @@ The splits are deliberate:
 
 | Method | Effect | Rejects |
 |---|---|---|
-| `submit(task)` | `declare` its output handoffs; place in the pool its inputs dictate; dispatch | Duplicate id; undeclared resource pool |
+| `submit(task)` | `declare` its output handoffs; warn on a `depends_on` gap (§3.2); place in the pool its inputs dictate; dispatch | Duplicate id; undeclared resource pool |
 | `expedite(task)` | `submit`, but requires every input already valid and marks the task for front-of-queue ordering | Any input failing `check_if_latest_valid` |
 | `remove_queued(tid)` | `→ CANCELLED` | Task not in a waiting pool |
 | `stop(tid)` | `RUNNING → STOPPING`; calls `runner.stop(tid, self.on_stopped)` | Task not `RUNNING` |
@@ -891,8 +947,10 @@ class Resumable(Protocol):
         """Rebuild this component's own state from whatever it persisted."""
 ```
 
-Components with nothing to restore — `AgentMgr`, `SchedulePolicy`, `StoreMgr`
-itself — simply do not implement it. Not implementing `Resumable` is the
+Components with nothing to restore — `SchedulePolicy`, `StoreMgr` itself, and a
+renewable pool's lease state — simply do not implement it, or restore trivially.
+`AgentMgr` used to be in that list and no longer is: an `Agent` carries the
+`task_id` and `handoffs` links (§3.3), which is real state. Not implementing `Resumable` is the
 declaration that a component is stateless; an empty `resume_system()` would be
 indistinguishable from one somebody forgot to write.
 
@@ -903,9 +961,10 @@ The sequence is a real dependency, not a convention:
 | # | Component | Restores | Depends on |
 |---|---|---|---|
 | 1 | `HandoffMgr` | handoffs and their versions | nothing |
-| 2 | `TaskMgr` | tasks and their execution stacks | nothing |
-| 3 | `ResourceMgr` (each) | pools to full capacity — no lease survives a restart | nothing |
-| 4 | `Scheduler` | its pool index; demotes interrupted runs | 1, 2, 3 |
+| 2 | `AgentMgr` | agent instances and their bindings | nothing |
+| 3 | `TaskMgr` | tasks and their execution stacks | nothing |
+| 4 | `ResourceMgr` (each) | renewable: full capacity. consumable: the stored balance | nothing |
+| 5 | `Scheduler` | its pool index; demotes interrupted runs | 1–4 |
 
 The scheduler is last because everything it rebuilds is derived: its index is a
 projection of task status (§4.4), and the eligibility it recomputes reads handoff
@@ -913,11 +972,14 @@ versions (§3.2). Restoring it against an empty `HandoffMgr` would classify ever
 waiting task as blocked and then never re-check, because nothing would have
 changed to trigger a decision point.
 
-1 through 3 are mutually independent, so the order among them is free; only
-"scheduler last" is load-bearing.
+1 through 4 are mutually independent, so the order among them is free; only
+"scheduler last" is load-bearing. `AgentMgr` in particular is not a dependency of
+anything here — the scheduler never resolves an agent during recovery, and
+`instantiate` creates the *next* one. It is restored so that the ids already in
+the execution history resolve.
 
 ```python
-RESUME_ORDER = ["handoff_mgr", "task_mgr", "resource:*", "scheduler"]
+RESUME_ORDER = ["handoff_mgr", "agent_mgr", "task_mgr", "resource:*", "scheduler"]
 
 def resume_all(registry) -> None:
     for pattern in RESUME_ORDER:                    # declared, not discovered
@@ -935,7 +997,7 @@ Protocol, and an unmarked one raises at runtime rather than returning `False`.
 
 The order is declared rather than inferred. Inferring it would mean a dependency
 graph among managers, which is exactly the machinery the registry exists to avoid;
-a four-entry list that fails loudly when a name is missing is the smaller thing.
+a five-entry list that fails loudly when a name is missing is the smaller thing.
 
 #### What each restore does
 
@@ -949,8 +1011,13 @@ TaskMgr.resume_system()
   └─ load tasks with their execution stacks. A dangling stack top (ended_at
      unset) is closed as interrupted
 
+AgentMgr.resume_system()
+  └─ load agent instances with their task_id and handoffs. The spec table is not
+     restored: it is configuration, supplied by whoever builds the registry
+
 ResourceMgr.resume_system()
-  └─ reset to full capacity. Leases do not survive a restart, so nothing is held
+  ├─ renewable: reset to capacity. Leases do not survive a restart
+  └─ consumable: read the stored balance. Spend does survive (§3.4)
 
 Scheduler.resume_system()
   ├─ rebuild the pool index from each task's stored status
@@ -984,13 +1051,32 @@ execution record.
 
 ## 7. Persistence
 
-Two things are persisted: **task state** and **handoff versions**. The scheduler
-persists nothing of its own — its pools are an index over task status (§4.4), so
-reading tasks back rebuilds them.
+Four things are persisted. Each manager persists what it owns; nothing is derived
+from another manager's records.
 
-Handoff state cannot be derived from task records: a version's verdict is
-independent of the producing run's `ok` flag, and only `HandoffMgr` is ever told
-it (§6.4). Each manager persists what it owns.
+| Kind | Owner | Why it cannot be derived |
+|---|---|---|
+| `task` | `TaskMgr` | Status and execution history exist nowhere else |
+| `handoff` | `HandoffMgr` | A version's verdict is independent of the producing run's terminal status (§6.4), so no task record implies it |
+| `agent` | `AgentMgr` | Every `Execution.agent_id` and `producer_agent_id` in the restored records points at one. Without them the audit trail names agents that cannot be resolved (§3.3) |
+| `resource` | `ConsumableMgr` | Spend already happened; a restart must not un-spend it (§3.4) |
+
+**Persisting an `Agent` record is not managing an agent's lifecycle.** What is
+stored is this system's index of the binding — id, spec, `task_id`, the
+`HandoffRef`s it wrote. The agent's own process, prompts, and working state
+remain its business and are still out of scope (§1.2). The distinction is the
+same one `Task.agent_spec` makes: the system knows *that* an agent ran and what
+it touched, never *what it did*.
+
+The scheduler persists nothing of its own — its pools are an index over task
+status (§4.4), so reading tasks back rebuilds them. Renewable pools persist
+nothing either: no lease survives a restart, so full capacity is the correct
+starting point.
+
+**Balances are written on settlement, not on reservation.** `take` is a lease and
+is deliberately not durable; `give_back` is where spend becomes final, and that
+is the write. A crash between the two loses the reservation, which is right —
+the task it was held for is not running any more.
 
 Handoff persistence is a larger subject than this document treats it as — a
 handoff is the durable artefact the whole system exists to pass around, and
@@ -1016,6 +1102,10 @@ moment the agent acts rather than at task completion.
 
 Handoff *content* is a different question, deliberately left open (§8.2). The
 persisted record holds a reference, not a payload.
+
+`AgentMgr` writes on `instantiate` and whenever an agent's `handoffs` list grows.
+The second is the agent's own act, so like a handoff an agent record is stored
+when the agent acts.
 
 **Not atomic.** A crash between `TaskMgr`'s write and `HandoffMgr`'s can leave the
 two disagreeing. Recovery tolerates this in the safe direction: anything short of
@@ -1103,11 +1193,13 @@ The rationale is recorded in `agent_sys/README.md` as required by mission rule 3
 | Handoff payload storage | §8.2. The interface is left open. |
 | Fairness across submitters | Naive FIFO lets one submitter monopolise a pool. A future `SchedulePolicy` keyed by submitter is the reference solution. |
 | Better ordering than FIFO | The composite rule from the prior art (priority tier → estimated cost → most-total-successors → FIFO) is a drop-in `SchedulePolicy`. Not built first. |
-| Cycle detection | A task whose inputs transitively depend on its own outputs will never run. A ten-line DFS at submit would reject it at the boundary. Not in the first version. |
+| Cycle detection | A task whose inputs transitively depend on its own outputs will never run. Now cheaper than before: `depends_on` (§3.2) is the edge list, so this is a DFS over it at submit rather than a join across every task's `outputs`. Still not in the first version. |
 | **Re-run window** | A new version is opened by the producing agent when it starts writing (§3.1), so between `resume_task(t)` and that moment, `latest` is still the previous version. A downstream task dispatched in that window runs against stale-but-valid content. Accepted as the price of the scheduler never touching handoff state. Mitigations if it bites: have the runner open versions at `start`, or have `resume` mark outputs pending. Neither is built. |
-| Cross-manager atomicity | `TaskMgr` and `HandoffMgr` persist independently, so a crash between the two writes leaves them briefly inconsistent (§7). Recovery fails safe — a consumer stays blocked — but the window exists. A shared transaction, or a single append-only log both managers write to, is the known fix. Not built. |
+| Cross-manager atomicity | Four managers now persist independently (§7), so a crash between any two writes leaves them briefly inconsistent. Recovery fails safe in the handoff direction — a consumer stays blocked — and in the consumable direction the worst case is a settlement lost, which under-charges by one task. A shared transaction, or a single append-only log every manager writes to, is the known fix. Not built. |
 | Version retention | Nothing says when an old version's content may be discarded (§8.2). Unbounded re-runs mean unbounded payloads. |
 | Re-check cost | Eligibility is recomputed for every waiting task at every decision point (§6.2, step 1). Fine at this scale; a reverse handoff→consumer index is the known optimisation. |
+| Agent retirement | Agent records now persist (§7) and one is created per run, so the store grows with every attempt ever made and `retire` is the only thing that shrinks it. Nothing calls it. A retention rule — or archiving agents whose task is final — is the answer; not built. |
+| Consumable top-up | A persisted balance is never replenished. A token budget that is meant to reset monthly has no way to say so, and raising `capacity` does not raise `available`. An explicit `refill(amount)` is the obvious API; deliberately not invented before there is a caller. |
 
 ---
 
@@ -1197,3 +1289,17 @@ test:
 31. `Task.depends_on` supports a topological sort of the submitted graph, and no
     scheduling path reads it: blanking it on every task changes no dispatch order
     and no pool membership.
+32. **A consumable balance survives a restart; a renewable pool does not carry a
+    lease across one.** Spend 300 of a 1000 token budget, settle, `resume_all`,
+    and 700 remain. Hold 4 GPUs at the moment of restart and all 8 are free
+    afterwards (§3.4).
+33. A reservation that was never settled is *not* charged: `take` then
+    `resume_all` with no `give_back` leaves the balance where it was before the
+    `take`.
+34. `resume_all` restores agents, so every `agent_id` in a restored execution
+    history and every `producer_agent_id` on a restored handoff version resolves
+    through `AgentMgr` — criterion 22 holds across a restart, not only within one
+    process.
+35. `submit` warns when `depends_on` omits the producer of one of the task's
+    `inputs`, and submits the task anyway; it does not warn when `depends_on`
+    names a task the inputs do not point at (§3.2).

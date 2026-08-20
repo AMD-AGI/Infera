@@ -11,7 +11,7 @@ and nothing else — it never inspects what a task does.
 
 | | |
 |---|---|
-| [`docs/spec.md`](docs/spec.md) | What the system must do. 31 acceptance criteria |
+| [`docs/spec.md`](docs/spec.md) | What the system must do. 35 acceptance criteria |
 | [`docs/design.md`](docs/design.md) | How it is built: files, classes, interfaces, test plan |
 
 Read the spec first. The design implements it and records, in its §13, every
@@ -45,7 +45,7 @@ out of the prior-art survey.
 | Module | Considered | Chosen | Why |
 |---|---|---|---|
 | `models` | dataclasses, msgspec, attrs | **pydantic v2** | Already installed via `fastapi`, so it costs nothing. `model_dump` / `model_validate` remove the two hand-written deserialisers `dataclasses.asdict` would need — it has no inverse — and which would drift from the models on every field added. `validate_assignment` makes in-place mutation checked, which matters because status is assigned directly. |
-| `ids` | bare `str`, `NewType` | `uuid.UUID` subclasses | `NewType` erases at runtime, so two ids of different kinds would still compare equal and collide in one dict. Subclassing gives both static and runtime distinctness, and pydantic validates a `UUID` subclass natively. |
+| `ids` | bare `str`, `NewType` | `uuid.UUID` subclasses | `NewType` erases at runtime, so two ids of different kinds would still compare equal and collide in one dict. Subclassing gives both static and runtime distinctness. It costs a ten-line `__get_pydantic_core_schema__`: pydantic raises on a `UUID` subclass without one. |
 | `registry` | dependency-injector, pluggy, punq | `dict` | All three are built around constructor injection; the spec requires resolve-at-use-time. What is left is a name→instance map: nine lines. |
 | `store` | sqlite3, shelve, tinydb, diskcache | `json` + `pathlib` | Records stay readable with `cat` while the schema is still moving. `Path.replace` gives per-record atomicity. **sqlite3 is the named upgrade path** — stdlib, and it would supply the cross-manager transaction the spec leaves open. `StoreMgr` is a Protocol so the swap is one file. |
 | `handoff` | content-addressed stores (git, DVC, S3) | own | Versioning here is metadata bookkeeping. Where payloads live is deliberately open (spec §8.2); a content store plugs in behind `Handoff.content`. |
