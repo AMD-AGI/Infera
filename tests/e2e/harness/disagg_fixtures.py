@@ -43,7 +43,7 @@ def require_disagg_env() -> None:
     """Skip unless we can actually place a 2-node PD stack (SLURM + allocation +
     >=2 nodes + resolvable node IPs)."""
     if not cluster.have_slurm():
-        pytest.skip("PD-disaggregation e2e needs SLURM (srun/scontrol) on PATH")
+        pytest.skip("PD-disaggregation e2e needs SLURM (srun) on PATH")
     # An explicit node pin (INFERA_E2E_NODES, set by run_tests.sh's disagg
     # dispatcher) means we place the stack ourselves via per-node `srun` and need
     # no held allocation — the Spur scheduler has no salloc/sbatch to sit in.
@@ -98,7 +98,6 @@ def make_disagg_stack_fixture(
             tp = max(1, params.tensor_parallel_size)
             gpu_ids = list(range(tp))
 
-            cluster.probe_qos(prefill_node)
             launcher.cleanup_stale([prefill_node, decode_node])
             launcher.ensure_images([prefill_node, decode_node])
 

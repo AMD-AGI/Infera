@@ -15,8 +15,8 @@ where auto-discovery guesses wrong.
 Optional env overrides (all unset => pure auto-discovery):
   INFERA_E2E_NODE_IPS  ``node=ip,node=ip`` — pin a node's advertise/data-plane
                        IP instead of the ``hostname -I`` auto-pick.
-  INFERA_E2E_RESERVATION / INFERA_E2E_SRUN_EXTRA /
-  INFERA_E2E_SLURM_QOS_FALLBACK  — scheduler flags, see :func:`srun_argv`.
+  INFERA_E2E_RESERVATION / INFERA_E2E_SRUN_EXTRA — scheduler flags, see
+                       :func:`srun_argv`.
   INFERA_E2E_GID_INDEX / INFERA_E2E_WORKER_ENV / INFERA_E2E_BUILD_ARGS — the
                        fabric's KV transport (see :func:`kv_transport_env`).
 
@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import functools
 import os
-import re
 import shlex
 import shutil
 import socket
@@ -43,28 +42,21 @@ _SRUN_TIMEOUT = 60
 # The Spur scheduler exposes only a subset of srun (no --overlap/--jobid).
 _SPUR = bool(os.environ.get("SPUR_CONTROLLER_ADDR"))
 
-# Burst QoS is a FALLBACK, never the default: steps run on the cluster's normal
-# QoS until one is refused for a group node limit, then the rest of the run keeps
-# the fallback so that stall is paid once instead of per step.
-_QOS_FALLBACK = os.environ.get("INFERA_E2E_SLURM_QOS_FALLBACK", "amd-burst-qos")
-_QOS_PROBE_TIMEOUT = float(os.environ.get("INFERA_E2E_QOS_PROBE_TIMEOUT", "30"))
-
 # Every disagg step carries this name (traceable to its CI run, and matched by
 # ci.yml's `infera-ci-` reclaim filter) and this ceiling. The longest step by far
 # is the image build, so the default is generous.
 JOB_NAME = "infera-ci-" + (os.environ.get("INFERA_E2E_JOB_TAG") or "disag-local")
 STEP_TIME = os.environ.get("INFERA_E2E_SLURM_TIME", "01:00:00")
-_QOS_LIMIT_RE = re.compile(
-    r"QOSGrp\w*Limit|QOSMax\w*Limit|reached terminal state before allocation|"
-    r"Unable to allocate resources",
-    re.I,
-)
-_qos_fallback_on = False
 
 
 def have_slurm() -> bool:
-    """Whether the SLURM client tooling this suite drives is on PATH."""
-    return shutil.which("srun") is not None and shutil.which("scontrol") is not None
+    """Whether the SLURM client tooling this suite drives is on PATH.
+
+    Only ``srun`` is required: the steps are placed with it, and the one
+    ``scontrol`` caller (:func:`allocated_nodes`) is a fallback that this suite
+    does not reach when ``INFERA_E2E_NODES`` is set. Demanding ``scontrol`` here
+    skipped the whole tier on a Spur cluster, which ships no such alias."""
+    return shutil.which("srun") is not None
 
 
 def in_allocation() -> bool:
@@ -94,50 +86,12 @@ def srun_argv(node: str, *, job: str = "") -> list[str]:
     reservation = os.environ.get("INFERA_E2E_RESERVATION")
     if reservation:
         argv.append(f"--reservation={reservation}")
-    if _qos_fallback_on:
-        argv.append(f"--qos={_QOS_FALLBACK}")
     return argv + shlex.split(os.environ.get("INFERA_E2E_SRUN_EXTRA", ""))
 
 
 def run_on_node(node: str, argv: list[str], *, timeout: float = _SRUN_TIMEOUT):
     """Run ``argv`` on ``node`` and capture its output (never raises on rc!=0)."""
     return subprocess.run(srun_argv(node) + argv, capture_output=True, text=True, timeout=timeout)
-
-
-def probe_qos(node: str) -> None:
-    """Choose this run's QoS once, before the stack comes up. A refused step does
-    not fail fast — it queues — so a trivial step is timeboxed instead; if it does
-    not land, every later step takes the burst QoS (and fails normally if it too
-    is refused). Idempotent, and a no-op with INFERA_E2E_SLURM_QOS_FALLBACK=''."""
-    global _qos_fallback_on
-    if _qos_fallback_on or not _QOS_FALLBACK:
-        return
-    # Its own name so the scancel below cannot take the run's other steps with it.
-    job = f"{JOB_NAME}-qosprobe-{os.getpid()}"
-    try:
-        proc = subprocess.run(
-            srun_argv(node, job=job) + ["true"],
-            capture_output=True,
-            text=True,
-            timeout=_QOS_PROBE_TIMEOUT,
-        )
-        if proc.returncode == 0:
-            return
-        blocked = bool(_QOS_LIMIT_RE.search((proc.stdout or "") + (proc.stderr or "")))
-        detail = (proc.stderr or proc.stdout or "").strip().splitlines()[-1:]
-    except subprocess.TimeoutExpired:
-        blocked, detail = True, [f"still queued after {_QOS_PROBE_TIMEOUT:.0f}s"]
-    finally:
-        # Killing the srun client does not cancel the queued job; drop it by name
-        # on every path (a no-op once it has already run).
-        subprocess.run(["scancel", "-n", job], capture_output=True, timeout=_SRUN_TIMEOUT)
-    if blocked:
-        _qos_fallback_on = True
-        print(
-            f"[e2e disagg] default QoS unavailable ({' '.join(detail)}) — "
-            f"using --qos={_QOS_FALLBACK} for this run",
-            flush=True,
-        )
 
 
 def _parse_ip_overrides() -> dict[str, str]:

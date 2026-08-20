@@ -291,9 +291,6 @@ jobs:
       # Ceiling on every disagg srun step, inside the job timeout above so the
       # scheduler reclaims a node even if the runner is killed first.
       INFERA_E2E_SLURM_TIME: "01:50:00"
-      # Disagg is many short sruns; the reservation keeps the pair held across
-      # them. QoS is left at the cluster default — the harness falls back to the
-      # burst QoS by itself if a step is refused for a group node limit.
       INFERA_E2E_RESERVATION: infera-cicd-reserved
       # No ib_peer_mem here, so bare ibv_reg_mr cannot pin VRAM: Mooncake must
       # register via dma-buf, compiled in at build time and selected at run time.

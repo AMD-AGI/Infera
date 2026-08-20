@@ -199,17 +199,6 @@ _default_partition() {
 SLURM_PART="${INFERA_E2E_SLURM_PARTITION:-$(_default_partition)}"
 SLURM_PART="${SLURM_PART:-amd-spur}"
 SLURM_TIME="${INFERA_E2E_SLURM_TIME:-02:00:00}"
-# Burst QoS is a fallback, never used up front: a dispatch still queued after
-# QOS_WAIT is cancelled and resubmitted with it, once (see _dispatch_slurm).
-QOS_FALLBACK="${INFERA_E2E_SLURM_QOS_FALLBACK:-amd-burst-qos}"
-# Remembered across _hold_pair calls: the group node limit belongs to the run,
-# not to the pair being tried, so a per-call array spends HOLD_WAIT rediscovering
-# the same answer on every round of the outer retry loop.
-_HOLD_QOS=()
-# How long a dispatch may sit queued before it is retried on QOS_FALLBACK. Timed
-# rather than matched on a reason: one group node limit reads QOSGrpNodeLimit when
-# the job names its nodes and plain None when it does not.
-QOS_WAIT="${INFERA_E2E_QOS_WAIT:-120}"
 # _hold_pair's own window: its -N2 --gres=gpu:8 batch job needs longer to start
 # than a single-node srun, and giving up early only churns the pair-hold race.
 HOLD_WAIT="${INFERA_E2E_HOLD_WAIT:-60}"
@@ -233,19 +222,28 @@ _skip_or_fail() {
 }
 
 _have_slurm() { command -v srun >/dev/null 2>&1; }
+# `spur show` is the same surface as `scontrol show`; on a Spur cluster the
+# scontrol alias is not always installed, and losing it must not read as a
+# failed query -- that is what pins a dispatch to a deleted reservation.
+_SCTL=""
+for _c in scontrol spur; do
+  if command -v "$_c" >/dev/null 2>&1; then _SCTL="$_c"; break; fi
+done
+_have_sc() { [ -n "$_SCTL" ]; }
+_sc() { [ -n "$_SCTL" ] || return 127; "$_SCTL" "$@"; }
 # The nodes reservation $1 covers, one per line. Non-zero means the QUERY failed;
 # exit 0 with no output means the reservation genuinely is not there. Callers act
-# on that distinction, and naming the reservation destroys it: `scontrol show
-# reservation NAME` exits 1 for a name that is not there, the same status an
-# unreachable controller gives. Asking for all of them exits 0 whenever the
-# controller answered, and the awk below already filters by name.
+# on that distinction, and naming the reservation destroys it: `show reservation
+# NAME` exits 1 for a name that is not there, the same status an unreachable
+# controller gives. Asking for all of them exits 0 whenever the controller
+# answered, and the awk below already filters by name.
 # Capture before parsing: under pipefail a later stage's status would otherwise
 # masquerade as a failed query.
 _reservation_nodes() {
   local out
-  # Forward scontrol's own words: callers can only say "cannot reach the
+  # Forward the scheduler's own words: callers can only say "cannot reach the
   # scheduler", which is not enough to act on.
-  out=$(scontrol show reservation 2>&1) || { printf '%s\n' "$out" >&2; return 1; }
+  out=$(_sc show reservation 2>&1) || { printf '%s\n' "$out" >&2; return 1; }
   printf '%s\n' "$out" | awk -v r="ReservationName=$1" '
     BEGIN{RS="";FS="\n"}
     $1==r { for(i=1;i<=NF;i++) if($i ~ /Nodes=/){ n=$i; sub(/.*Nodes=/,"",n); sub(/[[:space:]].*/,"",n); print n; exit } }' \
@@ -259,7 +257,7 @@ _reservation_nodes() {
 # ActiveReservation instead. sbatch then refuses it with ReqNodeNotAvail.
 _node_free() {
   local out alloc resv
-  out=$(scontrol show node "$1" 2>/dev/null) || return 1
+  out=$(_sc show node "$1" 2>/dev/null) || return 1
   alloc=$(printf '%s\n' "$out" | grep -oE 'CPUAlloc=[0-9]+' | head -1 | cut -d= -f2)
   [ -n "$alloc" ] && [ "$alloc" -eq 0 ] 2>/dev/null || return 1
   resv=$(printf '%s\n' "$out" | grep -oE 'ActiveReservation=[^[:space:]]+' | head -1 | cut -d= -f2)
@@ -271,9 +269,9 @@ _node_free() {
 _candidate_nodes() {
   local n nodes=""
   if [ -n "${INFERA_E2E_RESERVATION:-}" ]; then
-    # Query failed: offer nothing and let the caller keep waiting. Falling
-    # through would hand the PD pair unreserved nodes off the open partition.
-    nodes=$(_reservation_nodes "$INFERA_E2E_RESERVATION") || return 0
+    # A query that failed falls through to the partition's idle nodes: callers
+    # have already decided the reservation is unusable in that case.
+    nodes=$(_reservation_nodes "$INFERA_E2E_RESERVATION") || nodes=""
   fi
   [ -n "$nodes" ] ||
     nodes=$(sinfo -h -N -p "$SLURM_PART" -t idle -o '%n' 2>/dev/null | awk 'NF && !seen[$0]++')
@@ -329,11 +327,11 @@ _hold_pair() {
     jid=$(sbatch --parsable -N2 -n2 -w "$pair" --gres=gpu:8 -p "$SLURM_PART" \
       -t "$SLURM_TIME" -J "infera-ci-hold-${INFERA_E2E_JOB_TAG:-local}" \
       ${INFERA_E2E_RESERVATION:+--reservation="$INFERA_E2E_RESERVATION"} \
-      "${_HOLD_QOS[@]}" "$script" 2>/dev/null) || continue
+      "$script" 2>/dev/null) || continue
     waited=0
     while [ "$waited" -lt "$HOLD_WAIT" ]; do
-      st=$(scontrol show job "$jid" 2>/dev/null | grep -oE 'JobState=[A-Z_]+' | cut -d= -f2)
-      rs=$(scontrol show job "$jid" 2>/dev/null | grep -oE 'Reason=[A-Za-z]+' | cut -d= -f2)
+      st=$(_sc show job "$jid" 2>/dev/null | grep -oE 'JobState=[A-Z_]+' | cut -d= -f2)
+      rs=$(_sc show job "$jid" 2>/dev/null | grep -oE 'Reason=[A-Za-z]+' | cut -d= -f2)
       if [ "$st" = RUNNING ]; then
         # --gres does fence the pair, but two engines can submit in the same
         # instant, before either holder exists to be seen. Lower job id keeps it
@@ -347,9 +345,6 @@ _hold_pair() {
       case "$st" in NODE_FAIL | FAILED | CANCELLED) break ;; esac
       sleep 5; waited=$((waited + 5))
     done
-    # Read the reason BEFORE cancelling; the burst QoS is the way past a group
-    # node limit, and a launch failure is Spur being flaky — both just retry.
-    [ "${#_HOLD_QOS[@]}" -eq 0 ] && [ "${rs#QOSGrp}" != "$rs" ] && _HOLD_QOS=(-q "$QOS_FALLBACK")
     scancel "$jid" >/dev/null 2>&1
     echo "[e2e disagg] hold attempt $i on $pair not started (${st:-?}/${rs:-?}) — retrying" >&2
   done
@@ -368,10 +363,10 @@ _amd_gpu_count() {
 _local_eligible() { [ "$(_amd_gpu_count)" -ge 8 ] && command -v docker >/dev/null 2>&1; }
 
 # Spill helper (Spur has no srun --immediate): free count, -1 if the reservation
-# is gone/expired, -2 if scontrol is unavailable, -3 if the query itself failed.
+# is gone/expired, -2 if no scheduler CLI, -3 if the query itself failed.
 _reservation_free() {
   local rname="$1" nodes n free=0
-  command -v scontrol >/dev/null 2>&1 || { echo -2; return; }
+  _have_sc || { echo -2; return; }
   nodes=$(_reservation_nodes "$rname") || { echo -3; return; }
   [ -n "$nodes" ] || { echo -1; return; }
   for n in $nodes; do
@@ -389,10 +384,10 @@ _spill_inflight() {
 }
 
 # Report why the dispatch is still queued (a waiting job prints NOTHING, so a CI
-# run looks hung and gets cancelled), and cancel + flag the two waits the caller
-# can act on. $1=srun-out $2=hold-flag $3=qos-flag $4=label
+# run looks hung and gets cancelled), and cancel + flag the wait the caller can
+# act on. $1=srun-out $2=hold-flag $3=label
 _watch_job() {
-  local out="$1" hold="$2" qos="$3" label="$4" jid="" state reason waited=0
+  local out="$1" hold="$2" label="$3" jid="" state reason waited=0
   local every="${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}" next="${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}"
   while sleep 5; do
     waited=$((waited + 5))
@@ -412,11 +407,6 @@ _watch_job() {
       JobHoldMaxRequeue* | JobLaunchFailure*)
         printf '%s\n' "${reason%% (*}" > "$hold"; scancel "$jid" >/dev/null 2>&1; return ;;
     esac
-    # Timed, and armed only while the caller has somewhere to escape to: see
-    # QOS_WAIT, and $qwatch in _dispatch_slurm.
-    if [ -n "$qos" ] && [ "$waited" -ge "$QOS_WAIT" ]; then
-      : > "$qos"; scancel "$jid" >/dev/null 2>&1; return
-    fi
     if [ "$waited" -ge "$next" ]; then
       next=$((waited + every))
       echo "[$label] still QUEUED on SLURM after ${waited}s — job $jid, reason=${reason:-unknown}" >&2
@@ -450,44 +440,46 @@ _dispatch_slurm() {
 
   local prc=1 attempt=0 max_attempts=5 exclude="" ran
   local holdflag="$SCRATCH/.hold-$label" held=0 max_held="${INFERA_E2E_HOLD_MAX_RETRY:-30}"
-  local qosflag="$SCRATCH/.qos-$label" qos=()
   while [ "$attempt" -lt "$max_attempts" ]; do
     attempt=$((attempt + 1))
     local xflag=()
     [ -n "$exclude" ] && xflag=(-x "$exclude")
     # Use the reservation while it has free nodes; when full, spill to the open
-    # partition up to INFERA_E2E_SPILL_MAX borrowed nodes (else queue on it); if
-    # it is gone, drop --reservation (a stale one PENDs forever on Spur).
+    # partition up to INFERA_E2E_SPILL_MAX borrowed nodes (else queue on it).
+    # Anything else -- gone, or a query that could not answer -- drops
+    # --reservation and takes the partition's idle nodes: a stale reservation
+    # PENDs forever on Spur, so guessing wrong that way costs the whole run,
+    # while guessing wrong towards the open partition only loses the pinning.
     local resv=() jobname="infera-ci-${label}${INFERA_E2E_JOB_TAG:+-$INFERA_E2E_JOB_TAG}" mode="open"
     if [ -n "${INFERA_E2E_RESERVATION:-}" ]; then
       local rfree smax inflight
       rfree=$(_reservation_free "$INFERA_E2E_RESERVATION")
       smax="${INFERA_E2E_SPILL_MAX:-2}"
-      if [ "$rfree" = "-1" ]; then
-        echo "[$label] WARNING: reservation '$INFERA_E2E_RESERVATION' does not exist — falling back to open partition '$SLURM_PART'" >&2
-        mode="resv-gone->open"
-      elif [ "$rfree" != "0" ]; then
-        # free>0, or -2/-3 (cannot tell): keep the reservation. Only a query that
-        # answered may drop it -- reading a controller blink as "gone" is what
-        # sent a whole run to the open partition on 2026-08-06.
-        resv=(--reservation="$INFERA_E2E_RESERVATION"); mode="resv"
-      else
-        # A failed count must not authorise a spill: queue on the reservation.
-        if inflight=$(_spill_inflight) && [ "$smax" -gt 0 ] && [ "$inflight" -lt "$smax" ]; then
-          # spill marker sits before the run_id-engine suffix so ci.yml reclaim matches.
-          jobname="infera-ci-${label}-spill${INFERA_E2E_JOB_TAG:+-$INFERA_E2E_JOB_TAG}"
-          mode="spill($((inflight + 1))/$smax)"
-        else
-          resv=(--reservation="$INFERA_E2E_RESERVATION"); mode="resv-wait"
-        fi
-      fi
+      case "$rfree" in
+        -1)
+          echo "[$label] WARNING: reservation '$INFERA_E2E_RESERVATION' does not exist — falling back to open partition '$SLURM_PART'" >&2
+          mode="resv-gone->open" ;;
+        -2 | -3)
+          echo "[$label] WARNING: reservation '$INFERA_E2E_RESERVATION' could not be queried — falling back to open partition '$SLURM_PART'" >&2
+          mode="resv-unknown->open" ;;
+        0)
+          if inflight=$(_spill_inflight) && [ "$smax" -gt 0 ] && [ "$inflight" -lt "$smax" ]; then
+            # spill marker sits before the run_id-engine suffix so ci.yml reclaim matches.
+            jobname="infera-ci-${label}-spill${INFERA_E2E_JOB_TAG:+-$INFERA_E2E_JOB_TAG}"
+            mode="spill($((inflight + 1))/$smax)"
+          else
+            resv=(--reservation="$INFERA_E2E_RESERVATION"); mode="resv-wait"
+          fi ;;
+        *)
+          resv=(--reservation="$INFERA_E2E_RESERVATION"); mode="resv" ;;
+      esac
     fi
     echo "[$label] dispatch $attempt/$max_attempts to '$SLURM_PART' mode=$mode${exclude:+ exclude=$exclude} (remote: $*)"
     echo "[$label] submitted to SLURM — the job now QUEUES until the scheduler frees a node," \
          "which can take a while on a busy cluster. Nothing prints until it starts;" \
          "queue status follows every ${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}s."
     echo "[$label] streaming remote output below (live via $tailf):"
-    : > "$out"; [ -n "$logf" ] && : > "$logf"; rm -f "$holdflag" "$qosflag"
+    : > "$out"; [ -n "$logf" ] && : > "$logf"; rm -f "$holdflag"
     # -F follows by name + retries, tolerating the remote truncating on open.
     stdbuf -oL tail -n +1 -F "$tailf" 2>/dev/null &
     local tailpid=$!
@@ -500,13 +492,10 @@ _dispatch_slurm() {
     # job; `wait` is interrupted by the signal so the trap runs promptly.
     INFERA_E2E_LOCAL=1 \
       srun -N1 -p "$SLURM_PART" --gres=gpu:8 -t "$SLURM_TIME" \
-        -J "$jobname" "${xflag[@]}" "${resv[@]}" "${qos[@]}" \
+        -J "$jobname" "${xflag[@]}" "${resv[@]}" \
         "${remote[@]}" > "$out" 2>&1 &
     local srunpid=$!
-    # Empty once switched: burst is where the escape leads, so queueing there is
-    # just queueing and the job timeout is the backstop.
-    local qwatch="$qosflag"; [ "${#qos[@]}" -gt 0 ] && qwatch=""
-    _watch_job "$out" "$holdflag" "$qwatch" "$label" &
+    _watch_job "$out" "$holdflag" "$label" &
     local holdpid=$!
     wait "$srunpid"; prc=$?
     kill "$holdpid" 2>/dev/null; wait "$holdpid" 2>/dev/null
@@ -524,14 +513,6 @@ _dispatch_slurm() {
       fi
       echo "[$label] job ${why:-held} — cancelled, retry $held/$max_held in 5s" >&2
       attempt=$((attempt - 1)); sleep 5; continue
-    fi
-    # Still queued after $QOS_WAIT: the watchdog cancelled it — resubmit on the
-    # burst QoS, not spending a real attempt.
-    if [ -f "$qosflag" ]; then
-      prc=1
-      qos=(--qos="$QOS_FALLBACK")
-      echo "[$label] queued ${QOS_WAIT}s on the default QoS — resubmitting with --qos=$QOS_FALLBACK" >&2
-      attempt=$((attempt - 1)); continue
     fi
     # Docker errors land in $logf (shared) or $out (local); "running on <node>"
     # is always an srun banner in $out.
@@ -708,12 +689,14 @@ run_e2e_disagg() {
   fi
 
   # An expired reservation is worse than none — every step's `srun --reservation`
-  # would fail. Drop it, as _dispatch_slurm does for the mixed tier, but only on
-  # a query that answered: a failed one says nothing about the pool.
+  # would fail. Drop it, as _dispatch_slurm does for the mixed tier, and drop it
+  # on an unanswered query too: keeping it there left _candidate_nodes with
+  # nothing to offer and the tier waiting out its whole timeout.
   local resv_nodes
   if [ -n "${INFERA_E2E_RESERVATION:-}" ]; then
     if ! resv_nodes=$(_reservation_nodes "$INFERA_E2E_RESERVATION"); then
-      echo "[e2e disagg] WARNING: cannot reach the scheduler to check reservation '$INFERA_E2E_RESERVATION' — keeping it" >&2
+      echo "[e2e disagg] WARNING: reservation '$INFERA_E2E_RESERVATION' could not be queried — falling back to open partition '$SLURM_PART'" >&2
+      unset INFERA_E2E_RESERVATION
     elif [ -z "$resv_nodes" ]; then
       echo "[e2e disagg] WARNING: reservation '$INFERA_E2E_RESERVATION' does not exist — falling back to open partition '$SLURM_PART'" >&2
       unset INFERA_E2E_RESERVATION
@@ -794,11 +777,13 @@ run_e2e_disagg() {
 # a nearly full /home, and a hard exit here would cost a whole CI run to find out.
 _e2e_preflight() {
   local avail resv_nodes
-  if [ -n "${INFERA_E2E_RESERVATION:-}" ] && command -v scontrol >/dev/null 2>&1; then
-    if ! resv_nodes=$(_reservation_nodes "$INFERA_E2E_RESERVATION"); then
+  if [ -n "${INFERA_E2E_RESERVATION:-}" ]; then
+    if ! _have_sc; then
+      echo "[e2e] ERROR: no scheduler CLI to check reservation '$INFERA_E2E_RESERVATION' — the tiers will use the open partition" >&2
+    elif ! resv_nodes=$(_reservation_nodes "$INFERA_E2E_RESERVATION"); then
       # This line used to say "does not exist" for an unreachable controller too,
       # which sent triage looking for a deleted reservation.
-      echo "[e2e] ERROR: cannot reach the scheduler to check reservation '$INFERA_E2E_RESERVATION' (scontrol failed)" >&2
+      echo "[e2e] ERROR: cannot reach the scheduler to check reservation '$INFERA_E2E_RESERVATION' (query failed)" >&2
     elif [ -z "$resv_nodes" ]; then
       echo "[e2e] ERROR: reservation '$INFERA_E2E_RESERVATION' does not exist (gone or expired)" >&2
     fi
