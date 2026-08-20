@@ -1,7 +1,7 @@
 [project]
 name = "agent-sys-helper"
 version = "0.1.0"
-description = "Agent work-system environment manager (env_mgr) and helpers"
+description = "Agent work system: environment manager (env_mgr) and task graph (task_graph)"
 readme = "README.md"
 authors = [
     { name = "yihou", email = "yihou@amd.com" }
@@ -10,6 +10,7 @@ requires-python = ">=3.10"
 dependencies = [
     "pyyaml>=6",
     "packaging>=23",
+    "pydantic>=2",  # task_graph only; the repository already installs it via fastapi
 ]
 
 [project.optional-dependencies]
@@ -27,7 +28,16 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = [".", "src"]
-include = ["env_mgr*", "agent_sys_helper*"]
+include = ["env_mgr*", "task_graph*", "agent_sys_helper*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+# Inherits the repository's ruff settings; adds only what is local to agent_sys.
+[tool.ruff]
+extend = "../pyproject.toml"
+
+[tool.ruff.lint.isort]
+# Neither package is in the repository's `packages.find include = ["infera*"]`,
+# so ruff cannot infer that they are first-party.
+known-first-party = ["env_mgr", "task_graph"]
