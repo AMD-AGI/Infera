@@ -279,9 +279,20 @@ class Scheduler:
         return all(handoff_mgr.check_if_latest_valid(hid) for hid in task.inputs)
 
     def _release(self, task: Task, usage: dict[str, float] | None) -> None:
+        """Give every lease back. One pool failing must not strand the rest.
+
+        The task is finishing either way — the run is over and the scheduler
+        cannot un-finish it. Letting an exception escape here would leave the
+        task `RUNNING` with an open execution record and its *other* leases
+        still held, recoverable only by a restart. Failing loudly per pool and
+        continuing is strictly better.
+        """
         for name, amount in task.resources.items():
             actual = None if usage is None else usage.get(name)
-            self._r.get(f"resource:{name}").give_back(amount, actual)
+            try:
+                self._r.get(f"resource:{name}").give_back(amount, actual)
+            except Exception:
+                log.exception("%s: could not release %s of %r", task.id, amount, name)
 
     def _snapshot(self) -> dict[str, float]:
         return {pool.name: pool.available for pool in self._r.resolve("resource:*")}

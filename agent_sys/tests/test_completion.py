@@ -200,3 +200,29 @@ def test_an_output_left_generating_does_not_satisfy_a_consumer(
 
     assert not handoff_mgr.check_if_latest_valid(producer.outputs[0])
     assert task_mgr.get(consumer.id).status is TaskStatus.WAITING_HANDOFF
+
+
+def test_one_pool_failing_to_release_does_not_strand_the_task(scheduler, runner, registry, caplog):
+    """The run is over and cannot be un-finished. An exception escaping the
+    release would leave the task RUNNING with an open execution record and its
+    other leases held — recoverable only by a restart."""
+
+    class WedgedPool:
+        name = "gpu"
+        available = 0.0
+
+        def give_back(self, amount, actual=None):
+            raise RuntimeError("pool wedged")
+
+    task = make_task(resources={"gpu": 2, "token": 100})
+    scheduler.submit(task)
+    registry.register("resource:gpu", WedgedPool())
+
+    with caplog.at_level("ERROR"):
+        runner.finish(task.id, usage={"token": 40})
+
+    finished = registry.get("task_mgr").get(task.id)
+    assert finished.status is TaskStatus.SUCCEEDED
+    assert not finished.is_running
+    assert token(registry).available == 1_000_000 - 40  # the healthy pool settled
+    assert "could not release" in caplog.text

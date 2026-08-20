@@ -152,7 +152,9 @@ def test_a_consumable_persists_only_on_settlement():
     assert store.read("resource", "token") is None
 
     p.give_back(400, actual=300)
-    assert store.read("resource", "token") == {"name": "token", "available": 700.0}
+    record = store.read("resource", "token")
+    assert record["name"] == "token"
+    assert record["spent"] == 300.0  # `spent` is the record; `available` is a comment
 
 
 def test_a_consumable_balance_survives_a_rebuild():
@@ -216,3 +218,52 @@ def test_gpu_is_renewable_and_token_is_consumable():
     token.take(100)
     token.give_back(100, actual=40)
     assert token.available == 1_000_000 - 40
+
+
+def test_an_outstanding_reservation_is_not_baked_into_the_record():
+    """Criterion 33, the case that matters. `available` at settlement time is
+    net of every *other* live reservation, so persisting it would make those
+    leases durable — and they are supposed to die with the process."""
+    store = MemoryStoreMgr()
+    p = pool(ConsumableMgr, 1000, name="token", store=store)
+
+    p.take(400)  # A: still running, never settles
+    p.take(500)  # B: settles at 300
+    p.give_back(500, actual=300)
+
+    assert p.available == 300  # live: 1000 - 400 (A's lease) - 300 (B's spend)
+    assert store.read("resource", "token")["spent"] == 300.0
+
+    fresh = pool(ConsumableMgr, 1000, name="token", store=store)
+    fresh.resume_system()
+    assert fresh.available == 700  # only B's spend survived, not A's lease
+    assert fresh.spent == 300
+
+
+def test_the_overcharge_does_not_compound_across_restarts():
+    """Each restart must charge for spend only. If a lease leaked into the
+    record, the same reservation would be paid for twice — once as a phantom
+    and once for real when the demoted task re-runs."""
+    store = MemoryStoreMgr()
+    for _ in range(3):
+        p = pool(ConsumableMgr, 10_000, name="token", store=store)
+        p.resume_system()
+        p.take(400)  # interrupted every time, never settled
+        p.take(100)
+        p.give_back(100, actual=100)
+
+    fresh = pool(ConsumableMgr, 10_000, name="token", store=store)
+    fresh.resume_system()
+    assert fresh.spent == 300  # three settled hundreds
+    assert fresh.available == 9_700  # and not a token less
+
+
+def test_spent_and_available_are_complements_after_a_resume():
+    store = MemoryStoreMgr()
+    p = pool(ConsumableMgr, 1000, name="token", store=store)
+    p.take(250)
+    p.give_back(250, actual=250)
+
+    fresh = pool(ConsumableMgr, 1000, name="token", store=store)
+    fresh.resume_system()
+    assert fresh.spent + fresh.available == fresh.capacity

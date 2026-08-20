@@ -171,7 +171,11 @@ def test_resuming_over_an_abandoned_generating_version_appends(
     scheduler, handoff_mgr, task_mgr, runner, registry
 ):
     """Criterion 20's other half: the abandoned version is not reused, so the
-    record still shows that an attempt was made and left unfinished."""
+    record still shows that an attempt was made and left unfinished.
+
+    NOTE the seal below. This test drives the case where *something* closes the
+    abandoned version off; it does NOT cover a crash, where nobody is alive to
+    make that call — see `test_recovery.py`'s deadlock test and design §14 O10."""
     (hid,) = new_handoffs(1)
     task = make_task(outputs=[hid])
     scheduler.submit(task)

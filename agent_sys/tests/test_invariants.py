@@ -5,14 +5,16 @@ index cannot disagree with the TaskMgr. This drives a long sequence of
 operations and re-checks after every one.
 """
 
+import logging
 import random
 
 from agent_sys.models import TaskStatus
+from agent_sys.resource import RenewableMgr
 
 from .conftest import make_task, new_handoffs, rebuild
 
 
-def check(scheduler, task_mgr) -> None:
+def check(scheduler, task_mgr, registry=None) -> None:
     tasks = task_mgr.all()
     indexed = set().union(*scheduler.pools.values()) if scheduler.pools else set()
 
@@ -24,18 +26,51 @@ def check(scheduler, task_mgr) -> None:
     seen = [tid for pool in scheduler.pools.values() for tid in pool]
     assert len(seen) == len(set(seen)), "a task is in two pools at once"
 
+    if registry is None:
+        return
+    # Resource conservation. A renewable pool's free capacity plus every live
+    # reservation must equal its total: this is what catches a leaked or
+    # double-booked lease, which the pool/status correspondence alone cannot see.
+    for pool_mgr in registry.resolve("resource:*"):
+        if not isinstance(pool_mgr, RenewableMgr):
+            continue  # a consumable legitimately shrinks as spend accrues
+        reserved = sum(
+            t.resources.get(pool_mgr.name, 0.0)
+            for t in tasks
+            if t.status in (TaskStatus.RUNNING, TaskStatus.STOPPING)
+        )
+        assert pool_mgr.available + reserved == pool_mgr.capacity, (
+            f"{pool_mgr.name}: {pool_mgr.available} free + {reserved} reserved "
+            f"!= {pool_mgr.capacity}"
+        )
 
-def test_the_invariant_holds_through_a_long_mixed_sequence(scheduler, task_mgr, runner, registry):
+
+def test_the_invariant_holds_through_a_long_mixed_sequence(
+    scheduler, task_mgr, runner, registry, caplog
+):
     """A fixed sequence — deterministic, so a failure is reproducible."""
+    # A spec whose agent cannot be built: the launch fails after the lease is
+    # taken, which is the path that exercises resource conservation.
+    registry.get("agent_mgr").register("doomed")
+    real_instantiate = registry.get("agent_mgr").instantiate
+
+    def instantiate(spec, task_id):
+        if spec == "doomed":
+            raise RuntimeError("agent factory down")
+        return real_instantiate(spec, task_id)
+
+    registry.get("agent_mgr").instantiate = instantiate
+    caplog.set_level(logging.CRITICAL, logger="agent_sys.scheduler")  # the failures are expected
+
     rng = random.Random(20260820)
     (shared,) = new_handoffs(1)
     live: list = []
     performed: list[str] = []
 
-    check(scheduler, task_mgr)
+    check(scheduler, task_mgr, registry)
 
     for _ in range(200):
-        choice = rng.randrange(7)
+        choice = rng.randrange(8)
 
         if choice == 0:
             task = make_task(
@@ -46,6 +81,15 @@ def test_the_invariant_holds_through_a_long_mixed_sequence(scheduler, task_mgr, 
             scheduler.submit(task)
             live.append(task.id)
             performed.append("submit")
+
+        elif choice == 7:
+            # A launch that fails after the lease is taken. Without this the
+            # conservation half of `check` is never exercised, and a leaked
+            # lease would pass the whole sequence.
+            doomed = make_task(spec="doomed", resources={"gpu": rng.choice([1, 4])})
+            scheduler.submit(doomed)
+            live.append(doomed.id)
+            performed.append("failed-launch")
 
         elif choice == 1 and live:
             tid = rng.choice(live)
@@ -97,12 +141,19 @@ def test_the_invariant_holds_through_a_long_mixed_sequence(scheduler, task_mgr, 
                 scheduler.update_task(tid, resources={"gpu": rng.choice([0, 2])})
                 performed.append("update")
 
-        check(scheduler, task_mgr)
+        check(scheduler, task_mgr, registry)
 
     # The sequence is only meaningful if it actually reached every operation.
-    assert set(performed) == {"submit", "remove", "finish", "stop", "ack", "resume", "update"}, (
-        sorted(set(performed))
-    )
+    assert set(performed) == {
+        "submit",
+        "remove",
+        "finish",
+        "stop",
+        "ack",
+        "resume",
+        "update",
+        "failed-launch",
+    }, sorted(set(performed))
 
 
 def test_no_resource_leaks_after_everything_settles(scheduler, task_mgr, runner, registry):
@@ -117,7 +168,7 @@ def test_no_resource_leaks_after_everything_settles(scheduler, task_mgr, runner,
 
     assert registry.get("resource:gpu").available == 8
     assert not scheduler.pools[TaskStatus.RUNNING]
-    check(scheduler, task_mgr)
+    check(scheduler, task_mgr, registry)
 
 
 def test_a_queued_task_never_holds_a_resource(scheduler, task_mgr, registry):
@@ -143,7 +194,7 @@ def test_the_invariant_survives_a_restart(scheduler, task_mgr, runner, registry,
 
     resume_all(fresh)
 
-    check(fresh.get("scheduler"), fresh.get("task_mgr"))
+    check(fresh.get("scheduler"), fresh.get("task_mgr"), fresh)
     assert len(fresh.get("task_mgr").all()) == 5
 
 

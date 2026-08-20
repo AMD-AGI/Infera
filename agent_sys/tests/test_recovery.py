@@ -8,7 +8,7 @@ handoffs again.
 import pytest
 
 from agent_sys.bootstrap import build_registry
-from agent_sys.models import HandoffStatus, TaskStatus
+from agent_sys.models import HandoffStateError, HandoffStatus, TaskStatus
 from agent_sys.registry import RESUME_ORDER, Registry, resume_all
 from agent_sys.store import JsonFileStoreMgr
 
@@ -330,8 +330,8 @@ def test_a_second_restart_is_idempotent(scheduler, runner, store, registry):
     second = rebuild(store)
     resume_all(second)
 
-    for name in ("task", "handoff", "agent"):
-        assert len(store.read_all(name)) == len(store.read_all(name))
+    for name, expected in (("task", 1), ("handoff", 1), ("agent", 1)):
+        assert len(store.read_all(name)) == expected, name
     assert second.get("task_mgr").get(task.id).status is TaskStatus.SUCCEEDED
     assert len(second.get("task_mgr").get(task.id).history) == 1
 
@@ -385,3 +385,33 @@ def test_a_spec_removed_before_a_restart_does_not_take_recovery_down_with_it(sch
     assert statuses.count(TaskStatus.RUNNING) == 1
     assert len(fresh.get("runner").started) == 1  # the healthy one still ran
     assert fresh.get("resource:gpu").available == 7  # only its lease is held
+
+
+def test_a_version_left_generating_by_a_crash_deadlocks_its_own_retry(
+    scheduler, runner, store, registry, handoff_mgr, task_mgr
+):
+    """Design open question O10 — a real gap, asserted as it currently behaves.
+
+    Spec §6.4 requires that a GENERATING version is not re-derived by recovery,
+    and it is not. But `open_next` refuses a slot that is already open, and
+    nothing seals the abandoned one: the agent that opened it is dead, and the
+    scheduler is forbidden from writing handoff state. So the task is demoted,
+    re-dispatched, and its new agent cannot write its own output.
+
+    This is asserted rather than fixed because the fix changes the state
+    machine — `open_next` would need an "adopt an abandoned version" path, and
+    that decision belongs in the spec.
+    """
+    task = make_task(outputs=new_handoffs(1))
+    scheduler.submit(task)
+    handoff_mgr.get(task.outputs[0]).open_next(task.id, task_mgr.get(task.id).current.agent_id)
+    handoff_mgr.persist(task.outputs[0])  # ...and the process dies here
+
+    fresh = rebuild(store)
+    resume_all(fresh)
+
+    assert fresh.get("handoff_mgr").get(task.outputs[0]).latest.status is (HandoffStatus.GENERATING)
+    assert fresh.get("task_mgr").get(task.id).status is TaskStatus.RUNNING
+
+    with pytest.raises(HandoffStateError):
+        fresh.get("runner").produce(fresh, task.id)

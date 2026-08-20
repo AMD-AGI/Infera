@@ -73,26 +73,42 @@ class RenewableMgr(ResourceMgr):
 
 
 class ConsumableMgr(ResourceMgr):
-    """A token budget: reserved, then settled at what was actually spent."""
+    """A token budget: reserved, then settled at what was actually spent.
+
+    Two quantities, and the distinction is the whole design. ``available`` is
+    live and includes every outstanding *reservation*; ``spent`` is the running
+    total of what was actually consumed. Only ``spent`` is durable — a
+    reservation is a lease that dies with its process, so persisting
+    ``available`` would bake every in-flight lease into the record and charge
+    for it again on the next run.
+    """
+
+    def __init__(self, registry: Registry, name: str, capacity: float) -> None:
+        super().__init__(registry, name, capacity)
+        self.spent = 0.0
 
     def give_back(self, amount: float, actual: float | None = None) -> None:
         self._check(amount)
         spent = amount if actual is None else min(max(actual, 0.0), amount)
         self.available = min(self.capacity, self.available + (amount - spent))
-        # Only here, never in `take`: a reservation is a lease and dies with its
-        # process; a settlement is spend and must not be un-spent.
+        self.spent = min(self.capacity, self.spent + spent)
+        # Only here, never in `take`: a settlement is spend and must not be
+        # un-spent, while a reservation must never become durable.
         self._persist()
 
     def resume_system(self) -> None:
         record = self._r.get("store_mgr").read(KIND, self.name)
-        if record is not None:
-            self.available = float(record["available"])
-        else:
-            self.available = self.capacity  # first run
+        self.spent = float(record["spent"]) if record is not None else 0.0
+        # Nothing is reserved after a restart, so available is exactly what has
+        # not been spent.
+        self.available = self.capacity - self.spent
 
     def _persist(self) -> None:
         store = self._r.get("store_mgr")
-        record = {"name": self.name, "available": self.available}
+        # `spent` is the record. `available` is written for a human reading the
+        # file with `cat` and is NOT read back — at this instant it still nets
+        # out every in-flight reservation.
+        record = {"name": self.name, "spent": self.spent, "available": self.available}
         if store.exists(KIND, self.name):
             store.update(KIND, self.name, record)
         else:
