@@ -367,6 +367,10 @@ Requirements:
 - **Missing registration fails loudly.** `get()` on an unregistered name raises
   immediately with the name in the message. A silent `None` would surface far
   from its cause.
+- **`resolve(pattern)` handles the one-to-many case.** `resource:*` expands to
+  every registered pool, in registration order. This exists because recovery
+  (§6.4) and dispatch both need "all resource managers" and neither should hold a
+  hard-coded list of pool names.
 
 The trade-off is accepted deliberately: the registry makes dependencies implicit
 at the call site rather than visible in a constructor signature. The mitigations
@@ -429,7 +433,20 @@ All of the following are registered in the `Registry` (§4.1) and resolved by na
 # ---- registry ----
 class Registry:
     def register(self, name: str, component: Any) -> None: ...
-    def get(self, name: str) -> Any: ...          # raises KeyError if absent
+    def get(self, name: str) -> Any: ...          # exact; raises KeyError if absent
+    def resolve(self, pattern: str) -> list[Any]:  # "resource:*" -> every pool (§6.4)
+        ...
+
+# ---- recovery ----  (§6.4)
+@runtime_checkable
+class Resumable(Protocol):
+    def resume(self) -> None: ...
+    # Implemented by HandoffMgr, TaskMgr, ResourceMgr, Scheduler.
+    # Not implemented by AgentMgr, SchedulePolicy, StoreMgr — they hold no state.
+
+RESUME_ORDER = ["handoff_mgr", "task_mgr", "resource:*", "scheduler"]
+
+def resume_all(registry: Registry) -> None: ...
 
 # ---- store ----  (registered as "store_mgr", see §4.2)
 class StoreMgr(Protocol):
@@ -447,7 +464,7 @@ class HandoffMgr:
     def latest_version(self, uuid: str) -> int | None:
         """For pinning into an Execution record (§3.2)."""
     def get(self, uuid: str) -> Handoff: ...
-    def restore(self) -> None:
+    def resume(self) -> None:
         """Reload handoffs and versions from the store, at startup (§6.4)."""
 
 # Called by the AGENT, through its runner (write). Each of these persists:
@@ -499,7 +516,7 @@ interface: the scheduler calls only the first group, agents only the second.
 | `update_task(tid, ...)` | Sugar: remove and re-submit under the same id, with new inputs/outputs/resources | Task not queued |
 | `on_task_done(tid, result)` | Release resources; close the execution record; dispatch | Task not `RUNNING` |
 | `on_stopped(tid)` | `STOPPING → SUSPENDED`; release resources | Task not `STOPPING` |
-| `resume_system()` | Rebuild all state from the store | — |
+| `resume()` | Rebuild the pool index from task status; demote interrupted runs. Called by `resume_all`, last (§6.4) | — |
 | `try_dispatch()` | Grant resources and start tasks, as capacity allows | — |
 
 `stop()` records intent and delegates; `on_stopped()` completes the transition
@@ -615,55 +632,109 @@ deliberate: the system does not cancel them, and does not pretend to.
 
 ### 6.4 Recovery
 
+Recovery is not one component's job. Rebuilding handoff versions, task state,
+resource pools, and the scheduler's index are four different reconstructions, and
+`Scheduler.resume_system()` doing all four would put a component in charge of
+state it does not own (§2, principle 3).
+
+**Each component restores itself.** A separate `resume_all` sequences them.
+
+```python
+class Resumable(Protocol):
+    def resume(self) -> None:
+        """Rebuild this component's own state from whatever it persisted."""
 ```
-resume_system()
-  ├─ tasks = store_mgr.load_all("task")
-  ├─ handoff_mgr.restore()            ← see below
-  ├─ RUNNING → WAITING_RESOURCE       (leases do not survive a restart)
-  ├─ STOPPING → SUSPENDED
-  ├─ close a dangling stack top (ended_at unset) as interrupted
-  ├─ reset every resource pool to full capacity
+
+Components with nothing to restore — `AgentMgr`, `SchedulePolicy`, `StoreMgr`
+itself — simply do not implement it. Not implementing `Resumable` is the
+declaration that a component is stateless; an empty `resume()` would be
+indistinguishable from one somebody forgot to write.
+
+#### Order matters
+
+The sequence is a real dependency, not a convention:
+
+| # | Component | Restores | Depends on |
+|---|---|---|---|
+| 1 | `HandoffMgr` | handoffs and their versions | nothing |
+| 2 | `TaskMgr` | tasks and their execution stacks | nothing |
+| 3 | `ResourceMgr` (each) | pools to full capacity — no lease survives a restart | nothing |
+| 4 | `Scheduler` | its pool index; demotes interrupted runs | 1, 2, 3 |
+
+The scheduler is last because everything it rebuilds is derived: its index is a
+projection of task status (§4.4), and the eligibility it recomputes reads handoff
+versions (§3.2). Restoring it against an empty `HandoffMgr` would classify every
+waiting task as blocked and then never re-check, because nothing would have
+changed to trigger a decision point.
+
+1 through 3 are mutually independent, so the order among them is free; only
+"scheduler last" is load-bearing.
+
+```python
+RESUME_ORDER = ["handoff_mgr", "task_mgr", "resource:*", "scheduler"]
+
+def resume_all(registry) -> None:
+    for pattern in RESUME_ORDER:                    # declared, not discovered
+        for component in registry.resolve(pattern): # "resource:*" expands to every pool
+            if isinstance(component, Resumable):
+                component.resume()
+```
+
+`Registry.resolve(pattern)` returns one component for a plain name and all
+matching ones for a `prefix:*` pattern, in registration order. It is the only
+place a wildcard is honoured; `get()` stays exact.
+
+`Resumable` must be `@runtime_checkable` for that `isinstance` to work — it is a
+Protocol, and an unmarked one raises at runtime rather than returning `False`.
+
+The order is declared rather than inferred. Inferring it would mean a dependency
+graph among managers, which is exactly the machinery the registry exists to avoid;
+a four-entry list that fails loudly when a name is missing is the smaller thing.
+
+#### What each restore does
+
+```
+HandoffMgr.resume()
+  └─ load handoffs and versions. A version left GENERATING stays GENERATING:
+     its agent is gone and will never seal it, so check_if_latest_valid remains
+     false and consumers stay blocked — the same outcome as the crash case in §6.3
+
+TaskMgr.resume()
+  └─ load tasks with their execution stacks. A dangling stack top (ended_at
+     unset) is closed as interrupted
+
+ResourceMgr.resume()
+  └─ reset to full capacity. Leases do not survive a restart, so nothing is held
+
+Scheduler.resume()
+  ├─ rebuild the pool index from each task's stored status
+  ├─ RUNNING  → WAITING_RESOURCE      (its lease is gone)
+  ├─ STOPPING → SUSPENDED             (the runner it was waiting on is gone)
   └─ try_dispatch()                   # eligibility is recomputed, never restored
 ```
 
 Eligibility needs no reconstruction: it is a query, so recovery only has to
 ensure the handoff versions the query reads are present.
 
-#### Handoffs persist themselves
+`resume_all` is the whole-system entry point. `Scheduler.resume_system()` no
+longer exists; calling one component's resume without the others is a partial
+recovery and the API should not offer it.
 
-`HandoffMgr` owns handoff persistence. The reason is not a crash window — it is
-that **the information is not present anywhere else.**
+#### Why handoffs persist themselves
+
+`HandoffMgr` restores from its own records, not from task records. The reason is
+not a crash window — it is that **the information is nowhere else.**
 
 `ok` and a version's verdict are independent facts (§6.3): an agent may finish
 cleanly and still seal its output `INVALID`. A task record carries only `ok`.
 Rebuilding handoff state from task records would therefore mean guessing
 `ok=True → VALID`, which is wrong in exactly the case §6.3 describes — not
-because of restart timing, but because the verdict was never written down there
-at all. Guessing it would also be the inference §3.1 exists to prevent.
+because of restart timing, but because the verdict was never written there at
+all. Guessing it would also be the inference §3.1 exists to prevent.
 
 Two further gaps: a handoff supplied externally has no producing task to replay,
 and a version abandoned mid-write by a crashed agent appears in no completed
 execution record.
-
-So `HandoffMgr` persists what it owns, symmetrically with `TaskMgr`:
-
-```python
-class HandoffMgr:
-    def restore(self) -> None:
-        """Reload handoffs and their versions from the store."""
-```
-
-It writes through on `declare`, `new_version`, and `record` — the same
-write-through discipline as §7 — using the same `store_mgr` under a separate key
-space. This costs one more persisted record type and removes an impossible
-reconstruction.
-
-A version left `GENERATING` across a restart stays `GENERATING`. Its agent is gone
-and will never seal it, so `check_if_latest_valid` stays false and consumers stay
-blocked — correct, and the same outcome as the crash case in §6.3. Resuming the
-producing task appends a fresh version rather than adopting the abandoned one.
-
----
 
 ## 7. Persistence
 
@@ -775,7 +846,7 @@ The rationale is recorded in `agent_sys/README.md` as required by mission rule 3
 
 | Item | Status |
 |---|---|
-| Lease TTL and sweep | A runner that dies while `RUNNING` never reports done, and its resources leak until `resume_system()`. Deferred, not solved. A TTL plus a periodic sweep is the known fix. |
+| Lease TTL and sweep | A runner that dies while `RUNNING` never reports done, and its resources leak until the next `resume_all`. Deferred, not solved. A TTL plus a periodic sweep is the known fix. |
 | Handoff payload storage | §8.2. The interface is left open. |
 | Fairness across submitters | Naive FIFO lets one submitter monopolise a pool. A future `SchedulePolicy` keyed by submitter is the reference solution. |
 | Better ordering than FIFO | The composite rule from the prior art (priority tier → estimated cost → most-total-successors → FIFO) is a drop-in `SchedulePolicy`. Not built first. |
@@ -806,7 +877,7 @@ test:
 7. A failed task releases its resources and leaves its dependents in
    `WAITING_HANDOFF`; an output whose version the agent left `GENERATING` does not
    satisfy `check_if_latest_valid`.
-8. `resume_system()` reconstructs pools from persisted tasks and versions from
+8. `resume_all` reconstructs pools from persisted tasks and versions from
    persisted handoffs, with `RUNNING` and `STOPPING` tasks demoted to
    `WAITING_RESOURCE` and `SUSPENDED` respectively.
 9. `expedite` places a task ahead of earlier-submitted eligible tasks, and is
@@ -834,7 +905,7 @@ test:
 18. Execution history grows by exactly one entry per run, each carrying the bound
     `agent_uuid` and the pinned input/output versions.
 19. A handoff sealed `INVALID` before a restart is still `INVALID` after
-    `restore()`, and one left `GENERATING` is still `GENERATING` — neither is
+    `resume_all`, and one left `GENERATING` is still `GENERATING` — neither is
     re-derived from the producing run's `ok` flag (§6.4).
 20. Resuming a task whose previous run left a `GENERATING` version appends a new
     version rather than reusing the abandoned one.
@@ -847,3 +918,8 @@ test:
 23. `update_task` produces the same observable state as `remove_queued` followed
     by `submit` with the new arguments — verified by comparing against that
     sequence, not by re-asserting the outcome (§2, principle 7).
+24. `resume_all` calls `resume()` on every `Resumable` in the declared order and
+    skips components that do not implement it, with the scheduler last.
+25. Resuming the scheduler against a `HandoffMgr` that has not resumed yet leaves
+    every waiting task blocked — the failure the order exists to prevent, asserted
+    directly so the ordering constraint is tested rather than assumed.
