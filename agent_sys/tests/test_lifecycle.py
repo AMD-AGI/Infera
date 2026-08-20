@@ -296,3 +296,30 @@ def test_update_redeclares_outputs_without_destroying_written_versions(
     handoff = registry.get("handoff_mgr").get(hid)
     assert handoff.latest.content == "written"
     assert len(handoff.versions) == 1
+
+
+def test_a_rejected_update_leaves_the_task_where_it_was(scheduler, task_mgr):
+    """`update_task` is cancel-then-submit, so a submit that rejects would
+    otherwise silently destroy the very task it was asked to change."""
+    task = make_task(inputs=new_handoffs(1), resources={"gpu": 2})
+    scheduler.submit(task)
+
+    with pytest.raises(ValueError, match="tpu"):
+        scheduler.update_task(task.id, resources={"tpu": 1})
+
+    survivor = task_mgr.get(task.id)
+    assert survivor.status is TaskStatus.WAITING_HANDOFF
+    assert survivor.resources == {"gpu": 2}  # the old definition, unchanged
+    assert survivor.created_at == task.created_at  # and its place in the queue
+    assert task.id in scheduler.pools[TaskStatus.WAITING_HANDOFF]
+
+
+def test_a_rejected_update_does_not_mutate_the_stored_task(scheduler, store):
+    task = make_task(inputs=new_handoffs(1), resources={"gpu": 2})
+    scheduler.submit(task)
+
+    with pytest.raises(KeyError):
+        scheduler.update_task(task.id, agent_spec="nope")
+
+    assert store.read("task", str(task.id))["agent_spec"] == "profiler"
+    assert store.read("task", str(task.id))["status"] == "waiting_handoff"

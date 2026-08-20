@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Status | Implemented — `src/` and `tests/` follow this document |
-| Revision | 6 — 2026-08-20. Review findings: D10 (a launch that fails releases its lease) |
+| Revision | 6 — 2026-08-20. Review findings: D10 (a failed launch releases its lease), D11 (a rejected update rolls back) |
 | Implements | `docs/spec.md` rev. 6 |
 | Language | Python ≥ 3.10. Standard library plus pydantic v2 |
 
@@ -1186,6 +1186,7 @@ adopted them. They are now specification, not deviation.
 | D8 | "a dangling stack top is closed as interrupted" | `outcome = SUSPENDED`, `ended_at = now` | The spec does not name the outcome. `SUSPENDED` says the attempt was cut short rather than judged. |
 | D9 | `submit` validates resource **names** | also rejects an amount that is negative or non-finite, and `can_afford` returns `False` for a negative one | Found by review during implementation. A negative amount passes `can_afford`, so step 3's all-or-nothing check succeeds — and then `take` raises partway through step 3's loop, after earlier pools were already debited. That is precisely the partial reservation criterion 3 exists to make impossible. Rejecting at submit keeps a malformed task out of the dispatch loop entirely; the `can_afford` guard makes a pool safe regardless of who calls it. |
 | D10 | dispatch is "take, then bind, then start" | steps 3–4 are wrapped: a failure anywhere after `take` releases the whole reservation at `actual=0`, closes the half-open attempt, moves the task to `FAILED`, logs, and **does not re-raise** | Found by review. The lease is acquired before the agent is minted and before the runner is called, so an unknown spec, a downed agent factory, or an unreachable harness leaked it permanently — the same shape as D9, one step later. Two separate consequences needed fixing: the leak, and that the exception aborted the whole dispatch pass, so one bad task stopped every other queued task from ever starting. `FAILED` rather than back in the queue, because the next pass would retry it and fail identically forever; `resume_task` is the operator's move once the cause is fixed. This also keeps `resume_all` alive when the operator has removed a spec that persisted tasks still name. |
+| D11 | `update_task` is `remove_queued` + `submit` | if the `submit` rejects, the original is re-submitted before the error propagates | Found by review. The cancel has already happened by then, so a rejected update — an unknown pool name, an unregistered spec — left the task `CANCELLED` and gone: the call silently destroyed the thing it was asked to change. The rollback keeps criterion 23 intact, since the successful path is still literally those two calls. |
 
 ---
 

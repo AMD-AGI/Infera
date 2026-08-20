@@ -110,7 +110,7 @@ class Scheduler:
         resubmission" holds by construction rather than by assertion.
         """
         with self._lock:
-            old = self._r.get("task_mgr").get(tid)
+            old = self._r.get("task_mgr").get(tid).model_copy(deep=True)
             self.remove_queued(tid)
             # model_copy preserves created_at: an update does not cost a task
             # its place in FIFO order.
@@ -118,7 +118,15 @@ class Scheduler:
                 update={**fields, "status": TaskStatus.WAITING_HANDOFF, "history": []},
                 deep=True,
             )
-            self.submit(replacement)
+            try:
+                self.submit(replacement)
+            except Exception:
+                # The cancel already happened. Without this the task is simply
+                # gone — a rejected update would silently destroy the thing it
+                # was asked to change.
+                old.status = TaskStatus.WAITING_HANDOFF
+                self.submit(old)
+                raise
             return replacement
 
     # --------------------------------------------------------- runner callbacks
