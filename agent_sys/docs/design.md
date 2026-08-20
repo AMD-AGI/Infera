@@ -3,21 +3,26 @@
 | | |
 |---|---|
 | Status | Draft, pending review |
-| Revision | 2 — 2026-08-20. Code under `src/`; pydantic models; typed ids; behaviour on the objects |
-| Implements | `docs/spec.md` rev. 4 |
+| Revision | 3 — 2026-08-20. Handoff owns its versions; interfaces not bodies |
+| Implements | `docs/spec.md` rev. 5 |
 | Language | Python ≥ 3.10. Standard library plus pydantic v2 |
 
 ---
 
 ## 1. Scope
 
-This document turns `spec.md` into files, classes, and method bodies. It adds no
+This document turns `spec.md` into files, classes, and interfaces. It adds no
 requirements. Where it makes a choice the spec left open, the choice is stated
 here; where implementing the spec exposed a contradiction in it, §13 says so
 rather than papering over it.
 
-The spec's 29 acceptance criteria are the definition of done. §11 maps every one
+The spec's 31 acceptance criteria are the definition of done. §11 maps every one
 of them to a named test.
+
+**This document specifies interfaces, not bodies.** A method appears as a
+signature and a sentence of semantics; a body appears only where the ordering of
+steps *is* the design decision — which is `try_dispatch` (§8.3) and nothing
+else.
 
 The only runtime dependency is **pydantic v2**, which the repository already
 installs — `fastapi` pulls it. §10 records why, per module, as `mission.md`
@@ -37,7 +42,7 @@ agent_sys/
 │   └── agent_sys/         the importable package
 │       ├── __init__.py    re-exports the public names
 │       ├── ids.py         TaskId, AgentId, HandoffId
-│       ├── models.py      Handoff, Task, Execution, Agent, TaskOutcome + enums
+│       ├── models.py      Handoff, HandoffVersion, Task, Execution, Agent + enums
 │       ├── registry.py    Registry, Resumable, RESUME_ORDER, resume_all
 │       ├── store.py       StoreMgr Protocol, JsonFileStoreMgr, MemoryStoreMgr
 │       ├── handoff.py     HandoffMgr
@@ -208,51 +213,62 @@ These two exist because the guards in `remove_queued`, `update_task`, and
 `LIVE` or `FINAL` set: every other guard tests a single status, and a constant
 with one call site is worse than the literal.
 
-#### `Handoff` — one class, owning its transitions
+#### `Handoff` and `HandoffVersion`
+
+The handoff is the slot; the version is what fills it. The slot owns version
+bookkeeping, the version owns its own transition.
 
 ```python
-class Handoff(Model):
-    uuid: HandoffId                        # the slot; shared by every version
-    version: int = 0                       # (uuid, version) is this artefact
-    type: str = ""
+class HandoffVersion(Model):
+    version: int
     status: HandoffStatus = HandoffStatus.CREATED
-    produced_by: TaskId | None = None
-    produced_by_agent: AgentId | None = None
+    producer_task_id: TaskId | None = None
+    producer_agent_id: AgentId | None = None       # None until opened
     timestamp: datetime = Field(default_factory=_now)
     content: Any = None
 
     @property
-    def is_valid(self) -> bool:
-        return self.status is HandoffStatus.VALID
-
-    def open(self, agent_id: AgentId) -> None:
-        if self.status is not HandoffStatus.CREATED:
-            raise HandoffStateError(f"{self!r}: cannot open a {self.status.value} handoff")
-        self.status, self.produced_by_agent = HandoffStatus.GENERATING, agent_id
-        self.timestamp = _now()
+    def is_valid(self) -> bool: ...                # status is VALID
 
     def seal(self, status: HandoffStatus, content: Any = None) -> None:
-        if self.status is not HandoffStatus.GENERATING:
-            raise HandoffStateError(f"{self!r}: cannot seal a {self.status.value} handoff")
-        if status not in (HandoffStatus.VALID, HandoffStatus.INVALID):
-            raise HandoffStateError(f"a verdict must be VALID or INVALID, got {status}")
-        self.status, self.content = status, content
+        """GENERATING -> VALID | INVALID.
+        Raises HandoffStateError unless currently GENERATING, and unless
+        `status` is one of the two verdicts."""
 
-    def successor(self, agent_id: AgentId) -> "Handoff":
-        return Handoff(uuid=self.uuid, version=self.version + 1, type=self.type,
-                       status=HandoffStatus.GENERATING, produced_by=self.produced_by,
-                       produced_by_agent=agent_id)
+class Handoff(Model):
+    id: HandoffId
+    type: str = ""
+    versions: list[HandoffVersion]                 # index == version; never empty
+
+    @property
+    def latest(self) -> HandoffVersion: ...        # versions[-1]
+    @property
+    def is_latest_valid(self) -> bool: ...         # latest.is_valid
+    def get(self, version: int) -> HandoffVersion: ...
+
+    def open_next(self, task_id: TaskId, agent_id: AgentId) -> HandoffVersion:
+        """Hand an agent a version to write, GENERATING, and return it.
+        Adopts `latest` in place if it is still CREATED; otherwise appends
+        v+1. Raises if `latest` is GENERATING — someone else has it open."""
 ```
 
-The guards are the state machine. Criterion 26 tests them directly: seal a
-`CREATED` one, open a sealed one, seal twice — each raises. No caller can move a
-handoff illegally, because no caller is the one moving it.
+`open_next` is one verb where the previous revision had two (`open` for the first
+run, `successor` for a re-run). The caller says "I am about to write this" and
+does not have to know which case it is in. Two consequences fall out:
 
-`successor` returns `GENERATING`, not `CREATED`: a re-run version exists only
-because an agent started writing it. `CREATED` is reachable only through
-`declare`.
+- **Version numbers are contiguous structurally.** The list index *is* the
+  version, so nothing checks it. The previous design had `HandoffMgr.append`
+  validating `v == last.v + 1` — a rule that only existed because versions were
+  loose objects a caller assembled.
+- **`versions` is never empty.** `declare` creates v0, so `latest` needs no
+  `None` branch and neither does anything downstream of it.
 
-#### `Task` — same treatment
+The guards are the state machine, and criterion 26 tests them directly. Refusing
+`open_next` on a `GENERATING` latest is new: two agents writing one slot
+concurrently is a contradiction in the model, and it should raise rather than
+silently fork.
+
+#### `Task` and `Execution`
 
 ```python
 class Execution(Model):
@@ -263,16 +279,17 @@ class Execution(Model):
     started_at: datetime = Field(default_factory=_now)
     ended_at: datetime | None = None
     outcome: TaskStatus | None = None
+    detail: str = ""                               # from the runner; for a human
 
     @property
-    def is_open(self) -> bool:
-        return self.ended_at is None
+    def is_open(self) -> bool: ...                 # ended_at is None
 
 class Task(Model):
     id: TaskId = Field(default_factory=TaskId.new)
-    agent: str                                      # a NAME, resolved via AgentMgr
+    agent_spec: str                                # a SPEC NAME, not an agent
     inputs: list[HandoffId] = Field(default_factory=list)
     outputs: list[HandoffId] = Field(default_factory=list)
+    depends_on: list[TaskId] = Field(default_factory=list)      # the graph edge
     resources: dict[str, float] = Field(default_factory=dict)   # pool NAME -> amount
     status: TaskStatus = TaskStatus.WAITING_HANDOFF
     created_at: datetime = Field(default_factory=_now)
@@ -280,58 +297,57 @@ class Task(Model):
     history: list[Execution] = Field(default_factory=list)
 
     @property
-    def current(self) -> Execution | None:
-        return self.history[-1] if self.history else None
-
+    def current(self) -> Execution | None: ...     # history[-1], the live binding
     @property
-    def is_running(self) -> bool:
-        return self.current is not None and self.current.is_open
+    def is_running(self) -> bool: ...              # current is not None and current.is_open
 
-    def push_execution(self, agent_id: AgentId,
-                       input_versions: dict[HandoffId, int]) -> Execution:
-        if self.is_running:
-            raise TaskStateError(f"{self.id!r}: attempt {self.current.attempt} is still open")
-        self.history.append(Execution(attempt=len(self.history), agent_id=agent_id,
-                                      input_versions=input_versions))
-        return self.current
+    def push_execution(self, agent_id, input_versions) -> Execution:
+        """Bind an agent by appending an open record, attempt = len(history).
+        Raises TaskStateError if an attempt is already open."""
 
-    def close_execution(self, output_versions: dict[HandoffId, int],
-                        outcome: TaskStatus) -> None:
-        if not self.is_running:
-            raise TaskStateError(f"{self.id!r}: no open attempt to close")
-        self.current.output_versions = output_versions
-        self.current.ended_at, self.current.outcome = _now(), outcome
+    def close_execution(self, output_versions, outcome: TaskStatus,
+                        detail: str = "") -> None:
+        """Seal the stack top. Raises TaskStateError if none is open."""
 ```
 
 `push_execution` refusing to stack a second open attempt is what makes
-`is_running` trustworthy, and it is why `on_stopped` must close the record
-(spec §5.1) — otherwise the next `resume_task` would trip this guard.
+`is_running` trustworthy, and it is why `on_stopped` must close the record —
+otherwise the next `resume_task` trips this guard.
 
-`Task.agent` and the keys of `Task.resources` are the two `str`s that are
-genuinely names, not identities. Both resolve to singletons registered by name.
+`agent_spec` and the keys of `resources` are the two `str`s that are genuinely
+names. `agent_spec` says *spec* because `AgentMgr` holds two collections and this
+one names an entry in the spec table, not an `Agent`.
 
-#### The rest
+`depends_on` is read by nothing in this design. It is the graph, recorded for
+traversal, display, and analysis; the scheduler's dependency question stays
+`inputs` + `check_if_latest_valid`. Criterion 31 asserts both halves — that a
+topological sort works, and that blanking the field changes no scheduling
+behaviour.
+
+#### `Agent`
 
 ```python
+class HandoffRef(Model):
+    handoff_id: HandoffId
+    version: int
+
 class Agent(Model):
     id: AgentId = Field(default_factory=AgentId.new)
-    name: str
-    knowledge: Any = None                            # left empty per mission.md
+    spec: str                                      # which kind
+    task_id: TaskId | None = None                  # what it is bound to
+    handoffs: list[HandoffRef] = Field(default_factory=list)   # what it touched
+    knowledge: Any = None                          # left empty per mission.md
     config: dict[str, Any] = Field(default_factory=dict)
-
-class RunOutcome(str, Enum):
-    COMPLETED = "completed"      # the run finished; says nothing about content
-    CRASHED   = "crashed"        # exception, kill, timeout
-
-class TaskOutcome(Model):
-    outcome: RunOutcome
-    output_versions: dict[HandoffId, int] = Field(default_factory=dict)
-    actual_usage: dict[str, float] = Field(default_factory=dict)
-    detail: str = ""                                 # for a human; never parsed
 ```
 
-`Agent.id` is `AgentId`, not `uuid` — the field is an identity of a known kind
-and the name should say so.
+`task_id` and `handoffs` are the agent's half of the two-way links (spec §3.1).
+Without them a run is reconstructible only from the task end, and criterion 22
+fails. They are written by whoever binds and whoever writes — `instantiate` sets
+`task_id`, and the agent appends a `HandoffRef` each time it calls `open_next`.
+
+There is **no result or outcome model.** The runner calls
+`on_done(task_id, status, usage)` and everything else the scheduler reads for
+itself (spec §6.3).
 
 ### Serialisation
 
@@ -380,7 +396,7 @@ for `resource:*` and returns registration order, which `dict` preserves.
 ```python
 @runtime_checkable
 class Resumable(Protocol):
-    def resume(self) -> None: ...
+    def resume_system(self) -> None: ...
 
 RESUME_ORDER = ["handoff_mgr", "task_mgr", "resource:*", "scheduler"]
 
@@ -388,7 +404,7 @@ def resume_all(registry: Registry) -> None:
     for pattern in RESUME_ORDER:
         for component in registry.resolve(pattern):
             if isinstance(component, Resumable):
-                component.resume()
+                component.resume_system()
 ```
 
 `@runtime_checkable` is mandatory: an unmarked Protocol raises on `isinstance`
@@ -465,7 +481,7 @@ is precisely what recovery does. `test_store.py` and one end-to-end case in
 │                                           "input_versions": {"7d1c...": 0}}]}
 └── handoff/
     ├── 7d1c...%3A0.json      {"uuid": "7d1c...", "version": 0, "status": "valid",
-    │                          "produced_by": "3f2b...c1", "produced_by_agent": "..."}
+    │                    "producer_task_id": "3f2b...c1", "producer_agent_id": "9a4e..."}
     └── 7d1c...%3A1.json      {"uuid": "7d1c...", "version": 1, "status": "generating", ...}
 ```
 
@@ -494,86 +510,54 @@ The name is kept because `mission.md` uses it.
 
 ### 6.1 `HandoffMgr` — `handoff.py`
 
-Owns the **lineages**: `dict[HandoffId, list[Handoff]]`, each list ordered by
-version. The lineage is a property of the collection, which is why it lives here
-and not as a field on any `Handoff`. Every write persists under kind
-`"handoff"`, keyed `f"{uuid}:{version}"` — one record per version, so a sealed
-version is never rewritten on disk either.
+Owns `dict[HandoffId, Handoff]`, persisted under kind `"handoff"` — one record
+per handoff, its versions nested inside it.
 
 ```python
 class HandoffMgr:
-    def __init__(self, registry: Registry) -> None:
-        self._r = registry
-        self._lineages: dict[HandoffId, list[Handoff]] = {}
+    def __init__(self, registry: Registry) -> None: ...
 
     # ---- scheduler-facing: read only ----
-    def declare(self, ids, produced_by, types=None) -> None:
-        for hid in ids:
-            if hid in self._lineages:                 # idempotent — D6
-                continue
-            h = Handoff(uuid=hid, version=0, produced_by=produced_by,
-                        status=HandoffStatus.CREATED, type=(types or {}).get(hid, ""))
-            self._lineages[hid] = [h]
-            self._persist(h)
-
+    def declare(self, ids, producer_task_id, types=None) -> None:
+        """Create each handoff with a single CREATED v0. Idempotent: an id
+        already present is skipped, never overwritten (D6)."""
     def check_if_latest_valid(self, hid) -> bool:
-        latest = self.latest(hid)
-        return latest is not None and latest.is_valid      # the Handoff answers
-
-    def latest(self, hid) -> Handoff | None:
-        lineage = self._lineages.get(hid)
-        return lineage[-1] if lineage else None
-
-    def lineage(self, hid) -> list[Handoff]:
-        return list(self._lineages.get(hid, []))           # a copy; not the live list
-    def get(self, hid, version) -> Handoff: ...
+        """`self._handoffs[hid].is_latest_valid`; False if unknown (D5)."""
+    def latest(self, hid) -> HandoffVersion | None: ...
+    def get(self, hid) -> Handoff: ...                     # raises KeyError
+    def get_many(self, ids) -> list[Handoff]: ...
     def all_ids(self) -> list[HandoffId]: ...
-    def produced_by(self, tid) -> list[HandoffId]: ...
+    def produced_by_task(self, tid) -> list[HandoffId]: ...
 
     # ---- agent-facing: write ----
-    def append(self, handoff: Handoff) -> None:
-        """Place a version into its lineage. The transition already happened."""
-        lineage = self._lineages.setdefault(handoff.uuid, [])
-        if lineage and handoff.version != lineage[-1].version + 1:
-            raise ValueError(f"{handoff.uuid}: v{handoff.version} does not follow "
-                             f"v{lineage[-1].version}")
-        lineage.append(handoff)
-        self._persist(handoff)
+    def persist(self, hid) -> None:
+        """Write the handoff back after open_next() or seal() mutated it."""
 
-    def persist(self, handoff: Handoff) -> None:
-        """After an in-place open()/seal() on a member. Same record, updated."""
-        self._persist(handoff)
-
-    def resume(self) -> None:
-        self._lineages = {}
-        for d in self._r.get("store_mgr").read_all("handoff"):
-            h = Handoff.model_validate(d)
-            self._lineages.setdefault(h.uuid, []).append(h)
-        for lineage in self._lineages.values():
-            lineage.sort(key=lambda h: h.version)          # file order is not version order
+    def resume_system(self) -> None:
+        """Reload from the store. No regrouping: one record per handoff."""
 ```
 
-The mgr does not decide anything about a handoff. An agent calls `h.open(...)`
-or `h.successor(...)` — those are the transitions — and then hands the result to
-`append` or `persist`. The only rule the mgr enforces is a collection rule:
-versions arrive contiguously.
+**One write verb.** The previous revision needed `append` *and* `persist`,
+because a first run mutated v0 in place while a re-run created a loose object
+someone had to insert. With `open_next` on the handoff, every write is "this
+handoff changed, store it" — and the mgr no longer validates version contiguity,
+because the list index guarantees it.
 
-Three decisions worth stating:
+**One record per handoff, not per version.** The previous revision keyed on
+`f"{uuid}:{version}"`, which required `resume_system` to regroup and sort because
+directory order is not version order. Nesting removes that. The spec's "a sealed
+version is never rewritten" still holds — it is a rule about the version's fields,
+which nothing touches after sealing, not about file granularity.
 
-**`check_if_latest_valid` delegates to `Handoff.is_valid`** rather than
-comparing a status itself. There is one definition of "usable", and it is on the
-object.
+**`check_if_latest_valid` delegates** to `Handoff.is_latest_valid`, which
+delegates to `HandoffVersion.is_valid`. One definition of "usable", on the object
+that has it.
 
 **An unknown id returns `False`, not an exception** (D5). A consumer may be
 submitted before its producer declares the handoff; "not ready" is the right
 answer and keeps submission order unconstrained.
 
-**`declare` is idempotent** (D6). `update_task` is `remove_queued` + `submit`, so
-it runs twice for the same outputs; overwriting would discard versions an agent
-had already written.
-
-`HandoffMgr` has no validation logic and never sets `VALID`/`INVALID`. That is
-the whole content of spec §3.1, and criterion 14 tests it.
+The mgr decides nothing. Criterion 14 tests that.
 
 ### 6.2 `TaskMgr` — `task.py`
 
@@ -586,27 +570,18 @@ Owns `dict[TaskId, Task]`, persisted under kind `"task"`.
 | `by_status(status)` | The collection query the pools index would otherwise be the only way to get |
 | `remove(tid)` | Drop and `store.delete` |
 | `persist(tid)` | `store.update` after a caller mutated the task through its own methods |
-| `resume()` | Reload; close any dangling stack top |
+| `resume_system()` | Reload; close any dangling stack top as `SUSPENDED` |
 
 There is no `set_status` and no `push_execution` here. A caller does
 `task.status = RUNNING` or `task.push_execution(...)` — the transitions are the
 `Task`'s (§3.2), with its own guards — and then `mgr.persist(tid)`. The mgr's
 job is durability and lookup, not proxying its members' behaviour.
 
-```python
-def resume(self) -> None:
-    self._tasks = {}
-    for d in self._r.get("store_mgr").read_all("task"):
-        t = Task.model_validate(d)
-        self._tasks[t.id] = t
-        if t.is_running:                     # the restart cut this attempt short
-            t.close_execution({}, TaskStatus.SUSPENDED)
-            self.persist(t.id)
-```
-
-The interrupted attempt closes as `SUSPENDED` — cut short, not judged (D8). The
-*task's* landing state is a separate decision `Scheduler.resume()` makes a moment
-later, and it is `WAITING_RESOURCE`; a new attempt gets pushed on top.
+`resume_system` reloads every record and, for any task whose stack top is still
+open, closes it with `outcome = SUSPENDED`: the restart cut the attempt short, it
+was not judged (D8). The *task's* landing state is a separate decision
+`Scheduler.resume_system()` makes a moment later, and it is `WAITING_RESOURCE`;
+a new attempt gets pushed on top.
 
 Closing it here is not tidiness. `Task.push_execution` refuses to stack on an
 open attempt, so leaving it open would make the first `resume_task` after a
@@ -628,8 +603,8 @@ class ResourceMgr(ABC):
     @abstractmethod
     def give_back(self, amount: float, actual: float | None = None) -> None: ...
 
-    def resume(self) -> None:
-        self.available = self.capacity           # no lease survives a restart
+    def resume_system(self) -> None:
+        self.available = self.capacity       # no lease survives a restart
 
 class RenewableMgr(ResourceMgr):
     def can_afford(self, amount): return amount <= self.available
@@ -658,64 +633,52 @@ empty is the honest state, not an oversight.
 `actual=None` on a consumable means "consumed everything reserved" — the
 conservative reading for a budget. `on_stopped` relies on it (D7).
 
-**`ConsumableMgr.resume()` refilling to capacity is wrong and is inherited from
+**`ConsumableMgr.resume_system()` refilling to capacity is wrong and is inherited from
 the spec.** See §14, O1. It is implemented as specified and flagged, not silently
 fixed.
 
 ### 6.4 `AgentMgr` — `agent.py`
 
-Owns two collections: the **specs**, a name → config table of what kinds of
-agent exist, and the **instances**, `dict[AgentId, Agent]`, of what has actually
-been created.
+Owns two collections: the **spec table**, `dict[str, dict]`, of what kinds of
+agent exist, and the **instances**, `dict[AgentId, Agent]`, of what has been
+created.
 
 ```python
 class AgentMgr:
-    def __init__(self) -> None:
-        self._specs: dict[str, dict] = {}
-        self._agents: dict[AgentId, Agent] = {}
-
     # ---- the spec table ----
-    def register(self, name: str, **config) -> None:
-        self._specs[name] = config
-    def names(self) -> list[str]: ...
-    def is_registered(self, name: str) -> bool: ...
+    def register(self, spec: str, **config) -> None: ...
+    def specs(self) -> list[str]: ...
+    def is_registered(self, spec: str) -> bool: ...
 
     # ---- the instance collection ----
-    def instantiate(self, name: str) -> Agent:
-        if name not in self._specs:
-            raise KeyError(f"no agent named {name!r}; registered: {sorted(self._specs)}")
-        agent = Agent(name=name, config=dict(self._specs[name]))   # id auto-generated
-        self._agents[agent.id] = agent
-        return agent
-
+    def instantiate(self, spec: str, task_id: TaskId) -> Agent:
+        """Mint an Agent with a fresh AgentId, bound to that task, and keep it.
+        Raises KeyError naming the registered specs if the spec is unknown."""
     def get(self, ref: AgentId | str) -> Agent:
-        """By id: that agent. By name: instantiate — the mission.md signature."""
-        return self._agents[ref] if isinstance(ref, AgentId) else self.instantiate(ref)
-
-    def by_name(self, name: str) -> list[Agent]: ...
+        """By id: that instance. By spec name: instantiate one, unbound — the
+        `get(name) -> agent` mission.md asks for."""
+    def by_spec(self, spec: str) -> list[Agent]: ...
     def all(self) -> list[Agent]: ...
     def retire(self, aid: AgentId) -> None: ...
 ```
 
 **The mgr keeps what it creates.** Previously it was a factory that instantiated
-and forgot, which left `Execution.agent_id` pointing at nothing — the audit
-trail (§3.2) would name agents nobody could resolve, and criterion 22 requires
-that a run be reconstructible from either end. Criterion 28 tests retention
-directly.
+and forgot, which left `Execution.agent_id` pointing at nothing — the audit trail
+would name agents nobody could resolve. Criterion 28 tests retention.
 
-**`instantiate` mints a fresh id every call.** Forced by criterion 21: after a
-resume the stack top must report a different `agent_id` than the entry beneath.
-One run, one agent instance.
+**`instantiate` mints a fresh id every call and binds `task_id`.** The fresh id
+is forced by criterion 21: after a resume the stack top must report a different
+`agent_id` than the entry beneath. The binding is the agent's half of the
+two-way link (§3.2).
 
-`get` accepts both because `mission.md` asks for "提交agent名，返回agent对象" and
-the audit path needs lookup by id. The dispatch path calls `instantiate`
-explicitly — relying on the overload there would make "a new agent is created
-here" invisible at the call site.
+`get` accepts both forms because `mission.md` asks for "提交agent名，返回agent对象"
+and the audit path needs lookup by id. Dispatch calls `instantiate` explicitly —
+relying on the overload there would make "a new agent is created here" invisible
+at the call site, and `instantiate` is where the task binding is supplied.
 
 Instances are **not persisted**, so `AgentMgr` does not implement `Resumable`.
-An agent owns its own durability (spec §1.2), and after a restart the ids in the
-history refer to agents this process never made. That is a real gap and §14 O5
-records it.
+After a restart the ids in the restored history refer to agents this process
+never made. That is a real gap; §14 O5 records it and recommends closing it.
 
 `knowledge` and `config` stay empty per `mission.md`.
 
@@ -726,12 +689,17 @@ records it.
 ### 7.1 `TaskRunner` — `runner.py`
 
 ```python
+OnDone = Callable[[TaskId, TaskStatus, dict[str, float]], None]
+
 class TaskRunner(Protocol):
-    def start(self, task: Task, agent: Agent,
-              on_done: Callable[[TaskId, TaskOutcome], None]) -> None: ...
+    def start(self, task: Task, agent: Agent, on_done: OnDone) -> None: ...
     def stop(self, task_id: TaskId,
              on_stopped: Callable[[TaskId], None]) -> None: ...
 ```
+
+`on_done` carries the terminal status (`SUCCEEDED` or `FAILED`) and what was
+spent. Nothing else: the scheduler reads output versions from `HandoffMgr`
+itself, exactly as it read the input versions at dispatch (spec §6.3).
 
 `stop` takes a callback, symmetric with `start` (D2). The alternative — the
 runner resolving `scheduler` from the registry — would make the runner the one
@@ -749,22 +717,18 @@ class FakeRunner:
 
     # ---- test-driven, standing in for the agent ----
     def produce(self, registry, task_id, *, valid=True, content=None) -> None:
-        """What a real agent does to its outputs: open (or fork) a version and seal it."""
+        """What a real agent does to its outputs: take a version and seal it."""
         hm, task = registry.get("handoff_mgr"), registry.get("task_mgr").get(task_id)
-        agent_id = task.current.agent_id
+        agent = registry.get("agent_mgr").get(task.current.agent_id)
         for hid in task.outputs:
-            latest = hm.latest(hid)
-            if latest.status is HandoffStatus.CREATED:
-                latest.open(agent_id); hm.persist(latest); h = latest
-            else:                                     # a re-run forks a new version
-                h = latest.successor(agent_id); hm.append(h)
-            h.seal(VALID if valid else INVALID, content)
-            hm.persist(h)
+            version = hm.get(hid).open_next(task_id, agent.id)
+            version.seal(VALID if valid else INVALID, content)
+            hm.persist(hid)
+            agent.handoffs.append(HandoffRef(handoff_id=hid, version=version.version))
 
-    def finish(self, task_id, outcome=RunOutcome.COMPLETED) -> None:
-        task, _, on_done = self.running.pop(task_id)
-        on_done(task_id, TaskOutcome(outcome=outcome, output_versions={
-            h: ... for h in task.outputs}))
+    def finish(self, task_id, status=TaskStatus.SUCCEEDED, usage=None) -> None:
+        _, _, on_done = self.running.pop(task_id)
+        on_done(task_id, status, usage or {})
 
     def ack_stop(self, task_id) -> None:
         self.running.pop(task_id, None)
@@ -777,12 +741,17 @@ and dispatch is not re-entered on the common path. Re-entrancy is still handled
 not deadlock or recurse.
 
 `produce` is the agent's half of the contract in one place: it is the *only*
-thing in the test suite that calls `open`, `successor`, or `seal`. That is what
-makes criterion 14 meaningful — if the scheduler ever started writing handoff
-state, this would no longer be the only writer and the test would catch it.
+thing in the test suite that calls `open_next` or `seal`. That is what makes
+criterion 14 meaningful — if the scheduler ever started writing handoff state,
+this would no longer be the only writer and the test would catch it.
 
-The `CREATED` / re-run branch is the whole reason `CREATED` is a real state: the
-first run adopts the declared v0 in place, a re-run forks v+1.
+`open_next` collapses what used to be a two-branch conditional here (adopt v0 on
+a first run, fork v+1 on a re-run). The fake no longer knows which case it is in,
+which is the same simplification a real runner gets.
+
+Appending the `HandoffRef` is the agent-side half of the two-way link. It is
+`produce`'s job because it is the agent's job (spec §3.3) — the scheduler never
+writes it, and criterion 22 checks both directions resolve.
 
 ### 7.2 `SchedulePolicy` — `policy.py`
 
@@ -854,18 +823,18 @@ called on a task whose stored status was already wrong.
 | `remove_queued(tid)` | reject unless status in `WAITING` → `_move(CANCELLED)` |
 | `stop(tid)` | reject unless `RUNNING` → `_move(STOPPING)` → `runner.stop(tid, self.on_stopped)` |
 | `resume_task(tid)` | reject unless status in `RESUMABLE` → `_move` to the recomputed waiting pool → `try_dispatch` |
-| `update_task(tid, **fields)` | `remove_queued(tid)` → `submit(replace(old, **fields, status=WAITING_HANDOFF, history=[]))` |
-| `on_task_done(tid, outcome)` | reject unless `RUNNING` → release → `task.close_execution` → `_move(SUCCEEDED\|FAILED)` → `try_dispatch` |
+| `update_task(tid, **fields)` | `remove_queued(tid)` → `submit(model_copy(old, update={**fields, "status": WAITING_HANDOFF, "history": []}))` |
+| `on_task_done(tid, status, usage)` | reject unless `RUNNING` → release, settling consumables at `usage` → read `output_versions` from `handoff_mgr` → `task.close_execution` → `_move(status)` → `try_dispatch` |
 | `on_stopped(tid)` | reject unless `STOPPING` → release (consumables at full reservation) → `task.close_execution(..., SUSPENDED)` → `_move(SUSPENDED)` → `try_dispatch` |
-| `resume()` | `Resumable`: rebuild the index, demote interrupted runs, `try_dispatch` |
+| `resume_system()` | `Resumable`: rebuild the index, demote interrupted runs, `try_dispatch` |
 | `try_dispatch()` | §8.3 |
 
 `update_task` is written as literally those two calls, not as an equivalent
 reimplementation. Criterion 23 then holds by construction rather than by
 assertion — spec §2 principle 7.
 
-`dataclasses.replace` preserves `created_at`, so an update does not cost a task
-its place in FIFO order. Criterion 23 compares the two arms field by field with
+`model_copy(update=...)` preserves `created_at`, so an update does not cost a
+task its place in FIFO order. Criterion 23 compares the two arms field by field with
 `created_at` excluded, since the manually re-submitted task is constructed later
 and will differ there and only there.
 
@@ -913,11 +882,11 @@ def _dispatch_pass(self) -> None:
             pools[r].take(n)
 
         # 4. bind an agent by PUSHING a record; the stack top is the binding
-        agent = self._r.get("agent_mgr").instantiate(task.agent)
+        agent = self._r.get("agent_mgr").instantiate(task.agent_spec, tid)
         task.push_execution(                          # the Task's own transition
             agent_id=agent.id,
             input_versions={h: handoff_mgr.latest(h).version for h in task.inputs},
-        )
+        )   # instantiate() bound agent.task_id; the agent fills agent.handoffs
         self._move(tid, RUNNING)                      # _move persists both
         self._r.get("runner").start(task, agent, on_done=self.on_task_done)
 ```
@@ -948,7 +917,7 @@ policy so a future cost-aware implementation has what it needs; FIFO ignores it.
 ### 8.4 Recovery
 
 ```python
-def resume(self) -> None:
+def resume_system(self) -> None:
     self.pools = {s: set() for s in TaskStatus}
     for task in self._r.get("task_mgr").all():
         status = {TaskStatus.RUNNING:  TaskStatus.WAITING_RESOURCE,  # lease is gone
@@ -1067,13 +1036,13 @@ Every test builds its own `Registry` via `bootstrap.build_registry(...)` with a
 | File | Covers | Criteria |
 |---|---|---|
 | `test_ids.py` | cross-type inequality, hashing, `new()`, round-trip through `str` | 27 |
-| `test_models.py` | `Handoff` and `Task` state-machine guards; `model_dump`/`model_validate` round-trip incl. `HandoffId` dict keys | 26 |
+| `test_models.py` | `HandoffVersion.seal` and `Task.push/close_execution` guards; `open_next` adopt-then-append; round-trip incl. `HandoffId` dict keys | 26, 30 |
 | `test_registry.py` | isolation, loud failure, `resolve` wildcard, replacement | 15 |
 | `test_store.py` | CRUD, `create` on existing, `update` on missing, key quoting, atomic replace | 29 |
 | `test_resource.py` | renewable vs consumable release, settle-at-actual | 4 |
-| `test_handoff.py` | declare/idempotence, lineage ordering, contiguity check, `check_if_latest_valid` on unknown/created/generating/valid | 16 (part) |
+| `test_handoff.py` | declare/idempotence, `check_if_latest_valid` on unknown/created/generating/valid, `get_many`, `produced_by_task` | 16 (part) |
 | `test_task.py` | `add`/`by_status`/`remove`/`persist`, attempt numbering | 18 |
-| `test_agent.py` | spec table, `instantiate` retains, fresh id per call, `get` by id vs name, `by_name` | 28 |
+| `test_agent.py` | spec table, `instantiate` retains and binds `task_id`, fresh id per call, `get` by id vs spec, `by_spec` | 28 |
 | `test_policy.py` | FIFO order, expedited first, swap changes order only | 10 |
 | `test_submit.py` | landing pool from input state, undeclared-resource rejection | 1, 2 |
 | `test_dispatch.py` | all-or-nothing, agent binding, pinned input versions | 3, 18 |
@@ -1081,7 +1050,7 @@ Every test builds its own `Registry` via `bootstrap.build_registry(...)` with a
 | `test_completion.py` | resource release, `ok` vs validity independence, failure path | 4, 7, 13 |
 | `test_expedite.py` | ordering ahead of earlier tasks, rejection on invalid input | 9 |
 | `test_versioning.py` | append not overwrite, earlier versions untouched, consumer sees new version, no invalidation call | 16, 17, 20 |
-| `test_linkage.py` | uuid links resolve from either end; agent readable only from `history[-1]` | 21, 22 |
+| `test_linkage.py` | both link directions resolve; agent readable only from `history[-1]`; `depends_on` sorts topologically and drives no scheduling | 21, 22, 31 |
 | `test_authority.py` | the `HandoffMgr` spy: scheduler reads only | 14 |
 | `test_invariants.py` | pools vs `TaskMgr`, after arbitrary operation sequences | 12 |
 | `test_recovery.py` | `resume_all` order, skipping non-`Resumable`, demotion, verdicts not re-derived, the scheduler-first failure | 8, 19, 24, 25 |
@@ -1092,9 +1061,9 @@ Two of these carry more weight than their size suggests:
 to a log, then drives a full submit → dispatch → complete → resume → re-dispatch
 cycle in which `FakeRunner.produce` makes the agent's writes. `produce` brackets
 itself with a marker in the same log, so "who called this" is recorded rather
-than inferred from the call stack. The assertion: every `append` and `persist`
-entry falls between a pair of markers, and every entry outside them is one of
-`declare`, `check_if_latest_valid`, `latest`. This is the one mechanical check
+than inferred from the call stack. The assertion: every `persist` entry falls
+between a pair of markers, and every entry outside them is one of `declare`,
+`check_if_latest_valid`, `latest`. This is the one mechanical check
 that spec §3.1's authority boundary has not eroded.
 
 **`test_invariants.py`** runs a fixed sequence of a few dozen operations and, after
@@ -1154,10 +1123,9 @@ adopted them. They are now specification, not deviation.
 |---|---|---|---|
 | D3 | `submit` rejects a duplicate id | rejects an id that exists and is **not** `CANCELLED` | Forced by criterion 23. `update_task` must be `remove_queued` + `submit` under the same id, and `remove_queued` leaves the task `CANCELLED`. Reviving a cancelled id replaces the record with fresh history. |
 | D5 | `check_if_latest_valid(hid)` | returns `False` for an unknown id rather than raising | A consumer may be submitted before its producer declares the handoff. "Not ready" is the right answer and it keeps submission order unconstrained. |
-| D6 | `declare(ids, produced_by)` | idempotent; skips ids already known | `update_task` re-declares. Overwriting would delete versions an agent had already written. |
-| D7 | `on_stopped` releases resources | consumables settle at the **full reservation** | `on_stopped` carries no `TaskOutcome`, so actual usage is unknown. Assuming the agent spent what it reserved is the safe direction for a budget. |
+| D6 | `declare(ids, producer_task_id)` | idempotent; skips ids already known | `update_task` re-declares. Overwriting would delete versions an agent had already written. |
+| D7 | `on_stopped` releases resources | consumables settle at the **full reservation** | `on_stopped` carries no usage figures, so actual spend is unknown. Assuming the agent spent what it reserved is the safe direction for a budget. |
 | D8 | "a dangling stack top is closed as interrupted" | `outcome = SUSPENDED`, `ended_at = now` | The spec does not name the outcome. `SUSPENDED` says the attempt was cut short rather than judged. |
-| D9 | `HandoffMgr.append(handoff)` | plus a `persist(handoff)` | `Handoff.open()` mutates the declared v0 **in place** — it does not create a version — so there is nothing to append, only an updated record to write. Two verbs because there are two situations: a first run adopts v0, a re-run forks v+1. |
 
 ---
 
@@ -1167,8 +1135,9 @@ These are found by this design and are **not** in spec §10.
 
 | # | Question |
 |---|---|
-| **O1** | **Consumable budgets do not survive a restart.** Spec §6.4 has `ResourceMgr.resume()` reset to full capacity, and §7 persists only tasks and handoffs. For a renewable pool that is exactly right — no lease survives. For a consumable one it resurrects every token ever spent, which is a correctness hole in one of the two mandated resource types. The fix is small: `ConsumableMgr` persists `available` under a third kind, `"resource"`, and `resume()` reads it back. It needs a spec change to §7 ("two things are persisted") and it keeps recovery step 3 independent of steps 1 and 2. **Recommended, pending review.** Implemented as specified until then. |
+| **O1** | **Consumable budgets do not survive a restart.** Spec §6.4 has `ResourceMgr.resume_system()` reset to full capacity, and §7 persists only tasks and handoffs. For a renewable pool that is exactly right — no lease survives. For a consumable one it resurrects every token ever spent, which is a correctness hole in one of the two mandated resource types. The fix is small: `ConsumableMgr` persists `available` under a third kind, `"resource"`, and `resume_system()` reads it back. It needs a spec change to §7 ("two things are persisted") and it keeps recovery step 3 independent of steps 1 and 2. **Recommended, pending review.** Implemented as specified until then. |
 | **O2** | A completion that arrives after `stop()` **raises into the runner**. `on_task_done` rejects a non-`RUNNING` task per spec §5.1, so a runner that finishes in the window between `stop()` and its own acknowledgement gets an exception where it expected a callback — and the finished work is discarded, since the task then goes `SUSPENDED`. Nothing leaks, because `on_stopped` still releases the resources. Two candidate fixes: accept `STOPPING` in `on_task_done` and treat the run as complete, or make the rejection a no-op return rather than a raise. The first is better and changes the state machine. Neither is done. |
 | **O3** | `Task.resources` names pools that must already be registered, and `submit` rejects unknown ones. Nothing yet rejects a task whose declared amount exceeds a pool's total capacity: it is accepted and waits in `WAITING_RESOURCE` forever. A one-line check at submit would surface it immediately. Not built. |
-| **O4** | **`Handoff.type` has no route from `submit`.** Spec §3.1 gives a handoff a `type`, but `Task` (§3.2) has no field naming the types of its outputs, so the scheduler declares them with `type=""` and nothing later fills it in. The field is dead on the scheduler path. Either `Task` gains an `output_types: dict[HandoffId, str]` — a §3.2 change — or `type` is acknowledged as being for directly-declared external handoffs only. Nothing depends on it today: the scheduler is content-agnostic and never reads it. |
-| **O5** | **`AgentMgr` instances do not survive a restart.** The mgr now retains what it creates (§6.4), so `Execution.agent_id` resolves — until the process restarts. Agents are not persisted, because spec §1.2 makes an agent responsible for its own durability, so after `resume_all` every id in the restored history dangles and criterion 22 holds only within one process lifetime. Two candidate answers: persist the `Agent` record (id, name, config — not the agent's own state, which stays its business), or accept that the audit trail names agents the system cannot resolve after a restart and say so in §1.2. **The first is cheap and I recommend it**; it is one more `kind` in the store and one more `Resumable`. Not built, because it extends what §7 persists and that is a spec decision. |
+| **O4** | **`Handoff.type` has no route from `submit`.** Spec §3.1 gives a handoff a `type`, but `Task` has no field naming the types of its outputs, so the scheduler declares them with `type=""` and nothing later fills it in. Either `Task` gains an `output_types: dict[HandoffId, str]` — a §3.2 change — or `type` is acknowledged as being for directly-declared external handoffs only. Nothing depends on it today: the scheduler is content-agnostic and never reads it. |
+| **O6** | **Nothing checks `depends_on` against `inputs`.** They record the same dependency at two granularities — tasks and slots — and the submitter maintains both. A task whose `depends_on` omits the producer of one of its `inputs` will still schedule correctly, because scheduling reads `inputs`; but a topological sort will place it wrongly, and it will look ready when it is not. Deriving `depends_on` from `inputs` would need a handoff→producer lookup at submit, which `HandoffMgr.produced_by_task` can already answer; the reason not to is that a task may legitimately depend on a task it shares no handoff with. **A validating check at submit is the cheap answer** — warn when a producer of an input is missing from `depends_on`. Not built. |
+| **O5** | **`AgentMgr` instances do not survive a restart.** Now sharper than before: an `Agent` carries `task_id` and `handoffs` (§3.2), so it holds real link state, and criterion 22 asserts a run resolves from either end. The mgr now retains what it creates (§6.4), so `Execution.agent_id` resolves — until the process restarts. Agents are not persisted, because spec §1.2 makes an agent responsible for its own durability, so after `resume_all` every id in the restored history dangles and criterion 22 holds only within one process lifetime. Two candidate answers: persist the `Agent` record (id, name, config — not the agent's own state, which stays its business), or accept that the audit trail names agents the system cannot resolve after a restart and say so in §1.2. **The first is cheap and I recommend it**; it is one more `kind` in the store and one more `Resumable`. Not built, because it extends what §7 persists and that is a spec decision. |

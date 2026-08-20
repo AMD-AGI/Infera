@@ -11,8 +11,8 @@ and nothing else — it never inspects what a task does.
 
 | | |
 |---|---|
-| [`docs/spec.md`](docs/spec.md) | What the system must do. 25 acceptance criteria |
-| [`docs/design.md`](docs/design.md) | How it is built: files, classes, method bodies, test plan |
+| [`docs/spec.md`](docs/spec.md) | What the system must do. 31 acceptance criteria |
+| [`docs/design.md`](docs/design.md) | How it is built: files, classes, interfaces, test plan |
 
 Read the spec first. The design implements it and records, in its §13, every
 place where implementing it literally did not work.
