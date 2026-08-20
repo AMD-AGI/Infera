@@ -1,0 +1,7 @@
+# Inherits the repository's settings; adds only what is local to agent_sys.
+extend = "../pyproject.toml"
+
+[lint.isort]
+# `agent_sys` lives under src/ and is not in the repo's packages.find include,
+# so ruff cannot infer it is first-party.
+known-first-party = ["agent_sys"]
