@@ -24,6 +24,7 @@ pub mod disagg;
 pub mod discovery;
 pub mod discovery_k8s;
 pub mod dp;
+pub mod encoding_dsv4;
 pub mod handlers;
 pub mod hasher;
 pub mod k8s;
