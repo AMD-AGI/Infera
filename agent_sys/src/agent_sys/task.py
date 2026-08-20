@@ -48,7 +48,22 @@ class TaskMgr:
         return [t for t in self._tasks.values() if t.status is status]
 
     def remove(self, tid: TaskId) -> None:
+        """Forget a task entirely. Refuses one the scheduler still indexes.
+
+        Cancellation is `Scheduler.remove_queued`; this is the harder delete,
+        for a record an operator wants gone. Without the guard it leaves an id
+        in a pool with no task behind it, and every subsequent dispatch pass
+        raises `KeyError` at the eligibility re-check — permanently. The
+        scheduler is resolved at use time and its absence tolerated, so this
+        stays a lookup rather than a dependency.
+        """
         self.get(tid)
+        scheduler = self._r.get("scheduler") if "scheduler" in self._r else None
+        if scheduler is not None and any(tid in pool for pool in scheduler.pools.values()):
+            raise ValueError(
+                f"cannot remove {tid}: the scheduler still indexes it; "
+                f"cancel or let it finish first"
+            )
         del self._tasks[tid]
         self._store.delete(KIND, str(tid))
 

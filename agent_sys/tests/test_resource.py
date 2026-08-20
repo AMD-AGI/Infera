@@ -267,3 +267,20 @@ def test_spent_and_available_are_complements_after_a_resume():
     fresh = pool(ConsumableMgr, 1000, name="token", store=store)
     fresh.resume_system()
     assert fresh.spent + fresh.available == fresh.capacity
+
+
+def test_a_capacity_lowered_below_what_is_spent_does_not_go_negative():
+    """An operator may cut a budget after some of it is gone. Unclamped,
+    `available` goes negative and `can_afford(0)` is then False — every task
+    naming the pool queues forever with no diagnostic. Sibling of O7."""
+    store = MemoryStoreMgr()
+    p = pool(ConsumableMgr, 1000, name="token", store=store)
+    p.take(300)
+    p.give_back(300, actual=300)
+
+    shrunk = pool(ConsumableMgr, 100, name="token", store=store)
+    shrunk.resume_system()
+
+    assert shrunk.available == 0.0
+    assert shrunk.can_afford(0)  # a task asking for nothing still fits
+    assert not shrunk.can_afford(1)

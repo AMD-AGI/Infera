@@ -224,3 +224,23 @@ def test_resume_is_durable_for_the_close_it_performs(mgr, store):
 
     rebuild(store)
     assert store.read("task", str(task.id))["history"][-1]["outcome"] == "suspended"
+
+
+def test_remove_refuses_a_task_the_scheduler_still_indexes(registry):
+    """`remove` is the hard delete, not cancellation. Removing an indexed task
+    leaves an id in a pool with no task behind it, and every subsequent
+    dispatch pass then raises at the eligibility re-check — permanently."""
+    scheduler, mgr = registry.get("scheduler"), registry.get("task_mgr")
+    task = Task(agent_spec="profiler", inputs=[HandoffId.new()])
+    scheduler.submit(task)
+
+    with pytest.raises(ValueError, match="still indexes it"):
+        mgr.remove(task.id)
+
+    scheduler.remove_queued(task.id)  # cancelled, but still indexed
+    with pytest.raises(ValueError, match="still indexes it"):
+        mgr.remove(task.id)
+
+    scheduler.pools[TaskStatus.CANCELLED].discard(task.id)  # an operator forgets it
+    mgr.remove(task.id)
+    assert mgr.all() == []

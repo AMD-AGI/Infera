@@ -5,6 +5,7 @@ behaviours — release, persistence, recovery — so a boolean flag would mean t
 conditionals kept in agreement by hand.
 """
 
+import logging
 from abc import ABC, abstractmethod
 
 from agent_sys.registry import Registry
@@ -12,6 +13,8 @@ from agent_sys.registry import Registry
 __all__ = ["ResourceMgr", "RenewableMgr", "ConsumableMgr", "GpuMgr", "TokenMgr"]
 
 KIND = "resource"
+
+log = logging.getLogger(__name__)
 
 
 class ResourceMgr(ABC):
@@ -100,8 +103,18 @@ class ConsumableMgr(ResourceMgr):
         record = self._r.get("store_mgr").read(KIND, self.name)
         self.spent = float(record["spent"]) if record is not None else 0.0
         # Nothing is reserved after a restart, so available is exactly what has
-        # not been spent.
-        self.available = self.capacity - self.spent
+        # not been spent — but an operator may have *lowered* capacity below
+        # what is already spent. Unclamped that makes `available` negative, and
+        # `can_afford` then refuses even a request for zero: every task naming
+        # this pool queues forever with no diagnostic. Sibling of O7.
+        if self.spent > self.capacity:
+            log.warning(
+                "%s: %s already spent exceeds the capacity of %s; the budget is exhausted",
+                self.name,
+                self.spent,
+                self.capacity,
+            )
+        self.available = max(0.0, self.capacity - self.spent)
 
     def _persist(self) -> None:
         store = self._r.get("store_mgr")

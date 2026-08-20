@@ -224,7 +224,7 @@ def test_update_keeps_the_place_in_fifo_order(scheduler, runner, task_mgr):
     assert runner.started[-1] == first.id
 
 
-def test_update_clears_the_history(scheduler, task_mgr, runner):
+def test_update_is_rejected_on_a_task_that_is_not_queued(scheduler, task_mgr, runner):
     task = make_task()
     scheduler.submit(task)
     runner.finish(task.id, TaskStatus.FAILED)
@@ -237,6 +237,78 @@ def test_update_clears_the_history(scheduler, task_mgr, runner):
     runner.ack_stop(task.id)
     with pytest.raises(ValueError):
         scheduler.update_task(task.id)  # SUSPENDED is not queued
+
+
+def test_update_clears_the_history(scheduler, task_mgr, runner):
+    """A replacement is a new definition, so it starts with no run behind it."""
+    hog = make_task(resources={"gpu": 8})
+    task = make_task(resources={"gpu": 1})
+    scheduler.submit(task)
+    runner.finish(task.id, TaskStatus.FAILED)  # one entry in the history
+    assert len(task_mgr.get(task.id).history) == 1
+
+    scheduler.submit(hog)  # saturate, so the resume leaves `task` queued
+    scheduler.resume_task(task.id)
+    assert task_mgr.get(task.id).status is TaskStatus.WAITING_RESOURCE
+
+    scheduler.update_task(task.id, agent_spec="tuner")
+    assert task_mgr.get(task.id).history == []
+
+
+def test_update_recomputes_the_pool_when_the_inputs_change(scheduler, task_mgr, runner, registry):
+    """Criterion 11's other half: replacing `inputs` re-asks eligibility."""
+    producer = make_task(outputs=new_handoffs(1))
+    scheduler.submit(producer)
+    runner.produce(registry, producer.id)
+    runner.finish(producer.id)
+
+    hog = make_task(resources={"gpu": 8})
+    scheduler.submit(hog)
+    task = make_task(inputs=producer.outputs, resources={"gpu": 1})
+    scheduler.submit(task)
+    assert task_mgr.get(task.id).status is TaskStatus.WAITING_RESOURCE  # inputs met
+
+    scheduler.update_task(task.id, inputs=new_handoffs(1))  # now unmet
+    assert task_mgr.get(task.id).status is TaskStatus.WAITING_HANDOFF
+
+    scheduler.update_task(task.id, inputs=producer.outputs)  # met again
+    assert task_mgr.get(task.id).status is TaskStatus.WAITING_RESOURCE
+
+
+def test_update_replaces_the_outputs_and_redeclares_them(scheduler, handoff_mgr):
+    task = make_task(inputs=new_handoffs(1), outputs=new_handoffs(1))
+    scheduler.submit(task)
+    fresh = new_handoffs(1)
+
+    scheduler.update_task(task.id, outputs=fresh)
+
+    assert handoff_mgr.get(fresh[0]).latest.producer_task_id == task.id
+
+
+@pytest.mark.parametrize(
+    "fields, match",
+    [
+        ({"resource": {"gpu": 4}}, "unknown task field"),
+        ({"agentspec": "tuner"}, "unknown task field"),
+        ({"id": "irrelevant"}, "cannot be set by an update"),
+        ({"status": TaskStatus.RUNNING}, "cannot be set by an update"),
+        ({"history": []}, "cannot be set by an update"),
+    ],
+)
+def test_update_rejects_a_field_it_cannot_honour(scheduler, task_mgr, fields, match):
+    """`model_copy(update=...)` writes straight to __dict__, honouring neither
+    `extra="forbid"` nor `validate_assignment`. Unchecked, a misspelled field is
+    accepted and silently does nothing, and `id=` leaves the original cancelled
+    while creating a second task under the new id."""
+    task = make_task(inputs=new_handoffs(1), resources={"gpu": 1})
+    scheduler.submit(task)
+
+    with pytest.raises(ValueError, match=match):
+        scheduler.update_task(task.id, **fields)
+
+    assert len(task_mgr.all()) == 1  # nothing was split off
+    assert task_mgr.get(task.id).status is TaskStatus.WAITING_HANDOFF  # still queued
+    assert task_mgr.get(task.id).resources == {"gpu": 1}  # unchanged
 
 
 def test_update_behaves_exactly_like_a_resubmission(scheduler, task_mgr, registry, store):
