@@ -31,6 +31,7 @@ from infera.kv.nats_bus import (
     parse_kv_subject,
 )
 from infera.router.kv_event.client import KvEventClient, WorkerSubscription
+from infera.router.kv_event.events import batch_type_for_engine
 from infera.router.policy.target import is_rank_multiplexed
 
 logger = logging.getLogger(__name__)
@@ -68,6 +69,9 @@ class NatsKvEventClient(KvEventClient):
             worker_id=w.worker_id,
             endpoint="(nats)",
             block_size=w.kv_block_size,
+            # Same as the ZMQ client: the wire format is per-engine (vLLM map vs
+            # SGLang array), so the decoder must follow the worker's engine.
+            decoder=Decoder(type=batch_type_for_engine(w.engine)),
             multiplexed=is_rank_multiplexed(w),
         )
         logger.info(
