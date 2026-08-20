@@ -28,7 +28,7 @@ agent_sys/
 
 ## Status
 
-Implemented. 344 tests, all 35 acceptance criteria covered.
+Implemented. 358 tests, all 35 acceptance criteria covered.
 
 ```bash
 pytest agent_sys/tests
