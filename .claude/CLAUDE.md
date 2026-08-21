@@ -1,6 +1,81 @@
-# Repository conventions
+# agent_sys — test & code stage
 
-## DCO sign-off is required on every commit
+## Task
+
+Implement `agent_sys`, the task-management substrate for Infera's agent-driven
+performance-optimization loop. **The design is frozen; this stage writes tests
+and code against it.**
+
+- **What to build**: [`agent_sys/task_graph/docs/design.md`](../agent_sys/task_graph/docs/design.md) rev. 10 —
+  files, classes, interfaces, test plan (§11), implementation order (§12).
+- **What "done" means**: [`agent_sys/task_graph/docs/spec.md`](../agent_sys/task_graph/docs/spec.md) rev. 7 —
+  35 acceptance criteria. Design §11 maps every one to a named test.
+- **Where**: `agent_sys/task_graph/`, tests in `agent_sys/tests/task_graph/`.
+  Scratch experiments in `agent_sys/scratch/` (gitignored) and nowhere else.
+
+`agent_sys/` is a container for two sibling components: `env_mgr` (from main)
+and `task_graph` (this work). Both are declared by `agent_sys/pyproject.toml`.
+
+```bash
+pip install -e agent_sys              # once
+pytest agent_sys/tests/task_graph     # this component
+pytest agent_sys                      # both
+```
+
+## Method
+
+**Test first, in design §12's order.** Each step green before the next begins:
+
+```
+1 ids → 2 models → 3 registry → 4 store → 5 resource
+6 handoff → 7 task → 8 agent/runner/policy → 9 bootstrap
+10 scheduler(submit+dispatch) → 11 scheduler(lifecycle) → 12 recovery
+```
+
+Steps 1–9 are deliberately dull; the design work is all in 10–12. Step 2 carries
+more than its size suggests — the state-machine guards live there.
+
+**The design doc is the contract.** If implementing it exposes a contradiction,
+record it in design §13 (deviations) or §14 (open questions) — do not silently
+paper over it. That is how the last three revisions were produced and it is the
+reason the doc is trustworthy.
+
+## Background
+
+The task definition is a local file, gitignored and deliberately never
+committed. Its binding rules, restated here so this document stands alone:
+
+| | |
+|---|---|
+| 1 | Everything goes in the `agent_sys` subfolder |
+| 2 | Deliver spec → design doc → test & code, pausing for user review at each stage |
+| 3 | Research mature solutions before building; record the choice and rationale in a README |
+| 5 | Research → plan → sub-workspace → back up and rewrite `CLAUDE.md` → start |
+| 6 | Work in English; report to the user in Chinese |
+
+Stages 1 and 2 are reviewed and pushed (`f4a031b`, PR #124). This is stage 3.
+
+## Core principles
+
+Restated from spec §2 because they decide implementation questions daily:
+
+1. **Composition over inheritance.** The one exception is `ResourceMgr`, where
+   renewable and consumable genuinely differ in three behaviours.
+2. **Resolve at use time, not construction time.** A component holds the
+   `Registry` and calls `.get(name)` when it needs a collaborator. No manager
+   imports another manager.
+3. **Transitions belong to the object, collections belong to the manager.**
+   `Handoff.open_next`, `HandoffVersion.seal`, `Task.push_execution` — a manager
+   has no `set_status` and no `seal`.
+4. **The scheduler decides when, never what.** It never inspects a handoff's
+   content and never writes handoff state. `test_authority.py` enforces this
+   mechanically.
+5. **One writer per invariant.** `Scheduler._move` is the only thing that assigns
+   `task.status` or mutates a pool.
+
+## Repository conventions
+
+### DCO sign-off is required on every commit
 
 This repository enforces the [Developer Certificate of Origin](https://developercertificate.org/).
 CI blocks any PR containing a commit without a `Signed-off-by:` trailer, so an
@@ -39,7 +114,7 @@ git config user.name "Your Name"
 git config user.email "you@example.com"
 ```
 
-### Fixing commits that are already missing it
+#### Fixing commits that are already missing it
 
 Sign off a range without disturbing commits that already carry the trailer —
 rebasing from a point that includes signed commits appends duplicates:
@@ -60,9 +135,29 @@ Cherry-picks do **not** inherit the trailer — `git cherry-pick -s`, or sign of
 afterwards. This is the easiest way to reintroduce the problem on a second branch
 after fixing it on the first.
 
-## Related trailers
+### Related trailers
 
 `Signed-off-by` is the DCO assertion and is mandatory. `Co-Authored-By` is
 separate, is not a substitute, and some upstreams reject assistant co-author
 trailers outright — when contributing to a third-party repository (e.g. ROCm/aiter),
 do not add them.
+
+### Style
+
+`ruff` with the repository's settings: line length 100, double quotes,
+`target-version = "py310"`. `agent_sys/pyproject.toml` extends the repository's
+and adds only `known-first-party`. Neither package is in the repository's
+`[tool.setuptools.packages.find] include = ["infera*"]`, and neither needs to
+be. **Do not edit the repository's `pyproject.toml` for this work.**
+
+## Other notable details
+
+- **Only runtime dependency is pydantic v2**, already installed via `fastapi`.
+  Everything else is stdlib plus `pytest`.
+- **Python ≥ 3.10.** No `StrEnum` (3.11), no `Self` in annotations without
+  `typing_extensions`.
+- **`_Id` needs `__get_pydantic_core_schema__`.** pydantic raises
+  `PydanticSchemaGenerationError` on a bare `uuid.UUID` subclass. Verified
+  against pydantic 2.13; design §3.1 has the working shape.
+- Open questions live in spec §10 (system-level) and design §14 (O2, O3, O4, O7,
+  O8). Do not close one by implementing it without asking.
