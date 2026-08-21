@@ -1009,13 +1009,11 @@ class InferencePerformanceProjector:
         # Decode gets no such cap, because the engine does not deliver it. vLLM
         # only shrinks a windowed layer's KV through its hybrid KV-cache
         # manager, and on the runs behind this model that manager was never
-        # active -- it reported 2,751,958 KV tokens for gpt-oss-120b on a 288 GB
-        # part, which is every one of the 36 layers holding full context, not 18
-        # of them windowed to 128. The decode step follows: measured, it grows
-        # 2.26x from 1k to 16k context at batch 64, where crediting the window
-        # predicts 1.49x and leaves the projection 28.8% low. Charging the full
-        # read predicts 1.94x and lands within 3.9%, and takes this sweep from
-        # 8.2% to 5.8% MAPE.
+        # active -- its own KV accounting showed every layer holding full
+        # context rather than the windowed half capped at the window. The decode
+        # step follows: crediting the window badly under-predicts how the step
+        # grows with context, while charging the full read tracks the measured
+        # growth, so that is what this model does.
         #
         # Prefill keeps the cap: there the window is a masking decision inside a
         # compute-bound kernel rather than a streaming cost, and nothing here

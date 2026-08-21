@@ -10,11 +10,11 @@ predicting, and offline vLLM is not that machine. Given identical flags,
 ``LLM()`` and ``vllm serve`` resolve different kernels for the two most
 expensive operations -- on gpt-oss-120b/MI355X the offline engine picked
 ROCM_AITER_FA + AITER_MXFP4_BF16 where the server picked
-ROCM_AITER_UNIFIED_ATTN + TRITON. The served decode step was 1.9x the offline
-one at concurrency 8 and 5.5x at 128, because Triton MXFP4 scales worse with
-batch. Anchoring on the offline number therefore predicted served TPOT no
-better than not calibrating at all (64% error against 61% uncalibrated), while
-a served anchor taken at TP=4 predicted served TP=8 within 7.7%.
+ROCM_AITER_UNIFIED_ATTN + TRITON. The served decode step was several times the
+offline one, and the gap widened with concurrency because Triton MXFP4 scales
+worse with batch. Anchoring on the offline number therefore predicted served
+TPOT no better than not calibrating at all, while a served anchor transported
+across parallelism tracked the served target closely.
 
 The mapping is the one :func:`anchor_from_serving` documents: for a closed-loop
 run at concurrency ``C``, mean TPOT *is* the steady-state decode step at ``C``

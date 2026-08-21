@@ -254,11 +254,11 @@ def test_small_expert_groups_do_not_saturate_bandwidth():
 def test_realistic_router_imbalance_barely_moves_the_expert_count():
     """Routing skew is not a free knob for fixing decode error.
 
-    Fitting the skew to the measured ladder finds a clean optimum at s=0.8 --
-    6.7% MAPE against 9.5% at uniform -- which is tempting and wrong: s=0.8 is a
-    14.6x max/mean expert load, and a router trained with a balance loss runs
-    nearer 1.5x. At realistic imbalance the distinct-expert count barely moves,
-    so a large gain from this knob means it is absorbing something else.
+    Fitting the skew to the measured ladder finds a clean optimum, which is
+    tempting and wrong: it sits at an expert load imbalance far beyond what a
+    router trained with a balance loss runs at. At realistic imbalance the
+    distinct-expert count barely moves, so a large gain from this knob means it
+    is absorbing something else.
     """
     from infera.projection.core.projection.module_profilers.moe_mlp import (
         _expert_hit_fraction,

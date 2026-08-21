@@ -141,9 +141,10 @@ def test_a_multi_model_store_refuses_to_guess_which_model_to_use(monkeypatch):
 # Finding the anchors at all.
 #
 # A store that cannot see a measurement still answers -- just uncalibrated, and
-# without saying so. On an engine the model was not fitted to that is the
-# difference between 17.6% error and 2.3%, which makes a silently empty store
-# the most expensive failure in this path rather than a cosmetic one.
+# without saying so. On an engine the model was not fitted to, calibration is
+# the difference between a large error and a small one, which makes a silently
+# empty store the most expensive failure in this path rather than a cosmetic
+# one.
 # ---------------------------------------------------------------------------
 
 import json  # noqa: E402

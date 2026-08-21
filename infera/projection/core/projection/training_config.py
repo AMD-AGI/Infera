@@ -91,17 +91,16 @@ class ModelConfig:
     # Default 0 -- uniform -- because for a load-balanced router that is very
     # nearly right, and the alternative is worse than it looks. Real gpt-oss vLLM
     # sweeps under forced Zipf routing confirm a decode step is linear in this
-    # count to +-1.5% at ~0.06 ms per expert, so the count is the whole story.
-    # But at gpt-oss's 128 experts and top-4, Zipf s=0.3 (a 3.1x max/mean load,
-    # already more skew than a router with an aux balance loss shows) gives 49.4
-    # distinct experts at batch 16 against uniform's 51.0 -- a 3% difference.
-    # Realistic imbalance simply does not move the distinct count much.
+    # count, so the count is the whole story. But at gpt-oss's 128 experts and
+    # top-4, a skew already stronger than a router with an aux balance loss shows
+    # barely moves the distinct-expert count away from uniform. Realistic
+    # imbalance simply does not move that count much.
     #
     # Worth stating because fitting this to the measured TP ladder *does* find a
-    # clean optimum, at s=0.8 for 6.7% MAPE against 9.5% at uniform. That is a
-    # 14.6x max/mean expert load, which no load-balanced router has, so what the
-    # fit is really doing is absorbing an unrelated error into a knob that
-    # happens to have the right shape. The mid-batch residual is not routing skew.
+    # clean optimum -- but only at an implausible skew, an expert load imbalance
+    # no load-balanced router has. What the fit is really doing is absorbing an
+    # unrelated error into a knob that happens to have the right shape. The
+    # mid-batch residual is not routing skew.
     moe_routing_skew: float = 0.0
     # How many distinct experts the router really reaches, as a fraction of what
     # independent per-token routing predicts, keyed by token count. Measured by

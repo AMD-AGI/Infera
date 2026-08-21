@@ -111,21 +111,19 @@ _ROOFLINE_COMPUTE_EFF = 0.40
 
 # A transfer only reaches peak bandwidth once it is big enough to saturate the
 # memory system, and a decode step's grouped expert GEMM is often not. Measured
-# on MI355X over 1..256 experts, achieved bandwidth climbs from 14% of peak on a
-# single expert to a ~80% plateau, and both models collapse onto one curve
-# against *bytes moved* -- 16.6 MB reads 13.7% and 29.4 MB reads 24.5% whichever
-# model they come from -- fitting ``0.80 * (1 - exp(-bytes / 78 MB))`` to a few
-# percent.
+# across expert counts, achieved bandwidth climbs from a small fraction of peak
+# on a single expert to a plateau, and the curve collapses onto *bytes moved*
+# rather than onto the model the transfer came from.
 #
 # That effect is real for a transfer in isolation and deliberately *not* wired in
 # here, because a decode step's expert GEMMs are not in isolation. The benchmark
 # drains the stream between calls; a decode step does the opposite, running
 # gate/up/down back-to-back over every layer under one graph replay, so the
 # memory system sees a single multi-GB stream and sits at the plateau throughout.
-# The ramp applies to the step, not to each call within it, and charging it per
-# ``_roofline_floor`` call took the ladder from 9.5% to 46.8% MAPE -- batch 1 at
-# TP>1 over-predicted by more than 100%, since a lone 17 MB slice of a 1.9 GB
-# step was priced at 16% of peak.
+# The ramp applies to the step, not to each call within it: charging it per
+# ``_roofline_floor`` call made the ladder dramatically worse, worst at batch 1
+# and TP>1, where a lone slice of a multi-GB step gets priced as though it were
+# the whole transfer.
 
 # ---------------------------------------------------------------------------
 # Dtype mapping:  config dtype string  →  origami datatype string
