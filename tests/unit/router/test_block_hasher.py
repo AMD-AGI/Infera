@@ -30,7 +30,14 @@ from infera.router.kv_event.hasher import ROUTER_SEED, hash_chunk, hash_request
 class _StubTokenizer:
     chat_template: Any = None
 
-    def encode(self, text: str, add_special_tokens: bool = False) -> list[int]:
+    def __init__(self) -> None:
+        # Whether each encode() saw an explicit add_special_tokens. A stub that
+        # only defaulted the kwarg would accept either choice at the call site,
+        # and the two paths need opposite ones.
+        self.specials: list[bool] = []
+
+    def encode(self, text: str, add_special_tokens: bool = True) -> list[int]:
+        self.specials.append(add_special_tokens)
         return [ord(c) for c in text]
 
     def apply_chat_template(
@@ -284,6 +291,32 @@ def test_dsv4_arch_uses_sglang_native_encoder():
         {"role": "user", "content": "hi"},
     ]
     assert out == hash_request([ord(c) for c in "DSV4:system|user"], 4)
+
+
+def test_dsv4_output_is_tokenized_with_specials_and_templates_without():
+    """serving_chat tokenizes the dsv4 encoder's output with a plain
+    ``tokenizer.encode(real_input)``, but passes ``add_special_tokens=False`` at
+    the chat-template site. Getting this backwards doubles the BOS on any
+    tokenizer with ``add_bos_token: true`` -- and that misses silently, which is
+    the failure the dsv4 encoder exists to remove."""
+    body = {"model": "m", "messages": [{"role": "user", "content": "hi"}]}
+
+    tok = _StubTokenizer()
+    hasher = BlockHasher()
+    hasher._tokenizers[(None, "m")] = tok
+    with _fake_sglang("DeepseekV4ForCausalLM", _RecordingEncoder()):
+        hasher.hash_for(body, block_size=4)
+    assert tok.specials == [True]
+
+    # A non-dsv4 arch falls through to the chat template, which spells out its
+    # own specials as text.
+    tok = _StubTokenizer()
+    tok.chat_template = "irrelevant, the stub renders it"
+    hasher = BlockHasher()
+    hasher._tokenizers[(None, "m")] = tok
+    with _fake_sglang("Qwen3ForCausalLM", _RecordingEncoder()):
+        hasher.hash_for(body, block_size=4)
+    assert tok.specials == [False]
 
 
 def test_dsv4_tools_are_normalised_through_the_tool_model():

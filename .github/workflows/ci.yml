@@ -161,6 +161,16 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: cargo test
         run: cargo test
+      # rust/router/src/encoding_dsv4.rs is a hand port of sglang's dsv4 chat
+      # encoder. Drift between them is invisible at runtime -- the router hashes
+      # a prefix the engine never produced and kv-aware settles at 0% hit rate --
+      # so diff the two here. sglang's module is pure stdlib and loads straight
+      # off disk, hence --no-deps: no torch, no GPU, seconds not minutes.
+      - name: dsv4 encoder parity with sglang
+        working-directory: .
+        run: |
+          pip install --no-deps --quiet sglang
+          python3 scripts/dsv4_parity.py
 
   # Engine GPU tests. Same schedule as the e2e tiers (see e2e_gate): every PR
   # into main once it is out of draft, and every merge into main.

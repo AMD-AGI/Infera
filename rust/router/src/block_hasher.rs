@@ -80,6 +80,33 @@ fn escape_non_ascii(s: &str) -> String {
     out
 }
 
+/// A rendered prompt and the `add_special_tokens` flag the engine tokenizes it
+/// with. Carrying the flag alongside the text keeps the two in step: picking it
+/// at the encode site instead would mean re-deciding which renderer produced
+/// the string.
+struct Rendered {
+    text: String,
+    add_special_tokens: bool,
+}
+
+impl Rendered {
+    /// Text that already spells out its own special tokens.
+    fn verbatim(text: String) -> Self {
+        Self {
+            text,
+            add_special_tokens: false,
+        }
+    }
+
+    /// Text the engine feeds to a plain `tokenizer.encode`.
+    fn with_specials(text: String) -> Self {
+        Self {
+            text,
+            add_special_tokens: true,
+        }
+    }
+}
+
 pub struct BlockHasher {
     tokenizer: Option<Tokenizer>,
     /// Kimi-style tiktoken tokenizer (no `tokenizer.json`). Takes precedence
@@ -417,7 +444,10 @@ impl BlockHasher {
         if self.tokenizer.is_none() && self.tiktoken.is_none() {
             return Vec::new();
         }
-        let text = match self.render_text(body) {
+        let Rendered {
+            text,
+            add_special_tokens,
+        } = match self.render_text(body) {
             Some(t) => t,
             None => return Vec::new(),
         };
@@ -427,9 +457,7 @@ impl BlockHasher {
             return hash_request(&tk.encode(&text), block_size);
         }
         let tok = self.tokenizer.as_ref().expect("checked above");
-        // add_special_tokens=false: the template/prompt already carries any
-        // leading special token as text (matches how the engines tokenize).
-        match tok.encode(text, false) {
+        match tok.encode(text, add_special_tokens) {
             Ok(enc) => hash_request(enc.get_ids(), block_size),
             Err(e) => {
                 tracing::warn!(err = %e, "kv-aware: tokenisation failed");
@@ -438,24 +466,36 @@ impl BlockHasher {
         }
     }
 
-    fn render_text(&self, body: &Value) -> Option<String> {
+    /// A prompt string plus the `add_special_tokens` the engine tokenizes it
+    /// with. The chat-template and completion paths carry any leading special
+    /// token as text already, so a tokenizer that prepends BOS would double it;
+    /// the dsv4 encoder's output is tokenized plainly instead.
+    fn render_text(&self, body: &Value) -> Option<Rendered> {
         if let Some(messages) = body.get("messages") {
             if let Some(arr) = messages.as_array() {
                 if self.dsv4 {
                     if let Some(rendered) = self.render_dsv4(body, arr) {
-                        return Some(rendered);
+                        // serving_chat tokenizes the dsv4 encoder's output with a
+                        // plain `tokenizer.encode(real_input)`, unlike the
+                        // chat-template site which passes add_special_tokens=False.
+                        return Some(Rendered::with_specials(rendered));
                     }
                 }
-                return self.apply_chat_template(messages);
+                return self.apply_chat_template(messages).map(Rendered::verbatim);
             }
         }
         // Completion `prompt`: only a plain string is tokenizable here.
         if let Some(prompt) = body.get("prompt") {
             if let Some(s) = prompt.as_str() {
-                return Some(s.to_string());
+                return Some(Rendered::verbatim(s.to_string()));
             }
         }
         None
+    }
+
+    #[cfg(test)]
+    fn render_text_str(&self, body: &Value) -> Option<String> {
+        self.render_text(body).map(|r| r.text)
     }
 
     /// Render a chat body with DeepSeek-V4's native encoder.
@@ -1007,14 +1047,44 @@ mod tests {
         // nothing but must not shift anything else.
         let body = json!({"messages": [{"role": "user", "content": "hi"}]});
         assert_eq!(
-            h.render_text(&body).as_deref(),
+            h.render_text_str(&body).as_deref(),
             Some("<｜begin▁of▁sentence｜><｜User｜>hi<｜Assistant｜></think>")
         );
 
         // Same body without the gate: no chat_template, so nothing renders --
         // the behaviour this fix replaces.
         let off = BlockHasher { dsv4: false, ..h };
-        assert!(off.render_text(&body).is_none());
+        assert!(off.render_text_str(&body).is_none());
+    }
+
+    /// serving_chat tokenizes the dsv4 encoder's output with a plain
+    /// `tokenizer.encode(real_input)` but passes `add_special_tokens=False` at
+    /// the chat-template site. Getting this backwards costs a doubled BOS on any
+    /// tokenizer with `add_bos_token: true` -- and that misses silently, which is
+    /// the whole failure mode the dsv4 encoder exists to remove.
+    #[test]
+    fn dsv4_output_is_tokenized_with_specials_and_templates_without() {
+        let h = BlockHasher {
+            tokenizer: None,
+            tiktoken: None,
+            dsv4: true,
+            chat_template: Some(QWEN3_TEMPLATE.to_string()),
+            bos_token: None,
+            eos_token: None,
+        };
+        let body = json!({"messages": [{"role": "user", "content": "hi"}]});
+        assert!(h.render_text(&body).unwrap().add_special_tokens);
+
+        // Tools push the same body onto the chat-template path.
+        let templated = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "tools": [{"type": "function", "function": {"name": "f", "parameters": {}}}],
+        });
+        assert!(!h.render_text(&templated).unwrap().add_special_tokens);
+
+        // Completion prompts spell out their own specials too.
+        let prompt = json!({"prompt": "hi"});
+        assert!(!h.render_text(&prompt).unwrap().add_special_tokens);
     }
 
     /// Tools are rendered by the engine from a full pydantic `Tool.model_dump()`,
@@ -1034,10 +1104,10 @@ mod tests {
             "messages": [{"role": "user", "content": "hi"}],
             "tools": [{"type": "function", "function": {"name": "f", "parameters": {}}}],
         });
-        assert!(h.render_text(&body).is_none());
+        assert!(h.render_text_str(&body).is_none());
         // An empty tools array is not a tool-carrying body.
         let body = json!({"messages": [{"role": "user", "content": "hi"}], "tools": []});
-        assert!(h.render_text(&body).is_some());
+        assert!(h.render_text_str(&body).is_some());
     }
 
     /// End-to-end on real GLM-5.2 weights: template render -> tokenize -> block
