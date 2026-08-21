@@ -16,6 +16,9 @@ Two concerns:
 from __future__ import annotations
 
 import logging
+import sys
+from contextlib import contextmanager
+from types import ModuleType, SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
@@ -27,7 +30,14 @@ from infera.router.kv_event.hasher import ROUTER_SEED, hash_chunk, hash_request
 class _StubTokenizer:
     chat_template: Any = None
 
-    def encode(self, text: str, add_special_tokens: bool = False) -> list[int]:
+    def __init__(self) -> None:
+        # Whether each encode() saw an explicit add_special_tokens. A stub that
+        # only defaulted the kwarg would accept either choice at the call site,
+        # and the two paths need opposite ones.
+        self.specials: list[bool] = []
+
+    def encode(self, text: str, add_special_tokens: bool = True) -> list[int]:
+        self.specials.append(add_special_tokens)
         return [ord(c) for c in text]
 
     def apply_chat_template(
@@ -203,3 +213,221 @@ def test_sglang_loader_returns_none_when_module_missing():
     """Router-only host without sglang: loader swallows ImportError -> None."""
     result = BlockHasher._load_via_sglang("nonexistent-model-id-12345")
     assert result is None or hasattr(result, "encode")
+
+
+# ---- sglang native chat encoders (DeepSeek-V4) ----------------------------
+#
+# DeepSeek-V4 ships no chat template, so apply_chat_template raises and every
+# chat request loses its cache info. The router mirrors sglang's own encoder
+# instead; these tests stub sglang so no weights or engine install are needed.
+
+
+class _RecordingEncoder:
+    """Stand-in for sglang.srt.entrypoints.openai.encoding_dsv4."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[list[dict], str]] = []
+
+    def encode_messages(self, messages, thinking_mode):
+        self.calls.append(([dict(m) for m in messages], thinking_mode))
+        return "DSV4:" + "|".join(m["role"] for m in messages)
+
+
+class _FakeTool:
+    """Stand-in for the pydantic Tool model: model_dump() fills in defaults."""
+
+    def __init__(self, **fields):
+        self.fields = fields
+
+    def model_dump(self):
+        return {"strict": False, "defer_loading": None, **self.fields}
+
+
+@contextmanager
+def _fake_sglang(arch: str, encoder: _RecordingEncoder, *, with_protocol: bool = True):
+    def resolve_chat_encoding_spec(*, hf_config, tokenizer, tool_call_parser=None):
+        name = (hf_config.architectures or [""])[0]
+        if "DeepseekV4" in name:
+            return "dsv4"
+        if "KimiK3" in name:
+            return "kimi_k3"
+        return None
+
+    modules: dict[str, Any] = {}
+    for name in ("sglang", "sglang.srt", "sglang.srt.entrypoints", "sglang.srt.entrypoints.openai"):
+        modules[name] = ModuleType(name)
+    chat_encoding = ModuleType("sglang.srt.entrypoints.openai.chat_encoding")
+    chat_encoding.resolve_chat_encoding_spec = resolve_chat_encoding_spec
+    modules["sglang.srt.entrypoints.openai.chat_encoding"] = chat_encoding
+    dsv4 = ModuleType("sglang.srt.entrypoints.openai.encoding_dsv4")
+    dsv4.encode_messages = encoder.encode_messages
+    modules["sglang.srt.entrypoints.openai.encoding_dsv4"] = dsv4
+    if with_protocol:
+        protocol = ModuleType("sglang.srt.entrypoints.openai.protocol")
+        protocol.Tool = _FakeTool
+        modules["sglang.srt.entrypoints.openai.protocol"] = protocol
+
+    config = SimpleNamespace(architectures=[arch])
+    with (
+        patch.dict(sys.modules, modules),
+        patch.object(BlockHasher, "_load_hf_config", staticmethod(lambda _s: config)),
+    ):
+        yield
+
+
+def test_dsv4_arch_uses_sglang_native_encoder():
+    encoder = _RecordingEncoder()
+    hasher = BlockHasher()
+    hasher._tokenizers[(None, "m")] = _StubTokenizer()  # no chat_template, like DSv4
+    with _fake_sglang("DeepseekV4ForCausalLM", encoder):
+        out = hasher.hash_for(
+            {"model": "m", "messages": [{"role": "user", "content": "hi"}]}, block_size=4
+        )
+    messages, thinking_mode = encoder.calls[0]
+    assert thinking_mode == "chat"
+    # The engine prepends an empty system message before rendering.
+    assert messages == [
+        {"role": "system", "content": ""},
+        {"role": "user", "content": "hi"},
+    ]
+    assert out == hash_request([ord(c) for c in "DSV4:system|user"], 4)
+
+
+def test_dsv4_output_is_tokenized_with_specials_and_templates_without():
+    """serving_chat tokenizes the dsv4 encoder's output with a plain
+    ``tokenizer.encode(real_input)``, but passes ``add_special_tokens=False`` at
+    the chat-template site. Getting this backwards doubles the BOS on any
+    tokenizer with ``add_bos_token: true`` -- and that misses silently, which is
+    the failure the dsv4 encoder exists to remove."""
+    body = {"model": "m", "messages": [{"role": "user", "content": "hi"}]}
+
+    tok = _StubTokenizer()
+    hasher = BlockHasher()
+    hasher._tokenizers[(None, "m")] = tok
+    with _fake_sglang("DeepseekV4ForCausalLM", _RecordingEncoder()):
+        hasher.hash_for(body, block_size=4)
+    assert tok.specials == [True]
+
+    # A non-dsv4 arch falls through to the chat template, which spells out its
+    # own specials as text.
+    tok = _StubTokenizer()
+    tok.chat_template = "irrelevant, the stub renders it"
+    hasher = BlockHasher()
+    hasher._tokenizers[(None, "m")] = tok
+    with _fake_sglang("Qwen3ForCausalLM", _RecordingEncoder()):
+        hasher.hash_for(body, block_size=4)
+    assert tok.specials == [False]
+
+
+def test_dsv4_tools_are_normalised_through_the_tool_model():
+    encoder = _RecordingEncoder()
+    hasher = BlockHasher()
+    hasher._tokenizers[(None, "m")] = _StubTokenizer()
+    body = {
+        "model": "m",
+        "messages": [{"role": "user", "content": "hi"}],
+        "tools": [{"type": "function", "function": {"name": "f"}}],
+    }
+    with _fake_sglang("DeepseekV4ForCausalLM", encoder):
+        assert hasher.hash_for(body, block_size=4) != []
+    messages, _ = encoder.calls[0]
+    # Raw request dicts would drop the model defaults and desync the prefix.
+    assert messages[0]["tools"] == [
+        {
+            "strict": False,
+            "defer_loading": None,
+            "type": "function",
+            "function": {"name": "f"},
+        }
+    ]
+
+
+def test_dsv4_path_skipped_for_tools_when_tool_model_unavailable():
+    """No Tool model to normalise with -> fall back rather than hash a wrong prefix."""
+    encoder = _RecordingEncoder()
+    hasher = BlockHasher()
+    hasher._tokenizers[(None, "m")] = _StubTokenizer()
+    body = {
+        "model": "m",
+        "messages": [{"role": "user", "content": "hi"}],
+        "tools": [{"type": "function", "function": {"name": "f"}}],
+    }
+    with _fake_sglang("DeepseekV4ForCausalLM", encoder, with_protocol=False):
+        out = hasher.hash_for(body, block_size=4)
+    assert encoder.calls == []
+    assert out == hash_request([ord(c) for c in "<user>hi</user><assistant>"], 4)
+
+
+def test_non_dsv4_model_still_uses_apply_chat_template():
+    """A model with a chat template and another arch must not take the dsv4 path."""
+    encoder = _RecordingEncoder()
+    tokenizer = _StubTokenizer()
+    tokenizer.chat_template = "{{ messages }}"
+    hasher = BlockHasher()
+    hasher._tokenizers[(None, "m")] = tokenizer
+    with _fake_sglang("KimiK3ForCausalLM", encoder):
+        out = hasher.hash_for(
+            {"model": "m", "messages": [{"role": "user", "content": "hi"}]}, block_size=4
+        )
+    assert encoder.calls == []
+    assert out == hash_request([ord(c) for c in "<user>hi</user><assistant>"], 4)
+
+
+def test_dsv4_encoder_import_error_falls_back_cleanly():
+    """Router-only host: sglang missing -> today's chat-template behaviour."""
+    hasher = BlockHasher()
+    hasher._tokenizers[(None, "m")] = _StubTokenizer()
+    config = SimpleNamespace(architectures=["DeepseekV4ForCausalLM"])
+    broken = {name: None for name in ("sglang", "sglang.srt.entrypoints.openai.chat_encoding")}
+    with (
+        patch.dict(sys.modules, broken),
+        patch.object(BlockHasher, "_load_hf_config", staticmethod(lambda _s: config)),
+    ):
+        out = hasher.hash_for(
+            {"model": "m", "messages": [{"role": "user", "content": "hi"}]}, block_size=4
+        )
+    assert out == hash_request([ord(c) for c in "<user>hi</user><assistant>"], 4)
+
+
+def test_dsv4_path_skipped_when_hf_config_unavailable():
+    """No config.json beside the tokenizer -> no spec to resolve, no crash."""
+    encoder = _RecordingEncoder()
+    hasher = BlockHasher()
+    hasher._tokenizers[(None, "m")] = _StubTokenizer()
+    with _fake_sglang("DeepseekV4ForCausalLM", encoder):
+        with patch.object(BlockHasher, "_load_hf_config", staticmethod(lambda _s: None)):
+            out = hasher.hash_for(
+                {"model": "m", "messages": [{"role": "user", "content": "hi"}]}, block_size=4
+            )
+    assert encoder.calls == []
+    assert out == hash_request([ord(c) for c in "<user>hi</user><assistant>"], 4)
+
+
+def test_spec_resolution_error_falls_back_to_chat_template():
+    """hf_config without .architectures makes resolve_chat_encoding_spec raise."""
+    encoder = _RecordingEncoder()
+    hasher = BlockHasher()
+    hasher._tokenizers[(None, "m")] = _StubTokenizer()
+    with _fake_sglang("DeepseekV4ForCausalLM", encoder):
+        with patch.object(
+            BlockHasher, "_load_hf_config", staticmethod(lambda _s: SimpleNamespace())
+        ):
+            out = hasher.hash_for(
+                {"model": "m", "messages": [{"role": "user", "content": "hi"}]}, block_size=4
+            )
+    assert encoder.calls == []
+    assert out == hash_request([ord(c) for c in "<user>hi</user><assistant>"], 4)
+
+
+def test_hf_config_cached_per_source():
+    calls = {"n": 0}
+
+    def fake_config(_source):
+        calls["n"] += 1
+        return SimpleNamespace(architectures=["LlamaForCausalLM"])
+
+    hasher = BlockHasher()
+    with patch.object(BlockHasher, "_load_hf_config", staticmethod(fake_config)):
+        hasher._get_hf_config("m")
+        hasher._get_hf_config("m")
+    assert calls["n"] == 1

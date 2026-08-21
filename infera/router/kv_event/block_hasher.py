@@ -13,6 +13,10 @@ from infera.router.kv_event.hasher import hash_request
 
 logger = logging.getLogger(__name__)
 
+# "thinking" drifts one token against the engine when the last assistant turn
+# carries a tool_call, so the router renders chat prompts in "chat" mode.
+DSV4_THINKING_MODE = "chat"
+
 
 class BlockHasher:
     """Tokenize requests with the *worker-matching* tokenizer and chain block hashes.
@@ -25,13 +29,17 @@ class BlockHasher:
     we load the tokenizer the way the engine does, keyed by ``(engine, source)``.
     """
 
-    def __init__(self, tokenizer_path: str | None = None) -> None:
+    def __init__(
+        self, tokenizer_path: str | None = None, dsv4_thinking_mode: str = DSV4_THINKING_MODE
+    ) -> None:
         # Operator-supplied local path, used in preference to the advertised
         # model id so the router reads the exact files the workers use. The
         # loader is still chosen by engine (the files alone don't decide
         # fast-vs-slow / special-token config).
         self._tokenizer_path = tokenizer_path
+        self._dsv4_thinking_mode = dsv4_thinking_mode
         self._tokenizers: dict[tuple[Any, str], Any] = {}
+        self._hf_configs: dict[str, Any] = {}
 
     def hash_for(
         self, body: dict, *, block_size: int, engine: EngineType | None = None
@@ -48,29 +56,132 @@ class BlockHasher:
         # without a chat template, or encode on an unexpected body type)
         # must not 500 the request -- degrade to "no cache info" and let the
         # cost function fall back to load-only routing.
+        encoder = "chat-template"
         try:
+            token_ids = None
             if messages := body.get("messages"):
-                text = tokenizer.apply_chat_template(
-                    messages, tokenize=False, add_generation_prompt=True
-                )
+                token_ids = self._encode_via_sglang_dsv4(tokenizer, model_id, messages, body)
+                if token_ids is not None:
+                    encoder = "sglang-dsv4"
+                else:
+                    text = tokenizer.apply_chat_template(
+                        messages, tokenize=False, add_generation_prompt=True
+                    )
             elif (prompt := body.get("prompt")) is not None:
+                encoder = "prompt"
                 text = prompt
             else:
                 return []
-            # The chat template / prompt already carries any leading special
-            # token as text, so don't let the tokenizer add another (matches
-            # how the engines tokenize an already-templated string).
-            token_ids = tokenizer.encode(text, add_special_tokens=False)
+            if token_ids is None:
+                # The chat template / prompt already carries any leading special
+                # token as text, so don't let the tokenizer add another (matches
+                # how the engines tokenize an already-templated string).
+                token_ids = tokenizer.encode(text, add_special_tokens=False)
         except Exception as exc:
             logger.warning("kv-aware: tokenisation failed for model=%s: %s", model_id, exc)
             return []
 
+        # A prefix that disagrees with the engine's is silent: no error, just a
+        # permanent 0% hit rate. TODO: compare this count against the engine's
+        # reported usage.prompt_tokens and warn (rate-limited) on a mismatch,
+        # once the response usage is plumbed back to the router.
+        logger.debug(
+            "kv-aware: model=%s encoder=%s prompt_tokens=%d", model_id, encoder, len(token_ids)
+        )
         return hash_request(token_ids, block_size)
 
-    def _get_tokenizer(self, model_id: str, engine: EngineType | None) -> Any | None:
+    def _encode_via_sglang_dsv4(
+        self, tokenizer: Any, model_id: str, messages: list, body: dict
+    ) -> list[int] | None:
+        """Render chat messages with sglang's native DeepSeek-V4 encoder.
+
+        Models on that encoder ship no chat template, so ``apply_chat_template``
+        raises and kv-aware routing degrades to load-only for every chat request.
+        Returns ``None`` whenever this isn't a dsv4 model or anything about the
+        engine's rendering can't be reproduced exactly, leaving the caller on the
+        chat-template path.
+        """
+        try:
+            from sglang.srt.entrypoints.openai.chat_encoding import resolve_chat_encoding_spec
+            from sglang.srt.entrypoints.openai.encoding_dsv4 import encode_messages
+        except Exception:  # sglang not installed, or too old for these encoders
+            return None
+
+        hf_config = self._get_hf_config(model_id)
+        if hf_config is None:
+            return None
+        try:
+            spec = resolve_chat_encoding_spec(hf_config=hf_config, tokenizer=tokenizer)
+        except Exception as exc:  # e.g. a config without .architectures
+            logger.debug("kv-aware: chat encoding spec undecidable for %s: %s", model_id, exc)
+            return None
+        # Strictly dsv4: the other specs (dsv32 / kimi_k3 / inkling) need their
+        # own encoders, so they must stay on the apply_chat_template path.
+        if spec != "dsv4":
+            return None
+
+        rendered = [dict(m) for m in messages]
+        if rendered[0].get("role") != "system":
+            # The engine prepends an empty system message and hangs the tools off
+            # it (serving_chat); tools are never passed to the encoder directly.
+            rendered.insert(0, {"role": "system", "content": ""})
+        if tools := body.get("tools"):
+            normalised = self._normalise_tools(tools)
+            if normalised is None:
+                return None
+            rendered[0]["tools"] = normalised
+
+        prompt = encode_messages(rendered, thinking_mode=self._dsv4_thinking_mode)
+        # The encoder emits its own BOS, and the engine tokenizes the result with
+        # a plain encode(); match it rather than the add_special_tokens=False above.
+        return tokenizer.encode(prompt)
+
+    @staticmethod
+    def _normalise_tools(tools: list) -> list[dict] | None:
+        """The engine renders tools from a full pydantic ``Tool.model_dump()``,
+        which materialises defaults the client never sent (``strict``,
+        ``defer_loading``); hashing the raw request dicts shifts the prefix by a
+        few tokens with no error at all, so skip dsv4 rather than guess."""
+        try:
+            from sglang.srt.entrypoints.openai.protocol import Tool
+        except Exception:
+            return None
+        try:
+            return [Tool(**tool).model_dump() for tool in tools]
+        except Exception as exc:
+            logger.debug("kv-aware: tools not normalisable for the dsv4 encoder: %s", exc)
+            return None
+
+    def _get_hf_config(self, model_id: str) -> Any | None:
+        source = self._source(model_id)
+        if source in self._hf_configs:
+            return self._hf_configs[source]
+        cfg = self._load_hf_config(source)
+        # Cached even when None: a source without a readable config.json won't
+        # grow one, and this runs on the request path.
+        self._hf_configs[source] = cfg
+        return cfg
+
+    @staticmethod
+    def _load_hf_config(source: str) -> Any | None:
+        try:
+            from transformers import AutoConfig
+        except Exception:
+            return None
+        try:
+            return AutoConfig.from_pretrained(source, trust_remote_code=True)
+        except Exception as exc:
+            logger.debug("kv-aware: no hf config for %s: %s", source, exc)
+            return None
+
+    def _source(self, model_id: str) -> str:
         source = self._tokenizer_path or model_id
         if self._tokenizer_path and self._tokenizer_path.endswith(".json"):
             source = self._tokenizer_path.rsplit("/", 1)[0] if "/" in self._tokenizer_path else "."
+        return source
+
+    def _get_tokenizer(self, model_id: str, engine: EngineType | None) -> Any | None:
+        source = self._source(model_id)
         key = (engine, source)
         if key in self._tokenizers:
             return self._tokenizers[key]

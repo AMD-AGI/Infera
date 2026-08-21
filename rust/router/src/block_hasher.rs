@@ -26,12 +26,13 @@ use serde::Serialize;
 use serde_json::Value;
 use tokenizers::Tokenizer;
 
+use crate::encoding_dsv4::{encode_messages, DSV4_THINKING_MODE};
 use crate::hasher::hash_request;
 use crate::tiktoken::KimiTokenizer;
 
 /// `json.dumps` default separators: `", "` between items, `": "` after a key.
 /// serde_json packs both, and the engine's prompt has the spaces.
-struct PyJsonFormatter;
+pub(crate) struct PyJsonFormatter;
 
 impl serde_json::ser::Formatter for PyJsonFormatter {
     fn begin_array_value<W: ?Sized + io::Write>(
@@ -79,6 +80,33 @@ fn escape_non_ascii(s: &str) -> String {
     out
 }
 
+/// A rendered prompt and the `add_special_tokens` flag the engine tokenizes it
+/// with. Carrying the flag alongside the text keeps the two in step: picking it
+/// at the encode site instead would mean re-deciding which renderer produced
+/// the string.
+struct Rendered {
+    text: String,
+    add_special_tokens: bool,
+}
+
+impl Rendered {
+    /// Text that already spells out its own special tokens.
+    fn verbatim(text: String) -> Self {
+        Self {
+            text,
+            add_special_tokens: false,
+        }
+    }
+
+    /// Text the engine feeds to a plain `tokenizer.encode`.
+    fn with_specials(text: String) -> Self {
+        Self {
+            text,
+            add_special_tokens: true,
+        }
+    }
+}
+
 pub struct BlockHasher {
     tokenizer: Option<Tokenizer>,
     /// Kimi-style tiktoken tokenizer (no `tokenizer.json`). Takes precedence
@@ -87,6 +115,9 @@ pub struct BlockHasher {
     chat_template: Option<String>,
     bos_token: Option<String>,
     eos_token: Option<String>,
+    /// This model speaks DeepSeek-V4's native chat encoding instead of a Jinja
+    /// `chat_template` (see `render_dsv4`).
+    dsv4: bool,
 }
 
 /// Qwen3's chat template, verbatim from Qwen3-30B-A3B's tokenizer_config.json.
@@ -375,6 +406,7 @@ impl BlockHasher {
             chat_template,
             bos_token,
             eos_token,
+            dsv4: detect_dsv4(&cfg_dir),
         }
     }
 
@@ -386,6 +418,7 @@ impl BlockHasher {
             chat_template: None,
             bos_token: None,
             eos_token: None,
+            dsv4: false,
         }
     }
 
@@ -411,7 +444,10 @@ impl BlockHasher {
         if self.tokenizer.is_none() && self.tiktoken.is_none() {
             return Vec::new();
         }
-        let text = match self.render_text(body) {
+        let Rendered {
+            text,
+            add_special_tokens,
+        } = match self.render_text(body) {
             Some(t) => t,
             None => return Vec::new(),
         };
@@ -421,9 +457,7 @@ impl BlockHasher {
             return hash_request(&tk.encode(&text), block_size);
         }
         let tok = self.tokenizer.as_ref().expect("checked above");
-        // add_special_tokens=false: the template/prompt already carries any
-        // leading special token as text (matches how the engines tokenize).
-        match tok.encode(text, false) {
+        match tok.encode(text, add_special_tokens) {
             Ok(enc) => hash_request(enc.get_ids(), block_size),
             Err(e) => {
                 tracing::warn!(err = %e, "kv-aware: tokenisation failed");
@@ -432,19 +466,76 @@ impl BlockHasher {
         }
     }
 
-    fn render_text(&self, body: &Value) -> Option<String> {
+    /// A prompt string plus the `add_special_tokens` the engine tokenizes it
+    /// with. The chat-template and completion paths carry any leading special
+    /// token as text already, so a tokenizer that prepends BOS would double it;
+    /// the dsv4 encoder's output is tokenized plainly instead.
+    fn render_text(&self, body: &Value) -> Option<Rendered> {
         if let Some(messages) = body.get("messages") {
-            if messages.is_array() {
-                return self.apply_chat_template(messages);
+            if let Some(arr) = messages.as_array() {
+                if self.dsv4 {
+                    if let Some(rendered) = self.render_dsv4(body, arr) {
+                        // serving_chat tokenizes the dsv4 encoder's output with a
+                        // plain `tokenizer.encode(real_input)`, unlike the
+                        // chat-template site which passes add_special_tokens=False.
+                        return Some(Rendered::with_specials(rendered));
+                    }
+                }
+                return self.apply_chat_template(messages).map(Rendered::verbatim);
             }
         }
         // Completion `prompt`: only a plain string is tokenizable here.
         if let Some(prompt) = body.get("prompt") {
             if let Some(s) = prompt.as_str() {
-                return Some(s.to_string());
+                return Some(Rendered::verbatim(s.to_string()));
             }
         }
         None
+    }
+
+    #[cfg(test)]
+    fn render_text_str(&self, body: &Value) -> Option<String> {
+        self.render_text(body).map(|r| r.text)
+    }
+
+    /// Render a chat body with DeepSeek-V4's native encoder.
+    ///
+    /// DSv4 ships no `chat_template` and no `chat_template.jinja` — only an
+    /// `encoding/` directory — so `apply_chat_template` returns None and every
+    /// chat request against a DSv4 worker hashes to nothing. That failure is
+    /// silent: no error, just a permanent 0% kv-aware hit rate. Returning None
+    /// here leaves the caller on the previous path, so anything this cannot
+    /// reproduce exactly is no worse than today.
+    fn render_dsv4(&self, body: &Value, messages: &[Value]) -> Option<String> {
+        // The engine renders tools from a full pydantic `Tool.model_dump()`,
+        // which materialises defaults the client never sent (`strict`,
+        // `defer_loading`). There is no pydantic model to dump here, and a
+        // prefix a few tokens off misses silently, so skip rather than guess —
+        // the same call the Python side makes when it cannot import that model.
+        if body
+            .get("tools")
+            .is_some_and(|t| t.as_array().is_some_and(|a| !a.is_empty()))
+        {
+            tracing::debug!("kv-aware: dsv4 encoder skipped, request carries tools");
+            return None;
+        }
+        // serving_chat prepends an empty system message when the conversation
+        // does not start with one; tools are hung off that message, never
+        // passed to the encoder directly.
+        let mut msgs: Vec<Value> = Vec::with_capacity(messages.len() + 1);
+        if messages
+            .first()
+            .is_some_and(|m| m.get("role").and_then(Value::as_str) != Some("system"))
+        {
+            msgs.push(serde_json::json!({"role": "system", "content": ""}));
+        }
+        msgs.extend(messages.iter().cloned());
+
+        let rendered = encode_messages(&msgs, DSV4_THINKING_MODE);
+        if rendered.is_none() {
+            tracing::warn!("kv-aware: dsv4 encoder could not render this conversation");
+        }
+        rendered
     }
 
     fn apply_chat_template(&self, messages: &Value) -> Option<String> {
@@ -532,6 +623,38 @@ fn token_ids_from_prompt(body: &Value) -> Option<Vec<u32>> {
         ids.push(u32::try_from(n).ok()?);
     }
     Some(ids)
+}
+
+/// Does this model use DeepSeek-V4's native chat encoding?
+///
+/// Mirrors the architecture arm of sglang's `resolve_chat_encoding_spec`, which
+/// is what the engine itself dispatches on. Strictly DeepseekV4: the other
+/// specs (dsv32 / kimi_k3 / inkling) need their own encoders and must stay on
+/// the `apply_chat_template` path. `INFERA_KV_CHAT_ENCODING=dsv4` forces it on
+/// for a tokenizer path whose `config.json` the router cannot see.
+fn detect_dsv4(cfg_dir: &Path) -> bool {
+    if std::env::var("INFERA_KV_CHAT_ENCODING").as_deref() == Ok("dsv4") {
+        tracing::info!("kv-aware: dsv4 chat encoding forced by INFERA_KV_CHAT_ENCODING");
+        return true;
+    }
+    let path = cfg_dir.join("config.json");
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return false;
+    };
+    let Ok(cfg) = serde_json::from_str::<Value>(&text) else {
+        return false;
+    };
+    let arch = cfg
+        .get("architectures")
+        .and_then(Value::as_array)
+        .and_then(|a| a.first())
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let dsv4 = arch.contains("DeepseekV4");
+    if dsv4 {
+        tracing::info!(%arch, "kv-aware: using the native dsv4 chat encoder");
+    }
+    dsv4
 }
 
 fn load_config(path: &Path) -> (Option<String>, Option<String>, Option<String>) {
@@ -669,6 +792,7 @@ mod tests {
         let h = BlockHasher {
             tokenizer: None,
             tiktoken: None,
+            dsv4: false,
             chat_template: Some(
                 "{%- for m in messages -%}\
                  {%- set content = m['content'] -%}\
@@ -708,6 +832,7 @@ mod tests {
         let h = BlockHasher {
             tokenizer: None,
             tiktoken: None,
+            dsv4: false,
             chat_template: Some(
                 "{%- for m in messages -%}\
                  {%- if not(m['content'].startswith('<tool_response>') and \
@@ -738,6 +863,7 @@ mod tests {
         let h = BlockHasher {
             tokenizer: None,
             tiktoken: None,
+            dsv4: false,
             chat_template: Some(
                 "{{ s.startswith('ab') }}|{{ s.endswith('yz') }}|\
                  {{ s.startswith(('q', 'ab')) }}|{{ s.endswith(('q', 'yz')) }}|\
@@ -771,6 +897,7 @@ mod tests {
         let h = BlockHasher {
             tokenizer: None,
             tiktoken: None,
+            dsv4: false,
             chat_template: Some(QWEN3_TEMPLATE.to_string()),
             bos_token: None,
             eos_token: None,
@@ -802,6 +929,7 @@ mod tests {
         let h = BlockHasher {
             tokenizer: None,
             tiktoken: None,
+            dsv4: false,
             chat_template: Some(
                 "{%- set s = messages[0]['content'] -%}\
                  {{ s.split(',') | length }}|{{ s.split() | length }}|\
@@ -831,6 +959,7 @@ mod tests {
         let h = BlockHasher {
             tokenizer: None,
             tiktoken: None,
+            dsv4: false,
             chat_template: Some(
                 "{{ messages[0] | tojson }}|{{ messages[0] | tojson(ensure_ascii=True) }}"
                     .to_string(),
@@ -856,6 +985,7 @@ mod tests {
         let h = BlockHasher {
             tokenizer: None,
             tiktoken: None,
+            dsv4: false,
             chat_template: Some(
                 "{%- set d = messages[0] -%}\
                  {%- for k, v in d.items() -%}{{ k }}={{ v }};{%- endfor -%}\
@@ -872,6 +1002,112 @@ mod tests {
             "items() must unpack as (key, value), agree with keys()/values(), and \
              keep the request's own key order rather than alphabetising it"
         );
+    }
+
+    /// The dsv4 gate is decided off `config.json`'s first architecture, exactly
+    /// like sglang's `resolve_chat_encoding_spec`. Every other model — including
+    /// the DeepseekV3 that dsv32 would claim — must stay on the chat-template
+    /// path, since engaging the wrong native encoder silently produces a prefix
+    /// that can never match.
+    #[test]
+    fn dsv4_is_detected_only_for_the_deepseek_v4_architecture() {
+        let dir = std::env::temp_dir().join(format!("infera-dsv4-gate-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let cfg = dir.join("config.json");
+        for (arch, want) in [
+            (r#"["DeepseekV4ForCausalLM"]"#, true),
+            (r#"["DeepseekV3ForCausalLM"]"#, false),
+            (r#"["KimiK3ForCausalLM"]"#, false),
+            (r#"[]"#, false),
+        ] {
+            std::fs::write(&cfg, format!(r#"{{"architectures": {arch}}}"#)).unwrap();
+            assert_eq!(detect_dsv4(&dir), want, "architectures={arch}");
+        }
+        std::fs::write(&cfg, "not json").unwrap();
+        assert!(!detect_dsv4(&dir));
+        std::fs::remove_dir_all(&dir).ok();
+        // No config.json at all.
+        assert!(!detect_dsv4(&dir));
+    }
+
+    /// The whole point of the native encoder: a DSv4 chat body renders to the
+    /// engine's prefix instead of to nothing. Hermetic — no weights needed,
+    /// since the render is the subject and the tokenizer is the next stage.
+    #[test]
+    fn dsv4_chat_body_renders_without_a_chat_template() {
+        let h = BlockHasher {
+            tokenizer: None,
+            tiktoken: None,
+            dsv4: true,
+            chat_template: None,
+            bos_token: None,
+            eos_token: None,
+        };
+        // No system turn: serving_chat prepends an empty one, which renders to
+        // nothing but must not shift anything else.
+        let body = json!({"messages": [{"role": "user", "content": "hi"}]});
+        assert_eq!(
+            h.render_text_str(&body).as_deref(),
+            Some("<｜begin▁of▁sentence｜><｜User｜>hi<｜Assistant｜></think>")
+        );
+
+        // Same body without the gate: no chat_template, so nothing renders --
+        // the behaviour this fix replaces.
+        let off = BlockHasher { dsv4: false, ..h };
+        assert!(off.render_text_str(&body).is_none());
+    }
+
+    /// serving_chat tokenizes the dsv4 encoder's output with a plain
+    /// `tokenizer.encode(real_input)` but passes `add_special_tokens=False` at
+    /// the chat-template site. Getting this backwards costs a doubled BOS on any
+    /// tokenizer with `add_bos_token: true` -- and that misses silently, which is
+    /// the whole failure mode the dsv4 encoder exists to remove.
+    #[test]
+    fn dsv4_output_is_tokenized_with_specials_and_templates_without() {
+        let h = BlockHasher {
+            tokenizer: None,
+            tiktoken: None,
+            dsv4: true,
+            chat_template: Some(QWEN3_TEMPLATE.to_string()),
+            bos_token: None,
+            eos_token: None,
+        };
+        let body = json!({"messages": [{"role": "user", "content": "hi"}]});
+        assert!(h.render_text(&body).unwrap().add_special_tokens);
+
+        // Tools push the same body onto the chat-template path.
+        let templated = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "tools": [{"type": "function", "function": {"name": "f", "parameters": {}}}],
+        });
+        assert!(!h.render_text(&templated).unwrap().add_special_tokens);
+
+        // Completion prompts spell out their own specials too.
+        let prompt = json!({"prompt": "hi"});
+        assert!(!h.render_text(&prompt).unwrap().add_special_tokens);
+    }
+
+    /// Tools are rendered by the engine from a full pydantic `Tool.model_dump()`,
+    /// whose defaults are not in the request. Skipping is the honest outcome: a
+    /// near-miss prefix hashes to a permanent miss with nothing to show for it.
+    #[test]
+    fn dsv4_skips_tool_carrying_bodies_rather_than_guess() {
+        let h = BlockHasher {
+            tokenizer: None,
+            tiktoken: None,
+            dsv4: true,
+            chat_template: None,
+            bos_token: None,
+            eos_token: None,
+        };
+        let body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "tools": [{"type": "function", "function": {"name": "f", "parameters": {}}}],
+        });
+        assert!(h.render_text_str(&body).is_none());
+        // An empty tools array is not a tool-carrying body.
+        let body = json!({"messages": [{"role": "user", "content": "hi"}], "tools": []});
+        assert!(h.render_text_str(&body).is_some());
     }
 
     /// End-to-end on real GLM-5.2 weights: template render -> tokenize -> block
