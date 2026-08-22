@@ -118,6 +118,9 @@ pub struct BlockHasher {
     /// This model speaks DeepSeek-V4's native chat encoding instead of a Jinja
     /// `chat_template` (see `render_dsv4`).
     dsv4: bool,
+    /// This model speaks Kimi-K3's native XTML chat encoding instead of a Jinja
+    /// `chat_template` (see `crate::encoding_k3`).
+    kimi_k3: bool,
 }
 
 /// Qwen3's chat template, verbatim from Qwen3-30B-A3B's tokenizer_config.json.
@@ -407,6 +410,7 @@ impl BlockHasher {
             bos_token,
             eos_token,
             dsv4: detect_dsv4(&cfg_dir),
+            kimi_k3: detect_kimi_k3(&cfg_dir),
         }
     }
 
@@ -419,6 +423,7 @@ impl BlockHasher {
             bos_token: None,
             eos_token: None,
             dsv4: false,
+            kimi_k3: false,
         }
     }
 
@@ -443,6 +448,18 @@ impl BlockHasher {
         // Text path: needs a loaded tokenizer (HF fast or Kimi tiktoken).
         if self.tokenizer.is_none() && self.tiktoken.is_none() {
             return Vec::new();
+        }
+        // Kimi-K3 renders chat in imperative Python and ships no Jinja template
+        // at all, so the chat-template path below has nothing to apply and every
+        // chat request would hash to nothing. Encode it natively instead. The
+        // encoder refuses (returns None) anything it can't reproduce exactly,
+        // which falls through to that same empty render — never worse.
+        if self.kimi_k3 {
+            if let Some(tk) = &self.tiktoken {
+                if let Some(segments) = crate::encoding_k3::encode_chat(body) {
+                    return hash_request(&tk.encode_segments(&segments), block_size);
+                }
+            }
         }
         let Rendered {
             text,
@@ -625,36 +642,47 @@ fn token_ids_from_prompt(body: &Value) -> Option<Vec<u32>> {
     Some(ids)
 }
 
-/// Does this model use DeepSeek-V4's native chat encoding?
+/// `config.json`'s `architectures[0]`, the field sglang's
+/// `resolve_chat_encoding_spec` dispatches on.
+fn first_architecture(cfg_dir: &Path) -> Option<String> {
+    let text = std::fs::read_to_string(cfg_dir.join("config.json")).ok()?;
+    let cfg = serde_json::from_str::<Value>(&text).ok()?;
+    Some(
+        cfg.get("architectures")
+            .and_then(Value::as_array)
+            .and_then(|a| a.first())
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+    )
+}
+
+/// Which native chat encoder this model needs, if any.
 ///
 /// Mirrors the architecture arm of sglang's `resolve_chat_encoding_spec`, which
-/// is what the engine itself dispatches on. Strictly DeepseekV4: the other
-/// specs (dsv32 / kimi_k3 / inkling) need their own encoders and must stay on
-/// the `apply_chat_template` path. `INFERA_KV_CHAT_ENCODING=dsv4` forces it on
-/// for a tokenizer path whose `config.json` the router cannot see.
-fn detect_dsv4(cfg_dir: &Path) -> bool {
-    if std::env::var("INFERA_KV_CHAT_ENCODING").as_deref() == Ok("dsv4") {
-        tracing::info!("kv-aware: dsv4 chat encoding forced by INFERA_KV_CHAT_ENCODING");
+/// is what the engine itself dispatches on. The remaining specs (dsv32 /
+/// inkling) still need their own encoders and stay on the `apply_chat_template`
+/// path. `INFERA_KV_CHAT_ENCODING` forces one on for a tokenizer path whose
+/// `config.json` the router cannot see.
+fn detect_encoding(cfg_dir: &Path, spec: &str, arch_marker: &str) -> bool {
+    if std::env::var("INFERA_KV_CHAT_ENCODING").as_deref() == Ok(spec) {
+        tracing::info!(%spec, "kv-aware: chat encoding forced by INFERA_KV_CHAT_ENCODING");
         return true;
     }
-    let path = cfg_dir.join("config.json");
-    let Ok(text) = std::fs::read_to_string(&path) else {
-        return false;
-    };
-    let Ok(cfg) = serde_json::from_str::<Value>(&text) else {
-        return false;
-    };
-    let arch = cfg
-        .get("architectures")
-        .and_then(Value::as_array)
-        .and_then(|a| a.first())
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    let dsv4 = arch.contains("DeepseekV4");
-    if dsv4 {
-        tracing::info!(%arch, "kv-aware: using the native dsv4 chat encoder");
+    let arch = first_architecture(cfg_dir).unwrap_or_default();
+    let matched = arch.contains(arch_marker);
+    if matched {
+        tracing::info!(%arch, %spec, "kv-aware: using a native chat encoder");
     }
-    dsv4
+    matched
+}
+
+fn detect_dsv4(cfg_dir: &Path) -> bool {
+    detect_encoding(cfg_dir, "dsv4", "DeepseekV4")
+}
+
+fn detect_kimi_k3(cfg_dir: &Path) -> bool {
+    detect_encoding(cfg_dir, "kimi_k3", "KimiK3")
 }
 
 fn load_config(path: &Path) -> (Option<String>, Option<String>, Option<String>) {
@@ -735,11 +763,15 @@ mod tests {
     /// path is missing, the test returns early, and the run reports a pass
     /// having checked nothing. Naming the variable at least makes the skip
     /// legible and lets CI opt in.
-    fn model_dir_from_env(var: &str) -> Option<String> {
+    ///
+    /// `marker` is the file the test actually needs, so the skip is honest
+    /// about what was missing rather than assuming every model ships the same
+    /// layout -- Kimi-K3, notably, ships no Jinja template of any kind.
+    fn model_dir_from_env(var: &str, marker: &str) -> Option<String> {
         match std::env::var(var) {
-            Ok(p) if Path::new(&p).join("chat_template.jinja").exists() => Some(p),
+            Ok(p) if Path::new(&p).join(marker).exists() => Some(p),
             Ok(p) => {
-                eprintln!("skip: {var}={p} has no chat_template.jinja");
+                eprintln!("skip: {var}={p} has no {marker}");
                 None
             }
             Err(_) => {
@@ -749,13 +781,14 @@ mod tests {
         }
     }
 
-    // Kimi ships chat_template.jinja (not embedded) + tiktoken. This guards the
-    // whole chat path: standalone-template fallback, the `.get()` method, and the
-    // `{% break %}` loop control all have to work or a chat request hashes to
+    // Kimi-K2.6 ships chat_template.jinja (not embedded) + tiktoken. This guards
+    // the whole chat path: standalone-template fallback, the `.get()` method, and
+    // the `{% break %}` loop control all have to work or a chat request hashes to
     // empty (load-only routing, no cache locality). Skips if weights absent.
     #[test]
     fn kimi_chat_request_renders_and_hashes() {
-        let Some(kimi_dir) = model_dir_from_env("INFERA_TEST_KIMI_DIR") else {
+        let Some(kimi_dir) = model_dir_from_env("INFERA_TEST_KIMI_DIR", "chat_template.jinja")
+        else {
             return;
         };
         let h = BlockHasher::load(&kimi_dir);
@@ -777,6 +810,53 @@ mod tests {
         );
     }
 
+    /// Kimi-K3 has no Jinja template at all, so `apply_chat_template` finds
+    /// nothing and every chat request used to hash to empty -- kv-aware
+    /// degrading to load-only routing with every health signal green. The
+    /// native XTML encoder is the only thing standing between this model and a
+    /// permanent 0% cache hit rate. Skips if weights absent.
+    #[test]
+    fn kimi_k3_chat_request_hashes_without_a_jinja_template() {
+        let Some(dir) = model_dir_from_env("INFERA_TEST_KIMI_K3_DIR", "tiktoken.model") else {
+            return;
+        };
+        let h = BlockHasher::load(&dir);
+        assert!(h.is_enabled());
+        assert!(
+            h.chat_template.is_none(),
+            "K3 is the no-template case; a template here means this test is \
+             exercising something else"
+        );
+        assert!(
+            h.kimi_k3,
+            "config.json architectures[0] must select the encoder"
+        );
+
+        let body = json!({"messages": [
+            {"role": "system", "content": "You are an agent. ".repeat(40)},
+            {"role": "user", "content": "list the files ".repeat(40)},
+        ]});
+        let hashes = h.hash_for(&body, 16);
+        assert!(!hashes.is_empty(), "K3 chat must tokenize natively");
+
+        // A longer prompt sharing this one's prefix must share its leading block
+        // hashes -- that shared prefix *is* the cache locality kv-aware routes on.
+        let longer = json!({"messages": [
+            {"role": "system", "content": "You are an agent. ".repeat(40)},
+            {"role": "user", "content": "list the files ".repeat(80)},
+        ]});
+        let longer_hashes = h.hash_for(&longer, 16);
+        assert!(longer_hashes.len() > hashes.len());
+        assert_eq!(longer_hashes[0], hashes[0]);
+
+        // A request the encoder refuses degrades to today's behaviour, not to
+        // wrong hashes.
+        let multimodal = json!({"messages": [{"role": "user", "content": [
+            {"type": "image_url", "image_url": {"url": "http://x/y.png"}},
+        ]}]});
+        assert!(h.hash_for(&multimodal, 16).is_empty());
+    }
+
     /// GLM-5.2's template splits the thinking block out and strips the rest:
     ///
     ///   {%- set content = content.split('</think>')[-1] %}
@@ -793,6 +873,7 @@ mod tests {
             tokenizer: None,
             tiktoken: None,
             dsv4: false,
+            kimi_k3: false,
             chat_template: Some(
                 "{%- for m in messages -%}\
                  {%- set content = m['content'] -%}\
@@ -833,6 +914,7 @@ mod tests {
             tokenizer: None,
             tiktoken: None,
             dsv4: false,
+            kimi_k3: false,
             chat_template: Some(
                 "{%- for m in messages -%}\
                  {%- if not(m['content'].startswith('<tool_response>') and \
@@ -864,6 +946,7 @@ mod tests {
             tokenizer: None,
             tiktoken: None,
             dsv4: false,
+            kimi_k3: false,
             chat_template: Some(
                 "{{ s.startswith('ab') }}|{{ s.endswith('yz') }}|\
                  {{ s.startswith(('q', 'ab')) }}|{{ s.endswith(('q', 'yz')) }}|\
@@ -898,6 +981,7 @@ mod tests {
             tokenizer: None,
             tiktoken: None,
             dsv4: false,
+            kimi_k3: false,
             chat_template: Some(QWEN3_TEMPLATE.to_string()),
             bos_token: None,
             eos_token: None,
@@ -930,6 +1014,7 @@ mod tests {
             tokenizer: None,
             tiktoken: None,
             dsv4: false,
+            kimi_k3: false,
             chat_template: Some(
                 "{%- set s = messages[0]['content'] -%}\
                  {{ s.split(',') | length }}|{{ s.split() | length }}|\
@@ -960,6 +1045,7 @@ mod tests {
             tokenizer: None,
             tiktoken: None,
             dsv4: false,
+            kimi_k3: false,
             chat_template: Some(
                 "{{ messages[0] | tojson }}|{{ messages[0] | tojson(ensure_ascii=True) }}"
                     .to_string(),
@@ -986,6 +1072,7 @@ mod tests {
             tokenizer: None,
             tiktoken: None,
             dsv4: false,
+            kimi_k3: false,
             chat_template: Some(
                 "{%- set d = messages[0] -%}\
                  {%- for k, v in d.items() -%}{{ k }}={{ v }};{%- endfor -%}\
@@ -1039,6 +1126,7 @@ mod tests {
             tokenizer: None,
             tiktoken: None,
             dsv4: true,
+            kimi_k3: false,
             chat_template: None,
             bos_token: None,
             eos_token: None,
@@ -1068,6 +1156,7 @@ mod tests {
             tokenizer: None,
             tiktoken: None,
             dsv4: true,
+            kimi_k3: false,
             chat_template: Some(QWEN3_TEMPLATE.to_string()),
             bos_token: None,
             eos_token: None,
@@ -1096,6 +1185,7 @@ mod tests {
             tokenizer: None,
             tiktoken: None,
             dsv4: true,
+            kimi_k3: false,
             chat_template: None,
             bos_token: None,
             eos_token: None,
@@ -1117,7 +1207,7 @@ mod tests {
     /// `INFERA_TEST_GLM_DIR=/path/to/GLM-5.2-*`.
     #[test]
     fn glm52_chat_request_renders_and_hashes() {
-        let Some(glm_dir) = model_dir_from_env("INFERA_TEST_GLM_DIR") else {
+        let Some(glm_dir) = model_dir_from_env("INFERA_TEST_GLM_DIR", "chat_template.jinja") else {
             return;
         };
         // The render failure this guards against is only ever a warn log, so
@@ -1149,7 +1239,7 @@ mod tests {
     /// `transformers.utils.chat_template_utils._compile_jinja_template`.
     #[test]
     fn glm52_tool_call_render_matches_transformers() {
-        let Some(glm_dir) = model_dir_from_env("INFERA_TEST_GLM_DIR") else {
+        let Some(glm_dir) = model_dir_from_env("INFERA_TEST_GLM_DIR", "chat_template.jinja") else {
             return;
         };
         let h = BlockHasher::load(&glm_dir);

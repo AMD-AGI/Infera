@@ -15,6 +15,10 @@
 //! Encode matches `TikTokenTokenizer.encode(text, allow_special_tokens=True)`,
 //! i.e. tiktoken `Encoding.encode(text, allowed_special="all")` — special-token
 //! literals in the text map to their id, and no BOS/EOS is added.
+//!
+//! `encode_segments` is the chat counterpart (`_encode_chat_segments`), where
+//! each segment decides for itself whether `<|...|>` is a control token or just
+//! text; see [`crate::encoding_k3`].
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -22,6 +26,8 @@ use std::path::Path;
 use base64::Engine as _;
 use onig::Regex;
 use serde_json::Value;
+
+use crate::encoding_k3::Segment;
 
 /// Token id / BPE rank. Matches the engine's `u32` token ids (and `hash_request`).
 type Rank = u32;
@@ -42,6 +48,12 @@ const PAT: &str = concat!(
 
 /// TikTokenTokenizer.num_reserved_special_tokens.
 const NUM_RESERVED_SPECIAL_TOKENS: usize = 256;
+
+/// `_encode_text_piece`'s two guards against tiktoken's pyo3 panic, in *chars*
+/// (Python slices by code point). Both force a token boundary where they cut,
+/// so reproducing them is a correctness requirement, not just crash avoidance.
+const TIKTOKEN_MAX_ENCODE_CHARS: usize = 400_000;
+const MAX_NO_WHITESPACES_CHARS: usize = 25_000;
 
 pub struct KimiTokenizer {
     encoder: HashMap<Vec<u8>, Rank>,
@@ -100,10 +112,44 @@ impl KimiTokenizer {
         })
     }
 
-    /// Encode text -> token ids, matching tiktoken `encode(allowed_special="all")`:
-    /// special-token literals become their id; everything else is BPE'd.
+    /// Encode text -> token ids, matching `TikTokenTokenizer.encode(text)`
+    /// (`allow_special_tokens=True`): special-token literals become their id;
+    /// everything else is BPE'd.
     pub fn encode(&self, text: &str) -> Vec<Rank> {
         let mut out = Vec::new();
+        self.encode_piece(text, true, &mut out);
+        out
+    }
+
+    /// `_encode_chat_segments`: encode a rendered chat prompt, each segment with
+    /// its own special-token policy.
+    ///
+    /// This is what makes a `<|end_of_msg|>` a client typed tokenize as text
+    /// while the encoder's own marker tokenizes as the control token — and it is
+    /// why [`crate::encoding_k3`] hands back segments instead of one string.
+    pub fn encode_segments(&self, segments: &[Segment]) -> Vec<Rank> {
+        let mut out = Vec::new();
+        for segment in segments {
+            self.encode_piece(&segment.text, segment.allow_special, &mut out);
+        }
+        out
+    }
+
+    /// `_encode_text_piece`.
+    fn encode_piece(&self, text: &str, allow_special: bool, out: &mut Vec<Rank>) {
+        for chunk in char_chunks(text, TIKTOKEN_MAX_ENCODE_CHARS) {
+            for substr in split_whitespaces_or_nonwhitespaces(chunk, MAX_NO_WHITESPACES_CHARS) {
+                if allow_special {
+                    self.encode_allowing_special(substr, out);
+                } else {
+                    self.encode_ordinary_into(substr, out);
+                }
+            }
+        }
+    }
+
+    /// tiktoken `encode(text, allowed_special="all")`.
+    fn encode_allowing_special(&self, text: &str, out: &mut Vec<Rank>) {
         let mut start = 0;
         loop {
             // Next special-token literal at or after `start`.
@@ -113,7 +159,7 @@ impl KimiTokenizer {
                 .and_then(|re| re.find(&text[start..]))
                 .map(|(s, e)| (start + s, start + e));
             let end = next.map_or(text.len(), |(s, _)| s);
-            self.encode_ordinary_into(&text[start..end], &mut out);
+            self.encode_ordinary_into(&text[start..end], out);
             match next {
                 Some((s, e)) => {
                     if let Some(&id) = self.special.get(&text[s..e]) {
@@ -124,9 +170,10 @@ impl KimiTokenizer {
                 None => break,
             }
         }
-        out
     }
 
+    /// tiktoken `encode(text, disallowed_special=())`, whose `allowed_special`
+    /// defaults to empty: a `<|...|>` literal here is BPE'd as ordinary bytes.
     fn encode_ordinary_into(&self, text: &str, out: &mut Vec<Rank>) {
         for (s, e) in self.regex.find_iter(text) {
             let piece = &text.as_bytes()[s..e];
@@ -136,6 +183,57 @@ impl KimiTokenizer {
             }
         }
     }
+}
+
+/// `text[i:i + max_chars]` over code points, as Python slices it.
+fn char_chunks(text: &str, max_chars: usize) -> Vec<&str> {
+    // Fast path: the overwhelming majority of segments are a few hundred chars.
+    if text.len() <= max_chars {
+        return if text.is_empty() {
+            Vec::new()
+        } else {
+            vec![text]
+        };
+    }
+    let mut bounds: Vec<usize> = text
+        .char_indices()
+        .step_by(max_chars)
+        .map(|(i, _)| i)
+        .collect();
+    bounds.push(text.len());
+    bounds.windows(2).map(|w| &text[w[0]..w[1]]).collect()
+}
+
+/// `_split_whitespaces_or_nonwhitespaces`: cut wherever a run of whitespace (or
+/// of non-whitespace) would exceed `max_run` characters.
+fn split_whitespaces_or_nonwhitespaces(s: &str, max_run: usize) -> Vec<&str> {
+    let mut out = Vec::new();
+    let mut run_len = 0usize;
+    let mut run_is_space = s.chars().next().is_some_and(py_isspace);
+    let mut slice_start = 0usize;
+
+    for (i, c) in s.char_indices() {
+        let is_now_space = py_isspace(c);
+        if run_is_space != is_now_space {
+            run_len = 1;
+            run_is_space = is_now_space;
+        } else {
+            run_len += 1;
+            if run_len > max_run {
+                out.push(&s[slice_start..i]);
+                slice_start = i;
+                run_len = 1;
+            }
+        }
+    }
+    out.push(&s[slice_start..]);
+    out
+}
+
+/// Python's `str.isspace()`, which unlike Rust's `char::is_whitespace` also
+/// counts the four ASCII separator controls.
+fn py_isspace(c: char) -> bool {
+    c.is_whitespace() || matches!(c, '\u{1c}'..='\u{1f}')
 }
 
 /// tiktoken's `byte_pair_merge`, then emit the id of each surviving segment.
