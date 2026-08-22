@@ -306,11 +306,12 @@ full run is exactly the 12% regression above. The remaining knobs — `KVD_RAM_B
 2. **Both legs must agree on the MTP shape.** SGLang rejects a disaggregated pair
    whose speculative config differs, so change `MTP_STEPS` / `MTP_DRAFT_TOKENS`
    in `env.sh` (which both read) rather than on one leg's command line.
-3. **The rust router requires etcd discovery.** `infera.server` validates the
-   supported subset before it execs the binary and fails with a pointer to
-   `--router-backend python`. This example uses etcd, so it is inside that subset;
-   a Kubernetes deployment is not, which is why the k8s recipe runs the python
-   backend.
+3. **The rust router validates before it execs.** `infera.server` checks the
+   requested config against the binary's supported subset and fails with a
+   pointer to `--router-backend python`. Every `--discovery-backend`,
+   `--router-policy`, `--request-transport` and `--kv-event-transport` choice is
+   covered; only `--router-mode direct` and `--enable-profiling` fall outside,
+   so those are what to look at when a launch is refused.
 4. **kv-aware fails soft.** Without a tokenizer it warns once and routes on load
    alone. `launch_router.sh` refuses to start on that warning and `verify.sh`
    re-checks it, because a run scored against load balancing while labelled

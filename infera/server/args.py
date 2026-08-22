@@ -68,10 +68,10 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=os.environ.get("INFERA_ROUTER_BACKEND", "python"),
         help="Router data-plane implementation. 'python' (default) runs the "
         "in-process asyncio router. 'rust' execs the infera-router binary "
-        "(multi-core data plane) for the hot path; it supports only "
-        "--router-policy round-robin, --discovery-backend etcd, "
-        "--request-transport http, --router-mode auto. Overrides "
-        "$INFERA_ROUTER_BACKEND.",
+        "(multi-core data plane) for the hot path; it covers every choice of "
+        "--router-policy, --discovery-backend, --request-transport and "
+        "--kv-event-transport, but not --router-mode direct or "
+        "--enable-profiling. Overrides $INFERA_ROUTER_BACKEND.",
     )
     parser.add_argument(
         "--router-mode",
