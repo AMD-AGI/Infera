@@ -608,6 +608,14 @@ fn apply_events(
                 view.clear();
                 map.clear();
                 cleared = true;
+                // Drop what this batch counted *before* the clear along with
+                // the chain it described. The reset below only zeroes the
+                // running totals, so leaving these to be added back after it
+                // would leave `applied == 0 && orphaned > 0` -- arming a
+                // destructive flush against a chain that re-anchored this
+                // instant, and silently, since `next_warn` is reset too.
+                orphaned = 0;
+                applied = 0;
             }
         }
     }
@@ -1367,6 +1375,54 @@ mod tests {
         // acting on it would clear a cache that has just been rebuilt.
         apply_events(&c.state, "w", 0, &[Event::Cleared]);
         assert!(!c.take_flush_request("w"));
+    }
+
+    /// The same withdrawal, with the clear inside the batch rather than after
+    /// it — which is the shape the wire actually carries.
+    ///
+    /// SGLang batches everything one scheduler step produced, so an orphan and
+    /// the clear that answers it arrive together far more often than they
+    /// arrive apart. Counting the orphan against the chain that replaced it
+    /// would flush a worker whose chain is healthy as of the same batch, and
+    /// the clear resets the warn threshold, so it would do it without a log.
+    #[test]
+    fn a_clear_later_in_the_same_batch_withdraws_the_request_too() {
+        let c = KvEventClient::new();
+        c.on_worker_added(&worker("w", Some("tcp://127.0.0.1:5573"), 4, None));
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[
+                Event::Stored {
+                    block_hashes: vec![10],
+                    parent_block_hash: Some(999),
+                    token_ids: vec![1, 2, 3, 4],
+                    spec_kind: None,
+                },
+                Event::Cleared,
+            ],
+        );
+        assert!(
+            !c.take_flush_request("w"),
+            "the orphan describes the chain the clear just discarded"
+        );
+
+        // And the accounting is genuinely reset, not merely masked: a rooted
+        // event after the clear still reads as an anchored chain.
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[Event::Stored {
+                block_hashes: vec![11],
+                parent_block_hash: None,
+                token_ids: vec![5, 6, 7, 8],
+                spec_kind: None,
+            }],
+        );
+        assert!(!c.take_flush_request("w"));
+        assert_eq!(c.total_blocks("w"), 1);
     }
 
     #[test]
