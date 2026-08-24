@@ -3,9 +3,10 @@
 Ready-to-run deployments for a specific model, in the shape you want to serve it.
 Pick the model, pick the combination, `kubectl apply`.
 
-Every recipe runs the **stock vendor image** with the infera overlay mounted in, so
+Recipes run the **stock vendor image** with the infera overlay mounted in, so
 following an upstream vLLM or SGLang release is an image-tag edit rather than a
-rebuild.
+rebuild. The one exception is GLM-5.2-FP8 on gfx942, which needs a rebuilt native
+library that no mounted payload can supply; its page says why.
 
 ::::{grid} 1 1 2 2
 :gutter: 3
@@ -17,6 +18,16 @@ rebuild.
 SGLang · TP8 · MI355X
 
 MLA + DeepSeek Sparse Attention. Needs the ROCm tilelang indexer path.
+:::
+
+:::{grid-item-card} GLM-5.2-FP8 on gfx942
+:link: glm5.2-fp8-gfx942
+:link-type: doc
+
+SGLang · TP8/DP8 · 1–2 × MI300X
+
+DP-attention and MTP, optionally split over Mooncake RDMA. The one recipe that
+builds an engine image instead of mounting the overlay.
 :::
 
 :::{grid-item-card} Kimi-K3
@@ -52,7 +63,7 @@ deployed configurations. So `aggregated/deploy.yaml` legitimately contains
 
 ## The four combinations
 
-Each recipe comes in the same four shapes, composing two independent choices:
+Recipes come in the same four shapes, composing two independent choices:
 **how requests are split across GPUs**, and **whether KV survives past the GPU**.
 
 | Combination | Serving | KV cache | Reach for it when |
@@ -67,6 +78,14 @@ optimized** ships `aggregated`, `aggregated-dspark`, `disaggregated` and `disagg
 speculative decoding is a property of that image's draft model, not a serving
 topology. It composes with `aggregated` and `disaggregated` independently, which is why there are
 four rather than a fifth combination.
+
+Where a recipe's four shapes differ in more than those two axes, its page says so.
+**GLM-5.2-FP8 on gfx942** is the one that does: its aggregated shapes drop
+`hostNetwork`, `privileged` and `/dev/infiniband` outright, because those exist
+only to carry KV over RDMA and nothing crosses the fabric when one worker both
+prefills and decodes. Its `aggregated + kvd` arm also drops MTP, because on a
+worker that both prefills and decodes, MTP and the tiered cache deadlock each
+other; its page and its manifest both explain that at the top.
 
 ```{admonition} PD needs a routable RoCE fabric
 :class: warning
