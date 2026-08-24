@@ -35,11 +35,17 @@ type RankViews = HashMap<i64, HashSet<u64>>;
 #[allow(clippy::type_complexity)]
 type RankMaps = HashMap<i64, HashMap<u64, u64>>;
 
-/// One worker's per-rank cache mirror.
-struct WorkerViews {
-    block_size: usize,
-    views: RankViews,
-    maps: RankMaps,
+/// Health of one rank's event chain.
+///
+/// Per rank, not per worker, because the chains are: `--dp-size N` gives each
+/// attention rank its own radix tree, its own publisher and its own subscriber
+/// thread, and they anchor independently. Sharing one set of counters across
+/// them fails in both directions — a rank that is applying events masks a dead
+/// sibling out of the accounting entirely, and a rank's clear zeroes the
+/// counters worker-wide, so the next benign orphan anywhere reads as a chain
+/// that never anchored and arms a destructive flush.
+#[derive(Default)]
+struct ChainHealth {
     /// `Stored` events dropped because `parent_block_hash` resolved to nothing.
     ///
     /// A dropped event never records its own hash in `maps`, so its children
@@ -56,12 +62,29 @@ struct WorkerViews {
     /// Next `orphaned` value worth a log line. Geometric, so a broken chain
     /// reports itself on the first event and then stops flooding.
     next_warn: u64,
-    /// Set when this worker's chain is provably unanchored and clearing its
-    /// cache is the only repair. Raised here and consumed elsewhere on purpose:
-    /// the events are applied under the global view mutex, on a plain
+    /// Set when this rank's chain is provably unanchored and clearing the
+    /// engine's cache is the only repair. Raised here and consumed elsewhere on
+    /// purpose: the events are applied under the global view mutex, on a plain
     /// subscriber thread with no runtime, so this side of the handoff can do no
     /// I/O at all. See `take_flush_request`.
     needs_flush: bool,
+}
+
+impl ChainHealth {
+    fn new() -> Self {
+        ChainHealth {
+            next_warn: 1,
+            ..Default::default()
+        }
+    }
+}
+
+/// One worker's per-rank cache mirror.
+struct WorkerViews {
+    block_size: usize,
+    views: RankViews,
+    maps: RankMaps,
+    health: HashMap<i64, ChainHealth>,
 }
 
 impl WorkerViews {
@@ -70,10 +93,7 @@ impl WorkerViews {
             block_size: block_size.max(1),
             views: HashMap::new(),
             maps: HashMap::new(),
-            orphaned: 0,
-            applied: 0,
-            next_warn: 1,
-            needs_flush: false,
+            health: HashMap::new(),
         }
     }
 }
@@ -199,15 +219,21 @@ impl KvEventClient {
     /// worker cannot be flushed twice for the same broken-chain episode. The
     /// flag is re-armed only if the chain breaks again after a clear, since
     /// `AllBlocksCleared` resets the counters it is derived from.
+    ///
+    /// Any rank asking is enough, and every asking rank is cleared: the engine
+    /// exposes one cache-flush endpoint for the whole process, so a single POST
+    /// re-anchors all of them and leaving the others armed would only spend the
+    /// cooldown flushing a cache that was already cleared.
     pub fn take_flush_request(&self, worker_id: &str) -> bool {
         let mut state = self.state.lock().expect("kv view mutex poisoned");
-        match state.get_mut(worker_id) {
-            Some(wv) if wv.needs_flush => {
-                wv.needs_flush = false;
-                true
-            }
-            _ => false,
+        let Some(wv) = state.get_mut(worker_id) else {
+            return false;
+        };
+        let mut asked = false;
+        for h in wv.health.values_mut() {
+            asked |= std::mem::take(&mut h.needs_flush);
         }
+        asked
     }
 
     /// Total cached blocks across all ranks of a worker (telemetry/tests).
@@ -622,39 +648,39 @@ fn apply_events(
 
     // The `views`/`maps` borrows end above, so the counters are reachable again.
     let indexed = wv.views.get(&rank).map_or(0, |v| v.len());
+    let health = wv.health.entry(rank).or_insert_with(ChainHealth::new);
     if cleared {
-        // The chain just re-anchored on the root; whatever was dropped before
-        // that describes a state this one no longer shares.
-        wv.orphaned = 0;
-        wv.applied = 0;
-        wv.next_warn = 1;
-        wv.needs_flush = false;
+        // This rank's chain just re-anchored on the root; whatever was dropped
+        // before that describes a state this one no longer shares. Only this
+        // rank's: the other ranks' chains are untouched by it, and zeroing
+        // theirs would forget a sibling that is genuinely dead.
+        *health = ChainHealth::new();
     }
-    wv.orphaned += orphaned;
-    wv.applied += applied;
+    health.orphaned += orphaned;
+    health.applied += applied;
     // `applied == 0` alongside a non-zero `orphaned` is the one unambiguous
-    // reading: not a single store event has ever been placed for this worker,
-    // so the router is not missing part of a chain, it never had the anchor.
+    // reading: not a single store event has ever been placed for this rank, so
+    // the router is not missing part of a chain, it never had the anchor.
     // Only `AllBlocksCleared` rebuilds one, and only the worker can emit that,
     // so the repair has to be asked for. The narrow condition matters because
     // the ask is destructive -- it discards real GPU prefix cache -- and the
     // benign case (an event racing its parent's eviction) climbs both counters
     // together and is excluded by construction.
-    if wv.applied == 0 && wv.orphaned > 0 {
-        wv.needs_flush = true;
+    if health.applied == 0 && health.orphaned > 0 {
+        health.needs_flush = true;
     }
-    if orphaned > 0 && wv.orphaned >= wv.next_warn {
+    if orphaned > 0 && health.orphaned >= health.next_warn {
         tracing::warn!(
             worker = %worker_id,
             rank,
-            orphaned = wv.orphaned,
-            applied = wv.applied,
+            orphaned = health.orphaned,
+            applied = health.applied,
             indexed_blocks = indexed,
             "kv events: dropped store events whose parent was never seen; while \
              `applied` stays 0 the chain has lost its anchor and every later \
              event is dropped with it, leaving kv-aware to route on load alone"
         );
-        wv.next_warn = wv.orphaned.saturating_mul(10);
+        health.next_warn = health.orphaned.saturating_mul(10);
     }
 }
 
@@ -1375,6 +1401,92 @@ mod tests {
         // acting on it would clear a cache that has just been rebuilt.
         apply_events(&c.state, "w", 0, &[Event::Cleared]);
         assert!(!c.take_flush_request("w"));
+    }
+
+    /// A dead rank still asks, even while a sibling is healthy.
+    ///
+    /// `--dp-size N` gives each attention rank its own radix tree, publisher and
+    /// subscriber thread, so the anchors are lost or kept independently. With
+    /// the accounting shared across ranks, one rank applying events keeps
+    /// `applied > 0` forever and the dead rank's orphans never read as a fault
+    /// -- the worker serves half its requests off an index that will never fill
+    /// and nothing ever says so.
+    #[test]
+    fn a_dead_rank_asks_even_though_another_rank_is_healthy() {
+        let c = KvEventClient::new();
+        c.on_worker_added(&worker("w", Some("tcp://127.0.0.1:5574"), 4, None));
+        // Rank 0 has its anchor.
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[Event::Stored {
+                block_hashes: vec![10],
+                parent_block_hash: None,
+                token_ids: vec![1, 2, 3, 4],
+                spec_kind: None,
+            }],
+        );
+        // Rank 1 joined after its own anchor was published to nobody.
+        for i in 0..5u64 {
+            apply_events(
+                &c.state,
+                "w",
+                1,
+                &[Event::Stored {
+                    block_hashes: vec![100 + i],
+                    parent_block_hash: Some(999),
+                    token_ids: vec![5, 6, 7, 8],
+                    spec_kind: None,
+                }],
+            );
+        }
+        assert!(
+            c.take_flush_request("w"),
+            "a rank that never applied an event is a dead chain regardless of its siblings"
+        );
+        assert!(!c.take_flush_request("w"), "and the ask is consumed");
+    }
+
+    /// The other direction: one rank's clear must not license a flush that
+    /// another rank's benign orphan asks for.
+    ///
+    /// The engine's flush endpoint is process-wide, so acting on this would
+    /// discard every rank's prefix cache to repair a chain that is not broken.
+    #[test]
+    fn a_clear_on_one_rank_does_not_reset_another_ranks_accounting() {
+        let c = KvEventClient::new();
+        c.on_worker_added(&worker("w", Some("tcp://127.0.0.1:5575"), 4, None));
+        // Rank 1 is anchored and healthy.
+        apply_events(
+            &c.state,
+            "w",
+            1,
+            &[Event::Stored {
+                block_hashes: vec![10],
+                parent_block_hash: None,
+                token_ids: vec![1, 2, 3, 4],
+                spec_kind: None,
+            }],
+        );
+        // Rank 0 clears -- its own accounting resets, and only its own.
+        apply_events(&c.state, "w", 0, &[Event::Cleared]);
+        // An ordinary eviction race on rank 1, which still has its anchor.
+        apply_events(
+            &c.state,
+            "w",
+            1,
+            &[Event::Stored {
+                block_hashes: vec![11],
+                parent_block_hash: Some(999),
+                token_ids: vec![5, 6, 7, 8],
+                spec_kind: None,
+            }],
+        );
+        assert!(
+            !c.take_flush_request("w"),
+            "rank 1 kept its anchor; a sibling's clear must not make its orphan look fatal"
+        );
     }
 
     /// The same withdrawal, with the clear inside the batch rather than after
