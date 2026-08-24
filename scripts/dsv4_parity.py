@@ -159,8 +159,7 @@ def load_reference(path: Path):
 
 def rust_renderings(cases: list[dict]) -> list[str | None]:
     stdin = "\n".join(
-        json.dumps({"messages": c["messages"], "thinking_mode": c["thinking_mode"]})
-        for c in cases
+        json.dumps({"messages": c["messages"], "thinking_mode": c["thinking_mode"]}) for c in cases
     )
     proc = subprocess.run(
         ["cargo", "run", "--quiet", "--example", "dsv4_render"],
