@@ -210,6 +210,9 @@ pub struct KvEventAwarePolicy {
     /// Per request, a dead event feed and a workload of unique prompts look
     /// identical; the streak is the only thing that tells them apart.
     zero_hit_streak: AtomicU64,
+    /// Where to send "this worker's chain needs a cache flush" requests. `None`
+    /// leaves the router purely observational, which is what the tests want.
+    flush_tx: Option<crate::kv_selfheal::FlushRequests>,
 }
 
 impl KvEventAwarePolicy {
@@ -230,7 +233,16 @@ impl KvEventAwarePolicy {
             recent: Mutex::new(HashMap::new()),
             mm_affinity: Mutex::new(HashMap::new()),
             zero_hit_streak: AtomicU64::new(0),
+            flush_tx: None,
         }
+    }
+
+    /// Let the policy repair a worker whose kv-event chain never anchored, by
+    /// asking it to flush its prefix cache. Builder rather than a constructor
+    /// argument: every existing caller wants the observational default.
+    pub fn with_self_heal(mut self, tx: crate::kv_selfheal::FlushRequests) -> Self {
+        self.flush_tx = Some(tx);
+        self
     }
 
     /// Watch for kv-aware having gone blind, and name which way it went.
@@ -254,6 +266,19 @@ impl KvEventAwarePolicy {
             return;
         }
         let streak = self.zero_hit_streak.fetch_add(1, Ordering::Relaxed) + 1;
+
+        // Deliberately ahead of the streak gate below. `zero_hit_streak` is one
+        // counter for the whole fleet, reset by a hit on any worker, so a fleet
+        // where one worker's chain is dead and another's is healthy never
+        // reaches the alarm -- and that is exactly the case a self-heal exists
+        // for. The request itself is raised at most once per broken episode, so
+        // reading it here costs one lock on a pick that already missed.
+        if let Some(tx) = &self.flush_tx {
+            if self.kv.take_flush_request(&picked.worker.worker_id) {
+                tx.request(&picked.worker);
+            }
+        }
+
         if streak != ZERO_HIT_ALARM && !streak.is_multiple_of(ZERO_HIT_ALARM_REPEAT) {
             return;
         }
@@ -561,6 +586,75 @@ mod tests {
             }))
             .unwrap(),
         )
+    }
+
+    /// The router asks the worker to repair itself, rather than only logging.
+    ///
+    /// This is the glue the ZMQ transport depends on: there, the router
+    /// subscribes only after the worker registers, so the rooted event is
+    /// always already gone and no worker-side flush can help. Detection happens
+    /// under the view mutex on a runtime-less thread and so cannot do the POST
+    /// itself; this is the handoff that carries it to somewhere that can.
+    #[test]
+    fn a_worker_whose_chain_never_anchored_is_asked_to_flush() {
+        use rmpv::Value as Mv;
+
+        let kv = Arc::new(KvEventClient::nats_fed());
+        let cands = vec![worker("a", 16, None)];
+        kv.on_worker_added(&cands[0]);
+
+        let (tx, mut rx) = crate::kv_selfheal::channel();
+        let pol = KvEventAwarePolicy::new(kv.clone(), BlockHasher::disabled(), 20.0, None, None)
+            .with_self_heal(tx);
+
+        // An event naming a parent this router never saw -- what a worker that
+        // warmed up before anyone subscribed emits for the rest of its life.
+        let orphan = Mv::Array(vec![
+            Mv::String("BlockStored".into()),
+            Mv::Array(vec![Mv::from(11u64)]),
+            Mv::from(999u64),
+            Mv::Array((1..=16u32).map(Mv::from).collect()),
+            Mv::from(16i64),
+            Mv::Nil,
+        ]);
+        let mut payload = Vec::new();
+        rmpv::encode::write_value(
+            &mut payload,
+            &Mv::Array(vec![Mv::from(1.0), Mv::Array(vec![orphan])]),
+        )
+        .unwrap();
+        kv.apply_encoded_batch("a", 0, &payload);
+
+        // A pick that wanted blocks and found none: the moment the router has
+        // both the evidence and the worker's address in hand.
+        let targets = expand_targets(&cands);
+        pol.note_hit_outcome(&targets[0], 1, 0);
+
+        let asked = rx.try_recv().expect("the router must ask for the flush");
+        assert_eq!(asked.worker_id, "a");
+        assert!(
+            rx.try_recv().is_err(),
+            "and ask once -- repeating it would clear a live cache on every miss"
+        );
+    }
+
+    #[test]
+    fn a_healthy_chain_is_never_asked_to_flush() {
+        let kv = Arc::new(KvEventClient::nats_fed());
+        let cands = vec![worker("a", 16, None)];
+        kv.on_worker_added(&cands[0]);
+
+        let (tx, mut rx) = crate::kv_selfheal::channel();
+        let pol = KvEventAwarePolicy::new(kv, BlockHasher::disabled(), 20.0, None, None)
+            .with_self_heal(tx);
+
+        // Zero hits on their own are ordinary -- a genuinely new prefix has to
+        // land somewhere -- and flushing over them would be pure damage.
+        let targets = expand_targets(&cands);
+        for _ in 0..ZERO_HIT_ALARM + 1 {
+            pol.note_hit_outcome(&targets[0], 1, 0);
+        }
+        assert!(rx.try_recv().is_err());
     }
 
     #[test]

@@ -56,6 +56,12 @@ struct WorkerViews {
     /// Next `orphaned` value worth a log line. Geometric, so a broken chain
     /// reports itself on the first event and then stops flooding.
     next_warn: u64,
+    /// Set when this worker's chain is provably unanchored and clearing its
+    /// cache is the only repair. Raised here and consumed elsewhere on purpose:
+    /// the events are applied under the global view mutex, on a plain
+    /// subscriber thread with no runtime, so this side of the handoff can do no
+    /// I/O at all. See `take_flush_request`.
+    needs_flush: bool,
 }
 
 impl WorkerViews {
@@ -67,6 +73,7 @@ impl WorkerViews {
             orphaned: 0,
             applied: 0,
             next_warn: 1,
+            needs_flush: false,
         }
     }
 }
@@ -184,6 +191,23 @@ impl KvEventClient {
             n += 1;
         }
         n
+    }
+
+    /// Take the pending "this worker's chain needs a cache flush" request, if any.
+    ///
+    /// Check-and-clear, so a request is delivered to exactly one caller and a
+    /// worker cannot be flushed twice for the same broken-chain episode. The
+    /// flag is re-armed only if the chain breaks again after a clear, since
+    /// `AllBlocksCleared` resets the counters it is derived from.
+    pub fn take_flush_request(&self, worker_id: &str) -> bool {
+        let mut state = self.state.lock().expect("kv view mutex poisoned");
+        match state.get_mut(worker_id) {
+            Some(wv) if wv.needs_flush => {
+                wv.needs_flush = false;
+                true
+            }
+            _ => false,
+        }
     }
 
     /// Total cached blocks across all ranks of a worker (telemetry/tests).
@@ -596,9 +620,21 @@ fn apply_events(
         wv.orphaned = 0;
         wv.applied = 0;
         wv.next_warn = 1;
+        wv.needs_flush = false;
     }
     wv.orphaned += orphaned;
     wv.applied += applied;
+    // `applied == 0` alongside a non-zero `orphaned` is the one unambiguous
+    // reading: not a single store event has ever been placed for this worker,
+    // so the router is not missing part of a chain, it never had the anchor.
+    // Only `AllBlocksCleared` rebuilds one, and only the worker can emit that,
+    // so the repair has to be asked for. The narrow condition matters because
+    // the ask is destructive -- it discards real GPU prefix cache -- and the
+    // benign case (an event racing its parent's eviction) climbs both counters
+    // together and is excluded by construction.
+    if wv.applied == 0 && wv.orphaned > 0 {
+        wv.needs_flush = true;
+    }
     if orphaned > 0 && wv.orphaned >= wv.next_warn {
         tracing::warn!(
             worker = %worker_id,
@@ -1241,6 +1277,96 @@ mod tests {
         apply_events(&c.state, "w", 0, &[Event::Cleared]);
         assert_eq!(c.total_blocks("w"), 0);
         c.shutdown();
+    }
+
+    /// The never-anchored chain asks to be repaired, and asks exactly once.
+    ///
+    /// `applied == 0 && orphaned > 0` is the whole gate, and it has to stay
+    /// narrow: the request discards a live worker's GPU prefix cache, so a
+    /// chain that is merely lossy must not trip it.
+    #[test]
+    fn a_chain_that_never_anchored_asks_for_a_flush() {
+        let c = KvEventClient::new();
+        c.on_worker_added(&worker("w", Some("tcp://127.0.0.1:5570"), 4, None));
+        assert!(
+            !c.take_flush_request("w"),
+            "a worker that has seen no events has nothing to repair"
+        );
+
+        // An event naming a parent nobody ever stored: the anchor is gone.
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[Event::Stored {
+                block_hashes: vec![10],
+                parent_block_hash: Some(999),
+                token_ids: vec![1, 2, 3, 4],
+                spec_kind: None,
+            }],
+        );
+        assert!(c.take_flush_request("w"), "an unanchored chain must ask");
+        assert!(
+            !c.take_flush_request("w"),
+            "and the request is consumed, so two readers cannot both flush"
+        );
+    }
+
+    #[test]
+    fn a_merely_lossy_chain_does_not_ask_for_a_flush() {
+        let c = KvEventClient::new();
+        c.on_worker_added(&worker("w", Some("tcp://127.0.0.1:5571"), 4, None));
+        // A rooted event lands first, so the chain provably has its anchor.
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[Event::Stored {
+                block_hashes: vec![10],
+                parent_block_hash: None,
+                token_ids: vec![1, 2, 3, 4],
+                spec_kind: None,
+            }],
+        );
+        // A later event racing its parent's eviction is ordinary, and flushing
+        // over it would throw away the working cache this worker does hold.
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[Event::Stored {
+                block_hashes: vec![11],
+                parent_block_hash: Some(999),
+                token_ids: vec![5, 6, 7, 8],
+                spec_kind: None,
+            }],
+        );
+        assert!(
+            !c.take_flush_request("w"),
+            "orphans alongside a live anchor are benign; only applied == 0 is the fault"
+        );
+    }
+
+    #[test]
+    fn a_clear_withdraws_a_pending_flush_request() {
+        let c = KvEventClient::new();
+        c.on_worker_added(&worker("w", Some("tcp://127.0.0.1:5572"), 4, None));
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[Event::Stored {
+                block_hashes: vec![10],
+                parent_block_hash: Some(999),
+                token_ids: vec![1, 2, 3, 4],
+                spec_kind: None,
+            }],
+        );
+        // The flush landed by another route (a worker-side flush on startup, or
+        // an operator). The repair already happened, so the ask is stale --
+        // acting on it would clear a cache that has just been rebuilt.
+        apply_events(&c.state, "w", 0, &[Event::Cleared]);
+        assert!(!c.take_flush_request("w"));
     }
 
     #[test]

@@ -31,6 +31,7 @@ pub mod hasher;
 pub mod k8s;
 pub mod kv_event;
 pub mod kv_event_nats;
+pub mod kv_selfheal;
 pub mod nats_request;
 pub mod policy;
 pub mod pool;

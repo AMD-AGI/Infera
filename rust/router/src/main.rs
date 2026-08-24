@@ -19,7 +19,9 @@ use infera_router::handlers::{app, AppState};
 use infera_router::kv_event::KvEventClient;
 use infera_router::policy::{KvEventAwarePolicy, Policy, RoundRobin};
 use infera_router::pool::Snapshot;
-use infera_router::{discovery, discovery_k8s, k8s, kv_event_nats, nats_request, proxy};
+use infera_router::{
+    discovery, discovery_k8s, k8s, kv_event_nats, kv_selfheal, nats_request, proxy,
+};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -32,6 +34,11 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     tracing::info!(?cfg, "starting infera-router (rust data plane)");
+
+    // Built before the policy because kv-aware's self-heal needs it too: it is
+    // the only client configured for talking to workers, and a second one would
+    // mean a second connection pool.
+    let upstream = proxy::build_upstream_client()?;
 
     // Build the routing policy from config. kv-aware owns a kv-event subscriber
     // + tokenizer; round-robin is stateless.
@@ -64,13 +71,20 @@ async fn main() -> anyhow::Result<()> {
             Some(p) => BlockHasher::load(p),
             None => BlockHasher::disabled(),
         };
-        Arc::new(KvEventAwarePolicy::new(
-            kv,
-            hasher,
-            cfg.kv_overlap_weight,
-            cfg.kv_prefill_overlap_weight,
-            cfg.kv_decode_overlap_weight,
-        ))
+        Arc::new(
+            KvEventAwarePolicy::new(
+                kv,
+                hasher,
+                cfg.kv_overlap_weight,
+                cfg.kv_prefill_overlap_weight,
+                cfg.kv_decode_overlap_weight,
+            )
+            // A worker that served traffic before the router subscribed emits
+            // its one rooted event to nobody, and no later event can rebuild
+            // the chain. Asking it to flush is the only repair, so the router
+            // does it itself rather than waiting for someone to read a warning.
+            .with_self_heal(kv_selfheal::spawn(upstream.clone())),
+        )
     } else {
         Arc::new(RoundRobin::new())
     };
@@ -127,7 +141,7 @@ async fn main() -> anyhow::Result<()> {
     let state = AppState {
         pool,
         policy,
-        http: proxy::build_upstream_client()?,
+        http: upstream,
         started: Instant::now(),
         retries: cfg.request_max_retries,
         breaker,

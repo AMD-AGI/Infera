@@ -669,3 +669,77 @@ async fn introspection_endpoints_report_fleet() {
         "got {metrics:?}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// kv-aware self-heal: the router asks a worker to flush a chain that never
+// anchored. Everything upstream of the POST is covered by in-crate unit tests;
+// this is the hop they cannot reach -- that the request actually leaves the
+// router, over HTTP, at the endpoint the engine serves.
+// ---------------------------------------------------------------------------
+
+/// Spawn a worker that records which cache-flush endpoints it was asked for.
+async fn spawn_flush_mock() -> (String, Arc<Mutex<Vec<String>>>) {
+    let seen: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+    let s = seen.clone();
+    let router = Router::new()
+        .route(
+            "/flush_cache",
+            post(move || {
+                let s = s.clone();
+                async move {
+                    s.lock().unwrap().push("/flush_cache".to_string());
+                    (StatusCode::OK, "Cache flushed.")
+                }
+            }),
+        )
+        .layer(DefaultBodyLimit::disable());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap();
+    });
+    (format!("http://127.0.0.1:{port}"), seen)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_flush_request_reaches_the_worker_over_http() {
+    let (url, seen) = spawn_flush_mock().await;
+    let flush = infera_router::kv_selfheal::spawn(proxy::build_upstream_client().unwrap());
+
+    let w = worker(json!({
+        "worker_id": "a", "url": url, "model_name": "m", "engine": "sglang",
+    }));
+    flush.request(&w);
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while Instant::now() < deadline && seen.lock().unwrap().is_empty() {
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    assert_eq!(
+        seen.lock().unwrap().as_slice(),
+        ["/flush_cache"],
+        "the engine's own cache-flush endpoint is what re-emits the rooted event"
+    );
+
+    // Asking again inside the cooldown must not land: the repair is one-shot
+    // per episode, and repeating it would clear a cache that is being rebuilt.
+    flush.request(&w);
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert_eq!(seen.lock().unwrap().len(), 1);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_worker_reachable_only_over_nats_is_not_flushed_over_http() {
+    let (url, seen) = spawn_flush_mock().await;
+    let flush = infera_router::kv_selfheal::spawn(proxy::build_upstream_client().unwrap());
+
+    // Its `url` may not be routable from here at all, so an HTTP POST would
+    // fail on every retry while looking like an unreachable worker.
+    flush.request(&worker(json!({
+        "worker_id": "a", "url": url, "model_name": "m", "engine": "sglang",
+        "request_transport": "nats",
+    })));
+
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(seen.lock().unwrap().is_empty());
+}
