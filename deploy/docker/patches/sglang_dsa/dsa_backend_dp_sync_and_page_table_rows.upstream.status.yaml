@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
 schema_version: 1
-status_updated: 2026-08-07
+status_updated: 2026-08-24
 verified_by:
   - gh-pr-issue-state
   - gh-search
@@ -204,6 +204,35 @@ verification:
     _cal_indexer_k_start_end and dsa_indexer's k-only path open with
     is_extend_without_speculative().
 
+    2026-08-24, crsuse2-m2m (2-node 1P1D, decode leg 8x MI355X gfx950, dp_size=8 +
+    enable_dp_attention + EAGLE speculative_num_steps=3, GLM-5.2-FP8): this rig did
+    NOT reproduce the deadlock. Stock answered the first routed request in 2.14 s and
+    32 concurrent requests 32/32 in 13 s. This does not contradict the 2026-08-01 run
+    above -- it means the two configurations differ somewhere that matters, and the
+    difference has not been identified.
+
+    What the attempt DID establish, by instrumenting the defect site directly (a marker
+    immediately before `max_seqlen_k = int(forward_batch.seq_lens.max().item())`) and
+    relaunching with CUDA_GRAPH_BS=4 so any batch above 4 leaves graph replay:
+      * the branch IS reached -- 229 entries during a 32-request load;
+      * but ALL 8 DP ranks enter it together, every time, at bs=1.
+    DP-attention pads every rank to a uniform batch, so the ranks never diverge, take
+    the same arm, and issue the same collective sequence -- which is why the D2H sync
+    is harmless here no matter how often it runs. The deadlock needs SOME ranks in the
+    `if` arm (host mirror kept) and others in the `else`.
+
+    Two load-shaped approaches are therefore RULED OUT by measurement, not untried:
+    larger batches, and batches that are not a multiple of dp_size (3 requests against
+    dp8 still showed all 8 ranks entering at bs=1). The next lead is
+    needs_cpu_seq_lens, which is set per batch-kind rather than per load
+    (deepseek_v4_backend.py:512 defaults it False; :611 computes it from spec_alg).
+
+    Confound kept controlled throughout: engine/leg.sh:138 documents a SECOND,
+    unrelated deadlock on gfx950 (aiter custom all-reduce during EAGLE verify).
+    leg.sh passes --disable-custom-all-reduce by default; do not set CUSTOM_AR=1
+    while running this A/B or a hang becomes unattributable.
+    Artifacts: pr-verify.experiment/rounds/r03-newcluster/dsa_33973.md.
+
 scope_limits: >-
   Cut --fuzz=0 against v0.5.15.post1 and not re-cut for v0.5.16, so the gfx942 image
   runs without it. 2a's deadlock has not been observed on that base, and 2b is worked
@@ -211,17 +240,19 @@ scope_limits: >-
 
 open_actions:
   - action: >-
-      Re-validate sglang#33973 (2a + 2a2) on gfx950 with PD + DP-attention + MTP and take
-      it out of draft. What WAS checked on MI300X against the PR's exact diff: that
-      `.max().item()` measurably blocks (~0.5-3 ms run to run, behind 30 queued 4096^2
-      matmuls) while `.shape[1]` does not (~3 us) — the point being that it blocks at
-      all on a branch only some ranks take, not the absolute figure; that widening the
-      page table leaves every REAL top-k
-      selection and score bit-identical; and that DRAFT_EXTEND_V2 is not is_extend(), so
-      every consumer of the two removed mirrors is unreachable. What was NOT: that the
-      group actually stops deadlocking.
+      Reproduce the deadlock, then take sglang#33973 out of draft. It stays DRAFT on
+      purpose: a 2026-08-24 attempt on crsuse2-m2m with PD + DP-attention + MTP could
+      not make stock deadlock, and flipping on a clean patched run without a positive
+      control would be a false positive for exactly the reason a passing validate_C.py
+      is. That attempt narrowed the problem rather than settling it — the defect branch
+      is provably entered (229 times) but all 8 DP ranks enter together at bs=1, because
+      DP-attention pads every rank to a uniform batch, so they never diverge. Load
+      shaping is ruled out as a lever; start from needs_cpu_seq_lens
+      (deepseek_v4_backend.py:611), which varies per batch-kind rather than per load,
+      and log forward_mode alongside pid next time. Fastest path is probably to ask the
+      2026-08-01 reporter for the exact server flags that run used.
     owner: dorado269
-    blocked_on: MI355X cluster access (unreachable 2026-08-07)
+    blocked_on: a configuration in which stock reproduces the deadlock
   - action: >-
       Establish why #32209's trimming approach fails at concurrency 32 here, so 2b can
       converge upstream instead of diverging. Until then 2b keeps this patch alive on
