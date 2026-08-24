@@ -31,6 +31,7 @@ from infera.common.disagg_preflight import (
 from infera.common.registration import RegistrationClient
 from infera.engine.base import watch_engine_death
 from infera.engine.drain import drain_engine_inflight
+from infera.engine.flush import anchor_kv_chain
 from infera.engine.sglang.args import SglangWorkerArgs, parse_sglang_args
 from infera.engine.sglang.kv_wiring import (
     SglangKvWiring,
@@ -336,6 +337,7 @@ async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config)
         kv_relay = KvEventNatsRelay(
             worker_id=f"{config.host}:{config.port}",
             engine_zmq_endpoint=config.kv_events_endpoint,
+            engine=config.engine,
             block_size=config.kv_block_size or 1,
             dp_size=_dp,
             multiplexed=_dp > 1,
@@ -389,6 +391,22 @@ async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config)
             endpoint=args.etcd_endpoint,
             prefix=args.etcd_prefix,
         )
+
+    # --- Re-anchor the KV-event chain before anyone can route here ---
+    # The engine's warmup already wrote its radix tree and published the one
+    # rooted event, to nobody: the relay above only just subscribed. Flushing
+    # now re-emits an anchor the relay can actually see. This slot is the whole
+    # reason it is cheap -- unregistered, the worker takes no traffic, so the
+    # discarded prefix cache is warmup's alone and the engine is idle enough to
+    # accept the flush. See infera/engine/flush.py.
+    if kv_relay is not None:
+        await anchor_kv_chain(
+            host=config.host,
+            port=config.port,
+            engine=config.engine,
+            observed=kv_relay.cleared_observed,
+        )
+
     await reg_client.register(config)
     hb_task = asyncio.create_task(reg_client.heartbeat_loop(), name="worker-heartbeat")
 

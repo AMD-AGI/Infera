@@ -25,6 +25,7 @@ from infera.common.registration import RegistrationClient
 from infera.common.worker_pool import DisaggMode, KvRegistrationMetadata
 from infera.engine.base import watch_engine_death
 from infera.engine.drain import drain_engine_inflight
+from infera.engine.flush import anchor_kv_chain
 from infera.engine.vllm.args import VllmWorkerArgs, parse_vllm_args
 from infera.engine.vllm.worker import VllmEngine
 
@@ -273,6 +274,7 @@ async def main() -> None:
         kv_relay = KvEventNatsRelay(
             worker_id=f"{config.host}:{config.port}",
             engine_zmq_endpoint=kv_events_endpoint,
+            engine=config.engine,
             block_size=args.block_size or 1,
             nats_url=args.nats_server,
         )
@@ -338,6 +340,18 @@ async def main() -> None:
             raise SystemExit("--discovery-backend=etcd requires --etcd-endpoint")
         logger.info("registering with etcd: %s prefix=%s", args.etcd_endpoint, args.etcd_prefix)
         reg_client = RegistrationClient(endpoint=args.etcd_endpoint, prefix=args.etcd_prefix)
+
+    # Re-anchor the KV-event chain while the worker is still unregistered and
+    # therefore takes no traffic -- the discarded prefix cache is warmup's own.
+    # See infera/engine/flush.py for why the anchor is missing to begin with.
+    if kv_relay is not None:
+        await anchor_kv_chain(
+            host=config.host,
+            port=config.port,
+            engine=config.engine,
+            observed=kv_relay.cleared_observed,
+        )
+
     await reg_client.register(config)
     hb_task = asyncio.create_task(reg_client.heartbeat_loop(), name="worker-heartbeat")
 
