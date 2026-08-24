@@ -40,6 +40,22 @@ struct WorkerViews {
     block_size: usize,
     views: RankViews,
     maps: RankMaps,
+    /// `Stored` events dropped because `parent_block_hash` resolved to nothing.
+    ///
+    /// A dropped event never records its own hash in `maps`, so its children
+    /// are orphaned in turn: one lost anchor silently kills the whole chain and
+    /// the view stays empty for good. From outside that is indistinguishable
+    /// from a cold cache -- `/health` is green, requests succeed, and kv-aware
+    /// has quietly degenerated into load-only routing. Counting the drops is
+    /// what makes the difference observable.
+    orphaned: u64,
+    /// `Stored` events that did resolve. `applied` stuck at 0 while `orphaned`
+    /// climbs is the dead-chain signature; both climbing together is the benign
+    /// case of an event racing its parent's eviction.
+    applied: u64,
+    /// Next `orphaned` value worth a log line. Geometric, so a broken chain
+    /// reports itself on the first event and then stops flooding.
+    next_warn: u64,
 }
 
 impl WorkerViews {
@@ -48,6 +64,9 @@ impl WorkerViews {
             block_size: block_size.max(1),
             views: HashMap::new(),
             maps: HashMap::new(),
+            orphaned: 0,
+            applied: 0,
+            next_warn: 1,
         }
     }
 }
@@ -385,6 +404,7 @@ fn apply_events(
     let view = wv.views.entry(rank).or_default();
     // Split borrow: take the map for this rank too.
     let map = wv.maps.entry(rank).or_default();
+    let (mut orphaned, mut applied, mut cleared) = (0u64, 0u64, false);
     for ev in events {
         match ev {
             Event::Stored {
@@ -419,9 +439,13 @@ fn apply_events(
                     None => ROUTER_SEED,
                     Some(ph) => match map.get(ph) {
                         Some(rh) => *rh,
-                        None => continue, // chain broken: missing parent, drop
+                        None => {
+                            orphaned += 1;
+                            continue; // chain broken: missing parent, drop
+                        }
                     },
                 };
+                applied += 1;
                 for i in 0..n {
                     let chunk = &token_ids[i * bs..(i + 1) * bs];
                     parent = hash_chunk(parent, chunk);
@@ -441,8 +465,34 @@ fn apply_events(
             Event::Cleared => {
                 view.clear();
                 map.clear();
+                cleared = true;
             }
         }
+    }
+
+    // The `views`/`maps` borrows end above, so the counters are reachable again.
+    let indexed = wv.views.get(&rank).map_or(0, |v| v.len());
+    if cleared {
+        // The chain just re-anchored on the root; whatever was dropped before
+        // that describes a state this one no longer shares.
+        wv.orphaned = 0;
+        wv.applied = 0;
+        wv.next_warn = 1;
+    }
+    wv.orphaned += orphaned;
+    wv.applied += applied;
+    if orphaned > 0 && wv.orphaned >= wv.next_warn {
+        tracing::warn!(
+            worker = %worker_id,
+            rank,
+            orphaned = wv.orphaned,
+            applied = wv.applied,
+            indexed_blocks = indexed,
+            "kv events: dropped store events whose parent was never seen; while \
+             `applied` stays 0 the chain has lost its anchor and every later \
+             event is dropped with it, leaving kv-aware to route on load alone"
+        );
+        wv.next_warn = wv.orphaned.saturating_mul(10);
     }
 }
 

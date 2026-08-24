@@ -12,6 +12,7 @@
 //! `infera.router.policy.kv_event_aware`).
 
 use std::collections::{HashMap, VecDeque};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -172,6 +173,17 @@ const RECENT_DECAY: f64 = 0.97;
 /// infera/router/policy/kv_event_aware.py.
 const UNKNOWN_COST_BLOCKS: f64 = 1.0;
 
+/// Consecutive picks that ask for blocks and find none before the policy says
+/// so. Any single miss is ordinary -- a genuinely new prefix has to land
+/// somewhere -- and only the run length separates that from a kv-event feed
+/// that stopped working. Sized to fire inside one benchmark rather than one
+/// shift, while staying quiet through a burst of unique prompts.
+const ZERO_HIT_ALARM: u64 = 64;
+
+/// Repeat interval after the first alarm, so a feed that stays broken keeps
+/// saying so without one line per request.
+const ZERO_HIT_ALARM_REPEAT: u64 = 1024;
+
 /// Pick the worker minimising
 ///   `cost(w) = w_overlap * (request_blocks - hits(w)) + load(w)`
 ///   `load(w) = active_blocks(w) + recent_blocks(w)`
@@ -194,6 +206,10 @@ pub struct KvEventAwarePolicy {
     // affinity: a request whose image a worker already holds costs less there,
     // co-locating repeat images onto the worker with the warm vision cache.
     mm_affinity: Mutex<HashMap<String, VecDeque<u64>>>,
+    /// Consecutive picks that requested blocks and found none on the winner.
+    /// Per request, a dead event feed and a workload of unique prompts look
+    /// identical; the streak is the only thing that tells them apart.
+    zero_hit_streak: AtomicU64,
 }
 
 impl KvEventAwarePolicy {
@@ -213,6 +229,52 @@ impl KvEventAwarePolicy {
             active: Mutex::new(HashMap::new()),
             recent: Mutex::new(HashMap::new()),
             mm_affinity: Mutex::new(HashMap::new()),
+            zero_hit_streak: AtomicU64::new(0),
+        }
+    }
+
+    /// Watch for kv-aware having gone blind, and name which way it went.
+    ///
+    /// Two failures produce the same zero-hit picks and need opposite fixes, so
+    /// the view size decides between them: an empty view means no events are
+    /// being applied at all (a dead feed -- the router never sees the cache),
+    /// while a populated one means events arrive but the router's own hashes
+    /// never match them (its tokenisation or block size disagrees with the
+    /// engine's). Neither shows up in `/health`, request latency, or error
+    /// rate; without this the only symptom is a routing decision nobody reads.
+    fn note_hit_outcome(&self, picked: &RouteTarget, blocks: usize, hits: usize) {
+        if blocks == 0 {
+            return; // nothing could have hit; says nothing either way
+        }
+        if hits > 0 {
+            let prev = self.zero_hit_streak.swap(0, Ordering::Relaxed);
+            if prev >= ZERO_HIT_ALARM {
+                tracing::info!(after_misses = prev, "kv-aware: cache locality recovered");
+            }
+            return;
+        }
+        let streak = self.zero_hit_streak.fetch_add(1, Ordering::Relaxed) + 1;
+        if streak != ZERO_HIT_ALARM && !streak.is_multiple_of(ZERO_HIT_ALARM_REPEAT) {
+            return;
+        }
+        let indexed = self.kv.total_blocks(&picked.worker.worker_id);
+        if indexed == 0 {
+            tracing::warn!(
+                streak,
+                worker = %picked.route_key(),
+                "kv-aware: consecutive picks found no cached prefix and the router \
+                 holds no blocks for this worker -- its kv event feed is not being \
+                 applied, so routing has degenerated to load-only"
+            );
+        } else {
+            tracing::warn!(
+                streak,
+                worker = %picked.route_key(),
+                indexed_blocks = indexed,
+                "kv-aware: consecutive picks found no cached prefix even though the \
+                 router holds blocks for this worker -- request hashing disagrees \
+                 with the engine's (tokeniser or block size)"
+            );
         }
     }
 
@@ -416,6 +478,7 @@ impl Policy for KvEventAwarePolicy {
             mm_affinity_hits = mm_matched,
             "pick"
         );
+        self.note_hit_outcome(&picked, blocks.len(), hits);
         Pick {
             target: picked,
             blocks,

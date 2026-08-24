@@ -159,3 +159,95 @@ fn subscriber_decodes_bigram_tokens_under_mtp() {
 
     client.shutdown();
 }
+
+/// The failure the chain-health accounting exists to report, over a real socket.
+///
+/// An event whose `parent_block_hash` the router never saw cannot be placed on
+/// the router's own chain, so it is dropped -- and the drop also withholds that
+/// event's hash from the map, which orphans everything downstream of it in turn.
+/// A worker that served traffic before the router subscribed emits exactly this
+/// shape: the single `parent = None` root event is already gone from a PUB that
+/// retains nothing, and the view then stays empty for the life of the process
+/// while `/health` stays green and kv-aware quietly routes on load alone.
+///
+/// The second half is the repair. `AllBlocksCleared` is the only event that
+/// rebuilds an anchor from nothing -- it puts both sides at the one state they
+/// can agree on -- which is why flushing a worker's cache fixes a chain that no
+/// amount of further traffic would.
+#[test]
+fn an_orphaned_event_is_dropped_and_a_clear_re_anchors_the_chain() {
+    let ctx = zmq::Context::new();
+    let pub_sock = ctx.socket(zmq::PUB).unwrap();
+    pub_sock.bind("tcp://127.0.0.1:*").unwrap();
+    let endpoint = pub_sock.get_last_endpoint().unwrap().unwrap();
+
+    let client = KvEventClient::new();
+    client.on_worker_added(&worker("w", &endpoint, 4));
+
+    let publish = |payload: &[u8]| {
+        pub_sock
+            .send_multipart([b"kv-events".as_ref(), payload], 0)
+            .unwrap();
+        std::thread::sleep(Duration::from_millis(50));
+    };
+
+    // A rooted event first, so that the later assertion of absence means the
+    // event was dropped rather than that the slow joiner had not connected yet.
+    let rooted = batch(vec![block_stored(
+        &[111, 222],
+        None,
+        &[1, 2, 3, 4, 5, 6, 7, 8],
+        4,
+    )]);
+    let q_rooted = hash_request(&[1, 2, 3, 4, 5, 6, 7, 8], 4);
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while Instant::now() < deadline && client.prefix_hits("w", None, &q_rooted) < 2 {
+        publish(&rooted);
+    }
+    assert_eq!(
+        client.prefix_hits("w", None, &q_rooted),
+        2,
+        "the subscription must be live before absence proves anything"
+    );
+
+    // Parent 999 was never stored, so this span has nowhere to attach.
+    let q_orphan = hash_request(&[5, 5, 5, 5, 6, 6, 6, 6], 4);
+    let orphan = batch(vec![block_stored(
+        &[333, 444],
+        Some(999),
+        &[5, 5, 5, 5, 6, 6, 6, 6],
+        4,
+    )]);
+    let deadline = Instant::now() + Duration::from_secs(1);
+    while Instant::now() < deadline {
+        publish(&orphan);
+    }
+    assert_eq!(
+        client.prefix_hits("w", None, &q_orphan),
+        0,
+        "an event whose parent was never seen must not enter the view"
+    );
+    assert_eq!(
+        client.total_blocks("w"),
+        2,
+        "and dropping it must leave the chain that did resolve alone"
+    );
+
+    // Clear, then the same span rooted: the chain re-anchors on the seed and the
+    // blocks that were unreachable a moment ago land.
+    let repair = batch(vec![
+        Mv::Array(vec![Mv::String("AllBlocksCleared".into())]),
+        block_stored(&[333, 444], None, &[5, 5, 5, 5, 6, 6, 6, 6], 4),
+    ]);
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while Instant::now() < deadline && client.prefix_hits("w", None, &q_orphan) < 2 {
+        publish(&repair);
+    }
+    assert_eq!(
+        client.prefix_hits("w", None, &q_orphan),
+        2,
+        "a cleared chain must re-anchor on the next rooted event"
+    );
+
+    client.shutdown();
+}
