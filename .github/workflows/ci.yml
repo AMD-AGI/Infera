@@ -24,10 +24,8 @@ on:
         default: false
 
 concurrency:
-  # PR number, not branch name: head_ref carries no repository, so two forks
-  # that both call a branch `main` or `fix-ci` would share a group and cancel
-  # each other's runs -- which reads as "my CI vanished" and is near impossible
-  # to trace back. Falls back to the ref for pushes to main.
+  # Scope PR runs by number so identically named fork branches cannot cancel
+  # each other. Non-PR events fall back to their full ref.
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
@@ -35,10 +33,7 @@ permissions:
   contents: read
 
 jobs:
-  # Classify the change: does it touch package code, or only docs/examples? A
-  # docs-only change (manual/, examples/, *.md, LICENSE) skips every code job below (a job skipped by `if`
-  # counts as success for required status checks); the manual itself is built
-  # and checked by the ReadTheDocs PR integration, so no docs job is needed here.
+  # Docs-only changes skip code jobs; skipped jobs satisfy required checks.
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -49,11 +44,7 @@ jobs:
           fetch-depth: 0
       - id: f
         run: |
-          # Someone pressed "Run workflow": run everything, whatever the last
-          # commit happened to touch. There is no diff base on this event, so the
-          # logic below would fall back to HEAD~1 and skip the whole run off a
-          # docs-only commit -- and since a branch push no longer starts CI, this
-          # button is the only way to force one.
+          # Manual runs force all jobs because they have no meaningful diff base.
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "manual run — treating as a code change"
             echo "code=true" >> "$GITHUB_OUTPUT"
@@ -161,11 +152,7 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: cargo test
         run: cargo test
-      # rust/router/src/encoding_dsv4.rs is a hand port of sglang's dsv4 chat
-      # encoder. Drift between them is invisible at runtime -- the router hashes
-      # a prefix the engine never produced and kv-aware settles at 0% hit rate --
-      # so diff the two here. sglang's module is pure stdlib and loads straight
-      # off disk, hence --no-deps: no torch, no GPU, seconds not minutes.
+      # Catch drift between the Rust dsv4 encoder and sglang's reference.
       - name: dsv4 encoder parity with sglang
         working-directory: .
         run: |
@@ -192,9 +179,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
-      # exec, so run_tests.sh IS the step's entry process: on cancel the runner
-      # signals only that one pid, and a wrapping bash would not forward it, so
-      # the script's INT/TERM trap (scancel of the dispatched job) never ran.
+      # exec lets cancellation reach run_tests.sh's SLURM cleanup trap.
       - name: engine tests
         run: exec bash tests/run_tests.sh engine
       - name: reclaim this job's SLURM jobs (on cancel/failure)
@@ -203,12 +188,7 @@ jobs:
 
   # Full PD-mixed e2e (per engine, parallel). When it runs is e2e_gate's call.
   e2e-mixed:
-    # Skipped for docs-only changes, and held back if lint failed. Checking
-    # lint's *result* rather than depending on its success keeps `!cancelled()`
-    # meaningful; `always()` would not work here, because on cancel the server
-    # re-evaluates job-level `if` and `always()` is true, so the job would never
-    # be cancelled — it would keep (or even start) burning GPU nodes after
-    # "Cancel workflow".
+    # Avoid always() here: it can keep GPU jobs alive after workflow cancellation.
     needs: [lint, changes, e2e_gate]
     if: >-
       !cancelled() &&
@@ -265,10 +245,7 @@ jobs:
       # scheduler reclaims a node even if the runner is killed first.
       INFERA_E2E_SLURM_TIME: "01:50:00"
       INFERA_E2E_RESERVATION: infera-cicd-reserved
-      # No ib_peer_mem here, so bare ibv_reg_mr cannot pin VRAM: Mooncake must
-      # register via dma-buf, compiled in at build time and selected at run time.
-      # The rail is mlx5 (ionic dma-buf dies on a production KV pool); its
-      # routable GID is index 3, its 0 and 1 are link-local.
+      # Use Mooncake dma-buf over mlx5; GID 3 is routable on this cluster.
       INFERA_E2E_GID_INDEX: "3"
       INFERA_E2E_WORKER_ENV: MC_TE_FILTERS=mlx5_0,MOONCAKE_DISABLE_HIP_DMABUF=0
       INFERA_E2E_BUILD_ARGS: MOONCAKE_HIP_DMABUF=1

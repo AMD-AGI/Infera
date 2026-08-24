@@ -1,20 +1,9 @@
 #!/usr/bin/env bash
-###############################################################################
 # Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
-#
 # SPDX-License-Identifier: MIT
-###############################################################################
-# One-shot runner for the infera test suite.
-#
-#   tests/run_tests.sh unit                      # pure-Python logic suite
-#   tests/run_tests.sh engine                    # vllm/sglang engine suites (GPU)
-#   tests/run_tests.sh e2e [sglang|vllm|atom|all] [mixed|disag]
-#   tests/run_tests.sh all                       # unit + engine + e2e
-#
-# GPU tiers run in place when this host has docker + >=8 AMD GPUs, else `srun` the
-# tier onto one 8-GPU node. PD-disag orchestrates prefill+decode on two idle nodes.
-# Env: INFERA_E2E_MODEL_DIR (models, RO-mounted), INFERA_E2E_SLURM_PARTITION.
-# On amd-spur, CI tries its three account/QoS pairs in priority order.
+
+# Usage: run_tests.sh unit|engine|all, or e2e [engine|all] [mixed|disag].
+# GPU tiers run locally with 8 AMD GPUs, otherwise through SLURM.
 
 set -uo pipefail
 
@@ -43,19 +32,7 @@ GPU_FLAGS=(
   -v /boot:/boot:ro
 )
 
-# Per-run host scratch (HF cache + logs), shared into every container at
-# /scratch and removed on exit (via a container, since containers write as root).
-#
-# This script has no `set -e`, so an unchecked mktemp is not merely untidy: on a
-# node where TMPDIR is not writable, $SCRATCH goes empty and every path built
-# from it silently retargets the filesystem root — `mkdir /hf`, `: > /failures.txt`
-# — which also fail, and the run limps on to report
-#
-#     (a tier failed but no per-test detail was captured — likely an image
-#      build error or a native crash before pytest ran; scan above.)
-#
-# i.e. it blames the image for an unwritable /tmp. Seen on a Spur node in CI.
-# Fail here instead, naming the directory, so the next person reads one line.
+# Per-run scratch is mounted at /scratch; fail before empty paths retarget root.
 SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/infera-test.XXXXXX" 2>/dev/null)" || SCRATCH=""
 if [ -z "$SCRATCH" ] || [ ! -d "$SCRATCH" ] || [ ! -w "$SCRATCH" ]; then
   echo "FATAL: cannot create a writable scratch dir under '${TMPDIR:-/tmp}'." >&2
@@ -126,10 +103,7 @@ _cancel_dispatched() {
   for i in 1 2 3 4 5; do
     scancel $jids >/dev/null 2>&1 || true
     sleep 2
-    # Only a query that answered may confirm the cancel: on Spur a gone job still
-    # exits 0 with no output. (Stock SLURM errors on an invalid id, so there this
-    # never confirms and the warning below is a false alarm -- the workflow's
-    # reclaim step is the backstop either way.)
+    # On Spur only an answered, empty query confirms cancellation.
     left=$(squeue -h -j "$csv" -o '%i' 2>&1) && [ -z "$left" ] && return 0
   done
   echo "[cleanup] could not confirm the cancel of $jids: ${left:-no output}" >&2
@@ -200,10 +174,8 @@ _default_partition() {
 SLURM_PART="${INFERA_E2E_SLURM_PARTITION:-$(_default_partition)}"
 SLURM_PART="${SLURM_PART:-amd-spur}"
 SLURM_TIME="${INFERA_E2E_SLURM_TIME:-02:00:00}"
-# amd-spur's default allocation is often quota-blocked. Keep the site-specific
-# credentials here (rather than in ci.yml) because mixed dispatches directly,
-# while disag also submits a pair holder and many node-pinned srun steps.
-# INFERA_E2E_SRUN_EXTRA is preserved after the selected account/QoS flags.
+# Try amd-spur account/QoS pairs here so every nested srun inherits the choice.
+# Preserve user-supplied INFERA_E2E_SRUN_EXTRA after those flags.
 _SLURM_USER_SRUN_EXTRA="${INFERA_E2E_SRUN_EXTRA:-}"
 _SLURM_ACCOUNT_QOS_PAIRS=()
 if [ "$SLURM_PART" = "amd-spur" ]; then
@@ -238,9 +210,7 @@ _accounting_blocked() {
 # than a single-node srun, and giving up early only churns the pair-hold race.
 HOLD_WAIT="${INFERA_E2E_HOLD_WAIT:-60}"
 
-# A tier that could not run is not a tier that passed: returning 0 here is how a
-# runner whose python3 lacked pytest turned every e2e-disag leg green in 7s. Fail
-# and name the cause; a dev box that really has no SLURM opts out explicitly.
+# Missing infrastructure fails the tier unless the caller explicitly allows skips.
 #   $1=label  $2=what is wrong  $3=how to fix it
 _SKIPPED_TIERS=""
 _skip_or_fail() {
@@ -266,14 +236,8 @@ for _c in scontrol spur; do
 done
 _have_sc() { [ -n "$_SCTL" ]; }
 _sc() { [ -n "$_SCTL" ] || return 127; "$_SCTL" "$@"; }
-# The nodes reservation $1 covers, one per line. Non-zero means the QUERY failed;
-# exit 0 with no output means the reservation genuinely is not there. Callers act
-# on that distinction, and naming the reservation destroys it: `show reservation
-# NAME` exits 1 for a name that is not there, the same status an unreachable
-# controller gives. Asking for all of them exits 0 whenever the controller
-# answered, and the awk below already filters by name.
-# Capture before parsing: under pipefail a later stage's status would otherwise
-# masquerade as a failed query.
+# Print reservation nodes; non-zero means query failure, empty success means absent.
+# Query all reservations so "absent" stays distinct from controller failure.
 _reservation_nodes() {
   local out
   # Forward the scheduler's own words: callers can only say "cannot reach the
@@ -284,12 +248,7 @@ _reservation_nodes() {
     $1==r { for(i=1;i<=NF;i++) if($i ~ /Nodes=/){ n=$i; sub(/.*Nodes=/,"",n); sub(/[[:space:]].*/,"",n); print n; exit } }' \
     | tr ',' '\n' | sed '/^$/d'
 }
-# Ask the NODE, not squeue: a multi-node job's %N is a compacted hostlist
-# (crsuse2-m2m-[090,183]) holding neither full name, and Spur has no `scontrol
-# show hostnames`. Unreadable => busy, never hand out what we cannot verify.
-# Allocation is only half of "free": Spur leaves a node inside another team's
-# reservation reading State=IDLE with CPUAlloc=0, and puts the membership in
-# ActiveReservation instead. sbatch then refuses it with ReqNodeNotAvail.
+
 _node_free() {
   local out alloc resv
   out=$(_sc show node "$1" 2>/dev/null) || return 1
@@ -326,9 +285,7 @@ _pick_idle_nodes() {
   done <<< "$all"
   printf '%s\n' "${out[@]-}"
 }
-# Wait for two free nodes rather than give up: engines run in parallel and the
-# mixed tier shares the pool, so a pair is often only free later. The CI job
-# timeout is the real backstop. $1=exclude list.
+
 _wait_for_pair() {
   local excl="$1" waited=0 every=30 limit="${INFERA_E2E_WAIT_NODES_TIMEOUT:-6400}" nodes
   while :; do
@@ -348,12 +305,7 @@ _rival_holder() {
   squeue -h -t running -o '%i %j %N' 2>/dev/null | awk -v self="$self" -v mine="$mine" '
     $2 ~ /^infera-ci-hold-/ && $3 == mine && $1 + 0 < self + 0 { print $1; exit }'
 }
-# Hold both PD nodes' GPUs for the whole run: disagg's per-step sruns leave them
-# idle in between, so SLURM would hand one out and the fixed ports (etcd 2379,
-# router 8000, ...) collide. Our own no-gres steps co-schedule. Sets _HOLDER_JID.
-# 0 = held, 1 = another holder won the pair, 2 = SLURM never placed the hold.
-# The caller reports 1 and 2 differently: they used to read alike, so a refused
-# sbatch was announced as a lost race and pointed triage away from the scheduler.
+
 _hold_pair() {
   local pair="$1" script="$SCRATCH/hold.sh" jid st rs waited i other submit_out
   local cred=0 cred_count="${#_SLURM_ACCOUNT_QOS_PAIRS[@]}"
@@ -442,10 +394,6 @@ _spill_inflight() {
   printf '%s\n' "$out" | grep -c -- 'spill' || true
 }
 
-# Report why the dispatch is still queued (a waiting job prints NOTHING, so a CI
-# run looks hung and gets cancelled), and cancel + flag the wait the caller can
-# act on. Accounting/QoS limits use a distinct flag so the caller can move to
-# the next credential pair. $1=srun-out $2=hold-flag $3=label
 _watch_job() {
   local out="$1" hold="$2" label="$3" jid="" state reason waited=0
   local every="${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}" next="${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}"
@@ -464,10 +412,8 @@ _watch_job() {
       scancel "$jid" >/dev/null 2>&1
       return
     fi
-    # Neither clears on its own, and JobLaunchFailure names no node -- squeue and
-    # scontrol both leave the node list empty -- so cancelling and letting the
-    # scheduler choose again is the only move. Trailing * because %r appends the
-    # detail: "JobLaunchFailure (dispatch confirmation failed: 0 of 1 confirmed)".
+    # These scheduler holds cannot recover or identify a bad node; cancel them
+    # so the caller can retry. Reasons may include parenthesized details.
     case "$reason" in
       JobHoldMaxRequeue* | JobLaunchFailure*)
         printf '%s\n' "${reason%% (*}" > "$hold"; scancel "$jid" >/dev/null 2>&1; return ;;
@@ -491,10 +437,7 @@ _dispatch_slurm() {
   local out="$SCRATCH/.dispatch-$label.out"
   _CUR_DISPATCH_OUT="$out"
 
-  # CI (buffered srun) -> remote writes to a SHARED-NFS file we `tail -F`; local ->
-  # srun forwards to $out. The dispatch stream log lands in the SAME per-run folder
-  # ($SHARED_LOG_DIR, keyed by job tag) as the live worker logs, so one run's entire
-  # trace — dispatch banners + every engine worker's log — sits together on NFS.
+  # In CI, stream remote output through shared NFS; locally use srun output.
   local shared=0 logdir="" logf="" tailf="$out"
   if [ -n "$SHARED_LOG_DIR" ]; then
     shared=1
@@ -511,12 +454,8 @@ _dispatch_slurm() {
     attempt=$((attempt + 1))
     local xflag=()
     [ -n "$exclude" ] && xflag=(-x "$exclude")
-    # Use the reservation while it has free nodes; when full, spill to the open
-    # partition up to INFERA_E2E_SPILL_MAX borrowed nodes (else queue on it).
-    # Anything else -- gone, or a query that could not answer -- drops
-    # --reservation and takes the partition's idle nodes: a stale reservation
-    # PENDs forever on Spur, so guessing wrong that way costs the whole run,
-    # while guessing wrong towards the open partition only loses the pinning.
+    # Use a live reservation, spill within its cap, otherwise use open nodes
+    # when the reservation is absent or cannot be queried.
     local resv=() jobname="infera-ci-${label}${INFERA_E2E_JOB_TAG:+-$INFERA_E2E_JOB_TAG}" mode="open"
     if [ -n "${INFERA_E2E_RESERVATION:-}" ]; then
       local rfree smax inflight
@@ -615,9 +554,7 @@ _dispatch_slurm() {
     fi
     break  # genuine test/build failure
   done
-  # Shared mode only: prune old logs (10 days, INFERA_DISPATCH_LOG_TTL_MIN). Drop
-  # each aged-out per-run FOLDER whole — deleting only its *.log would strand the
-  # folder for ever on any stray non-log file. Second sweep: pre-folder flat logs.
+  # Shared mode prunes expired per-run directories and legacy flat logs.
   if [ "$shared" -eq 1 ]; then
     local ttl="${INFERA_DISPATCH_LOG_TTL_MIN:-14400}" root
     root="$(dirname "$logdir")"
@@ -776,10 +713,7 @@ run_e2e_disagg() {
     exec > >(stdbuf -oL tee -a "$SHARED_LOG_DIR/dispatch-disag-$$.log") 2>&1
   fi
 
-  # An expired reservation is worse than none — every step's `srun --reservation`
-  # would fail. Drop it, as _dispatch_slurm does for the mixed tier, and drop it
-  # on an unanswered query too: keeping it there left _candidate_nodes with
-  # nothing to offer and the tier waiting out its whole timeout.
+  # Drop absent or unqueryable reservations before node selection.
   local resv_nodes
   if [ -n "${INFERA_E2E_RESERVATION:-}" ]; then
     if ! resv_nodes=$(_reservation_nodes "$INFERA_E2E_RESERVATION"); then
@@ -811,12 +745,8 @@ run_e2e_disagg() {
         echo "[e2e disagg] WARNING: no 2 free nodes in '$SLURM_PART' within ${INFERA_E2E_WAIT_NODES_TIMEOUT:-6400}s — skipping $e" >&2
         break
       fi
-      # Losing the race (1) is not a node fault, so that pair must NOT join
-      # $exclude: with a small pool the engine would exclude every node and then
-      # starve on an idle cluster. SLURM never placing the hold (2) is the
-      # opposite -- a node reading State=IDLE, CPUAlloc=0 and unreserved can still
-      # answer Priority, so re-picking an order-stable list returns the same pair.
-      # Not `if ! _hold_pair`: inside that, $? is the negation's, not the call's.
+      # Exclude only pairs whose hold could not be placed; a lost race is transient.
+      # Preserve _hold_pair's real status instead of negating it.
       _hold_pair "$n1,$n2"; hold_rc=$?
       if [ "$hold_rc" -ne 0 ]; then
         races=$((races + 1))
