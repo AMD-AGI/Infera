@@ -1,0 +1,27 @@
+device: AMD Instinct MI355X
+torch:  2.9.1+rocm7.2.0.git7e1940d4 hip=7.2.26015-fc0010cf6a
+
+[C] .max().item() is a D2H sync; .shape[1] is not
+  PASS  .max().item() blocks on queued device work
+  PASS  .shape[1] does not block
+        (.item()=0.32 ms, .shape[1]=4.0 us)
+
+[A] extra page-table columns are never selected
+  PASS  the fix yields a wider table
+  PASS  the wide table's leading columns are identical to the narrow one
+  PASS  every REAL selection is identical narrow vs wide
+  PASS  their scores are identical too
+  PASS  no REAL selection exceeds its row's seq_len
+  PASS  surplus (-inf) slot count is the same at both widths
+
+[B] DRAFT_EXTEND_V2 does not reach any consumer of the removed mirrors
+  PASS  DRAFT_EXTEND_V2 is NOT is_extend() by default
+  PASS  DRAFT_EXTEND_V2 IS is_extend(include_draft_extend_v2=True)
+  PASS  DRAFT_EXTEND_V2 is is_draft_extend_v2()
+  PASS  DSAMetadata.seq_lens_sum has no reader in dsa_backend
+  PASS  the backend declares needs_cpu_seq_lens = False
+
+RESULT: PASS
+
+NOT covered here (needs gfx950 + PD + DP-attention + MTP): that the
+DP group actually stops deadlocking. Deferred -- see working_process.md.

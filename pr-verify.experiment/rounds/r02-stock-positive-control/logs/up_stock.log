@@ -1,0 +1,17 @@
+[0;32m[glm52][0m ARM=stock  tp=4 chunk=131072 dpa=1  P=192.168.1.14/ionic_0(gpu0-3)  D=192.168.2.14/ionic_1(gpu4-7)
+[0;32m[glm52][0m container 'glm52_p' up (infera-local:sglang-prverify-20260819)
+  gpu gate: True 8
+  RDMA PORT_ACTIVE visible in container: 8
+[0;32m[glm52][0m container 'glm52_d' up (infera-local:sglang-prverify-20260819)
+  gpu gate: True 8
+  RDMA PORT_ACTIVE visible in container: 8
+[0;32m[glm52][0m   glm52_p: 'wait_event' occurs 0x in mooncake/conn.py (stock=0, patched=9)
+[0;32m[glm52][0m   glm52_d: 'wait_event' occurs 0x in mooncake/conn.py (stock=0, patched=9)
+[0;32m[glm52][0m etcd healthy (192.168.1.14:2379)
+[0;32m[glm52][0m prefill on 192.168.1.14:30000 — tp=4 dpa=1 mtp=0 kvaware=0 kvd=0 gmu=0.70 chunk=131072 ctx=262144 nic=benic1p1 ib=ionic_0
+[0;32m[glm52][0m prefill launching -> /tmp/glm52_prefill.log in glm52_p (cold start is minutes: weights + graph capture)
+[0;32m[glm52][0m decode on 192.168.2.14:30001 — tp=4 dpa=1 mtp=0 kvaware=0 kvd=0 gmu=0.85 chunk=131072 ctx=262144 nic=benic2p1 ib=ionic_1
+[0;32m[glm52][0m decode launching -> /tmp/glm52_decode.log in glm52_d (cold start is minutes: weights + graph capture)
+[0;32m[glm52][0m both legs launching; weights are 408 GB from local disk — expect several minutes
+[0;33m[glm52][0m http://192.168.1.14:30000/health did NOT answer within 2400s
+[0;31m[glm52] ERROR:[0m prefill never served

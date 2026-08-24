@@ -1,0 +1,33 @@
+ WARNING: BW peak won't be measured in this run.
+Using sampled CPU speed 3300 MHz over reported speed 5001 MHz
+Connected: Wed Aug 19 04:30:28 2026
+
+---------------------------------------------------------------------------------------
+                    RDMA_Write BW Test
+ Dual-port       : OFF		Device         : ionic_0
+ Number of qps   : 1		Transport type : IB
+ Connection type : RC		Using SRQ      : OFF
+ PCIe relax order: ON		Lock-free      : OFF
+ ibv_wr* API     : OFF		Using DDP      : OFF
+ TX depth        : 128
+ CQ Moderation   : 1
+ CQE Poll Batch  : 16
+ Mtu             : 4096[B]
+ Link type       : Ethernet
+ CPU freq        : 3300[MHz]
+ GID index       : 1
+ Max inline data : 0[B]
+ rdma_cm QPs	 : ON
+ Data ex. method : rdma_cm
+---------------------------------------------------------------------------------------
+ local address: LID 0000 QPN 0x0800 PSN 0x627677
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:192:168:01:14
+ remote address: LID 0000 QPN 0x0002 PSN 0x6adcc9
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:192:168:01:12
+---------------------------------------------------------------------------------------
+ #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]
+ 65536      1874011          0.00               327.48 		     0.624609
+---------------------------------------------------------------------------------------
+Completed: Wed Aug 19 04:30:34 2026
+
+Total run time: 6.171s

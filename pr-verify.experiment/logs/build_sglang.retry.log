@@ -1,0 +1,428 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.sglang
+#1 transferring dockerfile: 11.56kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 854B done
+#3 DONE 0.0s
+
+#4 [ 1/19] FROM docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 36.32kB 0.1s done
+#5 DONE 0.1s
+
+#6 [ 5/19] RUN set -eu;     if [ "1" != "1" ]; then         echo "skipping Mooncake cross-host routing assertion";     else         so_dir="$(python3 -c 'import mooncake, os; print(os.path.dirname(mooncake.__file__))')";         so="$(ls "$so_dir"/engine*.so | head -1)";         syms="$(strings "$so")";         printf '%s\n' "$syms" | grep -q "MC_DISABLE_HIP" || {             echo "ERROR: $so lacks upstream cross-host HIP locality routing" >&2;             exit 1; };         echo "MOONCAKE_CROSS_HOST_ROUTING=present ($so)";     fi
+#6 CACHED
+
+#7 [ 7/19] COPY pyproject.toml README.md ./
+#7 CACHED
+
+#8 [14/19] RUN set -eu;     for f in /tmp/sglang-disagg-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done;     rm -rf /tmp/sglang-disagg-patches
+#8 CACHED
+
+#9 [15/19] COPY deploy/docker/patches/sglang_rocm/ /tmp/sglang-rocm-patches/
+#9 CACHED
+
+#10 [ 9/19] RUN pip install --no-cache-dir ".[sglang]" "setuptools>=83.0.0"
+#10 CACHED
+
+#11 [ 4/19] RUN if [ "1" = "1" ]; then         MOONCAKE_GIT_REF="faae8dd4a6309c3ecd47e0721a83b0250d686fa2" bash /tmp/build_mooncake_sglang.sh;     else         echo "BUILD_MOONCAKE=0 — leaving base Mooncake as-is";     fi     && rm -f /tmp/build_mooncake_sglang.sh
+#11 CACHED
+
+#12 [ 3/19] COPY deploy/docker/scripts/build_mooncake_sglang.sh /tmp/build_mooncake_sglang.sh
+#12 CACHED
+
+#13 [11/19] COPY deploy/docker/scripts/apply_sglang_dsa_patches.sh /tmp/apply_sglang_dsa_patches.sh
+#13 CACHED
+
+#14 [ 8/19] COPY infera ./infera
+#14 CACHED
+
+#15 [12/19] RUN if [ "1" = "1" ]; then         PATCH_DIR=/tmp/sglang_dsa bash /tmp/apply_sglang_dsa_patches.sh;     else         echo "APPLY_SGLANG_DSA_PATCHES=0 — stock sglang, GLM-5.2 PD+DPA+MTP will NOT work";     fi     && rm -rf /tmp/apply_sglang_dsa_patches.sh /tmp/sglang_dsa
+#15 CACHED
+
+#16 [ 6/19] RUN if [ "1" = "1" ]; then         (curl -4 -fsSL --retry 3 -o /tmp/libionic.deb "https://repo.radeon.com/amdainic/pensando/ubuntu/1.117.5-a-77/pool/main/r/rdma-core/libionic1_54.0-187-1_amd64.deb"           && dpkg -i --force-downgrade /tmp/libionic.deb           && ldconfig           && echo "libionic: $(dpkg -l | awk '/libionic1/{print $3}')"           && rm -f /tmp/libionic.deb)         || echo "[libionic] install failed (offline build?) — inject at runtime instead";     else         echo "INSTALL_LIBIONIC=0 — libionic injected at container start";     fi
+#16 CACHED
+
+#17 [10/19] COPY deploy/docker/patches/sglang_dsa/ /tmp/sglang_dsa/
+#17 CACHED
+
+#18 [16/19] RUN set -eu;     for f in /tmp/sglang-rocm-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done;     rm -rf /tmp/sglang-rocm-patches
+#18 CACHED
+
+#19 [ 2/19] WORKDIR /opt/infera
+#19 CACHED
+
+#20 [13/19] COPY deploy/docker/patches/sglang_disagg/ /tmp/sglang-disagg-patches/
+#20 CACHED
+
+#21 [17/19] COPY rust ./rust
+#21 CACHED
+
+#22 [18/19] RUN set -eu;     command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; };     export LIBCLANG_PATH="$(dirname "$(find /opt/rocm* /usr/lib /usr/lib64 -name 'libclang.so*' 2>/dev/null | head -1)")";     case "$LIBCLANG_PATH" in ""|".") apt-get update && apt-get install -y --no-install-recommends libclang-dev && rm -rf /var/lib/apt/lists/* && export LIBCLANG_PATH="$(dirname "$(find /usr/lib -name 'libclang.so*' 2>/dev/null | head -1)")";; esac;     command -v cargo >/dev/null || { curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal; . "$HOME/.cargo/env"; };     export PATH="$HOME/.cargo/bin:/root/.cargo/bin:/opt/venv/bin:/opt/rocm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin";     export LIBCLANG_PATH="${LIBCLANG_PATH:-/opt/rocm/llvm/lib}";     ( cd rust && cargo build --release --bin infera-router );     cp rust/target/release/infera-router /usr/local/bin/infera-router;     rm -rf rust "$HOME/.cargo" "$HOME/.rustup" /usr/local/cargo /usr/local/rustup;     rm -f /usr/local/bin/cargo /usr/local/bin/rustc /usr/local/bin/rustup /usr/local/bin/rustdoc;     sed -i '/\.cargo\/env/d' "$HOME/.profile" "$HOME/.bashrc" 2>/dev/null || true;     ! command -v cargo >/dev/null || { echo "cargo still on PATH after cleanup: $(command -v cargo)" >&2; exit 1; };     ! bash -lc true 2>&1 | grep -q cargo || { echo "a login shell still references cargo" >&2; exit 1; };     /usr/local/bin/infera-router --help >/dev/null 2>&1 || { echo "infera-router unusable after cleanup" >&2; exit 1; }
+#22 0.113     Updating crates.io index
+#22 3.555  Downloading crates ...
+#22 3.807   Downloaded clap v4.6.1
+#22 3.812   Downloaded futures-executor v0.3.32
+#22 3.837   Downloaded futures-io v0.3.32
+#22 3.871   Downloaded cfg_aliases v0.2.1
+#22 3.871   Downloaded futures-task v0.3.32
+#22 3.875   Downloaded futures-sink v0.3.32
+#22 3.878   Downloaded futures-macro v0.3.32
+#22 3.879   Downloaded futures-core v0.3.32
+#22 3.886   Downloaded curve25519-dalek-derive v0.1.1
+#22 3.903   Downloaded crossbeam v0.8.4
+#22 3.909   Downloaded version-compare v0.2.1
+#22 3.911   Downloaded macro_rules_attribute v0.2.2
+#22 3.914   Downloaded macro_rules_attribute-proc_macro v0.2.2
+#22 3.919   Downloaded nuid v0.5.0
+#22 3.922   Downloaded serde_repr v0.1.21
+#22 3.923   Downloaded rayon-cond v0.3.0
+#22 3.924   Downloaded zmq-sys v0.12.0
+#22 3.939   Downloaded tokio-macros v2.7.0
+#22 3.945   Downloaded bitflags v1.3.2
+#22 3.947   Downloaded dircpy v0.3.20
+#22 3.947   Downloaded displaydoc v0.2.6
+#22 3.948   Downloaded glob v0.3.3
+#22 3.948   Downloaded async-trait v0.1.89
+#22 3.949   Downloaded cexpr v0.6.0
+#22 3.950   Downloaded crossbeam-queue v0.3.13
+#22 3.951   Downloaded ed25519 v2.2.3
+#22 3.951   Downloaded http-body v1.0.1
+#22 3.951   Downloaded http-body-util v0.1.3
+#22 3.952   Downloaded thiserror v2.0.18
+#22 3.954   Downloaded either v1.16.0
+#22 3.954   Downloaded serde_nanos v0.1.4
+#22 3.955   Downloaded libloading v0.8.9
+#22 3.956   Downloaded zmij v1.0.22
+#22 3.956   Downloaded quote v1.0.46
+#22 3.957   Downloaded shlex v1.3.0
+#22 3.958   Downloaded xxhash-rust v0.8.16
+#22 3.958   Downloaded nkeys v0.4.5
+#22 3.959   Downloaded thiserror-impl v2.0.18
+#22 3.961   Downloaded cfg-expr v0.15.8
+#22 3.962   Downloaded clap_derive v4.6.1
+#22 3.962   Downloaded futures-channel v0.3.32
+#22 3.963   Downloaded anyhow v1.0.103
+#22 3.975   Downloaded jwalk v0.8.1
+#22 3.977   Downloaded rustls-pki-types v1.15.0
+#22 3.977   Downloaded system-deps v6.2.2
+#22 3.980   Downloaded tryhard v0.5.2
+#22 3.982   Downloaded futures v0.3.32
+#22 3.984   Downloaded clang-sys v1.8.1
+#22 3.985   Downloaded bitflags v2.13.0
+#22 3.986   Downloaded serde_core v1.0.228
+#22 3.987   Downloaded proc-macro2 v1.0.106
+#22 3.988   Downloaded target-lexicon v0.12.16
+#22 3.989   Downloaded serde_derive v1.0.228
+#22 3.990   Downloaded socket2 v0.6.4
+#22 3.991   Downloaded zmq v0.10.0
+#22 3.993   Downloaded ed25519-dalek v2.2.0
+#22 3.994   Downloaded serde v1.0.228
+#22 4.010   Downloaded http v1.4.2
+#22 4.011   Downloaded cc v1.2.67
+#22 4.013   Downloaded mio v1.2.1
+#22 4.015   Downloaded signatory v0.27.1
+#22 4.016   Downloaded tokio-util v0.7.18
+#22 4.019   Downloaded hyper v1.10.1
+#22 4.021   Downloaded regex v1.13.0
+#22 4.024   Downloaded tokio-websockets v0.10.1
+#22 4.026   Downloaded itertools v0.12.1
+#22 4.028   Downloaded serde_json v1.0.150
+#22 4.031   Downloaded clap_builder v4.6.0
+#22 4.034   Downloaded futures-util v0.3.32
+#22 4.038   Downloaded tokenizers v0.20.4
+#22 4.041   Downloaded bindgen v0.72.1
+#22 4.044   Downloaded portable-atomic v1.15.0
+#22 4.047   Downloaded webpki-roots v1.0.8
+#22 4.048   Downloaded zerocopy v0.8.54
+#22 4.056   Downloaded curve25519-dalek v4.1.3
+#22 4.059   Downloaded syn v2.0.118
+#22 4.063   Downloaded rustls v0.23.41
+#22 4.068   Downloaded async-nats v0.50.0
+#22 4.073   Downloaded regex-automata v0.4.15
+#22 4.079   Downloaded libc v0.2.186
+#22 4.093   Downloaded tokio v1.52.3
+#22 4.109   Downloaded zeromq-src v0.2.6+4.3.4
+#22 4.188    Compiling proc-macro2 v1.0.106
+#22 4.188    Compiling quote v1.0.46
+#22 4.188    Compiling unicode-ident v1.0.24
+#22 4.188    Compiling libc v0.2.186
+#22 4.248    Compiling serde_core v1.0.228
+#22 4.304    Compiling serde v1.0.228
+#22 4.619    Compiling syn v2.0.118
+#22 4.641    Compiling crossbeam-utils v0.8.22
+#22 4.680    Compiling cfg-if v1.0.4
+#22 4.698    Compiling jobserver v0.1.35
+#22 4.711    Compiling find-msvc-tools v0.1.9
+#22 4.780    Compiling shlex v2.0.1
+#22 4.808    Compiling pin-project-lite v0.2.17
+#22 4.831    Compiling cc v1.2.67
+#22 4.838    Compiling crossbeam-epoch v0.9.20
+#22 4.896    Compiling memchr v2.8.3
+#22 5.166    Compiling crossbeam-deque v0.8.7
+#22 5.221    Compiling futures-core v0.3.32
+#22 5.224    Compiling once_cell v1.21.4
+#22 5.259    Compiling itoa v1.0.18
+#22 5.304    Compiling either v1.16.0
+#22 5.323    Compiling zeroize v1.9.0
+#22 5.358    Compiling rayon-core v1.13.0
+#22 5.361    Compiling stable_deref_trait v1.2.1
+#22 5.381    Compiling getrandom v0.2.17
+#22 5.399    Compiling errno v0.3.14
+#22 5.441    Compiling futures-sink v0.3.32
+#22 5.454    Compiling signal-hook-registry v1.4.8
+#22 5.468    Compiling socket2 v0.6.4
+#22 5.521    Compiling mio v1.2.1
+#22 5.570    Compiling version_check v0.9.5
+#22 5.658    Compiling smallvec v1.15.2
+#22 5.681    Compiling generic-array v0.14.7
+#22 5.722    Compiling log v0.4.33
+#22 5.785    Compiling futures-channel v0.3.32
+#22 5.804    Compiling synstructure v0.13.2
+#22 5.870    Compiling typenum v1.20.1
+#22 6.019    Compiling tracing-core v0.1.36
+#22 6.278    Compiling pkg-config v0.3.33
+#22 6.284    Compiling slab v0.4.12
+#22 6.322    Compiling serde_derive v1.0.228
+#22 6.345    Compiling zerofrom-derive v0.1.7
+#22 6.436    Compiling yoke-derive v0.8.2
+#22 6.701    Compiling zerofrom v0.1.8
+#22 6.708    Compiling tokio-macros v2.7.0
+#22 6.738    Compiling zerovec-derive v0.11.3
+#22 6.740    Compiling yoke v0.8.3
+#22 6.804    Compiling displaydoc v0.2.6
+#22 6.891    Compiling futures-macro v0.3.32
+#22 7.005    Compiling futures-io v0.3.32
+#22 7.056    Compiling futures-task v0.3.32
+#22 7.068    Compiling zerovec v0.11.6
+#22 7.115    Compiling futures-util v0.3.32
+#22 7.288    Compiling tinystr v0.8.3
+#22 7.293    Compiling tracing-attributes v0.1.31
+#22 7.354    Compiling rustls-pki-types v1.15.0
+#22 7.548    Compiling bytes v1.12.1
+#22 7.581    Compiling ring v0.17.14
+#22 7.663    Compiling glob v0.3.3
+#22 7.720    Compiling writeable v0.6.3
+#22 7.772    Compiling tokio v1.52.3
+#22 7.791    Compiling http v1.4.2
+#22 7.806    Compiling zerocopy v0.8.54
+#22 7.897    Compiling litemap v0.8.2
+#22 7.956    Compiling icu_locale_core v2.2.0
+#22 8.226    Compiling clang-sys v1.8.1
+#22 8.319    Compiling tracing v0.1.44
+#22 8.641    Compiling potential_utf v0.1.5
+#22 8.675    Compiling zerotrie v0.2.4
+#22 8.688    Compiling block-buffer v0.10.4
+#22 8.727    Compiling crypto-common v0.1.7
+#22 8.757    Compiling crossbeam-queue v0.3.13
+#22 8.795    Compiling crossbeam-channel v0.5.16
+#22 8.808    Compiling httparse v1.10.1
+#22 8.886    Compiling percent-encoding v2.3.2
+#22 8.948    Compiling target-lexicon v0.12.16
+#22 8.957    Compiling hashbrown v0.17.1
+#22 9.068    Compiling icu_properties_data v2.2.0
+#22 9.111    Compiling prettyplease v0.2.37
+#22 9.154    Compiling icu_normalizer_data v2.2.0
+#22 9.158    Compiling equivalent v1.0.2
+#22 9.176    Compiling utf8_iter v1.0.4
+#22 9.198    Compiling subtle v2.6.1
+#22 9.218    Compiling icu_collections v2.2.0
+#22 9.245    Compiling indexmap v2.14.0
+#22 9.457    Compiling crossbeam v0.8.4
+#22 9.473    Compiling icu_provider v2.2.0
+#22 9.478    Compiling digest v0.10.7
+#22 9.531    Compiling rayon v1.12.0
+#22 10.25    Compiling http-body v1.0.1
+#22 10.29    Compiling toml_datetime v0.6.11
+#22 10.37    Compiling serde_spanned v0.6.9
+#22 10.41    Compiling rand_core v0.6.4
+#22 10.48    Compiling untrusted v0.9.0
+#22 10.52    Compiling minimal-lexical v0.2.1
+#22 10.79    Compiling same-file v1.0.6
+#22 10.83    Compiling zmij v1.0.22
+#22 10.89    Compiling regex-syntax v0.8.11
+#22 11.02    Compiling winnow v0.7.15
+#22 11.06    Compiling heck v0.5.0
+#22 11.12    Compiling libloading v0.8.9
+#22 11.18    Compiling ppv-lite86 v0.2.21
+#22 11.29    Compiling regex-automata v0.4.15
+#22 11.55    Compiling walkdir v2.5.0
+#22 11.61    Compiling toml_edit v0.22.27
+#22 11.64    Compiling nom v7.1.3
+#22 12.00    Compiling jwalk v0.8.1
+#22 12.28    Compiling base64ct v1.8.3
+#22 12.29    Compiling semver v1.0.28
+#22 12.38    Compiling bindgen v0.72.1
+#22 12.38    Compiling serde_json v1.0.150
+#22 12.43    Compiling ident_case v1.0.1
+#22 12.46    Compiling tower-service v0.3.3
+#22 12.46    Compiling fnv v1.0.7
+#22 12.49    Compiling rustls v0.23.41
+#22 12.54    Compiling strsim v0.11.1
+#22 12.57    Compiling cfg-expr v0.15.8
+#22 12.64    Compiling darling_core v0.20.11
+#22 12.75    Compiling pem-rfc7468 v0.7.0
+#22 12.89    Compiling rustc_version v0.4.1
+#22 12.98    Compiling icu_normalizer v2.2.0
+#22 13.30    Compiling icu_properties v2.2.0
+#22 13.30    Compiling toml v0.8.23
+#22 13.44    Compiling cexpr v0.6.0
+#22 13.46    Compiling dircpy v0.3.20
+#22 13.67    Compiling regex v1.13.0
+#22 13.75    Compiling rand_chacha v0.3.1
+#22 13.92    Compiling form_urlencoded v1.2.2
+#22 13.99    Compiling itertools v0.12.1
+#22 14.19    Compiling rustls-webpki v0.103.13
+#22 14.34    Compiling aho-corasick v1.1.4
+#22 14.70    Compiling const-oid v0.9.6
+#22 14.76    Compiling bitflags v2.13.0
+#22 14.82    Compiling version-compare v0.2.1
+#22 14.89    Compiling rustc-hash v2.1.3
+#22 14.92    Compiling try-lock v0.2.5
+#22 14.95    Compiling shlex v1.3.0
+#22 14.95    Compiling base64 v0.22.1
+#22 15.10    Compiling want v0.3.1
+#22 15.14    Compiling system-deps v6.2.2
+#22 15.36    Compiling der v0.7.10
+#22 16.77    Compiling rand v0.8.7
+#22 17.07    Compiling idna_adapter v1.2.2
+#22 17.10    Compiling zeromq-src v0.2.6+4.3.4
+#22 17.15    Compiling darling_macro v0.20.11
+#22 17.25    Compiling curve25519-dalek v4.1.3
+#22 17.30    Compiling signature v2.2.0
+#22 17.34    Compiling webpki-roots v1.0.8
+#22 17.36    Compiling sync_wrapper v1.0.2
+#22 17.39    Compiling autocfg v1.5.1
+#22 17.50    Compiling httpdate v1.0.3
+#22 17.60    Compiling tower-layer v0.3.3
+#22 17.66    Compiling cpufeatures v0.2.17
+#22 17.75    Compiling rustversion v1.0.23
+#22 17.82    Compiling atomic-waker v1.1.2
+#22 17.86    Compiling hyper v1.10.1
+#22 17.86    Compiling tokio-rustls v0.26.4
+#22 17.96    Compiling num-traits v0.2.19
+#22 18.09    Compiling darling v0.20.11
+#22 18.11    Compiling zmq-sys v0.12.0
+#22 18.17    Compiling idna v1.1.0
+#22 18.73    Compiling onig_sys v69.9.3
+#22 18.79    Compiling spki v0.7.3
+#22 18.86    Compiling curve25519-dalek-derive v0.1.1
+#22 18.92    Compiling ipnet v2.12.0
+#22 19.03    Compiling utf8parse v0.2.2
+#22 19.05    Compiling getrandom v0.4.3
+#22 19.11    Compiling rand_core v0.10.1
+#22 19.16    Compiling paste v1.0.15
+#22 19.24    Compiling anstyle-parse v1.0.0
+#22 19.30    Compiling hyper-util v0.1.20
+#22 20.07    Compiling pkcs8 v0.10.2
+#22 20.17    Compiling url v2.5.8
+#22 20.76    Compiling derive_builder_core v0.20.2
+#22 20.98    Compiling sha2 v0.10.9
+#22 21.07    Compiling tower v0.5.3
+#22 21.26    Compiling ed25519 v2.2.3
+#22 21.27    Compiling http-body-util v0.1.3
+#22 21.31    Compiling tokio-util v0.7.18
+#22 21.36    Compiling colorchoice v1.0.5
+#22 21.39    Compiling is_terminal_polyfill v1.70.2
+#22 21.41    Compiling anstyle v1.0.14
+#22 21.48    Compiling esaxx-rs v0.1.10
+#22 21.52    Compiling anstyle-query v1.1.5
+#22 21.61    Compiling thiserror v2.0.18
+#22 21.64    Compiling thiserror v1.0.69
+#22 21.69    Compiling lazy_static v1.5.0
+#22 21.70    Compiling ryu v1.0.23
+#22 21.71    Compiling portable-atomic v1.15.0
+#22 21.78    Compiling cpufeatures v0.3.0
+#22 21.79    Compiling chacha20 v0.10.1
+#22 21.84    Compiling serde_urlencoded v0.7.1
+#22 21.93    Compiling anstream v1.0.0
+#22 22.07    Compiling ed25519-dalek v2.2.0
+#22 22.18    Compiling derive_builder_macro v0.20.2
+#22 22.51    Compiling signatory v0.27.1
+#22 22.94    Compiling itertools v0.11.0
+#22 23.47    Compiling webpki-roots v0.26.11
+#22 23.51    Compiling pin-project-internal v1.1.13
+#22 23.79    Compiling thiserror-impl v2.0.18
+#22 23.82    Compiling thiserror-impl v1.0.69
+#22 24.16    Compiling async-trait v0.1.89
+#22 24.17    Compiling monostate-impl v0.1.18
+#22 24.27    Compiling deranged v0.5.8
+#22 24.43    Compiling syn v3.0.3
+#22 24.71    Compiling mime v0.3.17
+#22 24.83    Compiling zmq v0.10.0
+#22 25.09    Compiling anyhow v1.0.103
+#22 25.16    Compiling num-conv v0.2.2
+#22 25.19    Compiling powerfmt v0.2.0
+#22 25.21    Compiling unicode-segmentation v1.13.3
+#22 25.26    Compiling macro_rules_attribute-proc_macro v0.2.2
+#22 25.37    Compiling time-core v0.1.9
+#22 25.39    Compiling base64 v0.13.1
+#22 25.43    Compiling data-encoding v2.11.1
+#22 25.50    Compiling clap_lex v1.1.0
+#22 25.60    Compiling openssl-probe v0.2.1
+#22 25.66    Compiling rustls-native-certs v0.8.4
+#22 25.83    Compiling clap_builder v4.6.0
+#22 26.09    Compiling nkeys v0.4.5
+#22 26.20    Compiling spm_precompiled v0.1.4
+#22 26.36    Compiling time v0.3.55
+#22 27.27    Compiling onig v6.5.3
+#22 27.49    Compiling macro_rules_attribute v0.2.2
+#22 27.51    Compiling serde_repr v0.1.21
+#22 27.59    Compiling axum-core v0.4.5
+#22 27.63    Compiling monostate v0.1.18
+#22 27.76    Compiling pin-project v1.1.13
+#22 27.78    Compiling tokio-websockets v0.10.1
+#22 28.12    Compiling rayon-cond v0.3.0
+#22 28.18    Compiling rand v0.10.2
+#22 28.38    Compiling rmp v0.8.15
+#22 28.44    Compiling derive_builder v0.20.2
+#22 28.60    Compiling sharded-slab v0.1.7
+#22 28.64    Compiling tower-http v0.6.11
+#22 28.73    Compiling hyper-rustls v0.27.9
+#22 28.84    Compiling nuid v0.5.0
+#22 28.89    Compiling matchers v0.2.0
+#22 28.90    Compiling clap_derive v4.6.1
+#22 28.93    Compiling tokio-stream v0.1.19
+#22 29.09    Compiling tryhard v0.5.2
+#22 29.14    Compiling futures-executor v0.3.32
+#22 29.26    Compiling serde_nanos v0.1.4
+#22 29.30    Compiling tracing-log v0.2.0
+#22 29.39    Compiling unicode-normalization-alignments v0.1.12
+#22 29.42    Compiling serde_path_to_error v0.1.20
+#22 29.45    Compiling thread_local v1.1.10
+#22 29.55    Compiling unicode_categories v0.1.1
+#22 29.57    Compiling nu-ansi-term v0.50.3
+#22 29.60    Compiling bitflags v1.3.2
+#22 29.62    Compiling memo-map v0.3.3
+#22 29.62    Compiling matchit v0.7.3
+#22 29.66    Compiling minijinja v2.21.0
+#22 29.71    Compiling axum v0.7.9
+#22 29.76    Compiling tracing-subscriber v0.3.23
+#22 31.30    Compiling tokenizers v0.20.4
+#22 31.69    Compiling clap v4.6.1
+#22 31.71    Compiling async-nats v0.50.0
+#22 36.82    Compiling futures v0.3.32
+#22 36.85    Compiling reqwest v0.12.28
+#22 40.28    Compiling rmpv v1.3.1
+#22 40.47    Compiling arc-swap v1.9.2
+#22 40.54    Compiling xxhash-rust v0.8.16
+#22 44.98    Compiling infera-router v0.1.0 (/opt/infera/rust/router)
+#22 79.34     Finished `release` profile [optimized] target(s) in 1m 19s
+#22 DONE 82.6s
+
+#23 [19/19] COPY deploy/docker/scripts/infera_inject_host_ionic.sh /usr/local/bin/infera-inject-host-ionic
+#23 DONE 0.0s
+
+#24 exporting to image
+#24 exporting layers 0.1s done
+#24 writing image sha256:943424f35f5a0157115d1e6904dcfaca5b80d01b6b650c42aedb67dc2ed7f7af done
+#24 naming to docker.io/library/infera-local:sglang-prverify-20260819 done
+#24 DONE 0.2s

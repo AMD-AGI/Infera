@@ -1,0 +1,293 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.sglang
+#1 transferring dockerfile: 11.56kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 854B done
+#3 DONE 0.0s
+
+#4 [ 1/19] FROM docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x
+#4 DONE 0.0s
+
+#5 [ 2/19] WORKDIR /opt/infera
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 2.71MB 0.1s done
+#6 DONE 0.1s
+
+#7 [ 3/19] COPY deploy/docker/scripts/build_mooncake_sglang.sh /tmp/build_mooncake_sglang.sh
+#7 DONE 0.0s
+
+#8 [ 4/19] RUN if [ "1" = "1" ]; then         MOONCAKE_GIT_REF="faae8dd4a6309c3ecd47e0721a83b0250d686fa2" bash /tmp/build_mooncake_sglang.sh;     else         echo "BUILD_MOONCAKE=0 — leaving base Mooncake as-is";     fi     && rm -f /tmp/build_mooncake_sglang.sh
+#8 0.081 Cloning into '/tmp/mooncake-upstream'...
+#8 2.810 From https://github.com/kvcache-ai/Mooncake
+#8 2.810  * branch              faae8dd4a6309c3ecd47e0721a83b0250d686fa2 -> FETCH_HEAD
+#8 6.039 HEAD is now at faae8dd4 [Bugfix][TENT] Bound peer key lookups by the published vector length (#3265)
+#8 6.062 Submodule 'extern/pybind11' (https://github.com/pybind/pybind11.git) registered for path 'extern/pybind11'
+#8 6.062 Submodule 'extern/yalantinglibs' (https://github.com/alibaba/yalantinglibs.git) registered for path 'extern/yalantinglibs'
+#8 6.065 Cloning into '/tmp/mooncake-upstream/extern/pybind11'...
+#8 7.445 Cloning into '/tmp/mooncake-upstream/extern/yalantinglibs'...
+#8 9.374 Submodule path 'extern/pybind11': checked out '58c382a8e3d7081364d2f5c62e7f429f0412743b'
+#8 9.456 Submodule path 'extern/yalantinglibs': checked out '7801bc9ad9021781f15217552214e325a1cf7373'
+#8 9.464 [mc-build] Mooncake faae8dd4a6309c3ecd47e0721a83b0250d686fa2
+#8 10.58    Error: 'Failed to get device count'
+#8 10.58 -- HIP dmabuf MR registration enabled (hsa-runtime64 found)
+#8 10.58    Error: 'Failed to get device count'
+#8 65.77 [40/49] Building CXX object mooncake-transfer-engine/src/CMakeFiles/transfer_engine.dir/transfer_metadata_plugin.cpp.o
+#8 65.77 [41/49] Building CXX object mooncake-transfer-engine/src/CMakeFiles/transfer_engine.dir/show_links.cpp.o
+#8 65.77 [42/49] Building CXX object mooncake-transfer-engine/src/CMakeFiles/transfer_engine.dir/transfer_engine.cpp.o
+#8 65.77 [43/49] Building CXX object mooncake-transfer-engine/src/CMakeFiles/transfer_engine.dir/topology.cpp.o
+#8 65.77 [44/49] Building CXX object mooncake-transfer-engine/src/CMakeFiles/transfer_engine.dir/transfer_engine_impl.cpp.o
+#8 65.77 [45/49] Building CXX object mooncake-transfer-engine/src/CMakeFiles/transfer_engine.dir/multi_transport.cpp.o
+#8 65.77 [46/49] Building CXX object mooncake-transfer-engine/src/CMakeFiles/transfer_engine.dir/transfer_metadata.cpp.o
+#8 65.77 [47/49] Linking CXX static library mooncake-transfer-engine/src/libtransfer_engine.a
+#8 65.77 [48/49] Building CXX object mooncake-integration/CMakeFiles/engine.dir/transfer_engine/transfer_engine_py.cpp.o
+#8 65.77 [49/49] Linking CXX shared module mooncake-integration/engine.cpython-310-x86_64-linux-gnu.so
+#8 65.91 /sbin/ldconfig.real: /usr/local/lib/libbnxt_re-rdmav34.so is not a symbolic link
+#8 65.91 
+#8 66.65 [mc-build] DONE: upstream Mooncake faae8dd4a6309c3ecd47e0721a83b0250d686fa2
+#8 66.65 [mc-build] dma-buf=present cross-host-routing=present arch=gfx950
+#8 DONE 66.8s
+
+#9 [ 5/19] RUN set -eu;     if [ "1" != "1" ]; then         echo "skipping Mooncake cross-host routing assertion";     else         so_dir="$(python3 -c 'import mooncake, os; print(os.path.dirname(mooncake.__file__))')";         so="$(ls "$so_dir"/engine*.so | head -1)";         syms="$(strings "$so")";         printf '%s\n' "$syms" | grep -q "MC_DISABLE_HIP" || {             echo "ERROR: $so lacks upstream cross-host HIP locality routing" >&2;             exit 1; };         echo "MOONCAKE_CROSS_HOST_ROUTING=present ($so)";     fi
+#9 0.432 MOONCAKE_CROSS_HOST_ROUTING=present (/opt/venv/lib/python3.10/site-packages/mooncake/engine.cpython-310-x86_64-linux-gnu.so)
+#9 DONE 0.4s
+
+#10 [ 6/19] RUN if [ "1" = "1" ]; then         (curl -4 -fsSL --retry 3 -o /tmp/libionic.deb "https://repo.radeon.com/amdainic/pensando/ubuntu/1.117.5-a-77/pool/main/r/rdma-core/libionic1_54.0-187-1_amd64.deb"           && dpkg -i --force-downgrade /tmp/libionic.deb           && ldconfig           && echo "libionic: $(dpkg -l | awk '/libionic1/{print $3}')"           && rm -f /tmp/libionic.deb)         || echo "[libionic] install failed (offline build?) — inject at runtime instead";     else         echo "INSTALL_LIBIONIC=0 — libionic injected at container start";     fi
+#10 0.550 (Reading database ... 126510 files and directories currently installed.)
+#10 0.552 Preparing to unpack /tmp/libionic.deb ...
+#10 0.553 Unpacking libionic1:amd64 (54.0-187-1) over (54.0-149.g3304be71) ...
+#10 0.563 Setting up libionic1:amd64 (54.0-187-1) ...
+#10 0.564 Processing triggers for libc-bin (2.35-0ubuntu3.14) ...
+#10 0.569 /sbin/ldconfig.real: /usr/local/lib/libbnxt_re-rdmav34.so is not a symbolic link
+#10 0.569 
+#10 0.605 /sbin/ldconfig.real: /usr/local/lib/libbnxt_re-rdmav34.so is not a symbolic link
+#10 0.605 
+#10 0.626 libionic: 54.0-187-1
+#10 DONE 0.6s
+
+#11 [ 7/19] COPY pyproject.toml README.md ./
+#11 DONE 0.0s
+
+#12 [ 8/19] COPY infera ./infera
+#12 DONE 0.0s
+
+#13 [ 9/19] RUN pip install --no-cache-dir ".[sglang]" "setuptools>=83.0.0"
+#13 0.411 Processing ./.
+#13 0.412   Installing build dependencies: started
+#13 1.539   Installing build dependencies: finished with status 'done'
+#13 1.540   Getting requirements to build wheel: started
+#13 1.811   Getting requirements to build wheel: finished with status 'done'
+#13 1.812   Preparing metadata (pyproject.toml): started
+#13 1.937   Preparing metadata (pyproject.toml): finished with status 'done'
+#13 2.041 Collecting setuptools>=83.0.0
+#13 2.077   Downloading setuptools-84.0.0-py3-none-any.whl.metadata (6.6 kB)
+#13 2.081 Requirement already satisfied: fastapi>=0.115 in /opt/venv/lib/python3.10/site-packages (from amd-infera==0.0.0) (0.141.1)
+#13 2.082 Requirement already satisfied: uvicorn>=0.32 in /opt/venv/lib/python3.10/site-packages (from uvicorn[standard]>=0.32->amd-infera==0.0.0) (0.52.1)
+#13 2.082 Requirement already satisfied: httpx>=0.28 in /opt/venv/lib/python3.10/site-packages (from amd-infera==0.0.0) (0.28.1)
+#13 2.082 Requirement already satisfied: xxhash>=3.4 in /opt/venv/lib/python3.10/site-packages (from amd-infera==0.0.0) (3.8.1)
+#13 2.082 Requirement already satisfied: pyzmq>=26 in /opt/venv/lib/python3.10/site-packages (from amd-infera==0.0.0) (27.1.0)
+#13 2.082 Requirement already satisfied: msgspec>=0.18 in /opt/venv/lib/python3.10/site-packages (from amd-infera==0.0.0) (0.21.1)
+#13 2.118 Collecting msgpack>=1.1 (from amd-infera==0.0.0)
+#13 2.128   Downloading msgpack-1.2.1-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (8.3 kB)
+#13 2.128 Requirement already satisfied: transformers>=4.40 in /opt/venv/lib/python3.10/site-packages (from amd-infera==0.0.0) (5.12.1)
+#13 2.128 Requirement already satisfied: prometheus-client>=0.20 in /opt/venv/lib/python3.10/site-packages (from amd-infera==0.0.0) (0.26.0)
+#13 2.139 Collecting nats-py>=2.6 (from amd-infera==0.0.0)
+#13 2.147   Downloading nats_py-2.15.0-py3-none-any.whl.metadata (8.0 kB)
+#13 2.151 Requirement already satisfied: starlette>=0.46.0 in /opt/venv/lib/python3.10/site-packages (from fastapi>=0.115->amd-infera==0.0.0) (1.4.1)
+#13 2.151 Requirement already satisfied: pydantic>=2.9.0 in /opt/venv/lib/python3.10/site-packages (from fastapi>=0.115->amd-infera==0.0.0) (2.13.4)
+#13 2.151 Requirement already satisfied: typing-extensions>=4.8.0 in /opt/venv/lib/python3.10/site-packages (from fastapi>=0.115->amd-infera==0.0.0) (4.16.0)
+#13 2.151 Requirement already satisfied: typing-inspection>=0.4.2 in /opt/venv/lib/python3.10/site-packages (from fastapi>=0.115->amd-infera==0.0.0) (0.4.2)
+#13 2.152 Requirement already satisfied: annotated-doc>=0.0.2 in /opt/venv/lib/python3.10/site-packages (from fastapi>=0.115->amd-infera==0.0.0) (0.0.5)
+#13 2.153 Requirement already satisfied: anyio in /opt/venv/lib/python3.10/site-packages (from httpx>=0.28->amd-infera==0.0.0) (4.14.2)
+#13 2.153 Requirement already satisfied: certifi in /opt/venv/lib/python3.10/site-packages (from httpx>=0.28->amd-infera==0.0.0) (2026.7.22)
+#13 2.153 Requirement already satisfied: httpcore==1.* in /opt/venv/lib/python3.10/site-packages (from httpx>=0.28->amd-infera==0.0.0) (1.0.9)
+#13 2.153 Requirement already satisfied: idna in /opt/venv/lib/python3.10/site-packages (from httpx>=0.28->amd-infera==0.0.0) (3.18)
+#13 2.154 Requirement already satisfied: h11>=0.16 in /opt/venv/lib/python3.10/site-packages (from httpcore==1.*->httpx>=0.28->amd-infera==0.0.0) (0.16.0)
+#13 2.157 Requirement already satisfied: annotated-types>=0.6.0 in /opt/venv/lib/python3.10/site-packages (from pydantic>=2.9.0->fastapi>=0.115->amd-infera==0.0.0) (0.8.0)
+#13 2.157 Requirement already satisfied: pydantic-core==2.46.4 in /opt/venv/lib/python3.10/site-packages (from pydantic>=2.9.0->fastapi>=0.115->amd-infera==0.0.0) (2.46.4)
+#13 2.159 Requirement already satisfied: exceptiongroup>=1.0.2 in /opt/venv/lib/python3.10/site-packages (from anyio->httpx>=0.28->amd-infera==0.0.0) (1.3.1)
+#13 2.186 Requirement already satisfied: huggingface-hub<2.0,>=1.5.0 in /opt/venv/lib/python3.10/site-packages (from transformers>=4.40->amd-infera==0.0.0) (1.27.0)
+#13 2.186 Requirement already satisfied: numpy>=1.17 in /opt/venv/lib/python3.10/site-packages (from transformers>=4.40->amd-infera==0.0.0) (2.2.6)
+#13 2.186 Requirement already satisfied: packaging>=20.0 in /opt/venv/lib/python3.10/site-packages (from transformers>=4.40->amd-infera==0.0.0) (26.3)
+#13 2.186 Requirement already satisfied: pyyaml>=5.1 in /opt/venv/lib/python3.10/site-packages (from transformers>=4.40->amd-infera==0.0.0) (6.0.1)
+#13 2.187 Requirement already satisfied: regex>=2025.10.22 in /opt/venv/lib/python3.10/site-packages (from transformers>=4.40->amd-infera==0.0.0) (2026.7.19)
+#13 2.187 Requirement already satisfied: tokenizers<=0.23.0,>=0.22.0 in /opt/venv/lib/python3.10/site-packages (from transformers>=4.40->amd-infera==0.0.0) (0.22.2)
+#13 2.187 Requirement already satisfied: typer in /opt/venv/lib/python3.10/site-packages (from transformers>=4.40->amd-infera==0.0.0) (0.27.1)
+#13 2.187 Requirement already satisfied: safetensors>=0.4.3 in /opt/venv/lib/python3.10/site-packages (from transformers>=4.40->amd-infera==0.0.0) (0.8.0)
+#13 2.187 Requirement already satisfied: tqdm>=4.60 in /opt/venv/lib/python3.10/site-packages (from transformers>=4.40->amd-infera==0.0.0) (4.67.1)
+#13 2.194 Requirement already satisfied: click<9.0.0,>=8.4.2 in /opt/venv/lib/python3.10/site-packages (from huggingface-hub<2.0,>=1.5.0->transformers>=4.40->amd-infera==0.0.0) (8.4.2)
+#13 2.194 Requirement already satisfied: filelock>=3.10.0 in /opt/venv/lib/python3.10/site-packages (from huggingface-hub<2.0,>=1.5.0->transformers>=4.40->amd-infera==0.0.0) (3.32.2)
+#13 2.194 Requirement already satisfied: fsspec>=2023.5.0 in /opt/venv/lib/python3.10/site-packages (from huggingface-hub<2.0,>=1.5.0->transformers>=4.40->amd-infera==0.0.0) (2026.1.0)
+#13 2.194 Requirement already satisfied: hf-xet<2.0.0,>=1.5.2 in /opt/venv/lib/python3.10/site-packages (from huggingface-hub<2.0,>=1.5.0->transformers>=4.40->amd-infera==0.0.0) (1.6.0)
+#13 2.232 Collecting httptools>=0.8.0 (from uvicorn[standard]>=0.32->amd-infera==0.0.0)
+#13 2.241   Downloading httptools-0.8.0-cp310-cp310-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (3.5 kB)
+#13 2.242 Requirement already satisfied: python-dotenv>=0.13 in /opt/venv/lib/python3.10/site-packages (from uvicorn[standard]>=0.32->amd-infera==0.0.0) (1.2.2)
+#13 2.242 Requirement already satisfied: uvloop>=0.15.1 in /opt/venv/lib/python3.10/site-packages (from uvicorn[standard]>=0.32->amd-infera==0.0.0) (0.22.1)
+#13 2.278 Collecting watchfiles>=0.20 (from uvicorn[standard]>=0.32->amd-infera==0.0.0)
+#13 2.291   Downloading watchfiles-1.2.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.9 kB)
+#13 2.375 Collecting websockets>=13.0 (from uvicorn[standard]>=0.32->amd-infera==0.0.0)
+#13 2.384   Downloading websockets-16.1.1-cp310-cp310-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (6.8 kB)
+#13 2.388 Requirement already satisfied: grpcio>=1.81.1 in /opt/venv/lib/python3.10/site-packages (from amd-infera==0.0.0) (1.83.0)
+#13 2.388 Requirement already satisfied: protobuf>=6.33.5 in /opt/venv/lib/python3.10/site-packages (from amd-infera==0.0.0) (7.35.1)
+#13 2.389 Requirement already satisfied: grpcio-health-checking>=1.81.1 in /opt/venv/lib/python3.10/site-packages (from amd-infera==0.0.0) (1.83.0)
+#13 2.473 Collecting cryptography>=41 (from amd-infera==0.0.0)
+#13 2.480   Downloading cryptography-50.0.0-cp39-abi3-manylinux_2_34_x86_64.whl.metadata (4.3 kB)
+#13 2.482 Requirement already satisfied: cffi>=2.0.0 in /opt/venv/lib/python3.10/site-packages (from cryptography>=41->amd-infera==0.0.0) (2.1.1)
+#13 2.482 Requirement already satisfied: pycparser in /opt/venv/lib/python3.10/site-packages (from cffi>=2.0.0->cryptography>=41->amd-infera==0.0.0) (3.0)
+#13 2.485 Requirement already satisfied: shellingham>=1.3.0 in /opt/venv/lib/python3.10/site-packages (from typer->transformers>=4.40->amd-infera==0.0.0) (1.5.4)
+#13 2.485 Requirement already satisfied: rich>=13.8.0 in /opt/venv/lib/python3.10/site-packages (from typer->transformers>=4.40->amd-infera==0.0.0) (15.0.0)
+#13 2.486 Requirement already satisfied: markdown-it-py>=2.2.0 in /opt/venv/lib/python3.10/site-packages (from rich>=13.8.0->typer->transformers>=4.40->amd-infera==0.0.0) (4.2.0)
+#13 2.486 Requirement already satisfied: pygments<3.0.0,>=2.13.0 in /opt/venv/lib/python3.10/site-packages (from rich>=13.8.0->typer->transformers>=4.40->amd-infera==0.0.0) (2.19.2)
+#13 2.489 Requirement already satisfied: mdurl~=0.1 in /opt/venv/lib/python3.10/site-packages (from markdown-it-py>=2.2.0->rich>=13.8.0->typer->transformers>=4.40->amd-infera==0.0.0) (0.1.2)
+#13 2.497 Downloading setuptools-84.0.0-py3-none-any.whl (818 kB)
+#13 2.525    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 818.2/818.2 kB 69.1 MB/s  0:00:00
+#13 2.533 Downloading msgpack-1.2.1-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (407 kB)
+#13 2.544 Downloading nats_py-2.15.0-py3-none-any.whl (90 kB)
+#13 2.553 Downloading httptools-0.8.0-cp310-cp310-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (450 kB)
+#13 2.562 Downloading watchfiles-1.2.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (457 kB)
+#13 2.572 Downloading websockets-16.1.1-cp310-cp310-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (186 kB)
+#13 2.580 Downloading cryptography-50.0.0-cp39-abi3-manylinux_2_34_x86_64.whl (4.8 MB)
+#13 2.604    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.8/4.8 MB 235.2 MB/s  0:00:00
+#13 2.621 Building wheels for collected packages: amd-infera
+#13 2.622   Building wheel for amd-infera (pyproject.toml): started
+#13 2.811   Building wheel for amd-infera (pyproject.toml): finished with status 'done'
+#13 2.811   Created wheel for amd-infera: filename=amd_infera-0.0.0-py3-none-any.whl size=690799 sha256=0606daf152ba20eb8725e1e0ce26bc71b831bfae77bf4d161fbec6e126a36d7c
+#13 2.811   Stored in directory: /tmp/pip-ephem-wheel-cache-m782xmqo/wheels/da/00/c3/1097a77ad14812f07fa32b433b917bba5802922bc6f6c040da
+#13 2.813 Successfully built amd-infera
+#13 3.019 Installing collected packages: websockets, setuptools, nats-py, msgpack, httptools, cryptography, watchfiles, amd-infera
+#13 3.056   Attempting uninstall: setuptools
+#13 3.056     Found existing installation: setuptools 79.0.1
+#13 3.081     Uninstalling setuptools-79.0.1:
+#13 3.879       Successfully uninstalled setuptools-79.0.1
+#13 4.285 
+#13 4.296 Successfully installed amd-infera-0.0.0 cryptography-50.0.0 httptools-0.8.0 msgpack-1.2.1 nats-py-2.15.0 setuptools-84.0.0 watchfiles-1.2.0 websockets-16.1.1
+#13 DONE 4.5s
+
+#14 [10/19] COPY deploy/docker/patches/sglang_dsa/ /tmp/sglang_dsa/
+#14 DONE 0.0s
+
+#15 [11/19] COPY deploy/docker/scripts/apply_sglang_dsa_patches.sh /tmp/apply_sglang_dsa_patches.sh
+#15 DONE 0.0s
+
+#16 [12/19] RUN if [ "1" = "1" ]; then         PATCH_DIR=/tmp/sglang_dsa bash /tmp/apply_sglang_dsa_patches.sh;     else         echo "APPLY_SGLANG_DSA_PATCHES=0 — stock sglang, GLM-5.2 PD+DPA+MTP will NOT work";     fi     && rm -rf /tmp/apply_sglang_dsa_patches.sh /tmp/sglang_dsa
+#16 0.066 === sglang DSA patches (full): applying to /sgl-workspace/sglang ===
+#16 0.066   --- patch_dsa_indexer_hip_dp_padded_rows.py
+#16 0.084 [dsa-indexer-rows] patched /sgl-workspace/sglang/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+#16 0.084 [dsa-indexer-rows] aiter paged-MQA now sees the real row count under DP-attention
+#16 0.087   --- dsa_dp_sync.diff
+#16 0.088 patching file python/sglang/srt/layers/attention/dsa_backend.py
+#16 0.089   --- dsa_page_table_rows.diff
+#16 0.090 patching file python/sglang/srt/layers/attention/dsa_backend.py
+#16 0.090 Hunk #2 succeeded at 2295 (offset 8 lines).
+#16 0.090 Hunk #3 succeeded at 3243 (offset 8 lines).
+#16 0.090   --- draft_cuda_graph_dp_vote.diff
+#16 0.091 patching file python/sglang/srt/managers/scheduler_components/dp_attn.py
+#16 0.092 patching file python/sglang/srt/managers/schedule_batch.py
+#16 0.092 patching file python/sglang/srt/model_executor/forward_batch_info.py
+#16 0.092 patching file python/sglang/srt/disaggregation/decode.py
+#16 0.093 patching file python/sglang/srt/speculative/eagle_draft_cuda_graph_runner.py
+#16 0.093 patching file python/sglang/srt/speculative/eagle_worker_v2.py
+#16 0.093 patching file python/sglang/srt/speculative/base_spec_worker.py
+#16 0.093 === dropping __pycache__ so verification cannot read a stale .pyc ===
+#16 0.106 === verifying every patch reached the bytecode ===
+#16 0.140   dsa_indexer.py :: _p1v2_trim               -> pyc=1 (want >0)
+#16 0.175   dsa_indexer.py :: _p1v2_rows               -> pyc=1 (want >0)
+#16 0.212   dsa_backend.py :: must not be None for DRAFT_EXTEND_V2 -> pyc=1 (want >0)
+#16 0.247   dsa_backend.py :: _glm52_match_page_table_rows -> pyc=1 (want >0)
+#16 0.280   decode.py :: force_disable_draft_cuda_graph -> pyc=1 (want >0)
+#16 0.311   eagle_draft_cuda_graph_runner.py :: can_run_dp_draft_cuda_graph -> pyc=1 (want >0)
+#16 0.311 === all sglang DSA patches verified in bytecode ===
+#16 DONE 0.3s
+
+#17 [13/19] COPY deploy/docker/patches/sglang_disagg/ /tmp/sglang-disagg-patches/
+#17 DONE 0.0s
+
+#18 [14/19] RUN set -eu;     for f in /tmp/sglang-disagg-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done;     rm -rf /tmp/sglang-disagg-patches
+#18 0.082 [sglang-patch] /tmp/sglang-disagg-patches/patch_mooncake_early_send_wait_event.py
+#18 0.101 [mc-wait-event] patched /sgl-workspace/sglang/python/sglang/srt/disaggregation/common/utils.py
+#18 0.101 [mc-wait-event] patched /sgl-workspace/sglang/python/sglang/srt/disaggregation/mooncake/conn.py
+#18 0.101 [mc-wait-event] patched /sgl-workspace/sglang/python/sglang/srt/disaggregation/prefill.py
+#18 0.101 [mc-wait-event] mooncake now waits on the prefill write event before the RDMA read
+#18 DONE 0.1s
+
+#19 [15/19] COPY deploy/docker/patches/sglang_rocm/ /tmp/sglang-rocm-patches/
+#19 DONE 0.0s
+
+#20 [16/19] RUN set -eu;     for f in /tmp/sglang-rocm-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done;     rm -rf /tmp/sglang-rocm-patches
+#20 0.080 [sglang-patch] /tmp/sglang-rocm-patches/patch_hicache_rocm_host_alloc.py
+#20 0.096 [patch] applied to /sgl-workspace/sglang/python/sglang/srt/mem_cache/pool_host/common.py
+#20 0.096 [patch] removed 0 stale .pyc
+#20 0.099 [sglang-patch] /tmp/sglang-rocm-patches/patch_hicache_rocm_staged_write_back.py
+#20 0.115 [patch] applied to /sgl-workspace/sglang/python/sglang/srt/mem_cache/pool_host/mla.py
+#20 0.115 [patch] removed 0 stale .pyc
+#20 DONE 0.1s
+
+#21 [17/19] COPY rust ./rust
+#21 DONE 0.0s
+
+#22 [18/19] RUN set -eu;     command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; };     export LIBCLANG_PATH="$(dirname "$(find /opt/rocm* /usr/lib /usr/lib64 -name 'libclang.so*' 2>/dev/null | head -1)")";     case "$LIBCLANG_PATH" in ""|".") apt-get update && apt-get install -y --no-install-recommends libclang-dev && rm -rf /var/lib/apt/lists/* && export LIBCLANG_PATH="$(dirname "$(find /usr/lib -name 'libclang.so*' 2>/dev/null | head -1)")";; esac;     command -v cargo >/dev/null || { curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal; . "$HOME/.cargo/env"; };     export PATH="$HOME/.cargo/bin:/root/.cargo/bin:/opt/venv/bin:/opt/rocm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin";     export LIBCLANG_PATH="${LIBCLANG_PATH:-/opt/rocm/llvm/lib}";     ( cd rust && cargo build --release --bin infera-router );     cp rust/target/release/infera-router /usr/local/bin/infera-router;     rm -rf rust "$HOME/.cargo" "$HOME/.rustup" /usr/local/cargo /usr/local/rustup;     rm -f /usr/local/bin/cargo /usr/local/bin/rustc /usr/local/bin/rustup /usr/local/bin/rustdoc;     sed -i '/\.cargo\/env/d' "$HOME/.profile" "$HOME/.bashrc" 2>/dev/null || true;     ! command -v cargo >/dev/null || { echo "cargo still on PATH after cleanup: $(command -v cargo)" >&2; exit 1; };     ! bash -lc true 2>&1 | grep -q cargo || { echo "a login shell still references cargo" >&2; exit 1; };     /usr/local/bin/infera-router --help >/dev/null 2>&1 || { echo "infera-router unusable after cleanup" >&2; exit 1; }
+#22 0.247     Updating crates.io index
+#22 10.26 warning: spurious network error (3 tries remaining): [6] Could not resolve hostname (Could not resolve host: index.crates.io)
+#22 10.26 warning: spurious network error (3 tries remaining): [6] Could not resolve hostname (Could not resolve host: index.crates.io)
+#22 10.26 warning: spurious network error (3 tries remaining): [6] Could not resolve hostname (Could not resolve host: index.crates.io)
+#22 10.94 warning: spurious network error (2 tries remaining): [6] Could not resolve hostname (Could not resolve host: index.crates.io)
+#22 11.39 warning: spurious network error (2 tries remaining): [6] Could not resolve hostname (Could not resolve host: index.crates.io)
+#22 11.71 warning: spurious network error (2 tries remaining): [6] Could not resolve hostname (Could not resolve host: index.crates.io)
+#22 14.44 warning: spurious network error (1 try remaining): [6] Could not resolve hostname (Could not resolve host: index.crates.io)
+#22 14.89 warning: spurious network error (1 try remaining): [6] Could not resolve hostname (Could not resolve host: index.crates.io)
+#22 15.22 warning: spurious network error (1 try remaining): [6] Could not resolve hostname (Could not resolve host: index.crates.io)
+#22 21.72 error: failed to get `async-nats` as a dependency of package `infera-router v0.1.0 (/opt/infera/rust/router)`
+#22 21.72 
+#22 21.72 Caused by:
+#22 21.72   failed to load source for dependency `async-nats`
+#22 21.72 
+#22 21.72 Caused by:
+#22 21.72   unable to update registry `crates-io`
+#22 21.72 
+#22 21.72 Caused by:
+#22 21.72   download of as/yn/async-nats failed
+#22 21.72 
+#22 21.72 Caused by:
+#22 21.72   [6] Could not resolve hostname (Could not resolve host: index.crates.io)
+#22 ERROR: process "/bin/sh -c set -eu;     command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; };     export LIBCLANG_PATH=\"$(dirname \"$(find /opt/rocm* /usr/lib /usr/lib64 -name 'libclang.so*' 2>/dev/null | head -1)\")\";     case \"$LIBCLANG_PATH\" in \"\"|\".\") apt-get update && apt-get install -y --no-install-recommends libclang-dev && rm -rf /var/lib/apt/lists/* && export LIBCLANG_PATH=\"$(dirname \"$(find /usr/lib -name 'libclang.so*' 2>/dev/null | head -1)\")\";; esac;     command -v cargo >/dev/null || { curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal; . \"$HOME/.cargo/env\"; };     export PATH=\"$HOME/.cargo/bin:$PATH\";     export LIBCLANG_PATH=\"${LIBCLANG_PATH:-/opt/rocm/llvm/lib}\";     ( cd rust && cargo build --release --bin infera-router );     cp rust/target/release/infera-router /usr/local/bin/infera-router;     rm -rf rust \"$HOME/.cargo\" \"$HOME/.rustup\" /usr/local/cargo /usr/local/rustup;     rm -f /usr/local/bin/cargo /usr/local/bin/rustc /usr/local/bin/rustup /usr/local/bin/rustdoc;     sed -i '/\\.cargo\\/env/d' \"$HOME/.profile\" \"$HOME/.bashrc\" 2>/dev/null || true;     ! command -v cargo >/dev/null || { echo \"cargo still on PATH after cleanup: $(command -v cargo)\" >&2; exit 1; };     ! bash -lc true 2>&1 | grep -q cargo || { echo \"a login shell still references cargo\" >&2; exit 1; };     /usr/local/bin/infera-router --help >/dev/null 2>&1 || { echo \"infera-router unusable after cleanup\" >&2; exit 1; }" did not complete successfully: exit code: 101
+------
+ > [18/19] RUN set -eu;     command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; };     export LIBCLANG_PATH="$(dirname "$(find /opt/rocm* /usr/lib /usr/lib64 -name 'libclang.so*' 2>/dev/null | head -1)")";     case "$LIBCLANG_PATH" in ""|".") apt-get update && apt-get install -y --no-install-recommends libclang-dev && rm -rf /var/lib/apt/lists/* && export LIBCLANG_PATH="$(dirname "$(find /usr/lib -name 'libclang.so*' 2>/dev/null | head -1)")";; esac;     command -v cargo >/dev/null || { curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal; . "$HOME/.cargo/env"; };     export PATH="$HOME/.cargo/bin:/root/.cargo/bin:/opt/venv/bin:/opt/rocm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin";     export LIBCLANG_PATH="${LIBCLANG_PATH:-/opt/rocm/llvm/lib}";     ( cd rust && cargo build --release --bin infera-router );     cp rust/target/release/infera-router /usr/local/bin/infera-router;     rm -rf rust "$HOME/.cargo" "$HOME/.rustup" /usr/local/cargo /usr/local/rustup;     rm -f /usr/local/bin/cargo /usr/local/bin/rustc /usr/local/bin/rustup /usr/local/bin/rustdoc;     sed -i '/\.cargo\/env/d' "$HOME/.profile" "$HOME/.bashrc" 2>/dev/null || true;     ! command -v cargo >/dev/null || { echo "cargo still on PATH after cleanup: $(command -v cargo)" >&2; exit 1; };     ! bash -lc true 2>&1 | grep -q cargo || { echo "a login shell still references cargo" >&2; exit 1; };     /usr/local/bin/infera-router --help >/dev/null 2>&1 || { echo "infera-router unusable after cleanup" >&2; exit 1; }:
+21.72   failed to load source for dependency `async-nats`
+21.72 
+21.72 Caused by:
+21.72   unable to update registry `crates-io`
+21.72 
+21.72 Caused by:
+21.72   download of as/yn/async-nats failed
+21.72 
+21.72 Caused by:
+21.72   [6] Could not resolve hostname (Could not resolve host: index.crates.io)
+------
+Dockerfile.sglang:169
+--------------------
+ 168 |     COPY rust ./rust
+ 169 | >>> RUN set -eu; \
+ 170 | >>>     command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; }; \
+ 171 | >>>     export LIBCLANG_PATH="$(dirname "$(find /opt/rocm* /usr/lib /usr/lib64 -name 'libclang.so*' 2>/dev/null | head -1)")"; \
+ 172 | >>>     case "$LIBCLANG_PATH" in ""|".") apt-get update && apt-get install -y --no-install-recommends libclang-dev && rm -rf /var/lib/apt/lists/* && export LIBCLANG_PATH="$(dirname "$(find /usr/lib -name 'libclang.so*' 2>/dev/null | head -1)")";; esac; \
+ 173 | >>>     command -v cargo >/dev/null || { curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal; . "$HOME/.cargo/env"; }; \
+ 174 | >>>     export PATH="$HOME/.cargo/bin:$PATH"; \
+ 175 | >>>     export LIBCLANG_PATH="${LIBCLANG_PATH:-/opt/rocm/llvm/lib}"; \
+ 176 | >>>     ( cd rust && cargo build --release --bin infera-router ); \
+ 177 | >>>     cp rust/target/release/infera-router /usr/local/bin/infera-router; \
+ 178 | >>>     rm -rf rust "$HOME/.cargo" "$HOME/.rustup" /usr/local/cargo /usr/local/rustup; \
+ 179 | >>>     rm -f /usr/local/bin/cargo /usr/local/bin/rustc /usr/local/bin/rustup /usr/local/bin/rustdoc; \
+ 180 | >>>     sed -i '/\.cargo\/env/d' "$HOME/.profile" "$HOME/.bashrc" 2>/dev/null || true; \
+ 181 | >>>     ! command -v cargo >/dev/null || { echo "cargo still on PATH after cleanup: $(command -v cargo)" >&2; exit 1; }; \
+ 182 | >>>     ! bash -lc true 2>&1 | grep -q cargo || { echo "a login shell still references cargo" >&2; exit 1; }; \
+ 183 | >>>     /usr/local/bin/infera-router --help >/dev/null 2>&1 || { echo "infera-router unusable after cleanup" >&2; exit 1; }
+ 184 |     
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c set -eu;     command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; };     export LIBCLANG_PATH=\"$(dirname \"$(find /opt/rocm* /usr/lib /usr/lib64 -name 'libclang.so*' 2>/dev/null | head -1)\")\";     case \"$LIBCLANG_PATH\" in \"\"|\".\") apt-get update && apt-get install -y --no-install-recommends libclang-dev && rm -rf /var/lib/apt/lists/* && export LIBCLANG_PATH=\"$(dirname \"$(find /usr/lib -name 'libclang.so*' 2>/dev/null | head -1)\")\";; esac;     command -v cargo >/dev/null || { curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal; . \"$HOME/.cargo/env\"; };     export PATH=\"$HOME/.cargo/bin:$PATH\";     export LIBCLANG_PATH=\"${LIBCLANG_PATH:-/opt/rocm/llvm/lib}\";     ( cd rust && cargo build --release --bin infera-router );     cp rust/target/release/infera-router /usr/local/bin/infera-router;     rm -rf rust \"$HOME/.cargo\" \"$HOME/.rustup\" /usr/local/cargo /usr/local/rustup;     rm -f /usr/local/bin/cargo /usr/local/bin/rustc /usr/local/bin/rustup /usr/local/bin/rustdoc;     sed -i '/\\.cargo\\/env/d' \"$HOME/.profile\" \"$HOME/.bashrc\" 2>/dev/null || true;     ! command -v cargo >/dev/null || { echo \"cargo still on PATH after cleanup: $(command -v cargo)\" >&2; exit 1; };     ! bash -lc true 2>&1 | grep -q cargo || { echo \"a login shell still references cargo\" >&2; exit 1; };     /usr/local/bin/infera-router --help >/dev/null 2>&1 || { echo \"infera-router unusable after cleanup\" >&2; exit 1; }" did not complete successfully: exit code: 101

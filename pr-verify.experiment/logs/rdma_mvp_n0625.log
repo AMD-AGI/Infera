@@ -1,0 +1,24 @@
+Failed to modify QP 2 to RTR
+ Unable to Connect the HCA's through the link
+ WARNING: BW peak won't be measured in this run.
+Using sampled CPU speed 3300 MHz over reported speed 5005 MHz
+Connected: Wed Aug 19 04:29:23 2026
+
+---------------------------------------------------------------------------------------
+                    RDMA_Write BW Test
+ Dual-port       : OFF		Device         : ionic_0
+ Number of qps   : 1		Transport type : IB
+ Connection type : RC		Using SRQ      : OFF
+ PCIe relax order: ON		Lock-free      : OFF
+ ibv_wr* API     : OFF		Using DDP      : OFF
+ TX depth        : 128
+ CQ Moderation   : 1
+ CQE Poll Batch  : 16
+ Mtu             : 4096[B]
+ Link type       : Ethernet
+ CPU freq        : 3300[MHz]
+ GID index       : 3
+ Max inline data : 0[B]
+ rdma_cm QPs	 : OFF
+ Data ex. method : Ethernet
+---------------------------------------------------------------------------------------

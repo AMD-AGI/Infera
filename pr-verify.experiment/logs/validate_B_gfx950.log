@@ -1,0 +1,29 @@
+device: AMD Instinct MI355X
+torch:  2.9.1+rocm7.2.0.git7e1940d4 hip=7.2.26015-fc0010cf6a
+
+[1] TransferKVChunk carries wait_event, defaulting to None
+  PASS  field exists
+  PASS  defaults to None when omitted
+  PASS  accepts an event
+
+[2] send() forwards the event on both arms, then clears it
+  PASS  add_transfer_request accepts wait_event
+  PASS  wait_event defaults to None
+  PASS  non_last_chunk: event forwarded
+  PASS  non_last_chunk: sender's event cleared after send
+  PASS  last_chunk: event forwarded
+  PASS  last_chunk: sender's event cleared after send
+  PASS  no event recorded: forwards None, does not raise
+
+[3] the wait is a real barrier, and [4] it orders the read correctly
+  PASS  event is pending right after record
+  PASS  synchronize() actually blocked
+  PASS  event complete after synchronize()
+  PASS  post-barrier read on another stream sees the writes
+  PASS  event cleared after the wait
+
+RESULT: PASS
+
+NOT covered here (needs a 2-node PD pair): that the corruption is
+actually gone end-to-end, and the synchronize()'s cost on prefill
+throughput. Both deferred -- see working_process.md.
