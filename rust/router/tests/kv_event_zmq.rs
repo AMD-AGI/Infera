@@ -251,3 +251,58 @@ fn an_orphaned_event_is_dropped_and_a_clear_re_anchors_the_chain() {
 
     client.shutdown();
 }
+
+/// SGLang's real three-frame message: `(topic, 8-byte big-endian sequence,
+/// payload)`.
+///
+/// The subscriber long took the payload as the last frame and never looked at
+/// the middle one, so this shape worked by accident while the sequence -- the
+/// protocol's own answer to "did I miss anything?" -- was thrown away. Now that
+/// the frame is read by position, this test is what keeps the payload landing in
+/// the right place for the publisher we actually run against; the two-frame
+/// tests above cover the shape vLLM sends.
+#[test]
+fn subscriber_reads_the_sglang_sequence_frame_without_losing_the_payload() {
+    let ctx = zmq::Context::new();
+    let pub_sock = ctx.socket(zmq::PUB).unwrap();
+    pub_sock.bind("tcp://127.0.0.1:*").unwrap();
+    let endpoint = pub_sock.get_last_endpoint().unwrap().unwrap();
+
+    let client = KvEventClient::new();
+    client.on_worker_added(&worker("w", &endpoint, 4));
+
+    let payload = batch(vec![block_stored(
+        &[111, 222],
+        None,
+        &[1, 2, 3, 4, 5, 6, 7, 8],
+        4,
+    )]);
+    let query = hash_request(&[1, 2, 3, 4, 5, 6, 7, 8], 4);
+
+    // A non-zero, advancing sequence: mid-stream join plus a gap, i.e. both of
+    // the states the tracker reports on. Neither may cost the batch itself.
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut seq: u64 = 4_000;
+    let mut hits = 0;
+    while Instant::now() < deadline {
+        pub_sock
+            .send_multipart(
+                [b"kv-events".as_ref(), &seq.to_be_bytes(), payload.as_ref()],
+                0,
+            )
+            .unwrap();
+        seq += 3;
+        std::thread::sleep(Duration::from_millis(50));
+        hits = client.prefix_hits("w", None, &query);
+        if hits == 2 {
+            break;
+        }
+    }
+    assert_eq!(
+        hits, 2,
+        "the payload is the last frame of three; reading the sequence must not \
+         shift which frame gets decoded"
+    );
+
+    client.shutdown();
+}

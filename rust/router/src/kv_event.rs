@@ -332,6 +332,117 @@ fn offset_endpoint(endpoint: &str, rank: i64) -> String {
     }
 }
 
+/// Per-socket sequence tracking for the ZMQ transport.
+///
+/// SGLang's `ZmqEventPublisher` numbers every published batch with a counter
+/// that starts at 0 when the publisher process starts, and sends it as an
+/// 8-byte big-endian frame between the topic and the payload. Reading it turns
+/// two otherwise invisible failures into statements of fact rather than the
+/// guesses the downstream orphan counter has to make:
+///
+/// * a *first* sequence above 0 means this subscription began after the
+///   publisher did. Everything before it is unrecoverable -- a PUB socket
+///   retains nothing -- and what is in there includes the `parent_block_hash =
+///   None` roots that every later event chains to. The view for this rank
+///   cannot be built from the live stream at all, no matter how long it runs.
+/// * a sequence *below* the last one means the publisher process restarted and
+///   its counter began again, so the blocks still indexed for this rank belong
+///   to an engine that no longer exists. ZMQ reconnects underneath us without
+///   surfacing an error, so this is the only place that transition is visible.
+///
+/// Detection only: nothing here repairs a view or touches a worker. The one
+/// event that can re-anchor a chain from nothing is `AllBlocksCleared`, which
+/// only a cache flush produces.
+struct SeqTracker {
+    /// Sequence of the last batch seen, `None` until the first one arrives.
+    last: Option<u64>,
+    /// Batches known to have been dropped between two observed sequences.
+    lost: u64,
+    /// Next `lost` value worth a log line, geometric like the orphan counter so
+    /// a subscriber that has fallen permanently behind reports once, not once
+    /// per batch.
+    next_warn: u64,
+}
+
+impl SeqTracker {
+    fn new() -> Self {
+        Self {
+            last: None,
+            lost: 0,
+            next_warn: 1,
+        }
+    }
+
+    fn observe(&mut self, worker_id: &str, rank: i64, seq: u64) {
+        let prev = match self.last.replace(seq) {
+            Some(p) => p,
+            None => {
+                if seq == 0 {
+                    tracing::info!(
+                        worker = %worker_id, rank,
+                        "kv events: subscribed from the publisher's first batch"
+                    );
+                } else {
+                    tracing::warn!(
+                        worker = %worker_id, rank, first_seq = seq,
+                        "kv events: subscribed mid-stream -- the batches before this one \
+                         were published before the subscription existed and a PUB socket \
+                         retains nothing; they hold the rooted events every later event \
+                         chains to, so this rank's view cannot be built from the live \
+                         stream and kv-aware will route on load alone until the worker's \
+                         cache is flushed"
+                    );
+                }
+                return;
+            }
+        };
+        if seq == prev.wrapping_add(1) {
+            return;
+        }
+        if seq <= prev {
+            tracing::warn!(
+                worker = %worker_id, rank, prev_seq = prev, seq,
+                "kv events: sequence restarted -- the publisher process was replaced, so \
+                 the blocks still indexed for this rank belong to an engine that no longer \
+                 exists and any hit reported against them is wrong"
+            );
+            self.lost = 0;
+            self.next_warn = 1;
+            return;
+        }
+        let missed = seq - prev - 1;
+        self.lost += missed;
+        if self.lost >= self.next_warn {
+            tracing::warn!(
+                worker = %worker_id, rank, missed, lost_total = self.lost, seq,
+                "kv events: batches dropped in transit (subscriber past the publisher's \
+                 high-water mark, or a silent reconnect); every block descending from a \
+                 store inside the gap is orphaned from here on"
+            );
+            self.next_warn = self.lost.saturating_mul(10);
+        }
+    }
+}
+
+/// Split a published message into `(sequence, payload)`.
+///
+/// SGLang sends `(topic, seq, payload)`; vLLM and the crate's own fixtures send
+/// `(topic, payload)`. The payload is the last frame either way -- taking it
+/// from the end is what has always made both shapes work -- and the sequence is
+/// read only when the middle frame is present and is the eight bytes the
+/// publisher writes. An unrecognised shape degrades to no sequence tracking
+/// rather than to a dropped batch.
+fn split_frames(frames: &[Vec<u8>]) -> Option<(Option<u64>, &[u8])> {
+    let payload = frames.last()?;
+    let seq = match frames.len() {
+        3 => <[u8; 8]>::try_from(frames[1].as_slice())
+            .ok()
+            .map(u64::from_be_bytes),
+        _ => None,
+    };
+    Some((seq, payload.as_slice()))
+}
+
 /// Outer loop: (re)establish the SUB socket on any failure, honouring `stop`.
 fn run_subscriber(
     ctx: zmq::Context,
@@ -342,8 +453,11 @@ fn run_subscriber(
     stop: Arc<AtomicBool>,
 ) {
     let mut backoff = INITIAL_BACKOFF_MS;
+    // Outlives the socket: a reconnect is itself a gap, and reporting it needs
+    // the sequence observed before the socket was torn down.
+    let mut seq = SeqTracker::new();
     while !stop.load(Ordering::Relaxed) {
-        match subscribe_once(&ctx, &state, &worker_id, rank, &endpoint, &stop) {
+        match subscribe_once(&ctx, &state, &worker_id, rank, &endpoint, &stop, &mut seq) {
             Ok(()) => return, // stop requested
             Err(e) => {
                 if stop.load(Ordering::Relaxed) {
@@ -367,6 +481,7 @@ fn subscribe_once(
     rank: i64,
     endpoint: &str,
     stop: &Arc<AtomicBool>,
+    seq: &mut SeqTracker,
 ) -> Result<(), zmq::Error> {
     let sock = ctx.socket(zmq::SUB)?;
     sock.set_rcvtimeo(RECV_TIMEOUT_MS)?;
@@ -375,7 +490,10 @@ fn subscribe_once(
     while !stop.load(Ordering::Relaxed) {
         match sock.recv_multipart(0) {
             Ok(frames) => {
-                if let Some(payload) = frames.last() {
+                if let Some((n, payload)) = split_frames(&frames) {
+                    if let Some(n) = n {
+                        seq.observe(worker_id, rank, n);
+                    }
                     match decode_batch(payload) {
                         Ok(events) => apply_events(state, worker_id, rank, &events),
                         Err(e) => tracing::warn!(worker = %worker_id, err = %e, "kv decode failed"),
@@ -1151,5 +1269,57 @@ mod tests {
     fn offset_endpoint_bumps_port_per_rank() {
         assert_eq!(offset_endpoint("tcp://h:5557", 0), "tcp://h:5557");
         assert_eq!(offset_endpoint("tcp://h:5557", 3), "tcp://h:5560");
+    }
+
+    // ---- sequence frame ---------------------------------------------------
+
+    fn frames(parts: &[&[u8]]) -> Vec<Vec<u8>> {
+        parts.iter().map(|p| p.to_vec()).collect()
+    }
+
+    /// The payload must come off the end for both wire shapes. Reading the
+    /// sequence by position is what would break vLLM and the Atom fixtures, so
+    /// the two-frame form has to keep decoding with tracking simply switched off.
+    #[test]
+    fn split_frames_reads_sglang_sequence_and_leaves_two_frame_publishers_alone() {
+        let sgl = frames(&[TOPIC, &7u64.to_be_bytes(), b"payload"]);
+        assert_eq!(split_frames(&sgl), Some((Some(7), b"payload".as_ref())));
+
+        let vllm = frames(&[TOPIC, b"payload"]);
+        assert_eq!(split_frames(&vllm), Some((None, b"payload".as_ref())));
+
+        // A middle frame that is not the publisher's 8 bytes is not a sequence,
+        // and must not cost us the batch.
+        let odd = frames(&[TOPIC, b"xx", b"payload"]);
+        assert_eq!(split_frames(&odd), Some((None, b"payload".as_ref())));
+
+        assert_eq!(split_frames(&[]), None);
+    }
+
+    /// A publisher counter starts at 0, so a higher first sequence is proof the
+    /// subscription missed the rooted events and not merely a suspicion drawn
+    /// from a run of orphans. Contiguity, gaps and a restart are the other three
+    /// states; none of them may panic or wrap.
+    #[test]
+    fn seq_tracker_classifies_first_batch_gaps_and_restart() {
+        let mut t = SeqTracker::new();
+        t.observe("w", 0, 0); // clean start
+        t.observe("w", 0, 1); // contiguous
+        assert_eq!(t.lost, 0);
+
+        t.observe("w", 0, 5); // 2,3,4 dropped
+        assert_eq!(t.lost, 3);
+        t.observe("w", 0, 9); // 6,7,8 dropped
+        assert_eq!(t.lost, 6);
+
+        t.observe("w", 0, 0); // publisher replaced: counter began again
+        assert_eq!(t.last, Some(0));
+        assert_eq!(t.lost, 0, "a new publisher's history is not the old one's");
+
+        // Joining mid-stream is the cold-start case and is not a gap: there is
+        // no previous sequence for those batches to be missing from.
+        let mut late = SeqTracker::new();
+        late.observe("w", 0, 4_000);
+        assert_eq!((late.last, late.lost), (Some(4_000), 0));
     }
 }
