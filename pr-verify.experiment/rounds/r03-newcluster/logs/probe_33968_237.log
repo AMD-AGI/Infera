@@ -1,0 +1,10 @@
+device: AMD Instinct MI355X gcn=gfx950:sramecc+:xnack-
+torch:  2.9.1+rocm7.2.0.git7e1940d4 hip=7.2.26015-fc0010cf6a
+
+  [pin_memory]                       host=0x747a08800000  devPtr=0x747a08800000  same=True
+  [mmap + hipHostRegister]           host=0x747a08000000  devPtr=0x747a03600000  same=False
+  [  + hipHostRegisterMapped]        host=0x747a02e00000  devPtr=0x747a02400000  same=False
+  [  + Portable|Mapped]              host=0x747a08000000  devPtr=0x747a03600000  same=False
+
+VERDICT: host VA != device pointer for: [mmap + hipHostRegister], [  + hipHostRegisterMapped], [  + Portable|Mapped]
+         The pointer-table design is UNSAFE with those strategies here.

@@ -1,0 +1,38 @@
+Using reported CPU speed 3300 MHz over sampled speed 3300 MHz
+
+************************************
+* Waiting for client to connect... *
+************************************
+Connected: Mon Aug 24 04:20:59 2026
+
+---------------------------------------------------------------------------------------
+                    RDMA_Write BW Test
+ Dual-port       : OFF		Device         : ionic_0
+ Number of qps   : 1		Transport type : IB
+ Connection type : RC		Using SRQ      : OFF
+ PCIe relax order: ON		Lock-free      : OFF
+ ibv_wr* API     : OFF		Using DDP      : OFF
+ CQ Moderation   : 1
+ CQE Poll Batch  : 16
+ Mtu             : 4096[B]
+ Link type       : Ethernet
+ CPU freq        : 3300[MHz]
+ GID index       : 0
+ Max inline data : 0[B]
+ rdma_cm QPs	 : ON
+ Data ex. method : rdma_cm
+---------------------------------------------------------------------------------------
+ Waiting for client rdma_cm QP to connect
+ Please run the same command with the IB/RoCE interface IP
+---------------------------------------------------------------------------------------
+ local address: LID 0000 QPN 0x07f2 PSN 0xc2115c
+ GID: 254:128:00:00:00:00:00:00:236:66:239:255:254:170:47:67
+ remote address: LID 0000 QPN 0x033e PSN 0x7bd738
+ GID: 254:128:00:00:00:00:00:00:236:83:221:255:254:196:123:74
+---------------------------------------------------------------------------------------
+ #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]
+ 65536      5000             174.15             174.11 		     0.332084
+---------------------------------------------------------------------------------------
+Completed: Mon Aug 24 04:21:00 2026
+
+Total run time: 6.140s

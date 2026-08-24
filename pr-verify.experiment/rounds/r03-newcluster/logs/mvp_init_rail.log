@@ -1,0 +1,25 @@
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0824 05:46:17.175734     1 transfer_engine_py.cpp:100] Using default malloc/free for protocol: rdma
+I0824 05:46:17.175835     1 transfer_engine_impl.cpp:987] Metrics reporting is disabled (set MC_TE_METRIC=1 to enable)
+I0824 05:46:17.175853     1 transfer_engine_impl.cpp:116] Transfer Engine parseHostNameWithPort. server_name: 10.245.159.121 port: 12001
+I0824 05:46:17.175949     1 transfer_engine_impl.cpp:183] Transfer Engine RPC using P2P handshake, listening on 10.245.159.121:15298
+I0824 05:46:17.176101     1 transfer_engine_impl.cpp:259] Auto-discovering topology...
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_7
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_6
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_5
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_4
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_3
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_2
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_1
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_0
+I0824 05:46:17.405138     1 transfer_engine_impl.cpp:274] Topology discovery complete. Found 0 HCAs.
+E0824 05:46:17.405229     1 transfer_metadata.cpp:1043] Local segment descriptor not found
+I0824 05:46:17.405269     1 tcp_transport.cpp:918] TcpTransport: listen on port 15230
+I0824 05:46:17.405422     1 transfer_engine_impl.cpp:412] HIP transport installed for intra-node GPU P2P
+[initiator] session_id = 10.245.159.121:15298
+[initiator] register_memory(0x750ad62fd010, 8388608) rc=0
+I0824 05:46:17.407644     1 transfer_engine_py.cpp:442] transferSync, cache not found, openSegment with target 10.245.154.191:16448
+[initiator] transfer_sync_read rc=0 in 6.60 ms
+[initiator] first16=abababababababababababababababab all_0xAB=True ~10.2 Gb/s
+RESULT: PASS
+I0824 05:46:17.537653     1 transfer_metadata.cpp:580] removeSegmentDesc 10.245.159.121:15298 finish

@@ -1,0 +1,14 @@
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_6
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_5
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_4
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_3
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_2
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_1
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_0
+I0824 05:44:03.679543     1 rdma_context.cpp:1362] Find best gid index: 3 on mlx5_0/ (network state: with network device)
+I0824 05:44:03.680922     1 rdma_context.cpp:290] RDMA device: mlx5_0, LID: 0, GID: (GID_Index 3) 00:00:00:00:00:00:00:00:00:00:ff:ff:0a:f5:9f:79
+I0824 05:44:03.680951     1 transfer_engine_impl.cpp:389] installTransport, type=rdma
+I0824 05:44:03.680998     1 transfer_engine_impl.cpp:412] HIP transport installed for intra-node GPU P2P
+W0824 05:44:03.683475     1 memory_location.cpp:73] Failed to get NUMA node, addr: 0x7c888dffc010, len: 8388608: Operation not permitted [1]
+I0824 05:44:03.684629     1 transfer_engine_py.cpp:442] transferSync, cache not found, openSegment with target 10.245.154.191:15006
+I0824 05:44:03.848529     1 transfer_metadata.cpp:580] removeSegmentDesc 10.245.159.121:16469 finish

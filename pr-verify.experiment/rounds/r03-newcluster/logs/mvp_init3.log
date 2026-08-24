@@ -1,0 +1,38 @@
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0824 05:44:34.440691     1 transfer_engine_py.cpp:100] Using default malloc/free for protocol: rdma
+I0824 05:44:34.440793     1 transfer_engine_impl.cpp:987] Metrics reporting is disabled (set MC_TE_METRIC=1 to enable)
+I0824 05:44:34.440811     1 transfer_engine_impl.cpp:116] Transfer Engine parseHostNameWithPort. server_name: 10.245.159.121 port: 12001
+I0824 05:44:34.440882     1 transfer_engine_impl.cpp:183] Transfer Engine RPC using P2P handshake, listening on 10.245.159.121:16051
+I0824 05:44:34.441049     1 transfer_engine_impl.cpp:259] Auto-discovering topology...
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_7
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_6
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_5
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_4
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_3
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_2
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_1
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_0
+I0824 05:44:34.454138     1 topology.cpp:127] Device mlx5_0 port 1 is available
+I0824 05:44:34.649776     1 transfer_engine_impl.cpp:274] Topology discovery complete. Found 1 HCAs.
+I0824 05:44:34.649806     1 rdma_transport.cpp:159] [RDMA] Relaxed ordering is supported on this host; IBV_ACCESS_RELAXED_ORDERING will be requested for registered memory regions.
+I0824 05:44:34.649817     1 rdma_context.cpp:207] Using SIEVE endpoint store
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_7
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_6
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_5
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_4
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_3
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_2
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_1
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_0
+I0824 05:44:34.659103     1 rdma_context.cpp:1362] Find best gid index: 3 on mlx5_0/ (network state: with network device)
+I0824 05:44:34.660538     1 rdma_context.cpp:290] RDMA device: mlx5_0, LID: 0, GID: (GID_Index 3) 00:00:00:00:00:00:00:00:00:00:ff:ff:0a:f5:9f:79
+I0824 05:44:34.660571     1 transfer_engine_impl.cpp:389] installTransport, type=rdma
+I0824 05:44:34.660614     1 transfer_engine_impl.cpp:412] HIP transport installed for intra-node GPU P2P
+[initiator] session_id = 10.245.159.121:16051
+W0824 05:44:34.663022     1 memory_location.cpp:73] Failed to get NUMA node, addr: 0x7105ce7fd010, len: 8388608: Operation not permitted [1]
+[initiator] register_memory(0x7105ce7fd010, 8388608) rc=0
+I0824 05:44:34.664172     1 transfer_engine_py.cpp:442] transferSync, cache not found, openSegment with target 10.245.154.191:15006
+[initiator] transfer_sync_read rc=0 in 26.08 ms
+I0824 05:44:34.812367     1 transfer_metadata.cpp:580] removeSegmentDesc 10.245.159.121:16051 finish
+[initiator] first16=abababababababababababababababab all_0xAB=True ~2.6 Gb/s
+RESULT: PASS

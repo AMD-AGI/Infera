@@ -1,0 +1,23 @@
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0824 05:44:44.009922     1 transfer_engine_py.cpp:100] Using default malloc/free for protocol: rdma
+I0824 05:44:44.009964     1 transfer_engine_impl.cpp:987] Metrics reporting is disabled (set MC_TE_METRIC=1 to enable)
+I0824 05:44:44.009979     1 transfer_engine_impl.cpp:116] Transfer Engine parseHostNameWithPort. server_name: 10.245.154.191 port: 12001
+I0824 05:44:44.010018     1 transfer_engine_impl.cpp:183] Transfer Engine RPC using P2P handshake, listening on 10.245.154.191:16448
+I0824 05:44:44.010084     1 transfer_engine_impl.cpp:259] Auto-discovering topology...
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_7
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_6
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_5
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_4
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_3
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_2
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_1
+libibverbs: Warning: Driver ionic does not support the kernel ABI of 4 (supports 1 to 1) for device /sys/class/infiniband/ionic_0
+I0824 05:44:44.185693     1 transfer_engine_impl.cpp:274] Topology discovery complete. Found 0 HCAs.
+E0824 05:44:44.185768     1 transfer_metadata.cpp:1043] Local segment descriptor not found
+I0824 05:44:44.185822     1 tcp_transport.cpp:918] TcpTransport: listen on port 16144
+I0824 05:44:44.185969     1 transfer_engine_impl.cpp:412] HIP transport installed for intra-node GPU P2P
+[target] session_id = 10.245.154.191:16448
+[target] register_memory(0x768cddcfd010, 8388608) rc=0
+[target] buffer filled 0xAB at 0x768cddcfd010; pass this to the initiator:
+TARGET_SESSION=10.245.154.191:16448 TARGET_ADDR=0x768cddcfd010
+[target] holding for 180s ...

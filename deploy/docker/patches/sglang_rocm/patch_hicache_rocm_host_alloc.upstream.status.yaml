@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
 schema_version: 1
-status_updated: 2026-08-07
+status_updated: 2026-08-24
 verified_by:
   - gh-pr-issue-state
   - gh-search
@@ -122,8 +122,17 @@ upstream_prs:
       defaultdict default. Changing only the key would have missed them — which is why
       both the key and the default move.
     requested_action: >-
-      Draft until re-validated on gfx950. The MI355X cluster was unreachable when it was
-      opened, so the write-back repro in the PR body is historical, not from that branch.
+      Awaiting review — no longer draft, no longer blocked. Taken out of draft
+      2026-08-24 after the gfx950 validation the previous record was waiting on. Head is
+      138901d918, rebased onto upstream main 56834422a1 (clean, one file). A controlled
+      A/B on crsuse2-m2m-237 (MI355X) reproduced the fault on the stock allocator and
+      showed it gone on the patch; the evidence is posted as a PR comment, so the
+      write-back repro in the PR body is no longer the only, historical, support for it.
+      One consequence was disclosed there rather than left for a reviewer: on ROCm the
+      patch routes to alloc_with_pin_memory, which ignores the `allocator` argument, so
+      a configured mooncake/mori storage backend is bypassed — same as "npu"/"musa"
+      already do, and strictly better than the fault, with the narrower
+      allocator_type == "default" form offered if maintainers prefer it.
     in_pinned_base: false
 
 related_refs:
@@ -210,7 +219,30 @@ verification:
   result: mmap+hipHostRegister faults on every variant; pin_memory is clean on all page ranges
   notes: >-
     The address-equality measurement is the cheap way to tell whether a given arch is
-    affected — run it before assuming a new GPU needs this.
+    affected — run it before assuming a new GPU needs this. But it is arch-INDEPENDENT
+    only in the sense that it must be re-run per machine: two gfx950 boxes disagreed.
+    n06-33 (host ROCm 7.2.0) measured host==devPtr for every strategy at every size from
+    8 MiB to 7.33 GB and could NOT reproduce the fault; crsuse2-m2m-237 (host ROCm 7.0.1)
+    reproduces it. Both run amdgpu 6.14.14, so the driver version — previously the
+    leading hypothesis — is ruled out. No mechanism is claimed; host ROCm version and
+    container torch/hip build both differ and were not separated.
+
+    Re-validated 2026-08-24 on crsuse2-m2m-237 (MI355X gfx950 xnack-, amdgpu 6.14.14,
+    host ROCm 7.0.1; container torch 2.9.1+rocm7.2.0, hip 7.2.26015, sglang v0.5.17
+    base) against sglang#33968 head 138901d918. Four links, all first-hand:
+    (1) pointer probe — pin_memory same=True, all three hipHostRegister variants
+    same=False, deterministic over three runs; (2) dispatch resolved against the real
+    table — stock sends "cuda", device("cuda:0") and device("cuda") all to
+    alloc_with_host_register, patched sends all three to alloc_with_pin_memory;
+    (3) transfer_kv_all_layer_mla driven with dst_layers built as pool_host/dsa.py:159
+    builds it — stock faults with "Memory access fault by GPU node-2 on address
+    0x56a0af6b9000", patched completes and the copied pages carry the expected pattern,
+    both reproduced twice; (4) the fault address is of the host-VA form (host buffers at
+    0x5aa6..., device mappings at 0x74b0...). validate_A.py PASS on the same machine.
+    This is a targeted harness driving the real kernel, the real pointer-table
+    construction and the real allocator dispatch — not a full model bring-up: sufficient
+    for the causal claim, but it does not exercise the HiCache bookkeeping around it.
+    Artifacts: pr-verify.experiment/rounds/r03-newcluster/.
 
 scope_limits: >-
   Fixes the allocator, not the design. The pointer tables still hold raw host pointers;
@@ -219,10 +251,12 @@ scope_limits: >-
 
 open_actions:
   - action: >-
-      Re-validate sglang#33968 on gfx950 and take it out of draft. The equivalence and
-      scope of the PR's diff were checked on MI300X (dispatch for every key including a
-      torch.device one, a real 8 MiB allocation with its device pointer measured, module
-      exports), but MI300X is the NEGATIVE control — it cannot reproduce the fault. Run
-      the write-back repro on MI355X against that exact branch.
+      Watch sglang#33968 for review. Validation is done and the PR is out of draft; the
+      remaining work is upstream response. One point was disclosed in the PR comment
+      rather than left for a reviewer to find: on ROCm the patch routes to
+      alloc_with_pin_memory, which ignores the `allocator` argument, so a configured
+      mooncake/mori storage backend is bypassed. That mirrors what "npu" and "musa"
+      already do and is strictly better than the fault, but if maintainers prefer the
+      narrower form (route only when allocator_type == "default"), that is offered.
     owner: dorado269
-    blocked_on: MI355X cluster access (unreachable 2026-08-07)
+    blocked_on: upstream review

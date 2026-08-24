@@ -1,0 +1,932 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.sglang
+#1 transferring dockerfile: 11.46kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x
+#2 DONE 0.6s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 752B done
+#3 DONE 0.0s
+
+#4 [ 1/19] FROM docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x@sha256:35580f7362394c61da2ce08abbaebf78ff066ea930b6e480a5610fccd406b47d
+#4 resolve docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x@sha256:35580f7362394c61da2ce08abbaebf78ff066ea930b6e480a5610fccd406b47d 0.0s done
+#4 ...
+
+#5 [internal] load build context
+#5 transferring context: 2.72MB 0.2s done
+#5 DONE 0.3s
+
+#4 [ 1/19] FROM docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x@sha256:35580f7362394c61da2ce08abbaebf78ff066ea930b6e480a5610fccd406b47d
+#4 sha256:5c0dc9162d9610bb90a2ca7568d470801372e75b8a558d85412bae2fafbf3ca4 9.64kB / 9.64kB 0.1s done
+#4 sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318 0B / 5.38GB 0.2s
+#4 sha256:63e3138ee3fe01e78ac1f9e3673237155b0ab6239ef6007ff72918bc8800aa61 924B / 924B 0.2s done
+#4 sha256:96018285286c427dee4cd84d1390b93c790e0556425082fa674ad8862034ca42 0B / 1.67GB 0.2s
+#4 sha256:6dc2dc184a223bf220d831e18d52786358e75d21cb4b7fbf63f8d37649aa8033 0B / 231.27MB 0.2s
+#4 sha256:a81a7059ae67c8fece2f676823bdb428571c95389416244a614722de60f87c1f 0B / 599.64MB 0.2s
+#4 sha256:6dc2dc184a223bf220d831e18d52786358e75d21cb4b7fbf63f8d37649aa8033 23.07MB / 231.27MB 0.5s
+#4 sha256:6dc2dc184a223bf220d831e18d52786358e75d21cb4b7fbf63f8d37649aa8033 73.40MB / 231.27MB 0.6s
+#4 sha256:a81a7059ae67c8fece2f676823bdb428571c95389416244a614722de60f87c1f 80.74MB / 599.64MB 0.5s
+#4 sha256:96018285286c427dee4cd84d1390b93c790e0556425082fa674ad8862034ca42 124.78MB / 1.67GB 0.8s
+#4 sha256:6dc2dc184a223bf220d831e18d52786358e75d21cb4b7fbf63f8d37649aa8033 131.07MB / 231.27MB 0.8s
+#4 sha256:a81a7059ae67c8fece2f676823bdb428571c95389416244a614722de60f87c1f 136.31MB / 599.64MB 0.6s
+#4 sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318 285.21MB / 5.38GB 1.1s
+#4 sha256:6dc2dc184a223bf220d831e18d52786358e75d21cb4b7fbf63f8d37649aa8033 186.65MB / 231.27MB 0.9s
+#4 sha256:a81a7059ae67c8fece2f676823bdb428571c95389416244a614722de60f87c1f 190.84MB / 599.64MB 0.8s
+#4 sha256:96018285286c427dee4cd84d1390b93c790e0556425082fa674ad8862034ca42 235.93MB / 1.67GB 1.1s
+#4 sha256:6dc2dc184a223bf220d831e18d52786358e75d21cb4b7fbf63f8d37649aa8033 231.27MB / 231.27MB 1.0s done
+#4 sha256:a81a7059ae67c8fece2f676823bdb428571c95389416244a614722de60f87c1f 246.42MB / 599.64MB 0.9s
+#4 sha256:a81a7059ae67c8fece2f676823bdb428571c95389416244a614722de60f87c1f 304.09MB / 599.64MB 1.1s
+#4 sha256:fc3a536ae74c9f44a8a4eab079813d791cff8df154af8ccff480f0260900670b 7.10MB / 7.10MB 0.2s done
+#4 sha256:96018285286c427dee4cd84d1390b93c790e0556425082fa674ad8862034ca42 354.42MB / 1.67GB 1.4s
+#4 sha256:a81a7059ae67c8fece2f676823bdb428571c95389416244a614722de60f87c1f 362.81MB / 599.64MB 1.2s
+#4 sha256:9d3dbc23e909785cdff00043191172e50f159e6220c90938b6178305b61b6cb2 5.24MB / 24.29MB 0.2s
+#4 sha256:a81a7059ae67c8fece2f676823bdb428571c95389416244a614722de60f87c1f 417.33MB / 599.64MB 1.4s
+#4 sha256:9d3dbc23e909785cdff00043191172e50f159e6220c90938b6178305b61b6cb2 24.29MB / 24.29MB 0.3s done
+#4 sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318 586.15MB / 5.38GB 1.8s
+#4 sha256:96018285286c427dee4cd84d1390b93c790e0556425082fa674ad8862034ca42 471.86MB / 1.67GB 1.7s
+#4 sha256:a81a7059ae67c8fece2f676823bdb428571c95389416244a614722de60f87c1f 475.00MB / 599.64MB 1.5s
+#4 sha256:c33f2f8e874a0568e1eabbfa249dc7af7a7129f8a22df4a5bb501349aee9d060 5.24MB / 1.16GB 0.2s
+#4 sha256:a81a7059ae67c8fece2f676823bdb428571c95389416244a614722de60f87c1f 533.73MB / 599.64MB 1.7s
+#4 sha256:96018285286c427dee4cd84d1390b93c790e0556425082fa674ad8862034ca42 598.74MB / 1.67GB 2.0s
+#4 sha256:a81a7059ae67c8fece2f676823bdb428571c95389416244a614722de60f87c1f 599.64MB / 599.64MB 1.8s done
+#4 sha256:c33f2f8e874a0568e1eabbfa249dc7af7a7129f8a22df4a5bb501349aee9d060 79.69MB / 1.16GB 0.5s
+#4 sha256:c33f2f8e874a0568e1eabbfa249dc7af7a7129f8a22df4a5bb501349aee9d060 141.56MB / 1.16GB 0.6s
+#4 sha256:d27822043b7f9dba8902bf738b3df99abe6e6b6dc26753e3f457f91d293acd09 215B / 215B 0.1s done
+#4 sha256:96018285286c427dee4cd84d1390b93c790e0556425082fa674ad8862034ca42 720.37MB / 1.67GB 2.3s
+#4 sha256:12775887c3b9df69ca9f4185f57178edc238ca23020696d68cc95aeefb9b8d11 4.19MB / 1.41GB 0.2s
+#4 sha256:c33f2f8e874a0568e1eabbfa249dc7af7a7129f8a22df4a5bb501349aee9d060 203.42MB / 1.16GB 0.8s
+#4 sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318 876.61MB / 5.38GB 2.6s
+#4 sha256:96018285286c427dee4cd84d1390b93c790e0556425082fa674ad8862034ca42 846.20MB / 1.67GB 2.6s
+#4 sha256:c33f2f8e874a0568e1eabbfa249dc7af7a7129f8a22df4a5bb501349aee9d060 317.72MB / 1.16GB 1.1s
+#4 sha256:12775887c3b9df69ca9f4185f57178edc238ca23020696d68cc95aeefb9b8d11 78.64MB / 1.41GB 0.5s
+#4 sha256:96018285286c427dee4cd84d1390b93c790e0556425082fa674ad8862034ca42 960.50MB / 1.67GB 2.9s
+#4 sha256:c33f2f8e874a0568e1eabbfa249dc7af7a7129f8a22df4a5bb501349aee9d060 433.06MB / 1.16GB 1.4s
+#4 sha256:12775887c3b9df69ca9f4185f57178edc238ca23020696d68cc95aeefb9b8d11 195.04MB / 1.41GB 0.8s
+#4 sha256:c33f2f8e874a0568e1eabbfa249dc7af7a7129f8a22df4a5bb501349aee9d060 495.98MB / 1.16GB 1.5s
+#4 sha256:96018285286c427dee4cd84d1390b93c790e0556425082fa674ad8862034ca42 1.08GB / 1.67GB 3.2s
+#4 sha256:12775887c3b9df69ca9f4185f57178edc238ca23020696d68cc95aeefb9b8d11 285.21MB / 1.41GB 1.1s
+#4 sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318 1.20GB / 5.38GB 3.5s
+#4 sha256:c33f2f8e874a0568e1eabbfa249dc7af7a7129f8a22df4a5bb501349aee9d060 611.32MB / 1.16GB 1.8s
+#4 sha256:96018285286c427dee4cd84d1390b93c790e0556425082fa674ad8862034ca42 1.20GB / 1.67GB 3.5s
+#4 sha256:c33f2f8e874a0568e1eabbfa249dc7af7a7129f8a22df4a5bb501349aee9d060 673.19MB / 1.16GB 2.0s
+#4 sha256:12775887c3b9df69ca9f4185f57178edc238ca23020696d68cc95aeefb9b8d11 397.41MB / 1.41GB 1.4s
+#4 sha256:c33f2f8e874a0568e1eabbfa249dc7af7a7129f8a22df4a5bb501349aee9d060 735.05MB / 1.16GB 2.1s
+#4 sha256:96018285286c427dee4cd84d1390b93c790e0556425082fa674ad8862034ca42 1.32GB / 1.67GB 3.8s
+#4 sha256:c33f2f8e874a0568e1eabbfa249dc7af7a7129f8a22df4a5bb501349aee9d060 794.82MB / 1.16GB 2.3s
+#4 sha256:12775887c3b9df69ca9f4185f57178edc238ca23020696d68cc95aeefb9b8d11 513.80MB / 1.41GB 1.7s
+#4 sha256:c33f2f8e874a0568e1eabbfa249dc7af7a7129f8a22df4a5bb501349aee9d060 854.59MB / 1.16GB 2.4s
+#4 sha256:96018285286c427dee4cd84d1390b93c790e0556425082fa674ad8862034ca42 1.45GB / 1.67GB 4.1s
+#4 sha256:12775887c3b9df69ca9f4185f57178edc238ca23020696d68cc95aeefb9b8d11 632.29MB / 1.41GB 2.0s
+#4 sha256:c33f2f8e874a0568e1eabbfa249dc7af7a7129f8a22df4a5bb501349aee9d060 962.59MB / 1.16GB 2.7s
+#4 sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318 1.48GB / 5.38GB 4.5s
+#4 sha256:96018285286c427dee4cd84d1390b93c790e0556425082fa674ad8862034ca42 1.56GB / 1.67GB 4.4s
+#4 sha256:c33f2f8e874a0568e1eabbfa249dc7af7a7129f8a22df4a5bb501349aee9d060 1.02GB / 1.16GB 2.9s
+#4 sha256:12775887c3b9df69ca9f4185f57178edc238ca23020696d68cc95aeefb9b8d11 723.52MB / 1.41GB 2.3s
+#4 sha256:96018285286c427dee4cd84d1390b93c790e0556425082fa674ad8862034ca42 1.67GB / 1.67GB 4.7s done
+#4 sha256:c33f2f8e874a0568e1eabbfa249dc7af7a7129f8a22df4a5bb501349aee9d060 1.14GB / 1.16GB 3.2s
+#4 sha256:12775887c3b9df69ca9f4185f57178edc238ca23020696d68cc95aeefb9b8d11 817.89MB / 1.41GB 2.6s
+#4 sha256:acf6f514e0d17edd020270263cd2d824d8e43b0609dc02829d0880acbf51363b 187B / 187B 0.1s done
+#4 sha256:c33f2f8e874a0568e1eabbfa249dc7af7a7129f8a22df4a5bb501349aee9d060 1.16GB / 1.16GB 3.3s done
+#4 sha256:efe1e89b278562cb0c7b4fa3bdda540007e9926e93700dc0e19ac3daaad6c7db 44.04MB / 1.14GB 0.2s
+#4 sha256:12775887c3b9df69ca9f4185f57178edc238ca23020696d68cc95aeefb9b8d11 930.09MB / 1.41GB 2.9s
+#4 sha256:efe1e89b278562cb0c7b4fa3bdda540007e9926e93700dc0e19ac3daaad6c7db 109.05MB / 1.14GB 0.3s
+#4 sha256:81fa74236feae94538676aa6a02d41c01ce48e91d87b6a796f9b59c66a3ee45b 6.29MB / 58.15MB 0.2s
+#4 sha256:efe1e89b278562cb0c7b4fa3bdda540007e9926e93700dc0e19ac3daaad6c7db 175.11MB / 1.14GB 0.5s
+#4 sha256:81fa74236feae94538676aa6a02d41c01ce48e91d87b6a796f9b59c66a3ee45b 24.12MB / 58.15MB 0.3s
+#4 sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318 1.79GB / 5.38GB 5.3s
+#4 sha256:12775887c3b9df69ca9f4185f57178edc238ca23020696d68cc95aeefb9b8d11 1.03GB / 1.41GB 3.2s
+#4 sha256:efe1e89b278562cb0c7b4fa3bdda540007e9926e93700dc0e19ac3daaad6c7db 238.03MB / 1.14GB 0.6s
+#4 sha256:81fa74236feae94538676aa6a02d41c01ce48e91d87b6a796f9b59c66a3ee45b 58.15MB / 58.15MB 0.4s done
+#4 sha256:efe1e89b278562cb0c7b4fa3bdda540007e9926e93700dc0e19ac3daaad6c7db 297.80MB / 1.14GB 0.8s
+#4 sha256:16c58ebdf8598c8167599ebebd112c019718464a51714f9bd0987667f5ff65f3 36.70MB / 304.35MB 0.2s
+#4 sha256:12775887c3b9df69ca9f4185f57178edc238ca23020696d68cc95aeefb9b8d11 1.12GB / 1.41GB 3.5s
+#4 sha256:efe1e89b278562cb0c7b4fa3bdda540007e9926e93700dc0e19ac3daaad6c7db 359.66MB / 1.14GB 0.9s
+#4 sha256:16c58ebdf8598c8167599ebebd112c019718464a51714f9bd0987667f5ff65f3 93.32MB / 304.35MB 0.3s
+#4 sha256:efe1e89b278562cb0c7b4fa3bdda540007e9926e93700dc0e19ac3daaad6c7db 417.33MB / 1.14GB 1.1s
+#4 sha256:16c58ebdf8598c8167599ebebd112c019718464a51714f9bd0987667f5ff65f3 153.09MB / 304.35MB 0.5s
+#4 sha256:12775887c3b9df69ca9f4185f57178edc238ca23020696d68cc95aeefb9b8d11 1.23GB / 1.41GB 3.8s
+#4 sha256:16c58ebdf8598c8167599ebebd112c019718464a51714f9bd0987667f5ff65f3 209.72MB / 304.35MB 0.6s
+#4 sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318 2.08GB / 5.38GB 6.0s
+#4 sha256:16c58ebdf8598c8167599ebebd112c019718464a51714f9bd0987667f5ff65f3 304.35MB / 304.35MB 0.9s done
+#4 sha256:12775887c3b9df69ca9f4185f57178edc238ca23020696d68cc95aeefb9b8d11 1.35GB / 1.41GB 4.1s
+#4 sha256:efe1e89b278562cb0c7b4fa3bdda540007e9926e93700dc0e19ac3daaad6c7db 533.73MB / 1.14GB 1.4s
+#4 sha256:f1e14f29ba023e95dfe1fead00c8eb9eb9f218c6715a116257af7940aef36c0c 0B / 26.17MB 0.2s
+#4 sha256:12775887c3b9df69ca9f4185f57178edc238ca23020696d68cc95aeefb9b8d11 1.41GB / 1.41GB 4.2s done
+#4 sha256:efe1e89b278562cb0c7b4fa3bdda540007e9926e93700dc0e19ac3daaad6c7db 598.74MB / 1.14GB 1.5s
+#4 sha256:efe1e89b278562cb0c7b4fa3bdda540007e9926e93700dc0e19ac3daaad6c7db 663.75MB / 1.14GB 1.7s
+#4 sha256:f1e14f29ba023e95dfe1fead00c8eb9eb9f218c6715a116257af7940aef36c0c 4.19MB / 26.17MB 0.3s
+#4 sha256:02f259676ef2a81fc8cb90c2c7f2f29d7551bea1eaf308c77780e51992225636 20.97MB / 1.86GB 0.2s
+#4 sha256:efe1e89b278562cb0c7b4fa3bdda540007e9926e93700dc0e19ac3daaad6c7db 724.57MB / 1.14GB 1.8s
+#4 sha256:f1e14f29ba023e95dfe1fead00c8eb9eb9f218c6715a116257af7940aef36c0c 26.17MB / 26.17MB 0.5s done
+#4 sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318 2.39GB / 5.38GB 6.8s
+#4 sha256:efe1e89b278562cb0c7b4fa3bdda540007e9926e93700dc0e19ac3daaad6c7db 787.48MB / 1.14GB 2.0s
+#4 sha256:e18544eba72a7280da016742ee05406e71555f994c3b3f5a920ff393c02a1de5 22.02MB / 807.97MB 0.2s
+#4 sha256:efe1e89b278562cb0c7b4fa3bdda540007e9926e93700dc0e19ac3daaad6c7db 849.35MB / 1.14GB 2.1s
+#4 sha256:02f259676ef2a81fc8cb90c2c7f2f29d7551bea1eaf308c77780e51992225636 159.38MB / 1.86GB 0.6s
+#4 sha256:e18544eba72a7280da016742ee05406e71555f994c3b3f5a920ff393c02a1de5 77.59MB / 807.97MB 0.3s
+#4 sha256:e18544eba72a7280da016742ee05406e71555f994c3b3f5a920ff393c02a1de5 123.73MB / 807.97MB 0.5s
+#4 sha256:efe1e89b278562cb0c7b4fa3bdda540007e9926e93700dc0e19ac3daaad6c7db 968.88MB / 1.14GB 2.4s
+#4 sha256:02f259676ef2a81fc8cb90c2c7f2f29d7551bea1eaf308c77780e51992225636 255.85MB / 1.86GB 0.9s
+#4 sha256:e18544eba72a7280da016742ee05406e71555f994c3b3f5a920ff393c02a1de5 167.77MB / 807.97MB 0.6s
+#4 sha256:efe1e89b278562cb0c7b4fa3bdda540007e9926e93700dc0e19ac3daaad6c7db 1.03GB / 1.14GB 2.6s
+#4 sha256:e18544eba72a7280da016742ee05406e71555f994c3b3f5a920ff393c02a1de5 229.64MB / 807.97MB 0.8s
+#4 sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318 2.69GB / 5.38GB 7.5s
+#4 sha256:efe1e89b278562cb0c7b4fa3bdda540007e9926e93700dc0e19ac3daaad6c7db 1.09GB / 1.14GB 2.7s
+#4 sha256:e18544eba72a7280da016742ee05406e71555f994c3b3f5a920ff393c02a1de5 290.46MB / 807.97MB 0.9s
+#4 sha256:efe1e89b278562cb0c7b4fa3bdda540007e9926e93700dc0e19ac3daaad6c7db 1.14GB / 1.14GB 2.9s done
+#4 sha256:02f259676ef2a81fc8cb90c2c7f2f29d7551bea1eaf308c77780e51992225636 386.92MB / 1.86GB 1.4s
+#4 sha256:e18544eba72a7280da016742ee05406e71555f994c3b3f5a920ff393c02a1de5 350.22MB / 807.97MB 1.1s
+#4 sha256:e18544eba72a7280da016742ee05406e71555f994c3b3f5a920ff393c02a1de5 419.43MB / 807.97MB 1.2s
+#4 sha256:5b43406b8f9d0d88e054365e48f35d30449086c617f4894f9d684c06d55e0d04 5.24MB / 982.33MB 0.2s
+#4 sha256:02f259676ef2a81fc8cb90c2c7f2f29d7551bea1eaf308c77780e51992225636 482.34MB / 1.86GB 1.7s
+#4 sha256:e18544eba72a7280da016742ee05406e71555f994c3b3f5a920ff393c02a1de5 465.57MB / 807.97MB 1.4s
+#4 sha256:e18544eba72a7280da016742ee05406e71555f994c3b3f5a920ff393c02a1de5 508.56MB / 807.97MB 1.5s
+#4 sha256:5b43406b8f9d0d88e054365e48f35d30449086c617f4894f9d684c06d55e0d04 59.77MB / 982.33MB 0.5s
+#4 sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318 2.99GB / 5.38GB 8.3s
+#4 sha256:02f259676ef2a81fc8cb90c2c7f2f29d7551bea1eaf308c77780e51992225636 588.25MB / 1.86GB 2.0s
+#4 sha256:e18544eba72a7280da016742ee05406e71555f994c3b3f5a920ff393c02a1de5 556.79MB / 807.97MB 1.7s
+#4 sha256:e18544eba72a7280da016742ee05406e71555f994c3b3f5a920ff393c02a1de5 618.66MB / 807.97MB 1.8s
+#4 sha256:5b43406b8f9d0d88e054365e48f35d30449086c617f4894f9d684c06d55e0d04 143.65MB / 982.33MB 0.8s
+#4 sha256:02f259676ef2a81fc8cb90c2c7f2f29d7551bea1eaf308c77780e51992225636 696.25MB / 1.86GB 2.3s
+#4 sha256:e18544eba72a7280da016742ee05406e71555f994c3b3f5a920ff393c02a1de5 674.23MB / 807.97MB 2.0s
+#4 sha256:e18544eba72a7280da016742ee05406e71555f994c3b3f5a920ff393c02a1de5 722.47MB / 807.97MB 2.1s
+#4 sha256:5b43406b8f9d0d88e054365e48f35d30449086c617f4894f9d684c06d55e0d04 248.51MB / 982.33MB 1.1s
+#4 sha256:e18544eba72a7280da016742ee05406e71555f994c3b3f5a920ff393c02a1de5 773.85MB / 807.97MB 2.3s
+#4 sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318 3.29GB / 5.38GB 9.0s
+#4 sha256:02f259676ef2a81fc8cb90c2c7f2f29d7551bea1eaf308c77780e51992225636 810.55MB / 1.86GB 2.7s
+#4 sha256:e18544eba72a7280da016742ee05406e71555f994c3b3f5a920ff393c02a1de5 807.97MB / 807.97MB 2.4s done
+#4 sha256:5b43406b8f9d0d88e054365e48f35d30449086c617f4894f9d684c06d55e0d04 355.47MB / 982.33MB 1.4s
+#4 sha256:4d0989b8d2ffd6904f69f76123d4aae601d7747c3675877ca079b2b5f96c1d7b 103B / 103B 0.1s done
+#4 sha256:5b43406b8f9d0d88e054365e48f35d30449086c617f4894f9d684c06d55e0d04 419.43MB / 982.33MB 1.5s
+#4 sha256:a589981cc3a6218e3878d0dbce3ae0facdba83c82231302d154b787880885588 2.34MB / 2.34MB 0.1s done
+#4 sha256:1deb9f304775e1663d046107b2573f2c9efe69289467fc988f68ba9d4dbc57e3 5.78MB / 5.78MB 0.1s done
+#4 sha256:5b43406b8f9d0d88e054365e48f35d30449086c617f4894f9d684c06d55e0d04 482.34MB / 982.33MB 1.7s
+#4 sha256:195c2c6308ce6655d6d889b0f8c3b7f2d9591520140e21d56c22f8963c74a315 826B / 826B 0.1s done
+#4 sha256:4e683a6f0992c53a28c8f2d5e4e8c54b0dfc61e23d1fddebf117f4bc753ab368 118.38kB / 118.38kB 0.0s done
+#4 sha256:02f259676ef2a81fc8cb90c2c7f2f29d7551bea1eaf308c77780e51992225636 915.41MB / 1.86GB 3.0s
+#4 sha256:5b43406b8f9d0d88e054365e48f35d30449086c617f4894f9d684c06d55e0d04 545.26MB / 982.33MB 1.8s
+#4 sha256:5b43406b8f9d0d88e054365e48f35d30449086c617f4894f9d684c06d55e0d04 603.98MB / 982.33MB 2.0s
+#4 sha256:a64f4f5adc60283b3380c5c39c97695c0b251acb1e44a72d870eb3a45e189cf4 28.31MB / 4.22GB 0.2s
+#4 sha256:5b43406b8f9d0d88e054365e48f35d30449086c617f4894f9d684c06d55e0d04 662.70MB / 982.33MB 2.1s
+#4 sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318 3.60GB / 5.38GB 9.8s
+#4 sha256:02f259676ef2a81fc8cb90c2c7f2f29d7551bea1eaf308c77780e51992225636 1.04GB / 1.86GB 3.5s
+#4 sha256:5b43406b8f9d0d88e054365e48f35d30449086c617f4894f9d684c06d55e0d04 756.02MB / 982.33MB 2.4s
+#4 sha256:a64f4f5adc60283b3380c5c39c97695c0b251acb1e44a72d870eb3a45e189cf4 249.56MB / 4.22GB 0.8s
+#4 sha256:02f259676ef2a81fc8cb90c2c7f2f29d7551bea1eaf308c77780e51992225636 1.18GB / 1.86GB 3.9s
+#4 sha256:5b43406b8f9d0d88e054365e48f35d30449086c617f4894f9d684c06d55e0d04 848.30MB / 982.33MB 2.7s
+#4 sha256:5b43406b8f9d0d88e054365e48f35d30449086c617f4894f9d684c06d55e0d04 912.26MB / 982.33MB 2.9s
+#4 sha256:02f259676ef2a81fc8cb90c2c7f2f29d7551bea1eaf308c77780e51992225636 1.29GB / 1.86GB 4.2s
+#4 sha256:5b43406b8f9d0d88e054365e48f35d30449086c617f4894f9d684c06d55e0d04 976.22MB / 982.33MB 3.0s
+#4 sha256:5b43406b8f9d0d88e054365e48f35d30449086c617f4894f9d684c06d55e0d04 982.33MB / 982.33MB 3.0s done
+#4 sha256:a64f4f5adc60283b3380c5c39c97695c0b251acb1e44a72d870eb3a45e189cf4 530.58MB / 4.22GB 1.5s
+#4 sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318 3.88GB / 5.38GB 10.8s
+#4 sha256:02f259676ef2a81fc8cb90c2c7f2f29d7551bea1eaf308c77780e51992225636 1.41GB / 1.86GB 4.5s
+#4 sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c 46.14MB / 8.17GB 0.2s
+#4 sha256:02f259676ef2a81fc8cb90c2c7f2f29d7551bea1eaf308c77780e51992225636 1.50GB / 1.86GB 4.8s
+#4 sha256:02f259676ef2a81fc8cb90c2c7f2f29d7551bea1eaf308c77780e51992225636 1.60GB / 1.86GB 5.1s
+#4 sha256:a64f4f5adc60283b3380c5c39c97695c0b251acb1e44a72d870eb3a45e189cf4 746.59MB / 4.22GB 2.3s
+#4 sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318 4.17GB / 5.38GB 11.6s
+#4 sha256:02f259676ef2a81fc8cb90c2c7f2f29d7551bea1eaf308c77780e51992225636 1.72GB / 1.86GB 5.4s
+#4 sha256:02f259676ef2a81fc8cb90c2c7f2f29d7551bea1eaf308c77780e51992225636 1.83GB / 1.86GB 5.7s
+#4 sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c 455.08MB / 8.17GB 1.4s
+#4 sha256:02f259676ef2a81fc8cb90c2c7f2f29d7551bea1eaf308c77780e51992225636 1.86GB / 1.86GB 5.9s done
+#4 sha256:3cea3d4166d80424fa5395382300a13d1ab016476523d7a7300f76f29edd17e4 400.13kB / 400.13kB 0.0s done
+#4 sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318 4.45GB / 5.38GB 12.3s
+#4 sha256:a64f4f5adc60283b3380c5c39c97695c0b251acb1e44a72d870eb3a45e189cf4 1.01GB / 4.22GB 3.2s
+#4 sha256:52eba49a9aa117ae75d10677d0f93c1ae52a847c5f4962d7e90881a941156ce6 17.07kB / 17.07kB 0.0s done
+#4 sha256:b142c49a95e2ae0635c7a373ee4ffb89f80d9eef7fe0e802f5d783c4f2ceef71 35.65MB / 127.92MB 0.2s
+#4 sha256:b142c49a95e2ae0635c7a373ee4ffb89f80d9eef7fe0e802f5d783c4f2ceef71 127.92MB / 127.92MB 0.4s done
+#4 sha256:a2652412f121d565806d7d1731c76ae3acf00183843d63eff5c9f376b024d69c 24.12MB / 107.05MB 0.2s
+#4 sha256:a2652412f121d565806d7d1731c76ae3acf00183843d63eff5c9f376b024d69c 81.79MB / 107.05MB 0.3s
+#4 sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318 4.73GB / 5.38GB 13.1s
+#4 sha256:a64f4f5adc60283b3380c5c39c97695c0b251acb1e44a72d870eb3a45e189cf4 1.24GB / 4.22GB 3.9s
+#4 sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c 872.42MB / 8.17GB 2.4s
+#4 sha256:a2652412f121d565806d7d1731c76ae3acf00183843d63eff5c9f376b024d69c 107.05MB / 107.05MB 0.4s done
+#4 sha256:42c17a1f887198eef972355bde6fdd794650f69933c866cb5101ccea90f0c3c2 26.21MB / 117.83MB 0.2s
+#4 sha256:42c17a1f887198eef972355bde6fdd794650f69933c866cb5101ccea90f0c3c2 67.11MB / 117.83MB 0.3s
+#4 sha256:42c17a1f887198eef972355bde6fdd794650f69933c866cb5101ccea90f0c3c2 117.83MB / 117.83MB 0.5s done
+#4 sha256:d21a7fb37535abb6f217e64c755a6c3d1135b2f25f79a504418d9e4c50e73388 285.90kB / 285.90kB 0.0s done
+#4 sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318 5.03GB / 5.38GB 13.8s
+#4 sha256:6f4ebca3e823b18dac366f72e537b1772bc3522a5c7ae299d6491fb17378410e 29.54MB / 29.54MB 0.1s done
+#4 extracting sha256:6f4ebca3e823b18dac366f72e537b1772bc3522a5c7ae299d6491fb17378410e
+#4 sha256:a64f4f5adc60283b3380c5c39c97695c0b251acb1e44a72d870eb3a45e189cf4 1.49GB / 4.22GB 4.8s
+#4 extracting sha256:6f4ebca3e823b18dac366f72e537b1772bc3522a5c7ae299d6491fb17378410e 0.5s done
+#4 extracting sha256:d21a7fb37535abb6f217e64c755a6c3d1135b2f25f79a504418d9e4c50e73388 done
+#4 extracting sha256:42c17a1f887198eef972355bde6fdd794650f69933c866cb5101ccea90f0c3c2
+#4 sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c 1.29GB / 8.17GB 3.8s
+#4 sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318 5.31GB / 5.38GB 14.6s
+#4 sha256:a64f4f5adc60283b3380c5c39c97695c0b251acb1e44a72d870eb3a45e189cf4 1.75GB / 4.22GB 5.6s
+#4 sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318 5.38GB / 5.38GB 14.9s done
+#4 sha256:a64f4f5adc60283b3380c5c39c97695c0b251acb1e44a72d870eb3a45e189cf4 1.99GB / 4.22GB 6.2s
+#4 sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c 1.74GB / 8.17GB 4.8s
+#4 extracting sha256:42c17a1f887198eef972355bde6fdd794650f69933c866cb5101ccea90f0c3c2 1.6s done
+#4 sha256:a64f4f5adc60283b3380c5c39c97695c0b251acb1e44a72d870eb3a45e189cf4 2.24GB / 4.22GB 6.8s
+#4 extracting sha256:a2652412f121d565806d7d1731c76ae3acf00183843d63eff5c9f376b024d69c
+#4 sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c 2.20GB / 8.17GB 5.9s
+#4 sha256:a64f4f5adc60283b3380c5c39c97695c0b251acb1e44a72d870eb3a45e189cf4 2.49GB / 4.22GB 7.5s
+#4 extracting sha256:a2652412f121d565806d7d1731c76ae3acf00183843d63eff5c9f376b024d69c 1.2s done
+#4 extracting sha256:b142c49a95e2ae0635c7a373ee4ffb89f80d9eef7fe0e802f5d783c4f2ceef71
+#4 sha256:a64f4f5adc60283b3380c5c39c97695c0b251acb1e44a72d870eb3a45e189cf4 2.70GB / 4.22GB 8.3s
+#4 sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c 2.64GB / 8.17GB 7.1s
+#4 sha256:a64f4f5adc60283b3380c5c39c97695c0b251acb1e44a72d870eb3a45e189cf4 2.97GB / 4.22GB 8.9s
+#4 extracting sha256:b142c49a95e2ae0635c7a373ee4ffb89f80d9eef7fe0e802f5d783c4f2ceef71 1.2s done
+#4 extracting sha256:52eba49a9aa117ae75d10677d0f93c1ae52a847c5f4962d7e90881a941156ce6 done
+#4 extracting sha256:3cea3d4166d80424fa5395382300a13d1ab016476523d7a7300f76f29edd17e4 0.0s done
+#4 sha256:a64f4f5adc60283b3380c5c39c97695c0b251acb1e44a72d870eb3a45e189cf4 3.19GB / 4.22GB 9.6s
+#4 sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c 3.06GB / 8.17GB 8.1s
+#4 sha256:a64f4f5adc60283b3380c5c39c97695c0b251acb1e44a72d870eb3a45e189cf4 3.44GB / 4.22GB 10.4s
+#4 sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c 3.48GB / 8.17GB 9.2s
+#4 sha256:a64f4f5adc60283b3380c5c39c97695c0b251acb1e44a72d870eb3a45e189cf4 3.68GB / 4.22GB 11.0s
+#4 sha256:a64f4f5adc60283b3380c5c39c97695c0b251acb1e44a72d870eb3a45e189cf4 3.91GB / 4.22GB 11.6s
+#4 sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c 3.91GB / 8.17GB 10.2s
+#4 sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c 4.35GB / 8.17GB 11.3s
+#4 sha256:a64f4f5adc60283b3380c5c39c97695c0b251acb1e44a72d870eb3a45e189cf4 4.12GB / 4.22GB 13.1s
+#4 sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c 4.80GB / 8.17GB 12.5s
+#4 sha256:a64f4f5adc60283b3380c5c39c97695c0b251acb1e44a72d870eb3a45e189cf4 4.22GB / 4.22GB 14.2s done
+#4 sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c 5.25GB / 8.17GB 13.8s
+#4 sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c 5.69GB / 8.17GB 14.9s
+#4 sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c 6.13GB / 8.17GB 16.1s
+#4 sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c 6.60GB / 8.17GB 17.4s
+#4 sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c 7.05GB / 8.17GB 18.8s
+#4 sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c 7.50GB / 8.17GB 20.0s
+#4 sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c 7.95GB / 8.17GB 21.2s
+#4 sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c 8.17GB / 8.17GB 21.9s done
+#4 extracting sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c
+#4 extracting sha256:4631d8141576956068d7c4f81a8489cf4fa04b9d87eff278395a6ac939c7ac4c 41.0s done
+#4 DONE 73.7s
+
+#4 [ 1/19] FROM docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x@sha256:35580f7362394c61da2ce08abbaebf78ff066ea930b6e480a5610fccd406b47d
+#4 extracting sha256:a64f4f5adc60283b3380c5c39c97695c0b251acb1e44a72d870eb3a45e189cf4
+#4 extracting sha256:a64f4f5adc60283b3380c5c39c97695c0b251acb1e44a72d870eb3a45e189cf4 12.3s done
+#4 DONE 86.0s
+
+#4 [ 1/19] FROM docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x@sha256:35580f7362394c61da2ce08abbaebf78ff066ea930b6e480a5610fccd406b47d
+#4 extracting sha256:4e683a6f0992c53a28c8f2d5e4e8c54b0dfc61e23d1fddebf117f4bc753ab368 0.0s done
+#4 extracting sha256:195c2c6308ce6655d6d889b0f8c3b7f2d9591520140e21d56c22f8963c74a315 done
+#4 extracting sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1 done
+#4 extracting sha256:1deb9f304775e1663d046107b2573f2c9efe69289467fc988f68ba9d4dbc57e3 0.1s done
+#4 DONE 86.2s
+
+#4 [ 1/19] FROM docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x@sha256:35580f7362394c61da2ce08abbaebf78ff066ea930b6e480a5610fccd406b47d
+#4 extracting sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1 done
+#4 extracting sha256:a589981cc3a6218e3878d0dbce3ae0facdba83c82231302d154b787880885588 0.0s done
+#4 extracting sha256:4d0989b8d2ffd6904f69f76123d4aae601d7747c3675877ca079b2b5f96c1d7b done
+#4 extracting sha256:5b43406b8f9d0d88e054365e48f35d30449086c617f4894f9d684c06d55e0d04
+#4 extracting sha256:5b43406b8f9d0d88e054365e48f35d30449086c617f4894f9d684c06d55e0d04 2.9s done
+#4 DONE 89.1s
+
+#4 [ 1/19] FROM docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x@sha256:35580f7362394c61da2ce08abbaebf78ff066ea930b6e480a5610fccd406b47d
+#4 extracting sha256:e18544eba72a7280da016742ee05406e71555f994c3b3f5a920ff393c02a1de5
+#4 extracting sha256:e18544eba72a7280da016742ee05406e71555f994c3b3f5a920ff393c02a1de5 7.8s done
+#4 DONE 96.8s
+
+#4 [ 1/19] FROM docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x@sha256:35580f7362394c61da2ce08abbaebf78ff066ea930b6e480a5610fccd406b47d
+#4 extracting sha256:02f259676ef2a81fc8cb90c2c7f2f29d7551bea1eaf308c77780e51992225636
+#4 extracting sha256:02f259676ef2a81fc8cb90c2c7f2f29d7551bea1eaf308c77780e51992225636 15.0s done
+#4 DONE 111.8s
+
+#4 [ 1/19] FROM docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x@sha256:35580f7362394c61da2ce08abbaebf78ff066ea930b6e480a5610fccd406b47d
+#4 extracting sha256:f1e14f29ba023e95dfe1fead00c8eb9eb9f218c6715a116257af7940aef36c0c
+#4 extracting sha256:f1e14f29ba023e95dfe1fead00c8eb9eb9f218c6715a116257af7940aef36c0c 0.7s done
+#4 DONE 112.6s
+
+#4 [ 1/19] FROM docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x@sha256:35580f7362394c61da2ce08abbaebf78ff066ea930b6e480a5610fccd406b47d
+#4 extracting sha256:16c58ebdf8598c8167599ebebd112c019718464a51714f9bd0987667f5ff65f3
+#4 extracting sha256:16c58ebdf8598c8167599ebebd112c019718464a51714f9bd0987667f5ff65f3 6.9s done
+#4 DONE 119.4s
+
+#4 [ 1/19] FROM docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x@sha256:35580f7362394c61da2ce08abbaebf78ff066ea930b6e480a5610fccd406b47d
+#4 extracting sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1 done
+#4 extracting sha256:81fa74236feae94538676aa6a02d41c01ce48e91d87b6a796f9b59c66a3ee45b
+#4 extracting sha256:81fa74236feae94538676aa6a02d41c01ce48e91d87b6a796f9b59c66a3ee45b 0.7s done
+#4 DONE 120.1s
+
+#4 [ 1/19] FROM docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x@sha256:35580f7362394c61da2ce08abbaebf78ff066ea930b6e480a5610fccd406b47d
+#4 extracting sha256:efe1e89b278562cb0c7b4fa3bdda540007e9926e93700dc0e19ac3daaad6c7db
+#4 extracting sha256:efe1e89b278562cb0c7b4fa3bdda540007e9926e93700dc0e19ac3daaad6c7db 10.1s done
+#4 DONE 130.2s
+
+#4 [ 1/19] FROM docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x@sha256:35580f7362394c61da2ce08abbaebf78ff066ea930b6e480a5610fccd406b47d
+#4 extracting sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1 done
+#4 extracting sha256:acf6f514e0d17edd020270263cd2d824d8e43b0609dc02829d0880acbf51363b done
+#4 extracting sha256:12775887c3b9df69ca9f4185f57178edc238ca23020696d68cc95aeefb9b8d11
+#4 extracting sha256:12775887c3b9df69ca9f4185f57178edc238ca23020696d68cc95aeefb9b8d11 10.9s done
+#4 DONE 141.1s
+
+#4 [ 1/19] FROM docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x@sha256:35580f7362394c61da2ce08abbaebf78ff066ea930b6e480a5610fccd406b47d
+#4 extracting sha256:d27822043b7f9dba8902bf738b3df99abe6e6b6dc26753e3f457f91d293acd09 done
+#4 extracting sha256:c33f2f8e874a0568e1eabbfa249dc7af7a7129f8a22df4a5bb501349aee9d060
+#4 extracting sha256:c33f2f8e874a0568e1eabbfa249dc7af7a7129f8a22df4a5bb501349aee9d060 7.0s done
+#4 DONE 148.2s
+
+#4 [ 1/19] FROM docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x@sha256:35580f7362394c61da2ce08abbaebf78ff066ea930b6e480a5610fccd406b47d
+#4 extracting sha256:9d3dbc23e909785cdff00043191172e50f159e6220c90938b6178305b61b6cb2 0.2s done
+#4 extracting sha256:fc3a536ae74c9f44a8a4eab079813d791cff8df154af8ccff480f0260900670b
+#4 extracting sha256:fc3a536ae74c9f44a8a4eab079813d791cff8df154af8ccff480f0260900670b 0.1s done
+#4 extracting sha256:a81a7059ae67c8fece2f676823bdb428571c95389416244a614722de60f87c1f
+#4 extracting sha256:a81a7059ae67c8fece2f676823bdb428571c95389416244a614722de60f87c1f 2.7s done
+#4 DONE 151.1s
+
+#4 [ 1/19] FROM docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x@sha256:35580f7362394c61da2ce08abbaebf78ff066ea930b6e480a5610fccd406b47d
+#4 extracting sha256:6dc2dc184a223bf220d831e18d52786358e75d21cb4b7fbf63f8d37649aa8033
+#4 extracting sha256:6dc2dc184a223bf220d831e18d52786358e75d21cb4b7fbf63f8d37649aa8033 2.1s done
+#4 DONE 153.3s
+
+#4 [ 1/19] FROM docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x@sha256:35580f7362394c61da2ce08abbaebf78ff066ea930b6e480a5610fccd406b47d
+#4 extracting sha256:63e3138ee3fe01e78ac1f9e3673237155b0ab6239ef6007ff72918bc8800aa61 done
+#4 extracting sha256:96018285286c427dee4cd84d1390b93c790e0556425082fa674ad8862034ca42
+#4 extracting sha256:96018285286c427dee4cd84d1390b93c790e0556425082fa674ad8862034ca42 6.3s done
+#4 DONE 159.6s
+
+#4 [ 1/19] FROM docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x@sha256:35580f7362394c61da2ce08abbaebf78ff066ea930b6e480a5610fccd406b47d
+#4 extracting sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318
+#4 extracting sha256:f389d2d50b5ea282c5d3aaaaba4e11c74a7e879d17e99b8f750910c48fa5e318 32.9s done
+#4 DONE 192.5s
+
+#4 [ 1/19] FROM docker.io/lmsysorg/sglang:v0.5.17-rocm720-mi35x@sha256:35580f7362394c61da2ce08abbaebf78ff066ea930b6e480a5610fccd406b47d
+#4 extracting sha256:5c0dc9162d9610bb90a2ca7568d470801372e75b8a558d85412bae2fafbf3ca4 done
+#4 DONE 192.5s
+
+#6 [ 2/19] WORKDIR /opt/infera
+#6 DONE 1.3s
+
+#7 [ 3/19] COPY deploy/docker/scripts/build_mooncake_sglang.sh /tmp/build_mooncake_sglang.sh
+#7 DONE 0.1s
+
+#8 [ 4/19] RUN if [ "1" = "1" ]; then         MOONCAKE_GIT_REF="faae8dd4a6309c3ecd47e0721a83b0250d686fa2" bash /tmp/build_mooncake_sglang.sh;     else         echo "BUILD_MOONCAKE=0 — leaving base Mooncake as-is";     fi     && rm -f /tmp/build_mooncake_sglang.sh
+#8 0.053 Cloning into '/tmp/mooncake-upstream'...
+#8 1.268 From https://github.com/kvcache-ai/Mooncake
+#8 1.268  * branch              faae8dd4a6309c3ecd47e0721a83b0250d686fa2 -> FETCH_HEAD
+#8 3.913 HEAD is now at faae8dd4 [Bugfix][TENT] Bound peer key lookups by the published vector length (#3265)
+#8 3.938 Submodule 'extern/pybind11' (https://github.com/pybind/pybind11.git) registered for path 'extern/pybind11'
+#8 3.938 Submodule 'extern/yalantinglibs' (https://github.com/alibaba/yalantinglibs.git) registered for path 'extern/yalantinglibs'
+#8 3.941 Cloning into '/tmp/mooncake-upstream/extern/pybind11'...
+#8 4.819 Cloning into '/tmp/mooncake-upstream/extern/yalantinglibs'...
+#8 6.254 Submodule path 'extern/pybind11': checked out '58c382a8e3d7081364d2f5c62e7f429f0412743b'
+#8 6.361 Submodule path 'extern/yalantinglibs': checked out '7801bc9ad9021781f15217552214e325a1cf7373'
+#8 6.368 [mc-build] Mooncake faae8dd4a6309c3ecd47e0721a83b0250d686fa2
+#8 7.362    Error: 'Failed to get device count'
+#8 7.362 -- HIP dmabuf MR registration enabled (hsa-runtime64 found)
+#8 7.362    Error: 'Failed to get device count'
+#8 63.43 [40/49] Building CXX object mooncake-transfer-engine/src/CMakeFiles/transfer_engine.dir/transfer_metadata_plugin.cpp.o
+#8 63.43 [41/49] Building CXX object mooncake-transfer-engine/src/CMakeFiles/transfer_engine.dir/show_links.cpp.o
+#8 63.43 [42/49] Building CXX object mooncake-transfer-engine/src/CMakeFiles/transfer_engine.dir/topology.cpp.o
+#8 63.43 [43/49] Building CXX object mooncake-transfer-engine/src/CMakeFiles/transfer_engine.dir/transfer_engine.cpp.o
+#8 63.43 [44/49] Building CXX object mooncake-transfer-engine/src/CMakeFiles/transfer_engine.dir/transfer_engine_impl.cpp.o
+#8 63.43 [45/49] Building CXX object mooncake-transfer-engine/src/CMakeFiles/transfer_engine.dir/multi_transport.cpp.o
+#8 63.43 [46/49] Building CXX object mooncake-transfer-engine/src/CMakeFiles/transfer_engine.dir/transfer_metadata.cpp.o
+#8 63.43 [47/49] Linking CXX static library mooncake-transfer-engine/src/libtransfer_engine.a
+#8 63.43 [48/49] Building CXX object mooncake-integration/CMakeFiles/engine.dir/transfer_engine/transfer_engine_py.cpp.o
+#8 63.43 [49/49] Linking CXX shared module mooncake-integration/engine.cpython-310-x86_64-linux-gnu.so
+#8 63.49 /sbin/ldconfig.real: /usr/local/lib/libbnxt_re-rdmav34.so is not a symbolic link
+#8 63.49 
+#8 64.08 [mc-build] DONE: upstream Mooncake faae8dd4a6309c3ecd47e0721a83b0250d686fa2
+#8 64.08 [mc-build] dma-buf=present cross-host-routing=present arch=gfx950
+#8 DONE 64.2s
+
+#9 [ 5/19] RUN set -eu;     if [ "1" != "1" ]; then         echo "skipping Mooncake cross-host routing assertion";     else         so_dir="$(python3 -c 'import mooncake, os; print(os.path.dirname(mooncake.__file__))')";         so="$(ls "$so_dir"/engine*.so | head -1)";         syms="$(strings "$so")";         printf '%s\n' "$syms" | grep -q "MC_DISABLE_HIP" || {             echo "ERROR: $so lacks upstream cross-host HIP locality routing" >&2;             exit 1; };         echo "MOONCAKE_CROSS_HOST_ROUTING=present ($so)";     fi
+#9 0.428 MOONCAKE_CROSS_HOST_ROUTING=present (/opt/venv/lib/python3.10/site-packages/mooncake/engine.cpython-310-x86_64-linux-gnu.so)
+#9 DONE 0.4s
+
+#10 [ 6/19] RUN if [ "1" = "1" ]; then         (curl -4 -fsSL --retry 3 -o /tmp/libionic.deb "https://repo.radeon.com/amdainic/pensando/ubuntu/1.117.5-a-77/pool/main/r/rdma-core/libionic1_54.0-187-1_amd64.deb"           && dpkg -i --force-downgrade /tmp/libionic.deb           && ldconfig           && echo "libionic: $(dpkg -l | awk '/libionic1/{print $3}')"           && rm -f /tmp/libionic.deb)         || echo "[libionic] install failed (offline build?) — inject at runtime instead";     else         echo "INSTALL_LIBIONIC=0 — libionic injected at container start";     fi
+#10 0.421 (Reading database ... 126510 files and directories currently installed.)
+#10 0.422 Preparing to unpack /tmp/libionic.deb ...
+#10 0.424 Unpacking libionic1:amd64 (54.0-187-1) over (54.0-149.g3304be71) ...
+#10 0.434 Setting up libionic1:amd64 (54.0-187-1) ...
+#10 0.436 Processing triggers for libc-bin (2.35-0ubuntu3.14) ...
+#10 0.440 /sbin/ldconfig.real: /usr/local/lib/libbnxt_re-rdmav34.so is not a symbolic link
+#10 0.440 
+#10 0.470 /sbin/ldconfig.real: /usr/local/lib/libbnxt_re-rdmav34.so is not a symbolic link
+#10 0.470 
+#10 0.489 libionic: 54.0-187-1
+#10 DONE 0.5s
+
+#11 [ 7/19] COPY pyproject.toml README.md ./
+#11 DONE 0.0s
+
+#12 [ 8/19] COPY infera ./infera
+#12 DONE 0.0s
+
+#13 [ 9/19] RUN pip install --no-cache-dir ".[sglang]" "setuptools>=83.0.0"
+#13 0.350 Processing ./.
+#13 0.351   Installing build dependencies: started
+#13 1.457   Installing build dependencies: finished with status 'done'
+#13 1.457   Getting requirements to build wheel: started
+#13 1.732   Getting requirements to build wheel: finished with status 'done'
+#13 1.733   Preparing metadata (pyproject.toml): started
+#13 1.867   Preparing metadata (pyproject.toml): finished with status 'done'
+#13 2.014 Collecting setuptools>=83.0.0
+#13 2.108   Downloading setuptools-84.0.0-py3-none-any.whl.metadata (6.6 kB)
+#13 2.113 Requirement already satisfied: fastapi>=0.115 in /opt/venv/lib/python3.10/site-packages (from amd-infera==0.0.0) (0.141.1)
+#13 2.113 Requirement already satisfied: uvicorn>=0.32 in /opt/venv/lib/python3.10/site-packages (from uvicorn[standard]>=0.32->amd-infera==0.0.0) (0.52.1)
+#13 2.113 Requirement already satisfied: httpx>=0.28 in /opt/venv/lib/python3.10/site-packages (from amd-infera==0.0.0) (0.28.1)
+#13 2.114 Requirement already satisfied: xxhash>=3.4 in /opt/venv/lib/python3.10/site-packages (from amd-infera==0.0.0) (3.8.1)
+#13 2.114 Requirement already satisfied: pyzmq>=26 in /opt/venv/lib/python3.10/site-packages (from amd-infera==0.0.0) (27.1.0)
+#13 2.114 Requirement already satisfied: msgspec>=0.18 in /opt/venv/lib/python3.10/site-packages (from amd-infera==0.0.0) (0.21.1)
+#13 2.154 Collecting msgpack>=1.1 (from amd-infera==0.0.0)
+#13 2.163   Downloading msgpack-1.2.1-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (8.3 kB)
+#13 2.164 Requirement already satisfied: transformers>=4.40 in /opt/venv/lib/python3.10/site-packages (from amd-infera==0.0.0) (5.12.1)
+#13 2.165 Requirement already satisfied: prometheus-client>=0.20 in /opt/venv/lib/python3.10/site-packages (from amd-infera==0.0.0) (0.26.0)
+#13 2.178 Collecting nats-py>=2.6 (from amd-infera==0.0.0)
+#13 2.187   Downloading nats_py-2.15.0-py3-none-any.whl.metadata (8.0 kB)
+#13 2.191 Requirement already satisfied: starlette>=0.46.0 in /opt/venv/lib/python3.10/site-packages (from fastapi>=0.115->amd-infera==0.0.0) (1.4.1)
+#13 2.191 Requirement already satisfied: pydantic>=2.9.0 in /opt/venv/lib/python3.10/site-packages (from fastapi>=0.115->amd-infera==0.0.0) (2.13.4)
+#13 2.191 Requirement already satisfied: typing-extensions>=4.8.0 in /opt/venv/lib/python3.10/site-packages (from fastapi>=0.115->amd-infera==0.0.0) (4.16.0)
+#13 2.192 Requirement already satisfied: typing-inspection>=0.4.2 in /opt/venv/lib/python3.10/site-packages (from fastapi>=0.115->amd-infera==0.0.0) (0.4.2)
+#13 2.192 Requirement already satisfied: annotated-doc>=0.0.2 in /opt/venv/lib/python3.10/site-packages (from fastapi>=0.115->amd-infera==0.0.0) (0.0.5)
+#13 2.193 Requirement already satisfied: anyio in /opt/venv/lib/python3.10/site-packages (from httpx>=0.28->amd-infera==0.0.0) (4.14.2)
+#13 2.193 Requirement already satisfied: certifi in /opt/venv/lib/python3.10/site-packages (from httpx>=0.28->amd-infera==0.0.0) (2026.7.22)
+#13 2.193 Requirement already satisfied: httpcore==1.* in /opt/venv/lib/python3.10/site-packages (from httpx>=0.28->amd-infera==0.0.0) (1.0.9)
+#13 2.193 Requirement already satisfied: idna in /opt/venv/lib/python3.10/site-packages (from httpx>=0.28->amd-infera==0.0.0) (3.18)
+#13 2.194 Requirement already satisfied: h11>=0.16 in /opt/venv/lib/python3.10/site-packages (from httpcore==1.*->httpx>=0.28->amd-infera==0.0.0) (0.16.0)
+#13 2.197 Requirement already satisfied: annotated-types>=0.6.0 in /opt/venv/lib/python3.10/site-packages (from pydantic>=2.9.0->fastapi>=0.115->amd-infera==0.0.0) (0.8.0)
+#13 2.197 Requirement already satisfied: pydantic-core==2.46.4 in /opt/venv/lib/python3.10/site-packages (from pydantic>=2.9.0->fastapi>=0.115->amd-infera==0.0.0) (2.46.4)
+#13 2.199 Requirement already satisfied: exceptiongroup>=1.0.2 in /opt/venv/lib/python3.10/site-packages (from anyio->httpx>=0.28->amd-infera==0.0.0) (1.3.1)
+#13 2.226 Requirement already satisfied: huggingface-hub<2.0,>=1.5.0 in /opt/venv/lib/python3.10/site-packages (from transformers>=4.40->amd-infera==0.0.0) (1.27.0)
+#13 2.226 Requirement already satisfied: numpy>=1.17 in /opt/venv/lib/python3.10/site-packages (from transformers>=4.40->amd-infera==0.0.0) (2.2.6)
+#13 2.227 Requirement already satisfied: packaging>=20.0 in /opt/venv/lib/python3.10/site-packages (from transformers>=4.40->amd-infera==0.0.0) (26.3)
+#13 2.227 Requirement already satisfied: pyyaml>=5.1 in /opt/venv/lib/python3.10/site-packages (from transformers>=4.40->amd-infera==0.0.0) (6.0.1)
+#13 2.227 Requirement already satisfied: regex>=2025.10.22 in /opt/venv/lib/python3.10/site-packages (from transformers>=4.40->amd-infera==0.0.0) (2026.7.19)
+#13 2.227 Requirement already satisfied: tokenizers<=0.23.0,>=0.22.0 in /opt/venv/lib/python3.10/site-packages (from transformers>=4.40->amd-infera==0.0.0) (0.22.2)
+#13 2.227 Requirement already satisfied: typer in /opt/venv/lib/python3.10/site-packages (from transformers>=4.40->amd-infera==0.0.0) (0.27.1)
+#13 2.227 Requirement already satisfied: safetensors>=0.4.3 in /opt/venv/lib/python3.10/site-packages (from transformers>=4.40->amd-infera==0.0.0) (0.8.0)
+#13 2.228 Requirement already satisfied: tqdm>=4.60 in /opt/venv/lib/python3.10/site-packages (from transformers>=4.40->amd-infera==0.0.0) (4.67.1)
+#13 2.234 Requirement already satisfied: click<9.0.0,>=8.4.2 in /opt/venv/lib/python3.10/site-packages (from huggingface-hub<2.0,>=1.5.0->transformers>=4.40->amd-infera==0.0.0) (8.4.2)
+#13 2.234 Requirement already satisfied: filelock>=3.10.0 in /opt/venv/lib/python3.10/site-packages (from huggingface-hub<2.0,>=1.5.0->transformers>=4.40->amd-infera==0.0.0) (3.32.2)
+#13 2.234 Requirement already satisfied: fsspec>=2023.5.0 in /opt/venv/lib/python3.10/site-packages (from huggingface-hub<2.0,>=1.5.0->transformers>=4.40->amd-infera==0.0.0) (2026.1.0)
+#13 2.235 Requirement already satisfied: hf-xet<2.0.0,>=1.5.2 in /opt/venv/lib/python3.10/site-packages (from huggingface-hub<2.0,>=1.5.0->transformers>=4.40->amd-infera==0.0.0) (1.6.0)
+#13 2.275 Collecting httptools>=0.8.0 (from uvicorn[standard]>=0.32->amd-infera==0.0.0)
+#13 2.285   Downloading httptools-0.8.0-cp310-cp310-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (3.5 kB)
+#13 2.285 Requirement already satisfied: python-dotenv>=0.13 in /opt/venv/lib/python3.10/site-packages (from uvicorn[standard]>=0.32->amd-infera==0.0.0) (1.2.2)
+#13 2.286 Requirement already satisfied: uvloop>=0.15.1 in /opt/venv/lib/python3.10/site-packages (from uvicorn[standard]>=0.32->amd-infera==0.0.0) (0.22.1)
+#13 2.325 Collecting watchfiles>=0.20 (from uvicorn[standard]>=0.32->amd-infera==0.0.0)
+#13 2.334   Downloading watchfiles-1.2.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.9 kB)
+#13 2.400 Collecting websockets>=13.0 (from uvicorn[standard]>=0.32->amd-infera==0.0.0)
+#13 2.410   Downloading websockets-16.1.1-cp310-cp310-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (6.8 kB)
+#13 2.414 Requirement already satisfied: grpcio>=1.81.1 in /opt/venv/lib/python3.10/site-packages (from amd-infera==0.0.0) (1.83.0)
+#13 2.415 Requirement already satisfied: protobuf>=6.33.5 in /opt/venv/lib/python3.10/site-packages (from amd-infera==0.0.0) (7.35.1)
+#13 2.415 Requirement already satisfied: grpcio-health-checking>=1.81.1 in /opt/venv/lib/python3.10/site-packages (from amd-infera==0.0.0) (1.83.0)
+#13 2.497 Collecting cryptography>=41 (from amd-infera==0.0.0)
+#13 2.507   Downloading cryptography-50.0.0-cp39-abi3-manylinux_2_34_x86_64.whl.metadata (4.3 kB)
+#13 2.508 Requirement already satisfied: cffi>=2.0.0 in /opt/venv/lib/python3.10/site-packages (from cryptography>=41->amd-infera==0.0.0) (2.1.1)
+#13 2.509 Requirement already satisfied: pycparser in /opt/venv/lib/python3.10/site-packages (from cffi>=2.0.0->cryptography>=41->amd-infera==0.0.0) (3.0)
+#13 2.512 Requirement already satisfied: shellingham>=1.3.0 in /opt/venv/lib/python3.10/site-packages (from typer->transformers>=4.40->amd-infera==0.0.0) (1.5.4)
+#13 2.512 Requirement already satisfied: rich>=13.8.0 in /opt/venv/lib/python3.10/site-packages (from typer->transformers>=4.40->amd-infera==0.0.0) (15.0.0)
+#13 2.513 Requirement already satisfied: markdown-it-py>=2.2.0 in /opt/venv/lib/python3.10/site-packages (from rich>=13.8.0->typer->transformers>=4.40->amd-infera==0.0.0) (4.2.0)
+#13 2.513 Requirement already satisfied: pygments<3.0.0,>=2.13.0 in /opt/venv/lib/python3.10/site-packages (from rich>=13.8.0->typer->transformers>=4.40->amd-infera==0.0.0) (2.19.2)
+#13 2.515 Requirement already satisfied: mdurl~=0.1 in /opt/venv/lib/python3.10/site-packages (from markdown-it-py>=2.2.0->rich>=13.8.0->typer->transformers>=4.40->amd-infera==0.0.0) (0.1.2)
+#13 2.526 Downloading setuptools-84.0.0-py3-none-any.whl (818 kB)
+#13 2.561    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 818.2/818.2 kB 40.7 MB/s  0:00:00
+#13 2.570 Downloading msgpack-1.2.1-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (407 kB)
+#13 2.581 Downloading nats_py-2.15.0-py3-none-any.whl (90 kB)
+#13 2.591 Downloading httptools-0.8.0-cp310-cp310-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (450 kB)
+#13 2.601 Downloading watchfiles-1.2.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (457 kB)
+#13 2.612 Downloading websockets-16.1.1-cp310-cp310-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (186 kB)
+#13 2.621 Downloading cryptography-50.0.0-cp39-abi3-manylinux_2_34_x86_64.whl (4.8 MB)
+#13 2.644    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.8/4.8 MB 228.6 MB/s  0:00:00
+#13 2.661 Building wheels for collected packages: amd-infera
+#13 2.662   Building wheel for amd-infera (pyproject.toml): started
+#13 2.875   Building wheel for amd-infera (pyproject.toml): finished with status 'done'
+#13 2.876   Created wheel for amd-infera: filename=amd_infera-0.0.0-py3-none-any.whl size=692354 sha256=7005466d425d46528fb545280bccf41f3cc6ae8dbb7d0d196677496b22d5c1bb
+#13 2.876   Stored in directory: /tmp/pip-ephem-wheel-cache-ohp2h3aw/wheels/da/00/c3/1097a77ad14812f07fa32b433b917bba5802922bc6f6c040da
+#13 2.878 Successfully built amd-infera
+#13 3.090 Installing collected packages: websockets, setuptools, nats-py, msgpack, httptools, cryptography, watchfiles, amd-infera
+#13 3.136   Attempting uninstall: setuptools
+#13 3.137     Found existing installation: setuptools 79.0.1
+#13 3.157     Uninstalling setuptools-79.0.1:
+#13 3.488       Successfully uninstalled setuptools-79.0.1
+#13 3.979 
+#13 3.990 Successfully installed amd-infera-0.0.0 cryptography-50.0.0 httptools-0.8.0 msgpack-1.2.1 nats-py-2.15.0 setuptools-84.0.0 watchfiles-1.2.0 websockets-16.1.1
+#13 DONE 4.1s
+
+#14 [10/19] COPY deploy/docker/patches/sglang_dsa/ /tmp/sglang_dsa/
+#14 DONE 0.1s
+
+#15 [11/19] COPY deploy/docker/scripts/apply_sglang_dsa_patches.sh /tmp/apply_sglang_dsa_patches.sh
+#15 DONE 0.1s
+
+#16 [12/19] RUN if [ "1" = "1" ]; then         PATCH_DIR=/tmp/sglang_dsa bash /tmp/apply_sglang_dsa_patches.sh;     else         echo "APPLY_SGLANG_DSA_PATCHES=0 — stock sglang, GLM-5.2 PD+DPA+MTP will NOT work";     fi     && rm -rf /tmp/apply_sglang_dsa_patches.sh /tmp/sglang_dsa
+#16 0.060 === sglang DSA patches (full): applying to /sgl-workspace/sglang ===
+#16 0.060   --- patch_dsa_indexer_hip_dp_padded_rows.py
+#16 0.080 [dsa-indexer-rows] patched /sgl-workspace/sglang/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+#16 0.080 [dsa-indexer-rows] aiter paged-MQA now sees the real row count under DP-attention
+#16 0.082   --- dsa_dp_sync.diff
+#16 0.084 patching file python/sglang/srt/layers/attention/dsa_backend.py
+#16 0.084   --- dsa_page_table_rows.diff
+#16 0.085 patching file python/sglang/srt/layers/attention/dsa_backend.py
+#16 0.085 Hunk #2 succeeded at 2295 (offset 8 lines).
+#16 0.085 Hunk #3 succeeded at 3243 (offset 8 lines).
+#16 0.085   --- draft_cuda_graph_dp_vote.diff
+#16 0.086 patching file python/sglang/srt/managers/scheduler_components/dp_attn.py
+#16 0.086 patching file python/sglang/srt/managers/schedule_batch.py
+#16 0.087 patching file python/sglang/srt/model_executor/forward_batch_info.py
+#16 0.087 patching file python/sglang/srt/disaggregation/decode.py
+#16 0.087 patching file python/sglang/srt/speculative/eagle_draft_cuda_graph_runner.py
+#16 0.088 patching file python/sglang/srt/speculative/eagle_worker_v2.py
+#16 0.088 patching file python/sglang/srt/speculative/base_spec_worker.py
+#16 0.088 === dropping __pycache__ so verification cannot read a stale .pyc ===
+#16 0.093 === verifying every patch reached the bytecode ===
+#16 0.127   dsa_indexer.py :: _p1v2_trim               -> pyc=1 (want >0)
+#16 0.161   dsa_indexer.py :: _p1v2_rows               -> pyc=1 (want >0)
+#16 0.198   dsa_backend.py :: must not be None for DRAFT_EXTEND_V2 -> pyc=1 (want >0)
+#16 0.237   dsa_backend.py :: _glm52_match_page_table_rows -> pyc=1 (want >0)
+#16 0.272   decode.py :: force_disable_draft_cuda_graph -> pyc=1 (want >0)
+#16 0.303   eagle_draft_cuda_graph_runner.py :: can_run_dp_draft_cuda_graph -> pyc=1 (want >0)
+#16 0.303 === all sglang DSA patches verified in bytecode ===
+#16 DONE 0.3s
+
+#17 [13/19] COPY deploy/docker/patches/sglang_disagg/ /tmp/sglang-disagg-patches/
+#17 DONE 0.0s
+
+#18 [14/19] RUN set -eu;     for f in /tmp/sglang-disagg-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done;     rm -rf /tmp/sglang-disagg-patches
+#18 0.045 [sglang-patch] /tmp/sglang-disagg-patches/patch_mooncake_early_send_wait_event.py
+#18 0.065 [mc-wait-event] patched /sgl-workspace/sglang/python/sglang/srt/disaggregation/common/utils.py
+#18 0.065 [mc-wait-event] patched /sgl-workspace/sglang/python/sglang/srt/disaggregation/mooncake/conn.py
+#18 0.065 [mc-wait-event] patched /sgl-workspace/sglang/python/sglang/srt/disaggregation/prefill.py
+#18 0.065 [mc-wait-event] mooncake now waits on the prefill write event before the RDMA read
+#18 DONE 0.1s
+
+#19 [15/19] COPY deploy/docker/patches/sglang_rocm/ /tmp/sglang-rocm-patches/
+#19 DONE 0.0s
+
+#20 [16/19] RUN set -eu;     for f in /tmp/sglang-rocm-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done;     rm -rf /tmp/sglang-rocm-patches
+#20 0.052 [sglang-patch] /tmp/sglang-rocm-patches/patch_hicache_rocm_host_alloc.py
+#20 0.071 [patch] applied to /sgl-workspace/sglang/python/sglang/srt/mem_cache/pool_host/common.py
+#20 0.071 [patch] removed 0 stale .pyc
+#20 0.073 [sglang-patch] /tmp/sglang-rocm-patches/patch_hicache_rocm_staged_write_back.py
+#20 0.090 [patch] applied to /sgl-workspace/sglang/python/sglang/srt/mem_cache/pool_host/mla.py
+#20 0.090 [patch] removed 0 stale .pyc
+#20 DONE 0.1s
+
+#21 [17/19] COPY rust ./rust
+#21 DONE 0.0s
+
+#22 [18/19] RUN set -eu;     command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; };     export LIBCLANG_PATH="$(dirname "$(find /opt/rocm* /usr/lib /usr/lib64 -name 'libclang.so*' 2>/dev/null | head -1)")";     case "$LIBCLANG_PATH" in ""|".") apt-get update && apt-get install -y --no-install-recommends libclang-dev && rm -rf /var/lib/apt/lists/* && export LIBCLANG_PATH="$(dirname "$(find /usr/lib -name 'libclang.so*' 2>/dev/null | head -1)")";; esac;     command -v cargo >/dev/null || { curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal; . "$HOME/.cargo/env"; };     export PATH="$HOME/.cargo/bin:/root/.cargo/bin:/opt/venv/bin:/opt/rocm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin";     export LIBCLANG_PATH="${LIBCLANG_PATH:-/opt/rocm/llvm/lib}";     ( cd rust && cargo build --release --bin infera-router );     cp rust/target/release/infera-router /usr/local/bin/infera-router;     rm -rf rust "$HOME/.cargo" "$HOME/.rustup" /usr/local/cargo /usr/local/rustup;     rm -f /usr/local/bin/cargo /usr/local/bin/rustc /usr/local/bin/rustup /usr/local/bin/rustdoc;     sed -i '/\.cargo\/env/d' "$HOME/.profile" "$HOME/.bashrc" 2>/dev/null || true;     ! command -v cargo >/dev/null || { echo "cargo still on PATH after cleanup: $(command -v cargo)" >&2; exit 1; };     ! bash -lc true 2>&1 | grep -q cargo || { echo "a login shell still references cargo" >&2; exit 1; };     /usr/local/bin/infera-router --help >/dev/null 2>&1 || { echo "infera-router unusable after cleanup" >&2; exit 1; }
+#22 0.121     Updating crates.io index
+#22 0.837  Downloading crates ...
+#22 1.416   Downloaded cfg_aliases v0.2.1
+#22 1.419   Downloaded async-trait v0.1.89
+#22 1.422   Downloaded bitflags v1.3.2
+#22 1.425   Downloaded curve25519-dalek-derive v0.1.1
+#22 1.426   Downloaded futures-io v0.3.32
+#22 1.426   Downloaded http-body v1.0.1
+#22 1.427   Downloaded crossbeam v0.8.4
+#22 1.428   Downloaded futures-macro v0.3.32
+#22 1.430   Downloaded futures-core v0.3.32
+#22 1.431   Downloaded anyhow v1.0.103
+#22 1.434   Downloaded cfg-expr v0.15.8
+#22 1.436   Downloaded cexpr v0.6.0
+#22 1.437   Downloaded futures-sink v0.3.32
+#22 1.438   Downloaded futures-task v0.3.32
+#22 1.439   Downloaded ed25519 v2.2.3
+#22 1.440   Downloaded futures-executor v0.3.32
+#22 1.441   Downloaded http-body-util v0.1.3
+#22 1.443   Downloaded nuid v0.5.0
+#22 1.443   Downloaded either v1.16.0
+#22 1.445   Downloaded rayon-cond v0.3.0
+#22 1.445   Downloaded displaydoc v0.2.6
+#22 1.447   Downloaded version-compare v0.2.1
+#22 1.448   Downloaded macro_rules_attribute v0.2.2
+#22 1.449   Downloaded macro_rules_attribute-proc_macro v0.2.2
+#22 1.450   Downloaded serde_repr v0.1.21
+#22 1.451   Downloaded clang-sys v1.8.1
+#22 1.453   Downloaded dircpy v0.3.20
+#22 1.454   Downloaded tokio-macros v2.7.0
+#22 1.455   Downloaded bitflags v2.13.0
+#22 1.458   Downloaded crossbeam-queue v0.3.13
+#22 1.459   Downloaded glob v0.3.3
+#22 1.461   Downloaded system-deps v6.2.2
+#22 1.462   Downloaded libloading v0.8.9
+#22 1.464   Downloaded clap_derive v4.6.1
+#22 1.466   Downloaded thiserror-impl v2.0.18
+#22 1.467   Downloaded tryhard v0.5.2
+#22 1.468   Downloaded zmq-sys v0.12.0
+#22 1.469   Downloaded jwalk v0.8.1
+#22 1.471   Downloaded xxhash-rust v0.8.16
+#22 1.473   Downloaded shlex v1.3.0
+#22 1.474   Downloaded zmij v1.0.22
+#22 1.475   Downloaded nkeys v0.4.5
+#22 1.476   Downloaded clap v4.6.1
+#22 1.483   Downloaded futures v0.3.32
+#22 1.487   Downloaded quote v1.0.46
+#22 1.489   Downloaded serde_nanos v0.1.4
+#22 1.490   Downloaded cc v1.2.67
+#22 1.492   Downloaded futures-channel v0.3.32
+#22 1.493   Downloaded thiserror v2.0.18
+#22 1.498   Downloaded target-lexicon v0.12.16
+#22 1.500   Downloaded rustls-pki-types v1.15.0
+#22 1.502   Downloaded serde_derive v1.0.228
+#22 1.504   Downloaded proc-macro2 v1.0.106
+#22 1.506   Downloaded socket2 v0.6.4
+#22 1.508   Downloaded serde_core v1.0.228
+#22 1.509   Downloaded zmq v0.10.0
+#22 1.514   Downloaded serde v1.0.228
+#22 1.517   Downloaded ed25519-dalek v2.2.0
+#22 1.519   Downloaded http v1.4.2
+#22 1.521   Downloaded mio v1.2.1
+#22 1.526   Downloaded regex v1.13.0
+#22 1.530   Downloaded signatory v0.27.1
+#22 1.532   Downloaded futures-util v0.3.32
+#22 1.542   Downloaded tokio-websockets v0.10.1
+#22 1.546   Downloaded hyper v1.10.1
+#22 1.551   Downloaded itertools v0.12.1
+#22 1.556   Downloaded tokio-util v0.7.18
+#22 1.561   Downloaded serde_json v1.0.150
+#22 1.566   Downloaded clap_builder v4.6.0
+#22 1.571   Downloaded tokenizers v0.20.4
+#22 1.577   Downloaded bindgen v0.72.1
+#22 1.581   Downloaded portable-atomic v1.15.0
+#22 1.586   Downloaded webpki-roots v1.0.8
+#22 1.588   Downloaded curve25519-dalek v4.1.3
+#22 1.594   Downloaded zerocopy v0.8.54
+#22 1.609   Downloaded syn v2.0.118
+#22 1.616   Downloaded async-nats v0.50.0
+#22 1.624   Downloaded rustls v0.23.41
+#22 1.631   Downloaded regex-automata v0.4.15
+#22 1.640   Downloaded tokio v1.52.3
+#22 1.671   Downloaded libc v0.2.186
+#22 1.695   Downloaded zeromq-src v0.2.6+4.3.4
+#22 1.822    Compiling proc-macro2 v1.0.106
+#22 1.822    Compiling quote v1.0.46
+#22 1.823    Compiling unicode-ident v1.0.24
+#22 1.823    Compiling libc v0.2.186
+#22 1.861    Compiling serde_core v1.0.228
+#22 1.916    Compiling serde v1.0.228
+#22 2.235    Compiling syn v2.0.118
+#22 2.253    Compiling crossbeam-utils v0.8.22
+#22 2.302    Compiling cfg-if v1.0.4
+#22 2.322    Compiling jobserver v0.1.35
+#22 2.325    Compiling find-msvc-tools v0.1.9
+#22 2.395    Compiling shlex v2.0.1
+#22 2.433    Compiling pin-project-lite v0.2.17
+#22 2.456    Compiling cc v1.2.67
+#22 2.460    Compiling memchr v2.8.3
+#22 2.778    Compiling crossbeam-epoch v0.9.20
+#22 2.832    Compiling crossbeam-deque v0.8.7
+#22 2.842    Compiling futures-core v0.3.32
+#22 2.885    Compiling once_cell v1.21.4
+#22 2.890    Compiling itoa v1.0.18
+#22 2.963    Compiling stable_deref_trait v1.2.1
+#22 2.963    Compiling either v1.16.0
+#22 2.982    Compiling zeroize v1.9.0
+#22 3.019    Compiling rayon-core v1.13.0
+#22 3.041    Compiling getrandom v0.2.17
+#22 3.066    Compiling errno v0.3.14
+#22 3.109    Compiling futures-sink v0.3.32
+#22 3.117    Compiling signal-hook-registry v1.4.8
+#22 3.140    Compiling socket2 v0.6.4
+#22 3.171    Compiling mio v1.2.1
+#22 3.238    Compiling version_check v0.9.5
+#22 3.334    Compiling smallvec v1.15.2
+#22 3.341    Compiling generic-array v0.14.7
+#22 3.389    Compiling log v0.4.33
+#22 3.443    Compiling synstructure v0.13.2
+#22 3.479    Compiling futures-channel v0.3.32
+#22 3.578    Compiling typenum v1.20.1
+#22 3.684    Compiling tracing-core v0.1.36
+#22 3.953    Compiling futures-task v0.3.32
+#22 4.003    Compiling serde_derive v1.0.228
+#22 4.006    Compiling zerofrom-derive v0.1.7
+#22 4.012    Compiling yoke-derive v0.8.2
+#22 4.320    Compiling tokio-macros v2.7.0
+#22 4.363    Compiling zerofrom v0.1.8
+#22 4.398    Compiling yoke v0.8.3
+#22 4.419    Compiling zerovec-derive v0.11.3
+#22 4.463    Compiling displaydoc v0.2.6
+#22 4.506    Compiling futures-macro v0.3.32
+#22 4.662    Compiling pkg-config v0.3.33
+#22 4.724    Compiling futures-io v0.3.32
+#22 4.756    Compiling zerovec v0.11.6
+#22 4.772    Compiling slab v0.4.12
+#22 4.827    Compiling futures-util v0.3.32
+#22 4.980    Compiling tinystr v0.8.3
+#22 5.017    Compiling tracing-attributes v0.1.31
+#22 5.056    Compiling rustls-pki-types v1.15.0
+#22 5.239    Compiling bytes v1.12.1
+#22 5.283    Compiling ring v0.17.14
+#22 5.379    Compiling zerocopy v0.8.54
+#22 5.421    Compiling litemap v0.8.2
+#22 5.473    Compiling tokio v1.52.3
+#22 5.488    Compiling http v1.4.2
+#22 5.515    Compiling writeable v0.6.3
+#22 5.585    Compiling glob v0.3.3
+#22 5.693    Compiling clang-sys v1.8.1
+#22 5.778    Compiling icu_locale_core v2.2.0
+#22 6.024    Compiling tracing v0.1.44
+#22 6.359    Compiling potential_utf v0.1.5
+#22 6.403    Compiling zerotrie v0.2.4
+#22 6.520    Compiling block-buffer v0.10.4
+#22 6.523    Compiling crypto-common v0.1.7
+#22 6.552    Compiling crossbeam-queue v0.3.13
+#22 6.565    Compiling crossbeam-channel v0.5.16
+#22 6.597    Compiling target-lexicon v0.12.16
+#22 6.720    Compiling percent-encoding v2.3.2
+#22 6.728    Compiling subtle v2.6.1
+#22 6.770    Compiling prettyplease v0.2.37
+#22 6.788    Compiling equivalent v1.0.2
+#22 6.810    Compiling icu_normalizer_data v2.2.0
+#22 6.819    Compiling httparse v1.10.1
+#22 6.853    Compiling icu_properties_data v2.2.0
+#22 6.902    Compiling hashbrown v0.17.1
+#22 6.906    Compiling utf8_iter v1.0.4
+#22 6.949    Compiling icu_collections v2.2.0
+#22 7.113    Compiling indexmap v2.14.0
+#22 7.197    Compiling crossbeam v0.8.4
+#22 7.216    Compiling digest v0.10.7
+#22 7.270    Compiling icu_provider v2.2.0
+#22 7.349    Compiling rayon v1.12.0
+#22 8.056    Compiling http-body v1.0.1
+#22 8.104    Compiling serde_spanned v0.6.9
+#22 8.138    Compiling toml_datetime v0.6.11
+#22 8.208    Compiling rand_core v0.6.4
+#22 8.278    Compiling minimal-lexical v0.2.1
+#22 8.352    Compiling regex-syntax v0.8.11
+#22 8.776    Compiling zmij v1.0.22
+#22 8.841    Compiling same-file v1.0.6
+#22 8.902    Compiling untrusted v0.9.0
+#22 8.938    Compiling winnow v0.7.15
+#22 8.965    Compiling heck v0.5.0
+#22 9.023    Compiling nom v7.1.3
+#22 9.039    Compiling libloading v0.8.9
+#22 9.100    Compiling walkdir v2.5.0
+#22 9.204    Compiling ppv-lite86 v0.2.21
+#22 9.320    Compiling regex-automata v0.4.15
+#22 9.543    Compiling toml_edit v0.22.27
+#22 9.575    Compiling jwalk v0.8.1
+#22 9.944    Compiling semver v1.0.28
+#22 10.07    Compiling tower-service v0.3.3
+#22 10.10    Compiling bindgen v0.72.1
+#22 10.16    Compiling rustls v0.23.41
+#22 10.21    Compiling strsim v0.11.1
+#22 10.31    Compiling fnv v1.0.7
+#22 10.31    Compiling ident_case v1.0.1
+#22 10.33    Compiling serde_json v1.0.150
+#22 10.35    Compiling base64ct v1.8.3
+#22 10.45    Compiling cfg-expr v0.15.8
+#22 10.45    Compiling pem-rfc7468 v0.7.0
+#22 10.51    Compiling darling_core v0.20.11
+#22 10.62    Compiling toml v0.8.23
+#22 10.78    Compiling rustc_version v0.4.1
+#22 10.91    Compiling regex v1.13.0
+#22 11.05    Compiling icu_properties v2.2.0
+#22 11.07    Compiling icu_normalizer v2.2.0
+#22 11.34    Compiling dircpy v0.3.20
+#22 11.39    Compiling cexpr v0.6.0
+#22 11.52    Compiling rand_chacha v0.3.1
+#22 11.57    Compiling rustls-webpki v0.103.13
+#22 12.12    Compiling form_urlencoded v1.2.2
+#22 12.14    Compiling itertools v0.12.1
+#22 12.19    Compiling aho-corasick v1.1.4
+#22 12.34    Compiling try-lock v0.2.5
+#22 12.37    Compiling shlex v1.3.0
+#22 12.42    Compiling rustc-hash v2.1.3
+#22 12.45    Compiling base64 v0.22.1
+#22 12.50    Compiling bitflags v2.13.0
+#22 12.56    Compiling version-compare v0.2.1
+#22 12.60    Compiling const-oid v0.9.6
+#22 12.67    Compiling der v0.7.10
+#22 12.82    Compiling system-deps v6.2.2
+#22 13.48    Compiling want v0.3.1
+#22 15.15    Compiling rand v0.8.7
+#22 15.31    Compiling zeromq-src v0.2.6+4.3.4
+#22 15.37    Compiling idna_adapter v1.2.2
+#22 15.39    Compiling darling_macro v0.20.11
+#22 15.43    Compiling curve25519-dalek v4.1.3
+#22 15.48    Compiling signature v2.2.0
+#22 15.49    Compiling webpki-roots v1.0.8
+#22 15.52    Compiling sync_wrapper v1.0.2
+#22 15.53    Compiling atomic-waker v1.1.2
+#22 15.55    Compiling tower-layer v0.3.3
+#22 15.56    Compiling rustversion v1.0.23
+#22 15.65    Compiling cpufeatures v0.2.17
+#22 15.66    Compiling httpdate v1.0.3
+#22 15.68    Compiling autocfg v1.5.1
+#22 15.76    Compiling hyper v1.10.1
+#22 15.81    Compiling num-traits v0.2.19
+#22 15.94    Compiling darling v0.20.11
+#22 15.98    Compiling idna v1.1.0
+#22 16.55    Compiling zmq-sys v0.12.0
+#22 16.61    Compiling tokio-rustls v0.26.4
+#22 16.71    Compiling onig_sys v69.9.3
+#22 16.72    Compiling spki v0.7.3
+#22 16.80    Compiling curve25519-dalek-derive v0.1.1
+#22 16.88    Compiling rand_core v0.10.1
+#22 16.92    Compiling paste v1.0.15
+#22 16.97    Compiling ipnet v2.12.0
+#22 17.09    Compiling getrandom v0.4.3
+#22 17.14    Compiling utf8parse v0.2.2
+#22 17.17    Compiling anstyle-parse v1.0.0
+#22 17.24    Compiling hyper-util v0.1.20
+#22 17.84    Compiling pkcs8 v0.10.2
+#22 18.14    Compiling url v2.5.8
+#22 18.16    Compiling derive_builder_core v0.20.2
+#22 18.68    Compiling sha2 v0.10.9
+#22 18.77    Compiling tower v0.5.3
+#22 18.96    Compiling ed25519 v2.2.3
+#22 18.97    Compiling http-body-util v0.1.3
+#22 19.02    Compiling tokio-util v0.7.18
+#22 19.07    Compiling thiserror v1.0.69
+#22 19.14    Compiling cpufeatures v0.3.0
+#22 19.26    Compiling anstyle v1.0.14
+#22 19.33    Compiling anstyle-query v1.1.5
+#22 19.34    Compiling is_terminal_polyfill v1.70.2
+#22 19.35    Compiling portable-atomic v1.15.0
+#22 19.37    Compiling ryu v1.0.23
+#22 19.44    Compiling lazy_static v1.5.0
+#22 19.47    Compiling colorchoice v1.0.5
+#22 19.48    Compiling esaxx-rs v0.1.10
+#22 19.49    Compiling thiserror v2.0.18
+#22 19.53    Compiling anstream v1.0.0
+#22 19.61    Compiling serde_urlencoded v0.7.1
+#22 19.69    Compiling chacha20 v0.10.1
+#22 19.81    Compiling ed25519-dalek v2.2.0
+#22 20.18    Compiling derive_builder_macro v0.20.2
+#22 20.27    Compiling signatory v0.27.1
+#22 20.72    Compiling itertools v0.11.0
+#22 21.25    Compiling webpki-roots v0.26.11
+#22 21.30    Compiling thiserror-impl v1.0.69
+#22 21.58    Compiling async-trait v0.1.89
+#22 21.65    Compiling pin-project-internal v1.1.13
+#22 21.84    Compiling thiserror-impl v2.0.18
+#22 21.97    Compiling monostate-impl v0.1.18
+#22 22.06    Compiling deranged v0.5.8
+#22 22.24    Compiling syn v3.0.3
+#22 22.50    Compiling unicode-segmentation v1.13.3
+#22 22.69    Compiling anyhow v1.0.103
+#22 22.76    Compiling macro_rules_attribute-proc_macro v0.2.2
+#22 22.87    Compiling powerfmt v0.2.0
+#22 22.94    Compiling time-core v0.1.9
+#22 23.00    Compiling mime v0.3.17
+#22 23.02    Compiling base64 v0.13.1
+#22 23.13    Compiling clap_lex v1.1.0
+#22 23.13    Compiling openssl-probe v0.2.1
+#22 23.20    Compiling zmq v0.10.0
+#22 23.22    Compiling num-conv v0.2.2
+#22 23.26    Compiling data-encoding v2.11.1
+#22 23.48    Compiling nkeys v0.4.5
+#22 23.60    Compiling clap_builder v4.6.0
+#22 23.92    Compiling time v0.3.55
+#22 25.06    Compiling rustls-native-certs v0.8.4
+#22 25.23    Compiling onig v6.5.3
+#22 25.24    Compiling spm_precompiled v0.1.4
+#22 25.39    Compiling axum-core v0.4.5
+#22 25.52    Compiling serde_repr v0.1.21
+#22 25.64    Compiling macro_rules_attribute v0.2.2
+#22 25.72    Compiling monostate v0.1.18
+#22 25.80    Compiling pin-project v1.1.13
+#22 25.85    Compiling tokio-websockets v0.10.1
+#22 26.20    Compiling rayon-cond v0.3.0
+#22 26.22    Compiling rand v0.10.2
+#22 26.26    Compiling derive_builder v0.20.2
+#22 26.29    Compiling rmp v0.8.15
+#22 26.50    Compiling sharded-slab v0.1.7
+#22 26.59    Compiling tower-http v0.6.11
+#22 26.63    Compiling hyper-rustls v0.27.9
+#22 26.80    Compiling nuid v0.5.0
+#22 26.80    Compiling matchers v0.2.0
+#22 26.84    Compiling clap_derive v4.6.1
+#22 26.85    Compiling tryhard v0.5.2
+#22 26.90    Compiling tokio-stream v0.1.19
+#22 27.08    Compiling futures-executor v0.3.32
+#22 27.19    Compiling serde_nanos v0.1.4
+#22 27.23    Compiling tracing-log v0.2.0
+#22 27.33    Compiling unicode-normalization-alignments v0.1.12
+#22 27.34    Compiling serde_path_to_error v0.1.20
+#22 27.39    Compiling thread_local v1.1.10
+#22 27.48    Compiling nu-ansi-term v0.50.3
+#22 27.50    Compiling memo-map v0.3.3
+#22 27.55    Compiling bitflags v1.3.2
+#22 27.56    Compiling matchit v0.7.3
+#22 27.57    Compiling unicode_categories v0.1.1
+#22 27.62    Compiling tokenizers v0.20.4
+#22 27.62    Compiling tracing-subscriber v0.3.23
+#22 27.70    Compiling axum v0.7.9
+#22 29.19    Compiling minijinja v2.21.0
+#22 29.65    Compiling clap v4.6.1
+#22 29.68    Compiling async-nats v0.50.0
+#22 36.41    Compiling futures v0.3.32
+#22 36.43    Compiling reqwest v0.12.28
+#22 39.14    Compiling rmpv v1.3.1
+#22 39.50    Compiling arc-swap v1.9.2
+#22 39.59    Compiling xxhash-rust v0.8.16
+#22 43.64    Compiling infera-router v0.1.0 (/opt/infera/rust/router)
+#22 78.70     Finished `release` profile [optimized] target(s) in 1m 18s
+#22 DONE 82.1s
+
+#23 [19/19] COPY deploy/docker/scripts/infera_inject_host_ionic.sh /usr/local/bin/infera-inject-host-ionic
+#23 DONE 0.1s
+
+#24 exporting to image
+#24 exporting layers
+#24 exporting layers 1.5s done
+#24 exporting manifest sha256:111ad8be4f9b04a81cbe8e599ef7bd7c05bcbccb8bcad7a56a89674d912738df 0.0s done
+#24 exporting config sha256:c97c5a66b0f0c39263a789da922722b080c251edc0ab3fd4af92c6fc0f9f0d33 done
+#24 exporting attestation manifest sha256:3c8e728bb744391d852d3dafa26dfae5526d5acfa5c7ca787cfc727069ca3519 done
+#24 exporting manifest list sha256:db3dcf7d4a4bd66bebf9895c2ab218a0c2a972583fb72681d63410112073c9ff done
+#24 naming to docker.io/library/infera-local:sglang-prverify-20260824 done
+#24 unpacking to docker.io/library/infera-local:sglang-prverify-20260824
+#24 unpacking to docker.io/library/infera-local:sglang-prverify-20260824 0.5s done
+#24 DONE 2.1s

@@ -1,0 +1,105 @@
+{
+  "args": {
+    "url": "http://10.245.154.191:8100",
+    "model": "glm5.2-fp8",
+    "tokenizer": "/mnt/m2m_nobackup/models/zai-org__GLM-5.2-FP8",
+    "prompt_tokens": 200000,
+    "chunk_size": 131072,
+    "resolved_chunk_from": "/tmp/glm52_prefill.log",
+    "depths": "0.1,0.25,0.4,0.55,0.7,0.85,0.95",
+    "max_tokens": 256,
+    "timeout": 900,
+    "concurrency": 1,
+    "out": "/needle_patched.json"
+  },
+  "results": [
+    {
+      "depth": 0.1,
+      "secret": "9209400",
+      "needle_token_offset": 19995,
+      "needle_chunk": 0,
+      "n_chunks_est": 2,
+      "is_final_chunk": false,
+      "ok": true,
+      "got": "9209400",
+      "reasoning_head": "The user is asking for the special magic number mentioned in the document. I need to find it in the text.\n\nLooking throu",
+      "prompt_tokens": 200012
+    },
+    {
+      "depth": 0.25,
+      "secret": "8315778",
+      "needle_token_offset": 49989,
+      "needle_chunk": 0,
+      "n_chunks_est": 2,
+      "is_final_chunk": false,
+      "ok": true,
+      "got": "8315778",
+      "reasoning_head": "The user is asking for the special magic number mentioned in the document. Let me search through the text to find it.\n\nL",
+      "prompt_tokens": 200012
+    },
+    {
+      "depth": 0.4,
+      "secret": "9991752",
+      "needle_token_offset": 79984,
+      "needle_chunk": 0,
+      "n_chunks_est": 2,
+      "is_final_chunk": false,
+      "ok": true,
+      "got": "9991752",
+      "reasoning_head": "The user is asking for the special magic number mentioned in the document. I need to find it in the text.\n\nLooking throu",
+      "prompt_tokens": 200012
+    },
+    {
+      "depth": 0.55,
+      "secret": "3488397",
+      "needle_token_offset": 109977,
+      "needle_chunk": 0,
+      "n_chunks_est": 2,
+      "is_final_chunk": false,
+      "ok": true,
+      "got": "3488397",
+      "reasoning_head": "The user is asking for the special magic number mentioned in the document. Let me search through the text to find it.\n\nL",
+      "prompt_tokens": 200012
+    },
+    {
+      "depth": 0.7,
+      "secret": "6301579",
+      "needle_token_offset": 139972,
+      "needle_chunk": 1,
+      "n_chunks_est": 2,
+      "is_final_chunk": true,
+      "ok": true,
+      "got": "6301579",
+      "reasoning_head": "The user is asking for the special magic number mentioned in the document. Let me search through the text to find it.\n\nL",
+      "prompt_tokens": 200012
+    },
+    {
+      "depth": 0.85,
+      "secret": "7868992",
+      "needle_token_offset": 169965,
+      "needle_chunk": 1,
+      "n_chunks_est": 2,
+      "is_final_chunk": true,
+      "ok": true,
+      "got": "7868992",
+      "reasoning_head": "The user is asking for the special magic number mentioned in the document. I need to find it in the text provided.\n\nLook",
+      "prompt_tokens": 200012
+    },
+    {
+      "depth": 0.95,
+      "secret": "3924757",
+      "needle_token_offset": 189961,
+      "needle_chunk": 1,
+      "n_chunks_est": 2,
+      "is_final_chunk": true,
+      "ok": true,
+      "got": "3924757",
+      "reasoning_head": "The user is asking for a specific number mentioned in the text.\nI need to scan the text for the phrase \"special magic nu",
+      "prompt_tokens": 200012
+    }
+  ],
+  "score": [
+    7,
+    7
+  ]
+}

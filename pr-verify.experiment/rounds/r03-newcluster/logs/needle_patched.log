@@ -1,0 +1,15 @@
+prompt_tokens=200000 chunk_size=131072 -> ~2 chunks
+
+ depth  chunk  final   ok  want / got
+  0.10      0  False True  9209400 / '9209400'
+  0.25      0  False True  8315778 / '8315778'
+  0.40      0  False True  9991752 / '9991752'
+  0.55      0  False True  3488397 / '3488397'
+  0.70      1   True True  6301579 / '6301579'
+  0.85      1   True True  7868992 / '7868992'
+  0.95      1   True True  3924757 / '3924757'
+
+SCORE: 7/7
+  non-final-chunk needles: 4/4
+  final-chunk needles    : 3/3
+  -> /needle_patched.json

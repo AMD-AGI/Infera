@@ -1,0 +1,8 @@
+ rdma_bind_addr failed
+ Unable to perform rdma_server function
+ Unable to init the socket connection
+Using reported CPU speed 3300 MHz over sampled speed 3300 MHz
+
+************************************
+* Waiting for client to connect... *
+************************************

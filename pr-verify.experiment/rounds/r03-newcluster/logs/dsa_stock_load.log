@@ -1,0 +1,32 @@
+[0;32m[glm52][0m === glm52_isl1024_osl64_c1600 ===
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/usr/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/sgl-workspace/sglang/python/sglang/bench_serving.py", line 22, in <module>
+    cli_main()
+  File "/sgl-workspace/sglang/python/sglang/benchmark/serving.py", line 2724, in cli_main
+    run_benchmark(args)
+  File "/sgl-workspace/sglang/python/sglang/benchmark/serving.py", line 2108, in run_benchmark
+    return asyncio.run(
+  File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 649, in run_until_complete
+    return future.result()
+  File "/sgl-workspace/sglang/python/sglang/benchmark/serving.py", line 1590, in benchmark
+    metrics, output_lens = calculate_metrics(
+  File "/sgl-workspace/sglang/python/sglang/benchmark/serving.py", line 1251, in calculate_metrics
+    p90_e2e_latency_ms=np.percentile(e2e_latencies, 90) * 1000,
+  File "/opt/venv/lib/python3.10/site-packages/numpy/lib/_function_base_impl.py", line 4273, in percentile
+    return _quantile_unchecked(
+  File "/opt/venv/lib/python3.10/site-packages/numpy/lib/_function_base_impl.py", line 4550, in _quantile_unchecked
+    return _ureduce(a,
+  File "/opt/venv/lib/python3.10/site-packages/numpy/lib/_function_base_impl.py", line 3894, in _ureduce
+    r = func(a, **kwargs)
+  File "/opt/venv/lib/python3.10/site-packages/numpy/lib/_function_base_impl.py", line 4727, in _quantile_ureduce_func
+    result = _quantile(arr,
+  File "/opt/venv/lib/python3.10/site-packages/numpy/lib/_function_base_impl.py", line 4849, in _quantile
+    slices_having_nans = np.isnan(arr[-1, ...])
+IndexError: index -1 is out of bounds for axis 0 with size 0
+[0;32m[glm52][0m bench done -> crsuse2-m2m-237:/tmp/glm52_bench/*.jsonl (per-request ttfts/itls are in the jsonl)

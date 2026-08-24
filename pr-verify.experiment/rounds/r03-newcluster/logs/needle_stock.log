@@ -1,0 +1,15 @@
+prompt_tokens=200000 chunk_size=131072 -> ~2 chunks
+
+ depth  chunk  final   ok  want / got
+  0.10      0  False False  9209400 / '910.</think>9</think>9</think>9</think>9</think>9</think>9</think>9</think>9</think>9</think>9</think></think>9</think>9</think>9</think>9</think>9</think>9</think>9</think>9</think>9</think>9</think>'
+  0.25      0  False False  8315778 / '831</think>831</think>8</think>8</think>8</think>8</think>8</think>8</think>8</think>8</think>8</think>8</think>8</think>8</think>8</think>8</think>8</think>8</think>8</think>8</think>8</think>8</thin'
+  0.40      0  False False  9991752 / ''
+  0.55      0  False True  3488397 / '3488397'
+  0.70      1   True True  6301579 / '6301579'
+  0.85      1   True True  7868992 / '7868992'
+  0.95      1   True True  3924757 / '3924757'
+
+SCORE: 4/7
+  non-final-chunk needles: 1/4
+  final-chunk needles    : 3/3
+  -> /needle_stock.json

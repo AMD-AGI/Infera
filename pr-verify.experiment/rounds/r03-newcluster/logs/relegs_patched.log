@@ -1,0 +1,11 @@
+[0;32m[relegs][0m stopping engines in both containers
+[0;32m[relegs][0m   crsuse2-m2m-237 GPUs released
+[0;32m[relegs][0m   crsuse2-m2m-106 GPUs released
+[0;32m[relegs][0m   prefill stopped answering
+[0;32m[relegs][0m   decode stopped answering
+[0;32m[relegs][0m setting arm=patched
+  crsuse2-m2m-237: wait_event occurs 0x in mooncake/conn.py  (stock=0, patched=9)
+  REFUSING: crsuse2-m2m-237 is not in the 'patched' arm (wait_event=0) -- a mislabelled A/B is worse than none
+  crsuse2-m2m-106: wait_event occurs 0x in mooncake/conn.py  (stock=0, patched=9)
+  REFUSING: crsuse2-m2m-106 is not in the 'patched' arm (wait_event=0) -- a mislabelled A/B is worse than none
+[relegs] arm guard refused -- not launching

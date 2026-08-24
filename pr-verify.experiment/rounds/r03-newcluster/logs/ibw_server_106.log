@@ -1,0 +1,38 @@
+Using reported CPU speed 3300 MHz over sampled speed 3299 MHz
+
+************************************
+* Waiting for client to connect... *
+************************************
+Connected: Mon Aug 24 04:20:27 2026
+
+---------------------------------------------------------------------------------------
+                    RDMA_Write BW Test
+ Dual-port       : OFF		Device         : mlx5_0
+ Number of qps   : 1		Transport type : IB
+ Connection type : RC		Using SRQ      : OFF
+ PCIe relax order: ON		Lock-free      : OFF
+ ibv_wr* API     : ON		Using DDP      : OFF
+ CQ Moderation   : 1
+ CQE Poll Batch  : 16
+ Mtu             : 1024[B]
+ Link type       : Ethernet
+ CPU freq        : 3300[MHz]
+ GID index       : 3
+ Max inline data : 0[B]
+ rdma_cm QPs	 : ON
+ Data ex. method : rdma_cm
+---------------------------------------------------------------------------------------
+ Waiting for client rdma_cm QP to connect
+ Please run the same command with the IB/RoCE interface IP
+---------------------------------------------------------------------------------------
+ local address: LID 0000 QPN 0x07ee PSN 0x44dc42
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:245:159:121
+ remote address: LID 0000 QPN 0x033a PSN 0x237eec
+ GID: 00:00:00:00:00:00:00:00:00:00:255:255:10:245:154:191
+---------------------------------------------------------------------------------------
+ #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]
+ 65536      5000             173.36             173.25 		     0.330444
+---------------------------------------------------------------------------------------
+Completed: Mon Aug 24 04:20:28 2026
+
+Total run time: 6.342s

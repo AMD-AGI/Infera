@@ -1,0 +1,30 @@
+--- reference (infera patch)
+    dispatch[cuda] = alloc_with_pin_memory
+    dispatch[npu] = alloc_with_pin_memory
+    dispatch[musa] = alloc_with_pin_memory
+    dispatch[xpu] = alloc_with_pin_memory
+    dispatch[some-unknown-device] = alloc_with_pin_memory
+    dispatch[torch.device('cuda:0')] = alloc_with_pin_memory
+    alloc.is_pinned = True
+    alloc.devptr_equals_host = True
+    alloc.nbytes = 8388608
+    exports = ['GLM52_ROCM_HOST_ALLOC', 'HostTensorAllocator', 'ShmHostTensorAllocator', '_ALLOC_MEMORY_FUNCS_OVERRIDES', '_cuda_host_register', '_cuda_host_unregister', 'alloc_mmap', 'alloc_with_host_register', 'alloc_with_pin_memory', 'annotations', 'defaultdict', 'get_allocator_from_storage', 'get_allocator_type', 'is_hip', 'json', 'logger', 'logging', 'os', 'torch']
+--- candidate (upstream PR)
+    dispatch[cuda] = alloc_with_pin_memory
+    dispatch[npu] = alloc_with_pin_memory
+    dispatch[musa] = alloc_with_pin_memory
+    dispatch[xpu] = alloc_with_pin_memory
+    dispatch[some-unknown-device] = alloc_with_pin_memory
+    dispatch[torch.device('cuda:0')] = alloc_with_pin_memory
+    alloc.is_pinned = True
+    alloc.devptr_equals_host = True
+    alloc.nbytes = 8388608
+    exports = ['HostTensorAllocator', 'ShmHostTensorAllocator', '_ALLOC_MEMORY_FUNCS', '_cuda_host_register', '_cuda_host_unregister', '_is_hip', 'alloc_mmap', 'alloc_with_host_register', 'alloc_with_pin_memory', 'annotations', 'defaultdict', 'get_allocator_from_storage', 'get_allocator_type', 'is_hip', 'json', 'logger', 'logging', 'os', 'torch']
+
+EQUIVALENCE  PASS  candidate matches the proven local fix on every
+                   dispatch key and on the measured allocation.
+SCOPE        PASS  candidate removes nothing and adds only
+                   ['_ALLOC_MEMORY_FUNCS', '_is_hip', 'is_hip'].
+SCOPE        PASS  local marker GLM52_ROCM_HOST_ALLOC is absent from the candidate.
+
+RESULT: PASS

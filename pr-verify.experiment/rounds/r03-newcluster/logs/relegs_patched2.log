@@ -1,0 +1,20 @@
+[0;32m[relegs][0m stopping engines in both containers
+[0;32m[relegs][0m   crsuse2-m2m-237 GPUs released
+[0;32m[relegs][0m   crsuse2-m2m-106 GPUs released
+[0;32m[relegs][0m   prefill stopped answering
+[0;32m[relegs][0m   decode stopped answering
+[0;32m[relegs][0m setting arm=patched
+  crsuse2-m2m-237: wait_event occurs 9x in mooncake/conn.py  (stock=0, patched=9)
+  crsuse2-m2m-106: wait_event occurs 9x in mooncake/conn.py  (stock=0, patched=9)
+arm=patched verified on both legs
+[0;32m[relegs][0m launching legs
+[0;32m[glm52][0m prefill on 10.245.154.191:30000 — tp=8 dpa=0 mtp=0 kvaware=0 kvd=0 gmu=0.70 chunk=131072 ctx=262144 nic=ens3 ib=mlx5_0
+[0;32m[glm52][0m prefill launching -> /tmp/glm52_prefill.log in glm52_pd (cold start is minutes: weights + graph capture)
+[0;32m[glm52][0m decode on 10.245.159.121:30001 — tp=8 dpa=1 mtp=1 kvaware=0 kvd=0 gmu=0.85 chunk=131072 ctx=262144 nic=ens3 ib=mlx5_0
+[0;32m[glm52][0m decode launching -> /tmp/glm52_decode.log in glm52_pd (cold start is minutes: weights + graph capture)
+[0;32m[relegs][0m waiting for both legs (cold start is minutes -- silence is not a hang)
+[0;32m[relegs][0m   prefill serving after 230s
+[0;32m[relegs][0m   decode serving after 190s
+[0;32m[relegs][0m restarting router so it re-pairs the fresh legs
+router up on :8100 (backend=rust policy=round-robin)
+[0;32m[relegs][0m UP, arm=patched

@@ -1,0 +1,7 @@
+===== repeat: host_register =====
+host VA == device pointer for this arm: False
+Memory access fault by GPU node-2 (Agent handle: 0x6550f0d2ebc0) on address 0x6550f2faf000. Reason: Unknown.
+===== repeat: pin_memory =====
+host VA == device pointer for this arm: True
+kernel returned and synchronized without fault
+RESULT: PASS

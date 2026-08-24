@@ -1,0 +1,46 @@
+[0;32m[glm52][0m === 1/4 containers ===
+[0;32m[glm52][0m container 'glm52_pd' up (infera-local:sglang-prverify-20260824)
+  gpu gate: True 8
+  RDMA PORT_ACTIVE visible in container: 1
+[0;32m[glm52][0m container 'glm52_pd' up (infera-local:sglang-prverify-20260824)
+  gpu gate: True 8
+  RDMA PORT_ACTIVE visible in container: 1
+[0;32m[glm52][0m === 2/4 etcd (prefill node) + kvd ===
+[0;32m[glm52][0m etcd healthy (10.245.154.191:2379)
+[0;32m[glm52][0m === 3/4 legs ===
+[0;32m[glm52][0m prefill on 10.245.154.191:30000 — tp=8 dpa=0 mtp=0 kvaware=0 kvd=0 gmu=0.70 chunk=131072 ctx=262144 nic=ens3 ib=mlx5_0
+[0;32m[glm52][0m prefill launching -> /tmp/glm52_prefill.log in glm52_pd (cold start is minutes: weights + graph capture)
+[0;32m[glm52][0m decode on 10.245.159.121:30001 — tp=8 dpa=1 mtp=1 kvaware=0 kvd=0 gmu=0.85 chunk=131072 ctx=262144 nic=ens3 ib=mlx5_0
+[0;32m[glm52][0m decode launching -> /tmp/glm52_decode.log in glm52_pd (cold start is minutes: weights + graph capture)
+[0;32m[glm52][0m waiting for both legs (cold start is minutes — silence is not a hang)
+[0;32m[glm52][0m   crsuse2-m2m-237 (10.245.154.191:30000) serving after 480s
+[0;32m[glm52][0m   crsuse2-m2m-106 (10.245.159.121:30001) serving after 225s
+[0;32m[glm52][0m === 4/4 router (prefill node) ===
+usage: __main__.py [-h] [--host HOST] [--port PORT]
+                   [--discovery-backend {etcd,kubernetes}]
+                   [--etcd-endpoint ETCD_ENDPOINT] [--etcd-prefix ETCD_PREFIX]
+                   [--k8s-label-selector K8S_LABEL_SELECTOR]
+                   [--k8s-namespace K8S_NAMESPACE]
+                   [--request-transport {http,nats}]
+                   [--router-backend {python,rust}]
+                   [--router-mode {auto,direct}]
+                   [--router-policy {kv-aware,round-robin}]
+                   [--kv-event-transport {zmq,nats}]
+                   [--nats-server NATS_SERVER]
+                   [--nats-req-idle-timeout NATS_REQ_IDLE_TIMEOUT]
+                   [--nats-req-max-duration NATS_REQ_MAX_DURATION]
+                   [--nats-req-max-pending NATS_REQ_MAX_PENDING]
+                   --router-tokenizer-path ROUTER_TOKENIZER_PATH
+                   [--kv-overlap-weight KV_OVERLAP_WEIGHT]
+                   [--kv-prefill-overlap-weight KV_PREFILL_OVERLAP_WEIGHT]
+                   [--kv-decode-overlap-weight KV_DECODE_OVERLAP_WEIGHT]
+                   [--kvd-socket-path KVD_SOCKET_PATH] [--enable-profiling]
+                   [--enable-scaling-api]
+                   [--request-max-retries REQUEST_MAX_RETRIES]
+                   [--migration-limit MIGRATION_LIMIT]
+                   [--breaker-failure-threshold BREAKER_FAILURE_THRESHOLD]
+                   [--breaker-cooldown-s BREAKER_COOLDOWN_S]
+                   [--breaker-max-cooldown-s BREAKER_MAX_COOLDOWN_S]
+__main__.py: error: the following arguments are required: --router-tokenizer-path
+[0;33m[glm52][0m http://10.245.154.191:8100/health did NOT answer within 60s
+[0;31m[glm52] ERROR:[0m router did not come up

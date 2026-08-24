@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../_schema/patch.upstream.status.schema.json
 schema_version: 1
-status_updated: 2026-08-07
+status_updated: 2026-08-24
 verified_by:
   - gh-pr-issue-state
   - gh-search
@@ -135,8 +135,12 @@ upstream_prs:
       that nixl / ascend / fake / base do not read _early_send_wait_event and that no
       sender class uses __slots__, so setting the attribute is inert for them.
     requested_action: >-
-      Draft until re-validated on a 2-node PD pair, and until the added synchronize()'s
-      cost on prefill throughput is measured — the PR states plainly that it is not.
+      Awaiting review — no longer draft, no longer blocked. Taken out of draft 2026-08-24
+      after the two things the previous record was waiting on were both done on a real
+      2-node PD pair (crsuse2-m2m-237 prefill + -106 decode, 8x MI355X each, mooncake over
+      mlx5_0). Head is 3c2cb3ab03, rebased onto upstream main 56834422a1 — this one needed
+      a conflict resolution, see below. The A/B and the synchronize() cost are posted as a
+      PR comment, so the reproduction in the PR body is no longer the only support for it.
     in_pinned_base: false
 
 related_refs: null
@@ -197,22 +201,42 @@ verification:
     DSA's sparse retrieval only makes this conspicuous ("retrieved half the digits");
     on a dense model the same defect is a quiet quality drop.
 
+    Re-validated 2026-08-24 on 2x 8x MI355X (gfx950), crsuse2-m2m-237 (prefill TP8) +
+    crsuse2-m2m-106 (decode TP8 + DP-attention + MTP), GLM-5.2-FP8, mooncake over mlx5_0
+    (RoCE v2 GID 3, mode B dma-buf), resolved chunked_prefill_size 131072, against
+    sglang#33970 head 3c2cb3ab03. Needle probe, 200k-token prompt, 7 depths, same seeds
+    both arms: STOCK non-final 1/4 and final 3/3; PATCHED non-final 4/4 and final 3/3.
+    The failures partition exactly on the chunk boundary and the final-chunk control is
+    3/3 on BOTH arms, so the patch moved outcomes only where the defect is claimed to be.
+    Failure shape matches this patch's own header signature independently
+    ('831</think>831</think>8</think>...' here vs '2183</think>2183</think>...' recorded
+    there). Arms differ only in the three files, enforced by a wait_event count guard
+    (stock=0, patched=9) that aborts on mismatch.
+
+    synchronize() COST, previously unmeasured: sglang.bench_serving through the router,
+    ISL 32768 / OSL 256, concurrency 8, n=24 per arm. request throughput 0.4497 -> 0.4478
+    (-0.42%), output throughput 115.12 -> 114.64 (-0.42%), mean TTFT 11928.6 -> 11997.1 ms
+    (+0.57%), mean TPOT 13.254 -> 13.082 ms (-1.30%, i.e. better), 24/24 completed on both.
+    No measurable regression — all deltas within ±1.3% and not pointing the same way.
+    Caveats: one run per arm at n=24 (excludes a large regression, not a sub-1% effect);
+    a 200 Gb/s link, where the barrier is a smaller share of a longer transfer than it
+    would be on the 8x400 Gb/s rails; concurrency 8.
+
+    Rebase note: unlike the other two PRs this one CONFLICTED on current main. Upstream
+    moved the staging_counted block earlier in transfer_worker, so the patch's hunk (which
+    inserted wait_event just before it) no longer applied. Resolved by keeping only the
+    wait_event block; verified the synchronize still precedes batch_transfer_sync.
+    Artifacts: pr-verify.experiment/rounds/r03-newcluster/.
+
 scope_limits: null
 
 open_actions:
   - action: >-
-      Re-validate sglang#33970 on a 2-node PD pair and take it out of draft. What WAS
-      checked on a single MI300X against the PR's exact diff: the wait_event field
-      defaults to None so existing construction sites are unaffected; send() forwards it
-      on both the last-chunk and non-last-chunk arms and clears the sender's copy; and
-      the wait is a real barrier (event pending after record, synchronize() measurably
-      blocks, a post-barrier read on another stream sees the writes). What was NOT: that
-      the corruption is gone end-to-end.
+      Watch sglang#33970 for review. Validation is done and the PR is out of draft; the
+      remaining work is upstream response. Note the PR comment raises one question rather
+      than a claim: nixl/conn.py has the same structural shape the rationale rests on (a
+      transfer_worker thread issuing agent.transfer outside the CUDA stream, and it reads
+      wait_event zero times), but there was no nixl hardware to verify it, so nothing is
+      asserted and nothing was changed. If maintainers confirm, that is a separate PR.
     owner: dorado269
-    blocked_on: 2-node RDMA cluster access (unreachable 2026-08-07)
-  - action: >-
-      Measure the added synchronize()'s cost on prefill throughput — it sits on the hot
-      chunk path. Still unmeasured; #33970 says so explicitly rather than implying it is
-      free, and it is the first thing a reviewer will ask.
-    owner: unassigned
-    blocked_on: same cluster access
+    blocked_on: upstream review

@@ -1,0 +1,32 @@
+[0;32m[glm52][0m === glm52_isl32768_osl256_c8 ===
+P95 E2E Latency (ms):                    18588.86  
+P99 E2E Latency (ms):                    18818.38  
+---------------Time to First Token----------------
+Mean TTFT (ms):                          11928.56  
+Median TTFT (ms):                        13810.74  
+P90 TTFT (ms):                           14282.72  
+P95 TTFT (ms):                           14298.71  
+P99 TTFT (ms):                           15111.21  
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          13.25     
+Median TPOT (ms):                        13.41     
+P90 TPOT (ms):                           14.00     
+P95 TPOT (ms):                           14.10     
+P99 TPOT (ms):                           16.93     
+---------------Inter-Token Latency----------------
+Mean ITL (ms):                           31.72     
+Median ITL (ms):                         31.31     
+P90 ITL (ms):                            32.45     
+P95 ITL (ms):                            32.87     
+P99 ITL (ms):                            67.57     
+Max ITL (ms):                            85.84     
+----------------Cache Hit Details-----------------
+Total prompt tokens:                     786432    
+Total cached tokens:                     32768     
+  Device:                                32768     
+  Host:                                  0         
+Cache hit rate:                          4.2%
+  Device:                                100.0%
+  Host:                                  0.0%
+==================================================
+[0;32m[glm52][0m bench done -> crsuse2-m2m-237:/tmp/glm52_bench/*.jsonl (per-request ttfts/itls are in the jsonl)
