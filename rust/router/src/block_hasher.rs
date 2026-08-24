@@ -471,6 +471,24 @@ impl BlockHasher {
         // Kimi tiktoken takes precedence — it reproduces the engine's ids for a
         // model the HF `tokenizers` crate can't load.
         if let Some(tk) = &self.tiktoken {
+            // ...but only for text the engine also tokenizes plainly. This
+            // encoder adds no BOS/EOS by construction (see `crate::tiktoken`),
+            // so it cannot reproduce what a tokenizer asked for specials would
+            // emit, and a prefix one token short of the engine's does not error
+            // — it silently never hits the cache again. Refusing costs the same
+            // load-only routing an empty render already gives, and says so.
+            //
+            // Unreachable today: the only `add_special_tokens` render is the
+            // dsv4 encoder's, and dsv4 and tiktoken are different model
+            // families. It is guarded rather than asserted because the next
+            // native encoder added here would otherwise inherit the bug.
+            if add_special_tokens {
+                tracing::warn!(
+                    "kv-aware: this prompt is tokenized with special tokens, which the \
+                     tiktoken encoder cannot reproduce; routing on load for this request"
+                );
+                return Vec::new();
+            }
             return hash_request(&tk.encode(&text), block_size);
         }
         let tok = self.tokenizer.as_ref().expect("checked above");
@@ -1174,6 +1192,39 @@ mod tests {
         // Completion prompts spell out their own specials too.
         let prompt = json!({"prompt": "hi"});
         assert!(!h.render_text(&prompt).unwrap().add_special_tokens);
+    }
+
+    /// The tiktoken path must not silently drop the flag the HF path honours.
+    ///
+    /// `KimiTokenizer` adds no BOS/EOS by construction, so it cannot reproduce
+    /// what a tokenizer asked for specials emits -- and being one token short of
+    /// the engine is not an error, it is a permanent 0% hit rate. Hashing
+    /// nothing costs exactly the load-only routing an unhashable body already
+    /// gets; hashing the wrong thing costs the cache.
+    #[test]
+    fn the_tiktoken_path_refuses_text_that_wants_special_tokens() {
+        let Ok(dir) = std::env::var("INFERA_TEST_KIMI_K3_DIR") else {
+            eprintln!("skip: set INFERA_TEST_KIMI_K3_DIR to a Kimi model dir");
+            return;
+        };
+        let tk = crate::tiktoken::KimiTokenizer::load(std::path::Path::new(&dir))
+            .expect("load tiktoken");
+        let h = BlockHasher {
+            tokenizer: None,
+            tiktoken: Some(tk),
+            dsv4: true,
+            kimi_k3: false,
+            chat_template: None,
+            bos_token: None,
+            eos_token: None,
+        };
+        // dsv4's encoder output is the one render tokenized with specials.
+        let body = json!({"messages": [{"role": "user", "content": "hi"}]});
+        assert!(h.render_text(&body).unwrap().add_special_tokens);
+        assert!(
+            h.hash_for(&body, 4).is_empty(),
+            "refuse rather than hash a prefix the engine will not match"
+        );
     }
 
     /// Tools are rendered by the engine from a full pydantic `Tool.model_dump()`,
