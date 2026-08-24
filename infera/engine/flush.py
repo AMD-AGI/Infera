@@ -100,6 +100,8 @@ async def anchor_kv_chain(
     observed: asyncio.Event,
     attempts: int = 5,
     settle: float = 2.0,
+    post_timeout: float = 3.0,
+    deadline: float = 15.0,
 ) -> bool:
     """Flush until a subscriber confirms it saw the resulting clear event.
 
@@ -110,16 +112,32 @@ async def anchor_kv_chain(
     anchor was -- leaving a worker that looks freshly repaired and is not. A
     fixed sleep would only move the guess around; this observes the outcome.
 
+    ``deadline`` bounds the whole loop, not each attempt. Callers run this
+    immediately before registering, so every second here is a second the worker
+    exists and cannot be routed to; ``attempts`` alone would let an engine that
+    answers slowly turn a routing optimisation into a startup stall of
+    ``attempts * (post_timeout + settle)``. The POST timeout is short for the
+    same reason -- this is a loopback call to a process that is up enough to
+    have bound its port, so anything slower is a wedged engine, and the retry is
+    a better answer to that than waiting.
+
     Returns True once the clear is seen. Never raises, and a False return is
     logged, not fatal: kv-aware degrades, the worker still serves.
     """
     if observed.is_set():
         return True
 
+    expiry = asyncio.get_running_loop().time() + deadline
+    attempt = 0
     for attempt in range(1, attempts + 1):
-        await flush_engine_prefix_cache(host=host, port=port, engine=engine)
+        await flush_engine_prefix_cache(
+            host=host, port=port, engine=engine, timeout=post_timeout
+        )
+        left = expiry - asyncio.get_running_loop().time()
+        if left <= 0:
+            break
         try:
-            await asyncio.wait_for(observed.wait(), timeout=settle)
+            await asyncio.wait_for(observed.wait(), timeout=min(settle, left))
         except (TimeoutError, asyncio.TimeoutError):
             logger.info(
                 "kv flush: no clear event observed after attempt %d/%d; retrying",
@@ -134,8 +152,10 @@ async def anchor_kv_chain(
         return True
 
     logger.warning(
-        "kv events: flushed %d time(s) but never saw the resulting clear event -- the "
-        "router's chain has no anchor, so kv-aware will route this worker on load alone",
-        attempts,
+        "kv events: flushed %d time(s) in %.0fs but never saw the resulting clear event "
+        "-- the router's chain has no anchor, so kv-aware will route this worker on load "
+        "alone. Registration continues regardless.",
+        attempt,
+        deadline,
     )
     return False

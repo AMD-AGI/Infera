@@ -182,6 +182,36 @@ async def test_gives_up_loudly_rather_than_blocking_registration(monkeypatch, ca
 
 
 @pytest.mark.asyncio
+async def test_the_whole_loop_is_bounded_not_just_each_attempt(monkeypatch):
+    """This is awaited immediately before ``register()``.
+
+    Every second spent here is a second the worker exists and cannot be routed
+    to, so an engine that answers slowly must not be able to turn a routing
+    optimisation into a startup stall of attempts x (timeout + settle).
+    """
+    posts = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        posts.append(1)
+        return httpx.Response(200)
+
+    _patch_client(monkeypatch, handler)
+    loop = asyncio.get_running_loop()
+    started = loop.time()
+    assert not await anchor_kv_chain(
+        host="127.0.0.1",
+        port=30000,
+        engine=EngineType.SGLANG,
+        observed=asyncio.Event(),
+        attempts=50,
+        settle=0.05,
+        deadline=0.3,
+    )
+    assert loop.time() - started < 2.0, "the deadline must cut the loop short"
+    assert len(posts) < 50, "and it must stop retrying, not merely stop waiting"
+
+
+@pytest.mark.asyncio
 async def test_an_already_anchored_chain_is_left_alone(monkeypatch):
     """Nothing is broken, so nothing is flushed -- the cache is real GPU memory
     and discarding it to fix a problem the worker does not have is pure loss."""
