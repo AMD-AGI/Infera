@@ -43,6 +43,11 @@ export MC_GID_INDEX
 export SGLANG_DISAGGREGATION_BOOTSTRAP_TIMEOUT="${SGLANG_DISAGGREGATION_BOOTSTRAP_TIMEOUT:-3600}"
 export INFERA_ENGINE_READY_TIMEOUT="${INFERA_ENGINE_READY_TIMEOUT:-5400}"
 
+# Must mirror launch_prefill.sh: the two legs exchange KV, so the attention
+# parallelism has to be the same shape on both ends.
+ATTN_ARGS=(--tp-size "$TP" --dp-size "$DP")
+[[ "$DP" -gt 1 ]] && ATTN_ARGS+=(--enable-dp-attention)
+
 pkill -f "(infera.engine.sglang|sglang.launch_server) .*--port ${PORT}( |$)" 2>/dev/null || true
 sleep 5
 
@@ -52,7 +57,7 @@ nohup python3 -m infera.engine.sglang \
   --model-path "$MODEL" --host 0.0.0.0 --port "$PORT" --advertise-host "$HOST_IP" \
   --etcd-endpoint "$ETCD_ENDPOINT" --discovery-backend etcd \
   --request-transport http "${KV_EVENT_ARGS[@]}" \
-  --tp-size "$TP" --dp-size "$DP" --enable-dp-attention \
+  "${ATTN_ARGS[@]}" \
   --trust-remote-code --kv-cache-dtype fp8_e4m3 \
   --reasoning-parser glm45 --tool-call-parser glm47 \
   --dsa-prefill-backend tilelang --dsa-decode-backend tilelang \
