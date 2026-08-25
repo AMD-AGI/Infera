@@ -143,37 +143,26 @@ fn spawn_with(http: reqwest::Client, cooldown: Duration, backoff: Duration) -> F
                 }
                 req = rx.recv() => {
                     let Some(w) = req else { break }; // router teardown
-                    // A worker reachable only over the NATS request envelope may
-                    // have no route from here at all, so an HTTP flush would fail
-                    // on every retry while looking like an unreachable worker.
-                    if w.request_transport != "http" {
-                        tracing::info!(
-                            worker = %w.worker_id, transport = %w.request_transport,
-                            "kv events: chain has no anchor, but this worker is not reachable \
-                             over HTTP -- cannot flush its cache, so kv-aware stays load-only \
-                             for it"
-                        );
-                        continue;
-                    }
-                    let Some(path) = flush_path(&w.engine) else {
-                        tracing::info!(
-                            worker = %w.worker_id, engine = %w.engine,
-                            "kv events: chain reads as unanchored, but this engine has no \
-                             cache-flush endpoint -- leaving its cache alone"
-                        );
-                        continue;
+                    let path = match decide(&mut gate, &w, Instant::now(), cooldown) {
+                        Decision::Flush(path) => path,
+                        Decision::Skip => continue,
+                        Decision::Unflushable(why) => {
+                            match why {
+                                Unflushable::Transport => tracing::info!(
+                                    worker = %w.worker_id, transport = %w.request_transport,
+                                    "kv events: chain has no anchor, but this worker is not \
+                                     reachable over HTTP -- cannot flush its cache, so \
+                                     kv-aware stays load-only for it"
+                                ),
+                                Unflushable::NoEndpoint => tracing::info!(
+                                    worker = %w.worker_id, engine = %w.engine,
+                                    "kv events: chain reads as unanchored, but this engine \
+                                     has no cache-flush endpoint -- leaving its cache alone"
+                                ),
+                            }
+                            continue;
+                        }
                     };
-                    // Expired gates are dropped here so a long-lived router does
-                    // not keep an entry for every worker it has ever flushed.
-                    let now = Instant::now();
-                    gate.retain(|_, g| match g {
-                        Gate::InFlight => true,
-                        Gate::Until(t) => *t > now,
-                    });
-                    if gate.contains_key(&w.worker_id) {
-                        continue; // already asking, or still cooling down
-                    }
-                    gate.insert(w.worker_id.clone(), Gate::InFlight);
 
                     // Spawned rather than awaited: a slow worker must not delay
                     // the flush of the next one, and both are typically broken
@@ -191,6 +180,65 @@ fn spawn_with(http: reqwest::Client, cooldown: Duration, backoff: Duration) -> F
         }
     });
     FlushRequests { tx }
+}
+
+/// What one ask should lead to, decided against the gate.
+///
+/// Split out of the actor because the gate's effect on the two unflushable
+/// paths is a *logging* rate and nothing else -- there is no POST to observe,
+/// so from outside the actor the difference between reporting an unfixable
+/// condition once and reporting it on every request is invisible.
+#[derive(Debug, PartialEq, Eq)]
+enum Decision {
+    /// POST this path on the worker.
+    Flush(&'static str),
+    /// Nothing can flush this worker, and this ask is the first to say so
+    /// within the quiet period -- worth exactly one line.
+    Unflushable(Unflushable),
+    /// Already being flushed, still cooling down, or already reported.
+    Skip,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum Unflushable {
+    /// No HTTP route from here; its `url` may not even resolve.
+    Transport,
+    /// The engine exposes nothing that clears a prefix cache.
+    NoEndpoint,
+}
+
+fn decide(gate: &mut HashMap<String, Gate>, w: &Worker, now: Instant, quiet: Duration) -> Decision {
+    // Expired entries are dropped here so a long-lived router does not keep one
+    // for every worker it has ever seen.
+    gate.retain(|_, g| match g {
+        Gate::InFlight => true,
+        Gate::Until(t) => *t > now,
+    });
+    if gate.contains_key(&w.worker_id) {
+        return Decision::Skip;
+    }
+    // Both unflushable answers take a gate entry rather than just returning.
+    // The detector re-arms on every unanchored batch, so an ask arrives per
+    // request for as long as the chain stays dead -- and neither condition can
+    // ever be repaired, because a worker does not change transport or engine
+    // while it lives. Ungated, they were the only paths here running at request
+    // rate: one ATOM worker wrote one line per request, forever, about
+    // something nobody can act on. Gated, they still repeat once per quiet
+    // period, so a condition that somehow does change is not swallowed for
+    // the life of the router either.
+    let why = if w.request_transport != "http" {
+        Some(Unflushable::Transport)
+    } else if flush_path(&w.engine).is_none() {
+        Some(Unflushable::NoEndpoint)
+    } else {
+        None
+    };
+    if let Some(why) = why {
+        gate.insert(w.worker_id.clone(), Gate::Until(now + quiet));
+        return Decision::Unflushable(why);
+    }
+    gate.insert(w.worker_id.clone(), Gate::InFlight);
+    Decision::Flush(flush_path(&w.engine).expect("checked just above"))
 }
 
 async fn flush_one(http: &reqwest::Client, w: &Arc<Worker>, path: &str) -> Outcome {
@@ -356,6 +404,61 @@ mod tests {
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
         assert_eq!(hits.load(Ordering::SeqCst), 1);
+    }
+
+    /// The gate covers the paths that cannot POST at all, not just the ones
+    /// that can. Those two exits used to `continue` before any entry was taken,
+    /// which made them the only unrated paths in the actor: the detector re-arms
+    /// on every unanchored batch, so an ATOM worker or a NATS-only worker with a
+    /// dead chain logged once per request, forever, about a condition nobody can
+    /// repair.
+    #[test]
+    fn an_unflushable_worker_is_reported_once_a_period_not_once_a_request() {
+        let quiet = Duration::from_secs(300);
+        let t0 = Instant::now();
+        for (w, why) in [
+            (worker("atom", "http"), Unflushable::NoEndpoint),
+            (worker("sglang", "nats"), Unflushable::Transport),
+        ] {
+            let mut gate = HashMap::new();
+            assert_eq!(decide(&mut gate, &w, t0, quiet), Decision::Unflushable(why));
+            for i in 1..100 {
+                assert_eq!(
+                    decide(&mut gate, &w, t0 + Duration::from_millis(i), quiet),
+                    Decision::Skip,
+                    "every ask after the first inside the period is silent"
+                );
+            }
+            // But not silenced for the life of the router: the period lapses and
+            // it says so once more.
+            assert!(matches!(
+                decide(&mut gate, &w, t0 + quiet + Duration::from_secs(1), quiet),
+                Decision::Unflushable(_)
+            ));
+        }
+    }
+
+    /// A flushable worker is not held back by the same gate.
+    #[test]
+    fn a_flushable_worker_is_dispatched_then_held_in_flight() {
+        let mut gate = HashMap::new();
+        let w = worker("sglang", "http");
+        let t0 = Instant::now();
+        assert_eq!(
+            decide(&mut gate, &w, t0, Duration::from_secs(300)),
+            Decision::Flush("/flush_cache")
+        );
+        // `Gate::InFlight` has no expiry: it is lifted by the outcome arriving,
+        // never by time, so a slow flush cannot be double-dispatched.
+        assert_eq!(
+            decide(
+                &mut gate,
+                &w,
+                t0 + Duration::from_secs(86_400),
+                Duration::from_secs(300)
+            ),
+            Decision::Skip
+        );
     }
 
     /// An engine with no flush endpoint is left alone rather than sent a POST

@@ -56,9 +56,7 @@ async def test_posts_the_engines_own_flush_endpoint(monkeypatch):
         return httpx.Response(200, text="Cache flushed.")
 
     _patch_client(monkeypatch, handler)
-    assert await flush_engine_prefix_cache(
-        host="0.0.0.0", port=30000, engine=EngineType.SGLANG
-    )
+    assert await flush_engine_prefix_cache(host="0.0.0.0", port=30000, engine=EngineType.SGLANG)
     # 0.0.0.0 is what the engine binds, but it is not a destination: the worker
     # has to reach its own engine over loopback.
     assert seen == [("POST", "http://127.0.0.1:30000/flush_cache")]
@@ -116,9 +114,7 @@ async def test_atom_is_not_flushed(monkeypatch):
     self-heal reads as a busy worker and backs off from."""
     called = []
     _patch_client(monkeypatch, lambda r: called.append(1) or httpx.Response(200))
-    assert not await flush_engine_prefix_cache(
-        host="127.0.0.1", port=1, engine=EngineType.ATOM
-    )
+    assert not await flush_engine_prefix_cache(host="127.0.0.1", port=1, engine=EngineType.ATOM)
     assert not called
 
 

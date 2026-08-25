@@ -419,13 +419,23 @@ def _decode_radix_cache_unsupported_reason(server_args) -> str | None:
         ):
             return "Mamba/SSM"
     except Exception:  # noqa: BLE001 - see the docstring's last paragraph
+        # The lever named here is deliberately not the radix-cache flag itself.
+        # Passing that explicitly is a force-*on*: the append is gated on it
+        # being absent from the forwarded argv, so an operator who passes it
+        # sends it straight to SGLang and gets the exact ValueError this warning
+        # is about. --no-enable-kv-events is the one switch that suppresses the
+        # append, at the cost of the decode-side KV view -- which is what the
+        # guard would have given up anyway had it been able to read the config.
         logger.warning(
             "could not determine whether this model supports "
             "--disaggregation-decode-enable-radix-cache; appending it as before. "
             "If the decode leg dies in build_kv_cache with an 'incompatible "
             "with Mamba/SSM models' or 'with sliding window attention (SWA) "
-            "models' ValueError, pass --disaggregation-decode-enable-radix-cache "
-            "explicitly to take this decision out of infera's hands.",
+            "models' ValueError, this model is one of those: relaunch the decode "
+            "leg with --no-enable-kv-events. Passing "
+            "--disaggregation-decode-enable-radix-cache explicitly will not help "
+            "-- infera reads it as a request to force the flag on, and forwards "
+            "it.",
             exc_info=True,
         )
 

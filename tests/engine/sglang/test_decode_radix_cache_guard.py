@@ -89,6 +89,28 @@ def test_guard_never_raises_when_the_model_config_is_unreadable(monkeypatch):
     assert args_mod._decode_radix_cache_unsupported_reason(_Boom()) is None
 
 
+def test_the_unreadable_config_warning_names_a_lever_that_works(caplog):
+    """The warning used to say: pass the flag explicitly to take the decision
+    out of infera's hands. It is a force-*on* -- the append is gated on the flag
+    being absent -- so following that advice forwarded it to SGLang and produced
+    the very ValueError the warning is about. There was no working opt-out."""
+
+    class _Boom:
+        def get_model_config(self):
+            raise RuntimeError("no config.json")
+
+    with caplog.at_level("WARNING", logger=args_mod.logger.name):
+        args_mod._decode_radix_cache_unsupported_reason(_Boom())
+    assert "--no-enable-kv-events" in caplog.text
+
+
+def test_kv_events_off_is_that_lever(monkeypatch):
+    """And it works for a model the guard would otherwise append for."""
+    _reason(monkeypatch, None)
+    argv = parse_sglang_args([*_DECODE, "--no-enable-kv-events"]).sglang_argv
+    assert _FLAG not in argv
+
+
 def test_guard_never_raises_when_sglangs_private_module_moves(monkeypatch):
     """``sglang.srt.configs.hybrid_arch`` is private API that moves between
     releases. A rename must degrade to the warning path like any other

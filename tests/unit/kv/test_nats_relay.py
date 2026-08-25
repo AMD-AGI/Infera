@@ -24,6 +24,7 @@ import pytest
 from msgspec.msgpack import Decoder, Encoder
 
 from infera.common.worker_pool import EngineType
+from infera.kv import nats_relay as relay_mod
 from infera.kv.nats_relay import KvEventNatsRelay
 from infera.router.kv_event.events import (
     AllBlocksCleared,
@@ -151,7 +152,9 @@ async def test_a_clear_raises_the_flag_the_flush_loop_waits_on():
     """
     relay = _relay(EngineType.SGLANG)
     assert not relay.cleared_observed.is_set()
-    await _drive(relay, [_ENC.encode(SglangKVEventBatch(ts=1.0, events=[SglangAllBlocksCleared()]))])
+    await _drive(
+        relay, [_ENC.encode(SglangKVEventBatch(ts=1.0, events=[SglangAllBlocksCleared()]))]
+    )
     assert relay.cleared_observed.is_set()
 
 
@@ -186,3 +189,66 @@ async def test_the_flag_survives_the_events_that_follow_it():
     )
     assert relay.cleared_observed.is_set()
     assert isinstance(relay.cleared_observed, asyncio.Event)
+
+
+class _FakeKv:
+    def __init__(self) -> None:
+        self.puts: list[bytes] = []
+
+    async def put(self, key, value):
+        self.puts.append(value)
+
+
+@pytest.mark.asyncio
+async def test_the_tail_of_a_burst_reaches_the_bucket(monkeypatch):
+    """The coalescing interval used to swallow the newest state indefinitely.
+
+    ``_maybe_write_bucket`` was only ever reached from ``_loop``, so an event
+    landing inside the interval marked the rank dirty and returned, and the
+    write it deferred happened on the *next* event -- which, at the tail of a
+    burst, is whenever traffic resumes. Minutes of the freshest view went
+    unmirrored while the bucket held a snapshot from before the burst, so a
+    cold-starting router seeded stale, and the router's own coverage window
+    lapsed against a relay that was working fine.
+    """
+    monkeypatch.setattr(relay_mod, "_BUCKET_WRITE_INTERVAL_S", 0.05)
+    relay = _relay(EngineType.SGLANG)
+    relay._kv = kv = _FakeKv()
+
+    # Two events back to back: the first writes, the second is inside the
+    # interval and only sets the dirty bit.
+    await _drive(relay, [_sglang_stored(), _sglang_stored(parent=111)])
+    assert len(kv.puts) == 1
+    assert relay._dirty[0] is True, "the newest view is the part left unwritten"
+
+    # Nothing more arrives on this rank. The drain is what comes back for it.
+    relay._closing = False
+    task = asyncio.create_task(relay._drain_dirty())
+    for _ in range(100):
+        await asyncio.sleep(0.01)
+        if len(kv.puts) > 1:
+            break
+    relay._closing = True
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert len(kv.puts) == 2, "the tail never reached the bucket"
+    assert relay._dirty[0] is False
+
+
+@pytest.mark.asyncio
+async def test_the_drain_writes_nothing_when_no_rank_is_dirty(monkeypatch):
+    """It runs for the life of the worker, so a quiet rank must cost a dict
+    lookup and not a bucket round-trip per tick."""
+    monkeypatch.setattr(relay_mod, "_BUCKET_WRITE_INTERVAL_S", 0.02)
+    relay = _relay(EngineType.SGLANG)
+    relay._kv = kv = _FakeKv()
+
+    task = asyncio.create_task(relay._drain_dirty())
+    await asyncio.sleep(0.15)
+    relay._closing = True
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert kv.puts == []

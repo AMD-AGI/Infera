@@ -209,10 +209,15 @@ impl KvEventClient {
             }
             *view = snapshot.into_iter().collect();
         }
-        wv.health
-            .entry(rank)
-            .or_insert_with(ChainHealth::new)
-            .seeded_at = Some(Instant::now());
+        let health = wv.health.entry(rank).or_insert_with(ChainHealth::new);
+        health.seeded_at = Some(Instant::now());
+        // Withdraw any ask raised before this seed landed. `apply_events` only
+        // reconsiders when the next batch arrives, so without this a coverage
+        // lapse that armed the flush -- an idle spell longer than the window,
+        // then one orphaned batch a second ahead of the relay's next write --
+        // would stay armed through the refresh that disproves it, and fire
+        // whenever the next zero-hit pick happened to come along.
+        health.needs_flush = false;
     }
 
     pub(crate) fn drop_rank_view(&self, worker_id: &str, rank: i64) {
@@ -443,9 +448,10 @@ fn offset_endpoint(endpoint: &str, rank: i64) -> String {
 ///   to an engine that no longer exists. ZMQ reconnects underneath us without
 ///   surfacing an error, so this is the only place that transition is visible.
 ///
-/// Detection only: nothing here repairs a view or touches a worker. The one
-/// event that can re-anchor a chain from nothing is `AllBlocksCleared`, which
-/// only a cache flush produces.
+/// A gap is detection only -- the one event that can re-anchor a chain from
+/// nothing is `AllBlocksCleared`, which only a cache flush produces. A restart
+/// is not: it says the indexed blocks describe a process that no longer exists,
+/// and the caller drops them (`reset_rank`).
 struct SeqTracker {
     /// Sequence of the last batch seen, `None` until the first one arrives.
     last: Option<u64>,
@@ -466,7 +472,7 @@ impl SeqTracker {
         }
     }
 
-    fn observe(&mut self, worker_id: &str, rank: i64, seq: u64) {
+    fn observe(&mut self, worker_id: &str, rank: i64, seq: u64) -> SeqVerdict {
         let prev = match self.last.replace(seq) {
             Some(p) => p,
             None => {
@@ -486,22 +492,23 @@ impl SeqTracker {
                          cache is flushed"
                     );
                 }
-                return;
+                return SeqVerdict::Continue;
             }
         };
         if seq == prev.wrapping_add(1) {
-            return;
+            return SeqVerdict::Continue;
         }
         if seq <= prev {
             tracing::warn!(
                 worker = %worker_id, rank, prev_seq = prev, seq,
                 "kv events: sequence restarted -- the publisher process was replaced, so \
-                 the blocks still indexed for this rank belong to an engine that no longer \
-                 exists and any hit reported against them is wrong"
+                 the blocks still indexed for this rank belonged to an engine that no longer \
+                 exists and have been dropped; kv-aware reports no hits for this rank until \
+                 the new engine's own events refill it"
             );
             self.lost = 0;
             self.next_warn = 1;
-            return;
+            return SeqVerdict::PublisherRestarted;
         }
         let missed = seq - prev - 1;
         self.lost += missed;
@@ -514,7 +521,41 @@ impl SeqTracker {
             );
             self.next_warn = self.lost.saturating_mul(10);
         }
+        SeqVerdict::Continue
     }
+}
+
+/// What `observe` concluded about where a batch sits in the publisher's stream.
+#[derive(Debug, PartialEq, Eq)]
+enum SeqVerdict {
+    /// Contiguous, or a gap: the view is still the old engine's and still true
+    /// as far as it goes.
+    Continue,
+    /// The counter went backwards, so the publisher process was replaced.
+    PublisherRestarted,
+}
+
+/// Drop everything indexed for one rank, the way its own `AllBlocksCleared`
+/// would.
+///
+/// Leaving a dead engine's blocks in place is worse than having no view at all.
+/// They are reported as prefix hits, so the affected prompts are steered at the
+/// one worker whose cache is certainly cold -- and those same phantom hits keep
+/// `applied > 0` and reset the zero-hit streak, so neither the chain-health
+/// alarm nor the self-heal ever notices. Forgetting them costs the router
+/// nothing it can trust: the new process starts with an empty cache, and its
+/// first events are rooted, so the chain re-anchors on its own.
+fn reset_rank(state: &Arc<Mutex<HashMap<String, WorkerViews>>>, worker_id: &str, rank: i64) {
+    let mut guard = state.lock().expect("kv view mutex poisoned");
+    let Some(wv) = guard.get_mut(worker_id) else {
+        return;
+    };
+    wv.views.entry(rank).or_default().clear();
+    wv.maps.entry(rank).or_default().clear();
+    // Counters too: they describe the old process's chain, and carrying its
+    // orphan total into a rank whose view is now legitimately empty would arm a
+    // flush against an engine that has nothing left to flush.
+    wv.health.insert(rank, ChainHealth::new());
 }
 
 /// Split a published message into `(sequence, payload)`.
@@ -585,7 +626,9 @@ fn subscribe_once(
             Ok(frames) => {
                 if let Some((n, payload)) = split_frames(&frames) {
                     if let Some(n) = n {
-                        seq.observe(worker_id, rank, n);
+                        if seq.observe(worker_id, rank, n) == SeqVerdict::PublisherRestarted {
+                            reset_rank(state, worker_id, rank);
+                        }
                     }
                     match decode_batch(payload) {
                         Ok(events) => apply_events(state, worker_id, rank, &events),
@@ -722,8 +765,18 @@ fn apply_events(
     let bucket_covered = health
         .seeded_at
         .is_some_and(|t| t.elapsed() < SEED_COVERAGE_WINDOW);
-    if health.applied == 0 && health.orphaned > 0 && !bucket_covered {
+    // Armed on *this batch's* orphans, not the running total, and withdrawn
+    // again as soon as either half of the reading stops holding. Reading the
+    // total re-armed on batches that orphaned nothing, and nothing ever lowered
+    // the flag, so a request raised during a momentary coverage lapse outlived
+    // every piece of evidence for it and fired at the next zero-hit pick --
+    // which, on an idle rank, is minutes or hours later against a worker whose
+    // cache is fine. A quiet batch is left alone: only evidence to the contrary
+    // withdraws the ask, not the mere absence of new evidence for it.
+    if orphaned > 0 && health.applied == 0 && !bucket_covered {
         health.needs_flush = true;
+    } else if bucket_covered || health.applied > 0 {
+        health.needs_flush = false;
     }
     if orphaned > 0 && health.orphaned >= health.next_warn {
         tracing::warn!(
@@ -1471,6 +1524,91 @@ mod tests {
         );
     }
 
+    /// The bucket refreshing a rank withdraws a request raised before it.
+    ///
+    /// The failure this closes: on NATS transport, a router that restarted
+    /// while the workers kept serving goes quiet for longer than
+    /// `SEED_COVERAGE_WINDOW`, so coverage lapses. Traffic resumes, the first
+    /// batch orphans and arms the flush a second or so ahead of the relay's
+    /// next (<=2s-coalesced) bucket write -- and the refresh that disproves it
+    /// arrives too late to matter, because nothing reconsidered the flag. The
+    /// request then sat armed with no expiry until some later zero-hit pick
+    /// spent it on a worker whose cache was fine.
+    #[test]
+    fn a_returning_bucket_withdraws_the_request_the_lapse_armed() {
+        let c = KvEventClient::nats_fed();
+        c.on_worker_added(&worker("w", None, 4, None));
+        // Coverage has lapsed (no seed yet) and a batch orphans: armed.
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[Event::Stored {
+                block_hashes: vec![10],
+                parent_block_hash: Some(999),
+                token_ids: vec![1, 2, 3, 4],
+                spec_kind: None,
+            }],
+        );
+        // The relay's next bucket write lands.
+        c.seed_rank_view("w", 0, vec![7, 8, 9]);
+        assert!(
+            !c.take_flush_request("w"),
+            "the seed is the evidence the rank is covered; the ask predates it"
+        );
+    }
+
+    /// Arming reads *this batch's* orphans, not the running total.
+    ///
+    /// Reading the total re-armed on every later batch, including ones that
+    /// orphaned nothing -- so a single lapse's worth of orphans kept the flush
+    /// armed indefinitely, and coverage returning could never settle it.
+    #[test]
+    fn a_batch_that_orphaned_nothing_does_not_re_arm_the_request() {
+        let c = KvEventClient::nats_fed();
+        c.on_worker_added(&worker("w", None, 4, None));
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[Event::Stored {
+                block_hashes: vec![10],
+                parent_block_hash: Some(999),
+                token_ids: vec![1, 2, 3, 4],
+                spec_kind: None,
+            }],
+        );
+        assert!(c.take_flush_request("w"), "the orphaned batch asks");
+
+        // Consumed. A batch carrying nothing that orphans -- here an eviction
+        // for a block the router never indexed -- is not fresh evidence, so it
+        // must not raise the ask again behind the consumer's back.
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[Event::Removed {
+                block_hashes: vec![777],
+            }],
+        );
+        assert!(!c.take_flush_request("w"));
+
+        // A chain that is still dead does re-ask on its next orphan, though --
+        // the flush it asked for may have been refused.
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[Event::Stored {
+                block_hashes: vec![11],
+                parent_block_hash: Some(999),
+                token_ids: vec![5, 6, 7, 8],
+                spec_kind: None,
+            }],
+        );
+        assert!(c.take_flush_request("w"));
+    }
+
     /// A bucket key that goes away takes its cover with it.
     #[test]
     fn dropping_a_rank_view_stops_holding_back_its_flush() {
@@ -1595,6 +1733,71 @@ mod tests {
     /// `applied > 0` forever and the dead rank's orphans never read as a fault
     /// -- the worker serves half its requests off an index that will never fill
     /// and nothing ever says so.
+    /// A publisher restart drops what the dead engine had indexed.
+    ///
+    /// Leaving it in place was worse than an empty view: the stale blocks are
+    /// reported as prefix hits, so the matching prompts are steered at the one
+    /// worker whose cache is certainly cold, and those phantom hits keep
+    /// `applied > 0` and reset the zero-hit streak -- so neither the chain
+    /// alarm nor the self-heal ever fired. The condition was detected and
+    /// logged; nothing acted on it.
+    #[test]
+    fn a_publisher_restart_drops_the_dead_engines_blocks() {
+        let c = KvEventClient::new();
+        c.on_worker_added(&worker("w", Some("tcp://127.0.0.1:5590"), 4, None));
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[Event::Stored {
+                block_hashes: vec![10],
+                parent_block_hash: None,
+                token_ids: vec![1, 2, 3, 4],
+                spec_kind: None,
+            }],
+        );
+        assert_eq!(c.total_blocks("w"), 1);
+
+        let mut seq = SeqTracker::new();
+        assert_eq!(seq.observe("w", 0, 7), SeqVerdict::Continue);
+        assert_eq!(seq.observe("w", 0, 8), SeqVerdict::Continue);
+        // A gap is not a restart: the blocks indexed so far are still this
+        // engine's, and dropping them would throw away a working view.
+        assert_eq!(seq.observe("w", 0, 40), SeqVerdict::Continue);
+        reset_rank_if(&c, seq.observe("w", 0, 0));
+        assert_eq!(
+            c.total_blocks("w"),
+            0,
+            "the counter went backwards: those blocks are a process that is gone"
+        );
+
+        // And the counters went with them, so the empty view does not read as a
+        // dead chain and arm a flush against an engine with nothing to flush.
+        assert!(!c.take_flush_request("w"));
+
+        // The new process's first events are rooted, so the chain re-anchors.
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[Event::Stored {
+                block_hashes: vec![10],
+                parent_block_hash: None,
+                token_ids: vec![9, 9, 9, 9],
+                spec_kind: None,
+            }],
+        );
+        assert_eq!(c.total_blocks("w"), 1);
+        assert!(!c.take_flush_request("w"));
+    }
+
+    /// What `subscribe_once` does with a verdict, minus the socket.
+    fn reset_rank_if(c: &KvEventClient, v: SeqVerdict) {
+        if v == SeqVerdict::PublisherRestarted {
+            reset_rank(&c.state, "w", 0);
+        }
+    }
+
     #[test]
     fn a_dead_rank_asks_even_though_another_rank_is_healthy() {
         let c = KvEventClient::new();

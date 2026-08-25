@@ -121,6 +121,9 @@ class KvEventNatsRelay:
                     self._loop(rank, sock), name=f"kv-nats-relay-{self._worker_id}-r{rank}"
                 )
             )
+        self._tasks.append(
+            asyncio.create_task(self._drain_dirty(), name=f"kv-nats-relay-{self._worker_id}-bucket")
+        )
         logger.info(
             "KV NATS relay up: %s ranks=%s -> %s (kv_bucket=%s)",
             self._base_endpoint,
@@ -160,6 +163,35 @@ class KvEventNatsRelay:
                     self.cleared_observed.set()
             self._dirty[rank] = True
             await self._maybe_write_bucket(rank)
+
+    async def _drain_dirty(self) -> None:
+        """Write out ranks the coalescing interval passed over.
+
+        ``_maybe_write_bucket`` is only ever reached from ``_loop``, i.e. by the
+        *next* event on that rank. An event landing inside the interval leaves
+        the rank dirty and returns, so the tail of every burst -- the part that
+        matters most, being the newest -- stayed unwritten for as long as the
+        rank was quiet. That is the mechanism behind a stale bucket: a cold
+        router seeds from a view that stops at the last write before the burst,
+        and the router's own chain-health accounting reads the lapse as the
+        relay having died.
+
+        Polling is the whole implementation on purpose. A per-rank timer would
+        have to be created, cancelled and re-armed on the event path, which is
+        the hot path here; one task ticking twice per interval costs a dict
+        lookup per rank per tick and cannot leak a timer.
+        """
+        while not self._closing:
+            await asyncio.sleep(_BUCKET_WRITE_INTERVAL_S / 2)
+            for rank in self._ranks:
+                if self._closing:
+                    return
+                try:
+                    await self._maybe_write_bucket(rank)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:  # noqa: BLE001 - a tick must not end the loop
+                    logger.warning("KV relay bucket drain failed (r%d): %s", rank, exc)
 
     def _note_decode_failure(self, rank: int, exc: Exception) -> None:
         """Report batches this relay cannot read, geometrically.
