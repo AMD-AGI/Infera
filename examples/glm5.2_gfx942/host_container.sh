@@ -68,14 +68,30 @@ if [[ "$KVD" == "1" ]]; then
   KVD_ARGS=(-v "$KVD_L3_DIR:$KVD_L3_DIR")
 fi
 
+# The agentic trace is written by the host and read by the bench inside the
+# container, at the same path on both sides. The default lives under REPO, which
+# is already mounted, so only bind it when it has been pointed somewhere else --
+# a duplicate mount of a path already covered by REPO makes docker fail.
+DATA_ARGS=()
+mkdir -p "$DATA_DIR" 2>/dev/null || true
+if [[ -d "$DATA_DIR" && "$(readlink -f "$DATA_DIR")" != "$(readlink -f "$REPO")"/* ]]; then
+  DATA_ARGS=(-v "$DATA_DIR:$DATA_DIR")
+fi
+
+# EXTRA_DOCKER_ARGS is for cluster-specific additions this script cannot know
+# about, e.g. EXTRA_DOCKER_ARGS=--privileged where the fabric's RDMA registration
+# path needs more than IPC_LOCK.
+read -r -a EXTRA_ARGS_ARR <<< "${EXTRA_DOCKER_ARGS:-}"
+
 docker run -d --name "$CONTAINER" \
   --network host --ipc host --shm-size 128g \
+  "${EXTRA_ARGS_ARR[@]}" \
   --device=/dev/kfd --device=/dev/dri --device=/dev/infiniband \
   --group-add video --group-add render \
   --cap-add=IPC_LOCK --cap-add=SYS_PTRACE \
   --security-opt seccomp=unconfined \
   --ulimit memlock=-1 --ulimit stack=67108864 --ulimit nofile=1048576 \
-  "${IONIC_ARGS[@]}" "${KVD_ARGS[@]}" \
+  "${IONIC_ARGS[@]}" "${KVD_ARGS[@]}" "${DATA_ARGS[@]}" \
   -v "$REPO:$REPO" \
   "${MODEL_ARGS[@]}" \
   -w "$HERE" \

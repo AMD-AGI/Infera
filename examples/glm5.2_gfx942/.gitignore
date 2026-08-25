@@ -1,4 +1,13 @@
 # Written by the launch scripts and bench.sh. Engine logs run to megabytes and
 # trip the large-file hook long before anyone reviews the diff.
 logs/
+logs_*/
 results/
+results_*/
+
+# Per-cluster, and holds this cluster's addresses. Start from cluster.env.example.
+cluster.env
+
+# The agentic trace, ~1 GB, rebuilt by weka_to_agentic_trace.py.
+data/
+preflight_out/
