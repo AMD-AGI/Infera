@@ -284,19 +284,31 @@ _reservation_nodes() {
     $1==r { for(i=1;i<=NF;i++) if($i ~ /Nodes=/){ n=$i; sub(/.*Nodes=/,"",n); sub(/[[:space:]].*/,"",n); print n; exit } }' \
     | tr ',' '\n' | sed '/^$/d'
 }
-# Ask the NODE, not squeue: a multi-node job's %N is a compacted hostlist
-# (crsuse2-m2m-[090,183]) holding neither full name, and Spur has no `scontrol
-# show hostnames`. Unreadable => busy, never hand out what we cannot verify.
-# Allocation is only half of "free": Spur leaves a node inside another team's
-# reservation reading State=IDLE with CPUAlloc=0, and puts the membership in
-# ActiveReservation instead. sbatch then refuses it with ReqNodeNotAvail.
+# A node is free when no RUNNING job has GPU GRES on it. Match both a plain %N
+# and Spur's compact form (crsuse2-m2m-[090,183]); unreadable queues fail closed.
 _node_free() {
-  local out alloc resv
+  local out resv gpu_jobs
   out=$(_sc show node "$1" 2>/dev/null) || return 1
-  alloc=$(printf '%s\n' "$out" | grep -oE 'CPUAlloc=[0-9]+' | head -1 | cut -d= -f2)
-  [ -n "$alloc" ] && [ "$alloc" -eq 0 ] 2>/dev/null || return 1
   resv=$(printf '%s\n' "$out" | grep -oE 'ActiveReservation=[^[:space:]]+' | head -1 | cut -d= -f2)
-  [ -z "$resv" ] || [ "$resv" = "${INFERA_E2E_RESERVATION:-}" ]
+  { [ -z "$resv" ] || [ "$resv" = "${INFERA_E2E_RESERVATION:-}" ]; } || return 1
+  gpu_jobs=$(squeue -h -t running -o '%b|%N' 2>/dev/null) || return 1
+  awk -F'|' -v node="$1" '
+    function has_node(list, node, prefix, id, n, parts, i, range) {
+      if (list == node) return 1
+      prefix = node; sub(/[0-9]+$/, "", prefix)
+      if (index(list, prefix "[") != 1) return 0
+      sub(/^[^[]*\[/, "", list); sub(/\].*$/, "", list)
+      id = node; sub(/^.*-/, "", id)
+      n = split(list, parts, ",")
+      for (i = 1; i <= n; i++) {
+        if (parts[i] == id) return 1
+        if (split(parts[i], range, "-") == 2 &&
+            id + 0 >= range[1] + 0 && id + 0 <= range[2] + 0) return 1
+      }
+      return 0
+    }
+    tolower($1) ~ /gpu:/ && has_node($2, node) { busy = 1 }
+    END { exit busy ? 1 : 0 }' <<<"$gpu_jobs"
 }
 # Free nodes for the PD-disagg pair, one per line: the reservation's own, else
 # the partition's idle ones. Both go through _node_free, which is what keeps
