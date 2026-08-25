@@ -20,6 +20,37 @@ require_env RDMA_IB_DEVICES; require_env MC_GID_INDEX
 SSH_CMD="${SSH_CMD:-ssh -o StrictHostKeyChecking=no}"
 on(){ local h="$1"; shift; $SSH_CMD "$h" "$*"; }
 
+# ---- profiling (off by default; nothing below changes unless a PROFILE_* is set) ------------
+# Two switches, not one, because the two legs are profiled for different reasons and only one
+# of them has to be slowed down to be readable. Usage:
+#   PROFILE_DECODE=1 bash cluster/<your-cluster>.sh up
+#   PROFILE_DECODE=1 bash cluster/<your-cluster>.sh capture
+# Both commands need the same values — capture.sh reads them to pick which roles to sample.
+PROFILE_PREFILL="${PROFILE_PREFILL:-0}"
+PROFILE_DECODE="${PROFILE_DECODE:-0}"
+ROUTER_EXTRA_ARGS="${ROUTER_EXTRA_ARGS:-}"
+if [ "$PROFILE_PREFILL" = "1" ] || [ "$PROFILE_DECODE" = "1" ]; then
+  # The control plane is on the ROUTER, not the legs: POST /v1/admin/profile/{start,stop}
+  # answers 403 unless the server carries this flag. start_router() also swaps the backend
+  # to python, because the rust one hard-exits on it.
+  ROUTER_EXTRA_ARGS="$ROUTER_EXTRA_ARGS --enable-profiling"
+  log "profiling ON (prefill=$PROFILE_PREFILL decode=$PROFILE_DECODE)"
+fi
+
+# Decode CUDA graphs hide exactly what a decode profile is for. A graph replays as one opaque
+# launch, so the trace keeps the per-step annotations and loses the kernels inside them —
+# measured on this stack: 134 decode steps in the window, 1 of them with GPU operators.
+# Prefill needs no equivalent; its extend path does not run through a graph.
+# Not free, so it is tied to PROFILE_DECODE rather than left on: decode TPOT measured
+# 35.6 -> 137.2 ms with graphs off. Set DECODE_CUDA_GRAPH=1 explicitly to profile WITH graphs
+# on anyway — that is the run you compare against to show how much the graph was hiding.
+if [ "$PROFILE_DECODE" = "1" ]; then
+  DECODE_CUDA_GRAPH="${DECODE_CUDA_GRAPH:-0}"
+else
+  DECODE_CUDA_GRAPH="${DECODE_CUDA_GRAPH:-1}"
+fi
+[ "$DECODE_CUDA_GRAPH" = "0" ] && warn "decode CUDA graphs OFF (profiling) — throughput numbers from this run are NOT comparable to a normal one"
+
 # The env every remote invocation needs. Kept in one string so the two legs cannot drift.
 # PREFILL_MTP is forwarded as well as consumed below: leg.sh reads it directly to decide
 # whether a prefill leg may emit MTP args, so passing only MTP= leaves that gate always shut.
@@ -34,7 +65,10 @@ ${MC_MS_FILTERS:+MC_MS_FILTERS=$MC_MS_FILTERS} \
 ${MC_MS_AUTO_DISC:+MC_MS_AUTO_DISC=$MC_MS_AUTO_DISC} \
 ${RDMAV_FORK_SAFE:+RDMAV_FORK_SAFE=$RDMAV_FORK_SAFE} \
 ${HOST_RDMA_LIB:+HOST_RDMA_LIB=$HOST_RDMA_LIB} \
+${HOST_RDMA_MOUNT:+HOST_RDMA_MOUNT=$HOST_RDMA_MOUNT} \
 ${ENTRYPOINT_KEEP:+ENTRYPOINT_KEEP=$ENTRYPOINT_KEEP} \
+${INFERA_SRC:+INFERA_SRC=$INFERA_SRC} \
+${TRACE_OUT:+TRACE_OUT=$TRACE_OUT} \
 ${GMU_PREFILL:+GMU_PREFILL=$GMU_PREFILL} ${GMU_DECODE:+GMU_DECODE=$GMU_DECODE}"
 
 log "=== 1/4 containers ==="
@@ -69,6 +103,7 @@ on "$PREFILL_NODE" "$COMMON_ENV ROLE=prefill MY_IP=$PREFILL_IP PORT=$PREFILL_POR
   bash $KIT_DIR/engine/leg.sh"
 on "$DECODE_NODE" "$COMMON_ENV ROLE=decode MY_IP=$DECODE_IP PORT=$DECODE_PORT \
   DPA=${DECODE_DPA:-1} MTP=${DECODE_MTP:-1} KVD=${DECODE_KVD:-0} \
+  CUDA_GRAPH=$DECODE_CUDA_GRAPH \
   bash $KIT_DIR/engine/leg.sh"
 
 # Poll /health from INSIDE each node's container. Never curl a PD leg's port from another
@@ -93,8 +128,11 @@ log "=== 4/4 router (prefill node) ==="
 # are serving means its first health check already reflects a paired deployment.
 on "$PREFILL_NODE" "$COMMON_ENV ROUTER_POLICY=${ROUTER_POLICY:-kv-aware} \
   ROUTER_BACKEND=${ROUTER_BACKEND:-rust} \
+  ${ROUTER_EXTRA_ARGS:+ROUTER_EXTRA_ARGS='$ROUTER_EXTRA_ARGS'} \
   ${KV_PREFILL_W:+KV_PREFILL_W=$KV_PREFILL_W} ${KV_DECODE_W:+KV_DECODE_W=$KV_DECODE_W} \
   bash -c 'source $KIT_DIR/common.sh; start_router $PREFILL_IP'"
 
 log "up. endpoint: http://$PREFILL_IP:$ROUTER_PORT"
 log "verify with:  bash cluster/<your-cluster>.sh smoke"
+[ -n "$ROUTER_EXTRA_ARGS" ] && log "profile with:  bash cluster/<your-cluster>.sh capture   (needs load in flight)"
+exit 0

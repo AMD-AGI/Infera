@@ -13,6 +13,8 @@
 #   MTP=0|1     EAGLE speculative decoding (decode leg only unless PREFILL_MTP=1)
 #   KVAWARE=0|1 publish KV events so the router can route by cache locality
 #   KVD=0|1     wire the infera-kvd HiCacheStorage backend (L2 host RAM + L3)
+#   CUDA_GRAPH=0|1  0 makes the leg profileable at a large throughput cost. up.sh sets it
+#                   from PROFILE_DECODE; do not set it by hand for a serving run.
 set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; source "$DIR/../common.sh"
 
@@ -145,7 +147,9 @@ CAR_ARGS=()
 # client-side cache-hit metric reads 0 and a prefix-reuse target cannot be checked at all.
 EXTRA_ARGS=(--enable-cache-report)
 
-log "$ROLE on $MY_IP:$PORT — tp=$TP dpa=$DPA mtp=$MTP kvaware=$KVAWARE kvd=$KVD gmu=$GMU chunk=$CHUNK ctx=$CTX nic=$NIC ib=$RDMA_IB_DEVICES"
+[ "${CUDA_GRAPH:-1}" = "0" ] && EXTRA_ARGS+=("${CUDA_GRAPH_OFF_ARG:-"--disable-cuda-graph"}")
+
+log "$ROLE on $MY_IP:$PORT — tp=$TP dpa=$DPA mtp=$MTP kvaware=$KVAWARE kvd=$KVD gmu=$GMU chunk=$CHUNK ctx=$CTX nic=$NIC ib=$RDMA_IB_DEVICES cuda_graph=${CUDA_GRAPH:-1}"
 
 # Pass the transport/recipe env explicitly rather than relying on `docker exec`'s environment:
 # the variables above are exported in THIS shell, on the host, not inside the container.

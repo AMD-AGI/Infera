@@ -27,6 +27,7 @@ different fabrics; those numbers are not published with this kit.
 | `engine/up.sh` | bring up both nodes: containers → etcd + kvd → both legs → router |
 | `engine/smoke.sh` | service check **plus** positive evidence for each of the five features |
 | `engine/bench.sh` | reference throughput sweep using SGLang's own `bench_serving` |
+| `engine/capture.sh` | take one torch trace per PD role out of a running load (opt-in) |
 | `engine/down.sh` | tear down and wait for VRAM to actually free |
 | `preflight_rdma.sh` | RDMA preflight: registration-mode probe + cross-node fabric measurement |
 
@@ -222,6 +223,104 @@ enough requests to reach steady state.
 
 **This kit ships no agentic benchmark client**, by design. Point the customer's own
 harness at the router endpoint.
+
+### Profiling
+
+Off unless asked for. Two switches, `PROFILE_PREFILL` and `PROFILE_DECODE`, and the **same
+values must be given to `up` and to `capture`** — `up` decides whether the control plane
+exists at all, `capture` reads them to pick which roles to sample.
+
+**Decode.** The common case, and the expensive one:
+
+```bash
+PROFILE_DECODE=1 bash cluster/cluster.peermem.sh up
+nohup bash cluster/cluster.peermem.sh bench 64 &          # load, in the background
+PROFILE_DECODE=1 bash cluster/cluster.peermem.sh capture  # 20s window out of it
+```
+
+**Prefill.** Same three commands, one switch changed:
+
+```bash
+PROFILE_PREFILL=1 bash cluster/cluster.peermem.sh up
+nohup bash cluster/cluster.peermem.sh bench 64 &
+PROFILE_PREFILL=1 bash cluster/cluster.peermem.sh capture
+```
+
+Cheaper than the decode case in a way worth knowing: the prefill leg runs its **normal**
+configuration. There is no graph to turn off, because the extend path does not use one, so
+the only distortion is the python router — the leg itself is the same one you benchmarked.
+Measured on this stack, a prefill capture came back with 31 steps and 31 of them carrying
+GPU operators (coverage 1.00) with nothing disabled.
+
+What you do have to think about is whether there is enough prefill work in the window. At
+steady state most of the machine is decoding; prefill only runs when a new request arrives,
+so a long `OSL` starves it. If the step count comes back low, shorten the output
+(`OSL=128`) or raise the concurrency, and re-check the histogram.
+
+**Both at once.** Supported, and the only way to get a P and a D trace from the *same*
+window — the two starts are issued together from one shell, so the windows line up:
+
+```bash
+PROFILE_PREFILL=1 PROFILE_DECODE=1 bash cluster/cluster.peermem.sh up
+nohup bash cluster/cluster.peermem.sh bench 64 &
+PROFILE_PREFILL=1 PROFILE_DECODE=1 bash cluster/cluster.peermem.sh capture
+```
+
+Note the asymmetry this creates. `PROFILE_DECODE=1` turns the decode graphs off, and
+`bench_serving` is closed-loop: a request holds its concurrency slot until its last token, so
+a decode leg running ~4× slower completes requests ~4× slower and **prefill is fed ~4× less
+often**. What that does and does not damage:
+
+- **Survives.** The prefill kernels themselves. The two legs are different GPUs on different
+  nodes, and what an extend step costs is set by its batch shape and the model, not by why it
+  got scheduled. "Which operators dominate prefill" — the usual reason to profile it — holds.
+- **Thins out.** The step count in the window. A 20 s window may come back with single digits.
+- **Skews.** The batch-shape mix. Sparser arrivals mean fewer requests queued when the
+  scheduler forms an extend batch, so it biases toward `bs=1`, and `bs` drives the MoE expert
+  distribution and the GEMM shapes. Shape-dependent conclusions are taken from a thinner
+  batch distribution than real steady state.
+- **Breaks.** Anything with wall-clock in the denominator — occupancy, inter-step gaps, "how
+  busy is prefill", throughput — and all queueing and TTFT figures.
+
+So: **profile prefill on its own if you want its operators** — it needs no graph disabled, so
+the extra round is nearly free. Use both roles together for the one thing only it can give
+you, a P and D pair from the same window, where the decode distortion is already priced in.
+
+(The mechanism above is reasoned from the closed-loop setup, not measured; the 35.6 → 137.2 ms
+decode figure is.)
+
+`bench` is deliberately not given a detach flag — `nohup … &` already does it, and the one
+thing a flag would buy (surviving an ssh drop mid-run) is already caught by `capture`, which
+refuses to start, and warns again after warm-up, if no `bench_serving` is running. Give the
+load enough requests to outlast `WARMUP_S + WINDOW_S`: `N=<count>` overrides the `10 × C`
+default.
+
+`capture` waits `WARMUP_S` (default 60) for the load to reach steady state, opens a
+`WINDOW_S` (default 20) window, starts both roles from **one** shell inside the container
+so their windows line up, stops with a single call, waits for the per-rank files to stop
+growing in the shared `TRACE_OUT` mount, and returns the output directory. Trace inspection
+is a separate operation; no tar, `docker cp`, or SSH transfer is involved.
+
+Three things about this are easy to get wrong and are handled for you:
+
+- **The rust router cannot do it.** `--enable-profiling` makes `launch_rust.py` raise
+  `SystemExit` rather than degrade, so the router simply never comes up. `start_router`
+  switches the backend to `python` when it sees the flag. The python router forwards more
+  slowly, so **throughput from a profiling run is not comparable to a normal one** — say so
+  in whatever you write up.
+- **Decode CUDA graphs hide the kernels you are profiling for.** A graph replays as one
+  opaque launch: the trace keeps the per-step annotation and loses everything inside it.
+  Measured here: 134 decode steps in a window, **1** of them with GPU operators, and the
+  resulting kernel ranking was not merely imprecise but *reordered*. So `PROFILE_DECODE=1`
+  also sets `CUDA_GRAPH=0` on the decode leg — which costs real throughput (decode TPOT
+  measured 35.6 → 137.2 ms), which is why it is not a default. Prefill needs no equivalent;
+  its extend path does not run through a graph. `--enable-profile-cuda-graph` is **not** a
+  substitute: it instruments graph *capture*, which happens once at start-up.
+  Set `DECODE_CUDA_GRAPH=1` to profile with graphs on anyway — that is the run you compare
+  against to show how much the graph was hiding.
+
+The traces are ordinary torch/chrome traces — open one in Perfetto, or point an analyzer at
+the output directory. This kit does not ship one.
 
 ## 6. Tear down
 

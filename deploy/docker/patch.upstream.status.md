@@ -22,7 +22,7 @@ Column meanings:
 
 ## sglang — `patches/sglang_dsa/` (baked by `Dockerfile.sglang` and `Dockerfile.sglang.gfx942`, `APPLY_SGLANG_DSA_PATCHES=1`)
 
-Patch 01 is an anchor script and is baked by both images. The other three are
+Patch 01 is an anchor script and is baked by both images. The other four are
 `--fuzz=0` diffs cut against the mi35x base (v0.5.17) and are not applied by the
 gfx942 image, which substitutes `dsa_page_table_rows` and `draft_cuda_graph_dp_vote`
 at runtime with `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`
@@ -36,6 +36,7 @@ at runtime with `--json-model-override-args '{"index_share_for_mtp_iteration":fa
 | `sglang_dsa/dsa_dp_sync.diff` | `seq_lens.max().item()` is a host sync on a branch only *some* DP ranks take → DP collectives desync → deadlock | none found | [sglang#33973](https://github.com/sgl-project/sglang/pull/33973) — this file **is** that PR's diff, so it drops by deletion when it merges | **yes** (`dorado269`) | OPEN |
 | `sglang_dsa/dsa_page_table_rows.diff` | page table has one row per **request**, top-k one per **token** under MTP → `assert page_table.shape[0] == topk_indices.shape[0]` | none found | [sglang#32209](https://github.com/sgl-project/sglang/pull/32209) solves the same row mismatch by **trimming q/top-k**; porting that half here fails at conc=32 and is unresolved | no (`HZY-Wade`) | OPEN |
 | `sglang_dsa/draft_cuda_graph_dp_vote.diff` | the draft graph/eager choice is per-rank, so under PD + DP-attention + MTP a DP group splits across the two paths and deadlocks on the first routed request | [sglang#32527](https://github.com/sgl-project/sglang/issues/32527) | [sglang#32209](https://github.com/sgl-project/sglang/pull/32209) carries the same vote at the same site; we take only that half | no (`HZY-Wade`) | OPEN |
+| `sglang_dsa/dsa_indexer_idle_metadata.diff` | EAGLE eager IDLE selects a per-step DSA backend without `forward_metadata`; the indexer reads it before the existing empty-batch guard → scheduler exits during warmup | none found for this exact traceback | [sglang#32209](https://github.com/sgl-project/sglang/pull/32209) carries an early CUDA IDLE short-circuit; [#31683](https://github.com/sgl-project/sglang/pull/31683) widens a later guard but is too late for the v0.5.17 ordering | no | OPEN at last recorded checks; re-check before release |
 
 Background, already present in the base and **not** patched by us:
 [sglang#30378](https://github.com/sgl-project/sglang/pull/30378) /

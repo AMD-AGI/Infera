@@ -8,8 +8,9 @@
 # TWO ARMS, because the set is not uniformly portable across our engine bases:
 #
 #   DSA_PATCH_SET=full     (default; Dockerfile.sglang, mi35x / v0.5.17)
-#         patch 01 + dsa_dp_sync + dsa_page_table_rows + draft_cuda_graph_dp_vote.
-#         The three diffs are `--fuzz=0` against that one release, so this arm
+#         patch 01 + dsa_indexer_idle_metadata + dsa_dp_sync +
+#         dsa_page_table_rows + draft_cuda_graph_dp_vote.
+#         The four diffs are `--fuzz=0` against that one release, so this arm
 #         only works there.
 #   DSA_PATCH_SET=indexer  (Dockerfile.sglang.gfx942, mi30x / v0.5.16)
 #         patch 01 only.  02b is substituted at RUNTIME by
@@ -32,6 +33,10 @@
 # with a convincing stack.  Compare the host amdgpu version against the
 # container's /opt/rocm/.info/version before attributing one to sglang -- see
 # the driver precondition in patches/sglang_dsa/README.md.
+#         dsa_dp_sync has no substitute and is not carried there: it has not been
+#         re-cut or measured on v0.5.16.
+#         dsa_indexer_idle_metadata is likewise not carried: the failure has not
+#         been reproduced or evaluated on that base.
 #
 # WHY BYTECODE VERIFICATION.  Python caches compiled modules in __pycache__ keyed
 # on the source mtime.  A patch script that restores a backup with shutil.copy2
@@ -64,7 +69,7 @@ PATCH01=patch_dsa_indexer_hip_dp_padded_rows.py
 # from each other and from patch 01.  dsa_dp_sync.diff is upstream PR sglang#33973
 # verbatim, so it drops by deleting the file the day that merges.
 case "$DSA_PATCH_SET" in
-  full)    PATCHES=(dsa_dp_sync.diff dsa_page_table_rows.diff draft_cuda_graph_dp_vote.diff) ;;
+  full)    PATCHES=(dsa_indexer_idle_metadata.diff dsa_dp_sync.diff dsa_page_table_rows.diff draft_cuda_graph_dp_vote.diff) ;;
   indexer) PATCHES=() ;;
 esac
 
@@ -93,6 +98,7 @@ if [ "$DSA_PATCH_SET" = "full" ]; then
   # missing makes the patch inert rather than absent, which is the failure mode
   # that matters: an inert 04 looks exactly like a working one until load.
   MARKERS+=(
+    "dsa_indexer.py:_glm52_idle_indexer"
     "decode.py:force_disable_draft_cuda_graph"
     "dp_attn.py:can_run_draft_cuda_graph"
     "eagle_draft_cuda_graph_runner.py:can_run_dp_draft_cuda_graph"

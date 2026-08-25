@@ -82,12 +82,12 @@ COPY infera ./infera
 RUN pip install --no-cache-dir ".[sglang]" "setuptools>=83.0.0"
 
 # ---- GLM-5.2 DSA patch set (PD + DP-attention on gfx950) --------------------
-# WHAT: four patches that together make PD + DP-attention work for GLM-5.2, with
+# WHAT: five patches that together make PD + DP-attention work for GLM-5.2, with
 # EAGLE MTP on top; without them it crashes on the first batch or deadlocks the DP
 # group. patches/sglang_dsa/README.md carries the per-patch rationale.
 #
-# Three of the four are context diffs at --fuzz=0 against the pinned base, so a
-# base bump FAILS here instead of mis-applying. The fourth is an anchor script
+# Four of the five are context diffs at --fuzz=0 against the pinned base, so a
+# base bump FAILS here instead of mis-applying. The fifth is an anchor script
 # instead: Dockerfile.sglang.gfx942 needs the same fix on a v0.5.16 base where
 # those diffs cannot apply, and one source of truth beats two.
 #

@@ -1,7 +1,7 @@
 # sglang DSA patches
 
-Patches that make **PD disaggregation + DP-attention** work for GLM-5.2, and,
-with the fourth, **EAGLE MTP** on top. Without them the combination crashes on
+Patches that make **PD disaggregation + DP-attention** work for GLM-5.2, with
+**EAGLE MTP** on top. Without them the combination crashes on
 the first batch or deadlocks the whole DP group under concurrency.
 
 They apply to the sglang tree bundled in the ROCm engine images (an editable
@@ -10,7 +10,7 @@ same arm of the set — see [Applying](#applying):
 
 | image | base | arm |
 |---|---|---|
-| `Dockerfile.sglang` (gfx950 / MI355X) | `lmsysorg/sglang:v0.5.17-rocm720-mi35x` | 01 + dp_sync + page_table_rows + draft_dp_vote |
+| `Dockerfile.sglang` (gfx950 / MI355X) | `lmsysorg/sglang:v0.5.17-rocm720-mi35x` | 01 + idle_metadata + dp_sync + page_table_rows + draft_dp_vote |
 | `Dockerfile.sglang.gfx942` (gfx942 / MI325X) | `lmsysorg/sglang:v0.5.16-rocm720-mi30x` | **01 only**, plus a mandatory runtime flag |
 
 | # | patch | fixes |
@@ -19,6 +19,7 @@ same arm of the set — see [Applying](#applying):
 | 02a | `dsa_dp_sync.diff` | a host sync on a branch only *some* DP ranks take → collectives desync → deadlock. This file is upstream PR sglang#33973 verbatim |
 | 02b | `dsa_page_table_rows.diff` | page table has one row per **request**, top-k one per **token** under MTP → `assert page_table.shape[0] == topk_indices.shape[0]` |
 | 04 | `draft_cuda_graph_dp_vote.diff` | the draft graph/eager choice is made **per rank** from rank-dependent inputs and diverges on the PD decode leg → deadlock |
+| 05 | `dsa_indexer_idle_metadata.diff` | EAGLE eager IDLE reaches the per-step DSA indexer before that backend has `forward_metadata` → scheduler exits during warmup |
 
 Patch 01 is a **script** and the rest are **context diffs**, and that is the
 whole reason the two images can differ: the diffs are `--fuzz=0` against one
@@ -50,7 +51,7 @@ which takes `DSA_PATCH_SET`:
 
 | arm | used by | applies | verification |
 |---|---|---|---|
-| `full` (default) | `Dockerfile.sglang` | 01 + 02a + 02b + 04 | 7 bytecode markers |
+| `full` (default) | `Dockerfile.sglang` | 01 + 02a + 02b + 04 + 05 | 8 bytecode markers |
 | `indexer` | `Dockerfile.sglang.gfx942` | 01 | the two patch-01 markers |
 
 Set `APPLY_SGLANG_DSA_PATCHES=0` for a stock engine to A/B against.
@@ -65,7 +66,8 @@ By hand, against the pinned base:
 ```bash
 cd /sgl-workspace/sglang
 python3 patch_dsa_indexer_hip_dp_padded_rows.py
-for d in dsa_dp_sync.diff dsa_page_table_rows.diff draft_cuda_graph_dp_vote.diff; do
+for d in dsa_indexer_idle_metadata.diff dsa_dp_sync.diff \
+         dsa_page_table_rows.diff draft_cuda_graph_dp_vote.diff; do
   patch -p1 --fuzz=0 < "$d"
 done
 ```
@@ -218,6 +220,37 @@ DeepGEMM at the same two aiter call sites (`q_fp8` → `q_fp8_padded`), and
 extracts the paged-MQA backend, restructuring the `is_aiter()` dispatch this
 patch hangs off. Either landing in a future base drifts the anchors, which fails
 the build rather than mis-applying — but re-cut patch 01 when bumping past them.
+
+### Patch 05: EAGLE eager IDLE has no per-step DSA metadata
+
+On the EAGLE eager path, an IDLE DP rank skips
+`draft_attn_backend.init_forward_metadata()`, then `draft_forward()` selects a
+per-step backend through `ForwardContext`. The generic eager IDLE runner updates
+`model_runner.attn_backend`; that is not the per-step backend the DSA indexer
+reads. If IDLE is that backend's first use, even the attribute is absent:
+
+```text
+AttributeError: 'DeepseekSparseAttnBackend' object has no attribute
+                'forward_metadata'
+```
+
+The existing empty-`seq_lens` guard returns an all-invalid top-k tensor, but on
+v0.5.17 it sits hundreds of lines after `get_indexer_metadata()` and therefore
+cannot protect this access. Patch 05 adds the equivalent IDLE return immediately
+after `x_meta` is available and before metadata lookup. It retains
+`_broadcast_indexer_topk_from_rank0`: IDLE ranks still need the same DP
+synchronization primitive as active ranks.
+
+This is the CUDA IDLE short-circuit strategy carried in upstream
+[#32209](https://github.com/sgl-project/sglang/pull/32209), adapted to the
+v0.5.17 ordering. [#31683](https://github.com/sgl-project/sglang/pull/31683)
+widens the later empty-batch guard, which is insufficient by itself on this
+base because metadata has already been read.
+
+**Validation status.** The failure was reproduced on MI355X TP8/DP8 with PD,
+DP-attention, EAGLE(3,1,4), and decode CUDA graphs disabled. The patch has
+build-time apply/bytecode coverage; repeated two-node cold-start and concurrency
+validation is still pending.
 
 ### Prerequisite
 

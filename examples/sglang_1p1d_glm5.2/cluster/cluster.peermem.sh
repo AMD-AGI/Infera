@@ -45,6 +45,15 @@ export KIT_DIR="$KIT"
 # Requires an infera-sglang build NEWER than 0.2.0. The default below is a placeholder.
 export INFERA_IMAGE="${INFERA_IMAGE:-<infera-sglang-image>}"
 
+# Development source overlay. /apps is shared by both nodes, and the engine image's
+# WORKDIR is /opt/infera, so mounting this checkout there makes every `python -m infera...`
+# invocation import the current working tree. Set INFERA_SRC= to disable the overlay.
+# export INFERA_SRC="${INFERA_SRC-$(cd "$KIT/../.." && pwd)}"
+
+# Shared writable trace directory. common.sh bind-mounts this exact absolute path into both
+# engine containers, so capture.sh can write there without a tar/docker-cp/SSH fetch stage.
+export TRACE_OUT="${TRACE_OUT:-$KIT/profiles}"
+
 # MODEL_MOUNT is bind-mounted into the container; MODEL must live under it.
 # Prefer LOCAL storage on both nodes — a slow mount blows the ready timeout
 # (see cluster/README.md section 2).

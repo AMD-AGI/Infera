@@ -1,0 +1,54 @@
+PATCH 05 -- DSA indexer: short-circuit EAGLE IDLE before metadata lookup
+================================================================================
+WHAT   An EAGLE eager IDLE forward selects a per-step DSA backend through
+       ForwardContext, but EagleDraftWorker skips draft_attn_backend metadata
+       initialization for IDLE. DSAIndexer.forward_cuda() asks that backend for
+       indexer metadata before reaching its existing empty-seq-lens guard, so a
+       backend whose first use is IDLE raises:
+
+         AttributeError: 'DeepseekSparseAttnBackend' object has no attribute
+                         'forward_metadata'
+
+       Return the same all-invalid top-k tensor as the existing empty-seq-lens
+       branch before any metadata access. Keep the rank-0 broadcast: IDLE ranks
+       still have to issue the same DP synchronization primitive as active ranks.
+
+SCOPE  v0.5.17 only. This is a --fuzz=0 context diff for the pinned MI355X base.
+       The gfx942 v0.5.16 arm is unchanged and has not reproduced this failure.
+
+UPSTREAM
+       #31683 widens a later empty-seq-lens guard to cover IDLE.
+       #32209 carries an early CUDA IDLE short-circuit alongside its EAGLE/DP
+       fixes. This cut is placed before get_indexer_metadata(), which is required
+       on v0.5.17 because that lookup precedes the existing guard.
+
+EVIDENCE
+       Reproduced on 2026-08-24 with GLM-5.2-MXFP4, MI355X, TP8/DP8,
+       DP-attention, EAGLE(3,1,4), PD decode, and decode CUDA graphs disabled.
+       Multiple scheduler ranks failed during disaggregation warmup at
+       dsa_indexer.py:get_indexer_metadata before the server reported ready.
+
+diff --git a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+--- a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
++++ b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+@@ -1558,6 +1558,20 @@
+         # a tuple like (x_fp8, x_scale[, y]). Use `x_meta` for shape/device queries.
+         x_meta = x[0] if isinstance(x, tuple) else x
+ 
++        # EAGLE IDLE forwards skip per-step draft-backend metadata initialization.
++        # Return the same sentinel top-k as the empty-seq-lens branch below before
++        # get_indexer_metadata dereferences a forward_metadata that does not exist.
++        _glm52_idle_indexer = forward_batch.forward_mode.is_idle()
++        if _glm52_idle_indexer:
++            topk_result = torch.full(
++                (x_meta.shape[0], self.index_topk),
++                -1,
++                dtype=torch.int,
++                device=x_meta.device,
++            )
++            topk_result = _broadcast_indexer_topk_from_rank0(topk_result)
++            return maybe_capture_indexer_topk(layer_id, topk_result)
++
+         in_piecewise_or_breakable_cuda_graph = (
+             _is_in_piecewise_or_breakable_cuda_graph()
+         )
