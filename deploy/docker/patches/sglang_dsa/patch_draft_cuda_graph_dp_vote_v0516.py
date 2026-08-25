@@ -22,26 +22,25 @@ WHAT (unchanged from the diff -- see its header for the full analysis)
     scheduler already performs, min()-reduced, so any rank needing eager takes
     the whole group eager. Inactive ranks contribute 1 (permissive).
 
-WHY IT IS NEEDED ON gfx942, where `IndexShare off` was believed to substitute
-    Turning IndexShare off only kills term 4 (`dsa_topk_indices is None`, seeded
-    on the decode leg from RDMA-shipped per-request payloads). Term 1 --
-    `not forward_batch.forward_mode.is_idle()` -- is rank-dependent no matter
-    what IndexShare does: it is just occupancy. Under dp8 at LOW concurrency
-    most ranks are idle most steps, so term 1 flips asymmetrically constantly.
-    That is why conc<=128 validation missed it: with every rank busy, term 1 is
-    uniformly true and the divergence never happens.
+WIRED INTO NO ARM, AND NOT KNOWN TO BE NEEDED ON v0.5.16
+    Both `DSA_PATCH_SET` arms leave this out -- `PORT_SCRIPTS` in
+    `apply_sglang_dsa_patches.sh` is empty. It is kept, verified in-image, only
+    so that 04 does not have to be re-cut should it ever be genuinely wanted
+    here. The mechanism above is real and measured, but on the gfx950 /
+    v0.5.17 arm: revert 04 there and the first routed request deadlocks at the
+    120 s timeout, patched it answers in 2.3 s.
 
-    Observed on 2 x 8 x MI300X, GLM-5.2-FP8 1P1D, dp8, IndexShare already off,
-    concurrency 1: the decode leg served ~8 requests and then died in the very
-    collective this patch makes consistent --
+    The low-concurrency argument for wanting it here -- idle ranks flipping the
+    guard's occupancy term asymmetrically -- does not hold up. A 2 x 8 MI300X
+    1P1D deployment with dp8, IndexShare-off and MTP(5,1,6), on a base matched
+    to its host driver and carrying patch 01 alone, ran clean through warmup,
+    conc 1 and conc 8/16/32 -- and conc 1 is exactly where that argument
+    predicts divergence. See the driver precondition in README.md.
 
-        dp_attn.py:158 in all_gather
-        dp_attn.py:316 in prepare_mlp_sync_batch_raw
-        decode.py:2116 in get_next_disagg_decode_batch_to_run
-
-    surfacing as `Memory access fault by GPU node-N`, not as the documented
-    deadlock: the diverged ranks reach the GPU before they reach the next
-    collective.
+ON THIS BASE 04 IS SUBSTITUTED AT RUNTIME
+    `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`,
+    which the gfx942 recipe passes on every leg. It removes the seed that makes
+    the guard's inputs diverge, so no vote is needed.
 
 The seven edits mirror the diff's seven dp_attn.py insertions one-for-one.
 All-or-nothing: every anchor must match exactly once, or nothing is written and

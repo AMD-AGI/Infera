@@ -53,10 +53,6 @@ which takes `DSA_PATCH_SET`:
 | `full` (default) | `Dockerfile.sglang` | 01 + 02a + 02b + 04 | 7 bytecode markers |
 | `indexer` | `Dockerfile.sglang.gfx942` | 01 | the two patch-01 markers |
 
-A `gfx942` arm (01 + 02a + 04) existed briefly and was **removed**; passing it now
-fails with a pointer to `indexer`. See [the retraction](#retracted-02a-and-04-on-v0516)
-— the faults it was added for were an environment mismatch, not a code bug.
-
 Set `APPLY_SGLANG_DSA_PATCHES=0` for a stock engine to A/B against.
 
 Prefer the script over patching by hand: it also verifies each patch reached the
@@ -69,18 +65,22 @@ By hand, against the pinned base:
 ```bash
 cd /sgl-workspace/sglang
 python3 patch_dsa_indexer_hip_dp_padded_rows.py
-for d in dsa_dp_sync.diff dsa_page_table_rows.diff; do
+for d in dsa_dp_sync.diff dsa_page_table_rows.diff draft_cuda_graph_dp_vote.diff; do
   patch -p1 --fuzz=0 < "$d"
 done
 ```
 
 On the v0.5.16 base run **only the first line** (patch 01). Of the diffs:
-`dsa_dp_sync.diff` applies cleanly (offset −13) but is not needed there,
-`dsa_page_table_rows.diff` applies but is redundant (IndexShare off substitutes
-for it), and `draft_cuda_graph_dp_vote.diff` genuinely does not apply — 7/7 hunks
-fail in `dp_attn.py`, whose neighbouring gates were renamed.
+`dsa_dp_sync.diff` applies cleanly (offset −13) but is not carried there, and is
+[untested rather than ruled out](#what-this-validation-does-not-establish);
+`dsa_page_table_rows.diff` applies but is redundant
+(IndexShare off substitutes for it); and `draft_cuda_graph_dp_vote.diff` applies
+only in part — six of its seven files land, and `dp_attn.py` rejects all 7 of its
+hunks, its neighbouring gates having been renamed. That seventh file is carried by
+`patch_draft_cuda_graph_dp_vote_v0516.py` instead, which is what the (today empty)
+`EXPECT_REJECT` / `PORT_SCRIPTS` tables in the apply script exist to wire up.
 
-`--fuzz=0` is deliberate: those two target one pinned commit, and a fuzzy apply
+`--fuzz=0` is deliberate: the diffs target one pinned commit, and a fuzzy apply
 that "succeeds" against a different base is worse than a clean failure. The
 mi35x base image tag is pinned for the same reason — bumping it fails the build
 here rather than mis-applying silently. Note that `patch --dry-run` and `git
@@ -103,39 +103,24 @@ substitution table applies unchanged) — leave IndexShare on and the decode leg
 deadlocks on the first request, exactly as it does on gfx950 without patch 04.
 The 1P1D bring-up behind this image was validated with the flag set.
 
-### Retracted: 02a and 04 on v0.5.16
+### Host driver and container ROCm userspace must match
 
-Patch 02a was briefly added to this base, then 04 alongside it, on the strength
-of a GLM-5.2-FP8 1P1D bring-up on 2 × 8 MI300X (`dp8`, IndexShare off) where the
-decode leg died at the disaggregation warmup and then, once 02a was in, again
-after ~8 requests at conc 1. **Both additions are withdrawn.** The stacks were
-real; the attribution was not.
-
-**What it actually was.** That cluster runs amdgpu `1:6.10.5.60301` — the ROCm
-6.3.x kernel driver, whose supported userspace ceiling is 7.0.x — against a
-**7.2.0** base image. A container carries its own ROCm userspace but talks to the
-*host's* driver through `/dev/kfd`, and outside AMD's support window that
+A container brings its own ROCm userspace but cannot bring a kernel driver — it
+talks to the *host's* through `/dev/kfd`. Outside AMD's support window that
 mismatch does not refuse to start: the image initialises, loads weights, captures
-graphs, and then faults under load. Rebuilt on `v0.5.16-rocm700-mi30x` with
+graphs, and then faults under load as `Memory access fault by GPU node-N`.
+
+What makes it expensive is that it does not present as one bug. Pairing amdgpu
+`1:6.10.5.60301` (a ROCm 6.3.x driver) with a **7.2.0** image on a 2 × 8 MI300X
+1P1D bring-up produced three faults on three unrelated code paths — draft-extend,
+the draft-graph vote, a prefill kernel — each with a plausible sglang explanation
+and a patch that appeared to help. Rebuilt on `v0.5.16-rocm700-mi30x` with
 **patch 01 alone** and nothing else changed — same sglang 0.5.16, same MTP
 (5,1,6) on both legs, same IndexShare-off, same manifest but for the image tag —
-the deployment ran clean through warmup, conc 1, and conc 8/16/32. Neither 02a
-nor 04 was needed at any point.
+that deployment ran clean through warmup, conc 1 and conc 8/16/32 — without
+either of the two patches those faults had been attributed to.
 
-**Why the wrong answer looked right.** Three faults landed on three unrelated
-code paths (draft-extend, the draft-graph vote, a prefill kernel), each with a
-plausible sglang explanation and a patch that appeared to help. Two things should
-have been read as warnings rather than confirmations:
-
-- Adding 02a *did* get the leg past warmup — but shifting timing is not the same
-  as fixing a bug, and the next fault arrived a few requests later.
-- The third mitigation (`--prefill-max-requests 1`) had an almost perfect
-  correlation behind it: the fault tracked the first prefill batch with
-  `#new-seq: 2`, and 487 single-sequence batches ran clean. On the rocm700 image
-  **68 batches at `#new-seq: 2` survived**. Clean correlation, wrong cause.
-
-**What to do instead.** Before attributing a `Memory access fault by GPU node-N`
-to sglang, compare the host driver with the container's userspace:
+So compare the two before reaching for a patch:
 
 ```bash
 dpkg -l | grep -E 'amdgpu-dkms|rocm-core'   # on the host
@@ -147,16 +132,9 @@ cat /opt/rocm/.info/version                 # in the container
 | 6.3.x | ≤ 7.0.x |
 | 6.4.x (e.g. 6.14.14) | ≤ 7.2.x |
 
-That check costs seconds. Three image rebuilds were spent here instead.
-
-**Still true about the two patches themselves**, for whoever needs them next:
-02a applies to v0.5.16 unchanged, both hunks byte-for-byte at offset −13 under
-`--fuzz=0` (an offset is not fuzz — the context matched exactly, just lower in the
-file), and it should be applied whole rather than as the one-line `max_seqlen_k`
-fix, because hunk 2 removes two more D2H syncs on the same per-rank branch. 04's
-`dp_attn.py` hunks do **not** apply (renamed neighbours) and are ported by
-`patch_draft_cuda_graph_dp_vote_v0516.py`, which is verified and kept, wired into
-no arm.
+`Dockerfile.sglang.gfx942` defaults to `v0.5.16-rocm720-mi30x`, i.e. it assumes a
+6.4.x host. On a 6.3.x one, build with
+`--build-arg SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.16-rocm700-mi30x`.
 
 ### Patch 01: the row count diverges in BOTH directions (`GLM52_P1V3`)
 
@@ -316,9 +294,9 @@ flipping, the group decision would stay permissive and the hang would remain.
   row mismatch it fixes shows up at concurrency > 1. On 02a: a later 2 × 8 MI300X
   bring-up appeared to need it and then did **not**, once the ROCm userspace was
   brought back inside the driver's support window — see
-  [the retraction](#retracted-02a-and-04-on-v0516). So 02a remains untested
-  rather than ruled out on gfx942, and the one apparent data point for it is
-  withdrawn.
+  [the driver precondition](#host-driver-and-container-rocm-userspace-must-match).
+  So 02a remains untested rather than ruled out on gfx942, and the one apparent
+  data point for it does not bear on the patch.
 * **The image built from this branch after the rebase was not re-run.** `main`
   has since added a `libionic` layer (`eb7da57`) that the measured image did not
   carry. It is orthogonal to these patches — RDMA ABI matching, not DSA — but it

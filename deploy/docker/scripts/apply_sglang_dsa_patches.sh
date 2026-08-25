@@ -16,37 +16,22 @@
 #         `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`
 #         -- see patches/sglang_dsa/README.md; the gfx942 recipe MUST pass it.
 #
-# A THIRD ARM `gfx942` (= 01 + 02a + 04) was added and then REMOVED.  Worth
-# knowing why, because the reasoning that produced it was self-consistent and
-# still wrong:
+# THE TWO EMPTY TABLES BELOW ARE DELIBERATE.  `EXPECT_REJECT` scopes tolerance
+# for a diff expected to reject one named file; `PORT_SCRIPTS` lists the anchor
+# script that carries that file instead.  No arm needs either today, so any
+# rejection fails the build.  One port script is kept unused:
+# patches/sglang_dsa/patch_draft_cuda_graph_dp_vote_v0516.py carries 04's
+# dp_attn.py to v0.5.16 by anchor -- six of that diff's seven files apply there,
+# and dp_attn.py rejects all 7 of its hunks because the two gates beside them
+# were renamed.  Verified in-image, so 04 need not be re-cut if it is ever
+# wanted on that base.
 #
-#   Three GPU faults on a 2 x 8 MI300X 1P1D deployment were each traced to a
-#   plausible sglang cause -- a missing 02a on the draft-extend path, a missing
-#   04 on the draft-cuda-graph vote, then a prefill kernel on multi-sequence
-#   batches -- and 02a and 04 were wired in on that basis.  The real cause was
-#   the ENVIRONMENT: that cluster runs amdgpu 6.3.x, whose supported ROCm
-#   userspace ceiling is 7.0.x, against a 7.2.0 base image.  Rebuilt on
-#   `v0.5.16-rocm700-mi30x` with patch 01 ALONE and nothing else changed, the
-#   same deployment ran EAGLE MTP(5,1,6) on both legs clean -- warmup, conc 1,
-#   and conc 8/16/32.  Neither 02a nor 04 was needed at any point.
-#
-#   The lesson generalises past this repo: a single environment mismatch can
-#   present as several unrelated code bugs, each with a convincing stack, and
-#   patches that "fix" it may only be shifting timing.  Before attributing a
-#   `Memory access fault by GPU node-N` to sglang, check the host amdgpu version
-#   against the container's /opt/rocm/.info/version.  That check is cheaper than
-#   one image rebuild; three of them were spent here instead.
-#
-#   Kept from that work because it is independently correct:
-#     - the scoped-rejection logic in the apply loop below (a non-zero `patch`
-#       exit is tolerated only when the FAILED files match an arm's declared
-#       expectation exactly).  No arm declares one today, so any rejection now
-#       fails the build.
-#     - patches/sglang_dsa/patch_draft_cuda_graph_dp_vote_v0516.py, which ports
-#       04's dp_attn.py hunks to v0.5.16 by anchor (the diff's 7/7 hunks fail
-#       there: v0.5.16 renamed the two neighbouring gates).  Verified in-image,
-#       wired into no arm.  If 04 is ever genuinely needed on v0.5.16, it does
-#       not have to be rewritten.
+# THE `indexer` ARM IS NARROW ON PURPOSE.  02a and 04 can look necessary there
+# after a GPU fault that is really the driver: an out-of-support host-driver /
+# container-userspace pairing presents as several unrelated sglang bugs, each
+# with a convincing stack.  Compare the host amdgpu version against the
+# container's /opt/rocm/.info/version before attributing one to sglang -- see
+# the driver precondition in patches/sglang_dsa/README.md.
 #
 # WHY BYTECODE VERIFICATION.  Python caches compiled modules in __pycache__ keyed
 # on the source mtime.  A patch script that restores a backup with shutil.copy2
@@ -66,9 +51,6 @@ DSA_PATCH_SET="${DSA_PATCH_SET:-full}"
 
 case "$DSA_PATCH_SET" in
   full|indexer) ;;
-  gfx942) echo "DSA_PATCH_SET=gfx942 was removed: it added 02a + 04 on a misattributed" >&2
-          echo "environment failure (see the header). Use 'indexer' -- patch 01 only." >&2
-          exit 1 ;;
   *) echo "DSA_PATCH_SET must be 'full' or 'indexer', got '$DSA_PATCH_SET'" >&2
      exit 1 ;;
 esac
