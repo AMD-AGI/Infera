@@ -11,20 +11,24 @@ and nothing else — it never inspects what a task does.
 
 | | |
 |---|---|
-| [`docs/spec.md`](docs/spec.md) | What the system must do. 35 acceptance criteria |
+| [`docs/spec.md`](docs/spec.md) | What the system must do. 42 acceptance criteria (rev. 8) |
 | [`docs/design.md`](docs/design.md) | How it is built: files, classes, interfaces, test plan |
 
 Read the spec first. The design implements it and records, in its §13, every
 place where implementing it literally did not work.
 
+`task_graph` is one component of the wider agent work system; the whole-system
+specification is [`../docs/spec.md`](../docs/spec.md).
+
 ## Layout
 
-`task_graph` is one of the two components under `agent_sys/`, alongside
-`env_mgr`; both are declared by `agent_sys/pyproject.toml`.
+`task_graph` is one of the components under `agent_sys/`, alongside `env_mgr`;
+both are declared by `agent_sys/pyproject.toml`.
 
 ```
 agent_sys/
 ├── pyproject.toml       declares env_mgr and task_graph
+├── docs/spec.md         the whole-system specification
 ├── env_mgr/             the sibling component
 ├── task_graph/          this package
 │   ├── docs/            spec.md, design.md
@@ -36,7 +40,9 @@ agent_sys/
 
 ## Status
 
-Implemented. 358 tests, all 35 acceptance criteria covered.
+Criteria 1–35 (spec rev. 7) are implemented and covered: 358 tests here, 423
+across `agent_sys`. Criteria 36–42 — subgraph nesting, added at spec rev. 8 —
+are specified and not yet built; `docs/design.md` rev. 10 implements rev. 7.
 
 ```bash
 pip install -e agent_sys      # once

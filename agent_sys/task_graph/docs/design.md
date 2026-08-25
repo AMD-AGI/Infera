@@ -19,6 +19,10 @@ rather than papering over it.
 The spec's 35 acceptance criteria are the definition of done. §11 maps every one
 of them to a named test.
 
+**This document implements spec revision 7.** Spec rev. 8 adds subgraph nesting
+(spec §3.2.1) and criteria 36–42; that design is a later stage and is not in this
+document.
+
 **This document specifies interfaces, not bodies.** A method appears as a
 signature and a sentence of semantics; a body appears only where the ordering of
 steps *is* the design decision — which is `try_dispatch` (§8.3) and nothing

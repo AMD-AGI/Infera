@@ -3,10 +3,11 @@
 | | |
 |---|---|
 | Status | Draft, pending review |
-| Revision | 7 — 2026-08-20. References to the task-definition file made self-contained. (rev. 6: consumable balances and agents persist; `depends_on` checked at submit) |
+| Revision | 8 — 2026-08-24. Subgraph nesting: `parent` / `phase` / entry-subtask markers, the three-part expansion, and criteria 36–42. Revisions 1–7 are unchanged. (rev. 7: references to the task-definition file made self-contained) |
 | Date | 2026-08-19 |
 | Scope | Task management substrate for the Infera AI-optimization agent loop |
 | Source | The task definition; an internal prior-art survey (rev. 2, 2026-08-18) |
+| Part of | [`../../docs/spec.md`](../../docs/spec.md) — the whole-system specification |
 
 ---
 
@@ -252,6 +253,10 @@ previous version, so a downstream task may be dispatched against it. See §10.
 | `created_at` | `datetime` | FIFO ordering key |
 | `expedited` | `bool` | Set by `expedite()`; a policy hint |
 | `history` | `list[Execution]` | Append-only; one entry per run |
+| `parent` | `TaskId \| None` | The task this one expands from. `None` for the system whole task. Structure, not scheduling (§3.2.1) |
+| `phase` | `Phase` | Which of the three parts of the parent's expansion this task belongs to (§3.2.1) |
+| `is_start` | `bool` | This task is its parent's start entry subtask (§3.2.1) |
+| `is_end` | `bool` | This task is its parent's end entry subtask (§3.2.1) |
 
 `outputs` holds ids, not handoffs. Verdicts live on the handoff version (§3.1),
 not on the task.
@@ -399,6 +404,113 @@ set: there is no decision to make there, only a question to re-ask.
 `WAITING_RESOURCE` is ordered: it is the single place in the system where a
 scheduling decision occurs. Merging them into one queue with a filter would hide
 that distinction.
+
+### 3.2.1 Subgraph nesting
+
+A task may expand into a subgraph. The expansion is **declared in the task's
+spec**, not produced at runtime (see *Static definition only*, below), and the
+resulting subtasks are ordinary tasks — same states, same dispatch, same audit
+record.
+
+Four fields carry the structure, and all four are structure only: **nothing in
+scheduling reads them.** They join `depends_on` in the category §3.2 already
+establishes — the graph exists for traversal, display, and analysis, while
+eligibility remains `check_if_latest_valid` over `inputs`.
+
+| Field | Answers |
+|---|---|
+| `parent` | Which task did this one expand from |
+| `phase` | Which of the three parts of that expansion it belongs to |
+| `is_start` | Is this the subgraph's entry point |
+| `is_end` | Is this the subgraph's exit point |
+
+#### The start and end entry subtasks
+
+Every task that expands has a **start entry subtask** and an **end entry
+subtask**. Either may be the task itself.
+
+- **`is_start` being dispatched means the subgraph has begun.**
+- **`is_end` completing means the subgraph has finished.**
+
+These are markers, not gates. The scheduler does not wait for `is_start` before
+dispatching a sibling, and does not treat `is_end` specially at completion — it
+dispatches on input validity as always. What the markers give is a definite
+answer to "has this subgraph started, and has it finished", which display,
+progress reporting, and the parent's own completion accounting all need and which
+is otherwise a search over the subtask set.
+
+A task that is its own start and end entry subtask is a leaf: it expands into
+nothing, and `is_start` and `is_end` are both true of itself. That is the common
+case, and it is why the fields are on `Task` rather than on a separate subgraph
+record — the alternative would be a record for every leaf saying it has no
+subgraph.
+
+#### The three-part expansion
+
+A task's expansion has three parts, in this order:
+
+```
+task
+ ├─ input_validation     cross-handoff checks over the inputs. Usually empty
+ ├─ main                 the real work. Where a subgraph expands
+ └─ output_validation    checks over the outputs
+```
+
+`Phase` is `INPUT_VALIDATION | MAIN | OUTPUT_VALIDATION`.
+
+| Phase | What belongs there | Why |
+|---|---|---|
+| `input_validation` | Checks that read **several** inputs together | **A single handoff is never re-checked here.** Its own validators ran when it was produced; re-running them costs the same and learns nothing. What cannot have run earlier is a check *across* inputs, because no single producer saw them all |
+| `main` | The task's work. A subgraph expands here | — |
+| `output_validation` | Checks over the outputs | Placed here rather than downstream because a check usually needs the environment the producing task had — the model loaded, the trace open, the cluster reserved. Tearing that down and rebuilding it for a check is often more expensive than the check |
+
+`input_validation` is **usually empty**, and that is the expected case rather
+than a degenerate one. Most tasks consume handoffs that were each validated on
+production and need nothing further.
+
+**A validator runs as an ordinary task in one of these phases.** It is scheduled,
+leased, and audited exactly like any other node — see
+[`../../validator/docs/spec.md`](../../validator/docs/spec.md) §3 for why that is
+the design rather than a callback.
+
+#### The system whole task
+
+One task has `parent = None`: the **system whole task**, whose expansion is the
+entire graph. It exists so that "has the system finished" is the same question as
+"has this task's `is_end` completed", rather than a separate accounting.
+
+#### What does not change
+
+Stated explicitly, because the risk in adding structural fields is that
+scheduling quietly starts reading them:
+
+- **Dispatch reads `inputs` and `resources`.** Nothing else. Eligibility is still
+  `all(check_if_latest_valid(h) for h in task.inputs)` (§6.2 step 1).
+- **The pools are still keyed by `TaskStatus` alone.** A subtask sits in the same
+  pool as any other task in the same state; there is no per-subgraph pool.
+- **Phase order is not enforced by the scheduler.** It falls out of the handoff
+  dependencies the phases declare, exactly as every other ordering in this system
+  does. A phase whose tasks declare no dependency on the previous phase's outputs
+  will run concurrently with it, and that is a graph-authoring error the closure
+  is expected to catch ([`../../closure/docs/spec.md`](../../closure/docs/spec.md) §4),
+  not a scheduler responsibility.
+- **The authority boundary is unchanged.** The scheduler still never writes
+  handoff state, and criterion 14 still holds with subgraphs and validator tasks
+  present.
+
+Criterion 42 asserts the first two directly, the same way criterion 31 asserts it
+for `depends_on`: blank the fields and nothing about dispatch changes.
+
+#### Static definition only
+
+**A subgraph is declared, never generated.** A task cannot decide at runtime that
+it needs a subtask nobody declared.
+
+This is the system-level record-and-replay constraint (`../../docs/spec.md` §6)
+seen from the scheduler: the graph may *grow* — `submit` accepts new tasks at any
+time, and always has — but a task's own expansion is fixed by its spec. What a
+task can do when it finds it needs an undeclared step is report it, through the
+risk exit, and let a human amend the recording.
 
 ### 3.3 Agent
 
@@ -1303,3 +1415,31 @@ test:
 35. `submit` warns when `depends_on` omits the producer of one of the task's
     `inputs`, and submits the task anyway; it does not warn when `depends_on`
     names a task the inputs do not point at (§3.2).
+
+### Added at revision 8 — subgraph nesting (§3.2.1)
+
+Criteria 1–35 are unchanged and continue to hold with subgraphs present.
+
+36. A subtask carries `parent` naming the task it expanded from, and every
+    subtask of one parent agrees on it. Exactly one task in a graph has
+    `parent = None`: the system whole task.
+37. **Dispatching a task marked `is_start` is observable as "the subgraph has
+    begun", and completing one marked `is_end` as "the subgraph has finished"** —
+    both answerable without scanning the subtask set.
+38. A leaf task is its own start and end entry subtask: `is_start` and `is_end`
+    are both true, and it has no subtasks.
+39. A validator runs as an **ordinary task**: it appears in the pools, declares
+    and is granted resources, produces an `Execution` record with a bound
+    `agent_id` and pinned input versions, and is subject to criterion 14 —
+    the scheduler does not write the handoff state the validator writes.
+40. Phase ordering falls out of handoff dependencies, not from the scheduler: a
+    task in `output_validation` whose inputs are the `main` phase's outputs waits
+    for them, and one that declares no such dependency runs concurrently. The
+    scheduler is shown to read neither `phase` nor `parent` in reaching either
+    outcome.
+41. `input_validation` being empty is the normal case and dispatches nothing; a
+    task whose inputs were each validated on production runs with no
+    `input_validation` subtask at all.
+42. **`parent`, `phase`, `is_start`, and `is_end` drive no scheduling.** Blanking
+    all four on every task changes no dispatch order and no pool membership —
+    the same mechanical check criterion 31 applies to `depends_on`.
