@@ -20,6 +20,10 @@ ETCD_IMAGE="${ETCD_IMAGE:-quay.io/coreos/etcd:v3.5.14}"
 # plane is the usual one -- takes the client port down with the peer port even
 # though PD never uses peer at all.
 ETCD_PORT="${ETCD_ENDPOINT##*:}"
+# A bare host is a legal ETCD_ENDPOINT -- the engines and the router accept
+# `host`, `host:port` or a URL and fill in 2379 themselves -- so assume the port
+# they will dial rather than failing the peer arithmetic below on the host.
+[[ "$ETCD_PORT" =~ ^[0-9]+$ ]] || ETCD_PORT=2379
 ETCD_PEER_PORT="${ETCD_PEER_PORT:-$((ETCD_PORT + 1))}"
 PEER_URL="http://127.0.0.1:${ETCD_PEER_PORT}"
 
