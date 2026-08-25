@@ -801,6 +801,13 @@ def _draw_prefix_ids(
     return [rng.randrange(num_prefixes) for _ in range(n)]
 
 
+# Per-pick decay on each instance's recent-miss total, and the load charged for
+# a request carrying no block information. Both mirror the serving router, whose
+# policy module explains why each value is what it is.
+_KV_RECENT_DECAY = 0.97
+_KV_UNKNOWN_COST_BLOCKS = 1.0
+
+
 def _route_and_warm(
     reqs: List["_Req"],
     *,
@@ -809,6 +816,7 @@ def _route_and_warm(
     block_size: int,
     cache_blocks: int,
     rng: random.Random,
+    overlap_weight: float = 1.0,
 ) -> Tuple[List[List["_Req"]], Dict[str, float]]:
     """Route requests across instances and derive per-request prefix-cache hits
     from a content-addressed block cache (as real serving engines do).
@@ -820,13 +828,19 @@ def _route_and_warm(
     only prefills the uncached suffix -- and the request's blocks are then warmed
     into that instance (LRU-evicted under ``cache_blocks`` capacity).
 
-    Routing policies: ``kv`` routes to the instance with the most matching
-    resident blocks (ties → least loaded), i.e. overlap-scored KV-aware routing;
-    ``prefix_aware`` consistently hashes the leading block so same-prefix
-    requests co-locate; ``round_robin``/``random`` ignore locality.
+    Routing policies: ``kv`` trades cache overlap against load by the serving
+    router's own cost function, with ``overlap_weight`` as the dial between them
+    (``0`` routes purely by load); ``prefix_aware`` consistently hashes the
+    leading block so same-prefix requests co-locate; ``round_robin``/``random``
+    ignore locality.
     """
     per_inst: List[List["_Req"]] = [[] for _ in range(num_instances)]
     caches = [_BlockCache(cache_blocks) for _ in range(num_instances)]
+    # Decayed history of blocks each instance had to compute. The router's load
+    # term also counts in-flight blocks, which are unknowable here (routing is
+    # decided before the simulation runs) and are 0 for everyone anyway whenever
+    # a request finishes before the next is picked.
+    recent = [0.0] * num_instances
     hits = 0
     cached_total = 0
     blocks_total = 0
@@ -839,11 +853,15 @@ def _route_and_warm(
         if num_instances <= 1:
             inst = 0
         elif policy == "kv":
-            best_i, best_m = 0, -1
+            # The serving router's cost function, so the simulated fleet splits
+            # traffic the way the real one does:
+            #   cost(i) = overlap_weight * (blocks - hits(i)) + load(i)
+            best_i, best_cost = 0, None
             for i in range(num_instances):
-                m = caches[i].prefix_match(blocks)
-                if m > best_m or (m == best_m and inst_reqs[i] < inst_reqs[best_i]):
-                    best_i, best_m = i, m
+                miss = len(blocks) - caches[i].prefix_match(blocks)
+                cost = overlap_weight * miss + recent[i]
+                if best_cost is None or cost < best_cost:
+                    best_i, best_cost = i, cost
             inst = best_i
         elif policy == "prefix_aware":
             key = blocks[0] if blocks else r.idx
@@ -855,6 +873,16 @@ def _route_and_warm(
 
         inst_reqs[inst] += 1
         matched = caches[inst].prefix_match(blocks)
+        if policy == "kv":
+            # Charging misses rather than whole requests is what lets load
+            # coexist with affinity: an instance serving a fully-cached prompt
+            # accrues nothing and keeps winning it, while one handed a cold
+            # prompt accrues it and the next cold prompt goes elsewhere.
+            for i in range(num_instances):
+                recent[i] *= _KV_RECENT_DECAY
+            recent[inst] += (
+                float(len(blocks) - matched) if blocks else _KV_UNKNOWN_COST_BLOCKS
+            )
         cached = max(0, min(matched * block_size, r.prompt_len - 1))
         if cached > 0:
             r.cached_prefix = cached
@@ -946,6 +974,7 @@ def simulate_multi_instance(
     kv_cache_tokens: int,
     num_instances: int,
     routing: str,
+    overlap_weight: float,
     num_prefixes: int,
     prefix_len: int,
     prefix_zipf: float,
@@ -993,6 +1022,7 @@ def simulate_multi_instance(
         block_size=bs,
         cache_blocks=cache_blocks,
         rng=rng,
+        overlap_weight=overlap_weight,
     )
     prefix_summary["routing"] = float(_ROUTING_POLICIES.index(routing)) if routing in _ROUTING_POLICIES else -1.0
     prefix_summary["trace_driven"] = 1.0 if mooncake_rows is not None else 0.0
@@ -1037,6 +1067,7 @@ def run_des(
     record_steps: bool = False,
     num_instances: int = 1,
     routing: str = "round_robin",
+    overlap_weight: float = 1.0,
     num_prefixes: int = 0,
     prefix_len: int = 0,
     prefix_zipf: float = 0.0,
@@ -1078,6 +1109,7 @@ def run_des(
             kv_cache_tokens=kv_cache_tokens,
             num_instances=max(1, num_instances or 1),
             routing=routing if routing in _ROUTING_POLICIES else "round_robin",
+            overlap_weight=overlap_weight,
             num_prefixes=max(0, num_prefixes or 0),
             prefix_len=max(0, prefix_len or 0),
             prefix_zipf=max(0.0, prefix_zipf or 0.0),
