@@ -95,6 +95,25 @@ HiCacheStorage — leave it unset.
 See [`deploy/overlay/README.md`](../../deploy/overlay/README.md) for how the payload
 is assembled.
 
+## Substituting the placeholders
+
+Every manifest ships `<PLACEHOLDER>` strings where a cluster-specific value goes,
+because a default would be wrong everywhere but the cluster it came from. `sed` is
+enough for the simple ones, and each recipe README shows the exact invocation.
+
+[`render.py`](render.py) is the same substitution with the guardrails `sed` has no
+way to offer — it refuses to emit a manifest that still contains a placeholder,
+and refuses a `--set` name the chosen combo does not use, so a typo cannot pass as
+a no-op:
+
+```bash
+python3 examples/recipes/render.py <recipe>/<combo> --set NAME=VALUE ... | kubectl apply -f -
+python3 examples/recipes/render.py --help
+```
+
+Both failures it catches are ones that otherwise surface long after `kubectl apply`
+returns success.
+
 ## Source
 
 - Manifests: [`examples/recipes/`](.) in [AMD-AGI/Infera](https://github.com/AMD-AGI/Infera)
