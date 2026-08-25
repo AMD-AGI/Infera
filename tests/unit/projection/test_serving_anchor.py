@@ -19,7 +19,7 @@ from argparse import Namespace
 import pytest
 
 from infera.projection.core.projection.inference_projection.benchmark_serving import (
-    _server_command,
+    _engine_argv,
     resolved_kernels,
 )
 
@@ -62,25 +62,37 @@ def test_kernels_are_absent_rather_than_wrong_for_another_engine():
     }
 
 
-@pytest.mark.parametrize("backend, head, tp_flag", [
-    ("vllm", ["vllm", "serve", "openai/gpt-oss-120b"], "--tensor-parallel-size"),
-    ("sglang", ["python", "-m", "sglang.launch_server"], "--tp"),
+@pytest.mark.parametrize("backend, model_flag, tp_flag, http_flag", [
+    ("vllm", None, "--tensor-parallel-size", "--port"),
+    ("sglang", "--model-path", "--tp", "--port"),
+    ("atom", "--model", "--tensor-parallel-size", "--server-port"),
 ])
-def test_each_engine_is_launched_the_way_it_expects(backend, head, tp_flag):
-    cmd = _server_command(spec(serving_backend=backend), port=8123, tp=4)
-    assert cmd[:len(head)] == head
-    assert cmd[cmd.index(tp_flag) + 1] == "4"
-    assert cmd[cmd.index("--port") + 1] == "8123"
+def test_each_engine_is_launched_the_way_it_expects(backend, model_flag, tp_flag,
+                                                    http_flag):
+    argv = _engine_argv(spec(serving_backend=backend), port=8123, tp=4)
+    if model_flag is None:
+        assert argv[0] == "openai/gpt-oss-120b"  # vLLM takes the model positionally
+    else:
+        assert argv[argv.index(model_flag) + 1] == "openai/gpt-oss-120b"
+    assert argv[argv.index(tp_flag) + 1] == "4"
+    assert argv[argv.index(http_flag) + 1] == "8123"
+
+
+def test_atom_keeps_its_rendezvous_port_off_the_http_port():
+    """ATOM's --port is MASTER_PORT, not the API; sharing one number deadlocks."""
+    argv = _engine_argv(spec(serving_backend="atom"), port=8123, tp=1)
+    assert argv[argv.index("--server-port") + 1] == "8123"
+    assert argv[argv.index("--port") + 1] != "8123"
 
 
 def test_the_context_length_flag_follows_the_engine():
     """The same intent, spelled differently by each engine."""
-    assert "--max-model-len" in _server_command(spec(), port=1, tp=1)
-    assert "--context-length" in _server_command(spec(serving_backend="sglang"),
-                                                 port=1, tp=1)
+    assert "--max-model-len" in _engine_argv(spec(), port=1, tp=1)
+    assert "--context-length" in _engine_argv(spec(serving_backend="sglang"),
+                                              port=1, tp=1)
 
 
 def test_caller_server_args_always_win_by_coming_last():
-    cmd = _server_command(spec(server_args="--gpu-memory-utilization 0.85"),
-                          port=1, tp=1)
-    assert cmd[-2:] == ["--gpu-memory-utilization", "0.85"]
+    argv = _engine_argv(spec(server_args="--gpu-memory-utilization 0.85"),
+                        port=1, tp=1)
+    assert argv[-2:] == ["--gpu-memory-utilization", "0.85"]

@@ -1240,8 +1240,10 @@ def main():
                          "the Zipf exponent at the model's expert count. Use a "
                          "measured/expected production value (random data ~ low I, "
                          "domain-clustered traffic ~ higher I).")
-    ap.add_argument("--serving-backend", default="vllm", choices=("vllm", "sglang"),
-                    help="Which engine to launch for the anchor. Ignored with "
+    ap.add_argument("--serving-backend", default="vllm",
+                    choices=("vllm", "sglang", "atom"),
+                    help="Which engine to launch for the anchor. Launched through "
+                         "the same adapters the platform serves with. Ignored with "
                          "--offline, which is vLLM-only.")
     ap.add_argument("--offline", action="store_true",
                     help="Measure with the offline LLM() entrypoint instead of a "

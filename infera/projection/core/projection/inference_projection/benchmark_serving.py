@@ -31,24 +31,22 @@ the path the 7.7% figure was measured on.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import json
 import os
 import re
 import shlex
 import socket
 import subprocess
+import sys
 import tempfile
 import time
-import urllib.error
-import urllib.request
 
 # Kernel names vLLM prints once it has resolved them. Recorded on the anchor so
 # an artifact can be told apart from one measured on a different stack.
 _ATTENTION_RE = re.compile(r"Overriding with ([A-Z0-9_]+)|Using ([A-Z0-9_]+) backend")
 _MOE_RE = re.compile(r"Using '([A-Za-z0-9_]+)' Mxfp4 MoE backend")
-
-READY_TIMEOUT_S = 1800
-
 
 def resolved_kernels(log_text: str) -> dict:
     """The attention and MoE backends vLLM actually chose, from its own log.
@@ -70,49 +68,106 @@ def _free_port() -> int:
         return int(s.getsockname()[1])
 
 
-def _wait_until_ready(proc, port: int, log_path: str) -> None:
-    deadline = time.time() + READY_TIMEOUT_S
-    while time.time() < deadline:
-        if proc.poll() is not None:
-            raise RuntimeError(f"server exited with {proc.returncode}; see {log_path}")
+@contextlib.contextmanager
+def _capture_engine_output(path: str):
+    """Send the engine's log to ``path`` while it starts.
+
+    The adapters hand the child our own stdout/stderr, which is what a worker
+    wants in production. Pointing ours at a file for the duration of the spawn
+    is therefore the way to keep the log without giving the platform's launch
+    path a benchmark-only parameter. The child holds the redirected descriptors
+    for its whole life, so it keeps logging here after ours are restored.
+    """
+    sys.stdout.flush()
+    sys.stderr.flush()
+    with open(path, "w") as fh:
+        saved = (os.dup(1), os.dup(2))
         try:
-            with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=5):
-                return
-        except (urllib.error.URLError, OSError):
-            time.sleep(5)
-    raise RuntimeError(f"server not ready in {READY_TIMEOUT_S}s; see {log_path}")
+            os.dup2(fh.fileno(), 1)
+            os.dup2(fh.fileno(), 2)
+            yield
+        finally:
+            sys.stdout.flush()
+            sys.stderr.flush()
+            os.dup2(saved[0], 1)
+            os.dup2(saved[1], 2)
+            os.close(saved[0])
+            os.close(saved[1])
 
 
-def _server_command(args, port: int, tp: int) -> list[str]:
-    """How to launch the engine under test.
+def _engine_argv(args, port: int, tp: int) -> list[str]:
+    """The flags one engine wants for the intent every engine shares.
 
-    Both engines expose ``/health`` and an OpenAI-compatible
-    ``/v1/completions``, so only the launch differs -- readiness and load
-    generation are shared.
+    Only the spelling differs; all three expose ``/health`` and an
+    OpenAI-compatible ``/v1/completions``, so readiness and load generation are
+    shared. Caller flags come last so they win over anything derived here.
     """
     if args.serving_backend == "sglang":
-        cmd = ["python", "-m", "sglang.launch_server", "--model-path", args.model,
-               "--host", "127.0.0.1", "--port", str(port), "--tp", str(tp)]
+        argv = ["--model-path", args.model, "--host", "127.0.0.1",
+                "--port", str(port), "--tp", str(tp)]
         if args.max_model_len:
-            cmd += ["--context-length", str(args.max_model_len)]
+            argv += ["--context-length", str(args.max_model_len)]
         if args.enable_expert_parallel:
-            cmd += ["--enable-ep-moe"]
+            argv += ["--enable-ep-moe"]
         if args.enforce_eager:
-            cmd += ["--disable-cuda-graph"]
+            argv += ["--disable-cuda-graph"]
+    elif args.serving_backend == "atom":
+        # ATOM splits the two ports the other engines fold together: --port is
+        # the torch-distributed MASTER_PORT, so the HTTP listener the client
+        # and the health probe use is --server-port. Sharing one number here
+        # would collide the rendezvous with the API.
+        argv = ["--model", args.model, "--host", "127.0.0.1",
+                "--server-port", str(port), "--port", str(_free_port()),
+                "--tensor-parallel-size", str(tp)]
+        if args.max_model_len:
+            argv += ["--max-model-len", str(args.max_model_len)]
+        if args.enable_expert_parallel:
+            argv += ["--enable-expert-parallel"]
+        if args.enforce_eager:
+            argv += ["--enforce-eager"]
     else:
-        cmd = ["vllm", "serve", args.model, "--host", "127.0.0.1", "--port", str(port),
-               "--tensor-parallel-size", str(tp)]
+        argv = [args.model, "--host", "127.0.0.1", "--port", str(port),
+                "--tensor-parallel-size", str(tp)]
         if args.max_model_len:
-            cmd += ["--max-model-len", str(args.max_model_len)]
+            argv += ["--max-model-len", str(args.max_model_len)]
         if args.enable_expert_parallel:
-            cmd += ["--enable-expert-parallel"]
+            argv += ["--enable-expert-parallel"]
         if args.enforce_eager:
-            cmd += ["--enforce-eager"]
+            argv += ["--enforce-eager"]
     if args.quantization:
-        cmd += ["--quantization", args.quantization]
+        argv += ["--quantization", args.quantization]
     if args.kv_cache_dtype:
-        cmd += ["--kv-cache-dtype", args.kv_cache_dtype]
-    return cmd + shlex.split(args.server_args or "")
+        argv += ["--kv-cache-dtype", args.kv_cache_dtype]
+    return argv + shlex.split(args.server_args or "")
+
+
+def _build_engine(args, argv: list[str], port: int, tp: int):
+    """The engine to measure, launched the way the platform launches it.
+
+    Going through the engine adapters instead of a local command line is what
+    lets an anchor cover ATOM at all, and it keeps the launch -- including
+    adapter-side decisions such as SGLang's forced ``--enable-metrics`` -- the
+    same one that serves production traffic. Each import is deferred to its own
+    branch because an adapter may need its engine present just to import.
+    """
+    if args.serving_backend == "sglang":
+        from sglang.srt.server_args import ServerArgs
+
+        from infera.engine.sglang.worker import SglangEngine
+
+        return SglangEngine(
+            ServerArgs(model_path=args.model, host="127.0.0.1", port=port, tp_size=tp),
+            sglang_argv=argv,
+        )
+    if args.serving_backend == "atom":
+        from infera.engine.atom.worker import AtomEngine
+
+        return AtomEngine(atom_argv=argv, model_name=args.model,
+                          host="127.0.0.1", port=port)
+    from infera.engine.vllm.worker import VllmEngine
+
+    return VllmEngine(vllm_argv=argv, model_name=args.model,
+                      host="127.0.0.1", port=port)
 
 
 def _measure_concurrency(port: int, batch: int, args, out_dir: str) -> float:
@@ -158,29 +213,34 @@ def run_serving_benchmark(args) -> dict:
     batches = ([int(b) for b in args.batches.split(",") if b]
                if args.batches else [int(args.batch)])
     port = _free_port()
-    cmd = _server_command(args, port, bench_tp)
+    argv = _engine_argv(args, port, bench_tp)
+    engine = _build_engine(args, argv, port, bench_tp)
 
     out_dir = tempfile.mkdtemp(prefix="inferasim_serving_")
     log_path = os.path.join(out_dir, "server.log")
-    print(f"[inferasim:Inference:Serving] {' '.join(shlex.quote(c) for c in cmd)}")
+    print(f"[inferasim:Inference:Serving] {args.serving_backend} "
+          f"{' '.join(shlex.quote(c) for c in argv)}")
     started = time.time()
-    with open(log_path, "w") as log:
-        # Own process group: both engines leave workers behind that would
-        # otherwise hold the GPUs after the parent is gone.
-        proc = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT,
-                                start_new_session=True)
-        try:
-            _wait_until_ready(proc, port, log_path)
-            boot_s = time.time() - started
-            print(f"[inferasim:Inference:Serving] ready in {boot_s:.0f}s")
-            client_started = time.time()
-            sweep = [{"batch": b,
-                      "decode_ms": _measure_concurrency(port, b, args, out_dir)}
-                     for b in batches]
-            client_s = time.time() - client_started
-        finally:
-            os.killpg(os.getpgid(proc.pid), 15)
-            proc.wait(timeout=120)
+    try:
+        with _capture_engine_output(log_path):
+            asyncio.run(engine.start())
+    except Exception as exc:
+        # The adapter tears down its own process group on a failed start; this
+        # only makes sure a half-started engine cannot keep holding the GPUs.
+        asyncio.run(engine.stop())
+        raise RuntimeError(
+            f"{args.serving_backend} did not come up; see {log_path}"
+        ) from exc
+    boot_s = time.time() - started
+    print(f"[inferasim:Inference:Serving] ready in {boot_s:.0f}s")
+    try:
+        client_started = time.time()
+        sweep = [{"batch": b,
+                  "decode_ms": _measure_concurrency(port, b, args, out_dir)}
+                 for b in batches]
+        client_s = time.time() - client_started
+    finally:
+        asyncio.run(engine.stop())
 
     with open(log_path) as fh:
         kernels = resolved_kernels(fh.read())
