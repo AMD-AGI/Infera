@@ -13,8 +13,10 @@
 # the higher-concurrency points are scored with half their prefill already
 # cached and the points are not comparable. A distinct seed per point makes the
 # prompt sets disjoint; the flush drops what the previous point left behind.
+#
+# Nothing here has to unset NUM_PROMPTS: bench.sh derives it from CONC on each
+# call, so this loop's CONC is the one that counts.
 set -uo pipefail
-source cluster.env
 source env.sh
 require_ips
 
@@ -25,10 +27,5 @@ for C in 1 8 16 32 64 128; do
       || echo "[sweep] WARNING: $URL/flush_cache did not answer; this point starts warm"
   done
   sleep 5
-  # -u NUM_PROMPTS because sourcing env.sh above already exported it, computed
-  # from the DEFAULT CONC rather than this loop's. Left set, every point runs the
-  # same 64 prompts: half an hour of serial requests at CONC=1, and at CONC=128
-  # fewer prompts than the concurrency limit, so that point never reaches it.
-  # Unsetting hands the derivation back to env.sh, which sizes it from CONC.
-  env -u NUM_PROMPTS SEED=$((1000 + C)) CONC=$C bash bench.sh 2>&1 | tail -32
+  SEED=$((1000 + C)) CONC=$C bash bench.sh 2>&1 | tail -32
 done

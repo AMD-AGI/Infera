@@ -7,15 +7,17 @@ it is actually correct, and sizing it with a simple serving benchmark.
 
 Every script is driven by environment variables, so you should not need to edit
 any of them; `env.sh` holds the defaults, and they are the tuned recipe below
-rather than SGLang's defaults. The node names (`node-0`, `node-1`) are
-placeholders — substitute your own.
+rather than SGLang's defaults. Your cluster's values go in one file, `cluster.env`
+(§2), which `env.sh` reads first.
 
 KV offload below the GPU cache (`kvd`) ships here too, but **off by default** —
 on the workload this was tuned against it cost 12% and served zero reads. §6
 covers turning it on and how to tell whether your workload is one that wants it.
 
-The agentic multi-turn benchmark that produced the numbers below is out of scope
-here, and is being generalised into a standalone tool.
+The agentic multi-turn benchmark that chose the recipe ships here too (§5.2), and
+drives either this deployment or the Kubernetes one in
+[`examples/recipes/glm5.2-fp8-gfx942/`](../recipes/glm5.2-fp8-gfx942/README.md)
+through the same client, so the two are comparable.
 
 ## Scripts
 
@@ -33,8 +35,14 @@ the column says which, and mixing the two is the most common way to get stuck.
 | `launch/launch_decode.sh` | container | SGLang decode leg, same shape. |
 | `launch/launch_router.sh` | container | Infera kv-aware router. |
 | `verify.sh` | container | Correctness checks; exits non-zero on any failure. |
-| `bench.sh` | container | SGLang `bench_serving` on a random dataset, through the router. |
+| `bench.sh` | container | SGLang `bench_serving` on a random dataset, through the router. Sizes the deployment (§5.1). |
+| `run_sweep.sh` | container | `bench.sh` across concurrency 1–128, with a fresh seed and a flush per point. |
+| `weka_to_agentic_trace.py` | container | Build the agentic multi-turn dataset from the public corpus (§5.2). |
+| `run_agentic_trace.sh` | container | Replay that dataset through the router and score it (§5.2). |
+| `score_agentic_trace.py` | container | Recompute the cache metrics `bench_serving` gets wrong in multi-turn mode. |
+| `bench_client.sh` | host | Run the agentic bench from outside any engine container — for the k8s deployment, or a third machine. |
 | `stop.sh` | container | Stop the router and engine processes on this node. |
+| `check_image.py` | container | Read the patch markers out of a built image before trusting it. |
 
 ## Topology
 
@@ -103,15 +111,21 @@ bash build_image.sh
 
 ## 2. Adapt to your cluster
 
-Export these on **both** nodes before running anything:
+Everything cluster-specific lives in one file. On **both** nodes:
 
 ```bash
-export PREFILL_IP=10.0.0.1        # node-0, on the data network
-export DECODE_IP=10.0.0.2         # node-1, on the data network
-export MODEL=/your/path/GLM-5.2-FP8
-export IB_DEVICE=mlx5_0           # the RDMA rail the two nodes share
-export MC_GID_INDEX=3             # RoCE GID index on that device
+cp cluster.env.example cluster.env    # then edit
 ```
+
+`env.sh` reads it before its own defaults, and every script sources `env.sh`, so
+there is nothing to remember at the call site and nothing else to edit. The repo
+is bind-mounted at the same path inside the container, so one copy serves the host
+and the container both.
+
+`cluster.env.example` carries, for each value, the command that finds it rather
+than a value to guess. The three that fail *silently* when wrong are
+`MC_GID_INDEX` (§3), the advertised IPs (gotcha 7) and `ETCD_ENDPOINT` — worth the
+two minutes each.
 
 If your nodes resolve by name, `PREFILL_NODE` / `DECODE_NODE` derive the IPs
 instead. The addresses must be the ones the peers can reach on the data network,
@@ -247,15 +261,22 @@ or the next run OOMs against VRAM the old one still holds.
 
 ## 5. Benchmark
 
+Two workloads, and they answer different questions. `bench.sh` sizes raw serving
+throughput on random prompts; `run_agentic_trace.sh` replays the multi-turn trace
+the recipe was tuned on and is the only one of the two that can say anything about
+the cache or the kv-aware router.
+
+### 5.1 Random dataset — sizing
+
 ```bash
 bash bench.sh                              # defaults from env.sh
 ISL=8192 OSL=512 CONC=32 bash bench.sh
-for C in 8 16 32 64; do CONC=$C bash bench.sh; done   # concurrency sweep
+bash run_sweep.sh                          # concurrency 1..128, fresh seed per point
 ```
 
-Defaults are `ISL=4096 OSL=1024 CONC=16`, and `NUM_PROMPTS` follows `CONC` at four
-waves (64 prompts by default), so raising the concurrency alone keeps the run
-length roughly constant. Results land in `results/<tag>.json` and `.log`.
+Defaults are `ISL=4096 OSL=1024 CONC=16`, and `NUM_PROMPTS` defaults to four waves
+of `CONC` — derived inside `bench.sh` on each call, so raising `CONC` re-derives
+it. Results land in `results/<tag>.json` and `.log`.
 
 Two things to read correctly:
 
@@ -264,9 +285,84 @@ Two things to read correctly:
   reuse. This benchmark sizes raw serving throughput; measuring cache reuse needs
   a workload with real shared prefixes.
 - **It will not reproduce the numbers in "The tuned recipe".** Those came from
-  the agentic trace described there, whose inputs are ~17× longer and heavily
-  prefix-shared. Use this to check the deployment is healthy and to compare
-  concurrencies against each other, not against those figures.
+  the agentic trace below, whose inputs are ~17× longer and heavily prefix-shared.
+  Use this to check the deployment is healthy and to compare concurrencies against
+  each other, not against those figures.
+
+Sweep with `run_sweep.sh` rather than a bare loop: at a fixed seed each point's
+prompt set is a *superset* of the one below it and the radix tree still holds the
+smaller one, which reads as ~50% cache hits at every point from `CONC=16` up.
+
+### 5.2 Agentic trace — the workload that chose the recipe
+
+The corpus is [`semianalysisai/cc-traces-weka-062126-256k`][corpus] (Apache-2.0),
+Claude Code agent traffic. It carries per-turn token counts and KV block ids but
+no text, so `weka_to_agentic_trace.py` synthesises filler while preserving what
+matters: exact per-turn lengths and block-level prefix reuse. Build it once, in
+the container on the prefill node:
+
+[corpus]: https://huggingface.co/datasets/semianalysisai/cc-traces-weka-062126-256k
+
+```bash
+hf download semianalysisai/cc-traces-weka-062126-256k --repo-type dataset
+SRC=$(ls "$HF_HOME"/hub/datasets--semianalysisai--cc-traces-weka-062126-256k/snapshots/*/traces.jsonl)
+
+python3 weka_to_agentic_trace.py "$SRC" -o "$TRACE" \
+  --output-len "$OUTPUT_LEN" --min-turns 4 --max-context 100000 \
+  --verify 20 --tokenizer "$MODEL"
+```
+
+`--max-context` fits the corpus to what the deployment can prefill; `--dry-run`
+reports the resulting distribution without writing, which is the cheap way to pick
+it. At 100000 this yields 295 conversations with a p50 peak context of 78,848
+tokens, and `--verify` reproduces every checked turn's length exactly.
+
+Then run it:
+
+```bash
+NUM_PROMPTS=60 CONC=16 bash run_agentic_trace.sh docker
+```
+
+`NUM_PROMPTS` counts **conversations**, not requests — 60 conversations averaging
+~7.5 turns is 448 requests. The script reads the served model name and the KV page
+size off the server rather than assuming them, flushes both legs, replays the
+trace and rescores it.
+
+To drive a deployment you cannot `docker exec` into — the Kubernetes one, or from
+a third machine — use the host-side wrapper, which starts the same client in a
+throwaway container so the tokenizer, dataset, concurrency limiter and scorer stay
+identical across arms:
+
+```bash
+bash bench_client.sh k8s http://<router-ip>:8000 \
+     http://<prefill-node>:30001 http://<decode-node>:31501
+```
+
+### 5.3 Read the agentic result
+
+`sglang.benchmark.serving` mis-reports the input side in multi-turn mode: it keeps
+the conversation-level `prompt_len` for every turn, so its own summary can print
+`Total input tokens: 0` next to a cache hit rate above 100%. Its per-request
+`cached_tokens` come from the server and are correct, so `score_agentic_trace.py`
+recomputes against the dataset's verified per-turn lengths and reports the number
+worth comparing across tools — **efficiency**, actual hits over what a cache that
+evicted nothing could have returned:
+
+```text
+  actual hit rate              84.61 %
+  ideal  hit rate              84.61 %
+  efficiency (a/i)            100.00 %
+  tokens lost to evict              0 (0.00% of ideal)
+```
+
+Efficiency at 100% with no eviction means the run is below the pressure point and
+kv-aware routing has nothing to distinguish itself on; raise `CONC` until eviction
+appears. Efficiency **above** 100% means the flush did not take — `flush_cache` is
+a no-op while requests are in flight and still returns success.
+
+A run with any failed request is refused rather than scored: a failure is recorded
+with `cached_tokens=0`, so including it drags the hit rate down and a dead worker
+reads as a cache problem.
 
 ## 6. Optional: KV offload below the GPU cache (`kvd`)
 

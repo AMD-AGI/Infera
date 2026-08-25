@@ -7,11 +7,15 @@
 #
 # Args: <tag> <router host:port> [flush url ...]
 #
-# This is the bench half of examples/glm5.2_gfx942_agentic_bench/run_agentic_trace.sh
-# (ported in temp/agentic/), with the deployment half factored out so the same
-# client can point at either arm. That matters more than it sounds: the client's
-# tokenizer, dataset, concurrency limiter and scoring all sit on this side of the
-# wire, so running two different clients would put those in the comparison too.
+# This is the bench half of examples/glm5.2_gfx942/run_agentic_trace.sh, with the
+# deployment half factored out so the same client can point at either arm. That
+# matters more than it sounds: the client's tokenizer, dataset, concurrency limiter
+# and scoring all sit on this side of the wire, so running two different clients
+# would put those in the comparison too.
+#
+# Kept because the tuning loop (tune-cycle.sh) drives it and the results in
+# results/agentic/ came out of it. For a fresh deployment use the example's
+# bench_client.sh instead -- same client, configured from env.sh.
 #
 # The client always runs here on tw041 in a container off the same image, whatever
 # it is measuring, and reaches the router over the network in both arms.
@@ -23,7 +27,11 @@ ROUTER="${2:?router host:port}"
 shift 2
 FLUSH_URLS=("$@")
 
-IMAGE="${IMAGE:-localhost:5010/infera:sglang-gfx942-glm52-p01-rocm700}"
+REPO="${REPO:-$(cd "$HERE/../.." && pwd)}"
+# The scorer and the trace converter live with the example, not here -- this
+# script only supplies the client container around them.
+WORK="${WORK:-$REPO/examples/glm5.2_gfx942}"
+IMAGE="${IMAGE:-infera:sglang-gfx942-glm52}"
 DATA_DIR="${DATA_DIR:-/tmp/infera-agentic-data}"
 MODEL="${MODEL:-/tmp/infera-models/GLM-5.2-FP8}"
 TRACE="${TRACE:-/data/cc_traces_100k.json}"
@@ -90,7 +98,7 @@ echo "[agentic] $TAG router=$ROUTER conc=$CONC convs=$NUM_PROMPTS -> $OUT_DIR/${
 docker run --rm --network host \
   --device=/dev/kfd --device=/dev/dri --group-add video --group-add render \
   -v "$DATA_DIR:/data:ro" -v "$MODEL:$MODEL:ro" \
-  -v "$HERE/agentic:/work:ro" -v "$OUT_DIR:/out" \
+  -v "$WORK:/work:ro" -v "$OUT_DIR:/out" \
   --entrypoint python3 "$IMAGE" \
   -m sglang.benchmark.serving \
     --backend sglang-oai-chat \
@@ -108,7 +116,7 @@ docker run --rm --network host \
 # conversation-level prompt_len for every turn); this is the number to read.
 echo
 docker run --rm \
-  -v "$DATA_DIR:/data:ro" -v "$HERE/agentic:/work:ro" -v "$OUT_DIR:/out" \
+  -v "$DATA_DIR:/data:ro" -v "$WORK:/work:ro" -v "$OUT_DIR:/out" \
   --entrypoint python3 "$IMAGE" \
   /work/score_agentic_trace.py "$TRACE" "$DETAILS" "$NUM_PROMPTS" \
     --page-size "$PAGE_SIZE" \
