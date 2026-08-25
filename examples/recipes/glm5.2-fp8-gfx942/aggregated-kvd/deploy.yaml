@@ -1,0 +1,271 @@
+# GLM-5.2-FP8 on gfx942 — aggregated-kvd — Kubernetes recipe
+#
+#   image    infera:sglang-gfx942-glm52   built from deploy/docker/Dockerfile.sglang.gfx942
+#   engine   infera.engine.sglang         TP8 / DP8 with DP-attention, fp8 KV, NO MTP
+#   KV move  none                         one worker prefills and decodes
+#   KV tiers GPU -> SGLang hicache host RAM -> infera-kvd L2 -> L3 on node NVMe
+#
+# ONE node, 8 x gfx942, plus the offload tier. What it is FOR: requests that
+# share long prefixes — a common system prompt, multi-turn chat, RAG — whose
+# reuse outgrows the device pool. Below that point the device pool answers
+# everything, this arm and `aggregated` serve identically, and the tier is pure
+# cost, since hicache is write_through and every byte written to L2/L3 is paid
+# for on the prefill path whether or not it is read.
+#
+# SGLang issues storage prefetch on its aggregated and prefill branches, so
+# unlike a decode leg this worker really does read the tier back — validated
+# here at gets_total 370 / hits_total 370 / misses_total 0, the only arm of the
+# four where kvd has been observed serving reads at all.
+#
+# ---------------------------------------------------------------------------
+# THIS IS THE ONE COMBO WITH NO MTP, AND THAT IS NOT A PREFERENCE
+#
+# The other three arms all run MTP. This one cannot: on a worker that both
+# prefills and decodes, MTP and hicache deadlock each other, and it took six
+# configurations to establish that MTP is the trigger rather than a bystander.
+#
+# The mechanism is a hypothesis, not a proven root cause: hicache's prefetch and
+# write-back bookkeeping is PER RANK local state, while both the scheduler's
+# control broadcast and the model's own collectives require every rank to be
+# doing the same thing on the same iteration; MTP adds a second per-rank host
+# pool for draft tokens — the same pool whose 132-byte stride forces
+# --hicache-io-backend direct below — so there is more state available to drift.
+#
+# disaggregated-kvd keeps MTP because speculative decoding only happens on the
+# decode leg (the prefill leg's spec_accept_length is 0.0 on every rank), so the
+# combination never actually forms there even though both legs carry the flags.
+#
+# The two failure signatures, neither of which says "cache":
+#
+#   - the scheduler's control broadcast, on the FIRST prompt long enough to
+#     trigger write-back. Nothing is logged for that request at all — not even a
+#     "Prefill batch" line — and 600 s later:
+#       WorkNCCL(SeqNum=810, OpType=ALLREDUCE) ran for 600088 ms
+#       ... event_loop_overlap -> _broadcast_reqs_across_ranks -> broadcast
+#   - inside the model forward, under concurrency, after the deployment has been
+#     answering correctly for a while:
+#       WorkNCCL(SeqNum=2883, OpType=ALLREDUCE) ran for 600xxx ms
+#       ... eagle_worker_v2.forward_batch_generation -> deepseek_v2.forward
+#
+# Tried, so none of it is retried blind:
+#
+#   1. MTP on, DP-attention on, overlap scheduler (i.e. the other arms' engine
+#      line plus kvd): ready in 23 min, `3937` correct, then the first 9-chunk
+#      prompt hung in the control broadcast.
+#   2. + --enable-dp-attention-local-control-broadcast, which removes the
+#      per-iteration all-ranks gloo sync: WORSE. Two GPUs took a
+#      `Memory access fault` during startup warmup, before serving anything.
+#   3. MTP on, plain TP8, one 32 GB host tier: OOMKilled (exit 137). A budget
+#      error, not a finding — --hicache-size is per TP rank, so the tier is
+#      256 GB whether or not DP-attention is on.
+#   4. MTP on, plain TP8, 512Gi: every correctness judge passed, including the
+#      9-chunk needle at three depths, then it hung inside the model forward on
+#      the fourth benchmark request. So DP-attention is not the trigger.
+#   5. + --disable-overlap-schedule: `Memory access fault` during warmup again.
+#   6. MTP OFF, DP-attention back on, overlap scheduler on — i.e. this file.
+#      WORKS. Ready in 21.5 min, the 9-chunk needle correct at all three depths,
+#      232 requests over conc 1/8/16/32 with zero failures, zero faults, zero
+#      restarts, and kvd serving reads.
+#
+# Attempt 6 is a single-variable change from attempt 1, so MTP is the trigger.
+# Cross-recipe evidence agrees: examples/recipes/glm5.2/ runs SGLang hicache on
+# a mixed worker too and does not hang, and its engine line carries no
+# speculative flags at all.
+#
+# What this costs, and it is not small: 233.8 output tok/s at conc 32 against
+# `aggregated`'s 407.5 with MTP and no tier. Two variables differ there, so that
+# is not a clean measurement of either — it is the honest statement that this arm
+# gives up MTP's decode throughput to get the tier. If you need MTP on one node,
+# use `aggregated`; if you need the tier with MTP, use `disaggregated-kvd`.
+#
+# Consequence for A/B testing: `aggregated` is NOT this file's KVD=0 sibling,
+# because it also has MTP. The clean pair for measuring the tier on one node is
+# this file against itself with the kvd lines removed.
+# ---------------------------------------------------------------------------
+#
+# Docs: examples/recipes/glm5.2-fp8-gfx942/README.md — §1 why this recipe builds
+# an engine image instead of mounting the overlay, §5 how to read kvd's counters.
+#
+# Fill in before applying:
+#   <NODE>          kubernetes.io/hostname of the gfx942 node to run on.
+#   <MODEL_DIR>     node directory holding GLM-5.2-FP8/, mounted read-only at /models.
+#   <KVD_L3_DIR>    node-local NVMe directory for kvd's L3. Must not be a shared
+#                   filesystem — anything shared classifies as buffered and the
+#                   reload lands inside the TTFT budget instead of under it.
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: glm52-fp8-mixed-kvd
+  namespace: infera
+spec:
+  backendFramework: sglang
+  discoveryBackend: kubernetes
+  nats:
+    deploy: false
+  services:
+    # ---- router: infera.server, kv-aware ------------------------------------
+    server:
+      componentType: server
+      port: 8000
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <NODE>}
+        containers:
+          - name: main
+            image: infera:sglang-gfx942-glm52
+            imagePullPolicy: IfNotPresent
+            command: ["python3","-m","infera.server",
+                      "--host","0.0.0.0","--port","8000","--router-backend","rust",
+                      "--router-tokenizer-path","/models/GLM-5.2-FP8",
+                      "--discovery-backend","kubernetes",
+                      "--request-transport","http","--kv-event-transport","zmq",
+                      "--router-policy","kv-aware",
+                      "--kv-prefill-overlap-weight","20.0",
+                      "--kv-decode-overlap-weight","2.0"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            readinessProbe:
+              httpGet: {path: /health, port: 8000}
+              periodSeconds: 5
+            resources:
+              requests: {cpu: "8", memory: 16Gi}
+              limits: {cpu: "8", memory: 16Gi}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+        volumes:
+          - {name: model, hostPath: {path: <MODEL_DIR>, type: Directory}}
+    # ---- the one worker + the kvd daemon ------------------------------------
+    worker:
+      componentType: worker
+      role: mixed
+      replicas: 1
+      port: 30000
+      skipReadinessProbe: true
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <NODE>}
+        # No hostNetwork: no KV leaves this node, so the Pod network is enough.
+        # hostIPC stays — it is what supplies /dev/shm, and TP8 needs a large one.
+        hostIPC: true
+        initContainers:
+          # ---- kvd: L2 in host RAM + L3 on node NVMe ----
+          # NATIVE sidecar (restartPolicy: Always, needs k8s 1.29+): the engine
+          # probes this socket once with a 5 s timeout and refuses to start if
+          # nothing answers, so kvd has to pass its startupProbe before `main`
+          # runs. An ordinary container makes that ordering a race.
+          - name: kvd
+            restartPolicy: Always
+            image: infera:sglang-gfx942-glm52
+            imagePullPolicy: IfNotPresent
+            # --io-mode: `auto` used to lose an LVM mount from inside a container
+            # and fall back to buffered — 3.70 GB/s against 14.56 with O_DIRECT.
+            # It resolves that through sysfs now, so this is a pin rather than a
+            # workaround: a misclassification costs 4x while nothing warns.
+            # --tablespace-pools: one slot must hold one whole hicache page, and
+            # GLM-5.2-FP8 at page_size 64 writes both 2.74 MiB KV pages and
+            # 624 KiB indexer pages. Oversize values are REJECTED, not split, so
+            # one pool would leave L3 silently empty for one of the two.
+            command: ["python3","-m","infera.kvd",
+                      "--socket","/tmp/infera-kvd/kvd.sock",
+                      "--max-bytes","64G",
+                      "--long-path","/kvd-l3","--long-bytes","512G",
+                      "--io-mode","direct",
+                      "--use-tablespace","--tablespace-pools","1M,4M"]
+            startupProbe:
+              exec:
+                command: ["python3","-m","infera.kvd.statctl","--socket","/tmp/infera-kvd/kvd.sock"]
+              periodSeconds: 5
+              timeoutSeconds: 5       # the default 1 s is short for a cold interpreter
+              failureThreshold: 36    # 3 min: L3 recovery replays the tablespace journal
+            securityContext:
+              capabilities: {add: ["IPC_LOCK"]}    # required to mlock the arena
+            resources:
+              # Two independent budgets live here, not one. --max-bytes caps the
+              # inline store; the shared arena is sized separately and defaults to
+              # the same 64 GiB, and it is mmap'd and mlocked whole at startup, so
+              # it is never reclaimable. 64 + 64 + headroom.
+              requests: {cpu: "8", memory: 136Gi}
+              limits: {cpu: "8", memory: 136Gi}
+            volumeMounts:
+              - {name: kvd-sock, mountPath: /tmp/infera-kvd}
+              - {name: kvd-l3, mountPath: /kvd-l3}
+        containers:
+          - name: main
+            image: infera:sglang-gfx942-glm52
+            imagePullPolicy: IfNotPresent
+            # Not privileged: that was for /dev/infiniband on the disaggregated
+            # arms, and there is no RDMA on this path. IPC_LOCK is kept because
+            # the hicache host tier is pinned; SYS_PTRACE is for attaching a
+            # debugger to a hung rank.
+            securityContext: {capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}}
+            # --json-model-override-args stands in for two sglang_dsa patches
+            # this base cannot take; see the `aggregated` manifest.
+            # --hicache-size is GB PER TP RANK, not per worker: every one of the
+            # 8 schedulers logs "Allocating 32.00 GB host memory for hierarchical
+            # KV cache", so this is a 256 GB host tier and that is what sets the
+            # memory limit below. Sizing the limit as if it were 32 GB total gets
+            # the container OOMKilled (exit 137) right after graph capture, which
+            # reads as a crash rather than as a budget mistake.
+            # --hicache-io-backend direct is kept even though MTP is gone. It is
+            # MTP's 132-byte draft pool that makes the default `kernel` path
+            # raise (ValueError: Unsupported IO backend: kernel), so on paper
+            # this arm no longer needs the flag — but `direct` also switches
+            # mem_layout to page_first_direct, and dropping both at once would
+            # change two things in the configuration that finally worked. Left
+            # in deliberately; removing it is an untested one-line experiment.
+            #
+            # No --speculative-* flags here, and that is the whole point of this
+            # arm; see the header. Adding them back deadlocks the worker.
+            command: ["python3","-m","infera.engine.sglang",
+                      "--model-path","/models/GLM-5.2-FP8",
+                      "--host","0.0.0.0","--port","30000","--advertise-host","$(POD_IP)",
+                      "--discovery-backend","kubernetes",
+                      "--request-transport","http",
+                      "--enable-kv-events","--kv-events","on","--kv-event-transport","zmq",
+                      "--tp-size","8","--dp-size","8","--enable-dp-attention",
+                      "--trust-remote-code","--kv-cache-dtype","fp8_e4m3",
+                      "--reasoning-parser","glm45","--tool-call-parser","glm47",
+                      "--dsa-prefill-backend","tilelang","--dsa-decode-backend","tilelang",
+                      "--mem-fraction-static","0.85","--max-running-requests","128",
+                      "--chunked-prefill-size","8192","--watchdog-timeout","1200",
+                      "--disable-custom-all-reduce","--enable-cache-report",
+                      "--json-model-override-args",'{"index_share_for_mtp_iteration":false}',
+                      "--enable-metrics","--enable-metrics-for-all-schedulers",
+                      "--infera-kvd-socket","/tmp/infera-kvd/kvd.sock","--hicache-size","32",
+                      "--hicache-io-backend","direct",
+                      "--weight-loader-prefetch-checkpoints",
+                      "--model-loader-extra-config",'{"enable_multithread_load": true, "num_threads": 32}']
+            env:
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: SGLANG_HOST_IP, value: "$(POD_IP)"}
+              - {name: HOST_IP, value: "$(POD_IP)"}
+              - {name: SGLANG_DSA_TRITON_PREFILL, value: "1"}
+              - {name: SGLANG_USE_AITER, value: "1"}
+              - {name: SAFETENSORS_FAST_GPU, value: "1"}
+              - {name: HSA_NO_SCRATCH_RECLAIM, value: "1"}
+              - {name: INFERA_ENGINE_READY_TIMEOUT, value: "5400"}
+            startupProbe:
+              httpGet: {path: /health, port: 30000}
+              periodSeconds: 15
+              timeoutSeconds: 10
+              failureThreshold: 360   # 90 min, matching INFERA_ENGINE_READY_TIMEOUT
+            resources:
+              # > 256 GiB of hicache host tier (32 GB x 8 TP ranks) plus the
+              # weight-load buffers. With the kvd sidecar's 136Gi and the router's
+              # 16Gi this puts ~670 GiB on one node.
+              requests: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}
+              limits: {cpu: "32", memory: 512Gi, amd.com/gpu: 8}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: kvd-sock, mountPath: /tmp/infera-kvd}
+        volumes:
+          - {name: model, hostPath: {path: <MODEL_DIR>, type: Directory}}
+          # engine <-> kvd UDS. The zero-copy arena is a memfd handed over this
+          # socket via SCM_RIGHTS, so sharing the socket path is the whole
+          # requirement — there is no shared mount or /dev/shm object to line up.
+          - {name: kvd-sock, emptyDir: {}}
+          # hostPath, not a PVC: L3 must be node-local NVMe. A shared volume
+          # classifies as buffered. The Pod is already pinned to one node anyway.
+          - {name: kvd-l3, hostPath: {path: <KVD_L3_DIR>, type: DirectoryOrCreate}}

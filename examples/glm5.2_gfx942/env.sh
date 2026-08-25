@@ -103,8 +103,15 @@ export ENGINE_METRICS="${ENGINE_METRICS:-1}"
 # --- router -----------------------------------------------------------------
 # rust execs the infera-router binary the image carries at /usr/local/bin. It
 # makes the same routing decisions as the python backend request for request and
-# measured 27% faster end to end, so it is the default. Its supported subset is
-# what this example passes anyway (etcd discovery, http transport, kv-aware).
+# measured 27% faster end to end on THIS shape, so it is the default. Its supported
+# subset is what this example passes anyway (etcd discovery, http transport,
+# kv-aware) — and also covers kubernetes discovery, which the k8s recipe's README
+# once wrongly said it did not.
+#
+# Do not carry the 27% to another shape without re-measuring. The same A/B on the
+# k8s recipe's aggregated shape (2 workers, sweep to concurrency 32) landed within
+# ±5% either way, +4.4% at the top: the router backend only matters once the router
+# is the bottleneck rather than the GPUs.
 export ROUTER_BACKEND="${ROUTER_BACKEND:-rust}"
 export ROUTER_POLICY="${ROUTER_POLICY:-kv-aware}"
 

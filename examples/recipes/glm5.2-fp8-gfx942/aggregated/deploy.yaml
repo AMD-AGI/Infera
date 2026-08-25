@@ -1,0 +1,157 @@
+# GLM-5.2-FP8 on gfx942 — aggregated — Kubernetes recipe
+#
+#   image    infera:sglang-gfx942-glm52   built from deploy/docker/Dockerfile.sglang.gfx942
+#   engine   infera.engine.sglang         TP8 / DP8 with DP-attention, MTP, fp8 KV
+#   KV move  none                         one worker prefills and decodes
+#   KV tiers GPU only
+#
+# ONE node, 8 x gfx942. This is the combo to start with, and the only one that
+# works on a single box: the disaggregated arms hand KV over by RDMA and have no
+# TCP fallback. Nothing here touches Mooncake, /dev/infiniband or a GID index, so
+# the whole RDMA class of silent failures does not apply — which is the other
+# reason to bring this up first when something is wrong and you do not yet know
+# what layer it is in.
+#
+# `role: mixed` is the operator's API value for this shape; `aggregated` is what
+# the directory is called. Same thing, see the recipes README.
+#
+# Docs: examples/recipes/glm5.2-fp8-gfx942/README.md — §1 why this recipe builds
+# an engine image instead of mounting the overlay.
+#
+# Fill in before applying:
+#   <NODE>        kubernetes.io/hostname of the gfx942 node to run on.
+#   <MODEL_DIR>   node directory holding GLM-5.2-FP8/, mounted read-only at /models.
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: glm52-fp8-mixed
+  namespace: infera
+spec:
+  backendFramework: sglang
+  discoveryBackend: kubernetes
+  nats:
+    deploy: false
+  services:
+    # ---- router: infera.server, kv-aware ------------------------------------
+    server:
+      componentType: server
+      port: 8000
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <NODE>}
+        containers:
+          - name: main
+            image: infera:sglang-gfx942-glm52
+            imagePullPolicy: IfNotPresent
+            # Same router configuration as the disaggregated arms, deliberately:
+            # the four combos should differ only along the axes they are about.
+            # kv-aware routing has nothing to choose between at replicas: 1 — it
+            # starts earning its keep when you scale the worker out.
+            command: ["python3","-m","infera.server",
+                      "--host","0.0.0.0","--port","8000","--router-backend","rust",
+                      "--router-tokenizer-path","/models/GLM-5.2-FP8",
+                      "--discovery-backend","kubernetes",
+                      "--request-transport","http","--kv-event-transport","zmq",
+                      "--router-policy","kv-aware",
+                      "--kv-prefill-overlap-weight","20.0",
+                      "--kv-decode-overlap-weight","2.0"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            # The operator injects a readiness probe for workers only, so without
+            # this the Service takes traffic before uvicorn has bound the port.
+            readinessProbe:
+              httpGet: {path: /health, port: 8000}
+              periodSeconds: 5
+            resources:
+              requests: {cpu: "8", memory: 16Gi}
+              limits: {cpu: "8", memory: 16Gi}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+        volumes:
+          - {name: model, hostPath: {path: <MODEL_DIR>, type: Directory}}
+    # ---- the one worker: prefill and decode ---------------------------------
+    worker:
+      componentType: worker
+      role: mixed
+      replicas: 1
+      port: 30000
+      # Weight load is 10-20 min cold. The startupProbe below is the readiness
+      # signal instead, with a budget matching INFERA_ENGINE_READY_TIMEOUT.
+      skipReadinessProbe: true
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: <NODE>}
+        # No hostNetwork here, unlike the disaggregated arms. They need it because
+        # the RoCE rails are host interfaces and the peer has to open a QP to the
+        # address this leg advertises; with no KV leaving the node, the Pod
+        # network is enough and the router reaches the worker on its Pod IP.
+        #
+        # hostIPC stays: it is what supplies /dev/shm, and TP8 needs a large one.
+        # The node's is charged to the node rather than to any limit here.
+        hostIPC: true
+        containers:
+          - name: main
+            image: infera:sglang-gfx942-glm52
+            imagePullPolicy: IfNotPresent
+            # Not privileged, also unlike the disaggregated arms — that was for
+            # /dev/infiniband, which has no unprivileged equivalent without an
+            # RDMA device plugin. There is no RDMA on this path. IPC_LOCK is kept
+            # so pinned host buffers during weight load are not silently
+            # downgraded; SYS_PTRACE is for attaching a debugger to a hung rank.
+            securityContext: {capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}}
+            # `command` replaces the ENTRYPOINT, so infera-inject-host-ionic does
+            # not run — harmless, the image already bakes the ABI (README §6).
+            # --json-model-override-args is not tuning: it stands in for two
+            # sglang_dsa patches this base cannot take. It is kept here even
+            # though the deadlock it avoids was seen on a decode leg — nothing
+            # established that the aggregated path is exempt, and the flag is
+            # what every measurement on this image was taken with.
+            command: ["python3","-m","infera.engine.sglang",
+                      "--model-path","/models/GLM-5.2-FP8",
+                      "--host","0.0.0.0","--port","30000","--advertise-host","$(POD_IP)",
+                      "--discovery-backend","kubernetes",
+                      "--request-transport","http",
+                      "--enable-kv-events","--kv-events","on","--kv-event-transport","zmq",
+                      "--tp-size","8","--dp-size","8","--enable-dp-attention",
+                      "--trust-remote-code","--kv-cache-dtype","fp8_e4m3",
+                      "--reasoning-parser","glm45","--tool-call-parser","glm47",
+                      "--dsa-prefill-backend","tilelang","--dsa-decode-backend","tilelang",
+                      "--mem-fraction-static","0.85","--max-running-requests","128",
+                      "--chunked-prefill-size","8192","--watchdog-timeout","1200",
+                      "--disable-custom-all-reduce","--enable-cache-report",
+                      "--speculative-algorithm","EAGLE","--speculative-num-steps","5",
+                      "--speculative-eagle-topk","1","--speculative-num-draft-tokens","6",
+                      "--json-model-override-args",'{"index_share_for_mtp_iteration":false}',
+                      # Without these, "MTP did not crash" and "MTP silently
+                      # degraded to one token per step" are indistinguishable.
+                      # sglang:spec_accept_length per DP rank is the only way to
+                      # tell, and it costs a scrape endpoint.
+                      "--enable-metrics","--enable-metrics-for-all-schedulers",
+                      "--weight-loader-prefetch-checkpoints",
+                      "--model-loader-extra-config",'{"enable_multithread_load": true, "num_threads": 32}']
+            env:
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: SGLANG_HOST_IP, value: "$(POD_IP)"}
+              - {name: HOST_IP, value: "$(POD_IP)"}
+              - {name: SGLANG_DSA_TRITON_PREFILL, value: "1"}
+              - {name: SGLANG_USE_AITER, value: "1"}
+              - {name: SAFETENSORS_FAST_GPU, value: "1"}
+              - {name: HSA_NO_SCRATCH_RECLAIM, value: "1"}
+              - {name: INFERA_ENGINE_READY_TIMEOUT, value: "5400"}
+            startupProbe:
+              httpGet: {path: /health, port: 30000}
+              periodSeconds: 15
+              timeoutSeconds: 10
+              failureThreshold: 360   # 90 min, matching INFERA_ENGINE_READY_TIMEOUT
+            resources:
+              # No hicache host tier on this arm, so weight-load buffers and the
+              # TP8 working set only — the kvd arm needs twice this. cpu matches
+              # num_threads in --model-loader-extra-config.
+              requests: {cpu: "32", memory: 256Gi, amd.com/gpu: 8}
+              limits: {cpu: "32", memory: 256Gi, amd.com/gpu: 8}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+        volumes:
+          - {name: model, hostPath: {path: <MODEL_DIR>, type: Directory}}

@@ -54,7 +54,7 @@ one axis at a time against a locked baseline:
 
 | Setting | Value | What it bought |
 | --- | --- | --- |
-| `ROUTER_BACKEND` | `rust` | Same routing decisions as the python backend request for request, 27% faster end to end. |
+| `ROUTER_BACKEND` | `rust` | Same routing decisions as the python backend request for request, 27% faster end to end **on this shape** — the same comparison on the k8s recipe's aggregated shape came out within ±5% (note 4 below). |
 | `CHUNK` | `8192` (1,024/rank) | The largest single lever: −23.8% duration, −34.4% TTFT against 16,384/rank. |
 | `MTP_STEPS`/`TOPK`/`DRAFT_TOKENS` | `5`/`1`/`6` | −8.5% duration, −13.8% TPOT. Acceptance 4.64 against a 4.00 break-even. |
 | `IB_DEVICE` | one rail | Striping KV over every NIC measured 11.9% *slower*; KV uses 4.5% of one 200 Gb/s port. |
@@ -134,6 +134,31 @@ bash preflight_rdma.sh
 The reported count of active RDMA ports must match the node's, not be `0`. For
 the cross-node netperf and Mooncake probes, set a shared `DUMP_PATH` and run one
 task per node (see `infera/tools/preflight/README.md`).
+
+Two things to confirm by hand before the 20-minute bring-up, because both fail the
+same unhelpful way — see gotcha 10.
+
+**`IB_DEVICE` must be ACTIVE on both nodes**, not just present. Both legs pin to
+one rail, so a rail that is down on either node takes the deployment with it:
+
+```bash
+for d in /sys/class/infiniband/*; do
+  echo "$(basename "$d") $(cat "$d/ports/1/state")"
+done
+```
+
+Then confirm the rail you picked carries traffic between the two nodes, which
+liveness alone does not tell you:
+
+```bash
+ib_write_bw -d "$IB_DEVICE" -x "$MC_GID_INDEX"            # on the decode node
+ib_write_bw -d "$IB_DEVICE" -x "$MC_GID_INDEX" "$DECODE_IP"  # on the prefill node
+```
+
+**Your fabric may need more than `IPC_LOCK`.** `host_container.sh` grants
+`IPC_LOCK`, `SYS_PTRACE` and `memlock=-1`, which is enough on some clusters and not
+on others. If PD warmup dies where gotcha 10 describes, pass
+`EXTRA_DOCKER_ARGS=--privileged` when creating the container.
 
 ## 4. Bring-up
 
@@ -306,26 +331,70 @@ full run is exactly the 12% regression above. The remaining knobs — `KVD_RAM_B
 2. **Both legs must agree on the MTP shape.** SGLang rejects a disaggregated pair
    whose speculative config differs, so change `MTP_STEPS` / `MTP_DRAFT_TOKENS`
    in `env.sh` (which both read) rather than on one leg's command line.
-3. **The rust router requires etcd discovery.** `infera.server` validates the
-   supported subset before it execs the binary and fails with a pointer to
-   `--router-backend python`. This example uses etcd, so it is inside that subset;
-   a Kubernetes deployment is not, which is why the k8s recipe runs the python
-   backend.
-4. **kv-aware fails soft.** Without a tokenizer it warns once and routes on load
+3. **The rust router validates its subset before exec.** `infera.server` checks
+   the requested config and fails with a pointer to `--router-backend python` for
+   anything outside it. This example's etcd setup is inside that subset — and so
+   is Kubernetes discovery: `_SUPPORTED_DISCOVERY` is `("etcd", "kubernetes")`,
+   it just additionally requires `--k8s-label-selector`, which the operator
+   injects. (An earlier version of this note claimed the rust backend was
+   etcd-only and used that to explain the k8s recipe's `--router-backend python`.
+   That reason was wrong, and the k8s recipe now ships `rust` on all four combos:
+   it passed every judge on the `aggregated` shape and then served the agentic
+   trace 448/448 at 100.00% cache efficiency on `disaggregated`, matching this
+   example arm-for-arm. See `temp/glm52-k8s-4combo-report.md` §2.10 and §2.11.)
+4. **The 27% in the table above is this example's number, not a portable one.** The
+   same comparison on the k8s recipe's aggregated shape measured within ±5% either
+   way, with +4.4% at concurrency 32 — the router only shows up when it is the
+   bottleneck rather than the GPUs, and a 2-worker sweep to concurrency 32 never
+   gets there. Re-measure before quoting it for a different shape.
+5. **kv-aware fails soft.** Without a tokenizer it warns once and routes on load
    alone. `launch_router.sh` refuses to start on that warning and `verify.sh`
    re-checks it, because a run scored against load balancing while labelled
-   kv-aware is worse than a launch that stops.
-5. **Advertise the data-network IP.** `--advertise-host` is what the peer dials
+   kv-aware is worse than a launch that stops. Note that this only covers the
+   tokenizer being absent — a router that loads a tokenizer and then keeps an empty
+   kv view looks healthy in every log. Testing for that needs two workers and a
+   behavioural check (`temp/kv-affinity-test.py`).
+6. **Advertise the data-network IP.** `--advertise-host` is what the peer dials
    for the Mooncake bootstrap handshake; a management-NIC address there fails at
    hand-off time, not at startup.
-6. **`Ctrl-C` on a `tail -f` does not stop an engine.** The launch scripts run
+7. **`Ctrl-C` on a `tail -f` does not stop an engine.** The launch scripts run
    them under `nohup`; use `stop.sh`.
-7. **A missing IP is refused, not defaulted.** Both legs find each other only
+8. **A missing IP is refused, not defaulted.** Both legs find each other only
    through the addresses they register in etcd, and a wrong one costs a full cold
    start to discover: registration happens *after* the weights load, on the other
    node. Setting only `PREFILL_IP` is the trap worth naming — the decode leg would
    advertise the prefill node's address, both legs would register, and only a real
    request would find the hole. `require_ips` in `env.sh` stops that at launch.
-8. **`kvd` outlives a restart, on disk.** `stop.sh` kills the daemon after the
+9. **`kvd` outlives a restart, on disk.** `stop.sh` kills the daemon after the
    engines, so nothing is pulled from under a live one, but L3 is journalled and
    is recovered on the next start. Delete `KVD_L3_DIR` to start cold.
+10. **A fabric problem surfaces as a GPU bug, 11 minutes late.** Both of the §3
+    checks were added after hitting this twice with different causes and an
+    identical symptom. The decode leg loads all 8 ranks' weights, allocates KV,
+    starts uvicorn, answers `/model_info` — and only then dies:
+
+    ```text
+    Start of pd disaggregation warmup ...
+    Memory access fault by GPU node-3 (Agent handle: 0x...) on address 0x... Reason: Unknown.
+    ```
+
+    After that `/health` returns `503` forever, the surviving ranks spin at 100%
+    GPU waiting on a peer that is gone, and the wrapper keeps printing
+    `waiting for SGLang HTTP` without timing out. Nothing in that picture points at
+    the fabric, and `GPU node-3` is an HSA agent id, not a GPU index.
+
+    The two causes seen so far:
+
+    - **The pinned rail was down on one node.** The evidence is three info-level
+      lines thousands of lines earlier, among the `[aiter]` autotune noise:
+      `topology.cpp:93] <rail>:1 is not active (state: 1)`, then
+      `has no active ports, skipping`, then `Skipping unavailable device`. Mooncake
+      skips the only rail it was given and comes up with no usable transport, so
+      the error waits for the first real KV transfer to appear.
+    - **The container lacked `--privileged`.** `IPC_LOCK` plus `memlock=-1` was not
+      enough for this cluster's RDMA registration path. Identical flags,
+      environment and rail; adding `EXTRA_DOCKER_ARGS=--privileged` was the whole
+      fix.
+
+    Neither logs anything about permissions or link state at warning level or
+    above, so telling them apart means changing one thing at a time.

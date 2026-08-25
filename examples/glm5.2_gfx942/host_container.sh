@@ -68,8 +68,14 @@ if [[ "$KVD" == "1" ]]; then
   KVD_ARGS=(-v "$KVD_L3_DIR:$KVD_L3_DIR")
 fi
 
+# EXTRA_DOCKER_ARGS is for cluster-specific additions this script cannot know
+# about, e.g. EXTRA_DOCKER_ARGS=--privileged where the fabric's RDMA registration
+# path needs more than IPC_LOCK.
+read -r -a EXTRA_ARGS_ARR <<< "${EXTRA_DOCKER_ARGS:-}"
+
 docker run -d --name "$CONTAINER" \
   --network host --ipc host --shm-size 128g \
+  "${EXTRA_ARGS_ARR[@]}" \
   --device=/dev/kfd --device=/dev/dri --device=/dev/infiniband \
   --group-add video --group-add render \
   --cap-add=IPC_LOCK --cap-add=SYS_PTRACE \
