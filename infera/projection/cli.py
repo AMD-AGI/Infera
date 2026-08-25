@@ -206,10 +206,26 @@ def _add_performance_args(parser):
         choices=["benchmark", "simulate", "both"],
         help=(
             "Profiling mode for layer timing:\n"
-            "  benchmark  - Run actual GPU benchmarks (default, requires GPU)\n"
+            "  benchmark  - Measure on real GPUs (needs GPUs, a serving engine\n"
+            "               and --bench-model), then calibrate to what was measured\n"
             "  simulate   - Use simulation backends (origami for GEMM,\n"
             "               analytical model for SDPA). No GPU required.\n"
             "  both       - Run both benchmark and simulation, report side-by-side\n"
+            "'inference' defaults to 'simulate', so a projection needs no GPU\n"
+            "unless you ask for one; 'anchor' always measures.\n"
+        ),
+    )
+    parser.add_argument(
+        "--bench-model",
+        type=str,
+        required=False,
+        default=None,
+        help=(
+            "Checkpoint to serve while measuring (HF id or local path), for\n"
+            "--profiling-mode benchmark. Required there because a structural\n"
+            "config describes an architecture, not a checkpoint. Weights are\n"
+            "served random, so the id only has to name the right shape.\n"
+            "Env: INFERASIM_BENCH_MODEL.\n"
         ),
     )
     parser.add_argument(
@@ -932,13 +948,6 @@ def _add_inference_args(parser):
             "effects. Default: 4."
         ),
     )
-    # Internal: marks this process as the spawned GPU benchmark worker.
-    parser.add_argument(
-        "--inference-bench-worker",
-        action="store_true",
-        default=False,
-        help=_argparse.SUPPRESS,
-    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -961,26 +970,32 @@ def build_parser() -> argparse.ArgumentParser:
     inference.set_defaults(profiling_mode="simulate", func="inference")
 
     # anchor-harvest is a thin shim over the vLLM harness
-    anchor = sub.add_parser(
+    # Registered only so it appears in `--help`. Its flags are parsed by the
+    # harness itself (see the dispatch in main()), so none are declared here.
+    sub.add_parser(
         "anchor",
-        help="Harvest a GPU-calibrated anchor via the vLLM benchmark harness.",
+        help="Harvest a GPU-calibrated anchor via the vLLM benchmark harness "
+             "(`inferasim anchor --help` lists its flags).",
+        add_help=False,
     )
-    anchor.set_defaults(func="anchor")
-    anchor.add_argument("_bench_argv", nargs=argparse.REMAINDER,
-                        help="Args forwarded to the vLLM anchor harness (see --help of that module).")
     return parser
 
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
-    parser = build_parser()
-    args, overrides = parser.parse_known_args(argv)
 
-    if getattr(args, "func", None) == "anchor":
+    # `anchor` forwards its flags verbatim to the vLLM harness, and several of
+    # them (--model, --input-len, --tp) also exist on the projection parser.
+    # Split it off before argparse sees it: sharing the tokens leaves the
+    # harness with an argv the two parsers have already torn in half.
+    if argv and argv[0] == "anchor":
         from infera.projection.core.projection.inference_projection import (
             benchmark_vllm,
         )
-        return benchmark_vllm.main(args._bench_argv)
+        return benchmark_vllm.main(argv[1:])
+
+    parser = build_parser()
+    args, overrides = parser.parse_known_args(argv)
 
     # inference projection (simulate by default; --load-benchmark uses an anchor)
     launch_projection_from_cli(args, overrides)

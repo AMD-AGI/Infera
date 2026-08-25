@@ -1121,7 +1121,7 @@ def _cache_path(cache_dir: str, key: str) -> str:
     return os.path.join(cache_dir, f"vllm_bench_{key}.json")
 
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser(description="vLLM inference benchmark backend")
     ap.add_argument("--model", required=True, help="HF model id or local path")
     ap.add_argument("--tp", type=int, default=1,
@@ -1161,9 +1161,9 @@ def main():
                          "per-batch mean + std across seeds (no engine re-init). "
                          "Three by default because a single seed gives an artifact "
                          "with no error bar at all: two independent single-seed runs "
-                         "of one identical config disagree by 6.1% on average and "
-                         "12.1% at worst, which is large enough to be mistaken for "
-                         "model error. Seeds are nearly free -- they reuse the engine, "
+                         "of one identical config can disagree by enough to be "
+                         "mistaken for model error. Seeds are nearly free -- they "
+                         "reuse the engine, "
                          "and the build is almost all of the cost.")
     ap.add_argument("--max-model-len", type=int, default=None)
     ap.add_argument("--bench-layers", default=None,
@@ -1260,7 +1260,7 @@ def main():
                     help="Ignore any cached result and do not write one.")
     ap.add_argument("--force", action="store_true",
                     help="Re-run and OVERWRITE the cached result for this config.")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
     # Before anything imports vLLM: several ROCm levers are read once at import.
     # Sorted so the same lever set always produces the same cache key.
     args.env = sorted(args.env)

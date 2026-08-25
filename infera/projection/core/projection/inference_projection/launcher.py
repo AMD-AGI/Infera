@@ -540,15 +540,6 @@ def launch_projection_from_cli(args, overrides):
 
     config, _unknown = load_config(args, overrides or [])
 
-    # Internal: this process *is* the GPU benchmark worker (spawned under
-    # torchrun by the parent). Build the real model, time forward-only layers,
-    # write the result JSON, and exit — no projection happens here.
-    if getattr(args, "inference_bench_worker", False):
-        from .benchmark import run_inference_benchmark_worker
-
-        run_inference_benchmark_worker(config, _unknown, args)
-        return {}
-
     inf_overrides = _collect_inference_overrides(args)
     inference_config = convert_config_to_inference_config(
         config, inference_overrides=inf_overrides
@@ -630,8 +621,8 @@ def launch_projection_from_cli(args, overrides):
     hbm_gb = getattr(args, "hbm_capacity_gb", None)
     profiling_mode = getattr(args, "profiling_mode", "simulate") or "simulate"
 
-    # Benchmark mode: spawn a torchrun worker to measure forward-only layer
-    # times on real GPUs, then calibrate the analytical projection to them.
+    # Benchmark mode: measure this recipe on real GPUs, then calibrate the
+    # analytical projection to what was measured.
     benchmark_layer_times = None
     scaling_benchmarks: list = []
     load_bench = getattr(args, "load_benchmark", None)
@@ -676,14 +667,13 @@ def launch_projection_from_cli(args, overrides):
         else:
             decode_floor = None
     elif profiling_mode == "benchmark" and mode in ("performance", "both"):
+        # Measure this recipe on GPUs now. Asking for a benchmark and quietly
+        # receiving a simulation would be the worst of both, so failures here
+        # are raised rather than absorbed; --profiling-mode simulate is how you
+        # ask for the projection that needs no GPU.
         from .benchmark import spawn_inference_benchmark
 
-        benchmark_layer_times = spawn_inference_benchmark(args, overrides)
-        if benchmark_layer_times is None:
-            print(
-                "[inferasim:Inference] benchmark unavailable — falling back to "
-                "simulation for the performance projection."
-            )
+        benchmark_layer_times = spawn_inference_benchmark(args, inference_config)
 
     # Default multi-anchor policy ("TP=1 + TP=2 scaling"): when several
     # whole-model benchmarks are loaded, use the one measured AT the target TP

@@ -2,10 +2,10 @@
 configuration of a workload on a target cluster.
 
 The agent uses the projection tool as an oracle -- memory and performance
-projection, each benchmark-anchored by default (measure what fits on a sub-node
-run, scale the rest analytically) with a no-GPU simulate fallback -- and a
-DSPy.RLM loop with planner + scratchpad + history to navigate the space
-efficiently.
+projection, simulated by default so the search needs no GPU, with
+``--profiling-mode benchmark`` to anchor instead on what fits on a sub-node run
+and scale the rest analytically -- and a DSPy.RLM loop with planner +
+scratchpad + history to navigate the space efficiently.
 
 Entry point:
     python -m infera.projection.agents.tuning_agent --workload <yaml> --target-cluster <yaml>

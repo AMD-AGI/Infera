@@ -532,10 +532,10 @@ def _build_inference_cmd(
     decode_floor: Path | None = None,
 ) -> list[str]:
     # The inference projector runs single-process and (in --profiling-mode
-    # benchmark) spawns its OWN torchrun worker via spawn_inference_benchmark,
-    # so the parent must NOT be wrapped in torchrun. A cached --load-benchmark
-    # artifact (one measurement per parallelism, reused across all serving-knob
-    # trials) skips the spawn and just calibrates.
+    # benchmark) drives its OWN serving engine, which shards itself, so the
+    # parent must NOT be wrapped in torchrun. A cached --load-benchmark artifact
+    # (one measurement per parallelism, reused across all serving-knob trials)
+    # skips the measurement and just calibrates.
     cmd: list[str] = [
         *_python_invoker(config_root),
         "projection", "inference",
