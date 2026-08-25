@@ -192,10 +192,15 @@ async def test_the_flag_survives_the_events_that_follow_it():
 
 
 class _FakeKv:
-    def __init__(self) -> None:
+    def __init__(self, *, fail_first: int = 0) -> None:
         self.puts: list[bytes] = []
+        self.attempts = 0
+        self._fail_first = fail_first
 
     async def put(self, key, value):
+        self.attempts += 1
+        if self.attempts <= self._fail_first:
+            raise RuntimeError("no reachable NATS server")
         self.puts.append(value)
 
 
@@ -234,6 +239,41 @@ async def test_the_tail_of_a_burst_reaches_the_bucket(monkeypatch):
         await task
 
     assert len(kv.puts) == 2, "the tail never reached the bucket"
+    assert relay._dirty[0] is False
+
+
+@pytest.mark.asyncio
+async def test_a_put_that_failed_is_retried_rather_than_dropped(monkeypatch):
+    """A failed put left the rank clean, so the view it lost was never rewritten.
+
+    The dirty bit is the only record that the bucket is behind. Clearing it
+    before the put and not restoring it on failure meant the next write waited
+    for the next *event* -- and on a rank that has gone quiet, for nothing at
+    all. The router does not read a stale bucket as stale: it reads it as
+    coverage until ``SEED_COVERAGE_WINDOW`` lapses, and then as a relay that
+    died -- which is what arms the flush that discards a live prefix cache. So
+    the bus being briefly unreachable has to cost a retry, not the view.
+    """
+    monkeypatch.setattr(relay_mod, "_BUCKET_WRITE_INTERVAL_S", 0.05)
+    relay = _relay(EngineType.SGLANG)
+    relay._kv = kv = _FakeKv(fail_first=1)
+
+    await _drive(relay, [_sglang_stored()])
+    assert kv.attempts == 1 and kv.puts == [], "the put must have been tried and failed"
+    assert relay._dirty[0] is True, "a lost write leaves the bucket behind"
+
+    relay._closing = False
+    task = asyncio.create_task(relay._drain_dirty())
+    for _ in range(100):
+        await asyncio.sleep(0.01)
+        if kv.puts:
+            break
+    relay._closing = True
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert len(kv.puts) == 1, "the view the failed put carried never reached the bucket"
     assert relay._dirty[0] is False
 
 

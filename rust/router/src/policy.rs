@@ -254,7 +254,17 @@ impl KvEventAwarePolicy {
     /// never match them (its tokenisation or block size disagrees with the
     /// engine's). Neither shows up in `/health`, request latency, or error
     /// rate; without this the only symptom is a routing decision nobody reads.
-    fn note_hit_outcome(&self, picked: &RouteTarget, blocks: usize, hits: usize) {
+    ///
+    /// `overlap_steered` says whether this pick was actually made on text
+    /// prefix overlap. When it was not, a zero-hit result is the expected
+    /// outcome rather than a symptom, and must not reach the counter.
+    fn note_hit_outcome(
+        &self,
+        picked: &RouteTarget,
+        blocks: usize,
+        hits: usize,
+        overlap_steered: bool,
+    ) {
         if blocks == 0 {
             return; // nothing could have hit; says nothing either way
         }
@@ -265,20 +275,34 @@ impl KvEventAwarePolicy {
             }
             return;
         }
-        let streak = self.zero_hit_streak.fetch_add(1, Ordering::Relaxed) + 1;
-
-        // Deliberately ahead of the streak gate below. `zero_hit_streak` is one
+        // Deliberately ahead of everything below. `zero_hit_streak` is one
         // counter for the whole fleet, reset by a hit on any worker, so a fleet
         // where one worker's chain is dead and another's is healthy never
         // reaches the alarm -- and that is exactly the case a self-heal exists
         // for. The request itself is raised at most once per broken episode, so
-        // reading it here costs one lock on a pick that already missed.
+        // reading it here costs one lock on a pick that already missed. It is
+        // also armed by the event feed rather than by this pick, so it is
+        // delivered even on a pick whose miss says nothing (just below) --
+        // otherwise a fleet serving only vision traffic would arm a repair and
+        // never hand it to anyone.
         if let Some(tx) = &self.flush_tx {
             if self.kv.take_flush_request(&picked.worker.worker_id) {
                 tx.request(&picked.worker);
             }
         }
 
+        // A multimodal pick is not steered by text overlap: `pick` zeroes
+        // `w_overlap` for it, precisely because the text hasher cannot
+        // reproduce the engine's image blocks (sglang substitutes pad-values,
+        // vLLM folds in extra-keys). Its miss is therefore the designed
+        // outcome, not evidence -- counting it made a healthy vision fleet
+        // trip "kv event feed is not being applied" at 64 requests and then
+        // repeat it forever, pointing at a feed that was fine.
+        if !overlap_steered {
+            return;
+        }
+
+        let streak = self.zero_hit_streak.fetch_add(1, Ordering::Relaxed) + 1;
         if streak != ZERO_HIT_ALARM && !streak.is_multiple_of(ZERO_HIT_ALARM_REPEAT) {
             return;
         }
@@ -503,7 +527,7 @@ impl Policy for KvEventAwarePolicy {
             mm_affinity_hits = mm_matched,
             "pick"
         );
-        self.note_hit_outcome(&picked, blocks.len(), hits);
+        self.note_hit_outcome(&picked, blocks.len(), hits, w_overlap > 0.0);
         Pick {
             target: picked,
             blocks,
@@ -628,7 +652,7 @@ mod tests {
         // A pick that wanted blocks and found none: the moment the router has
         // both the evidence and the worker's address in hand.
         let targets = expand_targets(&cands);
-        pol.note_hit_outcome(&targets[0], 1, 0);
+        pol.note_hit_outcome(&targets[0], 1, 0, true);
 
         let asked = rx.try_recv().expect("the router must ask for the flush");
         assert_eq!(asked.worker_id, "a");
@@ -652,9 +676,45 @@ mod tests {
         // land somewhere -- and flushing over them would be pure damage.
         let targets = expand_targets(&cands);
         for _ in 0..ZERO_HIT_ALARM + 1 {
-            pol.note_hit_outcome(&targets[0], 1, 0);
+            pol.note_hit_outcome(&targets[0], 1, 0, true);
         }
         assert!(rx.try_recv().is_err());
+    }
+
+    /// A vision workload must not read as a broken kv-event feed.
+    ///
+    /// `pick` zeroes `w_overlap` for a multimodal request deliberately -- the
+    /// text hasher cannot reproduce the engine's image blocks, so text overlap
+    /// is not what steers the pick and its hit count is not a measurement.
+    /// Every one of those designed misses still reached the counter, so a fleet
+    /// serving nothing but images warned that its "kv event feed is not being
+    /// applied" at 64 requests and repeated it every 1024 after -- against a
+    /// feed that was fine, and pointing at a tokeniser/block-size mismatch that
+    /// did not exist.
+    #[test]
+    fn multimodal_misses_do_not_trip_the_dead_feed_alarm() {
+        let kv = Arc::new(KvEventClient::new());
+        let pol = KvEventAwarePolicy::new(kv, BlockHasher::disabled(), 20.0, None, None);
+        let cands = vec![worker("a", 16, None)];
+        // Pre-tokenized `prompt` so the disabled hasher still yields blocks --
+        // this pick genuinely asks for two blocks and finds neither.
+        let ids: Vec<u64> = (1..=32).collect();
+        let mm = json!({"prompt": ids, "images": ["https://cdn/cat.png"]});
+        let text = json!({"prompt": ids});
+        assert!(!pol.pick(&cands, &mm, Role::Prefill).blocks.is_empty());
+
+        for _ in 0..ZERO_HIT_ALARM + 1 {
+            pol.pick(&cands, &mm, Role::Prefill);
+        }
+        assert_eq!(
+            pol.zero_hit_streak.load(Ordering::Relaxed),
+            0,
+            "a miss the router designed for is not evidence of anything"
+        );
+
+        // The same miss on a text request is evidence, and still counts.
+        pol.pick(&cands, &text, Role::Prefill);
+        assert_eq!(pol.zero_hit_streak.load(Ordering::Relaxed), 1);
     }
 
     #[test]

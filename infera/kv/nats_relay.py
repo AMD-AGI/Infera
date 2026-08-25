@@ -224,12 +224,24 @@ class KvEventNatsRelay:
         if now - self._last_write.get(rank, 0.0) < _BUCKET_WRITE_INTERVAL_S:
             return
         self._last_write[rank] = now
+        # Cleared before the await, not after: an event that lands while the put
+        # is in flight describes a view this put does not carry, and must leave
+        # the rank dirty so the next tick writes it.
         self._dirty[rank] = False
         view = sorted(self._sub.view_for(rank))
         try:
             await self._kv.put(kv_key_for_worker(self._worker_id, rank), self._encoder.encode(view))
         except Exception as exc:
-            logger.warning("KV relay bucket put failed (r%d): %s", rank, exc)
+            # Nothing was written, so the bucket still holds an older view. Left
+            # clean, that view would stand until the *next* event happened to
+            # dirty the rank again -- and on a rank that has gone quiet, forever.
+            # A stale bucket does not read to the router as stale: it reads as
+            # coverage, and once it ages past SEED_COVERAGE_WINDOW, as a relay
+            # that died -- which is what arms the destructive self-heal flush.
+            # `_last_write` stays stamped, so the retry is spaced like any other
+            # write rather than spinning at drain-tick rate against a dead bus.
+            self._dirty[rank] = True
+            logger.warning("KV relay bucket put failed (r%d), will retry: %s", rank, exc)
 
     async def stop(self) -> None:
         self._closing = True

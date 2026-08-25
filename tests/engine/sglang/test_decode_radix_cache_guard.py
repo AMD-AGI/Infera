@@ -23,7 +23,7 @@ import pytest
 pytest.importorskip("sglang")
 
 from infera.engine.sglang import args as args_mod  # noqa: E402
-from infera.engine.sglang.args import parse_sglang_args  # noqa: E402
+from infera.engine.sglang.args import no_clear_event_reason, parse_sglang_args  # noqa: E402
 
 _DECODE = [
     "--model-path",
@@ -123,3 +123,69 @@ def test_guard_never_raises_when_sglangs_private_module_moves(monkeypatch):
             raise AssertionError("the import fails before the config is read")
 
     assert args_mod._decode_radix_cache_unsupported_reason(_Unused()) is None
+
+
+def test_the_guard_still_speaks_sglangs_own_api(caplog):
+    """The one test here that is not allowed to patch the predicate away.
+
+    Every behavioural test above replaces ``_decode_radix_cache_unsupported_reason``
+    with a constant, because that is the only way to exercise both branches
+    without keeping two real models around. The cost is that none of them touch
+    the private SGLang API the guard is built on -- ``hybrid_arch``'s five
+    helpers, ``ModelConfig.is_hybrid_swa``, ``ModelSpec.uses_mamba_radix_cache``
+    -- and the guard swallows every exception by design. A rename in that module
+    therefore turns the guard into a permanent ``None`` with CI fully green, and
+    the 2.5-minute-late ``build_kv_cache`` crash is back on the next hybrid
+    model. That is the failure this file exists to prevent, so something has to
+    call the real thing.
+
+    Qwen3-0.6B is dense, so the *answer* is ``None`` either way. What is asserted
+    is how it got there: the predicates ran to the end rather than the ``except``
+    clause catching an ImportError or an AttributeError.
+    """
+    sa = parse_sglang_args(_DECODE).server_args
+    with caplog.at_level("WARNING", logger=args_mod.logger.name):
+        assert args_mod._decode_radix_cache_unsupported_reason(sa) is None
+    assert "could not determine" not in caplog.text, (
+        "the guard fell into its own exception path -- sglang's private hybrid "
+        "API moved, and the guard is now silently answering 'supported' for "
+        "every model, hybrid ones included"
+    )
+
+
+# --- what the startup flush is allowed to wait for ----------------------------
+
+
+def test_a_guarded_decode_leg_has_no_clear_event_to_wait_for(monkeypatch):
+    """The guard's refusal and the startup flush have to agree.
+
+    Skipping the flag leaves the decode leg on SGLang's ``ChunkCache``, whose
+    ``reset()`` is ``pass``. ``/flush_cache`` still answers 200, so
+    ``anchor_kv_chain`` could not tell that nothing had happened: it spent its
+    whole ~10s budget immediately before ``register()`` and then warned that the
+    router's chain has no anchor -- on a leg that has no chain. Kimi-K3 is
+    exactly this case, which makes it the normal decode leg, not a corner.
+    """
+    _reason(monkeypatch, "Mamba/SSM")
+    args = parse_sglang_args(_DECODE)
+    assert _FLAG not in args.sglang_argv
+    reason = no_clear_event_reason(args)
+    assert reason is not None and "ChunkCache" in reason
+
+
+def test_a_decode_leg_with_the_radix_cache_does_have_one(monkeypatch):
+    """And when the flag went in, the radix tree is there to be cleared, so the
+    flush is worth doing -- this is the leg whose anchor really was lost."""
+    _reason(monkeypatch, None)
+    args = parse_sglang_args(_DECODE)
+    assert _FLAG in args.sglang_argv
+    assert no_clear_event_reason(args) is None
+
+
+def test_a_prefill_leg_is_flushed_as_before(monkeypatch):
+    """The prefill leg keeps a radix cache regardless of that flag; it is also
+    the leg that carries prefix-aware routing, so it is the one that must not
+    lose its anchor."""
+    _reason(monkeypatch, None)
+    prefill = [*_DECODE[:-4], "--disaggregation-mode", "prefill", *_DECODE[-2:]]
+    assert no_clear_event_reason(parse_sglang_args(prefill)) is None

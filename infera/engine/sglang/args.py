@@ -14,6 +14,11 @@ from sglang.srt.server_args import ServerArgs
 
 logger = logging.getLogger(__name__)
 
+#: SGLang's opt-in for a radix prefix cache on a PD *decode* leg. Without it the
+#: decode leg runs ``ChunkCache``, which keeps no radix tree -- and therefore
+#: publishes no ``BlockStored`` chain and no ``AllBlocksCleared``.
+_DECODE_RADIX_CACHE_FLAG = "--disaggregation-decode-enable-radix-cache"
+
 
 @dataclass(kw_only=True)
 class SglangWorkerArgs:
@@ -297,7 +302,7 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
         known.enable_kv_events
         and sglang_parsed.disaggregation_mode == "decode"
         and getattr(sglang_parsed, "disaggregation_transfer_backend", None) == "mooncake"
-        and "--disaggregation-decode-enable-radix-cache" not in remaining
+        and _DECODE_RADIX_CACHE_FLAG not in remaining
     ):
         # SGLang rejects this flag under speculative decoding, so appending it
         # kills an EAGLE/MTP decode leg at parse time. Skipping it costs only the
@@ -326,7 +331,7 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
                     reason,
                 )
             else:
-                remaining.append("--disaggregation-decode-enable-radix-cache")
+                remaining.append(_DECODE_RADIX_CACHE_FLAG)
 
     return SglangWorkerArgs(
         server_args=server_args,
@@ -353,6 +358,46 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
         kv_event_transport=known.kv_event_transport,
         nats_server=known.nats_server,
         infera_kvd_socket=known.infera_kvd_socket,
+    )
+
+
+def no_clear_event_reason(args: SglangWorkerArgs) -> str | None:
+    """Why flushing this engine's cache cannot re-anchor its KV-event chain.
+
+    Returns a short reason, or None when a flush does re-anchor.
+
+    ``infera/engine/flush.py`` repairs a chain by flushing and then *waiting for
+    the resulting* ``AllBlocksCleared`` -- waiting on the observation rather
+    than on its own POST is the whole point, because a flush issued before the
+    relay's subscription attached is lost the same way the anchor was. But that
+    wait only terminates against an engine that emits the event at all.
+
+    A PD decode leg without :data:`_DECODE_RADIX_CACHE_FLAG` runs SGLang's
+    ``ChunkCache``, whose ``reset()`` is ``pass``. ``/flush_cache`` still answers
+    **200** -- the scheduler accepted it, there was simply no radix tree to
+    clear -- so nothing distinguishes it from a successful flush except the
+    event that never comes. Unasked, the loop spends its full budget (~10s with
+    the defaults) on the startup path, immediately before ``register()``, and
+    then warns that "the router's chain has no anchor" about a leg that has no
+    chain to anchor and never had one.
+
+    This is not a corner case here: the guard a few lines up refuses that same
+    flag for hybrid SWA/SSM models, which makes ChunkCache the *normal* decode
+    leg for Kimi-K3 and everything else in that family.
+
+    Read off ``sglang_argv`` rather than ``server_args``: the append happens
+    after ``ServerArgs.from_cli_args``, so the resolved ``server_args`` does not
+    carry it, and the forwarded argv is what ``launch_server`` actually parses.
+    """
+    if args.server_args.disaggregation_mode != "decode":
+        return None
+    if _DECODE_RADIX_CACHE_FLAG in args.sglang_argv:
+        return None
+    return (
+        "this PD decode leg runs SGLang's ChunkCache "
+        f"({_DECODE_RADIX_CACHE_FLAG} is not set), which keeps no radix tree "
+        "and emits no AllBlocksCleared -- /flush_cache would answer 200 and "
+        "publish nothing"
     )
 
 
