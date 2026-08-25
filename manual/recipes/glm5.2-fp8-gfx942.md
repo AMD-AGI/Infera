@@ -25,7 +25,7 @@ transport off and fails the build if the gate did not compile in.
 | `disaggregated` | 2 | yes | yes | prefill and decode want different batching |
 | `disaggregated + kvd` | 2 | yes | yes | both of the above |
 
-```{admonition} `aggregated + kvd` is the one arm that runs without MTP
+:::{admonition} `aggregated + kvd` is the one arm that runs without MTP
 :class: warning
 Not a tuning preference. **MTP and hicache both active on a worker that prefills
 *and* decodes hangs** — in the scheduler control broadcast on the first long
@@ -42,7 +42,7 @@ rank in lockstep, and MTP adds a *second* per-rank host pool for draft tokens.
 the decode leg** — the prefill leg's `spec_accept_length` is `0.0` on every rank —
 so the combination never forms there. **If you need MTP on one node, use
 `aggregated`. If you need the tier with MTP, use `disaggregated + kvd`.**
-```
+:::
 
 **Start with `aggregated`.** It needs one box and touches neither Mooncake nor
 `/dev/infiniband` nor a GID index, so the whole RDMA class of silent failures
@@ -55,9 +55,10 @@ two fail in very different ways.
 byte the tier absorbs is paid for on the prefill path whether or not anything reads
 it back. Every measurement of it so far — on this recipe and on the `docker`
 deployment it came from — has been a net loss, in each case because the workload
-had no reuse left for the tier to serve: the A/B in §7 cost throughput and TTFT
-while serving zero reads. That says nothing about a workload with
-prefix reuse, and everything about deploying it without one. Read §6 first.
+had no reuse left for the tier to serve: the A/B behind that, in the recipe
+README's §8, cost throughput and TTFT while serving zero reads. That says nothing
+about a workload with prefix reuse, and everything about deploying it without one.
+Read §6 first.
 
 All four combos run TP8 / DP8 with DP-attention; the grid otherwise differs only
 on one node vs two and GPU-only KV vs tiered, plus the MTP exception above.
@@ -138,7 +139,7 @@ nodes, how much host RAM, and whether NVMe and a RoCE fabric are needed at all:
 The kvd combos want roughly 512 GiB for the engine, 136 GiB for kvd and 16 GiB for
 the router.
 
-```{admonition} `--hicache-size` is per TP rank, not per worker
+:::{admonition} `--hicache-size` is per TP rank, not per worker
 :class: warning
 At `--hicache-size 32` every one of the 8 schedulers logs `Allocating 32.00 GB host
 memory for hierarchical KV cache`, so the host tier is **256 GB**. Dropping
@@ -146,7 +147,7 @@ DP-attention does not reduce it, which is worth knowing because it looks like it
 should. Sizing the container as if TP8 meant one 32 GB pool gets it OOMKilled
 (exit 137) immediately after graph capture — a crash that reads like an engine bug
 and is a budget mistake.
-```
+:::
 
 kvd's own 136 GiB looks oversized next to its `--max-bytes 64G` and is not: it
 holds two independent budgets, an inline store and an `mlock`'d arena that is never
@@ -163,15 +164,74 @@ not tidiness: the engine probes the kvd socket once with a 5 s timeout and refus
 to start if nothing answers. As an ordinary container it becomes a race. The two
 non-kvd combos have no such requirement.
 
-**Weights on a `hostPath`** at the same path on every node the deployment uses.
+**Weights on a `hostPath`** at the same path on every node the deployment uses. The
+manifests mount `<MODEL_DIR>` at `/models` and read `/models/GLM-5.2-FP8`, so
+download into that layout:
 
-```{admonition} Mount the directory the HuggingFace symlinks resolve into
-:class: warning
-A HF cache snapshot is a tree of relative symlinks into `blobs/`. Mount only the
-snapshot directory and every link dangles, and `transformers` rejects the model
-with `Should have a model_type key in its config.json` — four minutes into
-startup, and nowhere near its actual cause.
+```bash
+hf download zai-org/GLM-5.2-FP8 --local-dir <MODEL_DIR>/GLM-5.2-FP8
 ```
+
+:::{admonition} `--local-dir` is load-bearing; a bare `hf download` is not enough
+:class: warning
+A bare `hf download` leaves a HuggingFace cache, in which every file in the snapshot
+is a *relative* symlink into a sibling `blobs/`. The docker recipe survives that
+because `host_container.sh` mounts the host path at the same path inside the
+container, so the links resolve as they do outside; a `hostPath` volume instead
+renames the directory to `/models`, and `config.json`'s `../../blobs/<sha>` then
+points at `/blobs/<sha>`, which does not exist. Nothing reports a missing file:
+`transformers` rejects the model with `Should have a model_type key in its
+config.json` — four minutes into startup, and nowhere near its actual cause.
+:::
+
+To serve a cache you already have without paying for a second copy, mount the
+*repository* directory — it holds `blobs/` and `snapshots/` both, so the relative
+links stay inside one mount — and repoint the engine at the snapshot with a third
+`sed` expression in §4: `-e "s|/models/GLM-5.2-FP8|/models/snapshots/<sha>|g"`. The
+`g` matters, because that string is both `--model-path` and `--router-tokenizer-path`.
+**It is also the served model name**, since the manifests pass no
+`--served-model-name` — so on this route §5's request carries
+`"model": "/models/snapshots/<sha>"` as well. The old string gets a
+model-not-found, which looks nothing like a mount problem.
+
+Either way, check the mount before paying for a cold start rather than four minutes
+into one. This reads `config.json` through the same volume the engine will, which is
+the only arrangement that reproduces the failure — `kubectl debug node/<NODE>` mounts
+the node's root filesystem, the one arrangement in which the links *do* resolve:
+
+```bash
+cat <<'EOF' | kubectl apply -f -
+apiVersion: v1
+kind: Pod
+metadata: {name: hf-check, namespace: infera}
+spec:
+  nodeName: <NODE>
+  restartPolicy: Never
+  containers:
+  - name: c
+    image: busybox:1.36
+    command: ["cat", "/models/GLM-5.2-FP8/config.json"]
+    volumeMounts:
+    - {name: model, mountPath: /models, readOnly: true}
+  volumes:
+  - {name: model, hostPath: {path: <MODEL_DIR>, type: Directory}}
+EOF
+kubectl -n infera wait --for=jsonpath='{.status.phase}'=Succeeded pod/hf-check --timeout=90s
+kubectl -n infera logs hf-check | grep model_type    # a line printed is the pass
+kubectl -n infera delete pod hf-check
+```
+
+Three details there are deliberate: `infera`, because a `hostPath` volume is denied
+under Pod Security `baseline` and `restricted` and that namespace already runs engine
+Pods with one; the tag on `busybox`, because a bare `busybox` means `:latest`, for
+which kubelet defaults to `imagePullPolicy: Always` and pulls even when the node has
+the image; and the `wait`, without which `logs` runs before the container does and
+reports that instead of the answer.
+
+Run it for every node the combo uses, with the same `<MODEL_DIR>` you will deploy
+with — and `cat` the path the engine will read, so `/models/snapshots/<sha>` if you
+took the repository-mount route above. Any image with `cat` will do; substitute the
+engine image where the nodes cannot reach Docker Hub.
 
 ## 4. Deploy
 
@@ -349,7 +409,7 @@ tier` instead. And `entries: 0` on a healthy-looking deployment means kvd reject
 the KV layout; oversize values are rejected rather than split, so grep the kvd
 container for `value_exceeds_largest_pool`.
 
-```{admonition} `sets_total` is not "what this run wrote"
+:::{admonition} `sets_total` is not "what this run wrote"
 :class: warning
 On this deployment it keeps climbing at a steady ~24/s with **no traffic at all**:
 18944 when the benchmark finished, 46588 twenty-four minutes later, nothing sent in
@@ -362,7 +422,7 @@ with `evictions_total` at 0, because a rewritten key overwrites its slot.
 The same queue makes **`POST /flush_cache` permanently unavailable on a kvd leg**:
 `is_fully_idle()` requires hicache's `ongoing_backup` to be empty, so the endpoint
 returns 400 even with `?timeout=90` and nothing in flight.
-```
+:::
 
 ```{admonition} L2's slot size is fixed by the first put
 :class: note
@@ -383,7 +443,7 @@ holding only indexer blobs. `--shared-arena-bytes 0` disables the arena and
 reclaims that RAM.
 ```
 
-```{admonition} kvd plus MTP needs `--hicache-io-backend direct`
+:::{admonition} kvd plus MTP needs `--hicache-io-backend direct`
 :class: important
 The manifest already passes it. It is not tuning: SGLang's default `kernel`
 write-back path requires every host pool's stride to be a multiple of 8, and MTP's
@@ -393,75 +453,33 @@ prefill scheduler with `ValueError: Unsupported IO backend: kernel`. Note the
 shape of that failure — a clean Python exception with a line number — as against
 the `Memory access fault` class in §1. Telling those two apart matters, because
 this deployment has been misdiagnosed in the other direction once already.
+:::
+
+## 7. Tear down
+
+```bash
+kubectl -n infera delete inferadeployment $CR
+pkill -f 'port-forward.*8000' || true     # the tunnel from §5, if still up
+
+# on every node the deployment used
+rocm-smi --showpids     # a deleted Pod can leave processes holding VRAM
 ```
 
-## 7. What was validated, and what was not
+Deleting the `InferaDeployment` is enough: the operator owns the workload objects
+and the Service, so they go with it. Wait for the VRAM to come back before
+re-applying — the engines release it over tens of seconds, and a re-apply that
+races them dies allocating its memory pool on a node that already looks idle to
+`kubectl get pods`.
 
-All four combos are validated on Kubernetes, on 2 × 8 MI300X under RKE2 1.35, with
-the same image and the same judges — so the arms are comparable to each other.
-Each served 232 requests across conc 1/8/16/32 with **zero failures, zero GPU
-faults and zero Pod restarts**.
+Two things outlive the delete on purpose:
 
-| Combo | Status |
-|---|---|
-| `aggregated` | **validated.** Cold start 20.7 min, `3937` correct, MTP accepting on all 8 ranks |
-| `aggregated + kvd` | **validated, without MTP** (see the top of this page). Cold start 21.5 min. The only arm observed *reading* from kvd: `gets_total 370 / hits_total 370 / misses_total 0` |
-| `disaggregated` | **validated.** Cold start 21.4 min, MTP accepting on the decode leg |
-| `disaggregated + kvd` | **validated.** Cold start 21.2 min, MTP accepting. The write path works and L3 replayed its journal across a Pod restart — see the counter caveats in §6 before quoting a volume from it |
-
-Each of these fails quietly, so each was checked rather than assumed: a 9-chunk
-(~9.8k token) prompt's needle came back intact from the head, middle **and** tail
-on all four; all 8 decode ranks logged `installTransport, type=rdma` on the pinned
-rail; MTP was confirmed to be *accepting* rather than silently degrading to one
-token per step; and the kvd sidecar passed its `startupProbe` before `main`
-started on every bring-up.
-
-The read confirmation is worth singling out. `gets_total` stayed at 0 on every
-other arm, which is compatible with two very different things — "the workload had
-no reuse" and "the read path is broken and nobody noticed". Three 9-chunk prompts
-sharing a haystack separated them: 370 gets, 370 hits, 0 misses, and
-`HiCache prefetch success … loaded=185` in the engine log.
-
-Two A/Bs came out of it, each isolating one axis on the same day, image, rail and
-judges, at ~1700 in / 256 out with **no prefix reuse**:
-
-```{admonition} PD buys ITL and spends TTFT — and scales sublinearly
-:class: note
-The decode node no longer stops to prefill, which is the ITL win; the prompt must
-prefill elsewhere and ship its KV across the fabric first, which is the TTFT cost.
-Throughput scaling is sublinear in the added hardware, so PD is not a per-GPU
-efficiency win here — choose by which end your SLO sits on, not by total
-throughput.
-```
-
-```{admonition} kvd's cost, measured; its benefit, still not
-:class: warning
-On a workload with no prefix reuse, `disaggregated + kvd` cost throughput and TTFT
-against `disaggregated` with `gets_total` **0** for the whole run. `write_through`
-makes the prefill leg write every page it produces, so the cost lands on TTFT and
-lands there consistently across the sweep. ITL *improves*, and that is not a
-benefit — the decode leg is simply receiving fewer requests per second, which is
-the same fact as the throughput drop. This pair is the price of the tier.
-```
-
-Four boundaries on all of the above:
-
-- **kvd's benefit is unmeasured** — only its cost is. Its read path is confirmed
-  to work, but no benchmark here exercises it: the load generator sends a distinct
-  prompt per request, so the tier had nothing to serve during any sweep. Read the
-  A/B above as what kvd costs, not as what it does.
-- **Aggregate RDMA bandwidth is unmeasured.** The validating cluster's eight 400G
-  rails carry no IPv4, so all their RoCEv2 GIDs sit in one `fe80::/64` and
-  Mooncake cannot pair them; KV ran pinned to a single 233 Gb/s rail. Correctness
-  is unaffected, but nothing here supports a claim about KV transport not being
-  the bottleneck.
-- **The `rocm720` default is validated only in `docker` form.** That cluster's
-  host driver is 6.3.x, so every Kubernetes result above ran the `rocm700` base
-  from §1.
-- **Neither comparison isolates one variable, and the sweep tops out at conc 32.**
-  The PD pair is not equal-hardware (8 GPUs against 16; a 4+4 split would
-  introduce variables of its own and was not run), and the single-node arms differ
-  by MTP as well as by kvd. Nothing here speaks to saturation either.
+- **kvd's L3 directory.** `<KVD_L3_DIR>` is a `hostPath` and L3 is journalled, so
+  it is recovered on the next start rather than rebuilt — the same property that
+  lets a Pod restart keep its tier. Delete the directory to reclaim the NVMe or to
+  start from a cold one.
+- **Nothing else, including the caches that make a restart slow.** The JIT and
+  CUDA-graph caches do not survive the Pod, so the next bring-up pays the full
+  cold start from §4 again. Between runs, prefer leaving the deployment up.
 
 ## Source
 

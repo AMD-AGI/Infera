@@ -166,6 +166,13 @@ command pipe one into the other so the ~100 GB never lands on disk as a tarball:
 Both binaries have to be mounted — with only `ctr` there is no `docker save` to run
 — and the image must already be in *that* node's docker, since this copies within a
 node rather than transferring between them.
+[`deploy/scripts/import-image-to-containerd.sh`](../../../deploy/scripts/import-image-to-containerd.sh)
+does this for a list of nodes at once, and waits for each to report `IMPORT_OK`
+rather than leaving you to watch the Pods:
+
+```bash
+deploy/scripts/import-image-to-containerd.sh infera:sglang-gfx942-glm52 node-a node-b
+```
 
 **One failure mode that reads as "the import silently failed".** Kubelet's image GC
 reclaims *unreferenced* images once the node's disk is above its high threshold
@@ -256,10 +263,78 @@ the limit itself needs `default_ulimits` in the container runtime's config; ther
 no Pod-spec field for it.
 
 **Weights.** `hostPath`, not a PVC, at the **same path on every node the deployment
-uses**. If the path is a HuggingFace cache symlink, mount the directory the links
-resolve into as well — otherwise the inner relative links dangle and `transformers`
-rejects the model with `Should have a model_type key in its config.json`, four
-minutes into startup and far from its cause.
+uses**. The manifests mount `<MODEL_DIR>` at `/models` and read `/models/GLM-5.2-FP8`,
+so download into that layout:
+
+```bash
+hf download zai-org/GLM-5.2-FP8 --local-dir <MODEL_DIR>/GLM-5.2-FP8
+```
+
+`--local-dir` is load-bearing. A bare `hf download` leaves a HuggingFace cache, in which
+every file in the snapshot is a *relative* symlink into a sibling `blobs/`. The docker
+recipe survives that because `host_container.sh` mounts the host path at the same path
+inside the container, so the links resolve as they do outside; a `hostPath` volume
+instead renames the directory to `/models`, and `config.json`'s `../../blobs/<sha>` then
+points at `/blobs/<sha>`, which does not exist. Nothing reports a missing file:
+`transformers` rejects the model with `Should have a model_type key in its config.json`,
+four minutes into startup and far from its cause.
+
+To serve a cache you already have without paying for a second copy, mount the
+*repository* directory — it holds `blobs/` and `snapshots/` both, so the relative links
+stay inside one mount — and repoint the engine at the snapshot:
+
+```bash
+sed -e "s|<NODE>|node-a|" \
+    -e "s|<MODEL_DIR>|<HF_HOME>/hub/models--zai-org--GLM-5.2-FP8|" \
+    -e "s|/models/GLM-5.2-FP8|/models/snapshots/<sha>|g" \
+    examples/recipes/glm5.2-fp8-gfx942/aggregated/deploy.yaml | kubectl apply -f -
+```
+
+The `g` matters: that string is both `--model-path` and `--router-tokenizer-path`, and
+the two have to agree. **It is also the served model name**, since the manifests pass no
+`--served-model-name` — so on this route every `"model"` and `--model` below, in §4 and
+§5, becomes `/models/snapshots/<sha>` too. Sending the old string gets a model-not-found
+rather than anything that looks like a mount problem.
+
+Either way, check the mount before paying for a cold start rather than four minutes into
+one. This reads `config.json` through the same volume the engine will, which is the only
+arrangement that reproduces the failure:
+
+```bash
+cat <<'EOF' | kubectl apply -f -
+apiVersion: v1
+kind: Pod
+metadata: {name: hf-check, namespace: infera}
+spec:
+  nodeName: <NODE>
+  restartPolicy: Never
+  containers:
+  - name: c
+    image: busybox:1.36
+    command: ["cat", "/models/GLM-5.2-FP8/config.json"]
+    volumeMounts:
+    - {name: model, mountPath: /models, readOnly: true}
+  volumes:
+  - {name: model, hostPath: {path: <MODEL_DIR>, type: Directory}}
+EOF
+kubectl -n infera wait --for=jsonpath='{.status.phase}'=Succeeded pod/hf-check --timeout=90s
+kubectl -n infera logs hf-check | grep model_type    # a line printed is the pass
+kubectl -n infera delete pod hf-check
+```
+
+Three details in that Pod are deliberate. It goes in `infera` because a `hostPath` volume
+is denied under Pod Security `baseline` and `restricted`, and that namespace already runs
+engine Pods with one. The tag on `busybox` is what makes the image reusable: `busybox`
+alone means `:latest`, for which kubelet defaults to `imagePullPolicy: Always` and tries
+to pull even when the node has it. And the `wait` is not politeness — without it `logs`
+runs before the container does and reports that instead of the answer.
+
+Run it for every node the combo uses, with the same `<MODEL_DIR>` you will deploy with —
+and `cat` the path the engine will read, so `/models/snapshots/<sha>` if you took the
+repository-mount route above. Any image with `cat` will do; substitute the engine image
+where the nodes cannot reach Docker Hub. `kubectl debug node/<NODE>` is not a substitute:
+it mounts the node's root filesystem, which is the one arrangement in which the links
+*do* resolve.
 
 ## 3. Deploy
 
@@ -311,6 +386,28 @@ own fabric. A fabric that needs more than a placeholder swap — a non-default G
 index, or Mooncake pinned to one rail because your rails carry no IPv4 — changes
 the same few keys in all four combos, so it is worth rendering them from one
 source rather than editing four files by hand.
+
+[`examples/recipes/render.py`](../render.py) is that source, and takes the same
+values as the `sed` above:
+
+```bash
+python3 examples/recipes/render.py glm5.2-fp8-gfx942/disaggregated \
+  --set PREFILL_NODE=node-a --set DECODE_NODE=node-b \
+  --set MODEL_DIR=/mnt/models --set RDMA_IB_DEVICES=mlx5_0 \
+  --set PREFILL_GID_INDEX=3 --set DECODE_GID_INDEX=3 \
+  | kubectl apply -f -
+```
+
+It is `sed` plus the three things `sed` cannot do: it refuses to emit a manifest
+with a placeholder still in it, refuses a placeholder name this combo does not
+have (so a misspelled `--set` cannot pass as a no-op), and `--pin-rail` adds
+`MC_MS_AUTO_DISC=0` plus `MC_MS_FILTERS=<rail>` to both legs — an insertion into
+the env list rather than a substitution. Pin the rail when yours carry no IPv4:
+every GID is then link-local `fe80::`, so every rail looks like the same `/64`
+subnet and Mooncake can pair the prefill node's rail A with the decode node's
+rail B, where the transfer times out. `--check-rail` reads the rail's state on
+each target node over ssh before rendering — two seconds against the ~11 minutes
+it otherwise takes for a down rail to surface as a GPU memory fault.
 
 Each combo deploys under its own name, so the Service and label selectors below
 differ per combo:
@@ -628,9 +725,10 @@ path's are not directly comparable — `kernel` exists because it is faster, and
 nothing here separates its cost from kvd's.
 
 ```bash
-# service=worker on aggregated-kvd, service=prefill on disaggregated-kvd
+# kvd runs on the leg that prefills, so SVC is `worker` on aggregated-kvd and
+# `prefill` on disaggregated-kvd -- the same SVC set in §3.
 POD=$(kubectl -n infera get pod -o name \
-  -l infera.amd.com/deployment=$CR,infera.amd.com/service=worker | head -1)
+  -l infera.amd.com/deployment=$CR,infera.amd.com/service=$SVC | head -1)
 kubectl -n infera exec $POD -c kvd -- \
   python3 -m infera.kvd.statctl --socket /tmp/infera-kvd/kvd.sock
 ```
@@ -903,6 +1001,29 @@ rather than loudly: `--advertise-host` resolving to a node IP that is not on the
 RoCE rail (§7), and an engine image missing any of the three source fixes (§1) —
 which is why §1 carries a command that reads the markers out of the built image
 rather than trusting the build log.
+
+## 9. Tear down
+
+```bash
+kubectl -n infera delete inferadeployment $CR
+pkill -f 'port-forward.*8000' || true     # the tunnel from §4, if still up
+
+# on every node the deployment used
+rocm-smi --showpids     # a deleted Pod can leave processes holding VRAM
+```
+
+Deleting the `InferaDeployment` takes the Deployment or LWS and the Service with
+it, so there is nothing else to chase. Two caveats:
+
+- **Let the VRAM come back before re-applying.** The engines release it over tens
+  of seconds; a re-apply that races them dies allocating its memory pool on a node
+  that already looks idle to `kubectl get pods`. This is the same race the `docker`
+  arm's `stop.sh` waits out before it relaunches.
+- **`<KVD_L3_DIR>` survives, by design.** L3 is journalled and recovered on the
+  next start rather than rebuilt — that is what let it replay across a Pod restart
+  in §8. Delete the directory to reclaim the NVMe or to start from a cold tier.
+  Nothing else survives: the JIT and CUDA-graph caches go with the Pod, so the next
+  bring-up pays the full cold start from §3.
 
 ## Source
 

@@ -31,12 +31,12 @@ Multi-host, autoscale, and PD via the operator — the production path.
 
 ::::
 
-```{admonition} Use an image, not a bare `pip install`
+:::{admonition} Use an image, not a bare `pip install`
 :class: important
 The engine images bundle Infera **and** the engine patches (vLLM / Mooncake /
 hipFile) it depends on. A hand-rolled `pip install` skips those, so it is not a
 supported path — pull a prebuilt image, or build one from `deploy/docker/`.
-```
+:::
 
 Steps 2–3 run **inside** a prebuilt engine image; you'll start it in step 2.
 

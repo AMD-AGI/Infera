@@ -214,7 +214,7 @@ The placeholders are the same four as **Disaggregated** above, with one addition
 requirement: `Kimi-K3-DSpark/` must sit alongside `Kimi-K3/` in **both**
 directories, because both roles load the draft.
 
-```{admonition} `--speculative-config` goes on BOTH roles, and that is not redundancy
+```{admonition} --speculative-config goes on BOTH roles, and that is not redundancy
 :class: warning
 The prefiller never samples, so a draft there looks like dead weight. That
 configuration was tried and it fails two independent ways:
