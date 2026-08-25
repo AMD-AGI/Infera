@@ -199,19 +199,36 @@ def run_serving_benchmark(args) -> dict:
     # Package import; falls back to the flat form when this is run as a script,
     # which is how Hyperloom invokes it.
     try:
-        from .benchmark_vllm import (_regime_env, _resolved_weight_dtype,
-                                     _server_arg_value, warmup_gpu_count)
+        from .benchmark_vllm import (_capture_batches_up_to,
+                                     _default_capture_sizes, _regime_env,
+                                     _resolved_weight_dtype, _server_arg_value,
+                                     warmup_gpu_count)
     except ImportError:
-        from benchmark_vllm import (_regime_env, _resolved_weight_dtype,  # type: ignore
-                                    _server_arg_value, warmup_gpu_count)
+        from benchmark_vllm import (_capture_batches_up_to,  # type: ignore
+                                    _default_capture_sizes, _regime_env,
+                                    _resolved_weight_dtype, _server_arg_value,
+                                    warmup_gpu_count)
 
     target_tp = max(1, int(args.tp or 1))
     target_pp = max(1, int(args.pp or 1))
     target_ep = target_tp if args.enable_expert_parallel else 1
     bench_tp = int(args.benchmark_gpus or warmup_gpu_count(target_tp))
 
-    batches = ([int(b) for b in args.batches.split(",") if b]
-               if args.batches else [int(args.batch)])
+    # --concurrency sweeps the capture ladder rather than one batch, so the
+    # projector can pad a batch UP to a measured point instead of holding a
+    # single measurement flat. The engine runs in another process, so its real
+    # capture list is unreadable from here; a default launch captures the
+    # default ladder, which is what _default_capture_sizes mirrors.
+    concurrency = int(getattr(args, "concurrency", None) or 0)
+    capture_sizes = _default_capture_sizes(concurrency) if concurrency else None
+    if concurrency:
+        batches = _capture_batches_up_to(capture_sizes, concurrency)
+        print(f"[inferasim:Inference:Serving] concurrency={concurrency} -> "
+              f"capture-size batches {batches}")
+    elif args.batches:
+        batches = [int(b) for b in args.batches.split(",") if b]
+    else:
+        batches = [int(args.batch)]
     port = _free_port()
     argv = _engine_argv(args, port, bench_tp)
     engine = _build_engine(args, argv, port, bench_tp)
@@ -244,7 +261,12 @@ def run_serving_benchmark(args) -> dict:
 
     with open(log_path) as fh:
         kernels = resolved_kernels(fh.read())
-    ref = next((e for e in sweep if e["batch"] == args.batch), sweep[0])
+    # In capture mode the anchor point is the bucket covering the concurrency,
+    # which _capture_batches_up_to leaves last.
+    if concurrency:
+        ref = sweep[-1]
+    else:
+        ref = next((e for e in sweep if e["batch"] == args.batch), sweep[0])
     artifact = {
         "backend": args.serving_backend,
         # prefill_ms stays None: TTFT is not an invertible prefill observable.
@@ -277,6 +299,11 @@ def run_serving_benchmark(args) -> dict:
             "boot_s": round(boot_s, 1),
             "anchor_client_s": round(client_s, 1),
             "derived_from": "serving benchmark (mean TPOT)",
+            # Capture-size sweep mode: the projector pads decode UP to the
+            # nearest measured size instead of interpolating.
+            "concurrency": concurrency or None,
+            "capture_sizes": capture_sizes,
+            "decode_pad_to_capture": bool(concurrency),
             **kernels,
         },
     }

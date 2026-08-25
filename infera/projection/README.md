@@ -207,10 +207,19 @@ Prefer the two-step form when more than one recipe is in play: measuring is by
 far the expensive part, and `--load-benchmark` reuses one measurement across
 every projection that shares its regime.
 
-One run sweeps more than the point it was asked for: it covers the engine's
-CUDA-graph capture ladder up to `--max-concurrency` and characterises decode
-against context, because batch and sequence length are the axes projections
-transport along and a lone measured point is held flat across both.
+One run sweeps more than the point it was asked for: it covers the CUDA-graph
+capture ladder up to `--max-concurrency`, because batch is an axis projections
+transport along and a lone measured point is held flat across it. Decode is
+then looked up by padding a batch up to the nearest measured size, the way the
+engine pads it up to the nearest captured one.
+
+The served anchor takes that ladder from vLLM's default shape, since the engine
+runs in another process and its real capture list cannot be read from here; a
+default launch captures the default ladder. The offline anchor (`--offline`)
+reads the list off the built engine instead, and also measures decode against
+context so the projector can fit the attention KV term rather than assume
+decode is flat in context. Naming batches explicitly with `--batches` overrides
+the ladder on either path.
 
 Measurement calibrates *latency* only. The memory projection is analytical
 throughout — weights, KV and the activation working set are computed from the
