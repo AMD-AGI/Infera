@@ -766,6 +766,7 @@ def launch_projection_from_cli(args, overrides):
                 record_steps=bool(dump_steps),
                 num_instances=int(getattr(args, "des_instances", 1) or 1),
                 routing=(getattr(args, "des_routing", "round_robin") or "round_robin"),
+                overlap_weight=float(getattr(args, "des_overlap_weight", None) or 1.0),
                 num_prefixes=int(getattr(args, "des_num_prefixes", 0) or 0),
                 prefix_len=int(getattr(args, "des_prefix_len", 0) or 0),
                 prefix_zipf=float(getattr(args, "des_prefix_zipf", 0.0) or 0.0),

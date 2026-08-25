@@ -794,11 +794,21 @@ def _add_inference_args(parser):
         type=str,
         default=None,
         choices=["round_robin", "random", "prefix_aware", "kv"],
-        help="DES: request routing policy across instances. 'kv' is overlap-scored "
-        "KV-aware routing (send each request to the instance holding the most of "
-        "its leading KV blocks); 'prefix_aware' consistently hashes the leading "
-        "block so same-prefix requests co-locate; 'round_robin'/'random' ignore "
-        "locality (each instance re-warms). Default: round_robin.",
+        help="DES: request routing policy across instances. 'kv' is the serving "
+        "router's KV-aware policy, trading cache overlap against load by the same "
+        "cost function (see --des-overlap-weight); 'prefix_aware' consistently "
+        "hashes the leading block so same-prefix requests co-locate; "
+        "'round_robin'/'random' ignore locality (each instance re-warms). "
+        "Default: round_robin.",
+    )
+    serv.add_argument(
+        "--des-overlap-weight",
+        type=float,
+        default=None,
+        help="DES: how much a cached KV block is worth against a block of load "
+        "in 'kv' routing, matching the serving router's overlap weight. 0 routes "
+        "purely by load; high values pin prefixes to whichever instance holds "
+        "them. Default: 1.0.",
     )
     serv.add_argument(
         "--des-num-prefixes",
