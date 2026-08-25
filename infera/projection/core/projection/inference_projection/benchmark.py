@@ -52,10 +52,16 @@ def spawn_inference_benchmark(args, inference_config):
         tempfile.gettempdir(), "inferasim_bench.json"
     )
 
+    # A serving engine has no expert axis of its own: experts are sharded across
+    # the tensor-parallel ranks, so EP is a flag on a TP group wide enough to
+    # hold them rather than a second dimension of GPUs.
+    tp = max(1, int(mp.tensor_model_parallel_size))
+    ep = max(1, int(getattr(mp, "expert_model_parallel_size", 1) or 1))
+
     argv = [
         "--model", _resolve_bench_model(args),
         "--save", str(save),
-        "--tp", str(int(mp.tensor_model_parallel_size)),
+        "--tp", str(max(tp, ep)),
         "--pp", str(int(getattr(mp, "pipeline_model_parallel_size", 1) or 1)),
         "--input-len", str(int(req.input_seq_len)),
         "--output-len", str(int(req.output_seq_len)),
@@ -67,6 +73,8 @@ def spawn_inference_benchmark(args, inference_config):
         # tuning agent, or a longer context.
         "--concurrency", str(int(req.max_concurrency or req.batch_size or 1)),
     ]
+    if ep > 1:
+        argv.append("--enable-expert-parallel")
     # Measuring on fewer GPUs than the target is the expected case, not a
     # degraded one: the projector restores the step to the target parallelism.
     if getattr(args, "benchmark_gpus", None):

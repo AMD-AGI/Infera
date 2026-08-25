@@ -19,10 +19,11 @@ from types import SimpleNamespace
 from infera.projection.core.projection.inference_projection import benchmark, benchmark_vllm
 
 
-def _inference_config(concurrency=32, input_len=1024, output_len=128):
+def _inference_config(concurrency=32, input_len=1024, output_len=128, tp=8, ep=1):
     return SimpleNamespace(
         model_parallel_config=SimpleNamespace(
-            tensor_model_parallel_size=8, pipeline_model_parallel_size=1
+            tensor_model_parallel_size=tp, pipeline_model_parallel_size=1,
+            expert_model_parallel_size=ep,
         ),
         request_config=SimpleNamespace(
             input_seq_len=input_len,
@@ -78,4 +79,20 @@ def test_the_anchor_is_taken_at_the_recipe_being_projected(monkeypatch, tmp_path
     argv = _spawn_argv(monkeypatch, tmp_path, concurrency=8, input_len=4096, output_len=256)
     assert _argv_value(argv, "--input-len") == "4096"
     assert _argv_value(argv, "--output-len") == "256"
+    assert _argv_value(argv, "--tp") == "8"
+    assert "--enable-expert-parallel" not in argv
+
+
+def test_expert_parallelism_reaches_the_engine_it_is_measured_on(monkeypatch, tmp_path):
+    """A dense engine is not the engine an MoE recipe runs on.
+
+    Expert parallelism changes which kernels execute -- a per-rank expert slice
+    and an all-to-all, rather than a tensor-sliced expert -- so measuring
+    without it anchors the wrong engine. A serving engine has no separate
+    expert axis, so it arrives as a flag on a TP group wide enough to hold the
+    experts.
+    """
+    argv = _spawn_argv(monkeypatch, tmp_path, tp=1, ep=8)
+    assert "--enable-expert-parallel" in argv
+    # EP == TP on a serving engine, so the group has to be wide enough.
     assert _argv_value(argv, "--tp") == "8"
