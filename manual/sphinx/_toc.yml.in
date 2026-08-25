@@ -64,6 +64,8 @@ subtrees:
         entries:
           - file: recipes/glm5.2.md
             title: GLM-5.2-MXFP4 (SGLang)
+          - file: recipes/glm5.2-fp8-gfx942.md
+            title: GLM-5.2-FP8 on gfx942 (SGLang, PD)
           - file: recipes/kimi-k3.md
             title: Kimi-K3 (vLLM)
           - file: recipes/kimi-k3-optimized.md
