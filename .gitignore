@@ -49,6 +49,8 @@ deploy/docker/third_party/
 .review-drafts/
 temp/
 CLAUDE.md
+# A task definition handed to an agent session: local input, never a deliverable.
+mission.md
 # ...except the shared repo conventions, which are meant for review and for
 # everyone's agent sessions. Excluding `.claude/*` rather than `.claude/` is what
 # makes the negation possible — git will not descend into an excluded directory,
