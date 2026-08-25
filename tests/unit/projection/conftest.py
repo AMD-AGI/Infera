@@ -102,6 +102,7 @@ def project_spec(**overrides):
         ("--stream-interval", "stream_interval"),
         ("--decode-admission-steps", "decode_admission_steps"),
         ("--decode-kernel-occupancy-us", "decode_kernel_occupancy_us"),
+        ("--gpu-cost-per-hour", "gpu_cost_per_hour"),
     ):
         if spec.get(key) is not None:
             argv += [flag, str(spec[key])]
@@ -115,7 +116,8 @@ def project_spec(**overrides):
     os.environ["INFERASIM_MODEL"] = spec["model"]
     try:
         args, extra = build_parser().parse_known_args(argv)
-        with contextlib.redirect_stdout(io.StringIO()):
+        report = io.StringIO()
+        with contextlib.redirect_stdout(report):
             results = launch_projection_from_cli(args, extra)
     finally:
         if prev is None:
@@ -145,4 +147,8 @@ def project_spec(**overrides):
         "decode_step_ms": extras.get(
             "pure_step_latency_ms", getattr(perf, "decode_step_latency_ms", None)
         ),
+        "replica_gpus": getattr(perf, "replica_gpus", None),
+        # What the run printed, for the parts of the report that are computed
+        # nowhere else.
+        "report": report.getvalue(),
     }

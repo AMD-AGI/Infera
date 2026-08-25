@@ -592,6 +592,15 @@ def _add_inference_args(parser):
     # ---- Serving / continuous-batching dynamics ----
     serv = parser.add_argument_group("inference serving dynamics")
     serv.add_argument(
+        "--gpu-cost-per-hour",
+        type=float,
+        default=None,
+        help="Price of one GPU-hour. Given it, the report prices the projected "
+        "throughput as cost per million tokens -- the unit a serving budget is "
+        "quoted in. Costs the whole replica, so a recipe that needs more GPUs "
+        "for the same tokens is charged for them.",
+    )
+    serv.add_argument(
         "--serving-model",
         type=str,
         default=None,

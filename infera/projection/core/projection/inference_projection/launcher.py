@@ -119,7 +119,7 @@ def _collect_inference_overrides(args) -> Dict[str, object]:
     return overrides
 
 
-def _print_performance(inference_config, perf) -> None:
+def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
     req = inference_config.request_config
     mc = inference_config.model_config
     print("\n" + "=" * 100)
@@ -268,6 +268,28 @@ def _print_performance(inference_config, perf) -> None:
             f"  Speculative tokens / step:       "
             f"{perf.extras['speculative_tokens_per_step']:.2f}"
         )
+    # Throughput priced in the unit a serving budget is quoted in. Prefill and
+    # decode share the GPUs under continuous batching, so a token's cost is the
+    # whole replica's cost divided by what the replica emits -- which is why a
+    # recipe is charged for GPUs it needs but does not keep busy.
+    if gpu_cost_per_hour:
+        if perf.is_disaggregated:
+            gpus = (perf.prefill_replica_gpus * int(perf.extras.get("prefill_replicas", 1))
+                    + perf.decode_replica_gpus * int(perf.extras.get("decode_replicas", 1)))
+        else:
+            gpus = perf.replica_gpus
+        out_tps = perf.decode_throughput_tps
+        # The same requests carry their prompts, so the blended rate follows
+        # from the workload's own input/output mix.
+        all_tps = out_tps * (req.input_seq_len + req.output_seq_len) / max(1, req.output_seq_len)
+        print("-" * 100)
+        print(f"  {'Cost basis:':<33}${gpu_cost_per_hour:g}/GPU-h x {gpus} GPU")
+        for label, tps in (("output", out_tps), ("in+out", all_tps)):
+            cost = (gpu_cost_per_hour * gpus * 1e6 / (tps * 3600.0)) if tps > 0 else float("inf")
+            # Three decimals: a competitive recipe lands in cents per million,
+            # where two would print every one of them as the same number.
+            print(f"  {f'Cost / 1M {label} tokens:':<33}${cost:,.3f}")
+
     # Feature B: explicit communication breakdown (exposed, post-overlap).
     if "comm_prefill_total_ms" in perf.extras:
         print("-" * 100)
@@ -724,7 +746,8 @@ def launch_projection_from_cli(args, overrides):
             scaling_benchmarks=scaling_benchmarks, decode_floor=decode_floor,
         )
         perf = projector.project()
-        _print_performance(inference_config, perf)
+        _print_performance(inference_config, perf,
+                           getattr(args, "gpu_cost_per_hour", None))
         results["performance"] = perf
 
         # Phase 3: opt-in discrete-event simulation for arrival-driven
