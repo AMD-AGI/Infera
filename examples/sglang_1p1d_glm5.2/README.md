@@ -27,6 +27,7 @@ different fabrics; those numbers are not published with this kit.
 | `engine/up.sh` | bring up both nodes: containers → etcd + kvd → both legs → router |
 | `engine/smoke.sh` | service check **plus** positive evidence for each of the five features |
 | `engine/bench.sh` | reference throughput sweep using SGLang's own `bench_serving` |
+| `engine/trace_replay.sh` | replay a Mooncake production trace with AIPerf — the only load here with a real shared prefix (opt-in) |
 | `engine/capture.sh` | take one torch trace per PD role out of a running load (opt-in) |
 | `engine/down.sh` | tear down and wait for VRAM to actually free |
 | `preflight_rdma.sh` | RDMA preflight: registration-mode probe + cross-node fabric measurement |
@@ -221,8 +222,64 @@ flags are load-bearing in ways that are not obvious from the flag name:
 `--num-prompts` is recomputed per concurrency (`10 × C`), so each arm of a sweep gets
 enough requests to reach steady state.
 
-**This kit ships no agentic benchmark client**, by design. Point the customer's own
-harness at the router endpoint.
+### Trace replay
+
+The sweep above cannot measure prefix reuse, and prefix reuse is the property that makes
+an agentic workload behave the way it does. `trace_replay.sh` replays a **Mooncake-format
+production trace** at the timestamps the trace recorded:
+
+```bash
+bash cluster/cluster.peermem.sh trace_replay prepare   # offline checks + shape report
+bash cluster/cluster.peermem.sh trace_replay run       # send the load
+```
+
+Set `AIPERF_TRACE` in the wrapper first; §5 there has the download line for the FAST25
+arxiv trace. `prepare` slices the file, pulls the client image, checks that the trace,
+tokenizer, output directory and router are all reachable **from the node that will
+generate the load**, and prints the slice's ISL/OSL distribution and theoretical cache
+hit rate. None of it touches the deployment, so it is safe to run against a warming stack.
+
+Why this is a different measurement rather than a second opinion on the same one: a
+Mooncake entry carries `hash_ids`, and [AIPerf](https://github.com/ai-dynamo/aiperf)
+expands each hash id into a real block of tokens. Equal hash ids therefore produce an
+equal token *prefix*, so the radix cache, kvd and `kv-aware` routing are all exercised.
+In the FAST25 arxiv trace one hash id appears in **every** request — a single shared
+system prefix across 12,031 requests, median input 6,909 tokens.
+
+**Do not compare these numbers to `bench` numbers.** Two independent reasons:
+
+- `bench` builds every prompt independently, so it has no shared prefix and `trace_replay`
+  does. That is the point of having both.
+- `trace_replay` sends `ignore_eos:true` and `bench` does not. AIPerf's `mooncake_trace`
+  loader sets `max_tokens` from the recorded `output_length` but injects no `min_tokens`
+  (its `--force-min-tokens` default is honored only by the `baseten_trace` loader), so
+  without `ignore_eos` a reasoning model that emits EOS early replays *shorter* than the
+  recording. `bench` uses the `sglang-oai-chat` backend, which sends neither `ignore_eos`
+  nor `include_usage` ([sgl-project/sglang#10746](https://github.com/sgl-project/sglang/issues/10746)),
+  so its output lengths are EOS-bound and its TPOT is computed against a fallback length.
+
+Both scripts pass `--temperature 1.0 --top-p 0.95` for the same reason, and it matters
+*more* here: trace prompts are longer than the sweep's, and this reasoning model falls
+into repetition on a long prompt at temperature 0 — after which MTP predicts the loop
+perfectly, acceptance length pins at 4.00, and the run reads like KV corruption.
+
+Three knobs decide whether the run means anything:
+
+| knob | default | what goes wrong at the extremes |
+|---|---|---|
+| `REQUESTS` | 2000 | `all` is 12,031 requests over 58.9 min of trace. The first run over any slice synthesizes and tokenizes every prompt **before** sending anything (~14M tokens of text for the default slice), so a cold cache looks like a hang |
+| `MAX_CONC` | 256 | A **ceiling**, not a target — fixed-schedule sends at the recorded timestamps regardless. Too low and arrivals queue behind the ceiling, which is the closed-loop behaviour `bench` already measures. Too high and a deployment that cannot keep up grows unbounded queue depth, after which every percentile describes the queue |
+| `SPEEDUP` | unset | Scales every timestamp. The way to ask "what if this traffic arrived 2× faster" without changing its shape. Unset keeps the trace's own pace and keeps the synthesis pipeline out of the path |
+
+The client runs from `nvcr.io/nvidia/ai-dynamo/aiperf` (255 MB) and **not** inside `$CTR`:
+the engine image ships Python 3.10 and AIPerf requires ≥ 3.11. `AIPERF_NODE` defaults to
+the prefill node because that needs no extra configuration, but it is not the neutral
+choice — prompt synthesis is CPU-bound and competes with the engine's own scheduler and
+tokenizer processes. Any node that can route to the router works.
+
+Read the **OSL-mismatch block** in AIPerf's summary before quoting a decode-side number.
+That is where a thinking model that stopped short of the requested output length shows up,
+and it reports a percentage rather than a failure.
 
 ### Profiling
 
@@ -291,9 +348,25 @@ decode figure is.)
 
 `bench` is deliberately not given a detach flag — `nohup … &` already does it, and the one
 thing a flag would buy (surviving an ssh drop mid-run) is already caught by `capture`, which
-refuses to start, and warns again after warm-up, if no `bench_serving` is running. Give the
-load enough requests to outlast `WARMUP_S + WINDOW_S`: `N=<count>` overrides the `10 × C`
-default.
+refuses to start, and warns again after warm-up, if no load is running. Give the load enough
+requests to outlast `WARMUP_S + WINDOW_S`: `N=<count>` overrides the `10 × C` default.
+
+**Profiling under trace replay** is the only way to get prefill operators from a load that
+has a real shared prefix, since `bench`'s random dataset has none by construction. `capture`
+has to be told which load generator to look for, because the two live on opposite sides of
+the container boundary — `bench_serving` runs inside `$CTR` on the prefill node, AIPerf runs
+in its own container on `$AIPERF_NODE`:
+
+```bash
+PROFILE_PREFILL=1 bash cluster/cluster.peermem.sh up
+nohup bash cluster/cluster.peermem.sh trace_replay run &
+LOAD_KIND=trace_replay PROFILE_PREFILL=1 bash cluster/cluster.peermem.sh capture
+```
+
+Size the slice for the window: a cold cache spends minutes synthesizing prompts before its
+first request, so `WARMUP_S` starts counting against an idle engine unless the replay is
+already sending. Either run `trace_replay prepare` and one throwaway `run` first to warm the
+cache, or raise `WARMUP_S`.
 
 `capture` waits `WARMUP_S` (default 60) for the load to reach steady state, opens a
 `WINDOW_S` (default 20) window, starts both roles from **one** shell inside the container
@@ -431,6 +504,7 @@ Stated plainly rather than implied.
 | **these scripts as written** | **validated** — `preflight_rdma.sh mode` → `up` → `smoke` → `bench` → `down` on a 2-node MI355X mode-B cluster, with no edits outside `cluster/cluster.dmabuf.sh`. Long context checked separately (needle, to 238K tokens) and under a real agentic workload at concurrency 8 |
 | `preflight_rdma.sh` | `mode` validated on both nodes and its verdict followed. `fabric` not exercised |
 | `cluster.peermem.sh`, `round-robin` routing | **not validated** — no peer-mem cluster was available, and the shipped `kv-aware` default is what ran |
+| `engine/trace_replay.sh` | **not validated** — written against AIPerf's source and the published NGC image, never executed against a live deployment. The Python-3.10-in-the-engine-image constraint that shapes it was measured on `lmsysorg/sglang-rocm` rather than on `rocm/infera` itself. The AIPerf flags it passes are taken from a 0.13.0 checkout while the pinned image is 0.12.0, so a rejected flag is the expected first failure |
 
 If you run this kit and it does not come up, that is worth reporting.
 

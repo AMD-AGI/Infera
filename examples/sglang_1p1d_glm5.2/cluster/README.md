@@ -107,6 +107,32 @@ Run it on **each** node — the two can legitimately differ.
 the [main README](../README.md#recommended-configuration) explains what each one buys
 and which pairs are coupled.
 
+### 5. Trace replay (optional)
+
+Only read by `engine/trace_replay.sh`, and only when `AIPERF_TRACE` is set. Leave it
+unset and this block does nothing.
+
+| field | what it must be |
+|---|---|
+| `AIPERF_TRACE` | absolute path to a Mooncake-format trace JSONL, readable on **both** this host and `$AIPERF_NODE` |
+| `AIPERF_OUT` | artifacts, the per-run command file and the mmap dataset cache. Must resolve to the **same** path on both hosts, for the same reason `KIT_DIR` must |
+| `AIPERF_NODE` | which node generates the load. Defaults to `$PREFILL_NODE` |
+| `AIPERF_IMAGE` | pinned to a published NGC tag. Override only to run a locally built AIPerf |
+
+Two of these are worth understanding before you set them.
+
+**`AIPERF_NODE` defaults to the prefill node because that needs no extra configuration,
+not because it is the neutral choice.** AIPerf synthesizes and tokenizes every prompt in
+the slice before it sends anything, which is CPU-bound work competing with the engine's
+own scheduler and tokenizer processes on that node. Any host that can route to
+`$PREFILL_IP:$ROUTER_PORT` works, and a host that is not serving removes that
+interference entirely.
+
+**The client cannot run inside the engine container.** That image ships Python 3.10 and
+AIPerf requires ≥ 3.11, so `trace_replay.sh` uses its own container. At 255 MB it is not
+the pull an engine image is. If your site cannot reach `nvcr.io`, build AIPerf's own
+Dockerfile and point `AIPERF_IMAGE` at the result — nothing else changes.
+
 ## Schedulers where `ssh <node>` does not work
 
 `engine/up.sh` reaches each node through `$SSH_CMD`, defaulting to

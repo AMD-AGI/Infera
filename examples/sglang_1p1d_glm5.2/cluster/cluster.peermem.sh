@@ -21,7 +21,7 @@
 # If preflight instead reports "no peer-mem module loaded", use
 # cluster.dmabuf.sh. See cluster/README.md for the full mapping.
 #
-# Usage:  bash cluster/cluster.peermem.sh up | smoke | bench [conc...] | down
+# Usage:  bash cluster/cluster.peermem.sh up | smoke | bench [conc...] | trace_replay | down
 set -euo pipefail
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -106,5 +106,37 @@ export DECODE_KVD=0                # off on decode by design
 
 export GMU_PREFILL=0.70
 export GMU_DECODE=0.85
+
+# ---------------------------------------------------------------------------
+# 5. Trace replay — optional, only read by engine/trace_replay.sh
+# ---------------------------------------------------------------------------
+# AIPerf replays a Mooncake-format production trace at the timestamps it recorded, which is
+# the one load in this kit that carries a real shared prefix. Leave AIPERF_TRACE unset and
+# nothing here does anything.
+#
+# The client CANNOT live in the engine container: that image ships Python 3.10 and AIPerf
+# requires >= 3.11. It runs from the published NGC image instead — 255 MB, so pulling it is
+# not the concern that pulling an engine image is.
+export AIPERF_IMAGE="${AIPERF_IMAGE:-nvcr.io/nvidia/ai-dynamo/aiperf:0.12.0}"
+
+# The trace, on a path BOTH this host and $AIPERF_NODE can read. A few MB each, so there is no
+# need to clone the repo:
+#   B=https://raw.githubusercontent.com/kvcache-ai/Mooncake/main/FAST25-release/traces
+#   curl -LO $B/conversation_trace.jsonl      # 12031 reqs, avg ISL 12035, avg OSL 343
+#   curl -LO $B/toolagent_trace.jsonl         # 23608 reqs, avg ISL  8596, avg OSL 182
+# conversation is the default choice; toolagent is closer to an agentic workload. Upstream's
+# third file, synthetic_trace.jsonl, has GENERATED (Poisson) arrival times rather than recorded
+# ones, which makes it the wrong input for a fixed-schedule replay of real traffic.
+# export AIPERF_TRACE="<shared-dir>/conversation_trace.jsonl"
+
+# Which node generates the load. Defaults to the prefill node, which is the simple choice but
+# not the neutral one: AIPerf synthesizes and tokenizes every prompt before sending anything,
+# and that competes for CPU with the engine's own scheduler and tokenizer processes. Point it
+# at any node that can route to $PREFILL_IP:$ROUTER_PORT to remove that interference.
+# export AIPERF_NODE="<some-other-host>"
+
+# Artifacts, the generated per-run command file, and the mmap dataset cache. Must be the same
+# path on both hosts — trace_replay.sh checks this rather than letting it fail obscurely later.
+export AIPERF_OUT="${AIPERF_OUT:-$KIT/aiperf}"
 
 exec bash "$KIT/engine/${1:-up}.sh" "${@:2}"

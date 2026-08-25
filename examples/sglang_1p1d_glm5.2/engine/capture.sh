@@ -16,7 +16,8 @@
 #   WARMUP_S=60     seconds to let the load settle before opening the window
 #   WINDOW_S=20     length of the sampled window
 #   TRACE_OUT=DIR   shared host path mounted rw into both engine containers (default ../profiles)
-#   REQUIRE_LOAD=0  skip the "is a bench running" check (you are driving load some other way)
+#   LOAD_KIND=bench which load generator to look for: bench | trace_replay
+#   REQUIRE_LOAD=0  skip the "is a load running" check (you are driving load some other way)
 set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; source "$DIR/../common.sh"
 
@@ -51,7 +52,24 @@ put_script(){
     || die "could not stage $path inside $CTR on $h"
 }
 
-bench_running(){ on "$PREFILL_NODE" "docker exec $CTR pgrep -f 'sglang.bench_serving' >/dev/null 2>&1"; }
+# what: is there load in flight? why: an idle window profiles an empty scheduler loop.
+# The two load generators this kit ships live on opposite sides of the container boundary, so
+# this cannot be one pgrep with a wider pattern:
+#   bench.sh       runs sglang.bench_serving INSIDE $CTR on the prefill node
+#   trace_replay.sh runs AIPerf in its own container on $AIPERF_NODE, which need not be a
+#                   serving node at all — so the probe is a host-side pgrep there
+# LOAD_KIND selects which one to look for; anything else means you are driving load some other
+# way, which is what REQUIRE_LOAD=0 is for.
+bench_running(){
+  case "${LOAD_KIND:-bench}" in
+    bench)
+      on "$PREFILL_NODE" "docker exec $CTR pgrep -f 'sglang.bench_serving' >/dev/null 2>&1" ;;
+    trace_replay)
+      on "${AIPERF_NODE:-$PREFILL_NODE}" "pgrep -f 'aiperf profile' >/dev/null 2>&1" ;;
+    *)
+      die "unknown LOAD_KIND '${LOAD_KIND}'. Use bench | trace_replay, or set REQUIRE_LOAD=0." ;;
+  esac
+}
 
 # ---- 1/6 preflight -------------------------------------------------------------------------
 log "=== 1/6 preflight (roles: ${ROLES[*]}) ==="
@@ -91,10 +109,14 @@ for r in "${ROLES[@]}"; do
 done
 
 if [ "${REQUIRE_LOAD:-1}" = "1" ] && ! bench_running; then
-  die "no load in flight. An idle window profiles an empty scheduler loop, not your model.
+  die "no ${LOAD_KIND:-bench} load in flight. An idle window profiles an empty scheduler loop, not your model.
 Start one first, in another shell or in the background:
-  nohup bash cluster/<your-cluster>.sh bench 64 &
-Give it enough requests to outlast WARMUP_S + WINDOW_S (${WARMUP_S}s + ${WINDOW_S}s here) — N=<count> raises it.
+  nohup bash cluster/<your-cluster>.sh bench 64 &                    # LOAD_KIND=bench (default)
+  nohup bash cluster/<your-cluster>.sh trace_replay run &             # LOAD_KIND=trace_replay
+Give it enough requests to outlast WARMUP_S + WINDOW_S (${WARMUP_S}s + ${WINDOW_S}s here): N=<count>
+raises it for bench, and for trace_replay the run lasts as long as the replayed window does
+(START_MS/END_MS, or the whole trace). Note that a cold trace_replay cache spends minutes
+synthesizing prompts before its first request, so start it well before you expect load.
 Set REQUIRE_LOAD=0 if you are driving load some other way."
 fi
 
@@ -105,7 +127,7 @@ log "=== 2/6 warm-up ${WARMUP_S}s ==="
 sleep "$WARMUP_S"
 if [ "${REQUIRE_LOAD:-1}" = "1" ] && ! bench_running; then
   warn "  the load finished during warm-up — the window will catch an idle engine."
-  warn "  Send more requests (N=<count>) or shorten WARMUP_S."
+  warn "  Send more requests (N=<count> for bench, a wider START_MS/END_MS window for trace_replay) or shorten WARMUP_S."
 fi
 
 # ---- 3/6 output directories ----------------------------------------------------------------
