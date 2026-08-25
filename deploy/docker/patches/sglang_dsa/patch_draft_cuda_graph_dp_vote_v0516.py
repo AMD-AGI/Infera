@@ -58,6 +58,11 @@ MARKER = "can_run_draft_cuda_graph"
 
 # (anchor, replacement). Anchors are chosen to be unique in the file; each is
 # rewritten to itself plus the new line(s), so the edits are pure insertions.
+#
+# One Python line per line of target source, so an anchor and its replacement
+# read as a diff. Left unformatted because the formatter joins only the pairs
+# short enough to fit, breaking that alignment on some entries and not others.
+# fmt: off
 EDITS: list[tuple[str, str]] = [
     # 1. dataclass field, beside the two gates it is reduced like. No default:
     #    a missed call site should be a TypeError, not a silent permissive True.
@@ -116,6 +121,7 @@ EDITS: list[tuple[str, str]] = [
         "        can_run_draft_cuda_graph=can_run_draft_cuda_graph,\n",
     ),
 ]
+# fmt: on
 
 
 def main() -> int:

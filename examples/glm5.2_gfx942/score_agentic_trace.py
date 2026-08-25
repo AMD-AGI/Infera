@@ -52,8 +52,10 @@ def main(dataset_path: str, details_path: str, n_conv: int, warm: bool, page: in
     errors = run.get("errors") or [""] * len(cached)
 
     expected_turns = sum(len(c) for c in ds)
-    print(f"conversations={len(ds)}  turns in dataset={expected_turns}  "
-          f"requests recorded={len(cached)}")
+    print(
+        f"conversations={len(ds)}  turns in dataset={expected_turns}  "
+        f"requests recorded={len(cached)}"
+    )
 
     # A failed turn is recorded with cached_tokens=0 and breaks its conversation's
     # prefix chain, so scoring one dilutes the hit rate towards zero and the result
@@ -65,8 +67,10 @@ def main(dataset_path: str, details_path: str, n_conv: int, warm: bool, page: in
         print("  check both legs are registered (/v1/workers) and rerun.")
         return 1
     if expected_turns != len(cached):
-        print(f"\n  turn count mismatch: dataset has {expected_turns}, run recorded "
-              f"{len(cached)} -- alignment would be wrong, nothing to score.")
+        print(
+            f"\n  turn count mismatch: dataset has {expected_turns}, run recorded "
+            f"{len(cached)} -- alignment would be wrong, nothing to score."
+        )
         return 1
 
     actual_in: list[int] = []
@@ -84,9 +88,7 @@ def main(dataset_path: str, details_path: str, n_conv: int, warm: bool, page: in
             # response tokens in between were generated on the decode leg -- minus
             # one page, measured (see the module docstring). Turn 0 reuses nothing.
             # Warm: pass 1 stored every turn's whole prompt.
-            ideal_cached.append(
-                ceiling if warm else max(0, min(prev - page, ceiling))
-            )
+            ideal_cached.append(ceiling if warm else max(0, min(prev - page, ceiling)))
             prev = length
 
     n = len(cached)
@@ -98,9 +100,9 @@ def main(dataset_path: str, details_path: str, n_conv: int, warm: bool, page: in
     print(f"  total input tokens   {tot_in:>14,}")
     print(f"  total cached tokens  {tot_cached:>14,}")
     print(f"  ideal cached tokens  {tot_ideal:>14,}")
-    print(f"\n  actual hit rate      {100*tot_cached/tot_in:>13.2f} %")
-    print(f"  ideal  hit rate      {100*tot_ideal/tot_in:>13.2f} %")
-    print(f"  efficiency (a/i)     {100*tot_cached/max(tot_ideal,1):>13.2f} %")
+    print(f"\n  actual hit rate      {100 * tot_cached / tot_in:>13.2f} %")
+    print(f"  ideal  hit rate      {100 * tot_ideal / tot_in:>13.2f} %")
+    print(f"  efficiency (a/i)     {100 * tot_cached / max(tot_ideal, 1):>13.2f} %")
 
     # Cold: the ideal already excludes the pages no cache could return, so a turn
     # under it lost blocks that were stored and then dropped. Warm: the ideal is
@@ -111,23 +113,27 @@ def main(dataset_path: str, details_path: str, n_conv: int, warm: bool, page: in
     lost = sum(ideal_cached[i] - cached[i] for i in short)
     label = "tokens not served " if warm else "tokens lost to evict"
     print(f"\n  turns short of ideal {len(short):>14,} / {n}")
-    print(f"  {label} {lost:>14,} ({100*lost/max(tot_ideal,1):.2f}% of ideal)")
+    print(f"  {label} {lost:>14,} ({100 * lost / max(tot_ideal, 1):.2f}% of ideal)")
     # Efficiency can pass 100% because the ideal models one conversation growing on
     # its own, and this corpus also shares prefixes BETWEEN conversations. Say so
     # rather than letting the ratio imply the cache beat its own ceiling.
     over = [i for i in range(n) if cached[i] > ideal_cached[i]]
     if over:
         gained = sum(cached[i] - ideal_cached[i] for i in over)
-        print(f"  turns ABOVE ideal    {len(over):>14,} (+{gained:,} tokens) — reuse "
-              "the ideal does not model,\n                       almost always a "
-              "prefix shared with a different conversation")
+        print(
+            f"  turns ABOVE ideal    {len(over):>14,} (+{gained:,} tokens) — reuse "
+            "the ideal does not model,\n                       almost always a "
+            "prefix shared with a different conversation"
+        )
 
     report_tiers(run.get("cached_tokens_details"), ds, ideal_cached)
 
     isl = sorted(actual_in)
-    print(f"\n  per-turn input: p50={isl[len(isl)//2]:,}  "
-          f"p90={isl[int(len(isl)*.9)]:,}  p99={isl[int(len(isl)*.99)]:,}  "
-          f"max={isl[-1]:,}")
+    print(
+        f"\n  per-turn input: p50={isl[len(isl) // 2]:,}  "
+        f"p90={isl[int(len(isl) * 0.9)]:,}  p99={isl[int(len(isl) * 0.99)]:,}  "
+        f"max={isl[-1]:,}"
+    )
     return 0
 
 
@@ -159,20 +165,24 @@ def report_tiers(details: list | None, ds: list, ideal_cached: list[int]) -> Non
     grand = sum(tot.values()) or 1
     print("\n  cached tokens by tier")
     for k in tiers:
-        print(f"    {k:<8} {tot[k]:>14,}  {100*tot[k]/grand:>6.2f} %")
+        print(f"    {k:<8} {tot[k]:>14,}  {100 * tot[k] / grand:>6.2f} %")
     if not (first_ideal or first_store or first_dev):
         return
     print(f"\n  conversation-opening turns ({len(ds)} of them)")
     if first_ideal:
-        print(f"    from storage {first_store:>12,} / {first_ideal:,} ideal "
-              f"({100*first_store/first_ideal:.1f} %) — nothing above storage "
-              "holds these")
+        print(
+            f"    from storage {first_store:>12,} / {first_ideal:,} ideal "
+            f"({100 * first_store / first_ideal:.1f} %) — nothing above storage "
+            "holds these"
+        )
     elif first_store:
         print(f"    from storage {first_store:>12,} — served below the GPU")
     if first_dev:
-        print(f"    from device  {first_dev:>12,} — a first turn cannot reuse its "
-              "own conversation, so\n                 this is a prefix shared with "
-              "another conversation (or a tier\n                 that was not cold)")
+        print(
+            f"    from device  {first_dev:>12,} — a first turn cannot reuse its "
+            "own conversation, so\n                 this is a prefix shared with "
+            "another conversation (or a tier\n                 that was not cold)"
+        )
 
 
 if __name__ == "__main__":
