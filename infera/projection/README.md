@@ -36,10 +36,10 @@ pip. Neither is needed for the no-GPU path.
 
 Two console scripts are installed:
 
-| Command | Purpose |
-|---|---|
-| `inferasim` | projection + discrete-event simulation |
-| `inferasim-tune` | LLM-driven recipe search |
+| Command            | Purpose                                |
+| ------------------ | -------------------------------------- |
+| `inferasim`      | projection + discrete-event simulation |
+| `inferasim-tune` | LLM-driven recipe search               |
 
 `infera-projection` and `infera-tuning` remain as aliases. Everything below can
 also be run as `python -m infera.projection.cli` if you would rather not
@@ -54,21 +54,26 @@ concurrency — the thing you are searching over), and the *workload*
 
 **Two engines answer different questions.**
 
-| Engine | Answers | How to get it |
-|---|---|---|
-| Analytical projector | steady-state means: TTFT, ITL/TPOT, throughput, memory, feasibility | default |
-| Discrete-event simulator (DES) | distributions (p50/p90/p99), queueing under offered load, fleet behaviour | add `--arrival-model poisson` or a trace |
+| Engine                         | Answers                                                                   | How to get it                             |
+| ------------------------------ | ------------------------------------------------------------------------- | ----------------------------------------- |
+| Analytical projector           | steady-state means: TTFT, ITL/TPOT, throughput, memory, feasibility       | default                                   |
+| Discrete-event simulator (DES) | distributions (p50/p90/p99), queueing under offered load, fleet behaviour | add`--arrival-model poisson` or a trace |
 
 They share one cost model, so a measured anchor loaded for one is honoured by
 the other. The DES report is printed *in addition to* the analytical one.
 
 **Three fidelity sources**, selected with `--profiling-mode`:
 
-| Mode | Needs a GPU | Meaning |
-|---|---|---|
-| `simulate` | no | analytical kernel models (default for sweeps) |
-| `benchmark` | yes | measured on real hardware |
-| `both` | yes | run each and report side by side |
+| Mode          | Needs a GPU | Meaning                                          |
+| ------------- | ----------- | ------------------------------------------------ |
+| `simulate`  | no          | analytical kernel models (default for sweeps)    |
+| `benchmark` | yes         | measure on real hardware, then project from that |
+| `both`      | yes         | run each and report side by side                 |
+
+`benchmark` measures by serving the model for real, so it also needs a serving
+engine and `--bench-model` (a structural config names an architecture, not a
+checkpoint). It never silently degrades to `simulate`: if it cannot measure, it
+says so and stops.
 
 Sitting between them is the **anchor**: a saved artifact from one cheap
 measured run that calibrates the analytical path. See
@@ -170,17 +175,47 @@ far larger than you expected, this is why.
 
 ### Calibrate against a GPU (anchors)
 
-Harvest once on any ROCm host with vLLM:
+Harvest once on any ROCm host with a serving engine. `--model` is the
+checkpoint to serve, so it is an HF id or a local path rather than a preset
+name:
 
 ```bash
-inferasim anchor --model gpt_oss_120B --benchmark-gpus 1 --save anchor.json
+inferasim anchor --model openai/gpt-oss-120b --benchmark-gpus 1 --save anchor.json
 ```
+
+`--serving-backend {vllm,sglang,atom}` picks the engine, which is launched
+through the same adapters the platform serves with, so the anchor describes the
+engine as deployed rather than as the harness happened to start it. The anchor
+covers one engine: routing across replicas is simulated, not measured, so
+measuring through the router would count that layer twice.
 
 Then project any recipe from it, with no GPU:
 
 ```bash
 inferasim inference ... --load-benchmark anchor.json
 ```
+
+To measure and project in one step instead of saving an anchor first, ask the
+projection itself to measure. This is the same harness, driven from the config:
+
+```bash
+inferasim inference ... --profiling-mode benchmark \
+  --bench-model openai/gpt-oss-120b --save-benchmark anchor.json
+```
+
+Prefer the two-step form when more than one recipe is in play: measuring is by
+far the expensive part, and `--load-benchmark` reuses one measurement across
+every projection that shares its regime.
+
+One run sweeps more than the point it was asked for: it covers the engine's
+CUDA-graph capture ladder up to `--max-concurrency` and characterises decode
+against context, because batch and sequence length are the axes projections
+transport along and a lone measured point is held flat across both.
+
+Measurement calibrates *latency* only. The memory projection is analytical
+throughout — weights, KV and the activation working set are computed from the
+model shape and the parallel layout, and `--profiling-mode benchmark` does not
+change a single memory number.
 
 The anchor JSON is engine-neutral (a `"backend"` field plus per-batch
 decode/prefill measurements), so a different harvester can be added without
@@ -276,8 +311,8 @@ inferasim inference ... \
 
 ```
   Fleet: 4 instance(s), routing=kv | prefix pool: 8 prefixes
-  KV block cache: block_size=512 tok, capacity/instance=unbounded, evictions=0, block-reuse=48.0%
-  Prefix-cache hit rate: 96.0% of requests (avg 1966 cached tok/req; per-instance 95–97%)
+  KV block cache: block_size=512 tok, capacity/instance=unbounded, evictions=0, block-reuse=44.8%
+  Prefix-cache hit rate: 89.5% of requests (avg 1833 cached tok/req; per-instance 88–90%)
 ```
 
 A prompt is an ordered sequence of block-hash ids, and a hit is the longest
@@ -287,16 +322,19 @@ capacity and routing rather than a number you supply.
 
 Routing policies (`--des-routing`):
 
-| Policy | Behaviour |
-|---|---|
-| `kv` | route to the replica holding the most of the request's leading blocks (ties → least loaded). Maximises reuse. |
-| `prefix_aware` | consistently hash the leading block to a home replica, so same-prefix requests co-locate. Misses ≈ number of prefixes, independent of fleet size. |
-| `round_robin` / `random` | ignore locality, so every replica re-warms every prefix. Misses ≈ prefixes × replicas. |
+| Policy                       | Behaviour                                                                                                                                          |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kv`                       | the serving router's own policy: minimise `--des-overlap-weight` × blocks missed + replica load. The weight dials reuse against balance (0 = pure load balance).  |
+| `prefix_aware`             | consistently hash the leading block to a home replica, so same-prefix requests co-locate. Misses ≈ number of prefixes, independent of fleet size. |
+| `round_robin` / `random` | ignore locality, so every replica re-warms every prefix. Misses ≈ prefixes × replicas.                                                           |
 
 The trade-off is real in both directions: locality-seeking policies maximise
 reuse but can overconcentrate a hot prefix onto one replica, raising its decode
 pressure and lengthening the makespan. The report shows pooled latencies
-alongside the per-replica hit-rate spread so you can see both halves.
+alongside the per-replica hit-rate spread so you can see both halves. Because
+`kv` scores the same cost function the deployed router does, sweeping
+`--des-overlap-weight` projects what retuning that weight in production would
+cost before you change it there.
 
 Set `--des-instances 1` to study a single engine's automatic prefix caching as
 temporal reuse across a stream. Add `--des-kv-blocks N` to cap per-replica
@@ -378,16 +416,16 @@ scoring them through the projector. No GPU in the default path. Use
 
 Everything is `INFERASIM_*`. The ones you will actually set:
 
-| Variable | Meaning |
-|---|---|
-| `INFERASIM_MODEL` | architecture preset (e.g. `gpt_oss_120B`) |
-| `INFERASIM_TP` / `_EP` / `_PP` / `_CP` / `_VP` | parallel shape |
-| `INFERASIM_GPU_ARCH` | target GPU architecture |
-| `INFERASIM_ROOT` | config root, for resolving workload YAMLs kept outside the repo |
-| `INFERASIM_ANCHOR_STORE` | directory of measured anchors |
-| `INFERASIM_LADDER_MAX_GPUS` | confidence-ladder cap (default 4) |
-| `INFERASIM_SEQ_LENGTH` | default sequence length |
-| `INFERASIM_TEAM` / `_USER` / `_EXP_NAME` / `_WORKSPACE` | launcher identity fields |
+| Variable                                                        | Meaning                                    |
+| --------------------------------------------------------------- | ------------------------------------------ |
+| `INFERASIM_MODEL`                                             | architecture preset (e.g.`gpt_oss_120B`) |
+| `INFERASIM_TP` / `_EP` / `_PP` / `_CP` / `_VP`        | parallel shape                             |
+| `INFERASIM_GPU_ARCH`                                          | target GPU architecture                    |
+| `INFERASIM_ROOT`                                              | repo/config root override                  |
+| `INFERASIM_ANCHOR_STORE`                                      | directory of measured anchors              |
+| `INFERASIM_LADDER_MAX_GPUS`                                   | confidence-ladder cap (default 4)          |
+| `INFERASIM_SEQ_LENGTH`                                        | default sequence length                    |
+| `INFERASIM_TEAM` / `_USER` / `_EXP_NAME` / `_WORKSPACE` | launcher identity fields                   |
 
 Further `INFERASIM_*` variables exist for kernel-model and benchmark internals
 (`INFERASIM_GEMM_BACKEND`, `INFERASIM_BENCH_*`, `INFERASIM_MOE_*`,
@@ -420,14 +458,14 @@ and the previous anchor no longer transfers — harvest another.
 
 ## Repository layout
 
-| Path | Contents |
-|---|---|
-| `cli.py` | the `inferasim` entry point (projection + DES) |
-| `core/`, `modules/`, `platforms/` | projection engine and simulator |
-| `agents/tuning_agent/` | recipe-search agent (`inferasim-tune`) |
-| `configs/` | model and preset tree resolved at runtime |
-| `examples/` | example experiment configs and workloads |
-| `ARCHITECTURE.md` | how it works, and what it does not model |
+| Path                                    | Contents                                        |
+| --------------------------------------- | ----------------------------------------------- |
+| `cli.py`                              | the`inferasim` entry point (projection + DES) |
+| `core/`, `modules/`, `platforms/` | projection engine and simulator                 |
+| `agents/tuning_agent/`                | recipe-search agent (`inferasim-tune`)        |
+| `configs/`                            | model and preset tree resolved at runtime       |
+| `examples/`                           | example experiment configs and workloads        |
+| `ARCHITECTURE.md`                     | how it works, and what it does not model        |
 
 The Megatron/training closure is intentionally **not** included; the inference
 path never needs it.

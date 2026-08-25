@@ -196,9 +196,10 @@ capacity and LRU eviction. Hit rate is therefore *emergent* — a function of
 workload content, capacity and routing — rather than a number you supply. The
 routing policies differ in exactly this respect:
 
-- **KV-overlap scoring** routes to the replica already holding the most of a
-  request's leading blocks, breaking ties toward the least loaded. This
-  maximises reuse.
+- **KV-aware scoring** minimises the deployed router's own cost function: an
+  overlap weight times the blocks a replica would have to compute, plus what it
+  is already carrying. The weight is the dial between reuse and balance, so the
+  simulator answers what retuning it in production would cost.
 - **Prefix-aware hashing** consistently maps a leading block to a home replica,
   so same-prefix requests co-locate and misses scale with the number of
   distinct prefixes rather than with fleet size.
@@ -266,6 +267,13 @@ inner loop: sweep broadly, rank, shortlist. Hardware is the outer loop: verify
 the shortlist, and harvest what you measured back into the anchor store so the
 next sweep is better calibrated than the last. The loop closes because anchors
 are artifacts, not one-off runs.
+
+Memory is deliberately outside that loop. Weights and KV bytes are counted from
+the model shape and the parallel layout rather than fitted, so an anchor has
+nothing to contribute to them, and capacity measured on a warmup's reduced
+parallelism does not describe the target's. The memory projection is analytical
+at every parallelism, and its correctness is a question about the formulas
+rather than about calibration.
 
 ## Boundaries
 
