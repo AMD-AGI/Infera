@@ -384,27 +384,67 @@ bash tools/import-image-to-containerd.sh ... && kubectl apply -f pd.yaml   # 导
 
 引擎 pod 本身用 `hostNetwork: true`，所以在 `节点IP:端口` 上可达。
 
-### 7.5 router 的两个坑：CPU 配额和 overlay 网络
+### 7.5 router 侧的连接失败：现象确凿，机理未定
 
-同一个 agentic c16 n60 负载跑了三次才干净，过程本身就是结论：
+同一个 agentic c16 n60 负载跑了三次才干净：
 
 | 轮次 | 配置 | 结果 |
 | --- | --- | --- |
-| 1 | manifest 默认：router 8 CPU / 16 GB，pod overlay 网络 | 448 中 **44 失败**，首个失败在第 48 轮 |
+| 1 | manifest 默认：router 8 CPU / 16 GB，pod 网络 | 448 中 **44 失败**，首个失败在第 48 轮 |
 | 2 | router 提到 32 CPU / 32 GB | 448 中 **36 失败**，首个失败提前到第 24 轮 |
 | 3 | router 改 `hostNetwork: true` | **448 / 448 全成功** |
 
-两个独立的原因：
+**能下的结论只有一条**：在这个集群上，router 换到 `hostNetwork` 之后失败清零。除此
+之外的因果都还没被证明，下面两条要按"候选原因"读，不是结论：
 
-1. **CPU 配额。** manifest 把 router 写死在 8 CPU，而 docker 臂的 router 能用满
-   128 核。kv-aware 路由要对 68k token 的 prompt 做 tokenize，CPU 打满之后 accept
-   队列堆积，最终拒连。提到 32 CPU 缓解了，但没解决。
-2. **pod overlay 网络。** flannel overlay MTU 8950，宿主机 9000。客户端在宿主机上、
-   打到 pod overlay IP，几百 KB 的请求体（长上下文 JSON）会踩到分片问题。改成
-   `hostNetwork: true` 之后访问路径和 docker 臂完全一致，失败清零。
+1. **CPU 配额。** manifest 把 router 写死在 8 CPU，docker 臂能用满 128 核；kv-aware
+   路由要对 68k token 的 prompt 做 tokenize，CPU 打满会让 accept 队列堆积。机制上
+   讲得通，但 44→36 这个差值和单次运行的抖动同量级，**A/B 本身没有证据力**，而且
+   "8 CPU + hostNetwork" 这一格从来没测过。
+2. **pod 网络。** 早期版本的本文档把原因写成"flannel overlay MTU 8950 vs 宿主机
+   9000 的分片问题"。**这个解释是错的，已推翻**：用 `tools/check-router-hostnetwork.sh`
+   实测，本集群 host→pod 走的是 Calico 的 cali veth，路由 MTU 就是 1450，DF ping
+   扫描实测通过的最大包也是 1450，路径 MTU 自洽，不存在黑洞。真实原因落在 CNI
+   数据面在持续大 body 负载下的某个环节，具体是什么没有查实。
 
-对客户要讲清楚的是：**这两个都不是引擎的差异，是部署形态的差异**。router 的 CPU
-配额和网络位置需要按负载调，manifest 里的默认值是给短请求场景的。
+所以有两点要对客户讲清楚：
+
+- **这不是引擎的差异，是部署形态的差异。** 三轮的引擎侧 flag 完全一致。
+- **不要把 `hostNetwork: true` 当成 recipe 的默认值。** 同一套 recipe 在一个
+  MI300X 集群上没有复现这个问题，说明它跟集群的 CNI/MTU 环境相关。默认值保持中性，
+  用下面的脚本按集群判定。
+
+### 7.6 怎么判断自己的集群需不需要 hostNetwork
+
+`tools/check-router-hostnetwork.sh`。因为机理没查实，脚本**不做配置层面的预测，只做
+复现**——只有真正跑出失败才算数：
+
+```bash
+# 从"你的压测客户端实际所在的位置"运行，vantage point 就是问题本身
+tools/check-router-hostnetwork.sh --router-url http://<ROUTER_POD_IP>:8000
+```
+
+必须用 **router 的 pod IP**，不能用 Service VIP 或节点 IP——那样就绕开了被测的那段路。
+
+四步，只有第 4 步能定性：
+
+| 步 | 做什么 | 能否定性 |
+| --- | --- | --- |
+| 1 | 判断客户端在 pod 内还是宿主机上。在 pod 内则整个问题不存在，直接退出 | 是（判"不需要"）|
+| 2 | 列 pod veth / overlay 设备的 MTU，并区分目标 pod 是本机还是跨机 | 否，仅参考 |
+| 3 | conntrack 水位 + DF ping 扫真实路径 MTU | 否，仅参考 |
+| 4 | 往 router 打 16 KB→1 MB 的大 body，再打 16 并发 × 300 KB × 3 轮 | **是** |
+
+第 4 步发的是**故意写坏的 JSON**并填充到指定大小：服务端必须把整个 Content-Length
+读完才能报解析失败，所以拿到任何 HTTP 状态码（实测是 400）都说明 body 完整送达 ——
+测的是网络不是 API。拿不到响应（curl `000`）才是复现。
+
+退出码：`0` 保持默认，`2` 复现了、改 `hostNetwork`，`1` 没结论（通常是没给
+`--router-url`）。
+
+单发很少失败，失败是在持续并发下出现的，所以第 4 步的 b) 并发轮才是重点。脚本判
+`2` 时也会提醒：如果 CNI 是你自己维护的，拿着第 2、3 步的信息去查根因，比给 router
+开 `hostNetwork`（要占节点 8000 端口、且脱离 NetworkPolicy）更值。
 
 ---
 
@@ -888,7 +928,9 @@ kubectl -n infera delete inferadeployment glm52-fp8-pd
    高并发档的 prompt 集合是低并发档的超集，缓存命中率会假高到 ~50%。
    每档 `SEED=$((1000+C))` 并在两条 leg 上 `flush_cache` 之后，命中率回到 1.3%。
 9. **kubelet 会秒删刚导入的镜像** —— 见 §7.3。
-10. **k8s router 的 CPU 配额和网络位置要按负载调** —— 见 §7.5，默认值是给短请求的。
+10. **k8s router 在长上下文负载下出现过连接失败，换 `hostNetwork` 后清零** —— 见
+    §7.5。机理没查实，且换个集群没复现，所以别改 recipe 默认值；用 §7.6 的
+    `check-router-hostnetwork.sh` 按集群判定。
 11. **RKE2 上 ClusterIP / NodePort 从宿主机不可达** —— 见 §7.4，用 pod IP。
 12. **etcd 端口可能被控制面占了** —— g43 是 RKE2 server，2379/2380 已占用，见 §2。
 13. **`--disable-custom-all-reduce` 不能关** —— gfx942/gfx950 上 aiter 的 custom
@@ -940,6 +982,7 @@ tools/
   compare-docker-vs-k8s.py       逐 flag 静态比对
   render-deploy.py               渲染 k8s manifest
   import-image-to-containerd.sh  无 sudo 时把镜像导入 containerd
+  check-router-hostnetwork.sh    判定本集群 router 要不要 hostNetwork（§7.6）
 ```
 
 `results/agentic/` 里的 tag 命名对应本文各节：
