@@ -156,7 +156,7 @@ spec:
             # --json-model-override-args is not tuning: it stands in for two
             # sglang_dsa patches this base cannot take. Leave IndexShare on and
             # the decode leg deadlocks on the first request.
-            # --hicache-size is GB PER DP RANK, so 32 is 256 GB across 8 ranks —
+            # --hicache-size is GB PER TP RANK, so 32 is 256 GB across 8 ranks —
             # that is what sets the memory limit below, and it is deliberately
             # under the 54 GB/rank device pool that kvd's L3 already backs.
             # --hicache-io-backend direct is required here, not a tuning choice.

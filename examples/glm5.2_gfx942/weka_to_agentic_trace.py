@@ -28,18 +28,22 @@ inter-turn think time (the format has no timing channel).
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import random
 import statistics as st
 import sys
 
 # Every entry is a single token when prefixed with a space under the GLM-5.2
-# tokenizer; re-check before trusting it on a different model.
+# tokenizer; re-check before trusting it on a different model. Kept as a grid
+# rather than one word per line, which is what the formatter would do to it.
+# fmt: off
 FILLER_POOL = [
     "def", "return", "self", "if", "else", "for", "while", "class", "import",
     "value", "data", "name", "file", "path", "line", "code", "test", "error",
     "func", "args", "type", "list", "dict", "true", "false", "none", "size",
 ]
+# fmt: on
 
 # GLM-5.2 chat template cost: prompt_tokens = 10 + 2 * n_messages + sum(content).
 TEMPLATE_PREAMBLE = 10
@@ -51,6 +55,17 @@ def filler(n_tokens: int, seed: int) -> str:
     """n_tokens single-token words, deterministic in ``seed``."""
     rng = random.Random(seed)
     return "".join(" " + FILLER_POOL[rng.randrange(len(FILLER_POOL))] for _ in range(n_tokens))
+
+
+def stable_seed(trace_id: object, segment: int, base: int) -> int:
+    """Per-segment RNG seed, reproducible across processes.
+
+    ``hash()`` cannot be used here: it is salted per process for str keys, so the
+    same trace and ``--seed`` would synthesise different filler on every run and
+    the dataset this writes would not be rebuildable.
+    """
+    digest = hashlib.sha256(f"{trace_id}:{segment}:{base}".encode()).digest()
+    return int.from_bytes(digest[:8], "big") & 0x7FFFFFFF
 
 
 def top_level_calls(trace: dict) -> list[dict]:
@@ -93,11 +108,7 @@ def build_conversation(seg: list[dict], output_len: int, seed: int):
         else:
             # +2 messages since the last turn: the assistant reply and this user turn.
             body = (
-                target
-                - TEMPLATE_PREAMBLE
-                - TEMPLATE_PER_MSG * (n_msgs + 2)
-                - content
-                - output_len
+                target - TEMPLATE_PREAMBLE - TEMPLATE_PER_MSG * (n_msgs + 2) - content - output_len
             )
         if body < MIN_BODY:
             break
@@ -134,38 +145,52 @@ def main() -> int:
     ap.add_argument("source", help="Weka traces.jsonl (one JSON trace per line)")
     ap.add_argument("-o", "--out", help="output agentic-trace JSON (omit with --dry-run)")
     ap.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="report the resulting distribution without writing; the cheap way to "
-             "pick --max-context",
+        "pick --max-context",
     )
     ap.add_argument(
-        "--output-len", type=int, default=220,
+        "--output-len",
+        type=int,
+        default=220,
         help="tokens the server will generate per turn; MUST equal the "
-             "--sharegpt-output-len passed to sglang.benchmark.serving (default: 220)",
+        "--sharegpt-output-len passed to sglang.benchmark.serving (default: 220)",
     )
     ap.add_argument(
-        "--min-turns", type=int, default=4,
+        "--min-turns",
+        type=int,
+        default=4,
         help="drop conversations shorter than this; the corpus is full of 1-2 turn "
-             "fragments that say nothing about multi-turn behaviour (default: 4)",
+        "fragments that say nothing about multi-turn behaviour (default: 4)",
     )
     ap.add_argument(
-        "--max-turns", type=int, default=0,
+        "--max-turns",
+        type=int,
+        default=0,
         help="truncate conversations to this many turns; 0 = no cap",
     )
     ap.add_argument(
-        "--max-context", type=int, default=0,
+        "--max-context",
+        type=int,
+        default=0,
         help="drop conversations whose peak input exceeds this many tokens, to fit "
-             "the corpus to what the deployment can prefill; 0 = no cap",
+        "the corpus to what the deployment can prefill; 0 = no cap",
     )
     ap.add_argument(
-        "--max-conversations", type=int, default=0,
+        "--max-conversations",
+        type=int,
+        default=0,
         help="stop after this many conversations; 0 = all",
     )
     ap.add_argument("--seed", type=int, default=1337, help="filler RNG seed (default: 1337)")
     ap.add_argument(
-        "--verify", type=int, default=0, metavar="N",
+        "--verify",
+        type=int,
+        default=0,
+        metavar="N",
         help="tokenize the first N conversations and compare against the recorded "
-             "input lengths (needs --tokenizer)",
+        "input lengths (needs --tokenizer)",
     )
     ap.add_argument("--tokenizer", default=None, help="tokenizer path for --verify")
     args = ap.parse_args()
@@ -198,7 +223,7 @@ def main() -> int:
                     dropped_short += 1
                     continue
 
-                seed = (hash((trace["id"], si)) ^ args.seed) & 0x7FFFFFFF
+                seed = stable_seed(trace["id"], si, args.seed)
                 turns, achieved = build_conversation(seg, args.output_len, seed)
                 if len(turns) < args.min_turns:
                     dropped_short += 1
@@ -233,8 +258,8 @@ def main() -> int:
                 "max_context": args.max_context or None,
                 "seed": args.seed,
                 "note": "Text is synthetic filler; token counts, per-turn growth and "
-                        "prefix reuse follow the source trace. Replay with "
-                        f"--sharegpt-output-len {args.output_len}.",
+                "prefix reuse follow the source trace. Replay with "
+                f"--sharegpt-output-len {args.output_len}.",
             },
             "conversations": conversations,
         }
@@ -248,10 +273,14 @@ def main() -> int:
     print(f"  dropped (long):   {dropped_long}")
     print(f"  truncated early:  {truncated}")
     print(f"conversations out:  {len(conversations)}")
-    print(f"turns/conversation: p50={pct(nturns,50):.0f}  p90={pct(nturns,90):.0f}  "
-          f"max={max(nturns)}  mean={st.mean(nturns):.1f}")
-    print(f"peak context (tok): p50={pct(peaks,50):,.0f}  p90={pct(peaks,90):,.0f}  "
-          f"p99={pct(peaks,99):,.0f}  max={max(peaks):,.0f}")
+    print(
+        f"turns/conversation: p50={pct(nturns, 50):.0f}  p90={pct(nturns, 90):.0f}  "
+        f"max={max(nturns)}  mean={st.mean(nturns):.1f}"
+    )
+    print(
+        f"peak context (tok): p50={pct(peaks, 50):,.0f}  p90={pct(peaks, 90):,.0f}  "
+        f"p99={pct(peaks, 99):,.0f}  max={max(peaks):,.0f}"
+    )
     if args.dry_run:
         print("dry run: nothing written")
     else:
@@ -281,8 +310,10 @@ def verify(conversations, tokenizer_path, output_len):
             history.append({"role": "assistant", "content": filler(output_len, 0)})
 
     exact = sum(1 for d in diffs if d == 0)
-    print(f"\nverify: {len(diffs)} turns, {exact} exact ({100*exact/len(diffs):.1f}%), "
-          f"diff min={min(diffs)} max={max(diffs)} mean={st.mean(diffs):+.2f}")
+    print(
+        f"\nverify: {len(diffs)} turns, {exact} exact ({100 * exact / len(diffs):.1f}%), "
+        f"diff min={min(diffs)} max={max(diffs)} mean={st.mean(diffs):+.2f}"
+    )
 
 
 if __name__ == "__main__":

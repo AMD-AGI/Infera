@@ -162,7 +162,9 @@ export KVD_IO_MODE="${KVD_IO_MODE:-auto}"
 # A value that outgrows its largest pool is REJECTED, not split, which leaves L3
 # silently empty -- verify.sh fails on that rather than letting you find it later.
 export KVD_TABLESPACE_POOLS="${KVD_TABLESPACE_POOLS:-1M,4M}"
-# SGLang's own host tier, in GB PER DP RANK (so x8 here). It sits between the GPU
+# SGLang's own host tier, in GB PER TP RANK (so x8 here). Not per DP rank:
+# dropping dp-attention for plain TP8 does not shrink it -- sizing a container as
+# if it did gets it OOMKilled at exit 137. It sits between the GPU
 # pool and kvd and stages L3 reads. Deliberately smaller than the 54 GB device
 # pool per rank: matching it would pin ~870 GB of host RAM for an L2 that kvd's L3
 # already backs.
