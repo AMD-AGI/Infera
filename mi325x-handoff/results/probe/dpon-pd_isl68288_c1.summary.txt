@@ -1,0 +1,8 @@
+
+=== dpon-pd_isl68288_c1 ===
+  mean TTFT           28816.3 ms
+  mean TPOT             23.52 ms  -> 42.5 tok/s/user
+  median TPOT           22.28 ms  -> 44.9 tok/s/user
+  mean ITL              85.84 ms
+  MTP accept len         3.65 tokens/step
+  output tput            6.48 tok/s

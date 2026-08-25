@@ -1,0 +1,8 @@
+
+=== dpoff-pd_isl4096_c1 ===
+  mean TTFT            3399.8 ms
+  mean TPOT              9.39 ms  -> 106.5 tok/s/user
+  median TPOT            9.29 ms  -> 107.6 tok/s/user
+  mean ITL              33.93 ms
+  MTP accept len         3.61 tokens/step
+  output tput           40.31 tok/s

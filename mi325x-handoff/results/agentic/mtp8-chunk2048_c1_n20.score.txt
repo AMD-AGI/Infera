@@ -1,0 +1,27 @@
+conversations=20  turns in dataset=138  requests recorded=138
+
+  ideal model          growing prefix
+  total input tokens        9,348,096
+  total cached tokens       8,267,456
+  ideal cached tokens       7,790,720
+
+  actual hit rate              88.44 %
+  ideal  hit rate              83.34 %
+  efficiency (a/i)            106.12 %
+
+  turns short of ideal              3 / 138
+  tokens lost to evict            576 (0.01% of ideal)
+  turns ABOVE ideal                13 (+477,312 tokens) — reuse the ideal does not model,
+                       almost always a prefix shared with a different conversation
+
+  cached tokens by tier
+    device        8,267,456  100.00 %
+    host                  0    0.00 %
+    storage               0    0.00 %
+
+  conversation-opening turns (20 of them)
+    from device       476,992 — a first turn cannot reuse its own conversation, so
+                 this is a prefix shared with another conversation (or a tier
+                 that was not cold)
+
+  per-turn input: p50=67,968  p90=84,928  p99=96,640  max=98,368

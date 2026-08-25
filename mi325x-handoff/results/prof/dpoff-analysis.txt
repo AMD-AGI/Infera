@@ -1,0 +1,30 @@
+trace span           662.6 ms
+GPU busy             419.0 ms   (63.2% of span)
+GPU idle             243.6 ms   (36.8% of span)
+
+--- GPU time by category ---
+  gemm              119.05 ms   28.4%
+  collective         61.55 ms   14.7%
+  moe                61.53 ms   14.7%
+  other              55.91 ms   13.3%
+  quant              37.36 ms    8.9%
+  copy               23.94 ms    5.7%
+  elementwise        23.75 ms    5.7%
+  norm               16.97 ms    4.0%
+  sampling           11.56 ms    2.8%
+  attention           7.43 ms    1.8%
+
+--- top 12 kernels ---
+         ms   calls   us/call  kernel
+      59.15    2400      24.6  mscclKernel_Sum_hip_bfloat16_LL_false(ncclDevComm*, mscclAlgo*, mscclWork*)
+      52.22     330     158.2  _gemm_a8w8_blockscale_kernel_GROUP_K_128_GROUP_N_128_BLOCK_SIZE_M_128_BLOCK_SIZE_N_128_BLOCK_SIZ
+      30.05    1140      26.4  void ck::kernel_moe_gemm<ck::GridwiseMoeGemmBlockScale<ck::tensor_layout::gemm::RowMajor, ck::te
+      29.45    6615       4.5  _ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bDB8_Li32ELi128ELb0ELi64ELb0EEEvPT0_PfPKT_P
+      22.73    2370       9.6  main_kernel
+      19.05     330      57.7  _gemm_a8w8_blockscale_kernel_GROUP_K_128_GROUP_N_128_BLOCK_SIZE_M_128_BLOCK_SIZE_N_128_BLOCK_SIZ
+      16.08    1140      14.1  void ck::kernel_moe_gemm<ck::GridwiseMoeGemmBlockScale<ck::tensor_layout::gemm::RowMajor, ck::te
+      13.79    1185      11.6  _gemm_a8w8_blockscale_kernel_GROUP_K_128_GROUP_N_128_BLOCK_SIZE_M_4_BLOCK_SIZE_N_16_BLOCK_SIZE_K
+      10.82    1140       9.5  void aiter::opus_moe_sorting_entry<aiter::MoeSortingKernel<aiter::MoeSortingProblemEx<int, float
+      10.14    2370       4.3  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1EEEvPT0_PT_PfS4_S4_S4_db
+      10.02    1200       8.4  void at::native::elementwise_kernel_manual_unroll<128, 4, at::native::gpu_kernel_impl<at::native
+       9.21    1200       7.7  void at::native::elementwise_kernel_manual_unroll<128, 4, at::native::gpu_kernel_impl<at::native

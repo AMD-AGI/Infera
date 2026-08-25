@@ -1,0 +1,35 @@
+span      547.7 ms
+busy      419.0 ms   (76.5%)
+idle      128.7 ms   (23.5%)
+
+gaps >= 20 us: 725, totalling 123.6 ms (22.6% of span)
+
+--- gap time by covering CPU op (top 12) ---
+        ms   count    us/gap  op
+     53.64      12    4470.1  hipGraphLaunch
+     20.68     245      84.4  step[DRAFT_EXTEND_V2 bs=1]
+      9.20       2    4602.2  step[TARGET_VERIFY bs=1]
+      5.16      84      61.5  aiter::dynamic_per_token_scaled_quant
+      4.60       1    4596.6  aten::slice
+      4.05       8     505.8  scheduler.recv_requests
+      3.45      14     246.3  aiter::fused_moe_
+      2.96       4     739.5  gloo:broadcast
+      2.46      16     153.6  ## Call CompiledFxGraph fzxj2xidaxfgzw5424g55vkbmquhxlkifwak6poagqsafoye3qhj ##
+      2.29      41      55.8  c10d::allreduce_
+      1.83      30      60.9  aten::mm
+      1.65      15     109.9  (no CPU op covering the gap)
+
+--- largest individual gaps (top 12) ---
+        us  covering CPU op
+    5319.7  hipGraphLaunch
+    4620.6  step[TARGET_VERIFY bs=1]
+    4609.7  hipGraphLaunch
+    4596.6  aten::slice
+    4583.8  step[TARGET_VERIFY bs=1]
+    4451.7  hipGraphLaunch
+    4426.6  hipGraphLaunch
+    4411.2  hipGraphLaunch
+    4409.2  hipGraphLaunch
+    4390.3  hipGraphLaunch
+    4381.7  hipGraphLaunch
+    4364.5  hipGraphLaunch

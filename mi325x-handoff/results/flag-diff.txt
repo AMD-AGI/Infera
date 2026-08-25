@@ -1,0 +1,71 @@
+docker: /shared_silo/scratch/liying.li@amd.com/Infera/examples/glm5.2_gfx942   (env overrides: none)
+k8s   : /tmp/pd-router-hostnet.yaml   (services: ['decode', 'prefill', 'server'])
+
+==============================================================================
+PREFILL leg
+==============================================================================
+  [substrate] --advertise-host
+              docker='10.0.0.1' k8s='$(POD_IP)'
+              docker resolves an env IP, k8s uses the downward API $(POD_IP)
+  [substrate] --disaggregation-ib-device
+              docker='mlx5_0' k8s='rdma0'
+              rail name is per-cluster hardware
+  [substrate] --discovery-backend
+              docker='etcd' k8s='kubernetes'
+              docker runs its own etcd, the operator's backend is kubernetes
+  [substrate] --etcd-endpoint
+              docker='10.0.0.1:2379' k8s=None
+              etcd only exists on the docker side
+
+  8 bare flags identical, ~26 valued flags identical, 0 real difference(s)
+
+  --- environment ---
+  [ENV only k8s] MC_DISABLE_HIP_TRANSPORT: docker=None k8s='1'
+  [ENV only k8s] MC_MS_AUTO_DISC: docker=None k8s='0'
+  [ENV only k8s] MC_MS_FILTERS: docker=None k8s='rdma0'
+  [ENV only k8s] MOONCAKE_DISABLE_HIP_DMABUF: docker=None k8s='1'
+  [ENV only k8s] NCCL_IB_DISABLE: docker=None k8s='1'
+
+==============================================================================
+DECODE leg
+==============================================================================
+  [substrate] --advertise-host
+              docker='10.0.0.2' k8s='$(POD_IP)'
+              docker resolves an env IP, k8s uses the downward API $(POD_IP)
+  [substrate] --disaggregation-ib-device
+              docker='mlx5_0' k8s='rdma0'
+              rail name is per-cluster hardware
+  [substrate] --discovery-backend
+              docker='etcd' k8s='kubernetes'
+              docker runs its own etcd, the operator's backend is kubernetes
+  [substrate] --etcd-endpoint
+              docker='10.0.0.1:2379' k8s=None
+              etcd only exists on the docker side
+
+  8 bare flags identical, ~24 valued flags identical, 0 real difference(s)
+
+  --- environment ---
+  [ENV only k8s] MC_DISABLE_HIP_TRANSPORT: docker=None k8s='1'
+  [ENV only k8s] MC_MS_AUTO_DISC: docker=None k8s='0'
+  [ENV only k8s] MC_MS_FILTERS: docker=None k8s='rdma0'
+  [ENV only k8s] MOONCAKE_DISABLE_HIP_DMABUF: docker=None k8s='1'
+  [ENV only k8s] NCCL_IB_DISABLE: docker=None k8s='1'
+
+==============================================================================
+ROUTER
+==============================================================================
+  [substrate] --discovery-backend
+              docker='etcd' k8s='kubernetes'
+              docker runs its own etcd, the operator's backend is kubernetes
+  [substrate] --etcd-endpoint
+              docker='10.0.0.1:2379' k8s=None
+              etcd only exists on the docker side
+
+  0 bare flags identical, ~9 valued flags identical, 0 real difference(s)
+
+  --- environment ---
+  (no non-substrate environment differences)
+
+==============================================================================
+TOTAL real differences: 10
+==============================================================================

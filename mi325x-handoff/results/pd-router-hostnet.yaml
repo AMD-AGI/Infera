@@ -1,0 +1,257 @@
+# GLM-5.2-FP8 on gfx942 — disaggregated — Kubernetes recipe
+#
+#   image    infera:sglang-gfx942-glm52   built from deploy/docker/Dockerfile.sglang.gfx942
+#   engine   infera.engine.sglang         TP8 / DP8 with DP-attention, MTP, fp8 KV
+#   KV move  Mooncake RDMA over RoCE      prefill node -> decode node
+#   KV tiers GPU only
+#
+# This is `disaggregated-kvd` without the offload tier, and it is also the KVD=0
+# arm of that recipe's A/B: the only differences are the kvd sidecar, three engine
+# flags and two volumes. Reach for it when the working set fits the ~54 GB/rank
+# device pool, which is where the offload tier costs TTFT and returns nothing.
+#
+# Docs: examples/recipes/glm5.2-fp8-gfx942/README.md — §1 why this recipe builds
+# an engine image instead of mounting the overlay, §6 every host->k8s difference.
+#
+# Fill in before applying:
+#   tus1-p15-g43 / tus1-p15-g61   kubernetes.io/hostname of two gfx942 nodes on a
+#                                    mutually routable RoCE fabric. The KV handoff is
+#                                    RDMA and there is no TCP fallback.
+#   /shared_silo/scratch/models/zai-org                      node directory holding GLM-5.2-FP8/, present at
+#                                    this path on BOTH nodes; mounted read-only at
+#                                    /models.
+#   rdma0                the RoCE rail(s) Mooncake may use, comma-separated,
+#                                    from `ibv_devices`. A rail that is down must not
+#                                    be listed.
+#   3              the GID index on that rail whose type is RoCE v2,
+#   3               from `show_gids`. Two placeholders because the
+#                                    index is PER NODE — two identical machines
+#                                    routinely differ. Usually the same value; check
+#                                    both anyway, because a wrong one pins KV to an
+#                                    interface that never carries it and the transfer
+#                                    just times out.
+apiVersion: infera.amd.com/v1alpha1
+kind: InferaDeployment
+metadata:
+  name: glm52-fp8-pd
+  namespace: infera
+spec:
+  backendFramework: sglang
+  # Replaces the etcd the docker recipe ran: workers self-register on their Pod
+  # annotation and the router watches them. Same WorkerInfo either way.
+  discoveryBackend: kubernetes
+  nats:
+    deploy: false
+  services:
+    # ---- router: infera.server, kv-aware ------------------------------------
+    server:
+      componentType: server
+      port: 8000
+      extraPodSpec:
+        # Next to prefill, as the docker recipe ran it. Not required — the router
+        # reaches both legs over the node network — and it does put these
+        # requests on the prefill node's budget. See README §2.
+        hostNetwork: true
+        dnsPolicy: ClusterFirstWithHostNet
+        nodeSelector: {kubernetes.io/hostname: tus1-p15-g43}
+        containers:
+          - name: main
+            image: infera:sglang-gfx942-glm52-5c9cb3f
+            imagePullPolicy: IfNotPresent
+            command: ["python3","-m","infera.server",
+                      "--host","0.0.0.0","--port","8000","--router-backend","rust",
+                      "--router-tokenizer-path","/models/GLM-5.2-FP8",
+                      "--discovery-backend","kubernetes",
+                      "--request-transport","http","--kv-event-transport","zmq",
+                      "--router-policy","kv-aware",
+                      "--kv-prefill-overlap-weight","20.0",
+                      "--kv-decode-overlap-weight","2.0"]
+            env:
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+            # The operator injects a readiness probe for workers only, so without
+            # this the Service takes traffic before uvicorn has bound the port.
+            readinessProbe:
+              httpGet: {path: /health, port: 8000}
+              periodSeconds: 5
+            resources:
+              requests: {cpu: "32", memory: 32Gi}
+              limits: {cpu: "32", memory: 32Gi}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+        volumes:
+          - {name: model, hostPath: {path: /shared_silo/scratch/models/zai-org, type: Directory}}
+    # ---- prefill leg --------------------------------------------------------
+    prefill:
+      componentType: worker
+      role: prefill
+      replicas: 1
+      port: 30001
+      # Weight load is 15-25 min cold. The startupProbe below is the readiness
+      # signal instead, with a budget matching INFERA_ENGINE_READY_TIMEOUT.
+      skipReadinessProbe: true
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: tus1-p15-g43}
+        # `--network host`. Required, not tuning: the RoCE rails are host
+        # interfaces, and the address this leg advertises for the Mooncake
+        # bootstrap handshake has to be one decode can open a QP to.
+        hostNetwork: true
+        dnsPolicy: ClusterFirstWithHostNet
+        # `--ipc host`, which is also what supplies /dev/shm. The node's must be
+        # large enough for TP8, and it is charged to the node, not to any limit.
+        hostIPC: true
+        containers:
+          - name: main
+            image: infera:sglang-gfx942-glm52-5c9cb3f
+            imagePullPolicy: IfNotPresent
+            # `--device=/dev/infiniband` has no unprivileged equivalent without an
+            # RDMA device plugin; privileged + the hostPath below is the pattern
+            # validated in examples/k8s-deployments/pd-1p1d-mooncake.yaml.
+            securityContext: {privileged: true, capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}}
+            # `command` replaces the ENTRYPOINT, so infera-inject-host-ionic does
+            # not run — harmless, the image already bakes the ABI (README §6).
+            # --json-model-override-args is not tuning: it stands in for two
+            # sglang_dsa patches this base cannot take. Leave IndexShare on and
+            # the decode leg deadlocks on the first request.
+            command: ["python3","-m","infera.engine.sglang",
+                      "--model-path","/models/GLM-5.2-FP8",
+                      "--host","0.0.0.0","--port","30001","--advertise-host","$(POD_IP)",
+                      "--discovery-backend","kubernetes",
+                      "--request-transport","http",
+                      "--enable-kv-events","--kv-events","on","--kv-event-transport","zmq",
+                      "--tp-size","8","--dp-size","8","--enable-dp-attention",
+                      "--trust-remote-code","--kv-cache-dtype","fp8_e4m3",
+                      "--reasoning-parser","glm45","--tool-call-parser","glm47",
+                      "--dsa-prefill-backend","tilelang","--dsa-decode-backend","tilelang",
+                      "--mem-fraction-static","0.85","--max-running-requests","128",
+                      "--chunked-prefill-size","8192","--watchdog-timeout","1200",
+                      "--disable-custom-all-reduce","--enable-cache-report",
+                      "--speculative-algorithm","EAGLE","--speculative-num-steps","5",
+                      "--speculative-eagle-topk","1","--speculative-num-draft-tokens","6",
+                      "--json-model-override-args",'{"index_share_for_mtp_iteration":false}',
+                      # Without these, "MTP did not crash" and "MTP silently
+                      # degraded to one token per step" are indistinguishable.
+                      # sglang:spec_accept_length per DP rank is the only way to
+                      # tell, and it costs a scrape endpoint.
+                      "--enable-metrics","--enable-metrics-for-all-schedulers",
+                      "--weight-loader-prefetch-checkpoints",
+                      "--model-loader-extra-config",'{"enable_multithread_load": true, "num_threads": 32}',
+                      "--disaggregation-mode","prefill","--disaggregation-bootstrap-port","8998",
+                      "--disaggregation-transfer-backend","mooncake",
+                      "--disaggregation-ib-device","rdma0"]
+            env:
+              # POD_IP first: --advertise-host and the two SGLANG/HOST entries
+              # below expand it. With hostNetwork it is the node IP, which is what
+              # decode dials for the Mooncake bootstrap handshake — override
+              # --advertise-host if your RoCE rail is on a different address.
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: SGLANG_HOST_IP, value: "$(POD_IP)"}
+              - {name: HOST_IP, value: "$(POD_IP)"}
+              # Per node, not per cluster — see the header and README §2.
+              - {name: MC_GID_INDEX, value: "3"}
+              - {name: MC_MS_AUTO_DISC, value: "0"}
+              - {name: MC_MS_FILTERS, value: "rdma0"}
+              - {name: MOONCAKE_DISABLE_HIP_DMABUF, value: "1"}
+              - {name: MC_DISABLE_HIP_TRANSPORT, value: "1"}
+              - {name: NCCL_IB_DISABLE, value: "1"}
+              - {name: SGLANG_DSA_TRITON_PREFILL, value: "1"}
+              - {name: SGLANG_USE_AITER, value: "1"}
+              - {name: SAFETENSORS_FAST_GPU, value: "1"}
+              - {name: HSA_NO_SCRATCH_RECLAIM, value: "1"}
+              - {name: SGLANG_DISAGGREGATION_BOOTSTRAP_TIMEOUT, value: "3600"}
+              - {name: INFERA_ENGINE_READY_TIMEOUT, value: "5400"}
+            startupProbe:
+              httpGet: {path: /health, port: 30001}
+              periodSeconds: 15
+              timeoutSeconds: 10
+              failureThreshold: 360   # 90 min, matching INFERA_ENGINE_READY_TIMEOUT
+            resources:
+              # No hicache host tier on this arm, so this is the decode leg's
+              # figure rather than the kvd arm's 512Gi: weight-load buffers and
+              # the TP8 working set only. cpu matches num_threads in
+              # --model-loader-extra-config.
+              requests: {cpu: "32", memory: 256Gi, amd.com/gpu: 8}
+              limits: {cpu: "32", memory: 256Gi, amd.com/gpu: 8}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: ib, mountPath: /dev/infiniband}
+        volumes:
+          - {name: model, hostPath: {path: /shared_silo/scratch/models/zai-org, type: Directory}}
+          - {name: ib, hostPath: {path: /dev/infiniband, type: Directory}}
+    # ---- decode leg ---------------------------------------------------------
+    decode:
+      componentType: worker
+      role: decode
+      replicas: 1
+      port: 31501
+      skipReadinessProbe: true
+      extraPodSpec:
+        nodeSelector: {kubernetes.io/hostname: tus1-p15-g61}
+        hostNetwork: true
+        dnsPolicy: ClusterFirstWithHostNet
+        hostIPC: true
+        containers:
+          - name: main
+            image: infera:sglang-gfx942-glm52-5c9cb3f
+            imagePullPolicy: IfNotPresent
+            securityContext: {privileged: true, capabilities: {add: ["IPC_LOCK","SYS_PTRACE"]}}
+            # KV events stay OFF on this leg: prefill-side prefix locality is the
+            # win, and enabling them here can make SGLang reject the speculative
+            # disagg flags.
+            command: ["python3","-m","infera.engine.sglang",
+                      "--model-path","/models/GLM-5.2-FP8",
+                      "--host","0.0.0.0","--port","31501","--advertise-host","$(POD_IP)",
+                      "--discovery-backend","kubernetes",
+                      "--request-transport","http",
+                      "--no-enable-kv-events","--kv-events","off",
+                      "--tp-size","8","--dp-size","8","--enable-dp-attention",
+                      "--trust-remote-code","--kv-cache-dtype","fp8_e4m3",
+                      "--reasoning-parser","glm45","--tool-call-parser","glm47",
+                      "--dsa-prefill-backend","tilelang","--dsa-decode-backend","tilelang",
+                      "--mem-fraction-static","0.85","--max-running-requests","128",
+                      "--chunked-prefill-size","8192","--watchdog-timeout","1200",
+                      "--disable-custom-all-reduce","--enable-cache-report",
+                      "--speculative-algorithm","EAGLE","--speculative-num-steps","5",
+                      "--speculative-eagle-topk","1","--speculative-num-draft-tokens","6",
+                      "--json-model-override-args",'{"index_share_for_mtp_iteration":false}',
+                      "--enable-metrics","--enable-metrics-for-all-schedulers",
+                      "--weight-loader-prefetch-checkpoints",
+                      "--model-loader-extra-config",'{"enable_multithread_load": true, "num_threads": 32}',
+                      "--disaggregation-mode","decode",
+                      "--disaggregation-transfer-backend","mooncake",
+                      "--disaggregation-ib-device","rdma0"]
+            env:
+              - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+              - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+              - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+              - {name: SGLANG_HOST_IP, value: "$(POD_IP)"}
+              - {name: HOST_IP, value: "$(POD_IP)"}
+              - {name: MC_GID_INDEX, value: "3"}
+              - {name: MC_MS_AUTO_DISC, value: "0"}
+              - {name: MC_MS_FILTERS, value: "rdma0"}
+              - {name: MOONCAKE_DISABLE_HIP_DMABUF, value: "1"}
+              - {name: MC_DISABLE_HIP_TRANSPORT, value: "1"}
+              - {name: NCCL_IB_DISABLE, value: "1"}
+              - {name: SGLANG_DSA_TRITON_PREFILL, value: "1"}
+              - {name: SGLANG_USE_AITER, value: "1"}
+              - {name: SAFETENSORS_FAST_GPU, value: "1"}
+              - {name: HSA_NO_SCRATCH_RECLAIM, value: "1"}
+              - {name: SGLANG_DISAGGREGATION_BOOTSTRAP_TIMEOUT, value: "3600"}
+              - {name: INFERA_ENGINE_READY_TIMEOUT, value: "5400"}
+            startupProbe:
+              httpGet: {path: /health, port: 31501}
+              periodSeconds: 15
+              timeoutSeconds: 10
+              failureThreshold: 360
+            resources:
+              requests: {cpu: "32", memory: 256Gi, amd.com/gpu: 8}
+              limits: {cpu: "32", memory: 256Gi, amd.com/gpu: 8}
+            volumeMounts:
+              - {name: model, mountPath: /models, readOnly: true}
+              - {name: ib, mountPath: /dev/infiniband}
+        volumes:
+          - {name: model, hostPath: {path: /shared_silo/scratch/models/zai-org, type: Directory}}
+          - {name: ib, hostPath: {path: /dev/infiniband, type: Directory}}

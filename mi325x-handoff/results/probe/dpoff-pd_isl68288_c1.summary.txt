@@ -1,0 +1,8 @@
+
+=== dpoff-pd_isl68288_c1 ===
+  mean TTFT            9385.9 ms
+  mean TPOT              9.76 ms  -> 102.5 tok/s/user
+  median TPOT            9.86 ms  -> 101.4 tok/s/user
+  mean ITL              35.91 ms
+  MTP accept len         3.68 tokens/step
+  output tput           19.09 tok/s

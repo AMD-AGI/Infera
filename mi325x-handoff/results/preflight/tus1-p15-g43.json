@@ -1,0 +1,504 @@
+{
+ "host": "tus1-p15-g43",
+ "image": "unknown",
+ "generated": "2026-08-24 15:57:31",
+ "sections": {
+  "netperf": [
+   {
+    "level": "info",
+    "message": "netperf: 64/64 links ok (as client)",
+    "details": {
+     "tests": [
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 0,
+       "client": "tus1-p15-g43",
+       "c_nic": 0,
+       "gb_s": 24.21375
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 1,
+       "client": "tus1-p15-g43",
+       "c_nic": 1,
+       "gb_s": 25.335
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 2,
+       "client": "tus1-p15-g43",
+       "c_nic": 2,
+       "gb_s": 21.70125
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 3,
+       "client": "tus1-p15-g43",
+       "c_nic": 3,
+       "gb_s": 21.14875
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 4,
+       "client": "tus1-p15-g43",
+       "c_nic": 4,
+       "gb_s": 20.99125
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 5,
+       "client": "tus1-p15-g43",
+       "c_nic": 5,
+       "gb_s": 20.4575
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 6,
+       "client": "tus1-p15-g43",
+       "c_nic": 6,
+       "gb_s": 20.035
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 7,
+       "client": "tus1-p15-g43",
+       "c_nic": 7,
+       "gb_s": 28.655
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 0,
+       "client": "tus1-p15-g43",
+       "c_nic": 1,
+       "gb_s": 16.61375
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 1,
+       "client": "tus1-p15-g43",
+       "c_nic": 2,
+       "gb_s": 15.7125
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 2,
+       "client": "tus1-p15-g43",
+       "c_nic": 3,
+       "gb_s": 16.245
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 3,
+       "client": "tus1-p15-g43",
+       "c_nic": 4,
+       "gb_s": 20.18875
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 4,
+       "client": "tus1-p15-g43",
+       "c_nic": 5,
+       "gb_s": 17.96625
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 5,
+       "client": "tus1-p15-g43",
+       "c_nic": 6,
+       "gb_s": 28.67875
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 6,
+       "client": "tus1-p15-g43",
+       "c_nic": 7,
+       "gb_s": 18.7575
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 7,
+       "client": "tus1-p15-g43",
+       "c_nic": 0,
+       "gb_s": 16.945
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 0,
+       "client": "tus1-p15-g43",
+       "c_nic": 2,
+       "gb_s": 28.60125
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 1,
+       "client": "tus1-p15-g43",
+       "c_nic": 3,
+       "gb_s": 28.68125
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 2,
+       "client": "tus1-p15-g43",
+       "c_nic": 4,
+       "gb_s": 28.67875
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 3,
+       "client": "tus1-p15-g43",
+       "c_nic": 5,
+       "gb_s": 28.6375
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 4,
+       "client": "tus1-p15-g43",
+       "c_nic": 6,
+       "gb_s": 28.6675
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 5,
+       "client": "tus1-p15-g43",
+       "c_nic": 7,
+       "gb_s": 28.65125
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 6,
+       "client": "tus1-p15-g43",
+       "c_nic": 0,
+       "gb_s": 28.59375
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 7,
+       "client": "tus1-p15-g43",
+       "c_nic": 1,
+       "gb_s": 28.625
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 0,
+       "client": "tus1-p15-g43",
+       "c_nic": 3,
+       "gb_s": 19.68375
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 1,
+       "client": "tus1-p15-g43",
+       "c_nic": 4,
+       "gb_s": 28.6875
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 2,
+       "client": "tus1-p15-g43",
+       "c_nic": 5,
+       "gb_s": 28.5525
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 3,
+       "client": "tus1-p15-g43",
+       "c_nic": 6,
+       "gb_s": 25.545
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 4,
+       "client": "tus1-p15-g43",
+       "c_nic": 7,
+       "gb_s": 26.82125
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 5,
+       "client": "tus1-p15-g43",
+       "c_nic": 0,
+       "gb_s": 20.08125
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 6,
+       "client": "tus1-p15-g43",
+       "c_nic": 1,
+       "gb_s": 19.08125
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 7,
+       "client": "tus1-p15-g43",
+       "c_nic": 2,
+       "gb_s": 19.955
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 0,
+       "client": "tus1-p15-g43",
+       "c_nic": 4,
+       "gb_s": 24.3825
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 1,
+       "client": "tus1-p15-g43",
+       "c_nic": 5,
+       "gb_s": 26.0825
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 2,
+       "client": "tus1-p15-g43",
+       "c_nic": 6,
+       "gb_s": 27.23625
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 3,
+       "client": "tus1-p15-g43",
+       "c_nic": 7,
+       "gb_s": 25.42375
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 4,
+       "client": "tus1-p15-g43",
+       "c_nic": 0,
+       "gb_s": 28.6125
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 5,
+       "client": "tus1-p15-g43",
+       "c_nic": 1,
+       "gb_s": 28.65875
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 6,
+       "client": "tus1-p15-g43",
+       "c_nic": 2,
+       "gb_s": 28.685
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 7,
+       "client": "tus1-p15-g43",
+       "c_nic": 3,
+       "gb_s": 28.60375
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 0,
+       "client": "tus1-p15-g43",
+       "c_nic": 5,
+       "gb_s": 16.9225
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 1,
+       "client": "tus1-p15-g43",
+       "c_nic": 6,
+       "gb_s": 28.655
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 2,
+       "client": "tus1-p15-g43",
+       "c_nic": 7,
+       "gb_s": 14.17875
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 3,
+       "client": "tus1-p15-g43",
+       "c_nic": 0,
+       "gb_s": 16.4175
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 4,
+       "client": "tus1-p15-g43",
+       "c_nic": 1,
+       "gb_s": 16.53875
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 5,
+       "client": "tus1-p15-g43",
+       "c_nic": 2,
+       "gb_s": 14.11625
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 6,
+       "client": "tus1-p15-g43",
+       "c_nic": 3,
+       "gb_s": 13.94125
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 7,
+       "client": "tus1-p15-g43",
+       "c_nic": 4,
+       "gb_s": 14.67375
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 0,
+       "client": "tus1-p15-g43",
+       "c_nic": 6,
+       "gb_s": 28.67625
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 1,
+       "client": "tus1-p15-g43",
+       "c_nic": 7,
+       "gb_s": 28.60875
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 2,
+       "client": "tus1-p15-g43",
+       "c_nic": 0,
+       "gb_s": 28.69625
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 3,
+       "client": "tus1-p15-g43",
+       "c_nic": 1,
+       "gb_s": 28.615
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 4,
+       "client": "tus1-p15-g43",
+       "c_nic": 2,
+       "gb_s": 28.715
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 5,
+       "client": "tus1-p15-g43",
+       "c_nic": 3,
+       "gb_s": 28.68875
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 6,
+       "client": "tus1-p15-g43",
+       "c_nic": 4,
+       "gb_s": 28.67
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 7,
+       "client": "tus1-p15-g43",
+       "c_nic": 5,
+       "gb_s": 28.69375
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 0,
+       "client": "tus1-p15-g43",
+       "c_nic": 7,
+       "gb_s": 28.545
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 1,
+       "client": "tus1-p15-g43",
+       "c_nic": 0,
+       "gb_s": 28.27875
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 2,
+       "client": "tus1-p15-g43",
+       "c_nic": 1,
+       "gb_s": 28.225
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 3,
+       "client": "tus1-p15-g43",
+       "c_nic": 2,
+       "gb_s": 28.58125
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 4,
+       "client": "tus1-p15-g43",
+       "c_nic": 3,
+       "gb_s": 28.59875
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 5,
+       "client": "tus1-p15-g43",
+       "c_nic": 4,
+       "gb_s": 28.63375
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 6,
+       "client": "tus1-p15-g43",
+       "c_nic": 5,
+       "gb_s": 26.96875
+      },
+      {
+       "server": "tus1-p15-g61",
+       "s_nic": 7,
+       "client": "tus1-p15-g43",
+       "c_nic": 6,
+       "gb_s": 28.66375
+      }
+     ]
+    }
+   }
+  ],
+  "mooncake": [
+   {
+    "level": "info",
+    "message": "tus1-p15-g61 -> tus1-p15-g43 rdma",
+    "details": {
+     "GB/s": 8.81,
+     "moved_GiB": 24.6,
+     "loc": "cpu",
+     "gpu": -1,
+     "env": "MC_GID_INDEX=3",
+     "verified": true,
+     "dev": "rdma0"
+    }
+   },
+   {
+    "level": "info",
+    "message": "tus1-p15-g61 -> tus1-p15-g43 rdma-default",
+    "details": {
+     "GB/s": 2.4,
+     "moved_GiB": 6.7,
+     "loc": "cpu",
+     "gpu": -1,
+     "env": "none",
+     "verified": true
+    }
+   },
+   {
+    "level": "info",
+    "message": "tus1-p15-g61 -> tus1-p15-g43 tcp",
+    "details": {
+     "GB/s": 0.08,
+     "moved_GiB": 0.2,
+     "loc": "cpu",
+     "gpu": -1,
+     "env": "MC_FORCE_TCP=1",
+     "verified": true
+    }
+   }
+  ]
+ }
+}

@@ -1,0 +1,11 @@
+[preflight] active RDMA ports visible in infera:sglang-gfx942-glm52-5c9cb3f (expect the node's port count, not 0):
+8
+[preflight] [tus1-p15-g61] running netperf...
+[preflight] netperf tus1-p15-g43 -> tus1-p15-g61 (8x8 nics)...
+[preflight] [tus1-p15-g61] running mooncake...
+[preflight] host=tus1-p15-g61 rank=1/2 sections= status=WARN
+[preflight] WARN: [netperf] netperf link slow: tus1-p15-g43 nic4 -> tus1-p15-g61 nic4
+[preflight] WARN: [netperf] netperf link slow: tus1-p15-g43 nic5 -> tus1-p15-g61 nic5
+[preflight] WARN: [netperf] netperf link slow: tus1-p15-g43 nic6 -> tus1-p15-g61 nic6
+[preflight] WARN: [netperf] netperf link slow: tus1-p15-g43 nic7 -> tus1-p15-g61 nic7
+[preflight] wrote /shared_silo/scratch/liying.li@amd.com/Infera/examples/glm5.2_gfx942/preflight_out/tus1-p15-g61.json

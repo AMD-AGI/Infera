@@ -1,0 +1,7 @@
+conversations=60  turns in dataset=448  requests recorded=448
+
+  44 of 448 requests FAILED -- nothing to score.
+  first at turn 48: Traceback (most recent call last):
+  File "/opt/venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1301, in _wrap_create_connection
+    soc
+  check both legs are registered (/v1/workers) and rerun.

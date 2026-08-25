@@ -1,0 +1,20 @@
+conversations=60  turns in dataset=448  requests recorded=448
+
+  ideal model          growing prefix
+  total input tokens       30,591,552
+  total cached tokens      25,883,008
+  ideal cached tokens      25,883,264
+
+  actual hit rate              84.61 %
+  ideal  hit rate              84.61 %
+  efficiency (a/i)            100.00 %
+
+  turns short of ideal              2 / 448
+  tokens lost to evict            256 (0.00% of ideal)
+
+  cached tokens by tier
+    device       25,883,008  100.00 %
+    host                  0    0.00 %
+    storage               0    0.00 %
+
+  per-turn input: p50=68,288  p90=90,240  p99=98,688  max=99,904
