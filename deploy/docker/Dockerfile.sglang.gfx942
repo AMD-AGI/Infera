@@ -21,8 +21,8 @@
 # version window (+/-2 releases before 6.4.0). Outside it nothing refuses to
 # start — the image initialises, loads weights, captures graphs, then faults with
 # `Memory access fault by GPU node-N` somewhere under load, which reads exactly
-# like an engine bug. This has already cost three misattributed image rebuilds
-# here; see the DSA patch block below.
+# like an engine bug — and can present as several unrelated ones at once, each
+# with its own plausible stack. See patches/sglang_dsa/README.md.
 #
 #   host amdgpu            supported ROCm userspace   base to use
 #   6.3.x                  <= 7.0.x                   v0.5.16-rocm700-mi30x
@@ -109,17 +109,13 @@ RUN pip install --no-cache-dir ".[sglang]" "setuptools>=83.0.0"
 # RUNTIME — every leg MUST launch with
 # `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`.
 #
-# 02a and 04 are deliberately NOT applied. They were briefly wired in here (a
-# `gfx942` arm) after three GPU faults on a 2 x 8 MI300X 1P1D deployment were
-# each traced to a plausible sglang cause. That attribution was wrong: the
-# cluster was running an out-of-support ROCm pairing (see the PRECONDITION
-# below), and rebuilt on a rocm700 base with patch 01 alone it ran EAGLE
-# MTP(5,1,6) on both legs clean at conc 1 through 32. The arm is gone; the apply
-# script's header keeps the full account.
+# 02a and 04 are deliberately NOT applied. 04 is what the IndexShare-off flag
+# above stands in for; 02a is untested on this base rather than ruled out. Both
+# can look necessary after a GPU fault that is really the driver pairing — see
+# the PRECONDITION at the top of this file.
 ARG APPLY_SGLANG_DSA_PATCHES=1
-# Overridable so patch sets can be A/B'd on one base without editing this file.
-# That is how the misattribution above was caught: same manifest, same sglang,
-# one build-arg apart.
+# Overridable so patch sets can be A/B'd on one base without editing this file:
+# same manifest, same sglang, one build-arg apart.
 ARG DSA_PATCH_SET=indexer
 COPY deploy/docker/patches/sglang_dsa/ /tmp/sglang_dsa/
 COPY deploy/docker/scripts/apply_sglang_dsa_patches.sh /tmp/apply_sglang_dsa_patches.sh
