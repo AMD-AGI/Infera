@@ -97,23 +97,25 @@ The report ends with:
 
 ```
 [inferasim:Inference] Performance Projection
-  Workload: input=1024 tok, output=1024 tok, batch=32
+  Workload: input=1024 tok, output=1024 tok, batch=1
   Serving model: CONTINUOUS BATCHING (concurrency=32)
   Profiling source: SIMULATION
-  Max sustainable concurrency: 6117  (HBM=288 GB via --hbm-capacity-gb)
+  Max sustainable concurrency: 4808  (HBM=288 GB via --hbm-capacity-gb)
   Concurrency used: 32
   TTFT (time to first token):      42.32 ms
   ITL / TPOT (per token):          14.49 ms
   Interactivity (per user):        69.0 tok/s/user
   Decode step latency (pure):      13.68 ms  | mixed: 38.90 ms
     Mixed-step fraction:           3.12%  → TPOT pollution: 8.4%
+  End-to-end request latency:      14870.59 ms
   Per-request decode throughput:   69.0 tok/s
   Aggregate decode throughput:     2209.8 tok/s
   Decode throughput / GPU:         1104.9 tok/s/gpu
+  Prefill throughput:              40576.9 tok/s
   Replica GPUs (TP×PP):            2
   Communication breakdown (exposed ms/forward):
     prefill:  TP-AR 3.22 | EP-A2A 14.85 | PP-P2P 0.00 | total 18.07
-    decode:   TP-AR 0.10 | EP-A2A 0.46 | PP-P2P 0.00 | total 0.56
+    decode:   TP-AR 0.00 | EP-A2A 0.01 | PP-P2P 0.00 | total 0.02
 ```
 
 Reading it:
@@ -127,6 +129,8 @@ Reading it:
   you disaggregate prefill from decode.
 - **Decode throughput / GPU** is the right axis for comparing recipes with
   different GPU counts; aggregate throughput alone will always favour more GPUs.
+  Pass `--gpu-cost-per-hour` to get the same comparison in dollars — see
+  [Price the projection](#price-the-projection).
 - **Communication breakdown** shows *exposed* (non-overlapped) collective time,
   so you can see whether a recipe is compute-bound or comm-bound before
   changing its parallel shape.
@@ -194,6 +198,32 @@ interactivity that look like bugs but are just saturation.
 `--inference-batch-size` describes the workload's batch shape; it does not cap
 the serving concurrency. If the report says `Concurrency used:` and a number
 far larger than you expected, this is why.
+
+### Price the projection
+
+Give the projector a GPU-hour price and it reports the throughput in the unit a
+serving budget is quoted in:
+
+```bash
+--gpu-cost-per-hour 2.50
+```
+
+```
+  Cost basis:                      $2.5/GPU-h x 2 GPU
+  Cost / 1M output tokens:         $0.629
+  Cost / 1M in+out tokens:         $0.314
+```
+
+The whole replica is charged, so a recipe that buys throughput with GPUs is
+billed for them. That is the point: tokens/s ranks recipes by speed, and the
+faster recipe is not always the cheaper one. The `in+out` line blends over the
+workload's own mix — at 3072 in / 1024 out, four tokens are billed for every one
+emitted, so it is a quarter of the output-only figure. (Above, at 1024 in /
+1024 out, it is a half.)
+
+Nothing is priced without a price. Omit the flag and the cost lines are absent
+rather than defaulted, since an invented GPU-hour rate would be read as a
+measured one.
 
 ### Calibrate against a GPU (anchors)
 

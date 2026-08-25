@@ -233,6 +233,13 @@ total and per GPU, memory per GPU, and feasibility. Infeasible configurations
 are *kept* and annotated with the reason rather than dropped, so a search can
 distinguish "does not fit" from "was never tried".
 
+Given a GPU-hour price it also reports cost per million tokens, charging the
+whole replica. Throughput per GPU already normalises for size, but a budget is
+denominated in currency, and the conversion is where a recipe that bought its
+speed with GPUs stops looking free. No price is assumed: without one the figure
+is absent rather than defaulted, because an invented rate reads as a measured
+one.
+
 The DES reports offered and achieved request rate, utilisation, makespan, system
 throughput, and whether the configuration saturated — plus full distributions
 for TTFT measured from admission, TTFT measured from arrival (including queue
@@ -274,6 +281,21 @@ nothing to contribute to them, and capacity measured on a warmup's reduced
 parallelism does not describe the target's. The memory projection is analytical
 at every parallelism, and its correctness is a question about the formulas
 rather than about calibration.
+
+Which is why the parallel layout has to include how attention itself is split.
+Tensor parallelism shards a GQA model's cache because it shards KV heads, but
+MLA caches one compressed latent that every head reads, so tensor parallelism
+replicates it instead. Data-parallel attention is the axis that actually shrinks
+it: a rank owns a subset of the in-flight requests and holds their whole cache,
+seeing 1/dp of the batch across tp/dp of the heads. For head-parallel work those
+two divisions cancel, which is why GQA gains nothing; MLA's latent is not
+head-parallel, so for it they do not. A rank whose attention output is whole
+rather than a shard also has nothing to all-reduce after it, and with experts
+fully expert-parallel a MoE layer's tensor-parallel collectives disappear
+altogether. The axis is not free — the same work in a narrower shape is worse
+GEMMs — but on an MLA model it is the difference between one cache per rank and
+one per replica, and therefore between having and not having an answer to a
+long-context sizing question.
 
 ## Boundaries
 
