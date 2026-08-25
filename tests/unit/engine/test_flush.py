@@ -108,6 +108,21 @@ async def test_an_unreachable_engine_never_raises(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_atom_is_not_flushed(monkeypatch):
+    """ATOM has no anchor to lose. Its hook reports ``parent_block_hash=None``
+    for the first block of every sequence, so the chain re-roots on the next
+    cold prefix, and it emits no clear event a flush could produce anyway. The
+    guessed ``/flush_cache`` only ever bought a 404 -- which the router's
+    self-heal reads as a busy worker and backs off from."""
+    called = []
+    _patch_client(monkeypatch, lambda r: called.append(1) or httpx.Response(200))
+    assert not await flush_engine_prefix_cache(
+        host="127.0.0.1", port=1, engine=EngineType.ATOM
+    )
+    assert not called
+
+
+@pytest.mark.asyncio
 async def test_an_engine_with_no_known_endpoint_is_skipped(monkeypatch):
     called = []
     _patch_client(monkeypatch, lambda r: called.append(1) or httpx.Response(200))
@@ -223,3 +238,35 @@ async def test_an_already_anchored_chain_is_left_alone(monkeypatch):
         host="127.0.0.1", port=30000, engine=EngineType.SGLANG, observed=observed
     )
     assert not called
+
+
+@pytest.mark.asyncio
+async def test_the_deadline_covers_the_posts_not_only_the_waiting(monkeypatch):
+    """A wedged engine is exactly what the deadline is for, and it is the POST
+    that hangs, not the wait. Checking the budget only afterwards let the last
+    attempt overrun by a whole ``post_timeout`` -- with the defaults, ~18s
+    against a 15s bound."""
+    timeouts = []
+
+    async def never_answers(*, host, port, engine, timeout):
+        timeouts.append(timeout)
+        await asyncio.sleep(timeout)
+        return False
+
+    monkeypatch.setattr(flush_mod, "flush_engine_prefix_cache", never_answers)
+    loop = asyncio.get_running_loop()
+    started = loop.time()
+    assert not await anchor_kv_chain(
+        host="127.0.0.1",
+        port=30000,
+        engine=EngineType.SGLANG,
+        observed=asyncio.Event(),
+        attempts=10,
+        settle=0.05,
+        post_timeout=0.2,
+        deadline=0.3,
+    )
+    elapsed = loop.time() - started
+    assert elapsed < 0.55, f"overran the deadline: {elapsed:.2f}s"
+    # No POST is handed budget the loop does not have left.
+    assert sum(timeouts) <= 0.3 + 1e-6, timeouts

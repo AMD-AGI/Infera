@@ -33,6 +33,15 @@
 //! `continue_final_message`, the `reasoning` object (it rewrites
 //! `reasoning_effort` inside the request model), and chat_template_kwargs
 //! beyond `thinking` / `thinking_effort`.
+//!
+//! The tests below are the standing check on the port. They were written
+//! against output captured from the reference itself — sglang's `serving_chat`
+//! preparation followed by the model's own `build_chat_segments`, cross-checked
+//! against `apply_chat_template` — rather than from reading it, because the
+//! failure mode is a silent one-token drift. Reproducing that capture needs the
+//! weights and a working sglang, so it is not something CI can re-run; when the
+//! model's rendering changes, re-capture against the new reference rather than
+//! adjusting the expectations here to match this code.
 
 use serde::Serialize;
 use serde_json::{Map, Value};

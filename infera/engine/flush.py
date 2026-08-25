@@ -40,10 +40,20 @@ logger = logging.getLogger(__name__)
 #: Per-engine cache-flush endpoint. SGLang clears its radix tree and emits
 #: ``AllBlocksCleared``; vLLM's twin is ``/reset_prefix_cache`` (see
 #: ``infera/engine/vllm/kvd_connector.py``).
+#:
+#: ATOM is deliberately absent, and not because its endpoint is unknown to us.
+#: It has no anchor to lose: its event hook reports ``parent_block_hash=None``
+#: for the first block of *every* sequence (``infera/engine/atom/hooks/
+#: kv_events.py``), not once per process, so an ATOM chain re-roots on the next
+#: request whose prefix is cold and can never reach the absorbing state this
+#: module repairs. It also emits no clear event at all, so a flush -- at
+#: whatever path -- would discard real GPU cache and re-anchor nothing.
+#: Guessing ``/flush_cache`` here only bought a 404, which
+#: ``rust/router/src/kv_selfheal.rs`` would read as "flush refused" and back
+#: off from as though the worker were busy.
 _FLUSH_PATHS = {
     EngineType.SGLANG: "/flush_cache",
     EngineType.VLLM: "/reset_prefix_cache",
-    EngineType.ATOM: "/flush_cache",
 }
 
 
@@ -112,14 +122,15 @@ async def anchor_kv_chain(
     anchor was -- leaving a worker that looks freshly repaired and is not. A
     fixed sleep would only move the guess around; this observes the outcome.
 
-    ``deadline`` bounds the whole loop, not each attempt. Callers run this
-    immediately before registering, so every second here is a second the worker
-    exists and cannot be routed to; ``attempts`` alone would let an engine that
-    answers slowly turn a routing optimisation into a startup stall of
-    ``attempts * (post_timeout + settle)``. The POST timeout is short for the
-    same reason -- this is a loopback call to a process that is up enough to
-    have bound its port, so anything slower is a wedged engine, and the retry is
-    a better answer to that than waiting.
+    ``deadline`` bounds the whole loop, not each attempt, and bounds it
+    inclusive of the POSTs: the remaining budget is checked before each one and
+    caps its timeout. Callers run this immediately before registering, so every
+    second here is a second the worker exists and cannot be routed to;
+    ``attempts`` alone would let an engine that answers slowly turn a routing
+    optimisation into a startup stall of ``attempts * (post_timeout + settle)``.
+    The POST timeout is short for the same reason -- this is a loopback call to
+    a process that is up enough to have bound its port, so anything slower is a
+    wedged engine, and the retry is a better answer to that than waiting.
 
     Returns True once the clear is seen. Never raises, and a False return is
     logged, not fatal: kv-aware degrades, the worker still serves.
@@ -127,13 +138,24 @@ async def anchor_kv_chain(
     if observed.is_set():
         return True
 
-    expiry = asyncio.get_running_loop().time() + deadline
+    loop = asyncio.get_running_loop()
+    started = loop.time()
+    expiry = started + deadline
     attempt = 0
-    for attempt in range(1, attempts + 1):
+    for i in range(1, attempts + 1):
+        # Budget checked *before* the POST, and the POST capped to what is
+        # left. Checking only afterwards let a wedged engine overrun the
+        # deadline by a whole `post_timeout` on the final attempt -- with the
+        # defaults, ~18s against a 15s bound -- which is exactly the startup
+        # stall `deadline` exists to cap.
+        left = expiry - loop.time()
+        if left <= 0:
+            break
+        attempt = i
         await flush_engine_prefix_cache(
-            host=host, port=port, engine=engine, timeout=post_timeout
+            host=host, port=port, engine=engine, timeout=min(post_timeout, left)
         )
-        left = expiry - asyncio.get_running_loop().time()
+        left = expiry - loop.time()
         if left <= 0:
             break
         try:
@@ -152,10 +174,10 @@ async def anchor_kv_chain(
         return True
 
     logger.warning(
-        "kv events: flushed %d time(s) in %.0fs but never saw the resulting clear event "
+        "kv events: flushed %d time(s) in %.1fs but never saw the resulting clear event "
         "-- the router's chain has no anchor, so kv-aware will route this worker on load "
         "alone. Registration continues regardless.",
         attempt,
-        deadline,
+        loop.time() - started,
     )
     return False

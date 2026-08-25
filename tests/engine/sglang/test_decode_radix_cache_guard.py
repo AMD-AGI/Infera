@@ -16,6 +16,8 @@ imports sglang.srt.server_args at load time.
 
 from __future__ import annotations
 
+import sys
+
 import pytest
 
 pytest.importorskip("sglang")
@@ -85,3 +87,17 @@ def test_guard_never_raises_when_the_model_config_is_unreadable(monkeypatch):
             raise RuntimeError("no config.json")
 
     assert args_mod._decode_radix_cache_unsupported_reason(_Boom()) is None
+
+
+def test_guard_never_raises_when_sglangs_private_module_moves(monkeypatch):
+    """``sglang.srt.configs.hybrid_arch`` is private API that moves between
+    releases. A rename must degrade to the warning path like any other
+    unreadable config, not propagate an ImportError out of argv parsing."""
+    # A None entry in sys.modules is what makes `import x` raise ImportError.
+    monkeypatch.setitem(sys.modules, "sglang.srt.configs.hybrid_arch", None)
+
+    class _Unused:
+        def get_model_config(self):
+            raise AssertionError("the import fails before the config is read")
+
+    assert args_mod._decode_radix_cache_unsupported_reason(_Unused()) is None

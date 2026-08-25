@@ -361,13 +361,17 @@ mod tests {
     }
 
     #[test]
-    fn the_bucket_does_not_overwrite_an_existing_view() {
-        // The stream is authoritative and ordered; the bucket is only a
-        // cold-start shortcut, so it seeds and never corrects.
+    fn the_bucket_keeps_refreshing_a_rank_whose_chain_never_anchored() {
+        // The ordered stream is authoritative where it works, and a rank that
+        // has resolved even one event keeps the view it built (covered in
+        // `kv_event`, which can feed the stream). This rank has resolved
+        // nothing -- a cold router against a rolled JetStream -- so the bucket
+        // is the only current source it has, and freezing the first snapshot
+        // would leave it routing on a view that only drifts.
         let c = tracked_client(16);
         c.seed_rank_view("w1", 0, vec![1, 2, 3]);
         c.seed_rank_view("w1", 0, vec![9]);
-        assert_eq!(c.total_blocks("w1"), 3);
+        assert_eq!(c.total_blocks("w1"), 1);
     }
 
     #[test]

@@ -391,15 +391,19 @@ def _decode_radix_cache_unsupported_reason(server_args) -> str | None:
     lines later when the engine starts, and refusing to launch over a *warning
     path* would be worse than the crash it is meant to avoid.
     """
-    from sglang.srt.configs.hybrid_arch import (
-        hybrid_gdn_config,
-        hybrid_lightning_config,
-        kimi_linear_config,
-        linear_attn_model_spec,
-        mamba2_config,
-    )
-
     try:
+        # Inside the try on purpose: `hybrid_arch` is a private SGLang module and
+        # its contents move between releases, so an ImportError here is exactly
+        # the "cannot read the config" case the docstring promises to survive.
+        # Importing above the try would raise it at the caller instead.
+        from sglang.srt.configs.hybrid_arch import (
+            hybrid_gdn_config,
+            hybrid_lightning_config,
+            kimi_linear_config,
+            linear_attn_model_spec,
+            mamba2_config,
+        )
+
         model_config = server_args.get_model_config()
 
         if model_config.is_hybrid_swa:

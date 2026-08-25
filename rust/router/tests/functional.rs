@@ -721,8 +721,11 @@ async fn a_flush_request_reaches_the_worker_over_http() {
         "the engine's own cache-flush endpoint is what re-emits the rooted event"
     );
 
-    // Asking again inside the cooldown must not land: the repair is one-shot
-    // per episode, and repeating it would clear a cache that is being rebuilt.
+    // The detector re-arms on every unanchored batch -- it has to, or one
+    // refusal would retire the repair for good -- so holding the POST down to
+    // one is the actor's job: a worker with a flush in flight, and then inside
+    // its cooldown, is asked no again. Repeating it would clear a cache that
+    // is in the middle of being rebuilt.
     flush.request(&w);
     tokio::time::sleep(Duration::from_millis(200)).await;
     assert_eq!(seen.lock().unwrap().len(), 1);
