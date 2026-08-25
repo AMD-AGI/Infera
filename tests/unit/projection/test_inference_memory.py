@@ -49,6 +49,23 @@ def test_weights_are_tp_sharded_across_ranks():
     assert 1.7 < ratio < 2.3, f"TP4/TP8 per-rank memory ratio {ratio:.2f} is not ~2x"
 
 
+def test_expert_parallelism_does_not_shrink_the_model():
+    """Turning EP on redistributes experts across the same GPUs; it deletes none.
+
+    The profiler divides expert weights by EP because in training EP is its own
+    axis of GPUs. A serving engine places experts on the tensor-parallel ranks
+    instead (vLLM sets EP = TP), so applying that split *and* the TP one charged
+    a rank a fraction of the experts it really loads -- reporting a 120B MoE at
+    under a gigabyte of weights per rank, and conjuring the HBM to prove it fit.
+    """
+    off = _project(tp=8, ep=1, concurrency=1, input_len=128, output_len=8)
+    on = _project(tp=8, ep=8, concurrency=1, input_len=128, output_len=8)
+    assert on["memory_gb"] == pytest.approx(off["memory_gb"], rel=1e-6)
+    # Equality alone would also hold if both arms under-counted, which is the
+    # failure in question: 116.5B at 0.53 B/param over 8 ranks is ~7 GB a rank.
+    assert on["memory_gb"] > 5.0
+
+
 def test_gpt_oss_mxfp4_fits_on_one_mi355x():
     """116.5B params at 0.53 B/param over TP=8 is ~7 GB of weights per rank."""
     out = _project(tp=8, weight_dtype="mxfp4", concurrency=1, input_len=1024, output_len=8)

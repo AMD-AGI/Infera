@@ -19,7 +19,7 @@ remaining HBM, which is the headline capacity number for a serving config.
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Optional
 
 from infera.projection.core.projection.module_profilers.language_model import (
@@ -100,13 +100,22 @@ def project_inference_memory(
         batch_size=inference_config.request_config.batch_size,
         seq_len=inference_config.request_config.input_seq_len,
     )
+    # ``rank`` selects this rank's pipeline stage AND applies the profiler's
+    # expert-parallel split, which is right for training, where EP is a separate
+    # axis of GPUs from TP. A serving engine places experts on the same GPUs as
+    # the tensor shards (vLLM sets EP = TP), so a rank holds 1/TP of every
+    # weight class -- experts by expert assignment, everything else by tensor
+    # sharding. Counting the expert split here as well would shard experts
+    # twice and report a fraction of the weights a rank really loads.
+    view.model_parallel_config = replace(
+        view.model_parallel_config, expert_model_parallel_size=1
+    )
     profiler = build_profiler(get_language_model_profiler_spec(view))
 
-    # ``estimated_num_params`` counts this rank's pipeline and expert share but
-    # not its tensor-parallel slice: every weight matrix a served model holds
-    # (QKV/O, MLP, expert FFN, vocab) is sharded across the TP group, so the
-    # rank owns 1/TP of them. Only norms and the router are replicated, and
-    # those are well under a percent of the total.
+    # With experts left whole above, ``estimated_num_params`` counts this rank's
+    # pipeline stage at full width and the TP divide below is the only split
+    # applied. Norms and the router are replicated rather than sharded, and are
+    # well under a percent of the total.
     tp = max(1, inference_config.model_parallel_config.tensor_model_parallel_size)
     num_params = profiler.estimated_num_params(rank=eff_rank) // tp
     weight_bytes = int(num_params * dtype_num_bytes(inference_config.request_config.weight_dtype))
