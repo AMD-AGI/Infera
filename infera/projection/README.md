@@ -157,6 +157,28 @@ A replica occupies **TP × PP** GPUs. Expert parallelism is placed *within* the
 tensor-parallel GPUs, so raising EP does not add GPUs. Dtypes are
 `--weight-dtype` and `--kv-cache-dtype`.
 
+### Data-parallel attention (MLA)
+
+```bash
+--attention-dp-size 8       # split requests across the 8 tensor-parallel ranks
+```
+
+Attention runs data-parallel while the MLP and experts stay tensor/expert
+parallel: each rank owns a subset of the in-flight requests and holds their
+whole KV cache. The size must divide TP, which it subdivides rather than adds
+to, so the replica's GPU count does not change.
+
+This is how MLA models are actually served. Tensor parallelism shards a GQA
+model's cache because it shards KV heads, but MLA caches one compressed latent
+that every head reads, so TP replicates it — at TP=8, DeepSeek-R1 stores the
+same cache eight times. Splitting by request instead stores it once, and the
+capacity that frees is the whole answer to a long-context or agentic sizing
+question: 277 concurrent sequences on an MI355X node becomes 2216. A rank whose
+attention output is its own also has nothing to all-reduce, so the per-layer TP
+collective count drops with it.
+
+For GQA models the axis is close to a no-op — TP already sharded the heads.
+
 ### Control concurrency
 
 This is the most common source of confusing results. **`--max-concurrency` is

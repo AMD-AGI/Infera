@@ -550,6 +550,18 @@ def _add_inference_args(parser):
         help="Extra replicated expert slots (EPLB) that reduce realized MoE routing "
         "imbalance. Default 0.",
     )
+    par = parser.add_argument_group("inference parallelism")
+    par.add_argument(
+        "--attention-dp-size",
+        type=int,
+        default=None,
+        help="Run attention data-parallel across this many ranks, splitting the "
+        "running requests between them while the MLP/MoE stay tensor/expert "
+        "parallel. Must divide the tensor-parallel size, which it subdivides "
+        "rather than adds to. This is how MLA models are served: tensor "
+        "parallelism replicates their compressed KV latent instead of sharding "
+        "it, so only splitting by request shrinks the cache a rank holds.",
+    )
     # ---- Feature A: prefill/decode disaggregation ----
     dis = parser.add_argument_group("inference disaggregation (feature A)")
     dis.add_argument(

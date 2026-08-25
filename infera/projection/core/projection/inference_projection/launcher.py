@@ -99,6 +99,11 @@ def _collect_inference_overrides(args) -> Dict[str, object]:
                 if val is not None:
                     overrides[field_name] = val
 
+    # Attention DP is a parallel axis, but a serving-only one, so it arrives on
+    # an inference flag rather than in the trainer's parallelism block.
+    attn_dp = getattr(args, "attention_dp_size", None)
+    if attn_dp is not None:
+        overrides["attention_data_parallel_size"] = int(attn_dp)
     # --comm-model {explicit,builtin} → collective_enabled.
     comm_model = getattr(args, "comm_model", None)
     if comm_model is not None:

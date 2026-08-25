@@ -241,6 +241,19 @@ class AttentionProfiler(BaseModuleProfiler):
         tp_size = max(1, mp.tensor_model_parallel_size)
         cp_size = max(1, mp.context_model_parallel_size)
 
+        # Data-parallel attention splits the in-flight requests across dp groups
+        # and tensor-parallelises attention only inside one, so a rank sees 1/dp
+        # of the batch across tp/dp of the heads. Everything below -- projection
+        # GEMMs, the SDPA roofline, the KV bytes read, the activation working
+        # set -- follows from those two numbers. For head-parallel work the two
+        # divisions cancel, which is why GQA gains nothing here; MLA's latent is
+        # shared by every head rather than sharded across them, so for it they
+        # do not.
+        attn_dp = max(1, getattr(mp, "attention_data_parallel_size", 1) or 1)
+        if attn_dp > 1:
+            tp_size = max(1, tp_size // attn_dp)
+            batch_size = max(1, batch_size // attn_dp)
+
         # Tensor parallelism shards attention *heads*, not tokens: every rank
         # holds the whole token axis and a 1/tp slice of the heads. Dividing the
         # token count by ``tp`` instead (and then sizing the projection GEMMs

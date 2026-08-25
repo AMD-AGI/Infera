@@ -24,6 +24,11 @@ class ModelParallelConfig:
     virtual_pipeline_model_parallel_size: int = 1
     context_model_parallel_size: int = 1
     expert_model_parallel_size: int = 1
+    # Serving-only axis: attention runs data-parallel over the batch, each rank
+    # holding the whole KV for its own share of requests, while the MLP/MoE stay
+    # tensor/expert parallel. Standard for MLA models, whose latent KV is
+    # replicated by tensor parallelism rather than sharded by it.
+    attention_data_parallel_size: int = 1
     use_torch_fsdp2: bool = False
     use_distributed_optimizer: bool = False
     overlap_grad_reduce: bool = True
@@ -883,6 +888,19 @@ class InferenceConfig:
         default_factory=DisaggregationConfig
     )
 
+    def __post_init__(self) -> None:
+        mp = self.model_parallel_config
+        dp = max(1, int(getattr(mp, "attention_data_parallel_size", 1) or 1))
+        tp = max(1, int(mp.tensor_model_parallel_size))
+        # Attention DP subdivides the tensor-parallel group rather than adding
+        # GPUs: each of the dp groups runs attention at tp/dp, so the split has
+        # to be even and cannot be wider than the group it splits.
+        if dp > 1 and (dp > tp or tp % dp):
+            raise ValueError(
+                f"attention_data_parallel_size={dp} must divide "
+                f"tensor_model_parallel_size={tp}"
+            )
+
     def as_training_config(self, *, batch_size: int, seq_len: int) -> TrainingConfig:
         """Build a throwaway :class:`TrainingConfig` view for a given
         (batch, seq_len) so the existing profiler tree can be reused for
@@ -1058,10 +1076,19 @@ def convert_config_to_inference_config(
     _apply_prefixed(collective, overrides, prefix="collective_")
     _apply_prefixed(disagg, overrides, prefix="disagg_")
 
+    # Attention data parallelism is a parallel axis that only exists in serving,
+    # so it rides in with the inference block rather than the trainer's.
+    mp = training_config.model_parallel_config
+    attn_dp = overrides.get(
+        "attention_data_parallel_size", yaml_inf.get("attention_data_parallel_size")
+    )
+    if attn_dp is not None:
+        mp.attention_data_parallel_size = int(attn_dp)
+
     return InferenceConfig(
         model_config=training_config.model_config,
         request_config=request,
-        model_parallel_config=training_config.model_parallel_config,
+        model_parallel_config=mp,
         collective_config=collective,
         disaggregation_config=disagg,
     )

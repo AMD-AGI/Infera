@@ -33,6 +33,7 @@ from infera.projection.core.projection.module_profilers.language_model import (
 from infera.projection.core.projection.module_profilers.quantization import QuantCastProfiler
 from infera.projection.core.projection.module_profilers.sampling import SamplingProfiler
 from infera.projection.core.projection.module_profilers.transformer_layer import (
+    _dense_tp_allreduce_count,
     _estimate_moe_a2a_time_ms,
     _estimate_tp_allreduce_time_ms,
     _moe_tp_allreduce_count,
@@ -502,7 +503,7 @@ class InferencePerformanceProjector:
             # EP>1 (expert_tp==1) drops the post-expert TP-AR (combined by A2A).
             n_ar = _moe_tp_allreduce_count(self._view)
             return n_ar * tp_ar_one + _estimate_moe_a2a_time_ms(self._view, batch, q_len, self._gemm)
-        return 2.0 * tp_ar_one
+        return _dense_tp_allreduce_count(self._view) * tp_ar_one
 
     def set_benchmark_calibration(self, benchmark_layer_times: dict) -> None:
         """Ingest measured silicon times for a **benchmark-based** projection.
@@ -1112,7 +1113,9 @@ class InferencePerformanceProjector:
             # attention AR (half of the dense 2-AR) plus the A2A. Charging the
             # full dense 2-AR + A2A on MoE at EP>1 double-counts (see
             # _moe_tp_allreduce_count).
-            moe_tp_ar = new_tp_ar * (_moe_tp_allreduce_count(self._view) / 2.0)
+            moe_tp_ar = new_tp_ar * (
+                _moe_tp_allreduce_count(self._view) / _dense_tp_allreduce_count(self._view)
+            )
 
             # EP A2A (dispatch/combine) is overlapped with expert compute by the
             # fused MoE kernel (aiter/DeepEP), so its exposed cost is limited by
@@ -1748,7 +1751,9 @@ class InferencePerformanceProjector:
         ep_a2a = self._comm.ep_a2a_ms(batch, q_len)
         # MoE keeps only the attention AR when experts are fully EP-distributed
         # (see _moe_tp_allreduce_count); avoids double-counting with the A2A.
-        moe_tp_ar = tp_ar * (_moe_tp_allreduce_count(self._view) / 2.0)
+        moe_tp_ar = tp_ar * (
+            _moe_tp_allreduce_count(self._view) / _dense_tp_allreduce_count(self._view)
+        )
         comm.tp_allreduce_ms = (self._n_dense * tp_ar + self._n_moe * moe_tp_ar) * keep
         comm.ep_a2a_ms = self._n_moe * ep_a2a * keep
         comm.pp_p2p_ms = self._comm.pp_p2p_ms(batch, q_len) * keep

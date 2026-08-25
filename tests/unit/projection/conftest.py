@@ -103,6 +103,7 @@ def project_spec(**overrides):
         ("--decode-admission-steps", "decode_admission_steps"),
         ("--decode-kernel-occupancy-us", "decode_kernel_occupancy_us"),
         ("--gpu-cost-per-hour", "gpu_cost_per_hour"),
+        ("--attention-dp-size", "attn_dp"),
     ):
         if spec.get(key) is not None:
             argv += [flag, str(spec[key])]
@@ -148,6 +149,8 @@ def project_spec(**overrides):
             "pure_step_latency_ms", getattr(perf, "decode_step_latency_ms", None)
         ),
         "replica_gpus": getattr(perf, "replica_gpus", None),
+        "max_concurrent_sequences": getattr(mem, "max_concurrent_sequences", None),
+        "comm_decode_tp_allreduce_ms": extras.get("comm_decode_tp_allreduce_ms"),
         # What the run printed, for the parts of the report that are computed
         # nowhere else.
         "report": report.getvalue(),

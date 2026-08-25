@@ -262,6 +262,7 @@ class InferenceCollectiveModel:
         self.pp = max(1, mp_config.pipeline_model_parallel_size)
         self.ep = max(1, getattr(mp_config, "expert_model_parallel_size", 1) or 1)
         self.cp = max(1, getattr(mp_config, "context_model_parallel_size", 1) or 1)
+        self.attn_dp = max(1, getattr(mp_config, "attention_data_parallel_size", 1) or 1)
         self.hidden = model_config.hidden_size
         self.topk = getattr(model_config, "moe_router_topk", 2) or 2
 
@@ -284,7 +285,14 @@ class InferenceCollectiveModel:
     # -- TP AllReduce ----------------------------------------------------------
 
     def tp_allreduce_ms(self, batch: int, tokens: int) -> float:
-        """2 AllReduces per layer (post-attention + post-MLP), forward only."""
+        """2 AllReduces per layer (post-attention + post-MLP), forward only.
+
+        Data-parallel attention pays one instead. Its attention output is
+        already whole -- a rank owns entire requests, so there is nothing to sum
+        across ranks -- and the tokens it must hand the tensor-parallel MLP are
+        gathered before it and scattered back after, which together move exactly
+        one AllReduce worth of bytes.
+        """
         if self.tp <= 1:
             return 0.0
         msg = max(1, batch * tokens * self.hidden * 2 // self.cp)
@@ -317,8 +325,8 @@ class InferenceCollectiveModel:
             eff *= _QUICK_REDUCE_SPEEDUP
         if getattr(self.cc, "fuse_rmsnorm_allreduce", False):
             eff *= _FUSED_RMSNORM_AR_SPEEDUP
-        # 2 AllReduces per layer in forward.
-        return 2.0 * (us / 1000.0) * eff
+        count = 1.0 if self.attn_dp > 1 else 2.0
+        return count * (us / 1000.0) * eff
 
     # -- EP AllToAll -----------------------------------------------------------
 

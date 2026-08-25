@@ -73,8 +73,26 @@ def _estimate_layernorm_residual_time_ms(
     return fwd_ms
 
 
+def _attention_allreduce_dropped(config) -> int:
+    """1 when data-parallel attention removes a layer's attention all-reduce.
+
+    A DP-attention rank owns whole requests rather than a slice of every
+    request's heads, so its attention output needs no cross-rank sum. The tokens
+    it owes the tensor-parallel MLP are gathered before it and scattered back
+    after, which costs one all-reduce worth of bytes -- exactly what the MLP's
+    own reduction already charges.
+    """
+    mp = config.model_parallel_config
+    return 1 if max(1, getattr(mp, "attention_data_parallel_size", 1) or 1) > 1 else 0
+
+
+def _dense_tp_allreduce_count(config) -> int:
+    """Number of TP all-reduces on a dense layer's forward (attention + MLP)."""
+    return 2 - _attention_allreduce_dropped(config)
+
+
 def _moe_tp_allreduce_count(config) -> int:
-    """Number of TP all-reduces on a MoE layer's forward (1 or 2).
+    """Number of TP all-reduces on a MoE layer's forward (0, 1 or 2).
 
     A dense/MoE layer has two row-parallel reductions: after attention and
     after the MLP/expert down-projection. The expert down-projection is only
@@ -88,7 +106,8 @@ def _moe_tp_allreduce_count(config) -> int:
     mp = config.model_parallel_config
     tp = max(1, mp.tensor_model_parallel_size)
     ep = max(1, getattr(mp, "expert_model_parallel_size", 1) or 1)
-    return 2 if (tp // ep) > 1 else 1
+    base = 2 if (tp // ep) > 1 else 1
+    return max(0, base - _attention_allreduce_dropped(config))
 
 
 def _estimate_tp_allreduce_time_ms(config, batch_size: int, seq_len: int) -> float:
@@ -321,7 +340,7 @@ class DenseTransformerLayerProfiler(BaseModuleProfiler):
             self.config, batch_size, seq_len, self._gemm_backend
         )
 
-        fwd_time = attn_fwd + mlp_fwd + 2 * tp_ar_ms + ln_res_fwd_ms
+        fwd_time = attn_fwd + mlp_fwd + _dense_tp_allreduce_count(self.config) * tp_ar_ms + ln_res_fwd_ms
         activation_memory = self.estimated_activation_memory(batch_size, seq_len)
         return (fwd_time, activation_memory)
 

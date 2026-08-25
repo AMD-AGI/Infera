@@ -28,7 +28,12 @@ from infera.projection.core.projection.module_profilers.language_model import (
 )
 from infera.projection.core.projection.training_config import InferenceConfig, dtype_num_bytes
 
-from .kv_cache import KVCacheBreakdown, estimate_kv_cache, max_concurrent_sequences
+from .kv_cache import (
+    KVCacheBreakdown,
+    attention_dp_size,
+    estimate_kv_cache,
+    max_concurrent_sequences,
+)
 
 
 @dataclass
@@ -171,6 +176,12 @@ def _print_memory(inference_config: InferenceConfig, r: InferenceMemoryResult) -
         f"layers/rank={r.layers_on_rank})"
     )
     print(f"    KV per sequence:        {r.kv.bytes_per_sequence / _GB:.4f} GB")
+    attn_dp = attention_dp_size(inference_config)
+    if attn_dp > 1:
+        print(
+            f"    Attention DP:           {attn_dp} "
+            f"({r.kv.sequences_on_rank} sequences on this rank)"
+        )
     print(f"  Activation working set:   {r.activation_bytes / _GB:.4f} GB")
     print(f"  Projected Total Memory:   {r.total_bytes / _GB:.4f} GB")
     if r.hbm_capacity_bytes is not None:

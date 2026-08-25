@@ -12,6 +12,7 @@ This module sizes that cache analytically, accounting for:
   * GQA / MQA  — fewer KV heads than query heads.
   * MLA        — a single compressed latent KV per token (DeepSeek V2/V3).
   * Tensor parallelism — KV heads shard across TP ranks.
+  * Data-parallel attention — requests, rather than heads, split across ranks.
   * Pipeline parallelism — only the layers on a rank store cache.
   * KV-cache quantization — fp8 / int8 halve (or quarter) the footprint.
 """
@@ -32,9 +33,10 @@ class KVCacheBreakdown:
     layers_on_rank: int
     bytes_per_token: float          # across all layers on this rank
     bytes_per_sequence: float       # at max_context_len
-    bytes_total: float              # across resident concurrency
+    bytes_total: float              # across the sequences resident on this rank
     max_context_len: int
-    concurrency: int
+    concurrency: int                # resident sequences across the replica
+    sequences_on_rank: int          # concurrency / attention-DP size
     kv_cache_dtype: str
 
 
@@ -42,6 +44,12 @@ def _num_kv_heads(model_config) -> int:
     if model_config.group_query_attention and model_config.num_query_groups:
         return int(model_config.num_query_groups)
     return int(model_config.num_attention_heads)
+
+
+def attention_dp_size(inference_config: InferenceConfig) -> int:
+    """Ranks the attention stage is data-parallel across (1 = tensor-parallel)."""
+    mp = inference_config.model_parallel_config
+    return max(1, int(getattr(mp, "attention_data_parallel_size", 1) or 1))
 
 
 def kv_bytes_per_token_per_layer(inference_config: InferenceConfig) -> float:
@@ -59,8 +67,13 @@ def kv_bytes_per_token_per_layer(inference_config: InferenceConfig) -> float:
         return latent * kv_bytes
 
     # Standard MHA / GQA: K and V each store (kv_heads_per_rank * head_dim).
+    # Data-parallel attention holds whole heads instead: a rank owns a subset of
+    # the requests rather than a slice of every request's heads. What it saves
+    # is counted once, on the request count in estimate_kv_cache.
     kv_heads = _num_kv_heads(mc)
-    kv_heads_per_rank = max(1, kv_heads // tp)
+    kv_heads_per_rank = (
+        kv_heads if attention_dp_size(inference_config) > 1 else max(1, kv_heads // tp)
+    )
     head_dim = int(mc.kv_channels)
     return 2.0 * kv_heads_per_rank * head_dim * kv_bytes
 
@@ -121,7 +134,13 @@ def estimate_kv_cache(
     per_token_per_layer = kv_bytes_per_token_per_layer(inference_config)
     per_token = per_token_per_layer * max(1, layers_on_rank)
     per_sequence = per_token * effective_context
-    total = per_sequence * concurrency
+
+    # Data-parallel attention splits the running requests across ranks, so a
+    # rank stores whole sequences for its own share rather than a slice of every
+    # sequence. For MLA that is the only way the cache shrinks at all, since its
+    # latent is replicated by tensor parallelism.
+    on_rank = math.ceil(concurrency / attention_dp_size(inference_config))
+    total = per_sequence * on_rank
 
     return KVCacheBreakdown(
         bytes_per_token_per_layer=per_token_per_layer,
@@ -131,6 +150,7 @@ def estimate_kv_cache(
         bytes_total=total,
         max_context_len=int(context_len),
         concurrency=int(concurrency),
+        sequences_on_rank=int(on_rank),
         kv_cache_dtype=req.kv_cache_dtype,
     )
 
@@ -152,4 +172,7 @@ def max_concurrent_sequences(
     )
     if one.bytes_per_sequence <= 0:
         return 0
-    return int(max(0, free_bytes_for_kv) // one.bytes_per_sequence)
+    on_rank = int(max(0, free_bytes_for_kv) // one.bytes_per_sequence)
+    # Every attention-DP rank fills its own cache with its own requests, so the
+    # replica serves that many sequences per rank.
+    return on_rank * attention_dp_size(inference_config)
