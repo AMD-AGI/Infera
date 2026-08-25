@@ -32,7 +32,7 @@ Not a tuning preference. **MTP and hicache both active on a worker that prefills
 prompt, or inside the model forward once concurrency starts. Five configurations
 across three failure shapes were tried with MTP on; dropping MTP and changing
 nothing else passed on the first attempt, with DP-attention and the overlap
-scheduler still enabled. The manifest header lists all six.
+scheduler still enabled. The recipe README's §5 lists all six.
 
 The likely mechanism, though not proven: hicache keeps its prefetch and
 write-back bookkeeping as per-rank local state while the collectives need every
@@ -55,8 +55,8 @@ two fail in very different ways.
 byte the tier absorbs is paid for on the prefill path whether or not anything reads
 it back. Every measurement of it so far — on this recipe and on the `docker`
 deployment it came from — has been a net loss, in each case because the workload
-had no reuse left for the tier to serve: the A/B in §7 cost **−43% throughput and
-×3.45 TTFT** while serving zero reads. That says nothing about a workload with
+had no reuse left for the tier to serve: the A/B in §7 cost throughput and TTFT
+while serving zero reads. That says nothing about a workload with
 prefix reuse, and everything about deploying it without one. Read §6 first.
 
 All four combos run TP8 / DP8 with DP-attention; the grid otherwise differs only
@@ -404,10 +404,10 @@ faults and zero Pod restarts**.
 
 | Combo | Status |
 |---|---|
-| `aggregated` | **validated.** Cold start 20.7 min, `3937` correct, 407.5 output tok/s at conc 32, MTP accept length 3.31–5.11 on all 8 ranks |
-| `aggregated + kvd` | **validated, without MTP** (see the top of this page). Cold start 21.5 min, 233.8 output tok/s at conc 32. The only arm observed *reading* from kvd: `gets_total 370 / hits_total 370 / misses_total 0` |
-| `disaggregated` | **validated.** Cold start 21.4 min, 740.9 output tok/s at conc 32, decode-leg accept length 3.00–5.50 |
-| `disaggregated + kvd` | **validated.** Cold start 21.2 min, 421.2 output tok/s at conc 32, accept length 2.30–4.81. The write path works and L3 replayed its journal across a Pod restart — see the counter caveats in §6 before quoting a volume from it |
+| `aggregated` | **validated.** Cold start 20.7 min, `3937` correct, MTP accepting on all 8 ranks |
+| `aggregated + kvd` | **validated, without MTP** (see the top of this page). Cold start 21.5 min. The only arm observed *reading* from kvd: `gets_total 370 / hits_total 370 / misses_total 0` |
+| `disaggregated` | **validated.** Cold start 21.4 min, MTP accepting on the decode leg |
+| `disaggregated + kvd` | **validated.** Cold start 21.2 min, MTP accepting. The write path works and L3 replayed its journal across a Pod restart — see the counter caveats in §6 before quoting a volume from it |
 
 Each of these fails quietly, so each was checked rather than assumed: a 9-chunk
 (~9.8k token) prompt's needle came back intact from the head, middle **and** tail
@@ -427,24 +427,21 @@ judges, at ~1700 in / 256 out with **no prefix reuse**:
 
 ```{admonition} PD buys ITL and spends TTFT — and scales sublinearly
 :class: note
-At conc 32, `disaggregated` on 16 GPUs against `aggregated` on 8: throughput
-740.9 vs 407.5 tok/s (**×1.82** for 2× the hardware), ITL 24.60 vs 65.09 ms
-(**2.6× better**), TTFT p50 3.476 vs 1.419 s (**2.4× worse**). The decode node no
-longer stops to prefill, which is the ITL win; the prompt must prefill elsewhere
-and ship its KV across the fabric first, which is the TTFT cost. PD is not a
-per-GPU efficiency win here — choose by which end your SLO sits on, not by total
+The decode node no longer stops to prefill, which is the ITL win; the prompt must
+prefill elsewhere and ship its KV across the fabric first, which is the TTFT cost.
+Throughput scaling is sublinear in the added hardware, so PD is not a per-GPU
+efficiency win here — choose by which end your SLO sits on, not by total
 throughput.
 ```
 
 ```{admonition} kvd's cost, measured; its benefit, still not
 :class: warning
-At conc 32, `disaggregated + kvd` against `disaggregated`: throughput 421.2 vs
-740.9 tok/s (**−43.2%**), TTFT p50 11.984 vs 3.476 s (**×3.45**), and
-`gets_total` **0** for the whole run. `write_through` makes the prefill leg write
-every page it produces, so the cost lands on TTFT and lands consistently (×2.26 /
-×1.57 / ×3.83 / ×3.45 at conc 1 / 8 / 16 / 32). ITL *improves* 18%, and that is
-not a benefit — the decode leg is receiving fewer requests per second, which is
-the same fact as the −43%. This pair is the price of the tier.
+On a workload with no prefix reuse, `disaggregated + kvd` cost throughput and TTFT
+against `disaggregated` with `gets_total` **0** for the whole run. `write_through`
+makes the prefill leg write every page it produces, so the cost lands on TTFT and
+lands there consistently across the sweep. ITL *improves*, and that is not a
+benefit — the decode leg is simply receiving fewer requests per second, which is
+the same fact as the throughput drop. This pair is the price of the tier.
 ```
 
 Four boundaries on all of the above:

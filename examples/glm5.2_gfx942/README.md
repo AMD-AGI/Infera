@@ -10,8 +10,8 @@ any of them; `env.sh` holds the defaults, and they are the tuned recipe below
 rather than SGLang's defaults. Your cluster's values go in one file, `cluster.env`
 (§2), which `env.sh` reads first.
 
-KV offload below the GPU cache (`kvd`) ships here too, but **off by default** —
-on the workload this was tuned against it cost 12% and served zero reads. §6
+KV offload below the GPU cache (`kvd`) ships here too, but **off by default** — on
+the workload this was tuned against it cost throughput and served zero reads. §6
 covers turning it on and how to tell whether your workload is one that wants it.
 
 The agentic multi-turn benchmark that chose the recipe ships here too (§5.2), and
@@ -42,7 +42,6 @@ the column says which, and mixing the two is the most common way to get stuck.
 | `score_agentic_trace.py` | container | Recompute the cache metrics `bench_serving` gets wrong in multi-turn mode. |
 | `bench_client.sh` | host | Run the agentic bench from outside any engine container — for the k8s deployment, or a third machine. |
 | `stop.sh` | container | Stop the router and engine processes on this node. |
-| `check_image.py` | container | Read the patch markers out of a built image before trusting it. |
 
 ## Topology
 
@@ -60,23 +59,28 @@ These are the `env.sh` defaults. They were chosen on an **agentic multi-turn
 trace** (32 conversations / 225 turns, concurrency 16, ~68k-token median input),
 one axis at a time against a locked baseline:
 
-| Setting | Value | What it bought |
-| --- | --- | --- |
-| `ROUTER_BACKEND` | `rust` | Same routing decisions as the python backend request for request, 27% faster end to end **on this shape** — the same comparison on the k8s recipe's aggregated shape came out within ±5% (note 4 below). |
-| `CHUNK` | `8192` (1,024/rank) | The largest single lever: −23.8% duration, −34.4% TTFT against 16,384/rank. |
-| `MTP_STEPS`/`TOPK`/`DRAFT_TOKENS` | `5`/`1`/`6` | −8.5% duration, −13.8% TPOT. Acceptance 4.64 against a 4.00 break-even. |
-| `IB_DEVICE` | one rail | Striping KV over every NIC measured 11.9% *slower*; KV uses 4.5% of one 200 Gb/s port. |
-| dp-attention | on both legs | Pure TP8 prefill measured 25.9% slower: concurrency beats per-request latency here. |
-| `KVD` | `0` | The offload tier cost 12% and served zero reads on this trace (§6). |
-| `MEM_FRAC` / `MAX_RUNNING` | `0.85` / `128` | Baseline values, unchanged by the sweep. |
+| Setting | Value |
+| --- | --- |
+| `ROUTER_BACKEND` | `rust` |
+| `CHUNK` | `8192` (1,024/rank) |
+| `MTP_STEPS`/`TOPK`/`DRAFT_TOKENS` | `5`/`1`/`6` |
+| `IB_DEVICE` | one rail |
+| dp-attention | on both legs |
+| `KVD` | `0` |
+| `MEM_FRAC` / `MAX_RUNNING` | `0.85` / `128` |
 
-Together those took that trace from 764 s to 420 s (−45%) and output throughput
-from 64.8 to 118.0 tok/s. One metric moved the wrong way: ITL p90 rose 13.7%,
-because a deeper draft emits tokens in burstier groups. That is free for batch
-work and worth weighing for interactive streaming.
+`CHUNK` was the largest single lever of the set, and the two that most often get
+set the other way are `IB_DEVICE` and `KVD`: striping KV across every NIC was
+slower than one rail rather than faster, and the offload tier cost more than it
+returned on this trace (§6). `MEM_FRAC` and `MAX_RUNNING` are baseline values the
+sweep did not move.
 
-`bench.sh` runs a *different*, simpler workload and will not reproduce those
-figures — see §5.
+One thing moved the wrong way as the draft deepened: ITL p90 rose, because a
+deeper draft emits tokens in burstier groups. That is free for batch work and
+worth weighing for interactive streaming.
+
+`bench.sh` runs a *different*, simpler workload, so it will not behave like the
+trace these defaults were chosen on — see §5.
 
 ## 1. Prerequisites
 
@@ -107,6 +111,21 @@ stock SGLang image:
 
 ```bash
 bash build_image.sh
+```
+
+A failed build is the normal signal that a patch did not apply — the patch loops
+in the Dockerfile exit non-zero on a drifted anchor rather than shipping a
+half-applied fix. Check the markers only for an image you did **not** build here,
+such as a vendor-preinstalled or registry-pulled one; four paths and exit 0 is the
+pass, and the chain stops at the first patch that is missing:
+
+```bash
+docker run --rm --entrypoint bash "$IMAGE" -c '
+R=$(python3 -c "import os,sglang; print(os.path.dirname(sglang.__file__))")
+grep -lF GLM52_ROCM_HOST_ALLOC        "$R/srt/mem_cache/pool_host/common.py" &&
+grep -lF GLM52_ROCM_STAGED_WRITE_BACK "$R/srt/mem_cache/pool_host/mla.py" &&
+grep -lF _p1v2_rows                   "$R/srt/layers/attention/dsa/dsa_indexer.py" &&
+grep -lF "kv_chunk.wait_event.synchronize()" "$R/srt/disaggregation/mooncake/conn.py"'
 ```
 
 ## 2. Adapt to your cluster
@@ -284,10 +303,10 @@ Two things to read correctly:
   generates prompts that share no prefix, so a kv-aware router has nothing to
   reuse. This benchmark sizes raw serving throughput; measuring cache reuse needs
   a workload with real shared prefixes.
-- **It will not reproduce the numbers in "The tuned recipe".** Those came from
-  the agentic trace below, whose inputs are ~17× longer and heavily prefix-shared.
-  Use this to check the deployment is healthy and to compare concurrencies against
-  each other, not against those figures.
+- **It is not the workload that chose "The tuned recipe".** That was the agentic
+  trace below, whose inputs are far longer and heavily prefix-shared. Use this to
+  check the deployment is healthy and to compare concurrencies against each other,
+  not against anything the trace produced.
 
 Sweep with `run_sweep.sh` rather than a bare loop: at a fixed seed each point's
 prompt set is a *superset* of the one below it and the radix tree still holds the
@@ -373,12 +392,12 @@ only: SGLang issues storage prefetch on its aggregated and prefill branches, nev
 on the decode branch, so a decode-side daemon would be write-only.
 
 **It is off by default because it measured slower here.** On the agentic trace
-above, `KVD=1` ran 12.0% slower and served *zero* reads while writing 100.8 GB:
-the 54 GB-per-rank device pool already answered ~100% of the reuse that trace had
-to offer, so every byte the tier stored was pure write cost. That is a property of
-the workload, not of the tier — it earns its keep when the reuse horizon is longer
-than the GPU pool can hold. Look at the prefill leg's cache hit rate first: if it
-is already near its ceiling, offload has nothing left to catch.
+above, `KVD=1` was slower than `KVD=0` and served *zero* reads for everything it
+wrote: the 54 GB-per-rank device pool already answered essentially all the reuse
+that trace had to offer, so every byte the tier stored was pure write cost. That
+is a property of the workload, not of the tier — it earns its keep when the reuse
+horizon is longer than the GPU pool can hold. Look at the prefill leg's cache hit
+rate first: if it is already near its ceiling, offload has nothing left to catch.
 
 To turn it on, set these before creating the container, on the prefill node:
 
@@ -436,13 +455,13 @@ full run is exactly the 12% regression above. The remaining knobs — `KVD_RAM_B
    etcd-only and used that to explain the k8s recipe's `--router-backend python`.
    That reason was wrong, and the k8s recipe now ships `rust` on all four combos:
    it passed every judge on the `aggregated` shape and then served the agentic
-   trace 448/448 at 100.00% cache efficiency on `disaggregated`, matching this
-   example arm-for-arm.)
-4. **The 27% in the table above is this example's number, not a portable one.** The
-   same comparison on the k8s recipe's aggregated shape measured within ±5% either
-   way, with +4.4% at concurrency 32 — the router only shows up when it is the
-   bottleneck rather than the GPUs, and a 2-worker sweep to concurrency 32 never
-   gets there. Re-measure before quoting it for a different shape.
+   trace on `disaggregated` with every request completed and the growing-prefix
+   cache ideal reached exactly, matching this example arm-for-arm.)
+4. **`ROUTER_BACKEND=rust` is this shape's choice, not a portable one.** Both
+   backends make the same routing decisions request for request, and the router
+   only shows up at all when it is the bottleneck rather than the GPUs — which
+   depends on your request rate and worker count, not on this recipe. Pick it on
+   your own shape.
 5. **kv-aware fails soft.** Without a tokenizer it warns once and routes on load
    alone. `launch_router.sh` refuses to start on that warning and `verify.sh`
    re-checks it, because a run scored against load balancing while labelled

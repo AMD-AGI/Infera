@@ -9,7 +9,7 @@ The engine, router and kvd flags are lifted from a `docker` + shell deployment o
 the disaggregated topology, validated on 2 × MI300X and referred to throughout as
 **the docker recipe**: [`examples/glm5.2_gfx942/`](../../glm5.2_gfx942/README.md),
 which also carries the bring-up, verification and benchmark scripts. Nothing was
-retuned for Kubernetes: §6 lists every difference and why the substrate forced it,
+retuned for Kubernetes: §7 lists every difference and why the substrate forced it,
 and there are no others.
 
 | Combo | Nodes | KV cache | MTP | Manifest |
@@ -19,7 +19,7 @@ and there are no others.
 | `disaggregated` | 2 | GPU only | yes | [`disaggregated/deploy.yaml`](disaggregated/deploy.yaml) |
 | `disaggregated + kvd` | 2 | + kvd on the prefill leg | yes | [`disaggregated-kvd/deploy.yaml`](disaggregated-kvd/deploy.yaml) |
 
-All four are validated (§7) and all four run TP8 / DP8 with DP-attention. The grid
+All four are validated (§8) and all four run TP8 / DP8 with DP-attention. The grid
 is otherwise clean on two axes — one node or two, GPU-only KV or tiered.
 
 **That third column is the one surprise, and it is not a tuning preference: on a
@@ -27,7 +27,7 @@ worker that both prefills and decodes, MTP and hicache deadlock each other.** Si
 configurations were needed to pin MTP as the trigger rather than a bystander, and
 the last of them — MTP off, everything else unchanged — is what ships.
 `disaggregated + kvd` keeps MTP because speculative decoding only happens on its
-decode leg, so the combination never forms on the leg that carries kvd. §5 has
+decode leg, so the combination never forms on the leg that carries kvd. §6 has
 the hypothesised mechanism, both crash signatures, and what dropping MTP costs.
 
 **One consequence for measurement:** `aggregated` is *not* the `KVD=0` sibling of
@@ -45,7 +45,7 @@ have very different failure modes.
 byte the tier absorbs is paid for on the prefill path whether or not anything ever
 reads it back. It earns that when requests share long prefixes and the reuse
 outgrows the ~54 GB/rank device pool; below that point the device pool answers
-everything and the two arms serve identically. §5 has the counters that tell you
+everything and the two arms serve identically. §6 has the counters that tell you
 which case you are in, and measurements for both.
 
 ```{admonition} The directory says `aggregated`, the manifest says `mixed`
@@ -112,10 +112,8 @@ with a plausible-looking stack. Two of them got a patch written for them before
 anyone compared version numbers. `Dockerfile.sglang.gfx942`'s `PRECONDITION`
 header carries the same table; two `dpkg -l` lines are cheaper than a rebuild.
 
-Load it on **both** nodes (or push it to a registry the cluster can pull; the
-manifest uses `imagePullPolicy: IfNotPresent`, so a locally-loaded image is used
-as-is). Three of the four patches leave greppable markers, which is the cheap way to
-tell a correctly built image from one where a patch silently no-op'd against a moved
+Three of the four patches leave greppable markers, which is the cheap way to tell a
+correctly built image from one where a patch silently no-op'd against a moved
 anchor:
 
 ```bash
@@ -129,6 +127,58 @@ done'
 The mooncake wait-event patch leaves no named marker — its replacement text is its
 own idempotency check — so it, and the Mooncake rebuild, are the two to confirm from
 the build log.
+
+### Getting a locally built image where kubelet will look for it
+
+`docker build` puts the image in the **docker daemon's** store. Kubelet never reads
+that store — it asks **containerd**, and only inside containerd's `k8s.io`
+namespace. So `docker images` listing the image on the node proves nothing about
+whether a Pod can start, and what you get instead is `ErrImagePull` for a tag
+sitting on the very machine that failed to pull it. A bare tag makes that message
+more confusing, not less: with no registry prefix, `infera:sglang-gfx942-glm52`
+resolves to `docker.io/library/infera`, which does not exist.
+
+`imagePullPolicy: IfNotPresent` — set on every container in all four manifests — is
+what makes a local image usable at all: an image already in the `k8s.io` namespace
+is used as-is and never pulled. Import it on **every node the manifest names**,
+which is both of them for the disaggregated combos:
+
+```bash
+docker save infera:sglang-gfx942-glm52 -o /tmp/glm52.tar
+sudo ctr -n k8s.io images import /tmp/glm52.tar     # k3s: sudo k3s ctr images import
+sudo ctr -n k8s.io images ls -q | grep glm52
+```
+
+**`-n k8s.io` is the whole point.** An import into containerd's `default` namespace
+succeeds, `ctr images ls` shows the image, and kubelet still cannot see it — which
+looks exactly like a broken manifest rather than a misplaced image.
+
+**No root on the nodes but cluster-admin on the cluster?** A privileged Pod is then
+the one lever you have. Pin it to the node with `nodeName`, mount the host's
+`docker` and `ctr` binaries as `hostPath` files plus both sockets, and let its
+command pipe one into the other so the ~100 GB never lands on disk as a tarball:
+
+```bash
+/host/docker save "$IMAGE" \
+  | /host/ctr -a /run/k3s/containerd/containerd.sock -n k8s.io images import -
+```
+
+Both binaries have to be mounted — with only `ctr` there is no `docker save` to run
+— and the image must already be in *that* node's docker, since this copies within a
+node rather than transferring between them.
+
+**One failure mode that reads as "the import silently failed".** Kubelet's image GC
+reclaims *unreferenced* images once the node's disk is above its high threshold
+(85% by default), honouring only a two-minute minimum age. A ~100 GB image imported
+onto a nearly full node can therefore disappear within minutes of reporting success,
+before any Pod refers to it. Render the manifest **first** and `kubectl apply` it the
+moment the import succeeds, so something references the image inside that window.
+Freeing disk is the real fix and may not be available: on the node where this was
+hit, clearing hundreds of GB of build cache did not bring it under the threshold,
+because the weights and the image are themselves most of the disk.
+
+A registry the cluster can pull from avoids every one of these: retag, push, and
+point `image:` at it.
 
 ## 2. Prerequisites
 
@@ -145,7 +195,7 @@ fabric at all.
 
 Those are requests, and `/dev/shm` sits on top of them charged to no limit — TP8
 needs a large one, which is what `hostIPC` supplies. The kvd figure looks oversized
-next to `--max-bytes 64G` and is not: kvd holds two independent budgets, and §6
+next to `--max-bytes 64G` and is not: kvd holds two independent budgets, and §7
 explains why sizing the limit to one of them gets the sidecar OOM-killed mid-run.
 
 **RoCE fabric — the disaggregated combos only.** Two nodes, mutually routable; the
@@ -229,7 +279,7 @@ sed -e "s|<NODE>|node-a|" -e "s|<MODEL_DIR>|/mnt/models|" \
 ```
 
 **`aggregated + kvd`** — adds the L3 directory. Note this arm runs without MTP;
-§5 says why and what it costs:
+§6 says why and what it costs:
 
 ```bash
 sed -e "s|<NODE>|node-a|" -e "s|<MODEL_DIR>|/mnt/models|" \
@@ -331,13 +381,159 @@ that. Bury a distinctive needle at the head, middle and tail of a prompt several
 times `--chunked-prefill-size` long and ask for it back — losing only the head
 reads as "it works" if you happen to probe the tail.
 
-Benchmarking needs nothing further: the router is an ordinary OpenAI-compatible
-endpoint and does not care how the engines were started. For a KV-reuse benchmark
-specifically, read §5 first — prompts shorter than a hicache page never reach kvd
-at all, and a generator that gives every request a unique prompt measures the
-tier's cost with none of its benefit.
+## 5. Benchmark
 
-## 5. kvd
+Both workloads live with the docker recipe, in
+[`examples/glm5.2_gfx942/`](../../glm5.2_gfx942/README.md), and neither needs
+anything added for Kubernetes — the router is an ordinary OpenAI-compatible
+endpoint and does not care how the engines were started. What changes is where the
+client runs and which addresses it can dial.
+
+**Two workloads answering different questions.** `bench.sh` sizes raw serving
+throughput on random prompts. `run_agentic_trace.sh` replays the multi-turn trace
+this recipe was tuned on, and is the only one of the two that can say anything about
+the KV cache or the kv-aware router: random prompts share no prefix, so a cache-hit
+line of ~0 there is correct by construction rather than a fault. For a KV-reuse
+benchmark read §6 first — prompts shorter than a hicache page never reach kvd at
+all, and a generator that gives every request a unique prompt measures the tier's
+cost with none of its benefit.
+
+### 5.1 Addresses: what is reachable, and what is not
+
+**Only the router gets a Service.** The operator creates `svc/$CR-server`
+(ClusterIP, port 8000) for the `server` component and **no Service at all** for the
+engines, so each engine leg is reachable only at a Pod or node address:
+
+| Target | Address | Why |
+|---|---|---|
+| router | `svc/$CR-server:8000`, or the server Pod's IP | the only operator-managed Service |
+| `aggregated` worker | Pod IP, port 30000 | on the Pod network, and no Service fronts it |
+| `disaggregated` prefill | **node** IP, port 30001 | `hostNetwork: true`, so the Pod IP *is* the node IP |
+| `disaggregated` decode | **node** IP, port 31501 | same |
+
+The engine addresses are not optional extras: the agentic runner flushes each leg
+before the run and reads `page_size` off one of them, so a client that cannot reach
+the engines cannot produce a cache number worth reading.
+
+```bash
+CR=glm52-fp8-pd
+podip() { kubectl -n infera get pod \
+            -l infera.amd.com/deployment=$CR,infera.amd.com/service=$1 \
+            -o jsonpath='{.items[0].status.podIP}'; }
+
+ROUTER_IP=$(podip server)
+ROUTER=http://$ROUTER_IP:8000
+PREFILL=http://$(podip prefill):30001    # hostNetwork, so this is the node IP
+DECODE=http://$(podip decode):31501
+```
+
+**Do not benchmark through `kubectl port-forward`.** It is the right tool for §4's
+smoke test and the wrong one here: it proxies every request through the API server
+over a single connection, which caps concurrency and contributes its own latency to
+whatever you are measuring. Two cluster-specific traps are worth ruling out before
+trusting any address, because both were hit on the validating cluster: its
+kube-proxy installed no host-side rules for Service VIPs, so the ClusterIP was
+unreachable from the nodes themselves, and NodePort did not answer either — the Pod
+IP was the only address that worked.
+
+### 5.2 Random dataset — sizing
+
+`bench.sh` is written for the docker arm: it dials `$PREFILL_IP:$ROUTER_PORT` and
+requires resolvable node IPs, neither of which describes a router on the Pod
+network. Under Kubernetes, call the same benchmark directly from a client container
+off the engine image, so the tokenizer is the model's own:
+
+```bash
+docker run --rm --network host \
+  --device=/dev/kfd --device=/dev/dri --group-add video --group-add render \
+  -v /mnt/models:/models:ro --entrypoint python3 infera:sglang-gfx942-glm52 \
+  -m sglang.bench_serving --backend sglang-oai-chat \
+    --host "$ROUTER_IP" --port 8000 \
+    --model /models/GLM-5.2-FP8 --tokenizer /models/GLM-5.2-FP8 \
+    --dataset-name random --random-input-len 4096 --random-output-len 1024 \
+    --random-range-ratio 0.8 --num-prompts 64 --max-concurrency 16 \
+    --warmup-requests 1 --seed 42 --cache-report --output-details
+```
+
+The client wants the GPU device nodes even though it computes nothing: importing
+`sglang` pulls in aiter, which shells out to `rocminfo` and fails without them.
+`--warmup-requests 1` keeps graph capture and the first-token path out of the
+measured window; it cannot pre-warm a prefix, because there is none.
+
+**Vary the seed when you sweep concurrency.** At a fixed seed each point's prompt
+set is a *superset* of the one below it and the radix tree still holds the smaller
+one, so every point above the first reports a large cache-hit rate that is an
+artefact of the sweep rather than reuse. `run_sweep.sh` takes a fresh seed per
+point for that reason.
+
+### 5.3 Agentic trace — the workload that chose the recipe
+
+Build the trace once, anywhere the tokenizer is available; it is a data file, not a
+deployment artefact. The corpus is
+[`semianalysisai/cc-traces-weka-062126-256k`][corpus] (Apache-2.0) — Claude Code
+agent traffic carrying per-turn token counts and KV block ids but no text, so
+`weka_to_agentic_trace.py` synthesises filler while preserving what matters: exact
+per-turn lengths and block-level prefix reuse.
+
+[corpus]: https://huggingface.co/datasets/semianalysisai/cc-traces-weka-062126-256k
+
+```bash
+cd examples/glm5.2_gfx942
+hf download semianalysisai/cc-traces-weka-062126-256k --repo-type dataset
+SRC=$(ls "$HF_HOME"/hub/datasets--semianalysisai--cc-traces-weka-062126-256k/snapshots/*/traces.jsonl)
+
+python3 weka_to_agentic_trace.py "$SRC" -o data/cc_traces_100k.json \
+  --output-len 220 --min-turns 4 --max-context 100000 \
+  --verify 20 --tokenizer /mnt/models/GLM-5.2-FP8
+```
+
+`--output-len` must be the value the run replays with. The converter sizes each
+turn's filler with the reply length baked in, so a mismatch drifts every turn's
+length and quietly invalidates the scorer's ideal. `--max-context` fits the corpus
+to what the deployment can prefill, and `--dry-run` reports the resulting
+distribution without writing, which is the cheap way to choose it.
+
+Then drive it with `bench_client.sh`, which exists for exactly this case — a
+deployment with no engine container to `docker exec` into. It runs the same client
+in a throwaway container, so the tokenizer, dataset, concurrency limiter and scorer
+stay identical to the docker arm rather than silently becoming part of the
+comparison:
+
+```bash
+MODEL=/mnt/models/GLM-5.2-FP8 TRACE=$PWD/data/cc_traces_100k.json \
+NUM_PROMPTS=60 CONC=16 \
+  bash bench_client.sh k8s "$ROUTER" "$PREFILL" "$DECODE"
+```
+
+`MODEL` and `TRACE` are worth passing explicitly: `env.sh` defaults `MODEL` to a
+placeholder path, and `bench_client.sh` bind-mounts it into the client, so the
+default fails at the mount rather than at the tokenizer. Pass one engine URL for
+the aggregated combos and both legs for the disaggregated ones. `NUM_PROMPTS` counts
+**conversations**, not requests. The script reads the served model name off
+`/v1/models` and the KV page size off the first engine URL rather than assuming
+either, then flushes, replays and rescores.
+
+Two traps it is covering for you. **The served name is the engine's
+`--model-path`** — a mount path, so it differs between the arms and is
+`/models/GLM-5.2-FP8` here — while the tokenizer must be a path that exists in the
+client, so the two cannot be the same string. Sending the wrong one is not a clean
+404: the router answers `no active mixed worker for model="…"` and every request
+fails in milliseconds, which reads like a dead fleet. **The flush has to actually
+land**, because blocks left by an earlier run inflate the hit rate, and
+`flush_cache` is a no-op while requests are in flight *and still returns success*.
+
+Read **efficiency** — actual hits over what a cache that evicted nothing could have
+returned — rather than the raw hit rate, which is mostly a property of the dataset.
+`sglang.benchmark.serving` also mis-reports the input side in multi-turn mode,
+keeping the conversation-level `prompt_len` for every turn, which is why
+`score_agentic_trace.py` recomputes against the dataset's verified per-turn lengths.
+Efficiency at 100% with nothing evicted means the run is below its pressure point,
+where kv-aware routing has nothing to distinguish itself on; raise `CONC` until
+eviction appears. **Above** 100% means the flush did not take. A run with any failed
+request is refused rather than scored, since a failure is recorded with
+`cached_tokens=0` and would otherwise read as a cache problem.
+
+## 6. kvd
 
 kvd runs on the worker that prefills — the `mixed` worker on `aggregated + kvd`,
 the prefill leg on `disaggregated + kvd`. There is deliberately none on a decode
@@ -387,8 +583,11 @@ all-ranks gloo sync and made things worse — two GPUs took a `Memory access fau
 during startup warmup. `--disable-overlap-schedule` faulted the same way. Dropping
 DP-attention for plain TP8 got furthest and still failed: every correctness judge
 passed, then it hung in the model forward on the fourth benchmark request — so
-DP-attention was never the trigger. Dropping MTP and putting DP-attention *back*
-is a single-variable change from the first attempt, and it works.
+DP-attention was never the trigger. (One of the six was not a finding at all:
+plain TP8 sized as if `--hicache-size 32` were 32 GB total got the container
+OOMKilled at exit 137. It is per TP rank — see §7.) Dropping MTP and putting
+DP-attention *back* is a single-variable change from the first attempt, and it
+works.
 
 Cross-recipe evidence agrees. [`glm5.2/`](../glm5.2/README.md) runs SGLang hicache
 on a mixed worker as well and does not hang, and its engine line carries no
@@ -396,18 +595,17 @@ speculative flags at all. (It validated its kvd plumbing on Qwen3-0.6B rather th
 on GLM-5.2-MXFP4, so treat it as evidence about the flag combination, not about
 the model.)
 
-**What it costs.** 233.8 output tok/s at conc 32, against `aggregated`'s 407.5
-with MTP and no tier. Two variables differ there, so it measures neither cleanly —
-read it as "this arm trades MTP's decode throughput for the tier". If you need MTP
-on one node, use `aggregated`. If you need the tier with MTP, use
-`disaggregated + kvd`.
+**What it costs.** Output throughput lands well below `aggregated`'s with MTP and
+no tier. Two variables differ there, so it isolates neither — read it as "this arm
+trades MTP's decode throughput for the tier". If you need MTP on one node, use
+`aggregated`. If you need the tier with MTP, use `disaggregated + kvd`.
 
 **What it bought, and this is the only arm where it did.** This is the one
 configuration in which kvd has been observed *serving reads* rather than only
 absorbing writes: `gets_total 370 / hits_total 370 / misses_total 0`, with the
 engine logging `HiCache prefetch success … loaded=185`. The reads came from three
 9-chunk prompts sharing a haystack — i.e. from prefix reuse, which is exactly what
-the tier is for and what the benchmark below never generates.
+the tier is for and what §5's random dataset never generates.
 
 **`--hicache-io-backend direct` is required, and the default is not.** SGLang's
 `kernel` write-back path needs every host pool's stride to be a
@@ -522,26 +720,23 @@ Worth running only once the deployment is above its pressure point — below it 
 54 GB device pool per rank answers everything and both arms serve identically.
 
 **Every measurement of this tier so far has been negative, and for a reason worth
-understanding before you read that as "kvd is slow".** The docker recipe's agentic
-trace, 32 conversations / 225 turns at `CONC=16`, had `KVD=1` running **12.0%
-slower** than `KVD=0` with **`gets_total = 0`** — 100.8 GB written to L3 and not one
-page read back. Nothing was wrong with the offload path: the trace had no misses
-left for it, its scorer efficiency against the achievable ideal already at ~100% on
-the GPU pool alone.
+understanding before you read that as "kvd is slow".** On the docker recipe's
+agentic trace, `KVD=1` was slower than `KVD=0` while serving **zero reads** —
+every page it wrote to L3 stayed there. Nothing was wrong with the offload path:
+the trace had no misses left for it, the GPU pool alone already covering
+essentially all the reuse it had to offer.
 
-The Kubernetes A/B found the same direction with a much larger magnitude, for a
-cruder reason: `bench.py` gives every request a unique prompt, so there is no
-prefix to reuse at all. Against its `KVD=0` sibling on the same day and hardware,
-kvd cost **−43.2% throughput** and **×3.45 TTFT p50** at conc 32, with
-`gets_total = 0` — full price, zero benefit. §7 has the whole table, including why
-the ITL number in it improves and why that is not good news.
+The Kubernetes A/B found the same direction for a cruder reason: §5.2's random
+dataset gives every request a unique prompt, so there is no prefix to reuse at all.
+Against its `KVD=0` sibling, kvd cost throughput and TTFT with `gets_total = 0` —
+full price, zero benefit.
 
 Both results say the same thing: **hicache is `write_through`, so the cost lands on
 the prefill path unconditionally, and the benefit only exists if something reads the
 tier back.** Deploy the kvd combo when your traffic has prefix reuse that outgrows
 the device pool, and deploy its non-kvd sibling first to confirm that it does.
 
-## 6. What changed from the docker recipe, and why
+## 7. What changed from the docker recipe, and why
 
 Nothing, as of this round. Both recipes now run `--router-backend rust` and every
 engine and kvd flag was already identical — which is worth stating as a measured
@@ -557,12 +752,11 @@ environment, which a `command:`-only diff misses entirely and which carries thin
 that change performance rather than plumbing (`SGLANG_DSA_TRITON_PREFILL`,
 `SGLANG_USE_AITER`, `HSA_NO_SCRATCH_RECLAIM`).
 
-Result on `disaggregated`, before the switch: prefill 26 valued flags and 8 bare
-flags identical, decode 24 and 8, **zero real differences on either leg**; router 8
-identical with `--router-backend` the only one left. Everything else it reports is
-a substrate translation with a stated reason (`--advertise-host` env IP vs downward
-API, `--discovery-backend` etcd vs kubernetes, `--model-path` mount path). After the
-switch all three roles diff clean.
+Result on `disaggregated`, before the switch: **zero real differences on either
+leg**, with `--router-backend` the only one left on the router. Everything else it
+reports is a substrate translation with a stated reason (`--advertise-host` env IP
+vs downward API, `--discovery-backend` etcd vs kubernetes, `--model-path` mount
+path). After the switch all three roles diff clean.
 
 **The earlier reason for `python` was wrong.** It claimed the Rust binary supports
 only `--discovery-backend etcd`. `launch_rust.py` lists `_SUPPORTED_DISCOVERY = ("etcd",
@@ -576,27 +770,18 @@ a server pod whose PID 1 is `/usr/local/bin/infera-router --discovery-backend
 kubernetes --k8s-label-selector infera.amd.com/deployment=<name> ...`, with the
 selector supplied entirely by the operator's env. On the `aggregated` shape scaled
 to two workers, rust passed every judge python did — arithmetic, the 9-chunk
-needle at three depths, MTP accept length (2.73–5.29 across 16 ranks), and a
-kv-aware routing check of 24/24 prefix stickiness with `cached_tokens` confirming
-real reuse.
+needle at three depths, MTP accepting on all 16 ranks, and a kv-aware routing
+check confirming prefix stickiness with `cached_tokens` showing real reuse.
 
-Two things that check made necessary, both worth knowing before you repeat it:
-
-- **`replicas: 1` cannot test a routing policy at all.** With one worker there is
-  nothing to choose between, so a router whose kv view is completely empty scores
-  exactly like a working one. That is not hypothetical: the Rust ZMQ decoder once
-  returned `None` for every element of an MTP bigram batch and kv-aware silently
-  degraded to load balancing, logging nothing (`rust/router/tests/kv_event_zmq.rs`).
-  The rust router exposes no kv-view metric either, so the only honest test is
-  behavioural, with two workers on two nodes: send the same prefix twice and
-  assert it lands on the same worker with `cached_tokens` above zero.
-- **The 27% end-to-end gain the docker recipe reports does not reproduce here.**
-  Warm-state throughput came out within ±5% either way, and the arm-to-arm gap is
-  the same size as each arm's own run-to-run spread. The one durable difference was
-  at the top of the sweep: +4.4% at concurrency 32. This does not refute the docker
-  number — that was 1P1D, and this sweep never reaches a request rate where the
-  router is the bottleneck rather than the GPUs — but on this shape the router
-  backend is not where the time goes.
+One thing that check made necessary, worth knowing before you repeat it:
+**`replicas: 1` cannot test a routing policy at all.** With one worker there is
+nothing to choose between, so a router whose kv view is completely empty scores
+exactly like a working one. That is not hypothetical: the Rust ZMQ decoder once
+returned `None` for every element of an MTP bigram batch and kv-aware silently
+degraded to load balancing, logging nothing (`rust/router/tests/kv_event_zmq.rs`).
+The rust router exposes no kv-view metric either, so the only honest test is
+behavioural, with two workers on two nodes: send the same prefix twice and assert
+it lands on the same worker with `cached_tokens` above zero.
 
 ### PD on rust, and the workload that settled it
 
@@ -605,24 +790,12 @@ path through the router: PD dispatch plus bootstrap protocol injection, not
 mixed-worker dispatch. So `disaggregated` was run on rust against a real agentic
 workload — the multi-turn trace from `examples/glm5.2_gfx942_agentic_bench` on the
 `llying/dev/glm5p2_fp8_kvd` branch, built from the Apache-2.0
-`semianalysisai/cc-traces-weka-062126-256k` corpus (295 conversations, per-turn
-input p50 68k tokens, max 99.9k) — and compared against the docker recipe serving
-the identical trace from the identical client container.
+`semianalysisai/cc-traces-weka-062126-256k` corpus, whose turns run to tens of
+thousands of input tokens — and compared against the docker recipe serving the
+identical trace from the identical client container.
 
-| | docker + etcd | k8s + operator |
-|---|---|---|
-| successful | 448/448 | 448/448 |
-| duration | 680.8 s | 698.4 s |
-| output throughput | 144.8 tok/s | 141.1 tok/s |
-| median TTFT | 5,361 ms | 5,548 ms |
-| cache efficiency (actual/ideal) | **100.00 %** | **100.00 %** |
-| cached tokens | 25,906,938 | 25,906,982 |
-| turns above ideal | 52 | 52 |
-
-Out of 30,591,552 input tokens the two arms differ by 44 cached tokens, and both
-reach the growing-prefix ideal exactly. The latency columns favour docker by
-0.7–7.5%, which is the size of each arm's own run-to-run spread — not evidence of
-substrate overhead, and it would take several repeats to claim either way.
+Both arms completed every request, and both reached the growing-prefix cache ideal
+exactly, differing by a handful of cached tokens out of tens of millions.
 
 `aggregated-kvd` and `disaggregated-kvd` were **not** run on rust. The switch still
 covers them, and the reason is structural rather than optimistic: all four
@@ -662,26 +835,22 @@ because it looks like it should: sizing `aggregated + kvd` as if TP8 meant one
 capture. `decode` runs no host tier and gets half. `cpu: 32` matches `num_threads`
 in `--model-loader-extra-config`.
 
-## 7. Validation status
+## 8. Validation status
 
 **All four combos are validated on Kubernetes**, on the same cluster, image and
 judges, so the arms are comparable to each other. Every one served 232 requests
 across conc 1/8/16/32 with **zero failures, zero GPU faults and zero Pod
 restarts**.
 
-Two boundaries on the table below. First, every number in it was taken with
-`--router-backend python`, which is what these manifests shipped at the time; §6
-covers what changed and what was re-measured on `rust`. Second, they are all
-first-sweep numbers, and the first sweep after a cold start runs about 15% below
-steady state (tilelang JIT plus CUDA graph capture) — so read them as a floor, not
-as this hardware's throughput.
+All of it was checked with `--router-backend python`, which is what these manifests
+shipped at the time; §7 covers what changed and what was re-checked on `rust`.
 
 | Combo | Status |
 |---|---|
-| `aggregated` | **validated.** Cold start 20.7 min, `3937` correct, 407.5 output tok/s at conc 32, MTP accepting on all 8 ranks at accept length 3.31–5.11 |
-| `aggregated + kvd` | **validated, without MTP** (§5). Cold start 21.5 min, 233.8 output tok/s at conc 32. The only arm observed *reading* from kvd: `gets_total 370 / hits_total 370 / misses_total 0`. Took six configurations to find; the five that failed are recorded in the manifest header |
-| `disaggregated` | **validated.** Cold start 21.4 min, 740.9 output tok/s at conc 32, decode leg accept length 3.00–5.50 |
-| `disaggregated + kvd` | **validated.** Cold start 21.2 min, 421.2 output tok/s at conc 32, accept length 2.30–4.81. The write path works and L3 replayed its journal across a Pod restart — but read the counter caveats in §5 before quoting any volume from it |
+| `aggregated` | **validated.** Cold start 20.7 min, `3937` correct, MTP accepting on all 8 ranks |
+| `aggregated + kvd` | **validated, without MTP** (§6). Cold start 21.5 min. The only arm observed *reading* from kvd: `gets_total 370 / hits_total 370 / misses_total 0`. Took six configurations to find; the five that failed are recorded in §6 |
+| `disaggregated` | **validated.** Cold start 21.4 min, MTP accepting on the decode leg |
+| `disaggregated + kvd` | **validated.** Cold start 21.2 min, MTP accepting. The write path works and L3 replayed its journal across a Pod restart — but read the counter caveats in §6 before quoting any volume from it |
 
 What was checked rather than assumed, because each of these fails quietly:
 
@@ -699,67 +868,40 @@ What was checked rather than assumed, because each of these fails quietly:
 - **kvd reads back, on the one arm where the workload allowed it.** 370 gets, 370
   hits, 0 misses on `aggregated + kvd`, with `HiCache prefetch success …
   loaded=185` in the engine log. Everywhere else `gets_total` stayed at 0 for the
-  reason in §5, so this is the only end-to-end confirmation that the tier's read
+  reason in §6, so this is the only end-to-end confirmation that the tier's read
   path works at all.
 - **Native kvd sidecar ordering.** The sidecar reached a healthy `startupProbe`
   before `main` started, on every bring-up.
 - **kvd's L3 survives the Pod.** A restarted Pod replayed the tablespace journal
   and came up with the previous run's `long_bytes` intact.
 
-Both A/Bs below ran on the same day, image, rail and judges, so each isolates one
-axis. Workload is ~1700 in / 256 out with **no prefix reuse**.
+**Two shape trade-offs the arms make visible**, both worth knowing before you pick
+one. PD buys inter-token latency and spends TTFT: the decode node no longer stops
+to prefill, but the prompt must prefill on one node and ship its KV across the
+fabric before the first token appears. And its throughput scaling is sublinear, so
+PD is not a per-GPU efficiency win here — choose by which end your SLO sits on.
+kvd, on a workload with no reuse, costs throughput and TTFT and returns nothing;
+§6 says how to tell whether your traffic is the kind that gets it back.
 
-**What PD bought.** The only difference is the shape and the hardware it implies:
-
-| conc 32 | `aggregated` (8 GPUs) | `disaggregated` (16 GPUs) |
-|---|---|---|
-| Output throughput | 407.5 tok/s | 740.9 tok/s (**×1.82**) |
-| ITL | 65.09 ms | **24.60 ms** |
-| TTFT p50 | **1.419 s** | 3.476 s |
-
-**PD buys ITL and spends TTFT.** The decode node no longer stops to prefill, so
-inter-token latency improves 2.6×; but the prompt must prefill on one node and
-ship its KV over a single 233 Gb/s rail before the first token appears, so TTFT
-is 2.4× worse. Throughput scaling is **sublinear** — 2× the hardware for 1.82× the
-tokens — so PD is not a per-GPU efficiency win here. Choose by which end your SLO
-sits on, not by total throughput.
-
-**What kvd cost.** Same two nodes; the only difference is the sidecar and three
-engine flags:
-
-| conc 32 | `disaggregated` | `disaggregated + kvd` |
-|---|---|---|
-| Output throughput | **740.9 tok/s** | 421.2 tok/s (−43.2%) |
-| TTFT p50 | **3.476 s** | 11.984 s (×3.45) |
-| ITL | 24.60 ms | **20.09 ms** (−18%) |
-
-`gets_total` stayed at **0** throughout, which explains all three numbers. The
-cost is entirely on TTFT and it is consistent — ×2.26 / ×1.57 / ×3.83 / ×3.45 at
-conc 1 / 8 / 16 / 32 — because `write_through` makes the prefill leg write every
-page it produces. **The 18% ITL improvement is not a benefit**: the decode leg is
-simply receiving fewer requests per second, which is the same fact as the −43%
-throughput. Read this pair as the *price* of the tier, measured; the benefit needs
-a workload with reuse and is still unmeasured.
-
-**Four boundaries.** (1) The validating cluster's eight 400G rails carry no IPv4,
-so every rail's only RoCEv2 GID sits in the same `fe80::/64` and Mooncake cannot
-tell them apart to pair them; KV was pinned to a **single rail at 233 Gb/s**
-(`MC_MS_AUTO_DISC=0` plus `MC_MS_FILTERS=<rail>`) rather than the 8-rail
-aggregate. Correctness is unaffected, but nothing here supports a claim about KV
-transport *not* being the bottleneck. (2) That cluster's host driver is 6.3.x, so
-it ran the `rocm700` base per §1 — the `rocm720` default remains validated only in
-the `docker` form. (3) **kvd's benefit is still unmeasured** — its read path is
-now confirmed to work, but no benchmark here exercises it: `bench.py` sends a
-distinct prompt per request, so `gets_total` stayed at 0 through every sweep. Read
-the kvd A/B as what the tier costs, not what it does. (4) The sweep tops out at
-conc 32, so nothing here speaks to saturation; the PD comparison is not
-equal-hardware (8 GPUs vs 16); and the single-node arms differ by MTP as well as
-by kvd, so neither of those two comparisons isolates one variable.
+**Four boundaries.** (1) The validating cluster's rails carry no IPv4, so every
+rail's only RoCEv2 GID sits in the same `fe80::/64` and Mooncake cannot tell them
+apart to pair them; KV was pinned to a **single rail** (`MC_MS_AUTO_DISC=0` plus
+`MC_MS_FILTERS=<rail>`) rather than the multi-rail aggregate. Correctness is
+unaffected, but nothing here supports a claim about KV transport *not* being the
+bottleneck. (2) That cluster's host driver is 6.3.x, so it ran the `rocm700` base
+per §1 — the `rocm720` default remains validated only in the `docker` form.
+(3) **kvd's benefit is still unmeasured** — its read path is now confirmed to work,
+but no benchmark here exercises it: §5.2's random dataset sends a distinct prompt per
+request, so `gets_total` stayed at 0 through every sweep. (4) The sweep tops out at
+conc 32,
+so nothing here speaks to saturation; the PD comparison is not equal-hardware; and
+the single-node arms differ by MTP as well as by kvd, so neither of those
+comparisons isolates one variable.
 
 Two things worth re-reading before a first bring-up, because both fail quietly
 rather than loudly: `--advertise-host` resolving to a node IP that is not on the
-RoCE rail (§6), and an engine image missing any of the three source fixes (§1) —
-which is why §1 ends with a command that reads the markers out of the built image
+RoCE rail (§7), and an engine image missing any of the three source fixes (§1) —
+which is why §1 carries a command that reads the markers out of the built image
 rather than trusting the build log.
 
 ## Source

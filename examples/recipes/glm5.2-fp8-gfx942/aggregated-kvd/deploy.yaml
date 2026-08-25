@@ -17,74 +17,24 @@
 # here at gets_total 370 / hits_total 370 / misses_total 0, the only arm of the
 # four where kvd has been observed serving reads at all.
 #
-# ---------------------------------------------------------------------------
-# THIS IS THE ONE COMBO WITH NO MTP, AND THAT IS NOT A PREFERENCE
-#
-# The other three arms all run MTP. This one cannot: on a worker that both
-# prefills and decodes, MTP and hicache deadlock each other, and it took six
-# configurations to establish that MTP is the trigger rather than a bystander.
-#
-# The mechanism is a hypothesis, not a proven root cause: hicache's prefetch and
-# write-back bookkeeping is PER RANK local state, while both the scheduler's
-# control broadcast and the model's own collectives require every rank to be
-# doing the same thing on the same iteration; MTP adds a second per-rank host
-# pool for draft tokens — the same pool whose 132-byte stride forces
-# --hicache-io-backend direct below — so there is more state available to drift.
-#
-# disaggregated-kvd keeps MTP because speculative decoding only happens on the
-# decode leg (the prefill leg's spec_accept_length is 0.0 on every rank), so the
-# combination never actually forms there even though both legs carry the flags.
-#
-# The two failure signatures, neither of which says "cache":
-#
-#   - the scheduler's control broadcast, on the FIRST prompt long enough to
-#     trigger write-back. Nothing is logged for that request at all — not even a
-#     "Prefill batch" line — and 600 s later:
-#       WorkNCCL(SeqNum=810, OpType=ALLREDUCE) ran for 600088 ms
-#       ... event_loop_overlap -> _broadcast_reqs_across_ranks -> broadcast
-#   - inside the model forward, under concurrency, after the deployment has been
-#     answering correctly for a while:
-#       WorkNCCL(SeqNum=2883, OpType=ALLREDUCE) ran for 600xxx ms
-#       ... eagle_worker_v2.forward_batch_generation -> deepseek_v2.forward
-#
-# Tried, so none of it is retried blind:
-#
-#   1. MTP on, DP-attention on, overlap scheduler (i.e. the other arms' engine
-#      line plus kvd): ready in 23 min, `3937` correct, then the first 9-chunk
-#      prompt hung in the control broadcast.
-#   2. + --enable-dp-attention-local-control-broadcast, which removes the
-#      per-iteration all-ranks gloo sync: WORSE. Two GPUs took a
-#      `Memory access fault` during startup warmup, before serving anything.
-#   3. MTP on, plain TP8, one 32 GB host tier: OOMKilled (exit 137). A budget
-#      error, not a finding — --hicache-size is per TP rank, so the tier is
-#      256 GB whether or not DP-attention is on.
-#   4. MTP on, plain TP8, 512Gi: every correctness judge passed, including the
-#      9-chunk needle at three depths, then it hung inside the model forward on
-#      the fourth benchmark request. So DP-attention is not the trigger.
-#   5. + --disable-overlap-schedule: `Memory access fault` during warmup again.
-#   6. MTP OFF, DP-attention back on, overlap scheduler on — i.e. this file.
-#      WORKS. Ready in 21.5 min, the 9-chunk needle correct at all three depths,
-#      232 requests over conc 1/8/16/32 with zero failures, zero faults, zero
-#      restarts, and kvd serving reads.
-#
-# Attempt 6 is a single-variable change from attempt 1, so MTP is the trigger.
-# Cross-recipe evidence agrees: examples/recipes/glm5.2/ runs SGLang hicache on
-# a mixed worker too and does not hang, and its engine line carries no
-# speculative flags at all.
-#
-# What this costs, and it is not small: 233.8 output tok/s at conc 32 against
-# `aggregated`'s 407.5 with MTP and no tier. Two variables differ there, so that
-# is not a clean measurement of either — it is the honest statement that this arm
-# gives up MTP's decode throughput to get the tier. If you need MTP on one node,
-# use `aggregated`; if you need the tier with MTP, use `disaggregated-kvd`.
+# NO MTP, AND THAT IS NOT A PREFERENCE. On a worker that both prefills and
+# decodes, MTP and hicache deadlock each other: the worker stops answering, a
+# 600 s NCCL ALLREDUCE watchdog fires, and nothing is logged for the request
+# that triggered it — none of which reads as a cache problem. Putting the
+# --speculative-* flags back re-creates it. The price is output throughput well
+# below `aggregated`'s with MTP and no tier, so if you want MTP on one node use
+# `aggregated`, and for the tier WITH MTP use
+# `disaggregated-kvd`, where speculation only happens on the decode leg so the
+# pair never forms.
 #
 # Consequence for A/B testing: `aggregated` is NOT this file's KVD=0 sibling,
 # because it also has MTP. The clean pair for measuring the tier on one node is
 # this file against itself with the kvd lines removed.
-# ---------------------------------------------------------------------------
 #
 # Docs: examples/recipes/glm5.2-fp8-gfx942/README.md — §1 why this recipe builds
-# an engine image instead of mounting the overlay, §5 how to read kvd's counters.
+# an engine image instead of mounting the overlay, §5 how to read kvd's counters,
+# plus the mechanism, both crash signatures and the configurations that ruled out
+# DP-attention and the overlap scheduler as the trigger.
 #
 # Fill in before applying:
 #   <NODE>          kubernetes.io/hostname of the gfx942 node to run on.
@@ -206,16 +156,13 @@ spec:
             # memory limit below. Sizing the limit as if it were 32 GB total gets
             # the container OOMKilled (exit 137) right after graph capture, which
             # reads as a crash rather than as a budget mistake.
-            # --hicache-io-backend direct is kept even though MTP is gone. It is
+            # --hicache-io-backend direct is kept even though MTP is gone: it is
             # MTP's 132-byte draft pool that makes the default `kernel` path
-            # raise (ValueError: Unsupported IO backend: kernel), so on paper
-            # this arm no longer needs the flag — but `direct` also switches
-            # mem_layout to page_first_direct, and dropping both at once would
-            # change two things in the configuration that finally worked. Left
-            # in deliberately; removing it is an untested one-line experiment.
+            # raise, so on paper this arm no longer needs the flag, but `direct`
+            # also switches mem_layout to page_first_direct and this is the
+            # layout the arm was validated on. Removing it is untested.
             #
-            # No --speculative-* flags here, and that is the whole point of this
-            # arm; see the header. Adding them back deadlocks the worker.
+            # No --speculative-* flags, deliberately; see the header.
             command: ["python3","-m","infera.engine.sglang",
                       "--model-path","/models/GLM-5.2-FP8",
                       "--host","0.0.0.0","--port","30000","--advertise-host","$(POD_IP)",
