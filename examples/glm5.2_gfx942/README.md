@@ -437,7 +437,7 @@ full run is exactly the 12% regression above. The remaining knobs — `KVD_RAM_B
    That reason was wrong, and the k8s recipe now ships `rust` on all four combos:
    it passed every judge on the `aggregated` shape and then served the agentic
    trace 448/448 at 100.00% cache efficiency on `disaggregated`, matching this
-   example arm-for-arm. See `temp/glm52-k8s-4combo-report.md` §2.10 and §2.11.)
+   example arm-for-arm — see [`mi325x-handoff/`](../../mi325x-handoff/README.md) §8.)
 4. **The 27% in the table above is this example's number, not a portable one.** The
    same comparison on the k8s recipe's aggregated shape measured within ±5% either
    way, with +4.4% at concurrency 32 — the router only shows up when it is the
@@ -449,7 +449,8 @@ full run is exactly the 12% regression above. The remaining knobs — `KVD_RAM_B
    kv-aware is worse than a launch that stops. Note that this only covers the
    tokenizer being absent — a router that loads a tokenizer and then keeps an empty
    kv view looks healthy in every log. Testing for that needs two workers and a
-   behavioural check (`temp/kv-affinity-test.py`).
+   behavioural check: the same prefix sent twice must land on the same worker,
+   with `cached_tokens` above zero the second time.
 6. **Advertise the data-network IP.** `--advertise-host` is what the peer dials
    for the Mooncake bootstrap handshake; a management-NIC address there fails at
    hand-off time, not at startup.

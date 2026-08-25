@@ -259,8 +259,8 @@ sed -e "s|<PREFILL_NODE>|node-a|"        -e "s|<DECODE_NODE>|node-b|" \
 The RDMA values shown are the docker recipe's; substitute what §2 reported on your
 own fabric. If your fabric needs more than a placeholder swap — a non-default GID
 index, or Mooncake pinned to one rail because your rails carry no IPv4 —
-[`temp/render-deploy.py`](../../../temp/render-deploy.py) is a worked example of
-rendering all four combos for exactly that case.
+[`mi325x-handoff/tools/render-deploy.py`](../../../mi325x-handoff/tools/render-deploy.py)
+is a worked example of rendering all four combos for exactly that case.
 
 Each combo deploys under its own name, so the Service and label selectors below
 differ per combo:
@@ -330,7 +330,6 @@ wrong with nothing in any log*. A short prompt that answers correctly cannot see
 that. Bury a distinctive needle at the head, middle and tail of a prompt several
 times `--chunked-prefill-size` long and ask for it back — losing only the head
 reads as "it works" if you happen to probe the tail.
-[`temp/long-prompt-test.py`](../../../temp/long-prompt-test.py) is that test.
 
 Benchmarking needs nothing further: the router is an ordinary OpenAI-compatible
 endpoint and does not care how the engines were started. For a KV-reuse benchmark
@@ -549,7 +548,9 @@ engine and kvd flag was already identical — which is worth stating as a measur
 result rather than an assertion, because this section previously carried a
 fabricated reason for the one flag that did differ.
 
-That claim is checked, not eyeballed. `temp/compare-docker-vs-k8s.py` runs the
+That claim is checked, not eyeballed.
+[`mi325x-handoff/tools/compare-docker-vs-k8s.py`](../../../mi325x-handoff/tools/compare-docker-vs-k8s.py)
+runs the
 docker recipe's launch scripts with a `python3` shim on PATH that records its argv
 and exits, so what gets compared is the argv the engine would really have received
 — everything `env.sh` computed, every conditional branch the script took — against
@@ -579,7 +580,7 @@ selector supplied entirely by the operator's env. On the `aggregated` shape scal
 to two workers, rust passed every judge python did — arithmetic, the 9-chunk
 needle at three depths, MTP accept length (2.73–5.29 across 16 ranks), and a
 kv-aware routing check of 24/24 prefix stickiness with `cached_tokens` confirming
-real reuse. Details and raw numbers: `temp/glm52-k8s-4combo-report.md` §2.10.
+real reuse.
 
 Two things that check made necessary, both worth knowing before you repeat it:
 
@@ -589,7 +590,8 @@ Two things that check made necessary, both worth knowing before you repeat it:
   returned `None` for every element of an MTP bigram batch and kv-aware silently
   degraded to load balancing, logging nothing (`rust/router/tests/kv_event_zmq.rs`).
   The rust router exposes no kv-view metric either, so the only honest test is
-  behavioural, with two workers on two nodes. `temp/kv-affinity-test.py` does it.
+  behavioural, with two workers on two nodes: send the same prefix twice and
+  assert it lands on the same worker with `cached_tokens` above zero.
 - **The 27% end-to-end gain the docker recipe reports does not reproduce here.**
   Warm-state throughput came out within ±5% either way, and the arm-to-arm gap is
   the same size as each arm's own run-to-run spread. The one durable difference was
