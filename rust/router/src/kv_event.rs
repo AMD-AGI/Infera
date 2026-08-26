@@ -55,9 +55,16 @@ struct ChainHealth {
     /// has quietly degenerated into load-only routing. Counting the drops is
     /// what makes the difference observable.
     orphaned: u64,
-    /// `Stored` events that did resolve. `applied` stuck at 0 while `orphaned`
-    /// climbs is the dead-chain signature; both climbing together is the benign
-    /// case of an event racing its parent's eviction.
+    /// `Stored` events that resolved their parent *and* indexed at least one
+    /// block. `applied` stuck at 0 while `orphaned` climbs is the dead-chain
+    /// signature; both climbing together is the benign case of an event racing
+    /// its parent's eviction.
+    ///
+    /// The "indexed at least one block" half is load-bearing. This counter is
+    /// what closes the flush gate in `apply_events` and what makes
+    /// `seed_rank_view` defer to a rank's own view, so an event that placed
+    /// nothing must not raise it: one of those arriving first would retire
+    /// both, permanently, on a rank that had in fact anchored nothing.
     applied: u64,
     /// Next `orphaned` value worth a log line. Geometric, so a broken chain
     /// reports itself on the first event and then stops flooding.
@@ -177,11 +184,22 @@ impl KvEventClient {
 
     /// Seed a rank's view from the KV bucket, for a cold start.
     ///
-    /// Two guards, both load-bearing. An empty snapshot is never applied: a
-    /// desynced relay can publish one, and it would wipe a view built from the
-    /// ordered stream and collapse cache hits to zero. And a rank whose own
-    /// chain is live keeps the view it built, because the ordered stream is the
-    /// authoritative source and the bucket is only a shortcut.
+    /// One guard, and it is the `anchored` one: a rank whose own chain is live
+    /// keeps the view it built, because the ordered stream is the authoritative
+    /// source and the bucket is only a shortcut. That is also what protects a
+    /// stream-built view from the empty snapshot a desynced relay can publish
+    /// -- view entries are only ever written on the same event that raises
+    /// `applied`, so a non-empty stream-built view always reads as anchored.
+    ///
+    /// Refusing empty snapshots outright, as this used to, made the bucket a
+    /// write-only source for the ranks it does own: it could add blocks to a
+    /// view and never retract them. A cache flush or an engine restart has the
+    /// relay write `[]`, and the router went on reporting the pre-flush
+    /// snapshot as cached -- steering prompts at the one worker that had just
+    /// thrown that prefix away -- for as long as the rank stayed empty. The
+    /// skipped write also skipped the `seeded_at` stamp below, so a live relay
+    /// mirroring a legitimately empty rank aged out of `SEED_COVERAGE_WINDOW`
+    /// and let the flush arm against a worker whose relay was fine.
     ///
     /// "Live" is `applied > 0`, not "non-empty" — that distinction is the whole
     /// point. A router starting cold against a rolled JetStream seeds a view it
@@ -193,9 +211,6 @@ impl KvEventClient {
     /// behind the relay's own anchored view instead — good enough to route on,
     /// and it is what lets `apply_events` hold off the destructive flush.
     pub(crate) fn seed_rank_view(&self, worker_id: &str, rank: i64, snapshot: Vec<u64>) {
-        if snapshot.is_empty() {
-            return;
-        }
         let mut state = self.state.lock().expect("kv view mutex poisoned");
         let wv = match state.get_mut(worker_id) {
             Some(w) => w,
@@ -688,6 +703,14 @@ fn apply_events(
                 // a later event miss its parent and be dropped, which
                 // under-reports hits instead of mis-reporting them.
                 let n = token_ids.len() / bs;
+                // A span shorter than one block indexes nothing and maps
+                // nothing. Dropped here rather than below the parent lookup so
+                // that it moves neither counter: it is evidence of a live
+                // chain and of a dead one in equal measure, and `applied` is
+                // read as proof of an anchor this event never placed.
+                if n == 0 {
+                    continue;
+                }
                 let aligned = n == block_hashes.len();
                 let mut parent = match parent_block_hash {
                     None => ROUTER_SEED,
@@ -1665,6 +1688,126 @@ mod tests {
             c.total_blocks("w"),
             3,
             "a live chain keeps the view it built"
+        );
+    }
+
+    /// An event that indexes nothing is not an anchor.
+    ///
+    /// `applied` counted every `Stored` whose parent resolved, and a span
+    /// shorter than one block resolves while writing neither `view` nor `map`.
+    /// One of those arriving first on a rank left `applied == 1` over an index
+    /// that held nothing: the gate below stood down for good, and
+    /// `seed_rank_view` began deferring to a chain that had placed nothing --
+    /// so the one failure the self-heal exists for became the one it could not
+    /// see.
+    #[test]
+    fn an_event_that_indexes_nothing_does_not_anchor_the_chain() {
+        let c = KvEventClient::new();
+        c.on_worker_added(&worker("w", Some("tcp://127.0.0.1:5573"), 4, None));
+        // Rooted, so it resolves -- but three tokens is less than one block.
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[Event::Stored {
+                block_hashes: vec![],
+                parent_block_hash: None,
+                token_ids: vec![1, 2, 3],
+                spec_kind: None,
+            }],
+        );
+        assert_eq!(c.total_blocks("w"), 0, "nothing was indexed");
+
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[Event::Stored {
+                block_hashes: vec![10],
+                parent_block_hash: Some(999),
+                token_ids: vec![1, 2, 3, 4],
+                spec_kind: None,
+            }],
+        );
+        assert!(
+            c.take_flush_request("w"),
+            "the chain never anchored, so it must still ask"
+        );
+
+        // And the bucket still owns this rank's view rather than deferring to
+        // a chain that placed nothing.
+        c.seed_rank_view("w", 0, vec![7, 8, 9]);
+        c.seed_rank_view("w", 0, vec![5]);
+        assert_eq!(c.total_blocks("w"), 1, "a dead rank tracks the bucket");
+        c.shutdown();
+    }
+
+    /// An empty bucket write is a retraction, and it is still coverage.
+    ///
+    /// Refusing it made the bucket write-only for the ranks it owns: after a
+    /// flush or an engine restart the relay writes `[]`, and the router went on
+    /// reporting the pre-flush blocks as cached -- steering prompts at the one
+    /// worker that had certainly thrown them away. The skipped write also
+    /// skipped the `seeded_at` stamp, so a relay faithfully mirroring a rank
+    /// that is legitimately empty aged out of `SEED_COVERAGE_WINDOW` and let
+    /// the next orphaned batch arm a flush against a worker that was fine.
+    #[test]
+    fn an_empty_bucket_write_retracts_the_view_and_still_covers_the_rank() {
+        let c = KvEventClient::nats_fed();
+        c.on_worker_added(&worker("w", None, 4, None));
+        c.seed_rank_view("w", 0, vec![7, 8, 9]);
+        assert_eq!(c.total_blocks("w"), 3);
+
+        c.seed_rank_view("w", 0, vec![]);
+        assert_eq!(
+            c.total_blocks("w"),
+            0,
+            "the worker flushed; so does the view"
+        );
+
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[Event::Stored {
+                block_hashes: vec![10],
+                parent_block_hash: Some(999),
+                token_ids: vec![1, 2, 3, 4],
+                spec_kind: None,
+            }],
+        );
+        assert!(
+            !c.take_flush_request("w"),
+            "a mirrored rank is covered whether or not it currently holds blocks"
+        );
+    }
+
+    /// A stream-built view is still out of the bucket's reach when it is empty.
+    ///
+    /// The `anchored` guard is what carries this now that the blanket
+    /// empty-snapshot refusal is gone.
+    #[test]
+    fn an_empty_snapshot_does_not_wipe_a_view_the_stream_built() {
+        let c = KvEventClient::nats_fed();
+        c.on_worker_added(&worker("w", None, 4, None));
+        apply_events(
+            &c.state,
+            "w",
+            0,
+            &[Event::Stored {
+                block_hashes: vec![10],
+                parent_block_hash: None,
+                token_ids: vec![1, 2, 3, 4],
+                spec_kind: None,
+            }],
+        );
+        assert_eq!(c.total_blocks("w"), 1);
+
+        c.seed_rank_view("w", 0, vec![]);
+        assert_eq!(
+            c.total_blocks("w"),
+            1,
+            "a desynced relay must not collapse an authoritative view"
         );
     }
 

@@ -265,6 +265,27 @@ impl KvEventAwarePolicy {
         hits: usize,
         overlap_steered: bool,
     ) {
+        // Ahead of every return in this function, not merely ahead of the
+        // alarm. The ask is armed by the event feed, so no property of this
+        // pick bears on whether it should be delivered -- while the returns
+        // below select for precisely the picks a broken worker does not
+        // produce. `hits > 0` is the sharp one: a worker whose stale seeded
+        // view still matches a hot shared prefix reports hits on every
+        // request, so its repair would sit armed and never be handed to
+        // anyone. `blocks == 0` costs the same way on a fleet serving only
+        // vision traffic. And `zero_hit_streak` cannot stand in for either: it
+        // is one counter for the whole fleet, reset by a hit on any worker, so
+        // a fleet where one chain is dead and another is healthy never reaches
+        // the alarm -- exactly the case the self-heal exists for.
+        //
+        // The lock is not new cost on the pick path: `pick` already takes this
+        // mutex once per candidate to score it, and twice more for the winner.
+        if let Some(tx) = &self.flush_tx {
+            if self.kv.take_flush_request(&picked.worker.worker_id) {
+                tx.request(&picked.worker);
+            }
+        }
+
         if blocks == 0 {
             return; // nothing could have hit; says nothing either way
         }
@@ -274,21 +295,6 @@ impl KvEventAwarePolicy {
                 tracing::info!(after_misses = prev, "kv-aware: cache locality recovered");
             }
             return;
-        }
-        // Deliberately ahead of everything below. `zero_hit_streak` is one
-        // counter for the whole fleet, reset by a hit on any worker, so a fleet
-        // where one worker's chain is dead and another's is healthy never
-        // reaches the alarm -- and that is exactly the case a self-heal exists
-        // for. The request itself is raised at most once per broken episode, so
-        // reading it here costs one lock on a pick that already missed. It is
-        // also armed by the event feed rather than by this pick, so it is
-        // delivered even on a pick whose miss says nothing (just below) --
-        // otherwise a fleet serving only vision traffic would arm a repair and
-        // never hand it to anyone.
-        if let Some(tx) = &self.flush_tx {
-            if self.kv.take_flush_request(&picked.worker.worker_id) {
-                tx.request(&picked.worker);
-            }
         }
 
         // A multimodal pick is not steered by text overlap: `pick` zeroes
@@ -659,6 +665,93 @@ mod tests {
         assert!(
             rx.try_recv().is_err(),
             "and ask once -- repeating it would clear a live cache on every miss"
+        );
+    }
+
+    /// The repair reaches a broken worker that is still reporting cache hits.
+    ///
+    /// Delivery sat below the `blocks == 0` and `hits > 0` returns, so an armed
+    /// repair could only ever be handed over on a zero-hit pick. A worker whose
+    /// chain died holding a hot shared prefix keeps matching it out of the
+    /// stale view and reports hits on every request, so its ask stayed armed
+    /// forever -- and the ask is armed by the event feed, which knows the chain
+    /// is dead, not by a pick, which cannot tell.
+    #[test]
+    fn a_repair_is_delivered_even_on_a_pick_that_found_hits() {
+        use rmpv::Value as Mv;
+
+        let kv = Arc::new(KvEventClient::nats_fed());
+        let cands = vec![worker("a", 16, None)];
+        kv.on_worker_added(&cands[0]);
+
+        let (tx, mut rx) = crate::kv_selfheal::channel();
+        let pol = KvEventAwarePolicy::new(kv.clone(), BlockHasher::disabled(), 20.0, None, None)
+            .with_self_heal(tx);
+
+        let orphan = Mv::Array(vec![
+            Mv::String("BlockStored".into()),
+            Mv::Array(vec![Mv::from(11u64)]),
+            Mv::from(999u64),
+            Mv::Array((1..=16u32).map(Mv::from).collect()),
+            Mv::from(16i64),
+            Mv::Nil,
+        ]);
+        let mut payload = Vec::new();
+        rmpv::encode::write_value(
+            &mut payload,
+            &Mv::Array(vec![Mv::from(1.0), Mv::Array(vec![orphan])]),
+        )
+        .unwrap();
+        kv.apply_encoded_batch("a", 0, &payload);
+
+        // The pick hits: the stale view still covers this prefix. Says nothing
+        // about the chain, and must not withhold the repair.
+        let targets = expand_targets(&cands);
+        pol.note_hit_outcome(&targets[0], 4, 4, true);
+        assert_eq!(
+            rx.try_recv()
+                .expect("a hit must not swallow the repair")
+                .worker_id,
+            "a"
+        );
+    }
+
+    /// The same, for a pick that asked for no blocks at all.
+    #[test]
+    fn a_repair_is_delivered_on_a_pick_that_wanted_no_blocks() {
+        use rmpv::Value as Mv;
+
+        let kv = Arc::new(KvEventClient::nats_fed());
+        let cands = vec![worker("a", 16, None)];
+        kv.on_worker_added(&cands[0]);
+
+        let (tx, mut rx) = crate::kv_selfheal::channel();
+        let pol = KvEventAwarePolicy::new(kv.clone(), BlockHasher::disabled(), 20.0, None, None)
+            .with_self_heal(tx);
+
+        let orphan = Mv::Array(vec![
+            Mv::String("BlockStored".into()),
+            Mv::Array(vec![Mv::from(11u64)]),
+            Mv::from(999u64),
+            Mv::Array((1..=16u32).map(Mv::from).collect()),
+            Mv::from(16i64),
+            Mv::Nil,
+        ]);
+        let mut payload = Vec::new();
+        rmpv::encode::write_value(
+            &mut payload,
+            &Mv::Array(vec![Mv::from(1.0), Mv::Array(vec![orphan])]),
+        )
+        .unwrap();
+        kv.apply_encoded_batch("a", 0, &payload);
+
+        let targets = expand_targets(&cands);
+        pol.note_hit_outcome(&targets[0], 0, 0, false);
+        assert_eq!(
+            rx.try_recv()
+                .expect("a short prompt must not swallow the repair")
+                .worker_id,
+            "a"
         );
     }
 
