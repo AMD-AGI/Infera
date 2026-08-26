@@ -317,16 +317,17 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
                 sglang_parsed.speculative_algorithm,
             )
         else:
-            # Same story for hybrid SWA / SSM models, but it bites much later and
-            # much harder, which is why it gets its own guard rather than a line
-            # in the one above. See _decode_radix_cache_unsupported_reason.
+            # Same story for the rest of SGLang's rejection set, the hybrid
+            # SWA/SSM half of which bites much later and much harder -- which is
+            # why it gets its own guard rather than a line in the one above.
+            # See _decode_radix_cache_unsupported_reason.
             reason = _decode_radix_cache_unsupported_reason(server_args)
             if reason is not None:
                 logger.info(
                     "kv-events on, but --disaggregation-decode-enable-radix-cache "
-                    "is incompatible with %s models; not appending it. The decode "
-                    "leg will use SGLang's chunk cache and contribute little to "
-                    "the router KV view; prefix-aware routing runs on the "
+                    "is incompatible with %s; not appending it. The decode leg "
+                    "will use SGLang's chunk cache and contribute little to the "
+                    "router KV view; prefix-aware routing runs on the "
                     "prefill-side view.",
                     reason,
                 )
@@ -404,14 +405,24 @@ def no_clear_event_reason(args: SglangWorkerArgs) -> str | None:
 def _decode_radix_cache_unsupported_reason(server_args) -> str | None:
     """Why SGLang would reject ``--disaggregation-decode-enable-radix-cache``.
 
-    Returns a short reason ("Mamba/SSM", "sliding window attention (SWA)"),
-    or None when the model accepts the flag.
+    Returns a short reason ("Mamba/SSM models", "--enable-hisparse"), or None
+    when this decode leg accepts the flag. Callers may assume decode mode: the
+    only caller is already inside that branch, and every rejection below is one
+    SGLang raises only for a decode leg.
 
-    SGLang raises from ``mem_cache/kv_cache_builder.py`` when a decode leg asks
-    for a radix cache on a hybrid SWA or SSM model: those keep their state in
-    specialised pools that the prefix-match-and-lock allocation path cannot
-    address. Two things make that raise worth pre-empting here rather than
-    letting it happen:
+    Two sites reject the flag, and they differ in *when*.
+
+    ``arg_groups/pd_disaggregation_hook.py`` rejects at argument-resolution
+    time, before any weight is loaded: ``--enable-hisparse``, and ``dcp_size >
+    1`` (PD decode DCP is chunk-cache only). Those are cheap to hit but still
+    worth pre-empting, because the ValueError names a flag the operator never
+    passed -- infera appended it -- so the obvious fix, deleting it from their
+    config, is a flag they cannot find.
+
+    ``mem_cache/kv_cache_builder.py`` rejects a hybrid SWA or SSM model: those
+    keep their state in specialised pools that the prefix-match-and-lock
+    allocation path cannot address. Two things make *that* raise worth
+    pre-empting:
 
     * it fires inside ``build_kv_cache``, i.e. *after* the weights are loaded,
       so each wrong answer costs ~2.5 minutes and shows up as a decode leg that
@@ -432,10 +443,28 @@ def _decode_radix_cache_unsupported_reason(server_args) -> str | None:
     ``tp_worker.is_hybrid_swa``, which is ``model_config.is_hybrid_swa``, the
     same attribute read here.
 
+    Two rejections in the hook are deliberately *not* mirrored:
+    ``--disaggregation-transfer-backend fake`` is unreachable, because the
+    append is already gated on that backend being ``mooncake``; and
+    ``speculative_algorithm`` has its own guard at the call site, which can name
+    the algorithm in its message.
+
     Never raises: a model whose config cannot be read here fails for real a few
     lines later when the engine starts, and refusing to launch over a *warning
     path* would be worse than the crash it is meant to avoid.
     """
+    # Above the try, and read off `server_args` rather than the model config:
+    # these two need neither, so a config that cannot be read must not swallow
+    # them into the "appending it as before" fallback below.
+    #
+    # getattr with a default because both flags postdate some SGLang releases we
+    # still run against; on one that lacks them, there is no rejection to
+    # pre-empt.
+    if getattr(server_args, "enable_hisparse", False):
+        return "--enable-hisparse"
+    if getattr(server_args, "dcp_size", 1) > 1:
+        return "--dcp-size > 1 (PD decode DCP requires chunk cache)"
+
     try:
         # Inside the try on purpose: `hybrid_arch` is a private SGLang module and
         # its contents move between releases, so an ImportError here is exactly
@@ -452,7 +481,7 @@ def _decode_radix_cache_unsupported_reason(server_args) -> str | None:
         model_config = server_args.get_model_config()
 
         if model_config.is_hybrid_swa:
-            return "sliding window attention (SWA)"
+            return "sliding window attention (SWA) models"
 
         spec = linear_attn_model_spec(model_config)
         if (
@@ -462,7 +491,7 @@ def _decode_radix_cache_unsupported_reason(server_args) -> str | None:
             or kimi_linear_config(model_config) is not None
             or hybrid_lightning_config(model_config) is not None
         ):
-            return "Mamba/SSM"
+            return "Mamba/SSM models"
     except Exception:  # noqa: BLE001 - see the docstring's last paragraph
         # The lever named here is deliberately not the radix-cache flag itself.
         # Passing that explicitly is a force-*on*: the append is gated on it

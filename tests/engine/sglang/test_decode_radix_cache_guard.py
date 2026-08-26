@@ -3,12 +3,14 @@
 #
 # SPDX-License-Identifier: MIT
 ###############################################################################
-"""The hybrid SWA/SSM guard on --disaggregation-decode-enable-radix-cache.
+"""The guard on --disaggregation-decode-enable-radix-cache.
 
-infera appends that flag to the decode leg's argv when KV events are on.
-SGLang rejects it for hybrid SWA/SSM models, and does so inside
-build_kv_cache -- after the weights are loaded -- so the guard has to catch
-it here or the decode leg dies ~2.5 minutes into startup.
+infera appends that flag to the decode leg's argv when KV events are on, and
+SGLang rejects it in more than one situation. Hybrid SWA/SSM models are the
+expensive one: that rejection is raised inside build_kv_cache -- after the
+weights are loaded -- so the guard has to catch it here or the decode leg dies
+~2.5 minutes into startup. --enable-hisparse and dcp_size > 1 are rejected at
+argument-resolution time, cheaply, but name a flag the operator never passed.
 
 Guarded by importorskip("sglang") like the other args tests: the module
 imports sglang.srt.server_args at load time.
@@ -151,6 +153,59 @@ def test_the_guard_still_speaks_sglangs_own_api(caplog):
         "API moved, and the guard is now silently answering 'supported' for "
         "every model, hybrid ones included"
     )
+
+
+# --- the rejections that fire before the weights load -------------------------
+
+
+class _ArgOnly:
+    """A server_args whose model config must never be reached.
+
+    ``--enable-hisparse`` and ``dcp_size > 1`` are rejected by
+    ``pd_disaggregation_hook`` off the arguments alone. Reading them off the
+    model config instead would put them behind the guard's ``except``, where an
+    unreadable config answers "supported" -- so this stands in for that config
+    and fails loudly if anything tries.
+    """
+
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
+
+    def get_model_config(self):
+        raise AssertionError("an argv-only rejection must not need the model config")
+
+
+def test_hisparse_is_rejected_without_reading_the_config():
+    reason = args_mod._decode_radix_cache_unsupported_reason(_ArgOnly(enable_hisparse=True))
+    assert reason is not None and "--enable-hisparse" in reason
+
+
+def test_decode_dcp_is_rejected_without_reading_the_config():
+    reason = args_mod._decode_radix_cache_unsupported_reason(_ArgOnly(dcp_size=2))
+    assert reason is not None and "--dcp-size" in reason
+
+
+def test_an_older_sglang_without_those_flags_is_not_a_rejection(caplog):
+    """Both flags postdate SGLang releases we still run against. Absent, there
+    is nothing to pre-empt -- and, crucially, no warning either: the getattr
+    defaults must not read as an unreadable config."""
+
+    class _Old:
+        def get_model_config(self):
+            raise RuntimeError("stop here; the point is what came before")
+
+    with caplog.at_level("WARNING", logger=args_mod.logger.name):
+        assert args_mod._decode_radix_cache_unsupported_reason(_Old()) is None
+
+
+def test_the_skip_message_reads_for_a_flag_and_not_only_a_model_family(monkeypatch, caplog):
+    """The caller used to interpolate the reason into "incompatible with %s
+    models", which was true of the only two reasons it could get. A flag name
+    in that slot read as "incompatible with --enable-hisparse models"."""
+    _reason(monkeypatch, "--enable-hisparse")
+    with caplog.at_level("INFO", logger=args_mod.logger.name):
+        assert _FLAG not in parse_sglang_args(_DECODE).sglang_argv
+    assert "incompatible with --enable-hisparse;" in caplog.text
 
 
 # --- what the startup flush is allowed to wait for ----------------------------
