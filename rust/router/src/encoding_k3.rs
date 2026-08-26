@@ -919,10 +919,25 @@ pub fn encode_chat(body: &Value) -> Option<Vec<Segment>> {
         }
     }
 
-    // `_effective_tools` can also pull in tools from an MCP tool server, which
-    // the router cannot see; keying off the request's own tools covers the case
-    // a client can actually produce.
-    if tools.is_some() {
+    // `_effective_tools` is the request's own tools PLUS any declared on a
+    // system or developer message -- not, as this said before, tools from an
+    // MCP tool server. `normalize_message` has already renamed developer to
+    // system and kept those schemas, so the union is readable from here.
+    //
+    // The distinction decides whether this turn is rendered at all: a client
+    // that declares its tools on a system message and asks for
+    // `tool_choice: "required"` gets the turn from the engine, and a router
+    // keying off the top-level `tools` alone would omit it and hash a prefix
+    // the engine never produced -- 0 cache hits for that whole conversation.
+    //
+    // Only the gate widens. The tool-declare turn at the top still renders
+    // `tools`, because `serving_chat.py` passes `request_tools` -- the
+    // request's own -- to `apply_chat_template`, not the union.
+    let effective_tools = tools.is_some()
+        || messages
+            .iter()
+            .any(|m| role(m) == "system" && field(m, "tools").is_some());
+    if effective_tools {
         match body.get("tool_choice").and_then(Value::as_str) {
             Some("required") => segs.internal_system_message(
                 "tool-choice",
@@ -1171,6 +1186,40 @@ mod tests {
             out.contains(r#"{"additionalProperties":false,"type":"object"}"#),
             "{out}"
         );
+    }
+
+    /// The tool-choice turn follows `_effective_tools`, not `request.tools`.
+    ///
+    /// SGLang gates it on the union of the request's tools and any declared on
+    /// a system or developer message. A client that puts its schemas on the
+    /// system message -- which the encoder renders as a dynamic tool-declare
+    /// turn either way -- still gets the turn from the engine, so a router that
+    /// omitted it hashed a prefix the engine never produced and drove the whole
+    /// conversation to zero cache hits.
+    #[test]
+    fn tool_choice_follows_tools_declared_on_a_system_message() {
+        let sys_tools = json!([{"type": "function", "function": {"name": "f"}}]);
+        for role in ["system", "developer"] {
+            let out = flat(&json!({
+                "messages": [
+                    {"role": role, "content": "S", "tools": sys_tools},
+                    {"role": "user", "content": "hi"},
+                ],
+                "tool_choice": "required",
+            }));
+            assert!(
+                out.contains("`tool_choice=required`"),
+                "{role} message tools must open the gate: {out}"
+            );
+        }
+
+        // And the gate stays shut where neither source declares any: the turn
+        // is about tools that exist, not about the parameter being present.
+        let out = flat(&json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "tool_choice": "required",
+        }));
+        assert!(!out.contains("`tool_choice=required`"), "{out}");
     }
 
     #[test]
