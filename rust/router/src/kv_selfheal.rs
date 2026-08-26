@@ -56,6 +56,31 @@ const FLUSH_COOLDOWN: Duration = Duration::from_secs(300);
 /// answering 404 or refusing forever costs one request every half minute.
 const FLUSH_RETRY_BACKOFF: Duration = Duration::from_secs(30);
 
+/// Minimum spacing between flushes of *different* workers.
+///
+/// The per-worker gates above bound how often one worker is flushed. Nothing
+/// bounded how many were flushed at once, and one event makes that the normal
+/// case rather than a rare one: a router restart. On the ZMQ transport the
+/// router subscribes only after a worker registers, so a router that comes up
+/// against an already-running fleet joins every worker's stream mid-flight and
+/// reads every one of them as unanchored -- correctly. It then had one ask per
+/// worker in the queue within a request or two, and discarded the whole
+/// fleet's GPU prefix cache inside a second. A routine router roll became a
+/// fleet-wide TTFT cliff.
+///
+/// Spacing them turns that into a ramp. The delay is close to free: a worker
+/// waiting its turn has a dead chain, which is what it had before the router
+/// restarted and for as long as it stayed down, and it keeps serving with its
+/// GPU cache intact in the meantime -- strictly better than being flushed
+/// first. Full fleet heal costs `workers * FLUSH_STAGGER`.
+///
+/// Asks that arrive inside the window are dropped, not queued: the detector
+/// re-arms on every batch that still reads as unanchored, so a worker whose
+/// turn was skipped asks again on its next event batch. That is also why this
+/// cannot starve one -- the queue never grows, and each worker re-enters it on
+/// its own traffic.
+const FLUSH_STAGGER: Duration = Duration::from_secs(10);
+
 /// Per-engine cache-flush endpoint; mirrors `_FLUSH_PATHS` in
 /// `infera/engine/flush.py`. `None` means this engine has no flush to ask for.
 fn flush_path(engine: &str) -> Option<&'static str> {
@@ -118,12 +143,17 @@ pub(crate) fn channel() -> (FlushRequests, mpsc::UnboundedReceiver<Arc<Worker>>)
 /// `http` should be the shared upstream client — it is the one configured for
 /// reaching workers, and building a second would mean a second connection pool.
 pub fn spawn(http: reqwest::Client) -> FlushRequests {
-    spawn_with(http, FLUSH_COOLDOWN, FLUSH_RETRY_BACKOFF)
+    spawn_with(http, FLUSH_COOLDOWN, FLUSH_RETRY_BACKOFF, FLUSH_STAGGER)
 }
 
-/// `spawn` with the two spacings injected, so a test can exercise the gate
-/// without waiting minutes of wall clock for it.
-fn spawn_with(http: reqwest::Client, cooldown: Duration, backoff: Duration) -> FlushRequests {
+/// `spawn` with the three spacings injected, so a test can exercise the gates
+/// without waiting minutes of wall clock for them.
+fn spawn_with(
+    http: reqwest::Client,
+    cooldown: Duration,
+    backoff: Duration,
+    stagger: Duration,
+) -> FlushRequests {
     let (tx, mut rx) = mpsc::unbounded_channel::<Arc<Worker>>();
     tokio::spawn(async move {
         // Outcomes come back here rather than being recorded at dispatch: what
@@ -132,6 +162,10 @@ fn spawn_with(http: reqwest::Client, cooldown: Duration, backoff: Duration) -> F
         // a request the worker refused or never answered.
         let (done_tx, mut done_rx) = mpsc::unbounded_channel::<(String, Outcome)>();
         let mut gate: HashMap<String, Gate> = HashMap::new();
+        // Fleet-wide, not per worker: see `FLUSH_STAGGER`. Stamped on dispatch
+        // rather than on completion, because what it spaces out is the moment
+        // each cache is discarded, not how long the POSTs take.
+        let mut last_dispatch: Option<Instant> = None;
         loop {
             tokio::select! {
                 Some((worker_id, outcome)) = done_rx.recv() => {
@@ -143,7 +177,15 @@ fn spawn_with(http: reqwest::Client, cooldown: Duration, backoff: Duration) -> F
                 }
                 req = rx.recv() => {
                     let Some(w) = req else { break }; // router teardown
-                    let path = match decide(&mut gate, &w, Instant::now(), cooldown) {
+                    let now = Instant::now();
+                    // Ahead of `decide` on purpose. Below it, the skip would
+                    // leave behind the `Gate::InFlight` entry `decide` writes,
+                    // and nothing would ever resolve it -- the worker would be
+                    // locked out of the self-heal for the life of the router.
+                    if last_dispatch.is_some_and(|t| now.duration_since(t) < stagger) {
+                        continue;
+                    }
+                    let path = match decide(&mut gate, &w, now, cooldown) {
                         Decision::Flush(path) => path,
                         Decision::Skip => continue,
                         Decision::Unflushable(why) => {
@@ -163,6 +205,8 @@ fn spawn_with(http: reqwest::Client, cooldown: Duration, backoff: Duration) -> F
                             continue;
                         }
                     };
+
+                    last_dispatch = Some(now);
 
                     // Spawned rather than awaited: a slow worker must not delay
                     // the flush of the next one, and both are typically broken
@@ -362,10 +406,13 @@ mod tests {
     async fn a_refused_flush_does_not_spend_the_cooldown() {
         let hits = Arc::new(AtomicUsize::new(0));
         let url = mock_engine("400 Bad Request", hits.clone()).await;
+        // Zero stagger: this test is about the per-worker gate, and it only
+        // ever asks for one worker.
         let flush = spawn_with(
             reqwest::Client::new(),
             Duration::from_secs(300),
             Duration::from_millis(50),
+            Duration::ZERO,
         );
         let w = worker_at(&url);
 
@@ -394,6 +441,7 @@ mod tests {
             reqwest::Client::new(),
             Duration::from_secs(300),
             Duration::from_millis(1),
+            Duration::ZERO,
         );
         let w = worker_at(&url);
 
@@ -404,6 +452,60 @@ mod tests {
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
         assert_eq!(hits.load(Ordering::SeqCst), 1);
+    }
+
+    fn worker_named(id: &str, url: &str) -> Arc<Worker> {
+        Arc::new(
+            serde_json::from_value(serde_json::json!({
+                "worker_id": id, "url": url, "engine": "sglang",
+                "request_transport": "http",
+            }))
+            .unwrap(),
+        )
+    }
+
+    /// A router restart is not a rare event, and it makes every worker in the
+    /// fleet read as unanchored at once -- correctly, on ZMQ, where the router
+    /// subscribes only after a worker registers and so joins a running fleet
+    /// mid-stream. The per-worker gates say nothing about that case: each of
+    /// those asks is the first for its own worker. Ungated fleet-wide, the
+    /// actor discarded every worker's GPU prefix cache inside a second.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_fleet_that_all_reads_unanchored_is_flushed_as_a_ramp() {
+        let hits = Arc::new(AtomicUsize::new(0));
+        let url = mock_engine("200 OK", hits.clone()).await;
+        let stagger = Duration::from_millis(150);
+        let flush = spawn_with(
+            reqwest::Client::new(),
+            Duration::from_secs(300),
+            Duration::from_secs(300),
+            stagger,
+        );
+        let fleet: Vec<_> = (0..4)
+            .map(|i| worker_named(&format!("w{i}"), &url))
+            .collect();
+
+        for w in &fleet {
+            flush.request(w);
+        }
+        wait_for(&hits, 1).await;
+        tokio::time::sleep(stagger / 2).await;
+        assert_eq!(
+            hits.load(Ordering::SeqCst),
+            1,
+            "the whole fleet's cache went at once"
+        );
+
+        // The three that were skipped are not queued behind the first -- they
+        // are dropped, and re-ask on their next unanchored batch. Which is what
+        // this second round is: the same detector, one batch later.
+        tokio::time::sleep(stagger).await;
+        for w in &fleet[1..] {
+            flush.request(w);
+        }
+        wait_for(&hits, 2).await;
+        tokio::time::sleep(stagger / 2).await;
+        assert_eq!(hits.load(Ordering::SeqCst), 2, "the ramp is not a ramp");
     }
 
     /// The gate covers the paths that cannot POST at all, not just the ones
