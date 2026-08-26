@@ -80,6 +80,9 @@ struct ChainHealth {
     /// A rank the bucket is actively mirroring has a working index without a
     /// chain, so it must not be flushed: see `SEED_COVERAGE_WINDOW`.
     seeded_at: Option<Instant>,
+    /// When `needs_flush` was raised, for ranks that have a bucket behind them.
+    /// See `FLUSH_ARM_HOLDOFF`; `None` whenever `needs_flush` is false.
+    armed_at: Option<Instant>,
 }
 
 /// How long a KV-bucket seed counts as covering a rank whose chain is dead.
@@ -90,6 +93,28 @@ struct ChainHealth {
 /// seeds flow with them, and a lapse this long means the bucket half of the
 /// relay is broken rather than merely quiet.
 const SEED_COVERAGE_WINDOW: Duration = Duration::from_secs(60);
+
+/// How long an armed request waits before `take_flush_request` will hand it
+/// over, on a rank the KV bucket has been mirroring.
+///
+/// The evidence that arms the ask and the evidence that disproves it do not
+/// arrive together. A covered rank goes quiet for longer than
+/// `SEED_COVERAGE_WINDOW`; traffic resumes; the first batch orphans, reads as
+/// uncovered because the window has lapsed, and arms. The relay's bucket write
+/// that withdraws it is up to `_BUCKET_WRITE_INTERVAL_S` -- 2s, `nats_relay.py`
+/// coalesces them -- behind that batch. A pick landing in the gap spends a
+/// healthy worker's whole GPU prefix cache on a rank whose relay never faltered.
+/// `seed_rank_view` already withdraws the ask; this is what gives it time to.
+///
+/// Only for ranks with a `seeded_at` stamp. Where no bucket has ever written
+/// there is no contradicting evidence in flight and nothing to wait for -- the
+/// ZMQ path, and every rank the relay has stopped covering -- so those are
+/// still delivered on the first pick. Where there is one, the cost of waiting
+/// is this much more load-only routing on a chain that really is dead, once;
+/// the cost of not waiting is a cache a production worker has to earn back
+/// under load. A relay whose bucket writer died stops writing altogether, so
+/// the holdoff elapses and the repair goes through on schedule.
+const FLUSH_ARM_HOLDOFF: Duration = Duration::from_secs(5);
 
 impl ChainHealth {
     fn new() -> Self {
@@ -233,6 +258,7 @@ impl KvEventClient {
         // would stay armed through the refresh that disproves it, and fire
         // whenever the next zero-hit pick happened to come along.
         health.needs_flush = false;
+        health.armed_at = None;
     }
 
     pub(crate) fn drop_rank_view(&self, worker_id: &str, rank: i64) {
@@ -294,7 +320,18 @@ impl KvEventClient {
         };
         let mut asked = false;
         for h in wv.health.values_mut() {
-            asked |= std::mem::take(&mut h.needs_flush);
+            if !h.needs_flush {
+                continue;
+            }
+            // Held back only while a bucket write could still disprove it. No
+            // stamp means no bucket, so nothing is coming and the ask goes now.
+            if h.seeded_at.is_some() && h.armed_at.is_some_and(|t| t.elapsed() < FLUSH_ARM_HOLDOFF)
+            {
+                continue;
+            }
+            h.needs_flush = false;
+            h.armed_at = None;
+            asked = true;
         }
         asked
     }
@@ -789,7 +826,10 @@ fn apply_events(
         .seeded_at
         .is_some_and(|t| t.elapsed() < SEED_COVERAGE_WINDOW);
     // Armed on *this batch's* orphans, not the running total, and withdrawn
-    // again as soon as either half of the reading stops holding. Reading the
+    // again as soon as either half of the reading stops holding. Arming is not
+    // delivery: on a bucket-backed rank the ask then waits out
+    // `FLUSH_ARM_HOLDOFF`, because the write that would withdraw it is
+    // coalesced and lands a second or two after the batch that armed it. Reading the
     // total re-armed on batches that orphaned nothing, and nothing ever lowered
     // the flag, so a request raised during a momentary coverage lapse outlived
     // every piece of evidence for it and fired at the next zero-hit pick --
@@ -797,9 +837,16 @@ fn apply_events(
     // cache is fine. A quiet batch is left alone: only evidence to the contrary
     // withdraws the ask, not the mere absence of new evidence for it.
     if orphaned > 0 && health.applied == 0 && !bucket_covered {
-        health.needs_flush = true;
+        if !health.needs_flush {
+            health.needs_flush = true;
+            // Stamped on the transition only: a chain that keeps orphaning
+            // would otherwise push its own deadline back on every batch and
+            // never come due. See `FLUSH_ARM_HOLDOFF`.
+            health.armed_at = Some(Instant::now());
+        }
     } else if bucket_covered || health.applied > 0 {
         health.needs_flush = false;
+        health.armed_at = None;
     }
     if orphaned > 0 && health.orphaned >= health.next_warn {
         tracing::warn!(
@@ -1739,6 +1786,93 @@ mod tests {
         c.seed_rank_view("w", 0, vec![7, 8, 9]);
         c.seed_rank_view("w", 0, vec![5]);
         assert_eq!(c.total_blocks("w"), 1, "a dead rank tracks the bucket");
+        c.shutdown();
+    }
+
+    /// Wind a rank's health timestamps back, so a test can stand where a real
+    /// deployment would be seconds or minutes later.
+    fn age_health(c: &KvEventClient, w: &str, rank: i64, seed_by: Duration, arm_by: Duration) {
+        let mut st = c.state.lock().expect("kv view mutex poisoned");
+        let h = st
+            .get_mut(w)
+            .expect("worker")
+            .health
+            .get_mut(&rank)
+            .expect("rank health");
+        for (slot, by) in [(&mut h.seeded_at, seed_by), (&mut h.armed_at, arm_by)] {
+            if let Some(t) = *slot {
+                *slot = Some(
+                    t.checked_sub(by)
+                        .expect("monotonic clock too young to age in a test"),
+                );
+            }
+        }
+    }
+
+    fn orphan_batch() -> [Event; 1] {
+        [Event::Stored {
+            block_hashes: vec![10],
+            parent_block_hash: Some(999),
+            token_ids: vec![1, 2, 3, 4],
+            spec_kind: None,
+        }]
+    }
+
+    /// The gap between a lapsed coverage window and the relay's next write.
+    ///
+    /// `SEED_COVERAGE_WINDOW` lapses over a quiet spell, traffic resumes, and
+    /// the first batch orphans and arms -- while the bucket write that
+    /// disproves it is still up to 2s out, because `nats_relay.py` coalesces
+    /// them. `seed_rank_view` withdrawing the ask is no use if a pick has
+    /// already spent it: delivering inside that gap flushes a worker whose
+    /// relay was working the whole time.
+    #[test]
+    fn an_ask_armed_by_a_lapse_is_held_until_the_relay_could_have_answered() {
+        let c = KvEventClient::nats_fed();
+        c.on_worker_added(&worker("w", None, 4, None));
+        c.seed_rank_view("w", 0, vec![7, 8, 9]);
+        age_health(&c, "w", 0, SEED_COVERAGE_WINDOW * 2, Duration::ZERO);
+
+        apply_events(&c.state, "w", 0, &orphan_batch());
+        assert!(
+            !c.take_flush_request("w"),
+            "the relay's next write is still in flight; this pick must not spend the cache"
+        );
+
+        // It lands, and settles the question the lapse only raised.
+        c.seed_rank_view("w", 0, vec![7, 8, 9]);
+        assert!(!c.take_flush_request("w"), "and the ask is gone for good");
+    }
+
+    /// A relay that really has stopped writing still gets its repair.
+    #[test]
+    fn an_ask_the_bucket_never_answers_is_delivered_once_the_holdoff_elapses() {
+        let c = KvEventClient::nats_fed();
+        c.on_worker_added(&worker("w", None, 4, None));
+        c.seed_rank_view("w", 0, vec![7, 8, 9]);
+        age_health(&c, "w", 0, SEED_COVERAGE_WINDOW * 2, Duration::ZERO);
+
+        apply_events(&c.state, "w", 0, &orphan_batch());
+        assert!(!c.take_flush_request("w"));
+
+        age_health(&c, "w", 0, Duration::ZERO, FLUSH_ARM_HOLDOFF * 2);
+        assert!(
+            c.take_flush_request("w"),
+            "nothing came to disprove it; the chain is dead after all"
+        );
+    }
+
+    /// A rank with no bucket behind it is not made to wait for one.
+    ///
+    /// The ZMQ path never seeds, so there is no write in flight to hold out
+    /// for and the holdoff would be pure added downtime on a chain that has
+    /// been dead since the router subscribed.
+    #[test]
+    fn a_rank_with_no_bucket_is_repaired_on_the_first_pick() {
+        let c = KvEventClient::new();
+        c.on_worker_added(&worker("w", Some("tcp://127.0.0.1:5574"), 4, None));
+        apply_events(&c.state, "w", 0, &orphan_batch());
+        assert!(c.take_flush_request("w"), "nothing to wait for");
         c.shutdown();
     }
 
