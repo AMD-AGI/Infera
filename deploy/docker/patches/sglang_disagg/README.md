@@ -6,6 +6,89 @@ runs — there is no separate site-packages copy to patch). Each is a self-locat
 idempotent Python script, applied at image build time by the patch loop in
 `Dockerfile.sglang` / `Dockerfile.sglang.gfx942`.
 
+## `patch_responses_pd_bootstrap.py`
+
+**Makes `POST /v1/responses` usable at all under PD disaggregation.** Without it every
+Responses request to a worker started with `--disaggregation-mode prefill|decode` comes
+back as
+
+```
+HTTP 400  Invalid request: Disaggregated request received without bootstrap room id
+```
+
+no matter what the client or the proxy in front of it sends. Nothing logs that anything
+was dropped.
+
+### Root cause
+
+Three steps, none of which is visible from the outside:
+
+1. `entrypoints/openai/protocol.py` gives `CompletionRequest` and `ChatCompletionRequest`
+   a `bootstrap_host` / `bootstrap_port` / `bootstrap_room` trio. `ResponsesRequest` has
+   no such fields and declares no `model_config`, so pydantic's default `extra="ignore"`
+   **silently discards** a proxy's annotation.
+2. `entrypoints/openai/serving_responses.py` builds its `GenerateReqInput` without
+   mentioning bootstrap, so `bootstrap_room` is `None`.
+3. `managers/scheduler.py`, in any disaggregation mode with a non-FAKE transfer backend,
+   sees `recv_req.bootstrap_room is None` and calls
+   `prepare_abort(..., status_code=HTTPStatus.BAD_REQUEST)`.
+
+### What the patch does
+
+| File | Change |
+|---|---|
+| `entrypoints/openai/protocol.py` | `ResponsesRequest` gains the three bootstrap fields, types copied verbatim from `ChatCompletionRequest` |
+| `entrypoints/openai/serving_responses.py` | `create_responses` forwards them into `GenerateReqInput` |
+
+That is the whole fix. `_make_request` already converts a `ResponsesRequest` into a
+`ChatCompletionRequest` and runs it through the same `_process_messages` → prompt path as
+the chat endpoint, so the generation pipeline was always shared; only the bootstrap
+plumbing was missing.
+
+### Why we need it
+
+The Codex CLI/SDK speaks the Responses API by default
+(`model_providers.<id>.wire_api = "responses"`), so every Codex-driven agentic workload
+— Hyperloom's inference-optimizer among them — is locked out of a PD deployment.
+Infera's Rust router registers `/v1/responses` and threads the bootstrap trio through
+both legs exactly as it does for chat; this patch is the engine half of that path.
+
+### What it deliberately does not do
+
+**The harmony builtin-tool loop is not patched.** `serving_responses` has a second
+`GenerateReqInput`, in `_generate_with_builtin_tools`, for the follow-up turn after a
+server-side tool call. Under PD that turn needs its own bootstrap room and its own
+prefill leg, and no proxy has arranged either — reusing the first turn's room would hand
+the decode worker a room the prefill side already consumed, and it would block on KVPoll
+until the ~300 s timeout. Left unpatched it fails fast with the same 400 instead.
+Non-harmony models never reach it: `SimpleContext.need_builtin_tool_call()` returns
+`False`, so the loop breaks after the first turn.
+
+**Stateless calls only**, independently of this patch. `store` /
+`previous_response_id` and the `GET /v1/responses/{id}` and `.../cancel` routes read a
+per-process `response_store` dict, so they only resolve when the follow-up request lands
+on the same worker. Behind any multi-worker router, clients must send `store: false`.
+
+### Verified
+
+Anchors present exactly once in the sglang v0.5.17 tree shipped in the mi35x engine
+image. Applied against that tree: both files patched, a re-run reports `already present`,
+both modules `py_compile` clean, and `ResponsesRequest.model_validate` round-trips
+`bootstrap_host=10.0.0.1 bootstrap_port=9000 bootstrap_room=12345` while an aggregated
+request with no bootstrap keys still yields `None, None, None`.
+
+The runtime check is end-to-end: a Responses request through the router against a 1P1D
+pair returns 200 instead of 400, and prefill and decode log the **same** `bootstrap_room`
+— which is what proves the KV actually moved over Mooncake rather than the decode leg
+quietly recomputing the prompt.
+
+### Upstream
+
+Not submitted. The gap looks like an oversight rather than a decision: the two older
+request models grew the fields and `ResponsesRequest` was added later without them.
+Worth filing. Drop this script once base sglang carries the fields — it then reports
+"already present" and no-ops.
+
 ## `patch_mooncake_early_send_wait_event.py`
 
 **Fixes silent KV corruption for chunked prefill over the mooncake PD transport.**
