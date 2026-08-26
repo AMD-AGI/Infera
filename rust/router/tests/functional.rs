@@ -14,7 +14,7 @@ use arc_swap::ArcSwap;
 use axum::body::{Body, Bytes};
 use axum::extract::{DefaultBodyLimit, State};
 use axum::http::header::CONTENT_TYPE;
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::{HeaderMap, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::post;
 use axum::{Json, Router};
@@ -35,6 +35,7 @@ use infera_router::proxy;
 struct Hit {
     body: Value,
     dp_rank: Option<String>,
+    path: String,
 }
 
 struct MockState {
@@ -50,13 +51,23 @@ impl MockState {
     }
 }
 
-async fn mock_handle(State(s): State<Arc<MockState>>, headers: HeaderMap, raw: Bytes) -> Response {
+async fn mock_handle(
+    State(s): State<Arc<MockState>>,
+    uri: Uri,
+    headers: HeaderMap,
+    raw: Bytes,
+) -> Response {
     let body: Value = serde_json::from_slice(&raw).unwrap_or(Value::Null);
     let dp_rank = headers
         .get(infera_router::dp::DP_RANK_HEADER)
         .and_then(|h| h.to_str().ok())
         .map(str::to_string);
-    s.hits.lock().unwrap().push(Hit { body, dp_rank });
+    let path = uri.path().to_string();
+    s.hits.lock().unwrap().push(Hit {
+        body,
+        dp_rank,
+        path,
+    });
 
     if s.status != 200 {
         return (StatusCode::from_u16(s.status).unwrap(), "upstream error").into_response();
@@ -83,6 +94,7 @@ async fn spawn_mock(status: u16, sse: bool, reply: Value) -> (String, Arc<MockSt
     let router = Router::new()
         .route("/v1/chat/completions", post(mock_handle))
         .route("/v1/completions", post(mock_handle))
+        .route("/v1/responses", post(mock_handle))
         // Stand in for a real engine, which caps a prompt by context length
         // rather than by request bytes.
         .layer(DefaultBodyLimit::disable())
@@ -153,6 +165,39 @@ async fn mixed_unary_ok() {
     assert_eq!(resp.status(), 200);
     assert_eq!(resp.json::<Value>().await.unwrap()["answer"], 42);
     assert_eq!(mock.hit_count(), 1);
+}
+
+/// The Codex CLI/SDK speaks the OpenAI Responses API, not chat completions, so
+/// an unregistered `/v1/responses` is a 404 raised by the route table before
+/// any policy runs — a whole client family locked out with no worker-side trace.
+/// The dispatch chain is path-generic, so registering the route is all it takes.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn mixed_responses_forwards_verbatim() {
+    let (url, mock) = spawn_mock(200, false, json!({"object": "response"})).await;
+    let state = make_state(
+        vec![worker(json!({
+            "worker_id": "w1", "url": url, "model_name": "m", "disagg_mode": "mixed"
+        }))],
+        0,
+    );
+    let router = spawn_router(state).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/responses"))
+        .json(&json!({"model": "m", "input": "1+1=?", "store": false}))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 200);
+    assert_eq!(resp.json::<Value>().await.unwrap()["object"], "response");
+
+    let hit = &mock.hits.lock().unwrap()[0];
+    // Forwarded to the same path, not rewritten onto the chat endpoint.
+    assert_eq!(hit.path, "/v1/responses");
+    // A Responses body carries `input`, never `messages`; nothing may rewrite it.
+    assert_eq!(hit.body["input"], "1+1=?");
+    assert!(hit.body.get("messages").is_none());
 }
 
 /// A long-context prompt is a normal request, not an oversized one: axum's
@@ -517,6 +562,38 @@ async fn pd_unary_injects_matching_bootstrap_room() {
     // Both legs must carry the SAME room or the KV handoff can't rendezvous.
     assert!(p_hit["bootstrap_room"].is_number());
     assert_eq!(p_hit["bootstrap_room"], d_hit["bootstrap_room"]);
+}
+
+/// PD dual-dispatch is path-generic: a Responses request must reach both legs on
+/// `/v1/responses` with the same bootstrap trio as a chat request gets. (The
+/// engine side needs a patch to stop dropping those fields — see
+/// `deploy/docker/patches/sglang_responses_pd/` — but that is not the router's
+/// contract to keep.)
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pd_responses_injects_bootstrap_on_both_legs() {
+    let (p_url, p) = spawn_mock(200, false, json!({"who": "prefill"})).await;
+    let (d_url, d) = spawn_mock(200, false, json!({"who": "decode"})).await;
+    let state = make_state(vec![prefill(&p_url, None), decode(&d_url)], 0);
+    let router = spawn_router(state).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/responses"))
+        .json(&json!({"model": "m", "input": "1+1=?", "store": false}))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 200);
+    assert_eq!(resp.json::<Value>().await.unwrap()["who"], "decode");
+
+    let p_hit = &p.hits.lock().unwrap()[0];
+    let d_hit = &d.hits.lock().unwrap()[0];
+    assert_eq!(p_hit.path, "/v1/responses");
+    assert_eq!(d_hit.path, "/v1/responses");
+    assert_eq!(d_hit.body["bootstrap_host"], "10.0.0.1");
+    assert_eq!(d_hit.body["bootstrap_port"], 9000);
+    assert!(p_hit.body["bootstrap_room"].is_number());
+    assert_eq!(p_hit.body["bootstrap_room"], d_hit.body["bootstrap_room"]);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
