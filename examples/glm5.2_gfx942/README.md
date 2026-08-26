@@ -323,13 +323,20 @@ the container on the prefill node:
 [corpus]: https://huggingface.co/datasets/semianalysisai/cc-traces-weka-062126-256k
 
 ```bash
+source env.sh    # this is a bare python3 call, so it needs env.sh sourced by hand
+
 hf download semianalysisai/cc-traces-weka-062126-256k --repo-type dataset
-SRC=$(ls "$HF_HOME"/hub/datasets--semianalysisai--cc-traces-weka-062126-256k/snapshots/*/traces.jsonl)
+SRC=$(ls "${HF_HOME:-$HOME/.cache/huggingface}"/hub/datasets--semianalysisai--cc-traces-weka-062126-256k/snapshots/*/traces.jsonl)
 
 python3 weka_to_agentic_trace.py "$SRC" -o "$TRACE" \
   --output-len "$OUTPUT_LEN" --min-turns 4 --max-context 100000 \
   --verify 20 --tokenizer "$MODEL"
 ```
+
+`TRACE` and `OUTPUT_LEN` come from `env.sh` with working defaults; `MODEL` is the one
+value here you have to set, in `cluster.env`. The scripts source `env.sh` themselves,
+so only this block needs it done by hand. `HF_HOME` is set neither by `env.sh` nor by
+the image, so the fallback is where `hf download` actually put the corpus.
 
 `--max-context` fits the corpus to what the deployment can prefill; `--dry-run`
 reports the resulting distribution without writing, which is the cheap way to pick

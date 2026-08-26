@@ -112,6 +112,21 @@ with a plausible-looking stack. Two of them got a patch written for them before
 anyone compared version numbers. `Dockerfile.sglang.gfx942`'s `PRECONDITION`
 header carries the same table; two `dpkg -l` lines are cheaper than a rebuild.
 
+**Build on one node and copy it, rather than running the build on each.** The base is
+an `ARG` with a default, so the same command run on two nodes can produce two
+different ROCm userspaces under the one tag `infera:sglang-gfx942-glm52`, and nothing
+downstream compares them — the deployment comes up and only the leg on the mismatched
+node faults, under load, in the shape described above. If both nodes have already
+built, compare what is inside rather than the tag:
+
+```bash
+for N in <PREFILL_NODE> <DECODE_NODE>; do
+  echo "-- $N"
+  ssh "$N" 'docker run --rm --entrypoint cat infera:sglang-gfx942-glm52 \
+    /opt/rocm/.info/version'
+done
+```
+
 Three of the four patches leave greppable markers, which is the cheap way to tell a
 correctly built image from one where a patch silently no-op'd against a moved
 anchor:
@@ -136,7 +151,16 @@ namespace. So `docker images` listing the image on the node proves nothing about
 whether a Pod can start, and what you get instead is `ErrImagePull` for a tag
 sitting on the very machine that failed to pull it. A bare tag makes that message
 more confusing, not less: with no registry prefix, `infera:sglang-gfx942-glm52`
-resolves to `docker.io/library/infera`, which does not exist.
+resolves to `docker.io/library/infera`, which does not exist — so the error names
+neither the image store nor the node, and reads as a credentials problem instead:
+
+```text
+failed to resolve reference "docker.io/library/infera:sglang-gfx942-glm52":
+pull access denied, repository does not exist or may require authorization:
+insufficient_scope: authorization failed
+```
+
+An `imagePullSecret` cannot fix that; nothing was ever supposed to be pulled.
 
 `imagePullPolicy: IfNotPresent` — set on every container in all four manifests — is
 what makes a local image usable at all: an image already in the `k8s.io` namespace
@@ -171,8 +195,55 @@ does this for a list of nodes at once, and waits for each to report `IMPORT_OK`
 rather than leaving you to watch the Pods:
 
 ```bash
-deploy/scripts/import-image-to-containerd.sh infera:sglang-gfx942-glm52 node-a node-b
+deploy/scripts/import-image-to-containerd.sh infera:sglang-gfx942-glm52 \
+  <PREFILL_NODE> <DECODE_NODE>
 ```
+
+**Taking a node list makes it look like a transfer, and it is not.** For every node
+named, the image must already be in *that* node's docker, so on the disaggregated
+combos there is a step before this one with no tooling here:
+
+```bash
+docker save infera:sglang-gfx942-glm52 | ssh <DECODE_NODE> 'docker load'
+```
+
+That step is the easiest of the two to skip, because the node you built on works and
+nothing looks wrong until the second leg schedules. **One leg `Running` and the other
+in `ImagePullBackOff` is its signature.**
+
+**Confirm it by running the image, on every node, before deploying.** A Pod pinned
+with `nodeName`, using the manifest's own image reference and `imagePullPolicy`, is
+the only check that answers the question asked:
+
+```bash
+for N in <PREFILL_NODE> <DECODE_NODE>; do
+  kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Pod
+metadata: {name: img-probe-$N, namespace: infera}
+spec:
+  nodeName: $N
+  restartPolicy: Never
+  containers:
+  - name: c
+    image: infera:sglang-gfx942-glm52
+    imagePullPolicy: IfNotPresent
+    command: ["/bin/echo", "usable"]
+EOF
+done
+
+for N in <PREFILL_NODE> <DECODE_NODE>; do
+  kubectl -n infera wait --for=jsonpath='{.status.phase}'=Succeeded \
+    pod/img-probe-$N --timeout=90s
+  kubectl -n infera delete pod img-probe-$N
+done
+```
+
+`kubectl get node -o jsonpath='{.status.images[*]}'` looks like the cheaper version
+of that check and is not a substitute: a node has been seen listing
+`docker.io/library/infera:sglang-gfx942-glm52` in its own status while the probe above
+went to `ImagePullBackOff` on it. The kubelet reports names it cannot necessarily
+unpack.
 
 **One failure mode that reads as "the import silently failed".** Kubelet's image GC
 reclaims *unreferenced* images once the node's disk is above its high threshold
@@ -185,7 +256,10 @@ hit, clearing hundreds of GB of build cache did not bring it under the threshold
 because the weights and the image are themselves most of the disk.
 
 A registry the cluster can pull from avoids every one of these: retag, push, and
-point `image:` at it.
+point `image:` at it. One caveat if you stand one up per node for convenience — a
+`registry:2` published on `localhost:5010` **on each node** is two registries that
+share a name, not one shared registry. Their catalogues drift, and `localhost:5010/…`
+in a manifest then means a different image depending on where the Pod landed.
 
 ## 2. Prerequisites
 
@@ -284,9 +358,14 @@ To serve a cache you already have without paying for a second copy, mount the
 stay inside one mount — and repoint the engine at the snapshot:
 
 ```bash
-sed -e "s|<NODE>|node-a|" \
-    -e "s|<MODEL_DIR>|<HF_HOME>/hub/models--zai-org--GLM-5.2-FP8|" \
-    -e "s|/models/GLM-5.2-FP8|/models/snapshots/<sha>|g" \
+NODE=          # kubectl get nodes
+HF_HOME=       # the cache root, holding hub/models--zai-org--GLM-5.2-FP8
+SHA=           # ls $HF_HOME/hub/models--zai-org--GLM-5.2-FP8/snapshots
+
+: "${NODE:?}" "${HF_HOME:?}" "${SHA:?}"
+sed -e "s|<NODE>|$NODE|" \
+    -e "s|<MODEL_DIR>|$HF_HOME/hub/models--zai-org--GLM-5.2-FP8|" \
+    -e "s|/models/GLM-5.2-FP8|/models/snapshots/$SHA|g" \
     examples/recipes/glm5.2-fp8-gfx942/aggregated/deploy.yaml | kubectl apply -f -
 ```
 
@@ -338,18 +417,44 @@ it mounts the node's root filesystem, which is the one arrangement in which the 
 
 ## 3. Deploy
 
-Each manifest ships placeholders rather than defaults. Any left unsubstituted fails
-loudly, which is the point: `kubectl` rejects `<NODE>` outright, and a literal
-`<RDMA_IB_DEVICES>` is not a device `ibv_open_device` will accept.
+Each manifest ships placeholders rather than defaults. Any left unsubstituted fails —
+but not all at the same moment, and the difference is worth knowing before you pick a
+substitution method. `kubectl` rejects a literal `<NODE>` outright, at admission. A
+literal `<RDMA_IB_DEVICES>` it accepts: that one only fails when the engine opens the
+device, minutes later and after the weights have loaded. A *plausible but wrong*
+fabric value fails in the second way too, which is why the renderer below is worth
+preferring over `sed` for those two values specifically.
 
 ```bash
 kubectl create namespace infera --dry-run=client -o yaml | kubectl apply -f -
 ```
 
+Fill in what your combo needs — every one of these is a property of your cluster,
+and §2 says where each is read from. They are left empty on purpose, and each block
+below opens with a `${VAR:?}` guard so that pasting it unedited aborts on the first
+value still missing.
+
+The guard is not decoration. **An empty value is not caught downstream.** An empty
+`nodeName` in particular is accepted by the CRD and by the API server, and hands the
+Pod to the scheduler instead — which on the disaggregated combos can place both legs
+on one node and quietly take the RDMA path out of the deployment.
+
+```bash
+NODE=            # aggregated combos: the one node.  kubectl get nodes
+PREFILL_NODE=    # disaggregated combos: the two nodes
+DECODE_NODE=
+MODEL_DIR=       # absolute path, identical on every node used, holding GLM-5.2-FP8/
+KVD_L3_DIR=      # kvd combos only: node-local NVMe
+RAIL=            # disaggregated only: from ibv_devices, and ACTIVE on both nodes
+PREFILL_GID=     # the RoCE v2 index on that rail -- per node, so check both
+DECODE_GID=
+```
+
 **`aggregated`** — one node, two placeholders:
 
 ```bash
-sed -e "s|<NODE>|node-a|" -e "s|<MODEL_DIR>|/mnt/models|" \
+: "${NODE:?}" "${MODEL_DIR:?}"
+sed -e "s|<NODE>|$NODE|" -e "s|<MODEL_DIR>|$MODEL_DIR|" \
     examples/recipes/glm5.2-fp8-gfx942/aggregated/deploy.yaml | kubectl apply -f -
 ```
 
@@ -357,50 +462,66 @@ sed -e "s|<NODE>|node-a|" -e "s|<MODEL_DIR>|/mnt/models|" \
 §6 says why and what it costs:
 
 ```bash
-sed -e "s|<NODE>|node-a|" -e "s|<MODEL_DIR>|/mnt/models|" \
-    -e "s|<KVD_L3_DIR>|/mnt/nvme/kvd-l3|" \
+: "${NODE:?}" "${MODEL_DIR:?}" "${KVD_L3_DIR:?}"
+sed -e "s|<NODE>|$NODE|" -e "s|<MODEL_DIR>|$MODEL_DIR|" \
+    -e "s|<KVD_L3_DIR>|$KVD_L3_DIR|" \
     examples/recipes/glm5.2-fp8-gfx942/aggregated-kvd/deploy.yaml | kubectl apply -f -
 ```
 
 **`disaggregated`** — two nodes, and the RDMA values from §2:
 
 ```bash
-sed -e "s|<PREFILL_NODE>|node-a|"   -e "s|<DECODE_NODE>|node-b|" \
-    -e "s|<MODEL_DIR>|/mnt/models|" -e "s|<RDMA_IB_DEVICES>|mlx5_0|" \
-    -e "s|<PREFILL_GID_INDEX>|3|"   -e "s|<DECODE_GID_INDEX>|3|" \
+: "${PREFILL_NODE:?}" "${DECODE_NODE:?}" "${MODEL_DIR:?}" \
+  "${RAIL:?}" "${PREFILL_GID:?}" "${DECODE_GID:?}"
+sed -e "s|<PREFILL_NODE>|$PREFILL_NODE|" -e "s|<DECODE_NODE>|$DECODE_NODE|" \
+    -e "s|<MODEL_DIR>|$MODEL_DIR|"       -e "s|<RDMA_IB_DEVICES>|$RAIL|" \
+    -e "s|<PREFILL_GID_INDEX>|$PREFILL_GID|" \
+    -e "s|<DECODE_GID_INDEX>|$DECODE_GID|" \
     examples/recipes/glm5.2-fp8-gfx942/disaggregated/deploy.yaml | kubectl apply -f -
 ```
 
 **`disaggregated + kvd`** — both of the above:
 
 ```bash
-sed -e "s|<PREFILL_NODE>|node-a|"        -e "s|<DECODE_NODE>|node-b|" \
-    -e "s|<MODEL_DIR>|/mnt/models|"      -e "s|<KVD_L3_DIR>|/mnt/nvme/kvd-l3|" \
-    -e "s|<RDMA_IB_DEVICES>|mlx5_0|" \
-    -e "s|<PREFILL_GID_INDEX>|3|"        -e "s|<DECODE_GID_INDEX>|3|" \
+: "${PREFILL_NODE:?}" "${DECODE_NODE:?}" "${MODEL_DIR:?}" "${KVD_L3_DIR:?}" \
+  "${RAIL:?}" "${PREFILL_GID:?}" "${DECODE_GID:?}"
+sed -e "s|<PREFILL_NODE>|$PREFILL_NODE|" -e "s|<DECODE_NODE>|$DECODE_NODE|" \
+    -e "s|<MODEL_DIR>|$MODEL_DIR|"       -e "s|<KVD_L3_DIR>|$KVD_L3_DIR|" \
+    -e "s|<RDMA_IB_DEVICES>|$RAIL|" \
+    -e "s|<PREFILL_GID_INDEX>|$PREFILL_GID|" \
+    -e "s|<DECODE_GID_INDEX>|$DECODE_GID|" \
     examples/recipes/glm5.2-fp8-gfx942/disaggregated-kvd/deploy.yaml | kubectl apply -f -
 ```
 
-The RDMA values shown are the docker recipe's; substitute what §2 reported on your
-own fabric. A fabric that needs more than a placeholder swap — a non-default GID
-index, or Mooncake pinned to one rail because your rails carry no IPv4 — changes
-the same few keys in all four combos, so it is worth rendering them from one
-source rather than editing four files by hand.
+**`sed` cannot check the two values most worth checking.** A rail name or GID index
+that is merely wrong for your fabric substitutes as readily as a right one, and only
+fails once the engine opens the device — minutes later, after the weights have
+loaded. A fabric that needs more than a swap, too — a non-default GID index, or
+Mooncake pinned to one rail because your rails carry no IPv4 — changes the same few
+keys in all four combos. Both are reasons to render from one source rather than
+editing four files by hand.
 
 [`examples/recipes/render.py`](../render.py) is that source, and takes the same
 values as the `sed` above:
 
 ```bash
+# add --pin-rail as well if your rails carry no IPv4
 python3 examples/recipes/render.py glm5.2-fp8-gfx942/disaggregated \
-  --set PREFILL_NODE=node-a --set DECODE_NODE=node-b \
-  --set MODEL_DIR=/mnt/models --set RDMA_IB_DEVICES=mlx5_0 \
-  --set PREFILL_GID_INDEX=3 --set DECODE_GID_INDEX=3 \
+  --set PREFILL_NODE=<PREFILL_NODE> --set DECODE_NODE=<DECODE_NODE> \
+  --set MODEL_DIR=<MODEL_DIR> \
+  --set RDMA_IB_DEVICES=<RAIL> \
+  --set PREFILL_GID_INDEX=<PREFILL_GID_INDEX> \
+  --set DECODE_GID_INDEX=<DECODE_GID_INDEX> \
+  --check-rail \
   | kubectl apply -f -
 ```
 
-It is `sed` plus the three things `sed` cannot do: it refuses to emit a manifest
-with a placeholder still in it, refuses a placeholder name this combo does not
-have (so a misspelled `--set` cannot pass as a no-op), and `--pin-rail` adds
+It is `sed` plus the three things `sed` cannot do. It refuses to emit a manifest with
+a placeholder still in it, re-scanning its own output for `<NAME>`; that is why the
+block above is written in placeholders rather than plausible examples — pasted
+unedited it fails in under a second and names what it wants, where a plausible wrong
+value would have rendered silently. It refuses a placeholder name this combo does not
+have, so a misspelled `--set` cannot pass as a no-op. And `--pin-rail` adds
 `MC_MS_AUTO_DISC=0` plus `MC_MS_FILTERS=<rail>` to both legs — an insertion into
 the env list rather than a substitution. Pin the rail when yours carry no IPv4:
 every GID is then link-local `fe80::`, so every rail looks like the same `/64`
@@ -543,7 +664,7 @@ off the engine image, so the tokenizer is the model's own:
 ```bash
 docker run --rm --network host \
   --device=/dev/kfd --device=/dev/dri --group-add video --group-add render \
-  -v /mnt/models:/models:ro --entrypoint python3 infera:sglang-gfx942-glm52 \
+  -v "$MODEL_DIR":/models:ro --entrypoint python3 infera:sglang-gfx942-glm52 \
   -m sglang.bench_serving --backend sglang-oai-chat \
     --host "$ROUTER_IP" --port 8000 \
     --model /models/GLM-5.2-FP8 --tokenizer /models/GLM-5.2-FP8 \
@@ -581,7 +702,7 @@ SRC=$(ls "$HF_HOME"/hub/datasets--semianalysisai--cc-traces-weka-062126-256k/sna
 
 python3 weka_to_agentic_trace.py "$SRC" -o data/cc_traces_100k.json \
   --output-len 220 --min-turns 4 --max-context 100000 \
-  --verify 20 --tokenizer /mnt/models/GLM-5.2-FP8
+  --verify 20 --tokenizer "$MODEL_DIR"/GLM-5.2-FP8
 ```
 
 `--output-len` must be the value the run replays with. The converter sizes each
@@ -597,7 +718,7 @@ stay identical to the docker arm rather than silently becoming part of the
 comparison:
 
 ```bash
-MODEL=/mnt/models/GLM-5.2-FP8 TRACE=$PWD/data/cc_traces_100k.json \
+MODEL="$MODEL_DIR"/GLM-5.2-FP8 TRACE=$PWD/data/cc_traces_100k.json \
 NUM_PROMPTS=60 CONC=16 \
   bash bench_client.sh k8s "$ROUTER" "$PREFILL" "$DECODE"
 ```

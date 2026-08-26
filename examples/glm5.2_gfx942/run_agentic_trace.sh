@@ -35,7 +35,7 @@ read -r -a FLUSH_URL_ARR <<< "${FLUSH_URLS:-$PREFILL_URL $DECODE_URL}"
 
 [[ -f "$TRACE" ]] || {
   echo "[agentic] missing trace: $TRACE" >&2
-  echo "[agentic] build it first with weka_to_agentic_trace.py -- see README §5.1" >&2
+  echo "[agentic] build it first with weka_to_agentic_trace.py -- see README §5.2" >&2
   exit 1
 }
 

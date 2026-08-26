@@ -102,9 +102,65 @@ docker build -f deploy/docker/Dockerfile.sglang.gfx942 \
   -t infera:sglang-gfx942-glm52 .
 ```
 
-Load it on **both** nodes, or push it somewhere the cluster can pull from; the
-manifest uses `imagePullPolicy: IfNotPresent`, so a locally-loaded image is used
-as-is. Then read the patch markers back **out of the built image** rather than
+Build on **one** node, not on each: the base is an `ARG` with a default, so the same
+command on two nodes can yield two different ROCm userspaces under the one tag, and
+only the leg on the mismatched node faults — under load, in the shape §1 describes.
+
+Getting it onto the other node is then **two** moves, and neither implies the other:
+
+```bash
+# 1. into the other node's docker
+docker save infera:sglang-gfx942-glm52 | ssh <DECODE_NODE> 'docker load'
+
+# 2. docker -> containerd, on every node the manifest names
+deploy/scripts/import-image-to-containerd.sh infera:sglang-gfx942-glm52 \
+  <PREFILL_NODE> <DECODE_NODE>
+```
+
+Step 2 is needed because `imagePullPolicy: IfNotPresent` asks **containerd**, not
+docker, and a `docker build` result is invisible to it. Step 1 is the one most often
+skipped, because the node you built on works and nothing looks wrong until the second
+leg schedules.
+
+:::{admonition} Check it by running it, on every node, before you deploy
+:class: important
+A Pod pinned with `nodeName` using the manifest's own image reference is the only
+check that answers the question. `kubectl get node -o jsonpath='{.status.images[*]}'`
+is not a substitute — a node has been seen listing the tag in its own status while a
+probe Pod on it still went to `ImagePullBackOff`.
+
+```bash
+for N in <PREFILL_NODE> <DECODE_NODE>; do
+  kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Pod
+metadata: {name: img-probe-$N, namespace: infera}
+spec:
+  nodeName: $N
+  restartPolicy: Never
+  containers:
+  - name: c
+    image: infera:sglang-gfx942-glm52
+    imagePullPolicy: IfNotPresent
+    command: ["/bin/echo", "usable"]
+EOF
+done
+
+for N in <PREFILL_NODE> <DECODE_NODE>; do
+  kubectl -n infera wait --for=jsonpath='{.status.phase}'=Succeeded \
+    pod/img-probe-$N --timeout=90s
+  kubectl -n infera delete pod img-probe-$N
+done
+```
+
+Skipped, this surfaces as `ImagePullBackOff` with `pull access denied … authorization
+failed` against `docker.io/library/infera` — which reads as a credentials problem and
+is not one. A registry-less tag normalises to Docker Hub, so an `imagePullSecret`
+cannot help. **One leg `Running` and the other in `ImagePullBackOff`** means step 1
+was skipped.
+:::
+
+Then read the patch markers back **out of the built image** rather than
 trusting the build log — a patch whose anchor moved no-ops silently:
 
 ```bash
@@ -236,11 +292,31 @@ engine image where the nodes cannot reach Docker Hub.
 ## 4. Deploy
 
 The manifests ship placeholders rather than defaults, because the RDMA values have
-no correct default. Any placeholder left unsubstituted fails loudly, which is the
-intent.
+no correct default. A placeholder left unsubstituted fails, which is the intent — but
+not all of them fail at the same moment. `kubectl` rejects a literal `<NODE>` at
+admission; a literal `<RDMA_IB_DEVICES>` it accepts, and that one surfaces only when
+the engine opens the device, minutes later and after the weights have loaded.
 
 ```bash
 kubectl create namespace infera --dry-run=client -o yaml | kubectl apply -f -
+```
+
+Fill in what your combo needs. They are left empty deliberately, and each block below
+opens with a `${VAR:?}` guard so that pasting it unedited aborts on the first value
+still missing — an empty value is *not* caught downstream. An empty `nodeName` is
+accepted by the CRD and hands the Pod to the scheduler instead, which on the
+disaggregated combos can place both legs on one node and quietly take the RDMA path
+out of the deployment.
+
+```bash
+NODE=            # aggregated combos: the one node.  kubectl get nodes
+PREFILL_NODE=    # disaggregated combos: the two nodes
+DECODE_NODE=
+MODEL_DIR=       # absolute path, identical on every node used, holding GLM-5.2-FP8/
+KVD_L3_DIR=      # kvd combos only: node-local NVMe
+RAIL=            # disaggregated only: from ibv_devices, and ACTIVE on both nodes
+PREFILL_GID=     # the RoCE v2 index on that rail -- per node, so check both
+DECODE_GID=
 ```
 
 ::::{tab-set}
@@ -251,7 +327,8 @@ kubectl create namespace infera --dry-run=client -o yaml | kubectl apply -f -
 One node, one worker doing prefill and decode. Two placeholders, no fabric.
 
 ```bash
-sed -e "s|<NODE>|node-a|" -e "s|<MODEL_DIR>|/mnt/models|" \
+: "${NODE:?}" "${MODEL_DIR:?}"
+sed -e "s|<NODE>|$NODE|" -e "s|<MODEL_DIR>|$MODEL_DIR|" \
     examples/recipes/glm5.2-fp8-gfx942/aggregated/deploy.yaml | kubectl apply -f -
 ```
 
@@ -265,8 +342,9 @@ NVMe. This arm runs **without MTP** — see the warning at the top of this page 
 why, and what it costs.
 
 ```bash
-sed -e "s|<NODE>|node-a|" -e "s|<MODEL_DIR>|/mnt/models|" \
-    -e "s|<KVD_L3_DIR>|/mnt/nvme/kvd-l3|" \
+: "${NODE:?}" "${MODEL_DIR:?}" "${KVD_L3_DIR:?}"
+sed -e "s|<NODE>|$NODE|" -e "s|<MODEL_DIR>|$MODEL_DIR|" \
+    -e "s|<KVD_L3_DIR>|$KVD_L3_DIR|" \
     examples/recipes/glm5.2-fp8-gfx942/aggregated-kvd/deploy.yaml | kubectl apply -f -
 ```
 
@@ -284,9 +362,12 @@ The KV handoff is RDMA with **no TCP fallback**. On one box this cannot work —
 ```
 
 ```bash
-sed -e "s|<PREFILL_NODE>|node-a|"   -e "s|<DECODE_NODE>|node-b|" \
-    -e "s|<MODEL_DIR>|/mnt/models|" -e "s|<RDMA_IB_DEVICES>|mlx5_0|" \
-    -e "s|<PREFILL_GID_INDEX>|3|"   -e "s|<DECODE_GID_INDEX>|3|" \
+: "${PREFILL_NODE:?}" "${DECODE_NODE:?}" "${MODEL_DIR:?}" \
+  "${RAIL:?}" "${PREFILL_GID:?}" "${DECODE_GID:?}"
+sed -e "s|<PREFILL_NODE>|$PREFILL_NODE|" -e "s|<DECODE_NODE>|$DECODE_NODE|" \
+    -e "s|<MODEL_DIR>|$MODEL_DIR|"       -e "s|<RDMA_IB_DEVICES>|$RAIL|" \
+    -e "s|<PREFILL_GID_INDEX>|$PREFILL_GID|" \
+    -e "s|<DECODE_GID_INDEX>|$DECODE_GID|" \
     examples/recipes/glm5.2-fp8-gfx942/disaggregated/deploy.yaml | kubectl apply -f -
 ```
 
@@ -300,10 +381,13 @@ SGLang issues storage prefetch on its aggregated and prefill branches only, so a
 decode-side tier would be written and never read.
 
 ```bash
-sed -e "s|<PREFILL_NODE>|node-a|"        -e "s|<DECODE_NODE>|node-b|" \
-    -e "s|<MODEL_DIR>|/mnt/models|"      -e "s|<KVD_L3_DIR>|/mnt/nvme/kvd-l3|" \
-    -e "s|<RDMA_IB_DEVICES>|mlx5_0|" \
-    -e "s|<PREFILL_GID_INDEX>|3|"        -e "s|<DECODE_GID_INDEX>|3|" \
+: "${PREFILL_NODE:?}" "${DECODE_NODE:?}" "${MODEL_DIR:?}" "${KVD_L3_DIR:?}" \
+  "${RAIL:?}" "${PREFILL_GID:?}" "${DECODE_GID:?}"
+sed -e "s|<PREFILL_NODE>|$PREFILL_NODE|" -e "s|<DECODE_NODE>|$DECODE_NODE|" \
+    -e "s|<MODEL_DIR>|$MODEL_DIR|"       -e "s|<KVD_L3_DIR>|$KVD_L3_DIR|" \
+    -e "s|<RDMA_IB_DEVICES>|$RAIL|" \
+    -e "s|<PREFILL_GID_INDEX>|$PREFILL_GID|" \
+    -e "s|<DECODE_GID_INDEX>|$DECODE_GID|" \
     examples/recipes/glm5.2-fp8-gfx942/disaggregated-kvd/deploy.yaml | kubectl apply -f -
 ```
 
@@ -318,6 +402,34 @@ that is physically down must not be listed. The two GID indices come from
 because the index is per node, not per cluster; two identical machines routinely
 expose different ones. They are usually equal, but check both: a wrong index pins KV
 to an interface that never carries it and the transfer simply times out.
+
+:::{admonition} For the fabric values, prefer the renderer over `sed`
+:class: important
+`sed` substitutes a wrong rail or GID index as readily as a right one, and neither
+`kubectl` nor the engine objects until the device is opened — minutes in, after the
+weights have loaded.
+[`examples/recipes/render.py`](https://github.com/AMD-AGI/Infera/blob/main/examples/recipes/render.py)
+takes the same values and adds what `sed` cannot: it re-scans its own output and
+refuses to emit a manifest still holding a `<NAME>`, it rejects a `--set` name the
+combo does not use so a typo cannot pass as a no-op, and `--check-rail` reads the
+rail's state on both nodes over ssh before rendering anything.
+
+```bash
+python3 examples/recipes/render.py glm5.2-fp8-gfx942/disaggregated \
+  --set PREFILL_NODE=<PREFILL_NODE> --set DECODE_NODE=<DECODE_NODE> \
+  --set MODEL_DIR=<MODEL_DIR> \
+  --set RDMA_IB_DEVICES=<RAIL> \
+  --set PREFILL_GID_INDEX=<PREFILL_GID_INDEX> \
+  --set DECODE_GID_INDEX=<DECODE_GID_INDEX> \
+  --check-rail \
+  | kubectl apply -f -
+```
+
+Add `--pin-rail` if your rails carry no IPv4: every GID is then link-local `fe80::`,
+so every rail looks like the same `/64` subnet and Mooncake can pair the prefill
+node's rail A with the decode node's rail B, where the transfer times out. The
+recipe README covers both flags in full.
+:::
 
 ```{admonition} Cold start is 10–25 minutes, and the log goes quiet
 :class: tip
