@@ -237,6 +237,34 @@ def test_a_decode_leg_with_the_radix_cache_does_have_one(monkeypatch):
     assert no_clear_event_reason(args) is None
 
 
+def test_an_aggregated_worker_on_chunk_cache_has_no_clear_event_either(monkeypatch):
+    """--disable-radix-cache is the other way onto ChunkCache, and it needs no
+    PD at all. Uncovered, an aggregated worker started with it spent the whole
+    anchor budget immediately before register() and then blamed a missing anchor
+    on a worker that emits no KV events in the first place."""
+    _reason(monkeypatch, None)
+    agg = ["--model-path", "Qwen/Qwen3-0.6B", "--etcd-endpoint", "127.0.0.1:2379"]
+    reason = no_clear_event_reason(parse_sglang_args([*agg, "--disable-radix-cache"]))
+    assert reason is not None and "--disable-radix-cache" in reason
+    assert no_clear_event_reason(parse_sglang_args(agg)) is None
+
+
+def test_a_decode_leg_is_read_off_the_argv_not_the_resolved_attribute(monkeypatch):
+    """SGLang's pd_disaggregation_hook sets server_args.disable_radix_cache =
+    True for *every* decode leg, before infera appends the flag that turns it
+    back off. Reading that attribute in decode mode -- the obvious way to write
+    the check added above -- reports ChunkCache for a leg that will run a radix
+    cache, and skips the one flush that had a chain to re-anchor."""
+    _reason(monkeypatch, None)
+    args = parse_sglang_args(_DECODE)
+    assert _FLAG in args.sglang_argv
+    assert args.server_args.disable_radix_cache is True, (
+        "sglang stopped forcing the attribute for decode legs; the argv read "
+        "below is now belt-and-braces rather than load-bearing"
+    )
+    assert no_clear_event_reason(args) is None
+
+
 def test_a_prefill_leg_is_flushed_as_before(monkeypatch):
     """The prefill leg keeps a radix cache regardless of that flag; it is also
     the leg that carries prefix-aware routing, so it is the one that must not

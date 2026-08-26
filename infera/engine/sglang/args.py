@@ -386,20 +386,45 @@ def no_clear_event_reason(args: SglangWorkerArgs) -> str | None:
     flag for hybrid SWA/SSM models, which makes ChunkCache the *normal* decode
     leg for Kimi-K3 and everything else in that family.
 
-    Read off ``sglang_argv`` rather than ``server_args``: the append happens
-    after ``ServerArgs.from_cli_args``, so the resolved ``server_args`` does not
-    carry it, and the forwarded argv is what ``launch_server`` actually parses.
+    A decode leg is not the only way onto ChunkCache, though it is the one that
+    prompted this. ``--disable-radix-cache`` puts an aggregated or prefill
+    worker on the same cache, with the same silent 200 and the same lost budget.
+
+    For a decode leg, read off ``sglang_argv`` rather than ``server_args``: the
+    append happens after ``ServerArgs.from_cli_args``, and SGLang's
+    ``pd_disaggregation_hook`` has by then already set
+    ``server_args.disable_radix_cache = True`` for *every* decode leg, including
+    the ones we are about to hand the flag to. Reading that attribute in decode
+    mode answers "ChunkCache" for a leg that will run a radix cache. The
+    forwarded argv is what ``launch_server`` actually parses, and is the only
+    honest source here. Outside decode mode the hook leaves the attribute alone,
+    so there it *is* the operator's own setting.
+
+    One residual, deliberately not covered: ``kv_cache_builder.py`` also forces
+    ChunkCache for a multimodal model on the Transformers backend, which no
+    argument announces. Detecting it means loading the model config, and this
+    function has no failure path -- unlike
+    ``_decode_radix_cache_unsupported_reason``, which needs one anyway. The cost
+    of missing it is one wasted startup budget and one confusing line, not a
+    crash, which is not worth a new way for argv parsing to fail.
     """
-    if args.server_args.disaggregation_mode != "decode":
-        return None
-    if _DECODE_RADIX_CACHE_FLAG in args.sglang_argv:
-        return None
-    return (
-        "this PD decode leg runs SGLang's ChunkCache "
-        f"({_DECODE_RADIX_CACHE_FLAG} is not set), which keeps no radix tree "
-        "and emits no AllBlocksCleared -- /flush_cache would answer 200 and "
-        "publish nothing"
-    )
+    sa = args.server_args
+    if sa.disaggregation_mode == "decode":
+        if _DECODE_RADIX_CACHE_FLAG in args.sglang_argv:
+            return None
+        return (
+            "this PD decode leg runs SGLang's ChunkCache "
+            f"({_DECODE_RADIX_CACHE_FLAG} is not set), which keeps no radix tree "
+            "and emits no AllBlocksCleared -- /flush_cache would answer 200 and "
+            "publish nothing"
+        )
+    if sa.disable_radix_cache:
+        return (
+            "--disable-radix-cache puts this worker on SGLang's ChunkCache, "
+            "which keeps no radix tree and emits no AllBlocksCleared -- "
+            "/flush_cache would answer 200 and publish nothing"
+        )
+    return None
 
 
 def _decode_radix_cache_unsupported_reason(server_args) -> str | None:
