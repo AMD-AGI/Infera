@@ -6,10 +6,16 @@ of it is projected.
 
 ## How it works
 
-There is no scaling controller. Workers **self-register** into discovery when
-they are ready and **deregister** when they shut down, and the router routes to
-whatever is registered at that instant. Scaling is therefore just starting and
-stopping worker processes; nothing has to be told about it.
+Nothing in the data path has to be told about scaling. Workers **self-register**
+into discovery when they are ready and **deregister** when they shut down, and
+the router routes to whatever is registered at that instant. Scaling is
+therefore just starting and stopping worker processes.
+
+This page is about that mechanism, not about deciding how many workers to run.
+Something has to make that call — an operator, an external autoscaler, or the
+[SLA planner](sla_planner.md), which works out how many prefill and decode
+replicas the measured TTFT and ITL call for. Whatever decides, what happens next
+is what follows.
 
 ```
 worker ready ──► register (etcd lease / Pod annotation) ──► router's watch fires

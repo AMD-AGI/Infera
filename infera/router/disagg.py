@@ -116,8 +116,8 @@ class DisaggRouter(BaseRouter):
         stream: bool,
         path: str = "/v1/chat/completions",
     ) -> Response:
-        with metrics.track_request(router="disagg") as obs:
-            model = body.get("model")
+        model = body.get("model")
+        with metrics.track_request(router="disagg", model=str(model or "")) as obs:
             prefills = self.pool.list_active(model=model, mode=DisaggMode.PREFILL)
             decodes = self.pool.list_active(model=model, mode=DisaggMode.DECODE)
             # Independently per role: a wedged prefill and a wedged decode are
@@ -155,7 +155,7 @@ class DisaggRouter(BaseRouter):
         protocol/topology/transport machinery as :meth:`dispatch`, but skips
         ``policy.pick`` — selection happened in the EPP. Empty block lists make
         the policy in-flight refcounting a no-op (the EPP owns bookkeeping)."""
-        with metrics.track_request(router="disagg") as obs:
+        with metrics.track_request(router="disagg", model=str(body.get("model") or "")) as obs:
             p = self.pool.get(prefill_id)
             d = self.pool.get(decode_id)
             if p is None or d is None:
@@ -247,6 +247,9 @@ class DisaggRouter(BaseRouter):
 
         p_url = f"{p.url}{path}"
         d_url = f"{d.url}{path}"
+
+        # Fallback ISL for the streaming path, where the reply carries no usage.
+        obs.observe_blocks(p_blocks, p.kv_block_size)
 
         # request_id_for may raise (e.g. malformed disagg_meta); compute before
         # on_request_started so no started/finished bookkeeping is needed on
@@ -356,8 +359,10 @@ class DisaggRouter(BaseRouter):
 
         if stream:
             obs["outcome"] = "ok"  # commit at hand-off
+            obs.claim_stream()
             return StreamingResponse(
                 self._stream_dual(
+                    obs,
                     p_target,
                     p_blocks,
                     d_target,
@@ -426,6 +431,7 @@ class DisaggRouter(BaseRouter):
                     status_code=502,
                 )
             obs["outcome"] = "ok" if d_resp.status_code < 400 else f"{d_resp.status_code // 100}xx"
+            obs.observe_usage(payload)
             return JSONResponse(content=payload, status_code=d_resp.status_code)
         finally:
             self.policy.on_request_finished(p_target.route_key, p_blocks)
@@ -502,8 +508,11 @@ class DisaggRouter(BaseRouter):
 
         if stream:
             obs["outcome"] = "ok"
+            obs.claim_stream()
             return StreamingResponse(
-                self._stream_dual_nats(p_target, p_blocks, d_target, d_blocks, d_payload, p_task),
+                self._stream_dual_nats(
+                    obs, p_target, p_blocks, d_target, d_blocks, d_payload, p_task
+                ),
                 media_type="text/event-stream",
             )
 
@@ -542,6 +551,7 @@ class DisaggRouter(BaseRouter):
                 )
             self._score_leg(d.worker_id, status)
             obs["outcome"] = "ok" if status < 400 else f"{status // 100}xx"
+            obs.observe_usage(payload)
             return JSONResponse(content=payload, status_code=status)
         finally:
             try:
@@ -551,7 +561,9 @@ class DisaggRouter(BaseRouter):
             self.policy.on_request_finished(p_target.route_key, p_blocks)
             self.policy.on_request_finished(d_target.route_key, d_blocks)
 
-    async def _stream_dual_nats(self, p_target, p_blocks, d_target, d_blocks, d_payload, p_task):
+    async def _stream_dual_nats(
+        self, obs, p_target, p_blocks, d_target, d_blocks, d_payload, p_task
+    ):
         """Stream decode's reply over NATS while prefill drains in background."""
         d = d_target.worker
         served = False
@@ -564,12 +576,14 @@ class DisaggRouter(BaseRouter):
                             # work; an accepted request alone would not show it.
                             self.breaker.record_success(d.worker_id)
                             served = True
+                        obs.observe_stream_chunk(data)
                         yield data
                 elif kind == TYPE_ERROR:
                     logger.warning("decode (nats) %s stream failed: %s", d.worker_id, data[:200])
                     metrics.pd_bootstrap_failures_total.labels(reason="decode_stream_broken").inc()
                     if not served:
                         self.breaker.record_failure(d.worker_id)
+                    obs.mark_failed()
                     yield (
                         f'data: {{"error":"decode {d.worker_id} nats stream failed"}}\n\n'
                     ).encode()
@@ -585,6 +599,7 @@ class DisaggRouter(BaseRouter):
                 pass
             self.policy.on_request_finished(p_target.route_key, p_blocks)
             self.policy.on_request_finished(d_target.route_key, d_blocks)
+            obs.close()
 
     async def _dispatch_serial(
         self,
@@ -715,10 +730,11 @@ class DisaggRouter(BaseRouter):
 
         if stream:
             obs["outcome"] = "ok"  # commit at hand-off
+            obs.claim_stream()
             # No prefill task to babysit (already finished); D's stream
             # is self-contained. _stream_decode_only's finally finishes D.
             return StreamingResponse(
-                self._stream_decode_only(d_target, d_blocks, d_url, d_body, d_headers),
+                self._stream_decode_only(obs, d_target, d_blocks, d_url, d_body, d_headers),
                 media_type="text/event-stream",
             )
 
@@ -745,12 +761,14 @@ class DisaggRouter(BaseRouter):
                     status_code=502,
                 )
             obs["outcome"] = "ok" if d_resp.status_code < 400 else f"{d_resp.status_code // 100}xx"
+            obs.observe_usage(d_payload)
             return JSONResponse(content=d_payload, status_code=d_resp.status_code)
         finally:
             self.policy.on_request_finished(d_target.route_key, d_blocks)
 
     async def _stream_decode_only(
         self,
+        obs,
         d_target,
         d_blocks: list[int],
         d_url: str,
@@ -778,6 +796,7 @@ class DisaggRouter(BaseRouter):
                 metrics.pd_bootstrap_failures_total.labels(reason="decode_unreachable").inc()
                 self.breaker.record_failure(d_target.worker.worker_id)
                 err = json.dumps({"error": "decode unreachable"})
+                obs.mark_failed()
                 yield f"data: {err}\n\n".encode()
                 return
 
@@ -804,6 +823,7 @@ class DisaggRouter(BaseRouter):
                         )
                     }
                 )
+                obs.mark_failed()
                 yield f"data: {err}\n\n".encode()
                 return
 
@@ -823,6 +843,7 @@ class DisaggRouter(BaseRouter):
                         if _DONE_NEEDLE in window:
                             done_seen = True
                         tail = window[-_TAIL_KEEP:]
+                    obs.observe_stream_chunk(chunk)
                     yield chunk
             except httpx.HTTPError as exc:
                 if done_seen:
@@ -840,6 +861,7 @@ class DisaggRouter(BaseRouter):
                 )
                 metrics.pd_bootstrap_failures_total.labels(reason="decode_stream_broken").inc()
                 err = json.dumps({"error": "decode stream failed"})
+                obs.mark_failed()
                 yield f"data: {err}\n\n".encode()
         finally:
             if d_resp is not None:
@@ -848,6 +870,7 @@ class DisaggRouter(BaseRouter):
                 except Exception:
                     pass
             self.policy.on_request_finished(d_target.route_key, d_blocks)
+            obs.close()
 
     async def _open_decode_stream(
         self,
@@ -892,6 +915,7 @@ class DisaggRouter(BaseRouter):
 
     async def _stream_dual(
         self,
+        obs,
         p_target,
         p_blocks: list[int],
         d_target,
@@ -941,6 +965,7 @@ class DisaggRouter(BaseRouter):
                     self.breaker.record_failure(d_target.worker.worker_id)
                     # json.dumps: exc text may contain chars that break SSE.
                     err = json.dumps({"error": "decode unreachable"})
+                    obs.mark_failed()
                     yield f"data: {err}\n\n".encode()
                     return
 
@@ -968,6 +993,7 @@ class DisaggRouter(BaseRouter):
                             )
                         }
                     )
+                    obs.mark_failed()
                     yield f"data: {err}\n\n".encode()
                     return
 
@@ -988,6 +1014,7 @@ class DisaggRouter(BaseRouter):
                         if _DONE_NEEDLE in window:
                             done_seen = True
                         tail = window[-_TAIL_KEEP:]
+                    obs.observe_stream_chunk(chunk)
                     yield chunk
             except httpx.HTTPError as exc:
                 if done_seen:
@@ -1010,6 +1037,7 @@ class DisaggRouter(BaseRouter):
                 )
                 metrics.pd_bootstrap_failures_total.labels(reason="decode_stream_broken").inc()
                 err = json.dumps({"error": "decode stream failed"})
+                obs.mark_failed()
                 yield f"data: {err}\n\n".encode()
         finally:
             if d_resp is not None:
@@ -1053,3 +1081,4 @@ class DisaggRouter(BaseRouter):
                     metrics.pd_bootstrap_failures_total.labels(reason="prefill_5xx").inc()
             self.policy.on_request_finished(p_target.route_key, p_blocks)
             self.policy.on_request_finished(d_target.route_key, d_blocks)
+            obs.close()

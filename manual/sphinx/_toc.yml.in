@@ -47,6 +47,8 @@ subtrees:
         title: Routing and transport
       - file: features/scaling.md
         title: Scaling a fleet
+      - file: features/sla_planner.md
+        title: SLA planner
       - file: features/graceful_shutdown.md
         title: Graceful shutdown
 

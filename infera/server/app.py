@@ -65,6 +65,7 @@ _kvd_socket_path: str | None = None
 # fan profile control out to worker engine endpoints is created lazily on first
 # use and kept separate from the router's client.
 _enable_profiling: bool = False
+_enable_sla_metrics: bool = False
 _profile_client: httpx.AsyncClient | None = None
 
 # Pool resizing. Off by default: it writes to the cluster, and /v1/admin carries
@@ -78,15 +79,18 @@ def init_app(
     kv: KvEventClient | None = None,
     kvd_socket_path: str | None = None,
     enable_profiling: bool = False,
+    enable_sla_metrics: bool = False,
     scaler: DeploymentScaler | None = None,
 ) -> FastAPI:
     global registry, router, kv_client, _kvd_socket_path
-    global _enable_profiling, _scaler
+    global _enable_profiling, _enable_sla_metrics, _scaler
     registry = reg
     router = rtr
     kv_client = kv
     _kvd_socket_path = kvd_socket_path
     _enable_profiling = enable_profiling
+    _enable_sla_metrics = enable_sla_metrics
+    metrics.set_sla_metrics_enabled(enable_sla_metrics)
     _scaler = scaler
     return app
 
@@ -296,6 +300,15 @@ async def _dispatch_inference(request: Request, *, path: str) -> Any:
     Both endpoints want the same request-id correlation + cache-hint
     parsing; they differ only in the path forwarded to the worker."""
     body = await request.json()
+    stream = bool(body.get("stream"))
+    if stream and _enable_sla_metrics:
+        # The SLA planner needs exact ISL/OSL even with round-robin routing,
+        # where the router has no KV-block estimate. All supported engines
+        # expose final usage when this OpenAI option is enabled.
+        stream_options = body.get("stream_options")
+        if not isinstance(stream_options, dict):
+            stream_options = {}
+        body["stream_options"] = {**stream_options, "include_usage": True}
     # Generate or echo a request ID so router decisions can be correlated
     # across server + P/D worker logs. The router echoes it back to the
     # client in the response headers; cost-aware policies can include it
@@ -310,7 +323,7 @@ async def _dispatch_inference(request: Request, *, path: str) -> Any:
     body["_infera_cache_hints"] = parse_cache_hints(body)
     # GAIE direct mode: honour the EPP's worker pick from the request header.
     _stash_direct_worker(body, request)
-    resp = await router.dispatch(body, stream=bool(body.get("stream")), path=path)
+    resp = await router.dispatch(body, stream=stream, path=path)
     resp.headers[_REQUEST_ID_HEADER] = request_id
     return resp
 
@@ -597,16 +610,17 @@ async def prometheus_metrics() -> Response:
     if registry is not None:
         # Reset gauges then re-populate to handle workers leaving the fleet.
         metrics.active_workers.clear()
-        by_mode: dict[str, int] = {}
+        by_mode: dict[tuple[str, str], int] = {}
         for w in registry.list_all():
             if w.status != WorkerStatus.ACTIVE:
                 continue
             key = (
                 w.disagg_mode.value if isinstance(w.disagg_mode, DisaggMode) else str(w.disagg_mode)
             )
-            by_mode[key] = by_mode.get(key, 0) + 1
-        for mode, n in by_mode.items():
-            metrics.active_workers.labels(disagg_mode=mode).set(n)
+            mode_model = (key, w.model_name)
+            by_mode[mode_model] = by_mode.get(mode_model, 0) + 1
+        for (mode, model), n in by_mode.items():
+            metrics.active_workers.labels(disagg_mode=mode, model=model).set(n)
 
     if kv_client is not None:
         metrics.policy_cache_view_size.clear()
