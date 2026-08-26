@@ -95,8 +95,8 @@ pub async fn dispatch(
         // vLLM Mooncake: ASYMMETRIC — prefill runs prefill+1tok & pushes KV; decode
         // pulls it via the prefill's bootstrap and generates the rest.
         protocol::PdProtocol::VllmMooncake => {
-            protocol::annotate_vllm_prefill(&mut p_body, room);
-            protocol::annotate_vllm_decode(&mut d_body, &p.worker, room)
+            protocol::annotate_vllm_prefill(&mut p_body, path, room);
+            protocol::annotate_vllm_decode(&mut d_body, &p.worker, path, room)
         }
     };
     if let Err(e) = shaped {

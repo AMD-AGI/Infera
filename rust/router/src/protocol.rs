@@ -103,17 +103,40 @@ fn required_param<'a>(w: &'a Worker, key: &str) -> anyhow::Result<&'a str> {
         .ok_or_else(|| anyhow::anyhow!("worker {} missing disagg_meta.params.{key}", w.worker_id))
 }
 
-/// Prefill leg: prefill only (max_tokens=1, non-streaming) plus the
+/// The fields that cap generated tokens, for one endpoint, primary first.
+///
+/// A Responses body defines none of the chat fields -- its cap is
+/// `max_output_tokens` -- and getting this wrong fails silently in the worst
+/// direction. vLLM ignores the unknown key rather than rejecting it, so the
+/// prefill leg that was supposed to stop after one token runs the whole
+/// generation, at full prefill cost, and the decode leg then generates it a
+/// second time from the transferred KV.
+fn output_cap_fields(path: &str) -> &'static [&'static str] {
+    if path == "/v1/responses" {
+        &["max_output_tokens"]
+    } else {
+        &["max_tokens", "max_completion_tokens"]
+    }
+}
+
+/// Prefill leg: prefill only (one token, non-streaming) plus the
 /// `kv_transfer_params` that tell vLLM to push its KV to a remote decode.
-pub fn annotate_vllm_prefill(body: &mut Map<String, Value>, room: u64) {
-    body.insert("max_tokens".into(), Value::from(1));
+pub fn annotate_vllm_prefill(body: &mut Map<String, Value>, path: &str, room: u64) {
+    // The primary cap is set whether or not the client sent it -- an uncapped
+    // prefill leg generates the whole completion twice -- while the aliases are
+    // only rewritten where they already appear, so the engine is never taught
+    // about a field this request did not use.
+    let caps = output_cap_fields(path);
+    body.insert(caps[0].into(), Value::from(1));
     body.insert("stream".into(), Value::from(false));
     // Not remove(): preserve_order redefines it as a swap, which would reorder
     // the forwarded body. shift_remove is gated on that feature, so dropping it
     // breaks the build rather than silently changing what we send.
     body.shift_remove("stream_options");
-    if body.contains_key("max_completion_tokens") {
-        body.insert("max_completion_tokens".into(), Value::from(1));
+    for k in &caps[1..] {
+        if body.contains_key(*k) {
+            body.insert((*k).into(), Value::from(1));
+        }
     }
     let mut kv = Map::new();
     kv.insert("do_remote_decode".into(), Value::Bool(true));
@@ -131,12 +154,13 @@ pub fn annotate_vllm_prefill(body: &mut Map<String, Value>, room: u64) {
 pub fn annotate_vllm_decode(
     body: &mut Map<String, Value>,
     prefill: &Worker,
+    path: &str,
     room: u64,
 ) -> anyhow::Result<()> {
     // Prefill already produced 1 token; decode does the rest (floor 1).
-    for k in ["max_tokens", "max_completion_tokens"] {
-        if let Some(n) = body.get(k).and_then(Value::as_i64) {
-            body.insert(k.into(), Value::from((n - 1).max(1)));
+    for k in output_cap_fields(path) {
+        if let Some(n) = body.get(*k).and_then(Value::as_i64) {
+            body.insert((*k).into(), Value::from((n - 1).max(1)));
         }
     }
     let mut engine_id = required_param(prefill, "engine_id")?.to_string();
@@ -212,7 +236,7 @@ mod tests {
         body.insert("max_tokens".into(), Value::from(128));
         body.insert("max_completion_tokens".into(), Value::from(128));
         body.insert("stream_options".into(), json!({"include_usage": true}));
-        annotate_vllm_prefill(&mut body, 42);
+        annotate_vllm_prefill(&mut body, "/v1/chat/completions", 42);
         assert_eq!(body["max_tokens"], 1);
         assert_eq!(body["max_completion_tokens"], 1);
         assert_eq!(body["stream"], false);
@@ -223,12 +247,41 @@ mod tests {
         assert_eq!(kv["transfer_id"], format!("xfer-{:032x}", 42));
     }
 
+    /// A Responses body caps with `max_output_tokens` and nothing else.
+    ///
+    /// `/v1/responses` reaches the vLLM PD path like any other route, but it
+    /// defines neither `max_tokens` nor `max_completion_tokens`. Writing
+    /// `max_tokens: 1` into it is not an error vLLM reports -- the key is
+    /// simply ignored -- so the prefill leg ran the whole generation and the
+    /// decode leg then ran it again from the transferred KV.
+    #[test]
+    fn a_responses_prefill_leg_is_capped_by_the_field_that_body_defines() {
+        let mut body = Map::new();
+        body.insert("max_output_tokens".into(), Value::from(128));
+        annotate_vllm_prefill(&mut body, "/v1/responses", 42);
+        assert_eq!(body["max_output_tokens"], 1);
+        assert!(
+            !body.contains_key("max_tokens"),
+            "a field this body does not define must not be invented: {body:?}"
+        );
+
+        // Capped even when the client set no ceiling of its own.
+        let mut open = Map::new();
+        annotate_vllm_prefill(&mut open, "/v1/responses", 42);
+        assert_eq!(open["max_output_tokens"], 1);
+
+        let mut d = Map::new();
+        d.insert("max_output_tokens".into(), Value::from(128));
+        annotate_vllm_decode(&mut d, &vllm(1), "/v1/responses", 42).unwrap();
+        assert_eq!(d["max_output_tokens"], 127, "prefill did 1");
+    }
+
     #[test]
     fn vllm_decode_leg_pulls_kv_and_decrements_tokens() {
         let p = vllm(1);
         let mut body = Map::new();
         body.insert("max_tokens".into(), Value::from(128));
-        annotate_vllm_decode(&mut body, &p, 42).unwrap();
+        annotate_vllm_decode(&mut body, &p, "/v1/chat/completions", 42).unwrap();
         assert_eq!(body["max_tokens"], 127); // prefill did 1
         let kv = &body["kv_transfer_params"];
         assert_eq!(kv["do_remote_prefill"], true);
@@ -243,12 +296,12 @@ mod tests {
         let p = vllm(4);
         let mut body = Map::new();
         // room % dp_size selects the prefill rank (3) -> engine_id_dp3
-        annotate_vllm_decode(&mut body, &p, 7).unwrap();
+        annotate_vllm_decode(&mut body, &p, "/v1/chat/completions", 7).unwrap();
         assert_eq!(body["kv_transfer_params"]["remote_engine_id"], "eng-42_dp3");
         // floor: with no/max_tokens=1 decode stays >= 1
         let mut b2 = Map::new();
         b2.insert("max_tokens".into(), Value::from(1));
-        annotate_vllm_decode(&mut b2, &p, 7).unwrap();
+        annotate_vllm_decode(&mut b2, &p, "/v1/chat/completions", 7).unwrap();
         assert_eq!(b2["max_tokens"], 1);
     }
 
@@ -259,7 +312,7 @@ mod tests {
                 "disagg_meta": {"protocol": "vllm-mooncake", "params": {}}}))
             .unwrap();
         let mut body = Map::new();
-        assert!(annotate_vllm_decode(&mut body, &bad, 1).is_err());
+        assert!(annotate_vllm_decode(&mut body, &bad, "/v1/chat/completions", 1).is_err());
     }
 
     #[test]
