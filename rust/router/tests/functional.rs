@@ -567,8 +567,8 @@ async fn pd_unary_injects_matching_bootstrap_room() {
 /// PD dual-dispatch is path-generic: a Responses request must reach both legs on
 /// `/v1/responses` with the same bootstrap trio as a chat request gets. (The
 /// engine side needs a patch to stop dropping those fields — see
-/// `deploy/docker/patches/sglang_responses_pd/` — but that is not the router's
-/// contract to keep.)
+/// `deploy/docker/patches/sglang_disagg/patch_responses_pd_bootstrap.py` — but
+/// that is not the router's contract to keep.)
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pd_responses_injects_bootstrap_on_both_legs() {
     let (p_url, p) = spawn_mock(200, false, json!({"who": "prefill"})).await;
