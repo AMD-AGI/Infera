@@ -102,14 +102,16 @@ docker build -f deploy/docker/Dockerfile.sglang.gfx942 \
   -t infera:sglang-gfx942-glm52 .
 ```
 
-Build on **one** node, not on each: the base is an `ARG` with a default, so the same
-command on two nodes can yield two different ROCm userspaces under the one tag, and
-only the leg on the mismatched node faults — under load, in the shape §1 describes.
+Build on **one** node and copy it. The base is an `ARG` with a default, so building
+on each can leave two different ROCm userspaces under the one tag, and only the leg
+on the mismatched node faults — under load, in the shape §1 describes.
 
-Getting it onto the other node is then **two** moves, and neither implies the other:
+Copying takes **two** moves, and neither implies the other, because
+`imagePullPolicy: IfNotPresent` asks containerd and containerd cannot see a
+`docker build` result:
 
 ```bash
-# 1. into the other node's docker
+# 1. into the other node's docker -- the move most often skipped
 docker save infera:sglang-gfx942-glm52 | ssh <DECODE_NODE> 'docker load'
 
 # 2. docker -> containerd, on every node the manifest names
@@ -117,54 +119,36 @@ deploy/scripts/import-image-to-containerd.sh infera:sglang-gfx942-glm52 \
   <PREFILL_NODE> <DECODE_NODE>
 ```
 
-Step 2 is needed because `imagePullPolicy: IfNotPresent` asks **containerd**, not
-docker, and a `docker build` result is invisible to it. Step 1 is the one most often
-skipped, because the node you built on works and nothing looks wrong until the second
-leg schedules.
-
-:::{admonition} Check it by running it, on every node, before you deploy
+:::{admonition} Verify by running the image on every node, before you deploy
 :class: important
-A Pod pinned with `nodeName` using the manifest's own image reference is the only
-check that answers the question. `kubectl get node -o jsonpath='{.status.images[*]}'`
-is not a substitute — a node has been seen listing the tag in its own status while a
-probe Pod on it still went to `ImagePullBackOff`.
+`kubectl get node -o jsonpath='{.status.images[*]}'` is not a substitute: a node has
+been seen listing the tag in its own status while a probe Pod on it went to
+`ImagePullBackOff`.
 
 ```bash
-# nothing else creates this namespace, and §4 needs it too -- idempotent
 kubectl create namespace infera --dry-run=client -o yaml | kubectl apply -f -
 
 for N in <PREFILL_NODE> <DECODE_NODE>; do
-  kubectl apply -f - <<EOF
-apiVersion: v1
-kind: Pod
-metadata: {name: img-probe-$N, namespace: infera}
-spec:
-  nodeName: $N
-  restartPolicy: Never
-  containers:
-  - name: c
-    image: infera:sglang-gfx942-glm52
-    imagePullPolicy: IfNotPresent
-    command: ["/bin/echo", "usable"]
-EOF
-done
-
-for N in <PREFILL_NODE> <DECODE_NODE>; do
+  kubectl -n infera run img-probe-$N --image=infera:sglang-gfx942-glm52 \
+    --image-pull-policy=IfNotPresent --restart=Never \
+    --overrides="{\"spec\":{\"nodeName\":\"$N\"}}" --command -- /bin/echo usable
   kubectl -n infera wait --for=jsonpath='{.status.phase}'=Succeeded \
     pod/img-probe-$N --timeout=90s
   kubectl -n infera delete pod img-probe-$N
 done
 ```
 
-Skipped, this surfaces as `ImagePullBackOff` with `pull access denied … authorization
-failed` against `docker.io/library/infera` — which reads as a credentials problem and
-is not one. A registry-less tag normalises to Docker Hub, so an `imagePullSecret`
-cannot help. **One leg `Running` and the other in `ImagePullBackOff`** means step 1
-was skipped.
+Skipping move 1 gives **one leg `Running` and the other in `ImagePullBackOff`**,
+reported as `pull access denied … authorization failed` against
+`docker.io/library/infera`. That reads as a credentials problem and is not one: a
+registry-less tag normalises to Docker Hub, so an `imagePullSecret` cannot help.
 :::
 
-Then read the patch markers back **out of the built image** rather than
-trusting the build log — a patch whose anchor moved no-ops silently:
+Then read the patch markers out of the built image rather than trusting the build
+log — a patch whose anchor moved no-ops silently — and confirm RDMA is visible from
+inside it on both nodes. Zero visible ports is the nastiest failure here:
+`ibv_get_device_list()` returns nothing, Mooncake falls back to TCP, and the
+deployment still comes up green.
 
 ```bash
 docker run --rm --entrypoint bash infera:sglang-gfx942-glm52 -c '
@@ -172,13 +156,7 @@ P=$(python3 -c "import sglang, os; print(os.path.dirname(sglang.__file__))")
 for m in GLM52_ROCM_HOST_ALLOC GLM52_ROCM_STAGED_WRITE_BACK GLM52_P1V3; do
   grep -rql "$m" "$P" && echo "ok      $m" || echo "MISSING $m"
 done'
-```
 
-Confirm RDMA is visible from inside the image too, on both nodes. Zero visible
-ports is the nastiest failure here: `ibv_get_device_list()` returns nothing,
-Mooncake falls back to TCP, and the deployment still comes up green.
-
-```bash
 docker run --rm --network host --device=/dev/infiniband --cap-add=IPC_LOCK \
   --entrypoint bash infera:sglang-gfx942-glm52 -c 'ibv_devinfo | grep -c PORT_ACTIVE'
 ```
@@ -196,79 +174,57 @@ nodes, how much host RAM, and whether NVMe and a RoCE fabric are needed at all:
 | `disaggregated + kvd` | 2 | ~670 GiB | yes | yes |
 
 The kvd combos want roughly 512 GiB for the engine, 136 GiB for kvd and 16 GiB for
-the router.
+the router. kvd's figure looks oversized next to its `--max-bytes 64G` and is not —
+it holds two independent budgets, so sizing the limit to one of them gets the
+sidecar OOM-killed mid-run, which reads as a kvd bug.
 
 :::{admonition} `--hicache-size` is per TP rank, not per worker
 :class: warning
-At `--hicache-size 32` every one of the 8 schedulers logs `Allocating 32.00 GB host
-memory for hierarchical KV cache`, so the host tier is **256 GB**. Dropping
-DP-attention does not reduce it, which is worth knowing because it looks like it
-should. Sizing the container as if TP8 meant one 32 GB pool gets it OOMKilled
-(exit 137) immediately after graph capture — a crash that reads like an engine bug
-and is a budget mistake.
+At `--hicache-size 32` each of the 8 schedulers allocates 32 GB, so the host tier is
+**256 GB**, and dropping DP-attention does not reduce it. Sizing the container as if
+TP8 meant one 32 GB pool gets it OOMKilled (exit 137) immediately after graph
+capture — a crash that reads like an engine bug and is a budget mistake.
 :::
 
-kvd's own 136 GiB looks oversized next to its `--max-bytes 64G` and is not: it
-holds two independent budgets, an inline store and an `mlock`'d arena that is never
-reclaimable. Size the limit to one of them and the OOM killer takes the sidecar
-mid-run, which reads as a kvd bug.
-
-`/dev/shm` sits on top of those and is charged to no limit — TP8 needs a large one,
-which is what `hostIPC` supplies.
-
 **Kubernetes 1.29+, for the two kvd combos.** The kvd daemon runs as a *native*
-sidecar (`initContainers` with `restartPolicy: Always`), which is what makes it
-pass its `startupProbe` before the engine starts. That ordering is load-bearing,
-not tidiness: the engine probes the kvd socket once with a 5 s timeout and refuses
-to start if nothing answers. As an ordinary container it becomes a race. The two
-non-kvd combos have no such requirement.
+sidecar (`initContainers` with `restartPolicy: Always`), which is what makes it pass
+its `startupProbe` before the engine starts. The engine probes the kvd socket once
+with a 5 s timeout and refuses to start if nothing answers, so as an ordinary
+container that ordering becomes a race. The non-kvd combos have no such requirement.
 
 **Weights on a `hostPath`** at the same path on every node the deployment uses. The
-manifests mount `<MODEL_DIR>` at `/models` and read `/models/GLM-5.2-FP8`, so
-download into that layout:
+manifests mount `<MODEL_DIR>` at `/models` and read `/models/GLM-5.2-FP8`:
 
 ```bash
 hf download zai-org/GLM-5.2-FP8 --local-dir <MODEL_DIR>/GLM-5.2-FP8
 ```
 
-:::{admonition} `--local-dir` is load-bearing; a bare `hf download` is not enough
-:class: warning
-A bare `hf download` leaves a HuggingFace cache, in which every file in the snapshot
-is a *relative* symlink into a sibling `blobs/`. The docker recipe survives that
-because `host_container.sh` mounts the host path at the same path inside the
-container, so the links resolve as they do outside; a `hostPath` volume instead
-renames the directory to `/models`, and `config.json`'s `../../blobs/<sha>` then
-points at `/blobs/<sha>`, which does not exist. Nothing reports a missing file:
-`transformers` rejects the model with `Should have a model_type key in its
-config.json` — four minutes into startup, and nowhere near its actual cause.
-:::
+`--local-dir` is load-bearing. A bare `hf download` leaves a cache whose files are
+*relative* symlinks into a sibling `blobs/`, and a `hostPath` volume renames the
+directory to `/models` so they resolve outside the mount. Nothing reports a missing
+file: `transformers` rejects the model with `Should have a model_type key in its
+config.json`, four minutes into startup and nowhere near its cause. To serve a cache
+you already have, mount the *repository* directory instead — it holds `blobs/` and
+`snapshots/` both — and add a third `sed` expression in §4,
+`-e "s|/models/GLM-5.2-FP8|/models/snapshots/<sha>|g"`. That string is also the
+served model name, so §5's request has to carry it too.
 
-To serve a cache you already have without paying for a second copy, mount the
-*repository* directory — it holds `blobs/` and `snapshots/` both, so the relative
-links stay inside one mount — and repoint the engine at the snapshot with a third
-`sed` expression in §4: `-e "s|/models/GLM-5.2-FP8|/models/snapshots/<sha>|g"`. The
-`g` matters, because that string is both `--model-path` and `--router-tokenizer-path`.
-**It is also the served model name**, since the manifests pass no
-`--served-model-name` — so on this route §5's request carries
-`"model": "/models/snapshots/<sha>"` as well. The old string gets a
-model-not-found, which looks nothing like a mount problem.
-
-Either way, check the mount before paying for a cold start rather than four minutes
-into one. This reads `config.json` through the same volume the engine will, which is
-the only arrangement that reproduces the failure — `kubectl debug node/<NODE>` mounts
-the node's root filesystem, the one arrangement in which the links *do* resolve:
+Check the mount before paying for a cold start rather than four minutes into one, on
+every node the combo uses. This reads `config.json` through the same volume the
+engine will, which `kubectl debug node/<NODE>` cannot — it mounts the node's root
+filesystem, where the links *do* resolve:
 
 ```bash
 cat <<'EOF' | kubectl apply -f -
 apiVersion: v1
 kind: Pod
-metadata: {name: hf-check, namespace: infera}
+metadata: {name: hf-check, namespace: infera}   # a hostPath is denied under Pod Security baseline
 spec:
   nodeName: <NODE>
   restartPolicy: Never
   containers:
   - name: c
-    image: busybox:1.36
+    image: busybox:1.36                          # bare `busybox` is :latest, which kubelet always pulls
     command: ["cat", "/models/GLM-5.2-FP8/config.json"]
     volumeMounts:
     - {name: model, mountPath: /models, readOnly: true}
@@ -280,17 +236,10 @@ kubectl -n infera logs hf-check | grep model_type    # a line printed is the pas
 kubectl -n infera delete pod hf-check
 ```
 
-Three details there are deliberate: `infera`, because a `hostPath` volume is denied
-under Pod Security `baseline` and `restricted` and that namespace already runs engine
-Pods with one; the tag on `busybox`, because a bare `busybox` means `:latest`, for
-which kubelet defaults to `imagePullPolicy: Always` and pulls even when the node has
-the image; and the `wait`, without which `logs` runs before the container does and
-reports that instead of the answer.
-
-Run it for every node the combo uses, with the same `<MODEL_DIR>` you will deploy
-with — and `cat` the path the engine will read, so `/models/snapshots/<sha>` if you
-took the repository-mount route above. Any image with `cat` will do; substitute the
-engine image where the nodes cannot reach Docker Hub.
+Without the `wait`, `logs` runs before the container does and reports that instead of
+the answer. `cat` the path the engine will read, so `/models/snapshots/<sha>` on the
+repository-mount route. Any image with `cat` will do; substitute the engine image
+where the nodes cannot reach Docker Hub.
 
 ## 4. Deploy
 
