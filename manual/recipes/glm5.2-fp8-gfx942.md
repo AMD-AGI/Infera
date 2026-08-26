@@ -32,7 +32,7 @@ Not a tuning preference. **MTP and hicache both active on a worker that prefills
 prompt, or inside the model forward once concurrency starts. Five configurations
 across three failure shapes were tried with MTP on; dropping MTP and changing
 nothing else passed on the first attempt, with DP-attention and the overlap
-scheduler still enabled. The recipe README's §5 lists all six.
+scheduler still enabled. The recipe README's §6 lists all six.
 
 The likely mechanism, though not proven: hicache keeps its prefetch and
 write-back bookkeeping as per-rank local state while the collectives need every
@@ -56,7 +56,7 @@ byte the tier absorbs is paid for on the prefill path whether or not anything re
 it back. Every measurement of it so far — on this recipe and on the `docker`
 deployment it came from — has been a net loss, in each case because the workload
 had no reuse left for the tier to serve: the A/B behind that, in the recipe
-README's §8, cost throughput and TTFT while serving zero reads. That says nothing
+README's §6, cost throughput and TTFT while serving zero reads. That says nothing
 about a workload with prefix reuse, and everything about deploying it without one.
 Read §6 first.
 
@@ -130,6 +130,9 @@ is not a substitute — a node has been seen listing the tag in its own status w
 probe Pod on it still went to `ImagePullBackOff`.
 
 ```bash
+# nothing else creates this namespace, and §4 needs it too -- idempotent
+kubectl create namespace infera --dry-run=client -o yaml | kubectl apply -f -
+
 for N in <PREFILL_NODE> <DECODE_NODE>; do
   kubectl apply -f - <<EOF
 apiVersion: v1
@@ -486,6 +489,12 @@ kubectl -n infera logs -c main \
   -l infera.amd.com/deployment=$CR,infera.amd.com/service=decode \
   | grep -aE 'GID index|installTransport'
 ```
+
+Run it while the deployment is young. These are startup lines and container logs
+rotate — the engines print enough during weight load and graph capture to push them
+out within the hour, after which the grep returns nothing rather than a wrong
+answer. On a deployment that has been up for hours, `Received RDMA ready ACK` from
+`rdma_endpoint.cpp` in the surviving log carries the same conclusion.
 
 ```{admonition} On every combo, send a prompt longer than one chunk
 :class: warning

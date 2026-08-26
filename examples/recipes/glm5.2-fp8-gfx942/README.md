@@ -216,6 +216,9 @@ with `nodeName`, using the manifest's own image reference and `imagePullPolicy`,
 the only check that answers the question asked:
 
 ```bash
+# nothing else creates this namespace, and §3 needs it too -- idempotent
+kubectl create namespace infera --dry-run=client -o yaml | kubectl apply -f -
+
 for N in <PREFILL_NODE> <DECODE_NODE>; do
   kubectl apply -f - <<EOF
 apiVersion: v1
@@ -591,6 +594,12 @@ kubectl -n infera logs -c main \
 Eight `installTransport, type=rdma` is the pass. `type=tcp` means the run is
 functional but proves nothing about the fabric.
 
+These are **startup** lines, and container logs rotate: the engines print enough
+during weight load and graph capture to push them out within the hour, after which
+the grep returns nothing at all rather than a wrong answer. Run it while the
+deployment is young. On one that has been up for hours, `Received RDMA ready ACK`
+from `rdma_endpoint.cpp` in the surviving log carries the same conclusion.
+
 **On every combo, send a prompt longer than one chunk.** Without the mooncake
 early-send wait-event patch (§1), every prefill chunk but the last is read while
 the forward pass is still writing it, and multi-chunk prompts come back *partially
@@ -698,12 +707,18 @@ per-turn lengths and block-level prefix reuse.
 ```bash
 cd examples/glm5.2_gfx942
 hf download semianalysisai/cc-traces-weka-062126-256k --repo-type dataset
-SRC=$(ls "$HF_HOME"/hub/datasets--semianalysisai--cc-traces-weka-062126-256k/snapshots/*/traces.jsonl)
+SRC=$(ls "${HF_HOME:-$HOME/.cache/huggingface}"/hub/datasets--semianalysisai--cc-traces-weka-062126-256k/snapshots/*/traces.jsonl)
 
 python3 weka_to_agentic_trace.py "$SRC" -o data/cc_traces_100k.json \
   --output-len 220 --min-turns 4 --max-context 100000 \
   --verify 20 --tokenizer "$MODEL_DIR"/GLM-5.2-FP8
 ```
+
+This needs the `hf` CLI and `transformers`, so run it in the engine image where the
+host has neither. `HF_HOME` is set by neither `env.sh` nor that image, hence the
+fallback — it is where `hf download` writes by default. A healthy build ends with
+`verify: N turns, N exact (100.0%)`; below 100% the tokenizer is not the one the
+engine loaded.
 
 `--output-len` must be the value the run replays with. The converter sizes each
 turn's filler with the reply length baked in, so a mismatch drifts every turn's
