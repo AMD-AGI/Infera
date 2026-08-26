@@ -121,6 +121,32 @@ RUN set -eu; \
     for f in /tmp/sglang-disagg-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
     rm -rf /tmp/sglang-disagg-patches
 
+# ---- sglang Responses API patches (not PD-specific) ------------------------
+# REQUIRED FOR ANY Codex-driven workload against a model with a custom chat
+# encoder (kimi_k3, inkling): OpenAIServingResponses reuses OpenAIServingChat's
+# _process_messages but not its prompt-selection ladder, so it feeds
+# GenerateReqInput the empty `prompt` string those encoders deliberately leave
+# unset instead of the pre-rendered prompt_ids they actually produced. Every
+# POST /v1/responses then 400s with "texts cannot be empty and tokenizer must be
+# initialized" -- in ~5 ms, with no traceback, because create_responses swallows
+# the ValueError. Chat on the same model is unaffected, which is what makes it
+# hard to spot.
+#
+# Distinct from sglang_disagg/patch_responses_pd_bootstrap.py above: that one
+# plumbs the bootstrap trio so a PD pair accepts the request at all, this one
+# fixes the prompt the request carries. A Kimi-K3 PD deployment needs both, and
+# the order does not matter -- disjoint anchors, different functions. Applies on
+# aggregated servers too.
+#
+# NOT tolerant: self-locating, idempotent, and it exits non-zero when its anchor
+# drifted. An image whose Responses endpoint 400s on every request should not
+# ship quietly. Reports "already present" once base sglang routes both paths
+# through one helper.
+COPY deploy/docker/patches/sglang_responses/ /tmp/sglang-responses-patches/
+RUN set -eu; \
+    for f in /tmp/sglang-responses-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
+    rm -rf /tmp/sglang-responses-patches
+
 # ---- sglang ROCm patches (hicache host allocator, staged write-back) --------
 # Two independent hicache-on-ROCm fixes, both needed once kvd is enabled.
 #
