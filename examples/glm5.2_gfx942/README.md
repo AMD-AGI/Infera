@@ -7,15 +7,17 @@ it is actually correct, and sizing it with a simple serving benchmark.
 
 Every script is driven by environment variables, so you should not need to edit
 any of them; `env.sh` holds the defaults, and they are the tuned recipe below
-rather than SGLang's defaults. The node names (`node-0`, `node-1`) are
-placeholders — substitute your own.
+rather than SGLang's defaults. Your cluster's values go in one file, `cluster.env`
+(§2), which `env.sh` reads first.
 
-KV offload below the GPU cache (`kvd`) ships here too, but **off by default** —
-on the workload this was tuned against it cost 12% and served zero reads. §6
+KV offload below the GPU cache (`kvd`) ships here too, but **off by default** — on
+the workload this was tuned against it cost throughput and served zero reads. §6
 covers turning it on and how to tell whether your workload is one that wants it.
 
-The agentic multi-turn benchmark that produced the numbers below is out of scope
-here, and is being generalised into a standalone tool.
+The agentic multi-turn benchmark that chose the recipe ships here too (§5.2), and
+drives either this deployment or the Kubernetes one in
+[`examples/recipes/glm5.2-fp8-gfx942/`](../recipes/glm5.2-fp8-gfx942/README.md)
+through the same client, so the two are comparable.
 
 ## Scripts
 
@@ -33,7 +35,12 @@ the column says which, and mixing the two is the most common way to get stuck.
 | `launch/launch_decode.sh` | container | SGLang decode leg, same shape. |
 | `launch/launch_router.sh` | container | Infera kv-aware router. |
 | `verify.sh` | container | Correctness checks; exits non-zero on any failure. |
-| `bench.sh` | container | SGLang `bench_serving` on a random dataset, through the router. |
+| `bench.sh` | container | SGLang `bench_serving` on a random dataset, through the router. Sizes the deployment (§5.1). |
+| `run_sweep.sh` | container | `bench.sh` across concurrency 1–128, with a fresh seed and a flush per point. |
+| `weka_to_agentic_trace.py` | container | Build the agentic multi-turn dataset from the public corpus (§5.2). |
+| `run_agentic_trace.sh` | container | Replay that dataset through the router and score it (§5.2). |
+| `score_agentic_trace.py` | container | Recompute the cache metrics `bench_serving` gets wrong in multi-turn mode. |
+| `bench_client.sh` | host | Run the agentic bench from outside any engine container — for the k8s deployment, or a third machine. |
 | `stop.sh` | container | Stop the router and engine processes on this node. |
 
 ## Topology
@@ -52,23 +59,28 @@ These are the `env.sh` defaults. They were chosen on an **agentic multi-turn
 trace** (32 conversations / 225 turns, concurrency 16, ~68k-token median input),
 one axis at a time against a locked baseline:
 
-| Setting | Value | What it bought |
-| --- | --- | --- |
-| `ROUTER_BACKEND` | `rust` | Same routing decisions as the python backend request for request, 27% faster end to end. |
-| `CHUNK` | `8192` (1,024/rank) | The largest single lever: −23.8% duration, −34.4% TTFT against 16,384/rank. |
-| `MTP_STEPS`/`TOPK`/`DRAFT_TOKENS` | `5`/`1`/`6` | −8.5% duration, −13.8% TPOT. Acceptance 4.64 against a 4.00 break-even. |
-| `IB_DEVICE` | one rail | Striping KV over every NIC measured 11.9% *slower*; KV uses 4.5% of one 200 Gb/s port. |
-| dp-attention | on both legs | Pure TP8 prefill measured 25.9% slower: concurrency beats per-request latency here. |
-| `KVD` | `0` | The offload tier cost 12% and served zero reads on this trace (§6). |
-| `MEM_FRAC` / `MAX_RUNNING` | `0.85` / `128` | Baseline values, unchanged by the sweep. |
+| Setting | Value |
+| --- | --- |
+| `ROUTER_BACKEND` | `rust` |
+| `CHUNK` | `8192` (1,024/rank) |
+| `MTP_STEPS`/`TOPK`/`DRAFT_TOKENS` | `5`/`1`/`6` |
+| `IB_DEVICE` | one rail |
+| dp-attention | on both legs |
+| `KVD` | `0` |
+| `MEM_FRAC` / `MAX_RUNNING` | `0.85` / `128` |
 
-Together those took that trace from 764 s to 420 s (−45%) and output throughput
-from 64.8 to 118.0 tok/s. One metric moved the wrong way: ITL p90 rose 13.7%,
-because a deeper draft emits tokens in burstier groups. That is free for batch
-work and worth weighing for interactive streaming.
+`CHUNK` was the largest single lever of the set, and the two that most often get
+set the other way are `IB_DEVICE` and `KVD`: striping KV across every NIC was
+slower than one rail rather than faster, and the offload tier cost more than it
+returned on this trace (§6). `MEM_FRAC` and `MAX_RUNNING` are baseline values the
+sweep did not move.
 
-`bench.sh` runs a *different*, simpler workload and will not reproduce those
-figures — see §5.
+One thing moved the wrong way as the draft deepened: ITL p90 rose, because a
+deeper draft emits tokens in burstier groups. That is free for batch work and
+worth weighing for interactive streaming.
+
+`bench.sh` runs a *different*, simpler workload, so it will not behave like the
+trace these defaults were chosen on — see §5.
 
 ## 1. Prerequisites
 
@@ -101,17 +113,38 @@ stock SGLang image:
 bash build_image.sh
 ```
 
-## 2. Adapt to your cluster
-
-Export these on **both** nodes before running anything:
+A failed build is the normal signal that a patch did not apply — the patch loops
+in the Dockerfile exit non-zero on a drifted anchor rather than shipping a
+half-applied fix. Check the markers only for an image you did **not** build here,
+such as a vendor-preinstalled or registry-pulled one; four paths and exit 0 is the
+pass, and the chain stops at the first patch that is missing:
 
 ```bash
-export PREFILL_IP=10.0.0.1        # node-0, on the data network
-export DECODE_IP=10.0.0.2         # node-1, on the data network
-export MODEL=/your/path/GLM-5.2-FP8
-export IB_DEVICE=mlx5_0           # the RDMA rail the two nodes share
-export MC_GID_INDEX=3             # RoCE GID index on that device
+docker run --rm --entrypoint bash "$IMAGE" -c '
+R=$(python3 -c "import os,sglang; print(os.path.dirname(sglang.__file__))")
+grep -lF GLM52_ROCM_HOST_ALLOC        "$R/srt/mem_cache/pool_host/common.py" &&
+grep -lF GLM52_ROCM_STAGED_WRITE_BACK "$R/srt/mem_cache/pool_host/mla.py" &&
+grep -lF _p1v2_rows                   "$R/srt/layers/attention/dsa/dsa_indexer.py" &&
+grep -lF "kv_chunk.wait_event.synchronize()" "$R/srt/disaggregation/mooncake/conn.py"'
 ```
+
+## 2. Adapt to your cluster
+
+Everything cluster-specific lives in one file. On **both** nodes:
+
+```bash
+cp cluster.env.example cluster.env    # then edit
+```
+
+`env.sh` reads it before its own defaults, and every script sources `env.sh`, so
+there is nothing to remember at the call site and nothing else to edit. The repo
+is bind-mounted at the same path inside the container, so one copy serves the host
+and the container both.
+
+`cluster.env.example` carries, for each value, the command that finds it rather
+than a value to guess. The three that fail *silently* when wrong are
+`MC_GID_INDEX` (§3), the advertised IPs (gotcha 7) and `ETCD_ENDPOINT` — worth the
+two minutes each.
 
 If your nodes resolve by name, `PREFILL_NODE` / `DECODE_NODE` derive the IPs
 instead. The addresses must be the ones the peers can reach on the data network,
@@ -134,6 +167,31 @@ bash preflight_rdma.sh
 The reported count of active RDMA ports must match the node's, not be `0`. For
 the cross-node netperf and Mooncake probes, set a shared `DUMP_PATH` and run one
 task per node (see `infera/tools/preflight/README.md`).
+
+Two things to confirm by hand before the 20-minute bring-up, because both fail the
+same unhelpful way — see gotcha 10.
+
+**`IB_DEVICE` must be ACTIVE on both nodes**, not just present. Both legs pin to
+one rail, so a rail that is down on either node takes the deployment with it:
+
+```bash
+for d in /sys/class/infiniband/*; do
+  echo "$(basename "$d") $(cat "$d/ports/1/state")"
+done
+```
+
+Then confirm the rail you picked carries traffic between the two nodes, which
+liveness alone does not tell you:
+
+```bash
+ib_write_bw -d "$IB_DEVICE" -x "$MC_GID_INDEX"            # on the decode node
+ib_write_bw -d "$IB_DEVICE" -x "$MC_GID_INDEX" "$DECODE_IP"  # on the prefill node
+```
+
+**Your fabric may need more than `IPC_LOCK`.** `host_container.sh` grants
+`IPC_LOCK`, `SYS_PTRACE` and `memlock=-1`, which is enough on some clusters and not
+on others. If PD warmup dies where gotcha 10 describes, pass
+`EXTRA_DOCKER_ARGS=--privileged` when creating the container.
 
 ## 4. Bring-up
 
@@ -222,15 +280,22 @@ or the next run OOMs against VRAM the old one still holds.
 
 ## 5. Benchmark
 
+Two workloads, and they answer different questions. `bench.sh` sizes raw serving
+throughput on random prompts; `run_agentic_trace.sh` replays the multi-turn trace
+the recipe was tuned on and is the only one of the two that can say anything about
+the cache or the kv-aware router.
+
+### 5.1 Random dataset — sizing
+
 ```bash
 bash bench.sh                              # defaults from env.sh
 ISL=8192 OSL=512 CONC=32 bash bench.sh
-for C in 8 16 32 64; do CONC=$C bash bench.sh; done   # concurrency sweep
+bash run_sweep.sh                          # concurrency 1..128, fresh seed per point
 ```
 
-Defaults are `ISL=4096 OSL=1024 CONC=16`, and `NUM_PROMPTS` follows `CONC` at four
-waves (64 prompts by default), so raising the concurrency alone keeps the run
-length roughly constant. Results land in `results/<tag>.json` and `.log`.
+Defaults are `ISL=4096 OSL=1024 CONC=16`, and `NUM_PROMPTS` defaults to four waves
+of `CONC` — derived inside `bench.sh` on each call, so raising `CONC` re-derives
+it. Results land in `results/<tag>.json` and `.log`.
 
 Two things to read correctly:
 
@@ -238,10 +303,92 @@ Two things to read correctly:
   generates prompts that share no prefix, so a kv-aware router has nothing to
   reuse. This benchmark sizes raw serving throughput; measuring cache reuse needs
   a workload with real shared prefixes.
-- **It will not reproduce the numbers in "The tuned recipe".** Those came from
-  the agentic trace described there, whose inputs are ~17× longer and heavily
-  prefix-shared. Use this to check the deployment is healthy and to compare
-  concurrencies against each other, not against those figures.
+- **It is not the workload that chose "The tuned recipe".** That was the agentic
+  trace below, whose inputs are far longer and heavily prefix-shared. Use this to
+  check the deployment is healthy and to compare concurrencies against each other,
+  not against anything the trace produced.
+
+Sweep with `run_sweep.sh` rather than a bare loop: at a fixed seed each point's
+prompt set is a *superset* of the one below it and the radix tree still holds the
+smaller one, which reads as ~50% cache hits at every point from `CONC=16` up.
+
+### 5.2 Agentic trace — the workload that chose the recipe
+
+The corpus is [`semianalysisai/cc-traces-weka-062126-256k`][corpus] (Apache-2.0),
+Claude Code agent traffic. It carries per-turn token counts and KV block ids but
+no text, so `weka_to_agentic_trace.py` synthesises filler while preserving what
+matters: exact per-turn lengths and block-level prefix reuse. Build it once, in
+the container on the prefill node:
+
+[corpus]: https://huggingface.co/datasets/semianalysisai/cc-traces-weka-062126-256k
+
+```bash
+source env.sh    # this is a bare python3 call, so it needs env.sh sourced by hand
+
+hf download semianalysisai/cc-traces-weka-062126-256k --repo-type dataset
+SRC=$(ls "${HF_HOME:-$HOME/.cache/huggingface}"/hub/datasets--semianalysisai--cc-traces-weka-062126-256k/snapshots/*/traces.jsonl)
+
+python3 weka_to_agentic_trace.py "$SRC" -o "$TRACE" \
+  --output-len "$OUTPUT_LEN" --min-turns 4 --max-context 100000 \
+  --verify 20 --tokenizer "$MODEL"
+```
+
+`TRACE` and `OUTPUT_LEN` come from `env.sh` with working defaults; `MODEL` is the one
+value here you have to set, in `cluster.env`. The scripts source `env.sh` themselves,
+so only this block needs it done by hand. `HF_HOME` is set neither by `env.sh` nor by
+the image, so the fallback is where `hf download` actually put the corpus.
+
+`--max-context` fits the corpus to what the deployment can prefill; `--dry-run`
+reports the resulting distribution without writing, which is the cheap way to pick
+it. At 100000 this yields 295 conversations with a p50 peak context of 78,848
+tokens, and `--verify` reproduces every checked turn's length exactly.
+
+Then run it:
+
+```bash
+NUM_PROMPTS=60 CONC=16 bash run_agentic_trace.sh docker
+```
+
+`NUM_PROMPTS` counts **conversations**, not requests — 60 conversations averaging
+~7.5 turns is 448 requests. The script reads the served model name and the KV page
+size off the server rather than assuming them, flushes both legs, replays the
+trace and rescores it.
+
+To drive a deployment you cannot `docker exec` into — the Kubernetes one, or from
+a third machine — use the host-side wrapper, which starts the same client in a
+throwaway container so the tokenizer, dataset, concurrency limiter and scorer stay
+identical across arms:
+
+```bash
+bash bench_client.sh k8s http://<router-ip>:8000 \
+     http://<prefill-node>:30001 http://<decode-node>:31501
+```
+
+### 5.3 Read the agentic result
+
+`sglang.benchmark.serving` mis-reports the input side in multi-turn mode: it keeps
+the conversation-level `prompt_len` for every turn, so its own summary can print
+`Total input tokens: 0` next to a cache hit rate above 100%. Its per-request
+`cached_tokens` come from the server and are correct, so `score_agentic_trace.py`
+recomputes against the dataset's verified per-turn lengths and reports the number
+worth comparing across tools — **efficiency**, actual hits over what a cache that
+evicted nothing could have returned:
+
+```text
+  actual hit rate              84.61 %
+  ideal  hit rate              84.61 %
+  efficiency (a/i)            100.00 %
+  tokens lost to evict              0 (0.00% of ideal)
+```
+
+Efficiency at 100% with no eviction means the run is below the pressure point and
+kv-aware routing has nothing to distinguish itself on; raise `CONC` until eviction
+appears. Efficiency **above** 100% means the flush did not take — `flush_cache` is
+a no-op while requests are in flight and still returns success.
+
+A run with any failed request is refused rather than scored: a failure is recorded
+with `cached_tokens=0`, so including it drags the hit rate down and a dead worker
+reads as a cache problem.
 
 ## 6. Optional: KV offload below the GPU cache (`kvd`)
 
@@ -252,12 +399,12 @@ only: SGLang issues storage prefetch on its aggregated and prefill branches, nev
 on the decode branch, so a decode-side daemon would be write-only.
 
 **It is off by default because it measured slower here.** On the agentic trace
-above, `KVD=1` ran 12.0% slower and served *zero* reads while writing 100.8 GB:
-the 54 GB-per-rank device pool already answered ~100% of the reuse that trace had
-to offer, so every byte the tier stored was pure write cost. That is a property of
-the workload, not of the tier — it earns its keep when the reuse horizon is longer
-than the GPU pool can hold. Look at the prefill leg's cache hit rate first: if it
-is already near its ceiling, offload has nothing left to catch.
+above, `KVD=1` was slower than `KVD=0` and served *zero* reads for everything it
+wrote: the 54 GB-per-rank device pool already answered essentially all the reuse
+that trace had to offer, so every byte the tier stored was pure write cost. That
+is a property of the workload, not of the tier — it earns its keep when the reuse
+horizon is longer than the GPU pool can hold. Look at the prefill leg's cache hit
+rate first: if it is already near its ceiling, offload has nothing left to catch.
 
 To turn it on, set these before creating the container, on the prefill node:
 
@@ -306,26 +453,71 @@ full run is exactly the 12% regression above. The remaining knobs — `KVD_RAM_B
 2. **Both legs must agree on the MTP shape.** SGLang rejects a disaggregated pair
    whose speculative config differs, so change `MTP_STEPS` / `MTP_DRAFT_TOKENS`
    in `env.sh` (which both read) rather than on one leg's command line.
-3. **The rust router requires etcd discovery.** `infera.server` validates the
-   supported subset before it execs the binary and fails with a pointer to
-   `--router-backend python`. This example uses etcd, so it is inside that subset;
-   a Kubernetes deployment is not, which is why the k8s recipe runs the python
-   backend.
-4. **kv-aware fails soft.** Without a tokenizer it warns once and routes on load
+3. **The rust router validates its subset before exec.** `infera.server` checks
+   the requested config and fails with a pointer to `--router-backend python` for
+   anything outside it. This example's etcd setup is inside that subset — and so
+   is Kubernetes discovery: `_SUPPORTED_DISCOVERY` is `("etcd", "kubernetes")`,
+   it just additionally requires `--k8s-label-selector`, which the operator
+   injects. (An earlier version of this note claimed the rust backend was
+   etcd-only and used that to explain the k8s recipe's `--router-backend python`.
+   That reason was wrong, and the k8s recipe now ships `rust` on all four combos:
+   it passed every judge on the `aggregated` shape and then served the agentic
+   trace on `disaggregated` with every request completed and the growing-prefix
+   cache ideal reached exactly, matching this example arm-for-arm.)
+4. **`ROUTER_BACKEND=rust` is this shape's choice, not a portable one.** Both
+   backends make the same routing decisions request for request, and the router
+   only shows up at all when it is the bottleneck rather than the GPUs — which
+   depends on your request rate and worker count, not on this recipe. Pick it on
+   your own shape.
+5. **kv-aware fails soft.** Without a tokenizer it warns once and routes on load
    alone. `launch_router.sh` refuses to start on that warning and `verify.sh`
    re-checks it, because a run scored against load balancing while labelled
-   kv-aware is worse than a launch that stops.
-5. **Advertise the data-network IP.** `--advertise-host` is what the peer dials
+   kv-aware is worse than a launch that stops. Note that this only covers the
+   tokenizer being absent — a router that loads a tokenizer and then keeps an empty
+   kv view looks healthy in every log. Testing for that needs two workers and a
+   behavioural check: the same prefix sent twice must land on the same worker,
+   with `cached_tokens` above zero the second time.
+6. **Advertise the data-network IP.** `--advertise-host` is what the peer dials
    for the Mooncake bootstrap handshake; a management-NIC address there fails at
    hand-off time, not at startup.
-6. **`Ctrl-C` on a `tail -f` does not stop an engine.** The launch scripts run
+7. **`Ctrl-C` on a `tail -f` does not stop an engine.** The launch scripts run
    them under `nohup`; use `stop.sh`.
-7. **A missing IP is refused, not defaulted.** Both legs find each other only
+8. **A missing IP is refused, not defaulted.** Both legs find each other only
    through the addresses they register in etcd, and a wrong one costs a full cold
    start to discover: registration happens *after* the weights load, on the other
    node. Setting only `PREFILL_IP` is the trap worth naming — the decode leg would
    advertise the prefill node's address, both legs would register, and only a real
    request would find the hole. `require_ips` in `env.sh` stops that at launch.
-8. **`kvd` outlives a restart, on disk.** `stop.sh` kills the daemon after the
+9. **`kvd` outlives a restart, on disk.** `stop.sh` kills the daemon after the
    engines, so nothing is pulled from under a live one, but L3 is journalled and
    is recovered on the next start. Delete `KVD_L3_DIR` to start cold.
+10. **A fabric problem surfaces as a GPU bug, 11 minutes late.** Both of the §3
+    checks were added after hitting this twice with different causes and an
+    identical symptom. The decode leg loads all 8 ranks' weights, allocates KV,
+    starts uvicorn, answers `/model_info` — and only then dies:
+
+    ```text
+    Start of pd disaggregation warmup ...
+    Memory access fault by GPU node-3 (Agent handle: 0x...) on address 0x... Reason: Unknown.
+    ```
+
+    After that `/health` returns `503` forever, the surviving ranks spin at 100%
+    GPU waiting on a peer that is gone, and the wrapper keeps printing
+    `waiting for SGLang HTTP` without timing out. Nothing in that picture points at
+    the fabric, and `GPU node-3` is an HSA agent id, not a GPU index.
+
+    The two causes seen so far:
+
+    - **The pinned rail was down on one node.** The evidence is three info-level
+      lines thousands of lines earlier, among the `[aiter]` autotune noise:
+      `topology.cpp:93] <rail>:1 is not active (state: 1)`, then
+      `has no active ports, skipping`, then `Skipping unavailable device`. Mooncake
+      skips the only rail it was given and comes up with no usable transport, so
+      the error waits for the first real KV transfer to appear.
+    - **The container lacked `--privileged`.** `IPC_LOCK` plus `memlock=-1` was not
+      enough for this cluster's RDMA registration path. Identical flags,
+      environment and rail; adding `EXTRA_DOCKER_ARGS=--privileged` was the whole
+      fix.
+
+    Neither logs anything about permissions or link state at warning level or
+    above, so telling them apart means changing one thing at a time.

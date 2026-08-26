@@ -61,6 +61,15 @@ impl Stream for GuardedStream {
 /// be reported inside the stream, because the client already has a 200 and
 /// part of a body. Unary accumulates server-side, so anything that goes wrong
 /// is still failoverable.
+// clippy's result_large_err wants the Err boxed. Both variants are the same
+// `Response` here: this Result is a two-way tag -- "already sent, do not fail
+// over" vs "nothing sent, you may" -- and not an error channel. Boxing only
+// the Err would take the return from 136 to 128 bytes, since `Response` alone
+// is 128 and the Ok side pins that floor, and would pay an allocation on every
+// failover for those 8. What the lint guards against is a large Err riding up
+// a `?` chain: neither of these is propagated with `?`, both are matched one
+// frame up.
+#[allow(clippy::result_large_err)]
 async fn attempt_nats(
     nats: &Arc<crate::nats_request::NatsRequestClient>,
     target: &RouteTarget,
@@ -390,6 +399,8 @@ async fn mixed_dispatch(
 /// was sent (unreachable / >=400 before streaming), so the caller may fail over.
 /// `guard` is held for the whole attempt: on a streamed success it's moved into
 /// the response body, otherwise it drops here (balancing the load refcount).
+// Same two-way-tag Result as attempt_nats -- see the note there.
+#[allow(clippy::result_large_err)]
 async fn attempt(
     state: &AppState,
     target: &RouteTarget,
