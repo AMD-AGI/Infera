@@ -4,7 +4,6 @@ from pathlib import Path
 
 from aiperf.common.tokenizer import Tokenizer  # type: ignore[import-not-found]
 
-
 _original_resolve_local_snapshot = Tokenizer._resolve_local_snapshot.__func__
 
 

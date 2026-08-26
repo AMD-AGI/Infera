@@ -28,7 +28,8 @@ a puzzle to solve.
 
 ## The fields you must fill in
 
-Both wrappers have the same four blocks. Placeholders read `<like-this>`.
+Both wrappers have the same five blocks. Placeholders read `<like-this>`. Only the first
+four are needed to serve; §5 is read by `engine/trace_replay.sh` alone.
 
 ### 1. Nodes
 
@@ -52,10 +53,19 @@ config preflight, but a *wrong-but-routable* one is not — it just hangs.
 | `MODEL` | the checkpoint, which must live **under** `MODEL_MOUNT` |
 | `TOKENIZER` | usually the same path; the router loads it for kv-aware routing |
 | `HOST_RDMA_LIB` / `HOST_RDMA_MOUNT` / `ENTRYPOINT_KEEP` | only if your image injects a host RDMA provider library at entrypoint — see below |
+| `TRACE_OUT` | where `engine/capture.sh` writes torch traces. Bind-mounted at this **exact absolute path** into both engine containers, so it must be writable on both nodes. Shipped as `$KIT_DIR/profiles` |
+| `INFERA_SRC` | optional development overlay: an Infera checkout mounted read-only over the image's `/opt/infera`. Shipped commented out |
 
 The checkpoint is ~400 GB and both legs read it during bring-up. Prefer local storage
 on both nodes: a slow mount can take an order of magnitude longer and blow the ready
 timeout — which presents as a crash loop, not as slow storage.
+
+`TRACE_OUT` is the one field here that a serving deployment never touches and a
+profiling run cannot work without. `capture.sh` verifies the mount with `docker inspect`
+before it starts a profile, because without that check Docker would create the directory
+inside the container layer and the capture would report success while the host stayed
+empty. `INFERA_SRC` is checked the same way, by importing `infera` in the started
+container and refusing to continue if the mounted tree is not what got imported.
 
 **If your image injects a host RDMA provider library**, all three variables are
 required together. `HOST_RDMA_LIB` is the host path (point it at the *symlink*, so nodes

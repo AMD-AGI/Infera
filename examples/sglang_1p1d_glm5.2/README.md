@@ -6,12 +6,13 @@ by the **infera router**, with **DP-attention**, **MTP** (EAGLE speculative deco
 and the **kvd** cache tiers all on.
 
 Two files in [`cluster/`](cluster/) hold everything site-specific. Fill in one of
-them and the deployment is three commands.
+them and the deployment is four commands.
 
 ```bash
 bash preflight_rdma.sh mode                  # which wrapper do I need?
 bash cluster/cluster.peermem.sh up           # (or cluster.dmabuf.sh) — bring it up
-bash cluster/cluster.peermem.sh smoke        # prove it works
+bash cluster/cluster.peermem.sh smoke        # prove it is serving
+bash cluster/cluster.peermem.sh lm_eval      # prove it is serving CORRECTLY
 ```
 
 This exact shape has been measured under two independent agentic benchmarks on two
@@ -26,6 +27,7 @@ different fabrics; those numbers are not published with this kit.
 | `engine/leg.sh` | the real launcher for one PD leg. The tuned recipe lives here; no site values do |
 | `engine/up.sh` | bring up both nodes: containers → etcd + kvd → both legs → router |
 | `engine/smoke.sh` | service check **plus** positive evidence for each of the five features |
+| `engine/lm_eval.sh` | accuracy: does it serve the model **correctly**, not just quickly. Nothing to install |
 | `engine/bench.sh` | reference throughput sweep using SGLang's own `bench_serving` |
 | `engine/trace_replay.sh` | replay a Mooncake production trace with AIPerf — the only load here with a real shared prefix (opt-in) |
 | `engine/capture.sh` | take one torch trace per PD role out of a running load (opt-in) |
@@ -197,6 +199,131 @@ so the chain of thought lands in `reasoning_content` — but it is billed agains
 comes back empty with `finish_reason: "length"`, and the check reads as a failure on a
 deployment that is serving correctly.
 
+### Accuracy
+
+`smoke` proves the features are on and `bench` proves the stack is fast. Neither reads
+a single answer. Between MXFP4 weights, an `fp8_e4m3` KV cache, sparse attention on
+ROCm, KV moved across a wire by mooncake, EAGLE speculation and a radix cache shared
+between requests, there are six independent ways for this stack to serve fluent, fast,
+**wrong** tokens — and every one of them looks green in `smoke` and `bench`.
+
+```bash
+bash cluster/cluster.peermem.sh lm_eval probe   # ~40 s, gates the rest
+bash cluster/cluster.peermem.sh lm_eval quick   # ~2 min, GSM8K 200
+bash cluster/cluster.peermem.sh lm_eval full    # ~13 min, the full GSM8K set twice
+bash cluster/cluster.peermem.sh lm_eval         # probe, then quick
+```
+
+The evaluator is `sglang.test.run_eval`, which ships **inside the engine image** and
+talks OpenAI `/v1/chat/completions`. Nothing is installed. That matters beyond
+convenience: pip-installing an eval harness into `$CTR` would drag a `torch` dependency
+across the ROCm build the engine is running on.
+
+**`probe` runs first and gates the rest**, because the failures it catches all produce a
+*number* rather than an error, and that number is indistinguishable from a real
+regression. It sends ~30 requests and checks four things: both legs are registered;
+`content` actually arrives; the same question always gets the same **answer**; and a
+shared prefix does not change the answer to the question behind it. Its exit status is 0
+only when every hard check passes, so it can gate a script. Soft findings are printed
+but never fail.
+
+That last check is the reason this script exists in the form it does. Prefix reuse
+changing an answer is the one failure mode nothing else in the kit can see: `bench`
+builds every prompt independently, so a radix-cache or kvd lookup returning the wrong
+block is never exercised there at all.
+
+**Reading the results.** Measured on this deployment, for calibration:
+
+| what | healthy reading |
+|---|---|
+| `probe` | `PROBE PASSED`, no hard failures |
+| GSM8K 200 | **0.940–0.965** (six runs, mean 0.952) |
+| GSM8K full (1314 scored) | **0.945**, 95% CI [0.932, 0.956], 376 s |
+| `mixed_prefix_gsm8k` full (1299 scored) | **0.945**, 95% CI [0.932, 0.956], 380 s |
+| prefix-reuse delta | **+0.000** — shared prefixes changed nothing |
+| MTP acceptance length | mean **3.01–3.10**, min 2.42, max 3.54 |
+
+`full` runs `gsm8k` and `mixed_prefix_gsm8k` as a **pair**, and the pairing is the
+point. They ask the same questions; only the second one puts them behind partially
+shared few-shot prefixes. A single absolute score has no baseline to be compared
+against — nobody knows what GLM-5.2-MXFP4 with an fp8 KV cache "should" score — but the
+*gap between these two* is a measurement of prefix reuse that needs no external
+baseline. The summary reports that gap with its own interval and says whether it
+contains zero.
+
+Four things about this are counter-intuitive:
+
+- **`temperature=0` is not byte-reproducible here, and that is expected.** Ten serial
+  repeats of one GSM8K question all returned 72 while their completion lengths ranged
+  over 214–289 tokens. MTP verification, dp8 attention and batch-dependent kernel
+  selection each perturb the numerics without changing the argmax that matters. This is
+  why `probe` compares the **answer** and not the bytes: a byte-for-byte check would
+  fail on every healthy run, which is worse than no check at all.
+- **Two runs of `quick` that differ are usually the same measurement.** 200 questions at
+  a true rate of 0.95 gives a 95% interval of about [0.913, 0.974]. Six runs on an
+  unchanged deployment here spanned 0.940 to 0.965 — a 2.5-point spread with nothing
+  changing between them, and every value inside that one interval. The interval is
+  printed next to every score for exactly this reason. On the full set it narrows to
+  roughly ±1.2 points, enough to see a ~3-point regression and no smaller. The
+  intervals are Wilson rather than the textbook
+  `p ± z·√(p(1−p)/n)`, which collapses to zero width at a perfect score — a 16-question
+  run that happens to get everything right would otherwise report `[1.000, 1.000]`.
+- **The full set scores 1314 questions, not the 1319 GSM8K ships.** `GSM8KEval` slices
+  the few-shot examples off the front of the evaluation set so they cannot leak into it,
+  and `mixed_prefix_gsm8k` reserves a further 15 for its secondary prefix pool, leaving
+  1299. The `scored` column is counted from the report rather than assumed, because the
+  dataset size is the wrong denominator for the interval — and a run that failed requests
+  would not show up as a smaller count anyway, since a failed request is scored 0 and
+  stays in the set.
+- **A low score on `gpqa` or `aime25` is a `MAX_TOKENS` artefact, not a finding.** Both
+  need long chains of thought, GLM-5.2 bills reasoning against the same budget, and at
+  the 2048 default they truncate and score near chance — `gpqa` measured 0.25, which is
+  exactly random for a four-way choice.
+
+Of the eleven evals `run_eval` registers, three do **not** work here: `humaneval` (no
+`human_eval` package in the image), `math` (grades equality with a second model, so it
+needs an OpenAI key) and `mmmu` (vision, and this is a text checkpoint). Besides the two
+`full` runs by default, `mmlu`, `gpqa`, `aime25` and `mgsm_en` were each executed against
+this image and work; `mgsm` and `longbench_v2` were not tried. Any of them can be
+requested by name: `lm_eval full mmlu`.
+
+### Comparing two runs
+
+Since the absolute number cannot be checked against a published one, the useful practice
+is to record a run on a stack you trust and compare against **that**. The question that
+actually comes up is never "is 0.945 good" but "did this config change, leg restart or
+new image move anything", and results are timestamped per run so both sides are still on
+disk:
+
+```bash
+python3 engine/tools/summarise_eval.py lm_eval/<baseline> lm_eval/<new>
+python3 engine/tools/summarise_eval.py --gate lm_eval/<baseline> lm_eval/<new>
+```
+
+```
+  eval                         A        B    delta       95% CI of delta   verdict
+  gsm8k                    0.945    0.850   -0.095      [-0.118, -0.072]   REGRESSED
+  mixed_prefix_gsm8k       0.945    0.945   -0.000      [-0.018, +0.017]   same
+```
+
+The same script prints the single-run table, so any past result directory can be
+re-summarised without re-running the eval. `--gate` exits non-zero when some eval dropped
+by more than measurement noise; without it the comparison only reports, which matches how
+the rest of this kit treats scores.
+
+**The delta gets its own interval, and that is not the same as checking whether the two
+scores' intervals overlap.** Overlap is the intuitive test and it is too conservative:
+uncertainties combine in quadrature, not by addition, so two runs can have visibly
+overlapping intervals and still differ significantly. Reading overlap hides real
+regressions, which is the one thing this comparison exists to catch. The verdict column
+asks instead whether the difference's own interval — Newcombe's composition of the two
+Wilson intervals — contains zero.
+
+`same` therefore means this pair of runs cannot tell the two configurations apart — not
+that they are identical. With 200 questions per side that interval is about ±5 points
+wide, so a genuine 3-point regression reads as `same`. Use `full` on both sides when the
+answer has to be trusted.
+
 ### Reference sweep
 
 ```bash
@@ -229,21 +356,26 @@ an agentic workload behave the way it does. `trace_replay.sh` replays a **Moonca
 production trace** at the timestamps the trace recorded:
 
 ```bash
-bash cluster/cluster.peermem.sh trace_replay prepare   # offline checks + shape report
+bash cluster/cluster.peermem.sh trace_replay prepare   # read-only checks + shape report
 bash cluster/cluster.peermem.sh trace_replay run       # send the load
 ```
 
-Set `AIPERF_TRACE` in the wrapper first; §5 there has the download line for the FAST25
-arxiv trace. `prepare` slices the file, pulls the client image, checks that the trace,
+Set `AIPERF_TRACE` in the wrapper first; §5 there has the download lines for the two
+Mooncake FAST25 traces. `prepare` pulls the client image, checks that the trace,
 tokenizer, output directory and router are all reachable **from the node that will
-generate the load**, and prints the slice's ISL/OSL distribution and theoretical cache
-hit rate. None of it touches the deployment, so it is safe to run against a warming stack.
+generate the load**, and prints the trace's ISL/OSL distribution and theoretical cache
+hit rate. It is read-only end to end, so it is safe to run against a warming stack.
+
+That shape report reads the **whole file** and knows nothing about `START_MS`/`END_MS`,
+so it describes the recording rather than the window you are about to replay. Nothing in
+`prepare` writes a sliced copy either — the window is applied by AIPerf's loader at
+`run` time.
 
 Why this is a different measurement rather than a second opinion on the same one: a
 Mooncake entry carries `hash_ids`, and [AIPerf](https://github.com/ai-dynamo/aiperf)
 expands each hash id into a real block of tokens. Equal hash ids therefore produce an
 equal token *prefix*, so the radix cache, kvd and `kv-aware` routing are all exercised.
-In the FAST25 arxiv trace one hash id appears in **every** request — a single shared
+In `conversation_trace.jsonl` one hash id appears in **every** request — a single shared
 system prefix across 12,031 requests, median input 6,909 tokens.
 
 **Do not compare these numbers to `bench` numbers.** Two independent reasons:
@@ -267,9 +399,14 @@ Three knobs decide whether the run means anything:
 
 | knob | default | what goes wrong at the extremes |
 |---|---|---|
-| `REQUESTS` | 2000 | `all` is 12,031 requests over 58.9 min of trace. The first run over any slice synthesizes and tokenizes every prompt **before** sending anything (~14M tokens of text for the default slice), so a cold cache looks like a hang |
+| `START_MS` / `END_MS` | unset | The replay window, in trace milliseconds. Unset replays the whole recording: `conversation_trace.jsonl` is 12,031 requests over 58.9 min, and its 288,500 hash-id blocks expand to ~148M tokens of prompt at the default `BLOCK_SIZE=512`. The first run over any (trace, window) pair synthesizes and tokenizes **all** of it before a single request goes out, so a cold cache looks like a hang |
 | `MAX_CONC` | 256 | A **ceiling**, not a target — fixed-schedule sends at the recorded timestamps regardless. Too low and arrivals queue behind the ceiling, which is the closed-loop behaviour `bench` already measures. Too high and a deployment that cannot keep up grows unbounded queue depth, after which every percentile describes the queue |
 | `SPEEDUP` | unset | Scales every timestamp. The way to ask "what if this traffic arrived 2× faster" without changing its shape. Unset keeps the trace's own pace and keeps the synthesis pipeline out of the path |
+
+There is deliberately **no request-count knob**. The loader applies the timestamp window
+before prompt synthesis, so `START_MS`/`END_MS` saves everything a pre-sliced file would
+save while cutting on a time boundary rather than mid-session — which matters on any
+trace that carries `session_id`.
 
 The client runs from `nvcr.io/nvidia/ai-dynamo/aiperf` (255 MB) and **not** inside `$CTR`:
 the engine image ships Python 3.10 and AIPerf requires ≥ 3.11. `AIPERF_NODE` defaults to
@@ -504,7 +641,9 @@ Stated plainly rather than implied.
 | **these scripts as written** | **validated** — `preflight_rdma.sh mode` → `up` → `smoke` → `bench` → `down` on a 2-node MI355X mode-B cluster, with no edits outside `cluster/cluster.dmabuf.sh`. Long context checked separately (needle, to 238K tokens) and under a real agentic workload at concurrency 8 |
 | `preflight_rdma.sh` | `mode` validated on both nodes and its verdict followed. `fabric` not exercised |
 | `cluster.peermem.sh`, `round-robin` routing | **not validated** — no peer-mem cluster was available, and the shipped `kv-aware` default is what ran |
-| `engine/trace_replay.sh` | **not validated** — written against AIPerf's source and the published NGC image, never executed against a live deployment. The Python-3.10-in-the-engine-image constraint that shapes it was measured on `lmsysorg/sglang-rocm` rather than on `rocm/infera` itself. The AIPerf flags it passes are taken from a 0.13.0 checkout while the pinned image is 0.12.0, so a rejected flag is the expected first failure |
+| `engine/lm_eval.sh` | **validated** — `probe`, `quick`, `full` and the failure path all executed against a live 1P1D deployment on MI355X (`rocm/infera:sglang-v0.2.10`, sglang 0.5.17), and every number quoted under "Accuracy" comes from those runs. The eval availability list in its header is measured rather than read off upstream, with the two exceptions it names (`mgsm`, `longbench_v2`) marked as untried |
+| `engine/tools/summarise_eval.py` | **validated** — single-run and compare modes both exercised on real result directories. The `REGRESSED` verdict and `--gate`'s non-zero exit were checked against a fabricated lower-score directory, since no real regression was available to trigger them |
+| `engine/trace_replay.sh` | **validated** — `prepare` and `run` both executed against a live 1P1D deployment, replaying `conversation_trace.jsonl` through the pinned AIPerf 0.12.0 image to completion, with and without a `START_MS`/`END_MS` window. Two concerns this row used to carry did not materialise: 0.12.0 accepted every flag the script passes (they were read off a 0.13.0 checkout), and the Python-3.10 constraint that forces the client out of `$CTR` was confirmed on `rocm/infera` itself, not just on the base image. Not exercised: the other traces, `SPEEDUP`, `IGNORE_EOS=0`, and pointing `AIPERF_NODE` at a non-serving host |
 
 If you run this kit and it does not come up, that is worth reporting.
 
