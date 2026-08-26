@@ -26,6 +26,8 @@ use crate::policy::{ActiveGuard, Role};
 use crate::pool::{DisaggMode, RouteTarget, Snapshot};
 use crate::util::{json_error, truncate_chars};
 
+type AttemptResult = Result<Response, Box<Response>>;
+
 /// A byte stream that owns an `ActiveGuard`: when the streamed body ends (client
 /// done, disconnect, or drop), the guard drops and fires `on_request_finished`,
 /// so a cost-aware policy's in-flight load stays balanced for streamed requests.
@@ -68,7 +70,7 @@ async fn attempt_nats(
     stream: bool,
     path: &str,
     guard: ActiveGuard,
-) -> Result<Response, Response> {
+) -> AttemptResult {
     use crate::nats_request::Frame;
 
     let worker = &target.worker;
@@ -85,21 +87,23 @@ async fn attempt_nats(
         let body =
             serde_json::json!({ "error": format!("worker {wid} request backlog over limit") })
                 .to_string();
-        return Err(Response::builder()
-            .status(StatusCode::TOO_MANY_REQUESTS)
-            .header(header::CONTENT_TYPE, "application/json")
-            .header("Retry-After", "1")
-            .body(Body::from(body))
-            .expect("429 response is valid"));
+        return Err(Box::new(
+            Response::builder()
+                .status(StatusCode::TOO_MANY_REQUESTS)
+                .header(header::CONTENT_TYPE, "application/json")
+                .header("Retry-After", "1")
+                .body(Body::from(body))
+                .expect("429 response is valid"),
+        ));
     }
 
     let body: serde_json::Value = match serde_json::from_slice(raw) {
         Ok(v) => v,
         Err(e) => {
-            return Err(json_error(
+            return Err(Box::new(json_error(
                 StatusCode::BAD_REQUEST,
                 &format!("request body is not JSON: {e}"),
-            ))
+            )))
         }
     };
     // Same envelope the Python router publishes; the worker side is shared.
@@ -119,20 +123,20 @@ async fn attempt_nats(
     let encoded = match serde_json::to_vec(&payload) {
         Ok(v) => v,
         Err(e) => {
-            return Err(json_error(
+            return Err(Box::new(json_error(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 &format!("encoding the nats request: {e}"),
-            ))
+            )))
         }
     };
 
     let mut reply = match nats.dispatch(&wid, &encoded).await {
         Ok(r) => r,
         Err(e) => {
-            return Err(json_error(
+            return Err(Box::new(json_error(
                 StatusCode::BAD_GATEWAY,
                 &format!("worker {wid} unreachable over nats: {e}"),
-            ))
+            )))
         }
     };
 
@@ -149,11 +153,11 @@ async fn attempt_nats(
                     break;
                 }
                 Some(Frame::Error { status: s, message }) => {
-                    return Err(json_error(
+                    return Err(Box::new(json_error(
                         s.and_then(|c| StatusCode::from_u16(c).ok())
                             .unwrap_or(StatusCode::BAD_GATEWAY),
                         &format!("worker {wid} nats failed: {}", trim(&message)),
-                    ))
+                    )))
                 }
                 None => break,
             }
@@ -163,10 +167,10 @@ async fn attempt_nats(
         // mid-request, and reporting it as success would also record it as
         // healthy against the breaker.
         if !done_seen {
-            return Err(json_error(
+            return Err(Box::new(json_error(
                 StatusCode::BAD_GATEWAY,
                 &format!("worker {wid} closed the nats reply without finishing"),
-            ));
+            )));
         }
         let total: usize = chunks.iter().map(|c| c.len()).sum();
         let mut buf = Vec::with_capacity(total);
@@ -177,11 +181,13 @@ async fn attempt_nats(
         // to the request and every worker would answer the same, so it is
         // returned rather than retried. Same rule as the HTTP path.
         if is_worker_fault(status.as_u16()) {
-            return Err(Response::builder()
-                .status(status)
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(buf))
-                .expect("unary response is valid"));
+            return Err(Box::new(
+                Response::builder()
+                    .status(status)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(buf))
+                    .expect("unary response is valid"),
+            ));
         }
         let _guard = guard;
         return Ok(Response::builder()
@@ -196,19 +202,19 @@ async fn attempt_nats(
     let first = match reply.next().await {
         Some(Frame::Data(b)) => b,
         Some(Frame::Error { status: s, message }) => {
-            return Err(json_error(
+            return Err(Box::new(json_error(
                 s.and_then(|c| StatusCode::from_u16(c).ok())
                     .unwrap_or(StatusCode::BAD_GATEWAY),
                 &format!("worker {wid} nats stream failed: {}", trim(&message)),
-            ))
+            )))
         }
         Some(Frame::Done { status }) => {
             let code = StatusCode::from_u16(status).unwrap_or(StatusCode::OK);
             if is_worker_fault(code.as_u16()) {
-                return Err(json_error(
+                return Err(Box::new(json_error(
                     code,
                     &format!("worker {wid} ended the stream with {code}"),
-                ));
+                )));
             }
             // Nothing to stream, but not a fault: answer with an empty body
             // rather than failing over a request the worker considers done.
@@ -220,10 +226,10 @@ async fn attempt_nats(
                 .expect("stream response is valid"));
         }
         None => {
-            return Err(json_error(
+            return Err(Box::new(json_error(
                 StatusCode::BAD_GATEWAY,
                 &format!("worker {wid} closed the nats reply with no frames"),
-            ))
+            )))
         }
     };
 
@@ -379,7 +385,7 @@ async fn mixed_dispatch(
                     // recovering worker out of rotation.
                     state.breaker.record_neutral(&wid);
                 }
-                last_err = Some(err_resp);
+                last_err = Some(*err_resp);
             }
         }
     }
@@ -397,7 +403,7 @@ async fn attempt(
     stream: bool,
     path: &str,
     guard: ActiveGuard,
-) -> Result<Response, Response> {
+) -> AttemptResult {
     let worker = &target.worker;
     // Per worker, not per router: a worker whose NATS consumer failed to start
     // registers as `http` and is dialled directly even when the transport is
@@ -406,13 +412,13 @@ async fn attempt(
         if let Some(nats) = state.nats.clone() {
             return attempt_nats(&nats, target, raw, stream, path, guard).await;
         }
-        return Err(json_error(
+        return Err(Box::new(json_error(
             StatusCode::BAD_GATEWAY,
             &format!(
                 "worker {} registered the nats transport but this router has none",
                 worker.worker_id
             ),
-        ));
+        )));
     }
     let url = format!("{}{}", worker.url, path);
     let mut req = state
@@ -427,17 +433,17 @@ async fn attempt(
     let resp = match req.send().await {
         Ok(r) => r,
         Err(e) => {
-            return Err(json_error(
+            return Err(Box::new(json_error(
                 StatusCode::BAD_GATEWAY,
                 &format!("worker {} unreachable: {e}", worker.worker_id),
-            ))
+            )))
         }
     };
 
     let status = resp.status();
     if status.is_client_error() || status.is_server_error() {
         let body = resp.text().await.unwrap_or_default();
-        return Err(json_error(
+        return Err(Box::new(json_error(
             status,
             &format!(
                 "worker {} error {}: {}",
@@ -445,7 +451,7 @@ async fn attempt(
                 status.as_u16(),
                 truncate_chars(&body, 500)
             ),
-        ));
+        )));
     }
 
     if stream {
@@ -471,10 +477,10 @@ async fn attempt(
                 .header(header::CONTENT_TYPE, ct)
                 .body(Body::from(bytes))
                 .expect("unary response is valid")),
-            Err(e) => Err(json_error(
+            Err(e) => Err(Box::new(json_error(
                 StatusCode::BAD_GATEWAY,
                 &format!("worker {} read failed: {e}", worker.worker_id),
-            )),
+            ))),
         }
     }
 }
