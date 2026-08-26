@@ -110,7 +110,11 @@ and which pairs are coupled.
 ### 5. Trace replay (optional)
 
 Only read by `engine/trace_replay.sh`, and only when `AIPERF_TRACE` is set. Leave it
-unset and this block does nothing.
+unset and nothing here does anything.
+
+```bash
+AIPERF_TRACE=<...> bash cluster/cluster.dmabuf.sh trace_replay prepare
+```
 
 | field | what it must be |
 |---|---|

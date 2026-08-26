@@ -40,6 +40,7 @@ on(){ local h="$1"; shift; $SSH_CMD "$h" "$*" </dev/null; }
 AIPERF_IMAGE="${AIPERF_IMAGE:-nvcr.io/nvidia/ai-dynamo/aiperf:0.12.0}"
 AIPERF_NODE="${AIPERF_NODE:-$PREFILL_NODE}"
 AIPERF_OUT="${AIPERF_OUT:-$(cd "$DIR/.." && pwd)/aiperf}"
+AIPERF_COMPAT_DIR="$DIR/aiperf_compat"
 URL="http://$PREFILL_IP:$ROUTER_PORT"
 
 BLOCK_SIZE="${BLOCK_SIZE:-512}"
@@ -65,19 +66,22 @@ add_mount(){
 }
 
 # what: run one command in the NGC image on $AIPERF_NODE.
-# why : four of these settings are load-bearing and each fails silently if dropped.
+# why : these settings are load-bearing and each fails silently if dropped.
 #   MMAP_CACHE_DIR / MMAP_BASE_PATH  the image sets HOME=/app, so the dataset cache would live
 #       inside a --rm container (re-tokenizing the trace every run) and the mmap data files
 #       would land on the node's root fs through the overlay — README note 7's failure, reached
 #       from a different direction.
 #   --user + HOME=/tmp  the image runs as uid 1000 but writes into a host-owned directory, so
 #       it needs this host's ids, resolved ON $AIPERF_NODE.
-#   HF_HUB_OFFLINE  turns a mistyped --tokenizer into an instant failure, not a network timeout.
+#   HF_HUB_OFFLINE  prevents accidental Hub access. AIPerf 0.12 incorrectly sends existing local
+#       directories through snapshot_download in offline workers; aiperf_compat/sitecustomize.py
+#       restores direct local-directory loading while retaining normal Hub-cache resolution.
 # note: $1 is single-quoted on the way through, so it may contain no single quote and no path
 #       with a space. Adding quotes does not help — the entrypoint consumes them.
 aiperf_in_image(){
   on "$AIPERF_NODE" "docker run --rm --network=host --user \$(id -u):\$(id -g) \
-    -e HOME=/tmp -e HF_HUB_OFFLINE=1 \
+    -e HOME=/tmp -e HF_HUB_OFFLINE=1 -e TRANSFORMERS_OFFLINE=1 \
+    -e PYTHONPATH='$AIPERF_COMPAT_DIR:/usr/local/lib/python3.13/dist-packages:/app' \
     -e AIPERF_DATASET_MMAP_CACHE_DIR='$AIPERF_OUT/.mmap_cache' \
     -e AIPERF_DATASET_MMAP_BASE_PATH='$AIPERF_OUT/.mmap' \
     $MOUNT_ARGS \
@@ -87,6 +91,7 @@ aiperf_in_image(){
 add_mount "$AIPERF_OUT"
 add_mount "$MODEL_MOUNT" ro
 add_mount "$(dirname "$AIPERF_TRACE")" ro
+add_mount "$AIPERF_COMPAT_DIR" ro
 
 # ---- prepare ---------------------------------------------------------------------------------
 # Read-only throughout, so it is safe to run against a stack that is still warming up. It does
@@ -143,12 +148,17 @@ It must resolve to the same path on both hosts, like \$KIT_DIR already does."
 
 # ---- run -------------------------------------------------------------------------------------
 run_replay(){
-  local ts run_dir args extra
+  local ts run_dir console_log args extra
   ts="$(date +%Y%m%d_%H%M%S)"
   run_dir="$AIPERF_OUT/$ts"
+  console_log="$run_dir/logs/console.log"
 
   [ -r "$AIPERF_TRACE" ] || die "trace not readable: $AIPERF_TRACE"
-  mkdir -p "$run_dir" || die "could not create $run_dir"
+  mkdir -p "$run_dir/logs" || die "could not create $run_dir/logs"
+  : > "$console_log" || die "could not create $console_log"
+  # Preserve the complete replay stdout/stderr (including Rich's final tables) while still
+  # streaming it to the invoking terminal. From here onward both streams share their ordering.
+  exec > >(tee -a "$console_log") 2>&1
 
   # Optional flags accumulate into $args; --extra-inputs takes a LIST, so $extra is separate and
   # goes LAST or the flags after it are swallowed as more of its values.
@@ -190,6 +200,7 @@ run_replay(){
   log "  endpoint  : $URL  (model $SERVED)"
   log "  client    : $AIPERF_NODE  ($AIPERF_IMAGE)"
   log "  artifacts : $run_dir"
+  log "  console   : $console_log"
   log "  options   : $args --extra-inputs $extra"
   # A cold cache spends minutes synthesizing prompts with nothing on the wire; say so, or it
   # reads as a hang.
