@@ -13,7 +13,9 @@
 #
 # GPU tiers run in place when this host has docker + >=8 AMD GPUs, else `srun` the
 # tier onto one 8-GPU node. PD-disag orchestrates prefill+decode on two idle nodes.
-# Env: INFERA_E2E_MODEL_DIR (models, RO-mounted), INFERA_E2E_SLURM_PARTITION.
+# Env: INFERA_E2E_MODEL_DIR (models, RO-mounted), INFERA_E2E_SLURM_PARTITION,
+# INFERA_E2E_GFX_ARCH (gfx950 default | gfx942 — picks the image + case overlay),
+# INFERA_E2E_SITE (a checked-in cluster profile under tests/sites/, see below).
 # On amd-spur, CI tries its three account/QoS pairs in priority order.
 
 set -uo pipefail
@@ -22,6 +24,42 @@ SUITE="${1:-}"
 SCRIPT="$(readlink -f "${BASH_SOURCE[0]}")"
 REPO="$(dirname "$(dirname "$SCRIPT")")"
 
+# ---- site profile -----------------------------------------------------------
+# Everything this script needs to know about a cluster arrives as environment
+# variables. On the CI fleet ci.yml's `env:` block supplies them; anywhere else
+# they had to be typed out by hand or kept in a shell file outside the repo —
+# which is how a run ends up depending on a script nobody else has, and how the
+# values that took a week to measure end up undiscoverable. INFERA_E2E_SITE names
+# a profile under tests/sites/ instead, so a second fleet is `INFERA_E2E_SITE=x`
+# rather than a page of exports.
+#
+# A profile only fills in what the caller left unset (see site_default), so an
+# explicit `INFERA_E2E_SLURM_PARTITION=other tests/run_tests.sh …` still wins and
+# ci.yml keeps precedence over a profile a runner happens to have in its env.
+
+# Set $1 to the remaining args unless the environment already has it, then export
+# either way. The profiles are written entirely in terms of this.
+site_default() {
+  local var="$1"
+  shift
+  [ -n "${!var:-}" ] || printf -v "$var" '%s' "$*"
+  export "${var?}"
+}
+
+if [ -n "${INFERA_E2E_SITE:-}" ]; then
+  SITE_FILE="$REPO/tests/sites/${INFERA_E2E_SITE}.env"
+  if [ ! -f "$SITE_FILE" ]; then
+    echo "FATAL: no site profile named '${INFERA_E2E_SITE}' (looked for $SITE_FILE)." >&2
+    echo "       available profiles:" >&2
+    ls -1 "$REPO/tests/sites"/*.env 2>/dev/null |
+      sed 's|.*/||; s|\.env$||; s|^|         |' >&2 || true
+    exit 2
+  fi
+  # shellcheck source=/dev/null
+  . "$SITE_FILE"
+  echo "[site] profile '$INFERA_E2E_SITE' loaded from $SITE_FILE"
+fi
+
 IMG_VLLM="infera/engine-vllm:test-local"
 IMG_SGLANG="infera/engine-sglang:test-local"
 IMG_ATOM="infera/engine-atom:test-local"
@@ -29,6 +67,48 @@ DF_VLLM="deploy/docker/Dockerfile.vllm"
 DF_SGLANG="deploy/docker/Dockerfile.sglang"
 DF_ATOM="deploy/docker/Dockerfile.atom"
 ETCD_IMG="quay.io/coreos/etcd:v3.5.14"
+
+# ---- target GPU architecture ------------------------------------------------
+# Picks the engine image and (forwarded in) the matrix's per-case knobs. Same
+# three tiers as tests/e2e/harness/arch.py, whose docstring carries the reasoning.
+
+# First GPU agent's gfx name, else empty. Only "Name: gfxNNN" matches (not CPU agents or
+# "Marketing Name"), and the output is read as-is: pipefail can fail this on a good node.
+_probe_gfx_arch() {
+  command -v rocminfo >/dev/null 2>&1 || return 0
+  local names
+  names="$(rocminfo 2>/dev/null | sed -n 's/^ *Name: *\(gfx[0-9a-f]*\) *$/\1/p')"
+  printf '%s' "${names%%$'\n'*}"
+}
+
+GFX_ARCH="${INFERA_E2E_GFX_ARCH:-}"
+if [ -n "$GFX_ARCH" ]; then
+  # An intent travels; a probe result must not, so srun's remote leg probes the
+  # compute node itself instead of inheriting a GPU-less login host's answer.
+  export INFERA_E2E_GFX_ARCH
+  GFX_ARCH_SRC="declared"
+else
+  GFX_ARCH="$(_probe_gfx_arch)"
+  GFX_ARCH_SRC="detected on $(hostname -s)"
+fi
+if [ -z "$GFX_ARCH" ]; then
+  GFX_ARCH="gfx950"
+  GFX_ARCH_SRC="default — no GPU here to ask"
+fi
+case "$GFX_ARCH" in
+  gfx950) ;;
+  gfx942)
+    # Only sglang is arch-specific (arch-split vendor base + Mooncake built for one
+    # arch); vLLM and ATOM pin no arch, so one tag serves both. See harness/images.py.
+    IMG_SGLANG="infera/engine-sglang-gfx942:test-local"
+    DF_SGLANG="deploy/docker/Dockerfile.sglang.gfx942"
+    ;;
+  *)
+    echo "FATAL: GPU architecture '$GFX_ARCH' ($GFX_ARCH_SRC) is neither gfx950 nor gfx942." >&2
+    exit 2 ;;
+esac
+echo "[arch] target GPU architecture: $GFX_ARCH ($GFX_ARCH_SRC)"
+
 # On every container we launch, so a new run can wipe what a killed one left on
 # this (reused) node.
 CTR_PREFIX="infera-utest-"
@@ -185,9 +265,15 @@ _log_dir_banner() {
 }
 _log_dir_banner
 
+# Forward the arch DECLARATION only: the container sees this host's GPUs, so left
+# alone it resolves to what we did — and its guard can still tell intent from fact.
+E2E_FLAGS=()
+if [ -n "${INFERA_E2E_GFX_ARCH:-}" ]; then
+  E2E_FLAGS+=(-e INFERA_E2E_GFX_ARCH="$INFERA_E2E_GFX_ARCH")
+fi
+
 # Bind the model tree read-only at the same path. If it is absent here it lives
 # on the compute node, so just forward the var and let the remote re-run mount it.
-E2E_FLAGS=()
 if [ -n "${INFERA_E2E_MODEL_DIR:-}" ]; then
   if [ -d "$INFERA_E2E_MODEL_DIR" ]; then
     E2E_FLAGS+=(-v "$INFERA_E2E_MODEL_DIR":"$INFERA_E2E_MODEL_DIR":ro

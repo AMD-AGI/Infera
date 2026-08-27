@@ -33,6 +33,8 @@ import shutil
 import socket
 import subprocess
 
+from . import arch
+
 # RoCEv2 GID index default — the ULA (routable) GID on the repo's ionic fabric;
 # both the PD bench (MORI_IB_GID_INDEX=1) and regression doc 04 use index 1.
 DEFAULT_GID_INDEX = "1"
@@ -92,6 +94,16 @@ def srun_argv(node: str, *, job: str = "") -> list[str]:
 def run_on_node(node: str, argv: list[str], *, timeout: float = _SRUN_TIMEOUT):
     """Run ``argv`` on ``node`` and capture its output (never raises on rc!=0)."""
     return subprocess.run(srun_argv(node) + argv, capture_output=True, text=True, timeout=timeout)
+
+
+def node_arch(node: str) -> str | None:
+    """``node``'s GPU architecture via rocminfo, or None when it cannot be asked. The
+    orchestrator has no GPU of its own, so this is the only way it can check a node's."""
+    try:
+        done = run_on_node(node, ["rocminfo"])
+    except (subprocess.SubprocessError, OSError):
+        return None
+    return arch.parse_rocminfo(done.stdout) if done.returncode == 0 else None
 
 
 def _parse_ip_overrides() -> dict[str, str]:

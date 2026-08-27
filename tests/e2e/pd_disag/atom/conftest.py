@@ -30,10 +30,11 @@ import os
 from ...harness import EngineAdapter, EngineParams
 from ...harness.cluster import kv_transport_env
 from ...harness.disagg_fixtures import make_disagg_stack_fixture
+from ...harness.images import engine_image
 from ...harness.params import DisaggRole
 
-IMAGE = "infera/engine-atom:test-local"
-DOCKERFILE = "deploy/docker/Dockerfile.atom"
+# Same image/Dockerfile run_tests.sh builds, for this run's target arch.
+IMAGE, DOCKERFILE = engine_image("atom")
 
 # Per-role Mooncake handshake ports (distinct so co-located debugging is safe;
 # each role is on its own node here). http_port == the engine's --server-port.

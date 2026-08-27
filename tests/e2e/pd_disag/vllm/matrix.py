@@ -28,6 +28,9 @@ CASES = [
         {
             "server_ready_timeout": 1800,
             "args": ["--gpu-memory-utilization", "0.9"],
+            # aiter's MXFP4 MoE returns garbage logits on gfx942 (a wall of "!");
+            # off, vLLM falls back to the Triton MXFP4 path, which is correct.
+            "gfx942": {"env": {"VLLM_ROCM_USE_AITER": "0"}},
         },
     ],
 ]

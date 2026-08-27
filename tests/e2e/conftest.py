@@ -26,6 +26,7 @@ import pytest
 import pytest_asyncio
 
 from .harness.adapter import emit_reporter_line, set_reporter
+from .harness.arch import target_arch
 from .harness.params import EngineParams
 
 
@@ -48,7 +49,7 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
     if tr is None:
         return
     emit_reporter_line(
-        f"[e2e param] {params.id()}  ::  model={params.model} "
+        f"[e2e param] {params.id()}  ::  arch={target_arch()} model={params.model} "
         f"tp={params.tensor_parallel_size} ep={params.expert_parallel} "
         f"dp_attn={params.dp_attention} extra_args={list(params.extra_args)}"
     )

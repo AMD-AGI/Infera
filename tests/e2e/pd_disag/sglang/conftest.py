@@ -17,10 +17,11 @@ from __future__ import annotations
 
 from ...harness import EngineAdapter, EngineParams
 from ...harness.disagg_fixtures import make_disagg_stack_fixture
+from ...harness.images import engine_image
 from ...harness.params import DisaggRole
 
-IMAGE = "infera/engine-sglang:test-local"
-DOCKERFILE = "deploy/docker/Dockerfile.sglang"
+# Same image/Dockerfile run_tests.sh builds, for this run's target arch.
+IMAGE, DOCKERFILE = engine_image("sglang")
 
 # Prefill's Mooncake bootstrap port (decode connects here to fetch KV).
 _BOOTSTRAP_PORT = "8998"

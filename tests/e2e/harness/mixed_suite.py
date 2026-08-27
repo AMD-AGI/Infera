@@ -21,7 +21,8 @@ __all__ = ["run_mixed_case"]
 
 async def run_mixed_case(params: EngineParams, infera_server, worker) -> None:
     """Shared body: skip unsupported combos, start the server, run the mixed
-    scenario (chat + streaming + counting/capital correctness)."""
+    scenario (chat + streaming + the four correctness probes)."""
+    resources.require_arch()
     resources.require_supported(params)
     resources.require_gpus(params)
 

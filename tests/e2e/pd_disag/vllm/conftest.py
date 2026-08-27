@@ -24,11 +24,11 @@ import json
 
 from ...harness import EngineAdapter, EngineParams
 from ...harness.disagg_fixtures import make_disagg_stack_fixture
+from ...harness.images import engine_image
 from ...harness.params import DisaggRole
 
-# Same image/Dockerfile tag run_tests.sh builds for the vLLM engine.
-IMAGE = "infera/engine-vllm:test-local"
-DOCKERFILE = "deploy/docker/Dockerfile.vllm"
+# Same image/Dockerfile run_tests.sh builds, for this run's target arch.
+IMAGE, DOCKERFILE = engine_image("vllm")
 
 # Mooncake bootstrap TCP port (prefill's BootstrapServer; see vllm/args.py
 # _compute_disagg_meta). Both roles set it; they're on different nodes.

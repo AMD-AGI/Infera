@@ -35,6 +35,10 @@ CASES = [
             ],
             "env": {"ATOM_GPT_OSS_MODEL": "1", "OMP_NUM_THREADS": "1"},
             "server_ready_timeout": 1800,
+            # Same upstream MXFP4 MoE gap as the PD-mixed row; the model cannot
+            # load, so KV transfer never gets a chance to matter. See
+            # tests/e2e/pd_mixed/atom/matrix.py.
+            "gfx942": {"skip": "ATOM's gfx942 MXFP4 MoE path is broken upstream"},
         },
     ],
 ]

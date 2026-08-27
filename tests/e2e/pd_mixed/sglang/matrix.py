@@ -30,6 +30,10 @@ CASES = [
             "env": {"SGLANG_USE_AITER": "1"},
             "server_ready_timeout": 1800,
             "args": ["--attention-backend", "triton"],
+            # gfx942 has no FP4 MFMA, so aiter's CK-tile MXFP4 MoE carries no
+            # instance for it and graph capture dies on an undefined symbol.
+            # Off, the auto runner picks Triton, which dequantizes to bf16.
+            "gfx942": {"env": {"SGLANG_USE_AITER": "0"}},
         },
     ],
     [
@@ -47,6 +51,11 @@ CASES = [
                 '{"enable_multithread_load": true, "num_threads": 8}',
             ],
             "server_ready_timeout": 1800,
+            # MXFP4 on aiter, the pairing gpt-oss above needed turned off here;
+            # whether SGLANG_USE_AITER=0 serves this row too is one run away.
+            # Skip until someone takes it — gfx950's knobs would only fail in a
+            # way nobody has read.
+            "gfx942": {"skip": "Kimi-K2.6 MXFP4 not measured on gfx942 yet"},
         },
     ],
     # DeepSeek-V4-Pro (MoE, tp8): --attention-backend dsv4 selects the DSv4 sparse
@@ -122,6 +131,10 @@ CASES = [
             ],
             "env": {"SGLANG_USE_AITER": "1"},
             "server_ready_timeout": 1800,
+            # fp8 behind SGLang's DSA auto-config, so gpt-oss's MXFP4 findings
+            # do not carry; and this tp4 row has never been fitted against
+            # MI300X's 192 GB per card (MI355X has 288).
+            "gfx942": {"skip": "GLM-5.1-FP8 not measured on gfx942 yet"},
         },
     ],
 ]

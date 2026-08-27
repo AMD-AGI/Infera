@@ -33,6 +33,22 @@ CASES = [
             # "no matching kernel found" and the prefill leg dies. Drop this once a
             # base image carries the instance; aiter stays on for MoE either way.
             "args": ["--mem-fraction-static", "0.9", "--attention-backend", "triton"],
+            # gfx942 has no FP4 MFMA, so aiter's CK-tile MXFP4 MoE carries no
+            # instance for it and graph capture dies on an undefined symbol.
+            # Off, the MoE falls to Triton, which dequantizes to bf16. The
+            # runner is pinned because at ep_size 1 sglang forces gpt-oss onto
+            # triton_kernel, and this image's triton_kernels has no matmul_ogs.
+            "gfx942": {
+                "env": {"SGLANG_USE_AITER": "0"},
+                "args": [
+                    "--mem-fraction-static",
+                    "0.9",
+                    "--attention-backend",
+                    "triton",
+                    "--moe-runner-backend",
+                    "triton",
+                ],
+            },
         },
     ],
 ]

@@ -18,6 +18,7 @@ import os
 
 import pytest
 
+from . import arch
 from .params import EngineParams
 
 
@@ -49,5 +50,15 @@ def require_gpus(params: EngineParams) -> None:
 
 def require_supported(params: EngineParams) -> None:
     """Skip param combinations the harness can't yet honour end-to-end."""
+    if params.skip_reason:
+        pytest.skip(params.skip_reason)
     if params.expert_parallel and not params.is_moe:
         pytest.skip("expert_parallel needs an MoE model (this model is dense)")
+
+
+def require_arch() -> None:
+    """Fail when a declared target arch contradicts the GPU present. Fails rather than
+    skips: the image and knobs came from that declaration, so the run is misconfigured."""
+    problem = arch.check_arch()
+    if problem:
+        pytest.fail(problem, pytrace=False)

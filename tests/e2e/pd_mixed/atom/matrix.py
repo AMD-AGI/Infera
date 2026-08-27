@@ -32,6 +32,12 @@ CASES = [
             ],
             "env": {"ATOM_GPT_OSS_MODEL": "1", "OMP_NUM_THREADS": "1"},
             "server_ready_timeout": 1800,
+            # ATOM intends to support this: it routes gfx94x MXFP4 MoE to its
+            # aiter-triton kernels on purpose (moe.py picks use_triton for
+            # gfx94x, and gfx942 has its own e4m3fnuz/CDNA4-swizzle branches).
+            # No published image makes that path run, though -- see
+            # manual/wip/gfx942-atom-gpt-oss.md for the three tags measured.
+            "gfx942": {"skip": "ATOM's gfx942 MXFP4 MoE path is broken upstream"},
         },
     ],
     [
@@ -44,6 +50,10 @@ CASES = [
             "args": ["--kv_cache_dtype", "fp8", "--trust-remote-code"],
             "env": {"OMP_NUM_THREADS": "1"},
             "server_ready_timeout": 1800,
+            # Another MXFP4 checkpoint, so it likely takes the same gfx942 MoE
+            # route that is broken upstream for gpt-oss above — but nobody has
+            # run it, and ATOM has no runtime knob to steer it either way.
+            "gfx942": {"skip": "Kimi-K2.6 MXFP4 not measured on gfx942 yet"},
         },
     ],
     [
@@ -95,6 +105,10 @@ CASES = [
             "args": ["--kv_cache_dtype", "fp8", "--trust-remote-code"],
             "env": {"OMP_NUM_THREADS": "1", "HSA_NO_SCRATCH_RECLAIM": "1"},
             "server_ready_timeout": 1800,
+            # Not measured on gfx942 in this suite: fp8 sidesteps the MXFP4
+            # breakage that skips gpt-oss above, but this tp4 row has never
+            # been fitted against MI300X's 192 GB per card (MI355X has 288).
+            "gfx942": {"skip": "GLM-5.1-FP8 not measured on gfx942 yet"},
         },
     ],
 ]

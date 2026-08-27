@@ -23,7 +23,7 @@ from collections.abc import Callable
 import pytest
 import pytest_asyncio
 
-from . import cluster
+from . import arch, cluster
 from .adapter import EngineAdapter
 from .launcher import (
     ROUTER_PORT,
@@ -39,9 +39,24 @@ _PREFILL_PORT = 30001
 _DECODE_PORT = 30002
 
 
+def _require_node_arch(pair: tuple[str, str]) -> None:
+    """Fail if a node's GPU is not the arch this run targets. The engine image was built
+    for that arch, so a mismatch means 40 minutes spent producing one that cannot load."""
+    target = arch.target_arch()
+    for node in pair:
+        actual = cluster.node_arch(node)
+        if actual is not None and actual != target:
+            pytest.fail(
+                f"node {node} is {actual} but this run targets {target}; the engine image "
+                f"and launch knobs were both chosen for {target}. Allocate {target} nodes, "
+                f"or set {arch.ARCH_ENV}={actual} and rebuild.",
+                pytrace=False,
+            )
+
+
 def require_disagg_env() -> None:
     """Skip unless we can actually place a 2-node PD stack (SLURM + allocation +
-    >=2 nodes + resolvable node IPs)."""
+    >=2 nodes + resolvable node IPs), all of them on this run's target arch."""
     if not cluster.have_slurm():
         pytest.skip("PD-disaggregation e2e needs SLURM (srun) on PATH")
     # An explicit node pin (INFERA_E2E_NODES, set by run_tests.sh's disagg
@@ -60,6 +75,7 @@ def require_disagg_env() -> None:
             pytest.skip(
                 f"could not resolve a routable IP for node {node} (set INFERA_E2E_NODE_IPS)"
             )
+    _require_node_arch(pair)
 
 
 def make_disagg_stack_fixture(
