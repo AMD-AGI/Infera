@@ -42,6 +42,8 @@ _ARG_TO_FIELD = {
     "cudagraph_mode": "cudagraph_mode",
     "kv_cache_memory_fraction": "kv_cache_memory_fraction",
     "kv_block_size": "kv_block_size",
+    "kv_offload_gb_per_gpu": "kv_offload_gb_per_gpu",
+    "kv_offload_bw_gbps": "kv_offload_bw_gbps",
     "max_num_batched_tokens": "max_num_batched_tokens",
     "ep_load_balance": "ep_load_balance",
     "redundant_experts": "redundant_experts",
@@ -176,6 +178,10 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
         feats.append(f"kv_mem_frac={req.kv_cache_memory_fraction:.2f}")
     if req.kv_block_size:
         feats.append(f"kv_block={req.kv_block_size}")
+    if req.kv_offload_gb_per_gpu:
+        feats.append(
+            f"kv_offload={req.kv_offload_gb_per_gpu:g}GB@{req.kv_offload_bw_gbps:g}GB/s"
+        )
     if req.max_num_batched_tokens:
         feats.append(f"max_batched_tokens={req.max_num_batched_tokens}")
     if req.ep_load_balance and req.ep_load_balance != 1.0:

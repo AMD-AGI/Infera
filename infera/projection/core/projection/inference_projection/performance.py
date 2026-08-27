@@ -1238,6 +1238,21 @@ class InferencePerformanceProjector:
         cached = self._prefix_cached_tokens(input_len)
         new_tokens = input_len - cached
 
+        # A prefix hit the host tier holds is staged back over the host link
+        # instead of being recomputed; what stays in HBM is free. This is the
+        # whole trade offload makes, and it only pays while the link is faster
+        # than re-running the prompt.
+        req = self.cfg.request_config
+        fetch_ms = 0.0
+        if cached and req.kv_offload_gb_per_gpu > 0 and req.kv_offload_bw_gbps > 0:
+            from .kv_cache import estimate_kv_cache
+
+            per_token_gb = estimate_kv_cache(
+                self.cfg, _layers_on_rank(self.cfg), concurrency=1, context_len=1
+            ).bytes_per_token / (1024.0 ** 3)
+            fetched_gb = min(cached * per_token_gb, req.kv_offload_gb_per_gpu)
+            fetch_ms = fetched_gb / req.kv_offload_bw_gbps * 1000.0
+
         # Benchmark-based: use the measured full-prompt prefill step directly.
         if self._measured_mode:
             if self._meas_whole.get("prefill") or self._meas_layer:
@@ -1254,14 +1269,14 @@ class InferencePerformanceProjector:
                 # differ by the batch factor, so a method switch would cliff.
                 if cached:
                     base *= new_tokens / max(1, input_len)
-                return base
+                return base + fetch_ms
 
         chunk = int(self.cfg.request_config.chunked_prefill_size or 0)
         if chunk <= 0 or chunk >= new_tokens:
             # Single forward over the ``new_tokens`` suffix; attention context is
             # the full prompt (``input_len``) since it also reads the cached KV.
             ft = self._forward_times(batch, new_tokens, "prefill", input_len)
-            return ft.total_ms
+            return ft.total_ms + fetch_ms
 
         # Chunked prefill: each chunk attends to all preceding context. The
         # cached prefix is already resident, so chunking starts after it.
@@ -1273,7 +1288,7 @@ class InferencePerformanceProjector:
             ft = self._forward_times(batch, this, "prefill", kv_len)
             total += ft.total_ms
             processed += this
-        return total
+        return total + fetch_ms
 
     # -- decode ----------------------------------------------------------------
 

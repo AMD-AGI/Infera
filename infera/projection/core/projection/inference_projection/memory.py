@@ -101,6 +101,22 @@ def project_inference_memory(
 ) -> InferenceMemoryResult:
     eff_rank = int(os.getenv("RANK", "0")) if rank is None else int(rank)
 
+    # A disaggregated deployment's memory ceiling is the decode pool's -- that is
+    # where the KV cache lives and what caps concurrency. Everything below reads
+    # parallelism off ``model_parallel_config``, so rebinding it once here points
+    # the whole projection at the pool that actually holds the cache. Reporting
+    # the global parallelism instead described a worker nobody runs, and once
+    # per-pool TP existed without a matching global TP it reported a 744B model
+    # as fitting zero sequences.
+    disagg = getattr(inference_config, "disaggregation_config", None)
+    if disagg is not None and disagg.enabled:
+        inference_config = replace(
+            inference_config,
+            model_parallel_config=disagg.decode_parallel(
+                inference_config.model_parallel_config
+            ),
+        )
+
     view = inference_config.as_training_config(
         batch_size=inference_config.request_config.batch_size,
         seq_len=inference_config.request_config.input_seq_len,
@@ -141,6 +157,12 @@ def project_inference_memory(
         fraction = inference_config.request_config.kv_cache_memory_fraction
         usable_bytes = int(hbm_bytes * float(fraction)) if fraction else hbm_bytes
         free_for_kv = usable_bytes - weight_bytes - activation_bytes
+        # Blocks spilled to the host tier still hold a live session's context, so
+        # they raise how many sessions a replica can keep resident even though
+        # the actively-decoding batch stays in HBM. This is why the NVIDIA
+        # AgentX configs all run "dram" offload: agent sessions are idle most of
+        # the time, and idle KV does not need HBM bandwidth.
+        free_for_kv += inference_config.request_config.kv_offload_gb_per_gpu * _GB
         max_conc = max_concurrent_sequences(inference_config, layers_on_rank, free_for_kv)
         fits = total <= usable_bytes
 
@@ -192,5 +214,10 @@ def _print_memory(inference_config: InferenceConfig, r: InferenceMemoryResult) -
                 f"  Usable HBM (frac={req.kv_cache_memory_fraction:.2f}): {usable / _GB:.4f} GB"
             )
         print(f"  Fits:                     {r.fits}")
+        if req.kv_offload_gb_per_gpu:
+            print(
+                f"  Host KV offload:          {req.kv_offload_gb_per_gpu:.1f} GB/GPU "
+                f"@ {req.kv_offload_bw_gbps:.0f} GB/s"
+            )
         print(f"  Max concurrent sequences: {r.max_concurrent_sequences}")
     print("=" * 100)

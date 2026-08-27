@@ -474,6 +474,23 @@ def _add_inference_args(parser):
         "Per-sequence context is rounded up to whole blocks, inflating KV bytes "
         "and lowering max concurrency. Default: 0 (no paging / contiguous).",
     )
+    parser.add_argument(
+        "--kv-offload-gb-per-gpu",
+        type=float,
+        default=None,
+        help="Host DRAM per GPU used as a second KV tier (TRT-LLM native / "
+        "SGLang HiCache 'dram' offload). Holds KV for idle sessions and prefix "
+        "blocks evicted from HBM, raising sustainable concurrency; a prefix hit "
+        "it holds is fetched over the host link instead of recomputed. "
+        "Default: 0 (offload disabled).",
+    )
+    parser.add_argument(
+        "--kv-offload-bw-gbps",
+        type=float,
+        default=None,
+        help="Host<->device bandwidth for the KV offload tier in GB/s. "
+        "PCIe 5 x16 is ~64; Grace-Blackwell NVLink-C2C is ~900. Default: 64.",
+    )
     # ---- Feature B: custom collective ops ----
     coll = parser.add_argument_group("inference collectives (feature B)")
     coll.add_argument(

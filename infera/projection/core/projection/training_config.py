@@ -274,6 +274,16 @@ class InferenceRequestConfig:
     # (continuous/contiguous allocation, legacy behaviour).
     kv_block_size: int = 0
 
+    # Host DRAM per GPU holding KV blocks evicted from HBM (TRT-LLM's native
+    # "dram" offload, SGLang's HiCache). The tier extends how much prefix an
+    # engine can keep cached instead of dropping, and a hit it holds is fetched
+    # back over the host link rather than recomputed. ``0`` disables it.
+    kv_offload_gb_per_gpu: float = 0.0
+    # Host<->device bandwidth for that tier. PCIe 5 x16 is ~64 GB/s; Grace-
+    # Blackwell's NVLink-C2C is ~900, which is what makes host offload cheap
+    # enough on GB300 to run by default.
+    kv_offload_bw_gbps: float = 64.0
+
     # ---- Precision ----
     weight_dtype: str = "bf16"     # weights kept resident (bf16 | fp8 | ...)
     kv_cache_dtype: str = "bf16"   # KV cache precision (bf16 | fp8 | int8 | ...)
