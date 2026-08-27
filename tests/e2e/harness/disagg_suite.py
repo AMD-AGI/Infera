@@ -71,10 +71,9 @@ async def run_disagg_case(params: EngineParams, disagg_stack) -> None:
     # or the engine has no PD adapter yet.
     server = await disagg_stack(params)
 
-    # Correctness only (no standalone chat liveness): assert_correctness passes on
-    # counting (/v1/completions) OR capital (/v1/chat/completions), and its capital
-    # probe is tolerant — so completions-only PD engines (e.g. ATOM) pass on the
-    # counting probe alone while the P->D KV transfer is still exercised end-to-end.
+    # Correctness only (no standalone chat liveness). Its chat-based probes self-report
+    # as not-run on completions-only PD engines (e.g. ATOM), leaving counting and the
+    # long-context retrieval — the latter being what makes the P->D hop move real KV.
     await scenarios.assert_correctness(server["url"], params.model)
 
     # …and that it got there over RDMA, which correctness alone cannot show.
