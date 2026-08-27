@@ -49,14 +49,23 @@ def _tpot(ep: int, batch: int, tp: int = 4) -> float:
 
 @pytest.mark.parametrize("tp", [2, 4, 8])
 def test_expert_parallelism_is_not_ruinous_at_batch_one(tp: int):
-    """Measured cost of turning EP on at batch 1 is 7-11%, not 50-70%.
+    """Turning EP on at batch 1 costs a little, and never a lot.
 
-    The constant floor put the projection at -63% here. Anything approaching
-    that means the fixed term is back.
+    This was briefly bounded above at 10% on Qwen3-Next-80B and MiniMax-M2
+    anchors, which put the net step *faster* with EP on. Those are other models:
+    gpt-oss, which is what this projects, settles it the other way. Its EP-on and
+    EP-off ladders have since been re-measured at three seeds with no forced
+    router skew, so they are the same workload and comparable -- and they put EP
+    at +8.1% (TP2), +10.8% (TP4) and +8.8% (TP8) at batch 1, turning slightly
+    negative by batch 32.
+
+    The purpose of the bound is unchanged -- the constant all-to-all floor put
+    this at +63%, and anything approaching that means the fixed term is back.
     """
     cost = (_tpot(tp, 1, tp=tp) - _tpot(1, 1, tp=tp)) / _tpot(1, 1, tp=tp) * 100.0
     assert 0.0 < cost < 20.0, (
-        f"EP costs {cost:.1f}% at tp{tp} batch 1; measurement says 7-11%"
+        f"EP costs {cost:.1f}% at tp{tp} batch 1; skew-matched measurement on "
+        f"gpt-oss says roughly +8% to +11%"
     )
 
 

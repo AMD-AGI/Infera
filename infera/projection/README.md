@@ -282,14 +282,20 @@ The anchor JSON is engine-neutral (a `"backend"` field plus per-batch
 decode/prefill measurements), so a different harvester can be added without
 touching the projector.
 
-**The confidence ladder.** A 1-GPU anchor cannot observe cross-GPU
-communication (TP all-reduce, EP all-to-all). The ladder climbs the benchmark
-GPU count per recipe until per-GPU decode is flat within ±5% across an adjacent
-pair, which bounds the restore error. A flat pair at rung `g` certifies targets
-up to `2g`, so rungs 1/2/4 certify an 8-GPU target from three cheap runs. The
-ladder stops at 4 GPUs by default; beyond that, results are reported as
-extrapolated (`capped`) rather than certified. Raise
-`INFERASIM_LADDER_MAX_GPUS` when a larger benchmark host is available.
+**How many GPUs a warmup measures on.** A 1-GPU anchor cannot observe cross-GPU
+communication (TP all-reduce, EP all-to-all), so a warmup wants more than one
+GPU — but only up to a point. The rule is a single line: `min(tp, 4)`, stepped
+down to a degree that divides `tp`. There is no sweep and no rung to climb; one
+anchor is measured and the projector restores every target from it.
+
+Four is measured, not assumed. Scoring each degree of a TP1/2/4/8 sweep as the
+anchor for the degrees it did *not* measure, the four-GPU anchor was the best
+single choice at 6.6% — better than the full-node eight-GPU anchor at 7.6%,
+because it interpolates in both directions where an end rung has to
+extrapolate. A second anchor tied or lost against it on every target, which is
+why the multi-anchor path (`--load-benchmark-scaling`) is an escape hatch
+rather than the default. Capping at four also means a warmup never waits on a
+full node.
 
 ### Model prefix reuse
 
@@ -484,7 +490,6 @@ Everything is `INFERASIM_*`. The ones you will actually set:
 | `INFERASIM_GPU_ARCH`                                          | target GPU architecture                    |
 | `INFERASIM_ROOT`                                              | repo/config root override                  |
 | `INFERASIM_ANCHOR_STORE`                                      | directory of measured anchors              |
-| `INFERASIM_LADDER_MAX_GPUS`                                   | confidence-ladder cap (default 4)          |
 | `INFERASIM_SEQ_LENGTH`                                        | default sequence length                    |
 | `INFERASIM_TEAM` / `_USER` / `_EXP_NAME` / `_WORKSPACE` | launcher identity fields                   |
 

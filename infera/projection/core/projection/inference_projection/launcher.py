@@ -371,28 +371,16 @@ def _emit_restore_confidence(anchor_paths, target_gpus: int) -> None:
             return
         best = max(gpus)
         rungs = ",".join(str(g) for g in sorted(set(gpus)))
-        cap_on = os.getenv("INFERASIM_DECODE_ETP_CAP", "0").strip().lower() in ("1", "true", "yes")
         if best * 2 >= target_gpus:
-            # The raw origami restore is trustworthy here, and the ETP cap would
-            # over-correct an anchor this close to the target.
-            note = (" (ETP cap is ON — consider INFERASIM_DECODE_ETP_CAP=0; it can "
-                    "over-correct a near-target anchor)") if cap_on else ""
             print(
                 f"[inferasim:Inference] restore confidence: HIGH — target {target_gpus} GPUs "
-                f"is within one doubling of the {best}-GPU anchor (anchors: {rungs}).{note}"
+                f"is within one doubling of the {best}-GPU anchor (anchors: {rungs})."
             )
         else:
-            stopgap = (
-                " The ETP cap is currently masking this with a blunt, "
-                "model-dependent correction; prefer reporting the extrapolation "
-                "honestly over relying on it."
-                if cap_on else
-                " (ETP cap OFF: expect the raw decode over-projection.)"
-            )
             print(
                 f"[inferasim:Inference] restore confidence: LOW — target {target_gpus} GPUs is "
                 f"more than one doubling above the {best}-GPU anchor (anchors: {rungs}). "
-                f"Treat the number as extrapolated, not measured.{stopgap}"
+                f"Treat the number as extrapolated, not measured."
             )
     except Exception:
         pass

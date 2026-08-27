@@ -178,13 +178,14 @@ transports it to the target recipe by driving the same projector, so the physics
 lives in one place.
 
 A single-GPU anchor cannot observe cross-GPU communication, which is exactly
-the cost that matters at scale. The **confidence ladder** handles this by
-climbing the benchmark GPU count until per-GPU decode is flat within a tolerance
-across an adjacent pair of rungs, bounding the restore error. A flat pair at
-rung `g` certifies targets up to `2g`, so a handful of cheap runs certify a
-full-node target. The ladder is capped by default; targets beyond the top rung
-are still projected but reported as extrapolated rather than certified, which
-keeps the distinction visible instead of silently confident.
+the cost that matters at scale. So a warmup measures on `min(tp, 4)` GPUs —
+enough to see the collectives, cheap enough not to need a full node — and the
+projector restores every target from that one anchor. There is no sweep: four
+was chosen by scoring each degree of a measured TP1/2/4/8 sweep as the anchor
+for the degrees it did not measure, where it won outright, and a second anchor
+never beat it. Targets more than one doubling past their anchor are reported as
+extrapolated rather than restored, which keeps the distinction visible instead
+of silently confident.
 
 ## Multi-engine: fleet behaviour
 

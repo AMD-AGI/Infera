@@ -235,6 +235,18 @@ class AnchorStore:
         if not cands:
             return None, None
 
+        def shards_experts(e: Dict[str, Any]) -> int:
+            """1 if this anchor disagrees with the target on *whether* EP shards.
+
+            Ranked ahead of transport distance rather than folded into it, because
+            it is a different kernel set and not a further degree of the same one:
+            EP>1 issues an all-to-all that EP=1 never runs, so no amount of TP or
+            EP proximity makes up for crossing the line. A weight would have to be
+            larger than every distance the store can produce; an order does not.
+            """
+            ep = (e.get("transport", {}).get("ep") or 1)
+            return int(bool(ep > 1) != bool((recipe.get("ep") or 1) > 1))
+
         def transport_gap(e: Dict[str, Any]) -> float:
             t = e.get("transport", {})
             gap = 0.0
@@ -250,9 +262,14 @@ class AnchorStore:
             return gap
 
         scored = [
-            (regime.regime_distance(recipe, {**e["regime"]}), transport_gap(e), e)
+            (
+                regime.regime_distance(recipe, {**e["regime"]}),
+                shards_experts(e),
+                transport_gap(e),
+                e,
+            )
             for e in cands
         ]
-        scored.sort(key=lambda s: (s[0], s[1]))
+        scored.sort(key=lambda s: (s[0], s[1], s[2]))
         best = scored[0]
-        return best[2], best[0]
+        return best[3], best[0]
