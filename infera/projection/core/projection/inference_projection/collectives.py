@@ -107,6 +107,18 @@ _VLLM_CUSTOM_AR_MAX_BYTES = float(
 # real ranking decisions, which is the one failure mode a search cannot absorb.
 _INFER_A2A_MEASURED_GBPS = {2: (26.59, 57.2), 4: (22.52, 148.3), 8: (18.6, 290.3)}
 
+# The fit above was taken on decode-scale dispatches -- a few MB -- and its
+# bandwidths are a fifth to a half of the node link precisely because messages
+# that small cannot saturate it. Extrapolated to a prefill dispatch, which is
+# tokens x hidden x top-k and reaches 1.6 GB, that small-message bandwidth is no
+# longer a property of the link and charges seconds of all-to-all to a prefill
+# that measures far less. The all-reduce already guards its own fit for the same
+# reason (see ``_VLLM_CUSTOM_AR_MAX_BYTES``); above this size the analytical
+# bandwidth model describes the transfer better than the small-message fit.
+_INFER_A2A_MEASURED_MAX_BYTES = float(
+    os.getenv("INFERASIM_A2A_MEASURED_MAX_MB", "32") or 32
+) * 1024 * 1024
+
 
 def _measured_intra_node_a2a_us(msg_bytes: float, gpus: int) -> float | None:
     """Measured intra-node all-to-all bandwidth term (us), or ``None``.
@@ -120,9 +132,14 @@ def _measured_intra_node_a2a_us(msg_bytes: float, gpus: int) -> float | None:
     ``msg_bytes`` is the whole buffer; only ``(N-1)/N`` of it leaves the device.
     Falls back to the largest measured world size at or below ``gpus`` so an odd
     EP degree still gets a measured shape rather than a training-scale constant.
+    ``None`` also means "past the measured regime": above
+    ``_INFER_A2A_MEASURED_MAX_BYTES`` the caller should use the analytical
+    bandwidth model instead of extrapolating a small-message fit.
     """
     if gpus < 2:
         return 0.0
+    if msg_bytes > _INFER_A2A_MEASURED_MAX_BYTES:
+        return None
     keys = [w for w in sorted(_INFER_A2A_MEASURED_GBPS) if w <= gpus]
     if not keys:
         return None
@@ -281,6 +298,21 @@ class InferenceCollectiveModel:
             cp=self.cp,
             hardware_config=coll_config.hardware_config,
         )
+        # The EP all-to-all is strided by how wide a single expert is split
+        # (``expert_tp = tp // ep``), not by the full TP width. At EP == TP a
+        # rank holds whole experts, so the communicator is ``ep`` adjacent GPUs;
+        # handing the collective model the TP width instead sizes the group at
+        # ``tp * ep`` and prices an intra-node NVLink collective at inter-node
+        # NIC -- or, once that exceeds the pod, at cluster bandwidth.
+        self._a2a_args = get_default_args(
+            num_nodes=nn,
+            gpus_per_node=gpn,
+            tp=max(1, self.tp // self.ep),
+            pp=self.pp,
+            ep=self.ep,
+            cp=self.cp,
+            hardware_config=coll_config.hardware_config,
+        )
 
     # -- TP AllReduce ----------------------------------------------------------
 
@@ -338,18 +370,18 @@ class InferenceCollectiveModel:
         algo = (self.cc.ep_a2a_algo or "auto").lower()
         if algo == "auto":
             # cm.alltoall already includes the fixed RCCL/peer overheads.
-            one = cm.alltoall(self._args, msg, self.ep, groups=["ep"])
+            one = cm.alltoall(self._a2a_args, msg, self.ep, groups=["ep"])
         else:
             if algo == "direct":
-                raw = _min_over_protocols(cm.run_alltoall, self._args, msg, self.ep, ["ep"])
+                raw = _min_over_protocols(cm.run_alltoall, self._a2a_args, msg, self.ep, ["ep"])
             elif algo == "single_shot":
-                raw = _min_over_protocols(cm.single_shot_alltoall, self._args, msg, self.ep, ["ep"])
+                raw = _min_over_protocols(cm.single_shot_alltoall, self._a2a_args, msg, self.ep, ["ep"])
             elif algo == "hierarchical":
-                raw = _min_over_protocols(cm.hierarchical_alltoall, self._args, msg, self.ep, ["ep"])
+                raw = _min_over_protocols(cm.hierarchical_alltoall, self._a2a_args, msg, self.ep, ["ep"])
             else:
-                raw = _min_over_protocols(cm.run_alltoall, self._args, msg, self.ep, ["ep"])
+                raw = _min_over_protocols(cm.run_alltoall, self._a2a_args, msg, self.ep, ["ep"])
             # Forced algorithms must carry the same fixed overhead as ``auto``.
-            one = raw + _alltoall_overhead_us(self._args, self.ep)
+            one = raw + _alltoall_overhead_us(self._a2a_args, self.ep)
         # Small decode messages: swap the training-scale fixed overhead for the
         # measured intra-node latency floor (no-op for large / multi-node msgs).
         one = self._floor_small_msg_overhead(one, msg, self.ep, is_a2a=True)
