@@ -76,13 +76,12 @@ class LoadMetrics:
 
     @property
     def has_latency(self) -> bool:
-        """Whether the window recorded the latencies the corrections need.
+        """Whether the window recorded both policy latency signals.
 
         Both histograms are streaming-only -- a non-streaming reply arrives in
         one piece, so it has no observable first-token boundary -- and ITL
-        additionally needs a reply of at least two tokens. A window that
-        recorded neither leaves both averages at zero, which reads as an
-        infinitely fast deployment rather than an unmeasured one.
+        additionally needs a reply of at least two tokens. Zero means
+        unmeasured here, not infinitely fast.
         """
         return self.ttft > 0 and self.itl > 0
 

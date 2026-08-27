@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: MIT
 ###############################################################################
-"""The sizing result produced by the planner core."""
+"""The reviewable result emitted by one capacity-planning window."""
 
 from __future__ import annotations
 
@@ -12,12 +12,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class ScalingDecision:
-    """Target replica counts for one adjustment interval, plus how we got there.
-
-    The diagnostic fields are what make a decision reviewable after the fact:
-    a correction factor far from 1.0 says the profiling data no longer describes
-    the deployment, which is a different problem from a genuine traffic change.
-    """
+    """Target pool sizes and the measurements that support them."""
 
     num_prefill: int
     num_decode: int
@@ -26,10 +21,9 @@ class ScalingDecision:
     observed_prefill: int = 0
     observed_decode: int = 0
 
-    # actual / profiled latency over the observed window. Prefill is normally
-    # above 1.0 (queueing adds to TTFT); decode should sit near 1.0.
-    prefill_correction: float = 1.0
-    decode_correction: float = 1.0
+    # Observed/profiled latency at the sampled operating point.
+    prefill_latency_ratio: float = 1.0
+    decode_latency_ratio: float = 1.0
 
     num_req: float = 0.0
     isl: float = 0.0
@@ -43,6 +37,7 @@ class ScalingDecision:
         return (
             f"prefill {self.observed_prefill}->{self.num_prefill}, "
             f"decode {self.observed_decode}->{self.num_decode} "
-            f"(corrections p={self.prefill_correction:.3f} d={self.decode_correction:.3f}; "
+            f"(latency ratios p={self.prefill_latency_ratio:.3f} "
+            f"d={self.decode_latency_ratio:.3f}; "
             f"load req={self.num_req:.1f} isl={self.isl:.0f} osl={self.osl:.0f})"
         )

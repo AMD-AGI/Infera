@@ -43,11 +43,11 @@ class PlannerArgs:
 def parse_planner_args(argv: list[str] | None = None) -> PlannerArgs:
     parser = argparse.ArgumentParser(
         prog="python -m infera.planner",
-        description="SLA-based planner: decide how many prefill/decode replicas "
-        "meet the TTFT/ITL targets.",
+        description="Recommend prefill and decode pool sizes from measured capacity "
+        "and TTFT/ITL objectives.",
     )
 
-    sla = parser.add_argument_group("SLA targets")
+    sla = parser.add_argument_group("latency objectives")
     sla.add_argument(
         "--ttft",
         type=float,

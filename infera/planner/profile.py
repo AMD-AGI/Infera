@@ -3,36 +3,16 @@
 #
 # SPDX-License-Identifier: MIT
 ###############################################################################
-"""Offline profiling sweep: ``python -m infera.planner.profile``.
+"""Build an Infera capacity envelope from streamed completion measurements.
 
-The planner cannot invent a performance model. Before the fleet takes traffic,
-this drives **one prefill replica and one decode replica** through a sweep and
-writes the ``profile.json`` that ``python -m infera.planner --profile-results``
-reads.
+Run this command against one replica of each role before production traffic.
+Prompt trials establish the latency and token-rate curve of the prefill role.
+Generation trials hold several requests in flight to sample the decode role at
+different context sizes and KV occupancy levels. The resulting JSON document is
+the planner's hardware-and-model-specific input.
 
-Two sweeps, matching the two things the planner has to predict.
-
-**Prefill** walks a list of prompt lengths, one request at a time so nothing
-queues, and records the TTFT of an unqueued request at each length plus the
-prefill throughput that implies (``isl / ttft``).
-
-**Decode** walks a ``context_length x kv_usage`` grid. KV utilisation is not
-something a client can ask for directly, so it is reached through concurrency:
-holding ``c`` requests of ``L`` tokens each in flight occupies
-``c * L / max_kv_tokens`` of the cache, so the concurrency that lands on a
-target utilisation is ``u * max_kv_tokens / L``. Firing exactly that many
-requests at once and measuring the resulting ITL fills one grid cell, which is
-why the output is a full rectangle rather than scattered samples -- the planner
-interpolates it with numpy alone.
-
-Aggregate decode throughput comes from the steady state rather than from wall
-time: ``c`` requests each emitting one token per ITL sustain ``c / itl``
-tokens/s, which excludes the prefill phase that a wall-time measurement would
-fold in.
-
-Run it against a deployment of exactly one replica per role, and re-run it
-after anything that moves the curves: a different engine version, quantisation,
-tensor-parallel width, or GPU model.
+Repeat the measurement after changing the model, engine build, quantisation,
+parallel width, or accelerator type.
 """
 
 from __future__ import annotations
@@ -179,10 +159,10 @@ class Engine:
         )
 
 
-async def sweep_prefill(
+async def measure_prompt_curve(
     engine: Engine, prompts: PromptFactory, isls: list[int], repeats: int, num_gpu: int
 ) -> dict:
-    """One request at a time at each prompt length, so nothing queues."""
+    """Measure isolated prompt work at each requested length."""
     ttft_ms: list[float] = []
     thpt: list[float] = []
     for isl in isls:
@@ -205,7 +185,21 @@ async def sweep_prefill(
     return {"isl": isls, "ttft_ms": ttft_ms, "thpt_per_gpu": thpt}
 
 
-async def sweep_decode(
+def _requests_for_occupancy(
+    kv_fraction: float,
+    mean_context_tokens: int,
+    max_kv_tokens: int,
+) -> int:
+    """Convert a target occupied fraction into a whole request count."""
+    return max(1, round(kv_fraction * max_kv_tokens / mean_context_tokens))
+
+
+def _prompt_tokens_for_context(mean_context_tokens: int, output_tokens: int) -> int:
+    """Choose a prompt whose generation midpoint lands on the context sample."""
+    return max(16, mean_context_tokens - output_tokens // 2)
+
+
+async def measure_generation_surface(
     engine: Engine,
     prompts: PromptFactory,
     context_lengths: list[int],
@@ -215,21 +209,15 @@ async def sweep_decode(
     max_kv_tokens: int,
     num_gpu: int,
 ) -> dict:
-    """Fill the ``context_length x kv_usage`` grid by driving concurrency.
-
-    A cell at utilisation ``u`` and context length ``L`` is reached by holding
-    ``u * max_kv_tokens / L`` requests in flight. Each request is sized so its
-    mean context length over the generation is ``L``: the model's context axis
-    is ``isl + osl/2``, so the prompt is ``L - osl/2`` tokens long.
-    """
+    """Measure every cell in the requested context/occupancy surface."""
     itl_grid: list[list[float]] = []
     thpt_grid: list[list[float]] = []
     for ctx in context_lengths:
-        isl = max(16, ctx - osl // 2)
+        isl = _prompt_tokens_for_context(ctx, osl)
         itl_row: list[float] = []
         thpt_row: list[float] = []
         for usage in kv_usages:
-            concurrency = max(1, round(usage * max_kv_tokens / ctx))
+            concurrency = _requests_for_occupancy(usage, ctx, max_kv_tokens)
             replies = await asyncio.gather(
                 *(engine.complete(prompts.build(isl), max_tokens=osl) for _ in range(concurrency))
             )
@@ -374,10 +362,10 @@ async def _run(ns: argparse.Namespace) -> None:
     engine = Engine(ns.url, ns.model)
     prompts = PromptFactory(ns.tokenizer or ns.model)
     try:
-        prefill = await sweep_prefill(
+        prefill = await measure_prompt_curve(
             engine, prompts, ns.isl, ns.prefill_repeats, ns.prefill_engine_num_gpu
         )
-        decode = await sweep_decode(
+        decode = await measure_generation_surface(
             engine,
             prompts,
             ns.context_length,
