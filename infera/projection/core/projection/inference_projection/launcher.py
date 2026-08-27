@@ -82,6 +82,8 @@ _DISAGG_ARG_TO_FIELD = {
     "decode_tp": "disagg_decode_tp",
     "decode_pp": "disagg_decode_pp",
     "decode_ep": "disagg_decode_ep",
+    "prefill_attention_dp": "disagg_prefill_attention_dp",
+    "decode_attention_dp": "disagg_decode_attention_dp",
     "prefill_replicas": "disagg_prefill_replicas",
     "decode_replicas": "disagg_decode_replicas",
     "kv_transfer_bw_gbps": "disagg_kv_transfer_bw_gbps",
@@ -262,6 +264,22 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
     print(f"  Per-request decode throughput:   {perf.per_request_decode_tps:.1f} tok/s")
     print(f"  Aggregate decode throughput:     {perf.decode_throughput_tps:.1f} tok/s")
     print(f"  Decode throughput / GPU:         {perf.decode_throughput_tps_per_gpu:.1f} tok/s/gpu")
+    if perf.is_disaggregated:
+        fleet_gpus = (perf.prefill_replica_gpus * int(perf.extras.get("prefill_replicas", 1))
+                      + perf.decode_replica_gpus * int(perf.extras.get("decode_replicas", 1)))
+    else:
+        fleet_gpus = perf.replica_gpus
+    # Billed tokens, not computed ones: a prompt served from the prefix cache is
+    # still charged, so this is what a $/token figure divides into. Prefill and
+    # decode GPUs are both in the denominator, which is what makes it comparable
+    # across P:D ratios that a decode-only figure would rank identically.
+    total_tps = perf.decode_throughput_tps * (
+        req.input_seq_len + req.output_seq_len
+    ) / max(1, req.output_seq_len)
+    print(
+        f"  Total throughput / GPU:          {total_tps / max(1, fleet_gpus):.1f} tok/s/gpu"
+        f"   (in+out over {fleet_gpus} GPU)"
+    )
     print(f"  Prefill throughput:              {perf.prefill_throughput_tps:.1f} tok/s")
     if perf.is_disaggregated:
         print(
@@ -284,15 +302,11 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
     # whole replica's cost divided by what the replica emits -- which is why a
     # recipe is charged for GPUs it needs but does not keep busy.
     if gpu_cost_per_hour:
-        if perf.is_disaggregated:
-            gpus = (perf.prefill_replica_gpus * int(perf.extras.get("prefill_replicas", 1))
-                    + perf.decode_replica_gpus * int(perf.extras.get("decode_replicas", 1)))
-        else:
-            gpus = perf.replica_gpus
+        gpus = fleet_gpus
         out_tps = perf.decode_throughput_tps
         # The same requests carry their prompts, so the blended rate follows
         # from the workload's own input/output mix.
-        all_tps = out_tps * (req.input_seq_len + req.output_seq_len) / max(1, req.output_seq_len)
+        all_tps = total_tps
         print("-" * 100)
         print(f"  {'Cost basis:':<33}${gpu_cost_per_hour:g}/GPU-h x {gpus} GPU")
         for label, tps in (("output", out_tps), ("in+out", all_tps)):

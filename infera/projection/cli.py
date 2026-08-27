@@ -593,6 +593,21 @@ def _add_inference_args(parser):
     dis.add_argument("--decode-pp", type=int, default=None, help="Decode-pool pipeline parallelism.")
     dis.add_argument("--decode-ep", type=int, default=None, help="Decode-pool expert parallelism.")
     dis.add_argument(
+        "--prefill-attention-dp",
+        type=int,
+        default=None,
+        help="Prefill-pool attention-DP degree, overriding --attention-dp-size for "
+        "that pool. Must divide --prefill-tp.",
+    )
+    dis.add_argument(
+        "--decode-attention-dp",
+        type=int,
+        default=None,
+        help="Decode-pool attention-DP degree, overriding --attention-dp-size for "
+        "that pool. Must divide --decode-tp. Deployments commonly run DP attention "
+        "on one pool only, which a single global degree cannot express.",
+    )
+    dis.add_argument(
         "--prefill-replicas", type=int, default=None, help="Number of prefill-pool replicas."
     )
     dis.add_argument(

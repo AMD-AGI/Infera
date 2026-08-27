@@ -252,7 +252,12 @@ class AttentionProfiler(BaseModuleProfiler):
         attn_dp = max(1, getattr(mp, "attention_data_parallel_size", 1) or 1)
         if attn_dp > 1:
             tp_size = max(1, tp_size // attn_dp)
-            batch_size = max(1, batch_size // attn_dp)
+            # Rounded up, matching the KV-cache estimate: a batch that does not
+            # divide evenly leaves some rank holding the extra request, and the
+            # engines pad every rank to the longest one rather than letting a
+            # step finish early. Rounding down charged a batch of 58 over 8 dp
+            # ranks for 7 sequences while memory had already provisioned 8.
+            batch_size = max(1, -(-batch_size // attn_dp))
 
         # Tensor parallelism shards attention *heads*, not tokens: every rank
         # holds the whole token axis and a 1/tp slice of the heads. Dividing the

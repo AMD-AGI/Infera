@@ -822,6 +822,14 @@ class DisaggregationConfig:
     decode_tp: Optional[int] = None
     decode_pp: Optional[int] = None
     decode_ep: Optional[int] = None
+    # Per-pool attention-DP degree. ``None`` falls back to the shared
+    # ``attention_data_parallel_size``. Real disaggregated deployments routinely
+    # differ here -- NVIDIA's GLM-5.2 GB300 configs run DP attention on prefill
+    # and plain TP attention on decode -- and a single global degree cannot
+    # express that, nor a TP4 prefill beside a TP16 decode that each want the
+    # full width. Each degree must divide its own pool's TP.
+    prefill_attention_dp: Optional[int] = None
+    decode_attention_dp: Optional[int] = None
     # Number of replicas in each pool (for aggregate-throughput / GPU split).
     prefill_replicas: int = 1
     decode_replicas: int = 1
@@ -846,10 +854,14 @@ class DisaggregationConfig:
         return _TRANSFER_BACKEND_PRESETS.get(self.transfer_backend, (None, 0.0))[1]
 
     def prefill_parallel(self, mp: ModelParallelConfig) -> "ModelParallelConfig":
-        return _override_parallel(mp, self.prefill_tp, self.prefill_pp, self.prefill_ep)
+        return _override_parallel(
+            mp, self.prefill_tp, self.prefill_pp, self.prefill_ep, self.prefill_attention_dp, "prefill"
+        )
 
     def decode_parallel(self, mp: ModelParallelConfig) -> "ModelParallelConfig":
-        return _override_parallel(mp, self.decode_tp, self.decode_pp, self.decode_ep)
+        return _override_parallel(
+            mp, self.decode_tp, self.decode_pp, self.decode_ep, self.decode_attention_dp, "decode"
+        )
 
 
 # KV-transfer engine presets → (kv_transfer_bw_gbps, kv_transfer_latency_us).
@@ -863,9 +875,14 @@ _TRANSFER_BACKEND_PRESETS = {
 
 
 def _override_parallel(
-    mp: ModelParallelConfig, tp: Optional[int], pp: Optional[int], ep: Optional[int]
+    mp: ModelParallelConfig,
+    tp: Optional[int],
+    pp: Optional[int],
+    ep: Optional[int],
+    attn_dp: Optional[int] = None,
+    pool: str = "pool",
 ) -> ModelParallelConfig:
-    """Return a copy of ``mp`` with TP/PP/EP optionally overridden."""
+    """Return a copy of ``mp`` with TP/PP/EP/attention-DP optionally overridden."""
     from copy import copy
 
     out = copy(mp)
@@ -875,6 +892,14 @@ def _override_parallel(
         out.pipeline_model_parallel_size = int(pp)
     if ep is not None:
         out.expert_model_parallel_size = int(ep)
+    if attn_dp is not None:
+        dp = max(1, int(attn_dp))
+        pool_tp = max(1, out.tensor_model_parallel_size)
+        if pool_tp % dp:
+            raise ValueError(
+                f"{pool}_attention_dp={dp} must divide {pool}_tp={pool_tp}"
+            )
+        out.attention_data_parallel_size = dp
     return out
 
 

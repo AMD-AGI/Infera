@@ -1992,13 +1992,23 @@ class InferencePerformanceProjector:
         )
 
     def _kv_transfer_ms(self, decode_proj: "InferencePerformanceProjector", batch: int, input_len: int) -> float:
-        """KV-cache transfer time prefill→decode worker (per matching rank)."""
+        """KV-cache transfer time prefill→decode worker, for ONE request's KV.
+
+        Both callers are per-request quantities -- the TTFT this handoff delays,
+        and the closed-loop think time, which is one client's round trip. Sizing
+        the transfer at ``concurrency=batch`` charged every request for moving
+        the whole resident batch's KV, which made TTFT scale linearly with
+        concurrency (564 ms at batch 16 to 6813 ms at batch 224 on GLM-5.2 at
+        100k) purely from a handoff that is the same size for each request.
+        Contention between concurrent handoffs belongs in the pool's throughput,
+        not multiplied into one request's first-token latency.
+        """
         from .kv_cache import estimate_kv_cache
 
         disagg = self.cfg.disaggregation_config
         layers_on_rank = _layers_on_rank(decode_proj.cfg)
         kv = estimate_kv_cache(
-            decode_proj.cfg, layers_on_rank, concurrency=batch, context_len=input_len
+            decode_proj.cfg, layers_on_rank, concurrency=1, context_len=input_len
         )
         comm = decode_proj._comm or self._comm
         if comm is None:
@@ -2048,11 +2058,17 @@ class InferencePerformanceProjector:
         # Decode phase on the decode pool (drives ITL + decode throughput).
         # Computed first because the prefill queue below needs the generation
         # span as its think time.
-        decode_total = decode_proj.decode_total_ms(batch, input_len, output_len)
+        # ``batch`` is the system-wide concurrency; each decode replica holds
+        # only its own share, exactly as the prefill queue below divides by
+        # ``prefill_replicas``. Sizing the step at the full batch overstated the
+        # step latency, and then scaling that step's throughput by the replica
+        # count counted the same sequences once per replica.
+        decode_batch = max(1, batch // max(1, disagg.decode_replicas))
+        decode_total = decode_proj.decode_total_ms(decode_batch, input_len, output_len)
         mid_ctx = input_len + output_len // 2
         spec_k = int(req.speculative_num_tokens or 0)
         q_len = (spec_k + 1) if spec_k > 0 else 1
-        step_latency = decode_proj._decode_step_latency_ms(batch, mid_ctx, q_len=q_len)
+        step_latency = decode_proj._decode_step_latency_ms(decode_batch, mid_ctx, q_len=q_len)
 
         # Prefill phase on the prefill pool (drives TTFT + prefill throughput).
         # The pool is dedicated, so a prompt's own service time is an
@@ -2088,15 +2104,36 @@ class InferencePerformanceProjector:
         per_req_decode_tps = (1000.0 / itl) if itl > 0 else 0.0
 
         # Per-replica decode throughput, scaled by the decode-pool replica count.
-        decode_tps_replica = (batch * 1000.0 / step_latency) if step_latency > 0 else 0.0
+        # A speculative step verifies ``spec_k + 1`` tokens and keeps however many
+        # the target accepts, so it emits ``_spec_tokens_per_step()`` tokens rather
+        # than one. ``step_latency`` above is already the longer verify step; without
+        # the matching numerator, turning MTP on lengthened the step, credited no
+        # extra tokens, and reported speculation as a throughput *loss* even as
+        # per-request TPOT improved. The co-located path gets this from the
+        # continuous-batching model's ``system_tps``.
+        decode_tps_replica = (
+            decode_batch * self._spec_tokens_per_step() * 1000.0 / step_latency
+        ) if step_latency > 0 else 0.0
         decode_tps = decode_tps_replica * max(1, disagg.decode_replicas)
+
+        prefill_tps_replica = (batch * input_len * 1000.0 / prefill_full_ms) if prefill_full_ms > 0 else 0.0
+        prefill_tps = prefill_tps_replica * max(1, disagg.prefill_replicas)
+
+        # In steady state the decode pool can only run what the prefill pool
+        # hands it, so the system request rate is the smaller of the two.
+        # Without this an under-provisioned prefill pool reported the decode
+        # pool's unfed ceiling: low prefill:decode ratios came out optimistic
+        # and throughput did not respond to the prefix-cache hit rate at all.
+        if input_len > 0 and output_len > 0:
+            supply = prefill_tps / input_len        # requests/s the prefill pool feeds
+            demand = decode_tps / output_len        # requests/s the decode pool could run
+            if 0.0 < supply < demand:
+                decode_tps = supply * output_len
+
         decode_replica_gpus = _replica_gpus(decode_cfg)
         prefill_replica_gpus = _replica_gpus(prefill_cfg)
         total_decode_gpus = decode_replica_gpus * max(1, disagg.decode_replicas)
         decode_tps_per_gpu = decode_tps / total_decode_gpus if total_decode_gpus else 0.0
-
-        prefill_tps_replica = (batch * input_len * 1000.0 / prefill_full_ms) if prefill_full_ms > 0 else 0.0
-        prefill_tps = prefill_tps_replica * max(1, disagg.prefill_replicas)
 
         extras = {"speculative_tokens_per_step": self._spec_tokens_per_step()}
         extras.update(decode_proj._comm_extras(batch, input_len, output_len, prefill_batch=1))

@@ -44,7 +44,11 @@ def test_prompt_tokens_are_carried_by_the_same_requests():
     out = project_spec(gpu_cost_per_hour=PRICE, input_len=3072, output_len=1024)
     costs = _costs(out["report"])
     # Four tokens billed for every one emitted, so the blended basis is a quarter.
-    assert costs["in+out"] == pytest.approx(costs["output"] / 4.0, rel=1e-3)
+    # Tolerance follows the report's own precision rather than the arithmetic:
+    # both figures are parsed back from three printed decimals, so near $0.2 a
+    # single rounding step is already 0.24% and a ratio of two of them twice
+    # that. The underlying relationship is exact.
+    assert costs["in+out"] == pytest.approx(costs["output"] / 4.0, rel=6e-3)
 
 
 def test_nothing_is_priced_without_a_price():
