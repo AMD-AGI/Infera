@@ -13,16 +13,37 @@ replicas behind a load balancer; they share one fleet view.
 |---|---|
 | `POST /v1/chat/completions` | chat-style requests (messages array) |
 | `POST /v1/completions` | text-completion requests (raw prompt) |
+| `POST /v1/responses` | OpenAI Responses API — the wire protocol the Codex CLI/SDK speaks by default (**`--router-backend rust` only**) |
 | `GET /v1/models` | list the served model(s) — used by OpenAI clients and readiness checks |
 
 These match the OpenAI schema, so any OpenAI client library works — point its
 `base_url` at `http://<server>:8000/v1`.
+
+```{admonition} /v1/responses: rust backend, stateless calls
+:class: warning
+The two backends serve different extra protocols. `--router-backend rust` has
+`/v1/responses`; `--router-backend python` has `/v1/messages` (below). Neither has both.
+
+**Send `store: false`.** SGLang keeps Responses state in a **per-process** dict, so
+`previous_response_id`, `GET /v1/responses/{id}` and `POST /v1/responses/{id}/cancel`
+only resolve when the follow-up request happens to land on the same worker — behind a
+router they cannot be routed, and the retrieve/cancel sub-routes are not exposed.
+
+Two more limits. Responses bodies carry `input` rather than `messages`, which the
+kv-aware prefix hasher has no renderer for, so these requests route on **load** rather
+than on cache affinity. And under PD the engine must carry
+`deploy/docker/patches/sglang_disagg/patch_responses_pd_bootstrap.py` — stock SGLang
+drops the bootstrap fields on this endpoint and answers `400 ... without bootstrap room
+id`.
+```
 
 ### Anthropic Messages API
 
 | Endpoint | Use |
 |---|---|
 | `POST /v1/messages` | Anthropic-compatible chat (system blocks, tool use, streaming) |
+
+Served by `--router-backend python` only; the Rust backend has `/v1/responses` instead.
 
 The server also speaks the **Anthropic Messages API** via a translation layer —
 point an Anthropic client's `ANTHROPIC_BASE_URL` at `http://<server>:8000` and it

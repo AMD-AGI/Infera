@@ -14,6 +14,11 @@ from sglang.srt.server_args import ServerArgs
 
 logger = logging.getLogger(__name__)
 
+#: SGLang's opt-in for a radix prefix cache on a PD *decode* leg. Without it the
+#: decode leg runs ``ChunkCache``, which keeps no radix tree -- and therefore
+#: publishes no ``BlockStored`` chain and no ``AllBlocksCleared``.
+_DECODE_RADIX_CACHE_FLAG = "--disaggregation-decode-enable-radix-cache"
+
 
 @dataclass(kw_only=True)
 class SglangWorkerArgs:
@@ -250,33 +255,6 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
     ServerArgs.add_cli_args(sglang_parser)
     sglang_parsed = sglang_parser.parse_args(remaining)
 
-    # When KV events are on, enable the decode-side prefix radix cache so the
-    # router can steer repeats to the rank holding the prefix and prefill only
-    # transfers the delta. SGLang's flag defaults off; append it to the forwarded
-    # argv so the launch_server subprocess (which is what re-parses these) gets it.
-    # SGLang only accepts this flag with the mooncake transfer backend; with mori
-    # (or nixl in our stack) it aborts, so gate the append on the backend.
-    if (
-        known.enable_kv_events
-        and sglang_parsed.disaggregation_mode == "decode"
-        and getattr(sglang_parsed, "disaggregation_transfer_backend", None) == "mooncake"
-        and "--disaggregation-decode-enable-radix-cache" not in remaining
-    ):
-        # SGLang rejects this flag under speculative decoding, so appending it
-        # kills an EAGLE/MTP decode leg at parse time. Skipping it costs only the
-        # decode-side KV view; prefix-aware routing runs on the prefill one.
-        if getattr(sglang_parsed, "speculative_algorithm", None) is not None:
-            logger.info(
-                "kv-events on, but --disaggregation-decode-enable-radix-cache is "
-                "incompatible with --speculative-algorithm %s; not appending it. "
-                "The decode leg will use SGLang's chunk cache and contribute "
-                "little to the router KV view; prefix-aware routing runs on the "
-                "prefill-side view.",
-                sglang_parsed.speculative_algorithm,
-            )
-        else:
-            remaining.append("--disaggregation-decode-enable-radix-cache")
-
     # infera product default: fp8 KV cache (fp8_e4m3) unless the operator passed
     # --kv-cache-dtype explicitly. fp8 halves the KV footprint -> ~2x the KV that
     # fits in VRAM and halves PD KV-transfer + RDMA memory-registration volume
@@ -306,6 +284,56 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
 
     warn_if_hicache_prefetch_disabled(server_args)
 
+    # When KV events are on, enable the decode-side prefix radix cache so the
+    # router can steer repeats to the rank holding the prefix and prefill only
+    # transfers the delta. SGLang's flag defaults off; append it to the forwarded
+    # argv so the launch_server subprocess (which is what re-parses these) gets it.
+    # SGLang only accepts this flag with the mooncake transfer backend; with mori
+    # (or nixl in our stack) it aborts, so gate the append on the backend.
+    #
+    # Placed after ServerArgs.from_cli_args because the hybrid check below needs a
+    # resolved ModelConfig, and `server_args.get_model_config()` memoises the one
+    # __post_init__ already built -- reaching for it here costs nothing, whereas
+    # constructing a second ModelConfig from the raw namespace would be both
+    # wasteful and subtly different. Appending to `remaining` this late is still
+    # correct: `sglang_parsed` was parsed from it back at the top, so the append
+    # has only ever affected the forwarded argv, never our own server_args.
+    if (
+        known.enable_kv_events
+        and sglang_parsed.disaggregation_mode == "decode"
+        and getattr(sglang_parsed, "disaggregation_transfer_backend", None) == "mooncake"
+        and _DECODE_RADIX_CACHE_FLAG not in remaining
+    ):
+        # SGLang rejects this flag under speculative decoding, so appending it
+        # kills an EAGLE/MTP decode leg at parse time. Skipping it costs only the
+        # decode-side KV view; prefix-aware routing runs on the prefill one.
+        if getattr(sglang_parsed, "speculative_algorithm", None) is not None:
+            logger.info(
+                "kv-events on, but --disaggregation-decode-enable-radix-cache is "
+                "incompatible with --speculative-algorithm %s; not appending it. "
+                "The decode leg will use SGLang's chunk cache and contribute "
+                "little to the router KV view; prefix-aware routing runs on the "
+                "prefill-side view.",
+                sglang_parsed.speculative_algorithm,
+            )
+        else:
+            # Same story for the rest of SGLang's rejection set, the hybrid
+            # SWA/SSM half of which bites much later and much harder -- which is
+            # why it gets its own guard rather than a line in the one above.
+            # See _decode_radix_cache_unsupported_reason.
+            reason = _decode_radix_cache_unsupported_reason(server_args)
+            if reason is not None:
+                logger.info(
+                    "kv-events on, but --disaggregation-decode-enable-radix-cache "
+                    "is incompatible with %s; not appending it. The decode leg "
+                    "will use SGLang's chunk cache and contribute little to the "
+                    "router KV view; prefix-aware routing runs on the "
+                    "prefill-side view.",
+                    reason,
+                )
+            else:
+                remaining.append(_DECODE_RADIX_CACHE_FLAG)
+
     return SglangWorkerArgs(
         server_args=server_args,
         discovery_backend=known.discovery_backend,
@@ -332,6 +360,185 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
         nats_server=known.nats_server,
         infera_kvd_socket=known.infera_kvd_socket,
     )
+
+
+def no_clear_event_reason(args: SglangWorkerArgs) -> str | None:
+    """Why flushing this engine's cache cannot re-anchor its KV-event chain.
+
+    Returns a short reason, or None when a flush does re-anchor.
+
+    ``infera/engine/flush.py`` repairs a chain by flushing and then *waiting for
+    the resulting* ``AllBlocksCleared`` -- waiting on the observation rather
+    than on its own POST is the whole point, because a flush issued before the
+    relay's subscription attached is lost the same way the anchor was. But that
+    wait only terminates against an engine that emits the event at all.
+
+    A PD decode leg without :data:`_DECODE_RADIX_CACHE_FLAG` runs SGLang's
+    ``ChunkCache``, whose ``reset()`` is ``pass``. ``/flush_cache`` still answers
+    **200** -- the scheduler accepted it, there was simply no radix tree to
+    clear -- so nothing distinguishes it from a successful flush except the
+    event that never comes. Unasked, the loop spends its full budget (~10s with
+    the defaults) on the startup path, immediately before ``register()``, and
+    then warns that "the router's chain has no anchor" about a leg that has no
+    chain to anchor and never had one.
+
+    This is not a corner case here: the guard a few lines up refuses that same
+    flag for hybrid SWA/SSM models, which makes ChunkCache the *normal* decode
+    leg for Kimi-K3 and everything else in that family.
+
+    A decode leg is not the only way onto ChunkCache, though it is the one that
+    prompted this. ``--disable-radix-cache`` puts an aggregated or prefill
+    worker on the same cache, with the same silent 200 and the same lost budget.
+
+    For a decode leg, read off ``sglang_argv`` rather than ``server_args``: the
+    append happens after ``ServerArgs.from_cli_args``, and SGLang's
+    ``pd_disaggregation_hook`` has by then already set
+    ``server_args.disable_radix_cache = True`` for *every* decode leg, including
+    the ones we are about to hand the flag to. Reading that attribute in decode
+    mode answers "ChunkCache" for a leg that will run a radix cache. The
+    forwarded argv is what ``launch_server`` actually parses, and is the only
+    honest source here. Outside decode mode the hook leaves the attribute alone,
+    so there it *is* the operator's own setting.
+
+    One residual, deliberately not covered: ``kv_cache_builder.py`` also forces
+    ChunkCache for a multimodal model on the Transformers backend, which no
+    argument announces. Detecting it means loading the model config, and this
+    function has no failure path -- unlike
+    ``_decode_radix_cache_unsupported_reason``, which needs one anyway. The cost
+    of missing it is one wasted startup budget and one confusing line, not a
+    crash, which is not worth a new way for argv parsing to fail.
+    """
+    sa = args.server_args
+    if sa.disaggregation_mode == "decode":
+        if _DECODE_RADIX_CACHE_FLAG in args.sglang_argv:
+            return None
+        return (
+            "this PD decode leg runs SGLang's ChunkCache "
+            f"({_DECODE_RADIX_CACHE_FLAG} is not set), which keeps no radix tree "
+            "and emits no AllBlocksCleared -- /flush_cache would answer 200 and "
+            "publish nothing"
+        )
+    if sa.disable_radix_cache:
+        return (
+            "--disable-radix-cache puts this worker on SGLang's ChunkCache, "
+            "which keeps no radix tree and emits no AllBlocksCleared -- "
+            "/flush_cache would answer 200 and publish nothing"
+        )
+    return None
+
+
+def _decode_radix_cache_unsupported_reason(server_args) -> str | None:
+    """Why SGLang would reject ``--disaggregation-decode-enable-radix-cache``.
+
+    Returns a short reason ("Mamba/SSM models", "--enable-hisparse"), or None
+    when this decode leg accepts the flag. Callers may assume decode mode: the
+    only caller is already inside that branch, and every rejection below is one
+    SGLang raises only for a decode leg.
+
+    Two sites reject the flag, and they differ in *when*.
+
+    ``arg_groups/pd_disaggregation_hook.py`` rejects at argument-resolution
+    time, before any weight is loaded: ``--enable-hisparse``, and ``dcp_size >
+    1`` (PD decode DCP is chunk-cache only). Those are cheap to hit but still
+    worth pre-empting, because the ValueError names a flag the operator never
+    passed -- infera appended it -- so the obvious fix, deleting it from their
+    config, is a flag they cannot find.
+
+    ``mem_cache/kv_cache_builder.py`` rejects a hybrid SWA or SSM model: those
+    keep their state in specialised pools that the prefix-match-and-lock
+    allocation path cannot address. Two things make *that* raise worth
+    pre-empting:
+
+    * it fires inside ``build_kv_cache``, i.e. *after* the weights are loaded,
+      so each wrong answer costs ~2.5 minutes and shows up as a decode leg that
+      dies long after startup looked healthy;
+    * the flag is one *we* appended, not one the operator asked for, so the
+      resulting ValueError names a flag that appears nowhere in their config.
+
+    Kimi-K3 (hybrid SSM / KDA linear attention) hit exactly this; it took four
+    deployments to find, and the workaround was to hand-write
+    ``--no-enable-kv-events`` on every decode leg -- which also switched off the
+    KV events themselves, a much bigger hammer than the problem needed.
+
+    The predicates are deliberately SGLang's own rather than an architecture
+    list of ours. That list grows every release and a stale copy fails in both
+    directions: miss a newly-added hybrid arch and the late crash is back, match
+    too eagerly and the decode-side KV view disappears with nothing to show why.
+    Mirrors ``kv_cache_builder.py`` -- ``is_hybrid_swa`` there reads
+    ``tp_worker.is_hybrid_swa``, which is ``model_config.is_hybrid_swa``, the
+    same attribute read here.
+
+    Two rejections in the hook are deliberately *not* mirrored:
+    ``--disaggregation-transfer-backend fake`` is unreachable, because the
+    append is already gated on that backend being ``mooncake``; and
+    ``speculative_algorithm`` has its own guard at the call site, which can name
+    the algorithm in its message.
+
+    Never raises: a model whose config cannot be read here fails for real a few
+    lines later when the engine starts, and refusing to launch over a *warning
+    path* would be worse than the crash it is meant to avoid.
+    """
+    # Above the try, and read off `server_args` rather than the model config:
+    # these two need neither, so a config that cannot be read must not swallow
+    # them into the "appending it as before" fallback below.
+    #
+    # getattr with a default because both flags postdate some SGLang releases we
+    # still run against; on one that lacks them, there is no rejection to
+    # pre-empt.
+    if getattr(server_args, "enable_hisparse", False):
+        return "--enable-hisparse"
+    if getattr(server_args, "dcp_size", 1) > 1:
+        return "--dcp-size > 1 (PD decode DCP requires chunk cache)"
+
+    try:
+        # Inside the try on purpose: `hybrid_arch` is a private SGLang module and
+        # its contents move between releases, so an ImportError here is exactly
+        # the "cannot read the config" case the docstring promises to survive.
+        # Importing above the try would raise it at the caller instead.
+        from sglang.srt.configs.hybrid_arch import (
+            hybrid_gdn_config,
+            hybrid_lightning_config,
+            kimi_linear_config,
+            linear_attn_model_spec,
+            mamba2_config,
+        )
+
+        model_config = server_args.get_model_config()
+
+        if model_config.is_hybrid_swa:
+            return "sliding window attention (SWA) models"
+
+        spec = linear_attn_model_spec(model_config)
+        if (
+            (spec is not None and spec.uses_mamba_radix_cache)
+            or hybrid_gdn_config(model_config) is not None
+            or mamba2_config(model_config) is not None
+            or kimi_linear_config(model_config) is not None
+            or hybrid_lightning_config(model_config) is not None
+        ):
+            return "Mamba/SSM models"
+    except Exception:  # noqa: BLE001 - see the docstring's last paragraph
+        # The lever named here is deliberately not the radix-cache flag itself.
+        # Passing that explicitly is a force-*on*: the append is gated on it
+        # being absent from the forwarded argv, so an operator who passes it
+        # sends it straight to SGLang and gets the exact ValueError this warning
+        # is about. --no-enable-kv-events is the one switch that suppresses the
+        # append, at the cost of the decode-side KV view -- which is what the
+        # guard would have given up anyway had it been able to read the config.
+        logger.warning(
+            "could not determine whether this model supports "
+            "--disaggregation-decode-enable-radix-cache; appending it as before. "
+            "If the decode leg dies in build_kv_cache with an 'incompatible "
+            "with Mamba/SSM models' or 'with sliding window attention (SWA) "
+            "models' ValueError, this model is one of those: relaunch the decode "
+            "leg with --no-enable-kv-events. Passing "
+            "--disaggregation-decode-enable-radix-cache explicitly will not help "
+            "-- infera reads it as a request to force the flag on, and forwards "
+            "it.",
+            exc_info=True,
+        )
+
+    return None
 
 
 # `warn_if_hicache_prefetch_disabled` lives in

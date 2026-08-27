@@ -41,6 +41,7 @@ pub fn app(state: AppState) -> Router {
     Router::new()
         .route("/v1/chat/completions", post(chat))
         .route("/v1/completions", post(completions))
+        .route("/v1/responses", post(responses))
         .route("/health", get(health))
         .route("/v1/workers", get(workers))
         .route("/v1/models", get(models))
@@ -58,6 +59,18 @@ async fn chat(State(st): State<AppState>, body: Bytes) -> Response {
 
 async fn completions(State(st): State<AppState>, body: Bytes) -> Response {
     proxy::dispatch(&st, body, "/v1/completions").await
+}
+
+/// OpenAI Responses API — the wire protocol the Codex CLI/SDK speaks by default.
+///
+/// Stateless calls only. SGLang keeps `store`/`previous_response_id` state in a
+/// per-process dict (`serving_responses.py`'s `response_store`), so the
+/// retrieve/cancel sub-routes and conversation continuation cannot be routed
+/// across a fleet; clients should send `store: false`. kv-aware also has no
+/// renderer for a Responses body's `input` field, so these requests route on
+/// load — see `block_hasher::BlockHasher::render_text`.
+async fn responses(State(st): State<AppState>, body: Bytes) -> Response {
+    proxy::dispatch(&st, body, "/v1/responses").await
 }
 
 async fn health(State(st): State<AppState>) -> impl IntoResponse {

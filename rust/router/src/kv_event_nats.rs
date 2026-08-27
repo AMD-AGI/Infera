@@ -18,9 +18,13 @@
 //!   so a router that joined after a worker had already cached prefixes would
 //!   build an empty view from live deltas alone.
 //! * **The KV bucket** is a cold-start shortcut holding each worker's current
-//!   view. It only ever seeds a rank that has no incremental view yet, and an
-//!   empty snapshot is never applied -- a relay that desynced can publish one,
-//!   and applying it would wipe a good view and collapse cache hits to zero.
+//!   view. It only ever seeds a rank that has no incremental view of its own,
+//!   and on those ranks it is authoritative in both directions: an empty
+//!   snapshot retracts the view, because a rank the relay has just seen
+//!   flushed holds nothing and reporting the pre-flush blocks as cached would
+//!   steer prompts at the one worker that had thrown them away. A view built
+//!   from the ordered stream is out of the bucket's reach either way -- see
+//!   `seed_rank_view`.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -348,26 +352,36 @@ mod tests {
     }
 
     #[test]
-    fn an_empty_bucket_snapshot_never_wipes_a_view() {
-        // A relay that desynced can publish an empty view. Applying it would
-        // clear a view built from the ordered stream, and cache hits would
-        // collapse to zero with nothing in the logs to explain it.
+    fn an_empty_bucket_snapshot_retracts_a_view_the_bucket_owns() {
+        // This rank has resolved nothing of its own, so the bucket is its only
+        // source and the relay writing `[]` is news: the worker just flushed,
+        // or restarted. Ignoring it left the router reporting the pre-flush
+        // blocks as cached and steering prompts at the one worker that had
+        // certainly thrown them away.
+        //
+        // A view built from the ordered stream is a different matter and is
+        // never walked over; that half lives in `kv_event`, next to the
+        // `applied` counter it turns on.
         let c = tracked_client(16);
         c.seed_rank_view("w1", 0, vec![1, 2, 3]);
         assert_eq!(c.total_blocks("w1"), 3);
 
         c.seed_rank_view("w1", 0, vec![]);
-        assert_eq!(c.total_blocks("w1"), 3, "an empty snapshot must be ignored");
+        assert_eq!(c.total_blocks("w1"), 0, "the flush must be reflected");
     }
 
     #[test]
-    fn the_bucket_does_not_overwrite_an_existing_view() {
-        // The stream is authoritative and ordered; the bucket is only a
-        // cold-start shortcut, so it seeds and never corrects.
+    fn the_bucket_keeps_refreshing_a_rank_whose_chain_never_anchored() {
+        // The ordered stream is authoritative where it works, and a rank that
+        // has resolved even one event keeps the view it built (covered in
+        // `kv_event`, which can feed the stream). This rank has resolved
+        // nothing -- a cold router against a rolled JetStream -- so the bucket
+        // is the only current source it has, and freezing the first snapshot
+        // would leave it routing on a view that only drifts.
         let c = tracked_client(16);
         c.seed_rank_view("w1", 0, vec![1, 2, 3]);
         c.seed_rank_view("w1", 0, vec![9]);
-        assert_eq!(c.total_blocks("w1"), 3);
+        assert_eq!(c.total_blocks("w1"), 1);
     }
 
     #[test]

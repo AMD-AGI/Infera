@@ -12,6 +12,7 @@
 //! `infera.router.policy.kv_event_aware`).
 
 use std::collections::{HashMap, VecDeque};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -172,6 +173,17 @@ const RECENT_DECAY: f64 = 0.97;
 /// infera/router/policy/kv_event_aware.py.
 const UNKNOWN_COST_BLOCKS: f64 = 1.0;
 
+/// Consecutive picks that ask for blocks and find none before the policy says
+/// so. Any single miss is ordinary -- a genuinely new prefix has to land
+/// somewhere -- and only the run length separates that from a kv-event feed
+/// that stopped working. Sized to fire inside one benchmark rather than one
+/// shift, while staying quiet through a burst of unique prompts.
+const ZERO_HIT_ALARM: u64 = 64;
+
+/// Repeat interval after the first alarm, so a feed that stays broken keeps
+/// saying so without one line per request.
+const ZERO_HIT_ALARM_REPEAT: u64 = 1024;
+
 /// Pick the worker minimising
 ///   `cost(w) = w_overlap * (request_blocks - hits(w)) + load(w)`
 ///   `load(w) = active_blocks(w) + recent_blocks(w)`
@@ -194,6 +206,13 @@ pub struct KvEventAwarePolicy {
     // affinity: a request whose image a worker already holds costs less there,
     // co-locating repeat images onto the worker with the warm vision cache.
     mm_affinity: Mutex<HashMap<String, VecDeque<u64>>>,
+    /// Consecutive picks that requested blocks and found none on the winner.
+    /// Per request, a dead event feed and a workload of unique prompts look
+    /// identical; the streak is the only thing that tells them apart.
+    zero_hit_streak: AtomicU64,
+    /// Where to send "this worker's chain needs a cache flush" requests. `None`
+    /// leaves the router purely observational, which is what the tests want.
+    flush_tx: Option<crate::kv_selfheal::FlushRequests>,
 }
 
 impl KvEventAwarePolicy {
@@ -213,6 +232,104 @@ impl KvEventAwarePolicy {
             active: Mutex::new(HashMap::new()),
             recent: Mutex::new(HashMap::new()),
             mm_affinity: Mutex::new(HashMap::new()),
+            zero_hit_streak: AtomicU64::new(0),
+            flush_tx: None,
+        }
+    }
+
+    /// Let the policy repair a worker whose kv-event chain never anchored, by
+    /// asking it to flush its prefix cache. Builder rather than a constructor
+    /// argument: every existing caller wants the observational default.
+    pub fn with_self_heal(mut self, tx: crate::kv_selfheal::FlushRequests) -> Self {
+        self.flush_tx = Some(tx);
+        self
+    }
+
+    /// Watch for kv-aware having gone blind, and name which way it went.
+    ///
+    /// Two failures produce the same zero-hit picks and need opposite fixes, so
+    /// the view size decides between them: an empty view means no events are
+    /// being applied at all (a dead feed -- the router never sees the cache),
+    /// while a populated one means events arrive but the router's own hashes
+    /// never match them (its tokenisation or block size disagrees with the
+    /// engine's). Neither shows up in `/health`, request latency, or error
+    /// rate; without this the only symptom is a routing decision nobody reads.
+    ///
+    /// `overlap_steered` says whether this pick was actually made on text
+    /// prefix overlap. When it was not, a zero-hit result is the expected
+    /// outcome rather than a symptom, and must not reach the counter.
+    fn note_hit_outcome(
+        &self,
+        picked: &RouteTarget,
+        blocks: usize,
+        hits: usize,
+        overlap_steered: bool,
+    ) {
+        // Ahead of every return in this function, not merely ahead of the
+        // alarm. The ask is armed by the event feed, so no property of this
+        // pick bears on whether it should be delivered -- while the returns
+        // below select for precisely the picks a broken worker does not
+        // produce. `hits > 0` is the sharp one: a worker whose stale seeded
+        // view still matches a hot shared prefix reports hits on every
+        // request, so its repair would sit armed and never be handed to
+        // anyone. `blocks == 0` costs the same way on a fleet serving only
+        // vision traffic. And `zero_hit_streak` cannot stand in for either: it
+        // is one counter for the whole fleet, reset by a hit on any worker, so
+        // a fleet where one chain is dead and another is healthy never reaches
+        // the alarm -- exactly the case the self-heal exists for.
+        //
+        // The lock is not new cost on the pick path: `pick` already takes this
+        // mutex once per candidate to score it, and twice more for the winner.
+        if let Some(tx) = &self.flush_tx {
+            if self.kv.take_flush_request(&picked.worker.worker_id) {
+                tx.request(&picked.worker);
+            }
+        }
+
+        if blocks == 0 {
+            return; // nothing could have hit; says nothing either way
+        }
+        if hits > 0 {
+            let prev = self.zero_hit_streak.swap(0, Ordering::Relaxed);
+            if prev >= ZERO_HIT_ALARM {
+                tracing::info!(after_misses = prev, "kv-aware: cache locality recovered");
+            }
+            return;
+        }
+
+        // A multimodal pick is not steered by text overlap: `pick` zeroes
+        // `w_overlap` for it, precisely because the text hasher cannot
+        // reproduce the engine's image blocks (sglang substitutes pad-values,
+        // vLLM folds in extra-keys). Its miss is therefore the designed
+        // outcome, not evidence -- counting it made a healthy vision fleet
+        // trip "kv event feed is not being applied" at 64 requests and then
+        // repeat it forever, pointing at a feed that was fine.
+        if !overlap_steered {
+            return;
+        }
+
+        let streak = self.zero_hit_streak.fetch_add(1, Ordering::Relaxed) + 1;
+        if streak != ZERO_HIT_ALARM && !streak.is_multiple_of(ZERO_HIT_ALARM_REPEAT) {
+            return;
+        }
+        let indexed = self.kv.total_blocks(&picked.worker.worker_id);
+        if indexed == 0 {
+            tracing::warn!(
+                streak,
+                worker = %picked.route_key(),
+                "kv-aware: consecutive picks found no cached prefix and the router \
+                 holds no blocks for this worker -- its kv event feed is not being \
+                 applied, so routing has degenerated to load-only"
+            );
+        } else {
+            tracing::warn!(
+                streak,
+                worker = %picked.route_key(),
+                indexed_blocks = indexed,
+                "kv-aware: consecutive picks found no cached prefix even though the \
+                 router holds blocks for this worker -- request hashing disagrees \
+                 with the engine's (tokeniser or block size)"
+            );
         }
     }
 
@@ -416,6 +533,7 @@ impl Policy for KvEventAwarePolicy {
             mm_affinity_hits = mm_matched,
             "pick"
         );
+        self.note_hit_outcome(&picked, blocks.len(), hits, w_overlap > 0.0);
         Pick {
             target: picked,
             blocks,
@@ -498,6 +616,198 @@ mod tests {
             }))
             .unwrap(),
         )
+    }
+
+    /// The router asks the worker to repair itself, rather than only logging.
+    ///
+    /// This is the glue the ZMQ transport depends on: there, the router
+    /// subscribes only after the worker registers, so the rooted event is
+    /// always already gone and no worker-side flush can help. Detection happens
+    /// under the view mutex on a runtime-less thread and so cannot do the POST
+    /// itself; this is the handoff that carries it to somewhere that can.
+    #[test]
+    fn a_worker_whose_chain_never_anchored_is_asked_to_flush() {
+        use rmpv::Value as Mv;
+
+        let kv = Arc::new(KvEventClient::nats_fed());
+        let cands = vec![worker("a", 16, None)];
+        kv.on_worker_added(&cands[0]);
+
+        let (tx, mut rx) = crate::kv_selfheal::channel();
+        let pol = KvEventAwarePolicy::new(kv.clone(), BlockHasher::disabled(), 20.0, None, None)
+            .with_self_heal(tx);
+
+        // An event naming a parent this router never saw -- what a worker that
+        // warmed up before anyone subscribed emits for the rest of its life.
+        let orphan = Mv::Array(vec![
+            Mv::String("BlockStored".into()),
+            Mv::Array(vec![Mv::from(11u64)]),
+            Mv::from(999u64),
+            Mv::Array((1..=16u32).map(Mv::from).collect()),
+            Mv::from(16i64),
+            Mv::Nil,
+        ]);
+        let mut payload = Vec::new();
+        rmpv::encode::write_value(
+            &mut payload,
+            &Mv::Array(vec![Mv::from(1.0), Mv::Array(vec![orphan])]),
+        )
+        .unwrap();
+        kv.apply_encoded_batch("a", 0, &payload);
+
+        // A pick that wanted blocks and found none: the moment the router has
+        // both the evidence and the worker's address in hand.
+        let targets = expand_targets(&cands);
+        pol.note_hit_outcome(&targets[0], 1, 0, true);
+
+        let asked = rx.try_recv().expect("the router must ask for the flush");
+        assert_eq!(asked.worker_id, "a");
+        assert!(
+            rx.try_recv().is_err(),
+            "and ask once -- repeating it would clear a live cache on every miss"
+        );
+    }
+
+    /// The repair reaches a broken worker that is still reporting cache hits.
+    ///
+    /// Delivery sat below the `blocks == 0` and `hits > 0` returns, so an armed
+    /// repair could only ever be handed over on a zero-hit pick. A worker whose
+    /// chain died holding a hot shared prefix keeps matching it out of the
+    /// stale view and reports hits on every request, so its ask stayed armed
+    /// forever -- and the ask is armed by the event feed, which knows the chain
+    /// is dead, not by a pick, which cannot tell.
+    #[test]
+    fn a_repair_is_delivered_even_on_a_pick_that_found_hits() {
+        use rmpv::Value as Mv;
+
+        let kv = Arc::new(KvEventClient::nats_fed());
+        let cands = vec![worker("a", 16, None)];
+        kv.on_worker_added(&cands[0]);
+
+        let (tx, mut rx) = crate::kv_selfheal::channel();
+        let pol = KvEventAwarePolicy::new(kv.clone(), BlockHasher::disabled(), 20.0, None, None)
+            .with_self_heal(tx);
+
+        let orphan = Mv::Array(vec![
+            Mv::String("BlockStored".into()),
+            Mv::Array(vec![Mv::from(11u64)]),
+            Mv::from(999u64),
+            Mv::Array((1..=16u32).map(Mv::from).collect()),
+            Mv::from(16i64),
+            Mv::Nil,
+        ]);
+        let mut payload = Vec::new();
+        rmpv::encode::write_value(
+            &mut payload,
+            &Mv::Array(vec![Mv::from(1.0), Mv::Array(vec![orphan])]),
+        )
+        .unwrap();
+        kv.apply_encoded_batch("a", 0, &payload);
+
+        // The pick hits: the stale view still covers this prefix. Says nothing
+        // about the chain, and must not withhold the repair.
+        let targets = expand_targets(&cands);
+        pol.note_hit_outcome(&targets[0], 4, 4, true);
+        assert_eq!(
+            rx.try_recv()
+                .expect("a hit must not swallow the repair")
+                .worker_id,
+            "a"
+        );
+    }
+
+    /// The same, for a pick that asked for no blocks at all.
+    #[test]
+    fn a_repair_is_delivered_on_a_pick_that_wanted_no_blocks() {
+        use rmpv::Value as Mv;
+
+        let kv = Arc::new(KvEventClient::nats_fed());
+        let cands = vec![worker("a", 16, None)];
+        kv.on_worker_added(&cands[0]);
+
+        let (tx, mut rx) = crate::kv_selfheal::channel();
+        let pol = KvEventAwarePolicy::new(kv.clone(), BlockHasher::disabled(), 20.0, None, None)
+            .with_self_heal(tx);
+
+        let orphan = Mv::Array(vec![
+            Mv::String("BlockStored".into()),
+            Mv::Array(vec![Mv::from(11u64)]),
+            Mv::from(999u64),
+            Mv::Array((1..=16u32).map(Mv::from).collect()),
+            Mv::from(16i64),
+            Mv::Nil,
+        ]);
+        let mut payload = Vec::new();
+        rmpv::encode::write_value(
+            &mut payload,
+            &Mv::Array(vec![Mv::from(1.0), Mv::Array(vec![orphan])]),
+        )
+        .unwrap();
+        kv.apply_encoded_batch("a", 0, &payload);
+
+        let targets = expand_targets(&cands);
+        pol.note_hit_outcome(&targets[0], 0, 0, false);
+        assert_eq!(
+            rx.try_recv()
+                .expect("a short prompt must not swallow the repair")
+                .worker_id,
+            "a"
+        );
+    }
+
+    #[test]
+    fn a_healthy_chain_is_never_asked_to_flush() {
+        let kv = Arc::new(KvEventClient::nats_fed());
+        let cands = vec![worker("a", 16, None)];
+        kv.on_worker_added(&cands[0]);
+
+        let (tx, mut rx) = crate::kv_selfheal::channel();
+        let pol = KvEventAwarePolicy::new(kv, BlockHasher::disabled(), 20.0, None, None)
+            .with_self_heal(tx);
+
+        // Zero hits on their own are ordinary -- a genuinely new prefix has to
+        // land somewhere -- and flushing over them would be pure damage.
+        let targets = expand_targets(&cands);
+        for _ in 0..ZERO_HIT_ALARM + 1 {
+            pol.note_hit_outcome(&targets[0], 1, 0, true);
+        }
+        assert!(rx.try_recv().is_err());
+    }
+
+    /// A vision workload must not read as a broken kv-event feed.
+    ///
+    /// `pick` zeroes `w_overlap` for a multimodal request deliberately -- the
+    /// text hasher cannot reproduce the engine's image blocks, so text overlap
+    /// is not what steers the pick and its hit count is not a measurement.
+    /// Every one of those designed misses still reached the counter, so a fleet
+    /// serving nothing but images warned that its "kv event feed is not being
+    /// applied" at 64 requests and repeated it every 1024 after -- against a
+    /// feed that was fine, and pointing at a tokeniser/block-size mismatch that
+    /// did not exist.
+    #[test]
+    fn multimodal_misses_do_not_trip_the_dead_feed_alarm() {
+        let kv = Arc::new(KvEventClient::new());
+        let pol = KvEventAwarePolicy::new(kv, BlockHasher::disabled(), 20.0, None, None);
+        let cands = vec![worker("a", 16, None)];
+        // Pre-tokenized `prompt` so the disabled hasher still yields blocks --
+        // this pick genuinely asks for two blocks and finds neither.
+        let ids: Vec<u64> = (1..=32).collect();
+        let mm = json!({"prompt": ids, "images": ["https://cdn/cat.png"]});
+        let text = json!({"prompt": ids});
+        assert!(!pol.pick(&cands, &mm, Role::Prefill).blocks.is_empty());
+
+        for _ in 0..ZERO_HIT_ALARM + 1 {
+            pol.pick(&cands, &mm, Role::Prefill);
+        }
+        assert_eq!(
+            pol.zero_hit_streak.load(Ordering::Relaxed),
+            0,
+            "a miss the router designed for is not evidence of anything"
+        );
+
+        // The same miss on a text request is evidence, and still counts.
+        pol.pick(&cands, &text, Role::Prefill);
+        assert_eq!(pol.zero_hit_streak.load(Ordering::Relaxed), 1);
     }
 
     #[test]

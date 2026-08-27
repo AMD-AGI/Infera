@@ -10,7 +10,7 @@ name = "infera-router"
 path = "src/main.rs"
 
 [dependencies]
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "net", "time"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "net", "time", "sync"] }
 axum = "0.7"
 # rustls (pure-Rust TLS) avoids a system openssl build dep; http-only workers
 # don't need it, but https etcd / workers keep working.

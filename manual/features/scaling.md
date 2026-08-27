@@ -155,9 +155,11 @@ admission check runs before any of them has built backlog.
 ```
 
 ```{note}
-The Rust router does not implement the NATS transport (`lib.rs`: "Configs
-outside this set (NATS transport, ...) are served by the Python backend"), so
-the Rust data plane and the NATS drain are currently an either/or.
+The Rust data plane and the NATS path compose: `infera-router` implements the
+NATS request transport, including this JetStream backlog check (`admit()` in
+`nats_request.rs`, called from both the plain and PD dispatch paths). What
+`lib.rs` leaves to the Python backend is other PD connectors, GAIE direct mode
+and the profiling control plane.
 ```
 
 ### Why in-flight work is visible at all

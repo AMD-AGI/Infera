@@ -458,9 +458,13 @@ full run is exactly the 12% regression above. The remaining knobs — `KVD_RAM_B
    anything outside it. This example's etcd setup is inside that subset — and so
    is Kubernetes discovery: `_SUPPORTED_DISCOVERY` is `("etcd", "kubernetes")`,
    it just additionally requires `--k8s-label-selector`, which the operator
-   injects. (An earlier version of this note claimed the rust backend was
-   etcd-only and used that to explain the k8s recipe's `--router-backend python`.
-   That reason was wrong, and the k8s recipe now ships `rust` on all four combos:
+   injects. Discovery is not the only flag that holds: every `--router-policy`,
+   `--request-transport` and `--kv-event-transport` choice is covered as well,
+   and only `--router-mode direct` and `--enable-profiling` fall outside — so
+   those are what to look at when a launch is refused. (An earlier version of
+   this note claimed the rust backend was etcd-only and used that to explain the
+   k8s recipe's `--router-backend python`. That reason was wrong, and the k8s
+   recipe now ships `rust` on all four combos:
    it passed every judge on the `aggregated` shape and then served the agentic
    trace on `disaggregated` with every request completed and the growing-prefix
    cache ideal reached exactly, matching this example arm-for-arm.)
