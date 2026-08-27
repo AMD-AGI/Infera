@@ -1035,6 +1035,11 @@ def run_vllm_benchmark(args) -> dict:
                 getattr(args, "server_args", "") or "", "--attention-backend"
             ),
             "load_format": args.load_format,
+            # Prefill only means anything with the prefix cache off (see
+            # _build_llm). Recorded explicitly, including this "off" case: a
+            # missing key means the artifact predates the harness forcing it
+            # off, so its prefill timed a block lookup, not prompt processing.
+            "prefix_caching": False,
             "real_weights": real_weights,
             "random_tokens": random_tokens,
             "moe_routing": routing_applied,

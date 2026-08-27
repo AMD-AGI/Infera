@@ -491,7 +491,11 @@ class InferencePerformanceProjector:
         """
         rate = self._meas_prefill_rate_ms_per_tok
         if rate <= 0:
-            return 0.0
+            # Decode-only artifact (or an untrusted prefill, see
+            # set_benchmark_calibration): simulate the chunk rather than bill it
+            # as free.
+            return self._forward_times(1, max(1, total_tokens), "prefill",
+                                       max(1, total_tokens)).total_ms
         return rate * max(1, total_tokens)
 
     # -- benchmark ingestion ---------------------------------------------------
@@ -575,6 +579,19 @@ class InferencePerformanceProjector:
                 pre_pts = [(ref_batch, float(model_step["prefill_ms"]))]
             if not dec_pts and model_step.get("decode_ms"):
                 dec_pts = [(ref_batch, float(model_step["decode_ms"]))]
+            # A prefill timed against a warm prefix cache measures a block
+            # lookup rather than prompt processing, and vLLM caches by default.
+            # Artifacts predating the harness forcing it off carry no marker, so
+            # a missing key counts as untrusted and prefill falls back to
+            # simulation. Decode is unaffected either way: it is differenced
+            # between two runs that both hit the cache.
+            if pre_pts and meta.get("prefix_caching") is not False:
+                print(
+                    "[inferasim:Inference] WARNING: benchmark artifact does not record "
+                    "the prefix cache as disabled, so its prefill measures a cache hit. "
+                    "Calibrating decode only; prefill falls back to simulation."
+                )
+                pre_pts = []
             if self._restore:
                 # Prefill processes ``ref_input`` tokens/seq; decode 1 token/step.
                 pre_pts = [(b, self._restore_whole(ms, b, ref_input, "prefill")) for b, ms in pre_pts]
