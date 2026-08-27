@@ -476,12 +476,16 @@ class MoEMLPProfiler(BaseModuleProfiler):
         fwd_time += activation_ms
 
         # ── 5. Shared experts (if any) ──
+        # The shared expert is an ordinary dense MLP that every token visits, so
+        # it is column/row tensor-sharded over the full TP group like any other
+        # MLP -- not over ``expert_tp``, which only describes how a *routed*
+        # expert is split once EP has handed it a rank.
         shared_sz = self.config.model_config.moe_shared_expert_intermediate_size
         if shared_sz:
             shared_result = self._gemm_backend.simulate_mlp_gemms(
                 batch_tokens=batch_tokens,
                 hidden_size=hidden_size,
-                ffn_hidden_size=shared_sz,
+                ffn_hidden_size=max(1, shared_sz // tp_size),
                 dtype=gemm_dtype,
                 swiglu=self.config.model_config.swiglu,
             )
