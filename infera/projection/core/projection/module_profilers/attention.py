@@ -275,7 +275,12 @@ class AttentionProfiler(BaseModuleProfiler):
 
         # 1. Simulate linear projection GEMMs using GEMM backend
         if self._gemm_backend is not None:
-            gemm_dtype = "fp8" if getattr(args, "fp8", None) else "bf16"
+            # The checkpoint's own weight precision where it is known, so an
+            # fp4 model streams fp4 projection weights rather than fp8 ones.
+            gemm_dtype = (
+                getattr(args, "linear_weight_dtype", None)
+                or ("fp8" if getattr(args, "fp8", None) else "bf16")
+            )
 
             if getattr(args, "multi_latent_attention", False):
                 # MLA: LoRA-factored Q and compressed KV projections (6 GEMMs)

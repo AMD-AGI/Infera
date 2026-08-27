@@ -54,6 +54,7 @@ _ARG_TO_FIELD = {
     "sliding_window": "sliding_window",
     "sliding_window_layer_fraction": "sliding_window_layer_fraction",
     "moe_expert_dtype": "moe_expert_dtype",
+    "linear_weight_dtype": "linear_weight_dtype",
     "speculative_draft_cost_factor": "speculative_draft_cost_factor",
     "sampling_top_k": "sampling_top_k",
     "sampling_top_p": "sampling_top_p",

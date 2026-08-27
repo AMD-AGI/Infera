@@ -977,6 +977,18 @@ def _add_inference_args(parser):
         "Models the expert-MLP speedup of low-precision expert kernels.",
     )
     kern.add_argument(
+        "--linear-weight-dtype",
+        type=str,
+        default=None,
+        choices=["bf16", "fp8", "mxfp4", "fp4"],
+        help="Precision of the non-expert linears -- attention's projections and "
+        "the dense MLP. Separate from --weight-dtype, which sizes the whole "
+        "checkpoint, and from --moe-expert-dtype: quantized checkpoints differ on "
+        "this. gpt-oss ships mxfp4 experts behind bf16 attention, while an NVFP4 "
+        "checkpoint quantizes the attention projections too. Defaults to the "
+        "model's own fp8 flag.",
+    )
+    kern.add_argument(
         "--fused-kernels",
         action="store_true",
         default=False,

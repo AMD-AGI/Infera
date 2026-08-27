@@ -493,6 +493,15 @@ class InferenceRequestConfig:
     # expert kernels: mxfp4 | fp8 | bf16. ``None`` = follow bf16 (no speedup).
     moe_expert_dtype: Optional[str] = None
 
+    # ---- Non-expert linear weight precision ----
+    # Attention's projections and the dense MLP: mxfp4 | fp4 | fp8 | bf16.
+    # Quantized checkpoints disagree with their experts here -- gpt-oss puts
+    # mxfp4 experts behind bf16 attention, an NVFP4 checkpoint quantizes the
+    # attention projections as well -- so this cannot be inferred from
+    # ``weight_dtype`` or ``moe_expert_dtype``. ``None`` follows the model's own
+    # fp8 flag, which is what every model did before the field existed.
+    linear_weight_dtype: Optional[str] = None
+
     # ---- Runtime activation quantization / cast ----
     # Precision the runtime casts activations to before each low-precision GEMM
     # (fp8 | mxfp4). These cast kernels (read bf16, amax, write packed + scale)

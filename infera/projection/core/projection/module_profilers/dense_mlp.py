@@ -71,8 +71,12 @@ class DenseMLPProfiler(BaseModuleProfiler):
         cp_size = self.config.model_parallel_config.context_model_parallel_size
         batch_tokens = max(1, batch_size * seq_len // tp_size // cp_size)
 
-        # FP8-hybrid: MLP projections (gate, up, down) run in FP8
-        gemm_dtype = "fp8" if getattr(self.config.model_config, "fp8", None) else "bf16"
+        # The checkpoint's weight precision where it is known, else FP8-hybrid:
+        # MLP projections (gate, up, down) run in FP8.
+        gemm_dtype = (
+            getattr(self.config.model_config, "linear_weight_dtype", None)
+            or ("fp8" if getattr(self.config.model_config, "fp8", None) else "bf16")
+        )
         sim_result = self._gemm_backend.simulate_mlp_gemms(
             batch_tokens=batch_tokens,
             hidden_size=self.config.model_config.hidden_size,

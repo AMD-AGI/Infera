@@ -255,6 +255,12 @@ class InferencePerformanceProjector:
             # Expert weight precision, read by the MoE profiler so the expert
             # grouped-GEMM roofline streams the right number of weight bytes.
             mc.moe_expert_dtype = self.cfg.request_config.moe_expert_dtype
+            # The same, for the linears that are not experts: attention's
+            # projections and the dense MLP. Left unset those GEMMs stream fp8
+            # weights whatever the checkpoint says, so a 4-bit model was sized
+            # at 4-bit by the memory model and then read at twice that width by
+            # the roofline. Decode is weight-bound, so the two have to agree.
+            mc.linear_weight_dtype = self.cfg.request_config.linear_weight_dtype
         except Exception:
             pass
 
