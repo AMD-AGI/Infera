@@ -38,6 +38,18 @@
 ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.16-rocm720-mi30x
 FROM ${SGLANG_BASE_IMAGE}
 
+# ---- apt mirror (site escape hatch, no-op by default) ----------------------
+# A fleet that cannot route to archive.ubuntu.com passes APT_MIRROR (and, where
+# http to security.ubuntu.com is blocked too, APT_SECURITY_MIRROR) in through
+# INFERA_E2E_BUILD_ARGS; unset, this layer only reports that it changed nothing.
+# Reasoning in deploy/docker/scripts/apt_mirror.sh.
+ARG APT_MIRROR=
+ARG APT_SECURITY_MIRROR=
+COPY deploy/docker/scripts/apt_mirror.sh /tmp/apt_mirror.sh
+RUN APT_MIRROR="${APT_MIRROR}" APT_SECURITY_MIRROR="${APT_SECURITY_MIRROR}" \
+        bash /tmp/apt_mirror.sh \
+    && rm -f /tmp/apt_mirror.sh
+
 WORKDIR /opt/infera
 
 # ---- libionic (host ionic ABI match) -----------------------------------------
@@ -203,6 +215,15 @@ COPY deploy/docker/patches/sglang_rocm/ /tmp/sglang-rocm-patches/
 RUN set -eu; \
     for f in /tmp/sglang-rocm-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
     rm -rf /tmp/sglang-rocm-patches
+
+# ---- gfx942-only patches ----------------------------------------------------
+# Its own directory, not sglang_rocm/, because Dockerfile.sglang applies that one
+# too and the gfx950 image must stay byte-identical. Today: the mxfp_supported()
+# arch gate, without which gpt-oss-120b's MXFP4-only weights raise at load.
+COPY deploy/docker/patches/sglang_gfx942/ /tmp/sglang-gfx942-patches/
+RUN set -eu; \
+    for f in /tmp/sglang-gfx942-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
+    rm -rf /tmp/sglang-gfx942-patches
 
 # ---- Rust router (multi-core data plane; --router-backend rust) ----
 # The ROCm base often ships cargo; use it, and install a minimal toolchain only

@@ -3,6 +3,18 @@
 ARG ATOM_BASE_IMAGE=rocm/atom:rocm7.2.4_ubuntu24.04_py3.12_pytorch_release_2.10.0_atom0.1.4_20260612
 FROM ${ATOM_BASE_IMAGE}
 
+# ---- apt mirror (site escape hatch, no-op by default) ----------------------
+# A fleet that cannot route to archive.ubuntu.com passes APT_MIRROR (and, where
+# http to security.ubuntu.com is blocked too, APT_SECURITY_MIRROR) in through
+# INFERA_E2E_BUILD_ARGS; unset, this layer only reports that it changed nothing.
+# Reasoning in deploy/docker/scripts/apt_mirror.sh.
+ARG APT_MIRROR=
+ARG APT_SECURITY_MIRROR=
+COPY deploy/docker/scripts/apt_mirror.sh /tmp/apt_mirror.sh
+RUN APT_MIRROR="${APT_MIRROR}" APT_SECURITY_MIRROR="${APT_SECURITY_MIRROR}" \
+        bash /tmp/apt_mirror.sh \
+    && rm -f /tmp/apt_mirror.sh
+
 # ATOM engine source patches (PD KV-transfer robustness, etc). Idempotent,
 # self-locating; each degrades gracefully rather than failing the build. Drop a
 # new patch_*.py here to add a fix. NOTE: no DeepSeek-V4 FP4 dequant patch — on

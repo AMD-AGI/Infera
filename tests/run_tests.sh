@@ -641,10 +641,18 @@ _dispatch_slurm() {
 
 # --network=host so RUN steps (pip) resolve DNS via the host resolver: these
 # nodes list "nameserver 127.0.0.1" first, unreachable from a bridge build netns.
+#
+# INFERA_E2E_BUILD_ARGS is read here for the same reason the disagg launcher reads
+# it (cluster.image_build_args): some constraints only bind at build time, and a
+# site that has to override one — a reachable apt mirror, a fabric flag — must be
+# able to say so once for both tiers instead of only for the cross-node one.
 build_image() {
-  local df="$1" img="$2"
-  echo "[build] $img <- $df"
-  docker build --network=host -f "$REPO/$df" -t "$img" "$REPO"
+  local df="$1" img="$2" args=() kv
+  IFS=, read -ra args <<< "${INFERA_E2E_BUILD_ARGS:-}"
+  local flags=()
+  for kv in "${args[@]}"; do [ -n "$kv" ] && flags+=(--build-arg "$kv"); done
+  echo "[build] $img <- $df ${flags[*]}"
+  docker build --network=host "${flags[@]}" -f "$REPO/$df" -t "$img" "$REPO"
 }
 
 run_unit() {
