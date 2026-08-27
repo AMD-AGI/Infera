@@ -384,10 +384,10 @@ class SDPASimulator(SDPASimulationBackend):
           3. Multiply by ``num_waves = ⌈workgroups / N_CU⌉`` to account for
              CU-level parallelism across tiles.
 
-        Forward per-workgroup (q_tile_m=256 Q rows, sweeps all S_K):
-          QKᵀ: Q_tile[256, D_qk] × Kᵀ[D_qk, S_K] → S[256, S_K]
-          PV:  P_tile[256, S_K]  × V[S_K, D_v]     → O[256, D_v]
-          Workgroups = ⌈S_Q / 256⌉ × B × H_Q
+        Forward per-workgroup (q_tile rows, sweeps its slice of S_K):
+          QKᵀ: Q_tile[q_tile, D_qk] × Kᵀ[D_qk, S_K_tile] → S[q_tile, S_K_tile]
+          PV:  P_tile[q_tile, S_K_tile] × V[S_K_tile, D_v] → O[q_tile, D_v]
+          Workgroups = ⌈S_Q / q_tile⌉ × B × H_Q × kv_splits
         """
         assert self._tile_gemm is not None
         N_CU = self._hw.n_cu
@@ -396,22 +396,30 @@ class SDPASimulator(SDPASimulationBackend):
         # ==============================================================
         # FORWARD
         # ==============================================================
-        fwd_n_wgs = math.ceil(S_Q / _FAV3_FWD.q_tile_m) * B * H_Q
+        # A flash-decode kernel does not pad its 1-2 query rows out to a full
+        # tile; it splits the KV across the idle CUs instead, leaving the step
+        # bounded by the KV stream. Charging the pad let the compute term beat
+        # the bandwidth roofline below and set the answer.
+        q_tile = min(_FAV3_FWD.q_tile_m, S_Q)
+        q_wgs = math.ceil(S_Q / q_tile) * B * H_Q
+        kv_splits = max(1, N_CU // max(1, q_wgs))
+        s_k_tile = max(1, math.ceil(S_K / kv_splits))
+        fwd_n_wgs = q_wgs * kv_splits
         fwd_waves = math.ceil(fwd_n_wgs / N_CU)
 
-        # Per-workgroup GEMMs on 1 CU (tile sweeps all S_K positions):
-        #   QKᵀ: [q_tile_m, D_qk, S_K]
+        # Per-workgroup GEMMs on 1 CU (tile sweeps its S_K slice):
+        #   QKᵀ: [q_tile, D_qk, S_K_tile]
         r_fwd_qk = self._tile_gemm.simulate_gemm(
-            m=_FAV3_FWD.q_tile_m,
-            n=S_K,
+            m=q_tile,
+            n=s_k_tile,
             k=D_qk,
             dtype=dtype,
         )
-        #   PV:  [q_tile_m, S_K, D_v]
+        #   PV:  [q_tile, S_K_tile, D_v]
         r_fwd_pv = self._tile_gemm.simulate_gemm(
-            m=_FAV3_FWD.q_tile_m,
+            m=q_tile,
             n=D_v,
-            k=S_K,
+            k=s_k_tile,
             dtype=dtype,
         )
 
