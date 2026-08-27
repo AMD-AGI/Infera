@@ -36,7 +36,10 @@ def test_a_price_turns_throughput_into_the_unit_a_budget_is_quoted_in():
     # The replica is charged for every GPU it holds, so the cost of a token is
     # the replica's hourly cost spread over what it emits in that hour.
     expected = PRICE * out["replica_gpus"] * 1e6 / (out["decode_tps"] * 3600.0)
-    assert costs["output"] == pytest.approx(expected, rel=1e-3)
+    # Tolerance follows the report's own precision rather than the arithmetic:
+    # the line is printed to the cent-and-a-bit, so half of that last place is
+    # the tightest a parsed value can be held to.
+    assert costs["output"] == pytest.approx(expected, abs=5e-4)
 
 
 def test_prompt_tokens_are_carried_by_the_same_requests():
