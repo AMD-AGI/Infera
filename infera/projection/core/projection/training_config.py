@@ -161,7 +161,7 @@ class TrainingConfig:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def decode_kernels_per_layer(model_config) -> int:
+def decode_kernels_per_layer(model_config, elementwise_only: bool = False) -> int:
     """How many kernels one transformer layer issues in a decode step.
 
     A decode step is largely a stream of small kernels, and their number is set
@@ -184,25 +184,31 @@ def decode_kernels_per_layer(model_config) -> int:
 
     Collectives are excluded: they are modelled separately, and charging them
     here as well would count the same microseconds twice.
+
+    ``elementwise_only`` keeps just the norms, residual adds, RoPE, activations
+    and top-k. Those are the kernels no profiler times, so they are the only
+    ones whose occupancy may be charged on top of a simulated step -- a GEMM or
+    the attention kernel already carries its own device time, and charging its
+    occupancy again would double-count.
     """
     kernels = 4  # two norms, two residual adds
 
     if getattr(model_config, "multi_latent_attention", False):
         # q_a, q_a_norm, q_b, kv_a, kv_a_norm, kv_b, rope, attention, o_proj
-        kernels += 9
+        kernels += 3 if elementwise_only else 9
     else:
-        kernels += 4  # qkv, rope, attention, o_proj
+        kernels += 1 if elementwise_only else 4  # qkv, rope, attention, o_proj
 
     num_experts = int(getattr(model_config, "num_experts", 0) or 0)
     if num_experts > 1:
         # router, top-k, permute, grouped gate/up, activation, grouped down,
         # combine
-        kernels += 7
+        kernels += 2 if elementwise_only else 7
     else:
-        kernels += 3  # gate/up, activation, down
+        kernels += 1 if elementwise_only else 3  # gate/up, activation, down
 
     if int(getattr(model_config, "moe_shared_expert_intermediate_size", 0) or 0) > 0:
-        kernels += 3
+        kernels += 1 if elementwise_only else 3
 
     return kernels
 

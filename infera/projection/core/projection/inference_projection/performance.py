@@ -1321,6 +1321,11 @@ class InferencePerformanceProjector:
         Because the term is identical at every parallelism, it cancels in the
         ``s_tgt - s_bench`` difference the anchor restore takes, which is the
         correct behaviour -- sharding does not remove kernels.
+
+        Charged over the elementwise kernels only. This term is additive, so it
+        may cover just the kernels the layer profilers do not already time; the
+        GEMMs and the attention kernel carry their own device time and would
+        otherwise be paid for twice.
         """
         from infera.projection.core.projection.training_config import (
             decode_kernels_per_layer,
@@ -1328,7 +1333,7 @@ class InferencePerformanceProjector:
 
         return self.cfg.request_config.resolved_decode_occupancy_ms(
             self.cfg.model_config.num_layers,
-            decode_kernels_per_layer(self.cfg.model_config),
+            decode_kernels_per_layer(self.cfg.model_config, elementwise_only=True),
         )
 
     def _launch_latency_floor_ms(self) -> float:
