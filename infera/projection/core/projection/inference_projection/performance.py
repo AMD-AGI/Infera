@@ -1807,10 +1807,21 @@ class InferencePerformanceProjector:
         """
         if self._comm is None:
             return {}
-        pre = self._comm_breakdown(prefill_batch if prefill_batch else batch, input_len, "prefill")
+        pb = prefill_batch if prefill_batch else batch
         spec_k = int(self.cfg.request_config.speculative_num_tokens or 0)
         q_len = (spec_k + 1) if spec_k > 0 else 1
-        dec = self._comm_breakdown(batch, q_len, "decode")
+        if self._measured_mode:
+            # Measured layer times already contain their own overlap, so the
+            # step exposes no separable comm; fall back to the standalone cost.
+            pre = self._comm_breakdown(pb, input_len, "prefill")
+            dec = self._comm_breakdown(batch, q_len, "decode")
+        else:
+            # Report what the step charged, not what the collective costs in
+            # isolation: most of the decode A2A hides behind expert compute, and
+            # printing the un-overlapped figure invites reading it as a term of
+            # the step latency printed beside it.
+            pre = self._forward_times(pb, input_len, "prefill", input_len).comm
+            dec = self._forward_times(batch, q_len, "decode", input_len + output_len).comm
         return {
             "comm_prefill_tp_allreduce_ms": pre.tp_allreduce_ms,
             "comm_prefill_ep_a2a_ms": pre.ep_a2a_ms,
