@@ -14,6 +14,27 @@
 #       `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`.
 #       It is not tuning — it stands in for two sglang_dsa patches this base
 #       cannot take. Full reasoning at the DSA patch block below.
+#
+# PRECONDITION — CHECK THE HOST DRIVER BEFORE PICKING A BASE. A container brings
+# its own ROCm userspace but CANNOT bring a kernel driver: it talks to the host's
+# amdgpu through /dev/kfd, and AMD supports that pairing only within a bounded
+# version window (+/-2 releases before 6.4.0). Outside it nothing refuses to
+# start — the image initialises, loads weights, captures graphs, then faults with
+# `Memory access fault by GPU node-N` somewhere under load, which reads exactly
+# like an engine bug — and can present as several unrelated ones at once, each
+# with its own plausible stack. See patches/sglang_dsa/README.md.
+#
+#   host amdgpu            supported ROCm userspace   base to use
+#   6.3.x                  <= 7.0.x                   v0.5.16-rocm700-mi30x
+#   6.4.x (e.g. 6.14.14)   <= 7.2.x                   v0.5.16-rocm720-mi30x
+#
+#   host:      dpkg -l | grep -E 'amdgpu-dkms|rocm-core'
+#   container: cat /opt/rocm/.info/version
+#
+# The default below targets 6.4.x hosts, which is what this image's own
+# measurements were taken on (amdgpu 6.14.14 — see the sglang_rocm block). On a
+# 6.3.x host you MUST override it:
+#   --build-arg SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.16-rocm700-mi30x
 ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.16-rocm720-mi30x
 FROM ${SGLANG_BASE_IMAGE}
 
@@ -84,22 +105,22 @@ RUN pip install --no-cache-dir ".[sglang]" "setuptools>=83.0.0"
 # anchor note in the script's header). A drifted anchor writes nothing and exits
 # non-zero, so this build fails rather than shipping a half-applied fix.
 #
-# ONLY patch 01 (DSA_PATCH_SET=indexer). Patches 02 and 04 are `--fuzz=0` context
-# diffs cut against v0.5.15.post1 and do not apply to this v0.5.16 base:
-#   02b, 04  substituted at RUNTIME on this image, and the 1P1D bring-up behind
-#            it was validated that way — every leg MUST launch with
-#            `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`.
-#            IndexShare is the source of the rank divergence those two repair, so
-#            removing the seed removes the deadlock. Leave IndexShare ON here and
-#            the decode leg deadlocks on the first request.
-#   02a      NOT carried and NOT substituted: a host sync on a branch only some
-#            DP ranks take. Not re-cut for v0.5.16 and not observed on this base
-#            (FP8, dp8, conc<=128) — see patches/sglang_dsa/README.md.
+# Patch 01 ONLY on this base (DSA_PATCH_SET=indexer). 02b is substituted at
+# RUNTIME — every leg MUST launch with
+# `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`.
+#
+# 02a and 04 are deliberately NOT applied. 04 is what the IndexShare-off flag
+# above stands in for; 02a is untested on this base rather than ruled out. Both
+# can look necessary after a GPU fault that is really the driver pairing — see
+# the PRECONDITION at the top of this file.
 ARG APPLY_SGLANG_DSA_PATCHES=1
+# Overridable so patch sets can be A/B'd on one base without editing this file:
+# same manifest, same sglang, one build-arg apart.
+ARG DSA_PATCH_SET=indexer
 COPY deploy/docker/patches/sglang_dsa/ /tmp/sglang_dsa/
 COPY deploy/docker/scripts/apply_sglang_dsa_patches.sh /tmp/apply_sglang_dsa_patches.sh
 RUN if [ "${APPLY_SGLANG_DSA_PATCHES}" = "1" ]; then \
-        DSA_PATCH_SET=indexer PATCH_DIR=/tmp/sglang_dsa \
+        DSA_PATCH_SET="${DSA_PATCH_SET}" PATCH_DIR=/tmp/sglang_dsa \
             bash /tmp/apply_sglang_dsa_patches.sh; \
     else \
         echo "APPLY_SGLANG_DSA_PATCHES=0 — stock indexer, DP-attention will crash at conc>1"; \

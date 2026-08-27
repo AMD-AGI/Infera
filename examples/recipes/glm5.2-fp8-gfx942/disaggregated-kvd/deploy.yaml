@@ -58,7 +58,7 @@ spec:
             image: infera:sglang-gfx942-glm52
             imagePullPolicy: IfNotPresent
             command: ["python3","-m","infera.server",
-                      "--host","0.0.0.0","--port","8000","--router-backend","python",
+                      "--host","0.0.0.0","--port","8000","--router-backend","rust",
                       "--router-tokenizer-path","/models/GLM-5.2-FP8",
                       "--discovery-backend","kubernetes",
                       "--request-transport","http","--kv-event-transport","zmq",
@@ -156,9 +156,17 @@ spec:
             # --json-model-override-args is not tuning: it stands in for two
             # sglang_dsa patches this base cannot take. Leave IndexShare on and
             # the decode leg deadlocks on the first request.
-            # --hicache-size is GB PER DP RANK, so 32 is 256 GB across 8 ranks —
+            # --hicache-size is GB PER TP RANK, so 32 is 256 GB across 8 ranks —
             # that is what sets the memory limit below, and it is deliberately
             # under the 54 GB/rank device pool that kvd's L3 already backs.
+            # --hicache-io-backend direct is required here, not a tuning choice.
+            # The default `kernel` path needs every host pool's stride to be a
+            # multiple of 8, and MTP's draft pool is page_size 1 -> 132 bytes.
+            # SGLang's guard raises on a pool that misses that condition instead
+            # of falling back, so with kvd and MTP both on, the first write-back
+            # kills the prefill scheduler: ValueError: Unsupported IO backend:
+            # kernel. `direct` also switches mem_layout to page_first_direct,
+            # which is what the indexer pool's direct branch implements.
             command: ["python3","-m","infera.engine.sglang",
                       "--model-path","/models/GLM-5.2-FP8",
                       "--host","0.0.0.0","--port","30001","--advertise-host","$(POD_IP)",
@@ -175,7 +183,13 @@ spec:
                       "--speculative-algorithm","EAGLE","--speculative-num-steps","5",
                       "--speculative-eagle-topk","1","--speculative-num-draft-tokens","6",
                       "--json-model-override-args",'{"index_share_for_mtp_iteration":false}',
+                      # Without these, "MTP did not crash" and "MTP silently
+                      # degraded to one token per step" are indistinguishable.
+                      # sglang:spec_accept_length per DP rank is the only way to
+                      # tell, and it costs a scrape endpoint.
+                      "--enable-metrics","--enable-metrics-for-all-schedulers",
                       "--infera-kvd-socket","/tmp/infera-kvd/kvd.sock","--hicache-size","32",
+                      "--hicache-io-backend","direct",
                       "--weight-loader-prefetch-checkpoints",
                       "--model-loader-extra-config",'{"enable_multithread_load": true, "num_threads": 32}',
                       "--disaggregation-mode","prefill","--disaggregation-bootstrap-port","8998",
@@ -265,6 +279,7 @@ spec:
                       "--speculative-algorithm","EAGLE","--speculative-num-steps","5",
                       "--speculative-eagle-topk","1","--speculative-num-draft-tokens","6",
                       "--json-model-override-args",'{"index_share_for_mtp_iteration":false}',
+                      "--enable-metrics","--enable-metrics-for-all-schedulers",
                       "--weight-loader-prefetch-checkpoints",
                       "--model-loader-extra-config",'{"enable_multithread_load": true, "num_threads": 32}',
                       "--disaggregation-mode","decode",

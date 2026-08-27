@@ -3,9 +3,10 @@
 Ready-to-run deployments for a specific model, in the shape you want to serve it.
 Pick the model, pick the combination, `kubectl apply`.
 
-Every recipe runs the **stock vendor image** with the infera overlay mounted in, so
+Recipes run the **stock vendor image** with the infera overlay mounted in, so
 following an upstream vLLM or SGLang release is an image-tag edit rather than a
-rebuild.
+rebuild. The one exception is GLM-5.2-FP8 on gfx942, which needs a rebuilt native
+library that no mounted payload can supply; its page says why.
 
 ::::{grid} 1 1 2 2
 :gutter: 3
@@ -17,6 +18,16 @@ rebuild.
 SGLang · TP8 · MI355X
 
 MLA + DeepSeek Sparse Attention. Needs the ROCm tilelang indexer path.
+:::
+
+:::{grid-item-card} GLM-5.2-FP8 on gfx942
+:link: glm5.2-fp8-gfx942
+:link-type: doc
+
+SGLang · TP8/DP8 · 1–2 × MI300X
+
+DP-attention and MTP, optionally split over Mooncake RDMA. The one recipe that
+builds an engine image instead of mounting the overlay.
 :::
 
 :::{grid-item-card} Kimi-K3
@@ -41,18 +52,18 @@ speculation.
 
 ::::
 
-```{admonition} The directory is `aggregated`, the API field still says `mixed`
+:::{admonition} The directory is `aggregated`, the API field still says `mixed`
 :class: note
 `aggregated` / `disaggregated` is the vocabulary these directories use. The `role:`
 field inside each manifest is an API value the operator consumes — `mixed`,
 `prefill`, `decode` — and is deliberately unchanged, since renaming it would break
 deployed configurations. So `aggregated/deploy.yaml` legitimately contains
 `role: mixed`.
-```
+:::
 
 ## The four combinations
 
-Each recipe comes in the same four shapes, composing two independent choices:
+Recipes come in the same four shapes, composing two independent choices:
 **how requests are split across GPUs**, and **whether KV survives past the GPU**.
 
 | Combination | Serving | KV cache | Reach for it when |
@@ -68,13 +79,21 @@ speculative decoding is a property of that image's draft model, not a serving
 topology. It composes with `aggregated` and `disaggregated` independently, which is why there are
 four rather than a fifth combination.
 
+Where a recipe's four shapes differ in more than those two axes, its page says so.
+**GLM-5.2-FP8 on gfx942** is the one that does: its aggregated shapes drop
+`hostNetwork`, `privileged` and `/dev/infiniband` outright, because those exist
+only to carry KV over RDMA and nothing crosses the fabric when one worker both
+prefills and decodes. Its `aggregated + kvd` arm also drops MTP, because on a
+worker that both prefills and decodes, MTP and the tiered cache deadlock each
+other; its page and its manifest both explain that at the top.
+
 ```{admonition} PD needs a routable RoCE fabric
 :class: warning
 The prefill→decode KV handoff is RDMA, and there is **no TCP fallback**. Both nodes
 must sit on a mutually routable RoCE fabric. On a single box, use `aggregated`.
 ```
 
-```{admonition} Checking RoCE reachability: bind the source rail
+:::{admonition} Checking RoCE reachability: bind the source rail
 :class: tip
 This fabric is **routed L3 RoCEv2**: every NIC gets its own /64, so no two hosts
 ever share a subnet — by design, not a fault. An unbound `ping6` picks a default
@@ -87,7 +106,7 @@ ping6 -I <local-rail-ULA> <peer-rail-ULA>
 
 Mooncake binds its QP to a device and GID index, so it takes the working path the
 naive ping does not. On this fleet all 8 rails answer at ~0.1 ms once bound.
-```
+:::
 
 
 ## What the overlay provides

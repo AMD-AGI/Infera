@@ -14,6 +14,7 @@
 # GPU tiers run in place when this host has docker + >=8 AMD GPUs, else `srun` the
 # tier onto one 8-GPU node. PD-disag orchestrates prefill+decode on two idle nodes.
 # Env: INFERA_E2E_MODEL_DIR (models, RO-mounted), INFERA_E2E_SLURM_PARTITION.
+# On amd-spur, CI tries its three account/QoS pairs in priority order.
 
 set -uo pipefail
 
@@ -199,6 +200,40 @@ _default_partition() {
 SLURM_PART="${INFERA_E2E_SLURM_PARTITION:-$(_default_partition)}"
 SLURM_PART="${SLURM_PART:-amd-spur}"
 SLURM_TIME="${INFERA_E2E_SLURM_TIME:-02:00:00}"
+# amd-spur's default allocation is often quota-blocked. Keep the site-specific
+# credentials here (rather than in ci.yml) because mixed dispatches directly,
+# while disag also submits a pair holder and many node-pinned srun steps.
+# INFERA_E2E_SRUN_EXTRA is preserved after the selected account/QoS flags.
+_SLURM_USER_SRUN_EXTRA="${INFERA_E2E_SRUN_EXTRA:-}"
+_SLURM_ACCOUNT_QOS_PAIRS=()
+if [ "$SLURM_PART" = "amd-spur" ]; then
+  _SLURM_ACCOUNT_QOS_PAIRS=(
+    "amd-frameworks-ci:amd-frameworks-ci-qos"
+    "amd-it:amd-it-qos"
+    "amd-collectives:amd-collectives-qos"
+  )
+fi
+_SLURM_ACCOUNT=""
+_SLURM_QOS=""
+_set_slurm_account_qos() {
+  local pair="${_SLURM_ACCOUNT_QOS_PAIRS[$1]}" extra
+  _SLURM_ACCOUNT="${pair%%:*}"
+  _SLURM_QOS="${pair#*:}"
+  extra="-A $_SLURM_ACCOUNT -q $_SLURM_QOS"
+  INFERA_E2E_SRUN_EXTRA="$extra${_SLURM_USER_SRUN_EXTRA:+ $_SLURM_USER_SRUN_EXTRA}"
+  export INFERA_E2E_SRUN_EXTRA
+}
+_account_qos_label() {
+  printf 'account=%s qos=%s' "${_SLURM_ACCOUNT:-default}" "${_SLURM_QOS:-default}"
+}
+_accounting_blocked() {
+  case "$1" in
+    QOS* | Qos* | qos* | Assoc* | Association* | Accounting* | InvalidAccount* | \
+    *"Invalid account"* | *"Invalid qos"* | *"invalid account"* | *"invalid qos"* | \
+    *"violates accounting/QOS policy"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 # _hold_pair's own window: its -N2 --gres=gpu:8 batch job needs longer to start
 # than a single-node srun, and giving up early only churns the pair-hold race.
 HOLD_WAIT="${INFERA_E2E_HOLD_WAIT:-60}"
@@ -249,19 +284,31 @@ _reservation_nodes() {
     $1==r { for(i=1;i<=NF;i++) if($i ~ /Nodes=/){ n=$i; sub(/.*Nodes=/,"",n); sub(/[[:space:]].*/,"",n); print n; exit } }' \
     | tr ',' '\n' | sed '/^$/d'
 }
-# Ask the NODE, not squeue: a multi-node job's %N is a compacted hostlist
-# (crsuse2-m2m-[090,183]) holding neither full name, and Spur has no `scontrol
-# show hostnames`. Unreadable => busy, never hand out what we cannot verify.
-# Allocation is only half of "free": Spur leaves a node inside another team's
-# reservation reading State=IDLE with CPUAlloc=0, and puts the membership in
-# ActiveReservation instead. sbatch then refuses it with ReqNodeNotAvail.
+# A node is free when no RUNNING job has GPU GRES on it. Match both a plain %N
+# and Spur's compact form (crsuse2-m2m-[090,183]); unreadable queues fail closed.
 _node_free() {
-  local out alloc resv
+  local out resv gpu_jobs
   out=$(_sc show node "$1" 2>/dev/null) || return 1
-  alloc=$(printf '%s\n' "$out" | grep -oE 'CPUAlloc=[0-9]+' | head -1 | cut -d= -f2)
-  [ -n "$alloc" ] && [ "$alloc" -eq 0 ] 2>/dev/null || return 1
   resv=$(printf '%s\n' "$out" | grep -oE 'ActiveReservation=[^[:space:]]+' | head -1 | cut -d= -f2)
-  [ -z "$resv" ] || [ "$resv" = "${INFERA_E2E_RESERVATION:-}" ]
+  { [ -z "$resv" ] || [ "$resv" = "${INFERA_E2E_RESERVATION:-}" ]; } || return 1
+  gpu_jobs=$(squeue -h -t running -o '%b|%N' 2>/dev/null) || return 1
+  awk -F'|' -v node="$1" '
+    function has_node(list, node, prefix, id, n, parts, i, range) {
+      if (list == node) return 1
+      prefix = node; sub(/[0-9]+$/, "", prefix)
+      if (index(list, prefix "[") != 1) return 0
+      sub(/^[^[]*\[/, "", list); sub(/\].*$/, "", list)
+      id = node; sub(/^.*-/, "", id)
+      n = split(list, parts, ",")
+      for (i = 1; i <= n; i++) {
+        if (parts[i] == id) return 1
+        if (split(parts[i], range, "-") == 2 &&
+            id + 0 >= range[1] + 0 && id + 0 <= range[2] + 0) return 1
+      }
+      return 0
+    }
+    tolower($1) ~ /gpu:/ && has_node($2, node) { busy = 1 }
+    END { exit busy ? 1 : 0 }' <<<"$gpu_jobs"
 }
 # Free nodes for the PD-disagg pair, one per line: the reservation's own, else
 # the partition's idle ones. Both go through _node_free, which is what keeps
@@ -320,33 +367,57 @@ _rival_holder() {
 # The caller reports 1 and 2 differently: they used to read alike, so a refused
 # sbatch was announced as a lost race and pointed triage away from the scheduler.
 _hold_pair() {
-  local pair="$1" script="$SCRATCH/hold.sh" jid st rs waited i other
+  local pair="$1" script="$SCRATCH/hold.sh" jid st rs waited i other submit_out
+  local cred=0 cred_count="${#_SLURM_ACCOUNT_QOS_PAIRS[@]}"
+  local account_flags=() retries=3
   # A real script file, not --wrap: on Spur --wrap always NODE_FAILs at -N2.
   printf '#!/bin/bash\nsleep %s\n' "${INFERA_E2E_HOLD_SLEEP:-10800}" > "$script"
-  for i in 1 2 3; do
-    jid=$(sbatch --parsable -N2 -n2 -w "$pair" --gres=gpu:8 -p "$SLURM_PART" \
-      -t "$SLURM_TIME" -J "infera-ci-hold-${INFERA_E2E_JOB_TAG:-local}" \
-      ${INFERA_E2E_RESERVATION:+--reservation="$INFERA_E2E_RESERVATION"} \
-      "$script" 2>/dev/null) || continue
-    waited=0
-    while [ "$waited" -lt "$HOLD_WAIT" ]; do
-      st=$(_sc show job "$jid" 2>/dev/null | grep -oE 'JobState=[A-Z_]+' | cut -d= -f2)
-      rs=$(_sc show job "$jid" 2>/dev/null | grep -oE 'Reason=[A-Za-z]+' | cut -d= -f2)
-      if [ "$st" = RUNNING ]; then
-        # --gres does fence the pair, but two engines can submit in the same
-        # instant, before either holder exists to be seen. Lower job id keeps it
-        # and the other yields, so they cannot both back off and re-collide.
-        other=$(_rival_holder "$jid")
-        [ -z "$other" ] && { _HOLDER_JID="$jid"; return 0; }
-        scancel "$jid" >/dev/null 2>&1
-        echo "[e2e disagg] holder $jid started on $pair but $other holds it too — yielding" >&2
-        return 1
+  # No site credentials configured (e.g. stock SLURM): preserve the old three
+  # retries. On amd-spur, use those three attempts for the three account/QoS
+  # pairs in the declared priority instead.
+  [ "$cred_count" -gt 0 ] && retries=1
+  [ "$cred_count" -gt 0 ] || cred_count=1
+  while [ "$cred" -lt "$cred_count" ]; do
+    [ "${#_SLURM_ACCOUNT_QOS_PAIRS[@]}" -gt 0 ] && _set_slurm_account_qos "$cred"
+    account_flags=()
+    [ -n "$_SLURM_ACCOUNT" ] && account_flags=(-A "$_SLURM_ACCOUNT" -q "$_SLURM_QOS")
+    for ((i = 1; i <= retries; i++)); do
+      echo "[e2e disagg] hold submission on $pair ($(_account_qos_label), attempt $i/$retries)"
+      submit_out=$(sbatch --parsable -N2 -n2 -w "$pair" --gres=gpu:8 -p "$SLURM_PART" \
+        -t "$SLURM_TIME" -J "infera-ci-hold-${INFERA_E2E_JOB_TAG:-local}" \
+        ${INFERA_E2E_RESERVATION:+--reservation="$INFERA_E2E_RESERVATION"} \
+        "${account_flags[@]}" "$script" 2>&1)
+      if [ "$?" -ne 0 ]; then
+        echo "[e2e disagg] hold submission rejected: $submit_out" >&2
+        _accounting_blocked "$submit_out" && break
+        continue
       fi
-      case "$st" in NODE_FAIL | FAILED | CANCELLED) break ;; esac
-      sleep 5; waited=$((waited + 5))
+      jid="${submit_out%%;*}"
+      waited=0; st=""; rs=""
+      while [ "$waited" -lt "$HOLD_WAIT" ]; do
+        st=$(_sc show job "$jid" 2>/dev/null | grep -oE 'JobState=[A-Z_]+' | cut -d= -f2)
+        rs=$(_sc show job "$jid" 2>/dev/null | grep -oE 'Reason=[A-Za-z]+' | cut -d= -f2)
+        if [ "$st" = RUNNING ]; then
+          # --gres does fence the pair, but two engines can submit in the same
+          # instant, before either holder exists to be seen. Lower job id keeps it
+          # and the other yields, so they cannot both back off and re-collide.
+          other=$(_rival_holder "$jid")
+          [ -z "$other" ] && { _HOLDER_JID="$jid"; return 0; }
+          scancel "$jid" >/dev/null 2>&1
+          echo "[e2e disagg] holder $jid started on $pair but $other holds it too — yielding" >&2
+          return 1
+        fi
+        _accounting_blocked "$rs" && break
+        case "$st" in NODE_FAIL | FAILED | CANCELLED) break ;; esac
+        sleep 5; waited=$((waited + 5))
+      done
+      scancel "$jid" >/dev/null 2>&1
+      echo "[e2e disagg] hold attempt $i on $pair not started (${st:-?}/${rs:-?})" >&2
+      _accounting_blocked "$rs" && break
     done
-    scancel "$jid" >/dev/null 2>&1
-    echo "[e2e disagg] hold attempt $i on $pair not started (${st:-?}/${rs:-?}) — retrying" >&2
+    cred=$((cred + 1))
+    [ "$cred" -lt "$cred_count" ] &&
+      echo "[e2e disagg] trying the next SLURM account/QoS pair" >&2
   done
   return 2
 }
@@ -385,7 +456,8 @@ _spill_inflight() {
 
 # Report why the dispatch is still queued (a waiting job prints NOTHING, so a CI
 # run looks hung and gets cancelled), and cancel + flag the wait the caller can
-# act on. $1=srun-out $2=hold-flag $3=label
+# act on. Accounting/QoS limits use a distinct flag so the caller can move to
+# the next credential pair. $1=srun-out $2=hold-flag $3=label
 _watch_job() {
   local out="$1" hold="$2" label="$3" jid="" state reason waited=0
   local every="${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}" next="${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}"
@@ -399,6 +471,11 @@ _watch_job() {
     state=$(squeue -h -j "$jid" -o '%T' 2>/dev/null)
     reason=$(squeue -h -j "$jid" -o '%r' 2>/dev/null)
     [ "$state" = "PENDING" ] || continue
+    if _accounting_blocked "$reason"; then
+      printf 'accounting:%s\n' "$reason" > "$hold"
+      scancel "$jid" >/dev/null 2>&1
+      return
+    fi
     # Neither clears on its own, and JobLaunchFailure names no node -- squeue and
     # scontrol both leave the node list empty -- so cancelling and letting the
     # scheduler choose again is the only move. Trailing * because %r appends the
@@ -439,7 +516,9 @@ _dispatch_slurm() {
   fi
 
   local prc=1 attempt=0 max_attempts=5 exclude="" ran
+  local cred=0 cred_count="${#_SLURM_ACCOUNT_QOS_PAIRS[@]}"
   local holdflag="$SCRATCH/.hold-$label" held=0 max_held="${INFERA_E2E_HOLD_MAX_RETRY:-30}"
+  [ "$cred_count" -gt 0 ] && _set_slurm_account_qos "$cred"
   while [ "$attempt" -lt "$max_attempts" ]; do
     attempt=$((attempt + 1))
     local xflag=()
@@ -474,7 +553,7 @@ _dispatch_slurm() {
           resv=(--reservation="$INFERA_E2E_RESERVATION"); mode="resv" ;;
       esac
     fi
-    echo "[$label] dispatch $attempt/$max_attempts to '$SLURM_PART' mode=$mode${exclude:+ exclude=$exclude} (remote: $*)"
+    echo "[$label] dispatch $attempt/$max_attempts to '$SLURM_PART' mode=$mode $(_account_qos_label)${exclude:+ exclude=$exclude} (remote: $*)"
     echo "[$label] submitted to SLURM — the job now QUEUES until the scheduler frees a node," \
          "which can take a while on a busy cluster. Nothing prints until it starts;" \
          "queue status follows every ${INFERA_E2E_QUEUE_LOG_INTERVAL:-60}s."
@@ -492,7 +571,7 @@ _dispatch_slurm() {
     # job; `wait` is interrupted by the signal so the trap runs promptly.
     INFERA_E2E_LOCAL=1 \
       srun -N1 -p "$SLURM_PART" --gres=gpu:8 -t "$SLURM_TIME" \
-        -J "$jobname" "${xflag[@]}" "${resv[@]}" \
+        -J "$jobname" "${xflag[@]}" "${resv[@]}" ${INFERA_E2E_SRUN_EXTRA:-} \
         "${remote[@]}" > "$out" 2>&1 &
     local srunpid=$!
     _watch_job "$out" "$holdflag" "$label" &
@@ -507,12 +586,33 @@ _dispatch_slurm() {
     if [ -f "$holdflag" ]; then
       held=$((held + 1)); prc=1
       local why; why=$(cat "$holdflag" 2>/dev/null)
+      if [[ "$why" = accounting:* ]] && [ $((cred + 1)) -lt "$cred_count" ]; then
+        local blocked_account="$(_account_qos_label)"
+        cred=$((cred + 1)); _set_slurm_account_qos "$cred"
+        echo "[$label] ${why#accounting:} blocks $blocked_account — trying $(_account_qos_label)" >&2
+        attempt=$((attempt - 1)); continue
+      fi
+      if [[ "$why" = accounting:* ]] && [ "$cred_count" -gt 0 ]; then
+        echo "[$label] all $cred_count SLURM account/QoS pairs are blocked (${why#accounting:}) — giving up" >&2
+        break
+      fi
       if [ "$held" -ge "$max_held" ]; then
         echo "[$label] job stuck in ${why:-a scheduler hold} after $held retries — giving up" >&2
         break
       fi
       echo "[$label] job ${why:-held} — cancelled, retry $held/$max_held in 5s" >&2
       attempt=$((attempt - 1)); sleep 5; continue
+    fi
+    # Invalid account/QoS associations can fail before a job id exists, so the
+    # watchdog has nothing to inspect. Rotate on the submit error itself.
+    if _accounting_blocked "$(cat "$out" 2>/dev/null)" && [ "$cred_count" -gt 0 ]; then
+      if [ $((cred + 1)) -lt "$cred_count" ]; then
+        cred=$((cred + 1)); _set_slurm_account_qos "$cred"
+        echo "[$label] SLURM rejected the account/QoS pair — trying $(_account_qos_label)" >&2
+        attempt=$((attempt - 1)); continue
+      fi
+      echo "[$label] SLURM rejected all $cred_count account/QoS pairs — giving up" >&2
+      break
     fi
     # Docker errors land in $logf (shared) or $out (local); "running on <node>"
     # is always an srun banner in $out.

@@ -80,15 +80,15 @@ from pathlib import Path
 
 _TAG = "[responses-custom-encoder-prompt]"
 
-_OLD = '''        if is_multimodal:
+_OLD = """        if is_multimodal:
             request_prompts = [processed_messages.prompt]
             engine_prompts = [processed_messages.prompt]
         else:
             request_prompts = [processed_messages.prompt_ids]
             engine_prompts = [processed_messages.prompt_ids]
-'''
+"""
 
-_NEW = '''        # Mirror OpenAIServingChat.create_chat_completion's prompt_kwargs
+_NEW = """        # Mirror OpenAIServingChat.create_chat_completion's prompt_kwargs
         # ladder. A custom chat encoder ("kimi_k3", "inkling") returns
         # pre-rendered token ids and leaves MessageProcessingResult.prompt at
         # its "" initial value, so taking .prompt here would build
@@ -113,7 +113,7 @@ _NEW = '''        # Mirror OpenAIServingChat.create_chat_completion's prompt_kwa
         else:
             request_prompts = [processed_messages.prompt_ids]
             engine_prompts = [processed_messages.prompt_ids]
-'''
+"""
 
 _REL = "entrypoints/openai/serving_responses.py"
 

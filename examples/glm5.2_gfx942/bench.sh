@@ -15,6 +15,10 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/env.sh"
 require_ips
 
+# Requests, not conversations -- four waves of CONC, which is a few minutes.
+# Derived here rather than in env.sh so that raising CONC re-derives it.
+NUM_PROMPTS="${NUM_PROMPTS:-$((CONC * 4))}"
+
 TAG="${TAG:-random_isl${ISL}_osl${OSL}_c${CONC}_n${NUM_PROMPTS}}"
 OUT="$RESULT_DIR/$TAG"
 

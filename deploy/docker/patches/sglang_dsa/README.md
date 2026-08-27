@@ -50,8 +50,8 @@ which takes `DSA_PATCH_SET`:
 
 | arm | used by | applies | verification |
 |---|---|---|---|
-| `full` (default) | `Dockerfile.sglang` | 01 + 02a + 02b | 4 bytecode markers |
-| `indexer` | `Dockerfile.sglang.gfx942` | 01 | the `_p1v2_trim` bytecode marker |
+| `full` (default) | `Dockerfile.sglang` | 01 + 02a + 02b + 04 | 7 bytecode markers |
+| `indexer` | `Dockerfile.sglang.gfx942` | 01 | the two patch-01 markers |
 
 Set `APPLY_SGLANG_DSA_PATCHES=0` for a stock engine to A/B against.
 
@@ -65,14 +65,22 @@ By hand, against the pinned base:
 ```bash
 cd /sgl-workspace/sglang
 python3 patch_dsa_indexer_hip_dp_padded_rows.py
-for d in dsa_dp_sync.diff dsa_page_table_rows.diff; do
+for d in dsa_dp_sync.diff dsa_page_table_rows.diff draft_cuda_graph_dp_vote.diff; do
   patch -p1 --fuzz=0 < "$d"
 done
 ```
 
-On the v0.5.16 base run only the first line; the two diffs will not apply.
+On the v0.5.16 base run **only the first line** (patch 01). Of the diffs:
+`dsa_dp_sync.diff` applies cleanly (offset −13) but is not carried there, and is
+[untested rather than ruled out](#what-this-validation-does-not-establish);
+`dsa_page_table_rows.diff` applies but is redundant
+(IndexShare off substitutes for it); and `draft_cuda_graph_dp_vote.diff` applies
+only in part — six of its seven files land, and `dp_attn.py` rejects all 7 of its
+hunks, its neighbouring gates having been renamed. That seventh file is carried by
+`patch_draft_cuda_graph_dp_vote_v0516.py` instead, which is what the (today empty)
+`EXPECT_REJECT` / `PORT_SCRIPTS` tables in the apply script exist to wire up.
 
-`--fuzz=0` is deliberate: those two target one pinned commit, and a fuzzy apply
+`--fuzz=0` is deliberate: the diffs target one pinned commit, and a fuzzy apply
 that "succeeds" against a different base is worse than a clean failure. The
 mi35x base image tag is pinned for the same reason — bumping it fails the build
 here rather than mis-applying silently. Note that `patch --dry-run` and `git
@@ -95,11 +103,38 @@ substitution table applies unchanged) — leave IndexShare on and the decode leg
 deadlocks on the first request, exactly as it does on gfx950 without patch 04.
 The 1P1D bring-up behind this image was validated with the flag set.
 
-Patch **02a** is neither carried nor substituted on that base. Its diff was not
-re-cut for v0.5.16, and the failure it prevents (a host sync on a branch only
-some DP ranks take) was not observed there — FP8, `dp8`, concurrency up to 128.
-Absence of the symptom is not a fix; if a gfx942 run deadlocks with IndexShare
-already off, 02a is the first thing to port.
+### Host driver and container ROCm userspace must match
+
+A container brings its own ROCm userspace but cannot bring a kernel driver — it
+talks to the *host's* through `/dev/kfd`. Outside AMD's support window that
+mismatch does not refuse to start: the image initialises, loads weights, captures
+graphs, and then faults under load as `Memory access fault by GPU node-N`.
+
+What makes it expensive is that it does not present as one bug. Pairing amdgpu
+`1:6.10.5.60301` (a ROCm 6.3.x driver) with a **7.2.0** image on a 2 × 8 MI300X
+1P1D bring-up produced three faults on three unrelated code paths — draft-extend,
+the draft-graph vote, a prefill kernel — each with a plausible sglang explanation
+and a patch that appeared to help. Rebuilt on `v0.5.16-rocm700-mi30x` with
+**patch 01 alone** and nothing else changed — same sglang 0.5.16, same MTP
+(5,1,6) on both legs, same IndexShare-off, same manifest but for the image tag —
+that deployment ran clean through warmup, conc 1 and conc 8/16/32 — without
+either of the two patches those faults had been attributed to.
+
+So compare the two before reaching for a patch:
+
+```bash
+dpkg -l | grep -E 'amdgpu-dkms|rocm-core'   # on the host
+cat /opt/rocm/.info/version                 # in the container
+```
+
+| host amdgpu | supported ROCm userspace |
+|---|---|
+| 6.3.x | ≤ 7.0.x |
+| 6.4.x (e.g. 6.14.14) | ≤ 7.2.x |
+
+`Dockerfile.sglang.gfx942` defaults to `v0.5.16-rocm720-mi30x`, i.e. it assumes a
+6.4.x host. On a 6.3.x one, build with
+`--build-arg SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.16-rocm700-mi30x`.
 
 ### Patch 01: the row count diverges in BOTH directions (`GLM52_P1V3`)
 
@@ -250,13 +285,18 @@ flipping, the group decision would stay permissive and the hang would remain.
 
 ### What this validation does NOT establish
 
-* **Nothing about gfx942.** That arm was exercised on 2 × 8×MI325X, ROCm 7.2.0,
-  sglang v0.5.16, GLM-5.2-**FP8** 1P1D, `tp8 dp8 --enable-dp-attention` + EAGLE
-  MTP(3,1,4), IndexShare **off**, `attention-backend dsa` with the tilelang
-  prefill/decode backends and `dsa-paged-mqa-logits-backend auto` — a different
-  quantization, a different base, and a different backend selection. Patch 01 is
-  carried there because the row mismatch it fixes shows up at concurrency > 1;
-  the 02a exposure noted above is untested rather than ruled out.
+* **Nothing about gfx942.** That image (`indexer` arm) was exercised on
+  2 × 8×MI325X, ROCm 7.2.0, sglang v0.5.16, GLM-5.2-**FP8** 1P1D,
+  `tp8 dp8 --enable-dp-attention` + EAGLE MTP(3,1,4), IndexShare **off**,
+  `attention-backend dsa` with the tilelang prefill/decode backends and
+  `dsa-paged-mqa-logits-backend auto` — a different quantization, a different
+  base, and a different backend selection. Patch 01 is carried there because the
+  row mismatch it fixes shows up at concurrency > 1. On 02a: a later 2 × 8 MI300X
+  bring-up appeared to need it and then did **not**, once the ROCm userspace was
+  brought back inside the driver's support window — see
+  [the driver precondition](#host-driver-and-container-rocm-userspace-must-match).
+  So 02a remains untested rather than ruled out on gfx942, and the one apparent
+  data point for it does not bear on the patch.
 * **The image built from this branch after the rebase was not re-run.** `main`
   has since added a `libionic` layer (`eb7da57`) that the measured image did not
   carry. It is orthogonal to these patches — RDMA ABI matching, not DSA — but it
@@ -329,5 +369,7 @@ our bases carries it yet: v0.5.17's `dsa/utils.py` still returns
 `... and not pd_index_share_seed` under its TODO. So the override is still a good
 answer on both bases today, and a dated one on whichever base comes next.
 
-That dating is the standing cost of the gfx942 arm, which has no other option
-until 02b and 04 are re-cut against v0.5.16 — 04's v0.5.17 cut is the template.
+That dating is the standing cost of the gfx942 image, which has no other option
+until 02b and 04 are re-cut against v0.5.16 — 04's v0.5.17 cut is the template,
+and `patch_draft_cuda_graph_dp_vote_v0516.py` already carries its `dp_attn.py`
+half by anchor.

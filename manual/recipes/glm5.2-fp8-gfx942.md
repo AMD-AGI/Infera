@@ -1,0 +1,562 @@
+# GLM-5.2-FP8 (gfx942)
+
+Serve GLM-5.2-FP8 on gfx942 (MI300X / MI325X) with SGLang: TP8/DP8 with
+DP-attention, MTP speculative decoding, fp8 KV, kv-aware routing, and optionally
+prefill/decode disaggregation over Mooncake RDMA and KV offload to host RAM plus
+node-local NVMe through `infera-kvd`.
+
+```{admonition} This is the one recipe that does not use the overlay
+:class: important
+Every other recipe runs a stock vendor image with the infera overlay mounted in.
+This one runs an **infera-built engine image**, because GLM-5.2 on the SGLang
+v0.5.16 gfx942 base needs a rebuilt Mooncake `engine.so` and four SGLang source
+patches — and a mounted payload can supply neither. The base bundles a Mooncake
+that installs a HIP IPC transport and prefers it over RDMA, so cross-node PD dies
+inside `hipIpcOpenMemHandle` on the first request; the image rebuild gates that
+transport off and fails the build if the gate did not compile in.
+```
+
+## Which combo
+
+| Combo | Nodes | RoCE fabric | MTP | Reach for it when |
+|---|---|---|---|---|
+| `aggregated` | 1 | no | yes | the default; start here |
+| `aggregated + kvd` | 1 | no | **no** | one node, and requests share long prefixes |
+| `disaggregated` | 2 | yes | yes | prefill and decode want different batching |
+| `disaggregated + kvd` | 2 | yes | yes | both of the above |
+
+:::{admonition} `aggregated + kvd` is the one arm that runs without MTP
+:class: warning
+Not a tuning preference. **MTP and hicache both active on a worker that prefills
+*and* decodes hangs** — in the scheduler control broadcast on the first long
+prompt, or inside the model forward once concurrency starts. Five configurations
+across three failure shapes were tried with MTP on; dropping MTP and changing
+nothing else passed on the first attempt, with DP-attention and the overlap
+scheduler still enabled. The recipe README's §6 lists all six.
+
+The likely mechanism, though not proven: hicache keeps its prefetch and
+write-back bookkeeping as per-rank local state while the collectives need every
+rank in lockstep, and MTP adds a *second* per-rank host pool for draft tokens.
+
+`disaggregated + kvd` keeps MTP because **speculative decoding only happens on
+the decode leg** — the prefill leg's `spec_accept_length` is `0.0` on every rank —
+so the combination never forms there. **If you need MTP on one node, use
+`aggregated`. If you need the tier with MTP, use `disaggregated + kvd`.**
+:::
+
+**Start with `aggregated`.** It needs one box and touches neither Mooncake nor
+`/dev/infiniband` nor a GID index, so the whole RDMA class of silent failures
+cannot apply. That also makes it the right thing to bring up when something is
+wrong and you do not yet know which layer it is in: it separates "can this image
+load these weights and serve correctly" from "can KV cross this fabric", and those
+two fail in very different ways.
+
+**Add `kvd` only once you have a reason.** hicache is `write_through`, so every
+byte the tier absorbs is paid for on the prefill path whether or not anything reads
+it back. Every measurement of it so far — on this recipe and on the `docker`
+deployment it came from — has been a net loss, in each case because the workload
+had no reuse left for the tier to serve: the A/B behind that, in the recipe
+README's §6, cost throughput and TTFT while serving zero reads. That says nothing
+about a workload with prefix reuse, and everything about deploying it without one.
+Read §6 first.
+
+All four combos run TP8 / DP8 with DP-attention; the grid otherwise differs only
+on one node vs two and GPU-only KV vs tiered, plus the MTP exception above.
+
+## 1. Read the host driver version before you build
+
+A container brings its own ROCm userspace but **cannot** bring a kernel driver — it
+talks to the host's amdgpu through `/dev/kfd`, and AMD supports that pairing only
+inside a bounded window. Which base image you build on is therefore a property of
+your nodes, not a preference:
+
+```bash
+dpkg -l | grep -E 'amdgpu-dkms|rocm-core'    # on BOTH nodes
+```
+
+| Host amdgpu | Supported ROCm userspace | Base to build on |
+|---|---|---|
+| 6.3.x | ≤ 7.0.x | `v0.5.16-rocm700-mi30x` |
+| 6.4.x (e.g. 6.14.14) | ≤ 7.2.x | `v0.5.16-rocm720-mi30x` (the Dockerfile default) |
+
+```{admonition} Outside the window, nothing refuses to start
+:class: danger
+The image initialises, loads weights, captures CUDA graphs, serves a health check —
+and then faults with `Memory access fault by GPU node-N` somewhere under load. On
+gfx942 those faults landed in three unrelated places (the DSA indexer, the EAGLE
+draft path, an aiter FP8 MoE kernel), each with a stack that reads like a genuine
+engine bug. Two of them had a patch written for them before anyone compared
+version numbers. Several unrelated code paths faulting at once is itself the
+signal that the problem is environmental.
+```
+
+## 2. Build and verify the engine image
+
+```bash
+# 6.4.x host driver — the Dockerfile default
+docker build -f deploy/docker/Dockerfile.sglang.gfx942 -t infera:sglang-gfx942-glm52 .
+
+# 6.3.x host driver — override the base
+docker build -f deploy/docker/Dockerfile.sglang.gfx942 \
+  --build-arg SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.16-rocm700-mi30x \
+  -t infera:sglang-gfx942-glm52 .
+```
+
+Build on **one** node and copy it. The base is an `ARG` with a default, so building
+on each can leave two different ROCm userspaces under the one tag, and only the leg
+on the mismatched node faults — under load, in the shape §1 describes.
+
+Copying takes **two** moves, and neither implies the other, because
+`imagePullPolicy: IfNotPresent` asks containerd and containerd cannot see a
+`docker build` result:
+
+```bash
+# 1. into the other node's docker -- the move most often skipped
+docker save infera:sglang-gfx942-glm52 | ssh <DECODE_NODE> 'docker load'
+
+# 2. docker -> containerd, on every node the manifest names
+deploy/scripts/import-image-to-containerd.sh infera:sglang-gfx942-glm52 \
+  <PREFILL_NODE> <DECODE_NODE>
+```
+
+:::{admonition} Verify by running the image on every node, before you deploy
+:class: important
+`kubectl get node -o jsonpath='{.status.images[*]}'` is not a substitute: a node has
+been seen listing the tag in its own status while a probe Pod on it went to
+`ImagePullBackOff`.
+
+```bash
+kubectl create namespace infera --dry-run=client -o yaml | kubectl apply -f -
+
+for N in <PREFILL_NODE> <DECODE_NODE>; do
+  kubectl -n infera run img-probe-$N --image=infera:sglang-gfx942-glm52 \
+    --image-pull-policy=IfNotPresent --restart=Never \
+    --overrides="{\"spec\":{\"nodeName\":\"$N\"}}" --command -- /bin/echo usable
+  kubectl -n infera wait --for=jsonpath='{.status.phase}'=Succeeded \
+    pod/img-probe-$N --timeout=90s
+  kubectl -n infera delete pod img-probe-$N
+done
+```
+
+Skipping move 1 gives **one leg `Running` and the other in `ImagePullBackOff`**,
+reported as `pull access denied … authorization failed` against
+`docker.io/library/infera`. That reads as a credentials problem and is not one: a
+registry-less tag normalises to Docker Hub, so an `imagePullSecret` cannot help.
+:::
+
+Then read the patch markers out of the built image rather than trusting the build
+log — a patch whose anchor moved no-ops silently — and confirm RDMA is visible from
+inside it on both nodes. Zero visible ports is the nastiest failure here:
+`ibv_get_device_list()` returns nothing, Mooncake falls back to TCP, and the
+deployment still comes up green.
+
+```bash
+docker run --rm --entrypoint bash infera:sglang-gfx942-glm52 -c '
+P=$(python3 -c "import sglang, os; print(os.path.dirname(sglang.__file__))")
+for m in GLM52_ROCM_HOST_ALLOC GLM52_ROCM_STAGED_WRITE_BACK GLM52_P1V3; do
+  grep -rql "$m" "$P" && echo "ok      $m" || echo "MISSING $m"
+done'
+
+docker run --rm --network host --device=/dev/infiniband --cap-add=IPC_LOCK \
+  --entrypoint bash infera:sglang-gfx942-glm52 -c 'ibv_devinfo | grep -c PORT_ACTIVE'
+```
+
+## 3. Prerequisites
+
+Every engine Pod wants 8× gfx942 and `cpu: 32`. What differs per combo is how many
+nodes, how much host RAM, and whether NVMe and a RoCE fabric are needed at all:
+
+| Combo | Nodes | Host RAM on the busiest node | Node-local NVMe | RoCE fabric |
+|---|---|---|---|---|
+| `aggregated` | 1 | ~272 GiB | no | no |
+| `aggregated + kvd` | 1 | ~670 GiB | yes | no |
+| `disaggregated` | 2 | ~272 GiB | no | yes |
+| `disaggregated + kvd` | 2 | ~670 GiB | yes | yes |
+
+The kvd combos want roughly 512 GiB for the engine, 136 GiB for kvd and 16 GiB for
+the router. kvd's figure looks oversized next to its `--max-bytes 64G` and is not —
+it holds two independent budgets, so sizing the limit to one of them gets the
+sidecar OOM-killed mid-run, which reads as a kvd bug.
+
+:::{admonition} `--hicache-size` is per TP rank, not per worker
+:class: warning
+At `--hicache-size 32` each of the 8 schedulers allocates 32 GB, so the host tier is
+**256 GB**, and dropping DP-attention does not reduce it. Sizing the container as if
+TP8 meant one 32 GB pool gets it OOMKilled (exit 137) immediately after graph
+capture — a crash that reads like an engine bug and is a budget mistake.
+:::
+
+**Kubernetes 1.29+, for the two kvd combos.** The kvd daemon runs as a *native*
+sidecar (`initContainers` with `restartPolicy: Always`), which is what makes it pass
+its `startupProbe` before the engine starts. The engine probes the kvd socket once
+with a 5 s timeout and refuses to start if nothing answers, so as an ordinary
+container that ordering becomes a race. The non-kvd combos have no such requirement.
+
+**Weights on a `hostPath`** at the same path on every node the deployment uses. The
+manifests mount `<MODEL_DIR>` at `/models` and read `/models/GLM-5.2-FP8`:
+
+```bash
+hf download zai-org/GLM-5.2-FP8 --local-dir <MODEL_DIR>/GLM-5.2-FP8
+```
+
+`--local-dir` is load-bearing. A bare `hf download` leaves a cache whose files are
+*relative* symlinks into a sibling `blobs/`, and a `hostPath` volume renames the
+directory to `/models` so they resolve outside the mount. Nothing reports a missing
+file: `transformers` rejects the model with `Should have a model_type key in its
+config.json`, four minutes into startup and nowhere near its cause. To serve a cache
+you already have, mount the *repository* directory instead — it holds `blobs/` and
+`snapshots/` both — and add a third `sed` expression in §4,
+`-e "s|/models/GLM-5.2-FP8|/models/snapshots/<sha>|g"`. That string is also the
+served model name, so §5's request has to carry it too.
+
+Check the mount before paying for a cold start rather than four minutes into one, on
+every node the combo uses. This reads `config.json` through the same volume the
+engine will, which `kubectl debug node/<NODE>` cannot — it mounts the node's root
+filesystem, where the links *do* resolve:
+
+```bash
+cat <<'EOF' | kubectl apply -f -
+apiVersion: v1
+kind: Pod
+metadata: {name: hf-check, namespace: infera}   # a hostPath is denied under Pod Security baseline
+spec:
+  nodeName: <NODE>
+  restartPolicy: Never
+  containers:
+  - name: c
+    image: busybox:1.36                          # bare `busybox` is :latest, which kubelet always pulls
+    command: ["cat", "/models/GLM-5.2-FP8/config.json"]
+    volumeMounts:
+    - {name: model, mountPath: /models, readOnly: true}
+  volumes:
+  - {name: model, hostPath: {path: <MODEL_DIR>, type: Directory}}
+EOF
+kubectl -n infera wait --for=jsonpath='{.status.phase}'=Succeeded pod/hf-check --timeout=90s
+kubectl -n infera logs hf-check | grep model_type    # a line printed is the pass
+kubectl -n infera delete pod hf-check
+```
+
+Without the `wait`, `logs` runs before the container does and reports that instead of
+the answer. `cat` the path the engine will read, so `/models/snapshots/<sha>` on the
+repository-mount route. Any image with `cat` will do; substitute the engine image
+where the nodes cannot reach Docker Hub.
+
+## 4. Deploy
+
+The manifests ship placeholders rather than defaults, because the RDMA values have
+no correct default. A placeholder left unsubstituted fails, which is the intent — but
+not all of them fail at the same moment. `kubectl` rejects a literal `<NODE>` at
+admission; a literal `<RDMA_IB_DEVICES>` it accepts, and that one surfaces only when
+the engine opens the device, minutes later and after the weights have loaded.
+
+```bash
+kubectl create namespace infera --dry-run=client -o yaml | kubectl apply -f -
+```
+
+Fill in what your combo needs. They are left empty deliberately, and each block below
+opens with a `${VAR:?}` guard so that pasting it unedited aborts on the first value
+still missing — an empty value is *not* caught downstream. An empty `nodeName` is
+accepted by the CRD and hands the Pod to the scheduler instead, which on the
+disaggregated combos can place both legs on one node and quietly take the RDMA path
+out of the deployment.
+
+```bash
+NODE=            # aggregated combos: the one node.  kubectl get nodes
+PREFILL_NODE=    # disaggregated combos: the two nodes
+DECODE_NODE=
+MODEL_DIR=       # absolute path, identical on every node used, holding GLM-5.2-FP8/
+KVD_L3_DIR=      # kvd combos only: node-local NVMe
+RAIL=            # disaggregated only: from ibv_devices, and ACTIVE on both nodes
+PREFILL_GID=     # the RoCE v2 index on that rail -- per node, so check both
+DECODE_GID=
+```
+
+::::{tab-set}
+
+:::{tab-item} Aggregated
+:sync: aggregated
+
+One node, one worker doing prefill and decode. Two placeholders, no fabric.
+
+```bash
+: "${NODE:?}" "${MODEL_DIR:?}"
+sed -e "s|<NODE>|$NODE|" -e "s|<MODEL_DIR>|$MODEL_DIR|" \
+    examples/recipes/glm5.2-fp8-gfx942/aggregated/deploy.yaml | kubectl apply -f -
+```
+
+Deploys as `glm52-fp8-mixed`, with one engine service called `worker`.
+:::
+:::{tab-item} Aggregated + kvd
+:sync: aggregated-kvd
+
+Adds the kvd tiered cache: an L2 arena in pinned host RAM and L3 on node-local
+NVMe. This arm runs **without MTP** — see the warning at the top of this page for
+why, and what it costs.
+
+```bash
+: "${NODE:?}" "${MODEL_DIR:?}" "${KVD_L3_DIR:?}"
+sed -e "s|<NODE>|$NODE|" -e "s|<MODEL_DIR>|$MODEL_DIR|" \
+    -e "s|<KVD_L3_DIR>|$KVD_L3_DIR|" \
+    examples/recipes/glm5.2-fp8-gfx942/aggregated-kvd/deploy.yaml | kubectl apply -f -
+```
+
+Deploys as `glm52-fp8-mixed-kvd`.
+:::
+:::{tab-item} Disaggregated
+:sync: disaggregated
+
+Prefill and decode on separate nodes, KV handed over by Mooncake RDMA.
+
+```{admonition} Two nodes on a routable RoCE fabric
+:class: warning
+The KV handoff is RDMA with **no TCP fallback**. On one box this cannot work — use
+`aggregated`.
+```
+
+```bash
+: "${PREFILL_NODE:?}" "${DECODE_NODE:?}" "${MODEL_DIR:?}" \
+  "${RAIL:?}" "${PREFILL_GID:?}" "${DECODE_GID:?}"
+sed -e "s|<PREFILL_NODE>|$PREFILL_NODE|" -e "s|<DECODE_NODE>|$DECODE_NODE|" \
+    -e "s|<MODEL_DIR>|$MODEL_DIR|"       -e "s|<RDMA_IB_DEVICES>|$RAIL|" \
+    -e "s|<PREFILL_GID_INDEX>|$PREFILL_GID|" \
+    -e "s|<DECODE_GID_INDEX>|$DECODE_GID|" \
+    examples/recipes/glm5.2-fp8-gfx942/disaggregated/deploy.yaml | kubectl apply -f -
+```
+
+Deploys as `glm52-fp8-pd`, with engine services `prefill` and `decode`.
+:::
+:::{tab-item} Disaggregated + kvd
+:sync: disaggregated-kvd
+
+Disaggregated, with kvd on the prefill leg. There is deliberately none on decode:
+SGLang issues storage prefetch on its aggregated and prefill branches only, so a
+decode-side tier would be written and never read.
+
+```bash
+: "${PREFILL_NODE:?}" "${DECODE_NODE:?}" "${MODEL_DIR:?}" "${KVD_L3_DIR:?}" \
+  "${RAIL:?}" "${PREFILL_GID:?}" "${DECODE_GID:?}"
+sed -e "s|<PREFILL_NODE>|$PREFILL_NODE|" -e "s|<DECODE_NODE>|$DECODE_NODE|" \
+    -e "s|<MODEL_DIR>|$MODEL_DIR|"       -e "s|<KVD_L3_DIR>|$KVD_L3_DIR|" \
+    -e "s|<RDMA_IB_DEVICES>|$RAIL|" \
+    -e "s|<PREFILL_GID_INDEX>|$PREFILL_GID|" \
+    -e "s|<DECODE_GID_INDEX>|$DECODE_GID|" \
+    examples/recipes/glm5.2-fp8-gfx942/disaggregated-kvd/deploy.yaml | kubectl apply -f -
+```
+
+Deploys as `glm52-fp8-pd-kvd`.
+:::
+
+::::
+
+On the disaggregated combos, `<RDMA_IB_DEVICES>` comes from `ibv_devices` — a rail
+that is physically down must not be listed. The two GID indices come from
+`show_gids <dev>`, the entry whose type is `RoCE v2`. There are **two** placeholders
+because the index is per node, not per cluster; two identical machines routinely
+expose different ones. They are usually equal, but check both: a wrong index pins KV
+to an interface that never carries it and the transfer simply times out.
+
+:::{admonition} For the fabric values, prefer the renderer over `sed`
+:class: important
+`sed` substitutes a wrong rail or GID index as readily as a right one, and neither
+`kubectl` nor the engine objects until the device is opened — minutes in, after the
+weights have loaded.
+[`examples/recipes/render.py`](https://github.com/AMD-AGI/Infera/blob/main/examples/recipes/render.py)
+takes the same values and adds what `sed` cannot: it re-scans its own output and
+refuses to emit a manifest still holding a `<NAME>`, it rejects a `--set` name the
+combo does not use so a typo cannot pass as a no-op, and `--check-rail` reads the
+rail's state on both nodes over ssh before rendering anything.
+
+```bash
+python3 examples/recipes/render.py glm5.2-fp8-gfx942/disaggregated \
+  --set PREFILL_NODE=<PREFILL_NODE> --set DECODE_NODE=<DECODE_NODE> \
+  --set MODEL_DIR=<MODEL_DIR> \
+  --set RDMA_IB_DEVICES=<RAIL> \
+  --set PREFILL_GID_INDEX=<PREFILL_GID_INDEX> \
+  --set DECODE_GID_INDEX=<DECODE_GID_INDEX> \
+  --check-rail \
+  | kubectl apply -f -
+```
+
+Add `--pin-rail` if your rails carry no IPv4: every GID is then link-local `fe80::`,
+so every rail looks like the same `/64` subnet and Mooncake can pair the prefill
+node's rail A with the decode node's rail B, where the transfer times out. The
+recipe README covers both flags in full.
+:::
+
+```{admonition} Cold start is 10–25 minutes, and the log goes quiet
+:class: tip
+Weights land in about 3.5 minutes. Everything after that — draft weights, memory
+pools, `tilelang` and `aiter` JIT, CUDA-graph capture — prints almost nothing for
+ten minutes or more, on a fresh container every time, since the JIT cache does not
+survive the Pod. The workers use a `startupProbe` with a 90-minute budget and no
+readiness probe for exactly this reason. Don't kill a slow load.
+```
+
+Each combo deploys under its own name, so the Service and label selectors below
+take the deployment name and engine service as variables:
+
+| Combo | `InferaDeployment` | Engine service(s) |
+|---|---|---|
+| `aggregated` | `glm52-fp8-mixed` | `worker` |
+| `aggregated + kvd` | `glm52-fp8-mixed-kvd` | `worker` |
+| `disaggregated` | `glm52-fp8-pd` | `prefill`, `decode` |
+| `disaggregated + kvd` | `glm52-fp8-pd-kvd` | `prefill`, `decode` |
+
+```bash
+CR=glm52-fp8-mixed        # or glm52-fp8-pd-kvd, etc.
+SVC=worker                # or prefill
+
+kubectl -n infera get pods -w
+kubectl -n infera logs -f -c main \
+  -l infera.amd.com/deployment=$CR,infera.amd.com/service=$SVC
+```
+
+## 5. Smoke test
+
+```bash
+kubectl -n infera port-forward svc/$CR-server 8000:8000 &
+
+# one `mixed` worker, or one prefill + one decode
+curl -s localhost:8000/v1/workers | jq
+
+curl -s localhost:8000/v1/chat/completions -H 'Content-Type: application/json' \
+  -d '{"model":"/models/GLM-5.2-FP8",
+       "messages":[{"role":"user","content":"What is 127 * 31? Answer with the number only."}],
+       "max_tokens":128,"temperature":0,
+       "chat_template_kwargs":{"enable_thinking":false}}' | jq -r '.choices[0].message.content'
+```
+
+The manifests pass no `--served-model-name`, so the served name **is** the model
+path. Expect `3937` — necessary, and not sufficient in two different ways.
+
+**On the disaggregated combos, check the transport.** RDMA that failed to
+initialise does not stop the deployment: Mooncake falls back to TCP and everything
+still answers. Eight `installTransport, type=rdma`, one per DP rank, is the pass.
+
+```bash
+kubectl -n infera logs -c main \
+  -l infera.amd.com/deployment=$CR,infera.amd.com/service=decode \
+  | grep -aE 'GID index|installTransport'
+```
+
+Run it while the deployment is young. These are startup lines and container logs
+rotate — the engines print enough during weight load and graph capture to push them
+out within the hour, after which the grep returns nothing rather than a wrong
+answer. On a deployment that has been up for hours, `Received RDMA ready ACK` from
+`rdma_endpoint.cpp` in the surviving log carries the same conclusion.
+
+```{admonition} On every combo, send a prompt longer than one chunk
+:class: warning
+Without the mooncake early-send wait-event patch, every prefill chunk but the last
+is read while the forward pass is still writing it — multi-chunk prompts come back
+**partially wrong, with nothing in any log**. A short prompt that answers correctly
+cannot see that. Bury a distinctive needle at the head, middle *and* tail of a
+prompt several times `--chunked-prefill-size` long and ask for it back: losing only
+the head reads as "it works" if you happen to probe the tail.
+```
+
+## 6. kvd
+
+kvd runs on the worker that prefills — the `worker` on `aggregated + kvd`, the
+`prefill` leg on `disaggregated + kvd`. There is deliberately none on a decode
+leg: SGLang issues storage prefetch on its aggregated and prefill branches only,
+so a decode-side tier would be written and never read, and infera refuses to wire
+it up even if handed the socket.
+
+```bash
+SVC=worker    # or prefill, on the disaggregated combo
+POD=$(kubectl -n infera get pod -o name \
+  -l infera.amd.com/deployment=$CR,infera.amd.com/service=$SVC | head -1)
+kubectl -n infera exec $POD -c kvd -- \
+  python3 -m infera.kvd.statctl --socket /tmp/infera-kvd/kvd.sock
+```
+
+`sets_total` climbing means the engine writes to kvd; `gets_total` / `hits_total`
+climbing means it reads back. Writes alone prove half the path. Two counters that
+mislead: `misses_total` counts *failed* gets only, so `0 misses` is fully
+compatible with L3 having served nothing — read the scorer's `cached tokens by
+tier` instead. And `entries: 0` on a healthy-looking deployment means kvd rejected
+the KV layout; oversize values are rejected rather than split, so grep the kvd
+container for `value_exceeds_largest_pool`.
+
+:::{admonition} `sets_total` is not "what this run wrote"
+:class: warning
+On this deployment it keeps climbing at a steady ~24/s with **no traffic at all**:
+18944 when the benchmark finished, 46588 twenty-four minutes later, nothing sent in
+between, while every SGLang-side counter stayed frozen. The 8 schedulers are the
+socket's only peers, so the engine is issuing them; the root cause is not yet
+known. Read `sets_total > 0` as "the write path works" and nothing more, and read
+`long_bytes` as current residency rather than cumulative volume — it decreases too,
+with `evictions_total` at 0, because a rewritten key overwrites its slot.
+
+The same queue makes **`POST /flush_cache` permanently unavailable on a kvd leg**:
+`is_fully_idle()` requires hicache's `ongoing_backup` to be empty, so the endpoint
+returns 400 even with `?timeout=90` and nothing in flight.
+:::
+
+```{admonition} L2's slot size is fixed by the first put
+:class: note
+The shared arena sizes its slot grid on the *first* blob it accepts and refuses
+everything larger for the process lifetime, warning exactly once. This model
+writes two sizes — the main MLA latent at 44928 B and the DSA indexer at
+~10352 B — and whichever lands first wins. The mixed worker gets the small one
+first on every cold start observed, which locks the main KV out of L2 for the
+process lifetime. Independent of MTP: the no-MTP arm logs the same
+`slot_size=10368`. Whether the prefill leg differs is unverified — assume it does
+not until its kvd sidecar log says otherwise.
+
+This costs performance, not correctness. Refused blobs fall back to inline
+storage in kvd's heap, and **L3 is unaffected** — the long-region write is a
+separate branch that reads the value from either location. What is lost is the
+zero-copy read path and the usefulness of the `mlock`ed arena, which ends up
+holding only indexer blobs. `--shared-arena-bytes 0` disables the arena and
+reclaims that RAM.
+```
+
+:::{admonition} kvd plus MTP needs `--hicache-io-backend direct`
+:class: important
+The manifest already passes it. It is not tuning: SGLang's default `kernel`
+write-back path requires every host pool's stride to be a multiple of 8, and MTP's
+draft pool at `page_size 1` has a 132-byte stride. The guard raises instead of
+falling back, so without the flag the first request to write back kills the
+prefill scheduler with `ValueError: Unsupported IO backend: kernel`. Note the
+shape of that failure — a clean Python exception with a line number — as against
+the `Memory access fault` class in §1. Telling those two apart matters, because
+this deployment has been misdiagnosed in the other direction once already.
+:::
+
+## 7. Tear down
+
+```bash
+kubectl -n infera delete inferadeployment $CR
+pkill -f 'port-forward.*8000' || true     # the tunnel from §5, if still up
+
+# on every node the deployment used
+rocm-smi --showpids     # a deleted Pod can leave processes holding VRAM
+```
+
+Deleting the `InferaDeployment` is enough: the operator owns the workload objects
+and the Service, so they go with it. Wait for the VRAM to come back before
+re-applying — the engines release it over tens of seconds, and a re-apply that
+races them dies allocating its memory pool on a node that already looks idle to
+`kubectl get pods`.
+
+Two things outlive the delete on purpose:
+
+- **kvd's L3 directory.** `<KVD_L3_DIR>` is a `hostPath` and L3 is journalled, so
+  it is recovered on the next start rather than rebuilt — the same property that
+  lets a Pod restart keep its tier. Delete the directory to reclaim the NVMe or to
+  start from a cold one.
+- **Nothing else, including the caches that make a restart slow.** The JIT and
+  CUDA-graph caches do not survive the Pod, so the next bring-up pays the full
+  cold start from §4 again. Between runs, prefer leaving the deployment up.
+
+## Source
+
+[`examples/recipes/glm5.2-fp8-gfx942/`](https://github.com/AMD-AGI/Infera/tree/main/examples/recipes/glm5.2-fp8-gfx942)
+— its README carries the full reasoning: why each of the four source patches
+exists and what breaks without it, and a row-by-row table of every difference
+between this manifest and the `docker` deployment it came from.
+
+[The same topology on MI355X, in `docker` form](https://github.com/AMD-AGI/Infera/tree/main/examples/sglang_1p1d_glm5.2)
+· [all recipes](index)

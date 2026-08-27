@@ -8,6 +8,7 @@ serve them. Pick a model, pick a combo, `kubectl apply`.
 | GLM-5.2-MXFP4 | SGLang | [`glm5.2/`](glm5.2/README.md) |
 | GLM-5.2-FP8 (gfx942) | SGLang | [`glm5.2-fp8-gfx942/`](glm5.2-fp8-gfx942/README.md) |
 | Kimi-K3 | vLLM | [`kimi-k3/`](kimi-k3/README.md) |
+| Kimi-K3 optimized (DSpark) | vLLM | [`kimi-k3-optimized/`](kimi-k3-optimized/README.md) |
 
 
 ```{admonition} The directory is `aggregated`, the API field still says `mixed`
@@ -23,9 +24,7 @@ as the wire format, and the directory name as what it means.
 ## The four combos
 
 Recipes come in the same four shapes, composing two independent choices: **how
-requests are split across GPUs**, and **whether KV survives past the GPU**. A
-recipe pinned to one validated configuration ships only the shapes it was run in —
-`glm5.2-fp8-gfx942` is `disaggregated-kvd` alone.
+requests are split across GPUs**, and **whether KV survives past the GPU**.
 
 | Combo | Serving | KV cache | Use it when |
 |---|---|---|---|
@@ -36,6 +35,12 @@ recipe pinned to one validated configuration ships only the shapes it was run in
 
 `disaggregated` needs the two nodes on a **mutually routable RoCE fabric** — the KV handoff is
 RDMA, and there is no TCP fallback. If you are on one box, use `aggregated`.
+
+A shape shipping does not by itself mean every feature composes inside it:
+`glm5.2-fp8-gfx942`'s `aggregated-kvd` has to drop MTP, because on a worker that
+both prefills and decodes, MTP and the tiered cache deadlock each other. Each
+recipe's README states per-combo validation status and any such exception; read it
+before picking one.
 
 ## How these manifests are built
 
@@ -89,6 +94,25 @@ HiCacheStorage — leave it unset.
 
 See [`deploy/overlay/README.md`](../../deploy/overlay/README.md) for how the payload
 is assembled.
+
+## Substituting the placeholders
+
+Every manifest ships `<PLACEHOLDER>` strings where a cluster-specific value goes,
+because a default would be wrong everywhere but the cluster it came from. `sed` is
+enough for the simple ones, and each recipe README shows the exact invocation.
+
+[`render.py`](render.py) is the same substitution with the guardrails `sed` has no
+way to offer — it refuses to emit a manifest that still contains a placeholder,
+and refuses a `--set` name the chosen combo does not use, so a typo cannot pass as
+a no-op:
+
+```bash
+python3 examples/recipes/render.py <recipe>/<combo> --set NAME=VALUE ... | kubectl apply -f -
+python3 examples/recipes/render.py --help
+```
+
+Both failures it catches are ones that otherwise surface long after `kubectl apply`
+returns success.
 
 ## Source
 
