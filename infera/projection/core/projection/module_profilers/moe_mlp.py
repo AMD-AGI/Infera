@@ -18,9 +18,19 @@ from infera.projection.core.projection.training_config import TrainingConfig
 # so the model scales automatically across MI300X (5.3 TB/s), MI325X (6.0
 # TB/s), MI355X (8.0 TB/s), etc.
 #
-# PERMUTE (scatter/gather) — random-access token dispatch/combine.  Irregular
-# access patterns achieve only ~5-7 % of peak HBM bandwidth.
-_PERMUTE_BW_FRACTION = 0.057
+# PERMUTE (scatter/gather) — token dispatch/combine.  Measured on MI355X as a
+# fraction of peak HBM, gathering whole rows against the row length:
+#
+#   row bytes   128   256   512    1K    2K    7K   14K
+#   gather      14%   27%   52%   85%   91%   81%   87%
+#
+# The random-access penalty is a *granularity* effect and only bites below a
+# DRAM burst; a hidden-size row (7 KB for a 7168-wide model in fp8) is
+# contiguous and streams at near-sequential bandwidth.  Combine is the slower
+# half — it reduces ``topk`` scattered rows per output row with no reuse — and
+# was measured separately at the same shapes.
+_PERMUTE_GATHER_BW_FRACTION = 0.80
+_PERMUTE_COMBINE_BW_FRACTION = 0.28
 #
 # ACTIVATION (SwiGLU / GELU) — sequential element-wise ops that stream over
 # contiguous buffers.  Typically ~55-60 % of peak HBM bandwidth.
@@ -434,7 +444,6 @@ class MoEMLPProfiler(BaseModuleProfiler):
             if self._gemm_backend is not None and self._gemm_backend.hbm_bandwidth_gbps is not None
             else _FALLBACK_HBM_BW_GBPS
         )
-        permute_eff_bw_gbps = peak_hbm * _PERMUTE_BW_FRACTION
         activation_bw_gbps = peak_hbm * _ACTIVATION_BW_FRACTION
 
         # ── 2. Router overhead ──
@@ -457,11 +466,16 @@ class MoEMLPProfiler(BaseModuleProfiler):
         fwd_time += router_fwd_ms
 
         # ── 3. Token permutation overhead (dispatch + combine) ──
-        # Dispatch: gather tokens by expert assignment → irregular memory access
-        # Combine: scatter expert outputs back → weighted reduce
-
-        dispatch_bytes = (batch_tokens + topk_tokens) * hidden_size * bytes_per_el
-        permute_fwd_ms = dispatch_bytes / (permute_eff_bw_gbps * 1e6)
+        # Dispatch gathers one row per routing and writes it in expert order;
+        # combine reads those rows back and reduces ``topk`` of them into one row
+        # per token. Combine reads the down-projection outputs, which are still
+        # unquantized (bf16) whatever width the operands were.
+        dispatch_bytes = 2 * topk_tokens * hidden_size * bytes_per_el
+        combine_bytes = (topk_tokens + batch_tokens) * hidden_size * 2
+        permute_fwd_ms = (
+            dispatch_bytes / (peak_hbm * _PERMUTE_GATHER_BW_FRACTION * 1e6)
+            + combine_bytes / (peak_hbm * _PERMUTE_COMBINE_BW_FRACTION * 1e6)
+        )
 
         fwd_time += permute_fwd_ms
 
