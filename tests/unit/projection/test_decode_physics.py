@@ -202,6 +202,36 @@ def test_a_layer_costs_the_kernels_it_actually_runs():
     assert n_ds - n_gpt == 8
 
 
+def test_the_step_floor_still_comes_out_where_it_was_measured():
+    """The count and the constant have to be the pair that was calibrated.
+
+    4.98 us is not a per-kernel measurement. It is a measured 2.72 ms step
+    floor divided by the 546 kernels gpt-oss issues, so the projector only
+    reproduces that floor if it charges the constant over the same 546.
+    Charging it over the elementwise kernels alone type-checks, keeps every
+    gpt-oss test green, and quietly halves the floor to 1.28 ms -- which a
+    tensor-parallel sweep then reports as a scaling error, because the missing
+    cost is the part that does not shard.
+    """
+    from types import SimpleNamespace
+
+    from infera.projection.core.projection.training_config import (
+        InferenceRequestConfig,
+        decode_kernels_per_layer,
+    )
+
+    gpt_oss = SimpleNamespace(num_experts=128, multi_latent_attention=False,
+                              moe_shared_expert_intermediate_size=None)
+    assert 36 * decode_kernels_per_layer(gpt_oss) + 6 == 546
+
+    floor = InferenceRequestConfig(
+        decode_kernel_occupancy_us=4.98,
+    ).resolved_decode_occupancy_ms(36, decode_kernels_per_layer(gpt_oss))
+    assert floor == pytest.approx(2.72, abs=0.01), (
+        f"the projector charges a {floor:.2f} ms floor where 2.72 ms was measured"
+    )
+
+
 def test_measured_router_coverage_reshapes_the_expert_count():
     """Real tokens route in a correlated way, so a step touches fewer experts.
 

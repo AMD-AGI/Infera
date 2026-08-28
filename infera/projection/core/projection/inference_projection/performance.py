@@ -1328,10 +1328,15 @@ class InferencePerformanceProjector:
         ``s_tgt - s_bench`` difference the anchor restore takes, which is the
         correct behaviour -- sharding does not remove kernels.
 
-        Charged over the elementwise kernels only. This term is additive, so it
-        may cover just the kernels the layer profilers do not already time; the
-        GEMMs and the attention kernel carry their own device time and would
-        otherwise be paid for twice.
+        Charged over every kernel the step issues, not only the elementwise
+        ones. The per-kernel cost here is the device overhead paid around a
+        kernel -- dispatch, wave launch, drain -- which sits outside the math a
+        profiler times, so charging it on a GEMM as well as on a norm is not
+        double-counting its compute. Restricting it to elementwise kernels left
+        the step short by a fixed amount: measured against real vLLM decode
+        steps it recovers 2.45 ms of missing time on gpt-oss-120b (36 layers)
+        and 5.29 ms on DeepSeek-R1 (61 layers), where the full count charges
+        2.72 and 4.59, and the elementwise count charges only 1.28 and 2.16.
         """
         from infera.projection.core.projection.training_config import (
             decode_kernels_per_layer,
@@ -1339,7 +1344,7 @@ class InferencePerformanceProjector:
 
         return self.cfg.request_config.resolved_decode_occupancy_ms(
             self.cfg.model_config.num_layers,
-            decode_kernels_per_layer(self.cfg.model_config, elementwise_only=True),
+            decode_kernels_per_layer(self.cfg.model_config),
         )
 
     def _launch_latency_floor_ms(self) -> float:
