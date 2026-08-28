@@ -449,6 +449,30 @@ impl BlockHasher {
         if self.tokenizer.is_none() && self.tiktoken.is_none() {
             return Vec::new();
         }
+        // `/v1/responses` carries the conversation in `input`; every renderer
+        // below keys off `messages`/`prompt` and would hash nothing at all.
+        // Normalise it into the chat body `OpenAIServingResponses._make_request`
+        // builds, once, here — so the encoders stay single-schema and the two
+        // endpoints render through identical code.
+        let normalized;
+        let body = if crate::responses_input::is_responses_body(body) {
+            match crate::responses_input::to_chat_body(body) {
+                Some(b) => {
+                    normalized = b;
+                    &normalized
+                }
+                None => {
+                    tracing::warn!(
+                        "kv-aware: /v1/responses body cannot be reproduced (a \
+                         `previous_response_id` whose history lives in the engine, or an \
+                         input item this port does not model); routing on load for this request"
+                    );
+                    return Vec::new();
+                }
+            }
+        } else {
+            body
+        };
         // Kimi-K3 renders chat in imperative Python and ships no Jinja template
         // at all, so the chat-template path below has nothing to apply and every
         // chat request would hash to nothing. Encode it natively instead. The
@@ -466,7 +490,19 @@ impl BlockHasher {
             add_special_tokens,
         } = match self.render_text(body) {
             Some(t) => t,
-            None => return Vec::new(),
+            // Every other degradation in this file says so; this one used to be
+            // the exception, and it is the one that fires on a whole endpoint at
+            // a time. `policy="kv-aware"` keeps logging normally either way, so
+            // silence here reads as a healthy router with an inexplicable 0% hit
+            // rate — which is exactly how the `/v1/responses` outage hid.
+            None => {
+                tracing::warn!(
+                    keys = ?top_level_keys(body),
+                    "kv-aware: no tokenizable prompt in this request body (no `messages`, \
+                     no string `prompt`); routing on load for this request"
+                );
+                return Vec::new();
+            }
         };
         // Kimi tiktoken takes precedence — it reproduces the engine's ids for a
         // model the HF `tokenizers` crate can't load.
@@ -647,6 +683,14 @@ impl BlockHasher {
 /// If `prompt` is a flat array of non-negative integers (pre-tokenized ids),
 /// return them as `u32`s. Any non-int / negative / non-array shape → None
 /// (fall through to the text tokenizer path).
+/// Top-level keys of a request body, so an unrecognised schema is identifiable
+/// from a log line without ever printing the prompt.
+fn top_level_keys(body: &Value) -> Vec<&str> {
+    body.as_object()
+        .map(|o| o.keys().map(String::as_str).collect())
+        .unwrap_or_default()
+}
+
 fn token_ids_from_prompt(body: &Value) -> Option<Vec<u32>> {
     let arr = body.get("prompt")?.as_array()?;
     if arr.is_empty() {
@@ -873,6 +917,89 @@ mod tests {
             {"type": "image_url", "image_url": {"url": "http://x/y.png"}},
         ]}]});
         assert!(h.hash_for(&multimodal, 16).is_empty());
+    }
+
+    /// End-to-end on real K3 weights: a `/v1/responses` body must hash to exactly
+    /// what the equivalent `/v1/chat/completions` body hashes to.
+    ///
+    /// Measured before this fix, on a 1P1D K3 fleet: 462 of 528 routing decisions
+    /// logged `request_blocks=0` -- every Codex turn, because Codex speaks the
+    /// Responses API by default (`wire_api = "responses"`). kv-aware silently
+    /// became round-robin for that whole endpoint while `policy="kv-aware"` kept
+    /// logging normally. Equality, not non-emptiness, is the bar: a prefix a few
+    /// tokens off the engine's does not error, it just never hits again.
+    /// Opt in with `INFERA_TEST_KIMI_K3_DIR=/path/to/Kimi-K3`.
+    #[test]
+    fn kimi_k3_responses_request_hashes_identically_to_chat() {
+        let Some(dir) = model_dir_from_env("INFERA_TEST_KIMI_K3_DIR", "tiktoken.model") else {
+            return;
+        };
+        let h = BlockHasher::load(&dir);
+        assert!(h.is_enabled() && h.kimi_k3);
+
+        let tools = json!([{"type": "function", "name": "shell",
+                            "parameters": {"type": "object"}}]);
+        let responses = json!({
+            "model": "kimi-k3",
+            "instructions": "You are a coding agent. ".repeat(20),
+            "input": [
+                {"type": "message", "role": "user",
+                 "content": [{"type": "input_text", "text": "list the files ".repeat(40)}]},
+                {"type": "reasoning", "summary": [{"text": "I should run ls"}]},
+                {"type": "function_call", "id": "fc_1", "call_id": "call_1",
+                 "name": "shell", "arguments": "{\"cmd\":\"ls\"}"},
+                {"type": "function_call_output", "call_id": "call_1",
+                 "output": "a.txt b.txt ".repeat(40)},
+            ],
+            "tools": tools,
+            "stream": true,
+            "store": false,
+        });
+        let chat = json!({
+            "messages": [
+                {"role": "system", "content": "You are a coding agent. ".repeat(20)},
+                {"role": "user", "content": [
+                    {"type": "text", "text": "list the files ".repeat(40)}]},
+                {"role": "assistant",
+                 "reasoning_content": "I should run ls",
+                 "tool_calls": [{"id": "call_1", "type": "function",
+                                 "function": {"name": "shell",
+                                              "arguments": "{\"cmd\":\"ls\"}"}}]},
+                {"role": "tool", "tool_call_id": "call_1",
+                 "content": "a.txt b.txt ".repeat(40)},
+            ],
+            "tools": [{"type": "function", "function": {
+                "name": "shell", "description": null,
+                "parameters": {"type": "object"}, "strict": null}}],
+        });
+
+        let from_responses = h.hash_for(&responses, 16);
+        let from_chat = h.hash_for(&chat, 16);
+        assert!(
+            !from_responses.is_empty(),
+            "/v1/responses must hash (this is the whole bug)"
+        );
+        assert_eq!(
+            from_responses, from_chat,
+            "router must hash a Responses turn exactly as the engine renders it"
+        );
+
+        // A prefix-sharing follow-up turn keeps its leading blocks -- that shared
+        // prefix is the cache locality kv-aware exists to route on, and it is what
+        // multi-prefill orchestration traffic was scattering.
+        let mut next = responses.clone();
+        next["input"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"type": "message", "role": "user",
+                   "content": [{"type": "input_text", "text": "now summarize"}]}));
+        let follow_up = h.hash_for(&next, 16);
+        assert!(follow_up.len() > from_responses.len());
+        assert_eq!(follow_up[0], from_responses[0]);
+
+        // Unreproducible bodies degrade to load routing, not to wrong hashes.
+        let with_history = json!({"input": "hi", "previous_response_id": "resp_1"});
+        assert!(h.hash_for(&with_history, 16).is_empty());
     }
 
     /// GLM-5.2's template splits the thinking block out and strips the rest:
