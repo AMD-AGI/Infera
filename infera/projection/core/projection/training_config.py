@@ -379,11 +379,14 @@ class InferenceRequestConfig:
     # that difference is worth 1.7 ms of floor, which is most of why its decode
     # step was under-predicted by 31% at batch 4.
     #
-    # So the per-layer count is derived per architecture (``decode_kernels_per_
-    # layer``) and this stays a hardware figure. measure_kernel_floor.py measures
-    # both directly and should replace the estimate; until then, cross-model
-    # agreement is the test of whether this is hardware physics or one model's
-    # tuning. 0 = disabled.
+    # So the per-layer count is derived from the model architecture
+    # (``decode_kernels_per_layer``) and this stays a hardware figure. The way
+    # to stop estimating it is to run the sweep above on each GPU architecture
+    # being served: time one decode step per tensor-parallel rung with real
+    # weights, solve for the intercept, and divide by the kernels that model
+    # issues. Until a given architecture has been through that, cross-model
+    # agreement is the only test of whether its value is hardware physics or one
+    # model's tuning. 0 = disabled.
     decode_kernel_occupancy_us: float = 4.98
     # Per-output-token host cost for detokenization + response streaming
     # (microseconds/token). The serving harness (vLLM / InferenceX) measures ITL
