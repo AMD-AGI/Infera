@@ -13,12 +13,13 @@ exposition endpoint at /metrics.
 Naming follows the Prometheus convention:
     infera_<subsystem>_<thing>_<unit>
 
-Labels are kept low-cardinality. ``worker_id`` is OK (fleet is bounded);
-free-form fields like model name and request_id are NOT label values.
+Labels are kept low-cardinality. ``worker_id`` and served ``model`` are bounded
+by the deployment; free-form fields such as request_id are NOT label values.
 """
 
 from __future__ import annotations
 
+import json
 import time
 from contextlib import contextmanager
 
@@ -32,6 +33,13 @@ from prometheus_client import (
 from prometheus_client.exposition import CONTENT_TYPE_LATEST
 
 REGISTRY = CollectorRegistry()
+_sla_metrics_enabled = False
+
+
+def set_sla_metrics_enabled(enabled: bool) -> None:
+    """Enable the per-token observations consumed by the optional SLA planner."""
+    global _sla_metrics_enabled
+    _sla_metrics_enabled = bool(enabled)
 
 
 # ----------------------------------------------------------------------
@@ -98,6 +106,53 @@ request_inflight = Gauge(
 
 
 # ----------------------------------------------------------------------
+# SLA signals (consumed by infera.planner)
+# ----------------------------------------------------------------------
+# The SLA planner reads only the _sum / _count of these four histograms and
+# window-differences them, so the bucket layout is for humans/dashboards.
+
+time_to_first_token_seconds = Histogram(
+    "infera_time_to_first_token_seconds",
+    "Server-observed time from dispatch to the first token of the reply. "
+    "For PD-disaggregated requests this spans prefill + KV transfer + the "
+    "decode engine's first forward pass.",
+    labelnames=("router", "model"),
+    buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, float("inf")),
+    registry=REGISTRY,
+)
+
+inter_token_latency_seconds = Histogram(
+    "infera_inter_token_latency_seconds",
+    "Mean per-request inter-token latency: (total stream time - TTFT) spread "
+    "over the generated tokens. Only observed for requests that produced at "
+    "least two output tokens.",
+    labelnames=("router", "model"),
+    buckets=(0.001, 0.0025, 0.005, 0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 1.0, float("inf")),
+    registry=REGISTRY,
+)
+
+input_sequence_tokens = Histogram(
+    "infera_input_sequence_tokens",
+    "Prompt length in tokens (ISL). Exact when the engine reports "
+    "`usage.prompt_tokens`; otherwise estimated from the router's KV block "
+    "count, which rounds up to a block boundary.",
+    labelnames=("router", "model"),
+    buckets=(64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, float("inf")),
+    registry=REGISTRY,
+)
+
+output_sequence_tokens = Histogram(
+    "infera_output_sequence_tokens",
+    "Generated length in tokens (OSL). Exact when the engine reports "
+    "`usage.completion_tokens`; otherwise counted as SSE data frames, which "
+    "assumes one token per frame.",
+    labelnames=("router", "model"),
+    buckets=(4, 16, 64, 256, 1024, 4096, 16384, 65536, float("inf")),
+    registry=REGISTRY,
+)
+
+
+# ----------------------------------------------------------------------
 # PD-disaggregation specifics
 # ----------------------------------------------------------------------
 
@@ -142,7 +197,7 @@ pd_bootstrap_failures_total = Counter(
 active_workers = Gauge(
     "infera_active_workers",
     "Number of workers in ACTIVE status, by disagg_mode.",
-    labelnames=("disagg_mode",),
+    labelnames=("disagg_mode", "model"),
     registry=REGISTRY,
 )
 
@@ -223,8 +278,202 @@ def record_pick(*, role: str, worker_id: str, cache_hits: int, request_blocks: i
     router_pick_request_blocks.labels(role=role).observe(request_blocks)
 
 
+_SSE_DATA = b"data:"
+_SSE_DONE = b"data: [DONE]"
+# An SSE frame that grows past this without a newline is not a token frame
+# (or the peer is misbehaving); drop the partial rather than buffer forever.
+_MAX_PARTIAL_FRAME = 1 << 16
+
+
+class RequestObserver(dict):
+    """Per-request accumulator for the SLA signals the planner consumes.
+
+    Subclasses ``dict`` so the established ``obs["outcome"] = ...`` idiom in
+    the routers keeps working untouched.
+
+    Streaming responses outlive the ``track_request`` block — ``dispatch``
+    returns a ``StreamingResponse`` and the generator runs afterwards — so the
+    SLA histograms are emitted by :meth:`close` rather than at context exit.
+    A generator that owns the token stream calls :meth:`claim_stream` and then
+    :meth:`close` from its own ``finally``.
+    """
+
+    def __init__(self, router: str, model: str = "") -> None:
+        super().__init__(outcome="error")
+        self._router = router
+        self._model = model
+        self._start = time.perf_counter()
+        self._ttft: float | None = None
+        self._isl: int | None = None
+        self._osl: int | None = None
+        self._frames = 0
+        self._partial = b""
+        self._deferred = False
+        self._closed = False
+
+    @property
+    def deferred(self) -> bool:
+        """True once a streaming generator took over responsibility for close()."""
+        return self._deferred
+
+    def claim_stream(self) -> None:
+        self._deferred = True
+
+    def mark_failed(self, outcome: str = "stream_failed") -> None:
+        """Disown a request that failed after its outcome was committed.
+
+        The streaming routers set ``outcome`` to "ok" at hand-off, before the
+        generator has run, because that is the point past which the client can
+        no longer be failed over. A decode leg that then turns out to be
+        unreachable would otherwise be closed as a success: it inflates the
+        request count the planner divides by, and contributes a one-frame OSL.
+        Under a decode outage that is most of the window, and the planner sizes
+        the fleet from it.
+        """
+        self["outcome"] = outcome
+
+    def first_token(self) -> None:
+        """Mark the arrival of the first reply token. Idempotent."""
+        if not _sla_metrics_enabled:
+            return
+        if self._ttft is None:
+            self._ttft = time.perf_counter() - self._start
+
+    def set_input_tokens(self, n: int) -> None:
+        if not _sla_metrics_enabled:
+            return
+        if n > 0:
+            self._isl = int(n)
+
+    def set_output_tokens(self, n: int) -> None:
+        """Record an exact OSL, overriding any SSE frame count."""
+        if not _sla_metrics_enabled:
+            return
+        if n > 0:
+            self._osl = int(n)
+
+    def observe_blocks(self, blocks: list[int] | None, block_size: int | None) -> None:
+        """Estimate ISL from the router's KV block list, used when the engine
+        reply carries no ``usage`` (the streaming default). Rounds up to a
+        block boundary, and is a no-op for stateless policies that return no
+        blocks."""
+        if not _sla_metrics_enabled:
+            return
+        if self._isl is None and blocks and block_size:
+            self._isl = len(blocks) * int(block_size)
+
+    def observe_usage(self, payload: object) -> None:
+        """Pull exact ISL/OSL out of an OpenAI-shaped ``usage`` object."""
+        if not _sla_metrics_enabled:
+            return
+        if not isinstance(payload, dict):
+            return
+        usage = payload.get("usage")
+        if not isinstance(usage, dict):
+            return
+        prompt = usage.get("prompt_tokens")
+        completion = usage.get("completion_tokens")
+        if isinstance(prompt, int):
+            self.set_input_tokens(prompt)
+        if isinstance(completion, int):
+            self.set_output_tokens(completion)
+
+    def observe_stream_chunk(self, chunk: bytes) -> None:
+        """Count complete SSE data frames in a raw stream chunk as tokens.
+
+        Frames are split on newlines and the trailing partial is carried over,
+        so a chunk boundary never double-counts. ``[DONE]`` and any trailing
+        usage frame are excluded, but the one-frame-per-token assumption still
+        makes this an estimate; ``set_output_tokens`` supersedes it when the
+        engine reports usage.
+        """
+        if not _sla_metrics_enabled or not chunk:
+            return
+        buf = self._partial + chunk
+        frames = buf.split(b"\n")
+        tail = frames.pop()
+        self._partial = tail if len(tail) <= _MAX_PARTIAL_FRAME else b""
+        for frame in frames:
+            frame = frame.strip()
+            if not frame.startswith(_SSE_DATA) or frame.startswith(_SSE_DONE):
+                continue
+            self._inspect_frame(frame)
+
+    def _inspect_frame(self, frame: bytes) -> None:
+        """Classify one OpenAI chat/completions SSE data frame.
+
+        Usage supersedes frame counting. Error frames disown the request. For
+        estimated OSL, count chat ``delta`` frames only when they carry content
+        (not role/finish metadata), and completion frames when ``text`` is
+        non-empty.
+        """
+        try:
+            payload = json.loads(frame[len(_SSE_DATA) :])
+        except ValueError:
+            return
+        if not isinstance(payload, dict):
+            return
+        if payload.get("error") is not None:
+            self.mark_failed("engine_error")
+            return
+        self.observe_usage(payload)
+        choices = payload.get("choices")
+        if not isinstance(choices, list):
+            return
+        token_frames = 0
+        for choice in choices:
+            if not isinstance(choice, dict):
+                continue
+            text = choice.get("text")
+            if isinstance(text, str) and text:
+                token_frames += 1
+                continue
+            delta = choice.get("delta")
+            if not isinstance(delta, dict):
+                continue
+            if any(
+                key != "role" and value not in (None, "", [], {}) for key, value in delta.items()
+            ):
+                token_frames += 1
+        if token_frames:
+            self.first_token()
+            self._frames += token_frames
+
+    def close(self) -> None:
+        """Emit the SLA histograms. Idempotent.
+
+        Only successful requests are observed: a 5xx contributes no meaningful
+        latency and would drag the planner's window averages toward zero.
+        """
+        if self._closed:
+            return
+        self._closed = True
+        if not _sla_metrics_enabled:
+            return
+        if self["outcome"] != "ok":
+            return
+        router, model = self._router, self._model
+
+        osl = self._osl if self._osl is not None else self._frames
+        if self._isl is not None:
+            input_sequence_tokens.labels(router=router, model=model).observe(self._isl)
+        if osl > 0:
+            output_sequence_tokens.labels(router=router, model=model).observe(osl)
+
+        if self._ttft is None:
+            # Non-streaming reply: the whole response landed at once, so there
+            # is no observable first-token boundary to report.
+            return
+        time_to_first_token_seconds.labels(router=router, model=model).observe(self._ttft)
+        if osl > 1:
+            decode_time = max(0.0, time.perf_counter() - self._start - self._ttft)
+            inter_token_latency_seconds.labels(router=router, model=model).observe(
+                decode_time / (osl - 1)
+            )
+
+
 @contextmanager
-def track_request(router: str):
+def track_request(router: str, model: str = ""):
     """Context manager that wraps a request's server-side lifetime to
     populate `request_duration_seconds` (with outcome) and the in-flight
     gauge. Use like::
@@ -232,17 +481,23 @@ def track_request(router: str):
         with track_request(router="mixed") as obs:
             resp = await dispatch(...)
             obs["outcome"] = "ok" if resp.status_code < 400 else f"{resp.status_code // 100}xx"
+
+    Yields a :class:`RequestObserver`, whose extra methods feed the SLA
+    histograms. For a streaming reply the observer is handed to the stream
+    generator, which closes it once the last token has been forwarded.
     """
-    state = {"outcome": "error"}
+    obs = RequestObserver(router, model)
     request_inflight.labels(router=router).inc()
     start = time.perf_counter()
     try:
-        yield state
+        yield obs
     finally:
         request_inflight.labels(router=router).dec()
-        request_duration_seconds.labels(router=router, outcome=state["outcome"]).observe(
+        request_duration_seconds.labels(router=router, outcome=obs["outcome"]).observe(
             time.perf_counter() - start
         )
+        if not obs.deferred:
+            obs.close()
 
 
 @contextmanager

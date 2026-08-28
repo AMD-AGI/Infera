@@ -79,8 +79,8 @@ class MixedRouter(BaseRouter):
         stream: bool,
         path: str = "/v1/chat/completions",
     ) -> Response:
-        with metrics.track_request(router="mixed") as obs:
-            model = body.get("model")
+        model = body.get("model")
+        with metrics.track_request(router="mixed", model=str(model or "")) as obs:
             # cache_control hints are body-level, computed once per request.
             hints = body.get("_infera_cache_hints") or parse_cache_hints(body)
 
@@ -150,6 +150,9 @@ class MixedRouter(BaseRouter):
         forwarded_body.pop("_infera_cache_hints", None)
         forwarded_body.pop("_infera_request_id", None)
 
+        # Fallback ISL for the streaming path, where the reply carries no usage.
+        obs.observe_blocks(blocks, worker.kv_block_size)
+
         # Ask for the sampled token ids only when a migration could actually use
         # them: they cost the engine work and the client never sees them, since
         # they are taken back out before the stream is forwarded.
@@ -201,6 +204,7 @@ class MixedRouter(BaseRouter):
 
         if kind == TYPE_DATA:
             obs["outcome"] = "ok"  # committed once first byte is in hand
+            obs.claim_stream()
 
             state = self._migration_state(forwarded_body, use_nats, path)
 
@@ -217,12 +221,16 @@ class MixedRouter(BaseRouter):
                 transform = passthrough
                 try:
                     if data0:
-                        yield transform(data0)
+                        client_data = transform(data0)
+                        obs.observe_stream_chunk(client_data)
+                        yield client_data
                     while True:
                         async for k, _st, d in current:
                             if k == TYPE_DATA:
                                 if d:
-                                    yield transform(d)
+                                    client_data = transform(d)
+                                    obs.observe_stream_chunk(client_data)
+                                    yield client_data
                             elif k == TYPE_ERROR:
                                 # A drain notice is a planned handover, not a
                                 # fault: the worker is leaving and expects us to
@@ -265,6 +273,7 @@ class MixedRouter(BaseRouter):
                                 reason="poisoned" if state.poisoned else "limit"
                             ).inc()
                         if resumed is None:
+                            obs.mark_failed()
                             what = "is shutting down" if reason == "worker_draining" else "failed"
                             yield (
                                 f'data: {{"error":"worker {cur_target.worker.worker_id} '
@@ -279,6 +288,7 @@ class MixedRouter(BaseRouter):
                         cur_target, cur_blocks = next_target, next_blocks
                 finally:
                     self.policy.on_request_finished(cur_target.route_key, cur_blocks)
+                    obs.close()
 
             return StreamingResponse(generate(), media_type="text/event-stream")
 
@@ -437,6 +447,7 @@ class MixedRouter(BaseRouter):
             # worker fault and retryable; a 4xx belongs to the request.
             if is_worker_fault(status):
                 raise _Retry(JSONResponse(content=payload_json, status_code=status))
+            obs.observe_usage(payload_json)
             return JSONResponse(content=payload_json, status_code=status)
 
         # Direct HTTP forward.
@@ -480,6 +491,7 @@ class MixedRouter(BaseRouter):
         # of an error the client needs to see.
         if is_worker_fault(resp.status_code):
             raise _Retry(JSONResponse(content=payload_json, status_code=resp.status_code))
+        obs.observe_usage(payload_json)
         return JSONResponse(content=payload_json, status_code=resp.status_code)
 
     async def _normalized_stream(

@@ -52,6 +52,7 @@ Around them:
 - **Self-registering fleet** — workers register into etcd (or their own Pod annotation on Kubernetes) and heartbeat, so the router works from a live view and never routes to a worker that is gone; run any number of stateless server replicas.
 - **Scale without dropping requests** — a worker joins when it is ready and leaves by draining: it announces `DRAINING`, finishes the generations it already accepted, and only then deregisters. Measured on MI355X: a worker stops receiving new work **under a second** after `SIGTERM` while its in-flight 4000-token generations all complete, and adding or removing instances under continuous traffic costs **zero failed requests**. See [Scaling a fleet](https://rocm.docs.amd.com/projects/infera/en/latest/features/scaling.html).
 - **Kubernetes-native** — an operator reconciles an `InferaDeployment` CRD (aggregated / PD / multi-node), with an optional Gateway API (GAIE) endpoint picker.
+- **SLA planner** — `python -m infera.planner` works out how many prefill and decode replicas hold your time-to-first-token and inter-token-latency targets, from measured latency plus an offline profile of your model. It reports the counts; resizing is still yours to do.
 
 ## Architecture
 

@@ -280,12 +280,16 @@ async def main(args) -> None:
             "deployment's pools (needs RBAC to patch inferadeployments)"
         )
 
+    if args.enable_sla_metrics:
+        logger.info("SLA metrics enabled: streaming requests include usage instrumentation")
+
     app = init_app(
         registry,
         router,
         kv=policy.kv_client,
         kvd_socket_path=args.kvd_socket_path,
         enable_profiling=args.enable_profiling,
+        enable_sla_metrics=args.enable_sla_metrics,
         scaler=scaler,
     )
     app.include_router(
@@ -321,6 +325,8 @@ if __name__ == "__main__":
     _args = parse_server_args()
     # `--router-backend rust` replaces this process with the Rust router binary.
     if _args.router_backend == "rust":
+        if _args.enable_sla_metrics:
+            raise SystemExit("--enable-sla-metrics currently requires --router-backend=python")
         from infera.server.launch_rust import exec_rust
 
         exec_rust(_args)  # never returns

@@ -208,9 +208,13 @@ _SLURM_USER_SRUN_EXTRA="${INFERA_E2E_SRUN_EXTRA:-}"
 _SLURM_ACCOUNT_QOS_PAIRS=()
 if [ "$SLURM_PART" = "amd-spur" ]; then
   _SLURM_ACCOUNT_QOS_PAIRS=(
-    "amd-frameworks-ci:amd-frameworks-ci-qos"
     "amd-it:amd-it-qos"
     "amd-collectives:amd-collectives-qos"
+    "amd-general:amd-general-qos"
+    "amd-primus:amd-primus-qos"
+    "amd-burst:amd-burst-qos"
+    "amd-general:amd-burst-qos"
+    "amd-primus:amd-burst-qos"
   )
 fi
 _SLURM_ACCOUNT=""
@@ -230,6 +234,8 @@ _accounting_blocked() {
   case "$1" in
     QOS* | Qos* | qos* | Assoc* | Association* | Accounting* | InvalidAccount* | \
     *"Invalid account"* | *"Invalid qos"* | *"invalid account"* | *"invalid qos"* | \
+    *"QOSGrpNodeLimit"* | \
+    *"QOS"*"does not exist"* | *"Qos"*"does not exist"* | *"qos"*"does not exist"* | \
     *"violates accounting/QOS policy"*) return 0 ;;
     *) return 1 ;;
   esac

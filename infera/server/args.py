@@ -197,6 +197,15 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
         "$INFERA_ENABLE_PROFILING=1.",
     )
     parser.add_argument(
+        "--enable-sla-metrics",
+        action="store_true",
+        default=os.environ.get("INFERA_ENABLE_SLA_METRICS", "").lower() in ("1", "true", "yes"),
+        help="Enable TTFT/ITL/ISL/OSL instrumentation for the optional SLA "
+        "planner. Default OFF so ordinary inference requests are not modified "
+        "or parsed by planner-specific code. Also enabled via "
+        "$INFERA_ENABLE_SLA_METRICS=1.",
+    )
+    parser.add_argument(
         "--enable-scaling-api",
         action="store_true",
         default=os.environ.get("INFERA_ENABLE_SCALING_API", "").lower() in ("1", "true", "yes"),

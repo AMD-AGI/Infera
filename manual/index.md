@@ -93,4 +93,10 @@ Run prefill and decode on separate GPUs (or nodes) and stitch them with a KV tra
 Spill KV to RAM / NVMe / network — the usage modes and per-request control.
 :::
 
+:::{grid-item-card} SLA planner
+:link: features/sla_planner
+:link-type: doc
+Work out how many prefill/decode replicas hold your TTFT and ITL targets.
+:::
+
 ::::
