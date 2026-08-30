@@ -22,7 +22,7 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use crate::hasher::{hash_chunk, ROUTER_SEED};
-use crate::pool::Worker;
+use crate::pool::{DisaggMode, Worker};
 
 const TOPIC: &[u8] = b"kv-events";
 const INITIAL_BACKOFF_MS: u64 = 100;
@@ -353,6 +353,23 @@ impl KvEventClient {
             // untracked and kv-aware routing simply skips it.
             let block_size = match w.kv_block_size {
                 Some(bs) if bs > 0 => bs as usize,
+                // Severity depends on the role, not on the symptom. A PD decode
+                // leg is SUPPOSED to arrive without a block size: it runs
+                // --no-enable-kv-events, so the engine leaves kv_block_size unset
+                // by design, and kv-aware routing never applies to the decode pool
+                // anyway (prefix affinity is decided on the prefill side; disagg
+                // dispatch picks decode by load). ERROR-ing on every startup trains
+                // people to ignore a line that is real for every OTHER role.
+                // Prefill/mixed without one IS a fault -- usually an unresolved
+                // --page-size -- and stays at ERROR.
+                _ if w.disagg_mode == DisaggMode::Decode => {
+                    tracing::debug!(
+                        worker = %w.worker_id,
+                        "kv events (nats): not tracking decode worker (no kv_block_size; \
+                         expected -- kv-aware routing does not apply to the decode pool)"
+                    );
+                    return;
+                }
                 _ => {
                     tracing::error!(
                         worker = %w.worker_id,

@@ -137,9 +137,33 @@ async def _maybe_start_kv_plane(
         f"http://{advertise_host}:{args.kv_snapshot_port}"
     )
 
-    # SGLang's KV page size lives on server_args; defaults to 1 on ROCm
-    # AITER and we honor whatever the operator chose.
-    engine_block_size = int(getattr(args.server_args, "page_size", 1) or 1)
+    # SGLang's KV page size lives on server_args; we honor whatever the
+    # operator chose.
+    #
+    # `page_size` is None until SGLang resolves it, and several of its
+    # post-process passes only fire in the launch_server subprocess (the DSA
+    # one needs a ModelConfig). So None here does NOT mean 1 -- it means "not
+    # decided yet", and the engine may well land on 64. Registering 1 in that
+    # case is worse than not registering at all: the router accepts the value,
+    # builds a KV view at block_size 1, then rejects every event the engine
+    # emits at 64 and silently drops to round-robin. Seen on GLM-5.3-Flash
+    # (attention_backend=dsa), where the router logged
+    #
+    #   kv events ... are paged at block_size=64 but this worker registered 1
+    #
+    # for both legs. Warn loudly and tell the operator the one-flag fix.
+    raw_page_size = getattr(args.server_args, "page_size", None)
+    if raw_page_size:
+        engine_block_size = int(raw_page_size)
+    else:
+        engine_block_size = 1
+        logger.warning(
+            "server_args.page_size is unresolved (%r); registering "
+            "engine_block_size=1. If SGLang resolves it to anything else, "
+            "kv-aware routing silently degrades to round-robin for this "
+            "worker. Pass --page-size explicitly to pin it.",
+            raw_page_size,
+        )
 
     # Locate the RadixCache. SGLang exposes it on its scheduler, which
     # the launch_server thread keeps alive — but it isn't reliably
