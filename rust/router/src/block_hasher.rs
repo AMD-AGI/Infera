@@ -611,6 +611,10 @@ impl BlockHasher {
 
     fn apply_chat_template(&self, messages: &Value) -> Option<String> {
         let template = self.chat_template.as_ref()?;
+        // Codex/OpenAI send tool-call arguments as a JSON string; GLM-5.3's
+        // template calls `.items()` on them. Normalise before rendering.
+        let normalized = normalize_tool_call_arguments(messages);
+        let messages = normalized.as_ref().unwrap_or(messages);
         let mut env = Environment::new();
         // transformers renders with both of these on. minijinja defaults them off,
         // which leaves a newline after every `{% %}` that is alone on its line --
@@ -678,6 +682,62 @@ impl BlockHasher {
             }
         }
     }
+}
+
+/// Normalise OpenAI-style `tool_calls[].function.arguments` for chat templates.
+///
+/// The OpenAI wire format serialises tool-call arguments as a JSON *string*.
+/// GLM-5.3's template iterates them as a mapping (`_args.items()`), so a
+/// verbatim body renders as `items() expects a mapping, got string` and the
+/// router loses the whole prompt. transformers' own `apply_chat_template` is
+/// fed already-parsed dicts by the serving layer, which is why the engine
+/// never sees this. Parse each string that is a JSON object back into an
+/// object; leave every other shape untouched so a template that *wants* the
+/// string still gets it.
+///
+/// Returns `None` when nothing needed rewriting, so the common path clones
+/// nothing.
+fn normalize_tool_call_arguments(messages: &Value) -> Option<Value> {
+    let arr = messages.as_array()?;
+    let mut out: Option<Vec<Value>> = None;
+    for (i, msg) in arr.iter().enumerate() {
+        let Some(calls) = msg.get("tool_calls").and_then(Value::as_array) else {
+            continue;
+        };
+        let mut new_calls: Option<Vec<Value>> = None;
+        for (j, call) in calls.iter().enumerate() {
+            // The template accepts both `tc.function.arguments` and `tc.arguments`.
+            let path: &str = if call.get("function").is_some() {
+                "function"
+            } else {
+                ""
+            };
+            let args = if path.is_empty() {
+                call.get("arguments")
+            } else {
+                call.get("function").and_then(|f| f.get("arguments"))
+            };
+            let Some(Value::String(raw)) = args else {
+                continue;
+            };
+            // Only an object is a mapping; a bare string/number/array left as-is
+            // would still fail `.items()`, but rewriting it would be a lie.
+            let Ok(parsed @ Value::Object(_)) = serde_json::from_str::<Value>(raw) else {
+                continue;
+            };
+            let calls_vec = new_calls.get_or_insert_with(|| calls.clone());
+            if path.is_empty() {
+                calls_vec[j]["arguments"] = parsed;
+            } else {
+                calls_vec[j]["function"]["arguments"] = parsed;
+            }
+        }
+        if let Some(calls_vec) = new_calls {
+            let out_vec = out.get_or_insert_with(|| arr.clone());
+            out_vec[i]["tool_calls"] = Value::Array(calls_vec);
+        }
+    }
+    out.map(Value::Array)
 }
 
 /// If `prompt` is a flat array of non-negative integers (pre-tokenized ids),
@@ -1453,5 +1513,66 @@ mod tests {
                 "<|assistant|><think>",
             ))
         );
+    }
+}
+
+#[cfg(test)]
+mod tool_call_args_tests {
+    use super::normalize_tool_call_arguments;
+    use serde_json::json;
+
+    #[test]
+    fn parses_openai_string_arguments_into_object() {
+        let messages = json!([
+            {"role": "user", "content": "list the files"},
+            {"role": "assistant", "tool_calls": [
+                {"type": "function", "function": {
+                    "name": "shell",
+                    "arguments": "{\"cmd\": [\"ls\", \"-l\"], \"timeout\": 5}"
+                }}
+            ]}
+        ]);
+        let out = normalize_tool_call_arguments(&messages).expect("should rewrite");
+        let args = &out[1]["tool_calls"][0]["function"]["arguments"];
+        assert!(args.is_object(), "got {args}");
+        assert_eq!(args["cmd"][0], json!("ls"));
+        assert_eq!(args["timeout"], json!(5));
+    }
+
+    #[test]
+    fn handles_flattened_tool_call_shape() {
+        let messages = json!([
+            {"role": "assistant", "tool_calls": [
+                {"name": "get_weather", "arguments": "{\"city\": \"Beijing\"}"}
+            ]}
+        ]);
+        let out = normalize_tool_call_arguments(&messages).expect("should rewrite");
+        assert_eq!(
+            out[0]["tool_calls"][0]["arguments"]["city"],
+            json!("Beijing")
+        );
+    }
+
+    #[test]
+    fn leaves_untouched_when_nothing_to_do() {
+        // already an object
+        let objs = json!([
+            {"role": "assistant", "tool_calls": [
+                {"function": {"name": "f", "arguments": {"a": 1}}}
+            ]}
+        ]);
+        assert!(normalize_tool_call_arguments(&objs).is_none());
+
+        // plain chat, no tool calls
+        let plain = json!([{"role": "user", "content": "hi"}]);
+        assert!(normalize_tool_call_arguments(&plain).is_none());
+
+        // a string that is not a JSON object stays a string
+        let scalar = json!([
+            {"role": "assistant", "tool_calls": [
+                {"function": {"name": "f", "arguments": "not json"}}
+            ]}
+        ]);
+        assert!(normalize_tool_call_arguments(&scalar).is_none());
     }
 }
