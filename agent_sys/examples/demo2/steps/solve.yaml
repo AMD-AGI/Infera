@@ -1,0 +1,241 @@
+# The fan-out: three students, one problem set, three disjoint shares.
+#
+# **Why three kinds and not one.** `task_graph` keeps exactly one producer per
+# kind per subgraph: `models.py:360` does `producer_of[kind] = index` and
+# `models.py:747,757` do `available[kind] = hid`, and both are single-slot
+# assignments over a plain dict. Three tasks all producing `solutions` would
+# therefore leave only the last of them visible to any consumer — `grade` would
+# silently grade one student and report a full graph. So the shape here is
+# `solutions_a` / `solutions_b` / `solutions_c`, three kinds with one contract.
+# The engine forced it; it is not a style choice, and a reader who tidies the
+# three into one will get a green run that measures a third of the work.
+#
+# Fan-out itself is free: N entries consuming `problems` each derive an edge to
+# the one earlier producer of `problems` (`models.py:349-361`), and dispatch is
+# a per-pass sweep over every eligible task with `runner.start` spawning a
+# thread (`scheduler.py:236-289`, `agent/runner.py:164`), so the three really do
+# run at the same time.
+#
+# **Definition order is load-bearing within a file** — a name referenced before
+# it is defined here is an error. The order below is therefore:
+#
+#   1. the three agents        (referenced by `task.agent`)
+#   2. the two validators      (referenced by each kind's `validators`)
+#   3. the three handoff kinds (referenced by `task.handoffs` / `outputs`)
+#   4. the three tasks         (reference all of the above)
+#
+# A validator's own `inputs:` names kinds defined *below* it, which is fine and
+# is what `examples/demo/steps/produce.yaml` does too: the kind list on a
+# validator is resolved against the whole registry, not against what has been
+# read so far. Only references *out of* a document body are ordered.
+
+# --------------------------------------------------------------------------- #
+# 1. The three agents.
+#
+# Three specs and not one used three times, because the agent spec is what
+# carries a body's environment (`validator.schema.json`'s `agent` field says so
+# for the validator side) and because a per-student agent is the honest model of
+# three students. They are identical apart from the name and the share.
+#
+# `backend_entry` is the dotted form rather than an entry-point name: a task
+# package outside this repository cannot register an entry point in the
+# `agent_sys.backends` group without being installed, and this package is data.
+#
+# `DEMO2_N_PROBLEMS` reaches the readme through here — a readme says
+# "$DEMO2_N_PROBLEMS problems", never a literal count, so `--var n_problems=2`
+# shrinks a bring-up run without editing a prompt.
+- module: agent
+  name: student_a
+  kind: ai
+  version: '1'
+  description: Solves the share of the problem set whose index mod 3 is 0.
+  env:
+    DEMO2_N_PROBLEMS: '${n_problems:-12}'
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+- module: agent
+  name: student_b
+  kind: ai
+  version: '1'
+  description: Solves the share of the problem set whose index mod 3 is 1.
+  env:
+    DEMO2_N_PROBLEMS: '${n_problems:-12}'
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+- module: agent
+  name: student_c
+  kind: ai
+  version: '1'
+  description: Solves the share of the problem set whose index mod 3 is 2.
+  env:
+    DEMO2_N_PROBLEMS: '${n_problems:-12}'
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+# --------------------------------------------------------------------------- #
+# 2. The two validators, shared by all three kinds.
+#
+# One spec each rather than one per student: a validator is bound to the kinds
+# it reads (`inputs`, many-to-many), so three kinds naming the same two
+# validators is the declared way to say "the same check, three producers".
+
+# Completeness, and `strong` without qualification. It compiles every submitted
+# source with the same compiler the readme names and runs every example the
+# `problems` artefact shipped, comparing stdout. There is nothing approximate
+# in it: a source that does not compile, an output that differs, or a run that
+# exceeds the stated wall-clock cap is a fail, and each of those is decided by
+# running the thing rather than by reading it.
+- module: validator
+  name: check_compiles
+  version: '1'
+  brief: Every solution compiles with g++ -O2 -std=c++17 and reproduces every shipped example
+  dimension: completeness
+  strength: strong
+  inputs: [solutions_a, solutions_b, solutions_c]
+  args:
+    # The cap the readme promises the students, in one place so the prompt and
+    # the check cannot drift. `assets/lib/cpp.py` defaults to the same 30 s.
+    per_case_timeout_seconds: 30
+  tags:
+    logic_source: external_static
+    cost: minutes
+    domain: [demo2, code]
+
+# Trustworthiness, and `weak` on purpose.
+#
+# It reads what the student *claims* about their algorithm and checks only that
+# the claim is present and well formed: a non-empty `algorithm`, and a
+# `time_complexity` / `space_complexity` that parse as big-O. It cannot tell
+# whether the stated complexity is the program's actual complexity — that would
+# need cost analysis this does not do — so it is `weak`, and
+# `assets/check_analysis.validator/readme.md` says so in its own words.
+#
+# `examples/demo/steps/describe.yaml` puts the rule the other way round: "a
+# crude check that is honestly described is a `strong` validator; a
+# sophisticated one that is silently approximate is not". This one is crude
+# *and* approximate — the thing it measures is not the thing it is named after —
+# so `strong` would be the dishonesty that file is about.
+- module: validator
+  name: check_analysis
+  version: '1'
+  brief: Every solution states a non-empty algorithm and parseable big-O time and space
+  dimension: trustworthiness
+  strength: weak
+  inputs: [solutions_a, solutions_b, solutions_c]
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [demo2, code]
+
+# --------------------------------------------------------------------------- #
+# 3. The three kinds. One contract, three names, for the single-slot reason at
+# the top of this file.
+#
+# `content_type: code`, whose requirements are the type's and not this
+# package's: `handoff/content.py:69-74` requires an item named **`codes`** and a
+# README carrying **Purpose, Interface and Boundary**. That is why the layout in
+# each readme is `items/codes/<problem_id>/...` and not `items/<problem_id>/...`
+# — a top-level item the type never defined is rejected by
+# `content.py:check_items`.
+#
+# **No `items_schema`.** `facts` in demo-1 carries one and it earns it there;
+# here it would only restate `codes`, and a *closed* schema would additionally
+# reject `logs` and `watchout`, which the `code` type itself lists as optional.
+# Leaving it out means the type's own known set governs, which is the answer we
+# want. What is *inside* `codes/` is `check_compiles`' job — that is the split
+# the two mechanisms exist for.
+- module: handoff
+  name: solutions_a
+  version: '1'
+  description: Student A's C++ solutions, one directory per problem, with a stated analysis.
+  content_type: code
+  scope: fixed.required
+  validators: [check_compiles, check_analysis]
+
+- module: handoff
+  name: solutions_b
+  version: '1'
+  description: Student B's C++ solutions, one directory per problem, with a stated analysis.
+  content_type: code
+  scope: fixed.required
+  validators: [check_compiles, check_analysis]
+
+- module: handoff
+  name: solutions_c
+  version: '1'
+  description: Student C's C++ solutions, one directory per problem, with a stated analysis.
+  content_type: code
+  scope: fixed.required
+  validators: [check_compiles, check_analysis]
+
+# --------------------------------------------------------------------------- #
+# 4. The three steps.
+#
+# Each is a leaf, so each names an `agent`. Each consumes `problems` and
+# produces its own kind, and `froms: [problems]` is written on the entry in
+# `main.yaml` rather than here — the closure says what it is, the subgraph entry
+# says where it sits.
+#
+# `goal` is capped at 100 characters by `task.schema.json` and is a human label,
+# not an instruction channel. Everything the student is actually told is in
+# `assets/solve_<x>.task/readme.md`, which is found by convention from the
+# folder name — there is no `body:` key anywhere in this package.
+#
+# The grants are the minimum: read on the problems, write on this student's own
+# output. A student cannot read another student's work, which is what makes the
+# three shares independent rather than merely disjoint on paper.
+- module: task
+  name: solve_a
+  description: Student A solves their share of the problem set in C++.
+  agent: student_a
+  handoffs: [problems, solutions_a]
+  validators: [check_compiles, check_analysis]
+  task:
+    goal: Solve the share of the problem set assigned to student A.
+    version: '1'
+    inputs: [problems]
+    outputs: [solutions_a]
+    permissions:
+      grants:
+        - {path: handoffs/problems, access: read, kind: problems}
+        - {path: handoffs/solutions_a, access: write, kind: solutions_a}
+
+- module: task
+  name: solve_b
+  description: Student B solves their share of the problem set in C++.
+  agent: student_b
+  handoffs: [problems, solutions_b]
+  validators: [check_compiles, check_analysis]
+  task:
+    goal: Solve the share of the problem set assigned to student B.
+    version: '1'
+    inputs: [problems]
+    outputs: [solutions_b]
+    permissions:
+      grants:
+        - {path: handoffs/problems, access: read, kind: problems}
+        - {path: handoffs/solutions_b, access: write, kind: solutions_b}
+
+- module: task
+  name: solve_c
+  description: Student C solves their share of the problem set in C++.
+  agent: student_c
+  handoffs: [problems, solutions_c]
+  validators: [check_compiles, check_analysis]
+  task:
+    goal: Solve the share of the problem set assigned to student C.
+    version: '1'
+    inputs: [problems]
+    outputs: [solutions_c]
+    permissions:
+      grants:
+        - {path: handoffs/problems, access: read, kind: problems}
+        - {path: handoffs/solutions_c, access: write, kind: solutions_c}

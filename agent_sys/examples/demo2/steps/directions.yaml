@@ -1,0 +1,148 @@
+# The first entry of `main`, and the only one with no inputs at all.
+#
+# **One file per step, holding everything that step introduces**, in the order
+# the format imposes: a name referenced before it is defined *in this file* is
+# an error, so the parts come first and the step that assembles them comes last.
+# `examples/demo/steps/produce.yaml` is the reference for that layout and its
+# comment there is the full argument. Nothing is defined inline, because an
+# inline definition is hoisted above its host under its own name — a top-level
+# definition written somewhere less greppable.
+#
+# The agent lives here rather than in `../shared.yaml` because exactly one step
+# uses it. `runner`, which every program body and every validator body shares,
+# is the one that earned a place up there.
+
+# --------------------------------------------------------------------------- #
+
+# The AI half. A teacher setting the syllabus.
+#
+# `backend_entry` is the dotted form rather than an entry-point name: a task
+# package outside this repository cannot register an entry point in the
+# `agent_sys.backends` group without being installed, and this package is data.
+- module: agent
+  name: teacher
+  kind: ai
+  version: '1'
+  description: Chooses the classic algorithm areas a course will cover.
+
+  # **The scale knob, and the only route a package variable has into a body.**
+  #
+  # A readme says *"write `$DEMO2_N_DIRECTIONS` directions"* and never a literal
+  # count, so `--var n_directions=2` shrinks a bring-up run without editing a
+  # prompt. `env_mgr.material.deploy` merges this block last, over its own keys
+  # and the harness block.
+  #
+  # The same `${n_directions:-5}` appears in `check_directions.args` below, so
+  # the prompt and the check move together. That duplication is deliberate and
+  # the comment there says why it is not avoidable.
+  env:
+    DEMO2_N_DIRECTIONS: '${n_directions:-5}'
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+# --------------------------------------------------------------------------- #
+
+# Completeness: the direction list is the right length, drawn from the closed
+# catalogue, free of duplicates, and every entry says why.
+#
+# `strong`, and the readme spends a paragraph earning it. Three of the four
+# rules are exact — a count, a set membership over a verbatim pair, a
+# uniqueness test — and the fourth reduces "prose" to a character floor and a
+# word count. Crude, stated, and total over the document: that is what `strong`
+# claims. A sophisticated check that is silently approximate is not.
+- module: validator
+  name: check_directions
+  version: '1'
+  brief: The directions are the requested count, from the CLRS catalogue, unique, and reasoned
+  dimension: completeness
+  strength: strong
+  inputs: [directions]
+  # No `body:`. `assets/check_directions.validator/readme.md` and `entry.sh` are
+  # found by the folder's name — `${name}.${type}` — and the file names inside
+  # it are then implied.
+  args:
+    # **The count reaches the check through `args`, not through the agent's
+    # `env`, and that is measured rather than stylistic.** A validator body's
+    # environment comes from `validator.choose_configuration`
+    # (`validator/environment.py:116-142`): the producing task's configuration
+    # is used on the OUTPUT phase only, and no source exists for the consumer
+    # row at all, so an INPUT phase falls through to the global row —
+    # `{PATH, AGENT_SYS_DEMO_PACKAGE, AGENT_SYS_DEMO_STORE, AGENT_SYS_DEMO_PYTHON}`
+    # (`cli/main.py:601-615`). `DEMO2_N_DIRECTIONS` is simply absent there, and
+    # `problems`' input phase re-runs this validator against the same artefact.
+    #
+    # `args.json` is written into the zone by the phase runner and does not
+    # depend on the phase. The `${...}` is expanded at load time over every
+    # string in the file (`spec_loader/package.py:335`), so one `--var` still
+    # moves both this and the prompt.
+    expected_count: '${n_directions:-5}'
+    # The closed list, named rather than hardcoded in the body: two validators
+    # differing only in a parameter are two registry entries over one
+    # implementation (`validator` criterion 12). Relative to the package root.
+    catalog: assets/catalog/clrs_topics.json
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [demo2]
+
+# --------------------------------------------------------------------------- #
+
+# What `directions` writes: the areas the course will cover.
+#
+# `structured_text` because that is what it is — a JSON document with a declared
+# shape and nothing that ran. The type requires one of
+# `text.json` / `text.yaml` / `text.xml` and a README carrying `Purpose` and
+# `Schema` (`handoff/content.py:75-80`), which is the whole contract a consumer
+# needs.
+#
+# **The kind is declared in the file of the step that produces it.** A handoff
+# contract belongs to its producer; `problems` references it by name from its
+# own file.
+- module: handoff
+  name: directions
+  version: '1'
+  description: The classic algorithm areas a course will cover, one row each.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json']
+    properties:
+      # A file item reaches the check as its own file name, so the schema types
+      # the presence of the file and not its contents. What is *in* it is
+      # `check_directions`' job — the split the two mechanisms exist for.
+      'text.json': {type: string}
+  # A kind is never valid without at least one validator (`handoff` spec §5.3).
+  validators: [check_directions]
+
+# --------------------------------------------------------------------------- #
+
+# The step.
+#
+# It has **no inputs**, so its input validation phase is empty and runs nothing.
+# Being the graph's first entry, that is a property of its position rather than
+# an arrangement.
+- module: task
+  name: directions
+  description: Choose the algorithm areas the course will cover.
+  agent: teacher
+  handoffs: [directions]
+  # Declared because the specs call this the phase-validator list.
+  # `validator.PhaseRunner` selects from the handoff kind's own list instead,
+  # and the two agree here on purpose.
+  validators: [check_directions]
+  task:
+    # **≤ 100 characters, and a human label rather than an instruction
+    # channel** — `task.schema.json` caps it and `closure` spec §2.6 is explicit
+    # that goal and body are not two names for one thing. Every instruction this
+    # agent needs is in `assets/directions.task/readme.md`.
+    goal: Choose the classic algorithm areas this course will cover.
+    version: '1'
+    inputs: []
+    outputs: [directions]
+    permissions:
+      grants:
+        - {path: handoffs/directions, access: write, kind: directions}

@@ -68,7 +68,7 @@ def test_add_revives_a_cancelled_id_with_fresh_history(mgr):
     task = Task(agent_spec="profiler")
     mgr.add(task)
     task.push_execution(agent_id=AgentId.new())
-    task.close_execution({}, TaskStatus.FAILED)
+    task.close_execution(TaskStatus.FAILED)
     task.status = TaskStatus.CANCELLED
     mgr.persist(task.id)
 
@@ -138,8 +138,10 @@ def test_history_survives_a_restart_with_attempt_numbering_intact(mgr, store):
     task = Task(agent_spec="profiler", inputs=[hid])
     mgr.add(task)
     for outcome in (TaskStatus.FAILED, TaskStatus.SUCCEEDED):
-        task.push_execution(agent_id=AgentId.new(), input_versions={hid: 0})
-        task.close_execution({hid: 1}, outcome)
+        task.push_execution(
+            agent_id=AgentId.new(), input_versions={hid: 0}, output_versions={hid: 1}
+        )
+        task.close_execution(outcome)
     mgr.persist(task.id)
 
     restored = rebuild(store).get(task.id)
@@ -184,7 +186,7 @@ def test_a_closed_stack_top_is_not_touched(mgr, store):
     task = Task(agent_spec="profiler")
     mgr.add(task)
     task.push_execution(agent_id=AgentId.new())
-    task.close_execution({}, TaskStatus.SUCCEEDED, detail="fine")
+    task.close_execution(TaskStatus.SUCCEEDED, detail="fine")
     mgr.persist(task.id)
 
     top = rebuild(store).get(task.id).history[-1]

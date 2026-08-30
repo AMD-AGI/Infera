@@ -1,0 +1,35 @@
+# A general spec: workflow-independent, shipped by this repository.
+#
+# Main spec §4.5. Through rev. 9 these were "the degenerate case of a template,
+# one whose `config` is empty"; with the template layer deleted there is no
+# template for them to be a case of, and they are simply documents. Same format,
+# same schemas, same enforcement point as a task package's.
+#
+# **`inputs: [any]` was a conditional and is now a literal.** The jsonnet read
+# `if std.objectHas(config, 'inputs') then config.inputs else ['any']`, and all
+# three general specs used that one construct and nothing else. Measured:
+# **nothing in the repository ever passed them a config** — `grep -rn
+# general_specs --include=*.py` finds no production loader, only
+# `tests/validator/test_reference.py`, which renders with no fill. So the
+# conditional had never been exercised with a value and its else branch was the
+# only reachable one. Writing the branch that always ran is a simplification and
+# loses nothing; it is recorded here rather than replaced by some new mechanism,
+# because a fallback nobody can reach is not a feature to carry forward.
+#
+# `inputs` is `required` with `minItems: 1` in `validator.schema.json` and
+# `validator/spec.py:102` types it `tuple[str, ...]` non-optional, so the key has
+# to be here — there is no layer below that would supply it.
+module: validator
+name: downstream_loads
+version: "1"
+brief: checks that the next task can actually load this artefact — usability dimension
+inputs: [any]
+dimension: usability
+strength: strong
+body:
+  readme: general_specs/downstream_loads/readme.md
+  entry: general_specs/downstream_loads/entry.sh
+tags:
+  logic_source: external_static
+  cost: seconds
+  domain: [loader]
