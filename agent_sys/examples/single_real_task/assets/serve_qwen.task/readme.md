@@ -1,7 +1,7 @@
 # serve_qwen — bring Qwen3.6-27B up in mix mode, then hand back the kit
 
-Serve **`Qwen/Qwen3.6-27B`** in **mix** mode using **infera + sglang** on this
-`gfx942` box, prove it answers, and hand back a reproduction kit that someone
+Serve **`Qwen/Qwen3.6-27B`** in **mix** mode using **infera + sglang** on the
+host you are running on, prove it answers, and hand back a reproduction kit that someone
 who was not here can follow to the same result.
 
 Two deliverables and they are not the same thing. A run that works and is not
@@ -13,7 +13,7 @@ worth less. **Do the work first, then pack up what you actually did.**
 `mix` is this repository's own word and it is **not** mixed precision. The repo
 defines it — `examples/` and `docs/` are the reference and you should read them
 rather than take my word for it. What you are aiming at is a deployment where
-one worker does both phases, on this one node, with no RDMA.
+one worker does both phases, on a single node, with no RDMA.
 
 The criterion is checkable and you should check it: **the worker and the router
 must report the mixed disaggregation mode**, in the worker's own log line and in
@@ -37,25 +37,25 @@ These are facts, not instructions. None of them is the recipe.
 
 | variable | what it is |
 |---|---|
-| `$SRT_MODEL_PATH` | The weights, **already on local disk**. All shards are there. Do not download anything |
-| `$SRT_IMAGE` | A docker image carrying **both** infera and a matching sglang. Nothing needs building or pulling |
+| `$SRT_MODEL_PATH` | The weights, **already on local disk**. All shards are there. Do not download anything. Supplied per site with `--var model_path=` |
+| `$SRT_IMAGE` | A docker image carrying **both** infera and a matching sglang. Nothing needs building or pulling. Supplied per site with `--var image=` |
 | `$SRT_ETCD_IMAGE` | An etcd image, already present locally |
 | `$SRT_WORK_ROOT` | Where a container workdir may go. **Local disk** |
 
 Also true, and each one has already cost somebody a day:
 
 - **The repository's own `README.md`, `docs/` and `examples/` are the reference.**
-  There are worked launch scripts in `examples/` for other models on this
-  hardware. Read them. Nothing in this readme is a substitute for them.
-- **Pick your ports; do not assume them.** Eight worktrees share this box and
-  the ports the docs use are frequently already taken. Check before you bind,
-  and record the ports you actually used.
-- **The container workdir must be on local disk.** `/home` here is NFS with
-  `root_squash`: a container's root maps to nobody and the engine fails to
-  write its logs there **silently** — no error, just no log. Use
-  `$SRT_WORK_ROOT`.
-- **A cold start on this box takes minutes, and the log repeats a health-check
-  failure while it does.** That is a JIT compile, not a hang. Killing it and
+  There are worked launch scripts in `examples/` for other models on this class
+  of hardware. Read them. Nothing in this readme is a substitute for them.
+- **Pick your ports; do not assume them.** A development host is usually shared,
+  and the ports the docs use are frequently already bound by somebody else.
+  Check before you bind, and record the ports you actually used.
+- **The container workdir must be on local disk.** A home directory is often on
+  a network filesystem with `root_squash`, where a container's root maps to
+  nobody and the engine fails to write its logs **silently** — no error, just no
+  log. Use `$SRT_WORK_ROOT`, and check what you are actually writing to.
+- **A cold start takes minutes, and the log repeats a health-check failure the
+  whole time.** That is a JIT compile, not a hang. Killing it and
   retrying is the single most expensive mistake available here.
 - **This is a reasoning model.** It emits a long thinking preamble before its
   answer, so a small `max_tokens` truncates it mid-thought and the response
@@ -145,7 +145,7 @@ Three sections, all required by the `code` content type, all checked for being
 non-empty and for not being a placeholder:
 
 - **`## Purpose`** — what this handoff is: a reproduction kit for a
-  Qwen3.6-27B mix-mode bring-up on this box.
+  Qwen3.6-27B mix-mode bring-up.
 - **`## Interface`** — how it is consumed: point at the packup directory and at
   `REPRODUCE.md` as the entry point, and say what a reproducer needs to have
   before they start.

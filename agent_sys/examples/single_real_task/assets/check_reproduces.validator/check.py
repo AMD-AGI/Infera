@@ -74,7 +74,7 @@ def claude_command() -> list[str] | None:
 
     `PATH` on the producer row is `env_mgr`'s policy-derived one rather than the
     operator's, so `shutil.which` is a route and not the route. `~/.local/bin`
-    is the fallback and is where this box has it.
+    is the fallback, and is where a per-user install puts it.
     """
     found = shutil.which("claude")
     if found is None:

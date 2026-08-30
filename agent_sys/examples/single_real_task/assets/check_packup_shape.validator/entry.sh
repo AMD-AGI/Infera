@@ -6,9 +6,8 @@
 #
 # **Both environment rows, in one line.** `AGENT_SYS_TASK_PACKAGE` is what the
 # PRODUCER row exports and `AGENT_SYS_DEMO_PACKAGE` is what the GLOBAL row
-# exports; they are disjoint, not nested
-# (`scratch/single-real-task-2026-08/validator-env.md` §5), so a body naming
-# only one of them dies on the other phase. This package only ever reaches the
+# exports; they are disjoint, not nested (`validator` spec §8.2), so a body
+# naming only one of them dies on the other phase. This package only ever reaches the
 # producer row today — `runbook` has no consumer — and the fallback costs
 # nothing and removes a trap for whoever adds one.
 set -eu

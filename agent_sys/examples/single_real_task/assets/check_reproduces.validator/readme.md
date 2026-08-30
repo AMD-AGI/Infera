@@ -63,8 +63,9 @@ supply the bar.
 It is also what makes this validator testable without a GPU. A canned kit whose
 `REPRODUCE.md` says *run `echo`, then check that a file appeared* is reproduced
 in seconds, and a canned kit whose commands do not work fails — both under the
-same body, with no special case in it. Those two runs are B3 in
-`scratch/single-real-task-2026-08/PLAN.md` §4.
+same body, with no special case in it. That pair, a kit that reproduces and a
+kit that cannot, is how this body is exercised without hardware: an instrument
+only ever pointed at the good case proves nothing.
 
 ## The contract with the reproducer
 
@@ -121,9 +122,8 @@ is meant to be read there.
 
 `ANTHROPIC_API_KEY` and `ANTHROPIC_BASE_URL` reach this body **by name**, from
 the operator's own `~/.claude/settings.json` `env` block, through
-`env_mgr.harness.harness_env` and the two rows
-`scratch/single-real-task-2026-08/validator-env.md` measured. Nothing in this
-package writes a value: not in YAML, not in `args.json`, not in a `--var`.
+`env_mgr.harness.harness_env` and the two rows of `validator` spec §8.2 that
+carry it. Nothing in this package writes a value: not in YAML, not in `args.json`, not in a `--var`.
 
 `claude` consumes them itself. This module never reads either variable, and the
 prompt tells the reproducer in as many words never to print an environment
@@ -132,8 +132,8 @@ variable's value or copy one into a file.
 ## Cost
 
 `gpu_hours`, which is the honest order of magnitude for the real handoff: the
-reproducer brings a 27 B model up on this box, and cold start alone is ~150–200 s
-of AITER JIT before the server is ready. `args.timeout_seconds` defaults to
+reproducer brings a 27 B model up, and on ROCm the cold start alone runs to
+minutes of JIT compilation before the server is ready. `args.timeout_seconds` defaults to
 5400 and is a `--var` knob — `--var reproduce_timeout_seconds=120` is what a
 bring-up run passes.
 

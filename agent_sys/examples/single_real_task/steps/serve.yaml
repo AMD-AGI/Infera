@@ -21,21 +21,35 @@
 # `agent_sys.backends` group without being installed, and this package is data.
 #
 # **The `env` block is the only route by which a package may name its own
-# variables** (`agent.schema.json`), and it is where the three facts a colleague
+# variables** (`agent.schema.json`), and it is where the four facts a colleague
 # would fairly hand over reach the readme. A readme says `$SRT_MODEL_PATH`,
 # never a literal path, so `--var model_path=...` retargets a run without
 # editing a prompt — and none of these is a secret. **No credential is written
 # here or anywhere else in this package**: the model credentials reach a body
 # from the operator's own `~/.claude/settings.json` allow-list, by name, through
 # `env_mgr.harness.harness_env`.
+#
+# **Two of the four are required and deliberately carry no default.** Where a
+# site keeps 52 GB of weights, and what its image is called, are facts about
+# that site; a default here would be one machine's answer shipped as everyone's
+# and would put a path — with somebody's username in it — into public history.
+# `${NAME}` with no `:-` is a load-time fault naming the file and the line
+# (`spec_loader/variables.py`), so the package says what it needs instead of
+# silently pointing at a directory that is not there:
+#
+#     agent-sys run --package agent_sys/examples/single_real_task \
+#       --var model_path=/srv/models/Qwen3.6-27B --var image=<your-image>
+#
+# The other two default because a public registry tag and `/var/tmp` are not
+# anybody's local fact.
 - module: agent
   name: deployer
   kind: ai
   version: '1'
-  description: Brings a model up on this box and packs the bring-up into a reproduction kit.
+  description: Brings a model up on the local host and packs the bring-up into a reproduction kit.
   env:
-    SRT_MODEL_PATH: '${model_path:-/data/yihou_hf_cache/models/Qwen3.6-27B}'
-    SRT_IMAGE: '${image:-infera:sglang-gfx942-dsv4flash}'
+    SRT_MODEL_PATH: '${model_path}'
+    SRT_IMAGE: '${image}'
     SRT_ETCD_IMAGE: '${etcd_image:-quay.io/coreos/etcd:v3.5.14}'
     SRT_WORK_ROOT: '${work_root:-/var/tmp}'
   backends:
@@ -107,8 +121,9 @@
   strength: weak
   inputs: [runbook]
   args:
-    # How long the reproducer gets. A bring-up on this box is ~3 minutes cold
-    # plus whatever the kit asks for; 90 minutes is slack, not a budget, and
+    # How long the reproducer gets. A cold bring-up of a model this size runs to
+    # minutes before the server is ready, plus whatever the kit asks for on top;
+    # 90 minutes is slack rather than a budget, and
     # `--var reproduce_timeout_seconds=120` is what a bring-up run passes.
     timeout_seconds: '${reproduce_timeout_seconds:-5400}'
   tags:
@@ -147,9 +162,9 @@
 # environment is `Prepared.environment` and therefore carries
 # `AGENT_SYS_TASK_PACKAGE` and the operator's harness block, and **not**
 # `AGENT_SYS_DEMO_PACKAGE`/`_STORE`/`_PYTHON`. The two rows are disjoint rather
-# than nested (`scratch/single-real-task-2026-08/validator-env.md` §5), so both
-# bodies here are written against the producer row and fall back to the global
-# one only where a `:-` default costs nothing.
+# than nested — read `validator/docs/spec.md` §8.2 rather than assuming they
+# nest — so both bodies here are written against the producer row and fall back
+# to the global one only where a `:-` default costs nothing.
 - module: handoff
   name: runbook
   version: '1'

@@ -16,9 +16,9 @@ and an unpinned one.
 Neither validator in this package needs it. Both check the handoff they were
 handed and nothing else, and `materials.json` names exactly that — so the whole
 store-layout question does not arise. It matters twice over here:
-`AGENT_SYS_DEMO_STORE` is **absent** from the environment on the output phase
-(`scratch/single-real-task-2026-08/probe_out/env_names.output.*.txt`), which is
-this package's only phase, so a body reaching for the store root would die on
+`AGENT_SYS_DEMO_STORE` is **absent** from the environment on the output phase —
+measured, and it is the PRODUCER row of `validator` spec §8.2 — which is this
+package's only phase, so a body reaching for the store root would die on
 `KeyError` rather than fall back.
 
 There is one consequence and it is stated rather than worked around: a check
