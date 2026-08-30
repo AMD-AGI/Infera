@@ -85,41 +85,40 @@ AGENT_SYS = Path(__file__).resolve().parents[2]
 #: system ships.
 PERMITTED_COMPONENTS = {"general_specs", "tests"}
 
-#: The demo's package roots — YAML and data, deliberately not a Python package
+#: The example packages — YAML and data, deliberately not a Python package
 #: (`docs/design.md` D7), and the only workflow-specific specs this repository
-#: may hold (`demo` spec §1.1, criterion 5's *"or the demo package's"*).
+#: may hold (main spec §4.3, criterion 5).
+#:
+#: **A directory, not a list, since main spec rev. 13.** This was
+#: `("examples/demo/", "examples/demo-broken/", "examples/demo2/")` and the
+#: comment here required a fourth root to be argued for in this file — adding
+#: that a widening "is a specification change and `spec-author`'s". It was
+#: reported as such and the specification changed: §4.3 now makes `examples/` the
+#: exception outright. The enumeration bought "nobody adds a workflow package
+#: silently" and cost the thing that finally overruled it — **there is no number
+#: of examples at which a framework has enough**, so every example was a spec
+#: amendment.
+#:
+#: **What this still catches, which is why it is not now vacuous.** The claim was
+#: never "examples are special"; it is that a *workflow's* specs live outside this
+#: repository (§4.3). A handoff kind, validator or closure appearing inside a
+#: component, beside the general specs, or at the `agent_sys/` root still fails
+#: this test. Only the examples directory moved from enumerated to named.
 #:
 #: **Two roots for one demo, and the second exists because of W3's own scan
-#: rule.** `examples/demo-broken/` used to be `examples/demo/broken/`, inside the
+#: rule** — kept because it explains a layout a reader would otherwise misread.
+#: `examples/demo-broken/` used to be `examples/demo/broken/`, inside the
 #: package. `YamlPackage` scans every `*.yaml` under a root except `assets/`, so a
 #: deliberately-broken document nested inside the good package would be loaded on
 #: every ordinary run — `demo` criterion 13's *"two runs, no hand-editing"* gone.
 #: `cli/package.py:36-42` records the move; nothing but
 #: `cli.package.broken_package()` reaches it, for `--dry-run --with-broken`.
 #:
-#: **Enumerated, and deliberately not widened to `examples/`.** Criterion 5 says
-#: *"the demo package's"*, and both of these are the demo's. A blanket
-#: `examples/` prefix would let anyone add a workflow package under it forever
-#: with nothing to say so, which is the pressure this test exists to apply —
-#: *"the first violation always looks like a convenience"*. Enumeration means a
-#: third example root has to be argued for in this file. **If the rule is meant
-#: to be "any task package under `examples/`", that is a specification change and
-#: `spec-author`'s**; reported rather than taken.
-#:
-#: **`examples/demo2/` is the third, and this is the argument the paragraph above
-#: demands.** It is a *second reference package*, not a second workflow: it is
-#: package data, imported by nobody and importing nothing from `agent_sys`, and
-#: it ships for the same reason `examples/demo/` does — to be run. What it adds
-#: is shape `examples/demo/` structurally cannot show. Demo-1 is four tasks in a
-#: single flat subgraph, so it exercises no fan-out (N consumers of one produced
-#: kind), no fan-in (one consumer of several distinct kinds) and no depth-2
-#: nesting (a non-leaf inside a non-leaf). Those three are where `task_graph`'s
-#: edge derivation is least covered by an end-to-end run, and one of them —
-#: fan-in needing DISTINCT kinds, because `producer_of[kind]` is single-slot
-#: (`task_graph/models.py:360`) — is a constraint no test in this repository
-#: currently runs into. The list stays **closed** at three: the pressure this
-#: guard applies is that a fourth root has to be argued for here too.
-PERMITTED_PREFIXES = ("examples/demo/", "examples/demo-broken/", "examples/demo2/")
+#: **An example may need hardware this test cannot assume**, and that is §4.3's
+#: business rather than this guard's: nothing here loads or runs a package, it
+#: only asks where spec sources sit. A package requiring GPUs or credentials is
+#: data in the tree like any other, and the suite must not come to depend on one.
+PERMITTED_PREFIXES = ("examples/",)
 
 #: Not part of the distribution, and **pruned rather than filtered**. `scratch/`
 #: is gitignored working space holding cloned third-party trees, and walking into
