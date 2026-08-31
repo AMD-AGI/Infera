@@ -287,8 +287,21 @@ class InferenceCollectiveModel:
         # the exposed A2A cost is scaled down by this fraction (0 = disabled).
         self._deepep_overlap = deepep_overlap_efficiency(model_config)
 
-        gpn = gpus_per_node if gpus_per_node else int(os.environ.get("GPUS_PER_NODE", "8"))
+        # Datasheet interconnect for this GPU, if one is known. It supplies the
+        # switched domain the links reach and their bandwidth; an explicit
+        # ``hardware_config`` still wins, since that is the user's own machine.
+        ic = dict(coll_config.interconnect or {})
+        gpn = (
+            gpus_per_node
+            or int(ic.get("domain_gpus") or 0)
+            or int(os.environ.get("GPUS_PER_NODE", "8"))
+        )
         nn = num_nodes if num_nodes else int(os.environ.get("NNODES", "1"))
+        hw = dict(coll_config.hardware_config or {})
+        for key in ("node_bw", "pod_bw"):
+            if key in ic:
+                hw.setdefault(key, ic[key])
+        hw = hw or None
         self._args = get_default_args(
             num_nodes=nn,
             gpus_per_node=gpn,
@@ -296,22 +309,30 @@ class InferenceCollectiveModel:
             pp=self.pp,
             ep=self.ep,
             cp=self.cp,
-            hardware_config=coll_config.hardware_config,
+            hardware_config=hw,
         )
-        # The EP all-to-all is strided by how wide a single expert is split
-        # (``expert_tp = tp // ep``), not by the full TP width. At EP == TP a
-        # rank holds whole experts, so the communicator is ``ep`` adjacent GPUs;
-        # handing the collective model the TP width instead sizes the group at
-        # ``tp * ep`` and prices an intra-node fabric collective at inter-node
-        # NIC -- or, once that exceeds the pod, at cluster bandwidth.
+        # The EP all-to-all runs over exactly ``ep`` ranks, and the group size is
+        # already handed to the collective as its ``gpus`` argument. What the
+        # ``tp`` argument here sets is ``hp``, which the collective multiplies by
+        # the group size to decide which domain the transfer crosses
+        # (``hp * gpus <= node_size`` is on-node, then pod, then cluster). Any
+        # ``hp > 1`` therefore inflates a collective that ``ep`` ranks alone
+        # perform: an EP8 dispatch fits inside one 8-GPU node, but at TP16 the
+        # old ``tp // ep`` passed 2 and the test became 16 <= 8, pricing an
+        # on-node transfer at pod bandwidth -- 20.45 ms a layer where the on-node
+        # figure is 4.35, which over 58 layers is most of a projected prefill.
+        #
+        # ``1`` makes the test read ``ep <= node_size``, which is the question
+        # being asked. Where ``ep`` genuinely exceeds a node the collective still
+        # crosses one, and is still charged for it.
         self._a2a_args = get_default_args(
             num_nodes=nn,
             gpus_per_node=gpn,
-            tp=max(1, self.tp // self.ep),
+            tp=1,
             pp=self.pp,
             ep=self.ep,
             cp=self.cp,
-            hardware_config=coll_config.hardware_config,
+            hardware_config=hw,
         )
 
     # -- TP AllReduce ----------------------------------------------------------
