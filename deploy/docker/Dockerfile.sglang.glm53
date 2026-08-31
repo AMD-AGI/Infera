@@ -169,27 +169,55 @@ ARG INSTALL_LIBIONIC=1
 ARG LIBIONIC_DEB_URL=https://repo.radeon.com/amdainic/pensando/ubuntu/1.117.1-a-63/pool/main/r/rdma-core/libionic1_54.0-149.g3304be71_amd64.deb
 # Build fails unless the provider that ends up installed declares this range.
 # Set to 1 when building for the ionic-26.03 fleet; set empty to skip the gate.
+#
+# The gate and the download tolerance below are one decision, not two. A failed
+# download leaves the base image's provider in place, which is the wrong ABI --
+# that is the whole reason the gate exists -- so "tolerate the download and then
+# enforce the ABI" can only ever end in a hard failure two lines later, with the
+# tolerance message printed above it to misdirect the reader. Runtime injection
+# is a real workflow (an offline builder mounts the .deb on the node instead),
+# but it is a deliberate choice, and the way to make it is to clear
+# LIBIONIC_REQUIRE_ABI. So: the gate set means the download must succeed; the
+# gate cleared means it may fail and the build carries on.
 ARG LIBIONIC_REQUIRE_ABI=4
 COPY deploy/docker/scripts/print_ionic_abi.py /usr/local/bin/print-ionic-abi
-RUN if [ "${INSTALL_LIBIONIC}" = "1" ]; then \
-        (curl -4 -fsSL --retry 3 -o /tmp/libionic.deb "${LIBIONIC_DEB_URL}" \
+RUN set -eu; \
+    if [ "${INSTALL_LIBIONIC}" = "1" ]; then \
+        if curl -4 -fsSL --retry 3 -o /tmp/libionic.deb "${LIBIONIC_DEB_URL}" \
           && dpkg -i --force-downgrade /tmp/libionic.deb \
           && ldconfig \
           && echo "libionic: $(dpkg -l | awk '/libionic1/{print $3}')" \
-          && rm -f /tmp/libionic.deb) \
-        || echo "[libionic] install failed (offline build?) — inject at runtime instead"; \
+          && rm -f /tmp/libionic.deb; then \
+            :; \
+        elif [ -n "${LIBIONIC_REQUIRE_ABI}" ]; then \
+            echo "ERROR: could not install ${LIBIONIC_DEB_URL} (offline build?)," >&2; \
+            echo "       and LIBIONIC_REQUIRE_ABI=${LIBIONIC_REQUIRE_ABI} demands that provider." >&2; \
+            echo "       To build without it and inject the .deb on the node at runtime," >&2; \
+            echo "       rebuild with --build-arg LIBIONIC_REQUIRE_ABI= (empty)." >&2; \
+            exit 1; \
+        else \
+            echo "[libionic] install failed and no ABI is required — inject at runtime instead"; \
+        fi; \
     else \
         echo "INSTALL_LIBIONIC=0 — using the base image's provider as-is"; \
     fi; \
-    python3 /usr/local/bin/print-ionic-abi | tee /tmp/ionic-abi.txt; \
     if [ -n "${LIBIONIC_REQUIRE_ABI}" ]; then \
+        python3 /usr/local/bin/print-ionic-abi > /tmp/ionic-abi.txt || { \
+            echo "ERROR: could not read the ionic provider's ABI range off the ELF." >&2; \
+            echo "       Unverified means unshipped: this gate exists because the wrong" >&2; \
+            echo "       provider fails open to TCP with nothing in any log." >&2; \
+            exit 1; }; \
+        cat /tmp/ionic-abi.txt; \
         grep -q "= ${LIBIONIC_REQUIRE_ABI}\.\.${LIBIONIC_REQUIRE_ABI}\$" /tmp/ionic-abi.txt || { \
             echo "ERROR: installed ionic provider does not declare abi ${LIBIONIC_REQUIRE_ABI}..${LIBIONIC_REQUIRE_ABI}." >&2; \
             echo "       RDMA would silently fall back to TCP on the target nodes." >&2; \
             echo "       Fix LIBIONIC_DEB_URL, or set LIBIONIC_REQUIRE_ABI to what those nodes export." >&2; \
             exit 1; }; \
-    fi; \
-    rm -f /tmp/ionic-abi.txt
+        rm -f /tmp/ionic-abi.txt; \
+    else \
+        python3 /usr/local/bin/print-ionic-abi || \
+            echo "[libionic] could not read the provider ABI; no gate set, continuing"; \
+    fi
 
 # ---- infera ------------------------------------------------------------------
 WORKDIR /opt/infera
