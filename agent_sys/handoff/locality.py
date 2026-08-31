@@ -72,6 +72,68 @@ _CANDIDATE = re.compile(
 #: Matched on the *scheme*, which is what distinguishes it.
 _URL = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://\S*")
 
+#: **The same false positive without a scheme to key on.** An HTTP request-line
+#: carries the request-target bare — `"POST /v1/chat/completions HTTP/1.1"` — so
+#: `_URL` does not fire and `_CANDIDATE` reads a three-segment API path as a
+#: local one.
+#:
+#: Measured 2026-08-31: this refused a *correct* handoff. The task's brief
+#: ordered its agent to prove the completion had gone through the router rather
+#: than the engine's own port, the natural evidence is the router's access log,
+#: and the seal then rejected the artefact at `README.md:42`. Every correct kit
+#: for that task contains the string, so the check refused the right answer
+#: every time rather than occasionally.
+#:
+#: **This completes the decision `_URL` already made** — that an API path is not
+#: a filesystem path — rather than making a new one. The two shapes are the same
+#: false positive and only the syntax around them differs; `_URL` handled the
+#: one that happened to be surveyed.
+#:
+#: **The `HTTP/x.y` suffix is the discriminator, and a bare verb is not.** A
+#: first version matched `VERB SP /path` alone, and an automated review was
+#: right that it opens a cloak: `POST /home/someone/run3` is a real local path
+#: that a bare-verb rule would suppress, so anyone writing a verb before a path
+#: — deliberately or by accident — escapes the check. Requiring the version
+#: token means only a genuine request-line is stripped, and RFC 9112 puts that
+#: token there on every one of them.
+#:
+#: **Not anchored to the start of a line, and that was the other half of the
+#: review's suggestion.** The line this was measured on is
+#: `INFO: 127.0.0.1:56726 - "POST /v1/chat/completions HTTP/1.1" 200 OK` — the
+#: request-line sits inside a quoted field in the middle of an access-log
+#: record, so `^\s*` would have reverted the fix it was meant to preserve. The
+#: version suffix carries the discrimination on its own.
+#:
+#: **Only the target is blanked**, via `_blank_target`, so nothing else on the
+#: line is suppressed; a real path beside a request-line still fires.
+#:
+#: The cost, stated: a bare `GET /v1/workers` in prose, with no version token,
+#: is still reported. That is a false positive in the safe direction, and the
+#: module's own rule is that a stale exclusion fails closed.
+#:
+#: **The residual, measured rather than argued.** A local path written as a
+#: *complete* request line — `GET /home/alice/out.json HTTP/1.1` — is still
+#: suppressed, and no shape rule can tell it from an API path, which is the
+#: whole of Debian #1002451. What bounds it is that **the certain half is not
+#: cloakable**: `_scan_text` runs the oracle loop over the **raw** line before
+#: any stripping, so a path this system minted fires anyway. Measured — with a
+#: playground oracle, `GET /var/tmp/playground-7/run3/out.json HTTP/1.1` yields
+#: an `oracle` hit; only the non-minted `/home/alice/...` escapes. So the gap
+#: is confined to the half that already says it is best effort, and closing it
+#: needs the oracles wired (they are not, `store.py:140`), not more regex.
+_REQUEST_TARGET = re.compile(
+    r"\b(?:GET|HEAD|POST|PUT|PATCH|DELETE|CONNECT|OPTIONS|TRACE)"
+    r"\s+(/\S*)\s+HTTP/\d(?:\.\d)?\b"
+)
+
+
+def _blank_target(match: re.Match[str]) -> str:
+    """Replace only the request-target, keeping the rest of the match's width."""
+    text = match.group(0)
+    start, end = match.span(1)
+    return text[: start - match.start()] + " " * (end - start) + text[end - match.start() :]
+
+
 _MAX_BYTES = 4 << 20
 
 
@@ -120,7 +182,7 @@ def _scan_text(text: str, oracle_prefixes: Sequence[str], allowed: Sequence[str]
         for prefix in oracle_prefixes:
             if prefix in line:
                 yield lineno, prefix, "oracle"
-        stripped = _URL.sub(" ", line)
+        stripped = _REQUEST_TARGET.sub(_blank_target, _URL.sub(" ", line))
         if stripped.lstrip().startswith("#!"):
             continue  # a shebang names an interpreter, not a produced artefact
         for match in _CANDIDATE.finditer(stripped):
