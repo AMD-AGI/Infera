@@ -159,6 +159,17 @@ def parser() -> argparse.ArgumentParser:
         help="let the demo set extensions.preciousObjects on the repository it clones",
     )
     run.add_argument("--clean", action="store_true", help="remove every run and exit")
+    run.add_argument(
+        "--timeout",
+        metavar="SECONDS",
+        type=float,
+        default=_SETTLE_TIMEOUT,
+        help=(
+            "absolute ceiling on the run, in seconds "
+            f"(default {_SETTLE_TIMEOUT:.0f}). A run that stops making progress "
+            "ends in seconds regardless; this only bounds one that never stops"
+        ),
+    )
     return top
 
 
@@ -388,7 +399,7 @@ def _real_run(args: argparse.Namespace, stream: Stream) -> int:
             resume_all(registry)
         else:
             _start(registry, stream)
-        _settle(registry, stream)
+        _settle(registry, stream, timeout=getattr(args, "timeout", None) or _SETTLE_TIMEOUT)
     finally:
         # Names that did **not** come back, rather than a hang or a silent pass.
         stragglers = running.stop(timeout=5.0)
@@ -787,11 +798,36 @@ def _validators(handoff_specs: Any, kinds: Sequence[str]) -> list[str]:
 # Settling, and the report
 
 
+#: The absolute ceiling on a run, and **the third value this constant has had**.
+#: It was 300 s, which killed a healthy model call; it was then 1800 s, which
+#: killed a healthy *bring-up* — the run below stopped at exactly 1800.0 s with
+#: both tasks still `running`, the handoff still `generating`, and neither
+#: validator ever started, while the agent was mid-way through verifying its own
+#: `REPRODUCE.md` by running it. Worse than the lost work: the agent is
+#: abandoned rather than asked to stop, so the containers and the eight GPUs it
+#: held stayed held until a human removed them.
+#:
+#: **The pattern in both regressions is the same and it is worth naming.** This
+#: deadline is the only exit for a run that is *working*, because `holding`
+#: deliberately counts a model call as progress so the 20 s stall branch will
+#: not fire on one. So every time the unit of work grew — a model call, then a
+#: 27 B bring-up — the ceiling became an execution budget for the one case it
+#: was never meant to bound, and it did so by reporting a healthy run as a hang.
+#:
+#: Sized as `_settle`'s docstring argues it should be: generous, because
+#: `stall_after` is what actually catches a broken run and this catches only a
+#: thread held for ever. Four hours costs a finishing run nothing — quiescence
+#: returns the moment nothing is in a phase — and is now reachable as
+#: `--timeout` besides, because how long a task legitimately takes is a property
+#: of the package, not of this file.
+_SETTLE_TIMEOUT = 14400.0
+
+
 def _settle(
     registry: Any,
     stream: Stream,
     *,
-    timeout: float = 1800.0,
+    timeout: float = _SETTLE_TIMEOUT,
     period: float = 5.0,
     stall_after: float = 20.0,
 ) -> None:
@@ -828,9 +864,11 @@ def _settle(
     stall branch will not fire on it. So the one path that legitimately takes
     minutes was the one path the deadline could still kill.
 
-    Thirty minutes is a ceiling, not a target — criterion 1's *"under a minute
-    excluding model latency"* is untouched, since it excludes exactly the thing
-    this bounds.
+    `_SETTLE_TIMEOUT` is a ceiling, not a target — criterion 1's *"under a
+    minute excluding model latency"* is untouched, since it excludes exactly the
+    thing this bounds, and a run that finishes never reaches the deadline at
+    all. See that constant for why it has now moved twice, and for the failure
+    mode both moves share.
 
     **`check_liveness` is called from here**, and this is the place for it:
     `monitor` design says the checker is a comparison of one float called from

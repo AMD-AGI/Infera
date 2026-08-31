@@ -719,3 +719,57 @@ def test_a_parked_escalated_task_does_not_hold_the_run_open(registry: Any, submi
     done = _fields(stream, EventKind.RUN_COMPLETE)[-1]
     assert done["settled"] is False
     assert any("produce" in s for s in done["stalled_tasks"])
+
+
+def test_the_absolute_deadline_still_bounds_a_run_that_never_stops(
+    registry: Any, submitted: Any
+) -> None:
+    """**The branch above has a sibling that had no test at all, and it cost twice.**
+
+    `_SETTLE_TIMEOUT` has now had three values. 300 s killed a healthy model
+    call; 1800 s killed a healthy bring-up, at exactly 1800.0 s, with both tasks
+    still `running` and neither validator started. Both regressions are the same
+    shape: this deadline is the **only** exit for a run that is genuinely
+    working, because `holding` deliberately counts a model call as progress so
+    the stall branch will not fire on one. Each time the unit of work grew, the
+    ceiling quietly became an execution budget.
+
+    Raising it is therefore not enough on its own — nothing would say if a later
+    edit dropped the branch, and a ceiling that never fires is indistinguishable
+    from no ceiling until a run hangs for ever. This is the non-vacuity control
+    for the raise: a task that holds a thread and is **not** escalated, so the
+    20 s stall branch cannot end it, must still be bounded, and bounded by the
+    value it was given rather than by the default.
+    """
+
+    class _Working:
+        """Mid-model-call for ever: holding, unhalted, and awaiting no decision."""
+
+        def __init__(self, busy: Any) -> None:
+            self._busy = busy
+
+        def attempt_of(self, tid: Any) -> Any:
+            return SimpleNamespace(is_running=tid == self._busy)
+
+    runner, task_mgr = registry.get("runner"), registry.get("task_mgr")
+    runner.advance(registry, submitted.id)
+    produce = by_closure(task_mgr.all(), "produce")
+    registry.get("scheduler").try_dispatch()
+    runner.advance(registry, produce.id)  # -> RUNNING, and it never leaves
+    registry.register("runner", _Working(produce.id))
+
+    stream = Stream()
+    started = time.monotonic()
+    cli_main._settle(registry, stream, timeout=1.0, period=0.05, stall_after=0.2)
+    elapsed = time.monotonic() - started
+
+    # Bounded, and by the deadline rather than by the stall branch: no status
+    # changes here either, so a stall would have ended it in 0.2 s.
+    assert 1.0 <= elapsed < 10.0, elapsed
+    event = list(stream.of_kind(EventKind.RUN_COMPLETE))[-1]
+    assert dict(event.fields)["settled"] is False
+    assert "did not settle within 1 s" in event.message, event.message
+    # The default is generous **because** this branch is the backstop and the
+    # stall branch is what catches a broken run. Pinned so a third silent
+    # tightening has to argue with a test.
+    assert cli_main._SETTLE_TIMEOUT >= 14400.0
