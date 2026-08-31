@@ -19,15 +19,67 @@ import ast
 import importlib
 import pathlib
 import sys
+import traceback
 
 MODULE = "sglang.srt.models.glm5_next"
 CLASS = "Glm5NextForConditionalGeneration"
 SRC = pathlib.Path("/sgl-workspace/sglang/python/sglang/srt/models/glm5_next.py")
 
 # An import failure naming any of these is the builder lacking a GPU, not the
-# overlay missing. Keep this list tight: anything not listed is a real failure.
-GPU_ABSENCE = ("rocminfo", "No HIP GPUs", "no CUDA-capable device",
-               "hipErrorNoDevice", "HIP error", "libamdhip", "torch.cuda")
+# overlay missing. Keep this list tight: anything not listed is a real failure,
+# and a marker that is too broad turns this check into a rubber stamp -- which
+# is worse than not having it, because the build then claims the overlay landed.
+#
+# Two that used to be here and are not:
+#   "HIP error"  matches every runtime error HIP raises, a real broken kernel
+#                included. The device-absence ones are spelled out instead.
+#   "torch.cuda" appears in the message of any AttributeError raised while
+#                touching a torch.cuda symbol -- including one raised BY
+#                glm5_next.py against a torch this image actually ships, which
+#                is precisely the defect this script exists to catch.
+GPU_ABSENCE = (
+    "rocminfo",
+    "No HIP GPUs are available",
+    "no CUDA-capable device",
+    "hipErrorNoDevice",
+    "no ROCm-capable device",
+    "Found no NVIDIA driver",
+    "Torch not compiled with CUDA enabled",
+)
+
+
+def _is_gpu_absence(exc):
+    """True only for a device-absence failure raised *outside* the overlay.
+
+    Two conditions, both required. The message test walks the `__cause__` /
+    `__context__` chain, because aiter's rocminfo probe is routinely re-raised
+    as something whose own `str()` says nothing about GPUs. The frame test is
+    the sharper half: whatever the message says, if the innermost frame is in
+    glm5_next.py then the overlay is what broke, and a builder without a GPU is
+    not the explanation. The usual true-negative -- glm5_next.py's own
+    `import aiter` -- puts glm5_next.py in the traceback but never at the
+    bottom of it.
+    """
+    seen, cur, blobs = set(), exc, []
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        blobs.append(f"{type(cur).__name__}: {cur}")
+        cur = cur.__cause__ or cur.__context__
+    joined = "\n".join(blobs).lower()
+    if not any(m.lower() in joined for m in GPU_ABSENCE):
+        return False
+
+    innermost = None
+    cur, seen = exc, set()
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        frames = traceback.extract_tb(cur.__traceback__)
+        if frames:
+            innermost = frames[-1].filename
+        cur = cur.__cause__ or cur.__context__
+    if innermost and pathlib.Path(innermost).resolve() == SRC.resolve():
+        return False
+    return True
 
 
 def fail(msg):
@@ -62,7 +114,7 @@ def main():
         mod = importlib.import_module(MODULE)
     except Exception as e:                       # noqa: BLE001 - see GPU_ABSENCE
         blob = f"{type(e).__name__}: {e}"
-        if any(m.lower() in blob.lower() for m in GPU_ABSENCE):
+        if _is_gpu_absence(e):
             print(f"[verify-glm53-overlay] import skipped, builder has no GPU "
                   f"({blob.splitlines()[0][:120]})")
             return

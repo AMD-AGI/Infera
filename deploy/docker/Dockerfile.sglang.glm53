@@ -75,9 +75,14 @@ FROM ${SGLANG_BASE_IMAGE}
 # Dockerfile" would have shipped two different engines. Bump the ref only
 # against a new validation run.
 #
-# SGLANG_GLM53_PR only locates the ref cheaply. github serves fetch-by-sha
-# (allowAnySHA1InWant), so `git fetch origin <sha>` works without it; fetching
-# the PR ref just avoids a full-history walk. Keep them consistent if you bump.
+# SGLANG_GLM53_PR only locates the ref cheaply, and the build below treats it
+# that way: it fetches the PR ref, and if the pinned sha is still not present
+# afterwards it fetches the sha directly (github serves fetch-by-sha,
+# allowAnySHA1InWant). Both halves are load-bearing. A merged, closed or
+# renumbered PR makes the first fetch fail outright; a force-push past the pin
+# makes it *succeed* and still not contain the sha -- which is the exact
+# reproducibility hazard this pin exists for, so it must not be a build failure
+# either. Keep the two consistent when you bump, but the sha is the contract.
 #
 # Both PRs touch python/sglang/** only -- no C++ sgl-kernel rebuild. The new DSA
 # kernels under python/sglang/kernels/jit/ are JIT-compiled at first use.
@@ -92,15 +97,25 @@ ARG SGLANG_GLM53_PR=36607
 # to save that build metadata, force the checkout, and put it back. Force alone
 # would silently restore the CUDA-flavoured pyproject and break any later
 # `pip install` against this tree.
+#
+# `git diff HEAD`, not `git diff`: the latter compares the worktree to the
+# INDEX, so a base image that staged its metadata swap (`git add`) lists
+# nothing here, saves nothing, and loses the HIP pyproject to the forced
+# checkout below -- while `git status --porcelain` on the line above still
+# prints it, so the diagnostic and the logic would disagree about what is
+# dirty. Today's base does not stage it; nothing makes that a promise.
 COPY deploy/docker/scripts/verify_glm53_overlay.py /usr/local/bin/verify-glm53-overlay
 RUN set -eux; \
     cd /sgl-workspace/sglang; \
     mkdir -p /tmp/base-meta/files; \
     git status --porcelain | tee /tmp/base-meta/status.txt; \
-    git diff --name-only --diff-filter=M > /tmp/base-meta/modified.txt; \
-    git diff --name-only --diff-filter=D > /tmp/base-meta/deleted.txt; \
+    git diff HEAD --name-only --diff-filter=M > /tmp/base-meta/modified.txt; \
+    git diff HEAD --name-only --diff-filter=D > /tmp/base-meta/deleted.txt; \
     while read -r f; do mkdir -p "/tmp/base-meta/files/$(dirname "$f")"; cp "$f" "/tmp/base-meta/files/$f"; done < /tmp/base-meta/modified.txt; \
-    git fetch --no-tags origin "pull/${SGLANG_GLM53_PR}/head"; \
+    git fetch --no-tags origin "pull/${SGLANG_GLM53_PR}/head" \
+      || echo "[overlay] pull/${SGLANG_GLM53_PR}/head did not fetch; falling back to the sha"; \
+    git cat-file -e "${SGLANG_GLM53_REF}^{commit}" 2>/dev/null \
+      || git fetch --no-tags origin "${SGLANG_GLM53_REF}"; \
     git checkout --detach --force "${SGLANG_GLM53_REF}"; \
     while read -r f; do mkdir -p "$(dirname "$f")"; cp "/tmp/base-meta/files/$f" "$f"; done < /tmp/base-meta/modified.txt; \
     while read -r f; do rm -f "$f"; done < /tmp/base-meta/deleted.txt; \
