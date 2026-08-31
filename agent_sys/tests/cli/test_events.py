@@ -773,3 +773,104 @@ def test_the_absolute_deadline_still_bounds_a_run_that_never_stops(
     # stall branch is what catches a broken run. Pinned so a third silent
     # tightening has to argue with a test.
     assert cli_main._SETTLE_TIMEOUT >= 14400.0
+
+
+def test_a_task_waiting_on_a_user_ends_the_run_even_while_another_holds(
+    registry: Any, submitted: Any
+) -> None:
+    """**Two runs died to the absolute deadline because `holding` could not see this.**
+
+    Measured 2026-08-31 on a refused seal: the leaf's body exited 0, its output
+    was refused, it escalated **to its parent** with no `target`, and its attempt
+    thread stayed `is_running=True` for ever. The root then escalated to the
+    user. So `holding` was permanently 1 — contributed by a task that was parked
+    rather than working, and whose own escalation carried no `target` for
+    `_awaiting_a_decision` to find — and the stall branch could not fire whatever
+    else happened. One of those runs hung for 65 minutes.
+
+    **The fix checks the graph, not the task.** `_run` installs `NullUserSink`,
+    whose `deliver` appends to a list and returns, so an escalation that reaches
+    the top *in this entry point* is terminal by construction. If somebody is
+    blocked on an answer nobody will give, it does not matter which task is still
+    holding a thread: whatever it is holding it for cannot arrive.
+    """
+
+    class _Busy:
+        """The leaf still 'running' after its work is done — the observed shape."""
+
+        def __init__(self, busy: Any) -> None:
+            self._busy = busy
+
+        def attempt_of(self, tid: Any) -> Any:
+            return SimpleNamespace(is_running=tid == self._busy)
+
+    runner, task_mgr = registry.get("runner"), registry.get("task_mgr")
+    runner.advance(registry, submitted.id)
+    produce = by_closure(task_mgr.all(), "produce")
+    registry.get("scheduler").try_dispatch()
+    runner.advance(registry, produce.id)
+
+    # The escalation reaches the user on the ROOT, while the LEAF holds a thread.
+    root = by_closure(task_mgr.all(), "main")
+    recorder = registry.get("recorder")
+    recorder.open(root.id, root.current.attempt)
+    recorder.write(
+        monitor_event(
+            MonitorEventKind.ESCALATED,
+            root.id,
+            attempt=root.current.attempt,
+            reported_by="default",
+            attributes={"target": "user", "why": "nothing to push: no executor"},
+        )
+    )
+    registry.register("runner", _Busy(produce.id))
+
+    stream = Stream()
+    started = time.monotonic()
+    cli_main._settle(registry, stream, timeout=30.0, period=0.05, stall_after=0.2)
+    elapsed = time.monotonic() - started
+
+    assert elapsed < 10.0, f"ended on the deadline, not the escalation: {elapsed}"
+    event = list(stream.of_kind(EventKind.RUN_COMPLETE))[-1]
+    fields = dict(event.fields)
+    assert fields["settled"] is False
+    # It must say *which* ending this is. "stopped making progress" and "waiting
+    # on a decision" are different facts and a reader acts on the difference.
+    assert "waiting on a decision no one will make" in event.message, event.message
+    assert "main" in fields["awaiting_decision"], fields
+
+
+def test_a_healthy_run_is_not_called_blocked(registry: Any, submitted: Any) -> None:
+    """**The non-vacuity control, and without it the change above is a regression.**
+
+    A rule that ends any run with a task holding a thread would pass the test
+    above and break every real run — an AI leaf mid-model-call holds one for
+    minutes, which is the exact case `holding` was written to protect and which
+    a previous version of this file already got wrong once.
+
+    So: same shape, no escalation to a user. The loop must **not** end early; the
+    deadline must be what stops it.
+    """
+
+    class _Busy:
+        def __init__(self, busy: Any) -> None:
+            self._busy = busy
+
+        def attempt_of(self, tid: Any) -> Any:
+            return SimpleNamespace(is_running=tid == self._busy)
+
+    runner, task_mgr = registry.get("runner"), registry.get("task_mgr")
+    runner.advance(registry, submitted.id)
+    produce = by_closure(task_mgr.all(), "produce")
+    registry.get("scheduler").try_dispatch()
+    runner.advance(registry, produce.id)
+    registry.register("runner", _Busy(produce.id))
+
+    stream = Stream()
+    started = time.monotonic()
+    cli_main._settle(registry, stream, timeout=1.0, period=0.05, stall_after=0.2)
+    elapsed = time.monotonic() - started
+
+    assert elapsed >= 1.0, "a working task was called blocked; the deadline should have ended it"
+    event = list(stream.of_kind(EventKind.RUN_COMPLETE))[-1]
+    assert "did not settle within" in event.message, event.message

@@ -927,13 +927,36 @@ def _settle(
         holding = [
             t for t in live if _is_running(runner, t) and not _awaiting_a_decision(t, registry)
         ]
+        # **And a task waiting for a user is waiting for nobody, in this entry
+        # point, by construction.** `_run` installs `NullUserSink`, whose
+        # `deliver` appends to a list and returns (`monitor/base.py:212-225`) —
+        # *"how a monitor reaches a human is unspecified anywhere in this
+        # system"*. So an escalation that reaches the top here is terminal, and
+        # waiting it out buys nothing.
+        #
+        # **`holding` alone could not see that, and the reason is structural.**
+        # Measured 2026-08-31 on a refused seal: the leaf's body exited 0, its
+        # output was refused, it escalated *to its parent* — `target` unset — and
+        # its attempt thread stayed `is_running=True` for ever. The root then
+        # escalated to the user. So `holding` was permanently 1, contributed by a
+        # task that was parked rather than working and whose own escalation
+        # carried no `target`, and the stall branch could never fire whatever the
+        # rest of the graph did. Two runs died to the absolute deadline this way,
+        # one after 65 minutes.
+        #
+        # Checking the graph rather than the task is what fixes it: *somebody* is
+        # blocked on an answer nobody will give, so the run is over — and it does
+        # not matter which task is still holding a thread, because whatever it is
+        # holding it for cannot arrive. A healthy run has no such escalation and
+        # is untouched.
+        blocked = [t for t in live if _awaiting_a_decision(t, registry)]
         if not live:
             return  # fully quiescent
 
         now = _snapshot(task_mgr)
         if now != seen:
             seen, last_change = now, time.monotonic()
-        elif not holding and time.monotonic() - last_change > stall_after:
+        elif (not holding or blocked) and time.monotonic() - last_change > stall_after:
             # **Stalled, not running.** A non-leaf sits in RUNNING for as long as
             # its subgraph is live, so "no task in a phase state" never becomes
             # true when a subtask has failed — and waiting out the whole timeout
@@ -941,12 +964,32 @@ def _settle(
             # true after twenty seconds. No status has changed and no attempt
             # holds a thread: nothing is going to happen.
             stalled = sorted(f"{t.closure}:{t.status.value}" for t in live)
+            # The two endings are different facts and a reader has to be able to
+            # act on which one happened: *nothing is running* is a graph that
+            # died, *somebody is waiting on a decision* names a task and a reason
+            # and says a human was asked for something this entry point cannot
+            # deliver. Reporting both as "stopped making progress" was how the
+            # second one read as the first for two runs.
+            if blocked:
+                why = _awaiting_a_decision(blocked[0], registry)
+                message = (
+                    f"{blocked[0].closure} is waiting on a decision no one will "
+                    f"make — the escalation reached the top and this entry point "
+                    f"installs a sink that records and does not answer "
+                    f"({why}). Nothing has changed for {stall_after:.0f} s; "
+                    f"still in a phase: {', '.join(stalled)}"
+                )
+            else:
+                message = (
+                    f"the graph stopped making progress {stall_after:.0f} s ago; "
+                    f"still in a phase: {', '.join(stalled)}"
+                )
             stream.emit(
                 EventKind.RUN_COMPLETE,
-                f"the graph stopped making progress {stall_after:.0f} s ago; "
-                f"still in a phase: {', '.join(stalled)}",
+                message,
                 settled=False,
                 stalled_tasks=stalled,
+                awaiting_decision=sorted(t.closure for t in blocked),
                 ok=False,
             )
             return
