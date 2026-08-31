@@ -1,0 +1,34 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "hi"
+    }
+  ],
+  "tool_choice": {
+    "type": "function",
+    "function": {
+      "name": "b"
+    }
+  },
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "a",
+        "parameters": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "b",
+        "parameters": {
+          "type": "object"
+        }
+      }
+    }
+  ]
+}

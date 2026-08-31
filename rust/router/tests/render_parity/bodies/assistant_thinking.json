@@ -1,0 +1,16 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": "<think>weigh it up</think>hello"
+    },
+    {
+      "role": "user",
+      "content": "more"
+    }
+  ]
+}

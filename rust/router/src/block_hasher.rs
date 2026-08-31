@@ -732,42 +732,42 @@ impl BlockHasher {
             tmpl.render(ctx)
         };
 
-        // Tool-call `arguments` policy -- see the `tool_args` field. Undecided
-        // means "try the client's bytes first"; a template that cannot render
-        // them says so by failing, and only then do we parse.
-        let policy = self.tool_args.load(Ordering::Relaxed);
-        if policy != TOOL_ARGS_PARSED {
+        // Tool-call `arguments` policy -- see the `tool_args` field.
+        //
+        // Only a conversation that actually carries a *string* `arguments` can
+        // tell the two template dialects apart. For every other body both forms
+        // are the same bytes, so such a body must neither set the latch nor be
+        // trusted by it -- the first cut of this latched VERBATIM on a plain
+        // "hi", then refused to retry the tool-call turns that followed, and
+        // every one of them routed on load. The render-parity corpus caught it.
+        let Some(parsed) = normalize_tool_call_arguments(messages) else {
+            return render(messages)
+                .map_err(|e| tracing::warn!(err = %e, "kv-aware: chat_template render failed"))
+                .ok();
+        };
+
+        if self.tool_args.load(Ordering::Relaxed) != TOOL_ARGS_PARSED {
             match render(messages) {
                 Ok(out) => {
-                    if policy == TOOL_ARGS_UNDECIDED {
-                        self.tool_args.store(TOOL_ARGS_VERBATIM, Ordering::Relaxed);
-                    }
+                    self.tool_args.store(TOOL_ARGS_VERBATIM, Ordering::Relaxed);
                     return Some(out);
                 }
-                Err(e) if policy == TOOL_ARGS_VERBATIM => {
-                    tracing::warn!(err = %e, "kv-aware: chat_template render failed");
-                    return None;
-                }
-                Err(e) => {
-                    tracing::debug!(
-                        err = %e,
-                        "kv-aware: chat_template render failed on verbatim tool-call \
-                         arguments; retrying with them parsed"
-                    );
-                }
+                Err(e) => tracing::debug!(
+                    err = %e,
+                    "kv-aware: chat_template render failed on verbatim tool-call \
+                     arguments; retrying with them parsed"
+                ),
             }
         }
-        let parsed = normalize_tool_call_arguments(messages);
-        let parsed = parsed.as_ref().unwrap_or(messages);
-        match render(parsed) {
+        match render(&parsed) {
             Ok(out) => {
                 self.tool_args.store(TOOL_ARGS_PARSED, Ordering::Relaxed);
                 Some(out)
             }
             Err(e) => {
-                // Undecided on purpose: this render failed for some reason
-                // other than the arguments shape, so it proves nothing about
-                // which form the template wants.
+                // The latch is left alone: this failed for some reason other
+                // than the arguments shape, so it says nothing about which form
+                // the template wants.
                 tracing::warn!(err = %e, "kv-aware: chat_template render failed");
                 None
             }
@@ -1805,6 +1805,149 @@ mod tests {
                 "<|assistant|><think>",
             ))
         );
+    }
+
+    // ---- render parity: the router's prompt vs the engine's ---------------
+    //
+    // Everything else in this file tests the port against our own reading of
+    // sglang. This tests it against sglang. The distinction matters because a
+    // divergence here has no failure mode: the render succeeds, the tokens are
+    // valid, the request is served correctly, and the block hashes simply never
+    // match the engine's again. kv-aware degrades to load balancing with every
+    // health signal green -- GLM-5.3 sat that way for 17h at cache_hits=0 over
+    // 5562 routing decisions before anyone looked.
+    //
+    // Goldens come from `scripts/gen_render_goldens.py`, which renders the same
+    // bodies with `transformers` while *importing* sglang's own
+    // transformations. Adding a model is one command and no code:
+    //
+    //   python3 scripts/gen_render_goldens.py --model-dir /models/Foo --name foo
+    //   INFERA_TEST_RENDER_PARITY=foo=/models/Foo cargo test -p infera-router
+    //
+    // Skips when the env var is unset, so CI without weights stays green; point
+    // it at whatever model dirs a machine actually has.
+
+    fn parity_root() -> std::path::PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/render_parity")
+    }
+
+    /// A golden the engine could not produce at all. The router must also
+    /// refuse -- rendering *something* where the engine raised is the worst
+    /// case, since it hashes a prefix that cannot exist.
+    const RENDER_ERROR: &str = "__RENDER_ERROR__";
+
+    #[test]
+    fn render_parity_matches_the_engine() {
+        let Ok(spec) = std::env::var("INFERA_TEST_RENDER_PARITY") else {
+            eprintln!(
+                "skip: set INFERA_TEST_RENDER_PARITY=name=/path[,name2=/path2] to compare \
+                 the router's render against goldens in tests/render_parity/goldens/<name>"
+            );
+            return;
+        };
+        let root = parity_root();
+        let mut bodies: Vec<_> = std::fs::read_dir(root.join("bodies"))
+            .expect("render_parity/bodies must exist")
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.extension().is_some_and(|x| x == "json"))
+            .collect();
+        bodies.sort();
+        assert!(!bodies.is_empty(), "no request bodies in the parity corpus");
+
+        let mut failures = Vec::new();
+        let mut compared = 0usize;
+        for entry in spec.split(',').filter(|s| !s.trim().is_empty()) {
+            let (name, dir) = entry
+                .split_once('=')
+                .unwrap_or_else(|| panic!("INFERA_TEST_RENDER_PARITY entry {entry:?} is not name=/path"));
+            let (name, dir) = (name.trim(), dir.trim());
+            let golden_dir = root.join("goldens").join(name);
+            assert!(
+                golden_dir.is_dir(),
+                "no goldens for {name:?}; run scripts/gen_render_goldens.py --model-dir {dir} --name {name}"
+            );
+            let h = BlockHasher::load(dir);
+            assert!(
+                h.is_enabled(),
+                "{name}: BlockHasher::load({dir}) found no tokenizer -- kv-aware would be off \
+                 entirely, so parity is moot"
+            );
+            for body_path in &bodies {
+                let stem = body_path.file_stem().unwrap().to_string_lossy().to_string();
+                let golden_path = golden_dir.join(format!("{stem}.txt"));
+                let Ok(golden) = std::fs::read_to_string(&golden_path) else {
+                    failures.push(format!("{name}/{stem}: no golden at {}", golden_path.display()));
+                    continue;
+                };
+                let body: Value = serde_json::from_str(
+                    &std::fs::read_to_string(body_path).expect("readable body"),
+                )
+                .expect("body is valid json");
+                compared += 1;
+                let ours = h.render_text_str(&body);
+                if golden.starts_with(RENDER_ERROR) {
+                    if let Some(text) = ours {
+                        failures.push(format!(
+                            "{name}/{stem}: the engine REFUSED this body ({}) but the router \
+                             rendered {} chars -- it would hash a prefix that cannot exist",
+                            golden.trim(),
+                            text.len()
+                        ));
+                    }
+                    continue;
+                }
+                match ours {
+                    None => failures.push(format!(
+                        "{name}/{stem}: router rendered nothing; the engine rendered {} chars \
+                         (this request routes on load, permanently)",
+                        golden.len()
+                    )),
+                    Some(text) if text != golden => failures.push(format!(
+                        "{name}/{stem}: {}",
+                        first_difference(&text, &golden)
+                    )),
+                    Some(_) => {}
+                }
+            }
+        }
+        assert!(compared > 0, "INFERA_TEST_RENDER_PARITY named no usable model");
+        assert!(
+            failures.is_empty(),
+            "render parity ({compared} bodies compared):\n  {}",
+            failures.join("\n  ")
+        );
+    }
+
+    /// Byte offset of the first divergence plus a window either side. A whole-
+    /// prompt diff is unreadable and buries the one thing that matters: how far
+    /// in the prefix survived, since everything after it is lost anyway.
+    fn first_difference(ours: &str, theirs: &str) -> String {
+        let at = ours
+            .as_bytes()
+            .iter()
+            .zip(theirs.as_bytes())
+            .position(|(a, b)| a != b)
+            .unwrap_or_else(|| ours.len().min(theirs.len()));
+        let from = at.saturating_sub(40);
+        let win = |s: &str| -> String {
+            let end = (at + 60).min(s.len());
+            let (from, end) = (floor_char(s, from), floor_char(s, end));
+            s[from..end].escape_debug().to_string()
+        };
+        format!(
+            "diverges at byte {at} of {}/{} (ours/engine)\n      ours:   ...{}...\n      engine: ...{}...",
+            ours.len(),
+            theirs.len(),
+            win(ours),
+            win(theirs),
+        )
+    }
+
+    fn floor_char(s: &str, mut i: usize) -> usize {
+        while i > 0 && !s.is_char_boundary(i) {
+            i -= 1;
+        }
+        i
     }
 }
 

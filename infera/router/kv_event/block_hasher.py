@@ -5,6 +5,7 @@
 ###############################################################################
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
@@ -12,6 +13,73 @@ from infera.common.worker_pool import EngineType
 from infera.router.kv_event.hasher import hash_request
 
 logger = logging.getLogger(__name__)
+
+
+def _normalise_history(messages: list) -> list:
+    """Assistant history the way `serving_chat` hands it to the template.
+
+    OpenAI puts `tool_calls[].function.arguments` on the wire as a JSON
+    *string*. Templates disagree about that: GLM-5.3's iterates it as a mapping
+    (`{%- for k, v in _args.items() %}`) and raises on a string, Qwen3's has an
+    explicit verbatim branch for one. The engine settles it by parsing before
+    rendering, so the router must parse too -- and must parse identically, which
+    is why this prefers the engine's own function over a re-implementation.
+
+    Without it, every conversation that has called a tool renders to nothing and
+    routes on load. That is most of an agentic workload after the first turn.
+    """
+    try:
+        from sglang.srt.entrypoints.openai.serving_chat import (
+            normalize_assistant_tool_call_arguments,
+        )
+    except Exception:
+        normalize_assistant_tool_call_arguments = _normalize_assistant_tool_call_arguments
+
+    out = []
+    for message in messages:
+        if not isinstance(message, dict):
+            out.append(message)
+            continue
+        copied = (
+            {**message, "tool_calls": [dict(tc) for tc in message["tool_calls"]]}
+            if (isinstance(message.get("tool_calls"), list))
+            else message
+        )
+        if copied is not message:
+            copied["tool_calls"] = [
+                {**tc, "function": dict(tc["function"])}
+                if isinstance(tc.get("function"), dict)
+                else tc
+                for tc in copied["tool_calls"]
+            ]
+            try:
+                normalize_assistant_tool_call_arguments(copied)
+            except ValueError:
+                # `arguments` that is not a JSON object. The engine raises and
+                # 400s the request; we cannot know what it would have rendered,
+                # so leave the message alone and let the render fail into
+                # load-only routing rather than invent a prefix.
+                pass
+        out.append(copied)
+    return out
+
+
+def _normalize_assistant_tool_call_arguments(message: dict) -> None:
+    """Fallback for a router host without sglang installed. Kept deliberately
+    literal against sglang's `serving_chat.normalize_assistant_tool_call_arguments`
+    -- any cleverness here is a divergence."""
+    if message.get("role") != "assistant" or not isinstance(message.get("tool_calls"), list):
+        return
+    for item in message["tool_calls"]:
+        function = item.get("function") if isinstance(item, dict) else None
+        if not isinstance(function, dict):
+            continue
+        if isinstance(function.get("arguments"), str):
+            parsed = json.loads(function["arguments"])
+            if not isinstance(parsed, dict):
+                raise ValueError("Assistant tool call function.arguments must be a JSON object.")
+            function["arguments"] = parsed
+
 
 # "thinking" drifts one token against the engine when the last assistant turn
 # carries a tool_call, so the router renders chat prompts in "chat" mode.
@@ -68,7 +136,7 @@ class BlockHasher:
                     if template_kwargs is None:
                         return []
                     text = tokenizer.apply_chat_template(
-                        messages,
+                        _normalise_history(messages),
                         tokenize=False,
                         add_generation_prompt=True,
                         **template_kwargs,
