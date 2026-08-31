@@ -37,7 +37,17 @@ class KvRegistrationMetadata:
     cache index.
     """
 
-    engine_block_size: int
+    # None means "the engine never told us". It is NOT a 1: a worker whose
+    # events are paged at 64 but which registers 1 gets a KV view that rejects
+    # every event, and kv-aware silently degrades to load-only routing with all
+    # health signals green. The router treats None as "skip this worker" and
+    # says so once, which is the honest outcome and costs the same routing.
+    #
+    # Upgrade ordering: a server older than this change does `int(d[...])` and
+    # raises on the null, dropping the worker entirely -- roll servers before
+    # workers. In practice only a worker that could not resolve its page size
+    # sends null, so the blast radius is the workers that were already broken.
+    engine_block_size: int | None
     index_block_size: int
     tokenizer: str
     tokenizer_digest: str
@@ -66,7 +76,9 @@ class KvRegistrationMetadata:
     @classmethod
     def from_dict(cls, d: dict) -> KvRegistrationMetadata:
         return cls(
-            engine_block_size=int(d["engine_block_size"]),
+            engine_block_size=(
+                int(raw) if (raw := d.get("engine_block_size")) is not None else None
+            ),
             index_block_size=int(d["index_block_size"]),
             tokenizer=str(d["tokenizer"]),
             tokenizer_digest=str(d["tokenizer_digest"]),

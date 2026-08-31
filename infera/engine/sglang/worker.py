@@ -76,6 +76,9 @@ class SglangEngine(BaseEngine):
         self.enable_kv_events = enable_kv_events
         self._kv_events_port: int | None = None
         self._proc: subprocess.Popen | None = None
+        # Filled from /get_server_info once the subprocess is up; see
+        # `_resolve_page_size`.
+        self.resolved_page_size: int | None = None
 
     async def start(self) -> EngineConfig:
         argv = list(self.sglang_argv)
@@ -113,6 +116,7 @@ class SglangEngine(BaseEngine):
         )
 
         await self._wait_ready()
+        self.resolved_page_size = await self._resolve_page_size()
 
         disagg_mode = _SGLANG_TO_DISAGG_MODE[self.server_args.disaggregation_mode]
         disagg_meta: dict[str, Any] = {}
@@ -133,7 +137,12 @@ class SglangEngine(BaseEngine):
         if self.enable_kv_events:
             # Advertise the ZMQ endpoint on the routable address, not 0.0.0.0.
             kv_events_endpoint = f"tcp://{self.advertise_host}:{self._kv_events_port}"
-            kv_block_size = self.server_args.page_size
+            # Resolved value first: `server_args.page_size` is what the operator
+            # typed, and it is None whenever they left it to the engine. The
+            # router builds this worker's KV view at whatever number we register
+            # here, then rejects every event that disagrees -- so a guess is not
+            # a safe default, it is a silent 0% hit rate. See `_resolve_page_size`.
+            kv_block_size = self.resolved_page_size or self.server_args.page_size
 
         # Native DP: one endpoint fronts dp_size internal ranks. Register the
         # size (rank-multiplexed; dp_rank stays None) so the router can expand
@@ -194,6 +203,66 @@ class SglangEngine(BaseEngine):
                     last_log = now
                 await asyncio.sleep(2)
         raise TimeoutError(f"SGLang not ready after {timeout}s")
+
+    async def _resolve_page_size(self) -> int | None:
+        """The KV page size the engine actually settled on, or None.
+
+        `server_args.page_size` is only the operator's request. Several of
+        sglang's post-process passes run inside the launch_server subprocess --
+        the DSA one needs a ModelConfig -- so when the flag is left off, our copy
+        stays None while the engine lands on something else entirely. Seen on
+        GLM-5.3-Flash (attention_backend=dsa): we registered a fabricated 1, the
+        engine paged at 64, and the router silently dropped to load-only routing
+        for both legs with every health signal green.
+
+        Guessing cannot fix that; asking can. The subprocess is already serving
+        by the time this runs (`_wait_ready` returned), and /get_server_info
+        reports the resolved ServerArgs. Best-effort on purpose: an older sglang
+        without the route, or a malformed body, leaves the caller on the flag --
+        no worse than before, and the caller registers None rather than a lie.
+        """
+        probe_host = self.server_args.host
+        if probe_host in ("0.0.0.0", ""):
+            probe_host = "127.0.0.1"
+        url = f"http://{probe_host}:{self.server_args.port}/get_server_info"
+        try:
+            async with httpx.AsyncClient() as client:
+                r = await client.get(url, timeout=10)
+                r.raise_for_status()
+                info = r.json()
+        except Exception as exc:
+            logger.warning(
+                "could not read resolved page_size from %s (%s); falling back to "
+                "--page-size (%r). If that is None this worker registers no KV block "
+                "size and kv-aware routing skips it -- pass --page-size to pin it.",
+                url,
+                exc,
+                self.server_args.page_size,
+            )
+            return None
+        # The route has moved between sglang versions: some builds return the
+        # ServerArgs fields at the top level, others nest them under a key.
+        for scope in (info, info.get("server_args") if isinstance(info, dict) else None):
+            if isinstance(scope, dict) and scope.get("page_size"):
+                resolved = int(scope["page_size"])
+                requested = self.server_args.page_size
+                if requested and int(requested) != resolved:
+                    logger.warning(
+                        "sglang resolved page_size=%d, overriding the requested %s; "
+                        "registering the resolved value so the router's KV view matches "
+                        "the events this engine emits",
+                        resolved,
+                        requested,
+                    )
+                else:
+                    logger.info("sglang resolved page_size=%d", resolved)
+                return resolved
+        logger.warning(
+            "%s carried no page_size; falling back to --page-size (%r)",
+            url,
+            self.server_args.page_size,
+        )
+        return None
 
     async def stop(self) -> None:
         logger.info("SGLang engine stopping")

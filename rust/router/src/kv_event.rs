@@ -180,6 +180,49 @@ impl Default for KvEventClient {
     }
 }
 
+/// Block size to build this worker's KV view at, or `None` to leave it
+/// untracked.
+///
+/// A missing block size is not a 1. Registering 1 builds a view the engine's
+/// events -- paged at 64 -- can never match: every event is rejected, kv-aware
+/// silently degrades to load balancing, and the router looks healthy the whole
+/// time. Leaving the worker out of the view is the honest outcome and costs the
+/// same routing.
+///
+/// Shared by the NATS and per-worker-socket paths deliberately. They used to
+/// disagree -- NATS refused to track, ZMQ registered the 1 -- so the same
+/// worker got opposite treatment depending on how events happened to reach the
+/// router, and only half the fleet benefited from the severity split below.
+fn resolve_block_size(w: &Worker, transport: &str) -> Option<usize> {
+    if let Some(bs) = w.kv_block_size.filter(|bs| *bs > 0) {
+        return Some(bs as usize);
+    }
+    // Severity depends on the role, not on the symptom. A PD decode leg is
+    // SUPPOSED to arrive without a block size: it runs --no-enable-kv-events, so
+    // the engine leaves kv_block_size unset by design, and kv-aware routing never
+    // applies to the decode pool anyway (prefix affinity is decided on the
+    // prefill side; disagg dispatch picks decode by load). ERROR-ing on every
+    // startup trains people to ignore a line that is real for every OTHER role.
+    // Prefill/mixed without one IS a fault -- usually an unresolved --page-size --
+    // and stays at ERROR.
+    if w.disagg_mode == DisaggMode::Decode {
+        tracing::debug!(
+            worker = %w.worker_id,
+            transport,
+            "kv events: not tracking decode worker (no kv_block_size; expected -- \
+             kv-aware routing does not apply to the decode pool)"
+        );
+    } else {
+        tracing::error!(
+            worker = %w.worker_id,
+            transport,
+            "kv events: NOT tracking -- it registered no kv_block_size, so kv-aware \
+             routing is off for this worker"
+        );
+    }
+    None
+}
+
 impl KvEventClient {
     pub fn new() -> Self {
         KvEventClient {
@@ -348,36 +391,8 @@ impl KvEventClient {
     pub fn on_worker_added(&self, w: &Worker) {
         if self.nats_fed {
             // No per-worker socket: ingestion is the one global subscription.
-            // A missing block size is not a 1 -- that produces a view which
-            // never matches and hides the fault -- so the worker is left
-            // untracked and kv-aware routing simply skips it.
-            let block_size = match w.kv_block_size {
-                Some(bs) if bs > 0 => bs as usize,
-                // Severity depends on the role, not on the symptom. A PD decode
-                // leg is SUPPOSED to arrive without a block size: it runs
-                // --no-enable-kv-events, so the engine leaves kv_block_size unset
-                // by design, and kv-aware routing never applies to the decode pool
-                // anyway (prefix affinity is decided on the prefill side; disagg
-                // dispatch picks decode by load). ERROR-ing on every startup trains
-                // people to ignore a line that is real for every OTHER role.
-                // Prefill/mixed without one IS a fault -- usually an unresolved
-                // --page-size -- and stays at ERROR.
-                _ if w.disagg_mode == DisaggMode::Decode => {
-                    tracing::debug!(
-                        worker = %w.worker_id,
-                        "kv events (nats): not tracking decode worker (no kv_block_size; \
-                         expected -- kv-aware routing does not apply to the decode pool)"
-                    );
-                    return;
-                }
-                _ => {
-                    tracing::error!(
-                        worker = %w.worker_id,
-                        "kv events (nats): NOT tracking -- it registered no kv_block_size, \
-                         so kv-aware routing is off for this worker"
-                    );
-                    return;
-                }
+            let Some(block_size) = resolve_block_size(w, "nats") else {
+                return;
             };
             let mut state = self.state.lock().expect("kv view mutex poisoned");
             state
@@ -395,7 +410,9 @@ impl KvEventClient {
             if t.contains_key(&w.worker_id) {
                 return;
             }
-            let block_size = w.kv_block_size.unwrap_or(1).max(1) as usize;
+            let Some(block_size) = resolve_block_size(w, "zmq") else {
+                return;
+            };
             self.state
                 .lock()
                 .expect("kv view mutex poisoned")
