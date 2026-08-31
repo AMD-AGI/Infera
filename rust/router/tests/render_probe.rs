@@ -200,8 +200,10 @@ fn a_departed_worker_stops_being_reported() {
     // exporting a verdict -- possibly a 0 -- about something not running, which
     // is how a fixed fleet keeps paging.
     let reg = ParityRegistry::default();
-    reg.record("w1", "glm53", Parity::Diverged);
-    reg.record("w2", "glm53", Parity::Confirmed);
+    for id in ["w1", "w2"] {
+        assert!(reg.claim(id));
+        reg.record(id, "glm53", Parity::Confirmed);
+    }
     reg.retain(|id| id == "w2");
     assert_eq!(
         reg.snapshot(),
@@ -210,13 +212,43 @@ fn a_departed_worker_stops_being_reported() {
 }
 
 #[test]
+fn a_worker_is_only_probed_once() {
+    // A verdict takes four round trips to earn, which is longer than the gap
+    // between discovery snapshots. Without a claim, every snapshot spawns
+    // another probe against a worker still answering the last one.
+    let reg = ParityRegistry::default();
+    assert!(reg.claim("w1"));
+    assert!(!reg.claim("w1"), "a probe is already in flight");
+    reg.record("w1", "glm53", Parity::Confirmed);
+    assert!(!reg.claim("w1"), "this one already has a verdict");
+}
+
+#[test]
+fn a_verdict_for_a_departed_worker_is_dropped() {
+    // `retain` runs while a probe is in flight -- it holds a 10s timeout per
+    // body against a worker that may be shutting down, which is exactly when
+    // it is slowest to answer. Recording behind `retain`'s back resurrects the
+    // gauge for a worker that is gone.
+    let reg = ParityRegistry::default();
+    assert!(reg.claim("w1"));
+    reg.retain(|_| false);
+    reg.record("w1", "glm53", Parity::Diverged);
+    assert!(reg.snapshot().is_empty());
+}
+
+#[test]
 fn the_gauge_encoding_keeps_diverged_distinct_from_unchecked() {
     // Both are "not confirmed", and collapsing them is the whole trap: -1 is
     // normal on an engine without the endpoint, 0 means kv-aware is off.
     let reg = ParityRegistry::default();
-    reg.record("a", "m", Parity::Confirmed);
-    reg.record("b", "m", Parity::Diverged);
-    reg.record("c", "m", Parity::Unknown);
+    for (id, verdict) in [
+        ("a", Parity::Confirmed),
+        ("b", Parity::Diverged),
+        ("c", Parity::Unknown),
+    ] {
+        assert!(reg.claim(id));
+        reg.record(id, "m", verdict);
+    }
     let v: Vec<i8> = reg.snapshot().into_iter().map(|(_, _, g)| g).collect();
     assert_eq!(v, vec![1, 0, -1]);
 }

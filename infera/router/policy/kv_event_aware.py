@@ -150,6 +150,14 @@ class KvEventAwarePolicy(Policy):
         # cache. OrderedDict-as-set: move_to_end = touch, popitem(last=False) =
         # evict oldest.
         self._mm_affinity: dict[str, OrderedDict[int, None]] = {}
+        # Render-probe bookkeeping. `_parity_pending` holds workers with a probe
+        # in flight: a verdict is only reported once all four bodies have
+        # round-tripped, which is longer than the gap between discovery
+        # snapshots, so the gauge alone cannot answer "have we already asked
+        # this one". `_parity_labels` remembers each worker's exact gauge labels
+        # so removal does not have to read prometheus_client's internals.
+        self._parity_pending: set[str] = set()
+        self._parity_labels: dict[str, str] = {}
 
     def _base_weight_for(self, role_hint: str | None) -> float:
         if role_hint == "prefill":
@@ -296,10 +304,23 @@ class KvEventAwarePolicy(Policy):
         # Confirm, once, that what we render is what this worker renders. See
         # render_probe: a divergence here is the one kv-aware failure that
         # produces no error anywhere, so it has to be actively looked for.
+        if worker.worker_id in self._parity_labels or worker.worker_id in self._parity_pending:
+            return
+        self._parity_pending.add(worker.worker_id)
         spawn_probe(self._hasher, worker, report=self._report_render_parity)
 
-    @staticmethod
-    def _report_render_parity(worker: WorkerInfo, result: ProbeResult) -> None:
+    def _report_render_parity(self, worker: WorkerInfo, result: ProbeResult) -> None:
+        if worker.worker_id not in self._parity_pending:
+            # The worker left the fleet while its probe was in flight. Setting
+            # the gauge now would resurrect a series `on_worker_removed` just
+            # dropped, and nothing sweeps it afterwards -- the router would
+            # export a verdict about something that is not running until it
+            # restarts.
+            logger.debug(
+                "kv-aware: worker %s left the fleet mid-probe; verdict dropped", worker.worker_id
+            )
+            return
+        self._parity_pending.discard(worker.worker_id)
         if result.ok is False:
             logger.error(
                 "kv-aware: worker %s (%s) does NOT render prompts the way this router "
@@ -326,6 +347,7 @@ class KvEventAwarePolicy(Policy):
                 worker.model_name,
                 result.detail,
             )
+        self._parity_labels[worker.worker_id] = worker.model_name
         metrics.render_parity.labels(worker_id=worker.worker_id, model=worker.model_name).set(
             {True: 1, False: 0, None: -1}[result.ok]
         )
@@ -350,14 +372,17 @@ class KvEventAwarePolicy(Policy):
         for key in [k for k in self._recent_blocks if k == worker_id or k.startswith(prefix)]:
             self._recent_blocks.pop(key, None)
         # The parity gauge is labelled by worker_id, so a removed worker would
-        # otherwise keep exporting its last verdict forever -- including a 0
-        # that no longer corresponds to anything running.
-        for labels, _ in list(metrics.render_parity._metrics.items()):
-            if labels and labels[0] == worker_id:
-                try:
-                    metrics.render_parity.remove(*labels)
-                except KeyError:
-                    pass
+        # otherwise keep exporting its last verdict -- possibly a 0 -- forever.
+        # The labels come from our own bookkeeping rather than from
+        # prometheus_client's private `_metrics`, which is not API and whose
+        # absence would raise here and abandon the rest of this method.
+        self._parity_pending.discard(worker_id)
+        model = self._parity_labels.pop(worker_id, None)
+        if model is not None:
+            try:
+                metrics.render_parity.remove(worker_id, model)
+            except KeyError:
+                pass
 
     def _record_dispatch(self, route_key: str, missed_blocks: int, request_blocks: int) -> None:
         """Decay every worker's recent total, then charge for the pick.

@@ -27,7 +27,7 @@
 //! traffic, it just cannot be trusted to hit cache -- and now we know that at
 //! startup instead of at post-mortem.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use serde_json::{json, Value};
@@ -121,21 +121,55 @@ impl Parity {
 #[derive(Default)]
 pub struct ParityRegistry {
     state: Mutex<HashMap<String, (String, Parity)>>,
+    /// Workers with a probe already running. A verdict is only recorded once
+    /// all four bodies have round-tripped, which takes longer than the gap
+    /// between discovery snapshots, so `state` alone does not answer "have we
+    /// already asked this one" -- every snapshot would spawn another probe
+    /// against a worker still answering the last one.
+    pending: Mutex<HashSet<String>>,
 }
 
 impl ParityRegistry {
+    /// Reserve this worker for a probe, or `false` if one is already running or
+    /// finished. Reserving and probing are separate steps, so this must be
+    /// called before the spawn, not inside it.
+    pub fn claim(&self, worker_id: &str) -> bool {
+        if self
+            .state
+            .lock()
+            .expect("parity registry mutex poisoned")
+            .contains_key(worker_id)
+        {
+            return false;
+        }
+        self.pending
+            .lock()
+            .expect("parity pending mutex poisoned")
+            .insert(worker_id.to_string())
+    }
+
+    /// Store a finished probe's verdict -- unless the worker left the fleet
+    /// while it was in flight, in which case the verdict is dropped rather than
+    /// re-inserted behind `retain`'s back. A probe outlives its worker often
+    /// enough to matter: it holds a 10s timeout per body against a worker that
+    /// may be shutting down, which is exactly when it is slowest to answer.
     pub fn record(&self, worker_id: &str, model: &str, verdict: Parity) {
+        let claimed = self
+            .pending
+            .lock()
+            .expect("parity pending mutex poisoned")
+            .remove(worker_id);
+        if !claimed {
+            tracing::debug!(
+                worker = worker_id,
+                "render probe: worker left the fleet mid-probe; verdict dropped"
+            );
+            return;
+        }
         self.state
             .lock()
             .expect("parity registry mutex poisoned")
             .insert(worker_id.to_string(), (model.to_string(), verdict));
-    }
-
-    pub fn contains(&self, worker_id: &str) -> bool {
-        self.state
-            .lock()
-            .expect("parity registry mutex poisoned")
-            .contains_key(worker_id)
     }
 
     /// Forget workers that left the fleet. A gauge keyed by `worker_id` that
@@ -146,6 +180,10 @@ impl ParityRegistry {
             .lock()
             .expect("parity registry mutex poisoned")
             .retain(|id, _| alive(id));
+        self.pending
+            .lock()
+            .expect("parity pending mutex poisoned")
+            .retain(|id| alive(id));
     }
 
     /// `(worker_id, model, gauge value)` for the metrics exposition.
@@ -290,7 +328,7 @@ pub fn spawn_probes(
         // and payload, so probing it blindly would only produce 404 noise --
         // and an `Unknown` we never asked an honest question to earn.
         .filter(|w| w.engine.eq_ignore_ascii_case("sglang"))
-        .filter(|w| !registry.contains(&w.worker_id))
+        .filter(|w| registry.claim(&w.worker_id))
         .cloned()
         .collect();
     if todo.is_empty() {

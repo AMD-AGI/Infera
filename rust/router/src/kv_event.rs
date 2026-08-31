@@ -172,6 +172,14 @@ pub struct KvEventClient {
     /// socket per worker. Registration still happens per worker -- the views
     /// need a block size to be written into -- but no socket is opened.
     nats_fed: bool,
+    /// Workers `on_worker_added` has already decided about, including the ones
+    /// it declined to track. Without this the decline is not recorded anywhere
+    /// -- the ZMQ path keys off `threads` and the NATS path off `state`, and a
+    /// declined worker is in neither -- so `sync` re-runs the decision on every
+    /// discovery snapshot and re-logs its ERROR forever. An operator cannot
+    /// tell a line that repeats every few seconds from one that means the
+    /// fleet changed.
+    decided: Mutex<HashSet<String>>,
 }
 
 impl Default for KvEventClient {
@@ -230,6 +238,7 @@ impl KvEventClient {
             state: Arc::new(Mutex::new(HashMap::new())),
             threads: Mutex::new(HashMap::new()),
             nats_fed: false,
+            decided: Mutex::new(HashSet::new()),
         }
     }
 
@@ -389,6 +398,14 @@ impl KvEventClient {
     }
 
     pub fn on_worker_added(&self, w: &Worker) {
+        if !self
+            .decided
+            .lock()
+            .expect("kv decided mutex poisoned")
+            .insert(w.worker_id.clone())
+        {
+            return;
+        }
         if self.nats_fed {
             // No per-worker socket: ingestion is the one global subscription.
             let Some(block_size) = resolve_block_size(w, "nats") else {
@@ -447,6 +464,10 @@ impl KvEventClient {
     }
 
     pub fn on_worker_removed(&self, worker_id: &str) {
+        self.decided
+            .lock()
+            .expect("kv decided mutex poisoned")
+            .remove(worker_id);
         let entry = self
             .threads
             .lock()
