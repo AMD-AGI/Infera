@@ -59,6 +59,19 @@ class ConfinementNotApplied(RuntimeError):
     """
 
 
+class AgentNotListening(RuntimeError):
+    """`instruct` was called on an executor whose loop has already returned.
+
+    A `RuntimeError` rather than a new hierarchy, because the caller that needs
+    it — `monitor.base._push` — already runs under `_run_guarded`'s broad catch
+    and records the failure as an event. This exists to make the failure *have a
+    type* at the seam, not to be caught specially anywhere.
+
+    Raised where the alternative is a `put` into a queue nobody will read; see
+    `ExecutorBase._enqueue_instruction` for the run this was measured on.
+    """
+
+
 class BackendUnsupported(NotImplementedError):
     """An adapter does not implement a method it declared, or cannot run here.
 
@@ -493,7 +506,56 @@ class ExecutorBase:
 
     def _enqueue_instruction(self, message: str) -> None:
         """Level 2's `instruct`, as the queue operation it is. The loop
-        delivers it; the caller does not touch the harness."""
+        delivers it; the caller does not touch the harness.
+
+        **Refuses when no loop is running, and that refusal is the whole point.**
+        `queue.Queue` is unbounded, so a `put` after `mainloop` has returned
+        succeeds and the message is never read by anyone. Measured on
+        2026-08-31: the agent finished, the seal was refused, the monitor pushed
+        *continue, do it until finished*, `PUSH_ATTEMPTED` was written — and the
+        message sat in this queue at `qsize=1` while the run hung for 65 minutes
+        and was killed by the deadline.
+        (`scratch/single-real-task-2026-08/probe_push_after_settle.py`.)
+
+        **The cost of the silence, not of the failed push.** A push that cannot
+        be delivered is an ordinary outcome — the agent settled first, which is
+        a race the monitor cannot win from outside. What is not ordinary is
+        reporting it as attempted and then waiting for ever for an answer that
+        nothing will produce. One `put` into a dead queue converted a
+        recoverable disagreement into a silent deadlock.
+
+        **Raising is the sanctioned channel, not a new one.** `monitor/base.py`'s
+        `_push` writes `PUSH_ATTEMPTED` *before* this call precisely so that "an
+        `instruct` that raises still leaves the attempt visible" (criterion 9),
+        and `_run_guarded` catches it and records `handling_failed`. So the
+        caller was already built for this and the signature does not change; the
+        path simply had no way to be taken.
+
+        **The predicate is `_settled`, and `_looping` is the wrong one.** A first
+        version refused whenever no loop was turning, and
+        `test_instruct_does_not_end_run` caught it: `start_async()` then
+        `instruct()` then `mainloop()` is a **shipped, legitimate order** — queue
+        the work, then lend the loop a thread — and there `_looping` is false
+        while the message is about to be consumed. "Has not started yet" and
+        "has already finished" are different states and only the second is a
+        fault. `start_async` clears `_settled` (`:389`) and `_settle` sets it
+        (`:490`), so it is the flag that separates them.
+
+        **One race is left and is named rather than papered over.** `mainloop`'s
+        `finally` clears `_looping` before it calls `_settle`, so an `instruct`
+        landing between those two lines is still queued and still lost. The
+        window is a few instructions wide and its outcome is the old behaviour,
+        not a worse one. Closing it needs the loop to drain and report on exit,
+        which is a larger change than this defect justifies; `TODO.md` is where
+        it belongs if it is ever seen in the wild.
+        """
+        if self._settled.is_set():
+            raise AgentNotListening(
+                f"{self.key!r}: instruct({message!r}) has no loop to deliver it. "
+                f"The agent is {self.status.value} and `mainloop` has returned, "
+                f"so this message would be queued and never read. Restart the "
+                f"agent with `start_async` before instructing it."
+            )
         self._inbox.put((_Op.INSTRUCT, message))
 
 

@@ -296,3 +296,102 @@ def test_backend_py_imports_nothing_of_ours() -> None:
         elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
             imported.add(node.module.split(".")[0])
     assert not imported & ours
+
+
+def test_instruct_refuses_once_the_loop_has_returned() -> None:
+    """**A push into a dead queue is a silent deadlock, and it cost 65 minutes.**
+
+    Measured 2026-08-31 on the first end-to-end run of
+    `examples/single_real_task`: the agent finished, the seal was refused, the
+    monitor decided to push *continue, do it until finished*, `PUSH_ATTEMPTED`
+    was written to the store — and the message was never read. `mainloop` had
+    already broken out on terminal status (`backend.py:410-413`), and
+    `queue.Queue` is unbounded, so `_enqueue_instruction`'s `put` succeeded into
+    a queue with no consumer. The run then sat for 65 minutes with both
+    processes alive, ~1 s CPU per 20 s, and nothing written anywhere.
+
+    **The defect is the silence, not the failed push.** A push that arrives
+    after the agent has settled is an ordinary race the monitor cannot win from
+    outside. Reporting it as attempted and then waiting for ever for an answer
+    is not.
+
+    The store made this indistinguishable: it holds `push_attempted` and no
+    counterpart — no `push_delivered`, no `push_failed` — so the event reads the
+    same whether the message landed or vanished. Raising gives it one, because
+    `monitor.base._run_guarded` catches and records `handling_failed`.
+
+    Probe: `scratch/single-real-task-2026-08/probe_push_after_settle.py`.
+    """
+    from agent.backend import AgentNotListening
+
+    backend = ScriptedBackend()
+    backend.start()  # runs mainloop to settlement, as the runner does
+    assert backend.status in TERMINAL
+    assert backend.delivered == []
+
+    with pytest.raises(AgentNotListening) as caught:
+        backend.instruct("continue, do it until finished")
+
+    # The message names the agent, its status, and what to do instead — a
+    # deadlock's replacement has to be readable or it is just a different hang.
+    text = str(caught.value)
+    assert "scripted" in text and "finished" in text and "start_async" in text
+    # And it is not quietly queued behind the refusal.
+    assert backend._inbox.empty()
+    assert backend.delivered == []
+
+
+def test_instruct_is_still_delivered_while_the_loop_runs() -> None:
+    """**The non-vacuity control for the test above.**
+
+    A refusal that fires on every `instruct` would pass that test and break the
+    feature — the monitor could never push at all, which is worse than the
+    defect it replaces. So the same call, made while a loop is running, must
+    still reach `_deliver`.
+
+    Driven on a second thread because `mainloop` is the consumer and this
+    thread is the producer; that is the shipped arrangement — `runner` drives
+    the loop and a monitor instructs from its own.
+    """
+    backend = ScriptedBackend(config={"results": [AgentResult(status=AgentStatus.RUNNING)]})
+    backend.start_async(lambda: None)
+    driver = threading.Thread(target=backend.mainloop, daemon=True)
+    driver.start()
+
+    deadline = time.monotonic() + 5.0
+    while not backend._looping and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert backend._looping, "the loop never started; the control proves nothing"
+
+    backend.instruct("keep going")
+
+    while backend.delivered != ["keep going"] and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert backend.delivered == ["keep going"], "a live loop must still deliver"
+
+    backend.stop()
+    driver.join(timeout=5.0)
+
+
+def test_instruct_before_the_loop_starts_is_still_queued() -> None:
+    """**The second control, and the suite found it before I did.**
+
+    A first version of the refusal keyed on `_looping`, and
+    `test_claude_sdk.py::test_instruct_does_not_end_run` went red: the shipped
+    order `start_async()` → `instruct()` → `mainloop()` — queue the work, then
+    lend the loop a thread — has no loop turning at the moment of the call, and
+    the message is nonetheless about to be consumed.
+
+    **"Has not started yet" and "has already finished" are different states**,
+    and only the second is the defect. Pinned here rather than left to the
+    claude_sdk test, because that one is about the SDK adapter and this is about
+    the predicate.
+    """
+    backend = ScriptedBackend(config={"results": [AgentResult(status=AgentStatus.FINISHED)]})
+    backend.start_async(lambda: None)
+    assert not backend._looping, "the premise: no loop is turning yet"
+
+    backend.instruct("queued before the loop")  # must NOT raise
+    backend.mainloop()
+
+    assert backend.delivered == ["queued before the loop"]
