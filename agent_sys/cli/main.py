@@ -955,6 +955,7 @@ def _settle(
 
         now = _snapshot(task_mgr)
         if now != seen:
+            _emit_progress(stream, task_mgr, seen, now)
             seen, last_change = now, time.monotonic()
         elif (not holding or blocked) and time.monotonic() - last_change > stall_after:
             # **Stalled, not running.** A non-leaf sits in RUNNING for as long as
@@ -1014,6 +1015,71 @@ def _settle(
         settled=False,
         ok=False,
     )
+
+
+def _emit_progress(
+    stream: Stream,
+    task_mgr: Any,
+    before: tuple[tuple[str, str, int], ...],
+    after: tuple[tuple[str, str, int], ...],
+) -> None:
+    """Say, while it is happening, which task moved and where.
+
+    **The stream was a record of the setup and the teardown, and nothing in
+    between.** Measured 2026-08-31 across two real runs: `stream.jsonl` carried
+    five events in the first 150 ms, then **nothing for forty minutes**, then a
+    burst at the end — because `_run` emits at `_start` and again at `_report`
+    and execution happens between them. The store meanwhile carried
+    `output_absent`, `push_attempted` and `escalated`, on a different `EventKind`
+    with no bridge to here. **The two kind-sets were disjoint: the stream stopped
+    three milliseconds before the store started.**
+
+    The cost was not cosmetic. A healthy 40-minute run and a run that deadlocked
+    after four seconds produced *the same file* until the moment one of them
+    ended, so every defect found that day was found by a human reading an agent's
+    transcript. It is also why no liveness check could be built on this file: a
+    watchdog of "no events for N minutes" would have fired on the healthy run
+    too.
+
+    This is the smaller half of the repair and deliberately so. `_settle` already
+    polls the whole graph every tick and already diffs it — it *knew* what had
+    moved and did not say. So the fix is to say it, in vocabulary
+    `cli/events.py` already declares (`PHASE_START`, `PHASE_COMPLETE` had no emit
+    site anywhere), with no new mechanism and nothing crossing a module boundary.
+
+    **What it still does not carry** is the store's own kinds — a refused seal, a
+    failed push, an escalation. Those need a bridge between two `EventKind`s and
+    that is a seam decision, not this. Recorded rather than implied: after this,
+    the stream shows *that* a task stopped moving, never *why*.
+
+    `live=True` distinguishes these from `_describe`'s post-run pair, which
+    reports the validation plan rather than an observed transition.
+    """
+    was = {tid: status for tid, status, _ in before}
+    # By `all()` rather than `get()`: `_snapshot` stores `str(t.id)` and
+    # `TaskMgr.get` takes a `TaskId`, so the lookup raised `KeyError` and took
+    # the settle loop — the run's last thread — with it. Caught by running it.
+    closures = {str(t.id): getattr(t, "closure", "?") for t in task_mgr.all()}
+    for tid, status, _ in after:
+        if was.get(tid) == status:
+            continue
+        closure = closures.get(tid, "?")
+        entered = TaskStatus(status) in _PHASE_STATES if status in _STATUS_VALUES else False
+        stream.emit(
+            EventKind.PHASE_START if entered else EventKind.PHASE_COMPLETE,
+            f"{closure}: {was.get(tid, '(new)')} -> {status}",
+            task=str(tid),
+            closure=closure,
+            status=status,
+            was=was.get(tid),
+            live=True,
+        )
+
+
+#: Guard for the lookup above: a status string this build does not know is
+#: reported rather than crashing the settle loop, which is the one thread the
+#: run has left at that point.
+_STATUS_VALUES = frozenset(s.value for s in TaskStatus)
 
 
 def _snapshot(task_mgr: Any) -> tuple[tuple[str, str, int], ...]:
