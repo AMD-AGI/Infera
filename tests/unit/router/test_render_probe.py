@@ -13,16 +13,19 @@ which looks exactly like a cold cache.
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 import httpx
 import pytest
 
 from infera.common.worker_pool import EngineType, WorkerInfo
+from infera.router.kv_event.block_hasher import BlockHasher
 from infera.router.kv_event.render_probe import (
     PROBE_BODIES,
     engine_render_variant,
     probe_worker,
+    spawn_probe,
 )
 from infera.router.kv_event.render_variant import RenderVariant
 
@@ -241,3 +244,46 @@ async def test_a_worker_with_no_defaults_reports_the_empty_variant():
     got = await engine_render_variant(client, _worker())
     assert got is not None and got.is_empty()
     await client.aclose()
+
+
+async def test_a_model_already_ruled_out_is_not_probed(monkeypatch):
+    """The Python mirror of the Rust probe's `is_enabled` gate.
+
+    Every body would come back "router declined to render" and the verdict
+    would be Unknown before the engine was asked anything, so the only thing
+    left of the probe is the /get_server_info round trip.
+
+    Async on purpose. `spawn_probe` also returns early when there is no running
+    loop, so a synchronous version of this test passes with the gate deleted --
+    it never reaches the code it claims to be about.
+    """
+    calls = []
+    monkeypatch.setattr(
+        "infera.router.kv_event.render_probe.probe_worker",
+        lambda *a, **k: calls.append(a),
+    )
+
+    fresh = BlockHasher()
+    spawn_probe(fresh, _worker(model_name="m"), report=lambda *a: None)
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+    assert calls, "a model nothing has ruled out must still be probed"
+
+    calls.clear()
+    ruled_out = BlockHasher()
+    # What `_get_tokenizer` writes when a load fails.
+    ruled_out._tokenizers[(EngineType.SGLANG, "m")] = None
+    spawn_probe(ruled_out, _worker(model_name="m"), report=lambda *a: None)
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+    assert calls == []
+
+
+def test_the_gate_answers_not_known_to_be_broken(monkeypatch):
+    """It must never trigger a load: it runs on the discovery hook, where a
+    blocking `from_pretrained` would stall registration for every worker."""
+    hasher = BlockHasher()
+    monkeypatch.setattr(
+        BlockHasher, "_load", lambda *a, **k: pytest.fail("can_render must not load")
+    )
+    assert hasher.can_render("never-seen", EngineType.SGLANG)

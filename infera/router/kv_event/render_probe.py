@@ -278,6 +278,14 @@ def spawn_probe(
         # /v1/tokenize is sglang's. vLLM's equivalent differs in both path and
         # payload; probing it blindly would just produce 404 noise.
         return
+    if not hasher.can_render(worker.model_name, worker.engine):
+        # This model's tokenizer has already been ruled out, so every body would
+        # come back "router declined to render" and the verdict would be Unknown
+        # before we asked anything. The comparison is worth nothing here; the
+        # /get_server_info round trip is all that would be left of it. Mirrors
+        # the Rust probe's `hasher.is_enabled()` gate. Not a guarantee in the
+        # other direction: a model nothing has tried yet still gets probed.
+        return
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:

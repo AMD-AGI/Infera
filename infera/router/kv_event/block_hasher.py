@@ -445,9 +445,42 @@ class BlockHasher:
         if key in self._tokenizers:
             return self._tokenizers[key]
         tok = self._load(source, engine)
-        if tok is not None:
-            self._tokenizers[key] = tok
+        # Cache the failure too. This used to store only successes, so a model
+        # whose tokenizer cannot load re-ran `_load` on EVERY request -- an
+        # import plus a `get_tokenizer` that may reach the filesystem or the HF
+        # hub, on the routing hot path, and a WARNING line per request on top.
+        # The load result is a property of (engine, source), not of the request.
+        #
+        # The cost of caching is that a genuinely transient failure -- the hub
+        # down for a minute -- pins kv-aware off for this model until the router
+        # restarts. Accepted: the failures actually seen here are permanent
+        # (engine not installed on the router host, wrong path, base model with
+        # no chat template), and the alternative bills every request for the
+        # retry. The Rust router has the stronger form of the same rule: it
+        # decides once at startup and exposes it as `is_enabled`.
+        self._tokenizers[key] = tok
+        if tok is None:
+            logger.error(
+                "kv-aware: no tokenizer for model=%s (engine=%s, source=%s). Requests for "
+                "it are hashed to nothing and routed on load, and this is not retried until "
+                "the router restarts. Pass --router-tokenizer-path to point at the files the "
+                "workers use.",
+                model_id,
+                engine,
+                source,
+            )
         return tok
+
+    def can_render(self, model_id: str, engine: EngineType | None = None) -> bool:
+        """Whether a tokenizer for this model has already been ruled out.
+
+        Cheap and non-committal by design: it answers from the cache and never
+        triggers a load, so it is safe to call from a discovery hook. True for a
+        model nothing has tried yet -- "not known to be broken", not "known to
+        work". Callers use it to avoid re-paying for a model already proven
+        unrenderable, not as a guarantee.
+        """
+        return self._tokenizers.get((engine, self._source(model_id)), True) is not None
 
     def _load(self, source: str, engine: EngineType | None) -> Any | None:
         """Load ``source`` the way the serving engine does, falling back to a

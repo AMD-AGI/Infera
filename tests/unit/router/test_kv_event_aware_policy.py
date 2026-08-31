@@ -67,6 +67,10 @@ class _StubHasher:
     def __init__(self, hashes: list[int]) -> None:
         self._hashes = hashes
 
+    # BlockHasher's gate for `spawn_probe`; these doubles always render.
+    def can_render(self, model_id, engine=None) -> bool:
+        return True
+
     def hash_for(self, body: dict, *, block_size: int, engine=None) -> list[int]:
         return list(self._hashes)
 
@@ -335,6 +339,10 @@ def test_pick_uses_per_block_size_hashes_when_workers_differ():
     class _PerSizeHasher:
         def __init__(self, by_size: dict[int, list[int]]) -> None:
             self._by_size = by_size
+
+        # BlockHasher's gate for `spawn_probe`; these doubles always render.
+        def can_render(self, model_id, engine=None) -> bool:
+            return True
 
         def hash_for(self, body: dict, *, block_size: int, engine=None) -> list[int]:
             return list(self._by_size.get(block_size, []))

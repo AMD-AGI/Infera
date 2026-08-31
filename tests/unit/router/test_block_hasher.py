@@ -529,3 +529,33 @@ def test_named_tool_choice_narrows_the_list():
     assert tokenizer.template_kwargs == [
         {"tools": [{"strict": False, "defer_loading": None, **other}]}
     ]
+
+
+def test_a_tokenizer_that_cannot_load_is_only_attempted_once(caplog):
+    """Failures used to be left out of the cache, so `_load` re-ran on EVERY
+    request: an import plus a `get_tokenizer` that may reach the filesystem or
+    the HF hub, on the routing hot path, and a log line per request on top.
+
+    The load result is a property of (engine, source), not of the request.
+    """
+    hasher = BlockHasher()
+    attempts = []
+    with patch.object(BlockHasher, "_load", side_effect=lambda src, eng: attempts.append(src)):
+        with caplog.at_level(logging.ERROR):
+            for _ in range(5):
+                assert hasher._get_tokenizer("m", EngineType.SGLANG) is None
+
+    assert len(attempts) == 1, f"one load per (engine, source), got {len(attempts)}"
+    assert len([r for r in caplog.records if r.levelno >= logging.ERROR]) == 1, (
+        "and it says so once, not once per request"
+    )
+    assert not hasher.can_render("m", EngineType.SGLANG)
+
+
+def test_caching_a_failure_does_not_bleed_across_engines():
+    """The two engines pick different tokenizer implementations for the same
+    model, so a failure under one says nothing about the other."""
+    hasher = BlockHasher()
+    hasher._tokenizers[(EngineType.SGLANG, "m")] = None
+    assert not hasher.can_render("m", EngineType.SGLANG)
+    assert hasher.can_render("m", EngineType.VLLM)

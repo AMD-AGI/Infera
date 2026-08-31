@@ -187,6 +187,10 @@ class _RecordingHasher:
     def __init__(self) -> None:
         self.calls: list[dict] = []
 
+    # BlockHasher's gate for `spawn_probe`; these doubles always render.
+    def can_render(self, model_id, engine=None) -> bool:
+        return True
+
     def hash_for(self, body: dict, *, block_size: int, engine=None) -> list[int]:
         self.calls.append(body)
         effort = body.get("reasoning_effort", "unset")
@@ -244,6 +248,10 @@ def test_a_longer_preamble_is_not_punished_for_being_longer():
     """
 
     class _LengthHasher:
+        # BlockHasher's gate for `spawn_probe`; these doubles always render.
+        def can_render(self, model_id, engine=None) -> bool:
+            return True
+
         def hash_for(self, body: dict, *, block_size: int, engine=None) -> list[int]:
             return [1, 2, 3, 4] if body.get("reasoning_effort") == "high" else [9]
 

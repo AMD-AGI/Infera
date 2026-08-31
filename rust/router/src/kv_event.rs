@@ -492,11 +492,20 @@ impl KvEventClient {
     pub fn sync(&self, workers: &[Arc<Worker>]) {
         use std::collections::HashSet;
         let current: HashSet<&str> = workers.iter().map(|w| w.worker_id.as_str()).collect();
+        // Departures come from `decided`, not from `threads`. `threads` holds
+        // only workers with a ZMQ socket open, so under NATS -- where there is
+        // no per-worker socket -- it is permanently empty and this loop found
+        // nothing to remove: `state` and `decided` both grew for the lifetime of
+        // the process, one entry per worker ever seen, and a worker that left
+        // and came back was never re-decided. `decided` is the right key because
+        // `on_worker_added` writes it before branching, and nothing else creates
+        // a `state` entry (ingestion does `get_mut` and drops the event when the
+        // worker is gone), so it is a superset of both.
         let known: Vec<String> = self
-            .threads
+            .decided
             .lock()
-            .expect("kv threads mutex poisoned")
-            .keys()
+            .expect("kv decided mutex poisoned")
+            .iter()
             .cloned()
             .collect();
         for id in known {
@@ -1607,6 +1616,60 @@ mod tests {
     /// anchored view into the bucket, and `seed_rank_view` keeps replacing this
     /// one from it. Flushing there would discard the worker's real GPU prefix
     /// cache to fix an index that is already being kept current.
+    /// Under NATS there is no per-worker socket, so `threads` is permanently
+    /// empty -- and `sync` used to derive departures from it. Every worker the
+    /// router ever saw stayed in `state` and `decided` for the life of the
+    /// process. The leak is small (an id and a view), but the second half is
+    /// not: a worker that left and came back was never re-decided, so it kept
+    /// whatever block size it first registered with.
+    #[test]
+    fn a_departed_nats_worker_is_forgotten() {
+        let c = KvEventClient::nats_fed();
+        c.on_worker_added(&worker("w1", None, 4, None));
+        c.on_worker_added(&worker("w2", None, 4, None));
+        c.seed_rank_view("w1", 0, vec![1, 2, 3]);
+        assert_eq!(c.total_blocks("w1"), 3);
+
+        c.sync(&[Arc::new(worker("w2", None, 4, None))]);
+
+        assert_eq!(c.total_blocks("w1"), 0, "its view must not outlive it");
+        assert!(
+            !c.decided
+                .lock()
+                .expect("kv decided mutex poisoned")
+                .contains("w1"),
+            "and it must be re-decidable if it comes back"
+        );
+        assert_eq!(c.total_blocks("w2"), 0, "w2 is still tracked, just empty");
+        c.seed_rank_view("w2", 0, vec![9]);
+        assert_eq!(
+            c.total_blocks("w2"),
+            1,
+            "the surviving worker was untouched"
+        );
+    }
+
+    /// A worker `on_worker_added` DECLINED is in neither `threads` nor `state`.
+    /// Keying departures off `decided` is what lets it be reconsidered after it
+    /// leaves -- otherwise a worker that registered without a block size, was
+    /// restarted, and came back with one would never be tracked.
+    #[test]
+    fn a_declined_worker_is_reconsidered_after_it_leaves() {
+        let c = KvEventClient::nats_fed();
+        c.on_worker_added(&worker("w1", None, 0, None)); // no block size: declined
+        assert_eq!(c.total_blocks("w1"), 0);
+
+        c.sync(&[]); // it goes away
+        c.sync(&[Arc::new(worker("w1", None, 4, None))]); // and comes back fixed
+
+        c.seed_rank_view("w1", 0, vec![1, 2]);
+        assert_eq!(
+            c.total_blocks("w1"),
+            2,
+            "the second registration must have been acted on"
+        );
+    }
+
     #[test]
     fn a_rank_the_bucket_is_mirroring_does_not_ask_for_a_flush() {
         let c = KvEventClient::nats_fed();

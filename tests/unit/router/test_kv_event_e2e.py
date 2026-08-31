@@ -76,6 +76,10 @@ class _IdentityHasher:
     def __init__(self, block_size: int = 4) -> None:
         self._block_size = block_size
 
+    # BlockHasher's gate for `spawn_probe`; these doubles always render.
+    def can_render(self, model_id, engine=None) -> bool:
+        return True
+
     def hash_for(self, body: dict, *, block_size: int, engine=None) -> list[int]:
         from infera.router.kv_event.hasher import hash_request
 
