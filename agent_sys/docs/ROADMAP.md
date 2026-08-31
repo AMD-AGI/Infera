@@ -549,6 +549,34 @@ which is a **true positive**: it should say "point this at your weights". With
 the check off, nothing catches that class, and a reproduction failure caused by
 it will present as the reproducer's fault rather than the kit's.
 
+### Keeping only the sound half would not have worked either — measured
+
+An automated review proposed the obvious refinement: disable the shape heuristic
+and keep the oracle branch, which is sound and cheap. It is the right instinct
+and the measurement refutes it.
+
+`store.py:140` does supply `store_root`, so the oracle branch **is live** — this
+is a correction to an earlier claim in this entry's neighbourhood that the oracle
+half was unwired; only `playground_root` is missing. Run against the real kit
+with that oracle supplied, it produces **two hits**, and both are genuine:
+
+    logs/run_all.second-run.out:85  '… ALL CHECKS PASSED -- evidence in /var/tmp/…/handoffs/…'
+    logs/run_all.second-run.out:87  'Tear down with: bash /var/tmp/…/handoffs/…'
+
+Two instead of 778, and **a refusal is still a refusal** — the run would have
+been blocked either way.
+
+**And the two hits expose a conflict that soundness cannot resolve.** The task's
+brief tells the agent to capture its logs as evidence; the agent's logs record
+where it wrote; where it wrote is under the store root. So *"a handoff carries no
+path from the machine that produced it"* and *"capture your own logs as
+evidence"* are in direct conflict, and this artefact satisfies both briefs while
+failing the check. A rebuild has to answer this — plausibly by weighting file
+role, which `check()`'s own docstring already flags as an open question
+(`design.md` O5: *"No weighting by file role … a playground path in a changelog
+is still a record of one machine"*) — and not by making the oracle branch more
+precise, which it already is.
+
 ### The wiring was never tested, and that is how this survived
 
 Disconnecting the call changed **no test result**: 2059 passed before and after.
