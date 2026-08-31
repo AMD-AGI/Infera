@@ -52,6 +52,25 @@
     SRT_IMAGE: '${image}'
     SRT_ETCD_IMAGE: '${etcd_image:-quay.io/coreos/etcd:v3.5.14}'
     SRT_WORK_ROOT: '${work_root:-/var/tmp}'
+  # **The readme calls the packup skill "the authority" for the layout, and
+  # without this line the agent cannot reach it.** Measured 2026-08-31: mid-run
+  # it called `Skill{"experiment-result-packup"}`, got `Unknown skill`, and went
+  # looking for the directory by hand. `env_mgr` redirects `CLAUDE_CONFIG_DIR`
+  # into the zone (`material.py:63`) and a session reads skills from
+  # `$CLAUDE_CONFIG_DIR/skills/`, so a skill only arrives if it is declared:
+  # `material.deploy` copies `MATERIAL_KEYS` and nothing else. The mechanism was
+  # wired and working; no package had ever used it.
+  #
+  # **Required, with no default, for the same reason `model_path` is.** Where an
+  # operator keeps their skills is a fact about that operator, and a default
+  # would put one machine's home directory into a package that is data. A
+  # visibly-unfilled placeholder was the alternative and is worse here: a
+  # declared path that does not exist used to be skipped in silence, which is
+  # the same bug wearing a fix. It now raises (`material.py`), and an unfilled
+  # `${packup_skill}` fails at load naming this file and this line.
+  #
+  #     --var packup_skill=$HOME/.claude/skills/experiment-result-packup
+  skills: ['${packup_skill}']
   backends:
     - key: claude_code_sdk
       backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend

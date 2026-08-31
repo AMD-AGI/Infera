@@ -19,6 +19,7 @@ from typing import Any
 from env_mgr import harness
 from env_mgr.fs.layout import copy_out
 from env_mgr.fs.zone import Zone
+from env_mgr.protocols import PrepareRefused
 
 __all__ = ["CONFIG_DIR", "MATERIAL_KEYS", "deploy"]
 
@@ -57,8 +58,33 @@ def deploy(agent_spec: Any, zone: Zone) -> dict[str, str]:
     for key in MATERIAL_KEYS:
         for src in _paths(agent_spec, key):
             dst = os.path.join(config, key, os.path.basename(src))
-            if os.path.exists(src):
-                copy_out(src, dst)
+            if not os.path.exists(src):
+                # **Declared and absent is an error, not a shrug.** This was
+                # `if os.path.exists(src): copy_out(...)` with no else, and the
+                # failure it produces is invisible at every point where anyone
+                # could act on it: the copy is skipped silently, the run
+                # proceeds, and the agent discovers it hours later as
+                # `Unknown skill: <name>` from inside its own session — with
+                # nothing in the zone, the events or the logs naming the cause.
+                #
+                # Measured 2026-08-31: an agent mid-run called
+                # `Skill{"experiment-result-packup"}`, got `Unknown skill`, and
+                # started `find / -name ...` looking for it. That instance was a
+                # package declaring no skill at all; this guard is for the one
+                # after it, where the declaration is present and the path is
+                # wrong — which is the same bug wearing a fix.
+                #
+                # `fail closed` is this package's own rule (`locality.py`: "an
+                # oracle whose prefix cannot be formed is an error, not a
+                # silently widened blind spot"), and no shipped package declares
+                # any material today, so nothing existing changes behaviour.
+                raise PrepareRefused(
+                    f"agent {getattr(agent_spec, 'name', '?')!r} declares "
+                    f"{key} {src!r} and it does not exist. It would have been "
+                    f"skipped and the agent would meet the absence as a failure "
+                    f"of its own, with nothing naming this as the cause"
+                )
+            copy_out(src, dst)
 
     env = {"CLAUDE_CONFIG_DIR": config, "CLAUDE_CODE_TMPDIR": tmp, "TMPDIR": tmp}
     # **The other half of the relocation above.** Moving `CLAUDE_CONFIG_DIR` into

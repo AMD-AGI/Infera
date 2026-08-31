@@ -1179,3 +1179,55 @@ def test_an_output_with_no_pinned_version_is_absent_not_empty(ctx) -> None:
 
     assert hid not in prepared.output_paths
     assert prepared.output_paths == {}
+
+
+def test_a_declared_skill_reaches_the_zone(ctx, tmp_path: Path) -> None:
+    """**The mechanism was wired, working, and no package had ever used it.**
+
+    `env_mgr` redirects `CLAUDE_CONFIG_DIR` into the zone (`material.py`), and a
+    Claude Code session reads personal skills from `$CLAUDE_CONFIG_DIR/skills/`
+    — measured with a planted skill whose name cannot come from the model's
+    prior, `scratch/single-real-task-2026-08/r0_probe_skill_in_config_dir.sh`.
+    So a skill arrives in a zone only if the agent spec declares it.
+
+    None did. Measured 2026-08-31, mid-run: the agent called
+    `Skill{"experiment-result-packup"}` — which its own brief calls *"the
+    authority"* for the packup layout, and which the mission names as a
+    requirement — got `Unknown skill`, and started hunting the filesystem for
+    the directory by hand. Its zone's `config/` held the CLI's runtime
+    directories and no `skills/` at all.
+    """
+    skill = tmp_path / "experiment-result-packup"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: experiment-result-packup\n---\nlayout\n")
+
+    task = Task()
+    prepared = prepare(task, task.push_execution(), ctx, AgentSpec(skills=[str(skill)]))
+
+    landed = Path(prepared.environment["CLAUDE_CONFIG_DIR"]) / "skills"
+    assert (landed / "experiment-result-packup" / "SKILL.md").is_file()
+
+
+def test_a_declared_material_that_is_absent_is_refused_not_skipped(ctx, tmp_path: Path) -> None:
+    """**The non-vacuity control, and it is the same bug wearing a fix.**
+
+    `material.deploy` was `if os.path.exists(src): copy_out(...)` with no else.
+    A declared skill whose path is wrong was skipped in silence — no error, no
+    warning — and the agent met the absence hours later, from inside its own
+    session, as a failure of its own with nothing anywhere naming the cause.
+
+    That is exactly the failure the test above records, one layer up: with the
+    declaration added and this guard missing, a typo in the path produces a run
+    that looks fixed and is not. `fail closed` is this package's own rule.
+
+    No shipped package declared any material when this landed, so nothing
+    existing changed behaviour.
+    """
+    task = Task()
+    missing = str(tmp_path / "not-there")
+    with pytest.raises(PrepareRefused) as caught:
+        prepare(task, task.push_execution(), ctx, AgentSpec(skills=[missing]))
+
+    text = str(caught.value)
+    assert missing in text, "the message must name the path that was wrong"
+    assert "skills" in text, "and which material key it came from"
