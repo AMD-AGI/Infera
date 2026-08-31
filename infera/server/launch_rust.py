@@ -147,9 +147,14 @@ def exec_rust(args: argparse.Namespace) -> None:
                 "--kv-default-chat-template-kwargs",
                 args.kv_default_chat_template_kwargs,
             ]
-        argv += [
-            "--kv-per-worker-template-kwargs",
-            "true" if args.kv_per_worker_template_kwargs else "false",
-        ]
+        # Only when it is OFF. `true` is both this launcher's default and the
+        # Rust binary's, so passing it explicitly buys nothing and costs
+        # compatibility: an unconditional append makes every new launcher
+        # refuse to start an older binary, which clap rejects as an unknown
+        # argument. Off is a deliberate non-default, and a binary too old to
+        # understand it is one that would silently ignore the request -- there,
+        # failing to start is the right answer.
+        if not args.kv_per_worker_template_kwargs:
+            argv += ["--kv-per-worker-template-kwargs", "false"]
     print(f"[infera] --router-backend rust: exec {binary}", flush=True)
     os.execvp(binary, argv)
