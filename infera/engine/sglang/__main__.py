@@ -361,20 +361,33 @@ async def _run_after_start(args: SglangWorkerArgs, engine: SglangEngine, config)
         # SGLang --dp-size multiplexes DP ranks on base_port + r; relay tails
         # each. Single-rank (dp_size None/1) stays rank 0.
         _dp = config.dp_size or 1
-        kv_relay = KvEventNatsRelay(
-            worker_id=f"{config.host}:{config.port}",
-            engine_zmq_endpoint=config.kv_events_endpoint,
-            engine=config.engine,
-            block_size=config.kv_block_size or 1,
-            dp_size=_dp,
-            multiplexed=_dp > 1,
-            nats_url=args.nats_server,
-        )
-        try:
-            await kv_relay.start()
-        except Exception:
-            logger.exception("KV NATS relay failed to start; continuing without it")
-            kv_relay = None
+        if config.kv_block_size:
+            kv_relay = KvEventNatsRelay(
+                worker_id=f"{config.host}:{config.port}",
+                engine_zmq_endpoint=config.kv_events_endpoint,
+                engine=config.engine,
+                block_size=config.kv_block_size,
+                dp_size=_dp,
+                multiplexed=_dp > 1,
+                nats_url=args.nats_server,
+            )
+        else:
+            # A missing block size is not a 1. Relaying events stamped
+            # block_size=1 makes the router build a view the engine's real
+            # events -- paged at 64 -- can never match: every one is rejected,
+            # kv-aware degrades to load balancing, and nothing reports an
+            # error. Not relaying at all costs the same routing and says so.
+            logger.error(
+                "KV NATS relay disabled: this worker resolved no KV page size, so its "
+                "events cannot be indexed. kv-aware routing is off for it. Usually an "
+                "unresolved --page-size; check /get_server_info."
+            )
+        if kv_relay is not None:
+            try:
+                await kv_relay.start()
+            except Exception:
+                logger.exception("KV NATS relay failed to start; continuing without it")
+                kv_relay = None
 
     # --- Optional NATS request transport: run a consumer that proxies requests
     # from this worker's per-instance subject to the local engine HTTP. Advertise
