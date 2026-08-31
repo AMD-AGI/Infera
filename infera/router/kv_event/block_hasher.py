@@ -112,13 +112,29 @@ class BlockHasher:
     def hash_for(
         self, body: dict, *, block_size: int, engine: EngineType | None = None
     ) -> list[int]:
-        model_id = body.get("model")
-        if not model_id or block_size <= 0:
+        if block_size <= 0:
             return []
+        token_ids = self.token_ids_for(body, engine=engine)
+        if token_ids is None:
+            return []
+        return hash_request(token_ids, block_size)
+
+    def token_ids_for(self, body: dict, *, engine: EngineType | None = None) -> list[int] | None:
+        """The prompt the engine would build for `body`, tokenised.
+
+        None means "cannot be reproduced" -- the caller routes on load. This is
+        the layer the render probe compares against `/v1/tokenize`, which is why
+        it is separate from the hashing above: block hashes only start differing
+        once a divergence crosses a block boundary, whereas token ids pinpoint
+        the exact position where our render stopped being the engine's.
+        """
+        model_id = body.get("model")
+        if not model_id:
+            return None
 
         tokenizer = self._get_tokenizer(model_id, engine)
         if tokenizer is None:
-            return []
+            return None
 
         # Tokenisation failure (e.g. apply_chat_template on a base model
         # without a chat template, or encode on an unexpected body type)
@@ -134,7 +150,7 @@ class BlockHasher:
                 else:
                     template_kwargs = self._template_kwargs(body)
                     if template_kwargs is None:
-                        return []
+                        return None
                     text = tokenizer.apply_chat_template(
                         _normalise_history(messages),
                         tokenize=False,
@@ -145,7 +161,7 @@ class BlockHasher:
                 encoder = "prompt"
                 text = prompt
             else:
-                return []
+                return None
             if token_ids is None:
                 # The chat template / prompt already carries any leading special
                 # token as text, so don't let the tokenizer add another (matches
@@ -153,7 +169,7 @@ class BlockHasher:
                 token_ids = tokenizer.encode(text, add_special_tokens=False)
         except Exception as exc:
             logger.warning("kv-aware: tokenisation failed for model=%s: %s", model_id, exc)
-            return []
+            return None
 
         # A prefix that disagrees with the engine's is silent: no error, just a
         # permanent 0% hit rate. TODO: compare this count against the engine's
@@ -162,7 +178,7 @@ class BlockHasher:
         logger.debug(
             "kv-aware: model=%s encoder=%s prompt_tokens=%d", model_id, encoder, len(token_ids)
         )
-        return hash_request(token_ids, block_size)
+        return token_ids
 
     def _template_kwargs(self, body: dict) -> dict | None:
         """Everything besides `messages` that the engine puts in scope.

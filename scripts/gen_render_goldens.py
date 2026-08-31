@@ -116,6 +116,7 @@ def render(tokenizer, body: dict) -> str:
     try:
         from sglang.srt.entrypoints.openai.serving_chat import normalize_tool_content
     except ImportError:  # older sglang
+
         def normalize_tool_content(_role, content):
             return content
 
@@ -163,7 +164,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--model-dir", required=True, help="local path holding tokenizer_config.json")
     ap.add_argument("--name", required=True, help="short key, e.g. glm53 (names the golden dir)")
-    ap.add_argument("--check", action="store_true", help="diff against existing goldens, write none")
+    ap.add_argument(
+        "--check", action="store_true", help="diff against existing goldens, write none"
+    )
     args = ap.parse_args()
 
     from transformers import AutoTokenizer

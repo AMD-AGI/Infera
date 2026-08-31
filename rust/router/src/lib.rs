@@ -37,6 +37,7 @@ pub mod policy;
 pub mod pool;
 pub mod protocol;
 pub mod proxy;
+pub mod render_probe;
 pub mod responses_input;
 pub mod tiktoken;
 pub mod util;

@@ -17,6 +17,7 @@ from infera.router.cache_control import (
 )
 from infera.router.kv_event.block_hasher import BlockHasher
 from infera.router.kv_event.client import KvEventClient
+from infera.router.kv_event.render_probe import ProbeResult, spawn_probe
 from infera.router.policy.base import Policy
 from infera.router.policy.target import RouteTarget, expand_targets
 from infera.server import metrics
@@ -292,6 +293,42 @@ class KvEventAwarePolicy(Policy):
 
     def on_worker_added(self, worker: WorkerInfo) -> None:
         self._kv.on_worker_added(worker)
+        # Confirm, once, that what we render is what this worker renders. See
+        # render_probe: a divergence here is the one kv-aware failure that
+        # produces no error anywhere, so it has to be actively looked for.
+        spawn_probe(self._hasher, worker, report=self._report_render_parity)
+
+    @staticmethod
+    def _report_render_parity(worker: WorkerInfo, result: ProbeResult) -> None:
+        if result.ok is False:
+            logger.error(
+                "kv-aware: worker %s (%s) does NOT render prompts the way this router "
+                "does, so cache lookups for it will always miss and it will be routed "
+                "on load only -- %s. Most likely causes: the engine was started with "
+                "--default-chat-template-kwargs (the router is never told), or its "
+                "model directory has a different chat template than --tokenizer-path.",
+                worker.worker_id,
+                worker.model_name,
+                result.detail,
+            )
+            metrics.render_parity_diverged_total.labels(model=worker.model_name).inc()
+        elif result.ok is None:
+            logger.info(
+                "kv-aware: could not verify prompt rendering against worker %s (%s) -- %s",
+                worker.worker_id,
+                worker.model_name,
+                result.detail,
+            )
+        else:
+            logger.info(
+                "kv-aware: worker %s (%s) render verified -- %s",
+                worker.worker_id,
+                worker.model_name,
+                result.detail,
+            )
+        metrics.render_parity.labels(worker_id=worker.worker_id, model=worker.model_name).set(
+            {True: 1, False: 0, None: -1}[result.ok]
+        )
 
     def on_worker_removed(self, worker_id: str) -> None:
         self._kv.on_worker_removed(worker_id)
@@ -312,6 +349,15 @@ class KvEventAwarePolicy(Policy):
         # exists to represent.
         for key in [k for k in self._recent_blocks if k == worker_id or k.startswith(prefix)]:
             self._recent_blocks.pop(key, None)
+        # The parity gauge is labelled by worker_id, so a removed worker would
+        # otherwise keep exporting its last verdict forever -- including a 0
+        # that no longer corresponds to anything running.
+        for labels, _ in list(metrics.render_parity._metrics.items()):
+            if labels and labels[0] == worker_id:
+                try:
+                    metrics.render_parity.remove(*labels)
+                except KeyError:
+                    pass
 
     def _record_dispatch(self, route_key: str, missed_blocks: int, request_blocks: int) -> None:
         """Decay every worker's recent total, then charge for the pick.

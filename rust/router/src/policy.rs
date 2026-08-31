@@ -51,6 +51,14 @@ pub trait Policy: Send + Sync {
     /// Reconcile any per-worker state (e.g. kv-event subscriptions) against the
     /// current active fleet. Called on every discovery snapshot.
     fn sync_workers(&self, _active: &[Arc<Worker>]) {}
+
+    /// `(worker_id, model, gauge)` render-parity verdicts for `/metrics`, where
+    /// the gauge is 1 confirmed / 0 diverged / -1 unknown. Empty for policies
+    /// that do not render prompts and therefore cannot disagree with an engine
+    /// about them.
+    fn render_parity(&self) -> Vec<(String, String, i8)> {
+        Vec::new()
+    }
 }
 
 /// RAII load guard: `start` fires `on_request_started`; `Drop` fires
@@ -193,7 +201,11 @@ const ZERO_HIT_ALARM_REPEAT: u64 = 1024;
 /// it. Both halves of the load term are needed -- see [`RECENT_DECAY`].
 pub struct KvEventAwarePolicy {
     kv: Arc<KvEventClient>,
-    hasher: BlockHasher,
+    hasher: Arc<BlockHasher>,
+    /// Per-worker verdict from the startup render-parity probe -- see
+    /// `crate::render_probe`. Exported on /metrics; the router never routes on
+    /// it, because a worker whose render we cannot match is still a worker.
+    parity: Arc<crate::render_probe::ParityRegistry>,
     w: f64,
     w_prefill: f64,
     w_decode: f64,
@@ -225,7 +237,8 @@ impl KvEventAwarePolicy {
     ) -> Self {
         KvEventAwarePolicy {
             kv,
-            hasher,
+            hasher: Arc::new(hasher),
+            parity: Arc::new(Default::default()),
             w: overlap_weight,
             w_prefill: prefill_overlap_weight.unwrap_or(overlap_weight),
             w_decode: decode_overlap_weight.unwrap_or(overlap_weight),
@@ -571,8 +584,20 @@ impl Policy for KvEventAwarePolicy {
         }
     }
 
+    fn render_parity(&self) -> Vec<(String, String, i8)> {
+        self.parity.snapshot()
+    }
+
     fn sync_workers(&self, active_workers: &[Arc<Worker>]) {
         self.kv.sync(active_workers);
+        // Confirm, once per worker, that what we render is what it renders. A
+        // divergence here is the one kv-aware failure that produces no error
+        // anywhere, so it has to be actively looked for.
+        crate::render_probe::spawn_probes(
+            Arc::clone(&self.hasher),
+            Arc::clone(&self.parity),
+            active_workers,
+        );
         // Prune load state for workers that left the fleet (route_key is
         // "<worker_id>" or "<worker_id>#dpN").
         use std::collections::HashSet;
@@ -587,6 +612,7 @@ impl Policy for KvEventAwarePolicy {
                 .unwrap_or(route_key);
             ids.contains(wid)
         };
+        self.parity.retain(|wid| ids.contains(wid));
         self.active
             .lock()
             .expect("active mutex poisoned")

@@ -129,6 +129,22 @@ async fn metrics(State(st): State<AppState>) -> impl IntoResponse {
              infera_router_worker_breaker_trips_total{{worker_id=\"{worker_id}\"}} {trips}\n"
         ));
     }
+    // A 0 here means kv-aware routing is silently off for that worker: every
+    // block hash misses, the policy degrades to load balancing, and no other
+    // signal shows it. Alert on 0; -1 just means the engine served no tokenize
+    // endpoint to check against.
+    out.push_str(
+        "# HELP infera_router_render_parity 1 = this worker confirmed the router renders \
+             the prompt it does, 0 = DIVERGED (kv-aware is off for it), -1 = not checkable\n\
+         # TYPE infera_router_render_parity gauge\n",
+    );
+    for (worker_id, model, v) in st.policy.render_parity() {
+        out.push_str(&format!(
+            "infera_router_render_parity{{worker_id=\"{}\",model=\"{}\"}} {v}\n",
+            escape_label_value(&worker_id),
+            escape_label_value(&model),
+        ));
+    }
     out
 }
 

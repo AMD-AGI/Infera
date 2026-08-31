@@ -23,9 +23,9 @@ use std::io;
 use std::path::Path;
 use std::sync::atomic::{AtomicU8, Ordering};
 
-use minijinja::Environment;
 #[cfg(test)]
 use minijinja::context;
+use minijinja::Environment;
 use serde::Serialize;
 use serde_json::Value;
 use tokenizers::Tokenizer;
@@ -488,6 +488,20 @@ impl BlockHasher {
         if block_size == 0 {
             return Vec::new();
         }
+        match self.token_ids_for(body) {
+            Some(ids) => hash_request(&ids, block_size),
+            None => Vec::new(),
+        }
+    }
+
+    /// The prompt the engine would build for `body`, tokenized.
+    ///
+    /// `None` means "cannot be reproduced" -- the caller routes on load. Split
+    /// out of `hash_for` so the render probe can compare against the engine's
+    /// `/v1/tokenize` at this layer: block hashes only start disagreeing once a
+    /// divergence crosses a block boundary, whereas token ids name the exact
+    /// position where our render stopped being the engine's.
+    pub fn token_ids_for(&self, body: &Value) -> Option<Vec<u32>> {
         // Fast path: the request already carries token ids (`prompt` as an array
         // of ints — the OpenAI-legal pre-tokenized form the engines accept
         // verbatim). Hash them directly: no tokenizer, and the ids match the
@@ -495,11 +509,11 @@ impl BlockHasher {
         // mismatch. This is how tiktoken-only models (Kimi) are routed, since
         // the HF `tokenizers` crate can't load their vocab.
         if let Some(ids) = token_ids_from_prompt(body) {
-            return hash_request(&ids, block_size);
+            return Some(ids);
         }
         // Text path: needs a loaded tokenizer (HF fast or Kimi tiktoken).
         if self.tokenizer.is_none() && self.tiktoken.is_none() {
-            return Vec::new();
+            return None;
         }
         // `/v1/responses` carries the conversation in `input`; every renderer
         // below keys off `messages`/`prompt` and would hash nothing at all.
@@ -525,7 +539,7 @@ impl BlockHasher {
                          `previous_response_id` whose history lives in the engine, or an \
                          input item this port does not model); routing on load for this request"
                     );
-                    return Vec::new();
+                    return None;
                 }
             }
         } else {
@@ -539,7 +553,7 @@ impl BlockHasher {
         if self.kimi_k3 {
             if let Some(tk) = &self.tiktoken {
                 if let Some(segments) = crate::encoding_k3::encode_chat(body) {
-                    return hash_request(&tk.encode_segments(&segments), block_size);
+                    return Some(tk.encode_segments(&segments));
                 }
             }
         }
@@ -559,7 +573,7 @@ impl BlockHasher {
                     "kv-aware: no tokenizable prompt in this request body (no `messages`, \
                      no string `prompt`); routing on load for this request"
                 );
-                return Vec::new();
+                return None;
             }
         };
         // Kimi tiktoken takes precedence — it reproduces the engine's ids for a
@@ -581,16 +595,16 @@ impl BlockHasher {
                     "kv-aware: this prompt is tokenized with special tokens, which the \
                      tiktoken encoder cannot reproduce; routing on load for this request"
                 );
-                return Vec::new();
+                return None;
             }
-            return hash_request(&tk.encode(&text), block_size);
+            return Some(tk.encode(&text));
         }
         let tok = self.tokenizer.as_ref().expect("checked above");
         match tok.encode(text, add_special_tokens) {
-            Ok(enc) => hash_request(enc.get_ids(), block_size),
+            Ok(enc) => Some(enc.get_ids().to_vec()),
             Err(e) => {
                 tracing::warn!(err = %e, "kv-aware: tokenisation failed");
-                Vec::new()
+                None
             }
         }
     }
@@ -728,7 +742,10 @@ impl BlockHasher {
         let base = self.template_context(body);
         let render = |msgs: &Value| -> Result<String, minijinja::Error> {
             let mut ctx = base.clone();
-            ctx.insert("messages".to_string(), minijinja::Value::from_serialize(msgs));
+            ctx.insert(
+                "messages".to_string(),
+                minijinja::Value::from_serialize(msgs),
+            );
             tmpl.render(ctx)
         };
 
@@ -943,9 +960,15 @@ fn tool_model_dump(tool: &Value) -> Value {
     let f = tool.get("function");
     let get = |k: &str| f.and_then(|f| f.get(k)).cloned();
     let mut func = serde_json::Map::new();
-    func.insert("description".into(), get("description").unwrap_or(Value::Null));
+    func.insert(
+        "description".into(),
+        get("description").unwrap_or(Value::Null),
+    );
     func.insert("name".into(), get("name").unwrap_or(Value::Null));
-    func.insert("parameters".into(), get("parameters").unwrap_or(Value::Null));
+    func.insert(
+        "parameters".into(),
+        get("parameters").unwrap_or(Value::Null),
+    );
     func.insert("strict".into(), get("strict").unwrap_or(Value::Bool(false)));
     if let Some(dl) = get("defer_loading").filter(|v| !v.is_null()) {
         func.insert("defer_loading".into(), dl);
@@ -1857,9 +1880,9 @@ mod tests {
         let mut failures = Vec::new();
         let mut compared = 0usize;
         for entry in spec.split(',').filter(|s| !s.trim().is_empty()) {
-            let (name, dir) = entry
-                .split_once('=')
-                .unwrap_or_else(|| panic!("INFERA_TEST_RENDER_PARITY entry {entry:?} is not name=/path"));
+            let (name, dir) = entry.split_once('=').unwrap_or_else(|| {
+                panic!("INFERA_TEST_RENDER_PARITY entry {entry:?} is not name=/path")
+            });
             let (name, dir) = (name.trim(), dir.trim());
             let golden_dir = root.join("goldens").join(name);
             assert!(
@@ -1876,7 +1899,10 @@ mod tests {
                 let stem = body_path.file_stem().unwrap().to_string_lossy().to_string();
                 let golden_path = golden_dir.join(format!("{stem}.txt"));
                 let Ok(golden) = std::fs::read_to_string(&golden_path) else {
-                    failures.push(format!("{name}/{stem}: no golden at {}", golden_path.display()));
+                    failures.push(format!(
+                        "{name}/{stem}: no golden at {}",
+                        golden_path.display()
+                    ));
                     continue;
                 };
                 let body: Value = serde_json::from_str(
@@ -1910,7 +1936,10 @@ mod tests {
                 }
             }
         }
-        assert!(compared > 0, "INFERA_TEST_RENDER_PARITY named no usable model");
+        assert!(
+            compared > 0,
+            "INFERA_TEST_RENDER_PARITY named no usable model"
+        );
         assert!(
             failures.is_empty(),
             "render parity ({compared} bodies compared):\n  {}",
