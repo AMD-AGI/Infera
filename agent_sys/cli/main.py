@@ -45,6 +45,7 @@ from cli.events import EventKind
 from cli.render.human import HumanRenderer
 from cli.render.machine import JsonLinesRenderer
 from cli.stream import Stream
+from env_mgr import meta
 from env_mgr.prepare import EnvManager, permissions_enforced
 from env_mgr.protocols import NoConfinement, PrepareRefused, UnresolvedGrant
 from monitor import (
@@ -464,7 +465,30 @@ def _registry(
     # `EnvManager(ctx)` is an argument to `build_registry` and every handoff
     # in the run is declared inside it. See `LiveHandoffs`.
     handoffs = LiveHandoffs()
-    context = build_context(layout, main_repo=_main_repo(root), handoffs=handoffs, package=root)
+    # **The run path joins the configuration route that already shipped.**
+    # `env_mgr.meta` has resolved `--meta` → `$ENV_MGR_META` →
+    # `~/.config/env_mgr/meta.json` since the `domain` and `zone` sub-commands
+    # existed, and `env-mgr` has read local↔remote mappings out of it — but
+    # `build_context` was called with no `mapping` here, so `Context.mapping` was
+    # `{}` in every production run this repository has ever made and
+    # `prepare.py`'s `if ctx.mapping:` was never once true. `sync.sync`,
+    # `sync.remote_root` and the `_REMOTE` half of `paths.zone_env` had no
+    # production caller at all.
+    #
+    # `mapping_roots()` and not the `RemoteMapping`s: it keeps the **weak**
+    # mappings, which are the ones with something to copy, and drops
+    # `transport`/`target`, which nothing anywhere reads yet. A same-machine
+    # mapping needs no transport, so this is enough to make the copy path run
+    # and is deliberately not enough to reach another host — that needs a
+    # `Connection` on `Context`, and it is not here.
+    #
+    # No `--meta` flag on `agent-sys`: `$ENV_MGR_META` and the config default are
+    # the whole surface for now, and adding a third spelling of one setting to a
+    # second CLI is a decision, not a convenience.
+    mapping = meta.load(meta.configured_path()).mapping_roots()
+    context = build_context(
+        layout, main_repo=_main_repo(root), handoffs=handoffs, package=root, mapping=mapping
+    )
     registry = build_registry(
         store=JsonFileStoreMgr(layout.store),
         # Loaded on a resume too, and that is not optional: the spec

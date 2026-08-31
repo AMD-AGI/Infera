@@ -456,10 +456,21 @@ def build_context(
     unregistered name, because a task would then be prepared against an
     environment nobody configured (`docs/interfaces.md` §2.4).
 
-    `mapping` is empty here and that is a legitimate configuration, not a
-    degradation: spec §3 says no cluster and no remote host, so the local↔remote
-    mapping degenerates to a strong same-machine mapping and `prepare` skips
-    sync entirely.
+    `mapping` is **supplied by the caller and empty by default**, and empty is a
+    legitimate configuration rather than a degradation: spec §3 says no cluster
+    and no remote host, so the local↔remote mapping degenerates to a strong
+    same-machine mapping and `prepare` skips sync entirely.
+
+    What changed is that empty is now a *configured* answer rather than the only
+    one. `cli/main.py` reads `env_mgr.meta` — the `--meta` / `$ENV_MGR_META` /
+    `~/.config/env_mgr/meta.json` route that already shipped for `env-mgr
+    domain|zone` — and passes its weak mappings here. With no meta file the
+    result is `{}` and every run behaves exactly as before; that is the control,
+    and it is what the whole test suite runs under.
+
+    This function still reads no environment of its own: *is this run remote* is
+    the composition root's decision (`docs/interfaces.md` §2.4), and a
+    constructor that consulted `$ENV_MGR_META` itself would make it two.
     """
     domains = DomainRegistry()
     domains.register("demo-storage", str(layout.zones), DomainKind.HANDOFF_STORAGE)

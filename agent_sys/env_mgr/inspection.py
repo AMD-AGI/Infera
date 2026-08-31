@@ -15,19 +15,19 @@ import json
 import os
 from typing import Any
 
-from env_mgr.meta import Meta, load
+from env_mgr.meta import Meta, configured_path, load
 
 __all__ = ["render_domains", "render_zones"]
 
-_DEFAULT_META = os.path.join(
-    os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
-    "env_mgr",
-    "meta.json",
-)
-
 
 def _meta(args: argparse.Namespace) -> Meta:
-    return load(args.meta or os.environ.get("ENV_MGR_META", _DEFAULT_META))
+    """`--meta`, then ``$ENV_MGR_META``, then ``~/.config/env_mgr/meta.json``.
+
+    The order lives in `meta.configured_path` now that `cli/main.py` reads the
+    same file to configure a run's sync mapping. This module is no longer its
+    only reader, so it may no longer be its owner.
+    """
+    return load(configured_path(args.meta))
 
 
 def _emit(rows: list[dict[str, Any]], args: argparse.Namespace, empty: str) -> str:

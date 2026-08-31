@@ -1,0 +1,109 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
+"""Does a **run** carry a local↔remote mapping? Not: does `Meta` parse one.
+
+`Context.mapping` was `{}` in every production run this repository had ever
+made, so `prepare.py`'s `if ctx.mapping:` was never true, and `sync.sync`,
+`sync.remote_root` and the `_REMOTE` half of `paths.zone_env` had no production
+caller. Every one of them was unit-tested and green. That is the shape of defect
+this directory has now found four times — a mechanism wired to nothing, with
+passing tests of the mechanism — so the assertion here is deliberately made
+against what `main()` calls rather than against `build_context`, which any
+caller could decline to pass a mapping to exactly as `main()` used to.
+
+`_registry` is private and imported anyway, on purpose: a public seam invented so
+that a test can avoid a private one would move the untested gap rather than close
+it. It makes no model call, needs no credentials and no sandbox, which is the
+property `conftest.py` states for this directory.
+"""
+
+from __future__ import annotations
+
+import json
+import threading
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from cli.environment import layout_for
+from cli.main import _registry
+from cli.stream import Stream
+
+
+@pytest.fixture()
+def isolated_meta(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    """No meta file is visible unless a test writes one.
+
+    `$XDG_CONFIG_HOME` is pointed at an empty directory rather than left alone:
+    the resolution order ends at `~/.config/env_mgr/meta.json`, so a developer
+    who happens to have one would otherwise decide whether these tests pass.
+    """
+    monkeypatch.delenv("ENV_MGR_META", raising=False)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    # `_registry` calls `install_excepthook`, which claims `threading.excepthook`
+    # for the whole interpreter — correctly, since in production it *is* the
+    # process owner. Under pytest it would outlive the test and swallow another
+    # one's thread failures, so it is restored on teardown.
+    monkeypatch.setattr(threading, "excepthook", threading.excepthook)
+    return tmp_path
+
+
+def _mapping_of(root: Path, at: Path) -> Any:
+    """The `Context` the run's `EnvManager` is bound to, via the registry."""
+    layout = layout_for(at).create()
+    registry = _registry(root, layout, Stream(), resume=False, variables={})
+    return registry.get("env_mgr")._ctx.mapping
+
+
+def test_a_run_with_no_meta_file_maps_nothing(package_root: Path, isolated_meta: Path) -> None:
+    """**The control, and it is the configuration everything ships with.**
+
+    Without it the positive test below measures nothing: a mapping that appeared
+    whatever the configuration said would be indistinguishable from one that was
+    read. This is also the assertion that the change is inert by default — the
+    whole suite and every existing demo run are this case.
+    """
+    assert _mapping_of(package_root, isolated_meta / "run") == {}
+
+
+def test_a_run_reads_its_weak_mappings_out_of_the_meta_file(
+    package_root: Path, isolated_meta: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`$ENV_MGR_META` → `meta.configured_path` → `load` → `mapping_roots()` →
+    `build_context(mapping=)` → `Context.mapping`, through `main()`'s own call.
+
+    The **strong** mapping in the same file is the second control: it is the same
+    bytes on both sides and has nothing to copy, so `mapping_roots()` must drop
+    it. Were the filter not running, this test would still be green on the first
+    assertion alone.
+    """
+    meta_path = isolated_meta / "meta.json"
+    meta_path.write_text(
+        json.dumps(
+            {
+                "domains": [],
+                "mappings": [
+                    {
+                        "local_root": "/var/tmp/example/state",
+                        "remote_root": "/var/tmp/example/mirror",
+                        "strength": "weak",
+                        "transport": "ssh",
+                        "target": "",
+                    },
+                    {
+                        "local_root": "/var/tmp/example/shared",
+                        "remote_root": "/var/tmp/example/shared",
+                        "strength": "strong",
+                        "transport": "ssh",
+                        "target": "",
+                    },
+                ],
+                "system_set": [],
+            }
+        )
+    )
+    monkeypatch.setenv("ENV_MGR_META", str(meta_path))
+    assert _mapping_of(package_root, isolated_meta / "run") == {
+        "/var/tmp/example/state": "/var/tmp/example/mirror"
+    }

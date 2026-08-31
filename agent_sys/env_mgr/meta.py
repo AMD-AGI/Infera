@@ -22,7 +22,16 @@ from typing import NamedTuple
 from env_mgr.fs.domain import DomainKind, DomainRegistry
 from env_mgr.isolation.policy import DEFAULT_SYSTEM_SET, Granted, Mode
 
-__all__ = ["CONVENTIONS", "Meta", "RemoteMapping", "Strength", "from_knowledge", "load", "save"]
+__all__ = [
+    "CONVENTIONS",
+    "Meta",
+    "RemoteMapping",
+    "Strength",
+    "configured_path",
+    "from_knowledge",
+    "load",
+    "save",
+]
 
 #: The file a cluster-conventions **knowledge handoff** carries. Spec §7: how to
 #: detect and reach a remote is knowledge produced by a designated task and
@@ -63,6 +72,31 @@ class Meta(NamedTuple):
         """The local→remote root map `sync` takes. Weak mappings only: a strong
         one is the same bytes and has nothing to copy."""
         return {m.local_root: m.remote_root for m in self.mappings if m.strength is Strength.WEAK}
+
+
+def configured_path(explicit: str | None = None) -> str:
+    """Where this site's meta file is: an explicit path, then ``$ENV_MGR_META``,
+    then ``~/.config/env_mgr/meta.json``.
+
+    The order is not new — `inspection` has resolved it this way since the
+    `domain` and `zone` sub-commands shipped. It moves here because the **run**
+    path now reads the same file (`cli/main.py`), and an order resolved in two
+    modules is one fact with two writers (§1). `inspection` calls this rather
+    than keeping its own copy.
+
+    Resolved per call, not at import: a caller that sets ``$ENV_MGR_META`` or
+    ``$XDG_CONFIG_HOME`` after this module is imported — every test, and the
+    R0 run — would otherwise get the value the interpreter started with.
+    """
+    return (
+        explicit
+        or os.environ.get("ENV_MGR_META")
+        or os.path.join(
+            os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
+            "env_mgr",
+            "meta.json",
+        )
+    )
 
 
 def load(path: str) -> Meta:

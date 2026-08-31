@@ -118,6 +118,89 @@ def test_an_unresolved_grant_stops_the_task(ctx, tmp_path: Path) -> None:
         prepare(task, execution, ctx_with)
 
 
+def test_a_mapping_makes_prepare_mirror_the_zone(tmp_path: Path, main_repo: str) -> None:
+    """The copy path, composed rather than called directly — and the artefact,
+    not the return value.
+
+    `test_sync.py` covers `sync()` and `test_paths.py` covers the `_REMOTE`
+    environment names, both green for as long as they have existed. Neither
+    looks at the far side of a tree that `prepare` produced, and `prepare` is
+    what a run calls. `SyncReport.sent` is not evidence either: it is parsed out
+    of rsync's own summary, so a `sent` of 3 over a copy that landed somewhere
+    else would read identically. This asserts on the directory.
+
+    Its control is `test_no_mapping_leaves_no_far_side` immediately below, which
+    is the configuration everything shipped with.
+    """
+    import shutil
+
+    if shutil.which("rsync") is None:
+        pytest.skip("rsync is not installed")
+
+    local = tmp_path / "root"
+    far = tmp_path / "far"
+    reg = DomainRegistry()
+    reg.register("store", str(local), DomainKind.HANDOFF_STORAGE)
+    reg.register("play", str(local), DomainKind.PLAYGROUND)
+    ctx_mapped = context(
+        domains=reg,
+        store_root=str(tmp_path / "store"),
+        main_repo=main_repo,
+        interpreter_grants=interpreter_grants(),
+        mapping={str(local): str(far)},
+    )
+    task = Task()
+    prepared = prepare(task, task.push_execution(), ctx_mapped)
+
+    mirrored = far / os.path.relpath(prepared.zone.root, local)
+    assert mirrored.is_dir(), f"{mirrored} is not there; nothing was copied"
+    # A directory alone would pass on an rsync that copied an empty tree, so the
+    # assertion is that a file the zone has arrived with its bytes.
+    local_files = {
+        os.path.relpath(os.path.join(d, f), prepared.zone.root)
+        for d, _, fs in os.walk(prepared.zone.root)
+        for f in fs
+        if os.path.relpath(os.path.join(d, f), prepared.zone.root).split(os.sep)[0] != "playground"
+    }
+    assert local_files, "the zone had no files at all; this proves nothing"
+    for rel in local_files:
+        assert (mirrored / rel).is_file(), f"{rel} did not cross"
+
+    # Criterion 16's first half: the playground's *directory* is there, which
+    # `sync` creates explicitly after excluding everything in it. That the
+    # *contents* are excluded is not asserted here and could not be — a zone
+    # `prepare` has just built has an empty playground, so the assertion would
+    # be vacuous. `test_sync.py::test_playground_not_synced` proves it against a
+    # playground with a file in it.
+    assert (mirrored / "playground").is_dir()
+
+
+def test_no_mapping_leaves_no_far_side(tmp_path: Path, main_repo: str) -> None:
+    """The non-vacuity control for the test above, and the shipped default.
+
+    Same zone, same `prepare`, no mapping: `if ctx.mapping:` is false, nothing
+    is copied, and the far side is not so much as created. Without this, a test
+    that found a mirror could not tell a working sync from a directory some
+    other part of `prepare` had made.
+    """
+    local = tmp_path / "root"
+    far = tmp_path / "far"
+    reg = DomainRegistry()
+    reg.register("store", str(local), DomainKind.HANDOFF_STORAGE)
+    reg.register("play", str(local), DomainKind.PLAYGROUND)
+    ctx_plain = context(
+        domains=reg,
+        store_root=str(tmp_path / "store"),
+        main_repo=main_repo,
+        interpreter_grants=interpreter_grants(),
+    )
+    task = Task()
+    prepared = prepare(task, task.push_execution(), ctx_plain)
+
+    assert Path(prepared.zone.root).is_dir()  # control: the zone was built
+    assert not far.exists()
+
+
 def test_a_sync_conflict_refuses(tmp_path: Path, main_repo: str) -> None:
     """Refusing converts silent data loss into a stopped task, which is the
     difference the open question is actually about."""
