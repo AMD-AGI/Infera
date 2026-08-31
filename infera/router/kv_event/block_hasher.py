@@ -64,8 +64,14 @@ class BlockHasher:
                 if token_ids is not None:
                     encoder = "sglang-dsv4"
                 else:
+                    template_kwargs = self._template_kwargs(body)
+                    if template_kwargs is None:
+                        return []
                     text = tokenizer.apply_chat_template(
-                        messages, tokenize=False, add_generation_prompt=True
+                        messages,
+                        tokenize=False,
+                        add_generation_prompt=True,
+                        **template_kwargs,
                     )
             elif (prompt := body.get("prompt")) is not None:
                 encoder = "prompt"
@@ -89,6 +95,80 @@ class BlockHasher:
             "kv-aware: model=%s encoder=%s prompt_tokens=%d", model_id, encoder, len(token_ids)
         )
         return hash_request(token_ids, block_size)
+
+    def _template_kwargs(self, body: dict) -> dict | None:
+        """Everything besides `messages` that the engine puts in scope.
+
+        None means "this request cannot be reproduced" -- the caller must route
+        it on load rather than render an approximation.
+
+        `serving_chat` calls::
+
+            apply_chat_template(msgs, tokenize=False, add_generation_prompt=True,
+                                tools=tools, return_dict=False, **extra_template_kwargs)
+
+        where `extra_template_kwargs` is `reasoning_effort` (when the request set
+        one) updated with `chat_template_kwargs`. Passing only `messages` is not a
+        small omission: a template reads whatever names it likes off the context,
+        and the ones it cannot see are simply undefined -- no error, no warning,
+        just a different prompt. GLM-5.3's opens with
+
+            {%- set effective_reasoning_effort = reasoning_effort if reasoning_effort
+               is defined and reasoning_effort in ['low','high'] else 'high' -%}
+            <|system|>Reasoning Effort: {{ effective_reasoning_effort | capitalize }}
+
+        so a `reasoning_effort: "low"` request diverges from the engine in the
+        FIRST block of the prompt, and every block after it chains off that hash.
+        Tools land there too, ahead of the conversation. That is a permanent 0%
+        hit rate on a fleet that reports itself healthy.
+
+        Not modelled: the engine's `--default-chat-template-kwargs`, which
+        `serving_chat` merges server-side. The router is never told that flag, so
+        setting it re-breaks kv-aware -- see the router's own hasher notes.
+        """
+        kwargs: dict = {}
+        tools, ok = self._chat_tools(body)
+        if not ok:
+            return None
+        if tools is not None:
+            kwargs["tools"] = tools
+        effort = body.get("reasoning_effort")
+        if effort is not None:
+            kwargs["reasoning_effort"] = effort
+        extra = body.get("chat_template_kwargs")
+        if isinstance(extra, dict):
+            kwargs.update(extra)
+        return kwargs
+
+    def _chat_tools(self, body: dict) -> tuple[list[dict] | None, bool]:
+        """`serving_chat`'s `tools` argument, plus whether we could build it.
+
+        Returns `(tools, True)` on success -- `tools` is None exactly when the
+        engine would also pass none. Returns `(None, False)` when the request
+        carries tools we cannot reproduce: for the same reason as the dsv4 path,
+        a guessed tool shape shifts the prefix with no error, and rendering
+        without the tools is just as wrong, so the caller routes on load.
+
+        Mirrors `serving_chat`'s two gates: `tool_choice == "none"` suppresses
+        tools entirely, and a `{"type": "function", "function": {"name": ...}}`
+        choice narrows the list to that one function.
+        """
+        tools = body.get("tools")
+        if not tools:
+            return None, True
+        if body.get("tool_choice") == "none":
+            return None, True
+        normalised = self._normalise_tools(tools)
+        if normalised is None:
+            return None, False
+        choice = body.get("tool_choice")
+        if isinstance(choice, dict):
+            wanted = (choice.get("function") or {}).get("name")
+            if wanted:
+                normalised = [
+                    t for t in normalised if (t.get("function") or {}).get("name") == wanted
+                ]
+        return normalised, True
 
     def _encode_via_sglang_dsv4(
         self, tokenizer: Any, model_id: str, messages: list, body: dict

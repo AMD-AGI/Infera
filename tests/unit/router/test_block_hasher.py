@@ -35,14 +35,23 @@ class _StubTokenizer:
         # only defaulted the kwarg would accept either choice at the call site,
         # and the two paths need opposite ones.
         self.specials: list[bool] = []
+        self.template_kwargs: list[dict] = []
 
     def encode(self, text: str, add_special_tokens: bool = True) -> list[int]:
         self.specials.append(add_special_tokens)
         return [ord(c) for c in text]
 
     def apply_chat_template(
-        self, messages: list[dict], tokenize: bool = False, add_generation_prompt: bool = True
+        self,
+        messages: list[dict],
+        tokenize: bool = False,
+        add_generation_prompt: bool = True,
+        **kwargs: Any,
     ) -> str:
+        # Recorded, not ignored: every name the engine puts in scope and the
+        # router does not is a silent prefix divergence, so the tests below
+        # assert on this rather than on the rendered string.
+        self.template_kwargs.append(dict(kwargs))
         parts = [f"<{m['role']}>{m['content']}</{m['role']}>" for m in messages]
         if add_generation_prompt:
             parts.append("<assistant>")
@@ -262,10 +271,16 @@ def _fake_sglang(arch: str, encoder: _RecordingEncoder, *, with_protocol: bool =
     dsv4 = ModuleType("sglang.srt.entrypoints.openai.encoding_dsv4")
     dsv4.encode_messages = encoder.encode_messages
     modules["sglang.srt.entrypoints.openai.encoding_dsv4"] = dsv4
+    protocol_key = "sglang.srt.entrypoints.openai.protocol"
     if with_protocol:
-        protocol = ModuleType("sglang.srt.entrypoints.openai.protocol")
+        protocol = ModuleType(protocol_key)
         protocol.Tool = _FakeTool
-        modules["sglang.srt.entrypoints.openai.protocol"] = protocol
+        modules[protocol_key] = protocol
+    else:
+        # patch.dict only ADDS. Without this, a real sglang install -- or a fake
+        # left in sys.modules by an earlier test in the same process -- keeps the
+        # Tool model importable and this helper tests the opposite of its name.
+        modules[protocol_key] = None
 
     config = SimpleNamespace(architectures=[arch])
     with (
@@ -342,8 +357,14 @@ def test_dsv4_tools_are_normalised_through_the_tool_model():
     ]
 
 
-def test_dsv4_path_skipped_for_tools_when_tool_model_unavailable():
-    """No Tool model to normalise with -> fall back rather than hash a wrong prefix."""
+def test_unreproducible_tools_route_on_load():
+    """No Tool model to normalise with -> hash nothing rather than a wrong prefix.
+
+    Falling back to `apply_chat_template` without the tools is not a safe
+    degradation: the tools render ahead of the conversation, so every block --
+    including the first -- diverges from the engine, with no error anywhere. An
+    empty hash costs the same load-only routing and is honest about it.
+    """
     encoder = _RecordingEncoder()
     hasher = BlockHasher()
     hasher._tokenizers[(None, "m")] = _StubTokenizer()
@@ -355,7 +376,7 @@ def test_dsv4_path_skipped_for_tools_when_tool_model_unavailable():
     with _fake_sglang("DeepseekV4ForCausalLM", encoder, with_protocol=False):
         out = hasher.hash_for(body, block_size=4)
     assert encoder.calls == []
-    assert out == hash_request([ord(c) for c in "<user>hi</user><assistant>"], 4)
+    assert out == []
 
 
 def test_non_dsv4_model_still_uses_apply_chat_template():
@@ -431,3 +452,80 @@ def test_hf_config_cached_per_source():
         hasher._get_hf_config("m")
         hasher._get_hf_config("m")
     assert calls["n"] == 1
+
+
+# ---- template context: what the engine puts in scope besides `messages` ----
+#
+# `serving_chat` renders with
+#   apply_chat_template(msgs, ..., tools=tools, **extra_template_kwargs)
+# and a template reads whatever names it likes off that context. A name the
+# router omits is undefined, not an error -- GLM-5.3's very first line branches
+# on `reasoning_effort`, and tools render ahead of the conversation, so an
+# omission moves block 0 and every block chained off it. Nothing logs.
+
+
+def _hash_with(body: dict) -> tuple[_StubTokenizer, list[int]]:
+    tokenizer = _StubTokenizer()
+    tokenizer.chat_template = "{{ messages }}"
+    hasher = BlockHasher()
+    hasher._tokenizers[(None, "m")] = tokenizer
+    with patch.object(BlockHasher, "_load_hf_config", staticmethod(lambda _s: None)):
+        out = hasher.hash_for({"model": "m", **body}, block_size=4)
+    return tokenizer, out
+
+
+_MSGS = [{"role": "user", "content": "hi"}]
+_TOOL = {"type": "function", "function": {"name": "f"}}
+
+
+def test_reasoning_effort_reaches_the_template():
+    tokenizer, _ = _hash_with({"messages": _MSGS, "reasoning_effort": "low"})
+    assert tokenizer.template_kwargs == [{"reasoning_effort": "low"}]
+
+
+def test_absent_reasoning_effort_is_not_invented():
+    """The engine only forwards it when the request set one; a default here
+    would render `Reasoning Effort: Low` against the engine's `High`."""
+    tokenizer, _ = _hash_with({"messages": _MSGS})
+    assert tokenizer.template_kwargs == [{}]
+
+
+def test_chat_template_kwargs_are_spread_and_win():
+    tokenizer, _ = _hash_with(
+        {
+            "messages": _MSGS,
+            "reasoning_effort": "low",
+            "chat_template_kwargs": {"reasoning_effort": "high", "clear_thinking": True},
+        }
+    )
+    # serving_chat seeds reasoning_effort then `.update(chat_template_kwargs)`.
+    assert tokenizer.template_kwargs == [{"reasoning_effort": "high", "clear_thinking": True}]
+
+
+def test_tools_are_passed_in_model_dump_shape():
+    with _fake_sglang("SomeOtherForCausalLM", _RecordingEncoder()):
+        tokenizer, _ = _hash_with({"messages": _MSGS, "tools": [_TOOL]})
+    assert tokenizer.template_kwargs == [
+        {"tools": [{"strict": False, "defer_loading": None, **_TOOL}]}
+    ]
+
+
+def test_tool_choice_none_suppresses_tools():
+    with _fake_sglang("SomeOtherForCausalLM", _RecordingEncoder()):
+        tokenizer, _ = _hash_with({"messages": _MSGS, "tools": [_TOOL], "tool_choice": "none"})
+    assert tokenizer.template_kwargs == [{}]
+
+
+def test_named_tool_choice_narrows_the_list():
+    other = {"type": "function", "function": {"name": "g"}}
+    with _fake_sglang("SomeOtherForCausalLM", _RecordingEncoder()):
+        tokenizer, _ = _hash_with(
+            {
+                "messages": _MSGS,
+                "tools": [_TOOL, other],
+                "tool_choice": {"type": "function", "function": {"name": "g"}},
+            }
+        )
+    assert tokenizer.template_kwargs == [
+        {"tools": [{"strict": False, "defer_loading": None, **other}]}
+    ]

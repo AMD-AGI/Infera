@@ -66,9 +66,13 @@ async fn completions(State(st): State<AppState>, body: Bytes) -> Response {
 /// Stateless calls only. SGLang keeps `store`/`previous_response_id` state in a
 /// per-process dict (`serving_responses.py`'s `response_store`), so the
 /// retrieve/cancel sub-routes and conversation continuation cannot be routed
-/// across a fleet; clients should send `store: false`. kv-aware also has no
-/// renderer for a Responses body's `input` field, so these requests route on
-/// load — see `block_hasher::BlockHasher::render_text`.
+/// across a fleet; clients should send `store: false`.
+///
+/// kv-aware DOES cover these: `BlockHasher::hash_for` normalises the `input`
+/// field into the chat body `OpenAIServingResponses._make_request` builds and
+/// renders that, so `/v1/responses` and `/v1/chat/completions` hash identically.
+/// The exception is a `previous_response_id` whose history lives in the engine
+/// -- unreproducible by construction -- which routes on load and logs why.
 async fn responses(State(st): State<AppState>, body: Bytes) -> Response {
     proxy::dispatch(&st, body, "/v1/responses").await
 }
