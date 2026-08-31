@@ -58,6 +58,13 @@ match, never a judgement:
 The floors live in the validator spec's `args` block, not in this code, so the
 number a reader sees in `steps/serve.yaml` is the number that is enforced.
 
+**Numbers go in `args`; sets go in the body.** `REQUIRED_FILES`,
+`REQUIRED_DIRS`, `PLACEHOLDER` and the binding-flag list below are all sets, and
+they are all module constants documented in this file. The split is not
+cosmetic: a floor is a dial a site might reasonably turn, and a set is a rule
+whose *reason* is an argument in this readme and does not survive being moved
+into a yaml with no room for one.
+
 **Headings do not count as content.** A document that is four `##` lines with
 nothing under them is precisely the failure the floor exists to catch, and
 counting the headings would let it through. The same reasoning puts fence
@@ -81,6 +88,89 @@ it is the section that answers the question this whole package is about — did
 it work. The other headings in the packup's README template are not required:
 they organise a document, and requiring them would be this check having an
 opinion about layout it cannot defend.
+
+## Shared-namespace identifiers, and why this one is a program and not prose
+
+The task brief tells the agent that **every identifier it binds on a shared host
+is a parameter, not a constant** — container names, host ports, the container
+workdir, the GPU index. This check enforces the second part of that rule: the
+kit must be re-pointable without editing it.
+
+**It is a check because the prose version already failed once, measurably.** The
+brief said *"Pick your ports; do not assume them… record the ports you actually
+used"* before B5 ran. B5's kit hardcodes all four ports, both container names
+and the workdir. So a rule the executor is asked to honour, with nothing
+checking it, is worth what that run showed it to be worth. This system's claim
+is that quality comes from standardising what crosses the boundary rather than
+from trusting the producer, and a validator is where that claim is cashed.
+
+### The rule, exactly
+
+Over every file under `scripts/`, two facts are collected, and a fault needs
+both:
+
+| | |
+|---|---|
+| **frozen** | the name is assigned with a plain `X=…` / `export X=…`, and what remains of the value after every `${…}` and `$X` reference is removed still contains an alphanumeric character |
+| **bound** | the name reaches one of `--name`, `--publish`, `--volume`, `--mount`, `--port`, `-p`, `-v` |
+
+A name is exempt the moment it appears as `${X:=…}`, `${X:-…}` or `${X:?…}`
+**anywhere in the kit**, because that is all it takes to let a caller re-point
+it. Separately, a bare literal at `--name`, `--publish`, `--port` or `-p` is a
+fault on its own, with no variable involved.
+
+Three details that are decisions rather than details:
+
+**The value is not inspected, only its shape.** `"${HOST}:${PORT}"` is built
+entirely out of other variables and punctuation, so it is as parameterised as
+they are and is not frozen. `"${SRT_WORK_ROOT}/srt_qwen36_mix"` has a fixed leaf
+and is — which is what catches the workdir, the one that survives fixing the
+container names.
+
+**No attempt is made to recognise "a container name" from its text.** That is a
+heuristic over values, it has no stopping condition, and it fails honest kits in
+ways their authors cannot predict. What is recognised is a *flag*, which is a
+fact about the command being run.
+
+**`-p` and `-v` count only inside a command that mentions `docker`.** `mkdir -p`
+is the counter-example, and it appears in this very kit.
+
+**`--volume` is absent from the bare-literal rule** while `--name` and the port
+flags are in it. A read-only mount of an input path — `-v /data/models:/models`
+— is legitimately fixed and only its host side is shared at all; a container
+*name* never legitimately is.
+
+### What it cannot catch
+
+Written here rather than left implicit, because a check that reads as complete
+is worse than one whose edges are known.
+
+- **A port embedded in a URL.** B5's `ETCD_CLIENT_PORT` and `ETCD_PEER_PORT`
+  reach `--listen-client-urls "http://0.0.0.0:${…}"`, not `--port`. They are
+  frozen and genuinely host-shared, and this check does not see them. Widening
+  the flag set to "any flag whose value contains a port-looking number" is the
+  heuristic road above.
+- **The GPU index.** `GPU_ID` reaches `export HIP_VISIBLE_DEVICES=${GPU_ID}`
+  inside a `docker exec` heredoc. It is an environment variable, not a flag.
+- **A name computed at runtime**, e.g. `CTR_NAME=$(basename "$PWD")`. The value
+  has no literal remainder, so it is not frozen — correctly, since two copies in
+  two directories would differ, but a kit that computed a *constant* would slip
+  through.
+- **Anything not in `scripts/`, and anything not shell.** A kit driving docker
+  from a Python or Makefile driver is unparsed. `scripts/` is where the packup
+  layout puts the scripts and where this looks.
+- **`docker rm -f <name>` before `docker run --name <name>`** — the destructive
+  act, and the sharpest of the brief's three sub-rules. It is deliberately **not
+  checked here**, and the reason is structural rather than an oversight: the
+  PASS control for this check is B5's kit with its assignments rewritten to
+  `:=`, and that kit still contains its two `docker rm -f` lines. A check that
+  also refused those would refuse the control, which would mean this rule and
+  that one were being measured together and neither one isolated. It is a second
+  check, with its own control, and it is not written yet.
+
+Each of these is a **false negative**: the check does not report a kit that has
+the problem. There is no configuration under which it reports a kit that does
+not — the two conjuncts have to both hold, and the exemption is generous.
 
 ## Why exactly one packup directory
 
