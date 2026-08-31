@@ -48,6 +48,8 @@ async def main(args) -> None:
         tokenizer_path=tokenizer_path,
         kv_event_transport=args.kv_event_transport,
         nats_server=args.nats_server,
+        default_chat_template_kwargs=args.kv_default_chat_template_kwargs,
+        per_worker_template_kwargs=args.kv_per_worker_template_kwargs,
     )
     if args.router_policy == "kv-aware":
         logger.info(

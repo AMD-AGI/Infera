@@ -252,6 +252,18 @@ render_parity = Gauge(
     registry=REGISTRY,
 )
 
+render_variant = Gauge(
+    "infera_router_render_variant",
+    "The server-side --default-chat-template-kwargs the router read back from "
+    "this worker and hashes its requests under. Always 1; the label carries "
+    "the value. The number to watch is how many DISTINCT `variant` labels a "
+    "model exports: 1 means the fleet is uniform and a single router-side flag "
+    "would have been right, 2+ means it would not have been — and before this "
+    "existed the minority group's cache lookups all missed, silently.",
+    labelnames=("worker_id", "variant"),
+    registry=REGISTRY,
+)
+
 render_parity_diverged_total = Counter(
     "infera_router_render_parity_diverged_total",
     "Workers that failed the startup render-parity check, by model. Unlike the "

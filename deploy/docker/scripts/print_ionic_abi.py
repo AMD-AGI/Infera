@@ -84,10 +84,7 @@ def main():
             rc = 1
             continue
         print(f"LIBIONIC_ABI {so.rsplit('/', 1)[-1]} = {abi[0]}..{abi[1]}")
-    print(
-        "Check against the target node: "
-        "cat /sys/class/infiniband_verbs/uverbs<N>/abi_version"
-    )
+    print("Check against the target node: cat /sys/class/infiniband_verbs/uverbs<N>/abi_version")
     return rc
 
 

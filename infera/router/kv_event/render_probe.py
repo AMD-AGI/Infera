@@ -35,6 +35,7 @@ from dataclasses import dataclass
 
 from infera.common.worker_pool import EngineType, WorkerInfo
 from infera.router.kv_event.block_hasher import BlockHasher
+from infera.router.kv_event.render_variant import EMPTY_VARIANT, RenderVariant, VariantRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +123,40 @@ class ProbeResult:
     detail: str
 
 
+async def engine_render_variant(client, worker: WorkerInfo) -> RenderVariant | None:
+    """What the worker says it was launched with.
+
+    ``--default-chat-template-kwargs`` is merged into every request *before* the
+    template runs and is invisible from everywhere else the router looks, so
+    this endpoint is the only way to know a worker renders a different preamble
+    than we do. ``None`` means we could not ask -- older engine, non-sglang,
+    unreachable -- which is not the same as "it has none", so the caller keeps
+    its existing assumption rather than recording an empty variant.
+    """
+    for path in ("/get_server_info", "/v1/server_info"):
+        try:
+            resp = await client.get(f"{worker.url}{path}")
+        except Exception as exc:  # noqa: BLE001 - a probe must never break startup
+            logger.debug("render probe: %s%s unreachable: %s", worker.url, path, exc)
+            return None
+        if resp.status_code == 404:
+            continue
+        if resp.status_code != 200:
+            return None
+        try:
+            parsed = resp.json()
+        except Exception:  # noqa: BLE001
+            return None
+        if not isinstance(parsed, dict):
+            return None
+        # sglang has served this both flat and nested under `server_args`.
+        field = parsed.get("default_chat_template_kwargs")
+        if field is None and isinstance(parsed.get("server_args"), dict):
+            field = parsed["server_args"].get("default_chat_template_kwargs")
+        return RenderVariant.from_default_chat_template_kwargs(field)
+    return None
+
+
 async def probe_worker(
     hasher: BlockHasher,
     worker: WorkerInfo,
@@ -129,12 +164,22 @@ async def probe_worker(
     timeout: float = 10.0,
     bodies: dict[str, dict] | None = None,
     client=None,
+    variant: RenderVariant | None = None,
 ) -> ProbeResult:
+    """Compare our render against the worker's for every probe body.
+
+    ``variant`` is the server-side template default this worker was found to
+    render with; the probe applies it exactly as the policy will, so a pass here
+    means the policy's hashes are the worker's hashes -- and a mistake in
+    modelling the variant shows up as a reported divergence rather than as a hit
+    rate nobody is watching.
+    """
     import contextlib
 
     import httpx
 
     bodies = bodies if bodies is not None else PROBE_BODIES
+    variant = variant if variant is not None else EMPTY_VARIANT
     unknown: list[str] = []
     mismatches: list[str] = []
     # An injected client is the caller's to close.
@@ -145,7 +190,7 @@ async def probe_worker(
         async with client if owned else contextlib.nullcontext(client):
             for name, template in bodies.items():
                 body = {**template, "model": worker.model_name}
-                ours = hasher.token_ids_for(body, engine=worker.engine)
+                ours = hasher.token_ids_for(variant.apply(body), engine=worker.engine)
                 if ours is None:
                     # Not a divergence: the router already knows it cannot
                     # reproduce this body and routes it on load. Silent
@@ -216,7 +261,13 @@ def _describe(name: str, ours: list[int], theirs: list[int]) -> str:
     )
 
 
-def spawn_probe(hasher: BlockHasher, worker: WorkerInfo, *, report) -> None:
+def spawn_probe(
+    hasher: BlockHasher,
+    worker: WorkerInfo,
+    *,
+    report,
+    variants: VariantRegistry | None = None,
+) -> None:
     """Fire-and-forget `probe_worker`, if there is a loop to fire it on.
 
     Called from the registry's synchronous worker-added hook. Outside a running
@@ -233,7 +284,19 @@ def spawn_probe(hasher: BlockHasher, worker: WorkerInfo, *, report) -> None:
         return
 
     async def _run() -> None:
-        result = await probe_worker(hasher, worker)
+        import httpx
+
+        variant = None
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            # Ask what it renders with BEFORE checking whether we agree, so the
+            # verdict is about the render we will actually route on.
+            if variants is not None and variants.per_worker_enabled:
+                variant = await engine_render_variant(client, worker)
+                if variant is not None:
+                    variants.record(worker.worker_id, variant)
+            if variant is None and variants is not None:
+                variant = variants.for_worker(worker.worker_id)
+            result = await probe_worker(hasher, worker, client=client, variant=variant)
         report(worker, result)
 
     task = loop.create_task(_run())

@@ -142,5 +142,14 @@ def exec_rust(args: argparse.Namespace) -> None:
             argv += ["--kv-prefill-overlap-weight", str(args.kv_prefill_overlap_weight)]
         if args.kv_decode_overlap_weight is not None:
             argv += ["--kv-decode-overlap-weight", str(args.kv_decode_overlap_weight)]
+        if args.kv_default_chat_template_kwargs:
+            argv += [
+                "--kv-default-chat-template-kwargs",
+                args.kv_default_chat_template_kwargs,
+            ]
+        argv += [
+            "--kv-per-worker-template-kwargs",
+            "true" if args.kv_per_worker_template_kwargs else "false",
+        ]
     print(f"[infera] --router-backend rust: exec {binary}", flush=True)
     os.execvp(binary, argv)

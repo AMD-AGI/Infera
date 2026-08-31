@@ -1994,6 +1994,86 @@ mod tests {
         );
     }
 
+    /// A server-side `--default-chat-template-kwargs` must reach the render.
+    ///
+    /// This is the divergence that hid the longest: the engine merges those
+    /// kwargs into every request before the template runs, and nothing the
+    /// router can see says so. `RenderVariant` models that merge, and the only
+    /// honest check of the model is that a body carrying the value explicitly
+    /// and a body given the same value by the variant render to the same
+    /// bytes -- which is exactly what the engine guarantees, because its merge
+    /// is a `setdefault` into the very dict the template reads.
+    ///
+    /// The corpus already holds both halves: `reasoning_effort_low.json` is
+    /// `plain` plus an explicit `"reasoning_effort": "low"`, and its golden
+    /// came from the engine. So strip the field, hand it back as a variant,
+    /// and the golden must still be what comes out.
+    #[test]
+    fn a_render_variant_stands_in_for_an_explicit_field() {
+        let Ok(spec) = std::env::var("INFERA_TEST_RENDER_PARITY") else {
+            eprintln!("skip: set INFERA_TEST_RENDER_PARITY=name=/path[,...]");
+            return;
+        };
+        let root = parity_root();
+        let body: Value = serde_json::from_str(
+            &std::fs::read_to_string(root.join("bodies/reasoning_effort_low.json")).unwrap(),
+        )
+        .unwrap();
+        let effort = body.get("reasoning_effort").cloned().expect(
+            "reasoning_effort_low.json is the fixture this test is built on; if it no longer \
+             carries reasoning_effort, point the test at whichever body does",
+        );
+        let mut stripped = body.clone();
+        stripped.as_object_mut().unwrap().remove("reasoning_effort");
+
+        let variant = crate::render_variant::RenderVariant::from_default_chat_template_kwargs(
+            Some(&json!({"reasoning_effort": effort})),
+        );
+        assert_ne!(variant.id(), 0, "a non-empty variant must have a live id");
+
+        let mut compared = 0usize;
+        let mut failures = Vec::new();
+        for entry in spec.split(',').filter(|s| !s.trim().is_empty()) {
+            let (name, dir) = entry.split_once('=').expect("name=/path");
+            let (name, dir) = (name.trim(), dir.trim());
+            let golden_path = root
+                .join("goldens")
+                .join(name)
+                .join("reasoning_effort_low.txt");
+            let Ok(golden) = std::fs::read_to_string(&golden_path) else {
+                continue;
+            };
+            if golden.starts_with(RENDER_ERROR) {
+                continue;
+            }
+            let h = BlockHasher::load(dir);
+            assert!(h.is_enabled(), "{name}: no tokenizer at {dir}");
+            compared += 1;
+            match h.render_text_str(&variant.apply(&stripped)) {
+                None => failures.push(format!(
+                    "{name}: the router rendered nothing for a body whose only \
+                     reasoning_effort comes from the variant"
+                )),
+                Some(text) if text != golden => failures.push(format!(
+                    "{name}: {}. The variant is how the router models the engine's \
+                     --default-chat-template-kwargs merge; if the two disagree, every \
+                     worker launched with that flag misses on every block.",
+                    first_difference(&text, &golden)
+                )),
+                Some(_) => {}
+            }
+        }
+        assert!(
+            compared > 0,
+            "INFERA_TEST_RENDER_PARITY named no usable model"
+        );
+        assert!(
+            failures.is_empty(),
+            "variant render:\n  {}",
+            failures.join("\n  ")
+        );
+    }
+
     /// Byte offset of the first divergence plus a window either side. A whole-
     /// prompt diff is unreadable and buries the one thing that matters: how far
     /// in the prefix survived, since everything after it is lost anyway.

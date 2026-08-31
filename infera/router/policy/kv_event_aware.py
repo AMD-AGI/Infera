@@ -18,6 +18,7 @@ from infera.router.cache_control import (
 from infera.router.kv_event.block_hasher import BlockHasher
 from infera.router.kv_event.client import KvEventClient
 from infera.router.kv_event.render_probe import ProbeResult, spawn_probe
+from infera.router.kv_event.render_variant import VariantRegistry
 from infera.router.policy.base import Policy
 from infera.router.policy.target import RouteTarget, expand_targets
 from infera.server import metrics
@@ -127,9 +128,14 @@ class KvEventAwarePolicy(Policy):
         overlap_weight: float = 1.0,
         prefill_overlap_weight: float | None = None,
         decode_overlap_weight: float | None = None,
+        variants: VariantRegistry | None = None,
     ) -> None:
         self._kv = kv_client
         self._hasher = block_hasher
+        # What each worker's engine merges into every render before the
+        # template runs. Empty by default, which is exactly the behaviour that
+        # predates it: no merge, hash the body as the client sent it.
+        self._variants = variants or VariantRegistry()
         self._w = overlap_weight
         # If unset, fall back to the global overlap_weight so a policy
         # built without PD knobs keeps acting like before.
@@ -191,16 +197,36 @@ class KvEventAwarePolicy(Policy):
         # per DP rank so we can score and steer each rank's cache separately.
         targets = expand_targets(candidates)
 
-        # Hash once per distinct (engine, block_size): different engines can
-        # tokenize the same model differently (fast vs slow), so the query
-        # hashes must be computed with the engine's own tokenizer to match the
-        # ids it reports in kv-events. Typically there's just one (engine, bs).
-        keys = {
-            (t.worker.engine, t.worker.kv_block_size) for t in targets if t.worker.kv_block_size
+        # Hash once per distinct (engine, block_size, variant): each of the
+        # three changes the ids the engine will report in its kv-events, so a
+        # query hashed under the wrong one matches nothing.
+        #
+        #   engine      -- different engines tokenize the same model
+        #                  differently (fast vs slow tokenizer).
+        #   block_size  -- the blocking itself.
+        #   variant     -- the server-side --default-chat-template-kwargs this
+        #                  worker was launched with, merged into the body
+        #                  before the template runs. See render_variant: the
+        #                  router is never told about it, and a fleet that is
+        #                  uniform (the normal case) still yields exactly one
+        #                  key here and hashes exactly once.
+        variant_of = {t.route_key: self._variants.for_worker(t.worker.worker_id) for t in targets}
+        key_of: dict[str, tuple] = {
+            t.route_key: (t.worker.engine, t.worker.kv_block_size, variant_of[t.route_key].id)
+            for t in targets
+            if t.worker.kv_block_size
         }
-        hashes_for: dict[tuple, list[int]] = {
-            k: self._hasher.hash_for(request, block_size=k[1], engine=k[0]) for k in keys
-        }
+        hashes_for: dict[tuple, list[int]] = {}
+        for t in targets:
+            k = key_of.get(t.route_key)
+            if k is None or k in hashes_for:
+                continue
+            hashes_for[k] = self._hasher.hash_for(
+                variant_of[t.route_key].apply(request), block_size=k[1], engine=k[0]
+            )
+
+        def blocks(t: RouteTarget) -> list[int]:
+            return hashes_for.get(key_of.get(t.route_key), [])
 
         # Cache-control hints from the request body (Anthropic / OpenAI).
         # Server may have parsed these already and attached the result;
@@ -238,25 +264,30 @@ class KvEventAwarePolicy(Policy):
             return active(t) + self._recent_blocks.get(t.route_key, 0.0)
 
         def cost(t: RouteTarget) -> float:
-            total = len(hashes_for.get((t.worker.engine, t.worker.kv_block_size), []))
-            hits = self._cache_hits(t, hashes_for)
+            hits = self._cache_hits(t, blocks(t))
             # Image miss term: images this worker does NOT already hold cost
             # w_mm each; the worker with the warm vision cache pays 0 → wins.
             mm_miss = len(mm_keys) - self._mm_hits(t.route_key, mm_keys)
-            return w_overlap * (total - hits) + w_mm * mm_miss + load(t)
+            # Credit hits rather than charging misses. The two used to be the
+            # same ranking -- `w*(total - hits)` differs from `-w*hits` by
+            # `w*total`, a constant that cancels in a min() as long as every
+            # candidate has the same `total`. Variants break that premise: two
+            # workers rendering different preambles produce block lists of
+            # different lengths, and charging misses would then penalise the
+            # worker whose preamble is merely longer, independently of what it
+            # actually holds. Crediting hits scores only the cache.
+            return -w_overlap * hits + w_mm * mm_miss + load(t)
 
         # Tie-break by lower load so equal-cost candidates fall back to
         # least-loaded.
         picked = min(targets, key=lambda t: (cost(t), load(t)))
-        picked_blocks = list(
-            hashes_for.get((picked.worker.engine, picked.worker.kv_block_size), [])
-        )
+        picked_blocks = list(blocks(picked))
         # Mark the chosen worker as now holding this request's images, so the
         # next request for the same image is drawn back to its warm cache.
         mm_affinity_hits = self._mm_hits(picked.route_key, mm_keys)
         self._record_mm(picked.route_key, mm_keys)
 
-        cache_hits = self._cache_hits(picked, hashes_for)
+        cache_hits = self._cache_hits(picked, picked_blocks)
         # Charge the winner for the blocks it will have to compute. Done here
         # rather than in on_request_started because the hooks run on the
         # dispatch path, which skips them on the failure routes -- and a pick
@@ -307,7 +338,9 @@ class KvEventAwarePolicy(Policy):
         if worker.worker_id in self._parity_labels or worker.worker_id in self._parity_pending:
             return
         self._parity_pending.add(worker.worker_id)
-        spawn_probe(self._hasher, worker, report=self._report_render_parity)
+        spawn_probe(
+            self._hasher, worker, report=self._report_render_parity, variants=self._variants
+        )
 
     def _report_render_parity(self, worker: WorkerInfo, result: ProbeResult) -> None:
         if worker.worker_id not in self._parity_pending:
@@ -348,12 +381,26 @@ class KvEventAwarePolicy(Policy):
                 result.detail,
             )
         self._parity_labels[worker.worker_id] = worker.model_name
+        # The variant the probe read back and judged parity under. Labelled by
+        # worker, but the number worth alerting on is how many DISTINCT labels
+        # the fleet exports: 1 means a single fleet-wide flag would have done,
+        # 2+ means it could not have been right for everyone.
+        metrics.render_variant.labels(
+            worker_id=worker.worker_id,
+            variant=self._variants.for_worker(worker.worker_id).label(),
+        ).set(1)
         metrics.render_parity.labels(worker_id=worker.worker_id, model=worker.model_name).set(
             {True: 1, False: 0, None: -1}[result.ok]
         )
 
     def on_worker_removed(self, worker_id: str) -> None:
         self._kv.on_worker_removed(worker_id)
+        # A variant that outlives its worker keeps a hash-cache key alive for
+        # something that is not running, and keeps its gauge exported. Read the
+        # label before dropping it -- it is the gauge's own label value, and
+        # there is no other way back to it once forgotten.
+        variant_label = self._variants.for_worker(worker_id).label()
+        self._variants.retain(lambda wid: wid != worker_id)
         # Drop the worker's own key plus any per-rank keys ("<id>#dpN").
         prefix = f"{worker_id}#dp"
         for key in [k for k in self._active_block_refs if k == worker_id or k.startswith(prefix)]:
@@ -381,6 +428,10 @@ class KvEventAwarePolicy(Policy):
         if model is not None:
             try:
                 metrics.render_parity.remove(worker_id, model)
+            except KeyError:
+                pass
+            try:
+                metrics.render_variant.remove(worker_id, variant_label)
             except KeyError:
                 pass
 
@@ -483,10 +534,9 @@ class KvEventAwarePolicy(Policy):
         while len(aff) > _MM_AFFINITY_CAP:
             aff.popitem(last=False)
 
-    def _cache_hits(self, t: RouteTarget, hashes_for: dict[tuple, list[int]]) -> int:
+    def _cache_hits(self, t: RouteTarget, request_hashes: list[int]) -> int:
         if not t.worker.kv_block_size:
             return 0
-        request_hashes = hashes_for.get((t.worker.engine, t.worker.kv_block_size), [])
         if not request_hashes:
             return 0
         view = self._kv.cache_view(t.worker.worker_id, t.dp_rank)

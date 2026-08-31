@@ -145,6 +145,27 @@ async fn metrics(State(st): State<AppState>) -> impl IntoResponse {
             escape_label_value(&model),
         ));
     }
+    // The server-side template defaults each worker reported. Watch the number
+    // of DISTINCT variant labels before trusting any of this: 1 means the fleet
+    // is uniform and a single --kv-default-chat-template-kwargs would have been
+    // enough; 2 or more means it would not, and the per-worker tier is load
+    // bearing. A worker missing from here is one the router could not ask, and
+    // is being hashed with the router's own default.
+    let variants = st.policy.render_variants();
+    if !variants.is_empty() {
+        out.push_str(
+            "# HELP infera_router_render_variant the --default-chat-template-kwargs this \
+                 worker reported, which the router renders its requests with\n\
+             # TYPE infera_router_render_variant gauge\n",
+        );
+        for (worker_id, label) in variants {
+            out.push_str(&format!(
+                "infera_router_render_variant{{worker_id=\"{}\",variant=\"{}\"}} 1\n",
+                escape_label_value(&worker_id),
+                escape_label_value(&label),
+            ));
+        }
+    }
     out
 }
 

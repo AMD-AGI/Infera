@@ -34,6 +34,7 @@ use serde_json::{json, Value};
 
 use crate::block_hasher::BlockHasher;
 use crate::pool::Worker;
+use crate::render_variant::{RenderVariant, VariantRegistry};
 
 /// Deliberately tiny, and deliberately not the unit-test corpus: this runs
 /// against production workers at registration, so it must cost the engine
@@ -200,11 +201,54 @@ impl ParityRegistry {
     }
 }
 
+/// What the worker says it was launched with.
+///
+/// `--default-chat-template-kwargs` is merged into every request *before* the
+/// template runs and is invisible from everywhere else the router looks, so
+/// this endpoint is the only way to know a worker renders a different preamble
+/// than we do. `None` means we could not ask -- older engine, non-sglang,
+/// unreachable -- which is not the same as "it has none", so the caller keeps
+/// its existing assumption rather than recording an empty variant.
+pub async fn engine_render_variant(
+    client: &reqwest::Client,
+    base_url: &str,
+) -> Option<RenderVariant> {
+    for path in ["/get_server_info", "/v1/server_info"] {
+        let resp = match client.get(format!("{base_url}{path}")).send().await {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::debug!(url = %base_url, path, err = %e, "render probe: server info unreachable");
+                return None;
+            }
+        };
+        if resp.status() == reqwest::StatusCode::NOT_FOUND {
+            continue;
+        }
+        if !resp.status().is_success() {
+            return None;
+        }
+        let parsed: Value = resp.json().await.ok()?;
+        // sglang has served this both flat and nested under `server_args`.
+        let field = parsed
+            .get("default_chat_template_kwargs")
+            .or_else(|| parsed.pointer("/server_args/default_chat_template_kwargs"));
+        return Some(RenderVariant::from_default_chat_template_kwargs(field));
+    }
+    None
+}
+
 /// Compare our render against the worker's for every probe body.
+///
+/// `variant` is the server-side template default this worker was found to
+/// render with; the probe applies it exactly as the policy will, so a
+/// `Confirmed` here means the policy's hashes are the worker's hashes -- and a
+/// mistake in modelling the variant shows up as `Diverged` rather than as a
+/// hit rate nobody is watching.
 pub async fn probe_worker(
     hasher: &BlockHasher,
     client: &reqwest::Client,
     worker: &Worker,
+    variant: &RenderVariant,
 ) -> (Parity, String) {
     let bodies = probe_bodies();
     let mut unknown: Vec<String> = Vec::new();
@@ -213,7 +257,7 @@ pub async fn probe_worker(
     for (name, template) in &bodies {
         let mut body = template.clone();
         body["model"] = json!(worker.model_name);
-        let Some(ours) = hasher.token_ids_for(&body) else {
+        let Some(ours) = hasher.token_ids_for(&variant.apply(&body)) else {
             // Not a divergence: the router already knows it cannot reproduce
             // this body and routes it on load. Silent WRONGNESS is the thing
             // this probe exists to find.
@@ -317,6 +361,7 @@ fn describe(name: &str, ours: &[u32], theirs: &[u32]) -> String {
 pub fn spawn_probes(
     hasher: Arc<BlockHasher>,
     registry: Arc<ParityRegistry>,
+    variants: Arc<VariantRegistry>,
     workers: &[Arc<Worker>],
 ) {
     if !hasher.is_enabled() || tokio::runtime::Handle::try_current().is_err() {
@@ -346,22 +391,39 @@ pub fn spawn_probes(
             }
         };
         for w in todo {
-            let (verdict, detail) = probe_worker(&hasher, &client, &w).await;
+            // Ask what it renders with BEFORE checking whether we agree, so the
+            // parity verdict is about the render we will actually route on.
+            let variant = if variants.per_worker_enabled() {
+                match engine_render_variant(&client, &w.url).await {
+                    Some(v) => {
+                        variants.record(&w.worker_id, v.clone());
+                        Arc::new(v)
+                    }
+                    None => variants.for_worker(&w.worker_id),
+                }
+            } else {
+                variants.for_worker(&w.worker_id)
+            };
+            let (verdict, detail) = probe_worker(&hasher, &client, &w, &variant).await;
             match verdict {
                 Parity::Diverged => tracing::error!(
-                    worker = %w.worker_id, model = %w.model_name, detail,
+                    worker = %w.worker_id, model = %w.model_name,
+                    variant = %variant.label(), detail,
                     "kv-aware: this worker does NOT render prompts the way the router does, so \
                      cache lookups for it will always miss and it will be routed on load only. \
-                     Most likely causes: the engine was started with \
-                     --default-chat-template-kwargs (the router is never told), or its model \
-                     directory has a different chat template than --tokenizer-path"
+                     The `variant` field is the server-side --default-chat-template-kwargs the \
+                     router read back and already accounted for, so the remaining cause is \
+                     something it cannot read: most likely this worker's model directory has a \
+                     different chat template than --kv-tokenizer-path, or it was started with \
+                     --chat-template"
                 ),
                 Parity::Unknown => tracing::info!(
                     worker = %w.worker_id, model = %w.model_name, detail,
                     "kv-aware: could not verify prompt rendering against this worker"
                 ),
                 Parity::Confirmed => tracing::info!(
-                    worker = %w.worker_id, model = %w.model_name, detail,
+                    worker = %w.worker_id, model = %w.model_name,
+                    variant = %variant.label(), detail,
                     "kv-aware: render verified against this worker"
                 ),
             }

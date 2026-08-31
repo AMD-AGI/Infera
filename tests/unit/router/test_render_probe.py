@@ -13,11 +13,18 @@ which looks exactly like a cold cache.
 
 from __future__ import annotations
 
+import json
+
 import httpx
 import pytest
 
 from infera.common.worker_pool import EngineType, WorkerInfo
-from infera.router.kv_event.render_probe import PROBE_BODIES, probe_worker
+from infera.router.kv_event.render_probe import (
+    PROBE_BODIES,
+    engine_render_variant,
+    probe_worker,
+)
+from infera.router.kv_event.render_variant import RenderVariant
 
 _BODIES = {"plain": {"messages": [{"role": "user", "content": "hi"}]}}
 
@@ -173,4 +180,64 @@ async def test_one_bad_body_among_good_ones_still_fails():
     got = await probe_worker(_PerBody(), _worker(), bodies=PROBE_BODIES, client=client)
     assert got.ok is False
     assert "tools" in got.detail and "tool_call" in got.detail
+    await client.aclose()
+
+
+# ----------------------------------------------------------------------
+# The server-side template defaults
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_the_variant_is_applied_to_what_we_render_but_not_to_what_we_ask():
+    """The engine merges its defaults itself; sending them back would hide a
+    divergence by making the request agree with the router's guess."""
+    hasher = _Hasher([1])
+    sent: list[dict] = []
+
+    def handler(request):
+        sent.append(json.loads(request.content))
+        return httpx.Response(200, json={"tokens": [1]})
+
+    client = _client(handler)
+    variant = RenderVariant.from_default_chat_template_kwargs({"reasoning_effort": "high"})
+    got = await probe_worker(hasher, _worker(), bodies=_BODIES, client=client, variant=variant)
+    assert got.ok is True
+    assert hasher.seen[0]["reasoning_effort"] == "high"
+    assert "reasoning_effort" not in sent[0]
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"default_chat_template_kwargs": {"reasoning_effort": "high"}},
+        {"server_args": {"default_chat_template_kwargs": {"reasoning_effort": "high"}}},
+    ],
+    ids=["flat", "nested"],
+)
+async def test_server_info_is_read_flat_or_under_server_args(payload):
+    # sglang has served this both ways across the versions we run.
+    client = _client(lambda r: httpx.Response(200, json=payload))
+    got = await engine_render_variant(client, _worker())
+    assert got is not None and got.label() == 'reasoning_effort="high"'
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_a_worker_that_cannot_be_asked_is_none_not_empty():
+    """`None` keeps the router's existing assumption; an empty variant would
+    silently overwrite a correct --kv-default-chat-template-kwargs with
+    "this worker has none"."""
+    client = _client(lambda r: httpx.Response(404))
+    assert await engine_render_variant(client, _worker()) is None
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_a_worker_with_no_defaults_reports_the_empty_variant():
+    client = _client(lambda r: httpx.Response(200, json={"server_args": {"tp_size": 8}}))
+    got = await engine_render_variant(client, _worker())
+    assert got is not None and got.is_empty()
     await client.aclose()

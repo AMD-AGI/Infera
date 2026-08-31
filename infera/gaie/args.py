@@ -82,4 +82,11 @@ def parse_epp_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--kv-overlap-weight", type=float, default=1.0)
     parser.add_argument("--kv-prefill-overlap-weight", type=float, default=None)
     parser.add_argument("--kv-decode-overlap-weight", type=float, default=None)
+    # See infera/server/args.py for why these two exist; same semantics.
+    parser.add_argument("--kv-default-chat-template-kwargs", default=None)
+    parser.add_argument(
+        "--kv-per-worker-template-kwargs",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+    )
     return parser.parse_args(argv)

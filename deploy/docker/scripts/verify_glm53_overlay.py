@@ -15,6 +15,7 @@ contract STATICALLY (module present, class defined, exported via EntryClass,
 compiles), and only then attempt the real import, treating a GPU-absence error
 as a pass.
 """
+
 import ast
 import importlib
 import pathlib
@@ -88,8 +89,10 @@ def fail(msg):
 
 def main():
     if not SRC.is_file():
-        fail(f"{SRC} is absent -- the overlay did not land, or a later layer "
-             f"reinstalled sglang over it")
+        fail(
+            f"{SRC} is absent -- the overlay did not land, or a later layer "
+            f"reinstalled sglang over it"
+        )
 
     text = SRC.read_text()
     try:
@@ -99,24 +102,27 @@ def main():
 
     classes = {n.name for n in tree.body if isinstance(n, ast.ClassDef)}
     if CLASS not in classes:
-        fail(f"{SRC} defines no `class {CLASS}` (found {len(classes)} classes) "
-             f"-- wrong commit checked out?")
+        fail(
+            f"{SRC} defines no `class {CLASS}` (found {len(classes)} classes) "
+            f"-- wrong commit checked out?"
+        )
 
     if "EntryClass" not in text:
-        fail(f"{SRC} has no EntryClass export; sglang's loader would never "
-             f"reach {CLASS}")
+        fail(f"{SRC} has no EntryClass export; sglang's loader would never reach {CLASS}")
 
-    compile(text, str(SRC), "exec")   # bytecode-level, not just AST
+    compile(text, str(SRC), "exec")  # bytecode-level, not just AST
     print(f"[verify-glm53-overlay] static: {CLASS} defined and exported in {SRC}")
 
     # Best effort. A GPU-absence error on the builder is expected and passes.
     try:
         mod = importlib.import_module(MODULE)
-    except Exception as e:                       # noqa: BLE001 - see GPU_ABSENCE
+    except Exception as e:  # noqa: BLE001 - see GPU_ABSENCE
         blob = f"{type(e).__name__}: {e}"
         if _is_gpu_absence(e):
-            print(f"[verify-glm53-overlay] import skipped, builder has no GPU "
-                  f"({blob.splitlines()[0][:120]})")
+            print(
+                f"[verify-glm53-overlay] import skipped, builder has no GPU "
+                f"({blob.splitlines()[0][:120]})"
+            )
             return
         fail(f"importing {MODULE} raised {blob}")
 

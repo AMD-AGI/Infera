@@ -59,6 +59,15 @@ pub trait Policy: Send + Sync {
     fn render_parity(&self) -> Vec<(String, String, i8)> {
         Vec::new()
     }
+
+    /// `(worker_id, variant label)` for the server-side template defaults each
+    /// worker reported. Exported so the fleet's variant *distribution* is
+    /// visible before anyone trusts it: a fleet reporting one variant never
+    /// needed the per-worker tier, and a fleet reporting two is one that a
+    /// single router-wide flag could not have been right for.
+    fn render_variants(&self) -> Vec<(String, String)> {
+        Vec::new()
+    }
 }
 
 /// RAII load guard: `start` fires `on_request_started`; `Drop` fires
@@ -193,7 +202,7 @@ const ZERO_HIT_ALARM: u64 = 64;
 const ZERO_HIT_ALARM_REPEAT: u64 = 1024;
 
 /// Pick the worker minimising
-///   `cost(w) = w_overlap * (request_blocks - hits(w)) + load(w)`
+///   `cost(w) = -w_overlap * hits(w) + load(w)`
 ///   `load(w) = active_blocks(w) + recent_blocks(w)`
 /// where `hits(w)` is the longest cached prefix on that worker's DP rank,
 /// `active_blocks(w)` is the refcounted set of distinct in-flight block hashes,
@@ -206,6 +215,11 @@ pub struct KvEventAwarePolicy {
     /// `crate::render_probe`. Exported on /metrics; the router never routes on
     /// it, because a worker whose render we cannot match is still a worker.
     parity: Arc<crate::render_probe::ParityRegistry>,
+    /// Which server-side template defaults each worker renders with. Requests
+    /// are hashed once per *variant*, not once per worker: a fleet launched
+    /// from one workload has one variant and renders exactly as often as it did
+    /// before this existed.
+    variants: Arc<crate::render_variant::VariantRegistry>,
     w: f64,
     w_prefill: f64,
     w_decode: f64,
@@ -239,6 +253,7 @@ impl KvEventAwarePolicy {
             kv,
             hasher: Arc::new(hasher),
             parity: Arc::new(Default::default()),
+            variants: Arc::new(Default::default()),
             w: overlap_weight,
             w_prefill: prefill_overlap_weight.unwrap_or(overlap_weight),
             w_decode: decode_overlap_weight.unwrap_or(overlap_weight),
@@ -255,6 +270,14 @@ impl KvEventAwarePolicy {
     /// argument: every existing caller wants the observational default.
     pub fn with_self_heal(mut self, tx: crate::kv_selfheal::FlushRequests) -> Self {
         self.flush_tx = Some(tx);
+        self
+    }
+
+    /// The server-side template defaults to render with. Builder for the same
+    /// reason as `with_self_heal`: every existing caller wants the empty
+    /// variant, which is what the router has always assumed.
+    pub fn with_variants(mut self, variants: crate::render_variant::VariantRegistry) -> Self {
+        self.variants = Arc::new(variants);
         self
     }
 
@@ -453,16 +476,36 @@ impl Policy for KvEventAwarePolicy {
         // Fan out rank-multiplexed workers so each DP rank is scored separately.
         let targets = expand_targets(candidates);
 
-        // Hash the request once per distinct block_size (one model => usually one).
-        let mut hashes_for: HashMap<i64, Vec<u64>> = HashMap::new();
+        // Hash the request once per distinct (block_size, render variant).
+        //
+        // Both halves are usually 1. A model has one page size, and a fleet
+        // launched from one workload has one set of server-side template
+        // defaults -- so this is one render, as it always was. The key exists
+        // for the fleet that is NOT uniform, where a single hash cannot be
+        // right for every candidate: the worker holding
+        // `--default-chat-template-kwargs` renders a different preamble, so its
+        // blocks are different blocks, and asking its KV view about ours is
+        // asking the wrong question.
+        //
+        // Deliberately not keyed on `engine`, unlike the Python router's: there
+        // the engine selects which tokenizer loader runs, here there is one.
+        // Adding it would key a dimension this hasher does not vary on and
+        // render the same prompt twice.
+        let mut hashes_for: HashMap<(i64, u64), Vec<u64>> = HashMap::new();
+        let mut key_of: Vec<Option<(i64, u64)>> = Vec::with_capacity(targets.len());
         for t in &targets {
-            if let Some(bs) = t.worker.kv_block_size {
-                if bs > 0 {
-                    hashes_for
-                        .entry(bs)
-                        .or_insert_with(|| self.hasher.hash_for(request, bs as usize));
+            let key = match t.worker.kv_block_size {
+                Some(bs) if bs > 0 => {
+                    let variant = self.variants.for_worker(&t.worker.worker_id);
+                    let key = (bs, variant.id());
+                    hashes_for.entry(key).or_insert_with(|| {
+                        self.hasher.hash_for(&variant.apply(request), bs as usize)
+                    });
+                    Some(key)
                 }
-            }
+                _ => None,
+            };
+            key_of.push(key);
         }
 
         let hints = parse_cache_hints(request);
@@ -481,48 +524,58 @@ impl Policy for KvEventAwarePolicy {
         let w_mm = base_weight * MM_IMAGE_BLOCK_WEIGHT;
 
         let empty: Vec<u64> = Vec::new();
-        let blocks_of = |t: &RouteTarget| -> &Vec<u64> {
-            t.worker
-                .kv_block_size
-                .and_then(|bs| hashes_for.get(&bs))
+        // By target position, not by worker: two targets can now want different
+        // blocks for the same request, so there is nothing on the worker alone
+        // to look them up by.
+        let blocks_at = |i: usize| -> &Vec<u64> {
+            key_of[i]
+                .as_ref()
+                .and_then(|k| hashes_for.get(k))
                 .unwrap_or(&empty)
         };
-        let hits_of = |t: &RouteTarget| -> usize {
+        let hits_at = |i: usize| -> usize {
+            let t = &targets[i];
             self.kv
-                .prefix_hits(&t.worker.worker_id, t.dp_rank, blocks_of(t))
+                .prefix_hits(&t.worker.worker_id, t.dp_rank, blocks_at(i))
         };
-        let cost_of = |t: &RouteTarget| -> f64 {
-            let total = blocks_of(t).len();
-            let hits = hits_of(t);
+        let cost_at = |i: usize| -> f64 {
+            let t = &targets[i];
+            let hits = hits_at(i);
             let route_key = t.route_key();
             // Image miss term: images this worker does NOT already hold cost w_mm
             // each; the worker with the warm vision cache pays 0 → wins the pick.
             let mm_miss = mm_keys
                 .len()
                 .saturating_sub(self.mm_hits(&route_key, &mm_keys));
-            w_overlap * (total.saturating_sub(hits) as f64)
-                + w_mm * (mm_miss as f64)
-                + self.load_of(&route_key)
+            // Credit hits rather than charging misses. The two are the same
+            // ranking whenever every candidate hashes to the same number of
+            // blocks -- `w_overlap * request_blocks` is then a constant added to
+            // every cost, and constants cancel in an argmin. They stop being the
+            // same once `blocks_of` can differ per target, which it does as soon
+            // as two workers render the prompt differently (a per-worker
+            // `--default-chat-template-kwargs`, say). Charging misses would then
+            // penalise the worker whose preamble is merely longer, by an amount
+            // that has nothing to do with what either one has cached.
+            -w_overlap * (hits as f64) + w_mm * (mm_miss as f64) + self.load_of(&route_key)
         };
 
         // min by (cost, load) — tie-break to least-loaded.
-        let picked = targets
-            .iter()
-            .min_by(|a, b| {
-                let (ca, cb) = (cost_of(a), cost_of(b));
+        let picked_i = (0..targets.len())
+            .min_by(|&a, &b| {
+                let (ca, cb) = (cost_at(a), cost_at(b));
                 ca.partial_cmp(&cb)
                     .unwrap_or(std::cmp::Ordering::Equal)
                     .then_with(|| {
-                        self.load_of(&a.route_key())
-                            .partial_cmp(&self.load_of(&b.route_key()))
+                        self.load_of(&targets[a].route_key())
+                            .partial_cmp(&self.load_of(&targets[b].route_key()))
                             .unwrap_or(std::cmp::Ordering::Equal)
                     })
             })
-            .expect("candidates non-empty")
-            .clone();
+            .expect("candidates non-empty");
+        let picked = targets[picked_i].clone();
 
-        let blocks = blocks_of(&picked).clone();
-        let hits = hits_of(&picked);
+        let blocks = blocks_at(picked_i).clone();
+        let hits = hits_at(picked_i);
         let picked_key = picked.route_key();
         // Charge the winner for the blocks it will have to compute. Done here
         // rather than in on_request_started because the hooks run on the
@@ -588,6 +641,10 @@ impl Policy for KvEventAwarePolicy {
         self.parity.snapshot()
     }
 
+    fn render_variants(&self) -> Vec<(String, String)> {
+        self.variants.snapshot()
+    }
+
     fn sync_workers(&self, active_workers: &[Arc<Worker>]) {
         self.kv.sync(active_workers);
         // Confirm, once per worker, that what we render is what it renders. A
@@ -596,6 +653,7 @@ impl Policy for KvEventAwarePolicy {
         crate::render_probe::spawn_probes(
             Arc::clone(&self.hasher),
             Arc::clone(&self.parity),
+            Arc::clone(&self.variants),
             active_workers,
         );
         // Prune load state for workers that left the fleet (route_key is
@@ -613,6 +671,7 @@ impl Policy for KvEventAwarePolicy {
             ids.contains(wid)
         };
         self.parity.retain(|wid| ids.contains(wid));
+        self.variants.retain(|wid| ids.contains(wid));
         self.active
             .lock()
             .expect("active mutex poisoned")

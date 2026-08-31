@@ -16,6 +16,7 @@ use axum::{routing::post, Json, Router};
 use infera_router::block_hasher::BlockHasher;
 use infera_router::pool::Worker;
 use infera_router::render_probe::{probe_worker, Parity, ParityRegistry};
+use infera_router::render_variant::RenderVariant;
 use serde_json::{json, Value};
 
 /// What the fake engine answers with.
@@ -127,7 +128,8 @@ async fn a_router_that_cannot_render_does_not_bother_the_engine() {
     // must not ask the engine a question whose answer it could not use.
     let h = hasher();
     let (w, f) = fake_worker(Engine::Agree, Arc::clone(&h)).await;
-    let (verdict, _) = probe_worker(&h, &reqwest::Client::new(), &w).await;
+    let (verdict, _) =
+        probe_worker(&h, &reqwest::Client::new(), &w, &RenderVariant::default()).await;
     assert_eq!(verdict, Parity::Unknown);
     assert!(f.paths.lock().unwrap().is_empty());
 }
@@ -149,7 +151,7 @@ async fn an_unreachable_worker_is_unknown_not_diverged() {
         .timeout(std::time::Duration::from_millis(300))
         .build()
         .unwrap();
-    let (verdict, _) = probe_worker(&h, &client, &Arc::new(w)).await;
+    let (verdict, _) = probe_worker(&h, &client, &Arc::new(w), &RenderVariant::default()).await;
     assert_eq!(verdict, Parity::Unknown);
 }
 
@@ -157,7 +159,8 @@ async fn an_unreachable_worker_is_unknown_not_diverged() {
 async fn agreement_is_confirmed() {
     let Some(h) = model_hasher() else { return };
     let (w, _) = fake_worker(Engine::Agree, Arc::clone(&h)).await;
-    let (verdict, detail) = probe_worker(&h, &reqwest::Client::new(), &w).await;
+    let (verdict, detail) =
+        probe_worker(&h, &reqwest::Client::new(), &w, &RenderVariant::default()).await;
     assert_eq!(verdict, Parity::Confirmed, "{detail}");
 }
 
@@ -170,7 +173,8 @@ async fn one_bad_body_among_good_ones_still_fails() {
     // (template/kwargs, every prompt affected) or deep in the conversation.
     let Some(h) = model_hasher() else { return };
     let (w, _) = fake_worker(Engine::Corrupt(3), Arc::clone(&h)).await;
-    let (verdict, detail) = probe_worker(&h, &reqwest::Client::new(), &w).await;
+    let (verdict, detail) =
+        probe_worker(&h, &reqwest::Client::new(), &w, &RenderVariant::default()).await;
     assert_eq!(verdict, Parity::Diverged, "{detail}");
     assert!(detail.contains("diverges at token 3"), "{detail}");
     assert!(detail.contains("tools"), "{detail}");
@@ -180,7 +184,8 @@ async fn one_bad_body_among_good_ones_still_fails() {
 async fn falls_back_to_the_unprefixed_alias() {
     let Some(h) = model_hasher() else { return };
     let (w, f) = fake_worker(Engine::OnlyAlias, Arc::clone(&h)).await;
-    let (verdict, detail) = probe_worker(&h, &reqwest::Client::new(), &w).await;
+    let (verdict, detail) =
+        probe_worker(&h, &reqwest::Client::new(), &w, &RenderVariant::default()).await;
     assert_eq!(verdict, Parity::Confirmed, "{detail}");
     assert_eq!(f.paths.lock().unwrap()[0], "/v1/tokenize");
     assert_eq!(f.paths.lock().unwrap()[1], "/tokenize");
@@ -190,7 +195,8 @@ async fn falls_back_to_the_unprefixed_alias() {
 async fn a_refusing_endpoint_is_unknown() {
     let Some(h) = model_hasher() else { return };
     let (w, _) = fake_worker(Engine::Refuse(500), Arc::clone(&h)).await;
-    let (verdict, _) = probe_worker(&h, &reqwest::Client::new(), &w).await;
+    let (verdict, _) =
+        probe_worker(&h, &reqwest::Client::new(), &w, &RenderVariant::default()).await;
     assert_eq!(verdict, Parity::Unknown);
 }
 
