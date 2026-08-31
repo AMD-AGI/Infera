@@ -1865,12 +1865,19 @@ mod tests {
     // health signal green -- GLM-5.3 sat that way for 17h at cache_hits=0 over
     // 5562 routing decisions before anyone looked.
     //
-    // Goldens come from `scripts/gen_render_goldens.py`, which renders the same
-    // bodies with `transformers` while *importing* sglang's own
-    // transformations. Adding a model is one command and no code:
+    // Goldens are recorded out of tree, by a generator that renders each body
+    // in `bodies/` with `transformers` while *importing* sglang's own
+    // pre-template transformations -- `Tool.model_dump()` for tools, the
+    // tool_choice narrowing, `normalize_assistant_tool_call_arguments`, the
+    // null-content rewrite -- and writes the text under `goldens/<name>/`.
+    // Reproducing that is the only prerequisite for adding a model; there is no
+    // per-model code on either side of the comparison. Then:
     //
-    //   python3 scripts/gen_render_goldens.py --model-dir /models/Foo --name foo
     //   INFERA_TEST_RENDER_PARITY=foo=/models/Foo cargo test -p infera-router
+    //
+    // Regenerate goldens only when a model's own `chat_template` changes. A
+    // diff here is the signal this test exists to produce, so never regenerate
+    // one to make a red test green without reading it first.
     //
     // Skips when the env var is unset, so CI without weights stays green; point
     // it at whatever model dirs a machine actually has.
@@ -1912,7 +1919,9 @@ mod tests {
             let golden_dir = root.join("goldens").join(name);
             assert!(
                 golden_dir.is_dir(),
-                "no goldens for {name:?}; run scripts/gen_render_goldens.py --model-dir {dir} --name {name}"
+                "no goldens for {name:?} at {}; they are recorded out of tree -- see the \
+                 module comment above for what the generator has to reproduce",
+                golden_dir.display()
             );
             let h = BlockHasher::load(dir);
             assert!(

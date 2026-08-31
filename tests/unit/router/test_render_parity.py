@@ -63,7 +63,8 @@ def test_render_parity(name: str, model_dir: str, body_path: pathlib.Path):
     golden_path = CORPUS / "goldens" / name / f"{body_path.stem}.txt"
     if not golden_path.exists():
         pytest.skip(
-            f"no golden; run scripts/gen_render_goldens.py --model-dir {model_dir} --name {name}"
+            f"no golden for {name} at {golden_path}; goldens are recorded out of tree "
+            "(see the comment above render_parity_matches_the_engine in block_hasher.rs)"
         )
     golden = golden_path.read_text()
     body = {"model": name, **json.loads(body_path.read_text())}
