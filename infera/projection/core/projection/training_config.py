@@ -287,9 +287,9 @@ class InferenceRequestConfig:
     # engine can keep cached instead of dropping, and a hit it holds is fetched
     # back over the host link rather than recomputed. ``0`` disables it.
     kv_offload_gb_per_gpu: float = 0.0
-    # Host<->device bandwidth for that tier. PCIe 5 x16 is ~64 GB/s; Grace-
-    # Blackwell's NVLink-C2C is ~900, which is what makes host offload cheap
-    # enough on GB300 to run by default.
+    # Host<->device bandwidth for that tier. PCIe 5 x16 is ~64 GB/s and is the
+    # default; a cache-coherent host link runs ~900, and on a part that has one
+    # the offload is cheap enough to leave on.
     kv_offload_bw_gbps: float = 64.0
 
     # ---- Precision ----
@@ -844,10 +844,10 @@ class DisaggregationConfig:
     decode_ep: Optional[int] = None
     # Per-pool attention-DP degree. ``None`` falls back to the shared
     # ``attention_data_parallel_size``. Real disaggregated deployments routinely
-    # differ here -- NVIDIA's GLM-5.2 GB300 configs run DP attention on prefill
-    # and plain TP attention on decode -- and a single global degree cannot
-    # express that, nor a TP4 prefill beside a TP16 decode that each want the
-    # full width. Each degree must divide its own pool's TP.
+    # differ here -- the measured GLM-5.2 deployments run DP attention on
+    # prefill and plain TP attention on decode -- and a single global degree
+    # cannot express that, nor a TP4 prefill beside a TP16 decode that each
+    # want the full width. Each degree must divide its own pool's TP.
     prefill_attention_dp: Optional[int] = None
     decode_attention_dp: Optional[int] = None
     # Number of replicas in each pool (for aggregate-throughput / GPU split).

@@ -489,7 +489,7 @@ def _add_inference_args(parser):
         type=float,
         default=None,
         help="Host<->device bandwidth for the KV offload tier in GB/s. "
-        "PCIe 5 x16 is ~64; Grace-Blackwell NVLink-C2C is ~900. Default: 64.",
+        "PCIe 5 x16 is ~64; a cache-coherent host link is ~900. Default: 64.",
     )
     # ---- Feature B: custom collective ops ----
     coll = parser.add_argument_group("inference collectives (feature B)")

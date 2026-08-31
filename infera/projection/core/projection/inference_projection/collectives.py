@@ -302,7 +302,7 @@ class InferenceCollectiveModel:
         # (``expert_tp = tp // ep``), not by the full TP width. At EP == TP a
         # rank holds whole experts, so the communicator is ``ep`` adjacent GPUs;
         # handing the collective model the TP width instead sizes the group at
-        # ``tp * ep`` and prices an intra-node NVLink collective at inter-node
+        # ``tp * ep`` and prices an intra-node fabric collective at inter-node
         # NIC -- or, once that exceeds the pod, at cluster bandwidth.
         self._a2a_args = get_default_args(
             num_nodes=nn,
