@@ -20,7 +20,7 @@ import zmq
 import zmq.asyncio
 from msgspec.msgpack import Decoder
 
-from infera.common.worker_pool import WorkerInfo
+from infera.common.worker_pool import DisaggMode, WorkerInfo
 from infera.router.kv_event.events import (
     ALL_CLEARED_TYPES,
     BLOCK_REMOVED_TYPES,
@@ -132,14 +132,33 @@ class KvEventClient:
         # matches, so kv-aware routing degrades to nothing while the logs show a
         # healthy subscription. Refuse loudly instead — the policy already skips
         # workers without a block size, so this only makes the two agree.
+        #
+        # Severity depends on the role, not on the symptom. kv-aware routing
+        # never applies to the decode pool — the prefix hit is decided on the
+        # prefill side, and disagg dispatch picks decode by load — so a decode
+        # leg without a block size costs nothing and does not need an ERROR
+        # every startup. Prefill/mixed without one IS a fault and stays loud.
+        #
+        # Narrower here than on the NATS path, which has no endpoint to gate on.
+        # `worker.py` advertises the endpoint and the block size together under
+        # `enable_kv_events`, so a decode leg running --no-enable-kv-events
+        # returns at the guard above and never reaches this. What lands here is
+        # a decode leg with events ON whose page size did not resolve.
         if not w.kv_block_size:
-            logger.error(
-                "kv events: NOT subscribing to %s — it registered no kv_block_size, so "
-                "its KV view cannot be reproduced and kv-aware routing is off for this "
-                "worker. On vLLM this means the resolved block size could not be read "
-                "from /metrics at startup.",
-                w.worker_id,
-            )
+            if w.disagg_mode == DisaggMode.DECODE:
+                logger.debug(
+                    "kv events: not subscribing to decode worker %s (no kv_block_size; "
+                    "kv-aware routing does not apply to the decode pool).",
+                    w.worker_id,
+                )
+            else:
+                logger.error(
+                    "kv events: NOT subscribing to %s — it registered no kv_block_size, so "
+                    "its KV view cannot be reproduced and kv-aware routing is off for this "
+                    "worker. On vLLM this means the resolved block size could not be read "
+                    "from /metrics at startup.",
+                    w.worker_id,
+                )
             return
         sub = WorkerSubscription(
             worker_id=w.worker_id,
