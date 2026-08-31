@@ -159,8 +159,8 @@ def project_inference_memory(
         free_for_kv = usable_bytes - weight_bytes - activation_bytes
         # Blocks spilled to the host tier still hold a live session's context, so
         # they raise how many sessions a replica can keep resident even though
-        # the actively-decoding batch stays in HBM. This is why the NVIDIA
-        # AgentX configs all run "dram" offload: agent sessions are idle most of
+        # the actively-decoding batch stays in HBM. This is why the measured
+        # agentic configs all run "dram" offload: agent sessions are idle most of
         # the time, and idle KV does not need HBM bandwidth.
         free_for_kv += inference_config.request_config.kv_offload_gb_per_gpu * _GB
         max_conc = max_concurrent_sequences(inference_config, layers_on_rank, free_for_kv)
