@@ -403,7 +403,17 @@ reverse index — which kinds a given validator covers.
 16. **Permission is containment.** A task reaches its own subtree and its
     subtasks'; a sibling's subtree is denied. Asserted against the real layout.
 17. A handoff whose content declares an absolute local path fails its
-    locality-independence check.
+    locality-independence check. **NOT ENFORCED as of 2026-08-31** — user-ruled
+    after the check refused a correct artefact, and every correct one it would
+    have been given: measured 97% false positive on a real kit, because it reads
+    a path's *shape* and `locality.py`'s own docstring records that Debian
+    #1002451 refused that on the record. `handoff/store.py` no longer calls it;
+    the module and its tests are kept intact, so re-wiring is one line. The
+    rebuild — wire the oracles, split the certain verdict from the best-effort
+    one, and choose where a declared image's prefixes live inside
+    `dependencies` — is `ROADMAP.md` §6.4 at P2. Stated here rather than left to
+    the roadmap because a criterion a reader believes is enforced, and is not, is
+    worse than one that says so.
 
 ---
 

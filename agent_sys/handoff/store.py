@@ -444,7 +444,7 @@ class FilesystemStore:
         ctype = content_mod.content_type(kind.content_type)
         try:
             readme.check(content_dir, content_mod.required_sections(ctype))
-            locality.check(content_dir, oracles=self._oracles)
+            # locality.check — NOT CALLED. User-ruled 2026-08-31; ROADMAP §6.4.
             content_mod.check_items(content_mod.load(content_dir), ctype, kind.items_schema)
         except Malformed as exc:
             return str(exc)
@@ -491,7 +491,13 @@ class FilesystemStore:
 
         ctype = content_mod.content_type(kind.content_type)
         readme.check(content_dir, content_mod.required_sections(ctype))
-        locality.check(content_dir, oracles=self._oracles)
+        # **`locality.check` is not called, and criterion 17 is therefore not
+        # enforced.** User-ruled 2026-08-31 after it refused a correct artefact:
+        # the shape heuristic read an HTTP access-log line as a filesystem path,
+        # and the brief that produced the artefact *required* that line. Measured
+        # 97% false positive on a real kit. `ROADMAP.md` §6.4 carries the rebuild
+        # at P2, and `handoff/locality.py` is kept intact and tested — this is a
+        # disconnected caller, not a deleted module, so re-wiring it is one line.
         content_mod.check_items(content_mod.load(content_dir), ctype, kind.items_schema)
 
         base = self._root / str(hid)

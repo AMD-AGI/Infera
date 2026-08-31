@@ -472,6 +472,103 @@ eventually becomes a disk problem, and the repair window requires *no live
 workspaces* — which gets harder to find, not easier, as the system runs more
 tasks. Cheap now, not automatically cheap later.
 
+## 6.4 **P2 — rebuild the locality check on oracles; the shape heuristic is disconnected**
+
+**User-ruled 2026-08-31: disable it now, rebuild later.** `handoff/store.py` no
+longer calls `locality.check`, so **`handoff` spec criterion 17 is not enforced
+today**. The module and its twenty tests are kept intact and correct; this is a
+disconnected caller, not a deleted module, and re-wiring it is one line.
+
+### Why it was disabled
+
+It **refused a correct artefact, and would have refused every correct one.** On
+the first end-to-end run of `examples/single_real_task` the seal rejected the
+agent's reproduction kit at `README.md:42`, on this line:
+
+    `"POST /v1/chat/completions HTTP/1.1" 200 OK`
+
+A quoted HTTP access-log record, in the evidence section, showing the completion
+had gone through the infera router rather than the engine's own port — which is
+**criterion 2 of that task's own brief**. The check read the request-target as an
+absolute filesystem path. Any correct kit for that task contains the string, so
+the refusal was systematic rather than unlucky.
+
+Measured over the produced kit: **778 flagged occurrences, of which ~97% are
+false positives** — 618 container-internal (`/sgl-workspace/`, `/tmp/aiter_configs/`),
+106 HTTP request-targets, 10 an etcd key prefix, and **35 genuinely local**. That
+reproduces, on a second independent corpus, the module's own docstring
+measurement of 650 matches with 627 needing suppression.
+
+### Why more regex is not the fix, and this is the load-bearing paragraph
+
+`locality.py`'s own docstring records that the shape refinement was proposed on
+**Debian #1002451 and refused on the record**: *"you cannot recognise a build
+path by its shape, because the shape is a property of whoever built it."* Two
+patches were made on 2026-08-31 — one for scheme-less request-targets, then a
+stricter version anchored on the `HTTP/x.y` token after a review found the first
+opened a cloak — and each revealed the next shape. The module was right and the
+patches were treading the path it warned about.
+
+### What the rebuild must do
+
+**The design is already correct and is simply not wired.** The module splits its
+evidence honestly: an **oracle** hit is *certain* (a prefix this system minted),
+the **shape heuristic** is *best effort*, and its docstring says the heuristic
+"runs only where no oracle applies". Production inverted that:
+
+| | today |
+|---|---|
+| `Oracles` | **constructed nowhere.** `store.py:140` falls back to `Oracles(store_root=...)`, so `playground_root` is never supplied — half the certain signal is off |
+| `image_prefixes` | spec §7's mechanism for a declared container image. Read at `locality.py:151`, **set by nobody** — so a containerised workload's paths could never be allowed, by construction |
+| `check()` | raises identically for an oracle hit and a heuristic hit, so the best-effort half was the hard gate |
+
+So the sound half was unwired and the unsound half was load-bearing. Three things
+to settle, and the third is why this is not a pure bug fix:
+
+1. **Wire `Oracles`** — supply `playground_root` as well as `store_root` at the
+   composition root. Pure plumbing.
+2. **Separate the two verdicts.** An oracle hit stays fatal; a heuristic hit
+   becomes a recorded finding on the handoff rather than a refusal. That is
+   arguably what criterion 17 already means, but it is a criterion edit and needs
+   saying out loud.
+3. **Wire `image_prefixes`** — and this needs a *convention*, because
+   `handoff.schema.json`'s `dependencies` is deliberately an unconstrained object
+   (*"fixing a shape here would be inventing a requirement"*). Choosing where
+   inside it the prefixes live is a specification decision, not a code change.
+
+### What is lost meanwhile, stated so it is not discovered by accident
+
+The check was aimed at exactly the right thing, and **this stage's own task is
+the case it was built for**: the mission's second half is *a second AI reproduces
+the run from the kit alone*, and a kit naming one machine's paths is what breaks
+that. Concretely, the kit that triggered all this bakes in
+
+    /data/<user>_hf_cache/models/Qwen3.6-27B      — 20 occurrences
+
+which is a **true positive**: it should say "point this at your weights". With
+the check off, nothing catches that class, and a reproduction failure caused by
+it will present as the reproducer's fault rather than the kit's.
+
+### The wiring was never tested, and that is how this survived
+
+Disconnecting the call changed **no test result**: 2059 passed before and after.
+`tests/handoff/test_locality.py` has twenty tests and every one of them calls
+`locality.check` directly; **nothing anywhere puts or seals content containing a
+local path and asserts the store refuses it.** So the criterion had unit
+coverage and no wiring coverage, which is why a check with a measured 97% false
+positive rate could sit as a hard gate in the publish path without anything
+saying so until a real artefact arrived.
+
+That is the same shape as three other findings from the same day — `Oracles`
+constructed nowhere, `image_prefixes` set by nobody, `env_mgr`'s `Ssh`/`DockerExec`
+with no production caller. **A rebuild that does not add a wiring test leaves the
+next inversion just as invisible**, in either direction: nothing today would fail
+if the check silently came back, either.
+
+Evidence: `scratch/single-real-task-2026-08/seal-refusal.md`, and
+`probe_locality_url_fp.py` beside it — whose fourth case is the non-vacuity
+control any rebuild must keep firing.
+
 ## 6.3 **Rebuild the permission system** — user-ruled 2026-08-29, and the demo is the evidence
 
 **Ruled by the user, in as many words: the permission system as implemented
