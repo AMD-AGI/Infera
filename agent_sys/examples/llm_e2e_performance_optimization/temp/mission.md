@@ -63,6 +63,10 @@ implemenation & experiment
     2. smci355-ccs-aus-n02-29.prov.aus.ccs.cpe.ice.amd.com或 smc300x-ccs-aus-a16-10.prov.aus.ccs.cpe.ice.amd.com
     3. /apps/yihou/packups/mix.latency.packup_20260806.spur
     4. /apps/yihou/packups/mix.stress.packup_20260806.spur
+4. agent_sys/examples/llm_e2e_performance_optimization/temp/claude_code_skill_used_by_human: 请为claude安装该skill并且：
+    1. handoff可参考其packup的结果标准和校验方式。
+    2. 同事间交互也可用该skill打包好的成品。
+5. infera llm e2e性能优化kick off report: xxx
 
 ## ISSUES
 
@@ -77,7 +81,6 @@ agent_sys是一个初步搭建的multi-agent工作系统，因此对本次任务
     2. 尽量尝试绕过bug完成本期目标
     3. 等待确认后修复（有足够信心为bug且在不违背设计的情况下可自行修复）。
 4. 过程中不要过于纠结个别validator的校验方式和结果，而是focus到把整个任务跑通有稳定输出的问题上。
-5. infera llm e2e性能优化kick off report: xxx
 
 ## RULES for developer[not agent sys or task package]
 
