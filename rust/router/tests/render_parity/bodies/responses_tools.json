@@ -1,0 +1,13 @@
+{
+  "input": "hi",
+  "tools": [
+    {
+      "type": "function",
+      "name": "f",
+      "description": "d",
+      "parameters": {
+        "type": "object"
+      }
+    }
+  ]
+}

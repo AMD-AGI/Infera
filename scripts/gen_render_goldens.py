@@ -101,6 +101,18 @@ def render(tokenizer, body: dict) -> str:
     from sglang.srt.parser.conversation import generate_chat_conv  # noqa: F401  (import guard)
     from sglang.srt.parser.template_detection import detect_reasoning_pattern
 
+    # A `/v1/responses` body reaches the same renderer, but only after
+    # `OpenAIServingResponses._make_request` turns `input` into `messages`.
+    # Borrow that rather than restate it -- it is the same call the Python
+    # router makes, so the golden stays the engine's answer and not ours.
+    if body.get("messages") is None and body.get("input") is not None:
+        from infera.router.kv_event.responses_input import to_chat_body
+
+        chat = to_chat_body({"model": "parity", **body})
+        if chat is None:
+            raise RuntimeError("Responses body not reproducible")
+        body = {k: v for k, v in chat.items() if k != "model"}
+
     request = ChatCompletionRequest(model="parity", **body)
     messages = [m.model_dump() for m in request.messages]
     for message in messages:

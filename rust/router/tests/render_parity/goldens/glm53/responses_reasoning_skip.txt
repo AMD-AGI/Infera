@@ -1,0 +1,1 @@
+[gMASK]<sop><|system|>Reasoning Effort: High<|user|>hi<|assistant|><think>

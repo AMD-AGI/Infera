@@ -21,7 +21,6 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::io;
 use std::path::Path;
-use std::sync::atomic::{AtomicU8, Ordering};
 
 #[cfg(test)]
 use minijinja::context;
@@ -131,12 +130,6 @@ macro_rules! warn_throttled {
     }};
 }
 
-/// Has this model's chat template been observed to need OpenAI tool-call
-/// `arguments` strings parsed into objects? See `BlockHasher::tool_args`.
-const TOOL_ARGS_UNDECIDED: u8 = 0;
-const TOOL_ARGS_VERBATIM: u8 = 1;
-const TOOL_ARGS_PARSED: u8 = 2;
-
 pub struct BlockHasher {
     tokenizer: Option<Tokenizer>,
     /// Kimi-style tiktoken tokenizer (no `tokenizer.json`). Takes precedence
@@ -151,26 +144,18 @@ pub struct BlockHasher {
     /// This model speaks Kimi-K3's native XTML chat encoding instead of a Jinja
     /// `chat_template` (see `crate::encoding_k3`).
     kimi_k3: bool,
-    /// Does this model's chat template want OpenAI's tool-call `arguments`
-    /// JSON *string* parsed back into an object before it will render?
+    /// The engine's `reasoning_config.effort_kwarg`, if this template has one.
     ///
-    /// Both answers are live templates on this fleet and they want opposite
-    /// things:
-    ///
-    /// * Qwen3 -- `{%- if tool_call.arguments is string %}{{ tool_call.arguments }}`
-    ///   emits the client's bytes verbatim. Hand it an object instead and it
-    ///   takes the `| tojson` branch, which re-serialises with `json.dumps`
-    ///   separators; every block after the first tool call then diverges from
-    ///   the engine's.
-    /// * GLM-5.3 -- `{%- for k, v in _args.items() %}` raises on a string, the
-    ///   render returns None, and the router loses the whole prompt.
-    ///
-    /// So the answer is settled by observation rather than by model name:
-    /// render verbatim, and only if *that* fails retry with the arguments
-    /// parsed. The first tool-carrying request decides it; steady state is one
-    /// render either way. `Ordering::Relaxed` throughout -- a racing pair of
-    /// requests may both probe, and the worst case is one extra render.
-    tool_args: AtomicU8,
+    /// serving_chat.py:1283-1293 remaps `reasoning_effort` onto a boolean
+    /// template variable for the handful of templates that spell it that way:
+    /// `"low"` becomes `effort_kwarg=True` (via `setdefault`, so an explicit
+    /// `chat_template_kwargs` still wins) and every other value is dropped with
+    /// a warning. sglang derives the name from the template text
+    /// (`parser/template_detection.py`), not from a flag, so the router can
+    /// derive it from the same bytes -- and must, or a `reasoning_effort:
+    /// "low"` request to one of these models renders a different first block
+    /// than the engine's.
+    effort_kwarg: Option<&'static str>,
 }
 
 /// Qwen3's chat template, verbatim from Qwen3-30B-A3B's tokenizer_config.json.
@@ -456,12 +441,12 @@ impl BlockHasher {
         BlockHasher {
             tokenizer,
             tiktoken,
+            effort_kwarg: chat_template.as_deref().and_then(detect_effort_kwarg),
             chat_template,
             bos_token,
             eos_token,
             dsv4: detect_dsv4(&cfg_dir),
             kimi_k3: detect_kimi_k3(&cfg_dir),
-            tool_args: AtomicU8::new(TOOL_ARGS_UNDECIDED),
         }
     }
 
@@ -475,7 +460,7 @@ impl BlockHasher {
             eos_token: None,
             dsv4: false,
             kimi_k3: false,
-            tool_args: AtomicU8::new(TOOL_ARGS_UNDECIDED),
+            effort_kwarg: None,
         }
     }
 
@@ -675,6 +660,13 @@ impl BlockHasher {
             msgs.push(serde_json::json!({"role": "system", "content": ""}));
         }
         msgs.extend(messages.iter().cloned());
+        // serving_chat.py:1194 -- the dsv4/dsv32 branch rewrites a null
+        // `content` to "" before the encoder sees it, same as the Jinja path.
+        for m in &mut msgs {
+            if m.get("content").is_some_and(Value::is_null) {
+                m["content"] = Value::String(String::new());
+            }
+        }
 
         let rendered = encode_messages(&msgs, DSV4_THINKING_MODE);
         if rendered.is_none() {
@@ -740,8 +732,9 @@ impl BlockHasher {
         }
         let tmpl = env.get_template("chat").ok()?;
         let base = self.template_context(body);
-        let render = |msgs: &Value| -> Result<String, minijinja::Error> {
-            let mut ctx = base.clone();
+        let render = |msgs: &Value,
+                      mut ctx: BTreeMap<String, minijinja::Value>|
+         -> Result<String, minijinja::Error> {
             ctx.insert(
                 "messages".to_string(),
                 minijinja::Value::from_serialize(msgs),
@@ -749,46 +742,39 @@ impl BlockHasher {
             tmpl.render(ctx)
         };
 
-        // Tool-call `arguments` policy -- see the `tool_args` field.
-        //
-        // Only a conversation that actually carries a *string* `arguments` can
-        // tell the two template dialects apart. For every other body both forms
-        // are the same bytes, so such a body must neither set the latch nor be
-        // trusted by it -- the first cut of this latched VERBATIM on a plain
-        // "hi", then refused to retry the tool-call turns that followed, and
-        // every one of them routed on load. The render-parity corpus caught it.
-        let Some(parsed) = normalize_tool_call_arguments(messages) else {
-            return render(messages)
-                .map_err(|e| tracing::warn!(err = %e, "kv-aware: chat_template render failed"))
-                .ok();
+        // Tool-call `arguments`, and null `content`, exactly as `serving_chat`
+        // hands them to the template -- see `normalize_messages_for_template`.
+        let normalized = normalize_messages_for_template(messages);
+        let msgs = normalized.as_ref().unwrap_or(messages);
+        let first = match render(msgs, base.clone()) {
+            Ok(out) => return Some(out),
+            Err(e) => e,
         };
-
-        if self.tool_args.load(Ordering::Relaxed) != TOOL_ARGS_PARSED {
-            match render(messages) {
-                Ok(out) => {
-                    self.tool_args.store(TOOL_ARGS_VERBATIM, Ordering::Relaxed);
-                    return Some(out);
-                }
-                Err(e) => tracing::debug!(
-                    err = %e,
-                    "kv-aware: chat_template render failed on verbatim tool-call \
-                     arguments; retrying with them parsed"
-                ),
+        // serving_chat.py:1317-1338: on any render failure the engine retries
+        // once with the tools flattened out of their OpenAI `{"type":
+        // "function", "function": {...}}` wrapper, for templates (Mistral's)
+        // that expect the bare function object. Without the retry the router
+        // gives up where the engine succeeds, and every tool-carrying request
+        // to such a model routes on load.
+        let flat: Option<Vec<Value>> = base
+            .get("tools")
+            .and_then(|t| serde_json::to_value(t).ok())
+            .and_then(|t| t.as_array().cloned())
+            .map(|arr| {
+                arr.into_iter()
+                    .map(|t| t.get("function").cloned().unwrap_or(t))
+                    .collect()
+            })
+            .filter(|a: &Vec<Value>| !a.is_empty());
+        if flat.is_some() {
+            let mut retry = base.clone();
+            retry.insert("tools".into(), minijinja::Value::from_serialize(&flat));
+            if let Ok(out) = render(msgs, retry) {
+                return Some(out);
             }
         }
-        match render(&parsed) {
-            Ok(out) => {
-                self.tool_args.store(TOOL_ARGS_PARSED, Ordering::Relaxed);
-                Some(out)
-            }
-            Err(e) => {
-                // The latch is left alone: this failed for some reason other
-                // than the arguments shape, so it says nothing about which form
-                // the template wants.
-                tracing::warn!(err = %e, "kv-aware: chat_template render failed");
-                None
-            }
-        }
+        tracing::warn!(err = %first, "kv-aware: chat_template render failed");
+        None
     }
 
     /// Everything `serving_chat` puts in the Jinja context besides `messages`.
@@ -852,6 +838,13 @@ impl BlockHasher {
         if let Some(kwargs) = body.get("chat_template_kwargs").and_then(Value::as_object) {
             for (k, v) in kwargs {
                 ctx.insert(k.clone(), JValue::from_serialize(v));
+            }
+        }
+        // serving_chat.py:1283-1293, after the merge above so `setdefault`
+        // means the same thing here as there.
+        if let Some(kwarg) = self.effort_kwarg {
+            if body.get("reasoning_effort").and_then(Value::as_str) == Some("low") {
+                ctx.entry(kwarg.to_string()).or_insert(JValue::from(true));
             }
         }
         ctx
@@ -988,38 +981,70 @@ fn tool_model_dump(tool: &Value) -> Value {
     Value::Object(out)
 }
 
-/// Normalise OpenAI-style `tool_calls[].function.arguments` for chat templates.
+/// sglang's `reasoning_config.effort_kwarg` for this template, if any.
 ///
-/// The OpenAI wire format serialises tool-call arguments as a JSON *string*.
-/// GLM-5.3's template iterates them as a mapping (`_args.items()`), so a
-/// verbatim body renders as `items() expects a mapping, got string` and the
-/// router loses the whole prompt. transformers' own `apply_chat_template` is
-/// fed already-parsed dicts by the serving layer, which is why the engine
-/// never sees this. Parse each string that is a JSON object back into an
-/// object; leave every other shape untouched so a template that *wants* the
-/// string still gets it.
+/// Ported from `parser/template_detection.py`. Exactly one detection rule
+/// there sets the field (`nemotron_3_super_low_effort`), and it keys off two
+/// literals in the template text; the rest leave it None, which is why this is
+/// a substring test and not a template parser. If upstream adds a rule, this
+/// silently goes back to being wrong for that model -- the render probe is what
+/// catches that, which is the point of having it.
+fn detect_effort_kwarg(template: &str) -> Option<&'static str> {
+    if template.contains("low_effort") && template.contains("truncate_history_thinking") {
+        return Some("low_effort");
+    }
+    None
+}
+
+/// `messages`, exactly as `serving_chat` hands them to the chat template.
+///
+/// Two rewrites, both unconditional in the engine, both invisible when wrong:
+///
+/// 1. **`tool_calls[].function.arguments`.** The OpenAI wire format serialises
+///    them as a JSON *string*; `serving_chat` parses every one of them back
+///    into an object before rendering (0.5.18, serving_chat.py:1153-1157,
+///    `normalize_assistant_tool_call_arguments(message, strict=...)`), so the
+///    template never sees a string. An earlier cut of this tried to *detect*
+///    which form a template wanted by rendering verbatim first and latching the
+///    answer. That was wrong at the premise: Qwen3's
+///    `{%- if tool_call.arguments is string %}` branch does exist, but the
+///    engine never reaches it, so a router that took it rendered the client's
+///    bytes (`{"cmd":"ls"}`) against the engine's `json.dumps` separators
+///    (`{"cmd": "ls"}`) and diverged from the tool call onward -- on exactly
+///    the templates where the latch reported success. `strict` only decides
+///    whether a non-object `arguments` 400s the request; it never changes what
+///    a well-formed one renders as, so it is not modelled. Non-object values
+///    are left alone, which matches the lenient (`kimi_k3`) side and leaves the
+///    strict side rendering a prompt for a request the engine will reject
+///    anyway.
+///
+/// 2. **`content: null`.** serving_chat.py:1252 rewrites it to `""` on the
+///    Jinja path. Templates that touch content directly -- GLM-5.3 does
+///    `content.strip()` -- raise on the null and take the whole prompt with
+///    them, which is every assistant tool-call turn, i.e. most of an agentic
+///    conversation after the first turn.
 ///
 /// Returns `None` when nothing needed rewriting, so the common path clones
 /// nothing.
-fn normalize_tool_call_arguments(messages: &Value) -> Option<Value> {
+fn normalize_messages_for_template(messages: &Value) -> Option<Value> {
     let arr = messages.as_array()?;
     let mut out: Option<Vec<Value>> = None;
     for (i, msg) in arr.iter().enumerate() {
+        if msg.get("content").is_some_and(Value::is_null) {
+            let out_vec = out.get_or_insert_with(|| arr.clone());
+            out_vec[i]["content"] = Value::String(String::new());
+        }
         let Some(calls) = msg.get("tool_calls").and_then(Value::as_array) else {
             continue;
         };
         let mut new_calls: Option<Vec<Value>> = None;
         for (j, call) in calls.iter().enumerate() {
             // The template accepts both `tc.function.arguments` and `tc.arguments`.
-            let path: &str = if call.get("function").is_some() {
-                "function"
-            } else {
-                ""
-            };
-            let args = if path.is_empty() {
-                call.get("arguments")
-            } else {
+            let nested = call.get("function").is_some();
+            let args = if nested {
                 call.get("function").and_then(|f| f.get("arguments"))
+            } else {
+                call.get("arguments")
             };
             let Some(Value::String(raw)) = args else {
                 continue;
@@ -1030,10 +1055,10 @@ fn normalize_tool_call_arguments(messages: &Value) -> Option<Value> {
                 continue;
             };
             let calls_vec = new_calls.get_or_insert_with(|| calls.clone());
-            if path.is_empty() {
-                calls_vec[j]["arguments"] = parsed;
-            } else {
+            if nested {
                 calls_vec[j]["function"]["arguments"] = parsed;
+            } else {
+                calls_vec[j]["arguments"] = parsed;
             }
         }
         if let Some(calls_vec) = new_calls {
@@ -1383,7 +1408,7 @@ mod tests {
             tiktoken: None,
             dsv4: false,
             kimi_k3: false,
-            tool_args: AtomicU8::new(TOOL_ARGS_UNDECIDED),
+            effort_kwarg: None,
             chat_template: Some(
                 "{%- for m in messages -%}\
                  {%- set content = m['content'] -%}\
@@ -1425,7 +1450,7 @@ mod tests {
             tiktoken: None,
             dsv4: false,
             kimi_k3: false,
-            tool_args: AtomicU8::new(TOOL_ARGS_UNDECIDED),
+            effort_kwarg: None,
             chat_template: Some(
                 "{%- for m in messages -%}\
                  {%- if not(m['content'].startswith('<tool_response>') and \
@@ -1458,7 +1483,7 @@ mod tests {
             tiktoken: None,
             dsv4: false,
             kimi_k3: false,
-            tool_args: AtomicU8::new(TOOL_ARGS_UNDECIDED),
+            effort_kwarg: None,
             chat_template: Some(
                 "{{ s.startswith('ab') }}|{{ s.endswith('yz') }}|\
                  {{ s.startswith(('q', 'ab')) }}|{{ s.endswith(('q', 'yz')) }}|\
@@ -1494,7 +1519,7 @@ mod tests {
             tiktoken: None,
             dsv4: false,
             kimi_k3: false,
-            tool_args: AtomicU8::new(TOOL_ARGS_UNDECIDED),
+            effort_kwarg: None,
             chat_template: Some(QWEN3_TEMPLATE.to_string()),
             bos_token: None,
             eos_token: None,
@@ -1528,7 +1553,7 @@ mod tests {
             tiktoken: None,
             dsv4: false,
             kimi_k3: false,
-            tool_args: AtomicU8::new(TOOL_ARGS_UNDECIDED),
+            effort_kwarg: None,
             chat_template: Some(
                 "{%- set s = messages[0]['content'] -%}\
                  {{ s.split(',') | length }}|{{ s.split() | length }}|\
@@ -1560,7 +1585,7 @@ mod tests {
             tiktoken: None,
             dsv4: false,
             kimi_k3: false,
-            tool_args: AtomicU8::new(TOOL_ARGS_UNDECIDED),
+            effort_kwarg: None,
             chat_template: Some(
                 "{{ messages[0] | tojson }}|{{ messages[0] | tojson(ensure_ascii=True) }}"
                     .to_string(),
@@ -1588,7 +1613,7 @@ mod tests {
             tiktoken: None,
             dsv4: false,
             kimi_k3: false,
-            tool_args: AtomicU8::new(TOOL_ARGS_UNDECIDED),
+            effort_kwarg: None,
             chat_template: Some(
                 "{%- set d = messages[0] -%}\
                  {%- for k, v in d.items() -%}{{ k }}={{ v }};{%- endfor -%}\
@@ -1643,7 +1668,7 @@ mod tests {
             tiktoken: None,
             dsv4: true,
             kimi_k3: false,
-            tool_args: AtomicU8::new(TOOL_ARGS_UNDECIDED),
+            effort_kwarg: None,
             chat_template: None,
             bos_token: None,
             eos_token: None,
@@ -1674,7 +1699,7 @@ mod tests {
             tiktoken: None,
             dsv4: true,
             kimi_k3: false,
-            tool_args: AtomicU8::new(TOOL_ARGS_UNDECIDED),
+            effort_kwarg: None,
             chat_template: Some(QWEN3_TEMPLATE.to_string()),
             bos_token: None,
             eos_token: None,
@@ -1714,7 +1739,7 @@ mod tests {
             tiktoken: Some(tk),
             dsv4: true,
             kimi_k3: false,
-            tool_args: AtomicU8::new(TOOL_ARGS_UNDECIDED),
+            effort_kwarg: None,
             chat_template: None,
             bos_token: None,
             eos_token: None,
@@ -1738,7 +1763,7 @@ mod tests {
             tiktoken: None,
             dsv4: true,
             kimi_k3: false,
-            tool_args: AtomicU8::new(TOOL_ARGS_UNDECIDED),
+            effort_kwarg: None,
             chat_template: None,
             bos_token: None,
             eos_token: None,
@@ -1910,6 +1935,28 @@ mod tests {
                 )
                 .expect("body is valid json");
                 compared += 1;
+                // `token_ids_for` normalises a Responses body into the chat
+                // body the engine builds before anything renders; this test
+                // enters one layer below that, so it has to do the same or the
+                // `responses_*` cases all report "rendered nothing". A `None`
+                // here is the real verdict for a body the port refuses.
+                let body = if crate::responses_input::is_responses_body(&body) {
+                    match crate::responses_input::to_chat_body(&body) {
+                        Some(b) => b,
+                        None => {
+                            if !golden.starts_with(RENDER_ERROR) {
+                                failures.push(format!(
+                                    "{name}/{stem}: the Responses port declined this body; the \
+                                     engine rendered {} chars",
+                                    golden.len()
+                                ));
+                            }
+                            continue;
+                        }
+                    }
+                } else {
+                    body
+                };
                 let ours = h.render_text_str(&body);
                 if golden.starts_with(RENDER_ERROR) {
                     if let Some(text) = ours {
@@ -1982,7 +2029,7 @@ mod tests {
 
 #[cfg(test)]
 mod tool_call_args_tests {
-    use super::normalize_tool_call_arguments;
+    use super::normalize_messages_for_template;
     use serde_json::json;
 
     #[test]
@@ -1996,7 +2043,7 @@ mod tool_call_args_tests {
                 }}
             ]}
         ]);
-        let out = normalize_tool_call_arguments(&messages).expect("should rewrite");
+        let out = normalize_messages_for_template(&messages).expect("should rewrite");
         let args = &out[1]["tool_calls"][0]["function"]["arguments"];
         assert!(args.is_object(), "got {args}");
         assert_eq!(args["cmd"][0], json!("ls"));
@@ -2010,7 +2057,7 @@ mod tool_call_args_tests {
                 {"name": "get_weather", "arguments": "{\"city\": \"Beijing\"}"}
             ]}
         ]);
-        let out = normalize_tool_call_arguments(&messages).expect("should rewrite");
+        let out = normalize_messages_for_template(&messages).expect("should rewrite");
         assert_eq!(
             out[0]["tool_calls"][0]["arguments"]["city"],
             json!("Beijing")
@@ -2025,11 +2072,11 @@ mod tool_call_args_tests {
                 {"function": {"name": "f", "arguments": {"a": 1}}}
             ]}
         ]);
-        assert!(normalize_tool_call_arguments(&objs).is_none());
+        assert!(normalize_messages_for_template(&objs).is_none());
 
         // plain chat, no tool calls
         let plain = json!([{"role": "user", "content": "hi"}]);
-        assert!(normalize_tool_call_arguments(&plain).is_none());
+        assert!(normalize_messages_for_template(&plain).is_none());
 
         // a string that is not a JSON object stays a string
         let scalar = json!([
@@ -2037,6 +2084,6 @@ mod tool_call_args_tests {
                 {"function": {"name": "f", "arguments": "not json"}}
             ]}
         ]);
-        assert!(normalize_tool_call_arguments(&scalar).is_none());
+        assert!(normalize_messages_for_template(&scalar).is_none());
     }
 }

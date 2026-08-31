@@ -1,0 +1,19 @@
+{
+  "input": [
+    {
+      "type": "reasoning",
+      "summary": [],
+      "content": []
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "hi"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "input": [
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "weather?"
+        }
+      ]
+    },
+    {
+      "type": "function_call",
+      "call_id": "c1",
+      "name": "get_weather",
+      "arguments": "{\"city\": \"Paris\"}"
+    },
+    {
+      "type": "function_call_output",
+      "call_id": "c1",
+      "output": "18C"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "tomorrow?"
+        }
+      ]
+    }
+  ]
+}
