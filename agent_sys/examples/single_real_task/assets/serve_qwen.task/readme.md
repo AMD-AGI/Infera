@@ -70,6 +70,15 @@ Also true, and each one has already cost somebody a day:
   other run's evidence and passing on it**, which you would not. Give it the
   same treatment as the container name, and do not assume distinct container
   names have taken care of it.
+
+  **And one identifier travels further than the host: the served model name.**
+  Left unset, the engine registers the model under **the filesystem path you
+  loaded it from**, so every caller's `"model"` field must then carry your
+  machine's directory layout — a host-specific string baked into the one part of
+  the kit a reader is most likely to copy. Set it explicitly to the model's own
+  published name and say in `environment.md` which name you used. Measured: one
+  kit registered `Qwen/Qwen3.6-27B`, the next registered
+  `/data/<user>/…/Qwen3.6-27B`, purely from that flag being absent.
 - **The container workdir must be on local disk.** A home directory is often on
   a network filesystem with `root_squash`, where a container's root maps to
   nobody and the engine fails to write its logs **silently** — no error, just no

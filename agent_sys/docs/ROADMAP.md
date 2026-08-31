@@ -472,6 +472,72 @@ eventually becomes a disk problem, and the repair window requires *no live
 workspaces* — which gets harder to find, not easier, as the system runs more
 tasks. Cheap now, not automatically cheap later.
 
+## 6.5 **P1 — the stream cannot tell a working phase from a wedged one, and the signal that can is inside the backend**
+
+Three runs hung on 2026-08-31 and **all three were found by a human reading an
+agent's transcript**, not by anything the system emits. `8b4b3ff` fixed half of
+it — `_settle` now emits `phase_start` / `phase_complete` as tasks move, so a
+reader can follow a run's shape from `stream.jsonl`, which was impossible
+before. This is the other half.
+
+### What the fix does not reach, measured on B6
+
+`stream.jsonl` carried 21 lines, 5 of them live, and they span the run rather
+than clustering at startup. But the largest gap between consecutive events is
+**1456 s — 24 m 16 s**, the whole agent working phase, and the second largest is
+561 s. Everything else is 1 s. So the stream says *which phase a task is in* and
+never *whether it is progressing* — and "wedged inside `running`" is the state
+B4 died in for 65 minutes.
+
+A liveness check cannot be built on this. "No events for N minutes" fires on a
+healthy run too, because a healthy run is also silent for 24 minutes.
+
+### The signal that works, with the number
+
+`run-watchdog` measured the agent transcript's inter-entry gaps across every
+session watched that day:
+
+| session | outcome | entries | span | largest gap |
+|---|---|---|---|---|
+| B6 agent | healthy | 396 | 24.2 min | **87 s** |
+| B6 reproducer | healthy | 106 | 9.3 min | **162 s** |
+| B5 agent | healthy | 311 | 30.5 min | **257 s** |
+| B5 reproducer | healthy | 105 | 10.0 min | **257 s** |
+| B4 agent | **hung** | 348 | 23.2 min | 120 s working, then **65 min** |
+
+Healthy work never goes quiet longer than **257 s**, and that worst case is a
+deliberate cold-start wait. The hang was **65 minutes** — nearly an order of
+magnitude of separation. A threshold anywhere in 600–900 s catches B4 within a
+quarter hour and fires on none of the four healthy sessions.
+
+### Three limits, because the number is worth less without them
+
+1. **n = 4 sessions, one package.** A package that waits on a longer build, or
+   makes one very long model call, could legitimately exceed 257 s. This is a
+   floor measured here, not a constant to hardcode.
+2. **It detects *stopped*, not *stuck*.** An agent in a retry loop grows its
+   transcript while making no progress. Watched for specifically in B4 and B6
+   and not seen — all three hangs that day were the *stopped* kind — so this
+   covers what happened, not everything that could.
+3. **In B4 the agent had legitimately finished.** Its transcript stopping was
+   *correct*; the fault was the engine not terminating. The alarm this raises is
+   therefore **"this session is over"**, not "this session is broken" — which,
+   for all three of that day's hangs, is exactly the alarm that was needed.
+
+### Why it is a seam and not another line in `_settle`
+
+**Everything observable from outside the backend was identical between a
+65-minute deadlock and a healthy run**, checked on the live hang before
+concluding it: process alive, CPU ticking ~1 s per 20 s, one socket
+`ESTABLISHED` with `txq=0 rxq=0`, parked in `ep_poll`, task status `running`.
+`_settle` polls task *status*, and a wedged task and a working one have the same
+one. The distinguishing fact lives where the transcript is written, so exposing
+it crosses `agent` ↔ `cli` and `interfaces.md` §1.1 applies.
+
+**P1 rather than P2** because it is the difference between a run that reports
+its own failure and one that needs somebody to notice. Evidence:
+`scratch/single-real-task-2026-08/stream-not-a-view.md`.
+
 ## 6.4 **P2 — rebuild the locality check on oracles; the shape heuristic is disconnected**
 
 **User-ruled 2026-08-31: disable it now, rebuild later.** `handoff/store.py` no
