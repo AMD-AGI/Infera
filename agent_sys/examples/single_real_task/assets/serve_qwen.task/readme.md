@@ -47,9 +47,29 @@ Also true, and each one has already cost somebody a day:
 - **The repository's own `README.md`, `docs/` and `examples/` are the reference.**
   There are worked launch scripts in `examples/` for other models on this class
   of hardware. Read them. Nothing in this readme is a substitute for them.
-- **Pick your ports; do not assume them.** A development host is usually shared,
-  and the ports the docs use are frequently already bound by somebody else.
-  Check before you bind, and record the ports you actually used.
+- **Every identifier you bind on a shared host is a parameter, not a constant.**
+  The host is shared and so is its docker daemon: container names, host ports,
+  the container workdir and the GPU index all sit in one namespace with
+  everybody else. Three parts, and they are one rule.
+  - **Do not assume — check before you bind, and record what you actually
+    used.** The ports the docs use are frequently already held by somebody else.
+  - **Let the kit be re-pointed without editing it.** Every such identifier must
+    come from an environment variable with a default — `: "${VAR:=…}"`, not
+    `export VAR=…` — so a second copy runs beside the first by exporting
+    different values. `check_reproduces` starts another bring-up from your kit
+    while yours may still be up, and it cannot edit your scripts.
+  - **Never take a name you did not create.** `docker rm -f <name>` before
+    `docker run --name <name>` turns a collision into a silent theft: it kills
+    whatever was there — quite possibly your own still-running server — and then
+    reports success. Fail on a name that is already taken. Do not clear it.
+
+  **The workdir is the one that survives fixing the names.** A container workdir
+  with a fixed name means two runs share one `logs/` and one `results/`, and
+  your verification script writes its evidence into `results/`. The consequence
+  is not mixed-up logs, which you would notice: it is **a verifier reading the
+  other run's evidence and passing on it**, which you would not. Give it the
+  same treatment as the container name, and do not assume distinct container
+  names have taken care of it.
 - **The container workdir must be on local disk.** A home directory is often on
   a network filesystem with `root_squash`, where a container's root maps to
   nobody and the engine fails to write its logs **silently** — no error, just no
@@ -65,8 +85,11 @@ Also true, and each one has already cost somebody a day:
   parse the reasoning, and say in the kit which you did.
 - **Tear everything down when you finish.** The kit is the deliverable, not a
   running process, and `check_reproduces` starts *another* bring-up from your
-  kit. Two of these fighting over the same GPUs and ports is a fault somebody
-  then has to diagnose.
+  kit. Two of these fighting over the same container names, ports, GPUs and
+  workdirs is a fault somebody then has to diagnose. Tearing down is not a
+  substitute for the rule above: it makes the two runs safe in *time*, and the
+  rule makes them safe in *space*. You need both, because you do not control
+  when the reproducer starts.
 
 ## Where to write the kit, and in what shape
 
