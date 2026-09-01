@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from .conftest import project_spec
+from .conftest import DEFAULTS, project_spec
 
 # MI355X: HBM3E, 8 TB/s peak. Nothing that streams bytes may imply more.
 _MI355X_HBM_TBPS = 8.0
@@ -104,6 +104,54 @@ def test_kernel_occupancy_is_additive_and_survives_graph_capture():
         kernel_launch_latency_us=6.0, kernels_per_layer=12, cudagraph_mode="full",
     ).resolved_kernel_launch_floor_ms(num_layers=36)
     assert launch == 0.0
+
+
+def test_kernel_occupancy_is_read_off_the_silicon_not_a_global_default():
+    """One vendor's measured floor is not the other's.
+
+    The per-kernel occupancy was solved on mi355x. Applied to gb300 it prices
+    GLM-5.2's 1,800 decode kernels at 8.96 ms of fixed cost, where the measured
+    gb300 deployments report 3.0-3.6 ms per output token at batch 1 -- so a
+    single global constant cannot be a hardware figure for both. An architecture
+    nobody has measured keeps the default rather than inheriting a neighbour's:
+    the cost is real wherever it runs, and guessing its size from who made the
+    part is what this table exists to stop.
+    """
+    from infera.projection.core.projection.training_config import (
+        DEFAULT_DECODE_OCCUPANCY_US,
+        resolve_decode_occupancy_us,
+    )
+
+    solved_on = resolve_decode_occupancy_us("mi355x")
+    other = resolve_decode_occupancy_us("gb300")
+    assert other < solved_on, "the two architectures do not share a floor"
+    assert resolve_decode_occupancy_us("MI355X") == solved_on, "arch names are not case-sensitive"
+    for unmeasured in (None, "", "h100", "something-new"):
+        assert resolve_decode_occupancy_us(unmeasured) == DEFAULT_DECODE_OCCUPANCY_US
+
+
+def test_the_projector_charges_the_floor_the_architecture_resolves_to():
+    """The table has to reach the projection, not just be readable.
+
+    An unset occupancy means "resolve from the GPU", so the resolved figure has
+    to move the step: halving it has to take roughly half the fixed cost out at
+    batch 1, where fixed cost is most of what is left. Asserted against an
+    explicit override on one architecture rather than by comparing two, so the
+    wiring is checked without needing a second part's roofline profile to exist.
+    """
+    resolved = project_spec(tp=8, concurrency=1, gpu_arch="mi355x")["decode_step_ms"]
+    from infera.projection.core.projection.training_config import (
+        resolve_decode_occupancy_us,
+    )
+
+    occ = resolve_decode_occupancy_us("mi355x")
+    halved = project_spec(
+        tp=8, concurrency=1, gpu_arch="mi355x", decode_kernel_occupancy_us=occ / 2.0
+    )["decode_step_ms"]
+    assert halved < resolved, (
+        "the resolved per-architecture floor never reached the decode step "
+        f"({resolved:.2f} ms unchanged when the occupancy was halved)"
+    )
 
 
 def test_occupancy_reaches_the_continuous_batching_path():
@@ -341,3 +389,4 @@ def test_expert_gemm_keeps_near_ideal_relief_when_sharded(name, k, ffn, experts)
         f"{name} expert GEMM relief at etp=8 is {relief:.2f}x; "
         "measurement puts it at 6.85-7.54x of the ideal 8x"
     )
+

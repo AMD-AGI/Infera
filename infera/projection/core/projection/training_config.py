@@ -185,10 +185,10 @@ def decode_kernels_per_layer(model_config) -> int:
     Collectives are excluded: they are modelled separately, and charging them
     here as well would count the same microseconds twice.
 
-    Every other kernel counts, the GEMMs and the attention kernel included.
-    What the occupancy term prices is the device overhead each launch carries
-    -- wave launch, memory latency, drain -- which is paid on top of the data
-    movement a profiler times, not instead of it. Restricting the count to the
+    Every kernel counts, including the GEMMs and the attention kernel. What the
+    occupancy term prices is the device overhead each launch carries -- wave
+    launch, memory latency, drain -- which is paid on top of the data movement
+    a profiler times, not instead of it. Restricting the count to the
     elementwise kernels looked like it avoided double-counting, but the
     per-kernel constant was solved by dividing a measured step floor by this
     same count, so halving the count silently halved the floor.
@@ -386,8 +386,16 @@ class InferenceRequestConfig:
     # weights, solve for the intercept, and divide by the kernels that model
     # issues. Until a given architecture has been through that, cross-model
     # agreement is the only test of whether its value is hardware physics or one
-    # model's tuning. 0 = disabled.
-    decode_kernel_occupancy_us: float = 4.98
+    # model's tuning.
+    #
+    # Being a hardware figure it is also a *per-architecture* one. The number
+    # above was solved on mi355x and does not describe gb300: on GLM-5.2 it
+    # prices the 1,800 kernels of a decode step at 8.96 ms, where the measured
+    # gb300 deployments report 3.0-3.6 ms per output token at batch 1 -- a fixed
+    # cost alone cannot exceed the step that pays it. ``None`` resolves it from the
+    # GPU architecture through ``DECODE_OCCUPANCY_PROFILES``; an explicit float
+    # still wins, for measuring one specific engine. 0 = disabled.
+    decode_kernel_occupancy_us: Optional[float] = None
     # Per-output-token host cost for detokenization + response streaming
     # (microseconds/token). The serving harness (vLLM / InferenceX) measures ITL
     # client-side, so its per-token latency carries detok+stream that the GPU
@@ -613,8 +621,14 @@ class InferenceRequestConfig:
         ``kernels_per_layer`` is what the architecture actually issues, counted
         by :func:`decode_kernels_per_layer`. An explicit ``self.kernels_per_layer``
         still wins, for measuring a specific engine.
+
+        An unresolved (``None``) occupancy means no GPU architecture was named,
+        so it falls back to the figure the term was first solved on rather
+        than to zero: the cost is there whether or not the caller said which
+        silicon is paying it.
         """
-        occ_us = float(self.decode_kernel_occupancy_us or 0.0)
+        occ = self.decode_kernel_occupancy_us
+        occ_us = float(DEFAULT_DECODE_OCCUPANCY_US if occ is None else occ)
         if occ_us <= 0.0:
             return 0.0
         kpl = max(1, int(kernels_per_layer or self.kernels_per_layer or 12))
@@ -821,6 +835,83 @@ class InferenceCollectiveConfig:
     # Optional hardware overrides forwarded to ``get_default_args`` (node_bw,
     # pod_bw, bw_eff, latencies, ...). ``None`` uses the model defaults.
     hardware_config: Optional[Dict] = None
+    # Datasheet interconnect for this GPU, from ``INTERCONNECT_PROFILES``.
+    # ``None`` resolves from the GPU architecture, falling back to the
+    # collective model's own defaults (one 8-GPU server).
+    interconnect: Optional[Dict[str, float]] = None
+
+
+# Published interconnect specs by GPU architecture: per-GPU link bandwidth
+# (GB/s, bidirectional), how many GPUs that link reaches through the switch
+# fabric, and the per-GPU NIC leaving it. Datasheet figures only -- bandwidth
+# efficiencies and latencies stay at the collective model's own defaults rather
+# than being set per vendor, so nothing here is fitted to a target number.
+#
+# The small-message intra-node fits in ``collectives`` still apply on top: they
+# describe vLLM's own all-reduce kernel, which is the same algorithm everywhere,
+# and their achieved bandwidths were measured on mi355x. Replacing them with the
+# analytical model here priced a 25 KB tensor-parallel all-reduce at the 10 us
+# floor, which over 78 layers is more than half of a whole measured gb300 decode
+# step -- so the floor, not the fit, is what does not transfer.
+INTERCONNECT_PROFILES: Dict[str, Dict[str, float]] = {
+    # These racks switch 1.8 TB/s per GPU across all 72 GPUs in the domain, so
+    # even a wide tensor-parallel or expert group stays on the fabric instead of
+    # crossing a NIC. The link off the rack carries 800 Gb/s per GPU.
+    "gb200": {"domain_gpus": 72, "node_bw": 1800.0, "pod_bw": 100.0},
+    "gb300": {"domain_gpus": 72, "node_bw": 1800.0, "pod_bw": 100.0},
+}
+
+
+# Per-kernel decode occupancy by GPU architecture (microseconds), the constant
+# documented at ``InferenceRequestConfig.decode_kernel_occupancy_us``. The two
+# entries do not have the same standing and should not be read as if they did.
+#
+# The 4.98 us figure is measured: solving ``step(tp) = floor + compute(1)/tp``
+# over real mi355x decode steps at TP=1,2,4,8 gives a 2.72 ms fixed cost, which
+# over the 546 kernels gpt-oss issues is 4.98 us each. Two other models then land
+# within 13% of it without being refitted.
+#
+# The 2.00 us figure is calibrated, not measured: no equivalent TP sweep has been
+# run on that architecture, so the value is the one that best fits 14 measured
+# GLM-5.2 deployments on it. Fitting on half of them and scoring the other half
+# is what makes it more than a curve fit -- see the held-out check in
+# bench_scratch -- but a fleet number still carries whatever else was wrong in
+# the deployments it was fitted to, and cannot be separated from them after
+# the fact.
+#
+# Every entry here should be a measurement, and one of them is not. The sweep
+# behind the measured figure is the whole procedure and it transfers anywhere:
+# time a single decode step per tensor-parallel rung on the target GPU with real
+# weights, solve ``step(tp) = floor + compute(1)/tp`` for the intercept, and
+# divide by the kernels that model issues. It needs a node of the architecture
+# being measured and nothing else, and it retires a fitted constant for good --
+# so it is worth running for every architecture this table serves, not only for
+# the ones whose fleets happen to disagree with the default.
+#
+# Architectures nobody has timed are deliberately absent rather than assigned a
+# neighbour's number: sharing a maker is not evidence of sharing a floor, which
+# is the very thing this table exists to record. They take the measured default.
+DEFAULT_DECODE_OCCUPANCY_US: float = 4.98
+
+DECODE_OCCUPANCY_PROFILES: Dict[str, float] = {
+    "mi300x": 4.98,
+    "mi325x": 4.98,
+    "mi355x": 4.98,
+    "gfx942": 4.98,
+    "gfx950": 4.98,
+    "gb200": 2.00,
+    "gb300": 2.00,
+    "b200": 2.00,
+}
+
+
+def resolve_decode_occupancy_us(gpu_arch: Optional[str]) -> float:
+    """Per-kernel decode occupancy (us) for a named GPU architecture."""
+    if not gpu_arch:
+        return DEFAULT_DECODE_OCCUPANCY_US
+    return DECODE_OCCUPANCY_PROFILES.get(
+        str(gpu_arch).lower().strip(), DEFAULT_DECODE_OCCUPANCY_US
+    )
 
 
 @dataclass
@@ -987,8 +1078,18 @@ def megatron_derive_default_args(args):
         args.kv_channels = args.hidden_size // args.num_attention_heads
 
     if not args.group_query_attention:
-        # If GQA not set, treat as per-head queries
-        args.num_query_groups = args.num_attention_heads
+        # A model that declares fewer KV heads than query heads is doing
+        # grouped-query attention whether or not it also set the flag, so honour
+        # the declaration instead of overwriting it. Every consumer -- the KV
+        # cache sizing and all four attention roofline paths -- gates on the flag
+        # and not on the head counts, so discarding the count here charged
+        # DeepSeek-V4 all 128 of its query heads against the single KV head it
+        # actually caches, and the model stopped fitting a context it serves.
+        groups = int(args.num_query_groups or 0)
+        if 0 < groups < int(args.num_attention_heads):
+            args.group_query_attention = True
+        else:
+            args.num_query_groups = args.num_attention_heads
 
     if not hasattr(args, "context_parallel_size") or args.context_parallel_size is None:
         args.context_parallel_size = 1

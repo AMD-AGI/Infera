@@ -42,7 +42,11 @@ from infera.projection.core.projection.simulation_backends.factory import (
     get_gemm_simulation_backend,
     get_sdpa_simulation_backend,
 )
-from infera.projection.core.projection.training_config import InferenceConfig
+from infera.projection.core.projection.training_config import (
+    INTERCONNECT_PROFILES,
+    InferenceConfig,
+    resolve_decode_occupancy_us,
+)
 
 from .collectives import (
     CommBreakdown,
@@ -280,7 +284,17 @@ class InferencePerformanceProjector:
         # cost with this model (delta applied per layer), enabling algorithm
         # selection, comm/compute overlap, fused-op speedups and a reportable
         # per-phase breakdown.
+        # Per-kernel decode occupancy is a property of the silicon, so an
+        # unset one resolves from the architecture rather than from a single
+        # global default that can only be right for the part it was solved on.
+        if inference_config.request_config.decode_kernel_occupancy_us is None:
+            inference_config.request_config.decode_kernel_occupancy_us = (
+                resolve_decode_occupancy_us(gpu_arch)
+            )
+
         self._cc = inference_config.collective_config
+        if self._cc and self._cc.interconnect is None and gpu_arch:
+            self._cc.interconnect = INTERCONNECT_PROFILES.get(str(gpu_arch).lower())
         self._comm = (
             InferenceCollectiveModel(mc, inference_config.model_parallel_config, self._cc)
             if (self._cc and self._cc.enabled)
