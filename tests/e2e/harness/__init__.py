@@ -44,7 +44,13 @@ from .adapter import (
 )
 from .images import engine_image
 from .params import DEFAULT_MODEL, DisaggRole, EngineParams
-from .resources import require_arch, require_gpus, require_supported, visible_gpu_count
+from .resources import (
+    require_arch,
+    require_gpus,
+    require_model_staged,
+    require_supported,
+    visible_gpu_count,
+)
 
 __all__ = [
     "EngineParams",
@@ -63,6 +69,7 @@ __all__ = [
     "engine_image",
     "require_arch",
     "require_gpus",
+    "require_model_staged",
     "require_supported",
     "visible_gpu_count",
 ]

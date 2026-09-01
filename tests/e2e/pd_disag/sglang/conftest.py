@@ -82,6 +82,13 @@ class SglangDisaggAdapter(EngineAdapter):
         tp = max(1, params.tensor_parallel_size)
         if tp > 1:
             argv += ["--tp-size", str(tp)]
+        # Same mapping as the PD-mixed adapter, so a row's axes mean one thing in
+        # both tiers. Both legs get it from the same params, which is what SGLang
+        # requires: it rejects a PD pair whose attention parallelism disagrees.
+        if params.dp_attention:
+            argv += ["--enable-dp-attention", "--dp-size", str(tp)]
+        if params.expert_parallel:
+            argv += ["--ep-size", str(tp)]
         if role.is_prefill:
             argv += ["--disaggregation-bootstrap-port", _BOOTSTRAP_PORT]
         # --mem-fraction-static is set per-case in matrix.py (Mooncake pins the KV
@@ -98,11 +105,14 @@ class SglangDisaggAdapter(EngineAdapter):
         gpu_ids: list[int],
         gid_index: str,
     ) -> dict[str, str]:
-        env = {
-            "HIP_VISIBLE_DEVICES": ",".join(str(g) for g in gpu_ids),
-            "MC_GID_INDEX": gid_index,
-        }
-        env.update(dict(params.extra_env))
+        env = super().disagg_worker_env(
+            params,
+            role,
+            advertise_host=advertise_host,
+            gpu_ids=gpu_ids,
+            gid_index=gid_index,
+        )
+        env["MC_GID_INDEX"] = gid_index
         return env
 
 

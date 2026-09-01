@@ -19,6 +19,7 @@ from __future__ import annotations
 import os
 import uuid
 from collections.abc import Callable
+from typing import NoReturn
 
 import pytest
 import pytest_asyncio
@@ -37,6 +38,13 @@ from .params import DisaggRole, EngineParams
 # node; removed by name before launch, so a fixed port never lingers).
 _PREFILL_PORT = 30001
 _DECODE_PORT = 30002
+
+
+def _skip_or_fail(reason: str) -> NoReturn:
+    """Fail runner-selected nodes; skip only an unconfigured direct pytest run."""
+    if os.environ.get("INFERA_E2E_NODES"):
+        pytest.fail(reason, pytrace=False)
+    pytest.skip(reason)
 
 
 def _require_node_arch(pair: tuple[str, str]) -> None:
@@ -58,7 +66,7 @@ def require_disagg_env() -> None:
     """Skip unless we can actually place a 2-node PD stack (SLURM + allocation +
     >=2 nodes + resolvable node IPs), all of them on this run's target arch."""
     if not cluster.have_slurm():
-        pytest.skip("PD-disaggregation e2e needs SLURM (srun) on PATH")
+        _skip_or_fail("PD-disaggregation e2e needs SLURM (srun) on PATH")
     # An explicit node pin (INFERA_E2E_NODES, set by run_tests.sh's disagg
     # dispatcher) means we place the stack ourselves via per-node `srun` and need
     # no held allocation — the Spur scheduler has no salloc/sbatch to sit in.
@@ -66,13 +74,13 @@ def require_disagg_env() -> None:
         pytest.skip("PD-disaggregation e2e needs INFERA_E2E_NODES or a live SLURM allocation")
     pair = cluster.pd_nodes()
     if pair is None:
-        pytest.skip(
+        _skip_or_fail(
             f"PD-disaggregation e2e needs >=2 nodes; allocation has "
             f"{cluster.allocated_nodes() or 'none'}"
         )
     for node in pair:
         if cluster.node_ip(node) is None:
-            pytest.skip(
+            _skip_or_fail(
                 f"could not resolve a routable IP for node {node} (set INFERA_E2E_NODE_IPS)"
             )
     _require_node_arch(pair)
@@ -181,8 +189,11 @@ def make_disagg_stack_fixture(
             await wait_workers_active(
                 launcher, server_ctx["url"], workers, timeout=params.server_ready_timeout
             )
-            # Exposed for disagg_suite.assert_rdma_kv_transport (reads their logs).
+            # Exposed for disagg_suite: the handles for assert_rdma_kv_transport
+            # (which reads their logs) and for reading the decode leg's own
+            # /metrics, plus the engine name those counters belong to.
             server_ctx["launcher"], server_ctx["workers"] = launcher, workers
+            server_ctx["engine"] = adapter.engine
             return server_ctx
 
         yield _up

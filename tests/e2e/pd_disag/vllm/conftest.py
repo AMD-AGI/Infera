@@ -88,6 +88,11 @@ class VllmDisaggAdapter(EngineAdapter):
             "--trust-remote-code",
         ]
 
+        if params.dp_attention:
+            raise ValueError(
+                "vLLM has data parallel serving, not SGLang DP-attention; "
+                "the dp_attention matrix axis is unsupported"
+            )
         tp = max(1, params.tensor_parallel_size)
         if tp > 1:
             argv += ["--tensor-parallel-size", str(tp)]
@@ -110,14 +115,21 @@ class VllmDisaggAdapter(EngineAdapter):
         gpu_ids: list[int],
         gid_index: str,
     ) -> dict[str, str]:
-        env = {
-            "HIP_VISIBLE_DEVICES": ",".join(str(g) for g in gpu_ids),
-            # Mooncake/vLLM must bind the data-plane IP (not the default NIC).
-            "VLLM_HOST_IP": advertise_host,
-            "MC_GID_INDEX": gid_index,
-            "VLLM_MOONCAKE_BOOTSTRAP_PORT": _BOOTSTRAP_PORT,
-        }
-        env.update(dict(params.extra_env))
+        env = super().disagg_worker_env(
+            params,
+            role,
+            advertise_host=advertise_host,
+            gpu_ids=gpu_ids,
+            gid_index=gid_index,
+        )
+        env.update(
+            {
+                # Mooncake/vLLM must bind the data-plane IP (not the default NIC).
+                "VLLM_HOST_IP": advertise_host,
+                "MC_GID_INDEX": gid_index,
+                "VLLM_MOONCAKE_BOOTSTRAP_PORT": _BOOTSTRAP_PORT,
+            }
+        )
         return env
 
 

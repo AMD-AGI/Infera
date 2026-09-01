@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import re
 
-from . import resources, scenarios
+from . import resources, scenarios, speculation
 from .adapter import emit_reporter_line
 from .params import EngineParams
 
@@ -65,6 +65,10 @@ async def run_disagg_case(params: EngineParams, disagg_stack) -> None:
     then verify chat liveness + semantic correctness end-to-end (the request is
     routed P->D with the KV cache transferred over RDMA)."""
     resources.require_supported(params)
+    # Before the image build, not after: on a fleet where the model tree is shared
+    # NFS the orchestrator can read it too, so a staging mistake is catchable here
+    # rather than 40 minutes later on both nodes at once.
+    resources.require_model_staged(params)
 
     # Brings up the full stack across two nodes and returns the router context;
     # self-skips if the disagg environment (SLURM/allocation/nodes) is missing
@@ -78,3 +82,18 @@ async def run_disagg_case(params: EngineParams, disagg_stack) -> None:
 
     # …and that it got there over RDMA, which correctness alone cannot show.
     assert_rdma_kv_transport(server)
+
+    # Speculation, read off the decode leg: that is the only one that drafts.
+    # The prefill leg runs a single forward per request and would report zero
+    # even on a perfectly healthy MTP setup, so asserting there would be wrong.
+    decode = next(
+        (w for w in server.get("workers", ()) if getattr(w, "role", "") == "decode"),
+        None,
+    )
+    if decode is not None:
+        await speculation.report_speculation(
+            decode.port,
+            params,
+            engine=server.get("engine", "?"),
+            host=decode.advertise_host,
+        )

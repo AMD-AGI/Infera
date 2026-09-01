@@ -15,7 +15,9 @@
 # tier onto one 8-GPU node. PD-disag orchestrates prefill+decode on two idle nodes.
 # Env: INFERA_E2E_MODEL_DIR (models, RO-mounted), INFERA_E2E_SLURM_PARTITION,
 # INFERA_E2E_GFX_ARCH (gfx950 default | gfx942 — picks the image + case overlay),
-# INFERA_E2E_SITE (a checked-in cluster profile under tests/sites/, see below).
+# INFERA_E2E_SITE (a checked-in cluster profile under tests/sites/, see below),
+# INFERA_E2E_K (pytest -k over the matrices' case ids — bring up one model
+# without paying for the whole tier's cold starts).
 # On amd-spur, CI tries its three account/QoS pairs in priority order.
 
 set -uo pipefail
@@ -270,6 +272,16 @@ _log_dir_banner
 E2E_FLAGS=()
 if [ -n "${INFERA_E2E_GFX_ARCH:-}" ]; then
   E2E_FLAGS+=(-e INFERA_E2E_GFX_ARCH="$INFERA_E2E_GFX_ARCH")
+fi
+
+# Optional pytest -k expression, matched against the parametrize ids the matrices
+# generate (e.g. INFERA_E2E_K='GLM-5.2'). Bringing up one model means running its
+# case, not the whole tier: a green case re-run costs a cold start each time and
+# tells you nothing new. The mixed tier's pytest runs in the container, so its
+# value is forwarded and expanded there; the disagg orchestrator runs on this host.
+if [ -n "${INFERA_E2E_K:-}" ]; then
+  E2E_FLAGS+=(-e INFERA_E2E_K="$INFERA_E2E_K")
+  echo "[e2e] case filter: -k '$INFERA_E2E_K'"
 fi
 
 # Bind the model tree read-only at the same path. If it is absent here it lives
@@ -527,8 +539,10 @@ _hold_pair() {
     [ -n "$_SLURM_ACCOUNT" ] && account_flags=(-A "$_SLURM_ACCOUNT" -q "$_SLURM_QOS")
     for ((i = 1; i <= retries; i++)); do
       echo "[e2e disagg] hold submission on $pair ($(_account_qos_label), attempt $i/$retries)"
+      # The hold only sleeps; discard its output instead of creating slurm-*.out.
       submit_out=$(sbatch --parsable -N2 -n2 -w "$pair" --gres=gpu:8 -p "$SLURM_PART" \
         -t "$SLURM_TIME" -J "infera-ci-hold-${INFERA_E2E_JOB_TAG:-local}" \
+        -o /dev/null -e /dev/null \
         ${INFERA_E2E_RESERVATION:+--reservation="$INFERA_E2E_RESERVATION"} \
         "${account_flags[@]}" "$script" 2>&1)
       if [ "$?" -ne 0 ]; then
@@ -536,7 +550,21 @@ _hold_pair() {
         _accounting_blocked "$submit_out" && break
         continue
       fi
-      jid="${submit_out%%;*}"
+      # `--parsable` prints "jobid" (or "jobid;cluster" when federated) on stdout,
+      # but $submit_out is 2>&1 so it can also carry whatever the cluster's
+      # submission filter says. This one prefixes six "sbatch: ..." banner lines,
+      # and since a non-federated id contains no ';', the old ${submit_out%%;*}
+      # handed back the entire blob as the job id. Everything downstream then
+      # addressed a job that does not exist: `scontrol show job` answered nothing,
+      # so a hold that HAD started was written off as "not started (?/?)" after
+      # the full wait, and `scancel` could not cancel it either — which is where
+      # the abandoned holds squatting two nodes each came from.
+      # Take the last bare-numeric line instead, tolerating the federated suffix.
+      jid=$(printf '%s\n' "$submit_out" | sed -n 's/^\([0-9][0-9]*\)\(;.*\)\?$/\1/p' | tail -1)
+      if [ -z "$jid" ]; then
+        echo "[e2e disagg] hold submitted but no job id in: $submit_out" >&2
+        continue
+      fi
       waited=0; st=""; rs=""
       while [ "$waited" -lt "$HOLD_WAIT" ]; do
         st=$(_sc show job "$jid" 2>/dev/null | grep -oE 'JobState=[A-Z_]+' | cut -d= -f2)
@@ -916,7 +944,7 @@ run_e2e_engine() {
   docker run --rm --name "${CTR_PREFIX}e2e" --network host "${GPU_FLAGS[@]}" "${SCRATCH_FLAGS[@]}" "${E2E_FLAGS[@]}" \
     -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONUNBUFFERED=1 \
     -v "$REPO":/workspace:ro -w /workspace --entrypoint bash "$img" -lc \
-    "$PIPDEPS; python3 -m pytest -p no:cacheprovider -o addopts= -rfE -v -s $testpath 2>&1 | stdbuf -oL tee /scratch/.e2e.out; rc=\${PIPESTATUS[0]}; grep -aE '^(FAILED|ERROR) ' /scratch/.e2e.out 2>/dev/null | sed 's|^|[e2e $img] |' >> /scratch/failures.txt; exit \$rc"
+    "$PIPDEPS; python3 -m pytest -p no:cacheprovider -o addopts= -rfE -v -s \${INFERA_E2E_K:+-k \"\$INFERA_E2E_K\"} $testpath 2>&1 | stdbuf -oL tee /scratch/.e2e.out; rc=\${PIPESTATUS[0]}; grep -aE '^(FAILED|ERROR) ' /scratch/.e2e.out 2>/dev/null | sed 's|^|[e2e $img] |' >> /scratch/failures.txt; exit \$rc"
 }
 
 # Run in place when eligible, else dispatch the whole tier to one SLURM node.
@@ -1091,6 +1119,7 @@ run_e2e_disagg() {
         INFERA_E2E_NODES="$n1,$n2" INFERA_E2E_SLURM_PARTITION="$SLURM_PART" \
         PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
         python3 -m pytest -p no:cacheprovider -o addopts= -rfE -v -s \
+          ${INFERA_E2E_K:+-k "$INFERA_E2E_K"} \
           "$REPO/tests/e2e/pd_disag/$e" 2>&1 | tee "$out"
       prc=${PIPESTATUS[0]}
       _DISAG_NODES=""   # pytest returned, so its fixtures already tore the stack down

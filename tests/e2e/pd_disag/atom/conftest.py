@@ -119,16 +119,23 @@ class AtomDisaggAdapter(EngineAdapter):
         gpu_ids: list[int],
         gid_index: str,
     ) -> dict[str, str]:
-        env = {
-            "HIP_VISIBLE_DEVICES": ",".join(str(g) for g in gpu_ids),
-            "OMP_NUM_THREADS": "1",
-            # Pin Mooncake engine/handshake to the peer-reachable shared subnet.
-            "ATOM_HOST_IP": advertise_host,
-            "MC_DISABLE_HIP_TRANSPORT": "1",  # force RDMA (not HIP P2P)
-            "RDMAV_FORK_SAFE": "1",
-            "MC_GID_INDEX": gid_index,
-        }
-        env.update(dict(params.extra_env))
+        env = super().disagg_worker_env(
+            params,
+            role,
+            advertise_host=advertise_host,
+            gpu_ids=gpu_ids,
+            gid_index=gid_index,
+        )
+        env.update(
+            {
+                "OMP_NUM_THREADS": "1",
+                # Pin Mooncake engine/handshake to the peer-reachable shared subnet.
+                "ATOM_HOST_IP": advertise_host,
+                "MC_DISABLE_HIP_TRANSPORT": "1",  # force RDMA (not HIP P2P)
+                "RDMAV_FORK_SAFE": "1",
+                "MC_GID_INDEX": gid_index,
+            }
+        )
         return env
 
 

@@ -17,7 +17,7 @@ from __future__ import annotations
 import os
 from typing import NamedTuple
 
-from . import client, correctness
+from . import client, correctness, speculation
 from .adapter import emit_reporter_line
 from .params import EngineParams
 
@@ -195,11 +195,14 @@ async def assert_correctness(server_url: str, model: str) -> None:
 
 async def run_mixed(server: dict, spawn, params: EngineParams) -> list:
     """Full mixed-worker (prefill-decode-mix, no PD) scenario: spawn one worker and
-    verify chat liveness + streaming + the four correctness probes."""
+    verify chat liveness + streaming + the four correctness probes.
+
+    Speculation is checked last, because it reads counters the probes populate."""
     workers = [await spawn(server, params)]
 
     await assert_chat_ok(server["url"], params.model)
     await assert_chat_streaming_ok(server["url"], params.model)
     await assert_correctness(server["url"], params.model)
+    await speculation.report_speculation(workers[0].port, params, engine=workers[0].engine)
 
     return workers
