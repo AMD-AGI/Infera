@@ -67,9 +67,15 @@ package makes the same work **standardised**:
 5. **A kit must name the three facts a reproduction fails without**: the GPU
    architecture, the image, the model.
 6. **A kit must not register the model under a filesystem path.**
-7. **The exemplars are data.** `assets/e2e_deploy_standardized.task/examples/`
+7. **A kit must evidence the deployment mode from two independent components** —
+   the worker's own log line and the router's worker listing. The mode is
+   selected by *omitting* a flag, so the launch command is not evidence of it.
+8. **A kit must carry a real answer**, not only a health check: one file with
+   `"finish_reason": "stop"` and a non-empty `"content"`.
+9. **The exemplars are data.** `assets/e2e_deploy_standardized.task/examples/`
    holds sanitised kits from runs that passed, one per model. A run that passes
-   is how the next run gets a better example.
+   is how the next run gets a better example — and what the exemplar
+   demonstrates becomes rules 7 and 8 rather than staying prose.
 
 ## Evidence that the shape check is not vacuous
 
@@ -84,6 +90,15 @@ validator (2026-09-01):
 The second row is the one worth reading: a validator that passed everything it
 was pointed at would be worth nothing, and this one refuses a kit that its
 predecessor accepted, for a reason written down before the check existed.
+
+When rules 7 and 8 were added from the exemplars, the same two controls were
+re-run and a third added (2026-09-01):
+
+| kit | verdict |
+|---|---|
+| the Qwen kit from the run that passed both validators | **PASS** |
+| the GLM kit from the run whose shape check passed | **PASS** |
+| a copy of the Qwen kit with `chat_completion.json`, `verification.json` and `worker_mode_line.txt` deleted | **FAIL**, on exactly the two new rules and nothing else |
 
 ## What it does not do
 
