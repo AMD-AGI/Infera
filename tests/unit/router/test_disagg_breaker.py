@@ -24,6 +24,7 @@ from infera.common.nats_request import TYPE_DATA, TYPE_DONE, TYPE_ERROR
 from infera.common.worker_pool import DisaggMode, EngineType, WorkerInfo
 from infera.router.disagg import DisaggRouter
 from infera.router.policy.target import RouteTarget
+from infera.server.metrics import RequestObserver
 
 
 class _FakePolicy:
@@ -75,18 +76,30 @@ async def _drain(agen) -> bytes:
     return out
 
 
+def _obs() -> RequestObserver:
+    """The SLA observer the streaming generators close on their way out.
+
+    These tests call the generators directly, bypassing the dispatch wrapper
+    that normally supplies one. It records nothing here: the observer only
+    emits for an outcome of "ok", and every request below fails.
+    """
+    return RequestObserver("disagg")
+
+
 @pytest.mark.asyncio
 async def test_decode_only_stream_records_failure_on_unreachable():
     r = _router()
     d_target = RouteTarget(_w("d1"))
     body = await _drain(
-        r._stream_decode_only(d_target, [], "http://d1/v1/chat/completions", {"model": "m"})
+        r._stream_decode_only(_obs(), d_target, [], "http://d1/v1/chat/completions", {"model": "m"})
     )
     assert b"decode unreachable" in body, "client must get a clean SSE error, not a traceback"
     assert r.breaker.state_of("d1").value == "closed", "one failure is below the threshold"
     for _ in range(2):
         await _drain(
-            r._stream_decode_only(d_target, [], "http://d1/v1/chat/completions", {"model": "m"})
+            r._stream_decode_only(
+                _obs(), d_target, [], "http://d1/v1/chat/completions", {"model": "m"}
+            )
         )
     assert r.breaker.state_of("d1").value == "open", "three unreachable decodes must trip it"
     await r.aclose()
@@ -112,6 +125,7 @@ async def test_dual_stream_records_failure_on_unreachable_decode():
     for _ in range(3):
         body = await _drain(
             r._stream_dual(
+                _obs(),
                 p_target,
                 [],
                 d_target,
