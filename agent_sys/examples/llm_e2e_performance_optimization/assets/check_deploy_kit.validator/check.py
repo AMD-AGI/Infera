@@ -87,6 +87,22 @@ ENVIRONMENT_FACTS = (
 #: sentence in `notes.md` explaining this very trap must not fail the kit.
 SERVED_PATH = re.compile(r'"(?:model|served_model_name|model_name)"\s*:\s*"(/[^"]*)"')
 
+#: The deployment mode, read from the **worker's own log line**. infera writes
+#: `disagg=DisaggMode.MIXED`; the pattern is loose about the value because the
+#: rule is "the worker was asked" and not "the answer was mixed" — a package
+#: variable chooses the mode.
+MODE_FROM_WORKER = re.compile(r"disagg\s*=\s*DisaggMode\.\w+", re.IGNORECASE)
+
+#: The same fact from the **router's worker listing**, which is a different
+#: component that learned it independently.
+MODE_FROM_ROUTER = re.compile(r'"disagg_mode"\s*:\s*(?:"[^"]*"|\[)')
+
+#: A real completion: a `finish_reason` that is not a truncation, beside a
+#: non-empty `content`. Both must be in one file — a `finish_reason` in one
+#: place and a `content` in another is two facts, not one answer.
+FINISH_STOP = re.compile(r'"finish_reason"\s*:\s*"stop"')
+NONEMPTY_CONTENT = re.compile(r'"content"\s*:\s*"(?:[^"\\]|\\.)+"')
+
 # ------------------------------------------------------- shared-namespace identifiers
 
 #: Flags that bind something into a namespace shared with everyone else on the
@@ -344,6 +360,69 @@ def check_served_name(root: Path) -> list[str]:
     return faults
 
 
+def _results_text(root: Path) -> list[tuple[str, str]]:
+    """Every readable file under `results/`, as `(relative name, text)`."""
+    results = root / "results"
+    if not results.is_dir():
+        return []
+    out = []
+    for path in sorted(p for p in results.rglob("*") if p.is_file()):
+        try:
+            out.append((str(path.relative_to(results)), path.read_text(encoding="utf-8")))
+        except (OSError, UnicodeDecodeError):
+            continue
+    return out
+
+
+def check_mode_readback(root: Path) -> list[str]:
+    """The deployment mode is evidenced from **two independent components**.
+
+    The mode is selected by *omitting* a flag, so the launch command is not
+    evidence of it and neither is one component agreeing with itself. Both
+    exemplars beside the task brief carry these two readings; this rule is that
+    property expressed as a check rather than as prose.
+
+    Deliberately loose about the *value*: which mode was asked for is a package
+    variable. The rule is that the running system was asked, twice.
+    """
+    files = _results_text(root)
+    if not files:
+        return []  # an absent/empty results/ is already reported by the caller
+    from_worker = [name for name, text in files if MODE_FROM_WORKER.search(text)]
+    from_router = [name for name, text in files if MODE_FROM_ROUTER.search(text)]
+    faults = []
+    if not from_worker:
+        faults.append(
+            "results/: no worker-side reading of the deployment mode "
+            "(a `disagg=DisaggMode.…` line the worker process wrote itself)"
+        )
+    if not from_router:
+        faults.append(
+            'results/: no router-side reading of the deployment mode '
+            '(a `"disagg_mode"` field from the router\'s worker listing)'
+        )
+    return faults
+
+
+def check_completion_evidence(root: Path) -> list[str]:
+    """A real answer came back, not just a health check.
+
+    One file must carry both a non-truncated `finish_reason` and a non-empty
+    `content`. A kit whose evidence is `/health` returning 200 has shown that a
+    process is listening, which is not the same as a model that answers — and
+    `finish_reason: "length"` alone is the reasoning-budget trap, which is a
+    request that was too small rather than a deployment that works.
+    """
+    for _, text in _results_text(root):
+        if FINISH_STOP.search(text) and NONEMPTY_CONTENT.search(text):
+            return []
+    return [
+        'results/: no completion evidence — no file carries both '
+        '`"finish_reason": "stop"` and a non-empty `"content"`. A health check '
+        "is not an answer"
+    ]
+
+
 def check_packup(root: Path, floors: dict, min_commands: int, options: dict) -> list[str]:
     """The whole packup directory. Returns every fault; empty means pass."""
     faults: list[str] = []
@@ -403,6 +482,14 @@ def check_packup(root: Path, floors: dict, min_commands: int, options: dict) -> 
         faults += check_environment_facts(root)
     if options.get("require_served_name_not_a_path", True):
         faults += check_served_name(root)
+    # The two rules the worked exemplars turned into checks. Both are about the
+    # kit having *evidence* rather than claims, and both are switchable because
+    # a package deploying something that is not a served model would want
+    # neither.
+    if options.get("require_mode_readback", True):
+        faults += check_mode_readback(root)
+    if options.get("require_completion_evidence", True):
+        faults += check_completion_evidence(root)
 
     return faults
 

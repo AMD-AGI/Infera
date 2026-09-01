@@ -81,14 +81,24 @@ in `results/`.
   into the one part of the kit a reader is most likely to copy. Set it
   explicitly to `$E2E_MODEL_NAME` and say in `environment.md` which name you
   used. `check_deploy_kit` refuses a kit whose evidence shows a path there.
+- **The flag that sets the served name may not appear in `--help`.** Measured:
+  infera parses its own flags with `parse_known_args` and forwards the remainder
+  to the engine's own argument parser, so every engine flag works and **none of
+  them is documented in the infera help**. An agent that greps `--help` for
+  `--served-model-name`, finds nothing and concludes it is unsupported will ship
+  a kit whose model id is the container's mount path. Read the engine's own
+  arguments, and read the name back out of the running system.
 - **The container workdir must be on local disk.** A home directory is often on
   a network filesystem with `root_squash`, where a container's root maps to
   nobody and the engine fails to write its logs **silently** — no error, just no
   log. Use `$E2E_WORK_ROOT`, and check what you are actually writing to.
 - **A cold start takes minutes, and the log repeats a health-check failure the
-  whole time.** That is a JIT compile, not a hang. Killing it and retrying is
-  the single most expensive mistake available here. Graph capture can add
-  minutes more.
+  whole time.** That is a JIT compile and a weight load, not a hang. Killing it
+  and retrying is the single most expensive mistake available here. Graph
+  capture can add minutes more. **Measured on this class of hardware: 274 s for
+  ~51 GB of weights, and 910 s for ~328 GB read over a network filesystem —
+  against a kit that documented 200 s.** Size your wait from the weights and the
+  storage you are actually reading from, not from a number you copied.
 - **Reasoning models emit a long preamble before the answer.** A small
   `max_tokens` truncates them mid-thought and the response comes back with a
   length-based finish reason. That is the request being too small, not the
@@ -178,6 +188,10 @@ deployment. Say so in `notes.md`.
 - `environment.md` names a **GPU architecture**, an **image**, and the **model**,
   and carries at least one digit;
 - no evidence file shows the model served under a **filesystem path**;
+- `results/` evidences the deployment mode from **two independent components** —
+  the worker's own log line and the router's worker listing;
+- one evidence file carries both `"finish_reason": "stop"` and a non-empty
+  `"content"` — a health check is not an answer;
 - no identifier is frozen in `scripts/` and then bound into a host-wide
   namespace — a container name, a published or listened-on port, the container
   workdir.

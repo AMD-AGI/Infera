@@ -148,6 +148,19 @@
     min_json_results: 2
     require_served_name_not_a_path: true
     environment_facts: true
+    # **The two rules the worked exemplars turned into checks** (mission step 3
+    # and step 5: a passing run becomes a few-shot example *and* an assertion).
+    #   - `require_mode_readback`: the deployment mode must be evidenced from
+    #     two independent components — the worker's own log line and the
+    #     router's worker listing. The mode is selected by *omitting* a flag,
+    #     so the launch command is not evidence and one component agreeing with
+    #     itself is not either.
+    #   - `require_completion_evidence`: one evidence file must carry both a
+    #     `finish_reason` of `stop` and a non-empty `content`. `/health`
+    #     returning 200 shows a process is listening, which is not a model that
+    #     answers.
+    require_mode_readback: true
+    require_completion_evidence: true
   tags:
     logic_source: external_static
     cost: seconds
