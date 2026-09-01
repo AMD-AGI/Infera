@@ -479,10 +479,15 @@ def _registry(
     #
     # `mapping_roots()` and not the `RemoteMapping`s: it keeps the **weak**
     # mappings, which are the ones with something to copy, and drops
-    # `transport`/`target`, which nothing anywhere reads yet. A same-machine
-    # mapping needs no transport, so this is enough to make the copy path run
-    # and is deliberately not enough to reach another host — that needs a
-    # `Connection` on `Context`, and it is not here.
+    # `transport`/`target`, which `transports` below now reads.
+    #
+    # **This paragraph used to end differently and had stopped being true.** It
+    # said `transport`/`target` were read by nothing, and that reaching another
+    # host "needs a `Connection` on `Context`, and it is not here" — six lines
+    # above the block that builds exactly that and puts it there. A stale comment
+    # next to the code that refutes it is worse than none: a reader who trusts it
+    # concludes the run path cannot address a second machine, which is the one
+    # thing this stage changed.
     #
     # No `--meta` flag on `agent-sys`: `$ENV_MGR_META` and the config default are
     # the whole surface for now, and adding a third spelling of one setting to a
@@ -507,9 +512,29 @@ def _registry(
     # made the configuration closest to the goal the one that cannot reach the
     # machine. `sync` keeps its own weak filter, which is genuinely about
     # strength; `mapping` above is still `mapping_roots()` and still weak-only.
-    transports = {
-        m.local_root: sync_transport(m.transport, m.target) for m in configuration.mappings
-    }
+    # **A configuration fault is reported, not raised through.** `sync_transport`
+    # raises `ValueError` — and `main()` catches `PackageNotFound`, `SpecInvalid`,
+    # `CredentialsMissing`/`NoConfinement`/`RepositoryNotPrepared` and
+    # `PrepareRefused`/`UnresolvedGrant`, none of which is `ValueError`. So a
+    # meta file with one bad mapping produced a raw traceback and an exit code
+    # that says "unexpected failure" about an operator's typo.
+    #
+    # `_harness_env` already established the shape one screen down: a `ValueError`
+    # that is really a precondition gets re-raised as the family `main()` maps to
+    # PRECONDITION, with the offending file named. This is the same act.
+    #
+    # **What this does not do is make a docker mapping work.** `tools.py` says a
+    # container is a valid tool target and an invalid sync transport, and that
+    # remains true — `sync_transport` is the only constructor and it refuses, so
+    # no `DockerExec` is reachable from configuration today. Separating tool
+    # reachability from sync capability means `Context.transports` stops being a
+    # `SyncTransport` map, which is a seam change and a ROADMAP item, not this.
+    try:
+        transports = {
+            m.local_root: sync_transport(m.transport, m.target) for m in configuration.mappings
+        }
+    except ValueError as exc:
+        raise PrepareRefused(f"{meta.configured_path()}: {exc}") from exc
     context = build_context(
         layout,
         main_repo=_main_repo(root),

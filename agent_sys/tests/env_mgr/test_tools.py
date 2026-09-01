@@ -10,13 +10,15 @@ notices. A tool call has a schema, a name, and a result.
 from __future__ import annotations
 
 import shutil
+import subprocess
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from env_mgr.fs.zone import Zone
 from env_mgr.remote.connection import LocalConnection
-from env_mgr.remote.tools import tools
+from env_mgr.remote.tools import REMOTE_CALL_SECONDS, tools
 from task_graph.ids import TaskId
 
 
@@ -54,7 +56,9 @@ def _by_name(zone: Zone, far_root: str) -> dict[str, object]:
 # ---------------------------------------------------------- criterion 18
 
 
-def test_the_descriptions_name_the_far_side_so_a_package_need_not(far_root: str, zone: Zone) -> None:
+def test_the_descriptions_name_the_far_side_so_a_package_need_not(
+    far_root: str, zone: Zone
+) -> None:
     """**Criterion 18's other half: a tool call has a name, a schema — and an
     address.**
 
@@ -117,15 +121,84 @@ def test_tool_call_round_trip(zone: Zone, far_root: str) -> None:
 
 
 @pytest.mark.skipif(shutil.which("rsync") is None, reason="rsync is not installed")
-def test_push_and_pull_round_trip(zone: Zone, far_root: str, tmp_path: Path) -> None:
-    # Not `tmp_path / "far"`: the `far_root` fixture owns that name now. This is
-    # the *destination argument* of a push, which is a different thing from the
-    # zone's far-side twin — `remote` is not confined to the remote zone.
-    far = tmp_path / "push-target"
-    far.mkdir()
-    report = _by_name(zone, far_root)["env_remote_push"].call(path="out", remote=str(far))  # type: ignore[attr-defined]
+def test_push_and_pull_round_trip(zone: Zone, far_root: str) -> None:
+    """`remote` is relative to the far-side zone, on the same terms as `cwd`.
+
+    **This asserted the opposite and said so**: the destination was an absolute
+    `tmp_path` outside the far root, under a comment reading *"`remote` is not
+    confined to the remote zone"*. That was an accurate record of the code and
+    of a surface where one of three far-side path arguments was checked and two
+    were not — a rule a reader of the schemas could not see stopping.
+
+    `design.md` §10.4 is unchanged and still governs: the far side **is** less
+    isolated than the local one, deliberately, and `_inside_remote` is syntactic,
+    so this is a guardrail against a malformed argument rather than a boundary.
+    """
+    far = Path(far_root) / "push-target"
+    far.mkdir(parents=True)
+    report = _by_name(zone, far_root)["env_remote_push"].call(path="out", remote="push-target")  # type: ignore[attr-defined]
     assert (far / "result.txt").read_text() == "result"
     assert report["conflicts"] == ()
+
+
+def test_a_remote_command_carries_a_bound(zone: Zone, far_root: str) -> None:
+    """`conn.run` accepts a `timeout` and `tools` passed none.
+
+    Under `asyncio.to_thread` a `subprocess.run(timeout=None)` is not
+    cancellable, so a wedged session pins a worker thread for the process
+    lifetime and the SDK's own turn timeouts cannot reclaim it.
+
+    The control is the second half: the bound is an *hour*, because a
+    first-start CUDA-graph capture legitimately runs for tens of minutes and a
+    tight default would turn a working bring-up into a failure. A test that only
+    asserted "not None" would be satisfied by one second.
+    """
+    seen: dict[str, Any] = {}
+
+    class Recording:
+        def run(self, argv, *, cwd=None, timeout=None):  # noqa: ANN001, ANN202
+            seen["timeout"] = timeout
+            return subprocess.CompletedProcess(list(argv), 0, "", "")
+
+        def push(self, local: str, remote: str):  # noqa: ANN202
+            raise AssertionError
+
+        def pull(self, remote: str, local: str):  # noqa: ANN202
+            raise AssertionError
+
+        def describe(self) -> str:
+            return "somewhere"
+
+    defs = {t.name: t for t in tools(Recording(), zone, far_root)}  # type: ignore[arg-type]
+    defs["env_remote_run"].call(command=["true"])  # type: ignore[attr-defined]
+    assert seen["timeout"] == REMOTE_CALL_SECONDS
+    assert seen["timeout"] >= 1800, "a graph capture takes tens of minutes; do not cut one short"
+
+
+@pytest.mark.parametrize("proposal", ["/etc/cron.d", "../outside", "x/../../outside"])
+def test_the_remote_argument_cannot_leave_the_far_zone(
+    zone: Zone, far_root: str, proposal: str
+) -> None:
+    """CONTROL for the test above, and the reason this pair is not vacuous.
+
+    Without it, dropping `_inside_remote` from `env_remote_push`/`pull` would
+    leave every other assertion in this file green — a relative `remote` reaches
+    the same place either way, so only a *refusal* discriminates.
+
+    `/etc/cron.d` and `/home/other/.ssh/id_rsa` are the two the review named.
+
+    **Note for anyone re-running this against the unfixed code**: it does not
+    merely fail, it writes. A relative `remote` handed straight to `rsync`
+    resolves against the *process's* working directory, so `"../outside"` put a
+    real directory beside the repository root — observed 2026-09-01 while
+    checking that this control is not vacuous. That is the finding demonstrating
+    itself, and it is a better argument for the guardrail than the docstring is.
+    """
+    by_name = _by_name(zone, far_root)
+    with pytest.raises(PermissionError):
+        by_name["env_remote_push"].call(path="out", remote=proposal)  # type: ignore[attr-defined]
+    with pytest.raises(PermissionError):
+        by_name["env_remote_pull"].call(remote=proposal, path="out")  # type: ignore[attr-defined]
 
 
 # ------------------------------- criterion 10, on this surface too

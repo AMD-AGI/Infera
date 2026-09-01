@@ -659,10 +659,16 @@ class PhaseRunner:
                 continue
             prior = history.priors(store, mine, spec.name)
             if history.may_skip(prior, self.strict_level):
-                assert prior is not None
-                reused.extend(prior)
+                # **`assert prior is not None` was here, on a production path.**
+                # `may_skip`'s first line returns `False` for `None` and for an
+                # empty sequence, so the assertion could not fire — which makes
+                # it dead under `python -O` and dead without it. Narrowing by
+                # binding says the same thing to a reader *and* to a type
+                # checker, and costs nothing at runtime.
+                reused_now = tuple(prior or ())
+                reused.extend(reused_now)
                 skipped.append(
-                    SkipRecord(spec.name, "already validated against this version", prior[0])
+                    SkipRecord(spec.name, "already validated against this version", reused_now[0])
                 )
                 continue
             ran.extend(self._invoke(kind, spec, task, mine, registry))
@@ -903,7 +909,7 @@ class PhaseRunner:
 
     def _placed_root(
         self, kind: PhaseKind, task: Any, registry: Any
-    ) -> tuple[Path, tuple[str, ...]]:
+    ) -> tuple[Path, Mapping[Any, str]]:
         """Where this validation's zone goes, asked of `env_mgr` when it is wired.
 
         `prepare_validation` places the zone as a **sibling of the producing

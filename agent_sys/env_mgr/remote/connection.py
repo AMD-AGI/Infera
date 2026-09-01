@@ -107,21 +107,51 @@ class SyncTransport(Connection, Protocol):
         ...
 
 
+def rsync_stat(text: str, label: str) -> int:
+    """One labelled integer out of ``rsync --stats``.
+
+    **Lives here so that `sync` and `Connection` cannot disagree about it, and
+    they did.** This module counted *matching lines* — `sum(1 for line in … if
+    line.startswith(label))` — which is 0 or 1 for every copy that ever runs,
+    while `sync` parsed the integer after the colon. Two readings of one line of
+    output, one of them wrong, and the wrong one is the one an agent sees:
+    `Connection.push`/`pull` are what `env_remote_push`/`env_remote_pull` return
+    through `report._asdict()`, so a model copying two hundred files was told
+    ``sent: 1``.
+
+    `sync` imports this rather than the reverse; it already imports this module
+    and the other direction would be a cycle. **Only the parse is shared.** The
+    two command lines are deliberately not — `sync`'s carries ``--delete`` and
+    ``--exclude=playground/**``, and `SyncTransport`'s docstring records at
+    length why routing `sync` through `Connection.push` would silently drop both.
+    """
+    for line in text.splitlines():
+        if line.startswith(label):
+            digits = line.split(":", 1)[1].strip().replace(",", "")
+            try:
+                return int(digits)
+            except ValueError:  # pragma: no cover - rsync formats vary
+                return 0
+    return 0
+
+
 def _rsync(src: str, dst: str, *, rsh: Sequence[str] = ()) -> SyncReport:
     rsync = shutil.which("rsync")
     if rsync is None:
         raise RuntimeError("rsync is not installed")
     cmd = [rsync, "-a", "--stats"]
     if rsh:
-        cmd += ["-e", " ".join(rsh)]
+        # `shlex.join`, not `" ".join`: rsync word-splits the `-e` value, so an
+        # option containing a space — `-o "ProxyCommand=ssh -W %h:%p bastion"`
+        # is the ordinary one — arrives as five arguments instead of one.
+        cmd += ["-e", shlex.join(rsh)]
     cmd += [src.rstrip(os.sep) + os.sep, dst.rstrip(os.sep) + os.sep]
     proc = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    sent = sum(
-        1
-        for line in proc.stdout.splitlines()
-        if line.startswith("Number of regular files transferred")
+    return SyncReport(
+        sent=rsync_stat(proc.stdout, "Number of regular files transferred"),
+        received=0,
+        conflicts=(),
     )
-    return SyncReport(sent=sent, received=0, conflicts=())
 
 
 class Ssh:
@@ -298,6 +328,21 @@ def sync_transport(transport: str, target: str) -> SyncTransport:
     is a configuration fault and is named as one, at the point where a human is
     reading configuration.
     """
+    # **The transport is decided first, and it was not.** `not target` was tested
+    # before `transport`, so `{"transport": "shh", "target": ""}` — one
+    # transposed character — and `{"transport": "docker", "target": ""}` both
+    # fell through to `LocalConnection`. `sync` then ran `rsync -a --delete`
+    # against `remote_root` as a path *on this machine*, creating and destroying
+    # a local directory, with no diagnostic. That is the exact failure the
+    # paragraph above claims not to have: it did not raise here, and it did not
+    # raise at the first copy either — it succeeded, against the wrong machine.
+    if transport not in ("ssh", "local", ""):
+        raise ValueError(
+            f"unknown transport {transport!r}: `ssh` reaches another host, and an "
+            f"empty transport with an empty target is a shared mount on this "
+            f"machine. `docker` can be a Connection but not a SyncTransport "
+            f"(docker cp cannot express --delete or an exclude)."
+        )
     if transport == "ssh" and target:
         return Ssh(target)
     if not target:

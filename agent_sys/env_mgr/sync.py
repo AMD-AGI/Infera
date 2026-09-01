@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import filecmp
 import os
+import shlex
 import shutil
 import subprocess
 from collections.abc import Mapping, Sequence
@@ -19,7 +20,7 @@ from enum import Enum
 from env_mgr.fs.domain import DomainKind, subdir_for
 from env_mgr.fs.zone import Zone
 from env_mgr.protocols import PrepareRefused, SyncReport
-from env_mgr.remote.connection import LocalConnection, SyncTransport
+from env_mgr.remote.connection import LocalConnection, SyncTransport, rsync_stat
 
 __all__ = [
     "Direction",
@@ -212,11 +213,30 @@ def sync(
     # Only the *far* end takes the prefix. Which end that is follows from the
     # direction, and getting it backwards would address the wrong machine.
     far_is_dst = direction is Direction.LOCAL_TO_REMOTE
-    found = _conflicts_across(conn, src, dst, remote_dst=far_is_dst and bool(prefix))
+    # **Whether the pre-pass can read a side is about the *host*, not about the
+    # direction**, and `remote_dst=far_is_dst and bool(prefix)` conflated them.
+    # With `REMOTE_TO_LOCAL` over an `Ssh` transport, `far_is_dst` is `False`, so
+    # `_conflicts_across` took the local branch and ran `filecmp` with `src` —
+    # a path on the *other machine* — read here. It either found nothing (silent
+    # pass) or found a same-named local tree and compared the wrong one, and
+    # `rsync -a --delete` then overwrote the local zone with the single guard
+    # against both-sides-changed data loss never having run. `_conflicts_across`
+    # promises "never a silent skip"; this is what made that untrue.
+    #
+    # `bool(prefix)` alone is the honest question: a prefix means one end is on
+    # another host, and `_conflicts_across` cannot `filecmp` across that boundary
+    # in either direction. No production caller uses `REMOTE_TO_LOCAL` today, so
+    # this shipped untested rather than shipped broken.
+    found = _conflicts_across(conn, src, dst, remote_dst=bool(prefix))
 
     playground_dst = os.path.join(dst, PLAYGROUND)
     if far_is_dst and prefix:
-        _checked(conn.run(["mkdir", "-p", dst, playground_dst]), f"mkdir -p {dst}")
+        # `playground_dst` was created here **and** after the copy. Measured,
+        # rsync 3.2.7: `--delete` does remove an empty excluded directory when
+        # the sender has none, so the second call is the one that lasts and this
+        # one only bought a remote round trip. `dst` itself is not redundant —
+        # rsync creates the final component of a destination and not its parents.
+        _checked(conn.run(["mkdir", "-p", dst]), f"mkdir -p {dst}")
     else:
         os.makedirs(dst, exist_ok=True)
 
@@ -225,7 +245,13 @@ def sync(
         raise RuntimeError("rsync is not installed; the one-shot sync has no mechanism")
     cmd = [rsync, "-a", "--delete", "--stats", f"--exclude={PLAYGROUND}/**"]
     if rsh:
-        cmd += ["-e", " ".join(rsh)]
+        # **`shlex.join`, not `" ".join`.** rsync word-splits the `-e` value, so
+        # `Ssh(host, options=("-o", "ProxyCommand=ssh -W %h:%p bastion"))` sent
+        # `-o ProxyCommand=ssh` plus three stray arguments. Same class for any
+        # option containing a space. This is the argv-boundary defect `Ssh.run`
+        # was fixed for, reappearing one layer out because the fix was applied
+        # to the transport and this string is built here.
+        cmd += ["-e", shlex.join(rsh)]
     src_arg = src.rstrip(os.sep) + os.sep
     dst_arg = dst.rstrip(os.sep) + os.sep
     if far_is_dst:
@@ -287,12 +313,11 @@ def _conflicts_across(
     )
 
 
-def _stat(text: str, label: str) -> int:
-    for line in text.splitlines():
-        if line.startswith(label):
-            digits = line.split(":", 1)[1].strip().replace(",", "")
-            try:
-                return int(digits)
-            except ValueError:  # pragma: no cover - rsync formats vary
-                return 0
-    return 0
+#: **One reader, and there were two.** This module parsed the integer after the
+#: colon; `remote/connection.py:_rsync` counted matching lines and so reported 0
+#: or 1 for every copy. Both read the same line of `rsync --stats` output, one of
+#: them wrongly, and the wrong one is what an agent sees through
+#: `env_remote_push`/`env_remote_pull`. The body moved to `connection` because
+#: this module already imports it and the other direction is a cycle; the name
+#: stays here because every call site in this file uses it.
+_stat = rsync_stat

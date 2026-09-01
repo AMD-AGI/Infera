@@ -803,6 +803,31 @@ get dropped:
 
 ---
 
+### 6.6 **P2 — a container is a valid tool target and there is no way to declare one**
+
+Raised by the ver1 review's finding #5, verified 2026-09-01, and **half-closed
+rather than closed**: the CLI now reports the configuration fault as a
+precondition instead of a traceback, and a `docker` mapping is still
+unconstructible.
+
+`tools.py`'s own docstring says *"a container is a valid tool target and an
+invalid sync transport"*, and `RemoteMapping.target`'s comment says *"host for
+ssh, container for docker exec"*. Both describe an intent no code implements:
+`sync_transport` is the only constructor a mapping reaches, it returns a
+`SyncTransport`, and `DockerExec` deliberately is not one. So `DockerExec` joins
+the list of mechanisms in this repository that are written, correct, and reached
+by no production caller.
+
+**The change is a seam, which is why it is not in the review's scope.**
+`Context.transports` is a `SyncTransport` map read by two consumers that want
+different things: `sync` needs a transport that can `rsync --delete`, and
+`_remote_tools` needs only a `Connection`. Separating them means either two
+fields or one field of the weaker type with `sync` narrowing — and
+`interfaces.md` §1.1 applies, because `Context` has two sides.
+
+Worth doing when something actually needs to reach into a container. Until then
+the honest state is a documented refusal, which is what it now gives.
+
 ## 7. Scheduling
 
 | Item | Note |

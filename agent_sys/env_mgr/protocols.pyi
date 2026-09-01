@@ -114,7 +114,7 @@ class Prepared(NamedTuple):
     sync: SyncReport
     environment: Mapping[str, str] = MappingProxyType({})
     agent_cli: str | None = None
-    permissions_enforced: bool = True
+    permissions_enforced: bool = False
     output_paths: Mapping[HandoffId, str] = MappingProxyType({})
     staged_package: str | None = None
     tools: tuple[Any, ...] = ...

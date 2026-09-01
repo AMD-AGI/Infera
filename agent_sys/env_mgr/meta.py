@@ -104,9 +104,26 @@ class Meta(NamedTuple):
         return {m.local_root: m.remote_root for m in self.mappings}
 
     def mapping_roots(self) -> dict[str, str]:
-        """The local→remote root map `sync` takes. Weak mappings only."""
-        weak = {m.local_root for m in self.weak()}
-        return {k: v for k, v in self.far_roots().items() if k in weak}
+        """The local→remote root map `sync` takes. Weak mappings only.
+
+        **Filtered before the collapse, not after.** This was `far_roots()`
+        narrowed by the weak *key* set, and the two orders differ whenever one
+        `local_root` is declared twice with different strengths: `far_roots`
+        keeps the last entry regardless of strength, so a *strong* remote root
+        survived the filter under a weak key. Measured —
+
+            (('/work', '/data/weak',   WEAK),
+             ('/work', '/mnt/shared', STRONG))   ->  {'/work': '/mnt/shared'}
+
+        — and `/mnt/shared` is then what `sync` hands `rsync -a --delete` and
+        what `check_delete_scope` validates: the mount declared strong precisely
+        because nothing should be copied to it becomes the copy's target.
+
+        It still cannot disagree with `far_roots` about *what a far root is* —
+        both read `m.remote_root` — only about which mappings are in scope,
+        which is the whole distinction.
+        """
+        return {m.local_root: m.remote_root for m in self.weak()}
 
 
 def configured_path(explicit: str | None = None) -> str:

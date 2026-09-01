@@ -242,3 +242,108 @@ def test_the_run_path_allows_a_delete_inside_them(
     assert registry.get("env_mgr")._ctx.mapping == {
         "/var/tmp/example/state": "/data/yihou/handoffs"
     }
+
+
+# --------------------------------------------------------------------------- #
+# Which root a duplicated `local_root` resolves to, and what a bad one costs
+
+
+def _meta_json(path: Path, mappings: list[dict[str, str]], deletable: list[str]) -> Path:
+    path.write_text(
+        json.dumps(
+            {
+                "domains": [],
+                "mappings": mappings,
+                "system_set": [],
+                "deletable_roots": deletable,
+            }
+        )
+    )
+    return path
+
+
+def test_a_strong_root_does_not_become_the_delete_target(
+    package_root: Path, isolated_meta: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`mapping_roots()` was `far_roots()` narrowed by the weak **key** set.
+
+    `far_roots` keeps the last entry for a `local_root` regardless of strength,
+    so declaring one root weak and then strong yielded the **strong** value under
+    a weak key. That value is what `sync` hands `rsync -a --delete` and what
+    `check_delete_scope` validates: the mount declared strong precisely because
+    nothing should be copied to it became the copy's destination.
+
+    Reaching it through the CLI rather than through `Meta` alone, because the
+    unit was green — the defect is in which mapping wins, and only a caller that
+    declares two shows it.
+    """
+    meta_path = _meta_json(
+        isolated_meta / "meta.json",
+        [
+            {
+                "local_root": "/var/tmp/example/state",
+                "remote_root": "/data/yihou/weak",
+                "strength": "weak",
+                "transport": "ssh",
+                "target": "somehost",
+            },
+            {
+                "local_root": "/var/tmp/example/state",
+                "remote_root": "/mnt/shared",
+                "strength": "strong",
+                "transport": "ssh",
+                "target": "somehost",
+            },
+        ],
+        deletable=["/data/yihou"],
+    )
+    monkeypatch.setenv("ENV_MGR_META", str(meta_path))
+    layout = layout_for(isolated_meta / "run").create()
+    registry = _registry(package_root, layout, Stream(), resume=False, variables={})
+    ctx = registry.get("env_mgr")._ctx
+    assert ctx.mapping == {"/var/tmp/example/state": "/data/yihou/weak"}
+    # CONTROL, and the reason this is two assertions. `far_roots` is *supposed*
+    # to keep the strong one — it is the tool surface's map and every mapping is
+    # in scope there — so a `mapping_roots` that simply returned `far_roots`
+    # unchanged, or one that returned `{}`, would both be caught only by pinning
+    # the pair.
+    assert ctx.far_roots["/var/tmp/example/state"] == "/mnt/shared"
+
+
+def test_a_mapping_whose_transport_cannot_sync_is_a_precondition_not_a_traceback(
+    package_root: Path, isolated_meta: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`sync_transport` raises `ValueError`; `main()` catches five families and
+    `ValueError` is none of them.
+
+    So one bad line in an operator's meta file produced a raw traceback and an
+    exit code meaning *unexpected failure* — about a typo. `_harness_env` set the
+    shape a screen down: a `ValueError` that is really a precondition is re-raised
+    as the family `main()` maps to PRECONDITION, naming the file.
+
+    **This does not make a docker mapping work.** `sync_transport` is still the
+    only constructor and still refuses one; separating tool reachability from
+    sync capability changes what `Context.transports` holds, which is a seam.
+    """
+    from env_mgr.protocols import PrepareRefused
+
+    meta_path = _meta_json(
+        isolated_meta / "meta.json",
+        [
+            {
+                "local_root": "/var/tmp/example/state",
+                "remote_root": "/data/yihou/handoffs",
+                "strength": "weak",
+                "transport": "docker",
+                "target": "some-container",
+            }
+        ],
+        deletable=["/data/yihou"],
+    )
+    monkeypatch.setenv("ENV_MGR_META", str(meta_path))
+    layout = layout_for(isolated_meta / "run").create()
+    with pytest.raises(PrepareRefused) as exc:
+        _registry(package_root, layout, Stream(), resume=False, variables={})
+    # The operator has to be able to find the file and the reason in one line.
+    assert str(meta_path) in str(exc.value)
+    assert "docker" in str(exc.value)

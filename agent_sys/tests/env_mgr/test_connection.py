@@ -148,6 +148,73 @@ def test_a_transport_that_cannot_sync_is_refused_at_configuration_time() -> None
     assert DockerExec("some-container").run(["true"]) is not None
 
 
+@pytest.mark.parametrize("transport", ["shh", "docker", "rsync", "scp"])
+def test_an_unknown_transport_raises_even_with_an_empty_target(transport: str) -> None:
+    """The transport is decided **before** the target, and it was not.
+
+    `not target` was tested first, so `{"transport": "shh", "target": ""}` — one
+    transposed character — and `{"transport": "docker", "target": ""}` both fell
+    through to `LocalConnection`. `sync` then ran `rsync -a --delete` against
+    `remote_root` **as a path on this machine**, creating and destroying a local
+    directory, with no diagnostic — while the docstring above claimed an unknown
+    transport raises at composition rather than at the first copy. It did
+    neither: it succeeded, against the wrong machine.
+    """
+    from env_mgr.remote.connection import sync_transport
+
+    with pytest.raises(ValueError, match="unknown transport"):
+        sync_transport(transport, "")
+
+
+def test_the_two_spellings_of_no_far_side_still_work() -> None:
+    """CONTROL for the parametrisation above, which would otherwise be satisfied
+    by a `sync_transport` that refused everything.
+
+    `RemoteMapping.transport` defaults to `"ssh"` with an empty `target`, so
+    that pair is the ordinary same-machine mapping and must keep working; `""`
+    and `"local"` were both accepted before and stay accepted.
+    """
+    from env_mgr.remote.connection import sync_transport
+
+    for transport in ("ssh", "local", ""):
+        assert isinstance(sync_transport(transport, ""), LocalConnection), transport
+
+
+# --------------------------------------------------------------------------- #
+# `--stats`, read the same way on both sides of the module boundary
+
+
+def test_a_sync_report_counts_files_and_not_matching_lines() -> None:
+    """`sent` was `sum(1 for line in … if line.startswith(label))` — 0 or 1 for
+    every copy that ever runs.
+
+    It matters because `Connection.push`/`pull` are what `env_remote_push` and
+    `env_remote_pull` return to the model through `report._asdict()`. An agent
+    that copied two hundred files was told `sent: 1`, in the reassuring
+    direction, by an instrument nobody had reason to doubt.
+    """
+    from env_mgr.remote.connection import rsync_stat
+
+    stats = (
+        "Number of files: 1,234 (reg: 1,200, dir: 34)\n"
+        "Number of regular files transferred: 1,200\n"
+        "Total file size: 4,096 bytes\n"
+    )
+    assert rsync_stat(stats, "Number of regular files transferred") == 1200
+    # The comma-grouped digits are the reason this is not `int(line.split()[-1])`.
+    assert rsync_stat(stats, "Number of files") == 0  # not an integer after the colon
+    assert rsync_stat("", "Number of regular files transferred") == 0
+
+
+def test_sync_and_connection_read_the_stats_with_one_reader() -> None:
+    """CONTROL. The defect was two parses of one line that disagreed, so a test
+    of either alone would have passed while the pair stayed wrong."""
+    from env_mgr import sync as sync_mod
+    from env_mgr.remote import connection as conn_mod
+
+    assert sync_mod._stat is conn_mod.rsync_stat
+
+
 # --------------------------------------------------------------------------- #
 # `Connection` conformance — the gap that `tests/agent/test_doubles_conform.py`
 # left open, closed here because `Connection` is `env_mgr`'s type.
@@ -187,7 +254,13 @@ def test_every_connection_a_double_or_a_real_one_provides_what_tools_reads() -> 
     # assertion below would pass vacuously.
     assert {"run", "push", "pull", "describe"} <= reads, reads
 
-    for impl in (Ssh("somehost"), DockerExec("c"), LocalConnection(), RecordingConnection(), FakeTransport(far_exists=True)):
+    for impl in (
+        Ssh("somehost"),
+        DockerExec("c"),
+        LocalConnection(),
+        RecordingConnection(),
+        FakeTransport(far_exists=True),
+    ):
         assert not missing(reads, public(impl)), f"{type(impl).__name__} is missing members"
 
 

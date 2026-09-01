@@ -5,6 +5,7 @@ playground."""
 
 from __future__ import annotations
 
+import shlex
 import shutil
 from pathlib import Path
 
@@ -223,6 +224,95 @@ def test_a_transport_puts_the_rsh_and_the_prefix_on_the_command(
     assert any(part.startswith("--exclude=playground") for part in rsync_argv)
     # The far side's directories are made over the connection, not with os.makedirs.
     assert ["mkdir", "-p"] == conn.commands[-1][:2]
+
+
+def test_an_rsh_option_containing_a_space_survives_as_one_argument(
+    sides: tuple[str, str, Zone], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`-e " ".join(rsh)` re-introduced the argv-boundary defect `Ssh.run` was
+    fixed for, one layer out.
+
+    rsync word-splits the `-e` value, so
+    `("ssh", "-o", "ProxyCommand=ssh -W %h:%p bastion")` arrived as `-o
+    ProxyCommand=ssh` plus three stray rsh arguments. `shlex.join` quotes it.
+
+    Its control is `test_a_transport_puts_the_rsh_and_the_prefix_on_the_command`
+    above, which has no spaces in its options and must stay byte-identical —
+    `shlex.join` that quoted unconditionally would break it.
+    """
+    import subprocess
+
+    import env_mgr.sync as sync_mod
+
+    local, remote, zone = sides
+    seen: list[list[str]] = []
+
+    class Proxied(FakeTransport):
+        def rsync_spec(self):  # noqa: ANN201
+            return ("ssh", "-o", "ProxyCommand=ssh -W %h:%p bastion"), "somehost:"
+
+    monkeypatch.setattr(
+        sync_mod.subprocess,
+        "run",
+        lambda argv, **kw: (seen.append(list(argv)), subprocess.CompletedProcess(argv, 0, "", ""))[
+            1
+        ],
+    )
+    sync(
+        zone,
+        {local: remote},
+        direction=Direction.LOCAL_TO_REMOTE,
+        transports={local: Proxied(far_exists=False)},
+    )
+    rsync_argv = next(a for a in seen if any("rsync" in part for part in a[:1]))
+    value = rsync_argv[rsync_argv.index("-e") + 1]
+    # What rsync will do to it, done here: the option must come back whole.
+    assert shlex.split(value) == ["ssh", "-o", "ProxyCommand=ssh -W %h:%p bastion"], value
+
+
+def test_the_conflict_pre_pass_follows_the_host_and_not_the_direction(
+    sides: tuple[str, str, Zone], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`remote_dst=far_is_dst and bool(prefix)` asked the wrong question.
+
+    With `REMOTE_TO_LOCAL` over a transport that has a prefix, `far_is_dst` is
+    `False`, so the pre-pass took the **local** branch and ran `filecmp` with
+    `src` — a path on the other machine — read from here. Silent pass, or the
+    wrong tree compared; either way `rsync -a --delete` then overwrote the local
+    zone with the one guard against both-sides-changed data loss never having run,
+    in a function whose docstring promises "never a silent skip".
+
+    Asserted by the probe: crossing a host boundary must produce a `test -e` over
+    the connection **in both directions**. No production caller uses this
+    direction, which is why it shipped untested rather than shipped broken.
+    """
+    import subprocess
+
+    import env_mgr.sync as sync_mod
+
+    local, remote, zone = sides
+    monkeypatch.setattr(
+        sync_mod.subprocess,
+        "run",
+        lambda argv, **kw: subprocess.CompletedProcess(argv, 0, "", ""),
+    )
+    conn = FakeTransport(far_exists=False)
+    sync(zone, {local: remote}, direction=Direction.REMOTE_TO_LOCAL, transports={local: conn})
+    assert any(c[:2] == ["test", "-e"] for c in conn.commands), conn.commands
+
+
+def test_the_pre_pass_still_reads_two_local_trees_when_there_is_no_far_host(
+    sides: tuple[str, str, Zone],
+) -> None:
+    """CONTROL for the test above. `remote_dst=bool(prefix)` that returned `True`
+    unconditionally would satisfy it while turning every same-machine sync into a
+    refusal, so this pins the other half: no prefix, no probe, `filecmp` runs.
+    """
+    local, remote, zone = sides
+    Path(remote).mkdir(parents=True, exist_ok=True)
+    (Path(zone.root) / "same.txt").write_text("x")
+    report = sync(zone, {local: remote}, direction=Direction.LOCAL_TO_REMOTE)
+    assert report.conflicts == ()
 
 
 def test_no_transport_addresses_neither_host(

@@ -1309,3 +1309,43 @@ def test_a_strong_mapping_still_gets_tools(tmp_path: Path, main_repo: str) -> No
     prepared = prepare(task, task.push_execution(), ctx)
     assert prepared.tools, "a strong mapping has a far side and must still get tools"
     assert prepared.sync.sent == 0, "and nothing was copied, which is what strong means"
+    # **And the variables that say where the far side is.** `zone_env`'s
+    # `remote_zone_root` was still resolved against the weak-only `ctx.mapping`
+    # while `_remote_tools`, forty lines below, had already moved to `far_roots`.
+    # A strong mapping therefore produced remote *tools* and no remote
+    # *variables* — an agent handed `env_remote_run` and nothing telling it where
+    # its zone is over there. This is the configuration the accepted remote run
+    # used, so it was live rather than latent.
+    from env_mgr import paths
+
+    assert paths.remote_name(paths.ZONE_ENV_VAR) in prepared.environment
+
+
+def test_a_weak_only_context_still_gets_its_remote_variables(
+    tmp_path: Path, main_repo: str
+) -> None:
+    """CONTROL for the assertion above, and the reason `_far_side` is a union.
+
+    Swapping `ctx.mapping` for `ctx.far_roots` at that call site does not fix the
+    defect, it reflects it: a context that sets `mapping` and not `far_roots` —
+    which is what a weak-only caller expresses, and what every direct
+    construction here does — then loses the same variables from the other side.
+    Without this test, the one-word swap passes and ships a new hole.
+    """
+    from env_mgr import paths
+
+    local = tmp_path / "root"
+    far = tmp_path / "far"
+    reg = DomainRegistry()
+    reg.register("store", str(local), DomainKind.HANDOFF_STORAGE)
+    reg.register("play", str(local), DomainKind.PLAYGROUND)
+    ctx = context(
+        domains=reg,
+        store_root=str(tmp_path / "store"),
+        main_repo=main_repo,
+        interpreter_grants=interpreter_grants(),
+        mapping={str(local): str(far)},  # weak, and far_roots left unset
+    )
+    task = Task()
+    prepared = prepare(task, task.push_execution(), ctx)
+    assert paths.remote_name(paths.ZONE_ENV_VAR) in prepared.environment

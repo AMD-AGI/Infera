@@ -280,7 +280,26 @@ class ClaudeSdkBackend(ExecutorBase):
         carries it with the confinement work, because both turn on the same
         question of who owns the CLI process.
         """
+        # **`dict()` is one level and the write below is two.**
+        # `options.setdefault("mcp_servers", {})[_TOOL_SERVER] = …` inserts a
+        # fresh dict when the key is absent — the ordinary case, and why this was
+        # never seen. When the caller's config *does* carry an `mcp_servers` map,
+        # `setdefault` returns that nested dict **by reference** and the write
+        # lands in it. `selection.py` passes `decl.config`: the agent-spec
+        # declaration's own object, shared by every attempt of every task using
+        # that spec. So the escape is into configuration, not into one run, and
+        # a user-configured server named `env_mgr` is overwritten with it.
+        #
+        # Copied by name rather than with `copy.deepcopy`, which would traverse
+        # every value an operator put in `options` — hooks, clients, anything
+        # holding a lock — to protect the one key this method writes.
+        #
+        # A review reported this as unconditional and it is not: measured, the
+        # default configuration never reaches the aliasing branch. Fixed anyway,
+        # because the condition is an operator's key and not an invariant.
         options = dict(self.config.get("options") or {})
+        if isinstance(options.get("mcp_servers"), dict):
+            options["mcp_servers"] = dict(options["mcp_servers"])
         if self.assignment.zone:
             options.setdefault("cwd", self.assignment.zone)
         if self.assignment.readme:

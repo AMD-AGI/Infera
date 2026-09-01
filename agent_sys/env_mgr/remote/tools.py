@@ -21,6 +21,12 @@ from env_mgr.remote.connection import Connection
 
 __all__ = ["ToolDef", "tools"]
 
+#: Said once, because `env_remote_push` and `env_remote_pull` ask the same
+#: question of the same side and two spellings of one rule is one rule with two
+#: writers. It matches `env_remote_run`'s `cwd` wording deliberately: an agent
+#: reading all three should find one rule about far-side paths, not three.
+_REMOTE_ARG = "relative to your zone ON THE REMOTE SIDE; absolute paths and '..' are refused"
+
 
 class ToolDef(NamedTuple):
     name: str
@@ -71,7 +77,30 @@ def _inside_remote(remote_root: str, rel: str) -> str:
     return path
 
 
-def tools(conn: Connection, zone: Zone, remote_root: str) -> tuple[ToolDef, ...]:
+#: The bound on one `env_remote_run`, in seconds. **Generous on purpose.**
+#:
+#: Without one, `subprocess.run(timeout=None)` under `asyncio.to_thread` pins a
+#: worker thread for the life of the process, and the SDK's own turn timeouts
+#: cannot reclaim it: a wedged ssh session is a thread that never comes back.
+#:
+#: An hour, because the work this surface exists for is slow and legitimately so
+#: — a CUDA-graph capture takes tens of minutes on a first start, and a bound
+#: that cut one would convert a working bring-up into a failure. The measured
+#: remote run this was written against took ~40 minutes end to end and made no
+#: single call longer than a poll, because the pattern that works is *launch
+#: detached and poll*; this bound is for the call that never returns, not for the
+#: call that is slow.
+#:
+#: **It does not cancel the remote command.** `subprocess` kills the local `ssh`
+#: client; whatever it started on the far side keeps running. The thread is
+#: reclaimed and the model is told the call timed out — which is the honest
+#: report, and is why the far side may need looking at afterwards.
+REMOTE_CALL_SECONDS = 3600.0
+
+
+def tools(
+    conn: Connection, zone: Zone, remote_root: str, *, timeout: float | None = REMOTE_CALL_SECONDS
+) -> tuple[ToolDef, ...]:
     """Three tools, closed over this attempt's zone **and its far-side twin**.
 
     **`remote_root` is not optional and was the defect.** This took `(conn,
@@ -91,18 +120,37 @@ def tools(conn: Connection, zone: Zone, remote_root: str) -> tuple[ToolDef, ...]
     `docker exec` runs commands fine while `docker cp` cannot express
     `--delete`. Nothing constructs a `DockerExec` yet; the door is left open,
     not walked through.
+
+    **`timeout` is new and keyword-only** (`interfaces.md` §1.1: a seam has two
+    sides). It defaults to `REMOTE_CALL_SECONDS`, so the one production caller —
+    `prepare._remote_tools` — is unchanged and gets a bound it did not have. Pass
+    `None` to restore the old unbounded behaviour, which is what a caller wanting
+    a single call to outlive an hour has to do deliberately.
     """
 
     def env_remote_run(command: list[str], cwd: str = "") -> dict[str, Any]:
-        proc = conn.run(command, cwd=_inside_remote(remote_root, cwd) if cwd else remote_root)
+        proc = conn.run(
+            command,
+            cwd=_inside_remote(remote_root, cwd) if cwd else remote_root,
+            timeout=timeout,
+        )
         return {"returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr}
 
+    # **`remote` is checked on the same terms as `cwd`, and that is consistency
+    # rather than confinement.** `design.md` §10.4 stands: the far side is less
+    # isolated than the local one, deliberately, and spec §11 carries it open.
+    # What was not defensible is a surface where one of three arguments naming a
+    # far-side path is checked and the other two are not — a reader of the
+    # schemas cannot tell that the rule stops at `env_remote_run`, and neither
+    # can a model. `_inside_remote` is syntactic (a far-side symlink defeats it,
+    # as its own docstring says), so this is a guardrail against an argument
+    # built wrong, not a boundary against one built to escape.
     def env_remote_push(path: str, remote: str) -> dict[str, Any]:
-        report = conn.push(_inside(zone, path), remote)
+        report = conn.push(_inside(zone, path), _inside_remote(remote_root, remote))
         return report._asdict()
 
     def env_remote_pull(remote: str, path: str) -> dict[str, Any]:
-        report = conn.pull(remote, _inside(zone, path))
+        report = conn.pull(_inside_remote(remote_root, remote), _inside(zone, path))
         return report._asdict()
 
     # **The far side, named.** These three descriptions used to say "the remote
@@ -177,7 +225,7 @@ def tools(conn: Connection, zone: Zone, remote_root: str) -> tuple[ToolDef, ...]
                 "type": "object",
                 "properties": {
                     "path": {"type": "string", "description": "relative to the zone"},
-                    "remote": {"type": "string"},
+                    "remote": {"type": "string", "description": _REMOTE_ARG},
                 },
                 "required": ["path", "remote"],
                 "additionalProperties": False,
@@ -193,7 +241,7 @@ def tools(conn: Connection, zone: Zone, remote_root: str) -> tuple[ToolDef, ...]
             schema={
                 "type": "object",
                 "properties": {
-                    "remote": {"type": "string"},
+                    "remote": {"type": "string", "description": _REMOTE_ARG},
                     "path": {"type": "string", "description": "relative to the zone"},
                 },
                 "required": ["remote", "path"],

@@ -489,11 +489,22 @@ def prepare(
     #
     # After `cut` and `stage_package`, because it exports only directories that
     # exist; before `material.deploy`, because a declared `env` outranks us.
+    # **`far_roots`, not `mapping` — the same correction `_remote_tools` already
+    # carries, forty lines below, and this call site was left behind.**
+    # `ctx.mapping` is weak-only because it is `sync`'s input and strength
+    # answers *must bytes be copied*. A **strong** mapping still has a far side
+    # and its `remote_root` is not in `ctx.mapping` at all, so this returned
+    # `None` and every `AGENT_SYS_*_REMOTE` variable was omitted — while
+    # `_remote_tools`, reading `far_roots`, handed the same agent
+    # `env_remote_run`/`push`/`pull`. Tools pointed at a far side, and no
+    # variable saying where it is. That is the configuration the accepted
+    # remote run used (`scratch/remote-mode-2026-09/acceptance.md`), so this was
+    # live rather than latent.
     environment.update(
         paths.zone_env(
             zone,
             staged_package=staged,
-            remote_zone_root=_sync.remote_root(zone, ctx.mapping),
+            remote_zone_root=_sync.remote_root(zone, _far_side(ctx)),
         )
     )
     environment.update(grants.output_env(task, execution, ctx.store_root))  # 6a'
@@ -540,6 +551,30 @@ def prepare(
     )
 
 
+def _far_side(ctx: Context) -> dict[str, str]:
+    """Every far-side root this context knows, from **both** fields that carry one.
+
+    `Context` has two: `mapping` is weak-only because it is `sync`'s input, and
+    `far_roots` covers every mapping because a **strong** mapping still has a far
+    side. `far_roots` is therefore a superset in any context `cli/main.py` builds
+    — it sets both — and the union is only ever needed for a context that sets
+    one and not the other, which every direct construction in the tests does.
+
+    **It exists because two call sites resolved this differently and one was
+    wrong.** `zone_env(remote_zone_root=…)` read `mapping` while `_remote_tools`
+    read `far_roots`, so a strong mapping produced remote *tools* and no remote
+    *variables*. Swapping the one for the other merely moves the hole to the
+    opposite configuration — a weak-only context then loses the variables — which
+    is why this is one function and not a second edit.
+
+    `far_roots` wins a collision. The two disagree only when one `local_root` is
+    declared twice with different strengths, and there the weak value belongs to
+    `sync` alone; what an agent is told about its own far side is the tools'
+    question, and the tools read `far_roots`.
+    """
+    return {**dict(ctx.mapping or {}), **dict(getattr(ctx, "far_roots", None) or {})}
+
+
 def _remote_tools(zone: Zone, ctx: Context) -> tuple[Any, ...]:
     """Spec §5.5's tool surface for this zone's far side, or `()`.
 
@@ -558,9 +593,8 @@ def _remote_tools(zone: Zone, ctx: Context) -> tuple[Any, ...]:
     file. A task with no far side gets no remote tools, and that absence is what
     the agent sees: no tool, rather than a tool that fails.
     """
-    far_roots = dict(getattr(ctx, "far_roots", None) or {})
     transports = dict(getattr(ctx, "transports", None) or {})
-    found = _sync.match(zone, far_roots)
+    found = _sync.match(zone, _far_side(ctx))
     if found is None:
         return ()
     key, far = found
