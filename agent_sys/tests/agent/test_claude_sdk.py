@@ -697,6 +697,63 @@ def test_the_tools_reach_the_options_the_sdk_is_constructed_with() -> None:
     assert "mcp__env_mgr__env_remote_run" in options["allowed_tools"]
 
 
+def test_the_caller_config_is_not_written_into() -> None:
+    """`options = dict(self.config["options"])` is one level and the write was two.
+
+    `selection.py` hands the backend `decl.config` — the agent-spec
+    declaration's own object, shared by every attempt of every task using that
+    spec — and `setdefault("mcp_servers", {})` returns the caller's **nested**
+    dict by reference whenever the key already exists. The write then lands in
+    the declaration, so a later task declaring no tools inherits a server bound
+    to the first task's zone, with a live connection behind it.
+
+    A review reported this as unconditional. It is not, and the second half of
+    this test is why: with the key absent, `setdefault` inserts a fresh dict and
+    nothing escapes — which is the default configuration and the reason nobody
+    saw it.
+    """
+    pytest.importorskip("claude_agent_sdk")
+    shared: dict[str, Any] = {"options": {"mcp_servers": {"other": {"type": "sdk"}}}}
+
+    first = ClaudeSdkBackend(
+        "claude_sdk",
+        {"client": FakeClient(), **shared},
+        Assignment(goal="g", zone="/z", tools=_defs()),
+    )
+    first._options()
+
+    assert set(shared["options"]["mcp_servers"]) == {"other"}, shared["options"]["mcp_servers"]
+
+    # CONTROL: the default shape — no `mcp_servers` in the config — never
+    # aliased in the first place, so a "fix" that only special-cased the empty
+    # case would satisfy nothing here.
+    plain: dict[str, Any] = {"options": {}}
+    ClaudeSdkBackend(
+        "claude_sdk",
+        {"client": FakeClient(), **plain},
+        Assignment(goal="g", zone="/z", tools=_defs()),
+    )._options()
+    assert "mcp_servers" not in plain["options"]
+
+
+def test_a_config_server_named_env_mgr_is_refused_rather_than_replaced() -> None:
+    """The one line in `_options` that overwrote instead of `setdefault`-ing.
+
+    `env_mgr` is not a label: the model addresses these tools as
+    `mcp__env_mgr__<tool>`, so the name is a compatibility surface and two
+    servers cannot share it. Silently replacing the operator's own left them
+    with different tools than they configured and no message.
+    """
+    pytest.importorskip("claude_agent_sdk")
+    backend = ClaudeSdkBackend(
+        "claude_sdk",
+        {"client": FakeClient(), "options": {"mcp_servers": {"env_mgr": {"type": "sdk"}}}},
+        Assignment(goal="g", zone="/z", tools=_defs()),
+    )
+    with pytest.raises(BackendUnsupported, match="env_mgr"):
+        backend._options()
+
+
 def test_no_tools_means_no_mcp_server_at_all() -> None:
     """**The control**, and it is the configuration every run without a mapping
     uses. An agent with no far side must see *no tool*, rather than a tool that

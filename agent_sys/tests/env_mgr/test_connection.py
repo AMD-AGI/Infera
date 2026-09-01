@@ -130,6 +130,13 @@ def test_a_mapping_becomes_the_transport_it_declared() -> None:
 
     ssh = sync_transport("ssh", "somehost")
     assert isinstance(ssh, Ssh) and ssh.host == "somehost"
+    # **And it is non-interactive.** `sync_transport` built a bare `Ssh(target)`,
+    # and `subprocess.run(capture_output=True)` leaves stdin inherited — so an
+    # `ssh` that asked for an unknown host key or a passphrase read from the
+    # runner's stdin and waited there forever. Not a slow command: a command
+    # that never finishes, which no timeout in this package would have seen.
+    assert "BatchMode=yes" in ssh.options
+    assert "ConnectTimeout=10" in ssh.options
     # No target: both ends are on this machine. Spec §5.2's strong mapping, and
     # what every configuration before R1 was.
     assert isinstance(sync_transport("ssh", ""), LocalConnection)

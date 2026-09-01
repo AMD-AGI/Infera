@@ -227,15 +227,14 @@ def sync(
     # another host, and `_conflicts_across` cannot `filecmp` across that boundary
     # in either direction. No production caller uses `REMOTE_TO_LOCAL` today, so
     # this shipped untested rather than shipped broken.
-    found = _conflicts_across(conn, src, dst, remote_dst=bool(prefix))
+    found = _conflicts_across(conn, src, dst, far_is_dst=far_is_dst, remote=bool(prefix))
 
     playground_dst = os.path.join(dst, PLAYGROUND)
     if far_is_dst and prefix:
-        # `playground_dst` was created here **and** after the copy. Measured,
-        # rsync 3.2.7: `--delete` does remove an empty excluded directory when
-        # the sender has none, so the second call is the one that lasts and this
-        # one only bought a remote round trip. `dst` itself is not redundant —
-        # rsync creates the final component of a destination and not its parents.
+        # `playground_dst` was created here **and** after the copy, and only the
+        # second one does anything. `dst` itself stays: rsync creates the final
+        # missing component of a destination and not its parents — measured, a
+        # two-level-deep dst gives `mkdir failed: No such file or directory`.
         _checked(conn.run(["mkdir", "-p", dst]), f"mkdir -p {dst}")
     else:
         os.makedirs(dst, exist_ok=True)
@@ -261,9 +260,21 @@ def sync(
     proc = subprocess.run([*cmd, src_arg, dst_arg], capture_output=True, text=True, check=True)
 
     if far_is_dst and prefix:
-        # `--exclude` omits the contents and rsync then does not create the
-        # directory either, so criterion 16's empty far-side playground is made
-        # explicitly. Repeated after the copy because `--delete` removes it.
+        # **Criterion 16's empty far-side playground, and this comment used to
+        # describe a case production never reaches.** It said rsync "does not
+        # create the directory either" and that `--delete` "removes it". Measured,
+        # rsync 3.2.7, `--delete --exclude='playground/**'`:
+        #
+        #   sender HAS playground (contents excluded)  -> rsync CREATES it empty
+        #   sender has none, receiver's is empty       -> `--delete` REMOVES it
+        #   sender has none, receiver's is non-empty   -> kept, rc still 0
+        #
+        # `layout.create` makes every `_subdirs(domains)` entry and `_subdirs`
+        # falls back to `tuple(DomainKind)` when the registry declares no kinds,
+        # so a zone normally **has** a playground and the first row is what runs:
+        # rsync creates it and nothing removes it. The second row is why this call
+        # stays — a registry that declares kinds without PLAYGROUND reaches it,
+        # and then this is the only thing that puts the directory there.
         _checked(conn.run(["mkdir", "-p", playground_dst]), f"mkdir -p {playground_dst}")
     else:
         os.makedirs(playground_dst, exist_ok=True)
@@ -280,7 +291,7 @@ def _checked(proc: subprocess.CompletedProcess[str], what: str) -> None:
 
 
 def _conflicts_across(
-    conn: SyncTransport, src: str, dst: str, *, remote_dst: bool
+    conn: SyncTransport, src: str, dst: str, *, far_is_dst: bool, remote: bool
 ) -> tuple[str, ...]:
     """The pre-pass, or a refusal — **never a silent skip**.
 
@@ -299,10 +310,19 @@ def _conflicts_across(
     far side is fresh almost every time — which is why the refusal below has to
     be tested deliberately rather than waited for.
     """
-    if not remote_dst:
+    if not remote:
         return conflicts(src, dst)
-    probe = conn.run(["test", "-e", dst])
-    if probe.returncode != 0:
+    # **Ask the side `dst` is actually on.** `remote` says a host boundary is
+    # crossed, so `filecmp` cannot run — that much is symmetric. *Where the
+    # destination lives* is not, and conflating the two is how this went wrong
+    # twice. It first read `far_is_dst and bool(prefix)`, which sent
+    # `REMOTE_TO_LOCAL` down the local branch and ran `filecmp` against a
+    # far-side `src` read here. Replacing that with `bool(prefix)` alone fixed
+    # the branch and broke the probe: measured, the far side was asked
+    # `test -e /…/local/task.a` about a path that only exists on this machine,
+    # and answered "no" — a silent pass, in the same reassuring direction.
+    exists = conn.run(["test", "-e", dst]).returncode == 0 if far_is_dst else os.path.exists(dst)
+    if not exists:
         return ()
     raise PrepareRefused(
         f"the far side already has {dst!r} and the conflict pre-pass cannot read "

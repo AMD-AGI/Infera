@@ -154,6 +154,36 @@ def _rsync(src: str, dst: str, *, rsh: Sequence[str] = ()) -> SyncReport:
     )
 
 
+#: What `sync_transport` gives every `Ssh` it builds, and it built none before.
+#:
+#: **`BatchMode=yes` is the load-bearing one, and the reason is `stdin`.**
+#: `subprocess.run(capture_output=True)` redirects stdout and stderr and leaves
+#: stdin *inherited*, so an `ssh` that decides to ask something — an unknown host
+#: key, a passphrase, a password — reads from the runner's own stdin and waits
+#: there. No network fault is required and no timeout in this package sees it:
+#: it is not a slow command, it is a command that will never finish. `BatchMode`
+#: turns every such prompt into an immediate failure with a message.
+#:
+#: The other three bound the two ways a *connection* can hang without the far
+#: side ever answering: ten seconds to establish one, and a dead peer noticed
+#: after ~3 minutes rather than never.
+#:
+#: **Behaviour this changes, said plainly:** a deployment that relied on being
+#: prompted now fails instead of asking. That is the intended direction — an
+#: unattended runner cannot answer a prompt — and the configuration this was
+#: written against is passwordless with the host already in `known_hosts`.
+NON_INTERACTIVE: tuple[str, ...] = (
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "ConnectTimeout=10",
+    "-o",
+    "ServerAliveInterval=30",
+    "-o",
+    "ServerAliveCountMax=6",
+)
+
+
 class Ssh:
     def __init__(self, host: str, *, options: Sequence[str] = ()) -> None:
         self.host = host
@@ -344,7 +374,7 @@ def sync_transport(transport: str, target: str) -> SyncTransport:
             f"(docker cp cannot express --delete or an exclude)."
         )
     if transport == "ssh" and target:
-        return Ssh(target)
+        return Ssh(target, options=NON_INTERACTIVE)
     if not target:
         # No far-side host: the two ends are paths on this machine. Spec §5.2's
         # strong mapping, and what the R0 rung ran against.

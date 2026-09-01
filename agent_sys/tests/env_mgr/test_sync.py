@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from env_mgr.fs.zone import Zone
+from env_mgr.protocols import PrepareRefused
 from env_mgr.sync import Direction, conflicts, sync
 from task_graph.ids import TaskId
 
@@ -111,6 +112,35 @@ def test_playground_dir_created_empty(sides: tuple[str, str, Zone]) -> None:
     sync(zone, {local: remote}, direction=Direction.LOCAL_TO_REMOTE)
     far = Path(remote) / "task.a" / "playground"
     assert far.is_dir()
+    assert list(far.iterdir()) == []
+
+
+def test_the_far_playground_appears_even_when_the_source_has_none(tmp_path: Path) -> None:
+    """The case the test above cannot see, and the one the `mkdir` exists for.
+
+    Driven byte-for-byte against the `sides` fixture, `test_playground_dir_created_empty`
+    passes with **both** `mkdir`s deleted — because that fixture's zone *has* a
+    populated `playground/`, and rsync then creates an empty one on the receiver
+    all by itself. So it asserts nothing about the code it appears to cover.
+
+    `layout._subdirs` is `domains.kinds() or tuple(DomainKind)`, so a registry
+    that declares kinds **without** PLAYGROUND produces a zone with no
+    `playground/` — and there `--delete` removes any the receiver had (measured,
+    rsync 3.2.7). This is that zone.
+    """
+    local, remote = tmp_path / "local", tmp_path / "remote"
+    zone_root = local / "task.np"
+    (zone_root / "handoffs").mkdir(parents=True)
+    (zone_root / "handoffs" / "in.txt").write_text("input")
+    remote.mkdir()
+    # No `playground/` in the source at all.
+    assert not (zone_root / "playground").exists()
+
+    zone = Zone(TaskId.new(), 0, str(zone_root.resolve()))
+    sync(zone, {str(local): str(remote)}, direction=Direction.LOCAL_TO_REMOTE)
+
+    far = remote / "task.np" / "playground"
+    assert far.is_dir(), "criterion 16: the far side has a playground even so"
     assert list(far.iterdir()) == []
 
 
@@ -282,9 +312,16 @@ def test_the_conflict_pre_pass_follows_the_host_and_not_the_direction(
     zone with the one guard against both-sides-changed data loss never having run,
     in a function whose docstring promises "never a silent skip".
 
-    Asserted by the probe: crossing a host boundary must produce a `test -e` over
-    the connection **in both directions**. No production caller uses this
-    direction, which is why it shipped untested rather than shipped broken.
+    **And the repair has its own trap, which the first version of this test walked
+    into.** `remote_dst=bool(prefix)` fixes the branch and breaks the probe: with
+    `REMOTE_TO_LOCAL` the destination is the *local* zone, so `test -e dst` gets
+    sent to the far side about a path that exists only here, comes back "no", and
+    passes silently — the same answer in the same reassuring direction, one layer
+    over. A test asserting merely that *a* `test -e` ran cannot tell the two
+    apart, because both run one.
+
+    So this asserts **which side is asked about which path**: the existence check
+    must land wherever `dst` lives.
     """
     import subprocess
 
@@ -297,8 +334,65 @@ def test_the_conflict_pre_pass_follows_the_host_and_not_the_direction(
         lambda argv, **kw: subprocess.CompletedProcess(argv, 0, "", ""),
     )
     conn = FakeTransport(far_exists=False)
-    sync(zone, {local: remote}, direction=Direction.REMOTE_TO_LOCAL, transports={local: conn})
-    assert any(c[:2] == ["test", "-e"] for c in conn.commands), conn.commands
+    # The local zone exists and holds a file, so the destination about to be
+    # overwritten is not empty and the pre-pass cannot read the far side to
+    # compare it. Refusing is the whole point of the function.
+    with pytest.raises(PrepareRefused):
+        sync(zone, {local: remote}, direction=Direction.REMOTE_TO_LOCAL, transports={local: conn})
+    probed = [c[2] for c in conn.commands if c[:2] == ["test", "-e"]]
+    assert not probed, f"the far side was asked about a local destination: {probed}"
+
+
+def test_a_local_destination_that_does_not_exist_has_nothing_to_conflict_with(
+    sides: tuple[str, str, Zone], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CONTROL for the refusal above: it must be about the destination's
+    *contents*, not about the direction.
+
+    Without this, `_conflicts_across` raising for every `REMOTE_TO_LOCAL` would
+    satisfy the test above and make the pull-back leg impossible to use at all.
+    """
+    import subprocess
+
+    import env_mgr.sync as sync_mod
+
+    local, remote, zone = sides
+    fresh = Zone(zone.task_id, 1, str(Path(local) / "task.fresh"))
+    monkeypatch.setattr(
+        sync_mod.subprocess,
+        "run",
+        lambda argv, **kw: subprocess.CompletedProcess(argv, 0, "", ""),
+    )
+    conn = FakeTransport(far_exists=False)
+    sync(fresh, {local: remote}, direction=Direction.REMOTE_TO_LOCAL, transports={local: conn})
+    assert not [c for c in conn.commands if c[:2] == ["test", "-e"]]
+
+
+def test_the_far_destination_is_probed_over_the_wire(
+    sides: tuple[str, str, Zone], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CONTROL for the test above, and the half that must keep working.
+
+    `LOCAL_TO_REMOTE` puts the destination on the far side, where `os.path.exists`
+    cannot see it, so there the probe **must** go over the connection — and it
+    must carry the far-side path. Without this, deleting the probe altogether
+    satisfies the test above and turns every real remote sync into a silent pass.
+    """
+    import subprocess
+
+    import env_mgr.sync as sync_mod
+
+    local, remote, zone = sides
+    monkeypatch.setattr(
+        sync_mod.subprocess,
+        "run",
+        lambda argv, **kw: subprocess.CompletedProcess(argv, 0, "", ""),
+    )
+    conn = FakeTransport(far_exists=False)
+    sync(zone, {local: remote}, direction=Direction.LOCAL_TO_REMOTE, transports={local: conn})
+    probed = [c[2] for c in conn.commands if c[:2] == ["test", "-e"]]
+    assert probed, "a far-side destination must be probed over the connection"
+    assert probed[0].startswith(remote), f"probed {probed[0]!r}, which is not under {remote!r}"
 
 
 def test_the_pre_pass_still_reads_two_local_trees_when_there_is_no_far_host(

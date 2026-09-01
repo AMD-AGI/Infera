@@ -290,16 +290,15 @@ class ClaudeSdkBackend(ExecutorBase):
         # that spec. So the escape is into configuration, not into one run, and
         # a user-configured server named `env_mgr` is overwritten with it.
         #
-        # Copied by name rather than with `copy.deepcopy`, which would traverse
-        # every value an operator put in `options` — hooks, clients, anything
-        # holding a lock — to protect the one key this method writes.
+        # The nested copy is made where the write happens, below, rather than
+        # here — `copy.deepcopy` would traverse every value an operator put in
+        # `options` (hooks, clients, anything holding a lock) to protect the one
+        # key this method touches.
         #
         # A review reported this as unconditional and it is not: measured, the
         # default configuration never reaches the aliasing branch. Fixed anyway,
         # because the condition is an operator's key and not an invariant.
         options = dict(self.config.get("options") or {})
-        if isinstance(options.get("mcp_servers"), dict):
-            options["mcp_servers"] = dict(options["mcp_servers"])
         if self.assignment.zone:
             options.setdefault("cwd", self.assignment.zone)
         if self.assignment.readme:
@@ -364,7 +363,26 @@ class ClaudeSdkBackend(ExecutorBase):
             # backend-agnostic, so the `ToolDef` -> `SdkMcpTool` adapter belongs
             # here beside every other option this file assembles.
             server, names = _tool_server(self.assignment.tools)
-            options.setdefault("mcp_servers", {})[_TOOL_SERVER] = server
+            # **A collision is named, not resolved.** This was
+            # `options.setdefault("mcp_servers", {})[_TOOL_SERVER] = server`,
+            # which silently replaced a caller's own server of the same name —
+            # the only line in this method that overwrites rather than
+            # `setdefault`s, and the one whose key is a compatibility surface
+            # (`mcp__env_mgr__…` is what the model calls). An operator who lost
+            # their tools that way would get no message and no failure, just
+            # different tools than the ones they configured.
+            servers = dict(options.get("mcp_servers") or {})
+            if _TOOL_SERVER in servers:
+                raise BackendUnsupported(
+                    self.key,
+                    "mcp_servers",
+                    f"this config declares an MCP server named {_TOOL_SERVER!r}, which is "
+                    f"the name env_mgr publishes its remote tools under. Rename yours: "
+                    f"the model addresses these as mcp__{_TOOL_SERVER}__<tool>, so two "
+                    f"servers cannot share the name.",
+                )
+            servers[_TOOL_SERVER] = server
+            options["mcp_servers"] = servers
             # `mcp_servers` makes them *available*; `allowed_tools` makes them
             # *permitted*, and they are separate gates. Measured 2026-09-01, SDK
             # 0.2.148: the CLI addresses an in-process tool as
