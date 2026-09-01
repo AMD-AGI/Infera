@@ -591,11 +591,24 @@ class InferencePerformanceProjector:
             # a missing key counts as untrusted and prefill falls back to
             # simulation. Decode is unaffected either way: it is differenced
             # between two runs that both hit the cache.
+            #
+            # The size of what is being refused: harvesting gpt-oss-120b at TP1
+            # both ways -- once as the old artifacts were collected and once with
+            # the cache forced off -- put the cached prefill 3.3x under the real
+            # one at the median, and 9x under it at batch 64. So this is loud
+            # rather than incidental. It is also easy to miss that the fallback
+            # silently moves TTFT onto the simulator, which is usually the number
+            # the projection was run for.
             if pre_pts and meta.get("prefix_caching") is not False:
                 print(
-                    "[inferasim:Inference] WARNING: benchmark artifact does not record "
-                    "the prefix cache as disabled, so its prefill measures a cache hit. "
-                    "Calibrating decode only; prefill falls back to simulation."
+                    "[inferasim:Inference] WARNING: PREFILL IS NOT CALIBRATED. This "
+                    "artifact does not record the prefix cache as disabled, so its "
+                    "prefill timed a cache-block lookup rather than prompt processing "
+                    "(measured 3.3x low at the median on the one anchor harvested "
+                    "both ways). Decode is calibrated from the measurement as usual, "
+                    "but PREFILL AND EVERY TTFT BELOW ARE SIMULATED. Re-harvest with "
+                    "the current harness, which forces the cache off and records "
+                    "prefix_caching: false, to calibrate prefill too."
                 )
                 pre_pts = []
             if self._restore:
