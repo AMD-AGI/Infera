@@ -32,7 +32,7 @@ functional on gfx94x; PR #13929 ("a simple toggle", +1 -1) would have flipped it
 but was closed as stale in Aug 2026 without merging or accuracy numbers. So the
 patch is justified by the correctness run on the box, not by the PR: gpt-oss-120b
 serves through both the mixed and the disagg tier on MI300X with every
-correctness probe passing — see manual/wip/gfx942-e2e-matrix.md.
+correctness probe passing — see manual/wip/gfx942-e2e.md.
 
 Critically, this patches `mxfp_supported()` ONLY. The neighbouring
 `is_gfx95_supported()` looks identical and must NOT be touched: `mxfp4.py:149`
