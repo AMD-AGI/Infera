@@ -1,1 +1,0 @@
-[gMASK]<sop><|system|>Reasoning Effort: High<|user|>weather?<|assistant|><think></think><tool_call>get_weather<arg_key>city</arg_key><arg_value>Paris</arg_value></tool_call><|observation|><tool_response>18C</tool_response><|user|>tomorrow?<|assistant|><think>

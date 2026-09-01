@@ -195,7 +195,8 @@ def test_the_client_still_wins_over_the_variant_on_this_path():
     """`setdefault`, in the engine and here: a Responses request that sets its
     own effort agrees with the worker and must keep hitting."""
     variant = RenderVariant({"reasoning_effort": "high"})
-    out = variant.apply(responses_input.normalised({"model": "m", "input": "hi",
-                                                    "reasoning": {"effort": "low"}}))
+    out = variant.apply(
+        responses_input.normalised({"model": "m", "input": "hi", "reasoning": {"effort": "low"}})
+    )
     assert out["reasoning_effort"] == "low"
     assert out["chat_template_kwargs"]["reasoning_effort"] == "high"

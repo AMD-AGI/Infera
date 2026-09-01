@@ -1,1 +1,0 @@
-[gMASK]<sop><|system|>Reasoning Effort: High<|user|>What is 2+2?<|assistant|><think>

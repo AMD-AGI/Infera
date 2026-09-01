@@ -515,7 +515,12 @@ impl Policy for KvEventAwarePolicy {
             key_of.push(key);
         }
 
-        let hints = parse_cache_hints(request);
+        // Read from `base`, not `request`: this and `extract_image_keys` below
+        // both key off `messages`/`images`, neither of which a Responses body
+        // has -- it carries `input`. Against the raw body every
+        // `/v1/responses` request reports as text-only, which was harmless
+        // while such a body hashed to nothing and is not any more.
+        let hints = parse_cache_hints(&base);
         let base_weight = self.base_weight_for(role) * Self::retention_amplifier(&hints);
         // Multimodal requests: the text hasher can't reproduce the engine's image
         // blocks (sglang substitutes pad-values, vLLM folds in extra-keys), so
@@ -524,7 +529,7 @@ impl Policy for KvEventAwarePolicy {
         // instead. Engine-agnostic: affinity keys the router's own image→worker
         // map, so one code path serves sglang, vLLM and ATOM alike.
         let (w_overlap, mm_keys) = if hints.has_multimodal_content {
-            (0.0, extract_image_keys(request))
+            (0.0, extract_image_keys(&base))
         } else {
             (base_weight, Vec::new())
         };

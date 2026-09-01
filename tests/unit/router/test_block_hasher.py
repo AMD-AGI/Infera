@@ -577,7 +577,12 @@ def test_tool_content_parts_are_flattened_to_one_string():
     raises and takes the whole conversation with it.
     """
     out = _normalise_history(
-        [{"role": "tool", "content": [{"type": "text", "text": "a"}, {"type": "text", "text": "b"}]}]
+        [
+            {
+                "role": "tool",
+                "content": [{"type": "text", "text": "a"}, {"type": "text", "text": "b"}],
+            }
+        ]
     )
     assert out == [{"role": "tool", "content": "a b"}]
 
@@ -596,7 +601,7 @@ def test_a_text_part_with_no_text_still_takes_its_place_in_the_join():
 
 
 def test_a_list_with_a_non_text_part_is_left_alone():
-    """"preserve lists containing non-text-type items that some templates
+    """ "preserve lists containing non-text-type items that some templates
     intentionally iterate over" -- flattening here would diverge the other way."""
     content = [{"type": "text", "text": "a"}, {"type": "image_url", "image_url": {"url": "u"}}]
     out = _normalise_history([{"role": "tool", "content": content}])

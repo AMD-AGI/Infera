@@ -15,10 +15,10 @@ from infera.router.cache_control import (
     extract_image_keys,
     parse_cache_hints,
 )
+from infera.router.kv_event import responses_input
 from infera.router.kv_event.block_hasher import BlockHasher
 from infera.router.kv_event.client import KvEventClient
 from infera.router.kv_event.render_probe import ProbeResult, spawn_probe
-from infera.router.kv_event import responses_input
 from infera.router.kv_event.render_variant import VariantRegistry
 from infera.router.policy.base import Policy
 from infera.router.policy.target import RouteTarget, expand_targets
@@ -240,9 +240,16 @@ class KvEventAwarePolicy(Policy):
         # Cache-control hints from the request body (Anthropic / OpenAI).
         # Server may have parsed these already and attached the result;
         # otherwise we parse here. Cheap on already-parsed bodies.
+        #
+        # Read from `base`, not `request`: both this and `extract_image_keys`
+        # below key off `messages`/`system`/`images`, none of which a Responses
+        # body has -- it carries `input`. Reading the raw body reports every
+        # `/v1/responses` request as text-only, which was harmless while such a
+        # body hashed to nothing and is not any more. See the multimodal note
+        # below for what that costs.
         cached_hints = request.get("_infera_cache_hints")
         hints: CacheHints = (
-            cached_hints if isinstance(cached_hints, CacheHints) else parse_cache_hints(request)
+            cached_hints if isinstance(cached_hints, CacheHints) else parse_cache_hints(base)
         )
 
         amplified = self._base_weight_for(role_hint) * self._retention_amplifier(hints)
@@ -258,7 +265,7 @@ class KvEventAwarePolicy(Policy):
         # use them.)
         if hints.has_multimodal_content:
             w_overlap = 0.0
-            mm_keys = extract_image_keys(request)
+            mm_keys = extract_image_keys(base)
             metrics.cache_locality_skipped_total.labels(reason="multimodal").inc()
         else:
             w_overlap = amplified

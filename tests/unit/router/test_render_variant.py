@@ -298,3 +298,45 @@ def test_a_responses_body_is_normalised_before_the_variant_is_applied():
     assert rendered["reasoning_effort"] == "high", (
         "the worker's server-side template default must reach the render"
     )
+
+
+def test_a_responses_image_request_still_trips_the_multimodal_guard():
+    """The guard reads the body the hasher hashed, not the one the client sent.
+
+    `parse_cache_hints` / `extract_image_keys` key off `messages`/`images`,
+    which a Responses body does not have -- it carries `input`. Against the raw
+    body every `/v1/responses` request reports text-only, so `w_overlap` stays
+    non-zero and image affinity is skipped. That was harmless while such a body
+    hashed to nothing; once it hashes a real prefix it is the silent KV
+    collision the guard exists for, because the image placeholder token id is
+    the same whichever image was sent.
+    """
+    pytest.importorskip("sglang.srt.entrypoints.openai.serving_responses")
+    from infera.router.cache_control import extract_image_keys, parse_cache_hints
+    from infera.router.kv_event import responses_input
+
+    def _body(url: str) -> dict:
+        return {
+            "model": "m",
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text", "text": "what is this"},
+                        {"type": "input_image", "image_url": url},
+                    ],
+                }
+            ],
+        }
+
+    raw = _body("https://x/cat.png")
+    assert not parse_cache_hints(raw).has_multimodal_content, (
+        "precondition: the raw Responses body is invisible to the guard"
+    )
+
+    base = responses_input.normalised(raw)
+    assert parse_cache_hints(base).has_multimodal_content
+    cat = extract_image_keys(base)
+    dog = extract_image_keys(responses_input.normalised(_body("https://x/dog.png")))
+    assert cat and dog and cat != dog, "affinity must distinguish the images the text hash cannot"
