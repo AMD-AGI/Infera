@@ -1151,18 +1151,39 @@ class InferencePerformanceProjector:
             1.0 if phase == "decode"
             else self.cfg.request_config.resolved_sparse_attention_scale(kv_len)
         )
-        if self._attn_backend_mult != 1.0 or sparse_scale != 1.0:
-            factor = self._attn_backend_mult * sparse_scale
-            if has_dense:
-                ad = dense_p.get_sub_profiler("self_attention") if hasattr(dense_p, "get_sub_profiler") else None
-                if ad is not None:
-                    a = ad.measured_forward_time(batch, q_len)
-                    dense_compute = max(0.0, dense_compute + a * (factor - 1.0))
-            if has_moe:
-                am = moe_p.get_sub_profiler("self_attention") if hasattr(moe_p, "get_sub_profiler") else None
-                if am is not None:
-                    a = am.measured_forward_time(batch, q_len)
-                    moe_compute = max(0.0, moe_compute + a * (factor - 1.0))
+        # Attention-DP: the memory model has always known that a rank under DP
+        # attention owns a subset of the *requests* rather than a slice of every
+        # request's heads, but the time model did not, and charged every rank
+        # the whole batch's attention. That is the difference between a rank
+        # streaming the cache for 512 requests and for 64. Getting it wrong does
+        # not merely mis-scale a number, it inverts a serving decision: measured
+        # MLA on MI355X decodes 1.66x faster with DP attention on (4x at 8k and
+        # concurrency 512), while the projector had it 1.7x slower, so a search
+        # run on this model would have rejected the configuration the fleet
+        # actually runs. Re-evaluating attention at the per-rank request count
+        # rather than scaling by 1/dp keeps whatever curvature the profiler has
+        # at small batch, which is where the decode floor lives.
+        from .kv_cache import attention_dp_size
+
+        dp = attention_dp_size(self.cfg)
+        attn_batch = max(1, math.ceil(batch / dp)) if dp > 1 else batch
+        factor = self._attn_backend_mult * sparse_scale
+        if factor != 1.0 or attn_batch != batch:
+            for has, prof, is_moe in ((has_dense, dense_p, False), (has_moe, moe_p, True)):
+                if not has or not hasattr(prof, "get_sub_profiler"):
+                    continue
+                sub = prof.get_sub_profiler("self_attention")
+                if sub is None:
+                    continue
+                charged = sub.measured_forward_time(batch, q_len)
+                actual = (
+                    sub.measured_forward_time(attn_batch, q_len)
+                    if attn_batch != batch else charged
+                ) * factor
+                if is_moe:
+                    moe_compute = max(0.0, moe_compute + actual - charged)
+                else:
+                    dense_compute = max(0.0, dense_compute + actual - charged)
 
         comm = CommBreakdown()
         if self._comm is not None:

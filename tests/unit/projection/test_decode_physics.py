@@ -426,3 +426,24 @@ def test_sparse_attention_is_a_prefill_saving_and_not_a_decode_one():
         indexer_ms, rel=0.05
     ), "the decode step is not paying for the indexer it has to run"
 
+def test_dp_attention_runs_a_rank_over_its_own_requests_not_the_whole_batch():
+    """Data-parallel attention shards requests, and the step has to show it.
+
+    The memory model has always known a rank under DP attention holds the cache
+    for a subset of the requests. The time model did not, and charged every rank
+    the whole batch's attention -- the difference between streaming the cache
+    for 512 requests and for 64. It is not a scaling error but a sign error in a
+    serving decision: measured MLA on MI355X decodes 1.66x faster with DP
+    attention on, up to 4x at 8k and concurrency 512, and the projector had it
+    slower, so a search would have rejected the configuration the fleet runs.
+    """
+    tp_only = project_spec(model="deepseek_v3", concurrency=256, input_len=8192)
+    dp_attn = project_spec(
+        model="deepseek_v3", concurrency=256, input_len=8192, attn_dp=DEFAULTS["tp"]
+    )
+
+    assert dp_attn["decode_step_ms"] < tp_only["decode_step_ms"], (
+        "DP attention did not reduce the attention a rank runs "
+        f"({tp_only['decode_step_ms']:.2f} -> {dp_attn['decode_step_ms']:.2f} ms)"
+    )
+
