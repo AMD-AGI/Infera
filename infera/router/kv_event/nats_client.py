@@ -30,7 +30,7 @@ from infera.kv.nats_bus import (
     parse_kv_key,
     parse_kv_subject,
 )
-from infera.router.kv_event.client import KvEventClient, WorkerSubscription
+from infera.router.kv_event.client import KvEventClient, WorkerSubscription, decision_key
 from infera.router.kv_event.events import batch_type_for_engine
 from infera.router.policy.target import is_rank_multiplexed
 
@@ -54,7 +54,11 @@ class NatsKvEventClient(KvEventClient):
         # No per-worker socket in NATS mode: just record the subscription
         # state (block_size, multiplexed) so cache_view / _handle_event have
         # somewhere to write. Ingestion is the single global NATS sub.
-        if w.worker_id in self._subs:
+        #
+        # Still keyed on the decision inputs rather than the id: there is no
+        # socket to reopen here, but the KV view is the same stale-cache hazard
+        # as on the ZMQ path. See `decision_key`.
+        if not self._claim(w):
             return
         # Same rule as the ZMQ client: a missing block size is not a 1. See the
         # comment there — 1 produces a view that never matches and hides the fault.
@@ -85,6 +89,7 @@ class NatsKvEventClient(KvEventClient):
             worker_id=w.worker_id,
             endpoint="(nats)",
             block_size=w.kv_block_size,
+            key=decision_key(w),
             # Same as the ZMQ client: the wire format is per-engine (vLLM map vs
             # SGLang array), so the decoder must follow the worker's engine.
             decoder=Decoder(type=batch_type_for_engine(w.engine)),

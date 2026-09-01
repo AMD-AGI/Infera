@@ -67,6 +67,29 @@ def _flat_tokens(token_ids: list[int | tuple[int, int]]) -> list[int]:
     return cast("list[int]", token_ids)
 
 
+def decision_key(w: WorkerInfo) -> tuple:
+    """The `WorkerInfo` fields `on_worker_added` builds a subscription from.
+
+    Everything the decision reads belongs here and nothing else does: a change
+    to any of these means the existing subscription describes the wrong worker,
+    and a change to anything else (status, url, disagg_meta) must not churn it.
+
+    Exists because a worker can change these *without leaving the fleet*. A stop
+    that skips the SIGTERM handler -- SIGKILL, an OOM kill, a node loss -- never
+    runs `K8sRegistrationClient.deregister`, so the Pod annotation discovery
+    keys departures off is never cleared, the Pod holds `phase: Running` across
+    the container restart, and the replacement process republishes the same
+    `worker_id` with the fresh `free_tcp_port()` its `kv_events_endpoint` just
+    took. Keyed on the id alone, the old subscription survives: a ZMQ task
+    reconnect-looping against a dead port, and -- the sharp end -- the KV view
+    built while the old engine was warm, still being scored for hits against a
+    cache the restart wiped.
+
+    Mirror of `DecisionKey` in `rust/router/src/kv_event.rs`.
+    """
+    return (w.kv_events_endpoint, w.kv_block_size, w.dp_size, w.dp_rank, w.engine)
+
+
 @dataclass
 class WorkerSubscription:
     """Per-worker subscription state: one ZMQ task per DP rank plus a
@@ -80,6 +103,8 @@ class WorkerSubscription:
     worker_id: str
     endpoint: str
     block_size: int
+    # What this subscription was built from; see `decision_key`.
+    key: tuple = ()
     # Decoder for THIS worker's engine wire format (vLLM map vs SGLang array).
     # Defaults to the SGLang/array layout (the historical wire format);
     # on_worker_added always sets it explicitly from the worker's EngineType.
@@ -110,6 +135,36 @@ class KvEventClient:
 
     # --- public API ---
 
+    def _claim(self, w: WorkerInfo) -> bool:
+        """Whether this worker still needs deciding, tearing down a stale
+        subscription first.
+
+        `True` means "build one". `False` means an identical subscription is
+        already live, which is the common path -- discovery republishes a
+        worker on every heartbeat annotation refresh, and rebuilding then would
+        throw the KV view away several times a minute.
+
+        The teardown is the point: see `decision_key`. Shared by both
+        transports so the ZMQ and NATS paths cannot drift on it.
+        """
+        existing = self._subs.get(w.worker_id)
+        if existing is None:
+            return True
+        if existing.key == decision_key(w):
+            return False
+        logger.info(
+            "kv events: %s re-registered in place (endpoint %s -> %s, block_size %s -> %s); "
+            "resubscribing and dropping its cached view, which describes an engine that "
+            "is no longer running",
+            w.worker_id,
+            existing.endpoint,
+            w.kv_events_endpoint,
+            existing.block_size,
+            w.kv_block_size,
+        )
+        self.on_worker_removed(w.worker_id)
+        return True
+
     def cache_view(self, worker_id: str, dp_rank: int | None = None) -> set[int]:
         """Return the chained-hash set of a worker's cached blocks for a DP
         rank (``dp_rank=None`` -> the worker's single/rank-0 view).
@@ -124,7 +179,9 @@ class KvEventClient:
         return sub.views.get(dp_rank if dp_rank is not None else 0, set())
 
     def on_worker_added(self, w: WorkerInfo) -> None:
-        if not w.kv_events_endpoint or w.worker_id in self._subs:
+        if not w.kv_events_endpoint:
+            return
+        if not self._claim(w):
             return
         # No block size means we cannot reproduce the engine's paging, and 1 is not
         # a safe stand-in: it is a wrong answer that looks like an answer. Hashing
@@ -164,6 +221,7 @@ class KvEventClient:
             worker_id=w.worker_id,
             endpoint=w.kv_events_endpoint,
             block_size=w.kv_block_size,
+            key=decision_key(w),
             # vLLM and SGLang serialize kv-events differently (map vs array); pick
             # the decoder matching THIS worker's engine or every event fails to
             # decode and the view stays empty.
