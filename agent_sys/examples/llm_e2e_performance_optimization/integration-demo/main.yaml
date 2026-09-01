@@ -1,0 +1,93 @@
+# The outermost graph. Its name is fixed and its presence is what makes this
+# directory a task package.
+#
+# `main` is a non-leaf: it carries a readme and no `entry.sh`, declares no
+# `agent` (task_graph supplies a built-in spec for a non-leaf) and no
+# `resources` (only a leaf may acquire).
+module: task
+name: main
+description: Integrate an optimised kernel into GLM-5.3-Flash and prove it did not break or slow the service.
+
+# A closure may declare a kind its subgraph uses internally. Only
+# `integration_report` and `integration_packup` are what a caller wants; the rest
+# do not cross `main`'s own boundary but are declared because the subgraph names
+# them.
+handoffs:
+  - kernel_patch
+  - patch_overlay
+  - deployment_stock
+  - acceptance_stock
+  - bench_stock
+  - deployment_patched
+  - acceptance_patched
+  - bench_patched
+  - integration_report
+  - integration_packup
+validators: []
+
+task:
+  goal: Accept or reject an optimised kernel on end-to-end correctness and performance.
+  version: '1'
+  inputs: []
+  outputs: []
+
+  # Inherited by every subtask: the root's set has to cover the whole subgraph.
+  #
+  # The absolute paths are the ones the bodies reach outside their zone, written
+  # down even though this package runs with AGENT_SYS_NO_PERMISSIONS=1 and
+  # nothing enforces them today. They are the answer to "what does this touch",
+  # and writing them now means turning enforcement on later is a configuration
+  # change rather than an archaeology exercise.
+  permissions:
+    grants:
+      - {path: handoffs/kernel_patch, access: write, kind: kernel_patch}
+      - {path: handoffs/patch_overlay, access: write, kind: patch_overlay}
+      - {path: handoffs/deployment_stock, access: write, kind: deployment_stock}
+      - {path: handoffs/acceptance_stock, access: write, kind: acceptance_stock}
+      - {path: handoffs/bench_stock, access: write, kind: bench_stock}
+      - {path: handoffs/deployment_patched, access: write, kind: deployment_patched}
+      - {path: handoffs/acceptance_patched, access: write, kind: acceptance_patched}
+      - {path: handoffs/bench_patched, access: write, kind: bench_patched}
+      - {path: handoffs/integration_report, access: write, kind: integration_report}
+      - {path: handoffs/integration_packup, access: write, kind: integration_packup}
+      # The Slurm client, and the node-local work area the bodies write through it.
+      - {path: /usr/bin, access: read}
+      - {path: /data/agent_sys_integration, access: write}
+
+  # A chain, not a fan-out.
+  #
+  # **Most of these entries are longer than the dependency they express.**
+  # `task_graph` derives a data edge from every kind a task consumes and refuses
+  # a subgraph whose `froms` does not declare it, so a task that reads three
+  # handoffs names three producers whether or not it waits on them for anything
+  # else. `serve_patched` is the clearest case: it reads `patch_overlay` and
+  # `kernel_patch`, so `apply_patch` and `seed_patch` have to be listed — but the
+  # edge that matters is `measure_stock`.
+  #
+  # Three edges carry an argument rather than a data dependency:
+  #
+  #   serve_stock   <- apply_patch    building and checking the overlay takes
+  #                                   seconds and the stock arm takes twenty
+  #                                   minutes. A patch that will not apply should
+  #                                   fail before the measurement, not after it.
+  #                                   (Also a data edge: the stock arm reads the
+  #                                   plan in order to record what it withheld.)
+  #   serve_patched <- measure_stock  its first act is to tear the stock
+  #                                   deployment down, so the edge has to mean
+  #                                   "the stock arm has been measured". Wiring
+  #                                   it to serve_stock would let agent_sys
+  #                                   schedule it alongside measure_stock and
+  #                                   destroy the deployment mid-measurement.
+  #   compare       <- both measures  it is the only task that sees both arms,
+  #                                   and it is separate from packup because
+  #                                   deciding and assembling are different jobs
+  #                                   with different validators.
+  subgraph:
+    - {closure: seed_patch,       froms: []}
+    - {closure: apply_patch,      froms: [seed_patch]}
+    - {closure: serve_stock,      froms: [apply_patch]}
+    - {closure: measure_stock,    froms: [serve_stock]}
+    - {closure: serve_patched,    froms: [seed_patch, apply_patch, measure_stock]}
+    - {closure: measure_patched,  froms: [serve_patched]}
+    - {closure: compare,          froms: [seed_patch, measure_stock, measure_patched]}
+    - {closure: packup,           froms: [seed_patch, apply_patch, serve_stock, measure_stock, serve_patched, measure_patched, compare], is_end: true}

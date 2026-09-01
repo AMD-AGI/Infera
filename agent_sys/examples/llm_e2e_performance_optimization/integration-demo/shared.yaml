@@ -1,0 +1,135 @@
+# The one agent every task in this package runs under, and the only place the
+# package's variables are named.
+#
+# `kind: program`, because every leaf here is a shell script driving a cluster:
+# apply a patch, bring a container up, ask the model three kinds of question,
+# replay a trace, compare two sets of numbers. None of that is a judgement call,
+# and all of it has to be byte-identical between the two arms for the comparison
+# to mean anything. That is the whole design: two deployments differing in one
+# variable, measured by the same script in the same order.
+#
+# **The `env` block is the only route by which a package may name its own
+# variables** (`agent.schema.json`), so every `${...}` this package takes on the
+# command line is listed here and reaches the bodies as an `IT_*` environment
+# variable. Nothing here is a secret.
+#
+# **Four carry no default, on purpose.** A Slurm job id, which node it holds,
+# that node's IP and where the weights are, are facts about one allocation on one
+# cluster; a default would be one machine's answer shipped as everyone's, and
+# would go stale the moment the job ends. `${NAME}` with no `:-` is a load-time
+# fault naming the file, the line and the variable:
+#
+#     agent-sys run --package agent_sys/examples/llm_e2e_performance_optimization/integration-demo \
+#       --var jobid=28153 --var node=smci355-ccs-aus-n04-33 \
+#       --var node_ip=10.235.192.139 \
+#       --var model_path=/apps/qiongzhu/models/GLM-5.3-Flash-FP8
+module: agent
+name: runner
+kind: program
+version: '1'
+description: Runs a task's entry.sh. No model call.
+env:
+  # --- the allocation ---------------------------------------------------------
+  IT_JOBID: '${jobid}'
+  IT_NODE: '${node}'
+  IT_NODE_IP: '${node_ip}'
+
+  # --- what to serve ----------------------------------------------------------
+  IT_MODEL: '${model_path}'
+  IT_SERVED: '${served_name:-glm5.3-flash}'
+  # Node-local. Docker images are not shared between compute nodes, so moving to
+  # another node means rebuilding this one first -- 9m25s, measured.
+  IT_IMAGE: '${image:-infera/engine-sglang:glm53-flash}'
+  IT_ETCD_IMAGE: '${etcd_image:-quay.io/coreos/etcd:v3.5.14}'
+  IT_TP: '${tp:-8}'
+
+  # --- ports ------------------------------------------------------------------
+  # IT_ETCD_PORT is not 2379 and must not be: these nodes run a Kubernetes
+  # control plane whose own etcd holds 2379 over TLS on both localhost and the
+  # node IP.
+  IT_ROUTER_PORT: '${router_port:-8100}'
+  IT_WORKER_PORT: '${worker_port:-30000}'
+  IT_ETCD_PORT: '${etcd_port:-12379}'
+  # Not `glm53_mix`. profiling-demo uses that name, and a run of this package
+  # that tore down a deployment another package was measuring would be a very
+  # confusing failure to attribute.
+  IT_CTR: '${container_name:-glm53_int}'
+
+  # --- node-local work area ---------------------------------------------------
+  IT_WORK_ROOT: '${work_root:-/data/agent_sys_integration}'
+
+  # --- the mock patch ---------------------------------------------------------
+  # Which file and which function `seed_patch` puts its marker in. Both are
+  # variables because a real KernelForge patch names its own, and the mock's
+  # choice must not read as a contract.
+  #
+  # Measured on this image: `Glm5NextDecoderLayer.forward` carries no decorator
+  # and runs for every layer of every batch. Two better-looking candidates are
+  # wrong -- `swiglu_clamped` is reached only from the vision path, so a text
+  # request never enters it, and it is decorated `@torch.compile`, where a
+  # logging call forces a graph break.
+  IT_PATCH_FILE: '${patch_target_file:-srt/models/glm5_next.py}'
+  IT_PATCH_SYMBOL: '${patch_target_symbol:-Glm5NextDecoderLayer.forward}'
+  IT_SGLANG_ROOT: '${sglang_root:-/sgl-workspace/sglang/python/sglang}'
+
+  # --- acceptance: llm-eval ---------------------------------------------------
+  # The evaluator ships inside the engine image (`sglang.test.run_eval`), so
+  # nothing is installed into the container.
+  #
+  # Two evals, not one, and the pairing is the point: they ask the same questions
+  # and `mixed_prefix_gsm8k` puts them behind partially shared few-shot prefixes,
+  # so the gap between them measures prefix reuse. A kernel patch breaking the
+  # radix cache is invisible to every other check here.
+  IT_EVAL_NAMES: '${eval_names:-gsm8k mixed_prefix_gsm8k}'
+  # 200 questions is a +-5 point Wilson interval. Enough to catch a broken
+  # deployment, not enough to see a two-point regression; the full set is ~1300
+  # questions and ~6 minutes per eval. Stated in the handoff's watchout.
+  IT_EVAL_EXAMPLES: '${eval_examples:-200}'
+  IT_EVAL_THREADS: '${eval_threads:-32}'
+  IT_EVAL_MAX_TOKENS: '${eval_max_tokens:-2048}'
+  # Measured in place, 1319 rows. An absolute path rather than a file inside the
+  # package: the whole package is copied into every attempt's zone.
+  IT_GSM8K_DATA: '${gsm8k_data:-/apps/tas/yaoc/research/topic/infera-with-hyperloom/Infera/examples/sglang_1p1d_glm5.2/lm_eval/data/test.jsonl}'
+
+  # --- acceptance: needle -----------------------------------------------------
+  # Two lengths, and only the first is a gate.
+  #
+  # 76000 tokens is 9.3 chunks of --chunked-prefill-size 8192, and all three
+  # depths were measured to pass. 127000 is where the head depth fails on a stock
+  # deployment, so it is recorded and compared between arms rather than gated: a
+  # gate the baseline cannot pass is a gate that gets switched off.
+  IT_NEEDLE_TOKENS: '${needle_tokens:-76000}'
+  IT_NEEDLE_FRONTIER_TOKENS: '${needle_frontier_tokens:-127000}'
+  # Head, middle, tail. Probing one depth is how you certify a broken deployment:
+  # prefill runs in --chunked-prefill-size pieces and a stack that drops every
+  # piece but the last still answers a tail-depth needle correctly.
+  IT_NEEDLE_DEPTHS: '${needle_depths:-0.02,0.5,0.98}'
+
+  # --- acceptance: the load ---------------------------------------------------
+  IT_AIPERF_IMAGE: '${aiperf_image:-nvcr.io/nvidia/ai-dynamo/aiperf:0.12.0}'
+  IT_AIPERF_TRACE: '${aiperf_trace:-/apps/tas/yaoc/research/topic/infera-with-hyperloom/Infera/examples/sglang_1p1d_glm5.2/aiperf_trace/conversation_trace.jsonl}'
+  IT_TRACE_END_MS: '${trace_end_ms:-120000}'
+  IT_MAX_CONC: '${max_conc:-256}'
+  IT_WORKERS: '${workers_max:-16}'
+  IT_BLOCK_SIZE: '${block_size:-512}'
+  IT_REQ_TIMEOUT: '${req_timeout:-900}'
+  # Two rounds per arm: round 1 is cold for this trace, round 2 is warm. Measured
+  # on profiling-demo, the same configuration replayed twice differs by an order
+  # of magnitude depending on radix-cache warmth, so `compare` only ever puts
+  # round 1 against round 1.
+  IT_BENCH_ROUNDS: '${bench_rounds:-2}'
+
+  # --- the bars -----------------------------------------------------------------
+  # **Named here even though only `compare` reads them from the environment**,
+  # because `check_no_regression` reads the same two numbers out of its own
+  # `args` block, and the whole point of that validator is that it recomputes the
+  # verdict and agrees. Two sources for one threshold would make them disagree
+  # over a value nobody changed — a false failure with a very confusing message.
+  # Both sides expand the same `${...}`.
+  #
+  # Neither number has a measured basis yet. What they want is the natural
+  # run-to-run spread of a single arm, which the first full two-arm run will
+  # produce; until then these are wide enough not to fire on noise and narrow
+  # enough to catch something real. DESIGN.md section 11, question 5.
+  IT_MAX_THROUGHPUT_REGRESSION: '${max_throughput_regression:-0.05}'
+  IT_MAX_TTFT_REGRESSION: '${max_ttft_regression:-0.10}'
