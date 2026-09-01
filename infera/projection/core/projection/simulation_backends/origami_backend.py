@@ -82,6 +82,12 @@ class _HardwareProfile:
     rf_capacity: int = 524288
 
 
+# Bandwidth to assume when a profile carries none, paired with the 1307 TFLOP/s
+# the peak getter falls back to so the two halves of the roofline describe the
+# same part. Referenced but never defined, this raised ``NameError`` for any
+# architecture without a profile -- the one case it exists to cover.
+_FALLBACK_HBM_BW_GBPS: float = 5300.0
+
 _KNOWN_PROFILES: Dict[str, _HardwareProfile] = {
     # MI300X / gfx942: HBM3 ~5.3 TB/s, ~1307 TFLOP/s dense BF16
     "mi300x": _HardwareProfile("gfx942", 304, 65536, 4_194_304, 2_100_000, 5300.0, 1307.0),
