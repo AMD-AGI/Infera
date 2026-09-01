@@ -18,11 +18,25 @@ across parallelism tracked the served target closely.
 
 The mapping is the one :func:`anchor_from_serving` documents: for a closed-loop
 run at concurrency ``C``, mean TPOT *is* the steady-state decode step at ``C``
-sequences, since every resident request advances one token per step. Only the
-decode curve is anchored -- mean TTFT looks like the matching prefill
-observable but is dominated by streaming and admission granularity, so
-inverting it yields a "prefill step" one to two orders of magnitude too large.
-Prefill stays simulated.
+sequences, since every resident request advances one token per step. The
+decode curve is anchored from that directly.
+
+Prefill is anchored too, but never from an absolute TTFT: mean TTFT looks like
+the matching prefill observable but is dominated by streaming and admission
+granularity, so inverting it yields a "prefill step" one to two orders of
+magnitude too large. Differencing escapes that. Those contaminating terms are
+all constant in prompt length, so measuring TTFT at two prompt lengths and
+subtracting cancels them and leaves the cost of the extra tokens -- see
+:func:`prefill_rate_ms_per_token`. ``--no-prefill-anchor`` restores the
+historical behaviour of leaving prefill simulated.
+
+Leaving prefill simulated is not free, and the flag exists because of what it
+costs. The analytical GEMM backend carries a large absolute bias (~5x; see the
+origami-ratio note in ``performance.py``). Decode never pays it, because a
+measured anchor means the simulator is only ever consulted as the ratio
+sim(target)/sim(bench), in which the bias cancels. Unanchored prefill has no
+such quotient and pays the bias in full, which is what makes projected TTFT run
+several times faster than measured.
 
 The artifact is recorded at the parallelism it actually ran at, with no
 reduce/restore: the projector transports TP=4 to the target itself, which is
@@ -170,12 +184,10 @@ def _build_engine(args, argv: list[str], port: int, tp: int):
                       host="127.0.0.1", port=port)
 
 
-def _measure_concurrency(port: int, batch: int, args, out_dir: str) -> float:
-    """Mean TPOT in ms at ``batch`` concurrent requests -- the decode step."""
-    result = os.path.join(out_dir, f"bench_c{batch}.json")
-    # Three waves is enough for the anchor concurrencies: re-running c128 with
-    # ten waves and varied lengths moved TPOT by 5%, and c<=32 by less.
-    num_prompts = max(24, batch * 3)
+def _run_client(port: int, args, out_dir: str, tag: str, *, batch: int,
+                input_len: int, output_len: int, num_prompts: int) -> dict:
+    """One closed-loop client run against the live server; its whole result."""
+    result = os.path.join(out_dir, f"bench_{tag}.json")
     # vLLM's client drives either server. Against SGLang it goes through the
     # plain OpenAI completions route rather than vLLM's own.
     client = "vllm" if args.serving_backend == "vllm" else "openai"
@@ -183,15 +195,128 @@ def _measure_concurrency(port: int, batch: int, args, out_dir: str) -> float:
         "vllm", "bench", "serve", "--backend", client, "--model", args.model,
         "--host", "127.0.0.1", "--port", str(port), "--endpoint", "/v1/completions",
         "--dataset-name", "random",
-        "--random-input-len", str(args.input_len),
-        "--random-output-len", str(args.output_len),
+        "--random-input-len", str(input_len),
+        "--random-output-len", str(output_len),
         "--num-prompts", str(num_prompts), "--max-concurrency", str(batch),
         "--ignore-eos", "--percentile-metrics", "ttft,tpot,itl,e2el",
         "--save-result", "--result-filename", result,
     ]
     subprocess.run(cmd, check=True)
     with open(result) as fh:
-        return float(json.load(fh)["mean_tpot_ms"])
+        return json.load(fh)
+
+
+def _measure_concurrency(port: int, batch: int, args, out_dir: str) -> float:
+    """Mean TPOT in ms at ``batch`` concurrent requests -- the decode step."""
+    # Three waves is enough for the anchor concurrencies: re-running c128 with
+    # ten waves and varied lengths moved TPOT by 5%, and c<=32 by less.
+    doc = _run_client(port, args, out_dir, f"c{batch}", batch=batch,
+                      input_len=args.input_len, output_len=args.output_len,
+                      num_prompts=max(24, batch * 3))
+    return float(doc["mean_tpot_ms"])
+
+
+# The prompt-length probes end at the first token, so the tail after it is pure
+# wall time: a short output keeps a 128k probe from also decoding a full answer.
+# Both probes share the value, which is what matters -- an identical tail is one
+# more constant the difference cancels.
+_PREFILL_PROBE_OUTPUT_LEN = 4
+_PREFILL_PROBE_PROMPTS = 12
+# Below this the difference is comparable to run-to-run TTFT noise and the slope
+# is not resolvable.
+_PREFILL_MIN_TOKEN_DELTA = 256
+
+
+def prefill_probe_lengths(args) -> list[int]:
+    """Prompt lengths to probe, shortest first, ending at the anchor's own.
+
+    The long point is ``input_len`` itself so the rate is interpolated over the
+    lengths the anchor is used at rather than extrapolated past them.
+    """
+    long_len = int(args.input_len)
+    short = int(getattr(args, "prefill_anchor_short", 0) or 0) or long_len // 2
+    short = max(1, min(short, long_len - _PREFILL_MIN_TOKEN_DELTA))
+    lengths = [short, long_len]
+    if getattr(args, "prefill_anchor_validate", False):
+        # A third, interior point turns the assumption into something checkable:
+        # with one pair the slope is whatever two numbers say, with two pairs
+        # their disagreement measures how far from linear the prompt curve is.
+        lengths.insert(1, (short + long_len) // 2)
+    return lengths
+
+
+def prefill_rate_ms_per_token(port: int, args, out_dir: str) -> tuple:
+    """Per-token prefill cost, by differencing TTFT across prompt lengths.
+
+    Absolute TTFT is not an invertible prefill observable -- it carries the
+    scheduler's admission granularity, the streaming flush and the client's own
+    overhead, and inverting it yields a prefill step one to two orders of
+    magnitude too large. Every one of those terms is constant in prompt length,
+    so they cancel in a difference: at a fixed concurrency and output length,
+    ``TTFT(L2) - TTFT(L1)`` is the cost of the extra ``L2 - L1`` prompt tokens
+    and nothing else.
+
+    Probed at concurrency 1, where no request waits behind another's prefill and
+    the difference is therefore compute rather than queueing. The rate is a
+    cache-miss rate: the projector applies its own prefix-hit discount on top,
+    so a probe that hit the prefix cache would be discounted twice.
+
+    Returns ``(rate_ms_per_token, diagnostics)``, with a rate of 0.0 when the
+    slope does not resolve -- the caller then leaves prefill simulated rather
+    than anchoring on noise.
+    """
+    lengths = prefill_probe_lengths(args)
+    pts = []
+    for length in lengths:
+        doc = _run_client(port, args, out_dir, f"prefill_L{length}", batch=1,
+                          input_len=length, output_len=_PREFILL_PROBE_OUTPUT_LEN,
+                          num_prompts=_PREFILL_PROBE_PROMPTS)
+        ttft = float(doc["mean_ttft_ms"])
+        pts.append((length, ttft))
+        print(f"[inferasim:Inference:Serving] prefill probe L={length} "
+              f"TTFT={ttft:.2f}ms")
+
+    # Every adjacent pair is its own estimate of the slope; consistency between
+    # them is the evidence that the cancelled terms really were constant.
+    pairwise = [{"from": pts[i][0], "to": pts[i + 1][0],
+                 "ms_per_token": (pts[i + 1][1] - pts[i][1]) / (pts[i + 1][0] - pts[i][0])}
+                for i in range(len(pts) - 1)]
+    # Least squares over all points; identical to the lone difference when there
+    # are only two, and a better estimate than any single pair when there are more.
+    n = len(pts)
+    mean_x = sum(x for x, _ in pts) / n
+    mean_y = sum(y for _, y in pts) / n
+    var = sum((x - mean_x) ** 2 for x, _ in pts)
+    rate = (sum((x - mean_x) * (y - mean_y) for x, y in pts) / var) if var else 0.0
+
+    diag = {
+        "method": "ttft difference across prompt lengths",
+        "concurrency": 1,
+        "output_len": _PREFILL_PROBE_OUTPUT_LEN,
+        "num_prompts": _PREFILL_PROBE_PROMPTS,
+        "points": [{"input_len": x, "mean_ttft_ms": y} for x, y in pts],
+        "pairwise_ms_per_token": pairwise,
+        "ms_per_token": rate,
+        # What the constant terms actually came to, as a sanity read: the
+        # intercept is the admission/streaming/client floor the difference threw
+        # away. A negative one means the probes were not on a straight line.
+        "implied_fixed_ms": mean_y - rate * mean_x,
+    }
+    rates = [p["ms_per_token"] for p in pairwise]
+    if len(rates) > 1 and min(rates) > 0:
+        spread = max(rates) / min(rates)
+        diag["pairwise_spread"] = spread
+        if spread > 1.25:
+            print(f"[inferasim:Inference:Serving] WARNING: prefill probes "
+                  f"disagree by {spread:.2f}x across length ({rates}); the "
+                  f"prompt curve is not linear over this range, so the anchor "
+                  f"is a chord through it rather than a rate.")
+    if rate <= 0:
+        print("[inferasim:Inference:Serving] WARNING: prefill slope did not "
+              "resolve (non-increasing TTFT across length); leaving prefill "
+              "simulated.")
+        return 0.0, diag
+    return rate, diag
 
 
 def run_serving_benchmark(args) -> dict:
@@ -255,6 +380,10 @@ def run_serving_benchmark(args) -> dict:
         sweep = [{"batch": b,
                   "decode_ms": _measure_concurrency(port, b, args, out_dir)}
                  for b in batches]
+        prefill_rate, prefill_diag = (
+            prefill_rate_ms_per_token(port, args, out_dir)
+            if getattr(args, "prefill_anchor", False) else (0.0, None)
+        )
         client_s = time.time() - client_started
     finally:
         asyncio.run(engine.stop())
@@ -267,10 +396,23 @@ def run_serving_benchmark(args) -> dict:
         ref = sweep[-1]
     else:
         ref = next((e for e in sweep if e["batch"] == args.batch), sweep[0])
+    # One measured rate fills the whole batch curve. Prefill is compute-bound and
+    # linear in total prompt tokens -- the assumption the projector's own
+    # per-token path already makes -- so stating it for every batch keeps the two
+    # consumption paths agreeing. A lone point would instead be held flat across
+    # batch by the measured batch transport, which for prefill is the one shape
+    # it is certainly not.
+    if prefill_rate > 0:
+        for entry in sweep:
+            entry["prefill_ms"] = prefill_rate * entry["batch"] * args.input_len
     artifact = {
         "backend": args.serving_backend,
-        # prefill_ms stays None: TTFT is not an invertible prefill observable.
-        "measured": {"model": {"prefill_ms": None, "decode_ms": ref["decode_ms"]}},
+        # prefill_ms comes from differencing TTFT across prompt lengths, and is
+        # None under --no-prefill-anchor or when the slope did not resolve. A
+        # raw TTFT is not an invertible prefill observable, and is never
+        # inverted here.
+        "measured": {"model": {"prefill_ms": ref.get("prefill_ms"),
+                               "decode_ms": ref["decode_ms"]}},
         "sweep": sweep,
         "meta": {
             "batch": ref["batch"],
@@ -298,7 +440,11 @@ def run_serving_benchmark(args) -> dict:
             # What this anchor cost, so its own artifact carries the accounting.
             "boot_s": round(boot_s, 1),
             "anchor_client_s": round(client_s, 1),
-            "derived_from": "serving benchmark (mean TPOT)",
+            "derived_from": ("serving benchmark (mean TPOT; prefill by TTFT "
+                             "difference across prompt lengths)"
+                             if prefill_rate > 0
+                             else "serving benchmark (mean TPOT)"),
+            "prefill_anchor": prefill_diag,
             # Capture-size sweep mode: the projector pads decode UP to the
             # nearest measured size instead of interpolating.
             "concurrency": concurrency or None,

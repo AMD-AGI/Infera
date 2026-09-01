@@ -1087,6 +1087,9 @@ _CACHE_EXTRA_ARGS = (
     # Serving and offline anchors of the same config are different measurements,
     # as are two engines serving it, so none of them may share a cache entry.
     "offline", "serving_backend",
+    # A prefill-anchored artifact carries a measurement a decode-only one does
+    # not, so the two cannot share an entry even at an identical config.
+    "prefill_anchor", "prefill_anchor_short", "prefill_anchor_validate",
 )
 
 
@@ -1250,6 +1253,27 @@ def main(argv=None):
                     help="Which engine to launch for the anchor. Launched through "
                          "the same adapters the platform serves with. Ignored with "
                          "--offline, which is vLLM-only.")
+    ap.add_argument("--prefill-anchor", dest="prefill_anchor",
+                    action="store_true", default=None,
+                    help="Anchor prefill by differencing mean TTFT across two "
+                         "prompt lengths at concurrency 1. ON by default on the "
+                         "serving path, because the alternative is pricing "
+                         "prefill from the analytical roofline, whose absolute "
+                         "level the GEMM backend's own authors disclaim -- "
+                         "decode escapes it by being anchored, prefill has no "
+                         "such escape. Costs two extra client runs.")
+    ap.add_argument("--no-prefill-anchor", dest="prefill_anchor",
+                    action="store_false",
+                    help="Leave prefill simulated (the historical behaviour). "
+                         "Saves the probe runs; pays the roofline bias.")
+    ap.add_argument("--prefill-anchor-short", type=int, default=0,
+                    help="Short probe length for --prefill-anchor. The long "
+                         "probe is always --input-len, so the rate covers the "
+                         "lengths the anchor is used at. Default: half of it.")
+    ap.add_argument("--prefill-anchor-validate", action="store_true",
+                    help="Probe a third, interior length so the pairwise slopes "
+                         "can be compared. Checks the linearity the difference "
+                         "assumes, at the cost of one more client run.")
     ap.add_argument("--offline", action="store_true",
                     help="Measure with the offline LLM() entrypoint instead of a "
                          "real server. Off by default: the two do not resolve the "
@@ -1266,6 +1290,20 @@ def main(argv=None):
     ap.add_argument("--force", action="store_true",
                     help="Re-run and OVERWRITE the cached result for this config.")
     args = ap.parse_args(argv)
+    # Asking for both is a contradiction rather than a preference: the offline
+    # path measures a prefill step of its own, so honouring the flag there would
+    # anchor on the offline kernels, which is the one thing it exists to avoid.
+    if args.offline and args.prefill_anchor:
+        ap.error("--prefill-anchor is a serving-path measurement and --offline "
+                 "runs the LLM() entrypoint, which resolves different attention "
+                 "and MoE kernels and already reports its own prefill_ms. Drop "
+                 "one: --prefill-anchor alone for a served anchor, --offline "
+                 "alone for the offline one.")
+    # Unset resolves per path: the serving anchor measures prefill, the offline
+    # one already has its own. Resolved to a concrete value before the cache key
+    # is built, so an anchored artifact cannot collide with a decode-only one.
+    if args.prefill_anchor is None:
+        args.prefill_anchor = not args.offline
     # Before anything imports vLLM: several ROCm levers are read once at import.
     # Sorted so the same lever set always produces the same cache key.
     args.env = sorted(args.env)
