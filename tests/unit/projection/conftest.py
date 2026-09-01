@@ -108,6 +108,8 @@ def project_spec(**overrides):
     ):
         if spec.get(key) is not None:
             argv += [flag, str(spec[key])]
+    if spec.get("enable_deepep"):
+        argv += ["--enable-deepep"]
     argv += [
         f"tensor_model_parallel_size={spec['tp']}",
         f"expert_model_parallel_size={spec['ep']}",
@@ -152,6 +154,7 @@ def project_spec(**overrides):
         "replica_gpus": getattr(perf, "replica_gpus", None),
         "max_concurrent_sequences": getattr(mem, "max_concurrent_sequences", None),
         "comm_decode_tp_allreduce_ms": extras.get("comm_decode_tp_allreduce_ms"),
+        "comm_decode_ep_a2a_ms": extras.get("comm_decode_ep_a2a_ms"),
         # What the run printed, for the parts of the report that are computed
         # nowhere else.
         "report": report.getvalue(),

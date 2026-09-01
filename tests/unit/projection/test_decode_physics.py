@@ -426,6 +426,7 @@ def test_sparse_attention_is_a_prefill_saving_and_not_a_decode_one():
         indexer_ms, rel=0.05
     ), "the decode step is not paying for the indexer it has to run"
 
+
 def test_dp_attention_runs_a_rank_over_its_own_requests_not_the_whole_batch():
     """Data-parallel attention shards requests, and the step has to show it.
 
@@ -447,3 +448,31 @@ def test_dp_attention_runs_a_rank_over_its_own_requests_not_the_whole_batch():
         f"({tp_only['decode_step_ms']:.2f} -> {dp_attn['decode_step_ms']:.2f} ms)"
     )
 
+
+def test_expert_parallelism_is_not_free_unless_the_engine_hides_the_exchange():
+    """Whose property the overlap is decides whether wide EP looks free.
+
+    Hiding the expert All-to-All whenever expert compute merely exceeded it gave
+    every deployment an asynchronous dispatch/combine, including the ones that
+    issue it synchronously. EP=TP then dropped the post-expert reduction and paid
+    nothing back, so a mix search preferred wide expert parallelism everywhere.
+    On MI355X that is backwards: across matched MiniMax-M3 pairs differing only
+    in expert degree, EP8 measures 0.87x the throughput of EP1.
+
+    So the exchange is exposed unless something says the engine overlaps it, and
+    turning that on is what makes it cheap again.
+    """
+    exposed = project_spec(model="deepseek_v3", ep=DEFAULTS["tp"], concurrency=64)
+    overlapped = project_spec(
+        model="deepseek_v3", ep=DEFAULTS["tp"], concurrency=64, enable_deepep=True
+    )
+
+    assert exposed["comm_decode_ep_a2a_ms"] > 0.0, (
+        "the decode expert All-to-All was charged nothing at all; expert "
+        "parallelism cannot cost less than the exchange it introduces"
+    )
+    assert overlapped["comm_decode_ep_a2a_ms"] < exposed["comm_decode_ep_a2a_ms"], (
+        "an engine that overlaps dispatch/combine should expose less of it "
+        f"({exposed['comm_decode_ep_a2a_ms']:.3f} -> "
+        f"{overlapped['comm_decode_ep_a2a_ms']:.3f} ms)"
+    )

@@ -1204,19 +1204,25 @@ class InferencePerformanceProjector:
                 _moe_tp_allreduce_count(self._view) / _dense_tp_allreduce_count(self._view)
             )
 
-            # EP A2A (dispatch/combine) is overlapped with expert compute by the
-            # fused MoE kernel (aiter/DeepEP), so its exposed cost is limited by
-            # available compute, NOT the configured comm-overlap ceiling (which
-            # defaults to 0). A direct fused-MoE microbench + the EP validation
-            # sweep show the exposed decode A2A is near-zero, not the ~30us
-            # isolated collective latency; charging it fully makes EP>1 look
-            # slower than silicon. The attention TP-AR stays on the configured
-            # ceiling (serial reduction). Toggle: INFERASIM_MOE_A2A_OVERLAP=0.
-            a2a_overlap = os.getenv("INFERASIM_MOE_A2A_OVERLAP", "1") != "0"
-            if a2a_overlap and has_moe and moe_compute > 0.0 and new_ep_a2a > 0.0:
-                keep_a2a = 1.0 - min(1.0, moe_compute / new_ep_a2a)
-            else:
-                keep_a2a = self._overlap_keep(phase, new_ep_a2a, moe_compute) if has_moe else 1.0
+            # Whether the expert All-to-All is hidden is a property of the
+            # engine, not of the arithmetic sitting next to it. Hiding it
+            # whenever expert compute merely exceeded it granted every
+            # deployment an asynchronous dispatch/combine, including the ones
+            # that issue it synchronously, and made expert parallelism free:
+            # EP=TP dropped the post-expert reduction and paid nothing back, so
+            # a mix search preferred wide EP everywhere. On MI355X that is
+            # backwards -- across matched MiniMax-M3 pairs that differ only in
+            # expert degree, EP8 measures 0.87x the throughput of EP1, and this
+            # model called it 1.01x. Charging the collective the engine actually
+            # exposes gives 0.84x.
+            #
+            # So the overlap now comes from the one place that knows whether the
+            # engine can do it: ``deepep_overlap_efficiency``, already applied
+            # inside ``ep_a2a_ms`` and zero unless DeepEP/SyncFree is on. What
+            # remains after that is exposed like any other collective.
+            keep_a2a = (
+                self._overlap_keep(phase, new_ep_a2a, moe_compute) if has_moe else 1.0
+            )
             ep_a2a_exposed = new_ep_a2a * keep_a2a
 
             dense_comm = new_tp_ar
