@@ -311,20 +311,14 @@ class InferenceCollectiveModel:
             cp=self.cp,
             hardware_config=hw,
         )
-        # The EP all-to-all runs over exactly ``ep`` ranks, and the group size is
-        # already handed to the collective as its ``gpus`` argument. What the
-        # ``tp`` argument here sets is ``hp``, which the collective multiplies by
-        # the group size to decide which domain the transfer crosses
-        # (``hp * gpus <= node_size`` is on-node, then pod, then cluster). Any
-        # ``hp > 1`` therefore inflates a collective that ``ep`` ranks alone
-        # perform: an EP8 dispatch fits inside one 8-GPU node, but at TP16 the
-        # old ``tp // ep`` passed 2 and the test became 16 <= 8, pricing an
-        # on-node transfer at pod bandwidth -- 20.45 ms a layer where the on-node
-        # figure is 4.35, which over 58 layers is most of a projected prefill.
-        #
-        # ``1`` makes the test read ``ep <= node_size``, which is the question
-        # being asked. Where ``ep`` genuinely exceeds a node the collective still
-        # crosses one, and is still charged for it.
+        # The EP all-to-all runs over exactly ``ep`` ranks, and that group size is
+        # already handed to the collective as its ``gpus`` argument. The ``tp``
+        # argument only sets ``hp``, which the collective multiplies by the group
+        # size to pick the domain the transfer crosses, so anything above ``1``
+        # inflates a collective that ``ep`` ranks alone perform and can price an
+        # on-node dispatch at pod bandwidth. ``1`` makes the test read
+        # ``ep <= node_size``, the question actually being asked; where ``ep``
+        # genuinely exceeds a node, the crossing is still charged.
         self._a2a_args = get_default_args(
             num_nodes=nn,
             gpus_per_node=gpn,
