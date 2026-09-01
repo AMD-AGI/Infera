@@ -492,7 +492,6 @@ def _registry(
     # dropped them, so a mapping could name a host and nothing would ever go
     # there. `sync_transport` turns each into an object; an unknown one raises
     # here, while a human is reading configuration, rather than at the first copy.
-    # Both views come from `Meta.weak()` so they cannot select different mappings.
     configuration = meta.load(meta.configured_path())
     mapping = configuration.mapping_roots()
     # **Before anything runs.** `sync` runs `rsync --delete` and this file aims
@@ -501,7 +500,16 @@ def _registry(
     # having already been believed. The operator's `rm` hook cannot help: it
     # intercepts a shell `rm`, and this deletion happens inside `rsync`.
     check_delete_scope(mapping, configuration.deletable_roots)
-    transports = {m.local_root: sync_transport(m.transport, m.target) for m in configuration.weak()}
+    # **Every mapping, not just the weak ones.** Strength answers *must bytes be
+    # copied*; a transport answers *can I reach the far side*. A strong mapping
+    # is one mount seen by two machines, and the far side may still be the only
+    # one with the GPU on it — so filtering transports by strength would have
+    # made the configuration closest to the goal the one that cannot reach the
+    # machine. `sync` keeps its own weak filter, which is genuinely about
+    # strength; `mapping` above is still `mapping_roots()` and still weak-only.
+    transports = {
+        m.local_root: sync_transport(m.transport, m.target) for m in configuration.mappings
+    }
     context = build_context(
         layout,
         main_repo=_main_repo(root),
@@ -509,6 +517,7 @@ def _registry(
         package=root,
         mapping=mapping,
         transports=transports,
+        far_roots=configuration.far_roots(),
     )
     registry = build_registry(
         store=JsonFileStoreMgr(layout.store),

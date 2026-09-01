@@ -566,3 +566,148 @@ def test_on_started_fires_when_connect_returns() -> None:
     backend.start_async(lambda: seen.append(client.connected))
     backend.mainloop()
     assert seen == [True]
+
+
+# ------------------------------------------------- spec §5.5's remote tool surface
+
+
+class _ToolDef:
+    """`env_mgr.remote.tools.ToolDef`'s shape, without importing `env_mgr`.
+
+    Deliberately a local stand-in: `agent` may not import `env_mgr`, and a test
+    that reached for the real class would be asserting an import edge the
+    package does not have.
+    """
+
+    def __init__(self, name, description, schema, call):  # noqa: ANN001, ANN204
+        self.name = name
+        self.description = description
+        self.schema = schema
+        self.call = call
+
+
+def _defs(call=None):  # noqa: ANN001, ANN202
+    return (
+        _ToolDef(
+            "env_remote_run",
+            "Run a command on the remote side.",
+            {
+                "type": "object",
+                "properties": {"command": {"type": "array", "items": {"type": "string"}}},
+                "required": ["command"],
+                "additionalProperties": False,
+            },
+            call or (lambda **kw: {"returncode": 0, "stdout": "", "stderr": ""}),
+        ),
+    )
+
+
+def test_tools_become_an_in_process_server_with_the_names_the_cli_uses() -> None:
+    """`mcp__<server>__<tool>` is **measured**, not read: that spelling appears
+    nowhere in the SDK, because it is the CLI's
+    (`scratch/single-real-task-2026-08/c_probe_sdk_tool_reachable.py`).
+
+    A wrong name here is a tool the model cannot call, which is indistinguishable
+    from the tool not existing — so it is pinned.
+    """
+    pytest.importorskip("claude_agent_sdk")
+    from agent.backends.claude_sdk import _tool_server
+
+    server, names = _tool_server(_defs())
+    assert names == ["mcp__env_mgr__env_remote_run"]
+    assert server["type"] == "sdk"
+    assert server["name"] == "env_mgr"
+
+
+def test_the_handler_runs_the_blocking_call_off_the_event_loop() -> None:
+    """`conn.run` is a blocking `subprocess` and a bring-up runs for minutes.
+    Awaiting it inline would stall every other SDK message for that whole time,
+    so it goes through `asyncio.to_thread`.
+
+    Asserted by running **the real handler** and observing which thread the
+    blocking function landed on. A test that rebuilt the wrapper inline would be
+    checking a copy of the code against itself.
+    """
+    pytest.importorskip("claude_agent_sdk")
+    import asyncio
+    import json
+    import threading
+
+    from agent.backends.claude_sdk import _adapt_tool
+
+    seen: dict[str, int] = {}
+
+    def blocking(**kwargs: object) -> dict[str, object]:
+        seen["call"] = threading.get_ident()
+        return {"returncode": 0, "stdout": "hi", "stderr": ""}
+
+    adapted = _adapt_tool(_defs(blocking)[0])
+
+    async def drive() -> dict:
+        seen["loop"] = threading.get_ident()
+        return await adapted.handler({"command": ["true"]})
+
+    out = asyncio.run(drive())
+    assert json.loads(out["content"][0]["text"])["stdout"] == "hi"
+    assert seen["call"] != seen["loop"], "the blocking call ran on the event loop's thread"
+
+
+def test_a_refusing_tool_propagates_its_message(monkeypatch) -> None:
+    """`remote.tools._inside` raises `PermissionError`, and the SDK turns a
+    raising handler into an `isError` result carrying `str(e)` — measured end to
+    end in `scratch/single-real-task-2026-08/c_probe_tool_refusal_visible.py`,
+    where the text reached the model verbatim and it kept working.
+
+    So the adapter deliberately does **not** catch. This pins that: the
+    exception must escape the handler with its message intact, because a
+    well-meant `except` here would replace a refusal the agent can act on with
+    one it cannot.
+    """
+    pytest.importorskip("claude_agent_sdk")
+    import asyncio
+
+    from agent.backends.claude_sdk import _adapt_tool
+
+    def refuse(**kwargs: object) -> dict[str, object]:
+        raise PermissionError("'../x' resolves outside your zone '/z'.")
+
+    adapted = _adapt_tool(_defs(refuse)[0])
+    with pytest.raises(PermissionError, match="outside your zone"):
+        asyncio.run(adapted.handler({"command": ["true"]}))
+
+
+def test_the_tools_reach_the_options_the_sdk_is_constructed_with() -> None:
+    """**The wiring, and it is the half criterion 18 never had.**
+
+    `remote/tools.py` has been complete since it was written and unreachable by
+    any agent, because nothing carried a `ToolDef` across the seam. Testing the
+    adapter alone would repeat that mistake one layer up — so this asserts on
+    what `_options()` actually hands `ClaudeAgentOptions`.
+
+    Both gates are checked: `mcp_servers` makes a tool *available* and
+    `allowed_tools` makes it *permitted*, and they are separate.
+    """
+    pytest.importorskip("claude_agent_sdk")
+    backend = _with_outputs(zone="/z", tools=_defs())
+
+    options = backend._options()
+
+    assert "env_mgr" in options["mcp_servers"]
+    assert options["mcp_servers"]["env_mgr"]["type"] == "sdk"
+    assert "mcp__env_mgr__env_remote_run" in options["allowed_tools"]
+
+
+def test_no_tools_means_no_mcp_server_at_all() -> None:
+    """**The control**, and it is the configuration every run without a mapping
+    uses. An agent with no far side must see *no tool*, rather than a tool that
+    fails when called — so nothing is added to the options at all.
+
+    Without this, the test above would pass equally well against an adapter that
+    published an empty server unconditionally.
+    """
+    backend = _with_outputs(zone="/z")
+
+    options = backend._options()
+
+    assert "mcp_servers" not in options
+    assert not options.get("allowed_tools")

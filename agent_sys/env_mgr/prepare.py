@@ -61,6 +61,7 @@ from env_mgr.isolation.policy import (
 )
 from env_mgr.isolation.probe import Availability, probe, select
 from env_mgr.protocols import Confinement, Context, NoConfinement, PrepareRefused, SyncReport
+from env_mgr.remote import tools as _tools
 from env_mgr.sync import Direction
 
 __all__ = [
@@ -227,6 +228,10 @@ class Prepared(NamedTuple):
     #: shared name would make substituting one for the other silent. That is the
     #: rename-on-incompatible-change rule applied to meaning rather than type.
     staged_package: str | None = None
+    #: This attempt's far-side tool surface — `remote.tools.ToolDef`s, or `()`.
+    #: Declared in `protocols.Prepared` too; this is the implementation half and
+    #: the two are compared by `tests/interfaces/`.
+    tools: tuple[Any, ...] = ()
 
     def spawn(self, argv: Sequence[str], **popen_kwargs: Any) -> subprocess.Popen:
         """Start `argv` **confined**, and hand back the process. One verb.
@@ -531,7 +536,38 @@ def prepare(
         confinement=conf,
         sync=report,
         environment=MappingProxyType(environment),
+        tools=_remote_tools(zone, ctx),
     )
+
+
+def _remote_tools(zone: Zone, ctx: Context) -> tuple[Any, ...]:
+    """Spec §5.5's tool surface for this zone's far side, or `()`.
+
+    Built here because `remote.tools.tools` needs three things and this is the
+    only place holding all three: the connection, the zone, and **the zone's
+    far-side root** — which comes from the configuration and is why `tools` takes
+    it as a parameter rather than computing it.
+
+    **`far_roots`, not `mapping`.** `ctx.mapping` is weak-only, because it is
+    `sync`'s input and strength answers *must bytes be copied*. A **strong**
+    mapping still has a far side and its `remote_root` is not in `ctx.mapping`
+    at all — so resolving against it would have given a strong mapping tools
+    pointed at nothing, which is the configuration R1b uses.
+
+    `()` when nothing maps this zone, which is every configuration with no meta
+    file. A task with no far side gets no remote tools, and that absence is what
+    the agent sees: no tool, rather than a tool that fails.
+    """
+    far_roots = dict(getattr(ctx, "far_roots", None) or {})
+    transports = dict(getattr(ctx, "transports", None) or {})
+    found = _sync.match(zone, far_roots)
+    if found is None:
+        return ()
+    key, far = found
+    conn = transports.get(key)
+    if conn is None:
+        return ()
+    return _tools.tools(conn, zone, far)
 
 
 def place_zone(task: Any, execution: Any, ctx: Context) -> Zone:

@@ -483,8 +483,10 @@ def test_prepared_matches_the_declared_surface(ctx) -> None:
         permissions_enforced,
         output_paths,
         staged_package,
+        tools,
     ) = prepared
     assert (zone, policy, environment) == (prepared.zone, prepared.policy, prepared.environment)
+    assert tools is prepared.tools
     assert agent_cli is prepared.agent_cli
     # `staged_package` is the §4.16 copy, and `agent` resolves a package-relative
     # `entry` against it. Unpacked here rather than only attribute-read, because
@@ -1231,3 +1233,79 @@ def test_a_declared_material_that_is_absent_is_refused_not_skipped(ctx, tmp_path
     text = str(caught.value)
     assert missing in text, "the message must name the path that was wrong"
     assert "skills" in text, "and which material key it came from"
+
+
+def test_a_mapped_zone_gets_remote_tools_and_an_unmapped_one_gets_none(
+    tmp_path: Path, main_repo: str
+) -> None:
+    """**The wiring, which is what was missing for criterion 18's whole life.**
+
+    `remote/tools.py` was complete and had no route to any backend: `Prepared`
+    had no field, so nothing `prepare` could compute would ever reach an agent.
+    A unit test of `tools()` said nothing about that, which is §4.12's family —
+    a producer with no consumer, invisible from the side that exists.
+
+    Its control is the second half: no mapping, no tools. An agent with no far
+    side must see *no tool*, rather than a tool that fails when called.
+    """
+    from env_mgr.remote.connection import LocalConnection
+
+    local = tmp_path / "root"
+    far = tmp_path / "far"
+    reg = DomainRegistry()
+    reg.register("store", str(local), DomainKind.HANDOFF_STORAGE)
+    reg.register("play", str(local), DomainKind.PLAYGROUND)
+    base = dict(
+        domains=reg,
+        store_root=str(tmp_path / "store"),
+        main_repo=main_repo,
+        interpreter_grants=interpreter_grants(),
+    )
+
+    ctx = context(**base)._replace(
+        far_roots={str(local): str(far)}, transports={str(local): LocalConnection()}
+    )
+    task = Task()
+    prepared = prepare(task, task.push_execution(), ctx)
+    assert {t.name for t in prepared.tools} == {
+        "env_remote_run",
+        "env_remote_push",
+        "env_remote_pull",
+    }
+
+    plain = Task()
+    assert prepare(plain, plain.push_execution(), context(**base)).tools == ()
+
+
+def test_a_strong_mapping_still_gets_tools(tmp_path: Path, main_repo: str) -> None:
+    """**Strength is not reachability**, and this is the case that would have
+    been silently wrong.
+
+    `ctx.mapping` is weak-only, because strength answers *must bytes be copied*.
+    A strong mapping is one mount seen by two machines — often the only one with
+    the GPU on it — and resolving the tool surface against `mapping` would have
+    given it no tools at all. `far_roots` carries every mapping, so it does.
+
+    Note `mapping` is empty here: nothing is copied, and there is still a far
+    side. That combination is exactly R1b.
+    """
+    from env_mgr.remote.connection import LocalConnection
+
+    local = tmp_path / "root"
+    reg = DomainRegistry()
+    reg.register("store", str(local), DomainKind.HANDOFF_STORAGE)
+    reg.register("play", str(local), DomainKind.PLAYGROUND)
+    ctx = context(
+        domains=reg,
+        store_root=str(tmp_path / "store"),
+        main_repo=main_repo,
+        interpreter_grants=interpreter_grants(),
+        mapping={},  # strong: nothing to copy
+    )._replace(
+        far_roots={str(local): str(local)},  # same bytes, same path
+        transports={str(local): LocalConnection()},
+    )
+    task = Task()
+    prepared = prepare(task, task.push_execution(), ctx)
+    assert prepared.tools, "a strong mapping has a far side and must still get tools"
+    assert prepared.sync.sent == 0, "and nothing was copied, which is what strong means"

@@ -447,6 +447,7 @@ def build_context(
     tier: Tier = Tier.PRODUCTION,
     mapping: Mapping[str, str] | None = None,
     transports: Mapping[str, Any] | None = None,
+    far_roots: Mapping[str, str] | None = None,
 ) -> Context:
     """The `Context` `EnvManager` binds once.
 
@@ -487,6 +488,9 @@ def build_context(
         # Keyed by the same `local_root` as `mapping`, and empty means both ends
         # are on this machine — which is what every run before R1 was.
         transports=dict(transports or {}),
+        # Every mapping's far side, weak and strong alike. `mapping` above is the
+        # weak-only subset `sync` copies across.
+        far_roots=dict(far_roots or {}),
         interpreter_grants=interpreter_grants() + demo_grants(layout),
         # **Staged, not granted — `interfaces.md` §4.16 reversed F19.**
         # `layout.stage_package` copies the package into `<zone>/package/`

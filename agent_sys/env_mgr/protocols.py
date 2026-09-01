@@ -291,10 +291,18 @@ class Context(NamedTuple):
     #: carries `validators/` too, and criterion 13's second route is **moved
     #: rather than closed**.
     package_stage: tuple[str, ...] | None = None
-    #: **How to reach the far side of each mapping, keyed by the same
-    #: `local_root` as `mapping`.** A key with no entry means both ends are on
-    #: this machine, which is every configuration before R1 and stays the
-    #: default — so an empty mapping here is not a degradation.
+    #: **How to reach the far side of each mapping, keyed by `local_root`.** A
+    #: key with no entry means both ends are on this machine, which is every
+    #: configuration before R1 and stays the default — so an empty mapping here
+    #: is not a degradation.
+    #:
+    #: **A superset of `mapping`'s keys, deliberately.** `mapping` is
+    #: `Meta.mapping_roots()` and is weak-only, because strength answers *must
+    #: bytes be copied*. This answers *can I reach the far side*, which is a
+    #: different question: a **strong** mapping is one mount seen by two
+    #: machines and still has a far side — often the only one with the GPU on
+    #: it. So `sync` finds nothing here for a strong mapping and never looks,
+    #: while the tool surface does.
     #:
     #: A **sibling of `mapping` rather than a widening of it**: `sync.remote_root`
     #: owns the walk over `mapping` and is cited by `paths.zone_env`, which wants
@@ -306,6 +314,13 @@ class Context(NamedTuple):
     #: is imported by `env_mgr.remote.connection`, so naming the class here would
     #: be a cycle. `sync` is the only reader and it has the real type.
     transports: Mapping[str, Any] = MappingProxyType({})
+    #: **Where the far side is, for every mapping**, keyed by `local_root`. The
+    #: twin of `transports`: that one says how to reach it, this one says where
+    #: it is. `mapping` is the weak-only subset and is `sync`'s input; the tool
+    #: surface reads this, because a **strong** mapping's `remote_root` is not
+    #: in `mapping` at all and tools resolved against `mapping` would point at
+    #: nothing for exactly the configuration R1b uses.
+    far_roots: Mapping[str, str] = MappingProxyType({})
 
 
 class Prepared(NamedTuple):
@@ -385,6 +400,23 @@ class Prepared(NamedTuple):
     #: the copy. Same type, different path; one name for both would make
     #: substituting either silent.
     staged_package: str | None = None
+    #: **`remote.tools.ToolDef`s for this attempt's far side, or `()`.**
+    #:
+    #: On the returned value and **not** a third `EnvManager` method, which is
+    #: `interfaces.md` §4.6's own precedent: `wrap_argv` sits here for the same
+    #: reason, and `test_env_manager_exposes_exactly_these` pins the component's
+    #: method set at two so that a third is a decision rather than a drift.
+    #:
+    #: Spec §5.5 is why this exists at all: the remote surface reaches an agent
+    #: as **tool calls**, because *"an agent given a natural-language
+    #: description of how to sync a directory will improvise, and the
+    #: improvisation will be wrong in a way nobody notices"*. Until this field
+    #: there was no route from `remote/tools.py` to any backend, so criterion 18
+    #: was built and unreachable.
+    #:
+    #: Typed loosely for the same reason `Assignment.confinement` is: it crosses
+    #: to `agent`, which may not import `env_mgr`.
+    tools: tuple[Any, ...] = ()
 
     def spawn(self, argv: Sequence[str], **popen_kwargs: Any) -> Any:
         """Start `argv` **confined**, and hand back the process. One verb.

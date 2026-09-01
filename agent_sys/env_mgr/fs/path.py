@@ -23,6 +23,7 @@ __all__ = [
     "canonical_here",
     "canonical_syntax",
     "contained",
+    "contained_syntactically",
     "resolve_strict",
     "resolve_for_check",
 ]
@@ -103,6 +104,43 @@ def contained(path: str | os.PathLike[str], zone: str | os.PathLike[str]) -> boo
         return p.startswith(os.sep)
     z = z.rstrip(os.sep)
     return p == z or p.startswith(z + os.sep)
+
+
+def contained_syntactically(rel: str, root: str) -> str | None:
+    """Join `rel` under `root` **without touching a filesystem**, or `None`.
+
+    `contained` is the one to use whenever the path is on this machine: it
+    resolves both sides, so it defeats a symlink out of the zone. It calls
+    `resolve_strict(zone)`, which requires the zone to **exist** — so it cannot
+    be used for a path on another host, where it would deny everything.
+
+    This is the weaker check for exactly that case, and the weakness is
+    specific and must not be forgotten: **a symlink on the far side defeats
+    it.** `<remote zone>/link -> /etc` is refused by `contained` and admitted
+    here. What it does stop is the whole class that does not need a filesystem
+    — an absolute path, and any `..` that climbs out — which is what an agent
+    reaches for by accident.
+
+    That is consistent with what the module already says about the far side
+    rather than a new hole: `remote/__init__.py` states outright that *the far
+    side is less confined than the near side*, and design §10.4 records it as
+    open. Closing it properly means asking the far side to resolve the path —
+    `realpath` over the connection — and comparing there, which is a round trip
+    per call and a TOCTOU window of its own. Not done; recorded.
+
+    Returns the joined path, or `None` when `rel` escapes. `None` rather than a
+    raise because the caller phrases the refusal for its own audience.
+    """
+    if not rel or "\x00" in rel or "\x00" in root:
+        return None
+    if os.path.isabs(rel):
+        return None
+    norm = os.path.normpath(rel)
+    if norm == os.pardir or norm.startswith(os.pardir + os.sep):
+        return None
+    if norm == os.curdir:
+        return root.rstrip(os.sep) or os.sep
+    return os.path.join(root.rstrip(os.sep), norm)
 
 
 def canonical_syntax(path: str) -> bool:

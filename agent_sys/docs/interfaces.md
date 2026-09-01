@@ -896,7 +896,7 @@ impossible rather than discouraged.
 
 | | |
 |---|---|
-| **Exports** | **`EnvManager`** — `prepare` (**checks; no longer confines** — §5.15), `prepare_validation`, `place_zone`; `Prepared` (six fields, plus **`wrap_argv`** and **`spawn`** — §5.15), **`ValidationZone`**, **`Zone`**, **`Availability`**, `Zone`, `Confinement`, `Policy`, `Granted`, `Mode`, `Context`; `contained`; `NoConfinement`, `UnresolvedGrant`, `PrepareRefused` |
+| **Exports** | **`EnvManager`** — `prepare` (**checks; no longer confines** — §5.15), `prepare_validation`, `place_zone`; `Prepared` (**eleven** fields, plus **`wrap_argv`** and **`spawn`** — §5.15), **`ValidationZone`**, **`Zone`**, **`Availability`**, `Zone`, `Confinement`, `Policy`, `Granted`, `Mode`, `Context`; `contained`; `NoConfinement`, `UnresolvedGrant`, `PrepareRefused` |
 | **Imports** | `task_graph` (`Task`, `Execution`, `Handoff`, `Permissions`, `Grant`, `Access`) |
 | **Resolves** | nothing. `Context` is bound at composition |
 
@@ -926,6 +926,28 @@ exact smell, discovered by `env_mgr` in its own instruction to `agent`.
 It returns `argv` unchanged under Landlock, the bwrap command under rung 1, and
 raises `NoConfinement` when there is nothing to wrap with — **including the binary
 having vanished since probe time, resolved at exec rather than remembered.**
+
+**`Prepared.tools` is the eleventh field — added for change (C), and it is the
+route criterion 18 never had.** `env_mgr/remote/tools.py` has defined
+`env_remote_run` / `_push` / `_pull` since it was written and **no agent could
+reach any of them**: `Prepared` had no field to carry a `ToolDef` and
+`Assignment` had no field to receive one, so spec §5.5's *"the whole remote↔local
+surface is exposed to agents as tool calls"* had no implementation on the
+delivery side. §4.12's family, and the missing half was invisible from
+`env_mgr`'s side because a tool surface with no consumer looks exactly like a
+tool surface.
+
+**It is a field and not a third `EnvManager` method**, on this row's own
+precedent: `wrap_argv` is on the returned value for the same reason, and
+`test_env_manager_exposes_exactly_these` pins the component's method set at two
+so a third is a decision rather than a drift.
+
+**`tools()` gained a `remote_root` parameter in the same change, and that was a
+defect rather than a widening.** It took `(conn, zone)` and passed `zone.root` —
+a *local* path — as the working directory of a command run on another machine.
+The only configuration in which that appears to work is a **strong** mapping,
+where the two paths are equal by definition, which is the worst way for a defect
+to hide.
 
 **`agent_spec` is the third parameter — added rev. 5, and without it four spec
 keys have no consumer.** `agent` spec §3.1's `env` and `agent` design §3.4's

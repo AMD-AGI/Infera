@@ -1075,6 +1075,7 @@ def _confining_env(zone_root: str, *, spawn, mechanism: str = "bwrap"):
                 staged_package=None,
                 permissions_enforced=True,
                 output_paths={},
+                tools=(),
             )
 
     return Env()

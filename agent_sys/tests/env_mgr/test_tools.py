@@ -21,6 +21,24 @@ from task_graph.ids import TaskId
 
 
 @pytest.fixture
+def far_root(tmp_path: Path) -> str:
+    """The zone's twin on the far side, at a **different path**.
+
+    Different on purpose: when the two coincide -- which is what a *strong*
+    mapping is -- a tool that confuses them looks correct. That is exactly how
+    `tools()` passing the local `zone.root` as a remote `cwd` survived.
+
+    Created, because `sync` creates it before any tool runs — and because a
+    `LocalConnection` really does `cd` there, so a fixture that only named the
+    path would make every `env_remote_run` fail for a reason unrelated to what
+    is being tested.
+    """
+    far = tmp_path / "far" / "zone"
+    far.mkdir(parents=True)
+    return str(far)
+
+
+@pytest.fixture
 def zone(tmp_path: Path) -> Zone:
     root = tmp_path / "zone"
     (root / "out").mkdir(parents=True)
@@ -29,15 +47,15 @@ def zone(tmp_path: Path) -> Zone:
     return Zone(TaskId.new(), 0, str(root.resolve()))
 
 
-def _by_name(zone: Zone) -> dict[str, object]:
-    return {t.name: t for t in tools(LocalConnection(), zone)}
+def _by_name(zone: Zone, far_root: str) -> dict[str, object]:
+    return {t.name: t for t in tools(LocalConnection(), zone, far_root)}
 
 
 # ---------------------------------------------------------- criterion 18
 
 
-def test_remote_tools_have_schemas(zone: Zone) -> None:
-    defs = tools(LocalConnection(), zone)
+def test_remote_tools_have_schemas(zone: Zone, far_root: str) -> None:
+    defs = tools(LocalConnection(), zone, far_root)
     assert {t.name for t in defs} == {"env_remote_run", "env_remote_push", "env_remote_pull"}
     for tool in defs:
         assert tool.description
@@ -48,17 +66,20 @@ def test_remote_tools_have_schemas(zone: Zone) -> None:
             assert name in tool.schema["properties"], f"{tool.name} requires an undeclared {name}"
 
 
-def test_tool_call_round_trip(zone: Zone) -> None:
-    result = _by_name(zone)["env_remote_run"].call(command=["echo", "hello"])  # type: ignore[attr-defined]
+def test_tool_call_round_trip(zone: Zone, far_root: str) -> None:
+    result = _by_name(zone, far_root)["env_remote_run"].call(command=["echo", "hello"])  # type: ignore[attr-defined]
     assert result["returncode"] == 0
     assert result["stdout"].strip() == "hello"
 
 
 @pytest.mark.skipif(shutil.which("rsync") is None, reason="rsync is not installed")
-def test_push_and_pull_round_trip(zone: Zone, tmp_path: Path) -> None:
-    far = tmp_path / "far"
+def test_push_and_pull_round_trip(zone: Zone, far_root: str, tmp_path: Path) -> None:
+    # Not `tmp_path / "far"`: the `far_root` fixture owns that name now. This is
+    # the *destination argument* of a push, which is a different thing from the
+    # zone's far-side twin — `remote` is not confined to the remote zone.
+    far = tmp_path / "push-target"
     far.mkdir()
-    report = _by_name(zone)["env_remote_push"].call(path="out", remote=str(far))  # type: ignore[attr-defined]
+    report = _by_name(zone, far_root)["env_remote_push"].call(path="out", remote=str(far))  # type: ignore[attr-defined]
     assert (far / "result.txt").read_text() == "result"
     assert report["conflicts"] == ()
 
@@ -66,18 +87,104 @@ def test_push_and_pull_round_trip(zone: Zone, tmp_path: Path) -> None:
 # ------------------------------- criterion 10, on this surface too
 
 
-def test_tool_takes_no_zone_argument(zone: Zone) -> None:
+def test_tool_takes_no_zone_argument(zone: Zone, far_root: str) -> None:
     """Closing over the zone is what makes criterion 10 true here: the zone root
     is never taken from agent-supplied input, because the tool does not accept
     one."""
-    for tool in tools(LocalConnection(), zone):
+    for tool in tools(LocalConnection(), zone, far_root):
         properties = tool.schema["properties"]
         assert "zone" not in properties
         assert "working_directory" not in properties
-        assert "cwd" not in properties or "relative to the zone" in properties["cwd"]["description"]
+        assert (
+            "cwd" not in properties or "relative to your zone" in properties["cwd"]["description"]
+        )
 
 
 @pytest.mark.parametrize("proposal", ["/etc", "../outside", "out/../../outside"])
-def test_a_path_argument_cannot_leave_the_zone(zone: Zone, proposal: str) -> None:
+def test_a_path_argument_cannot_leave_the_zone(zone: Zone, far_root: str, proposal: str) -> None:
     with pytest.raises(PermissionError):
-        _by_name(zone)["env_remote_push"].call(path=proposal, remote="/tmp/x")  # type: ignore[attr-defined]
+        _by_name(zone, far_root)["env_remote_push"].call(path=proposal, remote="/tmp/x")  # type: ignore[attr-defined]
+
+
+# ------------------------------------------- the far side is not the near side
+
+
+class RecordingConnection:
+    """A `Connection` that records the `cwd` it was asked for and runs nothing.
+
+    Structural, not a subclass: `Connection` is a `Protocol`, and a stub that had
+    to inherit would not be testing what the production classes satisfy.
+    """
+
+    def __init__(self) -> None:
+        self.cwds: list[str | None] = []
+
+    def run(self, argv, *, cwd=None, timeout=None):  # noqa: ANN001, ANN201
+        import subprocess
+
+        self.cwds.append(cwd)
+        return subprocess.CompletedProcess(list(argv), 0, "", "")
+
+    def push(self, local: str, remote: str):  # noqa: ANN201
+        raise AssertionError("not used here")
+
+    def pull(self, remote: str, local: str):  # noqa: ANN201
+        raise AssertionError("not used here")
+
+
+def test_a_remote_command_runs_in_the_remote_zone_not_the_local_one(
+    zone: Zone, far_root: str
+) -> None:
+    """**The defect this signature exists to fix.**
+
+    `tools()` took `(conn, zone)` and passed `zone.root` — a *local* absolute
+    path — as the `cwd` of a command executed on another machine. Over ssh that
+    is `cd /var/tmp/…` on a host where the mirror lives at `/data/…`: it finds
+    nothing, always.
+
+    The reason it survived a read is in the fixture: **the only configuration
+    where it appears to work is a strong mapping, where the two paths are equal
+    by definition.** So this test insists they differ, and asserts on the value
+    the connection was asked for rather than on whether the call succeeded.
+    """
+    conn = RecordingConnection()
+    by_name = {t.name: t for t in tools(conn, zone, far_root)}
+
+    by_name["env_remote_run"].call(command=["true"])
+    by_name["env_remote_run"].call(command=["true"], cwd="out")
+
+    assert conn.cwds == [far_root, f"{far_root}/out"]
+    assert zone.root not in conn.cwds, "a local path was used as a remote working directory"
+
+
+@pytest.mark.parametrize("proposal", ["/etc", "../outside", "out/../../outside"])
+def test_a_remote_cwd_cannot_leave_the_remote_zone(
+    zone: Zone, far_root: str, proposal: str
+) -> None:
+    """Criterion 10 on the far side, where `contained` cannot help.
+
+    `contained` resolves both sides and needs the root to exist *here*; against a
+    remote root it would deny everything. The syntactic check is what runs, and
+    its control is the test above — a legitimate relative `cwd` must still be
+    accepted, or this rule would be refusing everything and proving nothing.
+    """
+    conn = RecordingConnection()
+    by_name = {t.name: t for t in tools(conn, zone, far_root)}
+    with pytest.raises(PermissionError):
+        by_name["env_remote_run"].call(command=["true"], cwd=proposal)
+    assert conn.cwds == [], "the command must be refused before it is run"
+
+
+def test_the_refusal_names_the_side_the_argument_was_about(zone: Zone, far_root: str) -> None:
+    """These messages are read by a model — measured: they arrive as `str(e)` on
+    an `isError` result. A refusal about a remote path that named the *local*
+    zone would send the agent to inspect a directory on the wrong machine."""
+    conn = RecordingConnection()
+    by_name = {t.name: t for t in tools(conn, zone, far_root)}
+
+    with pytest.raises(PermissionError, match=r"remote"):
+        by_name["env_remote_run"].call(command=["true"], cwd="/etc")
+    # Its control: a refusal about a *local* argument still names the local zone,
+    # because that one is about the agent's own working directory.
+    with pytest.raises(PermissionError, match=r"your zone"):
+        by_name["env_remote_push"].call(path="../outside", remote="/tmp/x")

@@ -15,7 +15,7 @@ import os
 from collections.abc import Callable
 from typing import Any, NamedTuple
 
-from env_mgr.fs.path import contained
+from env_mgr.fs.path import contained, contained_syntactically
 from env_mgr.fs.zone import Zone
 from env_mgr.remote.connection import Connection
 
@@ -30,25 +30,71 @@ class ToolDef(NamedTuple):
 
 
 def _inside(zone: Zone, rel: str) -> str:
-    """Every path argument is resolved **relative to the zone**, and checked.
+    """A path argument on **this** machine, resolved under the zone and checked.
 
     Closing over the zone is what makes criterion 10 true on this surface too:
     the zone root is never taken from agent-supplied input, because the tool does
     not accept one.
+
+    **The message is read by a model.** It is `str(e)` on an `isError` tool
+    result — measured, `scratch/single-real-task-2026-08/c_probe_tool_refusal_visible.py`
+    — so it has to say what the agent should do differently, and it must name a
+    path that exists on the side the argument was about. This one is about the
+    local zone, which is the agent's own `cwd`, so naming it is actionable.
     """
     if os.path.isabs(rel):
-        raise PermissionError(f"{rel!r} is absolute; paths are relative to the zone")
+        raise PermissionError(
+            f"{rel!r} is an absolute path. This argument is a path in your own "
+            f"zone and must be relative to it."
+        )
     path = os.path.join(zone.root, rel)
     if not contained(path, zone.root):
-        raise PermissionError(f"{rel!r} resolves outside zone {zone.root!r}")
+        raise PermissionError(f"{rel!r} resolves outside your zone {zone.root!r}.")
     return path
 
 
-def tools(conn: Connection, zone: Zone) -> tuple[ToolDef, ...]:
-    """Three tools, each closed over this attempt's zone."""
+def _inside_remote(remote_root: str, rel: str) -> str:
+    """The same question about the **far** side, where there is no filesystem here.
+
+    `contained` resolves both sides and requires the root to exist locally, so
+    against a remote root it denies everything. `contained_syntactically` is the
+    weaker check that works without a filesystem, and its weakness — a symlink
+    on the far side defeats it — is stated where it is defined.
+    """
+    path = contained_syntactically(rel, remote_root)
+    if path is None:
+        raise PermissionError(
+            f"{rel!r} is not a path inside your remote zone. This argument is "
+            f"relative to {remote_root!r} on the remote side; absolute paths and "
+            f"paths that climb out with '..' are refused."
+        )
+    return path
+
+
+def tools(conn: Connection, zone: Zone, remote_root: str) -> tuple[ToolDef, ...]:
+    """Three tools, closed over this attempt's zone **and its far-side twin**.
+
+    **`remote_root` is not optional and was the defect.** This took `(conn,
+    zone)` and passed `zone.root` — a *local* absolute path — as the `cwd` for a
+    command run on another machine. `cd /var/tmp/yihou/…` on the far side finds
+    nothing, because the mirror lives at `/data/yihou/…`. The one configuration
+    where it appeared to work is a **strong** mapping, where the two paths are
+    the same by definition — which is the worst way for a defect to hide, since
+    it would have shipped looking correct.
+
+    `sync.remote_root(zone, mapping)` is where the value comes from; `prepare`
+    has the mapping and this module does not, which is why it is a parameter and
+    not something computed here.
+
+    `conn` is a `Connection` and deliberately not a `SyncTransport`: **a
+    container is a valid tool target and an invalid sync transport**, because
+    `docker exec` runs commands fine while `docker cp` cannot express
+    `--delete`. Nothing constructs a `DockerExec` yet; the door is left open,
+    not walked through.
+    """
 
     def env_remote_run(command: list[str], cwd: str = "") -> dict[str, Any]:
-        proc = conn.run(command, cwd=_inside(zone, cwd) if cwd else zone.root)
+        proc = conn.run(command, cwd=_inside_remote(remote_root, cwd) if cwd else remote_root)
         return {"returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr}
 
     def env_remote_push(path: str, remote: str) -> dict[str, Any]:
@@ -69,7 +115,11 @@ def tools(conn: Connection, zone: Zone) -> tuple[ToolDef, ...]:
                     "command": {"type": "array", "items": {"type": "string"}},
                     "cwd": {
                         "type": "string",
-                        "description": "relative to the zone; absolute paths are refused",
+                        "description": (
+                            "relative to your zone ON THE REMOTE SIDE; absolute "
+                            "paths and '..' are refused. Omit it to start at the "
+                            "remote zone root."
+                        ),
                     },
                 },
                 "required": ["command"],

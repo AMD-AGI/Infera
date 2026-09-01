@@ -82,16 +82,31 @@ class Meta(NamedTuple):
         """The mappings with something to copy. A **strong** one is the same
         bytes on both sides — one mount — so there is nothing to synchronise.
 
-        The filter lives here and not in each caller: `mapping_roots` and the
-        transports built beside it must select the *same* mappings, and two
-        comprehensions each carrying `if m.strength is WEAK` is how they would
-        one day stop doing so.
+        **Strength is not reachability, and the two have looked like synonyms
+        since this file was written.** Strength answers *must bytes be copied*;
+        a transport answers *can I reach the far side*. A strong mapping means
+        the two machines see the same files — it does **not** mean there is no
+        far side, and the far side may still be the only machine with the GPU
+        on it. So this filter is `sync`'s and only `sync`'s: it is genuinely
+        about strength. Tool delivery uses every mapping — see `RemoteMapping`
+        and `Context.transports`.
         """
         return tuple(m for m in self.mappings if m.strength is Strength.WEAK)
 
+    def far_roots(self) -> dict[str, str]:
+        """Where the far side is, for **every** mapping — the tool surface's map.
+
+        `mapping_roots` is the same comprehension over `weak()` and is defined
+        in terms of this one, so the two cannot disagree about what a far root
+        is; they disagree only about which mappings are in scope, which is the
+        distinction above.
+        """
+        return {m.local_root: m.remote_root for m in self.mappings}
+
     def mapping_roots(self) -> dict[str, str]:
-        """The local→remote root map `sync` takes."""
-        return {m.local_root: m.remote_root for m in self.weak()}
+        """The local→remote root map `sync` takes. Weak mappings only."""
+        weak = {m.local_root for m in self.weak()}
+        return {k: v for k, v in self.far_roots().items() if k in weak}
 
 
 def configured_path(explicit: str | None = None) -> str:

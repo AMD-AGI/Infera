@@ -382,6 +382,9 @@ class StubEnvManager:
             staged_package=None,
             permissions_enforced=True,
             output_paths={},
+            # Spec §5.5's remote tool surface. Empty here: this double has no
+            # far side, which is what every task without a mapping gets.
+            tools=(),
         )
 
 

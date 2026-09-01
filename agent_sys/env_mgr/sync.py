@@ -25,6 +25,7 @@ __all__ = [
     "Direction",
     "PLAYGROUND",
     "check_delete_scope",
+    "match",
     "conflicts",
     "remote_root",
     "sync",
@@ -101,7 +102,7 @@ def check_delete_scope(mapping: Mapping[str, str], deletable_roots: Sequence[str
         )
 
 
-def _match(zone: Zone, mapping: Mapping[str, str]) -> tuple[str, str] | None:
+def match(zone: Zone, mapping: Mapping[str, str]) -> tuple[str, str] | None:
     """``(local_root_key, far_path)`` for the mapping covering this zone.
 
     **One walk, and the key comes back with the path.** `remote_root` wants only
@@ -137,7 +138,7 @@ def remote_root(zone: Zone, mapping: Mapping[str, str]) -> str | None:
     module's established shape for an unresolvable path — `grants.output_paths`
     omits a slot with no pinned version rather than presenting it as empty.
     """
-    found = _match(zone, mapping)
+    found = match(zone, mapping)
     return found[1] if found is not None else None
 
 
@@ -149,7 +150,7 @@ def _ends(zone: Zone, mapping: dict[str, str], direction: Direction) -> tuple[st
     one task, because rsync's fixed startup dominates. **The argument that holds
     here is correctness** — not touching another task's material.
     """
-    found = _match(zone, mapping)
+    found = match(zone, mapping)
     if found is None:
         raise KeyError(
             f"no mapping covers zone {zone.root!r} (have {sorted(mapping)}); "
