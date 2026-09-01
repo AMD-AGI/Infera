@@ -100,6 +100,11 @@ def test_a_run_reads_its_weak_mappings_out_of_the_meta_file(
                     },
                 ],
                 "system_set": [],
+                # Declared because `check_delete_scope` refuses a mapping whose
+                # far side nobody accepted as destroyable. Not this test's
+                # subject — the delete-scope pair below is — but a mapping can no
+                # longer be configured without it, which is that guard's point.
+                "deletable_roots": ["/var/tmp/example", "/data/yihou"],
             }
         )
     )
@@ -139,6 +144,11 @@ def test_a_run_builds_the_transport_its_mapping_declared(
                     }
                 ],
                 "system_set": [],
+                # Declared because `check_delete_scope` refuses a mapping whose
+                # far side nobody accepted as destroyable. Not this test's
+                # subject — the delete-scope pair below is — but a mapping can no
+                # longer be configured without it, which is that guard's point.
+                "deletable_roots": ["/var/tmp/example", "/data/yihou"],
             }
         )
     )
@@ -159,3 +169,68 @@ def test_a_run_with_no_meta_file_builds_no_transports(
     layout = layout_for(isolated_meta / "run").create()
     registry = _registry(package_root, layout, Stream(), resume=False, variables={})
     assert dict(registry.get("env_mgr")._ctx.transports) == {}
+
+
+def _meta_with(path: Path, *, far_root: str, deletable: list[str]) -> Path:
+    path.write_text(
+        json.dumps(
+            {
+                "domains": [],
+                "mappings": [
+                    {
+                        "local_root": "/var/tmp/example/state",
+                        "remote_root": far_root,
+                        "strength": "weak",
+                        "transport": "ssh",
+                        "target": "somehost",
+                    }
+                ],
+                "system_set": [],
+                "deletable_roots": deletable,
+            }
+        )
+    )
+    return path
+
+
+def test_the_run_path_refuses_a_delete_outside_the_declared_roots(
+    package_root: Path, isolated_meta: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The wiring, not the function. `check_delete_scope` having a unit test says
+    nothing about whether anything calls it — which is the gap that let five
+    mechanisms sit unwired here.
+
+    It refuses at **composition**: a bad meta file stops the run before a copy is
+    attempted, which is the difference between a refusal and a post-mortem.
+    """
+    from env_mgr.protocols import PrepareRefused
+
+    meta_path = _meta_with(
+        isolated_meta / "meta.json",
+        far_root="/home/someone-else/work",
+        deletable=["/data/yihou"],
+    )
+    monkeypatch.setenv("ENV_MGR_META", str(meta_path))
+    layout = layout_for(isolated_meta / "run").create()
+    with pytest.raises(PrepareRefused, match="rsync --delete"):
+        _registry(package_root, layout, Stream(), resume=False, variables={})
+
+
+def test_the_run_path_allows_a_delete_inside_them(
+    package_root: Path, isolated_meta: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The control. Same file, same route, one field different — without it the
+    test above would pass equally well against a run path that refused every
+    mapping, or one that failed for some unrelated reason.
+    """
+    meta_path = _meta_with(
+        isolated_meta / "meta.json",
+        far_root="/data/yihou/handoffs",
+        deletable=["/data/yihou"],
+    )
+    monkeypatch.setenv("ENV_MGR_META", str(meta_path))
+    layout = layout_for(isolated_meta / "run").create()
+    registry = _registry(package_root, layout, Stream(), resume=False, variables={})
+    assert registry.get("env_mgr")._ctx.mapping == {
+        "/var/tmp/example/state": "/data/yihou/handoffs"
+    }

@@ -283,3 +283,53 @@ def test_a_far_side_that_does_not_exist_yet_has_nothing_to_conflict_with(
         transports={local: FakeTransport(far_exists=False)},
     )
     assert report.conflicts == ()
+
+
+# ------------------------------------------------- where `--delete` may point
+
+
+def test_a_far_root_outside_every_declared_root_is_refused() -> None:
+    """**`rsync --delete` is aimed by a configuration file**, at a machine nobody
+    in the session is watching, and the operator's `rm` hook cannot see it — that
+    hook intercepts a shell `rm`, and this deletion happens inside `rsync`,
+    invoked from Python.
+
+    Its control is the test below: a root that *is* declared must pass, or this
+    is a rule that refuses everything and protects nothing.
+    """
+    from env_mgr.protocols import PrepareRefused
+    from env_mgr.sync import check_delete_scope
+
+    with pytest.raises(PrepareRefused, match="rsync --delete"):
+        check_delete_scope({"/local": "/home/someone-else/work"}, ["/data/yihou"])
+
+
+def test_a_declared_far_root_passes() -> None:
+    from env_mgr.sync import check_delete_scope
+
+    check_delete_scope({"/local": "/data/yihou/handoffs"}, ["/data/yihou"])
+    check_delete_scope({"/local": "/data/yihou"}, ["/data/yihou"])  # the root itself
+
+
+def test_no_declared_roots_refuses_rather_than_permits() -> None:
+    """**Empty is the default and empty refuses.** A meta file that declares a
+    mapping and forgets the allow-list must not get an unguarded `--delete`."""
+    from env_mgr.protocols import PrepareRefused
+    from env_mgr.sync import check_delete_scope
+
+    with pytest.raises(PrepareRefused):
+        check_delete_scope({"/local": "/data/yihou/handoffs"}, [])
+    # Control: no mapping at all has nothing to guard, and must not refuse —
+    # that is every run before R1 and the whole test suite.
+    check_delete_scope({}, [])
+
+
+def test_a_sibling_that_merely_shares_a_prefix_is_not_inside() -> None:
+    """`/data/yihou2` starts with `/data/yihou` and belongs to someone else, and
+    `..` must not climb out of a root it appears to be under."""
+    from env_mgr.protocols import PrepareRefused
+    from env_mgr.sync import check_delete_scope
+
+    for far in ("/data/yihou2/work", "/data/yihou/../elsewhere", "/data/yihou_hf_cache"):
+        with pytest.raises(PrepareRefused):
+            check_delete_scope({"/local": far}, ["/data/yihou"])

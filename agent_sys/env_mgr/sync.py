@@ -13,7 +13,7 @@ import filecmp
 import os
 import shutil
 import subprocess
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from enum import Enum
 
 from env_mgr.fs.domain import DomainKind, subdir_for
@@ -21,7 +21,14 @@ from env_mgr.fs.zone import Zone
 from env_mgr.protocols import PrepareRefused, SyncReport
 from env_mgr.remote.connection import LocalConnection, SyncTransport
 
-__all__ = ["Direction", "PLAYGROUND", "conflicts", "remote_root", "sync"]
+__all__ = [
+    "Direction",
+    "PLAYGROUND",
+    "check_delete_scope",
+    "conflicts",
+    "remote_root",
+    "sync",
+]
 
 PLAYGROUND = subdir_for(DomainKind.PLAYGROUND)
 
@@ -38,6 +45,60 @@ class Direction(str, Enum):
 
     LOCAL_TO_REMOTE = "local_to_remote"
     REMOTE_TO_LOCAL = "remote_to_local"
+
+
+def _under(path: str, root: str) -> bool:
+    """Is `path` at or below `root`, **by path component**?
+
+    Not `startswith`: `/data/yihou2` starts with `/data/yihou` and is somebody
+    else's directory. `normpath` first, so a mapping written with `..` in it
+    cannot climb out of a root it appears to be under.
+    """
+    path, root = os.path.normpath(path), os.path.normpath(root)
+    return path == root or path.startswith(root.rstrip(os.sep) + os.sep)
+
+
+def check_delete_scope(mapping: Mapping[str, str], deletable_roots: Sequence[str]) -> None:
+    """Refuse a mapping whose far side is not declared destroyable. **Fail closed.**
+
+    `sync` runs ``rsync --delete``, and where it points is decided by a **meta
+    file somebody edits** — a value supplied from outside deciding what gets
+    destroyed, on a machine nobody in the session is watching. That is the shape
+    of the 2026-08-31 accident, and the operator's `rm` hook does not reach it:
+    that hook intercepts a shell `rm`, and this deletion happens inside `rsync`,
+    invoked from Python, which never goes near a shell.
+
+    So a remote root must appear in an **allow-list the configuration states
+    explicitly**, and the default is empty — a meta file that declares a weak
+    mapping and no `deletable_roots` is refused, naming the root. A deny-list of
+    `/`, `/usr`, `/home` was the alternative and is a deny-list in allow-list
+    clothing: the next dangerous root is the one nobody thought to add.
+
+    **Called at composition, when the configuration is read**, so a bad meta file
+    fails before anything runs rather than at the first copy. A caller that
+    builds a `Context` by hand — every test does — bypasses it, which is the
+    honest limit: this guards the configuration route, and the configuration
+    route is where the danger comes from.
+
+    **Not the only thing standing there, and this must survive whoever fixes
+    open question 4.** `_conflicts_across` already refuses when the far-side path
+    exists, so `--delete` can today only run against a directory `sync` itself
+    has just created. Answering question 4 will relax that refusal, and at that
+    moment this allow-list becomes the sole guard. It is defence in depth now and
+    the only defence later.
+    """
+    roots = [r for r in deletable_roots if r]
+    for local_root, far_root in sorted(mapping.items()):
+        if any(_under(far_root, root) for root in roots):
+            continue
+        raise PrepareRefused(
+            f"the mapping {local_root!r} -> {far_root!r} would let `rsync --delete` "
+            f"write outside every declared deletable root {sorted(roots)}. `sync` "
+            f"deletes whatever the destination has that the source does not, and "
+            f"here the destination is aimed by a configuration file. Add the root "
+            f"to `deletable_roots` in the meta file if it is genuinely yours to "
+            f"destroy, or point the mapping somewhere that is."
+        )
 
 
 def _match(zone: Zone, mapping: Mapping[str, str]) -> tuple[str, str] | None:
