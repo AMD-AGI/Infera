@@ -19,7 +19,15 @@ from pathlib import Path
 import pytest
 
 from tests.e2e.harness import arch, images
-from tests.e2e.harness.matrix import apply_arch_overlay, expand_cases
+from tests.e2e.harness.matrix import (
+    DEEPSEEK_V4_FLASH,
+    DEEPSEEK_V4_FLASH_FP8,
+    DEEPSEEK_V4_PRO,
+    GLM_5_2_FP8,
+    GPT_OSS,
+    apply_arch_overlay,
+    expand_cases,
+)
 
 # Every engine's real case table, so the "same matrix on both arches" invariant
 # is checked against what actually ships, not a fixture.
@@ -31,6 +39,10 @@ MATRIX_MODULES = [
     "tests.e2e.pd_disag.vllm.matrix",
     "tests.e2e.pd_disag.atom.matrix",
 ]
+
+
+def _for_model(params, model):
+    return next(p for p in params if p.model == model or p.model.endswith(f"/{model}"))
 
 
 @pytest.fixture
@@ -259,3 +271,26 @@ def test_the_matrix_is_the_same_matrix_on_both_architectures(module):
     cases = importlib.import_module(module).CASES
     ids = {gfx: [p.id() for p in expand_cases(cases, arch=gfx)] for gfx in arch.SUPPORTED_ARCHS}
     assert ids["gfx942"] == ids["gfx950"]
+
+
+@pytest.mark.parametrize(
+    ("module", "models"),
+    [
+        ("tests.e2e.pd_mixed.sglang.matrix", (GPT_OSS, GLM_5_2_FP8, DEEPSEEK_V4_FLASH_FP8)),
+        ("tests.e2e.pd_disag.sglang.matrix", (GPT_OSS, GLM_5_2_FP8, DEEPSEEK_V4_FLASH_FP8)),
+        (
+            "tests.e2e.pd_mixed.vllm.matrix",
+            (GPT_OSS, GLM_5_2_FP8, DEEPSEEK_V4_FLASH, DEEPSEEK_V4_PRO),
+        ),
+        (
+            "tests.e2e.pd_disag.vllm.matrix",
+            (GPT_OSS, GLM_5_2_FP8, DEEPSEEK_V4_FLASH, DEEPSEEK_V4_PRO),
+        ),
+        ("tests.e2e.pd_mixed.atom.matrix", (GLM_5_2_FP8,)),
+        ("tests.e2e.pd_disag.atom.matrix", (GLM_5_2_FP8,)),
+    ],
+)
+def test_required_gfx942_rows_are_enabled(module, models):
+    params = expand_cases(importlib.import_module(module).CASES, arch="gfx942")
+    for model in models:
+        assert not _for_model(params, model).skip_reason

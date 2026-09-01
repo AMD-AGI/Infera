@@ -50,7 +50,6 @@ and is expanded with :func:`expand_cases`. Row axes:
                - ``skip`` (str): non-empty skips the case with that reason.
                - ``"gfx942"`` / ``"gfx950"``: a per-architecture overlay — see
                  below.
-
 An axis given a **list/tuple** enumerates each element (the cartesian product
 across axes); a scalar is a single value. To cover both settings of a boolean
 axis, pass it explicitly as ``[False, True]``.
@@ -130,7 +129,20 @@ QWEN3_8B = "Qwen/Qwen3-8B"
 KIMI_K25_MXFP4 = "amd/Kimi-K2.5-MXFP4"
 KIMI_K26_MXFP4 = "amd/Kimi-K2.6-MXFP4"
 DEEPSEEK_V4_PRO = "deepseek-ai/DeepSeek-V4-Pro"
+DEEPSEEK_V4_FLASH = "deepseek-ai/DeepSeek-V4-Flash"
+DEEPSEEK_V4_FLASH_FP8 = "sgl-project/DeepSeek-V4-Flash-FP8"
 GLM_5_1_FP8 = "zai-org/GLM-5.1-FP8"
+GLM_5_2_FP8 = "zai-org/GLM-5.2-FP8"
+
+# Which of GLM-5.2's 78 layers own a DSA lightning indexer and which reuse one.
+# The checkpoint's `indexer_types` marks layers 0, 1, 2 and then every 4th "full"
+# and the rest "shared", and it ships indexer weights for the "full" ones only.
+# ATOM spells the same thing as `index_topk_pattern`, where "S" means "skip the
+# top-k and reuse the last selection"; it is spelled out per layer because ATOM's
+# own index_topk_freq shorthand derives a different, off-by-one set of owners
+# (see the GLM-5.2 row in pd_mixed/atom/matrix.py). Consumed by the ATOM rows.
+# Hand-copied, so check it against the checkpoint's indexer_types, not by eye.
+GLM_5_2_INDEXER_PATTERN = "FFFSSS" + "FSSS" * 18
 
 EXTRA_ARGS: dict[str, tuple[str, ...]] = {}  # default verbatim extra launch args
 
