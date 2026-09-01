@@ -1,0 +1,62 @@
+# The outermost graph of the LLM end-to-end performance-optimisation package.
+#
+# The series book (`temp/mission.md`) splits the whole flow into six stages:
+# **e2e 运行**, profiling, analysis + workset, kernel optimisation, integration,
+# and regression. **This file declares the first one only.** The remaining five
+# arrive as further entries in this same subgraph, each with its own step file,
+# and `main` gains a handoff kind per stage boundary as they land.
+#
+# `main` is a **non-leaf**: it carries `assets/main.task/readme.md` and no
+# `entry.sh`, because its work *is* its subgraph and the two are mutually
+# exclusive (`closure` spec §2.6). It declares no `agent` — the schema requires
+# one of a leaf and of nothing else — and no `resources`, because only a leaf
+# may acquire.
+#
+# The shape is deliberately `examples/single_real_task`'s. That package proved
+# one real deployment end to end on gfx942; this one **generalises that single
+# task into a standardised, model-agnostic deploy step** and is exercised
+# against two models on gfx950. Where a construct is unchanged from there, it is
+# unchanged on purpose and the reasoning in that package's comments still holds.
+module: task
+name: main
+description: Stage 1 of the LLM e2e optimisation flow — deploy a model end to end and hand back a runnable kit.
+
+# One kind today, because there is one stage today. Permissions are inherited
+# downwards, so the root is the one place that has to know the full vocabulary;
+# `deploy_kit` is *defined* in `steps/deploy.yaml`, beside its producer, and
+# this list only references it.
+handoffs:
+  - deploy_kit
+
+# A non-leaf runs nothing, so it has nothing of its own to validate. Both
+# validators in this package hang off the `deploy_kit` kind, in the step file
+# that declares it.
+validators: []
+
+task:
+  goal: Deploy an LLM end to end from a plain instruction and hand back a runnable kit.
+  version: '1'
+
+  # `main` consumes nothing from outside the package. A future stage-2 entry
+  # (profiling) will consume `deploy_kit` from stage 1 rather than from here.
+  inputs: []
+
+  # The end entry's outputs are the sole route by which a handoff produced
+  # inside a subgraph leaves it (`task_graph` criterion 50).
+  outputs: [deploy_kit]
+
+  # WRITE covers READ, so this one grant covers the producer and every future
+  # consumer of the same kind.
+  permissions:
+    grants:
+      - {path: handoffs/deploy_kit, access: write, kind: deploy_kit}
+
+  # `froms: []` is an answer, not an omission: the edge set is derived from the
+  # handoff wiring and checked against what is written here. With one entry
+  # there is nothing earlier to point at, so the derived set is empty.
+  #
+  # `is_end` is written although absent would mean the same thing today — it
+  # starts carrying information the moment stage 2 is appended, and writing it
+  # now is what keeps the one kind that escapes from moving silently later.
+  subgraph:
+    - {closure: e2e_deploy_standardized, froms: [], is_end: true}

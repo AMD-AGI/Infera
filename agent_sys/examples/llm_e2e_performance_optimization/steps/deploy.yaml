@@ -1,0 +1,234 @@
+# Stage 1 — `e2e_deploy_standardized`, and everything it introduces.
+#
+# **Definition order is load-bearing within a file**: a name referenced before
+# it is defined is an error. So — agent, validators, handoff kind, task.
+#
+# What makes this "standardized" rather than a second copy of
+# `examples/single_real_task`:
+#
+#   1. **The model is a parameter, not the subject.** Nothing below names a
+#      model, an architecture or a port. The same closure runs Qwen3.6-27B and
+#      GLM-5.3-Flash, and the only thing that changes is `--var`.
+#   2. **The instruction is an input.** The series book asks for "a plain user
+#      instruction in, a runnable deliverable out", so the brief is written
+#      around `$E2E_INSTRUCTION` rather than around one deployment.
+#   3. **The exemplars are data.** `assets/e2e_deploy_standardized.task/examples/`
+#      holds sanitised kits from runs that passed; the brief points at them and
+#      `check_deploy_kit` asserts the properties they demonstrate. A run that
+#      passes is how the next run gets a better example.
+
+# --------------------------------------------------------------------------- #
+# 1. The agent.
+#
+# `kind: ai`, because a bring-up is judgement work: pick free ports on a shared
+# host, read the repo's own examples, watch a log repeat `Health check failed`
+# for four minutes and decide that is a JIT compile rather than a hang, then
+# write down what was actually done. None of that is a command somebody already
+# wrote — and the moment it is, this closure should be demoted to a program.
+#
+# `backend_entry` is the dotted form rather than an entry-point name: a task
+# package outside this repository cannot register an entry point in the
+# `agent_sys.backends` group without being installed, and this package is data.
+#
+# **The `env` block is the only route by which a package may name its own
+# variables** (`agent.schema.json`). Everything a colleague would fairly hand
+# over goes through it, and **no credential is written here or anywhere else in
+# this package**: the model credentials reach a body from the operator's own
+# `~/.claude/settings.json` allow-list, by name, through
+# `env_mgr.harness.harness_env`.
+#
+# **Four variables are required and carry no default.** Where a site keeps its
+# weights, what its image is called, what the model's published name is, and
+# where the operator keeps their skills are facts about that site; a default
+# here would be one machine's answer shipped as everyone's and would put a path
+# with somebody's username in it into public history. `${NAME}` with no `:-` is
+# a load-time fault naming the file and the line (`spec_loader/variables.py`).
+#
+#     agent-sys run --package agent_sys/examples/llm_e2e_performance_optimization \
+#       --var model_name=Qwen/Qwen3.6-27B \
+#       --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
+#       --var image=infera/engine-sglang:gfx950-local \
+#       --var packup_skill=$HOME/.claude/skills/experiment-result-packup
+- module: agent
+  name: e2e_deployer
+  kind: ai
+  version: '1'
+  description: Turns a plain deployment instruction into a proven bring-up and a runnable delivery kit.
+  env:
+    # The instruction. This is the stage's actual input — the series book's
+    # "输入简单的用户指令". It defaults to the standard bring-up because that is
+    # what the flow's first stage means when nobody says otherwise, and it is
+    # overridable so the same closure can be pointed at PD or at a different
+    # verification bar without editing a prompt.
+    E2E_INSTRUCTION: '${instruction:-Bring this model up in the requested mode on this host, prove it answers through the router, and hand back a kit somebody else can run.}'
+    # The model, by its published name and by where its weights are. The two are
+    # separate because conflating them is a measured fault: left unset, the
+    # engine registers the model under the filesystem path it loaded from, and
+    # every caller''s `"model"` field then carries one machine''s directory
+    # layout. `check_deploy_kit` refuses a kit whose evidence shows that.
+    E2E_MODEL_NAME: '${model_name}'
+    E2E_MODEL_PATH: '${model_path}'
+    # The serving image, carrying both infera and a matching engine.
+    E2E_IMAGE: '${image}'
+    E2E_ETCD_IMAGE: '${etcd_image:-quay.io/coreos/etcd:v3.5.14}'
+    # Deployment shape. `mix` is this repository's own word for one worker doing
+    # both phases on a single node with no RDMA; it is not mixed precision.
+    E2E_DEPLOY_MODE: '${deploy_mode:-mix}'
+    E2E_TP_SIZE: '${tp_size:-1}'
+    # A container workdir goes on local disk. A network home with root_squash
+    # maps a container''s root to nobody and the engine then fails to write its
+    # logs *silently* — no error, no log.
+    E2E_WORK_ROOT: '${work_root:-/var/tmp}'
+  # The packup skill is the authority for the kit''s layout, and without this
+  # line the agent cannot reach it: `env_mgr` redirects `CLAUDE_CONFIG_DIR` into
+  # the zone and a session reads skills from `$CLAUDE_CONFIG_DIR/skills/`, so a
+  # skill only arrives if it is declared. Required with no default, and a
+  # declared path that does not exist raises rather than being skipped.
+  skills: ['${packup_skill}']
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+# --------------------------------------------------------------------------- #
+# 2. The validators.
+#
+# Neither carries a `kind:` key — `validator.schema.json` has no such field and
+# `additionalProperties: false`. The two are told apart by `tags.logic_source`
+# and `tags.cost`, which is the pair `validator` spec §5.3 orders a phase by:
+# cheap first, so the shape check can fail before the expensive one starts.
+#
+# Neither names an `agent:`. Naming one takes §8.2''s BOUND row, whose
+# environment is the agent spec''s literal `env` block — which would mean
+# writing a credential into this file.
+
+# Completeness, `strong`. Every rule it applies is decided by opening a file
+# that either is there or is not, and the substance rules are counted rather
+# than judged.
+- module: validator
+  name: check_deploy_kit
+  version: '1'
+  brief: The handoff is one packup-shaped delivery kit with every mandated file, real substance, machine-readable evidence, and no identifier frozen that it binds on a shared host
+  dimension: completeness
+  strength: strong
+  inputs: [deploy_kit]
+  args:
+    # Substance floors, counted in **content lines**: non-blank, not a heading,
+    # not a code-fence marker. Kept here so the readme beside the body and the
+    # code cannot drift.
+    min_content_lines:
+      README.md: 5
+      REPRODUCE.md: 8
+      environment.md: 8
+      notes.md: 3
+    # `REPRODUCE.md` is the file a reproducer executes, so its substance is
+    # measured in commands rather than in prose.
+    min_command_lines: 5
+    # **The standardisation floor.** These four are what this package adds over
+    # `single_real_task`''s shape check, and each one is a fault that was
+    # actually observed rather than a rule somebody liked:
+    #   - `require_expected_output`: `REPRODUCE.md` must carry an
+    #     `Expected output` section. It is the only criterion
+    #     `check_deploy_reproduces` hands its reproducer; vague here means a
+    #     correct reproduction can be judged a failure and neither verdict is
+    #     recoverable afterwards.
+    #   - `min_json_results`: `results/` must hold at least this many `.json`
+    #     files. A kit whose evidence is prose cannot be diffed against the next
+    #     run, and the profiling stage downstream consumes machine-readable
+    #     results or nothing.
+    #   - `require_served_name_not_a_path`: no evidence file may show the model
+    #     registered under a filesystem path. Measured: one kit registered
+    #     `Qwen/Qwen3.6-27B` and the next registered
+    #     `/data/<user>/…/Qwen3.6-27B`, purely from one flag being absent.
+    #   - `environment_facts`: `environment.md` must name the GPU architecture,
+    #     the image, and the model. Those three are what a reproduction fails
+    #     without, and their absence is the single most common reason a kit does
+    #     not travel.
+    require_expected_output: true
+    min_json_results: 2
+    require_served_name_not_a_path: true
+    environment_facts: true
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [llm_e2e, deploy, stage1]
+
+# Usability, `weak` on purpose. The verdict is the *reproducer''s own* report;
+# all this body adds is that the artefacts that report names exist and are
+# non-empty. That is a real corroboration and it is not the same thing as having
+# checked the model served.
+#
+# `cost: gpu_hours` is the honest order of magnitude — the reproducer brings a
+# model up — and it is what puts this validator second in the phase.
+- module: validator
+  name: check_deploy_reproduces
+  version: '1'
+  brief: A fresh Claude Code session follows the kit's REPRODUCE.md and actually reproduces the deployment
+  dimension: usability
+  strength: weak
+  inputs: [deploy_kit]
+  args:
+    # A cold bring-up of a large model runs to minutes before the server is
+    # ready, plus whatever the kit asks for on top. 90 minutes is slack rather
+    # than a budget; `--var reproduce_timeout_seconds=120` is what a wiring run
+    # passes.
+    timeout_seconds: '${reproduce_timeout_seconds:-5400}'
+  tags:
+    logic_source: external_dynamic
+    cost: gpu_hours
+    domain: [llm_e2e, deploy, stage1]
+
+# --------------------------------------------------------------------------- #
+# 3. The kind.
+#
+# `content_type: code`, and the choice was between this and `reproducible`.
+# `reproducible`''s required items are `result` and `env` plus one of
+# `script`/`command`, and `check_items` rejects a top-level item the type never
+# declared — so laying a packup into it renames every file the packup layout
+# mandates and destroys the thing `check_deploy_kit` exists to check. `code`
+# requires exactly one item, `codes`, whose interior is unconstrained, so the
+# kit survives byte for byte with its own name on it.
+#
+# No `items_schema`: it could only restate `codes`, and a closed one would
+# additionally reject `logs` and `watchout`, which the `code` type itself lists
+# as optional.
+- module: handoff
+  name: deploy_kit
+  version: '1'
+  description: A packup-shaped, runnable delivery kit for one model's end-to-end deployment.
+  content_type: code
+  scope: fixed.required
+  validators: [check_deploy_kit, check_deploy_reproduces]
+
+# --------------------------------------------------------------------------- #
+# 4. The task.
+#
+# A leaf, so it names an `agent`. `goal` is capped at 100 characters by
+# `task.schema.json` and is a human label, not an instruction channel —
+# everything the agent is actually told is in
+# `assets/e2e_deploy_standardized.task/readme.md`, found by convention from the
+# folder name.
+#
+# **No `resources`.** A leaf may declare a pool and this one legitimately wants
+# GPUs, but `cli/build.py` is the only reader and the CLI composition root
+# declares no pools, so a `resources` block here would name a pool that does not
+# exist. Recorded in `README.md` as a known gap rather than written as a claim
+# nothing enforces.
+#
+# `repos` is declared and read by nothing today; it is where the schema says
+# such a fact goes.
+- module: task
+  name: e2e_deploy_standardized
+  description: Deploy the requested model end to end on this host and pack the deployment into a runnable kit.
+  agent: e2e_deployer
+  handoffs: [deploy_kit]
+  validators: []
+  task:
+    goal: Deploy the requested model end to end and hand back a runnable kit.
+    version: '1'
+    repos: [infera, sglang]
+    inputs: []
+    outputs: [deploy_kit]
+    permissions:
+      grants:
+        - {path: handoffs/deploy_kit, access: write, kind: deploy_kit}
