@@ -362,6 +362,10 @@ def test_the_rule_rejects_the_prepared_double_as_it_actually_was() -> None:
         "staged_package",
         "permissions_enforced",
         "output_paths",
+        # The fourth replay, and it is the docstring's point rather than an
+        # exception to it: `tools` is spec §5.5's remote surface, which `agent`
+        # does not compute and only forwards. The double needed it just the same.
+        "tools",
     }
 
 

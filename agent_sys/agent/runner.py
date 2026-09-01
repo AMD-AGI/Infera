@@ -757,6 +757,10 @@ class TaskAttempt:
             zone=_zone_root(prepared),
             materials=tuple(str(m) for m in body.get("materials") or ()),
             environment=_environment(prepared),
+            # Spec §5.5's tool surface, straight through. `getattr` because a
+            # `Prepared` from before this field existed is still a valid one,
+            # which is the same allowance every other optional field here gets.
+            tools=tuple(getattr(prepared, "tools", ()) or ()),
             confinement=getattr(prepared, "confinement", None),
             agent_cli=prepared.agent_cli,
             # **Read, not inferred**, and that is the field's whole reason.

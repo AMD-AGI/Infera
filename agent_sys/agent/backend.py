@@ -167,6 +167,21 @@ class Assignment(BaseModel):
     #: `$HOME` grant entirely.
     environment: dict[str, str] = Field(default_factory=dict)
 
+    #: `env_mgr.remote.tools.ToolDef`s for this attempt's far side, or empty.
+    #:
+    #: **Spec §5.5 is why this is a field and not prose in the readme**: the
+    #: remote surface reaches an agent as *tool calls*, because "an agent given a
+    #: natural-language description of how to sync a directory will improvise,
+    #: and the improvisation will be wrong in a way nobody notices". Until this
+    #: field there was no route from `remote/tools.py` to any backend, so
+    #: criterion 18 was built and reachable by nobody.
+    #:
+    #: Typed loosely for the same reason `confinement` is: `agent` may not import
+    #: `env_mgr`. Each element has `.name`, `.description`, `.schema` and
+    #: `.call`; a backend that cannot express tools ignores the field entirely,
+    #: which is what every backend but `claude_sdk` does today.
+    tools: tuple[Any, ...] = ()
+
     #: `env_mgr.Confinement`, carried for an executor that wants to report what
     #: it will run under. Typed loosely because `agent` may not import `env_mgr`.
     #:

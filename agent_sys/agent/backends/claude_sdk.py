@@ -14,9 +14,10 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import json
 import threading
 import time
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from agent.backend import (
@@ -54,6 +55,70 @@ _ABORTED = ("aborted_streaming", "aborted_tools")
 #: always set when it did (`Assignment.environment`). Without it there is no
 #: preparation to contradict, and the SDK choosing its own CLI is not a defect.
 _PREPARED_MARKER = "CLAUDE_CONFIG_DIR"
+
+#: The in-process MCP server the remote tools are published under. It becomes
+#: part of the name the model calls — `mcp__env_mgr__env_remote_run` — so it is
+#: a compatibility surface, not a label.
+_TOOL_SERVER = "env_mgr"
+
+
+def _tool_server(tools: Sequence[Any]) -> tuple[Any, list[str]]:
+    """`env_mgr`'s `ToolDef`s as an in-process MCP server, and their full names.
+
+    Three adaptations, each measured rather than assumed:
+
+    **sync to async.** `ToolDef.call` is a plain function taking keyword
+    arguments; an `SdkMcpTool` handler is a coroutine taking one `args` dict.
+    `conn.run` is a blocking `subprocess`, so it goes through
+    `asyncio.to_thread` — awaiting it inline would stall the SDK's event loop
+    for the whole duration of a remote command, which for a bring-up is minutes.
+
+    **The return shape.** `ToolDef.call` returns a plain dict; MCP wants
+    `{"content": [...]}`. Serialised as JSON text, because these are
+    `returncode`/`stdout`/`stderr` and a `SyncReport`, all of which a model
+    reads better as one block than as prose.
+
+    **Refusals propagate, and that is measured, not assumed.**
+    `remote.tools._inside` raises `PermissionError`, and the SDK catches a
+    raising handler and returns `isError` with `str(e)`
+    (`claude_agent_sdk/__init__.py:595-615`). That is the SDK speaking for its
+    own layer, so it was checked end to end
+    (`scratch/single-real-task-2026-08/c_probe_tool_refusal_visible.py`): the
+    text reaches the model verbatim **and the model keeps working afterwards**
+    rather than treating the tool as broken. So there is no catch-and-re-wrap
+    here — it would only hide the message that already arrives.
+
+    Argument validation needs nothing either: the SDK runs `jsonschema.validate`
+    against `input_schema` *before* the handler, and `ToolDef.schema` is already
+    JSON Schema with `additionalProperties: False`.
+    """
+    from claude_agent_sdk import create_sdk_mcp_server  # noqa: PLC0415
+
+    adapted = [_adapt_tool(defn) for defn in tools]
+    server = create_sdk_mcp_server(name=_TOOL_SERVER, version="1.0.0", tools=adapted)
+    return server, [f"mcp__{_TOOL_SERVER}__{defn.name}" for defn in tools]
+
+
+def _adapt_tool(defn: Any) -> Any:
+    """One `ToolDef` as an `SdkMcpTool`. **Module level so it can be driven.**
+
+    `create_sdk_mcp_server` keeps its tools privately, so a test that only had
+    the server could not call the handler — and a test that rebuilt the same
+    wrapper inline would be asserting against a copy of the code rather than
+    against the code. Splitting it here is what lets the handler itself be run.
+    """
+    from claude_agent_sdk import SdkMcpTool  # noqa: PLC0415
+
+    async def handler(args: dict[str, Any]) -> dict[str, Any]:
+        result = await asyncio.to_thread(lambda: defn.call(**args))
+        return {"content": [{"type": "text", "text": json.dumps(result, default=str)}]}
+
+    return SdkMcpTool(
+        name=defn.name,
+        description=defn.description,
+        input_schema=defn.schema,
+        handler=handler,
+    )
 
 
 def pre_tool_use(refuse: Any = None) -> Any:
@@ -274,6 +339,20 @@ class ClaudeSdkBackend(ExecutorBase):
             options.setdefault("permission_mode", "bypassPermissions")
         if self.assignment.environment:
             options.setdefault("env", dict(self.assignment.environment))
+        if self.assignment.tools:
+            # **Spec §5.5's remote surface, and the only place that knows the
+            # SDK.** `env_mgr` may not import the SDK and `agent/backend.py` is
+            # backend-agnostic, so the `ToolDef` -> `SdkMcpTool` adapter belongs
+            # here beside every other option this file assembles.
+            server, names = _tool_server(self.assignment.tools)
+            options.setdefault("mcp_servers", {})[_TOOL_SERVER] = server
+            # `mcp_servers` makes them *available*; `allowed_tools` makes them
+            # *permitted*, and they are separate gates. Measured 2026-09-01, SDK
+            # 0.2.148: the CLI addresses an in-process tool as
+            # `mcp__<server>__<tool>` -- a spelling that appears nowhere in the
+            # SDK, because it is the CLI's. See
+            # `scratch/single-real-task-2026-08/c_probe_sdk_tool_reachable.py`.
+            options["allowed_tools"] = [*options.get("allowed_tools", []), *names]
         cli_path = self.config.get("cli_path") or self._prepared_cli()
         if cli_path:
             options.setdefault("cli_path", cli_path)
