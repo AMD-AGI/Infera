@@ -173,6 +173,19 @@
     # than a budget; `--var reproduce_timeout_seconds=120` is what a wiring run
     # passes.
     timeout_seconds: '${reproduce_timeout_seconds:-5400}'
+    # **Where `claude` is, declared rather than discovered.** Measured
+    # 2026-09-01: this body found no binary and failed the kit for it. A
+    # validation zone gets `env_mgr`'s policy-derived `PATH` and an **empty**
+    # `home/` of its own, so neither `shutil.which("claude")` nor
+    # `$HOME/.local/bin/claude` resolves — and `AGENT_SYS_CLAUDE_CLI` is a name
+    # `env_mgr` never published (`agent/backends/claude_sdk.py:303`: the path
+    # travels as `Assignment.agent_cli`, which no validator body can see).
+    #
+    # So the one route left is the one every other site fact takes here: a
+    # package variable. Empty by default, because a site where `claude` is on
+    # the policy `PATH` needs nothing; `--var claude_cli=$(command -v claude)`
+    # is what a site like this one passes.
+    claude_cli: '${claude_cli:-}'
   tags:
     logic_source: external_dynamic
     cost: gpu_hours

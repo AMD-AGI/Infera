@@ -69,14 +69,27 @@ Rules:
 """
 
 
-def claude_command() -> list[str] | None:
-    """`claude`, from `PATH` or from the one place it is installed.
+def claude_command(declared: str = "") -> list[str] | None:
+    """`claude`: declared by the package, else `PATH`, else `~/.local/bin`.
 
-    `PATH` on the producer row is `env_mgr`'s policy-derived one rather than the
-    operator's, so `shutil.which` is a route and not the route. `~/.local/bin`
-    is the fallback, and is where a per-user install puts it.
+    **`declared` first, and it exists because the other two are not enough.**
+    Measured 2026-09-01 on a Slurm compute node: a validation zone gets
+    `env_mgr`'s policy-derived `PATH` and an **empty `home/` of its own**, so
+    `shutil.which("claude")` misses and `$HOME/.local/bin/claude` is not there
+    either. The body then failed the kit for the environment's shortcoming,
+    which is a false verdict on a real handoff — the worst kind this validator
+    can produce. `AGENT_SYS_CLAUDE_CLI` is not the answer: `env_mgr` never
+    published that name (`agent/backends/claude_sdk.py:303`), the path travels
+    as `Assignment.agent_cli`, and no validator body sees an `Assignment`.
+
+    The remaining two are kept as fallbacks, for a site where the binary *is* on
+    the policy `PATH` and the package therefore declares nothing.
     """
-    found = shutil.which("claude")
+    found = declared or None
+    if found is not None and not Path(found).is_file():
+        found = None
+    if found is None:
+        found = shutil.which("claude")
     if found is None:
         candidate = Path(os.environ.get("HOME", "")) / ".local" / "bin" / "claude"
         found = str(candidate) if candidate.is_file() else None
@@ -91,11 +104,15 @@ def claude_command() -> list[str] | None:
     return [found, "-p", PROMPT, "--dangerously-skip-permissions"]
 
 
-def run_reproducer(work: Path, timeout: float) -> tuple[bool, str]:
+def run_reproducer(work: Path, timeout: float, declared_cli: str = "") -> tuple[bool, str]:
     """Drive `claude` inside `work`. Returns `(started, why_not)`."""
-    command = claude_command()
+    command = claude_command(declared_cli)
     if command is None:
-        return False, "claude is not on PATH and not at $HOME/.local/bin/claude"
+        return False, (
+            "no claude binary: the package declared none (`--var claude_cli=`), "
+            "it is not on this zone's PATH, and $HOME/.local/bin/claude does not "
+            "exist. This is the environment, not the handoff"
+        )
     transcript = work / TRANSCRIPT
     try:
         completed = subprocess.run(  # noqa: S603 — argv form, no shell
@@ -171,7 +188,7 @@ def read_report(work: Path) -> tuple[bool, list[str]]:
     return (claimed and not faults), faults
 
 
-def check_one(hid: str, content: Path, timeout: float) -> bool:
+def check_one(hid: str, content: Path, timeout: float, declared_cli: str = "") -> bool:
     packup, why = zone.find_packup(content)
     if packup is None:
         print(f"check_deploy_reproduces: {hid}: {why}")
@@ -186,7 +203,7 @@ def check_one(hid: str, content: Path, timeout: float) -> bool:
     work.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(packup, work)
 
-    started, why_not = run_reproducer(work, timeout)
+    started, why_not = run_reproducer(work, timeout, declared_cli)
     if not started:
         print(f"check_deploy_reproduces: {hid}: FAIL: {why_not}")
         return False
@@ -198,7 +215,9 @@ def check_one(hid: str, content: Path, timeout: float) -> bool:
 
 
 def main() -> int:
-    timeout = float(zone.args().get("timeout_seconds", 5400))
+    parameters = zone.args()
+    timeout = float(parameters.get("timeout_seconds", 5400))
+    declared_cli = str(parameters.get("claude_cli", "") or "")
     results: dict[str, bool] = {}
     for hid in zone.inputs():
         content = zone.content_of(hid)
@@ -206,7 +225,7 @@ def main() -> int:
             results[hid] = False
             print(f"check_deploy_reproduces: {hid}: no staged content")
             continue
-        results[hid] = check_one(hid, content, timeout)
+        results[hid] = check_one(hid, content, timeout, declared_cli)
     zone.write_verdict(results)
     print(f"check_deploy_reproduces: {results}")
     return 0
