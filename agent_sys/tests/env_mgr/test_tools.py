@@ -54,6 +54,50 @@ def _by_name(zone: Zone, far_root: str) -> dict[str, object]:
 # ---------------------------------------------------------- criterion 18
 
 
+def test_the_descriptions_name_the_far_side_so_a_package_need_not(far_root: str, zone: Zone) -> None:
+    """**Criterion 18's other half: a tool call has a name, a schema — and an
+    address.**
+
+    The descriptions said *"the remote side of this task's mapping"*, which is
+    true and tells an agent nothing about *where its work goes*. Measured in run
+    `20260901T080901-50ecb9`: the agent's first act was to ask
+    `env_remote_run(["hostname","-f"])`, because only its task readme said the
+    work was remote and the tool surface did not.
+
+    That made the fact a package's to remember, and a package that must remember
+    is one package away from a package that forgets — the shape of the five
+    mechanisms here that were wired, correct and reached by nobody. This asserts
+    `env_mgr` says it itself.
+
+    **Asserted against `Ssh` rather than `LocalConnection`**, because
+    `LocalConnection`'s far side *is* this machine: a test that used it would
+    pass while saying nothing, which is the "working instrument pointed at the
+    safe case" failure. The control below is that the two answers differ.
+    """
+    from env_mgr.remote.connection import Ssh
+
+    defs = {t.name: t for t in tools(Ssh("gpu-01"), zone, far_root)}
+
+    run = defs["env_remote_run"].description
+    assert "gpu-01" in run
+    assert far_root in run
+    # The half an agent acts on: a hostname alone leaves "is this elsewhere?" to
+    # inference, and inference is unreliable exactly where it matters -- weights
+    # and images visible from both sides make the two machines look alike.
+    assert "different machine" in run
+
+    for name in ("env_remote_push", "env_remote_pull"):
+        assert "gpu-01" in defs[name].description, name
+        assert far_root in defs[name].description, name
+
+    # CONTROL: the same call over a connection whose far side really is this
+    # host must NOT claim otherwise. Without this, `describe()` returning a
+    # constant would satisfy every assertion above.
+    local = {t.name: t for t in tools(LocalConnection(), zone, far_root)}
+    assert "different machine" not in local["env_remote_run"].description
+    assert "this machine" in local["env_remote_run"].description
+
+
 def test_remote_tools_have_schemas(zone: Zone, far_root: str) -> None:
     defs = tools(LocalConnection(), zone, far_root)
     assert {t.name for t in defs} == {"env_remote_run", "env_remote_push", "env_remote_pull"}
@@ -130,6 +174,15 @@ class RecordingConnection:
 
     def pull(self, remote: str, local: str):  # noqa: ANN201
         raise AssertionError("not used here")
+
+    def describe(self) -> str:
+        """`Connection` gained this so `tools` could name the far side to the
+        agent. A structural stub has to grow it too — which is the point of
+        declaring it on the Protocol rather than reaching for it with `getattr`:
+        the omission is a failure here, loudly, instead of a fourth transport
+        being described to a model as *this machine* while executing elsewhere.
+        """
+        return "a recording stub"
 
 
 def test_a_remote_command_runs_in_the_remote_zone_not_the_local_one(

@@ -146,3 +146,72 @@ def test_a_transport_that_cannot_sync_is_refused_at_configuration_time() -> None
     with pytest.raises(ValueError, match="not a SyncTransport"):
         sync_transport("docker", "some-container")
     assert DockerExec("some-container").run(["true"]) is not None
+
+
+# --------------------------------------------------------------------------- #
+# `Connection` conformance — the gap that `tests/agent/test_doubles_conform.py`
+# left open, closed here because `Connection` is `env_mgr`'s type.
+
+
+def test_every_connection_a_double_or_a_real_one_provides_what_tools_reads() -> None:
+    """**A Protocol is not enforced at runtime, so a missing member is silent.**
+
+    `Connection` gained `describe()` so `remote.tools` could name the far side
+    to the agent. Nothing checks that an implementation has it: a `Protocol`
+    member is a type-checker's business, and a double that omits it stays green
+    until production happens to call it — which is the *"wired but reached by
+    nobody"* shape, at six occurrences in this repository and every one of them
+    green unit tests over an unexercised seam. `StubStore.seal` is the nearest
+    relative: absent for months while a broad `except` turned every
+    `AttributeError` into a "refusal", 174 tests green and the seal never once
+    running.
+
+    So the members are read out of `tools.py` **by AST** rather than listed
+    here. A list would be a second declaration of the contract and would go
+    stale the next time a member is added — the failure this test exists to
+    catch, reintroduced in the test itself.
+
+    The checkers are imported from `tests/agent/test_doubles_conform.py` rather
+    than copied: they are themselves tested there, in both directions, and a
+    transcription would be an untested copy of a tested thing.
+    """
+    from pathlib import Path
+
+    import env_mgr.remote.tools as tools_module
+    from tests.agent.test_doubles_conform import attributes_read_on, missing, public
+    from tests.env_mgr.test_sync import FakeTransport
+    from tests.env_mgr.test_tools import RecordingConnection
+
+    reads = attributes_read_on("conn", Path(tools_module.__file__))
+    # Guard the instrument: if the AST reader silently found nothing, every
+    # assertion below would pass vacuously.
+    assert {"run", "push", "pull", "describe"} <= reads, reads
+
+    for impl in (Ssh("somehost"), DockerExec("c"), LocalConnection(), RecordingConnection(), FakeTransport(far_exists=True)):
+        assert not missing(reads, public(impl)), f"{type(impl).__name__} is missing members"
+
+
+def test_the_conformance_rule_catches_a_connection_missing_describe() -> None:
+    """The control. Without it the test above passes if `missing` stopped working.
+
+    Deliberately shaped like the doubles as they were **before** `describe()`
+    existed, because that is the omission that would actually happen: someone
+    writes a new transport against the three methods they can see being called.
+    """
+    from pathlib import Path
+
+    import env_mgr.remote.tools as tools_module
+    from tests.agent.test_doubles_conform import attributes_read_on, missing, public
+
+    class ConnectionWithoutDescribe:
+        def run(self, argv, *, cwd=None, timeout=None):  # noqa: ANN001, ANN201
+            raise AssertionError("never called")
+
+        def push(self, local: str, remote: str):  # noqa: ANN201
+            raise AssertionError("never called")
+
+        def pull(self, remote: str, local: str):  # noqa: ANN201
+            raise AssertionError("never called")
+
+    reads = attributes_read_on("conn", Path(tools_module.__file__))
+    assert missing(reads, public(ConnectionWithoutDescribe())) == {"describe"}

@@ -105,10 +105,50 @@ def tools(conn: Connection, zone: Zone, remote_root: str) -> tuple[ToolDef, ...]
         report = conn.pull(remote, _inside(zone, path))
         return report._asdict()
 
+    # **The far side, named.** These three descriptions used to say "the remote
+    # side of this task's mapping" and nothing else — true, and unusable: it
+    # names no machine, so a reader of the tool cannot tell *which* one it is
+    # talking to. Measured, run `20260901T080901-50ecb9`: the agent's first act
+    # was `env_remote_run(["hostname","-f"])`, because the tool surface withheld
+    # something it knew.
+    #
+    # That is the defect this closes, and it is a design one rather than a bug.
+    # The knowledge existed and the only route to it was a package remembering
+    # to write it down — the same shape as the mechanisms in this repository
+    # that were wired, correct, and reached by no production caller.
+    #
+    # **What is deliberately not here: whether the work belongs over there.**
+    # That is the task's call and not this module's — `env_mgr` cannot know
+    # whether a package wants a remote *resource* while working locally, and a
+    # claim made here is one the package has no way to contradict. Identity is
+    # ours; intent is the package's, keyed on whether these tools exist at all.
+    # `Ssh.describe`'s docstring records the revision in which this line was
+    # crossed and why it was walked back.
+    where = conn.describe()
     return (
         ToolDef(
             name="env_remote_run",
-            description="Run a command on the remote side of this task's mapping.",
+            # **The locative sentence belongs to `describe()`, not here**, and
+            # that was measured rather than reasoned. This first read "…{where}.
+            # This is the far side of this task's mapping and it is where this
+            # task's work is meant to happen." — a sentence that is true over
+            # `Ssh` and self-contradictory over `LocalConnection`, whose
+            # `describe()` says the two ends are one host. Asked to read it, a
+            # model said so unprompted: *"这与「远端」的措辞本身就相互矛盾…既拿不到
+            # 机器标识，也无法确定它是否与本地是同一台"*
+            # (`p3_description_reaches_the_model.py`, control arm).
+            #
+            # A fixed clause here can only be right for one kind of connection.
+            # Each class now says its own whole locative sentence and this
+            # supplies only what is uniform: the zone root and the `cwd` rule.
+            # (The *"where the work is meant to happen"* half of that sentence
+            # was dropped altogether, for a second and unrelated reason — see
+            # the note above on identity versus intent.)
+            description=(
+                f"Run a command on {where} Your own zone there is "
+                f"{remote_root!r}, which is the working directory unless you "
+                f"pass `cwd`."
+            ),
             schema={
                 "type": "object",
                 "properties": {
@@ -129,7 +169,10 @@ def tools(conn: Connection, zone: Zone, remote_root: str) -> tuple[ToolDef, ...]
         ),
         ToolDef(
             name="env_remote_push",
-            description="Copy a path from this zone to the remote side.",
+            description=(
+                f"Copy a path from your zone on this machine to {where} "
+                f"Its zone root there is {remote_root!r}."
+            ),
             schema={
                 "type": "object",
                 "properties": {
@@ -143,7 +186,10 @@ def tools(conn: Connection, zone: Zone, remote_root: str) -> tuple[ToolDef, ...]
         ),
         ToolDef(
             name="env_remote_pull",
-            description="Copy a path from the remote side into this zone.",
+            description=(
+                f"Copy a path into your zone on this machine from {where} "
+                f"Its zone root there is {remote_root!r}."
+            ),
             schema={
                 "type": "object",
                 "properties": {

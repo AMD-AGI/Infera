@@ -177,6 +177,13 @@ class FakeTransport:
     def rsync_spec(self):  # noqa: ANN201
         return ("ssh", "-o", "BatchMode=yes"), "somehost:"
 
+    def describe(self) -> str:
+        """Part of `Connection` since `tools` began naming the far side to the
+        agent. `sync` never reads it; the stub carries it so it still satisfies
+        the Protocol it claims to.
+        """
+        return "somehost, a different machine from the one your own shell runs on"
+
 
 def test_a_transport_puts_the_rsh_and_the_prefix_on_the_command(
     sides: tuple[str, str, Zone], monkeypatch: pytest.MonkeyPatch

@@ -41,6 +41,33 @@ class Connection(Protocol):
 
     def pull(self, remote: str, local: str) -> SyncReport: ...
 
+    def describe(self) -> str:
+        """**Where this connection lands, as a phrase a model will read.**
+
+        `remote.tools` puts this into the tool descriptions, which is how the
+        agent learns *where the far side is* from `env_mgr` rather than from a
+        task package's prose. The user's framing of the whole remote stage is
+        "只要告诉他 hostname 就完了" — telling the agent where the work happens
+        is this module's job, and a package that had to re-say it would be one
+        package away from a package that forgets.
+
+        **A method on the Protocol rather than a `getattr(conn, "host", …)` in
+        `tools`.** The duck-typed version works for the three classes here and
+        has one silent-wrong case that matters: a fourth transport — a `Kubectl`,
+        a `Slurm` — would land in the fallback and be described to the agent as
+        *this machine* while executing somewhere else. That is
+        `interfaces.md` §4.11's family, a plausible value consumed as if it were
+        the right one, and it is exactly the failure this stage exists to
+        prevent. Declared here, a transport that cannot say where it goes does
+        not satisfy `Connection`.
+
+        Each class answers for itself, so there is no type switch and no table
+        for a new transport to be missing from. Phrase, not bare identifier: the
+        *"is this a different machine"* half is what the agent acts on, and only
+        the class knows it — `LocalConnection`'s far side really is this host.
+        """
+        ...
+
 
 class SyncTransport(Connection, Protocol):
     """A `Connection` that `sync` can also drive an ``rsync`` across.
@@ -138,6 +165,35 @@ class Ssh:
     def rsync_spec(self) -> tuple[Sequence[str], str]:
         return ("ssh", *self.options), f"{self.host}:"
 
+    def describe(self) -> str:
+        """The host, and the fact that it is not the agent's own machine.
+
+        The second clause is the load-bearing one. A hostname alone leaves the
+        agent to infer whether it is somewhere else, and the inference is
+        unreliable in the configuration that matters most: the weights and the
+        image may be visible from both sides — measured, `/apps` is one NFS
+        export — so everything the agent can *see* looks the same on either
+        machine.
+
+        **And it stops there, deliberately.** This sentence ended *"…and it is
+        where this task's work is meant to happen"* for one revision, and that
+        clause was wrong in a way worth recording: **where a task's work belongs
+        is the task's decision, not this module's.** `env_mgr` knows where the
+        far side *is* — nobody else can — and it does not know whether a given
+        package wants its work there. A package may legitimately want a remote
+        *resource* while working locally, and this sentence would have told its
+        agent otherwise, in a voice the package cannot contradict.
+
+        The split is worth keeping in mind for anything else that gets added
+        here: **identity is ours, intent is the package's.** The task-side half
+        lives in `examples/single_real_task/assets/serve_qwen.task/readme.md`,
+        keyed on whether these tools are present at all.
+        """
+        return (
+            f"{self.host}, a different machine from the one your own shell runs "
+            f"on. It is the far side of this task's mapping."
+        )
+
 
 class DockerExec:
     """**A `Connection` and deliberately not a `SyncTransport`.**
@@ -180,6 +236,17 @@ class DockerExec:
         )
         return SyncReport(sent=0, received=1, conflicts=())
 
+    def describe(self) -> str:
+        """A container, and **on this host** — the one case where "remote" does
+        not mean "another machine". Saying so is the point: an agent told only
+        the container name could reasonably read it as a second host and reason
+        about the network between them.
+        """
+        return (
+            f"the container {self.container}, running on the machine your own "
+            f"shell runs on rather than on a second computer."
+        )
+
 
 class LocalConnection:
     """The same three methods against this machine.
@@ -203,6 +270,19 @@ class LocalConnection:
     def rsync_spec(self) -> tuple[Sequence[str], str]:
         """No `-e`, no prefix. Both ends are ordinary paths on this machine."""
         return (), ""
+
+    def describe(self) -> str:
+        """**"This machine", said out loud rather than left to be assumed.**
+
+        Spec §5.2's strong mapping is one mount seen from two places, and here
+        both ends are this host. An agent that read the remote tools as implying
+        a second machine would go looking for a network that is not there.
+        """
+        return (
+            "this machine. The two ends of this mapping are paths on one host, "
+            "so 'remote' here names the far end of a mapping rather than a "
+            "second computer, and there is no network between them."
+        )
 
 
 def sync_transport(transport: str, target: str) -> SyncTransport:
