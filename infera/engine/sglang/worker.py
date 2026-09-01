@@ -41,6 +41,14 @@ def _ready_timeout() -> float:
         return 1800.0
 
 
+# The resolved page size is read once per process and nothing re-resolves it,
+# so a single transient failure disables kv-aware for that pod permanently.
+# Short and bounded: the engine is already serving by the time this runs, so
+# anything needing more than a few seconds is not transient.
+_PAGE_SIZE_ATTEMPTS = 4
+_PAGE_SIZE_BACKOFF_S = 1.0
+
+
 class SglangEngine(BaseEngine):
     """Runs `python -m sglang.launch_server` in a child process.
 
@@ -220,17 +228,41 @@ class SglangEngine(BaseEngine):
         reports the resolved ServerArgs. Best-effort on purpose: an older sglang
         without the route, or a malformed body, leaves the caller on the flag --
         no worse than before, and the caller registers None rather than a lie.
+
+        Retried, because a single miss is permanent. This runs once per process
+        and nothing re-resolves afterwards, so when `--page-size` is also unset
+        one slow or 500ing moment -- an engine that is /health-ready but still
+        warming under load -- registers `engine_block_size=None` AND refuses to
+        start the KV NATS relay, for the entire lifetime of that pod. A rolling
+        restart could strip kv-aware from an arbitrary fraction of the fleet
+        that way. `_wait_ready` directly above already polls for the same
+        reason; this had the same need and not the loop.
         """
         probe_host = self.server_args.host
-        if probe_host in ("0.0.0.0", ""):
+        if probe_host in ("0.0.0.0", "", "::"):
             probe_host = "127.0.0.1"
         url = f"http://{probe_host}:{self.server_args.port}/get_server_info"
-        try:
-            async with httpx.AsyncClient() as client:
-                r = await client.get(url, timeout=10)
-                r.raise_for_status()
-                info = r.json()
-        except Exception as exc:
+        info = None
+        last_exc: Exception | None = None
+        for attempt in range(_PAGE_SIZE_ATTEMPTS):
+            try:
+                async with httpx.AsyncClient() as client:
+                    r = await client.get(url, timeout=10)
+                    r.raise_for_status()
+                    info = r.json()
+                break
+            except Exception as exc:  # noqa: BLE001 - retried, then reported below
+                last_exc = exc
+                if attempt + 1 < _PAGE_SIZE_ATTEMPTS:
+                    logger.debug(
+                        "page_size probe %d/%d failed (%s); retrying",
+                        attempt + 1,
+                        _PAGE_SIZE_ATTEMPTS,
+                        exc,
+                    )
+                    await asyncio.sleep(_PAGE_SIZE_BACKOFF_S * (attempt + 1))
+        if info is None:
+            exc = last_exc
             logger.warning(
                 "could not read resolved page_size from %s (%s); falling back to "
                 "--page-size (%r). If that is None this worker registers no KV block "

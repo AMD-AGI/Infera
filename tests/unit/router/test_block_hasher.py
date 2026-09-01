@@ -22,6 +22,8 @@ from types import ModuleType, SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
+import pytest
+
 from infera.common.worker_pool import EngineType
 from infera.router.kv_event.block_hasher import BlockHasher, _normalise_history
 from infera.router.kv_event.hasher import ROUTER_SEED, hash_chunk, hash_request
@@ -371,12 +373,48 @@ def test_unreproducible_tools_route_on_load():
     body = {
         "model": "m",
         "messages": [{"role": "user", "content": "hi"}],
-        "tools": [{"type": "function", "function": {"name": "f"}}],
+        # No `function.name`: `Tool` would reject this and so does the local
+        # fallback, so there is no dump to reproduce either way.
+        "tools": [{"type": "function", "function": {}}],
     }
     with _fake_sglang("DeepseekV4ForCausalLM", encoder, with_protocol=False):
         out = hasher.hash_for(body, block_size=4)
     assert encoder.calls == []
     assert out == []
+
+
+def test_tools_still_render_on_a_router_host_without_sglang():
+    """A router pod built from the slim image is a supported deployment, and
+    this module already carries sglang-free copies of the two message rewrites.
+    Without one for the tool dump, `_chat_tools` turned the missing model into
+    "cannot reproduce" and every tools-carrying request -- the whole agentic
+    workload -- hashed to nothing and routed on load, silently, while tool-free
+    chat kept the hit-rate metric looking plausible."""
+    encoder = _RecordingEncoder()
+    hasher = BlockHasher()
+    tokenizer = _StubTokenizer()
+    tokenizer.chat_template = "{{ messages }}"
+    hasher._tokenizers[(None, "m")] = tokenizer
+    body = {
+        "model": "m",
+        "messages": [{"role": "user", "content": "hi"}],
+        "tools": [{"type": "function", "function": {"name": "f", "parameters": {}}}],
+    }
+    with _fake_sglang("SomeOtherForCausalLM", encoder, with_protocol=False):
+        out = hasher.hash_for(body, block_size=4)
+    assert out != [], "the fallback dump must keep this request hashable"
+    assert tokenizer.template_kwargs[-1]["tools"] == [
+        {
+            "type": "function",
+            "function": {
+                "name": "f",
+                "description": None,
+                "parameters": {},
+                "strict": False,
+            },
+            "defer_loading": None,
+        }
+    ], "and it must materialise exactly the defaults pydantic would"
 
 
 def test_non_dsv4_model_still_uses_apply_chat_template():
@@ -584,12 +622,12 @@ def test_tool_content_parts_are_flattened_to_one_string():
             }
         ]
     )
-    assert out == [{"role": "tool", "content": "a b"}]
+    assert out[0]["content"] == "a b"
 
 
 def test_a_bare_string_part_is_joined_too():
     out = _normalise_history([{"role": "tool", "content": ["a", {"type": "text", "text": "b"}]}])
-    assert out == [{"role": "tool", "content": "a b"}]
+    assert out[0]["content"] == "a b"
 
 
 def test_a_text_part_with_no_text_still_takes_its_place_in_the_join():
@@ -597,7 +635,7 @@ def test_a_text_part_with_no_text_still_takes_its_place_in_the_join():
     out = _normalise_history(
         [{"role": "tool", "content": [{"type": "text"}, {"type": "text", "text": "b"}]}]
     )
-    assert out == [{"role": "tool", "content": " b"}]
+    assert out[0]["content"] == " b"
 
 
 def test_a_list_with_a_non_text_part_is_left_alone():
@@ -605,7 +643,7 @@ def test_a_list_with_a_non_text_part_is_left_alone():
     intentionally iterate over" -- flattening here would diverge the other way."""
     content = [{"type": "text", "text": "a"}, {"type": "image_url", "image_url": {"url": "u"}}]
     out = _normalise_history([{"role": "tool", "content": content}])
-    assert out == [{"role": "tool", "content": content}]
+    assert isinstance(out[0]["content"], list), "a non-text part must survive as a list"
 
 
 def test_only_tool_messages_are_flattened():
@@ -667,3 +705,79 @@ def test_an_ordinary_template_gets_no_remap():
     tokenizer = _StubTokenizer()
     tokenizer.chat_template = "{{ messages }}"
     assert hasher._effort_kwarg("m", tokenizer) is None
+
+
+# ---- the pydantic projection the engine applies before any encoder ---------
+
+
+def test_messages_are_projected_the_way_the_engine_dumps_them():
+    """serving_chat.py:1322 parses every message and dumps it back with no
+    `exclude_unset`/`exclude_none`, so the template sees fields the client
+    never sent. A template testing presence rather than truthiness renders
+    differently against the client dict."""
+    pytest.importorskip("sglang.srt.entrypoints.openai.protocol")
+    out = _normalise_history(
+        [
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "c1",
+                        "type": "function",
+                        "function": {"name": "f", "arguments": '{"a": 1}'},
+                    }
+                ],
+            }
+        ]
+    )
+    msg = out[0]
+    assert msg["content"] == "", "the null-content rewrite still applies"
+    assert msg["tool_calls"][0]["function"]["arguments"] == {"a": 1}, "and the args parse"
+    for materialised in ("tool_call_id", "name", "reasoning_content"):
+        assert materialised in msg, f"{materialised} must be present, as the engine dumps it"
+    assert "index" in msg["tool_calls"][0], "ToolCall.index is materialised too"
+
+
+def test_an_undeclared_key_is_dropped_as_the_engine_drops_it():
+    pytest.importorskip("sglang.srt.entrypoints.openai.protocol")
+    out = _normalise_history([{"role": "user", "content": "hi", "not_a_field": 1}])
+    assert "not_a_field" not in out[0]
+
+
+def test_a_body_the_engine_would_reject_renders_as_sent():
+    """Refusing here would drop kv-aware for a shape sglang may still accept;
+    the projection is best-effort and falls back to the client's dict."""
+    out = _normalise_history([{"role": "nonsense-role", "content": "hi"}])
+    assert out[0]["role"] == "nonsense-role"
+
+
+# ---- tool-call arguments: all-or-nothing -----------------------------------
+
+
+def test_a_half_bad_tool_call_list_is_left_entirely_alone():
+    """sglang's function assigns in place per call and re-raises on the first
+    bad one, so normalising the live message and swallowing the error appended
+    call #1 as a dict and call #2 as a string -- a hybrid no client produces,
+    which usually renders fine and hashes a wrong prefix."""
+    out = _normalise_history(
+        [
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {"id": "a", "type": "function", "function": {"name": "f", "arguments": "{}"}},
+                    {
+                        "id": "b",
+                        "type": "function",
+                        "function": {"name": "g", "arguments": "[1,2]"},
+                    },
+                ],
+            }
+        ]
+    )
+    args = [tc["function"]["arguments"] for tc in out[0]["tool_calls"]]
+    assert all(isinstance(a, str) for a in args), (
+        "either both parse or neither does; a mixed message is a shape the "
+        "engine never renders, and on kimi_k3 it serves the verbatim strings"
+    )

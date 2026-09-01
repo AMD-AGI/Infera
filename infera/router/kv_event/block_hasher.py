@@ -78,24 +78,111 @@ def _normalise_history(messages: list) -> list:
         if needs_tool_flatten:
             copied["content"] = normalize_tool_content(copied.get("role"), copied.get("content"))
         if has_calls:
-            copied["tool_calls"] = [
+            # Normalise on a throwaway and adopt only on success. The engine's
+            # function assigns `function["arguments"]` in place, per tool call,
+            # and re-raises on the first bad one -- so normalising `copied`
+            # directly and swallowing the error appends a message with call #1
+            # parsed to a dict and call #2 still a string. That hybrid is a
+            # shape neither the engine nor any client produces, and the render
+            # usually SUCCEEDS on it, so the comment's promise of falling
+            # through to load-only routing was the opposite of what happened: a
+            # wrong prefix, hashed and cached.
+            #
+            # Leaving the message untouched also settles `strict`, which the
+            # engine passes as `chat_encoding_spec != "kimi_k3"` and this call
+            # cannot see. A strict engine 400s the request, so whatever we hash
+            # for it is never served; a lenient one (kimi_k3 -- the fleet this
+            # module's Responses work targets) renders the string verbatim,
+            # which is exactly what an untouched message gives us. Both agree.
+            attempt = dict(copied)
+            attempt["tool_calls"] = [
                 {**tc, "function": dict(tc["function"])}
                 if isinstance(tc, dict) and isinstance(tc.get("function"), dict)
                 else dict(tc)
                 if isinstance(tc, dict)
                 else tc
-                for tc in copied["tool_calls"]
+                for tc in attempt["tool_calls"]
             ]
             try:
-                normalize_assistant_tool_call_arguments(copied)
+                normalize_assistant_tool_call_arguments(attempt)
             except ValueError:
-                # `arguments` that is not a JSON object. The engine raises and
-                # 400s the request; we cannot know what it would have rendered,
-                # so leave the message alone and let the render fail into
-                # load-only routing rather than invent a prefix.
                 pass
+            else:
+                copied = attempt
         out.append(copied)
+    return _project(out)
+
+
+def _tool_model_dump(tools: list) -> list[dict] | None:
+    """`[Tool(**t).model_dump() for t in tools]` without sglang.
+
+    Kept deliberately literal against `protocol.Tool` / `Function`: the whole
+    point is the defaults pydantic materialises for keys the client omitted, so
+    any cleverness here is a divergence. Mirrors `tool_model_dump` in
+    `rust/router/src/block_hasher.rs`, which is the same list for the same
+    reason. Returns None for a shape the model would reject, so the caller
+    routes on load rather than hashing a guess.
+    """
+    out: list[dict] = []
+    for tool in tools:
+        if not isinstance(tool, dict):
+            return None
+        fn = tool.get("function")
+        if not isinstance(fn, dict) or "name" not in fn:
+            return None
+        out.append(
+            {
+                "type": tool.get("type", "function"),
+                "function": {
+                    "name": fn["name"],
+                    "description": fn.get("description"),
+                    "parameters": fn.get("parameters"),
+                    "strict": fn.get("strict", False),
+                },
+                # A `Tool` field, not a `Function` one.
+                "defer_loading": tool.get("defer_loading"),
+            }
+        )
     return out
+
+
+def _project(messages: list) -> list:
+    """`[msg.model_dump() for msg in request.messages]` (serving_chat.py:1322).
+
+    The engine parses every message into its pydantic model and dumps it back
+    before it picks an encoder, with no `exclude_unset`/`exclude_none`. That is
+    not tidying -- it changes the dict the template reads, in both directions:
+
+    * fields the client omitted are MATERIALISED as null. A generic message
+      gains `tool_call_id`, `name`, `reasoning_content`, `tools`; each
+      `ToolCall` gains `index`.
+    * keys the model does not declare are DROPPED (a `name` on a user message,
+      a bare `reasoning`).
+
+    A template that tests presence rather than truthiness -- `'tool_calls' in
+    message`, `message.name is defined`, `{% for k, v in tool_call.items() %}`,
+    `tool_call.index` -- therefore renders differently against the client dict
+    than against the engine's. Silently, from the first tool-carrying turn on.
+
+    `_normalise_tools` already does exactly this round-trip for tools, and for
+    the same reason; messages were the half left out. `encoding_k3`'s
+    `project_message` is the Rust port's equivalent for the K3 encoder.
+
+    Returns `messages` unchanged when sglang is not importable -- the router
+    then renders the client's dict, which is what it did before this existed.
+    """
+    try:
+        from sglang.srt.entrypoints.openai.protocol import ChatCompletionRequest
+    except Exception:
+        return messages
+    try:
+        request = ChatCompletionRequest(model="_", messages=messages)
+        return [m.model_dump() for m in request.messages]
+    except Exception as exc:
+        # A body the engine would 422. Rendering the client's dict instead
+        # would hash a prefix for a request that never runs.
+        logger.debug("kv-aware: messages not projectable (%s); rendering as sent", exc)
+        return messages
 
 
 def _normalize_tool_content(role: str, content: Any) -> Any:
@@ -423,7 +510,16 @@ class BlockHasher:
         if spec != "dsv4":
             return None
 
-        rendered = [dict(m) for m in messages]
+        # The engine applies its pre-template rewrites BEFORE it chooses an
+        # encoder (serving_chat.py:1322-1326), and the dsv4 branch then adds the
+        # null-content rewrite of its own (1339-1340). Taking the raw messages
+        # here meant every agentic turn on a DeepSeek-V4 fleet reached
+        # `encode_messages` with `arguments` still a JSON string, `content` still
+        # null, and tool output still a content-part list -- a different prompt
+        # from the engine's, or an exception inside the encoder. Only the
+        # tool_choice narrowing is deliberately skipped: the engine's dsv4 branch
+        # reads `request.tools` directly (serving_chat.py:1383) and ignores it too.
+        rendered = [dict(m) for m in _normalise_history(messages)]
         if rendered[0].get("role") != "system":
             # The engine prepends an empty system message and hangs the tools off
             # it (serving_chat); tools are never passed to the encoder directly.
@@ -444,15 +540,26 @@ class BlockHasher:
         """The engine renders tools from a full pydantic ``Tool.model_dump()``,
         which materialises defaults the client never sent (``strict``,
         ``defer_loading``); hashing the raw request dicts shifts the prefix by a
-        few tokens with no error at all, so skip dsv4 rather than guess."""
+        few tokens with no error at all, so reproduce the dump.
+
+        Falls back to a literal local copy of those defaults when sglang is not
+        importable. A router host without sglang is a supported deployment --
+        this module already ships that fallback for the two message rewrites --
+        and without one here the failure was silent and total: `_chat_tools`
+        turned the `None` into "cannot reproduce", so EVERY tools-carrying chat
+        request and every `/v1/responses` request hashed to nothing and routed
+        on load, with no log line, while tool-free chat kept the hit-rate metric
+        looking plausible. The Rust port has no such gap; it hand-builds
+        `tool_model_dump` with no sglang dependency.
+        """
         try:
             from sglang.srt.entrypoints.openai.protocol import Tool
         except Exception:
-            return None
+            return _tool_model_dump(tools)
         try:
             return [Tool(**tool).model_dump() for tool in tools]
         except Exception as exc:
-            logger.debug("kv-aware: tools not normalisable for the dsv4 encoder: %s", exc)
+            logger.debug("kv-aware: tools not normalisable: %s", exc)
             return None
 
     def _get_hf_config(self, model_id: str) -> Any | None:

@@ -76,9 +76,12 @@ class KvRegistrationMetadata:
     @classmethod
     def from_dict(cls, d: dict) -> KvRegistrationMetadata:
         return cls(
-            engine_block_size=(
-                int(raw) if (raw := d.get("engine_block_size")) is not None else None
-            ),
+            # Present-but-null is the deliberate "the engine could not resolve
+            # its page size" signal; a MISSING key is a malformed payload and
+            # must still raise, as every sibling field does. `.get()` collapsed
+            # the two, so a renamed or truncated field registered a worker with
+            # kv-aware quietly off instead of failing the registration loudly.
+            engine_block_size=(int(raw) if (raw := d["engine_block_size"]) is not None else None),
             index_block_size=int(d["index_block_size"]),
             tokenizer=str(d["tokenizer"]),
             tokenizer_digest=str(d["tokenizer_digest"]),
