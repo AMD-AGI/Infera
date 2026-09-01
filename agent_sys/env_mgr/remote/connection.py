@@ -14,6 +14,7 @@ leak is in configuration, where it is inspectable, rather than in a signature.
 from __future__ import annotations
 
 import os
+import shlex
 import shutil
 import subprocess
 from collections.abc import Sequence
@@ -59,9 +60,23 @@ class Ssh:
     def run(
         self, argv: Sequence[str], *, cwd: str | None = None, timeout: float | None = None
     ) -> subprocess.CompletedProcess[str]:
-        remote = " ".join(argv)
+        """**`shlex.join`, not `" ".join`.**
+
+        `ssh host <string>` hands the string to the far side's *shell*, so an
+        argument is re-split over there by whitespace and re-interpreted for
+        globs, `$`, quotes and `;`. Joined with a plain space, `["echo", "a b"]`
+        and `["echo", "a", "b"]` become the same command — the argv boundary the
+        caller expressed is destroyed in transit, silently, and a path with a
+        space in it becomes two paths.
+
+        `LocalConnection` and `DockerExec` pass a real argv and have no such
+        problem, so this class was the only one of the three that could not keep
+        the Protocol's promise. It shipped that way and was never called; this is
+        the commit that first constructs an `Ssh`, so it is where it is fixed.
+        """
+        remote = shlex.join(argv)
         if cwd:
-            remote = f"cd {cwd} && {remote}"
+            remote = f"cd {shlex.quote(cwd)} && {remote}"
         return subprocess.run(
             ["ssh", *self.options, self.host, remote],
             capture_output=True,
