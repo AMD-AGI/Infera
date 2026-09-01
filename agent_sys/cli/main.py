@@ -48,6 +48,7 @@ from cli.stream import Stream
 from env_mgr import meta
 from env_mgr.prepare import EnvManager, permissions_enforced
 from env_mgr.protocols import NoConfinement, PrepareRefused, UnresolvedGrant
+from env_mgr.remote.connection import sync_transport
 from monitor import (
     NullUserSink,
     check_liveness,
@@ -485,9 +486,22 @@ def _registry(
     # No `--meta` flag on `agent-sys`: `$ENV_MGR_META` and the config default are
     # the whole surface for now, and adding a third spelling of one setting to a
     # second CLI is a decision, not a convenience.
-    mapping = meta.load(meta.configured_path()).mapping_roots()
+    # **`transports` is the reader `transport` and `target` never had.**
+    # `RemoteMapping` has carried both since it was written and `mapping_roots()`
+    # dropped them, so a mapping could name a host and nothing would ever go
+    # there. `sync_transport` turns each into an object; an unknown one raises
+    # here, while a human is reading configuration, rather than at the first copy.
+    # Both views come from `Meta.weak()` so they cannot select different mappings.
+    configuration = meta.load(meta.configured_path())
+    mapping = configuration.mapping_roots()
+    transports = {m.local_root: sync_transport(m.transport, m.target) for m in configuration.weak()}
     context = build_context(
-        layout, main_repo=_main_repo(root), handoffs=handoffs, package=root, mapping=mapping
+        layout,
+        main_repo=_main_repo(root),
+        handoffs=handoffs,
+        package=root,
+        mapping=mapping,
+        transports=transports,
     )
     registry = build_registry(
         store=JsonFileStoreMgr(layout.store),

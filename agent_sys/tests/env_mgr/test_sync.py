@@ -138,3 +138,148 @@ def test_a_playground_difference_is_not_a_conflict(sides: tuple[str, str, Zone])
     far.mkdir(parents=True)
     (far / "scratch.txt").write_text("remote scratch")
     assert conflicts(zone.root, str(far.parent)) == ()
+
+
+# ------------------------------------------------- crossing a host boundary (R1a)
+#
+# `sync`'s copy semantics stay in `sync`: `--delete` is the whole of spec §5.3's
+# "made identical" and `--exclude=playground/**` is criterion 16. `Connection.push`
+# has neither, so routing the copy through it would have dropped both silently and
+# every test above would still have passed. What a transport supplies is only how
+# to *reach* the far side, which is why the seam is named `rsync_spec`.
+
+
+class FakeTransport:
+    """A `SyncTransport` that reaches a far side which is not there.
+
+    Structural, not a subclass: `SyncTransport` is a `Protocol`, and a stub that
+    had to inherit would not be testing the same thing the production classes
+    satisfy.
+    """
+
+    def __init__(self, *, far_exists: bool) -> None:
+        self.far_exists = far_exists
+        self.commands: list[list[str]] = []
+
+    def run(self, argv, *, cwd=None, timeout=None):  # noqa: ANN001, ANN201
+        import subprocess
+
+        self.commands.append(list(argv))
+        code = 0 if (argv[0] == "test" and self.far_exists) else (1 if argv[0] == "test" else 0)
+        return subprocess.CompletedProcess(list(argv), code, "", "")
+
+    def push(self, local: str, remote: str):  # noqa: ANN201
+        raise AssertionError("sync must not route the copy through push: it loses --delete")
+
+    def pull(self, remote: str, local: str):  # noqa: ANN201
+        raise AssertionError("sync must not route the copy through pull: it loses --delete")
+
+    def rsync_spec(self):  # noqa: ANN201
+        return ("ssh", "-o", "BatchMode=yes"), "somehost:"
+
+
+def test_a_transport_puts_the_rsh_and_the_prefix_on_the_command(
+    sides: tuple[str, str, Zone], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The far side is addressed, and the copy's own flags are still `sync`'s.
+
+    Nothing is executed: the rsync argv is captured. Its control is
+    `test_no_transport_addresses_neither_host` below, which must produce two
+    plain local paths and no `-e`.
+    """
+    import subprocess
+
+    import env_mgr.sync as sync_mod
+
+    local, remote, zone = sides
+    seen: list[list[str]] = []
+
+    def fake_run(argv, **kwargs):  # noqa: ANN001, ANN202
+        seen.append(list(argv))
+        return subprocess.CompletedProcess(list(argv), 0, "", "")
+
+    monkeypatch.setattr(sync_mod.subprocess, "run", fake_run)
+    conn = FakeTransport(far_exists=False)
+    sync(
+        zone,
+        {local: remote},
+        direction=Direction.LOCAL_TO_REMOTE,
+        transports={local: conn},
+    )
+    rsync_argv = next(a for a in seen if any("rsync" in part for part in a[:1]))
+    assert "-e" in rsync_argv
+    assert rsync_argv[rsync_argv.index("-e") + 1] == "ssh -o BatchMode=yes"
+    assert rsync_argv[-1].startswith("somehost:"), rsync_argv[-1]
+    assert not rsync_argv[-2].startswith("somehost:"), "the source is the local end"
+    # The semantics did not move into the transport.
+    assert "--delete" in rsync_argv
+    assert any(part.startswith("--exclude=playground") for part in rsync_argv)
+    # The far side's directories are made over the connection, not with os.makedirs.
+    assert ["mkdir", "-p"] == conn.commands[-1][:2]
+
+
+def test_no_transport_addresses_neither_host(
+    sides: tuple[str, str, Zone], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The control, and the configuration every run before R1 used."""
+    import subprocess
+
+    import env_mgr.sync as sync_mod
+
+    local, remote, zone = sides
+    seen: list[list[str]] = []
+    monkeypatch.setattr(
+        sync_mod.subprocess,
+        "run",
+        lambda argv, **kw: (seen.append(list(argv)), subprocess.CompletedProcess(argv, 0, "", ""))[
+            1
+        ],
+    )
+    sync(zone, {local: remote}, direction=Direction.LOCAL_TO_REMOTE)
+    assert "-e" not in seen[0]
+    assert ":" not in Path(seen[0][-1]).name
+
+
+def test_an_unreadable_far_side_refuses_rather_than_copying(sides: tuple[str, str, Zone]) -> None:
+    """**Fail closed.** `conflicts` is `filecmp` over two local trees and has no
+    cross-host equivalent yet, and `PrepareRefused` exists precisely because
+    rsync cannot report that both sides changed. A pre-pass that cannot run is a
+    refusal, not a pass — proceeding would turn the one guard against silent data
+    loss into a comment.
+    """
+    from env_mgr.protocols import PrepareRefused
+
+    local, remote, zone = sides
+    with pytest.raises(PrepareRefused, match="conflict pre-pass cannot read"):
+        sync(
+            zone,
+            {local: remote},
+            direction=Direction.LOCAL_TO_REMOTE,
+            transports={local: FakeTransport(far_exists=True)},
+        )
+
+
+def test_a_far_side_that_does_not_exist_yet_has_nothing_to_conflict_with(
+    sides: tuple[str, str, Zone], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The control for the refusal above, and the ordinary case.
+
+    A zone is named per attempt, so the far side is fresh nearly every time. If
+    this failed, the rule would refuse every remote sync and step 3 of the probe
+    would prove nothing.
+    """
+    import subprocess
+
+    import env_mgr.sync as sync_mod
+
+    local, remote, zone = sides
+    monkeypatch.setattr(
+        sync_mod.subprocess, "run", lambda argv, **kw: subprocess.CompletedProcess(argv, 0, "", "")
+    )
+    report = sync(
+        zone,
+        {local: remote},
+        direction=Direction.LOCAL_TO_REMOTE,
+        transports={local: FakeTransport(far_exists=False)},
+    )
+    assert report.conflicts == ()

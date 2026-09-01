@@ -260,9 +260,14 @@ def test_remote_root_answers_none_where_ends_refuses(tmp_path: Path) -> None:
 
     assert remote_root(zone, covered) == os.path.join("/far", "task.t.0.aa")
     assert remote_root(zone, {"/somewhere/else": "/far"}) is None
+    # **`_ends` returns the mapping key as a third element**, and `remote_root`
+    # still returns only the path. Both now come from one walk, `_match`:
+    # `Context.transports` is keyed by the same `local_root`, and finding it with
+    # a second walk would give the prefix rule two writers.
     assert _ends(zone, covered, Direction.LOCAL_TO_REMOTE) == (
         zone.root,
         os.path.join("/far", "task.t.0.aa"),
+        str(tmp_path / "root"),
     )
     with pytest.raises(KeyError, match="no mapping covers zone"):
         _ends(zone, {"/somewhere/else": "/far"}, Direction.LOCAL_TO_REMOTE)

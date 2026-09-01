@@ -18,7 +18,8 @@ from enum import Enum
 
 from env_mgr.fs.domain import DomainKind, subdir_for
 from env_mgr.fs.zone import Zone
-from env_mgr.protocols import SyncReport
+from env_mgr.protocols import PrepareRefused, SyncReport
+from env_mgr.remote.connection import LocalConnection, SyncTransport
 
 __all__ = ["Direction", "PLAYGROUND", "conflicts", "remote_root", "sync"]
 
@@ -37,6 +38,23 @@ class Direction(str, Enum):
 
     LOCAL_TO_REMOTE = "local_to_remote"
     REMOTE_TO_LOCAL = "remote_to_local"
+
+
+def _match(zone: Zone, mapping: Mapping[str, str]) -> tuple[str, str] | None:
+    """``(local_root_key, far_path)`` for the mapping covering this zone.
+
+    **One walk, and the key comes back with the path.** `remote_root` wants only
+    the path; `_ends` additionally needs the key, because `Context.transports`
+    is keyed by the same `local_root` and looking it up with a second walk would
+    give the prefix rule two writers — the hazard `remote_root`'s own docstring
+    was written to close.
+    """
+    for local_root, far_root in mapping.items():
+        prefix = local_root.rstrip(os.sep)
+        if zone.root == prefix or zone.root.startswith(prefix + os.sep):
+            rel = os.path.relpath(zone.root, prefix)
+            return local_root, (os.path.join(far_root, rel) if rel != os.curdir else far_root)
+    return None
 
 
 def remote_root(zone: Zone, mapping: Mapping[str, str]) -> str | None:
@@ -58,31 +76,28 @@ def remote_root(zone: Zone, mapping: Mapping[str, str]) -> str | None:
     module's established shape for an unresolvable path — `grants.output_paths`
     omits a slot with no pinned version rather than presenting it as empty.
     """
-    for local_root, far_root in mapping.items():
-        prefix = local_root.rstrip(os.sep)
-        if zone.root == prefix or zone.root.startswith(prefix + os.sep):
-            rel = os.path.relpath(zone.root, prefix)
-            return os.path.join(far_root, rel) if rel != os.curdir else far_root
-    return None
+    found = _match(zone, mapping)
+    return found[1] if found is not None else None
 
 
-def _ends(zone: Zone, mapping: dict[str, str], direction: Direction) -> tuple[str, str]:
-    """This zone's two sides. Per task, never the root (spec §5.3).
+def _ends(zone: Zone, mapping: dict[str, str], direction: Direction) -> tuple[str, str, str]:
+    """This zone's two sides, and the mapping key that produced them.
 
     Both reasons the spec gives were measured, and only one holds at the size
     measured: 20 tasks × 50 files is 108 ms for the whole root against 53 ms for
     one task, because rsync's fixed startup dominates. **The argument that holds
     here is correctness** — not touching another task's material.
     """
-    remote = remote_root(zone, mapping)
-    if remote is None:
+    found = _match(zone, mapping)
+    if found is None:
         raise KeyError(
             f"no mapping covers zone {zone.root!r} (have {sorted(mapping)}); "
             f"sync is per task and needs the task's own mapping"
         )
+    key, remote = found
     if direction is Direction.LOCAL_TO_REMOTE:
-        return zone.root, remote
-    return remote, zone.root
+        return zone.root, remote, key
+    return remote, zone.root, key
 
 
 def conflicts(src: str, dst: str) -> tuple[str, ...]:
@@ -110,38 +125,103 @@ def conflicts(src: str, dst: str) -> tuple[str, ...]:
     return tuple(sorted(found))
 
 
-def sync(zone: Zone, mapping: dict[str, str], *, direction: Direction) -> SyncReport:
+def sync(
+    zone: Zone,
+    mapping: dict[str, str],
+    *,
+    direction: Direction,
+    transports: Mapping[str, SyncTransport] | None = None,
+) -> SyncReport:
     """Once, at task start. Excludes the playground.
 
     ``--exclude playground/`` omits the contents but still creates the directory
     on the far side, empty — which is consistent with the remote having its own
     playground, and is what criterion 16's assertion must actually say.
+
+    **`transports` is keyed by the same `local_root` as `mapping`**, and a key
+    with no entry means both ends are on this machine — which is every
+    configuration before R1 and stays the default. The flags below never move
+    into the transport: `--delete` *is* spec §5.3's "made identical" and the
+    exclude *is* criterion 16, and `Connection.push` has neither.
     """
-    src, dst = _ends(zone, mapping, direction)
-    found = conflicts(src, dst)
-    os.makedirs(dst, exist_ok=True)
+    src, dst, key = _ends(zone, mapping, direction)
+    conn: SyncTransport = (transports or {}).get(key) or LocalConnection()
+    rsh, prefix = conn.rsync_spec()
+    # Only the *far* end takes the prefix. Which end that is follows from the
+    # direction, and getting it backwards would address the wrong machine.
+    far_is_dst = direction is Direction.LOCAL_TO_REMOTE
+    found = _conflicts_across(conn, src, dst, remote_dst=far_is_dst and bool(prefix))
+
+    playground_dst = os.path.join(dst, PLAYGROUND)
+    if far_is_dst and prefix:
+        _checked(conn.run(["mkdir", "-p", dst, playground_dst]), f"mkdir -p {dst}")
+    else:
+        os.makedirs(dst, exist_ok=True)
+
     rsync = shutil.which("rsync")
     if rsync is None:
         raise RuntimeError("rsync is not installed; the one-shot sync has no mechanism")
-    proc = subprocess.run(
-        [
-            rsync,
-            "-a",
-            "--delete",
-            "--stats",
-            f"--exclude={PLAYGROUND}/**",
-            src.rstrip(os.sep) + os.sep,
-            dst.rstrip(os.sep) + os.sep,
-        ],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    os.makedirs(os.path.join(dst, PLAYGROUND), exist_ok=True)
+    cmd = [rsync, "-a", "--delete", "--stats", f"--exclude={PLAYGROUND}/**"]
+    if rsh:
+        cmd += ["-e", " ".join(rsh)]
+    src_arg = src.rstrip(os.sep) + os.sep
+    dst_arg = dst.rstrip(os.sep) + os.sep
+    if far_is_dst:
+        dst_arg = prefix + dst_arg
+    else:
+        src_arg = prefix + src_arg
+    proc = subprocess.run([*cmd, src_arg, dst_arg], capture_output=True, text=True, check=True)
+
+    if far_is_dst and prefix:
+        # `--exclude` omits the contents and rsync then does not create the
+        # directory either, so criterion 16's empty far-side playground is made
+        # explicitly. Repeated after the copy because `--delete` removes it.
+        _checked(conn.run(["mkdir", "-p", playground_dst]), f"mkdir -p {playground_dst}")
+    else:
+        os.makedirs(playground_dst, exist_ok=True)
     return SyncReport(
         sent=_stat(proc.stdout, "Number of regular files transferred"),
         received=_stat(proc.stdout, "Number of deleted files"),
         conflicts=found,
+    )
+
+
+def _checked(proc: subprocess.CompletedProcess[str], what: str) -> None:
+    if proc.returncode != 0:
+        raise RuntimeError(f"{what} failed on the far side: rc={proc.returncode} {proc.stderr!r}")
+
+
+def _conflicts_across(
+    conn: SyncTransport, src: str, dst: str, *, remote_dst: bool
+) -> tuple[str, ...]:
+    """The pre-pass, or a refusal — **never a silent skip**.
+
+    `conflicts` is `filecmp` over two local trees. Across a host boundary there
+    is no local read of the far side, so it cannot run, and open question 4 —
+    what replaces it — is unanswered. What is *not* in question is what to do
+    meanwhile: `PrepareRefused` exists because rsync cannot report both-sides-
+    changed, so a pre-pass that cannot run is a refusal and not a pass. Proceeding
+    as though it had checked would convert the one guard against silent data loss
+    into a comment.
+
+    **The exception is exact rather than convenient: a destination that does not
+    exist yet has nothing to conflict with.** `conflicts` already returns `()`
+    when either side is not a directory, and this is that same rule asked over
+    the wire. It is also the ordinary case — a zone is named per attempt, so the
+    far side is fresh almost every time — which is why the refusal below has to
+    be tested deliberately rather than waited for.
+    """
+    if not remote_dst:
+        return conflicts(src, dst)
+    probe = conn.run(["test", "-e", dst])
+    if probe.returncode != 0:
+        return ()
+    raise PrepareRefused(
+        f"the far side already has {dst!r} and the conflict pre-pass cannot read "
+        f"it: `conflicts` is filecmp over two local trees and there is no "
+        f"cross-host equivalent yet. Refusing rather than copying unchecked — "
+        f"rsync cannot report that both sides changed, which is the whole reason "
+        f"this pre-pass exists. Remove the far-side path, or sync a fresh zone."
     )
 
 

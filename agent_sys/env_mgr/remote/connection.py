@@ -22,7 +22,14 @@ from typing import Protocol
 
 from env_mgr.protocols import SyncReport
 
-__all__ = ["Connection", "DockerExec", "LocalConnection", "Ssh"]
+__all__ = [
+    "Connection",
+    "DockerExec",
+    "LocalConnection",
+    "Ssh",
+    "SyncTransport",
+    "sync_transport",
+]
 
 
 class Connection(Protocol):
@@ -33,6 +40,44 @@ class Connection(Protocol):
     def push(self, local: str, remote: str) -> SyncReport: ...
 
     def pull(self, remote: str, local: str) -> SyncReport: ...
+
+
+class SyncTransport(Connection, Protocol):
+    """A `Connection` that `sync` can also drive an ``rsync`` across.
+
+    **Two Protocols rather than one with an optional capability**, because
+    `docker cp` is not ``rsync`` and no amount of arranging makes it one. A
+    single Protocol whose third implementation accepted ``delete=True`` and
+    raised would be capability negotiation with the branch hidden one level
+    down — the matrix the main spec's structural decisions rule out, because
+    *"a matrix makes every caller branch on what a backend can do, and those
+    branches are untested in the configuration a site actually runs"*. Split in
+    two, *"this transport cannot sync"* is a type-level fact and no call site
+    branches on it.
+
+    **The name says `rsync` on purpose.** This seam is rsync-shaped: it hands
+    back the two things an ``rsync`` command line needs to address the far side
+    and nothing else. A neutral name would invite an implementation over
+    something that is not rsync, and whoever tried would rediscover the
+    distinction this split exists to record.
+
+    **What is deliberately *not* here: the copy's semantics.** ``--delete`` is
+    the whole of spec §5.3's *"local and remote are made identical"* and
+    ``--exclude=playground/**`` is criterion 16, and both belong to `sync`. A
+    transport that could drop either silently is exactly the defect this split
+    was written to avoid — `Connection.push` has neither flag, so routing
+    `sync` through it would have lost both with every existing test still green.
+    """
+
+    def rsync_spec(self) -> tuple[Sequence[str], str]:
+        """``(rsh_argv, path_prefix)``.
+
+        `rsh_argv` is what goes after ``rsync -e``, empty for a local copy.
+        `path_prefix` is prepended to a path on the far side — ``"host:"`` for
+        ssh, empty locally. `sync` builds the command; this only says how to
+        reach the other end.
+        """
+        ...
 
 
 def _rsync(src: str, dst: str, *, rsh: Sequence[str] = ()) -> SyncReport:
@@ -90,8 +135,20 @@ class Ssh:
     def pull(self, remote: str, local: str) -> SyncReport:
         return _rsync(f"{self.host}:{remote}", local, rsh=("ssh", *self.options))
 
+    def rsync_spec(self) -> tuple[Sequence[str], str]:
+        return ("ssh", *self.options), f"{self.host}:"
+
 
 class DockerExec:
+    """**A `Connection` and deliberately not a `SyncTransport`.**
+
+    It exists for `remote.tools`, where the three methods are what an agent
+    needs to reach into a container. `docker cp` cannot express identity — no
+    ``--delete``, no exclude — so there is no honest `rsync_spec` for it, and
+    declaring one that raised would be the capability matrix `SyncTransport`'s
+    docstring rules out.
+    """
+
     def __init__(self, container: str) -> None:
         self.container = container
 
@@ -142,3 +199,34 @@ class LocalConnection:
 
     def pull(self, remote: str, local: str) -> SyncReport:
         return _rsync(remote, local)
+
+    def rsync_spec(self) -> tuple[Sequence[str], str]:
+        """No `-e`, no prefix. Both ends are ordinary paths on this machine."""
+        return (), ""
+
+
+def sync_transport(transport: str, target: str) -> SyncTransport:
+    """The declared `RemoteMapping.transport` / `.target`, as an object.
+
+    `meta.RemoteMapping` has carried both since it was written and **nothing
+    anywhere read either of them** — `mapping_roots()` returns local→remote
+    strings and drops the rest. This is the reader.
+
+    An unknown transport raises **here, at composition**, rather than at the
+    first copy. `docker` is the case that matters: it is a legitimate
+    `Connection` and cannot be a sync transport, so a mapping that asks for one
+    is a configuration fault and is named as one, at the point where a human is
+    reading configuration.
+    """
+    if transport == "ssh" and target:
+        return Ssh(target)
+    if not target:
+        # No far-side host: the two ends are paths on this machine. Spec §5.2's
+        # strong mapping, and what the R0 rung ran against.
+        return LocalConnection()
+    raise ValueError(
+        f"no sync transport for transport={transport!r} target={target!r}: "
+        f"`docker` can be a Connection but not a SyncTransport (docker cp "
+        f"cannot express --delete or an exclude); use ssh, or a shared mount "
+        f"with an empty target"
+    )

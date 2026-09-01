@@ -68,10 +68,20 @@ class Meta(NamedTuple):
             reg.register(name, root, DomainKind(kind))
         return reg
 
+    def weak(self) -> tuple[RemoteMapping, ...]:
+        """The mappings with something to copy. A **strong** one is the same
+        bytes on both sides — one mount — so there is nothing to synchronise.
+
+        The filter lives here and not in each caller: `mapping_roots` and the
+        transports built beside it must select the *same* mappings, and two
+        comprehensions each carrying `if m.strength is WEAK` is how they would
+        one day stop doing so.
+        """
+        return tuple(m for m in self.mappings if m.strength is Strength.WEAK)
+
     def mapping_roots(self) -> dict[str, str]:
-        """The local→remote root map `sync` takes. Weak mappings only: a strong
-        one is the same bytes and has nothing to copy."""
-        return {m.local_root: m.remote_root for m in self.mappings if m.strength is Strength.WEAK}
+        """The local→remote root map `sync` takes."""
+        return {m.local_root: m.remote_root for m in self.weak()}
 
 
 def configured_path(explicit: str | None = None) -> str:
