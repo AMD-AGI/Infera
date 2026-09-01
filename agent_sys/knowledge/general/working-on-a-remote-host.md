@@ -192,6 +192,21 @@ ran *this time*; the counts beside it then mean what they appear to mean. Two
 independent monotonic values are cheaper than reasoning about which one a cache
 or a replay could fake.
 
+**"In the same command" is the whole of it, and it is easy to satisfy the letter
+and miss the point.** The changing component has to come from the *same act of
+measurement* as the values it vouches for — not merely appear beside them in the
+same report. A wall clock read locally, or an elapsed time computed from a fixed
+start, is monotonic, correct, and proves nothing about the subject: it can be
+produced by arithmetic alone, by a reader that has stopped reading. It attests
+that **the writer ran**, which is a different and much weaker claim than **the
+values were re-taken**.
+
+So the test is not *"does something in this line change?"* but *"could this
+component have been produced without touching the subject?"* If it could, it is
+liveness for the reporter and nothing more. A far-side `uptime` passes because
+obtaining it requires the round trip that the counts also travelled; a local
+timestamp fails because it does not.
+
 **This is the dual of the non-vacuity control and it is easy to have only one of
 them.** A control proves a check *can fail*. A changing component proves the
 check *is still running*. A monitor with the first and not the second will hold
