@@ -211,18 +211,8 @@ class VariantRegistry:
             for wid in [w for w in self._per_worker if not alive(w)]:
                 del self._per_worker[wid]
 
-    def snapshot(self) -> list[tuple[str, str]]:
-        """``(worker_id, label)``, sorted, so a diff between two snapshots is
-        readable."""
-        with self._lock:
-            return sorted((wid, v.label()) for wid, v in self._per_worker.items())
-
-    def distinct(self) -> int:
-        """How many distinct variants the fleet is running.
-
-        This is the number worth watching before trusting any of this: a fleet
-        that reports 1 never needed the per-worker tier, and one that reports 2+
-        is a fleet where a single fleet-wide flag could not have been right.
-        """
-        with self._lock:
-            return len({v.id for v in self._per_worker.values()} | {self._fleet.id})
+    # How many distinct variants the fleet runs is the number worth watching
+    # before trusting any of this -- 1 means the per-worker tier was never
+    # needed, 2+ means no single fleet-wide flag could have been right. It is
+    # the label cardinality of `infera_router_render_variant`, so it is read
+    # off the metric rather than counted here.

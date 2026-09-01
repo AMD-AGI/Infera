@@ -340,21 +340,11 @@ impl VariantRegistry {
         out
     }
 
-    /// How many distinct variants the fleet is running, per model. This is the
-    /// number worth watching before trusting any of this: a fleet that reports
-    /// 1 everywhere never needed the per-worker tier, and one that reports 2+
-    /// is a fleet where a single fleet-wide flag could not have been right.
-    pub fn distinct(&self) -> usize {
-        let g = self
-            .per_worker
-            .read()
-            .expect("variant registry rwlock poisoned");
-        let mut ids: Vec<u64> = g.values().map(|v| v.id()).collect();
-        ids.push(self.fleet.id());
-        ids.sort_unstable();
-        ids.dedup();
-        ids.len()
-    }
+    // How many distinct variants the fleet runs is the number worth watching
+    // before trusting any of this -- 1 everywhere means the per-worker tier was
+    // never needed, 2+ means no single fleet-wide flag could have been right.
+    // It is the label cardinality of `infera_router_render_variant`, so it is
+    // read off the metric rather than counted here.
 }
 
 #[cfg(test)]
@@ -403,19 +393,5 @@ mod registry_tests {
         reg.retain(|id| id == "w2");
         assert_eq!(reg.snapshot().len(), 1);
         assert_eq!(reg.for_worker("w1").id(), 0, "back to the fleet default");
-    }
-
-    #[test]
-    fn distinct_counts_the_fleet_default_too() {
-        let reg = VariantRegistry::default();
-        assert_eq!(reg.distinct(), 1, "empty fleet default, nothing reported");
-        reg.record("w1", RenderVariant::default());
-        assert_eq!(reg.distinct(), 1, "a worker agreeing adds nothing");
-        reg.record("w2", variant(json!({"reasoning_effort": "high"})));
-        assert_eq!(
-            reg.distinct(),
-            2,
-            "this is the fleet a single flag cannot serve"
-        );
     }
 }

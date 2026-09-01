@@ -122,20 +122,15 @@ def test_the_kill_switch_pins_everything_to_the_flag():
 
 
 def test_a_departed_worker_is_forgotten():
+    """Asserted through `for_worker`, the only accessor the policy uses: a
+    variant that outlives its worker keeps a hash-cache key alive for a worker
+    that will never be asked about again."""
     reg = VariantRegistry()
     reg.record("w1", _v({"reasoning_effort": "low"}))
     reg.record("w2", _v({"reasoning_effort": "low"}))
     reg.retain(lambda wid: wid == "w2")
-    assert [wid for wid, _ in reg.snapshot()] == ["w2"]
-
-
-def test_distinct_counts_the_fleet_default_too():
-    reg = VariantRegistry(_v({"reasoning_effort": "high"}))
-    assert reg.distinct() == 1
-    reg.record("w1", _v({"reasoning_effort": "high"}))
-    assert reg.distinct() == 1, "a uniform fleet must not look heterogeneous"
-    reg.record("w2", _v({"reasoning_effort": "low"}))
-    assert reg.distinct() == 2
+    assert reg.for_worker("w1").is_empty(), "back to the fleet default"
+    assert reg.for_worker("w2").label() == 'reasoning_effort="low"'
 
 
 # ----------------------------------------------------------------------
