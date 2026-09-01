@@ -161,7 +161,7 @@ class TrainingConfig:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def decode_kernels_per_layer(model_config) -> int:
+def decode_kernels_per_layer(model_config, sparse_attention_topk: int = 0) -> int:
     """How many kernels one transformer layer issues in a decode step.
 
     A decode step is largely a stream of small kernels, and their number is set
@@ -181,6 +181,12 @@ def decode_kernels_per_layer(model_config) -> int:
                      router projection, top-k selection, the permutation that
                      groups tokens by expert, and the combine that undoes it.
       shared expert  its own gate/up, activation and down, run every step.
+      indexer        sparse attention has to decide what to attend to before it
+                     can attend: a query projection, the score against the
+                     index cache, the top-k, and the gather of the pages it
+                     picked. These run every decode step and cannot be skipped,
+                     which is why the selection is cheap in arithmetic and not
+                     cheap in time.
 
     Collectives are excluded: they are modelled separately, and charging them
     here as well would count the same microseconds twice.
@@ -211,6 +217,9 @@ def decode_kernels_per_layer(model_config) -> int:
 
     if int(getattr(model_config, "moe_shared_expert_intermediate_size", 0) or 0) > 0:
         kernels += 3
+
+    if int(sparse_attention_topk or 0) > 0:
+        kernels += 4  # index projection, score, top-k, gather
 
     return kernels
 

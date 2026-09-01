@@ -1134,7 +1134,23 @@ class InferencePerformanceProjector:
         # only the attention sub-profiler's compute.  ``attn_mult`` scales the
         # whole attention forward (Triton baseline = 1.0); ``sparse_scale``
         # shrinks attention toward ``topk/context`` for long contexts (NSA).
-        sparse_scale = self.cfg.request_config.resolved_sparse_attention_scale(kv_len)
+        #
+        # Decode gets no top-k credit, for the same reason and on the same
+        # evidence as the sliding window above. Selecting a thousand keys out of
+        # a hundred thousand is a decisive saving in a prefill, where attention
+        # is quadratic and the kernel is compute-bound. A decode step is neither:
+        # it is a streaming read of the cache, the indexer still has to score
+        # every token to choose, and what it then gathers is scattered across
+        # pages. Charging the discount there made the step twice as fast as it
+        # measures on both DeepSeek-V4-Pro and MiniMax-M3, on both vendors, over
+        # 96 trace rows at ~130k context -- and withdrawing it moves DeepSeek-V4
+        # from 0.53x of measured TPOT to 0.83x on MI355X and 0.94x on GB300,
+        # while the fixed-shape 8k sweep, where the floor barely binds, does not
+        # move at all.
+        sparse_scale = (
+            1.0 if phase == "decode"
+            else self.cfg.request_config.resolved_sparse_attention_scale(kv_len)
+        )
         if self._attn_backend_mult != 1.0 or sparse_scale != 1.0:
             factor = self._attn_backend_mult * sparse_scale
             if has_dense:
@@ -1371,7 +1387,10 @@ class InferencePerformanceProjector:
 
         return self.cfg.request_config.resolved_decode_occupancy_ms(
             self.cfg.model_config.num_layers,
-            decode_kernels_per_layer(self.cfg.model_config),
+            decode_kernels_per_layer(
+                self.cfg.model_config,
+                self.cfg.request_config.sparse_attention_topk,
+            ),
         )
 
     def _launch_latency_floor_ms(self) -> float:

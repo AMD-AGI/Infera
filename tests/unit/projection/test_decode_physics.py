@@ -390,3 +390,39 @@ def test_expert_gemm_keeps_near_ideal_relief_when_sharded(name, k, ffn, experts)
         "measurement puts it at 6.85-7.54x of the ideal 8x"
     )
 
+
+def test_sparse_attention_is_a_prefill_saving_and_not_a_decode_one():
+    """Top-k selection changes what a prefill computes, not what a decode reads.
+
+    Choosing 1,024 keys out of a long context removes most of a quadratic,
+    compute-bound kernel, so the prefill gets cheaper. A decode step is a
+    streaming read of the cache in which the indexer still scores every token
+    before it can pick any, and what it picks is scattered across pages -- so
+    the step does not get cheaper in proportion, and crediting it as if it did
+    made DeepSeek-V4 and MiniMax-M3 decode at about half their measured TPOT
+    across 96 long-context trace rows on both vendors.
+    """
+    dense = project_spec(model="deepseek_v3", input_len=32768, concurrency=8)
+    sparse = project_spec(
+        model="deepseek_v3", input_len=32768, concurrency=8, sparse_attention_topk=1024
+    )
+
+    assert sparse["ttft_ms"] < dense["ttft_ms"], (
+        "top-k selection should make the prefill cheaper "
+        f"({dense['ttft_ms']:.1f} -> {sparse['ttft_ms']:.1f} ms)"
+    )
+    assert sparse["decode_step_ms"] >= dense["decode_step_ms"], (
+        "the decode step took a top-k credit: "
+        f"{dense['decode_step_ms']:.3f} -> {sparse['decode_step_ms']:.3f} ms"
+    )
+    # It should in fact cost a little more, because the indexer is four more
+    # kernels on every layer and they run whether or not the selection pays off.
+    from infera.projection.core.projection.training_config import (
+        resolve_decode_occupancy_us,
+    )
+
+    indexer_ms = 61 * 4 * resolve_decode_occupancy_us("mi355x") / 1000.0
+    assert sparse["decode_step_ms"] - dense["decode_step_ms"] == pytest.approx(
+        indexer_ms, rel=0.05
+    ), "the decode step is not paying for the indexer it has to run"
+

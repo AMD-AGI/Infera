@@ -104,6 +104,7 @@ def project_spec(**overrides):
         ("--decode-kernel-occupancy-us", "decode_kernel_occupancy_us"),
         ("--gpu-cost-per-hour", "gpu_cost_per_hour"),
         ("--attention-dp-size", "attn_dp"),
+        ("--sparse-attention-topk", "sparse_attention_topk"),
     ):
         if spec.get(key) is not None:
             argv += [flag, str(spec[key])]
