@@ -10,15 +10,21 @@ only; FP8 dsv4 runs on **SGLang / ATOM** only; **Flash-FP8 needs MTP**, which
 Infera turns on for you.
 ```
 
-Infera detects a local DeepSeek-V4 checkpoint at startup (variant from model
-dimensions, quant from `quantization_config`), enforces the support matrix, and
-sets the functional env + CLI a supported combination needs. Unsupported
-combinations **fail fast** with an actionable message instead of running degraded
-or silently wrong. Infera does **not** patch third-party engines.
+Infera detects a local DeepSeek-V4 checkpoint at startup, enforces the support
+matrix, and sets the functional env + CLI a supported combination needs.
+Unsupported combinations **fail fast** with an actionable message instead of
+running degraded or silently wrong. Infera does **not** patch third-party engines.
+
+Variant comes from the model's dimensions (Pro: 7168 hidden / 61 layers; Flash:
+4096 / 43). Quant is **the routed experts' dtype**, which is not what
+`quantization_config` reports: every dsv4 checkpoint declares `quant_method:
+fp8`, because that describes the attention half. The experts are declared
+separately in a top-level `expert_dtype`, and where that key is absent Infera
+reads the dtype off the safetensors headers rather than trusting the config.
 
 ## Support matrix
 
-On gfx942 (MI325X), per variant × quant × engine:
+On gfx942 (MI300X / MI325X), per variant × quant × engine:
 
 | Variant | Quant | vLLM | SGLang | ATOM |
 |---|---|:---:|:---:|:---:|
@@ -29,6 +35,29 @@ On gfx942 (MI325X), per variant × quant × engine:
 
 ✅ supported · ❌ fails fast (use the engine that supports the combo) · **(MTP)**
 = speculative decoding applied automatically (see below).
+
+## Which checkpoint to hand which engine
+
+The matrix above is about the experts' dtype, so in practice it is a choice
+between three published checkpoints:
+
+| Checkpoint | Size | Experts | Serve on |
+|---|---:|---|---|
+| `deepseek-ai/DeepSeek-V4-Pro` | 806 GiB | MXFP4 | vLLM |
+| `deepseek-ai/DeepSeek-V4-Flash` | 149 GiB | MXFP4 | vLLM |
+| `sgl-project/DeepSeek-V4-Flash-FP8` | 274 GiB | block-FP8 | SGLang, ATOM |
+
+**On a 192 GiB card, Flash-FP8 is the only dsv4 checkpoint SGLang and ATOM can
+serve**, and the reason is capacity rather than support. Both engines could in
+principle unpack MXFP4 experts to FP8 at load — each needs a source patch to do
+it — but for Pro the result does not fit: 186.5 GiB of unpacked weights a card at
+tp8, plus ~9.25 GiB the runtime holds outside PyTorch, against 191.98 usable. The
+upstream `sgl-project/DeepSeek-V4-Pro-FP8` is those same weights already unpacked
+(~1.6 TB, 200 GiB a card at tp8) and lands in the same place. Flash-FP8 needs
+34.2 GiB a card at tp8 and 68.5 at tp4, so no patch and no arithmetic is
+involved.
+
+A 256 GiB MI325X changes the Pro answer and nothing else here.
 
 ## Why these rules
 
@@ -44,6 +73,19 @@ On gfx942 (MI325X), per variant × quant × engine:
   decode diverges. Routing decode through a speculative (EAGLE / MTP) path avoids
   the broken kernel. Infera enables MTP automatically for Flash-FP8; Pro-FP8 is
   correct without it and does not get it.
+
+```{admonition} The MTP rule is inherited from MI325X and unverified on MI300X
+:class: warning
+Both halves of the bullet above — that the Flash decode kernel is broken, and
+that the depths below are the right way around it — arrive from the MI325X
+bring-up, and nothing on the MI300X fleet has measured either. They are carried
+because they are the only recipe that exists and they are at least self-consistent
+(SGLang requires `num_draft_tokens == num_steps + 1` for dsv4; the checkpoint
+ships one draft layer, `num_nextn_predict_layers: 1`, which the extra steps
+re-run). A Flash row that comes back **correct with the speculative flags
+removed** would falsify the premise, and is worth reporting rather than
+discarding.
+```
 
 ## What Infera sets automatically
 

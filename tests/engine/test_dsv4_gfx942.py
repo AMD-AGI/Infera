@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import struct
 
 import pytest
 
@@ -17,6 +18,32 @@ import infera.engine.dsv4_gfx942 as d
 def _write_config(tmp_path, cfg: dict) -> str:
     (tmp_path / "config.json").write_text(json.dumps(cfg))
     return str(tmp_path)
+
+
+def _write_checkpoint(tmp_path, cfg: dict, expert_dtype: str) -> str:
+    """Write a minimal checkpoint whose routed expert has ``expert_dtype``."""
+    path = _write_config(tmp_path, cfg)
+    weight = "model.layers.0.mlp.experts.0.down_proj.weight"
+    shard = "model-00001-of-00001.safetensors"
+    header = json.dumps(
+        {
+            weight: {
+                "dtype": expert_dtype,
+                "shape": [1, 1],
+                "data_offsets": [0, 1],
+            },
+            "model.layers.0.mlp.shared_experts.down_proj.weight": {
+                "dtype": "F8_E4M3",
+                "shape": [1, 1],
+                "data_offsets": [1, 2],
+            },
+        }
+    ).encode()
+    (tmp_path / shard).write_bytes(struct.pack("<Q", len(header)) + header)
+    (tmp_path / "model.safetensors.index.json").write_text(
+        json.dumps({"weight_map": {weight: shard}})
+    )
+    return path
 
 
 # Minimal representative configs (dims are the discriminators).
@@ -48,6 +75,23 @@ def test_detect_flash_fp8(tmp_path):
     p = _write_config(tmp_path, {**_FLASH, **_FP8_QC})
     m = d.detect_dsv4(p)
     assert m is not None and m.variant == "flash" and m.quant == "fp8"
+
+
+def test_detect_real_flash_fp4_uses_expert_dtype(tmp_path):
+    # The real FP4 checkpoint is hybrid: quantization_config describes its FP8
+    # attention, while expert_dtype describes the MXFP4 routed experts.
+    p = _write_config(tmp_path, {**_FLASH, "expert_dtype": "fp4", **_FP8_QC})
+    m = d.detect_dsv4(p)
+    assert m is not None and m.variant == "flash" and m.quant == "fp4"
+
+
+@pytest.mark.parametrize(("ondisk", "expected"), [("I8", "fp4"), ("F8_E4M3", "fp8")])
+def test_detect_flash_without_expert_dtype_probes_expert_weights(tmp_path, ondisk, expected):
+    # Flash-FP8 omits expert_dtype. Probe the actual routed-expert dtype before
+    # falling back to quantization_config, which says fp8 for both checkpoints.
+    p = _write_checkpoint(tmp_path, {**_FLASH, **_FP8_QC}, ondisk)
+    m = d.detect_dsv4(p)
+    assert m is not None and m.variant == "flash" and m.quant == expected
 
 
 def test_detect_non_dsv4_returns_none(tmp_path):
