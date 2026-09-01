@@ -60,6 +60,16 @@ class Meta(NamedTuple):
     domains: tuple[tuple[str, str, str], ...] = ()  # name, root, kind
     mappings: tuple[RemoteMapping, ...] = ()
     system_set: tuple[Granted, ...] = DEFAULT_SYSTEM_SET
+    #: Far-side roots this site accepts as **destroyable**. `sync` runs
+    #: ``rsync --delete``, so a mapping decides what gets deleted — on a remote
+    #: machine, from a file somebody edits. `sync.check_delete_scope` refuses any
+    #: weak mapping whose `remote_root` is not under one of these.
+    #:
+    #: **Empty by default, and empty refuses.** An allow-list rather than a
+    #: deny-list of `/`, `/usr`, `/home`: the next dangerous root is always the
+    #: one nobody thought to add. Stating it here makes the acceptance explicit,
+    #: reviewable, and attached to the mapping it authorises.
+    deletable_roots: tuple[str, ...] = ()
 
     def registry(self) -> DomainRegistry:
         """Register every declared domain. Idempotent, so this is also reload."""
@@ -131,6 +141,7 @@ def load(path: str) -> Meta:
             for g in raw.get("system_set", ())
         )
         or DEFAULT_SYSTEM_SET,
+        deletable_roots=tuple(raw.get("deletable_roots", ())),
     )
 
 
@@ -168,6 +179,7 @@ def save(meta: Meta, path: str) -> None:
         "system_set": [
             {"path": g.path, "mode": g.mode.name, "optional": g.optional} for g in meta.system_set
         ],
+        "deletable_roots": list(meta.deletable_roots),
     }
     os.makedirs(os.path.dirname(path) or os.curdir, exist_ok=True)
     tmp = f"{path}.tmp"

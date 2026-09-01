@@ -49,6 +49,7 @@ from env_mgr import meta
 from env_mgr.prepare import EnvManager, permissions_enforced
 from env_mgr.protocols import NoConfinement, PrepareRefused, UnresolvedGrant
 from env_mgr.remote.connection import sync_transport
+from env_mgr.sync import check_delete_scope
 from monitor import (
     NullUserSink,
     check_liveness,
@@ -494,6 +495,12 @@ def _registry(
     # Both views come from `Meta.weak()` so they cannot select different mappings.
     configuration = meta.load(meta.configured_path())
     mapping = configuration.mapping_roots()
+    # **Before anything runs.** `sync` runs `rsync --delete` and this file aims
+    # it, at a machine nobody is watching. Refusing here means a bad meta file
+    # fails at start-up naming the offending root, rather than at the first copy
+    # having already been believed. The operator's `rm` hook cannot help: it
+    # intercepts a shell `rm`, and this deletion happens inside `rsync`.
+    check_delete_scope(mapping, configuration.deletable_roots)
     transports = {m.local_root: sync_transport(m.transport, m.target) for m in configuration.weak()}
     context = build_context(
         layout,
