@@ -157,7 +157,15 @@ def test_a_run_builds_the_transport_its_mapping_declared(
     registry = _registry(package_root, layout, Stream(), resume=False, variables={})
     ctx = registry.get("env_mgr")._ctx
 
-    assert set(ctx.transports) == set(ctx.mapping), "a transport under an unmatched key is unusable"
+    # **True of this fixture, and false as a general rule** — the equality holds
+    # because every mapping here is weak. R1b's configuration is the
+    # counterexample and it was run: one `strong` mapping leaves `ctx.mapping`
+    # empty and `ctx.transports` holding an `Ssh`, and the agent still got its
+    # tools, because `_remote_tools` resolves against `far_roots`. So what this
+    # asserts is that a **weak** mapping's transport is reachable under the key
+    # `sync` will look it up by; it does not say a transport needs a `mapping`
+    # entry to be usable.
+    assert set(ctx.transports) == set(ctx.mapping), "a weak mapping's transport must share its key"
     transport = ctx.transports["/var/tmp/example/state"]
     assert isinstance(transport, Ssh) and transport.host == "somehost"
 
