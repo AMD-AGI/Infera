@@ -177,6 +177,26 @@ instances, all real:
 found", first assert that it *can* find something — otherwise a reader that
 silently returns nothing makes every downstream assertion pass.
 
+**A probe whose expected answer is "no change" must carry a component that
+*must* change.** Otherwise its success and its failure are the same string, and
+a stuck instrument reports correctly-shaped good news forever with nothing in
+the output to prompt a check. This is the harder case, because every other
+instrument fault surfaces by accident eventually — a count that looks wrong, a
+banner where a row should be — whereas "unchanged" is the *expected* reading, so
+nothing ever looks off.
+
+It costs nothing to close: put a clock, an uptime, a sequence number — anything
+monotonic on the far side — in the same command as the counts you are watching.
+A far-side timestamp equal to your own at the moment you read it says the command
+ran *this time*; the counts beside it then mean what they appear to mean. Two
+independent monotonic values are cheaper than reasoning about which one a cache
+or a replay could fake.
+
+**This is the dual of the non-vacuity control and it is easy to have only one of
+them.** A control proves a check *can fail*. A changing component proves the
+check *is still running*. A monitor with the first and not the second will hold
+a green reading through the whole incident it exists to catch.
+
 **Agreement between tools is not corroboration if they share a cache.** Several
 readers can return the same wrong answer from one stale cache entry. On a
 networked filesystem, attribute caching means **"I read it and it said X"
