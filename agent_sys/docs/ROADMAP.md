@@ -147,6 +147,44 @@ Knowledge handoffs carry versions, timestamps, and checksums in the alpha — th
 simple version. Later, a **knowledge record system** is called every time
 knowledge storage is updated, so the accumulation is itself auditable.
 
+### 4.1 **P0 — organise the agent-facing prompt corpus; `knowledge/` is a holding pen**
+
+`agent_sys/knowledge/general/` exists and has its first document
+(`working-on-a-remote-host.md`, distilled 2026-09-01 from the remote-mode stage).
+**It is parked there, not designed there.** Nothing reads it: `knowledge` is a
+*handoff kind* resolved by `agent/registry.py:check_knowledge`, and a directory
+on disk is not a handoff. So today the corpus reaches an agent only if a package
+author copies from it by hand.
+
+**What P0 has to settle**, and the ordering matters because the second question
+is the reason the first is not obvious:
+
+1. **Where agent-facing text lives, as one decision rather than four.** There are
+   currently at least four channels carrying instructions to an agent — the
+   backend's system prompt, `CLAUDE.md` (repository and package), a task
+   package's `assets/<name>.task/readme.md`, and tool descriptions. They were
+   settled one at a time and nothing states which fact belongs in which.
+2. **Who owns which fact.** The remote stage produced the one worked example and
+   it generalises: *identity is the module's, intent is the package's.* `env_mgr`
+   names the far side because only it can know it; the package says whether the
+   work happens there, because only it can know that. A fact placed in the wrong
+   voice is either re-said by every package until one forgets, or asserted by a
+   module that has no standing to assert it.
+3. **How general knowledge reaches a run.** Either `knowledge/` gets packed into
+   knowledge handoffs at load time, or the composition root injects it, or it is
+   folded into the system prompt. Pick one; "an author copies it" is the current
+   answer and it is the one that decays.
+4. **Deduplication against `CLAUDE.md`.** Some of what is in the first document
+   already exists in stage briefs. Whatever the mechanism, a fact should have one
+   home, and the others should reference it.
+
+**P0 rather than P1** because it gates how *every* future task is briefed, and
+because the corpus is small enough today that restructuring it is cheap. It gets
+more expensive with every document added, and the first one is already written.
+
+**Not in scope here:** the audit/versioning half of §4 above. This is about
+placement and delivery of prompt-shaped text, not about recording updates to it.
+
 ## 5. Validator — deferred pieces
 
 | Item | Note |
