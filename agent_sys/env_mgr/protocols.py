@@ -291,6 +291,21 @@ class Context(NamedTuple):
     #: carries `validators/` too, and criterion 13's second route is **moved
     #: rather than closed**.
     package_stage: tuple[str, ...] | None = None
+    #: **How to reach the far side of each mapping, keyed by the same
+    #: `local_root` as `mapping`.** A key with no entry means both ends are on
+    #: this machine, which is every configuration before R1 and stays the
+    #: default — so an empty mapping here is not a degradation.
+    #:
+    #: A **sibling of `mapping` rather than a widening of it**: `sync.remote_root`
+    #: owns the walk over `mapping` and is cited by `paths.zone_env`, which wants
+    #: *where does this zone live over there* and has no use for a transport.
+    #: Widening the value type would have made every reader of that walk carry a
+    #: fact only `sync` needs.
+    #:
+    #: Typed `Any` rather than `SyncTransport` for one reason: `env_mgr.protocols`
+    #: is imported by `env_mgr.remote.connection`, so naming the class here would
+    #: be a cycle. `sync` is the only reader and it has the real type.
+    transports: Mapping[str, Any] = MappingProxyType({})
 
 
 class Prepared(NamedTuple):

@@ -107,3 +107,55 @@ def test_a_run_reads_its_weak_mappings_out_of_the_meta_file(
     assert _mapping_of(package_root, isolated_meta / "run") == {
         "/var/tmp/example/state": "/var/tmp/example/mirror"
     }
+
+
+def test_a_run_builds_the_transport_its_mapping_declared(
+    package_root: Path, isolated_meta: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The other half of the wiring, and the half that had no reader at all.
+
+    `RemoteMapping` has carried `transport` and `target` since it was written and
+    `mapping_roots()` dropped both, so a mapping could name a host and nothing
+    would ever go there. This asserts the run path turns them into an object on
+    `Context.transports`, keyed by the same `local_root` as `mapping` — because a
+    transport under a different key is a transport `sync` will never find.
+
+    Nothing connects: constructing an `Ssh` opens no session.
+    """
+    from env_mgr.remote.connection import Ssh
+
+    meta_path = isolated_meta / "meta.json"
+    meta_path.write_text(
+        json.dumps(
+            {
+                "domains": [],
+                "mappings": [
+                    {
+                        "local_root": "/var/tmp/example/state",
+                        "remote_root": "/data/yihou/handoffs",
+                        "strength": "weak",
+                        "transport": "ssh",
+                        "target": "somehost",
+                    }
+                ],
+                "system_set": [],
+            }
+        )
+    )
+    monkeypatch.setenv("ENV_MGR_META", str(meta_path))
+    layout = layout_for(isolated_meta / "run").create()
+    registry = _registry(package_root, layout, Stream(), resume=False, variables={})
+    ctx = registry.get("env_mgr")._ctx
+
+    assert set(ctx.transports) == set(ctx.mapping), "a transport under an unmatched key is unusable"
+    transport = ctx.transports["/var/tmp/example/state"]
+    assert isinstance(transport, Ssh) and transport.host == "somehost"
+
+
+def test_a_run_with_no_meta_file_builds_no_transports(
+    package_root: Path, isolated_meta: Path
+) -> None:
+    """The control. Empty is the shipped configuration and stays inert."""
+    layout = layout_for(isolated_meta / "run").create()
+    registry = _registry(package_root, layout, Stream(), resume=False, variables={})
+    assert dict(registry.get("env_mgr")._ctx.transports) == {}

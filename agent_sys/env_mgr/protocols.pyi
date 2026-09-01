@@ -103,6 +103,7 @@ class Context(NamedTuple):
     agent_cli: str | None = None
     package: str | None = None
     package_stage: tuple[str, ...] | None = None
+    transports: Mapping[str, Any] = ...
 
 class Prepared(NamedTuple):
     zone: Zone

@@ -421,7 +421,14 @@ def prepare(
 
     report = _NO_SYNC  # 5
     if ctx.mapping:
-        report = _sync.sync(zone, dict(ctx.mapping), direction=Direction.LOCAL_TO_REMOTE)
+        report = _sync.sync(
+            zone,
+            dict(ctx.mapping),
+            direction=Direction.LOCAL_TO_REMOTE,
+            # Keyed by the same `local_root` as the mapping. Absent means both
+            # ends are local, which is the pre-R1 shape and still the default.
+            transports=getattr(ctx, "transports", None),
+        )
     if report.conflicts:
         raise PrepareRefused(
             f"sync found {len(report.conflicts)} path(s) changed on both sides: "
