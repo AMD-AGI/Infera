@@ -145,6 +145,25 @@ async fn metrics(State(st): State<AppState>) -> impl IntoResponse {
             escape_label_value(&model),
         ));
     }
+    // Survives the worker, unlike the gauge above: `retain` drops a departed
+    // worker's series, so a fleet rolling THROUGH broken replicas leaves no
+    // gauge behind to alert on. Mirrors the Python router's counter of the
+    // same name -- an alert on `increase(...[1h]) > 0` used to be silently
+    // dead on this backend.
+    let diverged = st.policy.render_parity_diverged();
+    if !diverged.is_empty() {
+        out.push_str(
+            "# HELP infera_router_render_parity_diverged_total workers ever found to render \
+                 prompts differently from this router\n\
+             # TYPE infera_router_render_parity_diverged_total counter\n",
+        );
+        for (model, n) in diverged {
+            out.push_str(&format!(
+                "infera_router_render_parity_diverged_total{{model=\"{}\"}} {n}\n",
+                escape_label_value(&model),
+            ));
+        }
+    }
     // The server-side template defaults each worker reported. Watch the number
     // of DISTINCT variant labels before trusting any of this: 1 means the fleet
     // is uniform and a single --kv-default-chat-template-kwargs would have been

@@ -207,8 +207,8 @@ fn a_departed_worker_stops_being_reported() {
     // is how a fixed fleet keeps paging.
     let reg = ParityRegistry::default();
     for id in ["w1", "w2"] {
-        assert!(reg.claim(id));
-        reg.record(id, "glm53", Parity::Confirmed);
+        let epoch = reg.claim(id, "glm53").expect("first claim");
+        reg.record(id, epoch, "glm53", Parity::Confirmed);
     }
     reg.retain(|id| id == "w2");
     assert_eq!(
@@ -223,10 +223,80 @@ fn a_worker_is_only_probed_once() {
     // between discovery snapshots. Without a claim, every snapshot spawns
     // another probe against a worker still answering the last one.
     let reg = ParityRegistry::default();
-    assert!(reg.claim("w1"));
-    assert!(!reg.claim("w1"), "a probe is already in flight");
-    reg.record("w1", "glm53", Parity::Confirmed);
-    assert!(!reg.claim("w1"), "this one already has a verdict");
+    let epoch = reg.claim("w1", "glm53").expect("first claim");
+    assert!(
+        reg.claim("w1", "glm53").is_none(),
+        "a probe is already in flight"
+    );
+    reg.record("w1", epoch, "glm53", Parity::Confirmed);
+    assert!(
+        reg.claim("w1", "glm53").is_none(),
+        "this one already has a verdict"
+    );
+}
+
+#[test]
+fn an_unknown_verdict_is_retried() {
+    // `Unknown` means the probe never reached the engine -- a worker still
+    // starting, a transient 503. Treating it as final pins -1 for the life of
+    // the router on a worker that is now perfectly answerable.
+    let reg = ParityRegistry::default();
+    let epoch = reg.claim("w1", "glm53").expect("first claim");
+    reg.record("w1", epoch, "glm53", Parity::Unknown);
+    let again = reg
+        .claim("w1", "glm53")
+        .expect("an Unknown must be re-probed");
+    reg.record("w1", again, "glm53", Parity::Confirmed);
+    assert_eq!(
+        reg.snapshot(),
+        vec![("w1".to_string(), "glm53".to_string(), 1)]
+    );
+    assert!(
+        reg.claim("w1", "glm53").is_none(),
+        "and a settled verdict stays settled"
+    );
+}
+
+#[test]
+fn a_stale_probe_cannot_consume_a_replacement_probes_reservation() {
+    // Probe #1 in flight -> worker leaves -> `retain` clears it -> worker
+    // rejoins -> probe #2 claims. Keyed by worker id alone, probe #1's
+    // `record` consumed probe #2's reservation: the DEAD instance's verdict
+    // was written, probe #2's fresh one was dropped as "left the fleet", and
+    // `claim` refused forever after.
+    let reg = ParityRegistry::default();
+    let stale = reg.claim("w1", "glm53").expect("probe #1");
+    reg.retain(|_| false);
+    let fresh = reg
+        .claim("w1", "glm53")
+        .expect("probe #2 after it rejoined");
+    assert_ne!(stale, fresh);
+
+    reg.record("w1", stale, "glm53", Parity::Diverged);
+    assert!(
+        reg.snapshot().is_empty(),
+        "the dead instance's verdict must not land"
+    );
+
+    reg.record("w1", fresh, "glm53", Parity::Confirmed);
+    assert_eq!(
+        reg.snapshot(),
+        vec![("w1".to_string(), "glm53".to_string(), 1)]
+    );
+}
+
+#[test]
+fn an_abandoned_probe_gives_its_reservation_back() {
+    // Claiming happens in the caller and recording only inside the spawned
+    // task. Without `release`, a client that would not build (or a panic)
+    // strands every claimed worker: never re-probed, and no gauge series at
+    // all -- which reads as "this policy does no parity checking".
+    let reg = ParityRegistry::default();
+    let epoch = reg.claim("w1", "glm53").expect("claim");
+    reg.release("w1", epoch);
+    let again = reg.claim("w1", "glm53").expect("must be claimable again");
+    reg.record("w1", again, "glm53", Parity::Confirmed);
+    assert_eq!(reg.snapshot().len(), 1);
 }
 
 #[test]
@@ -236,9 +306,9 @@ fn a_verdict_for_a_departed_worker_is_dropped() {
     // it is slowest to answer. Recording behind `retain`'s back resurrects the
     // gauge for a worker that is gone.
     let reg = ParityRegistry::default();
-    assert!(reg.claim("w1"));
+    let epoch = reg.claim("w1", "glm53").expect("claim");
     reg.retain(|_| false);
-    reg.record("w1", "glm53", Parity::Diverged);
+    reg.record("w1", epoch, "glm53", Parity::Diverged);
     assert!(reg.snapshot().is_empty());
 }
 
@@ -252,8 +322,8 @@ fn the_gauge_encoding_keeps_diverged_distinct_from_unchecked() {
         ("b", Parity::Diverged),
         ("c", Parity::Unknown),
     ] {
-        assert!(reg.claim(id));
-        reg.record(id, "m", verdict);
+        let epoch = reg.claim(id, "m").expect("claim");
+        reg.record(id, epoch, "m", verdict);
     }
     let v: Vec<i8> = reg.snapshot().into_iter().map(|(_, _, g)| g).collect();
     assert_eq!(v, vec![1, 0, -1]);

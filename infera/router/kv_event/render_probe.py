@@ -30,6 +30,7 @@ cache, and now we know that at startup instead of at post-mortem.
 from __future__ import annotations
 
 import asyncio
+import functools
 import logging
 from dataclasses import dataclass
 
@@ -151,10 +152,29 @@ async def engine_render_variant(client, worker: WorkerInfo) -> RenderVariant | N
         if not isinstance(parsed, dict):
             return None
         # sglang has served this both flat and nested under `server_args`.
-        field = parsed.get("default_chat_template_kwargs")
-        if field is None and isinstance(parsed.get("server_args"), dict):
-            field = parsed["server_args"].get("default_chat_template_kwargs")
-        return RenderVariant.from_default_chat_template_kwargs(field)
+        args = parsed.get("server_args") if isinstance(parsed.get("server_args"), dict) else {}
+        if "default_chat_template_kwargs" in parsed:
+            return RenderVariant.from_default_chat_template_kwargs(
+                parsed["default_chat_template_kwargs"]
+            )
+        if "default_chat_template_kwargs" in args:
+            return RenderVariant.from_default_chat_template_kwargs(
+                args["default_chat_template_kwargs"]
+            )
+        # Answered, but does not carry the field at all -- an engine older than
+        # the flag, a renamed key, a proxy that trims the payload. That is "we
+        # could not ask", not "it has none": returning the empty variant here
+        # would be RECORDED against this worker, and `for_worker` prefers a
+        # recorded entry over the fleet default, so an operator who set
+        # --kv-default-chat-template-kwargs to match their fleet would have it
+        # silently discarded for every worker and every request.
+        logger.debug(
+            "render probe: %s answered %s without default_chat_template_kwargs; "
+            "keeping the router's existing assumption for this worker",
+            worker.url,
+            path,
+        )
+        return None
     return None
 
 
@@ -182,6 +202,7 @@ async def probe_worker(
     bodies = bodies if bodies is not None else PROBE_BODIES
     variant = variant if variant is not None else EMPTY_VARIANT
     unknown: list[str] = []
+    declined: list[str] = []
     mismatches: list[str] = []
     # An injected client is the caller's to close.
     owned = client is None
@@ -196,14 +217,33 @@ async def probe_worker(
                 # --default-chat-template-kwargs) second. The other way round,
                 # a Responses probe body silently loses the variant and the
                 # probe reports parity the live path does not have.
-                ours = hasher.token_ids_for(
-                    variant.apply(responses_input.normalised(body)), engine=worker.engine
+                # Off the event loop. The first call for a model can trigger a
+                # synchronous `AutoTokenizer.from_pretrained` / sglang
+                # `get_tokenizer` -- filesystem, possibly the HF hub -- and this
+                # runs from the discovery hook, so during a rollout the router
+                # would dispatch nothing for the seconds that takes. The
+                # per-body `apply_chat_template` + `encode` are cheaper but add
+                # up over four bodies per worker.
+                ours = await asyncio.get_running_loop().run_in_executor(
+                    None,
+                    functools.partial(
+                        hasher.token_ids_for,
+                        variant.apply(responses_input.normalised(body)),
+                        engine=worker.engine,
+                    ),
                 )
                 if ours is None:
-                    # Not a divergence: the router already knows it cannot
-                    # reproduce this body and routes it on load. Silent
-                    # WRONGNESS is the thing this probe exists to find.
-                    unknown.append(f"{name}: router declined to render")
+                    # NOT folded in with "engine did not answer". The two look
+                    # alike -- neither produced a comparison -- and mean
+                    # opposite things. An engine that cannot be asked is a
+                    # limit on the probe. A body the ROUTER declined is a
+                    # kv-aware outage for that request shape, already decided,
+                    # on this worker: those requests hash to nothing and route
+                    # on load. Reporting it as a gap and then returning
+                    # Confirmed is how a worker whose every tool-carrying
+                    # prompt is unhashable exports the same green 1 as a worker
+                    # that matched on all four.
+                    declined.append(f"{name}: router declined to render")
                     continue
                 theirs = await _engine_token_ids(client, worker, body)
                 if theirs is None:
@@ -216,10 +256,19 @@ async def probe_worker(
 
     if mismatches:
         return ProbeResult(False, "; ".join(mismatches))
-    if unknown and len(unknown) == len(bodies):
-        return ProbeResult(None, "; ".join(unknown))
-    if unknown:
-        return ProbeResult(True, f"matched, with gaps: {'; '.join(unknown)}")
+    if declined and len(declined) < len(bodies):
+        # PARTIAL decline is the dangerous shape, and `False` is the honest
+        # verdict: the router demonstrably renders for this model, just not for
+        # these request shapes, so those requests hash to nothing and route on
+        # load while the rest look fine. Folded into `unknown` it returned
+        # Confirmed, and under the documented "alert on 0" rule a worker whose
+        # every tool-carrying prompt was unhashable read as verified-good.
+        return ProbeResult(False, "; ".join(declined + unknown))
+    if declined or unknown:
+        # Nothing rendered at all (a router with no tokenizer configured), or
+        # the engine never answered. Neither is a statement about this worker's
+        # render, so neither may claim one.
+        return ProbeResult(None, "; ".join(declined + unknown))
     return ProbeResult(True, f"matched on {len(bodies)} probe bodies")
 
 
@@ -275,16 +324,32 @@ def spawn_probe(
     *,
     report,
     variants: VariantRegistry | None = None,
+    epoch: int | None = None,
+    release=None,
 ) -> None:
     """Fire-and-forget `probe_worker`, if there is a loop to fire it on.
 
     Called from the registry's synchronous worker-added hook. Outside a running
     loop (unit tests, sync embedders) this does nothing rather than spinning up
     an event loop behind the caller's back.
+
+    `release(worker_id, epoch)` hands the caller's reservation back on every
+    path that does not reach `report` -- the engine is not sglang, the model is
+    already ruled out, there is no loop, or the task raised. The caller claims
+    before spawning (it has to: a probe takes longer than the gap between
+    discovery snapshots), so a path that neither reports nor releases strands
+    the worker as permanently in-flight: never re-probed, and never given a
+    gauge series at all.
     """
+
+    def _release() -> None:
+        if release is not None and epoch is not None:
+            release(worker.worker_id, epoch)
+
     if worker.engine != EngineType.SGLANG:
         # /v1/tokenize is sglang's. vLLM's equivalent differs in both path and
         # payload; probing it blindly would just produce 404 noise.
+        _release()
         return
     if not hasher.can_render(worker.model_name, worker.engine):
         # This model's tokenizer has already been ruled out, so every body would
@@ -293,27 +358,44 @@ def spawn_probe(
         # /get_server_info round trip is all that would be left of it. Mirrors
         # the Rust probe's `hasher.is_enabled()` gate. Not a guarantee in the
         # other direction: a model nothing has tried yet still gets probed.
+        _release()
         return
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
+        _release()
         return
 
     async def _run() -> None:
         import httpx
 
-        variant = None
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            # Ask what it renders with BEFORE checking whether we agree, so the
-            # verdict is about the render we will actually route on.
-            if variants is not None and variants.per_worker_enabled:
-                variant = await engine_render_variant(client, worker)
-                if variant is not None:
-                    variants.record(worker.worker_id, variant)
-            if variant is None and variants is not None:
-                variant = variants.for_worker(worker.worker_id)
-            result = await probe_worker(hasher, worker, client=client, variant=variant)
-        report(worker, result)
+        # Everything between the caller's claim and `report` runs under this:
+        # `probe_worker` self-insures, but the client construction, the variant
+        # read and `report` itself do not, and an exception (or a cancellation
+        # at loop shutdown) escaping here would leave the reservation held for
+        # the life of the router.
+        try:
+            variant = None
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                # Ask what it renders with BEFORE checking whether we agree, so
+                # the verdict is about the render we will actually route on.
+                if variants is not None and variants.per_worker_enabled:
+                    variant = await engine_render_variant(client, worker)
+                    if variant is not None:
+                        variants.record(worker.worker_id, variant)
+                if variant is None and variants is not None:
+                    variant = variants.for_worker(worker.worker_id)
+                result = await probe_worker(hasher, worker, client=client, variant=variant)
+            if epoch is None:
+                report(worker, result)
+            else:
+                report(worker, result, epoch)
+        except asyncio.CancelledError:
+            _release()
+            raise
+        except Exception:
+            logger.exception("render probe: task failed for %s", worker.worker_id)
+            _release()
 
     task = loop.create_task(_run())
     # Hold a reference: a bare create_task can be garbage-collected mid-flight.

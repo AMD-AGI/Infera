@@ -68,6 +68,13 @@ pub trait Policy: Send + Sync {
     fn render_variants(&self) -> Vec<(String, String)> {
         Vec::new()
     }
+
+    /// `(model, count)` of workers ever judged diverged. Unlike the gauge this
+    /// outlives the worker, so a fleet that rolls through broken replicas
+    /// leaves a trace.
+    fn render_parity_diverged(&self) -> Vec<(String, u64)> {
+        Vec::new()
+    }
 }
 
 /// RAII load guard: `start` fires `on_request_started`; `Drop` fires
@@ -655,6 +662,10 @@ impl Policy for KvEventAwarePolicy {
 
     fn render_variants(&self) -> Vec<(String, String)> {
         self.variants.snapshot()
+    }
+
+    fn render_parity_diverged(&self) -> Vec<(String, u64)> {
+        self.parity.diverged_totals()
     }
 
     fn sync_workers(&self, active_workers: &[Arc<Worker>]) {

@@ -27,7 +27,8 @@
 //! traffic, it just cannot be trusted to hit cache -- and now we know that at
 //! startup instead of at post-mortem.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use serde_json::{json, Value};
@@ -127,50 +128,117 @@ pub struct ParityRegistry {
     /// between discovery snapshots, so `state` alone does not answer "have we
     /// already asked this one" -- every snapshot would spawn another probe
     /// against a worker still answering the last one.
-    pending: Mutex<HashSet<String>>,
+    /// worker_id -> the epoch of the probe currently reserved for it. Keyed by
+    /// probe, not by worker: a bare set cannot tell one probe from the next, so
+    /// a probe still in flight when its worker left and rejoined would consume
+    /// the REPLACEMENT probe's reservation, write the dead instance's verdict,
+    /// and send the fresh one down the "left the fleet mid-probe" path -- after
+    /// which `claim` refuses forever and the gauge is stuck on a verdict about
+    /// an engine that is gone.
+    pending: Mutex<HashMap<String, u64>>,
+    next_epoch: AtomicU64,
+    /// model -> how many workers have ever been judged `Diverged`.
+    ///
+    /// The gauge cannot answer this: `retain` drops a worker's series the
+    /// moment it leaves, so a fleet that rolls THROUGH broken replicas -- each
+    /// one diverged, each one replaced before anyone looked -- leaves no trace
+    /// at all. A counter survives the worker, which is the whole reason the
+    /// Python side has one; this port exported the gauge and not the counter,
+    /// so an alert written on it silently never fired on --router-backend rust.
+    diverged: Mutex<HashMap<String, u64>>,
 }
 
 impl ParityRegistry {
-    /// Reserve this worker for a probe, or `false` if one is already running or
-    /// finished. Reserving and probing are separate steps, so this must be
-    /// called before the spawn, not inside it.
-    pub fn claim(&self, worker_id: &str) -> bool {
-        if self
+    /// Reserve this worker for a probe, returning the epoch to record under, or
+    /// `None` if one is already running or its verdict already stands.
+    /// Reserving and probing are separate steps, so this must be called before
+    /// the spawn, not inside it -- which is also why every path that abandons a
+    /// probe has to `release`.
+    ///
+    /// An `Unknown` verdict is not final: it means the probe could not reach
+    /// the engine, and a worker that was merely slow to start would otherwise
+    /// export -1 for the life of the router.
+    pub fn claim(&self, worker_id: &str, model: &str) -> Option<u64> {
+        if let Some((m, v)) = self
             .state
             .lock()
             .expect("parity registry mutex poisoned")
-            .contains_key(worker_id)
+            .get(worker_id)
         {
-            return false;
+            if *v != Parity::Unknown && m == model {
+                return None;
+            }
         }
-        self.pending
-            .lock()
-            .expect("parity pending mutex poisoned")
-            .insert(worker_id.to_string())
+        let mut pending = self.pending.lock().expect("parity pending mutex poisoned");
+        if pending.contains_key(worker_id) {
+            return None;
+        }
+        let epoch = self.next_epoch.fetch_add(1, Ordering::Relaxed);
+        pending.insert(worker_id.to_string(), epoch);
+        Some(epoch)
     }
 
     /// Store a finished probe's verdict -- unless the worker left the fleet
-    /// while it was in flight, in which case the verdict is dropped rather than
-    /// re-inserted behind `retain`'s back. A probe outlives its worker often
-    /// enough to matter: it holds a 10s timeout per body against a worker that
-    /// may be shutting down, which is exactly when it is slowest to answer.
-    pub fn record(&self, worker_id: &str, model: &str, verdict: Parity) {
-        let claimed = self
-            .pending
-            .lock()
-            .expect("parity pending mutex poisoned")
-            .remove(worker_id);
-        if !claimed {
-            tracing::debug!(
-                worker = worker_id,
-                "render probe: worker left the fleet mid-probe; verdict dropped"
-            );
-            return;
+    /// while it was in flight, or this probe's reservation has since been
+    /// superseded, in which case the verdict is dropped rather than written
+    /// behind `retain`'s back. A probe outlives its worker often enough to
+    /// matter: it holds a 10s timeout per body against a worker that may be
+    /// shutting down, which is exactly when it is slowest to answer.
+    pub fn record(&self, worker_id: &str, epoch: u64, model: &str, verdict: Parity) {
+        {
+            let mut pending = self.pending.lock().expect("parity pending mutex poisoned");
+            if pending.get(worker_id) != Some(&epoch) {
+                tracing::debug!(
+                    worker = worker_id,
+                    "render probe: reservation gone (worker left, or superseded by a \
+                     later probe); verdict dropped"
+                );
+                return;
+            }
+            pending.remove(worker_id);
+        }
+        if verdict == Parity::Diverged {
+            *self
+                .diverged
+                .lock()
+                .expect("parity diverged mutex poisoned")
+                .entry(model.to_string())
+                .or_insert(0) += 1;
         }
         self.state
             .lock()
             .expect("parity registry mutex poisoned")
             .insert(worker_id.to_string(), (model.to_string(), verdict));
+    }
+
+    /// `(model, count)` for the exposition. Never pruned by `retain`: outliving
+    /// the worker is the point.
+    pub fn diverged_totals(&self) -> Vec<(String, u64)> {
+        let mut out: Vec<_> = self
+            .diverged
+            .lock()
+            .expect("parity diverged mutex poisoned")
+            .iter()
+            .map(|(m, n)| (m.clone(), *n))
+            .collect();
+        out.sort();
+        out
+    }
+
+    /// Hand a reservation back unused.
+    ///
+    /// Claiming happens in the caller and recording only inside the spawned
+    /// task, so every path that abandons the probe in between -- a client that
+    /// would not build, a panic, runtime shutdown -- must come through here.
+    /// Without it those workers sit in `pending` forever: `claim` refuses them
+    /// on every later snapshot, `state` never gains a row, and `/metrics`
+    /// exports no series at all for them, which reads as "this policy does no
+    /// parity checking" rather than "we never managed to ask".
+    pub fn release(&self, worker_id: &str, epoch: u64) {
+        let mut pending = self.pending.lock().expect("parity pending mutex poisoned");
+        if pending.get(worker_id) == Some(&epoch) {
+            pending.remove(worker_id);
+        }
     }
 
     /// Forget workers that left the fleet. A gauge keyed by `worker_id` that
@@ -184,7 +252,7 @@ impl ParityRegistry {
         self.pending
             .lock()
             .expect("parity pending mutex poisoned")
-            .retain(|id| alive(id));
+            .retain(|id, _| alive(id));
     }
 
     /// `(worker_id, model, gauge value)` for the metrics exposition.
@@ -229,10 +297,31 @@ pub async fn engine_render_variant(
         }
         let parsed: Value = resp.json().await.ok()?;
         // sglang has served this both flat and nested under `server_args`.
-        let field = parsed
+        // `Value::get` answers PRESENCE, so an explicit `null`/`{}` still
+        // arrives as `Some` and is recorded as the empty variant -- the engine
+        // genuinely has no defaults, and that must win over a fleet flag which
+        // does not apply to this worker.
+        if let Some(field) = parsed
             .get("default_chat_template_kwargs")
-            .or_else(|| parsed.pointer("/server_args/default_chat_template_kwargs"));
-        return Some(RenderVariant::from_default_chat_template_kwargs(field));
+            .or_else(|| parsed.pointer("/server_args/default_chat_template_kwargs"))
+        {
+            return Some(RenderVariant::from_default_chat_template_kwargs(Some(
+                field,
+            )));
+        }
+        // Answered, but does not carry the field at all -- an engine older than
+        // the flag, a renamed key, a proxy that trims the payload. That is "we
+        // could not ask", not "it has none". Returning the empty variant here
+        // would have it RECORDED against this worker, and `for_worker` prefers
+        // a recorded entry over the fleet default, so an operator who set
+        // --kv-default-chat-template-kwargs to match their fleet would have it
+        // silently discarded for every worker and every request.
+        tracing::debug!(
+            url = %base_url, path,
+            "render probe: answered without default_chat_template_kwargs; keeping the \
+             router's existing assumption for this worker"
+        );
+        return None;
     }
     None
 }
@@ -252,6 +341,7 @@ pub async fn probe_worker(
 ) -> (Parity, String) {
     let bodies = probe_bodies();
     let mut unknown: Vec<String> = Vec::new();
+    let mut declined: Vec<String> = Vec::new();
     let mut mismatches: Vec<String> = Vec::new();
 
     for (name, template) in &bodies {
@@ -264,10 +354,17 @@ pub async fn probe_worker(
         // a parity the live path does not have.
         let normalised = crate::responses_input::normalised(&body);
         let Some(ours) = hasher.token_ids_for(&variant.apply(&normalised)) else {
-            // Not a divergence: the router already knows it cannot reproduce
-            // this body and routes it on load. Silent WRONGNESS is the thing
-            // this probe exists to find.
-            unknown.push(format!("{name}: router declined to render"));
+            // NOT folded in with "engine did not answer". The two look alike --
+            // neither produced a comparison -- and mean opposite things. An
+            // engine that cannot be asked is a limit on the probe. A body the
+            // ROUTER declined is a kv-aware outage for that request shape, on
+            // this worker, already decided: those requests hash to nothing and
+            // route on load. Reporting it as a gap and then returning
+            // `Confirmed` is how a DSv4 worker, whose two tool-carrying probe
+            // bodies `render_dsv4` refuses and whose model ships no chat
+            // template, exports the same green 1 as a worker that matched on
+            // all four.
+            declined.push(format!("{name}: router declined to render"));
             continue;
         };
         match engine_token_ids(client, &worker.url, &body).await {
@@ -280,14 +377,23 @@ pub async fn probe_worker(
     if !mismatches.is_empty() {
         return (Parity::Diverged, mismatches.join("; "));
     }
-    if unknown.len() == bodies.len() {
-        return (Parity::Unknown, unknown.join("; "));
+    if !declined.is_empty() && declined.len() < bodies.len() {
+        // PARTIAL decline is the dangerous shape, and `Diverged` is the honest
+        // verdict: the router demonstrably renders for this model, just not for
+        // these request shapes, so those requests hash to nothing and route on
+        // load while the rest look fine. Folded into `unknown` it returned
+        // `Confirmed`, and under the documented "alert on 0" rule a DSv4 worker
+        // -- whose two tool-carrying probe bodies `render_dsv4` refuses and
+        // whose model ships no chat template -- read as verified-good.
+        declined.extend(unknown);
+        return (Parity::Diverged, declined.join("; "));
     }
-    if !unknown.is_empty() {
-        return (
-            Parity::Confirmed,
-            format!("matched, with gaps: {}", unknown.join("; ")),
-        );
+    if !declined.is_empty() || !unknown.is_empty() {
+        // Nothing rendered at all (a hasher with no tokenizer), or the engine
+        // never answered. Neither is a statement about this worker's render,
+        // so neither may claim one.
+        declined.extend(unknown);
+        return (Parity::Unknown, declined.join("; "));
     }
     (
         Parity::Confirmed,
@@ -373,14 +479,17 @@ pub fn spawn_probes(
     if !hasher.is_enabled() || tokio::runtime::Handle::try_current().is_err() {
         return;
     }
-    let todo: Vec<Arc<Worker>> = workers
+    let todo: Vec<(Arc<Worker>, u64)> = workers
         .iter()
         // `/v1/tokenize` is sglang's. vLLM's equivalent differs in both path
         // and payload, so probing it blindly would only produce 404 noise --
         // and an `Unknown` we never asked an honest question to earn.
         .filter(|w| w.engine.eq_ignore_ascii_case("sglang"))
-        .filter(|w| registry.claim(&w.worker_id))
-        .cloned()
+        .filter_map(|w| {
+            registry
+                .claim(&w.worker_id, &w.model_name)
+                .map(|epoch| (Arc::clone(w), epoch))
+        })
         .collect();
     if todo.is_empty() {
         return;
@@ -392,11 +501,18 @@ pub fn spawn_probes(
         {
             Ok(c) => c,
             Err(e) => {
+                // Claimed in the caller, so give every reservation back or
+                // these workers are never probed again -- and export no gauge
+                // series at all, which reads as "no parity checking here"
+                // rather than "we never managed to ask".
                 tracing::debug!(err = %e, "render probe: no http client");
+                for (w, epoch) in &todo {
+                    registry.release(&w.worker_id, *epoch);
+                }
                 return;
             }
         };
-        for w in todo {
+        for (w, epoch) in todo {
             // Ask what it renders with BEFORE checking whether we agree, so the
             // parity verdict is about the render we will actually route on.
             let variant = if variants.per_worker_enabled() {
@@ -433,7 +549,7 @@ pub fn spawn_probes(
                     "kv-aware: render verified against this worker"
                 ),
             }
-            registry.record(&w.worker_id, &w.model_name, verdict);
+            registry.record(&w.worker_id, epoch, &w.model_name, verdict);
         }
     });
 }

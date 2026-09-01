@@ -23,11 +23,12 @@ from infera.common.worker_pool import EngineType, WorkerInfo
 from infera.router.kv_event.block_hasher import BlockHasher
 from infera.router.kv_event.render_probe import (
     PROBE_BODIES,
+    ProbeResult,
     engine_render_variant,
     probe_worker,
     spawn_probe,
 )
-from infera.router.kv_event.render_variant import RenderVariant
+from infera.router.kv_event.render_variant import RenderVariant, VariantRegistry
 
 _BODIES = {"plain": {"messages": [{"role": "user", "content": "hi"}]}}
 
@@ -133,10 +134,10 @@ async def test_an_unreachable_worker_never_raises():
 
 
 @pytest.mark.asyncio
-async def test_a_body_the_router_declines_is_not_a_divergence():
-    """`token_ids_for` returning None means the router already knows it can't
-    reproduce this body and will route it on load — a known gap, honestly
-    handled. The probe exists to find the cases where we are confidently wrong."""
+async def test_a_router_that_can_render_nothing_is_unknown_not_diverged():
+    """Declining EVERY body says nothing about this worker -- it is a router
+    with no usable tokenizer, a deployment choice rather than a fault. Only a
+    PARTIAL decline is a statement about the worker (see the next test)."""
 
     class _Declining(_Hasher):
         def token_ids_for(self, body, *, engine=None):
@@ -151,8 +152,28 @@ async def test_a_body_the_router_declines_is_not_a_divergence():
     client = _client(handler)
     got = await probe_worker(_Declining(), _worker(), bodies=_BODIES, client=client)
     assert got.ok is None
+    assert "declined" in got.detail
     assert calls == []  # and it didn't bother the engine to find out
     await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_one_declined_body_among_matching_ones_still_fails():
+    """The partial case is the dangerous one: `plain` matches, `tools` does not
+    render, and the worker used to come back Confirmed."""
+    declined = {"tools"}
+
+    class _PartlyDeclining(_Hasher):
+        def token_ids_for(self, body, *, engine=None):
+            return None if body.get("tools") else [1, 2, 3]
+
+    client = _client(lambda r: httpx.Response(200, json={"tokens": [1, 2, 3]}))
+    bodies = {"plain": {"messages": []}, "tools": {"messages": [], "tools": [{"x": 1}]}}
+    got = await probe_worker(_PartlyDeclining(), _worker(), bodies=bodies, client=client)
+    assert got.ok is False, "a matching body must not outvote an unhashable one"
+    assert "tools" in got.detail
+    await client.aclose()
+    assert declined  # keeps the intent legible
 
 
 @pytest.mark.asyncio
@@ -239,10 +260,27 @@ async def test_a_worker_that_cannot_be_asked_is_none_not_empty():
 
 
 @pytest.mark.asyncio
-async def test_a_worker_with_no_defaults_reports_the_empty_variant():
+async def test_a_worker_that_reports_no_defaults_gets_the_empty_variant():
+    """Explicitly `null`/`{}` means the engine HAS none -- record that, so it
+    wins over a fleet flag that does not apply to this worker."""
+    for payload in ({"default_chat_template_kwargs": None}, {"default_chat_template_kwargs": {}}):
+        client = _client(lambda r, p=payload: httpx.Response(200, json=p))
+        got = await engine_render_variant(client, _worker())
+        assert got is not None and got.is_empty()
+        await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_an_engine_that_does_not_report_the_field_is_not_an_empty_variant():
+    """The distinction the caller acts on. An engine older than the flag, a
+    renamed key, or a proxy that trims the payload answers 200 without the
+    field -- that is "could not ask", and returning the empty variant would
+    have it RECORDED, where `for_worker` prefers it over the fleet default and
+    silently discards the operator's --kv-default-chat-template-kwargs for
+    every worker and every request."""
     client = _client(lambda r: httpx.Response(200, json={"server_args": {"tp_size": 8}}))
     got = await engine_render_variant(client, _worker())
-    assert got is not None and got.is_empty()
+    assert got is None
     await client.aclose()
 
 
@@ -287,3 +325,81 @@ def test_the_gate_answers_not_known_to_be_broken(monkeypatch):
         BlockHasher, "_load", lambda *a, **k: pytest.fail("can_render must not load")
     )
     assert hasher.can_render("never-seen", EngineType.SGLANG)
+
+
+# ---- probe reservations ---------------------------------------------------
+
+
+class _Policy:
+    """The claim/record bookkeeping, isolated from the rest of the policy."""
+
+    def __init__(self):
+        from infera.router.policy.kv_event_aware import KvEventAwarePolicy
+
+        self.p = KvEventAwarePolicy.__new__(KvEventAwarePolicy)
+        self.p._parity_pending = {}
+        self.p._parity_labels = {}
+        self.p._parity_verdict = {}
+        self.p._parity_epoch = 0
+        self.p._variants = VariantRegistry()
+
+    def claim(self) -> int | None:
+        from infera.router.policy.kv_event_aware import _UNPROBED
+
+        if "w1" in self.p._parity_pending:
+            return None
+        settled = self.p._parity_verdict.get("w1", _UNPROBED)
+        if settled is not _UNPROBED and settled is not None:
+            return None
+        self.p._parity_epoch += 1
+        self.p._parity_pending["w1"] = self.p._parity_epoch
+        return self.p._parity_epoch
+
+
+def test_a_stale_probe_cannot_consume_a_replacement_probes_reservation():
+    """Probe #1 in flight -> worker leaves -> rejoins -> probe #2 claims.
+
+    Keyed by worker id alone, probe #1's report consumed probe #2's
+    reservation: the dead instance's verdict was written, the fresh one was
+    dropped as "left the fleet", and every later claim was refused.
+    """
+    pol = _Policy()
+    stale = pol.claim()
+    pol.p._parity_pending.clear()  # the worker departed
+    fresh = pol.claim()
+    assert stale != fresh
+
+    pol.p._report_render_parity(_worker(), ProbeResult(False, "x"), stale)
+    assert pol.p._parity_pending.get("w1") == fresh, "probe #2 must keep its reservation"
+    assert "w1" not in pol.p._parity_verdict, "the dead instance's verdict must not land"
+
+
+def test_an_unknown_verdict_is_retried_but_a_settled_one_is_not():
+    """`None` means the probe never reached the engine -- a worker still
+    starting, a transient 503. Treating it as final pins -1 for the life of the
+    router on a worker that is now perfectly answerable."""
+    pol = _Policy()
+    e = pol.claim()
+    pol.p._report_render_parity(_worker(), ProbeResult(None, "engine did not answer"), e)
+    again = pol.claim()
+    assert again is not None, "an unreachable engine must be asked again"
+
+    pol.p._report_render_parity(_worker(), ProbeResult(True, "ok"), again)
+    assert pol.claim() is None, "a settled verdict stays settled"
+
+
+@pytest.mark.asyncio
+async def test_an_abandoned_probe_gives_its_reservation_back():
+    """`spawn_probe` returns early for a non-sglang engine. The caller has
+    already claimed, so without `release` that worker is in-flight forever."""
+    released: list[tuple[str, int]] = []
+    w = _worker()
+    w.engine = EngineType.VLLM
+    spawn_probe(
+        _Hasher(),
+        w,
+        report=lambda *a: None,
+        epoch=7,
+        release=lambda wid, e: released.append((wid, e)),
+    )
+    assert released == [(w.worker_id, 7)]

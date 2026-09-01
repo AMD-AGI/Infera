@@ -89,6 +89,11 @@ _RECENT_DECAY = 0.97
 # multi-block request still outweighs it.
 _UNKNOWN_COST_BLOCKS = 1.0
 
+# Sentinel for "never probed", distinct from a recorded `None` verdict ("probed,
+# could not reach the engine"). The two must not collapse: the first has to be
+# probed, the second has to be RE-probed, and a settled True/False must not be.
+_UNPROBED = object()
+
 
 class KvEventAwarePolicy(Policy):
     """Pick the worker minimising
@@ -163,8 +168,18 @@ class KvEventAwarePolicy(Policy):
         # snapshots, so the gauge alone cannot answer "have we already asked
         # this one". `_parity_labels` remembers each worker's exact gauge labels
         # so removal does not have to read prometheus_client's internals.
-        self._parity_pending: set[str] = set()
+        # worker_id -> the epoch of the probe reserved for it. Keyed by probe,
+        # not by worker: a bare set cannot tell one probe from the next, so a
+        # probe still in flight when its worker left and rejoined consumed the
+        # REPLACEMENT probe's reservation -- writing the dead instance's
+        # verdict, dropping the fresh one, and refusing every later claim.
+        self._parity_pending: dict[str, int] = {}
         self._parity_labels: dict[str, str] = {}
+        # worker_id -> whether its settled verdict was conclusive. `None` (could
+        # not reach the engine) is not final: a worker that was merely slow to
+        # start would otherwise export -1 for the life of the router.
+        self._parity_verdict: dict[str, bool | None] = {}
+        self._parity_epoch = 0
 
     def _base_weight_for(self, role_hint: str | None) -> float:
         if role_hint == "prefill":
@@ -348,28 +363,65 @@ class KvEventAwarePolicy(Policy):
 
     def on_worker_added(self, worker: WorkerInfo) -> None:
         self._kv.on_worker_added(worker)
-        # Confirm, once, that what we render is what this worker renders. See
+        # Confirm that what we render is what this worker renders. See
         # render_probe: a divergence here is the one kv-aware failure that
         # produces no error anywhere, so it has to be actively looked for.
-        if worker.worker_id in self._parity_labels or worker.worker_id in self._parity_pending:
+        #
+        # Discovery now calls this again when a worker's record changes in
+        # place, so a worker restarted in the same Pod -- possibly with a
+        # different chat template or --default-chat-template-kwargs -- is
+        # re-read instead of keeping a verdict and a variant earned by the
+        # process that used to be there.
+        wid = worker.worker_id
+        if wid in self._parity_pending:
             return
-        self._parity_pending.add(worker.worker_id)
+        settled = self._parity_verdict.get(wid, _UNPROBED)
+        if settled is not _UNPROBED and settled is not None:
+            return
+        self._parity_epoch += 1
+        self._parity_pending[wid] = self._parity_epoch
         spawn_probe(
-            self._hasher, worker, report=self._report_render_parity, variants=self._variants
+            self._hasher,
+            worker,
+            report=self._report_render_parity,
+            variants=self._variants,
+            epoch=self._parity_epoch,
+            release=self._release_parity,
         )
 
-    def _report_render_parity(self, worker: WorkerInfo, result: ProbeResult) -> None:
-        if worker.worker_id not in self._parity_pending:
-            # The worker left the fleet while its probe was in flight. Setting
-            # the gauge now would resurrect a series `on_worker_removed` just
-            # dropped, and nothing sweeps it afterwards -- the router would
-            # export a verdict about something that is not running until it
-            # restarts.
+    def _release_parity(self, worker_id: str, epoch: int) -> None:
+        """Hand a reservation back unused.
+
+        Claiming happens here and recording only inside the probe task, so
+        every path that abandons the probe in between -- an exception building
+        the client, a cancelled task at shutdown, or `spawn_probe` returning
+        early because the engine is not sglang or there is no running loop --
+        has to come through here. Without it those workers sit in
+        `_parity_pending` forever: never re-probed, and never given a gauge.
+        """
+        if self._parity_pending.get(worker_id) == epoch:
+            del self._parity_pending[worker_id]
+
+    def _forget_parity(self, worker_id: str) -> None:
+        """Drop a settled verdict so the next registration re-probes."""
+        self._parity_verdict.pop(worker_id, None)
+
+    def _report_render_parity(
+        self, worker: WorkerInfo, result: ProbeResult, epoch: int | None = None
+    ) -> None:
+        if epoch is not None and self._parity_pending.get(worker.worker_id) != epoch:
+            # The worker left the fleet while this probe was in flight, or a
+            # later probe has since taken the reservation. Setting the gauge
+            # now would resurrect a series `on_worker_removed` just dropped, or
+            # overwrite a fresher verdict with a dead instance's.
             logger.debug(
-                "kv-aware: worker %s left the fleet mid-probe; verdict dropped", worker.worker_id
+                "kv-aware: worker %s probe reservation gone (left the fleet, or superseded); "
+                "verdict dropped",
+                worker.worker_id,
             )
             return
-        self._parity_pending.discard(worker.worker_id)
+        self._parity_pending.pop(worker.worker_id, None)
+        self._parity_verdict[worker.worker_id] = result.ok
         if result.ok is False:
             logger.error(
                 "kv-aware: worker %s (%s) does NOT render prompts the way this router "
@@ -439,7 +491,8 @@ class KvEventAwarePolicy(Policy):
         # The labels come from our own bookkeeping rather than from
         # prometheus_client's private `_metrics`, which is not API and whose
         # absence would raise here and abandon the rest of this method.
-        self._parity_pending.discard(worker_id)
+        self._parity_pending.pop(worker_id, None)
+        self._parity_verdict.pop(worker_id, None)
         model = self._parity_labels.pop(worker_id, None)
         if model is not None:
             try:
