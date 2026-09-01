@@ -968,3 +968,53 @@ today's run — and three packages composing a validation environment while
 **`agent` owes nothing either way**: `Assignment.agent_cli` is already the field,
 and `TaskAttempt.environment` already carries the resolved configuration a
 validation's producer row wants.
+
+### 9.3 **P1 — a finished AI task's CLI subprocess lives to the end of the run**
+
+Measured 2026-09-01, not inferred. `agent/backends/claude_sdk.py:_terminate` —
+which is the only caller of `self._client.disconnect()` — is reached solely from
+`ExecutorBase.stop()`, and:
+
+    stop()  <- TaskAttempt.halt()  <- Runner.stop()  <- Scheduler.stop()
+
+`Scheduler.stop` has **no caller outside `tests/`**, and normal completion never
+calls `stop()` at all. So on every path a run actually takes, no backend is ever
+disconnected.
+
+A per-poll descendant census over demo2 at `--var n_problems=2`, sampling every
+5 s (`scratch/review-ver1-2026-09/`, and the script is kept):
+
+           pid   first   last   alive     task
+       2299467      16    264     248     `directions`  — succeeded at t≈33
+       2309338      81    264     183     `problems`
+       2323081     178    264      86     solve_a / _b / _c, at the fan-out
+       2323109     178    264      86
+       2323117     178    264      86
+       run exited at t=270
+
+    departures after t=11 : 0
+    peak concurrent       : 5, and it never came down
+
+`directions` reached `final: succeeded` at log line 67; its CLI lived another
+three minutes. **The set is monotonically non-decreasing for the whole run.**
+A fourteen-task demo2 would end holding fourteen.
+
+**Why it is not just tidiness.** Each is a node process, and unrelated `claude`
+processes on the same box measured 237 MB–960 MB RSS. These five were not
+sampled before they exited, so the memory figure for *them* is not measured —
+but the count is, and it scales with the task graph rather than with concurrency.
+
+**Why it is not a one-line fix, and belongs here rather than in a review.** The
+missing call is a *lifecycle* decision, not a backend defect: something has to
+own "this attempt is over, release its executor", and today nothing does, because
+the only route was built for cancellation. Options, none free — call `stop()`
+from the completion path in `Runner` (but `stop()` also drains the inbox and
+settles, which a completed attempt has already done); give `ExecutorBase` a
+separate `release()`; or give `Scheduler.stop` the production caller it was
+written for. The third is the honest one and it is the largest.
+
+**Related and already recorded:** `Runner._attempts` is popped only in
+`Runner.stop()`, so an attempt's `TaskAttempt` — and its executor, and its event
+loop — is retained for the runner's lifetime by the same gap. Three file
+descriptors per loop, GC-reclaimed only when the reference goes, against
+`RLIMIT_NOFILE` of 1,048,576: not a hazard, and the same root.
