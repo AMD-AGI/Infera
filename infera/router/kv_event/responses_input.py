@@ -95,16 +95,77 @@ def to_chat_body(body: dict) -> dict | None:
     # hand on the dumps rather than the models.
     if chat_tools:
         out["tools"] = [t.model_dump() if hasattr(t, "model_dump") else t for t in chat_tools]
-        if request.tool_choice is not None:
-            out["tool_choice"] = _plain(request.tool_choice)
+        out["tool_choice"] = _chat_tool_choice(_effective_tool_choice(request))
     else:
-        # `tool_choice=request.tool_choice if chat_tools else "none"`.
+        # `tool_choice=... if chat_tools else "none"`.
         out["tool_choice"] = "none"
     # `reasoning_effort=request.reasoning.effort if request.reasoning else None`.
     effort = getattr(getattr(request, "reasoning", None), "effort", None)
     if effort is not None:
         out["reasoning_effort"] = effort
+    # `chat_template_kwargs=request.chat_template_kwargs` (serving_responses.py:592).
+    # Read off the *validated* request, not the raw body: `ResponsesRequest`'s
+    # `normalize_reasoning_to_thinking` validator folds `reasoning.effort ==
+    # "none"` into this dict, and dropping it renders a thinking preamble the
+    # engine does not.
+    ctk = getattr(request, "chat_template_kwargs", None)
+    if isinstance(ctk, dict) and ctk:
+        out["chat_template_kwargs"] = dict(ctk)
     return out
+
+
+def normalised(body: dict) -> dict:
+    """`body` in the shape every renderer downstream expects.
+
+    A chat body passes through; a Responses body becomes the chat body
+    `_make_request` builds. A Responses body we cannot reproduce comes back
+    unchanged -- still a Responses body, so `token_ids_for` refuses it exactly
+    as it would have.
+
+    Exists so the callers that rewrite a body BEFORE hashing it -- the policy
+    and the render probe, both applying a `RenderVariant` -- can run in the
+    engine's order. The engine normalises first (`_make_request`) and merges
+    `--default-chat-template-kwargs` second (`_process_messages`, which
+    `OpenAIServingResponses` inherits and calls on this path too). A variant
+    applied to a Responses body writes `chat_template_kwargs` and a promoted
+    top-level `reasoning_effort` onto fields the normalisation then rebuilds
+    from scratch, so the whole variant is dropped for `/v1/responses` and only
+    for `/v1/responses` -- a fleet launched with `--default-chat-template-kwargs`
+    hashes chat right and Responses wrong, in block 0.
+    """
+    if not is_responses_body(body):
+        return body
+    return to_chat_body(body) or body
+
+
+def _effective_tool_choice(request: Any) -> Any:
+    """`ResponsesRequest.effective_tool_choice()`.
+
+    Reduces `tool_choice` to what the server can honour: of the object forms
+    only a named `function` survives; web_search / mcp / ... become "auto".
+    Falls back to the raw field on an sglang too old to have the method.
+    """
+    fn = getattr(request, "effective_tool_choice", None)
+    if callable(fn):
+        return _plain(fn())
+    return _plain(getattr(request, "tool_choice", None))
+
+
+def _chat_tool_choice(tool_choice: Any) -> Any:
+    """`OpenAIServingResponses._chat_tool_choice` (serving_responses.py:988).
+
+    Re-nests `{"type":"function","name":X}` into the chat spelling
+    `{"type":"function","function":{"name":X}}`. Not cosmetic: `_chat_tools`
+    narrows the tool list by reading `tool_choice["function"]["name"]`, so the
+    flat form narrows nothing and the router renders every tool where the
+    engine renders one.
+    """
+    if not isinstance(tool_choice, dict):
+        return tool_choice
+    name = tool_choice.get("name")
+    if name is None:
+        return tool_choice
+    return {"type": "function", "function": {"name": name}}
 
 
 def _plain(value: Any) -> Any:

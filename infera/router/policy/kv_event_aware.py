@@ -18,6 +18,7 @@ from infera.router.cache_control import (
 from infera.router.kv_event.block_hasher import BlockHasher
 from infera.router.kv_event.client import KvEventClient
 from infera.router.kv_event.render_probe import ProbeResult, spawn_probe
+from infera.router.kv_event import responses_input
 from infera.router.kv_event.render_variant import VariantRegistry
 from infera.router.policy.base import Policy
 from infera.router.policy.target import RouteTarget, expand_targets
@@ -210,6 +211,14 @@ class KvEventAwarePolicy(Policy):
         #                  router is never told about it, and a fleet that is
         #                  uniform (the normal case) still yields exactly one
         #                  key here and hashes exactly once.
+        #
+        # Normalised BEFORE the variant is applied, and once for the whole
+        # fleet: the engine turns a `/v1/responses` body into a chat body
+        # (`_make_request`) and only then merges its server-side template
+        # defaults (`_process_messages`). Applying the variant first writes
+        # `chat_template_kwargs` onto a body the normalisation rebuilds from
+        # scratch, which drops the variant for `/v1/responses` alone.
+        base = responses_input.normalised(request)
         variant_of = {t.route_key: self._variants.for_worker(t.worker.worker_id) for t in targets}
         key_of: dict[str, tuple] = {
             t.route_key: (t.worker.engine, t.worker.kv_block_size, variant_of[t.route_key].id)
@@ -222,7 +231,7 @@ class KvEventAwarePolicy(Policy):
             if k is None or k in hashes_for:
                 continue
             hashes_for[k] = self._hasher.hash_for(
-                variant_of[t.route_key].apply(request), block_size=k[1], engine=k[0]
+                variant_of[t.route_key].apply(base), block_size=k[1], engine=k[0]
             )
 
         def blocks(t: RouteTarget) -> list[int]:

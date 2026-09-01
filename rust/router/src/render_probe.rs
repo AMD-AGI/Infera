@@ -257,7 +257,13 @@ pub async fn probe_worker(
     for (name, template) in &bodies {
         let mut body = template.clone();
         body["model"] = json!(worker.model_name);
-        let Some(ours) = hasher.token_ids_for(&variant.apply(&body)) else {
+        // Normalise before applying the variant, in the engine's order:
+        // `_make_request` first, `_process_messages` (which merges
+        // --default-chat-template-kwargs) second. The other way round, a
+        // Responses probe body silently loses the variant and the probe reports
+        // a parity the live path does not have.
+        let normalised = crate::responses_input::normalised(&body);
+        let Some(ours) = hasher.token_ids_for(&variant.apply(&normalised)) else {
             // Not a divergence: the router already knows it cannot reproduce
             // this body and routes it on load. Silent WRONGNESS is the thing
             // this probe exists to find.

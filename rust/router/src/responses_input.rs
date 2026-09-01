@@ -98,20 +98,138 @@ pub fn to_chat_body(body: &Value) -> Option<Value> {
         out.insert("tools".to_string(), Value::Array(tools));
     }
 
+    // `tool_choice=self._chat_tool_choice(request.effective_tool_choice()) if chat_tools
+    // else "none"`. Not decoration: both renderers read it. `chat_tools` drops the
+    // whole tool block on `"none"` and narrows the list to one function on a named
+    // choice, and `encoding_k3` emits an entire extra system turn for `"required"`
+    // and `"none"`. Dropping the field rendered `"auto"` for every Responses request
+    // -- on the very Kimi-K3 fleet this module was written for.
+    let has_tools = out.contains_key("tools");
+    out.insert(
+        "tool_choice".to_string(),
+        if has_tools {
+            chat_tool_choice(effective_tool_choice(body))
+        } else {
+            Value::String("none".to_string())
+        },
+    );
+
     // `reasoning_effort=request.reasoning.effort if request.reasoning else None`.
     // The Responses-level `reasoning` object is consumed here and deliberately not
     // forwarded: `encode_chat` refuses any body carrying one, because on the *chat*
     // path it rewrites `reasoning_effort` in ways that port does not model. On this
     // path the engine reads nothing from it but `.effort`, which is now explicit.
+    let mut effort: Option<&Value> = None;
     if let Some(reasoning) = body.get("reasoning").filter(|v| !v.is_null()) {
         // Anything other than an object is a 422 upstream, never a render.
         let obj = reasoning.as_object()?;
-        if let Some(effort) = obj.get("effort").filter(|v| !v.is_null()) {
-            out.insert("reasoning_effort".to_string(), effort.clone());
+        // The `ResponsesRequest` validator reads either spelling.
+        effort = obj
+            .get("effort")
+            .or_else(|| obj.get("reasoning_effort"))
+            .filter(|v| !v.is_null());
+        if let Some(e) = effort {
+            out.insert("reasoning_effort".to_string(), e.clone());
+        }
+    }
+
+    // `chat_template_kwargs=request.chat_template_kwargs` (serving_responses.py:592),
+    // as the `ResponsesRequest` validators leave it. Two steps, in their order:
+    //
+    // 1. `normalize_reasoning_to_thinking` turns `reasoning.effort == "none"` into
+    //    `{"thinking": false, "enable_thinking": false, **client_kwargs}` -- both
+    //    keys, because the families spell it differently, and the client's value
+    //    last so an explicit one wins.
+    // 2. the field is forwarded verbatim, and `template_context` spreads it into
+    //    the Jinja scope.
+    //
+    // Forwarding neither meant a Responses client could not turn thinking off at
+    // all as far as the router was concerned: it rendered the thinking preamble
+    // the engine had just been told to omit.
+    let client_kwargs = body.get("chat_template_kwargs").and_then(Value::as_object);
+    let effort_is_none = effort.and_then(Value::as_str) == Some("none");
+    if client_kwargs.is_some() || effort_is_none {
+        let mut ctk = Map::new();
+        if effort_is_none {
+            ctk.insert("thinking".to_string(), Value::Bool(false));
+            ctk.insert("enable_thinking".to_string(), Value::Bool(false));
+        }
+        if let Some(kwargs) = client_kwargs {
+            for (k, v) in kwargs {
+                ctk.insert(k.clone(), v.clone());
+            }
+        }
+        if !ctk.is_empty() {
+            out.insert("chat_template_kwargs".to_string(), Value::Object(ctk));
         }
     }
 
     Some(Value::Object(out))
+}
+
+/// `body` in the shape every renderer downstream expects.
+///
+/// A chat body passes through; a Responses body becomes the chat body
+/// `_make_request` builds. A Responses body we cannot reproduce comes back
+/// unchanged — still a Responses body, so `token_ids_for` refuses it exactly as
+/// it would have.
+///
+/// Exists for the callers that rewrite a body BEFORE hashing it — the policy and
+/// the render probe, both applying a [`RenderVariant`](crate::render_variant::RenderVariant).
+/// The engine normalises first (`_make_request`) and merges
+/// `--default-chat-template-kwargs` second (`_process_messages`, which
+/// `OpenAIServingResponses` inherits and reaches on this path too). Applying the
+/// variant first writes `chat_template_kwargs` and a promoted top-level
+/// `reasoning_effort` onto fields `to_chat_body` then rebuilds from scratch, so
+/// the whole variant is dropped for `/v1/responses` and only for `/v1/responses`:
+/// a fleet launched with `--default-chat-template-kwargs` hashes chat right and
+/// Responses wrong, in block 0, and the chat-only probe corpus reports parity.
+pub fn normalised(body: &Value) -> std::borrow::Cow<'_, Value> {
+    use std::borrow::Cow;
+    if !is_responses_body(body) {
+        return Cow::Borrowed(body);
+    }
+    match to_chat_body(body) {
+        Some(b) => Cow::Owned(b),
+        None => Cow::Borrowed(body),
+    }
+}
+
+/// `ResponsesRequest.effective_tool_choice` (protocol.py:1760).
+///
+/// `tool_choice` reduced to what the server can honor: of the object forms only a
+/// named `function` survives; the rest (web_search, mcp, ...) cannot be forced
+/// through the tool-call parser and become `"auto"`. The field defaults to
+/// `"auto"` when absent, as the pydantic model does.
+fn effective_tool_choice(body: &Value) -> Value {
+    let Some(tc) = body.get("tool_choice").filter(|v| !v.is_null()) else {
+        return Value::String("auto".to_string());
+    };
+    let Some(obj) = tc.as_object() else {
+        return tc.clone();
+    };
+    let name = obj
+        .get("name")
+        .filter(|v| !v.is_null())
+        .or_else(|| obj.get("function").and_then(|f| f.get("name")))
+        .and_then(Value::as_str);
+    match (obj.get("type").and_then(Value::as_str), name) {
+        (Some("function"), Some(n)) => json!({"type": "function", "name": n}),
+        _ => Value::String("auto".to_string()),
+    }
+}
+
+/// `OpenAIServingResponses._chat_tool_choice` (serving_responses.py:988).
+///
+/// Re-nests `{"type":"function","name":X}` into the chat spelling
+/// `{"type":"function","function":{"name":X}}`. Not cosmetic: `chat_tools`
+/// narrows the tool list by reading `tool_choice.function.name`, so the flat form
+/// narrows nothing and the router renders every tool where the engine renders one.
+fn chat_tool_choice(tool_choice: Value) -> Value {
+    match tool_choice.get("name").cloned() {
+        Some(name) => json!({"type": "function", "function": {"name": name}}),
+        None => tool_choice,
+    }
 }
 
 /// `_response_tools_to_chat_tools`.
@@ -689,5 +807,208 @@ mod tests {
         ]}))
         .unwrap();
         assert!(encode_chat(&out).is_none(), "{out:#}");
+    }
+
+    // ---- tool_choice ------------------------------------------------------
+    //
+    // `_make_request` passes `self._chat_tool_choice(request.effective_tool_choice())`,
+    // and both renderers read the result: `chat_tools` drops the tool block on
+    // "none" and narrows the list to one function on a named choice, and
+    // `encode_chat` emits a whole extra system turn for "required" and "none".
+    // This port forwarded none of it, so every Responses request rendered as
+    // `tool_choice: "auto"` -- on the very Kimi-K3 fleet the module was written
+    // for.
+
+    fn two_tools() -> Value {
+        json!([
+            {"type": "function", "name": "a", "parameters": {"type": "object"}},
+            {"type": "function", "name": "b", "parameters": {"type": "object"}},
+        ])
+    }
+
+    #[test]
+    fn a_named_tool_choice_is_nested_the_way_chat_spells_it() {
+        let out = to_chat_body(&json!({
+            "input": "hi",
+            "tools": two_tools(),
+            "tool_choice": {"type": "function", "name": "b"},
+        }))
+        .expect("reproducible");
+        // Flat, `chat_tools` reads `tool_choice.function.name`, finds nothing,
+        // and narrows nothing -- so the router renders both tools where the
+        // engine renders one, inside the block at the front of the prompt.
+        assert_eq!(
+            out["tool_choice"],
+            json!({"type": "function", "function": {"name": "b"}}),
+            "{out:#}"
+        );
+    }
+
+    #[test]
+    fn a_tool_choice_the_server_cannot_force_becomes_auto() {
+        // `effective_tool_choice`: of the object forms only a named `function`
+        // survives; web_search / mcp / ... cannot go through the tool-call parser.
+        let out = to_chat_body(&json!({
+            "input": "hi",
+            "tools": two_tools(),
+            "tool_choice": {"type": "mcp", "server_label": "s"},
+        }))
+        .expect("reproducible");
+        assert_eq!(out["tool_choice"], json!("auto"), "{out:#}");
+    }
+
+    #[test]
+    fn tool_choice_none_survives() {
+        let out = to_chat_body(&json!({
+            "input": "hi",
+            "tools": two_tools(),
+            "tool_choice": "none",
+        }))
+        .expect("reproducible");
+        assert_eq!(out["tool_choice"], json!("none"), "{out:#}");
+    }
+
+    #[test]
+    fn an_absent_tool_choice_is_the_models_default() {
+        let out = to_chat_body(&json!({"input": "hi", "tools": two_tools()})).unwrap();
+        assert_eq!(out["tool_choice"], json!("auto"), "{out:#}");
+    }
+
+    #[test]
+    fn a_body_with_no_chat_tools_forces_none() {
+        // `tool_choice=... if chat_tools else "none"` -- an all-builtin tool
+        // list yields no chat tools, so the engine sends "none" whatever the
+        // client asked for.
+        let out = to_chat_body(&json!({
+            "input": "hi",
+            "tools": [{"type": "web_search"}],
+            "tool_choice": "required",
+        }))
+        .expect("reproducible");
+        assert_eq!(out["tool_choice"], json!("none"), "{out:#}");
+        assert!(out.get("tools").is_none(), "{out:#}");
+    }
+
+    // ---- chat_template_kwargs ---------------------------------------------
+
+    #[test]
+    fn chat_template_kwargs_are_forwarded() {
+        // `chat_template_kwargs=request.chat_template_kwargs`
+        // (serving_responses.py:592). `template_context` spreads these into the
+        // Jinja scope, so dropping them renders a different preamble for every
+        // request that sets one.
+        let out = to_chat_body(&json!({
+            "input": "hi",
+            "chat_template_kwargs": {"enable_thinking": false},
+        }))
+        .expect("reproducible");
+        assert_eq!(
+            out["chat_template_kwargs"],
+            json!({"enable_thinking": false}),
+            "{out:#}"
+        );
+    }
+
+    #[test]
+    fn reasoning_effort_none_carries_the_thinking_toggle() {
+        // `ResponsesRequest.normalize_reasoning_to_thinking` seeds both spellings
+        // before `_make_request` ever reads the field. Without it a Responses
+        // client cannot turn thinking off as far as this router is concerned: it
+        // renders the preamble the engine was just told to omit.
+        let out = to_chat_body(&json!({"input": "hi", "reasoning": {"effort": "none"}})).unwrap();
+        assert_eq!(
+            out["chat_template_kwargs"],
+            json!({"thinking": false, "enable_thinking": false}),
+            "{out:#}"
+        );
+    }
+
+    #[test]
+    fn an_explicit_kwarg_wins_over_the_thinking_toggle() {
+        // The validator spreads the client's dict last.
+        let out = to_chat_body(&json!({
+            "input": "hi",
+            "reasoning": {"effort": "none"},
+            "chat_template_kwargs": {"enable_thinking": true},
+        }))
+        .unwrap();
+        assert_eq!(
+            out["chat_template_kwargs"]["enable_thinking"],
+            json!(true),
+            "{out:#}"
+        );
+    }
+
+    #[test]
+    fn a_plain_body_carries_no_chat_template_kwargs_key() {
+        // Absent, not empty: `template_context` binds nothing.
+        let out = to_chat_body(&json!({"input": "hi"})).unwrap();
+        assert!(out.get("chat_template_kwargs").is_none(), "{out:#}");
+    }
+
+    // ---- normalised(): the order the variant is applied in ----------------
+
+    #[test]
+    fn normalised_passes_a_chat_body_straight_through() {
+        let body = json!({"messages": [{"role": "user", "content": "hi"}]});
+        assert!(matches!(normalised(&body), std::borrow::Cow::Borrowed(_)));
+    }
+
+    #[test]
+    fn normalised_hands_back_an_unreproducible_body_unchanged() {
+        // Still a Responses body, so `token_ids_for` refuses it exactly as
+        // before. A half-built chat body would hash a prefix that is real but
+        // belongs to a different conversation.
+        let body = json!({"input": "hi", "previous_response_id": "resp_1"});
+        assert_eq!(*normalised(&body), body);
+    }
+
+    #[test]
+    fn the_variants_promoted_effort_survives_only_in_the_engines_order() {
+        // `--default-chat-template-kwargs` is merged by `_process_messages`,
+        // which `OpenAIServingResponses` inherits and reaches on this path too
+        // -- i.e. after `_make_request`, never before. `apply` promotes the
+        // merged effort onto the top-level `reasoning_effort` because that is
+        // where the `effort_kwarg` remap reads it; run the variant first and
+        // `to_chat_body` rebuilds that field from `reasoning` alone, dropping
+        // the promotion for `/v1/responses` and only for `/v1/responses`.
+        let kwargs = json!({"reasoning_effort": "low"});
+        let variant =
+            crate::render_variant::RenderVariant::from_default_chat_template_kwargs(Some(&kwargs));
+        let body = json!({"input": "hi"});
+
+        let right = variant.apply(&normalised(&body)).into_owned();
+        assert_eq!(right["reasoning_effort"], json!("low"), "{right:#}");
+
+        let wrong = normalised(&variant.apply(&body)).into_owned();
+        assert!(wrong.get("reasoning_effort").is_none(), "{wrong:#}");
+    }
+
+    #[test]
+    fn the_client_kwarg_precedence_is_only_right_in_the_engines_order() {
+        // The sharper half. The engine applies its defaults with `setdefault` to
+        // a `chat_template_kwargs` the validator has ALREADY seeded from
+        // `reasoning.effort == "none"`, so `enable_thinking` stays false.
+        // Applied first, the variant's value goes in as if the client had sent
+        // it and the seed loses to it -- the router renders thinking on where
+        // the engine renders it off.
+        let kwargs = json!({"enable_thinking": true});
+        let variant =
+            crate::render_variant::RenderVariant::from_default_chat_template_kwargs(Some(&kwargs));
+        let body = json!({"input": "hi", "reasoning": {"effort": "none"}});
+
+        let right = variant.apply(&normalised(&body)).into_owned();
+        assert_eq!(
+            right["chat_template_kwargs"]["enable_thinking"],
+            json!(false),
+            "{right:#}"
+        );
+
+        let wrong = normalised(&variant.apply(&body)).into_owned();
+        assert_eq!(
+            wrong["chat_template_kwargs"]["enable_thinking"],
+            json!(true),
+            "{wrong:#}"
+        );
     }
 }

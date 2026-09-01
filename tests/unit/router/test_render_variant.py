@@ -272,3 +272,29 @@ def test_a_longer_preamble_is_not_punished_for_being_longer():
     # one-block preamble's 20, and w2 wins from either position.
     assert _pick(["w1", "w2"]) == "w1"
     assert _pick(["w2", "w1"]) == "w2"
+
+
+def test_a_responses_body_is_normalised_before_the_variant_is_applied():
+    """The policy must run the engine's order: `_make_request` first, then
+    `_process_messages` (which merges `--default-chat-template-kwargs`).
+
+    Applied the other way round the variant lands on `input`-shaped fields that
+    `to_chat_body` rebuilds from scratch, and `/v1/responses` -- alone -- loses
+    the variant entirely. The chat-only render-probe corpus reports parity
+    while it happens.
+    """
+    pytest.importorskip("sglang.srt.entrypoints.openai.serving_responses")
+    hasher = _RecordingHasher()
+    variants = VariantRegistry()
+    variants.record("w1", _v({"reasoning_effort": "high"}))
+    policy = KvEventAwarePolicy(_StubKvClient({}), hasher, variants=variants)  # type: ignore[arg-type]
+
+    policy.pick([_worker("w1")], {"model": "m", "input": "hi"})
+
+    (rendered,) = hasher.calls
+    assert rendered["messages"] == [{"role": "user", "content": "hi"}], (
+        "the hasher must be handed a chat body; a Responses body hashes to nothing"
+    )
+    assert rendered["reasoning_effort"] == "high", (
+        "the worker's server-side template default must reach the render"
+    )

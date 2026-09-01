@@ -491,6 +491,13 @@ impl Policy for KvEventAwarePolicy {
         // the engine selects which tokenizer loader runs, here there is one.
         // Adding it would key a dimension this hasher does not vary on and
         // render the same prompt twice.
+        // Normalised BEFORE the variant is applied, and once for the whole
+        // fleet: the engine turns a `/v1/responses` body into a chat body
+        // (`_make_request`) and only then merges its server-side template
+        // defaults (`_process_messages`). The other order writes
+        // `chat_template_kwargs` onto a body `to_chat_body` rebuilds from
+        // scratch, dropping the variant for `/v1/responses` alone.
+        let base = crate::responses_input::normalised(request);
         let mut hashes_for: HashMap<(i64, u64), Vec<u64>> = HashMap::new();
         let mut key_of: Vec<Option<(i64, u64)>> = Vec::with_capacity(targets.len());
         for t in &targets {
@@ -499,7 +506,7 @@ impl Policy for KvEventAwarePolicy {
                     let variant = self.variants.for_worker(&t.worker.worker_id);
                     let key = (bs, variant.id());
                     hashes_for.entry(key).or_insert_with(|| {
-                        self.hasher.hash_for(&variant.apply(request), bs as usize)
+                        self.hasher.hash_for(&variant.apply(&base), bs as usize)
                     });
                     Some(key)
                 }

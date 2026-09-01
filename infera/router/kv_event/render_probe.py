@@ -34,6 +34,7 @@ import logging
 from dataclasses import dataclass
 
 from infera.common.worker_pool import EngineType, WorkerInfo
+from infera.router.kv_event import responses_input
 from infera.router.kv_event.block_hasher import BlockHasher
 from infera.router.kv_event.render_variant import EMPTY_VARIANT, RenderVariant, VariantRegistry
 
@@ -190,7 +191,14 @@ async def probe_worker(
         async with client if owned else contextlib.nullcontext(client):
             for name, template in bodies.items():
                 body = {**template, "model": worker.model_name}
-                ours = hasher.token_ids_for(variant.apply(body), engine=worker.engine)
+                # Normalise before applying the variant, in the engine's order:
+                # `_make_request` first, `_process_messages` (which merges
+                # --default-chat-template-kwargs) second. The other way round,
+                # a Responses probe body silently loses the variant and the
+                # probe reports parity the live path does not have.
+                ours = hasher.token_ids_for(
+                    variant.apply(responses_input.normalised(body)), engine=worker.engine
+                )
                 if ours is None:
                     # Not a divergence: the router already knows it cannot
                     # reproduce this body and routes it on load. Silent
