@@ -197,6 +197,20 @@ them.** A control proves a check *can fail*. A changing component proves the
 check *is still running*. A monitor with the first and not the second will hold
 a green reading through the whole incident it exists to catch.
 
+**And an unchanged aggregate is not evidence that nothing happened.** A total
+that has not moved is consistent with nothing having occurred *and* with
+something having been written and then removed — the two are the same number.
+This matters most for exactly the alarm such a monitor usually exists for,
+because a destructive action followed by a re-copy leaves the count where it
+started.
+
+So when you need to rule an event *out*, do not rest on the aggregate: pair it
+with a query whose result **would** have moved if the event had happened. A
+modification-time filter over the window is usually enough — "no file here has
+changed since T" answers *not touched*, where a stable count only answers *not
+touched, or tidied up afterwards*. Same reasoning as the paragraph above, aimed
+at the subject rather than at the instrument.
+
 **Agreement between tools is not corroboration if they share a cache.** Several
 readers can return the same wrong answer from one stale cache entry. On a
 networked filesystem, attribute caching means **"I read it and it said X"
