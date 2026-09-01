@@ -1,0 +1,80 @@
+bases:
+  - language_model.yaml
+
+# MiniMax-M3 (GQA + sparse attention + MoE)
+# 428B total params, ~10B active.
+# https://huggingface.co/MiniMaxAI/MiniMax-M3
+#
+# The published checkpoint is a vision-language model; the vision tower is not
+# described here because no benchmark drives it -- every measured run is text.
+#
+# Attention is top-k sparse (16 blocks of 128 = 2048 KV tokens), which is the
+# single largest term in how this model serves: the runs behind it average
+# 130k tokens of context, so a dense attention layer would read sixty times
+# what this one does. Set it on the request as ``sparse_attention_topk: 2048``;
+# it is a serving-time property rather than a weight, so it does not live here.
+
+tokenizer_type: HuggingFaceTokenizer
+tokenizer_model: MiniMaxAI/MiniMax-M3
+
+# model architecture
+num_layers: 60
+hidden_size: 6144
+ffn_hidden_size: 12288      # dense_intermediate_size (first three layers)
+moe_ffn_hidden_size: 3072   # expert intermediate (HF config: intermediate_size)
+num_attention_heads: 64
+
+# GQA (64 Q heads, 4 KV heads, head_dim 128)
+group_query_attention: true
+num_query_groups: 4
+qk_layernorm: true          # use_qk_norm, per_head
+kv_channels: 128
+
+# MoE - first three layers are dense, the remaining 57 are MoE
+moe_layer_freq: "([0]*3+[1]*57)"
+num_experts: 128
+moe_router_topk: 4
+moe_shared_expert_intermediate_size: 3072   # 1 shared expert
+moe_router_score_function: sigmoid
+moe_router_pre_softmax: false
+moe_router_enable_expert_bias: true         # use_routing_bias
+moe_router_bias_update_rate: 1.0e-3
+moe_router_topk_scaling_factor: 2.0         # routed_scaling_factor
+moe_router_load_balancing_type: seq_aux_loss
+moe_aux_loss_coeff: 0.001
+moe_token_dispatcher_type: alltoall
+
+# MoE optimization
+expert_model_parallel_size: 8
+moe_grouped_gemm: true
+moe_use_legacy_grouped_gemm: false
+moe_permute_fusion: true
+moe_shared_expert_overlap: true
+
+# One next-token prediction head ships with the checkpoint (num_mtp_modules
+# stages 7, but only one is a decode-time draft head).
+mtp_num_layers: 1
+
+# partial rotary embedding (rotary_dim=64, head_dim=128 -> 50%)
+rotary_base: 5000000
+rotary_percent: 0.5
+
+# other settings
+vocab_size: 200064
+make_vocab_size_divisible_by: 64
+max_position_embeddings: 1048576
+swiglu: true
+bias_swiglu_fusion: false
+add_bias_linear: false
+attention_softmax_in_fp32: true
+untie_embeddings_and_output_weights: true   # tie_word_embeddings: false
+hidden_dropout: 0.0
+attention_dropout: 0.0
+
+position_embedding_type: rope
+normalization: RMSNorm
+norm_epsilon: 1.0e-6
+init_method_std: 0.02
+
+apply_rope_fusion: false
+masked_softmax_fusion: false
