@@ -1,8 +1,10 @@
 # serve_qwen — bring Qwen3.6-27B up in mix mode, then hand back the kit
 
 Serve **`Qwen/Qwen3.6-27B`** in **mix** mode using **infera + sglang** on the
-host you are running on, prove it answers, and hand back a reproduction kit that someone
-who was not here can follow to the same result.
+**work host** — which is not always the machine your shell runs on, so read
+*Where the work happens* below before you start — prove it answers, and hand
+back a reproduction kit that someone who was not here can follow to the same
+result.
 
 Two deliverables and they are not the same thing. A run that works and is not
 written down is worth nothing here; a kit that is written down and never ran is
@@ -31,16 +33,51 @@ the two lines in `results/`.
    the time you finish.
 5. The kit reproduces it.
 
+## Where the work happens
+
+**Look at your tool list before you do anything else.** If it contains
+`env_remote_run`, `env_remote_push` and `env_remote_pull`, the work host is
+**not** the machine your shell runs on: it is the far side of the mapping
+`env_mgr` configured for this run, and those three tools are the whole of how
+you reach it. Ask it what it is called — `env_remote_run` with
+`["hostname", "-f"]` — and record the answer in `environment.md`.
+
+If those tools are **absent**, this run is local: the work host is the machine
+you are running on and everything below reads as an ordinary local path. Say
+which of the two you were in, in `environment.md`, so a reader of the kit knows.
+
+When the tools are present:
+
+- **Everything that touches the model, the GPUs, docker or a port goes through
+  `env_remote_run`.** Your own shell is for reading this repository, thinking,
+  and writing the kit.
+- **The `$SRT_*` paths below are paths on the work host, not on yours.** Some of
+  them may *also* exist on your machine, on a shared network export — and that
+  coincidence is a trap. Weights you can `ls` locally are not evidence that you
+  are on the right machine. **Check the GPU, not the filesystem**, and put the
+  GPU's own model and architecture in `environment.md`.
+- **Do not reach the work host with `Bash` and `ssh`.** You have a tool surface
+  for exactly this; going around it answers a different question and makes the
+  result worthless. If the tools are absent, report that plainly rather than
+  improvising a way in.
+- **Start long things detached and poll.** One tool call is one command that
+  runs to completion, and a bring-up takes minutes; a call that blocks on the
+  server's whole startup tells you nothing until it is over. Launch with
+  `docker run -d`, then read `docker logs` in later calls.
+- `$AGENT_SYS_*_REMOTE` in your environment names your own zone's directories as
+  the work host sees them.
+
 ## What you are given
 
-These are facts, not instructions. None of them is the recipe.
+These are facts, not instructions. None of them is the recipe. Every path in
+this table is a path **on the work host**.
 
 | variable | what it is |
 |---|---|
-| `$SRT_MODEL_PATH` | The weights, **already on local disk**. All shards are there. Do not download anything. Supplied per site with `--var model_path=` |
-| `$SRT_IMAGE` | A docker image carrying **both** infera and a matching sglang. Nothing needs building or pulling. Supplied per site with `--var image=` |
-| `$SRT_ETCD_IMAGE` | An etcd image, already present locally |
-| `$SRT_WORK_ROOT` | Where a container workdir may go. **Local disk** |
+| `$SRT_MODEL_PATH` | The weights, **already on disk on the work host**. All shards are there. Do not download anything. Supplied per site with `--var model_path=` |
+| `$SRT_IMAGE` | A docker image carrying **both** infera and a matching sglang, already present on the work host. Nothing needs building or pulling. Supplied per site with `--var image=` |
+| `$SRT_ETCD_IMAGE` | An etcd image, already present on the work host |
+| `$SRT_WORK_ROOT` | Where a container workdir may go. **A disk local to the work host**, not a network mount |
 
 Also true, and each one has already cost somebody a day:
 
@@ -79,7 +116,8 @@ Also true, and each one has already cost somebody a day:
   published name and say in `environment.md` which name you used. Measured: one
   kit registered `Qwen/Qwen3.6-27B`, the next registered
   `/data/<user>/…/Qwen3.6-27B`, purely from that flag being absent.
-- **The container workdir must be on local disk.** A home directory is often on
+- **The container workdir must be on a disk local to the work host.** A home
+  directory is often on
   a network filesystem with `root_squash`, where a container's root maps to
   nobody and the engine fails to write its logs **silently** — no error, just no
   log. Use `$SRT_WORK_ROOT`, and check what you are actually writing to.
