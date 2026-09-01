@@ -998,7 +998,7 @@ fn detect_effort_kwarg(template: &str) -> Option<&'static str> {
 
 /// `messages`, exactly as `serving_chat` hands them to the chat template.
 ///
-/// Two rewrites, both unconditional in the engine, both invisible when wrong:
+/// Three rewrites, all unconditional in the engine, all invisible when wrong:
 ///
 /// 1. **`tool_calls[].function.arguments`.** The OpenAI wire format serialises
 ///    them as a JSON *string*; `serving_chat` parses every one of them back
@@ -1018,11 +1018,20 @@ fn detect_effort_kwarg(template: &str) -> Option<&'static str> {
 ///    strict side rendering a prompt for a request the engine will reject
 ///    anyway.
 ///
-/// 2. **`content: null`.** serving_chat.py:1252 rewrites it to `""` on the
+/// 2. **`content: null`.** serving_chat.py:1424-1425 rewrites it to `""` on the
 ///    Jinja path. Templates that touch content directly -- GLM-5.3 does
 ///    `content.strip()` -- raise on the null and take the whole prompt with
 ///    them, which is every assistant tool-call turn, i.e. most of an agentic
 ///    conversation after the first turn.
+///
+/// 3. **Tool-role list content.** `normalize_tool_content`
+///    (serving_chat.py:1438) flattens
+///    `[{"type":"text","text":"a"},{"type":"text","text":"b"}]` on a `tool`
+///    message to the plain string `"a b"` -- a single space, and only when
+///    every part is a pure OpenAI text part; a list carrying anything else is
+///    left for the templates that iterate it on purpose. Codex and every other
+///    client that returns tool output as content parts sends exactly this
+///    shape, so without it the same `content.strip()` raises on the list.
 ///
 /// Returns `None` when nothing needed rewriting, so the common path clones
 /// nothing.
@@ -1033,6 +1042,9 @@ fn normalize_messages_for_template(messages: &Value) -> Option<Value> {
         if msg.get("content").is_some_and(Value::is_null) {
             let out_vec = out.get_or_insert_with(|| arr.clone());
             out_vec[i]["content"] = Value::String(String::new());
+        } else if let Some(flat) = flatten_tool_content(msg) {
+            let out_vec = out.get_or_insert_with(|| arr.clone());
+            out_vec[i]["content"] = Value::String(flat);
         }
         let Some(calls) = msg.get("tool_calls").and_then(Value::as_array) else {
             continue;
@@ -1067,6 +1079,32 @@ fn normalize_messages_for_template(messages: &Value) -> Option<Value> {
         }
     }
     out.map(Value::Array)
+}
+
+/// `normalize_tool_content` (serving_chat.py:106), as the rewrite it performs.
+///
+/// `Some(joined)` only for a `tool` message whose content is a list of pure
+/// OpenAI text parts; `None` for every other message, which is the common path
+/// and clones nothing.
+fn flatten_tool_content(msg: &Value) -> Option<String> {
+    if msg.get("role").and_then(Value::as_str) != Some("tool") {
+        return None;
+    }
+    let parts = msg.get("content")?.as_array()?;
+    let mut texts: Vec<&str> = Vec::with_capacity(parts.len());
+    for p in parts {
+        match p {
+            Value::String(s) => texts.push(s),
+            // `p.get("text", "")` -- a text part with no `text` contributes an
+            // empty string, and still an entry for the join to separate.
+            Value::Object(o) if o.get("type").and_then(Value::as_str) == Some("text") => {
+                texts.push(o.get("text").and_then(Value::as_str).unwrap_or(""));
+            }
+            // Not all-text: the engine leaves the list alone, so we must too.
+            _ => return None,
+        }
+    }
+    Some(texts.join(" "))
 }
 
 /// Top-level keys of a request body, so an unrecognised schema is identifiable
@@ -2174,5 +2212,74 @@ mod tool_call_args_tests {
             ]}
         ]);
         assert!(normalize_messages_for_template(&scalar).is_none());
+
+        // a tool message whose content is already a string
+        let flat = json!([{"role": "tool", "content": "18C"}]);
+        assert!(normalize_messages_for_template(&flat).is_none());
+    }
+
+    // ---- normalize_tool_content (serving_chat.py:106) ---------------------
+    //
+    // The third unconditional rewrite. Codex and every other client that
+    // returns tool output as content parts sends this shape, and a template
+    // that touches content directly -- GLM-5.3 does `content.strip()` -- raises
+    // on the list and takes the whole prompt with it, so every turn after the
+    // first tool call routes on load.
+
+    #[test]
+    fn tool_content_parts_are_joined_with_one_space() {
+        let messages = json!([
+            {"role": "user", "content": "weather?"},
+            {"role": "tool", "content": [
+                {"type": "text", "text": "18C"},
+                {"type": "text", "text": "sunny"},
+            ]},
+        ]);
+        let out = normalize_messages_for_template(&messages).expect("should rewrite");
+        assert_eq!(out[1]["content"], json!("18C sunny"));
+        assert_eq!(out[0]["content"], json!("weather?"), "untouched");
+    }
+
+    #[test]
+    fn a_bare_string_part_joins_too_and_a_missing_text_contributes_an_empty_one() {
+        // `p.get("text", "")` -- the empty part is still a separator the engine
+        // emits, so dropping it would render one space fewer.
+        let messages = json!([
+            {"role": "tool", "content": ["a", {"type": "text"}, {"type": "text", "text": "b"}]},
+        ]);
+        let out = normalize_messages_for_template(&messages).expect("should rewrite");
+        assert_eq!(out[0]["content"], json!("a  b"));
+    }
+
+    #[test]
+    fn a_list_with_a_non_text_part_is_left_alone() {
+        // "preserve lists containing non-text-type items that some templates
+        // intentionally iterate over" -- flattening would diverge the other way.
+        let messages = json!([
+            {"role": "tool", "content": [
+                {"type": "text", "text": "a"},
+                {"type": "image_url", "image_url": {"url": "u"}},
+            ]},
+        ]);
+        assert!(normalize_messages_for_template(&messages).is_none());
+    }
+
+    #[test]
+    fn only_tool_messages_are_flattened() {
+        // `if role != "tool": return content`. A user message's content parts go
+        // to `process_content_for_template_format`, a different rewrite.
+        let messages = json!([
+            {"role": "user", "content": [{"type": "text", "text": "a"}, {"type": "text", "text": "b"}]},
+        ]);
+        assert!(normalize_messages_for_template(&messages).is_none());
+    }
+
+    #[test]
+    fn a_null_content_tool_message_still_becomes_an_empty_string() {
+        // The two rewrites are alternatives on one message: null wins, because
+        // there is no list to flatten.
+        let messages = json!([{"role": "tool", "content": null}]);
+        let out = normalize_messages_for_template(&messages).expect("should rewrite");
+        assert_eq!(out[0]["content"], json!(""));
     }
 }

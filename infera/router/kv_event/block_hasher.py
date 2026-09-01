@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 def _normalise_history(messages: list) -> list:
     """Messages the way `serving_chat` hands them to the template.
 
-    Two rewrites, both unconditional in the engine, both invisible when wrong.
+    Three rewrites, all unconditional in the engine, all invisible when wrong.
 
     `tool_calls[].function.arguments`: OpenAI puts them on the wire as a JSON
     *string*. Templates disagree about that -- GLM-5.3's iterates it as a
@@ -29,12 +29,21 @@ def _normalise_history(messages: list) -> list:
     So the router must parse too, and must parse identically, which is why this
     prefers the engine's own function over a re-implementation.
 
-    `content: null`: serving_chat.py:1252 rewrites it to `""`. GLM-5.3's
+    `content: null`: serving_chat.py:1424-1425 rewrites it to `""`. GLM-5.3's
     template does `content.strip()` and raises on the null, taking the whole
     prompt with it.
 
-    Without either, every conversation that has called a tool renders to nothing
-    and routes on load. That is most of an agentic workload after the first turn.
+    Tool-role list content: serving_chat.py:1438 flattens
+    `[{"type":"text","text":"a"},{"type":"text","text":"b"}]` on a `tool`
+    message to the plain string `"a b"` -- joined with a single space, and only
+    when every part is a pure OpenAI text part. Codex and every other client
+    that returns tool output as content parts sends exactly this shape, so
+    without it a template that does `content.strip()` raises on the list and
+    the whole conversation renders to nothing.
+
+    Without any of the three, every conversation that has called a tool renders
+    to nothing and routes on load. That is most of an agentic workload after the
+    first turn.
     """
     try:
         from sglang.srt.entrypoints.openai.serving_chat import (
@@ -42,6 +51,10 @@ def _normalise_history(messages: list) -> list:
         )
     except Exception:
         normalize_assistant_tool_call_arguments = _normalize_assistant_tool_call_arguments
+    try:
+        from sglang.srt.entrypoints.openai.serving_chat import normalize_tool_content
+    except Exception:
+        normalize_tool_content = _normalize_tool_content
 
     out = []
     for message in messages:
@@ -50,12 +63,20 @@ def _normalise_history(messages: list) -> list:
             continue
         needs_content = message.get("content", "") is None
         has_calls = isinstance(message.get("tool_calls"), list)
-        if not (needs_content or has_calls):
+        # `normalize_tool_content` is a no-op for anything but a `tool` message
+        # whose content is a list, so gate on that rather than calling it for
+        # every message on the hot path.
+        needs_tool_flatten = message.get("role") == "tool" and isinstance(
+            message.get("content"), list
+        )
+        if not (needs_content or has_calls or needs_tool_flatten):
             out.append(message)
             continue
         copied = dict(message)
         if needs_content:
             copied["content"] = ""
+        if needs_tool_flatten:
+            copied["content"] = normalize_tool_content(copied.get("role"), copied.get("content"))
         if has_calls:
             copied["tool_calls"] = [
                 {**tc, "function": dict(tc["function"])}
@@ -75,6 +96,21 @@ def _normalise_history(messages: list) -> list:
                 pass
         out.append(copied)
     return out
+
+
+def _normalize_tool_content(role: str, content: Any) -> Any:
+    """Fallback for a router host without sglang installed. Literal against
+    sglang's `serving_chat.normalize_tool_content`, including the single-space
+    join and the "only when ALL parts are pure text" gate -- a list carrying
+    anything else is left alone because some templates iterate it on purpose."""
+    if role != "tool" or not isinstance(content, list):
+        return content
+    is_openai_text_parts = all(
+        (isinstance(p, dict) and p.get("type") == "text") or isinstance(p, str) for p in content
+    )
+    if not is_openai_text_parts:
+        return content
+    return " ".join(p.get("text", "") if isinstance(p, dict) else p for p in content)
 
 
 def _normalize_assistant_tool_call_arguments(message: dict) -> None:
@@ -176,7 +212,7 @@ class BlockHasher:
                 if token_ids is not None:
                     encoder = "sglang-dsv4"
                 else:
-                    template_kwargs = self._template_kwargs(body)
+                    template_kwargs = self._template_kwargs(body, tokenizer)
                     if template_kwargs is None:
                         return None
                     text = self._apply_chat_template(
@@ -232,7 +268,7 @@ class BlockHasher:
                 **{**template_kwargs, "tools": flat},
             )
 
-    def _template_kwargs(self, body: dict) -> dict | None:
+    def _template_kwargs(self, body: dict, tokenizer: Any = None) -> dict | None:
         """Everything besides `messages` that the engine puts in scope.
 
         None means "this request cannot be reproduced" -- the caller must route
@@ -281,12 +317,12 @@ class BlockHasher:
         # derives the name from the template text rather than from a flag, so
         # this is reproducible here -- see `_effort_kwarg`.
         if effort == "low" and (model_id := body.get("model")):
-            kwarg = self._effort_kwarg(model_id)
+            kwarg = self._effort_kwarg(model_id, tokenizer)
             if kwarg is not None:
                 kwargs.setdefault(kwarg, True)
         return kwargs
 
-    def _effort_kwarg(self, model_id: str) -> str | None:
+    def _effort_kwarg(self, model_id: str, tokenizer: Any = None) -> str | None:
         """sglang's `reasoning_config.effort_kwarg` for this model's template.
 
         Ported from `parser/template_detection.py`, where exactly one rule sets
@@ -294,12 +330,20 @@ class BlockHasher:
         the template text -- hence a substring test rather than a parser. If
         upstream adds a rule this quietly goes back to being wrong for that
         model; the render probe is what catches that.
+
+        Takes the tokenizer the caller already loaded rather than looking one up.
+        The lookup it replaced keyed the cache `(None, source)` while
+        `_get_tokenizer` fills it under `(engine, source)`, so in production --
+        where an engine is always known -- it missed every time and fell through
+        to reading `chat_template.jinja` off what is usually a bare HF model id,
+        not a path. The remap was therefore never applied to a live request, and
+        nothing said so: it is only reachable on `reasoning_effort: "low"`, and
+        the only symptom is a hit rate that should have been higher.
         """
         if model_id in self._effort_kwargs:
             return self._effort_kwargs[model_id]
         kwarg = None
-        tok = self._tokenizers.get((None, self._source(model_id)))
-        template = getattr(tok, "chat_template", None) if tok is not None else None
+        template = getattr(tokenizer, "chat_template", None) if tokenizer is not None else None
         if not isinstance(template, str):
             template = self._read_chat_template(self._source(model_id))
         if template and "low_effort" in template and "truncate_history_thinking" in template:

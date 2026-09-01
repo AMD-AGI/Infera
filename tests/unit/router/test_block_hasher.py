@@ -23,7 +23,7 @@ from typing import Any
 from unittest.mock import patch
 
 from infera.common.worker_pool import EngineType
-from infera.router.kv_event.block_hasher import BlockHasher
+from infera.router.kv_event.block_hasher import BlockHasher, _normalise_history
 from infera.router.kv_event.hasher import ROUTER_SEED, hash_chunk, hash_request
 
 
@@ -559,3 +559,106 @@ def test_caching_a_failure_does_not_bleed_across_engines():
     hasher._tokenizers[(EngineType.SGLANG, "m")] = None
     assert not hasher.can_render("m", EngineType.SGLANG)
     assert hasher.can_render("m", EngineType.VLLM)
+
+
+# ---- the rewrites `serving_chat` makes before the template sees a message --
+#
+# All three are unconditional in the engine and all three are invisible when
+# missed: the template either raises (and the whole prompt renders to nothing,
+# routing on load) or renders different bytes at the front.
+
+
+def test_tool_content_parts_are_flattened_to_one_string():
+    """`normalize_tool_content` (serving_chat.py:1438) joins the text parts of a
+    `tool` message with a single space.
+
+    Codex and every other client that returns tool output as content parts
+    sends exactly this shape. Left as a list, GLM-5.3's `content.strip()`
+    raises and takes the whole conversation with it.
+    """
+    out = _normalise_history(
+        [{"role": "tool", "content": [{"type": "text", "text": "a"}, {"type": "text", "text": "b"}]}]
+    )
+    assert out == [{"role": "tool", "content": "a b"}]
+
+
+def test_a_bare_string_part_is_joined_too():
+    out = _normalise_history([{"role": "tool", "content": ["a", {"type": "text", "text": "b"}]}])
+    assert out == [{"role": "tool", "content": "a b"}]
+
+
+def test_a_text_part_with_no_text_still_takes_its_place_in_the_join():
+    """`p.get("text", "")` -- the empty part is a separator the engine emits."""
+    out = _normalise_history(
+        [{"role": "tool", "content": [{"type": "text"}, {"type": "text", "text": "b"}]}]
+    )
+    assert out == [{"role": "tool", "content": " b"}]
+
+
+def test_a_list_with_a_non_text_part_is_left_alone():
+    """"preserve lists containing non-text-type items that some templates
+    intentionally iterate over" -- flattening here would diverge the other way."""
+    content = [{"type": "text", "text": "a"}, {"type": "image_url", "image_url": {"url": "u"}}]
+    out = _normalise_history([{"role": "tool", "content": content}])
+    assert out == [{"role": "tool", "content": content}]
+
+
+def test_only_tool_messages_are_flattened():
+    """`if role != "tool": return content`. A user message's content parts go to
+    `process_content_for_template_format`, which is a different rewrite."""
+    content = [{"type": "text", "text": "a"}, {"type": "text", "text": "b"}]
+    out = _normalise_history([{"role": "user", "content": content}])
+    assert out == [{"role": "user", "content": content}]
+
+
+def test_flattening_does_not_mutate_the_caller_s_messages():
+    """The body is shared across every variant the policy hashes for."""
+    messages = [{"role": "tool", "content": [{"type": "text", "text": "a"}]}]
+    _normalise_history(messages)
+    assert messages == [{"role": "tool", "content": [{"type": "text", "text": "a"}]}]
+
+
+# ---- the effort_kwarg remap ------------------------------------------------
+
+
+_EFFORT_TEMPLATE = "{{ low_effort }}{{ truncate_history_thinking }}{{ messages }}"
+
+
+def test_low_effort_is_remapped_for_a_template_that_takes_the_boolean():
+    """serving_chat.py:1456-1458. Reachable only on `reasoning_effort: "low"`,
+    and its only symptom when skipped is a hit rate lower than it should be."""
+    tokenizer = _StubTokenizer()
+    tokenizer.chat_template = _EFFORT_TEMPLATE
+    hasher = BlockHasher()
+    hasher._tokenizers[(EngineType.SGLANG, "m")] = tokenizer
+    with patch.object(BlockHasher, "_load_hf_config", staticmethod(lambda _s: None)):
+        hasher.hash_for(
+            {"model": "m", "messages": _MSGS, "reasoning_effort": "low"},
+            block_size=4,
+            engine=EngineType.SGLANG,
+        )
+    assert tokenizer.template_kwargs == [{"reasoning_effort": "low", "low_effort": True}]
+
+
+def test_the_remap_reads_the_tokenizer_the_render_is_using():
+    """Regression: the lookup this replaced keyed the cache `(None, source)`
+    while `_get_tokenizer` fills it under `(engine, source)`.
+
+    In production an engine is always known, so the lookup missed every time
+    and fell through to reading `chat_template.jinja` off what is usually a
+    bare HF model id rather than a path -- i.e. the remap never fired on a live
+    request. A test that seeds `(None, ...)`, as the ones above do, cannot see
+    that; this one seeds the key production actually uses.
+    """
+    tokenizer = _StubTokenizer()
+    tokenizer.chat_template = _EFFORT_TEMPLATE
+    hasher = BlockHasher()
+    hasher._tokenizers[(EngineType.VLLM, "m")] = tokenizer
+    assert hasher._effort_kwarg("m", tokenizer) == "low_effort"
+
+
+def test_an_ordinary_template_gets_no_remap():
+    hasher = BlockHasher()
+    tokenizer = _StubTokenizer()
+    tokenizer.chat_template = "{{ messages }}"
+    assert hasher._effort_kwarg("m", tokenizer) is None
