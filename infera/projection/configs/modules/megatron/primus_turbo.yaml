@@ -1,0 +1,52 @@
+# ===== Global =====
+# main control flag
+enable_primus_turbo: false
+# use primus_turbo_fp4_autocast instead of TE fp8_autocast for FP4 (requires enable_primus_turbo)
+use_turbo_fp4_autocast: false
+
+# ===== Attention =====
+# operator switch
+use_turbo_attention: false
+# sink attention settings (PR 208) - GPT-OSS style learned sinks
+# reference: gpt-oss/gpt_oss/triton/attention.py
+use_sink_attention: false
+# The window itself (sink_sliding_window / sink_window_even_layers_only) is a
+# property of the model, not of the kernel, so it lives in the model preset
+# (see configs/models/megatron/gpt_oss_*.yaml). Declaring it here would shadow
+# the model's value: module keys win over model keys when the two are merged.
+# attention float8 path
+enable_turbo_attention_float8: false
+
+# ===== Parallel Linear =====
+# operator switch
+# deprecated, use use_turbo_gemm instead
+use_turbo_parallel_linear: false
+# use turbo gemm
+use_turbo_gemm: false
+
+# ===== Permute =====
+use_turbo_permute_padding: false
+
+# ===== Grouped MLP =====
+# deprecated, use use_turbo_grouped_gemm instead
+use_turbo_grouped_mlp: false
+# use turbo grouped gemm
+use_turbo_grouped_gemm: false
+# fused activation_with_probs to reduce redundant computation
+use_turbo_fused_act_with_probs: false
+
+# ===== MoE Router =====
+moe_use_fused_router_with_aux_score: false
+
+# ===== DeepEP =====
+# operator switch
+use_turbo_deepep: false
+turbo_deepep_num_cu: 32
+turbo_deepep_use_comm_stream: false
+
+# ===== Sync-Free MoE =====
+turbo_sync_free_moe_stage: 0
+
+# ===== Layer Norm =====
+# operator switch
+use_turbo_rms_norm: false

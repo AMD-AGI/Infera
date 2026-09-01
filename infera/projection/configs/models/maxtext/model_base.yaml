@@ -1,0 +1,22 @@
+###############################################################################
+# Primus MaxText model base config (Plan A – thin overlay)
+#
+# Only fields that Primus needs to override from MaxText base.yml defaults.
+# Architecture params (base_emb_dim, head_dim, …) are NOT duplicated here;
+# they come from either:
+#   a) MaxText's configs/models/<model_name>.yml  (when model_name != "default")
+#   b) The per-model Primus YAML         (when MaxText has no such model)
+###############################################################################
+
+# Let MaxText load its own model config by model_name when available.
+# Set to "default" to skip MaxText model config loading.
+model_name: "default"
+
+# When true, CLI / kwargs overrides take priority over model config values.
+override_model_config: true
+
+# Primus default: use TE flash attention for AMD GPUs
+attention: "cudnn_flash_te"
+
+# Use iota operator in Embed (better perf on GPU)
+use_iota_embed: true

@@ -37,6 +37,17 @@ dev = [
     "pytest-asyncio>=0.23",
     "amd-infera[planner]",
 ]
+# Inference/serving projection (analytical + GPU-calibrated). torch and the
+# serving engine (vllm) come from the engine base image, not pip.
+projection = [
+    "numpy>=1.24",
+    "pyyaml>=6",
+]
+# Projection + the LLM tuning agent (DSPy planner/RLM recipe search).
+projection-tuning = [
+    "amd-infera[projection]",
+    "dspy-ai>=2.5",
+]
 # all = ["amd-infera[sglang]", "amd-infera[vllm]", "amd-infera[atom]"]
 
 [project.scripts]
@@ -45,12 +56,25 @@ infera-kvd-probe = "infera.kvd.bench.probe:main"
 infera-kvd-l3-bench = "infera.kvd.bench.l3_bench:main"
 # node + PD preflight suite (gpu / network / storage / firmware / host probes)
 infera-preflight = "infera.tools.preflight.cli:main"
+# inferasim: inference/serving simulation + projection, and tuning-agent recipe
+# search (a workload-driven simulate-then-verify surface for serving).
+inferasim = "infera.projection.cli:main"
+inferasim-tune = "infera.projection.agents.tuning_agent.cli:main"
+# back-compat aliases (pre-rebrand names)
+infera-projection = "infera.projection.cli:main"
+infera-tuning = "infera.projection.agents.tuning_agent.cli:main"
 [build-system]
 requires = ["setuptools>=69", "setuptools_scm[toml]>=8", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["infera*"]
+
+# Model/preset YAMLs under infera.projection are loaded at runtime by package
+# path, so they must ship as package data (not just source).
+[tool.setuptools.package-data]
+"infera.projection" = ["examples/*.yaml"]
+"infera.projection.configs" = ["**/*.yaml"]
 
 # Version from git tags; release with `git tag vX.Y.Z`.
 [tool.setuptools_scm]

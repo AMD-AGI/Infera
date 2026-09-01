@@ -1,0 +1,36 @@
+target_cluster:
+  name: "mi355x-inference-benchmark"
+  num_nodes: 1
+  gpus_per_node: 8
+  gpu_arch: mi355x
+  hardware_config: examples/hardware_configs/mi355x.yaml
+
+# Benchmark mode: score each serving config against a REAL vLLM measurement
+# instead of the analytical (origami) cost model. One benchmark per parallelism
+# (TP/PP/EP) is measured (or reused from $INFERASIM_INFER_BENCH_CACHE) and every
+# serving-knob trial at that parallelism is projected on top of it by the DES.
+available_for_benchmark:
+  has_gpu: true
+  benchmark_gpus: 2
+
+optimization:
+  mode: inference
+  objective: max_throughput
+  memory_safety_margin: 0.10
+  hbm_capacity_gb: 288.0
+  inference:
+    input_len: 1024
+    output_len: 1024
+    max_concurrency: null
+  budget:
+    max_proposals: 16
+    max_perf_calls: 0
+    max_benchmark_calls: 16
+    max_rounds: 1
+    max_rlm_iterations: 8
+
+agent:
+  llm:
+    provider: litellm
+    timeout: 300
+    max_tokens: 8000

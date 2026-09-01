@@ -1,0 +1,100 @@
+extends:
+  - deepseek_v3_base.yaml
+
+# Kimi-K3 (hybrid linear attention + MLA + latent MoE)
+# 2.8T total params, ~50B active.
+# https://huggingface.co/moonshotai/Kimi-K3
+#
+# Two things about this checkpoint do not map onto a plain MoE transformer and
+# are worth reading before trusting a number that comes out of it.
+#
+# Attention is hybrid. Of the 93 layers, 24 run full MLA over the whole context
+# and the other 69 run Kimi Delta Attention, a linear-attention layer that keeps
+# a fixed-size recurrent state instead of a KV cache. So this model caches a
+# quarter of the KV a 93-layer MLA model would, and three quarters of its
+# attention layers cost the same per token at 130k context as at 1k. That is
+# not a detail at the context these runs use; it is most of what makes the model
+# servable.
+#
+# The projector does not model it. The three ``linear_attention_*`` keys below
+# record the architecture but nothing reads them yet, so every layer here is
+# charged as full MLA: the cache is oversized by about 3.9x, which makes the
+# batch that fits in HBM conservative, and the attention time is charged as if
+# it grew with context on all 93 layers rather than on 24. Both errors are in
+# the same direction, and against the measured MI355X traces the model still
+# lands at 1.07x throughput and 0.91x TPOT -- the KV it overcharges is a latent
+# 576 B/token, small enough that the step is set by expert weights instead.
+#
+# Modelling the memory alone would be worse than not modelling it: the search
+# would fit larger batches while still charging every one of them full
+# attention. It needs both halves or neither, so it has neither.
+#
+# The MoE is latent: experts do not act on the 7168-wide residual, they act on a
+# 3584-wide projection of it (``routed_expert_hidden_size``), with an expert
+# intermediate of 3072. An expert matmul is therefore 3584 x 3072, which is
+# exactly 7168 x 1536 -- identical in both FLOPs and weight bytes. Expressing it
+# that way lets the standard expert profiler size this model correctly without
+# a latent-MoE concept, and it reproduces the published parameter count:
+# 92 MoE layers x 896 experts x 3 x 7168 x 1536 = 2.72T. What it leaves out is
+# the residual->latent projection itself, which is two 7168 x 3584 matmuls per
+# layer, about 1.5% of the layer's weights.
+
+tokenizer_type: HuggingFaceTokenizer
+tokenizer_model: moonshotai/Kimi-K3
+
+# model architecture
+num_layers: 93
+hidden_size: 7168
+ffn_hidden_size: 33792      # dense layer (first_k_dense_replace: 1)
+num_attention_heads: 96
+kv_channels: 128
+
+# MLA
+multi_latent_attention: true
+q_lora_rank: 1536
+kv_lora_rank: 512
+qk_head_dim: 128            # qk_nope_head_dim
+qk_pos_emb_head_dim: 64     # qk_rope_head_dim
+v_head_dim: 128
+
+# Hybrid attention: 24 full-MLA layers, the other 69 are linear (KDA) and keep a
+# fixed-size state rather than a per-token KV cache. Recorded, not yet charged.
+linear_attention_layers: 69
+linear_attention_head_dim: 128
+linear_attention_conv_kernel: 4
+
+# Latent MoE, expressed in residual-width equivalents (see header).
+moe_layer_freq: "([0]*1+[1]*92)"
+num_experts: 896
+moe_router_topk: 16
+moe_ffn_hidden_size: 1536                   # 3584 x 3072 == 7168 x 1536
+moe_shared_expert_intermediate_size: 3072   # 2 shared experts, same equivalence
+moe_router_score_function: sigmoid
+moe_router_enable_expert_bias: true         # noaux_tc
+moe_router_pre_softmax: false
+moe_router_num_groups: 1
+moe_router_group_topk: 1
+moe_token_dispatcher_type: alltoall
+
+# MoE optimization
+expert_model_parallel_size: 1
+moe_grouped_gemm: true
+moe_use_legacy_grouped_gemm: false
+moe_permute_fusion: true
+moe_shared_expert_overlap: true
+
+# No draft head on this checkpoint (num_nextn_predict_layers: 0).
+mtp_num_layers: 0
+
+# other settings
+vocab_size: 163840
+make_vocab_size_divisible_by: 64
+max_position_embeddings: 1048576
+norm_epsilon: 1.0e-5
+swiglu: true
+add_bias_linear: false
+untie_embeddings_and_output_weights: true
+position_embedding_type: rope
+normalization: RMSNorm
+init_method_std: 0.02
+apply_rope_fusion: false

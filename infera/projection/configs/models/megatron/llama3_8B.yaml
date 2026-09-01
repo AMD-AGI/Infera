@@ -1,0 +1,12 @@
+extends:
+  - llama3_base.yaml
+
+tokenizer_type: HuggingFaceTokenizer
+tokenizer_model: meta-llama/Meta-Llama-3-8B
+
+
+ffn_hidden_size: 14336
+hidden_size: 4096
+num_attention_heads: 32
+num_layers: 32
+num_query_groups: 8

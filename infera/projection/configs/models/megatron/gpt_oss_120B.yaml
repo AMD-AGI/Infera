@@ -1,0 +1,65 @@
+extends:
+  - deepseek_v2_base.yaml
+
+tokenizer_type: DeepSeekV2Tokenizer
+tokenizer_model: deepseek-ai/DeepSeek-V2-Lite
+
+# model
+num_layers: 36
+hidden_size: 2880
+ffn_hidden_size: 10944
+num_attention_heads: 64
+
+# GQA
+multi_latent_attention: false
+apply_rope_fusion: false
+qk_head_dim: 128
+kv_channels: 64
+group_query_attention: true
+num_query_groups: 8
+
+# Local (sliding-window) attention: gpt-oss alternates 128-token windowed
+# layers with full-attention layers, which bounds both decode attention cost
+# and the KV-cache footprint of the windowed half at long context.
+sink_sliding_window: 128
+sink_window_even_layers_only: true
+
+# moe
+moe_layer_freq: 1
+num_experts: 128
+moe_router_topk: 4
+moe_ffn_hidden_size: 2880 # moe_intermediate_size
+moe_shared_expert_intermediate_size: null # gpt-oss has no shared expert
+
+# How many distinct experts this router really reaches per step, as a fraction
+# of what independent per-token routing predicts. Derived from the checkpoint's
+# own router weights: real token representations are correlated, so tokens pick
+# overlapping experts and a decode step reads fewer distinct ones than
+# independence assumes.
+#
+# This curve is fitted against decode latency rather than against the router's
+# own expert counts, and the difference matters. Probing the running router
+# shows it reaching materially fewer distinct experts than the curve implies,
+# but substituting those counts leaves the projection consistently low: with
+# fewer experts active each one processes proportionally more tokens, and the
+# grouped-GEMM efficiency term does not currently give that back. So this is an
+# effective count, absorbing both routing overlap and that missing efficiency,
+# rather than a physical one -- do not "correct" it with observed router counts
+# until the two effects are modelled separately.
+moe_router_coverage: # [tokens in the step, coverage]
+  - [1, 1.00]
+  - [2, 0.98]
+  - [4, 0.95]
+  - [8, 0.90]
+  - [16, 0.84]
+  - [32, 0.79]
+  - [64, 0.78]
+  - [128, 0.83]
+  - [256, 0.90]
+
+
+# device limited routing
+expert_model_parallel_size: 8
+moe_router_num_groups: null # int
+moe_router_group_topk: null # int
+moe_router_topk_scaling_factor: 1.0 # float
