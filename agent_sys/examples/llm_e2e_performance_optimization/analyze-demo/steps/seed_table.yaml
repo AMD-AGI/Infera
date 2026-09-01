@@ -1,0 +1,28 @@
+# The mock input, and the seam to `profiling-demo`.
+#
+# agent_sys has no route for injecting a handoff from outside the graph: a
+# handoff is produced by a task or it does not exist. So the mock is a leaf with
+# `froms: []` that reads the CSV named by `$AD_SEED_CSV` and republishes it as a
+# `kernel_table`.
+#
+# The `kernel_table` kind is in `../shared.yaml`, not here, because its real
+# producer is `profiling-demo`'s `kernel_scan`. Deleting this file and its one
+# `main.yaml` subgraph entry, then pointing `rank` at `kernel_scan`, is the
+# whole of what joining the two graphs costs.
+#
+# It has **no inputs**, so its input validation phase runs nothing.
+
+- module: task
+  name: seed_table
+  description: Republish a Magpie gap-analysis CSV as a kernel_table handoff.
+  agent: run_script
+  handoffs: [kernel_table]
+  validators: [check_kernel_table]
+  task:
+    goal: Mock the upstream profiling handoff from a CSV on disk.
+    version: '1'
+    inputs: []
+    outputs: [kernel_table]
+    permissions:
+      grants:
+        - {path: handoffs/kernel_table, access: write, kind: kernel_table}
