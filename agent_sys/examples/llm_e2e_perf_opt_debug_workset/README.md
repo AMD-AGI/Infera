@@ -61,7 +61,7 @@ of that either.
 
 `steps/debug.yaml` restates the validator's `args` — the required file list, the
 driver tokens, the case floor. **Those are duplicated and nothing enforces that
-they match** `llm_e2e_performance_optimization/steps/kernel_optimization.yaml`.
+they match** `llm_e2e_performance_optimization/kernel-opt-demo/steps/kernel_optimization.yaml`.
 If they diverge, a workset that passes here starts failing there and this
 harness becomes a liar. It is the one real maintenance cost of the split, it is
 not solved, and it is written here rather than left to be discovered.

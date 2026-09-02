@@ -10,5 +10,5 @@
 # So this package duplicates only the two files the assets convention *requires*
 # — a readme and an entry — and both are thin. All real logic stays in one place.
 set -eu
-: "${KFO_REAL_PACKAGE:?pass --var real_package=<abs path to llm_e2e_performance_optimization>}"
+: "${KFO_REAL_PACKAGE:?pass --var real_package=<abs path to .../llm_e2e_performance_optimization/kernel-opt-demo>}"
 exec python3 "$KFO_REAL_PACKAGE/assets/publish_workset.task/publish.py"
