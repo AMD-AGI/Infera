@@ -88,8 +88,17 @@ importer  HIP_VISIBLE_DEVICES=2,3   imports the handle, reads back
   -> READ BACK: [7, 3, 9, 1, 4, 1, 5, 9]   MATCH
 ```
 
+Repeated **across two separate containers** (importer started with `--ipc=host`),
+which is the shape PD actually runs — same disjoint split, same pattern:
+
+```
+CROSS-CONTAINER IMPORT OK, bytes= 1048576
+READ BACK: [7, 3, 9, 1, 4, 1, 5, 9]   MATCH
+```
+
 The importer **cannot see the exporter's physical GPU** and still mapped its
-memory and read the correct bytes. A bare "import succeeded" would not have
+memory and read the correct bytes. The single-container run alone would have
+left the container boundary as an untested variable; it is closed. A bare "import succeeded" would not have
 proved this — the handle records device index 0 and the importer's own ordinal 0
 is a *different* physical GPU, so the import could plausibly have mapped local
 memory instead. The data pattern is what rules that out; **check the bytes, not
