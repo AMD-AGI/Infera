@@ -1,0 +1,49 @@
+# The single-task debug main for stage 4 (series task book §Goal 1.5).
+#
+# **One leaf, no AI, no credentials, no GPU, seconds to run.** It publishes a
+# workset and validates it, and does nothing else. That is the whole point: it
+# exercises the `workset` contract — the program body, the grant, the content
+# type, the shape validator — without dispatching the agent that costs money and
+# hours.
+#
+# **Why this is a sibling directory and not a subdirectory of the real
+# package.** `spec_loader.YamlPackage` scans **every `*.yaml` under the package
+# root except `assets/`**, so a second `main.yaml` inside
+# `llm_e2e_performance_optimization/` would be loaded on every ordinary run and
+# collide with the real one. `examples/demo-broken/` is a sibling for exactly
+# this reason. There is no CLI flag for "run one leaf" — `cli/main.py`'s parser
+# has no `--task`/`--only` — so a second package is the supported route.
+#
+# **The bodies are symlinked, not copied** (`assets/*` → the real package's).
+# A duplicated validator is a second thing to keep in step, and a debug harness
+# that tests a *copy* of the body is testing the wrong body. If your filesystem
+# or staging path cannot follow the links, copy them and say so here.
+#
+# Run it:
+#
+#     docker exec -u "$(id -u):$(id -g)" <container> bash -lc '
+#     agent-sys run --package agent_sys/examples/llm_e2e_perf_opt_debug_workset \
+#       --demo-root /tmp/yihou/<fresh> --timeout 300'
+#
+# Point it at a different workset with `--var workset=<name>` (package data) or
+# `--var workset_dir=<absolute path>` — which is how you check a workset that
+# stage 3 produced, before handing it to a three-hour campaign.
+module: task
+name: main
+description: Publish and validate one workset. No agent, no GPU, no credentials.
+
+handoffs:
+  - workset
+
+validators: []
+
+task:
+  goal: Publish and validate one workset, with no agent and no GPU.
+  version: '1'
+  inputs: []
+  outputs: [workset]
+  permissions:
+    grants:
+      - {path: handoffs/workset, access: write, kind: workset}
+  subgraph:
+    - {closure: publish_workset, froms: [], is_end: true}
