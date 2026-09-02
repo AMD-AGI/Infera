@@ -15,7 +15,7 @@ from task_graph.models import TaskStatus
 from task_graph.runner import FakeRunner
 from task_graph.store import MemoryStoreMgr
 
-from .conftest import make_task, new_handoffs
+from .conftest import DISPATCHED, make_task, new_handoffs
 
 WRITES = {"persist"}
 # `get` and `latest` hand back a *live, mutable* Handoff, so they are only reads
@@ -172,14 +172,28 @@ def test_scheduling_never_looks_at_a_handoff_payload():
     runner.produce(registry, producer.id, content=payload)
     runner.finish(producer.id)
 
-    assert registry.get("task_mgr").get(consumer.id).status is TaskStatus.RUNNING
+    assert registry.get("task_mgr").get(consumer.id).status is DISPATCHED
 
 
 def test_a_payload_must_be_serialisable(store):
     """Design open question O9. The *scheduler* is content-agnostic, but
     `persist` dumps the whole handoff, so an arbitrary Python object cannot be
     a payload today. Asserted so the constraint is visible rather than
-    discovered by the first agent that returns one."""
+    discovered by the first agent that returns one.
+
+    **Two assertions, and the second is the one that retires this test.** A
+    known-gap marker should assert the absence of the *mechanism*, not the
+    presence of the *consequence* — the consequence usually survives the fix.
+    Spec §8.2's fix is a content store behind `Handoff.content`, and if it
+    arrives as an opt-in component the default path still dumps inline: the
+    raise below would keep passing while reporting a constraint that no longer
+    binds. So the route is asserted too, and it is the route that will fail.
+
+    `handoff` found this shape the hard way one file over: their escape-hatch
+    marker asserted that the root's default registry is strict, which stayed
+    true after `registries=` gave the flag a route, so it would have gone on
+    reporting a gap that was closed.
+    """
     import pytest
     from pydantic_core import PydanticSerializationError
 
@@ -193,6 +207,11 @@ def test_a_payload_must_be_serialisable(store):
 
     with pytest.raises(PydanticSerializationError):
         registry.get("runner").produce(registry, task.id, content=Opaque())
+
+    assert "content_store" not in registry, (
+        "a content store has a route from the composition root: O9 is closed, so "
+        "delete this test and assert the payload path end to end instead"
+    )
 
 
 def test_the_scheduler_never_takes_a_mutable_handle():

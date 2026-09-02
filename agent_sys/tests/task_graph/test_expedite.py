@@ -9,7 +9,7 @@ import pytest
 
 from task_graph.models import TaskStatus
 
-from .conftest import make_task, new_handoffs
+from .conftest import DISPATCHED, make_task, new_handoffs
 
 
 def test_an_expedited_task_runs_before_earlier_ones(scheduler, runner):
@@ -61,17 +61,29 @@ def test_expediting_a_task_whose_inputs_are_valid_is_accepted(
 
     urgent = make_task(inputs=producer.outputs)
     scheduler.expedite(urgent)
-    assert task_mgr.get(urgent.id).status is TaskStatus.RUNNING
+    assert task_mgr.get(urgent.id).status is DISPATCHED
 
 
 def test_an_expedited_task_with_no_inputs_is_accepted(scheduler, task_mgr):
     """Vacuously handoff-complete."""
     task = make_task()
     scheduler.expedite(task)
-    assert task_mgr.get(task.id).status is TaskStatus.RUNNING
+    assert task_mgr.get(task.id).status is DISPATCHED
 
 
-def test_expedited_tasks_keep_fifo_order_among_themselves(scheduler, runner):
+def test_expedited_tasks_keep_fifo_order_among_themselves(store):
+    """Order *among* expedited tasks is the policy's, not the scheduler's.
+
+    Pinned to `FifoPolicy` explicitly: the default is depth-first, which takes
+    the most recently promoted first and is a different — and equally correct —
+    answer to the same question. `test_policy.py` owns the ordering rules.
+    """
+    from task_graph.policy import FifoPolicy
+
+    from .conftest import rebuild
+
+    registry = rebuild(store, policy=FifoPolicy())
+    scheduler, runner = registry.get("scheduler"), registry.get("runner")
     scheduler.submit(make_task(resources={"gpu": 8}))
     first, second = make_task(resources={"gpu": 8}), make_task(resources={"gpu": 8})
     scheduler.expedite(first)

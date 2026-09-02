@@ -1,0 +1,603 @@
+# `grade` — the depth-2 subgraph, and the largest file in this package.
+#
+# It holds six entries, three agents, six handoff kinds and five validators, and
+# it ends with the closure that names all of them. One file, because everything
+# here is introduced by this step and used only inside it — `examples/demo/`'s
+# rule is that an object moves up to `shared.yaml` the moment a *second* step
+# needs it, and nothing below is in that position. `runner`, the program agent
+# three of these tasks run under, is the counter-example: it is in
+# `../shared.yaml` because `reconcile`, `harness`, `score` and every validator
+# body share it.
+#
+# ## The ordering rule, which this file is long enough to make load-bearing
+#
+# **A name referenced before it is defined *in this file* is an error**, so the
+# document reads bottom-up: parts first, the thing that assembles them last. The
+# order below is therefore not cosmetic:
+#
+# 1. the AI agents, before the tasks that name them;
+# 2. each validator, before the handoff kind that lists it in `validators:`;
+# 3. each handoff kind, before the task that names it in `inputs`/`outputs`;
+# 4. the six leaf tasks, before `grade`;
+# 5. **`grade` last**, because it names all six by `closure:`.
+#
+# Cross-file references have no ordering rule — `runner` is above nothing here.
+# A validator's own `inputs:` is a cross-registry reference too, which is why
+# `check_review_shape` may name `review_x` before that kind is declared, exactly
+# as `examples/demo/steps/produce.yaml` names `facts` from `check_facts`.
+#
+# The entries are grouped one step at a time rather than by object type: an
+# author changing `harness` should find its validator, its kind and its task in
+# one place, and the ordering rule is satisfied within each group as well as
+# across them.
+#
+# ## What `grade` is for
+#
+# It takes the problems and three students' solutions and produces one thing:
+# `scores`. Everything else it makes — two independent reviews, their
+# reconciliation, the unified test harness, the examiner's extra cases — is
+# **internal**, and `task_graph/graph.py:82-137` makes consuming any of them
+# from outside a *fatal* load error. Only the `is_end` entry's outputs escape.
+
+# =========================================================================== #
+# 1. review_x and review_y — two reviewers, independently, on the same job
+# =========================================================================== #
+
+# The first reviewer.
+#
+# Two agents rather than one used twice, because the point of the pair is that
+# they are *independent*: `reconcile` compares them field by field and
+# `check_reviews_agree` is what turns a disagreement into a failed run. One
+# agent spec dispatched twice would still be two conversations — `agent` mints a
+# fresh one per attempt — but it would also be one set of instructions, and then
+# agreement would measure nothing but determinism.
+- module: agent
+  name: reviewer_x
+  kind: ai
+  version: '1'
+  description: Reviews each submitted solution against the algorithm it claims.
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+# The second reviewer. Same job, different instructions.
+#
+# `assets/review_y.task/readme.md` is written from scratch and not copied from
+# `review_x`'s: it asks for the same *schema* and reaches it by a different
+# route. That is the whole design — two paths to one shape, so that agreement is
+# evidence of something.
+- module: agent
+  name: reviewer_y
+  kind: ai
+  version: '1'
+  description: Reviews each submitted solution against the algorithm it claims.
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+# --------------------------------------------------------------------------- #
+
+# Completeness over both review documents, and **the reason both kinds have a
+# validator at all**: `handoff` spec §5.3 refuses a kind that names none, so
+# `review_x` and `review_y` would not load without this. It is shared rather
+# than duplicated — one implementation, two kinds in `inputs`.
+#
+# `strong`, and the readme states the two limits that qualify the claim: the
+# row-level checks are total, and the *coverage* check — one row per submitted
+# (student, problem) pair — can only run in the phase that can reach the
+# solutions. See `assets/check_review_shape.validator/readme.md`.
+- module: validator
+  name: check_review_shape
+  version: '1'
+  brief: Every review row is complete and well typed, one row per submitted pair
+  dimension: completeness
+  strength: strong
+  inputs: [review_x, review_y]
+  args:
+    # `validator` criterion 12's shape: the enumerations live here rather than in
+    # the body, so widening `verdict` is a spec edit somebody reviews.
+    students: [a, b, c]
+    verdicts: [accept, revise]
+    required_row_keys:
+      - student
+      - problem_id
+      - implements_claimed_algorithm
+      - complexity_credible
+      - verdict
+      - comment
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [demo2, review]
+
+# --------------------------------------------------------------------------- #
+
+# What `review_x` writes. `review_y` below is the same document from the other
+# reviewer, and the two kinds are distinct because **one kind can have only one
+# producer per subgraph**: `producer_of[kind]` and `available[kind]` are
+# single-slot (`task_graph/models.py:360,747,757`), so two entries producing
+# `review` would leave only the second visible to `reconcile`. The same
+# measurement is why the three students have three solution kinds.
+- module: handoff
+  name: review_x
+  version: '1'
+  description: Reviewer X's verdict on every (student, problem) pair.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json']
+    properties:
+      'text.json': {type: string}
+  validators: [check_review_shape]
+
+- module: handoff
+  name: review_y
+  version: '1'
+  description: Reviewer Y's verdict on every (student, problem) pair, independently.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json']
+    properties:
+      'text.json': {type: string}
+  validators: [check_review_shape]
+
+# --------------------------------------------------------------------------- #
+
+# The first entry of the subgraph, and the first of the two that carry
+# **`froms: []`** — see the `subgraph:` block at the foot of this file.
+#
+# It consumes four kinds and depends on nothing, which looks wrong and is not:
+# every one of `problems`, `solutions_a`, `solutions_b` and `solutions_c` is
+# produced *outside* this subgraph, so `derived_edges` resolves each to the
+# parent's own input and yields no edge (`models.py:349-361`). The dependency is
+# real and it is `grade`'s, recorded once on `main`'s entry for `grade` rather
+# than four times here.
+- module: task
+  name: review_x
+  description: Reviewer X reads every solution and judges it against its claims.
+  agent: reviewer_x
+  handoffs: [problems, solutions_a, solutions_b, solutions_c, review_x]
+  validators: [check_review_shape]
+  task:
+    goal: Judge every submitted solution against the algorithm it claims.
+    version: '1'
+    inputs: [problems, solutions_a, solutions_b, solutions_c]
+    outputs: [review_x]
+    permissions:
+      grants:
+        - {path: handoffs/problems, access: read, kind: problems}
+        - {path: handoffs/solutions_a, access: read, kind: solutions_a}
+        - {path: handoffs/solutions_b, access: read, kind: solutions_b}
+        - {path: handoffs/solutions_c, access: read, kind: solutions_c}
+        - {path: handoffs/review_x, access: write, kind: review_x}
+
+- module: task
+  name: review_y
+  description: Reviewer Y reads every solution and judges it against its claims.
+  agent: reviewer_y
+  handoffs: [problems, solutions_a, solutions_b, solutions_c, review_y]
+  validators: [check_review_shape]
+  task:
+    goal: Judge every submitted solution against the algorithm it claims.
+    version: '1'
+    inputs: [problems, solutions_a, solutions_b, solutions_c]
+    outputs: [review_y]
+    permissions:
+      grants:
+        - {path: handoffs/problems, access: read, kind: problems}
+        - {path: handoffs/solutions_a, access: read, kind: solutions_a}
+        - {path: handoffs/solutions_b, access: read, kind: solutions_b}
+        - {path: handoffs/solutions_c, access: read, kind: solutions_c}
+        - {path: handoffs/review_y, access: write, kind: review_y}
+
+# =========================================================================== #
+# 2. reconcile — the fan-in, and a program because merging is not a judgement
+# =========================================================================== #
+
+# Trustworthiness, and this is the user's *"两份审阅要一致"* in one validator.
+#
+# **`strong`, with a limit the readme states plainly**: the check is total over
+# the merged document — every pair is compared and the totals are recomputed —
+# but what it establishes is that two reviewers *agreed*, which is evidence of
+# consistency and not of correctness. Two models can agree and both be wrong.
+# `strength` qualifies a PASS (`validator` spec §5.4) and that is exactly the
+# pass being qualified.
+- module: validator
+  name: check_reviews_agree
+  version: '1'
+  brief: The reconciled review has an empty disagreement list and totals that add up
+  dimension: trustworthiness
+  strength: strong
+  inputs: [review]
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [demo2, review]
+
+# --------------------------------------------------------------------------- #
+
+# The merge of the two reviews. **It records agreement; it does not judge it** —
+# `check_reviews_agree` is what turns a non-empty `disagreed` list into a failed
+# phase. Keeping the two apart is what lets the artefact stay honest about a
+# disagreement instead of a body being tempted to resolve one.
+- module: handoff
+  name: review
+  version: '1'
+  description: The two reviewers' verdicts merged, with every disagreement listed.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json']
+    properties:
+      'text.json': {type: string}
+  validators: [check_reviews_agree]
+
+# --------------------------------------------------------------------------- #
+
+# A **program** task: the merge is a field-by-field comparison with no judgement
+# in it, so paying for a model call would buy nothing and would make the one
+# deterministic step in this subgraph flaky.
+- module: task
+  name: reconcile
+  description: Merge the two reviews, listing every pair the reviewers disagree on.
+  agent: runner
+  handoffs: [review_x, review_y, review]
+  validators: [check_review_shape, check_reviews_agree]
+  task:
+    goal: Merge the two reviews and list every disagreement.
+    version: '1'
+    inputs: [review_x, review_y]
+    outputs: [review]
+    permissions:
+      grants:
+        - {path: handoffs/review_x, access: read, kind: review_x}
+        - {path: handoffs/review_y, access: read, kind: review_y}
+        - {path: handoffs/review, access: write, kind: review}
+
+# =========================================================================== #
+# 3. harness — ONE executable, selected by test case
+# =========================================================================== #
+
+# Completeness over the built artefact, and the count is the requirement.
+#
+# *"One unified executable that selects by test case"* is the user's own
+# wording, so the check asserts **exactly one** executable file rather than *at
+# least one*: thirty-six binaries in a directory would satisfy every other
+# property this validator tests.
+- module: validator
+  name: check_one_binary
+  version: '1'
+  brief: Exactly one executable is staged, it runs, and it answers every declared case id
+  dimension: completeness
+  strength: strong
+  inputs: [harness]
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [demo2, build]
+
+# --------------------------------------------------------------------------- #
+
+# The built harness: generated sources, one binary, and a manifest.
+#
+# `content_type: code` is the only one of the four that fits, and it brings two
+# requirements this kind has to satisfy rather than describe. It **requires an
+# item named `codes`** (`handoff/content.py:69-74`), which is why the sources
+# and the binary live under `items/codes/` rather than at the top of `items/`;
+# and its README must carry `Purpose`, `Interface` and `Boundary`, not the
+# `Purpose`/`Schema` pair every `structured_text` kind in this package uses.
+#
+# `manifest.json` is a key the content type never defined, and it is admitted
+# the way `examples/demo/steps/describe.yaml` admits `grounding`: the **kind's**
+# `items_schema` declares it, and `check_items` unions the declared keys into
+# the known ones. That is the split that makes an extra item expressible with no
+# second mechanism.
+- module: handoff
+  name: harness
+  version: '1'
+  description: One executable built from every submitted solution, plus its case manifest.
+  content_type: code
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: [codes, 'manifest.json']
+    properties:
+      # A directory: `Content.load` types a directory under `items/` as a `tree`
+      # and the instance value is its name, so the schema types its presence.
+      # What is inside it is `check_one_binary`'s job.
+      codes: {type: string}
+      'manifest.json': {type: string}
+  validators: [check_one_binary]
+
+# --------------------------------------------------------------------------- #
+
+# A **program** task. Generating source and invoking `g++` is mechanical, and
+# `assets/lib/cpp.py` already exists for it.
+#
+# It consumes `review` as well as the solutions, and that is deliberate rather
+# than incidental: `score`'s declared inputs are `harness` and `extra_tests`
+# only, so the reviewers' verdicts — which carry 10% of the weight — reach it by
+# travelling **inside** the harness manifest. That is the same "a task passes
+# its own input through to its own output" move `examples/demo/steps/describe.yaml`
+# records as a user ruling, applied to a second case.
+- module: task
+  name: harness
+  description: Build one executable from every solution, dispatching on a case id.
+  agent: runner
+  handoffs: [problems, solutions_a, solutions_b, solutions_c, review, harness]
+  validators: [check_reviews_agree, check_one_binary]
+  task:
+    goal: Build one executable from every solution, selected by test case id.
+    version: '1'
+    inputs: [problems, solutions_a, solutions_b, solutions_c, review]
+    outputs: [harness]
+    permissions:
+      grants:
+        - {path: handoffs/problems, access: read, kind: problems}
+        - {path: handoffs/solutions_a, access: read, kind: solutions_a}
+        - {path: handoffs/solutions_b, access: read, kind: solutions_b}
+        - {path: handoffs/solutions_c, access: read, kind: solutions_c}
+        - {path: handoffs/review, access: read, kind: review}
+        - {path: handoffs/harness, access: write, kind: harness}
+
+# =========================================================================== #
+# 4. extra_tests — new cases, written by hand from the statements
+# =========================================================================== #
+
+# The examiner, and the only agent in this file that carries a scale knob.
+#
+# `DEMO2_N_EXTRA` reaches the readme through this block, so a bring-up run is
+# `--var n_extra=2` and the readme never writes a literal count (CONTRACT §4).
+# It reaches `check_extra_tests` too, but only in the phase whose configuration
+# is this task's — see that validator's readme for what happens in the other.
+- module: agent
+  name: examiner
+  kind: ai
+  version: '1'
+  description: Writes new test cases for each problem, derived from the statement.
+  env:
+    DEMO2_N_EXTRA: '${n_extra:-10}'
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+# --------------------------------------------------------------------------- #
+
+# Completeness over the new cases: the right number per problem, none of them a
+# copy of a worked example the problems artefact already ships, and no empty
+# field.
+#
+# The *no duplicates* half is the one that matters, and it is why this validator
+# reaches outside its own input: an examiner that echoes the shipped examples
+# has added nothing, and the artefact alone cannot show that.
+# `store.declared_dir("problems")` is the declared route to the problems this
+# examiner was given (`assets/lib/store.py`), and it resolves in the phase whose
+# configuration is the producing task's.
+- module: validator
+  name: check_extra_tests
+  version: '1'
+  brief: The declared number of new cases per problem, none duplicating a worked example
+  dimension: completeness
+  strength: strong
+  inputs: [extra_tests]
+  args:
+    # The fallback when `DEMO2_N_EXTRA` is not in the environment. It matches the
+    # `examiner` agent's own default above, so the full run agrees with itself;
+    # a run shrunk with `--var n_extra=2` does not, and the body prefers the
+    # environment for exactly that reason. See the validator's readme.
+    default_n_extra: 10
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [demo2, tests]
+
+# --------------------------------------------------------------------------- #
+
+- module: handoff
+  name: extra_tests
+  version: '1'
+  description: New test cases per problem, derived by hand from the statements.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json']
+    properties:
+      'text.json': {type: string}
+  validators: [check_extra_tests]
+
+# --------------------------------------------------------------------------- #
+
+# It consumes `harness` and depends on it, and the edge is real: the examiner is
+# shown the case ids the harness answers to, so the cases it writes are cases
+# the harness can actually be asked. `problems` is a parent input and derives no
+# edge, which is why `froms` is `[harness]` and not `[harness, ...]`.
+- module: task
+  name: extra_tests
+  description: Write new test cases for every problem, derived from the statements.
+  agent: examiner
+  handoffs: [problems, harness, extra_tests]
+  validators: [check_one_binary, check_extra_tests]
+  task:
+    goal: Write new test cases for each problem, derived from the statements.
+    version: '1'
+    inputs: [problems, harness]
+    outputs: [extra_tests]
+    permissions:
+      grants:
+        - {path: handoffs/problems, access: read, kind: problems}
+        - {path: handoffs/harness, access: read, kind: harness}
+        - {path: handoffs/extra_tests, access: write, kind: extra_tests}
+
+# =========================================================================== #
+# 5. score — the exit of the subgraph
+# =========================================================================== #
+
+# Completeness over the score sheet, and the interesting half is arithmetic:
+# every `per_student.final` must be **recomputable** from `per_student_problem`
+# under the `weights` the document itself declares, to within 1e-6.
+#
+# That is what makes `strong` honest here. The validator does not have an
+# opinion about whether 70/20/10 is a good weighting; it checks that the number
+# published is the number those weights produce from the parts published beside
+# it. A score sheet nobody can recompute is a claim, not a result.
+- module: validator
+  name: check_scores
+  version: '1'
+  brief: Every pair is scored and every final is recomputable from the parts and weights
+  dimension: completeness
+  strength: strong
+  inputs: [scores]
+  args:
+    # The arithmetic tolerance, as a parameter rather than a literal in the body:
+    # binary floating point makes the exact comparison wrong, and the size of the
+    # slack is a decision a reviewer should see.
+    tolerance: 1.0e-6
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [demo2, scoring]
+
+# --------------------------------------------------------------------------- #
+
+# **The one kind that leaves `grade`.** `review`, `harness` and `extra_tests`
+# are produced inside the subgraph and consumed only inside it; this is produced
+# by the `is_end` entry, which is the declared boundary and the only way a
+# handoff made inside a subgraph reaches anything outside it
+# (`task_graph` criterion 50, enforced at `graph.py:82-137`).
+- module: handoff
+  name: scores
+  version: '1'
+  description: A weighted score per student per problem, and a final per student.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json']
+    properties:
+      'text.json': {type: string}
+  validators: [check_scores]
+
+# --------------------------------------------------------------------------- #
+
+# A **program** task, and the subgraph's `is_end`.
+#
+# Running the cases and folding the weights is arithmetic; there is nothing here
+# a model would do better and a great deal it could do inconsistently, which is
+# the property `check_scores` then has to test for.
+- module: task
+  name: score
+  description: Run every case through the one binary and fold the weighted score.
+  agent: runner
+  handoffs: [harness, extra_tests, scores]
+  validators: [check_one_binary, check_extra_tests, check_scores]
+  task:
+    goal: Run every case and fold a weighted score per student per problem.
+    version: '1'
+    inputs: [harness, extra_tests]
+    outputs: [scores]
+    permissions:
+      grants:
+        - {path: handoffs/harness, access: read, kind: harness}
+        - {path: handoffs/extra_tests, access: read, kind: extra_tests}
+        - {path: handoffs/scores, access: write, kind: scores}
+
+# =========================================================================== #
+# 6. grade itself — LAST, because it names all six
+# =========================================================================== #
+
+# The non-leaf.
+#
+# **No `agent`.** `closure.schema.json` requires one of a leaf and of nothing
+# else: a non-leaf's work *is* its subgraph, and the name it would otherwise be
+# forced to invent is read by nothing.
+#
+# **No `resources`.** Only a leaf may acquire. A parent holding a lease while
+# its subtasks queue for the same pool is hold-and-wait, and `task_graph`
+# criterion 53 rejects it at load (`graph.py:54-80`).
+#
+# **No `body:`.** `assets/grade.task/readme.md` is found by the folder's name.
+#
+# `handoffs:` lists ten kinds while `inputs`/`outputs` name five, and the extra
+# five are legal by design: `closure.schema.json` calls the check
+# one-directional precisely so that *"a closure may declare a kind its subgraph
+# uses internally"*.
+- module: task
+  name: grade
+  description: Review, reconcile, build one harness, extend the tests, and score.
+  handoffs:
+    - problems
+    - solutions_a
+    - solutions_b
+    - solutions_c
+    - review_x
+    - review_y
+    - review
+    - harness
+    - extra_tests
+    - scores
+  validators: []
+  task:
+    goal: Review three students' solutions, test them, and score them.
+    version: '1'
+    inputs: [problems, solutions_a, solutions_b, solutions_c]
+    outputs: [scores]
+
+    # A subtask is instantiated with **its own** declared permissions and not
+    # the parent's (`task_graph/models.py:772-786`), so these grants cover
+    # `grade`'s own five slots and nothing below inherits them. Each of the six
+    # entries above carries its own set for the same reason.
+    permissions:
+      grants:
+        - {path: handoffs/problems, access: read, kind: problems}
+        - {path: handoffs/solutions_a, access: read, kind: solutions_a}
+        - {path: handoffs/solutions_b, access: read, kind: solutions_b}
+        - {path: handoffs/solutions_c, access: read, kind: solutions_c}
+        - {path: handoffs/scores, access: write, kind: scores}
+
+    # **Every `froms` here is exactly what the derived edges require.** A derived
+    # edge this list omits is an error; an entry it names that no handoff derives
+    # is reported non-fatally; a name that is not an *earlier* entry is an error
+    # (`task_graph/graph.py:139-226`). So the lists are neither shortened nor
+    # padded.
+    #
+    # **`review_x` and `review_y` both take `froms: []`, and that is the whole
+    # point of the parent-input rule.** Each consumes four kinds — `problems`,
+    # `solutions_a`, `solutions_b`, `solutions_c` — and *no entry of this
+    # subgraph produces any of them*, so `derived_edges` resolves each to
+    # `grade`'s own input and yields no edge at all (`models.py:349-361`). An
+    # empty list is a statement, not an omission: the schema separates `[]` from
+    # a missing key on purpose.
+    #
+    # The two of them are also this package's fan-out, and it is free: the
+    # scheduler dispatches every eligible task in one pass and `runner.start`
+    # spawns a thread, so the two reviewers really do run at the same time.
+    #
+    # `harness` consumes five kinds and names one predecessor, for the same
+    # reason: four of the five are `grade`'s inputs and only `review` is made
+    # here. `extra_tests` consumes two and names one. Neither list is short.
+    #
+    # **`is_end` is written rather than left to the default.** Absent, the last
+    # entry is the end — so appending a seventh would silently move the
+    # subgraph's exit, and with it the only kind that may leave. The mark is what
+    # stops an append from being a semantic change nobody wrote.
+    subgraph:
+      - {closure: review_x, froms: []}
+      - {closure: review_y, froms: []}
+      - {closure: reconcile, froms: [review_x, review_y]}
+      - {closure: harness, froms: [reconcile]}
+      - {closure: extra_tests, froms: [harness]}
+      - {closure: score, froms: [harness, extra_tests], is_end: true}

@@ -11,7 +11,7 @@ import random
 from task_graph.models import TaskStatus
 from task_graph.resource import RenewableMgr
 
-from .conftest import make_task, new_handoffs, rebuild
+from .conftest import DISPATCHED, LIVE, make_task, new_handoffs, rebuild
 
 
 def check(scheduler, task_mgr, registry=None) -> None:
@@ -33,11 +33,7 @@ def check(scheduler, task_mgr, registry=None) -> None:
     # is what catches a leaked or double-booked lease, which the pool/status
     # correspondence alone cannot see.
     for pool_mgr in registry.resolve("resource:*"):
-        reserved = sum(
-            t.resources.get(pool_mgr.name, 0.0)
-            for t in tasks
-            if t.status in (TaskStatus.RUNNING, TaskStatus.STOPPING)
-        )
+        reserved = sum(t.resources.get(pool_mgr.name, 0.0) for t in tasks if t.status in LIVE)
         # A consumable shrinks as spend accrues, so `spent` is part of the sum.
         # It is the half where the subtle accounting lives: D12's bug was a
         # reservation leaking into the durable record, and a renewable-only
@@ -108,7 +104,7 @@ def test_the_invariant_holds_through_a_long_mixed_sequence(
             # `runner.running` still holds a task between stop() and its
             # acknowledgement, so pick on status rather than on membership.
             actually_running = [
-                tid for tid in runner.running if task_mgr.get(tid).status is TaskStatus.RUNNING
+                tid for tid in runner.running if task_mgr.get(tid).status is DISPATCHED
             ]
             if not actually_running:
                 pass
@@ -171,7 +167,7 @@ def test_no_resource_leaks_after_everything_settles(scheduler, task_mgr, runner,
         runner.finish(tid)
 
     assert registry.get("resource:gpu").available == 8
-    assert not scheduler.pools[TaskStatus.RUNNING]
+    assert not scheduler.pools[DISPATCHED]
     check(scheduler, task_mgr, registry)
 
 

@@ -1,0 +1,97 @@
+# The program node, and the subgraph's first entry.
+#
+# **One file per step, holding everything that step introduces.** The order is
+# the rule the format imposes and it reads bottom-up: a name referenced before
+# it is defined *in this file* is an error, so the parts come first and the step
+# that assembles them comes last. Nothing here is defined inline, because an
+# inline definition is registered under its own name and hoisted above its host
+# — it is exactly a top-level definition written somewhere less greppable, and
+# it earns that only when the object is single-use *and* short enough not to
+# bury the thing it sits inside. Neither of these is.
+#
+# `collect`, the agent this task runs under, is in `../shared.yaml`: `consume`
+# uses it too. A cross-file reference has no ordering rule — the order rule is
+# within a file, because a package's file order is not a total order any real
+# reference graph can satisfy.
+
+# --------------------------------------------------------------------------- #
+
+# Completeness: the manifest has every field a consumer is entitled to.
+#
+# `strong`, and honestly so — the check is total over the document. Every row
+# must carry `path`, `lines` and `sha256_prefix`, and `totals` must agree with
+# the rows. There is nothing approximate in it, which is what `strong` claims.
+- module: validator
+  name: check_facts
+  version: '1'
+  brief: Every manifest row carries path, lines and sha256_prefix, and totals agree
+  dimension: completeness
+  strength: strong
+  inputs: [facts]
+  # No `body:`. `assets/check_facts.validator/readme.md` and `entry.sh` are found
+  # by the folder's name — `${name}.${type}` — and the name inside it is then
+  # implied.
+  args:
+    # Two validators differing only in a parameter are two registry entries over
+    # one implementation (`validator` criterion 12). This one has a knob and uses
+    # it, so the shape is exercised rather than asserted.
+    required_row_keys: [path, lines, sha256_prefix]
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [demo]
+
+# --------------------------------------------------------------------------- #
+
+# The manifest `produce` writes: one row per file, plus a totals object.
+#
+# `structured_text` because that is exactly what it is — a JSON document with a
+# declared shape and nothing that ran. The type requires one of
+# `text.json` / `text.yaml` / `text.xml` and a README carrying Purpose and
+# Schema, which is the whole contract a consumer needs.
+#
+# **The kind is declared in the file of the step that produces it.** A handoff
+# contract belongs to its producer; its consumers reference it by name from
+# their own files.
+- module: handoff
+  name: facts
+  version: '1'
+  description: 'A manifest of a directory tree: one row per file, plus totals.'
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json']
+    properties:
+      # A file item reaches the check as its own file name, so the schema types
+      # the presence of the file rather than its contents. What is *in* it is
+      # `check_facts`' job, which is the split the two mechanisms are for.
+      'text.json': {type: string}
+  # A kind is never valid without at least one validator (`handoff` spec §5.3).
+  validators: [check_facts]
+
+# --------------------------------------------------------------------------- #
+
+# The step.
+#
+# It has **no inputs**, so its input validation phase is empty and runs nothing.
+# That is criterion 3's first half, and it falls out of the shape rather than
+# being arranged: empty is the normal case and the demo shows it being normal.
+- module: task
+  name: produce
+  description: Walk the demo package and write a facts manifest.
+  agent: collect
+  handoffs: [facts]
+  # Declared because the specs call this the phase-validator list. See
+  # `demo/README.md` F-D4: `validator.PhaseRunner` selects from the handoff
+  # kind's own list instead, and the two agree here on purpose.
+  validators: [check_facts]
+  task:
+    goal: Write a manifest of every file in the demo package.
+    version: '1'
+    inputs: []
+    outputs: [facts]
+    permissions:
+      grants:
+        - {path: handoffs/facts, access: write, kind: facts}
