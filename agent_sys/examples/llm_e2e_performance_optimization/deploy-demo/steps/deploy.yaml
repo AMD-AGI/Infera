@@ -44,7 +44,7 @@
 # with somebody's username in it into public history. `${NAME}` with no `:-` is
 # a load-time fault naming the file and the line (`spec_loader/variables.py`).
 #
-#     agent-sys run --package agent_sys/examples/llm_e2e_performance_optimization \
+#     agent-sys run --package agent_sys/examples/llm_e2e_performance_optimization/deploy-demo \
 #       --var model_name=Qwen/Qwen3.6-27B \
 #       --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
 #       --var image=infera/engine-sglang:gfx950-local \

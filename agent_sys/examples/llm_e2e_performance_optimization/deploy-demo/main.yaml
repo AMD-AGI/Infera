@@ -1,6 +1,6 @@
 # The outermost graph of the LLM end-to-end performance-optimisation package.
 #
-# The series book (`temp/mission.md`) splits the whole flow into six stages:
+# The series book (`../temp/mission.md`) splits the whole flow into six stages:
 # **e2e 运行**, profiling, analysis + workset, kernel optimisation, integration,
 # and regression. **This file declares the first one only.** The remaining five
 # arrive as further entries in this same subgraph, each with its own step file,

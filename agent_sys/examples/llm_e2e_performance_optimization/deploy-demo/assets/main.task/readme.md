@@ -6,7 +6,7 @@ body is a readme.
 
 ## The flow this package will hold
 
-The series book (`temp/mission.md`) splits end-to-end optimisation into six
+The series book (`../temp/mission.md`) splits end-to-end optimisation into six
 stages:
 
 1. **e2e 运行** — a plain instruction in, a proven deployment and a runnable
