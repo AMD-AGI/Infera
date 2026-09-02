@@ -321,8 +321,27 @@ pub async fn dispatch(state: &AppState, raw: Bytes, path: &'static str) -> Respo
         Ok(v) => v,
         Err(e) => return json_error(StatusCode::BAD_REQUEST, &format!("bad json: {e}")),
     };
-    let model = v.get("model").and_then(|m| m.as_str()).unwrap_or("");
-    let stream = v.get("stream").and_then(|b| b.as_bool()).unwrap_or(false);
+    dispatch_routed(state, &v, raw, path).await
+}
+
+/// Dispatch an encoded worker body using a separate routing representation.
+///
+/// Protocol adapters use this to attach router-only metadata without leaking
+/// private fields to OpenAI-compatible workers.
+pub(crate) async fn dispatch_routed(
+    state: &AppState,
+    routing_request: &Value,
+    raw: Bytes,
+    path: &'static str,
+) -> Response {
+    let model = routing_request
+        .get("model")
+        .and_then(|m| m.as_str())
+        .unwrap_or("");
+    let stream = routing_request
+        .get("stream")
+        .and_then(|b| b.as_bool())
+        .unwrap_or(false);
 
     let guard = state.pool.load();
     let snap: &Snapshot = &guard;
@@ -330,9 +349,10 @@ pub async fn dispatch(state: &AppState, raw: Bytes, path: &'static str) -> Respo
     let has_p = !snap.list_active(model, DisaggMode::Prefill).is_empty();
     let has_d = !snap.list_active(model, DisaggMode::Decode).is_empty();
     if has_p && has_d {
-        return crate::disagg::dispatch(state, snap, model, &v, raw, stream, path).await;
+        return crate::disagg::dispatch(state, snap, model, routing_request, raw, stream, path)
+            .await;
     }
-    mixed_dispatch(state, snap, model, &v, raw, stream, path).await
+    mixed_dispatch(state, snap, model, routing_request, raw, stream, path).await
 }
 
 async fn mixed_dispatch(

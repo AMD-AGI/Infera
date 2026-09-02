@@ -15,6 +15,8 @@
 use serde_json::Value;
 use xxhash_rust::xxh3::xxh3_64;
 
+const INTERNAL_HINTS_KEY: &str = "_infera_cache_hints";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Retention {
     // Ordinal order matters: None < Short < Long so `max` gives the strongest.
@@ -72,6 +74,9 @@ pub fn parse_cache_hints(body: &Value) -> CacheHints {
         Some(o) => o,
         None => return CacheHints::none(None, false),
     };
+    if let Some(hints) = parse_internal_hints(obj.get(INTERNAL_HINTS_KEY)) {
+        return hints;
+    }
 
     let openai_retention = parse_openai_retention(obj);
     let openai_session = obj
@@ -100,6 +105,51 @@ pub fn parse_cache_hints(body: &Value) -> CacheHints {
         explicit_hint_seen: anthropic_seen || openai_retention.is_some(),
         has_multimodal_content: has_mm,
     }
+}
+
+/// Attach pre-translation cache hints to a router-only request value.
+///
+/// The encoded worker body is kept separate by `proxy::dispatch_routed`, so
+/// this metadata affects routing without becoming an engine request field.
+pub fn attach_cache_hints(body: &mut Value, hints: &CacheHints) {
+    let Some(obj) = body.as_object_mut() else {
+        return;
+    };
+    obj.insert(
+        INTERNAL_HINTS_KEY.to_string(),
+        serde_json::json!({
+            "retention": hints.retention.as_str(),
+            "session_id": hints.session_id,
+            "explicit_hint_seen": hints.explicit_hint_seen,
+            "has_multimodal_content": hints.has_multimodal_content,
+        }),
+    );
+}
+
+/// Decode cache hints preserved by an edge protocol adapter.
+fn parse_internal_hints(value: Option<&Value>) -> Option<CacheHints> {
+    let obj = value?.as_object()?;
+    let retention = match obj.get("retention").and_then(Value::as_str)? {
+        "none" => Retention::None,
+        "short" => Retention::Short,
+        "long" => Retention::Long,
+        _ => return None,
+    };
+    Some(CacheHints {
+        retention,
+        session_id: obj
+            .get("session_id")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        explicit_hint_seen: obj
+            .get("explicit_hint_seen")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        has_multimodal_content: obj
+            .get("has_multimodal_content")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+    })
 }
 
 fn coerce_session_id(v: &Value) -> Option<String> {

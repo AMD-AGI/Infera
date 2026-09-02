@@ -19,10 +19,10 @@ replicas behind a load balancer; they share one fleet view.
 These match the OpenAI schema, so any OpenAI client library works — point its
 `base_url` at `http://<server>:8000/v1`.
 
-```{admonition} /v1/responses: rust backend, stateless calls
+```{admonition} /v1/responses: Rust backend, stateless calls
 :class: warning
-The two backends serve different extra protocols. `--router-backend rust` has
-`/v1/responses`; `--router-backend python` has `/v1/messages` (below). Neither has both.
+`--router-backend rust` serves both `/v1/responses` and `/v1/messages`.
+`--router-backend python` serves `/v1/messages` but not `/v1/responses`.
 
 **Send `store: false`.** SGLang keeps Responses state in a **per-process** dict, so
 `previous_response_id`, `GET /v1/responses/{id}` and `POST /v1/responses/{id}/cancel`
@@ -42,8 +42,6 @@ id`.
 | Endpoint | Use |
 |---|---|
 | `POST /v1/messages` | Anthropic-compatible chat (system blocks, tool use, streaming) |
-
-Served by `--router-backend python` only; the Rust backend has `/v1/responses` instead.
 
 The server also speaks the **Anthropic Messages API** via a translation layer —
 point an Anthropic client's `ANTHROPIC_BASE_URL` at `http://<server>:8000` and it

@@ -8,17 +8,24 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use axum::body::Bytes;
+use axum::body::{to_bytes, Body, Bytes};
 use axum::extract::{DefaultBodyLimit, State};
+use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use serde_json::json;
+use futures::StreamExt;
+use serde_json::{json, Value};
 
+use crate::anthropic::{self, SseTranslator};
 use crate::breaker::CircuitBreaker;
+use crate::cache_control::{attach_cache_hints, parse_cache_hints};
 use crate::policy::Policy;
 use crate::pool::SharedPool;
 use crate::proxy;
+
+const REQUEST_ID_HEADER: &str = "x-infera-request-id";
+const MAX_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -42,6 +49,7 @@ pub fn app(state: AppState) -> Router {
         .route("/v1/chat/completions", post(chat))
         .route("/v1/completions", post(completions))
         .route("/v1/responses", post(responses))
+        .route("/v1/messages", post(messages))
         .route("/health", get(health))
         .route("/v1/workers", get(workers))
         .route("/v1/models", get(models))
@@ -75,6 +83,194 @@ async fn completions(State(st): State<AppState>, body: Bytes) -> Response {
 /// -- unreproducible by construction -- which routes on load and logs why.
 async fn responses(State(st): State<AppState>, body: Bytes) -> Response {
     proxy::dispatch(&st, body, "/v1/responses").await
+}
+
+/// Anthropic Messages API translated through the OpenAI Chat worker path.
+async fn messages(State(st): State<AppState>, headers: HeaderMap, body: Bytes) -> Response {
+    if let Some(version) = headers
+        .get("anthropic-version")
+        .and_then(|value| value.to_str().ok())
+        .filter(|version| *version != "2023-06-01")
+    {
+        tracing::info!(
+            anthropic_version = version,
+            "accepting an Anthropic API version not covered by regression tests"
+        );
+    }
+    if headers.contains_key("x-api-key") || headers.contains_key(header::AUTHORIZATION) {
+        tracing::debug!("Anthropic auth header accepted without router-side validation");
+    }
+
+    let anthropic_body: Value = match serde_json::from_slice(&body) {
+        Ok(value) => value,
+        Err(error) => {
+            tracing::warn!(%error, "Anthropic Messages request contains malformed JSON");
+            return anthropic_error(StatusCode::BAD_REQUEST, "malformed JSON in request body");
+        }
+    };
+    let model = match anthropic_body
+        .get("model")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|model| !model.is_empty())
+    {
+        Some(model) => model.to_string(),
+        None => {
+            return anthropic_error(
+                StatusCode::BAD_REQUEST,
+                "missing or empty 'model' field (required by Anthropic Messages spec)",
+            )
+        }
+    };
+
+    let hints = parse_cache_hints(&anthropic_body);
+    let mut openai_body = match anthropic::translate_request(&anthropic_body) {
+        Ok(value) => value,
+        Err(message) => return anthropic_error(StatusCode::BAD_REQUEST, &message),
+    };
+    let stream = openai_body
+        .get("stream")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    if stream {
+        let obj = openai_body
+            .as_object_mut()
+            .expect("translated Anthropic request is an object");
+        let options = obj
+            .entry("stream_options")
+            .or_insert_with(|| json!({}))
+            .as_object_mut()
+            .expect("stream_options inserted as an object");
+        options.entry("include_usage").or_insert(Value::Bool(true));
+    }
+
+    let worker_body = match serde_json::to_vec(&openai_body) {
+        Ok(encoded) => Bytes::from(encoded),
+        Err(error) => {
+            tracing::error!(%error, "failed to encode translated Anthropic request");
+            return anthropic_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to encode translated request",
+            );
+        }
+    };
+    let mut routing_request = openai_body;
+    attach_cache_hints(&mut routing_request, &hints);
+
+    let request_id = headers
+        .get(REQUEST_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("{:032x}", rand::random::<u128>()));
+    let upstream =
+        proxy::dispatch_routed(&st, &routing_request, worker_body, "/v1/chat/completions").await;
+    let status = upstream.status();
+    if status.is_client_error() || status.is_server_error() {
+        return with_request_id(upstream, &request_id);
+    }
+
+    if stream {
+        return translate_anthropic_stream(upstream, &model, &request_id);
+    }
+
+    let (parts, upstream_body) = upstream.into_parts();
+    let bytes = match to_bytes(upstream_body, MAX_RESPONSE_BYTES).await {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            tracing::warn!(%error, "failed to read OpenAI response for Anthropic translation");
+            return anthropic_error(StatusCode::BAD_GATEWAY, "failed to read worker response");
+        }
+    };
+    let openai_response: Value = match serde_json::from_slice(&bytes) {
+        Ok(value) => value,
+        Err(_) => {
+            let response = Response::from_parts(parts, Body::from(bytes));
+            return with_request_id(response, &request_id);
+        }
+    };
+    let translated =
+        anthropic::translate_response(&openai_response, Some(&model), Some(&request_id));
+    Response::builder()
+        .status(status)
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(REQUEST_ID_HEADER, request_id)
+        .body(Body::from(translated.to_string()))
+        .expect("Anthropic JSON response is valid")
+}
+
+/// Convert an OpenAI SSE body to Anthropic events without buffering the stream.
+fn translate_anthropic_stream(upstream: Response, model: &str, request_id: &str) -> Response {
+    let (_, body) = upstream.into_parts();
+    let source = body.into_data_stream();
+    let translator = SseTranslator::new(model, Some(request_id));
+    let translated = futures::stream::unfold(
+        (source, translator, false),
+        |(mut source, mut translator, finished)| async move {
+            if finished {
+                return None;
+            }
+            loop {
+                match source.next().await {
+                    Some(Ok(chunk)) => {
+                        let output = translator.push(&chunk);
+                        if !output.is_empty() {
+                            return Some((
+                                Ok::<Bytes, axum::Error>(Bytes::from(output)),
+                                (source, translator, false),
+                            ));
+                        }
+                    }
+                    Some(Err(error)) => {
+                        let output = translator.error(&format!("worker stream failed: {error}"));
+                        return Some((
+                            Ok::<Bytes, axum::Error>(Bytes::from(output)),
+                            (source, translator, true),
+                        ));
+                    }
+                    None => {
+                        let output = translator.finish();
+                        if output.is_empty() {
+                            return None;
+                        }
+                        return Some((Ok(Bytes::from(output)), (source, translator, true)));
+                    }
+                }
+            }
+        },
+    );
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/event-stream")
+        .header(REQUEST_ID_HEADER, request_id)
+        .body(Body::from_stream(translated))
+        .expect("Anthropic SSE response is valid")
+}
+
+/// Build an Anthropic-compatible error response.
+fn anthropic_error(status: StatusCode, message: &str) -> Response {
+    Response::builder()
+        .status(status)
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(
+            json!({
+                "type": "error",
+                "error": {
+                    "type": "invalid_request_error",
+                    "message": message,
+                },
+            })
+            .to_string(),
+        ))
+        .expect("Anthropic error response is valid")
+}
+
+/// Attach the router request id to an existing response.
+fn with_request_id(mut response: Response, request_id: &str) -> Response {
+    if let Ok(value) = request_id.parse() {
+        response.headers_mut().insert(REQUEST_ID_HEADER, value);
+    }
+    response
 }
 
 async fn health(State(st): State<AppState>) -> impl IntoResponse {
