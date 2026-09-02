@@ -409,7 +409,10 @@ class KvEventAwarePolicy(Policy):
             if previous is not None:
                 # Same worker_id, different process (new kv endpoint / page
                 # size). The Confirmed/Diverged latch and the recorded variant
-                # describe the engine that just died.
+                # describe the engine that just died. Drop the gauges first:
+                # `forget` makes `for_worker` fall back to the fleet label, so
+                # a later remove would miss the series the dead process exported.
+                self._drop_parity_gauges(wid)
                 self._forget_parity(wid)
                 self._parity_pending.pop(wid, None)
                 self._variants.forget(wid)
@@ -441,6 +444,20 @@ class KvEventAwarePolicy(Policy):
     def _forget_parity(self, worker_id: str) -> None:
         """Drop a settled verdict so the next registration re-probes."""
         self._parity_verdict.pop(worker_id, None)
+
+    def _drop_parity_gauges(self, worker_id: str) -> None:
+        """Unexport this worker's render series before the label set changes."""
+        variant_label = self._variants.for_worker(worker_id).label()
+        try:
+            metrics.render_variant.remove(worker_id, variant_label)
+        except KeyError:
+            pass
+        model = self._parity_labels.pop(worker_id, None)
+        if model is not None:
+            try:
+                metrics.render_parity.remove(worker_id, model)
+            except KeyError:
+                pass
 
     def _report_render_parity(
         self, worker: WorkerInfo, result: ProbeResult, epoch: int | None = None
@@ -500,10 +517,9 @@ class KvEventAwarePolicy(Policy):
     def on_worker_removed(self, worker_id: str) -> None:
         self._kv.on_worker_removed(worker_id)
         # A variant that outlives its worker keeps a hash-cache key alive for
-        # something that is not running, and keeps its gauge exported. Read the
-        # label before dropping it -- it is the gauge's own label value, and
-        # there is no other way back to it once forgotten.
-        variant_label = self._variants.for_worker(worker_id).label()
+        # something that is not running, and keeps its gauge exported. Drop the
+        # series before `retain` forgets the per-worker label.
+        self._drop_parity_gauges(worker_id)
         self._variants.retain(lambda wid: wid != worker_id)
         # Drop the worker's own key plus any per-rank keys ("<id>#dpN").
         prefix = f"{worker_id}#dp"
@@ -530,16 +546,6 @@ class KvEventAwarePolicy(Policy):
         self._parity_pending.pop(worker_id, None)
         self._parity_verdict.pop(worker_id, None)
         self._parity_identity.pop(worker_id, None)
-        model = self._parity_labels.pop(worker_id, None)
-        if model is not None:
-            try:
-                metrics.render_parity.remove(worker_id, model)
-            except KeyError:
-                pass
-            try:
-                metrics.render_variant.remove(worker_id, variant_label)
-            except KeyError:
-                pass
 
     def _record_dispatch(self, route_key: str, missed_blocks: int, request_blocks: int) -> None:
         """Decay every worker's recent total, then charge for the pick.

@@ -92,6 +92,9 @@ pub fn to_chat_body(body: &Value) -> Option<Value> {
 
     let mut out = Map::new();
     out.insert("messages".to_string(), Value::Array(messages));
+    if let Some(model) = body.get("model").filter(|v| !v.is_null()) {
+        out.insert("model".to_string(), model.clone());
+    }
 
     // `tools=chat_tools or None` — an all-builtin tool list yields no chat tools.
     if let Some(tools) = response_tools_to_chat_tools(body)? {
@@ -798,6 +801,10 @@ mod tests {
         // Not a Responses body at all.
         assert!(!is_responses_body(&json!({"messages": []})));
         assert!(is_responses_body(&json!({"input": "hi"})));
+        assert_eq!(
+            to_chat_body(&json!({"model": "glm53", "input": "hi"})).unwrap()["model"],
+            "glm53"
+        );
         // Images expand to vision tokens the router cannot count -- normalisation
         // succeeds, and `render_content` declines downstream, as it does for chat.
         let out = to_chat_body(&json!({"input": [

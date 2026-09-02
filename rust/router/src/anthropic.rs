@@ -619,23 +619,30 @@ impl SseTranslator {
                     self.close(&mut out);
                 }
                 self.done = true;
+                self.buf.clear();
                 return out;
             }
             if let Ok(obj) = serde_json::from_slice::<Value>(data) {
                 self.handle_chunk(&obj, &mut out);
+            }
+            if self.done {
+                self.buf.clear();
+                return out;
             }
         }
         out
     }
 
     /// Emit the terminal events for a stream that ended without `[DONE]`.
-    /// Idempotent, and a no-op when nothing was ever streamed.
+    /// Idempotent. A stream that never started is an error, not a silent 200.
     pub fn finish(&mut self) -> Vec<u8> {
-        let mut out = Vec::new();
-        if self.done || !self.started {
-            self.done = true;
-            return out;
+        if self.done {
+            return Vec::new();
         }
+        if !self.started {
+            return self.error("worker stream ended before any tokens");
+        }
+        let mut out = Vec::new();
         self.close(&mut out);
         self.done = true;
         out
@@ -663,6 +670,9 @@ impl SseTranslator {
 
     /// Translate one decoded OpenAI chunk into Anthropic events.
     fn handle_chunk(&mut self, obj: &Value, out: &mut Vec<u8>) {
+        if self.done {
+            return;
+        }
         if let Some(error) = obj.get("error") {
             let message = error
                 .get("message")
@@ -882,4 +892,30 @@ fn random_hex(len: usize) -> String {
     }
     s.truncate(len);
     s
+}
+
+#[cfg(test)]
+mod sse_tests {
+    use super::*;
+
+    #[test]
+    fn an_error_line_does_not_emit_later_content_from_the_same_chunk() {
+        let mut t = SseTranslator::new("m", Some("abc"));
+        let chunk = concat!(
+            "data: {\"error\":{\"message\":\"boom\"}}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n",
+        );
+        let out = String::from_utf8(t.push(chunk.as_bytes())).unwrap();
+        assert!(out.contains("event: error"));
+        assert!(!out.contains("message_start"));
+        assert!(!out.contains("content_block"));
+    }
+
+    #[test]
+    fn finish_before_start_emits_an_error() {
+        let mut t = SseTranslator::new("m", None);
+        let out = String::from_utf8(t.finish()).unwrap();
+        assert!(out.contains("event: error"));
+        assert!(!out.contains("message_start"));
+    }
 }

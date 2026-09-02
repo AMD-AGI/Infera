@@ -101,7 +101,7 @@ async fn messages(State(st): State<AppState>, headers: HeaderMap, body: Bytes) -
         tracing::debug!("Anthropic auth header accepted without router-side validation");
     }
 
-    let anthropic_body: Value = match serde_json::from_slice(&body) {
+    let mut anthropic_body: Value = match serde_json::from_slice(&body) {
         Ok(value) => value,
         Err(error) => {
             tracing::warn!(%error, "Anthropic Messages request contains malformed JSON");
@@ -123,6 +123,7 @@ async fn messages(State(st): State<AppState>, headers: HeaderMap, body: Bytes) -
         }
     };
 
+    crate::cache_control::strip_internal_hints(&mut anthropic_body);
     let hints = parse_cache_hints(&anthropic_body);
     let mut openai_body = match anthropic::translate_request(&anthropic_body) {
         Ok(value) => value,

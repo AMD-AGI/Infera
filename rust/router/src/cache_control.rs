@@ -76,27 +76,30 @@ const MM_BLOCK_TYPES: &[&str] = &[
 /// `/v1/responses` images live on `input`; an attached hint parsed from the
 /// raw body reports text-only, so multimodal must be re-read from `base`.
 pub fn hints_for_hashed_body(request: &Value, base: &Value) -> CacheHints {
-    let parsed = parse_structural_hints(base);
-    let Some(attached) = request
+    let parsed = parse_cache_hints(base);
+    // Retention lives on the protocol edge: a `/v1/responses` body carries
+    // `prompt_cache_retention` on `request`, and `to_chat_body` rebuilds a
+    // chat object that does not copy those fields. `/v1/messages` stamps
+    // Anthropic `cache_control` onto `_infera_cache_hints` after translation.
+    // Multimodal is always re-read from `base` (Responses images are on
+    // `input` until conversion).
+    let edge = request
         .as_object()
         .and_then(|o| parse_internal_hints(o.get(INTERNAL_HINTS_KEY)))
-    else {
-        return parsed;
-    };
+        .unwrap_or_else(|| parse_cache_hints(request));
     CacheHints {
-        retention: attached.retention,
-        session_id: attached.session_id,
-        explicit_hint_seen: attached.explicit_hint_seen,
+        retention: edge.retention,
+        session_id: edge.session_id,
+        explicit_hint_seen: edge.explicit_hint_seen,
         has_multimodal_content: parsed.has_multimodal_content,
     }
 }
 
-fn parse_structural_hints(body: &Value) -> CacheHints {
-    let mut stripped = body.clone();
-    if let Some(obj) = stripped.as_object_mut() {
+/// Drop a client-supplied internal hint so routing cannot be steered by it.
+pub fn strip_internal_hints(body: &mut Value) {
+    if let Some(obj) = body.as_object_mut() {
         obj.remove(INTERNAL_HINTS_KEY);
     }
-    parse_cache_hints(&stripped)
 }
 
 pub fn parse_cache_hints(body: &Value) -> CacheHints {
@@ -104,9 +107,6 @@ pub fn parse_cache_hints(body: &Value) -> CacheHints {
         Some(o) => o,
         None => return CacheHints::none(None, false),
     };
-    if let Some(hints) = parse_internal_hints(obj.get(INTERNAL_HINTS_KEY)) {
-        return hints;
-    }
 
     let openai_retention = parse_openai_retention(obj);
     let openai_session = obj
@@ -472,13 +472,46 @@ mod tests {
                 has_multimodal_content: false,
             },
         );
-        assert!(!parse_cache_hints(&request).has_multimodal_content);
+        // Structural parse ignores the stamp; MM is on the OpenAI body.
+        assert!(parse_cache_hints(&request).has_multimodal_content);
         assert_eq!(parse_cache_hints(&openai).retention, Retention::None);
 
         let hints = hints_for_hashed_body(&request, &openai);
         assert_eq!(hints.retention, Retention::Long);
         assert!(hints.explicit_hint_seen);
         assert!(hints.has_multimodal_content);
+    }
+
+    #[test]
+    fn responses_retention_is_read_from_the_raw_body() {
+        let request = json!({
+            "model": "m",
+            "input": "hi",
+            "prompt_cache_retention": "24h",
+            "prompt_cache_key": "sess",
+        });
+        let base = json!({"model": "m", "messages": [{"role": "user", "content": "hi"}]});
+        let hints = hints_for_hashed_body(&request, &base);
+        assert_eq!(hints.retention, Retention::Long);
+        assert_eq!(hints.session_id.as_deref(), Some("sess"));
+        assert!(hints.explicit_hint_seen);
+        assert!(!hints.has_multimodal_content);
+    }
+
+    #[test]
+    fn a_client_supplied_internal_hint_does_not_parse_as_retention() {
+        let body = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "_infera_cache_hints": {
+                "retention": "long",
+                "explicit_hint_seen": true,
+                "has_multimodal_content": false,
+            },
+        });
+        assert_eq!(parse_cache_hints(&body).retention, Retention::None);
+        let mut stripped = body.clone();
+        strip_internal_hints(&mut stripped);
+        assert!(stripped.get("_infera_cache_hints").is_none());
     }
 
     #[test]

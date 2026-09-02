@@ -317,11 +317,22 @@ pub fn build_upstream_client() -> anyhow::Result<reqwest::Client> {
 }
 
 pub async fn dispatch(state: &AppState, raw: Bytes, path: &'static str) -> Response {
-    let v: serde_json::Value = match serde_json::from_slice(&raw) {
+    let mut v: serde_json::Value = match serde_json::from_slice(&raw) {
         Ok(v) => v,
         Err(e) => return json_error(StatusCode::BAD_REQUEST, &format!("bad json: {e}")),
     };
-    dispatch_routed(state, &v, raw, path).await
+    // Drop a client-supplied stamp, then attach the one we parsed. Matches
+    // Python `app.py` covering every OpenAI-shaped entry, including
+    // `/v1/responses` whose converted chat body has no `prompt_cache_*`.
+    crate::cache_control::strip_internal_hints(&mut v);
+    let hints = crate::cache_control::parse_cache_hints(&v);
+    let mut routing = v.clone();
+    crate::cache_control::attach_cache_hints(&mut routing, &hints);
+    let raw = match serde_json::to_vec(&v) {
+        Ok(bytes) => Bytes::from(bytes),
+        Err(e) => return json_error(StatusCode::BAD_REQUEST, &format!("bad json: {e}")),
+    };
+    dispatch_routed(state, &routing, raw, path).await
 }
 
 /// Dispatch an encoded worker body using a separate routing representation.
