@@ -25,7 +25,7 @@ import pytest
 import pytest_asyncio
 
 from . import arch, cluster
-from .adapter import EngineAdapter
+from .adapter import EngineAdapter, emit_reporter_line
 from .launcher import (
     ROUTER_PORT,
     SrunDockerLauncher,
@@ -79,10 +79,15 @@ def require_disagg_env() -> None:
             f"{cluster.allocated_nodes() or 'none'}"
         )
     for node in pair:
+        try:
+            cluster.require_step_access(node)
+        except RuntimeError as exc:
+            _skip_or_fail(str(exc))
         if cluster.node_ip(node) is None:
             _skip_or_fail(
                 f"could not resolve a routable IP for node {node} (set INFERA_E2E_NODE_IPS)"
             )
+    emit_reporter_line(f"[e2e disagg] allocation-step access confirmed on {', '.join(pair)}")
     _require_node_arch(pair)
 
 
@@ -119,6 +124,7 @@ def make_disagg_stack_fixture(
             decode_ip = cluster.node_ip(decode_node)
             gid = cluster.gid_index()
             tag = uuid.uuid4().hex[:8]
+            run_tag = launcher.job_tag
             tp = max(1, params.tensor_parallel_size)
             gpu_ids = list(range(tp))
 
@@ -127,7 +133,9 @@ def make_disagg_stack_fixture(
 
             # etcd + router on node 0 (control plane).
             etcd = launcher.start_etcd(
-                node=prefill_node, container=f"infera-e2e-etcd-{tag}", advertise_host=prefill_ip
+                node=prefill_node,
+                container=f"infera-e2e-{run_tag}-etcd-{tag}",
+                advertise_host=prefill_ip,
             )
             handles.append(etcd)
             etcd_endpoint = f"{prefill_ip}:{etcd.port}"
@@ -138,7 +146,7 @@ def make_disagg_stack_fixture(
             etcd_prefix = f"/infera/e2e-{tag}/"
             router = launcher.start_router(
                 node=prefill_node,
-                container=f"infera-e2e-router-{tag}",
+                container=f"infera-e2e-{run_tag}-router-{tag}",
                 advertise_host=prefill_ip,
                 etcd_endpoint=etcd_endpoint,
                 etcd_prefix=etcd_prefix,
@@ -178,7 +186,7 @@ def make_disagg_stack_fixture(
                     node=node,
                     argv=argv,
                     env=env,
-                    container=f"infera-e2e-{adapter.engine}-{role.value}-{tag}",
+                    container=f"infera-e2e-{run_tag}-{adapter.engine}-{role.value}-{tag}",
                     advertise_host=ip,
                     port=port,
                     role=role.value,

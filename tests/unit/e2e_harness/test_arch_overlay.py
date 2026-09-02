@@ -224,7 +224,8 @@ def test_output_with_no_gpu_agent_reads_as_cannot_tell(text):
     assert arch.parse_rocminfo(text) is None
 
 
-def test_remote_arch_retries_with_gpu_gres_inside_allocation(monkeypatch):
+@pytest.mark.parametrize("spur", [False, True])
+def test_remote_arch_retries_with_gpu_gres_inside_allocation(monkeypatch, spur):
     calls = []
 
     def run_on_node(node, argv, *, srun_args=()):
@@ -233,7 +234,7 @@ def test_remote_arch_retries_with_gpu_gres_inside_allocation(monkeypatch):
         return SimpleNamespace(returncode=0, stdout=stdout)
 
     monkeypatch.setenv("SLURM_JOB_ID", "42")
-    monkeypatch.setattr(cluster, "_SPUR", False)
+    monkeypatch.setattr(cluster, "_SPUR", spur)
     monkeypatch.setattr(cluster, "run_on_node", run_on_node)
 
     assert cluster.node_arch("node-a") == "gfx942"

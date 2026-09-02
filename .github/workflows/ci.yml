@@ -209,6 +209,7 @@ jobs:
     timeout-minutes: 60
     env:
       INFERA_E2E_SLURM_PARTITION: amd-spur
+      INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS: amd-primus:amd-primus-qos,amd-primus:amd-burst-qos
       INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
       INFERA_E2E_RESERVATION: infera-cicd-reserved
       INFERA_E2E_SLURM_TIME: "00:50:00"
@@ -249,6 +250,7 @@ jobs:
     timeout-minutes: 120
     env:
       INFERA_E2E_SLURM_PARTITION: amd-spur
+      INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS: amd-primus:amd-primus-qos,amd-primus:amd-burst-qos
       INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
       # Dispatch onto this pre-made reservation's nodes (srun --reservation).
       INFERA_E2E_RESERVATION: infera-cicd-reserved
@@ -263,6 +265,17 @@ jobs:
       # exec: see the engine job — keeps run_tests.sh's INT/TERM trap reachable.
       - name: e2e ${{ matrix.engine }} mixed
         run: exec bash tests/run_tests.sh e2e ${{ matrix.engine }} mixed
+      - name: Show worker log tails
+        if: always() && (failure() || cancelled())
+        run: |
+          dir="$HOME/infera-cicd-shared-logs/$INFERA_E2E_JOB_TAG"
+          [ -d "$dir" ] || exit 0
+          for log in "$dir"/*.log; do
+            [ -f "$log" ] || continue
+            echo "::group::$log"
+            tail -n 300 "$log"
+            echo "::endgroup::"
+          done
       - name: reclaim this job's SLURM jobs (on cancel/failure)
         if: always() && (cancelled() || failure())
         run: .github/scripts/reclaim_slurm_jobs.sh infera-ci- "-${{ github.run_id }}-${{ matrix.engine }}"
@@ -285,6 +298,7 @@ jobs:
     timeout-minutes: 120
     env:
       INFERA_E2E_SLURM_PARTITION: amd-spur
+      INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS: amd-primus:amd-primus-qos,amd-primus:amd-burst-qos
       INFERA_E2E_MODEL_DIR: /shared_nfs/huggingface_models
       # Ceiling on every disagg srun step, inside the job timeout above so the
       # scheduler reclaims a node even if the runner is killed first.
@@ -306,6 +320,17 @@ jobs:
       # which is what releases the held node pair on cancel.
       - name: e2e ${{ matrix.engine }} disag
         run: exec bash tests/run_tests.sh e2e ${{ matrix.engine }} disag
+      - name: Show worker log tails
+        if: always() && (failure() || cancelled())
+        run: |
+          dir="$HOME/infera-cicd-shared-logs/$INFERA_E2E_JOB_TAG"
+          [ -d "$dir" ] || exit 0
+          for log in "$dir"/*.log; do
+            [ -f "$log" ] || continue
+            echo "::group::$log"
+            tail -n 300 "$log"
+            echo "::endgroup::"
+          done
       - name: reclaim this job's SLURM jobs (on cancel/failure)
         if: always() && (cancelled() || failure())
         # Catches the infera-ci-hold-* pair holder too: it is a -N2 --gres=gpu:8

@@ -8,11 +8,20 @@
 from __future__ import annotations
 
 import importlib
+import subprocess
+from types import SimpleNamespace
 
 import httpx
 import pytest
 
-from tests.e2e.harness import EngineAdapter, disagg_fixtures, resources, speculation
+from tests.e2e.harness import (
+    EngineAdapter,
+    cluster,
+    disagg_fixtures,
+    launcher,
+    resources,
+    speculation,
+)
 from tests.e2e.harness.params import DisaggRole, EngineParams
 
 
@@ -181,6 +190,97 @@ def test_direct_pytest_without_nodes_can_skip(monkeypatch):
     monkeypatch.delenv("INFERA_E2E_NODES", raising=False)
     with pytest.raises(pytest.skip.Exception, match="not configured"):
         disagg_fixtures._skip_or_fail("not configured")
+
+
+def test_spur_attached_srun_reuses_holder_allocation(monkeypatch):
+    monkeypatch.setattr(cluster, "_SPUR", True)
+    monkeypatch.setenv("SLURM_JOB_ID", "4242")
+    monkeypatch.setenv("INFERA_E2E_SLURM_PARTITION", "amd-spur")
+    monkeypatch.setenv("INFERA_E2E_RESERVATION", "expired-reservation")
+    monkeypatch.setenv("INFERA_E2E_SRUN_EXTRA", "-A wrong-account -q wrong-qos")
+    monkeypatch.setenv("INFERA_E2E_STEP_SRUN_EXTRA", "--cpu-bind=none")
+
+    argv = cluster.srun_argv("node-a")
+
+    assert argv[:5] == ["srun", "-N1", "-n1", "-w", "node-a"]
+    assert "-p" not in argv
+    assert not any(arg.startswith("--reservation") for arg in argv)
+    assert "--jobid" not in argv
+    assert "wrong-account" not in argv
+    assert argv[-1] == "--cpu-bind=none"
+
+
+def test_spur_detached_srun_keeps_submission_placement(monkeypatch):
+    monkeypatch.setattr(cluster, "_SPUR", True)
+    monkeypatch.delenv("SLURM_JOB_ID", raising=False)
+    monkeypatch.delenv("SLURM_JOBID", raising=False)
+    monkeypatch.setenv("INFERA_E2E_SLURM_PARTITION", "amd-spur")
+    monkeypatch.setenv("INFERA_E2E_RESERVATION", "ci-reservation")
+
+    argv = cluster.srun_argv("node-a")
+
+    assert argv[:7] == ["srun", "-N1", "-n1", "-p", "amd-spur", "-w", "node-a"]
+    assert "--reservation=ci-reservation" in argv
+
+
+def test_step_access_reports_pending_allocation(monkeypatch):
+    cancelled = []
+
+    def pending(*args, **kwargs):
+        raise subprocess.TimeoutExpired(
+            ["srun"],
+            kwargs["timeout"],
+            stderr=b"srun: Pending job allocation 100477...\n",
+        )
+
+    monkeypatch.setattr(cluster, "run_on_node", pending)
+    monkeypatch.setattr(cluster.shutil, "which", lambda command: f"/usr/bin/{command}")
+    monkeypatch.setattr(
+        cluster.subprocess,
+        "run",
+        lambda argv, **kwargs: cancelled.append(argv) or SimpleNamespace(returncode=0),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match=r"node-a did not start within 7s: srun: Pending job allocation 100477",
+    ):
+        cluster.require_step_access("node-a", timeout=7)
+    assert cancelled == [["scancel", "100477"]]
+
+
+def test_disagg_cleanup_and_launch_are_job_scoped(monkeypatch, tmp_path):
+    calls = []
+
+    def run(node, argv, *, timeout):
+        calls.append((node, argv, timeout))
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setenv("INFERA_E2E_JOB_TAG", "run/engine")
+    monkeypatch.setattr(launcher, "_srun", run)
+    remote = launcher.SrunDockerLauncher(
+        image="test-image",
+        dockerfile="Dockerfile",
+        log_dir=str(tmp_path),
+    )
+
+    remote.cleanup_stale(["node-a"])
+    cleanup_script = calls[-1][1][-1]
+    assert "label=infera.e2e.job_tag=run-engine" in cleanup_script
+    assert "name=infera-e2e-" not in cleanup_script
+    assert "name=infera-utest-" not in cleanup_script
+
+    monkeypatch.setenv("INFERA_E2E_EXCLUSIVE", "1")
+    remote.cleanup_stale(["node-a"])
+    cleanup_script = calls[-1][1][-1]
+    assert "--filter label=infera.e2e.job_tag " in cleanup_script
+    assert "name=infera-e2e-" in cleanup_script
+    assert "name=infera-utest-" in cleanup_script
+    assert r"$0 !~ /infera\.e2e\.job_tag=/" in cleanup_script
+
+    remote._run("node-a", "test-container", "test-image", [], ["true"])
+    launch_argv = calls[-1][1]
+    assert launch_argv[launch_argv.index("--label") + 1] == "infera.e2e.job_tag=run-engine"
 
 
 def test_staged_model_with_config_passes(tmp_path):

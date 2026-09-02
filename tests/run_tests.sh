@@ -18,7 +18,7 @@
 # INFERA_E2E_SITE (a checked-in cluster profile under tests/sites/, see below),
 # INFERA_E2E_K (pytest -k over the matrices' case ids — bring up one model
 # without paying for the whole tier's cold starts).
-# On amd-spur, CI tries its three account/QoS pairs in priority order.
+# On amd-spur, account/QoS candidates are tried in priority order.
 
 set -uo pipefail
 
@@ -111,10 +111,17 @@ case "$GFX_ARCH" in
 esac
 echo "[arch] target GPU architecture: $GFX_ARCH ($GFX_ARCH_SRC)"
 
-# On every container we launch, so a new run can wipe what a killed one left on
-# this (reused) node.
-CTR_PREFIX="infera-utest-"
+# Scope every container to this job.  Several E2E matrix legs may share the
+# open partition when the CI reservation is unavailable; fixed names let one
+# leg remove another leg's live etcd/test container.
+INFERA_E2E_JOB_TAG="${INFERA_E2E_JOB_TAG:-local-$$}"
+export INFERA_E2E_JOB_TAG
+CTR_TAG="$(printf '%s' "$INFERA_E2E_JOB_TAG" | tr -c 'A-Za-z0-9_.-' '-')"
+CTR_TAG="${CTR_TAG:-local}"
+CTR_PREFIX="infera-utest-${CTR_TAG}-"
 ETCD_CTR="${CTR_PREFIX}etcd"
+CTR_LABEL="infera.e2e.job_tag=${CTR_TAG}"
+CTR_LABELS=(--label "$CTR_LABEL")
 PIPDEPS='pip install -q pytest pytest-asyncio nats-py 2>/dev/null || true'
 
 # --init reaps orphaned engine subprocesses; the rest is ROCm device passthrough
@@ -220,14 +227,28 @@ _cancel_dispatched() {
 # pytest's teardown, so without this a cancel leaves prefill+decode on the GPUs.
 _DISAG_NODES=""
 _wipe_disag_nodes() {
-  local n resv="${INFERA_E2E_RESERVATION:+--reservation=$INFERA_E2E_RESERVATION}"
+  local n step=() extra=() resv=()
   for n in ${_DISAG_NODES//,/ }; do
-    echo "[cleanup] removing PD containers on $n" >&2
+    echo "[cleanup] removing this job's PD containers on $n" >&2
+    if [ -n "$_HOLDER_JID" ]; then
+      if [ -n "${SPUR_CONTROLLER_ADDR:-}" ]; then
+        step=(env SLURM_JOB_ID="$_HOLDER_JID" srun -N1 -n1 -w "$n")
+      else
+        step=(srun --overlap --nodes=1 --ntasks=1 --nodelist "$n" --jobid "$_HOLDER_JID")
+      fi
+      extra=()
+    else
+      step=(srun -N1 -n1 -p "$SLURM_PART" -w "$n")
+      [ -n "${INFERA_E2E_RESERVATION:-}" ] &&
+        resv=("--reservation=$INFERA_E2E_RESERVATION")
+      read -ra extra <<< "${INFERA_E2E_SRUN_EXTRA:-}"
+    fi
     # Unnamed, SLURM would call this "bash" and leave it UNLIMITED — invisible to
     # ci.yml's `infera-ci-`+run-id reclaim, on the very cancel that reclaim cleans up.
-    srun -N1 -n1 -p "$SLURM_PART" -w "$n" $resv ${INFERA_E2E_SRUN_EXTRA:-} \
+    "${step[@]}" "${resv[@]}" "${extra[@]}" \
       -J "infera-ci-wipe-${INFERA_E2E_JOB_TAG:-local}" -t 00:05:00 \
-      bash -lc 'docker rm -f $(docker ps -aq --filter name=infera-e2e-) 2>/dev/null || true' \
+      bash -lc 'docker rm -f $(docker ps -aq --filter "label=infera.e2e.job_tag=$1") 2>/dev/null || true' \
+      _ "$CTR_TAG" \
       >/dev/null 2>&1 || true
   done
   _DISAG_NODES=""
@@ -306,13 +327,18 @@ _default_partition() {
 SLURM_PART="${INFERA_E2E_SLURM_PARTITION:-$(_default_partition)}"
 SLURM_PART="${SLURM_PART:-amd-spur}"
 SLURM_TIME="${INFERA_E2E_SLURM_TIME:-02:00:00}"
-# amd-spur's default allocation is often quota-blocked. Keep the site-specific
-# credentials here (rather than in ci.yml) because mixed dispatches directly,
-# while disag also submits a pair holder and many node-pinned srun steps.
-# INFERA_E2E_SRUN_EXTRA is preserved after the selected account/QoS flags.
+# amd-spur's default allocation is often quota-blocked. CI declares the pairs
+# its runner user can actually use; the longer fallback below remains for
+# interactive users that do not provide a site-specific list. Mixed dispatches
+# directly, while disag also submits a pair holder and node-pinned srun steps.
+# INFERA_E2E_SRUN_EXTRA applies to new allocations; only the separately declared
+# INFERA_E2E_STEP_SRUN_EXTRA may reach steps inside an existing allocation.
 _SLURM_USER_SRUN_EXTRA="${INFERA_E2E_SRUN_EXTRA:-}"
+_SLURM_STEP_SRUN_EXTRA="${INFERA_E2E_STEP_SRUN_EXTRA:-}"
 _SLURM_ACCOUNT_QOS_PAIRS=()
-if [ "$SLURM_PART" = "amd-spur" ]; then
+if [ -n "${INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS:-}" ]; then
+  IFS=, read -ra _SLURM_ACCOUNT_QOS_PAIRS <<< "$INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS"
+elif [ "$SLURM_PART" = "amd-spur" ]; then
   _SLURM_ACCOUNT_QOS_PAIRS=(
     "amd-collectives:amd-collectives-qos"
     "amd-primus:amd-primus-qos"
@@ -397,15 +423,15 @@ _reservation_nodes() {
     | tr ',' '\n' | sed '/^$/d'
 }
 # Ask the node AND the queue, because neither answers this alone. "Free" has to
-# mean free of what _hold_pair asks for — a whole node's GPUs, and (where
-# DefMemPerNode is the node, as on amd-rccl) its whole memory.
+# mean free of what _hold_pair asks for: an exclusive whole node, all GPUs, and
+# (where DefMemPerNode is the node, as on amd-rccl) its whole memory.
 #
 # The node's own fields catch three kinds of unusable node that CPUAlloc=0 calls
 # idle, each of which puts the hold in PENDING until the outer retry gives up:
 #   - IDLE+DRAIN. `sinfo -t idle` lists it and its CPUAlloc is 0, but nothing can
 #     be scheduled there at all.
-#   - GPUs held by a job that took two CPUs with them; the node reads MIXED, and
-#     a --gres=gpu:8 hold waits for that job to end.
+#   - CPUs or GPUs held by another job; the node reads MIXED, and an exclusive
+#     --gres=gpu:8 hold waits for that job to end.
 #   - memory held the same way. Seen on this fleet as a hold that sbatch would
 #     not start for six days while the node advertised eight idle GPUs.
 # CPUAlloc stays as the fallback for a scheduler reporting neither: on a genuinely
@@ -438,11 +464,12 @@ _node_free() {
   alloc=$(printf '%s\n' "$out" | grep -oE 'AllocTRES=[^[:space:]]*' | head -1)
   gpus=$(printf '%s\n' "$alloc" | grep -oE 'gres/gpu=[0-9]+' | head -1 | cut -d= -f2)
   mem=$(printf '%s\n' "$out" | grep -oE 'AllocMem=[0-9]+' | head -1 | cut -d= -f2)
+  cpus=$(printf '%s\n' "$out" | grep -oE 'CPUAlloc=[0-9]+' | head -1 | cut -d= -f2)
+  [ -z "$cpus" ] || [ "$cpus" -eq 0 ] 2>/dev/null || return 1
   if [ -n "$alloc" ] || [ -n "$mem" ]; then
     [ -z "$gpus" ] || [ "$gpus" -eq 0 ] 2>/dev/null || return 1
     [ -z "$mem" ] || [ "$mem" -eq 0 ] 2>/dev/null || return 1
   else
-    cpus=$(printf '%s\n' "$out" | grep -oE 'CPUAlloc=[0-9]+' | head -1 | cut -d= -f2)
     [ -n "$cpus" ] && [ "$cpus" -eq 0 ] 2>/dev/null || return 1
   fi
 
@@ -471,10 +498,9 @@ _node_free() {
 # the partition's idle ones. Both go through _node_free, which is what keeps
 # another team's reserved nodes out of the second list.
 #
-# `-t idle,mixed` rather than `-t idle`: a node whose GPUs and memory are free
-# while some other job holds a couple of its CPUs reads MIXED, and is a perfectly
-# good host for the pair. sinfo's state is only the shortlist — _node_free is
-# what decides, and it asks the node about the resources the hold will request.
+# Keep `mixed` in the shortlist because some controllers lag while allocations
+# drain. `_node_free` makes the final decision and now requires zero allocated
+# CPUs, memory and GPUs, matching the exclusive pair hold.
 _candidate_nodes() {
   local n nodes=""
   if [ -n "${INFERA_E2E_RESERVATION:-}" ]; then
@@ -546,7 +572,7 @@ _hold_pair() {
     for ((i = 1; i <= retries; i++)); do
       echo "[e2e disagg] hold submission on $pair ($(_account_qos_label), attempt $i/$retries)"
       # The hold only sleeps; discard its output instead of creating slurm-*.out.
-      submit_out=$(sbatch --parsable -N2 -n2 -w "$pair" --gres=gpu:8 -p "$SLURM_PART" \
+      submit_out=$(sbatch --parsable --exclusive -N2 -n2 -w "$pair" --gres=gpu:8 -p "$SLURM_PART" \
         -t "$SLURM_TIME" -J "infera-ci-hold-${INFERA_E2E_JOB_TAG:-local}" \
         -o /dev/null -e /dev/null \
         ${INFERA_E2E_RESERVATION:+--reservation="$INFERA_E2E_RESERVATION"} \
@@ -798,8 +824,13 @@ _dispatch_slurm() {
     # Background srun + `wait`: a foreground srun would defer the INT/TERM trap
     # until it returns, so a CI cancel could kill us before the trap scancels the
     # job; `wait` is interrupted by the signal so the trap runs promptly.
-    INFERA_E2E_LOCAL=1 \
-      srun -N1 -p "$SLURM_PART" --gres=gpu:8 -t "$SLURM_TIME" \
+    local exclusive=() exclusive_owner="${INFERA_E2E_EXCLUSIVE:-}"
+    if [ -z "${SLURM_JOB_ID:-${SLURM_JOBID:-}}" ]; then
+      exclusive=(--exclusive)
+      exclusive_owner=1
+    fi
+    INFERA_E2E_LOCAL=1 INFERA_E2E_EXCLUSIVE="$exclusive_owner" \
+      srun -N1 -p "$SLURM_PART" --gres=gpu:8 "${exclusive[@]}" -t "$SLURM_TIME" \
         -J "$jobname" "${xflag[@]}" "${resv[@]}" ${INFERA_E2E_SRUN_EXTRA:-} \
         "${remote[@]}" > "$out" 2>&1 &
     local srunpid=$!
@@ -891,7 +922,8 @@ build_image() {
 run_unit() {
   echo "===== unit (pure-Python logic) ====="
   build_image "$DF_VLLM" "$IMG_VLLM" || return 1
-  docker run --rm --name "${CTR_PREFIX}unit" "${GPU_FLAGS[@]}" "${SCRATCH_FLAGS[@]}" \
+  docker run --rm --name "${CTR_PREFIX}unit" "${CTR_LABELS[@]}" \
+    "${GPU_FLAGS[@]}" "${SCRATCH_FLAGS[@]}" \
     -e PYTHONDONTWRITEBYTECODE=1 \
     -v "$REPO":/workspace:ro -w /workspace --entrypoint bash "$IMG_VLLM" -lc \
     "$PIPDEPS; python3 -m pytest -p no:cacheprovider -o addopts= -q -rfE tests/unit 2>&1 | stdbuf -oL tee /scratch/.unit.out; rc=\${PIPESTATUS[0]}; grep -aE '^(FAILED|ERROR) ' /scratch/.unit.out 2>/dev/null | sed 's/^/[unit] /' >> /scratch/failures.txt; exit \$rc"
@@ -903,7 +935,8 @@ run_engine() {
   local df="$1" img="$2" scope="${3:-tests/engine}"
   echo "===== engine in $img — $scope (per-file, crash-isolated) ====="
   build_image "$df" "$img" || return 1
-  docker run --rm --name "${CTR_PREFIX}engine" "${GPU_FLAGS[@]}" "${SCRATCH_FLAGS[@]}" \
+  docker run --rm --name "${CTR_PREFIX}engine" "${CTR_LABELS[@]}" \
+    "${GPU_FLAGS[@]}" "${SCRATCH_FLAGS[@]}" \
     -e PYTHONDONTWRITEBYTECODE=1 -e INFERA_TEST_SCOPE="$scope" \
     -v "$REPO":/workspace:ro -w /workspace --entrypoint bash "$img" -lc '
       pip install -q pytest pytest-asyncio nats-py 2>/dev/null || true
@@ -951,7 +984,8 @@ run_engine() {
 run_e2e_engine() {
   local img="$1" testpath="$2"
   echo "----- e2e in $img — $testpath -----"
-  docker run --rm --name "${CTR_PREFIX}e2e" --network host "${GPU_FLAGS[@]}" "${SCRATCH_FLAGS[@]}" "${E2E_FLAGS[@]}" \
+  docker run --rm --name "${CTR_PREFIX}e2e" "${CTR_LABELS[@]}" \
+    --network host "${GPU_FLAGS[@]}" "${SCRATCH_FLAGS[@]}" "${E2E_FLAGS[@]}" \
     -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONUNBUFFERED=1 \
     -v "$REPO":/workspace:ro -w /workspace --entrypoint bash "$img" -lc \
     "$PIPDEPS; python3 -m pytest -p no:cacheprovider -o addopts= -rfE -v -s \${INFERA_E2E_K:+-k \"\$INFERA_E2E_K\"} $testpath 2>&1 | stdbuf -oL tee /scratch/.e2e.out; rc=\${PIPESTATUS[0]}; grep -aE '^(FAILED|ERROR) ' /scratch/.e2e.out 2>/dev/null | sed 's|^|[e2e $img] |' >> /scratch/failures.txt; exit \$rc"
@@ -982,7 +1016,7 @@ run_e2e_mixed() {
 
   docker rm -f "$ETCD_CTR" >/dev/null 2>&1 || true
   echo "[e2e] starting temporary etcd ($ETCD_CTR)"
-  docker run -d --rm --name "$ETCD_CTR" --net host "$ETCD_IMG" \
+  docker run -d --rm --name "$ETCD_CTR" "${CTR_LABELS[@]}" --net host "$ETCD_IMG" \
     etcd --advertise-client-urls http://127.0.0.1:2379 \
          --listen-client-urls http://0.0.0.0:2379 >/dev/null
   sleep 5
@@ -1051,10 +1085,13 @@ run_e2e_disagg() {
   # An allocation handed to us takes over from picking and holding a pair. The
   # pair is then fixed, so there is nothing for the retry machinery to re-pick
   # onto: one attempt, and a node fault is the caller's to deal with.
-  local inherited
+  local inherited exclusive_owner=1
   inherited="$(_inherited_pair)"
   if [ -n "$inherited" ]; then
     max_attempts=1
+    # An inherited allocation may be shared. Its owner must explicitly attest
+    # exclusivity before cleanup is allowed to remove other jobs' leftovers.
+    exclusive_owner="${INFERA_E2E_EXCLUSIVE:-}"
     echo "[e2e disagg] reusing allocation $SLURM_JOB_ID on nodes: $inherited"
   fi
 
@@ -1110,22 +1147,15 @@ run_e2e_disagg() {
       races=0
       echo "[e2e disagg] $e attempt $attempt/$max_attempts on nodes: $n1 (prefill), $n2 (decode)"
       _DISAG_NODES="$n1,$n2"
-      # Run the steps INSIDE the hold. On OverSubscribe=NO an srun that asks for the
-      # node afresh becomes a second JOB and queues behind our own holder for its whole
-      # sleep; srun reads SLURM_JOB_ID itself (man srun, --jobid: "will cause srun to
-      # behave exactly as if the SLURM_JOB_ID environment variable was set"), so
-      # exporting it is what attaches — the flag in cluster.srun_argv() is one of two
-      # doors to the same thing, not the only one.
-      #
-      # Not on Spur, which would trade a deadlock it does not have for one it would:
-      # steps in a job do not share resources without --overlap, which srun_argv()
-      # omits there because Spur has no such flag, so this tier's concurrent steps
-      # (etcd, router, prefill, decode) would serialise inside a -n2 allocation. And
-      # Spur needs no fix: these steps request no GRES, so they co-schedule with the
-      # holder as separate jobs, which is what it has always done.
-      local attach=()
-      [ -n "${SPUR_CONTROLLER_ADDR:-}" ] || attach=(SLURM_JOB_ID="$_HOLDER_JID")
-      env "${attach[@]}" \
+      # Every remote operation must be a STEP in the allocation that owns this
+      # pair.  Submitting fresh jobs worked on reserved Spur nodes but deadlocks
+      # on the open partition: docker rm/inspect/logs queue behind our own holder.
+      # Spur has no --jobid flag, but srun consumes SLURM_JOB_ID from the
+      # environment.  The launcher issues these short docker steps sequentially,
+      # so it does not need Spur's unsupported --overlap.
+      env SLURM_JOB_ID="$_HOLDER_JID" \
+        INFERA_E2E_EXCLUSIVE="$exclusive_owner" \
+        INFERA_E2E_STEP_SRUN_EXTRA="$_SLURM_STEP_SRUN_EXTRA" \
         INFERA_E2E_NODES="$n1,$n2" INFERA_E2E_SLURM_PARTITION="$SLURM_PART" \
         PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
         python3 -m pytest -p no:cacheprovider -o addopts= -rfE -v -s \
@@ -1215,11 +1245,24 @@ engine_tier() {
   fi
 }
 
-# Reserved nodes get reused, so wipe what a killed run left behind before its
-# leaked GPU/etcd containers can OOM or clash with this one.
+# A retry may reuse containers left by this same job. Never wipe another tag:
+# on the open partition that can be a still-running matrix leg on this node.
+# With explicit exclusive ownership, containers from other tags and the
+# pre-label scheme are orphaned and safe to remove; a direct local run cleans
+# only its own label.
 if command -v docker >/dev/null 2>&1 && _run_here; then
-  stale=$(docker ps -a --filter "name=^${CTR_PREFIX}" --filter name=infera-e2e- \
-    --format '{{.Names}}' 2>/dev/null)
+  if [ "${INFERA_E2E_EXCLUSIVE:-}" = 1 ]; then
+    stale=$(
+      {
+        docker ps -a --filter label=infera.e2e.job_tag --format '{{.Names}}'
+        docker ps -a --filter name=infera-e2e- --filter name=infera-utest- \
+          --format '{{.Names}} {{.Labels}}' |
+          awk '$0 !~ /infera\.e2e\.job_tag=/{print $1}'
+      } 2>/dev/null | sort -u
+    )
+  else
+    stale=$(docker ps -a --filter "label=$CTR_LABEL" --format '{{.Names}}' 2>/dev/null)
+  fi
   if [ -n "$stale" ]; then
     echo "[cleanup] $(hostname -s): removing stale containers: $(echo $stale | tr '\n' ' ')"
     docker rm -f $stale >/dev/null 2>&1 || true

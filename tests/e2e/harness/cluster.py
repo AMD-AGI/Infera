@@ -15,8 +15,9 @@ where auto-discovery guesses wrong.
 Optional env overrides (all unset => pure auto-discovery):
   INFERA_E2E_NODE_IPS  ``node=ip,node=ip`` — pin a node's advertise/data-plane
                        IP instead of the ``hostname -I`` auto-pick.
-  INFERA_E2E_RESERVATION / INFERA_E2E_SRUN_EXTRA — scheduler flags, see
-                       :func:`srun_argv`.
+  INFERA_E2E_RESERVATION / INFERA_E2E_SRUN_EXTRA — scheduler allocation flags.
+  INFERA_E2E_STEP_SRUN_EXTRA — safe flags for steps in an existing allocation;
+                       see :func:`srun_argv`.
   INFERA_E2E_GID_INDEX / INFERA_E2E_WORKER_ENV / INFERA_E2E_BUILD_ARGS — the
                        fabric's KV transport (see :func:`kv_transport_env`).
 
@@ -28,6 +29,7 @@ from __future__ import annotations
 
 import functools
 import os
+import re
 import shlex
 import shutil
 import socket
@@ -73,22 +75,33 @@ def _job_id() -> str | None:
 def srun_argv(node: str, *, job: str = "") -> list[str]:
     """The ``srun`` prefix pinning one task to ``node`` — the one place scheduler
     flags are assembled. ``INFERA_E2E_RESERVATION`` keeps a disagg run's many
-    short steps on the reserved pair; ``INFERA_E2E_SRUN_EXTRA`` adds site flags."""
+    short jobs on the reserved pair; allocation and attached-step extras are
+    deliberately separate.
+
+    When ``SLURM_JOB_ID`` is present the pair is already allocated.  In that mode
+    placement/account flags must not be repeated: on Spur they turn what should
+    be an allocation step into a new job which queues behind the holder.
+    """
     part = os.environ.get("INFERA_E2E_SLURM_PARTITION")
+    attached = _job_id() is not None
     if _SPUR:
-        argv = ["srun", "-N1", "-n1"] + (["-p", part] if part else []) + ["-w", node]
+        argv = ["srun", "-N1", "-n1"]
+        if part and not attached:
+            argv += ["-p", part]
+        argv += ["-w", node]
     else:
         argv = ["srun", "--overlap", "--nodes=1", "--ntasks=1", "--nodelist", node]
-        if _job_id():
+        if attached:
             argv += ["--jobid", _job_id()]
     # Name and timebox every step: unnamed, SLURM labels them after the command
     # ("docker") and leaves them UNLIMITED, so a leaked one is neither traceable
     # to its CI run nor self-expiring. The prefix matches ci.yml's reclaim filter.
     argv += ["-J", job or JOB_NAME, "-t", STEP_TIME]
     reservation = os.environ.get("INFERA_E2E_RESERVATION")
-    if reservation:
+    if reservation and not attached:
         argv.append(f"--reservation={reservation}")
-    return argv + shlex.split(os.environ.get("INFERA_E2E_SRUN_EXTRA", ""))
+    extra_var = "INFERA_E2E_STEP_SRUN_EXTRA" if attached else "INFERA_E2E_SRUN_EXTRA"
+    return argv + shlex.split(os.environ.get(extra_var, ""))
 
 
 def run_on_node(
@@ -107,6 +120,48 @@ def run_on_node(
     )
 
 
+def require_step_access(node: str, *, timeout: float = 30) -> None:
+    """Fail quickly unless a command can run on ``node``.
+
+    This is primarily a holder-attachment probe.  Without it a Spur step that
+    accidentally becomes a fresh job remains PENDING until each launcher's
+    five-minute Docker timeout, obscuring the scheduling error.
+    """
+    try:
+        done = run_on_node(node, ["true"], timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        raw_detail = exc.stderr or ""
+        detail = (
+            raw_detail.decode(errors="replace") if isinstance(raw_detail, bytes) else raw_detail
+        ).strip()
+        # Killing an srun client does not cancel a detached Spur allocation.
+        # If attachment regressed and srun announced a new pending job, reclaim
+        # it before reporting the failed probe.
+        pending = re.search(r"Pending job allocation ([0-9]+)", detail)
+        if pending and shutil.which("scancel"):
+            try:
+                subprocess.run(
+                    ["scancel", pending.group(1)],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+            except (OSError, subprocess.SubprocessError):
+                pass
+        message = f"SLURM step to {node} did not start within {timeout}s"
+        if detail:
+            message += f": {detail}"
+        raise RuntimeError(message) from exc
+    except OSError as exc:
+        raise RuntimeError(f"could not run a SLURM step on {node}: {exc}") from exc
+    if done.returncode != 0:
+        detail = (done.stderr or done.stdout or "").strip()
+        message = f"SLURM step to {node} failed with rc={done.returncode}"
+        if detail:
+            message += f": {detail}"
+        raise RuntimeError(message)
+
+
 def node_arch(node: str) -> str | None:
     """``node``'s GPU architecture via rocminfo, or None when it cannot be asked. The
     orchestrator has no GPU of its own, so this is the only way it can check a node's."""
@@ -123,8 +178,9 @@ def node_arch(node: str) -> str | None:
         return arch.parse_rocminfo(done.stdout) if done.returncode == 0 else None
 
     actual = probe()
-    if actual is None and in_allocation() and not _SPUR:
+    if actual is None and in_allocation():
         # Some Slurm cgroup setups expose GPU agents only to steps requesting GRES.
+        # This is safe on Spur now that the probe is attached to the pair holder.
         actual = probe(request_gpu=True)
     return actual
 
