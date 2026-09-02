@@ -119,10 +119,44 @@ def check(content: Path, args: dict) -> tuple[bool, str]:
     for index, case in enumerate(cases):
         if not isinstance(case, dict):
             return False, f"case {index} is not an object"
-        for field in ("problem_id", "input", "expected", "why"):
+        # **`expected` is checked for presence, not for content, and the
+        # distinction is the package's own.** An empty output is a legal answer
+        # here: `problems.task/readme.md` requires each `output_format` to say
+        # "what to print when the answer is empty or absent", and the problems
+        # artefact ships worked examples that do exactly that.
+        #
+        # Measured 2026-09-02. A `merging-k-sorted-runs` problem specified *"If
+        # the total number of values is zero, print an empty line: a single
+        # newline character and nothing before it"* and shipped `output='\n'` as
+        # a worked example. The examiner then wrote an extra case with
+        # `expected='\n'` and a `why` explaining the k=0 edge — the correct
+        # answer, in the format the problem demanded — and `not value.strip()`
+        # rejected it as an unfilled field. `check_extra_tests` FAILED a correct
+        # artefact and the graph stalled with four tasks unfinished.
+        #
+        # **The split is metadata against data, and it is the package's own.**
+        # `problem_id` and `why` are what the examiner writes *about* a case and
+        # can never legitimately be blank. `input` and `expected` are the case
+        # itself, and whether an empty one is legal is the *problem's* to say —
+        # not this validator's.
+        #
+        # A second instance, same run: an `edit-distance` problem whose
+        # `input_format` reads *"Line 1: the string s. Line 2: the string t.
+        # **Either line may be empty.**"* got an extra case with `input='\n\n'`
+        # and a `why` of "both strings empty". `.strip()` made it `''` and the
+        # case was rejected as unfilled. Two problems, two documented empty
+        # edges, both refused.
+        #
+        # **`isinstance` still carries what this check is for**: an unfilled
+        # field is absent or `None` and is caught; a field deliberately holding
+        # an empty string is a string and is not.
+        for field in ("problem_id", "why"):
             value = case.get(field)
             if not isinstance(value, str) or not value.strip():
                 return False, f"case {index} has an empty or non-string {field}"
+        for field in ("input", "expected"):
+            if not isinstance(case.get(field), str):
+                return False, f"case {index} has a missing or non-string {field}"
         by_problem.setdefault(case["problem_id"], []).append(normalise(case["input"]))
 
     # Two cases with the same input for one problem is one case written twice,

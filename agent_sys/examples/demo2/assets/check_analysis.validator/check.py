@@ -28,6 +28,16 @@ _FACTOR = r"""
         \d+ \s* \^ \s* [A-Za-z]\w*                      # 2^n
       | sqrt \s* \( \s* [A-Za-z]\w* \s* \)              # sqrt(n)
       | (?:log|alpha) \s* \( \s* [A-Za-z]\w* \s* \)     # log(n), alpha(n)
+        # min(m, n), max(V, E) -- two-argument, and the reason it is here is
+        # measured: a `space_complexity` of `O(min(m, n))` on a Levenshtein
+        # solution was rejected as "does not parse as big-O", the handoff was
+        # invalidated, and the graph stalled. `min` of two dimensions is
+        # ordinary notation for a rolling-buffer bound and there was nothing
+        # wrong with the artefact. Arguments are simple terms rather than full
+        # sums: this grammar is deliberately non-recursive, and `min(n, m)` is
+        # the form that occurs.
+      | (?:min|max) \s* \( \s* [A-Za-z]\w* (?:\s*\^\s*\d+)?
+            (?: \s*,\s* [A-Za-z]\w* (?:\s*\^\s*\d+)? )+ \s* \)
       | log \s* (?: \^ \s* \d+ \s* )? [A-Za-z]\w*       # log n, log^2 n
       | [A-Za-z]\w* \s* !                               # n!
       | [A-Za-z]\w* \s* \^ \s* \d+                      # n^2

@@ -86,6 +86,13 @@ One per problem, beside its source, with exactly these five keys:
 problem. `time_complexity` and `space_complexity` must be written in big-O —
 `O(1)`, `O(n)`, `O(n log n)`, `O(n^2)`, `O(m + n)`, `O(2^n)` and the like.
 
+**The expression alone, with no words around it.** `check_analysis` parses these
+two fields, so `"O(n) expected"`, `"O(n) amortised"` and `"about O(n log n)"` are
+rejected — measured, and one of them stalled a whole run. A qualifier is often
+the honest thing to say and there is a field for it: put *expected*, *amortised*,
+*average case* and *worst case* in `rationale`, which is prose and is read by a
+human. `min` and `max` are part of the expression and are fine: `O(min(m, n))`.
+
 State the complexity your program **actually** has. Nothing here verifies that
 claim against your code — `check_analysis` is a `weak` validator and says so in
 its own readme — so it is on you, and a wrong number that survives the check is

@@ -11,17 +11,29 @@ there can follow to the same result.
 
 ## Running it
 
-Two variables have no default, because where a site keeps 52 GB of weights and
-what its image is called are facts about that site:
+**Three** variables have no default, because where a site keeps 52 GB of weights,
+what its image is called, and where its skills live are facts about that site:
 
 ```bash
 agent-sys run --package agent_sys/examples/single_real_task \
   --var model_path=/srv/models/Qwen3.6-27B \
-  --var image=<an image carrying both infera and a matching sglang>
+  --var image=<an image carrying both infera and a matching sglang> \
+  --var packup_skill=$HOME/.claude/skills/experiment-result-packup
 ```
 
-Omit either and the load fails naming the file, the line and the variable. Two
-more are optional: `--var etcd_image=` (defaults to a public tag) and
+Omit any of them and the load fails naming the file, the line and the variable.
+
+**`packup_skill` was missing from this list and it is the one that stops a run
+at the door.** `model_path` and `image` are the two a reader expects to supply;
+the third is a path to the skill `serve.yaml` hands the agent, and it cannot
+have a default for the reason its own comment gives — a default would put one
+machine's home directory into a package that is data. Measured 2026-09-02: a run
+configured from this README alone exited `LOAD_ERROR` on
+`steps/serve.yaml:73`. The diagnostic was exact, which is why this cost a minute
+rather than an hour; it should still not have been reachable from the
+documentation.
+
+Two more are optional: `--var etcd_image=` (defaults to a public tag) and
 `--var work_root=` (defaults to `/var/tmp`).
 
 `--var reproduce_timeout_seconds=` caps the AI validator. It defaults to 5400;

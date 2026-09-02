@@ -16,6 +16,7 @@ missing or malformed.
 """
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -63,6 +64,29 @@ NOT_ONE_LINE_PHRASES = (
     "one integer per",
 )
 
+#: The plural word, and it catches what the phrase list above cannot.
+#:
+#: **Measured, and it stalled a run in exactly the way the note above records.**
+#: A `cells-draining-to-both-oceans` problem described its output as *"Line 1: a
+#: single integer k, the number of qualifying cells. Then k lines, each holding
+#: a cell's row index…"*. That contains `"a single integer"`, so the shape check
+#: demanded exactly one line and rejected all three worked examples — the
+#: artefact was correct and `check_solvable` FAILED it, and the graph stalled
+#: with seven tasks waiting.
+#:
+#: **The negating construction was not a `per`.** It is *"Line 1: … Then k
+#: lines"*, which no amount of adding to the phrase list above would have
+#: anticipated — the list enumerates ways of saying "one each", and this says
+#: "one, and then more". Enumerating negations is the losing side of that game.
+#:
+#: So the test inverts: a format that mentions **lines**, plural, is describing
+#: more than one line whatever else it says, and is not shape-checked at all.
+#: That is the same gap the module already declares — *"a format that does not
+#: use any of these is not checked for shape"* — reached from the other side,
+#: and it fails in the safe direction: it **skips** a check rather than
+#: rejecting a good artefact.
+_PLURAL_LINES = re.compile(r"\blines\b")
+
 
 def has_placeholder(text: str) -> bool:
     lowered = text.lower()
@@ -89,7 +113,9 @@ def worked(example: object, output_format: str) -> tuple[bool, str]:
         # and it makes it out loud.
         return False, "`output` is a verbatim copy of `input`"
     lowered = output_format.lower()
-    promises_many = any(phrase in lowered for phrase in NOT_ONE_LINE_PHRASES)
+    promises_many = any(phrase in lowered for phrase in NOT_ONE_LINE_PHRASES) or bool(
+        _PLURAL_LINES.search(lowered)
+    )
     if not promises_many and any(phrase in lowered for phrase in ONE_LINE_PHRASES):
         lines = [line for line in produced.splitlines() if line.strip()]
         if len(lines) != 1:
