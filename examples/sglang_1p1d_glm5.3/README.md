@@ -43,13 +43,128 @@ Stated plainly, because the honest answer is short.
 | **GLM-5.3 weights** through that shape, two-node | **not yet run.** Same architecture, so expected to work; expectation is not evidence |
 | **single-node** TP4+TP4 | **not yet run, and it carries a real unknown** — see below |
 
-## The single-node unknown: mooncake between two legs on one host
+## The single-node path: HIP IPC over XGMI, not loopback RDMA
 
-Both legs are on the same machine, so the KV handoff is a loopback RDMA
-transfer. Whether mooncake does that, and at what speed, **is not established
-here**. Do not assume it degrades gracefully — the failure mode this stack
-specialises in is silent: mooncake falls back to a transport that works and is
-merely 5-20x slower, and nothing raises.
+**An earlier version of this section said the same-host KV handoff is a loopback
+RDMA transfer and that the risk is silent slowness. Both were wrong**, and the
+correction changes what you check. Established by reading the mooncake tree and
+build cache inside the shipped image:
+
+The pinned mooncake commit is `01d1eb2a` (2026-07-01), *"[TE] Support rdma+hip
+multi-protocol segments for single-node disaggregation (#2682)"* — literally the
+single-node disaggregation commit, whose own message reports validation of
+single-node 1P1D on MI355X over the rdma+hip path.
+
+The image builds with `USE_HIP=ON`, `ENABLE_MULTI_PROTOCOL=ON`. On init,
+`auto_discover` installs `rdma` (HCAs present, `MC_FORCE_TCP` unset) and then
+**composes** `hip` on top — the local segment advertises `"rdma,hip"`.
+Registration fans out to every installed transport, so device KV gets both a HIP
+IPC buffer and an RDMA buffer, while host aux buffers land on rdma only.
+`MultiTransport::selectTransport` then routes **per request** by fixed priority
+`hip 4 > cxl 3 > rdma 2 > tcp 1`, so for KV **hip wins**: `hipIpcGetMemHandle` on
+the exporter, `hipIpcOpenMemHandle` on the importer, `hipMemcpyAsync` over
+enabled peer access. **GPU-to-GPU across XGMI, no NIC in the path.**
+
+One trap that makes the config lie: sglang passes `protocol="rdma"` into
+`engine.initialize()` (`MOONCAKE_PROTOCOL` defaults to `"rdma"`). On this build
+that argument **does not choose the transport** — outside the EFA/CXI paths it
+only feeds `initMemoryAllocator()`. Setting `MOONCAKE_PROTOCOL` will not disable
+hip, and seeing `rdma` in the config does not mean KV moves over RDMA.
+
+### The real risk: the two legs cannot see each other's GPUs
+
+`cluster.singlenode.sh` sets `PREFILL_GPUS=0,1,2,3` and `DECODE_GPUS=4,5,6,7`,
+applied as `HIP_VISIBLE_DEVICES` (`../sglang_1p1d_glm5.2/engine/leg.sh:153`). The
+two legs therefore have **disjoint visible device sets**, each seeing 4 devices
+renumbered 0-3, and `setupP2PAccess()` only iterates visible devices — so peer
+access is enabled *within* each leg and never between them.
+
+**Whether `hipIpcOpenMemHandle` can import a handle exported by a GPU the
+importing process cannot see is UNKNOWN and is not predicted here.** CUDA's
+equivalent requires the peer device to be visible; HIP generally mirrors CUDA IPC
+semantics, but "generally mirrors" is not a source read.
+
+What *is* established is the shape of each outcome:
+
+- **If it works:** KV moves over XGMI, and the only positive evidence is the
+  install line plus the absence of hip errors.
+- **If it fails, it fails LOUDLY at transfer time, not silently.** Registration
+  still succeeds (`hipIpcGetMemHandle` is local), the segment still advertises
+  `"rdma,hip"`, `selectTransport` still picks hip, and then
+  `hipIpcOpenMemHandle failed` is logged and the transfer returns
+  `"device memory not registered"` — surfacing as *"Failed to get kvcache from
+  prefill instance"*, exactly the pre-fix symptom the pinned commit quotes.
+
+So **the single-node failure mode is a broken PD, not a slow one** — provided hip
+is installed. The silent-slow path exists only if hip is *absent*.
+
+If it fails, the fix is a topology change — give both legs all 8 GPUs and split
+with `--base-gpu-id` so each process can see its peer's cards — not a mooncake
+debug session.
+
+### Settle it in seconds, before loading any weights
+
+Two processes with the kit's own disjoint split, exchanging one IPC handle. No
+model, no server:
+
+```bash
+# exporter — the prefill leg's GPUs
+docker exec -e HIP_VISIBLE_DEVICES=0,1,2,3 <prefill-ctr> python - <<'EOF'
+import torch
+t = torch.zeros(1<<20, dtype=torch.uint8, device='cuda:0')
+h = torch.cuda.cudart().cudaIpcGetMemHandle(t.data_ptr())
+open('/dev/shm/ipc.h','wb').write(bytes(h)); print("exported, holding"); input()
+EOF
+
+# importer — the decode leg's GPUs
+docker exec -e HIP_VISIBLE_DEVICES=4,5,6,7 <decode-ctr> python - <<'EOF'
+import torch
+torch.zeros(1, device='cuda:0')                        # init the HIP context first
+h = open('/dev/shm/ipc.h','rb').read()
+print(torch.cuda.cudart().cudaIpcOpenMemHandle(h, 1))  # 1 = LazyEnablePeerAccess
+EOF
+```
+
+`--ipc=host` is already passed to both containers (`../sglang_1p1d_glm5.2/common.sh:46`),
+which HIP IPC across processes requires.
+
+### What to grep, and the two lines nobody was checking
+
+| outcome | line |
+|---|---|
+| HIP transport installed | `HIP transport installed for intra-node GPU P2P` |
+| HIP install failed | `Failed to install HIP transport (intra-node GPU P2P unavailable)` |
+| RDMA installed | `installTransport, type=rdma` |
+| KV not IPC-exportable | `HipTransport: hipIpcGetMemHandle failed` |
+| peer's KV not importable | `HipTransport: hipIpcOpenMemHandle failed` |
+| two GPUs cannot reach each other | `HipTransport: P2P access not available between device i and device j` |
+| TCP forced | `MC_FORCE_TCP is set, using TCP transport only` |
+| **TCP fallback (no HCAs)** | **nothing — see below** |
+
+Two properties of this table matter more than the table:
+
+1. **The TCP fallback is silent.** TCP is installed with no success log where the
+   RDMA branch logs `installTransport, type=rdma`. Grep for the *positive* rdma
+   line and require it; there is no tcp line to find.
+2. **No log line says which transport a given transfer used.** `selectTransport`
+   chooses silently per request, and the two routing `LOG(ERROR)` calls in
+   `multi_transport.cpp` are commented out in this tree. The install lines tell
+   you the *capability*, never the *choice*. `MC_LOG_LEVEL=TRACE` adds
+   per-buffer registration lines — still not per-transfer routing.
+
+**The existing `MC_FORCE_TCP` / `GID is NULL` checks do not cover this case.**
+`MC_FORCE_TCP` is an env var we would have to set ourselves, so counting it only
+confirms we did not force TCP by accident. (It does catch one real disaster: if
+set, init returns early *before* auto-discover, hip is never installed, and every
+KV byte goes over TCP loopback — that genuinely is the 5-20× case.) `GID is NULL`
+is per-RDMA-device rail health and is a **cross-host** signal; with the hip path
+live the single-node KV transfer never touches a GID, so a count of 0 tells you
+nothing about it.
+
+**So add one line to the single-node smoke: require `HIP transport installed for
+intra-node GPU P2P` in BOTH leg logs**, plus zero `hipIpcOpenMemHandle failed`.
+Without the first, the segment is `"rdma"` only and KV silently takes loopback
+RDMA with nothing raised anywhere.
 
 What we *have* verified on the reference node, first-hand:
 
