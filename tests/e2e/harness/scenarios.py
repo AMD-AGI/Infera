@@ -50,10 +50,33 @@ async def _chat_json_no_think(server_url: str, model: str, content: str, **kw) -
     return r.json()
 
 
+def _reply_text(message: dict) -> str:
+    """Whatever the model actually generated, wherever the engine put it.
+
+    ``content`` is empty for a reasoning model whose whole budget went into its
+    reasoning channel — 20 tokens does not get gpt-oss out of `analysis` and into
+    `final`. Whether that shows up in ``content`` or in ``reasoning_content`` is an
+    engine decision, not a model one: sglang leaves the raw harmony channels in
+    ``content``, while vLLM parses them and reports the reasoning separately. Both
+    are a live engine answering, so both count here.
+
+    The reasoning field is spelled ``reasoning`` by vLLM 0.26.0 and
+    ``reasoning_content`` by sglang and by earlier vLLM, so accept either name."""
+    for key in ("content", "reasoning", "reasoning_content"):
+        text = (message.get(key) or "").strip()
+        if text:
+            return text
+    return ""
+
+
 async def assert_chat_ok(server_url: str, model: str) -> None:
     body = await _chat_json_no_think(server_url, model, "Say hi.")
     assert body["model"] == model
-    assert body["choices"][0]["message"]["content"]
+    message = body["choices"][0]["message"]
+    assert _reply_text(message), (
+        "chat returned no content and no reasoning: "
+        f"{ {k: v for k, v in message.items() if k != 'tool_calls'} }"
+    )
     assert body["usage"]["completion_tokens"] > 0
 
 
@@ -97,7 +120,11 @@ async def _capital_probe(server_url: str, model: str) -> tuple[bool, str]:
         )
     except Exception as e:  # noqa: BLE001 - chat may be unsupported (completions-only PD)
         return False, f"chat unavailable: {type(e).__name__}: {e}"
-    content = body["choices"][0]["message"].get("content") or ""
+    # Same content/reasoning_content split as assert_chat_ok: reading only
+    # ``content`` reports an empty reply for engines that parse reasoning channels,
+    # which reads in the log as "the model said nothing" rather than "the answer is
+    # in the other field".
+    content = _reply_text(body["choices"][0]["message"])
     return correctness.is_capital_correct(content), content
 
 

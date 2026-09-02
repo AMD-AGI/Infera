@@ -105,7 +105,13 @@ bash dependencies.sh -y 2>&1 | tail -15 || echo "dependencies.sh returned $? (co
 # WITH_STORE=OFF + BUILD_UNIT_TESTS/EXAMPLES=OFF : transfer-engine only, trim build
 # EXTRA_CMAKE  : mode 1 adds RUST-off / pybind11 pin (see above; no dma-buf)
 # pybind11 on PREFIX_PATH so main's cmake finds the pip pybind11 (harmless otherwise).
-export CMAKE_PREFIX_PATH="/opt/rocm:/opt/rocm/lib/cmake:/usr/local/lib/python3.12/dist-packages/pybind11/share/cmake/pybind11:${CMAKE_PREFIX_PATH:-}"
+# ROCm sits at /opt/rocm on the vllm-openai-rocm bases, but the ROCm 10.1 "ufb"
+# bases ship it as a pip package (_rocm_sdk_devel) and point ROCM_PATH/ROCM_HOME
+# at it instead, leaving no /opt/rocm. Same for pybind11: ask the interpreter
+# rather than naming a dist-packages path that only exists under python3.12.
+ROCM_ROOT="${ROCM_PATH:-${ROCM_HOME:-/opt/rocm}}"
+PYBIND11_CMAKE="$(python3 -c 'import pybind11; print(pybind11.get_cmake_dir())' 2>/dev/null || true)"
+export CMAKE_PREFIX_PATH="$ROCM_ROOT:$ROCM_ROOT/lib/cmake:/opt/rocm:/opt/rocm/lib/cmake:${PYBIND11_CMAKE:+$PYBIND11_CMAKE:}${CMAKE_PREFIX_PATH:-}"
 ENGINE_SO_GLOB="build/mooncake-integration/engine.cpython-*-x86_64-linux-gnu.so"
 if ! ls $ENGINE_SO_GLOB >/dev/null 2>&1; then
     echo "=== cmake configure (USE_HIP=ON ${DMABUF_CMAKE[*]:-} ${EXTRA_CMAKE[*]:-}) ==="

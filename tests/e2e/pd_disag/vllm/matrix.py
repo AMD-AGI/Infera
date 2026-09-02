@@ -19,6 +19,11 @@ from ...harness.matrix import GPT_OSS, expand_cases
 # [enable, model, tp, ep, dp_attn] (+ optional opts: args/env/setup/server_ready_timeout).
 CASES = [
     # gpt-oss-120b, prefill TP=2 + decode TP=2, KV over Mooncake RDMA.
+    #
+    # --use-fp64-gumbel works around aiter's sampling kernel failing to build under
+    # ROCm 10.1 (hipCUB dropped hipcub::Traits<T>), which vLLM hits during its
+    # memory-profiling run so the server never reports ready. See the longer note in
+    # pd_mixed/vllm/matrix.py; both roles need it because both profile at startup.
     [
         True,
         GPT_OSS,
@@ -27,7 +32,7 @@ CASES = [
         False,
         {
             "server_ready_timeout": 1800,
-            "args": ["--gpu-memory-utilization", "0.9"],
+            "args": ["--gpu-memory-utilization", "0.9", "--use-fp64-gumbel"],
         },
     ],
 ]

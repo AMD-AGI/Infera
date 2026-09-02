@@ -51,7 +51,12 @@ export PYTORCH_ROCM_ARCH="${PYTORCH_ROCM_ARCH:-$MC_GPU_ARCH}"
 export GPU_ARCHS="${GPU_ARCHS:-$MC_GPU_ARCH}"
 export AMDGPU_TARGETS="${AMDGPU_TARGETS:-$MC_GPU_ARCH}"
 export HIP_ARCHITECTURES="${HIP_ARCHITECTURES:-$MC_GPU_ARCH}"
-export CMAKE_PREFIX_PATH="/opt/rocm:/opt/rocm/lib/cmake:/opt/rocm-7.2.0/lib/cmake:$(python3 -c 'import pybind11; print(pybind11.get_cmake_dir())'):${CMAKE_PREFIX_PATH:-}"
+# ROCm sits at /opt/rocm on the lmsysorg bases, but the ROCm 10.1 "ufb" bases
+# ship it as a pip package (_rocm_sdk_devel) and point ROCM_PATH/ROCM_HOME at it
+# instead, leaving no /opt/rocm at all. Honour those first and keep the old paths
+# after, so one script serves both layouts.
+ROCM_ROOT="${ROCM_PATH:-${ROCM_HOME:-/opt/rocm}}"
+export CMAKE_PREFIX_PATH="$ROCM_ROOT:$ROCM_ROOT/lib/cmake:/opt/rocm:/opt/rocm/lib/cmake:/opt/rocm-7.2.0/lib/cmake:$(python3 -c 'import pybind11; print(pybind11.get_cmake_dir())'):${CMAKE_PREFIX_PATH:-}"
 
 rm -rf build
 mkdir build
@@ -66,7 +71,11 @@ if ! cmake .. -DUSE_HIP=ON -DUSE_HIP_DMABUF=ON -DUSE_ETCD=OFF \
 fi
 grep -iE "dmabuf|hsa-runtime|error" /tmp/mooncake-cmake.log || true
 
-target="engine.cpython-310-x86_64-linux-gnu.so"
+# The extension's ABI tag follows the base image's interpreter, so it cannot be a
+# literal: cp310 on the ROCm 7.2.x bases, cp314 on the ROCm 10.1 ufb ones. Naming
+# the wrong one fails as "unknown target" after the whole configure step.
+py_abi="$(python3 -c 'import sys; print("%d%d" % sys.version_info[:2])')"
+target="engine.cpython-${py_abi}-x86_64-linux-gnu.so"
 if ! ninja "$target" >/tmp/mooncake-ninja.log 2>&1; then
     tail -80 /tmp/mooncake-ninja.log >&2
     exit 1

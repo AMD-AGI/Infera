@@ -3,21 +3,70 @@
 # hipFile + libionic onto a digest-pinned nightly base, then the infera source,
 # and runs via `python -m infera.engine.vllm`.
 #
-# Base pinned by DIGEST to the stable vLLM v0.25.1 release (was the rolling nightly
-# cbe9c40f = 0.23.1rc0.dev861+gcbe9c40f9, which DockerHub has since rolled off).
-# The tag ":v0.25.1" is kept in the ref for readability; the @sha256 is what pins
-# it (= vllm 0.25.1, torch 2.11.0, ROCm 7.2.3). To move: bump the digest +
-# re-verify patch no-ops (the patch loop swallows a patch's sys.exit(1), so a
-# moved anchor silently drops the patch — check the build log per layer).
-ARG VLLM_BASE_IMAGE=vllm/vllm-openai-rocm:v0.25.1@sha256:84459732ca98b40fe2f5338a3f050be6d522504e47a484a5180d58fb75956f86
+# Base pinned by DIGEST. To move: bump the digest + re-verify patch no-ops (the
+# patch loop swallows a patch's sys.exit(1), so a moved anchor silently drops the
+# patch — check the build log per layer).
+#
+# ROCm 10.1 enablement branch: the base is the ROCm 10.1 "ufb" image, which is
+# vLLM 0.26.0 / python 3.14 / ubuntu 24.04 on a rocm10.1.0a20260807 nightly
+# (previously vllm/vllm-openai-rocm:v0.25.1 = vllm 0.25.1, torch 2.11.0, ROCm
+# 7.2.3). Two consequences the rest of this file depends on:
+#   - ROCm is a pip package here (_rocm_sdk_devel under the /opt/python
+#     site-packages) and there is NO /opt/rocm; ROCM_PATH/ROCM_HOME point at it.
+#   - the base already carries aiter built for PYTORCH_ROCM_ARCH=gfx90a;gfx942;gfx950
+#     and AITER_ROCM_ARCH=gfx942;gfx950, so BUILD_AITER defaults to 0 below.
+# Digest matters more than usual here: this is a nightly tag in a private repo,
+# and the last rolling base this file used was rolled off DockerHub mid-life.
+ARG VLLM_BASE_IMAGE=rocm/ufb-private:vllm-0.26.0-ubuntu24.04-py3.14-nightlies-device-all-cdna-rocm10.1.0a20260807-568afb3a1@sha256:11657b464b9c2b7f285a68ca1f622f2cdf3c5ef30a48cc6e560c4141acca8556
 FROM ${VLLM_BASE_IMAGE}
+
+# ---- 0a) /opt/rocm compatibility symlink ------------------------------------
+# The ROCm 10.1 ufb bases ship ROCm as a pip package and export ROCM_PATH at it;
+# there is no /opt/rocm. Our own scripts were taught to honour ROCM_PATH, but the
+# THIRD-PARTY code already installed in the base was not, and it fails silently
+# rather than loudly. The case that cost real debugging time:
+#
+#   aiter_meta/csrc/cpp_itfs/utils.py computes
+#     DEFAULT_GPU_ARCH = run("/opt/rocm/llvm/bin/amdgpu-arch").stdout.strip()
+#   which yields "" when the path does not exist, so GPU_ARCHS becomes "" and every
+#   JIT-compiled sampling kernel dies with "One of GPU archs of [''] is invalid" —
+#   AFTER the 120B model has finished loading.
+#
+# One symlink fixes that and the whole class behind it, and costs nothing on bases
+# that already have a real /opt/rocm (the -e guard leaves those untouched).
+RUN set -eu; \
+    R="${ROCM_PATH:-${ROCM_HOME:-}}"; \
+    if [ -n "$R" ] && [ ! -e /opt/rocm ]; then mkdir -p /opt && ln -s "$R" /opt/rocm; fi; \
+    test -x /opt/rocm/llvm/bin/amdgpu-arch; \
+    echo "/opt/rocm -> $(readlink -f /opt/rocm)"
+
+# ---- 0b) the `render` group --------------------------------------------------
+# WHY: every GPU container here is started with `--group-add video --group-add
+# render` (harness/launcher.py _GPU_RDMA_FLAGS, run_tests.sh, mixed.sh), and docker
+# resolves those NAMES against this image's /etc/group. A missing name aborts the
+# container with "unable to find group render: no matching entries in group file"
+# before anything in it runs — rc=125, no engine log, nothing to debug. The sglang
+# ufb base defines render; this vLLM ufb base defines only video.
+#
+# The GID is deliberately not pinned to the host's: the container runs as root and
+# /dev/kfd is root:render 0660, so the owner bit is what grants access and the group
+# is only required to exist. A non-root container would additionally need this GID
+# to match the host's render group.
+RUN groupadd -f render && getent group render
 
 # ---- 1) AITER (flydsl fp4 for DSv4 MXFP4 MoE) ------------------------------
 # WHY: the stock base aiter lacks the flydsl fp4 a4w4 kernel, and the prebuilt .so
 # hits a GLIBCXX/GLIBC ABI mismatch. HOW: build ROCm/aiter in-container. Per the
 # AITER RULE in build_aiter_rocm.sh, the build does NOT pin the arch — aiter stays
 # "native" and JITs kernels at first import (~20min), so one image runs on any arch.
-ARG BUILD_AITER=1
+#
+# Defaults to 0 on this branch: the only reason to rebuild aiter was the flydsl fp4
+# a4w4 kernel for DSv4 MXFP4 MoE, which the ROCm 10.1 enablement run does not
+# exercise (gpt-oss-120b only), and the ROCm 10.1 base already ships aiter built
+# for AITER_ROCM_ARCH=gfx942;gfx950 — both architectures this ticket asks for. Set
+# to 1 again when DSv4 comes back into scope, and expect to re-pin AITER_GIT_REF:
+# v0.1.16.post1 predates ROCm 10.1 and python 3.14.
+ARG BUILD_AITER=0
 ARG AITER_GIT_REF=v0.1.16.post1
 ARG AITER_REPO=https://github.com/ROCm/aiter
 COPY deploy/docker/scripts/build_aiter_rocm.sh /tmp/build_aiter_rocm.sh
@@ -114,7 +163,13 @@ RUN set -eu; \
 # ais-check SILENTLY downgrades the load path to CPU-bounce. HOW: build_hipfile.sh
 # installs both to /opt/rocm/bin; `test -x` asserts it so a regression fails the
 # build instead of degrading.
-ARG BUILD_HIPFILE=1
+#
+# Defaults to 0 on this branch for two reasons: kvd's gpu-direct L3 is not part of
+# the ROCm 10.1 enablement scope, and this step is the one place that genuinely
+# needs a writable /opt/rocm — the ROCm 10.1 base has none, so with BUILD_HIPFILE=1
+# the `test -x /opt/rocm/bin/ais-check` below fails the build. Re-enabling it on a
+# ufb base means pointing HIPFILE_INSTALL_PREFIX at $ROCM_PATH and asserting there.
+ARG BUILD_HIPFILE=0
 COPY deploy/docker/scripts/build_hipfile.sh /tmp/build_hipfile.sh
 COPY deploy/docker/patches/hipfile_async/ /tmp/hipfile-async-patch/
 RUN if [ "${BUILD_HIPFILE}" = "1" ]; then \
@@ -182,11 +237,11 @@ RUN pip install --no-cache-dir ".[vllm]" "setuptools>=83.0.0"
 COPY rust ./rust
 RUN set -eu; \
     command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; }; \
-    export LIBCLANG_PATH="$(dirname "$(find /opt/rocm* /usr/lib /usr/lib64 -name 'libclang.so*' 2>/dev/null | head -1)")"; \
+    export LIBCLANG_PATH="$(dirname "$(find "${ROCM_PATH:-${ROCM_HOME:-/opt/rocm}}" /opt/rocm* /usr/lib /usr/lib64 -name 'libclang.so*' 2>/dev/null | head -1)")"; \
     case "$LIBCLANG_PATH" in ""|".") apt-get update && apt-get install -y --no-install-recommends libclang-dev && rm -rf /var/lib/apt/lists/* && export LIBCLANG_PATH="$(dirname "$(find /usr/lib -name 'libclang.so*' 2>/dev/null | head -1)")";; esac; \
     command -v cargo >/dev/null || { curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal; . "$HOME/.cargo/env"; }; \
     export PATH="$HOME/.cargo/bin:$PATH"; \
-    export LIBCLANG_PATH="${LIBCLANG_PATH:-/opt/rocm/llvm/lib}"; \
+    export LIBCLANG_PATH="${LIBCLANG_PATH:-${ROCM_PATH:-${ROCM_HOME:-/opt/rocm}}/llvm/lib}"; \
     ( cd rust && cargo build --release --bin infera-router ); \
     cp rust/target/release/infera-router /usr/local/bin/infera-router; \
     rm -rf rust "$HOME/.cargo" "$HOME/.rustup" /usr/local/cargo /usr/local/rustup; \

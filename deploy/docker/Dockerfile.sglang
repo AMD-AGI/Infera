@@ -3,13 +3,38 @@
 # the command.
 #
 # ⚠️ The base tag is PINNED and must stay pinned: the GLM-5.2 DSA patches near
-# the end of this file are context diffs applied at --fuzz=0 against this exact
+# the end of this file are context diffs applied at --fuzz=0 against one exact
 # sglang release. Bumping the base fails the build there rather than silently
 # mis-applying. Build with APPLY_SGLANG_DSA_PATCHES=0 if you need a newer base.
-ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.17-rocm720-mi35x
+#
+# ROCm 10.1 enablement branch: the base is the ROCm 10.1 "ufb" image, which is
+# sglang v0.5.15.post1 / python 3.14 / ubuntu 24.04 on a rocm10.1.0a20260811
+# nightly. Two consequences the rest of this file depends on:
+#   - ROCm is a pip package here (_rocm_sdk_devel under the /opt/venv site-packages)
+#     and there is NO /opt/rocm; ROCM_PATH/ROCM_HOME point at it instead.
+#   - it is sglang v0.5.15.post1, i.e. OLDER than the v0.5.17 the DSA diffs were
+#     cut against, so APPLY_SGLANG_DSA_PATCHES defaults to 0 below.
+# Pinned by digest because these are nightly tags in a private repo and the last
+# rolling base this repo used was rolled off DockerHub before it was replaced.
+ARG SGLANG_BASE_IMAGE=rocm/ufb-private:sglang-v0.5.15.post1-ubuntu24.04-py3.14-nightlies-device-all-rocm10.1.0a20260811-e35a33b34a@sha256:e87ecda2624687727d253e0c74863dd7f5008759ab09a9f7bc14e3360de181b6
 FROM ${SGLANG_BASE_IMAGE}
 
 WORKDIR /opt/infera
+
+# ---- /opt/rocm compatibility symlink ----------------------------------------
+# The ROCm 10.1 ufb bases ship ROCm as a pip package and export ROCM_PATH at it;
+# there is no /opt/rocm. Our own scripts were taught to honour ROCM_PATH, but the
+# THIRD-PARTY code already installed in the base was not, and it tends to fail
+# silently: aiter's cpp_itfs layer, for one, derives the target arch from
+# `/opt/rocm/llvm/bin/amdgpu-arch` and treats "binary missing" as "empty arch",
+# which surfaces much later as an unrelated-looking JIT assertion. Kept identical
+# to Dockerfile.vllm so both engines resolve ROCm the same way; a no-op on bases
+# that already have a real /opt/rocm.
+RUN set -eu; \
+    R="${ROCM_PATH:-${ROCM_HOME:-}}"; \
+    if [ -n "$R" ] && [ ! -e /opt/rocm ]; then mkdir -p /opt && ln -s "$R" /opt/rocm; fi; \
+    test -x /opt/rocm/llvm/bin/amdgpu-arch; \
+    echo "/opt/rocm -> $(readlink -f /opt/rocm)"
 
 # ---- Mooncake: pinned upstream, no private source patches -------------------
 # The base bundles an older Mooncake. Rebuild its source checkout at the same
@@ -94,7 +119,13 @@ RUN pip install --no-cache-dir ".[sglang]" "setuptools>=83.0.0"
 # The script also verifies each patch reached the BYTECODE, not just the source:
 # a stale __pycache__ silently reverts a patch and has voided an experiment here.
 # APPLY_SGLANG_DSA_PATCHES=0 builds a stock engine to A/B against.
-ARG APPLY_SGLANG_DSA_PATCHES=1
+#
+# Defaults to 0 on this branch: the ROCm 10.1 base is v0.5.15.post1, and three of
+# the four diffs are --fuzz=0 against v0.5.17, so they cannot apply. GLM-5.2 is
+# out of scope for the ROCm 10.1 enablement run (gpt-oss-120b only), so the right
+# answer is to skip them, not to force them through at a higher fuzz. Set to 1
+# again together with a v0.5.17-or-later ROCm 10.1 base.
+ARG APPLY_SGLANG_DSA_PATCHES=0
 COPY deploy/docker/patches/sglang_dsa/ /tmp/sglang_dsa/
 COPY deploy/docker/scripts/apply_sglang_dsa_patches.sh /tmp/apply_sglang_dsa_patches.sh
 RUN if [ "${APPLY_SGLANG_DSA_PATCHES}" = "1" ]; then \
@@ -168,11 +199,11 @@ RUN set -eu; \
 COPY rust ./rust
 RUN set -eu; \
     command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; }; \
-    export LIBCLANG_PATH="$(dirname "$(find /opt/rocm* /usr/lib /usr/lib64 -name 'libclang.so*' 2>/dev/null | head -1)")"; \
+    export LIBCLANG_PATH="$(dirname "$(find "${ROCM_PATH:-${ROCM_HOME:-/opt/rocm}}" /opt/rocm* /usr/lib /usr/lib64 -name 'libclang.so*' 2>/dev/null | head -1)")"; \
     case "$LIBCLANG_PATH" in ""|".") apt-get update && apt-get install -y --no-install-recommends libclang-dev && rm -rf /var/lib/apt/lists/* && export LIBCLANG_PATH="$(dirname "$(find /usr/lib -name 'libclang.so*' 2>/dev/null | head -1)")";; esac; \
     command -v cargo >/dev/null || { curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal; . "$HOME/.cargo/env"; }; \
     export PATH="$HOME/.cargo/bin:$PATH"; \
-    export LIBCLANG_PATH="${LIBCLANG_PATH:-/opt/rocm/llvm/lib}"; \
+    export LIBCLANG_PATH="${LIBCLANG_PATH:-${ROCM_PATH:-${ROCM_HOME:-/opt/rocm}}/llvm/lib}"; \
     ( cd rust && cargo build --release --bin infera-router ); \
     cp rust/target/release/infera-router /usr/local/bin/infera-router; \
     rm -rf rust "$HOME/.cargo" "$HOME/.rustup" /usr/local/cargo /usr/local/rustup; \

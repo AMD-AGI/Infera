@@ -10,11 +10,47 @@ from __future__ import annotations
 
 import pytest
 
-from ...harness.matrix import DEEPSEEK_V4_PRO, GLM_5_1_FP8, KIMI_K26_MXFP4, QWEN3_8B, expand_cases
+from ...harness.matrix import (
+    DEEPSEEK_V4_PRO,
+    GLM_5_1_FP8,
+    GPT_OSS,
+    KIMI_K26_MXFP4,
+    QWEN3_8B,
+    expand_cases,
+)
 
 # [enable, model, tp, ep, dp_attn] (+ optional opts dict). Opts mirror the
 # matching InferenceX single_node/fixed_seq_len benchmarks.
 CASES = [
+    # gpt-oss-120b, tp2. The other three engines' PD-mixed grids all carry gpt-oss but
+    # this one did not, which left vLLM as the only engine covered in PD-disag and not
+    # in PD-mixed. Config is deliberately the same as the pd_disag/vllm row for the
+    # same model, so a difference between the two scenarios is a scenario difference
+    # and not a knob difference. tp2 also keeps it schedulable on this cluster, where
+    # the tp4 rows below need four idle cards on one node.
+    #
+    # --use-fp64-gumbel is a ROCm 10.1 workaround, not a tuning choice. aiter's
+    # top-k/top-p sampling kernel does not compile under ROCm 10.1 — its
+    # sampling.cuh still uses hipcub::Traits<T>, which hipCUB has dropped, so the
+    # JIT build fails with "no member named 'Traits' in namespace 'hipcub'". vLLM
+    # reaches that kernel from its memory-profiling dummy run, so the server never
+    # reports ready. Turning aiter off wholesale is not an option here: gpt-oss is
+    # MXFP4 and vLLM has no native MXFP4 MoE backend (which is why infera defaults
+    # VLLM_ROCM_USE_AITER=1). This flag sends only the sampler down the
+    # PyTorch-native path and leaves aiter serving the MoE. The cases below assert
+    # on greedy decoding, which the Gumbel-noise dtype does not affect. Drop it once
+    # aiter's sampling.cuh builds against ROCm 10.1's hipCUB.
+    [
+        True,
+        GPT_OSS,
+        2,
+        False,
+        False,
+        {
+            "server_ready_timeout": 1800,
+            "args": ["--gpu-memory-utilization", "0.9", "--use-fp64-gumbel"],
+        },
+    ],
     [
         False,
         QWEN3_8B,

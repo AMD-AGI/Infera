@@ -283,10 +283,20 @@ class SrunDockerLauncher(WorkerLauncher):
         # No .pyc: the repo is bind-mounted read-write and the container runs as
         # root, so byte-compiling it litters the checkout with root-owned
         # __pycache__ that the next actions/checkout cannot delete (EACCES).
-        base = {"PYTHONPATH": REPO, "PYTHONDONTWRITEBYTECODE": "1"}
+        base = {"PYTHONDONTWRITEBYTECODE": "1"}
         for key, val in {**base, **env}.items():
             docker_args += ["-e", f"{key}={val}"]
-        inner = f"cd {shlex.quote(REPO)} && exec {shlex.join(argv)}"
+        # PYTHONPATH is PREPENDED in the container's shell rather than passed with
+        # `-e`, because `-e PYTHONPATH=...` REPLACES whatever the image exported. On
+        # bases that keep everything in site-packages that is invisible; on the ROCm
+        # 10.1 ufb bases it is fatal, because mooncake (and amdsmi, aiter, tilelang)
+        # live outside site-packages and are importable ONLY via the base's
+        # PYTHONPATH. Replacing it let the worker load the whole model and then die
+        # in the KV-transport init with "No module named 'mooncake'".
+        inner = (
+            f"export PYTHONPATH={shlex.quote(REPO)}${{PYTHONPATH:+:$PYTHONPATH}} && "
+            f"cd {shlex.quote(REPO)} && exec {shlex.join(argv)}"
+        )
         self._run(node, container, self.image, docker_args, ["bash", "-lc", inner])
 
     # -- services -------------------------------------------------------
