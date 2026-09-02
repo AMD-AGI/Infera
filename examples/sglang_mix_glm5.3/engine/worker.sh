@@ -21,15 +21,31 @@ SERVED="${SERVED:-glm5.3-$VARIANT}"
 LOG="${LOG:-/tmp/glm53_mix.log}"
 
 # Decode CUDA graphs. ON by default: measured 12.5 -> 117.9 output tok/s at
-# concurrency 1 on the flash-mxfp4 variant, for ~82 s of capture. The bs list is
-# graph COVERAGE, not a concurrency cap -- a decode batch is padded up to the
-# next captured size and anything larger runs eager. Sizes above
-# --max-running-requests are dropped at capture time.
+# concurrency 1 on flash-mxfp4 and 12-15 -> ~110 on flash-fp8, both ~7.5x, for
+# ~33-82 s of capture. The bs list is graph COVERAGE, not a concurrency cap -- a
+# decode batch is padded up to the next captured size and anything larger runs
+# eager. Sizes above --max-running-requests are dropped at capture time.
+#
+# BUDGET THE VRAM AT TP4. Capture cost was measured at 15.4-17.4 GB per rank at
+# TP4, against ~1.4 GB in an earlier TP8 bring-up of the same model -- fewer
+# ranks means each one's graphs cover a larger shard. Do not carry a TP8 figure
+# into a TP4 plan.
 # Prefill graphs stay disabled: that is what upstream validated on gfx950, and
 # prefill is where the DSA/KDA shape variance lives.
 CUDA_GRAPH="${CUDA_GRAPH:-1}"
 GRAPH_BS="${GRAPH_BS:-1 2 4 8 16 24 32 48 64 96 128}"
 KVAWARE="${KVAWARE:-1}"
+
+# Cache-hit accounting. OFF by default because it is not free, but you must turn
+# it ON for any workload whose result depends on prefix reuse -- an agentic
+# replay, or anything passing bench_serving's --cache-report.
+#
+# Without it the server still answers normally and simply reports nothing:
+# `usage.prompt_tokens_details` comes back **null** through the router and the
+# engine logs `#cached-token: 0`. That is indistinguishable from a genuine 0 %
+# hit rate, so a cache-sensitive benchmark reads as "the cache never worked"
+# rather than "the counter was never enabled". Verified on this stack.
+CACHE_REPORT="${CACHE_REPORT:-0}"
 
 # --- common ROCm env --------------------------------------------------------
 # SGLANG_USE_AITER gates the AITER fast paths on gfx950. On the flash variants
@@ -52,6 +68,17 @@ case "$VARIANT" in
     # --- glm5_next family ---------------------------------------------------
     # DSA flags are --dsa-*-backend here. GLM-5.2 used --nsa-*; carrying that
     # spelling forward gets unknown-flag errors.
+    # THE KDA-POOL CLAMP IS REAL AND IT FIRES. This family keeps a second
+    # memory pool for the linear-attention state, and the scheduler will cap
+    # concurrency against it regardless of what you ask for here. Observed on
+    # every rank at TP4:
+    #   max_running_requests is capped to 200 by the mamba state cache
+    #   (max_mamba_cache_size=1000, 5 state slots per request). To raise it:
+    #   increase --mamba-full-memory-ratio or --max-mamba-cache-size, or halve
+    #   the state size with --mamba-ssm-dtype bfloat16.
+    # Read the RESOLVED value out of the worker log, not out of server_args --
+    # server_args records what was requested, and reading it instead is how one
+    # bring-up concluded the clamp had not fired when it had.
     ARGS+=(--dsa-prefill-backend tilelang --dsa-decode-backend tilelang
            --kv-cache-dtype "${KV_DTYPE:-bfloat16}"
            --context-length "${CTX:-65536}"
@@ -108,10 +135,16 @@ case "$VARIANT" in
     # expert parallelism and attention parallelism are different axes, and
     # gating both on one condition silently collapses the MoE whenever DPA is
     # off, after which no latency delta is attributable to either.
+    # --max-running-requests is passed EXPLICITLY rather than left to the
+    # engine's memory-derived default. The default is not wrong, but it is
+    # derived from whatever VRAM happens to be free, so two runs of the same
+    # recipe on differently-loaded nodes silently get different admission
+    # limits -- and a benchmark then measures the limit, not the engine.
     ARGS+=(--ep-size "${EP_SIZE:-$TP}"
            --dsa-prefill-backend tilelang --dsa-decode-backend tilelang
            --kv-cache-dtype "${KV_DTYPE:-fp8_e4m3}"
            --context-length "${CTX:-262144}"
+           --max-running-requests "${MAX_RUNNING:-32}"
            --mem-fraction-static "${GMU:-0.80}"
            --chunked-prefill-size "${CHUNK:-65536}")
 
@@ -147,6 +180,8 @@ esac
 # pages at a different device VA, and the process aborts with
 # "Memory access fault by GPU node-N on address <host VA>". The fix lives in
 # patches/sglang_rocm/; confirm it is in your image before turning either on.
+
+[ "$CACHE_REPORT" = "1" ] && ARGS+=(--enable-cache-report)
 
 if [ "$CUDA_GRAPH" = "1" ]; then
   ARGS+=(--cuda-graph-backend-decode full --cuda-graph-backend-prefill disabled

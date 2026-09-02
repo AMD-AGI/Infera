@@ -67,6 +67,8 @@ echo "  fusion-enabled line    : $(grep -c "Shared experts fusion optimization e
 # The flash family keeps TWO pools: the paged KV pool and a KDA state pool.
 # Both must appear, or the linear-attention path is not what you think it is.
 echo "  decode lines w/ 2 pools: $(grep -c "full token usage.*mamba usage" $L)"
+# The KDA state pool caps concurrency independently of --max-running-requests.
+echo "  resolved max_running   : $(grep -o "max_running_requests is capped to [0-9]*" $L | tail -1)"
 echo "  memory access fault    : $(grep -c "memory access fault" $L)   (want 0)"
 echo "  HIP error              : $(grep -c "HIP error" $L)   (want 0)"
 # torch._dynamo/metrics_context tracebacks are compile-telemetry noise and
