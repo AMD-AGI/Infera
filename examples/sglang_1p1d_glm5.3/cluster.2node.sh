@@ -39,7 +39,12 @@ export DECODE_IP="${DECODE_IP:-<decode-data-plane-ip>}"
 # ---------------------------------------------------------------------------
 # The STOCK infera sglang image (deploy/docker/Dockerfile.sglang). GLM-5.3 big
 # needs no source overlay -- that is only for the Flash family.
+#
+# TWO names for one image, and both are needed. preflight_rdma.sh reads IMAGE;
+# engine/up.sh and common.sh require INFERA_IMAGE. Exporting only IMAGE makes
+# `up` die at its first require_env, before a single container is started.
 export IMAGE="${IMAGE:-<infera-sglang-image>}"
+export INFERA_IMAGE="${INFERA_IMAGE:-$IMAGE}"
 # GLM-5.3-MXFP4 or GLM-5.3. Resolve symlinks: where this path crosses an NFS
 # mount boundary, bind-mounting the symlink's parent gives the container an
 # empty directory, and the failure surfaces much later as an unrelated error.
@@ -99,7 +104,7 @@ export EXTRA_ENGINE_ARGS="${EXTRA_ENGINE_ARGS:---disable-shared-experts-fusion}"
 export GMU_PREFILL="${GMU_PREFILL:-0.70}"
 export GMU_DECODE="${GMU_DECODE:-0.85}"
 
-for v in PREFILL_IP IMAGE MODEL RDMA_IB_DEVICES MC_GID_INDEX; do
+for v in PREFILL_IP IMAGE INFERA_IMAGE MODEL RDMA_IB_DEVICES MC_GID_INDEX; do
   case "${!v}" in "<"*) echo "edit $(basename "$0"): $v is still a placeholder" >&2; exit 2;; esac
 done
 

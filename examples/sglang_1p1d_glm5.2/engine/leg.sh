@@ -57,7 +57,13 @@ CHUNK="${CHUNK:-65536}"
 # pool, or a 5-20x slower TCP fallback. See cluster/README.md section 3.
 export MOONCAKE_DISABLE_HIP_DMABUF="${MOONCAKE_DISABLE_HIP_DMABUF:-1}"
 export MC_GID_INDEX="${MC_GID_INDEX:?MC_GID_INDEX is required — read it off the preflight report}"
-export MC_DISABLE_HIP_TRANSPORT=1
+# Default 1 (hip transport off) -- unchanged, and deliberately so: the reason it
+# was disabled here is NOT known, so the two-node path must not move. It is now
+# overridable because the SINGLE-NODE shape needs it ON: with hip absent, KV
+# between two legs on one host takes loopback RDMA silently, at 5-20x the cost
+# of the XGMI path the pinned mooncake commit was added for. Only
+# sglang_1p1d_glm5.3/cluster.singlenode.sh sets it to 0.
+export MC_DISABLE_HIP_TRANSPORT="${MC_DISABLE_HIP_TRANSPORT:-1}"
 unset MC_ENABLE_HIP_TRANSPORT
 # MC_MS_FILTERS pins mooncake to named device(s). Required in the dma-buf mode so a non-ODP
 # rail is never picked (it would pin and double the KV pool); harmless to leave unset when a
@@ -152,7 +158,7 @@ log "$ROLE on $MY_IP:$PORT — tp=$TP dpa=$DPA mtp=$MTP kvaware=$KVAWARE kvd=$KV
 docker exec -d "$CTR" env \
   HIP_VISIBLE_DEVICES="$GPUS" \
   MOONCAKE_DISABLE_HIP_DMABUF="$MOONCAKE_DISABLE_HIP_DMABUF" \
-  MC_GID_INDEX="$MC_GID_INDEX" MC_DISABLE_HIP_TRANSPORT=1 \
+  MC_GID_INDEX="$MC_GID_INDEX" MC_DISABLE_HIP_TRANSPORT="$MC_DISABLE_HIP_TRANSPORT" \
   ${MC_MS_FILTERS:+MC_MS_FILTERS="$MC_MS_FILTERS"} \
   ${MC_MS_FILTERS:+MC_MS_AUTO_DISC="${MC_MS_AUTO_DISC:-0}"} \
   ${RDMAV_FORK_SAFE:+RDMAV_FORK_SAFE="$RDMAV_FORK_SAFE"} \

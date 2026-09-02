@@ -43,7 +43,12 @@ export DECODE_IP="$PREFILL_IP"
 # ---------------------------------------------------------------------------
 # The STOCK infera sglang image (deploy/docker/Dockerfile.sglang). GLM-5.3 big
 # needs no source overlay -- that is only for the Flash family.
+#
+# TWO names for one image, and both are needed. preflight_rdma.sh reads IMAGE;
+# engine/up.sh and common.sh require INFERA_IMAGE. Exporting only IMAGE makes
+# `up` die at its first require_env, before a single container is started.
 export IMAGE="${IMAGE:-<infera-sglang-image>}"
+export INFERA_IMAGE="${INFERA_IMAGE:-$IMAGE}"
 # GLM-5.3-MXFP4 or GLM-5.3. Resolve symlinks: where this path crosses an NFS
 # mount boundary, bind-mounting the symlink's parent gives the container an
 # empty directory, and the failure surfaces much later as an unrelated error.
@@ -62,6 +67,28 @@ export MC_GID_INDEX="${MC_GID_INDEX:-<index-from-preflight>}"
 # the dma-buf mode, where KV must be pinned to one ODP-capable card.
 # export MC_MS_FILTERS="ionic_0"
 
+# THE flag that decides how single-node KV actually moves, and the only place it
+# is turned on. engine/leg.sh defaults it to 1 (hip transport OFF), which is
+# right for the two-node shape and wrong here: with hip absent the local segment
+# advertises "rdma" only, and KV between two legs on ONE host takes LOOPBACK
+# RDMA. That path works, raises nothing, and is the silent-slow case -- the
+# README's "it fails loudly" only holds when hip is installed.
+#
+# With hip installed, MultiTransport::selectTransport routes KV by fixed
+# priority (hip 4 > cxl 3 > rdma 2 > tcp 1), so hip wins: hipIpcGetMemHandle on
+# the exporter, hipIpcOpenMemHandle on the importer, GPU-to-GPU over XGMI with
+# no NIC in the path. That is what the pinned mooncake commit 01d1eb2a exists
+# for. Measured on this hardware: HIP IPC works across DISJOINT
+# HIP_VISIBLE_DEVICES -- an importer that cannot see the exporter's physical GPU
+# mapped its memory and read back the correct bytes.
+#
+# REQUIRED CHECK after bring-up: `HIP transport installed for intra-node GPU
+# P2P` must appear in BOTH leg logs, and `hipIpcOpenMemHandle failed` in
+# neither. The MC_FORCE_TCP and GID-is-NULL counters do NOT cover this -- there
+# is no log line for a TCP fallback, and a same-host hip transfer never touches
+# a GID.
+export MC_DISABLE_HIP_TRANSPORT="${MC_DISABLE_HIP_TRANSPORT:-0}"
+
 # ---------------------------------------------------------------------------
 # 4. Shape
 # ---------------------------------------------------------------------------
@@ -76,6 +103,17 @@ export DECODE_PORT="${DECODE_PORT:-30001}"
 export BOOTSTRAP_PORT="${BOOTSTRAP_PORT:-8998}"
 export ROUTER_PORT="${ROUTER_PORT:-8100}"
 export ETCD_PORT="${ETCD_PORT:-12379}"
+
+# The KV-event ports are PER LEG, and on this shape they must differ. In the
+# two-node case both legs take engine/leg.sh's defaults (5557/8801) and never
+# meet; here they share one network namespace, so the second leg's bind fails
+# and the leg never serves -- the same "port_base at N is not available" that
+# common.sh's reap() warns about across restarts, happening across legs instead.
+# engine/up.sh forwards these per leg.
+export PREFILL_KV_PUB_PORT="${PREFILL_KV_PUB_PORT:-5557}"
+export PREFILL_KV_SNAP_PORT="${PREFILL_KV_SNAP_PORT:-8801}"
+export DECODE_KV_PUB_PORT="${DECODE_KV_PUB_PORT:-5558}"
+export DECODE_KV_SNAP_PORT="${DECODE_KV_SNAP_PORT:-8802}"
 
 # ---------------------------------------------------------------------------
 # 5. Features -- see the README before changing these two
@@ -97,7 +135,7 @@ export EXTRA_ENGINE_ARGS="${EXTRA_ENGINE_ARGS:---disable-shared-experts-fusion}"
 export GMU_PREFILL="${GMU_PREFILL:-0.70}"
 export GMU_DECODE="${GMU_DECODE:-0.85}"
 
-for v in PREFILL_IP IMAGE MODEL RDMA_IB_DEVICES MC_GID_INDEX; do
+for v in PREFILL_IP IMAGE INFERA_IMAGE MODEL RDMA_IB_DEVICES MC_GID_INDEX; do
   case "${!v}" in "<"*) echo "edit $(basename "$0"): $v is still a placeholder" >&2; exit 2;; esac
 done
 

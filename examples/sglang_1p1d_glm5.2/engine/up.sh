@@ -64,11 +64,21 @@ if [ "${DECODE_KVD:-0}"  = "1" ]; then start_kvd "$DECODE_NODE"; fi
 log "=== 3/4 legs ==="
 # Launch both legs before waiting on either: they load ~400 GB of weights concurrently, and
 # serialising the waits doubles the bring-up for no reason.
+# The KV-event ports are forwarded PER LEG. They default to leg.sh's own values,
+# so the two-node shape is unchanged -- there the legs are on different hosts and
+# cannot collide. On a SINGLE-NODE pair they share one network namespace, and
+# without distinct values the second leg dies at bind with "port_base at N is not
+# available". Nothing a wrapper exports reaches leg.sh except through here:
+# `on()` runs a fresh remote shell.
 on "$PREFILL_NODE" "$COMMON_ENV ROLE=prefill MY_IP=$PREFILL_IP PORT=$PREFILL_PORT \
   DPA=${PREFILL_DPA:-0} MTP=${PREFILL_MTP:-0} KVD=${PREFILL_KVD:-1} \
+  KV_PUB_PORT=${PREFILL_KV_PUB_PORT:-5557} KV_SNAP_PORT=${PREFILL_KV_SNAP_PORT:-8801} \
+  MC_DISABLE_HIP_TRANSPORT=${MC_DISABLE_HIP_TRANSPORT:-1} \
   bash $KIT_DIR/engine/leg.sh"
 on "$DECODE_NODE" "$COMMON_ENV ROLE=decode MY_IP=$DECODE_IP PORT=$DECODE_PORT \
   DPA=${DECODE_DPA:-1} MTP=${DECODE_MTP:-1} KVD=${DECODE_KVD:-0} \
+  KV_PUB_PORT=${DECODE_KV_PUB_PORT:-5557} KV_SNAP_PORT=${DECODE_KV_SNAP_PORT:-8801} \
+  MC_DISABLE_HIP_TRANSPORT=${MC_DISABLE_HIP_TRANSPORT:-1} \
   bash $KIT_DIR/engine/leg.sh"
 
 # Poll /health from INSIDE each node's container. Never curl a PD leg's port from another
