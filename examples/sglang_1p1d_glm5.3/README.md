@@ -133,10 +133,29 @@ hip, and seeing `rdma` in the config does not mean KV moves over RDMA.
 ### The real risk: the two legs cannot see each other's GPUs
 
 `cluster.singlenode.sh` sets `PREFILL_GPUS=0,1,2,3` and `DECODE_GPUS=4,5,6,7`,
-applied as `HIP_VISIBLE_DEVICES` (`../sglang_1p1d_glm5.2/engine/leg.sh:153`). The
+applied as `HIP_VISIBLE_DEVICES` (`../sglang_1p1d_glm5.2/engine/leg.sh:159`). The
 two legs therefore have **disjoint visible device sets**, each seeing 4 devices
 renumbered 0-3, and `setupP2PAccess()` only iterates visible devices — so peer
 access is enabled *within* each leg and never between them.
+
+> **This was not true as originally shipped, and the failure is worth knowing.**
+> `up.sh` forwards a fixed list of per-leg variables through `on()` — which runs a
+> fresh remote shell — and `GPUS` was not among them. Both legs therefore fell
+> through to `leg.sh:26`'s default, `seq 0..TP-1`, and **landed on the same four
+> cards**. Fixed by forwarding `${PREFILL_GPUS:+GPUS=$PREFILL_GPUS}` per leg;
+> conditional expansion, so an unset variable injects nothing and the two-node
+> path is unchanged.
+>
+> **The way it failed is the instructive part.** The prefill leg died with
+> `Loaded weights leave no GPU memory for the KV cache under
+> --mem-fraction-static=0.7. Raise --mem-fraction-static above 0.773` — a number
+> that is arithmetically correct and diagnostically wrong. Taking the engine's
+> advice would have let two legs coexist on four cards and produced a deployment
+> that *ran*, with every subsequent number meaningless and nothing saying so.
+> **Check `base_gpu_id` in both leg logs before trusting any memory error**: they
+> must differ (0 and 4). That check is cheaper and less ambiguous than reading
+> VRAM, and it is the one that distinguishes a tuning problem from a topology
+> problem.
 
 **ANSWERED — it works.** Measured on gfx950 / ROCm 7.2 with the shipped engine
 image, two processes in one container, `--ipc=host`:
