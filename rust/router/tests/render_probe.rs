@@ -236,6 +236,25 @@ fn a_worker_is_only_probed_once() {
 }
 
 #[test]
+fn a_replacement_process_on_the_same_worker_id_is_re_probed() {
+    let reg = ParityRegistry::default();
+    let (epoch, replaced) = reg
+        .claim_identity("w1", "glm53", "tcp://10.0.0.1:5557|Some(64)")
+        .expect("first");
+    assert!(!replaced, "first registration is not a replacement");
+    reg.record("w1", epoch, "glm53", Parity::Confirmed);
+    assert!(
+        reg.claim_identity("w1", "glm53", "tcp://10.0.0.1:5557|Some(64)")
+            .is_none(),
+        "same process must not be probed again"
+    );
+    let again = reg
+        .claim_identity("w1", "glm53", "tcp://10.0.0.1:41907|Some(64)")
+        .expect("a new kv endpoint is a new process");
+    assert!(again.1);
+}
+
+#[test]
 fn an_unknown_verdict_is_retried() {
     // `Unknown` means the probe never reached the engine -- a worker still
     // starting, a transient 503. Treating it as final pins -1 for the life of

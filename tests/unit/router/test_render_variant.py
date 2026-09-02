@@ -340,3 +340,32 @@ def test_a_responses_image_request_still_trips_the_multimodal_guard():
     cat = extract_image_keys(base)
     dog = extract_image_keys(responses_input.normalised(_body("https://x/dog.png")))
     assert cat and dog and cat != dog, "affinity must distinguish the images the text hash cannot"
+
+
+def test_pick_does_not_trust_attached_hints_for_responses_images():
+    """app.py stamps `_infera_cache_hints` from the raw Responses body, which
+    has no `messages`. Taking that object wholesale would skip the MM guard."""
+    pytest.importorskip("sglang.srt.entrypoints.openai.serving_responses")
+    from infera.router.cache_control import parse_cache_hints
+
+    raw = {
+        "model": "m",
+        "input": [
+            {
+                "type": "message",
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": "what is this"},
+                    {"type": "input_image", "image_url": "https://x/cat.png"},
+                ],
+            }
+        ],
+    }
+    raw["_infera_cache_hints"] = parse_cache_hints(raw)
+    assert not raw["_infera_cache_hints"].has_multimodal_content
+
+    policy = KvEventAwarePolicy(_StubKvClient({}), _RecordingHasher())  # type: ignore[arg-type]
+    policy.pick([_worker("w1")], raw)
+    assert policy._mm_affinity.get("w1"), (
+        "the hashed Responses body is multimodal; affinity must see the image"
+    )

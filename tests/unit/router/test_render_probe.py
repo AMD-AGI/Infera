@@ -188,6 +188,25 @@ async def test_probe_bodies_carry_the_workers_model():
 
 
 @pytest.mark.asyncio
+async def test_a_responses_probe_body_is_hashed_as_chat():
+    """`/v1/tokenize` runs `_process_messages`. Sending `input` would 400 or
+    compare a different path than the one the engine hashes after `_make_request`."""
+    pytest.importorskip("sglang.srt.entrypoints.openai.serving_responses")
+    hasher = _Hasher([1])
+    client = _client(lambda r: httpx.Response(200, json={"tokens": [1]}))
+    got = await probe_worker(
+        hasher,
+        _worker(),
+        bodies={"responses": {"input": "What is 2+2?"}},
+        client=client,
+    )
+    assert got.ok is True
+    assert "messages" in hasher.seen[0]
+    assert "input" not in hasher.seen[0]
+    await client.aclose()
+
+
+@pytest.mark.asyncio
 async def test_one_bad_body_among_good_ones_still_fails():
     """Divergence is usually conditional — tools render fine, a tool-call turn
     doesn't. Passing on the majority would miss exactly the agentic traffic

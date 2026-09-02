@@ -69,6 +69,36 @@ const MM_BLOCK_TYPES: &[&str] = &[
     "audio",
 ];
 
+/// Retention from an edge-attached hint; multimodal from the hashed body.
+///
+/// `/v1/messages` stamps Anthropic `cache_control` onto `_infera_cache_hints`
+/// before translation, and that spelling is not on the OpenAI body.
+/// `/v1/responses` images live on `input`; an attached hint parsed from the
+/// raw body reports text-only, so multimodal must be re-read from `base`.
+pub fn hints_for_hashed_body(request: &Value, base: &Value) -> CacheHints {
+    let parsed = parse_structural_hints(base);
+    let Some(attached) = request
+        .as_object()
+        .and_then(|o| parse_internal_hints(o.get(INTERNAL_HINTS_KEY)))
+    else {
+        return parsed;
+    };
+    CacheHints {
+        retention: attached.retention,
+        session_id: attached.session_id,
+        explicit_hint_seen: attached.explicit_hint_seen,
+        has_multimodal_content: parsed.has_multimodal_content,
+    }
+}
+
+fn parse_structural_hints(body: &Value) -> CacheHints {
+    let mut stripped = body.clone();
+    if let Some(obj) = stripped.as_object_mut() {
+        obj.remove(INTERNAL_HINTS_KEY);
+    }
+    parse_cache_hints(&stripped)
+}
+
 pub fn parse_cache_hints(body: &Value) -> CacheHints {
     let obj = match body.as_object() {
         Some(o) => o,
@@ -421,6 +451,34 @@ mod tests {
         let h = parse_cache_hints(&body);
         assert_eq!(h.retention, Retention::Long); // 1h(system) beats ephemeral-default(short)
         assert!(h.explicit_hint_seen);
+    }
+
+    #[test]
+    fn hashed_body_keeps_attached_retention_and_rereads_multimodal() {
+        let openai = json!({
+            "model": "m",
+            "messages": [{"role": "user", "content": [
+                {"type": "text", "text": "what is this"},
+                {"type": "image_url", "image_url": {"url": "https://x/cat.png"}}
+            ]}]
+        });
+        let mut request = openai.clone();
+        attach_cache_hints(
+            &mut request,
+            &CacheHints {
+                retention: Retention::Long,
+                session_id: None,
+                explicit_hint_seen: true,
+                has_multimodal_content: false,
+            },
+        );
+        assert!(!parse_cache_hints(&request).has_multimodal_content);
+        assert_eq!(parse_cache_hints(&openai).retention, Retention::None);
+
+        let hints = hints_for_hashed_body(&request, &openai);
+        assert_eq!(hints.retention, Retention::Long);
+        assert!(hints.explicit_hint_seen);
+        assert!(hints.has_multimodal_content);
     }
 
     #[test]

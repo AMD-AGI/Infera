@@ -6,7 +6,7 @@
 """Tests for infera/router/policy/kv_event_aware.py.
 
 The policy minimises:
-    cost(w) = overlap_weight * (request_blocks - hits(w)) + active_blocks(w)
+    cost(w) = -overlap_weight * hits(w) + active_blocks(w) + recent_blocks(w)
 
 `hits(w)` is the longest *prefix* of the request's chained-hash list
 that's in the worker's cache_view (chains break on the first miss).
@@ -323,6 +323,33 @@ def test_on_worker_removed_clears_active_state_and_forwards():
     policy.on_worker_removed("w1")
     assert client.removed == ["w1"]
     assert "w1" not in policy._active_block_refs
+
+
+def test_a_replacement_process_on_the_same_worker_id_is_re_probed(monkeypatch):
+    """In-place restart keeps worker_id and changes the kv endpoint. A
+    Confirmed latch would skip the replacement and keep hashing under the
+    dead engine's variant."""
+    spawned: list[str] = []
+
+    def _spawn(hasher, worker, **kwargs):
+        spawned.append(worker.kv_events_endpoint or "")
+
+    monkeypatch.setattr("infera.router.policy.kv_event_aware.spawn_probe", _spawn)
+    policy = KvEventAwarePolicy(_StubKvClient({}), _StubHasher([]))  # type: ignore[arg-type]
+    first = _worker("w1")
+    policy.on_worker_added(first)
+    policy._parity_verdict["w1"] = True
+    policy._parity_pending.pop("w1", None)
+    spawned.clear()
+
+    policy.on_worker_added(first)
+    assert spawned == [], "heartbeat must not re-probe a settled worker"
+
+    replacement = _worker("w1")
+    replacement.kv_events_endpoint = "tcp://w1:41907"
+    policy.on_worker_added(replacement)
+    assert spawned == ["tcp://w1:41907"]
+    assert "w1" not in policy._parity_verdict
 
 
 # ----------------------------------------------------------------------
@@ -830,6 +857,46 @@ def test_mm_affinity_pruned_on_worker_removed():
     policy.on_worker_removed("gone")
     assert policy._mm_hits("gone#dp0", [1, 2]) == 0
     assert policy._mm_hits("stay", [3]) == 1
+
+
+def test_attached_messages_hints_keep_retention_after_openai_translation():
+    """`/v1/messages` stamps CacheHints before translation. The OpenAI body
+    has no `cache_control`, so pick must not drop LONG retention."""
+    from infera.router.cache_control import CacheHints, Retention, parse_cache_hints
+    from infera.router.kv_event import responses_input
+
+    openai = {"model": "m", "messages": [{"role": "user", "content": "hi"}]}
+    openai["_infera_cache_hints"] = CacheHints(Retention.LONG, None, True, False)
+    assert parse_cache_hints(openai).retention == Retention.NONE
+
+    base = responses_input.normalised(openai)
+    hints = KvEventAwarePolicy._hints_for_hashed_body(openai, base)
+    assert hints.retention == Retention.LONG
+    assert hints.explicit_hint_seen
+    assert not hints.has_multimodal_content
+
+
+def test_attached_responses_hints_do_not_hide_images_on_the_hashed_body():
+    """app.py stamps hints from the raw `input` body. Multimodal lives on the
+    hashed chat body, so the attached object must not be used wholesale."""
+    from infera.router.cache_control import parse_cache_hints
+
+    raw = {"model": "m", "input": "what is this"}
+    raw["_infera_cache_hints"] = parse_cache_hints(raw)
+    assert not raw["_infera_cache_hints"].has_multimodal_content
+    base = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "what is this"},
+                    {"type": "image_url", "image_url": {"url": "https://x/cat.png"}},
+                ],
+            }
+        ]
+    }
+    hints = KvEventAwarePolicy._hints_for_hashed_body(raw, base)
+    assert hints.has_multimodal_content
 
 
 def test_retention_hint_works_via_parse_cache_hints():

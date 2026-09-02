@@ -92,6 +92,14 @@ fn probe_bodies() -> Vec<(&'static str, Value)> {
                 "tools": tools
             }),
         ),
+        // The live failure this file exists for: a `/v1/responses` body hashes
+        // to nothing unless `responses_input` rebuilds the chat request. Chat
+        // probes stay green through that. Tokenise the converted chat body --
+        // `/v1/tokenize` runs `_process_messages`, not `_make_request`.
+        (
+            "responses",
+            json!({"input": "What is 2+2?"}),
+        ),
     ]
 }
 
@@ -146,6 +154,10 @@ pub struct ParityRegistry {
     /// Python side has one; this port exported the gauge and not the counter,
     /// so an alert written on it silently never fired on --router-backend rust.
     diverged: Mutex<HashMap<String, u64>>,
+    /// Fingerprint of the process last probed under this worker_id. An in-place
+    /// restart keeps the id and changes the kv endpoint; without this a
+    /// Confirmed/Diverged latch would skip the replacement.
+    identity: Mutex<HashMap<String, String>>,
 }
 
 impl ParityRegistry {
@@ -158,7 +170,50 @@ impl ParityRegistry {
     /// An `Unknown` verdict is not final: it means the probe could not reach
     /// the engine, and a worker that was merely slow to start would otherwise
     /// export -1 for the life of the router.
+    ///
+    /// `identity` is the process fingerprint (kv endpoint + page size). A
+    /// change drops a settled verdict so a replacement on the same worker_id
+    /// is probed again.
     pub fn claim(&self, worker_id: &str, model: &str) -> Option<u64> {
+        self.claim_identity(worker_id, model, "").map(|(epoch, _)| epoch)
+    }
+
+    /// Second value is true when `worker_id` already had a different process
+    /// fingerprint: the Confirmed/Diverged latch and recorded variant belong
+    /// to the engine that just died.
+    pub fn claim_identity(
+        &self,
+        worker_id: &str,
+        model: &str,
+        identity: &str,
+    ) -> Option<(u64, bool)> {
+        let process_replaced = {
+            let mut ids = self
+                .identity
+                .lock()
+                .expect("parity identity mutex poisoned");
+            match ids.get(worker_id) {
+                Some(prev) if prev == identity => false,
+                Some(_) => {
+                    ids.insert(worker_id.to_string(), identity.to_string());
+                    true
+                }
+                None => {
+                    ids.insert(worker_id.to_string(), identity.to_string());
+                    false
+                }
+            }
+        };
+        if process_replaced {
+            self.state
+                .lock()
+                .expect("parity registry mutex poisoned")
+                .remove(worker_id);
+            self.pending
+                .lock()
+                .expect("parity pending mutex poisoned")
+                .remove(worker_id);
+        }
         if let Some((m, v)) = self
             .state
             .lock()
@@ -175,7 +230,7 @@ impl ParityRegistry {
         }
         let epoch = self.next_epoch.fetch_add(1, Ordering::Relaxed);
         pending.insert(worker_id.to_string(), epoch);
-        Some(epoch)
+        Some((epoch, process_replaced))
     }
 
     /// Store a finished probe's verdict -- unless the worker left the fleet
@@ -252,6 +307,10 @@ impl ParityRegistry {
         self.pending
             .lock()
             .expect("parity pending mutex poisoned")
+            .retain(|id, _| alive(id));
+        self.identity
+            .lock()
+            .expect("parity identity mutex poisoned")
             .retain(|id, _| alive(id));
     }
 
@@ -367,7 +426,7 @@ pub async fn probe_worker(
             declined.push(format!("{name}: router declined to render"));
             continue;
         };
-        match engine_token_ids(client, &worker.url, &body).await {
+        match engine_token_ids(client, &worker.url, &normalised).await {
             Some(theirs) if theirs != ours => mismatches.push(describe(name, &ours, &theirs)),
             Some(_) => {}
             None => unknown.push(format!("{name}: engine did not answer")),
@@ -486,9 +545,21 @@ pub fn spawn_probes(
         // and an `Unknown` we never asked an honest question to earn.
         .filter(|w| w.engine.eq_ignore_ascii_case("sglang"))
         .filter_map(|w| {
+            let identity = format!(
+                "{}|{:?}|{:?}|{:?}",
+                w.kv_events_endpoint.as_deref().unwrap_or(""),
+                w.kv_block_size,
+                w.dp_size,
+                w.dp_rank
+            );
             registry
-                .claim(&w.worker_id, &w.model_name)
-                .map(|epoch| (Arc::clone(w), epoch))
+                .claim_identity(&w.worker_id, &w.model_name, &identity)
+                .map(|(epoch, replaced)| {
+                    if replaced {
+                        variants.forget(&w.worker_id);
+                    }
+                    (Arc::clone(w), epoch)
+                })
         })
         .collect();
     if todo.is_empty() {

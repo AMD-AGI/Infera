@@ -19,7 +19,7 @@ use std::sync::Mutex;
 use serde_json::Value;
 
 use crate::block_hasher::BlockHasher;
-use crate::cache_control::{extract_image_keys, parse_cache_hints, CacheHints, Retention};
+use crate::cache_control::{extract_image_keys, hints_for_hashed_body, CacheHints, Retention};
 use crate::kv_event::KvEventClient;
 use crate::pool::{expand_targets, RouteTarget, Worker};
 
@@ -522,12 +522,11 @@ impl Policy for KvEventAwarePolicy {
             key_of.push(key);
         }
 
-        // Read from `base`, not `request`: this and `extract_image_keys` below
-        // both key off `messages`/`images`, neither of which a Responses body
-        // has -- it carries `input`. Against the raw body every
-        // `/v1/responses` request reports as text-only, which was harmless
-        // while such a body hashed to nothing and is not any more.
-        let hints = parse_cache_hints(&base);
+        // Retention may come from an edge-attached hint (`/v1/messages`
+        // `cache_control` does not survive translation). Multimodal is read
+        // from `base`: a Responses image lives on `input` and is invisible on
+        // the raw-body hint `handlers` stamped.
+        let hints = hints_for_hashed_body(request, &base);
         let base_weight = self.base_weight_for(role) * Self::retention_amplifier(&hints);
         // Multimodal requests: the text hasher can't reproduce the engine's image
         // blocks (sglang substitutes pad-values, vLLM folds in extra-keys), so

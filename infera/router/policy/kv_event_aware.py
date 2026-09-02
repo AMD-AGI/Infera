@@ -17,7 +17,7 @@ from infera.router.cache_control import (
 )
 from infera.router.kv_event import responses_input
 from infera.router.kv_event.block_hasher import BlockHasher
-from infera.router.kv_event.client import KvEventClient
+from infera.router.kv_event.client import KvEventClient, decision_key
 from infera.router.kv_event.render_probe import ProbeResult, spawn_probe
 from infera.router.kv_event.render_variant import VariantRegistry
 from infera.router.policy.base import Policy
@@ -98,11 +98,16 @@ _UNPROBED = object()
 class KvEventAwarePolicy(Policy):
     """Pick the worker minimising
 
-        cost(w) = overlap_weight * (request_blocks - hits(w)) + load(w)
+        cost(w) = -overlap_weight * hits(w) + load(w)
         load(w) = active_blocks(w) + recent_blocks(w)
 
-    where ``active_blocks(w)`` is a refcounted set of distinct in-flight
-    block hashes (deduped across requests sharing prefixes), not a sum of
+    Hits are credited rather than misses charged: ``w*(blocks - hits)``
+    only ranks the same as ``-w*hits`` while every candidate hashes to
+    the same block count. Render variants break that -- two preambles of
+    different length would otherwise penalise the longer one for existing.
+
+    ``active_blocks(w)`` is a refcounted set of distinct in-flight block
+    hashes (deduped across requests sharing prefixes), not a sum of
     prompt lengths, and ``recent_blocks(w)`` is a decayed sum of the block
     counts recently dispatched to ``w``.
 
@@ -179,6 +184,10 @@ class KvEventAwarePolicy(Policy):
         # not reach the engine) is not final: a worker that was merely slow to
         # start would otherwise export -1 for the life of the router.
         self._parity_verdict: dict[str, bool | None] = {}
+        # worker_id -> the KvEventClient decision_key last probed under.
+        # In-place re-registration keeps the id and changes the endpoint;
+        # without this the Confirmed/Diverged latch would skip the replacement.
+        self._parity_identity: dict[str, tuple] = {}
         self._parity_epoch = 0
 
     def _base_weight_for(self, role_hint: str | None) -> float:
@@ -201,6 +210,27 @@ class KvEventAwarePolicy(Policy):
         if hints.retention == Retention.NONE and hints.explicit_hint_seen:
             return _NONE_RETENTION_DAMPENER
         return 1.0
+
+    @staticmethod
+    def _hints_for_hashed_body(request: dict, base: dict) -> CacheHints:
+        """Retention from the protocol edge; multimodal from the hashed body.
+
+        `/v1/messages` parses Anthropic `cache_control` onto
+        `_infera_cache_hints` before translation, and that spelling is not
+        on the OpenAI body. `/v1/responses` images live on `input` and are
+        invisible on the raw body `app.py` stamped, so multimodal must be
+        re-read from `base`.
+        """
+        parsed = parse_cache_hints(base)
+        attached = request.get("_infera_cache_hints")
+        if not isinstance(attached, CacheHints):
+            return parsed
+        return CacheHints(
+            retention=attached.retention,
+            session_id=attached.session_id,
+            explicit_hint_seen=attached.explicit_hint_seen,
+            has_multimodal_content=parsed.has_multimodal_content,
+        )
 
     def pick(
         self,
@@ -252,20 +282,14 @@ class KvEventAwarePolicy(Policy):
         def blocks(t: RouteTarget) -> list[int]:
             return hashes_for.get(key_of.get(t.route_key), [])
 
-        # Cache-control hints from the request body (Anthropic / OpenAI).
-        # Server may have parsed these already and attached the result;
-        # otherwise we parse here. Cheap on already-parsed bodies.
-        #
-        # Read from `base`, not `request`: both this and `extract_image_keys`
-        # below key off `messages`/`system`/`images`, none of which a Responses
-        # body has -- it carries `input`. Reading the raw body reports every
-        # `/v1/responses` request as text-only, which was harmless while such a
-        # body hashed to nothing and is not any more. See the multimodal note
-        # below for what that costs.
-        cached_hints = request.get("_infera_cache_hints")
-        hints: CacheHints = (
-            cached_hints if isinstance(cached_hints, CacheHints) else parse_cache_hints(base)
-        )
+        # Multimodal / image keys from `base` (the body that was hashed).
+        # Retention may still come from an edge-attached hint: `/v1/messages`
+        # parses Anthropic `cache_control` before translation, and that
+        # spelling does not survive the OpenAI body. A Responses image lives
+        # on `input` and is invisible on the raw body `app.py` stamped, so
+        # taking `has_multimodal_content` from the attached hint would skip
+        # the collision guard.
+        hints = self._hints_for_hashed_body(request, base)
 
         amplified = self._base_weight_for(role_hint) * self._retention_amplifier(hints)
 
@@ -373,11 +397,23 @@ class KvEventAwarePolicy(Policy):
         # re-read instead of keeping a verdict and a variant earned by the
         # process that used to be there.
         wid = worker.worker_id
-        if wid in self._parity_pending:
-            return
-        settled = self._parity_verdict.get(wid, _UNPROBED)
-        if settled is not _UNPROBED and settled is not None:
-            return
+        identity = decision_key(worker)
+        previous = self._parity_identity.get(wid)
+        if previous == identity:
+            if wid in self._parity_pending:
+                return
+            settled = self._parity_verdict.get(wid, _UNPROBED)
+            if settled is not _UNPROBED and settled is not None:
+                return
+        else:
+            if previous is not None:
+                # Same worker_id, different process (new kv endpoint / page
+                # size). The Confirmed/Diverged latch and the recorded variant
+                # describe the engine that just died.
+                self._forget_parity(wid)
+                self._parity_pending.pop(wid, None)
+                self._variants.forget(wid)
+            self._parity_identity[wid] = identity
         self._parity_epoch += 1
         self._parity_pending[wid] = self._parity_epoch
         spawn_probe(
@@ -493,6 +529,7 @@ class KvEventAwarePolicy(Policy):
         # absence would raise here and abandon the rest of this method.
         self._parity_pending.pop(worker_id, None)
         self._parity_verdict.pop(worker_id, None)
+        self._parity_identity.pop(worker_id, None)
         model = self._parity_labels.pop(worker_id, None)
         if model is not None:
             try:

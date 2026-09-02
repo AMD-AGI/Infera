@@ -318,6 +318,13 @@ impl VariantRegistry {
             .insert(worker_id.to_string(), Arc::new(variant));
     }
 
+    pub fn forget(&self, worker_id: &str) {
+        self.per_worker
+            .write()
+            .expect("variant registry rwlock poisoned")
+            .remove(worker_id);
+    }
+
     /// Forget workers that left the fleet.
     pub fn retain<F: Fn(&str) -> bool>(&self, alive: F) {
         self.per_worker

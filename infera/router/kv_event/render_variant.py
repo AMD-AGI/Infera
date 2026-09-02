@@ -205,6 +205,11 @@ class VariantRegistry:
         with self._lock:
             self._per_worker[worker_id] = variant
 
+    def forget(self, worker_id: str) -> None:
+        """Drop a recorded per-worker variant so the next probe re-reads it."""
+        with self._lock:
+            self._per_worker.pop(worker_id, None)
+
     def retain(self, alive) -> None:
         """Forget workers that left the fleet."""
         with self._lock:

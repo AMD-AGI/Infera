@@ -106,6 +106,13 @@ PROBE_BODIES: dict[str, dict] = {
         ],
         "tools": _PROBE_TOOLS,
     },
+    # The live failure this file exists for: a `/v1/responses` body hashes
+    # to nothing unless `responses_input` rebuilds the chat request the
+    # engine's `_make_request` would. Chat-only probes stay green through
+    # that outage. Tokenise the normalised chat body, not `input` --
+    # `/v1/tokenize` runs `_process_messages`, which is the post-conversion
+    # path.
+    "responses": {"input": "What is 2+2?"},
 }
 
 
@@ -217,6 +224,7 @@ async def probe_worker(
                 # --default-chat-template-kwargs) second. The other way round,
                 # a Responses probe body silently loses the variant and the
                 # probe reports parity the live path does not have.
+                base = responses_input.normalised(body)
                 # Off the event loop. The first call for a model can trigger a
                 # synchronous `AutoTokenizer.from_pretrained` / sglang
                 # `get_tokenizer` -- filesystem, possibly the HF hub -- and this
@@ -228,7 +236,7 @@ async def probe_worker(
                     None,
                     functools.partial(
                         hasher.token_ids_for,
-                        variant.apply(responses_input.normalised(body)),
+                        variant.apply(base),
                         engine=worker.engine,
                     ),
                 )
@@ -245,7 +253,10 @@ async def probe_worker(
                     # that matched on all four.
                     declined.append(f"{name}: router declined to render")
                     continue
-                theirs = await _engine_token_ids(client, worker, body)
+                # Ask the engine about the hashed shape. A raw Responses
+                # `input` body is not what `/v1/tokenize` runs through
+                # `_process_messages`; the converted chat body is.
+                theirs = await _engine_token_ids(client, worker, base)
                 if theirs is None:
                     unknown.append(f"{name}: engine did not answer")
                     continue
