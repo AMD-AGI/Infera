@@ -207,6 +207,33 @@ async def test_a_responses_probe_body_is_hashed_as_chat():
 
 
 @pytest.mark.asyncio
+async def test_a_missing_responses_converter_does_not_diverge_when_chat_matches(
+    monkeypatch,
+):
+    """Router hosts without sglang still hash chat. `to_chat_body` then returns
+    None for the Responses probe body; treating that as a decline used to mark
+    the worker Diverged while chat kv-aware was fine."""
+    monkeypatch.setattr(
+        "infera.router.kv_event.responses_input.to_chat_body",
+        lambda body: None,
+    )
+    hasher = _Hasher([1])
+    client = _client(lambda r: httpx.Response(200, json={"tokens": [1]}))
+    got = await probe_worker(
+        hasher,
+        _worker(),
+        bodies={
+            "plain": {"messages": [{"role": "user", "content": "hi"}]},
+            "responses": {"input": "What is 2+2?"},
+        },
+        client=client,
+    )
+    assert got.ok is True
+    assert [b.get("input") for b in hasher.seen] == [None]
+    await client.aclose()
+
+
+@pytest.mark.asyncio
 async def test_one_bad_body_among_good_ones_still_fails():
     """Divergence is usually conditional — tools render fine, a tool-call turn
     doesn't. Passing on the majority would miss exactly the agentic traffic

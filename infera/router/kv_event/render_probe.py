@@ -210,6 +210,7 @@ async def probe_worker(
     variant = variant if variant is not None else EMPTY_VARIANT
     unknown: list[str] = []
     declined: list[str] = []
+    skipped: list[str] = []
     mismatches: list[str] = []
     # An injected client is the caller's to close.
     owned = client is None
@@ -225,6 +226,16 @@ async def probe_worker(
                 # a Responses probe body silently loses the variant and the
                 # probe reports parity the live path does not have.
                 base = responses_input.normalised(body)
+                # Still a Responses body means we could not borrow
+                # `_make_request` (no sglang, or too old). Chat hashing on
+                # this host still works. Counting that as a decline marks the
+                # worker Diverged and pages the "alert on 0" rule, for a
+                # converter the probe never had. Skip; do not fold into
+                # `unknown` either -- that would turn a matching chat corpus
+                # into Unknown.
+                if responses_input.is_responses_body(base):
+                    skipped.append(f"{name}: no Responses converter on this router")
+                    continue
                 # Off the event loop. The first call for a model can trigger a
                 # synchronous `AutoTokenizer.from_pretrained` / sglang
                 # `get_tokenizer` -- filesystem, possibly the HF hub -- and this
@@ -265,9 +276,10 @@ async def probe_worker(
     except Exception as exc:  # noqa: BLE001 - a probe must never break startup
         return ProbeResult(None, f"probe failed: {exc}")
 
+    compared = len(bodies) - len(skipped)
     if mismatches:
         return ProbeResult(False, "; ".join(mismatches))
-    if declined and len(declined) < len(bodies):
+    if declined and len(declined) < compared:
         # PARTIAL decline is the dangerous shape, and `False` is the honest
         # verdict: the router demonstrably renders for this model, just not for
         # these request shapes, so those requests hash to nothing and route on
@@ -275,12 +287,13 @@ async def probe_worker(
         # Confirmed, and under the documented "alert on 0" rule a worker whose
         # every tool-carrying prompt was unhashable read as verified-good.
         return ProbeResult(False, "; ".join(declined + unknown))
-    if declined or unknown:
-        # Nothing rendered at all (a router with no tokenizer configured), or
-        # the engine never answered. Neither is a statement about this worker's
+    if compared == 0 or declined or unknown:
+        # Nothing compared (no converter and no other bodies), nothing
+        # rendered at all (a router with no tokenizer configured), or the
+        # engine never answered. Neither is a statement about this worker's
         # render, so neither may claim one.
-        return ProbeResult(None, "; ".join(declined + unknown))
-    return ProbeResult(True, f"matched on {len(bodies)} probe bodies")
+        return ProbeResult(None, "; ".join(declined + unknown + skipped))
+    return ProbeResult(True, f"matched on {compared} probe bodies")
 
 
 async def _engine_token_ids(client, worker: WorkerInfo, body: dict) -> list[int] | None:
