@@ -63,6 +63,14 @@ export SERVED="${SERVED:-glm-5.3-mxfp4}"
 # rail must not be listed, and the two nodes can legitimately differ.
 export RDMA_IB_DEVICES="${RDMA_IB_DEVICES:-<ionic_0,ionic_1,...>}"
 export MC_GID_INDEX="${MC_GID_INDEX:-<index-from-preflight>}"
+# preflight_rdma.sh recommends RDMAV_FORK_SAFE=1 in all three of its modes, and
+# engine/leg.sh honours it only when it is passed in
+# ([ "${RDMAV_FORK_SAFE:-0}" = "1" ]) -- so leaving it unset here silently drops
+# that recommendation. It is deliberately NOT defaulted on for the two-node
+# shape: that shape was validated end to end WITHOUT it, and a validated path
+# should not move on the strength of a recommendation alone. Uncomment to adopt
+# it, as its own single-variable round.
+# export RDMAV_FORK_SAFE=1
 # Leave MC_MS_FILTERS unset in mode A (peer-mem present). It is required only in
 # the dma-buf mode, where KV must be pinned to one ODP-capable card.
 # export MC_MS_FILTERS="ionic_0"

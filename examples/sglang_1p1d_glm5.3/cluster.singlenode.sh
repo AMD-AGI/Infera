@@ -61,8 +61,22 @@ export SERVED="${SERVED:-glm-5.3-mxfp4}"
 # ---------------------------------------------------------------------------
 # From `preflight_rdma.sh mode`, run on THIS node. Do not guess these.
 # MC_GID_INDEX is per node: the link-local fe80:: GID is never the answer.
-export RDMA_IB_DEVICES="${RDMA_IB_DEVICES:-<ionic_0,ionic_1,...>}"
+# SINGLE-NODE RULE, and it differs from the two-node one: pin ONE device, the
+# same on both legs. preflight_rdma.sh states it directly under mode A --
+# "all active rails (cross-node; mooncake pairs by GID subnet). Single-node
+# loopback: pin ONE device on both legs instead." Listing all rails here is a
+# cross-node recipe applied to a shape that is not cross-node.
+#
+# This matters even when the hip transport is enabled below: if hip fails to
+# install, the fallback is loopback RDMA, and this is what decides whether that
+# fallback is correctly configured or not.
+export RDMA_IB_DEVICES="${RDMA_IB_DEVICES:-<one-ionic-device, e.g. ionic_0>}"
 export MC_GID_INDEX="${MC_GID_INDEX:-<index-from-preflight>}"
+# preflight_rdma.sh asks for this in ALL THREE modes, and engine/leg.sh honours
+# it only when it is passed in ([ "${RDMAV_FORK_SAFE:-0}" = "1" ]). Unset here it
+# never reaches the engine, so the preflight's own recommendation would be
+# silently dropped.
+export RDMAV_FORK_SAFE="${RDMAV_FORK_SAFE:-1}"
 # Leave MC_MS_FILTERS unset in mode A (peer-mem present). It is required only in
 # the dma-buf mode, where KV must be pinned to one ODP-capable card.
 # export MC_MS_FILTERS="ionic_0"
