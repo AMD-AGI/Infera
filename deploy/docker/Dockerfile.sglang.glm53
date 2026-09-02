@@ -259,8 +259,20 @@ RUN set -eu; \
     for f in /tmp/sglang-disagg-glm53/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
     rm -rf /tmp/sglang-disagg-patches /tmp/sglang-disagg-glm53 /tmp/reanchor.sh
 
-# ---- sglang Responses API patch (not PD-specific) ---------------------------
-# Anchors verified intact at SGLANG_GLM53_REF; applies unmodified.
+# ---- sglang Responses API patches (not PD-specific) -------------------------
+# Anchors verified intact at SGLANG_GLM53_REF; apply unmodified.
+#
+# patch_responses_unstreamed_tool_args.py mirrors the reconciliation
+# serving_chat.py performs in _check_for_unstreamed_tool_args: streaming
+# function-call detectors are not required to emit byte-complete JSON, so the
+# accumulated argument deltas are diffed against the detector's parsed call and
+# the remainder is sent before the item closes. Detector-agnostic, and a no-op
+# once the streamed bytes already match the parsed form.
+#
+# This is the single fix for the truncated tool JSON. The glm47 case that
+# surfaced it -- a leading { then parameter fragments whose object-typed last
+# argument ends with }, so endswith("}") skips the outer close -- is one
+# detector under-emitting; the reconciliation above completes any such stream.
 COPY deploy/docker/patches/sglang_responses/ /tmp/sglang-responses-patches/
 RUN set -eu; \
     for f in /tmp/sglang-responses-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
