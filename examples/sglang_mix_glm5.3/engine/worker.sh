@@ -26,6 +26,11 @@ LOG="${LOG:-/tmp/glm53_mix.log}"
 # decode batch is padded up to the next captured size and anything larger runs
 # eager. Sizes above --max-running-requests are dropped at capture time.
 #
+# --cuda-graph-max-bs is DEPRECATED on v0.5.18 in favour of
+# --cuda-graph-max-bs-decode; it still resolves today but will break on a base
+# bump. This kit passes --cuda-graph-backend-decode / --cuda-graph-bs-decode,
+# which are the current spelling. The vendor recipes still use the old one.
+#
 # BUDGET THE VRAM AT TP4. Capture cost was measured at 15.4-17.4 GB per rank at
 # TP4, against ~1.4 GB in an earlier TP8 bring-up of the same model -- fewer
 # ranks means each one's graphs cover a larger shard. Do not carry a TP8 figure
@@ -131,6 +136,13 @@ case "$VARIANT" in
     export SGLANG_ROCM_FUSED_DECODE_MLA=0 SGLANG_OPT_USE_TILELANG_INDEXER=1
     export SGLANG_OPT_USE_TOPK_V2=0 SGLANG_OPT_USE_JIT_NORM=0
 
+    # READING THE STARTUP LINE UNDER DP-ATTENTION: the engine prints PER-RANK
+    # values while /get_server_info reports the GLOBAL ones. Ask for
+    # --max-running-requests 256 --chunked-prefill-size 65536 at dp8 and the
+    # startup line says 32 and 8192 -- that is 256/8 and 65536/8, a DIVISION,
+    # not a clamp, even though the line reads exactly like one. Confirm against
+    # /get_server_info before investigating a cap that is not there.
+    #
     # --ep-size is emitted unconditionally and OUTSIDE any DP-attention branch:
     # expert parallelism and attention parallelism are different axes, and
     # gating both on one condition silently collapses the MoE whenever DPA is
