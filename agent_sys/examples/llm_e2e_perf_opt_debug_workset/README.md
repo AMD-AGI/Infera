@@ -16,8 +16,8 @@ E=agent_sys/examples
 docker exec -u "$(id -u):$(id -g)" <container> bash -lc "
 agent-sys run --package $E/llm_e2e_perf_opt_debug_workset \
   --demo-root /tmp/yihou/<fresh> --timeout 300 \
-  --var real_package=\$PWD/$E/llm_e2e_performance_optimization \
-  --var workset_dir=\$PWD/$E/llm_e2e_performance_optimization/assets/worksets/sampler_vocab_softmax"
+  --var real_package=\$PWD/$E/llm_e2e_performance_optimization/kernel-opt-demo \
+  --var workset_dir=\$PWD/$E/llm_e2e_performance_optimization/kernel-opt-demo/assets/worksets/sampler_vocab_softmax"
 ```
 
 Measured 2026-09-01: full green, `check_workset_shape: PASS`, under 30 s.
