@@ -102,6 +102,19 @@ export RDMAV_FORK_SAFE="${RDMAV_FORK_SAFE:-1}"
 # is no log line for a TCP fallback, and a same-host hip transfer never touches
 # a GID.
 export MC_DISABLE_HIP_TRANSPORT="${MC_DISABLE_HIP_TRANSPORT:-0}"
+# ...except that name is DEAD. Measured: the shipped mooncake contains
+# MC_DISABLE_HIP (1 exact match) and does NOT contain MC_DISABLE_HIP_TRANSPORT
+# or MC_ENABLE_HIP_TRANSPORT (0 each); a leg launched with
+# MC_DISABLE_HIP_TRANSPORT=1 in /proc/<pid>/environ still installed hip 4x.
+# So hip is ON here whatever the line above says, and the line above is kept
+# only because it reads as the pair to this one.
+#
+# MC_DISABLE_HIP is the live knob and is left UNSET on purpose: hip on is what
+# this shape wants. Set MC_DISABLE_HIP=1 for a hip-off A/B, and confirm the
+# discriminator actually flipped (4 -> 0 "HIP transport installed" lines per
+# leg) BEFORE benchmarking -- otherwise the arm measures nothing and a
+# guaranteed-zero differential reads as a null result.
+export MC_DISABLE_HIP="${MC_DISABLE_HIP:-}"
 
 # ---------------------------------------------------------------------------
 # 4. Shape

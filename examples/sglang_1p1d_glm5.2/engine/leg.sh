@@ -57,14 +57,31 @@ CHUNK="${CHUNK:-65536}"
 # pool, or a 5-20x slower TCP fallback. See cluster/README.md section 3.
 export MOONCAKE_DISABLE_HIP_DMABUF="${MOONCAKE_DISABLE_HIP_DMABUF:-1}"
 export MC_GID_INDEX="${MC_GID_INDEX:?MC_GID_INDEX is required — read it off the preflight report}"
-# Default 1 (hip transport off) -- unchanged, and deliberately so: the reason it
-# was disabled here is NOT known, so the two-node path must not move. It is now
-# overridable because the SINGLE-NODE shape needs it ON: with hip absent, KV
-# between two legs on one host takes loopback RDMA silently, at 5-20x the cost
-# of the XGMI path the pinned mooncake commit was added for. Only
-# sglang_1p1d_glm5.3/cluster.singlenode.sh sets it to 0.
+# MC_DISABLE_HIP_TRANSPORT AND MC_ENABLE_HIP_TRANSPORT ARE DEAD NAMES. The
+# shipped mooncake build does not contain either string:
+#   exact matches in mooncake/engine.cpython-310-x86_64-linux-gnu.so
+#     MC_DISABLE_HIP             1     <- the real knob
+#     MC_DISABLE_HIP_TRANSPORT   0
+#     MC_ENABLE_HIP_TRANSPORT    0
+#     MC_USE_HIP_IPC             1     <- a second gate, uninvestigated
+# Measured, not inferred: a leg launched with MC_DISABLE_HIP_TRANSPORT=1 present
+# in /proc/<pid>/environ still logged "HIP transport installed for intra-node GPU
+# P2P" 4x per leg. So these two lines have never had an effect, in either the
+# two-node or the single-node shape.
+#
+# Kept, made overridable, and NOT called a fix: it changes nothing either way,
+# and it is here only so the pair reads together with the live knob below.
+# INFERRED: whoever wrote the original hardcode probably meant to disable hip and
+# used a name that does not exist -- which would explain why no reason for the
+# line could be established. There was no effect to reason about.
 export MC_DISABLE_HIP_TRANSPORT="${MC_DISABLE_HIP_TRANSPORT:-1}"
 unset MC_ENABLE_HIP_TRANSPORT
+# The one that works. Forwarded only when set, so unset == today's behaviour and
+# the two-node path does not move. Set it to 1 to actually disable the hip
+# transport -- which is the only way to run a meaningful hip-on/hip-off A/B.
+# Verify it took: "HIP transport installed for intra-node GPU P2P" must go from
+# 4 per leg to 0. If it stays at 4, the gate is elsewhere (MC_USE_HIP_IPC?) --
+# stop rather than hunting for a third name.
 # MC_MS_FILTERS pins mooncake to named device(s). Required in the dma-buf mode so a non-ODP
 # rail is never picked (it would pin and double the KV pool); harmless to leave unset when a
 # peer-mem module is loaded and every rail can carry KV.
@@ -164,6 +181,7 @@ docker exec -d "$CTR" env \
   HIP_VISIBLE_DEVICES="$GPUS" \
   MOONCAKE_DISABLE_HIP_DMABUF="$MOONCAKE_DISABLE_HIP_DMABUF" \
   MC_GID_INDEX="$MC_GID_INDEX" MC_DISABLE_HIP_TRANSPORT="$MC_DISABLE_HIP_TRANSPORT" \
+  ${MC_DISABLE_HIP:+MC_DISABLE_HIP="$MC_DISABLE_HIP"} \
   ${MC_MS_FILTERS:+MC_MS_FILTERS="$MC_MS_FILTERS"} \
   ${MC_MS_FILTERS:+MC_MS_AUTO_DISC="${MC_MS_AUTO_DISC:-0}"} \
   ${RDMAV_FORK_SAFE:+RDMAV_FORK_SAFE="$RDMAV_FORK_SAFE"} \
