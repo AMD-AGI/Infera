@@ -73,7 +73,7 @@ Stated plainly rather than implied. All on 8×MI355X, gfx950, ROCm 7.2, driver
 | `flash-mxfp4` | **validated end to end** — full infera stack, reproduced on two separate nodes, plus a fixed-length sweep |
 | `big-fp8` | **validated** — all smoke blocks green, `max_total_num_tokens=1148288` |
 | `big-mxfp4` | **validated, with numbers** — all smoke blocks green; AITER FP4 path confirmed dispatching (`torch.float4_e2m1fn_x2`, `per_1x32`) rather than dequantising to BF16; TP8+DPA+MTP fixed-length sweep lands at **0.92 / 1.06 / 0.89 / 1.10 ×** the GLM-5.2 MIX baseline at concurrency 1/8/16/24 |
-| `flash-fp8` | **loads and serves correctly** — brought up on a third node, 62/62 shards, coherent answers, 8/8 AITER mHC lines. Throughput not yet measured in this kit |
+| `flash-fp8` | **validated, with numbers** — brought up on a third node, 62/62 shards, coherent answers, 8/8 AITER mHC lines; TP4 fixed-length sweep at isl 7400 / osl 320 gives **99.70 tok/s at conc 1** and **456.68 at conc 8** (TPOT 9.20 / 13.50 ms) |
 | PD (1P1D) for any variant | **not covered by this kit.** For the big pair the shape is the same as [`sglang_1p1d_glm5.2`](../sglang_1p1d_glm5.2/), which is validated for GLM-5.2 |
 
 ## The one flag you must not drop: `--disable-shared-experts-fusion`

@@ -79,10 +79,33 @@ two legs therefore have **disjoint visible device sets**, each seeing 4 devices
 renumbered 0-3, and `setupP2PAccess()` only iterates visible devices — so peer
 access is enabled *within* each leg and never between them.
 
-**Whether `hipIpcOpenMemHandle` can import a handle exported by a GPU the
-importing process cannot see is UNKNOWN and is not predicted here.** CUDA's
-equivalent requires the peer device to be visible; HIP generally mirrors CUDA IPC
-semantics, but "generally mirrors" is not a source read.
+**ANSWERED — it works.** Measured on gfx950 / ROCm 7.2 with the shipped engine
+image, two processes in one container, `--ipc=host`:
+
+```
+exporter  HIP_VISIBLE_DEVICES=0,1   writes pattern 7,3,9,1,4,1,5,9 to cuda:0
+importer  HIP_VISIBLE_DEVICES=2,3   imports the handle, reads back
+  -> READ BACK: [7, 3, 9, 1, 4, 1, 5, 9]   MATCH
+```
+
+The importer **cannot see the exporter's physical GPU** and still mapped its
+memory and read the correct bytes. A bare "import succeeded" would not have
+proved this — the handle records device index 0 and the importer's own ordinal 0
+is a *different* physical GPU, so the import could plausibly have mapped local
+memory instead. The data pattern is what rules that out; **check the bytes, not
+the return code**, if you repeat this.
+
+Caveat on scope: measured with a 4-GPU visible set split 0,1 / 2,3 (physical
+4,5 / 6,7 of that host) rather than the 0-3 / 4-7 split this kit uses. Same node,
+same XGMI fabric. Strong evidence, not proof, for the exact split.
+
+Note `torch.cuda.cudart()` does **not** expose `cudaIpcGetMemHandle` in this
+build — use PyTorch's storage IPC path (`untyped_storage()._share_cuda_()` /
+`torch.UntypedStorage._new_shared_cuda(*info)`), which is what actually carries
+HIP IPC handles here.
+
+Two source reads that failed to answer this before the measurement, recorded so
+nobody repeats them:
 
 Two attempts to close it from source, both negative, recorded so nobody repeats
 them:
