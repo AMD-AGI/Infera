@@ -47,8 +47,17 @@ docker run -d --name "$CTR" --network=host --ipc=host --shm-size=64G \
 sleep 5
 
 echo "===== 4. etcd ====="
-# The etcd v3.5.x image has an empty ENTRYPOINT and Cmd=[/usr/local/bin/etcd];
-# passing `etcd` as argv[0] dumps usage and exits 2. Hence --entrypoint.
+# Two etcd traps, both of which have cost time here.
+#
+# 1. The etcd v3.5.x image has an empty ENTRYPOINT and Cmd=[/usr/local/bin/etcd];
+#    passing `etcd` as argv[0] dumps usage and exits 2. Hence --entrypoint.
+# 2. The THREE peer flags below must move together. Override only
+#    --listen-peer-urls and etcd exits 1 with "--initial-cluster has
+#    default=http://localhost:2380 but missing from
+#    --initial-advertise-peer-urls". A script that hardcodes the default 2380
+#    never sees this -- which is exactly why it bites the first time you land on
+#    a node where 2380 is taken, and it has bitten two operators here
+#    independently.
 docker run -d --name "${CTR}_etcd" --network=host --entrypoint /usr/local/bin/etcd \
   quay.io/coreos/etcd:v3.5.14 \
   --advertise-client-urls "http://$MY_IP:$ETCD_PORT" \
