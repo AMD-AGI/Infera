@@ -49,9 +49,8 @@ CASES = [
     # is disaggregation-specific (kv-transfer-config, advertise-host, bootstrap
     # port), so what differs here is only that each leg now takes a whole node.
     #
-    # MTP remains at the requested three-token depth. PD passes short prompts but
-    # corrupts the long-context result with the padded drafter path, so use vLLM's
-    # compatibility path that drafts from synchronized CPU bookkeeping instead.
+    # Keep MTP off: MTP3 passes short prompts but corrupts the long-context
+    # result, including with disable_padded_drafter_batch enabled.
     [
         True,
         GLM_5_2_FP8,
@@ -73,8 +72,6 @@ CASES = [
                 "8192",
                 "--distributed-executor-backend",
                 "mp",
-                "--speculative-config",
-                '{"method":"mtp","num_speculative_tokens":3,"disable_padded_drafter_batch":true}',
             ],
             "env": {
                 "VLLM_USE_V1": "1",

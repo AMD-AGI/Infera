@@ -6,7 +6,7 @@ Historical proposals and bring-up journals have been consolidated and removed.
 The configuration source of truth remains
 `tests/e2e/pd_{mixed,disag}/<engine>/matrix.py`.
 
-Last updated: 2026-09-01.
+Last updated: 2026-09-02.
 
 ## 1. Scope and acceptance criteria
 
@@ -35,7 +35,7 @@ A case is considered passing only when:
 | Correctness | Counting, capital, long-context retrieval, and executable quicksort all pass | HTTP 200 alone is not accepted as correctness |
 | PD workers | Both prefill and decode register successfully | A missing or dead worker fails the case |
 | KV transport | Every observable Mooncake transport is `rdma` | TCP fallback cannot silently pass |
-| MTP/EAGLE | SGLang and vLLM produce non-zero speculative counters | Ordinary decode cannot silently pass as MTP |
+| MTP/EAGLE | Cases that request speculation produce non-zero counters | Ordinary decode cannot silently pass as MTP |
 | Allocated environment | Explicit nodes, architecture, and model paths are valid | Runner-selected environment errors fail instead of skipping |
 
 ATOM currently exposes no compatible Prometheus speculative counters. The
@@ -56,7 +56,7 @@ from metrics that its draft head produced tokens.
 | GLM-5.2-FP8 | mixed | vLLM | FP8, TP8 | MTP3 | **PASS** — correctness + active MTP |
 | GLM-5.2-FP8 | mixed | ATOM | FP8, TP8 | MTP3 | **PASS** — correctness; MTP counters unavailable |
 | GLM-5.2-FP8 | disaggregated | SGLang | FP8, TP8/DP8 per leg | DP attention, EAGLE | **PASS** — correctness + dual-leg RDMA + active MTP |
-| GLM-5.2-FP8 | disaggregated | vLLM | FP8, TP8 per leg | MTP3, unpadded drafter | **PASS** — correctness + dual-leg RDMA + active MTP |
+| GLM-5.2-FP8 | disaggregated | vLLM | FP8, TP8 per leg | MTP off | **PASS** — correctness + dual-leg RDMA |
 | GLM-5.2-FP8 | disaggregated | ATOM | FP8, TP8 per leg | MTP off | **PASS** — correctness + dual-leg RDMA |
 | DeepSeek-V4-Flash | mixed | SGLang | block-FP8, TP4/DP4 | DP attention, EAGLE | **PASS** — correctness + active MTP |
 | DeepSeek-V4-Flash | mixed | vLLM | MXFP4, TP4 | MTP | **PASS** — correctness + active MTP |
@@ -71,7 +71,7 @@ from metrics that its draft head produced tokens.
 |---|---|---|
 | GLM-5.2 / ATOM, both tiers | `use_index_cache` and `GLM_5_2_INDEXER_PATTERN` | Prevents shared indexers with no checkpoint weights from remaining randomly initialized |
 | GLM-5.2 / SGLang, disaggregated | `index_share_for_mtp_iteration=false` | Keeps EAGLE usable across the PD boundary |
-| GLM-5.2 / vLLM, disaggregated | `disable_padded_drafter_batch=true` | The default padded drafter corrupted long-context output at the PD boundary |
+| GLM-5.2 / vLLM, disaggregated | MTP disabled | MTP3 corrupted long-context output even with `disable_padded_drafter_batch=true` |
 | GLM-5.2 / ATOM, disaggregated | MTP disabled | The same case hung while serving correctness probes with MTP enabled |
 | DeepSeek-V4-Flash / SGLang | DP-attention variant only | The duplicate base variant was removed after DP4 validation |
 | DeepSeek-V4-Pro / vLLM | `triton_unfused` packed MXFP4 path | Keeps experts packed and converts in-kernel, allowing the model to fit |
@@ -240,7 +240,7 @@ text with HTTP 200; the probe assertions are authoritative.
 |---|---|---|
 | ATOM GPT-OSS | Current ATOM images have an upstream MXFP4 MoE defect; this is not a general gfx942 ATOM limitation | After an ATOM/aiter upgrade, retest mixed before restoring disaggregated coverage |
 | ATOM MTP metrics | No compatible speculative Prometheus counters | Treat drafter logs as supporting evidence, not an activity or acceptance assertion |
-| vLLM GLM-5.2 PD + MTP | The padded drafter corrupts long-context output | Always run the long-context probe; compare with and without `disable_padded_drafter_batch` after upgrades |
+| vLLM GLM-5.2 PD + MTP | MTP3 corrupts long-context output even with the unpadded drafter path | Keep MTP off; rerun the long-context probe after vLLM upgrades |
 | SGLang image | gfx942 requires `Dockerfile.sglang.gfx942` | Do not substitute the default gfx950 SGLang image |
 | RDMA fabric | Both PD legs must use the same rail | Keep `MC_TE_FILTERS=mlx5_0` for this cluster |
 | Matrix evolution | MTP depth and individual cases may change with engine images | Unit-test generic expansion, overlays, and guards instead of freezing temporary values or exact case counts |
