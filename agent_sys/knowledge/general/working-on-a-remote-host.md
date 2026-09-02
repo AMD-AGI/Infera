@@ -207,6 +207,27 @@ liveness for the reporter and nothing more. A far-side `uptime` passes because
 obtaining it requires the round trip that the counts also travelled; a local
 timestamp fails because it does not.
 
+**And a field of a thing cannot report the thing's absence.** Watch a container
+by its state, its exit code, its restart count, its start time — every one of
+those is read *out of* the object, so when the object is deleted there is
+nothing left to read and nothing to compare against. The careful field you chose
+because it discriminates well is blind to the one event that removes the subject
+entirely.
+
+Measured, and it caught out a real monitor: a neighbour was watched by exit code
+and restart count, both correct choices for detecting a restart; it was then
+**deleted**, and neither field existed any more. What detected it was the query
+returning *empty* — which only works if "the object is not there" is a state the
+reader is built to recognise and report, rather than an error it trips over and
+discards. Make absence a value your monitor can carry, or it will report nothing
+at the moment there is most to report.
+
+*(Related, and worth testing rather than assuming in your own environment:
+`RestartCount` counts restarts performed by the restart **policy**. Measured on
+Docker, a manual `restart` and a manual `stop`+`start` both leave it at zero
+while `StartedAt` moves every time — so a monitor keyed on the counter alone
+misses exactly the hand-operated disturbance it was added to catch.)*
+
 **This is the dual of the non-vacuity control and it is easy to have only one of
 them.** A control proves a check *can fail*. A changing component proves the
 check *is still running*. A monitor with the first and not the second will hold
