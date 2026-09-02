@@ -21,9 +21,68 @@ kit's own `cluster/*.sh` files do.
 If you find yourself editing an engine script to serve GLM-5.3, something is
 wrong — say so, it is a bug in this arrangement.
 
-**GLM-5.3-Flash is NOT covered here.** It is `glm5_next`, a different
-architecture, and PD for it is a separate question this kit makes no claim
-about. For Flash, see [`sglang_mix_glm5.3`](../sglang_mix_glm5.3/) (aggregated).
+**GLM-5.3-Flash is NOT covered by these wrappers**, but the question of whether
+PD is *possible* for it now has an answer — see below. For Flash today, use
+[`sglang_mix_glm5.3`](../sglang_mix_glm5.3/) (aggregated).
+
+### Flash PD: the engine does transfer the KDA state. Nobody has run it.
+
+The obvious reason to expect Flash PD to be broken is that `glm5_next` keeps
+**two** pools — the paged KV pool *and* a KDA recurrent-state pool (logged as
+`mamba usage`) — while PD hands off after prefill. If the KDA state were not
+transferred, the decode leg would start its linear-attention layers from a zero
+state, and that fails as **subtly wrong output**, not as a crash.
+
+**The premise does not hold.** sglang's PD path is not KV-only: it carries a
+generic *state component* mechanism, `StateType.MAMBA` is one of its members, and
+`glm5_next` resolves onto exactly the pool that mechanism reads. Verified link by
+link against the pinned ref `c821c425`:
+
+| link | where |
+|---|---|
+| `glm5_next` recognised as recurrent-state | `hybrid_arch.py:114` |
+| folded into the generic predicate | `hybrid_arch.py:126` `mambaish_config()` |
+| declared to keep SSM state | `kv_cache_builder.py:100` `uses_ssm_state()` |
+| KDA state modelled as a mamba2 cache | `configs/glm5_next.py:264` |
+| engine builds a hybrid req pool | `kv_cache_configurator.py:896` |
+| pool exposes state buffers | `memory_pool.py:1436` `get_state_buf_infos` |
+| **PD registers them as transferable** | `disaggregation/utils.py` — duck-typed on `get_state_buf_infos()` → `append_state_component(..., StateType.MAMBA, ...)` |
+| prefill builds the payload | `prefill.py:1183` `_mamba_payload()` |
+| decode has the matching pool | `decode.py:223` `HybridMambaDecodeReqToTokenPool` |
+| transport is generic over components | `mooncake/conn.py:1241` iterates `state_types` |
+
+**No guard refuses it** — grepping `NotImplementedError|not supported` across
+`srt/disaggregation/*.py` for mamba/hybrid/linear/kda/glm5 returns nothing. The
+guards that exist are narrow and unrelated.
+
+**So the worry relocates rather than disappearing: from "not transferred" to
+"transferred, but unverified".** Every link above is a code read; nobody has run
+it, and whether the KDA conv/ssm buffers survive the mooncake round-trip
+bit-exact on gfx950 is untested. That is still the failure mode that produces
+subtly wrong output with nothing logged.
+
+**Two checks, in order, before believing any Flash PD result:**
+
+1. *Ten minutes, at bring-up.* Confirm at runtime that `StateType.MAMBA` actually
+   lands in `kv_args.state_types` for `glm5_next` — one log line at
+   `append_state_component`. That converts the table above from "the code says it
+   should" into "it did".
+2. *The decisive one.* Send the same prompt to a Flash **MIX** deployment and a
+   Flash **PD** deployment, greedy, and **diff the token sequences**. Intact state
+   → identical; zeroed decode-leg state → divergence, with nothing logged. The
+   reference side already exists: `flash-mxfp4` MIX is validated end to end.
+
+One INFERRED caveat: `mori/conn.py:1041` refuses loudly when `state_types` is
+empty; the mooncake path iterates `state_types` without an equivalent check *at
+that site*, so an empty list there could be a silent no-op. Whether mooncake
+checks elsewhere is UNKNOWN.
+
+Upstream has three OPEN items in this exact area — **#36651** (adding PD state
+transfer for another Flash-class model, so the wiring is not automatic
+everywhere), **#37276** (PD + mamba + speculative decoding, which is why running
+Flash PD with MTP off sidesteps a known bug), and **#33457** (hybrid-linear KV
+transfer under prefill pipeline parallelism). The machinery is live and being
+repaired, not absent.
 
 ## Contents
 
