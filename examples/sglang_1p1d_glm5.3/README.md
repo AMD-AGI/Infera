@@ -84,6 +84,26 @@ importing process cannot see is UNKNOWN and is not predicted here.** CUDA's
 equivalent requires the peer device to be visible; HIP generally mirrors CUDA IPC
 semantics, but "generally mirrors" is not a source read.
 
+Two attempts to close it from source, both negative, recorded so nobody repeats
+them:
+
+- **The ROCm 7.2 header** (`hip_runtime_api.h:2535-2545`) says
+  `hipIpcOpenMemHandle` *"can attempt to enable peer access between the devices as
+  if the user called hipDeviceEnablePeerAccess"*, and points at
+  `hipDeviceCanAccessPeer` to test it. Suggestive, not decisive:
+  `hipDeviceCanAccessPeer` takes **visible** ordinals, and under disjoint
+  `HIP_VISIBLE_DEVICES` the importer cannot name the exporter's device at all. The
+  doc does not say what happens then.
+- **Mooncake's own HIP tests do not cover it.** All three harnesses
+  (`tests/hip_transport_test.cpp`, `mooncake-wheel/tests/test_transfer_on_hip.py`,
+  `tent/tests/hip_bandwidth_bench.cpp`) are single-process and single-device, and
+  `grep -rn HIP_VISIBLE_DEVICES` over the whole repo returns nothing. So the
+  pinned commit's *"prefill GPU0 / decode GPU1"* validation is not reproducible
+  from the tree, and its test suite does not exercise two processes with disjoint
+  visible devices — which is exactly what this kit configures.
+
+That is the argument for running the probe below rather than reasoning further.
+
 What *is* established is the shape of each outcome:
 
 - **If it works:** KV moves over XGMI, and the only positive evidence is the
