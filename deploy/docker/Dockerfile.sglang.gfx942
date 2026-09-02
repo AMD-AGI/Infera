@@ -1,23 +1,95 @@
-# WHAT: infera SGLang engine image for MI325X (gfx942 / CDNA3), MI30x base.
-# WHY : the SGLang base is arch-specific — the default Dockerfile.sglang targets
-#       gfx950 (mi35x) and one image can't serve both; no dsv4 source patch since
-#       gfx942 runs dsv4 FP8 natively / fails fast on FP4 (FP4 dsv4 -> vLLM).
+# WHAT: infera SGLang engine image for MI300X/MI325X (gfx942 / CDNA3).
+# WHY : a separate file from Dockerfile.sglang because the PATCH SETS differ, not
+#       because the base does any more — the ROCm 10.1 ufb base below is
+#       device-all, where the ROCm 7.x bases this file used to pin were split
+#       mi30x / mi35x. Keeping the two files apart is what lets the gfx942-only
+#       mxfp_supported() gate ship without touching the gfx950 image. No dsv4
+#       source patch: gfx942 runs dsv4 FP8 natively / fails fast on FP4 (FP4
+#       dsv4 -> vLLM).
 # HOW : fp8 env + CLI knobs are applied at launch by infera.engine.dsv4_gfx942.
-# BASE: v0.5.16 is the sglang this image is validated on — GLM-5.2 MTP needs
-#       sglang #30839 (IndexShare across PD and CUDA-graph replay) and its own
-#       GlmMoeDsaForCausalLMNextN quant handling, both of which land in v0.5.16;
-#       on the previous v0.5.15 base the draft weight-load and PD warmup fail.
-#       v0.5.16 also carries GlmMoeDsaForCausalLMNextN, which is why the nextn
-#       quark-exclude backport this repo used to keep is retired rather than
-#       applied here.
-# RUN : GLM-5.2 PD + DP-attention + MTP on this image REQUIRES every leg to pass
+# BASE: the ROCm 10.1 "ufb" image — sglang v0.5.15.post1 / python 3.14 / ubuntu
+#       24.04 on a rocm10.1.0a20260811 nightly, i.e. the same base
+#       Dockerfile.sglang pins on this branch. Two consequences the rest of this
+#       file depends on:
+#         - ROCm is a pip package here (_rocm_sdk_devel under the /opt/venv
+#           site-packages) and there is NO /opt/rocm; ROCM_HOME points at it
+#           instead (ROCM_PATH is unset on this base, so anything reading it
+#           must fall back). The symlink layer below puts /opt/rocm back for the
+#           third-party code that honours neither.
+#         - it is v0.5.15.post1, OLDER than the v0.5.16 GLM-5.2 needs (sglang
+#           #30839 IndexShare across PD and CUDA-graph replay, plus its own
+#           GlmMoeDsaForCausalLMNextN quant handling). GLM-5.2 is out of scope
+#           on this base — what is validated on it is gpt-oss-120b. The one DSA
+#           patch this file still applies is an anchor script, not a pinned
+#           diff, and its sites were re-read against v0.5.15.post1.
+#       Pinned by digest because these are nightly tags in a private repo and
+#       the last rolling base this repo used was rolled off DockerHub before it
+#       was replaced.
+# RUN : for GLM-5.2 on gfx942, build against the ROCm 7.2 base this file was
+#       originally written for (read the PRECONDITION first):
+#         --build-arg SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.16-rocm720-mi30x
+#       and then every PD + DP-attention + MTP leg MUST pass
 #       `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`.
-#       It is not tuning — it stands in for two sglang_dsa patches this base
+#       It is not tuning — it stands in for two sglang_dsa patches that base
 #       cannot take. Full reasoning at the DSA patch block below.
-ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.16-rocm720-mi30x
+#
+# PRECONDITION — CHECK THE HOST DRIVER BEFORE PICKING A BASE. A container brings
+# its own ROCm userspace but CANNOT bring a kernel driver: it talks to the host's
+# amdgpu through /dev/kfd, and AMD supports that pairing only within a bounded
+# version window (+/-2 releases before 6.4.0). Outside it nothing refuses to
+# start — the image initialises, loads weights, captures graphs, then faults with
+# `Memory access fault by GPU node-N` somewhere under load, which reads exactly
+# like an engine bug — and can present as several unrelated ones at once, each
+# with its own plausible stack. See patches/sglang_dsa/README.md.
+#
+#   host amdgpu            supported ROCm userspace   base to use
+#   6.3.x                  <= 7.0.x                   v0.5.16-rocm700-mi30x
+#   6.4.x (e.g. 6.14.14)   <= 7.2.x                   v0.5.16-rocm720-mi30x
+#   newer                  10.1 nightly               the ufb base pinned below
+#
+#   host:      dpkg -l | grep -E 'amdgpu-dkms|rocm-core'
+#   container: cat /opt/rocm/.info/version   (works via the symlink layer below)
+#
+# The first two rows are the ROCm 7.x bases this file used to default to. They
+# stay documented because they are still the answer for GLM-5.2 and for hosts
+# too old to pair with a 10.1 userspace; override SGLANG_BASE_IMAGE to reach
+# them. The default is now the 10.1 nightly, whose only exercised pairing is the
+# 8x MI300X hosts this branch's gpt-oss-120b runs were taken on (host ROCm
+# 7.0.2) — treat anything else as an unverified pairing rather than
+# extrapolating the window from the rows above.
+ARG SGLANG_BASE_IMAGE=rocm/ufb-private:sglang-v0.5.15.post1-ubuntu24.04-py3.14-nightlies-device-all-rocm10.1.0a20260811-e35a33b34a@sha256:e87ecda2624687727d253e0c74863dd7f5008759ab09a9f7bc14e3360de181b6
 FROM ${SGLANG_BASE_IMAGE}
 
+# ---- apt mirror (site escape hatch, no-op by default) ----------------------
+# A fleet that cannot route to archive.ubuntu.com passes APT_MIRROR (and, where
+# http to security.ubuntu.com is blocked too, APT_SECURITY_MIRROR) in through
+# INFERA_E2E_BUILD_ARGS; unset, this layer only reports that it changed nothing.
+# Reasoning in deploy/docker/scripts/apt_mirror.sh.
+ARG APT_MIRROR=
+ARG APT_SECURITY_MIRROR=
+COPY deploy/docker/scripts/apt_mirror.sh /tmp/apt_mirror.sh
+RUN APT_MIRROR="${APT_MIRROR}" APT_SECURITY_MIRROR="${APT_SECURITY_MIRROR}" \
+        bash /tmp/apt_mirror.sh \
+    && rm -f /tmp/apt_mirror.sh
+
 WORKDIR /opt/infera
+
+# ---- /opt/rocm compatibility symlink ----------------------------------------
+# The ROCm 10.1 ufb bases ship ROCm as a pip package and export ROCM_HOME at it
+# (ROCM_PATH is left unset); there is no /opt/rocm. Our own scripts were taught
+# to honour those, but the THIRD-PARTY code already installed in the base was
+# not, and it tends to fail silently: aiter's cpp_itfs layer, for one, derives
+# the target arch from `/opt/rocm/llvm/bin/amdgpu-arch` and treats "binary
+# missing" as "empty arch", which surfaces much later as an unrelated-looking
+# JIT assertion. Kept identical to Dockerfile.sglang and Dockerfile.vllm so
+# every engine image resolves ROCm the same way; a no-op on bases that already
+# have a real /opt/rocm, which is what makes it safe under the ROCm 7.x
+# SGLANG_BASE_IMAGE overrides documented above.
+RUN set -eu; \
+    R="${ROCM_PATH:-${ROCM_HOME:-}}"; \
+    if [ -n "$R" ] && [ ! -e /opt/rocm ]; then mkdir -p /opt && ln -s "$R" /opt/rocm; fi; \
+    test -x /opt/rocm/llvm/bin/amdgpu-arch; \
+    echo "/opt/rocm -> $(readlink -f /opt/rocm)"
 
 # ---- libionic (host ionic ABI match) -----------------------------------------
 # WHY: the sglang base ships libionic with an old kernel ABI (e.g. 54.0-149 = ABI
@@ -84,22 +156,22 @@ RUN pip install --no-cache-dir ".[sglang]" "setuptools>=83.0.0"
 # anchor note in the script's header). A drifted anchor writes nothing and exits
 # non-zero, so this build fails rather than shipping a half-applied fix.
 #
-# ONLY patch 01 (DSA_PATCH_SET=indexer). Patches 02 and 04 are `--fuzz=0` context
-# diffs cut against v0.5.15.post1 and do not apply to this v0.5.16 base:
-#   02b, 04  substituted at RUNTIME on this image, and the 1P1D bring-up behind
-#            it was validated that way — every leg MUST launch with
-#            `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`.
-#            IndexShare is the source of the rank divergence those two repair, so
-#            removing the seed removes the deadlock. Leave IndexShare ON here and
-#            the decode leg deadlocks on the first request.
-#   02a      NOT carried and NOT substituted: a host sync on a branch only some
-#            DP ranks take. Not re-cut for v0.5.16 and not observed on this base
-#            (FP8, dp8, conc<=128) — see patches/sglang_dsa/README.md.
+# Patch 01 ONLY on this base (DSA_PATCH_SET=indexer). 02b is substituted at
+# RUNTIME — every leg MUST launch with
+# `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`.
+#
+# 02a and 04 are deliberately NOT applied. 04 is what the IndexShare-off flag
+# above stands in for; 02a is untested on this base rather than ruled out. Both
+# can look necessary after a GPU fault that is really the driver pairing — see
+# the PRECONDITION at the top of this file.
 ARG APPLY_SGLANG_DSA_PATCHES=1
+# Overridable so patch sets can be A/B'd on one base without editing this file:
+# same manifest, same sglang, one build-arg apart.
+ARG DSA_PATCH_SET=indexer
 COPY deploy/docker/patches/sglang_dsa/ /tmp/sglang_dsa/
 COPY deploy/docker/scripts/apply_sglang_dsa_patches.sh /tmp/apply_sglang_dsa_patches.sh
 RUN if [ "${APPLY_SGLANG_DSA_PATCHES}" = "1" ]; then \
-        DSA_PATCH_SET=indexer PATCH_DIR=/tmp/sglang_dsa \
+        DSA_PATCH_SET="${DSA_PATCH_SET}" PATCH_DIR=/tmp/sglang_dsa \
             bash /tmp/apply_sglang_dsa_patches.sh; \
     else \
         echo "APPLY_SGLANG_DSA_PATCHES=0 — stock indexer, DP-attention will crash at conc>1"; \
@@ -120,6 +192,32 @@ COPY deploy/docker/patches/sglang_disagg/ /tmp/sglang-disagg-patches/
 RUN set -eu; \
     for f in /tmp/sglang-disagg-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
     rm -rf /tmp/sglang-disagg-patches
+
+# ---- sglang Responses API patches (not PD-specific) ------------------------
+# REQUIRED FOR ANY Codex-driven workload against a model with a custom chat
+# encoder (kimi_k3, inkling): OpenAIServingResponses reuses OpenAIServingChat's
+# _process_messages but not its prompt-selection ladder, so it feeds
+# GenerateReqInput the empty `prompt` string those encoders deliberately leave
+# unset instead of the pre-rendered prompt_ids they actually produced. Every
+# POST /v1/responses then 400s with "texts cannot be empty and tokenizer must be
+# initialized" -- in ~5 ms, with no traceback, because create_responses swallows
+# the ValueError. Chat on the same model is unaffected, which is what makes it
+# hard to spot.
+#
+# Distinct from sglang_disagg/patch_responses_pd_bootstrap.py above: that one
+# plumbs the bootstrap trio so a PD pair accepts the request at all, this one
+# fixes the prompt the request carries. A Kimi-K3 PD deployment needs both, and
+# the order does not matter -- disjoint anchors, different functions. Applies on
+# aggregated servers too.
+#
+# NOT tolerant: self-locating, idempotent, and it exits non-zero when its anchor
+# drifted. An image whose Responses endpoint 400s on every request should not
+# ship quietly. Reports "already present" once base sglang routes both paths
+# through one helper.
+COPY deploy/docker/patches/sglang_responses/ /tmp/sglang-responses-patches/
+RUN set -eu; \
+    for f in /tmp/sglang-responses-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
+    rm -rf /tmp/sglang-responses-patches
 
 # ---- sglang ROCm patches (hicache host allocator, staged write-back) --------
 # Two independent hicache-on-ROCm fixes, both needed once kvd is enabled.
@@ -157,6 +255,15 @@ RUN set -eu; \
     for f in /tmp/sglang-rocm-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
     rm -rf /tmp/sglang-rocm-patches
 
+# ---- gfx942-only patches ----------------------------------------------------
+# Its own directory, not sglang_rocm/, because Dockerfile.sglang applies that one
+# too and the gfx950 image must stay byte-identical. Today: the mxfp_supported()
+# arch gate, without which gpt-oss-120b's MXFP4-only weights raise at load.
+COPY deploy/docker/patches/sglang_gfx942/ /tmp/sglang-gfx942-patches/
+RUN set -eu; \
+    for f in /tmp/sglang-gfx942-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
+    rm -rf /tmp/sglang-gfx942-patches
+
 # ---- Rust router (multi-core data plane; --router-backend rust) ----
 # The ROCm base often ships cargo; use it, and install a minimal toolchain only
 # if absent. Needs cc for linking and libclang (onig_sys/bindgen).
@@ -177,11 +284,11 @@ RUN set -eu; \
 COPY rust ./rust
 RUN set -eu; \
     command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; }; \
-    export LIBCLANG_PATH="$(dirname "$(find /opt/rocm* /usr/lib /usr/lib64 -name 'libclang.so*' 2>/dev/null | head -1)")"; \
+    export LIBCLANG_PATH="$(dirname "$(find "${ROCM_PATH:-${ROCM_HOME:-/opt/rocm}}" /opt/rocm* /usr/lib /usr/lib64 -name 'libclang.so*' 2>/dev/null | head -1)")"; \
     case "$LIBCLANG_PATH" in ""|".") apt-get update && apt-get install -y --no-install-recommends libclang-dev && rm -rf /var/lib/apt/lists/* && export LIBCLANG_PATH="$(dirname "$(find /usr/lib -name 'libclang.so*' 2>/dev/null | head -1)")";; esac; \
     command -v cargo >/dev/null || { curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal; . "$HOME/.cargo/env"; }; \
     export PATH="$HOME/.cargo/bin:$PATH"; \
-    export LIBCLANG_PATH="${LIBCLANG_PATH:-/opt/rocm/llvm/lib}"; \
+    export LIBCLANG_PATH="${LIBCLANG_PATH:-${ROCM_PATH:-${ROCM_HOME:-/opt/rocm}}/llvm/lib}"; \
     ( cd rust && cargo build --release --bin infera-router ); \
     cp rust/target/release/infera-router /usr/local/bin/infera-router; \
     rm -rf rust "$HOME/.cargo" "$HOME/.rustup" /usr/local/cargo /usr/local/rustup; \
