@@ -1,0 +1,31 @@
+{
+  "artifact_dir": "best/iter_005",
+  "baseline_wall_ms": 0.0562,
+  "benchmark_path": "best/iter_005/benchmark.json",
+  "best_wall_ms": 0.0186,
+  "campaign_id": "76ecef370dbe43c69115863e7fc51fbc",
+  "changed_files": [
+    "sampler_softmax_kernel.py"
+  ],
+  "commit_hash": "381188448145f272d2bfca61847c54f44e208303",
+  "correctness_passed": true,
+  "experiment_id": "fde6cf6c",
+  "improved_during_search": true,
+  "incremental_improved": true,
+  "incremental_speedup": 2.83276,
+  "iteration": 5,
+  "mean_case_speedup": 2.832760084842933,
+  "patch_path": "best/iter_005/forge.patch",
+  "plan": "fold combine kernel into normalize for small segment counts (B8/B32), keep 3-kernel path for B1",
+  "pristine_baseline_ms": 0.0562,
+  "published_at": "2026-08-31 13:17:45",
+  "schema_version": 1,
+  "search_start_mean_case_speedup": 1.0,
+  "search_start_ms": 0.0562,
+  "session_index": 1,
+  "snr_db": 138.12,
+  "speedup": 2.83276,
+  "total_improved": true,
+  "total_speedup": 2.83276,
+  "validation_path": "best/iter_005/validation.txt"
+}

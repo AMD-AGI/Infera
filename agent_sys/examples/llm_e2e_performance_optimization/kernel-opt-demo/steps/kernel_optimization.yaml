@@ -1,0 +1,376 @@
+# Stage 4 — kernel optimization. Two leaves and everything they introduce.
+#
+# **Definition order is load-bearing within a file** — a name referenced before
+# it is defined here is an error. The order below is therefore:
+#
+#   1. the agents      (referenced by `task.agent`)
+#   2. the validators  (referenced by each kind's `validators`)
+#   3. the handoff kinds (referenced by `task.handoffs` / `inputs` / `outputs`)
+#   4. the tasks       (reference all of the above)
+
+# --------------------------------------------------------------------------- #
+# 1a. The publisher — `kind: program`.
+#
+# Its whole job is to copy a workset directory into the output handoff's content
+# directory and write the `code` type's README. That is a scripted copy with no
+# judgement in it, so it is a program and not an agent: an AI leaf here would be
+# a model call bought for `cp -r`.
+#
+# **No `backends` block.** A program agent is not an SDK adapter chosen by
+# declaration; `agent/backends/program.py` runs `/bin/sh <entry>` and the entry
+# comes from the assets convention.
+- module: agent
+  name: workset_publisher
+  kind: program
+  version: '1'
+  description: Publishes a workset directory as a handoff, unrenamed.
+  env:
+    # Which workset. A package may carry several; this names the one to publish.
+    # It defaults, because unlike a model path this is a fact about the package
+    # rather than about the site.
+    KFO_WORKSET: '${workset:-sampler_vocab_softmax}'
+    # An escape hatch for when stage 3 exists: point at a directory it produced
+    # instead of at package data. Empty means "use the package's own copy".
+    KFO_WORKSET_DIR: '${workset_dir:-}'
+
+# --------------------------------------------------------------------------- #
+# 1b. The KernelForge wrapper — `kind: ai`.
+#
+# **This is the object the mission calls "an ai agent wrapper for kernel
+# forge".** It is not a shell script around `kernel-agents` and it deliberately
+# is not: the work between "here is a workset" and "here is a handoff" is
+# judgement, not a command line. It has to read a workset it did not write,
+# choose the forge invocation that matches it, notice when forge has silently
+# degraded (the `--max-hours` threshold, the analysis fallback), decide whether
+# a reported speedup is real given a measurement spread it has to establish
+# itself, and then convert forge's own output tree into a shape this system
+# accepts. Four of those five are judgements. The readme at
+# `assets/optimize_kernel.task/readme.md` is the operating manual.
+#
+# **`config.options.model: opus` is the outer model, and it is scoped here.**
+# `_options()` (`agent/backends/claude_sdk.py:283-360`) names `cwd`,
+# `system_prompt`, `permission_mode`, `env`, `mcp_servers`, `allowed_tools`,
+# `cli_path` and `hooks`; every other key in `config.options` is passed straight
+# through to `ClaudeAgentOptions`, and `model` is one of them.
+#
+# **It is `config.options.model` and NOT `env: {ANTHROPIC_MODEL: ...}`, on
+# purpose.** `env` is a *process* variable and is inherited by everything the
+# session spawns — including the nested `claude` that KernelForge starts. Setting
+# it there would put the outer model on the inner loop too, which is exactly what
+# the model split is supposed to avoid. `config.options.model` is the session's
+# own and travels nowhere.
+#
+# The inner model is a *different* knob and reaches KernelForge as
+# `--model $KFO_FORGE_MODEL` on its command line. Two models, two mechanisms,
+# neither able to leak into the other.
+- module: agent
+  name: kernel_opt_lead
+  kind: ai
+  version: '1'
+  description: Drives KernelForge over a workset and converts its output into a handoff.
+  env:
+    # --- Site facts. Required, no default, for the reason `single_real_task`
+    # gives: where a machine keeps a checkout and which GPU is free are facts
+    # about that machine, and a default here would ship one host's answer as
+    # everyone's.
+    KFO_KERNELFORGE_REPO: '${kernelforge_repo}'
+    # **The GPU index is required precisely because this host is shared.** A
+    # default would have two runs land on one card and blame each other's noise.
+    HIP_VISIBLE_DEVICES: '${gpu}'
+    # Must be on LOCAL DISK and must be inside a `yihou/` directory. Required
+    # rather than defaulted: `/tmp` inside a container is not the `/tmp` outside
+    # it, and a default that happens to be writable is how the NFS root_squash
+    # trap gets re-set.
+    KFO_SCRATCH_ROOT: '${scratch_root}'
+
+    # --- The five environment facts that decide whether a forge run degrades
+    # silently. Set here rather than left to the agent's memory, because four of
+    # the five fail *quietly* (see the task readme's pitfall table).
+    TRITON_CACHE_DIR: '${scratch_root}/triton_cache'
+    KNOWLEDGE_LOCAL_ROOT: '${scratch_root}/knowledge'
+
+    # **The interpreter that can `import torch`, and it is not optional.**
+    # This block is the PRODUCER row, which is the only environment an
+    # output-phase validator body gets — and `check_speedup_substantiated` has
+    # to start a subprocess that imports torch.
+    #
+    # It cannot work this out for itself. A validator body runs under `/bin/sh`
+    # with a closed environment and no `PATH`, so `sh`'s built-in default
+    # applies and `python3` resolves to `/usr/bin/python3` — not the
+    # supervisor's interpreter, and without torch. `AGENT_SYS_DEMO_PYTHON` would
+    # have been the answer but the PRODUCER row **shadows** the GLOBAL row that
+    # carries it (`bugs/002`).
+    #
+    # Measured 2026-09-01: without this, the re-measurement died on
+    # `import torch` in ~0.1 s and three separate campaigns recorded a FAIL that
+    # read like a speedup disagreement. The body now probes candidates and names
+    # the one it picked, so a wrong value fails loudly rather than silently.
+    KFO_PYTHON: '${python_bin:-/opt/venv/bin/python3}'
+    IS_SANDBOX: '1'
+    PYTHONUNBUFFERED: '1'
+    KA_EVENTS_STDOUT: '1'
+
+    # --- Campaign knobs.
+    # `> 2.0` is not a preference. At `<= 2.0` KernelForge silently drops
+    # Analysis to static-only and the implementer turn cap from 500 to 100
+    # (`kernel_agents/cli.py:47,420,1391`). 3.0 is the smallest value that keeps
+    # the full loop.
+    KFO_MAX_HOURS: '${max_hours:-3.0}'
+    KFO_FORGE_MODEL: '${forge_model:-Claude-Sonnet-5[1m]}'
+    KFO_SNR_THRESHOLD: '${snr_threshold:-30.0}'
+    # `1` skips the forge invocation and writes a clearly-labelled placeholder
+    # result. It exists so the wiring — handoff shapes, grants, validators — can
+    # be debugged for pennies instead of for $29 and three hours. A mock run
+    # must be *visibly* a mock; the shape validator enforces that.
+    KFO_MOCK: '${mock:-0}'
+
+  # Without this the agent cannot reach the packup skill. Measured 2026-08-31 on
+  # the sibling package: mid-run it called `Skill{"experiment-result-packup"}`,
+  # got `Unknown skill`, and went looking for the directory by hand.
+  # `env_mgr` redirects `CLAUDE_CONFIG_DIR` into the zone and a session reads
+  # skills from `$CLAUDE_CONFIG_DIR/skills/`, so a skill only arrives if it is
+  # declared — `material.deploy` copies `MATERIAL_KEYS` and nothing else.
+  #
+  # **Required with no default, and a path that does not exist now raises**
+  # (`env_mgr/material.py:61-86`) rather than being skipped in silence.
+  #
+  #     --var packup_skill=$HOME/.claude/skills/experiment-result-packup
+  skills: ['${packup_skill}']
+
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      config:
+        options:
+          model: '${lead_model:-opus}'
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+# --------------------------------------------------------------------------- #
+# 2. The validators. Three, and none of them carries a `kind:` key — there is no
+# such field and `additionalProperties: false`. What people call "an AI
+# validator" is a *script* whose body spends its time inside `claude`; the
+# difference is recorded in `tags.logic_source` and `tags.cost`, and `cost` is
+# what orders a phase cheap-first (`validator/phase.py:675-686`).
+#
+# **Every validator here has an `entry.sh`.** An `entry`-less, agent-bodied
+# validator raises `ValidatorInvalid` today because no `validator_executor`
+# component is registered (`validator/phase.py:200-210`). That is a live
+# constraint, not a style rule.
+
+# The workset gate. Runs twice — in `publish_workset`'s output phase and again
+# in `optimize_kernel`'s input phase — and that is deliberate: a workset that
+# lost a file between publication and consumption is a real failure and the
+# second run is what would catch it.
+- module: validator
+  name: check_workset_shape
+  version: '1'
+  brief: The workset carries every file an optimizer needs, and its baseline is cross-checked against a profile number
+  dimension: completeness
+  strength: strong
+  inputs: [workset]
+  args:
+    # The files an optimizer cannot proceed without. Listed here so a reader
+    # sees the contract without opening the body.
+    required_files:
+      - README.md
+      - environment.md
+      - integration.md
+      - program.md
+      - baseline_measurement.md
+      - kernel/driver.py
+      - kernel/measure_baseline.py
+    # `driver.py` is the measurement oracle; a workset whose driver does not
+    # implement the three-mode stdout contract cannot be optimized by forge at
+    # all, so the strings are checked for rather than assumed.
+    required_driver_tokens: ['case_ms:', 'case_snr:', 'SNR:', '--bench-mode']
+    min_correctness_cases: 3
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [llm_e2e_performance_optimization, kernel_optimization]
+
+# The output gate, and the cheap half. Everything it checks is decided by
+# looking at a file that is either there or is not, or at a number that either
+# parses or does not. It cannot be *approximately* right about whether
+# `forge_result.json` exists, which is why it is `strong` without qualification.
+- module: validator
+  name: check_optimization_shape
+  version: '1'
+  brief: The handoff is one packup carrying the forge result, the optimized kernel, the evidence and an honest summary
+  dimension: completeness
+  strength: strong
+  inputs: [kernel_optimization]
+  args:
+    min_content_lines:
+      README.md: 5
+      REPRODUCE.md: 8
+      environment.md: 8
+      notes.md: 3
+    min_command_lines: 5
+    # The four artefacts that distinguish a real forge campaign from a
+    # convincing description of one, plus the measurement apparatus itself.
+    #
+    # `scripts/kernel/` is what makes the handoff self-contained: a kit that
+    # reports a speedup and does not carry the driver that produced it cannot be
+    # checked by anyone who does not already have the workset. It is also what
+    # lets `check_speedup_substantiated` declare one input instead of two — see
+    # the argument on that spec.
+    required_evidence:
+      - results/forge_result.json
+      - results/optimization_report.md
+      - results/optimized_kernel.py
+      - results/verification.json
+      - scripts/kernel/driver.py
+      - scripts/kernel/graph_harness.py
+      - scripts/kernel/measure_baseline.py
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [llm_e2e_performance_optimization, kernel_optimization]
+
+# The output gate, expensive half. It **re-measures**: it runs the optimized
+# kernel and the seed against the driver, several rounds each, and compares the
+# median it gets to the speedup the handoff claims.
+#
+# `weak` on purpose, and the readme beside the body argues it. In one line: it
+# establishes that the claimed number is reproducible on this machine today, and
+# that is not the same as establishing that the optimization is correct, general,
+# or worth integrating.
+#
+# **`inputs` names ONE kind, and the first version named two.** The body needs a
+# driver as well as a kernel, and the driver lives in the `workset`, so the
+# obvious move was `inputs: [kernel_optimization, workset]` — the many-to-many
+# binding, which is the declared route to a handoff an output phase would not
+# otherwise stage.
+#
+# Measured 2026-09-01, that is wrong, and the mechanism is worth writing down.
+# A phase's validator set is `closures.validators_for(<closure>)`, which is the
+# union of the closure's own list **and every validator joined to one of its
+# handoff kinds through the handoff registry** — and a validator is joined to a
+# kind by naming it in `inputs`. So naming `workset` here did not only *grant
+# access*, it **bound this validator to the `workset` kind's phases**: it ran in
+# `publish_workset`'s output phase, against a workset with no optimization
+# beside it, and failed there because there was nothing to substantiate. One
+# `verdict_recorded` on the workset handoff, `trustworthiness / weak / FAIL`,
+# for a task that had done nothing wrong.
+#
+# The fix is not to widen the body's tolerance — a validator that passes when
+# its materials are missing is worse than one that is scoped correctly. It is to
+# make the handoff **self-contained**: the producer copies the driver, the
+# harness and the seed kernel into the packup's `scripts/kernel/`, and this body
+# reads them from there. A reproduction kit that does not carry the thing that
+# measures it was under-specified anyway, so this costs nothing and the handoff
+# is strictly better for it.
+- module: validator
+  name: check_speedup_substantiated
+  version: '1'
+  brief: The claimed speedup re-measures on this machine, over enough rounds to survive the known measurement spread
+  dimension: trustworthiness
+  strength: weak
+  inputs: [kernel_optimization]
+  args:
+    # Five, because the baseline's own protocol is five and a comparison across
+    # differently-sized samples is not one.
+    rounds: '${verify_rounds:-5}'
+    iters: '${verify_iters:-30}'
+    # How far the re-measured speedup may sit below the claim before the claim
+    # is not substantiated. 15% is wide, and it is wide because it has to
+    # absorb a measured ~8% round-to-round spread on the optimized side against
+    # ~2% on the baseline. Narrower would fail honest handoffs.
+    tolerance: '${verify_tolerance:-0.15}'
+    # Below this, a "speedup" is not distinguishable from noise at the spread
+    # this machine actually shows, and reporting one is a false claim rather
+    # than a small win.
+    noise_floor: '${verify_noise_floor:-1.05}'
+    timeout_seconds: '${verify_timeout_seconds:-1800}'
+  tags:
+    logic_source: external_dynamic
+    cost: minutes
+    domain: [llm_e2e_performance_optimization, kernel_optimization]
+
+# --------------------------------------------------------------------------- #
+# 3. The kinds.
+#
+# **Both are `content_type: code`, and the choice was between this and
+# `reproducible`.** `reproducible` is named after what a packup is and is the
+# wrong type for one: its required items are `result` and `env` plus one of
+# `script`/`command`, so laying a packup into it turns `results/` into
+# `items/result`, `environment.md` into `items/env`, and leaves `REPRODUCE.md` —
+# the one file a reproducer executes — with no item to be. Renaming the files
+# the layout mandates destroys the thing the shape validator exists to check.
+# `code` requires exactly one item, `codes`, whose interior is unconstrained, so
+# the directory survives byte for byte with its own name on it.
+#
+# **No `items_schema` on either.** It could only restate `codes`, and a closed
+# one would additionally reject `logs` and `watchout`, which the `code` type
+# itself lists as optional. What is *inside* `codes/` is the shape validators'
+# job — that is the split the two mechanisms exist for.
+
+- module: handoff
+  name: workset
+  version: '1'
+  description: Everything needed to test, optimize and re-integrate one operator.
+  content_type: code
+  scope: fixed.required
+  validators: [check_workset_shape]
+
+- module: handoff
+  name: kernel_optimization
+  version: '1'
+  description: An optimized kernel with its correctness evidence, performance report and summary.
+  content_type: code
+  scope: fixed.required
+  validators: [check_optimization_shape, check_speedup_substantiated]
+
+# --------------------------------------------------------------------------- #
+# 4. The tasks.
+#
+# Both are leaves, so both name an `agent`. `goal` is capped at 100 characters
+# by `task.schema.json` and is a human label, not an instruction channel —
+# everything a body is actually told lives in `assets/<name>.task/readme.md`,
+# found by convention from the folder name.
+#
+# **`validators: []` on both, and it is not an omission.** A closure's
+# `validators` list has no runtime consumer (F-D4, open); the phase set is built
+# from the handoff kind. Writing names here would read as a promise the system
+# does not keep.
+#
+# **No `resources` on either.** Both legitimately want a GPU. `cli/build.py` is
+# the only reader of that field and the CLI composition root declares no pools,
+# so a block here would name a pool that does not exist. Nothing reserves a GPU:
+# `--var gpu=` is the whole mechanism, and two concurrent runs pointed at one
+# card will collide.
+
+- module: task
+  name: publish_workset
+  description: Publish the selected workset directory as a handoff, unrenamed.
+  agent: workset_publisher
+  handoffs: [workset]
+  validators: []
+  task:
+    goal: Publish the selected workset directory as a handoff.
+    version: '1'
+    inputs: []
+    outputs: [workset]
+    permissions:
+      grants:
+        - {path: handoffs/workset, access: write, kind: workset}
+
+- module: task
+  name: optimize_kernel
+  description: Run KernelForge over the workset and convert its output into a handoff.
+  agent: kernel_opt_lead
+  handoffs: [workset, kernel_optimization]
+  validators: []
+  task:
+    goal: Optimize the workset's kernel with KernelForge and pack the result up.
+    version: '1'
+    # Declared where the schema says such a fact goes. `env_mgr` does not act on
+    # it today — recorded rather than depended on.
+    repos: [KernelForge]
+    inputs: [workset]
+    outputs: [kernel_optimization]
+    permissions:
+      grants:
+        - {path: handoffs/workset, access: read, kind: workset}
+        - {path: handoffs/kernel_optimization, access: write, kind: kernel_optimization}
