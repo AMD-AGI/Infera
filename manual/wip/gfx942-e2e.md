@@ -32,7 +32,7 @@ A case is considered passing only when:
 
 | Check | Passing requirement | False-green protection |
 |---|---|---|
-| Correctness | Counting, capital, long-context retrieval, and executable quicksort all pass | HTTP 200 alone is not accepted as correctness |
+| Correctness | Counting/capital liveness and long-context retrieval pass | HTTP 200 alone is not accepted as correctness; model-generated code is never executed |
 | PD workers | Both prefill and decode register successfully | A missing or dead worker fails the case |
 | KV transport | Every observable Mooncake transport is `rdma` | TCP fallback cannot silently pass |
 | MTP/EAGLE | Cases that request speculation produce non-zero counters | Ordinary decode cannot silently pass as MTP |
@@ -46,11 +46,11 @@ from metrics that its draft head produced tokens.
 
 | Model | Tier | Engine | Checkpoint / parallelism | Features | Result |
 |---|---|---|---|---|---|
-| GPT-OSS-120B | mixed | SGLang | MXFP4, TP2 | EP | **PASS** — 4 probes |
-| GPT-OSS-120B | mixed | vLLM | MXFP4, TP2 | EP | **PASS** — 4 probes |
+| GPT-OSS-120B | mixed | SGLang | MXFP4, TP2 | EP | **PASS** — 3 probes |
+| GPT-OSS-120B | mixed | vLLM | MXFP4, TP2 | EP | **PASS** — 3 probes |
 | GPT-OSS-120B | mixed | ATOM | MXFP4, TP2 | EP | **SKIP** — current gfx942 MXFP4 MoE path fails before first token |
-| GPT-OSS-120B | disaggregated | SGLang | MXFP4, TP2 per leg | — | **PASS** — 4 probes + dual-leg RDMA |
-| GPT-OSS-120B | disaggregated | vLLM | MXFP4, TP2 per leg | — | **PASS** — 4 probes + dual-leg RDMA |
+| GPT-OSS-120B | disaggregated | SGLang | MXFP4, TP2 per leg | — | **PASS** — 3 probes + dual-leg RDMA |
+| GPT-OSS-120B | disaggregated | vLLM | MXFP4, TP2 per leg | — | **PASS** — 3 probes + dual-leg RDMA |
 | GPT-OSS-120B | disaggregated | ATOM | MXFP4, TP2 per leg | — | **SKIP** — same MXFP4 MoE failure |
 | GLM-5.2-FP8 | mixed | SGLang | FP8, TP8/DP8 | DP attention, EAGLE | **PASS** — correctness + active MTP |
 | GLM-5.2-FP8 | mixed | vLLM | FP8, TP8 | MTP3 | **PASS** — correctness + active MTP |

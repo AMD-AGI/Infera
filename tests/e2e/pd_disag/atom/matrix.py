@@ -84,7 +84,7 @@ CASES = [
                     }
                 ),
                 # NO --method mtp, unlike this row's PD-mixed twin, which passes
-                # with it (38m, all four probes). With MTP here both workers come
+                # with it (38m, all three probes). With MTP here both workers come
                 # up and register and the correctness probe then never returns —
                 # httpx.ReadTimeout after 49m, a hang rather than a wrong answer.
                 # Without it the row passes in 34m, so ATOM's PD path itself is

@@ -91,19 +91,42 @@ def srun_argv(node: str, *, job: str = "") -> list[str]:
     return argv + shlex.split(os.environ.get("INFERA_E2E_SRUN_EXTRA", ""))
 
 
-def run_on_node(node: str, argv: list[str], *, timeout: float = _SRUN_TIMEOUT):
+def run_on_node(
+    node: str,
+    argv: list[str],
+    *,
+    timeout: float = _SRUN_TIMEOUT,
+    srun_args: tuple[str, ...] = (),
+):
     """Run ``argv`` on ``node`` and capture its output (never raises on rc!=0)."""
-    return subprocess.run(srun_argv(node) + argv, capture_output=True, text=True, timeout=timeout)
+    return subprocess.run(
+        srun_argv(node) + list(srun_args) + argv,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
 
 
 def node_arch(node: str) -> str | None:
     """``node``'s GPU architecture via rocminfo, or None when it cannot be asked. The
     orchestrator has no GPU of its own, so this is the only way it can check a node's."""
-    try:
-        done = run_on_node(node, ["rocminfo"])
-    except (subprocess.SubprocessError, OSError):
-        return None
-    return arch.parse_rocminfo(done.stdout) if done.returncode == 0 else None
+
+    def probe(*, request_gpu: bool = False) -> str | None:
+        try:
+            done = run_on_node(
+                node,
+                ["rocminfo"],
+                srun_args=("--gres=gpu:1",) if request_gpu else (),
+            )
+        except (subprocess.SubprocessError, OSError):
+            return None
+        return arch.parse_rocminfo(done.stdout) if done.returncode == 0 else None
+
+    actual = probe()
+    if actual is None and in_allocation() and not _SPUR:
+        # Some Slurm cgroup setups expose GPU agents only to steps requesting GRES.
+        actual = probe(request_gpu=True)
+    return actual
 
 
 def _parse_ip_overrides() -> dict[str, str]:

@@ -18,6 +18,7 @@ actually consumed, and retiring a variable retires it from the profiles too.
 
 from __future__ import annotations
 
+import functools
 import re
 from pathlib import Path
 
@@ -34,14 +35,15 @@ _VAR_RE = re.compile(r"INFERA_E2E_[A-Z0-9_]+")
 _CALL_RE = re.compile(r"^site_default\s+(\S+)\s+(.*)$", re.DOTALL)
 
 
-def _known_vars() -> set[str]:
+@functools.cache
+def _known_vars() -> frozenset[str]:
     """Every INFERA_E2E_* name mentioned by code that reads them."""
     names: set[str] = set()
     for root in READERS:
         files = [root] if root.is_file() else sorted(root.rglob("*.py"))
         for f in files:
             names |= set(_VAR_RE.findall(f.read_text(encoding="utf-8", errors="ignore")))
-    return names
+    return frozenset(names)
 
 
 def _statements(text: str) -> list[str]:

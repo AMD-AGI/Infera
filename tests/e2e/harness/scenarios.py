@@ -14,7 +14,6 @@ and delegate here.
 
 from __future__ import annotations
 
-import os
 from typing import NamedTuple
 
 from . import client, correctness, speculation
@@ -73,27 +72,17 @@ async def assert_chat_streaming_ok(server_url: str, model: str) -> None:
     assert b"[DONE]" in body
 
 
-# Whether an ADVISORY probe may fail the case. Off by default, because what quicksort
-# grades is whether this checkpoint can write code within its token budget — a property
-# of the model, not of the kernels, so a wrong answer there does not implicate the build
-# under test. Turn it on for a hardware bring-up run, where that is exactly the signal
-# wanted and a human is reading the output anyway.
-_DEPTH_STRICT = os.environ.get("INFERA_E2E_DEPTH_STRICT") == "1"
-
-
 class _Probe(NamedTuple):
     """One probe's verdict.
 
     ``ran=False`` means this deployment could not carry the probe (no chat route,
-    context window too small) — a harness limit, not a wrong answer. ``advisory``
-    means a wrong answer is reported but does not fail the case.
+    context window too small) — a harness limit, not a wrong answer.
     """
 
     name: str
     ok: bool
     detail: str
     ran: bool = True
-    advisory: bool = False
 
 
 async def _counting_probe(server_url: str, model: str) -> _Probe:
@@ -142,44 +131,20 @@ async def _longctx_probe(server_url: str, model: str) -> _Probe:
     return _Probe("long-context", correctness.is_longctx_correct(content), _short(content))
 
 
-async def _quicksort_probe(server_url: str, model: str) -> _Probe:
-    """Depth, advisory — the model writes quicksort and we execute it against
-    ``sorted()``. Chat, for the instruction following; optional for the same reason the
-    capital probe is. See :data:`_DEPTH_STRICT` for why it does not fail a case."""
-    advisory = not _DEPTH_STRICT
-    try:
-        body = await _chat_json_no_think(
-            server_url,
-            model,
-            correctness.QUICKSORT_PROMPT,
-            max_tokens=correctness.QUICKSORT_MAX_TOKENS,
-            temperature=0.0,
-        )
-    except Exception as e:  # noqa: BLE001 - chat may be unsupported (completions-only PD)
-        return _Probe("quicksort", False, f"chat unavailable: {type(e).__name__}: {e}", ran=False)
-    reply = body["choices"][0]["message"].get("content") or ""
-    ok, detail = correctness.run_quicksort_code(correctness.extract_python_code(reply))
-    return _Probe("quicksort", ok, detail, advisory=advisory)
-
-
 async def assert_correctness(server_url: str, model: str) -> None:
-    """Two gates over four probes: at least one LIVENESS probe (counting, capital) must
-    pass, and every DEPTH probe (long-context, quicksort) that ran and is not advisory
-    must pass."""
+    """Two gates over three probes: at least one liveness probe must pass, and the
+    long-context depth probe must pass when the deployment can run it."""
     liveness = [await _counting_probe(server_url, model), await _capital_probe(server_url, model)]
-    depth = [await _longctx_probe(server_url, model), await _quicksort_probe(server_url, model)]
+    depth = [await _longctx_probe(server_url, model)]
 
     # Every verdict and the model's actual reply, live in the run output
-    # (capture-suspended), so a pass or a fail explains itself without a rerun. An
-    # advisory miss reads "warn": visible, and deliberately not the reason for a fail.
+    # (capture-suspended), so a pass or a fail explains itself without a rerun.
     for probe in liveness + depth:
-        state = (
-            "ok" if probe.ok else "n/a" if not probe.ran else "warn" if probe.advisory else "FAILED"
-        )
+        state = "ok" if probe.ok else "n/a" if not probe.ran else "FAILED"
         emit_reporter_line(f"[e2e correctness] {probe.name:<12} {state:<6} {probe.detail!r}")
 
     alive = any(probe.ok for probe in liveness)
-    wrong = [p for p in depth if p.ran and not p.ok and not p.advisory]
+    wrong = [p for p in depth if p.ran and not p.ok]
     emit_reporter_line(f"[e2e correctness] {'PASS' if alive and not wrong else 'FAIL'}")
 
     assert alive, "correctness failed: no liveness probe returned a correct reply.\n" + "\n".join(
@@ -195,7 +160,7 @@ async def assert_correctness(server_url: str, model: str) -> None:
 
 async def run_mixed(server: dict, spawn, params: EngineParams) -> list:
     """Full mixed-worker (prefill-decode-mix, no PD) scenario: spawn one worker and
-    verify chat liveness + streaming + the four correctness probes.
+    verify chat liveness + streaming + the three correctness probes.
 
     Speculation is checked last, because it reads counters the probes populate."""
     workers = [await spawn(server, params)]

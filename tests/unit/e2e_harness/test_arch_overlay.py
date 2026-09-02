@@ -15,10 +15,11 @@ from __future__ import annotations
 
 import importlib
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from tests.e2e.harness import arch, images
+from tests.e2e.harness import arch, cluster, images
 from tests.e2e.harness.matrix import (
     DEEPSEEK_V4_FLASH,
     DEEPSEEK_V4_FLASH_FP8,
@@ -221,6 +222,41 @@ def test_the_isa_name_is_not_mistaken_for_the_arch():
 @pytest.mark.parametrize("text", ["", "Name: Intel(R) Xeon(R)\n", "rocminfo: command not found"])
 def test_output_with_no_gpu_agent_reads_as_cannot_tell(text):
     assert arch.parse_rocminfo(text) is None
+
+
+def test_remote_arch_retries_with_gpu_gres_inside_allocation(monkeypatch):
+    calls = []
+
+    def run_on_node(node, argv, *, srun_args=()):
+        calls.append((node, argv, srun_args))
+        stdout = ROCMINFO if srun_args else "Name: CPU"
+        return SimpleNamespace(returncode=0, stdout=stdout)
+
+    monkeypatch.setenv("SLURM_JOB_ID", "42")
+    monkeypatch.setattr(cluster, "_SPUR", False)
+    monkeypatch.setattr(cluster, "run_on_node", run_on_node)
+
+    assert cluster.node_arch("node-a") == "gfx942"
+    assert calls == [
+        ("node-a", ["rocminfo"], ()),
+        ("node-a", ["rocminfo"], ("--gres=gpu:1",)),
+    ]
+
+
+def test_remote_arch_does_not_request_gpu_outside_allocation(monkeypatch):
+    calls = []
+
+    def run_on_node(node, argv, *, srun_args=()):
+        calls.append(srun_args)
+        return SimpleNamespace(returncode=0, stdout="Name: CPU")
+
+    monkeypatch.delenv("SLURM_JOB_ID", raising=False)
+    monkeypatch.delenv("SLURM_JOBID", raising=False)
+    monkeypatch.setattr(cluster, "_SPUR", False)
+    monkeypatch.setattr(cluster, "run_on_node", run_on_node)
+
+    assert cluster.node_arch("node-a") is None
+    assert calls == [()]
 
 
 # --- images ---
