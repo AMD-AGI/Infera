@@ -80,8 +80,12 @@ export MC_GID_INDEX="${MC_GID_INDEX:-<index-from-preflight>}"
 # ---------------------------------------------------------------------------
 # A whole node per leg.
 export TP="${TP:-8}"
-export PREFILL_GPUS="${PREFILL_GPUS:-0,1,2,3,4,5,6,7}"
-export DECODE_GPUS="${DECODE_GPUS:-0,1,2,3,4,5,6,7}"
+# Left UNSET on purpose, now that engine/up.sh actually forwards these. A whole
+# node per leg means leg.sh's own `seq 0..TP-1` is already right and stays right
+# if TP changes; pinning a literal 0..7 here would silently contradict TP=4.
+# Set them only to place a leg on a specific subset of a node's cards.
+export PREFILL_GPUS="${PREFILL_GPUS:-}"
+export DECODE_GPUS="${DECODE_GPUS:-}"
 
 # Separate hosts, so these only need to be free on their own node.
 export PREFILL_PORT="${PREFILL_PORT:-30000}"
@@ -98,8 +102,20 @@ export ETCD_PORT="${ETCD_PORT:-12379}"
 # validated configuration, so this is the one place this wrapper deliberately
 # departs from it. Turn it on as its own round, and watch acceptance length --
 # a steady 4.00 is a repetition loop, not a good result.
+# EVERY FEATURE KNOB THE KIT READS IS PER LEG. This file previously exported
+# single knobs -- MTP, DPA -- which engine/up.sh reads under no name at all, so
+# each silently did nothing and fell back to a plausible default. The single
+# knobs are kept only as a convenience SEED for the per-leg pair below; the
+# per-leg names are what the kit actually consumes.
 export MTP="${MTP:-0}"
-export DPA="${DPA:-1}"          # decode-side DP-attention, as in the GLM-5.2 kit
+export PREFILL_MTP="${PREFILL_MTP:-$MTP}"
+export DECODE_MTP="${DECODE_MTP:-$MTP}"
+# DPA means DECODE-side DP-attention; prefill stays pure TP, as in the GLM-5.2
+# kit. This one was silently CORRECT before -- up.sh defaults happen to be 0/1 --
+# which is worse than visibly broken.
+export DPA="${DPA:-1}"
+export PREFILL_DPA="${PREFILL_DPA:-0}"
+export DECODE_DPA="${DECODE_DPA:-$DPA}"
 export KVAWARE="${KVAWARE:-1}"
 export PREFILL_KVD="${PREFILL_KVD:-0}"
 export DECODE_KVD="${DECODE_KVD:-0}"

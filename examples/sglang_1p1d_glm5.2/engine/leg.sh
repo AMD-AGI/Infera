@@ -149,7 +149,12 @@ CAR_ARGS=()
 
 # --enable-cache-report populates usage.prompt_tokens_details.cached_tokens. Without it every
 # client-side cache-hit metric reads 0 and a prefix-reuse target cannot be checked at all.
-EXTRA_ARGS=(--enable-cache-report)
+# EXTRA_ENGINE_ARGS is the cluster wrapper's escape hatch for flags this script
+# does not model -- e.g. --disable-shared-experts-fusion, which the GLM-5.3
+# wrappers pass. It was previously defined by those wrappers and read here by
+# nobody, so the flag never reached the engine. Unquoted on purpose: several
+# flags in one string must word-split. Empty by default, so unchanged when unset.
+EXTRA_ARGS=(--enable-cache-report ${EXTRA_ENGINE_ARGS:-})
 
 log "$ROLE on $MY_IP:$PORT — tp=$TP dpa=$DPA mtp=$MTP kvaware=$KVAWARE kvd=$KVD gmu=$GMU chunk=$CHUNK ctx=$CTX nic=$NIC ib=$RDMA_IB_DEVICES"
 

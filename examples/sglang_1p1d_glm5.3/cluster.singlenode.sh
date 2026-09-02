@@ -132,11 +132,26 @@ export DECODE_KV_SNAP_PORT="${DECODE_KV_SNAP_PORT:-8802}"
 # ---------------------------------------------------------------------------
 # 5. Features -- see the README before changing these two
 # ---------------------------------------------------------------------------
+# EVERY FEATURE KNOB THE KIT READS IS PER LEG. This file previously exported
+# single knobs -- MTP, DPA, GPUS, EXTRA_ENGINE_ARGS -- which engine/up.sh reads
+# under no name at all, so each silently did nothing and fell back to a
+# plausible default. MTP=0 still launched the decode leg at mtp=1. Keep the
+# single knobs only as a convenience SEED for the per-leg pair below; the
+# per-leg names are what the kit actually consumes.
+#
 # MTP off: upstream's GLM-5.3 cookbook disables EAGLE on AMD while the vendor
 # model card runs it at 3 steps. Off avoids an unvalidated variable on a shape
 # that is itself unvalidated. Turn it on deliberately, as its own round.
 export MTP="${MTP:-0}"
-export DPA="${DPA:-1}"          # decode-side DP-attention, as in the GLM-5.2 kit
+export PREFILL_MTP="${PREFILL_MTP:-$MTP}"
+export DECODE_MTP="${DECODE_MTP:-$MTP}"
+# DPA means DECODE-side DP-attention; prefill stays pure TP, as in the GLM-5.2
+# kit. This one was silently CORRECT before -- up.sh defaults happen to be 0/1 --
+# which is worse than visibly broken: setting DPA=0 for a single-variable round
+# would have produced dp8 anyway with nothing said.
+export DPA="${DPA:-1}"
+export PREFILL_DPA="${PREFILL_DPA:-0}"
+export DECODE_DPA="${DECODE_DPA:-$DPA}"
 export KVAWARE="${KVAWARE:-1}"
 export PREFILL_KVD="${PREFILL_KVD:-0}"
 export DECODE_KVD="${DECODE_KVD:-0}"
