@@ -235,6 +235,35 @@ What *is* established is the shape of each outcome:
 So **the single-node failure mode is a broken PD, not a slow one** — provided hip
 is installed. The silent-slow path exists only if hip is *absent*.
 
+> **And on this build hip cannot be turned off by the variable anyone would
+> reach for.** `leg.sh:60` exports `MC_DISABLE_HIP_TRANSPORT=1` and unsets
+> `MC_ENABLE_HIP_TRANSPORT`. **Neither name exists in the shipped mooncake
+> binary.** Exact-match against `mooncake/engine.*.so`:
+>
+> | env name | matches |
+> |---|---:|
+> | `MC_DISABLE_HIP` | **1** |
+> | `MC_USE_HIP_IPC` | 1 |
+> | `MC_FORCE_TCP` | 1 |
+> | `MC_DISABLE_HIP_TRANSPORT` | **0** |
+> | `MC_ENABLE_HIP_TRANSPORT` | **0** |
+>
+> Confirmed behaviourally as well as by inspection: a run launched with
+> `MC_DISABLE_HIP_TRANSPORT=1` — verified present in the process environment via
+> `/proc` — still logged `HIP transport installed for intra-node GPU P2P` **4×
+> per leg**, identical to a run without it.
+>
+> Two consequences. **`leg.sh:60` has never had an effect**, in either the
+> two-node or single-node path, so it is not evidence that anyone deliberately
+> disabled hip — which is likely why no reason for it could be established
+> (INFERRED: the author may have intended to disable hip and used a name that
+> does not exist). And **any A/B that varies hip must set `MC_DISABLE_HIP`**;
+> using the `_TRANSPORT` spelling produces a guaranteed-zero differential that
+> reads as a null result rather than as a broken experiment.
+>
+> Before trusting any such A/B, confirm the discriminator actually flipped:
+> `HIP transport installed for intra-node GPU P2P` must go **4/4 → 0/0**.
+
 If it fails, the fix is a topology change — give both legs all 8 GPUs and split
 with `--base-gpu-id` so each process can see its peer's cards — not a mooncake
 debug session.
