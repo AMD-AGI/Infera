@@ -152,10 +152,17 @@ access is enabled *within* each leg and never between them.
 > that is arithmetically correct and diagnostically wrong. Taking the engine's
 > advice would have let two legs coexist on four cards and produced a deployment
 > that *ran*, with every subsequent number meaningless and nothing saying so.
-> **Check `base_gpu_id` in both leg logs before trusting any memory error**: they
-> must differ (0 and 4). That check is cheaper and less ambiguous than reading
-> VRAM, and it is the one that distinguishes a tuning problem from a topology
-> problem.
+> **Before trusting any memory error, check that both halves of the box are
+> loaded** — `rocm-smi --showmeminfo vram` should show weights on GPUs 0-3 *and*
+> 4-7 (~408 GB / TP4 ≈ 102 GB per card for GLM-5.3-MXFP4). That distinguishes a
+> tuning problem from a topology problem.
+>
+> **Do not use `base_gpu_id` for this.** It is tempting and it does not work:
+> `HIP_VISIBLE_DEVICES=4,5,6,7` renumbers the decode leg's devices to 0-3, so
+> `base_gpu_id` is an index into the *visible* set, not the physical one. It reads
+> `0` on both legs when the split is broken **and** `0` on both legs when it is
+> correct — it does not discriminate at all. The VRAM read is more expensive and
+> it is the only unambiguous check here.
 
 **ANSWERED — it works.** Measured on gfx950 / ROCm 7.2 with the shipped engine
 image, two processes in one container, `--ipc=host`:
