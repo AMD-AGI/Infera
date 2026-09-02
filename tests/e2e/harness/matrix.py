@@ -91,6 +91,19 @@ KIMI_K26_MXFP4 = "amd/Kimi-K2.6-MXFP4"
 DEEPSEEK_V4_PRO = "deepseek-ai/DeepSeek-V4-Pro"
 GLM_5_1_FP8 = "zai-org/GLM-5.1-FP8"
 
+# GLM-5.3 is TWO unrelated architectures sharing a product name, and the split
+# decides which engine image a case needs:
+#   * GLM-5.3 / GLM-5.3-MXFP4        model_type glm_moe_dsa, GlmMoeDsaForCausalLM.
+#     Field-for-field identical to GLM-5.2 except transformers_version, so the
+#     released engine already serves them via glm4_moe.py -- Dockerfile.sglang.
+#   * GLM-5.3-Flash / -Flash-MXFP4   model_type glm5_next, hybrid KDA-linear +
+#     DSA + mHC, natively multimodal. In NO released sglang; needs the build-time
+#     source overlay in Dockerfile.sglang.glm53.
+GLM_5_3 = "zai-org/GLM-5.3"
+GLM_5_3_MXFP4 = "OneNexus/GLM-5.3-MXFP4"
+GLM_5_3_FLASH = "zai-org/GLM-5.3-Flash"
+GLM_5_3_FLASH_MXFP4 = "OneNexus/GLM-5.3-Flash-MXFP4"
+
 EXTRA_ARGS: dict[str, tuple[str, ...]] = {}  # default verbatim extra launch args
 
 # config.json keys that mark a Mixture-of-Experts model (any present with an
