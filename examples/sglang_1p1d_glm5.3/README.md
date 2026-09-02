@@ -354,6 +354,34 @@ These cost real debugging time there and the architecture has not changed:
    opposite of the decode-side fix. Diagnose by phase: decode retract → raise;
    prefill `HSA_STATUS_ERROR_OUT_OF_RESOURCES` at *low* token usage → lower.
    Low token usage at the abort is the tell that it was never KV exhaustion.
+
+   **3a. A third form, and the engine's own advice is a trap in it.** On the
+   single-node shape a leg can abort at startup with
+
+   ```
+   ValueError: Loaded weights leave no GPU memory for the KV cache under
+   --mem-fraction-static=0.7. Raise --mem-fraction-static above 0.773
+   ```
+
+   That number is arithmetically correct and **diagnostically wrong**. It is
+   computed from the memory actually free at that moment, and the reason there
+   is none is usually that **the other leg is on the same cards** — measured
+   once as GPUs 0-3 at 263.8 GB each with 4-7 at 0.3 GB. Raising the fraction
+   as instructed produces a *working* deployment on the wrong topology: two
+   legs sharing half the node, every subsequent number meaningless, nothing
+   logged.
+
+   **Check the cards before you touch the knob.** `rocm-smi --showmeminfo vram`
+   must show load on *both* halves. Do not use `--showmemuse`'s `VRAM%` (it
+   does not fall when memory is released) and do not use each leg's
+   `base_gpu_id` (it is an index into the leg's **visible** set, so
+   `HIP_VISIBLE_DEVICES=4,5,6,7` renumbers the decode leg to 0-3 and it reads
+   `base_gpu_id=0` on both legs whether the split is broken or correct).
+
+   Distinguishing the three: **this** form aborts during startup profiling with
+   weights already loaded and no request served; the classic prefill form
+   aborts under load at low token usage; the decode form retracts under load at
+   high token usage.
 4. **`SGLANG_OPT_USE_TOPK_V2=0` is mandatory on gfx950.** Without it the model
    serves, returns 200s, and returns garbage.
 5. **MTP and decode-side radix cache are mutually exclusive upstream**, so
