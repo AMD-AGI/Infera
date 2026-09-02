@@ -1,0 +1,89 @@
+# The outermost graph. Its name is fixed and its presence is what makes this
+# directory a task package (main spec §4.3).
+#
+# This package is **stage 4 of six** — kernel optimization — from the
+# `llm_e2e_performance_optimization` series (`temp/mission.md`). Stages 1-3 and
+# 5 are not here. Stage 3's job is to produce a *workset*; since it does not
+# exist yet, this package ships one as data under `assets/worksets/` and a
+# program leaf publishes it. When stage 3 lands, it produces a directory of that
+# shape and `publish_workset` is either re-pointed at it with `--var` or deleted
+# in favour of stage 3's own output.
+#
+# **Two leaves, not one, and the second leaf is the point.** The template this
+# is modelled on — `examples/single_real_task` — has one leaf and therefore an
+# empty input-validation phase for the whole package. Here `optimize_kernel`
+# consumes `workset`, so its input phase is non-empty and the handoff between
+# two tasks is a real transfer rather than a shape declared and never exercised.
+# That transfer is what the mission means by "handoff": the boundary the
+# KernelForge wrapper has to convert across.
+#
+# `main` is a **non-leaf**: it carries `assets/main.task/readme.md` and no
+# `entry.sh`, because its work *is* its subgraph and the two are mutually
+# exclusive (`closure` spec §2.6). It declares **no `agent`** —
+# `closure.schema.json`'s conditional requires one of a leaf and of nothing
+# else — and **no `resources`**, because only a leaf may acquire and the CLI
+# composition root declares no pools for a leaf to acquire from.
+#
+# There is **no `body:` key** anywhere in this package. A folder named
+# `${name}.${type}` under `assets/` scopes the lookup and `readme.md` /
+# `entry.sh` are then found by their own names.
+module: task
+name: main
+description: Optimize one traced sglang kernel with KernelForge and hand back a reproduction kit.
+
+# Both kinds, declared here because the root's grants must cover the whole
+# subtree: permissions are inherited downwards, so the root is the one place
+# that has to know the full vocabulary. Both are *defined* in
+# `steps/kernel_optimization.yaml`, beside their producers; this list only
+# references them.
+handoffs:
+  - workset
+  - kernel_optimization
+
+# A non-leaf runs nothing, so there is nothing of its own to validate. Every
+# validator in this package hangs off a handoff **kind**, in the step file that
+# declares it — and that is not a stylistic choice: a closure's `validators:`
+# list has no runtime consumer (`cli/README.md` F-D4, still open), because
+# `validator.PhaseRunner._select` builds a phase's set from the kind. A
+# validator named here would silently never run.
+validators: []
+
+task:
+  goal: Optimize a traced sglang kernel with KernelForge and pack the result up.
+  version: '1'
+
+  # `main` consumes nothing from outside the package. The workset is package
+  # data, not an external input.
+  inputs: []
+
+  # `kernel_optimization`, and only it. The end entry's outputs are the sole
+  # route by which a handoff produced inside a subgraph leaves it
+  # (`task_graph` criterion 50), and `optimize_kernel` is marked `is_end`.
+  # `workset` is internal: produced and consumed inside this graph, and it does
+  # not escape.
+  outputs: [kernel_optimization]
+
+  # One grant per kind, all WRITE, because **WRITE covers READ** — so these two
+  # lines cover both producers and `optimize_kernel`'s read of `workset`.
+  # `closure` check 6 is about `(kind, access)` pairs rather than paths: read for
+  # every input kind, write for every output kind, inherited downwards.
+  permissions:
+    grants:
+      - {path: handoffs/workset, access: write, kind: workset}
+      - {path: handoffs/kernel_optimization, access: write, kind: kernel_optimization}
+
+  # **`froms` is derived, not declared.** The edge set comes from the handoff
+  # wiring (`task_graph/models.py:560-569`) and what is written here is checked
+  # against that derivation; a derived edge missing from `froms` is a load
+  # failure naming both sides. `optimize_kernel` takes `workset` as an input and
+  # `publish_workset` produces it, so the derived edge exists and must be
+  # written.
+  #
+  # `is_start` is absent because absent means *the first entry*, which is what
+  # `publish_workset` is. `is_end` is written on `optimize_kernel` even though
+  # absent would also mean *the last entry*, because the mark starts carrying
+  # information the moment a third entry is appended — stage 5 is going to be
+  # that entry.
+  subgraph:
+    - {closure: publish_workset, froms: []}
+    - {closure: optimize_kernel, froms: [publish_workset], is_end: true}
