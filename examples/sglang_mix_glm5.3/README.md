@@ -72,8 +72,8 @@ Stated plainly rather than implied. All on 8×MI355X, gfx950, ROCm 7.2, driver
 |---|---|
 | `flash-mxfp4` | **validated end to end** — full infera stack, reproduced on two separate nodes, plus a fixed-length sweep |
 | `big-fp8` | **validated** — all smoke blocks green, `max_total_num_tokens=1148288` |
-| `big-mxfp4` | **validated** — all smoke blocks green, AITER FP4 path confirmed dispatching (`torch.float4_e2m1fn_x2`, `per_1x32`) rather than dequantising to BF16 |
-| `flash-fp8` | **recipe carried over, not yet validated in this kit.** A prior bring-up served this checkpoint on a different image and SHA. In particular, whether it needs `--disable-shared-experts-fusion` is **unverified** — see below |
+| `big-mxfp4` | **validated, with numbers** — all smoke blocks green; AITER FP4 path confirmed dispatching (`torch.float4_e2m1fn_x2`, `per_1x32`) rather than dequantising to BF16; TP8+DPA+MTP fixed-length sweep lands at **0.92 / 1.06 / 0.89 / 1.10 ×** the GLM-5.2 MIX baseline at concurrency 1/8/16/24 |
+| `flash-fp8` | **loads and serves correctly** — brought up on a third node, 62/62 shards, coherent answers, 8/8 AITER mHC lines. Throughput not yet measured in this kit |
 | PD (1P1D) for any variant | **not covered by this kit.** For the big pair the shape is the same as [`sglang_1p1d_glm5.2`](../sglang_1p1d_glm5.2/), which is validated for GLM-5.2 |
 
 ## The one flag you must not drop: `--disable-shared-experts-fusion`
@@ -100,6 +100,23 @@ Two consequences worth carrying:
 
 - **The health signal is a line that must be ABSENT.** Grep the worker log for
   `Shared experts fusion optimization enabled.` — present means broken.
+- **On `flash-fp8` the flag is NOT needed, and this is measured rather than
+  assumed.** That checkpoint was brought up on a third node with fusion left
+  **enabled** — `disable_shared_experts_fusion: False` in the resolved args and
+  `[TP0] Shared experts fusion optimization enabled.` in the log — and it loaded
+  all 62 shards with no `_load_w2` mismatch and answered correctly. The reason it
+  is safe was predicted before launch from the checkpoint's own index: **129
+  `.weight` / 129 `.weight_scale_inv`**, a strict 1:1 pairing, i.e. uniformly
+  block-FP8. The MXFP4 precondition — shared experts at a *higher* precision than
+  the routed experts — is simply absent, so `quant_blocks_shared_experts_fusion`
+  returns False and fusion is legitimate.
+
+  This is the control arm that makes the story a quantization mismatch rather
+  than "fusion is broken on gfx950". **The gfx950 fusion path itself works.** What
+  #36607 shipped unguarded is the *decision* to use it, and that decision is only
+  wrong when the checkpoint is mixed-precision — which is why the one-line guard
+  is the right upstream fix rather than reverting the feature.
+
 - **On `big-mxfp4` the same flag is insurance, not a fix.** That checkpoint's
   shared experts are themselves MXFP4, so the precondition is absent. It stays
   on by default because upstream #25261 shows this class of mismatch failing
