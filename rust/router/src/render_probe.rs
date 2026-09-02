@@ -96,10 +96,7 @@ fn probe_bodies() -> Vec<(&'static str, Value)> {
         // to nothing unless `responses_input` rebuilds the chat request. Chat
         // probes stay green through that. Tokenise the converted chat body --
         // `/v1/tokenize` runs `_process_messages`, not `_make_request`.
-        (
-            "responses",
-            json!({"input": "What is 2+2?"}),
-        ),
+        ("responses", json!({"input": "What is 2+2?"})),
     ]
 }
 
@@ -175,7 +172,8 @@ impl ParityRegistry {
     /// change drops a settled verdict so a replacement on the same worker_id
     /// is probed again.
     pub fn claim(&self, worker_id: &str, model: &str) -> Option<u64> {
-        self.claim_identity(worker_id, model, "").map(|(epoch, _)| epoch)
+        self.claim_identity(worker_id, model, "")
+            .map(|(epoch, _)| epoch)
     }
 
     /// Second value is true when `worker_id` already had a different process
