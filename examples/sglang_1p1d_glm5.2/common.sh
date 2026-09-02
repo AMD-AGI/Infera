@@ -34,8 +34,20 @@ start_container(){
   require_env INFERA_IMAGE "the engine image"
   require_env MODEL_MOUNT "host dir holding the weights, bind-mounted into the container"
   local ep=(--entrypoint '')
+  local loaded_infera
   if [ "${ENTRYPOINT_KEEP:-0}" = "1" ]; then ep=(); fi
   local mounts=(-v "$MODEL_MOUNT:$MODEL_MOUNT")
+
+  if [ -n "${INFERA_SRC:-}" ]; then
+    [ -f "$INFERA_SRC/pyproject.toml" ] \
+      || die "INFERA_SRC is not an Infera checkout on $(hostname -s): $INFERA_SRC"
+    mounts+=(-v "$INFERA_SRC:/opt/infera:ro")
+  fi
+
+  if [ -n "${TRACE_OUT:-}" ]; then
+    mkdir -p "$TRACE_OUT" || die "could not create TRACE_OUT on $(hostname -s): $TRACE_OUT"
+    mounts+=(-v "$TRACE_OUT:$TRACE_OUT")
+  fi
   # Only mount a host RDMA provider library if the site says it needs one.
   # HOST_RDMA_MOUNT must be the in-container path YOUR image's entrypoint reads — mount it
   # elsewhere and the injection silently no-ops: zero devices, and the leg still serves.
@@ -50,6 +62,15 @@ start_container(){
     "${mounts[@]}" "${ep[@]}" "$INFERA_IMAGE" sleep infinity >/dev/null \
     || die "docker run failed for $CTR"
   log "container '$CTR' up ($INFERA_IMAGE)"
+  if [ -n "${INFERA_SRC:-}" ]; then
+    loaded_infera="$(docker exec "$CTR" python3 -c 'import infera; print(infera.__file__)')" \
+      || die "could not import the mounted Infera source in $CTR"
+    case "$loaded_infera" in
+      /opt/infera/infera/*) log "development source active: $INFERA_SRC -> $loaded_infera" ;;
+      *) die "mounted Infera source is not active; imported $loaded_infera" ;;
+    esac
+  fi
+  [ -n "${TRACE_OUT:-}" ] && log "trace output mounted rw: $TRACE_OUT"
   docker exec "$CTR" python3 -c 'import torch;print("  gpu gate:", torch.cuda.is_available(), torch.cuda.device_count())' || true
   # Zero devices is not an error — mooncake falls back to a 5-20x slower transport and the
   # leg serves fine. Hence a warning, not a number to skim past.
@@ -83,10 +104,21 @@ start_etcd(){
 # what: the infera router, inside $CTR on the prefill node.
 # why : the module is `infera.server`, NOT `infera.router` — the latter has no __main__.
 # how : POLICY=kv-aware|round-robin, coupled to GMU_PREFILL; kv-aware needs the tokenizer.
+#       ROUTER_EXTRA_ARGS appends flags verbatim; engine/up.sh uses it for --enable-profiling.
 start_router(){
   local ip="${1:?router bind ip}"
   require_env TOKENIZER "tokenizer path the router loads for kv-aware routing"
   local policy="${ROUTER_POLICY:-kv-aware}" backend="${ROUTER_BACKEND:-rust}"
+  local extra="${ROUTER_EXTRA_ARGS:-}"
+  # The profile control plane exists only in the python router. launch_rust.py does not
+  # degrade when it sees --enable-profiling — it raises SystemExit, so the router never
+  # starts and the failure surfaces as "router did not come up" 60s later. Flip the backend
+  # here, in the one function that owns it, rather than making every caller remember.
+  if [ "$backend" = "rust" ] && [[ " $extra " == *" --enable-profiling "* ]]; then
+    warn "profiling requested -> router backend rust->python (rust has no profiling control plane)"
+    warn "  expect lower absolute throughput than a rust-router run; do not compare the two."
+    backend=python
+  fi
   local kv_args=()
   if [ "$policy" = "kv-aware" ]; then
     # Cost = w * (request_blocks - hits) + active_blocks. Prefill is compute-bound and a hit
@@ -104,7 +136,7 @@ start_router(){
     --host 0.0.0.0 --port $ROUTER_PORT --router-backend $backend \
     --discovery-backend etcd --etcd-endpoint $ip:$ETCD_PORT \
     --request-transport http --kv-event-transport zmq \
-    --router-policy $policy ${kv_args[*]} > /tmp/router.log 2>&1"
+    --router-policy $policy ${kv_args[*]} $extra > /tmp/router.log 2>&1"
   wait_health "http://$ip:$ROUTER_PORT/health" 12 5 \
     || { docker exec "$CTR" tail -30 /tmp/router.log; die "router did not come up"; }
   log "router up on :$ROUTER_PORT (backend=$backend policy=$policy)"

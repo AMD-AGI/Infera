@@ -28,7 +28,8 @@ a puzzle to solve.
 
 ## The fields you must fill in
 
-Both wrappers have the same four blocks. Placeholders read `<like-this>`.
+Both wrappers have the same five blocks. Placeholders read `<like-this>`. Only the first
+four are needed to serve; §5 is read by `engine/trace_replay.sh` alone.
 
 ### 1. Nodes
 
@@ -52,10 +53,19 @@ config preflight, but a *wrong-but-routable* one is not — it just hangs.
 | `MODEL` | the checkpoint, which must live **under** `MODEL_MOUNT` |
 | `TOKENIZER` | usually the same path; the router loads it for kv-aware routing |
 | `HOST_RDMA_LIB` / `HOST_RDMA_MOUNT` / `ENTRYPOINT_KEEP` | only if your image injects a host RDMA provider library at entrypoint — see below |
+| `TRACE_OUT` | where `engine/capture.sh` writes torch traces. Bind-mounted at this **exact absolute path** into both engine containers, so it must be writable on both nodes. Shipped as `$KIT_DIR/profiles` |
+| `INFERA_SRC` | optional development overlay: an Infera checkout mounted read-only over the image's `/opt/infera`. Shipped commented out |
 
 The checkpoint is ~400 GB and both legs read it during bring-up. Prefer local storage
 on both nodes: a slow mount can take an order of magnitude longer and blow the ready
 timeout — which presents as a crash loop, not as slow storage.
+
+`TRACE_OUT` is the one field here that a serving deployment never touches and a
+profiling run cannot work without. `capture.sh` verifies the mount with `docker inspect`
+before it starts a profile, because without that check Docker would create the directory
+inside the container layer and the capture would report success while the host stayed
+empty. `INFERA_SRC` is checked the same way, by importing `infera` in the started
+container and refusing to continue if the mounted tree is not what got imported.
 
 **If your image injects a host RDMA provider library**, all three variables are
 required together. `HOST_RDMA_LIB` is the host path (point it at the *symlink*, so nodes
@@ -106,6 +116,36 @@ Run it on **each** node — the two can legitimately differ.
 `mem-fraction-static` values. The defaults are the recommended production shape;
 the [main README](../README.md#recommended-configuration) explains what each one buys
 and which pairs are coupled.
+
+### 5. Trace replay (optional)
+
+Only read by `engine/trace_replay.sh`, and only when `AIPERF_TRACE` is set. Leave it
+unset and nothing here does anything.
+
+```bash
+AIPERF_TRACE=<...> bash cluster/cluster.dmabuf.sh trace_replay prepare
+```
+
+| field | what it must be |
+|---|---|
+| `AIPERF_TRACE` | absolute path to a Mooncake-format trace JSONL, readable on **both** this host and `$AIPERF_NODE` |
+| `AIPERF_OUT` | artifacts, the per-run command file and the mmap dataset cache. Must resolve to the **same** path on both hosts, for the same reason `KIT_DIR` must |
+| `AIPERF_NODE` | which node generates the load. Defaults to `$PREFILL_NODE` |
+| `AIPERF_IMAGE` | pinned to a published NGC tag. Override only to run a locally built AIPerf |
+
+Two of these are worth understanding before you set them.
+
+**`AIPERF_NODE` defaults to the prefill node because that needs no extra configuration,
+not because it is the neutral choice.** AIPerf synthesizes and tokenizes every prompt in
+the slice before it sends anything, which is CPU-bound work competing with the engine's
+own scheduler and tokenizer processes on that node. Any host that can route to
+`$PREFILL_IP:$ROUTER_PORT` works, and a host that is not serving removes that
+interference entirely.
+
+**The client cannot run inside the engine container.** That image ships Python 3.10 and
+AIPerf requires ≥ 3.11, so `trace_replay.sh` uses its own container. At 255 MB it is not
+the pull an engine image is. If your site cannot reach `nvcr.io`, build AIPerf's own
+Dockerfile and point `AIPERF_IMAGE` at the result — nothing else changes.
 
 ## Schedulers where `ssh <node>` does not work
 
