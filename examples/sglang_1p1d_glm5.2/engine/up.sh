@@ -35,7 +35,9 @@ ${MC_MS_AUTO_DISC:+MC_MS_AUTO_DISC=$MC_MS_AUTO_DISC} \
 ${RDMAV_FORK_SAFE:+RDMAV_FORK_SAFE=$RDMAV_FORK_SAFE} \
 ${HOST_RDMA_LIB:+HOST_RDMA_LIB=$HOST_RDMA_LIB} \
 ${ENTRYPOINT_KEEP:+ENTRYPOINT_KEEP=$ENTRYPOINT_KEEP} \
-${GMU_PREFILL:+GMU_PREFILL=$GMU_PREFILL} ${GMU_DECODE:+GMU_DECODE=$GMU_DECODE}"
+${GMU_PREFILL:+GMU_PREFILL=$GMU_PREFILL} ${GMU_DECODE:+GMU_DECODE=$GMU_DECODE} \
+${EXTRA_ENGINE_ARGS:+EXTRA_ENGINE_ARGS=\"$EXTRA_ENGINE_ARGS\"} \
+${MC_DISABLE_HIP:+MC_DISABLE_HIP=$MC_DISABLE_HIP}"
 
 log "=== 1/4 containers ==="
 for h in "$PREFILL_NODE" "$DECODE_NODE"; do
@@ -64,11 +66,35 @@ if [ "${DECODE_KVD:-0}"  = "1" ]; then start_kvd "$DECODE_NODE"; fi
 log "=== 3/4 legs ==="
 # Launch both legs before waiting on either: they load ~400 GB of weights concurrently, and
 # serialising the waits doubles the bring-up for no reason.
+# GPUS is forwarded PER LEG with :+ (inject only when set), NOT :- with a
+# default. A default would push GPUS into the two-node path, where leg.sh's own
+# `seq 0..TP-1` is correct and a hardcoded list would be wrong at any TP != that
+# list's length. Unset on both sides here == today's behaviour exactly.
+#
+# Until this existed, a single-node pair silently put BOTH legs on the same
+# cards: the wrapper's PREFILL_GPUS/DECODE_GPUS were read by nobody, leg.sh:26
+# fell back to `seq 0..TP-1`, and the second leg's weights landed on top of the
+# first's. Measured: GPUs 0-3 at 263.8 GB each with 4-7 at 0.3 GB, and the
+# prefill leg then died on "Loaded weights leave no GPU memory for the KV cache",
+# which reads as a GMU tuning problem and is not one.
+#
+# The KV-event ports are forwarded PER LEG. They default to leg.sh's own values,
+# so the two-node shape is unchanged -- there the legs are on different hosts and
+# cannot collide. On a SINGLE-NODE pair they share one network namespace, and
+# without distinct values the second leg dies at bind with "port_base at N is not
+# available". Nothing a wrapper exports reaches leg.sh except through here:
+# `on()` runs a fresh remote shell.
 on "$PREFILL_NODE" "$COMMON_ENV ROLE=prefill MY_IP=$PREFILL_IP PORT=$PREFILL_PORT \
   DPA=${PREFILL_DPA:-0} MTP=${PREFILL_MTP:-0} KVD=${PREFILL_KVD:-1} \
+  KV_PUB_PORT=${PREFILL_KV_PUB_PORT:-5557} KV_SNAP_PORT=${PREFILL_KV_SNAP_PORT:-8801} \
+  MC_DISABLE_HIP_TRANSPORT=${MC_DISABLE_HIP_TRANSPORT:-1} \
+  ${PREFILL_GPUS:+GPUS=$PREFILL_GPUS} \
   bash $KIT_DIR/engine/leg.sh"
 on "$DECODE_NODE" "$COMMON_ENV ROLE=decode MY_IP=$DECODE_IP PORT=$DECODE_PORT \
   DPA=${DECODE_DPA:-1} MTP=${DECODE_MTP:-1} KVD=${DECODE_KVD:-0} \
+  KV_PUB_PORT=${DECODE_KV_PUB_PORT:-5557} KV_SNAP_PORT=${DECODE_KV_SNAP_PORT:-8801} \
+  MC_DISABLE_HIP_TRANSPORT=${MC_DISABLE_HIP_TRANSPORT:-1} \
+  ${DECODE_GPUS:+GPUS=$DECODE_GPUS} \
   bash $KIT_DIR/engine/leg.sh"
 
 # Poll /health from INSIDE each node's container. Never curl a PD leg's port from another

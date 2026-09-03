@@ -7,24 +7,30 @@
 #
 # TWO ARMS, because the set is not uniformly portable across our engine bases:
 #
-#   DSA_PATCH_SET=full     (default; Dockerfile.sglang, mi35x / v0.5.17)
-#         patch 01 + dsa_dp_sync + dsa_page_table_rows + draft_cuda_graph_dp_vote.
-#         The three diffs are `--fuzz=0` against that one release, so this arm
-#         only works there.
+#   DSA_PATCH_SET=full     (default; Dockerfile.sglang, mi35x / v0.5.18)
+#         patch 01 + dsa_dp_sync + dsa_page_table_rows + draft_cuda_graph_dp_vote,
+#         plus one anchor port.  The three diffs were cut `--fuzz=0` against
+#         v0.5.17; on the v0.5.18 base 02a and 02b still apply byte-for-byte (at
+#         an offset, which is not fuzz), and 04 applies everywhere except one
+#         hunk of dp_attn.py -- see EXPECT_REJECT below.
 #   DSA_PATCH_SET=indexer  (Dockerfile.sglang.gfx942, mi30x / v0.5.16)
 #         patch 01 only.  02b is substituted at RUNTIME by
 #         `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`
 #         -- see patches/sglang_dsa/README.md; the gfx942 recipe MUST pass it.
 #
-# THE TWO EMPTY TABLES BELOW ARE DELIBERATE.  `EXPECT_REJECT` scopes tolerance
-# for a diff expected to reject one named file; `PORT_SCRIPTS` lists the anchor
-# script that carries that file instead.  No arm needs either today, so any
-# rejection fails the build.  One port script is kept unused:
-# patches/sglang_dsa/patch_draft_cuda_graph_dp_vote_v0516.py carries 04's
-# dp_attn.py to v0.5.16 by anchor -- six of that diff's seven files apply there,
-# and dp_attn.py rejects all 7 of its hunks because the two gates beside them
-# were renamed.  Verified in-image, so 04 need not be re-cut if it is ever
-# wanted on that base.
+# TWO PORT SCRIPTS EXIST, AND ONLY ONE IS WIRED IN.  `EXPECT_REJECT` scopes
+# tolerance for a diff expected to reject one named file; `PORT_SCRIPTS` lists
+# the anchor script that carries that file instead.  Both are populated for the
+# `full` arm and empty for `indexer`, so on `indexer` any rejection still fails
+# the build.
+#
+#   ..._v0518.py  WIRED into `full`.  Carries the single hunk of 04's dp_attn.py
+#                 that v0.5.18 rejects.  See EXPECT_REJECT below.
+#   ..._v0516.py  UNUSED.  Carries all seven of 04's dp_attn.py edits to
+#                 v0.5.16, where the whole file rejects because the two gates
+#                 beside them were renamed.  The `indexer` arm does not carry 04
+#                 at all, so nothing runs it; it is kept, verified in-image, so
+#                 04 need not be re-cut if it is ever wanted on that base.
 #
 # THE `indexer` ARM IS NARROW ON PURPOSE.  02a and 04 can look necessary there
 # after a GPU fault that is really the driver: an out-of-support host-driver /
@@ -69,12 +75,27 @@ case "$DSA_PATCH_SET" in
 esac
 
 # Per-arm escape hatch for a diff that is expected to reject ONE named file
-# because an anchor script carries it instead.  Both are deliberately EMPTY: no
-# arm needs this today.  The mechanism stays because it is the only safe way to
-# express that tolerance -- scoped to a named file, so any OTHER rejection still
-# fails the build.  An unset expectation waves nothing through; see the loop.
+# because an anchor script carries it instead.  Tolerance is scoped to a named
+# file, so any OTHER rejection still fails the build, and an unset expectation
+# waves nothing through; see the loop.
+#
+# The `full` arm needs it since the base moved v0.5.17 -> v0.5.18.  04's
+# dp_attn.py applies 6 of its 7 hunks there; hunk 4 -- the min()-reduce -- fails
+# because upstream collapsed the per-field device reads into one D2H copy and
+# renamed the tensor with it (`tp0_info[:, N].min().item()` ->
+# `tp0_info_cpu[:, N].min()`).  Losing that one hunk does NOT degrade
+# gracefully: it is the only place the gathered column is reduced back onto
+# `self.can_run_draft_cuda_graph`, so without it every rank reads its own answer
+# and the vote silently never happens.  The port script re-asserts all six
+# sibling edits before writing, which the `dp_attn.py:can_run_draft_cuda_graph`
+# marker below cannot -- that identifier is present after six hunks, so the
+# marker passes on an inert patch.
 declare -A EXPECT_REJECT=()
 PORT_SCRIPTS=()
+if [ "$DSA_PATCH_SET" = "full" ]; then
+  EXPECT_REJECT[draft_cuda_graph_dp_vote.diff]="python/sglang/srt/managers/scheduler_components/dp_attn.py"
+  PORT_SCRIPTS=(patch_draft_cuda_graph_dp_vote_v0518.py)
+fi
 
 # module basename : identifier that must be present in the compiled bytecode
 #

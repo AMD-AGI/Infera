@@ -137,6 +137,66 @@ so expect upstream to close this differently than we did.
 > V4 stack runs on this branch, so that gate would be untested — the script's SCOPE
 > section records it for whoever gets there.
 
+## sglang carried — `patches/sglang_carried/` (**baked by nothing**)
+
+Held, reviewable, and deliberately not built. No Dockerfile copies or runs this
+directory, which is why these scripts are not in `sglang_rocm/` beside their
+siblings: every other patch directory is consumed by an unconditional
+`for f in .../*.py; do python "$f"; done`, so a file placed there is wired into
+every image that copies it, with no per-file opt-out.
+`patches/sglang_carried/README.md` carries the rule and the exit criteria.
+
+| patch | fixes | upstream issue | upstream PR | ours? | PR state |
+|---|---|---|---|---|---|
+| `sglang_carried/patch_glm_moe_gate_bias_fp32.py` | `MoEGate.__init__` allocates the MoE `e_score_correction_bias` as **bf16** whenever a quant_config is present and `_use_aiter`, and `biased_grouped_topk_gpu` casts it down again at the aiter call. GLM's bias is a narrow band at a large offset, so bf16 cannot hold it: measured on the checkpoints themselves, GLM-5.3 / -MXFP4 collapse **238 distinct fp32 values to 8** and GLM-5.3-Flash-MXFP4 **282 to 11**, which reorders `noaux_tc` top-k routing | none found | [sglang#37133](https://github.com/sgl-project/sglang/pull/37133) `[GLM-5.2] Keep GlmMoeDsa MoE e_score_correction_bias in fp32` (`xiaobochen-amd`) — same defect, **narrower gate**: see below | no (`xiaobochen-amd`) | OPEN |
+
+**Status: carried, not applied.** Verified as text and as predicate logic only —
+applies to copies of `v0.5.18`, `c821c425` and the live source extracted from
+`infera/engine-sglang:v0518-glm53` (result byte-identical to the patched
+`v0.5.18` tree), idempotent on re-run, and both drift cases exit 1 having written
+neither file. **It has never been executed on a GPU, and no accuracy or
+throughput delta has been measured.** Do not read the row above as validation.
+
+Not wired because the defect is a routing perturbation, not a crash: the server
+starts, answers, and reports plausible numbers either way. Rebuilding the engine
+image while an alignment campaign is in flight would make our arm the only one
+running the fixed router and destroy the like-for-like property those ratios rest
+on. The exit criterion is a hardware run plus a measurement of the thing it
+claims to change.
+
+> **Why the gate is not upstream's.** #37133 gates on
+> `any("GlmMoeDsa" in arch for arch in config.architectures)`. That predicate is
+> False for the whole Flash family and would ship a fix that does not fix it:
+> `Glm5NextForConditionalGeneration.__init__` does
+> `self.config = config.text_config` and passes the **text** config down, and
+> GLM-5.3-Flash-MXFP4's `text_config` has `architectures: None` — there is no arch
+> string on the object `MoEGate` receives, so widening the string list cannot
+> help. Flash imports `DeepseekV2MoE` (hence the same `MoEGate`) and has the same
+> collapse.
+>
+> This script's `_moe_gate_bias_wants_fp32()` is a union of three tests:
+> `moe_router_dtype == "float32"` (the model author's own declaration — carried by
+> all four GLM-5.3 configs and GLM-5.2-FP8, and **sglang has zero references to
+> the field**, which is the actual root cause); `model_type` (`glm_moe_dsa` /
+> `glm5_next*`, needed because GLM-5.2-MXFP4 and GLM-5.1-FP8 predate that field,
+> and it survives the NextN rewrite in `configs/model_config.py:623`); and
+> upstream's arch test, kept so this stays a superset of #37133 and becomes a
+> no-op once it lands. Checked against all 38 checkpoints on this host: 8/8 GLM
+> keep fp32, 30/30 non-GLM byte-identical.
+>
+> **Both edits or neither, and that is not stylistic.** aiter's launcher
+> (`csrc/kernels/topk_softmax_kernels_group.cu:1156`) dispatches on
+> `gating_output.dtype()` and then `reinterpret_cast`s the bias pointer to that
+> same `scalar_t` **without checking the bias tensor's own dtype**. An fp32 bias
+> under a bf16 gating tensor is neither an error nor a cast — it reads fp32 bytes
+> as bf16. So applying the `deepseek_v2.py` half alone is strictly worse than the
+> defect, and the script plans both files before writing either.
+>
+> **Drop this patch** when a base sglang keeps the GLM bias fp32 on both sides;
+> the replacement text is then already present and the script reports "already
+> present" and no-ops. If only #37133's form lands, keep it — the Flash half would
+> go with it.
+
 ## Mooncake C++ — `patches/mooncake_cpp/`
 
 SGLang now builds Mooncake `faae8dd4` directly and carries no private Mooncake

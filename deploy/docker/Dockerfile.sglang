@@ -3,10 +3,24 @@
 # the command.
 #
 # ⚠️ The base tag is PINNED and must stay pinned: the GLM-5.2 DSA patches near
-# the end of this file are context diffs applied at --fuzz=0 against this exact
+# the end of this file are context diffs applied at --fuzz=0 against a specific
 # sglang release. Bumping the base fails the build there rather than silently
 # mis-applying. Build with APPLY_SGLANG_DSA_PATCHES=0 if you need a newer base.
-ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.17-rocm720-mi35x
+#
+# Moved v0.5.17 -> v0.5.18 for the GLM-5.3 series. GLM-5.3 and GLM-5.3-MXFP4 are
+# `glm_moe_dsa` / `GlmMoeDsaForCausalLM`, field-for-field identical to GLM-5.2
+# except `transformers_version`, so the released engine already serves them
+# through glm4_moe.py and this image needs no new model source. What the bump
+# cost was one hunk: on v0.5.18 the DSA set still applies except for
+# draft_cuda_graph_dp_vote's min()-reduce in dp_attn.py, which upstream renamed
+# out from under it -- carried by an anchor port, see
+# scripts/apply_sglang_dsa_patches.sh.
+#
+# GLM-5.3-**Flash** is NOT served by this image: it is `glm5_next`, which no
+# published sglang release carries at all. That needs the build-time source
+# overlay in Dockerfile.sglang.glm53, and deliberately stays out of this file so
+# the default build path for Kimi-K3 and GLM-5.2 never fetches unreleased source.
+ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.18-rocm720-mi35x
 FROM ${SGLANG_BASE_IMAGE}
 
 WORKDIR /opt/infera
@@ -113,10 +127,19 @@ RUN if [ "${APPLY_SGLANG_DSA_PATCHES}" = "1" ]; then \
 # prefill.py / mooncake/conn.py, which no DSA diff does. A script here exits non-zero
 # when its anchors drifted, i.e. when the fix did not go in — an engine image that
 # silently corrupts long prompts is worse than a failed build.
+# Two of these anchors moved between v0.5.17 and v0.5.18 — the typing import in
+# mooncake/conn.py grew `Set`, and serving_responses.py's `background=` argument
+# gained `and not request.stream`. Neither fix landed upstream, so the patches
+# are still needed; only their anchors are stale. reanchor_...glm53.sh retargets
+# them into a COPY, leaving the originals untouched for the v0.5.17-based
+# gfx942 image. It fails loudly if an old literal is gone, which would mean
+# upstream moved again (or took the fix) and this stage should be re-derived.
 COPY deploy/docker/patches/sglang_disagg/ /tmp/sglang-disagg-patches/
+COPY deploy/docker/scripts/reanchor_sglang_disagg_glm53.sh /tmp/reanchor.sh
 RUN set -eu; \
-    for f in /tmp/sglang-disagg-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
-    rm -rf /tmp/sglang-disagg-patches
+    bash /tmp/reanchor.sh /tmp/sglang-disagg-patches /tmp/sglang-disagg-v0518; \
+    for f in /tmp/sglang-disagg-v0518/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
+    rm -rf /tmp/sglang-disagg-patches /tmp/sglang-disagg-v0518 /tmp/reanchor.sh
 
 # ---- sglang Responses API patches (not PD-specific) ------------------------
 # REQUIRED FOR ANY Codex-driven workload against a model with a custom chat
