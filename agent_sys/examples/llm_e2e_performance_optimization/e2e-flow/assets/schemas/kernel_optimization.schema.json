@@ -1,0 +1,394 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kernel_optimization.schema.json",
+  "title": "One optimised kernel, its evidence, and how to put it back",
+
+  "description": "Stage 4's deliverable, as a document rather than as prose. Written against the real sealed artefact at cheat_for_mock/stage4-kernel-opt/kernel_optimization/, which is a KFO_MOCK=1 run: it carries the operator, the measurement apparatus and honest evidence, and it carries no `apply` and no `premise` because there was no optimisation to apply and the premise question had not been asked yet. Those two are the fields M4.3.5 and M5.1.1 add, and they are required here precisely because the sealed sample shows what a handoff looks like without them.\n\nThe document lives at `items/codes/<operator>.packup_<YYYYMMDD>/results/kernel_optimization.json`. Everything a consumer needs mechanically is in it. The packup's markdown stays, and stays commentary: `check_optimization_shape` still requires README/REPRODUCE/environment/notes because a reader needs them, but no validator and no consumer parses a number out of them.\n\n**The reversal, M4.3.5, is expressed here and not only in the validator.** `evidence.performance.baseline.source` is `const: \"workset\"`: the denominator of every ratio in this document is the workset's own recorded baseline, and a schema that permitted any other value would make the rule unenforceable at rest. The old package's rule was the opposite — measure your own baseline, disbelieve the workset's — and the fields that rule needed are gone rather than deprecated.",
+
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "operator", "workset_ref", "apply", "evidence", "premise"],
+
+  "properties": {
+    "schema_version": {"const": 1},
+
+    "operator": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_]*$",
+      "description": "The `operator_id` optimised, and it must be one of the ids in the referenced workset's `operators[]`. Same pattern as `workset.schema.json#/$defs/operator/properties/operator_id`, so a value legal in one file is legal in the other."
+    },
+
+    "workset_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["handoff_id", "version", "workset_id", "snapshot"],
+      "description": "Which workset this was optimised against. A UUID in a README is not a reference: the sealed sample names its workset as `cd5440dc-…/v0` in prose, which no program can act on.\n\n`snapshot` is what makes the reference checkable. A validator on m4's output phase is handed **only** the handoffs it declared in `inputs` (`validator/phase.py` `_declare_materials`, over `layout.stage(task.outputs, …)`), so it cannot reach the workset to compare against — the previous round proved that the alternative, naming the workset in `inputs`, binds the validator to the *workset's* phases and fails an innocent producer. So the handoff carries a verbatim copy, and the copy is cross-checked against the real workset in the one phase where both are staged: m5's input validation stages every one of m5's inputs, `operator_workset` among them.",
+      "properties": {
+        "handoff_id": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "pattern": "^v[0-9]+$"},
+        "digest": {
+          "type": ["string", "null"],
+          "description": "`manifest.yaml`'s `digest.sha256` of the workset handoff, or null when it could not be read. Null rather than absent: 'not recorded' and 'recorded as nothing' are different facts. Note that nothing on the consuming path verifies a digest today (`todo.md` T9), so this is provenance, not proof."
+        },
+        "workset_id": {"type": "string", "minLength": 1},
+        "snapshot": {
+          "type": "string",
+          "const": "results/workset.snapshot.yaml",
+          "description": "Packup-relative path to a **byte-verbatim** copy of the workset's `items/codes/workset.yaml`. Fixed rather than free, because two validators and m5 all open it and a path they each read out of a field is a path they can each read differently."
+        }
+      }
+    },
+
+    "premise": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["abort_on_mismatch", "warn_on_mismatch", "workset_environment", "run_environment", "verdict"],
+      "description": "M4.3.5, and the single most consequential block in this document.\n\n> 优化任务的 ground truth 本身就应该严格的从 workset 中来，如果最基础的硬件、优化前提不一样，直接报错 abort。软件环境不太一样可以报 warning。\n\nA speedup measured against a different architecture is not a smaller result, it is the answer to a different question, and the damage is that it looks entirely legitimate in the report. Measured, and this is the case the rule is written from: the sealed stage-4 run measured `B8_V151936` at 50.18 µs on gfx950 against the workset's 55.40 µs on gfx942 — 9.6% of speedup available for free, from a comparison nobody downstream could detect.\n\nThe two field lists are **copied from the workset's own `ground_truth`**, not chosen here. The workset declares what its numbers depend on; m4 does not get to decide that its own difference was the harmless kind.",
+      "properties": {
+        "abort_on_mismatch": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 1,
+          "description": "Verbatim from the workset's `ground_truth.abort_on_mismatch`. Dotted paths into the two environment records, e.g. `fixed.gpu_arch`."
+        },
+        "warn_on_mismatch": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Verbatim from the workset's `ground_truth.warn_on_mismatch`."
+        },
+        "workset_environment": {
+          "$ref": "environment.schema.json",
+          "description": "Verbatim from the workset's `ground_truth.environment` — where the baseline this document divides by was measured."
+        },
+        "run_environment": {
+          "$ref": "environment.schema.json",
+          "description": "Where m4 actually ran. In `e2e-flow` these two should be the same machine, because m1–m4 share one container on one node (CONTRACT §5); the fields exist so that 'should be' is checked rather than assumed."
+        },
+        "verdict": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["held", "aborted_on", "warnings"],
+          "properties": {
+            "held": {
+              "type": "boolean",
+              "description": "True iff `aborted_on` is empty. Redundant with it on purpose: a reader scanning for one boolean should not have to know that an empty list means yes."
+            },
+            "aborted_on": {
+              "type": "array",
+              "items": {"$ref": "#/$defs/field_mismatch"},
+              "description": "Abort-level fields that differed. **Non-empty means this handoff must not claim a speedup** — see the conditional at the foot of this schema. It is not `[]` because the run was stopped: a stopped run still writes what it found, and a reader who cannot see why is back to guessing."
+            },
+            "warnings": {
+              "type": "array",
+              "items": {"$ref": "#/$defs/field_mismatch"},
+              "description": "Software-level fields that differed and were tolerated. These are **also** written into `run_environment.warnings[]`, which is the channel `environment.schema.json` defines for exactly this and which carries them forward to m5. Recorded twice because the two readers are different: this list is the premise check's own record, that one is what travels."
+            }
+          }
+        }
+      }
+    },
+
+    "apply": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "integration_point", "files"],
+      "description": "M5.1.1: 优化成果是如何 apply 回 sglang，是应该严格遵循 3 的 handoff 的.\n\nWritten against the workset's **declared** integration point — `operators[].edit_target` — and not against whatever file the optimiser happened to edit. That is the whole of what lets m5's `apply_patch` stay a program instead of a judgement call: with this block, applying is a copy from a named source to a named target; without it, m5 has to read an optimisation report and decide.",
+      "properties": {
+        "mode": {
+          "const": "overlay_files",
+          "description": "One value, and the alternative is deferred rather than unimagined: M5.3 says the mechanism should hack sglang's registry or the import machinery rather than replace whole files, and then says 但现在就这样吧 (`todo.md` T5). A second mode would mean two proofs that the patch is live, and the proof is the expensive half."
+        },
+        "integration_point": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["source_file", "entry_function"],
+          "description": "Copied from the workset's `operators[].edit_target`. `check_optimization_shape` compares it field-for-field against the snapshot: an `apply` written against a different file than the workset declared is the failure this block exists to make impossible.",
+          "properties": {
+            "source_file": {"type": "string", "minLength": 1},
+            "entry_function": {"type": "string", "minLength": 1},
+            "entry_function_line": {"type": "integer", "minimum": 1},
+            "repo_root_var": {"type": "string", "pattern": "^\\$\\{[A-Z_][A-Z0-9_]*\\}$"}
+          }
+        },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "description": "One entry per file the overlay replaces or adds.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source", "target", "sha256", "action"],
+            "properties": {
+              "source": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.][A-Za-z0-9_./-]*$",
+                "description": "Packup-relative. An absolute path here is a path that will not exist for the reproducer, and `handoff/locality.py` refuses most of them at the seal anyway."
+              },
+              "target": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Repo-relative inside the engine, e.g. `python/sglang/srt/layers/sampler.py`. Repo-relative and not absolute for the same reason: the container path is m5's to decide."
+              },
+              "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "action": {"type": "string", "enum": ["replace", "add"]},
+              "mode": {
+                "type": "string",
+                "pattern": "^0[0-7]{3}$",
+                "description": "Optional, and almost always wrong to set. Recorded 2026-09-01: a run created a directory at 0644, wrote seven files into it, and could not read them back — a directory without its execute bit cannot be traversed by anyone, including its owner."
+              }
+            }
+          }
+        },
+        "must_preserve": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "What a replacement may not change, copied from the workset's integration contract. For `sampler_vocab_softmax` that is: the signature `sampler_softmax(logits, out) -> Tensor`, an in-place write into a caller-provided `out`, fp32 in and out, a contiguous vocabulary dimension, and **no build step** — the driver imports the module directly.",
+          "properties": {
+            "signature": {"type": "string"},
+            "dtype": {"type": "string"},
+            "no_build_step": {"type": "boolean"}
+          }
+        },
+        "revert": {
+          "type": "string",
+          "description": "How to get back to stock. With `overlay_files` this is 'remove the overlay', which is trivial and is written down anyway: a reproducer who has to infer the undo from the do is one bad inference from a dirty tree."
+        }
+      }
+    },
+
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["correctness", "performance", "forge"],
+      "description": "Everything measured. Ordered as it is run: correctness first, then performance, because a kernel that is faster and wrong must never reach a timing loop.",
+      "properties": {
+
+        "correctness": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["entrypoint", "report", "passed", "shapes"],
+          "description": "The **workset's own** correctness entrypoint, run on the optimised kernel. Not a re-implementation of it, and not forge's internal SNR gate — that gate is forge grading its own homework, and it is recorded under `forge` where it belongs.",
+          "properties": {
+            "entrypoint": {
+              "type": "string",
+              "description": "The workset's `entrypoints.correctness.cmd`, verbatim, as run."
+            },
+            "report": {
+              "type": "string",
+              "description": "Packup-relative path to the correctness report the entrypoint wrote. It validates against `workset.schema.json#/$defs/correctness_report`, which is what makes m3's format and m4's the same format."
+            },
+            "passed": {
+              "type": "boolean",
+              "description": "**Boolean, and there is no ratio anywhere near it.** Correctness is not a percentage: a kernel that is right on two shapes of three has not two-thirds passed, it is wrong. `check_workset_runs` has a `min_pass_ratio` that forgives a minority failure and that inconsistency is recorded as `todo.md` T10; nothing on m4's side inherits it."
+            },
+            "shapes": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": ["case_id", "passed"],
+                "properties": {
+                  "case_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_]*$"},
+                  "passed": {"type": "boolean"},
+                  "snr_db": {"type": ["number", "null"]},
+                  "allclose": {"type": ["boolean", "null"]},
+                  "extra": {
+                    "type": "object",
+                    "additionalProperties": {"type": ["boolean", "number", "string", "null"]},
+                    "description": "Operator-specific bars. For the sampler softmax the one that matters is rows-summing-to-1 within 1e-4: these probabilities feed `torch.multinomial`, so an SNR of 130 dB with rows summing to 0.999 is a sampler drawing from the wrong distribution and no SNR threshold notices."
+                  }
+                }
+              }
+            }
+          }
+        },
+
+        "performance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["entrypoint", "protocol", "baseline", "measured"],
+          "description": "The **workset's own** performance entrypoint, run on the optimised kernel, under the **workset's own** protocol. Comparing a 5-group sample against a 3-group one is not a comparison, so the protocol is copied rather than chosen.\n\n**What was measured and what is claimed are two objects, and the split is load-bearing.** `measured` is raw milliseconds and is always present; `claim` holds the ratios and is present only when a ratio means something. The conditionals at the foot of this schema make `claim` *unwritable* under an aborted premise or a mock, which is stronger than pinning a number: a producer cannot express the misleading thing at all.\n\nThe first draft of this schema required the ratios unconditionally, and rendering the sealed run into it produced `speedup_per_case` of 1.12 / 1.11 / 1.03 beside a `mean_case_speedup` of 1.0 — arithmetic that is *correct*, since the new rule divides by the workset's gfx942 baseline, and that reads as an 11% win on a run where nothing was optimised. A shape that forces an honest producer to publish that number is the wrong shape.",
+          "properties": {
+            "entrypoint": {"type": "string", "description": "The workset's `entrypoints.performance.cmd`, verbatim, as run."},
+            "protocol": {
+              "type": "object",
+              "additionalProperties": true,
+              "required": ["groups", "iters_per_group", "warmup", "timing"],
+              "description": "Copied from the workset's `protocol`. Same field names as `workset.schema.json#/$defs/protocol` so the two can be compared without translation.",
+              "properties": {
+                "groups": {"type": "integer", "minimum": 5},
+                "iters_per_group": {"type": "integer", "minimum": 1},
+                "warmup": {"type": "integer", "minimum": 0},
+                "timing": {"type": "string", "enum": ["hip_graph_replay", "cuda_graph_replay", "event", "wall"]},
+                "reduction": {"type": "string", "enum": ["weighted_mean", "median"]}
+              }
+            },
+            "baseline": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["source", "report", "per_case_ms"],
+              "description": "The denominator. **This is the reversal.**",
+              "properties": {
+                "source": {
+                  "const": "workset",
+                  "description": "One value, and the constraint is the point of the whole file. M4.3.5 makes the workset's own recorded baseline the ground truth; a schema that allowed `source: \"remeasured_here\"` would let a producer answer a different question in a field nobody reads. If the workset's baseline does not hold on this machine, that is an aborted premise (`premise.verdict.aborted_on`) and not a licence to substitute a number."
+                },
+                "report": {
+                  "type": "string",
+                  "description": "Snapshot-relative path of the workset's own `evidence.performance_report` — the file the figures below were read out of, named so a reader can check the reading."
+                },
+                "per_case_ms": {
+                  "$ref": "#/$defs/per_case_ms",
+                  "description": "Read out of that report, unmodified. `check_speedup_substantiated` compares these to the snapshot's own numbers and fails on any difference: this field is where 'prove you took the workset's own baseline' is actually proven."
+                }
+              }
+            },
+            "measured": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["report", "per_case_ms"],
+              "description": "What `results/optimized_kernel.py` timed at, on this host, now, under the protocol above. Raw milliseconds and no ratio: this object is a record of an experiment and is present whatever the experiment showed.",
+              "properties": {
+                "report": {"type": "string"},
+                "per_case_ms": {"$ref": "#/$defs/per_case_ms"},
+                "rsd_per_case": {
+                  "type": "object",
+                  "additionalProperties": {"type": "number", "minimum": 0},
+                  "description": "Relative standard deviation across groups, per case. Worth carrying because the two sides are not alike: the baseline is tight (~2%) and an optimised kernel has measured ~8% round to round on this hardware, and the cause was never identified. A reader comparing the two spreads should be able to see that without re-deriving it."
+                }
+              }
+            },
+            "claim": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["speedup_per_case", "mean_case_speedup", "noise_floor"],
+              "description": "The ratios, present **only when a ratio means something** — see the conditionals at the foot of this schema. Absent is a legitimate and common state: an aborted premise, a mock, and a campaign that found nothing all leave it out, and all three are honest outcomes rather than degraded ones.",
+              "properties": {
+                "speedup_per_case": {
+                  "type": "object",
+                  "additionalProperties": {"type": "number", "exclusiveMinimum": 0},
+                  "minProperties": 1,
+                  "description": "`baseline.per_case_ms[case] / measured.per_case_ms[case]`, per case. Recomputed by the validator from the two tables; a figure that does not follow from them can only come from the record having been edited after it was measured."
+                },
+                "mean_case_speedup": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "description": "The arithmetic mean over `speedup_per_case`. Named to match forge's own field so the two can be put side by side, which is the comparison a reader wants."
+                },
+                "noise_floor": {
+                  "type": "number",
+                  "minimum": 1.0,
+                  "description": "The ratio below which a result is not distinguishable from measurement spread here. **Taken from the workset, not chosen.** Measured on this class of host: a null control — the seed kernel against a byte-identical copy of itself, true ratio 1.000 by construction — returned 1.0017 / 0.9985 / 1.0018 / 1.0007 across four independent estimates, so the protocol's own floor is ~1.005×. The workset's guidance of ~1.05× is the one to use for a real optimised kernel, because it was set against a genuinely optimised and much noisier one, and the tighter null-control figure is not a licence to lower the bar."
+                }
+              }
+            }
+          }
+        },
+
+        "forge": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["ran", "mock", "degraded"],
+          "description": "What KernelForge did, kept separate from what was measured. Forge's own `mean_case_speedup` is forge's number, measured by forge, during forge's run; it is recorded for comparison and it is never the claim.",
+          "properties": {
+            "ran": {"type": "boolean"},
+            "mock": {
+              "type": "boolean",
+              "description": "`KFO_MOCK=1`: no campaign was launched. A mock that is not visibly a mock is the single most misleading artefact this package can produce, because it looks exactly like a success — hence the conditional below, which forbids a mock from carrying a speedup at all."
+            },
+            "degraded": {
+              "type": "boolean",
+              "description": "A real campaign under a budget at or below 2.0 h. KernelForge silently drops Analysis to static-only and the implementer turn cap falls from 500 to 100 (`kernel_agents/cli.py:47`, `:1391` — the comparison is strictly greater). Nothing warns you, so the run says so itself. `improved: false` under a degraded budget is a **successful smoke test**, not a disappointment."
+            },
+            "result_json": {"type": ["string", "null"], "description": "Packup-relative path to forge's own `forge_result.json`, copied verbatim, or null when no campaign ran."},
+            "mean_case_speedup": {"type": ["number", "null"], "description": "Forge's own figure. Null when no campaign ran — null and not 1.0, because 'forge did not run' and 'forge measured no improvement' are different facts."},
+            "improved": {"type": ["boolean", "null"]},
+            "snr_db": {"type": ["number", "null"]},
+            "iteration_count": {"type": ["integer", "null"], "minimum": 0},
+            "max_hours": {"type": ["number", "null"], "minimum": 0},
+            "gpu_target": {"type": ["string", "null"], "description": "The architecture forge compiled for. It is the architecture of **this** host, detected from the card, and never the one written in the workset's environment — that records where the baseline was measured, which is a true statement about the past rather than an instruction about now."}
+          }
+        }
+      }
+    },
+
+    "notes": {
+      "type": "string",
+      "description": "Free text, and the one place in this document where prose belongs. Anything a consumer must act on has a field."
+    }
+  },
+
+  "$defs": {
+    "per_case_ms": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {"pattern": "^[A-Za-z0-9][A-Za-z0-9_]*$"},
+      "additionalProperties": {"type": "number", "exclusiveMinimum": 0},
+      "description": "case_id -> milliseconds. The `case_id` strings are the join key across this whole flow: the same strings appear in the workset's `operators[].shapes[].case_id`, in both of its reports, and in both tables here. `propertyNames` carries the workset's own pattern so a case id legal there is legal here."
+    },
+    "field_mismatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "expected", "actual"],
+      "description": "Same shape as `environment.schema.json`'s `warnings[]` items, so a premise warning can be written into `run_environment.warnings[]` without translation.",
+      "properties": {
+        "field": {"type": "string", "minLength": 1, "description": "A dotted path into the environment record, e.g. `fixed.gpu_arch`."},
+        "expected": {"description": "What the workset's environment says."},
+        "actual": {"description": "What this run's environment says."},
+        "stage": {"type": "string"}
+      }
+    }
+  },
+
+  "allOf": [
+    {
+      "$comment": "M4.3.5, at rest: an aborted premise cannot carry a claim. A run whose hardware or optimisation premise differed from the workset's did not produce a smaller result, it answered a different question. The rule is expressed as `claim` being *forbidden* rather than as a cap on the number, because a cap still leaves the producer writing ratios, and the ratios are the misleading part: divide a gfx950 measurement by a gfx942 baseline and 9.6% of newer silicon appears as a per-case speedup that reads as entirely legitimate. `measured` stays required throughout — the experiment is still recorded, it is only the division that is refused.",
+      "if": {
+        "properties": {
+          "premise": {
+            "properties": {"verdict": {"properties": {"held": {"const": false}}, "required": ["held"]}},
+            "required": ["verdict"]
+          }
+        },
+        "required": ["premise"]
+      },
+      "then": {
+        "properties": {
+          "evidence": {
+            "properties": {
+              "performance": {
+                "not": {"required": ["claim"]},
+                "$comment": "aborted premise: no claim may be written"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "$comment": "The mock-consistency rule, moved out of a validator body and into the schema so that it holds for anyone who reads the document rather than only for whoever runs the check. KFO_MOCK=1 means no campaign was launched and no kernel was optimised, so there is nothing whose speed could be claimed. The sealed sample gets this right and says so in four separate places; the rule is here so the next one has to, and so that a mock that is not visibly a mock cannot be constructed rather than merely being discouraged.",
+      "if": {
+        "properties": {
+          "evidence": {
+            "properties": {"forge": {"properties": {"mock": {"const": true}}, "required": ["mock"]}},
+            "required": ["forge"]
+          }
+        },
+        "required": ["evidence"]
+      },
+      "then": {
+        "properties": {
+          "evidence": {
+            "properties": {
+              "performance": {
+                "not": {"required": ["claim"]},
+                "$comment": "mock: no campaign ran, so there is nothing to claim"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

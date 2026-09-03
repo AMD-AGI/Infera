@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "operator": "sampler_vocab_softmax",
+
+  "workset_ref": {
+    "handoff_id": "cd5440dc-0163-407e-9c0e-ed6d06f4bec8",
+    "version": "v0",
+    "digest": null,
+    "workset_id": "sampler_vocab_softmax.workset_20260831",
+    "snapshot": "results/workset.snapshot.yaml"
+  },
+
+  "premise": {
+    "abort_on_mismatch": ["fixed.gpu_arch", "fixed.gpu_count", "operator", "shapes", "dtype"],
+    "warn_on_mismatch": ["fixed.rocm", "fixed.image_id", "fixed.torch", "fixed.driver"],
+
+    "workset_environment": {
+      "schema_version": 1,
+      "fixed": {
+        "node": "smc300x-ccs-aus-a17-31",
+        "gpu_arch": "gfx942",
+        "gpu_count": 1,
+        "image": "lmsysorg/sglang:v0.5.14-rocm720-mi30x",
+        "image_id": "sha256:000000000000",
+        "dockerfile": null,
+        "rocm": "7.2.0",
+        "driver": "6.12.12",
+        "torch": "2.9.1+rocm7.2.0",
+        "model_name": "Qwen/Qwen3-0.6B",
+        "model_path": "/shared_nfs/models/Qwen3-0.6B",
+        "tp_size": 1
+      },
+      "runtime": {
+        "container": "workset-baseline-20260901",
+        "endpoint": "http://127.0.0.1:30000",
+        "started_at": "2026-09-01T00:00:00Z",
+        "transport": "local"
+      }
+    },
+
+    "run_environment": {
+      "schema_version": 1,
+      "fixed": {
+        "node": "crsuse2-m2m-019",
+        "gpu_arch": "gfx950",
+        "gpu_count": 8,
+        "image": "lmsysorg/sglang:v0.5.17-rocm720-mi35x",
+        "image_id": "sha256:111111111111",
+        "dockerfile": null,
+        "rocm": "7.2.4",
+        "driver": "6.14.14",
+        "torch": "2.10.0+rocm7.2.4.git3d3aa833",
+        "model_name": "Qwen/Qwen3-0.6B",
+        "model_path": "/shared_nfs/models/Qwen3-0.6B",
+        "tp_size": 1
+      },
+      "runtime": {
+        "container": "yihou_kfo_20260902",
+        "endpoint": "http://127.0.0.1:30000",
+        "started_at": "2026-09-02T09:32:18Z",
+        "transport": "spur"
+      },
+      "warnings": [
+        {"field": "fixed.rocm", "expected": "7.2.0", "actual": "7.2.4", "stage": "m4"},
+        {"field": "fixed.image_id", "expected": "sha256:000000000000", "actual": "sha256:111111111111", "stage": "m4"},
+        {"field": "fixed.torch", "expected": "2.9.1+rocm7.2.0", "actual": "2.10.0+rocm7.2.4.git3d3aa833", "stage": "m4"},
+        {"field": "fixed.driver", "expected": "6.12.12", "actual": "6.14.14", "stage": "m4"}
+      ]
+    },
+
+    "verdict": {
+      "held": false,
+      "aborted_on": [
+        {"field": "fixed.gpu_arch", "expected": "gfx942", "actual": "gfx950", "stage": "m4"},
+        {"field": "fixed.gpu_count", "expected": 1, "actual": 8, "stage": "m4"}
+      ],
+      "warnings": [
+        {"field": "fixed.rocm", "expected": "7.2.0", "actual": "7.2.4", "stage": "m4"},
+        {"field": "fixed.image_id", "expected": "sha256:000000000000", "actual": "sha256:111111111111", "stage": "m4"},
+        {"field": "fixed.torch", "expected": "2.9.1+rocm7.2.0", "actual": "2.10.0+rocm7.2.4.git3d3aa833", "stage": "m4"},
+        {"field": "fixed.driver", "expected": "6.12.12", "actual": "6.14.14", "stage": "m4"}
+      ]
+    }
+  },
+
+  "apply": {
+    "mode": "overlay_files",
+    "integration_point": {
+      "source_file": "python/sglang/srt/layers/sampler.py",
+      "entry_function": "sampler_softmax",
+      "entry_function_line": 183,
+      "repo_root_var": "${SGLANG_REPO}"
+    },
+    "files": [
+      {
+        "source": "results/optimized_kernel.py",
+        "target": "python/sglang/srt/layers/sampler_softmax_kernel.py",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "action": "add"
+      }
+    ],
+    "must_preserve": {
+      "signature": "sampler_softmax(logits: Tensor[B, V] fp32, out: Tensor[B, V] fp32) -> Tensor",
+      "dtype": "fp32",
+      "no_build_step": true
+    },
+    "revert": "Remove the overlay file and restart the engine. Nothing in the stock tree was modified; `action: add` means the target did not exist before."
+  },
+
+  "evidence": {
+    "correctness": {
+      "entrypoint": "./operators/sampler_vocab_softmax/run_correctness.sh",
+      "report": "results/correctness_report.json",
+      "passed": true,
+      "shapes": [
+        {"case_id": "B1_V151936", "passed": true, "snr_db": 135.01, "allclose": true, "extra": {"rows_sum_to_1": true}},
+        {"case_id": "B8_V151936", "passed": true, "snr_db": 129.63, "allclose": true, "extra": {"rows_sum_to_1": true}},
+        {"case_id": "B32_V151936", "passed": true, "snr_db": 128.74, "allclose": true, "extra": {"rows_sum_to_1": true}}
+      ]
+    },
+
+    "performance": {
+      "entrypoint": "./operators/sampler_vocab_softmax/run_performance.sh",
+      "protocol": {"groups": 5, "iters_per_group": 30, "warmup": 10, "timing": "hip_graph_replay", "reduction": "median"},
+
+      "baseline": {
+        "source": "workset",
+        "report": "evidence/performance_baseline.json",
+        "per_case_ms": {
+          "B1_V151936": 0.05452,
+          "B8_V151936": 0.05540,
+          "B32_V151936": 0.06005
+        }
+      },
+
+      "measured": {
+        "report": "results/performance_measured.json",
+        "per_case_ms": {
+          "B1_V151936": 0.048960,
+          "B8_V151936": 0.050201,
+          "B32_V151936": 0.058201
+        },
+        "rsd_per_case": {
+          "B1_V151936": 0.0098,
+          "B8_V151936": 0.0064,
+          "B32_V151936": 0.0137
+        }
+      }
+    },
+
+    "forge": {
+      "ran": false,
+      "mock": true,
+      "degraded": false,
+      "result_json": "results/forge_result.json",
+      "mean_case_speedup": null,
+      "improved": null,
+      "snr_db": null,
+      "iteration_count": 0,
+      "max_hours": null,
+      "gpu_target": null
+    }
+  },
+
+  "notes": "The 2026-09-02 sealed stage-4 run, rendered into this schema. It is here as the schema's `real document validates` gate and it is NOT the mock source for an e2e-flow run -- see MOCK-MAP.\n\nWhat this run actually was: KFO_MOCK=1, so no KernelForge campaign was launched, no kernel was optimised, and nothing is claimed. `results/optimized_kernel.py` was the seed kernel copied verbatim behind a banner saying so, and every timing figure is the seed measured against itself.\n\n**There is no `evidence.performance.claim` here, and its absence is the whole point of the sample.** Two independent rules forbid it: the premise did not hold (gfx942 workset, gfx950 host -- an abort-level mismatch, and the sealed run's own headline finding), and forge did not run. Either alone makes a ratio meaningless. `measured.per_case_ms` records what the seed timed at on this host, which is a real experimental result and stays; `baseline.per_case_ms` records what the workset measured on gfx942, which is the ground truth M4.3.5 makes the denominator. The division between them is exactly what is refused: it would yield 1.12 / 1.11 / 1.03, which is not a speedup but 9.6% of newer silicon wearing a speedup's clothes, and it would read as entirely legitimate to anyone downstream.\n\nTwo classes of value here were reconstructed rather than measured, and both are marked so nobody quotes them. (1) The image digests: the sealed run recorded `image tag/digest not captured` as its own biggest reproducibility gap, so both `image_id`s are well-formed stand-ins. (2) The service-shaped fields of the environment record -- `model_*`, `tp_size`, `runtime.endpoint` -- had no meaning in a kernel-level run that started no server. In `e2e-flow` neither is reconstructed: m1 produces the environment record and m3 and m4 carry it, so both sides of the premise comparison are the same document from the same producer, and the premise will normally hold. The workset's own host and GPU facts, the ROCm/torch/driver versions, every timing figure and every SNR figure are the sealed run's, unaltered."
+}

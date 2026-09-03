@@ -1,17 +1,50 @@
 #!/bin/sh
-# SKELETON. Mock first, real work second. See ../../CONTRACT.md and ../../MOCK-MAP.md.
+# The mock path for `optimize_kernel`, and only that.
+#
+# This task's agent is `kind: ai` (`../../steps/m4_kernel_opt.yaml`), so the AI
+# backend never runs this file — the brief in `readme.md` is the task. It exists
+# so a person, or a wiring run driven by `agent: runner`, can take the mock path
+# without reading the readme.
+#
+# POSIX: bodies are invoked as `["/bin/sh", entry]`
+# (`agent/backends/program.py:83`), so the shebang is never consulted and
+# `set -o pipefail` would be a hard exit 2 under dash.
 set -eu
 PKG="${AGENT_SYS_TASK_PACKAGE:-${AGENT_SYS_DEMO_PACKAGE:?the runner exports one of these}}"
-# `|| rc=$?` and not `; rc=$?`: under `set -e` a simple command exiting
-# non-zero kills the script before the assignment runs, so the branch below
-# was never reached and a real-mode task died with the mock's status.
-# A `||` puts it in a condition context, where `set -e` does not fire.
-rc=0
-bash "$PKG/assets/lib/mock.sh" stage4-kernel-opt kernel_optimization || rc=$?
-# 0 = mocked and written; 3 = this stage is not mocked, fall through to the
-# real work; anything else is a mock that failed and must not be read as
-# either.
-if [ "$rc" -eq 0 ]; then exit 0; fi
-if [ "$rc" -ne 3 ]; then exit "$rc"; fi
-echo "TODO(owner): optimize_kernel has no real body yet; run with E2E_MOCK_STAGES covering stage4-kernel-opt" >&2
+
+# `bash`, explicitly: `mock.sh` uses `${!var}` indirect expansion, which dash
+# does not have and which fails as `Bad substitution`. It exits 3 (not 0) when
+# the stage is not selected, so `&& …` is the correct join.
+if bash "$PKG/assets/lib/mock.sh" stage4-kernel-opt kernel_optimization; then
+  # --- MOCK-MAP adaptation (G) ---------------------------------------------
+  #
+  # The sealed stage-4 artefact predates two fields this contract requires, and
+  # the gap is structural rather than an oversight: it was a `KFO_MOCK=1` run,
+  # so `apply` had nothing to apply and the premise question had not been asked
+  # yet (M4.3.5 and M5.1.1 are both new). It also carries no `workset.yaml`
+  # snapshot, because the merged `operator_workset` kind did not exist.
+  #
+  # So the mock **renders** what is missing from the workset that is actually
+  # staged as this task's input, exactly as adaptation (A) renders
+  # `environment.yaml` and (D) writes `env/steps.json`. Nothing is synthesised:
+  # every number stays the sealed run's, and the rendered fields are copies of
+  # the staged workset's own.
+  #
+  # A consequence worth stating, because it is the difference between the mock
+  # running and the mock aborting: the premise now **holds**. Both sides of the
+  # comparison are the environment record m1 minted for this run, so
+  # `fixed.gpu_arch` matches itself. In the sealed run it did not — that was a
+  # gfx942 workset against a gfx950 host — and a verbatim copy of it would
+  # correctly abort m4 and stop the graph. `--var mock_premise=mismatched`
+  # reproduces that on purpose, once, as the only cheap test of the abort path
+  # we have.
+  exec "${KFO_PYTHON:-python3}" "$PKG/assets/optimize_kernel.task/mock_adapt.py" \
+      --handoff "${AGENT_SYS_OUTPUT_KERNEL_OPTIMIZATION:?}"
+fi
+
+echo "optimize_kernel: stage4-kernel-opt is not in E2E_MOCK_STAGES, and there is no" >&2
+echo "program body for a real campaign: driving KernelForge, judging whether it" >&2
+echo "degraded and deciding whether a result is real is judgement work and belongs" >&2
+echo "to the kind: ai agent. Run the closure with its declared agent, or set" >&2
+echo "--var mock_stages=all to take the mock path." >&2
 exit 1
