@@ -28,9 +28,17 @@ PKG="${AGENT_SYS_TASK_PACKAGE:-${AGENT_SYS_DEMO_PACKAGE:?the runner exports one 
 PY="${KFO_PYTHON:-python3}"
 : "${KFO_SCRATCH_ROOT:?must be local disk inside a yihou/ directory}"
 
-ZONE="$KFO_SCRATCH_ROOT/selfcheck"
-rm -rf "$ZONE"        # named path, not a variable glob. `rm -rf "$d"/*` with $d
-mkdir -p "$ZONE"      # unset is `rm -rf /*`, and that has happened on this host.
+# **A fresh directory per run, never a reused one that must be deleted first.**
+#
+# m3's finding, and it is the shape that hides: every file a body writes from
+# inside a container is root-owned, so a `rm -rf "$KFO_SCRATCH_ROOT/selfcheck"`
+# succeeds on the run that creates it and fails on the *next* one — a failure
+# that appears one run after the cause and points at the wrong thing.
+#
+# `mktemp -d` also removes the recursive-delete-of-a-variable hazard entirely:
+# there is nothing to delete before use. `rm -rf "$d"/*` with `$d` unset is
+# `rm -rf /*`, and that happened on this class of host on 2026-08-31.
+ZONE=$(mktemp -d "$KFO_SCRATCH_ROOT/selfcheck.XXXXXX")
 
 # The args the step yaml declares. Kept in step with `steps/m4_kernel_opt.yaml`
 # by hand; a drift shows up as this check being kinder than the phase, which is

@@ -130,6 +130,9 @@ def main() -> int:
     premise = {
         "abort_on_mismatch": list(ground.get("abort_on_mismatch") or []),
         "warn_on_mismatch": warn_fields,
+        # Copied so `check_speedup_substantiated` can make the dtype comparison
+        # at all: it holds `workset.yaml` as its snapshot, not the Definitions.
+        "dtypes": dict(ground.get("dtypes") or {}),
         "workset_environment": workset_env,
         "run_environment": run_env,
         "verdict": verdict,

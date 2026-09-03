@@ -56,6 +56,12 @@
           "items": {"type": "string"},
           "description": "Verbatim from the workset's `ground_truth.warn_on_mismatch`."
         },
+        "dtypes": {
+          "type": "object",
+          "additionalProperties": {"type": "string"},
+          "propertyNames": {"pattern": "^[a-z0-9][a-z0-9_]*$"},
+          "description": "Verbatim from the workset's `ground_truth.dtypes` — one activation dtype per operator_id.\n\n`dtype` is on M4.3.5's abort list and is not an environment field: it lives in each Definition's `inputs[].dtype`, and this handoff carries `workset.yaml` as its snapshot rather than the whole workset tree. Before m3 lifted it here, `check_speedup_substantiated` printed *\"dtype was NOT compared here\"* and skipped — honest, and one of the four abort-level fields going unchecked. Copying it makes the comparison possible at all."
+        },
         "workset_environment": {
           "$ref": "environment.schema.json",
           "description": "Verbatim from the workset's `ground_truth.environment` — where the baseline this document divides by was measured."

@@ -72,6 +72,9 @@
       "held": true,
       "aborted_on": [],
       "warnings": []
+    },
+    "dtypes": {
+      "sampler_vocab_softmax": "fp32"
     }
   },
   "apply": {

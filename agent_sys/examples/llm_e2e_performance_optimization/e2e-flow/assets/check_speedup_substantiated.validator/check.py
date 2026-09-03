@@ -189,6 +189,21 @@ def _num(value: object, fallback: float) -> float:
 # the premise
 
 
+def _flags_of(snapshot: dict, operator_id: str) -> dict:
+    """The performance entrypoint's declared flag spelling.
+
+    Per-operator where present, falling back to the workset's own — the same
+    precedence `entrypoints` itself follows, because a workset with several
+    operators may drive them differently.
+    """
+    for operator in snapshot.get("operators") or ():
+        if isinstance(operator, dict) and operator.get("operator_id") == operator_id:
+            declared = ((operator.get("entrypoints") or {}).get("performance") or {}).get("flags")
+            if declared:
+                return dict(declared)
+    return dict(((snapshot.get("entrypoints") or {}).get("performance") or {}).get("flags") or {})
+
+
 def _dig(doc: dict, dotted: str):
     """`fixed.gpu_arch` out of an environment record, or `KeyError`-free `None`."""
     node = doc
@@ -335,26 +350,46 @@ def _check_ground_truth(doc: dict, snapshot: dict, args: dict, problems: list[st
         )
 
     # `dtype` is on the mission's abort list and is **not** an environment field.
-    # It lives in the flashinfer-bench Definition (`inputs[].dtype`), which this
+    # It lives in each flashinfer-bench Definition's `inputs[].dtype`, which this
     # body cannot open — the snapshot is `workset.yaml`, not the whole workset
-    # tree. Rather than skip it silently, which is the failure where two owners
-    # each assume the other checks a thing, say what was not checked. The
-    # protection that remains is real and is m3's: the entrypoints refuse to run
-    # on a mismatched host at all, and `check_workset_runs` re-runs them here.
-    if "dtype" in (args.get("abort_on_premise_mismatch") or []):
-        declared_dtype = (doc.get("premise") or {}).get("dtype")
-        workset_dtype = (snapshot.get("ground_truth") or {}).get("dtype")
-        if workset_dtype is None:
-            print(
-                "note: dtype is on the abort list and the workset does not lift it into "
-                "ground_truth, so it was NOT compared here. It is in the Definition's "
-                "inputs[].dtype, which this validator cannot reach",
-                flush=True,
-            )
-        elif declared_dtype != workset_dtype:
+    # tree — so this comparison used to print "NOT compared here" and skip.
+    #
+    # m3 lifted it to `ground_truth.dtypes` on that report, and it is a summary
+    # rather than a second source of truth: `check_workset_shape` holds it
+    # against the Definitions, so it cannot drift into disagreeing with what it
+    # summarises. Both sides here are copies of one declaration, so a difference
+    # means the document was edited or the snapshot swapped — which is the same
+    # class of finding as the environment comparison above, and the same answer.
+    # **The same union `_check_premise` computes, and it has to be the same
+    # one.** The workset's own `abort_on_mismatch` is authoritative about what
+    # its numbers depend on; the step yaml's list is a floor the mission sets.
+    # Reading only the yaml's — which this did until the stub kit's case 8
+    # failed to fire — means a workset that adds `dtype` to its abort list is
+    # ignored unless the yaml happens to name it too. Two lists consulted in two
+    # places, one of them partially, is how a declared rule goes unenforced.
+    abort_fields = set(
+        list((doc.get("premise") or {}).get("abort_on_mismatch") or [])
+        + list((snapshot.get("ground_truth") or {}).get("abort_on_mismatch") or [])
+        + list(args.get("abort_on_premise_mismatch") or [])
+    )
+    if "dtype" in abort_fields:
+        workset_dtypes = (snapshot.get("ground_truth") or {}).get("dtypes")
+        if not isinstance(workset_dtypes, dict):
             problems.append(
-                f"ABORT — dtype {declared_dtype!r} is not the workset's {workset_dtype!r}"
+                "ABORT — dtype is on the abort list and the workset carries no "
+                "ground_truth.dtypes to compare against"
             )
+        else:
+            expected = workset_dtypes.get(operator_id)
+            actual = ((doc.get("premise") or {}).get("dtypes") or {}).get(operator_id)
+            if expected is None:
+                problems.append(f"ABORT — the workset declares no dtype for {operator_id!r}")
+            elif actual != expected:
+                problems.append(
+                    f"ABORT — this handoff optimised {operator_id} at dtype {actual!r}; the "
+                    f"workset's ground truth says {expected!r}. A speedup at a different "
+                    "precision is a different question"
+                )
 
 
 def _check_denominator(doc: dict, baseline_report: dict, problems: list[str], notes: list[str]) -> None:
@@ -443,7 +478,8 @@ def _check_correctness(doc: dict, snapshot: dict, args: dict, problems: list[str
 
 
 def _run_entrypoint(
-    root: Path, cmd: str, impl_path: Path | None, report: Path, args: dict, env: dict, timeout: float
+    root: Path, cmd: str, impl_path: Path | None, report: Path, args: dict, env: dict,
+    timeout: float, flags: dict
 ) -> str | None:
     """The workset's own performance entrypoint. Returns an error string or `None`.
 
@@ -465,12 +501,15 @@ def _run_entrypoint(
     as the candidate produces two measurements of the same code, a ratio of
     1.000, and no error anywhere.
     """
-    argv = [
-        *cmd.split(),
-        str(args.get("report_flag") or "--json"), str(report),
-    ]
+    # **The spelling comes from the workset, which now pins it as data
+    # (`$defs/entrypoint.flags`).** It was `args` before, so that this body and
+    # `optimize_kernel`'s `steps/run_entrypoint.py` could not be edited apart —
+    # two sets of literals in two files can be. One declared source is strictly
+    # better than two agreeing copies, so `args` is now only the fallback for a
+    # workset that predates the field.
+    argv = [*cmd.split(), str(flags.get("report") or args.get("report_flag") or "--json"), str(report)]
     if impl_path is not None:
-        argv += [str(args.get("impl_flag") or "--impl"), str(impl_path)]
+        argv += [str(flags.get("impl") or args.get("impl_flag") or "--impl"), str(impl_path)]
     try:
         proc = subprocess.run(
             argv, capture_output=True, text=True, cwd=root, env=env, timeout=timeout
@@ -501,7 +540,7 @@ def _medians(report: Path, operator_id: str) -> dict[str, float]:
 
 def _remeasure(
     packup: Path, doc: dict, baseline_truth: dict[str, float], args: dict,
-    problems: list[str], notes: list[str],
+    problems: list[str], notes: list[str], flags: dict,
 ) -> None:
     """Re-run the workset's performance entrypoint on both sides, here, now."""
     apparatus = packup / _APPARATUS
@@ -546,7 +585,7 @@ def _remeasure(
     operator_id = str(doc.get("operator"))
 
     seed_report = seed_root / "substantiate_seed.json"
-    failure = _run_entrypoint(seed_root, entrypoint, None, seed_report, args, env, timeout)
+    failure = _run_entrypoint(seed_root, entrypoint, None, seed_report, args, env, timeout, flags)
     if failure:
         problems.append(f"the seed re-measurement failed: {failure}")
         return
@@ -554,7 +593,7 @@ def _remeasure(
 
     candidate_report = candidate_root / "substantiate_candidate.json"
     failure = _run_entrypoint(
-        candidate_root, entrypoint, optimized_src.resolve(), candidate_report, args, env, timeout
+        candidate_root, entrypoint, optimized_src.resolve(), candidate_report, args, env, timeout, flags
     )
     if failure:
         problems.append(f"the optimised re-measurement failed: {failure}")
@@ -711,7 +750,8 @@ def _check(hid: str, args: dict, problems: list[str], notes: list[str]) -> bool:
         return False
 
     baseline_truth = (doc["evidence"]["performance"]["baseline"] or {}).get("per_case_ms") or {}
-    _remeasure(packup, doc, {k: float(v) for k, v in baseline_truth.items()}, args, problems, notes)
+    _remeasure(packup, doc, {k: float(v) for k, v in baseline_truth.items()}, args, problems, notes,
+               _flags_of(snapshot, str(doc.get("operator"))))
     return not problems
 
 

@@ -136,6 +136,9 @@
           "stage": "m4"
         }
       ]
+    },
+    "dtypes": {
+      "sampler_vocab_softmax": "fp32"
     }
   },
   "apply": {

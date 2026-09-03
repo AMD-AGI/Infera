@@ -177,22 +177,40 @@ def _apply_block(pinned: dict, packup: Path, kernel: Path, premise: dict) -> dic
         # asserted, and a wrong value here turns into a refusal two stages later
         # with no way to tell a stale patch from a typo.
         #
-        # Read off the running container rather than taken from the workset,
-        # because m1 through m4 share one container (CONTRACT §5) so the tree m5
-        # will patch is on this filesystem right now. m3's `edit_target` does not
-        # carry the hash; if it starts to, prefer theirs and keep this as the
-        # cross-check.
+        # **The workset's is preferred and m4's is the cross-check**, which is
+        # m3's argument and it is the better one: their hash is pinned at the
+        # moment the operator was identified, while one taken here is a hash of
+        # whatever the file had become by then — so a file that changed in
+        # between is *detectable* rather than silently blessed. m4 can hash it
+        # at all only because m1–m4 share one container (CONTRACT §5).
+        declared = (integration.get("base_sha256") or {}).get(str(target_file))
         stock = lib.expand_container_path(container_path)
-        if stock is None or not stock.is_file():
+        measured = lib.sha256_of(stock) if stock is not None and stock.is_file() else None
+
+        if declared and measured and declared != measured:
             lib.die(
-                f"cannot hash the stock file for {container_path} (resolved to {stock}). "
-                "base_sha256 is what lets m5 prove this patch belongs to this image, and a "
-                "placeholder there is a refusal two stages downstream with no way to tell a "
-                "stale patch from a typo. Run this step in the engine's container"
+                f"the workset recorded base_sha256 {declared[:12]}… for {target_file} at identify "
+                f"time; it hashes {measured[:12]}… in this container now. The file changed "
+                "underneath the analysis, so the operator that was identified is not the operator "
+                "about to be patched"
+            )
+        base_sha256 = declared or measured
+        if not base_sha256:
+            lib.die(
+                f"no base_sha256 for {container_path}: the workset recorded none and the stock "
+                f"file is not readable here (resolved to {stock}). It is what lets m5 prove this "
+                "patch belongs to this image, and a placeholder is a refusal two stages "
+                "downstream with no way to tell a stale patch from a typo"
+            )
+        if not declared:
+            print(
+                f"note: the workset recorded no base_sha256 for {target_file}; using m4's own "
+                "hash of the file in this container, which is pinned later than the analysis",
+                file=sys.stderr,
             )
         files.append({
             "container_path": container_path,
-            "base_sha256": lib.sha256_of(stock),
+            "base_sha256": base_sha256,
             "change": "modify",
             # `replacement`, never a hand-rolled diff: m4's artefact is a whole
             # file, and `apply_patch` generates the diff from stock->replacement

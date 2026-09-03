@@ -70,6 +70,11 @@ def main() -> int:
             if missing:
                 problems.append(f"the workset's own baseline has no figure for {missing}")
 
+    if not isinstance((workset.get("ground_truth") or {}).get("dtypes"), dict):
+        problems.append(
+            "the workset carries no ground_truth.dtypes; dtype is on M4.3.5's abort list and "
+            "cannot be compared without it"
+        )
     if not operator.get("integration"):
         problems.append("the operator declares no `integration`; m5 cannot be a program without it (M5.1.1)")
     if not isinstance(operator.get("noise_floor"), (int, float)):

@@ -116,13 +116,22 @@ def _workset() -> dict:
     return {
         "schema_version": 1, "workset_id": "stub.workset",
         "produced_by": "stubkit",
-        "ground_truth": {"abort_on_mismatch": ["gpu_arch", "gpu_count"],
+        "ground_truth": {"abort_on_mismatch": ["gpu_arch", "gpu_count", "dtype"],
                          "warn_on_mismatch": ["rocm", "torch"],
-                         "environment": _environment()},
+                         "environment": _environment(),
+                         "dtypes": {OPERATOR: "fp32"},
+                         "noise_floor": NOISE_FLOOR},
         "protocol": {"groups": 5, "iters_per_group": 30, "warmup": 10,
                      "timing": "hip_graph_replay", "reduction": "weighted_mean"},
-        "entrypoints": {"correctness": {"cmd": "./run_correctness.sh", "report": "evidence/correctness.json"},
-                        "performance": {"cmd": "./run_performance.sh", "report": "evidence/performance.json"}},
+        # The flag spelling as data, which is what the validator now reads
+        # instead of its own `args` -- one declared source beats two agreeing
+        # copies.
+        "entrypoints": {"correctness": {"cmd": "./run_correctness.sh", "report": "evidence/correctness.json",
+                                        "flags": {"operator": "--operator", "shape": "--shape",
+                                                  "impl": "--impl", "report": "--json"}},
+                        "performance": {"cmd": "./run_performance.sh", "report": "evidence/performance.json",
+                                        "flags": {"operator": "--operator", "shape": "--shape",
+                                                  "impl": "--impl", "report": "--json"}}},
         "evidence": {"correctness_report": "evidence/correctness.json",
                      "performance_report": "evidence/performance.json",
                      "measured_on": {"node": "stub", "gpu_arch": "gfx950",
@@ -163,6 +172,7 @@ def _document(claim_speedup: float | None, measured: dict, *, noise_floor=NOISE_
                     "warn_on_mismatch": ["rocm", "torch"],
                     "workset_environment": _environment(),
                     "run_environment": _environment(),
+                    "dtypes": {OPERATOR: "fp32"},
                     "verdict": {"held": True, "aborted_on": [], "warnings": []}},
         "apply": {"apply_mode": "overlay_files", "manifest": "apply/manifest.json",
                   "integration_point": {"source_file": "python/sglang/srt/layers/sampler.py",
@@ -320,6 +330,16 @@ def main() -> int:
             False, "noise_floor",
         ),
     ]
+
+    wrong_dtype = _document(2.8, faster)
+    wrong_dtype["premise"]["dtypes"] = {OPERATOR: "bf16"}
+    cases.append((
+        "the handoff optimised bf16 where the workset's ground truth says fp32 — "
+        "a speedup at a different precision is a different question",
+        wrong_dtype,
+        {"baseline": {"per_case_ms": BASELINE}, "candidate": {"per_case_ms": faster}},
+        False, "dtype",
+    ))
 
     failures: list[str] = []
     for index, (label, document, plan, expect_pass, expect_text) in enumerate(cases, start=1):
