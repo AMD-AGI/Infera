@@ -84,21 +84,30 @@ validator (2026-09-01):
 
 | kit | verdict | what it shows |
 |---|---|---|
-| `glm53flash.mix.packup_20260830` — a human-written kit | **FAIL**, 5 faults | unfilled `<your-token>` / `<branch>` placeholders, no `Expected output` section, 0 `.json` files in `results/`. Each fault is specific and each is real |
+| `glm53flash.mix.packup_20260830` — a human-written kit | **FAIL**, 5 faults *then*, **7 now** | unfilled `<your-token>` / `<branch>` / `<host VA>` placeholders, no `Expected output` section, 0 `.json` files in `results/`. Each fault is specific and each is real. The count grew to 7 when rules 7 and 8 landed below — this kit fails those too, having neither a worker-side mode reading nor completion evidence. Re-measured 2026-09-02 |
 | the `b6` kit from `single_real_task`'s accepted run — which **passed** that package's shape check | **FAIL**, 6 faults, all of them the same rule | every evidence file shows the model served as `/data/<user>/…/Qwen3.6-27B`. The kit satisfies every inherited rule; only the new served-name rule bites, and it bites on exactly the trap that run recorded in its own notes |
 
 The second row is the one worth reading: a validator that passed everything it
 was pointed at would be worth nothing, and this one refuses a kit that its
 predecessor accepted, for a reason written down before the check existed.
 
-When rules 7 and 8 were added from the exemplars, the same two controls were
-re-run and a third added (2026-09-01):
+When rules 7 and 8 were added from the exemplars, the controls were re-run and
+a third added (2026-09-01):
 
 | kit | verdict |
 |---|---|
 | the Qwen kit from the run that passed both validators | **PASS** |
 | the GLM kit from the run whose shape check passed | **PASS** |
 | a copy of the Qwen kit with `chat_completion.json`, `verification.json` and `worker_mode_line.txt` deleted | **FAIL**, on exactly the two new rules and nothing else |
+
+These three, plus the human-written kit from the first table, were re-run once
+more on 2026-09-02 after this package moved into `deploy-demo/`, to check that
+the body still resolves `check.py` and `assets/lib/zone.py` from the new root.
+Every verdict reproduced. The one number that changed is the human-written
+kit's fault count, for the reason given in its row — a directory move cannot
+change a verdict, but two added rules can, and a control table that disagrees
+with the code is worse than none. (The `b6` kit was not re-run; its row is the
+2026-09-01 measurement and its count predates rules 7 and 8 in the same way.)
 
 ## What it does not do
 

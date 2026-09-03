@@ -175,13 +175,16 @@ _PROBE_OVERSAMPLE = 4
 # **This table must agree with `analyze-demo/assets/lib/container_roots.yaml`,
 # and the two are separate files on purpose** -- see that file's own header. A
 # frame is published as a placeholder plus a relative path, never as an absolute
-# one, because `handoff/locality.py` refuses to seal content naming an absolute
-# path outside its allow-list and `/sgl-workspace/` is not on it.
+# one, because a handoff should not name an absolute host path outside a small
+# allow-list and `/sgl-workspace/` is not on it. Note the seal does NOT enforce
+# this (`store.py`: `locality.check` is not called); `assets/lib/redact.py` does,
+# which is why the shape below has to be right at the producer.
 #
-# Splitting rather than substituting is what makes it survive the seal: a
+# Splitting rather than substituting is what makes it pass redact.py: a
 # substituted `@SGLANG_ROOT@/srt/layers/moe/fused_moe.py` is one string with two
-# path segments in it and the seal's own regex would offer `/srt/layers/...` as a
-# fresh candidate, while a relative path has no leading slash and cannot match.
+# path segments in it and `locality.py`'s regex -- which redact.py reuses -- would
+# offer `/srt/layers/...` as a fresh candidate, while a relative path has no
+# leading slash and cannot match.
 CONTAINER_ROOTS: tuple[tuple[str, str, str], ...] = (
     # (owner, container path, placeholder)
     ("sglang", "/sgl-workspace/sglang/python/sglang", "SGLANG_ROOT"),

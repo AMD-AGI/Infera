@@ -48,6 +48,7 @@ if it does not reproduce within tolerance. Do not round in your own favour.
 | `$KFO_FORGE_MODEL` | the model for the **nested** forge loop. Default `Claude-Sonnet-5[1m]` |
 | `$KFO_SNR_THRESHOLD` | forge's correctness gate, in dB. Default 30.0 |
 | `$KFO_MOCK` | `1` = skip the real campaign. Default `0` |
+| `$KFO_GPU_TARGET` / `$KFO_GPU_TYPE` | the architecture to compile for, e.g. `gfx950` / `mi355x`. **Usually empty, and empty means detect it from the card you are on** — §4 |
 
 Note the asymmetry in the first two, because it has bitten people: the **input**
 variable points at the version directory (so `content/` is a hop below it) and
@@ -92,6 +93,48 @@ speedup you could produce afterwards would be a speedup over nothing. This check
 is the cheapest thing in the whole task and it is the one that makes the rest
 mean anything.
 
+### When the disagreement is the *hardware*, and what you must not do about it
+
+**First read the workset's `environment.md` and compare its GPU to yours.** A
+workset carries the baseline of the machine it was built on, and this package is
+meant to be model- and machine-agnostic, so the two will not always match.
+
+Measured 2026-09-02, and this is the case that motivated this paragraph: the
+shipped `sampler_vocab_softmax` workset was traced and baselined on
+**gfx942 / MI300X, 304 CU**, where the production `B8_V151936` shape takes
+**55.402 µs**. On **gfx950 / MI355X, 256 CU** the same driver, same shapes, same
+dtype, same correctness bars measures **50.14–50.18 µs** — **9.5% faster**, in
+two independent runs agreeing to 0.08%. Nothing is broken. The kernel is simply
+faster on newer silicon.
+
+What that means for you, in one rule:
+
+> **Your baseline is the number you measured on this host. Never the number
+> printed in the workset.**
+
+If you optimize on gfx950 and report a speedup against the workset's 55.402 µs,
+you book **9.5% you did not earn**, from a comparison that looks entirely
+legitimate in the report and that nobody downstream can detect. That is the
+single most damaging thing this task can produce, and it is far more likely than
+an outright fabrication.
+
+So when the architectures differ:
+
+1. **Do not stop** — a hardware difference is not the "driver is measuring the
+   wrong thing" failure the paragraph above is about. Distinguish them: a
+   hardware shift is *uniform in sign across every case* and *preserves the
+   ordering* of the cases. A broken oracle is not.
+2. Re-measure the seed on **this** host with `measure_baseline.py`, 5 rounds,
+   and use that as the denominator for every ratio you report.
+3. Record both numbers, the delta, and which host each came from, in
+   `results/verification.json` — a `baseline_cross_check` object with a
+   `status` of `DIVERGED` and a note naming both machines is what previous runs
+   have used and it reads well.
+4. Say in `notes.md` that the absolute microsecond figures in your kit are **not
+   comparable** with the workset's, and name the figure a future run must use.
+5. Be honest that you have not confirmed it against a trace on this host unless
+   you actually profiled one. A plausible explanation is not a measurement.
+
 ---
 
 ## 4. The KernelForge invocation
@@ -116,8 +159,8 @@ kernel-agents forge-loop \
   --result-json   "$W/forge_experiments/forge_result.json" \
   --program-md-file "$W/program.md" \
   --fellow        triton-fellow \
-  --gpu-target    gfx942 \
-  --gpu-type      mi300x \
+  --gpu-target    "$KFO_GPU_TARGET" \
+  --gpu-type      "$KFO_GPU_TYPE" \
   --framework     sglang \
   --operator-name <operator> \
   --snr-threshold "$KFO_SNR_THRESHOLD" \
@@ -130,9 +173,30 @@ kernel-agents forge-loop \
 `--target-functions` is the public function the driver imports — read it out of
 the workset's `program.md` "Modification rules", do not guess it.
 
+### `--gpu-target` is the architecture of **this** host, not of the workset
+
+`$KFO_GPU_TARGET` and `$KFO_GPU_TYPE` are usually **empty**, and empty means
+*find out*:
+
+```sh
+python3 -c "import torch; p=torch.cuda.get_device_properties(0); print(p.gcnArchName.split(':')[0], p.name)"
+# e.g. gfx950 AMD Instinct MI355X   ->  --gpu-target gfx950 --gpu-type mi355x
+```
+
+Take the architecture from the card you are about to run on. **Do not take it
+from the workset's `environment.md`** — that records where the workset's
+baseline was measured, which may be a different machine entirely, and it is a
+true statement about the past rather than an instruction about now. If the two
+disagree, §3's cross-check applies and you must say so in the handoff.
+
+Until 2026-09-02 this section hard-coded `gfx942` / `mi300x`. That was the
+author's machine, and copying it onto a gfx950 host tunes for an architecture
+nobody is measuring — quietly, because forge will happily compile for it. If
+detection fails, **stop and say so**; do not fall back to a guess.
+
 **Before launching, run `kernel-agents status`** and read two lines: the GPU
-target must say `gfx942`, and `rocprof-compute` must say `ready`. If it says
-`dependencies are not ready`, see §5 trap 3.
+target must match what you just detected, and `rocprof-compute` must say
+`ready`. If it says `dependencies are not ready`, see §5 trap 3.
 
 The loop is **time-driven**: it runs until `--max-hours` is spent, reserving 30
 minutes to finalize. It prints an event stream; a campaign at `--max-hours 3.0`

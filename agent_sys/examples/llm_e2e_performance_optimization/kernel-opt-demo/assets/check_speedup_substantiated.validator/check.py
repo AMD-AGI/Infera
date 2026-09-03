@@ -243,7 +243,21 @@ def _check(optimization: str, args: dict, problems: list[str], notes: list[str])
     # Two sibling scratch copies of the workset's kernel directory: one left as
     # the seed, one with the optimized kernel dropped in. Created under a fresh
     # mkdtemp so nothing existing is touched and nothing is deleted.
-    root = Path(tempfile.mkdtemp(prefix="substantiate-", dir=os.environ.get("TMPDIR") or None))
+    #
+    # **Where is an argument, and `TMPDIR` is only the fallback.** A validation
+    # zone forces `TMPDIR` to `<zone>/tmp` (`validator/environment.py:233`) and
+    # treats that as an invariant of the zone rather than a default (`:86`), so
+    # the producer's `env` cannot reach it the way it reaches the agent's. The
+    # zone sits under `--demo-root`; with a run root on this cluster's NFS every
+    # ROCm kernel launch below segfaults, and it does so *after* the copies and
+    # the first measurement round, so the run is lost at its most expensive
+    # point. `scratch_dir` comes from `scratch_root`, which the package requires
+    # to be local disk.
+    scratch_dir = str(args.get("scratch_dir") or "").strip() or os.environ.get("TMPDIR") or ""
+    if scratch_dir:
+        Path(scratch_dir).mkdir(parents=True, exist_ok=True)
+        notes.append(f"scratch under {scratch_dir}")
+    root = Path(tempfile.mkdtemp(prefix="substantiate-", dir=scratch_dir or None))
     base_dir, opt_dir = root / "baseline", root / "optimized"
     shutil.copytree(apparatus, base_dir)
     shutil.copytree(apparatus, opt_dir)

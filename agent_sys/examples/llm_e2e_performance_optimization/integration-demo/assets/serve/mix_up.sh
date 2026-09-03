@@ -138,6 +138,8 @@ docker exec -d "$CTR" env MY_IP="$MY_IP" ETCD_IP="$MY_IP" ETCD_PORT="$ETCD_PORT"
   CUDA_GRAPH="$CUDA_GRAPH" GRAPH_BS="${GRAPH_BS:-1 2 4 8 16 24 32 48 64 96 128}" \
   KV_DTYPE="${KV_DTYPE:-bfloat16}" MOE_RUNNER="${MOE_RUNNER:-triton}" \
   GMU="${GMU:-0.85}" CTX="${CTX:-262144}" CHUNK="${CHUNK:-8192}" \
+  DSA_ARGS="${DSA_ARGS:---dsa-prefill-backend tilelang --dsa-decode-backend tilelang}" \
+  PARSER_ARGS="${PARSER_ARGS:---reasoning-parser glm45 --tool-call-parser glm47}" \
   bash /mix_worker.sh
 echo "  mix worker launching -> /tmp/glm53_mix.log in $CTR"
 

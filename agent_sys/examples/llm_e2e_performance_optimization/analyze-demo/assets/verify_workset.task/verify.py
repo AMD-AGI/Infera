@@ -143,17 +143,63 @@ def _required(name: str) -> str:
     return value
 
 
+#: How to get a shell onto the node holding the GPUs. **A site fact, so it is a
+#: package variable** (`--var node_transport=`), not a constant.
+#:
+#: - `srun` — Slurm. `srun --jobid=<id> --overlap` joins the existing allocation
+#:   rather than queueing for a new one, which is what lets this share a node
+#:   with whatever else the job is holding. This is the default because it is
+#:   what the cluster this package was written on has.
+#: - `spur` — the spur scheduler. `spur exec <jobid>` routes by job id and takes
+#:   no node name. Measured on `crsuse2-m2m-*`: Slurm's client binaries are not
+#:   in the namespace at all (`command -v srun` finds nothing there), and the
+#:   `/usr/local/bin/srun` visible from the login node is a re-implementation
+#:   that wants a TTY and exits 128 without one.
+#: - `local` — `agent-sys` is already running on the node holding the GPUs, so
+#:   there is no gap to cross and the docker call is made directly. This is the
+#:   cheapest and the least to go wrong; prefer it whenever the orchestrator and
+#:   the GPU are the same machine, which `hostname` settles.
+TRANSPORTS = ("srun", "spur", "local")
+
+
+def _launcher(timeout_hint: str) -> list[str]:
+    """The argv prefix that puts `bash -lc <...>` on the GPU node."""
+    transport = (os.environ.get("AD_NODE_TRANSPORT") or "srun").strip()
+    if transport not in TRANSPORTS:
+        raise SystemExit(
+            f"AD_NODE_TRANSPORT={transport!r} is not one of {TRANSPORTS}. "
+            f"Supply it as --var node_transport=<one of those>."
+        )
+    if transport == "local":
+        return ["bash", "-lc"]
+
+    jobid = os.environ.get("AD_JOBID", "")
+    node = os.environ.get("AD_GPU_NODE", "")
+    if not jobid or (transport == "srun" and not node):
+        raise SystemExit(
+            f"the {transport!r} transport needs AD_JOBID"
+            + (" and AD_GPU_NODE" if transport == "srun" else "")
+            + f", and neither carries a default ({timeout_hint}). "
+            f"Supply them: --var jobid=<job> --var gpu_node=<hostname>"
+        )
+    if transport == "spur":
+        # `spur exec` routes by job id, so it takes no node name, and it does
+        # not carry the caller's environment across — everything this body
+        # needs is already inside the `docker run` string, so that is fine.
+        return ["spur", "exec", jobid, "bash", "-lc"]
+    return [
+        "srun", f"--jobid={jobid}", "--overlap", "-N1", "-n1", "-w", node,
+        "--chdir=/tmp", "bash", "-lc",
+    ]
+
+
 def run_remote(command: str, timeout: int) -> subprocess.CompletedProcess:
     """Run `command` inside the serving container on the allocated node.
 
-    `srun --overlap` joins the existing allocation rather than queueing for a
-    new one, which is what lets this share a node with whatever else the job is
-    holding. The container flags are the ones `glm53flash-demo/scripts/mix_worker.sh`
+    The container flags are the ones `glm53flash-demo/scripts/mix_worker.sh`
     uses; without `--device=/dev/kfd` a ROCm process fails with a device-open
     error that reads like a driver problem.
     """
-    jobid = os.environ.get("AD_JOBID", "")
-    node = os.environ.get("AD_GPU_NODE", "")
     image = os.environ.get("AD_IMAGE", "")
     work = os.environ.get("AD_WORK_ROOT", "/data/agent_sys_analyze")
 
@@ -172,21 +218,29 @@ def run_remote(command: str, timeout: int) -> subprocess.CompletedProcess:
     inner = (
         f"docker run --rm "
         f"-e PYTHONDONTWRITEBYTECODE=1 "
+        f"{_visible_devices()}"
         f"--device=/dev/kfd --device=/dev/dri --group-add video "
         f"--ipc=host --network=host --security-opt seccomp=unconfined "
         f"-v {work}:{work} -w {work}/verify "
         f"{image} bash -lc {json.dumps(command)}"
     )
-    if not jobid or not node:
-        raise SystemExit(
-            "AD_JOBID and AD_GPU_NODE are required and carry no default. "
-            "Supply them: --var jobid=<slurm job> --var gpu_node=<hostname>"
-        )
-    argv = [
-        "srun", f"--jobid={jobid}", "--overlap", "-N1", "-n1", "-w", node,
-        "--chdir=/tmp", "bash", "-lc", inner,
-    ]
-    return subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+    return subprocess.run(
+        _launcher("per-operator timeout") + [inner],
+        capture_output=True, text=True, timeout=timeout,
+    )
+
+
+def _visible_devices() -> str:
+    """`-e HIP_VISIBLE_DEVICES=...`, when this run does not own the whole node.
+
+    A card index is an identifier bound on a shared host, so it is a package
+    variable (`--var visible_devices=2,3`) and not a constant. Empty means "use
+    whatever the node gives us", which is right when the allocation is the whole
+    node and wrong the moment it is not: without it a driver opens card 0 and
+    competes with whoever else is holding it.
+    """
+    devices = (os.environ.get("AD_VISIBLE_DEVICES") or "").strip()
+    return f"-e HIP_VISIBLE_DEVICES={devices} " if devices else ""
 
 
 def parse_correctness(text: str) -> tuple[float | None, bool | None]:
@@ -292,29 +346,29 @@ def stage(content: Path) -> None:
     orchestrating host, and a container on another node cannot see it.
     """
     work = os.environ.get("AD_WORK_ROOT", "/data/agent_sys_analyze")
-    jobid = os.environ.get("AD_JOBID", "")
-    node = os.environ.get("AD_GPU_NODE", "")
     staging = Path(work) / "verify"
     # Cleared from inside a container so that anything a previous root-run left
     # behind can actually be removed. `rm -rf` as the invoking user fails with
     # `Permission denied` on a root-owned `.pyc` and takes the whole task with
     # it — a second-run-only failure that is easy to miss.
     image = os.environ.get("AD_IMAGE", "")
+    launcher = _launcher("staging")
     subprocess.run(
-        ["srun", f"--jobid={jobid}", "--overlap", "-N1", "-n1", "-w", node, "--chdir=/tmp",
-         "bash", "-lc",
-         f"docker run --rm -v {work}:{work} {image} "
-         f"bash -lc 'rm -rf {staging} && mkdir -p {staging} && chmod 777 {staging}'"],
+        launcher
+        + [
+            f"docker run --rm -v {work}:{work} {image} "
+            f"bash -lc 'rm -rf {staging} && mkdir -p {staging} && chmod 777 {staging}'"
+        ],
         check=True, capture_output=True, text=True, timeout=600,
     )
-    # `srun` shares the allocation but not a filesystem: /data is node-local.
-    # scp is avoided in favour of tar over srun's stdin, which needs no
-    # credentials and no reachable sshd.
+    # The transport shares the allocation but not a filesystem: the work root is
+    # node-local. scp is avoided in favour of tar over the launcher's stdin,
+    # which needs no credentials and no reachable sshd — and which degrades to a
+    # plain local `tar` when the transport is `local`.
     archive = shutil.make_archive(str(Path("/tmp") / "workset"), "gztar", root_dir=content / "items", base_dir="code")
     with open(archive, "rb") as handle:
         subprocess.run(
-            ["srun", f"--jobid={jobid}", "--overlap", "-N1", "-n1", "-w", node, "--chdir=/tmp",
-             "bash", "-lc", f"tar xzf - -C {staging}"],
+            launcher + [f"tar xzf - -C {staging}"],
             stdin=handle, check=True, capture_output=True, text=True, timeout=600,
         )
 

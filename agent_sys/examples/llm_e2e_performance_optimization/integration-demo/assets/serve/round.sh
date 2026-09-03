@@ -93,6 +93,9 @@ on "NODE_IP='$IT_NODE_IP' IMAGE='$IT_IMAGE' ETCD_IMAGE='$IT_ETCD_IMAGE' \
     CTR='$CTR' ROUTER_PORT='$IT_ROUTER_PORT' PORT='$IT_WORKER_PORT' \
     ETCD_PORT='$IT_ETCD_PORT' TP='$IT_TP' \
     WORK_ROOT='$WORK' CUDA_GRAPH=1 SCRIPTS='$SERVE' MOUNT_SPEC='$SPEC' \
+    CTX='${IT_CTX:-262144}' \
+    DSA_ARGS='${IT_DSA_ARGS:---dsa-prefill-backend tilelang --dsa-decode-backend tilelang}' \
+    PARSER_ARGS='${IT_PARSER_ARGS:---reasoning-parser glm45 --tool-call-parser glm47}' \
     bash '$SERVE/mix_up.sh'" 2>&1 | tee "$LOG"
 up_rc="${PIPESTATUS[0]}"
 

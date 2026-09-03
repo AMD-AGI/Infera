@@ -41,16 +41,34 @@ about this package:
 docker exec -u "$(id -u):$(id -g)" <container> bash -lc '
 agent-sys run \
   --package agent_sys/examples/llm_e2e_performance_optimization/kernel-opt-demo \
-  --demo-root <a fresh run root on LOCAL disk> \
+  --demo-root <a fresh run root> \
   --var kernelforge_repo=$HOME/dev/git.16-19/KernelForge \
   --var gpu=0 \
   --var scratch_root=/tmp/yihou/<yours> \
   --var packup_skill=$HOME/.claude/skills/experiment-result-packup'
 ```
 
+**`scratch_root` must be on local disk, and that is now the only such
+requirement.** It used to be true of `--demo-root` as well, for a reason nobody
+had written down: `env_mgr` points `TMPDIR` at `<zone>/tmp` and the zone lives
+under the run root, and on a cluster whose shared filesystem is NFS a ROCm
+kernel launch with `TMPDIR` there dies with **SIGSEGV** — first launch, no
+message, exit 139, after every device query has returned `hipSuccess`. Both
+places that could inherit it now name a directory under `scratch_root` instead:
+`kernel_opt_lead`'s `env` sets `TMPDIR`, and `check_speedup_substantiated` takes
+a `scratch_dir` argument, because a validation zone's `TMPDIR` is an invariant
+an agent spec cannot reach. So the run root may live wherever the site keeps
+workspaces.
+
 **Run as the host user, not container root.** That one flag removes four
 separate failures at once; `temp/ws_kernel_opt_20260901/scratch/run_pkg.sh`
 carries the full argument and refuses to start as root.
+
+`--var gpu_target=` / `--var gpu_type=` name the architecture forge compiles
+for. **They default to empty, which means "detect it from the card you are
+on"**, and that is deliberate: the task readme used to hard-code `gfx942` /
+`mi300x`, which is a fact about the machine this package was written on. The old
+fixed behaviour is one flag away if something depended on it.
 
 Useful knobs: `--var mock=1` (wiring only, no campaign), `--var max_hours=`
 (forge's budget; **> 2.0** or forge silently degrades), `--var lead_model=`,

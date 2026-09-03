@@ -1,19 +1,26 @@
 #!/usr/bin/env python3
 """Make evidence publishable: replace site-specific roots with placeholders.
 
-`handoff` refuses to seal content that names an absolute path outside a small
-allow-list, and it scans every text file rather than only the README:
+A handoff should name its dependencies and nothing about the machine that
+produced it (`handoff` spec §7). A violation looks like this:
 
     items/logs/worker.tail.log:88: '/apps/.../GLM-5.3-Flash-FP8' is a local path.
-    A handoff names its dependencies and nothing about the machine that produced
-    it (spec §7)
 
-The rule is right — a record of one machine's afternoon is not a transferable
-artefact. What is missing is the escape hatch its own source describes:
-`locality.Oracles.image_prefixes` exists for "prefixes the declared container
-image makes portable — the kind's `dependencies`", `handoff.schema.json` has the
-matching `dependencies` field, and nothing connects the two. Reported in
-`temp/bugs/002-handoff-dependencies-never-reach-locality-check.md`.
+**Nothing enforces that at publication, so this script is what enforces it.**
+`handoff/store.py` does not call `locality.check` in either `seal` or `put` —
+both sites carry `# locality.check — NOT CALLED. User-ruled 2026-08-31`, after
+the shape heuristic refused a correct artefact by reading an HTTP access-log
+line as a filesystem path (97% false positive on a real kit; `ROADMAP.md` §6.4
+has the rebuild at P2). Do not read this module as a belt-and-braces duplicate
+of an admission check: **it is the only check.**
+
+The ruling was right, and this package's own numbers say so — 818 absolute paths
+in one round's logs, of which 817 were container-internal paths, HTTP routes and
+an etcd key prefix. Which is the argument for doing it *here*: a producer knows
+which of its paths are site roots, and a shape heuristic over finished bytes
+cannot. (The escape hatch that would have let the seal know —
+`locality.Oracles.image_prefixes`, fed from the kind's `dependencies` — is still
+wired to nothing; `temp/bugs/002-handoff-dependencies-never-reach-locality-check.md`.)
 
 So this substitutes on the producing side, which is conda-build's
 `PREFIX_PLACEHOLDER` design and one of the approaches `locality.py`'s docstring
@@ -21,10 +28,11 @@ cites as working. `${MODEL_MOUNT}/GLM-5.3-Flash-FP8` keeps the model's identity
 and drops the mount root, which is the split spec §7 asks for.
 
 **It fails rather than dropping what it cannot name.** After substituting, it
-re-applies the same allow-list and the same shape regex the seal uses. Anything
-left is reported with its file, line and text, so a new site-specific path shows
-up here as a named error instead of as `output was never delivered` twenty
-minutes later.
+applies the same allow-list and the same shape regex `locality.py` defines.
+Anything left is reported with its file, line and text — so a new site-specific
+path shows up here as a named error rather than travelling silently into a
+published artefact, which is what would otherwise happen now that the seal does
+not look.
 
 Usage:
 

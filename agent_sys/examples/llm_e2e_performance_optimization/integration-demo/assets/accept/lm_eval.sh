@@ -39,6 +39,19 @@ TEMP="${TEMP:-0.0}"
 TOP_P="${TOP_P:-1.0}"
 REPEAT="${REPEAT:-1}"
 THINKING="${THINKING:---thinking-mode glm-45}"
+# Where sglang's source tree lives inside the image, prepended to PYTHONPATH for
+# the evaluator only.
+#
+# Not always redundant. On rocm/sgl-dev:v0.5.18 the installed `sglang` is a
+# NAMESPACE package -- `import sglang` succeeds and `sglang.__file__` is None --
+# and `sglang.test` is not part of it, so `python3 -m sglang.test.run_eval` dies
+# with "No module named sglang.test.run_eval" even though
+# /sgl-workspace/sglang/python/sglang/test/run_eval.py is right there. Adding the
+# source root fixes it and is inert on an image where sglang is installed
+# properly, because it is the same tree.
+SGLANG_SRC="${SGLANG_SRC:-/sgl-workspace/sglang/python}"
+# `none` means the model has no reasoning parser; see mix_worker.sh.
+[ "$THINKING" = none ] && THINKING=""
 
 mkdir -p "$OUT"
 : > "$OUT/.index"
@@ -74,7 +87,7 @@ for name in $EVALS; do
   [ -n "$NUM_EXAMPLES" ] && n_arg="--num-examples $NUM_EXAMPLES"
 
   started=$(date +%s)
-  docker exec "$CTR" python3 -m sglang.test.run_eval \
+  docker exec -e PYTHONPATH="$SGLANG_SRC:${PYTHONPATH:-}" "$CTR" python3 -m sglang.test.run_eval \
       --base-url "$URL" --model "$SERVED" --eval-name "$name" \
       $n_arg --num-threads "$THREADS" --repeat "$REPEAT" \
       --max-tokens "$MAX_TOKENS" --temperature "$TEMP" --top-p "$TOP_P" \

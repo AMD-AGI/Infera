@@ -89,6 +89,34 @@
     TRITON_CACHE_DIR: '${scratch_root}/triton_cache'
     KNOWLEDGE_LOCAL_ROOT: '${scratch_root}/knowledge'
 
+    # **The sixth environment fact, and the only one that fails with a signal
+    # rather than a message.** `env_mgr` points `TMPDIR` at `<zone>/tmp`, and
+    # the zone lives under `--demo-root`. Put the run root on this cluster's
+    # NFS and every ROCm kernel launch in this task dies with **SIGSEGV**, on
+    # the *first* launch, after `hipGetDeviceCount` and every device-property
+    # query have returned `hipSuccess`. Measured 2026-09-02 on gfx950, five
+    # ways: `/tmp` and node-local disk return 0; three different `/shared_nfs`
+    # paths return 139 with no output. It cost an agent 25 minutes of bisection
+    # down to a hand-written HIP program, because nothing in the failure names
+    # a filesystem.
+    #
+    # `scratch_root` is already required and already documented as local disk,
+    # so pointing `TMPDIR` at it needs no new variable and states the same fact
+    # once. **This is why an agent spec may set it at all**:
+    # `env_mgr/harness.py:39-44` lists `TMPDIR` in `_RESERVED` — never forwarded
+    # from the operator's ambient environment — and then says in as many words
+    # that *"an agent spec's declared `env` may still set any of them: an author
+    # saying so outranks a default, and that update is applied after this
+    # module."* So the run root can stay on the shared filesystem, which is
+    # where this site wants workspaces, and only the scratch moves.
+    #
+    # It does **not** reach a validation zone: `validator/environment.py:233`
+    # sets `TMPDIR` to `<zone>/tmp` unconditionally, and `CHANNELS` at :86 lists
+    # that as an invariant of the zone rather than a default. The validator that
+    # needs a temporary directory takes one from its `args` instead — see
+    # `check_speedup_substantiated`'s `scratch_dir`.
+    TMPDIR: '${scratch_root}/tmp'
+
     # **The interpreter that can `import torch`, and it is not optional.**
     # This block is the PRODUCER row, which is the only environment an
     # output-phase validator body gets — and `check_speedup_substantiated` has
@@ -115,6 +143,22 @@
     # Analysis to static-only and the implementer turn cap from 500 to 100
     # (`kernel_agents/cli.py:47,420,1391`). 3.0 is the smallest value that keeps
     # the full loop.
+    # **The architecture forge is told to compile for, and it is NOT defaulted
+    # to `gfx942`.** Until 2026-09-02 the task readme hard-coded
+    # `--gpu-target gfx942 --gpu-type mi300x` into the command it tells the
+    # agent to copy, which is a fact about the machine this package was written
+    # on and not about this package. Copied onto a gfx950 host it is simply
+    # wrong, and it is wrong in the quiet direction: forge would tune for an
+    # architecture that is not the one being measured.
+    #
+    # Empty means **detect it** — the readme's §4 tells the agent how, in one
+    # line of torch, and to fail loudly rather than guess. A default cannot run
+    # `rocminfo`, so the honest default is "no answer" rather than one host's
+    # answer. `--var gpu_target=gfx942 --var gpu_type=mi300x` restores the old
+    # fixed behaviour for anyone who was depending on it.
+    KFO_GPU_TARGET: '${gpu_target:-}'
+    KFO_GPU_TYPE: '${gpu_type:-}'
+
     KFO_MAX_HOURS: '${max_hours:-3.0}'
     KFO_FORGE_MODEL: '${forge_model:-Claude-Sonnet-5[1m]}'
     KFO_SNR_THRESHOLD: '${snr_threshold:-30.0}'
@@ -283,6 +327,28 @@
     # than a small win.
     noise_floor: '${verify_noise_floor:-1.05}'
     timeout_seconds: '${verify_timeout_seconds:-1800}'
+    # Where this body may build its two scratch copies of the kernel directory
+    # and run them. **It cannot use `TMPDIR` and the reason is structural.**
+    # A validation zone sets `TMPDIR` to `<zone>/tmp`
+    # (`validator/environment.py:233`) and `CHANNELS` at :86 declares
+    # `"TMPDIR points inside the zone"` an invariant of the zone, not a default
+    # — so unlike the producer's `TMPDIR`, an agent spec's `env` does **not**
+    # reach it. The zone is under `--demo-root`; on a shared-filesystem run
+    # root that puts every subprocess this body starts on NFS, and a ROCm
+    # kernel launch with `TMPDIR` on NFS segfaults (see the note on
+    # `kernel_opt_lead`'s `TMPDIR`). It would do so *after* the expensive
+    # re-measurement, which is the worst place to lose a run.
+    #
+    # So the directory arrives as an argument, under `scratch_root` — which the
+    # package already requires to be local disk. The body falls back to
+    # `TMPDIR` if this is set to the empty string, which is the escape hatch for
+    # a site where the two happen to be the same filesystem.
+    #
+    # It is written `${scratch_root}/verify_scratch` and **not**
+    # `${verify_scratch_dir:-${scratch_root}/verify_scratch}`, because a default
+    # may not contain `}` — `spec_loader/variables.py:87` matches it as
+    # `[^}]*`, so the nested form is a load error rather than a fallback.
+    scratch_dir: '${scratch_root}/verify_scratch'
   tags:
     logic_source: external_dynamic
     cost: minutes

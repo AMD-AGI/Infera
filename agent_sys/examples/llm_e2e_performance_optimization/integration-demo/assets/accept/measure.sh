@@ -103,6 +103,7 @@ run_step lm_eval "URL='$R' SERVED='$IT_SERVED' CTR='$CTR' \
   OUT='$WORKDIR/accept/lm_eval' GSM8K_SRC='${IT_GSM8K_DATA:?}' \
   EVALS='${IT_EVAL_NAMES:-gsm8k}' NUM_EXAMPLES='${IT_EVAL_EXAMPLES:-200}' \
   THREADS='${IT_EVAL_THREADS:-32}' MAX_TOKENS='${IT_EVAL_MAX_TOKENS:-2048}' \
+  THINKING='${IT_EVAL_THINKING:---thinking-mode glm-45}' \
   bash '$ACCEPT/lm_eval.sh'"
 
 # ---- 5. bench ---------------------------------------------------------------
@@ -170,7 +171,7 @@ json.dump({
         "num_examples": int("${IT_EVAL_EXAMPLES:-200}"),
         "threads": int("${IT_EVAL_THREADS:-32}"),
         "max_tokens": int("${IT_EVAL_MAX_TOKENS:-2048}"),
-        "thinking_mode": "glm-45",
+        "thinking_mode": "${IT_EVAL_THINKING:---thinking-mode glm-45}",
     },
     "needle": {
         "gated_tokens": int("${IT_NEEDLE_TOKENS:-76000}"),

@@ -66,14 +66,44 @@ else
 fi
 EP_ARGS=(); [ -n "$EP_SIZE" ] && EP_ARGS=(--ep-size "$EP_SIZE")
 
+# The two flag groups that are facts about GLM-5.3-Flash rather than about this
+# deployment recipe, hoisted into variables that DEFAULT TO EXACTLY WHAT WAS
+# THERE. Left alone, this file launches the identical command line it always did.
+#
+#   * DSA_ARGS -- GLM-5.3 attention is DSA and wants a backend named on each
+#     side. Qwen3.5 has no DSA path at all, and sglang rejects the flag outright,
+#     so a model that is not GLM has to be able to pass none.
+#   * PARSER_ARGS -- `--reasoning-parser glm45 --tool-call-parser glm47` name
+#     GLM's chat template. On another model they are at best inert and at worst
+#     produce an empty `content` for every request, which arrives as a score of
+#     0.00 rather than as an error. See the note in ../accept/lm_eval.sh, which
+#     is the same trap on the evaluator side and has to be set consistently.
+#
+# Deliberately word-split, unquoted: these carry several flags each. That is why
+# they are read into arrays here rather than expanded at the call site, where an
+# empty value would otherwise become one empty argument and sglang would reject
+# it.
+DSA_ARGS="${DSA_ARGS:---dsa-prefill-backend tilelang --dsa-decode-backend tilelang}"
+PARSER_ARGS="${PARSER_ARGS:---reasoning-parser glm45 --tool-call-parser glm47}"
+# `none` is how a caller spells "no flags at all". It is a sentinel and not the
+# empty string because agent_sys's variable syntax (spec_loader/variables.py)
+# understands only ${x} and ${x:-default} -- there is no ${x-default}, so an
+# empty --var is indistinguishable from an unset one and would silently get the
+# GLM defaults back.
+[ "$DSA_ARGS" = none ] && DSA_ARGS=""
+[ "$PARSER_ARGS" = none ] && PARSER_ARGS=""
+read -r -a DSA_ARGS_A <<< "$DSA_ARGS"
+read -r -a PARSER_ARGS_A <<< "$PARSER_ARGS"
+
 echo "[glm53-mix] ip=$MY_IP:$PORT nic=${NIC:-?} tp=$TP gpus=$GPUS gmu=$GMU chunk=$CHUNK ctx=$CTX graph=$CUDA_GRAPH bs='$GRAPH_BS' kv=$KV_DTYPE moe=$MOE_RUNNER -> $LOG"
+echo "[glm53-mix] dsa='${DSA_ARGS_A[*]}' parsers='${PARSER_ARGS_A[*]}'"
 HIP_VISIBLE_DEVICES="$GPUS" python3 -m infera.engine.sglang \
   --model-path "$MODEL" --served-model-name "$SERVED" --tp-size "$TP" --trust-remote-code \
   --host "$MY_IP" --port "$PORT" \
-  --dsa-prefill-backend tilelang --dsa-decode-backend tilelang \
+  "${DSA_ARGS_A[@]}" \
   --kv-cache-dtype "$KV_DTYPE" --moe-runner-backend "$MOE_RUNNER" \
   --mem-fraction-static "$GMU" --context-length "$CTX" \
   --chunked-prefill-size "$CHUNK" --watchdog-timeout 3600 \
-  --reasoning-parser glm45 --tool-call-parser glm47 \
+  "${PARSER_ARGS_A[@]}" \
   "${GRAPH_ARGS[@]}" "${EP_ARGS[@]}" \
   "${INFERA_ARGS[@]}" > "$LOG" 2>&1

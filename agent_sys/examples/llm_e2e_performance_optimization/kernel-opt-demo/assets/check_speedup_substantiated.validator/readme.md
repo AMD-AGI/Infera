@@ -56,6 +56,31 @@ the workset.
 | `tolerance` | 0.15 | the optimized side has shown ~8% round-to-round spread here against the baseline's ~2%. A tight bound would fail honest handoffs more often than dishonest ones — the wrong direction for a trustworthiness check to fail in |
 | `noise_floor` | 1.05 | below this, a "speedup" is not distinguishable from spread on this machine, so reporting one is a false claim rather than a small win |
 | `timeout_seconds` | 1800 | slack, not a budget. Pass something small when testing the wiring |
+| `scratch_dir` | `${scratch_root}/verify_scratch` | **where the two kernel copies are built and run, and it is not `TMPDIR` on purpose** — see below |
+
+### `scratch_dir`, and why this body cannot just use `TMPDIR`
+
+A validation zone sets `TMPDIR` to `<zone>/tmp`
+(`validator/environment.py:233`), and `CHANNELS` at `:86` lists
+`("tmp", "TMPDIR points inside the zone")` as an **invariant of the zone**, not
+as a default. So the trick that works for the producing agent — declaring
+`TMPDIR` in the agent spec's `env`, which `env_mgr/harness.py:39-44` explicitly
+permits — does **not** reach a validator body.
+
+The zone lives under `--demo-root`. Measured 2026-09-02 on gfx950: with
+`TMPDIR` on this cluster's NFS mount, a ROCm kernel launch dies with **SIGSEGV**
+— no message, no Python traceback, exit 139 — while every device query before it
+returns `hipSuccess`. This body copies the apparatus into a temporary directory
+and runs `measure_baseline.py` there, so on a shared-filesystem run root it would
+crash **after** the copies and the first measurement rounds: the most expensive
+possible place to lose a run, and the least legible, because the failure names no
+filesystem.
+
+`scratch_dir` therefore arrives as an argument, defaulting under `scratch_root`,
+which the package already requires to be local disk. Set it to the empty string
+to fall back to `TMPDIR` on a site where the two are the same filesystem.
+The body prints which directory it chose, so a wrong value is visible in the
+transcript rather than inferred from a signal.
 
 **The tolerance check is one-sided.** A handoff that under-claims passes. Only
 over-claiming fails. Under-claiming is honesty and this validator has no

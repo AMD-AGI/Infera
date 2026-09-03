@@ -35,6 +35,13 @@ env:
   PD_JOBID: '${jobid}'
   PD_NODE: '${node}'
   PD_NODE_IP: '${node_ip}'
+  # How a body reaches that node. `auto` probes: `spur` wherever the binary
+  # exists, otherwise `srun --overlap`. It is a variable because it is a fact
+  # about the cluster rather than about this package -- on the AMD crsuse2-m2m
+  # (spur) cluster `srun` exists but is NOT Slurm's, so probing for the srun
+  # binary would pick the wrong one. `assets/lib/remote.sh` dispatches on it and
+  # `assets/kit/render.py` reads it to describe the transport in REPRODUCE.md.
+  PD_TRANSPORT: '${transport:-auto}'
 
   # --- what to serve ----------------------------------------------------------
   PD_MODEL: '${model_path}'
@@ -42,6 +49,39 @@ env:
   PD_IMAGE: '${image:-infera/engine-sglang:glm53-flash}'
   PD_ETCD_IMAGE: '${etcd_image:-quay.io/coreos/etcd:v3.5.14}'
   PD_TP: '${tp:-8}'
+  # --- the two model-specific engine flag groups ------------------------------
+  # Defaults are byte-for-byte the strings that used to be hard-coded in
+  # `assets/serve/mix_worker.sh`, so the GLM-5.3-Flash path is unchanged.
+  #
+  # They are variables for the reason the four names above are: `model_path`,
+  # `image`, `served_name` and `tp` being parameters made "point this package at
+  # another model" look supported, while these two lines quietly prevented it.
+  # A model with no DSA attention path does not take `--dsa-*-backend`, and the
+  # wrong `--reasoning-parser` does not error -- it yields an empty `content`
+  # for every request while the request still succeeds.
+  #
+  # **Pass the literal `none` for a model that wants neither.** agent_sys's
+  # variable syntax has no way to spell an empty default, so an empty `--var`
+  # would be indistinguishable from an unset one. Same design as
+  # `integration-demo/shared.yaml`; the two copies are kept identical.
+  PD_DSA_ARGS: '${dsa_args:---dsa-prefill-backend tilelang --dsa-decode-backend tilelang}'
+  PD_PARSER_ARGS: '${parser_args:---reasoning-parser glm45 --tool-call-parser glm47}'
+  # The engine's context window. A variable because it is the one flag in
+  # `mix_worker.sh` that a model substitution cannot survive by luck: the round
+  # that proved Qwen3.6-27B works here worked because its
+  # `max_position_embeddings` is *exactly* the 262144 that used to be
+  # hard-coded. A model with a shorter context fails at startup, and before this
+  # there was no `--var` to reach it.
+  PD_CTX: '${context_length:-262144}'
+
+  # --- identifiers bound on the host ------------------------------------------
+  # The engine container's name, and by derivation `${name}_etcd`. **This is a
+  # host-wide identifier on a box `docker ps` shows every tenant's containers
+  # on**, so it is a parameter for the same reason the ports are: two runs of
+  # this package on one node otherwise tear each other's engine down, and a name
+  # carrying neither the owner nor the module cannot be cleaned up mechanically.
+  # Default unchanged, so the original cluster sees no difference.
+  PD_CTR: '${container_name:-glm53_mix}'
 
   # --- ports ------------------------------------------------------------------
   # PD_ETCD_PORT is not 2379 and must not be: these nodes run a Kubernetes
