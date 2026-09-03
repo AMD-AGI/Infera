@@ -91,5 +91,24 @@ for spec in "$@"; do
   # already invalid for exactly that reason — a past `chmod -R 777` — which is
   # why nothing downstream may be written to depend on one.)
   cp -a "${from}/." "${out}/"
+
+  # **Repair the one defect the sealed set carries in every stage** (MOCK-MAP
+  # (J)): an apostrophe inside a `${VAR:?word}` message opens a single-quoted
+  # string that runs to end of file, so 11 of the 14 sealed `items/command`
+  # scripts do not parse under the shell their own shebang names. The sealed
+  # bytes predate `check_command_parses`, exactly as they predate
+  # `environment.yaml` -- so this is the same class of adaptation as (A), and
+  # it is announced rather than silent.
+  #
+  # `the package's assets` -> `the package assets`. Nothing else is touched, and
+  # the substitution is reported per file so a reader of the log can see which
+  # artefacts needed it.
+  for cmd in "${out}/items/command" "${out}/items/script"; do
+    [ -f "${cmd}" ] || continue
+    if grep -q ":?[^}]*'" "${cmd}" 2>/dev/null; then
+      sed -i "s/\\(:?[^}]*\\)'s /\\1 /g; s/\\(:?[^}]*\\)'/\\1/g" "${cmd}"
+      echo "mock: repaired an unterminated quote in $(basename "${cmd}") of ${kind} (MOCK-MAP J)" >&2
+    fi
+  done
   echo "mock: ${stage}/${src} -> ${kind} ($(find "${out}" -type f | wc -l) files)" >&2
 done

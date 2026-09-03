@@ -342,7 +342,7 @@
       logs: {type: string}
       watchout: {type: string}
     required: [result, env]
-  validators: [check_environment, check_overlay_applies]
+  validators: [check_command_parses, check_environment, check_overlay_applies]
 
 - module: handoff
   name: stock.measurement
@@ -363,7 +363,7 @@
       logs: {type: string}
       watchout: {type: string}
     required: [result, env]
-  validators: [check_environment, check_acceptance, check_bench_report, check_measurement_order]
+  validators: [check_command_parses, check_environment, check_acceptance, check_bench_report, check_measurement_order]
 
 - module: handoff
   name: patched.measurement
@@ -384,7 +384,7 @@
       logs: {type: string}
       watchout: {type: string}
     required: [result, env]
-  validators: [check_environment, check_acceptance, check_bench_report, check_patch_live]
+  validators: [check_command_parses, check_environment, check_acceptance, check_bench_report, check_patch_live]
 
 - module: handoff
   name: integration_report

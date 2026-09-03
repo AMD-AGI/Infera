@@ -267,6 +267,41 @@ from `$E2E_MOCK_ROOT`, builds a negative one with eleven planted faults, and
 asserts each is reported by name. **Run it; it is the worked example of "gated
 both directions" for this package.**
 
+### (J) 11 of the 14 sealed `command` scripts do not parse — repaired by `mock.sh`
+
+Found by m2, confirmed here first-hand. One cause in every case: an apostrophe
+inside a `${VAR:?word}` message opens a single-quoted string that runs to end of
+file.
+
+```
+: "${SCRIPTS:?export SCRIPTS=<the package's assets/load directory>}"
+                                          ^ opens a quote that never closes
+```
+
+**Judged by the shell the file's own shebang names**, which is the part that
+decides it. On `stage2-profiling/aiperf_baseline`: shebang `#!/usr/bin/env
+bash`; `sh -n` clean **and the script runs**, aborting correctly on the first
+unset variable; `bash -n` fails at line 9. dash tolerates the unterminated
+quote, bash does not — so the script is broken under the shell it names and
+works under the shell it does not, and a reproducer typing `./command` gets the
+shebang and therefore the error.
+
+`assets/lib/mock.sh` rewrites `the package's assets` to `the package assets` in
+any copied `items/command` or `items/script` that carries the pattern, and
+**says so per file** in the run log. Nothing else in the script is touched.
+
+**Why repairing is legitimate here and not a violation of "nothing is
+synthesised":** the sealed bytes predate `check_command_parses`, exactly as they
+predate `environment.yaml` — (A) renders a record the sealed set never carried,
+and this repairs a defect nothing ever checked for. Both are "the sealed set
+predates the contract". The alternative is a rule that can never go green in a
+mock run, which would mean not having the rule.
+
+**The unrepaired bytes remain the negative fixture.** `check_command_parses` was
+proven in both directions against them: the sealed `aiperf_baseline` FAILs
+naming the shell, the line and the reason; `stage5-integration/bench_stock`,
+one of the three that were always fine, PASSes.
+
 ### (F) `e2e_packup` has no sealed source
 
 `integration_packup` was never sealed — the graph stopped at (E) before it was

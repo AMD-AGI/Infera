@@ -178,7 +178,7 @@
       logs: {type: string}
       watchout: {type: string}
     required: [result, env]
-  validators: [check_environment, check_bench_result]
+  validators: [check_command_parses, check_environment, check_bench_result]
 
 - module: handoff
   name: profiling_mode_on.bench_result
@@ -187,7 +187,7 @@
   content_type: reproducible
   scope: fixed.required
   items_schema: *repro_items
-  validators: [check_environment, check_bench_result]
+  validators: [check_command_parses, check_environment, check_bench_result]
 
 - module: handoff
   name: profiling_mode_on.profile_result
@@ -196,7 +196,7 @@
   content_type: reproducible
   scope: fixed.required
   items_schema: *repro_items
-  validators: [check_environment, check_trace_coverage]
+  validators: [check_command_parses, check_environment, check_trace_coverage]
 
 - module: handoff
   name: profiling_mode_on.kernel_table
@@ -232,7 +232,7 @@
   content_type: reproducible
   scope: fixed.required
   items_schema: *repro_items
-  validators: [check_environment, check_profiling_evidence]
+  validators: [check_command_parses, check_environment, check_profiling_evidence]
 
 # --------------------------------------------------------------------------- #
 # 3. The leaves. **Two lines, and M2.6 says they may run in parallel** — they
