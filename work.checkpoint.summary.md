@@ -1008,3 +1008,60 @@ mystery — now plausibly explained by `41c9541`, per that commit's own claim;
 (3) check 5's timing correlation (both full-launch runs in the campaign
 exited 5, both fast-return runs exited 0, n=2), explicitly flagged by the doc
 itself as "not evidence" and not mine to add to.
+
+---
+
+## T+12 — 2026-09-03 14:10 UTC
+
+### 1. Progress
+
+**Effort: ~96 %.** Elapsed 394 minutes since T+0. Projected remaining: 15–30
+minutes, same window as T+11 — what changed this interval is tooling for the
+final verification, not a code delta. **Reliability: medium** — I can see the
+apparatus for the "clean re-run against one pinned commit" that
+`ACCEPTANCE.md` has asked for since T+4, but not yet its result.
+
+Since T+11: **no new commits** (`git log 1ae6a6a..HEAD` empty, tree clean).
+Suite unchanged: **660 passed, 2 skipped, 2 xfailed in 21.7 s**.
+
+### 2. Current state
+
+Found a purpose-built acceptance harness under `acceptance/`:
+`run_acceptance.py` (48 KB), `dryrun_checks.py`, `render_check.js` — plus
+**multiple pinned-commit runs**, each a full clean checkout: `PINNED-658f1bc`
+(started 13:51, console still 0 bytes) and `PINNED-7d25923` (started 13:36,
+with `control/`, `panel/`, `portbusy/` sub-runs — the same B/A/C shape as
+every manual acceptance round so far, now automated). This reads as the tool
+built to finally answer "accepted or not" without a human re-deriving the
+six checks by hand each time, and is itself evidence of taking the "no fresh
+end-to-end run" gap seriously.
+
+**No verdict yet.** Both `.console` files are empty at the time I checked.
+`PINNED-7d25923/panel.jsonl` is a live phase-transition stream from a run
+still in progress at ~14:09 (one minute before this checkpoint) — task
+phases `solve_a`/`solve_b`/`solve_c` were mid-`running` when I looked. I did
+not wait for it to finish; reporting it as in-flight, not concluded.
+
+### 3. Code problems — fixed / unfixed
+
+None to report — no commits this interval.
+
+### 4. Non-code problems
+
+None new.
+
+### 5. Undetermined questions
+
+The one that matters most right now: **whether the automated pinned-commit
+runs, once they finish, confirm every fix reported since T+4** (provider
+slugs, zone symlink, `--replace`, idle timeout, silent-daemon-on-validate,
+the one-shot-session endpoint mismatch). Nothing observed this interval
+answers that; the harness exists, its output does not yet.
+
+### 6. New commits
+
+None this interval.
+
+### 7. Other
+
+None.
