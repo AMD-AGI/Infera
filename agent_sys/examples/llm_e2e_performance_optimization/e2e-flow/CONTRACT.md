@@ -121,6 +121,27 @@ runtime:                    # M1.2.1.2 — 哪个机器的哪个 docker containe
   started_at: '2026-09-03T13:00:00Z'
 ```
 
+### 2.2 The absolute-path rule does not apply to this record
+
+Carried validators inherit a rule from `analyze-demo` — *no absolute host path
+in a handoff* — justified there by *"the seal refuses the whole delivery over
+one"*. **Measured by m3 against the framework: that premise is false.**
+`handoff/store.py:447` reads `# locality.check — NOT CALLED`, and `:494` gives
+the reason: the shape heuristic read an HTTP access-log line as a filesystem
+path and refused a correct artefact, **97% false positive on a real kit**.
+Corroborated from the other side — the sealed `stage1-deploy/deploy_kit` carries
+`/shared_nfs/...` in five content files and sealed cleanly.
+
+This matters here and not only as wording: `environment.schema.json` **requires**
+`model_path`, which is `/shared_nfs/yihou/models/Qwen3.6-27B` — an absolute path
+by nature. A validator carrying the rule forward verbatim **rejects every
+conforming handoff in this package**, which is how m3 found it, on a fixture.
+
+So: keep the rule on its own merit — portability, a script carrying one host's
+directory does not run on the next host — and **scope it to executable and
+generated content (`.py`, `.sh`, `.json`, `.jsonl`), skipping the environment
+record.** Do not justify it by the seal.
+
 `environment.md`, where a packup layout still wants one, becomes a **rendering**
 of this document, not the record. Today it is checked by three regexes
 (`deploy-demo/assets/check_deploy_kit.validator/check.py:71-80`), which is
