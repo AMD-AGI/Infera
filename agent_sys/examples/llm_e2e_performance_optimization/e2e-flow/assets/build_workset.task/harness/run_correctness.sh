@@ -71,6 +71,26 @@ def _extra(name: str, got, tolerance) -> bool:
         # it, and "out changed" alone would pass one that writes the buffer and
         # returns a fresh tensor. m5 gates on this; as prose it was only ever a
         # note for a human.
+        #
+        # **Measured on real torch (MI355X, torch 2.9.1+rocm7.2), four
+        # implementations that are all numerically correct:**
+        #
+        #     baseline              pass   142.4 dB   in_place True
+        #     allocates             FAIL   151.9 dB   in_place False
+        #     writes_returns_fresh  FAIL   147.4 dB   in_place False
+        #     returns_out_unwritten FAIL      -inf    in_place False
+        #
+        # The first failure is the one to look at twice: **`allocates` scores a
+        # *higher* SNR than the baseline** — 151.9 against 142.4 — because it
+        # returns a fresh fp32 softmax while the baseline rounds through the
+        # caller's buffer. It passes `allclose`, it passes rows-sum-to-one, its
+        # numbers look *better* than the incumbent's, and it is not
+        # substitutable at `logits[:] = ...`. A reviewer reading the report
+        # without this gate would have every reason to ship it.
+        #
+        # `writes_returns_fresh` is caught by the identity half and
+        # `returns_out_unwritten` by the mutation half, which is why both halves
+        # are there rather than one.
         return bool(got is not None and _WITNESS.get("returned_is_out") and _WITNESS.get("out_mutated"))
     if name == "no_nan":
         return not bool(torch.isnan(got).any() or torch.isinf(got).any())
