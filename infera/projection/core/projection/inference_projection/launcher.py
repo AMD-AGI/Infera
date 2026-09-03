@@ -195,6 +195,12 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
         feats.append(f"attn_backend={req.attention_backend}")
     if getattr(req, "sparse_attention_topk", 0):
         feats.append(f"sparse_attn_topk={req.sparse_attention_topk}")
+    n_lin = mc.linear_attention_layer_count()
+    if n_lin:
+        feats.append(
+            f"linear_attn={n_lin}/{mc.num_layers}"
+            f"(state={mc.linear_attention_state_len()})"
+        )
     if getattr(req, "moe_expert_dtype", None):
         feats.append(f"moe_expert_dtype={req.moe_expert_dtype}")
     if getattr(req, "fused_kernels", False):

@@ -80,6 +80,18 @@ class ModelConfig:
     # full-attention), i.e. half the layers.
     sink_sliding_window: int = 0
     sink_window_even_layers_only: bool = False
+    # Hybrid linear attention (Kimi Delta Attention / gated delta net): a
+    # count of layers that keep a fixed-size recurrent state instead of a
+    # per-token KV cache. ``linear_attention_layers`` is the explicit count
+    # (Kimi-K3: 69 of 93). ``linear_attention_freq`` is the Qwen-style
+    # interleave -- full attention every N layers, the rest linear. The
+    # head dim is the recurrent state's extent: a d×d state per head has
+    # the same arithmetic as attending to ``d`` keys, so it is also the
+    # FLOP-equivalent KV length of those layers. None of these are knobs.
+    linear_attention_layers: int = 0
+    linear_attention_head_dim: int = 0
+    linear_attention_conv_kernel: int = 0
+    linear_attention_freq: int = 0
     # FFN & MoE
     swiglu: bool = False
     num_experts: int = 0
@@ -143,6 +155,55 @@ class ModelConfig:
 
     # Loss fusion – fuses cross-entropy with output layer avoiding full logits materialisation
     cross_entropy_loss_fusion: bool = False
+
+    def linear_attention_layer_count(self) -> int:
+        """How many transformer layers run linear / KDA / GDN attention."""
+        n_layers = int(self.num_layers or 0)
+        n = int(self.linear_attention_layers or 0)
+        if n > 0:
+            return min(n, n_layers) if n_layers else n
+        freq = int(self.linear_attention_freq or 0)
+        if freq > 1 and n_layers:
+            n_full = max(1, n_layers // freq)
+            return max(0, n_layers - n_full)
+        return 0
+
+    def linear_attention_state_len(self) -> int:
+        """FLOP-equivalent KV length of a linear-attention layer.
+
+        A gated-delta / KDA layer stores a d×d recurrent state per head and
+        updates it with an O(d²) matvec per token -- the same arithmetic as
+        attending to ``d`` keys. ``d`` is ``linear_attention_head_dim``,
+        falling back to ``kv_channels``. Not a fitted length.
+        """
+        d = int(self.linear_attention_head_dim or 0) or int(self.kv_channels or 0)
+        return max(1, d)
+
+    def full_attention_layer_fraction(self) -> float:
+        """Fraction of layers that store and read a per-token KV cache."""
+        n_lin = self.linear_attention_layer_count()
+        n = int(self.num_layers or 0)
+        if n <= 0 or n_lin <= 0:
+            return 1.0
+        return max(0.0, min(1.0, (n - n_lin) / n))
+
+    def blend_linear_attn_kv(self, kv_len: int) -> int:
+        """Average KV length an attention layer reads under hybrid linear attention.
+
+        Full-attention layers read ``kv_len``. Linear layers read a recurrent
+        state whose arithmetic equals attending to ``linear_attention_state_len``
+        keys (capped at ``kv_len`` so a short context is not charged more than
+        dense). Unlike sliding-window, this *is* the architecture and is
+        delivered at both prefill and decode.
+        """
+        kv = int(max(1, kv_len))
+        n_lin = self.linear_attention_layer_count()
+        n = int(self.num_layers or 0)
+        if n_lin <= 0 or n <= 0:
+            return kv
+        state = min(self.linear_attention_state_len(), kv)
+        n_full = n - n_lin
+        return max(1, int(round((n_lin * state + n_full * kv) / n)))
 
 
 @dataclass

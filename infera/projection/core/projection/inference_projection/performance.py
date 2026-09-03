@@ -1077,6 +1077,11 @@ class InferencePerformanceProjector:
                 model_window=getattr(mc, "sink_sliding_window", 0),
                 even_layers_only=getattr(mc, "sink_window_even_layers_only", False),
             )
+        # Linear / KDA / GDN layers are the architecture, not an engine
+        # option: they keep a fixed-size state at decode as well as prefill.
+        # Sliding-window stays decode-uncapped on the evidence in the comment
+        # above; this blend is a different fact and applies to both phases.
+        attn_kv = mc.blend_linear_attn_kv(attn_kv)
         # The attention profiler sizes its KV roofline from ``kv_cache_dtype`` on
         # the *model* config, and the serving request carries it on the request
         # config, so the two never met: every projection priced the cache at two

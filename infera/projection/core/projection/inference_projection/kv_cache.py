@@ -78,6 +78,34 @@ def kv_bytes_per_token_per_layer(inference_config: InferenceConfig) -> float:
     return 2.0 * kv_heads_per_rank * head_dim * kv_bytes
 
 
+def linear_state_bytes_per_layer(inference_config: InferenceConfig) -> float:
+    """Bytes of recurrent state one linear-attention layer stores, per rank, per sequence.
+
+    A KDA / gated-delta layer's state is a d×d matrix per head. Heads shard
+    the same way GQA does: tensor-parallel splits them, data-parallel
+    attention keeps them whole and splits the requests instead. The state is
+    an activation (bf16), not the quantized KV cache -- it is updated every
+    token and is not a stored key.
+    """
+    mc = inference_config.model_config
+    d = mc.linear_attention_state_len() if mc.linear_attention_layer_count() else 0
+    heads = int(mc.num_attention_heads or 0)
+    if heads <= 0 or d <= 0:
+        return 0.0
+    mp = inference_config.model_parallel_config
+    tp = max(1, mp.tensor_model_parallel_size)
+    heads_on_rank = (
+        heads if attention_dp_size(inference_config) > 1
+        else max(1, heads // tp)
+    )
+    elem = dtype_num_bytes("bf16")
+    state = heads_on_rank * d * d * elem
+    kernel = int(getattr(mc, "linear_attention_conv_kernel", 0) or 0)
+    if kernel > 1:
+        state += heads_on_rank * d * (kernel - 1) * elem
+    return state
+
+
 def estimate_kv_cache(
     inference_config: InferenceConfig,
     layers_on_rank: int,
@@ -132,8 +160,20 @@ def estimate_kv_cache(
         effective_context = alloc_context_len
 
     per_token_per_layer = kv_bytes_per_token_per_layer(inference_config)
-    per_token = per_token_per_layer * max(1, layers_on_rank)
+    # Hybrid linear attention (KDA / GDN): only the full-attention layers
+    # store a per-token cache. The linear layers keep a fixed-size recurrent
+    # state per request, charged below, so shrinking the token cache without
+    # adding that state would let search fit batches the HBM cannot hold.
+    full_frac = mc.full_attention_layer_fraction()
+    per_token = per_token_per_layer * max(1, layers_on_rank) * full_frac
     per_sequence = per_token * effective_context
+    lin_frac = 1.0 - full_frac
+    if lin_frac > 0.0:
+        per_sequence += (
+            linear_state_bytes_per_layer(inference_config)
+            * max(1, layers_on_rank)
+            * lin_frac
+        )
 
     # Data-parallel attention splits the running requests across ranks, so a
     # rank stores whole sequences for its own share rather than a slice of every
