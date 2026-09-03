@@ -367,7 +367,33 @@ def _check(content: Path, args: dict, problems: list[str]) -> bool:
             f"${{PLACEHOLDER}} resolved from the environment"
         )
 
-    for path in sorted(p for p in content.rglob("*") if p.is_file() and p.suffix in (".md", ".yaml", ".yml")):
+    # **Only content this workset declares as its own.**
+    #
+    # Scanning every `.md` under `content/` produced a false positive of the
+    # family that got `locality.check` disconnected: the sealed stage-3 operator
+    # directories, carried along for their ranking provenance, contain the
+    # sentence *"A `TODO:` line here is a gap that is stated rather than papered
+    # over"* — prose **about** the marker, in an artefact this validator has no
+    # business grading the wording of.
+    #
+    # So the scan follows the manifest: `workset.yaml`, the Definitions and
+    # Workloads, the generated forge add-on, and whatever `apparatus` names.
+    # That is exactly the set "a workset that is still a template" is about, and
+    # it still catches the one case that matters — the `integration.invariants`
+    # sentinel, because `workset.yaml` is always in `apparatus`.
+    declared: set[Path] = {root / "workset.yaml"}
+    for operator in document["operators"]:
+        declared.add(root / operator["definition"])
+        declared.add(root / operator["workload"])
+        declared.update(root / rel for rel in operator["apparatus"])
+        if operator["reference"]["kind"] == "written":
+            declared.add(root / operator["reference"]["path"])
+        for key, value in (operator.get("forge") or {}).items():
+            if isinstance(value, str) and "/" in value:
+                declared.add(root / value)
+    for path in sorted(declared):
+        if not path.is_file() or path.suffix not in (".md", ".yaml", ".yml", ".json"):
+            continue
         text = path.read_text(encoding="utf-8", errors="replace")
         for marker in _PLACEHOLDERS:
             if marker in text:
