@@ -17,9 +17,9 @@ Design choices (v1, deliberately simple and greppable):
   records the artifact path, its regime signature + axes, and the *transport
   coverage* it measured (parallelism, layer counts, batches) so a lookup can
   tell whether a target is interpolated or extrapolated.
-* Lookup distance is Hamming over the regime axes; ties are broken by
-  closeness on the transport axes (prefer the anchor whose measured
-  parallelism / depth is nearest the target, i.e. the least restore).
+* Lookup distance is Hamming over the regime axes. Within a regime, TP1/TP2
+  targets reuse the same TP while TP>=4 targets reuse TP4; remaining ties are
+  broken by expert-kernel compatibility and transport closeness.
 * The store is typically **per model** — you harvest anchors for the model you
   are tuning — so the ``model`` axis is only used to *filter* when both sides
   name a model, never to inflate distance otherwise.
@@ -226,14 +226,34 @@ class AnchorStore:
         """Return ``(entry, regime_distance)`` for the best anchor, or
         ``(None, None)`` if the store is empty.  Distance 0 => same regime
         (fully transportable).  Candidates are optionally filtered to a model;
-        ties on regime distance are broken by transport closeness (least
-        restore/extrapolation)."""
+        ties on regime distance follow the benchmark policy (same TP below 4,
+        TP4 at 4 and above), then expert-kernel compatibility and transport
+        closeness."""
         cands = self._entries
         if model:
             named = [e for e in cands if e.get("model") in (None, model)]
             cands = named or cands
         if not cands:
             return None, None
+
+        target_tp = max(1, int(recipe.get("tp") or 1))
+        preferred_tp = 4 if target_tp >= 4 else target_tp
+
+        def tp_policy_gap(e: Dict[str, Any]) -> float:
+            """Distance from the anchor TP mandated for this target.
+
+            TP1 and TP2 are cheap enough to benchmark directly and should not
+            be reconstructed from another tensor degree. At TP4 and above,
+            TP4 is the common measured baseline: wider targets restore from it
+            rather than selecting an exact wide anchor and making the result
+            depend on which optional warmups happen to be present in the store.
+            If the preferred TP is absent, numeric distance gives a deterministic
+            nearest fallback.
+            """
+            anchor_tp = e.get("transport", {}).get("tp")
+            if not anchor_tp:
+                return float("inf")
+            return abs(float(anchor_tp) - float(preferred_tp))
 
         def shards_experts(e: Dict[str, Any]) -> int:
             """1 if this anchor disagrees with the target on *whether* EP shards.
@@ -264,12 +284,13 @@ class AnchorStore:
         scored = [
             (
                 regime.regime_distance(recipe, {**e["regime"]}),
+                tp_policy_gap(e),
                 shards_experts(e),
                 transport_gap(e),
                 e,
             )
             for e in cands
         ]
-        scored.sort(key=lambda s: (s[0], s[1], s[2]))
+        scored.sort(key=lambda s: (s[0], s[1], s[2], s[3]))
         best = scored[0]
-        return best[3], best[0]
+        return best[4], best[0]

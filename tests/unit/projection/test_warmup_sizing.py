@@ -41,11 +41,10 @@ def test_a_warmup_never_asks_for_more_than_half_a_node(tp, ep, expected):
     assert warmup_gpu_count(tp, ep) <= WARMUP_GPU_CAP
 
 
-def test_the_warmup_size_stays_a_parallelism_the_model_can_run():
-    """TP has to divide the target, so a degree the cap does not divide steps
-    down rather than asking for a split that cannot be built."""
-    assert warmup_gpu_count(3, 1) == 3   # fits under the cap on its own
-    assert warmup_gpu_count(6, 1) == 2   # 4 does not divide 6
+def test_tp4_is_the_anchor_for_every_target_at_or_above_four():
+    """The calibration anchor is TP4 even when TP4 does not divide target TP."""
+    assert warmup_gpu_count(3, 1) == 3   # below four: keep the target TP
+    assert warmup_gpu_count(6, 1) == 4   # at or above four: always use TP4
     assert warmup_gpu_count(12, 1) == 4
 
 

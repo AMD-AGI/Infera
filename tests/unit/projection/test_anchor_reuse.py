@@ -155,9 +155,14 @@ from infera.projection.core.projection.inference_projection.search.anchor_store 
 )
 
 
-def _artifact(tmp_path, name, *, tp=8, sweep=True, sub=None):
+def _artifact(tmp_path, name, *, tp=8, ep=1, sweep=True, sub=None):
     doc = {
-        "meta": {"model": "openai/gpt-oss-120b", "tp": tp, "weight_dtype": "mxfp4"},
+        "meta": {
+            "model": "openai/gpt-oss-120b",
+            "tp": tp,
+            "ep": ep,
+            "weight_dtype": "mxfp4",
+        },
         "sweep": [{"batch": 1, "decode_ms": 3.7}] if sweep else [],
     }
     d = tmp_path / sub if sub else tmp_path
@@ -212,6 +217,37 @@ def test_a_directory_of_measurements_is_not_empty_just_because_nobody_indexed_it
     store = AnchorStore(str(tmp_path))
     assert len(store.entries()) == 2, "artifacts at the root and one level down"
     assert os.path.exists(store.index_path), "discovery should persist what it found"
+
+
+@pytest.mark.parametrize(
+    "target_tp,target_ep,expected",
+    [
+        (1, 1, "tp1.json"),
+        (2, 1, "tp2.json"),
+        (2, 2, "tp2ep2.json"),
+        (4, 1, "tp4.json"),
+        (8, 1, "tp4.json"),
+        # The TP4 policy takes precedence over crossing to a narrower EP anchor.
+        (8, 8, "tp4.json"),
+        (16, 1, "tp4.json"),
+    ],
+)
+def test_anchor_tp_policy_uses_tp4_at_four_and_above(
+    tmp_path, target_tp, target_ep, expected
+):
+    _artifact(tmp_path, "tp1.json", tp=1)
+    _artifact(tmp_path, "tp2.json", tp=2)
+    _artifact(tmp_path, "tp2ep2.json", tp=2, ep=2)
+    _artifact(tmp_path, "tp4.json", tp=4)
+    _artifact(tmp_path, "tp8.json", tp=8)
+
+    store = AnchorStore(str(tmp_path))
+    entry, distance = store.nearest(
+        {"tp": target_tp, "ep": target_ep, "weight_dtype": "mxfp4"}
+    )
+
+    assert distance == 0
+    assert os.path.basename(entry["path"]) == expected
 
 
 def test_discovery_is_idempotent_and_does_not_duplicate(tmp_path):

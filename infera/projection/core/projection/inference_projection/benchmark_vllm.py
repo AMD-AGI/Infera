@@ -192,7 +192,7 @@ WARMUP_GPU_CAP = 4
 
 
 def warmup_gpu_count(target_tp, target_ep=1, target_pp=1):
-    """How many GPUs a warmup needs: ``min(tp, 4)``, stepped down to divide ``tp``.
+    """How many GPUs a warmup needs: target TP below four, otherwise TP4.
 
     ``target_ep`` and ``target_pp`` are accepted and ignored. Neither widens a
     warmup: in vLLM expert parallelism shards experts across the TP group rather
@@ -207,12 +207,7 @@ def warmup_gpu_count(target_tp, target_ep=1, target_pp=1):
     on a full one.
     """
     tp = max(1, int(target_tp or 1))
-    gpus = min(tp, WARMUP_GPU_CAP)
-    # The warmup still has to be a split the model can be built at, so a degree
-    # the cap does not divide (tp=6) steps down until it does.
-    while gpus > 1 and tp % gpus:
-        gpus //= 2
-    return max(1, gpus)
+    return min(tp, WARMUP_GPU_CAP)
 
 
 def _reduce_parallelism(target_tp, target_pp, target_ep, benchmark_gpus):
