@@ -327,6 +327,15 @@ _default_partition() {
 SLURM_PART="${INFERA_E2E_SLURM_PARTITION:-$(_default_partition)}"
 SLURM_PART="${SLURM_PART:-amd-spur}"
 SLURM_TIME="${INFERA_E2E_SLURM_TIME:-02:00:00}"
+# Count real scheduler submissions, not only outer test attempts.  In particular,
+# account/QoS rotation and watchdog-triggered resubmission used to bypass the
+# apparent retry limits below and could create dozens of jobs from one CI leg.
+SLURM_MAX_ATTEMPTS="${INFERA_E2E_SLURM_MAX_ATTEMPTS:-5}"
+case "$SLURM_MAX_ATTEMPTS" in
+  "" | *[!0-9]* | 0)
+    echo "FATAL: INFERA_E2E_SLURM_MAX_ATTEMPTS must be a positive integer (got '$SLURM_MAX_ATTEMPTS')." >&2
+    exit 2 ;;
+esac
 # amd-spur's default allocation is often quota-blocked. CI declares the pairs
 # its runner user can actually use; the longer fallback below remains for
 # interactive users that do not provide a site-specific list. Mixed dispatches
@@ -551,9 +560,9 @@ _rival_holder() {
 # Hold both PD nodes' GPUs for the whole run: disagg's per-step sruns leave them
 # idle in between, so SLURM would hand one out and the fixed ports (etcd 2379,
 # router 8000, ...) collide. Our own no-gres steps co-schedule. Sets _HOLDER_JID.
-# 0 = held, 1 = another holder won the pair, 2 = SLURM never placed the hold.
-# The caller reports 1 and 2 differently: they used to read alike, so a refused
-# sbatch was announced as a lost race and pointed triage away from the scheduler.
+# 0 = held, 1 = another holder won the pair, 2 = SLURM never placed the hold,
+# 3 = the real sbatch submission ceiling was reached.
+_HOLD_SUBMISSIONS=0
 _hold_pair() {
   local pair="$1" script="$SCRATCH/hold.sh" jid st rs waited i other submit_out
   local cred=0 cred_count="${#_SLURM_ACCOUNT_QOS_PAIRS[@]}"
@@ -561,8 +570,8 @@ _hold_pair() {
   # A real script file, not --wrap: on Spur --wrap always NODE_FAILs at -N2.
   printf '#!/bin/bash\nsleep %s\n' "${INFERA_E2E_HOLD_SLEEP:-10800}" > "$script"
   # No site credentials configured (e.g. stock SLURM): preserve the old three
-  # retries. On amd-spur, use those three attempts for the three account/QoS
-  # pairs in the declared priority instead.
+  # retries. On amd-spur, try each declared account/QoS pair once, still subject
+  # to the shared real-submission ceiling.
   [ "$cred_count" -gt 0 ] && retries=1
   [ "$cred_count" -gt 0 ] || cred_count=1
   while [ "$cred" -lt "$cred_count" ]; do
@@ -570,7 +579,11 @@ _hold_pair() {
     account_flags=()
     [ -n "$_SLURM_ACCOUNT" ] && account_flags=(-A "$_SLURM_ACCOUNT" -q "$_SLURM_QOS")
     for ((i = 1; i <= retries; i++)); do
-      echo "[e2e disagg] hold submission on $pair ($(_account_qos_label), attempt $i/$retries)"
+      if [ "$_HOLD_SUBMISSIONS" -ge "$SLURM_MAX_ATTEMPTS" ]; then
+        return 3
+      fi
+      _HOLD_SUBMISSIONS=$((_HOLD_SUBMISSIONS + 1))
+      echo "[e2e disagg] hold submission $_HOLD_SUBMISSIONS/$SLURM_MAX_ATTEMPTS on $pair ($(_account_qos_label), credential attempt $i/$retries)"
       # The hold only sleeps; discard its output instead of creating slurm-*.out.
       submit_out=$(sbatch --parsable --exclusive -N2 -n2 -w "$pair" --gres=gpu:8 -p "$SLURM_PART" \
         -t "$SLURM_TIME" -J "infera-ci-hold-${INFERA_E2E_JOB_TAG:-local}" \
@@ -623,6 +636,7 @@ _hold_pair() {
     [ "$cred" -lt "$cred_count" ] &&
       echo "[e2e disagg] trying the next SLURM account/QoS pair" >&2
   done
+  [ "$_HOLD_SUBMISSIONS" -ge "$SLURM_MAX_ATTEMPTS" ] && return 3
   return 2
 }
 # The pair of an allocation we were HANDED rather than one we made: a `salloc` or
@@ -770,12 +784,13 @@ _dispatch_slurm() {
     tailf="$logf"
   fi
 
-  local prc=1 attempt=0 max_attempts=5 exclude="" ran
+  local prc=1 attempt=0 max_attempts="$SLURM_MAX_ATTEMPTS" exclude="" ran retryable=0
   local cred=0 cred_count="${#_SLURM_ACCOUNT_QOS_PAIRS[@]}"
-  local holdflag="$SCRATCH/.hold-$label" held=0 max_held="${INFERA_E2E_HOLD_MAX_RETRY:-30}"
+  local holdflag="$SCRATCH/.hold-$label"
   [ "$cred_count" -gt 0 ] && _set_slurm_account_qos "$cred"
   while [ "$attempt" -lt "$max_attempts" ]; do
     attempt=$((attempt + 1))
+    retryable=0
     local xflag=()
     [ -n "$exclude" ] && xflag=(-x "$exclude")
     # Use the reservation while it has free nodes; when full, spill to the open
@@ -788,7 +803,7 @@ _dispatch_slurm() {
     if [ -n "${INFERA_E2E_RESERVATION:-}" ]; then
       local rfree smax inflight
       rfree=$(_reservation_free "$INFERA_E2E_RESERVATION")
-      smax="${INFERA_E2E_SPILL_MAX:-2}"
+      smax="${INFERA_E2E_SPILL_MAX:-3}"
       case "$rfree" in
         -1)
           echo "[$label] WARNING: reservation '$INFERA_E2E_RESERVATION' does not exist — falling back to open partition '$SLURM_PART'" >&2
@@ -845,27 +860,23 @@ _dispatch_slurm() {
       echo "[$label] srun exited $prc — its client output was:" >&2
       tail -n 40 "$out" | sed "s/^/[$label]   /" >&2
     fi
-    # The watchdog already cancelled it — resubmit without burning a real
-    # attempt, and fail the tier once these retries are exhausted.
+    # The watchdog already cancelled it. Resubmission still counts as a real
+    # scheduler submission and is bounded by max_attempts.
     if [ -f "$holdflag" ]; then
-      held=$((held + 1)); prc=1
+      prc=1
       local why; why=$(cat "$holdflag" 2>/dev/null)
       if [[ "$why" = accounting:* ]] && [ $((cred + 1)) -lt "$cred_count" ]; then
         local blocked_account="$(_account_qos_label)"
         cred=$((cred + 1)); _set_slurm_account_qos "$cred"
         echo "[$label] ${why#accounting:} blocks $blocked_account — trying $(_account_qos_label)" >&2
-        attempt=$((attempt - 1)); continue
+        retryable=1; continue
       fi
       if [[ "$why" = accounting:* ]] && [ "$cred_count" -gt 0 ]; then
         echo "[$label] all $cred_count SLURM account/QoS pairs are blocked (${why#accounting:}) — giving up" >&2
         break
       fi
-      if [ "$held" -ge "$max_held" ]; then
-        echo "[$label] job stuck in ${why:-a scheduler hold} after $held retries — giving up" >&2
-        break
-      fi
-      echo "[$label] job ${why:-held} — cancelled, retry $held/$max_held in 5s" >&2
-      attempt=$((attempt - 1)); sleep 5; continue
+      echo "[$label] job ${why:-held} — cancelled, retrying within the $max_attempts-submission limit in 5s" >&2
+      retryable=1; sleep 5; continue
     fi
     # Invalid account/QoS associations can fail before a job id exists, so the
     # watchdog has nothing to inspect. Rotate on the submit error itself.
@@ -873,7 +884,7 @@ _dispatch_slurm() {
       if [ $((cred + 1)) -lt "$cred_count" ]; then
         cred=$((cred + 1)); _set_slurm_account_qos "$cred"
         echo "[$label] SLURM rejected the account/QoS pair — trying $(_account_qos_label)" >&2
-        attempt=$((attempt - 1)); continue
+        retryable=1; continue
       fi
       echo "[$label] SLURM rejected all $cred_count account/QoS pairs — giving up" >&2
       break
@@ -884,13 +895,17 @@ _dispatch_slurm() {
     if grep -qiE 'node failure|Cannot connect to the Docker daemon' "$out" ${logf:+"$logf"} 2>/dev/null; then
       [ -n "$ran" ] && exclude="${exclude:+$exclude,}$ran"
       echo "[$label] node ${ran:-?} unusable — excluding, retrying elsewhere" >&2
-      continue
+      retryable=1; continue
     fi
     if grep -qiE 'not the Raft leader|service is currently unavailable|job submission failed' "$out" 2>/dev/null; then
-      echo "[$label] transient controller error — retry in 15s" >&2; sleep 15; continue
+      echo "[$label] transient controller error — retry in 15s" >&2
+      retryable=1; sleep 15; continue
     fi
     break  # genuine test/build failure
   done
+  if [ "$prc" -ne 0 ] && [ "$retryable" -eq 1 ] && [ "$attempt" -ge "$max_attempts" ]; then
+    echo "[$label] SLURM submission limit reached ($max_attempts attempts) — giving up" >&2
+  fi
   # Shared mode only: prune old logs (10 days, INFERA_DISPATCH_LOG_TTL_MIN). Drop
   # each aged-out per-run FOLDER whole — deleting only its *.log would strand the
   # folder for ever on any stray non-log file. Second sweep: pre-folder flat logs.
@@ -1080,7 +1095,7 @@ run_e2e_disagg() {
 
   local rc=0 e prc out="$SCRATCH/.e2e-disag.out"
   local max_attempts=3 attempt exclude n1 n2 nodes ok
-  local races max_races="${INFERA_E2E_HOLD_RACE_MAX:-10}" hold_rc
+  local races max_races="${INFERA_E2E_HOLD_RACE_MAX:-$SLURM_MAX_ATTEMPTS}" hold_rc
 
   # An allocation handed to us takes over from picking and holding a pair. The
   # pair is then fixed, so there is nothing for the retry machinery to re-pick
@@ -1097,7 +1112,7 @@ run_e2e_disagg() {
 
   for e in "${engines[@]}"; do
     echo "----- e2e disagg — tests/e2e/pd_disag/$e -----"
-    attempt=0; ok=0; exclude=""; races=0
+    attempt=0; ok=0; exclude=""; races=0; _HOLD_SUBMISSIONS=0
     while [ "$attempt" -lt "$max_attempts" ]; do
       attempt=$((attempt + 1))
       # A user-pinned pair (INFERA_E2E_NODES) wins on the first try, over an
@@ -1131,6 +1146,10 @@ run_e2e_disagg() {
         _hold_pair "$n1,$n2"; hold_rc=$?
       fi
       if [ "$hold_rc" -ne 0 ]; then
+        if [ "$hold_rc" -eq 3 ]; then
+          echo "[e2e disagg] SLURM hold submission limit reached ($SLURM_MAX_ATTEMPTS attempts) — giving up on $e" >&2
+          break
+        fi
         races=$((races + 1))
         [ "$hold_rc" -eq 2 ] && exclude="${exclude:+$exclude,}$n1,$n2"
         if [ "$races" -ge "$max_races" ]; then
