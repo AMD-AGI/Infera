@@ -135,6 +135,59 @@ Written down rather than left to be discovered.
 5. **No `resources` block.** A leaf may declare a pool; nothing here needs one,
    and `cli/build.py:85` — the only reader — declares no pools anyway.
 
+## Deferred, on purpose — the follow-up list
+
+**Items with triggers, not a wish list.** Each says what would make it worth
+doing; an item nobody can tell has become due is a wish.
+
+### 1. `6b` can become genuinely independent
+
+Today `6b` compares `proof.raw.path` against a path the validator derives
+itself, and cross-checks it against the install report — but that cross-check is
+**consistency only**, because the report reaches the validator through
+`payload["install_report"]`, a field the *agent* supplies.
+
+**Trigger: already met.** Runs 3 and 4 established by measurement that a real
+validation zone **does** carry the environment — `check_capabilities_genuine`
+re-derived the L2 row, which requires `AGENT_SYS_COMPONENTS_ROOT`, and the
+upward-search fallback cannot fire from a zone. So the validator can read
+`$AGENT_SYS_INSTALL_REPORT` **itself** and the comparison stops depending on the
+agent. Three lines in a body that already reads that file. Not done this round
+only because the round closed.
+
+### 2. The placeholder regex in four other files
+
+Described in full under *Out of scope, recorded* above. **Trigger: whoever next
+runs one of those four packages**, or a decision to build the shared helper.
+The repair wants to be **one shared change**, which is why it did not happen as
+four copies here.
+
+### 3. `agent_sys`'s in-process tool factory
+
+Row 6 works around a contract, it does not fix one: an in-process `ToolDef` runs
+in the supervisor and cannot see `Prepared.environment`, so a tool needing
+per-run values has no supported route to them. `core-impl`'s axis argument is
+the specification — **an argument binds per call, a closure per construction,
+the environment per process, and the process outlives the attempt.**
+
+**Trigger: the second package that wants a per-run value in an in-process
+tool.** One package working around it is a workaround; two is a missing
+feature, and the second one is the evidence that justifies changing the
+contract.
+
+### 4. A verdict is not attributable to a named validator from a run's artefacts
+
+`scribe`'s escalation, and the largest gap between what this round could verify
+and what it recorded. A run's artefacts say *a validation failed*; recovering
+**which validator** and **why** required re-running the validator by hand — it
+cost time twice on 2026-09-03, once at the worst possible moment, when the
+reason for run 2's FAIL was not recoverable from the files at all.
+
+**Trigger: already met, twice.** This is the one item on this list that is not
+about `examples/env_checker`; it is about `validator`/`monitor` recording enough
+to answer *which check said no*. Noted here because this package is where it
+kept biting.
+
 ## Deferred, on purpose — the runtime declaration check
 
 `selftest/run.py`'s case 2 catches **expected-but-declared-nowhere** before a
