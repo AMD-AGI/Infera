@@ -448,51 +448,32 @@ def test_ensure_installed_never_raises_regardless_of_outcome(
 # --- in both directions ---
 
 
-def _fake_agentsview_doctor_sync(prefix: Prefix, *, rc: int, stdout: str) -> None:
+def _fake_agentsview_doctor_sync(
+    prefix: Prefix, *, rc: int, stdout: str = "", stderr: str = ""
+) -> None:
+    """`check_disabled_agents` and `discover_providers` both only ever run
+    `doctor sync` -- never `health` -- so one fake, answering that one
+    subcommand, covers every test for both of them."""
     exe = prefix.bin / "agentsview"
-    exe.write_text(f"#!/bin/sh\nprintf '%s' '{stdout}'\nexit {rc}\n")
+    exe.write_text(f"#!/bin/sh\nprintf '%s' '{stdout}'\nprintf '%s' '{stderr}' >&2\nexit {rc}\n")
     exe.chmod(0o755)
 
 
-#: One recognized provider ("cursor") already in `OTHER_PROVIDERS` -- the
-#: default `doctor_stdout` for `_fake_agentsview_health_and_doctor_sync`
-#: below, so direction-1-only tests get a clean direction-2 report and don't
-#: incidentally also trip the completeness check.
+#: One recognized provider ("cursor") already in `OTHER_PROVIDERS`.
 _CLEAN_DOCTOR_SYNC_STDOUT = "Agent roots:\n  cursor: /fake/path (ok, default)\n"
 
 
-def _fake_agentsview_health_and_doctor_sync(
-    prefix: Prefix,
-    *,
-    health_rc: int,
-    health_stderr: str = "",
-    doctor_stdout: str = _CLEAN_DOCTOR_SYNC_STDOUT,
-) -> None:
-    """One fake binary answering both probes `check_disabled_agents` makes."""
-    exe = prefix.bin / "agentsview"
-    exe.write_text(
-        "#!/bin/sh\n"
-        'if [ "$1" = "doctor" ] && [ "$2" = "sync" ]; then\n'
-        f"  printf '%s' '{doctor_stdout}'\n"
-        "  exit 0\n"
-        "fi\n"
-        f"echo '{health_stderr}' >&2\n"
-        f"exit {health_rc}\n"
-    )
-    exe.chmod(0o755)
-
-
 def test_check_disabled_agents_reports_nothing_when_both_directions_are_clean(prefix) -> None:
-    _fake_agentsview_health_and_doctor_sync(prefix, health_rc=0)
+    _fake_agentsview_doctor_sync(prefix, rc=0, stdout=_CLEAN_DOCTOR_SYNC_STDOUT)
     assert agentsview.check_disabled_agents(prefix) == ()
 
 
 def test_check_disabled_agents_names_a_renamed_or_removed_provider(prefix) -> None:
     """Direction 1: OTHER_PROVIDERS lists something the binary no longer knows."""
-    _fake_agentsview_health_and_doctor_sync(
+    _fake_agentsview_doctor_sync(
         prefix,
-        health_rc=1,
-        health_stderr='fatal: loading config: disabled_agents: unknown session provider "claude-cowork"',
+        rc=1,
+        stderr='fatal: loading config: disabled_agents: unknown session provider "claude-cowork"',
     )
     assert agentsview.check_disabled_agents(prefix) == ("claude-cowork",)
 
@@ -503,24 +484,13 @@ def test_check_disabled_agents_names_a_provider_added_upstream_and_never_listed(
     """Direction 2, the one that leaks: the binary recognizes a provider
     OTHER_PROVIDERS never mentions -- AgentsView would scan its default
     directory and put its sessions on the panel with no error at all."""
-    _fake_agentsview_health_and_doctor_sync(
+    _fake_agentsview_doctor_sync(
         prefix,
-        health_rc=0,
-        doctor_stdout="Agent roots:\n  cursor: /fake/path (ok, default)\n"
+        rc=0,
+        stdout="Agent roots:\n  cursor: /fake/path (ok, default)\n"
         "  brand-new-provider: /fake/other (ok, default)\n",
     )
     assert agentsview.check_disabled_agents(prefix) == ("brand-new-provider",)
-
-
-def test_check_disabled_agents_combines_both_directions_in_one_tuple(prefix) -> None:
-    _fake_agentsview_health_and_doctor_sync(
-        prefix,
-        health_rc=1,
-        health_stderr='fatal: unknown session provider "claude-cowork"',
-        doctor_stdout="Agent roots:\n  cursor: /fake/path (ok, default)\n"
-        "  brand-new-provider: /fake/other (ok, default)\n",
-    )
-    assert agentsview.check_disabled_agents(prefix) == ("claude-cowork", "brand-new-provider")
 
 
 def test_check_disabled_agents_is_empty_not_a_false_accusation_when_the_probe_cannot_run(
@@ -531,11 +501,9 @@ def test_check_disabled_agents_is_empty_not_a_false_accusation_when_the_probe_ca
     assert agentsview.check_disabled_agents(prefix) == ()
 
 
-def test_check_disabled_agents_is_empty_on_an_unrelated_health_failure(prefix) -> None:
+def test_check_disabled_agents_is_empty_on_an_unrelated_failure(prefix) -> None:
     """Exit 1 with no recognizable message: still not a provider-name verdict."""
-    _fake_agentsview_health_and_doctor_sync(
-        prefix, health_rc=1, health_stderr="some unrelated crash"
-    )
+    _fake_agentsview_doctor_sync(prefix, rc=1, stderr="some unrelated crash")
     assert agentsview.check_disabled_agents(prefix) == ()
 
 
@@ -545,6 +513,28 @@ def test_check_disabled_agents_never_raises_on_a_hanging_binary(prefix, monkeypa
     exe.write_text("#!/bin/sh\nsleep 30\n")
     exe.chmod(0o755)
     assert agentsview.check_disabled_agents(prefix) == ()
+
+
+def test_check_disabled_agents_never_starts_a_daemon(prefix) -> None:
+    """The bug this whole rewrite exists to close: `health` silently
+    autostarted a daemon on a port AgentsView picked. `doctor sync` must
+    not start anything at all, in either the config-valid or
+    config-invalid case -- checked here by making the fake binary record
+    every invocation rather than by asserting on a real process, since a
+    unit test should not depend on a real daemon lifecycle to prove a
+    negative."""
+    exe = prefix.bin / "agentsview"
+    calls_path = prefix.run / "calls.log"
+    exe.write_text(
+        "#!/bin/sh\n"
+        f"echo \"$@\" >> {calls_path}\n"
+        f"printf '%s' '{_CLEAN_DOCTOR_SYNC_STDOUT}'\n"
+        "exit 0\n"
+    )
+    exe.chmod(0o755)
+    agentsview.check_disabled_agents(prefix)
+    calls = calls_path.read_text().splitlines()
+    assert calls == ["doctor sync"]
 
 
 # --- discover_providers: the enumeration `check_disabled_agents` uses ---
@@ -632,18 +622,16 @@ def test_ensure_installed_warns_once_naming_a_renamed_provider(
     prefix, monkeypatch, caplog, _no_leftover_environ
 ) -> None:
     """The install-time check, wired end to end through `ensure_installed`,
-    direction 1: OTHER_PROVIDERS lists something the binary rejects."""
+    direction 1: OTHER_PROVIDERS lists something the binary rejects.
+    `check_disabled_agents` only ever runs `doctor sync` now (never
+    `health` -- see its docstring), so the rejection comes from that call."""
     seen_home: list[str | None] = []
 
     def fake(cmd, shell=True, cwd=None, capture_output=True, text=True, env=None, timeout=None):  # noqa: ANN001
         cmd_text = cmd if isinstance(cmd, str) else " ".join(cmd)
         if "doctor sync" in cmd_text:
             return subprocess.CompletedProcess(
-                cmd, 0, "Agent roots:\n  cursor: /fake/path (ok, default)\n", ""
-            )
-        if "health" in cmd_text:
-            return subprocess.CompletedProcess(
-                cmd, 1, "", 'unknown session provider "bogus-provider"'
+                cmd, 1, "", 'fatal: unknown session provider "bogus-provider"'
             )
         seen_home.append(os.environ.get("AGENT_SYS_HOME"))
         return subprocess.CompletedProcess(cmd, 0, "agentsview v0.42.0\n", "")
@@ -675,8 +663,6 @@ def test_ensure_installed_warns_once_naming_a_provider_added_upstream(
                 "  brand-new-provider: /fake/other (ok, default)\n",
                 "",
             )
-        if "health" in cmd_text:
-            return subprocess.CompletedProcess(cmd, 0, "", "")
         return subprocess.CompletedProcess(cmd, 0, "agentsview v0.42.0\n", "")
 
     monkeypatch.setattr(subprocess, "run", fake)

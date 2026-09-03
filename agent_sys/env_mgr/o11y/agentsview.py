@@ -193,11 +193,40 @@ _AGENT_ROOT_LINE_RE = re.compile(r"^  ([a-z0-9_-]+):", re.MULTILINE)
 DISCOVER_PROVIDERS_TIMEOUT_S = 10.0
 
 
+def _parse_agent_roots(stdout: str) -> tuple[str, ...] | None:
+    """The "Agent roots:" section of a `doctor sync` report -> sorted names.
+
+    Shared by `discover_providers` and `check_disabled_agents` so there is
+    exactly one parser for this report, not two that could drift apart.
+    `None`, never an empty tuple, when the section is missing or names to
+    zero — see `discover_providers`'s docstring for why that distinction
+    matters to the caller.
+    """
+    start = stdout.find(_AGENT_ROOTS_HEADER)
+    if start == -1:
+        return None
+    section = stdout[start + len(_AGENT_ROOTS_HEADER) :]
+    names = {m.group(1) for m in _AGENT_ROOT_LINE_RE.finditer(section)}
+    names.discard(_KEEP_ENABLED)
+    return tuple(sorted(names)) if names else None
+
+
 def discover_providers(prefix: Prefix) -> tuple[str, ...] | None:
     """Ask the installed binary which session providers it recognizes, now.
 
     Used only by `check_disabled_agents`'s completeness direction — the
     write path uses the pinned `OTHER_PROVIDERS` (see its docstring for why).
+
+    **`doctor sync`, never `health` or any other command that reads session
+    data.** Measured directly (`zonelink`'s isolated probe, confirmed here):
+    `health`, `projects`, and `session list` all silently autostart a
+    background `serve` daemon on a port *AgentsView* picks by
+    auto-discovery, exactly the "port decision made by agent_sys, never
+    delegated" rule this component exists to hold. `doctor sync` does
+    not — confirmed by running it from a cold prefix and counting real
+    `agentsview serve` processes by exact argv before and after: zero, both
+    times. It only stats candidate directories and reads config; it never
+    opens a daemon-owned connection.
 
     To re-measure `OTHER_PROVIDERS` by hand after an AgentsView upgrade:
 
@@ -226,14 +255,7 @@ def discover_providers(prefix: Prefix) -> tuple[str, ...] | None:
         return None
     if proc.returncode != 0:
         return None
-    text = proc.stdout or ""
-    start = text.find(_AGENT_ROOTS_HEADER)
-    if start == -1:
-        return None
-    section = text[start + len(_AGENT_ROOTS_HEADER) :]
-    names = {m.group(1) for m in _AGENT_ROOT_LINE_RE.finditer(section)}
-    names.discard(_KEEP_ENABLED)
-    return tuple(sorted(names)) if names else None
+    return _parse_agent_roots(proc.stdout or "")
 
 
 def write_config(prefix: Prefix, disabled_agents: Sequence[str]) -> None:
@@ -285,54 +307,77 @@ CHECK_DISABLED_AGENTS_TIMEOUT_S = 15.0
 def check_disabled_agents(prefix: Prefix) -> tuple[str, ...]:
     """Has reality moved past the pinned `OTHER_PROVIDERS`? Checks both ways.
 
-    **Direction 1 — rename or removal.** Runs `health`, the same cheap
-    command `serve` would fail identically to (it loads config before doing
-    anything else), against the exact `config.toml` `write_config` produced.
-    If the binary's own parser rejects a name in it, that name comes back —
-    `OTHER_PROVIDERS` lists something this installed version no longer
-    recognizes, so the panel is not coming up until it is corrected.
+    **One `doctor sync` call answers both directions; `health` is not used
+    at all.** A first version ran `health --limit 1` against the config
+    `write_config` produced, on the reasoning that it is "the same cheap
+    command `serve` would fail identically to". Measured (`zonelink`'s
+    isolated probe, confirmed here by counting real `agentsview serve`
+    processes by exact argv before/after): `health` silently autostarts a
+    background daemon on a port *AgentsView* auto-discovers, exactly the
+    "port decision made by agent_sys, never delegated to agentsview" rule
+    this whole component exists to hold — happening on a read-only
+    validation path neither `ensure_running` nor anyone watching for it
+    would notice. `AGENTSVIEW_NO_DAEMON=1` (documented for exactly this)
+    was tried next and rejected: measured directly, it also disables
+    *direct* SQLite reads for `health`/`projects`/`session list` even
+    against an already-populated database, so the check would always fail
+    rather than silently no-op — worse, not better. `doctor sync` needs
+    neither: measured to never touch the database or start a daemon, in
+    either the config-valid or config-invalid case, and it validates
+    `disabled_agents` with the *identical* "unknown session provider" error
+    `health` produces, so nothing is lost by dropping `health` entirely.
 
-    **Direction 2 — addition, the one that leaks.** Runs `discover_providers`
-    (`doctor sync`'s own enumeration) and reports every name it finds that is
-    in neither `OTHER_PROVIDERS` nor `claude`. This is the dangerous
-    direction: a provider the binary gained but `OTHER_PROVIDERS` never
-    mentions loads with **no error at all** — AgentsView just scans its
-    default directory and puts its sessions on the panel. Only a genuine
-    completeness check against the binary's own vocabulary can catch that; a
-    validator that merely accepts our list proves nothing about what we
-    forgot to list, which is why this direction exists as a separate probe
-    rather than being inferred from direction 1's silence.
+    **Direction 1 — rename or removal.** `doctor sync` exits non-zero and
+    names the offending entry when `config.toml`'s `disabled_agents`
+    contains something this installed version no longer recognizes; the
+    panel is not coming up until it is corrected.
 
-    **Every name found, from either direction, in one tuple** (empty if
-    clean, or if a probe could not be trusted — a probe failure is not
-    evidence of a problem in either direction: `suspend, don't conclude`).
-    One warning at the call site regardless of how many names came back.
-    Never raises.
+    **Direction 2 — addition, the one that leaks.** When `doctor sync`
+    succeeds, its own "Agent roots:" enumeration (`_parse_agent_roots`, the
+    same parser `discover_providers` uses) is diffed against
+    `OTHER_PROVIDERS`; anything present in neither `OTHER_PROVIDERS` nor
+    `claude` is a provider the binary recognizes that we are not disabling.
+    This is the dangerous direction: it loads with **no error at all** —
+    AgentsView just scans that provider's default directory and puts its
+    sessions on the panel. Only a genuine completeness check against the
+    binary's own vocabulary catches that; a validator that merely accepts
+    our list proves nothing about what we forgot to list.
+
+    **Only one direction can surface per call, and that is the price of
+    dropping `health`.** A `doctor sync` that fails (direction 1) never
+    reaches the point of printing "Agent roots:", so a config with both a
+    stale entry *and* a missing one only reports the stale one here; fixing
+    it and re-running finds the missing one next, the same iterative
+    fix-and-rerun shape a human debugging this by hand would follow. The
+    old two-probe design could report both problems from one call — trading
+    that for never starting a daemon on a validation path.
+
+    Empty result means either direction was clean, or the probe could not
+    be trusted (a probe failure is not evidence of a problem in either
+    direction: `suspend, don't conclude`). One warning at the call site
+    regardless of how many names came back. Never raises.
     """
-    problems: list[str] = []
-
     exe = prefix.bin / "agentsview"
     try:
         env = {**prefix.environment(), "PATH": str(prefix.bin), "HOME": str(prefix.root)}
         proc = subprocess.run(  # noqa: S603
-            [str(exe), "health", "--limit", "1"],
+            [str(exe), "doctor", "sync"],
             env=env,
             capture_output=True,
             text=True,
             timeout=CHECK_DISABLED_AGENTS_TIMEOUT_S,
         )
-        if proc.returncode != 0:
-            m = _UNKNOWN_PROVIDER_RE.search(proc.stderr or "")
-            if m:
-                problems.append(m.group(1))
     except (OSError, subprocess.SubprocessError):
-        pass
+        return ()
 
-    discovered = discover_providers(prefix)
-    if discovered is not None:
-        problems.extend(sorted(set(discovered) - set(OTHER_PROVIDERS)))
+    if proc.returncode != 0:
+        m = _UNKNOWN_PROVIDER_RE.search(proc.stderr or "")
+        return (m.group(1),) if m else ()
 
-    return tuple(problems)
+    discovered = _parse_agent_roots(proc.stdout or "")
+    if discovered is None:
+        return ()
+    return tuple(sorted(set(discovered) - set(OTHER_PROVIDERS)))
 
 
 def _owns_port(prefix: Prefix, port: int) -> bool:
