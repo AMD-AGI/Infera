@@ -60,10 +60,24 @@ the correct place for it to stop.
 
 **Consequence for the ladder, and it changes what "rung 0 green" can mean:**
 
-- **Rung 0 must be run from a host with torch** — i.e. through `spur exec` on a
-  held node — or it stops at `operator_workset` by construction. The run roots
-  are on `/shared_nfs` and visible from both sides, so this is a change of
-  *where the command is issued*, not of the command.
+- **There is no host with torch, and I asserted there was without checking.**
+  Measured after writing it: `spur exec 106253 python3 -c "import torch"` →
+  `ModuleNotFoundError`. The node's *host* environment has no torch; only the
+  **containers** do — m3's real STEP 7/8 run the harness inside
+  `rocm/sgl-dev:v0.5.18-rocm720-mi35x`, which is how they got 142.5 dB and
+  0.5–1.2% rsd. `spur exec` hands you the host, not a container.
+
+  *(My fifth assumption-stated-as-fact today. The others: a `## STEPS` grep,
+  a `cli/stream.py` pointer, an `entry.sh` read by shape, and a `$ref`
+  claim inherited without checking. Same remedy each time: **look before
+  asserting**.)*
+
+- **So the fix is m4's principle, not a different host.** `build_workset`'s mock
+  must run its entrypoints **in a container**, the way its real path already
+  does — otherwise the mock is exercising a parallel wiring that happens to be
+  the one no host can satisfy. Until then rung 0 stops at `operator_identity`
+  by construction, and that is a true statement about the mock rather than
+  about the flow.
 - **"Mock e2e green" therefore never meant "no hardware".** It meant "no model
   call, no bring-up, no campaign". Stage 3 onward still needs a card, because
   three of this package's validators are `cost: gpu_hours` and two of them grade

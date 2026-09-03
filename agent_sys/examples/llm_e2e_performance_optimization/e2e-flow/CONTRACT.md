@@ -399,6 +399,13 @@ Three measured instances, **all found by the harness's own author**:
 - m4's stub kit honoured `${KFO_PYTHON:-python3}`, a variable the validator was
   not setting, so the kit could not watch the interpreter fail to arrive.
 
+**And fix it everywhere the same convenience appears, not only where it bit.**
+m2's, after finding the identical blind spot in a *second* harness
+(`from_yaml.py` still `json.loads`-ed substituted values, so every threshold
+arrived typed) hours after fixing it in the first: *"it is not that people write
+bad fixtures, it is that a fixture gets fixed where the bug was found and not
+everywhere the same convenience exists."*
+
 **The test is: name the input the bug needs, and check the fixture delivers that
 exact form.** Not a plausible one — that one. **And prove the probe can fail
 before believing that it passed.**
