@@ -16,6 +16,7 @@ sh "$KIT_DIR/wait_ready.sh"
 cat > "$E2E_KIT_WORK_ROOT/deployment.json" <<JSON
 {"endpoint": "http://$(hostname -i | awk '{print $1}'):${ROUTER_PORT}",
  "work_root_in_container": "${E2E_KIT_WORK_ROOT}",
+ "work_root_on_host": "${E2E_KIT_WORK_ROOT}",
  "containerized": false,
  "engine_endpoint": "http://$(hostname -i | awk '{print $1}'):${ENGINE_PORT}",
  "container": "stub_${E2E_KIT_RUN_TAG}",

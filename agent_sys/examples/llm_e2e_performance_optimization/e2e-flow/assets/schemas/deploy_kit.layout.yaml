@@ -427,11 +427,29 @@ runtime_contract:
   # kit that adds a banner breaks it silently.
   handshake:
     path: '${E2E_KIT_WORK_ROOT}/deployment.json'
-    required_keys: [endpoint, container, run_tag, work_root_in_container]
+    required_keys: [endpoint, container, run_tag, work_root_in_container, work_root_on_host]
     optional_keys: [engine_endpoint, ports, pid, containerized]
     brief: >-
       `endpoint` is the **product** endpoint — the router, not the engine's own
-      port. `work_root_in_container` is where `E2E_KIT_WORK_ROOT` is mounted
+      port.
+
+      **`work_root_in_container` and `work_root_on_host` are the two sides of one
+      mount and both are required, because a consumer given only one must infer
+      the other.** Measured on the real kit: `pick_params.sh` writes `DK_RUN_DIR`
+      into `run.env` and `env.sh` sources that *after* any export, so the mount
+      stayed `${WORK_ROOT}/${TAG}:/workdir` — one level below what the handshake
+      declared. Three candidates, and only measurement separates them: the mount
+      could have been read-only, the container path could have been wrong, or the
+      declaration could have been wrong. It was the third — writing
+      `/workdir/.writable_probe` inside and reading it at the mounted host
+      directory worked, and so did the reverse. **The kit's declaration was
+      wrong, the mount was fine, and the check was right to refuse.**
+
+      m2 measured what the inference costs when it is wrong: `/start_profile`
+      answers 200, the traces land in the container layer, the host sees an empty
+      directory, and nothing errors anywhere.
+
+      `work_root_in_container` is where `E2E_KIT_WORK_ROOT` is mounted
       inside the engine container — equal to the host path when the kit mounts it
       there, `/workdir` for a kit that follows the sealed one's convention; a
       consumer that needs the engine to write somewhere composes its path from

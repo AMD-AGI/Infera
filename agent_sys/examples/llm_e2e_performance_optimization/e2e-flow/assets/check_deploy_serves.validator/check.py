@@ -382,9 +382,16 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
         # So the kit says which it is, and a kit that says nothing is treated as
         # containerised, which is the safe default.
         inside = deployment["work_root_in_container"]
+        # **The host side comes from the handshake too.** Comparing against this
+        # body's own `work_root` assumed the kit mounts exactly that directory;
+        # the real kit mounts a child of it (`pick_params.sh` writes `DK_RUN_DIR`
+        # into `run.env`, which `env.sh` sources after any export). Reading the
+        # kit's own declaration tests what the property actually is — a file
+        # written inside appears outside — without dictating a layout.
+        on_host = deployment["work_root_on_host"]
         container = deployment["container"]
         token = f"e2e-writable-{tag}"
-        probe_file = f"{work_root}/.writable_probe"
+        probe_file = f"{on_host}/.writable_probe"
         if deployment.get("containerized") is False:
             wrote = on(
                 f"printf %s {token} > {shlex.quote(inside)}/.writable_probe"
