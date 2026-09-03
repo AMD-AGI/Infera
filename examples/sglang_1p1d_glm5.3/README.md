@@ -25,7 +25,15 @@ wrong — say so, it is a bug in this arrangement.
 PD is *possible* for it now has an answer — see below. For Flash today, use
 [`sglang_mix_glm5.3`](../sglang_mix_glm5.3/) (aggregated).
 
-### Flash PD: the engine does transfer the KDA state. Nobody has run it.
+### Flash PD: feasible, OUT OF SCOPE, never run
+
+**Deliberately not pursued.** What follows establishes that the shape is
+*possible* — it is a source read, not a validation, and no Flash PD deployment
+has ever been brought up. It is recorded so that whoever picks this up starts
+from the code reads rather than repeating them, and so that "we did not do this"
+is not mistaken for "this does not work".
+
+The two checks at the end of this section are what that person should run first.
 
 The obvious reason to expect Flash PD to be broken is that `glm5_next` keeps
 **two** pools — the paged KV pool *and* a KDA recurrent-state pool (logged as
