@@ -29,6 +29,37 @@ def _sdpa(**kw):
     return SDPASimulator(gpu_arch="mi355x").simulate_sdpa(**kw)
 
 
+def test_sdpa_prefill_grows_with_kv_length():
+    """A prefill chunk attending a long prefix must cost more than a short one.
+
+    FAv3 walks KV in 64-column tiles. Pricing the whole prefix as one GEMM N
+    left Origami saturating, so 9k tokens attending 8k and 9k attending 122k
+    came out within 50% of each other. FLOPs grew 15x; time has to as well.
+    """
+    common = dict(batch_size=1, num_heads=16, seq_len=2048, head_dim=128,
+                  causal=True, dtype="bf16", num_heads_kv=16, head_dim_v=128)
+    short = _sdpa(**common, seq_len_kv=2048)
+    long = _sdpa(**common, seq_len_kv=32768)
+    assert long.forward_time_ms > 4.0 * short.forward_time_ms, (
+        f"32k KV prefill {long.forward_time_ms:.3f} ms vs 2k "
+        f"{short.forward_time_ms:.3f} ms; expected ~16x FLOPs to show up in time"
+    )
+
+
+def test_sdpa_cached_prefill_is_not_half_masked():
+    """Causal masking does not apply to the cached prefix a suffix attends over."""
+    common = dict(batch_size=1, num_heads=8, seq_len=2048, head_dim=64,
+                  dtype="bf16", seq_len_kv=16384, num_heads_kv=8, head_dim_v=64)
+    causal = _sdpa(**common, causal=True)
+    full = _sdpa(**common, causal=False)
+    # Prefix is 7/8 of KV, so the causal discount on the suffix block is ~6%,
+    # not the 50% a square self-attention would take.
+    assert causal.forward_time_ms > 0.85 * full.forward_time_ms, (
+        f"cached causal {causal.forward_time_ms:.3f} ms vs full "
+        f"{full.forward_time_ms:.3f} ms; the prefix was half-masked"
+    )
+
+
 def test_sdpa_decode_cannot_beat_hbm_bandwidth():
     """A decode step must not read the KV cache faster than HBM allows.
 

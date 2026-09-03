@@ -364,6 +364,22 @@ class SDPASimulator(SDPASimulationBackend):
                 print("[inferasim:SDPA] Origami 1-CU tile-level simulation disabled " f"due to error: {exc}")
         return None
 
+    def _one_cu_gemm_floor_ms(self, m: int, n: int, k: int, dtype: str) -> float:
+        """Lower bound on one CU's time for a GEMM of shape (m, n, k).
+
+        Origami on a 256×64×192 FAv3 tile returns ~30 ns -- 20× below even a
+        single CU's peak -- so multiplying by the KV-loop count still leaves
+        long-context prefill attention memory-bound on a few hundred kilobytes
+        of KV. The loop count is right; the per-tile time was not. Flooring at
+        70% of one-CU peak (the same efficiency the HBM roofline uses) is the
+        compute analogue of that bound.
+        """
+        flops = 2.0 * max(1, m) * max(1, n) * max(1, k)
+        peak = (self._hw.peak_tflops_fp8 if "fp8" in (dtype or "").lower()
+                else self._hw.peak_tflops_bf16)
+        peak_cu = peak / max(1, self._hw.n_cu)
+        return flops / (peak_cu * 1e12 * _SDPA_MEM_EFF) * 1e3
+
     def _simulate_tile_level(
         self,
         B: int,
@@ -403,7 +419,14 @@ class SDPASimulator(SDPASimulationBackend):
         """
         assert self._tile_gemm is not None
         N_CU = self._hw.n_cu
-        causal_factor = 0.5 if causal else 1.0
+        # Causal masking only zeros the upper triangle of the S_Q × S_Q suffix
+        # block. Scores against a cached prefix (S_K - S_Q, when S_K >= S_Q)
+        # are all live, so the 0.5 that is right for a square prefill would
+        # halve a 9k-attends-130k suffix for no reason.
+        if causal and S_K > 0:
+            causal_factor = 1.0 - 0.5 * min(S_Q, S_K) / float(S_K)
+        else:
+            causal_factor = 1.0
 
         # ==============================================================
         # FORWARD
@@ -419,23 +442,43 @@ class SDPASimulator(SDPASimulationBackend):
         fwd_n_wgs = q_wgs * kv_splits
         fwd_waves = math.ceil(fwd_n_wgs / N_CU)
 
-        # Per-workgroup GEMMs on 1 CU (tile sweeps its S_K slice):
-        #   QKᵀ: [q_tile, D_qk, S_K_tile]
-        r_fwd_qk = self._tile_gemm.simulate_gemm(
-            m=q_tile,
-            n=s_k_tile,
-            k=D_qk,
-            dtype=dtype,
-        )
-        #   PV:  [q_tile, S_K_tile, D_v]
-        r_fwd_pv = self._tile_gemm.simulate_gemm(
-            m=q_tile,
-            n=D_v,
-            k=s_k_tile,
-            dtype=dtype,
-        )
-
-        fwd_tile_ms = (r_fwd_qk.forward_time_ms + r_fwd_pv.forward_time_ms) * fwd_waves
+        # Prefill workgroups run the FAv3 KV loop: 64 KV columns per iteration,
+        # sequential inside the workgroup. Passing the whole S_K as the GEMM N
+        # dimension was supposed to be equivalent if Origami scaled linearly in
+        # N, but it does not -- a 122k-wide N saturates and returns ~the same
+        # time as an 8k-wide one, so long-context prefill attention was nearly
+        # flat in KV (13 ms at 8k → 21 ms at 122k) while FLOPs grew 15x.
+        # ``kv_tile_n`` was already in this file's kernel parameters and in the
+        # result metadata; it was never used to price the loop.
+        #
+        # Decode (S_Q = 1) keeps the existing one-GEMM-over-the-KV-split path:
+        # it is HBM-bound, the tests pin that bound, and a 1-row × 64-col tile
+        # loop would turn it into a launch-bound count of tiny GEMMs.
+        kv_iters = 1
+        if S_Q >= _FAV3_FWD.q_tile_m:
+            kv_n = _FAV3_FWD.kv_tile_n
+            kv_iters = max(1, math.ceil(s_k_tile / kv_n))
+            r_fwd_qk = self._tile_gemm.simulate_gemm(
+                m=q_tile, n=kv_n, k=D_qk, dtype=dtype,
+            )
+            r_fwd_pv = self._tile_gemm.simulate_gemm(
+                m=q_tile, n=D_v, k=kv_n, dtype=dtype,
+            )
+            qk_ms = max(r_fwd_qk.forward_time_ms,
+                        self._one_cu_gemm_floor_ms(q_tile, kv_n, D_qk, dtype))
+            pv_ms = max(r_fwd_pv.forward_time_ms,
+                        self._one_cu_gemm_floor_ms(q_tile, kv_n, D_v, dtype))
+            fwd_tile_ms = (qk_ms + pv_ms) * kv_iters * fwd_waves * causal_factor
+        else:
+            r_fwd_qk = self._tile_gemm.simulate_gemm(
+                m=q_tile, n=s_k_tile, k=D_qk, dtype=dtype,
+            )
+            r_fwd_pv = self._tile_gemm.simulate_gemm(
+                m=q_tile, n=D_v, k=s_k_tile, dtype=dtype,
+            )
+            fwd_tile_ms = (
+                r_fwd_qk.forward_time_ms + r_fwd_pv.forward_time_ms
+            ) * fwd_waves
 
         # ==============================================================
         # METADATA (FLOPs, bytes — for achieved-TFLOPS reporting)
@@ -472,8 +515,8 @@ class SDPASimulator(SDPASimulationBackend):
         # Without this bound the model returned 0.27 ms for 19.3 GB of KV at
         # batch 256 on gpt-oss-120b — 71 TB/s against an 8 TB/s part.
         #
-        # Prefill is unaffected: there the tile term is far above this floor, so
-        # the max is a no-op.
+        # Prefill is compute-bound once the KV loop is priced at the FAv3 tile
+        # (64 columns × ⌈S_K/64⌉ iterations); the max is then a no-op there.
         bw = max(1e-6, self._hw.hbm_bandwidth_gbps) * _SDPA_MEM_EFF
         fwd_mem_ms = fwd_bytes / (bw * 1e9) * 1e3
         fwd_time_ms = max(fwd_tile_ms, fwd_mem_ms)
@@ -500,6 +543,7 @@ class SDPASimulator(SDPASimulationBackend):
                 # Tile-level details
                 "fwd_waves": fwd_waves,
                 "fwd_n_workgroups": fwd_n_wgs,
+                "fwd_kv_iters": kv_iters,
                 "fwd_qk_per_tile_ms": r_fwd_qk.forward_time_ms,
                 "fwd_pv_per_tile_ms": r_fwd_pv.forward_time_ms,
                 "n_cu": N_CU,
