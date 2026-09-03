@@ -71,11 +71,13 @@ on the same worker. Behind any multi-worker router, clients must send `store: fa
 
 ### Verified
 
-Anchors present exactly once in the sglang v0.5.17 tree shipped in the mi35x engine
-image. Applied against that tree: both files patched, a re-run reports `already present`,
-both modules `py_compile` clean, and `ResponsesRequest.model_validate` round-trips
-`bootstrap_host=10.0.0.1 bootstrap_port=9000 bootstrap_room=12345` while an aggregated
-request with no bootstrap keys still yields `None, None, None`.
+The v0.5.16 and v0.5.18 `GenerateReqInput` tails are explicit source-shape
+alternatives. Both fresh release trees patch completely on 2026-09-02, and a
+second run reports `already present`; no version-string branching is used.
+On v0.5.18, both modules also `py_compile` clean and
+`ResponsesRequest.model_validate` round-trips
+`bootstrap_host=10.0.0.1 bootstrap_port=9000 bootstrap_room=12345` while an
+aggregated request with no bootstrap keys still yields `None, None, None`.
 
 The runtime check is end-to-end: a Responses request through the router against a 1P1D
 pair returns 200 instead of 400, and prefill and decode log the **same** `bootstrap_room`
@@ -151,11 +153,11 @@ python deploy/docker/patches/sglang_disagg/patch_mooncake_early_send_wait_event.
 
 It locates sglang through `importlib`, so it needs no path argument, and re-running it
 is a no-op ("already present"). The edits are anchored on source text rather than line
-numbers, so they survive the offsets between sglang releases: the anchors are present in
-both v0.5.15.post1 and v0.5.16, and the result is byte-identical to the hand-cut diff
-this patch started as. An anchor that goes missing or stops being unique writes
-**nothing** and fails — the `wait_event` handover is only correct if all three files
-land, and a half-patched tree still corrupts long prompts.
+numbers. The v0.5.16 and v0.5.18 typing-import shapes are explicit alternatives;
+all functional anchors are shared. Both release trees apply cleanly and the second
+run is idempotent. An anchor that goes missing or stops being unique writes **nothing**
+and fails — the `wait_event` handover is only correct if all three files land, and a
+half-patched tree still corrupts long prompts.
 
 ### Verified
 

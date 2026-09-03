@@ -266,6 +266,11 @@ def _fake_sglang(arch: str, encoder: _RecordingEncoder, *, with_protocol: bool =
         protocol = ModuleType("sglang.srt.entrypoints.openai.protocol")
         protocol.Tool = _FakeTool
         modules["sglang.srt.entrypoints.openai.protocol"] = protocol
+    else:
+        # The engine-image test environment already imports the real protocol
+        # module. Mask it explicitly so this case still exercises the intended
+        # router-only deployment where sglang's Tool model is unavailable.
+        modules["sglang.srt.entrypoints.openai.protocol"] = None
 
     config = SimpleNamespace(architectures=[arch])
     with (

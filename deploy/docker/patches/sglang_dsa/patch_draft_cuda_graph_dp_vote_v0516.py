@@ -6,9 +6,9 @@
 renamed the two neighbouring gates, so every context line in those hunks is
 stale:
 
-    v0.5.15.post1 / v0.5.17        v0.5.16
-    can_run_decode_cuda_graph      can_cuda_graph
-    can_run_prefill_cuda_graph     can_run_breakable_cuda_graph
+    v0.5.18                       v0.5.16
+    can_run_decode_cuda_graph     can_cuda_graph
+    can_run_prefill_cuda_graph    can_run_breakable_cuda_graph
 
 Nothing about the mechanism changed, so this is an anchor script rather than a
 re-cut diff: it edits by unique source text and therefore survives that kind of

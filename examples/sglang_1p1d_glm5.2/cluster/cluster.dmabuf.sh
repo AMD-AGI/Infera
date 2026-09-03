@@ -72,8 +72,7 @@ export RDMA_IB_DEVICES="<odp-nic-from-preflight>"          # e.g. mlx5_0
 
 # Lock mooncake to that device. With auto-discovery on, it would find the
 # non-ODP rails and register KV on one of them, which pins and doubles the pool.
-export MC_MS_AUTO_DISC=0
-export MC_MS_FILTERS="$RDMA_IB_DEVICES"
+export MC_TE_FILTERS="$RDMA_IB_DEVICES"
 
 # The RoCEv2 routable GID index for that NIC. Read it from preflight; the
 # link-local fe80:: GID is not routable across the fabric and is never the answer.

@@ -61,14 +61,14 @@ the two older request models grew the fields and `ResponsesRequest` was added
 later without them. Worth filing; DROP THIS SCRIPT once base sglang carries the
 fields, at which point it reports "already present" and no-ops.
 
-VERIFIED: anchors present exactly once in both sglang trees this repo builds on —
-v0.5.17 (mi35x image) and v0.5.16 (the gfx942 image, pinned there for GLM-5.2
-MTP). Both are checked, because this directory is applied by both Dockerfiles and
-a patch cut against one of them fails the other's build. Runtime verification is the
-end-to-end one: a Responses request through the router against a 1P1D pair
-returns 200 instead of 400, and prefill and decode log the SAME bootstrap_room —
-which is what proves the KV actually moved over Mooncake rather than the decode
-leg quietly recomputing the prompt.
+VERIFIED: the missing fields and forwarding were re-checked against both
+supported bases on 2026-09-02. v0.5.16 ends the GenerateReqInput call at
+`background=request.background`; v0.5.18 adds `require_reasoning` and changes
+background streaming semantics. The forwarding edit accepts exactly those two
+source shapes. Runtime verification is the end-to-end one: a Responses request
+through the router against a 1P1D pair returns 200 instead of 400, and prefill
+and decode log the SAME bootstrap_room — which is what proves the KV actually
+moved over Mooncake rather than the decode leg quietly recomputing the prompt.
 
 Self-locating and idempotent. Both edits or none: `ResponsesRequest` accepting a
 field that `create_responses` then drops is exactly the silent-discard bug this
@@ -105,30 +105,46 @@ _EDITS: dict[str, list[tuple[str, str]]] = {
 """,
         ),
     ],
-    "entrypoints/openai/serving_responses.py": [
-        # The single construction site shared by the harmony and non-harmony
-        # paths. Anchored on one kwarg rather than on the call's tail: v0.5.17
-        # grew a `require_reasoning=` line between `background=` and the closing
-        # paren, and the two engine images are pinned to different versions
-        # (gfx942 to v0.5.16 for GLM-5.2 MTP, gfx950 to v0.5.17). Appending our
-        # kwargs after `background=` lands inside the call either way, and the
-        # uniqueness guard below still rejects a tree where it is not the one
-        # site — the second GenerateReqInput, in `_generate_with_builtin_tools`,
-        # passes no `background=` and so cannot be hit by accident.
-        (
-            """                        background=request.background,
+}
+
+_SERVING_REL = "entrypoints/openai/serving_responses.py"
+_SERVING_MARKER = "bootstrap_host=request.bootstrap_host,"
+_SERVING_VARIANTS: tuple[tuple[str, str], ...] = (
+    # v0.5.16: the call ends directly after background.
+    (
+        """                        background=request.background,
+                    )
 """,
-            """                        background=request.background,
+        """                        background=request.background,
                         # PD disaggregation: forward the proxy's bootstrap trio.
                         # None on an aggregated server, which is what
                         # GenerateReqInput already defaults to.
                         bootstrap_host=request.bootstrap_host,
                         bootstrap_port=request.bootstrap_port,
                         bootstrap_room=request.bootstrap_room,
+                    )
 """,
-        ),
-    ],
-}
+    ),
+    # v0.5.18: background streaming semantics and require_reasoning were added.
+    (
+        """                        # background+stream streams on this connection, so don't detach.
+                        background=request.background and not request.stream,
+                        require_reasoning=require_reasoning,
+                    )
+""",
+        """                        # background+stream streams on this connection, so don't detach.
+                        background=request.background and not request.stream,
+                        require_reasoning=require_reasoning,
+                        # PD disaggregation: forward the proxy's bootstrap trio.
+                        # None on an aggregated server, which is what
+                        # GenerateReqInput already defaults to.
+                        bootstrap_host=request.bootstrap_host,
+                        bootstrap_port=request.bootstrap_port,
+                        bootstrap_room=request.bootstrap_room,
+                    )
+""",
+    ),
+)
 
 
 def _srt_dir():
@@ -166,6 +182,31 @@ def main():
             out = out.replace(old, new, 1)
         if out != src:
             planned.append((f, out))
+
+    # The GenerateReqInput tail differs between the two supported releases.
+    # Require exactly one known pristine shape, or the explicit applied marker;
+    # never guess across a new source layout.
+    f = srt / _SERVING_REL
+    if not f.is_file():
+        print(f"{_TAG} {f} is missing — sglang layout changed, re-anchor the patch")
+        return 1
+    src = out = f.read_text()
+    if _SERVING_MARKER not in out:
+        matches = [(old, new) for old, new in _SERVING_VARIANTS if out.count(old) == 1]
+        if len(matches) != 1:
+            counts = ", ".join(
+                f"variant-{i}={out.count(old)}" for i, (old, _) in enumerate(_SERVING_VARIANTS, 1)
+            )
+            print(
+                f"{_TAG} expected exactly one supported GenerateReqInput tail "
+                f"in {_SERVING_REL}; found {len(matches)} ({counts})"
+            )
+            print(f"{_TAG} sglang drifted — re-cut the patch, nothing written")
+            return 1
+        old, new = matches[0]
+        out = out.replace(old, new, 1)
+    if out != src:
+        planned.append((f, out))
 
     if not planned:
         print(f"{_TAG} already present — skipping")

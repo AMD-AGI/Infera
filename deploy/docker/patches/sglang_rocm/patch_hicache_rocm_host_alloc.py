@@ -86,7 +86,7 @@ expensive to diagnose. The switch costs nothing measurable on either arch while
 SGLANG_HUGEPAGE_SIZE is unset: alloc_mmap then takes its plain-page branch, so
 both allocators hand out 4 KiB pages.
 
-UPSTREAM STATUS (queried with `gh` on 2026-08-03)
+UPSTREAM STATUS (re-checked on 2026-09-02)
   issue          NONE FOUND. Searched sgl-project/sglang issues for
                  "hipHostRegister", "hicache ROCm host" and "Memory access fault
                  by GPU node". The last returns AMD faults from unrelated areas
@@ -95,20 +95,20 @@ UPSTREAM STATUS (queried with `gh` on 2026-08-03)
                  `gh search` matches titles and bodies, not diff content, so an
                  upstream change to this same dispatch that never names it would
                  not show up. The direct read below is the stronger check.
-  upstream code  Read `pool_host/common.py` on sgl-project/sglang `main` via the
-                 contents API on 2026-08-03: ALLOC_MEMORY_FUNCS still defaults to
-                 `alloc_with_host_register` with only "npu" and "musa" overridden.
-                 No HIP entry. So the defect is live on main, not just on our base.
+  upstream code  Read `pool_host/common.py` in the v0.5.18 image: its
+                 ALLOC_MEMORY_FUNCS still defaults to alloc_with_host_register
+                 with only "npu" and "musa" overridden. No HIP entry. So the
+                 defect is live in the new pinned base.
   third-party PR #23361 "[MUSA][19/N] Support HiCache with pin_memory allocator"
                  (MERGED 2026-04-22). NOT this fix, but it is the SHAPE this
                  patch copies: same one-line dispatch override, same reason
                  (host VA is not the device VA on that platform). #32503 /
                  #32792 (both OPEN) add Intel XPU HiCache and will touch the same
                  dict -- a merge conflict risk for this anchor, not a fix for it.
-  own PR         NONE. Not filed. It should be: upstream main is affected, the
-                 one-line form matches an already-merged precedent (#23361), and
-                 the device-pointer measurements above are the evidence. Blocked
-                 only on someone opening it.
+  own PR         #33968 "[ROCm] Fix HiCache host-pool allocator:
+                 hipHostRegister's device pointer is not the host VA" remains
+                 OPEN. Keep this patch until that fix is merged and included in
+                 the pinned base.
 
 Idempotent and self-locating. Run inside the container, then delete stale .pyc.
 """

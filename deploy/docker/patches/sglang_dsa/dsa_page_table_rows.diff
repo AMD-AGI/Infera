@@ -11,7 +11,7 @@ WHY      Expanding by repeat_interleave reproduces the token-major layout.  Rows
          named only the first, but the second pairs the same unpadded page table
          with a padded topk_indices.  The prefill sibling solves this with an
          explicit `output_num_tokens`; the decode entry point has no equivalent.
-BASE     Cut against v0.5.17.  The two prefill call sites are deliberately NOT
+BASE     Re-verified against v0.5.18. The two prefill call sites are deliberately NOT
          wrapped; they are not the row-mismatch path.
 
 UPSTREAM NONE of ours.  sglang#32209 reconciles the same decode row counts by

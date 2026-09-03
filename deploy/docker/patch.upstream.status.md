@@ -5,10 +5,10 @@ project it patches. Kept here so "why do we still carry this?" has one answer
 per row, and so a patch that upstream has since merged gets dropped instead of
 quietly outliving its reason.
 
-**PR states re-verified against the GitHub API on 2026-08-10**, when the sglang
-base moved to v0.5.17 and every patch was re-checked against that source. The
-2026-08-01/03/04 pass that preceded it predated our own 08-07 submissions and so
-recorded "no PR of ours" for three rows that had one.
+**PR states and pinned source re-verified on 2026-09-02**, when the sglang mi35x
+base moved to v0.5.18. The DSA, PD, Responses and ROCm defects below were checked
+directly in image digest `sha256:6d68cd19206716cb3f1e31e2ad89cd0852d7ae614a792773c30a4277f8955c72`;
+an anchor drift is recorded as a re-cut, not mistaken for an upstream fix.
 State drifts; re-check before relying on a row. `gh search`
 matches titles and bodies, **not diff content**, so "no upstream PR" means "none
 found by search", not "none exists" — where a row could be checked by reading
@@ -23,10 +23,14 @@ Column meanings:
 ## sglang — `patches/sglang_dsa/` (baked by `Dockerfile.sglang` and `Dockerfile.sglang.gfx942`, `APPLY_SGLANG_DSA_PATCHES=1`)
 
 Patch 01 is an anchor script and is baked by both images. The other three are
-`--fuzz=0` diffs cut against the mi35x base (v0.5.17) and are not applied by the
+`--fuzz=0` diffs verified against the mi35x base (v0.5.18) and are not applied by the
 gfx942 image, which substitutes `dsa_page_table_rows` and `draft_cuda_graph_dp_vote`
 at runtime with `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`
 — `patches/sglang_dsa/README.md` carries the reasoning.
+The apply script dry-runs both directions before mutation, so rerunning it skips
+an applied diff instead of allowing GNU patch to auto-reverse the fix.
+Patch 01 was freshly applied and bytecode-verified on both supported release
+trees: v0.5.16 (`indexer`) and v0.5.18 (`full`).
 
 | patch | fixes | upstream issue | upstream PR | ours? | PR state |
 |---|---|---|---|---|---|
@@ -62,13 +66,30 @@ PD + DP-attention + MTP, i.e. **no CI covers this topology today**.
 > Unlike the rest of this page, this row was **not** verified with `gh`: the issue
 > state was read from the web UI on 2026-08-03, and no upstream PR search was run.
 > "none found" here is weaker than elsewhere on the page.
+>
+> The import differs between supported bases (`Set` is added in v0.5.18), so the
+> script accepts explicit v0.5.16 and v0.5.18 source shapes. Both apply and
+> second-run idempotence checks pass.
+
+## sglang Responses API — `patches/sglang_disagg/` and `patches/sglang_responses/`
+
+| patch | fixes | upstream issue | upstream PR | ours? | PR state |
+|---|---|---|---|---|---|
+| `sglang_disagg/patch_responses_pd_bootstrap.py` | `ResponsesRequest` drops `bootstrap_host/port/room` and its `GenerateReqInput` does not forward them, so every Responses request to a PD worker returns 400 | none found | none found | — | — |
+| `sglang_responses/patch_responses_custom_encoder_prompt.py` | Responses takes empty prompt text instead of the authoritative prompt IDs for `kimi_k3`/`inkling`, so every request returns 400 | none found | none found | — | — |
+
+Both defects are present in v0.5.16 and v0.5.18. The PD bootstrap script accepts
+the explicit GenerateReqInput tail from each release; the custom-encoder anchor
+is shared unchanged. Both release trees apply and re-run idempotently. Drop
+either only when the corresponding fields/forwarding or shared prompt-selection
+helper is present in the pinned source.
 
 ## sglang ROCm — `patches/sglang_rocm/` (baked by `Dockerfile.sglang`, `Dockerfile.sglang.gfx942`)
 
 | patch | fixes | upstream issue | upstream PR | ours? | PR state |
 |---|---|---|---|---|---|
 | `sglang_rocm/patch_hicache_rocm_host_alloc.py` | hicache allocates host pools with `mmap` + `hipHostRegister`, which on ROCm maps the pages at a device address ≠ the host VA, but the pools hand raw host `data_ptr()`s to GPU kernels via device-side pointer tables → `Memory access fault by GPU node-N on address <host VA>` on the first kvd write-back | none found | [sglang#33968](https://github.com/sgl-project/sglang/pull/33968) | **yes** (`dorado269`) | OPEN |
-| `sglang_rocm/patch_hicache_rocm_staged_write_back.py` | `pool_host/mla.py` enables the staged write-back JIT on HIP while `DSAIndexerPoolHost` — in the same `HostPoolGroup` for any DSA model — still gates it on `_is_cuda`. The group ANDs the flag, so the controller puts the destination indices on the GPU; the anchor MLA pool then reads its own flag and launches the JIT anyway → `Tensor match failed … device=rocm:0 … allowed options: [cpu, rocm_host]`, scheduler exit −3 on the first write-back | none found | [sglang#28534](https://github.com/sgl-project/sglang/pull/28534) `[AMD] Enable JIT staged HiCache write-back and fix CPU-index crash` — added the HIP enablement and aligned `cache_controller.py`, `memory_pool_host.py`, `pool_host/mha.py`; **never touched `pool_host/mla.py`** | no (`AMD-yanfeiwang`) | **MERGED** 2026-07-09 |
+| `sglang_rocm/patch_hicache_rocm_staged_write_back.py` | On the v0.5.16 controller, `pool_host/mla.py` enables the staged write-back JIT on HIP while `DSAIndexerPoolHost` gates it on `_is_cuda`; group-level index movement then sends GPU indices to a JIT kernel requiring CPU/ROCm-host indices → scheduler exit −3. v0.5.18 adds per-pool index movement and no longer has that exact failure mode, but the shared patch keeps MLA on the conservative non-JIT path. | none found | [sglang#28534](https://github.com/sgl-project/sglang/pull/28534) `[AMD] Enable JIT staged HiCache write-back and fix CPU-index crash` | no (`AMD-yanfeiwang`) | **MERGED** 2026-07-09 |
 
 **`patch_hicache_rocm_host_alloc.py`** — the fault is **gfx950-only so far**: MI300X
 (amdgpu 6.14.14, ROCm 7.2.0) measures the two addresses equal, so
@@ -84,28 +105,24 @@ Don't read its row above as evidence the fault was seen on both arches.
 >
 > **Drop this patch** when a base sglang routes HIP to `alloc_with_pin_memory`;
 > the anchor stops matching and the script exits non-zero, so the drop is not
-> silent. `ALLOC_MEMORY_FUNCS` still lists only `npu`/`musa` at v0.5.17. Note
+> silent. `ALLOC_MEMORY_FUNCS` still lists only `npu`/`musa` at v0.5.18. Note
 > [#32503](https://github.com/sgl-project/sglang/pull/32503) /
 > [#32792](https://github.com/sgl-project/sglang/pull/32792) (OPEN, Intel XPU
 > HiCache) touch this same dict — expect an anchor conflict, not a fix.
 
-**`patch_hicache_rocm_staged_write_back.py`** — **not** preventive: without it the
-v0.5.16 gfx942 base kills the prefill scheduler on the first reused prefix, so that
-image needs it to run kvd at all. A **no-op on the mi35x image**, which has nothing to
-fix — every `can_use_write_back_jit` gate at v0.5.15.post1 is still `_is_cuda` (MHA,
-MLA, both V4 pools and `DSAIndexerPoolHost`, all in `memory_pool_host.py` before
-MLA/MHA moved into `pool_host/`), and `_is_hip` appears only in the kernel import
-guard, so the group's AND and its anchor agree on False. #28534 introduced the
-disagreement after that tag; the absent `pool_host/mla.py` is only how the script
-notices. Both `_is_cuda or _is_hip` in `pool_host/mla.py` and the CUDA-only gates on
-the other pools are still on upstream `main` (read from the raw files, so stronger
-than a search miss), i.e. **main is affected** — and #28534's own reasoning argues for
-the opposite repair, teaching the remaining pools the JIT rather than gating MLA down,
-so expect upstream to close this differently than we did.
+**`patch_hicache_rocm_staged_write_back.py`** — **not preventive on v0.5.16**:
+without it the gfx942 prefill scheduler dies on the first reused prefix, so that
+image needs it to run kvd. v0.5.18 still has the mixed pool gates, but its
+`HybridCacheController._move_write_operation()` checks
+`supports_per_pool_backup_indices` and moves host/device indices separately for
+each pool. Therefore the gate mismatch alone is no longer proof that v0.5.18
+needs this patch. The final v0.5.18 image retains the conservative MLA non-JIT
+gate; removing it there requires a direct pristine-MLA JIT A/B, not merely an
+anchor match.
 
-> **That repair is already in flight (checked 2026-08-04):**
+> **That repair was proposed but did not merge (re-checked 2026-09-02):**
 > [sglang#30350](https://github.com/sgl-project/sglang/pull/30350) `Add HiCache JIT
-> test and benchmark for ROCm/HIP CI support` (**OPEN**, `Emmanuel0612`) adds
+> test and benchmark for ROCm/HIP CI support` (**CLOSED, unmerged**, `Emmanuel0612`) adds
 > `_is_cuda_alike = _is_cuda or _is_hip` and flips exactly the three CUDA-only gates
 > (`DSAIndexerPoolHost`, `DeepSeekV4PagedHostPool`, `DeepSeekV4StateHostPool`), so the
 > group AND stops reading False on ROCm — **including the V4 stack our patch does not
@@ -127,15 +144,17 @@ so expect upstream to close this differently than we did.
 > **Exercised 2026-08-04** against the v0.5.16 *and* current-`main` copies of both
 > files, on throwaway trees. Stock: applies, exit 0. Re-run: "already applied", exit
 > 0. #30350 simulated by flipping the three CUDA-only gates: refuses, exit 1, with
-> `mla.py` byte-identical to pristine. `pool_host/mla.py` removed (the v0.5.15.post1
-> shape): tolerated, exit 0. Anchor or pool renamed: exit 1.
+> `mla.py` byte-identical to pristine. `pool_host/mla.py` removed (a base predating
+> staged write-back): tolerated, exit 0. Anchor or pool renamed: exit 1.
 >
-> Scope: `DSAIndexerPoolHost` is not the only CUDA-only member that can poison the
-> group's AND, and `build_deepseek_v4_hicache_stack` puts `DeepSeekV4PagedHostPool`
-> in a group anchored by `LogicalHostPool` (flag unconditionally True). Expect the
-> same crash on a V4 hicache stack on gfx942; **this patch gates `mla.py` only**. No
-> V4 stack runs on this branch, so that gate would be untested — the script's SCOPE
-> section records it for whoever gets there.
+> **V4 scope rechecked on v0.5.18 (2026-09-03):** the V4 stack does put CUDA-only
+> `DeepSeekV4PagedHostPool` children under an always-true `LogicalHostPool` anchor,
+> but the per-pool controller path handles those indices independently. A real
+> DeepSeek-V4-Pro TP8 run with `hicache-ratio=0.01`,
+> `page_first/kernel/write_back` attached all V4 sidecars, served a 5,888-token
+> prefix twice, reused 5,632 tokens, and remained alive after write-back. V4 is
+> therefore covered on the v0.5.18/gfx950 image; this MLA-only patch neither fixes
+> nor participates in that V4 path.
 
 ## Mooncake C++ — `patches/mooncake_cpp/`
 

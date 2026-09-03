@@ -84,6 +84,7 @@ from .netperf import (
     _barrier,
     _exit_reason,
     _gid_index,
+    _gid_override,
     _mgmt_ip,
     _nics,
     _parse_rdma_errno,
@@ -122,13 +123,19 @@ _GID_CACHE: int | None = None
 
 
 def _ref_gid() -> int:
-    """The routable RoCE v2 GID index to pin via MC_GID_INDEX. Production hardcodes
-    1; we read it from the first NIC (same value on this fleet) for robustness.
-    Cached -- it is read once per spawn and once per finding otherwise."""
+    """The routable RoCE v2 GID index to pin via MC_GID_INDEX.
+
+    An explicit preflight selection wins; otherwise read the first NIC. Cached
+    because it is consulted once per spawn and once per finding.
+    """
     global _GID_CACHE
     if _GID_CACHE is None:
-        nics = _nics()
-        _GID_CACHE = _gid_index(nics[0] if nics else _RDMA_DEVICE)
+        selected = _gid_override()
+        if selected is not None:
+            _GID_CACHE = selected
+        else:
+            nics = _nics()
+            _GID_CACHE = _gid_index(nics[0] if nics else _RDMA_DEVICE)
     return _GID_CACHE
 
 
@@ -157,19 +164,22 @@ def _kv_gpus() -> int:
 def _variants(ngpu: int) -> list[tuple]:
     """(label, protocol, env_kind, loc, gpu_id, dev). rdma-default deliberately sets
     no GID; rdma-gpu{g} registers VRAM on GPU g (Mooncake auto-routes to its NIC).
-    `dev` pins the NIC whitelist (only the CPU baseline pins one; "" = auto). ngpu
-    is the cross-rank-agreed GPU count (see run) so every rank matches."""
+    `dev` pins the NIC whitelist. GPU variants use auto-routing unless the caller
+    explicitly selected a preflight device. ngpu is the cross-rank-agreed GPU
+    count (see run) so every rank matches."""
     nics = _nics()
     # Pin the CPU rdma baseline to one fixed NIC (same index on both ends -> same
-    # rail); GPU variants keep "" so Mooncake auto-routes to each GPU's affine NIC.
+    # rail). GPU variants normally auto-route to each GPU's affine NIC, but a
+    # selected production mode must measure that exact device.
     cpu_dev = nics[0] if nics else ""
+    gpu_dev = cpu_dev if os.environ.get("INFERA_PREFLIGHT_RDMA_DEVICE") else ""
     variants: list[tuple] = [
         ("rdma", "rdma", "gid", "cpu", -1, cpu_dev),
         ("rdma-default", "rdma", "none", "cpu", -1, ""),
         ("tcp", "tcp", "tcp", "cpu", -1, ""),
     ]
     for g in range(ngpu):
-        variants.append((f"rdma-gpu{g}", "rdma", "gid", "gpu", g, ""))
+        variants.append((f"rdma-gpu{g}", "rdma", "gid", "gpu", g, gpu_dev))
     return variants
 
 
@@ -454,6 +464,7 @@ def _spawn(
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            errors="replace",
         )
         return cp.returncode, (cp.stdout or "")[-65536:]
     except subprocess.TimeoutExpired as exc:

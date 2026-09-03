@@ -30,6 +30,9 @@ DOCKER_ARGS=(--rm --network host
 # injection silently no-ops and this probe measures a container whose provider does not
 # match the host driver — it then reports zero devices and the report means nothing.
 [ -n "${HOST_RDMA_LIB:-}" ] && DOCKER_ARGS+=(-v "$HOST_RDMA_LIB:${HOST_RDMA_MOUNT:-/host-rdma/$(basename "$HOST_RDMA_LIB")}:ro")
+for v in INFERA_PREFLIGHT_RDMA_DEVICE INFERA_PREFLIGHT_GID_INDEX INFERA_PREFLIGHT_KV_GPUS; do
+  [ -n "${!v:-}" ] && DOCKER_ARGS+=(-e "$v")
+done
 
 case "$CMD" in
 mode)

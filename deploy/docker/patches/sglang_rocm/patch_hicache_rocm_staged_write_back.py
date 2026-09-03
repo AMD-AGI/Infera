@@ -72,20 +72,28 @@ Two launch flags dodge the crash instead and neither is a good trade:
 transfer is done in order to route around one mis-set boolean, and both leave the
 disagreement in place for the next model to find.
 
-SCOPE -- WHAT THIS DOES NOT FIX
--------------------------------
-The disagreement is a property of the group, not of MLA, so gating one pool closes
-one instance of it. The other instance reachable today is the DeepSeek-V4 hicache
-stack: `build_deepseek_v4_hicache_stack` anchors on `LogicalHostPool`, whose flag is
-an unconditional True, and hangs `DeepSeekV4PagedHostPool` (CUDA-only, False on
-ROCm) off the same group -- same AND, same False group flag, same True anchor, so
-expect the same crash there on gfx942. Left alone deliberately: no V4 stack runs on
-this branch, so a gate here would be untested code guarding an untested path. Named
-so the next person recognizes the failure instead of re-deriving it.
+VERSION AND MODEL SCOPE
+-----------------------
+On v0.5.16, destination-index placement is group-level. The mixed MLA/DSA gates
+therefore reproduce the fatal mismatch above and this patch is required.
 
-UPSTREAM STATUS (2026-08-04)
-  The `_is_cuda or _is_hip` gate is still on `main` (read from the raw file), so
-  main is affected, not just this base.
+v0.5.18 adds per-pool backup-index handling in
+`HybridCacheController._move_write_operation()`. It checks each pool's
+`can_use_write_back_jit` and moves host/device indices independently, so mixed
+child gates alone are no longer proof of the same crash. Applying this shared
+patch still keeps MLA on the conservative non-JIT path; a direct pristine-vs-
+patched MLA throughput test is the retirement criterion on that base.
+
+DeepSeek-V4 uses a LogicalHostPool anchor with DeepSeekV4PagedHostPool sidecars,
+not this MLA class. A real V4-Pro TP8 v0.5.18/gfx950 run with
+page_first/kernel/write_back reused 5,632 of 5,888 prefix tokens and survived
+write-back. That validates the per-pool controller path and is not evidence that
+this MLA-only patch fixes V4.
+
+UPSTREAM STATUS (re-checked 2026-09-03)
+  The `_is_cuda or _is_hip` gate and the CUDA-only DSAIndexerPoolHost gate are
+  both still in the v0.5.18 image. On v0.5.16 their disagreement is fatal; on
+  v0.5.18 the controller's per-pool index path mitigates that exact mismatch.
 
   It comes from sglang#28534 "[AMD] Enable JIT staged HiCache write-back and fix
   CPU-index crash" (MERGED 2026-07-09), which fixed the mirror image of this crash
@@ -95,17 +103,14 @@ UPSTREAM STATUS (2026-08-04)
   `DSAIndexerPoolHost` joining the same pool group. So this is #28534 left
   incomplete on the MLA + DSA path rather than a fresh defect.
 
-  A fix is in flight and it is the parity repair done thoroughly: sglang#30350 "Add
-  HiCache JIT test and benchmark for ROCm/HIP CI support" (OPEN, Emmanuel0612) adds
+  The thorough parity repair was proposed in sglang#30350 "Add HiCache JIT test
+  and benchmark for ROCm/HIP CI support" (Emmanuel0612), which adds
   `_is_cuda_alike = _is_cuda or _is_hip` and flips exactly the three CUDA-only gates
   named above, so the group AND stops reading False on ROCm. It also teaches
   `staged_write_back.cuh` to accept kDLROCM / kDLROCMHost -- the TensorMatcher check
   that emits the crash above -- and adds an AMD CI lane (author reports 47/47 on
-  MI355X). It therefore also covers the V4 stack that SCOPE leaves open. Stalled
-  rather than rejected: amd-bot called its AMD suites green on 07-09 alongside a
-  merge conflict, the author cleared conflicts on 07-13, nothing since 07-16, and
-  #28534 landed in between. So the useful contribution is a gfx942 reproduction on
-  that thread, not a competing PR; file our own only if #30350 dies.
+  MI355X). It also gives every V4 child the JIT path. That PR is now CLOSED
+  without merge, so it cannot be used as a drop signal for v0.5.16.
 
   Anchor drift cannot be the drop signal, which is why this script checks a
   precondition instead. #30350 repairs the OTHER pools and never touches
@@ -117,16 +122,14 @@ UPSTREAM STATUS (2026-08-04)
   stops gating on `_is_cuda` alone (line 1777 at v0.5.16, 1830 on main).
 
 THE TWO IMAGES THAT RUN THIS
-  Both need it, and for the same reason: `pool_host/mla.py` carries the
-  `_is_cuda or _is_hip` gate while `DSAIndexerPoolHost` is still CUDA-only, so
-  the group's AND disagrees with its anchor.
+  `Dockerfile.sglang.gfx942` (MI300X / MI325X, base v0.5.16) needs the
+  correctness fix.
 
-  `Dockerfile.sglang.gfx942` (MI300X / MI325X, base v0.5.16).
-
-  `Dockerfile.sglang` (MI355X) since the base moved to v0.5.17; on the earlier
-  v0.5.15.post1 base it exited 0 at the first check, because every write-back
-  gate there was still `_is_cuda` and the absent `pool_host/mla.py` is how this
-  script noticed. #28534 introduced the disagreement after that tag.
+  `Dockerfile.sglang` (MI355X, base v0.5.18) retains the same shared safe gate,
+  but its controller already has per-pool index handling. Treat the impact there
+  as a possible MLA write-back performance trade-off, not an unverified V4
+  correctness dependency. A base predating staged write-back exits 0 because
+  `pool_host/mla.py` is absent.
 
 EXIT CODES
   0  applied; already applied; or nothing to gate -- no `pool_host/mla.py`, or an
@@ -158,9 +161,10 @@ OLD = """        # The staged write-back JIT kernel builds with hipcc and has a 
 
 NEW = f"""        # {MARKER}: WHY the ROCm build of this kernel wants
         # host-resident dst_indices while the caller passes a GPU tensor ->
-        # "Tensor match failed ... device=rocm:0" kills the scheduler on the
-        # first write-back. HOW gate on CUDA like every other host pool; HIP
-        # falls through to transfer_kv_all_layer_mla_lf_pf. See infera
+        # "Tensor match failed ... device=rocm:0" kills the legacy controller
+        # on first write-back. HOW align this MLA gate with its CUDA-only DSA
+        # child; HIP uses transfer_kv_all_layer_mla_lf_pf. On controllers with
+        # per-pool indices this remains a conservative non-JIT path. See infera
         # patch_hicache_rocm_staged_write_back.py.
         {MARKER} = "applied"  # a literal, so `strings *.pyc` can prove it
         self.can_use_write_back_jit = _is_cuda and can_use_write_back_jit_kernel("""
