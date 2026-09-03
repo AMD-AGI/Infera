@@ -494,6 +494,10 @@ def main() -> int:
         )
 
     report = {
+        # Which contract produced this. Every other structured document in the
+        # package carries it; this one is the flow's verdict, so a later reader
+        # deciding whether a stored report is still comparable needs it most.
+        "schema_version": 1,
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "patch": {
             "operator_id": manifest.get("operator_id"),

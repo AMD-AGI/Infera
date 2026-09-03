@@ -119,6 +119,11 @@ import json, sys
 path, mode, pkg = sys.argv[1:4]
 d = json.load(open(path))
 
+# The sealed report predates `schema_version` too. Set rather than invented: it
+# states which contract this document conforms to, which the mock knows for
+# certain because it is writing against that contract.
+d["schema_version"] = 1
+
 # The two blocks the mission added. The 2026-09-02 run predates both.
 d["stock_vs_m2"] = {
     "source": None,
