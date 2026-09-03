@@ -380,6 +380,29 @@ asks whether your situation is the same as theirs, **check rather than reason**
 — m4 assumed the interpreter exposure was "probably moot inside the shared
 container" and it was in two places.
 
+### 4.4 A fixture that is more convenient than production tests the fixture
+
+m2's wording, kept nearly verbatim because the last sentence is the whole rule.
+
+Every harness supplies its subject with inputs. When those are the *tidy*
+version — empty args instead of the run's own, a module imported instead of
+called, an interpreter that happens to have the dependency, a variable the real
+caller does not set — **the harness cannot see the bug it was built after, and
+it says so by returning clean.**
+
+Three measured instances, **all found by the harness's own author**:
+
+- layer B *imported* modules, while `schema.py` imports `jsonschema` inside
+  `validate()`;
+- layer C1 passed `args.json = {}`, so every `.get` returned a **typed** default
+  and no string ever reached the arithmetic §4.2 is about;
+- m4's stub kit honoured `${KFO_PYTHON:-python3}`, a variable the validator was
+  not setting, so the kit could not watch the interpreter fail to arrive.
+
+**The test is: name the input the bug needs, and check the fixture delivers that
+exact form.** Not a plausible one — that one. **And prove the probe can fail
+before believing that it passed.**
+
 ### 4.1 Shared validators are shared, not copied
 
 `check_kernel_table` is **one** definition used by m2 and m3 (M3.5). The two

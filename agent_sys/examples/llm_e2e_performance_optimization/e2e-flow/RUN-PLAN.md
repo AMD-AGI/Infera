@@ -20,6 +20,26 @@ it is the only thing that makes a failure mean something.
 
 Each rung is a separate `agent-sys run`. Nothing skips.
 
+### The vars that change with the rung, and they are not only the agent ones
+
+The table above says which stage becomes real. **That is not the same as which
+`--var`s change**, and the gap would have cost a GPU run — caught by m2, who had
+been telling everyone to pass the wrong one.
+
+| var | rungs 0–1 | rung 2 onward |
+|---|---|---|
+| `m<N>_agent=runner` | one per still-mocked stage | **removed** for the promoted stage |
+| `expect_ranks` | **2** | **omit it** (defaults to 8), or track `--var tp` |
+| `adhoc_cases` | **0** | omit from rung 5 (`todo.md` T12) |
+
+`expect_ranks` is the one to watch: it is a fact about **the artefact being
+graded**, not about the run. The sealed capture is TP-2, so rungs 0 and 1 need
+`2`; at rung 2 the trace comes from a **real TP-8 bring-up**, and passing `2`
+makes `check_trace_coverage` refuse a perfectly good eight-rank capture **after
+a full bring-up and a three-minute load**. It fails loudly, so it costs a run
+rather than a wrong number — which is the good version of this mistake and still
+a run.
+
 ## Before rung 1, and again before every rung
 
 1. **`m2`'s interpreter sweep** — `/shared_nfs/yihou/agent_sys/ws_handoff_refine/m2/interpreter_sweep.py`. About a minute. **Treat a clean result as a gate, not a formality**: all four bugs in that class were introduced by bodies written *after* the previous sweep, so the sweep is only worth its cost when it is re-run.
@@ -39,7 +59,24 @@ Each rung is a separate `agent-sys run`. Nothing skips.
 ## What each rung must not be allowed to mean
 
 - **Rung 1 green does not mean m1 is proven.** It means the engine answered eleven probes and one load cleared the floors — on one model, on one node, once.
-- **Rung 3 green does not mean the workset is right.** It means `check_workset_runs` re-measured a shape and agreed with the record. `writes_in_place` is the gate that catches a candidate with perfect numerics and the wrong call site; until m3's node window it is stub-validated, and `apply_patch` says so in its own findings.
+- **Rung 3 green does not mean the workset is right.** It means
+  `check_workset_runs` re-measured a shape and agreed with the record.
+
+  *Corrected 2026-09-03: this note went on to say `writes_in_place` was
+  stub-validated and that `apply_patch` hedged accordingly. Both stopped being
+  true an hour after it was written — and I knew, and said so in the same
+  message the document went on contradicting. **Caught by m3 reading this file
+  against something they happened to know**, which is §4.3's own class arriving
+  in the document that records §4.3, by its author, within the hour. Left
+  visible rather than silently edited.*
+
+  `writes_in_place` is validated on MI355X, and the result strengthens the rung
+  rather than merely un-hedging it: of four numerically-correct implementations
+  the unsubstitutable one scored **151.9 dB against the baseline's 142.4**.
+  **The artefact that makes it wrong is the same one that makes it score
+  higher** — it refuses to write the caller's buffer. So a gate reading only
+  output quality does not merely fail to notice that implementation; it
+  **prefers** it.
 - **Rung 5 green does not mean the optimisation is good.** `check_no_regression` recomputes from raw numbers and the bars stay at 5% / 10%. If the two arms disagree by more than that, the finding may still be about the node rather than the patch — that is `todo.md` **T7**, the comparability gate, and it is unbuilt. **Do not widen the bars.**
 
 ## The one measurement to take at rung 5 that nobody has
