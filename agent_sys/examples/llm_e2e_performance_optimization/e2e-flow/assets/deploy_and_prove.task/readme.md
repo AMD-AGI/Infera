@@ -71,10 +71,22 @@ you create in step 5.
 bash "$AGENT_SYS_TASK_PACKAGE/assets/lib/mock.sh" stage1-deploy deploy_kit
 ```
 
-**Criterion:** it prints `mock: stage1-deploy/deploy_kit -> deploy_kit (N files)`.
-If it does, **stop here — the task is done.** If it prints
-`... is not in E2E_MOCK_STAGES ... running for real` and exits 0, continue to
-step 1. Any other exit is a fault; report it and stop.
+**Criterion, by exit code — and read it as a code, not as a message:**
+
+- **exit 0**, printing `mock: stage1-deploy/deploy_kit -> deploy_kit (N files)`:
+  this is a mock run. **Stop here — the task is done.**
+- **exit 3**, printing `... is not in E2E_MOCK_STAGES ...`: this stage is
+  **not** mocked. **Continue to step 1 and do the real bring-up.** Exit 3 is
+  *declining*, not failing.
+- **anything else** is a fault. Report it and stop.
+
+The distinction between 0 and 3 is the whole of this step and it is not
+cosmetic: `mock.sh` used to exit 0 for both, and a caller that could not tell
+them apart ran `mock.sh … && exit 0` — which made a task in **real** mode exit
+successfully having written nothing. That is the "ten validators PASS over a run
+in which every result was zero" failure. **This brief told you to read the
+message rather than the code for one revision, which would have stopped a real
+run at step 0.**
 
 ### 1. Preflight — is this host able to run what you were asked for
 
