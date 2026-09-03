@@ -112,7 +112,6 @@ jobs:
         engine: ${{ fromJSON(needs.prepare.outputs.engines) }}
     env:
       INFERA_E2E_SLURM_PARTITION: amd-spur
-      INFERA_E2E_RESERVATION: infera-cicd-reserved
       INFERA_E2E_JOB_TAG: ${{ github.run_id }}-${{ matrix.engine }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -181,7 +180,6 @@ jobs:
     timeout-minutes: 90
     env:
       INFERA_E2E_SLURM_PARTITION: amd-spur
-      INFERA_E2E_RESERVATION: infera-cicd-reserved
       INFERA_E2E_JOB_TAG: ${{ github.run_id }}-overlay
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
