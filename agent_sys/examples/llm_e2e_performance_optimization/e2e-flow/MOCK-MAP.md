@@ -253,9 +253,23 @@ and `run_tag`.
 machine-readable entrypoint m2 cannot deploy from this handoff, and `serve_baseline`
 could not have been deleted. The two engine parameters are m2's seam
 specifically: `EXTRA_ARGS` is appended **last** so an override beats the kit's own
-flag, and `EXTRA_ENV` reaches the **worker process only** — the router must not
-see `SGLANG_TORCH_PROFILER_DIR`. Two seams and not one because argv and
-environment are not interchangeable.
+flag, and `EXTRA_ENV` reaches the **worker process only** rather than the
+container, so a variable meant for the engine does not also reach the router.
+
+**Corrected: the motivating example for the second seam was wrong.**
+`SGLANG_TORCH_PROFILER_DIR` was cited here and in `deploy_kit.layout.yaml`, and
+**nothing in this package sets it** — the engine is told where to write per
+capture, in the `/start_profile` body's `output_dir`. m2 gave it when asking for
+the seams and retracted it after checking. So **`EXTRA_ENV` has no consumer
+today**: m2's two lines both leave it empty, and the profiler-attached line uses
+`E2E_KIT_ROUTER_EXTRA_ARGS` instead, because `--enable-profiling` is a *router*
+flag that no engine seam can reach.
+
+The argv/environment distinction is still real — they are not interchangeable,
+and a parameter added later would need one or the other. But a seam with no
+consumer, justified by an example that does not exist, is a thing a reader will
+build on. Kept and labelled rather than removed, so the next person asking for
+it finds the history.
 
 All five concepts already exist in the sealed kit under `DK_RUN_TAG`,
 `DK_PORT_BAND_LO` and `DK_WORK_ROOT`, so the adaptation is five
