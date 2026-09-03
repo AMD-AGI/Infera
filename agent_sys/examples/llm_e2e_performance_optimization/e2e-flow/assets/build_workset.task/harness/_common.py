@@ -74,11 +74,26 @@ def setup(what: str) -> Ctx:
     import yaml
 
     doc = yaml.safe_load((HERE / "workset.yaml").read_text(encoding="utf-8"))
+    # **The flag spelling comes from the workset, not from here.**
+    #
+    # It was hardcoded, and `entrypoints.<what>.flags` declared the same four
+    # strings in the manifest — one fact, two readers, and the reader that could
+    # not be told was this one. m4 drives these entrypoints by reading `flags`
+    # from the manifest, so a workset declaring a different spelling would have
+    # produced a consumer passing `--implementation` to a parser that only knew
+    # `--impl`. That is the shape m4 named — *one authority, two readers, one of
+    # them narrower* — and it was the fourth instance between us in two days.
+    #
+    # Found by auditing my own code for the shape after claiming it was clean.
+    # It was not.
+    flags = {"operator": "--operator", "shape": "--shape", "impl": "--impl", "report": "--json"}
+    flags.update((doc.get("entrypoints") or {}).get(what, {}).get("flags") or {})
     ap = argparse.ArgumentParser(description=f"one-click {what} over this workset")
-    ap.add_argument("--operator", help="restrict to one operator_id")
-    ap.add_argument("--shape", help="restrict to one case_id")
-    ap.add_argument("--impl", help="a replacement implementation; omit to exercise the baseline")
-    ap.add_argument("--json", help="where to write the report")
+    ap.add_argument(flags["operator"], dest="operator", help="restrict to one operator_id")
+    ap.add_argument(flags["shape"], dest="shape", help="restrict to one case_id")
+    ap.add_argument(flags["impl"], dest="impl",
+                    help="a replacement implementation; omit to exercise the baseline")
+    ap.add_argument(flags["report"], dest="json", help="where to write the report")
     args = ap.parse_args()
 
     ground = doc["ground_truth"]

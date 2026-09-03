@@ -83,6 +83,24 @@ def _check_reports(content: Path, document: dict, args: dict, problems: list[str
     if not correct.get("passed"):
         _fail(problems, "the recorded correctness report did not pass; a timing of a wrong kernel is not evidence")
 
+    # **The report was produced under the protocol the manifest declares.**
+    #
+    # `protocol` lives in `workset.yaml` and is echoed into the performance
+    # report by the harness that used it — one fact written twice, and nothing
+    # compared them. m4 copies the *manifest's* protocol and re-measures its
+    # candidate under it, then divides by a baseline the *report* recorded. If
+    # the two ever differed, that ratio would be across two protocols and would
+    # look entirely normal.
+    #
+    # Same shape as the withheld shape and the interpreter: one authority, two
+    # readers. Found by auditing for the shape rather than by it failing.
+    declared, used = document.get("protocol") or {}, perf.get("protocol") or {}
+    for key in ("groups", "iters_per_group", "warmup", "timing"):
+        if key in declared and key in used and declared[key] != used[key]:
+            _fail(problems, f"protocol.{key} is {declared[key]!r} in workset.yaml and {used[key]!r} in the "
+                            f"performance report. A consumer re-measures under the manifest's protocol and "
+                            f"divides by this report's number; across two protocols that ratio means nothing")
+
     correct_by_id = {o["operator_id"]: o for o in correct.get("operators") or []}
 
     # **Every declared shape must appear in the report, and this is checked
