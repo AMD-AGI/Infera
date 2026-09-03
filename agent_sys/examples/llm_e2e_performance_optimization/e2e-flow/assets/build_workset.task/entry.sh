@@ -66,30 +66,31 @@ if [ "$rc" -eq 0 ]; then
   # above it says a task body never reaches it. So a bare `python3` resolves
   # against the policy PATH, which on this host is `/usr/bin/python3`.
   #
-  # Measured: that interpreter *can* run `mock_adapt.py` — it has `yaml` and
-  # `jsonschema`, and the leader's `schema.py` no longer needs `referencing`.
-  # What it does **not** have, and never will, is **torch** — and the two
-  # entrypoints below are the whole point of this branch. Without the probe they
-  # run, fail every shape on `ModuleNotFoundError`, and write an evidence file
-  # full of honest-looking failures; `check_workset_runs` then refuses a workset
-  # whose only defect is that it was measured by the wrong interpreter.
+  # **`yaml` only, and no longer `torch`.** This probe demanded torch when the
+  # entrypoints ran here; they now run in a container on the node
+  # (measure_in_container.sh), so the host side is scaffolding and
+  # transcription. Left as it was, the probe would have refused on every host in
+  # the cluster and blocked the very fix — the node's host has no torch either,
+  # which is the measurement that moved the entrypoints in the first place.
   PY=""
   for candidate in "${AGENT_SYS_DEMO_PYTHON:-}" python3 /usr/bin/python3; do
     [ -n "$candidate" ] || continue
-    if "$candidate" -c 'import yaml, torch' >/dev/null 2>&1; then PY="$candidate"; break; fi
+    if "$candidate" -c 'import yaml' >/dev/null 2>&1; then PY="$candidate"; break; fi
   done
   if [ -z "$PY" ]; then
-    echo "build_workset: no interpreter here can import both yaml and torch." >&2
-    echo "  The two entrypoints measure a GPU kernel; without torch they would" >&2
-    echo "  record a full set of failures that look like the workset's fault." >&2
-    echo "  This branch runs inside the shared container (CONTRACT.md 5), where" >&2
-    echo "  torch is present. Off a GPU node there is nothing to measure." >&2
+    echo "build_workset: no interpreter here can import yaml, which mock_adapt.py" >&2
+    echo "  and the transcription below both need. The measurement itself runs in" >&2
+    echo "  a container on the node and does not depend on this interpreter." >&2
     exit 2
   fi
   "$PY" "$PKG/assets/build_workset.task/mock_adapt.py" "$OUT"
+  # **Measured in a container on the node, where the real path measures.**
+  # Not host-side: the leader measured that `spur exec <job> python3 -c "import
+  # torch"` fails — the node's *host* has no torch, only the containers do — so
+  # the old wiring was not merely unsatisfied here, it was unsatisfiable
+  # anywhere. See measure_in_container.sh's header.
+  bash "$PKG/assets/build_workset.task/measure_in_container.sh" "$OUT"
   cd "$OUT/items/codes" || exit 1
-  ./run_correctness.sh --json evidence/correctness.json
-  ./run_performance.sh --json evidence/performance.json
   "$PY" - <<'TRANSCRIBE'
 import json, pathlib, yaml
 floor = json.loads(pathlib.Path("evidence/performance.json").read_text())["noise_floor"]

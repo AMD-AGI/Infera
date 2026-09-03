@@ -37,7 +37,10 @@ that this and `min_pass_ratio` express opposite philosophies about forgiveness.
 
 from __future__ import annotations
 
+import importlib.util
 import json
+import os
+import pathlib
 import subprocess
 import sys
 import tempfile
@@ -201,7 +204,7 @@ def _check_reports(content: Path, document: dict, args: dict, problems: list[str
     return list(perf.get("operators") or [])
 
 
-def _reverify(content: Path, document: dict, recorded: list[dict], args: dict,
+def _reverify(content: Path, document: dict, recorded: list[dict], args: dict,  # noqa: PLR0913
               problems: list[str], notes: list[str]) -> None:
     """Re-measure `reverify_shapes` shapes here, and compare.
 
@@ -229,12 +232,48 @@ def _reverify(content: Path, document: dict, recorded: list[dict], args: dict,
         return
 
     for operator_id, case_id in picked:
-        with tempfile.TemporaryDirectory() as tmp:
+        # **The report lands beside the staged content, not in a host tempdir.**
+        # When the re-run goes through a container, only `/shared_nfs` is
+        # mounted — a `/tmp` path on the host is invisible inside it, so the
+        # entrypoint exited 0 having written a report nothing could read, and
+        # the body reported "wrote no --json report" for a run that had in fact
+        # succeeded. The zone is on the shared filesystem and is disposable by
+        # construction, so a sibling of the staged content is visible from both
+        # sides and cleaned up with the zone.
+        with tempfile.TemporaryDirectory(dir=str(content.parent)) as tmp:
             out = Path(tmp) / "reverify.json"
-            command = [*entry["cmd"].split(), "--operator", operator_id, "--shape", case_id, "--json", str(out)]
+            flags = {"operator": "--operator", "shape": "--shape", "impl": "--impl", "report": "--json"}
+            flags.update(entry.get("flags") or {})
+            inner = [*entry["cmd"].split(), flags["operator"], operator_id,
+                     flags["shape"], case_id, flags["report"], str(out)]
+
+            # **Re-measure where the producer measured.** Measured by the leader:
+            # `spur exec <job> python3 -c "import torch"` fails — the node's
+            # *host* has no torch, only the containers do. So a validator that
+            # ran the entrypoint directly would fail on every host in this
+            # cluster and read as a broken workset.
+            #
+            # When torch is importable here, this body is already inside a
+            # container and runs the entrypoint directly. When it is not, it
+            # goes through the **same** `measure_in_container.sh` the producer
+            # used — one instrument, two callers. A validator re-measuring
+            # through a different arrangement than the producer used would not
+            # be re-measuring the same thing.
+            if importlib.util.find_spec("torch") is not None:
+                command, where = inner, root
+            else:
+                package = os.environ.get("AGENT_SYS_TASK_PACKAGE") or os.environ.get("AGENT_SYS_DEMO_PACKAGE")
+                if not package:
+                    _fail(problems, f"{operator_id}/{case_id}: no torch here and no package path to reach "
+                                    f"the container helper; cannot re-measure, and grading the record "
+                                    f"without re-measuring is what this validator exists not to do")
+                    continue
+                command = ["bash", str(pathlib.Path(package) / "assets/build_workset.task/measure_in_container.sh"),
+                           str(content), " ".join(inner)]
+                where = None
             try:
                 finished = subprocess.run(  # noqa: S603 — the command comes from the artefact under test
-                    command, cwd=root, capture_output=True, text=True,
+                    command, cwd=where, capture_output=True, text=True,
                     timeout=int(entry.get("timeout_s") or 1800),
                 )
             except subprocess.TimeoutExpired:
