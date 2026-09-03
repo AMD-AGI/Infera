@@ -22,7 +22,7 @@ Facts about this site, not a recipe. None of them tells you which flags to use.
 | `$E2E_MODEL_NAME` | The model's **published name** — `org/Model-Name`. This is what the served model must register as |
 | `$E2E_MODEL_PATH` | The weights, **already on disk**, all shards present. Do not download anything |
 | `$E2E_SERVED_NAME` | What to register the model as. Empty means `$E2E_MODEL_NAME`: resolve it with `: "${E2E_SERVED_NAME:=$E2E_MODEL_NAME}"` |
-| `$E2E_IMAGE` | A docker image carrying **both** infera and a matching engine. Nothing needs building or pulling |
+| `$E2E_IMAGE` | The docker image to serve with, carrying **both** infera and a matching engine. **It may not exist yet** — see step 1 |
 | `$E2E_ETCD_IMAGE` | An etcd image |
 | `$E2E_DEPLOY_MODE` | The deployment shape |
 | `$E2E_TP` | Tensor-parallel size to use |
@@ -87,7 +87,28 @@ on "ss -ltn | awk 'NR>1{print \$4}' | sed 's/.*://' | sort -n | uniq"
 
 **Criteria, all four:**
 - the image id comes back as a `sha256:` digest — **record it, it goes in
-  `environment.yaml` as `fixed.image_id`**. A tag is not a reproduction;
+  `environment.yaml` as `fixed.image_id`**. A tag is not a reproduction.
+
+  **If `docker image inspect` says `No such image`, that is a fork in the road
+  and not a failure.** This brief said "nothing needs building or pulling" for
+  one revision, and that was an assumption from the one model it had been run
+  against rather than a fact about models. Measured 2026-09-03: GLM-5.3-Flash is
+  `Glm5NextForConditionalGeneration`, and **no released sglang image carries
+  `glm5_next`** — support lives in an unmerged upstream PR, so the engine image
+  has to be *built* before anything can be served. A second model met this on
+  the first try; assume yours can.
+
+  So: if the image is absent, build it, and then **`fixed.dockerfile` must be
+  non-null and must name a path *inside this handoff*.** That field exists in
+  `environment.schema.json` for exactly this case — *"or null when the image was
+  pulled rather than built"* — and a Dockerfile that lives anywhere else is a
+  path the reproducer will not have. Copy it into the kit beside the scripts,
+  record the base image **by digest** as well as by tag, and say in `notes.md`
+  what the build adds and why the released image was not enough.
+
+  A build is minutes-to-an-hour and a large amount of disk. **Check the clock
+  against your allocation before starting one**, and say in `notes.md` how long
+  it took, because the next person's budget depends on it;
 - the weights directory lists shards and its size is plausible for the model;
 - free VRAM per device exceeds the checkpoint size with room for the KV and any
   state pools, and you can say which device index you are taking;

@@ -232,3 +232,37 @@ clean answer §8a declined in the morning because work was already in flight in
 one tree. That reason no longer holds as strongly — every module is complete and
 the remaining work is runs rather than edits. **Worth doing before the next
 effort, not during this one.**
+
+### T17 — the model-specific engine flag groups are free-form strings and cannot be checked
+*Found by m1 on 2026-09-03, comparing the sealed GLM-5.3-Flash recipe against
+what `shared.yaml` can express.*
+
+`E2E_DSA_ARGS` and `E2E_PARSER_ARGS` exist because their contents are **traps
+that do not error when wrong**: a model with no DSA attention path does not take
+`--dsa-*-backend`, and the wrong `--reasoning-parser` yields an **empty
+`content` for every request while the request still succeeds**. That is why they
+are parameters rather than something the agent derives.
+
+Both are free-form strings. GLM needs *two* flags in one of them —
+`--reasoning-parser glm45` and `--tool-call-parser glm47` — and a single string
+carries both happily. **That is also the limit: it carries a typo in either one
+just as happily.** `--reasoning-parser glm54` is accepted by the package, passed
+to the engine, and produces exactly the empty-`content` failure the variable
+exists to prevent.
+
+So the variable makes the fact *sayable* and does nothing to make it *right* —
+the same shape as `items_schema` validating a filename instead of a file
+(CONTRACT §3.1). Nothing downstream can catch it either: no schema sees the
+string, and the one probe that would notice — `completion_nonstreaming`'s
+non-empty `content` — fires only after a full bring-up.
+
+**This is a real limit on what a second model proves.** GLM running does not
+show the package can express GLM's flags *correctly*; it shows one hand-checked
+spelling worked.
+
+**Would settle it:** a per-model manifest under `assets/schemas/` listing the
+parser and attention-backend names an engine build actually accepts, validated
+at load time — the engine already knows the set, so this is extraction rather
+than invention. Cheaper interim: have the producer read the chosen parser back
+out of `/get_server_info` and record it in `environment.yaml`, which turns a
+silent wrong answer into a recorded one.
