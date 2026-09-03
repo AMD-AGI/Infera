@@ -2688,3 +2688,161 @@ from outside. Given the same evidence I would make the same call.
 
 I will keep the 30-minute rhythm until the leader says stop, but with no compute,
 no active module and a clean tree, the record from here is expected to be flat.
+
+---
+---
+
+# Effort 2 — handoff refine: five modules into one graph
+
+A **new** effort, on a new mission (repo-root `mission.md`, "Handoff refine for
+llm e2e opt task package"). The `T+` counter restarts from this section; the
+sixteen sections above belong to effort 1 (2026-09-02) and are left exactly as
+written. Same append-only rule: nothing above this line, and nothing below it
+once written, is ever revised.
+
+Deliverable: `agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/`.
+Phase 0 (contract freeze) is done and committed as `9646910`. Phase 1 is five
+module owners — `m1-deploy`, `m2-profiling`, `m3-analysis`, `m4-kernel-opt`,
+`m5-integration` — working in parallel against that frozen contract.
+
+Reporter reads, cheapest first: `git log`/`git status` in the worktree; the
+`show` load-check on the package; `ls` over `e2e-flow/{assets,steps}` and
+`assets/schemas/`; and `squeue -u yihou`. The reporter does **not** message the
+module owners — the leader polls them, and a module deep in a long piece of work
+is indistinguishable from a stuck one when seen from outside. Silence is
+reported as "unknown, not scored".
+
+---
+
+## T+0 — 2026-09-03 13:30 UTC (baseline, effort 2)
+
+### Walltime countdown
+
+| job | node | ends (UTC) | remaining at this checkpoint |
+|---|---|---|---|
+| `106250` | `crsuse2-m2m-061` | **20:44:58** | 7 h 15 m |
+| `106253` | `crsuse2-m2m-031` | **20:45:03** | 7 h 15 m |
+
+Both `R`, running 39 m at the time of reading. Two holds for five modules, so
+GPU access is a shared resource this round — that is a scheduling fact worth
+watching, not yet a problem, because nothing is on GPU yet.
+
+### 1. Progress
+
+**~10 % complete.** Elapsed 0 m at this checkpoint (effort clock starts here;
+the contract freeze that precedes it is not counted). Estimated remaining: **6–8
+h**, which would land inside the hold window with roughly an hour to spare.
+
+**Reliability of that estimate: low.** It rests on one visible fact — the graph
+loads with 17 closures and 20 validators — and on the effort-1 shape, where five
+parallel modules took 8 h. Two differences push in opposite directions and I
+cannot yet weigh them: this round has ~20 k lines of proven `.py`/`.sh` in the
+five sibling demos to adapt rather than derive (faster), and it has two holds
+instead of five plus a real-schema layer that did not exist before (slower). The
+10 % figure is "Phase 0 of a two-phase job is done and Phase 1 has just begun",
+not a measurement.
+
+### 2. Current state, per module
+
+Nothing is committed since `9646910`. `git log 9646910..HEAD` is empty. The
+per-module reading below is therefore from the filesystem only.
+
+| module | evidence seen | scored |
+|---|---|---|
+| m1-deploy | `assets/schemas/environment.schema.json` (5 074 B) and `assets/lib/schema.py` (6 162 B) exist and are **committed in `9646910`** — i.e. leader-seeded, not module output | **unknown, not scored** |
+| m2-profiling | none | **unknown, not scored** |
+| m3-analysis | none | **unknown, not scored** |
+| m4-kernel-opt | none | **unknown, not scored** |
+| m5-integration | none | **unknown, not scored** |
+
+One file in the tree is **not** from the freeze:
+`e2e-flow/assets/lib/zone.py`, untracked, 5 865 B, mtime 13:23 UTC — written
+minutes before this checkpoint. `zone.py` is the shared library (effort 1's
+`single_real_task/assets/lib/zone.py` is its ancestor), so it is plausibly a
+module owner seeding a shared dependency. I cannot attribute it to an owner from
+the filesystem and will not guess; it is recorded here so that the next
+checkpoint can tell growth from stasis.
+
+Baseline measurements, to diff against later:
+
+- **20 validators, every one a 12-line skeleton** (`check.py`, 12 lines,
+  one `NotImplemented`-class marker each). Zero are real. This is the single
+  most legible progress metric this round has, and it currently reads 0/20.
+- **Schemas: 1** — `environment.schema.json`, plus `schemas/README.md`.
+- **Steps: 6 yaml** (`common` + five `m*`), 59 442 B total, all committed.
+- **Tasks: 17 `.task` dirs.** The eleven leaf tasks carry a ~400 B `readme.md`
+  and a ~400 B `entry.sh`; the six non-leaf ones carry a ~215 B `readme.md`.
+  These are placeholder-sized — a real agent brief in this repo runs to
+  thousands of bytes — so **no task body is written yet**.
+
+### 3. Code problems
+
+**None found, and none fixed.** The load check passes:
+
+```
+17 closures ... 6 tasks: 1 root and 5 subtasks
+main out 2 · m1 out 3 · m2 in 3/out 2 · m3 in 4/out 3 · m4 in 5/out 3 · m5 in 8/out 2
+done  6 tasks in the graph; nothing was dispatched
+```
+
+Exit 0, under a second. That is the leader's stated Phase-0 acceptance and it
+holds at T+0.
+
+The skeleton validators exiting 1 is **deliberate**, per `README.md:15-17` — so
+that nothing can report a pass it has not earned. It is not a defect and is not
+counted as one. It does mean any real `run` attempt fails at the first
+validation phase until a module lands a real `check.py`.
+
+### 4. Non-code problems
+
+- **Repo-root litter, pre-existing and not from this effort.** `git status`
+  shows untracked `glm5.2-dp8-tp8-workload-schema.tar`, `handoff.analysis.md`,
+  `rank0/`, `.serena/`, and a modified `agent_sys/docs/design.md` at the repo
+  root of this worktree. None is inside `e2e-flow/`. I am flagging, not
+  touching: a stray tarball and a `rank0/` directory at a repo root are the kind
+  of thing that ends up in a commit by accident when five owners run `git add`
+  in parallel.
+- **Two holds, five modules.** Effort 1 had a hold per module. Whatever
+  serialisation this forces is invisible at T+0 because no module is on GPU yet.
+- **`zsh` emits a `libtinfow.so.6` version warning on every command** from
+  `~/miniconda3/bin/zsh`. Cosmetic, pollutes captured output, unchanged from
+  effort 1.
+
+### 5. Open questions
+
+- **Who owns `zone.py`?** Untracked and freshly written; attribution unknown.
+- **Is the schema layer seeded or owned?** `assets/lib/schema.py` and
+  `environment.schema.json` shipped inside the freeze commit. Whether m1 is
+  expected to extend the latter or whether it is already final is not something
+  I can read off the tree. `schemas/README.md` says who writes which schema; I
+  have not yet checked its claim against what exists.
+- **Does the sequencing of `mock_stages` promotion hold under two holds?**
+  `README.md:50-53` prescribes promoting one stage at a time out of mock. With
+  two GPU nodes and five modules, whether that ladder can actually be climbed in
+  the walltime is unsettled.
+- **Which of the eight carried-over open items from effort 1** (E9′, the
+  comparability gate, C9b, C23, C24, E0, E14, E16 — see T+480 above) this round
+  is expected to close, and which are simply inherited. `../todo.md` exists and
+  is cited by `README.md:30`; I have not opened it.
+
+### 6. New commits
+
+**None.** `9646910` — "e2e-flow: freeze the cross-module contract and load the
+five-stage graph" — is HEAD and is the baseline, not a new commit. This
+checkpoint's own commit will be the first since.
+
+### 7. Anything else
+
+The one number to watch is **real validators / 20**, currently 0. It is cheap to
+read, hard to fake, and it is the difference between a graph that loads and a
+graph that judges. A round that ends with 17 well-written task bodies and 20
+skeleton validators would load clean and prove nothing — which is exactly the
+failure mode `.claude/CLAUDE.md` core principle 1 names ("a previous stage
+reported 14/14 tasks and ten validators PASS over a run in which every result
+was zero"). I will report that ratio in every section.
+
+Second thing worth stating once, at the start: I have made **zero** assessments
+of module quality in this section, and five entries in the table read "unknown".
+That is correct at T+0 — the modules have had minutes, not hours. If it still
+reads mostly "unknown" at T+90 that is itself the finding.
+
