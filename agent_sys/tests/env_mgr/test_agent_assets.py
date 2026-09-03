@@ -38,7 +38,7 @@ import stat
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, get_type_hints
 
 import pytest
 
@@ -937,7 +937,7 @@ def test_a_tooldef_using_a_dataclass_imports(tmp_path: Path) -> None:
         assets / ".claude" / "tools" / "dc.tooldef.py",
         "from __future__ import annotations\n"
         "from dataclasses import dataclass, field\n"
-        "from typing import Any, NamedTuple, Callable\n"
+        "from typing import Any, NamedTuple, get_type_hints, Callable\n"
         "@dataclass\n"
         "class ToolDef:\n"
         "    name: str\n"
@@ -1613,3 +1613,106 @@ def test_a_marketplace_name_that_is_not_a_single_directory_name_is_refused(
     assert not fake_claude.log.exists(), "a marketplace was registered after the refusal"
     # The rest of the tree still installed; one bad manifest is not fatal.
     assert (config / "settings.json").exists()
+
+
+def test_two_components_shipping_the_SAME_tooldef_filename_stay_separate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The regression `99d3aea` introduced, and the case its sibling cannot see.
+
+    `test_two_components_shipping_tooldefs_do_not_double_register` uses
+    **distinct** filenames, so it is blind to this: moving the *load* to the
+    placed copy took the module name with it, and the placed path is
+    ``<config>/tools/<basename>`` — identical for every component shipping the
+    same file name.
+
+    Measured before the fix: one module name twice, the second import replacing
+    the first in `sys.modules`, and `get_type_hints` on the **first**
+    component's tool raising ``NameError: name 'AlphaArgs' is not defined``
+    because its annotations resolved against the other component's namespace.
+    Four `ok`s in the report and nothing said anything — exactly the state the
+    `sys.modules` registration exists to prevent, one component later.
+
+    `from __future__ import annotations` plus a forward-referenced annotation is
+    what makes the corruption observable; without them both modules would look
+    fine and the test would pass either way.
+    """
+    shipped = tmp_path / "components"
+    for name, tool in (("a", "alpha"), ("b", "beta")):
+        _write(
+            shipped / name / ".claude" / "tools" / "util.tooldef.py",
+            "from __future__ import annotations\n"
+            "from dataclasses import dataclass\n"
+            f"class {tool.capitalize()}Args: pass\n"
+            "@dataclass\n"
+            "class T:\n"
+            "    name: str\n"
+            f"    args: {tool.capitalize()}Args | None = None\n"
+            f"TOOLS = [T({tool!r})]\n",
+        )
+    monkeypatch.setattr(agent_assets, "COMPONENTS_ROOT", str(shipped))
+
+    got = install(
+        _spec(components=["a", "b"]),
+        staged_package=None,
+        config_dir=str(tmp_path / "config"),
+    )
+
+    assert sorted(t.name for t in got.tools) == ["alpha", "beta"]
+    modules = [type(t).__module__ for t in got.tools]
+    assert len(set(modules)) == 2, f"one module name for two components: {modules}"
+    for tool in got.tools:
+        # Resolves each class's annotations through `sys.modules[__module__]`,
+        # which is the lookup that returned the wrong component's namespace.
+        assert list(get_type_hints(type(tool))) == ["name", "args"], tool.name
+
+
+def test_one_component_replacing_anothers_placed_file_is_reported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The overwrite underneath that bug, which was silent.
+
+    Levels install in order and `copy_out` merges, so a member two components
+    both ship ends up holding only the later one's bytes — which is how one
+    component's artefact can be absent from the zone while its own report says
+    `ok`. `_mcp_servers` already warns about this for a server *name*; it was
+    unreported for a *file*.
+
+    Precedence is unchanged: later wins, which is L1 → L2 → L3's rule. Only the
+    silence changed. And the unit is a **file**: two components both shipping
+    `skills/` must not warn unless they ship the same skill.
+    """
+    shipped = tmp_path / "components"
+    _write(shipped / "a" / ".claude" / "skills" / "shared" / "SKILL.md", "# from a")
+    _write(shipped / "a" / ".claude" / "skills" / "only-a" / "SKILL.md", "# a only")
+    _write(shipped / "b" / ".claude" / "skills" / "shared" / "SKILL.md", "# from b")
+    monkeypatch.setattr(agent_assets, "COMPONENTS_ROOT", str(shipped))
+    config = tmp_path / "config"
+
+    got = install(_spec(components=["a", "b"]), staged_package=None, config_dir=str(config))
+
+    (warned,) = [o for o in got.report if o.level == "warn"]
+    assert "component 'b' replaces 1 already-placed file(s)" in warned.message
+    assert warned.details["files"] == [os.path.join("shared", "SKILL.md")]
+    assert (config / "skills" / "shared" / "SKILL.md").read_text() == "# from b"
+    assert (config / "skills" / "only-a" / "SKILL.md").read_text() == "# a only"
+
+
+def test_components_that_share_no_file_do_not_warn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The control for the warning above. Two components both shipping
+    `skills/` is the ordinary case and must stay quiet — a warning that fires on
+    every second component is one nobody reads."""
+    shipped = tmp_path / "components"
+    _write(shipped / "a" / ".claude" / "skills" / "one" / "SKILL.md", "# a")
+    _write(shipped / "b" / ".claude" / "skills" / "two" / "SKILL.md", "# b")
+    monkeypatch.setattr(agent_assets, "COMPONENTS_ROOT", str(shipped))
+
+    got = install(
+        _spec(components=["a", "b"]),
+        staged_package=None,
+        config_dir=str(tmp_path / "config"),
+    )
+
+    assert [o.level for o in got.report] == ["ok", "ok"], got.report

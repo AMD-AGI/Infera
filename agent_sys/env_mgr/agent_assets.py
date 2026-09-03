@@ -720,9 +720,52 @@ def _place_tree(tree: str, *, origin: str, config_dir: str) -> list[InstallOutco
     for name in sorted(os.listdir(tree)):
         if name in _NOT_PLACED:
             continue
-        dst = copy_out(os.path.join(tree, name), os.path.join(config_dir, name))
+        target = os.path.join(config_dir, name)
+        # **An overwrite between components is reported, never silent.** Levels
+        # are installed in order and `copy_out` merges with `dirs_exist_ok`, so
+        # a member two components both ship — `skills/x/SKILL.md`,
+        # `tools/util.tooldef.py` — ends up holding only the later one's bytes.
+        # That is the same event `_mcp_servers` already warns about for a server
+        # name, and it was unreported here for a *file*, which is how one
+        # component's artefact can be absent from the zone while its report says
+        # `ok`. Precedence is unchanged — later wins, which is L1→L2→L3's rule —
+        # and only the silence is.
+        existing = _existing_files(target)
+        collisions = sorted(existing & _relative_files(os.path.join(tree, name)))
+        if collisions:
+            out.append(
+                InstallOutcome(
+                    "warn",
+                    f"{origin} replaces {len(collisions)} already-placed file(s) "
+                    f"under {name!r}; the nearer level wins",
+                    {"path": target, "files": collisions[:20]},
+                )
+            )
+        dst = copy_out(os.path.join(tree, name), target)
         out.append(InstallOutcome("ok", f"placed {name!r} from {origin}", {"path": dst}))
     return out
+
+
+def _relative_files(root: str) -> set[str]:
+    """Every file under `root`, relative to it. `root` itself for a plain file.
+
+    The unit of a collision is a **file**, not a directory: two components both
+    shipping `skills/` collide only if they ship the same skill, and reporting
+    the directory would cry wolf on every second component.
+    """
+    if os.path.isfile(root):
+        return {os.path.basename(root)}
+    return {
+        os.path.relpath(os.path.join(where, f), root)
+        for where, _, files in os.walk(root)
+        for f in files
+    }
+
+
+def _existing_files(target: str) -> set[str]:
+    if not os.path.exists(target):
+        return set()
+    return _relative_files(target)
 
 
 def _install_plugins(
@@ -1113,8 +1156,24 @@ def _tooldefs(tree: str, *, origin: str, config_dir: str) -> tuple[list[Any], li
                 )
             )
             continue
-        stem = os.path.basename(path)[: -len(TOOLDEF_SUFFIX)]
-        module_name = f"_agent_sys_tooldef_{abs(hash(path)):x}_{stem}"
+        stem = os.path.basename(source)[: -len(TOOLDEF_SUFFIX)]
+        # **Keyed on `source`, loaded from `path`, and the two halves are not
+        # interchangeable.** `99d3aea` moved the *load* to the placed copy and
+        # took the module name with it — and the placed path is
+        # ``<config>/tools/<basename>``, identical for every component shipping
+        # the same file name. Measured: two components each shipping
+        # ``tools/util.tooldef.py`` produced one module name twice, the second
+        # import replaced the first in `sys.modules`, and
+        # ``get_type_hints`` on the first component's tool raised
+        # ``NameError: name 'AlphaArgs' is not defined`` — its annotations
+        # resolved against the *other* component's namespace. Four `ok`s in the
+        # report and nothing said anything.
+        #
+        # That is precisely the state the registration below exists to prevent,
+        # arriving one component later instead of at import. `source` is unique
+        # per component, so it is what identifies the module; `path` is only
+        # where the bytes are read from.
+        module_name = f"_agent_sys_tooldef_{abs(hash(source)):x}_{stem}"
         try:
             spec = importlib.util.spec_from_file_location(module_name, path)
             if spec is None or spec.loader is None:
