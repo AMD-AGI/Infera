@@ -62,3 +62,11 @@ mission.md
 .spur_job_*.sh
 .spur_ns_*.sh
 spur-*.out
+
+# serena writes `.serena/` into whatever directory it is given as `--project`,
+# and `examples/env_checker`'s capability-7 measurements point it at the agent
+# asset directory. Config and symbol cache, regenerated on demand, belonging to
+# no package. Ignored rather than remembered: `launch.sh` refuses to start a run
+# while the package tree is dirty, so an untracked by-product that everybody
+# knows to skip would block the gate and teach people to bypass it.
+.serena/

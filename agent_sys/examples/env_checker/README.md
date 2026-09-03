@@ -162,6 +162,39 @@ building it — and its shape will come from a real failure rather than from a
 design. Written here rather than left in a thread, because *a comment is not a
 declaration* and neither is a mailbox.
 
+## One lesson from building the instruments, kept where the next author will look
+
+Six checks in this package and its scratch tooling turned out to be **checks
+that could not fail**, and the pattern in every one was the same: *the check
+tested a proxy for the property, and the proxy was the right proxy — it just was
+not the property.* `command -v` in a shell the subprocess does not run in; a
+probe against the SDK's bundled CLI rather than the pinned one; a pre-flight row
+importing a module and printing three constants, which would have passed before
+the export code existed; a capability row keyed on a literal server name, green
+with the tool renamed.
+
+**Half of them were in the instruments rather than in the package**, and
+instruments get less adversarial scrutiny precisely because they are the thing
+doing the measuring. The way to know is to make the check go red: delete the
+fix, rename the thing, point it at a copy.
+
+Two corollaries, both bought on 2026-09-03 and both about *this* package's
+tooling rather than about `agent_sys`:
+
+- **A gate whose only self-test is a live launch will be tested by launching.**
+  The dirty-tree gate in `selftest/launch.sh` was verified by running the
+  script; the gate passed and the script then launched, starting a third run
+  that overwrote two of run 2's logs. The careful action and the destructive one
+  were the same command. Every gate now needs a `--check` that runs it and
+  exits.
+- **Fixing one instance of a class does not inoculate you against the class.**
+  `preflight.sh` erased its own hand-written verdict on every run; that was
+  found, argued and fixed by generating the verdict instead. The *same* bug — a
+  fixed filename for a per-run artefact — was then written into `launch.sh`, the
+  neighbouring script, and destroyed run 2's launch log. **The second instance
+  arrives in the file nobody is looking at**, and having just fixed the first is
+  what makes you not look.
+
 ## Measured, so not assumed
 
 Six probes on 2026-09-03, first-hand, written up at
