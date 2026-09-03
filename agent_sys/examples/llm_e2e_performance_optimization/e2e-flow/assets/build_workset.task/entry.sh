@@ -50,6 +50,14 @@ if [ "$rc" -eq 0 ]; then
   # and STEP 8 a real run does, which is the point: a mock that skipped them
   # would leave `check_workset_runs` grading an artefact nothing ever ran.
   OUT="${AGENT_SYS_OUTPUT_OPERATOR_WORKSET:?the runner exports this for an output slot}"
+  # **No `.pyc` beside the artefact.** Measured on the first real GPU run: the
+  # container runs as root — it has to, because a framework compiling kernels on
+  # first call cannot write its cache as anyone else — so every `__pycache__`
+  # the entrypoints leave is root-owned inside a handoff the runner then tries
+  # to copy and clean as `yihou`. The failure only appears on the *second* run,
+  # which is the worst kind. `analyze-demo` hit the same thing and recorded it;
+  # this is the one-variable half of its fix.
+  export PYTHONDONTWRITEBYTECODE=1
   python3 "$PKG/assets/build_workset.task/mock_adapt.py" "$OUT"
   cd "$OUT/items/codes" || exit 1
   ./run_correctness.sh --json evidence/correctness.json
@@ -60,7 +68,8 @@ floor = json.loads(pathlib.Path("evidence/performance.json").read_text())["noise
 p = pathlib.Path("workset.yaml"); d = yaml.safe_load(p.read_text())
 d["evidence"] = {"correctness_report": "evidence/correctness.json",
                  "performance_report": "evidence/performance.json",
-                 "measured_on": {"node": __import__("os").uname().nodename,
+                 "measured_on": {"node": __import__("os").environ.get("E2E_NODE")
+                                         or __import__("os").uname().nodename,
                                  "gpu_arch": d["ground_truth"]["environment"]["fixed"]["gpu_arch"],
                                  "container": d["ground_truth"]["environment"]["runtime"]["container"],
                                  "at": json.loads(pathlib.Path("evidence/performance.json").read_text())["started_at"]}}

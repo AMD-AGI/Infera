@@ -192,6 +192,7 @@ def main() -> int:
     (root / "environment.yaml").write_text(environment_text, encoding="utf-8")
 
     operators, kept, written = [], 0, 0
+    entry_dtypes: dict[str, str] = {}
     for entry in identity["operators"]:
         operator_id = entry["logical_operator"]
         op_type = _op_type(entry)
@@ -244,6 +245,7 @@ def main() -> int:
             }, indent=2) + "\n", encoding="utf-8")
             written += 1
 
+        entry_dtypes[operator_id] = (entry.get("dtypes") or {}).get("activation") or entry.get("precision") or ""
         operators.append({
             "operator_id": operator_id,
             "kernel_id": entry["kernel_id"],
@@ -309,9 +311,17 @@ def main() -> int:
                         "commit": os.environ.get("E2E_PACKAGE_COMMIT") or "unknown",
                         "step": "build_workset",
                         "produced_at": datetime.now(timezone.utc).isoformat(timespec="seconds")},
-        "ground_truth": {"abort_on_mismatch": ["gpu_arch", "gpu_count", "tp_size"],
-                         "warn_on_mismatch": ["image_id", "rocm", "torch"],
-                         "environment": environment},
+        "ground_truth": {
+            "abort_on_mismatch": ["gpu_arch", "gpu_count", "tp_size", "dtype"],
+            "warn_on_mismatch": ["image_id", "rocm", "torch"],
+            # A summary of the Definitions, lifted so a consumer holding only
+            # `ground_truth` can compare it. `check_workset_shape` checks it
+            # against `inputs[].dtype`, so it cannot drift.
+            "dtypes": {o["operator_id"]: (entry_dtypes.get(o["operator_id"]) or "") for o in operators},
+            # The workset-wide bar: the largest operator floor. A placeholder
+            # until STEP 8 transcribes the measured figures.
+            "noise_floor": max((o["noise_floor"] for o in operators), default=1.05),
+            "environment": environment},
         "entrypoints": _entrypoints(None),
         "protocol": {"groups": 5, "iters_per_group": 10, "warmup": 3, "timing": "event"},
         "operators": operators,

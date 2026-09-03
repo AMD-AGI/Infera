@@ -120,6 +120,18 @@ def _check_definition(root: Path, operator: dict, problems: list[str]) -> None:
             f"the Definition says {definition.get('op_type')!r}"
         )
 
+    # The dtype `ground_truth.dtypes` claims, against the Definition it claims it
+    # from. m4 aborts on a dtype mismatch, so a lifted copy that is wrong is a
+    # consumer aborting on the wrong premise or failing to abort on the right one.
+    declared = ((operator.get("_ground_dtypes") or {}).get(label))
+    if declared:
+        actual = {spec.get("dtype") for spec in (definition.get("inputs") or {}).values() if spec.get("shape")}
+        if actual and declared not in actual:
+            problems.append(
+                f"{label}: ground_truth.dtypes says {declared!r}, the Definition's inputs are "
+                f"{sorted(actual)}. The lifted copy has drifted from what it summarises"
+            )
+
     sources = {}
     for key in ("reference", "baseline"):
         source = definition.get(key)
@@ -272,10 +284,29 @@ def _check(content: Path, args: dict, problems: list[str]) -> bool:
 
     _check_entrypoints(root, document["entrypoints"], "workset", args.get("require_entrypoints") or [], problems)
 
+    # `ground_truth.noise_floor` and `.dtypes` are **summaries lifted for a
+    # consumer's convenience**, and a summary that can disagree with what it
+    # summarises is worse than no summary — the consumer reads the lifted copy
+    # and never sees the original. Both are checked against their source.
+    ground = document["ground_truth"]
+    highest = max((o["noise_floor"] for o in document["operators"]), default=0.0)
+    if abs(ground["noise_floor"] - highest) > 1e-9:
+        problems.append(
+            f"ground_truth.noise_floor is {ground['noise_floor']} but the highest operator floor "
+            f"is {highest}. The workset-wide bar is the largest of them; a lower one lets a claim "
+            f"clear the workset while failing the operator it is about"
+        )
+    for operator in document["operators"]:
+        declared = ground["dtypes"].get(operator["operator_id"])
+        if declared is None:
+            problems.append(f"ground_truth.dtypes has no entry for {operator['operator_id']}")
+
     for operator in document["operators"]:
         label = operator["operator_id"]
         _check_entrypoints(root, operator["entrypoints"], label, args.get("require_entrypoints") or [], problems)
+        operator["_ground_dtypes"] = ground["dtypes"]
         _check_definition(root, operator, problems)
+        operator.pop("_ground_dtypes", None)
         _check_shapes(content, root, operator, args, problems)
         _check_forge(root, operator, problems)
         if operator["reference"]["kind"] == "written":

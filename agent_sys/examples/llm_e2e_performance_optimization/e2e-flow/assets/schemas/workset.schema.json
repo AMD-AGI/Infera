@@ -32,7 +32,7 @@
     "ground_truth": {
       "type": "object",
       "additionalProperties": true,
-      "required": ["abort_on_mismatch", "warn_on_mismatch", "environment"],
+      "required": ["abort_on_mismatch", "warn_on_mismatch", "environment", "dtypes", "noise_floor"],
       "description": "M4.3.5, and it is the mission item that was **reversed** relative to the previous round. m4 is no longer told to distrust the workset's printed numbers; it is told to take them as ground truth, and to **abort** when the premise under which they were measured does not hold. That instruction is only safe because `check_workset_runs` has already re-run these entrypoints on this hardware. The two lists below are what 'the premise' means, spelled as field names of `environment.schema.json#/properties/fixed` so that the comparison is mechanical.",
       "properties": {
         "abort_on_mismatch": {
@@ -49,6 +49,17 @@
           "items": {"type": "string"},
           "description": "Software facts. A different ROCm or a rebuilt image usually moves a kernel a few percent and sometimes moves it a lot; the consumer records the difference and continues. Default: [image_id, rocm, torch].",
           "default": ["image_id", "rocm", "torch"]
+        },
+        "dtypes": {
+          "type": "object",
+          "additionalProperties": {"type": "string"},
+          "description": "**Lifted here at m4's request, and the request was well founded.** `dtype` is on M4.3.5's abort list, but it lives in each Definition's `inputs[].dtype` — and m4's validator carries `workset.yaml` forward as its snapshot, not the whole tree, so it was **silently skipping the comparison**. It said so rather than passing quietly, which is how this got found.\n\nOne entry per operator_id, holding that operator's activation dtype. A summary of the Definitions, not a second source of truth: `check_workset_shape` checks it against `inputs[].dtype`, so it cannot drift into disagreeing with the thing it summarises.",
+          "propertyNames": {"pattern": "^[a-z0-9][a-z0-9_]*$"}
+        },
+        "noise_floor": {
+          "type": "number",
+          "exclusiveMinimum": 1.0,
+          "description": "The workset-wide floor: the largest of `operators[].noise_floor`. Present because a consumer holding only `ground_truth` — which is the block m4 copies into its own handoff as `premise` — should not have to walk the operator list to find the bar its claim must clear. `check_workset_shape` checks it is the max, so it cannot be quietly lowered."
         },
         "environment": {
           "$ref": "environment.schema.json",
@@ -135,6 +146,17 @@
           "description": "Relative to `items/codes/`, and relative on purpose: `handoff/locality.py` refuses a seal over any absolute path outside its allow-list, and a `/`-leading fragment in a *comment* has refused a complete delivery before."
         },
         "report": {"type": "string", "minLength": 1, "description": "Default `--json` destination, relative to `items/codes/`."},
+        "flags": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "**The flag spelling, pinned rather than assumed.** m4 guessed a three-flag form (`--impl candidate --impl-path PATH`) from `performance_report`'s `impl`/`impl_path` fields, and named the consequence exactly: a wrong flag would run the **baseline** while the consumer recorded it as the candidate — two measurements of one kernel, ratio 1.000, and no error anywhere. A silent 1.0 is the worst failure this contract can produce, so the spelling is data.\n\n`impl` is the *only* selector: there is no `--impl candidate` mode. Passing a path selects a candidate and omitting it selects the baseline, so the two cannot disagree.",
+          "properties": {
+            "operator": {"type": "string", "default": "--operator"},
+            "shape": {"type": "string", "default": "--shape"},
+            "impl": {"type": "string", "default": "--impl"},
+            "report": {"type": "string", "default": "--json"}
+          }
+        },
         "timeout_s": {"type": "integer", "minimum": 1},
         "protected": {
           "type": "boolean",
@@ -298,6 +320,11 @@
               "type": "string",
               "enum": ["overlay_files"],
               "description": "How the replacement is installed. **One value today, and an enum rather than a string on purpose**: a registry or import hook is the better mechanism and is deferred (`todo.md` T5, M5.3 — 但现在就这样吧), so the field exists to be widened by whoever builds it rather than to be reinterpreted. Two mechanisms would mean two proofs that the patch was live, and the proof is the expensive half."
+            },
+            "base_sha256": {
+              "type": ["object", "null"],
+              "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "description": "sha256 of each **stock** file in `target_files`, as it exists in the image, keyed by the same path. m5's patch manifest requires it: it pulls the file out of the image, hashes it, and refuses on a mismatch.\n\n**Recorded here rather than at m4 time on purpose, and the difference is provenance.** m4 can hash the file — m1 through m4 share one container, so the tree m5 will patch is on m4's filesystem — but a hash taken then is a hash of whatever the file had become by then. Taken here, it is pinned at the moment the operator was identified, so a file that changed in between is *detectable* rather than silently blessed. m4 keeps its own hash as a cross-check, which makes the pair a check rather than two guesses.\n\nNull when the workset could not read the image. A consumer must then fall back to hashing, and should say that it did."
             },
             "requires_restart": {"type": "boolean", "default": true, "description": "Whether installing it needs the engine restarted. `overlay_files` does; a hook would not."},
             "build_step": {"type": ["string", "null"], "default": null, "description": "A compile or codegen step the replacement needs, or null. Null is the good case and worth recording explicitly: a driver that imports the module directly is one an optimiser can iterate on in seconds."}

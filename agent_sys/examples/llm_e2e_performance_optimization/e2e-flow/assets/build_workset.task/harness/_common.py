@@ -101,7 +101,15 @@ def setup(what: str) -> Ctx:
         "schema_version": 1,
         "generated_by": pathlib.Path(sys.argv[0]).name,
         "environment": {
-            "node": os.uname().nodename,
+            # **`E2E_NODE` first, and `os.uname()` only as a fallback.** Measured
+            # on the first real GPU run: inside a container `os.uname().nodename`
+            # is the container id — the report said it was measured on
+            # `9aae0135bc3d`, which names the run's own sandbox and not the
+            # machine. That is precisely the "record of a configuration rather
+            # than of a run" CONTRACT §2 exists to prevent, and it would have
+            # made `evidence.measured_on.node` useless for the one question it
+            # answers: was this measured on the box m4 is standing on.
+            "node": os.environ.get("E2E_NODE") or os.uname().nodename,
             "gpu_arch": fixed["gpu_arch"],
             "gpu_count": fixed["gpu_count"],
             "tp_size": fixed["tp_size"],

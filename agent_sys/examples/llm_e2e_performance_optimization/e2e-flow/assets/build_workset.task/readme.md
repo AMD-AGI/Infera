@@ -226,8 +226,16 @@ wrong; fix that and re-run this step.
 ### STEP 7 — run the correctness test
 
 ```sh
+export PYTHONDONTWRITEBYTECODE=1
 cd "$WS" && ./run_correctness.sh --json evidence/correctness.json
 ```
+
+**Export `PYTHONDONTWRITEBYTECODE=1` before either run, and keep it exported.**
+The container runs as root — it has to, since a framework compiling kernels on
+first call cannot write its cache as anyone else — so any `__pycache__` the
+entrypoints leave inside the handoff is root-owned, and the runner then cannot
+copy or clean the output as its own user. Measured: it does not fail on the run
+that creates it, only on the next one.
 
 **Acceptance:** exit 0. If it fails, read `evidence/correctness.json`: each shape
 carries its `snr_db` and a `failure`. A failure here is almost always one of
