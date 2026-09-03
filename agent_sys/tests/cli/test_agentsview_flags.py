@@ -30,6 +30,29 @@ def test_disabled_makes_no_external_call(monkeypatch) -> None:
     assert called == []
 
 
+def test_a_dry_run_starts_no_daemon(monkeypatch) -> None:
+    """`--dry-run` promises *resolve everything, do nothing*.
+
+    Starting a resident daemon, creating `~/.infera_agent_sys` and writing a
+    `config.toml` are all side effects, and a dry run that leaves a daemon
+    behind has broken its only contract.
+    """
+    called = []
+    monkeypatch.setattr(cli_main, "ensure_running", lambda *a, **k: called.append(1))
+    monkeypatch.setattr(cli_main, "_dry_run", lambda args, stream: 0)
+    assert cli_main.main(["run", "--package", "pkg", "--dry-run"]) == 0
+    assert called == []
+
+
+def test_clean_starts_no_daemon(monkeypatch) -> None:
+    """`--clean` removes every run and exits; a panel for it is pointless."""
+    called = []
+    monkeypatch.setattr(cli_main, "ensure_running", lambda *a, **k: called.append(1))
+    monkeypatch.setattr(cli_main, "_clean", lambda args, stream: 0)
+    assert cli_main.main(["run", "--package", "pkg", "--clean"]) == 0
+    assert called == []
+
+
 def test_a_raising_side_car_does_not_reach_the_caller(monkeypatch) -> None:
     """Belt and braces: even a bug inside ensure_running cannot fail a run."""
 

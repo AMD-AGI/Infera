@@ -230,7 +230,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             # The one call site, and deliberately here: the daemon outlives the
             # run, so it starts once per invocation rather than once per task,
             # and its return value is never consulted for the exit code.
-            _start_o11y(args.agentsview_port, args.no_agentsview)
+            #
+            # **Not for `--dry-run` or `--clean`.** `--dry-run`'s contract is
+            # *resolve everything, do nothing*, and starting a resident daemon,
+            # creating the prefix and writing a `config.toml` are all side
+            # effects — a dry run that leaves a daemon behind has broken its
+            # only promise. `--clean` deletes every run and exits, so a panel
+            # for it would be started and immediately pointless.
+            _start_o11y(
+                args.agentsview_port,
+                disabled=args.no_agentsview or args.dry_run or args.clean,
+            )
             return _run(args, stream)
         except package.PackageNotFound as exc:
             return _fail(stream, PRECONDITION, str(exc))
