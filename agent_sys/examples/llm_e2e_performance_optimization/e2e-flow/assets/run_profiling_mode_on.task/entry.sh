@@ -31,6 +31,22 @@ if [ "$rc" = 0 ]; then
   # parse under its own shebang's shell; `mock.sh` repairs it for every mocked
   # kind (MOCK-MAP J), so nothing is needed here. `kernel_table` is
   # `structured_text` and carries no command item at all.
+  #
+  # **MOCK-MAP (A) — see the sibling body for why it belongs here.** All three
+  # outputs need it and **the content type differs per kind**, which is the one
+  # thing that cannot be a single loop over the slots: `env_render` writes to
+  # `items/env/environment.yaml` for a `reproducible` kind and for a
+  # `structured_text` one, but it is told which so that a kind whose type
+  # changes fails loudly instead of silently writing to the old path.
+  KIT_ENV="${AGENT_SYS_INPUT_DEPLOY_KIT:?}/items/codes/environment.yaml"
+  for spec in \
+    "reproducible:${AGENT_SYS_OUTPUT_PROFILING_MODE_ON_BENCH_RESULT:?}" \
+    "reproducible:${AGENT_SYS_OUTPUT_PROFILING_MODE_ON_PROFILE_RESULT:?}" \
+    "structured_text:${AGENT_SYS_OUTPUT_PROFILING_MODE_ON_KERNEL_TABLE:?}"
+  do
+    python3 "$PKG/assets/lib/env_render.py" --inherit "$KIT_ENV" \
+      --content-type "${spec%%:*}" --out "${spec#*:}"
+  done
   exit 0
 fi
 if [ "$rc" != 3 ]; then exit "$rc"; fi

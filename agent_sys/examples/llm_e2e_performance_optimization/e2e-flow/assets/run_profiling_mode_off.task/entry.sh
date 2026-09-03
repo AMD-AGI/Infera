@@ -29,7 +29,30 @@ bash "$PKG/assets/lib/mock.sh" stage2-profiling \
 # `check_command_parses` grades exactly that. **`mock.sh` repairs it** for every
 # mocked kind (MOCK-MAP J), so nothing is needed here; m2's own generators no
 # longer emit the fault either.
-if [ "$rc" = 0 ]; then exit 0; fi
+if [ "$rc" = 0 ]; then
+  # **MOCK-MAP (A), and it has to happen here.** `mock.sh` copies the sealed
+  # `items/env/` faithfully — `engine_argv.txt`, `image.txt`, `load.json`,
+  # `router_cmd.txt` — and those artefacts predate `environment.yaml`, so the
+  # copy is right and incomplete. `check_environment` is `strong`, so without
+  # this the handoff is invalid however good the bench is. Measured in run
+  # 20260903T150156-33c6b8: `check_bench_result` PASS, `check_command_parses`
+  # PASS, `check_environment` FAIL.
+  #
+  # **Inherited verbatim from m1, with no `--set`.** In mock mode there is no
+  # bring-up of ours to describe, and m1's record is the deployment the sealed
+  # bench would have run against. That also keeps every part agreeing, which is
+  # what `check_profiling_evidence` compares across the two lines.
+  #
+  # Plain `python3`: a task body never gets `AGENT_SYS_DEMO_PYTHON`, and
+  # `/usr/bin/python3` was measured to run `env_render.py` here — it has
+  # `jsonschema` 4.10.3 and `PyYAML`, and `schema.py` inlines cross-file refs so
+  # `referencing` is not needed.
+  python3 "$PKG/assets/lib/env_render.py" \
+    --inherit "${AGENT_SYS_INPUT_DEPLOY_KIT:?}/items/codes/environment.yaml" \
+    --content-type reproducible \
+    --out "${AGENT_SYS_OUTPUT_PROFILING_MODE_OFF_BENCH_RESULT:?}"
+  exit 0
+fi
 if [ "$rc" != 3 ]; then exit "$rc"; fi
 
 E2E_MODE=profiling_mode_off \
