@@ -323,16 +323,42 @@ def check_entry(entry: dict, roots: dict[str, Path], layout: dict) -> list[str]:
         except Exception as exc:
             faults.append(f"{where}: cannot read {rendering['document']} to check it renders it: {exc}")
         else:
-            for field in rendering.get("must_render") or []:
-                value = dotted(document, field)
-                if value is None:
-                    continue  # its absence is the schema's fault to report, not this one's
-                if str(value) not in text:
-                    faults.append(
-                        f"{where}: does not render {field} = {value!r} from "
-                        f"{rendering['document']}; this file is a rendering of that "
-                        f"record and the two must not disagree"
-                    )
+            # **A replayed kit's packup is a document about another day.**
+            # `runtime.replayed_from` is set by `mock_adapt.sh` when this handoff
+            # is a deployment stand-in: `results/` is the sealed run's evidence
+            # and the record describes *today's* node, because that is the
+            # machine every later stage will run on. Both are true and they are
+            # about different machines, so comparing them is comparing two things
+            # that were never claims about the same host — the check would fail
+            # for a correct artefact.
+            #
+            # So in replay mode the equality comparison is **not** made, and the
+            # verdict says which mode it took rather than passing silently. What
+            # is still checked is everything else about the rendering: it must
+            # exist, meet its substance floor, and carry no placeholder.
+            #
+            # **The real-mode rule is unchanged and deliberately so.** With
+            # `replayed_from` absent this is exactly as strict as before — it is
+            # the comparison that caught a wrong `--var` reaching a real record,
+            # and that is the case it exists for.
+            replayed = dotted(document, "runtime.replayed_from")
+            if replayed:
+                print(
+                    f"check_deploy_kit: {where}: replayed kit "
+                    f"(runtime.replayed_from={replayed}) — checked for substance, "
+                    f"NOT compared against the live record"
+                )
+            else:
+                for field in rendering.get("must_render") or []:
+                    value = dotted(document, field)
+                    if value is None:
+                        continue  # its absence is the schema's fault to report, not this one's
+                    if str(value) not in text:
+                        faults.append(
+                            f"{where}: does not render {field} = {value!r} from "
+                            f"{rendering['document']}; this file is a rendering of that "
+                            f"record and the two must not disagree"
+                        )
 
     return faults
 

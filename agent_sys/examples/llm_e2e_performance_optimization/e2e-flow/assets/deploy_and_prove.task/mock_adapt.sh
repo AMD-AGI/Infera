@@ -45,9 +45,40 @@ PACKUP="$(find "$CODES" -maxdepth 1 -type d -name '*.packup_*' | head -1)"
 # digest it recorded. Inventing plausible ones would make the mock a fiction
 # about hardware; these are a real bring-up's numbers, which is the whole
 # premise of mocking from sealed artefacts rather than synthesising.
+#
+# **`runtime.replayed_from` names the sealed kit this stood in for**, and it is
+# the field that makes the whole arrangement honest. In mock mode this handoff is
+# a *deployment stand-in*: the evidence in `results/` is the sealed run's, and the
+# environment record describes **today's node**, because that is the machine every
+# later stage will actually run on. Those are both true and they are about
+# different machines, so the record says which is which rather than picking one
+# and hoping. Consumers that must not be fooled read it; `check_deploy_kit` reads
+# it to decide whether `environment.md` can be compared against the live record at
+# all (it cannot — see `rendered_from` in the layout).
 : "${MOCK_GPU_ARCH:=gfx950}"
 : "${MOCK_GPU_COUNT:=8}"
-: "${MOCK_IMAGE_ID:=sha256:92ed065bdc3958bdb62fdb5c2c4b88ad9fa45c9b355b763f3098a6185b0668e6}"
+# **The image digest is looked up on the node, not asserted.** It was a literal
+# — the sealed run's `infera/engine-sglang:gfx950-local` — and that broke rung 0:
+# the record named a digest that **exists on no node and never will**, because
+# `gfx950-local` was a local build on a machine that no longer has it. m3's
+# `build_workset` then could not start a container from `fixed.image`.
+#
+# The rule the mock now follows is the one the mission states for the real
+# producer: `image_id` is *discovered during bring-up*, and a variable holding it
+# would be a claim rather than a measurement. A replay is a bring-up on today's
+# node, so it discovers today's digest.
+if [ -z "${MOCK_IMAGE_ID:-}" ] && [ -n "${E2E_IMAGE:-}" ]; then
+  MOCK_IMAGE_ID="$(bash -c '. "$1"; on "docker image inspect \"$2\" --format {{.Id}}"' _ \
+      "$PKG/assets/lib/remote.sh" "$E2E_IMAGE" 2>/dev/null | tr -d "\r\n" | grep -oE 'sha256:[0-9a-f]+' | head -1)"
+fi
+if [ -z "${MOCK_IMAGE_ID:-}" ]; then
+  echo "mock_adapt: could not read a digest for '${E2E_IMAGE:-<unset>}' on the node." >&2
+  echo "  The environment record would name an image that may not exist there, and a" >&2
+  echo "  later stage starting a container from fixed.image would fail with something" >&2
+  echo "  that names neither this file nor the digest. Pass --var image=<an image on" >&2
+  echo "  the node>, or set MOCK_IMAGE_ID explicitly if you know what you are doing." >&2
+  exit 3
+fi
 : "${MOCK_ENDPOINT:=http://${E2E_NODE_IP:-127.0.0.1}:${E2E_PORT_ROUTER:-8101}}"
 
 # `runtime.transport` is **not** set here. `E2E_TRANSPORT` ships defaulted to
@@ -80,11 +111,25 @@ if [ -z "$PY" ]; then
   exit 2
 fi
 
+# `${VAR-default}` and **not** `${VAR:-default}`: the first substitutes only when
+# the name is *unset*, the second also when it is set-but-empty. `gate.sh` sets
+# `MOCK_REPLAYED_FROM=""` deliberately, to build a fixture that stands for a real
+# bring-up and must therefore face the strict `rendered_from` comparison. With
+# the colon form that empty string fell through to the default, the fixture was
+# marked replayed, and the gate stopped testing the rule it exists to test —
+# measured: a planted fault went unreported.
+REPLAY_SET=()
+_replayed="${MOCK_REPLAYED_FROM-${E2E_MOCK_ROOT:-?}/stage1-deploy/deploy_kit}"
+if [ -n "$_replayed" ]; then
+  REPLAY_SET=(--set "runtime.replayed_from=${_replayed}")
+fi
+
 "$PY" "$PKG/assets/lib/env_render.py" --new --content-type code --out "$CONTENT" \
   --set "fixed.gpu_arch=${MOCK_GPU_ARCH}" \
   --set "fixed.gpu_count=${MOCK_GPU_COUNT}" \
   --set "fixed.image_id=${MOCK_IMAGE_ID}" \
-  --set "runtime.endpoint=${MOCK_ENDPOINT}"
+  --set "runtime.endpoint=${MOCK_ENDPOINT}" \
+  "${REPLAY_SET[@]}"
 
 # --------------------------------------------------------------------------- #
 # (I) the runtime contract.

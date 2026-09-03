@@ -66,6 +66,17 @@ export E2E_TP=1
 export E2E_CTX=32768
 export E2E_PORT_ROUTER=8106
 export AGENT_SYS_DEMO_PACKAGE="$PKG"
+# **The fixture supplies its own digest, and that is the honest form.**
+# `mock_adapt.sh` normally *discovers* `image_id` on the node, because a digest
+# asserted rather than measured is what broke rung 0 — the record named an image
+# that exists nowhere. This gate has no node and builds a fixture rather than a
+# deployment, so it says the digest explicitly instead of pretending to have
+# looked. The value is the sealed run's own, which is what the fixture is of.
+export MOCK_IMAGE_ID=sha256:92ed065bdc3958bdb62fdb5c2c4b88ad9fa45c9b355b763f3098a6185b0668e6
+# No `replayed_from` here: this fixture stands for a kit produced by a real
+# bring-up, so it must be held to the strict `rendered_from` comparison. Setting
+# it would make the gate stop testing the rule it exists to test.
+export MOCK_REPLAYED_FROM=""
 
 bash "$PKG/assets/deploy_and_prove.task/mock_adapt.sh" "$GOOD"
 
