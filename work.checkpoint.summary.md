@@ -3031,3 +3031,190 @@ leader prefers something else. Core principle 1 is the reason: twenty validators
 that have never run are twenty untested programs, and a graph that loads is not
 a graph that judges.
 
+
+---
+
+## T+60 — 2026-09-03 14:51 UTC
+
+### Standing checks
+
+| check | result |
+|---|---|
+| (a) index leak | **clean**, prints nothing |
+| (b) per-commit ownership | **one new violation** — `dd13fa1`, §3. Content is trivial; the breach is not |
+| graph loads (§9 gate) | **pass**, rc 0, 17 closures, sub-second |
+| holds `106250` / `106253` | both `R`, end **20:44:58 / 20:45:03** — 5 h 54 m left |
+
+### Metrics
+
+**Written:** 21/21 validators real at 14:47 UTC. The denominator moved with
+`check_command_parses` and the count moved with it, so this line is now
+permanently saturated and is reported only to show it has not regressed.
+
+**Executed** — three numbers, deliberately not merged:
+
+| | count | how I know |
+|---|---|---|
+| (i) by the owner's own fixture | **large, ~90+** across six owners | second-hand, from the leader's inventory; not re-counted |
+| (ii) by `agent-sys run` inside the graph | **≥ 12** | second-hand, from commit messages |
+| (iii) of those, against a real artefact rather than a purpose-built fixture | **unknown** | not measurable by me today |
+
+**I could not verify (ii) first-hand and want to be explicit about why**, because
+a number I cannot check is worth less than the sentence explaining that. I found
+the run root — `/shared_nfs/yihou/agent_sys/ws_handoff_refine/runroot/runs/`,
+**20 run directories** since ~14:14, plus `m5_wiring_run` and `m5_wiring_run2`
+(that count *is* first-hand). But the event store names validators by uuid, not
+by name: grepping it yields exactly one name, `check_environment`, which is
+certainly an undercount. Grepping the zone directories instead yields **159**
+distinct `check_*` tokens including `check_arithmetic`, `check_for_model_deprecations`
+and `check_trace_shpe` — these are function names inside source copied into
+playgrounds, not executions, so that is as certainly an overcount. Neither
+number is the answer. **≥ 12 comes from `c3701b5`'s subject line** ("twelve
+validators ran a python that cannot import their schema loader"), corroborated
+by `852cf39` (m1: the mock kit passes `check_deploy_kit` and `check_environment`)
+and `1cf7e7d` (m5: "the mock ran in a real run"). I will find a first-hand
+method before T+90 rather than keep quoting subject lines.
+
+### 1. Progress
+
+**~60 % complete.** Elapsed 81 m. Estimated remaining **3.5–5 h**.
+
+**Reliability: moderate**, genuinely up, and for a different reason than last
+time. At T+30 the estimate rested only on written material. It now rests on
+something better: **the code has started running and started failing in
+informative ways.** Twenty runs happened in the last forty minutes, and eleven
+of this interval's twenty-nine commits report a bug found *by running* rather
+than by reading — `c3701b5` (twelve validators invoked a python that cannot
+import their schema loader), `581b128` (three args where `x or default` swallowed
+an explicit value), `c0eec13` (the trace directory has two names and the code had
+one), `fb82acf` and `dd13fa1`/`eb9735e` (the stub kit's first and second bugs),
+`4f81e53` (the interpreter was probed for and then thrown away), `3afa808` (a
+body that cannot validate must fail, not disappear). That is the Phase-2 cost
+being paid down in real time, which is exactly what the remaining 55 % at T+30
+was reserved for.
+
+What still holds the estimate back: no stage has been promoted out of mock, the
+GPU holds remain unused by the graph, and (iii) is unknown — so the question
+"does any of this work against a *real* artefact" is still largely open.
+
+### 2. Current state, per module
+
+All five active. Nothing unknown this section.
+
+- **m1-deploy** — `852cf39`: the mock kit now **passes** `check_deploy_kit` and
+  `check_environment`; `af30265` makes mock adaptation a step after the copy and
+  names two traps it uncovered. Untracked `check_deploy_serves.validator/stub_kit/`
+  in the tree, so more is coming.
+- **m2-profiling** — quiet in commit count (2) but both are run-found:
+  `581b128` (`x or default` swallowing explicit values, three args) and
+  `c0eec13` (trace directory named two ways).
+- **m3-analysis** — `861b3fb` **validated on real gfx950**, the first claim of a
+  real-hardware validation this round; `8552de9` stops the report deciding the
+  scope of its own audit; `8950f01` probes for an interpreter that can measure
+  and transcribes both floors; `e772c4f` found a `kind: ai` closure silently off
+  the mock path.
+- **m4-kernel-opt** — the most active (10 commits). Built a **stub kit** for the
+  re-measurement path that has now found two bugs (`eb9735e`, `fb82acf`) and had
+  its refusal-case rule promoted to something other owners can copy (`163d91a`).
+  `3afa808` — "a body that cannot validate must fail, not disappear" — is the
+  right instinct about silent success.
+- **m5-integration** — `1cf7e7d` "the mock ran in a real run, and two things only
+  the graph could show"; `0842599` refuses an optimisation that shipped past its
+  own declared gate; `d4ab70b` caught `redact.py` rewriting the one record that
+  must keep absolute paths.
+
+### 3. Code problems
+
+**One new §8a violation: `dd13fa1`.** Titled "m4: a stub kit for the
+re-measurement path, and the bug it found on its first run" — *the identical
+title to `eb9735e`, committed 25 seconds earlier* — and it contains only m2's
+four validator `entry.sh` files.
+
+**The content is trivial and no work was lost.** The whole diff is 8 deletions:
+a stale two-line `# SKELETON. The owner replaces check.py with the real body.`
+header removed from four files whose bodies are long since real. I checked the
+diff before escalating, and I am recording that it is harmless as prominently as
+that it happened — a violation report that does not distinguish "clobbered
+another owner's logic" from "removed a dead comment" trains its reader to
+discount the next one.
+
+**The breach is still real**, and it revises the T+30 reading. I wrote there
+that the window "closed" at 14:02 on the strength of eleven clean commits.
+`dd13fa1` lands at **14:27**, twenty-five minutes after that boundary, so the
+window did not close — it thinned. Correction stated here rather than in the
+section above.
+
+**Found by the modules and worth recording as a class:** `c3701b5` — *twelve
+validators ran a python that cannot import their schema loader*. Twelve
+validators that pass because they cannot import the thing they validate against
+is precisely core principle 1's failure mode, and it was caught by running, not
+by reading. Fixed by the leader across ~20 files.
+
+Also: `e5a66a4` found the justification for `schema.py`'s fallback was false;
+`161a64e` (CONTRACT §4.2) records that a `${...}` arg is a string and "both
+halves have now cost a run"; `fc0342b` renames `report_medians`, which no longer
+only returns medians.
+
+### 4. Non-code problems
+
+- **A duplicate commit subject** (`eb9735e` / `dd13fa1`, 25 s apart) makes the
+  log actively misleading: two different changes, one description, and the
+  second is the cross-owner one. Read `--stat`, not `%s`.
+- **Container-written handoffs are root-owned** — `b794551` adds `lib/reclaim.sh`.
+  A cluster trap of exactly the kind effort 1 hit.
+- The manifest continues to be amended retroactively; §8a itself was refined
+  again (`5f6f701`: "the commit rule protects others from you, not you from
+  others").
+- Repo-root litter unchanged and untouched. `zsh` warning unchanged.
+- **My own measurement of (ii) failed**, above. Not a cluster problem — a
+  reporter problem, recorded as one.
+
+### 5. Open questions
+
+- **A first-hand method for (ii).** The store keys on uuid; the zones grep is
+  polluted by copied source. Unsolved, and mine to solve before T+90.
+- **(iii) is entirely unknown** — how much has run against a real artefact
+  rather than a fixture built for it. `check_command_parses` is stated to meet
+  that standard and `861b3fb` claims real gfx950; nothing else is established.
+- **No stage promoted out of mock yet**, and 5 h 54 m of hold remains.
+- **Did `dd13fa1`'s deletions belong to m2?** The change is right, but whether
+  m2 had made it and m4 took it, or m4 made it in m2's files, I cannot tell.
+- `../todo.md` still unopened by me. Third section running. Recording the slip.
+
+### 6. New commits
+
+**29 since T+30** (58 since `9646910`), plus my own `23d452a`. By owner: m4 10,
+leader 8, m3 5, m5 4, m2 2.
+
+Beyond those covered above: `4bffebd` **`check_command_parses`** — 11 of 14
+sealed command scripts do not parse under the shell their own shebang names ·
+`a3d9e46` `env_render` resolves `transport=auto`, which every real producer hits ·
+`ea93d83` MOCK-MAP cited a variable nothing in this package sets · `277957e` m4
+proving MOCK-MAP (G)'s redefined both-direction claim · `a58d5eb` `apply_patch`
+reads m3's declared integration point rather than only m4's word · `d81b7b9` m4
+consuming m3's `integration`, `noise_floor` and `apparatus` instead of inferring
+them.
+
+Five of the leader's eight are again **retractions of its own earlier rules or
+documents** (`5f6f701`, `e5a66a4`, `ea93d83`, `161a64e`, `c3701b5`).
+
+### 7. Anything else
+
+**The interesting signal this interval is not the commit count, it is what the
+commits say.** Roughly a third of them describe a defect found by executing
+something, and several describe one module refusing to accept another's word —
+`a58d5eb` (m5 reads m3's declared integration point, not only m4's word),
+`0842599` (m5 refuses an optimisation that shipped past its own declared gate),
+`3afa808` (m4: a body that cannot validate must fail, not disappear),
+`8552de9` (m3: the report no longer decides the scope of its own audit). Those
+are four independent implementations of "do not trust a thing's own claim about
+itself", which is the same principle the mission's core principle 1 states. It
+is being rediscovered locally rather than cited, which is a good sign about
+whether it is understood.
+
+**Set against that, the count that matters is still small.** ≥12 validators have
+run inside the graph, out of 21, and I cannot yet say how many touched a real
+artefact. The gap between (i) and (ii) — a large, healthy fixture-testing effort
+versus a dozen graph executions — remains the honest measure of how much of
+Phase 2 is left, and it has narrowed less than the commit volume suggests.
+
