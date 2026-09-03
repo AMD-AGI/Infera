@@ -23,9 +23,7 @@ _MARKER = "_infera_responses_unstreamed_tool_args"
 
 
 def _load_patch():
-    spec = importlib.util.spec_from_file_location(
-        "patch_responses_unstreamed_tool_args", _PATCH
-    )
+    spec = importlib.util.spec_from_file_location("patch_responses_unstreamed_tool_args", _PATCH)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
