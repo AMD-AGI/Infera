@@ -45,10 +45,11 @@ CASES = [
             "env": {"SGLANG_USE_AITER": "1"},
             "server_ready_timeout": 1800,
             "args": ["--attention-backend", "triton"],
-            # gfx942 has no FP4 MFMA, so aiter's CK-tile MXFP4 MoE carries no
-            # instance for it and graph capture dies on an undefined symbol.
-            # Off, the auto runner picks Triton, which dequantizes to bf16.
-            "gfx942": {"env": {"SGLANG_USE_AITER": "0"}},
+            # Follow SGLang's native platform gate: gfx942 is not a supported
+            # MXFP4 target for this checkpoint, so do not force a fallback.
+            "gfx942": {
+                "skip": "SGLang's upstream MXFP4 gate excludes gpt-oss-120b on gfx942",
+            },
         },
     ],
     [

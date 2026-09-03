@@ -6,7 +6,7 @@ Historical proposals and bring-up journals have been consolidated and removed.
 The configuration source of truth remains
 `tests/e2e/pd_{mixed,disag}/<engine>/matrix.py`.
 
-Last updated: 2026-09-02.
+Last updated: 2026-09-03.
 
 ## 1. Scope and acceptance criteria
 
@@ -46,10 +46,10 @@ from metrics that its draft head produced tokens.
 
 | Model | Tier | Engine | Checkpoint / parallelism | Features | Result |
 |---|---|---|---|---|---|
-| GPT-OSS-120B | mixed | SGLang | MXFP4, TP2 | EP | **PASS** — 3 probes |
+| GPT-OSS-120B | mixed | SGLang | MXFP4, TP2 | EP | **SKIP** — SGLang's upstream MXFP4 gate excludes gfx942 |
 | GPT-OSS-120B | mixed | vLLM | MXFP4, TP2 | EP | **PASS** — 3 probes |
 | GPT-OSS-120B | mixed | ATOM | MXFP4, TP2 | EP | **SKIP** — current gfx942 MXFP4 MoE path fails before first token |
-| GPT-OSS-120B | disaggregated | SGLang | MXFP4, TP2 per leg | — | **PASS** — 3 probes + dual-leg RDMA |
+| GPT-OSS-120B | disaggregated | SGLang | MXFP4, TP2 per leg | — | **SKIP** — SGLang's upstream MXFP4 gate excludes gfx942 |
 | GPT-OSS-120B | disaggregated | vLLM | MXFP4, TP2 per leg | — | **PASS** — 3 probes + dual-leg RDMA |
 | GPT-OSS-120B | disaggregated | ATOM | MXFP4, TP2 per leg | — | **SKIP** — same MXFP4 MoE failure |
 | GLM-5.2-FP8 | mixed | SGLang | FP8, TP8/DP8 | DP attention, EAGLE | **PASS** — correctness + active MTP |
@@ -87,8 +87,8 @@ from metrics that its draft head produced tokens.
 
 | Category | Count | Notes |
 |---|---:|---|
-| Retained PASS cases | 16 | All retained target configurations have passed their required checks |
-| Retained static skips | 2 | ATOM GPT-OSS mixed and disaggregated |
+| Retained PASS cases | 14 | All retained target configurations have passed their required checks |
+| Retained static skips | 4 | SGLang and ATOM GPT-OSS mixed and disaggregated |
 | Removed failed cases | 2 | ATOM DeepSeek-V4-Flash mixed and disaggregated |
 | Legacy unmeasured skips | Not included | Kimi-K2.6 and GLM-5.1 remain outside this bring-up result |
 
@@ -105,10 +105,10 @@ approximately 191.98 GiB usable.
 
 | Tier | Engine | Active target case IDs |
 |---|---|---|
-| mixed | SGLang | `gpt-oss-120b-tp2-ep`<br>`DeepSeek-V4-Flash-FP8-tp4-dpattn`<br>`GLM-5.2-FP8-tp8-dpattn` |
+| mixed | SGLang | `DeepSeek-V4-Flash-FP8-tp4-dpattn`<br>`GLM-5.2-FP8-tp8-dpattn` |
 | mixed | vLLM | `gpt-oss-120b-tp2-ep`<br>`DeepSeek-V4-Pro-tp8`<br>`DeepSeek-V4-Flash-tp4`<br>`GLM-5.2-FP8-tp8` |
 | mixed | ATOM | `GLM-5.2-FP8-tp8` |
-| disaggregated | SGLang | `gpt-oss-120b-tp2`<br>`GLM-5.2-FP8-tp8-dpattn`<br>`DeepSeek-V4-Flash-FP8-tp4-dpattn` |
+| disaggregated | SGLang | `GLM-5.2-FP8-tp8-dpattn`<br>`DeepSeek-V4-Flash-FP8-tp4-dpattn` |
 | disaggregated | vLLM | `gpt-oss-120b-tp2`<br>`GLM-5.2-FP8-tp8`<br>`DeepSeek-V4-Pro-tp8`<br>`DeepSeek-V4-Flash-tp4` |
 | disaggregated | ATOM | `GLM-5.2-FP8-tp8` |
 
@@ -130,7 +130,7 @@ container-visible dangling symlinks:
 
 | Model | Required path below `<model-dir>` | Used by |
 |---|---|---|
-| GPT-OSS-120B | `openai/gpt-oss-120b` | SGLang, vLLM |
+| GPT-OSS-120B | `openai/gpt-oss-120b` | vLLM |
 | GLM-5.2-FP8 | `zai-org/GLM-5.2-FP8` | SGLang, vLLM, ATOM |
 | DeepSeek-V4-Flash MXFP4 | `deepseek-ai/DeepSeek-V4-Flash` | vLLM |
 | DeepSeek-V4-Flash block-FP8 | `sgl-project/DeepSeek-V4-Flash-FP8` | SGLang |
@@ -238,6 +238,7 @@ text with HTTP 200; the probe assertions are authoritative.
 
 | Area | Current limitation | Upgrade or regression action |
 |---|---|---|
+| SGLang GPT-OSS | SGLang's upstream MXFP4 platform gate excludes gfx942, so the MXFP4-only checkpoint is skipped | Use vLLM on gfx942, or restore the SGLang case only when upstream enables this platform |
 | ATOM GPT-OSS | Current ATOM images have an upstream MXFP4 MoE defect; this is not a general gfx942 ATOM limitation | After an ATOM/aiter upgrade, retest mixed before restoring disaggregated coverage |
 | ATOM MTP metrics | No compatible speculative Prometheus counters | Treat drafter logs as supporting evidence, not an activity or acceptance assertion |
 | vLLM GLM-5.2 PD + MTP | MTP3 corrupts long-context output even with the unpadded drafter path | Keep MTP off; rerun the long-context probe after vLLM upgrades |

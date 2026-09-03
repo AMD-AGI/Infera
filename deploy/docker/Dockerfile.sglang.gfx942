@@ -216,15 +216,6 @@ RUN set -eu; \
     for f in /tmp/sglang-rocm-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
     rm -rf /tmp/sglang-rocm-patches
 
-# ---- gfx942-only patches ----------------------------------------------------
-# Its own directory, not sglang_rocm/, because Dockerfile.sglang applies that one
-# too and the gfx950 image must stay byte-identical. Today: the mxfp_supported()
-# arch gate, without which gpt-oss-120b's MXFP4-only weights raise at load.
-COPY deploy/docker/patches/sglang_gfx942/ /tmp/sglang-gfx942-patches/
-RUN set -eu; \
-    for f in /tmp/sglang-gfx942-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
-    rm -rf /tmp/sglang-gfx942-patches
-
 # ---- Rust router (multi-core data plane; --router-backend rust) ----
 # The ROCm base often ships cargo; use it, and install a minimal toolchain only
 # if absent. Needs cc for linking and libclang (onig_sys/bindgen).

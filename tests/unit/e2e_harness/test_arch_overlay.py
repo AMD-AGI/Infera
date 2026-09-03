@@ -313,8 +313,8 @@ def test_the_matrix_is_the_same_matrix_on_both_architectures(module):
 @pytest.mark.parametrize(
     ("module", "models"),
     [
-        ("tests.e2e.pd_mixed.sglang.matrix", (GPT_OSS, GLM_5_2_FP8, DEEPSEEK_V4_FLASH_FP8)),
-        ("tests.e2e.pd_disag.sglang.matrix", (GPT_OSS, GLM_5_2_FP8, DEEPSEEK_V4_FLASH_FP8)),
+        ("tests.e2e.pd_mixed.sglang.matrix", (GLM_5_2_FP8, DEEPSEEK_V4_FLASH_FP8)),
+        ("tests.e2e.pd_disag.sglang.matrix", (GLM_5_2_FP8, DEEPSEEK_V4_FLASH_FP8)),
         (
             "tests.e2e.pd_mixed.vllm.matrix",
             (GPT_OSS, GLM_5_2_FP8, DEEPSEEK_V4_FLASH, DEEPSEEK_V4_PRO),
@@ -331,3 +331,19 @@ def test_required_gfx942_rows_are_enabled(module, models):
     params = expand_cases(importlib.import_module(module).CASES, arch="gfx942")
     for model in models:
         assert not _for_model(params, model).skip_reason
+
+
+@pytest.mark.parametrize(
+    "module",
+    [
+        "tests.e2e.pd_mixed.sglang.matrix",
+        "tests.e2e.pd_disag.sglang.matrix",
+    ],
+)
+def test_sglang_gpt_oss_is_skipped_on_gfx942(module):
+    matrix = importlib.import_module(module)
+    gfx942 = _for_model(expand_cases(matrix.CASES, arch="gfx942"), GPT_OSS)
+    gfx950 = _for_model(expand_cases(matrix.CASES, arch="gfx950"), GPT_OSS)
+
+    assert gfx942.skip_reason.startswith("SGLang's upstream MXFP4 gate")
+    assert not gfx950.skip_reason
