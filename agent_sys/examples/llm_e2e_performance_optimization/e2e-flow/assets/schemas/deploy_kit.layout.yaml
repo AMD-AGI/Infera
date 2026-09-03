@@ -191,6 +191,18 @@ entries:
     required: true
     brief: Removes everything this run created, and only what this run created.
 
+  # Required because it is the **acceptance criterion** a consumer's step 1 is
+  # written against, not because a kit needs three scripts. `deploy.sh` returning
+  # 0 says the launch commands were accepted; this says the service answered.
+  # **It must exit non-zero on timeout.** A readiness wait that exits 0 when it
+  # gave up turns "the model never loaded" into "the benchmark measured
+  # nothing", and the second is discovered three stages later.
+  - path: scripts/wait_ready.sh
+    anchor: packup
+    kind: file
+    required: true
+    brief: Blocks until the service answers, exits non-zero on timeout. The one criterion a consumer waits on.
+
 # --------------------------------------------------------------------------- #
 # 3. Placeholders — a document that was templated and never written.
 #
@@ -231,9 +243,9 @@ evidence:
     brief: The deployment mode is evidenced from two independent components.
     over: {anchor: packup, dir: results}
     require_each:
-      - label: a worker-side reading (a `disagg=DisaggMode.…` line the worker wrote itself)
+      - label: worker-side reading (a `disagg=DisaggMode.…` line the worker wrote itself)
         pattern: 'disagg\s*=\s*DisaggMode\.\w+'
-      - label: a router-side reading (a `"disagg_mode"` field from the router's worker listing)
+      - label: router-side reading (a `"disagg_mode"` field from the router's worker listing)
         pattern: '"disagg_mode"\s*:\s*(?:"[^"]*"|\[)'
     message: >-
       the mode is selected by *omitting* a flag, so the launch command is not
@@ -314,6 +326,32 @@ runtime_contract:
         share one `results/`, and the consequence is not mixed-up logs — which
         you would notice — but a verifier reading the other run's evidence and
         passing on it.
+    # The two below exist because M2.3 and M2.4 delete module 2's own serve
+    # scripts: *"module 1 的 output 已经包含了如何部署的全量信息"*. Module 2 then
+    # needs to bring the **same** deployment up twice differing on one axis —
+    # CUDA graph on for the numbers that mean something, off plus a profiler
+    # control plane for the trace. Without a seam, the only way to express that
+    # is a second copy of this kit's launch, which is precisely the duplication
+    # M2.3 removes.
+    #
+    # Deliberately **two** seams and not one, because argv and environment are
+    # not interchangeable: `--disable-cuda-graph` is a flag the engine parses and
+    # `SGLANG_TORCH_PROFILER_DIR` is read from the process environment. A single
+    # "extras" string would force one of the two through a shell hack.
+    #
+    # Both default to empty, so a caller that sets neither gets today's
+    # behaviour **byte for byte** — which is what makes the profiled arm's only
+    # difference from the clean arm be the thing it names.
+    - name: E2E_KIT_ENGINE_EXTRA_ARGS
+      brief: >-
+        Appended verbatim to the engine worker's argv, last, so it overrides an
+        earlier occurrence of the same flag. Empty by default.
+    - name: E2E_KIT_ENGINE_EXTRA_ENV
+      brief: >-
+        A space-separated `K=V` list exported into the worker process before it
+        starts. Empty by default. Not merged into the container's own
+        environment: what a later stage needs to vary is the worker, and a
+        container-wide export would also reach the router.
   # Written by `scripts/deploy.sh` on success, read by every consumer. JSON and
   # not a printed line: a consumer parsing stdout has to be told which line, and a
   # kit that adds a banner breaks it silently.

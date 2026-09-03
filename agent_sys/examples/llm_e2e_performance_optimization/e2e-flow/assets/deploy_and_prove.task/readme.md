@@ -217,13 +217,24 @@ the next stage does not need a `serve_baseline` step of its own: **module 2
 deploys from this handoff.** `deploy_kit.layout.yaml`'s `runtime_contract` says
 what that takes, and it is small:
 
-- `scripts/deploy.sh` brings the whole thing up, and `scripts/teardown.sh`
-  removes what this run created **and only what this run created**;
-- both honour three parameters, each in a defaulting form —
+- `scripts/deploy.sh` brings the whole thing up, `scripts/wait_ready.sh` blocks
+  until it answers and **exits non-zero on timeout**, and `scripts/teardown.sh`
+  removes what this run created **and only what this run created**. A readiness
+  wait that exits 0 when it gave up turns "the model never loaded" into "the
+  benchmark measured nothing", and the second is found three stages later;
+- they honour five parameters, each in a defaulting form —
   `: "${E2E_KIT_RUN_TAG:=…}"`, `: "${E2E_KIT_PORT_BASE:=…}"`,
   `: "${E2E_KIT_WORK_ROOT:=…}"`. A bare `$NAME` is not enough: only the
   defaulting form lets the kit run with none of them set, which is the state the
   reproducer is in;
+- and the two that let a later stage vary the engine without copying your
+  launch: `: "${E2E_KIT_ENGINE_EXTRA_ARGS:=}"`, appended **last** to the worker's
+  argv so it overrides an earlier occurrence of the same flag, and
+  `: "${E2E_KIT_ENGINE_EXTRA_ENV:=}"`, a space-separated `K=V` list exported into
+  **the worker process** — not the container, because the router must not see
+  it. Both empty by default, so a caller that sets neither gets your behaviour
+  byte for byte. Module 2 brings your deployment up twice through these, and its
+  two arms differ by nothing else;
 - on success `deploy.sh` writes `$E2E_KIT_WORK_ROOT/deployment.json` carrying at
   least `endpoint`, `container` and `run_tag`. `endpoint` is the **product**
   endpoint — the router, not the engine's port. Add `engine_endpoint` if the

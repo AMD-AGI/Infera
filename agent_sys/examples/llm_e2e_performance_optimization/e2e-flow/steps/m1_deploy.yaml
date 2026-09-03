@@ -125,8 +125,11 @@
     work_root: '${validate_work_root:-/mnt/m2m_nobackup/yihou/e2e_flow/validate}'
     port_base: '${validate_port_base:-8140}'
     # AIPerf runs in its own container: the engine image ships Python 3.10 and
-    # AIPerf needs >= 3.11.
-    aiperf_image: '${aiperf_image:-nvcr.io/nvidia/ai-dynamo/aiperf:25.09}'
+    # AIPerf needs >= 3.11. **Same variable and same default as `shared.yaml`'s
+    # `E2E_AIPERF_IMAGE`** — a validator cannot read that block, so the default
+    # is repeated here rather than referenced, and the two must be changed
+    # together or this validator loads a different AIPerf than m2 does.
+    aiperf_image: '${aiperf_image:-nvcr.io/nvidia/ai-dynamo/aiperf:0.12.0}'
     # The load shape, overridable so a wiring run costs seconds. The standard is
     # stated once, in `probes.yaml`; these only override it.
     load_input_tokens: '${deploy_load_in:-1024}'
