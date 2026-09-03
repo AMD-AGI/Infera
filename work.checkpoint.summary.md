@@ -569,3 +569,78 @@ None this interval (work is uncommitted, in progress).
 ### 7. Other
 
 None.
+
+---
+
+## T+7 — 2026-09-03 11:29 UTC
+
+### 1. Progress
+
+**Effort: ~85 %.** Elapsed 233 minutes since T+0. Projected remaining:
+30–60 minutes, **conditional on port 18888 being free** (see §3) — the last
+missing acceptance check (a live panel) is now blocked by something mundane
+rather than a design question. **Reliability: medium-high** — this interval
+has first-hand, direct filesystem evidence for its main claim, not just a
+commit message.
+
+Since T+6: `_share_projects()` committed as `84027bd`
+("share only `<zone>/config/projects` with the o11y prefix"). Suite still
+green: **653 passed, 2 skipped, 2 xfailed in 109.3 s** (same pass count as
+T+6, slow wall-clock again — a real run shared the interval, as at T+2/T+4).
+
+### 2. Current state
+
+**Verified the zonelink fix directly against a real run, not from a log
+claim.** Latest run root `runs/20260903T104807-76274e`
+(`~/.local/state/agent-sys-demo/`): every task zone's `config/projects` is
+now a **symlink** to `/home/yihou/.infera_agent_sys/state/claude/projects`
+(checked 3 of them with `ls -la`, all identical target). And
+`find /home/yihou/.infera_agent_sys/state/claude/projects -name '*.jsonl'
+-mmin -45` returns **10** files — matching demo2's 9 declared `kind: ai`
+agents plus 1 probe. This is the first time in this effort that a demo2 run's
+task-agent transcripts have been directly confirmed landing in the prefix,
+first-hand, from the filesystem rather than inferred.
+
+**But the panel still didn't come up in this same run**, for a third, new
+reason: `grep -i agentsview zonelink/demo2.log` shows only
+`"port 18888 is in use by something else; skipping the o11y panel."` — the
+port-busy fail-open path from check 6, not the provider-slug bug from check 1.
+Something (unclear what — not investigated, this is a reporter not a
+debugger) is holding 18888 on this host right now. So check 1 is **still
+unverified end-to-end**, for a third distinct cause across the three runs
+this effort has produced (provider slug → then port busy → next attempt
+needed with the port actually free).
+
+### 3. Code problems — fixed / unfixed
+
+**Fixed, and now confirmed first-hand:** check 2's transcript routing
+(`84027bd`, verified against the real run above).
+
+**Still open:** check 1 (live panel) has never once been demonstrated in this
+entire effort, across all commits, for three different reasons in three
+different runs. Not a code defect this time — a busy port on a shared host is
+exactly the failure mode check 6 is designed to tolerate, and it did (the
+run completed). It just means nobody has yet seen the panel come up.
+
+### 4. Non-code problems
+
+Port 18888 is occupied on this host at report time, for reasons not
+investigated (could be a leftover from an earlier probe in this same effort,
+e.g. `recon/binder.pid`'s test binder, or something unrelated). Whoever
+attempts the next full acceptance pass will need to free it first or use
+`--agentsview-port`.
+
+### 5. Undetermined questions
+
+Whether the panel, once actually reachable, shows exactly demo2's 9 sessions
+and no others (check 3) — still cannot be tested without a live daemon.
+
+### 6. New commits
+
+| commit | what |
+|---|---|
+| `84027bd` | share only `<zone>/config/projects` with the o11y prefix |
+
+### 7. Other
+
+None.
