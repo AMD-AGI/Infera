@@ -118,6 +118,27 @@ _env_prelude() {
 
 on() {
   case "$(_transport)" in
+    local)
+      # agent_sys is already running ON the node, so there is nothing to step
+      # into. **Never selected by the probe** — "no transport binary is present"
+      # is not the same fact as "I am on the node", and guessing wrong would run
+      # every GPU command on the login node. It has to be asked for.
+      #
+      # Restored rather than invented: `profiling-demo` had this branch and the
+      # copy this file came from dropped it, while `environment.schema.json`'s
+      # `transport` enum and `CONTRACT.md` §2.1 both still list `local`. So a
+      # conforming environment record could say `transport: local`, validate,
+      # and name a transport nothing implemented.
+      #
+      # `bash -c` and not `-lc`: locally the caller's environment is already the
+      # one it wants, and a login shell would replace its PATH with the profile's
+      # — which is the opposite of what the other two branches use `-l` for,
+      # where there is no inherited environment to preserve.
+      #
+      # No `_env_prelude` for the same reason: nothing was lost crossing a
+      # boundary, because no boundary was crossed.
+      bash -c "$*" </dev/null
+      ;;
     srun)
       srun --jobid="${E2E_JOBID:?E2E_JOBID is unset}" --overlap -N1 -n1 \
         -w "${E2E_NODE:?E2E_NODE is unset}" --export=ALL bash -lc "$*" </dev/null

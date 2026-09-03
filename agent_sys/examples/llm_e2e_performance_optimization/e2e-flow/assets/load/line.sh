@@ -145,7 +145,15 @@ if [ -n "$KIT_NODE" ] && [ "$KIT_NODE" != "${E2E_NODE:?}" ]; then
   say "ABORT: deploy_kit was taken on '$KIT_NODE' and this run is pointed at '$E2E_NODE'"
   exit 1
 fi
+# **Exported, not merely assigned.** `replay.sh` runs as a child and reads this
+# under `set -u`. It worked only because `shared.yaml` ships
+# `E2E_SERVED_NAME: '${served_name:-}'`, so the variable arrives *exported and
+# empty* and `:=` preserves the export attribute — i.e. correctness depended on
+# how the variable happened to arrive rather than on anything this file does.
+# Found by running the real path against a stub kit, where the variable was
+# absent instead of empty and `replay.sh` died with `unbound variable`.
 : "${E2E_SERVED_NAME:=${KIT_SERVED_MODEL_NAME:-$E2E_MODEL_NAME}}"
+export E2E_SERVED_NAME
 say "kit: node=$KIT_NODE image=$KIT_IMAGE tp=$KIT_TP_SIZE served=$E2E_SERVED_NAME"
 say "this line: run_tag=$E2E_KIT_RUN_TAG port_base=$E2E_KIT_PORT_BASE"
 say "  engine argv += '${E2E_KIT_ENGINE_EXTRA_ARGS:-<none>}'"
