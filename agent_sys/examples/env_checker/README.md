@@ -135,6 +135,33 @@ Written down rather than left to be discovered.
 5. **No `resources` block.** A leaf may declare a pool; nothing here needs one,
    and `cli/build.py:85` — the only reader — declares no pools anyway.
 
+## Deferred, on purpose — the runtime declaration check
+
+`selftest/run.py`'s case 2 catches **expected-but-declared-nowhere** before a
+run: every capability reached through MCP has an artefact declaring its surface,
+the brief states that surface verbatim, and every declared surface is claimed.
+Three assertions, each demonstrated red.
+
+It does **not** catch **declared-but-did-not-arrive** — a mis-set `${VAR}`, an
+unplaced file, a component whose install failed. That check exists in design:
+compare `Capability.surface` against the names `env_mgr` now records in
+`$AGENT_SYS_INSTALL_REPORT` (`agent_assets` records `names` for the external
+route, `server` for the bundled one, and `server` + `tools` for the in-process
+one, as of `9a9fdff`). It is three lines in `check_capabilities_genuine`, which
+already reads that file.
+
+**It is deliberately not built for run 2**, and the reason is worth keeping:
+**run 2 is itself the empirical check for that class.** A declared server that
+does not arrive makes its capability fail, and the acceptance table says so. A
+cheaper detector for something the expensive detector is about to run anyway
+buys a tree move, a pre-flight re-run and a fresh mutation baseline, and the
+tree moved six times on 2026-09-03.
+
+If run 2 surfaces a declared-but-absent server, that is the evidence for
+building it — and its shape will come from a real failure rather than from a
+design. Written here rather than left in a thread, because *a comment is not a
+declaration* and neither is a mailbox.
+
 ## Measured, so not assumed
 
 Six probes on 2026-09-03, first-hand, written up at
@@ -145,11 +172,22 @@ has a mechanism behind it that was run rather than read about:
 |---|---|
 | A | `claude plugin marketplace add` / `install` honour `CLAUDE_CONFIG_DIR`; `~/.claude` untouched |
 | A' | they **merge** into an existing `settings.json` rather than clobbering it |
-| B | a `SessionStart` command hook in `$CLAUDE_CONFIG_DIR/settings.json` **fires for an SDK-started session** |
-| C | an external `mcp_servers` entry reaches the model and a real `tools/call` returns; the working shape carries `"type": "stdio"` |
+| B' | a `SessionStart` command hook in `$CLAUDE_CONFIG_DIR/settings.json` **fires for an SDK-started session** |
+| C' | an external `mcp_servers` entry reaches the model and a real `tools/call` returns; the working shape carries `"type": "stdio"` |
 | D | `uv tool install "git+https://github.com/oraios/serena"` returns rc 0 |
 | E | the installed serena serves 21 MCP tools, `Serena 1.28.1` |
-| F | a plugin installed into the zone config **is visible to the session** — and loads from the marketplace **source** directory, not from a copy |
+| F' | a plugin installed into the zone config **is visible to the session** — and loads from the marketplace **source** directory, not from a copy |
+
+**B', C' and F' carry primes because the originals were about the wrong build.**
+They were first measured through `ClaudeAgentOptions` with no `cli_path`, and
+the SDK's `_find_cli` returns its own *bundled* binary — **2.1.251** — before it
+consults `PATH`, while the run pins **2.1.246** through `Prepared.agent_cli`.
+Re-measured on the pinned build, all three still hold; A and A' hold on it by
+direct repetition. A probe is evidence about the build it ran on, and that
+applies to probes about the harness exactly as it applies to probes about
+serena. `ACCEPTANCE.md` pre-flight row **6b** is what keeps this true: it pins
+the version, and a mismatch stops the run for two reasons at once — an
+uncharacterised CLI, and evidence that no longer applies to it.
 
 F is why `.claude/plugins/` sits inside the agent asset directory that gets
 staged: a marketplace pointed anywhere else installs cleanly and then fails to

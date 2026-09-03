@@ -120,6 +120,16 @@ worse than one whose edges are known.
   which is a fault, not a shrug. `env_mgr` exporting that variable is what
   closes it.
 
+  **The variable arrives; the grant beside it does not.** `env_mgr` derives a
+  read grant on the components root when an agent declares `components:`, and
+  that grant is for the **agent's** zone. This body does not run in one: a
+  validation zone is built by `validator/environment.py` in a `mkdtemp`, not
+  through `env_mgr.prepare`, so `component_grants` never runs for it. Harmless
+  today, because nothing is enforced in a validator zone — and worth writing
+  down rather than discovering, because the day validator zones are confined is
+  the day this read starts failing, and the cause would otherwise look like a
+  missing variable rather than a missing grant.
+
 Every one of these is a **false negative**: this validator does not report a
 report that has the problem. There is no configuration under which it reports a
 report that does not — every rule compares a string the agent wrote against a

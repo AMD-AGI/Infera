@@ -83,9 +83,20 @@ def components_root(package: Path) -> tuple[Path | None, str]:
         candidate = parent / COMPONENTS_REL
         if candidate.is_dir():
             return candidate, f"found at {candidate}"
+    # **The environment is printed, not merely named.** Measured 2026-09-03,
+    # run 2: this fault fired and neither the stream nor any artefact recorded
+    # whether the variable had been set — `AGENT_SYS_COMPONENTS_ROOT` appears
+    # zero times across every event kind — so "unset" was an inference from the
+    # fault text rather than an observation. Listing what the body *did* have
+    # makes the next occurrence evidence: an empty list says the validator zone
+    # carries no `AGENT_SYS_*` at all, and a list without this one says the zone
+    # is populated and this variable specifically is missing. Those are
+    # different bugs and the fault text could not previously tell them apart.
+    present = sorted(k for k in os.environ if k.startswith("AGENT_SYS_"))
     return None, (
         f"${COMPONENTS_ENV} is unset and no {COMPONENTS_REL} exists above "
-        f"{package} — the L2 capability cannot be re-derived"
+        f"{package} — the L2 capability cannot be re-derived. "
+        f"AGENT_SYS_* present in this body's environment: {present or '(none)'}"
     )
 
 
@@ -396,6 +407,18 @@ def check_raw_token(where: str, proof: object, token: str) -> list[str]:
 
 def serena_excused(installs: object) -> tuple[bool, str]:
     """Whether the run's own install report says serena failed.
+
+    **The partition is `warn`/`fail`, and the owner is named because the
+    vocabulary is not ours.** `env_mgr.outcome.LEVELS` is exactly
+    `("ok", "info", "warn", "fail")` — there is no `refused` — and nothing
+    revalidates a level downstream, so two consumers of the same file can
+    silently disagree about where the line falls. That happened on run 1: this
+    body read `warn`/`fail` as failure while a second reader read `!= "ok"`, so
+    the benign `info | recipe serena.yaml: OK` line counted as evidence of a
+    failed install and would have let an `unavailable` through against a clean
+    report. **`info` is not a failure.** Stating the owner and the chosen
+    partition is what stops this from being a second vocabulary that merely
+    looks like `env_mgr`'s.
 
     **Deliberately tolerant about the entry's shape and strict about its
     content.** `env_mgr`'s `Outcome` is a level, a message and an extra mapping,

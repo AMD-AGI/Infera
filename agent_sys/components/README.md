@@ -46,14 +46,32 @@ read by a person:
 
 ## Paths inside a component
 
-A component is copied into the zone before it is used, so **nothing in it may
-name a path outside itself**. Where a component has to point at one of its own
-files — an `.mcp.json` naming the server it ships — it does so through
-`${CLAUDE_CONFIG_DIR}`, which `env_mgr` has already redirected at the zone's
-`config/` directory (`env_mgr/material.py:63`). A component that hard-codes
+A component's `.claude/` tree is copied into the zone before it is used, so
+**nothing in it may name a path outside itself**. Where a component has to point
+at one of its own files — an `.mcp.json` naming the server it ships — it does so
+through `${CLAUDE_CONFIG_DIR}`, which `env_mgr` has already redirected at the
+zone's `config/` directory (`env_mgr/material.py`). A component that hard-codes
 `/home/<someone>/...` works on exactly one machine and fails silently on the
 next, because an MCP server that cannot start is reported as a server with no
 tools rather than as an error.
+
+**Copying is the default and the exceptions are enumerated**
+(`env_mgr/agent_assets.py::_place_tree` and `_NOT_PLACED`). Every member of
+`.claude/` is copied into the zone config directory except three, and each of
+those is *read* or *relocated* rather than skipped: `settings.json` is **merged**
+into the zone's own, `.mcp.json` is **read** and its `${VAR}`s expanded against
+the zone environment, and `plugins/` is **relocated** to `marketplaces/` because
+`claude plugin install` writes `<config>/plugins/` itself. So `servers/`,
+`hooks/`, `skills/` and `tools/` land where a `${CLAUDE_CONFIG_DIR}`-relative
+path expects them, and the two files that configure rather than ship are not
+there at all.
+
+**Do not reference `${AGENT_SYS_COMPONENTS_ROOT}` from inside a component.** That
+path is outside the zone; a server registered at it installs cleanly, reports
+success, and then cannot be read under confinement. Copy-into-the-zone is one
+rule for L2 and L3 alike — L3's `tools/*.mcp.py` used to be registered at its
+source path and worked only because that path happened to lie inside the staged
+package.
 
 ## What is here
 

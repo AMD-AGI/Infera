@@ -88,11 +88,26 @@
   # else's network without measuring anything the first does not.
   recipes: [serena]
 
-  # **L2 — a component this repository ships**, resolved under
-  # `agent_sys/components/<name>/`. `envchk-baseline` carries one external MCP
-  # server; see `agent_sys/components/envchk-baseline/README.md` for what it
-  # does and, more usefully, what it does not.
-  components: [envchk-baseline]
+  # **L2 — components this repository ships**, resolved under
+  # `agent_sys/components/<name>/`. Two, and they are here for different
+  # reasons:
+  #
+  # - `envchk-baseline` **is** capability 4: one external MCP server, declared
+  #   through a component's `.mcp.json`. If that section fails, L2 failed.
+  # - `serena` is the **declaration half of capability 7**, and it is here
+  #   because of a measured bug rather than a preference. Run 1 (2026-09-03)
+  #   installed serena cleanly — `ok | ran: uv tool install …` — and the agent
+  #   reported `No such tool available` for every `mcp__serena__*` call, because
+  #   **nothing in the package declared serena as an MCP server**. The
+  #   invocation existed only in a comment in `env_mgr/recipes/serena.yaml`, and
+  #   a comment is not a declaration.
+  #
+  # **`recipes: [serena]` and `components: [serena]` are both required and that
+  # is not redundant.** Install and declaration are two halves; neither implies
+  # the other, and run 1 is what proved it. Capability 7 is therefore
+  # **installed at L1 and declared at L2** — a genuine split, written down in
+  # `ACCEPTANCE.md` row 7 rather than smoothed over.
+  components: [envchk-baseline, serena]
 
   # **`skills:` is absent, and its absence is the test.** The one capability
   # `agent_sys` already delivered was `skills`, by declaration

@@ -117,10 +117,38 @@ simply absent — that is L3's normal shape.
 **A failed install is a named `InstallOutcome`, never a silent skip.** Every
 subprocess's return code and output lands in `AgentMaterial.report`.
 
-## The one place package-authored code is imported
+## The one place package-authored code is imported — and what that costs it
 
 A ``*.tooldef.py`` is executed in **the supervisor's own process** to read its
-module-level ``TOOLS``. That is not a sandboxed act and nothing here pretends it
+module-level ``TOOLS``.
+
+**Measured 2026-09-03, and it has a consequence nobody had connected to it: an
+in-process tool cannot see the environment the run declared.** The security half
+of this sentence was written first — package code runs in the supervisor — and
+the other half follows from the same fact. The tool's ``call`` executes in the
+supervisor's process, so it reads the **supervisor's** ``os.environ``;
+``Prepared.environment``, which is where an agent spec's declared ``env`` block
+lands, is handed to the **CLI child** (`claude_sdk.py`'s
+``options.setdefault("env", …)``) and to nothing else. Driven through
+`claude_sdk._adapt_tool` with a probe tool and no model call:
+
+    supervisor  pid=784037   ENVCHK_NONCE=None
+    tool saw    pid=784037   thread='asyncio_0'   ENVCHK_NONCE=<unset>
+
+Found by a real run: a tool computed a token from an empty ``$ENVCHK_NONCE``,
+returned a well-formed result, and the value was right about the wrong
+environment. **The other two routes do not share this** — an external
+``.mcp.json`` entry has its own ``env`` block, and a bundled ``*.mcp.py`` gets
+one from `_mcp_servers` (and got the value by inheritance even before that).
+
+**This is what is true today, not a statement about what the route should be.**
+Whether the in-process route *ought* to be run-aware is an open decision and is
+not this module's to take: the loader already holds the zone environment and
+already loads each module once per attempt, so binding it at load — an additive
+contract rather than a global — is available and unbuilt. Until that is ruled,
+a component needing a run-specific value should ship a ``*.mcp.py`` rather than
+a ``*.tooldef.py``. Written this way on purpose: a reader who finds a constraint
+recorded as permanent cannot tell it from one that has since been removed. That is not a sandboxed act and nothing here pretends it
 is: the supervisor holds the API credentials the whole confinement design exists
 to keep away from a task body. Three narrowings, and they are the whole defence:
 it is done only for that exact suffix, only under ``tools/`` of a resolved
@@ -1099,7 +1127,38 @@ def _mcp_servers(
                     {"path": placed},
                 )
             )
-        servers[name] = {"type": "stdio", "command": sys.executable, "args": [placed]}
+        # **`env` stated, not inherited**, and the entry is the only place it can
+        # be stated. Measured (run 2, capability 5): the bundled server *did*
+        # see the run's `ENVCHK_NONCE` with no `env` key here at all — the SDK
+        # hands `Prepared.environment` to the CLI child, the CLI spawns this
+        # server as *its* child, and the value arrives by inheritance. So this
+        # is not a fix for something broken; it is a fix for **nothing stating
+        # why it works**, and what makes it work is a third party's process
+        # model. One CLI change from silent, and silent here means a
+        # well-formed answer computed against the wrong environment — which is
+        # exactly what the in-process route was measured doing.
+        #
+        # **The whole mapping, not a subset, and that is deliberate under an
+        # unmeasured semantics.** Whether the SDK *merges* this `env` with the
+        # child's or *replaces* it is not measured. A subset would be correct
+        # under merge and would strip `PATH` under replace, so the server would
+        # stop starting; the full mapping is correct under both. The available
+        # evidence points at merge — `envchk-baseline`'s `.mcp.json` declares
+        # only `ENVCHK_NONCE` and its server starts, which a replaced
+        # environment with no `PATH` makes hard to explain — but that is an
+        # inference from one run, not a measurement, and it is recorded as such
+        # rather than relied on.
+        #
+        # What is in it: this attempt's zone paths, the operator's harness block
+        # and the agent spec's declared `env`. The harness block carries
+        # credentials, and they already reached this server by inheritance — so
+        # the exposure is unchanged and is now **visible**, which is the point.
+        servers[name] = {
+            "type": "stdio",
+            "command": sys.executable,
+            "args": [placed],
+            "env": dict(environ),
+        }
         out.append(
             InstallOutcome(
                 "ok",

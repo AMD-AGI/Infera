@@ -70,9 +70,26 @@ entry shape measured working through `ClaudeAgentOptions.mcp_servers` on
 and a component is not the place to rely on a default that a probe did not
 cover.
 
-`${CLAUDE_CONFIG_DIR}` and not an absolute path, because a component is **copied
-into the zone** before it is used and `env_mgr` has already pointed that
-variable at the zone's `config/` (`env_mgr/material.py:63`). An absolute path
-here would work on the machine it was written on and fail on the next one **as a
-server with no tools rather than as an error**, which is the failure mode this
-whole example package exists to make impossible.
+`${CLAUDE_CONFIG_DIR}` and not an absolute path, because
+`.claude/servers/envchk_baseline_server.py` is **copied into the zone** before
+the server is started, and `env_mgr` has already pointed that variable at the
+zone's `config/` (`env_mgr/material.py`). An absolute path here would work on
+the machine it was written on and fail on the next one **as a server with no
+tools rather than as an error**, which is the failure mode this whole example
+package exists to make impossible.
+
+**Copying is the default, not a special case for `servers/`.**
+`env_mgr/agent_assets.py::_place_tree` copies every member of a `.claude/` tree
+into the zone config directory except a closed set — and the three exceptions
+are *read* or *relocated*, never skipped:
+
+| member | what happens to it | so |
+|---|---|---|
+| `settings.json` | **read and merged** into the zone's own | it does not land as a file of yours |
+| `.mcp.json` | **read**, `${VAR}` expanded against the zone environment, entries handed to `Prepared.mcp_servers` | likewise — and this is why an unresolved `${VAR}` is an error rather than a literal |
+| `plugins/` | **relocated** to `<config>/marketplaces/`, because `claude plugin install` writes `<config>/plugins/` itself and a component's source marketplace on that name is a collision | probe A |
+| everything else — `servers/`, `hooks/`, `skills/`, `tools/` | **copied** as-is | the path a `${CLAUDE_CONFIG_DIR}`-relative reference names is there |
+
+So this component's `.mcp.json` never becomes a file in the zone, and the server
+it names does. Both halves matter: the first is why the entry is data rather
+than a path to a config file, and the second is why the path in it resolves.

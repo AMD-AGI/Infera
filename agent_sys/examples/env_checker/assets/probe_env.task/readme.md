@@ -155,8 +155,16 @@ only if something is wrong.
 
 ## 7. serena — L1
 
-The real serena, installed by an `env_mgr` recipe over the network. Its tools
-are `mcp__serena__*`.
+The real serena. **Two halves**, and knowing which is which is what makes an
+honest report possible here: the binary is installed by an `env_mgr` recipe
+(L1, `recipes: [serena]`), and it is registered as an MCP server by a component
+(L2, `components: [serena]`). Its tools are `mcp__serena__*`.
+
+If those tools are absent from your tool list, say so plainly — and check
+`$UV_TOOL_BIN_DIR` so you can report **which half is missing**: a binary that
+exists with no tools is a declaration problem, and no binary is an install
+problem. Run 1 of this package was the first: installed, undeclared, and every
+call returned `No such tool available`.
 
 There is no serena-shaped token to ask for, so the token is planted in a file
 serena has to find:
@@ -239,7 +247,10 @@ to work for or an honest failure you could point at.
 ## `install_report`
 
 `env_mgr` records an outcome per recipe, component and capability it installed —
-a `level` (`ok`, `info`, `warn`, `fail`, `refused`), a `message` and `details`.
+a `level`, a `message` and `details`. The levels are **`ok`, `info`, `warn`,
+`fail`** — that tuple is owned by `env_mgr.outcome.LEVELS` and it is the
+whole set; there is no `refused`. Copy the levels through verbatim and do
+not re-word them.
 It writes them to **`$AGENT_SYS_INSTALL_REPORT`**, a JSON file whose contents
 are an object:
 

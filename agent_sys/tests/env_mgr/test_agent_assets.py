@@ -1939,3 +1939,50 @@ def test_a_tool_with_no_name_is_recorded_as_such_rather_than_crashing(
 
     (inproc,) = [o for o in got.report if "in-process tool(s)" in o.message]
     assert inproc.details["tools"] == ["<unnamed>"]
+
+
+def test_a_bundled_server_entry_states_the_run_environment_rather_than_inheriting_it(
+    tmp_path: Path,
+) -> None:
+    """**Not a fix for something broken — a fix for nothing stating why it works.**
+
+    Measured in run 2 (capability 5): the bundled server saw the run's
+    `ENVCHK_NONCE` with no `env` key in the generated entry at all. The SDK
+    hands `Prepared.environment` to the CLI child, the CLI spawns this server as
+    *its* child, and the value arrives by inheritance — a third party's process
+    model, one CLI change from silent. Silent here means a well-formed answer
+    computed against the wrong environment, which is precisely what the
+    in-process route was measured doing.
+
+    The **whole** mapping is asserted rather than one key, because the
+    merge-versus-replace semantics of `env` on a stdio entry is unmeasured: a
+    subset is correct under merge and strips `PATH` under replace. A test that
+    accepted a subset would pass while the servers stopped starting.
+    """
+    pkg = tmp_path / "staged"
+    assets = _package(pkg)
+    _write(assets / ".claude" / "tools" / "srv.mcp.py", "# a server")
+    config = tmp_path / "config"
+    environ = {
+        "ENVCHK_NONCE": "deadbeef",
+        "PATH": "/usr/bin:/bin",
+        "CLAUDE_CONFIG_DIR": str(config),
+    }
+
+    got = install(
+        _spec(assets="assets/forge.agent"),
+        staged_package=str(pkg),
+        config_dir=str(config),
+        environ=environ,
+    )
+
+    entry = got.mcp_servers["srv"]
+    assert entry["env"]["ENVCHK_NONCE"] == "deadbeef", (
+        "the run's declared value is not in the entry, so the server depends on "
+        "inheriting it from the CLI child"
+    )
+    for key, value in environ.items():
+        assert entry["env"][key] == value, f"{key} missing; a subset breaks under replace"
+    # It is a copy, not the live mapping: one server's entry must not be
+    # editable through another's, and `Prepared.mcp_servers` crosses to `agent`.
+    assert entry["env"] is not environ

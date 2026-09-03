@@ -58,6 +58,7 @@ __all__ = [
     "PROOF_KEYS",
     "REPORT_KEYS",
     "SALT_TAG",
+    "server_of",
     "STATUSES",
     "Capability",
     "nonce_digest",
@@ -83,9 +84,16 @@ class Capability(NamedTuple):
     #: The key under `capabilities` in the handoff's `items/text.json`, and the
     #: `label` half of every token derivation.
     label: str
-    #: Which install level delivered it — the fact this whole package exists to
-    #: measure. A section reporting the wrong level is a fault even when its
+    #: Which install level **installed** it — the fact this whole package exists
+    #: to measure. A section reporting the wrong level is a fault even when its
     #: token is right, because it means the report is describing another route.
+    #:
+    #: **Installed, not declared, and for `serena` the two differ.** Its binary
+    #: comes from L1 (`recipes: [serena]`) and its MCP registration from L2
+    #: (`components: [serena]`), so this field reads `L1` and `ACCEPTANCE.md`
+    #: row 7 carries the other half. Run 1 shipped with the install and no
+    #: declaration and every `mcp__serena__*` call failed, which is why the
+    #: distinction is spelled out here instead of left to the word "delivered".
     level: str
     #: `package` — relative to `$AGENT_SYS_TASK_PACKAGE`; or
     #: `component:<name>` — relative to that component's directory in the
@@ -103,6 +111,45 @@ class Capability(NamedTuple):
     #: `capabilities.plugin: token mismatch` and nothing else sends a reader to
     #: this file; saying it in the message saves the trip.
     what: str
+    #: The **full name the brief tells the agent to call**, or `None` for the
+    #: three capabilities not reached through MCP at all.
+    #:
+    #: **Written as the brief's name, not as the component's `.mcp.json` key,
+    #: and the provenance is the point.** The same string lives in
+    #: `assets/probe_env.task/readme.md` as prose — `mcp__envchk_baseline__…`,
+    #: `mcp__envchk_stdio__…`, `mcp__env_mgr__envchk_echo_token`,
+    #: `mcp__serena__find_symbol` — and until this field existed nothing could
+    #: compare that prose to the `.mcp.json` data. Sourcing the row from the
+    #: brief makes a **brief-versus-component** disagreement visible too, which
+    #: a row copied from the component could never see.
+    #:
+    #: **The full name and not the bare server key**, because the tool half is
+    #: where the mistake actually happens: the brief itself warns that the
+    #: in-process tool is `mcp__env_mgr__…` — *"`env_mgr`, not `envchk`, and
+    #: getting that wrong is the most common way this section fails"*. A bare
+    #: `env_mgr` would drop exactly the half that gets typed wrong. The server
+    #: half is recovered with `server_of()` for the checks that need it.
+    #:
+    #: `label` is the *report* key (`mcp_external`); this is the *registered*
+    #: name (`envchk_baseline`), and nothing else in the tree relates the two.
+    #: Run 1 is why the field exists: serena installed cleanly, no artefact
+    #: declared a server called `serena`, every `mcp__serena__*` call returned
+    #: `No such tool available`, and **nothing could ask whether the name had
+    #: ever been registered** because nothing recorded what the capability
+    #: expected to be called.
+    #:
+    #: **This is a second statement of a name that also lives in a `.mcp.json`,
+    #: and the two can drift.** That is deliberate and is the trade this package
+    #: makes everywhere: drift surfaces as a **failed check** naming both sides,
+    #: not as a capability that quietly is not there. Do not "remove the
+    #: duplication" — removing it removes the only cross-check.
+    #:
+    #: `env_mgr` is a **constant** server: it exists the moment any `ToolDef`
+    #: does. Statically it is still worth checking — a `*.tooldef.py` declaring
+    #: no `TOOLS` publishes nothing — but a *runtime* check asserting only
+    #: `env_mgr` would be a check that cannot fail, which is why the runtime
+    #: comparison must use the tool half this field preserves.
+    surface: str | None
 
 
 #: The register. **Order is the order a reader meets them in the brief**, and
@@ -116,6 +163,7 @@ CAPABILITIES: tuple[Capability, ...] = (
         artefact="assets/env_probe.agent/.claude/skills/envchk-probe/SKILL.md",
         replay="salt",
         what="a skill in the agent's own .claude/skills/",
+        surface=None,
     ),
     Capability(
         label="hook",
@@ -124,6 +172,7 @@ CAPABILITIES: tuple[Capability, ...] = (
         artefact="assets/env_probe.agent/.claude/hooks/envchk_session_start.py",
         replay="file",
         what="a SessionStart hook declared in .claude/settings.json",
+        surface=None,
     ),
     Capability(
         label="plugin",
@@ -135,6 +184,7 @@ CAPABILITIES: tuple[Capability, ...] = (
         ),
         replay="salt",
         what="a skill shipped inside a plugin installed from a local marketplace",
+        surface=None,
     ),
     Capability(
         label="mcp_external",
@@ -143,6 +193,7 @@ CAPABILITIES: tuple[Capability, ...] = (
         artefact=".claude/servers/envchk_baseline_server.py",
         replay="mcp",
         what="an external MCP server declared in a component's .claude/.mcp.json",
+        surface="mcp__envchk_baseline__envchk_report",
     ),
     Capability(
         label="mcp_stdio",
@@ -151,6 +202,7 @@ CAPABILITIES: tuple[Capability, ...] = (
         artefact="assets/env_probe.agent/.claude/tools/envchk_stdio.mcp.py",
         replay="mcp",
         what="a bundled stdio MCP server auto-registered from .claude/tools/*.mcp.py",
+        surface="mcp__envchk_stdio__envchk_report",
     ),
     Capability(
         label="tooldef",
@@ -159,6 +211,7 @@ CAPABILITIES: tuple[Capability, ...] = (
         artefact="assets/env_probe.agent/.claude/tools/envchk_inproc.tooldef.py",
         replay="import",
         what="an in-process ToolDef published as mcp__env_mgr__envchk_echo_token",
+        surface="mcp__env_mgr__envchk_echo_token",
     ),
     Capability(
         label="serena",
@@ -167,6 +220,7 @@ CAPABILITIES: tuple[Capability, ...] = (
         artefact="assets/env_probe.agent/serena_probe.py",
         replay="salt",
         what="the real serena, installed by an env_mgr recipe, reading a planted symbol",
+        surface="mcp__serena__find_symbol",
     ),
 )
 
@@ -248,3 +302,17 @@ def salt_of(path: Path) -> tuple[str | None, str]:
     if len(set(found)) > 1:
         return None, f"{path}: {len(set(found))} different ENVCHK_SALT tags: {sorted(set(found))}"
     return found[0], ""
+
+
+def server_of(surface: str) -> str:
+    """`mcp__<server>__<tool>` -> `<server>`.
+
+    The declaration routes name **servers**; the brief names **tools**. This is
+    the one place the two vocabularies are related, so a check comparing an
+    expectation against a `.mcp.json` key and a check comparing it against the
+    brief's prose cannot disagree about what the server half is.
+    """
+    parts = surface.split("__")
+    if len(parts) < 3 or parts[0] != "mcp":
+        raise ValueError(f"{surface!r} is not mcp__<server>__<tool>")
+    return parts[1]

@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "serena": {
+      "type": "stdio",
+      "command": "${UV_TOOL_BIN_DIR}/serena",
+      "args": [
+        "start-mcp-server",
+        "--context", "claude-code",
+        "--project", "${AGENT_SYS_MY_WORKSPACE}",
+        "--transport", "stdio"
+      ],
+      "env": {
+        "HOME": "${TMPDIR}"
+      }
+    }
+  }
+}
