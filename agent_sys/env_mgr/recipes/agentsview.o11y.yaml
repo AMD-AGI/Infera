@@ -1,0 +1,76 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
+#
+# AgentsView, agent_sys's o11y panel. An external dependency, installed
+# unmodified into agent_sys's own prefix.
+#
+# `importance: suggested` is load-bearing, not decoration: `level_for_missing`
+# turns a failed install of a non-required item into a warning, which is
+# exactly the "o11y may never fail a deployment" rule, using the mechanism
+# env_mgr already has rather than a second one.
+#
+# `target.path` below is a placeholder, same convention as
+# `recipes/sglang.repo.yaml`: neither `recipe.py` nor the `bin` installer
+# expand `${VAR}` in a YAML value (confirmed by reading `recipe.py::load_recipe`
+# and `installers/base.py::run_cmd` — there is no templating layer anywhere in
+# env_mgr). The one substitution point that *is* real code is the CLI's
+# `--path` flag (`cli.py:75`, `target.path = args.path`), so the prefix is
+# supplied at invocation time:
+#
+#   PATH="$AGENT_SYS_HOME/bin:$PATH" \
+#     env-mgr install env_mgr/recipes/agentsview.o11y.yaml --path "$AGENT_SYS_HOME"
+#
+# `install:` and `check_cmd:` both run via `subprocess.run(cmd, shell=True,
+# cwd=target.path)` with no explicit `env=` (`installers/base.py::run_cmd`), so
+# both inherit whatever environment the `env-mgr` process itself was started
+# with — neither sees `target.path` or any other recipe field. Two
+# consequences, both measured, not assumed:
+#   - `install:` expands `$AGENT_SYS_HOME` from that ambient environment (the
+#     one variable the invocation above exports); it does not introduce a
+#     second variable (`$AGENT_SYS_BIN`) that nothing in this call chain sets.
+#   - `check_cmd: "agentsview --version"` is a bare command name, so it only
+#     finds the binary — and therefore only reports "already present (skip)"
+#     on a second run — if `$AGENT_SYS_HOME/bin` is already on the invoking
+#     shell's `PATH`. Without it, `check` and `install` both silently treat
+#     the item as missing and re-run the download every time; harmless
+#     (idempotent overwrite) but not the "skip" the plan expects. `agent_sys`'s
+#     own process tree already has this covered — `env_mgr/o11y/prefix.py`'s
+#     `agent_environment()` puts `$AGENT_SYS_BIN` at the front of `PATH` for
+#     everything `agent_sys` spawns — but a human or CI running `env-mgr`
+#     directly must export the PATH prefix themselves, as in the line above.
+#
+# The download is pinned to a specific release rather than "latest": a
+# floating install means two machines can end up running different panels
+# with no record of which, and re-deriving "latest" here would duplicate
+# logic the upstream install.sh already owns (`get_latest_version`). Bumping
+# the version is a one-line edit of the three places it appears below plus
+# `version:`.
+version: 1
+
+target:
+  kind: prefix
+  name: infera_agent_sys
+  path: /path/to/your/.infera_agent_sys
+
+items:
+  - installer: bin
+    importance: suggested
+    layer: system
+    name: agentsview
+    version: "0.42.0"
+    check_cmd: "agentsview --version"
+    install: >-
+      set -e;
+      tmp=$(mktemp -d);
+      trap 'rm -rf "$tmp"' EXIT;
+      base="https://github.com/kenn-io/agentsview/releases/download/v0.42.0";
+      curl -fsSL "$base/agentsview_0.42.0_linux_amd64.tar.gz" -o "$tmp/av.tgz";
+      curl -fsSL "$base/SHA256SUMS" -o "$tmp/SHA256SUMS";
+      expected=$(awk '$2=="agentsview_0.42.0_linux_amd64.tar.gz"{print $1}' "$tmp/SHA256SUMS");
+      actual=$(sha256sum "$tmp/av.tgz" | cut -d' ' -f1);
+      [ -n "$expected" ] && [ "$expected" = "$actual" ];
+      tar -xzf "$tmp/av.tgz" -C "$tmp" agentsview;
+      mkdir -p "$AGENT_SYS_HOME/bin";
+      mv "$tmp/agentsview" "$AGENT_SYS_HOME/bin/agentsview";
+      chmod +x "$AGENT_SYS_HOME/bin/agentsview"
+    tags: [o11y]

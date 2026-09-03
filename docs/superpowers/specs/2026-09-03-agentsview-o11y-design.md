@@ -47,15 +47,30 @@ by `env_mgr`:
 └── run/                        $AGENT_SYS_RUN          # pid / port record
 ```
 
+Measured (Phase 0 recon): on first invocation with `CLAUDE_CONFIG_DIR` pointed
+at `state/claude`, the `claude` CLI itself lazily creates `.claude.json`,
+`backups/`, and `sessions/` as siblings of `projects/` under that root — the
+tree above names only what `env_mgr` creates ahead of time; the CLI adds the
+rest on its own the first time it runs there.
+
 The variable names join the `AGENT_SYS_*` family that `env_mgr/paths.py` already
 defines (`AGENT_SYS_MY_ZONE`, `AGENT_SYS_TASK_PACKAGE`, …). The directory name
 is `~/.infera_agent_sys` as specified.
 
-**`$AGENT_SYS_BIN` is appended to `PATH` only inside `agent_sys`'s own process
-tree.** `env_mgr/prepare.py` already derives `environment = {"PATH":
-executable_path(policy)}` rather than reading the ambient one; the prefix joins
-that derivation. No shell rc file is written and no host state outside the
-prefix is touched.
+**The agent child's environment gains the `AGENT_SYS_*` variables and
+`CLAUDE_CONFIG_DIR`, but *not* the prefix on `PATH`.** `env_mgr/prepare.py`
+derives `environment = {"PATH": executable_path(policy)}` rather than reading
+the ambient one, and that `PATH` is a *projection of the granted set* — which is
+what makes it structurally impossible for it to name a directory the kernel will
+refuse. `DEFAULT_SYSTEM_SET` (`isolation/policy.py:72`) does not include `$HOME`,
+so prepending `~/.infera_agent_sys/bin` would put an `EACCES` on `PATH` and undo
+that invariant; measured, as the failure of
+`test_prepared_environment_carries_a_derived_path`. Nothing in the child needs
+to *exec* the binary anyway — the panel is started once per invocation by the
+CLI, not per task — and `$AGENT_SYS_BIN` still names the directory for a
+consumer that knows it is granted. `agent_environment(..., bin_on_path=False)`
+is that call. No shell rc file is written and no host state outside the prefix
+is touched.
 
 **`state/claude` is deliberately not under a run root.** The daemon outlives any
 single run, so `CLAUDE_PROJECTS_DIR` must be a stable path. Sessions from every
