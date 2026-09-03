@@ -3,19 +3,23 @@
 #
 # SPDX-License-Identifier: MIT
 ###############################################################################
-"""Counting-probe correctness classifier.
+"""Semantic correctness probes: their prompts and classifiers.
 
-Ported from the atom_tasks stress-probe (``task3_results/probe_check.py``):
-send a deterministic "keep counting" prompt and verify the service replies
-with real counting — or at least coherently acknowledges the task — rather
-than token-salad / garbage.
+Three probes, in ascending order of what they can catch:
 
-Lenient rule (temp=0, wording varies): a response is CORRECT if it is NOT
-garbage AND it either
-  - emits an ascending consecutive integer run of length >= 5 (e.g. 6,7,8,9,10), or
-  - mentions counting/number/sequence (any language, incl. 数/计数/数到).
+1. counting (``/v1/completions``) — the engine emits coherent tokens at all.
+   Ported from the atom_tasks stress-probe (``task3_results/probe_check.py``):
+   seed "1,2,3,4,5," and require an ascending consecutive run of >= 5 integers.
+2. capital (``/v1/chat/completions``) — one memorised fact survives the chat
+   template.
+3. long context (``/v1/completions``) — a 4-digit code buried ~55% into a ~9k-char
+   ledger has to be retrieved. This is the only probe that fills more than a
+   handful of KV blocks, so it is also the only one that makes the PD tier's
+   prefill→decode transfer move a KV cache worth the name.
 
-Pure logic, no dependencies — usable from e2e assertions and unit tests alike.
+Probes 1 and 2 pass on any model that still produces fluent text; 3 does not.
+That gap catches fluent-but-wrong output from broken kernels without executing
+model-generated code on the test orchestrator.
 """
 
 from __future__ import annotations
@@ -84,3 +88,60 @@ def is_capital_correct(text: str) -> bool:
     if not t or looks_garbage(t):
         return False
     return "beijing" in t.lower()
+
+
+# --- probe 3: long-context retrieval -----------------------------------------
+
+# The needle. Four digits, and no filler value can collide with it: line numbers are
+# 3-digit and crate counts stay under 200.
+LONGCTX_ANSWER = "4731"
+
+# ~9k chars ≈ 2.5k tokens: long enough to span many KV blocks, short enough for the
+# tightest --max-model-len in the matrix (9472, with room for the answer).
+LONGCTX_LINES = 130
+
+# Mid-document, where neither primacy nor recency helps the model cheat.
+LONGCTX_NEEDLE_FRAC = 0.55
+LONGCTX_MAX_TOKENS = 32
+
+_DEPOTS = ("ALPHA", "BRAVO", "CIVET", "DELTA", "ECHO", "FOXTROT", "GOLF")
+_GOODS = (
+    "grade-B cable",
+    "sealed bearings",
+    "ceramic fuses",
+    "copper lugs",
+    "anodised brackets",
+    "silicone gaskets",
+    "steel shims",
+)
+
+
+def build_longctx_prompt() -> str:
+    """A deterministic depot ledger with the access code on one line ~55% in, then the
+    question. Uniform lines, so finding it is retrieval rather than spotting an oddity."""
+    needle_line = int(LONGCTX_LINES * LONGCTX_NEEDLE_FRAC)
+    lines = []
+    for i in range(1, LONGCTX_LINES + 1):
+        if i == needle_line:
+            lines.append(
+                f"Ledger {i:03d}: the archive access code for this quarter is "
+                f"{LONGCTX_ANSWER}; keep it on file."
+            )
+            continue
+        lines.append(
+            f"Ledger {i:03d}: depot {_DEPOTS[i % len(_DEPOTS)]} shipped "
+            f"{40 + (i * 7) % 160} crates of {_GOODS[(i * 3) % len(_GOODS)]} "
+            f"on day {1 + i % 28}."
+        )
+    return "\n".join(lines) + (
+        "\n\nQuestion: according to the ledger above, what is the archive access code "
+        "for this quarter?\nAnswer with the digits only.\nAnswer:"
+    )
+
+
+def is_longctx_correct(text: str) -> bool:
+    """Correct = NOT garbage AND the reply carries the buried access code."""
+    if not text:
+        return False
+    t = text.strip()
+    return bool(t) and not looks_garbage(t) and LONGCTX_ANSWER in t

@@ -95,6 +95,10 @@ class WorkerHandle:
     gpu_ids: list[int]
     proc: subprocess.Popen
     log_path: str
+    # Which adapter spawned this worker. Only labels the MTP report line, and that
+    # matters: ATOM publishes no /metrics, so a "no spec counters" line is normal
+    # there and a fault on sglang/vllm — without the name they read identically.
+    engine: str = ""
 
 
 class GpuAllocator:
@@ -142,6 +146,8 @@ class EngineAdapter(ABC):
         (some models need a specific env var to run; it wins on collisions)."""
         env = {"HIP_VISIBLE_DEVICES": ",".join(str(g) for g in gpu_ids)}
         env.update(dict(params.extra_env))
+        if self.engine in {"sglang", "vllm"}:
+            env.setdefault("INFERA_ENGINE_READY_TIMEOUT", str(params.server_ready_timeout))
         return env
 
     def pick_port(self) -> int:
@@ -368,6 +374,7 @@ async def _launch_once(
                             gpu_ids=gpu_ids,
                             proc=proc,
                             log_path=log_path,
+                            engine=adapter.engine,
                         )
             except httpx.HTTPError:
                 pass

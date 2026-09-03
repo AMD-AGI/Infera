@@ -59,6 +59,11 @@ class VllmAdapter(EngineAdapter):
             "--trust-remote-code",
         ]
 
+        if params.dp_attention:
+            raise ValueError(
+                "vLLM has data parallel serving, not SGLang DP-attention; "
+                "the dp_attention matrix axis is unsupported"
+            )
         tp = max(1, params.tensor_parallel_size)
         if tp > 1:
             argv += ["--tensor-parallel-size", str(tp)]

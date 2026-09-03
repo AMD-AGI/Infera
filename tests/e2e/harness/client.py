@@ -45,7 +45,7 @@ async def chat_json(server_url: str, model: str, content: str, **kw) -> dict:
     return r.json()
 
 
-async def completion_text(
+async def completion(
     server_url: str,
     model: str,
     prompt: str,
@@ -53,12 +53,11 @@ async def completion_text(
     max_tokens: int = 128,
     temperature: float = 0.0,
     timeout: float = 180.0,
-) -> str:
-    """Raw text-completion (/v1/completions). Unlike chat it has no chat
-    template / thinking, so a "1,2,3,4,5," seed is simply continued — robust
-    for tiny models. Returns choices[0].text."""
+) -> httpx.Response:
+    """Raw text-completion (/v1/completions), status unchecked. Unlike chat it has no
+    chat template / thinking, so a "1,2,3,4,5," seed is simply continued."""
     async with httpx.AsyncClient(timeout=timeout) as c:
-        r = await c.post(
+        return await c.post(
             f"{server_url}/v1/completions",
             json={
                 "model": model,
@@ -67,6 +66,12 @@ async def completion_text(
                 "temperature": temperature,
             },
         )
+
+
+async def completion_text(server_url: str, model: str, prompt: str, **kw) -> str:
+    """:func:`completion`, asserting 200 and returning choices[0].text. Callers that
+    must tell a rejected prompt from a broken engine want the raw response instead."""
+    r = await completion(server_url, model, prompt, **kw)
     assert r.status_code == 200, f"completion failed {r.status_code}: {r.text}"
     return r.json()["choices"][0].get("text") or ""
 

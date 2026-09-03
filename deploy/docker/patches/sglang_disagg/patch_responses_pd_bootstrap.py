@@ -61,8 +61,10 @@ the two older request models grew the fields and `ResponsesRequest` was added
 later without them. Worth filing; DROP THIS SCRIPT once base sglang carries the
 fields, at which point it reports "already present" and no-ops.
 
-VERIFIED: anchors present exactly once in the sglang v0.5.17 tree shipped in the
-mi35x engine image (`/sgl-workspace/sglang`). Runtime verification is the
+VERIFIED: anchors present exactly once in both sglang trees this repo builds on —
+v0.5.17 (mi35x image) and v0.5.16 (the gfx942 image, pinned there for GLM-5.2
+MTP). Both are checked, because this directory is applied by both Dockerfiles and
+a patch cut against one of them fails the other's build. Runtime verification is the
 end-to-end one: a Responses request through the router against a 1P1D pair
 returns 200 instead of 400, and prefill and decode log the SAME bootstrap_room —
 which is what proves the KV actually moved over Mooncake rather than the decode
@@ -105,21 +107,24 @@ _EDITS: dict[str, list[tuple[str, str]]] = {
     ],
     "entrypoints/openai/serving_responses.py": [
         # The single construction site shared by the harmony and non-harmony
-        # paths. Anchored on its tail so the edit lands inside the call.
+        # paths. Anchored on one kwarg rather than on the call's tail: v0.5.17
+        # grew a `require_reasoning=` line between `background=` and the closing
+        # paren, and the two engine images are pinned to different versions
+        # (gfx942 to v0.5.16 for GLM-5.2 MTP, gfx950 to v0.5.17). Appending our
+        # kwargs after `background=` lands inside the call either way, and the
+        # uniqueness guard below still rejects a tree where it is not the one
+        # site — the second GenerateReqInput, in `_generate_with_builtin_tools`,
+        # passes no `background=` and so cannot be hit by accident.
         (
             """                        background=request.background,
-                        require_reasoning=require_reasoning,
-                    )
 """,
             """                        background=request.background,
-                        require_reasoning=require_reasoning,
                         # PD disaggregation: forward the proxy's bootstrap trio.
                         # None on an aggregated server, which is what
                         # GenerateReqInput already defaults to.
                         bootstrap_host=request.bootstrap_host,
                         bootstrap_port=request.bootstrap_port,
                         bootstrap_room=request.bootstrap_room,
-                    )
 """,
         ),
     ],

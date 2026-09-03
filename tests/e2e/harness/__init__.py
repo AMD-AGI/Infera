@@ -17,7 +17,8 @@ Public surface used by the per-engine test suites:
     running_server      in-process infera server (round-robin)
     client              OpenAI-compatible HTTP helpers
     scenarios           reusable flow + assertions (run_mixed, ...)
-    resources           GPU/model guards (require_gpus, require_supported)
+    resources           GPU/model/arch guards (require_gpus, require_supported, ...)
+    engine_image        the (image, Dockerfile) an engine runs on this arch
 
 PD-disaggregated (cross-node) placement lives in :mod:`.cluster` (SLURM topology)
 + :mod:`.launcher` (``SrunDockerLauncher``); the shared bodies are
@@ -26,6 +27,9 @@ PD-disaggregated (cross-node) placement lives in :mod:`.cluster` (SLURM topology
 (a declarative ``[enable, model, tp, ep, dp_attn]`` case table expanded by
 ``expand_cases``); each engine's own grid lives in its dir under
 ``tests/e2e/pd_mixed/`` / ``tests/e2e/pd_disag/``.
+
+Which GPU architecture a run targets — and therefore which per-case knobs and
+which engine image apply — is resolved in :mod:`.arch` and :mod:`.images`.
 """
 
 from __future__ import annotations
@@ -38,8 +42,15 @@ from .adapter import (
     spawn_worker,
     teardown_workers,
 )
+from .images import engine_image
 from .params import DEFAULT_MODEL, DisaggRole, EngineParams
-from .resources import require_gpus, require_supported, visible_gpu_count
+from .resources import (
+    require_arch,
+    require_gpus,
+    require_model_staged,
+    require_supported,
+    visible_gpu_count,
+)
 
 __all__ = [
     "EngineParams",
@@ -55,7 +66,10 @@ __all__ = [
     "correctness",
     "scenarios",
     "resources",
+    "engine_image",
+    "require_arch",
     "require_gpus",
+    "require_model_staged",
     "require_supported",
     "visible_gpu_count",
 ]

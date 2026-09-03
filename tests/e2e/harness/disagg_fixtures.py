@@ -19,12 +19,13 @@ from __future__ import annotations
 import os
 import uuid
 from collections.abc import Callable
+from typing import NoReturn
 
 import pytest
 import pytest_asyncio
 
-from . import cluster
-from .adapter import EngineAdapter
+from . import arch, cluster
+from .adapter import EngineAdapter, emit_reporter_line
 from .launcher import (
     ROUTER_PORT,
     SrunDockerLauncher,
@@ -39,11 +40,33 @@ _PREFILL_PORT = 30001
 _DECODE_PORT = 30002
 
 
+def _skip_or_fail(reason: str) -> NoReturn:
+    """Fail runner-selected nodes; skip only an unconfigured direct pytest run."""
+    if os.environ.get("INFERA_E2E_NODES"):
+        pytest.fail(reason, pytrace=False)
+    pytest.skip(reason)
+
+
+def _require_node_arch(pair: tuple[str, str]) -> None:
+    """Fail if a node's GPU is not the arch this run targets. The engine image was built
+    for that arch, so a mismatch means 40 minutes spent producing one that cannot load."""
+    target = arch.target_arch()
+    for node in pair:
+        actual = cluster.node_arch(node)
+        if actual is not None and actual != target:
+            pytest.fail(
+                f"node {node} is {actual} but this run targets {target}; the engine image "
+                f"and launch knobs were both chosen for {target}. Allocate {target} nodes, "
+                f"or set {arch.ARCH_ENV}={actual} and rebuild.",
+                pytrace=False,
+            )
+
+
 def require_disagg_env() -> None:
     """Skip unless we can actually place a 2-node PD stack (SLURM + allocation +
-    >=2 nodes + resolvable node IPs)."""
+    >=2 nodes + resolvable node IPs), all of them on this run's target arch."""
     if not cluster.have_slurm():
-        pytest.skip("PD-disaggregation e2e needs SLURM (srun) on PATH")
+        _skip_or_fail("PD-disaggregation e2e needs SLURM (srun) on PATH")
     # An explicit node pin (INFERA_E2E_NODES, set by run_tests.sh's disagg
     # dispatcher) means we place the stack ourselves via per-node `srun` and need
     # no held allocation — the Spur scheduler has no salloc/sbatch to sit in.
@@ -51,15 +74,21 @@ def require_disagg_env() -> None:
         pytest.skip("PD-disaggregation e2e needs INFERA_E2E_NODES or a live SLURM allocation")
     pair = cluster.pd_nodes()
     if pair is None:
-        pytest.skip(
+        _skip_or_fail(
             f"PD-disaggregation e2e needs >=2 nodes; allocation has "
             f"{cluster.allocated_nodes() or 'none'}"
         )
     for node in pair:
+        try:
+            cluster.require_step_access(node)
+        except RuntimeError as exc:
+            _skip_or_fail(str(exc))
         if cluster.node_ip(node) is None:
-            pytest.skip(
+            _skip_or_fail(
                 f"could not resolve a routable IP for node {node} (set INFERA_E2E_NODE_IPS)"
             )
+    emit_reporter_line(f"[e2e disagg] allocation-step access confirmed on {', '.join(pair)}")
+    _require_node_arch(pair)
 
 
 def make_disagg_stack_fixture(
@@ -95,6 +124,7 @@ def make_disagg_stack_fixture(
             decode_ip = cluster.node_ip(decode_node)
             gid = cluster.gid_index()
             tag = uuid.uuid4().hex[:8]
+            run_tag = launcher.job_tag
             tp = max(1, params.tensor_parallel_size)
             gpu_ids = list(range(tp))
 
@@ -103,7 +133,9 @@ def make_disagg_stack_fixture(
 
             # etcd + router on node 0 (control plane).
             etcd = launcher.start_etcd(
-                node=prefill_node, container=f"infera-e2e-etcd-{tag}", advertise_host=prefill_ip
+                node=prefill_node,
+                container=f"infera-e2e-{run_tag}-etcd-{tag}",
+                advertise_host=prefill_ip,
             )
             handles.append(etcd)
             etcd_endpoint = f"{prefill_ip}:{etcd.port}"
@@ -114,7 +146,7 @@ def make_disagg_stack_fixture(
             etcd_prefix = f"/infera/e2e-{tag}/"
             router = launcher.start_router(
                 node=prefill_node,
-                container=f"infera-e2e-router-{tag}",
+                container=f"infera-e2e-{run_tag}-router-{tag}",
                 advertise_host=prefill_ip,
                 etcd_endpoint=etcd_endpoint,
                 etcd_prefix=etcd_prefix,
@@ -154,7 +186,7 @@ def make_disagg_stack_fixture(
                     node=node,
                     argv=argv,
                     env=env,
-                    container=f"infera-e2e-{adapter.engine}-{role.value}-{tag}",
+                    container=f"infera-e2e-{run_tag}-{adapter.engine}-{role.value}-{tag}",
                     advertise_host=ip,
                     port=port,
                     role=role.value,
@@ -165,8 +197,11 @@ def make_disagg_stack_fixture(
             await wait_workers_active(
                 launcher, server_ctx["url"], workers, timeout=params.server_ready_timeout
             )
-            # Exposed for disagg_suite.assert_rdma_kv_transport (reads their logs).
+            # Exposed for disagg_suite: the handles for assert_rdma_kv_transport
+            # (which reads their logs) and for reading the decode leg's own
+            # /metrics, plus the engine name those counters belong to.
             server_ctx["launcher"], server_ctx["workers"] = launcher, workers
+            server_ctx["engine"] = adapter.engine
             return server_ctx
 
         yield _up
