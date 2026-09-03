@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import http.server
+import os
 import socket
 import subprocess
 import threading
@@ -246,7 +247,7 @@ def test_the_recipe_installs_agentsview_as_an_optional_bin_item() -> None:
     (item,) = [i for i in items if i.spec.get("name") == "agentsview"]
     assert item.installer == "bin"
     assert item.importance == "suggested"
-    assert item.spec["check_cmd"] == "agentsview --version"
+    assert item.spec["check_cmd"] == "$AGENT_SYS_HOME/bin/agentsview --version"
     assert "o11y" in item.tags
 
 
@@ -273,3 +274,129 @@ def test_the_recipe_install_command_uses_a_private_tempfile_and_verifies_checksu
     assert "/tmp/av.tgz" not in install
     assert "sha256sum" in install
     assert "SHA256SUMS" in install
+
+
+# --- ensure_installed: the recipe item, actually installed ---------------
+
+
+@pytest.fixture()
+def _no_leftover_environ(monkeypatch) -> None:
+    """`AGENT_SYS_HOME` must not already be ambient, or a leak would go unseen."""
+    monkeypatch.delenv("AGENT_SYS_HOME", raising=False)
+
+
+def _fake_run_cmd(*, version_rc: int, install_rc: int, seen_home: list[str | None]):
+    """Stands in for `installers.base.subprocess.run`.
+
+    Distinguishes the two calls `BinInstaller.install()` makes by command
+    content: the `--version` probe (`_satisfied`) vs. the recipe's `install:`
+    body. Records `AGENT_SYS_HOME` as seen in `os.environ` *at call time* --
+    the only way to observe whether `_patched_environ` actually reached the
+    subprocess, since `run_cmd` passes no explicit `env=`.
+    """
+
+    def fake(cmd, shell=True, cwd=None, capture_output=True, text=True):  # noqa: ANN001
+        seen_home.append(os.environ.get("AGENT_SYS_HOME"))
+        if "--version" in cmd:
+            rc = version_rc
+            out = "agentsview v0.42.0\n" if rc == 0 else ""
+        else:
+            rc = install_rc
+            out = "" if rc == 0 else "boom\n"
+        return subprocess.CompletedProcess(cmd, rc, out, "")
+
+    return fake
+
+
+def _install_item_for(prefix: Prefix):
+    """Builds the callable `ensure_installed` expects, from the real recipe.
+
+    `ensure_installed` takes this as a dependency rather than loading the
+    recipe itself, because `env_mgr`'s installer machinery (`recipe`,
+    `runner`, `installers/…`) is below spec §9's decoupling wall and `o11y` is
+    not allowed to import it — checked structurally by `test_imports.py`, and
+    the first draft of `ensure_installed` failed exactly that test by
+    importing `recipe`/`runner` directly. Test code is not subject to the
+    wall, so it exercises the real `agentsview.o11y.yaml` recipe end to end
+    (`subprocess.run` faked aside), the same way a real caller would build
+    this closure.
+    """
+    from env_mgr.recipe import load_recipe
+    from env_mgr.runner import Filters, run
+
+    def install_item():
+        target, items = load_recipe(agentsview.RECIPE_PATH)
+        target.path = str(prefix.root)
+        outs, _status = run(target, items, "install", Filters(item="agentsview"))
+        return outs
+
+    return install_item
+
+
+def test_ensure_installed_reports_already_present_without_reinstalling(
+    prefix, monkeypatch, _no_leftover_environ
+) -> None:
+    seen_home: list[str | None] = []
+    fake = _fake_run_cmd(version_rc=0, install_rc=1, seen_home=seen_home)
+    monkeypatch.setattr(subprocess, "run", fake)
+
+    status = agentsview.ensure_installed(prefix, _install_item_for(prefix))
+
+    assert status.running is True
+    assert "already present" in status.reason
+    assert len(seen_home) == 1  # only the --version probe; install never ran
+    assert seen_home[0] == str(prefix.root)
+
+
+def test_ensure_installed_runs_the_recipe_when_missing(
+    prefix, monkeypatch, _no_leftover_environ
+) -> None:
+    seen_home: list[str | None] = []
+    fake = _fake_run_cmd(version_rc=1, install_rc=0, seen_home=seen_home)
+    monkeypatch.setattr(subprocess, "run", fake)
+
+    status = agentsview.ensure_installed(prefix, _install_item_for(prefix))
+
+    assert status.running is True
+    assert len(seen_home) == 2  # the failed probe, then the install
+    assert seen_home == [str(prefix.root), str(prefix.root)]
+
+
+def test_ensure_installed_is_one_warning_and_a_skip_when_install_fails(
+    prefix, monkeypatch, caplog, _no_leftover_environ
+) -> None:
+    fake = _fake_run_cmd(version_rc=1, install_rc=3, seen_home=[])
+    monkeypatch.setattr(subprocess, "run", fake)
+
+    with caplog.at_level("WARNING"):
+        status = agentsview.ensure_installed(prefix, _install_item_for(prefix))
+
+    assert status.running is False
+    assert len([r for r in caplog.records if r.levelname == "WARNING"]) == 1
+
+
+def test_ensure_installed_restores_os_environ_even_when_the_installer_raises(
+    prefix, monkeypatch, _no_leftover_environ
+) -> None:
+    """The exception path is the one that must not leak a half-patched environ."""
+
+    def boom(*a, **k):  # noqa: ANN001, ANN002, ANN003
+        raise RuntimeError("this must never escape, and must not leak the environ")
+
+    monkeypatch.setattr(subprocess, "run", boom)
+    before = dict(os.environ)
+
+    status = agentsview.ensure_installed(prefix, _install_item_for(prefix))
+
+    assert status.running is False
+    assert dict(os.environ) == before
+    assert "AGENT_SYS_HOME" not in os.environ
+
+
+def test_ensure_installed_never_raises_regardless_of_outcome(
+    prefix, monkeypatch, _no_leftover_environ
+) -> None:
+    for version_rc, install_rc in ((0, 1), (1, 0), (1, 3)):
+        fake = _fake_run_cmd(version_rc=version_rc, install_rc=install_rc, seen_home=[])
+        monkeypatch.setattr(subprocess, "run", fake)
+        agentsview.ensure_installed(prefix, _install_item_for(prefix))  # must not raise

@@ -14,35 +14,30 @@
 # expand `${VAR}` in a YAML value (confirmed by reading `recipe.py::load_recipe`
 # and `installers/base.py::run_cmd` — there is no templating layer anywhere in
 # env_mgr). The one substitution point that *is* real code is the CLI's
-# `--path` flag (`cli.py:75`, `target.path = args.path`), so the prefix is
-# supplied at invocation time:
+# `--path` flag (`cli.py:75`, `target.path = args.path`); `env_mgr/o11y/
+# agentsview.py::ensure_installed` supplies it the same way in code
+# (`target.path = str(prefix.root)`) for the programmatic caller, or a human
+# can do the same thing via `--path` for a manual invocation:
 #
-#   PATH="$AGENT_SYS_HOME/bin:$PATH" \
-#     env-mgr install env_mgr/recipes/agentsview.o11y.yaml --path "$AGENT_SYS_HOME"
+#   env-mgr install env_mgr/recipes/agentsview.o11y.yaml --path "$AGENT_SYS_HOME"
 #
 # `install:` and `check_cmd:` both run via `subprocess.run(cmd, shell=True,
 # cwd=target.path)` with no explicit `env=` (`installers/base.py::run_cmd`), so
-# both inherit whatever environment the `env-mgr` process itself was started
-# with — neither sees `target.path` or any other recipe field. Two
-# consequences, both measured, not assumed:
-#   - `install:` expands `$AGENT_SYS_HOME` from that ambient environment (the
-#     one variable the invocation above exports); it does not introduce a
-#     second variable (`$AGENT_SYS_BIN`) that nothing in this call chain sets.
-#   - `check_cmd: "agentsview --version"` is a bare command name, so it only
-#     finds the binary — and therefore only reports "already present (skip)"
-#     on a second run — if `$AGENT_SYS_HOME/bin` is already on the invoking
-#     shell's `PATH`. Without it, `check` and `install` both silently treat
-#     the item as missing and re-run the download every time; harmless
-#     (idempotent overwrite) but not the "skip" the plan expects. Note that
-#     `agent_environment()` in `env_mgr/o11y/prefix.py` deliberately does
-#     *not* put `$AGENT_SYS_BIN` on `PATH` for spawned agent children
-#     (`bin_on_path=False` from `prepare.py`, since `PATH` there is a
-#     projection of the isolation policy's granted set, not a free-form
-#     string) — so that path is not where this recipe's `PATH` requirement
-#     gets satisfied either. Whatever eventually calls `ensure_installed()`
-#     (§4 of the design; not yet implemented) needs to run with
-#     `$AGENT_SYS_HOME/bin` on `PATH` itself; a human or CI running `env-mgr`
-#     directly must export it, as in the line above.
+# both inherit whatever environment the process itself was started with —
+# neither sees `target.path` or any other recipe field. `check_cmd:` is
+# therefore an **absolute** path rather than a bare command name: a bare
+# `agentsview --version` only finds the binary (and thus only ever reports
+# "already present (skip)" on a second run) if `$AGENT_SYS_HOME/bin` happens to
+# already be on the caller's `PATH` — measured directly by running this recipe
+# with and without that on `PATH` — and nothing upstream of this recipe
+# guarantees that: `agent_environment()` in `prefix.py` deliberately does
+# *not* put `$AGENT_SYS_BIN` on `PATH` for spawned agent children
+# (`bin_on_path=False` from `prepare.py`, since `PATH` there is a projection of
+# the isolation policy's granted set, not a free-form string). `$AGENT_SYS_HOME`
+# is the one variable both `install:` and `check_cmd:` need, and
+# `ensure_installed` patches it into `os.environ` for exactly the duration of
+# the call (see `agentsview.py::_patched_environ`) — a human running `env-mgr`
+# directly must export it themselves, as in the line above.
 #
 # The download is pinned to a specific release rather than "latest": a
 # floating install means two machines can end up running different panels
@@ -63,7 +58,7 @@ items:
     layer: system
     name: agentsview
     version: "0.42.0"
-    check_cmd: "agentsview --version"
+    check_cmd: "$AGENT_SYS_HOME/bin/agentsview --version"
     install: >-
       set -e;
       tmp=$(mktemp -d);

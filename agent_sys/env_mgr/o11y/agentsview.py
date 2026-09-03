@@ -18,23 +18,28 @@ happens here, before launch.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
+import os
 import socket
 import subprocess
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Mapping
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .prefix import Prefix
 
 __all__ = [
     "DEFAULT_PORT",
+    "RECIPE_PATH",
     "Status",
+    "ensure_installed",
     "ensure_running",
     "port_is_free",
     "resolve_port",
@@ -284,3 +289,95 @@ def ensure_running(prefix: Prefix, port: int) -> Status:
 
     (prefix.run / PORT_FILE).write_text(str(port))
     return Status(True, "started", url)
+
+
+#: The recipe item `ensure_installed` drives. A fixed, in-package path rather
+#: than a caller-supplied one: there is exactly one recipe for this component,
+#: and a parameter here would just be a second way to point at the same file.
+RECIPE_PATH = Path(__file__).resolve().parent.parent / "recipes" / "agentsview.o11y.yaml"
+
+
+@contextlib.contextmanager
+def _patched_environ(extra: Mapping[str, str]) -> Iterator[None]:
+    """Patch `os.environ` with `extra` for exactly the duration of the block.
+
+    **Why this exists at all.** The recipe's `check_cmd:` and `install:` both
+    reference `$AGENT_SYS_HOME` (confirmed by reading `recipe.py::load_recipe`
+    and `installers/base.py::run_cmd`: neither expands `${VAR}` itself; the
+    shell that `run_cmd`'s `subprocess.run(cmd, shell=True)` invokes does, and
+    only from whatever environment that call was made with — `run_cmd` takes
+    no `env=` parameter). This context manager is the one place that
+    environment is assembled, and it exists only for the width of one
+    `runner.run(...)` call — never wider.
+
+    **The cleaner long-term shape, deliberately not built now:** an `env=`
+    parameter threaded through `run_cmd` → the installer protocol → `runner.run`.
+    Not done here because `run_cmd` is shared machinery every installer in the
+    registry uses, and widening it to serve this one caller is a bigger blast
+    radius than a local, scoped patch justifies. If a second caller ever needs
+    the same thing, that is the point to revisit this.
+
+    **Restored in a `finally`, on every exit path including an exception.**
+    This module's whole reason to exist is "never touches what it did not
+    mean to" (`agent_environment`'s guard on `os.environ` is the same
+    discipline); a half-restored environment on the exception path would be
+    the worst possible way to break that promise.
+    """
+    saved = dict(os.environ)
+    try:
+        os.environ.update(extra)
+        yield
+    finally:
+        os.environ.clear()
+        os.environ.update(saved)
+
+
+def ensure_installed(prefix: Prefix, install_item: Callable[[], Sequence[Any]]) -> Status:
+    """Install the `agentsview` binary via its recipe item, or say why not.
+
+    **`install_item` is injected rather than looked up here.** `env_mgr` spec
+    §9 draws a decoupling wall — nothing new may import the installer
+    machinery (`recipe`, `runner`, `installers/…`), checked structurally by
+    `tests/env_mgr/test_imports.py::test_nothing_new_imports_the_installer_machinery`.
+    A first draft of this function called `recipe.load_recipe` and
+    `runner.run` directly and failed exactly that test. `install_item` is a
+    zero-argument callable returning the list of `Outcome`s from running the
+    `agentsview` recipe item's `install` stage (duck-typed on `.level` /
+    `.message` below — no `Outcome` import needed even for typing, since
+    `outcome` is also below the wall); the caller assembles it, typically by
+    loading `RECIPE_PATH`, overriding `target.path` to `str(prefix.root)`
+    (the recipe's own `target.path` is a placeholder — see the recipe file's
+    header comment), and calling `runner.run(target, items, "install",
+    Filters(item="agentsview"))`. That caller lives outside this wall, e.g.
+    `env_mgr/cli.py` (the one module spec §9 exempts) or `agent_sys/cli/main.py`
+    (a different package entirely, not subject to this wall at all).
+
+    **Never raises.** Everything from "the injected callable raised" to "the
+    download failed inside it" collapses to one `Status(False, ...)` and one
+    `log.warning`, the same law `ensure_running` already holds.
+    `importance: suggested` in the recipe is not re-derived here — the
+    outcome's own `.level` (computed by `installers/base.level_for_missing`
+    from that one field) is read directly, so there is exactly one place that
+    decides "is a missing agentsview fatal", and it is the recipe.
+    """
+    try:
+        prefix.create()
+        with _patched_environ(prefix.environment()):
+            outs = list(install_item())
+    except Exception as e:  # noqa: BLE001 - see ensure_running's docstring
+        log.warning("agentsview: install failed (%s); skipping the o11y panel.", e)
+        return Status(False, f"install error: {e}")
+
+    if not outs:
+        log.warning(
+            "agentsview: recipe item 'agentsview' not found in %s; skipping the o11y panel.",
+            RECIPE_PATH,
+        )
+        return Status(False, "recipe item not found")
+
+    outcome = outs[-1]
+    if outcome.level == "ok":
+        return Status(True, outcome.message)
+
+    log.warning("agentsview: %s; skipping the o11y panel.", outcome.message)
+    return Status(False, outcome.message)
