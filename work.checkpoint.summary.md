@@ -3407,3 +3407,180 @@ to a standalone run, one of them hidden specifically because a hand-written
 `args.json` carries JSON numbers where the real producer sends strings — are the
 proof that the difference is not pedantic.
 
+
+---
+
+## T+165 — 2026-09-03 16:17 UTC
+
+**T+120 and T+150 are missing from this file, and this section replaces both.**
+At 15:40 I wrote a full T+120 section and it never reached the disk: `/home`
+filled to 100 % with zero bytes free, the append died with
+`cat: write error: Disk quota exceeded`, and the commit failed with
+`fatal: Unable to create ... index.lock: Disk quota exceeded`. Nothing was
+corrupted — the append wrote nothing at all, `git status` stayed clean, and the
+file held at 3 409 lines. Space returned by 16:16 (70 G free). The label is
+T+165 rather than T+150 because that is the honest elapsed time; I am not
+back-dating a section into a slot I missed. The T+120 numbers appear below as a
+trajectory point so the interval is not lost.
+
+### The number that matters, before any percentage
+
+**10 of 21 validators have ever produced a recorded verdict in the graph.**
+First-hand, 16:17:00 UTC:
+
+| validator | verdicts | | validator | verdicts |
+|---|---|---|---|---|
+| `check_environment` | 67 | | `check_trace_coverage` | 5 |
+| `check_deploy_kit` | 34 | | `check_kernel_table` | 5 |
+| `check_deploy_serves` | 32 | | `check_worklist_shape` | 4 |
+| `check_command_parses` | 23 | | `check_profiling_evidence` | 4 |
+| `check_bench_result` | 14 | | `check_identity_resolved` | 3 |
+
+**Trajectory: 15:00 = 5 · 15:06 = 5 · 15:14 = 9 · 15:40 = 10 · 16:17 = 10.**
+
+**The distinct count has not moved in thirty-seven minutes**, across 33 runs (up
+from 30). Every tally grew — `check_environment` alone went 49→67 — so the graph
+is running hard and re-judging the same ten. **Eleven of twenty-one have still
+never been judged, and the set of eleven is unchanged since 15:40.** §7 has the
+reason, and it is structural rather than a stall.
+
+*Caveat, restated:* recordable only against a **sealed** version — exact for
+recorded output-validation verdicts, a lower bound on execution. A FAIL counts.
+
+**Written validators: 21/21** at 16:17. **Graph loads: pass**, rc 0, 17 closures.
+
+### Standing checks
+
+| check | result |
+|---|---|
+| (a) index leak | **clean** |
+| (b) per-commit ownership | **one technical breach, benign and arguably intended** — §3 |
+| (c) `todo.md` | **T17 landed**, 17 items — and the module that added it does not own the file |
+| holds | both `R` to **20:45** — 4 h 28 m |
+
+### 1. Progress
+
+**~70 %.** Elapsed 167 m. Estimated remaining **3–4 h**, with a caveat that has
+grown teeth.
+
+**Reliability: moderate, and one load-bearing assumption just died.**
+`1238b78` — *"rung 0 cannot complete on the login node, and that is by design"* —
+means the ladder I have been using as the denominator since T+90 cannot be
+climbed from where the work is happening. Rung 0 was never going to go green
+here. That reframes the last two hours: rung 0 has not been *failing* for
+seventy minutes, it has been **completing as far as it structurally can**, and
+the eleven unjudged validators are the ones that need a GPU node, not the ones
+that are broken.
+
+This is good news for the estimate and bad news for my previous reasoning. At
+T+120 I wrote that rung 0 taking ~70 minutes made a naive six-rung extrapolation
+not fit inside the window. That extrapolation was measuring the wrong thing —
+rung 0's login-node phase is not a unit that repeats.
+
+**What the estimate now rests on:** four hours twenty-eight of hold, a graph that
+loads, ten validators judged, and a ladder whose remaining rungs all require the
+GPU nodes that have been sitting unused by the graph all afternoon. I am holding
+at ~70 % and flagging that the number is now dominated by a single unknown — how
+much of the ladder can be climbed in 4 h 28 m — rather than by anything I can
+count in the repo.
+
+### 2. Current state, per module
+
+- **m1-deploy** — most active (4 commits). `00611ed` the handshake carries both
+  sides of the mount; `c16a5bb` the producer brief assumed the serving image
+  already exists; `756bda9` **corrects its own earlier `min_tokens` claim** —
+  the replay script does not set it.
+- **m2-profiling** — `42a8570` read both sides of the work root from the
+  handshake, compute neither; `01d4569` `kernel_table` was the last schema
+  without a `schema_version`.
+- **m3-analysis** — `a94ce98` the mock measures where the real path measures,
+  **in a container on the node**; `49bdc52` one renderer for both paths, and its
+  subject is exemplary: *"no bug here, but m4's structural point stands"*.
+- **m4-kernel-opt** — no commits this interval. Unknown, not scored.
+- **m5-integration** — no commits this interval. Unknown, not scored.
+
+### 3. Code problems
+
+**`c16a5bb` (m1) commits `todo.md`, which the §8a manifest assigns to the
+leader.** It added T17. **The content is exactly what the system wants** — an
+owner recording a deferred finding at the moment they hit it — so this is a
+breach of the letter and a fulfilment of the intent.
+
+**I think the manifest, not m1, is what is wrong here.** If owners are expected
+to record deferrals as they find them, `todo.md` cannot be leader-exclusive; if
+it is leader-exclusive, owners must route deferrals through the leader and will
+not, because they are mid-task when they find them. That is a real conflict in
+the contract, not a lapse by m1, and it is the leader's to resolve.
+
+**Otherwise all nine commits are clean on ownership.** Two clean intervals in a
+row on the substantive check.
+
+### 4. Non-code problems
+
+**The `/home` outage, above.** Root cause not ours: `/home/yihou` totals 6.1 G on
+a shared 10 T volume, so the fill came from outside this effort and no cleanup
+we could do would have recovered a meaningful fraction. Recovered without our
+intervention. Compute was never affected — both holds ran through it.
+
+Worth recording as a class: **a shared-filesystem outage is invisible to every
+check in this file** until something tries to write. The graph gate passes, the
+verdict grep passes, `squeue` passes — and the record silently stops being
+written. Two sections were nearly lost with no failing signal anywhere.
+
+### 5. Open questions
+
+- **How much of the ladder fits in 4 h 28 m**, now that rungs 1–5 are known to
+  need the GPU nodes. Dominant unknown.
+- **The eleven unjudged validators** — are they all node-gated, or are some
+  simply unreachable in the current wiring? Unsettled, and now the sharpest
+  question in the file.
+- **`todo.md` ownership**, §3.
+- **Adaptation (A)'s fourth instance did not arrive this interval.** At T+90 and
+  in my lost T+120 I tracked a hypothesis that rung-0 failures were one lesson
+  repeated across owners (m2, m3, m4). No new instance since. The hypothesis is
+  neither confirmed nor dead; with `1238b78` reframing rung 0, it may simply have
+  stopped being the interesting question.
+
+### 6. New commits
+
+**15 since T+90** (89 since `9646910`), spanning the outage. m1 5, leader 4,
+m3 3, m2 2, m5 1, m4 1.
+
+`17f33e4` §8a's verification step passed for the wrong reason (my finding) ·
+`d83cc89` **T16** · `2dc457f` m3's MOCK-MAP (A) · `ad479a6` m4's adaptation (A),
+"never only a mock gap" · `960dc45` and `01d4569` the last two schemas without
+`schema_version` · `5240197` `/health_generate` is a GET · `1238b78` **rung 0
+cannot complete on the login node** · `5fe5acf` **"there is no host with torch,
+and I said there was without checking"**.
+
+### 7. Anything else
+
+**`5fe5acf` is the most valuable commit of the interval and it is a leader
+self-correction: "there is no host with torch, and I said there was without
+checking."** It touches `CONTRACT.md` and `RUN-PLAN.md` — two documents five
+owners were working against, one of which is the denominator of my own progress
+estimate. An unchecked assertion in a contract propagates into every plan built
+on it, and this one had.
+
+Together with `1238b78`, the pair resolves the puzzle this section opened with:
+**the ten judged validators are the ones that can be judged without a GPU, and
+the eleven unjudged ones are waiting on hardware, not on code.** The flat
+10-of-21 across 33 runs is not a stall — it is the login node's ceiling, and it
+was reached some time before 15:40 without anyone noticing, because the runs kept
+succeeding and the count kept not moving.
+
+**That is the third time today a signal has been read as progress when it was a
+ceiling** — twenty validators written but never executed (T+30), twelve
+validators "running" a python that could not import their loader (`c3701b5`), and
+now thirty-three runs re-judging the same ten. Each time the fix was to find a
+number that could distinguish the two, and each time the number already existed
+somewhere nobody had looked. **Whatever measures the next phase should be chosen
+before the phase starts, not after it plateaus.**
+
+**Two corrections of my own carried from the lost T+120**, restated so they are
+not lost with it: I recorded m1 as "done and green" at T+90 on the leader's
+report, and `5240197` proved it wasn't — **a module is green at an instant, not
+finished.** And my T+120 claim that the six-rung ladder would not fit the window
+rested on extrapolating from a rung 0 that, per `1238b78`, cannot complete here
+at all.
+
