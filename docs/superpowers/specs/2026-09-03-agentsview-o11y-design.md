@@ -164,6 +164,38 @@ warning naming the port and the reason, and deployment continues. The probe
 exists specifically because agentsview's own behaviour — silently moving to
 another port — contradicts the requirement.
 
+**No validation path may start a daemon — this is a rule, not a preference.**
+The port decision above is `agent_sys`'s and is never delegated; a command that
+autostarts a daemon on a port *AgentsView* chooses breaks that rule just as
+surely as passing the choice to `serve` would, and it does so somewhere nobody
+is watching. Measured (PHASE0 §0.10, by counting real `agentsview serve`
+processes by exact argv before and after each subcommand from a cold `HOME`):
+`--version` and `doctor sync` start nothing; **`health` starts one**, and so do
+`projects` and `session list`. Our install chain is `ensure_installed` →
+`check_disabled_agents`, so the first version of that check — which used
+`health --limit 1` because it looked like the cheap read-only way to ask "does
+this config load" — silently spawned a panel on every install. It now uses
+`doctor sync` for both of its directions. If a future change needs to ask
+AgentsView a question from a validation path, the question to settle *first* is
+which subcommand answers it without a daemon; `health` is not that subcommand,
+however read-only it reads. `AGENTSVIEW_NO_DAEMON=1` does not rescue it either —
+see the `check_disabled_agents` docstring for the measurement.
+
+**Stopping is only reliable for the most recently started daemon.** `serve stop`
+and `daemon stop` act on the one daemon AgentsView is currently tracking, and
+there is no documented command that reaches any other. Measured on the shared
+prefix, where three daemons had accumulated from repeated testing of the bug
+above (ports 8080/8081/8082, none of them the intended 18888): `serve status`
+named only the most recent as "the" daemon, and after stopping it, status
+reported *"No agentsview server is running"* while the other two were still
+listening and still answering `/api/v1/sessions` — genuine second panels, not
+helpers of the first. An orphan is therefore unreachable by AgentsView's own
+tooling and must be stopped by its individually verified PID (`ps -o
+pid,lstart,cmd`, confirming the process really is `agentsview serve`
+immediately beforehand), never by `pkill` or any pattern match. Orphans are
+cheap to create and expensive to find, which is the practical reason
+`ensure_running` reaches for `--replace` rather than a stop-then-start.
+
 **Every failure mode is warning-level**: binary absent, install failed, daemon
 did not come up, health check timed out. o11y is a bystander; it may never fail
 an `agent_sys` deploy or run. The recipe item carries

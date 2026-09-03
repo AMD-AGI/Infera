@@ -317,15 +317,29 @@ def check_disabled_agents(prefix: Prefix) -> tuple[str, ...]:
     "port decision made by agent_sys, never delegated to agentsview" rule
     this whole component exists to hold — happening on a read-only
     validation path neither `ensure_running` nor anyone watching for it
-    would notice. `AGENTSVIEW_NO_DAEMON=1` (documented for exactly this)
-    was tried next and rejected: measured directly, it also disables
-    *direct* SQLite reads for `health`/`projects`/`session list` even
-    against an already-populated database, so the check would always fail
-    rather than silently no-op — worse, not better. `doctor sync` needs
-    neither: measured to never touch the database or start a daemon, in
-    either the config-valid or config-invalid case, and it validates
-    `disabled_agents` with the *identical* "unknown session provider" error
-    `health` produces, so nothing is lost by dropping `health` entirely.
+    would notice. `doctor sync` needs neither: measured to never touch the
+    database or start a daemon, in either the config-valid or
+    config-invalid case, and it validates `disabled_agents` with the
+    *identical* "unknown session provider" error `health` produces, so
+    nothing is lost by dropping `health` entirely.
+
+    **`AGENTSVIEW_NO_DAEMON=1` was tried here and rejected — do not reach
+    for it.** It is the obvious repair for the paragraph above (AgentsView
+    documents it as exactly the "don't autostart" knob) and its absence
+    from this code says nothing about whether it works, so: it was
+    measured, and it does not make these commands read the database
+    directly instead of autostarting — it makes them refuse outright.
+    With it set, `health`, `projects` and `session list` all exit with
+    `daemon autostart is disabled; direct SQLite reads are not supported
+    for this command`, **even against an already-populated `sessions.db`**
+    (verified by creating the database through one clean daemon lifecycle
+    first, then re-testing). There is no fallback path. Adopting it would
+    therefore have left a `health` probe that fails on every single call —
+    and since this function treats a probe it cannot trust as `()` (see
+    the last paragraph), that permanent failure would have collapsed into
+    a permanently empty result: a provider check that never warns about
+    anything, never looks broken, and is a no-op forever. Worse than the
+    stray daemon it was meant to fix. Measured in `PHASE0.md` §0.10.
 
     **Direction 1 — rename or removal.** `doctor sync` exits non-zero and
     names the offending entry when `config.toml`'s `disabled_agents`
