@@ -20,6 +20,87 @@
 # section and `check_measurement_order` checks it happened** (below).
 
 # --------------------------------------------------------------------------- #
+# The agent `integrate_and_verify` runs under.
+#
+# `kind: ai` and not `runner`, because M5.2 collapsed five leaves into one and
+# what it collapsed them into is judgement work: bring a deployment up on a
+# shared node, decide whether four minutes of `Health check failed` is a JIT
+# compile or a hang, tear it down only once the arm is genuinely finished, bring
+# up the second arm with the overlay mounted, and invent a handful of
+# correctness cases nobody could have prepared for (M5.4).
+#
+# **Everything that is not judgement stays a script.** G4.2.1: the readme's body
+# is a `STEPS` section — an ordered list of commands, each with its acceptance
+# criterion — so the agent's job is to run them in order, read the results and
+# decide what to do when one is ambiguous, not to invent a method. The two arms'
+# measurement scripts are byte-identical between arms by construction, because
+# they are the same file.
+#
+# **The ordering that used to be a graph edge is now step 4 of that list**, and
+# `check_measurement_order` is what makes the difference visible: the body
+# timestamps each step into `env/steps.json` and the validator refuses a pair of
+# arms that overlap or that ran different sequences.
+- module: agent
+  name: e2e_integrator
+  kind: ai
+  version: '1'
+  description: Measures the stock and patched arms in one session on one node, and writes the comparison down.
+  env:
+    # The allocation and how to reach it. Same names as `shared.yaml`'s, so one
+    # command line drives the whole flow (CONTRACT.md §6 — no readme in this
+    # package spells a transport).
+    E2E_JOBID: '${jobid}'
+    E2E_NODE: '${node}'
+    E2E_NODE_IP: '${node_ip}'
+    E2E_TRANSPORT: '${transport:-auto}'
+    E2E_MODEL_NAME: '${model_name}'
+    E2E_MODEL_PATH: '${model_path}'
+    E2E_SERVED_NAME: '${served_name:-}'
+    E2E_IMAGE: '${image}'
+    E2E_ETCD_IMAGE: '${etcd_image:-quay.io/coreos/etcd:v3.5.14}'
+    E2E_DEPLOY_MODE: '${deploy_mode:-mix}'
+    E2E_TP: '${tp:-8}'
+    E2E_CTX: '${context_length:-262144}'
+    E2E_DSA_ARGS: '${dsa_args:-none}'
+    E2E_PARSER_ARGS: '${parser_args:-none}'
+    # **Two containers, and this stage is the designed exception to the
+    # one-container rule** (CONTRACT.md §5, granted by mission G5.1). A container
+    # holds one state for its life, which is the entire reason the two-arm design
+    # exists. The two names are derived from this one so that neither can collide
+    # with another tenant's — `docker ps` on both held nodes shows other people's
+    # work right now, and nothing here may `docker rm -f` a name it did not
+    # create.
+    E2E_CONTAINER: '${container:-yihou_e2e_flow}'
+    E2E_PORT_ROUTER: '${port_router:-8101}'
+    E2E_PORT_WORKER: '${port_worker:-8102}'
+    E2E_PORT_ETCD: '${port_etcd:-8103}'
+    E2E_WORK_ROOT: '${work_root:-/mnt/m2m_nobackup/yihou/e2e_flow}'
+    # The measurement knobs. Defaults are the shortened ones: a full two-arm run
+    # at the package defaults does not fit inside the CLI's hard-coded 1800 s
+    # settle budget, and work that finishes outside it is thrown away.
+    E2E_EVAL_NAMES: '${eval_names:-gsm8k mixed_prefix_gsm8k}'
+    E2E_EVAL_EXAMPLES: '${eval_examples:-100}'
+    E2E_BENCH_ROUNDS: '${bench_rounds:-1}'
+    E2E_TRACE_END_MS: '${trace_end_ms:-60000}'
+    E2E_NEEDLE_TOKENS: '${needle_tokens:-31000}'
+    E2E_NEEDLE_FRONTIER_TOKENS: '${needle_frontier_tokens:-0}'
+    E2E_NEEDLE_DEPTHS: '${needle_depths:-0.02,0.5,0.98}'
+    E2E_GSM8K_DATA: '${gsm8k_data:-}'
+    E2E_AIPERF_IMAGE: '${aiperf_image:-nvcr.io/nvidia/ai-dynamo/aiperf:0.12.0}'
+    E2E_AIPERF_TRACE: '${aiperf_trace:-}'
+    # M5.4 — 同时还要临时 ai 生成几个。免得作弊. How many correctness cases the
+    # agent invents per run, on top of the frozen set in `assets/accept/`. The
+    # prompts go into the handoff beside the answers, because a generated case
+    # whose text was thrown away cannot be audited.
+    E2E_ADHOC_CASES: '${adhoc_cases:-3}'
+    E2E_MOCK_ROOT: '${mock_root:-/shared_nfs/yihou/agent_sys/cheat_for_mock}'
+    E2E_MOCK_STAGES: '${mock_stages:-all}'
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+# --------------------------------------------------------------------------- #
 # OWNER m5: M5.1.2 — "所以看起来 seed_patch、apply_patch 都需要改一下". `apply_patch`
 # stops being fed a hand-written patch manifest and starts reading m4's
 # `kernel_optimization`, whose `apply` block was written against **the workset's
@@ -92,7 +173,17 @@
     # arms, so a disagreement here invalidates every comparison downstream.
     require_same_step_order: true
     require_arms_disjoint_in_time: true
-    expected_steps: [smoke, needle, probe, lm_eval, replay]
+    # `bench` and not `replay`: the body names each replay round `bench_r<N>`
+    # because the number of rounds is a `--var`, and the validator satisfies an
+    # expectation with an exact match **or** a `_r<digits>` suffix of it.
+    # Nothing else is fuzzy — a step called `smoke_v2` does not satisfy `smoke`,
+    # because a renamed step is a changed method.
+    expected_steps: [smoke, needle, probe, lm_eval, bench]
+    # Not a bar. A long gap between the arms is where the node's load can change
+    # underneath the comparison, and the validator prints the number so a reader
+    # can judge whether it mattered. Widening a bar is not the fix for that;
+    # `todo.md` T7 is.
+    warn_gap_seconds: 3600
   tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, integration, m5]}
 
 - module: validator
@@ -132,8 +223,25 @@
   strength: strong
   inputs: [stock.measurement, patched.measurement]
   args:
+    # **m2's schema, not a second copy** (G2, CONTRACT.md §4.1). m5's replay and
+    # m2's bench are the same AIPerf export, so they are graded by the same
+    # document: a round whose `profile_export_aiperf.json` fails here is one m2's
+    # own `check_bench_result` would have refused.
     schema: bench_result
+    # **50 and not 100.** This bar must sit below any legitimately shortened
+    # replay window, or it stops being "did anything get sent" and becomes a
+    # second, undeclared constraint on window length. Measured on this trace:
+    # 346 requests in the default 120 s window, 166 in 60 s, ~80 in 30 s — and a
+    # bar of 100 failed a working replay and stopped m2's graph.
     min_requests: '${min_requests:-50}'
+    # The arms are compared round for round, so a missing round is a missing
+    # comparison rather than a shorter one.
+    expect_rounds: '${bench_rounds:-1}'
+    require_metrics: [request_count, output_token_throughput_tps, ttft_ms, inter_token_latency_ms]
+    # Not zero. A saturated deployment legitimately times out the occasional
+    # request under a fixed schedule, and a bar of zero turns a completeness
+    # check into a flake detector.
+    max_error_rate: '${max_error_rate:-0.05}'
   tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, integration, m5]}
 
 # --------------------------------------------------------------------------- #
@@ -181,9 +289,20 @@
   strength: strong
   inputs: [e2e_packup]
   args:
+    # The packup skill's `deliverable_layout.md`, as four files and three
+    # directories. `require_files` and `min_content_lines` are separate because
+    # a present-but-empty README is the failure worth naming: it satisfies a
+    # file list and tells a reproducer nothing.
+    require_files: [README.md, REPRODUCE.md, environment.md, notes.md]
     min_content_lines: {README.md: 20, REPRODUCE.md: 15, environment.md: 12, notes.md: 8}
+    # REPRODUCE.md is measured in commands rather than prose: it is the one file
+    # a reproducer executes.
     min_command_lines: 8
     require_dirs: [results, logs, scripts]
+    # This is the whole flow's export, not one stage's. Four is the floor from
+    # `integration-demo` and it is deliberately not raised here: raising it
+    # without saying which four files are meant would refuse a kit for having
+    # the wrong number of the right things.
     min_result_files: 4
   tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, integration, m5]}
 
@@ -304,14 +423,21 @@
 # handoffs, because the three are graded on different lines and merging them
 # would force `check_acceptance` to also understand AIPerf's CSV.
 #
-# OWNER m5: `agent: runner` is the skeleton's answer; the finished form is
-# `kind: ai` with a STEPS readme. The ordering that used to be graph edges is
-# now that readme's numbered list, and `check_measurement_order` is what makes
-# the difference visible if it is not followed.
+# `agent: e2e_integrator` (`kind: ai`), with a STEPS readme per G4.2.1. The
+# ordering that used to be graph edges is now that readme's numbered list, and
+# `check_measurement_order` is what makes the difference visible if it is not
+# followed: both arms timestamp every step into `env/steps.json`, and a pair
+# that overlaps in time or disagrees on the sequence is refused.
+#
+# **The patch-live evidence is collected by this task, not by its validator.**
+# `check_patch_live` re-hashes the patched file *inside the running container* —
+# but by the time a validator runs, the deployment has been torn down, so the
+# hash, `docker inspect`'s Mounts and the marker hits are read here and written
+# into `patched.measurement`'s `env/`.
 - module: task
   name: integrate_and_verify
   description: Measure both arms on one node in one session, then compare them.
-  agent: runner
+  agent: e2e_integrator
   handoffs: [patch_overlay, profiling_evidence, kernel_optimization, deploy_kit, stock.measurement, patched.measurement, integration_report]
   validators: []
   task:

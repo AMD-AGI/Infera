@@ -1,17 +1,29 @@
-#!/bin/sh
-# SKELETON. Mock first, real work second. See ../../CONTRACT.md and ../../MOCK-MAP.md.
+#!/usr/bin/env bash
+# Assemble the flow's one export: eight handoffs spanning all five stages, laid
+# out the way the `experiment-result-packup` skill's `deliverable_layout.md` says.
+#
+# **`content_type: code`, deliberately.** Laying a packup into a `reproducible`
+# kind renames `results/` to `items/result` and leaves `REPRODUCE.md` with no
+# item to be, which destroys exactly what `check_packup_shape` exists to check.
 set -eu
+
 PKG="${AGENT_SYS_TASK_PACKAGE:-${AGENT_SYS_DEMO_PACKAGE:?the runner exports one of these}}"
-# `|| rc=$?` and not `; rc=$?`: under `set -e` a simple command exiting
-# non-zero kills the script before the assignment runs, so the branch below
-# was never reached and a real-mode task died with the mock's status.
-# A `||` puts it in a condition context, where `set -e` does not fire.
+
 rc=0
-bash "$PKG/assets/lib/mock.sh" stage5-integration e2e_packup:NONE || rc=$?
-# 0 = mocked and written; 3 = this stage is not mocked, fall through to the
-# real work; anything else is a mock that failed and must not be read as
-# either.
-if [ "$rc" -eq 0 ]; then exit 0; fi
-if [ "$rc" -ne 3 ]; then exit "$rc"; fi
-echo "TODO(owner): packup has no real body yet; run with E2E_MOCK_STAGES covering stage5-integration" >&2
-exit 1
+bash "$PKG/assets/lib/mock_m5.sh" packup \
+  "${AGENT_SYS_INPUT_DEPLOY_KIT:?}/items/codes/environment.yaml" || rc=$?
+if [ "$rc" -eq 0 ] && [ -n "$(ls -A "${AGENT_SYS_OUTPUT_E2E_PACKUP:?}" 2>/dev/null)" ]; then
+  exit 0
+fi
+if [ "$rc" -ne 0 ] && [ "$rc" -ne 3 ]; then exit "$rc"; fi
+
+python3 "$PKG/assets/packup.task/packup.py" \
+  --out "${AGENT_SYS_OUTPUT_E2E_PACKUP:?AGENT_SYS_OUTPUT_E2E_PACKUP is unset}" \
+  --package "$PKG"
+
+# G5: every handoff carries the environment record, and a `code` kind carries it
+# at `items/codes/environment.yaml`. Inherited from m1 rather than re-derived.
+exec python3 "$PKG/assets/lib/env_render.py" \
+  --inherit "${AGENT_SYS_INPUT_DEPLOY_KIT:?}/items/codes/environment.yaml" \
+  --content-type code \
+  --out "$AGENT_SYS_OUTPUT_E2E_PACKUP"

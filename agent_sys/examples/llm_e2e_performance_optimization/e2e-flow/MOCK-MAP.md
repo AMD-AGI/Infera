@@ -105,13 +105,44 @@ Same for M5.1.3.2's kernel-share reconciliation. `integrate_and_verify` already
 has `profiling_evidence` and `kernel_optimization` as inputs, so no new edge is
 needed — only the discipline of writing both numbers down.
 
-### (D) Six evidence kinds became two
+### (D) Six evidence kinds became two — **done**, `assets/lib/mock_m5.sh arms`
 
 `stock.measurement` folds `deployment_stock` + `acceptance_stock` +
-`bench_stock`; likewise patched. The union is mechanical (`env/` merges,
-`result/` gains subdirectories) but the `env/steps.json` that
-`check_measurement_order` reads has to be **written**, since no sealed artefact
-carries the merged step order.
+`bench_stock`; likewise patched. `assets/lib/merge_arm.py` does it, and it is the
+same module a real run uses at step 9 of `integrate_and_verify`'s STEPS — the
+mock does not get its own merge.
+
+**The union is flatter than expected and that is measured.** `result/` gains no
+subdirectories: `smoke.json`, `needle.json`, `probe.json`, `lm_eval/` and `r1/`
+sit side by side and nothing collides, so `check_acceptance` and
+`check_bench_report` read exactly the paths they always did. 39 files per arm,
+zero collisions.
+
+Exactly three files exist in more than one source — `README.md`, `items/command`
+and `items/watchout`, because each script wrote a whole handoff of its own. They
+are **concatenated with a header naming each half**, not overwritten, and a
+genuine collision (same path, different bytes) is a refusal rather than a
+last-writer-wins.
+
+**`env/steps.json` needed one thing written.** The measurement script's record
+already carries the five measured steps with timestamps — so the merged order is
+not invented — but no sealed artefact records the **bring-up window**, and
+without it the disjointness check cannot express the guarantee it exists for
+("the patched arm's bring-up did not start until the stock arm had finished").
+`merge_arm.py` therefore requires `--serve-started` and `--serve-seconds` with no
+default: a guessed bring-up window would make the check pass by construction. The
+mock derives windows from the sealed step timestamps — stock measured
+12:58:12–13:41:32 and patched 13:45:47–14:35:51, so a stock bring-up ending just
+before 12:58 and a patched one beginning after 13:41:32 is the order the real run
+had — and **writes a `note` into the step saying it is derived**.
+
+### (D′) `adhoc.json` has no sealed source, and the mock does not invent one
+
+M5.4's per-run correctness cases post-date every sealed handoff. Synthesising a
+set would be exactly what this document forbids, so **a mock run passes
+`--var adhoc_cases=0`** and `check_acceptance`'s ad-hoc rules are not exercised
+until the first real run. Recorded here rather than left as a surprise: it is the
+one m5 rule the mock cannot test.
 
 ### (E) `integration_report`'s sealed verdict is `false`
 
@@ -124,13 +155,30 @@ passing example.** Because `check_no_regression` is `strong`, mocking it
 verbatim will correctly stop the graph — which is *also* a useful test, once,
 of the refusal path.
 
-Two mock modes, and the run should exercise both:
-- `--var mock_report=refused` — verbatim. Expect the graph to stop at m5. This
-  is the only cheap end-to-end test of a strong refusal we have.
-- `--var mock_report=accepted` — the same report with the two arms' numbers
-  taken from the **stock control** measured under matched load (patched 475.7 ms
-  vs stock 470.3 ms mean ITL, 1.1% apart), which is what a non-regressing run on
-  this cluster actually looks like.
+Two mock modes, and the run should exercise both. **Done**, as
+`assets/lib/mock_m5.sh report` with `$E2E_MOCK_REPORT`:
+- `refused` (default) — verbatim. Expect the graph to stop at m5. This is the
+  only cheap end-to-end test of a strong refusal we have. Verified:
+  `check_no_regression` FAILs, its recomputation agrees with the report's stated
+  verdict and with its stated reasons, and the sole complaint is the real one.
+- `accepted` — the same report with the two arms' numbers taken from the **stock
+  control** measured under matched load (patched 475.7 ms vs stock 470.3 ms mean
+  ITL, 1.1% apart), which is what a non-regressing run on this cluster actually
+  looks like. Verified: PASS.
+
+**Two blocks have to be added in either mode, and they are the interesting
+part.** `integration_report.schema.json` requires `stock_vs_m2` (M5.1.3.1) and
+`kernel_reconciliation` (M5.1.3.2), and the 2026-09-02 run predates both — fed
+the sealed `text.json`, the schema returns exactly two problems and nothing else,
+which is the schema being written against the real artefact rather than around
+it. The mock fills both in as *not measured, and here is why*, which is the case
+the schema forces a producer to state rather than omit.
+
+**Also mocked verbatim: the declared bars.** The sealed report says 0.35/0.30,
+and `check_no_regression` refuses a report whose bars are looser than its own
+args — so the `refused` mock produces that complaint too, on top of the
+regression. That is correct and it is worth seeing once: a producer may not pick
+its own threshold.
 
 ### (G) the sealed `kernel_optimization` has no `apply` and no `premise`
 
@@ -172,6 +220,15 @@ handoffs and graded PASS against the real `check_packup_shape` body.
 
 Use it as the mock source, and note in the run's record that it is **not
 sealed** and its provenance is `PRODUCED-BY-DEPLOY.md` in that directory.
+
+**Done**, as `assets/lib/mock_m5.sh packup`. Its `content/` is copied wholesale
+rather than its parent: the kit is already handoff-shaped —
+`content/items/codes/{README.md,REPRODUCE.md,results,logs,scripts,handoffs}` —
+because a real `packup.py` wrote it into a real output slot. Only
+`PRODUCED-BY-DEPLOY.md` sits outside, and that is the provenance record rather
+than part of the kit. The mock writes the not-sealed fact into the handoff's own
+`items/watchout`, so a reader meets it in the artefact and not only here.
+Verified PASS against `check_packup_shape` with the step yaml's verbatim `args`.
 
 ## Digests
 

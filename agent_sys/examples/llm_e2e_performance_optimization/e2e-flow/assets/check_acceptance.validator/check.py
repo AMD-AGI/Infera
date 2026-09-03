@@ -44,12 +44,14 @@ def read_json(path: Path):
 
 
 def smoke_ok(result: Path, args: dict, reasons: list) -> bool:
+    """The **frozen** set (M5.4). These live in `assets/accept/` and ship with the
+    package, so what they test cannot be chosen after the numbers are in."""
     smoke = read_json(result / "smoke.json")
     if smoke is None:
         return _fail(reasons, "smoke.json is missing or unreadable")
     got = {c["name"]: c for c in smoke.get("checks", [])}
     ok = True
-    for name in args.get("require_smoke_checks") or ():
+    for name in args.get("require_frozen_checks") or ():
         if name not in got:
             ok = _fail(reasons, f"smoke.json has no {name!r} check")
         elif not got[name].get("ok"):
@@ -199,24 +201,121 @@ def evals_ok(result: Path, args: dict, reasons: list) -> bool:
     return ok
 
 
-def check(content: Path, args: dict, reasons: list) -> bool:
+def adhoc_ok(result: Path, args: dict, reasons: list) -> list[str]:
+    """M5.4 — 同时还要临时 ai 生成几个。免得作弊.
+
+    **Why a frozen set is not enough.** Every check in `assets/accept/` is in the
+    repository, so an optimisation — or an agent driving one — can be made to
+    satisfy exactly those and nothing else, and the suite then measures
+    compliance with itself. A handful of cases invented per run cannot be
+    prepared for.
+
+    **Why the prompts are recorded rather than only the results.** A generated
+    case whose text is thrown away is unauditable: a later reader cannot tell a
+    hard question that was answered from a trivial one that was asked instead,
+    and "three ad-hoc cases passed" then means nothing. The mission asks for the
+    cases; the handoff carries what was asked as well as what came back.
+
+    Three rules beyond the count, each closing a way the requirement could be
+    met without being met:
+
+    - **no ad-hoc case may repeat a frozen one.** Regenerating the shipped suite
+      satisfies the count and adds no coverage.
+    - **the ad-hoc prompts must differ from each other.** Three copies of one
+      case is one case.
+    - **both arms must run the same ad-hoc set**, which is checked across the
+      two handoffs by the caller. Different cases per arm is not a comparison,
+      and it is the shape a regression could hide behind.
+
+    Returns the case ids, so the caller can compare the arms.
+    """
+    floor = int(args.get("min_adhoc_cases", 0) or 0)
+    payload = read_json(result / "adhoc.json")
+    if payload is None:
+        if floor:
+            _fail(
+                reasons,
+                f"adhoc.json is missing and {floor} ad-hoc case(s) are required (M5.4). The "
+                "frozen suite is in the repository and can be satisfied by construction; the "
+                "per-run cases are the part that cannot.",
+            )
+        return []
+
+    generator = payload.get("generator") or {}
+    if not str(generator.get("prompt") or "").strip():
+        _fail(
+            reasons,
+            "adhoc.json records no generator prompt. What was ASKED is half the evidence — "
+            "without it, a reader cannot tell a hard case that was answered from an easy one "
+            "that was substituted.",
+        )
+
+    cases = payload.get("cases") or []
+    if len(cases) < floor:
+        _fail(reasons, f"adhoc.json carries {len(cases)} case(s), floor is {floor}")
+
+    frozen_prompts = {
+        str(c.get("prompt") or "").strip().lower()
+        for c in (read_json(result / "smoke.json") or {}).get("checks", [])
+        if c.get("prompt")
+    }
+    seen: set[str] = set()
+    ids: list[str] = []
+    for i, case in enumerate(cases):
+        where = f"adhoc case {case.get('id') or i}"
+        prompt = str(case.get("prompt") or "").strip()
+        if not prompt:
+            _fail(reasons, f"{where} carries no prompt")
+            continue
+        if not str(case.get("expectation") or "").strip():
+            _fail(reasons, f"{where} states no expectation, so its `ok` is an opinion")
+        if case.get("answer") is None:
+            _fail(reasons, f"{where} records no answer — the case was generated and not run")
+        if not isinstance(case.get("ok"), bool):
+            _fail(reasons, f"{where} has no boolean `ok`")
+        key = prompt.lower()
+        if key in frozen_prompts:
+            _fail(reasons, f"{where} repeats a frozen case; the ad-hoc set adds no coverage")
+        if key in seen:
+            _fail(reasons, f"{where} repeats another ad-hoc case")
+        seen.add(key)
+        ids.append(str(case.get("id") or f"#{i}"))
+
+    failed = [c.get("id") for c in cases if c.get("ok") is False]
+    if failed:
+        # Not this validator's refusal. A single arm's ad-hoc failure is a fact
+        # about that deployment; a failure on patched that passed on stock is a
+        # regression, and that comparison is `check_no_regression`'s.
+        print(f"  note: ad-hoc case(s) {failed} did not pass on this arm")
+    else:
+        print(f"  ad-hoc: {len(cases)} case(s), all passed")
+    return ids
+
+
+def check(content: Path, args: dict, reasons: list) -> tuple[bool, list[str]]:
     result = content / "items" / "result"
     if not result.is_dir():
-        return _fail(reasons, "items/result/ is missing")
+        return _fail(reasons, "items/result/ is missing"), []
+    adhoc_reasons: list = []
+    ids = adhoc_ok(result, args, adhoc_reasons)
+    reasons.extend(adhoc_reasons)
     # Not short-circuited: every rule runs, so one rerun clears the whole set.
-    return all(
+    ok = all(
         [
+            not adhoc_reasons,
             smoke_ok(result, args, reasons),
             needle_ok(result, args, reasons),
             probe_recorded(result, reasons),
             evals_ok(result, args, reasons),
         ]
     )
+    return ok, ids
 
 
 def main() -> int:
     args = zone.args()
     results = {}
+    adhoc: dict[str, list[str]] = {}
     for hid in zone.inputs():
         content = zone.content_of(hid)
         reasons: list = []
@@ -224,10 +323,24 @@ def main() -> int:
             results[hid] = False
             reasons.append("no published content for this handoff")
         else:
-            results[hid] = check(content, args, reasons)
+            results[hid], adhoc[hid] = check(content, args, reasons)
         print(f"check_acceptance: {hid} {'PASS' if results[hid] else 'FAIL'}")
         for reason in reasons:
             print(f"  - {reason}")
+
+    # Both arms are produced by one task (M5.2) and so arrive in one phase.
+    # Different ad-hoc cases per arm is not a comparison — and it is exactly the
+    # shape a regression could hide behind, since the arm that failed a case
+    # could simply have been asked a different one.
+    if len(adhoc) > 1 and len({tuple(v) for v in adhoc.values()}) > 1:
+        for hid in adhoc:
+            results[hid] = False
+            print(
+                f"check_acceptance: {hid} FAIL\n  - the arms ran different ad-hoc case sets "
+                f"({ {k: v for k, v in adhoc.items()} }). The per-run cases exist so the suite "
+                "cannot be gamed; running a different set per arm gives that back."
+            )
+
     zone.write_verdict(results)
     return 0
 

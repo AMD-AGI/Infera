@@ -60,6 +60,28 @@ ABSOLUTE_PATH_ALLOW_LIST = (
 _ABS = re.compile(r"(?<![A-Za-z0-9._~@+-])(?:[A-Za-z]:\\[^\s\"'<>|]*|(?:/[A-Za-z0-9._+@-]+){2,}/?)")
 _URL = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://\S*")
 
+#: A path continuing from a variable expansion is **not** hard-coded, and this is
+#: the largest false-positive class after URLs.
+#:
+#: `"$HERE"/scripts/forge_driver.py` leaves `/scripts/forge_driver.py` as a fresh
+#: two-segment candidate, because the framework's lookbehind excludes
+#: `[A-Za-z0-9._~@+-]` and a closing quote is in none of those. Measured: it
+#: flagged three lines of a correct generated `run_forge.sh` on the first run of
+#: the full chain.
+#:
+#: `analyze-demo` works around this by building script paths in two steps and
+#: telling the reader not to "simplify" them back. That contortion existed to
+#: satisfy the seal, and the seal does not run. The rule here is *no hard-coded
+#: host path*, so stripping the expansion before scanning is not a loosening —
+#: it is the rule stated correctly. A `$`-prefixed path is a parameterised one,
+#: which is exactly what the check is asking for.
+#: The trailing `["']?` is load-bearing and was found by running it: the shell
+#: idiom is `"$HERE"/scripts/x.py`, so consuming `$HERE` alone leaves `"` as the
+#: character before `/scripts` — and `"` is not in the lookbehind's exclusion
+#: class either, so the candidate still fires. The closing quote has to go with
+#: the expansion.
+_EXPANSION = re.compile(r"""(?:\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Za-z_][A-Za-z0-9_]*|@[A-Z_][A-Z0-9_]*@)["']?""")
+
 
 def arg_num(args: dict, name: str, default, cast=float):
     """One numeric `args` entry, where an explicit **0 means 0**.
@@ -156,12 +178,21 @@ def rsd(per_group_ms: list[float]) -> float:
 def absolute_paths_in(path: Path) -> list[str]:
     """Absolute paths in one file that the seal would refuse, as `name:line: hit`.
 
-    Two traps this reproduces deliberately, both measured:
+    Three exemptions, each because its absence produced a measured false
+    positive:
 
-    * a **relative** path preceded by `>` or `}` matches, because the rule's
-      lookbehind does not exclude them — a `<operator_id>/scripts/x.py` fragment
-      in a prose README once refused a complete workset;
-    * a shebang line is exempt, and nothing else is.
+    * a URL's path component — 401 of the 627 false positives the framework
+      measured, matched on the scheme, which is what distinguishes it;
+    * a path continuing from a variable expansion, `"$HERE"/scripts/x.py` — see
+      `_EXPANSION`; a `$`-prefixed path is a parameterised one, which is what
+      this check exists to ask for;
+    * a shebang, which names an interpreter rather than a produced artefact.
+
+    What remains uncaught, and is left uncaught on purpose: a **relative** path
+    preceded by `>` or `}` still matches, because the framework's lookbehind
+    excludes neither — a `<operator_id>/scripts/x.py` fragment in a prose README
+    reads as absolute. Callers scope this to `.py`/`.sh`/`.json`/`.jsonl` and
+    leave prose alone, which is where that shape lives.
     """
     try:
         text = path.read_text(encoding="utf-8")
@@ -171,7 +202,10 @@ def absolute_paths_in(path: Path) -> list[str]:
     for lineno, line in enumerate(text.splitlines(), start=1):
         if line.lstrip().startswith("#!"):
             continue
-        for match in _ABS.finditer(_URL.sub(" ", line)):
+        # Substituted with a word character, not a space: blanking it would
+        # leave the following `/scripts/...` at the start of a token and the
+        # lookbehind would not fire.
+        for match in _ABS.finditer(_EXPANSION.sub("V", _URL.sub(" ", line))):
             hit = match.group(0)
             if not hit.startswith(ABSOLUTE_PATH_ALLOW_LIST):
                 out.append(f"{path.name}:{lineno}: {hit}")

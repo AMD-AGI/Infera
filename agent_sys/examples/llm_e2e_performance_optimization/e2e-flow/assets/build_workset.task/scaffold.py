@@ -1,0 +1,300 @@
+#!/usr/bin/env python3
+"""Generate everything about a workset that is not judgement, and stop there.
+
+`build_workset` is the one AI task in this stage, and the mission is explicit
+about how much freedom it should have: *"每一步都必须有可执行的脚本和验收标准。ai
+只需要串起来工作，减少 ai 的自由度和认知负载"* (G4.2). This program is the
+executable half. It writes:
+
+* `workset.yaml`, complete, from `operator_identity` and `profiling_evidence`;
+* `definitions/<op_type>/<name>.json`, complete **except** `reference` and
+  `baseline`, which are left as the sentinel below;
+* `workloads/<op_type>/<name>.jsonl`, one line per observed shape, in the order
+  `workset.yaml` indexes them — `check_workset_shape` checks that
+  correspondence, and generating both from one loop is why it holds;
+* `run_correctness.sh`, `run_performance.sh` and `_common.py`, copied verbatim
+  from `harness/`. **Never generated, never edited**: an agent that writes its
+  own oracle controls its own result.
+* `environment.yaml`, carried through from the input.
+
+What is left for the agent is exactly two things per operator, and both are
+things a rule table cannot do:
+
+1. **`reference`** — an implementation that is obviously right, imported from
+   the framework's own test suite wherever one exists. A reference written from
+   a reading of the kernel is how a correctness gate comes to agree with a bug.
+2. **`baseline`** — the incumbent fast implementation, the call the served
+   engine actually makes today. Separate from the reference, and conflating the
+   two is the single most common way a speedup number becomes meaningless.
+
+`gates.extra` is a third, optional and usually empty.
+
+Idempotent: run it twice and the second run overwrites the scaffold and
+**leaves any Definition whose sentinel has already been replaced**, so an agent
+that has written two of three references does not lose them by re-running.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import shutil
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+_PACKAGE = Path(os.environ.get("AGENT_SYS_TASK_PACKAGE") or os.environ["AGENT_SYS_DEMO_PACKAGE"])
+sys.path.insert(0, str(_PACKAGE / "assets" / "lib"))
+
+import schema as schema_lib  # noqa: E402
+import store  # noqa: E402
+
+HARNESS = _PACKAGE / "assets" / "build_workset.task" / "harness"
+
+#: What an unwritten Definition body says. Chosen so that **every** way of
+#: getting it wrong is caught: `check_workset_shape` rejects it as a template
+#: marker (`TODO`), the harness rejects it as defining no `run`, and a reader
+#: sees the instruction rather than an empty string that looks finished.
+SENTINEL = (
+    "# TODO(build_workset): replace this whole string with the implementation.\n"
+    "# It must end in `def run(*args, **kwargs)`. See the task readme, STEP 4.\n"
+)
+
+_OP_TYPE = re.compile(r"[^a-z0-9_]+")
+
+
+def _op_type(operator: dict) -> str:
+    """flashinfer-bench's `op_type`, from the category the ranker assigned.
+
+    The category is a taxonomy label and `op_type` is a directory name, so this
+    normalises rather than trusting: `moe_gemm` is fine, `Elementwise ops` is
+    not, and the two must not diverge silently into two directories.
+    """
+    raw = (operator.get("category") or "unknown").strip().lower()
+    return _OP_TYPE.sub("_", raw).strip("_") or "unknown"
+
+
+def _axes(cases: list[dict]) -> tuple[dict, list[dict]]:
+    """`(definition axes, per-shape var axes)` from the worklist's cases.
+
+    An axis that takes the same value in every case is `const` and lives in the
+    Definition; one that varies is `var` and appears per line in the workload.
+    That split is flashinfer-bench's and it is what keeps the JSONL short enough
+    to read — and it is derived from the data rather than declared, so a
+    "constant" that is not constant cannot be asserted into one.
+    """
+    keys: dict[str, set] = {}
+    for case in cases:
+        for name, value in (case.get("selector") or {}).items():
+            if name == "CASE_ID" or not isinstance(value, int):
+                continue
+            keys.setdefault(name, set()).add(value)
+    axes, per_shape = {}, []
+    for name, values in sorted(keys.items()):
+        if len(values) == 1:
+            axes[name.lower()] = {"type": "const", "value": next(iter(values)),
+                                  "description": f"{name}, constant across every observed shape"}
+        else:
+            axes[name.lower()] = {"type": "var", "description": f"{name}, varies across the observed shapes"}
+    for case in cases:
+        per_shape.append({
+            name.lower(): value
+            for name, value in (case.get("selector") or {}).items()
+            if name != "CASE_ID" and isinstance(value, int) and axes.get(name.lower(), {}).get("type") == "var"
+        })
+    return axes, per_shape
+
+
+def _uuid(operator_id: str, case_id: str) -> str:
+    """A stable 16-hex id for one shape.
+
+    Derived from the names rather than random, so re-running the scaffold does
+    not invalidate `shapes[].uuid` in a `workset.yaml` an agent has since
+    edited — the correspondence between the index and the JSONL is exactly what
+    `check_workset_shape` checks, and a fresh random id would break it on the
+    second run.
+    """
+    import hashlib
+
+    return hashlib.sha256(f"{operator_id}/{case_id}".encode()).hexdigest()[:16]
+
+
+def _magpie_row(operator: dict) -> dict:
+    """Magpie's own row for this kernel (M3.7.3 — 尽量不自己搞).
+
+    Reconstructed from the fields `rank` carried through under Magpie's own
+    column names, so a rename upstream surfaces as a schema failure here rather
+    than as a number that quietly means something else.
+    """
+    return {
+        "Name": operator["name"],
+        "Calls": operator.get("calls") or 0,
+        "Self CUDA total (us)": operator.get("self_us") or 0.0,
+        "Avg time (us)": operator.get("avg_us") or 0.0,
+        "% Total": operator.get("pct_total") or 0.0,
+        "Input Shapes": operator.get("input_shapes") or "",
+    }
+
+
+def _entrypoints(operator_id: str | None) -> dict:
+    suffix = f" --operator {operator_id}" if operator_id else ""
+    tag = operator_id or "all"
+    return {
+        "correctness": {"cmd": f"./run_correctness.sh{suffix}",
+                        "report": f"evidence/correctness.{tag}.json", "protected": True},
+        "performance": {"cmd": f"./run_performance.sh{suffix}",
+                        "report": f"evidence/performance.{tag}.json", "protected": True,
+                        "timeout_s": 1800},
+    }
+
+
+def _environment(staged: Path) -> tuple[dict, str]:
+    for candidate in (staged / "items/env/environment.yaml",
+                      staged / "items/codes/environment.yaml",
+                      staged / "items/result/environment.yaml"):
+        if candidate.is_file():
+            import yaml
+
+            text = candidate.read_text(encoding="utf-8")
+            return yaml.safe_load(text) or {}, text
+    raise SystemExit(f"{staged.name} carries no environment.yaml; CONTRACT.md 2 requires one on every kind")
+
+
+def main() -> int:
+    import yaml
+
+    identity_dir = store.declared_dir("operator_identity", direction="INPUT")
+    if identity_dir is None:
+        raise SystemExit("AGENT_SYS_INPUT_OPERATOR_IDENTITY does not name a readable directory.")
+    evidence_dir = store.declared_dir("profiling_evidence", direction="INPUT")
+    if evidence_dir is None:
+        raise SystemExit("AGENT_SYS_INPUT_PROFILING_EVIDENCE does not name a readable directory.")
+
+    identity = json.loads((identity_dir / "items" / "text.json").read_text(encoding="utf-8"))
+    environment, environment_text = _environment(identity_dir)
+
+    dst = Path(os.environ.get("AGENT_SYS_OUTPUT_OPERATOR_WORKSET") or "")
+    if not dst:
+        raise SystemExit("AGENT_SYS_OUTPUT_OPERATOR_WORKSET is not set; this body has nowhere to write.")
+    root = dst / "items" / "codes"
+    root.mkdir(parents=True, exist_ok=True)
+
+    for name in ("_common.py", "run_correctness.sh", "run_performance.sh"):
+        shutil.copy2(HARNESS / name, root / name)
+        if name.endswith(".sh"):
+            (root / name).chmod(0o755)
+    (root / "environment.yaml").write_text(environment_text, encoding="utf-8")
+
+    operators, kept, written = [], 0, 0
+    for entry in identity["operators"]:
+        operator_id = entry["logical_operator"]
+        op_type = _op_type(entry)
+        cases = entry.get("cases") or []
+        if len(cases) < 3:
+            print(f"warning: {operator_id} has {len(cases)} observed shape(s); M3.7.4.1.2 needs 3. "
+                  f"STEP 5 of the readme is where you add the missing ones and mark them observed: false",
+                  file=sys.stderr)
+        axes, per_shape = _axes(cases)
+
+        definition_rel = f"definitions/{op_type}/{operator_id}.json"
+        workload_rel = f"workloads/{op_type}/{operator_id}.jsonl"
+        (root / definition_rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / workload_rel).parent.mkdir(parents=True, exist_ok=True)
+
+        shapes, lines = [], []
+        for case, var_axes in zip(cases, per_shape):
+            uuid = _uuid(operator_id, case["case_id"])
+            shapes.append({
+                "case_id": case["case_id"], "uuid": uuid, "axes": var_axes or {"batch": 1},
+                "role": "correctness-and-performance" if case.get("is_primary") else "correctness",
+                "is_primary": bool(case.get("is_primary")), "observed": True,
+                "observed_shapes": case.get("shapes") or [],
+                "calls": entry.get("calls") or 0,
+            })
+            lines.append(json.dumps({
+                "definition": operator_id,
+                "workload": {"axes": var_axes or {"batch": 1},
+                             "inputs": {name: {"type": "random"} for name in axes if False} or {},
+                             "uuid": uuid},
+                "solution": None, "evaluation": None}))
+        (root / workload_rel).write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+
+        # Idempotence: a Definition whose bodies the agent has already written is
+        # left exactly as it is. Only the scaffolded half is refreshed.
+        target = root / definition_rel
+        existing = json.loads(target.read_text(encoding="utf-8")) if target.is_file() else {}
+        if existing.get("reference", SENTINEL) != SENTINEL and existing.get("baseline", SENTINEL) != SENTINEL:
+            kept += 1
+        else:
+            target.write_text(json.dumps({
+                "name": operator_id,
+                "op_type": op_type,
+                "axes": axes or {"batch": {"type": "var", "description": "batch"}},
+                "inputs": {}, "outputs": {},
+                "reference": existing.get("reference") or SENTINEL,
+                "baseline": existing.get("baseline") or SENTINEL,
+                "tags": [t for t in (op_type, entry.get("precision"), entry.get("fellow")) if t],
+                "description": f"{operator_id}, from {entry['name'][:80]}",
+            }, indent=2) + "\n", encoding="utf-8")
+            written += 1
+
+        operators.append({
+            "operator_id": operator_id,
+            "kernel_id": entry["kernel_id"],
+            "device_symbol": entry["name"],
+            "op_type": op_type,
+            "status": "complete" if entry.get("target_kernel_functions") else "partial",
+            "missing_fields": [] if entry.get("target_kernel_functions") else ["edit_target.entry_function"],
+            "definition": definition_rel,
+            "workload": workload_rel,
+            "shapes": shapes,
+            "entrypoints": _entrypoints(operator_id),
+            "reference": {"kind": "written", "path": f"operators/{operator_id}/reference.md",
+                          "rationale": "TODO(build_workset): STEP 4."},
+            "baseline": {"kind": "written", "path": f"operators/{operator_id}/baseline.md",
+                         "rationale": "TODO(build_workset): STEP 4."},
+            "edit_target": {
+                "source_owner": (entry.get("kernel_identity") or {}).get("source_owner", ""),
+                "repo_root_var": entry.get("image_repo_path") or "",
+                "source_file": (entry.get("source_file_path") or [""])[0],
+                "editable_sources": entry.get("editable_sources") or [],
+                "entry_function": (entry.get("target_kernel_functions") or [""])[0],
+                "source_resolution_method": entry.get("source_resolution_method"),
+                "resolution_evidence": entry.get("resolution_evidence") or entry.get("resolution_hint") or "",
+            },
+            "gates": {"snr_db": float(os.environ.get("E2E_SNR_THRESHOLD") or 30.0)},
+            "provenance": {
+                "source": (identity.get("resolver") or {}).get("profile")
+                or f"profiling_evidence {evidence_dir.name}",
+                "rank": entry.get("rank"),
+                "pct_total": entry.get("pct_total"),
+                "in_service_avg_us": entry.get("avg_us"),
+                "magpie_row": _magpie_row(entry),
+            },
+        })
+
+    document = {
+        "schema_version": 1,
+        "workset_id": os.environ.get("E2E_WORKSET_ID") or "workset",
+        "produced_by": {"package": "e2e-flow",
+                        "commit": os.environ.get("E2E_PACKAGE_COMMIT") or "unknown",
+                        "step": "build_workset",
+                        "produced_at": datetime.now(timezone.utc).isoformat(timespec="seconds")},
+        "ground_truth": {"abort_on_mismatch": ["gpu_arch", "gpu_count", "tp_size"],
+                         "warn_on_mismatch": ["image_id", "rocm", "torch"],
+                         "environment": environment},
+        "entrypoints": _entrypoints(None),
+        "protocol": {"groups": 5, "iters_per_group": 10, "warmup": 3, "timing": "event"},
+        "operators": operators,
+    }
+    (root / "workset.yaml").write_text(yaml.safe_dump(document, sort_keys=False), encoding="utf-8")
+
+    print(f"scaffold: {len(operators)} operator(s); {written} definition(s) scaffolded, {kept} left as written")
+    print(f"          next: STEP 4 of the readme — fill `reference` and `baseline` in "
+          f"{', '.join(o['definition'] for o in operators)}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

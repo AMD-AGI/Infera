@@ -19,6 +19,46 @@
 # non-leaf.
 
 # --------------------------------------------------------------------------- #
+# 0. The agent.
+#
+# `kind: ai`, and only for `build_workset`. `rank` and `identify` keep
+# `agent: runner`: the evidence available to them is a symbol name and a table
+# of numbers, and a rule table plus an out-of-process finder is a better
+# instrument for that than a model. M3.8 asks whether that limits them —
+# recorded in `todo.md` T4, not changed here.
+#
+# **What this agent is for, and it is a narrow thing.** Two judgements a program
+# cannot make, per operator: which existing function is the correctness
+# reference, and which call is the incumbent whose speed a candidate will be
+# measured against. Everything else in the workset is generated —
+# `assets/build_workset.task/scaffold.py` writes the tree,
+# `assets/lib/forge_export.py` writes the KernelForge add-on, and the two
+# entrypoints are copied verbatim from `assets/build_workset.task/harness/`.
+#
+# **The entrypoints are package data and the agent may not touch them.** They
+# are the instrument that decides whether the agent's own output is correct and
+# how fast it is; an agent that writes its own oracle controls its own result,
+# and `check_workset_runs` — which re-runs them — would then be confirming a
+# claim with the claimant's own ruler. `check_workset_shape` compares the copy
+# against `harness/` byte for byte.
+#
+# `backend_entry` is the dotted form rather than an entry-point name: a task
+# package outside this repository cannot register an entry point in the
+# `agent_sys.backends` group without being installed, and this package is data.
+#
+# **No `env` block.** `shared.yaml` is this package's only variable declaration
+# site by design; a second one is a second place for a default to go stale.
+- module: agent
+  name: workset_builder
+  kind: ai
+  version: '1'
+  description: Turns resolved operator identities into runnable worksets, measured on this hardware.
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+# --------------------------------------------------------------------------- #
 # 1. Validators.
 #
 # OWNER m3: placeholders with the right identity.
@@ -200,14 +240,23 @@
         - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
         - {path: handoffs/operator_identity, access: write, kind: operator_identity}
 
-# OWNER m3: this one is judgement work — deciding what a workset's shapes should
-# be, and writing a correctness test that is actually decisive — so its finished
-# form is a `kind: ai` agent declared in this file, with a STEPS readme (G4.2.1)
-# that leaves the AI to sequence executable steps rather than invent a method.
+# Judgement work — which existing function is the correctness reference, and
+# which call is the incumbent a speedup is measured against — so it runs under
+# `workset_builder`. Its `readme.md` is a STEPS section (G4.2.1): ten ordered
+# commands, each with the condition that decides whether it worked. The agent
+# sequences them and reads what comes back; it does not invent a method, and the
+# two steps that are real judgement (STEP 3 and STEP 4) are the only two whose
+# acceptance criterion is not a command's exit code.
+#
+# **It builds *and* measures** (CONTRACT.md §4.0). There is no `verify_workset`
+# task: splitting bring-up from use across two agents is what M2.5 forbids, and
+# the same argument applies to splitting build from measure. STEP 7 and STEP 8
+# run the workset's own entrypoints, which is why this closure needs the shared
+# container `deploy_kit` names.
 - module: task
   name: build_workset
   description: Build one runnable optimisation workset per candidate operator.
-  agent: runner
+  agent: workset_builder
   handoffs: [operator_identity, profiling_evidence, deploy_kit, operator_workset]
   validators: []
   task:

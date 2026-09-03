@@ -18,6 +18,14 @@ The last rule is about the pair rather than the round: both arms must have run
 the same sequence of steps. "Round 1 was cold for this trace" is only true of an
 arm if the same things happened before it, and if the two arms disagree there
 then the comparison downstream is between two different experiments.
+
+**Carried across from `integration-demo` with one addition: the shared schema.**
+`args.schema` names `bench_result`, which is m2's file in `assets/schemas/` and
+not a second copy — mission G2 puts one schema in front of the producer and the
+validator alike, and CONTRACT.md §4.1 says a shared definition is shared rather
+than duplicated. m5's replay and m2's bench are the same AIPerf export, so they
+are graded by the same document; a round whose `profile_export_aiperf.json` does
+not validate is a round m2's own validator would have refused.
 """
 
 import json
@@ -26,11 +34,19 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
+import schema as schema_lib  # noqa: E402
 import zone  # noqa: E402
 
-#: AIPerf writes these four per run. All four, or the round is not a record.
+#: AIPerf writes these five per run. All five, or the round is not a record.
+#:
+#: `profile_export_aiperf.json` is the one the schema grades and the other four
+#: are renderings of it — measured by m2 when it wrote `bench_result.schema.json`:
+#: the CSV blanks the percentile columns AIPerf did not compute, the console text
+#: is the CSV with box-drawing characters, and the JSONL is the per-request detail
+#: the summary was computed from.
 REQUIRED_EXPORTS = (
     "profile_export_aiperf.csv",
+    "profile_export_aiperf.json",
     "profile_export.jsonl",
     "profile_export_console.txt",
     "server_metrics_export.csv",
@@ -68,6 +84,25 @@ def round_ok(round_dir: Path, args: dict, reasons: list) -> bool:
         lines = sum(1 for line in jsonl.read_text(encoding="utf-8", errors="replace").splitlines() if line.strip())
         if lines == 0:
             ok = _fail(reasons, f"{tag}: profile_export.jsonl describes no requests")
+
+    # The shared schema, against the one export that is lossless and typed.
+    # A round that fails here is a round m2's `check_bench_result` would have
+    # refused, which is the point of the two stages naming one schema.
+    name = args.get("schema")
+    export = round_dir / "profile_export_aiperf.json"
+    if name and export.is_file():
+        try:
+            schema_lib.validate(str(name), json.loads(export.read_text(encoding="utf-8")))
+        except schema_lib.SchemaError as exc:
+            ok = _fail(reasons, f"{tag}: profile_export_aiperf.json does not validate: {exc}")
+        except ValueError as exc:
+            ok = _fail(reasons, f"{tag}: profile_export_aiperf.json is not readable as JSON: {exc}")
+    elif name:
+        ok = _fail(
+            reasons,
+            f"{tag}: profile_export_aiperf.json is absent, so the {name!r} schema had nothing "
+            "to grade. The CSV and the console text are renderings; this is the record.",
+        )
 
     summary = read_json(round_dir / "summary.json")
     if summary is None:

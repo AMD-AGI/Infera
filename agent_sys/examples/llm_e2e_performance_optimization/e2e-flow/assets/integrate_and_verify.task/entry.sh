@@ -1,17 +1,38 @@
-#!/bin/sh
-# SKELETON. Mock first, real work second. See ../../CONTRACT.md and ../../MOCK-MAP.md.
+#!/usr/bin/env bash
+# **This closure runs under `kind: ai` (`e2e_integrator`), so this file is not
+# the body — `readme.md` is.** The STEPS section there is the method; the AI
+# sequences it and decides what to do when a step is ambiguous (M5.2, G4.2.1).
+#
+# It is kept, and it is not dead weight, for one case: a pure-mock run. Point the
+# closure at `runner` instead of `e2e_integrator` and this produces the three
+# handoffs from the sealed evidence without a model call and without a GPU, which
+# is what `--var mock_stages=all` is for during graph bring-up.
+#
+# It deliberately does NOT attempt the real measurement. A shell script cannot do
+# what steps 2 to 8 of the readme ask for — decide that four minutes of
+# `Health check failed` is a JIT compile rather than a hang, invent correctness
+# cases that could not have been prepared for — and one that pretended to would
+# be the "reported PASS over a run in which every result was zero" failure this
+# package is built against.
 set -eu
+
 PKG="${AGENT_SYS_TASK_PACKAGE:-${AGENT_SYS_DEMO_PACKAGE:?the runner exports one of these}}"
-# `|| rc=$?` and not `; rc=$?`: under `set -e` a simple command exiting
-# non-zero kills the script before the assignment runs, so the branch below
-# was never reached and a real-mode task died with the mock's status.
-# A `||` puts it in a condition context, where `set -e` does not fire.
+ENVYAML="${AGENT_SYS_INPUT_DEPLOY_KIT:?}/items/codes/environment.yaml"
+
 rc=0
-bash "$PKG/assets/lib/mock.sh" stage5-integration stock.measurement:acceptance_stock patched.measurement:acceptance_patched integration_report || rc=$?
-# 0 = mocked and written; 3 = this stage is not mocked, fall through to the
-# real work; anything else is a mock that failed and must not be read as
-# either.
-if [ "$rc" -eq 0 ]; then exit 0; fi
+bash "$PKG/assets/lib/mock_m5.sh" arms "$ENVYAML" || rc=$?
+if [ "$rc" -eq 0 ]; then
+  bash "$PKG/assets/lib/mock_m5.sh" report "$ENVYAML"
+  exit 0
+fi
 if [ "$rc" -ne 3 ]; then exit "$rc"; fi
-echo "TODO(owner): integrate_and_verify has no real body yet; run with E2E_MOCK_STAGES covering stage5-integration" >&2
+
+cat >&2 <<'MSG'
+integrate_and_verify: this stage is not mocked, and this entry.sh is not its body.
+
+The body is assets/integrate_and_verify.task/readme.md, run by the `e2e_integrator`
+agent (kind: ai). Either:
+  - set --var mock_stages to include m5, or
+  - run the closure under its declared AI agent.
+MSG
 exit 1

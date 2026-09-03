@@ -78,7 +78,7 @@ def check(content: Path, args: dict, reasons: list) -> bool:
     ok = True
 
     # ---- 1. the mounts are on the container ----------------------------------
-    if args.get("require_all_mounts", True):
+    if args.get("require_docker_mounts", True):
         try:
             inspected = json.loads((env / "docker_mounts.json").read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
@@ -108,7 +108,7 @@ def check(content: Path, args: dict, reasons: list) -> bool:
                 ok = _fail(reasons, f"{hit} is mounted read-write; the plan says read-only")
 
     # ---- 2. the bytes inside the container -----------------------------------
-    if args.get("require_container_hash_match", True):
+    if args.get("require_container_hashes", True):
         observed = {row[0]: row[1] for row in read_tsv(env / "container_hashes.tsv") if len(row) >= 2}
         if not observed:
             ok = _fail(
@@ -138,12 +138,26 @@ def check(content: Path, args: dict, reasons: list) -> bool:
     declared = overlay.get("runtime_marker") or {}
     hits = {row[0]: int(row[2]) for row in read_tsv(env / "marker_hits.tsv") if len(row) >= 3}
     if not declared:
-        print(
-            "  note: the patch declared no runtime_marker. The mounts are proven; whether the "
-            "patched code was ENTERED cannot be shown from this record, and two arms that "
-            "never diverge would look identical for that reason rather than for a good one."
-        )
-    elif args.get("require_declared_markers", True):
+        # **The hole, named in the findings rather than papered over.**
+        # `require_runtime_marker` is `false` in the step yaml, so an
+        # optimisation that declares no marker still gets the two static rules —
+        # and this validator says what it could not show rather than reporting a
+        # pass that means more than it does. Set it `true` at a site that can
+        # require its optimiser to leave a marker; the cost is refusing every
+        # KernelForge patch that does not know about this package.
+        if args.get("require_runtime_marker", False):
+            ok = _fail(
+                reasons,
+                "the patch declares no runtime_marker and args.require_runtime_marker is true. "
+                "The mounts are proven and whether the patched code was ENTERED is not.",
+            )
+        else:
+            print(
+                "  note: the patch declared no runtime_marker. The mounts are proven; whether the "
+                "patched code was ENTERED cannot be shown from this record, and two arms that "
+                "never diverge would look identical for that reason rather than for a good one."
+            )
+    else:
         for key in ("import", "first_call"):
             if key not in declared:
                 continue

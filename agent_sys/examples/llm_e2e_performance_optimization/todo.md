@@ -125,6 +125,38 @@ A saturated node fails `max_rsd` on evidence that is otherwise correct, while a
 kernel that is wrong on a minority of shapes can still pass. The two knobs
 express opposite philosophies in one validator.
 
+### T12 — the mock cannot exercise M5.4's ad-hoc correctness rules
+*Opened 2026-09-03 by m5.*
+
+`check_acceptance` requires `min_adhoc_cases` per-run correctness cases with
+their generator prompt recorded, none repeating a frozen case or each other, and
+the same set on both arms (M5.4 — 免得作弊). **No sealed handoff carries an
+`adhoc.json`**, because the requirement post-dates every run under
+`cheat_for_mock/`, and synthesising one would be exactly what `MOCK-MAP.md`
+forbids. So a mock run passes `--var adhoc_cases=0` and four of the validator's
+rules are untested until the first real m5 run.
+
+**Would settle it:** the first real run. Nothing to build; this is a note so that
+a green mock is not read as coverage it does not have.
+
+### T13 — `compare.py` finds the kernel's profile share by substring
+*Opened 2026-09-03 by m5.*
+
+M5.1.3.2 needs the optimised kernel's fraction of m2's profile. `compare.py`
+finds it by matching `operator_id` case-insensitively against the `Name` column
+of m2's kernel table. That is a rule table over symbol names — the same shape as
+`rank.py` and `identify.py`, and the same objection as T4: it can only recognise
+what somebody wrote a rule for, and an operator whose workset name differs from
+its kernel symbol silently yields "share unknown".
+
+It fails **safe**: an unmatched operator produces
+`kernel_reconciliation.unavailable_because` rather than a wrong number, and the
+block is a warning rather than a blocker anyway.
+
+**Would settle it:** m3's `operator_identity` already resolves a logical operator
+to its kernel symbols — carry that mapping into the workset and have `compare`
+read it instead of guessing.
+
 ### T11 — ten closed `items_schema`s in `integration-demo` (was C23)
 
 `additionalProperties: false` on an items schema rejects `logs` and `watchout`,

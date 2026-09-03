@@ -14,6 +14,14 @@ This body runs on the login node, which cannot see the node-local files the
 mounts actually point at. So it checks the plan's shape and the copies the
 handoff carries; whether the node-local file is what ends up inside the running
 container is `check_patch_live`'s question, asked of the container itself.
+
+**`container_roots_from` is a whitelist and it is the third rule.** A patch that
+names a host path has confused the machine it was cut on with the image it is to
+be applied to, and nothing downstream can see the difference: the mount is made,
+the container starts, the engine imports the file it always imported, and the
+run reports no regression for a change that was never applied. The whitelist is
+loaded from the package rather than from the handoff, so a producer cannot widen
+its own bounds by shipping a roots file with `/` in it.
 """
 
 import sys
@@ -23,6 +31,30 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 import patchkit  # noqa: E402
 import zone  # noqa: E402
+
+
+def container_roots(args: dict, reasons: list) -> dict[str, str] | None:
+    """The `@NAME@ -> /path` table this plan's paths must resolve under.
+
+    `None` means "use patchkit's own", which is the same file; naming it in
+    `args` makes the whitelist a declared part of the validator rather than an
+    import-time side effect, and lets a site swap it without editing a body.
+    """
+    name = args.get("container_roots_from")
+    if not name:
+        return None
+    path = Path(__file__).resolve().parent.parent / "lib" / str(name)
+    if not path.is_file():
+        reasons.append(
+            f"args.container_roots_from names {name!r}, which is not in the package's "
+            f"assets/lib/. Without the whitelist this validator cannot tell a container "
+            f"path from a host path, so it refuses rather than falling back."
+        )
+        return None
+    import yaml
+
+    loaded = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return {f"@{k}@": v["path"] for k, v in (loaded.get("roots") or {}).items()}
 
 
 def check(content: Path, args: dict, reasons: list) -> bool:
@@ -36,8 +68,16 @@ def check(content: Path, args: dict, reasons: list) -> bool:
         reasons.append(f"mounts.json is not readable as JSON: {exc}")
         return False
 
+    roots = container_roots(args, reasons)
+    if args.get("container_roots_from") and roots is None:
+        return False
+
     reasons.extend(
-        patchkit.check_mounts(plan, require_difference=bool(args.get("require_difference", True)))
+        patchkit.check_mounts(
+            plan,
+            require_difference=bool(args.get("require_difference", True)),
+            roots=roots,
+        )
     )
     # The published copies, not the node-local ones: those are on a machine this
     # body cannot reach, and a validator that silently skipped its only checkable

@@ -246,8 +246,8 @@
             "source_owner": {"type": "string", "description": "`aiter`, `sglang`, `triton`, … which checkout the file lives in."},
             "repo_root_var": {
               "type": "string",
-              "pattern": "^\\$\\{[A-Z_][A-Z0-9_]*\\}$",
-              "description": "The placeholder the file paths are relative to, e.g. `${AITER_ROOT}`. A **variable and not a path**, because `handoff/locality.py` refuses the seal over a container-absolute root like `/sgl-workspace`; the expansion belongs in the environment, not in the artefact."
+              "pattern": "^(|\\$\\{[A-Z_][A-Z0-9_]*\\}|@[A-Z_][A-Z0-9_]*@)$",
+              "description": "The placeholder the file paths are relative to, e.g. `${AITER_ROOT}` or `@AITER_ROOT@`. A **variable and not a path**: `/sgl-workspace/aiter` is where aiter lives in *one image*, and a document that hard-codes it cannot be retargeted.\n\nBoth sigils and empty are accepted, and the value is `operator_identity.operators[].image_repo_path` carried through unchanged — so this constraint must be exactly that field's or a correct upstream document produces a workset that will not validate. It did, once: `@SGLANG_ROOT@` against a `${...}`-only pattern, caught by running the chain rather than by reading the two files side by side."
             },
             "source_file": {"type": "string", "minLength": 1},
             "editable_sources": {"type": "array", "items": {"type": "string"}},
@@ -257,7 +257,8 @@
             "device_function_line": {"type": "integer", "minimum": 1},
             "source_resolution_method": {
               "type": "string",
-              "enum": ["symbol_search", "stack_trace", "agent_recovered", "declared"]
+              "enum": ["trace_python_stack", "symbol_search", "agent_recovered", "declared"],
+              "description": "Carried through from `operator_identity`, and **the enum must be that schema's exactly**. It was not: this one said `stack_trace` where upstream says `trace_python_stack`, so a correct identity document produced a workset that would not validate. Two names for one thing across two schemas in one package is the failure a shared vocabulary exists to prevent."
             },
             "resolution_evidence": {"type": "string", "description": "How it was established. Prose, and prose is right here: this is a *reason*, and M3.7.2's preference for yaml is over facts, not over arguments."},
             "resolution_caveats": {
@@ -329,7 +330,7 @@
               }
             },
             "in_service_avg_us": {
-              "type": "number",
+              "type": ["number", "null"],
               "description": "Magpie's `Avg time (us)`, restated here under a name that says what it is: an average **inside the running service**, across mixed batch sizes and in contention with every other kernel. It is **not** the standalone baseline and the two can differ severalfold. The standalone number lives in `evidence/performance.json` and is the only one a speedup may be computed against. Keeping both, named differently, is cheaper than explaining the difference once and hoping."
             }
           }
