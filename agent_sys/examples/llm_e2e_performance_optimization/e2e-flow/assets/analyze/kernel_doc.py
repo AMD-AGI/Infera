@@ -150,6 +150,11 @@ def build(
     totals = (trace_manifest or {}).get("totals") or {}
 
     return {
+        # First, and required by `assets/schemas/kernel_table.schema.json`. An
+        # unversioned structured document is one that cannot be migrated: a
+        # reader holding a stored table has no way to know which contract
+        # produced it. Every schema in this package carries it.
+        "schema_version": 1,
         # Provenance by digest and never by directory: a handoff should not name
         # an absolute host path, so the artefact is identified exactly and the
         # machine is not named at all. Held by `assets/lib/redact.py` rather than

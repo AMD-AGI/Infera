@@ -7,9 +7,13 @@
 
   "type": "object",
   "additionalProperties": false,
-  "required": ["source", "columns", "totals", "kernels"],
+  "required": ["schema_version", "source", "columns", "totals", "kernels"],
 
   "properties": {
+    "schema_version": {
+      "const": 1,
+      "description": "As in `kernel_worklist`, `operator_identity` and `integration_report`: the one field the sealed artefact lacks, added rather than dropped. An unversioned structured document is one that cannot be migrated, and this was the last of the eight schemas in this package without it. `assets/analyze/kernel_doc.py` emits it and `assets/lib/m2_reshape.py` adds it to the sealed sample, which predates the field."
+    },
     "source": {
       "type": "object",
       "additionalProperties": true,

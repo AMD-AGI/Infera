@@ -35,6 +35,7 @@ sections are part of the type: `structured_text` requires `Purpose` and
 
 from __future__ import annotations
 
+import json
 import shutil
 import sys
 from pathlib import Path
@@ -82,7 +83,18 @@ def kernel_table(sealed: Path, out: Path) -> int:
     items = out / "items"
     (items / "env").mkdir(parents=True, exist_ok=True)
 
-    shutil.copy2(record, items / "text.json")
+    # **`schema_version` is added, not copied** — MOCK-MAP (A) in miniature. The
+    # sealed record predates the field, `kernel_table.schema.json` requires it,
+    # and `kernel_doc.py` emits it for a real run. Dropping the requirement to
+    # suit the sealed bytes would leave the one structured document in this
+    # package that cannot be migrated; adding it here is the same move
+    # `env_render.py` makes for the environment record.
+    #
+    # Written first so it leads the file, matching what `kernel_doc.py` emits.
+    document = json.loads(record.read_text(encoding="utf-8"))
+    if "schema_version" not in document:
+        document = {"schema_version": 1, **document}
+    (items / "text.json").write_text(json.dumps(document, indent=2), encoding="utf-8")
     shutil.copy2(export, items / "table.csv")
     # Copied from `assets/schemas/`, not from the handoff, and byte for byte:
     # `check_kernel_table` compares them and a re-serialisation would fail it.
