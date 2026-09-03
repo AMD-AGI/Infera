@@ -10,15 +10,24 @@ in what the binary does with what we hand it, and two real bugs proved it:
 1. `disabled_agents` naming providers this version does not know — the daemon
    exits 1 on the first one, and 626 green tests coexisted with a panel that had
    never once come up (`recon/ACCEPTANCE.md`, check 1).
-2. AgentsView hiding one-shot sessions by default — the panel opens **completely
-   empty and looks correct**.
+2. `GET /api/v1/sessions` returning `{"sessions":[],"total":0}` for a session
+   that is present, syncable and visible to `agentsview health`.
 
 Both are invisible to a fake. So this test writes the config we really produce,
 starts the real daemon, and asks it for the sessions we really planted.
 
-**The assertion that matters is a non-zero session count, never HTTP 200.** A
-200 with `{"sessions":[],"total":0}` is precisely bug 2, and a health check
-would have called it green.
+**On the second one, this file was itself wrong first, and that is the lesson
+it now encodes.** The empty response is real, but it is the *CLI's* endpoint
+applying a documented one-shot exclusion — and we read it as "the panel is
+broken". It never was: a real browser loading the plain `/` renders the session,
+because the web UI's session list calls a **different endpoint**
+(`sessions/sidebar-index`) and sends `include_one_shot=true` in its own request.
+Settled by reading a rendered page, twice, after hours spent on a non-bug.
+
+So the load-bearing assertion is against `UI_SESSIONS` — the request a browser
+actually makes — and the CLI surface is pinned separately. **A non-zero session
+count, never HTTP 200**: a daemon that starts, answers every health check and
+returns an empty list is the failure that must not ship.
 
 **Nothing here touches the operator's state.** Temporary prefix, temporary
 `AGENTSVIEW_DATA_DIR`, ephemeral port — never 18888, never `~/.agentsview`,
@@ -56,18 +65,33 @@ READY_TIMEOUT_S = 60.0
 #: `serve --background` daemonises and returns at once.
 LAUNCH_TIMEOUT_S = 30.0
 
-#: Measured against v0.42.0: the default `/api/v1/sessions` view **excludes**
-#: one-shot sessions, and a two-turn transcript is one. The parameter that
-#: includes them is snake_case; `includeOneShot` and `exclude_one_shot=false`
-#: were both measured to do nothing. See `zonelink/ENFORCED_MODE.md`'s sibling
-#: notes and the message to `recon` for the four spellings tried.
+#: **The request the web UI's session list actually makes**, captured from the
+#: network tab of a real headless Chromium loading the plain `/` — twice, by
+#: `recon` (`ws.agentsview_o11y/recon/PHASE0.md` §0.9) and again here before
+#: this constant was written. The rendered page showed the planted session:
+#: `1 SESSION / SIDEBAR-MARKER-9f31`.
 #:
-#: This test deliberately does **not** assert that the *default* view is
-#: non-empty. That is the behaviour a user meets and it is the one worth
-#: fixing, but the fix is a config decision owned elsewhere; asserting it here
-#: today would only add a red test. When that lands, the assertion belongs in
-#: this file, because it is the one that stops the empty-panel bug shipping.
-INCLUDE_ONE_SHOT = "include_one_shot=true"
+#: **This is the surface that matters**, and asserting on it rather than on
+#: `/api/v1/sessions` is the correction that this file existed to make and
+#: initially got wrong. The two endpoints disagree: `/api/v1/sessions` is the
+#: CLI's surface (`session list`) and applies the documented one-shot
+#: exclusion, while the browser's session list calls `sessions/sidebar-index`
+#: and always sends `include_one_shot=true` itself. Measured here: the bare
+#: `sidebar-index` with no parameters also returns nothing, so the parameter
+#: comes from the *frontend*, not from a different default on the endpoint.
+#:
+#: An earlier version of this file asserted only the CLI surface and concluded
+#: the panel was broken. It was not. The whole campaign's most expensive
+#: mistake was treating an API response as a proxy for what a person sees.
+UI_SESSIONS = (
+    "/api/v1/sessions/sidebar-index?timezone=UTC&include_one_shot=true&limit=500&order_by=recent"
+)
+
+#: The CLI/API surface, pinned as well. Keeping both means a future release
+#: that moves either default is noticed by a test rather than by an operator.
+#: `includeOneShot` and `exclude_one_shot=false` were both measured to do
+#: nothing; the parameter is snake_case and positive-only.
+RAW_SESSIONS = "/api/v1/sessions?include_one_shot=true"
 
 _PID_RE = re.compile(r"pid (\d+)")
 
@@ -157,9 +181,10 @@ class Panel:
         self.session_id = session_id
         self.first_message = first_message
 
-    def sessions(self, query: str = INCLUDE_ONE_SHOT) -> list[dict]:
-        status, body = _get(f"http://127.0.0.1:{self.port}/api/v1/sessions?{query}")
-        assert status == 200, f"the sessions API answered {status}"
+    def sessions(self, path: str = UI_SESSIONS) -> list[dict]:
+        """Sessions from one endpoint. Defaults to **the one the browser uses**."""
+        status, body = _get(f"http://127.0.0.1:{self.port}{path}")
+        assert status == 200, f"{path} answered {status}"
         return list(json.loads(body).get("sessions", []))
 
 
@@ -243,23 +268,44 @@ def panel(tmp_path: Path) -> Iterator[Panel]:
 
 
 @requires_binary
-def test_the_real_daemon_serves_the_session_we_planted(panel: Panel) -> None:
-    """**The assertion this whole file exists for: a non-zero count.**
+def test_the_panel_a_user_opens_lists_the_session_we_planted(panel: Panel) -> None:
+    """**The assertion this whole file exists for, on the surface that ships.**
 
-    Not 200, and not "the process is alive". A daemon that starts, answers
-    every health check and returns an empty list is the exact shape of the
-    empty-panel bug, and it is what shipped.
+    `UI_SESSIONS` is the request a real browser issues on a plain `/` load, with
+    no query string of ours added to the address bar. A non-zero count here is
+    the closest thing to "a person opening the panel sees this run" that a test
+    without a browser can assert.
+
+    Not 200, and not "the process is alive". A daemon that starts, answers every
+    health check and returns an empty list is the exact shape of the empty-panel
+    bug.
     """
-    sessions = panel.sessions()
+    sessions = panel.sessions(UI_SESSIONS)
 
     assert sessions, (
-        "the daemon answered 200 with zero sessions. Either the config we write "
-        "stopped it reading our session root, or the default view is filtering "
-        "them out again — both have happened, and both look healthy from "
-        "outside."
+        "the panel's own session-list request answered 200 with zero sessions. "
+        "A user opening this panel would see an empty page that looks correct."
     )
     assert any(s.get("id") == panel.session_id for s in sessions), (
-        f"sessions came back but none is ours ({panel.session_id}); "
+        f"the panel lists sessions but none is ours ({panel.session_id}); "
+        f"got {[s.get('id') for s in sessions]}"
+    )
+
+
+@requires_binary
+def test_the_cli_api_surface_serves_it_too(panel: Panel) -> None:
+    """The other endpoint, pinned deliberately.
+
+    The two disagree today — `/api/v1/sessions` applies the one-shot exclusion
+    the docs describe, `sessions/sidebar-index` is asked for them by the
+    frontend — and that gap is now a known fact about this dependency rather
+    than a discovery waiting to be made again. Pinning both means a release that
+    moves either default is caught by a test.
+    """
+    sessions = panel.sessions(RAW_SESSIONS)
+
+    assert any(s.get("id") == panel.session_id for s in sessions), (
+        f"the CLI/API surface does not serve our session ({panel.session_id}); "
         f"got {[s.get('id') for s in sessions]}"
     )
 
@@ -267,8 +313,13 @@ def test_the_real_daemon_serves_the_session_we_planted(panel: Panel) -> None:
 @requires_binary
 def test_it_is_our_prefix_being_read_and_not_some_other_root(panel: Panel) -> None:
     """The count could be non-zero for the wrong reason — a stray archive, or a
-    provider we failed to disable. Reading the content settles it."""
-    ours = [s for s in panel.sessions() if s.get("id") == panel.session_id]
+    provider we failed to disable. Reading the content settles it.
+
+    On the raw endpoint, because `sidebar-index` returns no `first_message` —
+    which is itself a reason to keep both: the surface a user sees proves
+    *presence*, and only this one proves *identity*.
+    """
+    ours = [s for s in panel.sessions(RAW_SESSIONS) if s.get("id") == panel.session_id]
 
     assert len(ours) == 1
     assert ours[0].get("first_message") == panel.first_message
