@@ -787,3 +787,101 @@ None this interval.
 ### 7. Other
 
 None.
+
+---
+
+## T+10 — 2026-09-03 13:07 UTC
+
+### 1. Progress
+
+**Effort: ~93 %.** Elapsed 331 minutes since T+0. Projected remaining:
+15–30 minutes, **pending one background verification not yet reported** (see
+§5) — this is close to done, but "close" here means one specific wall-clock
+check has to actually land, not that I'm rounding up. **Reliability:
+medium-high** for the code side (root causes now read directly from
+first-hand measurement in the commit bodies, not inferred), **low** for the
+timing estimate, which depends entirely on a probe outside my control.
+
+Since T+9: **4 commits**, and they read as the actual diagnosis of T+8's
+mystery, not more guessing:
+`500fdd3` (docs), `8bd87a9` (fix), `dbc1d81` (test), `ed2e9b1` (fix). Suite
+green and **grown again: 657 passed, 2 skipped, 2 xfailed in 27.0 s** (up from
+653 — 4 new tests, matching `dbc1d81`'s smoke test against the real binary).
+
+### 2. Current state
+
+**Root cause of T+8's readiness-timeout, read directly from `8bd87a9`'s
+commit body, measured not guessed:** `agentsview serve --background --port
+N`, when a daemon is *already running* for the same data dir on a *different*
+port, silently attaches to that existing daemon and reports **its** port —
+exit 0, no error, `N` ignored entirely. This exactly reproduces the T+8
+symptom (`serve --port 18888`, curl 18888 → `000`, curl 8080 → 200). A stray
+daemon left over from any earlier manual probe (and this effort has run many)
+would permanently block the panel from ever landing on the requested port,
+with no self-heal. Fix: pass `--replace` to `serve`, argued safe at this call
+site specifically because it only runs after `port_is_free(port)` already
+confirmed true — i.e. anything still alive at that point is provably not our
+own reused daemon.
+
+**Second, independent fix (`ed2e9b1`):** the daemon's own default
+`daemon_idle_timeout` is 20 minutes (AgentsView's documented default);
+design spec promises the panel "persists across runs," so `write_config` now
+also sets `daemon_idle_timeout = "0s"`. The commit is explicit that a clean
+`health` exit code is **weak evidence** here (a bogus key is also accepted,
+since only `disabled_agents` is strictly validated) — the real check is a
+wall-clock probe, **still running in the background**
+(`scratch/idle_probe/data_alive`, started `2026-09-03T13:03:39Z`), not
+concluded as of this checkpoint.
+
+`500fdd3` records a **known, stated limitation** rather than a fix: the zone
+symlink (check 2's mechanism) is confirmed to deliver gate 1 correctly with
+`agent_sys` permissions off, but is **"untested because untestable"** with
+permissions on — under that mode `agent_sys` refuses every AI task before the
+executor even starts, a pre-existing limitation unrelated to this feature, so
+the paired-arm comparison literally cannot exercise the symlink path in that
+mode. Recorded as a documented gap, not silently assumed safe.
+
+### 3. Code problems — fixed / unfixed
+
+**Fixed, with first-hand reasoning in the commit itself:** the port-ignored-
+on-stray-daemon bug (`8bd87a9`) — this retroactively explains **both** of
+T+8's and T+9's separate-looking symptoms (port-busy skip at T+7, readiness-
+timeout at T+8) as the same root cause, a stray daemon from this effort's own
+prior probes.
+
+**Fixed, verification incomplete:** the 20-minute idle-exit (`ed2e9b1`) —
+code change is in, but the document itself calls the config-load check "weak
+evidence" and defers to a background wall-clock probe not yet reported.
+
+**Not a code problem, a documented limitation:** zone-symlink behavior under
+`AGENT_SYS_NO_PERMISSIONS=0` is unverified and stated as such (`500fdd3`).
+
+### 4. Non-code problems
+
+None new.
+
+### 5. Undetermined questions
+
+**The idle-timeout probe's result** — `scratch/idle_probe/data_alive`,
+started 13:03:39 UTC, needs to survive past AgentsView's documented 20-minute
+default window to actually confirm `ed2e9b1`'s fix. Given this checkpoint is
+at 13:07, that window has not yet elapsed; I have not waited for it and am
+not claiming a result.
+
+### 6. New commits
+
+| commit | what |
+|---|---|
+| `500fdd3` | record the zone symlink's untested behaviour under confinement |
+| `8bd87a9` | pass `--replace` to `serve` so our chosen port actually takes effect |
+| `dbc1d81` | a smoke test against the real agentsview binary |
+| `ed2e9b1` | keep the o11y daemon resident with `daemon_idle_timeout = "0s"` |
+
+### 7. Other
+
+`ACCEPTANCE.md` is still the version from 09:39 UTC (T+4) — every fix since
+then (check 1's provider slugs, check 2's zone routing, and now this
+interval's port/idle-timeout fixes) has **not yet been re-measured** in a
+fresh, single end-to-end acceptance document. That remains the single
+biggest gap between "individually fixed" and "accepted," and has been true
+since T+4.
