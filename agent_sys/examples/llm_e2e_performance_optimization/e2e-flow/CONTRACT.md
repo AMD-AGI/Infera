@@ -301,6 +301,27 @@ not the integer. Both halves of that have now cost a run:
   then failed on the same expression — so it also warned that containers and
   ports might be held. (They were not; checked on the node.)
 
+**In a validator the arithmetic half produces no answer, not a wrong one.**
+m2 proved it with teeth rather than asserting it: they copied
+`check_trace_coverage`, removed exactly one `int()`, and ran it with real
+string-typed args —
+
+```
+floor = args.get("min_gpu_kernels_per_rank", 1000)   # was int(...)
+→ TypeError: '<' not supported between instances of 'int' and 'str'
+→ rc=1, verdict.json absent
+```
+
+— which lands in **the dangerous category**: non-zero exit, no verdict, and the
+phase reads a broken validator rather than a refused handoff. Same signature as
+`check_deploy_serves`'s crash.
+
+**Only the substituted half of an `args` block is affected**, which is why it
+survives review: `spec_loader.variables.substitute` leaves a substituted scalar
+a **string**, so `min_requests: '${min_requests:-50}'` arrives as `"50"` while a
+literal `min_pct_total_sum: 80.0` beside it is still a float. Half the numbers
+in one block are already typed.
+
 **Read every numeric arg through `workset_io.arg_num`** (m3's), which coerces
 and refuses an explicit `0` only when the spec means it to. `float`/`int` at the
 point of use is not enough on its own — the truthiness half survives it.
