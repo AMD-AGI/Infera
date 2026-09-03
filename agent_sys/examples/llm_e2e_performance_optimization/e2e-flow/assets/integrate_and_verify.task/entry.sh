@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # **This closure runs under `kind: ai` (`e2e_integrator`), so this file is not
 # the body — `readme.md` is.** The STEPS section there is the method; the AI
 # sequences it and decides what to do when a step is ambiguous (M5.2, G4.2.1).
@@ -15,15 +15,13 @@
 # be the "reported PASS over a run in which every result was zero" failure this
 # package is built against.
 set -eu
-
 PKG="${AGENT_SYS_TASK_PACKAGE:-${AGENT_SYS_DEMO_PACKAGE:?the runner exports one of these}}"
 ENVYAML="${AGENT_SYS_INPUT_DEPLOY_KIT:?}/items/codes/environment.yaml"
 
 rc=0
 bash "$PKG/assets/lib/mock_m5.sh" arms "$ENVYAML" || rc=$?
 if [ "$rc" -eq 0 ]; then
-  bash "$PKG/assets/lib/mock_m5.sh" report "$ENVYAML"
-  exit 0
+  exec bash "$PKG/assets/lib/mock_m5.sh" report "$ENVYAML"
 fi
 if [ "$rc" -ne 3 ]; then exit "$rc"; fi
 

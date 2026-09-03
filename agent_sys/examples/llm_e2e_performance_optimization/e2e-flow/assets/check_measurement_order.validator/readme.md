@@ -37,6 +37,34 @@ lm_eval scores invalidates both numbers, and neither looks wrong afterwards.
 
 **Every step exited zero.** A step that failed did not measure.
 
+## The weak link, and what corroborates it
+
+`env/steps.json` is written **by the same body whose ordering it attests to**. On
+its own it is a file the producer could have assembled at the end from memory,
+and "the arms did not overlap" is the one claim nothing else in the graph can
+recover afterwards — by validation time both deployments are gone.
+
+So the timestamps are cross-checked against a record **the producer did not
+write**: AIPerf's own `start_time` and `end_time` in each round's
+`profile_export_aiperf.json`.
+
+**Disjointness, independently.** The stock arm's last AIPerf window must end
+before the patched arm's first begins. This is the strong rule and it is
+offset-free — both timestamps come from one clock read one way, so it holds in
+any timezone and whatever `steps.json` claims.
+
+**Containment, with a skew allowance.** Each `bench_r<N>` AIPerf window must fit
+inside the step window claimed for it. AIPerf writes naive local time and the
+step record writes UTC with an offset, so a node off UTC shows a constant skew —
+a timezone, not a fabrication, and it is printed rather than failed. **What fails
+is the two arms disagreeing about that offset:** one node has one clock, so a
+per-arm difference means at least one arm's record was not written while it ran.
+
+Proven on the sealed pair: PASS, with AIPerf's own windows 3104 s apart. Proven
+against three fabrications — a `steps.json` claiming disjoint arms whose AIPerf
+records overlap, a per-arm clock disagreement, and exports with the timestamps
+removed — all three refused, each naming what it found.
+
 ## What it does not do
 
 It does not bound the *gap* between the arms. A long gap is where node load can

@@ -184,6 +184,18 @@
     # can judge whether it mattered. Widening a bar is not the fix for that;
     # `todo.md` T7 is.
     warn_gap_seconds: 3600
+    # **`steps.json` is written by the same body whose ordering it attests to**,
+    # so on its own it is a file the producer could have written at the end from
+    # memory — and "the arms did not overlap" is the one claim nothing else in
+    # the graph can recover once the deployments are gone. So it is cross-checked
+    # against AIPerf's own `start_time`/`end_time` per round, which the producer
+    # did not write.
+    require_corroboration: true
+    # AIPerf writes naive local time; the step record writes UTC with an offset.
+    # A node off UTC therefore shows a constant skew, which is a timezone and is
+    # reported rather than failed. What fails is the two arms disagreeing about
+    # that offset: one node has one clock.
+    max_clock_skew_seconds: 90
   tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, integration, m5]}
 
 - module: validator

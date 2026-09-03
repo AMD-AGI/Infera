@@ -39,6 +39,32 @@ produced by one task (M5.2), so the output phase stages both together. If only
 one arm reaches this body, the two arms were produced by two tasks — which is
 precisely the split M5.2 forbids — and saying so is more useful than grading half
 a comparison.
+
+## The weak link, and what corroborates it
+
+`env/steps.json` is written **by the same body whose ordering it attests to**.
+Read on its own it is a file the producer could have written at the end from
+memory, and "the arms did not overlap" is the one claim nothing else in the graph
+can recover afterwards — the deployments are gone.
+
+So the timestamps are cross-checked against a record **the producer did not
+write**: AIPerf's own `start_time` and `end_time` in each round's
+`profile_export_aiperf.json`. Two rules come out of it, and they answer different
+questions:
+
+**Disjointness, independently.** The stock arm's last AIPerf window must end
+before the patched arm's first begins. This is the strong one and it is
+offset-free: both timestamps come from the same clock read the same way, so a
+node in any timezone gives the same answer.
+
+**Containment, with a skew allowance.** Each `bench_r<N>` AIPerf window must lie
+inside the step window `steps.json` claims for it. AIPerf writes naive local time
+and the steps record writes UTC with an offset, so a node that is not on UTC
+shows a constant skew — which is a timezone, not a fabrication, and is reported
+rather than failed. **What is failed is the two arms disagreeing about that
+offset**: one clock cannot be in two timezones twenty minutes apart, so a
+per-arm difference is evidence that at least one arm's record was not written
+while it ran.
 """
 
 from __future__ import annotations
@@ -135,10 +161,89 @@ def satisfies(expected: str, seen: list[str]) -> bool:
     return False
 
 
-def check_pair(records: dict[str, dict], args: dict, reasons: list) -> bool:
+def aiperf_windows(content: Path, reasons: list, arm: str) -> dict[str, tuple[dt.datetime, dt.datetime]]:
+    """`{"bench_r1": (start, end)}` from each round's AIPerf export.
+
+    **The corroborating record, and the reason it corroborates: AIPerf wrote it,
+    not the body under audit.** A producer that assembled `steps.json` at the end
+    from memory would have to have guessed these to the second.
+
+    Naive timestamps, deliberately left naive. AIPerf writes local node time with
+    no offset; converting here would mean assuming a timezone, and the two rules
+    that use these either cancel the offset (AIPerf against AIPerf) or measure it
+    (AIPerf against the steps record).
+    """
+    out: dict[str, tuple[dt.datetime, dt.datetime]] = {}
+    for export in sorted(content.glob("items/result/r*/profile_export_aiperf.json")):
+        tag = f"bench_{export.parent.name}"
+        try:
+            payload = json.loads(export.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            reasons.append(f"{arm}: {export.parent.name}/profile_export_aiperf.json is unreadable: {exc}")
+            continue
+        start, end = payload.get("start_time"), payload.get("end_time")
+        try:
+            out[tag] = (dt.datetime.fromisoformat(str(start)), dt.datetime.fromisoformat(str(end)))
+        except (TypeError, ValueError):
+            reasons.append(
+                f"{arm}: {export.parent.name} records start_time={start!r} end_time={end!r}, "
+                "which cannot be read — the step record has nothing to be checked against"
+            )
+    return out
+
+
+def corroborate(arm: str, timeline: list[tuple[str, dt.datetime, dt.datetime]],
+                windows: dict[str, tuple[dt.datetime, dt.datetime]],
+                skew: float, reasons: list) -> float | None:
+    """Each replay's own timestamps against the step the record claims for it.
+
+    Returns the arm's measured clock offset in seconds (steps minus AIPerf), or
+    `None` when there was nothing to compare. The caller compares the two arms'
+    offsets, which is where a fabricated record actually shows.
+    """
+    by_name = {name: (start, end) for name, start, end in timeline}
+    offsets: list[float] = []
+    for tag, (a_start, a_end) in sorted(windows.items()):
+        if tag not in by_name:
+            reasons.append(
+                f"{arm}: AIPerf recorded a replay for {tag} and steps.json has no such step. "
+                "A round that ran and was not recorded is a round the other arm cannot be "
+                "compared against."
+            )
+            continue
+        s_start, s_end = by_name[tag]
+        # The offset that would make AIPerf's window sit inside the step's. Taken
+        # at the start rather than averaged: the two ends can differ legitimately
+        # because the step includes the container plumbing around the replay.
+        offset = (s_start.replace(tzinfo=None) - a_start).total_seconds()
+        offsets.append(offset)
+        span = (a_end - a_start).total_seconds()
+        step_span = (s_end - s_start).total_seconds()
+        if span > step_span + skew:
+            reasons.append(
+                f"{arm}: {tag} ran for {span:.0f}s by AIPerf's own record and steps.json "
+                f"claims a {step_span:.0f}s step. The step cannot be shorter than the replay "
+                "inside it."
+            )
+    if not offsets:
+        return None
+    spread = max(offsets) - min(offsets)
+    if spread > skew:
+        reasons.append(
+            f"{arm}: the replay rounds disagree about the clock by {spread:.0f}s "
+            f"(offsets {[round(o) for o in offsets]}). One arm has one clock."
+        )
+    return offsets[0]
+
+
+def check_pair(records: dict[str, dict], contents: dict[str, Path],
+               args: dict, reasons: list) -> bool:
     ok = True
     orders: dict[str, list[str]] = {}
     windows: dict[str, tuple[dt.datetime, dt.datetime]] = {}
+    timelines: dict[str, list[tuple[str, dt.datetime, dt.datetime]]] = {}
+    aiperf: dict[str, dict[str, tuple[dt.datetime, dt.datetime]]] = {}
+    offsets: dict[str, float | None] = {}
 
     for arm in ARMS:
         record = records[arm]
@@ -170,8 +275,27 @@ def check_pair(records: dict[str, dict], args: dict, reasons: list) -> bool:
                     "other; neither number is usable and neither looks wrong afterwards."
                 )
         windows[arm] = (min(s for _, s, _ in timeline), max(e for _, _, e in timeline))
+        timelines[arm] = timeline
         print(f"  {arm}: {' -> '.join(orders[arm])}")
         print(f"  {arm}: {windows[arm][0].isoformat()} .. {windows[arm][1].isoformat()}")
+
+        # The corroborating half. Collected per arm here; compared across arms
+        # below, because that is where a record written from memory shows.
+        skew = float(args.get("max_clock_skew_seconds", 90))
+        arm_reasons = []
+        aiperf[arm] = aiperf_windows(contents[arm], arm_reasons, arm)
+        offsets[arm] = corroborate(arm, timeline, aiperf[arm], skew, arm_reasons)
+        reasons.extend(arm_reasons)
+        if arm_reasons:
+            ok = False
+        if not aiperf[arm] and args.get("require_corroboration", True):
+            ok = False
+            reasons.append(
+                f"{arm}: no replay carries AIPerf's own start_time/end_time, so steps.json "
+                "is uncorroborated. It is written by the same body whose ordering it "
+                "attests to, and 'the arms did not overlap' is the one claim nothing else "
+                "in the graph can recover once the deployments are gone."
+            )
 
     # 1. same steps, same order.
     if args.get("require_same_step_order", True) and orders["stock"] != orders["patched"]:
@@ -217,6 +341,47 @@ def check_pair(records: dict[str, dict], args: dict, reasons: list) -> bool:
                     "for session, node, trace, order and image and NOT for node load at "
                     "measurement time; the wider that gap, the less that control is worth."
                 )
+
+    # ---- the corroboration, across the arms ---------------------------------
+    skew = float(args.get("max_clock_skew_seconds", 90))
+
+    # **The strong rule, and it is offset-free.** Both timestamps come from the
+    # same clock read the same way, so this answers "did the arms overlap?"
+    # without trusting either steps.json or a timezone.
+    if aiperf.get("stock") and aiperf.get("patched"):
+        stock_end = max(e for _, e in aiperf["stock"].values())
+        patched_start = min(s for s, _ in aiperf["patched"].values())
+        if patched_start < stock_end:
+            ok = False
+            reasons.append(
+                f"AIPerf's own records overlap: the patched arm's replay began "
+                f"{patched_start.isoformat()} and the stock arm's ended {stock_end.isoformat()}. "
+                "This is measured by the load generator rather than by the task under audit, "
+                "so it stands whatever steps.json says."
+            )
+        else:
+            print(
+                f"  corroborated: AIPerf's own windows are disjoint too "
+                f"({(patched_start - stock_end).total_seconds():.0f}s apart)"
+            )
+
+    a, b = offsets.get("stock"), offsets.get("patched")
+    if a is not None and b is not None:
+        if abs(a - b) > skew:
+            ok = False
+            reasons.append(
+                f"the two arms disagree about the clock by {abs(a - b):.0f}s (stock {a:.0f}s, "
+                f"patched {b:.0f}s between AIPerf's timestamps and steps.json's). One node has "
+                "one clock, so at least one arm's step record was not written while it ran."
+            )
+        elif max(abs(a), abs(b)) > skew:
+            # Consistent on both arms: a timezone, not a fabrication. Reported.
+            print(
+                f"  note: steps.json runs {a:.0f}s ahead of AIPerf's own timestamps on both "
+                "arms. AIPerf writes naive local time and the step record writes UTC, so a "
+                "node off UTC shows exactly this; it is consistent, so it is a clock and not "
+                "a record written after the fact."
+            )
     return ok
 
 
@@ -224,6 +389,7 @@ def main() -> int:
     args = zone.args()
     ids = zone.inputs()
     records: dict[str, dict] = {}
+    contents: dict[str, Path] = {}
     by_arm_id: dict[str, str] = {}
     problems: list[str] = []
 
@@ -244,11 +410,12 @@ def main() -> int:
             problems.append(f"{hid}: a second {arm!r} arm was staged; there is exactly one of each")
             continue
         records[arm] = record
+        contents[arm] = content
         by_arm_id[arm] = hid
 
     reasons: list = list(problems)
     if set(records) == set(ARMS):
-        verdict = check_pair(records, args, reasons) and not problems
+        verdict = check_pair(records, contents, args, reasons) and not problems
     else:
         verdict = False
         reasons.append(
