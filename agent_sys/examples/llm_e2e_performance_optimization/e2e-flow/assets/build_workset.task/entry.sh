@@ -58,11 +58,39 @@ if [ "$rc" -eq 0 ]; then
   # which is the worst kind. `analyze-demo` hit the same thing and recorded it;
   # this is the one-variable half of its fix.
   export PYTHONDONTWRITEBYTECODE=1
-  python3 "$PKG/assets/build_workset.task/mock_adapt.py" "$OUT"
+
+  # **Pick an interpreter that can do the job, and say so if none can.**
+  #
+  # m1's finding, and it applies here more sharply than to them: `cli/main.py:668`
+  # puts `AGENT_SYS_DEMO_PYTHON` in `validation_env` **only**, and the comment
+  # above it says a task body never reaches it. So a bare `python3` resolves
+  # against the policy PATH, which on this host is `/usr/bin/python3`.
+  #
+  # Measured: that interpreter *can* run `mock_adapt.py` — it has `yaml` and
+  # `jsonschema`, and the leader's `schema.py` no longer needs `referencing`.
+  # What it does **not** have, and never will, is **torch** — and the two
+  # entrypoints below are the whole point of this branch. Without the probe they
+  # run, fail every shape on `ModuleNotFoundError`, and write an evidence file
+  # full of honest-looking failures; `check_workset_runs` then refuses a workset
+  # whose only defect is that it was measured by the wrong interpreter.
+  PY=""
+  for candidate in "${AGENT_SYS_DEMO_PYTHON:-}" python3 /usr/bin/python3; do
+    [ -n "$candidate" ] || continue
+    if "$candidate" -c 'import yaml, torch' >/dev/null 2>&1; then PY="$candidate"; break; fi
+  done
+  if [ -z "$PY" ]; then
+    echo "build_workset: no interpreter here can import both yaml and torch." >&2
+    echo "  The two entrypoints measure a GPU kernel; without torch they would" >&2
+    echo "  record a full set of failures that look like the workset's fault." >&2
+    echo "  This branch runs inside the shared container (CONTRACT.md 5), where" >&2
+    echo "  torch is present. Off a GPU node there is nothing to measure." >&2
+    exit 2
+  fi
+  "$PY" "$PKG/assets/build_workset.task/mock_adapt.py" "$OUT"
   cd "$OUT/items/codes" || exit 1
   ./run_correctness.sh --json evidence/correctness.json
   ./run_performance.sh --json evidence/performance.json
-  python3 - <<'TRANSCRIBE'
+  "$PY" - <<'TRANSCRIBE'
 import json, pathlib, yaml
 floor = json.loads(pathlib.Path("evidence/performance.json").read_text())["noise_floor"]
 p = pathlib.Path("workset.yaml"); d = yaml.safe_load(p.read_text())
@@ -75,6 +103,12 @@ d["evidence"] = {"correctness_report": "evidence/correctness.json",
                                  "at": json.loads(pathlib.Path("evidence/performance.json").read_text())["started_at"]}}
 for op in d["operators"]:
     op["noise_floor"] = floor
+# **Both, and the workset-wide one is easy to forget.** `check_workset_shape`
+# caught exactly that here: the per-operator floors were transcribed and
+# `ground_truth.noise_floor` was left at the scaffold's 1.05 placeholder, so the
+# workset-wide bar was *below* every operator's own. The consistency check
+# earned its place on its own producer.
+d["ground_truth"]["noise_floor"] = floor
 p.write_text(yaml.safe_dump(d, sort_keys=False))
 print(f"mock_adapt: evidence recorded, noise_floor {floor}")
 TRANSCRIBE

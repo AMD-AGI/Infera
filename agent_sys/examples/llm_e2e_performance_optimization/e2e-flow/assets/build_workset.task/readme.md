@@ -282,6 +282,12 @@ operator's `noise_floor`. Do not round it down and do not substitute 1.05.
 python3 -c "import json;print(json.load(open('evidence/performance.json'))['noise_floor'])"
 ```
 
+Copy it into **two** places: every `operators[].noise_floor` **and**
+`ground_truth.noise_floor`. Forgetting the second leaves the workset-wide bar at
+the scaffold's placeholder, below every operator's own floor —
+`check_workset_shape` refuses that, and it caught it in this package's own mock
+producer before it caught it anywhere else.
+
 It is `1 + 2.83 x rsd_max` — the two-sample 2-sigma separation at the spread
 this run actually saw, because two measurements each with relative sd `s` differ
 by more than `sqrt(2)*z*s` by chance alone. **m4 must not pick this number
