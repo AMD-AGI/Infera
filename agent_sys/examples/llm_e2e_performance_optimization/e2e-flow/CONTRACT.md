@@ -304,6 +304,29 @@ design exists. `mission.md` G5.1 grants it: *"如果不行，再考虑换机器/
 docker container"*. m5 brings up both arms from the same image and the same
 `environment.fixed`.
 
+### 5.0 A container-written output is root-owned, and reading it works
+
+Found by m3 on the first real GPU run of this package, and **every body that
+runs work in a container hits it** — m1, m2, m4 and m5 the moment they run for
+real.
+
+The container runs as **root**, and it has to: a framework compiling kernels on
+first call cannot write its cache as a user who does not exist inside the image.
+So every file written into `$AGENT_SYS_OUTPUT_<KIND>` is root-owned.
+
+**Reading is fine, and that is what makes it easy to miss.** The files are 644,
+so `copy_out` works, the seal works, every validator reads them, and the run
+goes green. What fails is *later*, and on the **next** run rather than the one
+that caused it: the zone's own user cannot clean up.
+
+`assets/lib/reclaim.sh <container> <path> [...]` chowns from **inside the same
+container that created the files**, which is the only context with the
+privilege. Idempotent, and a no-op when the container is gone, so a body calls
+it in a `finally` without deciding first whether it will work.
+
+Also export `PYTHONDONTWRITEBYTECODE=1` in any body that runs Python in a
+container — root-owned `__pycache__` is the same problem arriving first.
+
 ### 5.1 Bring-up and use are never split across agents (M2.5, M5.2)
 
 > *"agent A 去把服务部署好，agent B 去使用：这是不被允许的"*
