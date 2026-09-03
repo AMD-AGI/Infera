@@ -3,10 +3,17 @@
 # the body — `readme.md` is.** The STEPS section there is the method; the AI
 # sequences it and decides what to do when a step is ambiguous (M5.2, G4.2.1).
 #
-# It is kept, and it is not dead weight, for one case: a pure-mock run. Point the
-# closure at `runner` instead of `e2e_integrator` and this produces the three
-# handoffs from the sealed evidence without a model call and without a GPU, which
-# is what `--var mock_stages=all` is for during graph bring-up.
+# It is kept, and it is not dead weight, for one case: a pure-mock run.
+#
+#     --var m5_agent=runner --var mock_stages=all
+#
+# swaps in the shared program agent, which does run this file, which mocks —
+# producing the three handoffs from the sealed evidence with no model call and no
+# GPU. **Without that switch a mocked m5 is not mocked at all**: a `kind: ai`
+# task never runs `entry.sh`, so promoting this closure to `ai` took it off the
+# mock path, and the first full mock run sat at `integrate_and_verify: running`
+# while an agent prepared to bring a model up for real. The default is the real
+# agent, so the mock is the thing you have to ask for.
 #
 # It deliberately does NOT attempt the real measurement. A shell script cannot do
 # what steps 2 to 8 of the readme ask for — decide that four minutes of

@@ -58,6 +58,13 @@ bash "$AGENT_SYS_TASK_PACKAGE/assets/lib/mock_m5.sh" report \
 **Only when `$E2E_MOCK_STAGES` contains `all`, `m5` or `stage5-integration`.**
 Both commands print what they wrote. Then stop — steps 1 to 10 do not run.
 
+A note for whoever is driving the run rather than reading it: a **pure** mock of
+this stage does not go through this readme at all. `--var m5_agent=runner` swaps
+this closure onto the shared program agent, which runs `entry.sh`, which does the
+same two commands with no model call. Without that switch a `kind: ai` task never
+runs `entry.sh` and `--var mock_stages=all` alone leaves this stage running for
+real.
+
 *Accepted:* three output directories are non-empty and
 `stock.measurement/items/env/steps.json` names six steps beginning with `serve`.
 
