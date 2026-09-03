@@ -84,9 +84,32 @@ PY
 )
 [ -n "$IMAGE" ] || { echo "measure_in_container: environment.yaml names no fixed.image" >&2; exit 1; }
 
-: "${E2E_NODE:=$(_from_record "$ROOT/environment.yaml" fixed.node)}"
-: "${E2E_JOBID:=$(_from_record "$ROOT/environment.yaml" runtime.slurm_jobid)}"
-: "${E2E_TRANSPORT:=$(_from_record "$ROOT/environment.yaml" runtime.transport)}"
+# **An ambient variable may not silently outvote the record.**
+#
+# This was `: "${E2E_JOBID:=<from record>}"`, so an inherited `E2E_JOBID` won
+# and the measurement could happen on a node the record does not name — with
+# nothing noticing, because the evidence records where it *ran* and the premise
+# records where it *claims*. Found by simulating the post-fix graph: the record
+# said node 061 / job 106250, my producer run carried E2E_JOBID=106253, and it
+# measured on 031 while the artefact said 061.
+#
+# That is the whole failure this script exists to prevent, one level up from
+# the image: evidence about a machine the handoff does not describe. So a
+# disagreement is refused rather than resolved. Absent is fine — the record
+# fills it, which is the validator's case, since a validator body gets none of
+# the E2E_* block.
+_agree_or_die() {  # name  ambient  from_record
+  if [ -n "$2" ] && [ -n "$3" ] && [ "$2" != "$3" ]; then
+    echo "measure_in_container: $1 is '$2' in the environment and '$3' in the record." >&2
+    echo "  Refusing rather than picking one: the record is what the evidence will claim," >&2
+    echo "  and measuring somewhere else makes it evidence about a different machine." >&2
+    exit 1
+  fi
+  [ -n "$2" ] && printf '%s' "$2" || printf '%s' "$3"
+}
+E2E_NODE=$(_agree_or_die node "${E2E_NODE:-}" "$(_from_record "$ROOT/environment.yaml" fixed.node)")
+E2E_JOBID=$(_agree_or_die slurm_jobid "${E2E_JOBID:-}" "$(_from_record "$ROOT/environment.yaml" runtime.slurm_jobid)")
+E2E_TRANSPORT=$(_agree_or_die transport "${E2E_TRANSPORT:-}" "$(_from_record "$ROOT/environment.yaml" runtime.transport)")
 export E2E_NODE E2E_JOBID E2E_TRANSPORT
 
 # **Every identifier bound on a shared host is a parameter** (CONTRACT §5.2).
