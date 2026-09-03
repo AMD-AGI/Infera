@@ -143,7 +143,7 @@ set -eu
 : "${MAGPIE_ROOT:?export MAGPIE_ROOT=<a checkout of Magpie>}"
 : "${TRACES:?export TRACES=<directory of *.trace.json.gz>}"
 : "${OUT:?export OUT=<where to write gap_analysis/>}"
-: "${SCRIPTS:?export SCRIPTS=<the package's assets/analyze directory>}"
+: "${SCRIPTS:?export SCRIPTS=<the assets/analyze directory of this package>}"
 
 MAGPIE_ROOT="$MAGPIE_ROOT" bash "$SCRIPTS/megapie.sh" "$TRACES" "$OUT"
 EOF

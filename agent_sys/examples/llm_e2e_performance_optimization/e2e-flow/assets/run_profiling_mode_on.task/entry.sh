@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # The profiler-attached line: CUDA graph OFF, profiling control plane ON.
 #
 # **CUDA graph off is not a mistake and not a second variable.** With graphs on
@@ -12,21 +12,24 @@
 # task just wrote. As sibling tasks agent_sys would schedule them concurrently
 # with nothing to synchronise them, so lining them up would need a rendezvous
 # file — an edge the graph cannot see and cannot report on.
-set -euo pipefail
+#
+# `#!/bin/sh` + `set -eu`, per CONTRACT §3.2a — see the sibling body.
+set -eu
 PKG="${AGENT_SYS_TASK_PACKAGE:-${AGENT_SYS_DEMO_PACKAGE:?the runner exports one of these}}"
 
 # `kernel_table` is reshaped after it is copied: the sealed sample is a
-# `reproducible` handoff and this kind is `structured_text`. See
-# `../lib/m2_reshape.py`, and MOCK-MAP.md, whose row for this kind records only
-# adaptation (A).
-if bash "$PKG/assets/lib/mock.sh" stage2-profiling \
-     profiling_mode_on.bench_result:aiperf_profiled \
-     profiling_mode_on.profile_result:torch_trace; then
-  KT="${AGENT_SYS_OUTPUT_PROFILING_MODE_ON_KERNEL_TABLE:?}"
+# `reproducible` handoff and this kind is `structured_text`. MOCK-MAP (B).
+rc=0
+bash "$PKG/assets/lib/mock.sh" stage2-profiling \
+  profiling_mode_on.bench_result:aiperf_profiled \
+  profiling_mode_on.profile_result:torch_trace || rc=$?
+if [ "$rc" = 0 ]; then
   python3 "$PKG/assets/lib/m2_reshape.py" kernel_table \
-    "${E2E_MOCK_ROOT:?}/stage2-profiling/kernel_table/content" "$KT"
+    "${E2E_MOCK_ROOT:?}/stage2-profiling/kernel_table/content" \
+    "${AGENT_SYS_OUTPUT_PROFILING_MODE_ON_KERNEL_TABLE:?}"
   exit 0
 fi
+if [ "$rc" != 3 ]; then exit "$rc"; fi
 
 E2E_MODE=profiling_mode_on \
 E2E_OUTPUT_AIPERF="${AGENT_SYS_OUTPUT_PROFILING_MODE_ON_BENCH_RESULT:?}" \

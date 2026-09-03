@@ -173,7 +173,7 @@ set -eu
 : "\${MODEL_MOUNT:?export MODEL_MOUNT=<directory holding the checkpoint>}"
 : "\${WORK_ROOT:?export WORK_ROOT=<node-local work area>}"
 : "\${AIPERF_TRACE:?export AIPERF_TRACE=<the Mooncake trace JSONL>}"
-: "\${SCRIPTS:?export SCRIPTS=<the package's assets/load directory>}"
+: "\${SCRIPTS:?export SCRIPTS=<the assets/load directory of this package>}"
 
 NODE_IP=$E2E_NODE_IP ROUTER_PORT=$E2E_PORT_ROUTER SERVED=$E2E_SERVED_NAME \\
 MODEL="\$MODEL_MOUNT/$MODEL_NAME" MODEL_MOUNT="\$MODEL_MOUNT" \\
@@ -303,7 +303,7 @@ if [ "$CAPTURE" = "1" ]; then
 # the bytes and measures the same thing.
 set -eu
 : "\${WORK_ROOT:?export WORK_ROOT=<node-local work area>}"
-: "\${SCRIPTS:?export SCRIPTS=<the package's assets/load directory>}"
+: "\${SCRIPTS:?export SCRIPTS=<the assets/load directory of this package>}"
 
 NODE_IP=$E2E_NODE_IP ROUTER_PORT=$E2E_PORT_ROUTER CTR=$CTR \\
 TRACE_OUT="\$WORK_ROOT/profiles" WARMUP_S=$E2E_WARMUP_S WINDOW_S=$E2E_WINDOW_S \\

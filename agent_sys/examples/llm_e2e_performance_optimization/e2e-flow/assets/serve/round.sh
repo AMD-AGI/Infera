@@ -65,7 +65,12 @@ if [ "$ARM" = "patched" ]; then
   # and stronger than a sentence in a readme: the patched bring-up refuses to
   # start if the stock arm did not finish, and `check_measurement_order` refuses
   # the pair afterwards if the two arms overlapped in time.
-  PRIOR_STEPS="${E2E_PRIOR_STEPS:?E2E_PRIOR_STEPS must name the stock arm's items/env/steps.json}"
+  # No apostrophe in this message, and it is not a style choice: inside
+  # `${VAR:?word}` an unpaired `'` opens a single-quoted string that runs to the
+  # end of the file, so `arm's` here made bash swallow everything after line 68
+  # and report `syntax error: unexpected end of file` at line 396. The whole
+  # file failed `bash -n`.
+  PRIOR_STEPS="${E2E_PRIOR_STEPS:?E2E_PRIOR_STEPS must name items/env/steps.json from the stock arm}"
   if [ ! -r "$PRIOR_STEPS" ]; then
     say "ABORT: the stock arm's step record is not readable at $PRIOR_STEPS"
     say "  This task tears the stock deployment down and must not run before it was measured."

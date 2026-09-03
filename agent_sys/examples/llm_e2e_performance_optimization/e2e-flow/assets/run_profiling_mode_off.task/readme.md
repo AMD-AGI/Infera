@@ -8,11 +8,17 @@ quoting. The other line runs with graphs off and measured eight times slower on
 the reference pair — 15.65 ms mean inter-token latency against 124.98 ms — which
 is the intent of that line and not a regression in it.
 
-**This task brings its own service up and tears it down.** There is no
-`serve_*` task in this package and no `deployment_*` handoff, because
-M2.3/M2.4/M2.5 forbid splitting bring-up from use across two agents:
-*"agent A 去把服务部署好，agent B 去使用：这是不被允许的"*. What it brings up is
-described by m1's `deploy_kit`, which it reads rather than re-deriving.
+**This task brings its own service up and tears it down** — M2.5 forbids
+splitting bring-up from use across two agents: *"agent A 去把服务部署好，agent B
+去使用：这是不被允许的"*. So there is no `serve_*` task in this package and no
+`deployment_*` handoff.
+
+**And it carries no deployment recipe of its own** — M2.3/M2.4: *"module 1 的
+output 已经包含了如何部署的全量信息"*. The bring-up is `scripts/deploy.sh` out of
+the `deploy_kit` handoff, the readiness criterion is that kit's
+`wait_ready.sh`, and the teardown is its `teardown.sh`. This task supplies the
+configuration, the load and the evidence, and nothing about how to start an
+engine.
 
 ## Inputs and outputs
 
@@ -34,44 +40,67 @@ it aborts, and the trap in step 3 runs.
    this stage is not mocked* — fall through to step 2. Any other non-zero is a
    failure.
 
-2. **Read m1's environment record and agree with it.**
-   `items/codes/environment.yaml` inside `$AGENT_SYS_INPUT_DEPLOY_KIT`.
-   *Accept:* the file parses, and `fixed.node` equals `$E2E_NODE`. A mismatch
-   aborts: this line would otherwise measure a machine the kit does not
-   describe, and every number would be filed under the wrong environment.
+2. **Locate the kit and agree with its environment record.** Exactly one packup
+   directory with a `scripts/` under `items/codes/`; `deploy.sh`,
+   `wait_ready.sh` and `teardown.sh` all present and visible on the node.
+   *Accept:* one directory — zero means the producer wrote its kit somewhere the
+   content type does not put it, two means a consumer has to guess which one
+   worked — and `fixed.node` in `items/codes/environment.yaml` equal to
+   `$E2E_NODE`. A node mismatch aborts: this line would otherwise measure a
+   machine the kit does not describe, and every number would be filed under the
+   wrong environment.
 
-3. **Register teardown before bring-up, not after.**
+3. **Set the kit's runtime contract.** `E2E_KIT_RUN_TAG` (this line's own tag),
+   `E2E_KIT_PORT_BASE`, `E2E_KIT_WORK_ROOT`, and both engine seams **empty** —
+   which is what makes this the clean arm: a caller that sets neither gets the
+   kit's own bring-up byte for byte.
+   *Accept:* nothing to check yet; the tag is verified against the handshake in
+   step 6. `check_deploy_kit` has already refused any kit that does not read
+   these, so the dependency is a gate on m1's output rather than a hope.
+
+4. **Register teardown before bring-up, not after.**
    *Accept:* the trap is installed. It is installed first because a line that
    fails between bring-up and load must not leave a TP-8 engine holding every
-   GPU on a node four other owners share. It removes only the container this
-   line created — never a name it did not create (CONTRACT §5.2).
+   GPU on a node four other owners share. It is the kit's own `teardown.sh`
+   scoped by this line's run tag, so it removes what this invocation created and
+   never something a co-tenant owns (CONTRACT §5.2).
 
-4. **Check the checkpoint is readable on the node.**
-   `test -r "$E2E_MODEL_PATH/config.json"`, on the node.
-   *Accept:* exit 0. This costs a second and saves a cold-start's worth of
-   waiting for a failure that says something less specific.
+   *No preflight of our own.* The kit owns that; a second opinion about whether
+   the checkpoint is readable is a second thing to keep in step with the
+   deployment it describes.
 
-5. **Bring the engine up**, `CUDA_GRAPH=1 PROFILE=0`, in a container named for
-   this line and on this line's ports.
-   *Accept:* `MIX_UP_OK` in the bring-up log and the router answering `/health`.
-   Cold start is dominated by the checkpoint load off shared storage. A worker
-   process that dies is reported with the last 40 lines of its own log rather
-   than waited out.
+5. **`deploy.sh`**, then **`wait_ready.sh`**.
+   *Accept:* two separate criteria, on purpose. `deploy.sh` returning 0 says the
+   launch commands were accepted; `wait_ready.sh` returning 0 says the service
+   answered. A readiness wait that exits 0 when it gave up turns "the model
+   never loaded" into "the benchmark measured nothing", and the second is
+   discovered three stages later. Cold start is dominated by the checkpoint load
+   off shared storage.
 
-6. **Replay the trace**, `E2E_CAPTURE=0`, and assemble the handoff.
+6. **Read the handshake**, `${E2E_KIT_WORK_ROOT}/deployment.json`, through the
+   transport — it is on the node's local disk.
+   *Accept:* `endpoint`, `container` and `run_tag` all present, and `run_tag`
+   equal to what step 3 asked for. A mismatch means either a stale
+   `deployment.json` is being read or the kit ignored the tag — and teardown is
+   scoped by that tag, so a wrong one is a leaked deployment. `endpoint` is the
+   **product** endpoint, the router and not the engine's own port.
+
+7. **Replay the trace**, `E2E_CAPTURE=0`, and assemble the handoff.
    *Accept:* `AIPERF_OK` in the replay log, and `items/result/summary.json`
    reporting at least `min_requests` requests. AIPerf exits 0 over an empty
    window, so the exit code is not the criterion — the request count is.
 
-7. **Write the environment record** into the output, inherited from the kit with
+8. **Write the environment record** into the output, inherited from the kit with
    this line's runtime substituted.
    *Accept:* `env_render.py` prints the path it wrote. It validates before it
-   writes, so nothing is produced if the record would be malformed.
+   writes, so nothing is produced if the record would be malformed. Inherited
+   and never rebuilt: m1 is the sole producer, and a stage that re-derived the
+   record could differ from m1's with nothing to notice.
 
-8. **Tear down** (the trap from step 3).
-   *Accept:* the container and its etcd are gone. Failure here does not fail the
-   task — the evidence is already sealed — but it is logged, because a leaked
-   container is the next round's port collision.
+9. **Tear down** (the trap from step 4).
+   *Accept:* `teardown.sh` exits 0. Failure here does not fail the task — the
+   evidence is already sealed — but it is logged, because a leaked deployment is
+   the next round's port collision.
 
 ## Watch out
 

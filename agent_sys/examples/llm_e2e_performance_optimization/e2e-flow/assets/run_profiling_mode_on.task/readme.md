@@ -15,7 +15,24 @@ just wrote. As sibling tasks agent_sys would schedule them concurrently with
 nothing to synchronise them, so lining them up would need a rendezvous file — an
 edge the graph cannot see and cannot report on.
 
-Like the other line, it brings its own service up and tears it down (M2.5).
+Like the other line, it brings its own service up and tears it down (M2.5), and
+like the other line it carries **no deployment recipe of its own** (M2.3/M2.4):
+the bring-up is `scripts/deploy.sh` out of the `deploy_kit` handoff. What makes
+this line different from the clean one is three values passed into that kit and
+nothing else — which is the property that keeps the two arms comparable.
+
+| seam | this line | the clean line |
+|---|---|---|
+| `E2E_KIT_ENGINE_EXTRA_ARGS` | `--disable-cuda-graph` | empty |
+| `E2E_KIT_ENGINE_EXTRA_ENV` | `SGLANG_TORCH_PROFILER_DIR=…` | empty |
+| `E2E_KIT_ROUTER_EXTRA_ARGS` | `--enable-profiling` | empty |
+
+The engine seams reach the **worker** process, and `--enable-profiling` is a
+**router** flag, which is why it is a third seam rather than folded into the
+first. The profiler directory must also be somewhere the *engine container* can
+write: SGLang writes the trace to a path the container sees, and without that
+docker creates the directory in the container layer and the capture reports
+success while the host sees nothing.
 
 ## Inputs and outputs
 
@@ -37,26 +54,31 @@ Executed in order by `entry.sh` → `../load/line.sh`.
    content type requires. *Accept:* exit 0 and four items in the reshaped
    output. Exit 3 means this stage is not mocked — fall through.
 
-2. **Read m1's environment record and agree with it.** Same as the other line:
-   `fixed.node` must equal `$E2E_NODE`.
+2. **Locate the kit and agree with its environment record.** Same as the other
+   line: one packup directory with `deploy.sh`, `wait_ready.sh` and
+   `teardown.sh`, and `fixed.node` equal to `$E2E_NODE`.
 
-3. **Register teardown before bring-up.** Same reason, and it matters more here:
+3. **Set the kit's runtime contract**, with the three seams in the table above
+   set rather than empty. This is the only place the two lines differ.
+
+4. **Register teardown before bring-up.** Same reason, and it matters more here:
    this line runs longer.
 
-4. **Check the checkpoint is readable on the node.**
+5. **`deploy.sh`**, then **`wait_ready.sh`**, then **read the handshake**.
+   *Accept:* as the other line — `deploy.sh` accepted the launch, the service
+   answered, and `deployment.json` carries `endpoint`, `container` and a
+   `run_tag` equal to what step 3 asked for.
 
-5. **Bring the engine up**, `CUDA_GRAPH=0 PROFILE=1 TRACE_OUT=<node-local>`.
-   *Accept:* three things, not one. `MIX_UP_OK` in the log; the trace directory
-   mounted **rw** into the container, proven by `docker inspect` (SGLang writes
-   to a path the *engine* sees, and without the mount docker creates the
-   directory in the container layer and the capture reports success while the
-   host sees nothing); and the profiling control plane answering **400** to a
-   probe with an impossible role. 400 means profiling is on and 403 means it is
-   not — the gate is checked before the role is validated, so the probe cannot
-   disturb a running profile. A 403 aborts, because a capture against a 403
-   control plane produces no trace and no error the caller sees.
+6. **Probe the profiling control plane, and abort if it is off.**
+   POST the admin profile start route with a role that cannot exist.
+   *Accept:* **400**. The gate is checked *before* the role is validated, so 400
+   means profiling is on, 403 means it is not, and neither disturbs a running
+   profile. **A 403 aborts**, because every capture below would then produce
+   nothing and report success — there is no error the caller would see. Any
+   other status is a warning and the capture's own `CAPTURE_OK` becomes the
+   criterion.
 
-6. **Replay the trace and cut two windows inside it**, `E2E_CAPTURE=1`.
+7. **Replay the trace and cut two windows inside it**, `E2E_CAPTURE=1`.
    - the **measurement window**: `E2E_WINDOW_S` seconds after `E2E_WARMUP_S` of
      warm-up, `with_stack` **off**, one file per rank.
      *Accept:* `CAPTURE_OK`, and the per-rank manifest showing GPU kernels above
@@ -70,16 +92,16 @@ Executed in order by `entry.sh` → `../load/line.sh`.
    - the load itself: *accept:* `AIPERF_OK` and at least `min_requests`
      requests.
 
-7. **Rank the kernels.** Magpie over the measurement window's traces, on the
+8. **Rank the kernels.** Magpie over the measurement window's traces, on the
    node, into a staging directory; then reshaped into the `structured_text`
    layout. *Accept:* `gap_analysis.csv` non-empty, `text.json` validating
    against `assets/schemas/kernel_table.schema.json`, and the shares summing to
    a whole run. Minutes, not seconds: every event in every rank is parsed.
 
-8. **Write the environment record** into all three outputs, inherited from the
+9. **Write the environment record** into all three outputs, inherited from the
    kit with this line's runtime substituted.
 
-9. **Tear down** (the trap from step 3).
+10. **Tear down** (the trap from step 4).
 
 ## Watch out
 
