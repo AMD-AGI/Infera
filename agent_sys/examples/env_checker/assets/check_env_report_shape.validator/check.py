@@ -48,17 +48,56 @@ DIGEST = re.compile(r"\A[0-9a-f]{12}\Z")
 HEADING = re.compile(r"\A\s*#")
 FENCE = re.compile(r"\A\s*(?:```|~~~)")
 
-#: Placeholder tokens — a section that was templated and not written. The `<…>`
-#: form is matched only when the brackets wrap something that is not a URL or an
-#: e-mail address, so a legitimate `<https://…>` does not trip it.
-PLACEHOLDER = re.compile(
+#: Placeholder words. These are a placeholder **wherever** they appear —
+#: including inside a code block, where `TODO` is still an unfinished thought.
+PLACEHOLDER_WORD = re.compile(
     r"""
       \b (?: TODO | TBD | FIXME | XXX ) \b
     | to \s+ be \s+ filled \s+ in
-    | < (?! [A-Za-z][A-Za-z0-9+.-]* : // ) (?! [^<>@\s]+ @ ) [^<>\n]{2,} >
     """,
     re.IGNORECASE | re.VERBOSE,
 )
+
+#: The `<…>` template form, matched only when the brackets wrap something that
+#: is not a URL or an e-mail address.
+#:
+#: **Applied to prose only, with code spans and fenced blocks removed first —
+#: narrowed 2026-09-03 because it failed run 3 on correct input.** The agent
+#: documented the token's format in its `## Schema` section:
+#:
+#:     - `token` — the `ENVCHK-<LABEL>-<12 hex>` string, or `null` if not obtained.
+#:
+#: and the rule could not tell a **format description** from an **unfilled
+#: placeholder**. The agent did exactly the right thing and the check refused
+#: it. That is a different species from the seven defects found earlier the same
+#: day: those were checks that could not fail, this one **fails on correct
+#: input**, and the repair points the opposite way — narrow it rather than
+#: strengthen it.
+#:
+#: Narrowed and not deleted. An unfilled `<…>` in running prose is exactly the
+#: sloppiness the rule was written for, and a check that misfired once is not a
+#: check to throw away.
+PLACEHOLDER_ANGLE = re.compile(
+    r"< (?! [A-Za-z][A-Za-z0-9+.-]* : // ) (?! [^<>@\s]+ @ ) [^<>\n]{2,} >",
+    re.IGNORECASE | re.VERBOSE,
+)
+
+#: A fenced block, or an inline code span. Replaced with blanks before the angle
+#: rule runs — blanked rather than deleted so that nothing on either side is
+#: accidentally joined into a new match.
+CODE_SPAN = re.compile(r"```.*?```|~~~.*?~~~|`[^`\n]*`", re.DOTALL)
+
+
+def placeholder_in(text: str):
+    """The first placeholder in `text`, or `None`.
+
+    Words anywhere; the `<…>` form in prose only. Returns the match so the
+    caller can name what it found.
+    """
+    found = PLACEHOLDER_WORD.search(text)
+    if found:
+        return found
+    return PLACEHOLDER_ANGLE.search(CODE_SPAN.sub(lambda m: " " * len(m.group(0)), text))
 
 
 def content_lines(text: str) -> list[str]:
@@ -81,7 +120,7 @@ def check_readme(text: str | None, floor: int) -> list[str]:
     lines = content_lines(text)
     if len(lines) < floor:
         faults.append(f"README.md: {len(lines)} content lines, needs {floor}")
-    found = PLACEHOLDER.search(text)
+    found = placeholder_in(text)
     if found:
         faults.append(f"README.md: unfilled placeholder {found.group(0)!r}")
     return faults

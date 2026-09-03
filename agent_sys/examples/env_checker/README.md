@@ -195,6 +195,45 @@ tooling rather than about `agent_sys`:
   arrives in the file nobody is looking at**, and having just fixed the first is
   what makes you not look.
 
+## Out of scope, recorded: the same placeholder defect is in four other files
+
+Run 3's `check_env_report_shape` failed on **correct input** — the agent
+documented the token's format in its `## Schema` section, in backticks, and the
+`<…>` placeholder rule could not tell *documenting* a placeholder from *leaving*
+one. This package's copy is narrowed (code spans and fenced blocks are excluded
+from the angle rule; `TODO`/`TBD`/`FIXME`/`XXX` still match everywhere).
+
+**The same pattern is in four files this round did not touch:**
+
+```
+examples/single_real_task/assets/check_packup_shape.validator/check.py
+examples/llm_e2e_performance_optimization/analyze-demo/assets/check_identity_resolved.validator/check.py
+examples/llm_e2e_performance_optimization/deploy-demo/assets/check_deploy_kit.validator/check.py
+examples/llm_e2e_performance_optimization/integration-demo/assets/lib/patchkit.py
+```
+
+Verified rather than assumed: `single_real_task`'s copy was run against the exact
+line run 3 died on, and **it flags it too**. Nobody has hit it there only because
+no author has yet written an angle-bracketed placeholder inside a code span.
+
+**Not fixed here, and the reason is not etiquette.** Three of those are
+`llm_e2e_performance_optimization`, a different deliverable with its own
+acceptance history; one is `single_real_task`, the template. Changing a
+validator in a package we are not running changes an acceptance criterion for
+work that was accepted under the old one, **without re-running it** — the same
+hazard as a drive-by edit to shared configuration. The right end state is one
+shared helper rather than five copies drifting apart, and that touches four
+files this round may not change.
+
+**The mechanism is the part worth carrying.** This defect **propagates by
+copy**: the regex was lifted from another validator that already had it, without
+re-reading what it matched. **A defect that spreads by copying gets more
+entrenched with every reuse, and each copy arrives carrying the authority of the
+file it came from.** It is also a different species from the checks-that-cannot-
+fail catalogued above — it **fails on correct input** — and the repair points the
+opposite way: narrow it, never delete it. A real check that misfired once is
+still a real check.
+
 ## Measured, so not assumed
 
 Six probes on 2026-09-03, first-hand, written up at
