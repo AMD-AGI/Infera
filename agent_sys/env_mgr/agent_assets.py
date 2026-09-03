@@ -672,7 +672,7 @@ def _install_tree(
     )
     outcomes.extend(mcp_outcomes)
 
-    tools, tool_outcomes = _tooldefs(tree, origin=origin)
+    tools, tool_outcomes = _tooldefs(tree, origin=origin, config_dir=config_dir)
     outcomes.extend(tool_outcomes)
 
     return outcomes, servers, tools
@@ -977,7 +977,7 @@ def _mcp_servers(
     return servers, out
 
 
-def _tooldefs(tree: str, *, origin: str) -> tuple[list[Any], list[InstallOutcome]]:
+def _tooldefs(tree: str, *, origin: str, config_dir: str) -> tuple[list[Any], list[InstallOutcome]]:
     """Import each ``tools/*.tooldef.py`` and take its module-level ``TOOLS``.
 
     **This executes package-authored code in the supervisor.** The module
@@ -988,6 +988,29 @@ def _tooldefs(tree: str, *, origin: str) -> tuple[list[Any], list[InstallOutcome
     those tools, which is a degradation the report names, and stopping the run
     instead would make one bad file in one component fatal to every task using
     it.
+
+    **Enumerated from the source tree and imported from the PLACED copy**, which
+    is `_mcp_servers`' shape for the same reason one line over: the run owns the
+    copy in the zone and does not own the directory it came from. For L3 the two
+    were the same file, so this looked settled; for an **L2** component the
+    source is `agent_sys/components/<name>/.claude/tools/…`, so the supervisor
+    was importing **the repository** rather than the copy this attempt was
+    pinned to. That is the bare-`claude` defect's class — two consumers, one of
+    them reading a path the run does not own — and the module docstring's
+    narrowing (*"the staged package or this repository's own `components/`"*) is
+    the wording that made it read as fine.
+
+    It also puts ``__pycache__`` in the zone, where it dies with the zone,
+    instead of writing it into the repository during `prepare`. That is a
+    consequence rather than the reason, and it is why no `sys.dont_write_bytecode`
+    is needed — a process-global of exactly the kind the subprocess route removed.
+
+    **Enumerated from the source, though, and that part is load-bearing.**
+    `<config>/tools/` accumulates every level's files as each is placed, so
+    listing *it* would re-import the previous component's modules under this
+    component's name and register their tools twice. The source tree names
+    exactly this component's files; the placed path is only where each one is
+    read from.
 
     Loaded under a private module name so that two components shipping
     ``tools/util.tooldef.py`` do not overwrite one another in `sys.modules`.
@@ -1018,7 +1041,23 @@ def _tooldefs(tree: str, *, origin: str) -> tuple[list[Any], list[InstallOutcome
     """
     tools: list[Any] = []
     out: list[InstallOutcome] = []
-    for path in _tool_files(tree, TOOLDEF_SUFFIX):
+    for source in _tool_files(tree, TOOLDEF_SUFFIX):
+        path = os.path.join(config_dir, TOOLS_DIRNAME, os.path.basename(source))
+        if not os.path.exists(path):
+            # `_place_tree` ran first and copies `tools/`, so this cannot happen
+            # without the placement rule having changed under this function.
+            # Reported rather than asserted, because the consequence is a missing
+            # capability and the run can continue without it.
+            out.append(
+                InstallOutcome(
+                    "fail",
+                    f"{source} was not placed, so there is nothing to import from "
+                    f"{path!r}. A tool module is read from the zone copy, never from "
+                    f"the directory it came from",
+                    {"path": path},
+                )
+            )
+            continue
         stem = os.path.basename(path)[: -len(TOOLDEF_SUFFIX)]
         module_name = f"_agent_sys_tooldef_{abs(hash(path)):x}_{stem}"
         try:

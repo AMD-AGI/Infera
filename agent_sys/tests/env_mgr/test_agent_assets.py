@@ -1423,3 +1423,62 @@ def test_a_components_marketplace_never_lands_on_the_harnesss_own_name(
     assert not (config / "plugins" / "SENTINEL").exists(), (
         "the component's marketplace was copied into the directory the CLI owns"
     )
+
+
+def test_a_tooldef_is_imported_from_the_zone_copy_not_the_component_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The same rule as the bundled MCP server, one function over.
+
+    For **L2** the source is `agent_sys/components/<name>/.claude/tools/…`, so
+    importing it read the repository rather than the copy this attempt was
+    pinned to — the bare-`claude` defect's class, two consumers with one of them
+    reading a path the run does not own. It also wrote `__pycache__` into the
+    repository during `prepare`.
+
+    Asserted through the module's own `__file__`, which is the only thing that
+    can tell the two copies apart once the tools are loaded.
+    """
+    shipped = tmp_path / "components"
+    _write(
+        shipped / "base" / ".claude" / "tools" / "t.tooldef.py",
+        "class T:\n    def __init__(self, name): self.name = name\nTOOLS = [T('probe')]\n",
+    )
+    monkeypatch.setattr(agent_assets, "COMPONENTS_ROOT", str(shipped))
+    config = tmp_path / "config"
+
+    got = install(_spec(components=["base"]), staged_package=None, config_dir=str(config))
+
+    (tool,) = got.tools
+    loaded = Path(sys.modules[type(tool).__module__].__file__)
+    assert loaded == config / "tools" / "t.tooldef.py", loaded
+    assert not (shipped / "base" / ".claude" / "tools" / "__pycache__").exists(), (
+        "importing the source wrote __pycache__ into the components registry"
+    )
+
+
+def test_two_components_shipping_tooldefs_do_not_double_register(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Why the enumeration stays on the **source** tree.
+
+    `<config>/tools/` accumulates every level's files as each is placed, so
+    listing *it* would re-import the earlier component's module under the later
+    component's name and register its tools twice. The source names exactly one
+    component's files; the placed path is only where each is read from.
+    """
+    shipped = tmp_path / "components"
+    for name, tool in (("a", "alpha"), ("b", "beta")):
+        _write(
+            shipped / name / ".claude" / "tools" / f"{name}.tooldef.py",
+            f"class T:\n    def __init__(self, name): self.name = name\nTOOLS = [T({tool!r})]\n",
+        )
+    monkeypatch.setattr(agent_assets, "COMPONENTS_ROOT", str(shipped))
+
+    got = install(
+        _spec(components=["a", "b"]),
+        staged_package=None,
+        config_dir=str(tmp_path / "config"),
+    )
+
+    assert sorted(t.name for t in got.tools) == ["alpha", "beta"]
