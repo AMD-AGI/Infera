@@ -266,3 +266,44 @@ at load time — the engine already knows the set, so this is extraction rather
 than invention. Cheaper interim: have the producer read the chosen parser back
 out of `/get_server_info` and record it in `environment.yaml`, which turns a
 silent wrong answer into a recorded one.
+
+### T18 — `shared_identifiers` sees flags, and a shared host is bound by more than flags
+*Found by m1 on 2026-09-03, running a **second** model's kit. Qwen's kit could
+not have shown it.*
+
+`check_deploy_kit`'s `shared_identifiers` scan is a deliberate list of flags —
+`--name`, `--publish`, `--volume`, `--mount`, `--port`, `-p`, `-v` — on the
+stated grounds that guessing "this string looks like a container name" fails
+honest kits. That reasoning still holds. What a second kit showed is that the
+list is **narrower than the property it stands for**, and in four measured ways:
+
+| in the GLM recipe | why the scan misses it |
+|---|---|
+| `docker rm -f … glm53_standalone` | an argument to a **command**, not a flag — and it *destroys* rather than binds |
+| `--listen-client-urls http://0.0.0.0:2379` | a port literal **inside a URL**, and the flag is not in the list |
+| `--etcd-endpoint $MY_IP:2379` | the same, and it is the **consumer** of the port above |
+| `reset_gpus.sh` doing `kill -9` on every KFD pid | not an identifier at all — a node-wide destructive act with no flag to see |
+
+The third is the instructive one. **Parameterising the producer of a shared
+identifier and not its consumer leaves the deployment broken in a way that looks
+like something else** — the router failed with `ConnectError: All connection
+attempts failed`, naming neither the port nor the mismatch. m1 committed exactly
+this mistake while writing the fix for the other three.
+
+**Would settle it, and it is a design question rather than a patch:**
+
+1. a list of flags whose *value* is a `host:port` or a URL, scanned for a literal
+   port — `--etcd-endpoint`, `--listen-client-urls`, `--advertise-*`, `--host`.
+   Cheap, and it generalises the existing rule rather than replacing it;
+2. a rule that a port literal appearing **more than once** in `scripts/` is
+   almost certainly a producer/consumer pair, so parameterising one occurrence
+   and not the others is a *detectable* half-fix;
+3. destructive verbs — `docker rm -f`, `docker kill`, `kill -9`, `pkill` — with a
+   bare literal or an unbounded match are a different category from binding and
+   probably want their own rule. A kit that kills every GPU process on the node
+   passes every check this package has today.
+
+Until then the layout's `shared_identifiers` comment should say what it does
+**not** cover, because a check that reads as "no identifier is frozen" and means
+"no identifier reaches one of seven flags" is the gap between a claim and a
+measurement that `todo.md` exists to record.

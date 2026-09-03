@@ -293,6 +293,23 @@ evidence:
 # A list of flags rather than an attempt to recognise "a container name" from its
 # text: the flags are where a value enters a host-wide namespace, and they are
 # few and literal. Guessing at the semantics of a string would fail honest kits.
+#
+# **What this does NOT cover, measured against a second model's kit** (todo.md
+# T18) — stated here because "no identifier is frozen" and "no identifier reaches
+# one of seven flags" are different claims and only the second one is checked:
+#
+#   * a literal passed to a **command** rather than a flag — `docker rm -f
+#     some_name` destroys rather than binds, and no flag appears;
+#   * a port **inside a URL** — `--listen-client-urls http://0.0.0.0:2379`,
+#     `--etcd-endpoint $HOST:2379`, neither flag being in the list;
+#   * a **half-parameterised** identifier: the producer of a port made a variable
+#     and its consumer left literal. That failure surfaces as
+#     `ConnectError: All connection attempts failed`, naming neither the port nor
+#     the mismatch;
+#   * a node-wide destructive act with no identifier at all — a `kill -9` over
+#     every GPU process on the host passes every check in this package.
+#
+# All four are real and all four were in one kit.
 runtime_contract:
   # --------------------------------------------------------------------------- #
   # 5. The runtime contract — what makes the kit *callable* rather than only
