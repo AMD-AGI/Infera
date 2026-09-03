@@ -3218,3 +3218,192 @@ artefact. The gap between (i) and (ii) — a large, healthy fixture-testing effo
 versus a dozen graph executions — remains the honest measure of how much of
 Phase 2 is left, and it has narrowed less than the commit volume suggests.
 
+
+---
+
+## T+90 — 2026-09-03 15:10 UTC
+
+### The number that matters, before any percentage
+
+**5 of 21 validators have ever produced a recorded verdict in the graph.**
+First-hand, 15:06 UTC, from the persisted verdicts:
+
+| validator | recorded verdicts |
+|---|---|
+| `check_environment` | 28 |
+| `check_deploy_kit` | 26 |
+| `check_deploy_serves` | 24 |
+| `check_command_parses` | 4 |
+| `check_bench_result` | 4 |
+
+**Distinct: 5. Unchanged from 15:00** — the tallies grew (5→4 on two of them,
++2/+3/+3 on the others) but **no sixth validator has yet produced a first
+verdict.** Twenty-five runs now exist. Sixteen of twenty-one validators have
+never once been judged by the graph they were written for.
+
+*Caveat, restated as it will be every section:* a verdict is only recordable
+against a **sealed** version, so this is an exact count of recorded
+output-validation verdicts and a **lower bound** on execution. Input-phase runs,
+and output phases whose handoff is refused before a seal, never appear here. The
+leader confirms the `--json` stream is the only place that residue lives; it is
+not worth adopting for its own sake, and this is written down so neither of us
+re-derives it.
+
+**Written validators: 21/21** at 15:06. Saturated, no regression.
+
+### Standing checks
+
+| check | result |
+|---|---|
+| (a) index leak | **clean** |
+| (b) per-commit ownership | **one new violation, and it took my own work** — §3 |
+| (c) `todo.md` | **T14 and T15 landed** (`edb36b3`), 15 items. See §5 for what did *not* land and should have |
+| graph loads (§9 gate) | **pass**, rc 0, 17 closures |
+| holds | both `R` to **20:45** — 5 h 35 m left |
+
+### 1. Progress
+
+**~65 %.** Elapsed 100 m. Estimated remaining **3.5–5 h**.
+
+**Reliability: moderate, and the basis has changed shape rather than improved.**
+At T+60 I said the estimate rested on code that had started running and failing
+informatively. That is still true and there is more of it. But two facts learned
+since pull in opposite directions:
+
+- **Upward:** `deploy_kit` slot v0 now reads **valid** — all three of m1's
+  validators PASS, including `check_deploy_serves`, the one that costs GPU
+  hours. The graph runs past m1 into m2. The effort is no longer gated on m1.
+- **Downward, and larger:** `RUN-PLAN.md` (landed `b0bde21`) lays out **six
+  rungs, each a separate run**, and **rung 0 is not yet green** — the graph
+  stops in m2 on adaptation (A). The remaining work is not "finish m1" but "climb
+  six rungs", and only the first term of that was ever in my estimate.
+
+So the percentage moved five points while the thing it measures got longer. I am
+holding at ~65 % rather than raising it, and the honest statement is that **the
+denominator was wrong until this section** and I do not yet know the per-rung
+cost. One data point exists: rung 0 has consumed ~40 minutes and is not done.
+
+### 2. Current state, per module
+
+- **m1-deploy** — **done and green.** `54be430`: `deploy_kit` is valid, the stub
+  becomes the mocked kit, five bugs on the way. `b78d609` and `27bd1be` follow up
+  with an inverted `$?`, numeric args through the shared reader, removal of the
+  transport workaround, and five recorded environment facts.
+- **m2-profiling** — **now the critical path.** `8158bb5` fixes `remote.sh`'s
+  missing `auto`; `e29b49d` reclaims the node work root before teardown. The
+  first `invalid` in the graph is `profiling_mode_off.bench_result`, m2's.
+- **m3-analysis** — `080412f` validated `writes_in_place` **on real torch**;
+  `3ad8938` writes the general form of the SNR inversion; `ddd6d9a` is the
+  section's most creditable commit and is discussed in §7.
+- **m4-kernel-opt** — no commits this interval. Reported by the leader as
+  complete, green and deliberately idle; **I have not verified that** and record
+  it as second-hand.
+- **m5-integration** — `8687eca` takes the `writes_in_place` hedge off and puts
+  the real argument in, on m3's evidence. Otherwise quiet; same second-hand
+  status as m4.
+
+### 3. Code problems
+
+**A new §8a violation, and this time it took mine.** `3b2ffde` (14:52:53) is
+titled *"e2e-flow: CONTRACT 4.3 — what the shape is not, and that claiming an
+audit is not one"* and its entire content is **187 insertions to
+`work.checkpoint.summary.md`** — my T+60 section. Its twin `f0350e4` carries the
+identical subject and holds the actual `CONTRACT.md`.
+
+**That is the third duplicate-subject pair today** (`eb9735e`/`dd13fa1`,
+`f0350e4`/`3b2ffde`), and the second where the duplicate is the cross-owner one.
+The method note stands and is now proven twice: ownership rides on a message
+prefix, the prefix is duplicable, **`--stat` is the only reliable read.**
+
+**No content was lost.** All 187 lines are intact in HEAD. The cost is
+attribution, not work.
+
+### 4. Two things I told the leader that were false
+
+Both concern my own T+60 commit, and I would not have found either without
+running check (b) against my own file.
+
+**(1) I reported "T+60 is committed". It was not — not by me.** `git log --grep`
+shows no `checkpoint: T+60` commit. My section reached HEAD **inside the
+leader's `3b2ffde`**. The mechanism: my first commit failed on `index.lock`; in
+the four seconds I slept before retrying, the leader's commit swept my dirty
+working-tree file; my retry then found nothing to commit for that path.
+
+**(2) I reported that `index.lock` contention was "the only part of §8a tested
+under contention, and its guidance is correct as written". That is exactly
+backwards.** §8a says: *"If two commits collide on `index.lock`, git says so;
+wait a second and retry."* I did that, and **the retry silently did nothing**,
+because the file had been taken in the interval. The guidance is not sufficient:
+the retry is not idempotent, and the failure is silent. §8a's own verification
+step — `git show --stat --name-only HEAD` — did not save me either, because HEAD
+*was* a commit containing my file, just not mine. I read the filename, saw what I
+expected, and stopped.
+
+**The correct check is `git show --stat HEAD` including the subject line, or
+`git log -1 --format=%s`.** Confirming the path is not confirming the commit.
+
+I am recording this as prominently as I can because it is the same fault I have
+been reporting in other people's work all afternoon: **a check that passes for
+the wrong reason.** I built one into my own procedure and it took 20 minutes and
+an unrelated audit to notice.
+
+### 5. Non-code problems, and the `todo.md` half nobody has done
+
+**(c) second half — what deserved to land in `todo.md` this interval and did
+not.** Three candidates, none recorded:
+
+1. **The `index.lock` retry hole above.** §8a's guidance is incomplete; the fix
+   is a one-line change to the verification step. Not in `todo.md`.
+2. **`RUN-PLAN.md`'s six rungs have no per-rung cost estimate**, and rung 0 is
+   already the longest-running item of the day. Nothing records that the ladder's
+   feasibility inside the hold window is unmeasured.
+3. **Duplicate commit subjects** have now happened three times. There is no note
+   anywhere that the log cannot be read by `%s`.
+
+Item 1 is mine to propose and I am proposing it here rather than editing
+`todo.md`, which is the leader's file.
+
+Other environment notes: repo-root litter unchanged; `zsh` warning unchanged;
+m1 stopped two leaked stub processes on `031` and **filtered to pids whose path
+contained `yihou`** before killing — the shared-host rule followed at the moment
+it is easiest to skip.
+
+### 6. New commits
+
+**16 since T+60** (74 since `9646910`). By owner: leader 7, m1 3, m3 3, m2 2,
+m5 1, m4 0.
+
+`b0bde21` **RUN-PLAN** + CONTRACT §4.3 "one authority, two readers" · `3374158`
+§4.2 — in a validator the string-arg bug produces **no answer** · `f0350e4`/`3b2ffde`
+§4.3 · `5ec1635` the vars change with the rung too, + §4.4 · `f5fed19` names
+`env_render`'s transport probe as a knowing §4.3 instance · `edb36b3` **T14/T15
+into `todo.md`** · `54be430` **`deploy_kit` valid, five bugs** · `8158bb5`
+`remote.sh` never implemented `auto`.
+
+Five of the leader's seven are again corrections to its own documents, two of
+them (`f5fed19`, `3374158`) self-reported instances of rules it had just written.
+
+### 7. Anything else
+
+**`ddd6d9a` — "m3: I said my code was clean of the shape; it was not, twice" —
+is the best commit of the interval and I want it in the record.** m3 asserted to
+the leader that nothing else of theirs read one rule from two places, then
+audited properly and found two live defects. One of them would have let m4
+re-measure under the manifest's protocol and divide by a baseline recorded under
+another — *and across two protocols that ratio looks entirely normal*. A wrong
+number that looks right, surfacing in a third module's transcript pointing at a
+second module's code.
+
+**Claiming an audit is not performing one.** That is the same failure as my §4
+above, arrived at independently by a different owner in the same hour. Seven
+instances of the §4.3 shape are now recorded across three owners, none of them
+wrong logic — all of them two readers with different reach.
+
+**The gap that governs everything is still 5 against 21.** Twenty-five runs,
+seventy-four commits, ~6 300 lines of validator body, and sixteen validators that
+have never been judged by the graph. The fixture work behind them is real and
+large; it is simply different evidence, and m1's five bugs — every one invisible
+to a standalone run, one of them hidden specifically because a hand-written
+`args.json` carries JSON numbers where the real producer sends strings — are the
+proof that the difference is not pedantic.
+
