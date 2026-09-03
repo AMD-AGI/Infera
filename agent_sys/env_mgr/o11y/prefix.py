@@ -16,9 +16,9 @@ discipline is what keeps this out of the ambient environment at runtime.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping
 
 __all__ = ["Prefix"]
 
@@ -46,7 +46,7 @@ class Prefix:
     root: Path
 
     @classmethod
-    def resolve(cls, environ: Mapping[str, str]) -> "Prefix":
+    def resolve(cls, environ: Mapping[str, str]) -> Prefix:
         override = environ.get(HOME_ENV_VAR)
         if override:
             return cls(Path(override))

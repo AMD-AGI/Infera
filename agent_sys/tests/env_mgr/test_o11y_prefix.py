@@ -54,3 +54,14 @@ def test_resolve_does_not_read_the_ambient_environment(tmp_path: Path, monkeypat
     monkeypatch.setenv("AGENT_SYS_HOME", "/should/be/ignored")
     p = Prefix.resolve({"HOME": str(tmp_path)})
     assert p.root == tmp_path / ".infera_agent_sys"
+
+
+def test_prefix_names_are_reachable_from_the_paths_family() -> None:
+    """`paths` is where a reader looks for an `AGENT_SYS_*` name. All of them."""
+    from env_mgr import paths
+
+    assert paths.HOME_ENV_VAR == "AGENT_SYS_HOME"
+    assert paths.BIN_ENV_VAR == "AGENT_SYS_BIN"
+    assert paths.CLAUDE_HOME_ENV_VAR == "AGENT_SYS_CLAUDE_HOME"
+    for name in ("HOME_ENV_VAR", "BIN_ENV_VAR", "CLAUDE_HOME_ENV_VAR"):
+        assert name in paths.__all__
