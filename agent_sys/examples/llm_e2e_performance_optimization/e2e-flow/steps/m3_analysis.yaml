@@ -1,0 +1,231 @@
+# Stage 3 — analysis, and the worksets.
+#
+# **Skeleton, frozen by the leader.** Kinds, wiring and graph shape are contract
+# (CONTRACT.md §1); bodies and validator substance are m3's owner's.
+#
+# `analyze-demo`'s design was judged sound — M3.1: "总体来说流程设计科学，质量较
+# 高，但是 handoff 需要规范化". So this stage keeps its three-step shape
+# (rank → identify → build) and changes what crosses between the steps.
+#
+# Two deletions, both mission items:
+#   * **`seed_table` is gone** (M3.2). It existed because stage 2's real output
+#     was not reachable; it now is. A 34-row synthetic seed is not merely
+#     unnecessary — it is one of the two artefacts filed under the name
+#     `kernel_table` in the mock set, and the more misleading of the two.
+#   * **the second `check_kernel_table` is gone** (M3.5). One definition, in
+#     `common.yaml`, used by m2 and m3 both.
+#
+# Definition order is load-bearing within a file: validators, kinds, leaves,
+# non-leaf.
+
+# --------------------------------------------------------------------------- #
+# 1. Validators.
+#
+# OWNER m3: placeholders with the right identity.
+# `../../analyze-demo/assets/check_worklist_shape.validator/`,
+# `check_identity_resolved.validator/`, `check_workset_shape.validator/` and
+# `check_workset_runs.validator/` are the bodies to carry across; each already
+# holds measured thresholds and the argument behind them.
+- module: validator
+  name: check_worklist_shape
+  version: '1'
+  brief: The worklist validates against its schema, its buckets are accounted for, and every exclusion carries a reason
+  dimension: completeness
+  strength: strong
+  inputs: [kernel_worklist]
+  args: {schema: kernel_worklist}
+  tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, analysis, m3]}
+
+- module: validator
+  name: check_identity_resolved
+  version: '1'
+  brief: Every candidate carries a resolution level, and an unresolved one says why rather than guessing
+  dimension: trustworthiness
+  strength: strong
+  inputs: [operator_identity]
+  args:
+    schema: operator_identity
+    # **0.0 on purpose.** The evidence available is the device symbol name, and
+    # for a Tensile GEMM dispatched from C++ there is no Python frame to find.
+    # A floor above zero would fail a correct analysis on exactly the kernels
+    # the next stage excludes anyway. What is checked is that uncertainty is
+    # *modelled* — `excluded_reason`, `resolution_hint` — not that it is absent.
+    min_resolve_ratio: '${min_resolve_ratio:-0.0}'
+  tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, analysis, m3]}
+
+- module: validator
+  name: check_workset_shape
+  version: '1'
+  brief: The workset validates against the merged schema and carries at least three shapes with runnable correctness and performance entrypoints
+  dimension: completeness
+  strength: strong
+  inputs: [operator_workset]
+  args:
+    schema: workset
+    # M3.7.4.1.2 — "保证在 ≥3". Three is the floor at which a performance claim
+    # is about an operator rather than about one shape.
+    min_shapes: 3
+    require_entrypoints: [correctness, performance]
+  tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, analysis, m3]}
+
+- module: validator
+  name: check_workset_runs
+  version: '1'
+  brief: The workset's own one-click correctness and performance entrypoints run, on this hardware, and agree with the numbers it prints
+  dimension: trustworthiness
+  strength: strong
+  inputs: [operator_workset]
+  args:
+    # **This is the validator that makes M4.3.5 possible.** m4 is told to take
+    # its ground truth *strictly* from the workset; that instruction is only
+    # safe if something has already run the workset's own tests on this
+    # hardware. If this validator is ever weakened, m4's
+    # `check_speedup_substantiated` has to go back to re-measuring.
+    max_rsd: '${workset_max_rsd:-0.10}'
+  tags: {logic_source: external_dynamic, cost: gpu_hours, domain: [llm_e2e, analysis, m3]}
+
+# --------------------------------------------------------------------------- #
+# 2. The kinds.
+#
+# M3.6 — "所有 structure text 都必须有 schema 和对应的 validator，并且 schema 暴露
+# 给 producer agent". Both `structured_text` kinds carry `items/schema`, copied
+# at production time from `assets/schemas/`; the validator checks the copy is
+# byte-identical to the package's, so the artefact is self-describing *and*
+# provably not a private fork (CONTRACT.md §3.4).
+- module: handoff
+  name: kernel_worklist
+  version: '1'
+  description: The ranked, bucketed candidate list — which kernels are worth an optimisation attempt and why the rest are not.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    properties:
+      env: {type: string}
+      'worklist.csv': {type: string}
+  validators: [check_environment, check_worklist_shape]
+
+- module: handoff
+  name: operator_identity
+  version: '1'
+  description: Each candidate resolved from a device symbol to a source location and a launcher, with its resolution level recorded.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    properties:
+      env: {type: string}
+  validators: [check_environment, check_identity_resolved]
+
+# **The merged workset** — M3.7: "operator_workset 的定义融合 阶段3
+# operator_workset 和 阶段4 workset 为一个". The single largest item in the whole
+# refine, and it is on m4's critical path, so **m3 and m4 agree this kind's
+# contract before either writes a body.**
+#
+# Seven requirements, all M3.7's, all of them about making m4's job mechanical
+# rather than interpretive: executable over descriptive; yaml/json over
+# markdown; standard tools (Magpie) over re-derivation; **one-click correctness
+# and one-click performance tests covering every shape to be optimised, at least
+# three**; shaped like flashinfer-bench, for which `../../../../rank0/` is this
+# repository's own worked instance; a KernelForge one-liner layered *over* that
+# base rather than replacing it; and one handoff per operator **deferred** to
+# `todo.md` — M3.7.7 itself says 目前可合成一个.
+#
+# `content_type: code`, because the workset's whole point is that it is
+# *runnable*: `code`'s single `codes` item leaves the interior to
+# `assets/schemas/workset.schema.json` and to the validators.
+- module: handoff
+  name: operator_workset
+  version: '1'
+  description: One runnable optimisation workset per candidate operator — definition, shapes, correctness test, performance test.
+  content_type: code
+  scope: fixed.required
+  # M4.4: "workset 相关的 validator 都统一放进 module3 的输出…但是不需要单独的."
+  # m4 declares none of these; it references the kind and inherits them.
+  validators: [check_environment, check_workset_shape, check_workset_runs]
+
+# --------------------------------------------------------------------------- #
+# 3. The leaves.
+#
+# `rank` and `identify` stay `kind: program`: the evidence available to them is
+# a symbol name and a table of numbers, and a rule table plus an out-of-process
+# finder is a better instrument for that than a model. M3.8 asks whether that
+# limits them — recorded in `todo.md`, not changed here.
+- module: task
+  name: rank
+  description: Rank and bucket the profiled kernels into a candidate worklist.
+  agent: runner
+  handoffs: [profiling_evidence, kernel_worklist]
+  validators: []
+  task:
+    goal: Rank the profiled kernels and bucket them into candidates.
+    version: '1'
+    inputs: [profiling_evidence]
+    outputs: [kernel_worklist]
+    permissions:
+      grants:
+        - {path: handoffs/profiling_evidence, access: read, kind: profiling_evidence}
+        - {path: handoffs/kernel_worklist, access: write, kind: kernel_worklist}
+
+- module: task
+  name: identify
+  description: Resolve each candidate from a device symbol to a source location and a launcher.
+  agent: runner
+  handoffs: [kernel_worklist, deploy_kit, operator_identity]
+  validators: []
+  task:
+    goal: Resolve each candidate to a source location and a launcher.
+    version: '1'
+    inputs: [kernel_worklist, deploy_kit]
+    outputs: [operator_identity]
+    permissions:
+      grants:
+        - {path: handoffs/kernel_worklist, access: read, kind: kernel_worklist}
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/operator_identity, access: write, kind: operator_identity}
+
+# OWNER m3: this one is judgement work — deciding what a workset's shapes should
+# be, and writing a correctness test that is actually decisive — so its finished
+# form is a `kind: ai` agent declared in this file, with a STEPS readme (G4.2.1)
+# that leaves the AI to sequence executable steps rather than invent a method.
+- module: task
+  name: build_workset
+  description: Build one runnable optimisation workset per candidate operator.
+  agent: runner
+  handoffs: [operator_identity, profiling_evidence, deploy_kit, operator_workset]
+  validators: []
+  task:
+    goal: Build a runnable workset per candidate operator.
+    version: '1'
+    inputs: [operator_identity, profiling_evidence, deploy_kit]
+    outputs: [operator_workset]
+    permissions:
+      grants:
+        - {path: handoffs/operator_identity, access: read, kind: operator_identity}
+        - {path: handoffs/profiling_evidence, access: read, kind: profiling_evidence}
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/operator_workset, access: write, kind: operator_workset}
+
+# --------------------------------------------------------------------------- #
+# 4. The stage.
+- module: task
+  name: m3_analysis
+  description: Stage 3 — turn the profile into a ranked candidate list and a runnable workset per operator.
+  handoffs: [profiling_evidence, deploy_kit, kernel_worklist, operator_identity, operator_workset]
+  validators: []
+  task:
+    goal: Turn the profile into ranked candidates and runnable worksets.
+    version: '1'
+    inputs: [profiling_evidence, deploy_kit]
+    outputs: [operator_workset]
+    permissions:
+      grants:
+        - {path: handoffs/profiling_evidence, access: read, kind: profiling_evidence}
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/kernel_worklist, access: write, kind: kernel_worklist}
+        - {path: handoffs/operator_identity, access: write, kind: operator_identity}
+        - {path: handoffs/operator_workset, access: write, kind: operator_workset}
+    subgraph:
+      - {closure: rank, froms: []}
+      - {closure: identify, froms: [rank]}
+      - {closure: build_workset, froms: [identify], is_end: true}

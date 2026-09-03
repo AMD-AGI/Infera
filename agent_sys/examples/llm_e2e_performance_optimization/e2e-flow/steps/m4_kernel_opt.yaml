@@ -1,0 +1,148 @@
+# Stage 4 — kernel optimisation.
+#
+# **Skeleton, frozen by the leader.** One kind, one leaf, and the smallest stage
+# in the flow — which is the mission's design, not an omission.
+#
+# Two deletions:
+#   * **`publish_workset` is gone** (M4.2). It existed to turn a hand-written
+#     workset into the shape this stage consumes; the input is now m3's
+#     `operator_workset` and there is nothing to convert at the graph level.
+#   * **the standalone `workset` kind is gone** (M4.1, M3.7) — merged into m3's.
+#     m4 declares none of its validators either (M4.4): it references the kind
+#     and inherits `check_workset_shape` and `check_workset_runs`.
+#
+# And one **reversal**, which is the most consequential single line in the
+# mission for this stage.
+
+# --------------------------------------------------------------------------- #
+# OWNER m4: the reversal, M4.3.5.
+#
+# The old package's loudest rule was *"最要命的那条：不要拿 workset 里印的数字当
+# 分母"* — do not use the number printed in the workset as your denominator,
+# measure the baseline yourself. The mission overrules it:
+#
+#   > 这一点不成立，优化任务的 ground truth 本身就应该严格的从 workset 中来，
+#   > 如果最基础的硬件、优化前提不一样，直接报错 abort。软件环境不太一样可以报
+#   > warning。
+#
+# So this validator changes from *"re-measure and disbelieve the workset"* to
+# *"prove you took the workset's own baseline, and prove the premise held"*:
+#
+#   * hardware or optimisation premise differs from the workset's → **abort**,
+#     not warn. A speedup measured against a different GPU architecture or a
+#     different shape set is not a smaller result, it is a different question.
+#   * software environment differs → **warning**, recorded in the handoff and
+#     carried forward. It is the class of difference that usually does not
+#     matter and occasionally does, and the honest treatment is to say so.
+#
+# That reversal is only safe because `check_workset_runs` (m3, `gpu_hours`) has
+# already executed the workset's own tests on this hardware. **If that validator
+# is ever weakened, this one has to go back to re-measuring.**
+- module: validator
+  name: check_speedup_substantiated
+  version: '1'
+  brief: The claimed speedup is the workset's own performance entrypoint re-run, against the workset's own baseline, under the workset's own premise
+  dimension: trustworthiness
+  strength: strong
+  inputs: [kernel_optimization]
+  args:
+    schema: kernel_optimization
+    # What must match the workset exactly before any number is believed.
+    abort_on_premise_mismatch: [gpu_arch, shapes, dtype, operator]
+    # What is reported and carried rather than fatal.
+    warn_on_mismatch: [rocm, image_id, torch, driver]
+    # Correctness is not a percentage. A kernel that is faster and wrong is not
+    # a partial success.
+    require_correctness_pass: true
+    min_shapes_measured: 3
+  tags:
+    logic_source: external_dynamic
+    cost: gpu_hours
+    domain: [llm_e2e, kernel_opt, m4]
+
+- module: validator
+  name: check_optimization_shape
+  version: '1'
+  brief: The deliverable carries the kernel, how to apply it, and the evidence, in the form m5 consumes
+  dimension: completeness
+  strength: strong
+  inputs: [kernel_optimization]
+  args:
+    schema: kernel_optimization
+    # M5.1.1: 优化成果是如何 apply 回 sglang，是应该严格遵循 3 的 handoff 的.
+    # The apply instructions are written against the workset's declared
+    # integration point, not against whatever file the optimiser happened to
+    # edit — which is what makes m5's `apply_patch` a program rather than a
+    # judgement call.
+    require_apply_mode: [overlay_files]
+    require_fields: [operator, workset_ref, apply, evidence, premise]
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [llm_e2e, kernel_opt, m4]
+
+# --------------------------------------------------------------------------- #
+- module: handoff
+  name: kernel_optimization
+  version: '1'
+  description: One optimised kernel, verified by the workset's own tools, with the instructions for putting it back into the engine.
+  content_type: code
+  scope: fixed.required
+  validators: [check_environment, check_optimization_shape, check_speedup_substantiated]
+
+# --------------------------------------------------------------------------- #
+# **One agent node**, M4.3, doing four things in order and nothing else:
+#
+#   1. run the existing conversion that turns the handoff into the format
+#      KernelForge takes,
+#   2. run KernelForge,
+#   3. take its output and run the **workset's** correctness test, then the
+#      **workset's** performance test — in that order, because a kernel that is
+#      faster and wrong should never reach a timing loop,
+#   4. write the handoff m5 consumes: a kernel strictly verified by the tools
+#      shipped in stage 4's own delivery.
+#
+# OWNER m4: `agent: runner` is the skeleton's answer. The finished form is
+# `kind: ai`, and G4.2 constrains what that means — every step above must be an
+# executable script with a stated acceptance criterion, and the readme's main
+# body is a `STEPS` section. The AI sequences and reads; it does not invent.
+- module: task
+  name: optimize_kernel
+  description: Convert the workset for KernelForge, run it, verify the result with the workset's own tests, and hand back the kernel.
+  agent: runner
+  # A closure's `handoffs` names every kind its task mentions, **inputs
+  # included** — it is what permissions are derived from, not a list of outputs.
+  handoffs: [operator_workset, deploy_kit, kernel_optimization]
+  validators: []
+  task:
+    goal: Optimise one kernel and prove it with the workset's own tests.
+    version: '1'
+    repos: [sglang]
+    inputs: [operator_workset, deploy_kit]
+    outputs: [kernel_optimization]
+    permissions:
+      grants:
+        - {path: handoffs/operator_workset, access: read, kind: operator_workset}
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/kernel_optimization, access: write, kind: kernel_optimization}
+
+# --------------------------------------------------------------------------- #
+- module: task
+  name: m4_kernel_opt
+  description: Stage 4 — optimise one kernel from the workset and hand back a verified result.
+  # A closure's `handoffs` names every kind its task mentions, **inputs
+  # included** — it is what permissions are derived from, not a list of outputs.
+  handoffs: [operator_workset, deploy_kit, kernel_optimization]
+  validators: []
+  task:
+    goal: Optimise one kernel from the workset.
+    version: '1'
+    inputs: [operator_workset, deploy_kit]
+    outputs: [kernel_optimization]
+    permissions:
+      grants:
+        - {path: handoffs/operator_workset, access: read, kind: operator_workset}
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/kernel_optimization, access: write, kind: kernel_optimization}
+    subgraph:
+      - {closure: optimize_kernel, froms: [], is_end: true}

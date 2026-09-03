@@ -1,0 +1,118 @@
+# The outermost graph of the LLM end-to-end performance-optimisation flow.
+#
+# **One package, one run, five stages.** The five stages exist separately under
+# `../{deploy,profiling,analyze,kernel-opt,integration}-demo/`, each proven on
+# the cluster on 2026-09-02. They are not a flow: **a handoff only travels
+# inside one run's graph**, so five packages are five `agent-sys run`
+# invocations and nothing chains. This file is the join the repo-root
+# `mission.md` asks for.
+#
+# `main` is a **non-leaf**: its work *is* its subgraph, and the two are mutually
+# exclusive (`closure` spec §2.6). It declares no `agent` — the schema requires
+# one of a leaf and of nothing else — and no `resources`, because only a leaf may
+# acquire.
+#
+# The frozen cross-module contract is `CONTRACT.md`. Every name below is drawn
+# from its §1 table, and a sixteenth kind is a conversation with the leader
+# rather than an edit here.
+module: task
+name: main
+description: The five-stage LLM e2e performance-optimisation flow, deploy through integration, in one graph.
+
+# **The full vocabulary, and this is the one place that has to hold it.**
+# Permissions are inherited downwards, so a kind absent here cannot be granted
+# by any descendant however loudly it declares itself. Each kind is *defined*
+# beside its producer in `steps/`; this list only references.
+#
+# Fifteen, down from twenty-six across the five demos. Every deletion is a
+# mission item and is tabulated in `CONTRACT.md` §7.
+handoffs:
+  # m1
+  - deploy_kit
+  # m2 — the two lines, then the merge. `${mode}.${result_type}` (M2.2):
+  # `profiling_mode_off` is profiler-detached with CUDA graph ON, which is the
+  # configuration whose numbers mean something; `profiling_mode_on` is
+  # profiler-attached with CUDA graph OFF, because a graph launch hides the
+  # kernels the profiler exists to see.
+  - profiling_mode_off.bench_result
+  - profiling_mode_on.bench_result
+  - profiling_mode_on.profile_result
+  - profiling_mode_on.kernel_table
+  - profiling_evidence
+  # m3
+  - kernel_worklist
+  - operator_identity
+  - operator_workset
+  # m4
+  - kernel_optimization
+  # m5
+  - patch_overlay
+  - stock.measurement
+  - patched.measurement
+  - integration_report
+  - e2e_packup
+
+# A non-leaf runs nothing, so it has nothing of its own to validate. Every
+# validator in this package hangs off a kind, in the step file that declares it.
+validators: []
+
+task:
+  goal: Deploy, profile, analyse, optimise one kernel, and prove the result end to end.
+  version: '1'
+
+  # Nothing enters from outside the package. The flow's actual input is a plain
+  # instruction and a set of `--var`s, both of which reach m1 through
+  # `shared.yaml` rather than through a handoff.
+  inputs: []
+
+  # The end entry's outputs are the sole route by which a handoff produced
+  # inside a subgraph leaves it (`task_graph` criterion 50). One artefact
+  # leaves this flow: the packup.
+  outputs: [e2e_packup]
+
+  # WRITE covers READ, so one grant per kind covers its producer and every
+  # consumer of it.
+  permissions:
+    grants:
+      - {path: handoffs/deploy_kit, access: write, kind: deploy_kit}
+      - {path: handoffs/profiling_mode_off.bench_result, access: write, kind: profiling_mode_off.bench_result}
+      - {path: handoffs/profiling_mode_on.bench_result, access: write, kind: profiling_mode_on.bench_result}
+      - {path: handoffs/profiling_mode_on.profile_result, access: write, kind: profiling_mode_on.profile_result}
+      - {path: handoffs/profiling_mode_on.kernel_table, access: write, kind: profiling_mode_on.kernel_table}
+      - {path: handoffs/profiling_evidence, access: write, kind: profiling_evidence}
+      - {path: handoffs/kernel_worklist, access: write, kind: kernel_worklist}
+      - {path: handoffs/operator_identity, access: write, kind: operator_identity}
+      - {path: handoffs/operator_workset, access: write, kind: operator_workset}
+      - {path: handoffs/kernel_optimization, access: write, kind: kernel_optimization}
+      - {path: handoffs/patch_overlay, access: write, kind: patch_overlay}
+      - {path: handoffs/stock.measurement, access: write, kind: stock.measurement}
+      - {path: handoffs/patched.measurement, access: write, kind: patched.measurement}
+      - {path: handoffs/integration_report, access: write, kind: integration_report}
+      - {path: handoffs/e2e_packup, access: write, kind: e2e_packup}
+
+  # **Five non-leaves, each unfolding its own subgraph.** Nesting is supported to
+  # any depth — `graph.py:165` walks "every closure strictly inside a subgraph,
+  # at any depth", and `graph.py:111` states that "every nesting level runs its
+  # own check", so each stage's internal wiring is checked in its own right.
+  #
+  # `froms` here is derived from the handoff wiring and checked against what is
+  # written (`_check_froms_covers_derived`). Every entry below is **exactly** the
+  # dependency it expresses — unlike `integration-demo`'s, where three edges
+  # carried an argument rather than a datum.
+  #
+  # `deploy_kit` reaches all four later stages because it carries the
+  # `environment` record (CONTRACT.md §2) and because m3 and m4 have to *run*
+  # things — a workset's correctness and performance tests, then KernelForge —
+  # in the container m1 brought up.
+  subgraph:
+    - {closure: m1_deploy, froms: []}
+    - {closure: m2_profiling, froms: [m1_deploy]}
+    - {closure: m3_analysis, froms: [m1_deploy, m2_profiling]}
+    - {closure: m4_kernel_opt, froms: [m1_deploy, m3_analysis]}
+    # M5.1: "首先强调输入是 1、2、3、4 的输出". All four, and each is a real datum:
+    # `deploy_kit` for the image and the environment, `profiling_evidence`
+    # because the stock arm must reproduce m2's bench (M5.1.3.1),
+    # `operator_workset` because how a kernel is applied back to sglang follows
+    # m3's contract (M5.1.1), and `kernel_optimization` because that is the
+    # thing under test.
+    - {closure: m5_integration, froms: [m1_deploy, m2_profiling, m3_analysis, m4_kernel_opt], is_end: true}

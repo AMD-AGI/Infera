@@ -1,0 +1,286 @@
+# Stage 2 — profiling.
+#
+# **Skeleton, frozen by the leader.** Kinds, wiring and graph shape are contract
+# (CONTRACT.md §1); bodies, agents and validator substance are m2's owner's.
+#
+# What this stage is *not*, and every absence is a mission item:
+#
+#   * **no `serve_*` task and no `deployment_*` handoff** (M2.3, M2.4, M2.5).
+#     "agent A 去把服务部署好，agent B 去使用：这是不被允许的." A task that needs a
+#     service brings it up itself, in its own STEPS, and tears it down. m1's
+#     `deploy_kit` already carries the full information on how.
+#   * **no `check_service_live`** (M2.8.1) — it graded a handoff that no longer
+#     exists.
+#   * **no `baseline` / `profiled`** (M2.2) — those named a role in one
+#     package's story. The axis is a configuration and is spelled as one.
+#
+# **Definition order is load-bearing within a file**: validators, then kinds,
+# then leaves, then the non-leaf. A name referenced before it is defined is a
+# load error naming this file and this line.
+
+# --------------------------------------------------------------------------- #
+# 1. Validators.
+#
+# OWNER m2: placeholders with the right identity. Fill from
+# `../../profiling-demo/assets/check_aiperf_report.validator/` and
+# `check_trace_coverage.validator/`, both of which already carry measured
+# thresholds and the argument behind them.
+- module: validator
+  name: check_bench_result
+  version: '1'
+  brief: The bench wrote a machine-readable report that validates against the schema and describes a load that actually ran
+  dimension: completeness
+  strength: strong
+  inputs: [profiling_mode_off.bench_result, profiling_mode_on.bench_result]
+  args:
+    # M2.2.1 — a bench result must be checkable, so it is json/jsonl with a
+    # schema in `assets/schemas/`. AIPerf writes both a CSV and a JSON export;
+    # the JSON is the record and the CSV is a rendering of it.
+    schema: bench_result
+    # **50 and not 100**, and the gap cost a run. This bar must sit below any
+    # legitimately shortened replay window, or it stops being "did anything get
+    # sent" and becomes a second, undeclared constraint on window length.
+    # Measured on this trace: 346 requests in the default 120 s window, 166 in
+    # 60 s, ~80 in 30 s — and a bar of 100 failed a perfectly working replay,
+    # invalidated both of that task's handoffs, and stopped the graph.
+    min_requests: '${min_requests:-50}'
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [llm_e2e, profiling, m2]
+
+- module: validator
+  name: check_trace_coverage
+  version: '1'
+  brief: The trace opens in the official tooling and covers real work rather than an idling scheduler loop
+  dimension: usability
+  strength: strong
+  inputs: [profiling_mode_on.profile_result]
+  args:
+    # M2.2.2 — "profile result 应至少被对应解析工具正确 load". The check is not
+    # that a file exists but that perfetto, or torch's own analysis tool, opens
+    # it and reports the expected number of slices.
+    require_loads_with: '${trace_loader:-torch}'
+    # A window opened on an idling scheduler loop is a valid trace of nothing.
+    min_kernels: '${trace_min_kernels:-200}'
+    # M2.8.2 asked this to additionally check completeness against the sglang
+    # source and the model structure. **Deferred, in `todo.md`** — the mission
+    # itself says 先不做.
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [llm_e2e, profiling, m2]
+
+- module: validator
+  name: check_profiling_evidence
+  version: '1'
+  brief: The merged evidence carries both benches, the trace and the ranking, and they describe one run of one deployment
+  dimension: completeness
+  strength: strong
+  inputs: [profiling_evidence]
+  args:
+    require_parts: [bench_profiling_mode_off, bench_profiling_mode_on, trace, kernel_table]
+    # The merge is the one place the two lines meet, so it is the one place that
+    # can notice they were not run against the same deployment.
+    require_same_environment: true
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [llm_e2e, profiling, m2]
+
+# --------------------------------------------------------------------------- #
+# 2. The kinds. `${mode}.${result_type}`, mission M2.2's own example spelling.
+#
+# Every `reproducible` kind below carries the same `items_schema`, and it is not
+# optional: `handoff/kind.py:144` rejects a `reproducible` kind whose schema
+# "permits a document carrying 'script' or 'command' with no 'env'" — an
+# executable with no declared environment is not reproducible whatever it
+# claims. Mission G5 wants the environment on every handoff anyway, so the
+# framework rule and the mission rule agree.
+#
+# `type: string` throughout, because for a file or tree item the value validated
+# is the item's **name**, not its contents (`handoff/content.py:184-197`). That
+# is also why this is not the schema layer G2 asks for; that one is
+# `assets/schemas/`, loaded by producer and validator alike.
+- module: handoff
+  name: profiling_mode_off.bench_result
+  version: '1'
+  description: Throughput and latency with the profiler detached and CUDA graph on — the numbers that mean something.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema: &repro_items
+    type: object
+    properties:
+      result: {type: string}
+      env: {type: string}
+      script: {type: string}
+      command: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+    required: [result, env]
+  validators: [check_environment, check_bench_result]
+
+- module: handoff
+  name: profiling_mode_on.bench_result
+  version: '1'
+  description: The same load with the profiler attached and CUDA graph off, so the profile can be read against a known load.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema: *repro_items
+  validators: [check_environment, check_bench_result]
+
+- module: handoff
+  name: profiling_mode_on.profile_result
+  version: '1'
+  description: The torch profiler trace for the window, loadable by the official tooling.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema: *repro_items
+  validators: [check_environment, check_trace_coverage]
+
+- module: handoff
+  name: profiling_mode_on.kernel_table
+  version: '1'
+  description: Magpie's per-kernel ranking over the captured window.
+  content_type: structured_text
+  scope: fixed.required
+  # `structured_text` declares `text.json`/`text.yaml`/`text.xml`/`schema` and
+  # nothing else, so the two items this kind adds must be declared or
+  # `check_items` refuses them: `unknown = items - known - declared`, where
+  # `declared` is exactly this schema's properties.
+  items_schema:
+    type: object
+    properties:
+      env: {type: string}
+      'table.csv': {type: string}
+  # `check_kernel_table` is defined once, in `common.yaml`, and used by m2 and
+  # m3 both — mission M3.5.
+  validators: [check_environment, check_kernel_table]
+
+# M2.9 — the unified handoff: "bench_result、profiling result、magpie
+# standardized output result，三者整合进一个大的统一 handoff". Stage 2's only
+# export; m3 and m5 consume it rather than the four pieces.
+#
+# It carries **both** benches. m5's stock arm has to reproduce m2's numbers
+# (M5.1.3.1), and the number it must reproduce is the profiler-detached one —
+# comparing a served deployment against a profiled one would be comparing two
+# different machines.
+- module: handoff
+  name: profiling_evidence
+  version: '1'
+  description: Stage 2's single export — both benches, the trace, and the kernel ranking, with one environment record.
+  content_type: reproducible
+  scope: fixed.required
+  items_schema: *repro_items
+  validators: [check_environment, check_profiling_evidence]
+
+# --------------------------------------------------------------------------- #
+# 3. The leaves. **Two lines, and M2.6 says they may run in parallel** — they
+# share no handoff, so no edge is derived between them and the scheduler is free
+# to run them together.
+#
+# A closure's `handoffs` must name every kind its task mentions, **inputs
+# included** — it is the declaration permissions are derived from, not a list of
+# what the task produces.
+#
+# OWNER m2: each line is ONE task that brings its own service up, loads it, and
+# tears it down. That is not a simplification; it is M2.5.
+- module: task
+  name: run_profiling_mode_off
+  description: Bring the service up with CUDA graph on, run the load with no profiler, tear it down.
+  agent: runner
+  handoffs: [deploy_kit, profiling_mode_off.bench_result]
+  validators: []
+  task:
+    goal: Measure the deployment with the profiler detached.
+    version: '1'
+    inputs: [deploy_kit]
+    outputs: [profiling_mode_off.bench_result]
+    permissions:
+      grants:
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/profiling_mode_off.bench_result, access: write, kind: profiling_mode_off.bench_result}
+
+- module: task
+  name: run_profiling_mode_on
+  description: Bring the service up with CUDA graph off, run the same load under the profiler, rank the kernels, tear it down.
+  agent: runner
+  handoffs:
+    - deploy_kit
+    - profiling_mode_on.bench_result
+    - profiling_mode_on.profile_result
+    - profiling_mode_on.kernel_table
+  validators: []
+  task:
+    goal: Capture a profile of the deployment under a known load.
+    version: '1'
+    inputs: [deploy_kit]
+    outputs:
+      - profiling_mode_on.bench_result
+      - profiling_mode_on.profile_result
+      - profiling_mode_on.kernel_table
+    permissions:
+      grants:
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/profiling_mode_on.bench_result, access: write, kind: profiling_mode_on.bench_result}
+        - {path: handoffs/profiling_mode_on.profile_result, access: write, kind: profiling_mode_on.profile_result}
+        - {path: handoffs/profiling_mode_on.kernel_table, access: write, kind: profiling_mode_on.kernel_table}
+
+- module: task
+  name: merge_profiling_evidence
+  description: Fold both lines into stage 2's single export.
+  agent: runner
+  handoffs:
+    - profiling_mode_off.bench_result
+    - profiling_mode_on.bench_result
+    - profiling_mode_on.profile_result
+    - profiling_mode_on.kernel_table
+    - profiling_evidence
+  validators: []
+  task:
+    goal: Merge the two lines into one evidence handoff.
+    version: '1'
+    inputs:
+      - profiling_mode_off.bench_result
+      - profiling_mode_on.bench_result
+      - profiling_mode_on.profile_result
+      - profiling_mode_on.kernel_table
+    outputs: [profiling_evidence]
+    permissions:
+      grants:
+        - {path: handoffs/profiling_mode_off.bench_result, access: read, kind: profiling_mode_off.bench_result}
+        - {path: handoffs/profiling_mode_on.bench_result, access: read, kind: profiling_mode_on.bench_result}
+        - {path: handoffs/profiling_mode_on.profile_result, access: read, kind: profiling_mode_on.profile_result}
+        - {path: handoffs/profiling_mode_on.kernel_table, access: read, kind: profiling_mode_on.kernel_table}
+        - {path: handoffs/profiling_evidence, access: write, kind: profiling_evidence}
+
+# --------------------------------------------------------------------------- #
+# 4. The stage.
+- module: task
+  name: m2_profiling
+  description: Stage 2 — measure the deployment twice, once cleanly and once under the profiler, and rank the kernels.
+  handoffs:
+    - deploy_kit
+    - profiling_mode_off.bench_result
+    - profiling_mode_on.bench_result
+    - profiling_mode_on.profile_result
+    - profiling_mode_on.kernel_table
+    - profiling_evidence
+  validators: []
+  task:
+    goal: Measure and profile the deployment, and rank its kernels.
+    version: '1'
+    inputs: [deploy_kit]
+    outputs: [profiling_evidence]
+    permissions:
+      grants:
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/profiling_mode_off.bench_result, access: write, kind: profiling_mode_off.bench_result}
+        - {path: handoffs/profiling_mode_on.bench_result, access: write, kind: profiling_mode_on.bench_result}
+        - {path: handoffs/profiling_mode_on.profile_result, access: write, kind: profiling_mode_on.profile_result}
+        - {path: handoffs/profiling_mode_on.kernel_table, access: write, kind: profiling_mode_on.kernel_table}
+        - {path: handoffs/profiling_evidence, access: write, kind: profiling_evidence}
+    subgraph:
+      - {closure: run_profiling_mode_off, froms: []}
+      - {closure: run_profiling_mode_on, froms: []}
+      - {closure: merge_profiling_evidence, froms: [run_profiling_mode_off, run_profiling_mode_on], is_end: true}

@@ -1,0 +1,130 @@
+# Stage 1 — deploy.
+#
+# **Skeleton, frozen by the leader.** The kind, its wiring and its place in the
+# graph are contract (CONTRACT.md §1) and do not move. The task body, the AI
+# agent and `check_deploy_kit`'s substance are **m1's owner's work**; every
+# `OWNER:` note below marks one.
+#
+# Definition order is load-bearing within a file: validator, kind, leaf, non-leaf.
+
+# --------------------------------------------------------------------------- #
+# OWNER m1: this validator is a placeholder with the right identity and no
+# substance yet. Mission M1.1 asks for the kit's file and directory layout to be
+# written into **its own yaml** — `assets/schemas/deploy_kit.layout.yaml` — and
+# for a **program** validator that checks against it. M1.1.1 adds: nothing that
+# can be structured goes into markdown, so `environment.md` becomes a rendering
+# of `codes/environment.yaml` and stops being the record.
+#
+# Carry across from `../deploy-demo/steps/deploy.yaml:110-175` the six checks
+# that were each a *measured* fault rather than a rule somebody liked —
+# `require_served_name_not_a_path`, `require_mode_readback`,
+# `require_completion_evidence`, `min_json_results`, `require_expected_output`,
+# `environment_facts` — and re-express the last as "validates against
+# `environment.schema.json`", which is what M1.1.1 is asking for.
+- module: validator
+  name: check_deploy_kit
+  version: '1'
+  brief: The kit matches the declared layout, its environment.yaml validates, and no identifier bound on a shared host is frozen into it
+  dimension: completeness
+  strength: strong
+  inputs: [deploy_kit]
+  args:
+    layout: deploy_kit.layout        # assets/schemas/deploy_kit.layout.yaml
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [llm_e2e, deploy, m1]
+
+# --------------------------------------------------------------------------- #
+# OWNER m1: the real-run validator mission M1.2.3 asks for — health curl, a
+# **researched** set of diagnostic curls rather than improvised ones, and a
+# 1k/1k concurrency-16 three-minute load. The aiperf idiom to reuse is
+# `../integration-demo/assets/bench/aiperf_replay.sh`; do not write a third
+# load generator.
+#
+# `cost: gpu_hours` is honest and is what puts it *after* the shape check, so a
+# malformed kit fails in seconds instead of after a bring-up.
+- module: validator
+  name: check_deploy_serves
+  version: '1'
+  brief: The kit's own scripts bring the service up, it answers the diagnostic probes, and it sustains a 1k/1k conc=16 three-minute load
+  dimension: usability
+  strength: strong
+  inputs: [deploy_kit]
+  args:
+    load_input_tokens: '${deploy_load_in:-1024}'
+    load_output_tokens: '${deploy_load_out:-1024}'
+    load_concurrency: '${deploy_load_conc:-16}'
+    load_seconds: '${deploy_load_seconds:-180}'
+    timeout_seconds: '${deploy_timeout_seconds:-5400}'
+  tags:
+    logic_source: external_dynamic
+    cost: gpu_hours
+    domain: [llm_e2e, deploy, m1]
+
+# --------------------------------------------------------------------------- #
+# The kind. **One handoff out of stage 1** (M1.2.5: 只产出一个 Handoff，应是
+# module 2、module 5 的输入) — and in this flow it reaches m3 and m4 as well,
+# because it carries the environment record and because those stages have to run
+# things in the container m1 brought up.
+#
+# `content_type: code`, and the choice was between this and `reproducible`.
+# `reproducible`'s required items are `result` and `env`, and `check_items`
+# rejects a top-level item the type never declared — so laying a packup into it
+# renames every file the layout mandates and destroys the thing
+# `check_deploy_kit` exists to check. `code` requires exactly one item, `codes`,
+# whose interior is unconstrained, so the kit survives byte for byte with its
+# own name on it and `codes/environment.yaml` is where the environment record
+# lives (CONTRACT.md §2).
+#
+# No `items_schema`: it could only restate `codes`, and a closed one would
+# additionally reject `logs` and `watchout`, which the `code` type itself lists
+# as optional.
+- module: handoff
+  name: deploy_kit
+  version: '1'
+  description: One model's proven end-to-end deployment as a runnable kit, carrying the flow's environment record.
+  content_type: code
+  scope: fixed.required
+  validators: [check_environment, check_deploy_kit, check_deploy_serves]
+
+# --------------------------------------------------------------------------- #
+# OWNER m1: `agent: runner` is the **skeleton's** answer, so that the graph
+# loads and the mock run works before any module is written. A bring-up is
+# judgement work — pick free ports on a shared host, read the repo's own
+# examples, watch a log repeat `Health check failed` for four minutes and decide
+# that is a JIT compile rather than a hang — so the finished form is a
+# `kind: ai` agent declared in this file, as `../deploy-demo/steps/deploy.yaml`
+# does it.
+- module: task
+  name: deploy_and_prove
+  description: Bring the requested model up end to end on this host and pack the deployment into a runnable kit.
+  agent: runner
+  handoffs: [deploy_kit]
+  validators: []
+  task:
+    goal: Deploy the requested model end to end and hand back a runnable kit.
+    version: '1'
+    repos: [infera, sglang]
+    inputs: []
+    outputs: [deploy_kit]
+    permissions:
+      grants:
+        - {path: handoffs/deploy_kit, access: write, kind: deploy_kit}
+
+# --------------------------------------------------------------------------- #
+- module: task
+  name: m1_deploy
+  description: Stage 1 — deploy the model and establish the runtime every later stage shares.
+  handoffs: [deploy_kit]
+  validators: []
+  task:
+    goal: Deploy the model and establish the shared runtime.
+    version: '1'
+    inputs: []
+    outputs: [deploy_kit]
+    permissions:
+      grants:
+        - {path: handoffs/deploy_kit, access: write, kind: deploy_kit}
+    subgraph:
+      - {closure: deploy_and_prove, froms: [], is_end: true}

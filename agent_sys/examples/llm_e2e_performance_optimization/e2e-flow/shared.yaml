@@ -1,0 +1,120 @@
+# The one program agent every scripted leaf in this flow runs under, and **the
+# only place this package names its own variables**.
+#
+# `agent.schema.json` makes an agent's `env` block the sole route by which a
+# package may declare variables, so every `${...}` this package takes on the
+# command line is listed here and reaches a body as an `E2E_*` environment
+# variable. Nothing here is a secret; model credentials reach an AI body from
+# the operator's own settings allow-list, by name, through
+# `env_mgr.harness.harness_env`.
+#
+# **Six carry no default, on purpose** (CONTRACT.md §6): which Slurm job, which
+# node, that node's IP, what the model is called, where its weights are, and
+# what the serving image is. Those are facts about one allocation on one
+# cluster. A default here would be one machine's answer shipped as everyone's
+# and would go stale the hour the job ends. `${NAME}` with no `:-` is a
+# load-time fault naming the file, the line and the variable
+# (`spec_loader/variables.py`), so the package says what it needs rather than
+# failing later as something else.
+#
+#     agent-sys run --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
+#       --var jobid=106250 --var node=crsuse2-m2m-061 --var node_ip=10.245.159.129 \
+#       --var model_name=Qwen/Qwen3.6-27B \
+#       --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
+#       --var image=infera/engine-sglang:gfx950-local
+#
+# `kind: program`, because a scripted leaf here brings a container up, waits on
+# a health endpoint, sends a load, cuts a profiler window, runs an analyser.
+# None of that is a judgement call and all of it has to be byte-identical
+# between runs for the numbers to mean anything. The leaves that *are* judgement
+# work — bring-up, workset construction, optimisation, integration — name their
+# own `kind: ai` agent in their own step file, beside the task that runs it.
+module: agent
+name: runner
+kind: program
+version: '1'
+description: Runs a task's entry.sh. No model call.
+env:
+  # --- the allocation ---------------------------------------------------------
+  E2E_JOBID: '${jobid}'
+  E2E_NODE: '${node}'
+  E2E_NODE_IP: '${node_ip}'
+  # How a body reaches that node. `auto` probes: `spur` wherever the binary
+  # exists, otherwise `srun --overlap`. A variable because it is a fact about
+  # the cluster rather than about this package — on the AMD crsuse2-m2m (spur)
+  # cluster `srun` exists but is **not** Slurm's, so probing for the srun binary
+  # picks the wrong one. `assets/lib/remote.sh` dispatches on it, and **no task
+  # readme in this package spells either transport** (M2.1).
+  E2E_TRANSPORT: '${transport:-auto}'
+
+  # --- what to serve ----------------------------------------------------------
+  # `model_name` and `model_path` are separate because conflating them is a
+  # measured fault: left unset, the engine registers the model under the
+  # filesystem path it loaded from, and every caller's `"model"` field then
+  # carries one machine's directory layout.
+  E2E_MODEL_NAME: '${model_name}'
+  E2E_MODEL_PATH: '${model_path}'
+  # Empty by default, and a body resolves it with `: "${E2E_SERVED_NAME:=$E2E_MODEL_NAME}"`.
+  # **Not `${served_name:-${model_name}}`** — a default may contain no `}`, so a
+  # nested reference is not a thing this syntax has (`spec_loader/variables.py:79`:
+  # *"a nested reference would make this a grammar"*). Written wrong it does not
+  # error; it substitutes a literal `${model_name` and leaves a stray brace.
+  E2E_SERVED_NAME: '${served_name:-}'
+  E2E_IMAGE: '${image}'
+  E2E_ETCD_IMAGE: '${etcd_image:-quay.io/coreos/etcd:v3.5.14}'
+  # `mix` is this repository's own word for one worker doing both phases on a
+  # single node with no RDMA. It is not mixed precision.
+  E2E_DEPLOY_MODE: '${deploy_mode:-mix}'
+  E2E_TP: '${tp:-8}'
+  # The engine's context window. The one flag a model substitution cannot
+  # survive by luck: the round that proved Qwen3.6-27B works here worked because
+  # its `max_position_embeddings` is *exactly* the value that used to be
+  # hard-coded.
+  E2E_CTX: '${context_length:-262144}'
+  # The two model-specific engine flag groups. A model with no DSA attention
+  # path does not take `--dsa-*-backend`, and the wrong `--reasoning-parser`
+  # does not error — it yields an empty `content` for every request while the
+  # request still succeeds. **Pass the literal `none` for a model that wants
+  # neither.** The sentinel is not because an empty default is unspellable — it
+  # is (`${NAME:-}`) — but because on the *command line* `--var dsa_args=` is
+  # indistinguishable from not passing it, so a body cannot tell "the operator
+  # said none" from "the operator said nothing".
+  E2E_DSA_ARGS: '${dsa_args:-none}'
+  E2E_PARSER_ARGS: '${parser_args:-none}'
+
+  # --- identifiers bound on a shared host (CONTRACT.md §5.2) ------------------
+  # Every one of these is a parameter because `docker ps` on these nodes shows
+  # every tenant's containers and both held nodes are carrying other people's
+  # work right now. A body writes `: "${VAR:=…}"`, never `export VAR=`, and
+  # **never `docker rm -f` a name it did not create**.
+  E2E_CONTAINER: '${container:-yihou_e2e_flow}'
+  E2E_PORT_ROUTER: '${port_router:-8101}'
+  E2E_PORT_WORKER: '${port_worker:-8102}'
+  E2E_PORT_ETCD: '${port_etcd:-8103}'
+  # A container workdir goes on **local** disk. A network home with root_squash
+  # maps a container's root to nobody and the engine then fails to write its
+  # logs *silently* — no error, no log.
+  E2E_WORK_ROOT: '${work_root:-/mnt/m2m_nobackup/yihou/e2e_flow}'
+
+  # --- the flow's own input ---------------------------------------------------
+  # The plain user instruction m1 acts on. Overridable so the same closure can be
+  # pointed at PD or at a different verification bar without editing a prompt.
+  E2E_INSTRUCTION: '${instruction:-Bring this model up in the requested mode on this host, prove it answers through the router, and hand back a kit somebody else can run.}'
+
+  # --- mock mode (mission Brief item 2) ---------------------------------------
+  # Where the 25 real sealed handoffs live. A leaf running in mock mode copies
+  # `$E2E_MOCK_ROOT/<stage>/<kind>/content/` into its `$AGENT_SYS_OUTPUT_<KIND>`
+  # and does nothing else; the validators downstream are unchanged and are the
+  # point of the exercise.
+  #
+  # **Read `$E2E_MOCK_ROOT/README.md` before trusting anything in it.** Three
+  # traps are documented there: the two `kernel_table`s are different artefacts
+  # (one real 124-kernel table, one 34-row synthetic seed), the
+  # `integration_report` carries a *refused* verdict and will correctly stop the
+  # graph, and every digest in the tree was invalidated by a past
+  # `chmod -R 777`.
+  E2E_MOCK_ROOT: '${mock_root:-/shared_nfs/yihou/agent_sys/cheat_for_mock}'
+  # Which stages are mocked, comma-separated: `all`, `none`, or e.g. `m3,m4,m5`.
+  # Phase 3 walks this from `all` to `none` one stage at a time, so that a
+  # failure is attributable to the stage that was just promoted.
+  E2E_MOCK_STAGES: '${mock_stages:-all}'

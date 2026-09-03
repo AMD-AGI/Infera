@@ -1,0 +1,388 @@
+# Stage 5 — integration, and the flow's one export.
+#
+# **Skeleton, frozen by the leader.** Kinds, wiring and graph shape are contract;
+# bodies and validator substance are m5's owner's.
+#
+# The biggest structural change in the whole refine is here. `integration-demo`
+# had eight leaves; this stage has three, because M5.2 says bring-up and use may
+# not be split across agents and therefore
+#
+#     serve_stock → measure_stock → serve_patched → measure_patched → compare
+#
+# is **one task**. `seed_patch` is gone too (M5.1): its input is now m4's real
+# `kernel_optimization` rather than a mock.
+#
+# What that costs, and it is worth naming: `integration-demo`'s three
+# argument-carrying edges — the ones that expressed "the stock arm has already
+# been measured, so it is safe to tear it down" — are no longer edges. They are
+# now *steps in one readme*, which is a weaker guarantee than a graph edge and a
+# stronger one than nothing. **M5's owner writes that ordering into the STEPS
+# section and `check_measurement_order` checks it happened** (below).
+
+# --------------------------------------------------------------------------- #
+# OWNER m5: M5.1.2 — "所以看起来 seed_patch、apply_patch 都需要改一下". `apply_patch`
+# stops being fed a hand-written patch manifest and starts reading m4's
+# `kernel_optimization`, whose `apply` block was written against **the workset's
+# declared integration point** (M5.1.1). That is what lets this stay a program.
+#
+# `require_difference: true` is the cheapest decisive check in the package and it
+# stays: a patch that applies cleanly and changes nothing produces two
+# byte-identical arms, and then every check downstream passes for the wrong
+# reason — the flow compares the stock deployment against itself and reports
+# "no regression".
+- module: validator
+  name: check_overlay_applies
+  version: '1'
+  brief: Every file in the overlay lands on a real path inside the image, compiles, and differs from what it replaces
+  dimension: completeness
+  strength: strong
+  inputs: [patch_overlay]
+  args:
+    compile_python: true
+    require_difference: true
+    # A patch naming a host path has confused the machine it was cut on with the
+    # image it is to be applied to — an error that otherwise survives all the way
+    # to a deployment silently running stock code.
+    container_roots_from: container_roots.yaml
+  tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, integration, m5]}
+
+# --------------------------------------------------------------------------- #
+# **The most important validator in this package**, and the only one whose
+# dimension is `trustworthiness` on a deployment.
+#
+# It exists to catch one failure: the patch was mounted and never executed. That
+# produces two arms with identical numbers and a comparison that cheerfully
+# reports no regression — **a change that was never tested gets a green light,
+# and nothing else in the graph can see it.**
+#
+# `__file__` proves nothing. A bind mount does not change the path inside the
+# container, so the module's `__file__` reads identically on both arms.
+# **Measured, not assumed.** What proves it is re-hashing the file *inside the
+# running container* against the overlay's `sha256_patched`, plus `docker
+# inspect` showing the mount, plus the declared runtime markers — one at import,
+# one at first call.
+- module: validator
+  name: check_patch_live
+  version: '1'
+  brief: The patched arm was actually running the patched bytes, proven inside the container rather than from the launch command
+  dimension: trustworthiness
+  strength: strong
+  inputs: [patched.measurement]
+  args:
+    require_container_hashes: true
+    require_docker_mounts: true
+    # Optional in the contract, so an optimisation that declares no marker still
+    # gets the static proof — and this validator **says so in its findings**
+    # rather than pretending it got more.
+    require_runtime_marker: false
+  tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, integration, m5]}
+
+# --------------------------------------------------------------------------- #
+# OWNER m5: the ordering guarantee that used to be a graph edge.
+- module: validator
+  name: check_measurement_order
+  version: '1'
+  brief: Both arms ran the same measurements in the same order, and the patched arm started only after the stock arm finished
+  dimension: trustworthiness
+  strength: strong
+  inputs: [stock.measurement, patched.measurement]
+  args:
+    # Timestamped into `env/steps.json` by the body. "Round 1 is cold against
+    # this trace" is only true if the same thing happened before it on both
+    # arms, so a disagreement here invalidates every comparison downstream.
+    require_same_step_order: true
+    require_arms_disjoint_in_time: true
+    expected_steps: [smoke, needle, probe, lm_eval, replay]
+  tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, integration, m5]}
+
+- module: validator
+  name: check_acceptance
+  version: '1'
+  brief: The correctness measurements ran and are readable — a score, a long-context result, and the frozen smoke checks
+  dimension: completeness
+  strength: strong
+  inputs: [stock.measurement, patched.measurement]
+  args:
+    # M5.4: 那些端到端正确性验证的 case 和代码，都必须提前固化在 define 里，同时
+    # 还要临时 ai 生成几个。免得作弊。
+    # The frozen set lives in `assets/accept/` and is part of the package. The
+    # ad-hoc set is generated per run and its prompts are recorded in the
+    # handoff, so a later reader can see what was asked as well as what came
+    # back.
+    require_frozen_checks: [arithmetic, long_generation, workers, engine_log]
+    min_adhoc_cases: '${adhoc_cases:-3}'
+    min_scored_per_eval: 20
+    needle_min_token_ratio: 0.95
+    # **1 and not 3.** Nine measurements on this deployment produced no
+    # configuration that retrieved every depth twice: the result is non-monotone
+    # in prompt length, moves with the needle's wording, and raising the
+    # generation budget from 256 to 2048 turned two passing depths into failures
+    # because the model reasoned past the answer. Requiring three would require
+    # something nothing has reliably done; requiring one still separates a
+    # working long-context path from a stack that dropped every prefill block
+    # but the last, which is the failure this test was added for.
+    needle_min_depths_retrieved: 1
+  tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, integration, m5]}
+
+- module: validator
+  name: check_bench_report
+  version: '1'
+  brief: Each arm's replay actually sent traffic and wrote a machine-readable report
+  dimension: completeness
+  strength: strong
+  inputs: [stock.measurement, patched.measurement]
+  args:
+    schema: bench_result
+    min_requests: '${min_requests:-50}'
+  tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, integration, m5]}
+
+# --------------------------------------------------------------------------- #
+# **This validator does not read the report's `verdict` field.** It recomputes
+# every comparison from the raw numbers the report carries, and fails when its
+# answer and the report's disagree — even when its own answer is "accept".
+# A disagreement means one of the two is wrong and neither can be trusted until
+# that is settled. `compare` is a program in this package; a bug in it would
+# otherwise produce a report that passes its own check.
+- module: validator
+  name: check_no_regression
+  version: '1'
+  brief: Recomputed from the raw numbers, the patched arm regressed on nothing, and the report says the same
+  dimension: trustworthiness
+  strength: strong
+  inputs: [integration_report]
+  args:
+    schema: integration_report
+    require_verdict_agreement: true
+    # **Keep these.** They were measured to be right: within one arm, under a
+    # steady node, the round-to-round spread is ~2%, so a 10% latency bar is
+    # well chosen. A previous round widened them to 35%/30% in response to a
+    # *cross-instance* artefact — two arms measured under different node load —
+    # and that was the wrong response. The missing control is a comparability
+    # gate at bring-up, not a looser bar. Recorded in `todo.md`.
+    max_throughput_regression: 0.05
+    max_ttft_regression: 0.10
+    # M5.1.3.1 — the stock arm must reproduce m2's `profiling_mode_off` bench.
+    # If it does not, the two stages measured different machines and the whole
+    # chain's arithmetic is void.
+    require_stock_reproduces_m2: true
+    stock_vs_m2_tolerance: '${stock_vs_m2_tolerance:-0.10}'
+    # M5.1.3.2 — reconcile m4's single-kernel speedup against the end-to-end
+    # change via the kernel's share of the profile. **Warning, not a blocker**,
+    # exactly as the mission asks: 作为 report/warning 报告，不作为 blocker.
+    # The one hard floor is that the patched arm must not be *slower* than stock.
+    reconcile_with_kernel_speedup: warn
+  tags: {logic_source: external_dynamic, cost: seconds, domain: [llm_e2e, integration, m5]}
+
+- module: validator
+  name: check_packup_shape
+  version: '1'
+  brief: The flow's export is a packup somebody who was not here can follow, with results from every stage
+  dimension: usability
+  strength: strong
+  inputs: [e2e_packup]
+  args:
+    min_content_lines: {README.md: 20, REPRODUCE.md: 15, environment.md: 12, notes.md: 8}
+    min_command_lines: 8
+    require_dirs: [results, logs, scripts]
+    min_result_files: 4
+  tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, integration, m5]}
+
+# --------------------------------------------------------------------------- #
+# The kinds. Six evidence kinds in `integration-demo` become two here, one per
+# arm, because one task now produces them and `${mode}.${result_type}` is the
+# naming rule (CONTRACT.md §1.1). Each carries its arm's deployment evidence,
+# its correctness results and its replay rounds.
+- module: handoff
+  name: patch_overlay
+  version: '1'
+  description: The per-file bind-mount plan that puts m4's kernel in front of the engine, with each file's before and after hash.
+  content_type: reproducible
+  scope: fixed.required
+  # `handoff/kind.py:144` rejects a `reproducible` kind whose `items_schema`
+  # permits 'script' or 'command' with no 'env'. Mission G5 wants the
+  # environment on every handoff anyway, so the two rules agree.
+  items_schema:
+    type: object
+    properties:
+      result: {type: string}
+      env: {type: string}
+      script: {type: string}
+      command: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+    required: [result, env]
+  validators: [check_environment, check_overlay_applies]
+
+- module: handoff
+  name: stock.measurement
+  version: '1'
+  description: The unpatched arm — its deployment, its correctness results, its replay rounds.
+  content_type: reproducible
+  scope: fixed.required
+  # `handoff/kind.py:144` rejects a `reproducible` kind whose `items_schema`
+  # permits 'script' or 'command' with no 'env'. Mission G5 wants the
+  # environment on every handoff anyway, so the two rules agree.
+  items_schema:
+    type: object
+    properties:
+      result: {type: string}
+      env: {type: string}
+      script: {type: string}
+      command: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+    required: [result, env]
+  validators: [check_environment, check_acceptance, check_bench_report, check_measurement_order]
+
+- module: handoff
+  name: patched.measurement
+  version: '1'
+  description: The patched arm — the same measurements, plus the proof the patch was live.
+  content_type: reproducible
+  scope: fixed.required
+  # `handoff/kind.py:144` rejects a `reproducible` kind whose `items_schema`
+  # permits 'script' or 'command' with no 'env'. Mission G5 wants the
+  # environment on every handoff anyway, so the two rules agree.
+  items_schema:
+    type: object
+    properties:
+      result: {type: string}
+      env: {type: string}
+      script: {type: string}
+      command: {type: string}
+      logs: {type: string}
+      watchout: {type: string}
+    required: [result, env]
+  validators: [check_environment, check_acceptance, check_bench_report, check_patch_live]
+
+- module: handoff
+  name: integration_report
+  version: '1'
+  description: The two arms side by side, and the argument for accepting or refusing the change.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    properties:
+      env: {type: string}
+      # The machine-readable form and the human-readable form are one content,
+      # so they are one handoff. `check_items` allows a top-level item the
+      # content type never declared as long as the kind names it here.
+      'report.md': {type: string}
+  validators: [check_environment, check_no_regression]
+
+- module: handoff
+  name: e2e_packup
+  version: '1'
+  description: The whole flow as one reproduction kit — every stage's results, scripts and logs.
+  content_type: code
+  scope: fixed.required
+  validators: [check_environment, check_packup_shape]
+
+# --------------------------------------------------------------------------- #
+# The three leaves.
+- module: task
+  name: apply_patch
+  description: Turn m4's optimised kernel into a per-file overlay plan and prove every file lands.
+  agent: runner
+  handoffs: [kernel_optimization, operator_workset, deploy_kit, patch_overlay]
+  validators: []
+  task:
+    goal: Build and check the overlay that puts the optimised kernel in front of the engine.
+    version: '1'
+    inputs: [kernel_optimization, operator_workset, deploy_kit]
+    outputs: [patch_overlay]
+    permissions:
+      grants:
+        - {path: handoffs/kernel_optimization, access: read, kind: kernel_optimization}
+        - {path: handoffs/operator_workset, access: read, kind: operator_workset}
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/patch_overlay, access: write, kind: patch_overlay}
+
+# M5.2 — one task. It brings up the stock arm, measures it, tears it down, brings
+# up the patched arm, measures it identically, tears it down, and compares. Three
+# handoffs, because the three are graded on different lines and merging them
+# would force `check_acceptance` to also understand AIPerf's CSV.
+#
+# OWNER m5: `agent: runner` is the skeleton's answer; the finished form is
+# `kind: ai` with a STEPS readme. The ordering that used to be graph edges is
+# now that readme's numbered list, and `check_measurement_order` is what makes
+# the difference visible if it is not followed.
+- module: task
+  name: integrate_and_verify
+  description: Measure both arms on one node in one session, then compare them.
+  agent: runner
+  handoffs: [patch_overlay, profiling_evidence, kernel_optimization, deploy_kit, stock.measurement, patched.measurement, integration_report]
+  validators: []
+  task:
+    goal: Measure the stock and patched arms and decide whether the change is acceptable.
+    version: '1'
+    inputs: [patch_overlay, profiling_evidence, kernel_optimization, deploy_kit]
+    outputs: [stock.measurement, patched.measurement, integration_report]
+    permissions:
+      grants:
+        - {path: handoffs/patch_overlay, access: read, kind: patch_overlay}
+        - {path: handoffs/profiling_evidence, access: read, kind: profiling_evidence}
+        - {path: handoffs/kernel_optimization, access: read, kind: kernel_optimization}
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/stock.measurement, access: write, kind: stock.measurement}
+        - {path: handoffs/patched.measurement, access: write, kind: patched.measurement}
+        - {path: handoffs/integration_report, access: write, kind: integration_report}
+
+- module: task
+  name: packup
+  description: Assemble the whole flow into one reproduction kit.
+  agent: runner
+  handoffs: [deploy_kit, profiling_evidence, operator_workset, kernel_optimization, patch_overlay, stock.measurement, patched.measurement, integration_report, e2e_packup]
+  validators: []
+  task:
+    goal: Assemble the flow's reproduction kit.
+    version: '1'
+    inputs:
+      - deploy_kit
+      - profiling_evidence
+      - operator_workset
+      - kernel_optimization
+      - patch_overlay
+      - stock.measurement
+      - patched.measurement
+      - integration_report
+    outputs: [e2e_packup]
+    permissions:
+      grants:
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/profiling_evidence, access: read, kind: profiling_evidence}
+        - {path: handoffs/operator_workset, access: read, kind: operator_workset}
+        - {path: handoffs/kernel_optimization, access: read, kind: kernel_optimization}
+        - {path: handoffs/patch_overlay, access: read, kind: patch_overlay}
+        - {path: handoffs/stock.measurement, access: read, kind: stock.measurement}
+        - {path: handoffs/patched.measurement, access: read, kind: patched.measurement}
+        - {path: handoffs/integration_report, access: read, kind: integration_report}
+        - {path: handoffs/e2e_packup, access: write, kind: e2e_packup}
+
+# --------------------------------------------------------------------------- #
+- module: task
+  name: m5_integration
+  description: Stage 5 — put the optimised kernel in front of the real service and decide whether it broke or slowed anything.
+  handoffs: [kernel_optimization, operator_workset, profiling_evidence, deploy_kit, patch_overlay, stock.measurement, patched.measurement, integration_report, e2e_packup]
+  validators: []
+  task:
+    goal: Decide whether the optimisation is safe to keep, and pack the flow up.
+    version: '1'
+    inputs: [kernel_optimization, operator_workset, profiling_evidence, deploy_kit]
+    outputs: [e2e_packup]
+    permissions:
+      grants:
+        - {path: handoffs/kernel_optimization, access: read, kind: kernel_optimization}
+        - {path: handoffs/operator_workset, access: read, kind: operator_workset}
+        - {path: handoffs/profiling_evidence, access: read, kind: profiling_evidence}
+        - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
+        - {path: handoffs/patch_overlay, access: write, kind: patch_overlay}
+        - {path: handoffs/stock.measurement, access: write, kind: stock.measurement}
+        - {path: handoffs/patched.measurement, access: write, kind: patched.measurement}
+        - {path: handoffs/integration_report, access: write, kind: integration_report}
+        - {path: handoffs/e2e_packup, access: write, kind: e2e_packup}
+    subgraph:
+      - {closure: apply_patch, froms: []}
+      - {closure: integrate_and_verify, froms: [apply_patch]}
+      - {closure: packup, froms: [apply_patch, integrate_and_verify], is_end: true}
