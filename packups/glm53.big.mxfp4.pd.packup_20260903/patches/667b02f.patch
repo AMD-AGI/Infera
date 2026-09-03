@@ -1,0 +1,159 @@
+From 667b02ff6d84c767c63bffafeee42ec5a564be62 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 2 Sep 2026 13:06:55 +0000
+Subject: [PATCH] examples(1p1d): MC_DISABLE_HIP_TRANSPORT is a dead name;
+ forward MC_DISABLE_HIP
+
+leg.sh has set MC_DISABLE_HIP_TRANSPORT=1 and unset
+MC_ENABLE_HIP_TRANSPORT since it was written. Neither name exists in the
+shipped mooncake build, so neither line has ever had an effect -- in the
+two-node shape or the single-node one.
+
+Exact-match against mooncake/engine.cpython-310-x86_64-linux-gnu.so in
+infera/engine-sglang:v0518-glm53:
+
+  MC_DISABLE_HIP             1     <- the real knob
+  MC_DISABLE_HIP_TRANSPORT   0
+  MC_ENABLE_HIP_TRANSPORT    0
+  MC_USE_HIP_IPC             1     <- a second gate, uninvestigated
+  MC_FORCE_TCP               1
+
+The behavioural evidence came first and is the stronger half. A
+single-node pair launched with MC_DISABLE_HIP_TRANSPORT=1 -- confirmed
+present in /proc/<pid>/environ for both engine processes -- still logged
+"HIP transport installed for intra-node GPU P2P" 4 times per leg, with
+zero install failures, exactly as the run with it set to 0. The strings
+table only names the reason.
+
+Consequences, including for a claim made earlier in this branch:
+
+- The single-node shape was NEVER at risk of silently falling back to
+  loopback RDMA through that knob. Any statement that "as shipped, KV
+  would have moved over loopback RDMA" is WRONG and is retracted here.
+  hip installs regardless.
+- Making MC_DISABLE_HIP_TRANSPORT overridable (earlier on this branch)
+  is therefore NOT a fix. It makes a dead knob configurable and changes
+  nothing. It is kept only so it reads as the pair to the live name.
+- INFERRED: whoever wrote the original hardcode probably intended to
+  disable hip and used a name that does not exist. That would explain
+  why no reason for the line could be established -- there was no effect
+  to reason about. It also retires the apparent conflict with
+  preflight_rdma.sh, which recommends the same dead name.
+
+The fix is to forward the name that works. MC_DISABLE_HIP is passed
+through COMMON_ENV in up.sh and into the leg's docker exec env in
+leg.sh, both with ${VAR:+...} so an unset variable injects nothing and
+the two-node path is byte-identical. cluster.singlenode.sh exports it
+unset by default -- hip on is what that shape wants.
+
+Verified by running the real engine/up.sh with SSH_CMD=echo, no node:
+MC_DISABLE_HIP=1 appears exactly twice (once per leg); unset, it appears
+zero times on both the single-node and two-node wrappers. All four
+scripts pass bash -n.
+
+Practical rule, recorded in both files: a hip-on/hip-off A/B MUST use
+MC_DISABLE_HIP and MUST confirm the discriminator flipped -- "HIP
+transport installed for intra-node GPU P2P" going from 4 per leg to 0 --
+before benchmarking. With the dead name it produces a guaranteed-zero
+differential that reads as a null result rather than a broken
+experiment. That is the same shape as the base_gpu_id check retired in
+635fc51: a control that returns the same value in both states.
+
+Signed-off-by: yihou <yihou@amd.com>
+---
+ examples/sglang_1p1d_glm5.2/engine/leg.sh     | 30 +++++++++++++++----
+ examples/sglang_1p1d_glm5.2/engine/up.sh      |  3 +-
+ .../sglang_1p1d_glm5.3/cluster.singlenode.sh  | 13 ++++++++
+ 3 files changed, 39 insertions(+), 7 deletions(-)
+
+diff --git a/examples/sglang_1p1d_glm5.2/engine/leg.sh b/examples/sglang_1p1d_glm5.2/engine/leg.sh
+index 1fad567..6dfe23c 100755
+--- a/examples/sglang_1p1d_glm5.2/engine/leg.sh
++++ b/examples/sglang_1p1d_glm5.2/engine/leg.sh
+@@ -57,14 +57,31 @@ CHUNK="${CHUNK:-65536}"
+ # pool, or a 5-20x slower TCP fallback. See cluster/README.md section 3.
+ export MOONCAKE_DISABLE_HIP_DMABUF="${MOONCAKE_DISABLE_HIP_DMABUF:-1}"
+ export MC_GID_INDEX="${MC_GID_INDEX:?MC_GID_INDEX is required — read it off the preflight report}"
+-# Default 1 (hip transport off) -- unchanged, and deliberately so: the reason it
+-# was disabled here is NOT known, so the two-node path must not move. It is now
+-# overridable because the SINGLE-NODE shape needs it ON: with hip absent, KV
+-# between two legs on one host takes loopback RDMA silently, at 5-20x the cost
+-# of the XGMI path the pinned mooncake commit was added for. Only
+-# sglang_1p1d_glm5.3/cluster.singlenode.sh sets it to 0.
++# MC_DISABLE_HIP_TRANSPORT AND MC_ENABLE_HIP_TRANSPORT ARE DEAD NAMES. The
++# shipped mooncake build does not contain either string:
++#   exact matches in mooncake/engine.cpython-310-x86_64-linux-gnu.so
++#     MC_DISABLE_HIP             1     <- the real knob
++#     MC_DISABLE_HIP_TRANSPORT   0
++#     MC_ENABLE_HIP_TRANSPORT    0
++#     MC_USE_HIP_IPC             1     <- a second gate, uninvestigated
++# Measured, not inferred: a leg launched with MC_DISABLE_HIP_TRANSPORT=1 present
++# in /proc/<pid>/environ still logged "HIP transport installed for intra-node GPU
++# P2P" 4x per leg. So these two lines have never had an effect, in either the
++# two-node or the single-node shape.
++#
++# Kept, made overridable, and NOT called a fix: it changes nothing either way,
++# and it is here only so the pair reads together with the live knob below.
++# INFERRED: whoever wrote the original hardcode probably meant to disable hip and
++# used a name that does not exist -- which would explain why no reason for the
++# line could be established. There was no effect to reason about.
+ export MC_DISABLE_HIP_TRANSPORT="${MC_DISABLE_HIP_TRANSPORT:-1}"
+ unset MC_ENABLE_HIP_TRANSPORT
++# The one that works. Forwarded only when set, so unset == today's behaviour and
++# the two-node path does not move. Set it to 1 to actually disable the hip
++# transport -- which is the only way to run a meaningful hip-on/hip-off A/B.
++# Verify it took: "HIP transport installed for intra-node GPU P2P" must go from
++# 4 per leg to 0. If it stays at 4, the gate is elsewhere (MC_USE_HIP_IPC?) --
++# stop rather than hunting for a third name.
+ # MC_MS_FILTERS pins mooncake to named device(s). Required in the dma-buf mode so a non-ODP
+ # rail is never picked (it would pin and double the KV pool); harmless to leave unset when a
+ # peer-mem module is loaded and every rail can carry KV.
+@@ -164,6 +181,7 @@ docker exec -d "$CTR" env \
+   HIP_VISIBLE_DEVICES="$GPUS" \
+   MOONCAKE_DISABLE_HIP_DMABUF="$MOONCAKE_DISABLE_HIP_DMABUF" \
+   MC_GID_INDEX="$MC_GID_INDEX" MC_DISABLE_HIP_TRANSPORT="$MC_DISABLE_HIP_TRANSPORT" \
++  ${MC_DISABLE_HIP:+MC_DISABLE_HIP="$MC_DISABLE_HIP"} \
+   ${MC_MS_FILTERS:+MC_MS_FILTERS="$MC_MS_FILTERS"} \
+   ${MC_MS_FILTERS:+MC_MS_AUTO_DISC="${MC_MS_AUTO_DISC:-0}"} \
+   ${RDMAV_FORK_SAFE:+RDMAV_FORK_SAFE="$RDMAV_FORK_SAFE"} \
+diff --git a/examples/sglang_1p1d_glm5.2/engine/up.sh b/examples/sglang_1p1d_glm5.2/engine/up.sh
+index 546fb70..d1338e5 100755
+--- a/examples/sglang_1p1d_glm5.2/engine/up.sh
++++ b/examples/sglang_1p1d_glm5.2/engine/up.sh
+@@ -36,7 +36,8 @@ ${RDMAV_FORK_SAFE:+RDMAV_FORK_SAFE=$RDMAV_FORK_SAFE} \
+ ${HOST_RDMA_LIB:+HOST_RDMA_LIB=$HOST_RDMA_LIB} \
+ ${ENTRYPOINT_KEEP:+ENTRYPOINT_KEEP=$ENTRYPOINT_KEEP} \
+ ${GMU_PREFILL:+GMU_PREFILL=$GMU_PREFILL} ${GMU_DECODE:+GMU_DECODE=$GMU_DECODE} \
+-${EXTRA_ENGINE_ARGS:+EXTRA_ENGINE_ARGS=\"$EXTRA_ENGINE_ARGS\"}"
++${EXTRA_ENGINE_ARGS:+EXTRA_ENGINE_ARGS=\"$EXTRA_ENGINE_ARGS\"} \
++${MC_DISABLE_HIP:+MC_DISABLE_HIP=$MC_DISABLE_HIP}"
+ 
+ log "=== 1/4 containers ==="
+ for h in "$PREFILL_NODE" "$DECODE_NODE"; do
+diff --git a/examples/sglang_1p1d_glm5.3/cluster.singlenode.sh b/examples/sglang_1p1d_glm5.3/cluster.singlenode.sh
+index b5f6163..5d611d8 100755
+--- a/examples/sglang_1p1d_glm5.3/cluster.singlenode.sh
++++ b/examples/sglang_1p1d_glm5.3/cluster.singlenode.sh
+@@ -102,6 +102,19 @@ export RDMAV_FORK_SAFE="${RDMAV_FORK_SAFE:-1}"
+ # is no log line for a TCP fallback, and a same-host hip transfer never touches
+ # a GID.
+ export MC_DISABLE_HIP_TRANSPORT="${MC_DISABLE_HIP_TRANSPORT:-0}"
++# ...except that name is DEAD. Measured: the shipped mooncake contains
++# MC_DISABLE_HIP (1 exact match) and does NOT contain MC_DISABLE_HIP_TRANSPORT
++# or MC_ENABLE_HIP_TRANSPORT (0 each); a leg launched with
++# MC_DISABLE_HIP_TRANSPORT=1 in /proc/<pid>/environ still installed hip 4x.
++# So hip is ON here whatever the line above says, and the line above is kept
++# only because it reads as the pair to this one.
++#
++# MC_DISABLE_HIP is the live knob and is left UNSET on purpose: hip on is what
++# this shape wants. Set MC_DISABLE_HIP=1 for a hip-off A/B, and confirm the
++# discriminator actually flipped (4 -> 0 "HIP transport installed" lines per
++# leg) BEFORE benchmarking -- otherwise the arm measures nothing and a
++# guaranteed-zero differential reads as a null result.
++export MC_DISABLE_HIP="${MC_DISABLE_HIP:-}"
+ 
+ # ---------------------------------------------------------------------------
+ # 4. Shape
+-- 
+2.34.1
+

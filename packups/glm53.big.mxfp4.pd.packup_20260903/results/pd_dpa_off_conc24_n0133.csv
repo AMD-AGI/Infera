@@ -1,0 +1,2 @@
+arm,isl,osl,conc,completed,req_s,out_tok_s,total_tok_s,ttft_p50_ms,ttft_p99_ms,tpot_mean_ms,e2e_p50_ms
+p50,7400,320,24,240,1.73,554.10,13367.68,6584.37,21231.92,21.24,13348.34

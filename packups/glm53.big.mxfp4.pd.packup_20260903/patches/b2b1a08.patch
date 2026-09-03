@@ -1,0 +1,84 @@
+From b2b1a08a6077a6573ff97446c8eb0e33f8174bbf Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 2 Sep 2026 12:18:08 +0000
+Subject: [PATCH] examples(1p1d): note 3 did not cover the startup-profiling
+ OOM form
+
+Note 3 taught two failure directions for --mem-fraction-static, both
+under load: prefill activation OOM at low token usage means lower it,
+decode retract at high token usage means raise it. The single-node
+bring-up hit a third form that neither covers, and in which the engine's
+own suggested fix is a trap.
+
+A leg aborts during startup profiling, weights loaded, no request served:
+
+  ValueError: Loaded weights leave no GPU memory for the KV cache under
+  --mem-fraction-static=0.7. Raise --mem-fraction-static above 0.773
+
+0.773 is arithmetically correct -- it is derived from the memory actually
+free at that instant. It is diagnostically wrong, because the reason
+there is none is that the other leg is on the same cards. Measured:
+GPUs 0-3 at 263.8 GB each, 4-7 at 0.3 GB. Following the advice yields a
+WORKING deployment on the wrong topology, with every subsequent number
+meaningless and nothing logged to say so.
+
+The note now says to check the cards before touching the knob, names the
+two checks that do NOT work (--showmemuse VRAM%, which does not fall when
+memory is released; and per-leg base_gpu_id, which is an index into the
+visible set and reads 0 on both legs whether the split is broken or
+correct -- see 635fc51), and gives the discriminator between all three
+forms: this one aborts at startup profiling, the classic prefill form
+aborts under load at low token usage, the decode form retracts under load
+at high token usage.
+
+Written from the bring-up that hit it. The underlying GPU-split cause is
+fixed in 1b5ea46; this note is for the next person whose legs collide for
+some other reason.
+
+Signed-off-by: yihou <yihou@amd.com>
+---
+ examples/sglang_1p1d_glm5.3/README.md | 28 +++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+
+diff --git a/examples/sglang_1p1d_glm5.3/README.md b/examples/sglang_1p1d_glm5.3/README.md
+index 4ac86c0..0376f96 100644
+--- a/examples/sglang_1p1d_glm5.3/README.md
++++ b/examples/sglang_1p1d_glm5.3/README.md
+@@ -354,6 +354,34 @@ These cost real debugging time there and the architecture has not changed:
+    opposite of the decode-side fix. Diagnose by phase: decode retract → raise;
+    prefill `HSA_STATUS_ERROR_OUT_OF_RESOURCES` at *low* token usage → lower.
+    Low token usage at the abort is the tell that it was never KV exhaustion.
++
++   **3a. A third form, and the engine's own advice is a trap in it.** On the
++   single-node shape a leg can abort at startup with
++
++   ```
++   ValueError: Loaded weights leave no GPU memory for the KV cache under
++   --mem-fraction-static=0.7. Raise --mem-fraction-static above 0.773
++   ```
++
++   That number is arithmetically correct and **diagnostically wrong**. It is
++   computed from the memory actually free at that moment, and the reason there
++   is none is usually that **the other leg is on the same cards** — measured
++   once as GPUs 0-3 at 263.8 GB each with 4-7 at 0.3 GB. Raising the fraction
++   as instructed produces a *working* deployment on the wrong topology: two
++   legs sharing half the node, every subsequent number meaningless, nothing
++   logged.
++
++   **Check the cards before you touch the knob.** `rocm-smi --showmeminfo vram`
++   must show load on *both* halves. Do not use `--showmemuse`'s `VRAM%` (it
++   does not fall when memory is released) and do not use each leg's
++   `base_gpu_id` (it is an index into the leg's **visible** set, so
++   `HIP_VISIBLE_DEVICES=4,5,6,7` renumbers the decode leg to 0-3 and it reads
++   `base_gpu_id=0` on both legs whether the split is broken or correct).
++
++   Distinguishing the three: **this** form aborts during startup profiling with
++   weights already loaded and no request served; the classic prefill form
++   aborts under load at low token usage; the decode form retracts under load at
++   high token usage.
+ 4. **`SGLANG_OPT_USE_TOPK_V2=0` is mandatory on gfx950.** Without it the model
+    serves, returns 200s, and returns garbage.
+ 5. **MTP and decode-side radix cache are mutually exclusive upstream**, so
+-- 
+2.34.1
+

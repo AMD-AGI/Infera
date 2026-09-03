@@ -1,0 +1,220 @@
+From 4493e33a38120c6cb188fc71ad6f582791dca0d8 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 2 Sep 2026 11:36:58 +0000
+Subject: [PATCH] examples: unblock the GLM-5.3 single-node 1P1D shape
+
+Three defects found by source read, before any hardware. As shipped,
+`bash cluster.singlenode.sh up` could not work, and one of the three put
+the deployment in the silent-slow case the README promises is loud.
+
+1. Both GLM-5.3 wrappers exported IMAGE, but engine/up.sh and common.sh
+   require INFERA_IMAGE (the GLM-5.2 wrappers export that name; IMAGE is
+   preflight_rdma.sh's). `up` died at its first require_env, before a
+   container was started. Export both, and add INFERA_IMAGE to the
+   placeholder guard.
+
+2. leg.sh's KV_PUB_PORT/KV_SNAP_PORT were never forwarded by up.sh, and
+   nothing a wrapper exports reaches leg.sh otherwise -- on() runs a
+   fresh remote shell. Two legs on one host therefore both bound
+   5557/8801 and the second died at bind, the same "port_base at N is
+   not available" common.sh's reap() warns about across restarts.
+   Forward them per leg, defaulting to leg.sh's own values, and give the
+   two legs distinct values in the single-node wrapper only.
+
+3. leg.sh hardcoded MC_DISABLE_HIP_TRANSPORT=1 with no override, which
+   disables the transport the single-node shape depends on. With hip
+   absent the local segment advertises "rdma" only and KV between two
+   legs on ONE host takes loopback RDMA -- silently, since there is no
+   log line for that fallback and a same-host transfer never touches a
+   GID, so neither the MC_FORCE_TCP nor the GID-is-NULL check covers it.
+   Make it overridable and set it to 0 in the single-node wrapper.
+
+   THE REASON FOR THE ORIGINAL DISABLE IS UNKNOWN. It was deliberate and
+   we could not establish why, so the default stays 1 and the two-node
+   path does not move by a byte. If you disabled it for a reason we have
+   missed, say so -- this change is scoped to the single-node wrapper
+   precisely so it can be objected to cheaply.
+
+   Supporting measurement, on this hardware: HIP IPC works across
+   disjoint HIP_VISIBLE_DEVICES. An importer that could not see the
+   exporter's physical GPU mapped its memory and read back the correct
+   byte pattern, so the disjoint-GPU topology is not an obstacle and the
+   --base-gpu-id fallback is not needed. A bare "IMPORT OK" would not
+   have shown this -- the handle records device index 0 and the
+   importer's own ordinal 0 is a different physical GPU, so a local
+   mapping also returns OK. The data pattern is what rules that out.
+
+Verified without hardware, against a stub engine/up.sh: the single-node
+wrapper resolves to KV 5557/8801 + 5558/8802 and
+MC_DISABLE_HIP_TRANSPORT=0, while the two-node wrapper still resolves to
+5557/8801 on both legs and MC_DISABLE_HIP_TRANSPORT=1. All four scripts
+pass bash -n.
+
+Required check once this runs: `HIP transport installed for intra-node
+GPU P2P` must appear in BOTH leg logs, and `hipIpcOpenMemHandle failed`
+in neither.
+
+Signed-off-by: yihou <yihou@amd.com>
+---
+ examples/sglang_1p1d_glm5.2/engine/leg.sh     | 10 ++++-
+ examples/sglang_1p1d_glm5.2/engine/up.sh      | 10 +++++
+ examples/sglang_1p1d_glm5.3/cluster.2node.sh  |  7 +++-
+ .../sglang_1p1d_glm5.3/cluster.singlenode.sh  | 40 ++++++++++++++++++-
+ 4 files changed, 63 insertions(+), 4 deletions(-)
+
+diff --git a/examples/sglang_1p1d_glm5.2/engine/leg.sh b/examples/sglang_1p1d_glm5.2/engine/leg.sh
+index b7fc1eb..09a70ff 100755
+--- a/examples/sglang_1p1d_glm5.2/engine/leg.sh
++++ b/examples/sglang_1p1d_glm5.2/engine/leg.sh
+@@ -57,7 +57,13 @@ CHUNK="${CHUNK:-65536}"
+ # pool, or a 5-20x slower TCP fallback. See cluster/README.md section 3.
+ export MOONCAKE_DISABLE_HIP_DMABUF="${MOONCAKE_DISABLE_HIP_DMABUF:-1}"
+ export MC_GID_INDEX="${MC_GID_INDEX:?MC_GID_INDEX is required — read it off the preflight report}"
+-export MC_DISABLE_HIP_TRANSPORT=1
++# Default 1 (hip transport off) -- unchanged, and deliberately so: the reason it
++# was disabled here is NOT known, so the two-node path must not move. It is now
++# overridable because the SINGLE-NODE shape needs it ON: with hip absent, KV
++# between two legs on one host takes loopback RDMA silently, at 5-20x the cost
++# of the XGMI path the pinned mooncake commit was added for. Only
++# sglang_1p1d_glm5.3/cluster.singlenode.sh sets it to 0.
++export MC_DISABLE_HIP_TRANSPORT="${MC_DISABLE_HIP_TRANSPORT:-1}"
+ unset MC_ENABLE_HIP_TRANSPORT
+ # MC_MS_FILTERS pins mooncake to named device(s). Required in the dma-buf mode so a non-ODP
+ # rail is never picked (it would pin and double the KV pool); harmless to leave unset when a
+@@ -152,7 +158,7 @@ log "$ROLE on $MY_IP:$PORT — tp=$TP dpa=$DPA mtp=$MTP kvaware=$KVAWARE kvd=$KV
+ docker exec -d "$CTR" env \
+   HIP_VISIBLE_DEVICES="$GPUS" \
+   MOONCAKE_DISABLE_HIP_DMABUF="$MOONCAKE_DISABLE_HIP_DMABUF" \
+-  MC_GID_INDEX="$MC_GID_INDEX" MC_DISABLE_HIP_TRANSPORT=1 \
++  MC_GID_INDEX="$MC_GID_INDEX" MC_DISABLE_HIP_TRANSPORT="$MC_DISABLE_HIP_TRANSPORT" \
+   ${MC_MS_FILTERS:+MC_MS_FILTERS="$MC_MS_FILTERS"} \
+   ${MC_MS_FILTERS:+MC_MS_AUTO_DISC="${MC_MS_AUTO_DISC:-0}"} \
+   ${RDMAV_FORK_SAFE:+RDMAV_FORK_SAFE="$RDMAV_FORK_SAFE"} \
+diff --git a/examples/sglang_1p1d_glm5.2/engine/up.sh b/examples/sglang_1p1d_glm5.2/engine/up.sh
+index a4c4eda..dcfd408 100755
+--- a/examples/sglang_1p1d_glm5.2/engine/up.sh
++++ b/examples/sglang_1p1d_glm5.2/engine/up.sh
+@@ -64,11 +64,21 @@ if [ "${DECODE_KVD:-0}"  = "1" ]; then start_kvd "$DECODE_NODE"; fi
+ log "=== 3/4 legs ==="
+ # Launch both legs before waiting on either: they load ~400 GB of weights concurrently, and
+ # serialising the waits doubles the bring-up for no reason.
++# The KV-event ports are forwarded PER LEG. They default to leg.sh's own values,
++# so the two-node shape is unchanged -- there the legs are on different hosts and
++# cannot collide. On a SINGLE-NODE pair they share one network namespace, and
++# without distinct values the second leg dies at bind with "port_base at N is not
++# available". Nothing a wrapper exports reaches leg.sh except through here:
++# `on()` runs a fresh remote shell.
+ on "$PREFILL_NODE" "$COMMON_ENV ROLE=prefill MY_IP=$PREFILL_IP PORT=$PREFILL_PORT \
+   DPA=${PREFILL_DPA:-0} MTP=${PREFILL_MTP:-0} KVD=${PREFILL_KVD:-1} \
++  KV_PUB_PORT=${PREFILL_KV_PUB_PORT:-5557} KV_SNAP_PORT=${PREFILL_KV_SNAP_PORT:-8801} \
++  MC_DISABLE_HIP_TRANSPORT=${MC_DISABLE_HIP_TRANSPORT:-1} \
+   bash $KIT_DIR/engine/leg.sh"
+ on "$DECODE_NODE" "$COMMON_ENV ROLE=decode MY_IP=$DECODE_IP PORT=$DECODE_PORT \
+   DPA=${DECODE_DPA:-1} MTP=${DECODE_MTP:-1} KVD=${DECODE_KVD:-0} \
++  KV_PUB_PORT=${DECODE_KV_PUB_PORT:-5557} KV_SNAP_PORT=${DECODE_KV_SNAP_PORT:-8801} \
++  MC_DISABLE_HIP_TRANSPORT=${MC_DISABLE_HIP_TRANSPORT:-1} \
+   bash $KIT_DIR/engine/leg.sh"
+ 
+ # Poll /health from INSIDE each node's container. Never curl a PD leg's port from another
+diff --git a/examples/sglang_1p1d_glm5.3/cluster.2node.sh b/examples/sglang_1p1d_glm5.3/cluster.2node.sh
+index e2bfd2e..6891ce1 100755
+--- a/examples/sglang_1p1d_glm5.3/cluster.2node.sh
++++ b/examples/sglang_1p1d_glm5.3/cluster.2node.sh
+@@ -39,7 +39,12 @@ export DECODE_IP="${DECODE_IP:-<decode-data-plane-ip>}"
+ # ---------------------------------------------------------------------------
+ # The STOCK infera sglang image (deploy/docker/Dockerfile.sglang). GLM-5.3 big
+ # needs no source overlay -- that is only for the Flash family.
++#
++# TWO names for one image, and both are needed. preflight_rdma.sh reads IMAGE;
++# engine/up.sh and common.sh require INFERA_IMAGE. Exporting only IMAGE makes
++# `up` die at its first require_env, before a single container is started.
+ export IMAGE="${IMAGE:-<infera-sglang-image>}"
++export INFERA_IMAGE="${INFERA_IMAGE:-$IMAGE}"
+ # GLM-5.3-MXFP4 or GLM-5.3. Resolve symlinks: where this path crosses an NFS
+ # mount boundary, bind-mounting the symlink's parent gives the container an
+ # empty directory, and the failure surfaces much later as an unrelated error.
+@@ -99,7 +104,7 @@ export EXTRA_ENGINE_ARGS="${EXTRA_ENGINE_ARGS:---disable-shared-experts-fusion}"
+ export GMU_PREFILL="${GMU_PREFILL:-0.70}"
+ export GMU_DECODE="${GMU_DECODE:-0.85}"
+ 
+-for v in PREFILL_IP IMAGE MODEL RDMA_IB_DEVICES MC_GID_INDEX; do
++for v in PREFILL_IP IMAGE INFERA_IMAGE MODEL RDMA_IB_DEVICES MC_GID_INDEX; do
+   case "${!v}" in "<"*) echo "edit $(basename "$0"): $v is still a placeholder" >&2; exit 2;; esac
+ done
+ 
+diff --git a/examples/sglang_1p1d_glm5.3/cluster.singlenode.sh b/examples/sglang_1p1d_glm5.3/cluster.singlenode.sh
+index e612d09..440c30e 100755
+--- a/examples/sglang_1p1d_glm5.3/cluster.singlenode.sh
++++ b/examples/sglang_1p1d_glm5.3/cluster.singlenode.sh
+@@ -43,7 +43,12 @@ export DECODE_IP="$PREFILL_IP"
+ # ---------------------------------------------------------------------------
+ # The STOCK infera sglang image (deploy/docker/Dockerfile.sglang). GLM-5.3 big
+ # needs no source overlay -- that is only for the Flash family.
++#
++# TWO names for one image, and both are needed. preflight_rdma.sh reads IMAGE;
++# engine/up.sh and common.sh require INFERA_IMAGE. Exporting only IMAGE makes
++# `up` die at its first require_env, before a single container is started.
+ export IMAGE="${IMAGE:-<infera-sglang-image>}"
++export INFERA_IMAGE="${INFERA_IMAGE:-$IMAGE}"
+ # GLM-5.3-MXFP4 or GLM-5.3. Resolve symlinks: where this path crosses an NFS
+ # mount boundary, bind-mounting the symlink's parent gives the container an
+ # empty directory, and the failure surfaces much later as an unrelated error.
+@@ -62,6 +67,28 @@ export MC_GID_INDEX="${MC_GID_INDEX:-<index-from-preflight>}"
+ # the dma-buf mode, where KV must be pinned to one ODP-capable card.
+ # export MC_MS_FILTERS="ionic_0"
+ 
++# THE flag that decides how single-node KV actually moves, and the only place it
++# is turned on. engine/leg.sh defaults it to 1 (hip transport OFF), which is
++# right for the two-node shape and wrong here: with hip absent the local segment
++# advertises "rdma" only, and KV between two legs on ONE host takes LOOPBACK
++# RDMA. That path works, raises nothing, and is the silent-slow case -- the
++# README's "it fails loudly" only holds when hip is installed.
++#
++# With hip installed, MultiTransport::selectTransport routes KV by fixed
++# priority (hip 4 > cxl 3 > rdma 2 > tcp 1), so hip wins: hipIpcGetMemHandle on
++# the exporter, hipIpcOpenMemHandle on the importer, GPU-to-GPU over XGMI with
++# no NIC in the path. That is what the pinned mooncake commit 01d1eb2a exists
++# for. Measured on this hardware: HIP IPC works across DISJOINT
++# HIP_VISIBLE_DEVICES -- an importer that cannot see the exporter's physical GPU
++# mapped its memory and read back the correct bytes.
++#
++# REQUIRED CHECK after bring-up: `HIP transport installed for intra-node GPU
++# P2P` must appear in BOTH leg logs, and `hipIpcOpenMemHandle failed` in
++# neither. The MC_FORCE_TCP and GID-is-NULL counters do NOT cover this -- there
++# is no log line for a TCP fallback, and a same-host hip transfer never touches
++# a GID.
++export MC_DISABLE_HIP_TRANSPORT="${MC_DISABLE_HIP_TRANSPORT:-0}"
++
+ # ---------------------------------------------------------------------------
+ # 4. Shape
+ # ---------------------------------------------------------------------------
+@@ -77,6 +104,17 @@ export BOOTSTRAP_PORT="${BOOTSTRAP_PORT:-8998}"
+ export ROUTER_PORT="${ROUTER_PORT:-8100}"
+ export ETCD_PORT="${ETCD_PORT:-12379}"
+ 
++# The KV-event ports are PER LEG, and on this shape they must differ. In the
++# two-node case both legs take engine/leg.sh's defaults (5557/8801) and never
++# meet; here they share one network namespace, so the second leg's bind fails
++# and the leg never serves -- the same "port_base at N is not available" that
++# common.sh's reap() warns about across restarts, happening across legs instead.
++# engine/up.sh forwards these per leg.
++export PREFILL_KV_PUB_PORT="${PREFILL_KV_PUB_PORT:-5557}"
++export PREFILL_KV_SNAP_PORT="${PREFILL_KV_SNAP_PORT:-8801}"
++export DECODE_KV_PUB_PORT="${DECODE_KV_PUB_PORT:-5558}"
++export DECODE_KV_SNAP_PORT="${DECODE_KV_SNAP_PORT:-8802}"
++
+ # ---------------------------------------------------------------------------
+ # 5. Features -- see the README before changing these two
+ # ---------------------------------------------------------------------------
+@@ -97,7 +135,7 @@ export EXTRA_ENGINE_ARGS="${EXTRA_ENGINE_ARGS:---disable-shared-experts-fusion}"
+ export GMU_PREFILL="${GMU_PREFILL:-0.70}"
+ export GMU_DECODE="${GMU_DECODE:-0.85}"
+ 
+-for v in PREFILL_IP IMAGE MODEL RDMA_IB_DEVICES MC_GID_INDEX; do
++for v in PREFILL_IP IMAGE INFERA_IMAGE MODEL RDMA_IB_DEVICES MC_GID_INDEX; do
+   case "${!v}" in "<"*) echo "edit $(basename "$0"): $v is still a placeholder" >&2; exit 2;; esac
+ done
+ 
+-- 
+2.34.1
+

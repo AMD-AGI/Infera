@@ -1,0 +1,110 @@
+From f6ee2da34f8bab5c6c7229c3c25ed61b7d506eaf Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 2 Sep 2026 11:48:44 +0000
+Subject: [PATCH] examples: fill in the GLM-5.3 single-node transport from
+ preflight
+
+Measured on smci355-ccs-aus-n01-33 with preflight_rdma.sh mode, which
+returns registration mode A (peer-mem present, 8 x ionic 400 Gb/s, KV
+pool full, nothing pinned, MC_GID_INDEX=1 on a routable GID).
+
+Two values that preflight asks for and the wrappers were not supplying:
+
+RDMAV_FORK_SAFE. Recommended in all three of preflight's modes, and
+engine/leg.sh honours it only when it is passed in
+([ "${RDMAV_FORK_SAFE:-0}" = "1" ]) -- so with the wrapper silent it
+never reached the engine. Defaulted to 1 in the SINGLE-NODE wrapper
+only. Deliberately not defaulted on for two-node: that shape was
+validated end to end without it, and a validated path should not move on
+the strength of a recommendation rather than a measurement. Left there
+as a commented line with that reasoning.
+
+RDMA_IB_DEVICES. The single-node placeholder read <ionic_0,ionic_1,...>,
+which is the cross-node recipe. preflight states the rule for this shape
+directly, under mode A: "all active rails (cross-node; mooncake pairs by
+GID subnet). Single-node loopback: pin ONE device on both legs instead."
+Placeholder and comment now say one device.
+
+That second one interacts with the hip transport enabled in the previous
+commit, and the combination is deliberate. preflight emits
+MC_DISABLE_HIP_TRANSPORT=1 in all three of its modes and models
+single-node PD as loopback RDMA, which contradicts this kit's README --
+so there are now two independent sources disagreeing about the intended
+single-node transport, and that disagreement may be the unestablished
+reason behind leg.sh's original hardcode. Running hip ON with a
+correctly pinned single rail covers both readings: if hip installs, KV
+goes over XGMI and the rails do not matter; if it does not, the fallback
+is the loopback RDMA preflight recommends rather than a misconfigured
+eight-rail one. `HIP transport installed for intra-node GPU P2P` in the
+leg logs distinguishes the two, and either outcome is a result about the
+single-node shape.
+
+Verified against a stub engine/up.sh, no hardware: two-node resolves
+RDMAV_FORK_SAFE unset and MC_DISABLE_HIP_TRANSPORT=1 with KV 5557/8801
+on both legs -- unchanged from before either commit. Single-node
+resolves RDMAV_FORK_SAFE=1, MC_DISABLE_HIP_TRANSPORT=0, KV 5557/8801 and
+5558/8802. Both pass bash -n.
+
+Also corrects a claim I made earlier from an inherited note rather than a
+test: common.sh's `docker run <etcd-image> etcd --flags` form is fine on
+this image -- `docker run --rm quay.io/coreos/etcd:v3.5.14 etcd
+--version` prints "etcd Version: 3.5.14". etcd is on PATH. The separate
+peer-port collision on 2380 was real when measured, but that port is
+free on this node now; it returns only if the foreign etcd does.
+
+Signed-off-by: yihou <yihou@amd.com>
+---
+ examples/sglang_1p1d_glm5.3/cluster.2node.sh     |  8 ++++++++
+ .../sglang_1p1d_glm5.3/cluster.singlenode.sh     | 16 +++++++++++++++-
+ 2 files changed, 23 insertions(+), 1 deletion(-)
+
+diff --git a/examples/sglang_1p1d_glm5.3/cluster.2node.sh b/examples/sglang_1p1d_glm5.3/cluster.2node.sh
+index 6891ce1..0de5879 100755
+--- a/examples/sglang_1p1d_glm5.3/cluster.2node.sh
++++ b/examples/sglang_1p1d_glm5.3/cluster.2node.sh
+@@ -63,6 +63,14 @@ export SERVED="${SERVED:-glm-5.3-mxfp4}"
+ # rail must not be listed, and the two nodes can legitimately differ.
+ export RDMA_IB_DEVICES="${RDMA_IB_DEVICES:-<ionic_0,ionic_1,...>}"
+ export MC_GID_INDEX="${MC_GID_INDEX:-<index-from-preflight>}"
++# preflight_rdma.sh recommends RDMAV_FORK_SAFE=1 in all three of its modes, and
++# engine/leg.sh honours it only when it is passed in
++# ([ "${RDMAV_FORK_SAFE:-0}" = "1" ]) -- so leaving it unset here silently drops
++# that recommendation. It is deliberately NOT defaulted on for the two-node
++# shape: that shape was validated end to end WITHOUT it, and a validated path
++# should not move on the strength of a recommendation alone. Uncomment to adopt
++# it, as its own single-variable round.
++# export RDMAV_FORK_SAFE=1
+ # Leave MC_MS_FILTERS unset in mode A (peer-mem present). It is required only in
+ # the dma-buf mode, where KV must be pinned to one ODP-capable card.
+ # export MC_MS_FILTERS="ionic_0"
+diff --git a/examples/sglang_1p1d_glm5.3/cluster.singlenode.sh b/examples/sglang_1p1d_glm5.3/cluster.singlenode.sh
+index 440c30e..a657bc8 100755
+--- a/examples/sglang_1p1d_glm5.3/cluster.singlenode.sh
++++ b/examples/sglang_1p1d_glm5.3/cluster.singlenode.sh
+@@ -61,8 +61,22 @@ export SERVED="${SERVED:-glm-5.3-mxfp4}"
+ # ---------------------------------------------------------------------------
+ # From `preflight_rdma.sh mode`, run on THIS node. Do not guess these.
+ # MC_GID_INDEX is per node: the link-local fe80:: GID is never the answer.
+-export RDMA_IB_DEVICES="${RDMA_IB_DEVICES:-<ionic_0,ionic_1,...>}"
++# SINGLE-NODE RULE, and it differs from the two-node one: pin ONE device, the
++# same on both legs. preflight_rdma.sh states it directly under mode A --
++# "all active rails (cross-node; mooncake pairs by GID subnet). Single-node
++# loopback: pin ONE device on both legs instead." Listing all rails here is a
++# cross-node recipe applied to a shape that is not cross-node.
++#
++# This matters even when the hip transport is enabled below: if hip fails to
++# install, the fallback is loopback RDMA, and this is what decides whether that
++# fallback is correctly configured or not.
++export RDMA_IB_DEVICES="${RDMA_IB_DEVICES:-<one-ionic-device, e.g. ionic_0>}"
+ export MC_GID_INDEX="${MC_GID_INDEX:-<index-from-preflight>}"
++# preflight_rdma.sh asks for this in ALL THREE modes, and engine/leg.sh honours
++# it only when it is passed in ([ "${RDMAV_FORK_SAFE:-0}" = "1" ]). Unset here it
++# never reaches the engine, so the preflight's own recommendation would be
++# silently dropped.
++export RDMAV_FORK_SAFE="${RDMAV_FORK_SAFE:-1}"
+ # Leave MC_MS_FILTERS unset in mode A (peer-mem present). It is required only in
+ # the dma-buf mode, where KV must be pinned to one ODP-capable card.
+ # export MC_MS_FILTERS="ionic_0"
+-- 
+2.34.1
+
