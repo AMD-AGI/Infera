@@ -162,3 +162,49 @@ read it instead of guessing.
 `additionalProperties: false` on an items schema rejects `logs` and `watchout`,
 which the content type itself lists as optional. Harmless until somebody adds a
 log.
+
+### T14 — a task body cannot name the interpreter the run is using
+*Opened 2026-09-03 by m1, confirmed by m2, m3 and m4 independently.*
+
+`cli/main.py:668` exports `AGENT_SYS_DEMO_PYTHON` into **`validation_env` only**,
+and the comment above it says a task body never reaches it. So a task body's
+policy `PATH` resolves `python3` to `/usr/bin/python3`, which on this host has
+`yaml` and `jsonschema` and **not `referencing`** — and had no `torch` at all,
+which is what m3's `build_workset` entrypoints actually need.
+
+**Worked around in the package, four different ways**, which is itself the
+argument for fixing it upstream: `schema.py` stopped needing `referencing` by
+inlining cross-file `$ref`s; `mock_adapt.sh` probes for an interpreter that can
+import what it needs; `build_workset` probes for `torch` and refuses up front
+with the reason; m4 carries the chosen interpreter through `KFO_PYTHON` **and**
+on `PATH`, because the workset's entrypoint is a shell script and an interpreter
+can only reach it through the environment.
+
+**Would settle it:** export the variable to task bodies too, or give a body a
+declared way to ask for an interpreter with named imports. This is framework
+work (`agent_sys/cli/`), not package work, which is why it is here.
+
+**The failure mode is why it is worth fixing rather than working around.** In a
+validator the missing import produces a non-zero exit and **no `verdict.json`**,
+so the phase reads a broken validator rather than a refused handoff — measured
+by m2, and it is the same signature as `check_deploy_serves`'s crash. Twelve of
+twenty-one validators had it.
+
+### T15 — `E2E_KIT_ENGINE_EXTRA_ENV` is a seam with no consumer
+*Opened 2026-09-03.*
+
+`deploy_kit.layout.yaml`'s `runtime_contract` requires a kit to honour both
+`E2E_KIT_ENGINE_EXTRA_ARGS` and `E2E_KIT_ENGINE_EXTRA_ENV`. The first is used —
+it is how m2's two lines differ by CUDA graph on/off. **The second has no
+consumer**: both m2 lines leave it empty, and the profiler-attached line needs a
+*router* flag (`E2E_KIT_ROUTER_EXTRA_ARGS`) that no engine seam can reach.
+
+It was asked for on the strength of `SGLANG_TORCH_PROFILER_DIR`, which **nothing
+in this package sets** — the engine is told where to write per capture, in
+`/start_profile`'s `output_dir`. m2 gave the example and retracted it; by then it
+had propagated into two contract documents.
+
+**Kept and labelled rather than removed**, because a required parameter is
+cheaper to keep than to re-negotiate, and because the argv/environment
+distinction is real even though this instance of it was not. **Would settle it:**
+the first real consumer, or a decision to drop the requirement.
