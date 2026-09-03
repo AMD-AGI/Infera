@@ -1065,3 +1065,85 @@ None this interval.
 ### 7. Other
 
 None.
+
+---
+
+## T+13 — 2026-09-03 14:42 UTC
+
+### 1. Progress
+
+**Effort: ~97 %.** Elapsed 426 minutes since T+0. Projected remaining: 15–30
+minutes, unchanged band from T+11/T+12 — the last mile is one criterion's
+write-up, not a code change. **Reliability: medium** — the pinned-commit run
+has now produced its verdict (unlike at T+12, when it was mid-flight), and the
+one open item has an already-written resolution; what I have not seen is a
+maintainer sign-off closing the effort.
+
+Since T+12: **no new commits** (`git log ced32ea..HEAD` empty). Working tree
+is **dirty**: `agent_sys/env_mgr/o11y/agentsview.py` (+32/-9) and
+`docs/superpowers/specs/2026-09-03-agentsview-o11y-design.md` (+32) are
+modified but uncommitted — a teammate's work in progress, not mine to touch.
+Suite unchanged: **660 passed, 2 skipped, 2 xfailed in 21.2 s** (this is
+`tests/env_mgr tests/cli`, a subset; `ACCEPTANCE.md` separately cites 2227
+passed on the full tree at `658f1bc`).
+
+### 2. Current state
+
+`PINNED-7d25923/REPORT.md` (finished 14:33:45 UTC, the machine-written
+verdict) reads: checks 1–5 **PASS**, check 6 **FAIL** — a taken port changed
+demo2's exit code (5 vs control's 0). `ACCEPTANCE.md`, read directly, already
+carries the reconciliation the team lead described: it reports check 6 as
+**FAIL, and the evidence says it is the criterion** — the o11y contract itself
+held exactly (one warning, the specified text, zero exceptions); what varied
+was demo2's own content validator (`problems: invalid`), which failed on a
+different arm in each of three campaign rounds (panel, panel, portbusy) with
+the panel arm — the one doing the *most* o11y work — exiting clean each time.
+`ACCEPTANCE.md` states this is a re-judgement of the **same artefacts**
+against a criterion it had already recommended in writing, and states its
+FAIL is "not withdrawn" alongside the PASS — both verdicts stand side by side
+in the document, not one replacing the other.
+
+### 3. Code problems — fixed / unfixed
+
+None new this interval — no commits landed. The uncommitted diff to
+`agentsview.py` is in flight, unread by me in detail per instruction not to
+touch other teammates' concurrent files.
+
+### 4. Non-code problems
+
+None new.
+
+### 5. Undetermined questions
+
+Whether the `agentsview.py` / design-doc diff currently sitting uncommitted
+lands as a further fix or as documentation-only cleanup — not yet committed,
+so not yet part of the record. Whether anyone will re-run the pinned-commit
+harness against a commit that includes it, given `ACCEPTANCE.md`'s own
+argument (quoted above) that the code under test is byte-identical between
+`7d25923` and `658f1bc` and a re-run would only reconcile fresh
+AI-nondeterminism, not surface new information.
+
+### 6. New commits
+
+None this interval.
+
+### 7. Other
+
+Two findings from `ACCEPTANCE.md`, flagged by the team lead as this effort's
+most transferable and otherwise living only in that document:
+
+**A measurement of a moving target fails silently, and the result is
+indistinguishable from a real one.** It recurred four times today in
+different disguises: a stale `grep`, an `ls -1td` that picked up a teammate's
+run and inverted the evidence, a test suite collecting a file mid-edit
+(caught by the *count* — 2224 where 2227 was expected — not by a failure),
+and a directory read that concluded a live 15-minute run was dead and nearly
+triggered a duplicate start. Three of the four were committed by people who
+had already read or written the lesson themselves. What worked was mechanical
+— a printed sha, an empty root before claiming "nothing here", a `pgrep`
+before an action — not remembering to be careful.
+
+**A fix that borrows a neighbouring check's methodology inherits its
+unexamined assumptions.** This is how check 6's original criterion (comparing
+exit codes across a demo2 package whose verdict depends on AI-generated
+content) entered the acceptance suite in the first place.
