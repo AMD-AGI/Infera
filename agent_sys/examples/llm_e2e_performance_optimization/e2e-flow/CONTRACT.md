@@ -164,6 +164,28 @@ assets/lib/schema.py               # the ~40-line loader both sides import
 `agent_sys/spec_loader/validate.py:34-56` — `Draft202012Validator` plus a
 `referencing` registry so schemas may `$ref` each other.
 
+### 3.2a Every body is `#!/bin/sh` + `set -eu`, and the shebang is decoration
+
+**agent_sys never consults a body's shebang.** It invokes one as
+`["/bin/sh", entry]` — `validator/phase.py:147` and
+`agent/backends/program.py:83`. On this host `/bin/sh` is **dash**:
+
+```
+$ /bin/sh -c 'set -euo pipefail; echo REACHED'
+/bin/sh: 1: set: Illegal option -o pipefail     rc=2
+```
+
+So a body written `#!/usr/bin/env bash` + `set -euo pipefail` **exits 2 on line
+1**, the phase reports UNREACHED rather than a verdict, and the failure reads as
+the validator's rather than the shell's. Measured 2026-09-03 by m1 across all 31
+skeleton bodies at once; the whole package was swept.
+
+Write `#!/bin/sh` and `set -eu`. Where a body genuinely needs bash — today only
+`assets/lib/mock.sh`, for `${!var}` — it is **invoked** as
+`bash "$PKG/assets/lib/mock.sh" …` and guards on `$BASH_VERSION`, because
+`. mock.sh` from a dash body is the natural thing to write and fails with an
+unhelpful `Bad substitution`.
+
 ### 3.3 How both sides reach the same file
 
 ```sh

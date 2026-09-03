@@ -1,0 +1,266 @@
+# `deploy_kit` — the layout, as a document rather than as code
+#
+# Mission M1.1: *"handoff 应该有自己文件格式和目录格式要求，应该写进一个单独的
+# yaml 文件说明。并且有 validator 根据此标准检查，该 validator 应该是程序化的"*.
+#
+# This file **is** that standard. `check_deploy_kit` is an interpreter for it and
+# holds no rule of its own: every path, floor, pattern and message below is read
+# from here at run time, so the thing a kit author reads and the thing that
+# grades the kit are one file. The producer's readme quotes this file by name for
+# the same reason.
+#
+# **Not a JSON Schema, on purpose.** JSON Schema describes a *document*; what has
+# to be described here is a *directory* — which files exist, which directories
+# are non-empty, how many `.json` files carry evidence, which regex must and must
+# not appear across a subtree. The one genuine document inside the kit,
+# `environment.yaml`, does get a JSON Schema, and this file points at it
+# (`entries[].schema`) rather than restating it.
+#
+# Written against the real sealed kit at
+# `$E2E_MOCK_ROOT/stage1-deploy/deploy_kit/` — 38 files, produced by a real
+# bring-up on this cluster on 2026-09-02. Every floor below is at or under what
+# that kit actually carries; nothing here is aspirational.
+
+schema_version: 1
+
+# --------------------------------------------------------------------------- #
+# 1. Anchors — the two roots everything else is relative to.
+#
+# `deploy_kit` is `content_type: code`, whose single required item is `codes`.
+# Two things live directly under it and they are different in kind:
+#
+#   * `environment.yaml` — the flow's environment record (CONTRACT.md §2). It is
+#     **not** inside the packup directory, because it belongs to the *handoff*
+#     and travels to m2/m3/m4/m5, while the packup directory is one deployment's
+#     reproduction kit. `code`-typed consumers read `codes/environment.yaml` at a
+#     path that does not change when the model does.
+#   * the packup directory — named `<experiment>.packup_<YYYYMMDD>` by the packup
+#     skill, so its name carries the model and the date and cannot be a fixed
+#     string here.
+#
+# **Exactly one packup directory.** Both other cardinalities are real failures:
+# zero means the kit was written somewhere the layout does not put it, and two
+# means a reproducer has to guess which one worked.
+anchors:
+  codes:
+    path: items/codes
+    kind: dir
+  packup:
+    under: items/codes
+    kind: dir
+    name_pattern: '\A.+\.packup_\d{8}\Z'
+    cardinality: exactly_one
+    why: >-
+      The packup skill's folder naming. Anchored at both ends and the date is
+      exactly eight digits, so `something.packup_soon` is not a packup and
+      saying so is free.
+
+# --------------------------------------------------------------------------- #
+# 2. Entries — the files and directories the kit must carry.
+#
+# `min_content_lines` counts **content lines**: non-blank, not a heading, not a
+# code-fence marker. Headings are excluded deliberately — a document that is four
+# `##` lines and nothing under them is exactly the failure a floor exists to
+# catch, and counting the headings would let it pass.
+entries:
+
+  # ---- the handoff's own record -------------------------------------------- #
+  # M1.1.1: *"不要把可以结构化的文档放在 md 里，比如 environment, 可以有单独的
+  # yaml 文件，并且通过 json schema 约束"*. This entry is that sentence. The
+  # `schema` key names a file in this same directory, loaded through
+  # `assets/lib/schema.py` — the one loader the producer also calls, so the
+  # producer and the validator cannot be reading two different documents.
+  - path: environment.yaml
+    anchor: codes
+    kind: file
+    required: true
+    schema: environment
+    brief: The flow's environment record — the fixed half and the runtime half, per CONTRACT.md §2.
+
+  # ---- the packup documents ------------------------------------------------ #
+  - path: README.md
+    anchor: packup
+    kind: file
+    required: true
+    min_content_lines: 5
+    require_headings: ['Result']
+    brief: >-
+      What was asked, what happened, and where the evidence for each claim is.
+      `## Result` is required by name because it is the section that answers
+      "did it work", and a kit that never answers that is a kit nobody can act
+      on.
+
+  - path: REPRODUCE.md
+    anchor: packup
+    kind: file
+    required: true
+    min_content_lines: 8
+    min_command_lines: 5
+    require_headings: ['Expected output']
+    brief: >-
+      The file a reproducer executes, so its substance is measured in commands
+      inside code blocks rather than in prose. `Expected output` is required
+      because it is the only criterion a reproduction has: without it a correct
+      reproduction can be judged a failure, and neither verdict is recoverable
+      afterwards.
+
+  # **A rendering, not the record** (M1.1.1). The packup layout wants a human to
+  # be able to read the environment without a schema in hand, and that is all
+  # this file is for. `rendered_from` is checked: every value the schema marks
+  # load-bearing must actually appear in the rendering, so the two cannot drift
+  # into disagreeing. What is *not* checked is prose — this file may say
+  # anything else it likes.
+  - path: environment.md
+    anchor: packup
+    kind: file
+    required: true
+    min_content_lines: 8
+    rendered_from:
+      document: environment.yaml
+      anchor: codes
+      # Dotted paths into that document. Each value must appear verbatim in the
+      # rendering. Chosen as the facts a reproduction fails without — the three
+      # the previous stage checked with three hand-written regexes, plus the
+      # image digest, which a floating tag does not give you.
+      must_render:
+        - fixed.gpu_arch
+        - fixed.image
+        - fixed.model_name
+        - fixed.node
+    brief: The human-readable rendering of environment.yaml. Not the record; the record is the yaml.
+
+  - path: notes.md
+    anchor: packup
+    kind: file
+    required: true
+    min_content_lines: 3
+    brief: >-
+      What went wrong on the way and what a next reader should not repeat. Kept
+      mandatory because a bring-up with no traps recorded is almost always a
+      bring-up whose traps were not noticed.
+
+  # ---- the packup directories ---------------------------------------------- #
+  - path: scripts
+    anchor: packup
+    kind: dir
+    required: true
+    non_empty: true
+    brief: >-
+      The scripts that were actually run, byte for byte. An empty `scripts/` is
+      the "hollow scaffolding" the packup layout tells an author to omit —
+      omitting it fails the presence check instead, which is the same verdict by
+      a clearer route.
+
+  - path: results
+    anchor: packup
+    kind: dir
+    required: true
+    non_empty: true
+    min_files:
+      glob: '**/*.json'
+      count: 2
+      non_empty: true
+    brief: >-
+      Machine-readable evidence. A kit whose evidence is prose cannot be diffed
+      against the next run, and every stage downstream consumes results as files
+      rather than as paragraphs. Counted over a recursive glob so a kit may
+      organise `results/` into subdirectories.
+
+  - path: logs
+    anchor: packup
+    kind: dir
+    required: false
+    brief: The engine, router and etcd logs as produced. Optional — valuable, and not every deployment shape has three.
+
+# --------------------------------------------------------------------------- #
+# 3. Placeholders — a document that was templated and never written.
+#
+# `<...>` is the packup templates' own placeholder form (`<exact commands>`,
+# `<who>`, `<YYYY-MM-DD>`), matched only when the angle brackets wrap something
+# that is not a URL and not an e-mail address, so a legitimate `<https://…>` or
+# `<user@host>` does not trip it.
+placeholders:
+  applies_to: [README.md, REPRODUCE.md, environment.md, notes.md]
+  pattern: >-
+    \b(?:TODO|TBD|FIXME|XXX)\b|to\s+be\s+filled\s+in|<(?![A-Za-z][A-Za-z0-9+.-]*://)(?![^<>@\s]+@)[^<>\n]{2,}>
+  flags: [IGNORECASE]
+
+# --------------------------------------------------------------------------- #
+# 4. Evidence rules — properties of `results/`, each a fault that was measured.
+#
+# These are the five checks mission M1.1 asks to be carried across from the
+# stage-1 package, minus `environment_facts`, which became `entries[].schema`
+# plus `rendered_from` above. Each is a rule about what the *running system*
+# said, not about what the launch command asked for, because the launch command
+# is not evidence: the deployment mode is selected by **omitting** a flag.
+evidence:
+
+  - name: served_name_not_a_path
+    brief: No evidence file shows the model registered under a filesystem path.
+    over: {anchor: packup, dir: results}
+    forbid: '"(?:model|served_model_name|model_name)"\s*:\s*"(/[^"]*)"'
+    message: >-
+      the model is served under a filesystem path, not a published model name.
+      Measured: one kit registered `Qwen/Qwen3.6-27B` and the next registered
+      `/data/<user>/…/Qwen3.6-27B`, purely from one flag being absent — and the
+      second bakes a machine's directory layout into the one field every caller
+      must copy. Set the served name explicitly.
+    # Scanned over `results/` only, so a kit is free to explain this very trap in
+    # prose in `notes.md` without failing for it.
+
+  - name: mode_readback
+    brief: The deployment mode is evidenced from two independent components.
+    over: {anchor: packup, dir: results}
+    require_each:
+      - label: a worker-side reading (a `disagg=DisaggMode.…` line the worker wrote itself)
+        pattern: 'disagg\s*=\s*DisaggMode\.\w+'
+      - label: a router-side reading (a `"disagg_mode"` field from the router's worker listing)
+        pattern: '"disagg_mode"\s*:\s*(?:"[^"]*"|\[)'
+    message: >-
+      the mode is selected by *omitting* a flag, so the launch command is not
+      evidence of it and one component agreeing with itself is not either. Read
+      it back out of the running system twice, from two components that learned
+      it independently, and put both readings in `results/`.
+    # Deliberately loose about the *value*: which mode was asked for is a
+    # package variable. The rule is that the running system was asked, twice.
+
+  - name: completion_evidence
+    brief: One file carries both a non-truncated finish reason and a non-empty content.
+    over: {anchor: packup, dir: results}
+    require_together:
+      - '"finish_reason"\s*:\s*"stop"'
+      - '"content"\s*:\s*"(?:[^"\\]|\\.)+"'
+    message: >-
+      no completion evidence — `/health` returning 200 shows a process is
+      listening, which is not a model that answers. Both facts must be in **one**
+      file: a finish reason in one place and a content in another is two facts,
+      not one answer. `finish_reason: "length"` alone is the reasoning-budget
+      trap — a request that was too small, not a deployment that works.
+
+# --------------------------------------------------------------------------- #
+# 5. Shared-namespace identifiers.
+#
+# Rule: every identifier bound on a shared host is a parameter. A name is
+# **frozen** if a plain assignment gives it a value that is not built purely out
+# of other variables, and **bound** if it reaches one of `binding_flags`.
+# Frozen-and-bound is the shape a second copy of the kit cannot run beside the
+# first — and a reproducer starts from this same kit while the run that produced
+# it may still be up.
+#
+# A name is exempt the moment it appears in a `${X:=…}` / `${X:-…}` / `${X:?…}`
+# form **anywhere** in the kit, because that is all it takes to let a caller
+# re-point it.
+#
+# A list of flags rather than an attempt to recognise "a container name" from its
+# text: the flags are where a value enters a host-wide namespace, and they are
+# few and literal. Guessing at the semantics of a string would fail honest kits.
+shared_identifiers:
+  scan: {anchor: packup, dir: scripts}
+  binding_flags: ['--name', '--publish', '--volume', '--mount', '--port', '-p', '-v']
+  # The two short flags mean something else in other commands — `mkdir -p` above
+  # all — so they only count inside a command that mentions `docker`.
+  docker_only_flags: ['-p', '-v']
+  # Flags where a bare literal is a fault on its own, with no variable involved.
+  # `--volume` is **not** here: a read-only mount of an input path is
+  # legitimately fixed, and only the *host* side of it is shared.
+  literal_forbidden_flags: ['--name', '--publish', '--port', '-p']

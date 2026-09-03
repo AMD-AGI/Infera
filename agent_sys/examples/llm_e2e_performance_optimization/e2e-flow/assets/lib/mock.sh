@@ -17,6 +17,22 @@
 # Exits 0 having written nothing when the stage is not in $E2E_MOCK_STAGES, so a
 # body can call this unconditionally as its first act and fall through to the
 # real work.
+# **This file is the one script in the package that requires bash**, for the
+# `${!var}` indirect expansion that turns a kind name into its
+# `AGENT_SYS_OUTPUT_*` variable. Every other body is `#!/bin/sh` + `set -eu`,
+# because agent_sys invokes a body as `["/bin/sh", entry]`
+# (`validator/phase.py:147`, `agent/backends/program.py:83`) — the shebang is
+# never consulted — and `/bin/sh` here is dash, which exits 2 on
+# `set -o pipefail` before line 2 runs.
+#
+# So callers must invoke this as `bash "$PKG/assets/lib/mock.sh" …`.
+# **`. mock.sh` from a dash body is the natural thing to write and it fails**
+# with an unhelpful `Bad substitution`; the guard below turns that into a
+# sentence.
+if [ -z "${BASH_VERSION:-}" ]; then
+  echo "mock.sh needs bash for \${!var}; invoke it as: bash \"\$PKG/assets/lib/mock.sh\" ..." >&2
+  exit 2
+fi
 set -euo pipefail
 
 : "${E2E_MOCK_ROOT:=/shared_nfs/yihou/agent_sys/cheat_for_mock}"
@@ -33,8 +49,13 @@ case ",${E2E_MOCK_STAGES}," in
   *,all,*)            ;;
   *",${short},"*)     ;;
   *",${stage},"*)     ;;
+  # **Exit 3, not 0.** Declining and having-mocked are different outcomes, and
+  # a caller that cannot tell them apart writes `mock.sh ... && exit 0` — which
+  # makes a task in REAL mode exit successfully having written nothing. That is
+  # the "ten validators PASS over a run in which every result was zero" failure,
+  # reproduced in four lines.
   *) echo "mock: ${stage} is not in E2E_MOCK_STAGES=${E2E_MOCK_STAGES}; running for real" >&2
-     exit 0 ;;
+     exit 3 ;;
 esac
 
 if [ ! -d "${E2E_MOCK_ROOT}/${stage}" ]; then

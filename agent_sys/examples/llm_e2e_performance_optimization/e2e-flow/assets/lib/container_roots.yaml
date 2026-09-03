@@ -1,0 +1,48 @@
+# Placeholder -> the path that placeholder stands for inside the engine image.
+#
+# **Why a patch cannot simply name its files.** `handoff/locality.py` refuses to
+# seal content naming an absolute path outside a small allow-list, and it scans
+# every UTF-8 file rather than only the README. `/sgl-workspace/` and `/opt/`
+# subpaths are outside it, so a manifest saying
+# `/sgl-workspace/sglang/python/sglang/srt/models/glm5_next.py` cannot be
+# published at all.
+#
+# The rule is right for what it is defending against -- a record of one machine's
+# afternoon is not transferable -- and wrong here, because a container path is
+# not a fact about a machine: every copy of the image has it. The framework has a
+# mechanism for exactly this (`locality.Oracles.image_prefixes`, fed from a
+# handoff kind's `dependencies`) and the two ends are not wired together; that is
+# `../../temp/bugs/002-handoff-dependencies-never-reach-locality-check.md`.
+#
+# So container roots travel as `@NAME@` and the expansion lives here, in the
+# package, which is staged rather than published. `analyze-demo` carries the same
+# file for the same reason.
+#
+# **`@NAME@` and not `${NAME}`.** `locality._CANDIDATE`'s lookbehind excludes
+# `[A-Za-z0-9._~@+-]`, and `}` is not in it -- so `${SGLANG_ROOT}/srt/models/x.py`
+# leaves `/srt/models/x.py` as a fresh two-segment candidate and fails anyway.
+# `@` is in the class.
+roots:
+  SGLANG_ROOT:
+    path: /sgl-workspace/sglang/python/sglang
+    description: >
+      The sglang python tree. An editable install points at its parent, so the
+      interpreter reads this directory directly and a bind mount over a file in
+      it is picked up with no rebuild. 87 MB. Carries the GLM-5.3-Flash model
+      code from sglang PR #36507.
+  AITER_ROOT:
+    path: /sgl-workspace/aiter
+    description: >
+      AITER kernels — HIP, assembly and Triton — gated on SGLANG_USE_AITER=1,
+      which the engine sets. 6.9 GB, which is why this package mounts individual
+      files and never a tree.
+  SGL_KERNEL_ROOT:
+    path: /sgl-workspace/sglang/sgl-kernel
+    description: >
+      Compiled sgl-kernel sources. A patch here needs the image rebuilt; it
+      cannot be delivered as an overlay, and apply_mode must say so.
+  TILELANG_ROOT:
+    path: /opt/tilelang
+    description: >
+      TileLang, which serves GLM-5.3-Flash's sparse attention on both the
+      prefill and decode side (--dsa-prefill-backend / --dsa-decode-backend).
