@@ -619,6 +619,25 @@ and m3 share it) and its **body** is m2's. That split is deliberate: the shared
 declaration is what stops the two-copies seam from reappearing, and the body has
 one author.
 
+**`../todo.md` is append-only for owners, and that is a correction to the row
+above.** Raised by `checkpoint` 2026-09-03 against m1's `c16a5bb`, which added
+T17 to a file the manifest assigns to the leader. checkpoint's reading is the
+one I am taking: **the manifest was wrong, not m1.** The whole point of `todo.md`
+is that a deferral gets recorded *at the moment it is found*, and the person who
+finds it is mid-task — routing it through the leader means it is written later,
+by someone who was not there, or not at all. A rule that is only obeyed by people
+who are not busy is not a rule.
+
+So: any owner may **append** a numbered item. Nobody but the leader may edit or
+remove an existing one, because renumbering under five concurrent readers is how
+a deferral silently becomes a different deferral. Commit it on its own or
+alongside the work that produced it, by path, as above.
+
+This is the second time the manifest has been wrong in the direction of
+over-centralising, and the pattern is worth naming: **a file the leader writes
+most of is not thereby a file only the leader may write.** Ownership here is
+about who resolves conflicts, not about who is allowed to contribute.
+
 **`assets/lib/` and `assets/bench/` are the two collision zones.** Announce a new
 file in either to the leader before landing it — three of us have already put
 something in `lib/`, and `bench/` holds `aiperf_replay.sh`, `pythonpath/` and
