@@ -151,7 +151,7 @@ def _interpreter(problems: list[str], notes: list[str]) -> str | None:
 _PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 
-def _measure_env(scratch: Path) -> dict[str, str]:
+def _measure_env(scratch: Path, python: str | None = None) -> dict[str, str]:
     """The environment the measurement subprocess needs, built rather than inherited.
 
     `TRITON_CACHE_DIR` because Triton otherwise writes to `$HOME/.triton`, and
@@ -174,6 +174,33 @@ def _measure_env(scratch: Path) -> dict[str, str]:
     env["TMPDIR"] = str(scratch / "tmp")
     for key in ("TRITON_CACHE_DIR", "TMPDIR"):
         Path(env[key]).mkdir(parents=True, exist_ok=True)
+
+    # **The interpreter `_interpreter()` chose has to reach the entrypoint, and
+    # until m3 asked it did not.** Raised by m3 2026-09-03 as "worth checking
+    # whether you have the same exposure"; checked, and the answer was yes.
+    #
+    # The body this replaced invoked a *Python script* directly, so passing the
+    # interpreter was `[python, script, ...]`. The workset's entrypoint is a
+    # *shell script*, so the interpreter can only reach it through the
+    # environment — and `_interpreter()`'s return value was being used as a
+    # yes/no probe and then discarded. `_PATH` above deliberately contains no
+    # venv, so the script's bare `python3` resolved to `/usr/bin/python3`, which
+    # has no torch.
+    #
+    # It would not have been silent here — the entrypoint exits non-zero and
+    # this body reports "the re-measurement failed" with the stderr tail — but
+    # it would have been *wrong*, and wrong in the expensive direction: it fails
+    # **both** sides identically, so it reads as a broken workset rather than as
+    # a missing interpreter, and the transcript would send somebody to m3's code.
+    #
+    # Both channels, because a workset may honour either: `KFO_PYTHON` for one
+    # that reads it, and the interpreter's own directory first on `PATH` for one
+    # that just says `python3`.
+    if python:
+        env["KFO_PYTHON"] = python
+        directory = os.path.dirname(os.path.abspath(python))
+        if directory:
+            env["PATH"] = directory + os.pathsep + env["PATH"]
     return env
 
 
@@ -579,9 +606,11 @@ def _remeasure(
     shutil.copytree(apparatus, seed_root)
     shutil.copytree(apparatus, candidate_root)
 
-    if _interpreter(problems, notes) is None:
+    python = _interpreter(problems, notes)
+    if python is None:
         return
-    env = _measure_env(root)
+    # Passed through, not merely probed for — see `_measure_env`.
+    env = _measure_env(root, python)
     operator_id = str(doc.get("operator"))
 
     seed_report = seed_root / "substantiate_seed.json"

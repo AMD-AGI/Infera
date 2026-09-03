@@ -54,7 +54,12 @@ while [ $# -gt 0 ]; do
     *) shift ;;
   esac
 done
-exec "${KFO_PYTHON:-python3}" "$DIR/emit.py" --plan "$DIR/plan.json" \
+# **A bare `python3`, deliberately.** An earlier version said
+# `${KFO_PYTHON:-python3}` and masked a real bug: it honoured a variable the
+# validator was not setting, so the kit could not see that the chosen
+# interpreter never reached the entrypoint. A real workset script says
+# `python3`, so this one does too.
+exec python3 "$DIR/emit.py" --plan "$DIR/plan.json" \
      --side "$([ -n "$IMPL" ] && echo candidate || echo baseline)" --out "$OUT"
 '''
 

@@ -46,6 +46,36 @@ import _lib as lib  # noqa: E402
 _PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 
+def _interpreter() -> str | None:
+    """An interpreter that can actually `import torch`, or `None`.
+
+    **A task body never reaches `AGENT_SYS_DEMO_PYTHON`** (`cli/main.py:668`
+    puts it in `validation_env`), so a bare `python3` gets the policy `PATH`'s
+    `/usr/bin/python3`, which has no torch. m1 found that; m3 hardened
+    `build_workset`'s `entry.sh` for it and asked whether this had the same
+    exposure. It does.
+    """
+    seen: list[str] = []
+    for candidate in (os.environ.get("KFO_PYTHON"), sys.executable,
+                      "/opt/venv/bin/python3", "python3"):
+        if not candidate or candidate in seen:
+            continue
+        seen.append(candidate)
+        try:
+            probe = subprocess.run([candidate, "-c", "import torch"],
+                                   capture_output=True, timeout=180)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if probe.returncode == 0:
+            return candidate
+    lib.die(
+        "no interpreter with torch found; tried " + ", ".join(seen) + ". Running the workset's "
+        "entrypoints under one without torch writes an evidence file full of failures that look "
+        "like the workset's fault. Set KFO_PYTHON to one that has it"
+    )
+    return None
+
+
 def _env(scratch: Path) -> dict[str, str]:
     env = dict(os.environ)
     env["PATH"] = env.get("PATH") or _PATH
@@ -54,6 +84,24 @@ def _env(scratch: Path) -> dict[str, str]:
     env["TMPDIR"] = env.get("TMPDIR") or str(scratch / "tmp")
     for key in ("TRITON_CACHE_DIR", "TMPDIR"):
         Path(env[key]).mkdir(parents=True, exist_ok=True)
+
+    # **The interpreter has to reach the entrypoint.** `_PATH` above carries no
+    # venv on purpose (it is the compiler's PATH, not the ML stack's), and the
+    # workset's entrypoint is a *shell script* — so the only way the right
+    # interpreter reaches it is the environment. Both channels, because a
+    # workset may honour either: `KFO_PYTHON` for one that reads it, and the
+    # interpreter's own directory first on `PATH` for one that says `python3`.
+    #
+    # Refusing here rather than letting the entrypoint fail is the point: run
+    # under an interpreter with no torch and every case in the evidence file
+    # fails, which reads as a broken workset rather than a missing dependency.
+    python = _interpreter()
+    if python:
+        env["KFO_PYTHON"] = python
+        directory = os.path.dirname(os.path.abspath(python))
+        if directory:
+            env["PATH"] = directory + os.pathsep + env["PATH"]
+
     # HIP_VISIBLE_DEVICES is deliberately NOT defaulted: on a shared host card 0
     # is somebody else's, and a default here moves the measurement onto it
     # silently.
