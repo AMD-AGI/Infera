@@ -208,3 +208,27 @@ had propagated into two contract documents.
 cheaper to keep than to re-negotiate, and because the argv/environment
 distinction is real even though this instance of it was not. **Would settle it:**
 the first real consumer, or a decision to drop the requirement.
+
+### T16 — `git`'s `index.lock` retry is not idempotent, and its no-op is silent
+*Opened 2026-09-03 by checkpoint, against a collision with the leader.*
+
+`CONTRACT §8a` told an owner whose commit hit `index.lock` to wait a second and
+retry. Measured: **the retry can silently do nothing.** In the seconds between
+the failure and the retry, another owner's commit named a tree and took the
+first owner's dirty file; the retry then found nothing to commit for that path
+and **said so by exiting quietly**.
+
+The owner reported *"T+60 is committed"* and it was not — by them. `3b2ffde` is
+the artefact: one owner's subject over 187 lines of another's file.
+
+**§8a's own verification step did not catch it**, which is the part that made it
+survive twenty minutes: `git show --stat --name-only HEAD` printed exactly the
+expected path, because HEAD was somebody else's commit **holding that path**.
+**Confirming the path is not confirming the commit.** Fixed in §8a — the check
+now leads with `git log -1 --format='%h %s'`.
+
+**Would settle it properly:** one worktree per owner, which is the structurally
+clean answer §8a declined in the morning because work was already in flight in
+one tree. That reason no longer holds as strongly — every module is complete and
+the remaining work is runs rather than edits. **Worth doing before the next
+effort, not during this one.**
