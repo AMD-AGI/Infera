@@ -120,12 +120,21 @@ subprocess's return code and output lands in `AgentMaterial.report`.
 ## The one place package-authored code is imported — and what that costs it
 
 A ``*.tooldef.py`` is executed in **the supervisor's own process** to read its
-module-level ``TOOLS``.
+module-level ``TOOLS``. That is not a sandboxed act and nothing here pretends it
+is: the supervisor holds the API credentials the whole confinement design exists
+to keep away from a task body. Three narrowings, and they are the whole defence:
+it is done only for that exact suffix, only under ``tools/`` of a resolved
+component, and only from the **staged** package or this repository's own
+`components/` — never from `Context.package`, which is the operator's live
+checkout. An in-process tool is worth this because the alternative measured
+shape (a stdio MCP server) costs a subprocess per tool and cannot share the
+supervisor's objects; a component that does not need that should ship a
+``*.mcp.py`` instead.
 
-**Measured 2026-09-03, and it has a consequence nobody had connected to it: an
-in-process tool cannot see the environment the run declared.** The security half
-of this sentence was written first — package code runs in the supervisor — and
-the other half follows from the same fact. The tool's ``call`` executes in the
+**The same fact has a second consequence, and nobody had connected it: an
+in-process tool cannot see the environment the run declared.** Measured
+2026-09-03. The security half above was written first — package code runs in the
+supervisor — and this follows from that same sentence. The tool's ``call`` executes in the
 supervisor's process, so it reads the **supervisor's** ``os.environ``;
 ``Prepared.environment``, which is where an agent spec's declared ``env`` block
 lands, is handed to the **CLI child** (`claude_sdk.py`'s
@@ -148,16 +157,37 @@ already loads each module once per attempt, so binding it at load — an additiv
 contract rather than a global — is available and unbuilt. Until that is ruled,
 a component needing a run-specific value should ship a ``*.mcp.py`` rather than
 a ``*.tooldef.py``. Written this way on purpose: a reader who finds a constraint
-recorded as permanent cannot tell it from one that has since been removed. That is not a sandboxed act and nothing here pretends it
-is: the supervisor holds the API credentials the whole confinement design exists
-to keep away from a task body. Three narrowings, and they are the whole defence:
-it is done only for that exact suffix, only under ``tools/`` of a resolved
-component, and only from the **staged** package or this repository's own
-`components/` — never from `Context.package`, which is the operator's live
-checkout. An in-process tool is worth this because the alternative measured
-shape (a stdio MCP server) costs a subprocess per tool and cannot share the
-supervisor's objects; a component that does not need that should ship a
-``*.mcp.py`` instead.
+recorded as permanent cannot tell it from one that has since been removed.
+
+**So the positive rule, which is what an author needs: a tool's per-run context
+arrives as a tool argument. It never arrives through the environment, because
+the tool runs in the supervisor.**
+
+**Forced by the process model, not a style preference**, and that is the part
+worth keeping: the supervisor is shared by every attempt and `agent/runner.py`
+is threaded by construction, so a tool reading *any* process-global state cannot
+be per-attempt **even if the value were populated correctly**. An argument binds
+per call; a closure binds per construction; the environment binds per process,
+and the process outlives the attempt. That is also why setting ``os.environ``
+around the handler was rejected rather than merely disliked — same root cause,
+not a second one.
+
+`remote/tools.py` is the shape done properly and is **not currently reachable
+from a package**, which is the honest form of a precedent you cannot follow:
+`tools(...)` is a **factory**, `prepare` calls it with the zone and connection in
+hand, and each `ToolDef.call` closes over them. A ``*.tooldef.py`` exposes a
+module-level ``TOOLS`` and nothing ever hands that module anything, so the
+closure half of the rule above is available to this package and not to its
+callers. An author has the argument half and only that.
+
+**The open question, dated 2026-09-03 and surfaced by run 2.** `env_mgr`'s own
+tools would have this exact bug if they were declared the way packages must
+declare theirs; they are immune only because they get a call site. **The missing
+piece is not documentation, it is the factory `env_mgr` already gives itself and
+does not give packages.** Whether to give it is undecided at the time of
+writing. If it was decided against, this is the record of what was rejected; if
+it was decided for, this is its specification. Deliberately the same words
+either way.
 """
 
 from __future__ import annotations
