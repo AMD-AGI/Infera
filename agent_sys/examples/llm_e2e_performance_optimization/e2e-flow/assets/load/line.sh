@@ -163,6 +163,27 @@ KIT_ENV_PREFIX="E2E_KIT_RUN_TAG='$E2E_KIT_RUN_TAG' \
 
 teardown() {
   local rc=$?
+  # **Reclaim before teardown, because reclaim needs the container alive.**
+  # CONTRACT §5.0: the engine and the AIPerf container run as root, so what they
+  # write into this invocation's work root — the traces under `profiles/` and
+  # AIPerf's own export under `aiperf/` — is root-owned, and only a process
+  # inside the same container can give it back.
+  #
+  # m2's *handoffs* are not affected: `replay.sh` and `scan.sh` **copy** into
+  # `$AGENT_SYS_OUTPUT_<KIND>` with `cp` run as the zone's user, so the copies
+  # are user-owned and only the originals on the node are root's. That is why
+  # this is about the node's disk rather than about the seal — but §5.0 says to
+  # call it in a `finally` without deciding first whether it will work, and it
+  # is idempotent and a no-op once the container is gone, so it is called
+  # unconditionally rather than behind a judgement that could be wrong.
+  #
+  # `$HS_WORK_ROOT_IN_CONTAINER` is unset if we failed before the handshake; in
+  # that case nothing was written and there is nothing to reclaim.
+  if [ -n "${HS_WORK_ROOT_IN_CONTAINER:-}" ] && [ -n "${CTR:-}" ]; then
+    on "bash '$PKG/assets/lib/reclaim.sh' '$CTR' '$HS_WORK_ROOT_IN_CONTAINER'" \
+      >"$WORKDIR/reclaim.log" 2>&1 \
+      || say "WARN: reclaim exited non-zero; see $WORKDIR/reclaim.log"
+  fi
   say "tearing down run_tag=$E2E_KIT_RUN_TAG"
   on "$KIT_ENV_PREFIX bash '$SCRIPTS/teardown.sh'" >"$WORKDIR/teardown.log" 2>&1 \
     || say "WARN: teardown exited non-zero; see $WORKDIR/teardown.log"
