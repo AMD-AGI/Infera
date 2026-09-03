@@ -309,7 +309,17 @@
 - module: task
   name: optimize_kernel
   description: Run the workset's own forge one-liner and its own tests, and hand back a kernel graded by them.
-  agent: e2e_kernel_optimizer
+  # **Switchable, and this is the mock mechanism** (mission Brief item 2:
+  # "通过 mock ai agent"). A `kind: ai` task does not run `entry.sh` — the
+  # backend runs the readme through a model — so promoting this task to `ai`
+  # took it off the mock path entirely. Measured: the first full mock run
+  # sat at `optimize_kernel: running` while an AI agent prepared to bring a
+  # model up for real, on a node passed in `--var`.
+  #
+  # `--var m4_agent=runner` swaps in the shared program agent, which does
+  # run `entry.sh`, which mocks. The default is the real agent, so a normal
+  # run is unchanged and the mock is the thing you have to ask for.
+  agent: '${m4_agent:-e2e_kernel_optimizer}'
   # A closure's `handoffs` names every kind its task mentions, **inputs
   # included** — it is what permissions are derived from, not a list of outputs.
   handoffs: [operator_workset, deploy_kit, kernel_optimization]

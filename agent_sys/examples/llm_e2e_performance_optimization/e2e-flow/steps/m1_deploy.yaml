@@ -187,7 +187,17 @@
 - module: task
   name: deploy_and_prove
   description: Bring the requested model up end to end on this host and pack the deployment into a runnable kit.
-  agent: e2e_deployer
+  # **Switchable, and this is the mock mechanism** (mission Brief item 2:
+  # "通过 mock ai agent"). A `kind: ai` task does not run `entry.sh` — the
+  # backend runs the readme through a model — so promoting this task to `ai`
+  # took it off the mock path entirely. Measured: the first full mock run
+  # sat at `deploy_and_prove: running` while an AI agent prepared to bring a
+  # model up for real, on a node passed in `--var`.
+  #
+  # `--var m1_agent=runner` swaps in the shared program agent, which does
+  # run `entry.sh`, which mocks. The default is the real agent, so a normal
+  # run is unchanged and the mock is the thing you have to ask for.
+  agent: '${m1_agent:-e2e_deployer}'
   handoffs: [deploy_kit]
   validators: []
   task:

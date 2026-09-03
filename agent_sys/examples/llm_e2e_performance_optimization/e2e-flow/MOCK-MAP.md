@@ -9,6 +9,37 @@ a real producer would never emit proves nothing, so nothing here synthesises —
 Source: `/shared_nfs/yihou/agent_sys/cheat_for_mock/`. **Read its `README.md`
 first**; it documents four things that mislead.
 
+## Mocking an AI task means swapping its agent, not its body
+
+**A `kind: ai` task does not run `entry.sh`.** The backend runs the readme
+through a model, so the moment m1, m3, m4 and m5 promoted their leaves from the
+skeleton's `agent: runner` to a real AI agent, those four went off the mock path
+entirely — `assets/lib/mock.sh` was still there and was never reached.
+
+Measured, and it is why this section exists: the first full mock run sat at
+`deploy_and_prove: running` while an AI deployment agent prepared to bring a
+model up **for real**, on the node passed in `--var`. Stopped by hand; the node
+was checked and nothing had been created.
+
+So each of the four declares `agent: '${m<N>_agent:-<the real agent>}'`, and a
+mock run swaps them:
+
+```sh
+--var mock_stages=all \
+--var m1_agent=runner --var m3_agent=runner \
+--var m4_agent=runner --var m5_agent=runner
+```
+
+`runner` is the shared program agent, so it runs `entry.sh`, which mocks. **The
+default is the real agent** — a normal run is unchanged and the mock is the
+thing you have to ask for, which is the right way round for a switch that
+decides whether a model gets called.
+
+Two more vars a mock run wants, both facts about the *artefact being graded*
+rather than about this run: `--var expect_ranks=2` (the sealed capture is TP-2
+while the flow's default `tp` is 8) and `--var adhoc_cases=0` (no sealed handoff
+carries an `adhoc.json` — `../todo.md` T12).
+
 ## The map
 
 | kind | mock source | adaptation needed |
