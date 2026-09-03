@@ -172,6 +172,25 @@ entries:
     required: false
     brief: The engine, router and etcd logs as produced. Optional — valuable, and not every deployment shape has three.
 
+  # ---- the two entrypoints ------------------------------------------------- #
+  # Named files rather than "something in scripts/", because mission M2.3 removes
+  # the `serve_baseline` step on the grounds that *"module 1 的 output 已经包含了
+  # 如何部署的全量信息"*. A later stage can only stand on that if the kit says
+  # **which** script starts the deployment — a directory of thirteen scripts is
+  # complete information for a person and none at all for a program. See
+  # `runtime_contract` below for what they must honour.
+  - path: scripts/deploy.sh
+    anchor: packup
+    kind: file
+    required: true
+    brief: Brings the whole deployment up and writes the handshake. The one entrypoint a consumer calls.
+
+  - path: scripts/teardown.sh
+    anchor: packup
+    kind: file
+    required: true
+    brief: Removes everything this run created, and only what this run created.
+
 # --------------------------------------------------------------------------- #
 # 3. Placeholders — a document that was templated and never written.
 #
@@ -254,6 +273,60 @@ evidence:
 # A list of flags rather than an attempt to recognise "a container name" from its
 # text: the flags are where a value enters a host-wide namespace, and they are
 # few and literal. Guessing at the semantics of a string would fail honest kits.
+runtime_contract:
+  # --------------------------------------------------------------------------- #
+  # 5. The runtime contract — what makes the kit *callable* rather than only
+  #    readable.
+  #
+  # M1.2.5 makes this the only handoff out of stage 1, and M2.3 deletes the
+  # `serve_baseline` step because this handoff already carries how to deploy. Two
+  # different programs then have to bring a service up from it: m2, to measure,
+  # and `check_deploy_serves`, to prove it can be. Neither can read prose.
+  #
+  # So three variables and one handshake file. The variables are what lets a
+  # second copy of the kit run beside the first *without editing it* —
+  # `shared_identifiers` below proves nothing is frozen, and this proves there is
+  # a documented way to re-point what is not. The two rules are complementary and
+  # neither implies the other: a kit can be fully parameterised and still be
+  # unusable by a program that does not know which of its forty names to set.
+  #
+  # `parameters` is a list rather than a fixed set of names so that a package
+  # standardising on a different prefix can say so here instead of forking the
+  # validator. Each must appear in a `${NAME:=…}` / `${NAME:-…}` form somewhere
+  # under `scripts/` — that form, and not a bare `$NAME`, because only the
+  # defaulting forms let the kit run with none of them set.
+  parameters:
+    - name: E2E_KIT_RUN_TAG
+      brief: >-
+        A token unique to this invocation. Every container name, port lock and
+        label the kit creates carries it, which is what makes teardown able to
+        remove what this run created **and nothing else** — the host's `docker ps`
+        shows every tenant's containers.
+    - name: E2E_KIT_PORT_BASE
+      brief: >-
+        The first port of a contiguous band the kit may bind. A caller that
+        already holds one deployment gives the second a different base; the kit
+        never picks a fixed port.
+    - name: E2E_KIT_WORK_ROOT
+      brief: >-
+        Where this invocation's workdir, logs and handshake go, on **local** disk.
+        A fixed workdir is the failure that survives fixing the names: two runs
+        share one `results/`, and the consequence is not mixed-up logs — which
+        you would notice — but a verifier reading the other run's evidence and
+        passing on it.
+  # Written by `scripts/deploy.sh` on success, read by every consumer. JSON and
+  # not a printed line: a consumer parsing stdout has to be told which line, and a
+  # kit that adds a banner breaks it silently.
+  handshake:
+    path: '${E2E_KIT_WORK_ROOT}/deployment.json'
+    required_keys: [endpoint, container, run_tag]
+    optional_keys: [engine_endpoint, ports, pid]
+    brief: >-
+      `endpoint` is the **product** endpoint — the router, not the engine's own
+      port. `engine_endpoint` is optional and is what unlocks the engine-side
+      diagnostic probes; a kit that omits it is not refused, it is less
+      diagnosable.
+
 shared_identifiers:
   scan: {anchor: packup, dir: scripts}
   binding_flags: ['--name', '--publish', '--volume', '--mount', '--port', '-p', '-v']

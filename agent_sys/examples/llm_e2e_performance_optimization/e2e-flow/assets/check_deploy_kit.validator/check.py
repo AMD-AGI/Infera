@@ -386,6 +386,44 @@ def check_shared_identifiers(rule: dict, roots: dict[str, Path]) -> list[str]:
 
 
 # --------------------------------------------------------------------------- #
+# the runtime contract
+
+
+def check_runtime_contract(contract: dict, scan_rule: dict, roots: dict[str, Path]) -> list[str]:
+    """Each declared parameter is honoured in a defaulting form under `scripts/`.
+
+    The defaulting forms only — `${X:=…}`, `${X:-…}`, `${X:?…}`. A bare `$X` is
+    not enough and the distinction is the whole point: a kit that reads `$X`
+    without a default runs correctly for a caller who sets it and breaks for the
+    reproducer who does not, which is the reader most likely to be holding this
+    kit.
+
+    Where the kit *writes* its handshake is not checkable statically — that is
+    what `check_deploy_serves` is for, and it fails loudly when the file does not
+    appear. What is checkable here is that the kit was written against these
+    names at all, and that is what this does.
+    """
+    base = roots[scan_rule["anchor"]] / scan_rule["dir"]
+    if not base.is_dir():
+        return []
+
+    seen: set[str] = set()
+    for path in sorted(p for p in base.rglob("*") if p.is_file()):
+        text = read(path)
+        if text is not None:
+            seen.update(PARAMETERISED.findall(text))
+
+    faults = []
+    for parameter in contract.get("parameters") or []:
+        if parameter["name"] not in seen:
+            faults.append(
+                f"{scan_rule['dir']}/: nothing reads ${{{parameter['name']}:=…}}. "
+                f"{' '.join(parameter['brief'].split())}"
+            )
+    return faults
+
+
+# --------------------------------------------------------------------------- #
 # the whole kit
 
 
@@ -441,6 +479,10 @@ def check_kit(content: Path, layout: dict) -> tuple[list[str], str]:
                 faults.append(
                     f"{entry['anchor']}/{entry['path']}: unfilled placeholder {found.group(0)!r}"
                 )
+
+    contract = layout.get("runtime_contract")
+    if contract:
+        faults += check_runtime_contract(contract, layout["shared_identifiers"]["scan"], roots)
 
     for rule in layout.get("evidence") or []:
         faults += check_evidence(rule, roots)

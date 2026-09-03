@@ -1,12 +1,472 @@
 #!/usr/bin/env python3
-"""SKELETON for `check_deploy_serves` — the owner replaces this.
+"""`check_deploy_serves` — usability, **strong**. Program, no model call.
 
-Until then it **fails**, on purpose. A validator that passes because it has not
-been written yet is the exact failure mode this whole package is built against:
-a previous stage reported ten validators PASS over a run in which every result
-was zero.
+Mission M1.2.3, the *real-run* validator: bring the service up **from the kit's
+own scripts**, curl `/health`, send a researched set of diagnostic probes, then a
+1k-in / 1k-out concurrency-16 three-minute load.
+
+The four phases, and what each is worth on its own:
+
+  1. **bring-up** — `scripts/deploy.sh` from the kit under test, with the three
+     `runtime_contract` parameters re-pointed so this deployment cannot collide
+     with the one that produced the kit (which may still be up). This phase alone
+     is the check M2.3 leans on when it deletes the `serve_baseline` step: it is
+     the proof that a later stage can deploy from this handoff and nothing else.
+  2. **probes** — `probes.yaml`, executed by `probe_runner.py` on the node.
+     Nothing here invents a probe (M1.2.3.3).
+  3. **load** — `assets/bench/aiperf_synthetic.sh`, which is the integration
+     package's `aiperf_replay.sh` with the trace swapped for the synthetic
+     generator. **Not a third load generator.**
+  4. **teardown** — always, including on every failure path, because the thing
+     this body leaves behind on a shared node is a GPU nobody else can use.
+
+**Where this runs and why it looks the way it does.** The validator body runs on
+the login node, which has no GPU and no docker; the deployment runs on the held
+compute node. So every phase is dispatched through `assets/lib/remote.sh`, the
+same seam every other body in this package uses, and the probe plan is resolved
+here and executed there by a standard-library-only program.
+
+**Everything site-specific arrives through `args`, not through the environment.**
+A validator declares no agent, so the package's `env` block — `E2E_TRANSPORT`,
+`E2E_JOBID`, all of it — never reaches this body; only the policy-derived
+environment does. That is measured, and the previous stage records one run lost
+to it. What is *not* in `args` is everything the kit itself recorded: the node,
+the model, the image, the ports. Those are read out of the kit's own
+`codes/environment.yaml`, because the kit is the thing under test and a probe
+pointed at anything but what the kit wrote is testing something else.
 """
-import sys
 
-print("check_deploy_serves: NOT IMPLEMENTED (skeleton)", file=sys.stderr)
-sys.exit(1)
+from __future__ import annotations
+
+import json
+import os
+import re
+import shlex
+import subprocess
+import sys
+import time
+import uuid
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+
+import schema as schema_lib  # noqa: E402
+import zone  # noqa: E402
+
+HERE = Path(__file__).resolve().parent
+LIB = HERE.parent / "lib"
+REMOTE_SH = LIB / "remote.sh"
+
+
+class NodeError(RuntimeError):
+    def __init__(self, command: str, returncode: int, output: str):
+        self.command, self.returncode, self.output = command, returncode, output
+        super().__init__(f"node command failed (rc={returncode}): {command}\n{output}")
+
+
+def on(command: str, transport: dict, *, check: bool = True, timeout: int | None = None) -> str:
+    """Run `command` on the compute node, through the one seam this package has.
+
+    `remote.sh` is sourced rather than reimplemented: a second spelling of
+    `srun --overlap …` here would be a second thing to keep in step with it. The
+    command is passed as a positional parameter, so it needs no quoting of its
+    own.
+    """
+    env = dict(os.environ)
+    env.update({k: str(v) for k, v in transport.items() if v})
+    proc = subprocess.run(
+        ["bash", "-c", f'. "{REMOTE_SH}"; on "$1"', "_", command],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=timeout,
+    )
+    output = (proc.stdout or "") + (proc.stderr or "")
+    if check and proc.returncode != 0:
+        raise NodeError(command, proc.returncode, output)
+    return output
+
+
+def envvars(mapping: dict) -> str:
+    """`A=1 B=2 ` — an explicit prefix, because no transport carries an environment.
+
+    Measured on this cluster: `MARK=x spur exec <id> bash -lc 'echo $MARK'`
+    prints empty. A body that relied on inheritance would work for an operator
+    whose login shell happens to export the names and fail for everyone else.
+    """
+    return "".join(f"{k}={shlex.quote(str(v))} " for k, v in mapping.items())
+
+
+# --------------------------------------------------------------------------- #
+# resolving the plan
+
+
+def resolve(text: str, bindings: dict[str, str]) -> str:
+    for name, value in bindings.items():
+        text = text.replace("${" + name + "}", str(value))
+    return text
+
+
+def resolve_deep(node, bindings: dict[str, str]):
+    if isinstance(node, str):
+        return resolve(node, bindings)
+    if isinstance(node, list):
+        return [resolve_deep(item, bindings) for item in node]
+    if isinstance(node, dict):
+        return {key: resolve_deep(value, bindings) for key, value in node.items()}
+    return node
+
+
+def build_plan(probes: dict, bindings: dict[str, str], available: set[str]) -> tuple[dict, list[str]]:
+    """`probes.yaml` plus this deployment's facts, as a plan `probe_runner` can run.
+
+    A probe whose `when:` condition is not met is **dropped and named**, not
+    silently skipped and not failed: `engine_endpoint_known` is false for a
+    deployment shape that does not publish the engine's own port, and that is a
+    legitimate kit rather than a broken one.
+    """
+    plan, dropped = [], []
+    for probe in probes["probes"]:
+        condition = probe.get("when")
+        if condition and condition not in available:
+            dropped.append(f"{probe['name']} (needs {condition})")
+            continue
+        resolved = resolve_deep(probe, bindings)
+
+        # `oversize_prompt_tokens` is the one field the yaml cannot express as a
+        # literal: the prompt has to be *built* from the context length the kit
+        # recorded. Four characters per token is a deliberate over-estimate — the
+        # probe needs to be over the limit, and by how much does not matter.
+        size = resolved["request"].pop("oversize_prompt_tokens", None)
+        if size is not None:
+            filler = "word " * int(int(size) * 1.2)
+            resolved["request"].setdefault("json", {})["messages"] = [
+                {"role": "user", "content": filler}
+            ]
+        plan.append(resolved)
+    return {"probes": plan}, dropped
+
+
+# --------------------------------------------------------------------------- #
+# the load's own acceptance
+
+
+def judge_load(summary: dict, accept: dict) -> list[str]:
+    """The load's floors, from `probes.yaml`. Deliberately low — see the yaml.
+
+    A criterion whose input is absent is reported as **unevaluated**, never as
+    passed. The whole package exists because a previous stage reported ten
+    validators PASS over a run in which every result was zero.
+    """
+    faults = []
+
+    count = (summary.get("request_count") or {}).get("avg")
+    floor = accept.get("min_completed_requests")
+    if floor is not None:
+        if count is None:
+            faults.append("request count is absent from the AIPerf summary — unevaluated, not passed")
+        elif count < floor:
+            faults.append(f"{count:.0f} completed request(s) under load, needs {floor}")
+
+    mean_osl = (summary.get("output_sequence_length") or {}).get("avg")
+    floor = accept.get("min_mean_output_tokens")
+    if floor is not None:
+        if mean_osl is None:
+            faults.append("output sequence length is absent from the AIPerf summary — unevaluated, not passed")
+        elif mean_osl < floor:
+            faults.append(
+                f"mean output length {mean_osl:.0f} tokens, needs {floor}: the engine "
+                f"stopped early, so every per-token number describes a shorter "
+                f"workload than the one that was asked for"
+            )
+    return faults
+
+
+# --------------------------------------------------------------------------- #
+# one kit
+
+
+def check_one(content: Path, parameters: dict, transport: dict, probes: dict) -> list[str]:
+    layout_name = parameters.get("layout", "deploy_kit.layout")
+    import yaml
+
+    layout = yaml.safe_load(
+        (schema_lib.package_root() / "assets" / "schemas" / f"{layout_name}.yaml").read_text()
+    )
+    package = schema_lib.package_root()
+
+    # ---- the kit, and what it says about itself ----------------------------
+    codes = content / layout["anchors"]["codes"]["path"]
+    pattern = re.compile(layout["anchors"]["packup"]["name_pattern"])
+    found = [e for e in sorted(codes.iterdir()) if e.is_dir() and pattern.match(e.name)] if codes.is_dir() else []
+    if len(found) != 1:
+        return [f"expected exactly one packup directory under items/codes, found {len(found)}"]
+    kit = found[0]
+
+    record = codes / "environment.yaml"
+    if not record.is_file():
+        return ["no codes/environment.yaml — nothing says what this kit deploys or where"]
+    environment = schema_lib._read_doc(record)
+    fixed = environment.get("fixed") or {}
+    served = fixed.get("served_model_name") or fixed.get("model_name")
+
+    # ---- re-point every identifier this deployment binds -------------------
+    # A fresh tag, a port base well clear of the recorded one, and a workdir of
+    # our own. The run that produced this kit may still be up, and a validator
+    # that takes its container name or its port is a validator that breaks the
+    # thing it is checking.
+    tag = f"serves-{uuid.uuid4().hex[:8]}"
+    work_root = f"{parameters['work_root'].rstrip('/')}/{tag}"
+    overrides = {
+        "E2E_KIT_RUN_TAG": tag,
+        "E2E_KIT_PORT_BASE": str(parameters["port_base"]),
+        "E2E_KIT_WORK_ROOT": work_root,
+    }
+    handshake = f"{work_root}/deployment.json"
+
+    faults: list[str] = []
+    deploy = parameters.get("deploy_entrypoint", "scripts/deploy.sh")
+    teardown = parameters.get("teardown_entrypoint", "scripts/teardown.sh")
+
+    print(f"check_deploy_serves: kit {kit.name}, tag {tag}, port base {overrides['E2E_KIT_PORT_BASE']}")
+
+    try:
+        # ---- 1. bring-up, from the kit's own scripts ------------------------
+        print("check_deploy_serves: 1/4 bring-up")
+        try:
+            output = on(
+                f"mkdir -p {shlex.quote(work_root)} && cd {shlex.quote(str(kit))} && "
+                f"{envvars(overrides)}bash {shlex.quote(deploy)}",
+                transport,
+                timeout=parameters.get("bringup_timeout_seconds", 3600),
+            )
+        except NodeError as exc:
+            return [f"{deploy} failed (rc={exc.returncode}); last output:\n{exc.output[-4000:]}"]
+        except subprocess.TimeoutExpired:
+            return [
+                f"{deploy} did not finish within "
+                f"{parameters.get('bringup_timeout_seconds', 3600)}s. A cold start is "
+                f"minutes of JIT and weight load, so this budget is slack rather than a "
+                f"target — a timeout here means it hung, not that it was slow"
+            ]
+        print(output[-2000:])
+
+        # The handshake `runtime_contract` mandates. Its absence is the fault,
+        # not a reason to go guessing at ports.
+        try:
+            raw = on(f"cat {shlex.quote(handshake)}", transport)
+            deployment = json.loads(raw)
+        except (NodeError, ValueError) as exc:
+            return [
+                f"{deploy} exited 0 but wrote no readable handshake at {handshake}: {exc}. "
+                f"`deploy_kit.layout.yaml` runtime_contract.handshake makes this file the "
+                f"one way a consumer learns the endpoint, and m2 deploys from this kit too"
+            ]
+        missing = [
+            key
+            for key in layout["runtime_contract"]["handshake"]["required_keys"]
+            if not deployment.get(key)
+        ]
+        if missing:
+            return [f"the handshake at {handshake} is missing {missing}"]
+
+        router = deployment["endpoint"]
+        engine = deployment.get("engine_endpoint")
+
+        # ---- 2. the probes ---------------------------------------------------
+        print("check_deploy_serves: 2/4 diagnostic probes")
+        available = set()
+        if engine:
+            available.add("engine_endpoint_known")
+        if fixed.get("context_length"):
+            available.add("context_length_known")
+
+        plan, dropped = build_plan(
+            probes,
+            {
+                "router": router,
+                "engine": engine or "",
+                "model": served or "",
+                "ctx": str(fixed.get("context_length") or ""),
+            },
+            available,
+        )
+        for name in dropped:
+            print(f"check_deploy_serves:   not applicable: {name}")
+
+        plan_path = f"{work_root}/probe_plan.json"
+        results_path = f"{work_root}/probe_results.json"
+        Path("probe_plan.json").write_text(json.dumps(plan, indent=2))
+        # The zone and the node share `/shared_nfs`, which is what makes a plain
+        # copy possible; `require_visible_on_node` in `remote.sh` is the check
+        # that says so when it stops being true.
+        on(
+            f"cat > {shlex.quote(plan_path)} <<'E2E_PLAN_EOF'\n"
+            + json.dumps(plan)
+            + "\nE2E_PLAN_EOF",
+            transport,
+        )
+        probe_output = on(
+            f"python3 {shlex.quote(str(package / 'assets/check_deploy_serves.validator/probe_runner.py'))} "
+            f"--plan {shlex.quote(plan_path)} --out {shlex.quote(results_path)}",
+            transport,
+            check=False,
+        )
+        print(probe_output)
+        try:
+            probe_results = json.loads(on(f"cat {shlex.quote(results_path)}", transport))
+        except (NodeError, ValueError) as exc:
+            return [f"the probe runner wrote no results: {exc}\n{probe_output[-2000:]}"]
+
+        Path("probe_results.json").write_text(json.dumps(probe_results, indent=2))
+        for row in probe_results["probes"]:
+            if row["passed"] is False and row["severity"] == "fail":
+                faults.append(
+                    f"probe {row['name']}: " + "; ".join(row["faults"])
+                )
+        for name in probe_results["warned"]:
+            print(f"check_deploy_serves: WARN probe {name} did not pass (severity warn, not fatal)")
+
+        if faults:
+            # The load is minutes of GPU on a shared node and it cannot tell us
+            # anything a failed probe has not already: skip it, and say so.
+            faults.append("the load was not sent — a deployment that fails a fatal probe has nothing to measure")
+            return faults
+
+        # ---- 3. the load -----------------------------------------------------
+        load = probes["load"]
+        print(
+            f"check_deploy_serves: 3/4 load — {load['input_tokens']}/{load['output_tokens']}, "
+            f"concurrency {load['concurrency']}, {load['duration_seconds']}s"
+        )
+        port = router.rsplit(":", 1)[-1].rstrip("/")
+        load_out = f"{work_root}/aiperf"
+        load_env = {
+            "NODE_IP": fixed.get("node_ip") or environment["runtime"].get("endpoint", "").split("//")[-1].split(":")[0],
+            "ROUTER_PORT": port,
+            "SERVED": served,
+            "MODEL": fixed["model_path"],
+            "MODEL_MOUNT": fixed["model_path"],
+            "AIPERF_IMAGE": parameters["aiperf_image"],
+            "AIPERF_OUT": load_out,
+            "SCRIPTS": str(package / "assets/bench"),
+            "ISL": load["input_tokens"],
+            "OSL": load["output_tokens"],
+            "CONCURRENCY": load["concurrency"],
+            "DURATION_S": load["duration_seconds"],
+            "TAG": tag,
+        }
+        try:
+            load_output = on(
+                f"{envvars(load_env)}bash {shlex.quote(str(package / 'assets/bench/aiperf_synthetic.sh'))}",
+                transport,
+                timeout=int(load["duration_seconds"]) + parameters.get("load_slack_seconds", 900),
+            )
+        except NodeError as exc:
+            return faults + [f"the load failed (rc={exc.returncode}):\n{exc.output[-4000:]}"]
+        except subprocess.TimeoutExpired:
+            return faults + [
+                f"the load did not finish within {load['duration_seconds']}s plus slack; "
+                f"a {load['duration_seconds']}s benchmark that overruns is a deployment "
+                f"that stopped answering partway through"
+            ]
+        print(load_output[-3000:])
+
+        csv = f"{load_out}/{tag}/profile_export_aiperf.csv"
+        summary_path = f"{work_root}/load_summary.json"
+        try:
+            on(
+                f"python3 {shlex.quote(str(package / 'assets/bench/summarise.py'))} "
+                f"{shlex.quote(csv)} {shlex.quote(summary_path)}",
+                transport,
+            )
+            summary = json.loads(on(f"cat {shlex.quote(summary_path)}", transport))
+        except (NodeError, ValueError) as exc:
+            return faults + [
+                f"the load ran but produced no readable summary at {csv}: {exc}. "
+                f"A load with no numbers has not shown the deployment serves under load"
+            ]
+        Path("load_summary.json").write_text(json.dumps(summary, indent=2))
+        faults += judge_load(summary, load["accept"])
+
+    finally:
+        # ---- 4. teardown, on every path -------------------------------------
+        # `check=False`: a teardown that fails must be reported, and it must not
+        # replace the verdict on the deployment. What it may never do is be
+        # skipped — this leaves a GPU behind on a node four other owners share.
+        print("check_deploy_serves: 4/4 teardown")
+        try:
+            print(
+                on(
+                    f"cd {shlex.quote(str(kit))} && {envvars(overrides)}bash {shlex.quote(teardown)}",
+                    transport,
+                    check=False,
+                    timeout=parameters.get("teardown_timeout_seconds", 600),
+                )[-2000:]
+            )
+        except Exception as exc:  # a teardown that itself hangs must not mask the verdict
+            print(f"check_deploy_serves: TEARDOWN FAILED: {exc}", file=sys.stderr)
+            print(
+                f"check_deploy_serves: containers and ports tagged {tag} may still be "
+                f"held on {fixed.get('node')} — check before the next run",
+                file=sys.stderr,
+            )
+
+    return faults
+
+
+def main() -> int:
+    parameters = zone.args()
+    import yaml
+
+    probes = yaml.safe_load((HERE / "probes.yaml").read_text())
+
+    # `args` overrides for the load shape, so `--var deploy_load_seconds=20`
+    # makes a wiring run cheap without editing the document that states the
+    # standard.
+    for key, arg in (
+        ("input_tokens", "load_input_tokens"),
+        ("output_tokens", "load_output_tokens"),
+        ("concurrency", "load_concurrency"),
+        ("duration_seconds", "load_seconds"),
+    ):
+        if parameters.get(arg):
+            probes["load"][key] = int(parameters[arg])
+
+    # **Both name sets, and that is a workaround with a date on it.**
+    # CONTRACT.md §6 says `assets/lib/remote.sh` dispatches on `$E2E_TRANSPORT`;
+    # the file in this package today is the integration package's, carried across
+    # unrenamed, and its `on()` reads `IT_TRANSPORT` / `IT_JOBID` / `IT_NODE`
+    # (`assets/lib/remote.sh:66,87,94`). Setting only the contract's names makes
+    # every call fail with `IT_JOBID is unset`, which names neither the contract
+    # nor the mismatch. Setting both works under either spelling and costs three
+    # strings. Drop the `IT_*` half once the rename lands — it is the leader's,
+    # because five modules call this seam.
+    where = {
+        "TRANSPORT": parameters.get("transport", "auto"),
+        "JOBID": parameters.get("jobid", ""),
+        "NODE": parameters.get("node", ""),
+    }
+    transport = {f"{prefix}_{k}": v for k, v in where.items() for prefix in ("E2E", "IT")}
+
+    results: dict[str, bool] = {}
+    for hid in zone.inputs():
+        content = zone.content_of(hid)
+        if content is None:
+            results[hid] = False
+            print(f"check_deploy_serves: {hid}: no staged content")
+            continue
+        try:
+            faults = check_one(content, parameters, transport, probes)
+        except Exception as exc:  # a body that dies must refuse, not vanish
+            faults = [f"the check itself failed: {type(exc).__name__}: {exc}"]
+        results[hid] = not faults
+        for fault in faults:
+            print(f"check_deploy_serves: {hid}: FAIL: {fault}")
+    zone.write_verdict(results)
+    print(f"check_deploy_serves: {results}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

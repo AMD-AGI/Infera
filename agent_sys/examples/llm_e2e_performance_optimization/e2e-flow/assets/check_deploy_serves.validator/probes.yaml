@@ -1,0 +1,317 @@
+# The diagnostic probe set `check_deploy_serves` sends, as a document.
+#
+# Mission M1.2.3.3: *"基本的 curl 操作正确性检查：不允许临时发挥，网上调研几个常用
+# 的针对不同方向诊断的 curl，放入 validator 中"*. Two halves, and both are load
+# bearing:
+#
+#   * **不允许临时发挥** — a probe invented at the moment of writing tests
+#     whatever the author happened to think of. Every row below carries a
+#     `source:` naming where the probe comes from: the engine's own documented
+#     API, an upstream issue that measured a divergence, or first-hand evidence
+#     from this repository. A row with no source does not belong here.
+#   * **针对不同方向** — the set is organised by the *failure direction* each row
+#     discriminates, not by endpoint. Two probes that fail together for the same
+#     reason are one probe.
+#
+# The table is yaml rather than code so the criteria are readable without
+# reading the runner, and so the runner holds no probe of its own
+# (M1.1.1 / M3.7.2 — nothing structurable goes in prose or in a literal).
+#
+# `${...}` placeholders are substituted by the runner from the kit's own
+# `codes/environment.yaml` — never from this package's variables, because the
+# thing under test is the kit, and a probe pointed at anything but what the kit
+# recorded is testing something else.
+#
+#   ${router}   runtime.endpoint          the product endpoint, the infera router
+#   ${engine}   http://host:ports.worker  the engine's own HTTP port, when recorded
+#   ${model}    fixed.served_model_name, falling back to fixed.model_name
+#   ${ctx}      fixed.context_length
+#
+# `severity`:
+#   fail  the deployment is not usable, or is usable in a way that will silently
+#         corrupt a downstream measurement. Refuses the handoff.
+#   warn  a real difference, recorded in the verdict output and not fatal —
+#         either the engine legitimately varies here between versions, or the
+#         probe has a known upstream defect that makes a hard gate dishonest.
+
+schema_version: 1
+
+probes:
+
+  # ------------------------------------------------------------------ liveness
+  - name: router_health
+    direction: >-
+      Is anything listening on the product endpoint at all? Everything after this
+      is meaningless if it is not, so it runs first and short-circuits the rest.
+    severity: fail
+    # The only probe that stops the set. Nine failures whose single cause is
+    # "nothing is listening" is nine lines of noise around one fact.
+    short_circuit: true
+    request: {method: GET, url: '${router}/health', timeout: 15}
+    expect:
+      status: 200
+    source: >-
+      infera's own router route table (`infera/server`, routes `/health`,
+      `/metrics`, `/v1/models`, `/v1/workers`, `/v1/chat/completions`), and the
+      SGLang native-API docs, which list `GET /health` as the liveness check.
+      https://docs.sglang.io/docs/basic_usage/native_api
+
+  # -------------------------------------------------------------- registration
+  - name: worker_registered
+    direction: >-
+      The router is up but is any worker attached? This is the failure that looks
+      like a slow server: the router answers `/health`, accepts a completion, and
+      the request then queues or 500s with nothing in the router log. Measured
+      upstream in the same shape — sglang-router calls `/get_server_info` during
+      `discover_metadata` with a hard-coded 10 s timeout, and a worker whose
+      metadata call times out is **never registered** while everything else looks
+      healthy.
+    severity: fail
+    request: {method: GET, url: '${router}/v1/workers', timeout: 20}
+    expect:
+      status: 200
+      json_nonempty: workers
+      json_all:
+        - {path: 'workers[].status', equals: active}
+    source: >-
+      First-hand: `integration-demo/assets/accept/probe.py:131` gates its whole
+      eval on this list, and the sealed stage-1 kit carries the same reading in
+      `results/router_workers.json`. Upstream corroboration for the silent
+      non-registration: sgl-project/sglang#20836.
+
+  - name: mode_readback
+    direction: >-
+      Was the deployment shape actually achieved? `mix` is selected by
+      **omitting** a flag, so the launch command is not evidence of it. This is
+      the router's independent reading; `check_deploy_kit` separately requires
+      the worker's own.
+    severity: fail
+    request: {method: GET, url: '${router}/v1/workers', timeout: 20}
+    expect:
+      status: 200
+      json_present:
+        - 'workers[].disagg_mode'
+    source: First-hand — `results/router_workers.json` and `verification.json` in the sealed kit.
+
+  # ------------------------------------------------------------------ identity
+  - name: model_identity
+    direction: >-
+      Is the model registered under its published name, or under the filesystem
+      path it was loaded from? The second is what a caller copies into every
+      request, so it travels much further than the host it came from. It is also
+      the single most common cause of a mysterious 400 against a healthy server:
+      the model id the client sends does not exist on the server.
+    severity: fail
+    request: {method: GET, url: '${router}/v1/models', timeout: 15}
+    expect:
+      status: 200
+      json_nonempty: data
+      json_all:
+        - {path: 'data[].id', equals: '${model}'}
+        - {path: 'data[].id', not_matches: '^/'}
+    source: >-
+      Measured in this repository (one kit registered `Qwen/Qwen3.6-27B`, the
+      next `/data/<user>/…`), and it is the first curl every serving
+      troubleshooting guide recommends for exactly the 400-on-a-healthy-server
+      reason. https://docs.vllm.ai/en/latest/usage/troubleshooting/
+
+  # ------------------------------------------------- HTTP alive, engine wedged
+  - name: engine_generation_ready
+    direction: >-
+      **The one probe that separates "the HTTP layer answers" from "the model can
+      generate".** `/health`, `/v1/models` and `/get_model_info` do not go
+      through the scheduler's ZMQ path, so all three keep answering while
+      generation is wedged; `/health_generate` runs an actual generation. A
+      deployment that passes the four probes above and fails this one is up, is
+      serving, and will hang the first real request.
+    severity: fail
+    request: {method: POST, url: '${engine}/health_generate', timeout: 120}
+    when: engine_endpoint_known
+    expect:
+      status: 200
+    source: >-
+      SGLang native APIs — `/health` a lightweight liveness check,
+      `POST /health_generate` a health check that confirms generation.
+      https://docs.sglang.io/docs/basic_usage/native_api
+      Caveat carried deliberately: sgl-project/sglang#12731 reports the two
+      behaving identically on some builds, which makes this probe redundant
+      rather than wrong on those builds. Redundant is acceptable; absent is not.
+
+  - name: engine_model_info
+    direction: >-
+      Did the engine load the checkpoint the kit says it did? Discriminates a
+      server that is healthy and serving **the wrong weights** — which no
+      latency or health probe can see and which silently invalidates every
+      number every later stage produces.
+    severity: warn
+    when: engine_endpoint_known
+    request: {method: GET, url: '${engine}/get_model_info', timeout: 30}
+    expect:
+      status: 200
+      json_present: [model_path]
+    source: >-
+      SGLang native APIs; the sealed kit records the same reading in
+      `results/engine_health.json`. `warn` because the engine's own port is not
+      the product path and a deployment shape may legitimately not publish it.
+
+  - name: engine_server_info
+    direction: >-
+      Were the launch arguments the kit documents the ones the server is actually
+      running? Read back rather than asserted — the flags a later stage needs to
+      match (tp size, context length, graph capture) are here.
+    severity: warn
+    when: engine_endpoint_known
+    request: {method: GET, url: '${engine}/get_server_info', timeout: 30}
+    expect:
+      status: 200
+    source: >-
+      SGLang native APIs (`get_server_info` merges several deprecated
+      endpoints). **`warn` and short-timeout on purpose**: sgl-project/sglang#20836
+      reports `/get_server_info` hanging indefinitely in disaggregated mode when
+      warm-up is skipped or fails, so a hard gate here would refuse a healthy
+      deployment for an upstream defect. https://github.com/sgl-project/sglang/issues/20836
+
+  # ---------------------------------------------------------- it answers, well
+  - name: completion_nonstreaming
+    direction: >-
+      A real answer comes back through the **router**, not only from the engine
+      port, and it finished on its own. Discriminates three distinct faults that
+      all present as a working server: a reasoning parser that eats `content` and
+      leaves it empty while the request still succeeds; a token budget too small
+      for a reasoning preamble, which returns `finish_reason: "length"`; and a
+      router that accepts but does not forward.
+    severity: fail
+    request:
+      method: POST
+      url: '${router}/v1/chat/completions'
+      timeout: 300
+      json:
+        model: '${model}'
+        messages: [{role: user, content: 'What is the capital of France? Answer with one word.'}]
+        max_tokens: 2048
+        temperature: 0
+    expect:
+      status: 200
+      json_all:
+        - {path: 'choices[].finish_reason', equals: stop}
+        - {path: 'choices[].message.content', nonempty: true}
+        - {path: 'model', not_matches: '^/'}
+    source: >-
+      First-hand: this is the shape of the sealed kit's
+      `results/chat_completion.json` and of `integration-demo/assets/accept/probe.py`,
+      whose header records why each of the three faults *"produces a number
+      rather than an error"*. The reasoning-budget half is documented as a trap
+      in the stage-1 task brief.
+
+  - name: completion_streaming
+    direction: >-
+      The streaming path is **different code** from the non-streaming one, and
+      every benchmark downstream of this stage measures TTFT and ITL over it. A
+      deployment whose non-streaming path works and whose stream never terminates
+      is one that passes every probe above and produces no measurement at all.
+    severity: fail
+    request:
+      method: POST
+      url: '${router}/v1/chat/completions'
+      timeout: 300
+      stream: true
+      json:
+        model: '${model}'
+        messages: [{role: user, content: 'Count from one to five.'}]
+        max_tokens: 256
+        temperature: 0
+        stream: true
+    expect:
+      status: 200
+      sse_min_chunks: 2
+      sse_terminates: true
+      sse_no_error: true
+    source: >-
+      https://docs.sglang.io/docs/basic_usage/native_api and the SSE convention
+      (`data: [DONE]`). `sse_no_error` is not decoration — see the next probe.
+
+  # ------------------------------------------------------- limits, and the trap
+  - name: context_limit_refused
+    direction: >-
+      Is the context length the server enforces the one the kit documents? A
+      server started with a smaller window than the kit claims accepts every
+      short request and truncates or refuses the long ones — visible here and
+      nowhere else in this validator.
+      **And the researched trap this row exists for:** SGLang's OpenAI-compatible
+      endpoint returns HTTP **400** for a context overflow when
+      `stream: false`, but HTTP **200 carrying an error payload** when
+      `stream: true` — where vLLM returns 400 for both. A checklist that gates on
+      the status line alone therefore reports a streaming failure as a success.
+      So this probe is sent **twice**, once each way, and the streaming half is
+      judged on the body.
+    severity: warn
+    when: context_length_known
+    request:
+      method: POST
+      url: '${router}/v1/chat/completions'
+      timeout: 120
+      oversize_prompt_tokens: '${ctx}'
+      json:
+        model: '${model}'
+        max_tokens: 16
+        temperature: 0
+    expect:
+      any_of:
+        - {status_in: [400, 413, 422]}
+        - {json_present: [error]}
+        - {sse_carries_error: true}
+    source: >-
+      sgl-project/sglang#19996 — *"/v1/chat/completions with stream=true returns
+      HTTP 200 for context overflow error (vLLM returns 400)"*, and #12100.
+      https://github.com/sgl-project/sglang/issues/19996
+      `warn` because the *shape* of the refusal is what upstream is still
+      changing; what must not happen is a hang or a 500, and both of those fail
+      the `any_of` above.
+
+  # ------------------------------------------------------------- observability
+  - name: metrics_exposed
+    direction: >-
+      Can a later stage tell **saturated** from **broken**? A server can pass
+      every health probe while requests sit in the scheduler queue, and the two
+      look identical from the outside. `sglang:num_queue_reqs`,
+      `sglang:cache_hit_rate` and the latency histograms are what distinguish
+      them, and they are also what m2 reads.
+    severity: warn
+    request: {method: GET, url: '${router}/metrics', timeout: 20}
+    expect:
+      status: 200
+      body_matches: '(?m)^(sglang:|smg_|sgl_router_|# (HELP|TYPE))'
+    source: >-
+      infera's own route table exposes `/metrics`; SGLang publishes
+      `sglang:`-prefixed series and the router/gateway `smg_*` / `sgl_router_*`.
+      **`warn`, measured reason:** SGLang does not expose `/metrics` at all
+      unless the server was launched with `--enable-metrics`, so its absence is a
+      launch-flag choice rather than a broken deployment.
+      https://docs.sglang.io/docs/basic_usage/native_api
+
+# --------------------------------------------------------------------------- #
+# The load, mission M1.2.3.4: 1k input / 1k output, concurrency 16, three
+# minutes. Sent by `assets/bench/aiperf_synthetic.sh`, which is
+# `../../../integration-demo/assets/bench/aiperf_replay.sh` with the trace
+# swapped for AIPerf's synthetic generator — the same container idiom, the same
+# four load-bearing container settings, **not a third load generator**.
+#
+# The floors are deliberately low. This validator's question is "does this
+# deployment serve", not "is it fast"; the numbers that mean something are m2's,
+# measured under controlled conditions. A floor here that encoded a performance
+# expectation would fail a healthy deployment on a busy node.
+load:
+  input_tokens: 1024
+  output_tokens: 1024
+  concurrency: 16
+  duration_seconds: 180
+  accept:
+    # A run that completes no requests has not shown the deployment serves under
+    # load, however clean its exit code.
+    min_completed_requests: 16
+    # Errors under a load this small are not a capacity limit.
+    max_error_rate: 0.01
+    # The output length is what `ignore_eos` pins; a mean far below the request
+    # means the engine stopped early and the ITL numbers describe a shorter
+    # workload than the one that was asked for.
+    min_mean_output_tokens: 512

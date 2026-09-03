@@ -1,26 +1,78 @@
 # Stage 1 — deploy.
 #
-# **Skeleton, frozen by the leader.** The kind, its wiring and its place in the
-# graph are contract (CONTRACT.md §1) and do not move. The task body, the AI
-# agent and `check_deploy_kit`'s substance are **m1's owner's work**; every
-# `OWNER:` note below marks one.
+# The kind, its wiring and its place in the graph are contract (CONTRACT.md §1)
+# and do not move. Everything else here is m1's.
 #
-# Definition order is load-bearing within a file: validator, kind, leaf, non-leaf.
+# Definition order is load-bearing within a file: agent, validators, kind, leaf,
+# non-leaf.
 
 # --------------------------------------------------------------------------- #
-# OWNER m1: this validator is a placeholder with the right identity and no
-# substance yet. Mission M1.1 asks for the kit's file and directory layout to be
-# written into **its own yaml** — `assets/schemas/deploy_kit.layout.yaml` — and
-# for a **program** validator that checks against it. M1.1.1 adds: nothing that
-# can be structured goes into markdown, so `environment.md` becomes a rendering
-# of `codes/environment.yaml` and stops being the record.
+# 1. The agent.
 #
-# Carry across from `../deploy-demo/steps/deploy.yaml:110-175` the six checks
-# that were each a *measured* fault rather than a rule somebody liked —
-# `require_served_name_not_a_path`, `require_mode_readback`,
-# `require_completion_evidence`, `min_json_results`, `require_expected_output`,
-# `environment_facts` — and re-express the last as "validates against
-# `environment.schema.json`", which is what M1.1.1 is asking for.
+# `kind: ai`, and the skeleton's `agent: runner` is replaced rather than kept,
+# because a bring-up is judgement work: pick free ports on a shared host, read
+# the repository's own examples, watch a log repeat `Health check failed` for
+# four minutes and decide that is a JIT compile rather than a hang. None of that
+# is a command somebody already wrote — and the moment it is, this closure should
+# be demoted to a program.
+#
+# **What the AI is not doing is inventing a method.** Mission G4.2.1 puts the
+# ordered commands and their acceptance criteria in
+# `assets/deploy_and_prove.task/readme.md`'s STEPS section; this agent sequences
+# them and reads what comes back.
+#
+# `backend_entry` is the dotted form rather than an entry-point name: a task
+# package outside this repository cannot register an entry point in the
+# `agent_sys.backends` group without being installed, and this package is data.
+#
+# **No `env` block here.** `shared.yaml` is this package's only variable
+# declaration site by design, and every `E2E_*` name this task reads is declared
+# there. A second `env` block would be a second place for a default to go stale.
+# No credential is written here or anywhere else in this package: model
+# credentials reach a body from the operator's own settings allow-list, by name,
+# through `env_mgr.harness.harness_env`.
+- module: agent
+  name: e2e_deployer
+  kind: ai
+  version: '1'
+  description: Turns a plain deployment instruction into a proven bring-up and a runnable delivery kit.
+  # **No `skills:`, and that is a change from `../deploy-demo`.** That package
+  # declared the packup skill because the skill was the authority for the kit's
+  # layout. Here the authority is `assets/schemas/deploy_kit.layout.yaml` — that
+  # is the whole of M1.1 — and the readme quotes it. Declaring the skill as well
+  # would give the agent two authorities that can disagree, and it would add a
+  # required `--var packup_skill=<path>` whose only honest value is one
+  # operator's home directory.
+  #
+  # If a site does want the skill in the zone, add `skills: ['${packup_skill}']`
+  # here and pass the var: `env_mgr` redirects `CLAUDE_CONFIG_DIR` into the zone
+  # and a session reads skills from `$CLAUDE_CONFIG_DIR/skills/`, so a skill only
+  # arrives if it is declared.
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+# --------------------------------------------------------------------------- #
+# 2. The validators. Neither carries a `kind:` key — `validator.schema.json` has
+# no such field and `additionalProperties: false`. The two are told apart by
+# `tags.logic_source` and `tags.cost`, which is the pair a phase is ordered by:
+# cheapest first, so a malformed kit fails in seconds instead of after a bring-up.
+#
+# Both are **program** validators (G4.1: 能程序化的，尽量不用 ai).
+
+# M1.1. Every rule it applies is read from `assets/schemas/deploy_kit.layout.yaml`
+# at run time; the body holds none of its own. `args.layout` names that file, so
+# a package standardising on a different layout re-points it rather than forking
+# the validator.
+#
+# The five checks mission M1.1 asks to be carried across from `../deploy-demo`
+# are all in that yaml — `served_name_not_a_path`, `mode_readback`,
+# `completion_evidence`, `results/` `min_files`, `Expected output`. The sixth,
+# `environment_facts`, is **replaced** as M1.1.1 asks: the record is
+# `codes/environment.yaml` validated against `environment.schema.json`, and
+# `environment.md` is checked as a *rendering* of it rather than by three
+# regexes over prose.
 - module: validator
   name: check_deploy_kit
   version: '1'
@@ -35,15 +87,18 @@
     cost: seconds
     domain: [llm_e2e, deploy, m1]
 
-# --------------------------------------------------------------------------- #
-# OWNER m1: the real-run validator mission M1.2.3 asks for — health curl, a
-# **researched** set of diagnostic curls rather than improvised ones, and a
-# 1k/1k concurrency-16 three-minute load. The aiperf idiom to reuse is
-# `../integration-demo/assets/bench/aiperf_replay.sh`; do not write a third
-# load generator.
+# M1.2.3, the real-run validator: the kit's own `scripts/deploy.sh` brings the
+# service up, a **researched** probe set (`probes.yaml`) diagnoses it in several
+# directions, and a 1k/1k concurrency-16 three-minute load runs through
+# `assets/bench/aiperf_synthetic.sh`.
 #
-# `cost: gpu_hours` is honest and is what puts it *after* the shape check, so a
-# malformed kit fails in seconds instead of after a bring-up.
+# **Everything site-specific is an `arg`, and that is forced rather than
+# chosen.** A validator declares no agent, so this package's `env` block never
+# reaches its body — only the policy-derived environment does. Everything the
+# *kit* recorded (node, model, image, ports) is read from the kit's own
+# `codes/environment.yaml` instead, because the kit is the thing under test.
+#
+# `cost: gpu_hours` is honest, and it is what puts this validator second.
 - module: validator
   name: check_deploy_serves
   version: '1'
@@ -52,10 +107,37 @@
   strength: strong
   inputs: [deploy_kit]
   args:
+    layout: deploy_kit.layout
+    # How to reach the node, and which one. No defaults for the allocation: a
+    # default here is one job's answer shipped as everyone's and it goes stale
+    # the hour the job ends.
+    transport: '${transport:-auto}'
+    jobid: '${jobid}'
+    node: '${node}'
+    # The kit's own entrypoints, by the names `deploy_kit.layout.yaml` requires.
+    # Arguments rather than literals so a package whose kits are shaped
+    # differently re-points them here.
+    deploy_entrypoint: '${deploy_entrypoint:-scripts/deploy.sh}'
+    teardown_entrypoint: '${teardown_entrypoint:-scripts/teardown.sh}'
+    # Where **this** deployment goes. Distinct from the producer's on purpose:
+    # the run that produced the kit may still be up, and a validator that takes
+    # its ports or its container name breaks the thing it is checking.
+    work_root: '${validate_work_root:-/mnt/m2m_nobackup/yihou/e2e_flow/validate}'
+    port_base: '${validate_port_base:-8140}'
+    # AIPerf runs in its own container: the engine image ships Python 3.10 and
+    # AIPerf needs >= 3.11.
+    aiperf_image: '${aiperf_image:-nvcr.io/nvidia/ai-dynamo/aiperf:25.09}'
+    # The load shape, overridable so a wiring run costs seconds. The standard is
+    # stated once, in `probes.yaml`; these only override it.
     load_input_tokens: '${deploy_load_in:-1024}'
     load_output_tokens: '${deploy_load_out:-1024}'
     load_concurrency: '${deploy_load_conc:-16}'
     load_seconds: '${deploy_load_seconds:-180}'
+    # A cold bring-up of a large model runs to minutes before the server is
+    # ready. Slack, not a budget: a timeout here should mean it hung.
+    bringup_timeout_seconds: '${deploy_bringup_timeout_seconds:-3600}'
+    load_slack_seconds: '${deploy_load_slack_seconds:-900}'
+    teardown_timeout_seconds: '${deploy_teardown_timeout_seconds:-600}'
     timeout_seconds: '${deploy_timeout_seconds:-5400}'
   tags:
     logic_source: external_dynamic
@@ -63,19 +145,18 @@
     domain: [llm_e2e, deploy, m1]
 
 # --------------------------------------------------------------------------- #
-# The kind. **One handoff out of stage 1** (M1.2.5: 只产出一个 Handoff，应是
-# module 2、module 5 的输入) — and in this flow it reaches m3 and m4 as well,
-# because it carries the environment record and because those stages have to run
-# things in the container m1 brought up.
+# 3. The kind. **One handoff out of stage 1** (M1.2.5) — and in this flow it
+# reaches m3 and m4 as well, because it carries the environment record and
+# because those stages run things in the container m1 brought up.
 #
 # `content_type: code`, and the choice was between this and `reproducible`.
 # `reproducible`'s required items are `result` and `env`, and `check_items`
 # rejects a top-level item the type never declared — so laying a packup into it
 # renames every file the layout mandates and destroys the thing
 # `check_deploy_kit` exists to check. `code` requires exactly one item, `codes`,
-# whose interior is unconstrained, so the kit survives byte for byte with its
-# own name on it and `codes/environment.yaml` is where the environment record
-# lives (CONTRACT.md §2).
+# whose interior is unconstrained, so the kit survives byte for byte with its own
+# name on it and `codes/environment.yaml` is where the environment record lives
+# (CONTRACT.md §2).
 #
 # No `items_schema`: it could only restate `codes`, and a closed one would
 # additionally reject `logs` and `watchout`, which the `code` type itself lists
@@ -89,17 +170,21 @@
   validators: [check_environment, check_deploy_kit, check_deploy_serves]
 
 # --------------------------------------------------------------------------- #
-# OWNER m1: `agent: runner` is the **skeleton's** answer, so that the graph
-# loads and the mock run works before any module is written. A bring-up is
-# judgement work — pick free ports on a shared host, read the repo's own
-# examples, watch a log repeat `Health check failed` for four minutes and decide
-# that is a JIT compile rather than a hang — so the finished form is a
-# `kind: ai` agent declared in this file, as `../deploy-demo/steps/deploy.yaml`
-# does it.
+# 4. The leaf.
+#
+# `goal` is capped at 100 characters by `task.schema.json` and is a human label,
+# not an instruction channel — everything the agent is told is in
+# `assets/deploy_and_prove.task/readme.md`, found by convention from the folder
+# name.
+#
+# **No `resources`.** A leaf may declare a pool and this one legitimately wants
+# GPUs, but `cli/build.py` is the only reader and the CLI composition root
+# declares no pools, so a `resources` block here would name a pool that does not
+# exist.
 - module: task
   name: deploy_and_prove
   description: Bring the requested model up end to end on this host and pack the deployment into a runnable kit.
-  agent: runner
+  agent: e2e_deployer
   handoffs: [deploy_kit]
   validators: []
   task:
