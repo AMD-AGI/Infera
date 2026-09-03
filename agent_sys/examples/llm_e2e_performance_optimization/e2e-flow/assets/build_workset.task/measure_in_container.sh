@@ -112,6 +112,34 @@ else
   COMMAND="$*"
 fi
 
+# **Is that image actually on the node?** Checked before `docker run`, because
+# the two failure modes without this are both bad: docker tries to *pull* a
+# 90 GB image it may not have credentials for, or fails with a message about a
+# manifest that sends the reader to a registry rather than to the record.
+#
+# This is a live seam, not a hypothetical. The sealed `deploy_kit` names
+# `infera/engine-sglang:gfx950-local`, which is on **neither** held node — `031`
+# carries `rocm/sgl-dev:*`, `infera/engine-vllm:test-local*` and m1's newer
+# build; `061` carries no sglang or infera image at all. So a mock run that
+# inherits the sealed record will land here, and it should land here saying
+# exactly that rather than somewhere less obvious.
+#
+# The image is still taken from the record and **not** guessed or overridden.
+# The record is the claim; this checks the claim against the machine and reports
+# the disagreement. Substituting a different image would make the evidence be
+# about something the handoff does not describe.
+if ! on "docker image inspect '$IMAGE' >/dev/null 2>&1"; then
+  echo "measure_in_container: the environment record names image" >&2
+  echo "    $IMAGE" >&2
+  echo "  and it is not present on ${E2E_NODE:-the node}. Not pulling: it would be tens of GB" >&2
+  echo "  and the record, not this script, is what has to be right." >&2
+  echo "  Images that ARE on that node:" >&2
+  on "docker images --format '    {{.Repository}}:{{.Tag}}'" >&2 || true
+  echo "  Either the kit's record should name one of those, or that image should be" >&2
+  echo "  built/pulled onto the node before this stage runs." >&2
+  exit 1
+fi
+
 echo "measure_in_container: $IMAGE on GPU $E2E_MEASURE_GPU as $E2E_MEASURE_CONTAINER"
 
 # `--rm` so nothing is left behind, and a name nothing else owns: **never
