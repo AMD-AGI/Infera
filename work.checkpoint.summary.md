@@ -3584,3 +3584,139 @@ finished.** And my T+120 claim that the six-rung ladder would not fit the window
 rested on extrapolating from a rung 0 that, per `1238b78`, cannot complete here
 at all.
 
+
+---
+
+## T+190 — 2026-09-03 16:40 UTC
+
+### The number that matters, before any percentage
+
+**10 of 21 validators have ever produced a recorded verdict in the graph** —
+first-hand, 16:40:04 UTC, and **every tally is byte-identical to my 16:17
+reading**:
+
+`check_environment` 67 · `check_deploy_kit` 34 · `check_deploy_serves` 32 ·
+`check_command_parses` 23 · `check_bench_result` 14 · `check_trace_coverage` 5 ·
+`check_kernel_table` 5 · `check_worklist_shape` 4 · `check_profiling_evidence` 4 ·
+`check_identity_resolved` 3.
+
+**Trajectory: 15:00 = 5 · 15:06 = 5 · 15:14 = 9 · 15:40 = 10 · 16:17 = 10 ·
+16:40 = 10.**
+
+**This is different from the last flat interval and I want the distinction on the
+record.** Between 15:40 and 16:17 the distinct count was flat while every tally
+grew — the graph was running hard and re-judging the same ten. Between 16:17 and
+16:40 **nothing moved at all.** Run count is 33, unchanged. **The newest run
+directory is `20260903T161626`, so no run has started in 24 minutes.** The graph
+is not running; it stopped.
+
+*Caveat, restated:* recordable only against a **sealed** version — exact for
+recorded output-validation verdicts, a lower bound on execution. A FAIL counts.
+
+**Written validators: 21/21.** **Graph loads: pass**, rc 0, 17 closures.
+
+### Standing checks
+
+| check | result |
+|---|---|
+| (a) index leak | **clean** |
+| (b) per-commit ownership | **all three clean.** Third consecutive clean interval |
+| (c) `todo.md` | 17 items, **no change** since T+165 |
+| holds | both `R` to **20:45** — **4 h 05 m**, and the graph has used none of it |
+| `/home` | 100 G free, recovered; the outage did not recur |
+
+### 1. Progress
+
+**~70 %, unchanged, and I am deliberately not moving it.** Elapsed 190 m.
+Estimated remaining: **I no longer have a defensible figure.**
+
+**Reliability: low — a downgrade, and the first one in this effort.** At T+165 I
+wrote that the estimate was dominated by a single unknown: how much of the ladder
+fits in the remaining hold. Twenty-three minutes later that unknown has not
+shrunk, and the one observable that would inform it — the graph running — has
+stopped. Three commits in twenty-three minutes, against roughly fifteen in the
+comparable interval before.
+
+**What I can say:** rungs 1–5 all require the GPU nodes (`1238b78`), 4 h 05 m of
+hold remain, and no rung above 0 has been attempted. **What I cannot say** is
+whether the last twenty-three minutes are a wind-down, a deliberate pause before
+a node run, or five owners each deep in something that has not surfaced yet. From
+outside, those three look identical — which is the same blind spot effort 1
+recorded twice, and I am labelling it rather than guessing past it.
+
+### 2. Current state, per module
+
+- **m2-profiling** — `09b8db4`: exercised the **real bring-up path against a stub
+  kit**, and two things it found. The only module with a code commit this
+  interval, and the only one demonstrably still working.
+- **m1-deploy, m3-analysis, m4-kernel-opt, m5-integration** — no commits.
+  **Unknown, not scored.** m4 and m5 have now been quiet for two consecutive
+  intervals; that is long enough to be worth naming, and not long enough to
+  conclude anything from.
+- **leader** — two commits, both `CONTRACT.md`, both corrections.
+
+### 3. Code problems
+
+**None found this interval.** All three commits clean on ownership — the third
+consecutive clean interval, against six violations in the 13:50–14:52 window.
+Whatever §8a's amended form is doing, it is holding.
+
+### 4. Non-code problems
+
+**`/home` did not refill.** 100 G free.
+
+**The `git gc` warning I reported at T+165 is unaddressed** — `gc.log` still
+blocks automatic cleanup and git still reports too many unreachable loose
+objects. Nobody has pruned, and it is not mine to prune. Low urgency now that
+space is back, but it is a slow leak on a volume that hit 100 % once today.
+
+### 5. Open questions
+
+- **Is the graph stopped on purpose?** Dominant question. No run since 16:16:26.
+- **Will any rung above 0 be attempted before 20:45?** 4 h 05 m of hold left,
+  entirely unused by the graph. If the answer is no, the ladder is the
+  deliverable's largest unclosed gap and the holds expire unused.
+- **The eleven unjudged validators** — all node-gated, or some unreachable in the
+  current wiring? Unchanged from T+165, and unanswerable without a node run.
+- **m4 and m5's actual state.** Two intervals quiet, reported complete at 15:10,
+  never verified by me.
+
+### 6. New commits
+
+**3 since T+165** (92 since `9646910`). Leader 2, m2 1.
+
+- **`25d9c01` — "todo.md is append-only for owners: the manifest was wrong, not
+  m1."** My T+165 §3 finding, accepted and fixed at the level I argued for.
+- `84b359e` — CONTRACT §4.4: the same root cause has three faces, and **two
+  invent a problem**.
+- `09b8db4` — m2 against a stub kit.
+
+### 7. Anything else
+
+**`25d9c01` is worth recording as a process result, not just a fix.** At T+165 I
+reported m1 committing `todo.md` as a breach of the §8a manifest, and argued the
+manifest was what was wrong: if owners are expected to record deferrals at the
+moment they hit them, the file cannot be leader-exclusive. The leader made
+`todo.md` append-only for owners. **The check found a real conflict in the
+contract by flagging a technically-correct violation** — which is the argument
+for reporting breaches whose content is benign, rather than filtering them out as
+noise. Had I suppressed it as harmless, the conflict would still be there and the
+next owner would still be choosing between the rule and the work.
+
+**`84b359e`'s subject deserves attention: "the same root cause has three faces,
+and two invent a problem."** Two of three reported symptoms were not real
+problems. That is the same shape as this section's headline — a signal that looks
+like several things and is one thing, or looks like a problem and is an artefact
+of how it was observed. **Today has produced four instances**: twenty validators
+written but never run; twelve "running" a broken interpreter; thirty-three runs
+re-judging ten validators; and now three faces of one root cause, two of them
+invented. Every one was resolved by finding a measurement that could tell the
+cases apart.
+
+**The honest summary of this interval is that nothing happened and I do not know
+why.** The record has spent the afternoon distinguishing ceilings from stalls; I
+can say this is not a ceiling, because a ceiling still shows tallies climbing.
+Beyond that I would be guessing, and 4 h 05 m of unused GPU hold is too
+consequential a thing to guess about. If the next section reads the same, that
+silence will itself be the finding.
+
