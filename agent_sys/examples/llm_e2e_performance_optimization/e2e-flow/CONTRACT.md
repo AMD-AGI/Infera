@@ -380,6 +380,48 @@ asks whether your situation is the same as theirs, **check rather than reason**
 — m4 assumed the interpreter exposure was "probably moot inside the shared
 container" and it was in two places.
 
+#### A half-parameterised identifier is worse than an unparameterised one
+
+m1's, 2026-09-03, committed **while writing the fix for the same class**. They
+parameterised etcd's port at its *producer* — `--listen-client-urls
+http://0.0.0.0:${PORT}` — and left the literal in its *consumer*,
+`--etcd-endpoint $MY_IP:2379`. The router died with `ConnectError`, **naming
+neither the port nor the mismatch**, and they had to find it by hand.
+
+**Because it looks fixed.** An unparameterised identifier is visibly hard-coded
+and the next reader treats it accordingly; a half-parameterised one presents a
+variable at the site anybody checks and a literal at the site nobody does. §4.3
+is about one authority with two readers, and a port is exactly that — so
+**fixing one end and not the other is this section's failure mode, not a
+different one.**
+
+The check is mechanical: having parameterised an identifier, grep the *value*
+you removed, not the name you introduced.
+
+#### When a symptom has candidate causes in more than one owner's work, reproduce before attributing
+
+`checkpoint`'s, and it is the rule I would want the next effort to start with.
+**Inference across an ownership boundary was wrong every time it was tried
+today; measurement was right every time.**
+
+The expensive instance was the leader's. Rung 0 refused three times at
+`check_deploy_serves`; the cause was a missing `--var transport_env`, attributed
+first to m1's GLM deployment holding GPUs, then to a missing `local` branch in
+m2's `remote.sh`. Both readings were coherent, both were about somebody else's
+work, and both were wrong. What settled it was copying the validator's zone and
+running it under `env -i` — one command, and the diagnostic named the cause
+outright.
+
+m3 hit the mirror image within the hour: they inferred a general defect in m1's
+records from a node mismatch **they had created themselves** with an ambient
+`E2E_JOBID`, and flagged it as *worth checking rather than assuming*. The flag is
+why it became a check instead of work handed to the person the ladder was
+waiting on. The record was two commands away and consistent.
+
+**The asymmetry is the point.** A wrong guess about your own code costs you a
+few minutes. A wrong guess about a colleague's costs them an audit of work that
+was never broken, and it arrives with your authority attached.
+
 ### 4.4 A fixture that is more convenient than production tests the fixture
 
 m2's wording, kept nearly verbatim because the last sentence is the whole rule.
