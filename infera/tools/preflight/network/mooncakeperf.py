@@ -84,6 +84,7 @@ from .netperf import (
     _barrier,
     _exit_reason,
     _gid_index,
+    _gid_override,
     _mgmt_ip,
     _nics,
     _parse_rdma_errno,
@@ -129,9 +130,9 @@ def _ref_gid() -> int:
     """
     global _GID_CACHE
     if _GID_CACHE is None:
-        selected = os.environ.get("INFERA_PREFLIGHT_GID_INDEX")
+        selected = _gid_override()
         if selected is not None:
-            _GID_CACHE = int(selected)
+            _GID_CACHE = selected
         else:
             nics = _nics()
             _GID_CACHE = _gid_index(nics[0] if nics else _RDMA_DEVICE)

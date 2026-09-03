@@ -77,3 +77,18 @@ def test_selected_gid_overrides_first_nic(monkeypatch):
         "nics": ["mlx5_0"],
         "gid": 3,
     }
+
+
+def test_invalid_selected_gid_warns_and_uses_detected_value(monkeypatch, capsys):
+    monkeypatch.setattr(netperf, "_nics", lambda: ["mlx5_0"])
+    monkeypatch.setattr(netperf, "have", lambda _: True)
+    monkeypatch.setattr(netperf, "_mgmt_ip", lambda: "10.0.0.1")
+    monkeypatch.setattr(netperf, "_gid_index", lambda _: 7)
+    monkeypatch.setenv("INFERA_PREFLIGHT_GID_INDEX", "not-an-integer")
+
+    assert netperf.detect_local() == {
+        "mgmt_ip": "10.0.0.1",
+        "nics": ["mlx5_0"],
+        "gid": 7,
+    }
+    assert "invalid INFERA_PREFLIGHT_GID_INDEX" in capsys.readouterr().err

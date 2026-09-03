@@ -154,6 +154,16 @@ def test_mooncake_selected_gid_overrides_nic_probe(monkeypatch):
     assert mooncakeperf._ref_gid() == 3
 
 
+def test_mooncake_invalid_selected_gid_warns_and_uses_detected_value(monkeypatch, capsys):
+    monkeypatch.setattr(mooncakeperf, "_GID_CACHE", None)
+    monkeypatch.setattr(mooncakeperf, "_nics", lambda: ["mlx5_0"])
+    monkeypatch.setattr(mooncakeperf, "_gid_index", lambda _: 7)
+    monkeypatch.setenv("INFERA_PREFLIGHT_GID_INDEX", "not-an-integer")
+
+    assert mooncakeperf._ref_gid() == 7
+    assert "invalid INFERA_PREFLIGHT_GID_INDEX" in capsys.readouterr().err
+
+
 def test_mooncake_selected_device_pins_gpu_variants(monkeypatch):
     monkeypatch.setattr(mooncakeperf, "_nics", lambda: ["mlx5_0"])
     monkeypatch.setenv("INFERA_PREFLIGHT_RDMA_DEVICE", "mlx5_0")

@@ -216,14 +216,11 @@ def main():
         if rel == "disaggregation/mooncake/conn.py":
             if not any(new in out for _, new in _TYPING_IMPORT_VARIANTS):
                 matches = [
-                    (old, new)
-                    for old, new in _TYPING_IMPORT_VARIANTS
-                    if out.count(old) == 1
+                    (old, new) for old, new in _TYPING_IMPORT_VARIANTS if out.count(old) == 1
                 ]
                 if len(matches) != 1:
                     counts = ", ".join(
-                        f"{old!r}={out.count(old)}"
-                        for old, _ in _TYPING_IMPORT_VARIANTS
+                        f"{old!r}={out.count(old)}" for old, _ in _TYPING_IMPORT_VARIANTS
                     )
                     print(
                         f"{_TAG} expected exactly one supported typing import "

@@ -192,15 +192,10 @@ def main():
         return 1
     src = out = f.read_text()
     if _SERVING_MARKER not in out:
-        matches = [
-            (old, new)
-            for old, new in _SERVING_VARIANTS
-            if out.count(old) == 1
-        ]
+        matches = [(old, new) for old, new in _SERVING_VARIANTS if out.count(old) == 1]
         if len(matches) != 1:
             counts = ", ".join(
-                f"variant-{i}={out.count(old)}"
-                for i, (old, _) in enumerate(_SERVING_VARIANTS, 1)
+                f"variant-{i}={out.count(old)}" for i, (old, _) in enumerate(_SERVING_VARIANTS, 1)
             )
             print(
                 f"{_TAG} expected exactly one supported GenerateReqInput tail "
