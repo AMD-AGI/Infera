@@ -77,7 +77,7 @@ single run, so `CLAUDE_PROJECTS_DIR` must be a stable path. Sessions from every
 run accumulate there, which is exactly the requested scope: the panel shows
 `agent_sys`'s sessions and not the user's.
 
-## 3. Session isolation — four gates
+## 3. Session isolation — five gates
 
 1. **Write side.** `CLAUDE_CONFIG_DIR=$AGENT_SYS_CLAUDE_HOME` is added to
    `assignment.environment`, so the `claude` CLI that `agent_sys` spawns writes
@@ -92,6 +92,39 @@ run accumulate there, which is exactly the requested scope: the panel shows
    `~/.codex`, `~/.gemini` or Cursor database is never read.
 4. **Separate archive.** `AGENTSVIEW_DATA_DIR=$AGENT_SYS_STATE/agentsview`. A
    pre-existing `~/.agentsview` belonging to the user is never opened.
+5. **`HOME=$AGENT_SYS_HOME` for the daemon — a filesystem gate, and the
+   durable one.** `ensure_running` launches the daemon with
+   `{**prefix.environment(), "PATH": …, "HOME": str(prefix.root)}`. AgentsView
+   computes every provider's *default* session root from `HOME`, so with `HOME`
+   pointed at the prefix **every root it could scan resolves inside the
+   prefix** — `openclaude` looks in `~/.infera_agent_sys/.openclaude/projects`,
+   `codex` in `~/.infera_agent_sys/.codex/sessions`, and so on.
+
+   Measured with `agentsview doctor sync`, run with exactly the environment
+   `ensure_running` passes:
+
+   ```
+   roots listed              : 122
+   roots OUTSIDE the prefix  :   0
+   roots that exist          :   1   — claude, our own projects dir (ok, configured)
+   ```
+
+   **Why this outranks gate 3 rather than merely duplicating it.**
+   `disabled_agents` is a *denylist matched by name*: it protects only against
+   providers we have already enumerated, and it goes stale the moment upstream
+   adds one — which is not hypothetical, since a wrong name in that same list
+   made `serve` exit 1 for a day. Gate 5 needs no list. A provider we have never
+   heard of still cannot reach `~/.codex`, `~/.gemini` or a Cursor database,
+   because the path it computes is rooted in a `HOME` that is ours. Gate 3
+   stays — it stops us *scanning* what gate 5 stops us *reaching*, and defence
+   in depth is the point — but gate 5 is the one that cannot fall behind.
+
+   **This is load-bearing and easy to delete by accident.** `HOME` in that dict
+   looks like boilerplate; removing it would silently restore every default root
+   to the user's real home and **nothing would go red**. `tests/env_mgr/
+   test_o11y_agentsview.py` must therefore assert that the launch environment
+   carries `HOME` pointing into the prefix. At the time of writing it does not,
+   and the gate exists by accident rather than by contract.
 
 **Consequence that must be handled, not discovered later:** moving
 `CLAUDE_CONFIG_DIR` also moves where the child looks for credentials and
