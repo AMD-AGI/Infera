@@ -266,6 +266,10 @@ def main() -> int:
     })
     lib.write_json(packup / lib.DOC, document)
 
+    # MOCK-MAP (A). **After** the document, because (G) touches the same tree
+    # and because the warnings the record carries are the ones (G) just decided.
+    lib.render_environment(content, (premise.get("verdict") or {}).get("warnings") or [])
+
     problems = lib.validate("kernel_optimization", document)
     if problems:
         print("the adapted mock does not validate against kernel_optimization.schema.json:", file=sys.stderr)

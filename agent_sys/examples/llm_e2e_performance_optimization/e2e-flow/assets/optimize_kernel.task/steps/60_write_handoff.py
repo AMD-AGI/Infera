@@ -457,6 +457,11 @@ def main() -> int:
 
     lib.write_json(packup / lib.DOC, document)
 
+    # CONTRACT §2 / mission G5: every handoff carries the environment record.
+    # After the document, because the M4.3.5 warnings recorded in `premise` are
+    # what travel in its `warnings[]` channel.
+    lib.render_environment(Path(a.out), (premise.get("verdict") or {}).get("warnings") or [])
+
     # The same facts, in the file m5 actually opens. Written from `apply_block`
     # rather than assembled a second time: two records of one fact that are
     # built twice are two records that drift, and `check_optimization_shape`

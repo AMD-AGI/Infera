@@ -237,6 +237,56 @@ def container_path_for(target_file: str, repo_root_var: str = "") -> str | None:
     return best[1] if best else None
 
 
+def render_environment(out: Path, warnings: list[dict] | None = None) -> None:
+    """MOCK-MAP (A) / CONTRACT §2: write `items/codes/environment.yaml`.
+
+    **Every handoff carries the environment record** (mission G5), and this one
+    did not — in the real path as well as the mock. The leader reported it as a
+    mock adaptation, which is where it was found; it is not one. `mock.sh`
+    copies sealed bytes and the sealed stage-4 handoff predates the record
+    entirely, so the mock has nothing to copy — but `60_write_handoff.py` was
+    never writing it either, so a *real* m4 run would have failed
+    `check_environment` for the same reason with no mock involved.
+
+    **Inherited from the `deploy_kit`, verbatim, and never rebuilt.** m1 is the
+    sole producer because the flow's premise is that modules 1–4 are talking
+    about one container: a stage that re-derived the record could differ from
+    m1's and nothing would notice, while a stage that inherits it cannot. The
+    `deploy_kit` rather than the workset because that is where the record
+    originates and it is the source `load_environment` already uses — one
+    source in the real path and the mock path, so the mock exercises the real
+    wiring rather than a parallel one.
+
+    The `warnings` are M4.3.5's software-level differences. They travel in the
+    record's own `warnings[]` channel, which `environment.schema.json` defines
+    for exactly this, so m5 sees them without knowing anything about m4's
+    premise block.
+    """
+    source = input_content("deploy_kit") / "items" / "codes" / "environment.yaml"
+    if not source.is_file():
+        die(f"no environment.yaml at {source}; m1's kit does not carry the environment record")
+    argv = [
+        sys.executable, str(package() / "assets" / "lib" / "env_render.py"),
+        "--inherit", str(source), "--content-type", "code", "--out", str(out),
+    ]
+    for warning in warnings or []:
+        argv += ["--warn", f"{warning['field']}={warning['expected']}!={warning['actual']}"]
+    import subprocess
+
+    # `E2E_STAGE` is what env_render stamps each warning with. Unset it reads as
+    # `stage: ''`, and a warning that does not say which stage noticed the
+    # difference is markedly less useful to m5 than one that does.
+    environment = dict(os.environ)
+    environment.setdefault("E2E_STAGE", "m4")
+    done = subprocess.run(argv, capture_output=True, text=True, env=environment)
+    if done.returncode != 0:
+        # env_render validates before it writes, so a non-zero exit means the
+        # record is malformed and nothing was written. A handoff carrying a
+        # malformed environment record is worse than one carrying none: both
+        # fail `check_environment`, and the malformed one looks like a record.
+        die(f"env_render failed: {(done.stderr or done.stdout).strip()[-400:]}")
+
+
 def expand_container_path(container_path: str) -> Path | None:
     """`@SGLANG_ROOT@/srt/x.py` -> the real path, using `container_roots.yaml`.
 
