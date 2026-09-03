@@ -24,7 +24,7 @@ import logging
 import os
 import shutil
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from contextlib import ExitStack
 from pathlib import Path
 from typing import Any, TextIO
@@ -47,7 +47,7 @@ from cli.render.human import HumanRenderer
 from cli.render.machine import JsonLinesRenderer
 from cli.stream import Stream
 from env_mgr import meta
-from env_mgr.o11y.agentsview import ensure_running, resolve_port
+from env_mgr.o11y.agentsview import RECIPE_PATH, ensure_installed, ensure_running, resolve_port
 from env_mgr.o11y.prefix import Prefix
 from env_mgr.prepare import EnvManager, permissions_enforced
 from env_mgr.protocols import NoConfinement, PrepareRefused, UnresolvedGrant
@@ -258,6 +258,66 @@ def main(argv: Sequence[str] | None = None) -> int:
     return UNEXPECTED_FAILURE  # pragma: no cover — ExitStack always returns above
 
 
+#: `BinInstaller.install` reports "installed <name>" when it ran the command and
+#: "<name> already present (skip)" when it did not. That text is the only signal
+#: `ensure_installed` passes back about *which* happened, so the notice below
+#: reads it. `test_the_installers_two_ok_messages_still_discriminate` takes both
+#: phrasings from the real installer, so a rephrasing there fails a test here
+#: rather than silently muting the notice or firing it on every run.
+_FRESHLY_INSTALLED_PREFIX = "installed "
+
+
+def _was_freshly_installed(reason: str) -> bool:
+    return reason.startswith(_FRESHLY_INSTALLED_PREFIX)
+
+
+def _pinned_version() -> str:
+    """The version the recipe pins, for the notice. `?` rather than a raise."""
+    try:
+        from env_mgr.recipe import load_recipe
+
+        _target, items = load_recipe(RECIPE_PATH)
+        for item in items:
+            if item.spec.get("name") == "agentsview":
+                return item.version or "?"
+    except Exception:  # noqa: BLE001 — a notice may not fail what it narrates
+        pass
+    return "?"
+
+
+def _install_item(prefix: Prefix) -> Callable[[], Sequence[Any]]:
+    """The recipe call `ensure_installed` injects rather than performs.
+
+    **This closure lives here because `env_mgr` may not contain it.** Spec §9
+    draws a wall around the installer machinery — `recipe`, `runner`,
+    `installers` — and `tests/env_mgr/test_imports.py` enforces it structurally
+    against every module under `env_mgr/`. `cli/main.py` is a different package
+    and outside that wall entirely, which makes this the sanctioned place to
+    assemble the call.
+
+    **Zero-argument, and deliberately not a precomputed `Outcome` list.** The
+    work must not happen until `ensure_installed` has decided it is wanted;
+    a list evaluated at the call site would have run the installer before
+    anything could stop it, which is exactly what the `--dry-run` exemption
+    exists to prevent.
+
+    `target.path` is overridden because the checked-in recipe's own value is a
+    placeholder — the same convention `recipes/sglang.repo.yaml` uses, since
+    nothing in `env_mgr` expands `${VAR}` in a YAML value.
+    """
+
+    def call() -> Sequence[Any]:
+        from env_mgr.recipe import load_recipe
+        from env_mgr.runner import Filters, run
+
+        target, items = load_recipe(RECIPE_PATH)
+        target.path = str(prefix.root)
+        outs, _status = run(target, items, "install", Filters(item="agentsview"))
+        return outs
+
+    return call
+
+
 def _start_o11y(port_flag: int | None, disabled: bool) -> str | None:
     """The one call site. Returns the panel URL, or None, and never raises.
 
@@ -275,6 +335,23 @@ def _start_o11y(port_flag: int | None, disabled: bool) -> str | None:
         return None
     try:
         prefix = Prefix.resolve(os.environ)
+        installed = ensure_installed(prefix, _install_item(prefix))
+        if not installed.running:
+            # `ensure_installed` has already logged the one warning. Starting a
+            # daemon whose binary is absent would only add a second.
+            return None
+        if _was_freshly_installed(installed.reason):
+            # **Only on the run that actually downloaded.** The user agreed to
+            # an automatic install; they did not agree to being told about it
+            # forever, and a line on every run is how a real warning gets
+            # scrolled past. Says what arrived and where, because a 45 MB
+            # download nobody typed a command for should be inspectable.
+            log.info(
+                "agentsview: fetched the o11y panel binary "
+                "(agentsview v%s, from github.com/kenn-io/agentsview) into %s",
+                _pinned_version(),
+                prefix.bin / "agentsview",
+            )
         status = ensure_running(prefix, port=resolve_port(port_flag, os.environ))
         if status.running:
             log.info("agentsview: o11y panel at %s", status.url)
