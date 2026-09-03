@@ -122,9 +122,12 @@ run accumulate there, which is exactly the requested scope: the panel shows
    **This is load-bearing and easy to delete by accident.** `HOME` in that dict
    looks like boilerplate; removing it would silently restore every default root
    to the user's real home and **nothing would go red**. `tests/env_mgr/
-   test_o11y_agentsview.py` must therefore assert that the launch environment
-   carries `HOME` pointing into the prefix. At the time of writing it does not,
-   and the gate exists by accident rather than by contract.
+   test_o11y_agentsview.py` asserts that the launch environment carries `HOME`
+   pointing into the prefix, at all three call sites that build this dict
+   (`ensure_running`, `check_disabled_agents`, `discover_providers`) —
+   mechanically confirmed to catch the regression by stripping `HOME` from
+   all three and watching the corresponding tests go red before restoring it.
+   The gate now exists by contract, not by accident.
 
 **Consequence that must be handled, not discovered later:** moving
 `CLAUDE_CONFIG_DIR` also moves where the child looks for credentials and
