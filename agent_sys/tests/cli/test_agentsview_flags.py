@@ -197,3 +197,47 @@ def test_the_side_car_never_exports_into_this_process(monkeypatch) -> None:
     before = dict(os.environ)
     assert cli_main._start_o11y(port_flag=9009, disabled=False) == "http://127.0.0.1:9009"
     assert dict(os.environ) == before
+
+
+# --------------------------------------------------------------------------- #
+# The readiness probe writes a transcript too
+
+
+def test_the_readiness_probe_writes_into_the_prefix_not_the_users_claude_dir(
+    monkeypatch,
+) -> None:
+    """`preflight_credentials` spawns `claude -p`, so it produces a transcript.
+
+    It is not an agent child, so gate 1 (`assignment.environment`) never
+    covered it, and it was therefore writing one JSONL into the user's
+    `~/.claude/projects` on **every** run. The promise was that `agent_sys`
+    does not write there; the probe is a child like any other and gets the same
+    `CLAUDE_CONFIG_DIR`.
+    """
+    import os
+    import subprocess
+
+    from cli import environment as cli_env
+    from env_mgr.o11y.prefix import Prefix
+
+    seen: dict[str, str] = {}
+
+    def spy(cmd, **kw):
+        seen.update(kw.get("env") or {})
+        return subprocess.CompletedProcess(cmd, 0, "ready", "")
+
+    monkeypatch.setattr(cli_env.shutil, "which", lambda c: "/usr/bin/claude")
+    monkeypatch.setattr(cli_env.subprocess, "run", spy)
+    before = dict(os.environ)
+
+    assert cli_env.preflight_credentials(cli="claude") == "ready"
+
+    prefix = Prefix.resolve(os.environ)
+    assert seen["CLAUDE_CONFIG_DIR"] == str(prefix.claude_home)
+    # Built on top of the ambient environment, not instead of it: the child
+    # still needs PATH and HOME, and a bare `env={...}` would strip them.
+    assert seen["PATH"] == os.environ["PATH"]
+    assert seen["HOME"] == os.environ["HOME"]
+    # And the same law as everywhere else in this feature.
+    assert dict(os.environ) == before
+    assert "CLAUDE_CONFIG_DIR" not in os.environ

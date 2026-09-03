@@ -37,6 +37,7 @@ from typing import Any, NamedTuple
 from env_mgr.fs.domain import DomainRegistry
 from env_mgr.isolation.policy import Granted, Mode, interpreter_grants
 from env_mgr.isolation.probe import Availability, probe, select
+from env_mgr.o11y.prefix import CLAUDE_CONFIG_ENV_VAR, Prefix
 from env_mgr.protocols import Context, DomainKind, NoConfinement, Tier
 
 __all__ = [
@@ -282,6 +283,30 @@ def confinement(availability: Availability | None = None) -> str:
 # Credentials
 
 
+def _probe_environment() -> dict[str, str]:
+    """The ambient environment **plus** the o11y prefix's `CLAUDE_CONFIG_DIR`.
+
+    **The probe is a `claude` child too, and it was writing to the user's
+    directory.** Gate 1 of the o11y session scoping covers *agent* children,
+    via `assignment.environment`; this subprocess is not one and so was never
+    covered. It inherited the ambient environment and dropped one JSONL into
+    `~/.claude/projects` on every single run — measured during acceptance by
+    matching the prompt string above to the file. Small, and still a breach of
+    the one thing the integration promised, so it gets the same variable.
+
+    **`os.environ` is copied, not replaced.** A bare `env={"CLAUDE_CONFIG_DIR":
+    …}` would strip `PATH`, `HOME` and everything else this child needs today,
+    turning a stray transcript into a probe that cannot run — and a failing
+    probe refuses the whole run, which is far worse than what it fixes.
+
+    And, as everywhere else in this feature: the variable goes into the
+    returned dict and never into our own `os.environ`.
+    """
+    env = dict(os.environ)
+    env[CLAUDE_CONFIG_ENV_VAR] = str(Prefix.resolve(os.environ).claude_home)
+    return env
+
+
 def preflight_credentials(*, cli: str = BACKEND, timeout: float = 90.0) -> str:
     """Ask the backend whether it can run at all, **before any zone is built**.
 
@@ -293,7 +318,14 @@ def preflight_credentials(*, cli: str = BACKEND, timeout: float = 90.0) -> str:
     `CredentialsMissing` carrying **stdout and stderr both** on failure.
 
     **It does not test what the run does, and saying so is the point.** This
-    runs `claude -p` *unconfined*, against the operator's own config directory.
+    runs `claude -p` *unconfined*, against the operator's own credentials — but
+    since the o11y work, **not** against their own config directory: it gets
+    `CLAUDE_CONFIG_DIR` pointed into `~/.infera_agent_sys` like every other
+    `claude` child we spawn, so its transcript lands there rather than in the
+    user's `~/.claude/projects`. See `_probe_environment`. That redirect is
+    measured to keep authentication working here (the recon in
+    `ws.agentsview_o11y/recon/PHASE0.md`, and the live probe run when it
+    landed); it is *not* the relocation the table below is about.
     A confined task gets a different arm: `material.deploy` points
     `CLAUDE_CONFIG_DIR` into the zone — correctly, it is what removed the `$HOME`
     grant — which also moves away the `env` block in `~/.claude/settings.json`
@@ -330,6 +362,7 @@ def preflight_credentials(*, cli: str = BACKEND, timeout: float = 90.0) -> str:
     try:
         done = subprocess.run(  # noqa: S603 — `binary` came from `shutil.which`
             [binary, "-p", "Reply with exactly one word: ready"],
+            env=_probe_environment(),
             capture_output=True,
             text=True,
             timeout=timeout,
