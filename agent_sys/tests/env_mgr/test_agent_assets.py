@@ -1153,7 +1153,9 @@ def test_an_agent_with_no_plugins_and_no_cli_is_a_working_configuration(
     assert _levels(got.report) == ["ok"]
 
 
-def test_the_child_gets_the_policy_derived_path(tmp_path: Path) -> None:
+def test_the_child_gets_the_policy_derived_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """The second half of the same defect, and it was the more immediate one.
 
     `material.deploy` builds its environment from scratch — three zone paths
@@ -1167,6 +1169,25 @@ def test_the_child_gets_the_policy_derived_path(tmp_path: Path) -> None:
     class _Zone:
         root = str(tmp_path / "zone")
 
+    # **The positive half, and it is the one that was missing.** This test used
+    # to assert only that `base_env` is *not* echoed back into the returned
+    # mapping — true whether it reaches the child or is discarded on the floor —
+    # plus a property of `_child_env`, which was never the broken half. Dropping
+    # `**(base_env or {})` from `material.py` is the whole of defect 2 and left
+    # 46 tests passing (`reviewer`'s mutation M7).
+    #
+    # So the assertion is now on **the mapping `install` was handed**, captured
+    # at the seam. `test_a_recipe_item_runs_a_binary_reachable_only_through_base_env`
+    # is the same claim proved end to end; this one localises it, so a failure
+    # says *which* of the two halves broke.
+    seen: dict[str, Any] = {}
+    real = agent_assets.install
+
+    def capture(*args: Any, **kwargs: Any) -> Any:
+        seen.update(kwargs.get("environ") or {})
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(material.agent_assets, "install", capture)
     deployed = material.deploy(
         _spec(),
         _Zone(),
@@ -1175,8 +1196,11 @@ def test_the_child_gets_the_policy_derived_path(tmp_path: Path) -> None:
         base_env={"PATH": "/usr/bin:/bin", "SOMETHING_ELSE": "x"},
     )
 
-    # `base_env` reaches the child but is **not** echoed back: what `deploy`
-    # returns is what `deploy` decided, and `prepare` already holds the rest.
+    assert seen["PATH"] == "/usr/bin:/bin", "base_env never reached the installer"
+    assert seen["SOMETHING_ELSE"] == "x"
+
+    # And **not** echoed back: what `deploy` returns is what `deploy` decided,
+    # and `prepare` already holds the rest.
     assert "PATH" not in deployed.environment
     assert "SOMETHING_ELSE" not in deployed.environment
 
@@ -1482,3 +1506,110 @@ def test_two_components_shipping_tooldefs_do_not_double_register(
     )
 
     assert sorted(t.name for t in got.tools) == ["alpha", "beta"]
+
+
+def test_a_recipe_item_runs_a_binary_reachable_only_through_base_env(
+    tmp_path: Path,
+) -> None:
+    """Defect 2, proved end to end rather than at the seam.
+
+    The measured symptom was `sh -c "uv --version"` answering rc 127
+    `uv: not found`, because `material.deploy` builds its mapping from scratch
+    and `harness._RESERVED` excludes `PATH`, so the recipe child had none. The
+    honest test of that is a recipe item invoking a binary that exists **only**
+    in a directory named by `base_env`'s `PATH` — if the value does not reach
+    the child, the item cannot run, exactly as `uv` could not.
+
+    Driven through the real `python -m env_mgr` child and the real `oneline`
+    installer, so what is under test is the whole chain `prepare` → `deploy` →
+    `_child_env` → `subprocess.run(env=)` → `run_cmd`'s shell, rather than any
+    one link of it.
+    """
+    binroot = tmp_path / "onlyhere"
+    binroot.mkdir()
+    marker = tmp_path / "ran.txt"
+    tool = binroot / "envchk-only-here"
+    tool.write_text(f"#!/bin/sh\necho ran > {marker}\n", encoding="utf-8")
+    tool.chmod(tool.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+
+    pkg = tmp_path / "staged"
+    _write(
+        pkg / "r.yaml",
+        "version: 1\n"
+        f"target: {{kind: repo, name: t, path: {tmp_path}}}\n"
+        "items:\n"
+        "  - installer: oneline\n"
+        "    importance: suggested\n"
+        "    layer: system\n"
+        "    name: only-here\n"
+        "    run: envchk-only-here\n",
+    )
+
+    class _Zone:
+        root = str(tmp_path / "zone")
+
+    material.deploy(
+        _spec(recipes=["r.yaml"]),
+        _Zone(),
+        str(pkg),
+        None,
+        base_env={"PATH": str(binroot)},
+    )
+
+    assert marker.exists(), (
+        "the recipe child could not reach a binary that base_env's PATH names — "
+        "this is `uv: not found` reproduced"
+    )
+
+
+@pytest.mark.parametrize("market", ["..", ".", "a/..", "sub/mp", "/abs", ""])
+def test_a_marketplace_name_that_is_not_a_single_directory_name_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_claude: FakeCli, market: str
+) -> None:
+    """**"Is it a single name" is a different question from "does it stay inside".**
+
+    Measured by `reviewer`: with ``name: ".."`` the containment check normalises
+    ``marketplaces/..`` to ``.`` and returns `config_dir` **unchanged**, so the
+    component's `plugins/` was emptied into the config root and
+    ``claude plugin marketplace add <config>`` registered the entire zone
+    configuration directory as a marketplace. The trailing `contained()` passed,
+    because `config_dir` is contained in itself.
+
+    Nothing escaped the zone — so this is not the earlier defect returning. What
+    it defeats is the decision `_NOT_PLACED`'s `plugins` row and
+    `MARKETPLACES_DIRNAME` exist to make: keep a component's marketplace off the
+    harness's namespace. `".."` landed it one level *above* that namespace, on
+    top of `settings.json` and everything `_place_tree` had just written.
+
+    The empty case is covered by the earlier "declares no 'name'" branch and is
+    parametrised here so that the two guards cannot both be removed and leave a
+    hole between them.
+    """
+    shipped = tmp_path / "components"
+    _write(
+        shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
+        json.dumps({"name": market, "owner": "us", "plugins": [{"name": "p1"}]}),
+    )
+    _write(shipped / "base" / ".claude" / "plugins" / "SENTINEL", "component copy")
+    _write(shipped / "base" / ".claude" / "settings.json", json.dumps({"model": "m"}))
+    monkeypatch.setattr(agent_assets, "COMPONENTS_ROOT", str(shipped))
+    config = tmp_path / "config"
+
+    got = install(
+        _spec(components=["base"]),
+        staged_package=None,
+        config_dir=str(config),
+        agent_cli=fake_claude.path,
+    )
+
+    assert "fail" in _levels(got.report), got.report
+    # Nothing was copied **anywhere**: not into the config root, not into the
+    # harness's own `plugins/`, not into `marketplaces/`.
+    assert not (config / "SENTINEL").exists()
+    assert not (config / ".claude-plugin").exists()
+    assert not (config / "plugins").exists()
+    assert not (config / agent_assets.MARKETPLACES_DIRNAME).exists()
+    # And nothing was registered — `<config>` itself least of all.
+    assert not fake_claude.log.exists(), "a marketplace was registered after the refusal"
+    # The rest of the tree still installed; one bad manifest is not fatal.
+    assert (config / "settings.json").exists()

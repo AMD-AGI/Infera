@@ -693,6 +693,26 @@ def _place_tree(tree: str, *, origin: str, config_dir: str) -> list[InstallOutco
 
     `copy_out` rather than `shutil.copytree` so that the refusal to copy a path
     onto itself stays one rule in one place.
+
+    **Symlinks are not resolved here, and `copy_out` treats them asymmetrically.**
+    Measured 2026-09-03: a symlink that is a *top-level* member of `.claude/`
+    goes through `shutil.copy2` and arrives in the zone as a **real file with the
+    target's content** — `.claude/linked.txt -> /etc/hostname` became a file
+    holding this host's name. A symlink *nested* inside a placed directory goes
+    through `shutil.copytree(symlinks=True)` and arrives **still a symlink**.
+
+    Neither is an escape: nothing is written outside the zone, and the read
+    happens in the supervisor at prepare time, which is unconfined anyway. But
+    the two have different consequences and the nested one is the worse of them
+    — a preserved link pointing outside the zone is a path the *confined session*
+    cannot follow, which is the plugin-that-installs-and-never-loads shape (probe
+    F) wearing a different hat. A component that means to ship a file should ship
+    the file.
+
+    Stated rather than changed: resolving links here would silently pull host
+    content into a zone on an author's behalf, and refusing them would reject a
+    layout nobody has yet written. Neither is warranted by a measurement, so this
+    records what happens and leaves the decision to whoever meets it.
     """
     if not os.path.isdir(tree):
         return []
@@ -850,9 +870,44 @@ def _install_plugins(
     #
     # On this host a write outside the tree is not a hypothetical: the
     # repository's no-delete rule was bought by a real one.
+    # **The question is "is this a single directory name", not "does it stay
+    # inside the zone".** Those differ, and the difference is a real hole that
+    # `contained_syntactically` alone does not close: measured by `reviewer`,
+    # ``name: ".."`` normalises ``marketplaces/..`` to ``.`` and returns
+    # `config_dir` **unchanged**, so the component's `plugins/` was emptied
+    # straight into the config root and ``claude plugin marketplace add
+    # <config>`` registered the whole zone configuration directory as a
+    # marketplace. The trailing `contained()` passed, because `config_dir` is
+    # contained in itself. ``"."`` and ``"a/.."`` do the same.
+    #
+    # Nothing escaped the zone, so the fix above still holds — what this defeats
+    # is the *other* decision: `_NOT_PLACED`'s `plugins` row and
+    # `MARKETPLACES_DIRNAME` exist to keep a component's marketplace off the
+    # harness's namespace, and this landed it one level **above** that, on top
+    # of `settings.json` and everything `_place_tree` had just written.
+    #
+    # `market` is also an identifier, not only a path component — it is half of
+    # the ``<plugin>@<marketplace>`` spec handed to the CLI — so a value that is
+    # not a plain name is wrong twice over.
+    if market != os.path.basename(market) or market in (os.curdir, os.pardir):
+        return [
+            InstallOutcome(
+                "fail",
+                f"{origin}'s {MARKETPLACE_MANIFEST} declares the marketplace name "
+                f"{market!r}, which is not a single directory name. It is used both "
+                f"as a directory under the zone config and as the right-hand side of "
+                f"<plugin>@<marketplace>. Nothing was copied",
+                {"path": manifest_path, "name": market},
+            )
+        ]
+
     relative = os.path.join(MARKETPLACES_DIRNAME, market)
     destination = contained_syntactically(relative, config_dir)
     if destination is None:
+        # Kept as the second half rather than replaced by the check above: that
+        # one says *this is a name*, this one says *the join stays inside*. A
+        # single check would have to mean both, and the pair is what makes each
+        # message say which rule was broken.
         return [
             InstallOutcome(
                 "fail",

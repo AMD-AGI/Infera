@@ -202,7 +202,7 @@ def component_grants(agent_spec: Any) -> tuple[Granted, ...]:
     copied into the zone** before anything names it —
     `agent_assets._place_tree`, whose rule is *place by default* with three
     named exceptions, each of which is a read or a relocation. A marketplace is
-    copied before it is registered (probe F), and a bundled MCP server is
+    copied before it is registered (probe F, ``claude`` 2.1.246), and a bundled MCP server is
     launched from its **placed** path under the supervisor's own interpreter.
 
     **That clause used to say less than it appeared to.** It read *"skills are
