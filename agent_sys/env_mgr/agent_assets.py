@@ -694,25 +694,26 @@ def _place_tree(tree: str, *, origin: str, config_dir: str) -> list[InstallOutco
     `copy_out` rather than `shutil.copytree` so that the refusal to copy a path
     onto itself stays one rule in one place.
 
-    **Symlinks are not resolved here, and `copy_out` treats them asymmetrically.**
-    Measured 2026-09-03: a symlink that is a *top-level* member of `.claude/`
-    goes through `shutil.copy2` and arrives in the zone as a **real file with the
-    target's content** — `.claude/linked.txt -> /etc/hostname` became a file
-    holding this host's name. A symlink *nested* inside a placed directory goes
-    through `shutil.copytree(symlinks=True)` and arrives **still a symlink**.
+    **Symlinks are resolved, at every depth, and that is `dereference=True`.**
+    `copy_out`'s default is asymmetric — measured 2026-09-03, a *top-level*
+    symlink goes through `copy2` and arrives as a real file, while one *nested*
+    inside a placed directory goes through ``copytree(symlinks=True)`` and
+    arrives still a symlink. Same input, two results, decided by depth.
 
-    Neither is an escape: nothing is written outside the zone, and the read
-    happens in the supervisor at prepare time, which is unconfined anyway. But
-    the two have different consequences and the nested one is the worse of them
-    — a preserved link pointing outside the zone is a path the *confined session*
-    cannot follow, which is the plugin-that-installs-and-never-loads shape (probe
-    F) wearing a different hat. A component that means to ship a file should ship
-    the file.
+    Resolving is the choice rather than preserving or refusing, and the
+    measurement is what picks it: a preserved link pointing outside the zone
+    **fails `contained`** — checked, `contained(<zone>/link -> /outside, <zone>)`
+    is `False` while the dereferenced copy is `True` — so it is a path the
+    confined session cannot follow, reported as installed. That is probe F's
+    installs-cleanly-never-loads shape wearing a different hat, and *copy into
+    the zone, do not reference out of it* is already this module's rule for the
+    marketplace. A preserved link **is** a reference out of the zone.
 
-    Stated rather than changed: resolving links here would silently pull host
-    content into a zone on an author's behalf, and refusing them would reject a
-    layout nobody has yet written. Neither is warranted by a measurement, so this
-    records what happens and leaves the decision to whoever meets it.
+    What it costs, stated: a component that links to host content gets that
+    content copied into the zone at prepare time, on its author's behalf.
+    Refusing links instead would reject a layout nobody has written yet, and
+    would leave the depth asymmetry in place for the ones that stay inside the
+    tree.
     """
     if not os.path.isdir(tree):
         return []
@@ -741,7 +742,7 @@ def _place_tree(tree: str, *, origin: str, config_dir: str) -> list[InstallOutco
                     {"path": target, "files": collisions[:20]},
                 )
             )
-        dst = copy_out(os.path.join(tree, name), target)
+        dst = copy_out(os.path.join(tree, name), target, dereference=True)
         out.append(InstallOutcome("ok", f"placed {name!r} from {origin}", {"path": dst}))
     return out
 

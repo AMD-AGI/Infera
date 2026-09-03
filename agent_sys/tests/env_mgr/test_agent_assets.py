@@ -1716,3 +1716,49 @@ def test_components_that_share_no_file_do_not_warn(
     )
 
     assert [o.level for o in got.report] == ["ok", "ok"], got.report
+
+
+@pytest.mark.parametrize("where", ["toplevel.txt", "nested/inner.txt"])
+def test_a_symlink_in_a_claude_tree_is_resolved_at_every_depth(tmp_path: Path, where: str) -> None:
+    """**The same input must not give two answers depending on depth.**
+
+    `copy_out`'s default is asymmetric — measured, a top-level symlink goes
+    through `copy2` and is dereferenced, one nested inside a directory goes
+    through `copytree(symlinks=True)` and is preserved. `_place_tree` passes
+    `dereference=True` so both resolve.
+
+    Resolving is the decision rather than preserving, and the measurement picks
+    it: `contained(<zone>/link -> /outside, <zone>)` is **False**, so a preserved
+    link is a path the confined session cannot follow while the report says it
+    was placed — probe F's installs-cleanly-never-loads shape again. *Copy into
+    the zone, do not reference out of it* was already the rule for the
+    marketplace, and a preserved link is a reference out of the zone.
+
+    Parametrised over both depths precisely because the bug was that they
+    differed; a test at one depth would have passed throughout.
+    """
+    pkg = tmp_path / "staged"
+    assets = _package(pkg)
+    target = tmp_path / "outside.txt"
+    target.write_text("content from outside the zone\n")
+    linked = assets / ".claude" / where
+    linked.parent.mkdir(parents=True, exist_ok=True)
+    os.symlink(target, linked)
+    config = tmp_path / "config"
+
+    install(
+        _spec(assets="assets/forge.agent"),
+        staged_package=str(pkg),
+        config_dir=str(config),
+    )
+
+    placed = config / where
+    assert placed.exists()
+    assert not placed.is_symlink(), (
+        f"{where} arrived as a symlink; under confinement it resolves outside "
+        f"the zone and the session cannot read it"
+    )
+    assert placed.read_text() == "content from outside the zone\n"
+    from env_mgr.fs.path import contained
+
+    assert contained(str(placed), str(config))
