@@ -41,9 +41,11 @@ __all__ = [
     "RECIPE_PATH",
     "Status",
     "check_disabled_agents",
+    "discover_providers",
     "ensure_installed",
     "ensure_running",
     "port_is_free",
+    "resolve_disabled_agents",
     "resolve_port",
     "write_config",
 ]
@@ -139,34 +141,29 @@ IDENTITY_MAX_BYTES = 1 << 20
 #: "reuse the panel we started" from "adopt whatever is listening".
 PORT_FILE = "agentsview.port"
 
-#: Every provider AgentsView can scan, minus Claude Code. Written into the
-#: prefix's own `config.toml` so the panel physically cannot read a directory
-#: belonging to some other tool the user happens to have installed.
+#: A **last-resort snapshot only** — the real source is `discover_providers`
+#: below, which asks the installed binary. This tuple is what
+#: `resolve_disabled_agents` falls back to when that probe cannot be trusted
+#: (binary missing, crashed, or its report didn't parse), so gate 3 still
+#: disables *something* rather than nothing. A stale fallback under-disables
+#: silently in exactly the way a hand-maintained list always eventually does;
+#: it is not the primary mechanism, and `resolve_disabled_agents` logs when it
+#: has to use it.
 #:
-#: **Measured against a real binary, not derived from the docs table.** A
-#: first version of this list was guessed from AgentsView's human-readable
-#: provider table ("Claude Cowork" -> `"claude-cowork"`), and five of those
-#: guesses were wrong slugs (`claude-cowork`, `command-code`, `copilot-cli`,
-#: `cortex-code`, `gemini-cli`) — `serve` validates `disabled_agents` and
-#: refuses to start the whole config file on the first bad name, so `serve
-#: --background` exited 1 and the panel silently never came up (warned and
-#: skipped correctly, per design, but for the wrong underlying reason). Caught
-#: from a real acceptance run's `stderr`, not from re-reading the docs.
-#:
-#: This list is `agentsview v0.42.0 doctor sync`'s own "Agent roots:" report
-#: (every provider name the installed binary recognizes, however many roots
-#: each maps to), with `claude` removed and `aider` added back (accepted by
-#: the config parser directly — `disabled_agents = ["aider"]` loads cleanly —
-#: even though `doctor sync` prints no root for it in this version). To
-#: regenerate after an AgentsView upgrade:
-#:   AGENTSVIEW_DATA_DIR=<scratch> CLAUDE_PROJECTS_DIR=<scratch-empty-dir> \
-#:     agentsview doctor sync | sed -n '/^Agent roots:/,/^Recent/p' \
-#:     | sed -E 's/^\s+([a-z0-9_-]+):.*/\1/' | sort -u
-#: then re-verify the whole list loads with one `agentsview health --limit 1`
-#: against a `config.toml` containing it (see `check_disabled_agents` below,
-#: which does exactly this at install time so a future rename is a warning,
-#: not a mystery dead panel months later).
-OTHER_PROVIDERS = (
+#: Measured `agentsview v0.42.0 doctor sync`'s own "Agent roots:" report,
+#: with `claude` removed and `aider` added back (accepted by the config
+#: parser directly even though `doctor sync` prints no root for it in this
+#: version). History: a first version of this list was guessed from
+#: AgentsView's human-readable provider table and five slugs were wrong
+#: (`claude-cowork`, `command-code`, `copilot-cli`, `cortex-code`,
+#: `gemini-cli` for `cowork`, `commandcode`, `copilot`, `cortex`, `gemini`) —
+#: caught from a real acceptance run's `stderr`, not from re-reading the docs.
+#: A hand-maintained list also has a second, quieter failure mode a wrong
+#: name does not: a provider *added* to a newer AgentsView release and never
+#: added here scans its default directory unchallenged, and nothing errors —
+#: which is exactly why `discover_providers` is the primary path and this is
+#: only the fallback.
+FALLBACK_OTHER_PROVIDERS = (
     "aider", "amp", "antigravity", "antigravity-cli", "codebuff", "codex",
     "commandcode", "copilot", "cortex", "cowork", "cursor", "cursor-ide",
     "deepseek-harness", "deepseek-tui", "devin", "forge", "gemini", "goose",
@@ -179,15 +176,103 @@ OTHER_PROVIDERS = (
     "windsurf", "workbuddy", "zcode", "zed", "zencoder",
 )
 
+#: The provider this list must never contain: gate 3 exists to disable
+#: everything *except* the one source `agent_sys` itself writes.
+_KEEP_ENABLED = "claude"
 
-def write_config(prefix: Prefix) -> None:
+#: `agentsview doctor sync`'s report has an "Agent roots:" section listing
+#: every provider name the binary recognizes, one two-space-indented
+#: `name: path (status)` line per root (a provider with several default
+#: search paths repeats its name on several lines). Measured directly against
+#: a real v0.42.0 binary — this is the mechanical enumeration `discover_providers`
+#: parses, not a re-derivation of AgentsView's own provider table.
+_AGENT_ROOTS_HEADER = "Agent roots:"
+_AGENT_ROOT_LINE_RE = re.compile(r"^  ([a-z0-9_-]+):", re.MULTILINE)
+
+#: How long `doctor sync` may take. It only stats candidate directories and
+#: reads existing sync-state metadata — no full session parse — so this is
+#: short relative to the other probes in this module.
+DISCOVER_PROVIDERS_TIMEOUT_S = 10.0
+
+
+def discover_providers(prefix: Prefix) -> tuple[str, ...] | None:
+    """Ask the installed binary which session providers it recognizes, now.
+
+    **The primary mechanism, not the fallback.** `agentsview doctor sync`
+    prints every provider name it will scan for — a real, mechanical
+    enumeration of the installed binary's own vocabulary, not a re-derivation
+    of its docs table. Deriving `disabled_agents` from this at config-write
+    time means a provider *renamed* in a future release is caught by
+    `check_disabled_agents` (the derived name comes straight from the
+    binary, so it cannot itself be stale) and a provider *added* in a future
+    release is caught automatically, because it appears in this report the
+    moment that release is installed — no one has to remember to add it to a
+    hardcoded list.
+
+    **Returns `None`, never an empty tuple, on anything not trustworthy.** A
+    missing binary, non-zero exit, unparseable report, or a report with zero
+    recognized names all return `None` — collapsing "found nothing to
+    disable" and "couldn't tell" into the same signal deliberately, because
+    the caller's fallback path is identical for both and an empty tuple would
+    be read as "disable nothing", the single most permissive way this
+    function could fail. Never raises.
+    """
+    exe = prefix.bin / "agentsview"
+    try:
+        env = {**prefix.environment(), "PATH": str(prefix.bin), "HOME": str(prefix.root)}
+        proc = subprocess.run(  # noqa: S603
+            [str(exe), "doctor", "sync"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=DISCOVER_PROVIDERS_TIMEOUT_S,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    text = proc.stdout or ""
+    start = text.find(_AGENT_ROOTS_HEADER)
+    if start == -1:
+        return None
+    section = text[start + len(_AGENT_ROOTS_HEADER) :]
+    names = {m.group(1) for m in _AGENT_ROOT_LINE_RE.finditer(section)}
+    names.discard(_KEEP_ENABLED)
+    return tuple(sorted(names)) if names else None
+
+
+def resolve_disabled_agents(prefix: Prefix) -> tuple[str, ...]:
+    """`discover_providers`, or the measured fallback with one warning.
+
+    Never raises, never returns nothing to disable: the fallback tuple is
+    never empty, so this always has *something* to hand `write_config`.
+    """
+    discovered = discover_providers(prefix)
+    if discovered is not None:
+        return discovered
+    log.warning(
+        "agentsview: could not enumerate session providers from the installed "
+        "binary (`doctor sync`); disabling the last-measured snapshot "
+        "(%d names) instead. This can under- or over-disable providers if "
+        "the installed agentsview has changed since that snapshot.",
+        len(FALLBACK_OTHER_PROVIDERS),
+    )
+    return FALLBACK_OTHER_PROVIDERS
+
+
+def write_config(prefix: Prefix, disabled_agents: Sequence[str]) -> None:
     """The prefix's `config.toml`. Idempotent, and ours alone.
+
+    **A pure writer.** `disabled_agents` is the caller's decision — normally
+    `resolve_disabled_agents(prefix)` — kept as a parameter rather than read
+    from a module constant so this function is testable against an arbitrary
+    list without a fake binary in the loop.
 
     Written into `AGENTSVIEW_DATA_DIR`, never `~/.agentsview`: a user who
     already runs AgentsView keeps their own archive and settings untouched.
     """
     cfg = prefix.agentsview_data / "config.toml"
-    disabled = ", ".join(json.dumps(name) for name in OTHER_PROVIDERS)
+    disabled = ", ".join(json.dumps(name) for name in disabled_agents)
     cfg.parent.mkdir(parents=True, exist_ok=True)
     cfg.write_text(
         "# Written by agent_sys. AgentsView itself is unmodified.\n"
@@ -211,17 +296,16 @@ CHECK_DISABLED_AGENTS_TIMEOUT_S = 15.0
 
 
 def check_disabled_agents(prefix: Prefix) -> str | None:
-    """Does the installed binary still accept every name in `OTHER_PROVIDERS`?
+    """Does the installed binary still accept the `disabled_agents` just written?
 
     **One process call, not one per candidate.** `write_config` already wrote
     the exact `config.toml` `serve` will load; this runs the same cheap
     command `serve` would fail identically to (`health`, which loads config
     before doing anything else) against that real file and reads *its*
-    verdict, rather than re-implementing AgentsView's own validation. A
-    per-name sweep would find the same first failure at ~60x the cost — the
-    parser reports one bad name per call, so a fix-and-rerun cycle (by a
-    human, or by this function after `OTHER_PROVIDERS` is corrected) finds
-    the next one exactly the way a person debugging this by hand would.
+    verdict, rather than re-implementing AgentsView's own validation. Since
+    `resolve_disabled_agents` normally derives the list from the binary
+    itself, this mostly guards the fallback path — a stale
+    `FALLBACK_OTHER_PROVIDERS` used because `discover_providers` also failed.
 
     **Returns the offending name, or `None`.** `None` covers two different
     situations, deliberately conflated by design: the whole list loaded
@@ -340,7 +424,7 @@ def ensure_running(prefix: Prefix, port: int) -> Status:
 
     try:
         prefix.create()
-        write_config(prefix)
+        write_config(prefix, resolve_disabled_agents(prefix))
         env = {**prefix.environment(), "PATH": str(prefix.bin), "HOME": str(prefix.root)}
         proc = subprocess.run(  # noqa: S603
             [str(exe), "serve", "--background", "--no-browser",
@@ -468,7 +552,10 @@ def ensure_installed(prefix: Prefix, install_item: Callable[[], Sequence[Any]]) 
         # mystery dead end unless someone reads that one stderr line). This
         # surfaces the same class of problem the moment a fresh or upgraded
         # binary is confirmed present, with a message that names the actual
-        # cause instead of a generic "serve exited 1".
+        # cause instead of a generic "serve exited 1". `resolve_disabled_agents`
+        # normally derives the list from this same binary (`discover_providers`),
+        # so this mostly guards the fallback path — a stale
+        # `FALLBACK_OTHER_PROVIDERS` used because that derivation also failed.
         #
         # In its own `try`, separate from `install_item()` above: the binary
         # is genuinely installed at this point regardless of what this check
@@ -476,21 +563,21 @@ def ensure_installed(prefix: Prefix, install_item: Callable[[], Sequence[Any]]) 
         # install into a reported failure — "never raises" is this module's
         # one law, and it applies to every line, not just the obvious ones.
         try:
-            write_config(prefix)
+            write_config(prefix, resolve_disabled_agents(prefix))
             bad = check_disabled_agents(prefix)
         except Exception as e:  # noqa: BLE001 - see ensure_running's docstring
             log.warning(
-                "agentsview: could not validate OTHER_PROVIDERS against the "
+                "agentsview: could not validate disabled_agents against the "
                 "installed binary (%s); continuing without that check.",
                 e,
             )
             bad = None
         if bad is not None:
             log.warning(
-                "agentsview: %r in OTHER_PROVIDERS is not a session provider "
-                "this installed agentsview recognizes; the o11y panel may "
-                "fail to start until env_mgr/o11y/agentsview.py's "
-                "OTHER_PROVIDERS list is updated for this version.",
+                "agentsview: %r is not a session provider this installed "
+                "agentsview recognizes; the o11y panel may fail to start "
+                "until env_mgr/o11y/agentsview.py's FALLBACK_OTHER_PROVIDERS "
+                "is updated for this version.",
                 bad,
             )
         return Status(True, outcome.message)

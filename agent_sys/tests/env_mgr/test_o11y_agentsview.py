@@ -59,8 +59,21 @@ def prefix(tmp_path: Path) -> Prefix:
 
 
 def _fake_binary(prefix: Prefix, body: str) -> None:
+    """A stand-in `agentsview`. `doctor sync` -- which `ensure_running` now
+    runs via `resolve_disabled_agents` before every launch attempt -- always
+    answers with one clean, recognized provider, so tests about `serve`'s own
+    failure modes are not incidentally also exercising (or timing out on) the
+    provider-discovery fallback path; `body` is what every other invocation
+    (i.e. `serve`) does.
+    """
     exe = prefix.bin / "agentsview"
-    exe.write_text("#!/bin/sh\n" + body)
+    exe.write_text(
+        "#!/bin/sh\n"
+        'if [ "$1" = "doctor" ] && [ "$2" = "sync" ]; then\n'
+        '  printf "Agent roots:\\n  cursor: /fake/path (ok, default)\\n"\n'
+        "  exit 0\n"
+        "fi\n" + body
+    )
     exe.chmod(0o755)
 
 
@@ -305,6 +318,10 @@ def _fake_run_cmd(*, version_rc: int, install_rc: int, seen_home: list[str | Non
 
     def fake(cmd, shell=True, cwd=None, capture_output=True, text=True, env=None, timeout=None):  # noqa: ANN001
         cmd_text = cmd if isinstance(cmd, str) else " ".join(cmd)
+        if "doctor sync" in cmd_text:
+            return subprocess.CompletedProcess(
+                cmd, 0, "Agent roots:\n  cursor: /fake/path (ok, default)\n", ""
+            )
         if "health" in cmd_text:
             return subprocess.CompletedProcess(cmd, 0, "", "")
         seen_home.append(os.environ.get("AGENT_SYS_HOME"))
@@ -464,19 +481,123 @@ def test_check_disabled_agents_never_raises_on_a_hanging_binary(prefix, monkeypa
     assert agentsview.check_disabled_agents(prefix) is None
 
 
-def test_other_providers_excludes_claude_itself() -> None:
-    """The one provider gate 3 must never disable."""
-    assert "claude" not in agentsview.OTHER_PROVIDERS
+# --- discover_providers / resolve_disabled_agents: the primary mechanism ---
 
 
-def test_ensure_installed_warns_once_more_if_other_providers_is_stale(
+def _fake_agentsview_doctor_sync(prefix: Prefix, *, rc: int, stdout: str) -> None:
+    exe = prefix.bin / "agentsview"
+    exe.write_text(f"#!/bin/sh\nprintf '%s' '{stdout}'\nexit {rc}\n")
+    exe.chmod(0o755)
+
+
+#: A shape modelled directly on a real `agentsview v0.42.0 doctor sync` run
+#: (see PHASE0.md §0.3) -- several names repeat across multiple root lines,
+#: which is exactly why `discover_providers` dedupes with a `set`.
+_REAL_SHAPED_DOCTOR_SYNC_STDOUT = (
+    "Sync Diagnostics\n"
+    "Version: v0.42.0\n"
+    "Agent roots:\n"
+    "  claude: /home/x/.claude/projects (ok, configured)\n"
+    "  openclaude: /home/x/.openclaude/projects (missing, default)\n"
+    "  cowork: /home/x/Library/Application Support/Claude (missing, default)\n"
+    "  cowork: /home/x/.config/Claude (missing, default)\n"
+    "  cursor: /home/x/.cursor/projects (ok, default)\n"
+    "Recent debug.log evidence:\n"
+    "  none\n"
+)
+
+
+def test_discover_providers_parses_a_real_shaped_report(prefix) -> None:
+    _fake_agentsview_doctor_sync(prefix, rc=0, stdout=_REAL_SHAPED_DOCTOR_SYNC_STDOUT)
+    found = agentsview.discover_providers(prefix)
+    assert found == ("cowork", "cursor", "openclaude")  # sorted, deduped, no claude
+
+
+def test_discover_providers_is_none_when_the_binary_is_missing(prefix) -> None:
+    assert not (prefix.bin / "agentsview").exists()
+    assert agentsview.discover_providers(prefix) is None
+
+
+def test_discover_providers_is_none_on_a_nonzero_exit(prefix) -> None:
+    _fake_agentsview_doctor_sync(prefix, rc=1, stdout="")
+    assert agentsview.discover_providers(prefix) is None
+
+
+def test_discover_providers_is_none_when_the_report_has_no_agent_roots_section(prefix) -> None:
+    _fake_agentsview_doctor_sync(prefix, rc=0, stdout="Sync Diagnostics\nVersion: v0.42.0\n")
+    assert agentsview.discover_providers(prefix) is None
+
+
+def test_discover_providers_is_none_rather_than_empty_when_only_claude_is_found(
+    prefix,
+) -> None:
+    """An empty tuple would be read by `write_config` as 'disable nothing' --
+    the single most permissive failure mode this function could produce."""
+    _fake_agentsview_doctor_sync(
+        prefix, rc=0, stdout="Agent roots:\n  claude: /x/.claude/projects (ok, configured)\n"
+    )
+    assert agentsview.discover_providers(prefix) is None
+
+
+def test_discover_providers_never_raises_on_a_hanging_binary(prefix, monkeypatch) -> None:
+    monkeypatch.setattr(agentsview, "DISCOVER_PROVIDERS_TIMEOUT_S", 0.2)
+    exe = prefix.bin / "agentsview"
+    exe.write_text("#!/bin/sh\nsleep 30\n")
+    exe.chmod(0o755)
+    assert agentsview.discover_providers(prefix) is None
+
+
+def test_resolve_disabled_agents_prefers_the_live_discovery(prefix) -> None:
+    _fake_agentsview_doctor_sync(prefix, rc=0, stdout=_REAL_SHAPED_DOCTOR_SYNC_STDOUT)
+    assert agentsview.resolve_disabled_agents(prefix) == ("cowork", "cursor", "openclaude")
+
+
+def test_resolve_disabled_agents_falls_back_with_one_warning_when_discovery_fails(
+    prefix, caplog
+) -> None:
+    assert not (prefix.bin / "agentsview").exists()
+    with caplog.at_level("WARNING"):
+        result = agentsview.resolve_disabled_agents(prefix)
+    assert result == agentsview.FALLBACK_OTHER_PROVIDERS
+    warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warnings) == 1
+    assert "could not enumerate" in warnings[0].getMessage()
+
+
+def test_write_config_writes_exactly_the_providers_it_is_given(prefix) -> None:
+    """A pure writer: no fake binary, no subprocess, just the list in -> the
+    list out, in the file `check_disabled_agents`/`serve` will read."""
+    agentsview.write_config(prefix, ("foo", "bar"))
+    text = (prefix.agentsview_data / "config.toml").read_text()
+    assert 'disabled_agents = ["foo", "bar"]' in text
+
+
+def test_fallback_other_providers_excludes_claude_itself() -> None:
+    """The one provider gate 3 must never disable, even in the fallback list."""
+    assert "claude" not in agentsview.FALLBACK_OTHER_PROVIDERS
+
+
+def test_ensure_installed_warns_once_more_if_the_written_config_is_stale(
     prefix, monkeypatch, caplog, _no_leftover_environ
 ) -> None:
-    """The install-time check, wired end to end through `ensure_installed`."""
+    """The install-time check, wired end to end through `ensure_installed`.
+
+    `discover_providers` succeeds cleanly here (a normal `doctor sync`
+    report), so the one warning this test is about is `check_disabled_agents`
+    catching a config that -- despite being derived from the binary's own
+    report -- the binary's `health` command still rejects. That combination
+    is unlikely in practice (the same binary wrote and is asked to validate
+    the same names) but is exactly the defense-in-depth the separate
+    `check_disabled_agents` call is for.
+    """
     seen_home: list[str | None] = []
 
     def fake(cmd, shell=True, cwd=None, capture_output=True, text=True, env=None, timeout=None):  # noqa: ANN001
         cmd_text = cmd if isinstance(cmd, str) else " ".join(cmd)
+        if "doctor sync" in cmd_text:
+            return subprocess.CompletedProcess(
+                cmd, 0, "Agent roots:\n  cursor: /fake/path (ok, default)\n", ""
+            )
         if "health" in cmd_text:
             return subprocess.CompletedProcess(
                 cmd, 1, "", 'unknown session provider "bogus-provider"'
@@ -493,3 +614,29 @@ def test_ensure_installed_warns_once_more_if_other_providers_is_stale(
     warnings = [r for r in caplog.records if r.levelname == "WARNING"]
     assert len(warnings) == 1
     assert "bogus-provider" in warnings[0].getMessage()
+
+
+def test_ensure_installed_warns_once_when_discovery_and_validation_both_fail(
+    prefix, monkeypatch, caplog, _no_leftover_environ
+) -> None:
+    """`discover_providers` failing falls back and warns; that is the one
+    warning -- `check_disabled_agents` is not expected to also fire here
+    since the fallback list is the measured-good snapshot."""
+
+    def fake(cmd, shell=True, cwd=None, capture_output=True, text=True, env=None, timeout=None):  # noqa: ANN001
+        cmd_text = cmd if isinstance(cmd, str) else " ".join(cmd)
+        if "doctor sync" in cmd_text:
+            return subprocess.CompletedProcess(cmd, 0, "", "")  # no Agent roots section
+        if "health" in cmd_text:
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+        return subprocess.CompletedProcess(cmd, 0, "agentsview v0.42.0\n", "")
+
+    monkeypatch.setattr(subprocess, "run", fake)
+
+    with caplog.at_level("WARNING"):
+        status = agentsview.ensure_installed(prefix, _install_item_for(prefix))
+
+    assert status.running is True
+    warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warnings) == 1
+    assert "could not enumerate" in warnings[0].getMessage()
