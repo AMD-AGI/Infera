@@ -222,6 +222,27 @@ class TrainingConfig:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+def uses_latent_attention(model_config) -> bool:
+    """Whether a layer *serves* multi-head latent attention, flag or no flag.
+
+    ``multi_latent_attention`` is a trainer switch rather than a description of
+    the served layer. DeepSeek-V4 holds it off so Megatron does not take the V3
+    MLA builder -- V4 layers also need CSA/HCA/SWA branches -- but what it
+    serves is still latent attention: one compressed K=V vector plus a
+    decoupled RoPE head. Anything pricing the served step therefore has to read
+    the shape, not the switch.
+
+    ``kv_bytes_per_token_per_layer`` tests this same shape to charge the 576-byte
+    latent, and the two have to agree. A decode step that skips MLA's extra
+    projections while the cache charges MLA's latent is describing no model that
+    exists.
+    """
+    if getattr(model_config, "multi_latent_attention", False):
+        return True
+    rope = int(getattr(model_config, "qk_pos_emb_head_dim", 0) or 0)
+    return rope > 0 and int(getattr(model_config, "num_query_groups", 0) or 0) == 1
+
+
 def decode_kernels_per_layer(model_config, sparse_attention_topk: int = 0) -> int:
     """How many kernels one transformer layer issues in a decode step.
 
@@ -262,7 +283,7 @@ def decode_kernels_per_layer(model_config, sparse_attention_topk: int = 0) -> in
     """
     kernels = 4  # two norms, two residual adds
 
-    if getattr(model_config, "multi_latent_attention", False):
+    if uses_latent_attention(model_config):
         # q_a, q_a_norm, q_b, kv_a, kv_a_norm, kv_b, rope, attention, o_proj
         kernels += 9
     else:

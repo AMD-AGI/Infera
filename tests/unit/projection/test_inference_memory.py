@@ -73,6 +73,33 @@ def test_gpt_oss_mxfp4_fits_on_one_mi355x():
     assert out["sustainable_concurrency"] > 1000
 
 
+def test_deepseek_v4_kv_is_the_576_byte_shared_latent():
+    """V4 caches one latent per token, not K and V of kv_channels each.
+
+    The yaml leaves ``multi_latent_attention`` off for the trainer. The serving
+    cache is still the 576-byte layout vLLM registers (512-d shared K=V + 64-d
+    RoPE), which is what lets a TP8 decode replica hold ~4k sequences of 8k.
+    """
+    from types import SimpleNamespace
+
+    from infera.projection.core.projection.inference_projection.kv_cache import (
+        kv_bytes_per_token_per_layer,
+    )
+
+    cfg = SimpleNamespace(
+        model_config=SimpleNamespace(
+            multi_latent_attention=False, kv_lora_rank=0, qk_pos_emb_head_dim=64,
+            group_query_attention=True, num_query_groups=1, num_attention_heads=128,
+            kv_channels=512,
+        ),
+        model_parallel_config=SimpleNamespace(
+            tensor_model_parallel_size=8, attention_data_parallel_size=1,
+        ),
+        request_config=SimpleNamespace(kv_cache_dtype="fp8"),
+    )
+    assert kv_bytes_per_token_per_layer(cfg) == pytest.approx(576.0)
+
+
 def test_long_context_prefill_respects_the_token_budget():
     """A 128k prompt at batch 64 must not be charged 64x128k live activations."""
     out = _project(

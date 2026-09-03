@@ -281,6 +281,67 @@ def test_a_layer_costs_the_kernels_it_actually_runs():
     assert n_ds - n_gpt == 8
 
 
+def test_a_v4_layer_is_priced_as_latent_attention_despite_the_trainer_flag():
+    """``multi_latent_attention`` describes the builder, not the served layer.
+
+    DeepSeek-V4 holds the flag off so Megatron does not take the V3 MLA path,
+    since V4 layers also carry CSA/HCA/SWA branches. Reading the flag literally
+    charged its decode step four attention kernels instead of nine, which over
+    61 layers is 1.3 ms a step it never paid -- invisible at high batch, where
+    the step is data-bound, and the whole error at low batch, where it is not.
+    The cache already reads the shape to charge V4's 576-byte latent; the step
+    has to agree with it.
+    """
+    from types import SimpleNamespace
+
+    from infera.projection.core.projection.training_config import (
+        decode_kernels_per_layer,
+        uses_latent_attention,
+    )
+
+    v4 = SimpleNamespace(multi_latent_attention=False, qk_pos_emb_head_dim=64,
+                         num_query_groups=1, num_experts=384,
+                         moe_shared_expert_intermediate_size=3072)
+    v3 = SimpleNamespace(multi_latent_attention=True, qk_pos_emb_head_dim=64,
+                         num_query_groups=1, num_experts=256,
+                         moe_shared_expert_intermediate_size=2048)
+    # Grouped-query attention: several query groups, no compressed latent.
+    gqa = SimpleNamespace(multi_latent_attention=False, qk_pos_emb_head_dim=0,
+                          num_query_groups=8, num_experts=128,
+                          moe_shared_expert_intermediate_size=3072)
+
+    assert uses_latent_attention(v4), "V4 serves latent attention"
+    assert uses_latent_attention(v3), "the flag alone is still sufficient"
+    assert not uses_latent_attention(gqa), "GQA must not be swept up by the shape test"
+
+    # V4 and V3 differ only in the flag, so they must cost the same attention.
+    assert decode_kernels_per_layer(v4) == decode_kernels_per_layer(v3)
+    assert decode_kernels_per_layer(v4) - decode_kernels_per_layer(gqa) == 5
+
+
+def test_the_v4_latent_shape_prices_the_cache_and_the_step_the_same_way():
+    """The step and the cache must not disagree about what the model is.
+
+    A step that skips MLA's projections while the cache charges MLA's latent
+    describes no model that exists, and the two tests used to live in separate
+    files with separate copies of the condition.
+    """
+    from types import SimpleNamespace
+
+    from infera.projection.core.projection.inference_projection import kv_cache
+    from infera.projection.core.projection.training_config import (
+        uses_latent_attention,
+    )
+
+    v4 = SimpleNamespace(multi_latent_attention=False, qk_pos_emb_head_dim=64,
+                         num_query_groups=1, kv_channels=512,
+                         num_attention_heads=128, group_query_attention=True)
+    assert uses_latent_attention(v4)
+    assert kv_cache.uses_latent_attention is uses_latent_attention, (
+        "the cache must share the predicate, not keep its own copy"
+    )
+
+
 def test_the_step_floor_still_comes_out_where_it_was_measured():
     """The count and the constant have to be the pair that was calibrated.
 

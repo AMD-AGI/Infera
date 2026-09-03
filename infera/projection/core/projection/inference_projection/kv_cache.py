@@ -22,7 +22,11 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from infera.projection.core.projection.training_config import InferenceConfig, dtype_num_bytes
+from infera.projection.core.projection.training_config import (
+    InferenceConfig,
+    dtype_num_bytes,
+    uses_latent_attention,
+)
 
 
 @dataclass
@@ -65,6 +69,16 @@ def kv_bytes_per_token_per_layer(inference_config: InferenceConfig) -> float:
         # across heads, so it is *not* sharded by TP heads.
         latent = int(mc.kv_lora_rank or 0) + int(mc.qk_pos_emb_head_dim or 0)
         return latent * kv_bytes
+
+    # DeepSeek-V4 keeps ``multi_latent_attention`` off so the trainer does not
+    # take the V3 MLA builder (CSA/HCA/SWA need their own spec). The cache is
+    # still one 576-byte latent per token -- 512-d shared K=V plus 64-d
+    # decoupled RoPE -- which is what vLLM registers, not K and V of
+    # ``kv_channels`` each. Charging 2×512 rejected the measured 12-prefill
+    # / 1-decode GB300 winner at 4096 in-flight.
+    rope = int(getattr(mc, "qk_pos_emb_head_dim", 0) or 0)
+    if uses_latent_attention(mc):
+        return (int(mc.kv_channels) + rope) * kv_bytes
 
     # Standard MHA / GQA: K and V each store (kv_heads_per_rank * head_dim).
     # Data-parallel attention holds whole heads instead: a rank owns a subset of
