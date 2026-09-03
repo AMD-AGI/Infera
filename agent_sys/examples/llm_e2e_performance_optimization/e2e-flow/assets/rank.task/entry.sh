@@ -1,5 +1,5 @@
 #!/bin/sh
-# SKELETON. Mock first, real work second. See ../../CONTRACT.md and ../../MOCK-MAP.md.
+# `rank` — mock first, real work second. See ../../CONTRACT.md and ../../MOCK-MAP.md.
 set -eu
 PKG="${AGENT_SYS_TASK_PACKAGE:-${AGENT_SYS_DEMO_PACKAGE:?the runner exports one of these}}"
 # `|| rc=$?` and not `; rc=$?`: under `set -e` a simple command exiting
@@ -13,5 +13,4 @@ bash "$PKG/assets/lib/mock.sh" stage3-analyze kernel_worklist || rc=$?
 # either.
 if [ "$rc" -eq 0 ]; then exit 0; fi
 if [ "$rc" -ne 3 ]; then exit "$rc"; fi
-echo "TODO(owner): rank has no real body yet; run with E2E_MOCK_STAGES covering stage3-analyze" >&2
-exit 1
+exec "${AGENT_SYS_DEMO_PYTHON:-python3}" "$PKG/assets/rank.task/rank.py"

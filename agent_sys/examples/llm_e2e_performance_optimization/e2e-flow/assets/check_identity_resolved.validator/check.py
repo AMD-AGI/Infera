@@ -85,10 +85,12 @@ def _check(content: Path, args: dict, problems: list[str], notes: list[str]) -> 
     operators = data["operators"]
     declared = set(data["container_root_placeholders"])
 
-    # 1. Every placeholder used is a placeholder defined.
+    # 1. Every placeholder used is a placeholder defined. An **empty** one means
+    #    the owner is unknown, which the schema permits and the unresolved rule
+    #    then makes honest; there is nothing to declare and nothing to check.
     for operator in operators:
         placeholder = operator["image_repo_path"]
-        if placeholder not in declared:
+        if placeholder and placeholder not in declared:
             problems.append(
                 f"{operator['kernel_id']}: image_repo_path {placeholder} is not in "
                 f"container_root_placeholders {sorted(declared)}. An undeclared placeholder "

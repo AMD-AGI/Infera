@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "operator_identity.schema.json",
   "title": "operator_identity — each candidate resolved from a device symbol to a source location",
-  "description": "`items/text.json` of the `operator_identity` handoff. Written against the real sealed artefact at `cheat_for_mock/stage3-analyze/operator_identity/` (two operators, both `symbol_search`, both with an empty `target_kernel_functions`).\n\n**The field names are AgentKernelArena's `config.yaml` vocabulary and are not invented here** — `image_repo_path`, `repo_subdir`, `repository_language`, `source_file_path`, `editable_sources`, `target_kernel_functions`, `kernel_identity`. Adopting an existing vocabulary is what lets the next step emit Arena-shaped output with no translation layer, and renaming any of them here would create one.\n\n**What this document is for, stated because it is easy to get backwards.** `check_identity_resolved` runs with `min_resolve_ratio: 0.0`, on purpose: the evidence available is a device symbol, and for a Tensile GEMM dispatched from C++ there is no Python frame to find. A floor above zero fails a correct analysis on exactly the kernels the next stage excludes anyway. So what is checked — and what this schema makes checkable — is that **uncertainty is modelled rather than absent**:\n\n1. An operator that resolved to no source file must carry a `resolution_hint` saying where to look. Silence is the one answer not permitted.\n2. `source_resolution_method: agent_recovered` means the resolver gave a direction and no entry point; it therefore requires a hint too. It is not a failure — it is the path two of Arena's own samples took.\n3. `image_repo_path` is a `${PLACEHOLDER}` and never a path. `handoff/locality.py` refuses the seal over a container-absolute root like `/sgl-workspace`, and this pattern is that rule made mechanical one step earlier, where it names the field instead of failing the whole delivery.\n\n**What a schema cannot do and `check_identity_resolved` therefore does**: compute `summary.resolve_ratio` from `operators` and check the stored figure follows from it. A document that disagrees with itself is the one failure a required-property list cannot express.",
+  "description": "`items/text.json` of the `operator_identity` handoff. Written against the real sealed artefact at `cheat_for_mock/stage3-analyze/operator_identity/` (two operators, both `symbol_search`, both with an empty `target_kernel_functions`).\n\n**The field names are AgentKernelArena's `config.yaml` vocabulary and are not invented here** — `image_repo_path`, `repo_subdir`, `repository_language`, `source_file_path`, `editable_sources`, `target_kernel_functions`, `kernel_identity`. Adopting an existing vocabulary is what lets the next step emit Arena-shaped output with no translation layer, and renaming any of them here would create one.\n\n**What this document is for, stated because it is easy to get backwards.** `check_identity_resolved` runs with `min_resolve_ratio: 0.0`, on purpose: the evidence available is a device symbol, and for a Tensile GEMM dispatched from C++ there is no Python frame to find. A floor above zero fails a correct analysis on exactly the kernels the next stage excludes anyway. So what is checked — and what this schema makes checkable — is that **uncertainty is modelled rather than absent**:\n\n1. An operator that resolved to no source file must carry a `resolution_hint` saying where to look. Silence is the one answer not permitted.\n2. `source_resolution_method: agent_recovered` means the resolver gave a direction and no entry point; it therefore requires a hint too. It is not a failure — it is the path two of Arena's own samples took.\n3. `image_repo_path` is a placeholder and never a path — `${NAME}` or `@NAME@`, both accepted, or empty when no owner is known. The rule was written because `handoff/locality.py` refuses a container-absolute root like `/sgl-workspace`; **measured, that check is disconnected** (`handoff/store.py:447,494`, user-ruled 2026-08-31 at a 97% false-positive rate), so the rule survives on the merit it always had: `/sgl-workspace/aiter` is where aiter lives *in one image*, and a document that hard-codes it cannot be retargeted.\n\n**What a schema cannot do and `check_identity_resolved` therefore does**: compute `summary.resolve_ratio` from `operators` and check the stored figure follows from it. A document that disagrees with itself is the one failure a required-property list cannot express.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "generated_at", "resolver", "container_root_placeholders", "summary", "operators"],
@@ -31,7 +31,7 @@
     "container_root_placeholders": {
       "type": "object",
       "minProperties": 1,
-      "propertyNames": {"pattern": "^\\$\\{[A-Z_][A-Z0-9_]*\\}$"},
+      "propertyNames": {"pattern": "^(\\$\\{[A-Z_][A-Z0-9_]*\\}|@[A-Z_][A-Z0-9_]*@)$"},
       "additionalProperties": {"type": "string", "minLength": 1},
       "description": "Every placeholder used anywhere in `operators`, with a one-line description of what it holds. The **descriptions, not the expansions** — an expansion is a container-absolute path and would refuse the seal. What each expands to for a given image lives in the producing package's `assets/lib/container_roots.yaml`; the framework has a mechanism for this (`Oracles.image_prefixes` against a kind's `dependencies`) and it is not wired up, which is recorded as a bug rather than worked around here."
     },
@@ -85,11 +85,11 @@
 
         "image_repo_path": {
           "type": "string",
-          "pattern": "^\\$\\{[A-Z_][A-Z0-9_]*\\}$",
-          "description": "A placeholder, never a path. See the header, rule 3. Every value here must be a key of `container_root_placeholders`, which is a cross-field rule and `check_identity_resolved`'s to enforce."
+          "pattern": "^(|\\$\\{[A-Z_][A-Z0-9_]*\\}|@[A-Z_][A-Z0-9_]*@)$",
+          "description": "A placeholder, never a path. See the header, rule 3. Every non-empty value must be a key of `container_root_placeholders`, which is a cross-field rule and `check_identity_resolved`'s to enforce.\n\n**Two sigils, both accepted, and empty accepted too.** `${NAME}` is what the sealed artefact this package mocks against carries; `@NAME@` is what `assets/lib/container_roots.yaml` writes, because `locality._CANDIDATE`'s lookbehind excludes `@` and not `}` — so `${SGLANG_ROOT}/srt/models/x.py` leaves `/srt/models/x.py` as a fresh two-segment candidate and is flagged anyway. Rejecting either would fail a correct document produced by the other convention.\n\n**Empty means the owner is unknown, and that is a state to model rather than forbid.** Measured: on the real 124-kernel gfx950 table, three of the top routable candidates are Triton kernels (`chunk_fwd_kernel_o` and siblings) that no owner rule matches. A pattern requiring a placeholder here would force the producer to invent an owner — the same pressure `min_resolve_ratio: 0.0` exists to remove. The unresolved-and-silent rule below is what makes the empty case honest."
         },
         "repo_subdir": {"type": "string"},
-        "repository_language": {"type": "string", "minLength": 1, "description": "`ck`, `triton`, `python`, `cuda`, `hip`, `tilelang`, … what the editable source is written in, which is what selects the KernelForge fellow."},
+        "repository_language": {"type": "string", "description": "`ck`, `triton`, `python`, `cuda`, `hip`, `tilelang`, … what the editable source is written in, which is what selects the KernelForge fellow. **Empty when the owner is unknown**, for the reason under `image_repo_path`: a kernel nothing claims has no known language, and guessing one picks the wrong fellow silently."},
 
         "source_file_path": {
           "type": "array",
@@ -113,8 +113,8 @@
           "required": ["logical_operator", "kernel_kind", "source_owner"],
           "properties": {
             "logical_operator": {"type": "string", "minLength": 1},
-            "kernel_kind": {"type": "string", "minLength": 1},
-            "source_owner": {"type": "string", "minLength": 1, "description": "Which project owns the code: `aiter`, `sglang`, `sgl-kernel`, `tilelang`, `torch`."}
+            "kernel_kind": {"type": "string", "description": "Empty when unknown; see `repository_language`."},
+            "source_owner": {"type": "string", "description": "Which project owns the code: `aiter`, `sglang`, `sgl_kernel`, `tilelang`, `torch`. Empty when no rule matched — the case the unresolved-and-silent rule below then makes honest."}
           }
         },
 
