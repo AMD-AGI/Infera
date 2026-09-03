@@ -23,18 +23,18 @@
 set -uo pipefail
 
 PKG="${AGENT_SYS_TASK_PACKAGE:?}"
-ARM="${IT_ARM:?}"
-OUT_ACCEPT="${IT_OUTPUT_ACCEPT:?}"
-OUT_BENCH="${IT_OUTPUT_BENCH:?}"
+ARM="${E2E_ARM:?}"
+OUT_ACCEPT="${E2E_OUTPUT_ACCEPT:?}"
+OUT_BENCH="${E2E_OUTPUT_BENCH:?}"
 
 . "$PKG/assets/lib/remote.sh"
 
 ACCEPT="$PKG/assets/accept"
 BENCH="$PKG/assets/bench"
-WORK="${IT_WORK_ROOT:?}"
-CTR="${IT_CTR:?}"
-R="http://${IT_NODE_IP:?}:${IT_ROUTER_PORT:?}"
-ROUNDS="${IT_BENCH_ROUNDS:-2}"
+WORK="${E2E_WORK_ROOT:?}"
+CTR="${E2E_CONTAINER:?}"
+R="http://${E2E_NODE_IP:?}:${E2E_PORT_ROUTER:?}"
+ROUNDS="${E2E_BENCH_ROUNDS:-2}"
 
 WORKDIR="$(pwd)/measure.$ARM"
 rm -rf "$WORKDIR"; mkdir -p "$WORKDIR/accept" "$WORKDIR/bench" "$WORKDIR/logs"
@@ -68,15 +68,15 @@ run_step() {
 
 # ---- 1. smoke ---------------------------------------------------------------
 run_step smoke "python3 '$ACCEPT/smoke.py' \
-  --url '$R' --model '$IT_SERVED' --container '$CTR' \
+  --url '$R' --model '$E2E_SERVED_NAME' --container '$CTR' \
   --out '$WORKDIR/accept/smoke.json'"
 
 # ---- 2. needle --------------------------------------------------------------
 run_step needle "python3 '$ACCEPT/needle.py' \
-  --url '$R' --model '$IT_SERVED' --out '$WORKDIR/accept/needle.json' \
-  --gated-tokens '${IT_NEEDLE_TOKENS:-76000}' \
-  --frontier-tokens '${IT_NEEDLE_FRONTIER_TOKENS:-127000}' \
-  --depths '${IT_NEEDLE_DEPTHS:-0.02,0.5,0.98}'"
+  --url '$R' --model '$E2E_SERVED_NAME' --out '$WORKDIR/accept/needle.json' \
+  --gated-tokens '${E2E_NEEDLE_TOKENS:-76000}' \
+  --frontier-tokens '${E2E_NEEDLE_FRONTIER_TOKENS:-127000}' \
+  --depths '${E2E_NEEDLE_DEPTHS:-0.02,0.5,0.98}'"
 
 # ---- 3. probe ---------------------------------------------------------------
 # **It gates the eval's INTERPRETATION, not its execution**, and that is a
@@ -93,17 +93,17 @@ run_step needle "python3 '$ACCEPT/needle.py' \
 # marks an eval comparison `uninterpretable` — never `same` — when either arm's
 # probe failed. Nothing is silently believed and nothing is thrown away.
 run_step probe "python3 '$ACCEPT/probe.py' \
-  --url '$R' --model '$IT_SERVED' --out '$WORKDIR/accept/probe.json' \
-  --max-tokens '${IT_EVAL_MAX_TOKENS:-2048}'"
+  --url '$R' --model '$E2E_SERVED_NAME' --out '$WORKDIR/accept/probe.json' \
+  --max-tokens '${E2E_EVAL_MAX_TOKENS:-2048}'"
 probe_rc="$(awk -F'\t' '$1=="probe"{print $2}' "$STEPS")"
 [ "${probe_rc:-1}" = "0" ] || say "probe FAILED — the eval still runs, and its comparison will be marked uninterpretable"
 
 # ---- 4. llm-eval ------------------------------------------------------------
-run_step lm_eval "URL='$R' SERVED='$IT_SERVED' CTR='$CTR' \
-  OUT='$WORKDIR/accept/lm_eval' GSM8K_SRC='${IT_GSM8K_DATA:?}' \
-  EVALS='${IT_EVAL_NAMES:-gsm8k}' NUM_EXAMPLES='${IT_EVAL_EXAMPLES:-200}' \
-  THREADS='${IT_EVAL_THREADS:-32}' MAX_TOKENS='${IT_EVAL_MAX_TOKENS:-2048}' \
-  THINKING='${IT_EVAL_THINKING:---thinking-mode glm-45}' \
+run_step lm_eval "URL='$R' SERVED='$E2E_SERVED_NAME' CTR='$CTR' \
+  OUT='$WORKDIR/accept/lm_eval' GSM8K_SRC='${E2E_GSM8K_DATA:?}' \
+  EVALS='${E2E_EVAL_NAMES:-gsm8k}' NUM_EXAMPLES='${E2E_EVAL_EXAMPLES:-200}' \
+  THREADS='${E2E_EVAL_THREADS:-32}' MAX_TOKENS='${E2E_EVAL_MAX_TOKENS:-2048}' \
+  THINKING='${E2E_EVAL_THINKING:---thinking-mode glm-45}' \
   bash '$ACCEPT/lm_eval.sh'"
 
 # ---- 5. bench ---------------------------------------------------------------
@@ -113,13 +113,13 @@ run_step lm_eval "URL='$R' SERVED='$IT_SERVED' CTR='$CTR' \
 AIPERF_OUT="$WORK/aiperf/$ARM"
 for r in $(seq 1 "$ROUNDS"); do
   TAG="r$r"
-  run_step "bench_$TAG" "NODE_IP='$IT_NODE_IP' ROUTER_PORT='$IT_ROUTER_PORT' \
-    SERVED='$IT_SERVED' MODEL='$IT_MODEL' MODEL_MOUNT='$(dirname "$IT_MODEL")' \
-    AIPERF_IMAGE='${IT_AIPERF_IMAGE:?}' AIPERF_OUT='$AIPERF_OUT' \
-    AIPERF_TRACE='${IT_AIPERF_TRACE:?}' SCRIPTS='$BENCH' \
-    TRACE_END_MS='${IT_TRACE_END_MS:-120000}' MAX_CONC='${IT_MAX_CONC:-256}' \
-    WORKERS='${IT_WORKERS:-16}' BLOCK_SIZE='${IT_BLOCK_SIZE:-512}' \
-    REQ_TIMEOUT='${IT_REQ_TIMEOUT:-900}' TAG='$TAG' \
+  run_step "bench_$TAG" "NODE_IP='$E2E_NODE_IP' ROUTER_PORT='$E2E_PORT_ROUTER' \
+    SERVED='$E2E_SERVED_NAME' MODEL='$E2E_MODEL_PATH' MODEL_MOUNT='$(dirname "$E2E_MODEL_PATH")' \
+    AIPERF_IMAGE='${E2E_AIPERF_IMAGE:?}' AIPERF_OUT='$AIPERF_OUT' \
+    AIPERF_TRACE='${E2E_AIPERF_TRACE:?}' SCRIPTS='$BENCH' \
+    TRACE_END_MS='${E2E_TRACE_END_MS:-120000}' MAX_CONC='${E2E_MAX_CONC:-256}' \
+    WORKERS='${E2E_WORKERS:-16}' BLOCK_SIZE='${E2E_BLOCK_SIZE:-512}' \
+    REQ_TIMEOUT='${E2E_REQ_TIMEOUT:-900}' TAG='$TAG' \
     bash '$BENCH/aiperf_replay.sh'"
 
   on "cp -r '$AIPERF_OUT/$TAG' '$WORKDIR/bench/$TAG'" >/dev/null 2>&1 || {
@@ -159,30 +159,30 @@ emit_common_env() {
 import json, sys
 json.dump({
     "arm": "$ARM",
-    "node": "$IT_NODE",
-    "slurm_jobid": "$IT_JOBID",
+    "node": "$E2E_NODE",
+    "slurm_jobid": "$E2E_JOBID",
     "endpoint": "$R",
     "container": "$CTR",
-    "image": "$IT_IMAGE",
-    "served_model_name": "$IT_SERVED",
-    "model_path": "$IT_MODEL",
+    "image": "$E2E_IMAGE",
+    "served_model_name": "$E2E_SERVED_NAME",
+    "model_path": "$E2E_MODEL_PATH",
     "eval": {
-        "names": "${IT_EVAL_NAMES:-gsm8k}".split(),
-        "num_examples": int("${IT_EVAL_EXAMPLES:-200}"),
-        "threads": int("${IT_EVAL_THREADS:-32}"),
-        "max_tokens": int("${IT_EVAL_MAX_TOKENS:-2048}"),
-        "thinking_mode": "${IT_EVAL_THINKING:---thinking-mode glm-45}",
+        "names": "${E2E_EVAL_NAMES:-gsm8k}".split(),
+        "num_examples": int("${E2E_EVAL_EXAMPLES:-200}"),
+        "threads": int("${E2E_EVAL_THREADS:-32}"),
+        "max_tokens": int("${E2E_EVAL_MAX_TOKENS:-2048}"),
+        "thinking_mode": "${E2E_EVAL_THINKING:---thinking-mode glm-45}",
     },
     "needle": {
-        "gated_tokens": int("${IT_NEEDLE_TOKENS:-76000}"),
-        "frontier_tokens": int("${IT_NEEDLE_FRONTIER_TOKENS:-127000}"),
-        "depths": [float(x) for x in "${IT_NEEDLE_DEPTHS:-0.02,0.5,0.98}".split(",")],
+        "gated_tokens": int("${E2E_NEEDLE_TOKENS:-76000}"),
+        "frontier_tokens": int("${E2E_NEEDLE_FRONTIER_TOKENS:-127000}"),
+        "depths": [float(x) for x in "${E2E_NEEDLE_DEPTHS:-0.02,0.5,0.98}".split(",")],
     },
     "bench": {
         "rounds": int("$ROUNDS"),
-        "trace_end_ms": int("${IT_TRACE_END_MS:-120000}"),
-        "max_concurrency": int("${IT_MAX_CONC:-256}"),
-        "workers": int("${IT_WORKERS:-16}"),
+        "trace_end_ms": int("${E2E_TRACE_END_MS:-120000}"),
+        "max_concurrency": int("${E2E_MAX_CONC:-256}"),
+        "workers": int("${E2E_WORKERS:-16}"),
     },
 }, open(sys.argv[1], "w"), indent=2)
 PYEOF
@@ -204,18 +204,18 @@ set -eu
 : "\${URL:?export URL=<router base url>}"
 : "\${OUT:?export OUT=<directory to write results into>}"
 : "\${GSM8K_SRC:?export GSM8K_SRC=<the GSM8K test split, 1319 rows>}"
-SERVED="\${SERVED:-$IT_SERVED}"
+SERVED="\${SERVED:-$E2E_SERVED_NAME}"
 CTR="\${CTR:-$CTR}"
 
 mkdir -p "\$OUT"
 python3 "\$ACCEPT/smoke.py"  --url "\$URL" --model "\$SERVED" --container "\$CTR" --out "\$OUT/smoke.json"
 python3 "\$ACCEPT/needle.py" --url "\$URL" --model "\$SERVED" --out "\$OUT/needle.json" \\
-  --gated-tokens ${IT_NEEDLE_TOKENS:-76000} --frontier-tokens ${IT_NEEDLE_FRONTIER_TOKENS:-127000} \\
-  --depths '${IT_NEEDLE_DEPTHS:-0.02,0.5,0.98}'
+  --gated-tokens ${E2E_NEEDLE_TOKENS:-76000} --frontier-tokens ${E2E_NEEDLE_FRONTIER_TOKENS:-127000} \\
+  --depths '${E2E_NEEDLE_DEPTHS:-0.02,0.5,0.98}'
 python3 "\$ACCEPT/probe.py"  --url "\$URL" --model "\$SERVED" --out "\$OUT/probe.json"
 URL="\$URL" SERVED="\$SERVED" CTR="\$CTR" OUT="\$OUT/lm_eval" GSM8K_SRC="\$GSM8K_SRC" \\
-  EVALS='${IT_EVAL_NAMES:-gsm8k}' NUM_EXAMPLES=${IT_EVAL_EXAMPLES:-200} \\
-  THREADS=${IT_EVAL_THREADS:-32} bash "\$ACCEPT/lm_eval.sh"
+  EVALS='${E2E_EVAL_NAMES:-gsm8k}' NUM_EXAMPLES=${E2E_EVAL_EXAMPLES:-200} \\
+  THREADS=${E2E_EVAL_THREADS:-32} bash "\$ACCEPT/lm_eval.sh"
 EOF
 chmod +x "$A/command"
 
@@ -224,7 +224,7 @@ for f in "$WORKDIR"/logs/{smoke,needle,probe,lm_eval}.log; do
 done
 
 cat > "$A/watchout" <<EOF
-${IT_EVAL_EXAMPLES:-200} questions per eval is a Wilson interval of roughly plus or minus five
+${E2E_EVAL_EXAMPLES:-200} questions per eval is a Wilson interval of roughly plus or minus five
 points. That is enough to catch a broken deployment and not enough to see a
 two-point regression; the full set is about 1300 questions and about six minutes
 per eval. Raise eval_examples before reading a small difference as real.
@@ -309,11 +309,11 @@ set -eu
 NODE_IP="\${NODE_IP:?export NODE_IP=<the node's data-plane IP>}"
 
 for r in \$(seq 1 $ROUNDS); do
-  NODE_IP="\$NODE_IP" ROUTER_PORT=$IT_ROUTER_PORT SERVED=$IT_SERVED \\
-  MODEL="\$MODEL_MOUNT/$(basename "$IT_MODEL")" MODEL_MOUNT="\$MODEL_MOUNT" \\
-  AIPERF_IMAGE=$IT_AIPERF_IMAGE AIPERF_OUT="\$AIPERF_OUT" AIPERF_TRACE="\$AIPERF_TRACE" \\
-  SCRIPTS="\$BENCH" TRACE_END_MS=${IT_TRACE_END_MS:-120000} MAX_CONC=${IT_MAX_CONC:-256} \\
-  WORKERS=${IT_WORKERS:-16} TAG="r\$r" bash "\$BENCH/aiperf_replay.sh"
+  NODE_IP="\$NODE_IP" ROUTER_PORT=$E2E_PORT_ROUTER SERVED=$E2E_SERVED_NAME \\
+  MODEL="\$MODEL_MOUNT/$(basename "$E2E_MODEL_PATH")" MODEL_MOUNT="\$MODEL_MOUNT" \\
+  AIPERF_IMAGE=$E2E_AIPERF_IMAGE AIPERF_OUT="\$AIPERF_OUT" AIPERF_TRACE="\$AIPERF_TRACE" \\
+  SCRIPTS="\$BENCH" TRACE_END_MS=${E2E_TRACE_END_MS:-120000} MAX_CONC=${E2E_MAX_CONC:-256} \\
+  WORKERS=${E2E_WORKERS:-16} TAG="r\$r" bash "\$BENCH/aiperf_replay.sh"
   python3 "\$BENCH/summarise.py" "\$AIPERF_OUT/r\$r/profile_export_aiperf.csv" \\
     "\$AIPERF_OUT/r\$r/summary.json"
 done
@@ -349,7 +349,7 @@ cat > "$OUT_BENCH/README.md" <<EOF
 ## Purpose
 
 What this arm does under a production-shaped load: $ROUNDS replay(s) of the first
-$(( ${IT_TRACE_END_MS:-120000} / 1000 )) seconds of a Mooncake trace through AIPerf.
+$(( ${E2E_TRACE_END_MS:-120000} / 1000 )) seconds of a Mooncake trace through AIPerf.
 
 A trace replay and not a synthetic sweep, because a random-prompt sweep builds
 every prompt independently and therefore has no shared prefix by construction —
@@ -383,11 +383,11 @@ EOF
 say "redacting site-specific paths"
 for dest in "$OUT_ACCEPT" "$OUT_BENCH"; do
   python3 "$PKG/assets/lib/redact.py" "$dest" \
-    "MODEL_MOUNT=$(dirname "$IT_MODEL")" \
+    "MODEL_MOUNT=$(dirname "$E2E_MODEL_PATH")" \
     "WORK_ROOT=$WORK" \
     "TASK_PACKAGE=$PKG" \
-    "GSM8K_DIR=$(dirname "${IT_GSM8K_DATA:-/none}")" \
-    "TRACE_DIR=$(dirname "${IT_AIPERF_TRACE:-/none}")" \
+    "GSM8K_DIR=$(dirname "${E2E_GSM8K_DATA:-/none}")" \
+    "TRACE_DIR=$(dirname "${E2E_AIPERF_TRACE:-/none}")" \
     "ZONE=$(pwd)" \
     "TMPDIR=/tmp" \
     "HOME=$HOME" || {

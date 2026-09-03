@@ -4,7 +4,7 @@
 # Runs on the LOGIN NODE. Everything that touches a GPU goes through
 # assets/lib/remote.sh's `on`, which is `srun --overlap` into the allocation.
 #
-# The arm is chosen by the caller through IT_ARM. `stock` mounts nothing;
+# The arm is chosen by the caller through E2E_ARM. `stock` mounts nothing;
 # `patched` mounts the plan `apply_patch` built. **That is the only difference**,
 # and keeping both arms on one implementation is what stops them drifting into
 # two deployments that vary in more than the axis under test.
@@ -16,15 +16,15 @@
 set -uo pipefail
 
 PKG="${AGENT_SYS_TASK_PACKAGE:?}"
-OUT="${IT_OUTPUT_DIR:?}"
-ARM="${IT_ARM:?}"
+OUT="${E2E_OUTPUT_DIR:?}"
+ARM="${E2E_ARM:?}"
 
 . "$PKG/assets/lib/remote.sh"
 
 SERVE="$PKG/assets/serve"
-WORK="${IT_WORK_ROOT:?}"
-CTR="${IT_CTR:?}"
-R="http://${IT_NODE_IP:?}:${IT_ROUTER_PORT:?}"
+WORK="${E2E_WORK_ROOT:?}"
+CTR="${E2E_CONTAINER:?}"
+R="http://${E2E_NODE_IP:?}:${E2E_PORT_ROUTER:?}"
 
 WORKDIR="$(pwd)/round.$ARM"
 rm -rf "$WORKDIR"; mkdir -p "$WORKDIR"
@@ -32,14 +32,14 @@ LOG="$WORKDIR/mix_up.log"
 
 say() { printf '[%s] %s\n' "$ARM" "$*"; }
 
-say "node=$IT_NODE ip=$IT_NODE_IP jobid=$IT_JOBID"
-say "model=$IT_MODEL tp=$IT_TP cuda_graph=1 container=$CTR"
+say "node=$E2E_NODE ip=$E2E_NODE_IP jobid=$E2E_JOBID"
+say "model=$E2E_MODEL_PATH tp=$E2E_TP cuda_graph=1 container=$CTR"
 
 # ---- 1. preconditions -------------------------------------------------------
 require_visible_on_node "$SERVE/mix_up.sh" "staged task package" || exit 1
 
-if ! on "test -r '$IT_MODEL/config.json'" >/dev/null 2>&1; then
-  say "ABORT: $IT_MODEL/config.json is not readable on $IT_NODE"
+if ! on "test -r '$E2E_MODEL_PATH/config.json'" >/dev/null 2>&1; then
+  say "ABORT: $E2E_MODEL_PATH/config.json is not readable on $E2E_NODE"
   exit 1
 fi
 
@@ -54,10 +54,18 @@ SPEC=""
 PRIOR_STEPS=""
 if [ "$ARM" = "patched" ]; then
   # The stock arm's own record of what it did, and the reason this task is
-  # allowed to tear that deployment down. Reading it is what turns "this ran
-  # after the stock arm" from an assertion into something the record carries;
-  # `froms` alone does not order anything (temp/bugs/004).
-  PRIOR_STEPS="${AGENT_SYS_INPUT_BENCH_STOCK:?}/items/env/steps.json"
+  # allowed to tear that deployment down.
+  #
+  # **This used to be a graph edge and is now a precondition.** In
+  # `integration-demo`, `serve_patched` consumed `bench_stock` — not because it
+  # needed the numbers but because the edge said "the stock arm has finished".
+  # M5.2 merged the five leaves into one task, so there is no edge left to carry
+  # that; what is left is this check, against the stock arm's steps record
+  # written earlier in this same task. It is weaker than a scheduler constraint
+  # and stronger than a sentence in a readme: the patched bring-up refuses to
+  # start if the stock arm did not finish, and `check_measurement_order` refuses
+  # the pair afterwards if the two arms overlapped in time.
+  PRIOR_STEPS="${E2E_PRIOR_STEPS:?E2E_PRIOR_STEPS must name the stock arm's items/env/steps.json}"
   if [ ! -r "$PRIOR_STEPS" ]; then
     say "ABORT: the stock arm's step record is not readable at $PRIOR_STEPS"
     say "  This task tears the stock deployment down and must not run before it was measured."
@@ -75,7 +83,7 @@ print(' -> '.join(s['step'] for s in d.get('steps', [])))" "$PRIOR_STEPS")"
   # code. Checked on the node, because that is where the mount will be resolved.
   while IFS=$'\t' read -r host inside; do
     on "test -r '$host'" >/dev/null 2>&1 || {
-      say "ABORT: mount source missing on $IT_NODE: $host"
+      say "ABORT: mount source missing on $E2E_NODE: $host"
       say "  apply_patch staged it under the node-local work root; the allocation may have changed."
       exit 1
     }
@@ -88,14 +96,14 @@ say "preconditions ok"
 
 # ---- 3. bring the stack up --------------------------------------------------
 say "deploying (cold-starts the engine; first load off NFS took 819s, later ones ~243s)"
-on "NODE_IP='$IT_NODE_IP' IMAGE='$IT_IMAGE' ETCD_IMAGE='$IT_ETCD_IMAGE' \
-    MODEL='$IT_MODEL' MODEL_MOUNT='$(dirname "$IT_MODEL")' SERVED='$IT_SERVED' \
-    CTR='$CTR' ROUTER_PORT='$IT_ROUTER_PORT' PORT='$IT_WORKER_PORT' \
-    ETCD_PORT='$IT_ETCD_PORT' TP='$IT_TP' \
+on "NODE_IP='$E2E_NODE_IP' IMAGE='$E2E_IMAGE' ETCD_IMAGE='$E2E_ETCD_IMAGE' \
+    MODEL='$E2E_MODEL_PATH' MODEL_MOUNT='$(dirname "$E2E_MODEL_PATH")' SERVED='$E2E_SERVED_NAME' \
+    CTR='$CTR' ROUTER_PORT='$E2E_PORT_ROUTER' PORT='$E2E_PORT_WORKER' \
+    ETCD_PORT='$E2E_PORT_ETCD' TP='$E2E_TP' \
     WORK_ROOT='$WORK' CUDA_GRAPH=1 SCRIPTS='$SERVE' MOUNT_SPEC='$SPEC' \
-    CTX='${IT_CTX:-262144}' \
-    DSA_ARGS='${IT_DSA_ARGS:---dsa-prefill-backend tilelang --dsa-decode-backend tilelang}' \
-    PARSER_ARGS='${IT_PARSER_ARGS:---reasoning-parser glm45 --tool-call-parser glm47}' \
+    CTX='${E2E_CTX:-262144}' \
+    DSA_ARGS='${E2E_DSA_ARGS:---dsa-prefill-backend tilelang --dsa-decode-backend tilelang}' \
+    PARSER_ARGS='${E2E_PARSER_ARGS:---reasoning-parser glm45 --tool-call-parser glm47}' \
     bash '$SERVE/mix_up.sh'" 2>&1 | tee "$LOG"
 up_rc="${PIPESTATUS[0]}"
 
@@ -111,7 +119,7 @@ say "collecting evidence"
 # The environment is passed explicitly, not inherited: `srun --export=ALL` copies
 # this process's environment, which carries the IT_* block but none of the names
 # mix_smoke.sh reads.
-on "NODE_IP='$IT_NODE_IP' ROUTER_PORT='$IT_ROUTER_PORT' SERVED='$IT_SERVED' \
+on "NODE_IP='$E2E_NODE_IP' ROUTER_PORT='$E2E_PORT_ROUTER' SERVED='$E2E_SERVED_NAME' \
     CTR='$CTR' bash '$SERVE/mix_smoke.sh'" > "$WORKDIR/smoke.txt" 2>&1
 on "curl -s -m10 '$R/v1/workers'" > "$WORKDIR/workers.json" 2>/dev/null
 on "curl -s -m10 '$R/v1/models'"  > "$WORKDIR/models.json"  2>/dev/null
@@ -180,7 +188,7 @@ cp "$WORKDIR/gpu.txt" "$WORKDIR/rocm.txt" "$WORKDIR/image.txt" \
 cp "$WORKDIR/docker_mounts.json" "$WORKDIR/container_hashes.tsv" \
    "$WORKDIR/marker_hits.tsv" "$ITEMS/env/"
 
-MODEL_NAME="$(basename "$IT_MODEL")"
+MODEL_NAME="$(basename "$E2E_MODEL_PATH")"
 cat > "$ITEMS/command" <<EOF
 #!/usr/bin/env bash
 # Reproduce this arm. \`agent.gate\` requires this item to be executable, so it is
@@ -197,14 +205,14 @@ set -eu
 : "\${SCRIPTS:?export SCRIPTS=<the package's assets/serve directory>}"
 MOUNT_SPEC="\${MOUNT_SPEC:-}"
 
-NODE_IP=$IT_NODE_IP IMAGE=$IT_IMAGE ETCD_IMAGE=$IT_ETCD_IMAGE \\
-MODEL="\$MODEL_MOUNT/$MODEL_NAME" MODEL_MOUNT="\$MODEL_MOUNT" SERVED=$IT_SERVED \\
-CTR=$CTR ROUTER_PORT=$IT_ROUTER_PORT PORT=$IT_WORKER_PORT ETCD_PORT=$IT_ETCD_PORT \\
-TP=$IT_TP WORK_ROOT="\$WORK_ROOT" CUDA_GRAPH=1 SCRIPTS="\$SCRIPTS" \\
+NODE_IP=$E2E_NODE_IP IMAGE=$E2E_IMAGE ETCD_IMAGE=$E2E_ETCD_IMAGE \\
+MODEL="\$MODEL_MOUNT/$MODEL_NAME" MODEL_MOUNT="\$MODEL_MOUNT" SERVED=$E2E_SERVED_NAME \\
+CTR=$CTR ROUTER_PORT=$E2E_PORT_ROUTER PORT=$E2E_PORT_WORKER ETCD_PORT=$E2E_PORT_ETCD \\
+TP=$E2E_TP WORK_ROOT="\$WORK_ROOT" CUDA_GRAPH=1 SCRIPTS="\$SCRIPTS" \\
 MOUNT_SPEC="\$MOUNT_SPEC" \\
 bash "\$SCRIPTS/mix_up.sh"
 
-NODE_IP=$IT_NODE_IP SERVED=$IT_SERVED CTR=$CTR ROUTER_PORT=$IT_ROUTER_PORT \\
+NODE_IP=$E2E_NODE_IP SERVED=$E2E_SERVED_NAME CTR=$CTR ROUTER_PORT=$E2E_PORT_ROUTER \\
 bash "\$SCRIPTS/mix_smoke.sh"
 EOF
 chmod +x "$ITEMS/command"
@@ -241,17 +249,17 @@ json.dump({
         "entrypoints": ["assets/serve/mix_up.sh", "assets/serve/mix_smoke.sh"],
         "commit": "$PKG_COMMIT",
     },
-    "node": "$IT_NODE",
-    "node_ip": "$IT_NODE_IP",
-    "slurm_jobid": "$IT_JOBID",
-    "image": "$IT_IMAGE",
+    "node": "$E2E_NODE",
+    "node_ip": "$E2E_NODE_IP",
+    "slurm_jobid": "$E2E_JOBID",
+    "image": "$E2E_IMAGE",
     "image_id": open(workdir + "/image.txt").read().strip(),
-    "model_path": "$IT_MODEL",
-    "served_model_name": "$IT_SERVED",
+    "model_path": "$E2E_MODEL_PATH",
+    "served_model_name": "$E2E_SERVED_NAME",
     "endpoint": "$R",
     "container": "$CTR",
-    "ports": {"router": $IT_ROUTER_PORT, "worker": $IT_WORKER_PORT, "etcd": $IT_ETCD_PORT},
-    "tp_size": $IT_TP,
+    "ports": {"router": $E2E_PORT_ROUTER, "worker": $E2E_PORT_WORKER, "etcd": $E2E_PORT_ETCD},
+    "tp_size": $E2E_TP,
     "disagg_mode": "mixed",
     # What this run ASKED for. What it GOT is env/engine_argv.txt, and that is
     # what check_service_live reads.
@@ -373,7 +381,7 @@ say "redacting site-specific paths"
 # `items/env/docker_mounts.json`.
 mapfile -t ROOT_ARGS < <(python3 "$PKG/assets/lib/patchkit.py" redact-args)
 python3 "$PKG/assets/lib/redact.py" "$OUT" \
-  "MODEL_MOUNT=$(dirname "$IT_MODEL")" \
+  "MODEL_MOUNT=$(dirname "$E2E_MODEL_PATH")" \
   "WORK_ROOT=$WORK" \
   "TASK_PACKAGE=$PKG" \
   "TMPDIR=/tmp" \

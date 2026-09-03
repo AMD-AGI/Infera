@@ -15,11 +15,11 @@
 # string.
 #
 # `--export=ALL` carries this process's environment across, which is how the
-# remote side sees `AGENT_SYS_OUTPUT_*` and the `IT_*` block from the agent spec.
+# remote side sees `AGENT_SYS_OUTPUT_*` and the `E2E_*` block from the agent spec.
 #
 # **The transport is a variable, because it is a fact about the scheduler and not
-# about this package.** `IT_TRANSPORT=srun` is the Slurm-allocation form above.
-# `IT_TRANSPORT=spur` is `spur exec <jobid> bash -lc`, which is what the
+# about this package.** `E2E_TRANSPORT=srun` is the Slurm-allocation form above.
+# `E2E_TRANSPORT=spur` is `spur exec <jobid> bash -lc`, which is what the
 # `amd-spur` partition offers instead: its login node holds no allocation an
 # `srun --overlap` could attach to. Left unset, the transport is detected from
 # which binary is on PATH, so neither cluster has to be told.
@@ -29,9 +29,9 @@
 #
 #   1. **It carries none of the caller's environment.** `--export=ALL` has no
 #      equivalent; `spur exec <job> bash -lc 'echo $FOO'` prints nothing for an
-#      exported FOO. So `_env_prelude` re-exports the `IT_*` and `AGENT_SYS_*`
+#      exported FOO. So `_env_prelude` re-exports the `E2E_*` and `AGENT_SYS_*`
 #      blocks explicitly, quoted with `printf %q`. Most call sites here already
-#      pass what they need inline (`on "NODE_IP='$IT_NODE_IP' … bash mix_up.sh"`)
+#      pass what they need inline (`on "NODE_IP='$E2E_NODE_IP' … bash mix_up.sh"`)
 #      and do not depend on this, but the prelude keeps the two transports
 #      behaving alike rather than leaving a difference for a future call site to
 #      fall into.
@@ -53,7 +53,7 @@
 # task `running` and the handoff `generating` seventeen minutes later, until the
 # settle budget expired.
 
-# Which transport to use. Explicit `IT_TRANSPORT` wins.
+# Which transport to use. Explicit `E2E_TRANSPORT` wins.
 #
 # Otherwise **spur is preferred over srun where both are on PATH**, which looks
 # backwards and is not. On the `amd-spur` cluster `/usr/local/bin/srun` is a spur
@@ -63,7 +63,7 @@
 # failure would arrive as an exit code with no hint that the wrong seam was used.
 # Presence of `spur` is the positive signal that this is that cluster.
 _transport() {
-  if [ -n "${IT_TRANSPORT:-}" ]; then echo "$IT_TRANSPORT"; return; fi
+  if [ -n "${E2E_TRANSPORT:-}" ]; then echo "$E2E_TRANSPORT"; return; fi
   if command -v spur >/dev/null 2>&1; then echo spur
   elif command -v srun >/dev/null 2>&1; then echo srun
   else echo spur; fi
@@ -75,7 +75,13 @@ _transport() {
 # a machine where neither is right.
 _env_prelude() {
   local name val out=''
-  for name in $(compgen -v | grep -E '^(IT_|AGENT_SYS_)' | sort); do
+  # **`E2E_` and not `IT_`.** This file arrived from `integration-demo`, whose
+  # variables are `IT_*`; this package's are `E2E_*` (CONTRACT.md 6). Left as
+  # carried, this loop forwarded a prefix nothing in this package sets, so NO
+  # `E2E_*` variable reached the remote side at all -- and the symptom would
+  # have been an unset variable on the far end of an `spur exec`, naming
+  # neither this line nor the rename.
+  for name in $(compgen -v | grep -E '^(E2E_|AGENT_SYS_)' | sort); do
     eval "val=\${$name-}"
     out+="export $name=$(printf '%q' "$val"); "
   done
@@ -85,19 +91,19 @@ _env_prelude() {
 on() {
   case "$(_transport)" in
     srun)
-      srun --jobid="${IT_JOBID:?IT_JOBID is unset}" --overlap -N1 -n1 \
-        -w "${IT_NODE:?IT_NODE is unset}" --export=ALL bash -lc "$*" </dev/null
+      srun --jobid="${E2E_JOBID:?E2E_JOBID is unset}" --overlap -N1 -n1 \
+        -w "${E2E_NODE:?E2E_NODE is unset}" --export=ALL bash -lc "$*" </dev/null
       ;;
     spur)
       # `cd` first: spur starts at `/`. `|| cd /` rather than failing, because a
       # caller whose cwd is a login-only path still deserves to run its command.
-      spur exec "${IT_JOBID:?IT_JOBID is unset}" bash -lc \
-        "export HOME=$(printf '%q' "${IT_REMOTE_HOME:-$HOME}"); \
+      spur exec "${E2E_JOBID:?E2E_JOBID is unset}" bash -lc \
+        "export HOME=$(printf '%q' "${E2E_REMOTE_HOME:-$HOME}"); \
          cd $(printf '%q' "$PWD") 2>/dev/null || cd /; \
          $(_env_prelude) $*" </dev/null
       ;;
     *)
-      echo "unknown IT_TRANSPORT: ${IT_TRANSPORT:-} (want 'srun' or 'spur')" >&2
+      echo "unknown E2E_TRANSPORT: ${E2E_TRANSPORT:-} (want 'srun' or 'spur')" >&2
       return 2
       ;;
   esac
@@ -115,7 +121,7 @@ on() {
 require_visible_on_node() {
   local path="$1" what="$2"
   on "test -e '$path'" >/dev/null 2>&1 && return 0
-  echo "the $what is not visible on $IT_NODE: $path" >&2
+  echo "the $what is not visible on $E2E_NODE: $path" >&2
   echo "This package runs its bodies on the node by absolute path and exchanges" >&2
   echo "files through the zone, which needs the run root to be on a filesystem" >&2
   echo "both hosts mount. Point --demo-root at a shared path (\$HOME here is NFS" >&2
