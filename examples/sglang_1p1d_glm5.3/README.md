@@ -124,6 +124,48 @@ IPC buffer and an RDMA buffer, while host aux buffers land on rdma only.
 the exporter, `hipIpcOpenMemHandle` on the importer, `hipMemcpyAsync` over
 enabled peer access. **GPU-to-GPU across XGMI, no NIC in the path.**
 
+### Everything in this section is single-node-specific, and that is by design
+
+**Two-node PD never uses hip, regardless of any setting.** `selectTransport`
+calls `isHipReachableTarget()` and skips hip buffers whenever the target is on
+another host. The in-source rationale, at the build commit:
+
+> *"This makes the intra-node fast path (hip) and the cross-node path (rdma) work
+> automatically from a single multi-protocol segment, without requiring the
+> operator to set `MC_DISABLE_HIP`."*
+
+So the multi-protocol segment is not a configuration problem to be solved — it
+resolves itself by target. **Every hip question in this kit is a single-node
+question**, and none of it applies to `cluster.2node.sh`.
+
+### Installation is unconditional; *selection* is what the knob controls
+
+`transfer_engine_impl.cpp:402-414` installs hip under a bare `#ifdef USE_HIP`
+with no runtime condition. The gate is one stage later, at
+`multi_transport.cpp:489`:
+
+```cpp
+if (p == "hip")  return std::getenv("MC_DISABLE_HIP") ? 0 : 4;
+if (p == "rdma") return 2;
+```
+
+`MC_DISABLE_HIP` demotes hip from priority 4 to 0, so rdma wins for the device KV
+pool — which is registered under both. **hip stays installed and stops being
+used.**
+
+**This is why the obvious check is useless.** `HIP transport installed for
+intra-node GPU P2P` is an **install-time** log, and the variable gates
+**selection**. It reads 4/4 whether hip is carrying KV or demoted to zero, in
+every state, forever. Verifying a hip-off arm requires `MC_DISABLE_HIP=1` present
+in `/proc/<pid>/environ` on both legs **plus** the source read above — there is
+no log line that will confirm it, and treating the non-flip as evidence of
+anything is how a correct hip-off deployment got discarded unmeasured.
+
+Two related names are **absent from the binary entirely** and do nothing:
+`MC_DISABLE_HIP_TRANSPORT` (which `leg.sh:60` sets) and
+`MC_ENABLE_HIP_TRANSPORT`. So: **two dead names, one live name whose effect is
+invisible to the natural check.**
+
 One trap that makes the config lie: sglang passes `protocol="rdma"` into
 `engine.initialize()` (`MOONCAKE_PROTOCOL` defaults to `"rdma"`). On this build
 that argument **does not choose the transport** — outside the EFA/CXI paths it
