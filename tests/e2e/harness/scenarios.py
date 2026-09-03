@@ -14,7 +14,9 @@ and delegate here.
 
 from __future__ import annotations
 
-from . import client, correctness
+from typing import NamedTuple
+
+from . import client, correctness, speculation
 from .adapter import emit_reporter_line
 from .params import EngineParams
 
@@ -37,6 +39,12 @@ def _short(text: str, limit: int = 400) -> str:
 # ignore it.
 _NO_THINK = {"enable_thinking": False}
 
+# ...and a budget that survives the models it cannot silence. gpt-oss's harmony
+# template has no `enable_thinking`, so it always writes an analysis channel
+# first; on client.chat's 20-token default the whole reply is preamble and
+# `content` comes back empty. 64 is what the counting/capital probes already use.
+_LIVENESS_MAX_TOKENS = 64
+
 
 async def _chat_json_no_think(server_url: str, model: str, content: str, **kw) -> dict:
     """chat_json with thinking disabled, but tolerant of models/engines whose
@@ -51,7 +59,7 @@ async def _chat_json_no_think(server_url: str, model: str, content: str, **kw) -
 
 
 async def assert_chat_ok(server_url: str, model: str) -> None:
-    body = await _chat_json_no_think(server_url, model, "Say hi.")
+    body = await _chat_json_no_think(server_url, model, "Say hi.", max_tokens=_LIVENESS_MAX_TOKENS)
     assert body["model"] == model
     assert body["choices"][0]["message"]["content"]
     assert body["usage"]["completion_tokens"] > 0
@@ -64,10 +72,22 @@ async def assert_chat_streaming_ok(server_url: str, model: str) -> None:
     assert b"[DONE]" in body
 
 
-async def _counting_probe(server_url: str, model: str) -> tuple[bool, str]:
-    """Probe 1 — /v1/completions counting continuation. Seed "...1,2,3,4,5,"
-    and the model simply continues "6,7,8,..."; no chat template / thinking to
-    derail tiny models. Returns (ok, reply)."""
+class _Probe(NamedTuple):
+    """One probe's verdict.
+
+    ``ran=False`` means this deployment could not carry the probe (no chat route,
+    context window too small) — a harness limit, not a wrong answer.
+    """
+
+    name: str
+    ok: bool
+    detail: str
+    ran: bool = True
+
+
+async def _counting_probe(server_url: str, model: str) -> _Probe:
+    """Liveness — /v1/completions counting continuation. Seed "...1,2,3,4,5," and the
+    model simply continues; no chat template or thinking to derail tiny models."""
     content = await client.completion_text(
         server_url,
         model,
@@ -75,18 +95,12 @@ async def _counting_probe(server_url: str, model: str) -> tuple[bool, str]:
         max_tokens=correctness.COUNTING_MAX_TOKENS,
         temperature=0.0,
     )
-    return correctness.is_counting_correct(content), content
+    return _Probe("counting", correctness.is_counting_correct(content), _short(content))
 
 
-async def _capital_probe(server_url: str, model: str) -> tuple[bool, str]:
-    """Probe 2 — /v1/chat/completions factual question ("capital of China");
-    correct iff the reply mentions "Beijing" (case-insensitive) and isn't
-    garbage. Thinking is disabled so the small budget isn't spent in <think>.
-    Returns (ok, reply).
-
-    Tolerant: some PD-disaggregated engines only serve /v1/completions (e.g.
-    ATOM), so a failed chat call is reported as (False, ...) rather than raised —
-    the counting probe (/v1/completions) then carries correctness."""
+async def _capital_probe(server_url: str, model: str) -> _Probe:
+    """Liveness — one memorised fact through the chat template, thinking disabled so the
+    small budget is not spent in <think>. Chat is optional: ATOM's PD serves completions only."""
     try:
         body = await _chat_json_no_think(
             server_url,
@@ -96,28 +110,47 @@ async def _capital_probe(server_url: str, model: str) -> tuple[bool, str]:
             temperature=0.0,
         )
     except Exception as e:  # noqa: BLE001 - chat may be unsupported (completions-only PD)
-        return False, f"chat unavailable: {type(e).__name__}: {e}"
+        return _Probe("capital", False, f"chat unavailable: {type(e).__name__}: {e}", ran=False)
     content = body["choices"][0]["message"].get("content") or ""
-    return correctness.is_capital_correct(content), content
+    return _Probe("capital", correctness.is_capital_correct(content), _short(content))
+
+
+async def _longctx_probe(server_url: str, model: str) -> _Probe:
+    """Depth — retrieve a 4-digit code buried mid-ledger. Over /v1/completions, so the
+    PD tier gets it too and its prefill→decode hop finally transfers a real KV cache."""
+    prompt = correctness.build_longctx_prompt()
+    r = await client.completion(
+        server_url, model, prompt, max_tokens=correctness.LONGCTX_MAX_TOKENS, temperature=0.0
+    )
+    if r.status_code == 400:
+        # Rejected, not answered wrong: this case's --max-model-len cannot hold the ledger.
+        detail = f"{len(prompt)} chars rejected: {_short(r.text, 200)}"
+        return _Probe("long-context", False, detail, ran=False)
+    assert r.status_code == 200, f"long-context completion failed {r.status_code}: {r.text}"
+    content = r.json()["choices"][0].get("text") or ""
+    return _Probe("long-context", correctness.is_longctx_correct(content), _short(content))
 
 
 async def assert_correctness(server_url: str, model: str) -> None:
-    """Semantic correctness: run both probes (counting continuation + capital
-    question). Each probe's "correct" already requires a non-garbage reply, and
-    the case passes as long as at least ONE probe is correct."""
-    count_ok, count_reply = await _counting_probe(server_url, model)
-    cap_ok, cap_reply = await _capital_probe(server_url, model)
-    # Surface both probes' verdict + the model's actual reply live in the run
-    # output (capture-suspended), so a pass/fail is self-explanatory.
-    emit_reporter_line(f"[e2e correctness] counting ok={count_ok} reply={_short(count_reply)!r}")
-    emit_reporter_line(f"[e2e correctness] capital  ok={cap_ok} reply={_short(cap_reply)!r}")
-    verdict = "PASS" if (count_ok or cap_ok) else "FAIL"
-    emit_reporter_line(f"[e2e correctness] {verdict} (counting={count_ok}, capital={cap_ok})")
-    assert count_ok or cap_ok, (
-        "correctness failed: neither probe returned a non-garbage correct reply.\n"
-        f"  counting (/v1/completions)      ok={count_ok} reply={count_reply!r}\n"
-        f"  capital  (/v1/chat/completions) ok={cap_ok} reply={cap_reply!r}"
+    """Two gates over three probes: at least one liveness probe must pass, and the
+    long-context depth probe must pass when the deployment can run it."""
+    liveness = [await _counting_probe(server_url, model), await _capital_probe(server_url, model)]
+    depth = [await _longctx_probe(server_url, model)]
+
+    # Every verdict and the model's actual reply, live in the run output
+    # (capture-suspended), so a pass or a fail explains itself without a rerun.
+    for probe in liveness + depth:
+        state = "ok" if probe.ok else "n/a" if not probe.ran else "FAILED"
+        emit_reporter_line(f"[e2e correctness] {probe.name:<12} {state:<6} {probe.detail!r}")
+
+    alive = any(probe.ok for probe in liveness)
+    wrong = [p for p in depth if p.ran and not p.ok]
+    emit_reporter_line(f"[e2e correctness] {'PASS' if alive and not wrong else 'FAIL'}")
+
+    assert alive, "correctness failed: no liveness probe returned a correct reply.\n" + "\n".join(
+        f"  {p.name}: ran={p.ran} {p.detail!r}" for p in liveness
     )
+    assert not wrong, "correctness failed: " + "; ".join(f"{p.name} — {p.detail}" for p in wrong)
 
 
 # ----------------------------------------------------------------------
@@ -126,13 +159,15 @@ async def assert_correctness(server_url: str, model: str) -> None:
 
 
 async def run_mixed(server: dict, spawn, params: EngineParams) -> list:
-    """Full mixed-worker (prefill-decode-mix, no PD) scenario: spawn one worker
-    and verify chat liveness + streaming + semantic correctness (counting or
-    capital probe)."""
+    """Full mixed-worker (prefill-decode-mix, no PD) scenario: spawn one worker and
+    verify chat liveness + streaming + the three correctness probes.
+
+    Speculation is checked last, because it reads counters the probes populate."""
     workers = [await spawn(server, params)]
 
     await assert_chat_ok(server["url"], params.model)
     await assert_chat_streaming_ok(server["url"], params.model)
     await assert_correctness(server["url"], params.model)
+    await speculation.report_speculation(workers[0].port, params, engine=workers[0].engine)
 
     return workers

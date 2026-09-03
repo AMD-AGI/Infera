@@ -30,10 +30,11 @@ import os
 from ...harness import EngineAdapter, EngineParams
 from ...harness.cluster import kv_transport_env
 from ...harness.disagg_fixtures import make_disagg_stack_fixture
+from ...harness.images import engine_image
 from ...harness.params import DisaggRole
 
-IMAGE = "infera/engine-atom:test-local"
-DOCKERFILE = "deploy/docker/Dockerfile.atom"
+# Same image/Dockerfile run_tests.sh builds, for this run's target arch.
+IMAGE, DOCKERFILE = engine_image("atom")
 
 # Per-role Mooncake handshake ports (distinct so co-located debugging is safe;
 # each role is on its own node here). http_port == the engine's --server-port.
@@ -118,16 +119,23 @@ class AtomDisaggAdapter(EngineAdapter):
         gpu_ids: list[int],
         gid_index: str,
     ) -> dict[str, str]:
-        env = {
-            "HIP_VISIBLE_DEVICES": ",".join(str(g) for g in gpu_ids),
-            "OMP_NUM_THREADS": "1",
-            # Pin Mooncake engine/handshake to the peer-reachable shared subnet.
-            "ATOM_HOST_IP": advertise_host,
-            "MC_DISABLE_HIP_TRANSPORT": "1",  # force RDMA (not HIP P2P)
-            "RDMAV_FORK_SAFE": "1",
-            "MC_GID_INDEX": gid_index,
-        }
-        env.update(dict(params.extra_env))
+        env = super().disagg_worker_env(
+            params,
+            role,
+            advertise_host=advertise_host,
+            gpu_ids=gpu_ids,
+            gid_index=gid_index,
+        )
+        env.update(
+            {
+                "OMP_NUM_THREADS": "1",
+                # Pin Mooncake engine/handshake to the peer-reachable shared subnet.
+                "ATOM_HOST_IP": advertise_host,
+                "MC_DISABLE_HIP_TRANSPORT": "1",  # force RDMA (not HIP P2P)
+                "RDMAV_FORK_SAFE": "1",
+                "MC_GID_INDEX": gid_index,
+            }
+        )
         return env
 
 

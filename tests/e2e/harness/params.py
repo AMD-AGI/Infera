@@ -60,6 +60,9 @@ class EngineParams:
     # Seconds to wait for the worker to register active before failing. Per-case
     # (big MXFP4 MoE models at tp>1 need longer); default suits small/medium ones.
     server_ready_timeout: int = 300
+    # Non-empty ⇒ skip with this reason. Set by the matrix (usually from a per-arch
+    # overlay) so a case with no working recipe still shows up, saying why.
+    skip_reason: str = ""
 
     def id(self) -> str:
         """Compact, pytest-friendly parametrize id (e.g. ``Qwen3-0.6B-tp2``)."""

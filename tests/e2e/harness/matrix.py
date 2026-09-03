@@ -47,10 +47,46 @@ and is expanded with :func:`expand_cases`. Row axes:
                  ``["pip install amd-quark"]`` for an extra runtime dep).
                - ``server_ready_timeout`` (int): seconds to wait for the worker
                  to become active (default 300; raise for big MXFP4 MoE models).
-
+               - ``skip`` (str): non-empty skips the case with that reason.
+               - ``"gfx942"`` / ``"gfx950"``: a per-architecture overlay — see
+                 below.
 An axis given a **list/tuple** enumerates each element (the cartesian product
 across axes); a scalar is a single value. To cover both settings of a boolean
 axis, pass it explicitly as ``[False, True]``.
+
+Per-architecture overrides
+--------------------------
+A case usually needs different launch knobs on gfx942 (MI300X / MI325X) than on
+gfx950 (MI355X). Rather than a second case table — which duplicates every row
+and drifts on the first one-sided edit — a row keeps its single entry, and its
+``opts`` gains a key named after the architecture holding only the delta::
+
+    [True, GPT_OSS, 2, True, False, {
+        "args": ["--attention-backend", "triton"],
+        "env":  {"SGLANG_USE_AITER": "1"},
+        "gfx942": {                                    # applied on gfx942 only
+            "args": ["--attention-backend", "aiter"],
+            "env":  {"HSA_NO_SCRATCH_RECLAIM": "1"},
+            "server_ready_timeout": 2400,
+        },
+    }]
+
+:func:`expand_cases` merges the overlay for :func:`.arch.target_arch` into the
+base, so the row, its axes and its pytest id are identical on both
+architectures and only the knobs differ. Merge rules:
+
+- ``args`` / ``setup`` **replace** the base list outright. Engines disagree on
+  how a repeated flag resolves, so an append-merge would not be predictable;
+  these lists are short, and a full list reads as a config rather than a patch.
+- ``env`` merges per key, and a value of ``None`` **deletes** the base key (env
+  is nearly always additive, so ``None`` is the escape hatch for a removal).
+- Everything else replaces.
+- ``skip`` keeps an unrunnable case *visible* in the report with its reason,
+  which ``enable=False`` and a deleted row do not.
+
+An unknown key — in the base ``opts`` or in an overlay — raises at collection
+time, because a typo like ``"gfx940"`` or ``"arg"`` otherwise does nothing at
+all, silently.
 
 Model location
 --------------
@@ -74,11 +110,15 @@ import itertools
 import json
 import os
 
+from .arch import SUPPORTED_ARCHS, target_arch
 from .params import EngineParams
 
 # Base dir for locally pre-staged models. Set/forwarded by run_tests.sh (see
 # module docstring). Read once at import; unset ⇒ always load from the HF Hub.
 MODEL_DIR = os.environ.get("INFERA_E2E_MODEL_DIR") or None
+
+# Knobs a case's ``opts`` may carry, besides the per-architecture overlays.
+_OPT_KEYS = frozenset({"args", "env", "setup", "server_ready_timeout", "skip"})
 
 # Model references (HF repo ids). The actual launch path is resolved via
 # resolve_model() (local copy under MODEL_DIR, else the HF Hub). MoE-ness is
@@ -89,7 +129,20 @@ QWEN3_8B = "Qwen/Qwen3-8B"
 KIMI_K25_MXFP4 = "amd/Kimi-K2.5-MXFP4"
 KIMI_K26_MXFP4 = "amd/Kimi-K2.6-MXFP4"
 DEEPSEEK_V4_PRO = "deepseek-ai/DeepSeek-V4-Pro"
+DEEPSEEK_V4_FLASH = "deepseek-ai/DeepSeek-V4-Flash"
+DEEPSEEK_V4_FLASH_FP8 = "sgl-project/DeepSeek-V4-Flash-FP8"
 GLM_5_1_FP8 = "zai-org/GLM-5.1-FP8"
+GLM_5_2_FP8 = "zai-org/GLM-5.2-FP8"
+
+# Which of GLM-5.2's 78 layers own a DSA lightning indexer and which reuse one.
+# The checkpoint's `indexer_types` marks layers 0, 1, 2 and then every 4th "full"
+# and the rest "shared", and it ships indexer weights for the "full" ones only.
+# ATOM spells the same thing as `index_topk_pattern`, where "S" means "skip the
+# top-k and reuse the last selection"; it is spelled out per layer because ATOM's
+# own index_topk_freq shorthand derives a different, off-by-one set of owners
+# (see the GLM-5.2 row in pd_mixed/atom/matrix.py). Consumed by the ATOM rows.
+# Hand-copied, so check it against the checkpoint's indexer_types, not by eye.
+GLM_5_2_INDEXER_PATTERN = "FFFSSS" + "FSSS" * 18
 
 EXTRA_ARGS: dict[str, tuple[str, ...]] = {}  # default verbatim extra launch args
 
@@ -162,7 +215,14 @@ def is_moe(model_id: str) -> bool:
 
 
 def make_params(
-    model_id: str, *, extra_args=None, extra_env=None, setup=None, server_ready_timeout=None, **kw
+    model_id: str,
+    *,
+    extra_args=None,
+    extra_env=None,
+    setup=None,
+    server_ready_timeout=None,
+    skip_reason=None,
+    **kw,
 ) -> EngineParams:
     """EngineParams for ``model_id`` with per-model + per-case traits filled.
 
@@ -171,6 +231,8 @@ def make_params(
     (:func:`resolve_model`). Per-case ``extra_args`` / ``extra_env`` / ``setup``
     / ``server_ready_timeout`` override the per-model / dataclass defaults.
     """
+    if skip_reason:
+        kw["skip_reason"] = skip_reason
     if server_ready_timeout is not None:
         kw["server_ready_timeout"] = server_ready_timeout
     return EngineParams(
@@ -194,7 +256,42 @@ def _axis(value) -> tuple:
     return (value,)
 
 
-def expand_cases(table) -> list[EngineParams]:
+def apply_arch_overlay(opts: dict, arch: str) -> dict:
+    """Collapse a case's ``opts`` (base knobs + per-arch overlays) into plain knobs for
+    ``arch``. Merge rules and the reasoning behind them are in the module docstring."""
+    _reject_unknown_keys(opts, "opts")
+    base = {k: v for k, v in opts.items() if k not in SUPPORTED_ARCHS}
+    overlay = opts.get(arch) or {}
+    if not overlay:
+        return base
+    _reject_unknown_keys(overlay, f"the {arch!r} overlay", allow_arch_keys=False)
+
+    merged = {**base, **overlay}
+    if "env" in merged:
+        merged["env"] = _merge_env(base.get("env"), overlay.get("env"))
+    return merged
+
+
+def _merge_env(base: dict | None, overlay: dict | None) -> dict:
+    """Per-key env overlay, where a ``None`` value drops the base key."""
+    merged = dict(base or {})
+    for key, value in (overlay or {}).items():
+        if value is None:
+            merged.pop(key, None)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _reject_unknown_keys(opts: dict, where: str, *, allow_arch_keys: bool = True) -> None:
+    """Reject a key that is neither a known knob nor an allowed arch overlay."""
+    known = _OPT_KEYS | (set(SUPPORTED_ARCHS) if allow_arch_keys else set())
+    unknown = sorted(set(opts) - known)
+    if unknown:
+        raise ValueError(f"unknown key(s) {unknown} in {where}; expected any of {sorted(known)}")
+
+
+def expand_cases(table, *, arch: str | None = None) -> list[EngineParams]:
     """Expand a declarative case table (see the module docstring) to params.
 
     Each row is ``[enable, model, tp, ep, dp_attn]`` with an optional trailing
@@ -202,11 +299,16 @@ def expand_cases(table) -> list[EngineParams]:
     here, so a parked case is never collected. Each axis is normalised via
     :func:`_axis` (a list/tuple enumerates), then the cartesian product of the
     axes yields one :class:`EngineParams` per combination.
+
+    ``opts`` is first collapsed for ``arch`` (default: the run's target
+    architecture), which is why the same table yields the same ids and the same
+    case count on gfx942 as it does on gfx950.
     """
+    arch = arch or target_arch()
     params: list[EngineParams] = []
     for row in table:
         enable, model_id, tp, ep, dp_attn = row[0], row[1], row[2], row[3], row[4]
-        opts = row[5] if len(row) > 5 and row[5] else {}
+        opts = apply_arch_overlay(row[5] if len(row) > 5 and row[5] else {}, arch)
         if not enable:
             continue
         for t, e, d in itertools.product(_axis(tp), _axis(ep), _axis(dp_attn)):
@@ -220,6 +322,7 @@ def expand_cases(table) -> list[EngineParams]:
                     extra_env=opts.get("env"),
                     setup=opts.get("setup"),
                     server_ready_timeout=opts.get("server_ready_timeout"),
+                    skip_reason=opts.get("skip"),
                 )
             )
     return params

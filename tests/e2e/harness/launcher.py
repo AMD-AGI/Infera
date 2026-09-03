@@ -156,6 +156,9 @@ class SrunDockerLauncher(WorkerLauncher):
         self.image = f"{image}-{re.sub(r'[^a-z0-9_.-]', '', suffix)}" if suffix else image
         self.dockerfile = dockerfile
         self.model_dir = model_dir or os.environ.get("INFERA_E2E_MODEL_DIR")
+        raw_job_tag = os.environ.get("INFERA_E2E_JOB_TAG") or "local"
+        self.job_tag = re.sub(r"[^A-Za-z0-9_.-]", "-", raw_job_tag) or "local"
+        self.job_label = f"infera.e2e.job_tag={self.job_tag}"
         # run_tests.sh exports the per-run dir it made; in CI that is on shared
         # NFS next to the dispatch log, so a disagg run's logs outlive the runner
         # (and the folder is not left empty for a cleanup sweep to reap).
@@ -168,20 +171,37 @@ class SrunDockerLauncher(WorkerLauncher):
 
     # -- cleanup --------------------------------------------------------
     def cleanup_stale(self, nodes: list[str]) -> None:
-        """Remove leftover ``infera-e2e-*`` and ``infera-utest-*`` containers on
-        each node before a run. A previous run that was interrupted/crashed can
-        leave containers holding the fixed ports (etcd 2379/2380, router 8000,
-        worker 30001/2), so the next run's etcd fails with 'address already in
-        use'. Best-effort."""
+        """Remove containers this launcher can safely identify as stale.
+
+        Matrix legs can overlap on the open partition, so a prefix-wide cleanup
+        may kill another job's live etcd or worker. Every container this
+        launcher creates carries a job-scoped Docker label. Only a caller that
+        explicitly owns an exclusive allocation may also remove other tags and
+        migrate unlabelled legacy containers.
+        """
+        exclusive = os.environ.get("INFERA_E2E_EXCLUSIVE") == "1"
         for node in dict.fromkeys(nodes):
+            label = "label=infera.e2e.job_tag" if exclusive else f"label={self.job_label}"
+            label = shlex.quote(label)
+            legacy = (
+                "legacy=$(docker ps -a --filter name=infera-e2e- "
+                "--filter name=infera-utest- --format '{{.Names}} {{.Labels}}' | "
+                "awk '$0 !~ /infera\\.e2e\\.job_tag=/{print $1}'); "
+                if exclusive
+                else "legacy=; "
+            )
+            script = (
+                f"current=$(docker ps -a --filter {label} --format '{{{{.Names}}}}'); "
+                + legacy
+                + 's="$current $legacy"; [ -n "${s// /}" ] && echo $s && '
+                + "docker rm -f $s >/dev/null 2>&1; true"
+            )
             got = _srun(
                 node,
                 [
                     "bash",
                     "-lc",
-                    "s=$(docker ps -a --filter name=infera-e2e- --filter name=infera-utest- "
-                    "--format '{{.Names}}'); [ -n \"$s\" ] && echo $s && "
-                    "docker rm -f $s >/dev/null 2>&1; true",
+                    script,
                 ],
                 timeout=self.start_timeout,
             )
@@ -262,7 +282,20 @@ class SrunDockerLauncher(WorkerLauncher):
         """`srun <node> docker run -d --name <container> <docker_args> <image> <cmd>`.
         Removes any same-named container first so a fixed name never lingers."""
         _srun(node, ["docker", "rm", "-f", container], timeout=self.start_timeout)
-        cmd = ["docker", "run", "-d", "--name", container] + docker_args + [image] + container_cmd
+        cmd = (
+            [
+                "docker",
+                "run",
+                "-d",
+                "--name",
+                container,
+                "--label",
+                self.job_label,
+            ]
+            + docker_args
+            + [image]
+            + container_cmd
+        )
         started = _srun(node, cmd, timeout=self.start_timeout)
         if started.returncode != 0:
             raise RuntimeError(

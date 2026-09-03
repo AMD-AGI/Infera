@@ -12,6 +12,20 @@
 ARG VLLM_BASE_IMAGE=vllm/vllm-openai-rocm:v0.25.1@sha256:84459732ca98b40fe2f5338a3f050be6d522504e47a484a5180d58fb75956f86
 FROM ${VLLM_BASE_IMAGE}
 
+# ---- 0) apt mirror (site escape hatch, no-op by default) -------------------
+# A fleet that cannot route to archive.ubuntu.com passes APT_MIRROR (and, where
+# http to security.ubuntu.com is blocked too, APT_SECURITY_MIRROR) in through
+# INFERA_E2E_BUILD_ARGS. Left unset, this layer only reports that it changed
+# nothing. deploy/docker/scripts/apt_mirror.sh carries the reasoning, including
+# why overriding VLLM_BASE_IMAGE with a pre-built base is the worse fix (it
+# discards the digest pin above, and has to be repeated on every node).
+ARG APT_MIRROR=
+ARG APT_SECURITY_MIRROR=
+COPY deploy/docker/scripts/apt_mirror.sh /tmp/apt_mirror.sh
+RUN APT_MIRROR="${APT_MIRROR}" APT_SECURITY_MIRROR="${APT_SECURITY_MIRROR}" \
+        bash /tmp/apt_mirror.sh \
+    && rm -f /tmp/apt_mirror.sh
+
 # ---- 1) AITER (flydsl fp4 for DSv4 MXFP4 MoE) ------------------------------
 # WHY: the stock base aiter lacks the flydsl fp4 a4w4 kernel, and the prebuilt .so
 # hits a GLIBCXX/GLIBC ABI mismatch. HOW: build ROCm/aiter in-container. Per the

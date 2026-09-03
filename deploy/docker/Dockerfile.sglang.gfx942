@@ -35,6 +35,18 @@
 ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.16-rocm720-mi30x
 FROM ${SGLANG_BASE_IMAGE}
 
+# ---- apt mirror (site escape hatch, no-op by default) ----------------------
+# A fleet that cannot route to archive.ubuntu.com passes APT_MIRROR (and, where
+# http to security.ubuntu.com is blocked too, APT_SECURITY_MIRROR) in through
+# INFERA_E2E_BUILD_ARGS; unset, this layer only reports that it changed nothing.
+# Reasoning in deploy/docker/scripts/apt_mirror.sh.
+ARG APT_MIRROR=
+ARG APT_SECURITY_MIRROR=
+COPY deploy/docker/scripts/apt_mirror.sh /tmp/apt_mirror.sh
+RUN APT_MIRROR="${APT_MIRROR}" APT_SECURITY_MIRROR="${APT_SECURITY_MIRROR}" \
+        bash /tmp/apt_mirror.sh \
+    && rm -f /tmp/apt_mirror.sh
+
 WORKDIR /opt/infera
 
 # ---- libionic (host ionic ABI match) -----------------------------------------
