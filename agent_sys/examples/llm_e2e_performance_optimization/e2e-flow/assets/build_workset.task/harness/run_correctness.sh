@@ -88,6 +88,13 @@ def _extra(name: str, got, tolerance) -> bool:
         # substitutable at `logits[:] = ...`. A reviewer reading the report
         # without this gate would have every reason to ship it.
         #
+        # **The general form, which is why this is not a quirk of one operator:
+        # the artefact that makes it wrong is the same one that makes it score
+        # higher.** It scores higher *because* it refuses to write the caller's
+        # buffer. So any gate measuring only output quality will systematically
+        # prefer the implementation that declines to do the job — not fail to
+        # notice it, prefer it.
+        #
         # `writes_returns_fresh` is caught by the identity half and
         # `returns_out_unwritten` by the mutation half, which is why both halves
         # are there rather than one.
