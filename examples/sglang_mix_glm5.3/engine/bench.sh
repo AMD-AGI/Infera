@@ -37,19 +37,29 @@
 # measurement of the engine generating repetitive text, and must not be quoted as
 # a quality result.
 #
-# Cause is NOT established. The leading candidate is this script's own shape:
-# `--dataset-name random` with no `--apply-chat-template` sends a bag of random
-# tokens with no conversational framing and asks the model to continue it. Prior
-# experience on GLM-5.2 is that applying the chat template plus the checkpoint's
-# official temperature/top-p mitigates it. A second candidate is the ROCm silent
-# greedy fallback in EAGLE verify (`eagle_utils.py:726`, `_is_hip` sits in an
-# `or` with `is_all_greedy`, so temperature and top_p never reach token selection
-# -- three open upstream PRs, #31214 / #32922 / #37134, none merged). The two are
-# not mutually exclusive and both were present in every arm measured.
+# Cause is NOT established, and one obvious candidate is already ELIMINATED.
 #
-# If you need long-OSL numbers you can defend on quality, add
-# `--apply-chat-template` and score the saved generations for n-gram repetition
-# (`--output-details` saves `generated_texts`) rather than trusting the summary.
+# It is tempting to blame missing conversational framing, because the args dump
+# shows `apply_chat_template=False`. **That reading is wrong.** On this backend
+# the flag is parsed and never consumed -- `grep -n apply_chat_template` in
+# sglang's `benchmark/serving.py` returns one hit, an assignment that fires only
+# for the image/mmmu datasets. And `--backend sglang-oai-chat` posts `messages`
+# to `/v1/chat/completions`, which applies the model's chat template server-side
+# by definition. **The template has been applied all along.** A flag that is
+# parsed but unread reads exactly like a setting.
+#
+# What remains: the prompt CONTENT is still synthetic (seeded ShareGPT filler,
+# repeated and truncated to reach the target ISL), which is a different thing
+# from missing framing. And the ROCm silent greedy fallback in EAGLE verify
+# (`eagle_utils.py:726`, `_is_hip` in an `or` with `is_all_greedy`, so
+# temperature and top_p never reach token selection -- three open upstream PRs,
+# #31214 / #32922 / #37134, none merged). Note every arm measured as degenerate
+# ran MTP ON, so that path was live in all of them.
+#
+# If you need long-OSL numbers you can defend on quality, score the saved
+# generations for n-gram repetition (`--output-details` saves `generated_texts`)
+# rather than trusting the summary. Adding `--apply-chat-template` will NOT help
+# -- see above, it does nothing on this backend.
 # ACCEPTANCE LENGTH DOES NOT DETECT THIS: an aggregate of 2.96 with 1.25 % at the
 # 4.00 ceiling was measured while 54 % of the very same requests were looping.
 #

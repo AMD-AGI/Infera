@@ -188,6 +188,37 @@ In particular they are **not** comparable to GLM-5.2 numbers taken at TP8 with
 DP-attention, MTP and kvd enabled: different model, different parallelism,
 different feature set.
 
+## What this kit exposes on the network, and why you should care on a shared node
+
+These scripts run with `--network=host` and bind on **all interfaces**. That is
+deliberate for a single-tenant benchmark box and is **wrong for a shared one** —
+and the reference cluster is shared. Three unrelated users logged into one of
+these nodes during a single day of this work, and a colleague's job claimed all
+eight GPUs of another without notice.
+
+| what | where | exposed as |
+|---|---|---|
+| **etcd**, unauthenticated | `up.sh:64-65` | `0.0.0.0:$ETCD_PORT` and peer port |
+| router | `up.sh:96` | `0.0.0.0:$ROUTER_PORT` |
+| KV event / snapshot sockets | `worker.sh:208` | `tcp://0.0.0.0:$KV_PUB_PORT` |
+
+**etcd is the one that matters.** It holds worker discovery, it has no auth, and
+anyone who can reach the port can mutate the keys that tell the router where to
+send traffic. The engine and KV ports are lower stakes but still raw.
+
+The scripts are left as they were validated rather than quietly re-bound, because
+changing a bind changes a recipe that was measured. **If you run this on a shared
+or reachable host, change them yourself:** the router and workers are colocated,
+so `127.0.0.1` works for etcd and the KV sockets, and only the router port needs
+to be reachable — put something that authenticates in front of it.
+
+**`--trust-remote-code` (`worker.sh:216`) is not removable.** `glm5_next` is not
+in any released `transformers`, so the checkpoint's own code must load. The risk
+is therefore in the checkpoint directory, not the flag: on the reference cluster
+`/apps/data/models` is a shared NFS mount, so **anyone who can write there can
+execute code in your container.** If that matters to you, copy the checkpoint to
+a directory you own and verify permissions before launching.
+
 ## Source
 
 [`examples/sglang_mix_glm5.3/`](.) in [AMD-AGI/Infera](https://github.com/AMD-AGI/Infera)
