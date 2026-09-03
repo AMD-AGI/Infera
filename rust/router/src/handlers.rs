@@ -48,6 +48,7 @@ pub fn app(state: AppState) -> Router {
     Router::new()
         .route("/v1/chat/completions", post(chat))
         .route("/v1/completions", post(completions))
+        .route("/v1/responses/input_tokens", post(responses_input_tokens))
         .route("/v1/responses", post(responses))
         .route("/v1/messages", post(messages))
         .route("/health", get(health))
@@ -83,6 +84,54 @@ async fn completions(State(st): State<AppState>, body: Bytes) -> Response {
 /// -- unreproducible by construction -- which routes on load and logs why.
 async fn responses(State(st): State<AppState>, body: Bytes) -> Response {
     proxy::dispatch(&st, body, "/v1/responses").await
+}
+
+/// OpenAI Responses input-token probe (`POST /v1/responses/input_tokens`).
+///
+/// LiteLLM CountTokens concatenates `{api_base}/responses/input_tokens` and
+/// expects HTTP 200 `{"input_tokens": N}`. Count with the same tokenizer
+/// kv-aware routing uses so the number matches the prompt the engine will
+/// see. Stateless bodies only: `previous_response_id` history lives in the
+/// engine and is refused rather than guessed.
+async fn responses_input_tokens(State(st): State<AppState>, body: Bytes) -> Response {
+    let body: Value = match serde_json::from_slice(&body) {
+        Ok(value) => value,
+        Err(_) => {
+            return openai_error(StatusCode::BAD_REQUEST, "malformed JSON in request body");
+        }
+    };
+    let model_ok = body
+        .get("model")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|model| !model.is_empty())
+        .is_some();
+    if !model_ok {
+        return openai_error(StatusCode::BAD_REQUEST, "`model` is required");
+    }
+    if body.get("input").is_none() {
+        return openai_error(StatusCode::BAD_REQUEST, "`input` is required");
+    }
+    if body
+        .get("previous_response_id")
+        .is_some_and(|value| !value.is_null())
+    {
+        return openai_error(
+            StatusCode::BAD_REQUEST,
+            "`previous_response_id` is not countable; send a fully inlined `input`",
+        );
+    }
+    match st.policy.count_input_tokens(&body) {
+        Some(n) => Json(json!({
+            "object": "response.input_tokens",
+            "input_tokens": n,
+        }))
+        .into_response(),
+        None => openai_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "input token counting requires a kv-aware tokenizer",
+        ),
+    }
 }
 
 /// Anthropic Messages API translated through the OpenAI Chat worker path.
@@ -246,6 +295,22 @@ fn translate_anthropic_stream(upstream: Response, model: &str, request_id: &str)
         .header(REQUEST_ID_HEADER, request_id)
         .body(Body::from_stream(translated))
         .expect("Anthropic SSE response is valid")
+}
+
+fn openai_error(status: StatusCode, message: &str) -> Response {
+    Response::builder()
+        .status(status)
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(
+            json!({
+                "error": {
+                    "message": message,
+                    "type": "invalid_request_error",
+                }
+            })
+            .to_string(),
+        ))
+        .expect("error response is valid")
 }
 
 /// Build an Anthropic-compatible error response.

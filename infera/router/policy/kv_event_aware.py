@@ -197,6 +197,12 @@ class KvEventAwarePolicy(Policy):
             return self._w_decode
         return self._w
 
+    def count_input_tokens(self, request: dict) -> int | None:
+        token_ids = self._hasher.token_ids_for(request)
+        if token_ids is None:
+            return None
+        return len(token_ids)
+
     def _retention_amplifier(self, hints: CacheHints) -> float:
         """Multiplier on overlap_weight based on client retention hint.
 

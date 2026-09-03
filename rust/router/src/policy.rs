@@ -75,6 +75,13 @@ pub trait Policy: Send + Sync {
     fn render_parity_diverged(&self) -> Vec<(String, u64)> {
         Vec::new()
     }
+
+    /// Token count for a request body when this policy can reproduce the
+    /// engine's prompt. `None` means no tokenizer, or a body that cannot be
+    /// reproduced (for example `previous_response_id`).
+    fn count_input_tokens(&self, _request: &Value) -> Option<usize> {
+        None
+    }
 }
 
 /// RAII load guard: `start` fires `on_request_started`; `Drop` fires
@@ -665,6 +672,10 @@ impl Policy for KvEventAwarePolicy {
 
     fn render_parity_diverged(&self) -> Vec<(String, u64)> {
         self.parity.diverged_totals()
+    }
+
+    fn count_input_tokens(&self, request: &Value) -> Option<usize> {
+        self.hasher.token_ids_for(request).map(|ids| ids.len())
     }
 
     fn sync_workers(&self, active_workers: &[Arc<Worker>]) {

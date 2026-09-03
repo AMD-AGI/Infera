@@ -419,6 +419,40 @@ async def cache_prewarm(request: Request) -> Response:
     )
 
 
+@app.post("/v1/responses/input_tokens")
+async def responses_input_tokens(request: Request) -> dict:
+    """OpenAI Responses input-token probe used by LiteLLM CountTokens.
+
+    Counts with the kv-aware tokenizer so the number matches the prompt the
+    engine will see. Refuses `previous_response_id` rather than guessing.
+    """
+    try:
+        body = await request.json()
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail=f"bad json: {exc}") from exc
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="request body must be a JSON object")
+    model = body.get("model")
+    if not isinstance(model, str) or not model.strip():
+        raise HTTPException(status_code=400, detail="`model` is required")
+    if body.get("input") is None:
+        raise HTTPException(status_code=400, detail="`input` is required")
+    if body.get("previous_response_id") is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="`previous_response_id` is not countable; send a fully inlined `input`",
+        )
+    policy = getattr(router, "policy", None)
+    count_fn = getattr(policy, "count_input_tokens", None)
+    n = count_fn(body) if callable(count_fn) else None
+    if n is None:
+        raise HTTPException(
+            status_code=503,
+            detail="input token counting requires a kv-aware tokenizer",
+        )
+    return {"object": "response.input_tokens", "input_tokens": int(n)}
+
+
 @app.post("/v1/chat/completions")
 async def chat_completions(request: Request) -> Any:
     return await _dispatch_inference(request, path="/v1/chat/completions")
