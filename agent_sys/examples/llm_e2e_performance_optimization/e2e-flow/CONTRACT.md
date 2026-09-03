@@ -367,6 +367,20 @@ Then verify what you actually committed, rather than what you meant to:
 git show --stat --name-only HEAD
 ```
 
+**A new file needs one narrow `git add` first**, and this is the one exception:
+`git commit -- <path>` only reaches paths git already knows, so an untracked
+file fails with *"pathspec did not match any file(s) known to git"*. Found by m1
+on their first new file.
+
+```sh
+git add -- <the one new file>                       # never a directory
+git commit -s -m "..." -- <all your paths>          # still ignores the rest of the index
+```
+
+The `git add` is narrow enough to be safe — it names one file, not a tree — and
+the `git commit -- <paths>` that follows still commits working-tree content for
+everything you name, so a concurrent add by another owner is still not swept in.
+
 Not one worktree per owner, which would be the structurally clean answer: work
 is already in flight in this tree and moving it now would strand it. This is the
 cheap correct fix, and the manifest below is what makes it checkable.
@@ -390,8 +404,19 @@ and m3 share it) and its **body** is m2's. That split is deliberate: the shared
 declaration is what stops the two-copies seam from reappearing, and the body has
 one author.
 
-**`assets/lib/` is the collision zone.** Announce a new file there to the leader
-before landing it — three of us have already put something in it.
+**`assets/lib/` and `assets/bench/` are the two collision zones.** Announce a new
+file in either to the leader before landing it — three of us have already put
+something in `lib/`, and `bench/` holds `aiperf_replay.sh`, `pythonpath/` and
+`summarise.py` shared between m1, m2 and m5 (`aiperf_synthetic.sh` is m1's).
+
+A shared file carried across from a demo package **keeps that package's variable
+prefix until somebody renames it, and the rename is the leader's.** Measured:
+`assets/lib/remote.sh` arrived from `integration-demo` and its `_env_prelude`
+forwarded `^(IT_|AGENT_SYS_)` to the remote side — so **no `E2E_*` variable
+reached the far end of an `spur exec` at all**, and the symptom would have been
+an unset variable on the remote host, naming neither the line nor the rename.
+Reported by m1, who correctly declined to rename a shared file under four other
+owners.
 
 ### The repo-root litter, which is a different and smaller problem
 
