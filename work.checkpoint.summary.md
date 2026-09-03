@@ -722,3 +722,68 @@ None this interval.
 ### 7. Other
 
 None.
+
+---
+
+## T+9 — 2026-09-03 12:35 UTC
+
+### 1. Progress
+
+**Effort: ~88 %.** Elapsed 299 minutes since T+0. Projected remaining:
+30–45 minutes. **Reliability: low-medium** — I see an investigation of T+8's
+readiness-timeout in progress (a controlled repro under
+`scratch/port_repro/`) but no written verdict yet, so I don't know whether
+it's close to resolved or has opened something new.
+
+Since T+8: still **no new commits** (tree clean, `git log d592250..HEAD`
+empty). Suite unchanged: **653 passed, 2 skipped, 2 xfailed**, and this run
+took **18.6 s** (fast, vs. T+8's 109 s) — no acceptance-scale run competed for
+CPU this time, consistent with the acc2 round having finished before this
+check.
+
+### 2. Current state
+
+Read directly rather than concluded: `scratch/port_repro/prefixA/state/
+agentsview/serve.log` shows a **controlled, isolated** `agentsview serve
+--background` starting against a small scratch prefix (2 sessions to sync,
+64 directories watched, 120 roots polled) and coming up in **844 ms** —
+nowhere near the 30 s timeout seen in the acc2 run. This looks like a
+deliberate differential-comparison step (a clean, minimal prefix vs. the real
+one) rather than a coincidence, but I have not found a written conclusion
+comparing the two, so I am not calling the cause found.
+
+Also new: `logs/acc2_demo2_noav.log` (a `--no-agentsview` companion run to
+acc2, mid-flight when checked, no `EXIT=` line yet) and a full second
+checkout of the repository under `zonelink/control/` — the latter looks like
+a clean-tree reference copy for the same kind of differential comparison,
+not something I'm reading further into without a stated conclusion to check
+against.
+
+Check 4's rewritten criterion, re-applied to acc2: `acc2_new.txt` lists 5 new
+`~/.claude/projects` files, all under `infera.aiopt.real.task_package` (a
+different checkout), none in this run's zone — consistent with T+8's read,
+now backed by the tool's own diff output rather than my manual cross-check.
+
+### 3. Code problems — fixed / unfixed
+
+None to report — no commits this interval.
+
+### 4. Non-code problems
+
+None new beyond T+8's readiness-timeout, which is now under active
+investigation (§2) rather than newly discovered.
+
+### 5. Undetermined questions
+
+Same as T+8. The 844 ms vs. 30 s-timeout contrast is suggestive of "prefix
+size / session count affects `serve` startup time" but I have not seen this
+stated as the conclusion anywhere, so I'm reporting the two numbers, not the
+inference.
+
+### 6. New commits
+
+None this interval.
+
+### 7. Other
+
+None.
