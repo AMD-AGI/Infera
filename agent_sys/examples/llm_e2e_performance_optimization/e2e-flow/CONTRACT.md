@@ -223,6 +223,34 @@ provably not a private fork.
 5. Keep `dimension` / `strength` / `tags.cost` honest — `cost` is what orders a
    phase cheapest-first, and a `strong` verdict stops the graph.
 
+### 4.0 The one trust chain in this package, and what holds it up
+
+m4 is told to take its ground truth **strictly from the workset** and to abort
+rather than re-measure when the premise differs (M4.3.5, reversing the old "do
+not trust the workset's printed number" rule). **That instruction is only safe
+because something has already run the workset's own tests on this hardware.**
+That something is `check_workset_runs`.
+
+The workset's evidence (`evidence/{correctness,performance}.json`) is written by
+`build_workset`, which builds *and* measures — there is no separate
+`verify_workset` task, because splitting build from measure across two agents is
+the thing M2.5 forbids in the analogous case. So the evidence is the producer's
+own claim.
+
+**Therefore `check_workset_runs` must re-run at least one shape itself and check
+its own number against the recorded one.** Reading the producer's evidence file
+and grading its shape would make the whole chain a claim about a claim:
+`build_workset` asserts a baseline, `check_workset_runs` confirms the assertion
+is well-formed, and m4 then divides by it. That is the same failure
+`check_no_regression` avoids by recomputing rather than reading a `verdict`
+field, one stage earlier.
+
+Consequence, and it is intended: **`build_workset` needs the shared container**
+(its inputs already include `deploy_kit`), and `check_workset_runs` stays
+`cost: gpu_hours`. If either is ever weakened, m4's
+`check_speedup_substantiated` has to go back to re-measuring, and whoever
+weakens it says so to the leader.
+
 ### 4.1 Shared validators are shared, not copied
 
 `check_kernel_table` is **one** definition used by m2 and m3 (M3.5). The two
