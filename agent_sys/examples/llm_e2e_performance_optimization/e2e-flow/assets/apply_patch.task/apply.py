@@ -217,17 +217,27 @@ def check_against_workset(manifest: dict, integration: dict) -> list[str]:
     # to hold: an optimisation that shipped despite its own correctness evidence
     # is exactly the case nothing else downstream can see.
     #
-    # `writes_in_place` is the one worth naming. m3 demonstrated a candidate at
-    # 138.8 dB SNR with `allclose` true and every row summing to 1 that allocates
-    # its own output — passing every correctness case run in isolation and
-    # breaking only at the `logits[:] = ...` call site. No SNR threshold catches
-    # it, and neither does anything in m5.
+    # `writes_in_place` is the one worth naming, and the reason is sharper than
+    # "a numeric gate can miss it". Measured by m3 on MI355X, torch 2.9.1+rocm7.2,
+    # over four numerically-correct implementations differing only in how they
+    # touch the caller's buffer:
     #
-    # **Provenance, stated because it is not yet proven:** m3 validated that gate
-    # against a numpy-backed torch stub on a login node, not on a GPU. The
-    # identity semantics should carry to real torch and that has not been
-    # measured. Treat a pass here as "the declared gate was evaluated and did not
-    # fail", which is what it is.
+    #   baseline               pass   142.4 dB   allclose T   rows_sum T   in_place T
+    #   allocates              FAIL   151.9 dB   allclose T   rows_sum T   in_place F
+    #   writes_returns_fresh   FAIL   147.4 dB   allclose T   rows_sum T   in_place F
+    #   returns_out_unwritten  FAIL      -inf    allclose F   rows_sum F   in_place F
+    #
+    # **The wrong implementation scores BETTER than the incumbent** — 151.9 dB
+    # against 142.4 — because it returns a fresh fp32 softmax while the baseline
+    # rounds through the caller's buffer. So this is not a case of a numeric gate
+    # failing to notice: every numeric signal actively recommends shipping it,
+    # and what ships is a sampler that silently stops writing the logits buffer.
+    # Nothing else in m5 sees that, and `check_patch_live` would prove the wrong
+    # bytes were live.
+    #
+    # A pass here means **the replacement writes in place**. (It meant less until
+    # m3 re-measured on the card; the stub run showed 138.8 against 140.2 and did
+    # not show the inversion, which is the whole argument.)
     declared = {g.get("name") for g in (integration.get("gates_extra") or []) if g.get("name")}
     evidence = integration.get("_correctness") or {}
     for gate in sorted(declared):
