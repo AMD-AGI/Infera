@@ -57,6 +57,7 @@ from env_mgr.isolation.policy import (
     Mode,
     Policy,
     agent_cli_grants,
+    component_grants,
     executable_path,
 )
 from env_mgr.isolation.probe import Availability, probe, select
@@ -151,6 +152,12 @@ _NO_ENV: Mapping[str, str] = MappingProxyType({})
 #: that is not an environment *no environment*. Reported by `env-mgr`.
 _NO_PATHS: Mapping[Any, str] = MappingProxyType({})
 
+#: And again for `mcp_servers`, for the reason `_NO_PATHS` is not `_NO_ENV`: the
+#: values are the SDK's server declarations, not strings, and a shared name for
+#: three differently-typed empties is a mis-annotation waiting for whoever reads
+#: the third one.
+_NO_MCP: Mapping[str, Any] = MappingProxyType({})
+
 
 class Prepared(NamedTuple):
     """What the runner is handed.
@@ -231,7 +238,26 @@ class Prepared(NamedTuple):
     #: This attempt's far-side tool surface — `remote.tools.ToolDef`s, or `()`.
     #: Declared in `protocols.Prepared` too; this is the implementation half and
     #: the two are compared by `tests/interfaces/`.
+    #:
+    #: **Since per-agent components, it also carries theirs.** A component's
+    #: `tools/*.tooldef.py` publishes the same `ToolDef` shape, and the backend
+    #: adapts every element of this tuple into one in-process MCP server — so
+    #: there is nothing to key them by and no consumer that needs to tell a
+    #: remote tool from a component's.
     tools: tuple[Any, ...] = ()
+    #: **External MCP servers for this attempt**, keyed by the name the model
+    #: addresses them under, as the SDK's `mcp_servers` option spells them.
+    #:
+    #: Separate from `tools` because they are a different *kind* of thing and
+    #: not a different source of the same thing: a `ToolDef` is a Python object
+    #: this process calls, and one of these is a declaration of a **process to
+    #: start** — `{"type": "stdio", "command": …}` — that the harness starts and
+    #: this one never sees. Merging them would mean inventing a discriminator to
+    #: split them again at the backend.
+    #:
+    #: Typed `Mapping[str, Any]` for `tools`' reason: the values are the SDK's
+    #: vocabulary, and `agent` may not import this package to learn it.
+    mcp_servers: Mapping[str, Any] = _NO_MCP
 
     def spawn(self, argv: Sequence[str], **popen_kwargs: Any) -> subprocess.Popen:
         """Start `argv` **confined**, and hand back the process. One verb.
@@ -400,6 +426,12 @@ def prepare(
         *grants.resolve_all(task, execution, ctx, enforce=enforcing),  # 2
         *ctx.interpreter_grants,  # 3
         *agent_cli_grants(ctx.agent_cli),
+        # **Conditional, and paired with an export.** `agent_assets` emits
+        # `AGENT_SYS_COMPONENTS_ROOT` under the same test, so `paths.py`'s rule —
+        # exported and granted agree by construction — holds without either side
+        # checking the other. Read-only: a component is read from here and copied
+        # into the zone before anything runs it.
+        *component_grants(agent_spec),
     )
 
     # 4. **No `repos` is passed, and that is a gap rather than a decision.**
@@ -513,8 +545,16 @@ def prepare(
     # find its own staged input by parsing our directory layout.
     environment.update(grants.input_env(task, staged_inputs))
 
+    # 6b. **Now four destinations, not one.** `deploy` used to return an
+    # environment mapping and nothing else could reach a backend from here;
+    # per-agent components produce MCP servers and in-process tools, which are
+    # not strings and never could be. `staged` and `ws` are passed because
+    # components resolve against the **staged** copy (the original checkout is
+    # outside every grant) and the asset directory is copied into the workspace.
+    deployed = None
     if agent_spec is not None:
-        environment.update(material.deploy(agent_spec, zone))  # 6b
+        deployed = material.deploy(agent_spec, zone, staged, ws.path)
+        environment.update(deployed.environment)
 
     # 7 -- LAST, and since the split it **checks** rather than applies.
     #
@@ -547,7 +587,14 @@ def prepare(
         confinement=conf,
         sync=report,
         environment=MappingProxyType(environment),
-        tools=_remote_tools(zone, ctx),
+        # **The remote surface and the agent's own components, in one tuple.**
+        # `Assignment.tools` is a flat list of `ToolDef`s and the backend adapts
+        # them all into one in-process MCP server, so there is nothing to key
+        # them by and nothing that needs to tell them apart. Remote first
+        # because it is `env_mgr`'s own and a component's name collision with it
+        # should be visible as the component's, not the reverse.
+        tools=(*_remote_tools(zone, ctx), *(deployed.tools if deployed else ())),
+        mcp_servers=MappingProxyType(dict(deployed.mcp_servers) if deployed else {}),
     )
 
 

@@ -39,7 +39,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .assets import ASSETS_DIRNAME, AssetIndex, fill_body
+from .assets import ASSETS_DIRNAME, AssetIndex, fill_agent_assets, fill_body
 from .bundled import schema_for
 from .protocols import (
     LoadReport,
@@ -396,20 +396,26 @@ class YamlPackage:
 
         name = obj.get("name")
         if isinstance(name, str) and name:
-            try:
-                problems += fill_body(
-                    obj, index, kind=kind, name=name, origin=origin, line=_line(obj)
-                )
-            except SpecInconsistent as exc:
-                problems.append(
-                    Problem(
-                        origin=origin,
-                        path="$.body",
-                        keyword="inconsistent",
-                        message=str(exc),
-                        line=_line(obj),
+            # Two fillers, one `try`, and **two different `$.` paths in the
+            # fault**. They fill different fields from the same index and either
+            # can find two candidates; catching them separately would duplicate
+            # the handler, and merging their `path` into one would point a reader
+            # at `$.body` for a conflict between two `assets/` directories.
+            for filler, pointer in ((fill_body, "$.body"), (fill_agent_assets, "$.assets")):
+                try:
+                    problems += filler(
+                        obj, index, kind=kind, name=name, origin=origin, line=_line(obj)
                     )
-                )
+                except SpecInconsistent as exc:
+                    problems.append(
+                        Problem(
+                            origin=origin,
+                            path=pointer,
+                            keyword="inconsistent",
+                            message=str(exc),
+                            line=_line(obj),
+                        )
+                    )
 
         at = position_of(obj)
         documents.append(

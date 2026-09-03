@@ -1,0 +1,14 @@
+{
+  "name": "envchk-mp",
+  "owner": {"name": "agent_sys examples/env_checker"},
+  "metadata": {
+    "description": "A local marketplace carrying one plugin, so that examples/env_checker can prove the plugin install route without reaching a network."
+  },
+  "plugins": [
+    {
+      "name": "envchk-plugin",
+      "source": "./envchk-plugin",
+      "description": "Ships one skill carrying the plugin capability's token."
+    }
+  ]
+}

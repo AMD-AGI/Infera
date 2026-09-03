@@ -76,7 +76,10 @@ from env_mgr.fs.layout import LOGS
 from env_mgr.fs.zone import Zone
 
 __all__ = [
+    "AGENT_ASSETS_ENV_VAR",
+    "COMPONENTS_ROOT_ENV_VAR",
     "HANDOFFS_ENV_VAR",
+    "INSTALL_REPORT_ENV_VAR",
     "LOGS_ENV_VAR",
     "PACKAGE_ENV_VAR",
     "PLAYGROUND_ENV_VAR",
@@ -102,6 +105,61 @@ ZONE_ENV_VAR = "AGENT_SYS_MY_ZONE"
 #: sets to the *original* checkout. Under `interfaces.md` §4.16 that path is no
 #: longer granted, so a package with its own variable must derive it from this.
 PACKAGE_ENV_VAR = "AGENT_SYS_TASK_PACKAGE"
+
+#: **Where this agent's own asset directory went**, inside the staged package —
+#: ``<staged package>/<AgentSpec.assets>`` — or absent when the spec has none.
+#:
+#: **A name defined here and bound elsewhere**, which is a shape no other member
+#: of this family has and is worth the line. Every other name is a zone
+#: subdirectory, so `zone_env` can compute the value from the `Zone` alone; this
+#: one's value is `AgentSpec.assets` resolved against the staged package, and
+#: neither of those is a fact about a zone. So `agent_assets.install` binds it and
+#: this module owns the spelling — one writer for the name, one writer for the
+#: value, and they are different modules because they know different things.
+#:
+#: **Exported and granted agree**, which is this module's rule for the whole
+#: family: the staged package is inside the zone and `prepare` grants
+#: ``Granted(zone.root, Mode.READ_WRITE)`` recursively, so unlike the four
+#: ``*_root`` names above this one is reachable. It is not derived from
+#: ``AGENT_SYS_TASK_PACKAGE`` by the body, because the relative part is the agent
+#: spec's and a body has no route to an agent spec.
+AGENT_ASSETS_ENV_VAR = "AGENT_SYS_AGENT_ASSETS"
+
+#: ``agent_sys/components/`` — the L2 registry, **outside the zone**.
+#:
+#: **The one exported path in this module that is not inside the zone, and the
+#: only reason it is allowed is that it is granted.** The four ``*_root`` names
+#: above are refused precisely because exporting an ungranted path is *"the
+#: evaporating allow-list one level up: the body failing on our own
+#: instruction"*. So this name is not a counter-example to that rule; it is the
+#: rule applied in the other direction — `isolation/policy.py::component_grants`
+#: composes a **read** grant on this directory, `prepare` adds it beside
+#: `agent_cli_grants`, and exported-and-granted agree by construction again.
+#:
+#: **Emitted only when the agent spec declares ``components:``**, by the same
+#: condition that emits the grant. A run that declares none gets neither, so the
+#: two cannot fall out of step by one of them being unconditional.
+#:
+#: Read-only, and that is a decision: a component is *read* from here and copied
+#: into the zone before anything executes it. If something ever has to run out of
+#: this directory, the answer is to copy that component into the zone, not to
+#: widen the grant.
+COMPONENTS_ROOT_ENV_VAR = "AGENT_SYS_COMPONENTS_ROOT"
+
+#: ``<zone>/logs/agent_assets.install.json`` — what the three component levels
+#: installed, per outcome, as JSON.
+#:
+#: **Promised rather than discoverable, and that is load-bearing rather than
+#: convenient.** An agent asked to state what capabilities it has would otherwise
+#: search for a file nobody named; worse,
+#: `examples/env_checker`'s `check_capabilities_genuine` decides whether an
+#: ``unavailable`` verdict is honest *by reading this file* — an ``unavailable``
+#: beside a clean install report is a FAIL. A validator that cannot find it fails
+#: the report for a reason that has nothing to do with the agent.
+#:
+#: Inside the zone, so it needs no grant of its own: `paths.py`'s rule is
+#: satisfied by where it is written rather than by an addition to the policy.
+INSTALL_REPORT_ENV_VAR = "AGENT_SYS_INSTALL_REPORT"
 
 #: The user's ``my_agent_workspace`` — ``<zone>/workspace``, what `workspace.cut`
 #: clones into.

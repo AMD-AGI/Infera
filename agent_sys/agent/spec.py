@@ -106,6 +106,29 @@ class AgentSpec(_Model):
     hooks: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
 
+    #: This agent's own directory under the package's `assets/`, package-relative,
+    #: or `""` when it has none. **Filled by `spec_loader`, not written**, from the
+    #: same folder convention that scopes a task's body lookup.
+    #:
+    #: Spec §3.1 listed nine keys and this is a tenth, so it is a spec change and
+    #: not a model detail: what an agent carries turned out not to fit in `rules` /
+    #: `hooks` / `skills`, which are three lists of *paths to individual files*. A
+    #: Claude Code component is a **tree** — a skill is a directory, a plugin
+    #: marketplace is a directory of directories — and naming each file would make
+    #: the package author restate a layout the harness already fixes.
+    assets: str = ""
+
+    #: **L1** — `env_mgr` recipe YAMLs, package-relative, run before the session.
+    #: The route by which an agent asks for industry components (serena, plugins,
+    #: apt/pip tools) that this repository does not ship and should not vendor.
+    recipes: list[str] = Field(default_factory=list)
+
+    #: **L2** — bare names under `agent_sys/components/`, components this
+    #: repository ships. Same on-disk shape as `assets`' `.claude/` tree, which is
+    #: why one installer serves both; a name rather than a path because the
+    #: directory is ours and a package must not be able to point this anywhere.
+    components: list[str] = Field(default_factory=list)
+
     @field_validator("backends", mode="before")
     @classmethod
     def _normalise(cls, value: Any) -> Any:

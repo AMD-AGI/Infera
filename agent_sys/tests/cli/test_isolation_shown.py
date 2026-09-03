@@ -166,7 +166,10 @@ def test_the_leak_target_resolves_to_a_real_directory_outside_every_zone(
     # The variable has to be *exported*, and this is the assertion that was
     # missing: resolved through the real mechanism, from the rendered spec.
     spec = _loaded_specs(package_root, "agent", outside=str(layout.outside))["describe"]
-    environment = material.deploy(spec, _ZoneAt(str(tmp_path / "zone")))
+    # `.environment`: `deploy` returns a `Deployed` since per-agent components
+    # gave it three more things to hand back than an environment mapping can
+    # hold. The two-argument call is unchanged, which is what §4.6 froze.
+    environment = material.deploy(spec, _ZoneAt(str(tmp_path / "zone"))).environment
     assert name in environment, (
         f"{name} is in the readme and exported by nothing; the command would "
         f'run as `echo leaked > "/leak.txt"` against a root-owned /'

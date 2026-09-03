@@ -92,6 +92,7 @@ env_mgr/
 ├── grants.py               resolving a Grant into locations. §6
 ├── workspace.py            the clone with alternates. §7
 ├── material.py             deploying an agent's rules/hooks/skills. §11.5
+├── agent_assets.py         per-agent components, L1/L2/L3. §11.5a
 ├── sync.py                 the one-shot job. §9
 ├── remote/
 │   ├── connection.py       ssh and docker exec behind one Protocol. §10.2
@@ -1126,7 +1127,7 @@ def prepare(task: Task, execution: Execution, agent_spec: AgentSpec,
     if report.conflicts:
         raise PrepareRefused(report.conflicts)                #    §9.3
     layout.stage_handoffs(task, execution, zone, ctx)         # 6  §8.3
-    material.deploy(agent_spec, zone)                         # 6b §11.5
+    material.deploy(agent_spec, zone, staged, ws.path)        # 6b §11.5, §11.5a
     conf   = isolation.apply(policy, probe(), tier=ctx.tier)  # 7  §4.5 -- LAST
     return Prepared(zone, ws, policy, conf, report)
 ```
@@ -1262,6 +1263,115 @@ spec to them.
 Claude Code's canonical form (`agent` spec §4.5); converting between harness
 formats is an independent module that does not exist (`agent` design §3.5). A file
 is placed, not read.
+
+### 11.5a Per-agent components — the three levels, and why they are not a fourth loop
+
+Three more agent-spec keys arrived — `assets`, `recipes`, `components` — and they
+did **not** fit §11.5's sentence. `rules` / `hooks` / `skills` are lists of
+*files*, and a Claude Code component is a *tree*: a skill is a directory, a plugin
+marketplace is a directory of directories, an MCP server is a process to register.
+So `agent_assets.py` exists and `material.py` calls it.
+
+| level | what | declared how | resolved against |
+|---|---|---|---|
+| L1 | industry components — serena, a marketplace plugin, an apt/pip tool | `recipes: [...]` | the staged package, then `env_mgr/recipes/<name>.yaml` |
+| L2 | components this repository ships | `components: [...]` | `agent_sys/components/<name>/` |
+| L3 | components one task package carries for one agent | **undeclared** | `<staged package>/<assets>/.claude/` |
+
+**L2 and L3 have one on-disk shape and one installer.** Promoting a component
+from a package to the shipped registry is moving a directory; there is no second
+format and nothing to convert. **L3 is undeclared** because a declaration would
+be a second statement of what the directory already says, and two statements of
+one fact drift (§1's rule, one layer out).
+
+**Order is L1 → L2 → L3**, so the package's own copy wins a name collision —
+`material.deploy`'s existing precedence, *an author saying so outranks a default*.
+
+**One measurement cuts across that order.** 2026-09-03: `claude plugin
+marketplace add` and `claude plugin install` respect `CLAUDE_CONFIG_DIR` fully,
+and they **merge** into an existing `settings.json` rather than clobbering it — a
+hand-written `hooks` key survived a subsequent install, which only added
+`enabledPlugins` / `extraKnownMarketplaces`. Merging is not commutative with
+creating, so the settings document is assembled from every level and **written
+before any install runs**. `agent_assets` writes it rather than returning it,
+because a caller cannot pick that moment without knowing which levels resolved.
+
+**Two destinations that are not an environment.** A component can publish MCP
+servers and in-process tools, and neither fits a `Mapping[str, str]`. So
+`material.deploy` returns a `Deployed` value — `environment`, `mcp_servers`,
+`tools`, `report` — `prepare` carries the middle two onto `Prepared`, and
+`claude_sdk` merges them into the SDK's options under the collision policy the
+`env_mgr` tool server already had: a name already present is a named
+`BackendUnsupported`, never a silent replacement.
+
+**L1 runs the shipped machinery as a SUBPROCESS, and the §14.4 wall is untouched.**
+
+    <sys.executable> -m env_mgr bootstrap <recipe> --json --path <workspace>
+
+`agent_assets` imports nothing from below the wall, so spec §9's *nothing new
+imports the installer machinery* holds as written and `cli.py` remains the one
+named exception. Four reasons, and the last two are not recoverable by an
+import:
+
+1. The invariant stays literally true rather than being amended to fit a feature.
+2. It is **not** the `importlib.import_module` dodge, which hides an edge that
+   still exists in-process. A subprocess genuinely has no edge; the coupling
+   becomes a CLI contract, which is weaker and is visible to a reader.
+3. **A child takes `env=` and this process's `os.environ` does not.**
+   `installers/base.py::run_cmd` builds its subprocesses from `os.environ`, so an
+   in-process call could only set `CLAUDE_CONFIG_DIR` and the `UV_*` roots by
+   mutating the supervisor's environment — and `agent/runner.py` is threaded by
+   construction, so two concurrent prepares would take that value from each
+   other. The subprocess removes the window with no change to §12.1's package.
+4. **A child can be bounded and an in-process call cannot.** `run_cmd` has no
+   timeout, so a networked L1 install that goes wrong hangs `prepare` for ever,
+   and `agent-sys --timeout` is a ceiling on the whole run rather than a cure
+   for one stuck child. `agent_assets.RECIPE_TIMEOUT_SECONDS` bounds the
+   `python -m env_mgr` process — the thing `run_cmd` cannot bound from inside —
+   and it is a **parameter with a stated default**: twenty minutes, from probe
+   D's real cold-cache `uv tool install` of serena finishing well inside
+   fifteen, plus headroom. On expiry the recipe is a `fail` naming the bound and
+   saying that a partial install may remain, which is more than the current
+   behaviour of silence for ever.
+
+The cost is stated in `agent_assets`' own docstring: **the CLI's argument surface
+is now a compatibility surface.** The JSON round-trip is lossless —
+`render_json` emits `{level, message, details}` and `Outcome` is exactly those
+three — so `agent_assets.InstallOutcome` reconstructs what an in-process call
+would have returned. It is a separate type for the same reason the call is a
+subprocess: `outcome` is below the wall, and importing a class to rebuild
+something that arrived as JSON would reintroduce the edge for nothing.
+
+Two details of the invocation are load-bearing. **`PYTHONPATH` is derived from
+`agent_assets.__file__`**, because measured on this host the editable
+`agent-sys-helper` install resolves `env_mgr` to a *different worktree* — a bare
+`-m env_mgr` would run somebody else's checkout and mostly work, which is
+`interfaces.md` §4.11's family. **`--path` is always passed**, because
+`Target.path` is each item's `cwd`, a shipped recipe carries a placeholder, and
+`subprocess.run` *raises* rather than returning non-zero when `cwd` is absent.
+
+**Three measurements shape the rest**, all 2026-09-03:
+
+| probe | what it settles |
+|---|---|
+| A / A' | plugin installs honour `CLAUDE_CONFIG_DIR`; they **merge** into `settings.json`, hence the write-first ordering above |
+| D | `uv tool install` writes `~/.local/share/uv` unless `UV_TOOL_DIR` / `UV_TOOL_BIN_DIR` / `UV_CACHE_DIR` are pinned — and it *succeeds* while doing it. So `material.deploy` resolves the agent's declared `env` block **before** the installs (it is an input) and applies it **again after** (it is still the last word) |
+| F | a plugin is read from its **marketplace source path at run time**; nothing is copied by the install. So a component's `plugins/` is copied into `<zone>/config/marketplaces/<name>/` and *that* is registered, with a `contained()` assertion behind it. Registering it in place would install cleanly and fail to load under confinement |
+
+**`${VAR}` in a component's `.mcp.json` is expanded against the zone
+environment, and an unresolved name refuses.** That is what lets a component
+write `"${UV_TOOL_BIN_DIR}/serena"` — which it must, because `executable_path`
+derives `PATH` at step 2 and that directory does not exist until step 6b. A
+pass-through would start a server with a literal `${...}` in its argv, and the
+symptom is *a server with no tools*: no error, no cause.
+
+**Two more exported names, and one of them needed a grant.**
+`AGENT_SYS_INSTALL_REPORT` points at `<zone>/logs/agent_assets.install.json` and
+is inside the zone, so it needs none. `AGENT_SYS_COMPONENTS_ROOT` is **outside**
+it, so `isolation/policy.py::component_grants` composes a `READ_EXEC` grant on
+the same condition that emits the name — a spec declaring `components:`. Read,
+not execute-from: a component is copied into the zone before anything runs it,
+and if that ever stops being true the answer is another copy, not a wider grant.
 
 ## 12. The shipped package
 

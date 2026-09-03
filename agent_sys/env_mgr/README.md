@@ -701,6 +701,17 @@ kinds stay five and the zone-path kind grows from one name to six.
 one fact may not have two writers and `tests/cli/test_isolation_shown.py`
 imports it from there.
 
+**Per-agent components did not add a sixth kind either**, and the reason is
+worth stating because it looks like one. `agent_assets.install` contributes
+`AGENT_SYS_AGENT_ASSETS`, and it reaches `Prepared.environment` *through*
+`material.deploy` — the fifth contributor, whose whole job is already *what this
+agent needs*. What components genuinely added is not a sixth environment source
+but **two destinations that are not an environment at all**:
+`Prepared.mcp_servers` and more entries in `Prepared.tools`. That is why
+`material.deploy` returns a `Deployed` value now instead of a `dict[str, str]` —
+the mapping had nowhere to put a nested server declaration or a live Python
+object, and a second function returning them would be one act split in two.
+
 | variable | value | the user's name for it |
 |---|---|---|
 | `AGENT_SYS_MY_ZONE` | `<zone>` | — (see below) |
@@ -709,7 +720,24 @@ imports it from there.
 | `AGENT_SYS_MY_PLAYGROUND` | `<zone>/playground` | `my_agent_playground` |
 | `AGENT_SYS_MY_HANDOFFS` | `<zone>/handoffs` | — (`等等`) |
 | `AGENT_SYS_MY_LOGS` | `<zone>/logs` | — (`等等`) |
+| `AGENT_SYS_AGENT_ASSETS` | `<zone>/package/<AgentSpec.assets>` | — (added with per-agent components) |
+| `AGENT_SYS_INSTALL_REPORT` | `<zone>/logs/agent_assets.install.json` | — (ditto) |
+| `AGENT_SYS_COMPONENTS_ROOT` | `agent_sys/components/` — **only when the spec declares `components:`** | — (ditto) |
 | `<any of the above>_REMOTE` | the same path under `sync.remote_root(zone, mapping)` | `*_romote` |
+
+`AGENT_SYS_AGENT_ASSETS` is **the one name in the family whose value is not a
+zone subdirectory**, so `paths.py` owns its spelling and `agent_assets.install`
+binds it. It still obeys the family's rule — exported and granted agree — because
+the staged package is inside the zone and `prepare` grants the zone recursively.
+It is not derived from `AGENT_SYS_TASK_PACKAGE` by a body, because the relative
+part is the agent spec's and a body has no route to an agent spec.
+
+`AGENT_SYS_COMPONENTS_ROOT` is **the one exported path outside the zone**, and
+it is not a counter-example to the four refused `*_root` names — it is the same
+rule run the other way. `isolation/policy.py::component_grants` composes a
+`READ_EXEC` grant on it, under the *identical* condition that emits the name, so
+exported-and-granted still agree by construction. Read-only on purpose: a
+component is copied into the zone before anything executes it.
 
 A name whose directory does not exist is **not exported**: the zone's
 subdirectories are one per registered domain kind, so a run with no `PLAYGROUND`

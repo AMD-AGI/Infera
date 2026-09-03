@@ -72,6 +72,23 @@
       "items": { "type": "string", "minLength": 1 },
       "uniqueItems": true,
       "description": "Package-relative paths. Stored in canonical form."
+    },
+    "assets": {
+      "type": "string",
+      "minLength": 1,
+      "description": "This agent's own directory under `assets/`, package-relative. **Filled by convention, not written by hand** — `spec_loader/assets.py` matches the same three folder spellings the body lookup uses (`X`, `X.agent`, `agent.X`), and binding it explicitly is legal and warns. Two matching directories is `SpecInconsistent`.\n\nIt is where **L3** per-agent components live: `env_mgr` auto-detects `<assets>/.claude/` inside the STAGED copy of the package and installs what it finds — skills, hooks in `settings.json`, a local plugin marketplace, `.mcp.json`, and `tools/*.mcp.py` / `tools/*.tooldef.py`. Nothing declares L3, because the declaration would be a second statement of what the directory already says. The staged directory also reaches the body as `AGENT_SYS_AGENT_ASSETS` and is copied into the attempt's workspace root as a subdirectory."
+    },
+    "recipes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "description": "**L1 — industry components**: `env_mgr` recipe YAMLs to run before the session starts, each installing things this repository does not ship (serena, marketplace plugins, apt/pip tools). A package-relative path, resolved against the STAGED package. Declared and absent is an error, for `material.py`'s measured reason: a skipped install surfaces hours later as `Unknown skill` from inside the agent's own session, with nothing naming the cause.\n\nRun in declaration order, before `components`, so a name a package ships wins a collision with one it merely asks for."
+    },
+    "components": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "description": "**L2 — components this repository ships**: bare names under `agent_sys/components/<name>/`, each holding a `.claude/` tree in the same on-disk shape as L3 and optionally a `recipe.yaml` beside it for anything it must install first. One installer serves L2 and L3 precisely because the shape is the same; what differs is only who owns the directory. Declared and absent is an error."
     }
   },
   "$defs": {

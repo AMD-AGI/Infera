@@ -357,6 +357,34 @@ class ClaudeSdkBackend(ExecutorBase):
             options.setdefault("permission_mode", "bypassPermissions")
         if self.assignment.environment:
             options.setdefault("env", dict(self.assignment.environment))
+        if self.assignment.mcp_servers:
+            # **The per-agent components' external servers, under the tool
+            # server's own collision policy.** Not a second policy: the reason a
+            # name may not be taken twice is that `mcp__<server>__<tool>` is what
+            # the model calls, and that is true of a component's server exactly
+            # as it is of `env_mgr`'s. So the refusal below is the same refusal,
+            # said about a different name.
+            #
+            # **Refused rather than merged, and the direction matters.** The
+            # caller's `options["mcp_servers"]` is an operator's configuration;
+            # `assignment.mcp_servers` is what a package declared. Letting either
+            # win silently means one of the two gets different tools than the
+            # ones they wrote, with nothing said — the defect the `env_mgr` key
+            # already carries a comment about, one collision wider.
+            servers = dict(options.get("mcp_servers") or {})
+            clash = sorted(set(servers) & set(self.assignment.mcp_servers))
+            if clash:
+                raise BackendUnsupported(
+                    self.key,
+                    "mcp_servers",
+                    f"this config and this agent's components both declare MCP "
+                    f"server(s) {clash}. The model addresses these as "
+                    f"mcp__<server>__<tool>, so two servers cannot share a name — "
+                    f"rename one side rather than letting the other's tools "
+                    f"disappear.",
+                )
+            servers.update(self.assignment.mcp_servers)
+            options["mcp_servers"] = servers
         if self.assignment.tools:
             # **Spec §5.5's remote surface, and the only place that knows the
             # SDK.** `env_mgr` may not import the SDK and `agent/backend.py` is

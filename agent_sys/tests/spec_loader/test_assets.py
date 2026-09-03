@@ -385,3 +385,113 @@ def test_an_agent_and_a_handoff_have_no_body_to_fill(builder: PackageBuilder) ->
     assert result.problems == (), result.problems
     assert "body" not in registries.agent_specs.get("tracer")
     assert "body" not in registries.handoff_specs.get("trace")
+
+
+# --------------------------------------------------------------------------- #
+# Rule 3, the other half — a folder that FILLS a field, for an agent
+
+
+@pytest.mark.parametrize("folder", ["forge", "forge.agent", "agent.forge"])
+def test_every_folder_spelling_names_an_agents_assets(builder: PackageBuilder, folder: str) -> None:
+    """The user's three, and only those three.
+
+    Unlike a filename this is not a free permutation set: they wrote the folder
+    rule as a closed list, and `_folder_names` transcribes it once. This asserts
+    that `resolve_folder` reads the **same** list a body lookup scopes itself
+    with — a second set of spellings here is how the two would come to disagree
+    about what `agent.forge/` means.
+    """
+    builder.asset(f"{folder}/.claude/skills/x/SKILL.md", "# x")
+
+    got = AssetIndex(builder.root / "assets").resolve_folder(name="forge", type_="agent")
+
+    assert got == Path("assets") / folder
+
+
+def test_an_agent_with_no_directory_resolves_to_nothing_and_that_is_not_an_error(
+    builder: PackageBuilder,
+) -> None:
+    """L3 is **undeclared** and auto-detected (`env_mgr/agent_assets.py`), so an
+    agent that carries no components has no directory and that is its normal
+    shape. `resolve`'s `None` for the same reason one level up."""
+    assert AssetIndex(builder.root / "assets").resolve_folder(name="forge", type_="agent") is None
+
+
+def test_two_folder_spellings_for_one_agent_crash(builder: PackageBuilder) -> None:
+    """`resolve`'s rule, and it matters more here than for a file.
+
+    Picking one would silently install half an agent's material — the other
+    half is still on disk, still readable, and named by nothing. The message
+    lists both so the author can merge them.
+    """
+    builder.asset("forge.agent/.claude/settings.json", "{}")
+    builder.asset("agent.forge/.claude/settings.json", "{}")
+
+    with pytest.raises(SpecInconsistent) as caught:
+        AssetIndex(builder.root / "assets").resolve_folder(name="forge", type_="agent")
+
+    assert "forge.agent/" in str(caught.value)
+    assert "agent.forge/" in str(caught.value)
+
+
+def test_a_nested_directory_is_not_an_agents_assets(builder: PackageBuilder) -> None:
+    """Directly under `assets/`, not anywhere below it.
+
+    `_under_a_folder` recurses because a *file* may sit deep inside its object's
+    directory. The directory itself is a top-level member of `assets/`, and
+    admitting a nested one would make `assets/a.agent/forge.agent/` an answer
+    for `forge` inside a tree `a` owns.
+    """
+    builder.asset("other.agent/forge.agent/.claude/settings.json", "{}")
+
+    assert AssetIndex(builder.root / "assets").resolve_folder(name="forge", type_="agent") is None
+
+
+def test_loading_a_package_fills_an_agents_assets_by_convention(
+    builder: PackageBuilder,
+) -> None:
+    """End to end: the field arrives on the admitted document without the author
+    writing it, which is what `assets: str` being "filled by convention" means."""
+    builder.asset("tracer.agent/.claude/settings.json", "{}")
+    builder.write(
+        "steps.yaml",
+        """module: agent
+name: tracer
+kind: program
+description: d
+""",
+    )
+
+    registries = FakeRegistries()
+    result = load_package(builder.package(), registries)
+
+    assert not [p for p in result.problems if p.fatal], result.problems
+    assert registries.agent_specs.get("tracer")["assets"] == "assets/tracer.agent"
+
+
+def test_an_explicitly_bound_agent_assets_warns_and_is_left_alone(
+    builder: PackageBuilder,
+) -> None:
+    """`fill_body`'s rule and its mechanism, applied to the tenth key.
+
+    Legal, because an author who writes a path means it; warned, because the
+    package format exists so that they do not have to.
+    """
+    builder.asset("tracer.agent/.claude/settings.json", "{}")
+    builder.write(
+        "steps.yaml",
+        """module: agent
+name: tracer
+kind: program
+description: d
+assets: assets/somewhere_else
+""",
+    )
+
+    registries = FakeRegistries()
+    result = load_package(builder.package(), registries)
+
+    (problem,) = [p for p in result.problems if p.path == "$.assets"]
+    assert problem.keyword == "explicit-binding"
+    assert not problem.fatal
+    assert registries.agent_specs.get("tracer")["assets"] == "assets/somewhere_else"

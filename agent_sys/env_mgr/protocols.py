@@ -416,7 +416,31 @@ class Prepared(NamedTuple):
     #:
     #: Typed loosely for the same reason `Assignment.confinement` is: it crosses
     #: to `agent`, which may not import `env_mgr`.
+    #:
+    #: **It also carries a component's `tools/*.tooldef.py`.** Per-agent
+    #: components publish the same `ToolDef` shape, and every element of this
+    #: tuple becomes one entry of the single in-process MCP server the backend
+    #: builds — so there is nothing to key them by, and no consumer that has to
+    #: tell a far-side tool from a component's.
     tools: tuple[Any, ...] = ()
+    #: **External MCP servers for this attempt**, keyed by the name the model
+    #: addresses them under, in the SDK's `mcp_servers` vocabulary.
+    #:
+    #: `material.deploy` computes it from the agent's three levels of component:
+    #: a component's `.mcp.json` entries verbatim, plus one generated entry per
+    #: `tools/*.mcp.py` it ships.
+    #:
+    #: **A second field rather than a widening of `tools`**, because they are
+    #: two kinds of thing. A `ToolDef` is an object this process calls; one of
+    #: these is a declaration of a *process to start*, which the harness starts
+    #: and this one never sees. One field would need a discriminator at the
+    #: backend to split them again, which is `engineer_principle.md` §2's
+    #: fuse-to-avoid-deciding.
+    #:
+    #: **The backend refuses a collision rather than resolving one** — the
+    #: policy `claude_sdk._options` already applies to the `env_mgr` tool server,
+    #: because the name is what the model calls and two servers cannot share it.
+    mcp_servers: Mapping[str, Any] = MappingProxyType({})
 
     def spawn(self, argv: Sequence[str], **popen_kwargs: Any) -> Any:
         """Start `argv` **confined**, and hand back the process. One verb.

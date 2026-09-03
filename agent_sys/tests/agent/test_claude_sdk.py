@@ -768,3 +768,110 @@ def test_no_tools_means_no_mcp_server_at_all() -> None:
 
     assert "mcp_servers" not in options
     assert not options.get("allowed_tools")
+
+
+# --------------------------------------------------------------------------- #
+# Per-agent components' external MCP servers
+
+
+def test_component_mcp_servers_reach_the_options_the_sdk_is_constructed_with() -> None:
+    """`Assignment.mcp_servers` -> `ClaudeAgentOptions(mcp_servers=...)`.
+
+    The wiring half, for the same reason the remote tool surface needed one:
+    `env_mgr.agent_assets` can install a component's `.mcp.json` perfectly and
+    the server still reaches no model unless something puts it in the options.
+
+    An **external** server, unlike `env_mgr`'s in-process one, needs no
+    `allowed_tools` entry from us: its tool names are the server's and are not
+    known until it starts, so naming them here would be guessing at a list.
+    """
+    pytest.importorskip("claude_agent_sdk")
+    backend = ClaudeSdkBackend(
+        "claude_sdk",
+        {"client": FakeClient()},
+        Assignment(
+            goal="g",
+            zone="/z",
+            mcp_servers={"envchk": {"type": "stdio", "command": "python3", "args": ["s.py"]}},
+        ),
+    )
+
+    options = backend._options()
+
+    assert options["mcp_servers"]["envchk"]["command"] == "python3"
+
+
+def test_a_component_server_and_the_remote_tool_server_coexist() -> None:
+    """Two different kinds in one mapping, and neither displaces the other.
+
+    They arrive by different routes — one from a component's `.mcp.json`, one
+    built here out of `ToolDef`s — and merge into the single option the SDK
+    takes. A test asserting only one of them would stay green while the other
+    was dropped by the merge.
+    """
+    pytest.importorskip("claude_agent_sdk")
+    backend = ClaudeSdkBackend(
+        "claude_sdk",
+        {"client": FakeClient()},
+        Assignment(
+            goal="g",
+            zone="/z",
+            tools=_defs(),
+            mcp_servers={"envchk": {"type": "stdio", "command": "python3"}},
+        ),
+    )
+
+    options = backend._options()
+
+    assert set(options["mcp_servers"]) == {"envchk", "env_mgr"}
+    assert "mcp__env_mgr__env_remote_run" in options["allowed_tools"]
+
+
+def test_a_component_server_colliding_with_a_config_server_is_refused() -> None:
+    """The existing collision policy, said about a second pair of names.
+
+    `mcp__<server>__<tool>` is what the model calls, so two servers cannot share
+    a name — that is why `env_mgr` refuses rather than replaces, and it is true
+    of a component's server for exactly the same reason. Refused rather than
+    resolved in either direction: one side is an operator's configuration and
+    the other is what a package declared, and whichever we picked, somebody
+    would get different tools than the ones they wrote with nothing said.
+    """
+    pytest.importorskip("claude_agent_sdk")
+    backend = ClaudeSdkBackend(
+        "claude_sdk",
+        {"client": FakeClient(), "options": {"mcp_servers": {"envchk": {"type": "sdk"}}}},
+        Assignment(goal="g", zone="/z", mcp_servers={"envchk": {"type": "stdio"}}),
+    )
+
+    with pytest.raises(BackendUnsupported, match="envchk"):
+        backend._options()
+
+
+def test_a_component_server_named_env_mgr_is_refused_by_the_existing_guard() -> None:
+    """The collision the two routes can produce between *themselves*.
+
+    A component declaring a server called `env_mgr` reaches the options first,
+    and the remote tool surface's own guard then finds the name taken. The
+    refusal is the one that was already there — no second check was added,
+    because there is only one rule and it is about the name.
+    """
+    pytest.importorskip("claude_agent_sdk")
+    backend = ClaudeSdkBackend(
+        "claude_sdk",
+        {"client": FakeClient()},
+        Assignment(goal="g", zone="/z", tools=_defs(), mcp_servers={"env_mgr": {"type": "stdio"}}),
+    )
+
+    with pytest.raises(BackendUnsupported, match="env_mgr"):
+        backend._options()
+
+
+def test_no_components_means_no_mcp_servers_key_at_all() -> None:
+    """The control. An agent whose components declare no server must leave the
+    option absent rather than present-and-empty — `grants.output_paths`' rule,
+    and here it also keeps the shape every existing run has today."""
+    pytest.importorskip("claude_agent_sdk")
+    backend = ClaudeSdkBackend("claude_sdk", {"client": FakeClient()}, Assignment(goal="g"))
+
+    assert "mcp_servers" not in backend._options()
