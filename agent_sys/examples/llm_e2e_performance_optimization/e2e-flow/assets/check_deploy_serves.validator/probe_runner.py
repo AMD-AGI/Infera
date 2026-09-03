@@ -57,9 +57,29 @@ def walk(document, path: str) -> tuple[list, bool]:
     return cursor, True
 
 
+def expand(request: dict) -> dict:
+    """Build the fields the plan carries as intent rather than as bytes.
+
+    `oversize_prompt_tokens` is a token count; the prompt that exceeds it is
+    built **here**, on the node, and never travels. Expanding it on the sending
+    side put ~200 KB into the command string and the call died with
+    `Argument list too long` — measured on the first run against a live node.
+
+    Four characters per token is a deliberate over-estimate, and `1.2` on top of
+    it: the probe needs to be over the limit and by how much does not matter.
+    """
+    size = request.pop("oversize_prompt_tokens", None)
+    if size is None:
+        return request
+    request.setdefault("json", {})["messages"] = [
+        {"role": "user", "content": "word " * int(int(size) * 1.2)}
+    ]
+    return request
+
+
 def send(probe: dict) -> dict:
     """One HTTP request. Never raises: a transport failure is a result."""
-    request = probe["request"]
+    request = expand(probe["request"])
     timeout = request.get("timeout", 60)
     body = None
     headers = {}

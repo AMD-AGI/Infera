@@ -133,16 +133,18 @@ def build_plan(probes: dict, bindings: dict[str, str], available: set[str]) -> t
             continue
         resolved = resolve_deep(probe, bindings)
 
-        # `oversize_prompt_tokens` is the one field the yaml cannot express as a
-        # literal: the prompt has to be *built* from the context length the kit
-        # recorded. Four characters per token is a deliberate over-estimate — the
-        # probe needs to be over the limit, and by how much does not matter.
-        size = resolved["request"].pop("oversize_prompt_tokens", None)
+        # `oversize_prompt_tokens` stays in the plan as a **number** and is
+        # expanded by `probe_runner.py` on the node.
+        #
+        # **Measured 2026-09-03, first run against a live node.** Expanding it
+        # here put a ~200 KB prompt into the plan, and the plan travels to the
+        # node inside the command string — so the call died with
+        # `OSError: [Errno 7] Argument list too long: 'bash'`, after a successful
+        # bring-up, in a way no static fixture could have produced. A plan
+        # carries intent; a filler string is not intent.
+        size = resolved["request"].get("oversize_prompt_tokens")
         if size is not None:
-            filler = "word " * int(int(size) * 1.2)
-            resolved["request"].setdefault("json", {})["messages"] = [
-                {"role": "user", "content": filler}
-            ]
+            resolved["request"]["oversize_prompt_tokens"] = int(size)
         plan.append(resolved)
     return {"probes": plan}, dropped
 
@@ -294,6 +296,18 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
         for name in dropped:
             print(f"check_deploy_serves:   not applicable: {name}")
 
+        # The plan travels inside the command string, so its size is bounded by
+        # `getconf ARG_MAX`. Guarded rather than assumed: the failure mode is
+        # `OSError: [Errno 7] Argument list too long: 'bash'` raised from
+        # `subprocess`, which names neither the plan nor the probe that grew it.
+        encoded = json.dumps(plan)
+        if len(encoded) > 128 * 1024:
+            return [
+                f"the resolved probe plan is {len(encoded)} bytes, which will not fit "
+                f"in a command line. A probe is carrying data rather than intent — "
+                f"move the expansion into probe_runner.py, as `oversize_prompt_tokens` is"
+            ]
+
         plan_path = f"{work_root}/probe_plan.json"
         results_path = f"{work_root}/probe_results.json"
         Path("probe_plan.json").write_text(json.dumps(plan, indent=2))
@@ -301,9 +315,7 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
         # copy possible; `require_visible_on_node` in `remote.sh` is the check
         # that says so when it stops being true.
         on(
-            f"cat > {shlex.quote(plan_path)} <<'E2E_PLAN_EOF'\n"
-            + json.dumps(plan)
-            + "\nE2E_PLAN_EOF",
+            f"cat > {shlex.quote(plan_path)} <<'E2E_PLAN_EOF'\n" + encoded + "\nE2E_PLAN_EOF",
             transport,
         )
         probe_output = on(
@@ -433,21 +445,14 @@ def main() -> int:
         if parameters.get(arg):
             probes["load"][key] = int(parameters[arg])
 
-    # **Both name sets, and that is a workaround with a date on it.**
-    # CONTRACT.md §6 says `assets/lib/remote.sh` dispatches on `$E2E_TRANSPORT`;
-    # the file in this package today is the integration package's, carried across
-    # unrenamed, and its `on()` reads `IT_TRANSPORT` / `IT_JOBID` / `IT_NODE`
-    # (`assets/lib/remote.sh:66,87,94`). Setting only the contract's names makes
-    # every call fail with `IT_JOBID is unset`, which names neither the contract
-    # nor the mismatch. Setting both works under either spelling and costs three
-    # strings. Drop the `IT_*` half once the rename lands — it is the leader's,
-    # because five modules call this seam.
-    where = {
-        "TRANSPORT": parameters.get("transport", "auto"),
-        "JOBID": parameters.get("jobid", ""),
-        "NODE": parameters.get("node", ""),
+    # `assets/lib/remote.sh` reads these three and forwards the whole `E2E_*`
+    # block to the far side of an `spur exec` (`remote.sh:84` — the transport
+    # carries no environment of its own, measured).
+    transport = {
+        "E2E_TRANSPORT": parameters.get("transport", "auto"),
+        "E2E_JOBID": parameters.get("jobid", ""),
+        "E2E_NODE": parameters.get("node", ""),
     }
-    transport = {f"{prefix}_{k}": v for k, v in where.items() for prefix in ("E2E", "IT")}
 
     results: dict[str, bool] = {}
     for hid in zone.inputs():
