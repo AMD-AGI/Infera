@@ -410,6 +410,38 @@ everywhere the same convenience exists."*
 exact form.** Not a plausible one — that one. **And prove the probe can fail
 before believing that it passed.**
 
+#### The same root cause has three faces, and two of them invent a problem
+
+All three are **the instrument's condition reported as the subject's verdict**.
+Only the first is the one people guard against.
+
+1. **A benign fixture reads as PASS.** The three instances above.
+2. **A missing fixture reads as FAIL.** m2's, 2026-09-03: `from_yaml.py` pointed
+   at a merge output directory that had been renamed, so `check_profiling_evidence`
+   graded a path that did not exist and came back FAIL — immediately after a
+   schema change, which is exactly when a false failure is most believable. Their
+   clause: ***check the probe before believing a failure, not only before
+   believing a pass.***
+3. **A probe matching itself invents a failure that never happened.** m2's, the
+   same afternoon: checking for leaked stub processes, `pgrep -af stub_router.py`,
+   `pgrep -f 'python3.*stub_router'` and `grep -c 'stub_router.py 8'` each
+   reported hits — **every one matching its own command line**, which contained
+   the string. Three consecutive probes, three false alarms, one cause.
+
+   **The reading that settles it is the one that cannot self-match**: the PID
+   files the subject itself wrote, and the bound ports. Neither can contain the
+   query. Nothing had leaked.
+
+Face 2 has now caught the leader twice — most expensively when rung 0 returned
+`check_deploy_kit: FAIL` on a stage that had been green, and the available
+reading was "someone's commit regressed it". It had not: the leader had passed
+`--var image=` a tag present on the node instead of the one the sealed kit
+renders, and the validator refused correctly. Believing that failure would have
+sent two owners auditing their commits for a defect that was in a command line.
+
+**Whichever face it wears, ask what the instrument would report if the subject
+were fine — and make sure that is a different answer from the one you got.**
+
 ### 4.1 Shared validators are shared, not copied
 
 `check_kernel_table` is **one** definition used by m2 and m3 (M3.5). The two
