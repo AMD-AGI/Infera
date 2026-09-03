@@ -133,6 +133,15 @@ def build(sets: list[str]) -> dict:
     # otherwise `srun`. On the AMD crsuse2-m2m cluster `srun` exists but is not
     # Slurm's, so probing for the srun binary picks the wrong one — which is why
     # this probes for `spur` and falls back rather than the other way round.
+    #
+    # **This is a second reader of one rule (CONTRACT §4.3) and it is accepted
+    # knowingly, not overlooked.** `assets/lib/remote.sh:_transport` is the
+    # authority; this is shell and that is Python, and calling across is worse
+    # than mirroring four lines. **If the probe changes there, change it here** —
+    # the two are not checked against each other by anything, which is exactly
+    # the property §4.3 is about. The mitigation is that a disagreement is
+    # *visible*: the record says which transport it resolved, and a body that
+    # disagreed would fail on the transport rather than silently take the other.
     if doc["runtime"].get("transport") in (None, "", "auto"):
         doc["runtime"]["transport"] = "spur" if shutil.which("spur") else "srun"
     doc["runtime"].setdefault(
