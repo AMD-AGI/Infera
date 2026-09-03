@@ -255,7 +255,7 @@ def write_config(prefix: Prefix, disabled_agents: Sequence[str]) -> None:
     20-minute idle exit, a user opening the URL an hour after their run ends
     finds nothing, which is precisely the case the panel exists for. Verified
     with a real background daemon left running with this key set and zero
-    client traffic past the 20-minute default window; see PHASE0.md §0.7.
+    client traffic past the 20-minute default window; see PHASE0.md §0.9.
     """
     cfg = prefix.agentsview_data / "config.toml"
     disabled = ", ".join(json.dumps(name) for name in disabled_agents)
