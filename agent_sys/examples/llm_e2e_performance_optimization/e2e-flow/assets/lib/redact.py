@@ -72,6 +72,40 @@ MAX_BYTES = 4 << 20
 PLACEHOLDER = "@%s@"
 
 
+#: The environment record, in all three of the places CONTRACT.md §2 puts it.
+#: `reproducible` and `structured_text` use `items/env/`, `code` uses
+#: `items/codes/`, and a packup nests one a level deeper.
+ENVIRONMENT_RECORD = "environment.yaml"
+
+
+def is_environment_record(path, root) -> bool:
+    """Is this the one file that must keep its absolute paths?
+
+    **CONTRACT.md §2.2, and this file predates it.** `environment.schema.json`
+    *requires* `model_path`, which is `/shared_nfs/...` by nature. Rewriting it
+    to `@MODEL_MOUNT@/...` does not fail here and does not fail the schema
+    either, because `model_path` is only `type: string` — **it fails two stages
+    later**, in `check_environment`'s `compare_fixed_across_inputs`, as "these
+    two handoffs describe different machines". Nobody debugging that goes
+    looking in a redactor.
+
+    That is worse than a refusal, which is why this is a skip rather than a
+    warning. Found by m2 against a conforming record: rewritten, exit 0.
+
+    Three call sites reach this module — `apply_patch`, m2's line, and
+    `serve/round.sh`. Two of them are safe today only because they happen to
+    render the record *after* redacting, and nothing enforces that ordering. So
+    the rule belongs here, once, rather than in an ordering convention three
+    owners have to remember.
+    """
+    if path.name != ENVIRONMENT_RECORD:
+        return False
+    # Only under an item directory. A file called `environment.yaml` that a
+    # producer wrote into `result/` is its own artefact and is not the record.
+    parts = path.relative_to(root).parts
+    return "env" in parts or "codes" in parts
+
+
 def substitute(text: str, mapping: list[tuple[str, str]]) -> str:
     for prefix, name in mapping:
         text = text.replace(prefix, PLACEHOLDER % name)
@@ -111,8 +145,12 @@ def main(argv: list[str]) -> int:
     mapping.sort(key=lambda pair: len(pair[0]), reverse=True)
 
     rewritten = 0
+    skipped: list[str] = []
     remaining: list[str] = []
     for path in sorted(p for p in root.rglob("*") if p.is_file() and not p.is_symlink()):
+        if is_environment_record(path, root):
+            skipped.append(str(path.relative_to(root)))
+            continue
         if path.stat().st_size > MAX_BYTES:
             continue
         try:
@@ -127,6 +165,14 @@ def main(argv: list[str]) -> int:
             remaining.append(f"  {path.relative_to(root)}:{lineno}: {hit}")
 
     print(f"redact: rewrote {rewritten} file(s) under {root}")
+    if skipped:
+        # Named rather than silent: a reader who expected the record to be
+        # rewritten should see that it deliberately was not, and why.
+        print(
+            f"redact: left {len(skipped)} environment record(s) untouched "
+            f"({', '.join(skipped)}) — the schema requires an absolute model_path, "
+            "and rewriting it fails check_environment two stages later"
+        )
     if remaining:
         print(
             "redact: these absolute paths would still be refused by the seal.\n"

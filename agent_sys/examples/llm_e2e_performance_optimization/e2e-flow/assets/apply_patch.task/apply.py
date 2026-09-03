@@ -728,15 +728,20 @@ mounts are read-only; and a mount that is present is not yet a mount that ran.
     # m1's and nothing in the flow would notice, which is the whole reason
     # `check_environment` compares the runtime block across its inputs.
     #
-    # **After the redact pass, deliberately, and this ordering is the fix for a
-    # live hazard.** `environment.schema.json` *requires* `model_path`, which is
-    # an absolute path by nature; a rewriter that turned it into `@NAME@` would
-    # produce a record that fails its own schema. Today none of the five pairs
-    # above happens to prefix a model path, so writing the record first survived
-    # by luck — and the day somebody adds a `MODEL_ROOT=` pair, or points
-    # `work_root` at the same filesystem as the weights, it would stop. Writing
-    # the record last means it is never a candidate. m3 hit the same rule from
-    # the other side: their validator rejected every conforming handoff over it.
+    # **After the redact pass — belt and braces, no longer the fix.**
+    #
+    # `environment.schema.json` requires `model_path`, which is absolute by
+    # nature, and a rewriter that turned it into `@NAME@` produces a record that
+    # still validates (it is only `type: string`) and then fails two stages later
+    # in `check_environment`'s `compare_fixed_across_inputs` as "these two
+    # handoffs describe different machines". That is worse than a refusal.
+    #
+    # This ordering was the fix here until m2 found that `redact.py` rewrote a
+    # conforming record and exited 0 — three call sites reach that module and two
+    # were safe only by ordering, which nothing enforced. **`redact.py` now skips
+    # the record itself**, so this ordering is redundant. Kept because it costs
+    # nothing and because a body that renders its record last cannot be broken by
+    # a future pass that forgets the rule.
     subprocess.run(
         [
             sys.executable,
