@@ -423,20 +423,44 @@ def ensure_running(prefix: Prefix, port: int) -> Status:
         )
         return Status(False, "not installed")
 
+    # `--replace` on the `serve --background` call below: measured directly
+    # (a stray daemon left over from an earlier run, or any daemon already
+    # alive for this AGENTSVIEW_DATA_DIR) that `serve --background --port N`
+    # without this flag silently attaches to whatever is already running and
+    # reports *its* port, exit 0, `N` completely ignored. By the time that
+    # line runs the reuse gate above has already confirmed `port_is_free(port)`
+    # is True, so anything still alive there is necessarily *not* on the port
+    # we asked for -- there is no legitimate case at this call site where
+    # replacing it is wrong.
+    #
+    # **Two concurrent `agent_sys` deployments on this box, asked in review,
+    # and measured rather than assumed.** Both resolve the same prefix
+    # (`AGENTSVIEW_DATA_DIR` is not per-run), so this is the one scenario
+    # where `--replace` could plausibly cost something. Measured directly
+    # (scratch/replace_concurrency): `--replace` against an *already-settled*
+    # daemon on the exact same port still unconditionally kills and restarts
+    # it -- it is not a same-port no-op, so this is a real, not hypothetical,
+    # question. But by the time either deployment reaches the `serve
+    # --replace` call, `port_is_free(port)` must have been True for it -- so
+    # the only window where *two* deployments can both reach it for the same
+    # port is the narrow race where neither daemon is up yet (a cold start,
+    # or the moment after the idle-timeout self-exit this same fix
+    # addresses). A synchronized two-thread race against a real binary
+    # landed only one actual daemon start; the loser's own `serve --replace`
+    # invocation saw the winner's daemon and did not visibly disrupt it in
+    # that run -- but this is empirical, not a documented guarantee, and
+    # should not be read as "the race is safe by design". What *is* true
+    # regardless of who wins: both deployments point at the identical
+    # prefix, config, and port, so a replacement here swaps one daemon for a
+    # functionally identical one serving the same archive -- at worst a
+    # sub-second connection drop for anyone with the URL open mid-restart
+    # (~650-700ms measured start time), never a lasting outage or a panel
+    # showing different data.
     try:
         prefix.create()
         write_config(prefix, OTHER_PROVIDERS)
         env = {**prefix.environment(), "PATH": str(prefix.bin), "HOME": str(prefix.root)}
         proc = subprocess.run(  # noqa: S603
-            # `--replace`: measured directly (a stray daemon left over from an
-            # earlier run, or any daemon already alive for this
-            # AGENTSVIEW_DATA_DIR) that `serve --background --port N` without
-            # this flag silently attaches to whatever is already running and
-            # reports *its* port, exit 0, `N` completely ignored. By the time
-            # this line runs the reuse gate above has already confirmed
-            # `port_is_free(port)` is True, so anything still alive here is
-            # necessarily *not* on the port we asked for -- there is no
-            # legitimate case at this call site where replacing it is wrong.
             [str(exe), "serve", "--background", "--no-browser", "--replace",
              "--host", "127.0.0.1", "--port", str(port)],
             env=env,
