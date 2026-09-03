@@ -644,3 +644,81 @@ and no others (check 3) — still cannot be tested without a live daemon.
 ### 7. Other
 
 None.
+
+---
+
+## T+8 — 2026-09-03 12:02 UTC
+
+### 1. Progress
+
+**Effort: ~87 %.** Elapsed 266 minutes since T+0. Projected remaining:
+30–60 minutes, unchanged from T+7's window — the blocker moved, not shrank.
+**Reliability: medium** — check 2 stands confirmed and no code regressed, but
+check 1 has now failed for a **fourth distinct reason** across the runs this
+effort has produced, which is a pattern (something about this host or this
+binary's startup path is unreliable for `serve --background`) rather than a
+string of unrelated one-offs, and I have not seen anyone name that pattern yet.
+
+Since T+7: **no new commits** (`git log 5df203d..HEAD` empty, tree clean).
+Suite unchanged: **653 passed, 2 skipped, 2 xfailed in 109.1 s**. A second
+full acceptance attempt ("acc2") was run: `logs/acc2_demo2.log`,
+`recon/acc2_before.txt` / `acc2_pfx_before.txt` / `acc2_runs_before.txt`,
+timestamped `20260903T115423Z`.
+
+### 2. Current state
+
+**Check 1 failed again, differently.** `grep -i agentsview
+logs/acc2_demo2.log`: `"agentsview: started but did not answer
+http://127.0.0.1:18888 within 30s; skipping the o11y panel."` — this time the
+process actually launched (unlike the provider-slug exit-1 at T+2, unlike the
+port-busy skip at T+7) but never became ready inside its 30 s window. Curl
+against 18888 right now also returns `000`. Across this effort's runs, check 1
+has now failed for provider-slug rejection, port-already-bound, **and**
+readiness-timeout — three different mechanisms, zero successes. I'm not
+diagnosing the timeout myself (out of scope for this role), but naming the
+pattern: **no run in this effort has ever seen a live panel**, and the causes
+keep being different, which argues against "just retry" as the fix.
+
+The acc2 demo2 run itself again did not finish on its own terms — `EXIT=5`,
+`check_solvable: FAIL` — a different demo2 content failure than T+4's run B
+(`solutions_c: invalid` there vs. `check_solvable: FAIL`/`problems: invalid`
+here), reinforcing that this package's non-determinism, not o11y, is what's
+producing non-zero exits.
+
+Check 4 (rewritten criterion): diffed `~/.claude/projects` before/after — 4
+new files, all under a **different git checkout entirely**
+(`infera.aiopt.real.task_package`), none with a `cwd` in this run's zone tree
+and none `agent_sys`-spawned by this run. Under the rewritten check-4
+criterion from `ACCEPTANCE.md` (T+4), these are correctly not a leak — first
+time this interval's noise has been cleanly excluded by the new wording
+rather than requiring a manual read of each file, which is itself a small
+confirmation the rewrite works as intended.
+
+### 3. Code problems — fixed / unfixed
+
+No code changes this interval. Check 2's fix (`84027bd`) is not contradicted
+by anything seen this run — did not re-verify the symlinks this time to avoid
+duplicating T+7's check, but nothing suggests regression.
+
+**Newly named, not yet attributed to any commit:** check 1's readiness
+timeout. Whether this is a slow host, a slow `agentsview` daemon warm-up, a
+race in `ensure_running`'s probe logic, or something else — not established.
+
+### 4. Non-code problems
+
+Same host-load caveat as always on a shared box: a 30 s readiness window
+timing out is exactly the kind of thing that could be host contention rather
+than a bug, and I have no measurement that distinguishes those.
+
+### 5. Undetermined questions
+
+New: why `serve --background` doesn't answer within 30 s when it isn't being
+rejected by config or blocked by a busy port. Not mine to resolve.
+
+### 6. New commits
+
+None this interval.
+
+### 7. Other
+
+None.
