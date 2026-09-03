@@ -17,8 +17,8 @@ first**; it documents four things that mislead.
 | `profiling_mode_off.bench_result` | `stage2-profiling/aiperf_baseline` | (A) |
 | `profiling_mode_on.bench_result` | `stage2-profiling/aiperf_profiled` | (A) |
 | `profiling_mode_on.profile_result` | `stage2-profiling/torch_trace` | (A) · **360 MB** |
-| `profiling_mode_on.kernel_table` | `stage2-profiling/kernel_table` | (A) · the **real** 124-kernel one |
-| `profiling_evidence` | `stage2-profiling/profile_packup` | (A) · **content type differs** (B) |
+| `profiling_mode_on.kernel_table` | `stage2-profiling/kernel_table` | (A) · the **real** 124-kernel one · **content type differs** (B) |
+| `profiling_evidence` | — none, and none wanted — | **(H)** |
 | `kernel_worklist` | `stage3-analyze/kernel_worklist` | (A) |
 | `operator_identity` | `stage3-analyze/operator_identity` | (A) |
 | `operator_workset` | `stage3-analyze/operator_workset` | (A) · **merge with stage4/workset** (C) |
@@ -44,12 +44,43 @@ an `environment.yaml` from the sealed record plus the run's own `--var`s. One
 renderer, `assets/lib/env_render.py`, used by every mock and by every real
 producer — **owner: leader**, since it is the one piece all fifteen kinds share.
 
-### (B) `profiling_evidence` is `reproducible`; `profile_packup` is `code`
+### (B) the sealed `kernel_table` is `reproducible`; the kind is `structured_text`
 
-`check_items` rejects a top-level item the content type never declared, so
-`items/codes/…` cannot be laid into a kind whose required items are `result` and
-`env`. The mock must reshape: packup's `results/` becomes `result/`, its
-`scripts/` becomes `script`.
+**Corrected 2026-09-03 — the original row here was wrong**, and it named the
+wrong handoff. Found by m2, verified: the sealed
+`stage2-profiling/kernel_table` carries `items/{command,env,logs,result,
+watchout}`, which is `reproducible`. CONTRACT §1 declares the kind
+`structured_text`, whose items are `text.json`/`text.yaml`/`text.xml`/`schema`
+plus whatever the kind declares.
+
+So `check_items` would refuse it outright — `unknown = items - known -
+declared` — and its `README.md` lacks the `Schema` section the content type
+requires. A (B)-style reshape, not merely (A): `assets/lib/m2_reshape.py` does
+it.
+
+The reshape is the right direction, not a workaround. The table *is* structured
+text; it was sealed as `reproducible` because the stage-2 package of the day had
+one shape for everything it produced, which is the kind of thing this refine
+exists to fix.
+
+### (H) `profiling_evidence` has no mock, and should not have one
+
+m2's call, and a better one than mine. The merge's four inputs are already
+mocked upstream, so `merge_profiling_evidence` can perform **the real merge** in
+every mode — mock, staged and real alike.
+
+Two things that buys, and both matter more than the convenience:
+
+- one fewer synthesised artefact in a directory whose whole claim is that
+  nothing in it was synthesised;
+- **`check_profiling_evidence`'s cross-part rules are genuinely exercised in the
+  mock run.** Graded against a hand-shaped stand-in they would be checking that
+  the stand-in was shaped correctly, which is a test of the mock and not of the
+  validator. `require_same_environment` in particular can only mean anything
+  over parts that arrived separately.
+
+The former row pointed at `stage2-profiling/profile_packup`, a `code`-typed
+packup being reshaped into a `reproducible` kind. Deleted.
 
 ### (C) `operator_workset` is the merged kind; neither source is it yet
 

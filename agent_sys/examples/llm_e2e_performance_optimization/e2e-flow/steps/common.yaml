@@ -119,6 +119,19 @@
     # `record_shapes`. Without it every roofline downstream is impossible and
     # nothing else would notice.
     require_input_shapes: true
+    # **How many of the head must name the Python frame that launched them.**
+    # Added on m2's measurement: 24 of the top 25 carry a launcher frame on the
+    # real 124-kernel table, so 10 is comfortable slack and still catches a
+    # `with_stack` window that silently resolved nothing.
+    #
+    # It is a floor on the head rather than on the table because a launcher
+    # frame only exists for a kernel launched from Python: the largest item in
+    # this profile is an all-reduce launched from torch's C++ collectives, and
+    # the Tensile and rocBLAS kernels below it are dispatched from C++ too.
+    # Those are also exactly the kernels m3 excludes from its candidate pool, so
+    # requiring a frame for them would fail a correct capture on the rows nobody
+    # is going to optimise.
+    min_launchers_in_top_n: '${kernel_table_min_launchers:-10}'
   tags:
     logic_source: external_static
     cost: seconds
