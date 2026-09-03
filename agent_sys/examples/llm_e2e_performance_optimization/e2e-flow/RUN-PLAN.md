@@ -31,6 +31,35 @@ been telling everyone to pass the wrong one.
 | `m<N>_agent=runner` | one per still-mocked stage | **removed** for the promoted stage |
 | `expect_ranks` | **2** | **omit it** (defaults to 8), or track `--var tp` |
 | `adhoc_cases` | **0** | omit from rung 5 (`todo.md` T12) |
+| `image` | **the sealed kit's**, not the node's | the real bring-up's |
+| `transport_env` | **required on every rung** — `SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR` | same |
+
+**`image` and `transport_env` are on this table because each cost a run, and
+they fail in opposite ways.**
+
+`image` is a fact about **the artefact being graded**, exactly like
+`expect_ranks` — m2's framing, and it is the one that makes this list
+predictable rather than a list of remembered mistakes. Passing a tag that exists
+on the node instead of the one the sealed kit renders makes `check_deploy_kit`
+refuse: `environment.md` is a rendering of the record and the two must not
+disagree. **The validator is right and the refusal is loud**, which is the good
+version of this mistake.
+
+`transport_env` is the bad version. **A validator declares no agent, so the
+package's `env` block never reaches it** — `check_deploy_serves`'s own header
+says so, and records a previous run lost to it. With `transport_env` unset,
+`spur` has no `SPUR_CONTROLLER_ADDR`, `deploy.sh` dies with *"failed to connect
+to controller"*, and the validator refuses **in one second**. It looks exactly
+like a deployment failure. It cost three rung-0 runs and two wrong attributions
+— to GPU contention with a live deployment, then to a missing `local` branch in
+`remote.sh` — because the diagnostic that names the cause goes to **stdout, and
+nothing in a run keeps a validator's stdout** (`temp/bugs/2026-09-03-a-validators-
+stdout-is-not-kept-anywhere.md`).
+
+The correct incantation was written in a comment in `steps/m1_deploy.yaml:128`
+the whole time. **A parameter documented next to its declaration is not
+documented to the person composing a command line**, which is what this table is
+for.
 
 `expect_ranks` is the one to watch: it is a fact about **the artefact being
 graded**, not about the run. The sealed capture is TP-2, so rungs 0 and 1 need
