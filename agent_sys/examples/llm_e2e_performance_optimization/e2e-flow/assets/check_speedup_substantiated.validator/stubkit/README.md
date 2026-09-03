@@ -73,11 +73,47 @@ both sides, and says so when one does not. An entrypoint that exits 0 and
 reports nothing for a case has failed to measure it; that is not a smaller
 sample and the two must not fold together.
 
-**And a second one, in this kit rather than in the validator.** Cases 4 and 7
-originally passed on the missing-interpreter failure — they expected a refusal
-and got one, for a reason that had nothing to do with what they claim to test.
-Every case that expects a refusal now has to name the reason to look for, and a
-case that does not is itself a failure.
+**And a second one, in this kit rather than in the validator** — which is the
+rule below, and it is the reason case 4 was found at all.
+
+## The rule: a case that expects a refusal must name the reason to look for
+
+**Copy this into any fixture that asserts a validator refuses something.** It is
+a rule rather than a note, and it earned that on the first run of this kit.
+
+A case that asserts only `verdict is False` passes on **any** failure. Cases 4
+and 7 here did exactly that: they expected a refusal, they got one, and the
+refusal was `no interpreter with torch found` — which has nothing to do with a
+dropped shape or a missing noise floor. Both printed `ok`. One of them was
+concealing a real bug in the validator while doing so.
+
+That is the same disease this whole package exists to prevent — a green that
+means nothing — reproduced *inside the tool built to catch it*. A fixture is not
+exempt from the standard it enforces.
+
+So, in `run.py`:
+
+```python
+if not expect_pass and not expect_text:
+    failures.append(f"case {index}: expects a refusal but names no reason to look for")
+    continue
+```
+
+Checked **before** the case is built, because it is a fault in the case and not
+in the thing under test. Three properties worth keeping when you copy it:
+
+1. **Every refusing case carries a substring** the output must contain — the
+   reason, not the verdict.
+2. **A case that omits one fails the suite**, rather than being skipped or
+   warned about. An un-assertable case is a bug in the fixture.
+3. **A case that refuses for the wrong reason is reported as "verdict right but
+   never said X"**, distinct from "expected False, got True". The two have
+   different causes and folding them together costs a debugging round.
+
+The positive direction needs the same care and gets it differently: case 1
+asserts a **pass**, so it cannot be satisfied by an unrelated failure — which is
+why a suite of only-refusal cases is weaker than it looks, and why at least one
+case here must be an honest claim that goes through.
 
 ## Why it lives here
 
