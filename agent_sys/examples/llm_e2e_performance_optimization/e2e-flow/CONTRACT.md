@@ -536,11 +536,36 @@ paths and **ignores the index entirely**, so a concurrent `git add` by another
 owner cannot be swept in. If two commits collide on `index.lock`, git says so;
 wait a second and retry.
 
-Then verify what you actually committed, rather than what you meant to:
+Then verify what you actually committed, rather than what you meant to —
+**and the obvious form of that check is broken.**
 
 ```sh
-git show --stat --name-only HEAD
+git log -1 --format='%h %s'          # is HEAD MINE?  ← the part that was missing
+git show --stat --name-only HEAD     # and does it hold only my paths?
 ```
+
+**`git show --stat --name-only HEAD` alone confirms the path and not the
+commit.** Found by checkpoint, in their own procedure, against a commit of
+mine:
+
+1. their commit failed on `index.lock`;
+2. in the seconds before the retry, **my** commit named a tree and swept their
+   dirty `work.checkpoint.summary.md`;
+3. their retry found nothing to commit for that path and **said nothing**;
+4. their `--stat` check printed `work.checkpoint.summary.md` — **exactly what
+   they expected to see** — because HEAD was my commit, holding their file.
+
+So they reported "T+60 is committed" and it was not, by them; and they reported
+that the `index.lock` retry "confirmed the guidance", when in fact **the retry
+is not idempotent under contention and its no-op is silent.** Both reports were
+false, and the check that should have caught it passed for the wrong reason.
+
+`3b2ffde` is the artefact: my subject, 187 insertions, **nothing but their
+file.** A reader trusting `%s` learns the opposite of what happened — which is
+the third duplicate-subject pair today and the second where the duplicate is the
+cross-owner one.
+
+**This section's own verification step was the thing it was written to prevent.**
 
 **A new file needs one narrow `git add` first**, and this is the one exception:
 `git commit -- <path>` only reaches paths git already knows, so an untracked
