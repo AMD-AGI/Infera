@@ -31,6 +31,7 @@ from __future__ import annotations
 import datetime
 import hashlib
 import os
+import pathlib
 from typing import Any, Callable
 
 #: ENVCHK_SALT: 3cccd425ac607b95d583870bbd987eb9
@@ -39,23 +40,54 @@ LABEL = "tooldef"
 LEVEL = "L3"
 
 
-def token(nonce: str) -> str:
-    """`sha256(f"{salt}:{label}:{nonce}")[:12]`, the derivation this package
-    shares across all seven capabilities."""
-    digest = hashlib.sha256(f"{SALT}:{LABEL}:{nonce}".encode()).hexdigest()[:12]
+def token(varying: str) -> str:
+    """`sha256(f"{salt}:{label}:{varying}")[:12]` — the shared derivation.
+
+    **For this capability `varying` is the module's own absolute path, not the
+    nonce**, and that is the whole of what run 2 changed. See `echo_token`.
+    """
+    digest = hashlib.sha256(f"{SALT}:{LABEL}:{varying}".encode()).hexdigest()[:12]
     return f"ENVCHK-{LABEL.upper()}-{digest}"
 
 
 def echo_token() -> dict[str, Any]:
-    """The tool's result — and a plain function, callable without a harness.
+    """The tool's result. **Takes no input — not an argument, not the environment.**
 
-    `check_capabilities_genuine` imports this module and calls **this**, rather
-    than reconstructing the derivation from the salt: what it needs to know is
-    what the tool returns, and re-deriving it in the validator would be checking
-    a copy of the code against the code.
+    ## Why not `$ENVCHK_NONCE`, which every other capability uses
+
+    Measured, run 2 (2026-09-03): this tool returned a token computed from an
+    **empty** nonce. An in-process `ToolDef` runs in the **supervisor's**
+    process, and `Prepared.environment` — which carries the agent spec's `env`
+    block — is handed to the **CLI child**. The supervisor never sees it. The
+    tool did not fail; it returned a well-formed token about nothing, and the
+    agent quoted it correctly. **The tool lied to the agent.**
+
+    So the route cannot offer *"the tool can see the run's environment"*, and no
+    test written here changes that. What it can offer is this.
+
+    ## What it uses instead: its own path
+
+    `__file__`. **The one thing a Python module always knows is where it is**,
+    and it is the only input in this package that travels through no channel
+    measured to be broken or model-controlled — not the environment (broken for
+    this route), not a tool argument (then the model chooses the input).
+
+    `_tooldefs` imports the **placed copy** in `<zone>/config/tools/`, so the
+    path carries this run's zone identifiers. **The freshness is in the path,
+    not in the content**: placed copy, staged source and working tree are
+    byte-identical, so `sha256` proves a file was read and digested correctly
+    and cannot say *which*.
+
+    That the token still moves run to run matters for a second reason: a token
+    that is byte-identical across two runs is the signature of the empty-nonce
+    bug, and a fix producing that signature would be indistinguishable from the
+    defect it replaced.
     """
+    here = os.path.abspath(__file__)
     return {
-        "token": token(os.environ.get("ENVCHK_NONCE", "")),
+        "token": token(here),
+        "path": here,
+        "sha256": hashlib.sha256(pathlib.Path(here).read_bytes()).hexdigest(),
         "label": LABEL,
         "level": LEVEL,
         "pid": os.getpid(),

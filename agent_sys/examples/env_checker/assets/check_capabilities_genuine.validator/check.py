@@ -185,34 +185,48 @@ def replay_mcp(server: Path, nonce: str, timeout: float) -> tuple[dict | None, s
     return None, f"{server.name}: no response to tools/call (rc {completed.returncode}); {tail}"
 
 
-def replay_import(module_path: Path, nonce: str) -> tuple[dict | None, str]:
-    """Import the ToolDef module and call the handler it declares.
+def placed_tooldef(package: Path) -> Path:
+    """The tooldef copy the supervisor actually imported.
 
-    **Through `TOOLS`, not through the function beside it.** `TOOLS` is what
-    `env_mgr` reads and what the backend adapts, so calling
-    `TOOLS[0].call()` checks the object the model would have reached; calling
-    `echo_token` directly would check a function that `TOOLS` happens to point
-    at today.
+    `<staged package>/../config/tools/<name>`. Measured against run 2's tree:
+    `fs/layout.PACKAGE` and `material.CONFIG_DIR` are siblings inside the zone,
+    so the zone root is the staged package's parent.
 
-    `ENVCHK_NONCE` is set in this process for the duration, because the handler
-    reads the environment. Restored afterwards — a validator that leaks a
-    mutation into the rest of its own run is a bug that surfaces somewhere else.
+    **`$AGENT_SYS_TASK_PACKAGE` and not `$AGENT_SYS_MY_ZONE`**, deliberately:
+    `entry.sh` already refuses to start without the former, so a body that is
+    running has it *by the fact of running*. Whether a validation zone carries
+    `AGENT_SYS_MY_ZONE` is still open — run 2 could not answer it, and the
+    instrumentation in `components_root` is what will.
+    """
+    return package.parent / "config" / "tools" / "envchk_inproc.tooldef.py"
+
+
+def replay_import(module_path: Path) -> tuple[dict | None, str]:
+    """Import the tooldef the supervisor imported, and call what it declares.
+
+    **No environment is forced, and that is the change.** The previous version
+    set `ENVCHK_NONCE` in this process before calling, so it could only ever
+    catch a wrong *salt* — never a wrong *environment*, which is precisely the
+    defect run 2 found. The tool now takes no input at all, so there is nothing
+    to force and the replay observes what the tool actually produces.
+
+    **The PLACED copy, not the staged source.** The tool derives its token from
+    its own `__file__`, and `_tooldefs` imports the placed copy — so importing
+    the staged source here would yield a different path, a different token, and
+    a mismatch against an honest agent.
+
+    Through `TOOLS`, not the function beside it: `TOOLS` is what `env_mgr` reads
+    and what `claude_sdk._adapt_tool` adapts.
     """
     if not module_path.is_file():
-        return None, f"{module_path}: not installed"
+        return None, f"{module_path}: not installed — nothing was placed to import"
     spec = importlib.util.spec_from_file_location("envchk_inproc_tooldef", module_path)
     if spec is None or spec.loader is None:
         return None, f"{module_path}: not importable"
     module = importlib.util.module_from_spec(spec)
-    # **Registered before it is executed.** Several standard-library decorators
-    # resolve a string annotation through `sys.modules[cls.__module__]`, and a
-    # module that is not there raises at import — measured on CPython 3.13,
-    # against a `@dataclass` in the artefact this loads. The artefact no longer
-    # depends on it, and doing it here too means the next artefact does not have
-    # to know.
+    # Registered before execution: several stdlib decorators resolve string
+    # annotations through `sys.modules[cls.__module__]` and raise without it.
     sys.modules[spec.name] = module
-    previous = os.environ.get("ENVCHK_NONCE")
-    os.environ["ENVCHK_NONCE"] = nonce
     try:
         spec.loader.exec_module(module)
         tools = getattr(module, "TOOLS", None)
@@ -223,10 +237,6 @@ def replay_import(module_path: Path, nonce: str) -> tuple[dict | None, str]:
         return None, f"{module_path}: {type(exc).__name__}: {exc}"
     finally:
         sys.modules.pop(spec.name, None)
-        if previous is None:
-            os.environ.pop("ENVCHK_NONCE", None)
-        else:
-            os.environ["ENVCHK_NONCE"] = previous
 
 
 def replay_salt(artefact: Path, label: str, nonce: str) -> tuple[dict | None, str]:
@@ -481,7 +491,11 @@ def check_capability(
     if capability.replay == "mcp":
         produced, why = replay_mcp(artefact, nonce, timeout)
     elif capability.replay == "import":
-        produced, why = replay_import(artefact, nonce)
+        # The placed copy, not the artefact in the staged package — the tool's
+        # token is derived from its own `__file__`, and it ran from the placed
+        # one. See `placed_tooldef`.
+        artefact = placed_tooldef(package)
+        produced, why = replay_import(artefact)
     else:
         produced, why = replay_salt(artefact, capability.label, nonce)
 
@@ -498,7 +512,70 @@ def check_capability(
         faults += check_liveness(where, produced)
 
     proof = section.get("proof")
-    if capability.label == "serena":
+    if capability.label == "tooldef":
+        # **Row 6b, and it is worth more than row 6.** The path the agent
+        # reported must be the placed copy: that is what fails when a tooldef is
+        # imported from the component source instead, which is `e1b9f54`'s bug
+        # and which nothing else in this repository guards. Row 6 failing means
+        # one capability did not work; this failing means the isolation property
+        # is broken for every tooldef any package ever ships.
+        #
+        # **The discrimination is in the path, not the digest.** Placed copy,
+        # staged source and working tree are byte-identical, so a matching
+        # `sha256` proves the module read a file and digested it correctly and
+        # cannot say which file.
+        expected = placed_tooldef(package)
+        raw = proof.get("raw") if isinstance(proof, dict) else None
+        if not isinstance(raw, dict):
+            faults.append(f"{where}.proof.raw: missing or not an object")
+        else:
+            if raw.get("path") != str(expected):
+                faults.append(
+                    f"{where}.proof.raw.path: {raw.get('path')!r}, needs {str(expected)!r} — "
+                    f"the placed copy in this run's zone. A tooldef imported from the "
+                    f"component source is env_mgr's isolation property broken, not a "
+                    f"capability failure: read `_tooldefs`, not the agent"
+                )
+            if raw.get("sha256") != produced.get("sha256"):
+                faults.append(
+                    f"{where}.proof.raw.sha256: {raw.get('sha256')!r} but the placed "
+                    f"file digests to {produced.get('sha256')!r}"
+                )
+            if raw.get("token") != token:
+                faults.append(
+                    f"{where}.proof.raw.token: {raw.get('token')!r} but the section "
+                    f"reports {token!r}"
+                )
+            # **A CONSISTENCY check, not an independent one, and the label is
+            # load-bearing.** `agent_assets` records the placed path on the
+            # in-process route, so the install report knows it too — but this
+            # body reads that report out of `payload["install_report"]`, which
+            # the *agent* supplied, alongside its own account of where it came
+            # from. Comparing it to `proof.raw.path` therefore compares two
+            # things from the same source: it catches an **inconsistent** agent,
+            # which is real and cheap, and it cannot catch a consistent
+            # misstatement. Calling it "cross-checked against the install
+            # report" would read as independent corroboration and would not be.
+            #
+            # Making it independent means this body reading
+            # `$AGENT_SYS_INSTALL_REPORT` itself — and whether a validation zone
+            # can see that variable is the open question the `AGENT_SYS_*`
+            # listing above is instrumented to answer. Deferred to measurement
+            # rather than argued.
+            recorded = [
+                e.get("details", {}).get("path")
+                for e in (installs if isinstance(installs, list) else [])
+                if isinstance(e, dict) and "in-process" in str(e.get("message", ""))
+            ]
+            if recorded and raw.get("path") not in recorded:
+                faults.append(
+                    f"{where}.proof.raw.path: {raw.get('path')!r} disagrees with the "
+                    f"path the agent's own install_report records for the in-process "
+                    f"route ({recorded!r}). Consistency only — both fields come from "
+                    f"the agent, so this catches an inconsistent report and not a "
+                    f"consistent misstatement"
+                )
+    elif capability.label == "serena":
         # The salt again, from the artefact this body already read once for the
         # replay. Read rather than threaded through `replay_salt`'s return: that
         # function's contract is "what the capability produces", and the salt is
@@ -515,6 +592,7 @@ def check_capability(
                 )
     elif envchk.PROOF_KEYS.get(capability.label) == "raw":
         faults += check_raw_token(where, proof, token)
+
 
     return faults
 

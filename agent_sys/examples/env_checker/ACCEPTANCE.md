@@ -115,11 +115,82 @@ where `salt` is the single `ENVCHK_SALT: <32 hex>` tag in the named artefact and
 | 3b | plugin **source path** | L3 | the zone's `config/settings.json` | its marketplace entry's `{"source":"directory","path": …}` is **not** under the run root — e.g. it points at `/home/yihou/dev/...`. Probe F measured that a plugin loads from its marketplace *source* directory rather than from a copy, so a marketplace outside the zone **installs cleanly and then fails to load under confinement with nothing naming the cause**. This is its own row and not a footnote precisely because it is a condition that must fail loudly rather than be checked if someone remembers |
 | 4 | external MCP | **L2** | same → `capabilities.mcp_external` | `.token` differs from what the validator gets by **starting** `agent_sys/components/envchk-baseline/.claude/servers/envchk_baseline_server.py` and calling `tools/call`; or `.proof.raw.token != .token`; or `.level != "L2"` |
 | 5 | bundled stdio MCP | L3 | same → `capabilities.mcp_stdio` | `.token` differs from what the validator gets by **starting** `.claude/tools/envchk_stdio.mcp.py`; or `.proof.raw.token != .token` |
-| 6 | in-process ToolDef | L3 | same → `capabilities.tooldef` | `.token` differs from what the validator gets by **importing** `.claude/tools/envchk_inproc.tooldef.py` and calling `TOOLS[0].call()`; or `.proof.raw.token != .token` |
+| 6 | in-process ToolDef | L3 | same → `capabilities.tooldef` | `.token` differs from what the validator gets by **importing the placed copy** at `<staged package>/../config/tools/envchk_inproc.tooldef.py` and calling `TOOLS[0].call()`; or `.proof.raw.token != .token` |
+| 6b | tooldef **placed copy** | L3 | same → `capabilities.tooldef.proof.raw` | `.path` is not that placed copy; or `.sha256` does not match its digest |
 | 7 | serena | **L1 install + L2 declaration** | same → `capabilities.serena` | **the package declares no serena MCP server** — `components:` must name `serena`, whose `.claude/.mcp.json` registers it; an install without a declaration gives the agent `No such tool available` and is how run 1 failed. Then: `.status == "ok"` and `.token != T("serena")` from the salt in `assets/env_probe.agent/serena_probe.py`; **or** `.status == "unavailable"` and `install_report` carries no non-`ok` entry mentioning serena; **or** `.proof.raw` is not a `find_symbol` response whose hit for `envchk_serena_token` carries `name_path`, `kind`, `relative_path` naming `serena_probe.py`, a `body_location` with integer `start_line`/`end_line`, and a `body` **containing the salt**. That schema was measured against Serena 1.28.1 on this host on 2026-09-03, not remembered — see *What a PASS does not prove* for what it is and is not worth |
 | — | install report | — | same → `install_report` | fewer than **2** entries; or `install_report_source` empty. It must be the `outcomes` **array** out of `$AGENT_SYS_INSTALL_REPORT` (`agent_assets.install.json`), verbatim, `ok` entries included |
 | — | the whole report | — | same → `nonce_digest` | `!= sha256("nonce:" + $ENVCHK_RUN_NONCE)[:12]`. This one condition invalidates every token in the file: the report was produced against a different nonce, so none of it is about this run |
 | — | the README | — | `README.md` | any of `## Purpose`, `## Schema`, `## Method`, `## Limits` missing; fewer than 10 content lines; any `TODO`/`TBD`/`FIXME`/`XXX`/`<…>` placeholder |
+
+### Rows 6 and 6b — changed 2026-09-03 after run 2, and what row 6 stopped claiming
+
+Run 2: the tool returned a token computed from an **empty** `$ENVCHK_NONCE`. An
+in-process `ToolDef` runs in the **supervisor's** process, and
+`Prepared.environment` — which carries the agent spec's `env` block — is handed
+to the **CLI child**. The supervisor never sees it. The tool did not fail; it
+returned a well-formed token about nothing and the agent quoted it correctly.
+**The tool lied to the agent**, and the agent did nothing wrong.
+
+**Row 6 used to claim, implicitly, *the tool can see the run's environment*. It
+cannot, and no test written here changes that.** It now claims: the module was
+imported, executed, read a file and computed correctly — the *executes and
+computes* tier of §3.
+
+**Its input is its own `__file__`, and nothing else.** Not the environment
+(broken for this route), not a tool argument (then the model chooses the input).
+The one thing a Python module always knows is where it is, and it is the only
+input in this package travelling through no channel measured to be broken or
+model-controlled.
+
+**The freshness is in the path, not the content.** `_tooldefs` imports the
+placed copy, so `__file__` carries this run's zone identifiers while the bytes
+are identical every run. A reader expecting a per-run digest will find none, and
+**that is not a gap to be closed** — see §3.
+
+**The token derives from the path for a second reason**: a token byte-identical
+across two runs is the signature of the empty-nonce bug, and a fix reproducing
+the defect's fingerprint would be indistinguishable from the defect.
+
+**No agent-side evidence.** The model can open the same file and compute the
+same digest.
+
+#### Why 6b is its own row
+
+Row 6 failing means one capability did not work. **6b failing means the
+isolation property is broken for every tooldef any package ever ships** — it is
+what fails when a tooldef is imported from the **component source** instead of
+the placed copy, which is `e1b9f54`'s bug and which nothing else in this
+repository guards. Two failures of different kind should not share a row,
+because the reader's next action differs: one sends them to the agent, the other
+to `_tooldefs`. The cost is an eleventh row in a table of ten, and one that is
+not a capability — numbered `6b` for `3b`'s reason.
+
+**All of 6b's discriminating power is in the `path`, and none is in the digest.**
+Measured: placed copy, staged source and working tree all digest to
+`39650f61fd050a3a`. A matching `sha256` proves a file was read and digested
+correctly and cannot say *which* file. Making the digest discriminating would
+require the placed copy to differ from its source, which would break the
+property under test — the weakness **is** the design.
+
+The validator derives the expected path **itself**, as
+`Path($AGENT_SYS_TASK_PACKAGE).parent / "config" / "tools" / …`, rather than
+accepting `proof.raw.path` and digesting whatever it names — otherwise 6b would
+reduce to *the tool checksummed the file it said it checksummed*. It uses
+`$AGENT_SYS_TASK_PACKAGE` and not `$AGENT_SYS_MY_ZONE` because `entry.sh`
+already refuses to start without it, so **a running body has it by the fact of
+running**; whether a validation zone carries `AGENT_SYS_MY_ZONE` is still open.
+
+A third comparison — `proof.raw.path` against the path the install report
+records for the in-process route — is a **consistency** check and is labelled
+that way in the code. Both fields come from the agent, so it catches an
+inconsistent report and **not** a consistent misstatement. Making it independent
+needs the validator to read `$AGENT_SYS_INSTALL_REPORT` itself, which is the §4
+question; run 3's `AGENT_SYS_*` listing answers it as a by-product.
+
+**One line of history, because it is evidence for a rule rather than contrition:**
+the staged-package layout was asserted without opening it twice, by two people,
+each of whom had the other's correction available. **Having been told the right
+answer is not the same as having looked.**
 
 Additionally, for every section: `how` under **80 non-whitespace characters**
 fails, and `status` other than `ok` fails for anything but `serena`.
