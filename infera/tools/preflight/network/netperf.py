@@ -125,16 +125,26 @@ def _port(r: int, a: int) -> int:
 
 def _nics() -> list[str]:
     try:
-        return sorted(x for x in os.listdir(_IB) if x)
+        nics = sorted(x for x in os.listdir(_IB) if x)
     except OSError:
         return []
+    selected = os.environ.get("INFERA_PREFLIGHT_RDMA_DEVICE")
+    if not selected:
+        return nics
+    requested = [x.strip() for x in selected.split(",") if x.strip()]
+    return [x for x in requested if x in nics]
 
 
 def detect_local() -> dict | None:
     nics = _nics()
     if not have("ib_write_bw") or not nics:
         return None
-    return {"mgmt_ip": _mgmt_ip(), "nics": nics, "gid": _gid_index(nics[0])}
+    gid = os.environ.get("INFERA_PREFLIGHT_GID_INDEX")
+    return {
+        "mgmt_ip": _mgmt_ip(),
+        "nics": nics,
+        "gid": int(gid) if gid is not None else _gid_index(nics[0]),
+    }
 
 
 def _parse_bw(out: str) -> float | None:

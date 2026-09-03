@@ -10,7 +10,7 @@ same arm of the set — see [Applying](#applying):
 
 | image | base | arm |
 |---|---|---|
-| `Dockerfile.sglang` (gfx950 / MI355X) | `lmsysorg/sglang:v0.5.17-rocm720-mi35x` | 01 + dp_sync + page_table_rows + draft_dp_vote |
+| `Dockerfile.sglang` (gfx950 / MI355X) | `lmsysorg/sglang:v0.5.18-rocm720-mi35x` | 01 + dp_sync + page_table_rows + draft_dp_vote |
 | `Dockerfile.sglang.gfx942` (gfx942 / MI325X) | `lmsysorg/sglang:v0.5.16-rocm720-mi30x` | **01 only**, plus a mandatory runtime flag |
 
 | # | patch | fixes |
@@ -22,10 +22,9 @@ same arm of the set — see [Applying](#applying):
 
 Patch 01 is a **script** and the rest are **context diffs**, and that is the
 whole reason the two images can differ: the diffs are `--fuzz=0` against one
-release, while 01 anchors on source text. Its `GLM52_P1V2` edit sites are
-byte-identical on both releases; its later `GLM52_P1V3` anchor (the bare
-`topk_transform` call) has been re-read against v0.5.15.post1 only — see the
-anchor note in the script's header.
+release, while 01 anchors on source text. Every patch-01 anchor, including the
+later `GLM52_P1V3` `topk_transform` call, was applied and bytecode-verified
+against both v0.5.16 and v0.5.18 release tags on 2026-09-02.
 
 The script replaced a `dsa_indexer_hip_dp_padded_rows.diff` that carried the
 same `GLM52_P1V2` edits; the diff is gone rather than kept as a second source of
@@ -58,15 +57,18 @@ Set `APPLY_SGLANG_DSA_PATCHES=0` for a stock engine to A/B against.
 Prefer the script over patching by hand: it also verifies each patch reached the
 **bytecode**, not just the source. A stale `__pycache__` entry silently reverts a
 patch and has already invalidated a full experiment here — the source showed the
-fix, the runtime did not have it.
+fix, the runtime did not have it. The script probes both directions before
+mutating source: a reverse dry-run match means the diff is already applied and
+is skipped. This is required because bare GNU patch otherwise assumes `-R` and
+removes the fix on a repeated run.
 
-By hand, against the pinned base:
+By hand, once against a pristine pinned base:
 
 ```bash
 cd /sgl-workspace/sglang
 python3 patch_dsa_indexer_hip_dp_padded_rows.py
 for d in dsa_dp_sync.diff dsa_page_table_rows.diff draft_cuda_graph_dp_vote.diff; do
-  patch -p1 --fuzz=0 < "$d"
+  patch -p1 --fuzz=0 --batch --forward < "$d"
 done
 ```
 
@@ -232,19 +234,19 @@ our context diff would then fail at `--fuzz=0` against an already-edited anchor.
 
 ## Validation
 
-Everything below is the **gfx950 / v0.5.15.post1 / all-three arm**. The gfx942
-arm is validated separately and much more narrowly — see
+Everything below this paragraph is historical gfx950 defect evidence, not an
+active compatibility target. The gfx942 arm is validated separately and much
+more narrowly — see
 [gfx942](#gfx942--v0516--the-runtime-half-is-not-optional) and the caveats after
 this section.
 
-2 × 8×MI355X (gfx950), ROCm 7.2.0, sglang 0.5.15.post1, GLM-5.2-MXFP4, PD over
+2 × 8×MI355X (gfx950), ROCm 7.2.0, GLM-5.2-MXFP4, PD over
 mooncake/mlx5 + dma-buf, `--dp-size 8 --enable-dp-attention --ep-size 8` + EAGLE
 MTP(3,1,4), **draft CUDA graph enabled**.
 
-Final run (2026-07-31) on the **v0.5.15.post1** base, when the set was 01 + 02 +
-04 and the nextn backport was still a prerequisite. Built by `Dockerfile.sglang`
-with patches applied **at build time** — nothing patched in the running container.
-Not re-measured since the base moved to v0.5.17:
+Final historical run (2026-07-31), when the set was 01 + 02 + 04 and the nextn
+backport was still a prerequisite. Built by `Dockerfile.sglang` with patches
+applied **at build time** — nothing patched in the running container:
 
 | Check | Target | Result |
 |---|---|---|
@@ -283,9 +285,27 @@ Draft-graph replay share was **not** re-measured here — it needs an added prob
 What stands in for it is that the deadlock is gone at all: were the vote never
 flipping, the group decision would stay permissive and the hang would remain.
 
+### v0.5.18 full image revalidation (2026-09-02)
+
+The complete `full` arm was rebuilt on the v0.5.18 MI355X base and verified
+through all seven bytecode markers. A 2 × 8×MI355X GLM-5.2-MXFP4 1P1D ran with
+prefill TP8/KVD and decode TP8/DP-attention 8/EAGLE MTP over Mooncake RDMA.
+The router kept both legs active; a 70,035-token request crossed the 65,536
+chunk boundary and retrieved its needle exactly; a repeated 32K prefix reported
+32,000 cached tokens; and the decode MTP acceptance median was 2.30. Raw evidence
+is under `reports/sglang-v0.5.18-rocm720-mi35x/artifacts/`.
+
+### v0.5.16 / v0.5.18 source compatibility (2026-09-02)
+
+Fresh upstream release trees were patched twice: the v0.5.16 `indexer` arm
+verified both bytecode markers, and the v0.5.18 `full` arm verified all seven.
+The second pass skipped every already-applied patch without reversing it. This
+is source-shape and idempotence evidence; it is not a new gfx942 runtime test.
+
 ### What this validation does NOT establish
 
-* **Nothing about gfx942.** That image (`indexer` arm) was exercised on
+* **The v0.5.18 runtime run establishes nothing about gfx942 runtime behavior.**
+  That image (`indexer` arm) was exercised separately on
   2 × 8×MI325X, ROCm 7.2.0, sglang v0.5.16, GLM-5.2-**FP8** 1P1D,
   `tp8 dp8 --enable-dp-attention` + EAGLE MTP(3,1,4), IndexShare **off**,
   `attention-backend dsa` with the tilelang prefill/decode backends and
@@ -297,10 +317,8 @@ flipping, the group decision would stay permissive and the hang would remain.
   [the driver precondition](#host-driver-and-container-rocm-userspace-must-match).
   So 02a remains untested rather than ruled out on gfx942, and the one apparent
   data point for it does not bear on the patch.
-* **The image built from this branch after the rebase was not re-run.** `main`
-  has since added a `libionic` layer (`eb7da57`) that the measured image did not
-  carry. It is orthogonal to these patches — RDMA ABI matching, not DSA — but it
-  is a difference between what was measured and what this branch now builds.
+* The v0.5.18 image includes the current `libionic` layer and was re-run, but
+  earlier differential controls were not repeated on v0.5.18.
 * Draft-graph replay was not re-measured on the final image (it needs an added
   probe, i.e. a different image); 97.1 % is from the immediately preceding build
   of the same patch set. No differential control was re-run either — each patch's
@@ -308,8 +326,8 @@ flipping, the group decision would stay permissive and the hang would remain.
 * Performance was not measured against the DPA-only baseline.
 * All runs used `--disable-custom-all-reduce` (required on gfx942/gfx950 for
   EAGLE), so the custom all-reduce path is unexercised.
-* Context 32768, short prompts, 512-token outputs, one hardware configuration.
-  Long-context and 400k-context configs are untested.
+* The v0.5.18 run covered 70K input under a 262,144-token configuration, but did
+  not exercise the full configured limit or a 400K context.
 * A seventh occurrence of the padded-vs-real-rows crash family was seen **once**
   in 500+ requests during an earlier session, on a machine already carrying the
   `dsa_indexer` fix. It did not recur in 2540 requests here, but at that rate

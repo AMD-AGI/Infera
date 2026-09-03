@@ -6,7 +6,7 @@
 # the end of this file are context diffs applied at --fuzz=0 against this exact
 # sglang release. Bumping the base fails the build there rather than silently
 # mis-applying. Build with APPLY_SGLANG_DSA_PATCHES=0 if you need a newer base.
-ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.17-rocm720-mi35x
+ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.18-rocm720-mi35x
 FROM ${SGLANG_BASE_IMAGE}
 
 WORKDIR /opt/infera
@@ -164,11 +164,10 @@ RUN set -eu; \
 #
 # The directory also carries patch_hicache_rocm_staged_write_back.py, which
 # resyncs two gates that disagree about the staged write-back JIT on ROCm. This
-# base is not affected: every gate here is still _is_cuda, so they agree on False
-# and the non-JIT kernel runs — sglang#28534 introduced the disagreement after
-# this tag. That script exits 0 on the absent mem_cache/pool_host/mla.py. Kept in
-# the shared directory so a base bump picks the fix up rather than rediscovering
-# it as a scheduler crash.
+# v0.5.18 base is affected: MLA enables the staged JIT on HIP while
+# DSAIndexerPoolHost still gates it on _is_cuda, poisoning the pool group's
+# capability AND and crashing the first write-back. The patch gates MLA back
+# down to the safe non-JIT path until the complete ROCm parity repair lands.
 COPY deploy/docker/patches/sglang_rocm/ /tmp/sglang-rocm-patches/
 RUN set -eu; \
     for f in /tmp/sglang-rocm-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \

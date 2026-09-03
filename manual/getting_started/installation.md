@@ -44,8 +44,8 @@ Pick whichever you'll serve with (you can install more than one):
 
 - **vLLM (ROCm)** — `vllm/vllm-openai-rocm:nightly-cbe9c40f…` is the validated
   base image (digest-pinned nightly), or a matching ROCm `pip` build.
-- **SGLang (ROCm)** — `lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x` is
-  the validated base image.
+- **SGLang (ROCm)** — use `lmsysorg/sglang:v0.5.18-rocm720-mi35x` on
+  MI355X and `lmsysorg/sglang:v0.5.16-rocm720-mi30x` on MI325X.
 - **ATOM** — `rocm/atom:rocm7.2.4_...atom0.1.4`.
 
 In practice most people don't `pip install` the engine by hand — they use a

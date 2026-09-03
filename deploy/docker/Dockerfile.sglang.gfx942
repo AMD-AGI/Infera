@@ -5,11 +5,8 @@
 # HOW : fp8 env + CLI knobs are applied at launch by infera.engine.dsv4_gfx942.
 # BASE: v0.5.16 is the sglang this image is validated on — GLM-5.2 MTP needs
 #       sglang #30839 (IndexShare across PD and CUDA-graph replay) and its own
-#       GlmMoeDsaForCausalLMNextN quant handling, both of which land in v0.5.16;
-#       on the previous v0.5.15 base the draft weight-load and PD warmup fail.
-#       v0.5.16 also carries GlmMoeDsaForCausalLMNextN, which is why the nextn
-#       quark-exclude backport this repo used to keep is retired rather than
-#       applied here.
+#       GlmMoeDsaForCausalLMNextN quant handling, both of which land in v0.5.16.
+#       This is the minimum and only supported gfx942 SGLang base here.
 # RUN : GLM-5.2 PD + DP-attention + MTP on this image REQUIRES every leg to pass
 #       `--json-model-override-args '{"index_share_for_mtp_iteration":false}'`.
 #       It is not tuning — it stands in for two sglang_dsa patches this base
@@ -99,11 +96,10 @@ RUN pip install --no-cache-dir ".[sglang]" "setuptools>=83.0.0"
 # lengths.size(0) == B" as soon as concurrency > 1.
 # ROCm-specific and independent of IndexShare, so nothing at runtime substitutes
 # for it. Same fix Dockerfile.sglang applies; it is an anchor script rather than
-# a pinned diff precisely so both bases can share one source of truth. Its
-# `GLM52_P1V2` edit sites are byte-identical on v0.5.15.post1 and v0.5.16; the
-# later `GLM52_P1V3` anchor has been re-read against v0.5.15.post1 only (see the
-# anchor note in the script's header). A drifted anchor writes nothing and exits
-# non-zero, so this build fails rather than shipping a half-applied fix.
+# a pinned diff precisely so v0.5.16/gfx942 and v0.5.18/gfx950 share one source
+# of truth. Every anchor was applied and bytecode-verified against both release
+# tags on 2026-09-02. A drifted anchor writes nothing and exits non-zero, so this
+# build fails rather than shipping a half-applied fix.
 #
 # Patch 01 ONLY on this base (DSA_PATCH_SET=indexer). 02b is substituted at
 # RUNTIME — every leg MUST launch with
@@ -191,8 +187,7 @@ RUN set -eu; \
 # first page written back to the host tier, i.e. on the first request that reuses
 # a prefix. pool_host/mla.py opts HIP into a JIT kernel whose ROCm build wants
 # host-resident indices while the caller passes a GPU tensor; the patch gates it
-# on CUDA like every other host pool does. v0.5.15.post1 has no pool_host/mla.py,
-# so the same script is a no-op on the mi35x image.
+# on CUDA like every other host pool does.
 #
 # Order-independent w.r.t. everything above: they touch
 # mem_cache/pool_host/{common,mla}.py, which no other patch here does. NOT

@@ -41,15 +41,18 @@ VERIFIED: 2x 8xMI325X (gfx942), ROCm 7.2.0, sglang v0.5.16, GLM-5.2-FP8 1P1D ove
 mooncake RDMA, overlap scheduling ON, `chunked-prefill-size 131072` with
 `--enable-dp-attention`: needle 5/9 -> 9/9, a 29k depth sweep 4/9 -> 9/9, and the
 logs confirm the failing prompt is still really split into 4 chunks afterwards. The
-anchors below are present in v0.5.16 and v0.5.17 (checked by count, both bases).
+anchors below were re-checked against both supported bases on 2026-09-02:
+v0.5.16 has no `Set` in mooncake/conn.py's typing import, while v0.5.18 adds it.
+The functional anchors and the defect are otherwise unchanged, so the import
+edit accepts exactly those two source shapes.
 
-UPSTREAM: not submitted. The closest existing report,
-sgl-project/sglang#25583 (GLM-5-FP8 + NSA + 70k prompt, identical symptom), was
-auto-closed with no follow-up; the aggregated-vs-PD A/B above is what it was
-missing. Worth measuring when upstreaming: the new `synchronize()` blocks the
-transfer worker, trading some transfer overlap for correctness. DROP THIS PATCH
-once the base sglang waits on the event in mooncake — this script then reports
-"already present" and no-ops.
+UPSTREAM: sgl-project/sglang#33970 carries this fix and was still OPEN on
+2026-09-02. The closest older report, #25583 (GLM-5-FP8 + NSA + 70k prompt,
+identical symptom), was auto-closed with no follow-up; the aggregated-vs-PD A/B
+above is what it was missing. The new `synchronize()` blocks the transfer worker,
+trading some transfer overlap for correctness. DROP THIS PATCH once the pinned
+base waits on the event in mooncake — this script then reports "already present"
+and no-ops.
 
 Self-locating and idempotent. All three files or none: a half-patched tree still
 corrupts long prompts, so an anchor that is missing or no longer unique writes
@@ -70,6 +73,17 @@ _TAG = "[mc-wait-event]"
 # argument list rather than on a named argument: upstream keeps adding arguments
 # there (num_kv_tokens landed between v0.5.16 and v0.5.17), and the tail is what
 # this patch actually appends to. Verified to occur 1x / 2x on both bases.
+_TYPING_IMPORT_VARIANTS: tuple[tuple[str, str], ...] = (
+    (
+        "from typing import List, Optional, Tuple, Union",
+        "from typing import Any, List, Optional, Tuple, Union",
+    ),
+    (
+        "from typing import List, Optional, Set, Tuple, Union",
+        "from typing import Any, List, Optional, Set, Tuple, Union",
+    ),
+)
+
 _EDITS: dict[str, list[tuple[str, str, int]]] = {
     "disaggregation/common/utils.py": [
         (
@@ -94,11 +108,6 @@ _EDITS: dict[str, list[tuple[str, str, int]]] = {
         ),
     ],
     "disaggregation/mooncake/conn.py": [
-        (
-            "from typing import List, Optional, Tuple, Union",
-            "from typing import Any, List, Optional, Tuple, Union",
-            1,
-        ),
         (
             """                kv_chunk: TransferKVChunk = queue.get()
 """,
@@ -204,6 +213,26 @@ def main():
             print(f"{_TAG} {f} is missing — sglang layout changed, re-anchor the patch")
             return 1
         src = out = f.read_text()
+        if rel == "disaggregation/mooncake/conn.py":
+            if not any(new in out for _, new in _TYPING_IMPORT_VARIANTS):
+                matches = [
+                    (old, new)
+                    for old, new in _TYPING_IMPORT_VARIANTS
+                    if out.count(old) == 1
+                ]
+                if len(matches) != 1:
+                    counts = ", ".join(
+                        f"{old!r}={out.count(old)}"
+                        for old, _ in _TYPING_IMPORT_VARIANTS
+                    )
+                    print(
+                        f"{_TAG} expected exactly one supported typing import "
+                        f"in {rel}; found {len(matches)} ({counts})"
+                    )
+                    print(f"{_TAG} sglang drifted — re-cut the patch, nothing written")
+                    return 1
+                old, new = matches[0]
+                out = out.replace(old, new, 1)
         for old, new, want in edits:
             if new in out:
                 continue  # this edit is already in the tree

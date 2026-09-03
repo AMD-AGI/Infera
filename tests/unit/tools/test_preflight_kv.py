@@ -113,3 +113,54 @@ def test_verify_respects_passed_geometry():
         arr[i * chunk : (i + 1) * chunk] = mooncakeperf._chunk_byte(-1, i)
     assert mooncakeperf._verify(arr, -1, chunk, nchunk) is True
     assert mooncakeperf._verify(arr, -1, chunk * 2, nchunk) is False
+
+
+def test_mooncake_spawn_replaces_non_utf8_native_logs(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+
+    run_kwargs = {}
+
+    def fake_run(*args, **kwargs):
+        run_kwargs.update(kwargs)
+        return SimpleNamespace(returncode=0, stdout="native log: \ufffd")
+
+    monkeypatch.setattr(mooncakeperf.subprocess, "run", fake_run)
+
+    rc, out = mooncakeperf._spawn(
+        "initiator",
+        str(tmp_path),
+        "127.0.0.1:19001",
+        "node-a",
+        "tcp",
+        "tcp",
+        "cpu",
+        -1,
+        "",
+    )
+
+    assert rc == 0
+    assert out.endswith("\ufffd")
+    assert run_kwargs["text"] is True
+    assert run_kwargs["errors"] == "replace"
+
+
+def test_mooncake_selected_gid_overrides_nic_probe(monkeypatch):
+    monkeypatch.setattr(mooncakeperf, "_GID_CACHE", None)
+    monkeypatch.setattr(
+        mooncakeperf, "_nics", lambda: (_ for _ in ()).throw(AssertionError("unexpected"))
+    )
+    monkeypatch.setenv("INFERA_PREFLIGHT_GID_INDEX", "3")
+
+    assert mooncakeperf._ref_gid() == 3
+
+
+def test_mooncake_selected_device_pins_gpu_variants(monkeypatch):
+    monkeypatch.setattr(mooncakeperf, "_nics", lambda: ["mlx5_0"])
+    monkeypatch.setenv("INFERA_PREFLIGHT_RDMA_DEVICE", "mlx5_0")
+
+    variants = mooncakeperf._variants(2)
+
+    assert variants[-2:] == [
+        ("rdma-gpu0", "rdma", "gid", "gpu", 0, "mlx5_0"),
+        ("rdma-gpu1", "rdma", "gid", "gpu", 1, "mlx5_0"),
+    ]

@@ -63,8 +63,8 @@ so the two paths silently disagree about which field of the shared
 `MessageProcessingResult` is authoritative. DROP THIS SCRIPT once base sglang
 routes both through one helper; it then reports "already present" and no-ops.
 
-VERIFIED: anchor present exactly once in the sglang v0.5.17 tree shipped in the
-mi35x engine image (`/sgl-workspace/sglang`). Runtime verification:
+VERIFIED: anchor re-checked and still present exactly once in the sglang v0.5.18
+tree on 2026-09-02. Runtime verification:
 `curl $EP/v1/responses -d '{"model":"kimi-k3","input":"1+1=?","store":false}'`
 returns 200 with a non-empty `output[]` instead of the 400 above, and prompt
 token accounting matches the equivalent chat request.

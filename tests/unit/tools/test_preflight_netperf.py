@@ -13,6 +13,7 @@ probe's within-node comparison.
 
 from __future__ import annotations
 
+from infera.tools.preflight.network import netperf
 from infera.tools.preflight.network.netperf import _slow_link_findings
 
 
@@ -53,3 +54,26 @@ def test_ignores_unreachable_links_for_median():
 def test_too_few_samples_no_warn():
     recs = [_rec(0, 0, 40.0), _rec(1, 1, 1.0)]
     assert _slow_link_findings(recs) == []
+
+
+def test_selected_device_filters_fabric_matrix(monkeypatch):
+    monkeypatch.setattr(netperf.os, "listdir", lambda _: ["ionic_0", "mlx5_0"])
+    monkeypatch.setenv("INFERA_PREFLIGHT_RDMA_DEVICE", "mlx5_0")
+
+    assert netperf._nics() == ["mlx5_0"]
+
+
+def test_selected_gid_overrides_first_nic(monkeypatch):
+    monkeypatch.setattr(netperf, "_nics", lambda: ["mlx5_0"])
+    monkeypatch.setattr(netperf, "have", lambda _: True)
+    monkeypatch.setattr(netperf, "_mgmt_ip", lambda: "10.0.0.1")
+    monkeypatch.setattr(
+        netperf, "_gid_index", lambda _: (_ for _ in ()).throw(AssertionError("unexpected"))
+    )
+    monkeypatch.setenv("INFERA_PREFLIGHT_GID_INDEX", "3")
+
+    assert netperf.detect_local() == {
+        "mgmt_ip": "10.0.0.1",
+        "nics": ["mlx5_0"],
+        "gid": 3,
+    }

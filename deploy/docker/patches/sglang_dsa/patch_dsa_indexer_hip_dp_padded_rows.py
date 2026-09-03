@@ -71,19 +71,15 @@ THE ROW COUNT DIVERGES BOTH WAYS (`GLM52_P1V3`)
   reproduction kit -- ask the patch author.
 
 WHY A SCRIPT AND NOT A DIFF. Patches 02 and 04 are `--fuzz=0` context diffs
-pinned to v0.5.15.post1, the mi35x base. This fix is needed on BOTH engine
-bases, and `dsa_indexer.py` drifts between them: v0.5.16 adds `_is_xpu` beside
-the platform flags and calls `_mask_init_and_local_tokens` right before
-`topk_transform`. Anchoring on source text instead of line numbers covers both
-from one source of truth.
+pinned to the v0.5.18 gfx950 base. This fix is needed on BOTH engine bases, and
+`dsa_indexer.py` drifts between v0.5.16/gfx942 and v0.5.18/gfx950. Anchoring on
+source text instead of line numbers covers both from one source of truth.
 
   NOTE on the P1V3 anchor. It is the bare `topk_transform(logits,
-  self.index_topk)` call, which v0.5.16's added `_mask_init_and_local_tokens`
-  call sits BEFORE rather than inside -- so the anchor text itself is untouched.
-  That has not been re-verified against a v0.5.16 checkout since P1V3 was added.
-  If the drift is worse than expected the uniqueness check below writes NOTHING
-  and exits 1, which is the intended failure: a half-applied fix crashes in the
-  same place the unpatched tree does.
+  self.index_topk)` call. The complete patch was applied and bytecode-verified
+  against both release tags on 2026-09-02. If either source drifts, the
+  uniqueness check below writes NOTHING and exits 1, which is the intended
+  failure: a half-applied fix crashes in the same place the unpatched tree does.
 
 UPSTREAM STATUS (queried with `gh` on 2026-08-01; re-queried and each PR state
 re-read 2026-08-03)
@@ -129,10 +125,9 @@ re-read 2026-08-03)
 
 THIS PATCH vs OUR OWN PR #33059. Same defect, overlapping edits. They differ
 deliberately:
-  base       here: whatever base carries the anchors (v0.5.15.post1 verified for
-             all edits; v0.5.16 verified for the P1V2 edits, see the anchor note
-             above for P1V3). #33059: sglang `main`, whose `_get_topk_paged` has
-             drifted further (cutedsl / dg_native branches,
+  base       here: v0.5.16/gfx942 and v0.5.18/gfx950, with every edit verified
+             against both release tags. #33059: sglang `main`, whose
+             `_get_topk_paged` has drifted further (cutedsl / dg_native branches,
              `_mask_init_and_local_tokens`).
   scope      #33059 carries the `real < padded` half ONLY. The P1V3 clip is NOT
              in it and has not been filed upstream at all -- it should be, and
@@ -152,9 +147,8 @@ deliberately:
              not. Do NOT delete this script when #33059 merges; the clip half
              would go with it.
   validation Ours: 4/4 probe, conc=64 1k/1k 256/256, 2540/2540 in the PD set,
-             plus two full ~4,000 s agentic windows on two clusters for the
-             P1V3 half -- all on gfx950 / v0.5.15.post1. #33059's port to
-             `main` was NOT re-run on hardware.
+             plus two full ~4,000 s agentic windows on two gfx950 clusters for
+             the P1V3 half. #33059's port to `main` was NOT re-run on hardware.
 
 RELATION TO THE INDEXSHARE WORKAROUND. NOT substituted.
 `--json-model-override-args '{"index_share_for_mtp_iteration":false}'` removes
