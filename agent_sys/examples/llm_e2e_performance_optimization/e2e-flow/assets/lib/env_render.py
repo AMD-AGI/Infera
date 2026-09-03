@@ -44,6 +44,7 @@ import datetime as _dt
 import json
 import os
 import pathlib
+import shutil
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -119,6 +120,21 @@ def build(sets: list[str]) -> dict:
     }
     if ports:
         doc["runtime"]["ports"] = ports
+    # **Resolve `auto` here, once, rather than in every producer.**
+    #
+    # `E2E_TRANSPORT` ships defaulted to `auto` and `environment.schema.json`
+    # refuses it — correctly: `runtime.transport` says how a *later* stage
+    # reaches this deployment, and "decide later" is not something a reproducer
+    # can act on. So the schema rejects, `env_render` writes nothing, and every
+    # producer that took the shipped default hits it. **Not a mock problem** —
+    # m1 met it in a mock run, and a real run reaches it identically.
+    #
+    # Same rule `remote.sh` dispatches on: `spur` wherever the binary exists,
+    # otherwise `srun`. On the AMD crsuse2-m2m cluster `srun` exists but is not
+    # Slurm's, so probing for the srun binary picks the wrong one — which is why
+    # this probes for `spur` and falls back rather than the other way round.
+    if doc["runtime"].get("transport") in (None, "", "auto"):
+        doc["runtime"]["transport"] = "spur" if shutil.which("spur") else "srun"
     doc["runtime"].setdefault(
         "started_at", _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     )
