@@ -155,12 +155,18 @@ def shapes(operator: dict, role: str) -> list[str]:
     ]
 
 
-def report_medians(report: dict, operator_id: str) -> dict[str, float]:
+def report_per_case_ms(report: dict, operator_id: str) -> dict[str, float]:
     """case_id -> ms out of a `performance_report`.
 
-    `weighted_mean_ms` is the reduction the workset's own `check_workset_runs`
-    recomputes, so it is what everything downstream divides by; `median_ms` is
-    the fallback for a workset whose protocol reduces that way.
+    **`weighted_mean_ms` first, `median_ms` only as the fallback**, which is why
+    this is not called `report_medians` any more. The weighted mean is weighted
+    by `shapes[].calls` and is the reduction `check_workset_runs` recomputes
+    from `per_group_ms` — so it is both the figure m3 would rather be divided
+    by and the one a record cannot disagree with itself about.
+
+    Indexed per shape and never aggregated across them: aggregating first hides
+    a candidate that got faster on the primary shape and slower on the other
+    two, which is a real outcome and not a rounding detail.
     """
     out: dict[str, float] = {}
     for entry in report.get("operators") or ():

@@ -333,7 +333,7 @@ def main() -> int:
 
     # --- the document -------------------------------------------------------
     baseline = {k: float(v) for k, v in (pinned.get("baseline_per_case_ms") or {}).items()}
-    measured = lib.report_medians(performance, operator_id) if performance else {}
+    measured = lib.report_per_case_ms(performance, operator_id) if performance else {}
 
     target = pinned.get("edit_target") or {}
     kernel_path = packup / "results" / "optimized_kernel.py"

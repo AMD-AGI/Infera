@@ -86,7 +86,7 @@ def _accept_correctness(report: dict, declared: list[str], operator_id: str) -> 
 
 def _accept_performance(report: dict, declared: list[str], operator_id: str) -> list[str]:
     problems: list[str] = []
-    measured = lib.report_medians(report, operator_id)
+    measured = lib.report_per_case_ms(report, operator_id)
     missing = sorted(c for c in declared if c not in measured)
     if missing:
         problems.append(f"no figure for {missing}")
@@ -173,7 +173,7 @@ def main() -> int:
         return 1
 
     if a.role == "performance":
-        medians = lib.report_medians(report, operator_id)
+        medians = lib.report_per_case_ms(report, operator_id)
         print("ok: " + ", ".join(f"{c} {medians[c] * 1000:.2f}us" for c in sorted(medians)))
     else:
         print(f"ok: {len(declared)} correctness case(s) passed")

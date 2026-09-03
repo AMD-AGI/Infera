@@ -65,7 +65,7 @@ def main() -> int:
         if not path.is_file():
             problems.append(f"the workset's performance report is missing at {baseline_rel}")
         else:
-            baseline = lib.report_medians(lib.load_json(path), operator_id)
+            baseline = lib.report_per_case_ms(lib.load_json(path), operator_id)
             missing = sorted(c for c in performance_shapes if c not in baseline)
             if missing:
                 problems.append(f"the workset's own baseline has no figure for {missing}")

@@ -93,7 +93,7 @@ def main() -> int:
     baseline: dict[str, float] = {}
     if baseline_rel and (workset_root / str(baseline_rel)).is_file():
         shutil.copyfile(workset_root / str(baseline_rel), packup / lib.BASELINE_REPORT)
-        baseline = lib.report_medians(lib.load_json(packup / lib.BASELINE_REPORT), operator_id)
+        baseline = lib.report_per_case_ms(lib.load_json(packup / lib.BASELINE_REPORT), operator_id)
 
     # --- the premise --------------------------------------------------------
     workset_env = json.loads(json.dumps(ground.get("environment") or run_env))
