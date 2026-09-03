@@ -75,7 +75,7 @@ export MC_GID_INDEX="<gid-index-from-preflight>"
 export MOONCAKE_DISABLE_HIP_DMABUF=1
 # Some providers need fork-safety enabled in libibverbs.
 export RDMAV_FORK_SAFE=1
-# MC_MS_FILTERS is deliberately unset: every rail is allowed to carry KV.
+# MC_TE_FILTERS is deliberately unset: every rail is allowed to carry KV.
 
 # ---------------------------------------------------------------------------
 # 4. Deployment shape — see the README's "Recommended configuration"

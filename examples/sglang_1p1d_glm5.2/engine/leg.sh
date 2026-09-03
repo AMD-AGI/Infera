@@ -59,10 +59,10 @@ export MOONCAKE_DISABLE_HIP_DMABUF="${MOONCAKE_DISABLE_HIP_DMABUF:-1}"
 export MC_GID_INDEX="${MC_GID_INDEX:?MC_GID_INDEX is required — read it off the preflight report}"
 export MC_DISABLE_HIP_TRANSPORT=1
 unset MC_ENABLE_HIP_TRANSPORT
-# MC_MS_FILTERS pins mooncake to named device(s). Required in the dma-buf mode so a non-ODP
+# MC_TE_FILTERS pins mooncake to named device(s). Required in the dma-buf mode so a non-ODP
 # rail is never picked (it would pin and double the KV pool); harmless to leave unset when a
 # peer-mem module is loaded and every rail can carry KV.
-[ -n "${MC_MS_FILTERS:-}" ] && { export MC_MS_FILTERS MC_MS_AUTO_DISC="${MC_MS_AUTO_DISC:-0}"; }
+[ -n "${MC_TE_FILTERS:-}" ] && export MC_TE_FILTERS
 [ "${RDMAV_FORK_SAFE:-0}" = "1" ] && export RDMAV_FORK_SAFE=1
 export NCCL_IB_DISABLE=1 NCCL_IGNORE_CPU_AFFINITY=1 HSA_NO_SCRATCH_RECLAIM=1
 
@@ -153,8 +153,7 @@ docker exec -d "$CTR" env \
   HIP_VISIBLE_DEVICES="$GPUS" \
   MOONCAKE_DISABLE_HIP_DMABUF="$MOONCAKE_DISABLE_HIP_DMABUF" \
   MC_GID_INDEX="$MC_GID_INDEX" MC_DISABLE_HIP_TRANSPORT=1 \
-  ${MC_MS_FILTERS:+MC_MS_FILTERS="$MC_MS_FILTERS"} \
-  ${MC_MS_FILTERS:+MC_MS_AUTO_DISC="${MC_MS_AUTO_DISC:-0}"} \
+  ${MC_TE_FILTERS:+MC_TE_FILTERS="$MC_TE_FILTERS"} \
   ${RDMAV_FORK_SAFE:+RDMAV_FORK_SAFE="$RDMAV_FORK_SAFE"} \
   NCCL_IB_DISABLE=1 NCCL_IGNORE_CPU_AFFINITY=1 HSA_NO_SCRATCH_RECLAIM=1 \
   SGLANG_HOST_IP="$MY_IP" HOST_IP="$MY_IP" \
