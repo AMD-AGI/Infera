@@ -29,6 +29,27 @@ PKG="${AGENT_SYS_TASK_PACKAGE:-${AGENT_SYS_DEMO_PACKAGE:?the runner exports one 
 S="${E2E_MOCK_ROOT}/stage5-integration"
 
 what="${1:?usage: mock_m5.sh arms|report|packup <environment.yaml>}"
+
+# **Decline when this stage is not mocked, and decline with 3.**
+#
+# `mock.sh` gates on `$E2E_MOCK_STAGES` and this did not, which is a real bug
+# rather than an omission: a body calling `mock_m5.sh` in a REAL run got the
+# sealed 2026-09-02 evidence written into its output slot and exited 0. The graph
+# would then have reported a green m5 over three handoffs describing a run that
+# never happened — the "ten validators PASS over a run in which every result was
+# zero" failure this whole package is built against, reproduced by the mock
+# machinery itself. Found by driving `entry.sh` with `E2E_MOCK_STAGES=none`;
+# standalone testing of the adaptations could not have shown it, because
+# standalone is the mocked case by construction.
+#
+# 3 and not 0, matching `mock.sh`: the caller branches `if rc -eq 0 -> mocked and
+# written` / `if rc -ne 3 -> the mock itself failed`, and a decline that returned
+# 0 would be read as "written".
+case ",${E2E_MOCK_STAGES:-all}," in
+  *,all,*|*,m5,*|*,stage5-integration,*) ;;
+  *) echo "mock_m5: m5 is not in E2E_MOCK_STAGES=${E2E_MOCK_STAGES:-all}; running for real" >&2
+     exit 3 ;;
+esac
 # **No apostrophe in a `${var:?word}` message.** bash parses `word` with quoting
 # rules still active, so a lone `'` inside it opens a string that never closes
 # and the whole file fails to parse — at a line number in a *later* heredoc,

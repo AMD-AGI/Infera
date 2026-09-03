@@ -8,15 +8,27 @@ one handoff per arm, and this module is the join: it takes the directories the
 bring-up and the measurement scripts wrote and lays them out as a single
 `reproducible` content tree.
 
-**The union is mechanical, and exactly two things are not.**
+**The union is mechanical, and exactly three things are not.**
 
 *The collision rule.* Three files exist in more than one source — `README.md`,
 `items/command` and `items/watchout` — because each script wrote a complete
-handoff of its own. They are concatenated with a header naming where each half
-came from, rather than one overwriting the other, which is what a plain
-`cp -a` of one directory over another would have done silently. Everything else
-is copied, and a genuine collision (same path, different bytes) is a failure
-rather than a last-writer-wins.
+handoff of its own. A plain `cp -a` of one directory over another would silently
+keep the last. Everything else is copied, and a genuine collision (same path,
+different bytes) is a failure rather than a last-writer-wins.
+
+*`README.md` and `items/watchout` are concatenated* with a header naming where
+each half came from. Both are prose; two halves of prose are prose.
+
+*`items/command` is rewritten, not concatenated*, and that was a correction.
+Three `command` scripts joined end to end describe bringing the arm up,
+measuring it, bringing it up again and measuring it again — which is not what
+happened and not something anybody should run. It also inherits every syntax
+fault in every half: **measured, two of the three sealed stage-5 halves do not
+parse**, so the concatenation did not either, and the package's
+`command`-parses validator would have refused both arms. The merged handoff now
+carries one script that reproduces the whole arm, and each half's original
+verbatim under `items/logs/command/` — rewriting somebody else's script to make
+it parse would be inventing history rather than recording it.
 
 *The step order.* `env/steps.json` is the record `check_measurement_order` reads,
 and no source carries the merged version: the measurement script knows about its
@@ -42,7 +54,23 @@ ARMS = ("stock", "patched")
 
 #: Written by every source because each was a whole handoff once. Concatenated
 #: rather than overwritten.
-MERGED_TEXT = ("README.md", "items/command", "items/watchout")
+#:
+#: **`items/command` is deliberately not in this list**, and taking it out was a
+#: correction. Concatenating three `command` scripts produces something that is
+#: not a command: run it and it brings the arm up, measures it, then brings it up
+#: and measures it again. Worse, it inherits every syntax fault in every half —
+#: measured, two of the three sealed stage-5 halves do not parse (an apostrophe
+#: inside a `${VAR:?word}` message opens a string that runs to end of file), so
+#: the merged product did not parse either. `items/command` is now written as one
+#: real script for the merged arm and the halves are preserved verbatim beside
+#: the logs.
+MERGED_TEXT = ("README.md", "items/watchout")
+
+#: Where each source's original `command` goes, since it is no longer merged into
+#: one. Kept verbatim: it is the record of how that half was actually invoked,
+#: and rewriting somebody else's script to make it parse would be inventing
+#: history rather than recording it.
+COMMAND_ARCHIVE = "items/logs/command"
 
 
 def copy_tree(src: Path, dest: Path, skip: set[str], clashes: list[str]) -> int:
@@ -62,6 +90,93 @@ def copy_tree(src: Path, dest: Path, skip: set[str], clashes: list[str]) -> int:
         shutil.copymode(path, target)
         copied += 1
     return copied
+
+
+def write_command(out: Path, sources: list[Path], arm: str) -> None:
+    """One runnable `items/command` for the merged arm, and the halves archived.
+
+    **Not a concatenation, and that was a real defect rather than a style
+    choice.** Three `command` scripts joined end to end describe bringing the arm
+    up, measuring it, bringing it up again and measuring it again — which is not
+    what happened and not something anybody should run. And it inherits every
+    syntax fault in every half: measured, two of the three sealed stage-5 halves
+    do not parse, so the merged product did not either, and the package's
+    `command`-parses validator would refuse both arms.
+
+    So this writes the invocation that reproduces *this* arm, in the order the
+    STEPS readme ran it, and keeps each source's original beside the logs. The
+    originals are kept **verbatim** — rewriting somebody else's script to make it
+    parse would be inventing history rather than recording it.
+
+    Every site path arrives as a shell variable. That is what makes the script
+    portable, and it is checked: a `${VAR:?...}` message here must contain no
+    apostrophe, because bash parses that message with quoting active and a lone
+    `'` opens a string that runs to end of file — the same fault that broke the
+    halves.
+    """
+    archive = out / COMMAND_ARCHIVE
+    archive.mkdir(parents=True, exist_ok=True)
+    kept = []
+    for src in sources:
+        path = src / "items" / "command"
+        if path.is_file():
+            (archive / f"{src.name}.command.sh").write_text(
+                path.read_text(encoding="utf-8"), encoding="utf-8"
+            )
+            kept.append(src.name)
+
+    target = out / "items" / "command"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        f"""#!/usr/bin/env bash
+# Reproduce the {arm} arm of the integration comparison, in the order it ran.
+#
+# One script and not three. The bring-up and the measurement were one task
+# (M5.2 -- bring-up and use may not be split across agents), so one arm has one
+# invocation. Each producing script's own original is kept verbatim under
+# {COMMAND_ARCHIVE}/ ({', '.join(kept) or 'none were carried'}).
+#
+# Every site path is a variable, so this runs somewhere other than the machine
+# that produced it. PKG is the task package; the rest are the allocation.
+set -eu
+: "${{PKG:?set PKG to the e2e-flow package directory}}"
+: "${{E2E_NODE:?set E2E_NODE to the node holding the allocation}}"
+: "${{E2E_NODE_IP:?set E2E_NODE_IP to that node IP}}"
+: "${{E2E_JOBID:?set E2E_JOBID to the allocation id}}"
+: "${{E2E_MODEL_PATH:?set E2E_MODEL_PATH to the checkpoint directory}}"
+: "${{E2E_IMAGE:?set E2E_IMAGE to the engine image}}"
+: "${{E2E_WORK_ROOT:?set E2E_WORK_ROOT to a node-local scratch directory}}"
+: "${{E2E_CONTAINER:?set E2E_CONTAINER to a container name you own}}"
+: "${{OUT:?set OUT to a directory to write this arm into}}"
+
+# 1. bring the arm up. The {arm} arm mounts {'the overlay' if arm == 'patched' else 'nothing'}.
+E2E_ARM={arm} \\
+E2E_OUTPUT_DIR="$OUT/deployment" \\
+  bash "$PKG/assets/serve/round.sh"
+
+# 2. measure it: smoke, needle, probe, lm_eval, then the replay rounds, in that
+#    order and not overlapping. The order is part of the measurement -- "round 1
+#    is cold against this trace" is only true if the same things preceded it on
+#    both arms.
+E2E_ARM={arm} \\
+E2E_OUTPUT_ACCEPT="$OUT/accept" \\
+E2E_OUTPUT_BENCH="$OUT/bench" \\
+  bash "$PKG/assets/accept/measure.sh"
+
+# 3. compose this handoff. The bring-up window has no default on purpose: a
+#    guessed one makes check_measurement_order pass by construction.
+python3 "$PKG/assets/lib/merge_arm.py" --arm {arm} \\
+  --from "$OUT/deployment" --from "$OUT/accept" --from "$OUT/bench" \\
+  --out "$OUT/handoff" \\
+  --serve-started "${{SERVE_STARTED:?ISO 8601 time the bring-up began}}" \\
+  --serve-seconds "${{SERVE_SECONDS:?how long the bring-up took}}" \\
+  --package "$PKG" --environment "${{ENVIRONMENT_YAML:?m1 environment.yaml}}"
+""",
+        encoding="utf-8",
+    )
+    # `agent/gate.py` requires `script` / `command` / `entry` to carry the
+    # executable bit.
+    target.chmod(0o755)
 
 
 def merged_steps(sources: list[Path], arm: str, started: str, seconds: float) -> dict:
@@ -110,7 +225,12 @@ def main(argv: list[str] | None = None) -> int:
 
     (out / "items").mkdir(parents=True, exist_ok=True)
     clashes: list[str] = []
-    total = sum(copy_tree(src, out, set(MERGED_TEXT), clashes) for src in sources)
+    # `items/command` joins the skip set even though it is no longer merged:
+    # without it `copy_tree` lays the FIRST source's command down verbatim, which
+    # is one third of the arm and, on two of the three sealed halves, does not
+    # parse. `write_command` replaces it with one script for the whole arm.
+    skip = set(MERGED_TEXT) | {"items/command"}
+    total = sum(copy_tree(src, out, skip, clashes) for src in sources)
     if clashes:
         for line in clashes:
             print(f"merge_arm: {line}", file=sys.stderr)
@@ -130,13 +250,8 @@ def main(argv: list[str] | None = None) -> int:
         target = out / rel
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text("\n".join(parts), encoding="utf-8")
-        if rel == "items/command":
-            # `agent/gate.py` requires `script`/`command`/`entry` to carry the
-            # executable bit, and a concatenation of two scripts needs its own
-            # shebang or it is a text file with commands in it.
-            target.write_text("#!/usr/bin/env bash\nset -eu\n" + target.read_text(encoding="utf-8"),
-                              encoding="utf-8")
-            target.chmod(0o755)
+
+    write_command(out, sources, a.arm)
 
     steps = merged_steps(sources, a.arm, a.serve_started, a.serve_seconds)
     (out / "items" / "env").mkdir(parents=True, exist_ok=True)
