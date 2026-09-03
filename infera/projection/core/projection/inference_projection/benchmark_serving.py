@@ -51,6 +51,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import socket
 import subprocess
 import sys
@@ -188,22 +189,84 @@ def _run_client(port: int, args, out_dir: str, tag: str, *, batch: int,
                 input_len: int, output_len: int, num_prompts: int) -> dict:
     """One closed-loop client run against the live server; its whole result."""
     result = os.path.join(out_dir, f"bench_{tag}.json")
-    # vLLM's client drives either server. Against SGLang it goes through the
-    # plain OpenAI completions route rather than vLLM's own.
-    client = "vllm" if args.serving_backend == "vllm" else "openai"
-    cmd = [
-        "vllm", "bench", "serve", "--backend", client, "--model", args.model,
-        "--host", "127.0.0.1", "--port", str(port), "--endpoint", "/v1/completions",
-        "--dataset-name", "random",
-        "--random-input-len", str(input_len),
-        "--random-output-len", str(output_len),
-        "--num-prompts", str(num_prompts), "--max-concurrency", str(batch),
-        "--ignore-eos", "--percentile-metrics", "ttft,tpot,itl,e2el",
-        "--save-result", "--result-filename", result,
-    ]
+    kind = client_kind(args)
+    if kind == "vllm":
+        # vLLM's client drives either server. Against SGLang it goes through the
+        # plain OpenAI completions route rather than vLLM's own.
+        client = "vllm" if args.serving_backend == "vllm" else "openai"
+        cmd = [
+            "vllm", "bench", "serve", "--backend", client, "--model", args.model,
+            "--host", "127.0.0.1", "--port", str(port), "--endpoint", "/v1/completions",
+            "--dataset-name", "random",
+            "--random-input-len", str(input_len),
+            "--random-output-len", str(output_len),
+            "--num-prompts", str(num_prompts), "--max-concurrency", str(batch),
+            "--ignore-eos", "--percentile-metrics", "ttft,tpot,itl,e2el",
+            "--save-result", "--result-filename", result,
+        ]
+    else:
+        cmd = [
+            sys.executable, "-m", "sglang.bench_serving",
+            "--backend", "sglang-oai", "--model", args.model,
+            "--host", "127.0.0.1", "--port", str(port),
+            "--dataset-name", "random",
+            "--random-input-len", str(input_len),
+            "--random-output-len", str(output_len),
+            # Exact lengths, not a sampled band. The anchor prices one prompt
+            # length and one output length; left at its default this client
+            # samples below both, and the TPOT it reported would belong to a
+            # mixture of shapes rather than to the shape recorded beside it.
+            "--random-range-ratio", "1.0",
+            "--num-prompts", str(num_prompts), "--max-concurrency", str(batch),
+            "--output-file", result,
+        ]
+        # This client appends, so a stale file from an earlier harvest at the
+        # same tag would leave its last line -- another run's numbers -- as the
+        # one read back.
+        with contextlib.suppress(FileNotFoundError):
+            os.remove(result)
     subprocess.run(cmd, check=True)
-    with open(result) as fh:
-        return json.load(fh)
+    return _client_result(result, kind)
+
+
+def client_kind(args) -> str:
+    """Which load generator drives the server.
+
+    What a client owes this harness is two numbers -- mean TTFT and mean TPOT
+    over a closed loop -- and both engines ship a script reporting them under
+    those names. vLLM's drives either server over the plain OpenAI route, so it
+    stays the default wherever it exists and every anchor already harvested
+    keeps comparing against the ones harvested next.
+
+    It does not always exist. An SGLang image need not contain vLLM at all, and
+    the architectures worth measuring under SGLang are exactly the ones the
+    local vLLM build cannot load -- so insisting on vLLM's client would make a
+    model unmeasurable for want of a load generator rather than for want of an
+    engine that can serve it. SGLang's own client stands in there, and the
+    artifact records which one ran, because two clients pacing one server are
+    two measurements.
+    """
+    if shutil.which("vllm"):
+        return "vllm"
+    if args.serving_backend == "sglang":
+        return "sglang"
+    raise RuntimeError(
+        f"no load generator available: the vllm CLI is not on PATH and "
+        f"serving backend {args.serving_backend!r} ships no client this "
+        f"harness can drive"
+    )
+
+
+def _client_result(path: str, kind: str) -> dict:
+    """One run's metrics, however its client chose to write them down."""
+    with open(path) as fh:
+        if kind == "vllm":
+            return json.load(fh)
+        # SGLang writes JSON Lines, one object per run appended to the file.
+        lines = [line for line in fh.read().splitlines() if line.strip()]
+    if not lines:
+        raise RuntimeError(f"client wrote no result to {path}")
+    return json.loads(lines[-1])
 
 
 def _measure_concurrency(port: int, batch: int, args, out_dir: str) -> float:
@@ -334,6 +397,11 @@ def run_serving_benchmark(args) -> dict:
                                     _resolved_weight_dtype, _server_arg_value,
                                     warmup_gpu_count)
 
+    # Resolved before anything is launched. A missing load generator makes the
+    # run pointless, and finding that out after the weights are resident costs
+    # minutes to learn something knowable now.
+    client = client_kind(args)
+
     target_tp = max(1, int(args.tp or 1))
     target_pp = max(1, int(args.pp or 1))
     target_ep = target_tp if args.enable_expert_parallel else 1
@@ -407,6 +475,9 @@ def run_serving_benchmark(args) -> dict:
             entry["prefill_ms"] = prefill_rate * entry["batch"] * args.input_len
     artifact = {
         "backend": args.serving_backend,
+        # Which client paced the server. Two clients driving one engine are two
+        # measurements, so this is part of what the anchor describes.
+        "client": client,
         # prefill_ms comes from differencing TTFT across prompt lengths, and is
         # None under --no-prefill-anchor or when the slope did not resolve. A
         # raw TTFT is not an invertible prefill observable, and is never

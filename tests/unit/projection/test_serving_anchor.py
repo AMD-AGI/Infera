@@ -116,6 +116,9 @@ def _sweep_batches(monkeypatch, **over):
             return None
 
     monkeypatch.setattr(benchmark_serving, "_build_engine", lambda *a, **k: FakeEngine())
+    # The load generator is stubbed out below, so claim one exists: these tests
+    # are about which batches get measured, not about what is installed.
+    monkeypatch.setattr(benchmark_serving.shutil, "which", lambda _: "/usr/bin/vllm")
     monkeypatch.setattr(
         benchmark_serving, "_measure_concurrency",
         lambda port, batch, args, out_dir: measured.append(batch) or float(batch),
@@ -155,3 +158,92 @@ def test_explicit_batches_are_measured_as_given(monkeypatch):
     measured, artifact = _sweep_batches(monkeypatch, batches="8,32")
     assert measured == [8, 32]
     assert artifact["meta"]["decode_pad_to_capture"] is False
+
+
+def test_benchmark_mode_can_choose_the_engine_that_can_load_the_model():
+    """``--profiling-mode benchmark`` must not be pinned to one engine.
+
+    The harness already launches vLLM, SGLang and ATOM through the platform's
+    own adapters, but the projector built its command line without ever naming
+    one, so benchmark mode always measured under vLLM. That is not a cosmetic
+    default: a vLLM build that cannot load an architecture makes the model
+    unmeasurable, while an SGLang build that can would have measured it. The
+    two are also different measurements of the same config, which is why
+    ``serving_backend`` is part of the anchor cache key rather than ignored.
+    """
+    from argparse import Namespace
+    from types import SimpleNamespace
+    from unittest import mock
+
+    from infera.projection.core.projection.inference_projection import benchmark
+
+    cfg = SimpleNamespace(
+        model_parallel_config=SimpleNamespace(
+            tensor_model_parallel_size=2, expert_model_parallel_size=1,
+            pipeline_model_parallel_size=1),
+        request_config=SimpleNamespace(
+            input_seq_len=1024, output_seq_len=128, max_concurrency=32,
+            batch_size=32),
+    )
+
+    def argv_for(**over):
+        args = Namespace(bench_model="deepseek-ai/DeepSeek-V4-Flash",
+                         save_benchmark="/tmp/anchor.json",
+                         benchmark_gpus=None, **over)
+        seen = {}
+        with mock.patch.object(benchmark, "json") as js, \
+                mock.patch("builtins.open", mock.mock_open(read_data="{}")):
+            js.load.return_value = {}
+            with mock.patch(
+                "infera.projection.core.projection.inference_projection"
+                ".benchmark_vllm.main",
+                side_effect=lambda argv: seen.setdefault("argv", argv),
+            ):
+                benchmark.spawn_inference_benchmark(args, cfg)
+        return seen["argv"]
+
+    sglang = argv_for(bench_serving_backend="sglang")
+    assert "--serving-backend" in sglang
+    assert sglang[sglang.index("--serving-backend") + 1] == "sglang"
+
+    # Unset stays unset so the harness keeps its own default rather than
+    # having one restated in two places.
+    assert "--serving-backend" not in argv_for(bench_serving_backend=None)
+
+
+def test_the_client_is_not_a_second_reason_a_model_cannot_be_measured(monkeypatch):
+    """A load generator is needed, but vLLM's in particular is not.
+
+    The models worth measuring under SGLang are the ones the local vLLM build
+    cannot load, and such an image need not carry vLLM's client either. Falling
+    back to the engine's own client keeps the missing package from deciding
+    what is measurable.
+    """
+    monkeypatch.setattr(benchmark_serving.shutil, "which", lambda _: "/usr/bin/vllm")
+    # Where vLLM exists it drives both engines, so anchors stay comparable.
+    assert benchmark_serving.client_kind(spec(serving_backend="vllm")) == "vllm"
+    assert benchmark_serving.client_kind(spec(serving_backend="sglang")) == "vllm"
+
+    monkeypatch.setattr(benchmark_serving.shutil, "which", lambda _: None)
+    assert benchmark_serving.client_kind(spec(serving_backend="sglang")) == "sglang"
+    # An engine with no client of its own says so, rather than failing later
+    # inside a subprocess that was never going to exist.
+    with pytest.raises(RuntimeError, match="no load generator"):
+        benchmark_serving.client_kind(spec(serving_backend="vllm"))
+
+
+def test_each_client_is_read_the_way_it_writes(tmp_path):
+    """The two clients report the same metrics in different file shapes."""
+    one = tmp_path / "vllm.json"
+    one.write_text('{"mean_tpot_ms": 12.5, "mean_ttft_ms": 300.0}')
+    assert benchmark_serving._client_result(str(one), "vllm")["mean_tpot_ms"] == 12.5
+
+    # JSON Lines, and appended to: the run just finished is the last line, not
+    # the first.
+    many = tmp_path / "sglang.jsonl"
+    many.write_text('{"mean_tpot_ms": 99.0}\n{"mean_tpot_ms": 12.5}\n')
+    assert benchmark_serving._client_result(str(many), "sglang")["mean_tpot_ms"] == 12.5
+
+    with pytest.raises(RuntimeError, match="no result"):
+        (tmp_path / "empty.jsonl").write_text("")
+        benchmark_serving._client_result(str(tmp_path / "empty.jsonl"), "sglang")

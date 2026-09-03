@@ -73,6 +73,14 @@ def spawn_inference_benchmark(args, inference_config):
         # tuning agent, or a longer context.
         "--concurrency", str(int(req.max_concurrency or req.batch_size or 1)),
     ]
+    # Which engine measures. The harness launches all three through the same
+    # adapters the platform serves with, so this decides whose kernels the
+    # anchor describes -- and it is what makes an architecture measurable at
+    # all when the default engine's build cannot load it.
+    backend = (getattr(args, "bench_serving_backend", None)
+               or os.environ.get("INFERASIM_BENCH_SERVING_BACKEND"))
+    if backend:
+        argv += ["--serving-backend", str(backend)]
     if ep > 1:
         argv.append("--enable-expert-parallel")
     # Measuring on fewer GPUs than the target is the expected case, not a

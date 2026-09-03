@@ -229,6 +229,22 @@ def _add_performance_args(parser):
         ),
     )
     parser.add_argument(
+        "--bench-serving-backend",
+        type=str,
+        default=None,
+        choices=("vllm", "sglang", "atom"),
+        help=(
+            "Engine to launch while measuring, for --profiling-mode benchmark.\n"
+            "The anchor harness drives all three through the same adapters the\n"
+            "platform serves with, so this picks which engine's kernels the\n"
+            "anchor describes. It is not cosmetic: an architecture its vLLM\n"
+            "build cannot load is measurable under an engine that can, and two\n"
+            "engines serving one config are two different measurements, which\n"
+            "is why they never share an anchor cache entry.\n"
+            "Env: INFERASIM_BENCH_SERVING_BACKEND. Default vllm.\n"
+        ),
+    )
+    parser.add_argument(
         "--gemm-backend",
         type=str,
         required=False,
