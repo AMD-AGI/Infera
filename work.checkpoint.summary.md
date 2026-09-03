@@ -187,3 +187,93 @@ here: the 2690-line version is the *previous* task's log, byte-identical to
 This commit will be the first to record the fresh T+0/T+1 file at `HEAD`; not
 an incident, just flagging why `git diff --stat` on this file looks alarming
 (2657 deletions) if read without checking the `.bak`.
+
+---
+
+## T+2 — 2026-09-03 08:49 UTC
+
+### 1. Progress
+
+**Effort: ~55 %.** Elapsed 73 minutes since T+0. Projected remaining:
+2–3 hours. **Reliability: medium-high** — Phase 6 has now actually run once
+end-to-end and produced a real, dated verdict document (not a guess); the
+projection's main risk is that the verdict names 3 concrete follow-up items
+(§ below) whose fix effort is unmeasured.
+
+Since T+1: the red test cluster from that checkpoint is fixed (3 commits:
+`bfec099`, `255b087`, `fac0e0d`); full suite is green again (**626 passed, 2
+skipped, 2 xfailed**, up from 618 passed / 6 failed). Phase 6 acceptance was
+then run for real against `examples/demo2` and **written up in
+`ACCEPTANCE.md`** — read in full this interval, not skimmed.
+
+### 2. Current state
+
+**Phase 6 acceptance verdict: FAIL.** Read directly from
+`/home/yihou/ws.agentsview_o11y/recon/ACCEPTANCE.md` (dated 2026-09-03, run
+08:15:23–08:23:17 UTC, `EXIT=5`): checks 1, 2, 4 fail; checks 3, 5, 6 not
+executed because the task's own instruction was to stop at the first
+non-empty check-4 diff. This is the correct way to read a "PASS"-shaped 6/6
+checklist that is actually 0/6 — the document says so itself, plainly, in its
+own first line.
+
+There is now uncommitted work in progress on `env_mgr/o11y/agentsview.py` and
+its test (+223/−14 lines) — reads as the fix for the acceptance doc's item 1
+below (currently in flight, not yet committed).
+
+### 3. Code problems — fixed / unfixed
+
+**Fixed:** the readiness-probe transcript leak into `~/.claude/projects`
+(`fac0e0d`) — this was acceptance item 2 in last run's list, already landed
+before this checkpoint even though `ACCEPTANCE.md` predates the commit by 6
+minutes.
+
+**Unfixed, found by Phase 6 and named for a specific phase in
+`ACCEPTANCE.md`'s own words:**
+1. `OTHER_PROVIDERS` in `agentsview.py::write_config` is a hand-written list of
+   31 provider names; the real `agentsview v0.42.0` binary rejects the first
+   unrecognised one (`"claude-cowork"`) and `serve --background` exits 1 —
+   meaning **the panel has never once actually started** in any run so far.
+   The fail-open contract held (one warning, run continued), so this did not
+   break demo2, it just means checks 1 and 3 have no panel to test against.
+   Uncommitted work in progress looks aimed at this.
+2. Check 4's own method is unusable on a box where this agent team works
+   inside the repo under test: 3 of 4 new `~/.claude/projects` entries during
+   the acceptance run were this team's own security-review sessions on
+   `agentsview.py`, not a leak.
+3. The plan document itself has a wrong command:
+   `python -m cli.main run examples/demo2` (positional) should be
+   `--package examples/demo2`.
+
+### 4. Non-code problems
+
+The acceptance run also surfaced an unrelated demo2 content failure
+(`solutions_c: invalid`, `grade: waiting_handoff`) with no connection to o11y —
+flagged in `ACCEPTANCE.md` as observed-not-investigated, and I'm passing that
+framing through unchanged rather than re-diagnosing it myself.
+
+### 5. Undetermined questions
+
+One new one, opened by check 2 in `ACCEPTANCE.md` rather than closed: zero
+transcripts reached the prefix during the demo2 run, and zero reached the
+zone's `config/projects` either — the predicted mechanism
+(`prepare.py:480` set, then `prepare.py:533`→`material.py:89` overwrite) is
+named as the *suspected* cause but the doc itself says "does not match that
+prediction cleanly... open, not settled." I have not attempted to settle it;
+it is not mine to resolve from the outside.
+
+### 6. New commits
+
+| commit | what |
+|---|---|
+| `bfec099` | `ensure_installed` for the agentsview recipe item |
+| `255b087` | install the o11y panel on first run, with a one-line notice |
+| `fac0e0d` | fix: the readiness probe writes its transcript into the prefix |
+
+### 7. Other
+
+Full `pytest tests/env_mgr tests/cli -q` in `agent_sys/` this interval: **626
+passed, 2 skipped, 2 xfailed in 110.14s** — clean, and notably slower than
+T+1's 18s run (18 s vs 110 s), consistent with the acceptance run's real
+`agentsview` binary and `claude -p` subprocess calls now being exercised by
+the suite rather than the fake shell-script binary alone; not confirmed by
+reading which specific tests grew, just flagging the wall-clock jump.
