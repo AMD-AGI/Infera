@@ -20,7 +20,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-__all__ = ["Prefix"]
+__all__ = ["CLAUDE_CONFIG_ENV_VAR", "Prefix", "agent_environment"]
 
 #: The directory name. Fixed, and deliberately dotted: it is machine state, not
 #: something a user browses.
@@ -37,6 +37,10 @@ CLAUDE_HOME_ENV_VAR = "AGENT_SYS_CLAUDE_HOME"
 #: interface of an external dependency whose code we do not modify.
 AGENTSVIEW_DATA_ENV_VAR = "AGENTSVIEW_DATA_DIR"
 CLAUDE_PROJECTS_ENV_VAR = "CLAUDE_PROJECTS_DIR"
+
+#: Claude Code's own name for "where my config, credentials and transcripts
+#: live". Also not ours to rename.
+CLAUDE_CONFIG_ENV_VAR = "CLAUDE_CONFIG_DIR"
 
 
 @dataclass(frozen=True)
@@ -110,3 +114,33 @@ class Prefix:
             self.agentsview_data,
         ):
             d.mkdir(parents=True, exist_ok=True)
+
+
+def agent_environment(
+    prefix: Prefix, base: Mapping[str, str], *, bin_on_path: bool = True
+) -> dict[str, str]:
+    """`base`, plus the prefix, plus the one variable that scopes the panel.
+
+    **`CLAUDE_CONFIG_DIR` goes in the returned dict and never into
+    `os.environ`.** That distinction is the whole promise to the user: a Claude
+    Code they start in their own terminal inherits nothing from us and keeps
+    reading `~/.claude`. `test_agent_environment_does_not_touch_this_process`
+    is the guard, and it is not a formality — a single `os.environ[...] = ...`
+    added here for convenience would silently redirect the user's own agent.
+
+    **`bin_on_path` exists because `PATH` here is a projection, not a choice.**
+    `isolation.policy.executable_path` derives `PATH` from the granted set
+    precisely so that it *cannot* name a directory the kernel will refuse, and
+    `~/.infera_agent_sys/bin` is under `$HOME`, which the default grant set does
+    not include. Prepending it unconditionally would put an `EACCES` on `PATH`
+    and break that invariant — so a caller working under a policy passes
+    `bin_on_path=False` and gets the variables without the entry. The variable
+    `AGENT_SYS_BIN` still names the directory either way, which is what a
+    consumer that knows it is granted actually reads.
+    """
+    env = dict(base)
+    env.update(prefix.environment())
+    env[CLAUDE_CONFIG_ENV_VAR] = str(prefix.claude_home)
+    if bin_on_path:
+        env["PATH"] = ":".join([str(prefix.bin), base.get("PATH", "")]).rstrip(":")
+    return env

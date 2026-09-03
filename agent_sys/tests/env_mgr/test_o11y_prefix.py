@@ -65,3 +65,25 @@ def test_prefix_names_are_reachable_from_the_paths_family() -> None:
     assert paths.CLAUDE_HOME_ENV_VAR == "AGENT_SYS_CLAUDE_HOME"
     for name in ("HOME_ENV_VAR", "BIN_ENV_VAR", "CLAUDE_HOME_ENV_VAR"):
         assert name in paths.__all__
+
+
+def test_agent_environment_carries_claude_config_dir(tmp_path: Path) -> None:
+    from env_mgr.o11y.prefix import Prefix, agent_environment
+
+    p = Prefix.resolve({"HOME": str(tmp_path)})
+    env = agent_environment(p, base={"PATH": "/usr/bin"})
+    assert env["CLAUDE_CONFIG_DIR"] == str(p.claude_home)
+    assert env["PATH"].startswith(str(p.bin) + ":")
+    assert "/usr/bin" in env["PATH"]
+
+
+def test_agent_environment_does_not_touch_this_process(tmp_path: Path) -> None:
+    """The guard on 'the user's own Claude Code is unaffected'."""
+    import os
+
+    from env_mgr.o11y.prefix import Prefix, agent_environment
+
+    before = dict(os.environ)
+    agent_environment(Prefix.resolve({"HOME": str(tmp_path)}), base={"PATH": "/usr/bin"})
+    assert dict(os.environ) == before
+    assert "CLAUDE_CONFIG_DIR" not in os.environ
