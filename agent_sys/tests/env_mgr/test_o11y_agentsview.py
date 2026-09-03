@@ -155,6 +155,33 @@ def test_the_child_gets_the_prefix_environment_and_os_environ_is_untouched(
     assert "AGENTSVIEW_DATA_DIR" not in __import__("os").environ
 
 
+def test_ensure_running_passes_replace_to_serve(prefix, monkeypatch) -> None:
+    """Measured directly (scratch/port_repro, reported to team lead): without
+    `--replace`, `serve --background --port N` silently attaches to any
+    daemon already running for this `AGENTSVIEW_DATA_DIR` and reports *its*
+    port, ignoring `N` entirely -- exit 0, no error, and our own health check
+    on `N` then times out (correctly producing a warning, but only after
+    burning the full launch+health timeout, and only ever reporting failure,
+    never actually landing on the port we asked for). `--replace` is the flag
+    that makes our chosen port actually take effect regardless of any stray
+    daemon left over from an earlier run.
+    """
+    seen_cmd: list[str] = []
+
+    def spy(cmd, env=None, **kw):  # noqa: ANN001
+        seen_cmd.extend(cmd)
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    _fake_binary(prefix, "exit 0\n")
+    monkeypatch.setattr(subprocess, "run", spy)
+    monkeypatch.setattr(agentsview, "_wait_for_health", lambda url, timeout: True)
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        free = s.getsockname()[1]
+    agentsview.ensure_running(prefix, port=free)
+    assert "--replace" in seen_cmd
+
+
 @contextmanager
 def _server_on_a_port(body: bytes, content_type: str) -> Iterator[int]:
     """A real HTTP server on a real ephemeral port, answering everything alike.

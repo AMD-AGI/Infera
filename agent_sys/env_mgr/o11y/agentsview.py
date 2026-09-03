@@ -417,7 +417,16 @@ def ensure_running(prefix: Prefix, port: int) -> Status:
         write_config(prefix, OTHER_PROVIDERS)
         env = {**prefix.environment(), "PATH": str(prefix.bin), "HOME": str(prefix.root)}
         proc = subprocess.run(  # noqa: S603
-            [str(exe), "serve", "--background", "--no-browser",
+            # `--replace`: measured directly (a stray daemon left over from an
+            # earlier run, or any daemon already alive for this
+            # AGENTSVIEW_DATA_DIR) that `serve --background --port N` without
+            # this flag silently attaches to whatever is already running and
+            # reports *its* port, exit 0, `N` completely ignored. By the time
+            # this line runs the reuse gate above has already confirmed
+            # `port_is_free(port)` is True, so anything still alive here is
+            # necessarily *not* on the port we asked for -- there is no
+            # legitimate case at this call site where replacing it is wrong.
+            [str(exe), "serve", "--background", "--no-browser", "--replace",
              "--host", "127.0.0.1", "--port", str(port)],
             env=env,
             capture_output=True,
