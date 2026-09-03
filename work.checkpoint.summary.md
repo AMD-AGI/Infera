@@ -360,3 +360,93 @@ open per the last written verdict.
 
 `docs/superpowers/plans/2026-09-03-agentsview-o11y.md` checkboxes: still 0
 checked, same observation as T+2 — not a live signal from outside.
+
+---
+
+## T+4 — 2026-09-03 09:54 UTC
+
+### 1. Progress
+
+**Effort: ~70 %.** Elapsed 138 minutes since T+0. Projected remaining: 1–2
+hours. **Reliability: medium-low this interval** — no code commits landed
+(zero, `git log a094baa..HEAD` empty, tree clean), but `ACCEPTANCE.md` was
+substantially rewritten with three real acceptance runs (B/A/C) against three
+different commits, which is more acceptance work than any prior interval, so
+"no commits" here does not mean idle.
+
+### 2. Current state
+
+`ACCEPTANCE.md` (re-read in full, dated 2026-09-03, no new time stamp on the
+verdict line but file mtime is within this interval) now reports a **6-row
+table** instead of last time's partial one: checks 1, 2, 4 = **FAIL**; check 3
+= **NOT EXECUTED**; checks 5, 6 = **PASS, qualified**. Its own top line: **"The
+feature does not pass."** Three separate runs (B: default/panel path, exit 5,
+demo2-content failure unrelated to o11y; A: `--no-agentsview`, exit 0; C:
+default with 18888 pre-bound, exit 0) were run across three different
+commits, because teammates fixed two of the found bugs (`fac0e0d`, and the
+`09e4b97`/`dde3720`/`5bd5ade` chain from T+3) while runs A and C were still in
+flight. The document is explicit that **neither fix has been re-measured
+end-to-end** and calls for "a clean re-run against one pinned commit... before
+anyone calls this accepted."
+
+### 3. Code problems — fixed / unfixed
+
+No new fixes this interval (no commits). One **self-correction** recorded
+inside `ACCEPTANCE.md` itself, worth flagging because it's the kind of thing
+this log exists to catch: an earlier version of the document claimed check
+2's transcripts were in neither the prefix nor the zone (searched under the
+wrong root — the *repository* directory instead of the run root
+`~/.local/state/agent-sys-demo`). Re-measured against the correct tree: **9
+task-agent transcripts are in `<zone>/<task>/config/projects/`**, confirming
+`material.py:89`'s post-prefix overwrite of `CLAUDE_CONFIG_DIR` does win in
+the real pipeline, exactly as originally predicted before that wrong
+measurement muddied it.
+
+**Noting an apparent inconsistency I have not resolved, not read past:** the
+document's own closing "what goes back" list (item 4) says "where demo2's
+task-agent transcripts actually land is still unknown. Neither the prefix nor
+the zone holds them" — which reads as the *superseded* claim, sitting below
+the corrected section that says the opposite. I am reporting both passages as
+written rather than picking one; this is the document's own internal
+consistency to fix, not mine to referee from outside.
+
+Check 4's acceptance criterion was **rewritten** (old: "`~/.claude/projects`
+gained no entry" — fails on any teammate's unrelated Claude Code session in
+this shared repo; new: "no new file has a `cwd` inside the run's zone tree,
+and none is a session `agent_sys` spawned" — provenance-based, immune to
+concurrent teammates, and still correctly FAILs on the one real leak,
+`cli/environment.py:332`'s readiness probe, itself already fixed by `fac0e0d`
+but not yet re-measured against the rewritten criterion).
+
+### 4. Non-code problems
+
+None new.
+
+### 5. Undetermined questions
+
+**Newly closed, with a caveat:** check 2's mechanism, open at T+2/T+3, is now
+called "settled" by the document's corrected measurement (transcripts land in
+the zone, not the prefix) — but see §3's inconsistency note; I would not
+treat this as fully closed until that self-contradiction in the same
+document is resolved.
+
+**New, opened by this acceptance round:** gate 1 of the original design (agent
+children's transcripts always land in the prefix) is now reported to **not
+hold in the real pipeline** — only the Phase 0 isolated probe and the
+readiness probe honour it; real demo2 task agents get `<zone>/config`
+instead, because `material.py:89` applies after `prepare.py:480`. The document
+frames this as "a design conflict, not a coding slip" and says deciding
+between the two writers is "above this report" — i.e. explicitly a decision
+for the user/team lead, not something resolved this interval.
+
+### 6. New commits
+
+None this interval.
+
+### 7. Other
+
+Full suite still green: **643 passed, 2 skipped, 2 xfailed in 110.4 s** —
+same pass count as T+3's fast run, but back to T+2's slow wall-clock (110 s
+vs T+3's 19 s), which lines up with real acceptance-style runs (the ones
+behind `ACCEPTANCE.md`) sharing this interval rather than a steady-state
+regression; not independently confirmed which tests are slow.
