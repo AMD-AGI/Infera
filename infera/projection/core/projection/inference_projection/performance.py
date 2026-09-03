@@ -2320,21 +2320,32 @@ class InferencePerformanceProjector:
         step_latency = decode_proj._decode_step_latency_ms(decode_batch, mid_ctx, q_len=q_len)
 
         # Prefill phase on the prefill pool (drives TTFT + prefill throughput).
-        # The pool is dedicated, so a prompt's own service time is an
-        # uncontended single-request prefill; what it waits behind is the other
-        # clients of the same replica, which the closed-loop queue prices with
-        # the generation span (plus its KV handoff) as think time.
+        # Requests that are decoding are not on these GPUs. A FIFO of
+        # uncontended singles over the whole resident population tracked C * S
+        # and saturated 100x high; a batched forward of C / prefill_replicas
+        # did the same whenever S(n) is linear, because it still assumed every
+        # in-flight client is prefilling at once. Closed-loop occupancy with
+        # think time = generation puts only Little's N_p on the station:
+        # long decode (MiniMax 8k/1k, agentic) collapses toward one uncontended
+        # prompt; a prefill-heavy load still batches the people who are
+        # actually waiting. Throughput below still prices the offered load --
+        # occupancy is a latency quantity, not a capacity one.
         per_replica = max(1, batch // max(1, disagg.prefill_replicas))
         kv_transfer = self._kv_transfer_ms(decode_proj, batch, input_len)
-        ttft_compute = self._closed_loop_wait_ms(
-            prefill_proj.prefill_latency_ms(1, input_len),
-            decode_total + kv_transfer,
-            per_replica,
-        )
-        prefill_full_ms = prefill_proj.prefill_latency_ms(batch, input_len)
+        s1 = prefill_proj.prefill_latency_ms(1, input_len)
+        resp1 = self._closed_loop_wait_ms(s1, decode_total, per_replica)
+        denom = resp1 + decode_total
+        n_prefill = per_replica
+        if denom > 0:
+            n_prefill = max(1, min(per_replica, int(round(
+                per_replica * resp1 / denom
+            ))))
+        prefill_full_ms = prefill_proj.prefill_latency_ms(n_prefill, input_len)
+        ttft_compute = prefill_full_ms
         # Host prompt-tokenization cost (latency-only, TTFT side).
         tok_ms = max(0.0, req.tokenize_overhead_us) / 1000.0 * max(0, input_len)
-        ttft = ttft_compute + kv_transfer + tok_ms
+        # Fixed per-request host cost; see the co-located path for the rationale.
+        ttft = ttft_compute + kv_transfer + tok_ms + max(0.0, req.request_overhead_ms)
 
         itl = (decode_total / output_len) if output_len > 0 else step_latency
         # Per-token detokenization + streaming (latency-only; see the co-located
@@ -2365,7 +2376,14 @@ class InferencePerformanceProjector:
         ) if step_latency > 0 else 0.0
         decode_tps = decode_tps_replica * max(1, disagg.decode_replicas)
 
-        prefill_tps_replica = (batch * input_len * 1000.0 / prefill_full_ms) if prefill_full_ms > 0 else 0.0
+        # Capacity of the prefill pool at the offered load, not at the
+        # occupancy that sets TTFT. Using the occupancy batch here would
+        # report a nearly-idle station as unable to feed decode.
+        prefill_cap_ms = prefill_proj.prefill_latency_ms(per_replica, input_len)
+        prefill_tps_replica = (
+            (per_replica * input_len * 1000.0 / prefill_cap_ms)
+            if prefill_cap_ms > 0 else 0.0
+        )
         prefill_tps = prefill_tps_replica * max(1, disagg.prefill_replicas)
 
         # In steady state the decode pool can only run what the prefill pool
@@ -2391,6 +2409,7 @@ class InferencePerformanceProjector:
         extras["prefill_compute_ttft_ms"] = ttft_compute
         extras["prefill_replicas"] = float(disagg.prefill_replicas)
         extras["decode_replicas"] = float(disagg.decode_replicas)
+        extras["prefill_occupancy"] = float(n_prefill)
 
         return InferencePerfResult(
             ttft_ms=ttft,

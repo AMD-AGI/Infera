@@ -108,12 +108,26 @@ def project_inference_memory(
     # the global parallelism instead described a worker nobody runs, and once
     # per-pool TP existed without a matching global TP it reported a 744B model
     # as fitting zero sequences.
+    #
+    # The resident batch is split the same way the decode projector splits it:
+    # each decode replica holds ``C / decode_replicas`` sequences, not the
+    # system-wide concurrency. Sizing KV at the full batch on every replica
+    # double-counted the cache by the replica count and rejected the 2-decode
+    # MiniMax GB300 winner at 4096 in-flight -- 7 GB over 288 -- while silicon
+    # ran it. Activations follow the same local batch.
     disagg = getattr(inference_config, "disaggregation_config", None)
     if disagg is not None and disagg.enabled:
+        reps = max(1, int(disagg.decode_replicas or 1))
+        local = max(1, int(inference_config.request_config.resolved_max_concurrency()) // reps)
         inference_config = replace(
             inference_config,
             model_parallel_config=disagg.decode_parallel(
                 inference_config.model_parallel_config
+            ),
+            request_config=replace(
+                inference_config.request_config,
+                batch_size=local,
+                max_concurrency=local,
             ),
         )
 

@@ -100,6 +100,30 @@ def test_deepseek_v4_kv_is_the_576_byte_shared_latent():
     assert kv_bytes_per_token_per_layer(cfg) == pytest.approx(576.0)
 
 
+def test_disagg_kv_is_split_across_decode_replicas():
+    """Each decode replica holds C / replicas sequences, not the system batch.
+
+    Without the split, a 2-decode-replica fleet at concurrency 256 was charged
+    the same KV as a 1-replica fleet at 256, so doubling the decode pool did
+    not free HBM and the measured MiniMax GB300 4xP/2xD winner at 4096 missed
+    the 288 GB ceiling by a replica-count.
+    """
+    common = dict(
+        disaggregate=True, prefill_tp=4, tp=8, ep=1,
+        prefill_replicas=1, concurrency=256, input_len=1024, output_len=128,
+        max_num_batched_tokens=8192,
+    )
+    one = _project(**common, decode_replicas=1)
+    two = _project(**common, decode_replicas=2)
+    assert two["kv_cache_gb"] < 0.6 * one["kv_cache_gb"], (
+        f"2 decode replicas still hold {two['kv_cache_gb']:.1f} GB of KV vs "
+        f"{one['kv_cache_gb']:.1f} GB on 1 replica at the same system C"
+    )
+    twice_common = {**common, "decode_replicas": 2, "concurrency": 512}
+    twice = _project(**twice_common)
+    assert twice["kv_cache_gb"] == pytest.approx(one["kv_cache_gb"], rel=0.15)
+
+
 def test_long_context_prefill_respects_the_token_budget():
     """A 128k prompt at batch 64 must not be charged 64x128k live activations."""
     out = _project(

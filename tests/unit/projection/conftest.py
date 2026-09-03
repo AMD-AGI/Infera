@@ -109,6 +109,21 @@ def project_spec(**overrides):
     ):
         if spec.get(key) is not None:
             argv += [flag, str(spec[key])]
+    if spec.get("disaggregate"):
+        argv += [
+            "--disaggregate",
+            "--prefill-tp", str(spec.get("prefill_tp", spec["tp"])),
+            "--prefill-ep", str(spec.get("prefill_ep", spec["ep"])),
+            "--decode-tp", str(spec["tp"]),
+            "--decode-ep", str(spec["ep"]),
+            "--prefill-replicas", str(spec.get("prefill_replicas", 1)),
+            "--decode-replicas", str(spec.get("decode_replicas", 1)),
+        ]
+        if spec.get("attn_dp"):
+            argv += [
+                "--prefill-attention-dp", str(spec.get("prefill_tp", spec["tp"])),
+                "--decode-attention-dp", str(spec["tp"]),
+            ]
     if spec.get("enable_deepep"):
         argv += ["--enable-deepep"]
     argv += [
