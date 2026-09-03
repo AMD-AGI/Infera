@@ -320,9 +320,22 @@ def main() -> int:
             "workload": f"workloads/softmax/{OPERATOR}.jsonl",
             "shapes": shapes,
             "entrypoints": entrypoints(OPERATOR),
-            "reference": {"kind": "written",
-                          "path": f"definitions/softmax/{OPERATOR}.json",
-                          "rationale": "float64 softmax: the operation's published semantics. The sealed driver checks against the same thing, and an operation this simple has no framework reference worth importing."},
+            # **`imported`, and m4 was right to push on this.** They read
+            # `kind: written` and argued for importing torch at float64
+            # instead — a hand-written float64 softmax must reproduce the
+            # max-subtraction trick or it overflows at V=151936, which is
+            # exactly the regime this operator exists for; and if it does
+            # reproduce it, it is the same algorithm under test and a shared
+            # bug in the trick is invisible.
+            #
+            # The body already did the right thing — `REFERENCE` calls
+            # `torch.softmax(logits.double(), ...)`, so the algorithm is
+            # torch's and only the dtype is ours. The *declaration* was wrong,
+            # and a declaration that misdescribes the body is worse than a
+            # wrong body, because a reviewer checks the declaration.
+            "reference": {"kind": "imported", "module": "torch", "symbol": "softmax",
+                          "source_file": "torch/functional.py",
+                          "rationale": "torch.softmax evaluated at float64. Imported rather than written: a hand-written float64 softmax must reproduce the max-subtraction trick or overflow at V=151936, and if it reproduces it then it is the same algorithm under test. The wrapper casts and writes into `out`; the algorithm is torch's."},
             "baseline": {"kind": "imported", "module": "torch", "symbol": "softmax",
                          "rationale": "The incumbent. sglang's sampler.py:183 is literally `logits[:] = torch.softmax(logits, dim=-1)`."},
             "edit_target": {"source_owner": "sglang", "repo_root_var": "@SGLANG_ROOT@",
@@ -340,12 +353,19 @@ def main() -> int:
                     "writes in place into the caller-provided `out`; the call site is `logits[:] = ...`, so a replacement that allocates is not substitutable there",
                     "fp32 in and fp32 out",
                     "every output row sums to 1 within 1e-4 — these feed torch.multinomial, and a row that does not is a sampler drawing from the wrong distribution",
+                    # Both from the sealed `integration.md`, both surfaced by m4
+                    # in review, and both the same class as the first: no gate
+                    # in this workset catches either.
+                    "the reduced dimension is the last one and is contiguous; a replacement that relies on that must say so, because a non-contiguous `logits` then gives wrong results rather than an error",
+                    "no build step may be added — the driver imports the module directly, and a replacement needing compilation cannot be delivered as an overlay",
                 ],
                 "apply_mode": "overlay_files", "requires_restart": True, "build_step": None,
             },
             "gates": {"snr_db": 30.0, "allclose": {"atol": 1e-6, "rtol": 1e-3},
                       "extra": [{"name": "rows_sum_to_one", "tolerance": 1e-4,
-                                 "brief": "Every output row sums to 1. No SNR threshold catches a wrong distribution."}]},
+                                 "brief": "Every output row sums to 1. No SNR threshold catches a wrong distribution."},
+                                {"name": "writes_in_place", "tolerance": None,
+                                 "brief": "The returned tensor IS the caller's `out` and `out` was written. The call site is `logits[:] = ...`; a replacement that allocates passes every isolated correctness case and breaks there."}]},
             # A placeholder until STEP 8 transcribes the measured figure, and it
             # is the previous round's rule of thumb rather than a measurement.
             # `check_workset_shape` compares it against `evidence/` once that

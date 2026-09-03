@@ -40,6 +40,11 @@ def _snr_db(got, want) -> float:
     return 10.0 * torch.log10(torch.tensor(signal / noise)).item()
 
 
+#: Filled by the caller immediately around the call under test, because these
+#: two facts cannot be recovered from the returned tensor afterwards.
+_WITNESS: dict = {}
+
+
 def _extra(name: str, got, tolerance) -> bool:
     """The operator-specific invariants a Definition declares in `gates.extra`.
 
@@ -54,6 +59,19 @@ def _extra(name: str, got, tolerance) -> bool:
         # that does not sum to 1 is a sampler drawing from the wrong
         # distribution — which no SNR threshold catches.
         return bool(torch.allclose(got.sum(-1), torch.ones_like(got.sum(-1)), atol=float(tolerance or 1e-4)))
+    if name == "writes_in_place":
+        # **The invariant with no other gate**, and both m4 and m5 named it
+        # independently. The production call site is `logits[:] = softmax(...)`,
+        # so a replacement that *allocates* its own output is not substitutable
+        # there — and it passes every correctness case run in isolation, because
+        # in isolation nobody looks at which buffer the answer landed in.
+        #
+        # Checked by identity and by mutation, both: `returned is out` alone
+        # would pass an implementation that returns the buffer without writing
+        # it, and "out changed" alone would pass one that writes the buffer and
+        # returns a fresh tensor. m5 gates on this; as prose it was only ever a
+        # note for a human.
+        return bool(got is not None and _WITNESS.get("returned_is_out") and _WITNESS.get("out_mutated"))
     if name == "no_nan":
         return not bool(torch.isnan(got).any() or torch.isinf(got).any())
     if name == "non_negative":
@@ -86,7 +104,23 @@ def main() -> int:
             try:
                 inputs = build_inputs(definition, shape)
                 want = reference(**inputs)
-                got = under_test(**{k: (v.clone() if hasattr(v, "clone") else v) for k, v in inputs.items()})
+                probe = {k: (v.clone() if hasattr(v, "clone") else v) for k, v in inputs.items()}
+                # Witness the destination buffer across the call, for
+                # `writes_in_place`. A sentinel rather than the original
+                # contents: an implementation that happens to write the same
+                # values back would otherwise read as not having written.
+                destination = probe.get("out")
+                _WITNESS.clear()
+                if destination is not None and hasattr(destination, "fill_"):
+                    destination.fill_(float("-inf"))
+                    before = destination
+                    got = under_test(**probe)
+                    import torch
+
+                    _WITNESS["returned_is_out"] = got is before
+                    _WITNESS["out_mutated"] = not bool(torch.isinf(before).all())
+                else:
+                    got = under_test(**probe)
                 entry["snr_db"] = _snr_db(got, want)
                 checks = [entry["snr_db"] >= float(gates["snr_db"])]
                 if gates.get("allclose"):

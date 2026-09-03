@@ -8,6 +8,22 @@ differently because their `content_type`s differ:
 |---|---|---|---|
 | `seed_table` (this package's mock) | `structured_text` | `items/text.json` | `items/gap_analysis/` |
 | `profiling-demo`'s `kernel_scan` | `reproducible` | `items/result/text.json` | `items/result/gap_analysis/` |
+| **m2's merged `profiling_evidence`** | `reproducible` | `items/result/kernel_table/text.json` | `items/result/kernel_table/table.csv` |
+
+The third row is the one this package actually runs on, and it was **missing
+until m2 said so**. `rank` consumes `profiling_evidence`, not `kernel_table`
+(M3.2), and that handoff carries four parts — two benches, a trace and the
+table — each under its own name, because two of them would otherwise collide on
+`items/result/text.json` and the part name is what tells a reader which
+bring-up each came from. So the table is one level deeper and its CSV is a
+**file** rather than a directory. Neither of the first two rows matches it, and
+the failure was not subtle: `rank` reports "no document" against a perfectly
+good handoff.
+
+I had reasoned from the old MOCK-MAP row — the `results/` → `result/` reshape of
+`profile_packup` — which the leader has since replaced with **(H)**: no mock for
+`profiling_evidence` at all, because the merge now runs for real over mocked
+inputs. **The layout I tested against was not the layout that will arrive.**
 
 The difference is not a disagreement anybody chose. `reproducible` requires
 `result` and `env` and one of `script`/`command`, which is what makes a real
@@ -35,6 +51,7 @@ from pathlib import Path
 DOCUMENT_PATHS = (
     Path("items") / "text.json",
     Path("items") / "result" / "text.json",
+    Path("items") / "result" / "kernel_table" / "text.json",
 )
 
 #: Where the raw CSV may sit. The kind requires it either way: a consumer wanting
@@ -43,6 +60,7 @@ DOCUMENT_PATHS = (
 CSV_DIRS = (
     Path("items") / "gap_analysis",
     Path("items") / "result" / "gap_analysis",
+    Path("items") / "result" / "kernel_table",
 )
 
 #: Fields every record carries, whichever producer wrote it. `csv_io.to_record`

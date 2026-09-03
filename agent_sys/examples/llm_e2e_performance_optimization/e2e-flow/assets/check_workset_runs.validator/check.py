@@ -84,6 +84,59 @@ def _check_reports(content: Path, document: dict, args: dict, problems: list[str
         _fail(problems, "the recorded correctness report did not pass; a timing of a wrong kernel is not evidence")
 
     correct_by_id = {o["operator_id"]: o for o in correct.get("operators") or []}
+
+    # **Every declared shape must appear in the report, and this is checked
+    # before anything is graded.**
+    #
+    # Without it the body grades whatever came back: a harness that silently
+    # reported nothing for one shape leaves that shape out of
+    # `operators[].shapes`, every remaining row passes, and the verdict is a
+    # clean PASS over a partial measurement. m4 found exactly this in their own
+    # validator and warned me — and they found it with a stub that could
+    # *withhold* a shape on demand, after eight readings of the code had not.
+    # I had the same hole.
+    #
+    # The workset is the authority for what should have been measured, not the
+    # report. Anything else lets the thing being audited decide the scope of
+    # its own audit.
+    perf_by_id = {o["operator_id"]: o for o in perf.get("operators") or []}
+    for declared in document["operators"]:
+        label = declared["operator_id"]
+        # **Every declared shape, not only the ones whose `role` names this
+        # report.** The first version filtered by role and let a withheld shape
+        # through: `evidence/` is produced by a *full* run — no `--shape` — and
+        # the harness iterates every shape regardless of role, so a full report
+        # that is missing one is missing it for a reason nobody recorded. The
+        # role governs what a shape is *for*, not whether the harness touched
+        # it, and reading it as the latter is what reopened the hole one commit
+        # after closing it.
+        for report, by_id, role, what in ((perf, perf_by_id, "performance", "timed"),
+                                          (correct, correct_by_id, "correctness", "checked")):
+            wanted = {s["case_id"] for s in declared["shapes"]}
+            row = by_id.get(label)
+            if row is None:
+                _fail(problems, f"{label}: declared in workset.yaml and absent from the {role} report; "
+                                f"a missing operator is not a passing one")
+                continue
+            if not row.get("ran"):
+                continue  # an honest non-run is reported below, not here
+            got = {s["case_id"] for s in row.get("shapes") or []}
+            missing = sorted(wanted - got)
+            if missing and row.get("failure"):
+                # A run that broke off partway says so, and the shortfall is
+                # then explained rather than silent. It is still not evidence —
+                # `min_pass_ratio` decides whether the workset survives it — but
+                # it is not the failure this rule is about.
+                notes.append(f"{label}: {len(missing)} shape(s) not {what} after a recorded failure "
+                             f"({row['failure'][:80]}) — {missing}")
+            elif missing:
+                _fail(problems, f"{label}: {len(missing)} declared shape(s) never {what} and no failure "
+                                f"recorded — {missing}. The report covers {sorted(got)}; grading only "
+                                f"what came back would pass a partial measurement as a clean one")
+            extra = sorted(got - {s["case_id"] for s in declared["shapes"]})
+            if extra:
+                _fail(problems, f"{label}: the {role} report carries shape(s) {extra} the workset does "
+                                f"not declare; the two documents describe different work")
     min_groups = W.arg_num(args, "min_groups", 5, int)
     min_iters = W.arg_num(args, "min_iters_per_group", 10, int)
     max_rsd = W.arg_num(args, "max_rsd", 0.10)
