@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "operator_identity.schema.json",
+  "title": "operator_identity — each candidate resolved from a device symbol to a source location",
+  "description": "`items/text.json` of the `operator_identity` handoff. Written against the real sealed artefact at `cheat_for_mock/stage3-analyze/operator_identity/` (two operators, both `symbol_search`, both with an empty `target_kernel_functions`).\n\n**The field names are AgentKernelArena's `config.yaml` vocabulary and are not invented here** — `image_repo_path`, `repo_subdir`, `repository_language`, `source_file_path`, `editable_sources`, `target_kernel_functions`, `kernel_identity`. Adopting an existing vocabulary is what lets the next step emit Arena-shaped output with no translation layer, and renaming any of them here would create one.\n\n**What this document is for, stated because it is easy to get backwards.** `check_identity_resolved` runs with `min_resolve_ratio: 0.0`, on purpose: the evidence available is a device symbol, and for a Tensile GEMM dispatched from C++ there is no Python frame to find. A floor above zero fails a correct analysis on exactly the kernels the next stage excludes anyway. So what is checked — and what this schema makes checkable — is that **uncertainty is modelled rather than absent**:\n\n1. An operator that resolved to no source file must carry a `resolution_hint` saying where to look. Silence is the one answer not permitted.\n2. `source_resolution_method: agent_recovered` means the resolver gave a direction and no entry point; it therefore requires a hint too. It is not a failure — it is the path two of Arena's own samples took.\n3. `image_repo_path` is a `${PLACEHOLDER}` and never a path. `handoff/locality.py` refuses the seal over a container-absolute root like `/sgl-workspace`, and this pattern is that rule made mechanical one step earlier, where it names the field instead of failing the whole delivery.\n\n**What a schema cannot do and `check_identity_resolved` therefore does**: compute `summary.resolve_ratio` from `operators` and check the stored figure follows from it. A document that disagrees with itself is the one failure a required-property list cannot express.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "resolver", "container_root_placeholders", "summary", "operators"],
+  "properties": {
+    "schema_version": {"const": 1, "description": "As in `kernel_worklist.schema.json`: the one field the sealed artefact lacks, added rather than dropped."},
+    "generated_at": {"type": "string", "format": "date-time"},
+
+    "resolver": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["kernel_finder", "indexed_repos"],
+      "description": "What instrument was available, recorded whether or not it worked. On the sealed run `kernel_finder` was `unavailable` with `reason: magpie root absent` and both operators resolved anyway, by symbol search — which is the case that makes the distinction worth keeping: an empty result from an absent tool and an empty result from a tool that ran are not the same finding.",
+      "properties": {
+        "kernel_finder": {"type": "string", "enum": ["available", "unavailable"]},
+        "reason": {"type": "string", "description": "Required in spirit when `kernel_finder` is `unavailable`; enforced below."},
+        "indexed_repos": {"type": "array", "items": {"type": "string"}}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"kernel_finder": {"const": "unavailable"}}, "required": ["kernel_finder"]},
+          "then": {"required": ["reason"], "properties": {"reason": {"type": "string", "minLength": 1}}}
+        }
+      ]
+    },
+
+    "container_root_placeholders": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {"pattern": "^\\$\\{[A-Z_][A-Z0-9_]*\\}$"},
+      "additionalProperties": {"type": "string", "minLength": 1},
+      "description": "Every placeholder used anywhere in `operators`, with a one-line description of what it holds. The **descriptions, not the expansions** — an expansion is a container-absolute path and would refuse the seal. What each expands to for a given image lives in the producing package's `assets/lib/container_roots.yaml`; the framework has a mechanism for this (`Oracles.image_prefixes` against a kind's `dependencies`) and it is not wired up, which is recorded as a bug rather than worked around here."
+    },
+
+    "summary": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["operators", "resolved", "resolve_ratio"],
+      "properties": {
+        "operators": {"type": "integer", "minimum": 0},
+        "resolved": {"type": "integer", "minimum": 0},
+        "resolve_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "`resolved / operators`. Reported and **not** gated at production time: `check_identity_resolved`'s floor is 0.0 and the reasons are in this file's header."
+        }
+      }
+    },
+
+    "operators": {
+      "type": "array",
+      "minItems": 1,
+      "description": "One entry per **selected** kernel from `kernel_worklist` — the rejected rows are not resolved, because resolving a collective nobody will optimise is work with no consumer.",
+      "items": {"$ref": "#/$defs/operator"}
+    }
+  },
+
+  "$defs": {
+    "operator": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "kernel_id", "name", "logical_operator", "image_repo_path", "repository_language",
+        "source_file_path", "editable_sources", "target_kernel_functions",
+        "kernel_identity", "source_resolution_method", "resolution_hint", "cases"
+      ],
+      "properties": {
+        "kernel_id": {"type": "string", "pattern": "^k[0-9]{3,}$", "description": "The join back to `kernel_worklist.kernels[].kernel_id`."},
+        "name": {"type": "string", "minLength": 1, "description": "The device symbol, verbatim, as in the worklist."},
+        "rank": {"type": ["integer", "null"], "minimum": 1},
+        "pct_total": {"type": ["number", "null"], "minimum": 0, "maximum": 100.5},
+        "calls": {"type": ["integer", "null"], "minimum": 0},
+
+        "logical_operator": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9_]*$",
+          "description": "The name a human uses for the operation, and the `workset.operators[].operator_id` downstream. **The unit of work is this, not `name`**: a device symbol is frequently a generated string that appears nowhere in the checkout — the sealed artefact's own case is `mfma_moe1_silu_mul_afp4_wfp4_bf16_g1u1`, whose `_g1u1` suffix belongs to a different naming scheme entirely and whose generator never emits it."
+        },
+
+        "image_repo_path": {
+          "type": "string",
+          "pattern": "^\\$\\{[A-Z_][A-Z0-9_]*\\}$",
+          "description": "A placeholder, never a path. See the header, rule 3. Every value here must be a key of `container_root_placeholders`, which is a cross-field rule and `check_identity_resolved`'s to enforce."
+        },
+        "repo_subdir": {"type": "string"},
+        "repository_language": {"type": "string", "minLength": 1, "description": "`ck`, `triton`, `python`, `cuda`, `hip`, `tilelang`, … what the editable source is written in, which is what selects the KernelForge fellow."},
+
+        "source_file_path": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "description": "Repo-relative, and may be empty — see the biconditional below. Never absolute."
+        },
+        "editable_sources": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "description": "The subset an optimiser is permitted to change. Usually equal to `source_file_path` and deliberately a separate field: a kernel can be readable in five files and safely editable in one."
+        },
+        "target_kernel_functions": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "The entry points. **Legitimately empty here** — the sealed artefact has it empty for both operators — because this step resolves by symbol and the next one reads the source to fill it in. It must be non-empty by the time it reaches `workset.operators[].edit_target.entry_function`, and that is where it is enforced. Splitting it this way keeps 'the symbol did not resolve' (normal) apart from 'the entry function was never found' (a problem)."
+        },
+
+        "kernel_identity": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["logical_operator", "kernel_kind", "source_owner"],
+          "properties": {
+            "logical_operator": {"type": "string", "minLength": 1},
+            "kernel_kind": {"type": "string", "minLength": 1},
+            "source_owner": {"type": "string", "minLength": 1, "description": "Which project owns the code: `aiter`, `sglang`, `sgl-kernel`, `tilelang`, `torch`."}
+          }
+        },
+
+        "source_resolution_method": {
+          "type": "string",
+          "enum": ["trace_python_stack", "symbol_search", "agent_recovered", "declared"],
+          "description": "How the location was established, strongest first. `trace_python_stack` is the profiler's own frames; `symbol_search` matched the symbol against source text; `agent_recovered` means a reader gave a direction and no entry point; `declared` means it was known a priori. The third is **not a failure** — it is the path Arena's TileLang and KDA samples both took."
+        },
+        "resolution_hint": {"type": "string", "description": "Where to look next. Required whenever nothing resolved; see the biconditional below."},
+        "resolution_probe": {"type": "string", "description": "The string actually searched for, when the method was `symbol_search`. Kept because a probe that is a *shortening* of the symbol — as here — is a weaker match than an exact one, and a reader cannot tell without it."},
+        "resolution_evidence": {"type": "string", "description": "Why the match is believed. Prose, and prose is right: this is an argument."},
+        "excluded_reason": {"type": "string", "description": "Set when this operator was selected by the ranker and then found unworkable here. An alternative to `resolution_hint` for satisfying the biconditional: 'look here next' and 'do not look' are both answers, and only silence is not."},
+
+        "launcher": {"type": "object", "additionalProperties": true, "description": "The Python frame that dispatched it, when one was traced. `{}` when none was, which is the common case and is not a defect."},
+
+        "baseline_ref_file": {"type": "string"},
+        "baseline_ref_symbol": {"type": "string", "description": "The correctness reference, if one was located here. Frequently empty at this step and filled by the next, which is why `workset.operators[].reference` is required there and not here. When it can be filled, `kind: imported` is strongly preferred: a reference written from a reading of the kernel is how a correctness gate comes to agree with a bug."},
+        "baseline_ref_kind": {"type": "string"},
+        "baseline_ref_candidate": {"type": "string"},
+        "triton_ref_symbol": {"type": "string"},
+        "test_file": {"type": "string", "description": "The framework's own test for this kernel, when one exists. Worth more than it looks: on the sealed run it is how the reference for one operator was found at all, because the project's end-to-end test checks the same kernel against the same function."},
+        "test_cmd": {"type": "string"},
+
+        "category": {"type": "string"},
+        "dtypes": {"type": "object", "additionalProperties": {"type": "string"}},
+        "precision": {"type": "string"},
+        "fellow": {"type": "string"},
+
+        "cases": {
+          "type": "array",
+          "description": "Carried through from the worklist unchanged. This step resolves locations; it does not re-derive shapes, and a shape list that changed between the two artefacts would mean one of them was edited independently.",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["case_id", "selector", "shapes"],
+            "properties": {
+              "case_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_]*$"},
+              "selector": {"type": "object", "additionalProperties": true, "required": ["CASE_ID"]},
+              "shapes": {"type": "array", "items": {"type": "array", "items": {"type": "integer"}}},
+              "is_primary": {"type": "boolean"}
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "$comment": "The one rule this document exists to enforce, and the reason min_resolve_ratio can be 0.0 without the validator becoming decorative. An operator that resolved to no source file must say where to look next, or say why not to. Unresolved-and-silent is the only state refused.\n\nWritten as `if (unresolved AND no excluded_reason) then resolution_hint` rather than the more obvious `anyOf` of the two, because an `anyOf` failure reports 'is not valid under any of the given schemas' and dumps the whole operator — naming neither field. The producer reading that message cannot tell what to add. This form names `resolution_hint`.",
+          "if": {
+            "allOf": [
+              {"properties": {"source_file_path": {"maxItems": 0}}, "required": ["source_file_path"]},
+              {"not": {"properties": {"excluded_reason": {"type": "string", "minLength": 1}}, "required": ["excluded_reason"]}}
+            ]
+          },
+          "then": {
+            "required": ["resolution_hint"],
+            "properties": {"resolution_hint": {"type": "string", "minLength": 1}}
+          }
+        },
+        {
+          "$comment": "`agent_recovered` is by definition 'a direction and no entry point'. A direction that is not written down is not a direction.",
+          "if": {
+            "properties": {"source_resolution_method": {"const": "agent_recovered"}},
+            "required": ["source_resolution_method"]
+          },
+          "then": {"properties": {"resolution_hint": {"type": "string", "minLength": 1}}, "required": ["resolution_hint"]}
+        },
+        {
+          "$comment": "A symbol search that found nothing to search for is not a symbol search.",
+          "if": {
+            "properties": {"source_resolution_method": {"const": "symbol_search"}},
+            "required": ["source_resolution_method"]
+          },
+          "then": {"properties": {"resolution_probe": {"type": "string", "minLength": 1}}, "required": ["resolution_probe"]}
+        }
+      ]
+    }
+  }
+}
