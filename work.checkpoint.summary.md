@@ -277,3 +277,86 @@ T+1's 18s run (18 s vs 110 s), consistent with the acceptance run's real
 `agentsview` binary and `claude -p` subprocess calls now being exercised by
 the suite rather than the fake shell-script binary alone; not confirmed by
 reading which specific tests grew, just flagging the wall-clock jump.
+
+---
+
+## T+3 — 2026-09-03 09:22 UTC
+
+### 1. Progress
+
+**Effort: ~65 %.** Elapsed 106 minutes since T+0. Projected remaining:
+1.5–2.5 hours. **Reliability: medium** — the acceptance-item-1 bug (§ T+2) is
+now closed with unusually thorough measurement (below), but there is no
+updated `ACCEPTANCE.md` yet, so I cannot say checks 1/2/4 now pass — only that
+the specific cause named for check 1 is fixed and re-verified against the
+real binary.
+
+Since T+2: 3 commits (`09e4b97`, `dde3720`, `5bd5ade`), all on the single
+`OTHER_PROVIDERS` problem from `ACCEPTANCE.md` item 1. Full suite green:
+**643 passed, 2 skipped, 2 xfailed in 18.9 s** (up from 626, and back to
+T+1's fast wall-clock — the slow 110 s run at T+2 was the acceptance run
+itself sharing the interval, not a new steady-state cost). Working tree is
+clean (`git status --short` empty).
+
+### 2. Current state
+
+The `OTHER_PROVIDERS` fix went through **three iterations in one interval**,
+each documented in `/home/yihou/ws.agentsview_o11y/recon/PHASE0.md` §0.3–0.5
+(read in full, not skimmed):
+
+1. `09e4b97` — measured the 60 provider slugs the real `agentsview doctor
+   sync` accepts (not the docs table); found 5 of the original 31 guessed
+   slugs wrong (e.g. `claude-cowork` → `cowork`); cross-checked one-name-at-a-
+   time and all-at-once against the real binary, including a negative-control
+   bogus name to confirm the validator isn't a no-op.
+2. `dde3720` — went further: derive `disabled_agents` live from the binary at
+   install time, since a hardcoded list can also *miss* a provider silently
+   (gate-3 leak with no error). **Team lead rejected this design** (recorded
+   verbatim in PHASE0.md): a silent upstream rename would then silently change
+   what the panel shows with no commit to review.
+3. `5bd5ade` — reverted to the pinned list, kept the discovery mechanism only
+   as a two-directional completeness check (rename-or-removal, the original
+   direction, plus addition-and-never-listed, the new direction) that names
+   every offending slug in one warning.
+
+This is not just a fix landing — it's a **design decision reverted by review
+mid-flight and replaced with a stricter check**, worth recording precisely
+because it changes what "done" means for this item.
+
+### 3. Code problems — fixed / unfixed
+
+**Fixed:** the wrong-slug bug that stopped `serve` from ever starting
+(acceptance item 1) — closed as of `5bd5ade`, verified end-to-end against the
+real installed v0.42.0 binary (`check_disabled_agents` → `()`, clean, both
+directions).
+
+**Still open, unchanged from T+2:** acceptance item 2 (transcript leak
+mechanism between `prepare.py:480` and `material.py:89` — "open, not
+settled"); item 3 (check 4's method can't distinguish a leak from this team's
+own sessions); item 4 (plan doc's wrong CLI invocation). I see scratch logs
+this interval (`demo2_noagentsview.log`, `demo2_portbusy.log`, an `runA`
+before/after diff of `~/.claude/projects`) that look like probes toward
+checks 5/6, but **no new `ACCEPTANCE.md`** — I am not reporting these as
+passed or failed since I have no written verdict to read, only raw logs.
+
+### 4. Non-code problems
+
+None new this interval.
+
+### 5. Undetermined questions
+
+Unchanged from T+2 — the transcript-routing mechanism for check 2 is still
+open per the last written verdict.
+
+### 6. New commits
+
+| commit | what |
+|---|---|
+| `09e4b97` | measure `OTHER_PROVIDERS` against the real binary, not the docs table |
+| `dde3720` | derive `disabled_agents` from the installed binary, not a hardcoded list (later reverted) |
+| `5bd5ade` | pin `OTHER_PROVIDERS`, `check_disabled_agents` both directions |
+
+### 7. Other
+
+`docs/superpowers/plans/2026-09-03-agentsview-o11y.md` checkboxes: still 0
+checked, same observation as T+2 — not a live signal from outside.
