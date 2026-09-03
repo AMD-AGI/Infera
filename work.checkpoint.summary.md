@@ -885,3 +885,126 @@ interval's port/idle-timeout fixes) has **not yet been re-measured** in a
 fresh, single end-to-end acceptance document. That remains the single
 biggest gap between "individually fixed" and "accepted," and has been true
 since T+4.
+
+---
+
+## T+11 — 2026-09-03 13:37 UTC
+
+### 1. Progress
+
+**Effort: ~95 %.** Elapsed 361 minutes since T+0. Projected remaining:
+15–30 minutes. **Reliability: medium-high** — the biggest gap named at every
+checkpoint since T+4 ("no fresh end-to-end acceptance document") closed this
+interval: `ACCEPTANCE.md` was rewritten as a **two-round** document by a
+teammate (`wiring`), with round 1 (`core`'s original) preserved unedited
+below round 2's re-measure. I read it in full, not skimmed.
+
+Since T+10: **7 commits** — `8049466`, `ae56383`, `41c9541`, `da7f5e0`,
+`7d25923`, `5b3a555`, `658f1bc`. Suite green and grown again: **660 passed, 2
+skipped, 2 xfailed in 22.9 s** (up from 657 — 3 new tests). One false alarm
+of my own: running pytest from the repo root instead of `agent_sys/` gave 3
+spurious `RecipeError` failures on a relative recipe path; re-run from the
+right directory was clean. Noting it so it isn't mistaken for a regression by
+whoever reads this next.
+
+### 2. Current state — Round 2 acceptance, read from `ACCEPTANCE.md`
+
+Pinned run `20260903T115506-725b3f`, tree at `fac0e0d`+`84027bd`+`09e4b97`.
+Verdicts: **check 1 FAIL** (new, different cause from round 1 — see below),
+**check 2 PASS**, **check 3 BLOCKED** (see below, and see the follow-up
+commit that appears to resolve it), **check 3a PASS** (a new row, see below),
+**check 4 PASS**, **check 5 PASS with a qualification**, **check 6 PASS**.
+
+**Check 1's round-2 cause, read directly from the doc's own repro:**
+`agentsview serve --background --port X` silently ignores `--port` and exits
+0 when a daemon is *already running* for that data dir on a different port —
+exactly the `8bd87a9` (`--replace`) root cause I reported last interval, now
+independently corroborated by the acceptance document's own scratch repro
+(`serve --port 19001` then `serve --port 19002` → both report the 19001
+daemon, rc=0, 19002 never bound). With the stale daemon manually stopped, the
+doc reports **the first live panel of the entire campaign**: `curl` on 18888
+→ 200.
+
+**Check 3, "BLOCKED" as written in `ACCEPTANCE.md`:** `GET
+/api/v1/sessions?limit=100` returns `{"sessions":[],"total":0}` against a
+database independently confirmed to hold 27 real sessions — the document
+stops there, calls it an AgentsView-internals question outside the project's
+own code, and proposes a specific next experiment (a stock daemon against a
+copy of the DB, then reading what the real web UI calls) rather than
+guessing at the binary's behaviour.
+
+**This appears independently resolved by `41c9541`, committed after
+`ACCEPTANCE.md`'s check-3 write-up** (read from `41c9541`'s own commit body,
+not cross-referenced by the doc itself): the CLI-facing `/api/v1/sessions`
+endpoint excludes one-shot sessions by default (documented behaviour), while
+the actual browser UI calls a *different* endpoint
+(`sessions/sidebar-index`) with `include_one_shot=true` — confirmed, per the
+commit, "by reading a rendered page, twice." If this reading is right, check
+3 was never broken; the acceptance script was reading the wrong endpoint.
+**I am reporting the commit's own claim, not re-verifying it myself**, and
+`ACCEPTANCE.md` itself has not been updated to reflect it as of this
+checkpoint — a gap between the two documents worth someone closing.
+
+**Check 3a (new row, not in round 1):** the mission's actual requirement —
+agent_sys's sessions only, never the user's — is shown to hold at the data
+level two independent ways: all 27 archived sessions are `agent_sys`'s own,
+and `agentsview doctor sync` (run with `ensure_running`'s exact environment)
+shows 122 provider roots, of which **0** are outside the prefix, because
+`ensure_running` also sets `HOME=$AGENT_SYS_HOME` — a second, undesigned
+enforcement layer on top of `disabled_agents`. This is now recorded as an
+explicit "gate 5" in the design docs (`da7f5e0`, `658f1bc`), i.e. promoted
+from accidental to load-bearing-and-documented.
+
+### 3. Code problems — fixed / unfixed
+
+**New bug found and fixed this interval, independent of the port issue:**
+`7d25923` — `check_disabled_agents`'s read-only validation path was
+**silently starting a background `agentsview serve` daemon** on an
+auto-picked port, violating the project's own "port decisions belong to
+agent_sys, never delegated" principle from a path nobody watching
+`ensure_running` would notice. Measured by exact-argv process counts
+before/after each subcommand (`--version`/`doctor sync`: none; `health`:
+one). The commit also reports finding and cleaning up **3 orphaned
+`agentsview` daemons already on the shared prefix** (ports 8080/8081/8082,
+none on the intended 18888) — killed by individually-verified PID via `ps`
+immediately before each kill, never a pattern match, consistent with this
+effort's care around shared-host state. This bug plausibly explains some of
+this effort's earlier, seemingly-unrelated port mysteries (T+7 port-busy,
+T+8 readiness-timeout) — not confirmed as the same root cause, but the same
+family of symptom.
+
+**Fix confirmed rejected after measurement, recorded rather than silently
+dropped:** `AGENTSVIEW_NO_DAEMON=1` was tried as a simpler fix for the same
+bug and found to also disable direct SQLite reads for `health`/`projects`,
+turning "silently starts a daemon" into "always fails" — worse, not better.
+
+### 4. Non-code problems
+
+None new.
+
+### 5. Undetermined questions
+
+Whether `ACCEPTANCE.md`'s check 3 will actually be re-marked PASS once
+whoever owns that document re-runs it against `41c9541` — not yet done as of
+this checkpoint, only the source-level explanation exists.
+
+### 6. New commits
+
+| commit | what |
+|---|---|
+| `8049466` | record the `--replace` concurrency measurement |
+| `ae56383` | fix a PHASE0.md section cross-reference |
+| `41c9541` | assert the surface a user sees, not the CLI's endpoint |
+| `da7f5e0` | record HOME redirection as gate 5 |
+| `7d25923` | stop `check_disabled_agents` from silently starting a daemon |
+| `5b3a555` | hold the `HOME=prefix` env line at all three call sites |
+| `658f1bc` | gate 5 now exists by contract, not by accident |
+
+### 7. Other
+
+`ACCEPTANCE.md`'s round 2 lists its own open items: (1) the port-adoption bug
+— now fixed by `8bd87a9`, predating this checkpoint; (2) the empty-panel-list
+mystery — now plausibly explained by `41c9541`, per that commit's own claim;
+(3) check 5's timing correlation (both full-launch runs in the campaign
+exited 5, both fast-return runs exited 0, n=2), explicitly flagged by the doc
+itself as "not evidence" and not mine to add to.
