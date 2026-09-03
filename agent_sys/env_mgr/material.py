@@ -23,6 +23,7 @@ original keys and calls the one that owns the other three.
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from typing import Any, NamedTuple
 
 from env_mgr import agent_assets, harness, paths
@@ -75,6 +76,8 @@ def deploy(
     zone: Zone,
     staged_package: str | None = None,
     workspace: str | None = None,
+    base_env: Mapping[str, str] | None = None,
+    agent_cli: str | None = None,
 ) -> Deployed:
     """Place this agent's material in the zone and return what it needs.
 
@@ -100,6 +103,29 @@ def deploy(
     `staged_package`, never `Context.package`: the original checkout is outside
     every grant (`interfaces.md` §4.16), so a component installed from it would
     place files the confined session cannot read.
+
+    **`base_env` is what `prepare` has composed so far, and it is not optional
+    in practice.** The installs are subprocesses, and this function builds its
+    own mapping from scratch — three zone paths plus the harness block, whose
+    `_RESERVED` set deliberately excludes `PATH`. Measured 2026-09-03: without
+    `base_env` the child receives **no `PATH` at all**, `subprocess` falls back
+    to `os.defpath` (`/bin:/usr/bin`), and `sh -c "uv --version"` answers
+    `uv: not found` with rc 127 — so a recipe fails naming its toolchain rather
+    than naming the cause. The policy-derived `PATH` lives in `prepare`'s
+    accumulating dict, which is the only place it exists at this point.
+
+    It is used **only** to build the child's environment and is not merged into
+    the returned mapping: what this function returns is what it decided, and
+    echoing the caller's own values back would make `prepare`'s
+    `environment.update(...)` look like this module had an opinion about `PATH`.
+
+    **`agent_cli` is the pinned CLI, absolute.** Plugin installs must run the
+    same binary the session will. Measured on this host: bare `claude` under the
+    policy-derived `PATH` reaches `/usr/local/bin/claude` (2.1.197, npm, root)
+    while `Prepared.agent_cli` is 2.1.246 — two builds sharing one
+    `CLAUDE_CONFIG_DIR`, which is `interfaces.md` §4.11's family arriving by a
+    second door. `claude_sdk._prepared_cli` already refuses the same thing from
+    the other side of the seam.
     """
     config = os.path.join(zone.root, CONFIG_DIR)
     os.makedirs(config, exist_ok=True)
@@ -171,7 +197,10 @@ def deploy(
         config_dir=config,
         workspace=workspace,
         logs_dir=os.path.join(zone.root, LOGS),
-        environ={**env, **declared},
+        # `base_env` first so that everything this function decided, and then
+        # everything the author declared, still outranks it.
+        environ={**(base_env or {}), **env, **declared},
+        agent_cli=agent_cli,
     )
     env.update(material.env)
     env.update(declared)

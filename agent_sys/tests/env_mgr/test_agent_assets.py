@@ -9,10 +9,21 @@ different outcomes and this module reports them differently, so a suite that
 could only produce the first would leave the second unmeasured.
 
 The measurements this file encodes were taken 2026-09-03 against Claude Code on
-this machine, and are recorded in `agent_assets.py`'s own docstrings:
+this machine, and are recorded in `agent_assets.py`'s own docstrings. **They are
+evidence about `claude` 2.1.246 specifically** — the build `cli/environment.py`
+pins — and saying which build is what makes them evidence rather than folklore:
+probes B, C and F were first taken against the SDK's *bundled* 2.1.251, because
+`_find_cli` prefers its own bundle over `PATH`, and were re-measured as B'/C'/F'
+once that was noticed. All six conclusions hold on 2.1.246.
 
 - ``claude plugin marketplace add`` / ``install`` respect ``CLAUDE_CONFIG_DIR``
-  fully — ``~/.claude.json``'s md5 was unchanged after both;
+  fully — each probe's own ``.claude.json`` landed **inside** its relocated
+  config directory, and ``~/.claude/plugins/marketplaces`` still held only
+  ``claude-plugins-official``. (An earlier version of this note cited
+  ``~/.claude.json``'s md5 being unchanged; `PROBES.md` has **withdrawn** that,
+  because with no probe running at all the file changed twice in 75 seconds —
+  every live Claude Code session on this host rewrites it. The conclusion holds
+  on the two facts above; the retracted one is named so nobody re-derives it.)
 - they **merge** into an existing ``settings.json`` rather than clobbering it,
   which is why the settings document is written *before* any install runs;
 - a local marketplace needs ``.claude-plugin/marketplace.json`` carrying
@@ -27,7 +38,7 @@ import stat
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import pytest
 
@@ -60,14 +71,29 @@ def _write(path: Path, text: str) -> Path:
     return path
 
 
-@pytest.fixture
-def fake_claude(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """A `claude` on `PATH` that records its argv and succeeds.
+class FakeCli(NamedTuple):
+    """A stand-in `claude`, and the file it records its argv into.
 
-    Records rather than merely succeeds, because two of the assertions below are
-    about *what was invoked* — ``marketplace add`` before ``install``, and one
-    ``install`` per plugin in the manifest — and a stub that only returned 0
-    could not tell a correct call from no call at all.
+    Both halves are needed by the same tests: the **path** because `install`
+    takes the CLI as a pinned absolute argument rather than searching `PATH`,
+    and the **log** because two assertions are about *what was invoked* —
+    ``marketplace add`` before ``install``, and one ``install`` per plugin in
+    the manifest — which a stub that only returned 0 could not tell from no call
+    at all.
+    """
+
+    path: str
+    log: Path
+
+
+@pytest.fixture
+def fake_claude(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FakeCli:
+    """A `claude` that records its argv and succeeds.
+
+    Still placed on `PATH` as well as returned by path: a test that asserts the
+    **absolute** form is only meaningful if a bare name would also have resolved
+    to something. With nothing on `PATH`, `_run_cmd` would answer rc 127 and the
+    assertion would pass for the wrong reason.
     """
     binroot = tmp_path / "fakebin"
     binroot.mkdir()
@@ -77,23 +103,31 @@ def fake_claude(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         "#!/bin/sh\n"
         f'printf "%s\\n" "$*" >> {log}\n'
         f'printf "CLAUDE_CONFIG_DIR=%s\\n" "$CLAUDE_CONFIG_DIR" >> {log}\n'
+        # **Records whether settings.json existed AT INVOCATION TIME.** Reading
+        # the file after `install` returns cannot distinguish written-before
+        # from written-after, so a test that did only that passed with the
+        # ordering inverted — verified by mutation, `reviewer` 2026-09-03. The
+        # measured behaviour being relied on is that `claude` *merges* into an
+        # existing file, and merging is not commutative with creating.
+        f'printf "settings_existed=%s\\n" '
+        f'"$(test -f "$CLAUDE_CONFIG_DIR/settings.json" && echo yes || echo no)" >> {log}\n'
         "exit 0\n",
         encoding="utf-8",
     )
     script.chmod(script.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
     monkeypatch.setenv("PATH", f"{binroot}{os.pathsep}{os.environ['PATH']}")
-    return log
+    return FakeCli(str(script), log)
 
 
 @pytest.fixture
-def failing_claude(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def failing_claude(tmp_path: Path) -> str:
     """A `claude` that exists and exits 1. The case a missing binary cannot cover."""
     binroot = tmp_path / "failbin"
     binroot.mkdir()
     script = binroot / "claude"
     script.write_text("#!/bin/sh\necho 'boom' >&2\nexit 1\n", encoding="utf-8")
     script.chmod(script.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
-    monkeypatch.setenv("PATH", f"{binroot}{os.pathsep}{os.environ['PATH']}")
+    return str(script)
 
 
 def _package(root: Path, *, agent: str = "forge") -> Path:
@@ -112,6 +146,22 @@ def _spec(**keys: Any) -> dict[str, Any]:
 
 def _levels(report: tuple[Any, ...]) -> list[str]:
     return [o.level for o in report]
+
+
+def _installs(report: tuple[Any, ...]) -> list[str]:
+    """Levels, minus `_place_tree`'s per-member bookkeeping.
+
+    Placement is reported for every member of a `.claude/` tree, so a test about
+    *what an MCP declaration did* would otherwise assert against a count that
+    moves whenever a fixture gains a directory. Dropped by message rather than
+    by level, so a `fail` is never filtered out — the filter can hide a passing
+    detail, never a failing one.
+    """
+    return [o.level for o in report if not o.message.startswith("placed ")]
+
+
+def _placed(report: tuple[Any, ...]) -> list[str]:
+    return [o.message for o in report if o.message.startswith("placed ")]
 
 
 # --------------------------------------------------------------------------- #
@@ -327,7 +377,7 @@ def test_a_child_that_produces_no_report_is_a_failure_and_not_a_success(
 
 
 def test_settings_are_merged_across_levels_and_written_before_any_install(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_claude: Path
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_claude: FakeCli
 ) -> None:
     """The measured ordering, asserted as an ordering rather than as a file.
 
@@ -358,6 +408,7 @@ def test_settings_are_merged_across_levels_and_written_before_any_install(
         _spec(components=["base"], assets="assets/forge.agent"),
         staged_package=str(pkg),
         config_dir=str(config),
+        agent_cli=fake_claude.path,
     )
 
     # L3 wins the collision; L2's untouched key survives the merge.
@@ -365,9 +416,16 @@ def test_settings_are_merged_across_levels_and_written_before_any_install(
     on_disk = json.loads((config / "settings.json").read_text())
     assert on_disk == got.settings
 
-    invoked = fake_claude.read_text().splitlines()
+    invoked = fake_claude.log.read_text().splitlines()
     assert invoked[0].startswith("plugin marketplace add ")
     assert f"CLAUDE_CONFIG_DIR={config}" in invoked
+    # **The ordering itself, observed from inside the child.** This is the
+    # module's most-argued decision and it was untested: with the write moved to
+    # after the installs the suite stayed green, because every assertion read
+    # the file once `install` had returned.
+    assert set(ln for ln in invoked if ln.startswith("settings_existed=")) == {
+        "settings_existed=yes"
+    }, invoked
     assert [line for line in invoked if line.startswith("plugin install")] == [
         "plugin install p1@mp",
         "plugin install p2@mp",
@@ -375,7 +433,7 @@ def test_settings_are_merged_across_levels_and_written_before_any_install(
 
 
 def test_a_failing_plugin_install_is_a_named_outcome_and_not_a_silent_skip(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failing_claude: None
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failing_claude: str
 ) -> None:
     """rc and output land in the report. A component whose plugin did not install
     is a run that will behave differently, and the only place that can be seen
@@ -388,7 +446,10 @@ def test_a_failing_plugin_install_is_a_named_outcome_and_not_a_silent_skip(
     monkeypatch.setattr(agent_assets, "COMPONENTS_ROOT", str(shipped))
 
     got = install(
-        _spec(components=["base"]), staged_package=None, config_dir=str(tmp_path / "config")
+        _spec(components=["base"]),
+        staged_package=None,
+        config_dir=str(tmp_path / "config"),
+        agent_cli=failing_claude,
     )
     failures = [o for o in got.report if o.level == "fail"]
     assert failures, _levels(got.report)
@@ -408,16 +469,21 @@ def test_external_and_bundled_mcp_servers_arrive_in_one_mapping(tmp_path: Path) 
         assets / ".claude" / ".mcp.json",
         json.dumps({"mcpServers": {"weather": {"type": "http", "url": "http://x"}}}),
     )
-    bundled = _write(assets / ".claude" / "tools" / "envchk.mcp.py", "# a server\n")
+    _write(assets / ".claude" / "tools" / "envchk.mcp.py", "# a server\n")
+    config = tmp_path / "config"
 
     got = install(
         _spec(assets="assets/forge.agent"),
         staged_package=str(pkg),
-        config_dir=str(tmp_path / "config"),
+        config_dir=str(config),
     )
     assert got.mcp_servers["weather"] == {"type": "http", "url": "http://x"}
     assert got.mcp_servers["envchk"]["type"] == "stdio"
-    assert got.mcp_servers["envchk"]["args"] == [str(bundled)]
+    # **The PLACED path, not the source.** Registering the source worked for L3
+    # only because the staged package happens to be inside the zone; the same
+    # file in an L2 component would have named a path under `COMPONENTS_ROOT`,
+    # outside every grant — probe F's failure one directory over.
+    assert got.mcp_servers["envchk"]["args"] == [str(config / "tools" / "envchk.mcp.py")]
 
 
 def test_a_tooldef_module_publishes_its_TOOLS_into_the_supervisor(tmp_path: Path) -> None:
@@ -464,8 +530,8 @@ def test_a_tooldef_that_does_not_import_degrades_and_says_so(tmp_path: Path) -> 
         staged_package=str(pkg),
         config_dir=str(tmp_path / "config"),
     )
-    assert _levels(got.report) == ["fail"]
-    assert "did not import" in got.report[0].message
+    assert _installs(got.report) == ["fail"]
+    assert "did not import" in got.report[-1].message
     assert got.tools == ()
 
 
@@ -486,7 +552,9 @@ def test_a_tools_directory_file_with_no_recognised_suffix_is_left_alone(
         staged_package=str(pkg),
         config_dir=str(tmp_path / "config"),
     )
-    assert got.report == ()
+    # The file is *placed* — `tools/` is copied like every other member — and
+    # it is not imported, which is the narrowing under test.
+    assert _installs(got.report) == []
     assert got.tools == ()
 
 
@@ -531,36 +599,6 @@ def test_a_settings_file_that_does_not_parse_refuses(tmp_path: Path) -> None:
             staged_package=str(pkg),
             config_dir=str(tmp_path / "config"),
         )
-
-
-def test_claude_config_dir_is_restored_after_the_installs(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The cost of reusing `installers/base.py::run_cmd` unchanged.
-
-    It builds subprocesses from `os.environ` and takes no environment argument,
-    so the variable is set process-wide for the duration. That is a real window
-    in a threaded supervisor and `_claude_config`'s docstring says so; what this
-    pins is the half that *is* under this module's control — the value the
-    supervisor had is the value it has afterwards, whether it was set or not.
-    """
-    monkeypatch.setenv("CLAUDE_CONFIG_DIR", "/operators/own")
-    pkg = tmp_path / "staged"
-    _package(pkg)
-    install(
-        _spec(assets="assets/forge.agent"),
-        staged_package=str(pkg),
-        config_dir=str(tmp_path / "config"),
-    )
-    assert os.environ["CLAUDE_CONFIG_DIR"] == "/operators/own"
-
-    monkeypatch.delenv("CLAUDE_CONFIG_DIR")
-    install(
-        _spec(assets="assets/forge.agent"),
-        staged_package=str(pkg),
-        config_dir=str(tmp_path / "config"),
-    )
-    assert "CLAUDE_CONFIG_DIR" not in os.environ
 
 
 # --------------------------------------------------------------------------- #
@@ -634,6 +672,13 @@ def test_the_recipe_child_runs_this_worktree_and_not_an_installed_one() -> None:
         capture_output=True,
         text=True,
         env=env,
+        # **`cwd` outside the tree, and without it this test cannot fail.**
+        # pytest runs from `agent_sys/`, which puts the right tree on the
+        # child's `sys.path` through the cwd entry alone — so with the pin
+        # deleted the assertion still passed (verified by mutation, `reviewer`
+        # 2026-09-03). From `/tmp` the only route to `env_mgr` is `PYTHONPATH`,
+        # and the installed one resolves to a different worktree.
+        cwd="/tmp",
     )
     assert Path(proc.stdout.strip()).resolve().parent == ours / "env_mgr"
 
@@ -759,7 +804,7 @@ def test_an_unresolved_variable_in_a_declared_server_refuses(tmp_path: Path) -> 
 
 
 def test_the_marketplace_is_copied_into_the_zone_before_it_is_registered(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_claude: Path
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_claude: FakeCli
 ) -> None:
     """Probe F, and it is a correctness requirement rather than hygiene.
 
@@ -780,11 +825,16 @@ def test_the_marketplace_is_copied_into_the_zone_before_it_is_registered(
     monkeypatch.setattr(agent_assets, "COMPONENTS_ROOT", str(shipped))
     config = tmp_path / "config"
 
-    install(_spec(components=["base"]), staged_package=None, config_dir=str(config))
+    install(
+        _spec(components=["base"]),
+        staged_package=None,
+        config_dir=str(config),
+        agent_cli=fake_claude.path,
+    )
 
     registered = config / agent_assets.MARKETPLACES_DIRNAME / "mp"
     assert (registered / "p1" / "skills" / "s" / "SKILL.md").exists()
-    (add_line,) = [ln for ln in fake_claude.read_text().splitlines() if "marketplace add" in ln]
+    (add_line,) = [ln for ln in fake_claude.log.read_text().splitlines() if "marketplace add" in ln]
     assert add_line.endswith(str(registered)), add_line
     # And the source is untouched — the copy is a copy.
     assert (shipped / "base" / ".claude" / "plugins" / "p1").is_dir()
@@ -887,7 +937,7 @@ def test_a_tooldef_using_a_dataclass_imports(tmp_path: Path) -> None:
         assets / ".claude" / "tools" / "dc.tooldef.py",
         "from __future__ import annotations\n"
         "from dataclasses import dataclass, field\n"
-        "from typing import Any, Callable\n"
+        "from typing import Any, NamedTuple, Callable\n"
         "@dataclass\n"
         "class ToolDef:\n"
         "    name: str\n"
@@ -903,7 +953,7 @@ def test_a_tooldef_using_a_dataclass_imports(tmp_path: Path) -> None:
         config_dir=str(tmp_path / "config"),
     )
 
-    assert _levels(got.report) == ["ok"], got.report
+    assert _installs(got.report) == ["ok"], got.report
     assert [t.name for t in got.tools] == ["probe"]
 
 
@@ -996,3 +1046,380 @@ def test_the_recipe_timeout_is_a_parameter_with_a_stated_default() -> None:
     headroom, not a round number picked defensively.
     """
     assert agent_assets.RECIPE_TIMEOUT_SECONDS == 20 * 60
+
+
+# --------------------------------------------------------------------------- #
+# The pinned CLI
+
+
+def test_plugin_installs_run_the_pinned_cli_and_never_the_bare_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_claude: FakeCli
+) -> None:
+    """**Name the binary, do not search for it.**
+
+    Measured on this host 2026-09-03: `agent_cli_grants` grants the CLI's
+    *install* directory, not the shim directory holding `~/.local/bin/claude`,
+    so the shim is not on the policy-derived `PATH` and a bare `claude`
+    resolves to `/usr/local/bin/claude` — an npm-owned **2.1.197** from July —
+    while `Prepared.agent_cli` is **2.1.246**. One `CLAUDE_CONFIG_DIR` between
+    two builds, and probe A's evidence that plugin installs honour that variable
+    was taken on 2.1.246 only.
+
+    The fake `claude` is on `PATH` **as well as** pinned, deliberately: with
+    nothing on `PATH` a bare name would answer rc 127 and this assertion would
+    pass for the wrong reason.
+    """
+    shipped = tmp_path / "components"
+    _write(
+        shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
+        json.dumps({"name": "mp", "owner": "us", "plugins": [{"name": "p1"}]}),
+    )
+    monkeypatch.setattr(agent_assets, "COMPONENTS_ROOT", str(shipped))
+
+    install(
+        _spec(components=["base"]),
+        staged_package=None,
+        config_dir=str(tmp_path / "config"),
+        agent_cli=fake_claude.path,
+    )
+
+    # The stub records `$*`, so argv[0] is absent from the log — what it proves
+    # is that the *pinned* stub ran at all. That it ran by absolute path is what
+    # the source assertion below covers, and the two together are the claim.
+    lines = fake_claude.log.read_text().splitlines()
+    assert any(ln.startswith("plugin marketplace add ") for ln in lines), lines
+    assert "plugin install p1@mp" in lines
+
+    source = Path(agent_assets.__file__).read_text()
+    assert '"claude", "plugin"' not in source, (
+        "a bare `claude` came back into agent_assets.py; under the derived PATH "
+        "that reaches a different build from the one the session runs"
+    )
+
+
+def test_a_component_with_plugins_and_no_pinned_cli_fails_rather_than_guessing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_claude: FakeCli
+) -> None:
+    """Absent CLI: **a `fail` outcome, not a fallback and not a raise.**
+
+    Not a fallback, because running whichever build `PATH` happens to reach is
+    the defect above. Not a raise, because it is the same event as
+    `claude plugin install` exiting non-zero — the plugin did not install and
+    the report says so — and raising would make one component's `plugins/`
+    directory fatal to every task that names it.
+
+    `fake_claude` is requested so that a bare `claude` *would* have worked: this
+    asserts a refusal to guess, not an absence of options.
+    """
+    shipped = tmp_path / "components"
+    _write(
+        shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
+        json.dumps({"name": "mp", "owner": "us", "plugins": [{"name": "p1"}]}),
+    )
+    monkeypatch.setattr(agent_assets, "COMPONENTS_ROOT", str(shipped))
+
+    got = install(
+        _spec(components=["base"]),
+        staged_package=None,
+        config_dir=str(tmp_path / "config"),
+        agent_cli=None,
+    )
+
+    assert _levels(got.report) == ["fail"]
+    assert "pinned no `claude` CLI" in got.report[0].message
+    assert not fake_claude.log.exists(), "it fell back to the CLI on PATH"
+
+
+def test_an_agent_with_no_plugins_and_no_cli_is_a_working_configuration(
+    tmp_path: Path,
+) -> None:
+    """The control, and it is what keeps the refusal above proportionate.
+
+    A machine with no `claude` runs non-AI tasks perfectly well —
+    `harness.harness_env`'s own words for the same situation — so *no CLI* must
+    only be fatal to the thing that actually needs one.
+    """
+    pkg = tmp_path / "staged"
+    assets = _package(pkg)
+    _write(assets / ".claude" / "skills" / "s" / "SKILL.md", "# s")
+
+    got = install(
+        _spec(assets="assets/forge.agent"),
+        staged_package=str(pkg),
+        config_dir=str(tmp_path / "config"),
+        agent_cli=None,
+    )
+
+    assert _levels(got.report) == ["ok"]
+
+
+def test_the_child_gets_the_policy_derived_path(tmp_path: Path) -> None:
+    """The second half of the same defect, and it was the more immediate one.
+
+    `material.deploy` builds its environment from scratch — three zone paths
+    plus the harness block, whose `_RESERVED` set excludes `PATH` — so before
+    `base_env` the child received **no `PATH` at all**. Measured 2026-09-03:
+    `sh -c "uv --version"` then answers `uv: not found` (rc 127) while the same
+    call under the policy-derived `PATH` answers `uv 0.11.24`. A recipe would
+    have failed naming its toolchain rather than naming the cause.
+    """
+
+    class _Zone:
+        root = str(tmp_path / "zone")
+
+    deployed = material.deploy(
+        _spec(),
+        _Zone(),
+        None,
+        None,
+        base_env={"PATH": "/usr/bin:/bin", "SOMETHING_ELSE": "x"},
+    )
+
+    # `base_env` reaches the child but is **not** echoed back: what `deploy`
+    # returns is what `deploy` decided, and `prepare` already holds the rest.
+    assert "PATH" not in deployed.environment
+    assert "SOMETHING_ELSE" not in deployed.environment
+
+    child = agent_assets._child_env({"PATH": "/usr/bin:/bin"}, str(tmp_path / "cfg"))
+    assert child["PATH"] == "/usr/bin:/bin"
+
+
+# --------------------------------------------------------------------------- #
+# Place by default — the blocker, and the general assertion that would have
+# caught it
+
+
+def test_every_member_of_a_claude_tree_is_placed_except_the_named_exceptions(
+    tmp_path: Path,
+) -> None:
+    """**The enumeration, asserted as an enumeration.**
+
+    This is the test that was missing. `_install_tree` copied `skills/` and
+    `plugins/` and nothing else, so `hooks/` and `servers/` were named by
+    consumers and placed by nobody — measured by `reviewer` 2026-09-03 against
+    the real package: `settings.json` in the zone named
+    `$CLAUDE_CONFIG_DIR/hooks/envchk_session_start.py` with the script absent.
+
+    So the assertion is over the **whole directory listing** rather than over
+    the two members somebody remembered. A `.claude/` tree that grows a member
+    Claude Code invents next year fails here on the day it is added unless it is
+    placed or explicitly excepted, which is what makes `_NOT_PLACED` a closed
+    answer rather than a closed-looking list.
+    """
+    pkg = tmp_path / "staged"
+    assets = _package(pkg)
+    tree = assets / ".claude"
+    _write(tree / "settings.json", json.dumps({"model": "m"}))
+    _write(tree / MCP_REL, json.dumps({"mcpServers": {}}))
+    _write(tree / "skills" / "s" / "SKILL.md", "# s")
+    _write(tree / "hooks" / "on_start.py", "# hook")
+    _write(tree / "servers" / "srv.py", "# server")
+    _write(tree / "tools" / "t.mcp.py", "# tool")
+    _write(tree / "agents" / "sub.md", "# a subagent Claude Code may add later")
+    _write(tree / "commands" / "c.md", "# a slash command")
+    config = tmp_path / "config"
+
+    install(
+        _spec(assets="assets/forge.agent"),
+        staged_package=str(pkg),
+        config_dir=str(config),
+    )
+
+    for member in sorted(os.listdir(tree)):
+        placed = (config / member).exists()
+        if member in agent_assets._NOT_PLACED:
+            continue
+        assert placed, (
+            f"{member!r} is in a .claude/ tree, is not in _NOT_PLACED, and did not "
+            f"reach the config directory. Either place it or except it by name"
+        )
+
+    assert (config / "hooks" / "on_start.py").read_text() == "# hook"
+    assert (config / "servers" / "srv.py").read_text() == "# server"
+    assert (config / "agents" / "sub.md").exists()
+    assert (config / "commands" / "c.md").exists()
+
+    # The three exceptions, each for the reason `_NOT_PLACED` gives.
+    assert json.loads((config / "settings.json").read_text()) == {"model": "m"}, (
+        "settings.json is written by the merge, not copied from one level"
+    )
+    assert not (config / MCP_REL).exists(), (
+        ".mcp.json is read and carried as data; a copy in the zone reads as a "
+        "configuration the session honours"
+    )
+
+
+def test_every_mcp_server_we_produced_names_a_file_that_exists(tmp_path: Path) -> None:
+    """**The general assertion, over all entries rather than today's two.**
+
+    The failure it catches is the one `_expand`'s docstring claims to make
+    impossible and does not: the variable resolves, the file is absent, the
+    report says `ok  1 external MCP server(s)`, and the symptom the operator
+    sees is *a server with no tools* — no error, no cause.
+
+    Both routes are covered. A component's own `.mcp.json` naming
+    `${CLAUDE_CONFIG_DIR}/servers/…` is only true if `servers/` was placed; a
+    bundled `tools/*.mcp.py` is only true if it is registered at its placed path
+    rather than its source.
+    """
+    pkg = tmp_path / "staged"
+    assets = _package(pkg)
+    _write(assets / ".claude" / "servers" / "declared.py", "# declared server")
+    _write(assets / ".claude" / "tools" / "bundled.mcp.py", "# bundled server")
+    _write(
+        assets / ".claude" / MCP_REL,
+        json.dumps(
+            {
+                "mcpServers": {
+                    "declared": {
+                        "type": "stdio",
+                        "command": "python3",
+                        "args": ["${CLAUDE_CONFIG_DIR}/servers/declared.py"],
+                    }
+                }
+            }
+        ),
+    )
+    config = tmp_path / "config"
+
+    got = install(
+        _spec(assets="assets/forge.agent"),
+        staged_package=str(pkg),
+        config_dir=str(config),
+        environ={"CLAUDE_CONFIG_DIR": str(config)},
+    )
+
+    assert set(got.mcp_servers) == {"declared", "bundled"}
+    for name, entry in got.mcp_servers.items():
+        for arg in entry.get("args", []):
+            if arg.startswith(os.sep):
+                assert Path(arg).exists(), (
+                    f"MCP server {name!r} names {arg!r} and nothing is there. It "
+                    f"would be reported installed, fail to start, and present as a "
+                    f"server with no tools"
+                )
+        command = entry.get("command", "")
+        if command.startswith(os.sep):
+            assert Path(command).exists(), f"{name!r}'s command {command!r} is absent"
+
+
+def test_a_marketplace_name_that_climbs_out_of_the_zone_copies_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_claude: FakeCli
+) -> None:
+    """**Checked before the copy, not after it.**
+
+    `market` is `manifest["name"]`, an author-controlled JSON string joined
+    straight into a path. Measured by `reviewer` 2026-09-03 with
+    `"name": "../../../ESCAPED"`: the tree **was written outside the zone** and
+    only then did the `contained()` refusal fire. On this host that is not
+    hypothetical — the repository's no-delete rule was bought by a real
+    out-of-tree write.
+
+    The assertion is therefore about the filesystem, not only about the outcome:
+    nothing may appear at the escaped location.
+    """
+    shipped = tmp_path / "components"
+    escape = tmp_path / "ESCAPED"
+    _write(
+        shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
+        json.dumps({"name": "../../../ESCAPED", "owner": "us", "plugins": []}),
+    )
+    monkeypatch.setattr(agent_assets, "COMPONENTS_ROOT", str(shipped))
+    config = tmp_path / "deep" / "zone" / "config"
+
+    got = install(
+        _spec(components=["base"]),
+        staged_package=None,
+        config_dir=str(config),
+        agent_cli=fake_claude.path,
+    )
+
+    assert "fail" in _levels(got.report)
+    assert not escape.exists(), "the tree was written outside the zone before the refusal"
+    assert not fake_claude.log.exists(), "it registered a marketplace it had refused"
+
+
+@pytest.mark.parametrize("declared", ["../../../escaped", "/etc"])
+def test_an_assets_path_that_leaves_the_staged_package_refuses(
+    tmp_path: Path, declared: str
+) -> None:
+    """F-D18 applied to the consumer, not only to the loader.
+
+    `spec_loader.AssetIndex.resolve_folder` already records that
+    ``Path(staged) / "/abs"`` is ``/abs``; the lesson was applied to what the
+    loader *emits* and not to what reads it. It matters most here because
+    `_tooldefs` imports from this directory **into the supervisor**, and the
+    module docstring's narrowing is that it never comes from outside the staged
+    copy.
+    """
+    pkg = tmp_path / "staged"
+    pkg.mkdir()
+    with pytest.raises(PrepareRefused, match="stay inside the staged package"):
+        install(
+            _spec(assets=declared),
+            staged_package=str(pkg),
+            config_dir=str(tmp_path / "config"),
+        )
+
+
+def test_a_same_tree_mcp_name_collision_is_reported(tmp_path: Path) -> None:
+    """The likelier author mistake of the two, and it was the unreported one.
+
+    A cross-*tree* collision already warned; `.mcp.json` declaring `x` beside
+    `tools/x.mcp.py` in **one** component silently overwrote, leaving the author
+    with a server they did not write and no message.
+    """
+    pkg = tmp_path / "staged"
+    assets = _package(pkg)
+    _write(assets / ".claude" / "tools" / "dup.mcp.py", "# bundled")
+    _write(
+        assets / ".claude" / MCP_REL,
+        json.dumps({"mcpServers": {"dup": {"type": "http", "url": "http://x"}}}),
+    )
+
+    got = install(
+        _spec(assets="assets/forge.agent"),
+        staged_package=str(pkg),
+        config_dir=str(tmp_path / "config"),
+    )
+
+    assert [o.level for o in got.report if "also ships" in o.message] == ["warn"]
+    assert got.mcp_servers["dup"]["type"] == "stdio"
+
+
+def test_a_components_marketplace_never_lands_on_the_harnesss_own_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_claude: FakeCli
+) -> None:
+    """`<config>/plugins/` belongs to Claude Code, not to us.
+
+    Measured (probe A, `claude` 2.1.246): `claude plugin install` writes that
+    directory itself — `installed_plugins.json`, `known_marketplaces.json`,
+    `marketplaces/`, `cache/`. A component's **source** marketplace copied onto
+    that name would sit among the CLI's own bookkeeping, put there by us before
+    the CLI writes it.
+
+    So this is a namespace collision rather than a naming preference, and it is
+    the reason `plugins/` is *relocated* in `_NOT_PLACED` rather than simply
+    placed like every other member. The `_NOT_PLACED` table states it; this is
+    what keeps it true.
+    """
+    shipped = tmp_path / "components"
+    _write(
+        shipped / "base" / ".claude" / "plugins" / ".claude-plugin" / "marketplace.json",
+        json.dumps({"name": "mp", "owner": "us", "plugins": []}),
+    )
+    _write(shipped / "base" / ".claude" / "plugins" / "SENTINEL", "the component's own copy")
+    monkeypatch.setattr(agent_assets, "COMPONENTS_ROOT", str(shipped))
+    config = tmp_path / "config"
+
+    install(
+        _spec(components=["base"]),
+        staged_package=None,
+        config_dir=str(config),
+        agent_cli=fake_claude.path,
+    )
+
+    assert (config / agent_assets.MARKETPLACES_DIRNAME / "mp" / "SENTINEL").exists()
+    assert not (config / "plugins" / "SENTINEL").exists(), (
+        "the component's marketplace was copied into the directory the CLI owns"
+    )

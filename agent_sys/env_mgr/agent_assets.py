@@ -11,6 +11,14 @@ is placed, not read* — for everything except the four documents whose contents
 are an interface (`settings.json`, `.mcp.json`, `marketplace.json`, and a
 `*.tooldef.py`'s ``TOOLS``).
 
+**Every measurement cited below is evidence about `claude` 2.1.246** — the build
+`cli/environment.py` pins and the one `material.deploy` now hands this module as
+`agent_cli`. Naming the build is what makes these evidence rather than folklore:
+probes B, C and F were first taken against the SDK's *bundled* 2.1.251, because
+`_find_cli` prefers its own bundle over `PATH`, and had to be re-measured as
+B'/C'/F' once that was noticed. A probe's own provenance is a fact to open, not
+to assume.
+
 ## The three levels
 
 | level | what | declared how |
@@ -31,9 +39,9 @@ L1, then L2, then L3 — so that when two levels bind the same name, **the
 package's own copy wins**. That is `material.deploy`'s existing precedence
 carried to a second kind of material: *an author saying so outranks a default*.
 
-One ordering constraint cuts across it and is **measured**, 2026-09-03: ``claude
-plugin marketplace add`` and ``claude plugin install`` *merge* into an existing
-``settings.json`` rather than clobbering it — a hand-written ``hooks`` key
+One ordering constraint cuts across it and is **measured**, 2026-09-03:
+``claude plugin marketplace add`` and ``claude plugin install`` *merge* into an
+existing ``settings.json`` rather than clobbering it — a hand-written ``hooks`` key
 survived a subsequent install, which only added ``enabledPlugins`` and
 ``extraKnownMarketplaces``. Merging is not commutative with creating: the file
 has to exist first. So the settings document is assembled from every level and
@@ -138,7 +146,7 @@ from typing import Any, NamedTuple
 
 from env_mgr import paths
 from env_mgr.fs.layout import copy_out
-from env_mgr.fs.path import contained
+from env_mgr.fs.path import contained, contained_syntactically
 from env_mgr.protocols import PrepareRefused
 
 #: The directory holding the `env_mgr` package — i.e. what has to be on a child
@@ -181,7 +189,8 @@ COMPONENTS_ROOT = os.path.join(os.path.dirname(os.path.dirname(__file__)), "comp
 #: Written into the zone's config directory. Nothing else writes this file.
 SETTINGS_FILENAME = "settings.json"
 
-#: What makes a directory a local plugin marketplace. Measured 2026-09-03:
+#: What makes a directory a local plugin marketplace. Measured 2026-09-03 on
+#: ``claude`` 2.1.246:
 #: ``claude plugin validate <dir>`` requires it, and it carries
 #: ``{name, owner, plugins: [{name, source, description}]}``.
 MARKETPLACE_MANIFEST = os.path.join(".claude-plugin", "marketplace.json")
@@ -197,6 +206,23 @@ MCP_FILENAME = ".mcp.json"
 
 #: Subdirectory of a component holding executable tool definitions.
 TOOLS_DIRNAME = "tools"
+
+#: **Everything a `.claude/` tree may hold is placed in the zone except these,
+#: and each one is here because it is read or relocated rather than skipped.**
+#:
+#: This set is the whole answer to *"can a component carry something a consumer
+#: names and the installer does not place?"*. Placing is the default, so the
+#: answer is: only if it is listed here, and each entry says where it goes
+#: instead. The inverse — a list of what to copy — is what let `hooks/` and
+#: `servers/` be named by `settings.json` and an `.mcp.json` and placed by
+#: nobody (`reviewer`, 2026-09-03).
+#:
+#: | member | why not placed |
+#: |---|---|
+#: | ``settings.json`` | **read**, merged across levels, and written by `install` *before* any install runs — copying it here would overwrite the merge with one level's copy, after the plugin installs had already added their own keys |
+#: | ``.mcp.json`` | **read** as an interface document and carried to the backend as `Prepared.mcp_servers`. Placing it would put a file in the zone that nothing reads, which reads as a configuration the session honours |
+#: | ``plugins/`` | **relocated**, not skipped: copied to ``<config>/marketplaces/<name>/`` and registered there. `<config>/plugins/` is where Claude Code puts *installed* plugins, so a component's marketplace may not land on that name |
+_NOT_PLACED = frozenset({SETTINGS_FILENAME, MCP_FILENAME, "plugins"})
 
 #: A stdio MCP server the component ships; auto-registered under its stem.
 MCP_SUFFIX = ".mcp.py"
@@ -215,6 +241,17 @@ INSTALL_REPORT_FILENAME = "agent_assets.install.json"
 #: Where a component's marketplace is copied to before it is registered. Under
 #: the zone's config directory, and probe F is why it is copied at all rather
 #: than registered where it lies — see `_install_plugins`.
+#:
+#: **`marketplaces/` and emphatically not `plugins/`, which is a collision with
+#: the harness's own namespace rather than a naming preference.** Measured
+#: (probe A, `claude` 2.1.246): ``claude plugin install`` writes
+#: ``<CLAUDE_CONFIG_DIR>/plugins/`` itself —
+#: ``installed_plugins.json``, ``known_marketplaces.json``, ``marketplaces/``,
+#: ``cache/``. A component's *source* marketplace copied onto that name would be
+#: placed among the CLI's own bookkeeping, by us, before the CLI writes it. So
+#: `plugins/` is in `_NOT_PLACED` — relocated, never skipped — and this is where
+#: it goes. `test_a_components_marketplace_never_lands_on_the_harnesss_own_name`
+#: keeps the two apart.
 MARKETPLACES_DIRNAME = "marketplaces"
 
 #: `bootstrap`, not `install`. `runner.run` defines that stage as install *then*
@@ -323,6 +360,7 @@ def install(
     logs_dir: str | None = None,
     environ: Mapping[str, str] | None = None,
     recipe_timeout: float | None = None,
+    agent_cli: str | None = None,
 ) -> AgentMaterial:
     """Install this agent's L1, L2 and L3 components into `config_dir`.
 
@@ -334,10 +372,18 @@ def install(
     the operator's live checkout instead of the copy this run was pinned to.
 
     `config_dir` is ``<zone>/config``, which `material.deploy` has already
-    pointed ``CLAUDE_CONFIG_DIR`` at. Measured 2026-09-03: ``claude plugin
+    pointed ``CLAUDE_CONFIG_DIR`` at. Measured 2026-09-03 on ``claude`` 2.1.246:
+    ``claude plugin
     marketplace add`` and ``claude plugin install`` fully respect it —
     ``plugins/``, ``settings.json`` and even ``.claude.json`` land in the
-    relocated directory, and ``~/.claude/plugins/marketplaces`` was untouched.
+    relocated directory, and ``~/.claude/plugins/marketplaces`` still held only
+    ``claude-plugins-official`` afterwards.
+
+    **Not evidenced by ``~/.claude.json``'s checksum**, and that citation is
+    withdrawn rather than merely dropped: measured later the same morning, with
+    no probe running at all, that file changed twice in 75 seconds because every
+    live Claude Code session on this host rewrites it. The earlier "unchanged"
+    readings were luck. The two facts above are what the conclusion rests on.
 
     `environ` is the **zone environment `material.deploy` has already built**,
     including the agent spec's declared block. It is what every subprocess here
@@ -389,6 +435,7 @@ def install(
             environ=child_env,
             recipe_cwd=recipe_cwd,
             timeout=timeout,
+            agent_cli=agent_cli,
         )
         report.extend(outcomes)
         # `update`, not `setdefault`: a later level is a nearer owner, and
@@ -447,7 +494,23 @@ def _assets_dir(agent_spec: Any, *, staged_package: str | None) -> str | None:
     rel = _get(agent_spec, "assets")
     if not rel or not staged_package:
         return None
-    path = os.path.join(staged_package, str(rel))
+    # **Joined under a check, not with `os.path.join`.** `assets` is
+    # author-written and `Path(staged) / "/abs"` is `/abs` — F-D18, which
+    # `spec_loader.AssetIndex.resolve_folder`'s docstring already records. The
+    # lesson was applied to the loader's *output* and not to this consumer of
+    # it, so a hand-bound `assets: ../../..` or an absolute one reached outside
+    # the staged copy. That matters more here than anywhere else in this module:
+    # `_tooldefs` imports `*.tooldef.py` from this directory **into the
+    # supervisor**, and the module docstring's narrowing is that it never comes
+    # from outside the staged package.
+    path = contained_syntactically(str(rel), staged_package)
+    if path is None:
+        raise PrepareRefused(
+            f"agent {_name(agent_spec)!r} declares assets {rel!r}, which does not "
+            f"stay inside the staged package {staged_package!r}. A tool module is "
+            f"imported from that directory into this process, so it may not be "
+            f"reached by climbing out of the copy this run was pinned to"
+        )
     if not os.path.isdir(path):
         raise PrepareRefused(
             f"agent {_name(agent_spec)!r} declares assets {rel!r} and "
@@ -516,11 +579,23 @@ def _recipe_paths(agent_spec: Any, *, staged_package: str | None) -> list[str]:
     with the agent's unrelated L1 list.
     """
     out: list[str] = []
+    shipped = os.path.join(os.path.dirname(__file__), "recipes")
     for declared in _sequence(agent_spec, "recipes"):
         candidates = []
         if staged_package:
-            candidates.append(os.path.join(staged_package, declared))
-        candidates.append(os.path.join(os.path.dirname(__file__), "recipes", f"{declared}.yaml"))
+            # **Checked, for `_assets_dir`'s reason.** `../../..` climbs out of
+            # the staged copy and an absolute value replaces it outright, and a
+            # recipe is a file this module hands to a subprocess to execute.
+            # `None` simply means *not a package-relative recipe*, so the bare
+            # name below is still tried and the refusal names both candidates.
+            inside = contained_syntactically(declared, staged_package)
+            if inside is not None:
+                candidates.append(inside)
+        # The bare-name form. `os.path.basename` because this one is ours: a
+        # declared name may not select a file outside the shipped directory by
+        # spelling a path, and unlike the package-relative form there is no
+        # legitimate reading in which it contains a separator.
+        candidates.append(os.path.join(shipped, f"{os.path.basename(declared)}.yaml"))
         for path in candidates:
             if os.path.isfile(path):
                 out.append(path)
@@ -546,27 +621,55 @@ def _install_tree(
     environ: Mapping[str, str],
     recipe_cwd: str,
     timeout: float,
+    agent_cli: str | None,
 ) -> tuple[list[InstallOutcome], dict[str, Any], list[Any]]:
-    """One ``.claude/`` tree: its recipe, skills, plugins, MCP servers and tools.
+    """One ``.claude/`` tree, placed in the zone. **Place by default; name every
+    exception.**
 
-    ``settings.json`` is **not** read here — it was merged and written before
-    any of this ran, for the ordering reason in the module docstring. Reading it
-    a second time here would be the same fact with two readers, and the second
-    one would run after the plugin installs had already added their own keys to
-    the file.
+    This was *"copy `skills/`, copy `plugins/`"* and it had a hole with no
+    bottom: `hooks/` and `servers/` were named by consumers and placed by
+    nobody. Measured by `reviewer`, 2026-09-03, against the real package with a
+    real `claude` — ``settings.json`` landed in the zone naming
+    ``$CLAUDE_CONFIG_DIR/hooks/envchk_session_start.py`` with the script absent,
+    and `envchk-baseline`'s server was reported ``ok  1 external MCP server(s)``
+    with ``args[0]`` pointing at a file that did not exist. That second one is
+    the failure `_expand`'s docstring claims to make impossible: the variable
+    resolved, and the file was not there.
+
+    **So the enumeration is inverted.** The question a reader must be able to
+    answer is not *are `hooks/` and `servers/` copied* but *is there anything a
+    `.claude/` tree can carry that a consumer will name and this will not
+    place*, and that is only answerable if placing is the default. Everything
+    under `.claude/` is copied into `<zone>/config/` except the members of
+    `_NOT_PLACED`, and each of those is a **read** or a **relocation**, listed
+    there with its reason. A directory Claude Code adds next year — `agents/`,
+    `commands/`, an output style — is placed on the day it appears, without an
+    edit here.
+
+    `recipe.yaml` sits beside `.claude/` rather than inside it, so it is not
+    part of this and is not placed: it is not part of Claude Code's layout and
+    must not appear to be.
     """
     outcomes: list[InstallOutcome] = []
 
-    # A component's own prerequisites, beside `.claude/` rather than inside it:
-    # `recipe.yaml` is not part of Claude Code's layout and must not appear to be.
     prereq = os.path.join(os.path.dirname(tree), "recipe.yaml")
     if os.path.isfile(prereq):
         outcomes.extend(_run_recipe(prereq, environ, recipe_cwd, timeout))
 
-    outcomes.extend(_install_skills(tree, origin=origin, config_dir=config_dir))
-    outcomes.extend(_install_plugins(tree, origin=origin, config_dir=config_dir, environ=environ))
+    outcomes.extend(_place_tree(tree, origin=origin, config_dir=config_dir))
+    outcomes.extend(
+        _install_plugins(
+            tree,
+            origin=origin,
+            config_dir=config_dir,
+            environ=environ,
+            agent_cli=agent_cli,
+        )
+    )
 
-    servers, mcp_outcomes = _mcp_servers(tree, origin=origin, environ=environ)
+    servers, mcp_outcomes = _mcp_servers(
+        tree, origin=origin, environ=environ, config_dir=config_dir
+    )
     outcomes.extend(mcp_outcomes)
 
     tools, tool_outcomes = _tooldefs(tree, origin=origin)
@@ -575,34 +678,44 @@ def _install_tree(
     return outcomes, servers, tools
 
 
-def _install_skills(tree: str, *, origin: str, config_dir: str) -> list[InstallOutcome]:
-    """Copy each ``skills/<name>/`` into the zone's config directory.
+def _place_tree(tree: str, *, origin: str, config_dir: str) -> list[InstallOutcome]:
+    """Copy every member of a ``.claude/`` tree into the zone, bar the exceptions.
 
-    A **copy**, not a symlink or a grant, for `material.deploy`'s reason: the
-    zone is what the confined session can read, and a link out of it resolves to
-    a path the kernel refuses. `copy_out` is reused rather than `shutil.copytree`
-    so that the refusal to copy a path onto itself is one rule in one place.
+    A **copy**, not a symlink and not a grant, for `material.deploy`'s reason:
+    the zone is what the confined session can read, and a link out of it
+    resolves to a path the kernel refuses. That is also the ruling for
+    `servers/` specifically — *copy into the zone, do not reference out of it* —
+    chosen over having components name ``${AGENT_SYS_COMPONENTS_ROOT}/...``
+    because it makes the three docstrings that already assert a copy true, the
+    copy dies with the zone, and it gives **one rule for both levels**: L3's
+    `tools/*.mcp.py` used to be registered at its *source* path and worked only
+    because that happened to lie inside the staged package.
+
+    `copy_out` rather than `shutil.copytree` so that the refusal to copy a path
+    onto itself stays one rule in one place.
     """
-    src_root = os.path.join(tree, "skills")
-    if not os.path.isdir(src_root):
+    if not os.path.isdir(tree):
         return []
     out: list[InstallOutcome] = []
-    for name in sorted(os.listdir(src_root)):
-        src = os.path.join(src_root, name)
-        if not os.path.isdir(src):
+    for name in sorted(os.listdir(tree)):
+        if name in _NOT_PLACED:
             continue
-        dst = os.path.join(config_dir, "skills", name)
-        copy_out(src, dst)
-        out.append(InstallOutcome("ok", f"skill {name!r} from {origin}", {"path": dst}))
+        dst = copy_out(os.path.join(tree, name), os.path.join(config_dir, name))
+        out.append(InstallOutcome("ok", f"placed {name!r} from {origin}", {"path": dst}))
     return out
 
 
 def _install_plugins(
-    tree: str, *, origin: str, config_dir: str, environ: Mapping[str, str]
+    tree: str,
+    *,
+    origin: str,
+    config_dir: str,
+    environ: Mapping[str, str],
+    agent_cli: str | None,
 ) -> list[InstallOutcome]:
     """Register the component's local marketplace and install every plugin in it.
 
-    Measured 2026-09-03: a local marketplace needs
+    Measured 2026-09-03 on ``claude`` 2.1.246: a local marketplace needs
     ``<dir>/.claude-plugin/marketplace.json`` carrying
     ``{name, owner, plugins: [{name, source, description}]}``, each plugin
     directory needs its own ``.claude-plugin/plugin.json``, and
@@ -611,7 +724,9 @@ def _install_plugins(
     plugin and ``<plugin>@<marketplace>`` is the only spelling that names one.
 
     **The marketplace is copied into the zone before it is registered, and that
-    is probe F rather than tidiness.** Measured 2026-09-03: a session loading a
+    is probe F rather than tidiness.** Measured 2026-09-03 (re-measured as F' on
+    ``claude`` 2.1.246 after the first run used the SDK's bundled 2.1.251): a
+    session loading a
     plugin's skill reported its base directory as the *marketplace source path*,
     not the config directory — ``settings.json`` records
     ``extraKnownMarketplaces: {<mp>: {source: {path: <dir>}}}`` and the plugin is
@@ -623,6 +738,55 @@ def _install_plugins(
     path inside the zone *by construction*, and the assertion below is what says
     the construction held.
 
+    **The CLI is the pinned one, absolute, and never the bare name `claude`.**
+    Measured on this host 2026-09-03, and it is the same defect
+    `claude_sdk._prepared_cli` refuses from the other side of the seam:
+
+        Prepared.agent_cli      ~/.local/bin/claude -> versions/2.1.246
+        bare `claude` on the policy-derived PATH   /usr/local/bin/claude  2.1.197
+
+    `agent_cli_grants` grants the CLI's *install* directory, not the shim
+    directory that holds `~/.local/bin/claude`, so the shim is not on the
+    derived `PATH` and a bare name resolves to a different build — an npm-owned
+    2.1.197 from July. The session would then talk to 2.1.246 while its plugins
+    were installed by 2.1.197, through one shared `CLAUDE_CONFIG_DIR`. Probe A,
+    the entire basis for believing plugin installs honour that variable, was
+    measured on 2.1.246 and says nothing about 2.1.197.
+
+    This is the rule the rest of this module already follows twice — a bundled
+    MCP server runs under `sys.executable`, and a serena entry names
+    ``${UV_TOOL_BIN_DIR}/serena`` — stated once more because here it was got
+    wrong: **name the binary, do not search for it.**
+
+    **The hazard was written down in this repository before this module
+    existed.** `cli/environment.py:512-519`, on the line that sets
+    ``agent_cli``: *"a run with this left `None` would either refuse or, if the
+    backend let it through, execute a different build from the one `env_mgr`
+    installed plugins into and succeed without them."* That was about the
+    **session** running a build other than the installs'; what happened here is
+    the mirror image, the **installs** running a build other than the session's,
+    and it arrived because this was new code that looked a binary up by name
+    while every existing consumer had already been made to name it. Two
+    consumers of one ``CLAUDE_CONFIG_DIR`` must be one binary — in either
+    direction.
+
+    And the mismatch is **structural, not incidental**: `cli/environment.py`
+    resolves `claude` with `shutil.which` in the *supervisor*, whose ``PATH``
+    carries ``~/.local/bin``, while the child's ``PATH`` is derived from the
+    granted policy, which does not. The two answers differ by construction, so
+    no amount of care in the child's environment fixes it. Only naming the
+    binary does.
+
+    **An absent CLI is a `fail` outcome, not a raise, and not a fallback.** Not a
+    fallback, because silently running an unknown build is exactly what the
+    measurement above condemns. Not a raise, because it is the same event as
+    ``claude plugin install`` exiting non-zero — the plugin did not install, the
+    agent will run without it, and the report says so — and raising would make
+    one component's `plugins/` directory fatal to every task that names it,
+    which is the argument `_tooldefs` already lost for its own case. A run whose
+    agent ships no marketplace never reaches this line, so *no `claude` on the
+    machine* stays a working configuration.
+
     A manifest that does not parse is a `fail` `InstallOutcome` rather than a raise:
     the directory exists, so this is not the declared-and-absent case, and the
     author gets the parser's complaint next to every other install result.
@@ -630,6 +794,18 @@ def _install_plugins(
     source = os.path.join(tree, "plugins")
     if not os.path.isdir(source):
         return []
+
+    if not agent_cli:
+        return [
+            InstallOutcome(
+                "fail",
+                f"{origin} ships plugins/ and this run pinned no `claude` CLI, so "
+                f"there is nothing to install them with. Falling back to a bare "
+                f"`claude` would run whichever build the derived PATH happens to "
+                f"reach, which is not the build the session uses",
+                {"component": origin},
+            )
+        ]
 
     manifest_path = os.path.join(source, MARKETPLACE_MANIFEST)
     try:
@@ -655,19 +831,52 @@ def _install_plugins(
         ]
 
     out: list[InstallOutcome] = []
-    root = copy_out(source, os.path.join(config_dir, MARKETPLACES_DIRNAME, market))
+
+    # **Checked BEFORE the copy, on the un-joined name.** This was
+    # `copy_out(...)` and *then* `contained()`, with a comment saying the
+    # construction made an escape impossible — and the construction was
+    # `os.path.join` with `manifest["name"]`, an author-controlled JSON string.
+    # Measured by `reviewer` 2026-09-03 with `"name": "../../../ESCAPED"`: the
+    # tree **was written outside the zone**, and only then did the refusal fire.
+    # An absolute name is worse — `os.path.join` discards `config_dir` outright
+    # and `copy_out`'s `dirs_exist_ok=True` merges into whatever is there.
+    #
+    # `contained_syntactically` is the right check and it existed unused: it
+    # rejects an absolute path and any `..` that climbs out, **without touching
+    # the filesystem**, which is what makes it usable before the directory it
+    # would create exists. `contained` cannot serve here for that exact reason —
+    # it calls `resolve_strict` on both sides and the destination is not there
+    # yet.
+    #
+    # On this host a write outside the tree is not a hypothetical: the
+    # repository's no-delete rule was bought by a real one.
+    relative = os.path.join(MARKETPLACES_DIRNAME, market)
+    destination = contained_syntactically(relative, config_dir)
+    if destination is None:
+        return [
+            InstallOutcome(
+                "fail",
+                f"{origin}'s {MARKETPLACE_MANIFEST} declares the marketplace name "
+                f"{market!r}, which does not stay inside the zone when used as a "
+                f"directory name. Nothing was copied",
+                {"path": manifest_path, "name": market},
+            )
+        ]
+
+    root = copy_out(source, destination)
     if not contained(root, config_dir):
-        # The construction above should make this impossible; it is asserted
-        # because the failure it guards is silent. A marketplace outside the
-        # granted set installs, reports success, and then serves nothing —
-        # probe F is what makes that concrete rather than theoretical.
+        # The syntactic check above cannot see a symlink; this one resolves both
+        # sides and runs now that the directory exists. Belt and braces here is
+        # earned rather than reflexive — a marketplace outside the granted set
+        # installs, reports success and then serves nothing (probe F), so the
+        # failure it guards is silent.
         raise PrepareRefused(
             f"the marketplace for {origin} would be registered at {root!r}, which is "
             f"not inside {config_dir!r}. Claude Code reads a plugin from its "
             f"marketplace source path at run time, so a path outside the zone is a "
             f"plugin that installs cleanly and never loads"
         )
-    rc, text = _run_cmd(["claude", "plugin", "marketplace", "add", root], environ)
+    rc, text = _run_cmd([agent_cli, "plugin", "marketplace", "add", root], environ)
     out.append(
         InstallOutcome(
             "ok" if rc == 0 else "fail",
@@ -684,7 +893,7 @@ def _install_plugins(
         name = str(plugin.get("name") or "") if isinstance(plugin, Mapping) else str(plugin)
         if not name:
             continue
-        rc, text = _run_cmd(["claude", "plugin", "install", f"{name}@{market}"], environ)
+        rc, text = _run_cmd([agent_cli, "plugin", "install", f"{name}@{market}"], environ)
         out.append(
             InstallOutcome(
                 "ok" if rc == 0 else "fail",
@@ -696,7 +905,7 @@ def _install_plugins(
 
 
 def _mcp_servers(
-    tree: str, *, origin: str, environ: Mapping[str, str]
+    tree: str, *, origin: str, environ: Mapping[str, str], config_dir: str
 ) -> tuple[dict[str, Any], list[InstallOutcome]]:
     """External servers from ``.mcp.json``, plus one per ``tools/*.mcp.py``.
 
@@ -719,6 +928,16 @@ def _mcp_servers(
     2 and that directory does not exist until step 6b installs it, so naming the
     binary absolutely is the only route that needs no reordering. It is also
     exactly what probe E measured working.
+
+    **A bundled server is registered at its PLACED path, never its source.**
+    This read `os.path.join(tree, ...)` and worked only by luck: for L3 the tree
+    is inside the staged package, which is inside the zone. An L2 component
+    shipping the same file registers a path under `COMPONENTS_ROOT` — outside
+    every grant — and that is probe F's failure one directory over: it installs
+    cleanly, reports `ok`, and serves nothing. `_place_tree` has already copied
+    `tools/` into the config directory, so the placed path both exists and is
+    reachable. Same rule as the marketplace, and now the same rule at both
+    levels.
     """
     servers: dict[str, Any] = {}
     out: list[InstallOutcome] = []
@@ -732,11 +951,28 @@ def _mcp_servers(
             InstallOutcome("ok", f"{len(declared)} external MCP server(s) from {origin}", {})
         )
 
-    for path in _tool_files(tree, MCP_SUFFIX):
-        name = os.path.basename(path)[: -len(MCP_SUFFIX)]
-        servers[name] = {"type": "stdio", "command": sys.executable, "args": [path]}
+    for source in _tool_files(tree, MCP_SUFFIX):
+        name = os.path.basename(source)[: -len(MCP_SUFFIX)]
+        placed = os.path.join(config_dir, TOOLS_DIRNAME, os.path.basename(source))
+        if name in servers:
+            # **The same-tree collision, which the cross-tree one already
+            # reported and this did not.** `.mcp.json` declaring `x` beside
+            # `tools/x.mcp.py` is the likelier author mistake of the two, and
+            # silently overwriting leaves them with a server they did not write
+            # and no message. Reported and the bundled one wins, because it is
+            # the one whose file this function can prove exists.
+            out.append(
+                InstallOutcome(
+                    "warn",
+                    f"{origin} declares MCP server {name!r} in {MCP_FILENAME} and also "
+                    f"ships {TOOLS_DIRNAME}/{os.path.basename(source)}; the bundled "
+                    f"server wins",
+                    {"path": placed},
+                )
+            )
+        servers[name] = {"type": "stdio", "command": sys.executable, "args": [placed]}
         out.append(
-            InstallOutcome("ok", f"bundled MCP server {name!r} from {origin}", {"path": path})
+            InstallOutcome("ok", f"bundled MCP server {name!r} from {origin}", {"path": placed})
         )
     return servers, out
 

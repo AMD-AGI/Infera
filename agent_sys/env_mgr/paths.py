@@ -140,10 +140,11 @@ AGENT_ASSETS_ENV_VAR = "AGENT_SYS_AGENT_ASSETS"
 #: condition that emits the grant. A run that declares none gets neither, so the
 #: two cannot fall out of step by one of them being unconditional.
 #:
-#: Read-only, and that is a decision: a component is *read* from here and copied
-#: into the zone before anything executes it. If something ever has to run out of
-#: this directory, the answer is to copy that component into the zone, not to
-#: widen the grant.
+#: Read-only, and that is a decision: a component is *read* from here and every
+#: member of its ``.claude/`` tree is copied into the zone before anything names
+#: it (`agent_assets._place_tree` — *place by default*, three named exceptions).
+#: If something ever has to run out of this directory, the answer is to copy that
+#: component into the zone, not to widen the grant.
 COMPONENTS_ROOT_ENV_VAR = "AGENT_SYS_COMPONENTS_ROOT"
 
 #: ``<zone>/logs/agent_assets.install.json`` — what the three component levels

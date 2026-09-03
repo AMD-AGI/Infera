@@ -198,12 +198,23 @@ def component_grants(agent_spec: Any) -> tuple[Granted, ...]:
     but one.
 
     **`READ_EXEC`, not `READ_WRITE`, and read is the ceiling on purpose.** A
-    component is *read* from here and copied into the zone before anything runs
-    it: skills are copied to ``<zone>/config/skills``, a marketplace is copied
-    before it is registered (probe F), and a bundled MCP server is launched by
-    absolute path under the supervisor's own interpreter. If something ever has
-    to execute out of this directory the answer is to copy that component into
-    the zone as well, not to widen this.
+    component is *read* from here and **every member of its `.claude/` tree is
+    copied into the zone** before anything names it —
+    `agent_assets._place_tree`, whose rule is *place by default* with three
+    named exceptions, each of which is a read or a relocation. A marketplace is
+    copied before it is registered (probe F), and a bundled MCP server is
+    launched from its **placed** path under the supervisor's own interpreter.
+
+    **That clause used to say less than it appeared to.** It read *"skills are
+    copied … and a bundled MCP server is launched by absolute path"*, which is
+    true of the launch and quietly silent about the copy — and at the time
+    `hooks/` and `servers/` were copied by nothing, so a component's server was
+    reported installed and its file was not there (`reviewer`, 2026-09-03). A
+    docstring asserting a copy nobody looked for is this repository's own
+    standing obligation turned inward.
+
+    If something ever has to execute out of this directory the answer is to copy
+    that component into the zone as well, not to widen this.
 
     Returns `()` for a spec that is `None` or declares nothing, so the caller
     composes it unconditionally and never branches.

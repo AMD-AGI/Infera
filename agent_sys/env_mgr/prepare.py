@@ -499,6 +499,12 @@ def prepare(
     # ungranted directory is unreachable, and nothing here can make it otherwise.
     environment = {"PATH": executable_path(policy)}
 
+    # **Resolved once, read twice.** `Prepared.agent_cli` reports it and
+    # `material.deploy` runs plugin installs with it, and those two must be the
+    # same binary or the run installs into one build and talks to another. Two
+    # `resolve_strict` calls would be one fact with two writers.
+    agent_cli = resolve_strict(ctx.agent_cli) if ctx.agent_cli else None
+
     # 6a. **The task package: a copy in the zone, not a grant on the root.**
     # `interfaces.md` §4.16, F19's third position. It sits beside handoff
     # staging because it is the same act — putting what the executor needs where
@@ -553,7 +559,23 @@ def prepare(
     # outside every grant) and the asset directory is copied into the workspace.
     deployed = None
     if agent_spec is not None:
-        deployed = material.deploy(agent_spec, zone, staged, ws.path)
+        # **`environment` and `agent_cli` are passed because the installs are
+        # subprocesses, and a subprocess needs both.**
+        #
+        # `environment` carries the policy-derived `PATH`. Measured 2026-09-03:
+        # without it the child gets **no `PATH` at all** — `material.deploy`
+        # builds its mapping from scratch and `harness._RESERVED` excludes
+        # `PATH` — so `sh -c "uv --version"` answers `uv: not found` (rc 127)
+        # and every recipe that needs a toolchain fails for a reason that names
+        # the toolchain rather than the cause.
+        #
+        # `agent_cli` is the **pinned** CLI, resolved once here and used twice:
+        # a plugin install must run the same binary the session will
+        # (`interfaces.md` §4.11, and `claude_sdk._prepared_cli`'s refusal is
+        # the same rule on the other side of the seam).
+        deployed = material.deploy(
+            agent_spec, zone, staged, ws.path, base_env=environment, agent_cli=agent_cli
+        )
         environment.update(deployed.environment)
 
     # 7 -- LAST, and since the split it **checks** rather than applies.
@@ -579,7 +601,7 @@ def prepare(
     return Prepared(
         permissions_enforced=enforcing,
         output_paths=MappingProxyType(grants.output_paths(task, execution, ctx.store_root)),
-        agent_cli=resolve_strict(ctx.agent_cli) if ctx.agent_cli else None,
+        agent_cli=agent_cli,
         staged_package=staged,
         zone=zone,
         workspace=ws,

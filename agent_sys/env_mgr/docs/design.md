@@ -1356,7 +1356,36 @@ Two details of the invocation are load-bearing. **`PYTHONPATH` is derived from
 |---|---|
 | A / A' | plugin installs honour `CLAUDE_CONFIG_DIR`; they **merge** into `settings.json`, hence the write-first ordering above |
 | D | `uv tool install` writes `~/.local/share/uv` unless `UV_TOOL_DIR` / `UV_TOOL_BIN_DIR` / `UV_CACHE_DIR` are pinned — and it *succeeds* while doing it. So `material.deploy` resolves the agent's declared `env` block **before** the installs (it is an input) and applies it **again after** (it is still the last word) |
-| F | a plugin is read from its **marketplace source path at run time**; nothing is copied by the install. So a component's `plugins/` is copied into `<zone>/config/marketplaces/<name>/` and *that* is registered, with a `contained()` assertion behind it. Registering it in place would install cleanly and fail to load under confinement |
+| F | a plugin is read from its **marketplace source path at run time**; nothing is copied by the install. So a component's `plugins/` is copied into `<zone>/config/marketplaces/<name>/` and *that* is registered. Registering it in place would install cleanly and fail to load under confinement |
+
+**Placing a `.claude/` tree is an enumeration, and the enumeration is inverted
+on purpose.** `_install_tree` copied `skills/` and `plugins/` and nothing else,
+so `hooks/` and `servers/` were named by consumers and placed by nobody — a
+`SessionStart` hook pointing at a missing script, and a component's MCP server
+reported `ok` with `args[0]` absent, which is the *server with no tools* failure
+`_expand` exists to prevent, arriving after `_expand` had done its job
+correctly. The question a reader must be able to answer is not *are these two
+copied* but *is there anything a `.claude/` tree can carry that a consumer names
+and the installer does not place*, and that is only answerable if placing is the
+default. So everything is copied except `agent_assets._NOT_PLACED` —
+`settings.json` (read and merged), `.mcp.json` (read and carried as data), and
+`plugins/` (relocated to `marketplaces/`, because `<config>/plugins/` is where
+Claude Code puts *installed* plugins). A directory the harness invents next year
+is placed the day it appears.
+
+The same ruling fixes a latent one: a bundled `tools/*.mcp.py` is now registered
+at its **placed** path. It used to be registered at its source, which worked for
+L3 only because the staged package is inside the zone — the identical L2
+component would have named a path under `COMPONENTS_ROOT`, outside every grant.
+
+**A marketplace name is validated before anything is copied.** `manifest["name"]`
+is author-controlled and was joined straight into a path with the check running
+*after* `copy_out`; measured with `"../../../ESCAPED"`, the tree was written
+outside the zone and only then refused. `contained_syntactically` — which needs
+no filesystem and so can run before the destination exists — is now consulted
+first, and the same check guards `assets:` and package-relative `recipes:`,
+where F-D18's `Path(staged) / "/abs" == "/abs"` had been applied to the loader's
+output but not to these two consumers of it.
 
 **`${VAR}` in a component's `.mcp.json` is expanded against the zone
 environment, and an unresolved name refuses.** That is what lets a component
