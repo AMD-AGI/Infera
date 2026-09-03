@@ -2846,3 +2846,188 @@ of module quality in this section, and five entries in the table read "unknown".
 That is correct at T+0 — the modules have had minutes, not hours. If it still
 reads mostly "unknown" at T+90 that is itself the finding.
 
+
+---
+
+## T+30 — 2026-09-03 14:16 UTC
+
+### Standing checks
+
+| check | result |
+|---|---|
+| (a) index leak — anything staged outside the package | **clean**, prints nothing |
+| (b) per-commit ownership against `CONTRACT.md` §8a manifest | **three violations, all in one closed window** — §3 |
+| graph loads (`show`, the §9 gate) | **pass**, rc 0, sub-second, 17 closures / 6 tasks |
+| holds `106250` / `106253` | both `R`, end **20:44:58 / 20:45:03 UTC** — 6 h 28 m left |
+
+### Headline metric
+
+**Real validators: 20/20 as of 14:15:30 UTC.** Every `check.py` is now over 12
+lines; the smallest is `check_overlay_applies` at 141, the largest
+`check_speedup_substantiated` at 667. Total ≈ 6 260 lines of validator body.
+
+Reported as an instant, not a level, and deliberately not carried forward: at
+13:24 I read 11, at ~13:35 the leader read 12, my next read said 13, the
+leader's next said 16, and thirty minutes later it is 20. The number changed
+faster than any of us could report it. **From here the metric is saturated and
+stops being informative** — the interesting question becomes whether those
+bodies are correct, which this count cannot answer.
+
+### 1. Progress
+
+**~45 % complete.** Elapsed 46 m. Estimated remaining **4–6 h**, landing inside
+the hold window.
+
+**Reliability: low-to-moderate**, up from low, and I want to be precise about
+what changed. What it rests on: 28 commits, 20/20 validators, eight schemas, and
+eleven of seventeen task bodies now carrying real content (`optimize_kernel` is
+181 KB across 18 files, `build_workset` 72 KB across 7). Those are large,
+countable, first-hand facts. What it does **not** rest on: any evidence that the
+bodies are *right*. Nothing has been dispatched — `show` type-checks the graph
+and runs nothing, and the GPU holds are untouched. The 45 % therefore measures
+written material, and the remaining 55 % contains the entire cost of finding out
+whether it works. Effort 1's shape says that second half is where the time goes.
+
+### 2. Current state, per module
+
+Every module is now visible. **Nothing is "unknown, not scored" this section** —
+that answers the T+0 note about what it would mean if the table still read
+mostly unknown at T+90.
+
+Authorship is read from the **commit-message prefix**, not from `git`: all 28
+commits carry `%an = yihou`, since the six of us share one identity as well as
+one worktree. That is worth stating because it means §8a's per-commit check
+cannot be automated on author metadata.
+
+| module | landed | reads as |
+|---|---|---|
+| **m1-deploy** | `check_deploy_kit` (543) + `gate.sh`, `check_deploy_serves` (509) + `probe_runner.py`/`probes.yaml`, `deploy_kit.layout.yaml` (22 KB), `deploy_and_prove.task` (24 KB), `steps/m1_deploy.yaml`, `lib/zone.py` | furthest along on *evidence*: `b015fd2` is a **first live run** of `check_deploy_serves` and the bug it found — the only commit so far claiming execution rather than authorship |
+| **m2-profiling** | four validators (`bench_result` 284, `trace_coverage` 300, `profiling_evidence` 361, `kernel_table` 278), `analyze/`, `load/`, `serve/`, `lib/trace_stream.py`, `lib/m2_reshape.py`, three profiling task bodies | landed late and fast; `31e0ff6` reports **three shells that never parsed**, i.e. it is finding real defects |
+| **m3-analysis** | four validators (`worklist_shape` 214, `identity_resolved` 173, `workset_shape` 426, `workset_runs` 265), three schemas (`workset.schema.json` 47 KB), `rank`/`identify`/`build_workset` bodies, nine `lib/` files | the most prolific, and the source of all three ownership violations below |
+| **m4-kernel-opt** | `check_speedup_substantiated` (667, the largest), `check_optimization_shape` (493), `kernel_optimization.schema.json` (33 KB), `optimize_kernel.task` at **181 KB / 18 files** with a seven-step pipeline, `schemas/samples/` incl. a self-test | `4125267` is a **reversal** of its own earlier design (M4.3.5) on m3's evidence — a module correcting itself against another's artefact |
+| **m5-integration** | seven validators, `apply_patch`/`integrate_and_verify`/`packup` bodies, `integration_report.schema.json`, `accept/`, `bench/`, six `lib/` files | steady; `53b9e1b` ("steps.json is written by the body it attests to, so corroborate it") is the self-attestation problem being caught, not papered over |
+
+Cross-module traffic is visible and healthy: `3289d26` is m4 adopting m5's
+`patchkit` vocabulary and m3's entrypoint convention; `bab5644` is m3 adding
+three fields **m4 said it must not have to invent**. Modules are reading each
+other's contracts rather than guessing.
+
+### 3. Code problems
+
+**The failure §8a exists to prevent happened three times, after §8a landed.**
+§8a is `94dba13`. In commit order after it:
+
+| commit | claims | also contains | whose |
+|---|---|---|---|
+| `2eadd20` | "m3: build_workset as an AI task…" | all seven m5 validators' `check.py`/`readme.md`, `apply_patch`/`integrate_and_verify`/`packup`/`m5_integration` task bodies, `steps/m5_integration.yaml`, `lib/mock_m5.sh`, `lib/merge_arm.py`, plus `MOCK-MAP.md` and `../todo.md` | **m5's and the leader's** |
+| `420e7f4` | "m3: validator readmes…" | m2's `check_bench_result`/`check_kernel_table`/`check_profiling_evidence`/`check_trace_coverage`, `analyze/`, `load/`, `lib/trace_stream.py`, `lib/m2_reshape.py`, `merge_profiling_evidence.task`, `run_profiling_mode_off.task` | **m2's** |
+| `d19a489` | "m5: the two arms' scripts…" | `lib/remote.sh`, `serve/round.sh` | **m2's** |
+
+Two smaller ones: `cb80c10` (m5 committing the leader's `MOCK-MAP.md`) and
+`e213679` (the leader committing four owners' `steps/m*.yaml`).
+
+**Not fixed, and I am not proposing a fix** — unpicking landed commits is worse
+than the disease, and no work appears to have been *lost*, only attributed to
+the wrong commit. The material fact for the record is the mechanism: a `git add`
+that predated the owner's adoption of `git commit -- <paths>`.
+
+**The window has closed.** All three cluster between 13:50 and 14:00. Every one
+of the eleven commits from `fbf5660` (14:02) onward touches only its own owner's
+paths. On the evidence, §8a took effect with a ~20-minute lag rather than
+failing — but that reading rests on eleven clean commits, which is a thin base,
+and I will keep checking every section rather than declaring it solved.
+
+**A live defect in the manifest itself:** `assets/lib/store.py` is listed under
+**both m3 and m5**. §8a says "a file with two claimants is a conversation with
+the leader, not a race" — so by its own rule this needs settling. It is the one
+item in this section that is actionable now.
+
+**One message/content mismatch:** `1841b55` is titled "remote.sh forwarded the
+wrong variable prefix, so nothing reached the remote side" but contains only
+`CONTRACT.md`. The finding was documented; whether the fix to `remote.sh` itself
+landed is not something the commit shows. This is exactly what `git show --stat`
+is for and why §8a mandates it.
+
+### 4. Non-code problems
+
+- **Six owners share one git identity** (`%an = yihou`). Ownership is carried
+  only by a commit-message prefix convention (`m3:`, `m5:`, `e2e-flow:`). It
+  works, and it means check (b) is a human reading, not a script.
+- **The manifest is being amended retroactively** — `b86197a` ("catches up with
+  four files landed before the collision-zone rule") and `a89ae71` ("records
+  m3's nine lib files"). Sensible, but it means a violation checked against a
+  *later* manifest can look legitimate. I checked against the manifest as it
+  stands at 14:15; two of the three above would have been *worse* against the
+  version I was handed at 13:45.
+- **`assets/lib/` and now `assets/bench/` are declared collision zones** and
+  already hold ~20 files from four owners.
+- Repo-root litter unchanged (`glm5.2-…tar`, `rank0/`, `handoff.analysis.md`,
+  `.serena/`, modified `agent_sys/docs/design.md`); untouched, outside the
+  package, and `git commit -- <paths>` cannot reach it.
+- `zsh` `libtinfow.so.6` warning on every command, cosmetic, unchanged.
+
+### 5. Open questions
+
+- **Does any of this work?** Nothing has been dispatched. 20/20 validators and
+  ~6 260 lines of body are entirely unexecuted except for m1's one live
+  `check_deploy_serves` run. This is now the dominant unknown.
+- **Who owns `lib/store.py`?** Double-claimed, above.
+- **Did `remote.sh`'s variable-prefix bug actually get fixed**, or only
+  documented? `1841b55` shows only `CONTRACT.md`; `d19a489` touches `remote.sh`
+  but is m5 committing m2's file.
+- **Can the `mock_stages` ladder be climbed in the remaining 6 h 28 m** on two
+  holds shared by five modules? Still unsettled, and now closer to being tested.
+- **The six inherited effort-1 items** (E9′, the comparability gate, C9b, C23,
+  C24, E0, E14, E16). `../todo.md` now exists and was touched by `2eadd20`; I
+  still have not opened it, and will next section.
+
+### 6. New commits
+
+**28 since `9646910`**, plus my own `466435c` (T+0 checkpoint). By owner:
+leader 10, m3 6, m5 5, m1 3, m4 2, m2 1, checkpoint 1.
+
+Notable, beyond those already covered:
+`abd9ff9` env_render + mock adaptations · `8faa93d` every body becomes `/bin/sh`
+and "declining to mock is not succeeding" · `eec1203` CONTRACT §4.0, the trust
+chain · `94dba13` **§8a itself** · `fc42694` `check_environment` plus "a rule of
+my own that would have killed module 5" · `bad50b4` MOCK-MAP (B) named the wrong
+handoff · `6d7a3d3` m1's kit layout as a yaml spec · `196108e` m3's four
+validators "each proven to fail on the thing it names" · `fbf5660` CONTRACT §2.2
+— the absolute-path rule rested on a false premise · `e213679` mocking an AI task
+means swapping its agent; the mock had stopped reaching four leaves ·
+`9c18603` write the environment record after the redact pass · `31e0ff6` m2's
+three shells that never parsed.
+
+Four of these are **retractions of the leader's own earlier rules** (`fc42694`,
+`fbf5660`, `bad50b4`, `e213679`). That is a healthy signature at this stage, not
+a worrying one.
+
+### 7. Anything else
+
+**A correction to what I sent the leader at ~13:45.** I reported the count as
+11. It was wrong twice over. Stale, yes — but also *miscounted*, and the
+mechanism matters: my loop incremented `r` inside a pipeline
+(`for … done | sort`), so the increment ran in a subshell and the total was
+discarded at the pipe. I did not notice, and read the count off the printed list
+by eye instead, missing `check_profiling_evidence`. The leader's "12" was also
+wrong, and the true figure at that instant was 13. The counting procedure now
+avoids the pipe entirely. I am leaving the wrong number where it is, in the
+section above, and recording the mechanism here.
+
+**A note on my own T+0 commit.** It used `git add work.checkpoint.summary.md`
+followed by `git commit` — on the shared index, two minutes before I reported to
+the leader that the shared index was a hazard. Exactly one file landed, so
+nothing was taken, but that was timing rather than method. From this section
+onward my commits use `git commit -s -- <path>` and I verify with
+`git show --stat --name-only HEAD`.
+
+**On the headline metric now being saturated.** 20/20 was the right thing to
+track for the first hour and it is nearly useless for the next. The honest
+successor is not another count — it is whether anything has *run*. I propose to
+report, each section, how many of the twenty validators have been executed
+against a real artefact at least once, which today stands at **one** (m1's
+`check_deploy_serves`, `b015fd2`). I will start reporting it at T+60 unless the
+leader prefers something else. Core principle 1 is the reason: twenty validators
+that have never run are twenty untested programs, and a graph that loads is not
+a graph that judges.
+
