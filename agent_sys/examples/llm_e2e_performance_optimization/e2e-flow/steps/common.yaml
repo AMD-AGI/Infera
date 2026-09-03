@@ -54,10 +54,26 @@
     require_fixed:
       [node, gpu_arch, image, image_id, model_name, model_path, tp_size]
     require_runtime: [container, endpoint, started_at]
-    # A record that says nothing about *which* container is a record of a
-    # configuration, not of a run — and this flow's whole premise is that
-    # modules 1–4 are talking about the same one.
-    require_runtime_agrees_across_inputs: true
+    # **`fixed` is compared strictly; `runtime` is reported and never judged.**
+    #
+    # I first wrote this as `require_runtime_agrees_across_inputs: true`, which
+    # would have been wrong in the one place it matters: **module 5's two arms
+    # have different containers by construction**. A container holds one state
+    # for its life — that is the entire reason the two-arm design exists, and
+    # CONTRACT.md §5 grants it. A `strong` validator failing on that stops the
+    # graph on exactly the stage the contract says must differ.
+    #
+    # What is left is weaker than "modules 1–4 shared one container", which is
+    # what I wanted to assert and cannot from here: the body sees handoff
+    # **ids**, not kinds (`zone.materials()` is keyed by id), so it cannot tell
+    # an m5 arm from an m2 line. Said out loud rather than approximated — an
+    # assertion that is right four times in five and stops the graph the fifth
+    # is worse than one that reports.
+    #
+    # These four are what make two handoffs comparable at all. A disagreement
+    # means they describe two different machines and every number computed
+    # across them is void.
+    compare_fixed_across_inputs: [node, gpu_arch, image_id, model_path]
   tags:
     logic_source: external_static
     cost: seconds
