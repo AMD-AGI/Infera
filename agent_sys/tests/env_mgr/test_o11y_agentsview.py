@@ -4,8 +4,12 @@
 
 from __future__ import annotations
 
+import http.server
 import socket
 import subprocess
+import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -148,3 +152,124 @@ def test_the_child_gets_the_prefix_environment_and_os_environ_is_untouched(
     assert seen["AGENTSVIEW_DATA_DIR"] == str(prefix.agentsview_data)
     assert seen["CLAUDE_PROJECTS_DIR"] == str(prefix.claude_home / "projects")
     assert "AGENTSVIEW_DATA_DIR" not in __import__("os").environ
+
+
+@contextmanager
+def _server_on_a_port(body: bytes, content_type: str) -> Iterator[int]:
+    """A real HTTP server on a real ephemeral port, answering everything alike.
+
+    Real rather than mocked because the thing under test is a decision about a
+    *stranger's* process, and a mock of the stranger is a mock of exactly the
+    party we do not control.
+    """
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args: object) -> None:
+            """pytest's captured output is not a web server access log."""
+
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=srv.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield srv.server_address[1]
+    finally:
+        srv.shutdown()
+        srv.server_close()
+        thread.join(timeout=5)
+
+
+def _claim_port(prefix: Prefix, port: int) -> None:
+    """Forge the evidence that *we* started the daemon on `port`."""
+    (prefix.run / "agentsview.port").write_text(str(port))
+
+
+def test_a_stranger_answering_http_on_our_port_is_not_adopted(
+    prefix, caplog, monkeypatch
+) -> None:
+    """A 200 is not an identity.
+
+    The port file is written here deliberately, so the *only* thing that can
+    reject this server is the identity probe. Without it this test would pass
+    on the ownership check alone and prove nothing about `/api/v1/agents`.
+    """
+    monkeypatch.setattr(agentsview, "REUSE_PROBE_TIMEOUT_S", 0.2)
+    with _server_on_a_port(b"<html>some other service</html>", "text/html") as port:
+        _claim_port(prefix, port)
+        with caplog.at_level("WARNING"):
+            status = agentsview.ensure_running(prefix, port=port)
+    assert status.running is False
+    assert status.url is None
+    assert len([r for r in caplog.records if r.levelname == "WARNING"]) == 1
+
+
+def test_someone_elses_agentsview_is_not_adopted(prefix, caplog, monkeypatch) -> None:
+    """A genuine AgentsView we did not start shows the user's whole machine.
+
+    Adopting it would satisfy the health check and break the one requirement
+    the panel exists for — that it lists agent_sys's sessions and no others.
+    """
+    monkeypatch.setattr(agentsview, "REUSE_PROBE_TIMEOUT_S", 0.2)
+    with _server_on_a_port(b'[{"name":"claude-code"}]', "application/json") as port:
+        assert not (prefix.run / "agentsview.port").exists()  # control
+        with caplog.at_level("WARNING"):
+            status = agentsview.ensure_running(prefix, port=port)
+    assert status.running is False
+    assert status.url is None
+    assert len([r for r in caplog.records if r.levelname == "WARNING"]) == 1
+
+
+def test_our_own_resident_daemon_is_reused(prefix, caplog, monkeypatch) -> None:
+    """Both gates pass: it answers as AgentsView, and we recorded starting it."""
+    monkeypatch.setattr(agentsview, "REUSE_PROBE_TIMEOUT_S", 0.2)
+    with _server_on_a_port(b'[{"name":"claude-code"}]', "application/json") as port:
+        _claim_port(prefix, port)
+        with caplog.at_level("WARNING"):
+            status = agentsview.ensure_running(prefix, port=port)
+    assert status.running is True
+    assert status.reason == "already running"
+    assert status.url == f"http://127.0.0.1:{port}"
+    assert [r for r in caplog.records if r.levelname == "WARNING"] == []
+
+
+def test_the_recipe_installs_agentsview_as_an_optional_bin_item() -> None:
+    """`suggested`, not `required`: install failure must stay a warning."""
+    from env_mgr.recipe import load_recipe
+
+    _target, items = load_recipe("env_mgr/recipes/agentsview.o11y.yaml")
+    (item,) = [i for i in items if i.spec.get("name") == "agentsview"]
+    assert item.installer == "bin"
+    assert item.importance == "suggested"
+    assert item.spec["check_cmd"] == "agentsview --version"
+    assert "o11y" in item.tags
+
+
+def test_the_recipe_pins_a_version_so_check_cmd_is_compared_against_something() -> None:
+    """`satisfies(actual, None)` accepts anything; a bare `version:` fixes that."""
+    from env_mgr.recipe import load_recipe
+    from env_mgr.versions import satisfies
+
+    _target, items = load_recipe("env_mgr/recipes/agentsview.o11y.yaml")
+    (item,) = [i for i in items if i.spec.get("name") == "agentsview"]
+    assert item.version == "0.42.0"
+    assert satisfies("0.42.0", item.version) is True
+    assert satisfies("0.41.0", item.version) is False
+
+
+def test_the_recipe_install_command_uses_a_private_tempfile_and_verifies_checksum() -> None:
+    """The three amendments: no fixed shared tempfile, and a real checksum gate."""
+    from env_mgr.recipe import load_recipe
+
+    _target, items = load_recipe("env_mgr/recipes/agentsview.o11y.yaml")
+    (item,) = [i for i in items if i.spec.get("name") == "agentsview"]
+    install = item.spec["install"]
+    assert "mktemp" in install
+    assert "/tmp/av.tgz" not in install
+    assert "sha256sum" in install
+    assert "SHA256SUMS" in install

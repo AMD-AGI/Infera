@@ -116,6 +116,22 @@ HEALTH_TIMEOUT_S = 30.0
 #: suite people stop running.
 REUSE_PROBE_TIMEOUT_S = 2.0
 
+#: AgentsView's own JSON endpoint (`docs/session-api.md:112`), used as the
+#: identity probe. Not `/`: every web server on the machine answers `/` with a
+#: 200, and this component's whole job on an occupied port is telling *our*
+#: daemon apart from a stranger's.
+IDENTITY_PATH = "/api/v1/agents"
+
+#: Cap on the identity response we read. The endpoint returns a short list of
+#: providers; the cap is there so a stranger streaming without end cannot hang
+#: a deployment on the o11y probe.
+IDENTITY_MAX_BYTES = 1 << 20
+
+#: Written by a successful launch, read by the reuse gate. The record of *which
+#: port we put our own daemon on* — and therefore the only thing separating
+#: "reuse the panel we started" from "adopt whatever is listening".
+PORT_FILE = "agentsview.port"
+
 #: Every provider AgentsView can scan, minus Claude Code. Written into the
 #: prefix's own `config.toml` so the panel physically cannot read a directory
 #: belonging to some other tool the user happens to have installed.
@@ -146,16 +162,59 @@ def write_config(prefix: Prefix) -> None:
     )
 
 
+def _owns_port(prefix: Prefix, port: int) -> bool:
+    """Did *we* start what is on this port?
+
+    **A live AgentsView on 18888 is not evidence that it is ours.** A user who
+    already runs AgentsView has a daemon with their own `AGENTSVIEW_DATA_DIR`,
+    listing every session on the machine — adopting it would hand back a panel
+    that breaks the single requirement this component exists to satisfy. The
+    port file is written only by our own successful launch, so it is the only
+    evidence available that the daemon answering was configured by us.
+
+    Never raises: an unreadable or malformed file is a "no", because the safe
+    answer to *is this ours* is the one that declines to adopt a stranger.
+    """
+    try:
+        return int((prefix.run / PORT_FILE).read_text().strip()) == port
+    except (OSError, ValueError):
+        return False
+
+
+def _identifies_as_agentsview(url: str) -> bool:
+    """One request. `200` **and** a JSON body, or it is not AgentsView.
+
+    A status code is not an identity: any web server on the port answers 200,
+    and returning `Status(True, …)` for one hands the operator a URL to a
+    stranger's application labelled as their panel. `IDENTITY_PATH` is
+    AgentsView's own endpoint, so a service that both answers it and returns
+    JSON is as close to proof as a probe gets.
+    """
+    try:
+        with urllib.request.urlopen(url + IDENTITY_PATH, timeout=2) as r:  # noqa: S310
+            if r.status != 200:
+                return False
+            json.loads(r.read(IDENTITY_MAX_BYTES).decode("utf-8", "replace"))
+    except (urllib.error.URLError, OSError, ValueError):
+        return False
+    return True
+
+
 def _wait_for_health(url: str, timeout: float) -> bool:
+    """Poll until AgentsView identifies itself, or the deadline passes.
+
+    Always makes at least one attempt, so a zero timeout still asks once, and
+    always sleeps between attempts — including after an answer that was *wrong*
+    rather than absent. Without that second half, a stranger returning a prompt
+    200 turns this into a busy loop hammering somebody else's service.
+    """
     deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        try:
-            with urllib.request.urlopen(url, timeout=2) as r:  # noqa: S310
-                if 200 <= r.status < 400:
-                    return True
-        except (urllib.error.URLError, OSError):
-            time.sleep(0.5)
-    return False
+    while True:
+        if _identifies_as_agentsview(url):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.5)
 
 
 def ensure_running(prefix: Prefix, port: int) -> Status:
@@ -169,7 +228,12 @@ def ensure_running(prefix: Prefix, port: int) -> Status:
     exe = prefix.bin / "agentsview"
 
     if not port_is_free(port):
-        if _wait_for_health(url, timeout=REUSE_PROBE_TIMEOUT_S):
+        # **Two gates, and neither alone is enough.** Ownership is checked
+        # first because it is a file read rather than a network round trip,
+        # and because a `no` here means we must not probe further anyway.
+        if _owns_port(prefix, port) and _wait_for_health(
+            url, timeout=REUSE_PROBE_TIMEOUT_S
+        ):
             return Status(True, "already running", url)
         log.warning(
             "agentsview: port %d is in use by something else; skipping the o11y "
@@ -218,5 +282,5 @@ def ensure_running(prefix: Prefix, port: int) -> Status:
         )
         return Status(False, "health check timed out")
 
-    (prefix.run / "agentsview.port").write_text(str(port))
+    (prefix.run / PORT_FILE).write_text(str(port))
     return Status(True, "started", url)
