@@ -28,6 +28,12 @@ LOAD="$PKG/assets/load"
 WORK="${E2E_WORK_ROOT:?}"
 AIPERF_OUT="$WORK/aiperf"
 TRACE_OUT="$WORK/profiles"
+# The same directory as the engine container sees it. m1's `deploy_kit` mounts
+# its work root at a path of the kit's choosing — `/workdir` in the proven kit —
+# and declares it in `deployment.json`'s `work_root_in_container`, so the caller
+# passes it down rather than this file assuming the two are equal. Defaults to
+# the host path, which is the same-path convention `profiling-demo` used.
+TRACE_OUT_IN_CONTAINER="${E2E_TRACE_OUT_IN_CONTAINER:-$TRACE_OUT}"
 CTR="${E2E_CONTAINER:?}"
 R="http://${E2E_NODE_IP:?}:${E2E_PORT_ROUTER:?}"
 TAG="${ROUND}_$(date +%Y%m%d_%H%M%S)"
@@ -73,7 +79,8 @@ STACK_OK=0
 if [ "$CAPTURE" = "1" ]; then
   say "cutting the measurement window (warmup ${E2E_WARMUP_S}s, window ${E2E_WINDOW_S}s, with_stack=0)"
   on "NODE_IP='$E2E_NODE_IP' ROUTER_PORT='$E2E_PORT_ROUTER' CTR='$CTR' \
-      TRACE_OUT='$TRACE_OUT' WARMUP_S='$E2E_WARMUP_S' WINDOW_S='$E2E_WINDOW_S' \
+      TRACE_OUT='$TRACE_OUT' TRACE_OUT_IN_CONTAINER='$TRACE_OUT_IN_CONTAINER' \
+      WARMUP_S='$E2E_WARMUP_S' WINDOW_S='$E2E_WINDOW_S' \
       WITH_STACK=0 OUT_SUBDIR=mixed \
       TAG='$TAG' bash '$LOAD/capture.sh'" 2>&1 | tee "$WORKDIR/capture.log"
   cap_rc="${PIPESTATUS[0]}"
@@ -95,7 +102,8 @@ if [ "$CAPTURE" = "1" ]; then
   if [ "${E2E_STACK_WINDOW_S:-0}" -gt 0 ]; then
     say "cutting the stack window (window ${E2E_STACK_WINDOW_S}s, with_stack=1)"
     on "NODE_IP='$E2E_NODE_IP' ROUTER_PORT='$E2E_PORT_ROUTER' CTR='$CTR' \
-        TRACE_OUT='$TRACE_OUT' WARMUP_S=0 WINDOW_S='$E2E_STACK_WINDOW_S' \
+        TRACE_OUT='$TRACE_OUT' TRACE_OUT_IN_CONTAINER='$TRACE_OUT_IN_CONTAINER' \
+        WARMUP_S=0 WINDOW_S='$E2E_STACK_WINDOW_S' \
         WITH_STACK=1 OUT_SUBDIR=mixed_stacks \
         TAG='$TAG' bash '$LOAD/capture.sh'" 2>&1 | tee "$WORKDIR/capture_stacks.log"
     if [ "${PIPESTATUS[0]}" = "0" ] && grep -q CAPTURE_OK "$WORKDIR/capture_stacks.log"; then
@@ -306,12 +314,16 @@ set -eu
 : "\${SCRIPTS:?export SCRIPTS=<the assets/load directory of this package>}"
 
 NODE_IP=$E2E_NODE_IP ROUTER_PORT=$E2E_PORT_ROUTER CTR=$CTR \\
-TRACE_OUT="\$WORK_ROOT/profiles" WARMUP_S=$E2E_WARMUP_S WINDOW_S=$E2E_WINDOW_S \\
+TRACE_OUT="\$WORK_ROOT/profiles" \\
+TRACE_OUT_IN_CONTAINER="\${WORK_ROOT_IN_CONTAINER:-\$WORK_ROOT}/profiles" \\
+WARMUP_S=$E2E_WARMUP_S WINDOW_S=$E2E_WINDOW_S \\
 WITH_STACK=0 OUT_SUBDIR=mixed \\
 bash "\$SCRIPTS/capture.sh"
 
 NODE_IP=$E2E_NODE_IP ROUTER_PORT=$E2E_PORT_ROUTER CTR=$CTR \\
-TRACE_OUT="\$WORK_ROOT/profiles" WARMUP_S=0 WINDOW_S=${E2E_STACK_WINDOW_S:-3} \\
+TRACE_OUT="\$WORK_ROOT/profiles" \\
+TRACE_OUT_IN_CONTAINER="\${WORK_ROOT_IN_CONTAINER:-\$WORK_ROOT}/profiles" \\
+WARMUP_S=0 WINDOW_S=${E2E_STACK_WINDOW_S:-3} \\
 WITH_STACK=1 OUT_SUBDIR=mixed_stacks \\
 bash "\$SCRIPTS/capture.sh"
 EOF

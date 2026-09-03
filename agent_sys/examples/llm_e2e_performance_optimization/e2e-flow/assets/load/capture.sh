@@ -15,7 +15,24 @@ ROUTER_PORT="${ROUTER_PORT:-8100}"
 # No default: a container name is bound on a shared host whose `docker ps`
 # shows every tenant's containers, so it is passed, never guessed.
 CTR="${CTR:?CTR=the engine container this capture drives}"
+#: Where the traces land **on the host**. mkdir, du and ls use this one.
 TRACE_OUT="${TRACE_OUT:?}"
+#: The same directory **as the engine container sees it**, which is not the same
+#: string. This file used to assume it was — `docker exec test -d "$OUT"` was
+#: literally that assumption written down — and it held only because the
+#: bring-up it was written against mounted the trace directory at the same path
+#: inside. m1's `deploy_kit` mounts its work root at `/workdir`, declares where
+#: in `deployment.json`'s `work_root_in_container`, and is right to: mandating
+#: "same path inside" would overturn a working convention for every kit.
+#:
+#: Defaults to `$TRACE_OUT`, so the same-path convention keeps working unchanged
+#: and `profiling-demo`'s behaviour is byte-identical.
+#:
+#: Getting this wrong is not a crash: SGLang writes to the path the **engine**
+#: sees, so a container-side path that is not the mount lands in the container
+#: layer, `/start_profile` still answers 200, and the host sees an empty
+#: directory at the end with no error anywhere.
+TRACE_OUT_IN_CONTAINER="${TRACE_OUT_IN_CONTAINER:-$TRACE_OUT}"
 WARMUP_S="${WARMUP_S:-30}"
 WINDOW_S="${WINDOW_S:-15}"
 REQUIRE_LOAD="${REQUIRE_LOAD:-1}"
@@ -34,13 +51,24 @@ case "$WITH_STACK" in
 esac
 
 URL="http://$MY_IP:$ROUTER_PORT"
+#: The same directory named twice, once per side of the mount. Every use below
+#: is one or the other and never both, and which it is is stated at the use.
 OUT="$TRACE_OUT/$TAG/$OUT_SUBDIR"
+OUT_IN_CONTAINER="$TRACE_OUT_IN_CONTAINER/$TAG/$OUT_SUBDIR"
 
 load_running(){ pgrep -f 'aiperf profile' >/dev/null 2>&1; }
 
 echo "===== 1/6 preflight ====="
-mounted=$(docker inspect -f "{{range .Mounts}}{{if eq .Destination \"$TRACE_OUT\"}}{{.RW}}{{end}}{{end}}" "$CTR")
-[ "$mounted" = "true" ] || { echo "  ABORT: $TRACE_OUT not mounted rw in $CTR"; exit 1; }
+# `.Destination` is the **container** side of the mount, so it is compared
+# against the container path. Comparing it against the host path is the failure
+# this pair of variables exists to prevent.
+mounted=$(docker inspect -f "{{range .Mounts}}{{if eq .Destination \"$TRACE_OUT_IN_CONTAINER\"}}{{.RW}}{{end}}{{end}}" "$CTR")
+[ "$mounted" = "true" ] || {
+  echo "  ABORT: $TRACE_OUT_IN_CONTAINER is not mounted rw in $CTR"
+  echo "  (host side: $TRACE_OUT). Mount destinations $CTR actually has:"
+  docker inspect -f '{{range .Mounts}}    {{.Destination}} rw={{.RW}}{{"\n"}}{{end}}' "$CTR"
+  exit 1
+}
 
 code=$(docker exec "$CTR" curl -s -o /dev/null -w '%{http_code}' -m 10 \
   -X POST "$URL/v1/admin/profile/start?role=__probe__")
@@ -96,7 +124,16 @@ echo "===== 4/6 output directory ====="
 # Magpie writes. Root can still write its trace files into a directory we own,
 # so making it here costs nothing and keeps the analysis step unprivileged.
 mkdir -p "$OUT" || { echo "  ABORT: cannot create $OUT"; exit 1; }
-docker exec "$CTR" test -d "$OUT" || { echo "  ABORT: $OUT not visible in $CTR"; exit 1; }
+# Created on the host, then checked **through the mount** at the container path.
+# This is the one place the two names have to agree about the same bytes, so it
+# is also the check that catches a wrong `TRACE_OUT_IN_CONTAINER` — before the
+# window opens, rather than as an empty directory at the end.
+docker exec "$CTR" test -d "$OUT_IN_CONTAINER" || {
+  echo "  ABORT: $OUT (host) is not visible at $OUT_IN_CONTAINER inside $CTR"
+  echo "  The two are the same directory through the bind mount; if they are not,"
+  echo "  SGLang will write into the container layer and the host will see nothing."
+  exit 1
+}
 
 echo "===== 5/6 start (window ${WINDOW_S}s, with_stack=${WITH_STACK}) ====="
 # `with_stack` MUST be explicit either way: SGLang defaults it to True, and a
@@ -119,8 +156,9 @@ echo "===== 5/6 start (window ${WINDOW_S}s, with_stack=${WITH_STACK}) ====="
 # record_shapes=true is what gives Magpie its Input Shapes column, in both
 # windows. activities are spelled out so the engine does not choose.
 if [ "$WITH_STACK" = "1" ]; then STACK_JSON=true; else STACK_JSON=false; fi
+# `output_dir` is read by the **engine**, so it is the container path.
 BODY=$(printf '{"output_dir":"%s","record_shapes":true,"with_stack":%s,"activities":["CPU","GPU"]}' \
-  "$OUT" "$STACK_JSON")
+  "$OUT_IN_CONTAINER" "$STACK_JSON")
 docker exec "$CTR" curl -sS -m 60 -X POST -H 'Content-Type: application/json' \
   -d "$BODY" "$URL/v1/admin/profile/start?role=mixed" || { echo "  ABORT: profile start failed"; exit 1; }
 echo

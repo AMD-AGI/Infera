@@ -24,15 +24,29 @@ nothing else — which is the property that keeps the two arms comparable.
 | seam | this line | the clean line |
 |---|---|---|
 | `E2E_KIT_ENGINE_EXTRA_ARGS` | `--disable-cuda-graph` | empty |
-| `E2E_KIT_ENGINE_EXTRA_ENV` | `SGLANG_TORCH_PROFILER_DIR=…` | empty |
 | `E2E_KIT_ROUTER_EXTRA_ARGS` | `--enable-profiling` | empty |
+| `E2E_KIT_ENGINE_EXTRA_ENV` | **empty** | empty |
 
-The engine seams reach the **worker** process, and `--enable-profiling` is a
-**router** flag, which is why it is a third seam rather than folded into the
-first. The profiler directory must also be somewhere the *engine container* can
-write: SGLang writes the trace to a path the container sees, and without that
-docker creates the directory in the container layer and the capture reports
-success while the host sees nothing.
+`--enable-profiling` is a **router** flag and the engine seam reaches the
+**worker**, which is why it is a separate seam rather than folded into the
+first. Without it the admin profile routes answer 403.
+
+**No environment variable is needed, and the profiler directory is not one.**
+When asking m1 for these seams I gave `SGLANG_TORCH_PROFILER_DIR` as the
+motivating example and that was wrong — the working pipeline never sets it. The
+engine is told where to write **per capture**, in the `/start_profile` request
+body's `output_dir` (`../load/capture.sh`), which is also what lets the two
+windows of one round write to different subdirectories.
+
+What the profiled line does need from the kit is that the directory be
+**writable from inside the container**, because SGLang writes to the path the
+*engine* sees. m1's kit mounts its work root and declares where in the
+handshake's `work_root_in_container` — `/workdir` in the proven kit, not the
+host path. `../load/line.sh` composes the container-side trace directory from
+that and hands `capture.sh` both names; `capture.sh` uses the host one to create
+and collect and the container one for the mount check and for `output_dir`.
+Confusing the two is not a crash: `/start_profile` answers 200, the traces land
+in the container layer, and the host sees an empty directory at the end.
 
 ## Inputs and outputs
 
