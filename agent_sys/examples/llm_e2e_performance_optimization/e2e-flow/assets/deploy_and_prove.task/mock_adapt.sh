@@ -50,19 +50,40 @@ PACKUP="$(find "$CODES" -maxdepth 1 -type d -name '*.packup_*' | head -1)"
 : "${MOCK_IMAGE_ID:=sha256:92ed065bdc3958bdb62fdb5c2c4b88ad9fa45c9b355b763f3098a6185b0668e6}"
 : "${MOCK_ENDPOINT:=http://${E2E_NODE_IP:-127.0.0.1}:${E2E_PORT_ROUTER:-8101}}"
 
-# **Not bare `python3`.** `env_render.py` validates before it writes, and
-# `../lib/schema.py:109` imports `referencing` to do it. Measured on this host:
-# `/usr/bin/python3` has `yaml` and `jsonschema` but **not `referencing`**, so a
-# body that takes the policy `PATH` dies inside the validator with a
-# `ModuleNotFoundError` after `mock.sh` has already written 38 files — which is
-# how this was found. Probe for one that can, and say so if none can.
+# **`auto` is a request to probe, not a transport**, and the schema is right to
+# refuse it: `runtime.transport` records which transport a later stage should use
+# to reach this deployment, and "decide later" is not an answer a reproducer can
+# act on. `E2E_TRANSPORT` defaults to `auto` (`shared.yaml`), so every producer
+# hits this, not only the mock.
+#
+# Resolved by the same rule `../lib/remote.sh` dispatches on, and deliberately
+# not by re-implementing it in more detail: `spur` wherever the binary exists,
+# otherwise `srun`. On this cluster `srun` exists but is not Slurm's, which is
+# why presence of `spur` is the positive signal rather than absence of `srun`.
+case "${E2E_TRANSPORT:-auto}" in
+  spur|srun|local) MOCK_TRANSPORT="$E2E_TRANSPORT" ;;
+  *) if command -v spur >/dev/null 2>&1; then MOCK_TRANSPORT=spur; else MOCK_TRANSPORT=srun; fi ;;
+esac
+
+# **Not bare `python3`.** `env_render.py` validates before it writes, so its
+# interpreter must be able to import the validator stack. A task body cannot name
+# the run's interpreter — `cli/main.py:668` puts `AGENT_SYS_DEMO_PYTHON` in
+# `validation_env` only, and its own comment says a task body never reaches it —
+# so the policy `PATH` decides, and on this host that is `/usr/bin/python3`.
+#
+# **`jsonschema` and `yaml` only.** `referencing` was in this list and that was
+# wrong twice over: `/usr/bin/python3` does not have it, which made this the
+# blocker for every module's MOCK-MAP (A); and `schema.py` no longer needs it,
+# because it inlines cross-file `$ref`s instead of building a registry. Probed
+# rather than assumed, so a host where the policy interpreter is thinner still
+# fails with a sentence instead of a traceback.
 PY=""
 for candidate in "${AGENT_SYS_DEMO_PYTHON:-}" python3 /usr/bin/python3; do
   [ -n "$candidate" ] || continue
-  if "$candidate" -c 'import jsonschema, referencing, yaml' >/dev/null 2>&1; then PY="$candidate"; break; fi
+  if "$candidate" -c 'import jsonschema, yaml' >/dev/null 2>&1; then PY="$candidate"; break; fi
 done
 if [ -z "$PY" ]; then
-  echo "mock_adapt: no interpreter here can import jsonschema, referencing and yaml;" >&2
+  echo "mock_adapt: no interpreter here can import jsonschema and yaml;" >&2
   echo "env_render.py validates before it writes and cannot run without them." >&2
   exit 2
 fi
@@ -71,7 +92,8 @@ fi
   --set "fixed.gpu_arch=${MOCK_GPU_ARCH}" \
   --set "fixed.gpu_count=${MOCK_GPU_COUNT}" \
   --set "fixed.image_id=${MOCK_IMAGE_ID}" \
-  --set "runtime.endpoint=${MOCK_ENDPOINT}"
+  --set "runtime.endpoint=${MOCK_ENDPOINT}" \
+  --set "runtime.transport=${MOCK_TRANSPORT}"
 
 # --------------------------------------------------------------------------- #
 # (I) the runtime contract.

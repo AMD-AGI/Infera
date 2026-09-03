@@ -68,7 +68,7 @@ from pathlib import Path
 # on every output phase on this host, which is a worse failure than losing `$ref`
 # support nothing currently uses.
 _REQUIRED = ("jsonschema", "yaml")
-_PREFERRED = ("jsonschema", "yaml", "referencing")
+_PREFERRED = ("jsonschema", "yaml")
 _GUARD = "E2E_CHECK_DEPLOY_KIT_REEXEC"
 
 
