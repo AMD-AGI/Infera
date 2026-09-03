@@ -113,5 +113,8 @@ def main(argv: list[str]) -> int:
     return SHAPES[argv[0]](Path(argv[1]), Path(argv[2]))
 
 
+__all__ = ["kernel_table", "SHAPES", "main"]
+
+
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

@@ -214,6 +214,18 @@ PKG="${AGENT_SYS_TASK_PACKAGE:-${AGENT_SYS_DEMO_PACKAGE:?the runner exports one 
 python3 "$PKG/assets/lib/schema.py" --schema bench_result --doc "$OUT/items/result/bench.json"
 ```
 
+**And run `"${AGENT_SYS_DEMO_PYTHON:-python3}"`, never a bare `python3`.**
+`cli/main.py:668` exports the interpreter the run itself is using. A validation
+zone gets a policy-derived `PATH` on which `python3` resolves to
+`/usr/bin/python3`, which on this host has **no `referencing`** and therefore
+cannot import `assets/lib/schema.py`.
+
+Measured: the body dies with `ModuleNotFoundError` **before writing
+`verdict.json`**, and the phase reports *"nothing was decided"* rather than a
+verdict — **a validator that cannot start looks exactly like one that was never
+asked.** Found by m5 driving their leaves through the graph; twelve of the
+twenty-one validators had it, across all five modules.
+
 **Write both fallbacks in every `entry.sh`, task and validator alike.** A
 validator's *input* phase gets the GLOBAL environment row and **never**
 `AGENT_SYS_TASK_PACKAGE`

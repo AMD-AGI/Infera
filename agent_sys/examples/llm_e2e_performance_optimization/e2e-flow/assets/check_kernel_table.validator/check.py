@@ -182,7 +182,10 @@ def _check_csv(content: Path, args: dict, reasons: list):
     # Rule 6. Recomputed from the CSV rather than read from the producer's own
     # summary, for the reason every recomputation here exists: a number a
     # producer wrote about itself is not evidence.
-    top_n = int(args.get("top_n", 25) or 25)
+    # `.get(key, default)`, not `x or default`: an explicit `top_n: 0` must reach
+    # the arithmetic and fail honestly on a 0% head share, rather than being
+    # silently rewritten to 25 and passing.
+    top_n = int(args.get("top_n", 25))
     times = sorted((_number(r, "Self CUDA total (us)") for r in rows), reverse=True)
     total = sum(times)
     share = 0.0
@@ -239,7 +242,7 @@ def _check_document(document: dict, rows: list, args: dict, reasons: list) -> bo
                 f"and this round wanted at least {want} in the head. Set "
                 f"--var stack_window_s=0 and min_launchers_in_top_n to 0 to say that is intended",
             ) and ok
-        head = kernels[: int(args.get("launcher_head_n", 25) or 25)]
+        head = kernels[: int(args.get("launcher_head_n", 25))]
         with_frames = [k for k in head if (k.get("launcher") or {}).get("source_file")]
         if len(with_frames) < want:
             ok = _fail(

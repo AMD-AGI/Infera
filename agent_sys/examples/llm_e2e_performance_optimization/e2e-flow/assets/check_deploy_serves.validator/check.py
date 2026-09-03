@@ -275,6 +275,38 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
         router = deployment["endpoint"]
         engine = deployment.get("engine_endpoint")
 
+        # `runtime_contract.writable_work_root`, answered rather than inferred.
+        #
+        # The failure this catches **reports success**: SGLang writes a profiler
+        # trace to a path the *container* sees, so with no mount docker creates
+        # the directory in the container layer, the capture succeeds, and the
+        # host sees nothing. Measured by m2, and it is why m2's old bring-up
+        # carried a `docker inspect` check.
+        #
+        # Checked from the host side rather than by exec'ing into the container:
+        # the property that matters is that a file written **inside** appears
+        # **outside**, and `docker exec` proves that in one direction only if the
+        # reader is also inside. So: write from inside, read from outside.
+        inside = deployment["work_root_in_container"]
+        container = deployment["container"]
+        token = f"e2e-writable-{tag}"
+        probe_file = f"{work_root}/.writable_probe"
+        wrote = on(
+            f"docker exec {shlex.quote(container)} sh -c "
+            + shlex.quote(f"printf %s {token} > {shlex.quote(inside)}/.writable_probe")
+            + f" && cat {shlex.quote(probe_file)}",
+            transport,
+            check=False,
+        )
+        if token not in wrote:
+            faults.append(
+                f"the work root is not writable from inside {container} at "
+                f"{inside!r}: a file written there does not appear on the host at "
+                f"{probe_file}. Anything a later stage asks the engine to write — "
+                f"a profiler trace above all — will land in the container layer, "
+                f"and the write will report success. Output: {wrote.strip()[-400:]}"
+            )
+
         # ---- 2. the probes ---------------------------------------------------
         print("check_deploy_serves: 2/4 diagnostic probes")
         available = set()

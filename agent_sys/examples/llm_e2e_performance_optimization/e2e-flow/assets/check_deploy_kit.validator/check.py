@@ -31,9 +31,96 @@ liked: `require_served_name_not_a_path`, `require_mode_readback`,
 
 from __future__ import annotations
 
+import os
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
+
+# --------------------------------------------------------------------------- #
+# Re-exec under an interpreter that can validate, before anything else runs.
+#
+# **This exists because of a recorded framework bug that would have made this
+# validator misdiagnose every correct kit.** An output-phase validator body takes
+# §8.2's PRODUCER row, which **shadows** the GLOBAL row rather than merging with
+# it — and the GLOBAL row is the only one carrying `AGENT_SYS_DEMO_PYTHON`
+# (`kernel-opt-demo/bugs/002-validator-env-row-shadows-demo-python.md`). So the
+# entry script's `"${AGENT_SYS_DEMO_PYTHON:-python3}"` resolves to
+# `/usr/bin/python3` on exactly the phase this validator runs in.
+#
+# Measured on this host: `/usr/bin/python3` has `yaml` and `jsonschema` but
+# **not `referencing`**, which `../lib/schema.py:109` imports to build its
+# `$ref` registry. The failure would have arrived inside `validate()` as a
+# `ModuleNotFoundError`, been caught by the broad handler around document
+# loading, and been reported as *"environment.yaml: not loadable as a
+# document"* — a wrong diagnosis of a correct kit, which is the exact failure
+# class this package exists to prevent.
+#
+# So: probe for an interpreter that can import both, and re-exec into it. If
+# none can, the run must **fail naming the dependency** rather than grading a
+# kit with a broken checker.
+# `referencing` is **preferred, not required**: it builds the cross-schema `$ref`
+# registry, and `environment.schema.json` uses no `$ref` today. So the rule is
+# "re-exec into an interpreter that has all three if one exists, and fall back to
+# registry-free validation rather than refuse" — see `_validate` below. Refusing
+# outright was the first version and it is wrong: it would block this validator
+# on every output phase on this host, which is a worse failure than losing `$ref`
+# support nothing currently uses.
+_REQUIRED = ("jsonschema", "yaml")
+_PREFERRED = ("jsonschema", "yaml", "referencing")
+_GUARD = "E2E_CHECK_DEPLOY_KIT_REEXEC"
+
+
+def _imports(python: str, modules) -> bool:
+    try:
+        return subprocess.run(
+            [python, "-c", "import " + ", ".join(modules)],
+            capture_output=True, timeout=30,
+        ).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _have(modules) -> bool:
+    try:
+        for module in modules:
+            __import__(module)
+        return True
+    except ImportError:
+        return False
+
+
+def _reexec_if_needed() -> None:
+    if os.environ.get(_GUARD) or _have(_PREFERRED):
+        return  # already re-executed once, or nothing to gain
+
+    seen: list[str] = []
+    for candidate in (
+        os.environ.get("AGENT_SYS_DEMO_PYTHON"),
+        sys.executable,
+        shutil.which("python3"),
+        "/usr/bin/python3",
+    ):
+        if not candidate or candidate in seen:
+            continue
+        seen.append(candidate)
+        if _imports(candidate, _PREFERRED):
+            os.environ[_GUARD] = "1"
+            os.execv(candidate, [candidate, str(Path(__file__).resolve()), *sys.argv[1:]])
+
+    if not _have(_REQUIRED):
+        print(
+            f"check_deploy_kit: no interpreter here can import {', '.join(_REQUIRED)} "
+            f"(tried: {seen}). This validator checks `codes/environment.yaml` against a "
+            f"JSON Schema and cannot do that without them. Refusing rather than grading "
+            f"a kit with a broken checker.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+
+_reexec_if_needed()
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
@@ -120,6 +207,44 @@ def read(path: Path) -> str | None:
         return None
 
 
+def _validate(name: str, document) -> None:
+    """`schema_lib.validate`, with a registry-free fallback. Raises `SchemaError`.
+
+    The fallback is reached only when `referencing` is unavailable *and* the
+    re-exec above found no interpreter carrying it — measured here:
+    `/usr/bin/python3` has `yaml` and `jsonschema` and not `referencing`, and it
+    is what an output-phase body gets (bug 002).
+
+    It validates against the named schema alone, so a **`$ref` to a sibling
+    schema would not resolve**. That is stated on stderr rather than swallowed:
+    `environment.schema.json` uses no `$ref` today, and if one is added this
+    message is what says the fallback has stopped being equivalent.
+    """
+    try:
+        schema_lib.validate(name, document)
+        return
+    except ImportError:
+        pass
+
+    from jsonschema import Draft202012Validator
+
+    print(
+        f"check_deploy_kit: `referencing` is not importable here, so {name} is "
+        f"validated without a $ref registry. Equivalent while no schema in "
+        f"assets/schemas/ uses $ref; if one does, this check is now weaker than it "
+        f"reads.",
+        file=sys.stderr,
+    )
+    validator = Draft202012Validator(schema_lib.load(name))
+    problems = sorted(validator.iter_errors(document), key=lambda e: list(e.absolute_path))
+    if problems:
+        lines = [f"{name}: {len(problems)} problem(s)"]
+        for err in problems:
+            where = "$." + ".".join(str(p) for p in err.absolute_path) if err.absolute_path else "$"
+            lines.append(f"  {where}: {err.message}")
+        raise schema_lib.SchemaError("\n".join(lines))
+
+
 def dotted(document, path: str):
     """`fixed.gpu_arch` out of a loaded document, or `None` if it is not there."""
     cursor = document
@@ -196,11 +321,14 @@ def check_entry(entry: dict, roots: dict[str, Path], layout: dict) -> list[str]:
     name = entry.get("schema")
     if name:
         try:
-            schema_lib.validate(name, schema_lib._read_doc(target))
-        except schema_lib.SchemaError as exc:
-            faults += [f"{where}: {line}" for line in str(exc).splitlines()]
+            document = schema_lib._read_doc(target)
         except Exception as exc:  # a malformed yaml never reaches the validator
             faults.append(f"{where}: not loadable as a document: {exc}")
+        else:
+            try:
+                _validate(name, document)
+            except schema_lib.SchemaError as exc:
+                faults += [f"{where}: {line}" for line in str(exc).splitlines()]
 
     # M1.1.1: a rendering, not the record. Every value the layout marks
     # load-bearing must appear in the rendering verbatim.
@@ -420,6 +548,20 @@ def check_runtime_contract(contract: dict, scan_rule: dict, roots: dict[str, Pat
                 f"{scan_rule['dir']}/: nothing reads ${{{parameter['name']}:=…}}. "
                 f"{' '.join(parameter['brief'].split())}"
             )
+
+    # **There is deliberately no static mount check here**, and the reason is a
+    # measured false positive rather than an omission. The layout requires the
+    # work root to be writable from inside the engine container
+    # (`runtime_contract.writable_work_root`), and the obvious static form —
+    # "`E2E_KIT_WORK_ROOT` must appear in a `--volume`" — fails the real sealed
+    # kit, which mounts `"${DK_RUN_DIR}:/workdir"` where `DK_RUN_DIR` is derived
+    # from the work root. A checker cannot follow that derivation without
+    # evaluating the shell, and one that guesses rejects a kit that is correct.
+    #
+    # So the rule is enforced where it can be answered instead of guessed:
+    # `check_deploy_serves` writes a file through the running container after
+    # bring-up. That is the same evidence-over-inference rule the mode readback
+    # follows.
     return faults
 
 

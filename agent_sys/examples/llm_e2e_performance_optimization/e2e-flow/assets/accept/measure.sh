@@ -200,7 +200,7 @@ cat > "$A/command" <<EOF
 # it, and a script rather than a transcript because every site path arrives as a
 # shell variable — which is also what lets it past the locality seal.
 set -eu
-: "\${ACCEPT:?export ACCEPT=<the package's assets/accept directory>}"
+: "\${ACCEPT:?export ACCEPT=<the package assets/accept directory>}"
 : "\${URL:?export URL=<router base url>}"
 : "\${OUT:?export OUT=<directory to write results into>}"
 : "\${GSM8K_SRC:?export GSM8K_SRC=<the GSM8K test split, 1319 rows>}"
@@ -302,11 +302,11 @@ cat > "$B/command" <<EOF
 #!/usr/bin/env bash
 # Re-run this arm's trace replay.
 set -eu
-: "\${BENCH:?export BENCH=<the package's assets/bench directory>}"
+: "\${BENCH:?export BENCH=<the package assets/bench directory>}"
 : "\${MODEL_MOUNT:?export MODEL_MOUNT=<directory holding the checkpoint>}"
 : "\${AIPERF_OUT:?export AIPERF_OUT=<node-local output directory>}"
 : "\${AIPERF_TRACE:?export AIPERF_TRACE=<the mooncake trace>}"
-NODE_IP="\${NODE_IP:?export NODE_IP=<the node's data-plane IP>}"
+NODE_IP="\${NODE_IP:?export NODE_IP=<the node data-plane IP>}"
 
 for r in \$(seq 1 $ROUNDS); do
   NODE_IP="\$NODE_IP" ROUTER_PORT=$E2E_PORT_ROUTER SERVED=$E2E_SERVED_NAME \\

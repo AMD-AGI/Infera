@@ -119,14 +119,22 @@ entries:
       document: environment.yaml
       anchor: codes
       # Dotted paths into that document. Each value must appear verbatim in the
-      # rendering. Chosen as the facts a reproduction fails without — the three
-      # the previous stage checked with three hand-written regexes, plus the
-      # image digest, which a floating tag does not give you.
+      # rendering. Exactly the three facts the previous stage checked with three
+      # hand-written regexes — architecture, image, model — now compared against
+      # the record instead of pattern-matched against prose.
+      #
+      # **`fixed.node` is deliberately not here**, and it was, for one run. A
+      # node is the one fact in the record a reproduction may legitimately
+      # change: reproducing on a different machine of the same architecture is
+      # the normal case, not a failure. Requiring the human rendering to name
+      # this run's node also makes the rule unsatisfiable for any kit whose
+      # `environment.md` documents the deployment it came from while its record
+      # describes the run replaying it — which is every mocked kit, and is how
+      # this was found.
       must_render:
         - fixed.gpu_arch
         - fixed.image
         - fixed.model_name
-        - fixed.node
     brief: The human-readable rendering of environment.yaml. Not the record; the record is the yaml.
 
   - path: notes.md
@@ -352,18 +360,70 @@ runtime_contract:
         starts. Empty by default. Not merged into the container's own
         environment: what a later stage needs to vary is the worker, and a
         container-wide export would also reach the router.
+    # The router is a **third** seam and not a special case of the engine one,
+    # because some controls live on the control plane rather than in the engine.
+    # Measured by m2: `--enable-profiling` is a router flag, and without it the
+    # admin profile start/stop routes answer **403** — so a capture runs, reports
+    # success, and produces no trace, with nothing the caller sees saying why.
+    - name: E2E_KIT_ROUTER_EXTRA_ARGS
+      brief: >-
+        Appended verbatim to the router's argv, last. Empty by default. Separate
+        from the engine's because the router and the worker are different
+        processes with different flag sets, and passing one's flags to the other
+        is an error the engine reports and the router does not.
+  # The work root must be **writable from inside the engine container, at the
+  # same path**. Not a new parameter — a property of one that already exists.
+  #
+  # Measured by m2, and it is the failure that produces a success: SGLang writes
+  # a profiler trace to a path the *container* sees, so without the mount docker
+  # creates the directory in the container layer, the capture reports success,
+  # and the host sees nothing. The same is true of anything else a later stage
+  # asks the engine to write.
+  #
+  # Same path inside and out, so a path means the same thing on both sides of the
+  # boundary — the idiom `assets/bench/aiperf_replay.sh` already uses. That also
+  # makes the handshake, the logs and any trace land in one per-invocation
+  # directory that `E2E_KIT_RUN_TAG` already isolates, so nothing new has to be
+  # named or torn down.
+  #
+  # **Not "at the same path inside".** That was the first draft and the real
+  # sealed kit refutes it: it mounts `"${DK_RUN_DIR}:/workdir"`, a working
+  # convention this layout has no business overturning. So the kit chooses where
+  # the mount lands and **says so** in the handshake, which is what the handshake
+  # is for. A consumer that needs the engine to write somewhere composes its path
+  # from `work_root_in_container`, not from the host path.
+  #
+  # Enforced at run time, not statically. The obvious static rule —
+  # `E2E_KIT_WORK_ROOT` must appear in a `--volume` — fails the sealed kit, whose
+  # mounted path is *derived* from the work root; following that derivation needs
+  # a shell evaluator, and a checker that guesses rejects correct kits.
+  # `check_deploy_serves` writes a file through the running container instead.
+  writable_work_root:
+    mode: rw
+    declared_by: runtime_contract.handshake.work_root_in_container
+    brief: >-
+      The per-invocation work root must be writable from inside the engine
+      container. Measured by m2 and it is the failure that reports success:
+      SGLang writes a profiler trace to a path the *container* sees, so with no
+      mount docker creates the directory in the container layer, the capture
+      succeeds, and the host sees nothing.
+
   # Written by `scripts/deploy.sh` on success, read by every consumer. JSON and
   # not a printed line: a consumer parsing stdout has to be told which line, and a
   # kit that adds a banner breaks it silently.
   handshake:
     path: '${E2E_KIT_WORK_ROOT}/deployment.json'
-    required_keys: [endpoint, container, run_tag]
+    required_keys: [endpoint, container, run_tag, work_root_in_container]
     optional_keys: [engine_endpoint, ports, pid]
     brief: >-
       `endpoint` is the **product** endpoint — the router, not the engine's own
-      port. `engine_endpoint` is optional and is what unlocks the engine-side
-      diagnostic probes; a kit that omits it is not refused, it is less
-      diagnosable.
+      port. `work_root_in_container` is where `E2E_KIT_WORK_ROOT` is mounted
+      inside the engine container — equal to the host path when the kit mounts it
+      there, `/workdir` for a kit that follows the sealed one's convention; a
+      consumer that needs the engine to write somewhere composes its path from
+      this and never from the host path. `engine_endpoint` is optional and is
+      what unlocks the engine-side diagnostic probes; a kit that omits it is not
+      refused, it is less diagnosable.
 
 shared_identifiers:
   scan: {anchor: packup, dir: scripts}

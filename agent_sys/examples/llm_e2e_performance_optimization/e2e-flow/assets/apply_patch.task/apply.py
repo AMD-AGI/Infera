@@ -477,9 +477,9 @@ def main() -> int:
 set -eu
 : "${IMAGE:?export IMAGE=<the engine image the patch was cut against>}"
 : "${OVERLAY_ROOT:?export OVERLAY_ROOT=<node-local directory to stage patched files in>}"
-: "${PATCHES:?export PATCHES=<this handoff's items/result/patches directory>}"
+: "${PATCHES:?export PATCHES=<this handoff items/result/patches directory>}"
 : "${MANIFEST:?export MANIFEST=<the kernel_patch manifest.json>}"
-: "${ROOTS:?export ROOTS=<the package's assets/lib/container_roots.yaml>}"
+: "${ROOTS:?export ROOTS=<the package assets/lib/container_roots.yaml>}"
 
 python3 - "$MANIFEST" "$PATCHES" "$IMAGE" "$OVERLAY_ROOT" "$ROOTS" <<'PY'
 import hashlib, json, pathlib, re, shutil, subprocess, sys, tempfile, yaml

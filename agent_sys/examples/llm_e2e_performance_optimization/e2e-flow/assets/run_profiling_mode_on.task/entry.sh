@@ -27,6 +27,15 @@ if [ "$rc" = 0 ]; then
   python3 "$PKG/assets/lib/m2_reshape.py" kernel_table \
     "${E2E_MOCK_ROOT:?}/stage2-profiling/kernel_table/content" \
     "${AGENT_SYS_OUTPUT_PROFILING_MODE_ON_KERNEL_TABLE:?}"
+  # Both `reproducible` outputs carry a sealed `items/command` that does not
+  # parse under its own shebang's shell. See the sibling body.
+  # `kernel_table` is `structured_text` and carries no command item.
+  python3 "$PKG/assets/lib/m2_reshape.py" command \
+    "${E2E_MOCK_ROOT:?}/stage2-profiling/aiperf_profiled/content" \
+    "${AGENT_SYS_OUTPUT_PROFILING_MODE_ON_BENCH_RESULT:?}"
+  python3 "$PKG/assets/lib/m2_reshape.py" command \
+    "${E2E_MOCK_ROOT:?}/stage2-profiling/torch_trace/content" \
+    "${AGENT_SYS_OUTPUT_PROFILING_MODE_ON_PROFILE_RESULT:?}"
   exit 0
 fi
 if [ "$rc" != 3 ]; then exit "$rc"; fi

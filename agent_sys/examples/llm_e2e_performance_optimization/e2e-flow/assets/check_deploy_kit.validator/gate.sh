@@ -47,43 +47,27 @@ GOOD="$WORK/good"
 rm -rf "$GOOD"; cp -a "$SEALED" "$GOOD"
 PACKUP="$(find "$GOOD/items/codes" -maxdepth 1 -type d -name '*.packup_*' | head -1)"
 
-cat > "$GOOD/items/codes/environment.yaml" <<'YAML'
-schema_version: 1
-fixed:
-  node: crsuse2-m2m-079
-  gpu_arch: gfx950
-  gpu_count: 8
-  image: infera/engine-sglang:gfx950-local
-  image_id: sha256:92ed065bdc3958bdb62fdb5c2c4b88ad9fa45c9b355b763f3098a6185b0668e6
-  dockerfile: null
-  rocm: 7.2.0
-  model_name: Qwen/Qwen3.6-27B
-  model_path: /shared_nfs/yihou/models/Qwen3.6-27B
-  served_model_name: Qwen/Qwen3.6-27B
-  tp_size: 1
-  deploy_mode: mix
-  context_length: 32768
-  scripts: {package: e2e-flow, commit: 6d7a3d3, entrypoints: [scripts/deploy.sh]}
-runtime:
-  container: dbg_deploy_sgl_20260902-113414-81355
-  ports: {router: 8106, worker: 8107, etcd: 8105}
-  endpoint: http://127.0.0.1:8106
-  transport: spur
-  started_at: '2026-09-02T11:34:14Z'
-YAML
+# The positive fixture is built by **the same script the mock run uses**,
+# `../deploy_and_prove.task/mock_adapt.sh`, so "a conforming kit" cannot mean two
+# different things in the two places that decide it. It calls `env_render.py`,
+# which is the real producer's path and validates before it writes.
+#
+# `env_render.build()` reads the run's `E2E_*` variables; outside a zone there
+# are none, so the facts the sealed run recorded are supplied here. They are that
+# run's own measured values, not invented ones.
+export E2E_NODE=crsuse2-m2m-079
+export E2E_NODE_IP=127.0.0.1
+export E2E_IMAGE=infera/engine-sglang:gfx950-local
+export E2E_MODEL_NAME=Qwen/Qwen3.6-27B
+export E2E_MODEL_PATH=/shared_nfs/yihou/models/Qwen3.6-27B
+export E2E_CONTAINER=dbg_deploy_sgl_20260902-113414-81355
+export E2E_TRANSPORT=spur
+export E2E_TP=1
+export E2E_CTX=32768
+export E2E_PORT_ROUTER=8106
+export AGENT_SYS_DEMO_PACKAGE="$PKG"
 
-# The runtime contract, as a kit produced by this package's own producer carries
-# it. The sealed kit already has all five concepts under its own `DK_*` names, so
-# this is a rename and not new behaviour.
-cat >> "$PACKUP/scripts/env.sh" <<'EOF'
-
-# --- deploy_kit.layout.yaml runtime_contract -------------------------------
-: "${E2E_KIT_RUN_TAG:=${DK_RUN_TAG:-$(date +%Y%m%d-%H%M%S)-$$}}"
-: "${E2E_KIT_PORT_BASE:=${DK_PORT_BAND_LO:-8100}}"
-: "${E2E_KIT_WORK_ROOT:=${DK_WORK_ROOT:-/mnt/m2m_nobackup/yihou/deploy}}"
-: "${E2E_KIT_ENGINE_EXTRA_ARGS:=}"
-: "${E2E_KIT_ENGINE_EXTRA_ENV:=}"
-EOF
+bash "$PKG/assets/deploy_and_prove.task/mock_adapt.sh" "$GOOD"
 
 zone "$WORK/zone_good" "$GOOD"
 echo "=== positive: the sealed kit, adapted, must PASS ==="
@@ -102,7 +86,7 @@ p = sys.argv[1]; d = yaml.safe_load(open(p))
 d['fixed']['gpu_arch'] = 'MI355X'      # 1. a product, not an architecture
 del d['fixed']['image_id']             # 2. a floating tag is not a reproduction
 del d['runtime']['endpoint']           # 3. required by the schema
-d['fixed']['node'] = 'some-other-node' # 4. environment.md now disagrees
+d['fixed']['image'] = 'other/img:v9'   # 4. environment.md renders a different image
 yaml.safe_dump(d, open(p, 'w'), sort_keys=False)
 PY
 printf '{"model": "/models/qwen3.6-27b"}\n' > "$PACKUP/results/bad_model_id.json"   # 5
@@ -133,7 +117,7 @@ want=(
   "gpu_arch"                       # 1  schema: pattern
   "image_id"                       # 2  schema: required
   "endpoint"                       # 3  schema: required, nested
-  "does not render fixed.node"     # 4  environment.md is a rendering
+  "does not render fixed.image"    # 4  environment.md is a rendering
   "bad_model_id.json"              # 5  served name is a filesystem path
   "router-side reading"            # 6  mode read back from two components
   "CTR_NAME is fixed here"         # 7  frozen and bound
