@@ -148,8 +148,36 @@ def workset_integration(workset: str | None, operator_id: str | None) -> tuple[d
             # is recorded next door. Carrying it here means the comparison below is
             # against a fully-qualified container path rather than a suffix.
             block["_repo_root_var"] = (op.get("edit_target") or {}).get("repo_root_var")
+            # The declared extra gates travel with the integration point, so the
+            # caller has one object rather than two lookups into the same operator.
+            block["gates_extra"] = (op.get("gates") or {}).get("extra") or []
             return block, ""
     return {}, f"the workset declares no operator {operator_id!r} (has: {[o.get('operator_id') for o in operators]})"
+
+
+def correctness_evidence(kopt: str | None) -> dict[str, dict[str, bool]]:
+    """`{gate: {shape: passed}}` out of m4's `evidence/correctness.json`.
+
+    Produced by running the **workset's own** `run_correctness.sh`, so the gate
+    names here are m3's and the results are m4's. An empty mapping means m4
+    carried no such evidence, which is a note rather than a refusal: whether m4
+    was obliged to run it is m4's validator's question, not this body's.
+    """
+    out: dict[str, dict[str, bool]] = {}
+    if not kopt:
+        return out
+    for path in sorted(Path(kopt).glob("items/codes/**/evidence/correctness.json")):
+        try:
+            doc = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        for op in doc.get("operators") or []:
+            for shape in op.get("shapes") or []:
+                name = shape.get("name") or shape.get("shape") or "?"
+                for gate, passed in (shape.get("extra") or {}).items():
+                    if isinstance(passed, bool):
+                        out.setdefault(gate, {})[name] = passed
+    return out
 
 
 def check_against_workset(manifest: dict, integration: dict) -> list[str]:
@@ -180,6 +208,44 @@ def check_against_workset(manifest: dict, integration: dict) -> list[str]:
                 "a replacement goes when it built the workset; a patch landing somewhere else is "
                 "two stages disagreeing about what is being optimised."
             )
+
+    # **The declared gates, checked against m4's own correctness evidence.**
+    #
+    # m3 declares a gate; m3's `run_correctness.sh` evaluates it; a candidate that
+    # fails it fails correctness and should never reach this body at all. This is
+    # the second lock on that door, and it is here because the first one is m4's
+    # to hold: an optimisation that shipped despite its own correctness evidence
+    # is exactly the case nothing else downstream can see.
+    #
+    # `writes_in_place` is the one worth naming. m3 demonstrated a candidate at
+    # 138.8 dB SNR with `allclose` true and every row summing to 1 that allocates
+    # its own output — passing every correctness case run in isolation and
+    # breaking only at the `logits[:] = ...` call site. No SNR threshold catches
+    # it, and neither does anything in m5.
+    #
+    # **Provenance, stated because it is not yet proven:** m3 validated that gate
+    # against a numpy-backed torch stub on a login node, not on a GPU. The
+    # identity semantics should carry to real torch and that has not been
+    # measured. Treat a pass here as "the declared gate was evaluated and did not
+    # fail", which is what it is.
+    declared = {g.get("name") for g in (integration.get("gates_extra") or []) if g.get("name")}
+    evidence = integration.get("_correctness") or {}
+    for gate in sorted(declared):
+        results = evidence.get(gate)
+        if results is None:
+            print(f"apply: NOTE the workset declares a {gate!r} gate and m4's handoff carries no "
+                  f"correctness evidence for it; m4's own validator owns that check")
+            continue
+        failed = [shape for shape, passed in results.items() if passed is False]
+        if failed:
+            bad.append(
+                f"the workset declares a {gate!r} gate and m4's correctness evidence records it "
+                f"FAILING on {failed}. An optimisation that shipped past its own gate must not be "
+                "installed: this is the class of fault that passes every isolated case and breaks "
+                "only at the call site."
+            )
+        else:
+            print(f"apply: {gate}: passed on {len(results)} shape(s) in m4's correctness evidence")
 
     want = integration.get("apply_mode")
     if want and manifest.get("apply_mode") != want:
@@ -323,6 +389,7 @@ def main() -> int:
     # different ideas about what is being optimised.
     integration, why = workset_integration(args.operator_workset, manifest.get("operator_id"))
     if integration:
+        integration["_correctness"] = correctness_evidence(args.kernel_optimization)
         print(f"apply: workset declares {integration.get('public_symbol')!r} in "
               f"{integration.get('target_files')}, apply_mode {integration.get('apply_mode')!r}")
         bad += check_against_workset(manifest, integration)
