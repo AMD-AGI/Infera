@@ -59,10 +59,15 @@ esac
 # tenant's containers (CONTRACT §5.2).
 export E2E_KIT_RUN_TAG="${E2E_CONTAINER}_${SUFFIX}"
 export E2E_KIT_PORT_BASE=$((E2E_PORT_ROUTER + PORT_OFFSET))
+# **What we ask the kit for, not where things end up.** The kit derives its own
+# run directory from this and declares the result in the handshake, and on the
+# real kit the two differ by a level: `pick_params.sh` writes `DK_RUN_DIR` into
+# `run.env` and `env.sh` sources it after any export, so the mount is
+# `${WORK_ROOT}/${TAG}` and no amount of exporting from here wins that race.
+# **Neither side of the trace directory is computed from this** — both are read
+# out of the handshake in step 4. An earlier version derived the host side here
+# and would have collected traces from a directory the engine never wrote to.
 export E2E_KIT_WORK_ROOT="$WORK/$SUFFIX"
-# Where the traces land on the **host**. The container-side name is a different
-# string and is not knowable until the kit has said so — see step 4.
-TRACE_OUT="$E2E_KIT_WORK_ROOT/profiles"
 
 # The two configuration values that are the whole difference between the lines.
 #
@@ -227,15 +232,21 @@ on "cat '$E2E_KIT_WORK_ROOT/deployment.json'" > "$WORKDIR/deployment.json" 2>/de
 eval "$(python3 - "$WORKDIR/deployment.json" <<'PY'
 import json, shlex, sys
 doc = json.load(open(sys.argv[1]))
-# `work_root_in_container` is required alongside the other three: the kit chooses
-# where it mounts its work root — the proven kit uses `/workdir` — and a consumer
-# that assumed "same path inside" would hand the engine a path it cannot write.
-missing = [k for k in ("endpoint", "container", "run_tag", "work_root_in_container")
+# **Both sides of the work root are required, and neither is derived.** The kit
+# chooses where it mounts — the proven kit uses `/workdir` — so a consumer that
+# assumed "same path inside" would hand the engine a path it cannot write. And
+# the host side is not `$E2E_KIT_WORK_ROOT` either: the kit appends its own run
+# directory, so a consumer that inferred it collects from a directory the engine
+# never wrote to. Measured by m1 on the real kit; both keys exist so that
+# neither inference has to be made.
+missing = [k for k in ("endpoint", "container", "run_tag",
+                       "work_root_in_container", "work_root_on_host")
            if not doc.get(k)]
 if missing:
     print(f"the handshake is missing {missing}", file=sys.stderr)
     raise SystemExit(1)
-for key in ("endpoint", "container", "run_tag", "work_root_in_container", "engine_endpoint"):
+for key in ("endpoint", "container", "run_tag", "work_root_in_container",
+            "work_root_on_host", "engine_endpoint"):
     print(f"HS_{key.upper()}={shlex.quote(str(doc.get(key, '')))}")
 PY
 )" || { say "ABORT: the handshake is not usable"; exit 1; }
@@ -248,14 +259,18 @@ if [ "$HS_RUN_TAG" != "$E2E_KIT_RUN_TAG" ]; then
 fi
 R="$HS_ENDPOINT"
 CTR="$HS_CONTAINER"
-# The one path that has to be spelled from the container's side. Composed from
-# what the kit declared, never from `$E2E_KIT_WORK_ROOT` — those are the same
-# directory and not the same string, and `capture.sh` needs both: the host name
-# to create and collect, the container name for the mount check and for the
-# profiler's own `output_dir`.
+# One directory, two names, **both declared and neither computed**.
+# `capture.sh` needs both: the host name to create and collect, the container
+# name for the mount check and for the profiler's own `output_dir`.
+TRACE_OUT="$HS_WORK_ROOT_ON_HOST/profiles"
 TRACE_OUT_IN_CONTAINER="$HS_WORK_ROOT_IN_CONTAINER/profiles"
 say "deployment up at $R in $CTR"
-say "work root: $E2E_KIT_WORK_ROOT (host) = $HS_WORK_ROOT_IN_CONTAINER (in $CTR)"
+say "work root: $HS_WORK_ROOT_ON_HOST (host) = $HS_WORK_ROOT_IN_CONTAINER (in $CTR)"
+if [ "$HS_WORK_ROOT_ON_HOST" != "$E2E_KIT_WORK_ROOT" ]; then
+  # Expected on the real kit, and worth printing rather than silently absorbing:
+  # it is the difference between what we asked for and where the kit put it.
+  say "  (asked for $E2E_KIT_WORK_ROOT; the kit placed its run directory below it)"
+fi
 
 # ---- 5. the profiling control plane, profiler-attached line only -------------
 # Probed with a role that cannot exist: the engine checks the 403 gate BEFORE it
@@ -281,7 +296,7 @@ E2E_LOAD_ROUND="$MODE" \
 E2E_CAPTURE="$CAPTURE" \
 E2E_CONTAINER="$CTR" \
 E2E_PORT_ROUTER="$E2E_KIT_PORT_BASE" \
-E2E_WORK_ROOT="$E2E_KIT_WORK_ROOT" \
+E2E_WORK_ROOT="$HS_WORK_ROOT_ON_HOST" \
 E2E_TRACE_OUT_IN_CONTAINER="$TRACE_OUT_IN_CONTAINER" \
 bash "$LOAD/replay.sh" || exit 1
 
