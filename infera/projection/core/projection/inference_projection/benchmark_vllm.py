@@ -790,14 +790,13 @@ def run_vllm_benchmark(args) -> dict:
         # GPU. Opt-in fallback to NCCL all-reduce via env, no-op otherwise.
         if os.environ.get("INFERASIM_BENCH_DISABLE_CAR"):
             kwargs["disable_custom_all_reduce"] = True
-        # Prefix caching has to be off for the prefill timing to mean anything.
-        # The sweep runs the same prompts for warmup and for every timed call, so
-        # with caching on (vLLM's default) every timed prefill is a cache hit and
-        # prefill_ms measures block lookup rather than prompt processing -- which
-        # is how artifacts came to imply 443k tok/s of prefill on a single GPU,
-        # around the arithmetic peak. Decode is unaffected either way, since it is
-        # differenced between two runs that both hit the cache.
-        kwargs["enable_prefix_caching"] = False
+        # The offline sweep repeats the same prompts for warmup and timed calls.
+        # With this enabled, prefill_ms intentionally measures a near-100% cache
+        # hit (block lookup), not cold prompt processing. Keep the mode explicit
+        # in metadata so consumers can distinguish the two observables.
+        kwargs["enable_prefix_caching"] = bool(
+            getattr(args, "prefix_caching", False)
+        )
         # Expert parallelism: shard MoE experts across the TP ranks (EP = TP)
         # instead of tensor-slicing each expert. Required to expose the
         # imbalance-sensitive effects — the MoE step is then gated by the BUSIEST
@@ -1035,11 +1034,9 @@ def run_vllm_benchmark(args) -> dict:
                 getattr(args, "server_args", "") or "", "--attention-backend"
             ),
             "load_format": args.load_format,
-            # Prefill only means anything with the prefix cache off (see
-            # _build_llm). Recorded explicitly, including this "off" case: a
-            # missing key means the artifact predates the harness forcing it
-            # off, so its prefill timed a block lookup, not prompt processing.
-            "prefix_caching": False,
+            # Explicitly distinguishes cold prefill from the repeated-prompt
+            # cache-hit measurement selected by --prefix-caching.
+            "prefix_caching": bool(getattr(args, "prefix_caching", False)),
             "real_weights": real_weights,
             "random_tokens": random_tokens,
             "moe_routing": routing_applied,
@@ -1200,6 +1197,10 @@ def main(argv=None):
     ap.add_argument("--vocab", type=int, default=30000,
                     help="upper bound for random token ids")
     ap.add_argument("--gpu-mem-util", type=float, default=0.9)
+    ap.add_argument("--prefix-caching", action="store_true",
+                    help="enable vLLM prefix caching. In the offline repeated-"
+                         "prompt sweep this measures near-100% cache-hit lookup "
+                         "latency, not cold-prefill latency.")
     ap.add_argument("--trust-remote-code", action="store_true")
     ap.add_argument("--skip-tokenizer-init", action="store_true",
                     help="skip loading the tokenizer (benchmark uses token ids "

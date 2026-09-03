@@ -327,6 +327,10 @@ class InferencePerformanceProjector:
         self._decode_ctx_ref: float = 0.0         # context the batch curve was measured at
         self._decode_ctx_max: float = 0.0         # largest measured context (guard)
         self._meas_prefill_rate_ms_per_tok: float = 0.0  # for sub-prompt prefill pieces
+        # True when the benchmark deliberately repeated prompts with prefix
+        # caching enabled. Such a curve is a cache-hit lookup curve and is only
+        # usable for a target configured as a full prefix hit.
+        self._meas_prefill_cache_hit: bool = False
         self._meas_layer: Dict[tuple, float] = {}        # {(phase, ltype): ms}
         self._meas_ref_input: int = 0
         self._bench_backend: str = "megatron"
@@ -613,16 +617,22 @@ class InferencePerformanceProjector:
             # rather than incidental. It is also easy to miss that the fallback
             # silently moves TTFT onto the simulator, which is usually the number
             # the projection was run for.
-            if pre_pts and meta.get("prefix_caching") is not False:
+            cache_mode = meta.get("prefix_caching")
+            target_hit = self.cfg.request_config.resolved_prefix_cache_hit_rate()
+            if pre_pts and cache_mode is True and target_hit >= 0.999:
+                self._meas_prefill_cache_hit = True
+                print(
+                    "[inferasim:Inference] using measured PREFIX-CACHE-HIT prefill "
+                    "curve (target prefix hit fraction is 1.0)."
+                )
+            elif pre_pts and cache_mode is not False:
                 print(
                     "[inferasim:Inference] WARNING: PREFILL IS NOT CALIBRATED. This "
-                    "artifact does not record the prefix cache as disabled, so its "
-                    "prefill timed a cache-block lookup rather than prompt processing "
-                    "(measured 3.3x low at the median on the one anchor harvested "
-                    "both ways). Decode is calibrated from the measurement as usual, "
-                    "but PREFILL AND EVERY TTFT BELOW ARE SIMULATED. Re-harvest with "
-                    "the current harness, which forces the cache off and records "
-                    "prefix_caching: false, to calibrate prefill too."
+                    "artifact's prefill is a prefix-cache-hit lookup curve, but the "
+                    f"target prefix hit fraction is {target_hit:.2f}, not 1.0. Decode "
+                    "is calibrated as usual; prefill and TTFT remain simulated. Use "
+                    "a cache-off anchor for partial/miss traffic or set the target "
+                    "hit fraction to 1.0 for repeated-prefix traffic."
                 )
                 pre_pts = []
             if self._restore:
@@ -1360,6 +1370,11 @@ class InferencePerformanceProjector:
                     base = self._measured_prefill_tokens_ms(batch * input_len)
                 else:
                     base = self._measured_full_prefill_ms(batch)
+                # A cache-hit anchor already includes lookup plus the one-token
+                # forward needed to produce the first output. Discounting it by
+                # the uncached suffix would apply the hit a second time.
+                if self._meas_prefill_cache_hit:
+                    return base + fetch_ms
                 # Prefix-cache hit: discount the SAME baseline proportionally to
                 # the non-cached suffix. Scaling the chosen cost method (rather
                 # than switching to a different one) keeps prefill continuous at
