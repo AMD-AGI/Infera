@@ -36,13 +36,24 @@ if [ "$rc" = 0 ]; then
   # phases later — the cause named nothing and was three layers from the effect.
   # The log is outside the handoff on purpose: it is diagnostics about producing
   # the artefact, not part of it.
+  #
+  # **`|| rc=$?`, never `if ! cmd; then rc=$?`.** `!` inverts the status, so `$?`
+  # inside the `then` branch is the *negated* one — 0 — in both dash and bash.
+  # This block had that shape, and the effect was the worst available: the
+  # failure was caught, logged in full, and reported as **success**, so the task
+  # was marked succeeded and handed on a `deploy_kit` with no environment
+  # record. `check_environment` then refused it two phases later and the graph
+  # blamed the handoff instead of the task — precisely the three-layers-from-the
+  # -effect problem the log above exists to prevent. Found by m2 sweeping every
+  # body in the package; one site, this one.
   log="${TMPDIR:-/tmp}/m1_mock_adapt.$$.log"
-  if ! bash "$PKG/assets/deploy_and_prove.task/mock_adapt.sh" \
-        "${AGENT_SYS_OUTPUT_DEPLOY_KIT:?}" >"$log" 2>&1; then
-    rc=$?
-    echo "deploy_and_prove: mock_adapt.sh failed (rc=$rc). Its output:" >&2
+  arc=0
+  bash "$PKG/assets/deploy_and_prove.task/mock_adapt.sh" \
+        "${AGENT_SYS_OUTPUT_DEPLOY_KIT:?}" >"$log" 2>&1 || arc=$?
+  if [ "$arc" != 0 ]; then
+    echo "deploy_and_prove: mock_adapt.sh failed (rc=$arc). Its output:" >&2
     cat "$log" >&2
-    exit "$rc"
+    exit "$arc"
   fi
   cat "$log" >&2
   exit 0

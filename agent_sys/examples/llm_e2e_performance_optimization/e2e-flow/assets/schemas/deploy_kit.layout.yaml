@@ -343,9 +343,23 @@ runtime_contract:
     # M2.3 removes.
     #
     # Deliberately **two** seams and not one, because argv and environment are
-    # not interchangeable: `--disable-cuda-graph` is a flag the engine parses and
-    # `SGLANG_TORCH_PROFILER_DIR` is read from the process environment. A single
-    # "extras" string would force one of the two through a shell hack.
+    # not interchangeable: a flag the engine's parser reads and a variable its
+    # process reads arrive by different routes, and a single "extras" string
+    # would force one of the two through a shell hack.
+    #
+    # **The original example for the environment half was wrong and is recorded
+    # rather than quietly replaced.** It was `SGLANG_TORCH_PROFILER_DIR`, named
+    # when m2 asked for the seams; m2 then measured that their pipeline never
+    # sets it — the engine is told where to write **per capture**, in
+    # `/start_profile`'s `output_dir`, which is also what lets two windows of one
+    # round write to different subdirectories. So `E2E_KIT_ENGINE_EXTRA_ENV` is
+    # **empty on both of m2's lines today and has no current consumer.**
+    #
+    # It stays required anyway, and the reason is the argv/environment split
+    # above rather than any one variable: a kit that reads only one of the two
+    # cannot be re-pointed by a later stage that needs the other, and finding
+    # that out costs a bring-up. A parameter with no consumer is cheap; a seam
+    # discovered to be missing mid-stage is not.
     #
     # Both default to empty, so a caller that sets neither gets today's
     # behaviour **byte for byte** — which is what makes the profiled arm's only

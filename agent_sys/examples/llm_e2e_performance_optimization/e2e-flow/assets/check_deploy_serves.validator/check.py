@@ -52,6 +52,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 import schema as schema_lib  # noqa: E402
 import zone  # noqa: E402
+from workset_io import arg_num  # noqa: E402 — CONTRACT §4.2, the one numeric-arg reader
 
 HERE = Path(__file__).resolve().parent
 LIB = HERE.parent / "lib"
@@ -122,23 +123,30 @@ def on(command: str, transport: dict, *, check: bool = True, timeout: int | None
 
 
 def seconds(parameters: dict, name: str, default: int) -> int:
-    """A numeric `args` value, as a number.
+    """A numeric `args` value, as a number. Delegates to the shared reader.
 
     **Every value in `args.json` arrives as a string**, whatever it looked like
     in the step yaml — `'${deploy_bringup_timeout_seconds:-3600}'` reaches a body
     as `"3600"`. Passing that to `subprocess.run(timeout=…)` raises
     `TypeError: unsupported operand type(s) for +: 'float' and 'str'` from inside
-    the timeout arithmetic, which names neither the parameter nor the caller.
-    Measured in a real run; a hand-written `args.json` with JSON numbers hides it
-    completely, which is why it survived several standalone passes.
+    the timeout arithmetic, naming neither the parameter nor the caller. Measured
+    in a real run; a hand-written `args.json` with JSON numbers hides it, which
+    is why it survived several standalone passes.
+
+    **And in a validator the consequence is worse than a wrong answer.** m2
+    measured it: the `TypeError` escapes, the body exits non-zero **before
+    writing `verdict.json`**, and the phase reads a *broken validator* rather
+    than a refused handoff — so the failure points at the checker rather than at
+    the kit. That is exactly how this one presented.
+
+    `workset_io.arg_num` and not a bare `int()`, per CONTRACT §4.2: bare `int()`
+    fixes this arithmetic half and leaves the truthiness half, where
+    `args.get(n) or default` reads the default when the operator said `0` —
+    and, worse, *works* on the `${...}` string form while failing on a genuine
+    yaml integer, so half an `args` block behaves differently from the other
+    half.
     """
-    value = parameters.get(name)
-    if value in (None, ""):
-        return default
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        raise SystemExit(f"check_deploy_serves: args.{name}={value!r} is not a number")
+    return int(arg_num(parameters, name, default, cast=int))
 
 
 def envvars(mapping: dict) -> str:
@@ -317,7 +325,7 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
         except subprocess.TimeoutExpired:
             return [
                 f"{deploy} did not finish within "
-                f"{parameters.get('bringup_timeout_seconds', 3600)}s. A cold start is "
+                f"{seconds(parameters, 'bringup_timeout_seconds', 3600)}s. A cold start is "
                 f"minutes of JIT and weight load, so this budget is slack rather than a "
                 f"target — a timeout here means it hung, not that it was slow"
             ]
@@ -583,8 +591,10 @@ def main() -> int:
         ("concurrency", "load_concurrency"),
         ("duration_seconds", "load_seconds"),
     ):
-        if parameters.get(arg):
-            probes["load"][key] = int(parameters[arg])
+        # `arg_num`, not `if parameters.get(arg)`: an operator who says `0`
+        # means 0, and the truthy `"0"` string form would silently work while a
+        # genuine yaml `0` was skipped.
+        probes["load"][key] = seconds(parameters, arg, int(probes["load"][key]))
 
     # `assets/lib/remote.sh` reads these three and forwards the whole `E2E_*`
     # block to the far side of an `spur exec` (`remote.sh:84` — the transport
