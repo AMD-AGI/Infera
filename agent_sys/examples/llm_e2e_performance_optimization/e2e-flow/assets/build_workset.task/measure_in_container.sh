@@ -129,8 +129,14 @@ esac
 
 # The default is the producer's pair; a caller may substitute its own.
 if [ "$#" -eq 0 ]; then
-  COMMAND="./run_correctness.sh --json evidence/correctness.json && \
-           ./run_performance.sh --json evidence/performance.json"
+  # **Progress between the two, because the stretch is otherwise silent.**
+  # A container start, a torch import, three shapes of correctness and then
+  # three shapes x five groups x ten iterations of timing is minutes with
+  # nothing on stdout. A watchdog that keys on silence cannot tell that from a
+  # wedge, and neither can a person reading the log — the first thing anyone
+  # asks about a stalled stage is whether it is doing anything.
+  COMMAND="echo '  [1/2] correctness' && ./run_correctness.sh --json evidence/correctness.json && \
+           echo '  [2/2] performance' && ./run_performance.sh --json evidence/performance.json"
 else
   COMMAND="$*"
 fi
@@ -164,6 +170,7 @@ if ! on "docker image inspect '$IMAGE' >/dev/null 2>&1"; then
 fi
 
 echo "measure_in_container: $IMAGE on GPU $E2E_MEASURE_GPU as $E2E_MEASURE_CONTAINER"
+echo "measure_in_container: starting the container; the next line comes from inside it"
 
 # `--rm` so nothing is left behind, and a name nothing else owns: **never
 # `docker rm -f` a name you did not create**, and both held nodes carry other
