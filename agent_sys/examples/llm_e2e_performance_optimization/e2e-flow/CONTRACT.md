@@ -334,6 +334,72 @@ visibility management for the shared container (rule 7).
 
 ---
 
+## 8a. Five owners, one worktree — how to commit without taking someone else's work
+
+Raised by `checkpoint` 2026-09-03 and it is right: five owners write into **one**
+shared checkout. At the moment it was raised, twelve modified and five untracked
+files belonging to at least four different owners sat in the tree at once.
+
+**`git add <dir>` is not the hazard's cure, and `git add` at all is part of it.**
+`git add .../e2e-flow/` obeys "stage only paths under the package" to the letter
+and sweeps four other owners' half-written files into one owner's commit. Worse,
+**the index is itself shared state**: owner A's `git add` lands in the same index
+owner B commits from a second later, so even correct per-file staging races.
+
+### The rule
+
+**Commit paths directly and never touch the index:**
+
+```sh
+git commit -s -m "..." -- \
+  agent_sys/examples/.../e2e-flow/assets/check_yours.validator/check.py \
+  agent_sys/examples/.../e2e-flow/assets/schemas/yours.schema.json
+```
+
+`git commit -- <pathspec>` commits the working-tree content of exactly those
+paths and **ignores the index entirely**, so a concurrent `git add` by another
+owner cannot be swept in. If two commits collide on `index.lock`, git says so;
+wait a second and retry.
+
+Then verify what you actually committed, rather than what you meant to:
+
+```sh
+git show --stat --name-only HEAD
+```
+
+Not one worktree per owner, which would be the structurally clean answer: work
+is already in flight in this tree and moving it now would strand it. This is the
+cheap correct fix, and the manifest below is what makes it checkable.
+
+### The ownership manifest
+
+Anything not listed is the **leader's**. A file with two claimants is a
+conversation with the leader, not a race.
+
+| owner | paths |
+|---|---|
+| leader | `CONTRACT.md` · `MOCK-MAP.md` · `README.md` · `main.yaml` · `shared.yaml` · `steps/common.yaml` · `assets/main.task/` · `assets/lib/{mock.sh,schema.py,env_render.py}` · `assets/schemas/{environment.schema.json,README.md}` · `../todo.md` |
+| m1 | `steps/m1_deploy.yaml` · `assets/{check_deploy_kit,check_deploy_serves}.validator/` · `assets/{deploy_and_prove,m1_deploy}.task/` · `assets/schemas/deploy_kit.layout.yaml` · `assets/lib/zone.py` |
+| m2 | `steps/m2_profiling.yaml` · `assets/{check_bench_result,check_trace_coverage,check_profiling_evidence,check_kernel_table}.validator/` · `assets/{run_profiling_mode_off,run_profiling_mode_on,merge_profiling_evidence,m2_profiling}.task/` · `assets/schemas/{bench_result,kernel_table}.schema.json` · `assets/{serve,load,analyze}/` · `assets/lib/{remote.sh,trace_stream.py}` |
+| m3 | `steps/m3_analysis.yaml` · `assets/{check_worklist_shape,check_identity_resolved,check_workset_shape,check_workset_runs}.validator/` · `assets/{rank,identify,build_workset,m3_analysis}.task/` · `assets/schemas/{kernel_worklist,operator_identity,workset}.schema.json` |
+| m4 | `steps/m4_kernel_opt.yaml` · `assets/{check_speedup_substantiated,check_optimization_shape}.validator/` · `assets/{optimize_kernel,m4_kernel_opt}.task/` · `assets/schemas/kernel_optimization.schema.json` |
+| m5 | `steps/m5_integration.yaml` · `assets/{check_overlay_applies,check_patch_live,check_measurement_order,check_acceptance,check_bench_report,check_no_regression,check_packup_shape}.validator/` · `assets/{apply_patch,integrate_and_verify,packup,m5_integration}.task/` · `assets/schemas/integration_report.schema.json` · `assets/{accept,bench}/` · `assets/lib/{patchkit.py,eval_stats.py,store.py,redact.py,nodecall.py,container_roots.yaml}` |
+
+`check_kernel_table` is **declared** in `steps/common.yaml` (leader's, because m2
+and m3 share it) and its **body** is m2's. That split is deliberate: the shared
+declaration is what stops the two-copies seam from reappearing, and the body has
+one author.
+
+**`assets/lib/` is the collision zone.** Announce a new file there to the leader
+before landing it — three of us have already put something in it.
+
+### The repo-root litter, which is a different and smaller problem
+
+`glm5.2-dp8-tp8-workload-schema.tar`, `rank0/`, `.serena/`,
+`handoff.analysis.md`, and a modified `agent_sys/docs/design.md` are the user's,
+untracked, and outside this package. `git commit -- <paths>` cannot reach them,
+so the rule above closes this one as a side effect.
+
 ## 9. The gate every change passes, in under a second
 
 ```sh
