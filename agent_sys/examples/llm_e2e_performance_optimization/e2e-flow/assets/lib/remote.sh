@@ -62,10 +62,38 @@
 # TTY, so detecting srun first would pick a transport that cannot work, and the
 # failure would arrive as an exit code with no hint that the wrong seam was used.
 # Presence of `spur` is the positive signal that this is that cluster.
+# **`auto` is a value to resolve, not a value to return.** This returned
+# `$E2E_TRANSPORT` verbatim whenever it was non-empty, so the shipped default —
+# `shared.yaml`'s `E2E_TRANSPORT: '${transport:-auto}'` — reached the `case`
+# below and exited 2 with `unknown E2E_TRANSPORT: auto`. Every body that did not
+# pass `--var transport=spur` hit it; m1 found it and worked around it in their
+# own body. Only the three real transports short-circuit now; everything else,
+# including `auto` and the empty string, falls through to the probe.
+#
+# **Two readers of one rule.** `assets/lib/env_render.py:build()` resolves `auto`
+# by mirroring this probe in Python, so that the environment record says which
+# transport it picked. This function is the authority and the two change
+# together — calling across shell and Python for four lines would be worse. A
+# disagreement is at least visible rather than silent, because the record names
+# what it resolved.
+#
+# **Only `auto` and empty probe.** An unrecognised value is passed through so
+# that `on`'s `case` names it — `--var transport=spurr` must say so rather than
+# quietly become `spur`. Falling *everything* unrecognised into the probe was
+# the obvious shape and it turns a typo into a silent default, which is the one
+# behaviour worse than the bug being fixed here.
 _transport() {
-  if [ -n "${E2E_TRANSPORT:-}" ]; then echo "$E2E_TRANSPORT"; return; fi
+  case "${E2E_TRANSPORT:-}" in
+    ""|auto) ;;                                        # resolve below
+    *) echo "$E2E_TRANSPORT"; return ;;                # real, or a typo `on` will name
+  esac
   if command -v spur >/dev/null 2>&1; then echo spur
   elif command -v srun >/dev/null 2>&1; then echo srun
+  # Neither on PATH is the **closed validator environment**, measured: it omits
+  # PATH entirely, `sh` substitutes `/usr/bin:/bin`, and `spur` lives in
+  # `/usr/local/bin`. `spur` is the right answer on this cluster, so the
+  # fallback is not a coin toss — but the caller will then need `spur` reachable
+  # and `SPUR_CONTROLLER_ADDR` set, neither of which this function can supply.
   else echo spur; fi
 }
 
