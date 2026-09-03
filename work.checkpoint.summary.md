@@ -2688,3 +2688,491 @@ from outside. Given the same evidence I would make the same call.
 
 I will keep the 30-minute rhythm until the leader says stop, but with no compute,
 no active module and a clean tree, the record from here is expected to be flat.
+
+---
+---
+
+# Checkpoint summary — three-level component install + `examples/env_checker`
+
+A **new effort**, appended below the five-module `llm_e2e` debug above. The
+sections above belong to that earlier effort and are not touched.
+
+Append-only, same discipline: one section per ~30 minutes, earlier sections are
+never revised, wrong estimates are left standing because the record over time is
+the value.
+
+Effort start (T+0) taken as **2026-09-03 08:13 UTC**, the minute the task book
+`CLAUDE.md` for this effort was written at the repo root (`CLAUDE.md`, with the
+predecessor saved beside it as `CLAUDE.kernel_opt.20260903-0813.md.bak`).
+
+What is being built: `agent_sys` today delivers exactly one Claude Code
+capability to an agent (`skills`). This effort builds the other six and puts all
+seven behind one install hierarchy with three levels — **L1** `env_mgr` recipes
+named in YAML, **L2** a repo component registry at `agent_sys/components/`,
+**L3** auto-detection of `<agent asset dir>/.claude/` — and proves each of them
+with a new package `agent_sys/examples/env_checker` that runs them and hands back
+per-capability tokens derived from a run nonce.
+
+Plan: `/home/yihou/.claude/plans/zany-hugging-lightning.md` (199 lines).
+Teammates: **`core-impl`** (owns `agent_sys/{spec_loader,agent,env_mgr,tests}`)
+and **`pkg-author`** (owns `agent_sys/examples/env_checker` and
+`agent_sys/components`).
+
+Reporter reads, cheapest first: `git status --short` / `git log --oneline` /
+`git diff --stat` in the worktree; `agent_sys/examples/env_checker/` and
+`agent_sys/components/` if they exist; `/tmp/yihou/agentsys_envchecker_20260903/`;
+the repo-root `CLAUDE.md`; the plan.
+
+---
+
+## T+0 — 2026-09-03 08:38 UTC (baseline)
+
+Written 25 minutes after the nominal T+0; this is the first observation, not a
+retro-fit of what the state was at 08:13.
+
+### 1. Progress
+
+**Effort: ~5 %.** Elapsed 25 minutes. Estimated remaining: unknown.
+
+| workstream | est. % | basis |
+|---|---|---|
+| planning / task book | **100 %** | `CLAUDE.md` and the 199-line plan both exist and are complete, with a work breakdown down to file and line number |
+| probes (the 3 measured assumptions) | ~33 % observable | probe (a)'s artefacts exist on disk; (b) and (c) have left nothing |
+| core changes (`spec_loader`, `env_mgr`, `agent`, `tests`) | 0 % observable | `git diff --stat` is empty; no tracked file has changed |
+| `examples/env_checker` | 0 % observable | the directory does not exist |
+| `agent_sys/components/` | 0 % observable | the directory does not exist |
+
+**Reliability: very low, and asymmetric.** The planning number is solid — I read
+both documents. Every other number is a floor derived from an absence, and at
+T+25min an absence means "has not yet written to a path I can see", which I
+*cannot* distinguish from "is working in an editor buffer / a subagent that has
+not returned". Neither teammate has been observed to fail at anything. There is
+no denominator I trust either: the plan lists seven capabilities × three levels
+plus five core files plus three test modules plus four docs, and I have no
+measurement of how long any one of those takes in this codebase.
+
+### 2. Current state
+
+Repo worktree `/home/yihou/dev/git.16-19/infera.aiopt.real.task_package`, branch
+`dev.yihou.aiopt.task_package`, HEAD `9bf72c8` (the previous effort's final
+commit).
+
+`git status --short` shows exactly two untracked paths and **no modifications**:
+
+```
+?? CLAUDE.kernel_opt.20260903-0813.md.bak
+?? progress.bar.for.user.md
+```
+
+- **`core-impl`** — no observable output. No tracked file under
+  `agent_sys/{spec_loader,agent,env_mgr,tests}` differs from HEAD.
+- **`pkg-author`** — no observable output. `agent_sys/examples/` still holds the
+  six pre-existing packages (`demo`, `demo-broken`, `demo2`,
+  `llm_e2e_perf_opt_debug_workset`, `llm_e2e_performance_optimization`,
+  `single_real_task`); there is no `env_checker`. There is no
+  `agent_sys/components/`.
+- **Scratch** `/tmp/yihou/agentsys_envchecker_20260903/` exists, created 08:13,
+  with `logs/` (empty) and `probes/` (08:14). Under `probes/`: a relocated config
+  dir `cfg_a/` and two synthetic marketplaces `mp/` and `mp2/`, the first
+  shipping a plugin that carries a skill.
+
+### 3. Code problems — fixed / not fixed
+
+**Fixed this period:** none. No code has been written yet.
+
+**Not fixed — the defects this effort exists to correct**, as stated first-hand
+in the task book and plan and not yet contradicted by anything I read:
+
+- `agent_sys/env_mgr/material.py` — writes no `settings.json` into the zone, so a
+  declared `hooks:` path lands at `<zone>/config/hooks/<basename>` and is read by
+  nobody. Declarable but inert.
+- `agent_sys/env_mgr/recipe.py` + `agent_sys/env_mgr/installers/` — reachable only
+  from the `env-mgr` CLI (`env_mgr/cli.py:74`). **Recipes never run during a task
+  at all**; `prepare` installs nothing.
+- Plugins — installable only via a recipe that writes the operator's `~/.claude`,
+  which the zone's relocated `CLAUDE_CONFIG_DIR` then hides. Unreachable from a
+  package.
+- MCP — reachable only through a hand-written `config.options.mcp_servers`, with
+  no example anywhere in the repo. No `Prepared.mcp_servers`, no
+  `Assignment.mcp_servers`.
+- In-process `ToolDef` — reachable only from `env_mgr`'s own remote surface.
+- `agent/docs/design.md` **O4** ("which hook surface is canonical") is an open
+  question in the checked-in docs; the plan intends to close it.
+
+None of these are regressions; all are the pre-existing state of `main`.
+
+### 4. Non-code problems
+
+- **This effort writes near `~/.claude`, which is outside `yihou/`.** The task
+  book's own mitigation: every probe runs with `CLAUDE_CONFIG_DIR` pointed into
+  `/tmp/yihou/...`, and `~/.claude` / `~/.claude.json` are checksummed before and
+  after. I can see the relocated config dir; I have **not** found a
+  before/after checksum record on disk, so I can report the intent but not that
+  the check was performed.
+- **`~/.claude.json` is not documented as following `CLAUDE_CONFIG_DIR`** (task
+  book, first-hand). It holds MCP server config and sign-in. This is the stated
+  reason MCP is routed through `Assignment.mcp_servers` rather than a file, and
+  it is a constraint on the design, not a bug.
+- **Binary version skew**: `claude` on `PATH` here is 2.1.246 while the SDK
+  prefers its own bundled binary; `Prepared.agent_cli` already refuses the
+  mismatch (`claude_sdk.py:399-440`). Anything that shells out to `claude`
+  (plugin install) and anything that starts a session may therefore not be the
+  same binary.
+- **serena is slow and networked** — the plan makes its recipe item
+  `importance: suggested` for that reason. Network reachability from this host
+  has not been measured in anything I can see.
+- Host is 8× MI300X `gfx942`; nothing in this effort needs a GPU, so the walltime
+  pressure that dominated the previous effort does not apply here. No slurm hold
+  is involved.
+- Commits need `git commit -s` (DCO, `.claude/CLAUDE.md`). Repo language English,
+  user-facing reporting Chinese.
+
+### 5. Open questions, not yet characterised
+
+- **Probe (a) — does `claude plugin install` respect `CLAUDE_CONFIG_DIR`?**
+  Observed: under `probes/cfg_a/` there is a `plugins/installed_plugins.json`
+  listing `envchk-plugin@envchk-mp` and `second-plugin@second-mp`, both scope
+  `user`, both with `installPath` inside `/tmp/yihou/...`, installed 08:14:26 and
+  08:14:46 UTC; and a `settings.json` carrying `enabledPlugins` for both plus
+  `extraKnownMarketplaces` pointing at `probes/mp` and `probes/mp2`, alongside a
+  `SessionStart` hook. That is what the files say. Whether the operator's
+  `~/.claude` was left untouched, and whether the probe was declared a pass, I
+  have not seen recorded anywhere.
+- **Probes (b) and (c)** — hooks reaching an SDK-started session, and an external
+  `mcp_servers` entry reaching the model — have produced no artefact under
+  `probes/`. Not run, or run without writing: I cannot tell which.
+- `logs/` was created at 08:13 and is still empty at 08:38.
+- Neither teammate has sent me anything. Silence at T+25min is silence.
+
+### 6. New commits
+
+None. `git log --oneline` is unchanged from the previous effort's tip:
+`9bf72c8 debug the five e2e stage packages to one sealed handoff set each`.
+
+### 7. Anything else worth recording
+
+- The plan's acceptance is **one real run**, accepted by opening the handoff —
+  seven sections, seven tokens, both validators PASS — explicitly *not* by exit
+  code. Three consecutive unattended runs are **not** asked for this round. That
+  is a materially smaller acceptance bar than the previous effort's, and it is
+  the user's ruling, not a relaxation taken here.
+- The design's load-bearing simplification: **L2 and L3 have the same on-disk
+  shape** (a `.claude/` tree in Claude Code's canonical layout), so one installer
+  serves both and nothing is converted. If that stops being true, the size
+  estimate for the core changes stops being true with it.
+- Evidence in `env_checker` is **token-based, not narrative**: each capability's
+  token derives from a per-run `ENVCHK_NONCE`, so a capability that did not run
+  cannot produce its token and a validator cannot be satisfied by an agent that
+  merely reports success. This is the direct descendant of the earlier effort's
+  worst failure — ten validators PASS over a run in which every result was zero.
+- The untracked `progress.bar.for.user.md` at the repo root predates this
+  effort's first observation; I did not read it and do not know whose it is.
+
+---
+
+## T+65 — 2026-09-03 09:18 UTC
+
+Forty minutes since the baseline. Everything the baseline marked "0 % observable"
+now exists on disk, and the earlier estimate of 5 % was correct as a floor and
+badly wrong as a prediction — the writing was already well under way in buffers I
+could not see. That is exactly the failure mode the baseline named and did not
+avoid.
+
+Sources this section, kept separate on purpose: **verified** = I opened the file
+or ran the command; **reported by the lead** = arrived in the lead's checkpoint
+message and I have not independently confirmed it.
+
+### 1. Progress
+
+**Effort: ~70 %.** Elapsed 1 h 5 m. Estimated remaining: **1–2 h**, dominated by
+one thing that has not started.
+
+| workstream | est. % | basis |
+|---|---|---|
+| probes | **100 %** | verified: `logs/PROBES.md`, 139 lines, six probes A/A'/B/C/D/E each with a stated method and a YES |
+| core changes | ~90 % | verified: 23 tracked files modified, `env_mgr/agent_assets.py` (1029 lines) and `env_mgr/recipes/serena.yaml` (160) new |
+| `examples/env_checker` | ~95 % | verified: 32 files incl. `main.yaml`, `steps/check.yaml`, both validators, the full L3 `.claude/` tree, `ACCEPTANCE.md` |
+| `agent_sys/components/` | ~90 % | verified: `README.md` + `envchk-baseline/` with `.claude/.mcp.json` and its server |
+| tests | ~80 % | verified: `tests/env_mgr/test_agent_assets.py` is 945 lines new; 5 existing test modules modified. Lead reports a round in flight |
+| **the one real run** | **0 %** | verified: no run root, and the lead states it has not been launched |
+| commits | **0 %** | verified: `git log` still `9bf72c8`; 24 modified + 7 untracked paths, 1099 insertions |
+
+**Reliability: medium for the written work, low for the remaining time.** The
+percentages above are line counts and file inventories, which measure *presence*,
+not correctness — and two defects found in the last forty minutes (§3) were both
+in files that were present, loaded, and passing pre-flight. The 1–2 h remaining
+is a guess with no measurement behind it: nobody has yet run this package
+end-to-end, and the run's duration is unknown. Two bugs of the same class were
+found by reading artefacts before the run; whether a third is waiting is
+precisely what the run will say.
+
+### 2. Current state
+
+`git status --short`: 24 modified (23 source/docs + this file), 7 untracked.
+HEAD still `9bf72c8`.
+
+- **`core-impl`** — has landed the whole core surface. Modified: `agent/backend.py`,
+  `agent/backends/claude_sdk.py`, `agent/runner.py`, `agent/spec.py`,
+  `agent/docs/{design.md,spec.md}`, `env_mgr/{material.py,paths.py,prepare.py,protocols.py,protocols.pyi,README.md}`,
+  `env_mgr/docs/design.md`, `env_mgr/isolation/policy.py`,
+  `spec_loader/{assets.py,package.py}`, `spec_loader/schemas/agent.schema.json`,
+  and 5 test modules. New: `env_mgr/agent_assets.py`, `env_mgr/recipes/serena.yaml`,
+  `tests/env_mgr/test_agent_assets.py`. Reported mid test-round.
+- **`pkg-author`** — package complete and reported idle/standing by. The L3 tree
+  under `assets/env_probe.agent/.claude/` carries all of: `settings.json`,
+  `hooks/envchk_session_start.py`, `skills/envchk-probe/SKILL.md`, a local
+  marketplace `plugins/.claude-plugin/marketplace.json` with `envchk-plugin`
+  shipping its own skill, `tools/envchk_stdio.mcp.py`, and
+  `tools/envchk_inproc.tooldef.py`. Beside it, `serena_probe.py` and a `.serena/`
+  project dir with a warmed symbol cache.
+- **Shared library** `assets/lib/envchk.py` holds the salt machinery:
+  `SALT_TAG = re.compile(r"ENVCHK_SALT:\s*([0-9a-f]{32})")`, and it treats both
+  "no tag" and "more than one distinct tag in one file" as errors.
+- **`ACCEPTANCE.md`**, 235 lines, inside the package — written **before** the run,
+  which is the discipline the previous effort's `.claude/CLAUDE.md` principle 2
+  asked for and which that effort did not always keep.
+- **Scratch** `/tmp/yihou/agentsys_envchecker_20260903/logs/` now holds
+  `PROBES.md` (08:46), `poll_notes.md` (202 lines, 09:06), `serena_install.log`,
+  `home_before.md5`, `t1.md5`, `home_after.json`.
+
+**Anti-forgery, verified independently by me, not taken on report.** Seven
+`ENVCHK_SALT` tags, one per capability, each in exactly one file, all seven
+distinct:
+
+| capability | file | salt |
+|---|---|---|
+| hook | `.claude/hooks/envchk_session_start.py:54` | `6ea6f6c7…` |
+| skill (L3) | `.claude/skills/envchk-probe/SKILL.md:25` | `141016c5…` |
+| plugin | `.claude/plugins/envchk-plugin/skills/envchk-plugin-skill/SKILL.md:33` | `fdf78796…` |
+| bundled stdio MCP | `.claude/tools/envchk_stdio.mcp.py:33` | `a65f7dfd…` |
+| in-process `ToolDef` | `.claude/tools/envchk_inproc.tooldef.py:36` | `3cccd425…` |
+| serena | `serena_probe.py:61` | `a3ebf3e2…` |
+| external MCP (L2) | `components/envchk-baseline/.claude/servers/envchk_baseline_server.py:32` | `48d7f4c1…` |
+
+### 3. Code problems — fixed / not fixed
+
+**Fixed this period** (both reported by the lead as found-and-fixed; I verified
+only that the files exist and that `envchk.py` carries the salt logic, not the
+fixes themselves):
+
+- the install report is `{"outcomes": [...]}` — an **object** — where the shape
+  validator had been written expecting the bare array. Would have failed the
+  first real run; passed load and pre-flight.
+- serena's `find_symbol` returns the symbol **body and nothing above it**, so a
+  module-level `SALT` constant never appeared in the response. Row 7 of the
+  report would have failed on **every honest run** — a false negative built into
+  the test, the mirror of the previous effort's false positives.
+
+Both are one class: *a schema assumed rather than measured*. The lead has added
+the obligation to the repo-root `CLAUDE.md`: never copy from an artefact nobody
+has opened; do not encode an unmeasured third-party schema.
+
+**Fixed this period, verified by me:** `agent_sys/tests/agent/test_imports.py`
+does **not** appear in `git status`, consistent with the lead's report that the
+L1-route reversal returned it to its shipped form.
+
+**Not fixed / still open:**
+
+- Everything in the T+0 list remains open until the core changes are proven by a
+  run; presence in `git status` is not proof.
+- `__pycache__` directories with `.pyc` files have been committed-adjacent inside
+  the package assets — `assets/lib/__pycache__/{envchk,zone}.cpython-313.pyc` and
+  `assets/env_probe.agent/.claude/tools/__pycache__/envchk_inproc.tooldef.cpython-313.pyc`
+  — and `agent_sys/examples/env_checker/` is untracked as a whole, so a naive
+  `git add` of the directory would carry them in. Also `.serena/cache/python/*.pkl`
+  (two pickles) and `.serena/project.local.yml`. Verified by `find`; not yet
+  flagged by anyone else, and I have not checked whether `.gitignore` covers them.
+
+### 4. Non-code problems
+
+- **The `~/.claude.json` checksum method was withdrawn by the lead as invalid on
+  this host** (reported): with no probe running it changed twice in 75 seconds,
+  because every live Claude Code session rewrites it. Earlier "unchanged"
+  readings were luck, not evidence. Note that `PROBES.md:5` still states
+  "`~/.claude.json` md5 checked before and after each: **unchanged**" — the
+  write-up predates the withdrawal (08:46 vs the correction) and has not been
+  updated. The substitute evidence the lead names is per-probe: each probe's own
+  `.claude.json` inside its relocated config dir, plus
+  `~/.claude/plugins/marketplaces` still holding only `claude-plugins-official`,
+  which `PROBES.md` does record for probe A.
+- **`uv tool install` writes `~/.local/share/uv` unless `UV_TOOL_DIR`,
+  `UV_TOOL_BIN_DIR` and `UV_CACHE_DIR` are all pinned into a yihou dir**
+  (reported, probe D). This is a real instance of the hard rule's blast radius:
+  a default that writes outside `yihou/` without being asked.
+- **Two writers on one file.** The lead began editing `agent_assets.py` while
+  `core-impl` was in it, for a few minutes, then stood down and disclosed what it
+  had left behind. No lost-update has been reported; the file is 1029 lines and I
+  have not diffed it against anything.
+- **Mail arrives between turns.** The lead read `core-impl` as ignoring a ruling
+  when in fact every one of its messages landed after the work was already on
+  disk; the misreading is withdrawn and recorded in `poll_notes.md` as a
+  correction to the polling discipline — *in a system with between-turn mail
+  delivery, silence is not refusal*. This is the same inference error this file
+  made at T+0 from the other side, and it is worth the whole checkpoint to have
+  it written down twice.
+
+### 5. Open questions, not yet characterised
+
+- **The real run has not been launched.** Everything above measures artefacts, not
+  behaviour. No run root exists.
+- Probe F is described by the lead as: a plugin installed into the zone config is
+  visible to the session, and loads from the **marketplace source path, not a
+  copy**. I did not find an F section in the 139-line `PROBES.md` I read (A, A',
+  B, C are in the part I opened; D and E are attested by `serena_install.log`
+  existing). Whether F is later in the file, in `poll_notes.md`, or unwritten, I
+  did not check.
+- `pytest agent_sys` was 2176 passed / 3 skipped / 4 xfailed at the last report
+  and is described as mid-round. I have not run it. The 4 xfails are unexamined
+  by me and predate this effort as far as I know.
+- The four accepted deviations from the plan (`agent_assets` rather than
+  `material.py` writes the zone `settings.json`; `deploy` returns a `Deployed`
+  NamedTuple; `agent_assets` defines its own `InstallOutcome` rather than
+  importing `Outcome` across the decoupling wall; L1 installs run as a
+  subprocess) are reported as accepted. I have not read the code to see whether
+  the docs modified in this diff say the same thing the code does.
+
+### 6. New commits
+
+**None.** `git log --oneline` is still `9bf72c8`. Approximately 31 paths of work
+are uncommitted — 24 modified, 7 untracked — which is the largest single body of
+unversioned work this file has recorded. `git diff --stat HEAD` reports 1099
+insertions across the tracked files alone; the untracked package and component
+trees are not in that number.
+
+### 7. Anything else worth recording
+
+- **The reversal is the most interesting decision of the period.** L1 installs
+  were implemented as an in-process import and were re-ruled to a subprocess
+  (`python -m env_mgr … --json`). The lead reports re-deriving the ruling rather
+  than restating it, and that it stood on three legs — the strongest being that a
+  subprocess takes `env=` and therefore removes a process-global `os.environ`
+  mutation that is unsafe in a threaded runner. That is a correctness argument,
+  not an architectural preference, and it is the kind of reason that survives
+  someone asking again in a month.
+- **Probe B settles `agent/docs/design.md` O4** for this repo's purposes: the
+  canonical hook surface is the declarative `settings.json` one. `PROBES.md:47`
+  says so explicitly, and `agent/docs/design.md` is in the modified set, so the
+  answer is being written where the question was asked.
+- **Probe A' produced a design consequence, not just a fact**: `plugin install`
+  merges rather than clobbers, so the hooks `settings.json` must be written
+  *first* and the plugin installs run after. The reverse order also works but
+  costs a second merge.
+- `home_after.json` is 22 KB and mode `0600` while its sibling `home_before.md5`
+  is 59 bytes — the before/after pair are not the same kind of measurement. Noted,
+  not explained.
+
+---
+
+## T+68 — 2026-09-03 09:21 UTC
+
+A short interval — three minutes of wall clock after the last section, written
+because the lead answered all three of T+65's findings at once and two of them
+changed the file I had just cited. Recording the resolutions while they are
+cheap to verify.
+
+### 1. Progress
+
+**Effort: ~72 %.** Elapsed 1 h 8 m. Estimated remaining: **1–2 h**, unchanged and
+for the unchanged reason — the real run has still not been launched.
+
+The three-point move since T+65 is not new implementation. Tracked-file source
+insertions are **flat**: `git diff --stat HEAD` reports 1292 insertions of which
+372 are this checkpoint file, leaving 920 — the same 920 as at T+65 (1099 − 179).
+What moved is untracked: `agent_assets.py` grew 1029 → 1079 lines (mtime 09:20,
+i.e. still being written as I read it) and the contract items below landed.
+
+**Reliability: medium.** The completeness claims in §2 I checked by grep; the
+test-count and the "every contract item has landed" judgement are the lead's,
+relayed from `core-impl`, and I did not run the suite.
+
+### 2. Current state
+
+`git status --porcelain` shows 31 paths. HEAD still `9bf72c8`.
+
+- **`core-impl`** — reported by the lead as having landed every outstanding
+  contract item: `AGENT_SYS_COMPONENTS_ROOT` (granted then exported),
+  `AGENT_SYS_INSTALL_REPORT`, `${VAR}` expansion that **refuses** an unresolved
+  variable, the marketplace copied into the zone *before* registration (which is
+  probe F's finding turned into behaviour), a `sys.modules` fix carrying two
+  tests that were checked to fail without it, and `env_mgr/recipes/serena.yaml`.
+  Suite reported **2187 passed / 3 skipped / 4 xfailed** (was 2176 at T+65).
+
+  Verified by me, by grep, that both env vars are referenced across code, docs,
+  tests and the package: `AGENT_SYS_COMPONENTS_ROOT` in `env_mgr/prepare.py`,
+  `env_mgr/paths.py`, `env_mgr/isolation/policy.py`, `env_mgr/README.md`,
+  `env_mgr/docs/design.md`, `tests/env_mgr/test_agent_assets.py`, and the
+  package's `README.md` + `check_capabilities_genuine.validator/`;
+  `AGENT_SYS_INSTALL_REPORT` in `env_mgr/{paths.py,README.md,docs/design.md}`,
+  `tests/env_mgr/test_agent_assets.py`, and the package's `README.md`,
+  `ACCEPTANCE.md`, `assets/probe_env.task/readme.md`. That is presence in the
+  policy layer, the docs and the tests, not merely a definition.
+- **`pkg-author`** — still standing by; being asked about the two serena files
+  (below) before anything is committed.
+- **The real run** — not launched.
+
+### 3. Code problems — fixed / not fixed
+
+**Fixed this period, all three verified by me:**
+
+- `PROBES.md:5` — the retracted `~/.claude.json` checksum. Replaced with an
+  explicit **WITHDRAWN, 2026-09-03** paragraph at line 5 rather than deleted, so
+  anyone who already quoted the old header can see it was retracted and why, and
+  a full `## Correction` section now sits at line 128. The file grew 139 → 147
+  lines. Retracting in place instead of erasing is the right call for a document
+  other people quote.
+- **Probe F was never missing from my reading — the file was stale.** `PROBES.md`
+  now carries `## D` (line 70), `## E` (84) and `## F` (101), F reading
+  "is a plugin installed into the zone config *visible to the session*? **YES**".
+  There is also a `## What is still NOT measured` section at line 61, which is
+  the right kind of thing for a probe write-up to carry.
+- **`.gitignore` covers the caches; two serena files still get in.** I re-checked
+  with `git add -An` rather than by reading `.gitignore`, and the result is
+  exactly what the lead reports: 26 files would be staged, and among them
+  `assets/env_probe.agent/.serena/.gitignore` and
+  `assets/env_probe.agent/.serena/project.yml`. Confirmed ignored (`!!`):
+  `assets/lib/__pycache__/`, `.claude/tools/__pycache__/`, `.serena/cache/`,
+  `.serena/project.local.yml`. So the caches were never the risk; the serena
+  project config is, and it is unresolved pending `pkg-author`'s answer on
+  whether it is intended package content or a by-product of measuring against
+  that directory.
+
+**Not fixed:** nothing has been retired from the T+65 list beyond the above. The
+whole core surface remains unproven by any execution.
+
+### 4. Non-code problems
+
+Nothing new. The T+65 entries stand: the withdrawn checksum method (now correctly
+marked in the file itself), `uv`'s three env vars, the brief two-writer overlap
+on `agent_assets.py`, and between-turn mail delivery.
+
+### 5. Open questions, not yet characterised
+
+- The run. Still the whole of the remaining risk, by the lead's own assessment
+  and by mine.
+- `.serena/.gitignore` and `.serena/project.yml` — intended or by-product,
+  unanswered.
+- `agent_assets.py` had an mtime of 09:20 when I read it at 09:20, so the 1079
+  figure is a reading of a moving file and may already be stale.
+- The 4 xfails in the suite remain unexamined by me and, as far as I know,
+  predate this effort.
+
+### 6. New commits
+
+**None.** HEAD `9bf72c8`. Still ~31 uncommitted paths.
+
+### 7. Anything else worth recording
+
+- **All three T+65 findings were correct, and one was a correction to the lead.**
+  Worth recording not as credit but as a method result: each of the three came
+  from checking what a command would actually do (`git add -An`) or from reading
+  the artefact rather than the claim about it — the same habit that produced the
+  two bugs found earlier today. The one that mattered most, `PROBES.md:5`, was a
+  *retracted method still standing as evidence in a file people quote*, which is
+  a failure mode with no symptom until someone acts on it.
+- The lead notes probe F's finding — a plugin loads from the marketplace **source**
+  path, not a copy — is now enforced by copying the marketplace into the zone
+  before registration. A measurement turning directly into a line of behaviour is
+  the cleanest possible use of a probe.
+- The interval between this section and the last is three minutes, which breaks
+  the ~30-minute cadence. It is here because the resolutions were verifiable now
+  and would have been indistinguishable from the next tranche of work later.
