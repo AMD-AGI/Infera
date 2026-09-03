@@ -594,21 +594,17 @@ mounts are read-only; and a mount that is present is not yet a mount that ran.
         encoding="utf-8",
     )
 
-    # Mission G5: every handoff carries the environment record. Inherited from
-    # m1 rather than rebuilt here — a stage that re-derived it could differ from
-    # m1's and nothing in the flow would notice, which is the whole reason
-    # `check_environment` compares the runtime block across its inputs.
-    subprocess.run(
-        [
-            sys.executable,
-            str(Path(args.package) / "assets" / "lib" / "env_render.py"),
-            "--inherit", str(Path(args.deploy_kit) / "items" / "codes" / "environment.yaml"),
-            "--content-type", "reproducible",
-            "--out", str(out),
-        ],
-        check=True,
-    )
-
+    # Site paths in the evidence become `@NAME@`, so that a record of one
+    # afternoon on one node is readable on the next.
+    #
+    # **Not justified by the seal, and that correction matters here.** This pass
+    # was inherited from `integration-demo`, where it was argued for as *"the
+    # seal refuses the whole delivery over one absolute path"*. Measured since:
+    # `handoff/store.py:447` reads `# locality.check — NOT CALLED`, so the seal
+    # refuses nothing (CONTRACT.md §2.2). The pass stays on its own merit —
+    # `host_path` names one node's scratch directory and a mount plan carrying it
+    # verbatim does not replay anywhere else — and it is **scoped to the
+    # generated evidence**, not applied to everything in the output.
     subprocess.run(
         [
             sys.executable,
@@ -619,6 +615,31 @@ mounts are read-only; and a mount that is present is not yet a mount that ran.
             f"ZONE={Path.cwd()}",
             "TMPDIR=/tmp",
             f"HOME={Path.home()}",
+        ],
+        check=True,
+    )
+
+    # Mission G5: every handoff carries the environment record. Inherited from
+    # m1 rather than rebuilt here — a stage that re-derived it could differ from
+    # m1's and nothing in the flow would notice, which is the whole reason
+    # `check_environment` compares the runtime block across its inputs.
+    #
+    # **After the redact pass, deliberately, and this ordering is the fix for a
+    # live hazard.** `environment.schema.json` *requires* `model_path`, which is
+    # an absolute path by nature; a rewriter that turned it into `@NAME@` would
+    # produce a record that fails its own schema. Today none of the five pairs
+    # above happens to prefix a model path, so writing the record first survived
+    # by luck — and the day somebody adds a `MODEL_ROOT=` pair, or points
+    # `work_root` at the same filesystem as the weights, it would stop. Writing
+    # the record last means it is never a candidate. m3 hit the same rule from
+    # the other side: their validator rejected every conforming handoff over it.
+    subprocess.run(
+        [
+            sys.executable,
+            str(Path(args.package) / "assets" / "lib" / "env_render.py"),
+            "--inherit", str(Path(args.deploy_kit) / "items" / "codes" / "environment.yaml"),
+            "--content-type", "reproducible",
+            "--out", str(out),
         ],
         check=True,
     )

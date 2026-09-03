@@ -229,7 +229,12 @@ def adhoc_ok(result: Path, args: dict, reasons: list) -> list[str]:
 
     Returns the case ids, so the caller can compare the arms.
     """
-    floor = int(args.get("min_adhoc_cases", 0) or 0)
+    # `args.get(k, d)` and **not** `args.get(k) or d`: `0 or 3` is `3`, so the
+    # `or` form reads a deliberate `min_adhoc_cases: 0` as the default and
+    # silently re-arms a rule the operator turned off. Harmless here because
+    # both values are 0 — kept in the safe shape so that changing the default
+    # later cannot introduce the bug. Raised by m3, who found the live case.
+    floor = int(args.get("min_adhoc_cases", 0))
     payload = read_json(result / "adhoc.json")
     if payload is None:
         if floor:
