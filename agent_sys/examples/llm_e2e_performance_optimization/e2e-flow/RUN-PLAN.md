@@ -40,6 +40,37 @@ a full bring-up and a three-minute load**. It fails loudly, so it costs a run
 rather than a wrong number — which is the good version of this mistake and still
 a run.
 
+## Rung 0 cannot complete on the login node, and that is by design
+
+Measured 2026-09-03: the mock graph runs cleanly through `deploy_kit`, all four
+m2 kinds, `profiling_evidence`, `kernel_worklist` and `operator_identity` — and
+then stops at **`build_workset`**, on a login node that has no `torch`.
+
+**It is not a defect.** m3 wrote the reason into the mock's own header:
+
+> The one thing this cannot supply is `evidence/`, because evidence is a
+> **measurement**: the caller runs the entrypoints afterwards, which is the same
+> thing STEP 7 and STEP 8 do. **On a host without torch that step fails and the
+> mock is correctly incomplete.**
+
+A mock that *fabricated* `evidence/` would be exactly what MOCK-MAP forbids, and
+it would defeat `check_workset_runs`, whose whole job is that the numbers were
+measured on this hardware. So the mock stops where measurement begins, which is
+the correct place for it to stop.
+
+**Consequence for the ladder, and it changes what "rung 0 green" can mean:**
+
+- **Rung 0 must be run from a host with torch** — i.e. through `spur exec` on a
+  held node — or it stops at `operator_workset` by construction. The run roots
+  are on `/shared_nfs` and visible from both sides, so this is a change of
+  *where the command is issued*, not of the command.
+- **"Mock e2e green" therefore never meant "no hardware".** It meant "no model
+  call, no bring-up, no campaign". Stage 3 onward still needs a card, because
+  three of this package's validators are `cost: gpu_hours` and two of them grade
+  measurements rather than shapes.
+
+Say what rung 0 covered in those terms, not as "the mock passed".
+
 ## Before rung 1, and again before every rung
 
 1. **`m2`'s interpreter sweep** — `/shared_nfs/yihou/agent_sys/ws_handoff_refine/m2/interpreter_sweep.py`. About a minute. **Treat a clean result as a gate, not a formality**: all four bugs in that class were introduced by bodies written *after* the previous sweep, so the sweep is only worth its cost when it is re-run.
