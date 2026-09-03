@@ -37,6 +37,13 @@ class H(BaseHTTPRequestHandler):
         if p == "/v1/models":
             return self._send(200, json.dumps({"object": "list", "data": [
                 {"id": MODEL, "object": "model", "owned_by": "infera"}]}))
+        if p == "/health_generate":
+            # **GET, and POST answers 405 below — mirroring the real engine.**
+            # Measured on SGLang 0.5.17/gfx950: GET 200, POST 405, and
+            # /nonexistent 404. A stub that accepted both methods would let a
+            # probe with the wrong one pass here and fail against the engine,
+            # which is the stub lying about the thing it exists to rehearse.
+            return self._send(200, json.dumps({"status": "ok"}))
         if p == "/get_model_info":
             return self._send(200, json.dumps({"model_path": "/models/stub", "is_generation": True}))
         if p == "/get_server_info":
@@ -50,7 +57,7 @@ class H(BaseHTTPRequestHandler):
     def do_POST(self):
         p = self.path.split("?")[0]
         if p == "/health_generate":
-            return self._send(200, json.dumps({"status": "ok"}))
+            return self._send(405, json.dumps({"error": "Method Not Allowed"}))
         if p != "/v1/chat/completions":
             return self._send(404, json.dumps({"error": "not found"}))
 

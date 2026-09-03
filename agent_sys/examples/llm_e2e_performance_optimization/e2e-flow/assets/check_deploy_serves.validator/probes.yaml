@@ -125,13 +125,25 @@ probes:
       deployment that passes the four probes above and fails this one is up, is
       serving, and will hang the first real request.
     severity: fail
-    request: {method: POST, url: '${engine}/health_generate', timeout: 120}
+    # **GET, and the documented method is POST.** Measured against SGLang 0.5.17
+    # on gfx950, 2026-09-03, on a live deployment:
+    #     GET  /health_generate -> 200
+    #     POST /health_generate -> 405 Method Not Allowed
+    #     GET  /nonexistent     -> 404
+    # The 404 control is what makes this conclusive rather than suggestive: the
+    # route exists and the method does not. If some build answers 405 to both,
+    # this probe is reporting a third thing and **this note needs rewriting
+    # rather than the method flipping again**.
+    request: {method: GET, url: '${engine}/health_generate', timeout: 120}
     when: engine_endpoint_known
     expect:
       status: 200
     source: >-
-      SGLang native APIs — `/health` a lightweight liveness check,
-      `POST /health_generate` a health check that confirms generation.
+      SGLang native APIs — `/health` a lightweight liveness check, and
+      `/health_generate` a health check that confirms generation. The docs give
+      it as POST; **this build answers GET** (see the measurement above), which
+      is the researched-probe rule earning its keep in the other direction: a
+      documented endpoint still has to be checked against the engine in hand.
       https://docs.sglang.io/docs/basic_usage/native_api
       Caveat carried deliberately: sgl-project/sglang#12731 reports the two
       behaving identically on some builds, which makes this probe redundant
@@ -308,7 +320,23 @@ load:
   accept:
     # A run that completes no requests has not shown the deployment serves under
     # load, however clean its exit code.
-    min_completed_requests: 16
+    #
+    # **Scaled by the window, and that is measured rather than tidy.** At the
+    # mandated 1024 output tokens and a real 32.5 ms inter-token latency, one
+    # request takes ~33 s — so a *shortened* debug load
+    # (`--var deploy_load_seconds=30`) can only ever complete about one request
+    # per slot, and a flat floor of 16 sat **exactly** on the line: measured
+    # `request_count: 16` against a healthy engine. One marginally slower engine
+    # and that fails for a reason about the window rather than about the
+    # deployment.
+    #
+    # So the floor is `concurrency × completions_per_slot`, where the second term
+    # is derived from the window and the measured per-request time and clamped at
+    # 1. At the real 180 s it is comfortably above concurrency; at 30 s it is
+    # exactly concurrency, which is the honest bar for a window that short —
+    # every slot completed once.
+    min_completed_requests_per_slot: 1
+    seconds_per_request_estimate: 35
     # Errors under a load this small are not a capacity limit.
     max_error_rate: 0.01
     # The output length is what `ignore_eos` pins; a mean far below the request

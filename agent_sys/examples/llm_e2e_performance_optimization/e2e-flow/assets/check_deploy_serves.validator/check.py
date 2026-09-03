@@ -215,7 +215,7 @@ def build_plan(probes: dict, bindings: dict[str, str], available: set[str]) -> t
 # the load's own acceptance
 
 
-def judge_load(summary: dict, accept: dict) -> list[str]:
+def judge_load(summary: dict, accept: dict, load_shape: dict) -> list[str]:
     """The load's floors, from `probes.yaml`. Deliberately low — see the yaml.
 
     A criterion whose input is absent is reported as **unevaluated**, never as
@@ -238,6 +238,15 @@ def judge_load(summary: dict, accept: dict) -> list[str]:
 
     count = (metrics.get("request_count") or {}).get("avg")
     floor = accept.get("min_completed_requests")
+    if floor is None and accept.get("min_completed_requests_per_slot"):
+        # Derived from the window rather than fixed: see `probes.yaml`'s note.
+        # `max(1, …)` because a window shorter than one request still has to
+        # demand that every slot completed once.
+        slots = int(load_shape["concurrency"])
+        per_slot = int(accept["min_completed_requests_per_slot"])
+        est = int(accept.get("seconds_per_request_estimate", 35))
+        rounds = max(1, int(load_shape["duration_seconds"]) // max(est, 1))
+        floor = slots * per_slot * rounds
     if floor is not None:
         if count is None:
             faults.append("request count is absent from the AIPerf summary — unevaluated, not passed")
@@ -479,7 +488,12 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
         port = router.rsplit(":", 1)[-1].rstrip("/")
         load_out = f"{work_root}/aiperf"
         load_env = {
-            "NODE_IP": fixed.get("node_ip") or environment["runtime"].get("endpoint", "").split("//")[-1].split(":")[0],
+            # **From the handshake, not from `fixed.node_ip`.** The load must hit
+            # the endpoint the probes just passed against; those are the same
+            # deployment and there is one right answer. Measured why it matters:
+            # the real kit binds `127.0.0.1` by default, so a load aimed at the
+            # node's routable address reaches nothing while every probe passed.
+            "NODE_IP": router.split("//", 1)[-1].rsplit(":", 1)[0],
             "ROUTER_PORT": port,
             "SERVED": served,
             "MODEL": fixed["model_path"],
@@ -524,13 +538,22 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
                 f"A load with no numbers has not shown the deployment serves under load"
             ]
         Path("load_summary.json").write_text(json.dumps(summary, indent=2))
-        faults += judge_load(summary, load["accept"])
+        faults += judge_load(summary, load["accept"], load)
 
     finally:
         # ---- 4. teardown, on every path -------------------------------------
         # `check=False`: a teardown that fails must be reported, and it must not
         # replace the verdict on the deployment. What it may never do is be
         # skipped — this leaves a GPU behind on a node four other owners share.
+        # **A bug in this block leaks on every invocation, not on a bad one.**
+        # Worth stating because the causality is not obvious in either
+        # direction: the string-arg `TypeError` lived here as well as in
+        # bring-up, so `check_deploy_serves` left its processes behind *every
+        # time it ran* — the leak was a property of the bug rather than an
+        # accident of one unlucky run, and "it failed but it cleaned up" was
+        # never true while that bug was live. Two stub routers were found alive
+        # on a shared node from a run that had already finished. Anything added
+        # to this block gets the same scrutiny as the thing it tears down.
         print("check_deploy_serves: 4/4 teardown")
         # Hand back anything the deployment's container wrote as root, from
         # inside that container — the only context with the privilege. It runs
