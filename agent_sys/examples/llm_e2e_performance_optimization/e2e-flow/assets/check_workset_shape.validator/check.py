@@ -281,6 +281,24 @@ def _check(content: Path, args: dict, problems: list[str]) -> bool:
         if operator["reference"]["kind"] == "written":
             _exists(root, operator["reference"]["path"], f"{label}.reference", problems)
 
+        # The apparatus is the set a consumer copies. A named file that is not
+        # there produces a copy that cannot run, an hour later, on the consumer's
+        # side — so it is checked here, where it costs nothing.
+        for relative in operator["apparatus"]:
+            _exists(root, relative, f"{label}.apparatus", problems)
+
+        # M5.1.1: the integration point has to be usable by a program. An empty
+        # `public_symbol` or a sentinel invariant means m5 is back to reading a
+        # report and deciding, which is what declaring it was for.
+        integration = operator["integration"]
+        if not integration["target_files"]:
+            problems.append(f"{label}: integration.target_files is empty; m5 has nothing to replace")
+        if not integration["public_symbol"].strip():
+            problems.append(
+                f"{label}: integration.public_symbol is empty. The file may be rewritten wholesale, "
+                f"so the symbol is what a replacement must still provide"
+            )
+
     # The evidence is optional in the schema — a workset may be shape-checked
     # before it has been measured — and required here, because a workset that
     # reaches a consumer unmeasured is the state M4.3.5 was reversed against.
@@ -295,6 +313,24 @@ def _check(content: Path, args: dict, problems: list[str]) -> bool:
                                 ("performance_report", "performance_report")):
             if _exists(root, evidence[key], "evidence", problems):
                 _validate_report(root / evidence[key], schema_def, f"evidence.{key}", problems)
+        # `noise_floor` is a **transcription of a computed figure**, so it is
+        # checked against the figure rather than merely required to be present.
+        # A workset declaring 1.01 on a host whose measured spread implies 1.09
+        # is one that will call noise a win, and it is the consumer who pays.
+        report_path = root / evidence["performance_report"]
+        if report_path.is_file():
+            try:
+                measured = json.loads(report_path.read_text(encoding="utf-8")).get("noise_floor")
+            except json.JSONDecodeError:
+                measured = None
+            if measured is not None:
+                for operator in document["operators"]:
+                    if operator["noise_floor"] < measured - 1e-9:
+                        problems.append(
+                            f"{operator['operator_id']}: noise_floor is {operator['noise_floor']}, but the "
+                            f"measured spread in {evidence['performance_report']} gives {measured}. "
+                            f"A floor below what the host's own noise supports calls noise a win"
+                        )
 
     # Rules 6 and 7.
     #

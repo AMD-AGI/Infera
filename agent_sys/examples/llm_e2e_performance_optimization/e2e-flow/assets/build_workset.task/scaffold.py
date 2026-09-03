@@ -63,6 +63,11 @@ SENTINEL = (
 
 _OP_TYPE = re.compile(r"[^a-z0-9_]+")
 
+#: One-line form of `SENTINEL`, for list fields where a two-line comment block
+#: would be nonsense. Same `TODO(build_workset)` token, so the same three
+#: checks catch it.
+SENTINEL_LINE = "TODO(build_workset): STEP 4a — state an invariant a replacement may not break."
+
 
 def _op_type(operator: dict) -> str:
     """flashinfer-bench's `op_type`, from the category the ranker assigned.
@@ -263,7 +268,30 @@ def main() -> int:
                 "source_resolution_method": entry.get("source_resolution_method"),
                 "resolution_evidence": entry.get("resolution_evidence") or entry.get("resolution_hint") or "",
             },
+            # M5.1.1. Scaffolded from `edit_target` because the *file* is
+            # already known; `public_symbol` and `invariants` are the agent's,
+            # and STEP 4a is where they are filled. They are deliberately left
+            # as sentinels rather than guessed: an invariant nobody checked is
+            # worse than a missing one, because m5 will rely on it.
+            "integration": {
+                "target_files": entry.get("editable_sources") or ([entry["source_file_path"][0]]
+                                                                  if entry.get("source_file_path") else []),
+                "public_symbol": (entry.get("target_kernel_functions") or [""])[0],
+                "signature": "",
+                "invariants": [SENTINEL_LINE],
+                "apply_mode": "overlay_files",
+                "requires_restart": True,
+                "build_step": None,
+            },
             "gates": {"snr_db": float(os.environ.get("E2E_SNR_THRESHOLD") or 30.0)},
+            # Transcribed from evidence/performance.json at STEP 8; 1.05 until
+            # then, which is the previous round's rule of thumb and is a
+            # placeholder rather than a measurement.
+            "noise_floor": 1.05,
+            # What must travel byte-identically for the entrypoints to run
+            # outside this handoff. m4 re-runs from its own packup's copy.
+            "apparatus": ["_common.py", "run_correctness.sh", "run_performance.sh",
+                          "workset.yaml", definition_rel, workload_rel],
             "provenance": {
                 "source": (identity.get("resolver") or {}).get("profile")
                 or f"profiling_evidence {evidence_dir.name}",

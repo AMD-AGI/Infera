@@ -131,6 +131,46 @@ to `kind: imported` with the `module`, `symbol`, `source_file` and `line` you
 cited in STEP 3, and a one-sentence `rationale`. Use `kind: written` with a
 `path` only where STEP 3 forced you to.
 
+### STEP 4a — declare the integration point
+
+M5.1.1. `integration` is **not** `edit_target`: that one says where an optimiser
+edits, this one says where a replacement is *installed* and what it may not
+change. m5's `apply_patch` is a program only because this block exists — with
+it, applying is a copy from a named source to a named target; without it, m5
+reads an optimisation report and guesses.
+
+Per operator, fill in `workset.yaml`:
+
+- `target_files` — paths inside the engine, relative to `edit_target.repo_root_var`.
+  The scaffold seeded these from `editable_sources`; widen or narrow deliberately.
+- `public_symbol` — the entry point a replacement must still provide. The file
+  may be rewritten wholesale; this must survive it.
+- `signature` — the call signature that must hold.
+- `invariants` — replace the sentinel. **What a replacement may not change,
+  beyond the signature**, and only things you have checked. The worked example
+  is the one to have in mind because none of it is inferable from the signature:
+  the production call site for a sampler softmax is `logits[:] = torch.softmax(...)`,
+  so the replacement must **write in place into a caller-provided `out`** — one
+  that allocates is not substitutable there and would pass every correctness
+  gate. An invariant nobody verified is worse than a missing one, because m5
+  will rely on it.
+
+```sh
+python3 - <<'PY'
+import pathlib, sys, yaml
+doc = yaml.safe_load(pathlib.Path("<WS>/workset.yaml").read_text()); bad = 0
+for op in doc["operators"]:
+    i = op["integration"]
+    if not i["target_files"]: print(f"{op['operator_id']}: no target_files"); bad += 1
+    if not i["public_symbol"].strip(): print(f"{op['operator_id']}: no public_symbol"); bad += 1
+    if any("TODO(build_workset)" in v for v in i["invariants"]):
+        print(f"{op['operator_id']}: invariants still the sentinel"); bad += 1
+sys.exit(1 if bad else 0)
+PY
+```
+
+**Acceptance:** that command exits 0.
+
 ### STEP 5 — reach three shapes, and label the ones you added
 
 `check_workset_shape` requires **at least three shapes per operator, and every
@@ -215,7 +255,9 @@ node was not quiet — re-run rather than record it. A noisy baseline is worse
 than no baseline: an optimiser working against it takes the first candidate that
 lands on a fast sample for a win and chases noise for hours.
 
-Then record where it was measured, in `workset.yaml`:
+Then record two things in `workset.yaml`.
+
+The evidence block:
 
 ```yaml
 evidence:
@@ -223,6 +265,21 @@ evidence:
   performance_report: evidence/performance.json
   measured_on: {node: <hostname>, gpu_arch: <arch>, container: <name>, at: <ISO8601>}
 ```
+
+And **transcribe the noise floor**. `run_performance.sh` computed it and wrote
+it to `evidence/performance.json` as `noise_floor`; copy that number into every
+operator's `noise_floor`. Do not round it down and do not substitute 1.05.
+
+```sh
+python3 -c "import json;print(json.load(open('evidence/performance.json'))['noise_floor'])"
+```
+
+It is `1 + 2.83 x rsd_max` — the two-sample 2-sigma separation at the spread
+this run actually saw, because two measurements each with relative sd `s` differ
+by more than `sqrt(2)*z*s` by chance alone. **m4 must not pick this number
+itself**: a consumer choosing its own floor is a consumer choosing when to call
+its own result significant. `check_workset_shape` compares the transcription
+against the file.
 
 ### STEP 9 — validate what you built, before it is graded
 

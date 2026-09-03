@@ -167,7 +167,8 @@
       "required": [
         "operator_id", "op_type", "status", "missing_fields",
         "definition", "workload", "shapes", "entrypoints",
-        "reference", "baseline", "edit_target", "gates", "provenance"
+        "reference", "baseline", "edit_target", "integration",
+        "gates", "noise_floor", "apparatus", "provenance"
       ],
       "properties": {
         "operator_id": {
@@ -267,6 +268,54 @@
               "description": "Stated uncertainties about facts the schema has no slot for. The stage-3 half's worked example is worth keeping in mind: the source file `operator_identity` declared for one kernel was **wrong**, and editing it would have changed a different kernel while every measurement continued to look plausible."
             }
           }
+        },
+
+        "integration": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["target_files", "public_symbol", "invariants", "apply_mode"],
+          "description": "M5.1.1 — 优化成果是如何 apply 回 sglang，是应该严格遵循 3 的 handoff 的. **The declared integration point, and it is declared here rather than inferred downstream.** Distinct from `edit_target`, which says where an *optimiser* edits; this says where a *replacement* is installed and what it may not change. The two are usually the same file and are not the same statement, and collapsing them is what forces m5 to read an optimisation report and decide.\n\nThis block is the whole of what lets m5's `apply_patch` stay a program: with it, applying is a copy from a named source to a named target and a check that the signature held. Without it, applying is a judgement call, and a judgement call in `apply_patch` is a second agent deciding what the first agent meant.",
+          "properties": {
+            "target_files": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"type": "string", "minLength": 1},
+              "description": "Paths **inside the engine**, relative to `edit_target.repo_root_var`. What gets replaced, named by the workset, so that m4 cannot widen the blast radius by editing a sixth file and m5 cannot be surprised by one."
+            },
+            "public_symbol": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The entry point a replacement must continue to provide. Named because the *file* may be rewritten wholesale and this must survive it."
+            },
+            "signature": {"type": "string", "description": "The call signature that must hold, e.g. `sampler_softmax(logits: Tensor[B, V] fp32, out: Tensor[B, V] fp32) -> Tensor`."},
+            "invariants": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"type": "string", "minLength": 1},
+              "description": "What a replacement may not change, beyond the signature. The worked example is worth keeping in view because none of it is inferable from the signature: for `sampler_vocab_softmax` the production call site is `logits[:] = torch.softmax(...)`, so the replacement **writes in place into a caller-provided `out`** — one that allocates is not substitutable there, and would pass every correctness gate."
+            },
+            "apply_mode": {
+              "type": "string",
+              "enum": ["overlay_files"],
+              "description": "How the replacement is installed. **One value today, and an enum rather than a string on purpose**: a registry or import hook is the better mechanism and is deferred (`todo.md` T5, M5.3 — 但现在就这样吧), so the field exists to be widened by whoever builds it rather than to be reinterpreted. Two mechanisms would mean two proofs that the patch was live, and the proof is the expensive half."
+            },
+            "requires_restart": {"type": "boolean", "default": true, "description": "Whether installing it needs the engine restarted. `overlay_files` does; a hook would not."},
+            "build_step": {"type": ["string", "null"], "default": null, "description": "A compile or codegen step the replacement needs, or null. Null is the good case and worth recording explicitly: a driver that imports the module directly is one an optimiser can iterate on in seconds."}
+          }
+        },
+
+        "noise_floor": {
+          "type": "number",
+          "exclusiveMinimum": 1.0,
+          "description": "**The speedup ratio below which a win is not distinguishable from noise, under this protocol on this host — declared by the workset, so that a consumer cannot invent it.** m4 is explicit that it must not pick this number itself, and it is right: a consumer choosing its own floor is a consumer choosing when to call its own result significant.\n\nDerived rather than guessed. `run_performance.sh` computes `1 + 2.83 × rsd_max` from the measured per-group spread, which is the two-sample 2σ separation — two independent measurements each with relative standard deviation `s` differ by more than `√2 · z · s` by chance alone. At the measured ~2% round-to-round spread on a steady node that gives ~1.057×, which is where the previous round's ~1.05× rule of thumb came from; this states the arithmetic instead of the rule of thumb, so a noisier host correctly demands a bigger win."
+        },
+
+        "apparatus": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1},
+          "description": "The files a consumer must copy, **byte-identically**, for the entrypoints to run outside this handoff. Relative to `items/codes/`.\n\nRequired because of a measured constraint on the consuming side, not for tidiness: m4's `check_speedup_substantiated` re-runs the workset's entrypoints from **its own packup's copy**, because an output phase stages only outputs — naming the workset in that validator's `inputs` would also bind it to the workset kind's phases, which cost the previous round a spurious FAIL. So the workset has to say which files travel; a consumer guessing the set is a consumer who ships a broken copy and finds out an hour later."
         },
 
         "gates": {
@@ -536,6 +585,11 @@
         "impl": {"type": "string", "enum": ["baseline", "candidate"]},
         "impl_path": {"type": ["string", "null"]},
         "protocol": {"$ref": "#/$defs/protocol"},
+        "noise_floor": {
+          "type": "number",
+          "exclusiveMinimum": 1.0,
+          "description": "`1 + 2.83 × rsd_max` over every shape in this report — the two-sample 2σ separation at the spread actually observed. Written by the script that measured, so `operators[].noise_floor` in the manifest is a **transcription** of a computed figure rather than an author's judgement, and `check_workset_shape` can check the transcription."
+        },
         "correctness_report": {
           "type": ["string", "null"],
           "description": "Path to the correctness report for **this same impl**. A timing without a correctness result beside it is a measurement of an unknown function; `check_workset_runs` refuses a performance report whose companion did not pass."

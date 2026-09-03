@@ -110,6 +110,14 @@ def main() -> int:
                 s["weighted_mean_ms"] * weights[s["case_id"]] for s in row["shapes"]) / total
         ctx.report["operators"].append(row)
 
+    # The noise floor, derived rather than declared. Two independent
+    # measurements each with relative standard deviation `s` differ by more than
+    # `sqrt(2) * z * s` by chance alone; at z = 2 that is 2.83 s. Computed from
+    # the spread this run actually saw, so a noisy host correctly demands a
+    # bigger win than a quiet one instead of both being handed 1.05.
+    spreads = [s["rsd"] for o in ctx.report["operators"] for s in o["shapes"]]
+    ctx.report["noise_floor"] = round(1.0 + 2.83 * max(spreads), 4) if spreads else 1.01
+
     finish(ctx, ok)
 
 
