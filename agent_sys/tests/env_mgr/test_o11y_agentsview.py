@@ -153,6 +153,18 @@ def test_the_child_gets_the_prefix_environment_and_os_environ_is_untouched(
     assert seen["AGENTSVIEW_DATA_DIR"] == str(prefix.agentsview_data)
     assert seen["CLAUDE_PROJECTS_DIR"] == str(prefix.claude_home / "projects")
     assert "AGENTSVIEW_DATA_DIR" not in __import__("os").environ
+    # HOME=$AGENT_SYS_HOME is a second, stronger gate 3 -- not `disabled_agents`,
+    # an unrelated accident of building the env dict this way. AgentsView
+    # computes every provider's *default* session root from HOME, so pointing
+    # it at the prefix means every root it could scan resolves inside the
+    # prefix regardless of whether that provider is even in OTHER_PROVIDERS.
+    # Measured (`doctor sync` run with exactly this environment): 122 roots
+    # listed, 0 outside the prefix. Unlike the denylist, this gate cannot go
+    # stale when upstream adds a provider we have never heard of -- it needs
+    # no list at all. A one-line "tidy up the env dict" edit would silently
+    # restore every default root to the user's real home with nothing else
+    # here going red; this assertion is the only thing holding that line.
+    assert seen["HOME"] == str(prefix.root)
 
 
 def test_ensure_running_passes_replace_to_serve(prefix, monkeypatch) -> None:
@@ -535,6 +547,39 @@ def test_check_disabled_agents_never_starts_a_daemon(prefix) -> None:
     agentsview.check_disabled_agents(prefix)
     calls = calls_path.read_text().splitlines()
     assert calls == ["doctor sync"]
+
+
+def test_check_disabled_agents_runs_with_home_pointed_into_the_prefix(
+    prefix, monkeypatch
+) -> None:
+    """Gate 5 (design doc §3): HOME=$AGENT_SYS_HOME makes every provider's
+    *default* root resolve inside the prefix, not the user's real home --
+    unlike OTHER_PROVIDERS, this needs no list and cannot go stale when
+    upstream adds a provider we have never heard of. See the identical
+    assertion in test_the_child_gets_the_prefix_environment... for why this
+    one line matters more than it looks like it should."""
+    seen: dict[str, str] = {}
+
+    def spy(cmd, env=None, **kw):  # noqa: ANN001
+        seen.update(env or {})
+        return subprocess.CompletedProcess(cmd, 0, _CLEAN_DOCTOR_SYNC_STDOUT, "")
+
+    monkeypatch.setattr(subprocess, "run", spy)
+    agentsview.check_disabled_agents(prefix)
+    assert seen["HOME"] == str(prefix.root)
+
+
+def test_discover_providers_runs_with_home_pointed_into_the_prefix(prefix, monkeypatch) -> None:
+    """Same gate 5, the other call site that shells out to `doctor sync`."""
+    seen: dict[str, str] = {}
+
+    def spy(cmd, env=None, **kw):  # noqa: ANN001
+        seen.update(env or {})
+        return subprocess.CompletedProcess(cmd, 0, _CLEAN_DOCTOR_SYNC_STDOUT, "")
+
+    monkeypatch.setattr(subprocess, "run", spy)
+    agentsview.discover_providers(prefix)
+    assert seen["HOME"] == str(prefix.root)
 
 
 # --- discover_providers: the enumeration `check_disabled_agents` uses ---
