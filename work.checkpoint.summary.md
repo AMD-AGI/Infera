@@ -499,3 +499,73 @@ None this interval.
 ### 7. Other
 
 None.
+
+---
+
+## T+6 — 2026-09-03 10:57 UTC
+
+### 1. Progress
+
+**Effort: ~78 %.** Elapsed 201 minutes since T+0. Projected remaining:
+1–1.5 hours. **Reliability: medium** — the design conflict named as "above
+this report" at T+4/T+5 now has a concrete implementation in flight (not yet
+committed), which fits my T+5 guess that the silence was decision-making
+rather than idleness, but I did not know that at the time and am not
+crediting myself for it — it is confirmed only now, by new files.
+
+Since T+5: activity resumed. Working tree has an **uncommitted** change to
+`agent_sys/env_mgr/material.py` (+59 lines) plus a new, currently untracked
+test file `agent_sys/tests/env_mgr/test_material.py` (171 lines). Full suite
+green: **653 passed, 2 skipped, 2 xfailed in 19.2 s** (up from 643 — 10 new
+passing tests, consistent with `test_material.py` landing green even though
+the source file it tests is still uncommitted).
+
+### 2. Current state
+
+Read `material.py`'s diff directly. The uncommitted change is a resolution to
+exactly the "check 2" design conflict `ACCEPTANCE.md` flagged and declined to
+resolve itself (T+4/T+5): a new `_share_projects()` function, called from
+`deploy()`, that **symlinks `<zone>/config/projects` to the o11y prefix's own
+`projects/`** — keeping every other zone-scoped path (credentials, settings,
+`sessions/`, `backups/`) exactly as isolated as before, while making the one
+subdirectory the panel actually reads (transcripts, Claude Code's own output)
+a shared physical location. This reads as an attempt to satisfy both writers
+`ACCEPTANCE.md` said were "both [there] for a reason" rather than picking one.
+
+Notable defensive details in the diff, read directly rather than taken on
+faith: never raises (a bare `except (OSError, KeyError)` → one `log.warning`,
+attempt proceeds); idempotent (an existing symlink pointing at the same
+target is left alone); and it refuses to `os.rmdir()` a non-empty directory
+that might hold real transcripts rather than force-replacing it — the comment
+states the reasoning explicitly ("losing a zone from the panel is cheaper
+than deleting somebody's evidence").
+
+A workspace scratch run (`zonelink/demo2.log`) was in flight but not
+concluded at the time I checked it — mid-run phase transitions, no
+`EXIT=` line yet. Not reporting a result from it.
+
+### 3. Code problems — fixed / unfixed
+
+**In progress, not yet committed:** the check-2 transcript-routing conflict
+(zone vs. prefix `CLAUDE_CONFIG_DIR`) — see §2. Cannot call it fixed until it
+is committed and re-measured against `ACCEPTANCE.md`'s own check 2.
+
+No other changes this interval.
+
+### 4. Non-code problems
+
+None new.
+
+### 5. Undetermined questions
+
+Whether the symlink approach in §2 actually makes the o11y panel show the
+right sessions once check 1 also passes end-to-end — not measured this
+interval, only the mechanism read from source.
+
+### 6. New commits
+
+None this interval (work is uncommitted, in progress).
+
+### 7. Other
+
+None.
