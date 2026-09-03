@@ -284,6 +284,27 @@ Consequence, and it is intended: **`build_workset` needs the shared container**
 `check_speedup_substantiated` has to go back to re-measuring, and whoever
 weakens it says so to the leader.
 
+### 4.2 Every `${...}` arg arrives as a **string**, and it has bitten twice
+
+`args: {timeout_seconds: '${x:-3600}'}` reaches a body as the string `"3600"`,
+not the integer. Both halves of that have now cost a run:
+
+- **Truthiness.** `args.get("n") or 3` reads **3** when the spec says `0`,
+  because `"0"` is truthy — and the `or` form *silently works* on the `${...}`
+  form while failing on a genuine yaml integer `0`, which is the worst
+  combination for ever finding it. Found by m3 on the one knob that can
+  dismantle §4.0's trust chain; the guard refusing it was itself unreachable.
+- **Arithmetic.** `time.time() + args["bringup_timeout_seconds"]` raises
+  `TypeError: unsupported operand type(s) for +: 'float' and 'str'`. Measured in
+  `check_deploy_serves` on the full mock run: the validator **crashed after a
+  successful bring-up**, reported *"the check itself failed"*, and its teardown
+  then failed on the same expression — so it also warned that containers and
+  ports might be held. (They were not; checked on the node.)
+
+**Read every numeric arg through `workset_io.arg_num`** (m3's), which coerces
+and refuses an explicit `0` only when the spec means it to. `float`/`int` at the
+point of use is not enough on its own — the truthiness half survives it.
+
 ### 4.1 Shared validators are shared, not copied
 
 `check_kernel_table` is **one** definition used by m2 and m3 (M3.5). The two
