@@ -21,6 +21,7 @@ kernel that was considered and rejected from one the profile never saw.
 
 import json
 import os
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -344,8 +345,18 @@ def main() -> int:
     # unchanged -- this task does not learn anything about the machine that the
     # profile did not already know, so re-deriving it could only introduce a
     # disagreement.
-    (items / "env").mkdir(parents=True, exist_ok=True)
-    (items / "env" / "environment.yaml").write_text(_environment_text(staged), encoding="utf-8")
+    # **One renderer, both paths.** m4's principle, and it applies here even
+    # though this body was already writing the record: the mock branch called
+    # `env_render --inherit` and this one did its own `read_text`/`write_text`,
+    # so one rule had two implementations that could drift. Calling the shared
+    # one means **the mock exercises the real wiring rather than a parallel
+    # one** — and it gains validation, because `env_render` refuses to write a
+    # record that does not validate where a copy would have propagated it.
+    subprocess.run(
+        [sys.executable, str(_PACKAGE / "assets/lib/env_render.py"),
+         "--inherit", str(_environment_path(staged)),
+         "--content-type", "structured_text", "--out", str(dst)],
+        check=True, capture_output=True, text=True)
 
     # Validate before sealing. The producer and the validator resolve the same
     # file through `schema.py`, so a document that fails here fails there, and

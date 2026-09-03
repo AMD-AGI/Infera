@@ -606,9 +606,18 @@ def main() -> int:
     # CONTRACT.md 2 -- passed through from the worklist unchanged. This task
     # learns nothing new about the machine, so re-deriving the record could only
     # introduce a disagreement with the profile it came from.
-    (items / "env").mkdir(parents=True, exist_ok=True)
-    (items / "env" / "environment.yaml").write_text(
-        (staged / "items" / "env" / "environment.yaml").read_text(encoding="utf-8"), encoding="utf-8")
+    # **One renderer, both paths.** m4's principle, and it applies here even
+    # though this body was already writing the record: the mock branch called
+    # `env_render --inherit` and this one did its own `read_text`/`write_text`,
+    # so one rule had two implementations that could drift. Calling the shared
+    # one means **the mock exercises the real wiring rather than a parallel
+    # one** — and it gains validation, because `env_render` refuses to write a
+    # record that does not validate where a copy would have propagated it.
+    subprocess.run(
+        [sys.executable, str(_PACKAGE / "assets/lib/env_render.py"),
+         "--inherit", str(staged / "items" / "env" / "environment.yaml"),
+         "--content-type", "structured_text", "--out", str(dst)],
+        check=True, capture_output=True, text=True)
 
     try:
         schema_lib.validate("operator_identity", out)
