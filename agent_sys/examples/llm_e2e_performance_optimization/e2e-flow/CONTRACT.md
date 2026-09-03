@@ -349,6 +349,29 @@ MOCK-MAP's `SGLANG_TORCH_PROFILER_DIR`), and the two families share a cause:
 **a fact stated in one place and relied on in another, with nothing that fails
 when they diverge.**
 
+**What it is not**, and m3 drew the line: `min_shapes` in `args` and
+`minItems: 3` in the schema are *two places mentioning one number*, where the
+stricter wins by construction and the precedence is written down. That is fine.
+**The fault is two readers with different reach**, not two mentions.
+
+**Seven instances in two days across three owners**, and the last two are the
+ones that matter most for how to look:
+
+- m3 hardcoded an entrypoint's flag spelling in the harness *and* declared it in
+  the manifest — so a workset declaring `--implementation` would have had m4
+  passing it to a parser that only knew `--impl`. **The reader that could not be
+  told was the harness.**
+- `protocol` was declared in `workset.yaml`, echoed into the report by the
+  harness, and compared by nothing — so m4 could re-measure under the manifest's
+  protocol and divide by a baseline the report recorded under another. **Across
+  two protocols that ratio looks entirely normal.**
+
+**And the sharpest lesson is m3's, about the audit rather than the bug.** They
+told the leader *"nothing else of mine reads one rule from two places"*, then
+audited properly and found those two. **Claiming an audit is not one**, and the
+difference between the two was two live defects that would have surfaced in m4's
+transcript pointing at m3's code.
+
 **What found each of them is the useful part, and it was never review.** A stub
 that could *withhold* a shape, a workset that *added* a field, a colleague who
 asked whether m4's case was really different from m3's. m3 had read the code
