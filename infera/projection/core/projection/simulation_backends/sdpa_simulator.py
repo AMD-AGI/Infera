@@ -149,6 +149,17 @@ _HW_PROFILES: Dict[str, GPUHardwareSpec] = {
         n_cu=256,
         n_xcd=4,
     ),
+    # TEMPORARY, for comparing against NVIDIA's published GB300 numbers only.
+    # Blackwell Ultra peaks; the tile model has no Blackwell target, so this
+    # reproduces GB300's roofline rather than its kernels.
+    "gb300": GPUHardwareSpec(
+        peak_tflops_bf16=2250.0,
+        peak_tflops_fp16=2250.0,
+        peak_tflops_fp8=4500.0,
+        hbm_bandwidth_gbps=8000.0,
+        n_cu=160,
+        n_xcd=8,
+    ),
 }
 
 
@@ -176,6 +187,7 @@ def _get_hardware_spec(
             "mi355x": 2100,
             "gfx950": 2100,
             "mi300a": 2100,
+            "gb300": 1900,
         }
         base_clock = _PROFILE_CLOCK_MHZ.get(arch, 2100)
         scale = clock_override / base_clock

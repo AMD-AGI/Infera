@@ -99,6 +99,11 @@ _KNOWN_PROFILES: Dict[str, _HardwareProfile] = {
     "gfx950": _HardwareProfile("gfx950", 256, 65536, 4_194_304, 2_100_000, 8000.0, 2500.0),
     # MI300A
     "mi300a": _HardwareProfile("gfx942", 228, 65536, 4_194_304, 2_100_000, 4000.0, 981.0),
+    # TEMPORARY, for comparing against NVIDIA's published GB300 numbers only.
+    # Blackwell Ultra peaks (HBM3E ~8 TB/s, ~2250 TFLOP/s dense BF16), but the
+    # tile model borrows the gfx950 arch enum because Origami has no Blackwell
+    # target -- so this reproduces GB300's roofline, not its kernels.
+    "gb300": _HardwareProfile("gfx950", 160, 65536, 4_194_304, 1_900_000, 8000.0, 2250.0),
 }
 
 # Achievable fractions of peak for the roofline sanity-cap. The cap only exists
