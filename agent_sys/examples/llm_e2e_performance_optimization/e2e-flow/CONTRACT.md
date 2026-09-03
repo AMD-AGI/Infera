@@ -410,6 +410,14 @@ git add -- <the one new file>                       # never a directory
 git commit -s -m "..." -- <all your paths>          # still ignores the rest of the index
 ```
 
+**The rule protects others from you. It does not protect you from others.**
+Reported by m2 after committing correctly by pathspec and still having their
+work land inside another owner's commit. `git commit -- <paths>` bounds what
+*your* commit takes; it does nothing about a file of yours sitting dirty in the
+tree when somebody else names a directory. So: **commit early and often.** An
+uncommitted file is the only thing that can be taken, and the window is however
+long you leave it there.
+
 The `git add` is narrow enough to be safe — it names one file, not a tree — and
 the `git commit -- <paths>` that follows still commits working-tree content for
 everything you name, so a concurrent add by another owner is still not swept in.
