@@ -300,9 +300,9 @@
     KFO_IMPL_FLAG: '${impl_flag:---impl}'
     # MOCK-MAP adaptation (G): `mismatched` reproduces the sealed run's
     # gfx942-vs-gfx950 abort on purpose, as the only cheap test of the abort
-    # path. `held` is the default because a real run of this flow shares one
+    # path. `matched` is the default because a real run of this flow shares one
     # container across m1-m4 and the premise therefore holds.
-    E2E_MOCK_PREMISE: '${mock_premise:-held}'
+    E2E_MOCK_PREMISE: '${mock_premise:-matched}'
   backends:
     - key: claude_code_sdk
       backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend

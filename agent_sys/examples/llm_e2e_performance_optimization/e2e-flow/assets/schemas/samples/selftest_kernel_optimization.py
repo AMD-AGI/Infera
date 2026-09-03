@@ -99,6 +99,21 @@ def main() -> int:
             "$",
         ),
         (
+            # MOCK-MAP (G) redefines this schema's both-direction proof, and in
+            # the more useful direction: *the real document validates* cannot
+            # mean the sealed bytes validate unchanged, because the sealed run
+            # predates M4.3.5 and M5.1.1 and carries neither field. It means the
+            # RENDERED document validates (samples 01 and 02, above) and the
+            # sealed shape is rejected naming what it lacks. That proves the
+            # required-list is doing work; the other direction would only have
+            # proved the schema is loose enough to accept an old artefact.
+            "the SEALED 2026-09-02 shape, before adaptation (G) renders it — "
+            "operator and evidence only, no workset_ref, no apply, no premise",
+            {k: v for k, v in good.items()
+             if k in ("schema_version", "operator", "evidence", "notes")},
+            "$",
+        ),
+        (
             "no premise block — the M4.3.5 comparison cannot be made",
             _drop(good, "premise"),
             "$",

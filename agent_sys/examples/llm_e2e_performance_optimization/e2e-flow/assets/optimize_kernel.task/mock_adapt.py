@@ -52,8 +52,12 @@ def main() -> int:
     ap.add_argument("--handoff", required=True, help="$AGENT_SYS_OUTPUT_KERNEL_OPTIMIZATION")
     ap.add_argument(
         "--premise",
-        default=os.environ.get("E2E_MOCK_PREMISE", "held"),
-        choices=("held", "mismatched"),
+        default=os.environ.get("E2E_MOCK_PREMISE", "matched"),
+        # `matched` is MOCK-MAP (G)'s word and is canonical. `held` is accepted
+        # because an earlier draft of this script used it and the value travels
+        # through a `--var`; an operator who types the old one should get the
+        # behaviour they meant rather than an argparse error two stages in.
+        choices=("matched", "held", "mismatched"),
         help="`mismatched` reproduces the sealed run's gfx942-vs-gfx950 abort on purpose",
     )
     a = ap.parse_args()
