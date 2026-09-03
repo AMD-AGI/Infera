@@ -3720,3 +3720,173 @@ Beyond that I would be guessing, and 4 h 05 m of unused GPU hold is too
 consequential a thing to guess about. If the next section reads the same, that
 silence will itself be the finding.
 
+
+---
+
+## T+226 — 2026-09-03 17:16 UTC
+
+### The number that matters, before any percentage
+
+**10 of 21 validators have ever produced a recorded verdict in the graph.**
+First-hand, 17:16:14 UTC:
+
+`check_environment` 76 · `check_deploy_kit` 36 · `check_deploy_serves` 34 ·
+`check_command_parses` 27 · `check_bench_result` 16 · `check_trace_coverage` 6 ·
+`check_kernel_table` 6 · `check_worklist_shape` 5 · `check_profiling_evidence` 5 ·
+`check_identity_resolved` 4.
+
+**Trajectory: 15:00=5 · 15:06=5 · 15:14=9 · 15:40=10 · 16:17=10 · 16:40=10 ·
+16:53=10 · 17:16=10.**
+
+**State: stopped, for the second time.** Run count 35, unchanged since 16:53.
+Newest run `20260903T164800` — **no run in 28 minutes**, and every tally is
+identical to my 16:53 reading. The distinguishing evidence is the same as at
+T+190: a ceiling keeps tallies climbing, and these are frozen.
+
+**But this stop is not like the last one, and the difference is the whole
+finding.** At 16:53 I read the same ten distinct with tallies *grown* since 16:17
+(`check_environment` 67→76, `check_deploy_serves` 32→34) — that was the graph
+running a full rung 0 and hitting the ceiling. Between 16:53 and 17:16 it stopped
+again, **while two commits landed.** Last time the graph stopped and I could not
+tell whether anyone was working. This time I can: the modules are working and the
+graph is not.
+
+*Caveat, restated:* recordable only against a **sealed** version — exact for
+recorded output-validation verdicts, a lower bound on execution. A FAIL counts.
+
+**Written validators: 21/21.** **Graph loads: pass**, rc 0, 17 closures.
+
+### Standing checks
+
+| check | result |
+|---|---|
+| (a) index leak | **clean** |
+| (b) per-commit ownership | **both clean.** Fourth consecutive clean interval |
+| (c) `todo.md` | **18 items**, +1 — and see §7, the first entry filed by an owner under the new rule |
+| holds | both `R` to **20:45** — **3 h 28 m** |
+| `/home` | **2.1 T free (80 %)**, up from 100 G. Fully recovered |
+
+### 1. Progress
+
+**~72 %.** Elapsed 226 m. Estimated remaining: **still no defensible figure**,
+but the reason has changed and improved.
+
+**Reliability: low→moderate.** At T+190 I had no figure because the dominant
+unknown was invisible from my position. It is now **named**: the ladder is
+blocked on the image seam — the sealed record names
+`infera/engine-sglang:gfx950-local`, whose digest exists on no node, and `061`
+carries no sglang image at all. That is decision (a), it lands in m1's files, and
+m1 is mid-GLM-load (`fa49319`: **GLM-5.3-Flash served**). A named blocker with an
+owner is a different thing from an unknown, and I said at 16:53 I would stop
+describing the remaining time as unknown-dominated once that changed.
+
+What I still cannot do is put a number on it, because no rung above 0 has been
+attempted and there is no per-rung datum to extrapolate from. **3 h 28 m of hold
+remain and the graph has used none of it for a rung above 0.**
+
+### 2. Current state, per module
+
+- **m1-deploy** — `fa49319`: **GLM-5.3-Flash served**, and what a second kit
+  showed the validator misses. Working the image seam, which is the ladder's
+  named blocker.
+- **leader** — `0f40b3a`: rung 0 reaches the mock's ceiling; two vars that each
+  cost a run.
+- **m2, m3, m4, m5** — no commits. **Unknown, not scored.** m4 and m5 are now
+  quiet for three consecutive intervals. That is long enough that I want it
+  visible in every section until it resolves; it is still not evidence of
+  anything.
+
+### 3. Code problems
+
+**None new.** Both commits clean on ownership — the fourth consecutive clean
+interval, against seven violations in the 13:50–14:52 window.
+
+**The framework gap from the previous interval is now filed**:
+`temp/bugs/2026-09-03-a-validators-stdout-is-not-kept-anywhere.md`. It joins five
+earlier entries. **This one belongs beside T14**, and the pair is worth stating
+together because they are the same seam failing in two directions:
+
+- **T14** — a validator whose interpreter cannot import its schema loader exits
+  non-zero and writes **no `verdict.json`**, so the phase cannot distinguish a
+  broken validator from a refused handoff.
+- **The new one** — a validator that *does* run and writes a careful diagnostic
+  sends it to **stdout, which nothing keeps**, so a correct refusal arrives with
+  its reason discarded.
+
+Between them, a validator can fail to say anything and can say the right thing
+into a void. Both were found the same way: by someone reproducing the condition
+by hand after inference had failed.
+
+### 4. Non-code problems
+
+**`/home` fully recovered** — 2.1 T free, from zero at 15:40. Not our doing and
+not our fault; `/home/yihou` is 6.1 G of a shared 10 T volume.
+
+**The `git gc` warning persists**, third section running. `gc.log` still blocks
+automatic cleanup, git still reports too many unreachable loose objects. Nobody
+has pruned; it is not mine to prune. Lower urgency at 2.1 T free, but it is the
+one thing in this workspace that grows without bound and it survived a day on
+which the volume hit 100 %.
+
+### 5. Open questions
+
+- **Why has the graph stopped a second time?** Unlike T+190 I am not without
+  information — two commits landed, so the owners are active — but I do not know
+  whether a rung is being prepared or the image seam is simply blocking.
+- **Will any rung above 0 be attempted before 20:45?** 3 h 28 m. Unchanged as the
+  dominant risk.
+- **The eleven unjudged validators** — all sit at or beyond `build_workset`,
+  where measurement begins. Whether they are all node-gated or some are
+  unreachable in the wiring is still unanswerable without a node run.
+- **m4 and m5** — three intervals quiet, reported complete at 15:10, never
+  verified by me.
+
+### 6. New commits
+
+**2 since T+190** (94 since `9646910`). Leader 1, m1 1.
+
+`0f40b3a` rung 0 reaches the mock's ceiling — two vars that each cost a run ·
+`fa49319` GLM-5.3-Flash served, and what a second kit showed the validator
+misses.
+
+### 7. Anything else
+
+**The previous section's central question is answered, and the answer was the
+leader.** I wrote at T+190 that the graph had stopped and I could not say why,
+naming three indistinguishable possibilities. The cause was none of them: three
+rung-0 runs launched with a command line missing `--var transport_env`. A
+validator declares no agent, so it never receives the `E2E_*` block; `spur` had
+no `SPUR_CONTROLLER_ADDR`; `deploy.sh` died on "failed to connect to controller";
+`check_deploy_serves` refused in one second. **The correct incantation was
+written in a comment in the file declaring the parameter** — `steps/m1_deploy.yaml:128`.
+
+Two details belong in the record on the same terms as my own three false claims.
+**The failure was attributed twice to other people's work** — first to m1's GLM
+taking the GPUs, then to m2's `local` branch — and both were wrong. **And what
+broke the loop was not reasoning but reproduction**: copying the validator's zone
+and running it under `env -i` with a minimal PATH, which finally printed the
+diagnostic that had existed all along.
+
+**That is the fifth instance today of a signal being read as one thing when it
+was another**, and the second where two rounds of inference pointed at the wrong
+owner before the first measurement pointed at the right one. The pattern is now
+firm enough to state as a rule the next effort should start with: **when a
+symptom has candidate causes in more than one owner's work, reproduce before
+attributing.** Inference across an ownership boundary has been wrong every time
+it has been tried today, and measurement has been right every time.
+
+**`fa49319` also filed the interval's `todo.md` entry — the first by an owner
+under `25d9c01`'s new rule**, two intervals after I reported the rule as a
+conflict and the leader fixed it at the level I argued. The mechanism worked
+end-to-end: a check flagged a benign breach, the contract turned out to be what
+was wrong, and the next owner to hit the same moment recorded their finding
+instead of choosing between the rule and the work.
+
+**And my ceiling analysis survived a run that could easily have looked like it
+refuted it.** Rung 0 passed eight handoffs valid with `check_deploy_serves`
+green in a graph for the first time — a real bring-up, real load, clean teardown —
+and the distinct count did not move, because all eleven unjudged validators sit
+at or beyond `build_workset`. A number that correctly does *not* move during
+visible progress is the harder half of measuring anything, and it is the reason
+this section still reads 10.
+
