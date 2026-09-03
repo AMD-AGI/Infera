@@ -208,41 +208,22 @@ def read(path: Path) -> str | None:
 
 
 def _validate(name: str, document) -> None:
-    """`schema_lib.validate`, with a registry-free fallback. Raises `SchemaError`.
+    """`schema_lib.validate`, and nothing else. Kept as a seam, not as logic.
 
-    The fallback is reached only when `referencing` is unavailable *and* the
-    re-exec above found no interpreter carrying it — measured here:
-    `/usr/bin/python3` has `yaml` and `jsonschema` and not `referencing`, and it
-    is what an output-phase body gets (bug 002).
+    This wrapper carried a registry-free fallback for one revision, on the stated
+    grounds that no schema in `assets/schemas/` uses `$ref`. **That was false** —
+    `kernel_optimization` and `workset` reference `environment.schema.json` at
+    three sites, so the fallback would have validated those two *without
+    resolving the reference*: a silently weaker check wearing a comment claiming
+    equivalence, which is the failure this package exists against.
 
-    It validates against the named schema alone, so a **`$ref` to a sibling
-    schema would not resolve**. That is stated on stderr rather than swallowed:
-    `environment.schema.json` uses no `$ref` today, and if one is added this
-    message is what says the fallback has stopped being equivalent.
+    `schema.validate` now inlines cross-file refs, so it needs nothing beyond
+    `jsonschema` and behaves identically under the run's interpreter and under a
+    bare `/usr/bin/python3`. The wrapper stays because the call site reads better
+    with a name, and because the next person tempted to put a fallback here
+    should read the paragraph above first.
     """
-    try:
-        schema_lib.validate(name, document)
-        return
-    except ImportError:
-        pass
-
-    from jsonschema import Draft202012Validator
-
-    print(
-        f"check_deploy_kit: `referencing` is not importable here, so {name} is "
-        f"validated without a $ref registry. Equivalent while no schema in "
-        f"assets/schemas/ uses $ref; if one does, this check is now weaker than it "
-        f"reads.",
-        file=sys.stderr,
-    )
-    validator = Draft202012Validator(schema_lib.load(name))
-    problems = sorted(validator.iter_errors(document), key=lambda e: list(e.absolute_path))
-    if problems:
-        lines = [f"{name}: {len(problems)} problem(s)"]
-        for err in problems:
-            where = "$." + ".".join(str(p) for p in err.absolute_path) if err.absolute_path else "$"
-            lines.append(f"  {where}: {err.message}")
-        raise schema_lib.SchemaError("\n".join(lines))
+    schema_lib.validate(name, document)
 
 
 def dotted(document, path: str):

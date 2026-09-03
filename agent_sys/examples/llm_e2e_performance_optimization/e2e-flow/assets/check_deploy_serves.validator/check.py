@@ -73,7 +73,41 @@ def on(command: str, transport: dict, *, check: bool = True, timeout: int | None
     own.
     """
     env = dict(os.environ)
-    env.update({k: str(v) for k, v in transport.items() if v})
+    # `_`-prefixed keys are this function's own parameters, not variables to
+    # export. **Read, never popped**: `transport` is one dict reused across every
+    # call, so a `pop` here fixed the first call and left every later one
+    # unpatched — measured as bring-up succeeding and the very next `cat` dying
+    # `rc=127`.
+    env.update({k: str(v) for k, v in transport.items() if v and not k.startswith("_")})
+
+    # **The transport binary is not on a validation zone's `PATH`.** Measured:
+    # `spur` lives in `/usr/local/bin`, and a validator body is started with a
+    # *closed* environment in which `PATH` is deliberately absent
+    # (`validator/environment.py`), so POSIX `sh` substitutes its built-in
+    # `/usr/bin:/bin`. `remote.sh`'s probe then finds neither `spur` nor `srun`,
+    # falls through to its `spur` default, and the call dies `rc=127,
+    # spur: command not found` — reported as the *kit's* `deploy.sh` failing,
+    # which is three layers from the cause.
+    #
+    # A site fact, so it is a parameter (CONTRACT.md §6) rather than a literal,
+    # and it is appended rather than replacing: nothing here should be able to
+    # take `python3` away from a body that found one.
+    extra = transport.get("_path_extra") or ""
+    if extra:
+        parts = [p for p in env.get("PATH", "").split(":") if p]
+        env["PATH"] = ":".join(parts + [p for p in extra.split(":") if p and p not in parts])
+
+    # **And the transport binary needs its own environment, which the closed
+    # environment also strips.** Measured: `spur` reads `SPUR_CONTROLLER_ADDR`
+    # and without it exits 1 with `failed to connect to controller … Connection
+    # refused` — a message that names the controller and not the missing
+    # variable, and which this body would otherwise report as the *kit's*
+    # `deploy.sh` failing. Same class as the `PATH` above and the same remedy: a
+    # site fact, passed as a parameter, injected here.
+    for pair in (transport.get("_env_extra") or "").split():
+        name, _, value = pair.partition("=")
+        if name and value:
+            env[name] = value
     proc = subprocess.run(
         ["bash", "-c", f'. "{REMOTE_SH}"; on "$1"', "_", command],
         capture_output=True,
@@ -85,6 +119,26 @@ def on(command: str, transport: dict, *, check: bool = True, timeout: int | None
     if check and proc.returncode != 0:
         raise NodeError(command, proc.returncode, output)
     return output
+
+
+def seconds(parameters: dict, name: str, default: int) -> int:
+    """A numeric `args` value, as a number.
+
+    **Every value in `args.json` arrives as a string**, whatever it looked like
+    in the step yaml — `'${deploy_bringup_timeout_seconds:-3600}'` reaches a body
+    as `"3600"`. Passing that to `subprocess.run(timeout=…)` raises
+    `TypeError: unsupported operand type(s) for +: 'float' and 'str'` from inside
+    the timeout arithmetic, which names neither the parameter nor the caller.
+    Measured in a real run; a hand-written `args.json` with JSON numbers hides it
+    completely, which is why it survived several standalone passes.
+    """
+    value = parameters.get(name)
+    if value in (None, ""):
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise SystemExit(f"check_deploy_serves: args.{name}={value!r} is not a number")
 
 
 def envvars(mapping: dict) -> str:
@@ -162,7 +216,19 @@ def judge_load(summary: dict, accept: dict) -> list[str]:
     """
     faults = []
 
-    count = (summary.get("request_count") or {}).get("avg")
+    # `summarise.py` writes `{metrics: {...}, missing: [...], source: ...}`. This
+    # read the top level for one revision and both criteria came back
+    # "unevaluated" against a load that had in fact succeeded — the honest
+    # refusal working, and pointing at the wrong thing. `or summary` keeps a flat
+    # document working, since the shape is that module's to change.
+    metrics = summary.get("metrics") or summary
+    # What the summariser itself could not find. Surfaced rather than inferred
+    # from an absent key: "AIPerf did not report it" and "I looked in the wrong
+    # place" are different faults and only one of them is the deployment's.
+    for name in summary.get("missing") or []:
+        print(f"check_deploy_serves: AIPerf reported no {name!r}")
+
+    count = (metrics.get("request_count") or {}).get("avg")
     floor = accept.get("min_completed_requests")
     if floor is not None:
         if count is None:
@@ -170,7 +236,7 @@ def judge_load(summary: dict, accept: dict) -> list[str]:
         elif count < floor:
             faults.append(f"{count:.0f} completed request(s) under load, needs {floor}")
 
-    mean_osl = (summary.get("output_sequence_length") or {}).get("avg")
+    mean_osl = (metrics.get("output_sequence_length") or {}).get("avg")
     floor = accept.get("min_mean_output_tokens")
     if floor is not None:
         if mean_osl is None:
@@ -220,6 +286,10 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
     tag = f"serves-{uuid.uuid4().hex[:8]}"
     work_root = f"{parameters['work_root'].rstrip('/')}/{tag}"
     overrides = {
+        # Root-owned `__pycache__` inside the handoff is the first half of the
+        # problem `reclaim.sh` cleans up after; not creating it is cheaper than
+        # chowning it. CONTRACT.md §5.0.
+        "PYTHONDONTWRITEBYTECODE": "1",
         "E2E_KIT_RUN_TAG": tag,
         "E2E_KIT_PORT_BASE": str(parameters["port_base"]),
         "E2E_KIT_WORK_ROOT": work_root,
@@ -240,7 +310,7 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
                 f"mkdir -p {shlex.quote(work_root)} && cd {shlex.quote(str(kit))} && "
                 f"{envvars(overrides)}bash {shlex.quote(deploy)}",
                 transport,
-                timeout=parameters.get("bringup_timeout_seconds", 3600),
+                timeout=seconds(parameters, "bringup_timeout_seconds", 3600),
             )
         except NodeError as exc:
             return [f"{deploy} failed (rc={exc.returncode}); last output:\n{exc.output[-4000:]}"]
@@ -287,17 +357,32 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
         # the property that matters is that a file written **inside** appears
         # **outside**, and `docker exec` proves that in one direction only if the
         # reader is also inside. So: write from inside, read from outside.
+        # **`containerized: false` is declared, not inferred.** A deployment that
+        # runs no container has no boundary to cross, so the property is
+        # satisfied trivially — but "there is no container" and "the container
+        # died during bring-up" look identical from `docker exec`, and one of
+        # those is a pass and the other is the fault this check exists to find.
+        # So the kit says which it is, and a kit that says nothing is treated as
+        # containerised, which is the safe default.
         inside = deployment["work_root_in_container"]
         container = deployment["container"]
         token = f"e2e-writable-{tag}"
         probe_file = f"{work_root}/.writable_probe"
-        wrote = on(
-            f"docker exec {shlex.quote(container)} sh -c "
-            + shlex.quote(f"printf %s {token} > {shlex.quote(inside)}/.writable_probe")
-            + f" && cat {shlex.quote(probe_file)}",
-            transport,
-            check=False,
-        )
+        if deployment.get("containerized") is False:
+            wrote = on(
+                f"printf %s {token} > {shlex.quote(inside)}/.writable_probe"
+                f" && cat {shlex.quote(probe_file)}",
+                transport,
+                check=False,
+            )
+        else:
+            wrote = on(
+                f"docker exec {shlex.quote(container)} sh -c "
+                + shlex.quote(f"printf %s {token} > {shlex.quote(inside)}/.writable_probe")
+                + f" && cat {shlex.quote(probe_file)}",
+                transport,
+                check=False,
+            )
         if token not in wrote:
             faults.append(
                 f"the work root is not writable from inside {container} at "
@@ -404,7 +489,7 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
             load_output = on(
                 f"{envvars(load_env)}bash {shlex.quote(str(package / 'assets/bench/aiperf_synthetic.sh'))}",
                 transport,
-                timeout=int(load["duration_seconds"]) + parameters.get("load_slack_seconds", 900),
+                timeout=int(load["duration_seconds"]) + seconds(parameters, "load_slack_seconds", 900),
             )
         except NodeError as exc:
             return faults + [f"the load failed (rc={exc.returncode}):\n{exc.output[-4000:]}"]
@@ -439,13 +524,37 @@ def check_one(content: Path, parameters: dict, transport: dict, probes: dict) ->
         # replace the verdict on the deployment. What it may never do is be
         # skipped — this leaves a GPU behind on a node four other owners share.
         print("check_deploy_serves: 4/4 teardown")
+        # Hand back anything the deployment's container wrote as root, from
+        # inside that container — the only context with the privilege. It runs
+        # **before** teardown, because a container that is gone cannot chown
+        # (`../lib/reclaim.sh` is a no-op then, by design, so the order is a
+        # correctness point rather than a safety one).
+        #
+        # Reading root-owned files works, which is what makes this easy to miss:
+        # `copy_out`, the seal and every validator succeed, and the failure lands
+        # on the *next* run when the zone's own user cannot clean up. Found by m3
+        # on the first real GPU run; CONTRACT.md §5.0.
+        try:
+            container = locals().get("deployment", {}).get("container")
+            if container:
+                print(
+                    on(
+                        f"sh {shlex.quote(str(package / 'assets/lib/reclaim.sh'))} "
+                        f"{shlex.quote(container)} {shlex.quote(work_root)}",
+                        transport,
+                        check=False,
+                        timeout=seconds(parameters, "teardown_timeout_seconds", 600),
+                    )[-1000:]
+                )
+        except Exception as exc:
+            print(f"check_deploy_serves: reclaim failed: {exc}", file=sys.stderr)
         try:
             print(
                 on(
                     f"cd {shlex.quote(str(kit))} && {envvars(overrides)}bash {shlex.quote(teardown)}",
                     transport,
                     check=False,
-                    timeout=parameters.get("teardown_timeout_seconds", 600),
+                    timeout=seconds(parameters, "teardown_timeout_seconds", 600),
                 )[-2000:]
             )
         except Exception as exc:  # a teardown that itself hangs must not mask the verdict
@@ -480,10 +589,31 @@ def main() -> int:
     # `assets/lib/remote.sh` reads these three and forwards the whole `E2E_*`
     # block to the far side of an `spur exec` (`remote.sh:84` — the transport
     # carries no environment of its own, measured).
+    # **`auto` is resolved here, and that is a workaround with a removal
+    # criterion.** `shared.yaml` ships `E2E_TRANSPORT` defaulted to `auto` and
+    # documents it as "probes"; CONTRACT.md §6 says `remote.sh` dispatches on it.
+    # `remote.sh:66` returns `$E2E_TRANSPORT` verbatim when set, so `auto` falls
+    # through to its own `case` and exits 2 with
+    # `unknown E2E_TRANSPORT: auto (want 'srun' or 'spur')`. Every body that
+    # takes the shipped default hits it; mine did not for a long time only
+    # because my standalone tests passed `spur` explicitly.
+    #
+    # Same rule `remote.sh` means to apply: `spur` where the binary exists, else
+    # `srun` — presence of `spur` is the positive signal because on this cluster
+    # `srun` exists and is not Slurm's. **Delete this block once `remote.sh`
+    # implements `auto`**; it is a second copy of a rule and the two can drift.
+    wanted = parameters.get("transport", "auto")
+    if wanted not in ("spur", "srun", "local"):
+        search = (parameters.get("transport_path") or "").split(":") + ["/usr/local/bin", "/usr/bin", "/bin"]
+        wanted = "spur" if any((Path(d) / "spur").exists() for d in search if d) else "srun"
+
     transport = {
-        "E2E_TRANSPORT": parameters.get("transport", "auto"),
+        "E2E_TRANSPORT": wanted,
         "E2E_JOBID": parameters.get("jobid", ""),
         "E2E_NODE": parameters.get("node", ""),
+        # Where the transport binary lives. Consumed by `on` and never exported.
+        "_path_extra": parameters.get("transport_path", "/usr/local/bin:/usr/local/sbin"),
+        "_env_extra": parameters.get("transport_env", ""),
     }
 
     results: dict[str, bool] = {}

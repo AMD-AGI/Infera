@@ -100,8 +100,13 @@ open(p, 'w').write(re.sub(r'(?im)^(\s*#{1,6}\s*)Expected\s+output\b', r'\1Result
 PY
                                                                                    # 9
 rm -f "$PACKUP/scripts/wait_ready.sh"                                              # 10
-grep -v 'E2E_KIT_ENGINE_EXTRA_ARGS' "$PACKUP/scripts/env.sh" > "$PACKUP/scripts/env.new"
-mv "$PACKUP/scripts/env.new" "$PACKUP/scripts/env.sh"                              # 11
+# 11 — removed from **every** file under scripts/, not only env.sh. The
+# adaptation now also installs the stub kit, whose `stub_env.sh` declares the
+# same parameters, so stripping one file left the contract satisfied by the
+# other and this planted fault silently stopped firing.
+for f in "$PACKUP"/scripts/*.sh; do
+  grep -v 'E2E_KIT_ENGINE_EXTRA_ARGS' "$f" > "$f.new" && mv "$f.new" "$f"
+done
 
 zone "$WORK/zone_bad" "$BAD"
 echo

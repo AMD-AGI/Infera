@@ -414,7 +414,7 @@ runtime_contract:
   handshake:
     path: '${E2E_KIT_WORK_ROOT}/deployment.json'
     required_keys: [endpoint, container, run_tag, work_root_in_container]
-    optional_keys: [engine_endpoint, ports, pid]
+    optional_keys: [engine_endpoint, ports, pid, containerized]
     brief: >-
       `endpoint` is the **product** endpoint — the router, not the engine's own
       port. `work_root_in_container` is where `E2E_KIT_WORK_ROOT` is mounted
@@ -423,7 +423,11 @@ runtime_contract:
       consumer that needs the engine to write somewhere composes its path from
       this and never from the host path. `engine_endpoint` is optional and is
       what unlocks the engine-side diagnostic probes; a kit that omits it is not
-      refused, it is less diagnosable.
+      refused, it is less diagnosable. `containerized` defaults to true and a
+      kit that runs no container sets it **false**, which is a claim rather than
+      an inference: "there is no container" and "the container died during
+      bring-up" are indistinguishable from outside, and one is a pass while the
+      other is the fault the writability check exists to find.
 
 shared_identifiers:
   scan: {anchor: packup, dir: scripts}

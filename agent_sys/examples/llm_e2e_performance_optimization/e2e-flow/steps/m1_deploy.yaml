@@ -114,6 +114,19 @@
     transport: '${transport:-auto}'
     jobid: '${jobid}'
     node: '${node}'
+    # **Where the transport binary lives.** A validator body is started with a
+    # closed environment in which `PATH` is absent, so `sh` substitutes
+    # `/usr/bin:/bin` — and `spur` is in `/usr/local/bin`. Without this the call
+    # dies `rc=127, spur: command not found`, reported as the *kit's* deploy.sh
+    # failing. Measured 2026-09-03; a site fact, so a variable.
+    transport_path: '${transport_path:-/usr/local/bin:/usr/local/sbin}'
+    # **And what the transport binary itself needs.** Space-separated `K=V`.
+    # `spur` reads `SPUR_CONTROLLER_ADDR`; without it, it exits 1 with
+    # `failed to connect to controller … Connection refused`, which names the
+    # controller and not the missing variable. No default, because a controller
+    # address is one cluster's answer — pass
+    # `--var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR`.
+    transport_env: '${transport_env:-}'
     # The kit's own entrypoints, by the names `deploy_kit.layout.yaml` requires.
     # Arguments rather than literals so a package whose kits are shaped
     # differently re-points them here.

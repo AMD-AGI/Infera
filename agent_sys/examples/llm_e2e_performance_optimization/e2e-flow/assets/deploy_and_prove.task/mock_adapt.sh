@@ -50,20 +50,12 @@ PACKUP="$(find "$CODES" -maxdepth 1 -type d -name '*.packup_*' | head -1)"
 : "${MOCK_IMAGE_ID:=sha256:92ed065bdc3958bdb62fdb5c2c4b88ad9fa45c9b355b763f3098a6185b0668e6}"
 : "${MOCK_ENDPOINT:=http://${E2E_NODE_IP:-127.0.0.1}:${E2E_PORT_ROUTER:-8101}}"
 
-# **`auto` is a request to probe, not a transport**, and the schema is right to
-# refuse it: `runtime.transport` records which transport a later stage should use
-# to reach this deployment, and "decide later" is not an answer a reproducer can
-# act on. `E2E_TRANSPORT` defaults to `auto` (`shared.yaml`), so every producer
-# hits this, not only the mock.
-#
-# Resolved by the same rule `../lib/remote.sh` dispatches on, and deliberately
-# not by re-implementing it in more detail: `spur` wherever the binary exists,
-# otherwise `srun`. On this cluster `srun` exists but is not Slurm's, which is
-# why presence of `spur` is the positive signal rather than absence of `srun`.
-case "${E2E_TRANSPORT:-auto}" in
-  spur|srun|local) MOCK_TRANSPORT="$E2E_TRANSPORT" ;;
-  *) if command -v spur >/dev/null 2>&1; then MOCK_TRANSPORT=spur; else MOCK_TRANSPORT=srun; fi ;;
-esac
+# `runtime.transport` is **not** set here. `E2E_TRANSPORT` ships defaulted to
+# `auto`, which `environment.schema.json` rightly refuses — "decide later" is not
+# something a reproducer can act on — and this script resolved it for one
+# revision. `env_render.build()` now does it for every producer, which is the
+# right place: a mock resolving it separately would be a second rule to keep in
+# step with `remote.sh`, and the two would diverge silently.
 
 # **Not bare `python3`.** `env_render.py` validates before it writes, so its
 # interpreter must be able to import the validator stack. A task body cannot name
@@ -92,8 +84,7 @@ fi
   --set "fixed.gpu_arch=${MOCK_GPU_ARCH}" \
   --set "fixed.gpu_count=${MOCK_GPU_COUNT}" \
   --set "fixed.image_id=${MOCK_IMAGE_ID}" \
-  --set "runtime.endpoint=${MOCK_ENDPOINT}" \
-  --set "runtime.transport=${MOCK_TRANSPORT}"
+  --set "runtime.endpoint=${MOCK_ENDPOINT}"
 
 # --------------------------------------------------------------------------- #
 # (I) the runtime contract.
@@ -119,4 +110,53 @@ if ! grep -q 'E2E_KIT_RUN_TAG' "$ENVSH"; then
 EOF
 fi
 
-echo "mock_adapt: ${PACKUP##*/} now carries codes/environment.yaml and the runtime contract" >&2
+# --------------------------------------------------------------------------- #
+# (J) the deployment entrypoints, so the expensive validator can do real work.
+#
+# **The alternative was to drop `check_deploy_serves` in mock mode, and that is
+# worse.** It is `strength: strong`, and strength qualifies a PASS and never a
+# failure (`validator/report.py:177`) — so there is no "record the refusal and
+# carry on" switch to build, and a validator skipped because the run was a mock
+# is the failure this package exists against. Installing a kit it can genuinely
+# serve from means the `gpu_hours` validator is **exercised** in every mock run,
+# passes only by earning it, and grades a kit the record already says is mocked.
+#
+# The sealed entrypoints are **kept, not deleted** — moved to `scripts/sealed/`,
+# where a reader can still see byte for byte what the real bring-up ran. Losing
+# them would make the mocked kit a worse record than the sealed one it came from,
+# which is the opposite of an adaptation.
+#
+# And it is said out loud in the kit itself, not only here: a reader who opens
+# the mocked kit must not mistake a stand-in for the deployment.
+STUB="$PKG/assets/check_deploy_serves.validator/stub_kit"
+[ -d "$STUB" ] || { echo "mock_adapt: no stub kit at $STUB" >&2; exit 1; }
+
+if [ ! -d "$PACKUP/scripts/sealed" ]; then
+  mkdir -p "$PACKUP/scripts/sealed"
+  for f in deploy.sh wait_ready.sh teardown.sh; do
+    if [ -f "$PACKUP/scripts/$f" ]; then mv "$PACKUP/scripts/$f" "$PACKUP/scripts/sealed/$f"; fi
+  done
+fi
+cp "$STUB"/deploy.sh "$STUB"/wait_ready.sh "$STUB"/teardown.sh    "$STUB"/stub_env.sh "$STUB"/stub_router.py "$PACKUP/scripts/"
+chmod +x "$PACKUP/scripts"/deploy.sh "$PACKUP/scripts"/wait_ready.sh          "$PACKUP/scripts"/teardown.sh "$PACKUP/scripts"/stub_router.py
+
+if ! grep -q 'MOCKED DEPLOYMENT ENTRYPOINTS' "$PACKUP/notes.md"; then
+  cat >> "$PACKUP/notes.md" <<'EOF'
+
+## MOCKED DEPLOYMENT ENTRYPOINTS — read this before trusting `scripts/`
+
+`scripts/deploy.sh`, `wait_ready.sh` and `teardown.sh` in this copy are
+**stand-ins**, installed by `mock_adapt.sh`. They bring up a small HTTP server
+that answers the deployment's probe set and **serve no model**. Every number
+this kit could produce through them is meaningless.
+
+The entrypoints the real 2026-09-02 bring-up ran are kept, byte for byte, under
+`scripts/sealed/`. Everything else in this kit — `results/`, `logs/`, the other
+scripts, `environment.md` — is the sealed run's own and is untouched.
+
+A validator passing against this copy has shown that the validator works. It has
+**not** shown that a model was served.
+EOF
+fi
+
+echo "mock_adapt: ${PACKUP##*/} now carries codes/environment.yaml, the runtime contract, and stub entrypoints (sealed originals under scripts/sealed/)" >&2
