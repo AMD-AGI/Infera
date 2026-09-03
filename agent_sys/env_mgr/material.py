@@ -13,15 +13,20 @@ A file is placed, not read.
 
 from __future__ import annotations
 
+import logging
 import os
+from pathlib import Path
 from typing import Any
 
 from env_mgr import harness
 from env_mgr.fs.layout import copy_out
 from env_mgr.fs.zone import Zone
+from env_mgr.o11y.prefix import Prefix
 from env_mgr.protocols import PrepareRefused
 
-__all__ = ["CONFIG_DIR", "MATERIAL_KEYS", "deploy"]
+__all__ = ["CONFIG_DIR", "MATERIAL_KEYS", "PROJECTS_DIR", "deploy"]
+
+log = logging.getLogger("env_mgr.material")
 
 #: Placed under a per-attempt config directory rather than ``$HOME``. Measured:
 #: with ``~/.claude`` granted, a demo agent read the **operator's** personal
@@ -29,6 +34,10 @@ __all__ = ["CONFIG_DIR", "MATERIAL_KEYS", "deploy"]
 #: with the reviewer's dotfiles is not reproducible, and pointing
 #: ``CLAUDE_CONFIG_DIR`` at the zone removes the ``$HOME`` grant entirely.
 CONFIG_DIR = "config"
+
+#: Claude Code's own name for *where the transcripts go*: one subdirectory per
+#: working directory, named by slugifying that path, one JSONL per session.
+PROJECTS_DIR = "projects"
 
 #: The three `agent` hands over, in Claude Code's own directory names.
 MATERIAL_KEYS = ("rules", "hooks", "skills")
@@ -50,6 +59,7 @@ def deploy(agent_spec: Any, zone: Zone) -> dict[str, str]:
     """
     config = os.path.join(zone.root, CONFIG_DIR)
     os.makedirs(config, exist_ok=True)
+    _share_projects(config)
     # A temp directory inside the zone: per attempt, and it dies with the zone.
     # The backend refuses a temp directory it cannot read, and says so well.
     tmp = os.path.join(zone.root, "tmp")
@@ -95,6 +105,59 @@ def deploy(agent_spec: Any, zone: Zone) -> dict[str, str]:
     env.update(harness.harness_env())
     env.update(_declared_env(agent_spec))
     return env
+
+
+def _share_projects(config: str) -> None:
+    """Point this attempt's ``config/projects`` at the o11y prefix's.
+
+    **Everything else in ``config/`` stays per-attempt.** The relocation above
+    is the reason this module exists and it is not being undone — credentials,
+    settings, ``sessions/`` and ``backups/`` remain the zone's own. Only
+    ``projects/`` is shared, because it is the one subdirectory whose contents
+    nobody in the zone reads: it is Claude Code's *output*, one JSONL per
+    session, and the o11y panel is its only consumer.
+
+    Measured on `examples/demo2` (`recon/ACCEPTANCE.md`, check 2): nine agent
+    transcripts landed under nine different ``<zone>/config/projects/`` and the
+    panel — which reads one fixed directory — showed none of them. The prefix is
+    the only anchor stable across runs and across ``--demo-root`` changes, which
+    is what a resident daemon needs.
+
+    Sharing one physical directory cannot collide: Claude Code names each
+    subdirectory after the slugified cwd, and every attempt runs in its own zone.
+
+    **Never raises.** A panel that cannot see a run is a degraded panel; a
+    prepare step that throws is a dead run. One warning, and the attempt
+    proceeds with whatever is really at that path.
+    """
+    link = Path(config) / PROJECTS_DIR
+    try:
+        target = Prefix.resolve(os.environ).claude_home / PROJECTS_DIR
+        target.mkdir(parents=True, exist_ok=True)
+        if link.is_symlink():
+            if link.resolve() == target.resolve():
+                return  # idempotent: re-running finds its own work and stops
+            # One named path, and one we placed ourselves: a symlink at exactly
+            # `<zone>/config/projects`. Never a tree, never a variable target.
+            link.unlink()
+        elif link.exists():
+            # A real directory. `rmdir` **refuses** a non-empty one, which is
+            # the whole reason it is the call used here: an empty directory is
+            # ours to replace, and one holding transcripts raises `OSError` and
+            # falls to the warning below. Losing a zone from the panel is
+            # cheaper than deleting somebody's evidence.
+            os.rmdir(link)
+        link.symlink_to(target, target_is_directory=True)
+    except (OSError, KeyError) as exc:
+        # `KeyError`: `Prefix.resolve` needs `$HOME` when `AGENT_SYS_HOME` is
+        # unset, and a child environment without either is a configuration we
+        # observe rather than one we refuse.
+        log.warning(
+            "could not share %s with the o11y prefix (%s); this attempt's "
+            "transcripts stay in its zone and the panel will not show them",
+            link,
+            exc,
+        )
 
 
 def _paths(agent_spec: Any, key: str) -> tuple[str, ...]:
