@@ -301,6 +301,23 @@ def _check(content: Path, args: dict, problems: list[str], notes: list[str]) -> 
             except schema_lib.SchemaError as exc:
                 problems.extend(str(exc).splitlines())
                 doc = None
+            except Exception as exc:  # noqa: BLE001 — see below
+                # **Anything the loader raises is a FAIL, never an escape.**
+                # `schema.validate` promises `SchemaError`; it can raise other
+                # things, and one is live: with `referencing` unimportable it
+                # falls back to a registry-less validator, and this schema
+                # `$ref`s `environment.schema.json`, so `iter_errors` raises
+                # `_WrappedReferencingError: Unresolvable`. Measured 2026-09-03.
+                #
+                # Uncaught, that kills the body — non-zero exit and **no
+                # `verdict.json`**, which `PhaseRunner` sees as a broken
+                # validator rather than a refused handoff. A body that cannot
+                # validate must say so and fail, not disappear.
+                problems.append(
+                    f"the schema loader raised {type(exc).__name__}: {exc}. "
+                    "The document was NOT validated"
+                )
+                doc = None
 
     # --- 2. the snapshot, and the document's agreement with it ---------------
     snapshot_path = packup / _SNAPSHOT
@@ -319,6 +336,12 @@ def _check(content: Path, args: dict, problems: list[str], notes: list[str]) -> 
                 except schema_lib.SchemaError as exc:
                     problems.append("the carried workset snapshot is not a valid workset:")
                     problems.extend(str(exc).splitlines()[1:])
+                    snapshot = None
+                except Exception as exc:  # noqa: BLE001 — same reason as above
+                    problems.append(
+                        f"the schema loader raised {type(exc).__name__} on the workset snapshot: "
+                        f"{exc}. The snapshot was NOT validated"
+                    )
                     snapshot = None
 
     if doc is not None and snapshot is not None:
