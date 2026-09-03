@@ -1,0 +1,15 @@
+# GLM-5.3-Flash FP8, MIX TP4, decode CUDA graphs ON, engine port 31400 (not the router).
+# MEASURED BY THE TEAM LEAD on this deployment, 2026-09-02 11:32-11:33 UTC,
+#   node smci355-...-n05-29 (shared). NOT measured by the operator who brought the
+#   deployment up; see results/README.md for why that distinction is kept.
+# Lead's own caveat: the neighbour's cards read 0.3 GB before and 0 GB after,
+#   and were NOT sampled during either arm.
+# Harness: sglang.bench_serving, dataset random, seed 42, isl 7400, osl 320,
+#   random_range_ratio 1.0, temp 1.0, top_p 0.95, num_prompts=10*conc, cache_report on.
+# Sampling is effectively GREEDY-VERIFIED on ROCm (EAGLE verify takes an argmax branch),
+#   so label the absolutes greedy-verified, not temperature 1.0.
+# mxfp4_ref_* are the lead's Flash-MXFP4 numbers, same shape/harness/TP, node n01-33.
+# Ratio direction is fixed throughout this packup: MXFP4 over FP8, i.e. "what MXFP4 buys".
+conc,fp8_output_tok_s,fp8_total_tok_s,fp8_mean_ttft_ms,fp8_mean_tpot_ms,fp8_cache_hit_pct,successful,duration_s,mxfp4_ref_output_tok_s,mxfp4_over_fp8
+1,99.70,2405.32,273.91,9.20,9.9,10,32.10,111.0,1.11
+8,456.68,11017.34,1296.37,13.50,12.4,80,56.06,561.0,1.23

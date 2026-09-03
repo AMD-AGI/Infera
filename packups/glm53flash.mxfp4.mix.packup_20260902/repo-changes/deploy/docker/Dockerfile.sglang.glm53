@@ -1,0 +1,354 @@
+# Infera SGLang engine image for GLM-5.3-Flash (glm5_next) on gfx950 / MI355X.
+#
+# WHY A SEPARATE FILE FROM Dockerfile.sglang: three things differ, and each one
+# would break the other image if folded in.
+#
+#   1. Base moves v0.5.17 -> v0.5.18-rocm720-mi35x. No published sglang release
+#      carries GLM-5.3-Flash yet, so the base alone still cannot load it: the
+#      model is sglang PR #36507 and its ROCm gfx942/gfx950 enablement is the
+#      stacked PR #36607. #36507 is still OPEN against main; #36607 merged into
+#      #36507's branch on 2026-08-28, so neither is in main and no release
+#      carries the model. This image checks out #36607's head over
+#      the base's editable sglang tree, which is exactly how AMD ran the
+#      published GSM8K validation (gfx950 97.65%, 1288/1319).
+#   2. The GLM-5.2 DSA patch set is skipped. Those four are --fuzz=0 diffs cut
+#      against v0.5.17 for glm_moe_dsa PD + DP-attention + EAGLE MTP. This
+#      recipe runs neither DP-attention nor MTP (AMD MTP is unvalidated for
+#      GLM-5.3 and does not start under PD at the current upstream cut), and
+#      the diffs cannot apply to this tree anyway.
+#   3. Two patches/sglang_disagg/ anchors moved. They are re-anchored into a
+#      copy by scripts/reanchor_sglang_disagg_glm53.sh -- the originals stay
+#      untouched so the v0.5.17 Kimi-K3 image keeps building.
+#
+# Build from the REPO ROOT:
+#   docker build -f deploy/docker/Dockerfile.sglang.glm53 -t <registry>/infera:glm53-<date> .
+#
+# If docker.io is unreachable from the build host ("failed to fetch oauth token:
+# Post https://auth.docker.io/token: EOF"), pull the base through the cluster's
+# Harbor pull-through cache instead -- same image, no Dockerfile edit:
+#   --build-arg SGLANG_BASE_IMAGE=harbor.crusoe.primus-safe.amd.com/proxy/lmsysorg/sglang:v0.5.18-rocm720-mi35x
+#
+# ---------------------------------------------------------------------------
+# WHEN TO DELETE THIS FILE
+#
+# This whole file exists for one reason: glm5_next is the only model here that
+# NO published sglang release carries. Every other model Infera serves already
+# exists in the released engine and needs at most a bug fix from patches/ --
+# that is why Kimi-K3, MiniMax-M2 and DSv4 each added a couple of files under
+# patches/ and no Dockerfile of their own, while this one needs a whole recipe.
+#
+# CHECK BEFORE TOUCHING ANYTHING BELOW. One command, no API token. The control
+# probe is not optional -- without it a network failure reads as a 404:
+#
+#   for ref in main v0.5.18; do
+#     for f in glm5_next glm4_moe; do          # glm4_moe = control, must be 200
+#       curl -s -o /dev/null -w "$ref $f %{http_code}\n" \
+#         "https://raw.githubusercontent.com/sgl-project/sglang/$ref/python/sglang/srt/models/$f.py"
+#     done
+#   done
+#
+# Verified 2026-08-31: glm5_next is 404 on main, v0.5.18 and v0.5.17 while the
+# control is 200 on all three; `Glm5Next` appears 0 times in main's
+# model_config.py; v0.5.18 is still the newest tag; and lmsysorg/sglang has no
+# mi35x image past v0.5.18-rocm720-mi35x (2026-08-21). Both PRs still open.
+#
+# ONCE glm5_next IS 200 ON A RELEASE TAG: delete this file. Build GLM-5.3 from
+# Dockerfile.sglang with `--build-arg SGLANG_BASE_IMAGE=<that release>` plus
+# `--build-arg APPLY_SGLANG_DSA_PATCHES=0`, and delete
+# scripts/reanchor_sglang_disagg_glm53.sh and scripts/verify_glm53_overlay.py
+# with it. Two things to re-derive on that tree first, because both were settled
+# for THIS tree only: whether the two patches/sglang_disagg/ anchors still need
+# re-anchoring (they may have landed upstream), and the two hicache ROCm gates
+# behind the patch_hicache_rocm_staged_write_back.py exclusion below.
+# ---------------------------------------------------------------------------
+ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.18-rocm720-mi35x
+FROM ${SGLANG_BASE_IMAGE}
+
+# ---- GLM-5.3-Flash source overlay ------------------------------------------
+# The base installs sglang editable from /sgl-workspace/sglang/python, and that
+# directory is a full (non-shallow) clone of sgl-project/sglang, so the overlay
+# is a fetch + checkout rather than a file copy.
+#
+# THE PIN IS DELIBERATE, and it is #36607's HEAD -- not its first commit.
+#
+# #36607 ("[AMD] Enable GLM-5.3-Flash on gfx942 and gfx950") is stacked on
+# #36507's branch, not on main, and it MERGED 2026-08-28 (merge commit
+# aa8c950a). Merged means its head c821c425 is frozen: pinning there is
+# reproducible without being stale, which is the usual reason to pin early.
+#
+# Pinning EARLIER on that PR is the trap. Its first commit is 9e692c92, and
+# five of the nine commits after it are the ones this image exists for:
+#   654df43c  [AMD] Support mixed Quark MXFP4 and block-FP8 loading
+#   bd1cc98b  [AMD] Enable GLM shared-expert fusion on gfx95
+#   91c66b87  [AMD] Enable fused k-pool top-k on HIP
+#   77a46694  [AMD] Enable AITER mHC for GLM on gfx95
+# Content, same commands across both refs: glm5_next.py 1834 -> 1942 lines,
+# aiter references 3 -> 12, quantization/quark/quark.py 1103 -> 1172 lines. So
+# 9e692c92 builds an engine that (a) silently takes the pre-mHC path, which
+# upstream measured at 4.3-5.4x slower and which no log calls out, and (b)
+# cannot load a Quark MXFP4 checkpoint at all.
+#
+# Do NOT "update" this to pull/36507/head. That branch carried the AMD work
+# between 2026-08-28 and 2026-08-30, then LOST it in its 08-31 rebase ("fix:
+# resolve CI regressions after GLM-5.3 Flash rebase"): as of 09-01 its head
+# c767511e is back to aiter 3 / quark.py 1103. Tracking either PR by NAME is
+# unreproducible anyway -- two builds of "the same Dockerfile" would ship two
+# different engines.
+#
+# Known-good fallback if c821c425 misbehaves: 7fa1924c (2026-08-29, taken off
+# #36507 while it still carried the AMD work; same quark.py 1172, aiter 11).
+# That one has actually served this model on this host. Conversely, if a
+# NON-MXFP4 feature misbehaves, read #36507's current content before assuming a
+# bug -- it carries fixes this frozen branch does not.
+#
+# Bump the ref only against a new validation run.
+#
+# SGLANG_GLM53_PR only locates the ref cheaply, and the build below treats it
+# that way: it fetches the PR ref, and if the pinned sha is still not present
+# afterwards it fetches the sha directly (github serves fetch-by-sha,
+# allowAnySHA1InWant). Both halves are load-bearing. A merged, closed or
+# renumbered PR makes the first fetch fail outright; a force-push past the pin
+# makes it *succeed* and still not contain the sha -- which is the exact
+# reproducibility hazard this pin exists for, so it must not be a build failure
+# either. Keep the two consistent when you bump, but the sha is the contract.
+#
+# Both PRs touch python/sglang/** only -- no C++ sgl-kernel rebuild. The new DSA
+# kernels under python/sglang/kernels/jit/ are JIT-compiled at first use.
+ARG SGLANG_GLM53_REF=c821c425c31b0e6c8151324b60fbc2857c39eaef
+ARG SGLANG_GLM53_PR=36607
+# The ROCm base leaves this clone DIRTY: it swaps the HIP build metadata into
+# place (python/pyproject_other.toml -> python/pyproject.toml, and the same for
+# python/sglang/kernels/aot/), so those show as 2 modified + 2 deleted tracked
+# files and a plain `git checkout` aborts with "local changes would be
+# overwritten". Neither PR 36507 nor 36607 touches any of them -- both are
+# confined to python/sglang/{srt,kernels/ops} plus tests -- so the safe move is
+# to save that build metadata, force the checkout, and put it back. Force alone
+# would silently restore the CUDA-flavoured pyproject and break any later
+# `pip install` against this tree.
+#
+# `git diff HEAD`, not `git diff`: the latter compares the worktree to the
+# INDEX, so a base image that staged its metadata swap (`git add`) lists
+# nothing here, saves nothing, and loses the HIP pyproject to the forced
+# checkout below -- while `git status --porcelain` on the line above still
+# prints it, so the diagnostic and the logic would disagree about what is
+# dirty. Today's base does not stage it; nothing makes that a promise.
+COPY deploy/docker/scripts/verify_glm53_overlay.py /usr/local/bin/verify-glm53-overlay
+RUN set -eux; \
+    cd /sgl-workspace/sglang; \
+    mkdir -p /tmp/base-meta/files; \
+    git status --porcelain | tee /tmp/base-meta/status.txt; \
+    git diff HEAD --name-only --diff-filter=M > /tmp/base-meta/modified.txt; \
+    git diff HEAD --name-only --diff-filter=D > /tmp/base-meta/deleted.txt; \
+    while read -r f; do mkdir -p "/tmp/base-meta/files/$(dirname "$f")"; cp "$f" "/tmp/base-meta/files/$f"; done < /tmp/base-meta/modified.txt; \
+    git fetch --no-tags origin "pull/${SGLANG_GLM53_PR}/head" \
+      || echo "[overlay] pull/${SGLANG_GLM53_PR}/head did not fetch; falling back to the sha"; \
+    git cat-file -e "${SGLANG_GLM53_REF}^{commit}" 2>/dev/null \
+      || git fetch --no-tags origin "${SGLANG_GLM53_REF}"; \
+    git checkout --detach --force "${SGLANG_GLM53_REF}"; \
+    while read -r f; do mkdir -p "$(dirname "$f")"; cp "/tmp/base-meta/files/$f" "$f"; done < /tmp/base-meta/modified.txt; \
+    while read -r f; do rm -f "$f"; done < /tmp/base-meta/deleted.txt; \
+    rm -rf /tmp/base-meta; \
+    find python -name __pycache__ -type d -prune -exec rm -rf {} +; \
+    test -f python/sglang/srt/models/glm5_next.py; \
+    python3 /usr/local/bin/verify-glm53-overlay
+
+# ---- Mooncake: pinned upstream, no private source patches -------------------
+# Unchanged from Dockerfile.sglang -- same script, same upstream ref. The build
+# is independent of the sglang Python tree above.
+ARG BUILD_MOONCAKE=1
+ARG MOONCAKE_GIT_REF=faae8dd4a6309c3ecd47e0721a83b0250d686fa2
+COPY deploy/docker/scripts/build_mooncake_sglang.sh /tmp/build_mooncake_sglang.sh
+RUN if [ "${BUILD_MOONCAKE}" = "1" ]; then \
+        MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" bash /tmp/build_mooncake_sglang.sh; \
+    else \
+        echo "BUILD_MOONCAKE=0 — leaving base Mooncake as-is"; \
+    fi \
+    && rm -f /tmp/build_mooncake_sglang.sh
+
+# ---- assert cross-host routing in the .so this image will LOAD --------------
+ARG REQUIRE_MOONCAKE_CROSS_HOST_ROUTING=1
+RUN set -eu; \
+    if [ "${REQUIRE_MOONCAKE_CROSS_HOST_ROUTING}" != "1" ]; then \
+        echo "skipping Mooncake cross-host routing assertion"; \
+    else \
+        so_dir="$(python3 -c 'import mooncake, os; print(os.path.dirname(mooncake.__file__))')"; \
+        so="$(ls "$so_dir"/engine*.so | head -1)"; \
+        syms="$(strings "$so")"; \
+        printf '%s\n' "$syms" | grep -q "MC_DISABLE_HIP" || { \
+            echo "ERROR: $so lacks upstream cross-host HIP locality routing" >&2; \
+            exit 1; }; \
+        echo "MOONCAKE_CROSS_HOST_ROUTING=present ($so)"; \
+    fi
+
+# ---- libionic (host ionic ABI match) -----------------------------------------
+# Getting this wrong is SILENT. libibverbs prints one warning per device to
+# stderr, ibv_get_device_list then returns 0 HCAs, mooncake logs "No RDMA
+# devices found" + "Topology discovery complete. Found 0 HCAs." and serves KV
+# over TcpTransport instead. Every pod stays Ready, every request succeeds,
+# TTFT is just quietly bad. Verified in exactly that state on 2026-08-28.
+#
+# PICK BY THE HOST, NOT BY VERSION NUMBER. Newer is not higher-ABI:
+#
+#     54.0-149.g3304be71   abi 4..4    pool line 1.117.1-a-63
+#     54.0-187-1           abi 1..1    pool line 1.117.5-a-77
+#     54.0-192-1           abi 1..1    pool line 1.125.0-a-187
+#     54.0-197-1           abi 1..1    pool line 1.117.5-a-147
+#
+# (measured off the ELF -- see deploy/docker/scripts/print_ionic_abi.py)
+#
+# To choose, read two things off a target node:
+#     cat /sys/class/infiniband/ionic_0/fw_ver              -> e.g. 1.117.1-a-63
+#     cat /sys/class/infiniband_verbs/uverbs1/abi_version   -> e.g. 4
+# and take the deb from the pool directory whose name matches fw_ver. The
+# repo path IS the pairing; it is not a "latest wins" archive.
+#
+# Default below targets the gfx950 fleet this image is built for
+# (crsuse2-m2m-*, ionic_rdma 25.08.4.004, fw 1.117.1-a-63, uverbs abi 4).
+# The MI355X/ionic-26.03 fleet that Dockerfile.sglang was written for is the
+# OTHER case -- it wants abi 1, i.e. 54.0-187. Do not copy one into the other;
+# that is precisely the regression this block replaces, and it cost a full
+# benchmark run of TCP-transported KV before anyone noticed.
+ARG INSTALL_LIBIONIC=1
+ARG LIBIONIC_DEB_URL=https://repo.radeon.com/amdainic/pensando/ubuntu/1.117.1-a-63/pool/main/r/rdma-core/libionic1_54.0-149.g3304be71_amd64.deb
+# Build fails unless the provider that ends up installed declares this range.
+# Set to 1 when building for the ionic-26.03 fleet; set empty to skip the gate.
+#
+# The gate and the download tolerance below are one decision, not two. A failed
+# download leaves the base image's provider in place, which is the wrong ABI --
+# that is the whole reason the gate exists -- so "tolerate the download and then
+# enforce the ABI" can only ever end in a hard failure two lines later, with the
+# tolerance message printed above it to misdirect the reader. Runtime injection
+# is a real workflow (an offline builder mounts the .deb on the node instead),
+# but it is a deliberate choice, and the way to make it is to clear
+# LIBIONIC_REQUIRE_ABI. So: the gate set means the download must succeed; the
+# gate cleared means it may fail and the build carries on.
+ARG LIBIONIC_REQUIRE_ABI=4
+COPY deploy/docker/scripts/print_ionic_abi.py /usr/local/bin/print-ionic-abi
+RUN set -eu; \
+    if [ "${INSTALL_LIBIONIC}" = "1" ]; then \
+        if curl -4 -fsSL --retry 3 -o /tmp/libionic.deb "${LIBIONIC_DEB_URL}" \
+          && dpkg -i --force-downgrade /tmp/libionic.deb \
+          && ldconfig \
+          && echo "libionic: $(dpkg -l | awk '/libionic1/{print $3}')" \
+          && rm -f /tmp/libionic.deb; then \
+            :; \
+        elif [ -n "${LIBIONIC_REQUIRE_ABI}" ]; then \
+            echo "ERROR: could not install ${LIBIONIC_DEB_URL} (offline build?)," >&2; \
+            echo "       and LIBIONIC_REQUIRE_ABI=${LIBIONIC_REQUIRE_ABI} demands that provider." >&2; \
+            echo "       To build without it and inject the .deb on the node at runtime," >&2; \
+            echo "       rebuild with --build-arg LIBIONIC_REQUIRE_ABI= (empty)." >&2; \
+            exit 1; \
+        else \
+            echo "[libionic] install failed and no ABI is required — inject at runtime instead"; \
+        fi; \
+    else \
+        echo "INSTALL_LIBIONIC=0 — using the base image's provider as-is"; \
+    fi; \
+    if [ -n "${LIBIONIC_REQUIRE_ABI}" ]; then \
+        python3 /usr/local/bin/print-ionic-abi > /tmp/ionic-abi.txt || { \
+            echo "ERROR: could not read the ionic provider's ABI range off the ELF." >&2; \
+            echo "       Unverified means unshipped: this gate exists because the wrong" >&2; \
+            echo "       provider fails open to TCP with nothing in any log." >&2; \
+            exit 1; }; \
+        cat /tmp/ionic-abi.txt; \
+        grep -q "= ${LIBIONIC_REQUIRE_ABI}\.\.${LIBIONIC_REQUIRE_ABI}\$" /tmp/ionic-abi.txt || { \
+            echo "ERROR: installed ionic provider does not declare abi ${LIBIONIC_REQUIRE_ABI}..${LIBIONIC_REQUIRE_ABI}." >&2; \
+            echo "       RDMA would silently fall back to TCP on the target nodes." >&2; \
+            echo "       Fix LIBIONIC_DEB_URL, or set LIBIONIC_REQUIRE_ABI to what those nodes export." >&2; \
+            exit 1; }; \
+        rm -f /tmp/ionic-abi.txt; \
+    else \
+        python3 /usr/local/bin/print-ionic-abi || \
+            echo "[libionic] could not read the provider ABI; no gate set, continuing"; \
+    fi
+
+# ---- infera ------------------------------------------------------------------
+WORKDIR /opt/infera
+COPY pyproject.toml README.md ./
+COPY infera ./infera
+RUN pip install --no-cache-dir ".[sglang]" "setuptools>=83.0.0"
+
+# ---- sglang PD patch (mooncake early-send KV wait event) --------------------
+# REQUIRED FOR CORRECTNESS: without it, chunked prefill hands every non-final
+# chunk to the decode leg while the forward writing those pages is still
+# running, so prompts longer than one chunk come back partially wrong with
+# nothing in any log. Verified still absent at SGLANG_GLM53_REF (conn.py has no
+# wait_event/synchronize() call), so this is not yet upstream.
+#
+# patch_responses_pd_bootstrap.py rides along: it plumbs bootstrap_host/port/room
+# through /v1/responses so a PD pair accepts the request at all. Needed for any
+# Codex-style driver; harmless otherwise.
+#
+# Both are re-anchored first; the helper exits non-zero if an anchor is gone.
+COPY deploy/docker/patches/sglang_disagg/ /tmp/sglang-disagg-patches/
+COPY deploy/docker/scripts/reanchor_sglang_disagg_glm53.sh /tmp/reanchor.sh
+RUN set -eu; \
+    bash /tmp/reanchor.sh /tmp/sglang-disagg-patches /tmp/sglang-disagg-glm53; \
+    for f in /tmp/sglang-disagg-glm53/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
+    rm -rf /tmp/sglang-disagg-patches /tmp/sglang-disagg-glm53 /tmp/reanchor.sh
+
+# ---- sglang Responses API patch (not PD-specific) ---------------------------
+# Anchors verified intact at SGLANG_GLM53_REF; applies unmodified.
+COPY deploy/docker/patches/sglang_responses/ /tmp/sglang-responses-patches/
+RUN set -eu; \
+    for f in /tmp/sglang-responses-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
+    rm -rf /tmp/sglang-responses-patches
+
+# ---- sglang ROCm hicache host allocator -------------------------------------
+# Only patch_hicache_rocm_host_alloc.py runs here; its anchors are intact.
+#
+# patch_hicache_rocm_staged_write_back.py is deliberately EXCLUDED. It resyncs
+# two gates that disagreed about the staged write-back JIT on ROCm, and at
+# SGLANG_GLM53_REF both gates in mem_cache/pool_host/mla.py already read
+# `_is_cuda or _is_hip`, i.e. they agree. Its own precondition check cannot run
+# either: `class DSAIndexerPoolHost` has moved out of mem_cache/memory_pool_host.py,
+# so the script exits 1 rather than apply a gate it cannot verify -- correct
+# behaviour, and the reason it is not in the loop.
+#
+# This is moot for the recipe below, which runs GPU-only. RE-DERIVE BOTH GATES
+# BEFORE ENABLING --enable-hierarchical-cache OR kvd ON THIS IMAGE.
+COPY deploy/docker/patches/sglang_rocm/patch_hicache_rocm_host_alloc.py /tmp/patch_hicache_rocm_host_alloc.py
+RUN set -eu; \
+    echo "[sglang-patch] patch_hicache_rocm_host_alloc.py"; \
+    python /tmp/patch_hicache_rocm_host_alloc.py; \
+    rm -f /tmp/patch_hicache_rocm_host_alloc.py
+
+# ---- Rust router (multi-core data plane; --router-backend rust) -------------
+# Unchanged from Dockerfile.sglang, including the same-RUN toolchain removal:
+# image scanning reads the flattened filesystem, so a compiler deleted in a
+# later layer is still reported. Keep the two assertions at the end in sync with
+# Dockerfile.sglang -- the second one catches rustup's unguarded
+# `. "$HOME/.cargo/env"` left behind in a shell rc, which the PATH check misses.
+COPY rust ./rust
+RUN set -eu; \
+    command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; }; \
+    export LIBCLANG_PATH="$(dirname "$(find /opt/rocm* /usr/lib /usr/lib64 -name 'libclang.so*' 2>/dev/null | head -1)")"; \
+    case "$LIBCLANG_PATH" in ""|".") apt-get update && apt-get install -y --no-install-recommends libclang-dev && rm -rf /var/lib/apt/lists/* && export LIBCLANG_PATH="$(dirname "$(find /usr/lib -name 'libclang.so*' 2>/dev/null | head -1)")";; esac; \
+    command -v cargo >/dev/null || { curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal; . "$HOME/.cargo/env"; }; \
+    export PATH="$HOME/.cargo/bin:$PATH"; \
+    export LIBCLANG_PATH="${LIBCLANG_PATH:-/opt/rocm/llvm/lib}"; \
+    ( cd rust && cargo build --release --bin infera-router ); \
+    cp rust/target/release/infera-router /usr/local/bin/infera-router; \
+    rm -rf rust "$HOME/.cargo" "$HOME/.rustup" /usr/local/cargo /usr/local/rustup; \
+    rm -f /usr/local/bin/cargo /usr/local/bin/rustc /usr/local/bin/rustup /usr/local/bin/rustdoc; \
+    sed -i '/\.cargo\/env/d' "$HOME/.profile" "$HOME/.bashrc" 2>/dev/null || true; \
+    ! command -v cargo >/dev/null || { echo "cargo still on PATH after cleanup: $(command -v cargo)" >&2; exit 1; }; \
+    ! bash -lc true 2>&1 | grep -q cargo || { echo "a login shell still references cargo" >&2; exit 1; }; \
+    /usr/local/bin/infera-router --help >/dev/null 2>&1 || { echo "infera-router unusable after cleanup" >&2; exit 1; }
+
+# ---- final assertion: this image can actually resolve GLM-5.3-Flash ---------
+# Cheap, and it turns "the overlay got clobbered by a later layer" into a build
+# failure instead of a CrashLoopBackOff 20 minutes into a weight load.
+#
+# Deliberately NOT a ModelRegistry.get_supported_archs() check: registry.py
+# imports every model module with strict=False and logs+swallows failures, so on
+# a GPU-less builder (aiter -> rocminfo) glm5_next would be reported "not
+# registered" for a reason that has nothing to do with this image. The verifier
+# checks the same contract -- module present, class defined, exported via
+# EntryClass, compiles -- statically, and only then tries the real import.
+RUN set -eu; python3 /usr/local/bin/verify-glm53-overlay
+
+COPY deploy/docker/scripts/infera_inject_host_ionic.sh /usr/local/bin/infera-inject-host-ionic
+
+ENTRYPOINT ["/usr/local/bin/infera-inject-host-ionic"]
+CMD ["/bin/bash"]

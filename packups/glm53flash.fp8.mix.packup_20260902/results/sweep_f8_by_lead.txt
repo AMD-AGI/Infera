@@ -1,0 +1,149 @@
+### conc=1
+[aiter] import [module_aiter_core] under /sgl-workspace/aiter/aiter/jit/module_aiter_core.so
+[aiter] merge tuned file under model_configs/ and configs/ /sgl-workspace/aiter/aiter/configs/bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/kimik2_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/gptoss_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/glm47_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/glm5_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/kimik3_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/qwen3_5_397b_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/dsv3_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/dsv4_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/qwen32B_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/minimax_m3_eagle_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/llama405B_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/kimi_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/llama70B_bf16_tuned_gemm.csv
+/sgl-workspace/sglang/python/sglang/bench_serving.py:13: FutureWarning: `sglang.bench_serving` is deprecated and will be removed in a future release; use `sglang.benchmark.serving` instead (e.g. `python -m sglang.benchmark.serving`).
+  warnings.warn(
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+benchmark_args=Namespace(backend='sglang-oai-chat', base_url=None, host='192.168.3.26', port=31400, ready_check_timeout_sec=60, dataset_name='random', dataset_path='', dataset_offset=0, agentic_max_turns=None, speed_bench_category=None, speed_bench_output_len=512, model='glm5.3-flash', served_model_name=None, tokenizer=None, num_prompts=10, sharegpt_output_len=None, sharegpt_context_len=None, random_input_len=7400, random_output_len=320, random_range_ratio=1.0, image_count=1, image_resolution='1080p', random_image_count=False, image_format='jpeg', image_content='random', request_rate=inf, use_trace_timestamps=False, max_concurrency=1, output_file='/tmp/f8_c1.jsonl', output_details=True, print_requests=False, disable_tqdm=False, disable_stream=False, return_logprob=False, top_logprobs_num=0, token_ids_logprob=None, logprob_start_len=-1, return_routed_experts=False, cache_report=True, seed=42, disable_ignore_eos=False, temperature=1.0, top_p=0.95, extra_request_body=None, apply_chat_template=False, profile=False, plot_throughput=False, profile_activities=['CPU', 'GPU'], profile_start_step=None, profile_steps=None, profile_num_steps=None, profile_by_stage=False, profile_stages=None, profile_output_dir=None, profile_prefix=None, lora_name=None, lora_request_distribution='uniform', lora_zipf_alpha=1.5, prompt_suffix='', pd_separated=False, profile_prefill_url=None, profile_decode_url=None, flush_cache=False, flush_cache_timeout=60.0, warmup_requests=1, tokenize_prompt=False, gsp_num_groups=64, gsp_prompts_per_group=16, gsp_system_prompt_len=2048, gsp_question_len=128, gsp_output_len=256, gsp_range_ratio=1.0, gsp_fast_prepare=False, gsp_send_routing_key=False, gsp_num_turns=1, gsp_ordered=False, gsp_group_distribution='uniform', gsp_zipf_alpha=None, mooncake_slowdown_factor=1.0, mooncake_num_rounds=1, mooncake_workload='conversation', fake_prefill=False, tag=None, header=None)
+Waiting up to 60s for http://192.168.3.26:31400/v1/models to become ready...
+Server ready in 0.0s.
+Fail to load tokenizer config with error=glm5.3-flash is not a local folder and is not a valid model identifier listed on 'https://huggingface.co/models'
+If this is a private repository, make sure to pass a token having permission to this repo either by logging in with `hf auth login` or by passing `token=<your_token>`
+
+WARNING It is recommended to use the `Chat` or `Instruct` model for benchmarking.
+Because when the tokenizer counts the output tokens, if there is gibberish, it might count incorrectly.
+
+Namespace(backend='sglang-oai-chat', base_url=None, host='192.168.3.26', port=31400, ready_check_timeout_sec=60, dataset_name='random', dataset_path='', dataset_offset=0, agentic_max_turns=None, speed_bench_category=None, speed_bench_output_len=512, model='glm5.3-flash', served_model_name=None, tokenizer=None, num_prompts=10, sharegpt_output_len=None, sharegpt_context_len=None, random_input_len=7400, random_output_len=320, random_range_ratio=1.0, image_count=1, image_resolution='1080p', random_image_count=False, image_format='jpeg', image_content='random', request_rate=inf, use_trace_timestamps=False, max_concurrency=1, output_file='/tmp/f8_c1.jsonl', output_details=True, print_requests=False, disable_tqdm=False, disable_stream=False, return_logprob=False, top_logprobs_num=0, token_ids_logprob=None, logprob_start_len=-1, return_routed_experts=False, cache_report=True, seed=42, disable_ignore_eos=False, temperature=1.0, top_p=0.95, extra_request_body=None, apply_chat_template=False, profile=False, plot_throughput=False, profile_activities=['CPU', 'GPU'], profile_start_step=None, profile_steps=None, profile_num_steps=None, profile_by_stage=False, profile_stages=None, profile_output_dir=None, profile_prefix=None, lora_name=None, lora_request_distribution='uniform', lora_zipf_alpha=1.5, prompt_suffix='', pd_separated=False, profile_prefill_url=None, profile_decode_url=None, flush_cache=False, flush_cache_timeout=60.0, warmup_requests=1, tokenize_prompt=False, gsp_num_groups=64, gsp_prompts_per_group=16, gsp_system_prompt_len=2048, gsp_question_len=128, gsp_output_len=256, gsp_range_ratio=1.0, gsp_fast_prepare=False, gsp_send_routing_key=False, gsp_num_turns=1, gsp_ordered=False, gsp_group_distribution='uniform', gsp_zipf_alpha=None, mooncake_slowdown_factor=1.0, mooncake_num_rounds=1, mooncake_workload='conversation', fake_prefill=False, tag=None, header=None)
+
+#Input tokens: 74000
+#Output tokens: 3200
+Starting warmup with 1 sequences...
+Warmup completed with 1 sequences. Starting main benchmark run...
+  0%|          | 0/10 [00:00<?, ?it/s] 10%|█         | 1/10 [00:03<00:28,  3.15s/it] 20%|██        | 2/10 [00:06<00:25,  3.18s/it] 30%|███       | 3/10 [00:09<00:22,  3.19s/it] 40%|████      | 4/10 [00:12<00:19,  3.20s/it] 50%|█████     | 5/10 [00:15<00:16,  3.21s/it] 60%|██████    | 6/10 [00:19<00:12,  3.21s/it] 70%|███████   | 7/10 [00:22<00:09,  3.21s/it] 80%|████████  | 8/10 [00:25<00:06,  3.21s/it] 90%|█████████ | 9/10 [00:28<00:03,  3.22s/it]100%|██████████| 10/10 [00:32<00:00,  3.22s/it]100%|██████████| 10/10 [00:32<00:00,  3.21s/it]
+
+============ Serving Benchmark Result ============
+Backend:                                 sglang-oai-chat
+Traffic request rate:                    inf       
+Max request concurrency:                 1         
+Successful requests:                     10        
+Benchmark duration (s):                  32.10     
+Total input tokens:                      74000     
+Total input text tokens:                 74000     
+Total generated tokens:                  3200      
+Total generated tokens (retokenized):    3198      
+Request throughput (req/s):              0.31      
+Input token throughput (tok/s):          2305.62   
+Output token throughput (tok/s):         99.70     
+Peak output token throughput (tok/s):    109.00    
+Peak concurrent requests:                2         
+Total token throughput (tok/s):          2405.32   
+Concurrency:                             1.00      
+----------------End-to-End Latency----------------
+Mean E2E Latency (ms):                   3207.47   
+Median E2E Latency (ms):                 3207.80   
+P90 E2E Latency (ms):                    3222.23   
+P95 E2E Latency (ms):                    3239.66   
+P99 E2E Latency (ms):                    3253.61   
+---------------Time to First Token----------------
+Mean TTFT (ms):                          273.91    
+Median TTFT (ms):                        274.33    
+P90 TTFT (ms):                           288.21    
+P95 TTFT (ms):                           305.85    
+P99 TTFT (ms):                           319.96    
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          9.20      
+Median TPOT (ms):                        9.20      
+P90 TPOT (ms):                           9.20      
+P95 TPOT (ms):                           9.20      
+P99 TPOT (ms):                           9.21      
+---------------Inter-Token Latency----------------
+Mean ITL (ms):                           9.20      
+Median ITL (ms):                         9.20      
+P90 ITL (ms):                            9.22      
+P95 ITL (ms):                            9.23      
+P99 ITL (ms):                            9.32      
+Max ITL (ms):                            18.38     
+----------------Cache Hit Details-----------------
+Total prompt tokens:                     74000     
+Total cached tokens:                     7360      
+  Device:                                7360      
+  Host:                                  0         
+Cache hit rate:                          9.9%
+  Device:                                100.0%
+  Host:                                  0.0%
+==================================================
+### conc=8
+[aiter] import [module_aiter_core] under /sgl-workspace/aiter/aiter/jit/module_aiter_core.so
+[aiter] merge tuned file under model_configs/ and configs/ /sgl-workspace/aiter/aiter/configs/bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/kimik2_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/gptoss_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/glm47_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/glm5_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/kimik3_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/qwen3_5_397b_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/dsv3_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/dsv4_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/qwen32B_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/minimax_m3_eagle_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/llama405B_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/kimi_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/llama70B_bf16_tuned_gemm.csv
+/sgl-workspace/sglang/python/sglang/bench_serving.py:13: FutureWarning: `sglang.bench_serving` is deprecated and will be removed in a future release; use `sglang.benchmark.serving` instead (e.g. `python -m sglang.benchmark.serving`).
+  warnings.warn(
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+benchmark_args=Namespace(backend='sglang-oai-chat', base_url=None, host='192.168.3.26', port=31400, ready_check_timeout_sec=60, dataset_name='random', dataset_path='', dataset_offset=0, agentic_max_turns=None, speed_bench_category=None, speed_bench_output_len=512, model='glm5.3-flash', served_model_name=None, tokenizer=None, num_prompts=80, sharegpt_output_len=None, sharegpt_context_len=None, random_input_len=7400, random_output_len=320, random_range_ratio=1.0, image_count=1, image_resolution='1080p', random_image_count=False, image_format='jpeg', image_content='random', request_rate=inf, use_trace_timestamps=False, max_concurrency=8, output_file='/tmp/f8_c8.jsonl', output_details=True, print_requests=False, disable_tqdm=False, disable_stream=False, return_logprob=False, top_logprobs_num=0, token_ids_logprob=None, logprob_start_len=-1, return_routed_experts=False, cache_report=True, seed=42, disable_ignore_eos=False, temperature=1.0, top_p=0.95, extra_request_body=None, apply_chat_template=False, profile=False, plot_throughput=False, profile_activities=['CPU', 'GPU'], profile_start_step=None, profile_steps=None, profile_num_steps=None, profile_by_stage=False, profile_stages=None, profile_output_dir=None, profile_prefix=None, lora_name=None, lora_request_distribution='uniform', lora_zipf_alpha=1.5, prompt_suffix='', pd_separated=False, profile_prefill_url=None, profile_decode_url=None, flush_cache=False, flush_cache_timeout=60.0, warmup_requests=1, tokenize_prompt=False, gsp_num_groups=64, gsp_prompts_per_group=16, gsp_system_prompt_len=2048, gsp_question_len=128, gsp_output_len=256, gsp_range_ratio=1.0, gsp_fast_prepare=False, gsp_send_routing_key=False, gsp_num_turns=1, gsp_ordered=False, gsp_group_distribution='uniform', gsp_zipf_alpha=None, mooncake_slowdown_factor=1.0, mooncake_num_rounds=1, mooncake_workload='conversation', fake_prefill=False, tag=None, header=None)
+Waiting up to 60s for http://192.168.3.26:31400/v1/models to become ready...
+Server ready in 0.0s.
+Fail to load tokenizer config with error=glm5.3-flash is not a local folder and is not a valid model identifier listed on 'https://huggingface.co/models'
+If this is a private repository, make sure to pass a token having permission to this repo either by logging in with `hf auth login` or by passing `token=<your_token>`
+
+WARNING It is recommended to use the `Chat` or `Instruct` model for benchmarking.
+Because when the tokenizer counts the output tokens, if there is gibberish, it might count incorrectly.
+
+Namespace(backend='sglang-oai-chat', base_url=None, host='192.168.3.26', port=31400, ready_check_timeout_sec=60, dataset_name='random', dataset_path='', dataset_offset=0, agentic_max_turns=None, speed_bench_category=None, speed_bench_output_len=512, model='glm5.3-flash', served_model_name=None, tokenizer=None, num_prompts=80, sharegpt_output_len=None, sharegpt_context_len=None, random_input_len=7400, random_output_len=320, random_range_ratio=1.0, image_count=1, image_resolution='1080p', random_image_count=False, image_format='jpeg', image_content='random', request_rate=inf, use_trace_timestamps=False, max_concurrency=8, output_file='/tmp/f8_c8.jsonl', output_details=True, print_requests=False, disable_tqdm=False, disable_stream=False, return_logprob=False, top_logprobs_num=0, token_ids_logprob=None, logprob_start_len=-1, return_routed_experts=False, cache_report=True, seed=42, disable_ignore_eos=False, temperature=1.0, top_p=0.95, extra_request_body=None, apply_chat_template=False, profile=False, plot_throughput=False, profile_activities=['CPU', 'GPU'], profile_start_step=None, profile_steps=None, profile_num_steps=None, profile_by_stage=False, profile_stages=None, profile_output_dir=None, profile_prefix=None, lora_name=None, lora_request_distribution='uniform', lora_zipf_alpha=1.5, prompt_suffix='', pd_separated=False, profile_prefill_url=None, profile_decode_url=None, flush_cache=False, flush_cache_timeout=60.0, warmup_requests=1, tokenize_prompt=False, gsp_num_groups=64, gsp_prompts_per_group=16, gsp_system_prompt_len=2048, gsp_question_len=128, gsp_output_len=256, gsp_range_ratio=1.0, gsp_fast_prepare=False, gsp_send_routing_key=False, gsp_num_turns=1, gsp_ordered=False, gsp_group_distribution='uniform', gsp_zipf_alpha=None, mooncake_slowdown_factor=1.0, mooncake_num_rounds=1, mooncake_workload='conversation', fake_prefill=False, tag=None, header=None)
+
+#Input tokens: 592000
+#Output tokens: 25600
+Starting warmup with 1 sequences...
+Warmup completed with 1 sequences. Starting main benchmark run...
+  0%|          | 0/80 [00:00<?, ?it/s]  1%|▏         | 1/80 [00:04<05:41,  4.32s/it] 11%|█▏        | 9/80 [00:09<01:09,  1.03it/s] 21%|██▏       | 17/80 [00:16<00:54,  1.16it/s] 31%|███▏      | 25/80 [00:21<00:43,  1.25it/s] 41%|████▏     | 33/80 [00:27<00:35,  1.31it/s] 51%|█████▏    | 41/80 [00:33<00:29,  1.34it/s] 61%|██████▏   | 49/80 [00:38<00:22,  1.35it/s] 71%|███████▏  | 57/80 [00:44<00:16,  1.37it/s] 81%|████████▏ | 65/80 [00:50<00:10,  1.38it/s] 91%|█████████▏| 73/80 [00:56<00:05,  1.39it/s]100%|██████████| 80/80 [00:56<00:00,  1.43it/s]
+
+============ Serving Benchmark Result ============
+Backend:                                 sglang-oai-chat
+Traffic request rate:                    inf       
+Max request concurrency:                 8         
+Successful requests:                     80        
+Benchmark duration (s):                  56.06     
+Total input tokens:                      592000    
+Total input text tokens:                 592000    
+Total generated tokens:                  25600     
+Total generated tokens (retokenized):    25579     
+Request throughput (req/s):              1.43      
+Input token throughput (tok/s):          10560.67  
+Output token throughput (tok/s):         456.68    
+Peak output token throughput (tok/s):    688.00    
+Peak concurrent requests:                16        
+Total token throughput (tok/s):          11017.34  
+Concurrency:                             8.00      
+----------------End-to-End Latency----------------
+Mean E2E Latency (ms):                   5602.71   
+Median E2E Latency (ms):                 5697.68   
+P90 E2E Latency (ms):                    5849.74   
+P95 E2E Latency (ms):                    6248.68   
+P99 E2E Latency (ms):                    6248.96   
+---------------Time to First Token----------------
+Mean TTFT (ms):                          1296.37   
+Median TTFT (ms):                        1331.66   
+P90 TTFT (ms):                           1981.64   
+P95 TTFT (ms):                           1986.84   
+P99 TTFT (ms):                           2077.08   
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          13.50     
+Median TPOT (ms):                        13.21     
+P90 TPOT (ms):                           16.15     
+P95 TPOT (ms):                           16.24     
+P99 TPOT (ms):                           17.24     
+---------------Inter-Token Latency----------------
+Mean ITL (ms):                           13.52     
+Median ITL (ms):                         11.65     
+P90 ITL (ms):                            11.84     
+P95 ITL (ms):                            11.98     
+P99 ITL (ms):                            12.36     
+Max ITL (ms):                            1554.63   
+----------------Cache Hit Details-----------------
+Total prompt tokens:                     592000    
+Total cached tokens:                     73280     
+  Device:                                73280     
+  Host:                                  0         
+Cache hit rate:                          12.4%
+  Device:                                100.0%
+  Host:                                  0.0%
+==================================================
+DONE

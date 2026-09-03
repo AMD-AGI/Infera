@@ -1,0 +1,2 @@
+044f906a8 [CI] pin ruff and make its configuration explicit (#4403)
+769790445 DeepSeek-V4 FP4: fused_compress FP4 scatter + rmsnorm_rope_rotate FP4 KV-cache kernel (#4029)

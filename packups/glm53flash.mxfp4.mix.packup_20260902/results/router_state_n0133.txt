@@ -1,0 +1,8 @@
+# Router state on smci355-ccs-aus-n01-33, captured 2026-09-02 ~05:10 UTC
+# The node whose fixlen numbers are in fixlen_p50.csv / fixlen_p90.csv.
+
+$ curl http://10.235.192.136:8100/v1/workers
+{"workers":[{"worker_id":"10.235.192.136:30000","url":"http://10.235.192.136:30000","model_name":"glm5.3-flash-mxfp4","engine":"sglang","status":"active","disagg_mode":"mixed","disagg_meta":{},"kv_events_endpoint":"tcp://10.235.192.136:58851","kv_block_size":null,"dp_rank":null,"dp_size":null}]}
+
+$ curl http://10.235.192.136:8100/v1/models
+{"object":"list","data":[{"id":"glm5.3-flash-mxfp4","object":"model","created":1788325869,"owned_by":"infera"}]}
