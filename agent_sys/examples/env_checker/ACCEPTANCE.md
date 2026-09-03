@@ -60,6 +60,13 @@ after the fact can repair that** — the run is simply not attributable.
 Three pins were never enough. A run is attributable to a **pair** of SHAs: the
 package that ran and the `env_mgr` tree it ran against.
 
+**`launch.sh --check` runs every gate and launches nothing, and the operating
+rule is: never invoke the script without `--check` for any purpose other than
+actually launching.** That rule is written here as well as in the script's
+header because the script lives in `/tmp` scratch and `/tmp` survives nothing —
+a rule that exists only in the tool it governs disappears with it. Both gates
+are: *the package is committed*, and *the demo-root is unused*.
+
 A gate and not a recorded `git diff`, deliberately. The diff would be evidence
 and would still let an unattributable run happen. Refusing is the only version
 that cannot be skipped by judging a change small — which is precisely the
