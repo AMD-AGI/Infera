@@ -22,6 +22,7 @@ import contextlib
 import json
 import logging
 import os
+import re
 import socket
 import subprocess
 import time
@@ -39,6 +40,7 @@ __all__ = [
     "DEFAULT_PORT",
     "RECIPE_PATH",
     "Status",
+    "check_disabled_agents",
     "ensure_installed",
     "ensure_running",
     "port_is_free",
@@ -140,13 +142,41 @@ PORT_FILE = "agentsview.port"
 #: Every provider AgentsView can scan, minus Claude Code. Written into the
 #: prefix's own `config.toml` so the panel physically cannot read a directory
 #: belonging to some other tool the user happens to have installed.
+#:
+#: **Measured against a real binary, not derived from the docs table.** A
+#: first version of this list was guessed from AgentsView's human-readable
+#: provider table ("Claude Cowork" -> `"claude-cowork"`), and five of those
+#: guesses were wrong slugs (`claude-cowork`, `command-code`, `copilot-cli`,
+#: `cortex-code`, `gemini-cli`) — `serve` validates `disabled_agents` and
+#: refuses to start the whole config file on the first bad name, so `serve
+#: --background` exited 1 and the panel silently never came up (warned and
+#: skipped correctly, per design, but for the wrong underlying reason). Caught
+#: from a real acceptance run's `stderr`, not from re-reading the docs.
+#:
+#: This list is `agentsview v0.42.0 doctor sync`'s own "Agent roots:" report
+#: (every provider name the installed binary recognizes, however many roots
+#: each maps to), with `claude` removed and `aider` added back (accepted by
+#: the config parser directly — `disabled_agents = ["aider"]` loads cleanly —
+#: even though `doctor sync` prints no root for it in this version). To
+#: regenerate after an AgentsView upgrade:
+#:   AGENTSVIEW_DATA_DIR=<scratch> CLAUDE_PROJECTS_DIR=<scratch-empty-dir> \
+#:     agentsview doctor sync | sed -n '/^Agent roots:/,/^Recent/p' \
+#:     | sed -E 's/^\s+([a-z0-9_-]+):.*/\1/' | sort -u
+#: then re-verify the whole list loads with one `agentsview health --limit 1`
+#: against a `config.toml` containing it (see `check_disabled_agents` below,
+#: which does exactly this at install time so a future rename is a warning,
+#: not a mystery dead panel months later).
 OTHER_PROVIDERS = (
-    "aider", "amp", "antigravity", "antigravity-cli", "claude-cowork",
-    "codebuff", "codex", "command-code", "copilot-cli", "cortex-code",
-    "cursor", "cursor-ide", "deepseek-tui", "deepseek-harness", "devin",
-    "forge", "gemini-cli", "goose", "gptme", "kilo", "kimi-work", "kiro",
-    "openclaude", "opencode", "poolside", "positron", "roocode", "trae",
-    "vscode-copilot", "windsurf", "zed",
+    "aider", "amp", "antigravity", "antigravity-cli", "codebuff", "codex",
+    "commandcode", "copilot", "cortex", "cowork", "cursor", "cursor-ide",
+    "deepseek-harness", "deepseek-tui", "devin", "forge", "gemini", "goose",
+    "gptme", "grok", "hermes", "icodemate", "iflow", "kilo", "kilo-legacy",
+    "kimi", "kimi-work", "kiro", "kiro-ide", "mimocode", "omnigent", "omp",
+    "openclaude", "openclaw", "opencode", "openhands", "pi", "piebald",
+    "poolside", "posit-assistant", "positron", "prime-agent", "qclaw",
+    "qoder", "qwen", "qwenpaw", "reasonix", "roocode", "shelley", "trae",
+    "traex", "vibe", "visualstudio-copilot", "vscode-copilot", "warp",
+    "windsurf", "workbuddy", "zcode", "zed", "zencoder",
 )
 
 
@@ -165,6 +195,59 @@ def write_config(prefix: Prefix) -> None:
         'host = "127.0.0.1"\n'
         "disable_update_check = true\n"
     )
+
+
+#: The exact substring AgentsView's config parser puts around the offending
+#: name (measured directly: `disabled_agents: unknown session provider
+#: "claude-cowork"`). A regex on the real message rather than a re-derivation
+#: of the parser's own logic.
+_UNKNOWN_PROVIDER_RE = re.compile(r'unknown session provider "([^"]+)"')
+
+#: How long the validation probe may take. It runs against a config with
+#: every provider disabled and `CLAUDE_PROJECTS_DIR` still whatever the
+#: caller set, so a cold sync is at most the size of that one directory —
+#: generous, not open-ended.
+CHECK_DISABLED_AGENTS_TIMEOUT_S = 15.0
+
+
+def check_disabled_agents(prefix: Prefix) -> str | None:
+    """Does the installed binary still accept every name in `OTHER_PROVIDERS`?
+
+    **One process call, not one per candidate.** `write_config` already wrote
+    the exact `config.toml` `serve` will load; this runs the same cheap
+    command `serve` would fail identically to (`health`, which loads config
+    before doing anything else) against that real file and reads *its*
+    verdict, rather than re-implementing AgentsView's own validation. A
+    per-name sweep would find the same first failure at ~60x the cost — the
+    parser reports one bad name per call, so a fix-and-rerun cycle (by a
+    human, or by this function after `OTHER_PROVIDERS` is corrected) finds
+    the next one exactly the way a person debugging this by hand would.
+
+    **Returns the offending name, or `None`.** `None` covers two different
+    situations, deliberately conflated by design: the whole list loaded
+    (success), or the probe itself could not be run at all (binary missing,
+    wrong architecture, permission denied). Reporting the latter as "your
+    provider list is stale" would misdiagnose whatever the real problem is —
+    `suspend, don't conclude` — and `ensure_running`'s own attempt to start
+    `serve` will surface that class of failure on its own path regardless.
+    Never raises.
+    """
+    exe = prefix.bin / "agentsview"
+    try:
+        env = {**prefix.environment(), "PATH": str(prefix.bin), "HOME": str(prefix.root)}
+        proc = subprocess.run(  # noqa: S603
+            [str(exe), "health", "--limit", "1"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=CHECK_DISABLED_AGENTS_TIMEOUT_S,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode == 0:
+        return None
+    m = _UNKNOWN_PROVIDER_RE.search(proc.stderr or "")
+    return m.group(1) if m else None
 
 
 def _owns_port(prefix: Prefix, port: int) -> bool:
@@ -377,6 +460,39 @@ def ensure_installed(prefix: Prefix, install_item: Callable[[], Sequence[Any]]) 
 
     outcome = outs[-1]
     if outcome.level == "ok":
+        # **Validated here, at install time, not left for `serve` to discover
+        # later.** `OTHER_PROVIDERS` is a list of names this binary version is
+        # expected to accept; an upstream rename breaks it exactly the way it
+        # broke here once already (measured: `serve --background` exits 1,
+        # `ensure_running` correctly warns-and-skips, but the panel is a
+        # mystery dead end unless someone reads that one stderr line). This
+        # surfaces the same class of problem the moment a fresh or upgraded
+        # binary is confirmed present, with a message that names the actual
+        # cause instead of a generic "serve exited 1".
+        #
+        # In its own `try`, separate from `install_item()` above: the binary
+        # is genuinely installed at this point regardless of what this check
+        # finds, so a bug in the check itself must not turn a successful
+        # install into a reported failure — "never raises" is this module's
+        # one law, and it applies to every line, not just the obvious ones.
+        try:
+            write_config(prefix)
+            bad = check_disabled_agents(prefix)
+        except Exception as e:  # noqa: BLE001 - see ensure_running's docstring
+            log.warning(
+                "agentsview: could not validate OTHER_PROVIDERS against the "
+                "installed binary (%s); continuing without that check.",
+                e,
+            )
+            bad = None
+        if bad is not None:
+            log.warning(
+                "agentsview: %r in OTHER_PROVIDERS is not a session provider "
+                "this installed agentsview recognizes; the o11y panel may "
+                "fail to start until env_mgr/o11y/agentsview.py's "
+                "OTHER_PROVIDERS list is updated for this version.",
+                bad,
+            )
         return Status(True, outcome.message)
 
     log.warning("agentsview: %s; skipping the o11y panel.", outcome.message)

@@ -286,18 +286,29 @@ def _no_leftover_environ(monkeypatch) -> None:
 
 
 def _fake_run_cmd(*, version_rc: int, install_rc: int, seen_home: list[str | None]):
-    """Stands in for `installers.base.subprocess.run`.
+    """Stands in for both `installers.base.subprocess.run` (a shell *string*,
+    used by `run_cmd`) and `agentsview.py`'s own `subprocess.run` calls (an
+    argv *list*, used by `check_disabled_agents`/`ensure_running`) -- the same
+    monkeypatch target (`subprocess.run` is one shared module attribute)
+    serves both call shapes, so this fake must accept the kwargs either
+    caller passes (`env=`, `timeout=`) even though it only inspects a few.
 
-    Distinguishes the two calls `BinInstaller.install()` makes by command
-    content: the `--version` probe (`_satisfied`) vs. the recipe's `install:`
-    body. Records `AGENT_SYS_HOME` as seen in `os.environ` *at call time* --
-    the only way to observe whether `_patched_environ` actually reached the
+    Distinguishes calls by content: the `--version` probe (`_satisfied`) vs.
+    the recipe's `install:` body vs. a `health` validation probe (always
+    reports success here -- there is a dedicated test for
+    `check_disabled_agents` itself; this fake exists to test `ensure_installed`
+    without that check's outcome contaminating the assertions). Records
+    `AGENT_SYS_HOME` as seen in `os.environ` *at call time* for the first two
+    -- the only way to observe whether `_patched_environ` actually reached the
     subprocess, since `run_cmd` passes no explicit `env=`.
     """
 
-    def fake(cmd, shell=True, cwd=None, capture_output=True, text=True):  # noqa: ANN001
+    def fake(cmd, shell=True, cwd=None, capture_output=True, text=True, env=None, timeout=None):  # noqa: ANN001
+        cmd_text = cmd if isinstance(cmd, str) else " ".join(cmd)
+        if "health" in cmd_text:
+            return subprocess.CompletedProcess(cmd, 0, "", "")
         seen_home.append(os.environ.get("AGENT_SYS_HOME"))
-        if "--version" in cmd:
+        if "--version" in cmd_text:
             rc = version_rc
             out = "agentsview v0.42.0\n" if rc == 0 else ""
         else:
@@ -400,3 +411,85 @@ def test_ensure_installed_never_raises_regardless_of_outcome(
         fake = _fake_run_cmd(version_rc=version_rc, install_rc=install_rc, seen_home=[])
         monkeypatch.setattr(subprocess, "run", fake)
         agentsview.ensure_installed(prefix, _install_item_for(prefix))  # must not raise
+
+
+# --- check_disabled_agents: OTHER_PROVIDERS validated against the real binary ---
+
+
+def _fake_agentsview_health(prefix: Prefix, *, rc: int, stderr: str = "") -> None:
+    """A fake `agentsview` whose only behaviour that matters here is what it
+    does to `health --limit 1` -- real subprocess execution, no monkeypatched
+    `subprocess.run`, the same style `ensure_running`'s own tests already use
+    for "stand in for a stranger's binary".
+    """
+    exe = prefix.bin / "agentsview"
+    exe.write_text(f"#!/bin/sh\necho '{stderr}' >&2\nexit {rc}\n")
+    exe.chmod(0o755)
+
+
+def test_check_disabled_agents_reports_none_when_the_list_loads_cleanly(prefix) -> None:
+    _fake_agentsview_health(prefix, rc=0)
+    assert agentsview.check_disabled_agents(prefix) is None
+
+
+def test_check_disabled_agents_names_the_offending_provider(prefix) -> None:
+    _fake_agentsview_health(
+        prefix,
+        rc=1,
+        stderr='fatal: loading config: disabled_agents: unknown session provider "claude-cowork"',
+    )
+    assert agentsview.check_disabled_agents(prefix) == "claude-cowork"
+
+
+def test_check_disabled_agents_is_none_not_a_false_accusation_when_the_probe_cannot_run(
+    prefix,
+) -> None:
+    """A missing/broken binary is 'could not confirm', not 'list is stale'."""
+    assert not (prefix.bin / "agentsview").exists()
+    assert agentsview.check_disabled_agents(prefix) is None
+
+
+def test_check_disabled_agents_is_none_on_an_unrelated_failure(prefix) -> None:
+    """Exit 1 with no recognizable message: still not a provider-name verdict."""
+    _fake_agentsview_health(prefix, rc=1, stderr="some unrelated crash")
+    assert agentsview.check_disabled_agents(prefix) is None
+
+
+def test_check_disabled_agents_never_raises_on_a_hanging_binary(prefix, monkeypatch) -> None:
+    monkeypatch.setattr(agentsview, "CHECK_DISABLED_AGENTS_TIMEOUT_S", 0.2)
+    _fake_agentsview_health(prefix, rc=0)
+    exe = prefix.bin / "agentsview"
+    exe.write_text("#!/bin/sh\nsleep 30\n")
+    exe.chmod(0o755)
+    assert agentsview.check_disabled_agents(prefix) is None
+
+
+def test_other_providers_excludes_claude_itself() -> None:
+    """The one provider gate 3 must never disable."""
+    assert "claude" not in agentsview.OTHER_PROVIDERS
+
+
+def test_ensure_installed_warns_once_more_if_other_providers_is_stale(
+    prefix, monkeypatch, caplog, _no_leftover_environ
+) -> None:
+    """The install-time check, wired end to end through `ensure_installed`."""
+    seen_home: list[str | None] = []
+
+    def fake(cmd, shell=True, cwd=None, capture_output=True, text=True, env=None, timeout=None):  # noqa: ANN001
+        cmd_text = cmd if isinstance(cmd, str) else " ".join(cmd)
+        if "health" in cmd_text:
+            return subprocess.CompletedProcess(
+                cmd, 1, "", 'unknown session provider "bogus-provider"'
+            )
+        seen_home.append(os.environ.get("AGENT_SYS_HOME"))
+        return subprocess.CompletedProcess(cmd, 0, "agentsview v0.42.0\n", "")
+
+    monkeypatch.setattr(subprocess, "run", fake)
+
+    with caplog.at_level("WARNING"):
+        status = agentsview.ensure_installed(prefix, _install_item_for(prefix))
+
+    assert status.running is True  # the binary install itself still succeeded
+    warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warnings) == 1
+    assert "bogus-provider" in warnings[0].getMessage()
