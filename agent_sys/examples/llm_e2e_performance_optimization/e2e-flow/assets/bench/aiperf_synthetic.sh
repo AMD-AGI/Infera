@@ -80,10 +80,22 @@ add_mount "$COMPAT" ro
 # distribution around the mean. A spread here would make two runs of the same
 # deployment differ by more than the deployment does.
 #
-# `ignore_eos:true` with `min_tokens` is what makes the output length actually be
-# OSL. Without it a model that stops early replays short and every per-token
-# number describes a shorter workload than the one that was asked for — the same
-# reason the replay script sets it.
+# `ignore_eos:true` **with** `min_tokens`, and the pairing is specific to this
+# script rather than inherited from the replay one.
+#
+# **Corrected by m2, who checked the sibling rather than taking my word.** I had
+# written "the same reason the replay script sets it" — `aiperf_replay.sh` does
+# **not** set `min_tokens`, and its own comment says why: the `mooncake_trace`
+# loader gives every request a `max_tokens` from the trace, so `ignore_eos` alone
+# pins the length to what the trace asked for. Their sealed evidence agrees —
+# `output_sequence_length` avg 111.9, min 64, max 160, std 28.3, which is
+# trace-shaped rather than model-shaped.
+#
+# A **synthetic fixed-shape** load has no per-request maximum to be pinned to, so
+# the floor has to be supplied here or a model that stops early replays short and
+# every per-token number then describes a shorter workload than the one asked
+# for. Measured with both set: `output_sequence_length` 1024.06, min 1024, max
+# 1025, std 0.24. Different loader, different requirement, both correct.
 CMD="aiperf profile \
 --model $SERVED --tokenizer $MODEL \
 --endpoint-type chat --streaming \
