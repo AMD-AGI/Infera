@@ -735,6 +735,42 @@ def _add_inference_args(parser):
              "and end-to-end latency only (not throughput). Default 0.",
     )
     serv.add_argument(
+        "--request-overhead-ms",
+        type=float,
+        default=None,
+        help="Fixed per-request host cost on the TTFT path (ms): accept, parse, admit, "
+             "prefix-cache lookup, KV allocation, stream open. Constant in prompt length, "
+             "which is how it is measured -- difference TTFT across two prompt lengths at "
+             "concurrency 1 and take the intercept. Added to TTFT and end-to-end latency "
+             "only (not throughput). A property of the serving stack, so it has no default "
+             "worth guessing. Default 0.",
+    )
+    serv.add_argument(
+        "--prefill-rate-us-per-token",
+        type=float,
+        default=None,
+        help="Measured prefill rate (us of TTFT per prompt token): the per-token slope from "
+             "the same concurrency-1 differencing that yields --request-overhead-ms. Used as a "
+             "level anchor, not as the cost -- the projector takes its own slope over the same "
+             "two lengths and scales modelled prefill compute by the ratio, so prefill keeps "
+             "its superlinear growth in context. Requires --prefill-rate-lo-tokens and "
+             "--prefill-rate-hi-tokens. Ignored in benchmark mode, which already prices "
+             "prefill from measured kernels. Default 0 (unanchored).",
+    )
+    serv.add_argument(
+        "--prefill-rate-lo-tokens",
+        type=int,
+        default=None,
+        help="Shorter of the two prompt lengths --prefill-rate-us-per-token was fit over. "
+             "A rate is meaningless without the span it was measured on.",
+    )
+    serv.add_argument(
+        "--prefill-rate-hi-tokens",
+        type=int,
+        default=None,
+        help="Longer of the two prompt lengths --prefill-rate-us-per-token was fit over.",
+    )
+    serv.add_argument(
         "--stream-interval",
         type=int,
         default=None,

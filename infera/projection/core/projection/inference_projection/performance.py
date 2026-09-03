@@ -1384,12 +1384,26 @@ class InferencePerformanceProjector:
                     base *= new_tokens / max(1, input_len)
                 return base + fetch_ms
 
+        # Per-forward fixed cost. A prefill chunk is a forward pass over the same
+        # graph a decode step runs: the same layers issuing the same kernels, so
+        # it pays the same per-kernel device overhead (dispatch, wave launch,
+        # drain) and the same per-step host overhead. The decode path has charged
+        # both for a while; this path charged neither, which is not a modelling
+        # choice about prefill but an asymmetry -- sharding does not remove
+        # kernels and neither does having more tokens to feed them.
+        #
+        # It is a per-*chunk* cost, so it is negligible on a short prompt that
+        # prefills in one forward and material on a long one that takes tens of
+        # chunks, which is the shape of the residual it addresses.
+        per_forward = self._decode_step_overhead_ms() + self._decode_occupancy_ms()
+        scale = self._prefill_rate_scale()
+
         chunk = int(self.cfg.request_config.chunked_prefill_size or 0)
         if chunk <= 0 or chunk >= new_tokens:
             # Single forward over the ``new_tokens`` suffix; attention context is
             # the full prompt (``input_len``) since it also reads the cached KV.
             ft = self._forward_times(batch, new_tokens, "prefill", input_len)
-            return ft.total_ms + fetch_ms
+            return ft.total_ms * scale + per_forward + fetch_ms
 
         # Chunked prefill: each chunk attends to all preceding context. The
         # cached prefix is already resident, so chunking starts after it.
@@ -1399,9 +1413,47 @@ class InferencePerformanceProjector:
             this = min(chunk, input_len - processed)
             kv_len = processed + this
             ft = self._forward_times(batch, this, "prefill", kv_len)
-            total += ft.total_ms
+            total += ft.total_ms * scale + per_forward
             processed += this
         return total + fetch_ms
+
+    def _prefill_rate_scale(self) -> float:
+        """Level correction bringing modelled prefill compute onto measurement.
+
+        The anchor is a per-token TTFT slope measured by differencing two prompt
+        lengths at concurrency 1. Comparing it against the model's *own* slope
+        over the same two lengths isolates the level error: both sides are
+        differences, so the per-request constant and the per-forward overheads
+        cancel out of the ratio rather than contaminating it.
+
+        Returned as a multiplier so the roofline keeps its shape -- prefill stays
+        superlinear in context, which a slope fit over a short span could not
+        reproduce if it were used as the cost directly.
+        """
+        req = self.cfg.request_config
+        rate = float(req.prefill_rate_us_per_token or 0.0)
+        lo, hi = int(req.prefill_rate_lo_tokens or 0), int(req.prefill_rate_hi_tokens or 0)
+        if rate <= 0.0 or hi <= lo or lo <= 0:
+            return 1.0
+        if self._measured_mode:
+            # Benchmark mode already prices prefill from measured kernels; a
+            # second anchor on top would double-count the same correction.
+            return 1.0
+        cached = getattr(self, "_prefill_scale_cache", None)
+        if cached is not None:
+            return cached
+        # The model's slope over the same span, in us per token. Batch 1 and no
+        # prefix reuse, matching the concurrency-1 rows the fit came from.
+        span_ms = (self._forward_times(1, hi, "prefill", hi).total_ms
+                   - self._forward_times(1, lo, "prefill", lo).total_ms)
+        modelled = span_ms * 1000.0 / float(hi - lo)
+        scale = (rate / modelled) if modelled > 0 else 1.0
+        # A slope fit from two points on a handful of runs is not precise enough
+        # to justify unbounded rescaling; clamp to the range the corpus supports
+        # so one noisy pair cannot rewrite a projection.
+        scale = max(0.5, min(3.0, scale))
+        self._prefill_scale_cache = scale
+        return scale
 
     # -- decode ----------------------------------------------------------------
 
@@ -1540,7 +1592,8 @@ class InferencePerformanceProjector:
             prefill_piece = self._measured_prefill_tokens_ms(chunk_tokens)
             dec_piece = self._measured_decode_step_ms(num_decode, decode_ctx) * spec if num_decode > 0 else 0.0
             return (prefill_piece + dec_piece) * (1.0 + penalty) + ov
-        prefill_piece = self._forward_times(1, chunk_tokens, "prefill", max(1, prefill_kv_len)).total_ms
+        prefill_piece = (self._forward_times(1, chunk_tokens, "prefill", max(1, prefill_kv_len)).total_ms
+                         * self._prefill_rate_scale())
         dec_piece = (
             self._forward_times(num_decode, q_len, "decode", max(1, decode_ctx)).total_ms
             if num_decode > 0
@@ -1642,6 +1695,15 @@ class InferencePerformanceProjector:
                 chunk_tokens = eff_chunk
                 n_chunks = max(1, math.ceil(prefill_span / eff_chunk))
 
+        # The steps below are priced once and multiplied by ``n_chunks``, so the
+        # chunk they are priced at has to be the *average*, not the cap. Chunking
+        # is a ceiling division and the last chunk is a remainder: a prompt one
+        # token over the budget takes two steps, the second carrying one token.
+        # Charging both at the full budget bills twice the prompt -- which is
+        # exactly the shape here, where the decode tokens shave the cap just
+        # below the prompt and every prefill was billed ~2x.
+        chunk_tokens = max(1, int(round(prefill_span / n_chunks)))
+
         penalty = max(0.0, req.resolved_mixed_batch_penalty())
         ov = self._decode_step_overhead_ms()
 
@@ -1651,7 +1713,9 @@ class InferencePerformanceProjector:
             # so this is flat only when that slope is ~0 (prior behaviour).
             spec = q_len if q_len > 1 else 1
             n_samples = min(8, max(2, int(OSL)))
-            pure, mixed = [], []
+            # Benchmark mode prices prefill from measured kernels, so the anchor
+            # is inert there and the two steps coincide.
+            pure, mixed, pf_only = [], [], []
             for i in range(n_samples):
                 frac = i / (n_samples - 1) if n_samples > 1 else 0.0
                 ctx = int(ISL + frac * OSL)
@@ -1660,8 +1724,10 @@ class InferencePerformanceProjector:
                 prefill_piece = self._measured_prefill_tokens_ms(chunk_tokens)
                 dec_piece = self._measured_decode_step_ms(max(1, C - 1), ctx) * spec
                 mixed.append((prefill_piece + dec_piece) * (1.0 + penalty) + ov)
+                pf_only.append(prefill_piece * (1.0 + penalty))
             t_pure = sum(pure) / len(pure)
-            t_mixed = sum(mixed) / len(mixed)
+            t_mixed = t_mixed_ttft = sum(mixed) / len(mixed)
+            t_prefill_only = sum(pf_only) / len(pf_only)
         else:
             # Simulation: average pure/mixed step latency over the (uniform)
             # context distribution [ISL, ISL+OSL].
@@ -1674,7 +1740,14 @@ class InferencePerformanceProjector:
             # ``_decode_step_latency_ms`` left the continuous-batching path
             # (every vLLM workload) without it.
             occ = self._decode_occupancy_ms()
-            pure, mixed = [], []
+            # The measured prefill anchor is a slope on the *TTFT* path, and the
+            # decode stream is evidence it does not belong on both: TPOT already
+            # reads ~1.0x against this corpus, which it could not if the mixed
+            # steps polluting it were mispriced by the anchor's factor. So the
+            # scaled step prices what a waiting request sees, and the unscaled
+            # one prices what the running decodes pay.
+            scale = self._prefill_rate_scale()
+            pure, mixed, mixed_ttft, pf_only = [], [], [], []
             for i in range(n_samples):
                 frac = i / (n_samples - 1) if n_samples > 1 else 0.0
                 ctx = int(ctx_lo + frac * (ctx_hi - ctx_lo))
@@ -1685,8 +1758,12 @@ class InferencePerformanceProjector:
                 t_mixed = (prefill_piece + dec_piece) * (1.0 + penalty) + ov + occ
                 pure.append(t_pure)
                 mixed.append(t_mixed)
+                mixed_ttft.append((prefill_piece * scale + dec_piece) * (1.0 + penalty) + ov + occ)
+                pf_only.append(prefill_piece * scale * (1.0 + penalty))
             t_pure = sum(pure) / len(pure)
             t_mixed = sum(mixed) / len(mixed)
+            t_mixed_ttft = sum(mixed_ttft) / len(mixed_ttft)
+            t_prefill_only = sum(pf_only) / len(pf_only)
 
         # Hardware decode latency floor (from a sharded probe): above the
         # roofline knee the pure-decode step can't drop below the fixed
@@ -1699,6 +1776,7 @@ class InferencePerformanceProjector:
         if floor > 0.0:
             t_pure = max(t_pure, floor)
             t_mixed = max(t_mixed, floor)
+            t_mixed_ttft = max(t_mixed_ttft, floor)
 
         # Pure steps per request needed to make up the decode tokens the mixed
         # steps did not cover.
@@ -1721,6 +1799,17 @@ class InferencePerformanceProjector:
             "system_tps": system_tps,
             "pure_step_ms": t_pure,
             "mixed_step_ms": t_mixed,
+            # What a request waiting on admission sees, which the prefill anchor
+            # moves; ``mixed_step_ms`` is what the decode stream pays, which it
+            # does not. Equal unless the anchor is set.
+            "mixed_step_ttft_ms": t_mixed_ttft,
+            # What one queued prompt adds to another's wait: its own prefill
+            # compute and nothing else. The steps it rides were going to run for
+            # the decode batch regardless, so their decode work and per-step
+            # overhead are not time a waiting prompt is behind. Distinct from
+            # the elapsed ``mixed_step_ttft_ms`` above, which is what a prompt
+            # being served experiences; see ``_closed_loop_wait_ms``.
+            "prefill_demand_ms": float(n_chunks) * t_prefill_only,
             "mixed_step_fraction": mixed_fraction,
             "tpot_pollution_pct": pollution_pct,
             "concurrency": float(C),
@@ -1754,7 +1843,8 @@ class InferencePerformanceProjector:
         return admit_ms, buffered * max(0.0, itl_ms)
 
     @staticmethod
-    def _closed_loop_wait_ms(service_ms: float, think_ms: float, clients: int) -> float:
+    def _closed_loop_wait_ms(service_ms: float, think_ms: float, clients: int,
+                             demand_ms: float = None) -> float:
         """Mean response time of one shared server under a closed load.
 
         A serving benchmark run with ``--max-concurrency C`` is a closed
@@ -1770,12 +1860,29 @@ class InferencePerformanceProjector:
         Saturated (prompts dominate) it approaches ``C * service_ms - think_ms``,
         the FIFO sweep. Pricing TTFT at either limit alone is wrong by the
         ratio between them, which across Hyperloom's workloads is ~20x.
+
+        ``service_ms`` and ``demand_ms`` are the same number on a FIFO server and
+        different ones here, which is the whole reason a continuous-batching
+        engine does not behave like a queue of prompts. ``service_ms`` is what
+        *my* prefill takes end to end: its chunks ride scheduler steps that are
+        also carrying the running decodes, so the elapsed time includes that
+        decode work. ``demand_ms`` is what each prompt queued ahead of me adds to
+        my wait, which is only its own prefill compute -- those steps were going
+        to run for the decode batch whether my prompt existed or not, so their
+        decode work and per-step overhead are not a cost my prompt waits for.
+
+        Charging the elapsed step to both roles is what makes the model diverge:
+        the decode share grows with the client count, so a queue that should
+        grow linearly in ``C`` grows like ``C^2`` and crosses into saturation
+        that the real engine never reaches. Defaults to the FIFO reading when no
+        demand is given.
         """
         service_ms = max(0.0, service_ms)
         think_ms = max(0.0, think_ms)
+        demand_ms = service_ms if demand_ms is None else max(0.0, demand_ms)
         resp, queued = service_ms, 0.0
         for k in range(1, max(1, int(clients)) + 1):
-            resp = service_ms * (1.0 + queued)
+            resp = service_ms + demand_ms * queued
             denom = resp + think_ms
             queued = (k * resp / denom) if denom > 0 else 0.0
         return resp
@@ -2040,8 +2147,9 @@ class InferencePerformanceProjector:
         continuous = self._use_continuous_batching(concurrency, output_len)
         m = self._continuous_decode_metrics(input_len, output_len, concurrency) if continuous else None
         if continuous:
-            prefill_service_ms = max(m["prefill_chunks"] * m["mixed_step_ms"], 0.0)
-            ttft = self._closed_loop_wait_ms(prefill_service_ms, m["decode_total_ms"], concurrency)
+            prefill_service_ms = max(m["prefill_chunks"] * m["mixed_step_ttft_ms"], 0.0)
+            ttft = self._closed_loop_wait_ms(prefill_service_ms, m["decode_total_ms"],
+                                             concurrency, m["prefill_demand_ms"])
             prefill_full_ms = self.prefill_latency_ms(batch, input_len)
         else:
             ttft = prefill_full_ms = self.prefill_latency_ms(batch, input_len)
@@ -2050,6 +2158,10 @@ class InferencePerformanceProjector:
         # the decode-side detokenization term below. Applied after prefill_full_ms
         # so it never leaks into prefill throughput.
         ttft += max(0.0, self.cfg.request_config.tokenize_overhead_us) / 1000.0 * max(0, input_len)
+        # Fixed per-request host cost (accept, parse, admit, cache lookup, KV
+        # allocation, stream open). Independent of prompt length, which is what
+        # distinguishes it from the tokenization term above.
+        ttft += max(0.0, self.cfg.request_config.request_overhead_ms)
         extras = {"speculative_tokens_per_step": self._spec_tokens_per_step()}
         extras.update(conc["extras"])
 

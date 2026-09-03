@@ -500,6 +500,51 @@ class InferenceRequestConfig:
     # TTFT. Added to TTFT + end-to-end latency only. 0 = ignore (GPU-prefill
     # model). Symmetric with ``detokenize_overhead_us`` on the decode side.
     tokenize_overhead_us: float = 0.0
+    # Fixed per-request host cost on the TTFT path, in milliseconds: everything
+    # a server does once per request regardless of how long the prompt is --
+    # accept the connection, parse and validate, admit to the scheduler, look up
+    # the prefix cache, allocate KV pages, open the SSE stream.
+    #
+    # It is separated from ``tokenize_overhead_us`` because it does not scale
+    # with the prompt, and that is also how it is measured: differencing TTFT
+    # across two prompt lengths at concurrency 1 gives the per-token slope, and
+    # the intercept left behind is this. On the InferenceX single-turn rows that
+    # intercept is ~150-190 ms for the SGLang/atom stacks and ~46-94 ms for the
+    # vLLM ones -- an order of magnitude above anything the prompt-length terms
+    # can account for at 1k, and the reason a FLOPs-only TTFT reads 0.2x of
+    # measurement there.
+    #
+    # A property of the serving stack rather than of the silicon or the model,
+    # so it has no architecture profile to resolve from and defaults to 0: a
+    # projection that has not been told which engine it is modelling should not
+    # invent one. Latency-only, like the two terms above -- it is host work that
+    # overlaps the GPU, so no throughput moves.
+    request_overhead_ms: float = 0.0
+    # The *other* half of that same fit: the per-token slope. Differencing TTFT
+    # across two prompt lengths at concurrency 1 yields ``TTFT = C + r*L``; ``C``
+    # is the constant above and ``r`` is this -- a measured prefill rate, in
+    # microseconds of TTFT per prompt token, for the stack that produced it.
+    #
+    # It is an anchor on the *level* of prefill compute, not a replacement for
+    # the cost model. Prefill is superlinear in the prompt (attention grows with
+    # context) and a slope fit over a short span cannot express that, so applying
+    # ``r`` directly would misprice long prompts badly in the other direction.
+    # Instead the projector computes its own slope over the same two lengths and
+    # scales the modelled prefill compute by the ratio: the roofline keeps its
+    # shape across context, and only the absolute level moves onto measurement.
+    #
+    # This matters out of proportion to its size. Under a closed load the TTFT a
+    # request sees is the queueing response of a shared prefill station, which
+    # runs like ``S/(1-U)``; the InferenceX corpus sits at utilizations of 0.2 to
+    # 0.97, where a 1.3x error in the service time ``S`` becomes a 2-4x error in
+    # TTFT. The measured slopes run ~14-44 us/token against ~20-25 modelled.
+    #
+    # Both lengths are recorded so the modelled slope is taken over the same span
+    # the measurement was; a rate is meaningless without the span it was fit on.
+    # Defaults to 0 (unanchored), for the same reason the constant above does.
+    prefill_rate_us_per_token: float = 0.0
+    prefill_rate_lo_tokens: int = 0
+    prefill_rate_hi_tokens: int = 0
     # Output tokens buffered per streaming flush (vLLM/SGLang
     # ``--stream-interval``). The server detokenizes and flushes the SSE stream
     # only every N tokens, so the client's *first* token -- and therefore the
