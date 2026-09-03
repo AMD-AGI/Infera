@@ -305,6 +305,37 @@ not the integer. Both halves of that have now cost a run:
 and refuses an explicit `0` only when the spec means it to. `float`/`int` at the
 point of use is not enough on its own — the truthiness half survives it.
 
+### 4.3 One authority, two readers, one of them narrower
+
+Named by m4 after the third instance in two days. **None of the three was wrong
+logic**, and each is invisible to review because *both readers look correct in
+isolation*:
+
+- m3's `check_workset_runs` took the **workset** as authority for which checks
+  to apply and the **report** as authority for which shapes were in scope — so
+  a harness that silently measured nothing for one shape produced a clean PASS
+  over a partial measurement.
+- m4's `abort_on_mismatch` was unioned with the workset's list in
+  `_check_premise` and read from the yaml's alone in `_check_ground_truth`, so
+  a field the workset added to its own abort list went unenforced.
+- m4's `_interpreter()` chose an interpreter that can import torch and both call
+  sites used it as a yes/no probe and **discarded the value**.
+
+Add the leader's: `schema.py` carried a comment asserting no schema used `$ref`
+while three did. Same joint, different tissue — that one belongs to the
+*justification-outliving-its-premise* family (§2.2, `container_roots.yaml`,
+MOCK-MAP's `SGLANG_TORCH_PROFILER_DIR`), and the two families share a cause:
+**a fact stated in one place and relied on in another, with nothing that fails
+when they diverge.**
+
+**What found each of them is the useful part, and it was never review.** A stub
+that could *withhold* a shape, a workset that *added* a field, a colleague who
+asked whether m4's case was really different from m3's. m3 had read the code
+eight times. So: build fixtures that can take something away, and when a peer
+asks whether your situation is the same as theirs, **check rather than reason**
+— m4 assumed the interpreter exposure was "probably moot inside the shared
+container" and it was in two places.
+
 ### 4.1 Shared validators are shared, not copied
 
 `check_kernel_table` is **one** definition used by m2 and m3 (M3.5). The two
