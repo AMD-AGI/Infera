@@ -157,10 +157,37 @@ Read this before deciding the run succeeded. Stated per capability in
   either validator. A run where `env_mgr` silently delivered nothing produces no
   salts and therefore no tokens, however confident the narrative. **That** is
   the failure this package exists to catch.
-- **Three are stronger than the other four.** Rows 4, 5 and 6 are re-derived by
-  the validator *running the capability*, so their tokens have no file-read
-  path. Row 2's payload (`session_id`, `hook_event_name`) can only come from the
-  harness invoking the hook.
+- **Corrected 2026-09-03, after run 2.** This section used to say: *"Three are
+  stronger than the other four. Rows 4, 5 and 6 are re-derived by the validator
+  running the capability, **so their tokens have no file-read path.**"* The
+  clause in bold was **false**, and it was false about all three rows, not one.
+
+  `replay_mcp` starts each server with `env=dict(os.environ, ENVCHK_NONCE=nonce)`
+  and `replay_import` sets the variable in its own process before calling the
+  handler — **the validator forces the input in every one of the three.** So a
+  re-derivation confirms the salt and the arithmetic; it cannot confirm what the
+  capability would have seen, and it says nothing whatever about how the *agent*
+  got its answer. Found while analysing row 6 after run 2, then found to apply
+  unchanged to rows 4 and 5, which nobody had looked at.
+
+  The honest tiers:
+
+  | tier | what it establishes |
+  |---|---|
+  | rows 4, 5, 6 | the artefact **executes and computes correctly** — it catches a server that will not start, a module that will not import, a wrong derivation in the code |
+  | rows 1, 2, 3, 7 | the artefact **exists and is reachable** |
+  | **neither tier** | **that the agent obtained the token through the capability rather than by reading the file** |
+
+  That last row is the one the old wording quietly claimed. No test in this
+  package establishes it, and none can while the agent and the artefacts share a
+  zone by construction.
+
+- **Row 2 is the only row in this package with genuine agent-side evidence**,
+  and it was previously hidden by being grouped with the file-borne tier. The
+  hook's `session_id` and `hook_event_name` arrive on the hook's stdin from
+  Claude Code, so an agent that ran the script by hand gets an empty payload and
+  the validator says so. It is the one place where something the agent could not
+  have produced is checked.
 - **Freshness is not established.** `pid` and `at` are checked for shape, not
   value: the validator has no run window, and a freshness rule would be a number
   with no basis.
