@@ -13,7 +13,7 @@ first**; it documents four things that mislead.
 
 | kind | mock source | adaptation needed |
 |---|---|---|
-| `deploy_kit` | `stage1-deploy/deploy_kit` | **environment.yaml** (A) |
+| `deploy_kit` | `stage1-deploy/deploy_kit` | **environment.yaml** (A) · **runtime contract shim** (I) |
 | `profiling_mode_off.bench_result` | `stage2-profiling/aiperf_baseline` | (A) |
 | `profiling_mode_on.bench_result` | `stage2-profiling/aiperf_profiled` | (A) |
 | `profiling_mode_on.profile_result` | `stage2-profiling/torch_trace` | (A) · **360 MB** |
@@ -136,7 +136,7 @@ mock derives windows from the sealed step timestamps — stock measured
 before 12:58 and a patched one beginning after 13:41:32 is the order the real run
 had — and **writes a `note` into the step saying it is derived**.
 
-### (D′) `adhoc.json` has no sealed source, and the mock does not invent one
+### (D″) `adhoc.json` has no sealed source, and the mock does not invent one
 
 M5.4's per-run correctness cases post-date every sealed handoff. Synthesising a
 set would be exactly what this document forbids, so **a mock run passes
@@ -209,6 +209,32 @@ validates" cannot mean the sealed bytes validate unchanged. It means the
 *rendered* document validates and the sealed one is rejected with `apply` and
 `premise` named — which is the more useful direction anyway, since it proves the
 required-list is doing work.
+
+### (I) the sealed `deploy_kit` needs a five-line `env.sh` shim and a `deployment.json`
+
+`deploy_kit.layout.yaml` adds a **runtime contract**: `scripts/deploy.sh` and
+`scripts/teardown.sh` must honour `E2E_KIT_RUN_TAG`, `E2E_KIT_PORT_BASE`,
+`E2E_KIT_WORK_ROOT`, `E2E_KIT_ENGINE_EXTRA_ARGS` and `E2E_KIT_ENGINE_EXTRA_ENV`,
+and write `$E2E_KIT_WORK_ROOT/deployment.json` carrying `endpoint`, `container`
+and `run_tag`.
+
+**This is not decoration, it is what makes M2.3 true.** Without a
+machine-readable entrypoint m2 cannot deploy from this handoff, and `serve_baseline`
+could not have been deleted. The two engine parameters are m2's seam
+specifically: `EXTRA_ARGS` is appended **last** so an override beats the kit's own
+flag, and `EXTRA_ENV` reaches the **worker process only** — the router must not
+see `SGLANG_TORCH_PROFILER_DIR`. Two seams and not one because argv and
+environment are not interchangeable.
+
+All five concepts already exist in the sealed kit under `DK_RUN_TAG`,
+`DK_PORT_BAND_LO` and `DK_WORK_ROOT`, so the adaptation is five
+`: "${E2E_KIT_X:=${DK_Y:-…}}"` lines appended to `scripts/env.sh` plus the
+`deployment.json`. m1 verified that exact shim makes the untouched sealed kit
+pass, and it is carried in
+`assets/check_deploy_kit.validator/gate.sh` — which builds the positive fixture
+from `$E2E_MOCK_ROOT`, builds a negative one with eleven planted faults, and
+asserts each is reported by name. **Run it; it is the worked example of "gated
+both directions" for this package.**
 
 ### (F) `e2e_packup` has no sealed source
 
