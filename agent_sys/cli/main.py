@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import shutil
 import sys
 from collections.abc import Sequence
@@ -46,6 +47,8 @@ from cli.render.human import HumanRenderer
 from cli.render.machine import JsonLinesRenderer
 from cli.stream import Stream
 from env_mgr import meta
+from env_mgr.o11y.agentsview import ensure_running, resolve_port
+from env_mgr.o11y.prefix import Prefix
 from env_mgr.prepare import EnvManager, permissions_enforced
 from env_mgr.protocols import NoConfinement, PrepareRefused, UnresolvedGrant
 from env_mgr.remote.connection import sync_transport
@@ -173,6 +176,21 @@ def parser() -> argparse.ArgumentParser:
             "ends in seconds regardless; this only bounds one that never stops"
         ),
     )
+    run.add_argument(
+        "--agentsview-port",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "port for the AgentsView o11y panel (default 18888; "
+            "a port already in use is a warning and a skip)"
+        ),
+    )
+    run.add_argument(
+        "--no-agentsview",
+        action="store_true",
+        help="do not start the AgentsView o11y panel",
+    )
     return top
 
 
@@ -209,6 +227,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         try:
             if args.verb == "show":
                 return _show(args, stream)
+            # The one call site, and deliberately here: the daemon outlives the
+            # run, so it starts once per invocation rather than once per task,
+            # and its return value is never consulted for the exit code.
+            _start_o11y(args.agentsview_port, args.no_agentsview)
             return _run(args, stream)
         except package.PackageNotFound as exc:
             return _fail(stream, PRECONDITION, str(exc))
@@ -224,6 +246,32 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (PrepareRefused, UnresolvedGrant) as exc:
             return _fail(stream, PRECONDITION, f"the environment refused the task: {exc}")
     return UNEXPECTED_FAILURE  # pragma: no cover — ExitStack always returns above
+
+
+def _start_o11y(port_flag: int | None, disabled: bool) -> str | None:
+    """The one call site. Returns the panel URL, or None, and never raises.
+
+    **The bare `except Exception` is deliberate and is the point.** Everything
+    inside `ensure_running` already degrades to a warning; this catches the case
+    that module has not thought of. An observability side-car that can abort a
+    run is a worse bug than a missing panel, and this is the line that makes
+    that structurally impossible rather than merely intended.
+
+    `os.environ` is *read* here and never written. The prefix's variables belong
+    in a child's environment dict — putting them in ours would redirect a Claude
+    Code the user started in their own terminal.
+    """
+    if disabled:
+        return None
+    try:
+        prefix = Prefix.resolve(os.environ)
+        status = ensure_running(prefix, port=resolve_port(port_flag, os.environ))
+        if status.running:
+            log.info("agentsview: o11y panel at %s", status.url)
+        return status.url
+    except Exception as e:  # noqa: BLE001
+        log.warning("agentsview: o11y start-up failed (%s); continuing without a panel.", e)
+        return None
 
 
 def _fail(stream: Stream, code: int, message: str, *, kind: EventKind | None = None) -> int:
