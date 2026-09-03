@@ -22,7 +22,7 @@ first**; it documents four things that mislead.
 | `kernel_worklist` | `stage3-analyze/kernel_worklist` | (A) |
 | `operator_identity` | `stage3-analyze/operator_identity` | (A) |
 | `operator_workset` | `stage3-analyze/operator_workset` | (A) · **merge with stage4/workset** (C) |
-| `kernel_optimization` | `stage4-kernel-opt/kernel_optimization` | (A) |
+| `kernel_optimization` | `stage4-kernel-opt/kernel_optimization` | (A) · **the sealed one has no `apply` and no `premise`** (G) |
 | `patch_overlay` | `stage5-integration/patch_overlay` | (A) |
 | `stock.measurement` | `stage5-integration/{deployment,acceptance,bench}_stock` | (A) · **three into one** (D) |
 | `patched.measurement` | `stage5-integration/{deployment,acceptance,bench}_patched` | (A) · (D) |
@@ -62,6 +62,18 @@ are the two halves M3.7 merges. Neither alone satisfies
 **This is m3's first deliverable and m4 is blocked on it** — the two owners
 agree the merged shape before either writes a body.
 
+### (D′) `integration_report` must carry m2's number, because its validator cannot fetch one
+
+`check_no_regression`'s only input is `integration_report`, so M5.1.3.1 — the
+stock arm must reproduce m2's `profiling_mode_off` bench — is only checkable if
+the **producer carries that number into the report**. It is a required block in
+`integration_report.schema.json`, not an optional one: a producer that skips it
+must be visibly incomplete rather than silently absent.
+
+Same for M5.1.3.2's kernel-share reconciliation. `integrate_and_verify` already
+has `profiling_evidence` and `kernel_optimization` as inputs, so no new edge is
+needed — only the discipline of writing both numbers down.
+
 ### (D) Six evidence kinds became two
 
 `stock.measurement` folds `deployment_stock` + `acceptance_stock` +
@@ -88,6 +100,36 @@ Two mock modes, and the run should exercise both:
   taken from the **stock control** measured under matched load (patched 475.7 ms
   vs stock 470.3 ms mean ITL, 1.1% apart), which is what a non-regressing run on
   this cluster actually looks like.
+
+### (G) the sealed `kernel_optimization` has no `apply` and no `premise`
+
+Found by m4 on 2026-09-03, and it is structural rather than a detail to patch.
+
+That run was `KFO_MOCK=1`: no campaign, no optimised kernel, `mean_case_speedup:
+1.0` by construction. `operator` and the evidence half are there; `workset_ref`
+survives only as a UUID in prose in `README.md`; **`apply` and `premise` do not
+exist in any form**, because there was nothing to apply. And a reconstructed
+premise would read gfx942 — the workset's architecture — against a gfx950 host,
+which is **exactly the mismatch M4.3.5 says must abort**.
+
+So the mock **renders** the three missing fields, the way (A) renders
+`environment.yaml` and (D) writes `env/steps.json`: `workset_ref` and `premise`
+come from the merged workset produced on *this* node, so the premise matches and
+m4 proceeds. `apply` is written against the workset's declared integration point
+(M5.1.1), which is what lets m5's `apply_patch` stay a program.
+
+**Two modes, and the second is worth running once**, parallel to (E):
+
+- `--var mock_premise=matched` (default) — rendered as above, m4 proceeds.
+- `--var mock_premise=mismatched` — premise left at the sealed gfx942. Expect
+  m4 to **abort**. It is the only cheap end-to-end test of the abort path, and
+  it cannot be the default or nothing downstream of m4 ever runs.
+
+**What this means for the schema's both-direction proof:** "the real document
+validates" cannot mean the sealed bytes validate unchanged. It means the
+*rendered* document validates and the sealed one is rejected with `apply` and
+`premise` named — which is the more useful direction anyway, since it proves the
+required-list is doing work.
 
 ### (F) `e2e_packup` has no sealed source
 
