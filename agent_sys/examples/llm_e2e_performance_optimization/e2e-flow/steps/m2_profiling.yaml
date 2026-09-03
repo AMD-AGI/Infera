@@ -44,6 +44,22 @@
     # 60 s, ~80 in 30 s — and a bar of 100 failed a perfectly working replay,
     # invalidated both of that task's handoffs, and stopped the graph.
     min_requests: '${min_requests:-50}'
+    # The metrics `summarise.py` is asked to find in the CSV. Named here rather
+    # than in the body so that a round that legitimately cannot produce one — a
+    # non-streaming load has no TTFT — fails with the metric's name.
+    require_metrics:
+      - ttft_ms
+      - inter_token_latency_ms
+      - output_token_throughput_tps
+      - request_count
+    # Counted per request from `profile_export.jsonl.gz`, never from a summary
+    # field: AIPerf's own error accounting has moved between releases and a
+    # missing key reads as zero errors.
+    max_error_rate: 0.05
+    # A non-streaming load is a legitimate AIPerf run and a useless stage-2 one:
+    # no TTFT and no inter-token latency, which are two of the three numbers
+    # stage 5's stock arm has to reproduce.
+    require_streaming: true
   tags:
     logic_source: external_static
     cost: seconds
@@ -57,15 +73,49 @@
   strength: strong
   inputs: [profiling_mode_on.profile_result]
   args:
-    # M2.2.2 — "profile result 应至少被对应解析工具正确 load". The check is not
-    # that a file exists but that perfetto, or torch's own analysis tool, opens
-    # it and reports the expected number of slices.
-    require_loads_with: '${trace_loader:-torch}'
+    # M2.2.2 — "profile result 应至少被对应解析工具正确 load". **The validator
+    # opens a trace itself**, with a streaming reader of the Chrome Trace Format
+    # that torch writes and perfetto reads (`assets/lib/trace_stream.py`). It
+    # cannot use torch's own loader: this body runs on the login node, where
+    # there is no torch and no GPU, and a validator that needed a compute node
+    # to grade a handoff could not run once the allocation ends.
+    #
+    # One rank, because a full pass over one 65 MB rank is **14 s measured** and
+    # eight would make a phase's cheapest-first ordering meaningless. One is
+    # enough for what the rule is for: a manifest that was fabricated, or built
+    # from a different capture, does not survive one row being re-derived.
+    # `-1` checks every rank; `0` trusts the manifest and says so here.
+    verify_ranks: '${verify_ranks:-1}'
+    # One readable trace per tensor-parallel rank. Seven of eight is not a
+    # partial success — an all-reduce that ran on eight would be attributed
+    # against seven and every share downstream would be wrong invisibly.
+    #
+    # **Its own variable rather than `${tp}`**, even though on a real run it is
+    # the TP size and nothing else. A default may contain no `}`, so
+    # `${expect_ranks:-${tp:-8}}` is not spellable — and more to the point, this
+    # is a fact about the *capture being graded*, which in a mock run is not the
+    # capture this run's `tp` describes. The sealed trace is from a TP-2 run, so
+    # a mock run passes `--var expect_ranks=2`; a real run leaves it alone and
+    # sets `--var tp=` if the deployment is not eight-way.
+    expect_ranks: '${expect_ranks:-8}'
     # A window opened on an idling scheduler loop is a valid trace of nothing.
-    min_kernels: '${trace_min_kernels:-200}'
+    # The reference capture held 209,609 per rank, so this is three orders of
+    # magnitude below a real window and above any warm-up artefact.
+    min_gpu_kernels_per_rank: '${trace_min_kernels:-1000}'
+    # Plausibility, both ways: much longer than the window asked for means the
+    # stop did not take effect, much shorter that it never really started.
+    min_span_s: 1.0
+    window_s: '${window_s:-10}'
+    max_span_ratio: 4.0
+    # The stack window is a different capture with different expectations, and
+    # judging it by the measurement window's rules would fail a correct one on
+    # every rule. Set to 0 when `--var stack_window_s=0` says the round is
+    # deliberately taken without it.
+    expect_stack_ranks: '${stack_ranks:-2}'
+    min_python_functions_per_stack_rank: 10000
     # M2.8.2 asked this to additionally check completeness against the sglang
-    # source and the model structure. **Deferred, in `todo.md`** — the mission
-    # itself says 先不做.
+    # source and the model structure. **Deferred, in `todo.md` T1** — the
+    # mission itself says 先不做.
   tags:
     logic_source: external_static
     cost: seconds
@@ -82,7 +132,17 @@
     require_parts: [bench_profiling_mode_off, bench_profiling_mode_on, trace, kernel_table]
     # The merge is the one place the two lines meet, so it is the one place that
     # can notice they were not run against the same deployment.
+    #
+    # Across the lines this compares node and image digest, and **deliberately
+    # not the container**: the two lines are two bring-ups by design (CUDA graph
+    # on and off cannot both be true of one running engine) and CONTRACT §5.2
+    # forbids either reusing a name it did not create. Within one line it does
+    # compare the container, and that is the half with teeth — it catches a
+    # trace or a ranking folded in from a different profiled run.
     require_same_environment: true
+    # The two artefacts whose load configurations must match for either to be a
+    # control for the other.
+    compare_load_of: [bench_profiling_mode_off, bench_profiling_mode_on]
   tags:
     logic_source: external_static
     cost: seconds
@@ -179,12 +239,27 @@
 # share no handoff, so no edge is derived between them and the scheduler is free
 # to run them together.
 #
+# **Free in the graph, serialised on the hardware.** M2.6 is a statement about
+# the dependency structure and it is right: neither line reads the other's
+# output, and an edge between them would be a lie about why the second waits.
+# But each line brings up a TP-8 engine, and a node has eight GPUs — two of them
+# at once is not slow, it is impossible. So each leaf declares the whole `gpu`
+# pool. The graph keeps them independent, the scheduler runs one at a time, and
+# the reason the second waits is recorded as what it is: a resource, not a
+# dependency. `WAITING_RESOURCE` is a distinct status from `WAITING_HANDOFF`
+# precisely so this distinction survives into the run's own record.
+#
+# Only a leaf may acquire — a non-leaf holding a lease while its subgraph ran
+# would be hold-and-wait, and `task_graph` rejects it at load naming the task.
+# The default pool is `GpuMgr(capacity=8)`; a run on a node with more GPUs than
+# one deployment needs raises the capacity rather than editing this.
+#
 # A closure's `handoffs` must name every kind its task mentions, **inputs
 # included** — it is the declaration permissions are derived from, not a list of
 # what the task produces.
 #
-# OWNER m2: each line is ONE task that brings its own service up, loads it, and
-# tears it down. That is not a simplification; it is M2.5.
+# Each line is ONE task that brings its own service up, loads it, and tears it
+# down. That is not a simplification; it is M2.5.
 - module: task
   name: run_profiling_mode_off
   description: Bring the service up with CUDA graph on, run the load with no profiler, tear it down.
@@ -196,6 +271,7 @@
     version: '1'
     inputs: [deploy_kit]
     outputs: [profiling_mode_off.bench_result]
+    resources: {gpu: 8}
     permissions:
       grants:
         - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}
@@ -219,6 +295,8 @@
       - profiling_mode_on.bench_result
       - profiling_mode_on.profile_result
       - profiling_mode_on.kernel_table
+    # The other line's lease. See the note above `run_profiling_mode_off`.
+    resources: {gpu: 8}
     permissions:
       grants:
         - {path: handoffs/deploy_kit, access: read, kind: deploy_kit}

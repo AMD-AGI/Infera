@@ -40,6 +40,38 @@ CUDA_GRAPH="${CUDA_GRAPH:-1}"
 SCRIPTS="${SCRIPTS:?SCRIPTS=dir holding mix_worker.sh}"
 MOUNT_SPEC="${MOUNT_SPEC:-}"
 
+# --- the profiling half, restored for m2 ------------------------------------
+# This file arrived from `integration-demo`, which had deleted both knobs with
+# the note "this package captures no profile". True there; not true here. m2
+# needs exactly them, and m5 needs `MOUNT_SPEC`, and the CONTRACT's premise is
+# that the five stages share one set of assets rather than forking it.
+#
+# **Both default to what this file did before**, so an m5 arm that sets neither
+# builds the identical container and the identical router command line.
+#
+#   PROFILE=1   adds --enable-profiling to the router, which is what turns the
+#               admin profile start and stop routes from 403 into a working
+#               control plane. (Written as prose rather than as the route
+#               literal: this file is published inside a handoff, and
+#               handoff.locality's shape heuristic reads a leading slash with
+#               two segments as a filesystem path — temp/bugs/002.)
+#   TRACE_OUT   bind-mounted rw into the engine container. SGLang writes the
+#               trace to a path the ENGINE sees; without the mount docker
+#               creates the directory in the container layer and the capture
+#               looks like it worked while the host sees nothing.
+TRACE_OUT="${TRACE_OUT:-}"
+PROFILE="${PROFILE:-0}"
+
+TRACE_MOUNT=()
+if [ -n "$TRACE_OUT" ]; then
+  TRACE_MOUNT=(-v "$TRACE_OUT:$TRACE_OUT:rw")
+elif [ "$PROFILE" = "1" ]; then
+  echo "  ABORT: PROFILE=1 with no TRACE_OUT — the control plane would come up"
+  echo "  and every capture would write into the container layer, which is a"
+  echo "  capture that reports success and leaves nothing on the host."
+  exit 1
+fi
+
 # One `-v` per line of MOUNT_SPEC, built as an array so no path is ever
 # word-split. Empty file, or no file at all, means the stock arm.
 PATCH_MOUNTS=()
@@ -56,7 +88,8 @@ fi
 
 echo "===== 0. plan ====="
 echo "  node=$(hostname -s) ip=$MY_IP image=$IMAGE"
-echo "  model=$MODEL  tp=$TP  cuda_graph=$CUDA_GRAPH"
+echo "  model=$MODEL  tp=$TP  cuda_graph=$CUDA_GRAPH  profile=$PROFILE"
+echo "  trace_out=${TRACE_OUT:-<none>}"
 echo "  patch mounts: $n_patch"
 for ((i = 1; i < ${#PATCH_MOUNTS[@]}; i += 2)); do echo "    ${PATCH_MOUNTS[$i]}"; done
 
@@ -82,15 +115,24 @@ bash "$SCRIPTS/reset_gpus.sh" || { echo "  ABORT: GPUs not released"; exit 1; }
 
 echo "===== 3. fresh container ====="
 mkdir -p "$WORK_ROOT/aiperf"
+[ -n "$TRACE_OUT" ] && mkdir -p "$TRACE_OUT"
 docker run -d --name "$CTR" --network=host --ipc=host --shm-size=64G \
   --device=/dev/kfd --device=/dev/dri \
   --group-add video --group-add render --cap-add=SYS_PTRACE --cap-add=IPC_LOCK \
   --security-opt seccomp=unconfined --ulimit memlock=-1:-1 \
   -v "$MODEL_MOUNT":"$MODEL_MOUNT":ro \
-  "${PATCH_MOUNTS[@]}" \
+  "${TRACE_MOUNT[@]+"${TRACE_MOUNT[@]}"}" \
+  "${PATCH_MOUNTS[@]+"${PATCH_MOUNTS[@]}"}" \
   "$IMAGE" sleep infinity >/dev/null || { echo "  ABORT: container start failed"; exit 1; }
 sleep 5
 echo "  image: $(docker inspect "$CTR" --format '{{.Image}}')"
+
+# Prove the rw mount landed. capture.sh checks the same thing later; catching it
+# here costs one docker inspect instead of a whole warm-up window.
+if [ -n "$TRACE_OUT" ]; then
+  mounted=$(docker inspect -f "{{range .Mounts}}{{if eq .Destination \"$TRACE_OUT\"}}{{.RW}}{{end}}{{end}}" "$CTR")
+  [ "$mounted" = "true" ] && echo "  trace mount rw: OK" || { echo "  ABORT: $TRACE_OUT not mounted rw"; exit 1; }
+fi
 
 # Prove every patch mount landed, and that what is behind it is what was asked
 # for. Docker will happily create an empty file at the destination if the source
@@ -160,9 +202,29 @@ done
 [ "$ready" = "1" ] || { echo "  worker never became ready"; docker exec "$CTR" tail -40 /tmp/glm53_mix.log; exit 1; }
 
 echo "===== 7. router ====="
-docker exec "$CTR" bash -c "printf '%s\n' '#!/bin/bash' 'exec python3 -m infera.server --host 0.0.0.0 --port $ROUTER_PORT --discovery-backend etcd --etcd-endpoint $MY_IP:$ETCD_PORT --request-transport http --kv-event-transport zmq --router-policy kv-aware --router-tokenizer-path $MODEL --kv-prefill-overlap-weight 20.0 --kv-decode-overlap-weight 2.0' > /run_router.sh && chmod +x /run_router.sh"
+# The router backend is left at its default (python). `infera/server/args.py`
+# defaults --router-backend to python and `launch_rust.py` refuses rust when
+# --enable-profiling is set, so both m2 modes run the same data plane and the
+# only difference between them is the profiling switch and the graph switch.
+PROF_ARG=""
+[ "$PROFILE" = "1" ] && PROF_ARG=" --enable-profiling"
+docker exec "$CTR" bash -c "printf '%s\n' '#!/bin/bash' 'exec python3 -m infera.server --host 0.0.0.0 --port $ROUTER_PORT --discovery-backend etcd --etcd-endpoint $MY_IP:$ETCD_PORT --request-transport http --kv-event-transport zmq --router-policy kv-aware --router-tokenizer-path $MODEL --kv-prefill-overlap-weight 20.0 --kv-decode-overlap-weight 2.0$PROF_ARG' > /run_router.sh && chmod +x /run_router.sh"
 docker exec -d "$CTR" bash -c 'nohup /run_router.sh > /tmp/router.log 2>&1'
 sleep 20
 docker exec "$CTR" bash -c "curl -sf -m5 http://$MY_IP:$ROUTER_PORT/health >/dev/null && echo '  router healthy' || { echo '  router not ready'; tail -20 /tmp/router.log; }"
+
+if [ "$PROFILE" = "1" ]; then
+  # Probe the control plane with a role that cannot exist. app.py checks the 403
+  # gate BEFORE validating the role, so 400 means profiling is on and 403 means
+  # it is not -- and neither touches a running profile. Fatal, because a capture
+  # against a 403 control plane produces no trace and no error the caller sees.
+  code=$(docker exec "$CTR" curl -s -o /dev/null -w '%{http_code}' -m 10 \
+    -X POST "http://$MY_IP:$ROUTER_PORT/v1/admin/profile/start?role=__probe__")
+  case "$code" in
+    400) echo "  profiling control plane ON (probe -> 400 invalid role)" ;;
+    403) echo "  PROFILING OFF despite PROFILE=1 -- check /tmp/router.log"; exit 1 ;;
+    *)   echo "  unexpected probe status '$code'" ;;
+  esac
+fi
 
 echo "===== MIX_UP_OK  endpoint: http://$MY_IP:$ROUTER_PORT ====="

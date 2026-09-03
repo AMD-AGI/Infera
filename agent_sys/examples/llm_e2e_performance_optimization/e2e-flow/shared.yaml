@@ -101,6 +101,65 @@ env:
   # pointed at PD or at a different verification bar without editing a prompt.
   E2E_INSTRUCTION: '${instruction:-Bring this model up in the requested mode on this host, prove it answers through the router, and hand back a kit somebody else can run.}'
 
+  # --- stage 2's load and profiler window (owner: m2) -------------------------
+  # Every default here is the value the 2026-09-02 run on THIS cluster used, not
+  # the profiling-demo's, whose defaults were measured on a different machine
+  # with 256 cores and a /apps filesystem. Where the two differ the sealed
+  # artefact wins: `aiperf_baseline/content/items/env/load.json` is the record.
+  #
+  # AIPerf runs in its own container because the engine image ships Python 3.10
+  # and AIPerf needs >= 3.11.
+  E2E_AIPERF_IMAGE: '${aiperf_image:-nvcr.io/nvidia/ai-dynamo/aiperf:0.12.0}'
+  # An absolute path rather than a file inside the package: the whole package is
+  # copied into every attempt's zone, and a trace is megabytes. A cluster fact,
+  # so it carries a default — unlike the six node facts, which do not.
+  E2E_AIPERF_TRACE: '${aiperf_trace:-/shared_nfs/yihou/agent_sys_debug/ws2/profiling/trace/conversation_trace.jsonl}'
+  # Replay the first three minutes of trace time. Measured on this cluster: 721
+  # requests, which saturates the deployment and is short enough that a
+  # debugging round is minutes.
+  E2E_TRACE_END_MS: '${trace_end_ms:-180000}'
+  # A CEILING, not a target — fixed-schedule sends at the recorded timestamps
+  # regardless. At 32 the profiler-detached round measured p90 effective
+  # concurrency 10 and the profiler-attached round 32, which is the axis showing
+  # through: with CUDA graphs off the same schedule queues.
+  E2E_MAX_CONC: '${max_conc:-32}'
+  # AIPerf worker processes. It shares the node with the engine, so this is not
+  # "as many as there are cores".
+  E2E_WORKERS: '${workers_max:-8}'
+  E2E_BLOCK_SIZE: '${block_size:-512}'
+  E2E_REQ_TIMEOUT: '${req_timeout:-900}'
+
+  # The measurement window: opened after the warm-up and only once the engine has
+  # reported a real batch. 60 + 10 against a 180 s replay leaves the window well
+  # inside the load with margin on both sides.
+  E2E_WARMUP_S: '${warmup_s:-60}'
+  E2E_WINDOW_S: '${window_s:-10}'
+  # The stack window, which is a different capture for a different purpose: it
+  # exists only so the ranking can name the Python frame that launched each
+  # kernel. Seconds is enough — resolution votes over a few launches per kernel
+  # and this trace saturates the engine. **Set to 0 to skip it**, which costs the
+  # launcher block and nothing else; `check_kernel_table`'s
+  # `min_launchers_in_top_n` must then be 0 too, or the round is asked for
+  # something it was told not to take.
+  E2E_STACK_WINDOW_S: '${stack_window_s:-3}'
+  # Rank files from the stack window carried in the handoff. Every rank runs the
+  # same Python, so one resolves everything resolvable and the second is
+  # corroboration; Hyperloom's own resolver caps at two for the same reason.
+  E2E_STACK_RANKS: '${stack_ranks:-2}'
+
+  # --- stage 2's analysis (owner: m2) -----------------------------------------
+  # Magpie is a checkout on the cluster rather than a dependency of this package.
+  E2E_MAGPIE_ROOT: '${magpie_root:-/shared_nfs/chaox/Magpie}'
+  # Rows the ranking reports as its head. The table itself carries every row —
+  # m3 buckets before it sorts — so this only sizes the summary and the share
+  # `check_kernel_table` recomputes.
+  E2E_TOP_N: '${top_n:-25}'
+  # Kernels whose launcher is resolved, taken by self CUDA time. Generous against
+  # what m3 selects: `rank` picks its top N from the routable bucket only, and
+  # collectives held 52% of GPU time in the sample profile, so a routable winner
+  # can sit well down the raw ranking.
+  E2E_LAUNCHER_TOP_N: '${launcher_top_n:-50}'
+
   # --- mock mode (mission Brief item 2) ---------------------------------------
   # Where the 25 real sealed handoffs live. A leaf running in mock mode copies
   # `$E2E_MOCK_ROOT/<stage>/<kind>/content/` into its `$AGENT_SYS_OUTPUT_<KIND>`
