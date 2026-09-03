@@ -84,6 +84,46 @@ def judge(path: pathlib.Path) -> str:
     return name if name in ("sh", "bash", "dash", "zsh", "ksh") else "sh"
 
 
+#: `${VAR:?message}` / `${VAR:=message}` — the span whose message must not
+#: contain an apostrophe. Non-greedy to the closing brace, which is what these
+#: expansions actually use.
+_GUARD = __import__("re").compile(r"\$\{[A-Za-z_][A-Za-z0-9_]*:[?=]([^}]*)\}")
+
+
+def quoted_guards(path: pathlib.Path) -> list[str]:
+    """Apostrophes inside a `${VAR:?…}` message. **Parsing cannot find these.**
+
+    Found by m5 while fixing their own generators, and it is the sharper half of
+    the fault this validator was written for.
+
+    An **odd** number of apostrophes leaves a quote open to end of file and
+    `bash -n` says so. An **even** number pairs up: the first opens a quote, the
+    second closes it, the parse is clean — and the script is still wrong. On
+    `apply_patch`'s emitted `command`, which had exactly two:
+
+      * the error message reads `<this handoffs items/result/patches directory>}"`
+        — apostrophe eaten, closing brace leaked out;
+      * and **the second guard is swallowed into the first one's quoted region,
+        so `ROOTS` is never checked at all.** A reproducer with it unset gets no
+        error and the script proceeds.
+
+    A deleted guard is worse than a syntax error: the syntax error stops, and
+    this does not. So the rule is about **the character in that position**, not
+    about the parse outcome — which is why counting is right here and parsing
+    cannot be made to do it.
+    """
+    bad: list[str] = []
+    try:
+        text = path.read_text(errors="replace")
+    except OSError:
+        return bad
+    for lineno, line in enumerate(text.splitlines(), 1):
+        for m in _GUARD.finditer(line):
+            if "'" in m.group(1):
+                bad.append(f"line {lineno}: {m.group(0)[:90]}")
+    return bad
+
+
 def parses(path: pathlib.Path) -> tuple[bool, str]:
     shell = judge(path)
     try:

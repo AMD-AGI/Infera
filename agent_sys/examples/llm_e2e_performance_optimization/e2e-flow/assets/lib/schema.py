@@ -98,29 +98,77 @@ def load(name: str) -> dict:
     return json.loads(schema_path(name).read_text())
 
 
+def _inline_refs(node, root: pathlib.Path, seen: frozenset[str] = frozenset()):
+    """Replace every `{"$ref": "<file>.schema.json"}` with that file's contents.
+
+    **One code path, no optional dependency, and that is the point.**
+
+    The first version of this module used a `referencing` registry, copied from
+    `spec_loader/validate.py:56`. That works for a *validator*, which runs under
+    the interpreter `AGENT_SYS_DEMO_PYTHON` names, and **not for a task body**:
+    `cli/main.py:668` puts that variable in `validation_env` only, and its own
+    comment says a task body never reaches it. So a mock body's policy `PATH`
+    resolves `python3` to `/usr/bin/python3`, which on this host has `yaml` and
+    `jsonschema` and **no `referencing`** — and `env_render.py` validates before
+    it writes, so every module's MOCK-MAP (A) rendering died there with a
+    `ModuleNotFoundError`. Reported by m1, measured in-zone 2026-09-03.
+
+    The obvious repair — try `referencing`, else validate without a registry —
+    was written here and **its stated justification was false**. It claimed no
+    schema in `assets/schemas/` uses `$ref`. Measured: three sites do, in
+    `kernel_optimization.schema.json` (two) and `workset.schema.json` (one), all
+    to `environment.schema.json`. Under the interpreter that lacks
+    `referencing`, those two schemas would have validated **without resolving
+    the reference** — a silently weaker check, wearing a comment saying it was
+    equivalent. That is the exact failure this package is built against, so the
+    fallback is gone rather than corrected.
+
+    Inlining is safe *and checked*, not assumed: the only cross-file target,
+    `environment.schema.json`, carries no `$defs` and no internal `#/` pointer,
+    so it has nothing whose meaning could change by being moved. A target that
+    did would need its pointers rewritten, and `seen` makes a cycle an error
+    rather than a hang.
+    """
+    if isinstance(node, dict):
+        ref = node.get("$ref")
+        if isinstance(ref, str) and not ref.startswith("#") and ref.endswith(".schema.json"):
+            if ref in seen:
+                raise SchemaError(f"$ref cycle through {ref}")
+            target = root / ref
+            if not target.is_file():
+                raise SchemaError(f"$ref {ref!r} names no file in {root}")
+            loaded = json.loads(target.read_text())
+            inner = json.dumps(loaded)
+            if '"#/' in inner:
+                raise SchemaError(
+                    f"{ref} carries an internal '#/' pointer, so inlining it would "
+                    f"change what that pointer resolves against. Rewrite the pointers "
+                    f"or restore a $ref registry."
+                )
+            merged = {k: v for k, v in loaded.items() if k not in ("$schema", "$id")}
+            # Sibling keys beside a `$ref` are allowed in 2020-12 and must survive.
+            merged.update({k: v for k, v in node.items() if k != "$ref"})
+            return _inline_refs(merged, root, seen | {ref})
+        return {k: _inline_refs(v, root, seen) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_inline_refs(v, root, seen) for v in node]
+    return node
+
+
+def _inlined(name: str) -> dict:
+    return _inline_refs(load(name), schema_path(name).parent)
+
+
 def validate(name: str, doc) -> None:
     """Validate `doc` against the named schema, or raise with every problem.
 
-    The `referencing` registry mirrors `agent_sys/spec_loader/validate.py:56`,
-    so one schema may `$ref` another by filename — `environment.schema.json` is
-    referenced from several and should be written once.
+    Cross-file `$ref`s are inlined first (`_inline_refs`), so this needs nothing
+    beyond `jsonschema` and behaves identically under the run's interpreter and
+    under a bare `/usr/bin/python3`.
     """
     from jsonschema import Draft202012Validator
-    from referencing import Registry, Resource
-    from referencing.jsonschema import DRAFT202012
 
-    root = schema_path(name).parent
-    # `default_specification=DRAFT202012` and not `None`: a resource whose own
-    # contents do not carry `$schema` has nothing to detect from, and `None`
-    # raises `AttributeError: 'NoneType' object has no attribute 'detect'` —
-    # from inside the registry build, *before* any document is looked at, so it
-    # fails identically for a good document and a bad one. Same line as
-    # `spec_loader/bundled.py:84`.
-    registry = Registry().with_resources(
-        (p.name, Resource.from_contents(json.loads(p.read_text()), default_specification=DRAFT202012))
-        for p in sorted(root.glob("*.schema.json"))
-    )
-    validator = Draft202012Validator(load(name), registry=registry)
+    validator = Draft202012Validator(_inlined(name))
     problems = sorted(validator.iter_errors(doc), key=lambda e: list(e.absolute_path))
     if problems:
         lines = [f"{name}: {len(problems)} problem(s)"]
