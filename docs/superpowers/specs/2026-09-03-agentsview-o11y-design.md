@@ -199,7 +199,35 @@ open and a condition that fails:
 
 Criterion 3 is judged by reading the panel's session list, not by an exit code.
 
-## 8. Out of scope
+## 8. Known limitation — the zone symlink under an enforcing policy
+
+Gate 1 is delivered by making one path shared: `<zone>/config/projects` is a
+symlink to `$AGENT_SYS_CLAUDE_HOME/projects`, so the per-attempt
+`CLAUDE_CONFIG_DIR` that `material.py` sets keeps its credentials and settings
+while the transcripts land where the panel reads. Measured on `examples/demo2`
+with permissions off: nine agent transcripts, nine slug subdirectories, none
+left in a zone.
+
+**Its behaviour with `AGENT_SYS_NO_PERMISSIONS=0` is untested, because no
+confined child exists to test it with.** `agent_sys` refuses to start any AI
+task under an enforcing policy today, before the executor runs, so nothing ever
+traverses the symlink. That refusal predates this feature and is not caused by
+it — measured with paired arms differing in one file, both failing identically.
+The measurement, the control table, and the two conditions that would make this
+question live again are in
+`/home/yihou/ws.agentsview_o11y/zonelink/ENFORCED_MODE.md`; the `agent_sys`
+limitation itself is recorded there rather than here, because it is not ours.
+
+What belongs here is only the consequence for this design: if a confined child
+ever does follow the link, the prefix is under `$HOME` and
+`DEFAULT_SYSTEM_SET` does not grant it — the same fact that forced
+`bin_on_path=False` in §2. The likely repair is a grant on
+`$AGENT_SYS_CLAUDE_HOME/projects`, which is a permissions decision and is
+deliberately not taken here.
+
+**Read this as "untested because currently untestable", never as "safe".**
+
+## 9. Out of scope
 
 Semantic search, PostgreSQL/DuckDB mirrors, remote hosts, `--require-auth`,
 exposing the UI beyond loopback, and any modification to agentsview itself.
