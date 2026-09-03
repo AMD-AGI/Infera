@@ -175,12 +175,12 @@ def report_medians(report: dict, operator_id: str) -> dict[str, float]:
     return out
 
 
-def container_path_for(source_file: str) -> str | None:
-    """The workset's repo-relative `edit_target.source_file` as `@ROOT@/...`.
+def container_path_for(target_file: str, repo_root_var: str = "") -> str | None:
+    """One of `integration.target_files` as patchkit's `@ROOT@/...`.
 
-    Two frames for one file. The workset is repo-relative
-    (`python/sglang/srt/layers/sampler.py`); patchkit's manifest is
-    root-relative against `assets/lib/container_roots.yaml`
+    Two frames for one file. The workset writes a path **relative to
+    `edit_target.repo_root_var`**; patchkit's manifest writes it relative to a
+    root in `assets/lib/container_roots.yaml`
     (`@SGLANG_ROOT@/srt/layers/sampler.py`, where `SGLANG_ROOT` is
     `/sgl-workspace/sglang/python/sglang`).
 
@@ -190,23 +190,43 @@ def container_path_for(source_file: str) -> str | None:
     `}` — so `${SGLANG_ROOT}/srt/x.py` leaves `/srt/x.py` as a fresh
     two-segment candidate and is refused anyway.
 
-    Returns `None` when no configured root's tail matches, which is a refusal
-    rather than a guess: a container path invented here would be applied to a
-    real image by m5.
+    When `repo_root_var` names a root, that is the answer and no inference is
+    needed — the workset said which root it meant. m3 records the variable in
+    three legal forms (`@NAME@`, `${NAME}`, and empty for *owner unknown*), so
+    all three are normalised here rather than at each call site.
+
+    The suffix search is the fallback for the empty form. It is a real case:
+    three of the top routable candidates on the real 124-kernel table are
+    Triton kernels no owner rule matches.
+
+    Returns `None` when nothing matches, which is a refusal rather than a
+    guess — a container path invented here is one m5 would apply to a real
+    image.
     """
     roots = load_yaml(package() / "assets" / "lib" / "container_roots.yaml").get("roots") or {}
-    normalised = str(source_file).lstrip("/")
+    relative = str(target_file).lstrip("/")
+
+    declared = str(repo_root_var or "").strip()
+    if declared.startswith("@") and declared.endswith("@"):
+        declared = declared[1:-1]
+    elif declared.startswith("${") and declared.endswith("}"):
+        declared = declared[2:-1]
+    if declared:
+        if declared not in roots:
+            return None
+        return f"@{declared}@/{relative}"
+
     best: tuple[int, str] | None = None
     for name, entry in roots.items():
         tail = str((entry or {}).get("path") or "").strip("/").split("/")
-        # Longest suffix of the root's path that is also a prefix of the
-        # source file. `/sgl-workspace/sglang/python/sglang` against
+        # Longest suffix of the root's path that is also a prefix of the target
+        # file. `/sgl-workspace/sglang/python/sglang` against
         # `python/sglang/srt/...` shares `python/sglang`.
         for length in range(len(tail), 0, -1):
             prefix = "/".join(tail[-length:]) + "/"
-            if normalised.startswith(prefix):
+            if relative.startswith(prefix):
                 if best is None or length > best[0]:
-                    best = (length, f"@{name}@/{normalised[len(prefix):]}")
+                    best = (length, f"@{name}@/{relative[len(prefix):]}")
                 break
     return best[1] if best else None
 

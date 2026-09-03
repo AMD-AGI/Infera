@@ -100,51 +100,88 @@ def _sha256(path: Path) -> str:
 _NOT_OVERLAYABLE = ("@SGL_KERNEL_ROOT@",)
 
 
-def _apply_block(pinned: dict, target: dict, packup: Path, kernel: Path, premise: dict) -> dict:
+def _apply_block(pinned: dict, packup: Path, kernel: Path, premise: dict) -> dict:
     """patchkit's manifest, in patchkit's vocabulary, plus the M5.1.1 cross-check.
+
+    **Written against `integration`, not against `edit_target`**, and the
+    distinction is m3's rather than a preference. `edit_target` says where an
+    *optimiser* edits; `integration` says where a *replacement* is installed and
+    what it may not change. They are usually the same file and are never the
+    same statement, and collapsing them is what forces m5 to read an
+    optimisation report and decide.
 
     m5's `apply_patch` is a program because it reads this rather than judging
     it. The full contract is the `CONTRACT` constant in
     `assets/apply_patch.task/apply.py`.
 
-    Two refusals here rather than a plausible-looking manifest, because both
-    produce a patch that *applies* and does nothing:
+    Three refusals rather than a plausible-looking manifest, because each
+    produces a patch that *applies* and does nothing:
 
-    * no configured container root matches the workset's `source_file`, so the
-      `@ROOT@/...` form would have to be invented — and m5 would apply the
-      invention to a real image;
-    * the file lives under a root whose contents need a rebuild, where
-      `overlay_files` is the wrong mode by the root's own description.
+    * no configured container root matches a `target_file`, so the `@ROOT@/...`
+      form would have to be invented — and m5 would apply the invention to a
+      real image;
+    * a file under a root whose contents need a rebuild, where `overlay_files`
+      is the wrong mode by the root's own description;
+    * the stock file is unreachable, so `base_sha256` would be a placeholder.
     """
-    source_file = str(target.get("source_file") or "")
-    container_path = lib.container_path_for(source_file) if source_file else None
-    if source_file and container_path is None:
+    integration = pinned.get("integration") or {}
+    target = pinned.get("edit_target") or {}
+    repo_root_var = str(target.get("repo_root_var") or "")
+
+    target_files = list(integration.get("target_files") or [])
+    if not target_files:
         lib.die(
-            f"the workset's integration point {source_file!r} is under no root in "
-            "assets/lib/container_roots.yaml, so its @ROOT@/... form cannot be derived. "
-            "Add the root there rather than writing an absolute path: the seal refuses one, "
-            "and an invented path is one m5 would apply to a real image"
+            "the workset's operator declares no integration.target_files, so there is nothing "
+            "to install a replacement over. That field is required by workset.schema.json; a "
+            "workset without it did not come from `build_workset`"
         )
-    if container_path and container_path.startswith(_NOT_OVERLAYABLE):
+    # The workset names what may be replaced precisely so that m4 cannot widen
+    # the blast radius by editing a sixth file and m5 cannot be surprised by one.
+    if len(target_files) > 1:
         lib.die(
-            f"{container_path} needs the image rebuilt and cannot be delivered as an overlay "
-            "(see its description in assets/lib/container_roots.yaml). Bind-mounting a compiled "
-            "source produces a patch that is provably on disk and provably not running"
+            f"the workset declares {len(target_files)} target_files {target_files} and this task "
+            "delivers one optimised kernel. Optimising a multi-file integration point is not "
+            "something to improvise at handoff-writing time"
+        )
+
+    declared_mode = str(integration.get("apply_mode") or "overlay_files")
+    if declared_mode != "overlay_files":
+        lib.die(
+            f"the workset declares apply_mode={declared_mode!r}; this stage delivers "
+            "overlay_files only (todo.md T5 defers the registry hook)"
         )
 
     files = []
-    if kernel.is_file() and container_path:
+    for target_file in target_files:
+        container_path = lib.container_path_for(str(target_file), repo_root_var)
+        if container_path is None:
+            lib.die(
+                f"integration.target_files names {target_file!r} under repo_root_var "
+                f"{repo_root_var!r}, which is under no root in assets/lib/container_roots.yaml, "
+                "so its @ROOT@/... form cannot be derived. Add the root there rather than "
+                "writing an absolute path: the seal refuses one, and an invented path is one "
+                "m5 would apply to a real image"
+            )
+        if container_path.startswith(_NOT_OVERLAYABLE):
+            lib.die(
+                f"{container_path} needs the image rebuilt and cannot be delivered as an overlay "
+                "(see its description in assets/lib/container_roots.yaml). Bind-mounting a "
+                "compiled source produces a patch that is provably on disk and provably not "
+                "running"
+            )
+        if not kernel.is_file():
+            continue
         # The hash of the **stock** file, not of the replacement. m5 pulls the
         # file out of the image, hashes it, and refuses on a mismatch — that is
         # what makes "this patch belongs to this image" checkable rather than
         # asserted, and a wrong value here turns into a refusal two stages later
         # with no way to tell a stale patch from a typo.
         #
-        # It is read off the running container rather than taken from the
-        # workset, because m1 through m4 share one container (CONTRACT §5) so
-        # the tree m5 will patch is on this filesystem right now. m3's
-        # `edit_target` does not carry the hash; if it starts to, prefer theirs
-        # and keep this as the cross-check.
+        # Read off the running container rather than taken from the workset,
+        # because m1 through m4 share one container (CONTRACT §5) so the tree m5
+        # will patch is on this filesystem right now. m3's `edit_target` does not
+        # carry the hash; if it starts to, prefer theirs and keep this as the
+        # cross-check.
         stock = lib.expand_container_path(container_path)
         if stock is None or not stock.is_file():
             lib.die(
@@ -164,25 +201,48 @@ def _apply_block(pinned: dict, target: dict, packup: Path, kernel: Path, premise
         })
 
     block = {
-        "apply_mode": "overlay_files",
+        "apply_mode": declared_mode,
         "manifest": lib.APPLY_MANIFEST,
         "image": ((premise.get("run_environment") or {}).get("fixed") or {}).get("image"),
         "logical_operator": str(pinned["operator_id"]),
+        # Copied from the workset's `integration`, verbatim, so that
+        # `check_optimization_shape` can compare the two and refuse a divergence.
         "integration_point": {
-            k: v for k, v in target.items()
-            if k in ("source_file", "entry_function", "entry_function_line", "repo_root_var")
+            "source_file": str(target_files[0]),
+            "entry_function": str(integration.get("public_symbol") or ""),
+            **({"repo_root_var": repo_root_var} if repo_root_var else {}),
+            **({"entry_function_line": target["entry_function_line"]}
+               if isinstance(target.get("entry_function_line"), int) else {}),
         },
         "files": files,
         "revert": "Remove the overlay and restart the engine; nothing in the stock tree is modified in place.",
     }
 
-    entry_function = str(target.get("entry_function") or "")
-    if entry_function:
+    # What a replacement may not change. Carried from the workset rather than
+    # restated, because none of it is inferable from the signature: for
+    # `sampler_vocab_softmax` the call site is `logits[:] = torch.softmax(...)`,
+    # so a replacement that *allocates* is not substitutable there — and it
+    # passes every correctness gate.
+    must_preserve = {}
+    if integration.get("signature"):
+        must_preserve["signature"] = integration["signature"]
+    if integration.get("invariants"):
+        must_preserve["invariants"] = list(integration["invariants"])
+    for key in ("requires_restart", "build_step"):
+        if key in integration:
+            must_preserve[key] = integration[key]
+    if must_preserve:
+        block["must_preserve"] = must_preserve
+
+    public_symbol = str(integration.get("public_symbol") or "")
+    if public_symbol:
         # Declaring this upgrades m5's `check_patch_live` from "the patched
         # bytes were on disk" to "the patched code was entered". Without it the
         # validator passes and says what it could not show, which is honest and
-        # is strictly less proof that this kernel ever ran.
-        block["runtime_marker"] = {"first_call": re.escape(entry_function) + r"\s*\("}
+        # is strictly less proof that this kernel ever ran. The symbol rather
+        # than `edit_target.entry_function`, because the *file* may be rewritten
+        # wholesale and this is the thing that must survive it.
+        block["runtime_marker"] = {"first_call": re.escape(public_symbol) + r"\s*\("}
     return block
 
 
@@ -231,13 +291,23 @@ def main() -> int:
     apparatus = packup / lib.APPARATUS
     if apparatus.exists():
         shutil.rmtree(apparatus)
-    # The whole runnable workset, copied unmodified. `check_speedup_
-    # substantiated` re-measures from *this* copy, because a validator on an
-    # output phase is handed only the handoffs it declared and cannot reach the
-    # workset. A kit that reports a speedup and does not carry the thing that
-    # measured it cannot be checked by anyone who does not already have the
-    # workset, which is most readers.
-    shutil.copytree(workset_root, apparatus)
+    # **The files the workset declares, not a directory guess.** m3's
+    # `operators[].apparatus` exists for this consumer specifically:
+    # `check_speedup_substantiated` re-measures from *this* copy, because a
+    # validator on an output phase is handed only the handoffs it declared and
+    # cannot reach the workset. A kit that reports a speedup and does not carry
+    # the thing that measured it cannot be checked by anyone who does not
+    # already have the workset, which is most readers -- and a consumer that
+    # guesses the file set is one that ships a broken copy and finds out an hour
+    # later.
+    for relative in pinned.get("apparatus") or []:
+        source = workset_root / str(relative)
+        if not source.is_file():
+            lib.die(f"apparatus names {relative!r}, which is not in the workset")
+        destination = apparatus / str(relative)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, destination)
+        shutil.copymode(source, destination)  # the entrypoints are executable
     shutil.copyfile(workset_root / "workset.yaml", packup / lib.SNAPSHOT)
     baseline_rel = pinned.get("baseline_report")
     if baseline_rel:
@@ -267,7 +337,7 @@ def main() -> int:
 
     target = pinned.get("edit_target") or {}
     kernel_path = packup / "results" / "optimized_kernel.py"
-    apply_block = _apply_block(pinned, target, packup, kernel_path, premise)
+    apply_block = _apply_block(pinned, packup, kernel_path, premise)
     document = {
         "schema_version": 1,
         "operator": operator_id,
@@ -353,15 +423,18 @@ def main() -> int:
         print("no claim is written: " + "; ".join(refusals), file=sys.stderr)
     else:
         per_case = {c: round(baseline[c] / measured[c], 4) for c in shared if measured[c] > 0}
-        noise_floor = float(
-            ((pinned.get("ground_truth") or {}).get("noise_floor"))
-            or (pinned.get("gates") or {}).get("noise_floor")
-            or 1.05
-        )
+        # Declared by the workset, derived there from the measured spread as
+        # `1 + 2.83 x rsd_max` -- the two-sample 2-sigma separation, so a
+        # noisier host correctly demands a bigger win. **No default**: STEP 1
+        # already refused a workset without it, and a fallback here would be m4
+        # choosing when to call its own result significant.
+        noise_floor = pinned.get("noise_floor")
+        if not isinstance(noise_floor, (int, float)):
+            lib.die("the pinned inputs carry no numeric noise_floor; re-run STEP 1")
         document["evidence"]["performance"]["claim"] = {
             "speedup_per_case": per_case,
             "mean_case_speedup": round(sum(per_case.values()) / len(per_case), 4),
-            "noise_floor": noise_floor,
+            "noise_floor": float(noise_floor),
         }
 
     lib.write_json(packup / lib.DOC, document)

@@ -76,8 +76,16 @@ def main() -> int:
     apparatus = packup / lib.APPARATUS
     if apparatus.exists():
         shutil.rmtree(apparatus)
-    apparatus.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(workset_root, apparatus)
+    # The workset's declared file list, not a directory guess -- same rule as
+    # the real producer, so the mock exercises the real constraint.
+    for relative in operator.get("apparatus") or []:
+        source = workset_root / str(relative)
+        if not source.is_file():
+            lib.die(f"apparatus names {relative!r}, which is not in the workset")
+        destination = apparatus / str(relative)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, destination)
+        shutil.copymode(source, destination)
     (packup / "results").mkdir(parents=True, exist_ok=True)
     shutil.copyfile(workset_root / "workset.yaml", packup / lib.SNAPSHOT)
 
@@ -136,7 +144,12 @@ def main() -> int:
     # marked in `notes`. A mock that quietly writes a well-formed hash of the
     # wrong file is one m5 would refuse two stages later with no way to tell a
     # stale patch from a fabricated one.
-    container_path = lib.container_path_for(str(target.get("source_file") or "")) or ""
+    integration = operator.get("integration") or {}
+    target_files = list(integration.get("target_files") or [])
+    container_path = (
+        lib.container_path_for(str(target_files[0]), str(target.get("repo_root_var") or ""))
+        if target_files else None
+    ) or ""
     stock = lib.expand_container_path(container_path) if container_path else None
     if stock is not None and stock.is_file():
         base_sha256, sha_source = lib.sha256_of(stock), "the engine tree in this container"
@@ -151,8 +164,9 @@ def main() -> int:
         "image": ((run_env.get("fixed") or {}).get("image")),
         "logical_operator": operator_id,
         "integration_point": {
-            k: v for k, v in target.items()
-            if k in ("source_file", "entry_function", "entry_function_line", "repo_root_var")
+            "source_file": str(target_files[0]) if target_files else "",
+            "entry_function": str(integration.get("public_symbol") or ""),
+            **({"repo_root_var": str(target["repo_root_var"])} if target.get("repo_root_var") else {}),
         },
         "files": (
             [{
@@ -165,9 +179,9 @@ def main() -> int:
         ),
         "revert": "Remove the overlay and restart the engine.",
     }
-    if target.get("entry_function"):
+    if integration.get("public_symbol"):
         apply_block["runtime_marker"] = {
-            "first_call": re.escape(str(target["entry_function"])) + r"\s*\("
+            "first_call": re.escape(str(integration["public_symbol"])) + r"\s*\("
         }
 
     document = {

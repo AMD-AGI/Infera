@@ -324,6 +324,38 @@ def _check_ground_truth(doc: dict, snapshot: dict, args: dict, problems: list[st
     if len(measured) < floor:
         problems.append(f"{len(measured)} shapes measured, the workset contract requires >= {floor}")
 
+    # The claim must carry the workset's own floor, not one of m4's choosing.
+    claim = performance.get("claim") or {}
+    if claim and claim.get("noise_floor") != operator.get("noise_floor"):
+        problems.append(
+            f"claim.noise_floor is {claim.get('noise_floor')!r}, the workset declares "
+            f"{operator.get('noise_floor')!r}. The workset derives it from its own measured "
+            "spread; a consumer that restates it differently has chosen when to call its own "
+            "result significant"
+        )
+
+    # `dtype` is on the mission's abort list and is **not** an environment field.
+    # It lives in the flashinfer-bench Definition (`inputs[].dtype`), which this
+    # body cannot open — the snapshot is `workset.yaml`, not the whole workset
+    # tree. Rather than skip it silently, which is the failure where two owners
+    # each assume the other checks a thing, say what was not checked. The
+    # protection that remains is real and is m3's: the entrypoints refuse to run
+    # on a mismatched host at all, and `check_workset_runs` re-runs them here.
+    if "dtype" in (args.get("abort_on_premise_mismatch") or []):
+        declared_dtype = (doc.get("premise") or {}).get("dtype")
+        workset_dtype = (snapshot.get("ground_truth") or {}).get("dtype")
+        if workset_dtype is None:
+            print(
+                "note: dtype is on the abort list and the workset does not lift it into "
+                "ground_truth, so it was NOT compared here. It is in the Definition's "
+                "inputs[].dtype, which this validator cannot reach",
+                flush=True,
+            )
+        elif declared_dtype != workset_dtype:
+            problems.append(
+                f"ABORT — dtype {declared_dtype!r} is not the workset's {workset_dtype!r}"
+            )
+
 
 def _check_denominator(doc: dict, baseline_report: dict, problems: list[str], notes: list[str]) -> None:
     """*Prove you took the workset's own baseline.* Exact, per case."""
@@ -571,7 +603,22 @@ def _remeasure(
     per_case = {case: baseline_truth[case] / candidate[case] for case in shared if candidate[case] > 0}
     measured_mean = statistics.fmean(per_case.values())
     claimed_mean = float(claim.get("mean_case_speedup", 0.0))
-    noise_floor = _num(claim.get("noise_floor"), 1.05)
+
+    # **No default.** An earlier draft fell back to 1.05, and m3 was right to
+    # object: a consumer with a fallback floor is a consumer that silently picks
+    # its own significance threshold on the one occasion the workset failed to
+    # state one. The workset derives it from the measured spread as
+    # `1 + 2.83 x rsd_max` — the two-sample 2-sigma separation, so a noisy host
+    # correctly demands a bigger win — and the field is required on m3's side,
+    # so its absence means something is wrong upstream and should say so.
+    noise_floor = claim.get("noise_floor")
+    if not isinstance(noise_floor, (int, float)):
+        problems.append(
+            f"claim.noise_floor is {noise_floor!r}, not a number. It is the workset's to declare "
+            "and m4's to carry; nothing here substitutes a value for it"
+        )
+        return
+    noise_floor = float(noise_floor)
 
     notes.append(
         "re-measured " + ", ".join(f"{c} {per_case[c]:.3f}x" for c in shared)

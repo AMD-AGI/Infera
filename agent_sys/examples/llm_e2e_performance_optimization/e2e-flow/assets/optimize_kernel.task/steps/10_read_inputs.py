@@ -70,6 +70,20 @@ def main() -> int:
             if missing:
                 problems.append(f"the workset's own baseline has no figure for {missing}")
 
+    if not operator.get("integration"):
+        problems.append("the operator declares no `integration`; m5 cannot be a program without it (M5.1.1)")
+    if not isinstance(operator.get("noise_floor"), (int, float)):
+        problems.append(
+            "the operator declares no numeric `noise_floor`. m4 must not pick one: a consumer "
+            "choosing its own floor is a consumer choosing when to call its own result significant"
+        )
+    apparatus = list(operator.get("apparatus") or [])
+    if not apparatus:
+        problems.append("the operator declares no `apparatus`; the files that must travel are unknown")
+    for relative in apparatus:
+        if not (lib.workset_root() / str(relative)).is_file():
+            problems.append(f"apparatus names {relative!r}, which is not in the workset")
+
     forge = operator.get("forge") or {}
     one_line = forge.get("one_line")
     if one_line and not (lib.workset_root() / str(one_line)).is_file():
@@ -97,6 +111,17 @@ def main() -> int:
             "baseline_per_case_ms": baseline,
             "baseline_report": baseline_rel,
             "edit_target": operator.get("edit_target"),
+            # M5.1.1's declared integration point. Distinct from `edit_target`:
+            # that says where an optimiser edits, this says where a replacement
+            # is installed and what it may not change.
+            "integration": operator.get("integration"),
+            # Declared by the workset and NEVER defaulted here -- a consumer
+            # with a fallback floor is one that silently picks its own
+            # significance threshold when the workset forgot to state one.
+            "noise_floor": operator.get("noise_floor"),
+            # The files that must travel byte-identically for the entrypoints to
+            # run outside the handoff. A list, not a directory guess.
+            "apparatus": list(operator.get("apparatus") or []),
             "gates": operator.get("gates"),
             "forge_one_line": one_line,
             "run_environment": lib.load_environment(),
