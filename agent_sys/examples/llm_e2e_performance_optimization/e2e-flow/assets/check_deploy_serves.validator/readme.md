@@ -49,6 +49,22 @@ not have been invented:
   registered while everything else looks healthy.
   ([sgl-project/sglang#20836](https://github.com/sgl-project/sglang/issues/20836))
 
+**What the eleven probes cannot do, stated because the adjacent trap is real.**
+m3 measured, on real torch, that a *numerically perfect but unsubstitutable*
+softmax scored **151.9 dB against the baseline's 142.4** — higher, because it
+returns fresh fp32 while the baseline rounds through the caller's buffer: the
+artefact that makes it wrong is the same one that makes it score better, and a
+gate reading only output quality would **prefer** it.
+
+This set does not have that exposure, and the reason is worth being explicit
+about rather than assuming: **these are gates on liveness, registration and
+identity, not on output quality.** The only quality-shaped assertion anywhere in
+them is `completion_nonstreaming`'s "non-empty `content` with
+`finish_reason: stop`", which an implementation that refuses to do the job
+*fails* rather than passes. Nothing here scores an answer, so nothing here can
+rank a refusal above a real one. The exposure m3 found arrives in this flow at
+m5's two-arm comparison, where a number is compared against another number.
+
 `severity: warn` is used where a hard gate would be dishonest rather than where
 the check is unimportant: `/metrics` is absent unless the server was launched
 with `--enable-metrics`, and `/get_server_info` has a known upstream hang. Warned
@@ -116,6 +132,41 @@ is skipped.
   is a legitimate kit, less diagnosable.
 - **The body dying is a refusal**, not a vanishing: the exception becomes a
   fault with its type and message.
+
+## Five things a standalone run cannot tell you, measured here
+
+Every one of these was invisible until this body was driven **through the graph**
+rather than from a shell, and three are facts about the environment that any
+module reaching the node will meet. They are here rather than only in a commit
+message for that reason.
+
+1. **`args` values arrive as strings, always.** `'${deploy_bringup_timeout_seconds:-3600}'`
+   reaches a body as `"3600"`, and `subprocess.run(timeout="3600")` raises
+   `TypeError: float + str` from inside the timeout arithmetic — naming neither
+   the parameter nor the caller. **A hand-written `args.json` with JSON numbers
+   hides this completely**, which is why it survived several standalone passes:
+   a fixture more convenient than production tests the fixture. Read numeric args
+   through `workset_io.arg_num` (CONTRACT §4.2), not `int()` and not
+   `x or default` — `"0"` is truthy, so the `or` form *works* on the `${…}`
+   string form and fails on a genuine yaml integer.
+   **And in a validator the consequence is worse than a wrong answer:** the
+   exception escapes before `verdict.json` is written, so the phase reads a
+   *broken validator* rather than a refused handoff, and the failure points at
+   the checker instead of at the artefact.
+2. **The closed environment omits `PATH`**, so `sh` substitutes its built-in
+   `/usr/bin:/bin` — and `spur` lives in `/usr/local/bin`. Without
+   `args.transport_path` the call dies `rc=127, spur: command not found`,
+   reported as *the kit's* `deploy.sh` failing.
+3. **`SPUR_CONTROLLER_ADDR` is stripped too**, and `spur` then exits 1 with
+   `failed to connect to controller … Connection refused` — a message naming the
+   controller and not the missing variable. `args.transport_env`.
+4. **A `dict` reused across calls must not be `pop`ped from.** The first call got
+   its `PATH` patched and every later one did not: bring-up succeeded and the
+   very next `cat` died `rc=127`.
+5. **`if ! cmd; then rc=$?` gives the *inverted* status** — 0 — in both dash and
+   bash. Use `cmd || rc=$?` then branch. In this package that shape made a failed
+   mock adaptation report **success**, so the task was marked succeeded and the
+   graph blamed the handoff two phases later.
 
 ## What is not covered
 

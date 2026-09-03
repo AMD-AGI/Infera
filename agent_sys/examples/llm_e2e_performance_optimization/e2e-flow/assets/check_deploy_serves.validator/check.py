@@ -599,26 +599,12 @@ def main() -> int:
     # `assets/lib/remote.sh` reads these three and forwards the whole `E2E_*`
     # block to the far side of an `spur exec` (`remote.sh:84` — the transport
     # carries no environment of its own, measured).
-    # **`auto` is resolved here, and that is a workaround with a removal
-    # criterion.** `shared.yaml` ships `E2E_TRANSPORT` defaulted to `auto` and
-    # documents it as "probes"; CONTRACT.md §6 says `remote.sh` dispatches on it.
-    # `remote.sh:66` returns `$E2E_TRANSPORT` verbatim when set, so `auto` falls
-    # through to its own `case` and exits 2 with
-    # `unknown E2E_TRANSPORT: auto (want 'srun' or 'spur')`. Every body that
-    # takes the shipped default hits it; mine did not for a long time only
-    # because my standalone tests passed `spur` explicitly.
-    #
-    # Same rule `remote.sh` means to apply: `spur` where the binary exists, else
-    # `srun` — presence of `spur` is the positive signal because on this cluster
-    # `srun` exists and is not Slurm's. **Delete this block once `remote.sh`
-    # implements `auto`**; it is a second copy of a rule and the two can drift.
-    wanted = parameters.get("transport", "auto")
-    if wanted not in ("spur", "srun", "local"):
-        search = (parameters.get("transport_path") or "").split(":") + ["/usr/local/bin", "/usr/bin", "/bin"]
-        wanted = "spur" if any((Path(d) / "spur").exists() for d in search if d) else "srun"
-
+    # `auto` is `remote.sh`'s to resolve and it does (`_transport`, fixed by m2
+    # after this body worked around it). The workaround that lived here is gone
+    # rather than left in place: it was a second copy of a rule, and a
+    # workaround whose removal criterion nobody triggers is how two copies drift.
     transport = {
-        "E2E_TRANSPORT": wanted,
+        "E2E_TRANSPORT": parameters.get("transport", "auto"),
         "E2E_JOBID": parameters.get("jobid", ""),
         "E2E_NODE": parameters.get("node", ""),
         # Where the transport binary lives. Consumed by `on` and never exported.
