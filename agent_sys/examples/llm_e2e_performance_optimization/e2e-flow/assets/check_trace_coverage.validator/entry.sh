@@ -1,6 +1,4 @@
 #!/bin/sh
-# SKELETON. The owner replaces `check.py` with the real body.
-#
 # **Both environment fallbacks, deliberately.** A validator's INPUT phase gets
 # the GLOBAL row and never `AGENT_SYS_TASK_PACKAGE`; only the PRODUCER row
 # exports it. Writing one of the two has already cost a run.
