@@ -615,6 +615,14 @@ def test_write_config_writes_exactly_the_providers_it_is_given(prefix) -> None:
     assert 'disabled_agents = ["foo", "bar"]' in text
 
 
+def test_write_config_keeps_the_daemon_alive_indefinitely(prefix) -> None:
+    """Design §4 promises the panel persists across runs; AgentsView's own
+    default (20m idle exit) contradicts that unless this key overrides it."""
+    agentsview.write_config(prefix, ())
+    text = (prefix.agentsview_data / "config.toml").read_text()
+    assert 'daemon_idle_timeout = "0s"' in text
+
+
 def test_other_providers_excludes_claude_itself() -> None:
     """The one provider gate 3 must never disable."""
     assert "claude" not in agentsview.OTHER_PROVIDERS

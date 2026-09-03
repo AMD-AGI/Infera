@@ -246,6 +246,16 @@ def write_config(prefix: Prefix, disabled_agents: Sequence[str]) -> None:
 
     Written into `AGENTSVIEW_DATA_DIR`, never `~/.agentsview`: a user who
     already runs AgentsView keeps their own archive and settings untouched.
+
+    **`daemon_idle_timeout = "0s"`, documented in AgentsView's own
+    `configuration.md`, default `"20m"` otherwise.** Measured directly: the
+    production daemon self-exited twice with no override present, matching
+    the doc exactly. Design §4 promises the panel "persists across runs" and
+    is only ever started from the CLI's own startup path — with the default
+    20-minute idle exit, a user opening the URL an hour after their run ends
+    finds nothing, which is precisely the case the panel exists for. Verified
+    with a real background daemon left running with this key set and zero
+    client traffic past the 20-minute default window; see PHASE0.md §0.7.
     """
     cfg = prefix.agentsview_data / "config.toml"
     disabled = ", ".join(json.dumps(name) for name in disabled_agents)
@@ -255,6 +265,7 @@ def write_config(prefix: Prefix, disabled_agents: Sequence[str]) -> None:
         f"disabled_agents = [{disabled}]\n"
         'host = "127.0.0.1"\n'
         "disable_update_check = true\n"
+        'daemon_idle_timeout = "0s"\n'
     )
 
 
