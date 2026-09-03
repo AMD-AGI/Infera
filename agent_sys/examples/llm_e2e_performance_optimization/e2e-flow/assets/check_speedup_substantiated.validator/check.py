@@ -561,6 +561,29 @@ def _remeasure(
         return
     candidate = _medians(candidate_report, operator_id)
 
+    # **Every case the workset baselines must come back from both sides.**
+    #
+    # Found by `stubkit` case 4, and it is the exact failure the shape of this
+    # body invites: `_medians` skips a shape whose figure is absent or
+    # non-numeric, `shared` is then an intersection, and the mean is taken over
+    # whatever came back. A candidate that fails to measure on one shape is
+    # therefore scored on the two it managed — which flatters precisely the
+    # kernel that is fast on the easy shapes and broken on the hard one.
+    #
+    # An entrypoint that exits 0 and reports nothing for a case is not a smaller
+    # sample, it is a failed measurement, and the two must not fold together.
+    for label, side in (("seed", seed), ("optimised", candidate)):
+        missing = sorted(c for c in baseline_truth if c not in side)
+        if missing:
+            problems.append(
+                f"the {label} re-measurement returned no figure for {missing} — the entrypoint "
+                "exited 0 and reported nothing for them. A case that did not measure is a failed "
+                "measurement, not a smaller sample, and averaging over the rest scores a kernel "
+                "on the shapes it happened to manage"
+            )
+    if problems:
+        return
+
     # --- the premise, made empirical ---------------------------------------
     #
     # This is **not** the deleted rule coming back. It does not substitute a
