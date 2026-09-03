@@ -149,9 +149,22 @@ Call `mcp__envchk_stdio__envchk_report`, same shape, `proof.raw` again.
 calls is therefore **`mcp__env_mgr__envchk_echo_token`** — `env_mgr`, not
 `envchk`, and getting that wrong is the most common way this section fails.
 
-`proof.raw` again. One detail worth checking and reporting: this tool runs *in
-your session's own process*, so its `pid` is the same as sections 4 and 5's
-only if something is wrong.
+**This tool takes no arguments and reads nothing from the environment** — call
+it with an empty argument object. It returns `token`, `path`, `sha256`, `label`,
+`level`, `pid`, `at`. Put the **whole object**, unedited, in `proof.raw`; the
+validator checks `path` and `sha256` as well as `token`, and dropping either
+fails an otherwise honest report.
+
+**Do not compute the token yourself from the salt in the file.** This section's
+token is derived from the module's **own path**, not from `$ENVCHK_NONCE`, and
+that path is one you cannot construct: it is the placed copy inside this run's
+zone. Call the tool and copy what it says.
+
+Why it differs from every other section: measured on 2026-09-03, an in-process
+`ToolDef` runs in the **supervisor's** process, which does not carry
+`$ENVCHK_NONCE`. A previous run's tool computed a token from an empty nonce and
+returned it without error. If you notice this section's token looks unlike the
+others, that is expected and is not a fault to work around.
 
 ## 7. serena — L1
 
@@ -228,7 +241,7 @@ to work for or an honest failure you could point at.
     "plugin":       {"level": "L3", "status": "ok", "token": "ENVCHK-PLUGIN-...", "how": "...", "proof": {"plugin_list": "..."}},
     "mcp_external": {"level": "L2", "status": "ok", "token": "ENVCHK-MCP_EXTERNAL-...", "how": "...", "proof": {"raw": {...}}},
     "mcp_stdio":    {"level": "L3", "status": "ok", "token": "ENVCHK-MCP_STDIO-...", "how": "...", "proof": {"raw": {...}}},
-    "tooldef":      {"level": "L3", "status": "ok", "token": "ENVCHK-TOOLDEF-...", "how": "...", "proof": {"raw": {...}}},
+    "tooldef":      {"level": "L3", "status": "ok", "token": "ENVCHK-TOOLDEF-...", "how": "...", "proof": {"raw": {"token": "...", "path": "...", "sha256": "...", "label": "tooldef", "level": "L3", "pid": 0, "at": "..."}}},
     "serena":       {"level": "L1", "status": "ok", "token": "ENVCHK-SERENA-...", "how": "...", "proof": {"raw": [{"name_path": "envchk_serena_token", "kind": "Function", "relative_path": "serena_probe.py", "body_location": {"start_line": 0, "end_line": 0}, "body": "..."}]}}
   },
   "install_report": [ ... ],
