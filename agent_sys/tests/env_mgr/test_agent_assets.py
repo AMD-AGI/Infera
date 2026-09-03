@@ -1762,3 +1762,180 @@ def test_a_symlink_in_a_claude_tree_is_resolved_at_every_depth(tmp_path: Path, w
     from env_mgr.fs.path import contained
 
     assert contained(str(placed), str(config))
+
+
+def test_a_claude_tree_of_shapes_nobody_enumerated_is_placed_whole(
+    tmp_path: Path,
+) -> None:
+    """The closure check, over shapes rather than over remembered names.
+
+    **Written by `reviewer` and adopted verbatim but for the symlink note**,
+    because a fixture I build myself can only surprise me as far as my own
+    imagination went — and four of these are shapes I did not think of.
+
+    `test_every_member_of_a_claude_tree_is_placed_except_the_named_exceptions`
+    asserts the rule with members Claude Code might add. This asserts it with
+    members that are not *directories* at all, which is the other axis a
+    hand-written fixture misses: a top-level file, an empty directory, a
+    symlink, and a `.mcp.json` nested below the top level — the last of which
+    must be **placed as data** rather than read, because only the top-level one
+    is an interface document.
+    """
+    pkg = tmp_path / "staged"
+    assets = _package(pkg)
+    tree = assets / ".claude"
+
+    # Directories the code knows nothing about.
+    _write(tree / "agents" / "sub.md", "# a subagent")
+    _write(tree / "commands" / "c.md", "# a slash command")
+    _write(tree / "output-styles" / "terse.md", "# an output style")
+    # Directories it does.
+    _write(tree / "skills" / "s" / "SKILL.md", "# s")
+    _write(tree / "hooks" / "on_start.py", "# hook")
+    _write(tree / "servers" / "srv.py", "# server")
+    _write(tree / "tools" / "b.mcp.py", "# bundled")
+    # Shapes that are not directories at all.
+    _write(tree / "CLAUDE.md", "project memory")  # top-level file
+    _write(tree / "settings.local.json", '{"model": "m"}')  # sibling of an exception
+    statusline = _write(tree / "statusline.sh", "echo hi\n")  # executable
+    statusline.chmod(0o755)
+    (tree / "empty-dir").mkdir()  # no members to copy
+    (tree / "linked.txt").symlink_to(tree / "CLAUDE.md")  # a link, not a file
+    _write(tree / "nested" / "deep" / MCP_REL, '{"mcpServers": {}}')  # NOT an interface
+    # The exceptions themselves.
+    _write(tree / "settings.json", json.dumps({"model": "m"}))
+    _write(tree / MCP_REL, json.dumps({"mcpServers": {}}))
+
+    config = tmp_path / "config"
+    install(
+        _spec(assets="assets/forge.agent"),
+        staged_package=str(pkg),
+        config_dir=str(config),
+        environ={"CLAUDE_CONFIG_DIR": str(config)},
+    )
+
+    omitted = sorted(
+        name
+        for name in os.listdir(tree)
+        if name not in agent_assets._NOT_PLACED and not (config / name).exists()
+    )
+    assert not omitted, (
+        f"{omitted} are members of a .claude/ tree, are not in _NOT_PLACED, and "
+        f"did not reach the config directory. Either place them or except them"
+    )
+
+    # The shapes, each asserted for what it is rather than for existing.
+    assert (config / "CLAUDE.md").is_file()
+    assert (config / "empty-dir").is_dir()
+    assert os.access(config / "statusline.sh", os.X_OK), (
+        "copy_out uses copy2, so the mode travels; a status line that arrives "
+        "without +x is a capability that installs and cannot run"
+    )
+    assert (config / "nested" / "deep" / MCP_REL).exists(), (
+        "only the TOP-LEVEL .mcp.json is an interface document; one below it is "
+        "a file the author shipped and is placed like any other"
+    )
+    # A symlink is dereferenced. **`reviewer` wrote this assertion to pin
+    # *current* behaviour and flagged that nothing had decided it; it has since
+    # been decided** — `_place_tree` passes `dereference=True` because a
+    # preserved link out of the zone measurably fails `contained`, so the
+    # confined session cannot follow it. See
+    # `test_a_symlink_in_a_claude_tree_is_resolved_at_every_depth`, which covers
+    # the out-of-tree case and both depths; this one keeps the in-tree link
+    # honest inside the closure fixture.
+    assert (config / "linked.txt").is_file()
+    assert not (config / "linked.txt").is_symlink()
+
+
+# --------------------------------------------------------------------------- #
+# The install report names what it produced, on all three MCP routes
+
+
+def test_all_three_mcp_routes_record_a_name_in_the_report(tmp_path: Path) -> None:
+    """**Four rows of one rule, not one row plus two special cases.**
+
+    `Prepared.mcp_servers` goes supervisor → backend and is written down nowhere
+    else, so the install report is the only artefact that can carry evidence of
+    *which* servers a run got. Run 1's report carried a count for the external
+    route, a path for the bundled one, and for the in-process route nothing at
+    all — so a consumer comparing declared capabilities against what installed
+    could check one of three, and only by parsing a message string.
+
+    Each route is asserted here for a **recoverable name**, not for a message
+    that happens to contain one. Removing any of the three keys fails this.
+    """
+    pkg = tmp_path / "staged"
+    assets = _package(pkg)
+    _write(
+        assets / ".claude" / MCP_REL,
+        json.dumps(
+            {
+                "mcpServers": {
+                    "weather": {"type": "http", "url": "http://x"},
+                    "serena": {"type": "stdio", "command": "/bin/true"},
+                }
+            }
+        ),
+    )
+    _write(assets / ".claude" / "tools" / "envchk_stdio.mcp.py", "# bundled")
+    _write(
+        assets / ".claude" / "tools" / "t.tooldef.py",
+        "class T:\n"
+        "    def __init__(self, name): self.name = name\n"
+        "TOOLS = [T('envchk_echo_token')]\n",
+    )
+
+    got = install(
+        _spec(assets="assets/forge.agent"),
+        staged_package=str(pkg),
+        config_dir=str(tmp_path / "config"),
+    )
+
+    def details(fragment: str) -> dict[str, Any]:
+        (found,) = [o for o in got.report if fragment in o.message]
+        return found.details
+
+    # External: the names, because this is the only route whose keys an author
+    # chooses in a data file — and both `envchk_baseline` and `serena` are it.
+    assert details("external MCP server(s)")["names"] == ["serena", "weather"]
+
+    # Bundled: recorded, not parsed out of the message or the path stem.
+    assert details("bundled MCP server")["server"] == "envchk_stdio"
+
+    # In-process: the TOOL name is the load-bearing half. The server name is a
+    # constant every run has, so a check against it alone could not fail.
+    inproc = details("in-process tool(s)")
+    assert inproc["tools"] == ["envchk_echo_token"]
+    assert inproc["server"] == agent_assets.IN_PROCESS_SERVER
+
+    # Every server the run produced is recoverable from the report alone, which
+    # is the property a consumer actually needs.
+    recorded = set(details("external MCP server(s)")["names"]) | {
+        details("bundled MCP server")["server"]
+    }
+    assert recorded == set(got.mcp_servers), (
+        "a server reached the backend that the install report does not name"
+    )
+
+
+def test_a_tool_with_no_name_is_recorded_as_such_rather_than_crashing(
+    tmp_path: Path,
+) -> None:
+    """A `ToolDef` here is duck-typed — package-authored, and this module does
+    not define the class. One with no `.name` cannot be addressed by the model
+    at all; the report says so instead of raising while building it."""
+    pkg = tmp_path / "staged"
+    assets = _package(pkg)
+    _write(
+        assets / ".claude" / "tools" / "t.tooldef.py",
+        "class T: pass\nTOOLS = [T()]\n",
+    )
+
+    got = install(
+        _spec(assets="assets/forge.agent"),
+        staged_package=str(pkg),
+        config_dir=str(tmp_path / "config"),
+    )
+
+    (inproc,) = [o for o in got.report if "in-process tool(s)" in o.message]
+    assert inproc.details["tools"] == ["<unnamed>"]

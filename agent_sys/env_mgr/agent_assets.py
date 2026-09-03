@@ -230,6 +230,20 @@ MCP_SUFFIX = ".mcp.py"
 #: A module exposing ``TOOLS: list[ToolDef]``, imported into the supervisor.
 TOOLDEF_SUFFIX = ".tooldef.py"
 
+#: The MCP server name an in-process `ToolDef` is addressed under — the model
+#: calls ``mcp__env_mgr__<tool>``.
+#:
+#: **Owned by `agent/backends/claude_sdk.py::_TOOL_SERVER`, and duplicated here
+#: because this package may not import `agent`** (`interfaces.md` §4.6, checked
+#: by `test_env_mgr_imports_nothing_of_ours_but_task_graph`). That is a second
+#: writer for one fact and it is a real cost, accepted for a narrow reason: this
+#: copy is only ever *reported*, never used to address anything, so a divergence
+#: makes the install report wrong and breaks no call. If the two ever need to
+#: agree functionally, the name belongs in a place both may import — which does
+#: not exist today, and inventing one for a report string would be
+#: `engineer_principle.md` §2's failure mode.
+IN_PROCESS_SERVER = "env_mgr"
+
 #: What a ``*.tooldef.py`` must expose. A module-level name rather than a
 #: factory call, so that reading the file tells a reviewer what it publishes
 #: without running it in their head.
@@ -1047,7 +1061,23 @@ def _mcp_servers(
         for key, value in declared.items():
             servers[str(key)] = _expand(value, environ, where=f"{path} ({key})")
         out.append(
-            InstallOutcome("ok", f"{len(declared)} external MCP server(s) from {origin}", {})
+            InstallOutcome(
+                "ok",
+                f"{len(declared)} external MCP server(s) from {origin}",
+                # **The names, not the count.** This recorded `{}`, and it is
+                # the one route of the three whose key is chosen by an author in
+                # a data file — so it is the only one that can silently be about
+                # a *different* server than the reader expects. `Prepared.mcp_servers`
+                # goes supervisor -> backend and is written down nowhere else, so
+                # the install report is the only artefact that could carry the
+                # evidence, and it carried a number.
+                #
+                # What this buys is narrow and worth stating: it catches
+                # *declared nowhere* at prepare time, before the agent starts. It
+                # does **not** catch a server that is declared and fails to start
+                # — that is the `args[0]` existence assertion, or a handshake.
+                {"names": sorted(str(k) for k in declared)},
+            )
         )
 
     for source in _tool_files(tree, MCP_SUFFIX):
@@ -1071,7 +1101,15 @@ def _mcp_servers(
             )
         servers[name] = {"type": "stdio", "command": sys.executable, "args": [placed]}
         out.append(
-            InstallOutcome("ok", f"bundled MCP server {name!r} from {origin}", {"path": placed})
+            InstallOutcome(
+                "ok",
+                f"bundled MCP server {name!r} from {origin}",
+                # `server` recorded rather than left to be parsed out of the
+                # message or the path stem. Re-deriving a name a producer
+                # already knew is the same defect one layer down, and it is what
+                # a reader of this report would otherwise have to do.
+                {"server": name, "path": placed},
+            )
         )
     return servers, out
 
@@ -1199,7 +1237,25 @@ def _tooldefs(tree: str, *, origin: str, config_dir: str) -> tuple[list[Any], li
         tools.extend(declared)
         out.append(
             InstallOutcome(
-                "ok", f"{len(declared)} in-process tool(s) from {origin}", {"path": path}
+                "ok",
+                f"{len(declared)} in-process tool(s) from {origin}",
+                # **`tools` is the load-bearing key here, not `server`.**
+                # `IN_PROCESS_SERVER` is a constant — every run has it the moment
+                # any `ToolDef` exists — so a reader comparing only against that
+                # would have a check that cannot fail. The name worth recording
+                # is the **tool's**, which is the half of
+                # ``mcp__env_mgr__<tool>`` an author chooses and the half that
+                # gets mis-addressed.
+                #
+                # `getattr` because a `ToolDef` here is duck-typed by
+                # construction — it is package-authored and this module does not
+                # define the class. A tool with no `.name` cannot be addressed by
+                # the model at all; recorded as such rather than guessed at.
+                {
+                    "server": IN_PROCESS_SERVER,
+                    "tools": [str(getattr(d, "name", "<unnamed>")) for d in declared],
+                    "path": path,
+                },
             )
         )
     return tools, out
