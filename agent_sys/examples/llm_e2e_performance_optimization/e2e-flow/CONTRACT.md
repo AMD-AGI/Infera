@@ -226,6 +226,28 @@ verdict — **a validator that cannot start looks exactly like one that was neve
 asked.** Found by m5 driving their leaves through the graph; twelve of the
 twenty-one validators had it, across all five modules.
 
+**`${VAR:-default}` and `${VAR-default}` are not the same test, and the colon is
+the one that disarms a guard.** m1's, 2026-09-03, found while wiring
+`replayed_from`.
+
+`${VAR:-d}` substitutes when `VAR` is unset **or set-but-empty**. `${VAR-d}`,
+without the colon, substitutes only when it is unset. So a caller that sets a
+name to the empty string **on purpose** — meaning *"I am deliberately not this
+thing"* — is overruled by the colon form and gets the default instead.
+
+What that cost: `check_deploy_kit`'s `gate.sh` sets `MOCK_REPLAYED_FROM=""`
+deliberately, because its fixture stands for a **real** bring-up and must face
+the strict `environment.md` comparison. The empty string fell through to the
+default, the fixture was marked *replayed*, the strict branch was skipped —
+**and the planted `fixed.image` fault went unreported while the gate still
+printed PASS.** The guard did not fail; it stopped testing the rule it exists to
+test, and said nothing.
+
+**A guard that silently disables a check is worse than one that fails**, and
+this is the shell form that does it. Where empty is a meaningful value — a
+deliberate "not set to anything" — use the colonless form, and prefer
+`${VAR?message}` where absence is an error.
+
 **Write both fallbacks in every `entry.sh`, task and validator alike.** A
 validator's *input* phase gets the GLOBAL environment row and **never**
 `AGENT_SYS_TASK_PACKAGE`
