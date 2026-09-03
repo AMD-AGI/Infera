@@ -114,6 +114,91 @@ def find_apply(kopt: Path) -> tuple[Path, Path]:
     return found[0].parent, found[0].parent.parent
 
 
+def workset_integration(workset: str | None, operator_id: str | None) -> tuple[dict, str]:
+    """m3's declared integration point for this operator, or `({}, why)`.
+
+    **M5.1.1 — 优化成果是如何 apply 回 sglang，是应该严格遵循 3 的 handoff 的.**
+    This is the block that lets `apply_patch` stay a program. m3 declares *where a
+    replacement is installed and what it may not change*; m4 declares *what
+    replaces it*. With both, applying is a copy from a named source to a named
+    target plus a check that the target was the declared one. With only m4's, this
+    body would be reading an optimisation report and deciding — a second agent
+    guessing what the first meant.
+
+    Deliberately **not** `edit_target`, which is the neighbouring block: that one
+    says where an *optimiser* edits. The two are usually the same file and are not
+    the same statement.
+    """
+    if not workset:
+        return {}, "this task received no operator_workset input"
+    found = sorted(Path(workset).glob("items/codes/workset.yaml"))
+    if not found:
+        return {}, f"no items/codes/workset.yaml under {workset}"
+    import yaml
+
+    doc = yaml.safe_load(found[0].read_text(encoding="utf-8")) or {}
+    operators = doc.get("operators") or []
+    for op in operators:
+        if not operator_id or op.get("operator_id") == operator_id:
+            block = op.get("integration") or {}
+            if not block:
+                return {}, f"the workset declares operator {op.get('operator_id')!r} with no integration block"
+            block = dict(block)
+            # The target paths are relative to the operator's own repo root, which
+            # is recorded next door. Carrying it here means the comparison below is
+            # against a fully-qualified container path rather than a suffix.
+            block["_repo_root_var"] = (op.get("edit_target") or {}).get("repo_root_var")
+            return block, ""
+    return {}, f"the workset declares no operator {operator_id!r} (has: {[o.get('operator_id') for o in operators]})"
+
+
+def check_against_workset(manifest: dict, integration: dict) -> list[str]:
+    """m4's apply block against m3's declared integration point.
+
+    Every rule here catches a disagreement between two stages that would
+    otherwise be discovered as a deployment quietly running stock code.
+    """
+    bad: list[str] = []
+    root = integration.get("_repo_root_var") or ""
+    declared = set()
+    for rel in integration.get("target_files") or []:
+        declared.add(f"{root}/{rel}" if root else rel)
+        declared.add(rel)
+
+    for i, entry in enumerate(manifest.get("files") or []):
+        path = entry.get("container_path", "")
+        if not declared:
+            continue
+        # Compare on the declared form and on the tail, because m3 writes the
+        # path relative to the repo root and m4 writes it with the placeholder.
+        tail = path.split("@", 2)[-1].lstrip("/")
+        if path not in declared and not any(d.endswith(tail) or tail.endswith(d.lstrip("@").split("/", 1)[-1])
+                                            for d in declared):
+            bad.append(
+                f"files[{i}] installs {path!r}, which is not among the workset's declared "
+                f"target_files {sorted(integration.get('target_files') or [])}. m3 decided where "
+                "a replacement goes when it built the workset; a patch landing somewhere else is "
+                "two stages disagreeing about what is being optimised."
+            )
+
+    want = integration.get("apply_mode")
+    if want and manifest.get("apply_mode") != want:
+        bad.append(
+            f"the workset declares apply_mode {want!r} and the optimisation says "
+            f"{manifest.get('apply_mode')!r}"
+        )
+    # `build_step` is the workset saying this operator cannot be installed by
+    # copying a file. Honouring it here is what stops a patch that needs
+    # compiling being mounted, never executed, and reported as no regression.
+    if integration.get("build_step"):
+        bad.append(
+            f"the workset declares a build_step ({integration['build_step']!r}), so this "
+            "operator cannot be installed as a read-only overlay. That needs the image "
+            "rebuilt, which this stage does not implement."
+        )
+    return bad
+
+
 def check_apply_manifest(manifest: dict, apply_dir: Path, packup: Path) -> list[str]:
     """Every reason m4's apply block cannot be applied. Empty list means it can.
 
@@ -214,6 +299,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--kernel-optimization", required=True, help="m4's staged content directory")
     ap.add_argument("--deploy-kit", required=True, help="m1's staged content directory, for the environment record")
+    ap.add_argument("--operator-workset", default=None,
+                    help="m3's staged content directory, for the declared integration point (M5.1.1)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--package", required=True)
     args = ap.parse_args()
@@ -227,6 +314,23 @@ def main() -> int:
     work_root = env("E2E_WORK_ROOT")
 
     bad = check_apply_manifest(manifest, apply_dir, packup)
+
+    # M5.1.1: the workset decided where a replacement is installed; this checks
+    # that m4's block agrees. Reported as a note rather than a refusal when the
+    # workset carries no such block, because an older workset predates it and
+    # failing on its absence would refuse correct work — but a block that is
+    # present and disagrees is a hard stop, since it means two stages have
+    # different ideas about what is being optimised.
+    integration, why = workset_integration(args.operator_workset, manifest.get("operator_id"))
+    if integration:
+        print(f"apply: workset declares {integration.get('public_symbol')!r} in "
+              f"{integration.get('target_files')}, apply_mode {integration.get('apply_mode')!r}")
+        bad += check_against_workset(manifest, integration)
+    else:
+        print(f"apply: NOTE no declared integration point to check against — {why}. "
+              "The patch is applied on the optimisation's own say-so; M5.1.1 wants m3's "
+              "workset to be the authority on where a replacement goes.")
+
     if bad:
         for line in bad:
             print(f"apply: {line}", file=sys.stderr)

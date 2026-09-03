@@ -41,5 +41,6 @@ if [ "$rc" -ne 3 ]; then exit "$rc"; fi
 exec "${AGENT_SYS_DEMO_PYTHON:-python3}" "$PKG/assets/apply_patch.task/apply.py" \
   --kernel-optimization "${AGENT_SYS_INPUT_KERNEL_OPTIMIZATION:?AGENT_SYS_INPUT_KERNEL_OPTIMIZATION is unset}" \
   --deploy-kit "${AGENT_SYS_INPUT_DEPLOY_KIT:?AGENT_SYS_INPUT_DEPLOY_KIT is unset}" \
+  --operator-workset "${AGENT_SYS_INPUT_OPERATOR_WORKSET:-}" \
   --out "${AGENT_SYS_OUTPUT_PATCH_OVERLAY:?AGENT_SYS_OUTPUT_PATCH_OVERLAY is unset}" \
   --package "$PKG"
