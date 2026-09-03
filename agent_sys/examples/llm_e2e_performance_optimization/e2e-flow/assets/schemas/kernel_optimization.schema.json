@@ -91,52 +91,94 @@
     "apply": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["mode", "integration_point", "files"],
-      "description": "M5.1.1: 优化成果是如何 apply 回 sglang，是应该严格遵循 3 的 handoff 的.\n\nWritten against the workset's **declared** integration point — `operators[].edit_target` — and not against whatever file the optimiser happened to edit. That is the whole of what lets m5's `apply_patch` stay a program instead of a judgement call: with this block, applying is a copy from a named source to a named target; without it, m5 has to read an optimisation report and decide.",
+      "required": ["apply_mode", "manifest", "integration_point", "files"],
+      "description": "M5.1.1: 优化成果是如何 apply 回 sglang，是应该严格遵循 3 的 handoff 的.\n\n**This block is patchkit's manifest, in patchkit's own vocabulary.** m5's `apply_patch` reads `apply/manifest.json` and is a program precisely because it reads rather than judges, so m4 emits the fields that program already takes — `container_path`, `base_sha256`, `change`, `replacement` — rather than a second spelling of the same four facts that somebody has to translate. The full contract is the `CONTRACT` constant in `assets/apply_patch.task/apply.py`, and a missing block makes it print itself.\n\nWhat this block adds over that manifest is `integration_point`: the workset's **declared** `edit_target`, so that the apply is provably written against what m3 published and not against whatever file the optimiser happened to open. `check_optimization_shape` compares the two and checks each `container_path` resolves to the declared source file. That comparison is the whole of M5.1.1 and it is the reason this is not simply a pointer at the manifest.",
       "properties": {
-        "mode": {
+        "apply_mode": {
           "const": "overlay_files",
-          "description": "One value, and the alternative is deferred rather than unimagined: M5.3 says the mechanism should hack sglang's registry or the import machinery rather than replace whole files, and then says 但现在就这样吧 (`todo.md` T5). A second mode would mean two proofs that the patch is live, and the proof is the expensive half."
+          "description": "One value, and the alternative is deferred rather than unimagined: M5.3 says the mechanism should hack sglang's registry or the import machinery rather than replace whole files, and then says 但现在就这样吧 (`todo.md` T5). A second mode would mean two proofs that the patch is live, and the proof is the expensive half.\n\nNamed `apply_mode` and not `mode` because that is what patchkit calls it. One vocabulary."
+        },
+        "manifest": {
+          "const": "apply/manifest.json",
+          "description": "Packup-relative path to the manifest m5 actually opens. Fixed rather than free: `apply_patch` globs `*/apply/manifest.json` and a manifest anywhere else is a manifest it will not find. `check_optimization_shape` verifies the file exists and that its `files[]` agree with this block's, so the two cannot drift."
+        },
+        "image": {
+          "type": "string",
+          "description": "The image the optimisation was measured against. m5 compares it to the image it is applying into and prints a NOTE when they differ — a patch cut against one image and applied to another is not automatically wrong, and it is never automatically right either."
+        },
+        "logical_operator": {
+          "type": "string",
+          "description": "patchkit's name for what the operator is called in the engine, as opposed to `operator` which is the workset's id for it. The two are usually the same string and are allowed not to be."
         },
         "integration_point": {
           "type": "object",
           "additionalProperties": true,
           "required": ["source_file", "entry_function"],
-          "description": "Copied from the workset's `operators[].edit_target`. `check_optimization_shape` compares it field-for-field against the snapshot: an `apply` written against a different file than the workset declared is the failure this block exists to make impossible.",
+          "description": "Copied from the workset's `operators[].edit_target`. `check_optimization_shape` compares it field-for-field against the carried snapshot, and separately checks that every `container_path` below resolves to this file: an `apply` written against a different file than the workset declared is the failure this block exists to make impossible.",
           "properties": {
             "source_file": {"type": "string", "minLength": 1},
             "entry_function": {"type": "string", "minLength": 1},
             "entry_function_line": {"type": "integer", "minimum": 1},
-            "repo_root_var": {"type": "string", "pattern": "^\\$\\{[A-Z_][A-Z0-9_]*\\}$"}
+            "repo_root_var": {
+              "type": "string",
+              "pattern": "^(\\$\\{[A-Z_][A-Z0-9_]*\\}|@[A-Z_][A-Z0-9_]*@)?$",
+              "description": "Three legal forms, and all three occur. `@NAME@` is what this package's `assets/lib/container_roots.yaml` writes and the only form that survives the seal — `handoff/locality.py`'s lookbehind excludes `@` but not `}`, so `${SGLANG_ROOT}/srt/x.py` leaves `/srt/x.py` as a fresh absolute-path candidate and is refused anyway. `${NAME}` is what the sealed artefact writes and is accepted so a mock of it validates. **Empty means the owner is unknown**, which is a real state rather than an omission: three of the top routable candidates on the real 124-kernel table are Triton kernels no owner rule matches."
+            }
           }
         },
         "files": {
           "type": "array",
           "minItems": 1,
-          "description": "One entry per file the overlay replaces or adds.",
+          "description": "One entry per file the overlay replaces or adds, in patchkit's shape. Mirrored into `apply/manifest.json`, which is the copy m5 reads.",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["source", "target", "sha256", "action"],
+            "required": ["container_path", "base_sha256", "change"],
+            "oneOf": [
+              {"required": ["replacement"], "not": {"required": ["patch"]}},
+              {"required": ["patch"], "not": {"required": ["replacement"]}}
+            ],
             "properties": {
-              "source": {
+              "container_path": {
+                "type": "string",
+                "pattern": "^@[A-Z_][A-Z0-9_]*@/[^\\s]+$",
+                "description": "`@ROOT@/...` form, always. An absolute container path cannot be sealed: `handoff/locality.py` refuses content naming a path outside a small allow-list and scans every UTF-8 file, so `/sgl-workspace/sglang/python/sglang/srt/layers/sampler.py` cannot be published at all. The roots are in `assets/lib/container_roots.yaml`; `SGLANG_ROOT` expands to `/sgl-workspace/sglang/python/sglang`.\n\nThe rule is right for what it defends against — a record of one machine's afternoon is not transferable — and wrong here, because a container path is a fact about an image rather than about a machine. The framework has a mechanism for exactly this and the two ends are not wired together (`temp/bugs/002-handoff-dependencies-never-reach-locality-check.md`)."
+              },
+              "base_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$",
+                "description": "The hash of the **stock** file this was cut against, not of the replacement. m5 pulls the file out of the image, hashes it, and refuses on a mismatch — which is what makes 'this patch belongs to this image' checkable rather than asserted."
+              },
+              "change": {"type": "string", "enum": ["modify", "add"]},
+              "replacement": {
                 "type": "string",
                 "pattern": "^[A-Za-z0-9_.][A-Za-z0-9_./-]*$",
-                "description": "Packup-relative. An absolute path here is a path that will not exist for the reproducer, and `handoff/locality.py` refuses most of them at the seal anyway."
+                "description": "Packup-relative path to the whole replacement file, e.g. `results/optimized_kernel.py`. **This is the half m4 uses.** m4's real artefact is a whole optimised kernel file rather than a diff, and `apply_patch` generates the diff from stock→replacement itself so that `patch_overlay` keeps one shape downstream. Do not hand-roll a diff."
               },
-              "target": {
+              "patch": {
                 "type": "string",
-                "minLength": 1,
-                "description": "Repo-relative inside the engine, e.g. `python/sglang/srt/layers/sampler.py`. Repo-relative and not absolute for the same reason: the container path is m5's to decide."
-              },
-              "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-              "action": {"type": "string", "enum": ["replace", "add"]},
-              "mode": {
-                "type": "string",
-                "pattern": "^0[0-7]{3}$",
-                "description": "Optional, and almost always wrong to set. Recorded 2026-09-01: a run created a directory at 0644, wrote seven files into it, and could not read them back — a directory without its execute bit cannot be traversed by anyone, including its owner."
+                "pattern": "^apply/patches/[A-Za-z0-9_.-]+\\.patch$",
+                "description": "The alternative to `replacement`: a unified diff under `apply/patches/`. Legal, and not the path m4 normally takes."
               }
             }
+          }
+        },
+        "runtime_marker": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Regexes that prove the patched code was **entered**, not merely present. **Declare this if you can.** With it, m5's `check_patch_live` upgrades from *the patched bytes were on disk inside the container* to *the patched code ran*; without it that validator still passes and says in its findings what it could not show — honest, and strictly less proof that the kernel this whole stage is about ever executed.",
+          "properties": {
+            "import": {"type": "string", "minLength": 1},
+            "first_call": {"type": "string", "minLength": 1}
+          }
+        },
+        "expect": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "What m5 should expect to see, so that it can say so when it does not.",
+          "properties": {
+            "source": {"type": "string"},
+            "speedup": {"type": "number", "exclusiveMinimum": 0}
           }
         },
         "must_preserve": {

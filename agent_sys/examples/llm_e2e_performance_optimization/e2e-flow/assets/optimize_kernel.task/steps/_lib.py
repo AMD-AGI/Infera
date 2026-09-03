@@ -24,6 +24,8 @@ DOC = "results/kernel_optimization.json"
 SNAPSHOT = "results/workset.snapshot.yaml"
 BASELINE_REPORT = "results/workset.baseline_report.json"
 APPARATUS = "scripts/workset"
+#: patchkit's manifest, where `apply_patch` globs for it (`*/apply/manifest.json`).
+APPLY_MANIFEST = "apply/manifest.json"
 
 
 def die(message: str, code: int = 1) -> "None":
@@ -171,6 +173,64 @@ def report_medians(report: dict, operator_id: str) -> dict[str, float]:
             if isinstance(value, (int, float)) and shape.get("case_id"):
                 out[str(shape["case_id"])] = float(value)
     return out
+
+
+def container_path_for(source_file: str) -> str | None:
+    """The workset's repo-relative `edit_target.source_file` as `@ROOT@/...`.
+
+    Two frames for one file. The workset is repo-relative
+    (`python/sglang/srt/layers/sampler.py`); patchkit's manifest is
+    root-relative against `assets/lib/container_roots.yaml`
+    (`@SGLANG_ROOT@/srt/layers/sampler.py`, where `SGLANG_ROOT` is
+    `/sgl-workspace/sglang/python/sglang`).
+
+    **`@NAME@` and never `${NAME}`**, and the reason is mechanical rather than
+    stylistic: `handoff/locality.py` refuses to seal content naming an absolute
+    path outside a small allow-list, and its lookbehind excludes `@` but not
+    `}` — so `${SGLANG_ROOT}/srt/x.py` leaves `/srt/x.py` as a fresh
+    two-segment candidate and is refused anyway.
+
+    Returns `None` when no configured root's tail matches, which is a refusal
+    rather than a guess: a container path invented here would be applied to a
+    real image by m5.
+    """
+    roots = load_yaml(package() / "assets" / "lib" / "container_roots.yaml").get("roots") or {}
+    normalised = str(source_file).lstrip("/")
+    best: tuple[int, str] | None = None
+    for name, entry in roots.items():
+        tail = str((entry or {}).get("path") or "").strip("/").split("/")
+        # Longest suffix of the root's path that is also a prefix of the
+        # source file. `/sgl-workspace/sglang/python/sglang` against
+        # `python/sglang/srt/...` shares `python/sglang`.
+        for length in range(len(tail), 0, -1):
+            prefix = "/".join(tail[-length:]) + "/"
+            if normalised.startswith(prefix):
+                if best is None or length > best[0]:
+                    best = (length, f"@{name}@/{normalised[len(prefix):]}")
+                break
+    return best[1] if best else None
+
+
+def expand_container_path(container_path: str) -> Path | None:
+    """`@SGLANG_ROOT@/srt/x.py` -> the real path, using `container_roots.yaml`.
+
+    Resolvable **because m1 through m4 share one container** (CONTRACT §5): the
+    engine tree m5 will patch is on this filesystem right now. Outside that
+    container it returns a path that does not exist, and every caller treats a
+    missing file as a refusal rather than as a zero hash.
+    """
+    if not container_path.startswith("@") or "@/" not in container_path:
+        return None
+    name, _, relative = container_path[1:].partition("@/")
+    roots = load_yaml(package() / "assets" / "lib" / "container_roots.yaml").get("roots") or {}
+    root = (roots.get(name) or {}).get("path")
+    return Path(str(root)) / relative if root else None
+
+
+def sha256_of(path: Path) -> str:
+    import hashlib
+
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def scratch() -> Path:

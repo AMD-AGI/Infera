@@ -330,6 +330,19 @@ def _check_denominator(doc: dict, baseline_report: dict, problems: list[str], no
     performance = (doc.get("evidence") or {}).get("performance") or {}
     claimed = (performance.get("baseline") or {}).get("per_case_ms") or {}
 
+    # `evidence/performance.json` and the report a candidate run writes are the
+    # **same document shape**, distinguished only by `impl`. That is m3's design
+    # and it is what makes a speedup a ratio between two runs of one instrument
+    # — and it also means a producer that carried the wrong one forward would
+    # be dividing a candidate by a candidate. One field, checked once.
+    impl = baseline_report.get("impl")
+    if impl != "baseline":
+        problems.append(
+            f"{_BASELINE_REPORT} has impl={impl!r}, not 'baseline'. The denominator must be the "
+            "workset's baseline run, and a candidate report has the same shape as one (M4.3.5)"
+        )
+        return
+
     truth: dict[str, float] = {}
     for entry in baseline_report.get("operators") or ():
         if not isinstance(entry, dict) or entry.get("operator_id") != doc.get("operator"):
@@ -402,26 +415,30 @@ def _run_entrypoint(
 ) -> str | None:
     """The workset's own performance entrypoint. Returns an error string or `None`.
 
-    **The three flag names are `args`, not literals, and the reason is that this
-    body must not invent the workset's CLI.** `workset.schema.json`'s
-    `$defs/entrypoint` fixes `cmd` and `report` and says nothing about how a
-    candidate implementation is selected, while its `$defs/performance_report`
-    carries `impl` and `impl_path` — so a selector exists and its spelling is
-    m3's to declare. Until it is declared in the schema these defaults are the
-    convention, and a workset that spells it differently sets the three `args`
-    rather than being silently mis-driven.
+    The contract m3 shipped is::
+
+        ./run_performance.sh [--operator ID] [--impl PATH] [--shape CASE_ID] [--json OUT]
+
+    **No `--impl` means the workset's own baseline; `--impl PATH` means the
+    candidate**, judged against the same reference, the same shapes and the same
+    protocol. So a speedup is a ratio between two runs of one instrument, which
+    is the property that makes any of this comparable.
+
+    The two flag names stay `args` rather than literals. Not because the
+    contract is unsettled — it is settled — but because this body and
+    `optimize_kernel`'s `steps/run_entrypoint.py` must drive the workset
+    *identically*, and a pair of literals in two files is a pair that can be
+    edited apart. **The failure mode if they ever disagree is silent**: a wrong
+    flag that makes the entrypoint run the baseline while this body records it
+    as the candidate produces two measurements of the same code, a ratio of
+    1.000, and no error anywhere.
     """
     argv = [
         *cmd.split(),
-        str(args.get("report_flag") or "--report"), str(report),
+        str(args.get("report_flag") or "--json"), str(report),
     ]
     if impl_path is not None:
-        argv += [
-            str(args.get("impl_flag") or "--impl"), "candidate",
-            str(args.get("impl_path_flag") or "--impl-path"), str(impl_path),
-        ]
-    else:
-        argv += [str(args.get("impl_flag") or "--impl"), "baseline"]
+        argv += [str(args.get("impl_flag") or "--impl"), str(impl_path)]
     try:
         proc = subprocess.run(
             argv, capture_output=True, text=True, cwd=root, env=env, timeout=timeout

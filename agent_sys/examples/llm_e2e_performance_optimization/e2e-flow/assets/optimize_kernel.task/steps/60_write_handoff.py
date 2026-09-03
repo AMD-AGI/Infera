@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import re
 import shutil
 import sys
 from datetime import date
@@ -88,6 +89,101 @@ def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     digest.update(path.read_bytes())
     return digest.hexdigest()
+
+
+#: Container roots whose contents **cannot** be delivered as an overlay.
+#: `container_roots.yaml` says it of `SGL_KERNEL_ROOT` in as many words: those
+#: are compiled sources, a change needs the image rebuilt, *and `apply_mode`
+#: must say so*. `overlay_files` over one of them bind-mounts a `.cpp` nothing
+#: will recompile — the patch is provably on disk, `check_patch_live` can even
+#: confirm the bytes, and the running engine executes the stock binary.
+_NOT_OVERLAYABLE = ("@SGL_KERNEL_ROOT@",)
+
+
+def _apply_block(pinned: dict, target: dict, packup: Path, kernel: Path, premise: dict) -> dict:
+    """patchkit's manifest, in patchkit's vocabulary, plus the M5.1.1 cross-check.
+
+    m5's `apply_patch` is a program because it reads this rather than judging
+    it. The full contract is the `CONTRACT` constant in
+    `assets/apply_patch.task/apply.py`.
+
+    Two refusals here rather than a plausible-looking manifest, because both
+    produce a patch that *applies* and does nothing:
+
+    * no configured container root matches the workset's `source_file`, so the
+      `@ROOT@/...` form would have to be invented — and m5 would apply the
+      invention to a real image;
+    * the file lives under a root whose contents need a rebuild, where
+      `overlay_files` is the wrong mode by the root's own description.
+    """
+    source_file = str(target.get("source_file") or "")
+    container_path = lib.container_path_for(source_file) if source_file else None
+    if source_file and container_path is None:
+        lib.die(
+            f"the workset's integration point {source_file!r} is under no root in "
+            "assets/lib/container_roots.yaml, so its @ROOT@/... form cannot be derived. "
+            "Add the root there rather than writing an absolute path: the seal refuses one, "
+            "and an invented path is one m5 would apply to a real image"
+        )
+    if container_path and container_path.startswith(_NOT_OVERLAYABLE):
+        lib.die(
+            f"{container_path} needs the image rebuilt and cannot be delivered as an overlay "
+            "(see its description in assets/lib/container_roots.yaml). Bind-mounting a compiled "
+            "source produces a patch that is provably on disk and provably not running"
+        )
+
+    files = []
+    if kernel.is_file() and container_path:
+        # The hash of the **stock** file, not of the replacement. m5 pulls the
+        # file out of the image, hashes it, and refuses on a mismatch — that is
+        # what makes "this patch belongs to this image" checkable rather than
+        # asserted, and a wrong value here turns into a refusal two stages later
+        # with no way to tell a stale patch from a typo.
+        #
+        # It is read off the running container rather than taken from the
+        # workset, because m1 through m4 share one container (CONTRACT §5) so
+        # the tree m5 will patch is on this filesystem right now. m3's
+        # `edit_target` does not carry the hash; if it starts to, prefer theirs
+        # and keep this as the cross-check.
+        stock = lib.expand_container_path(container_path)
+        if stock is None or not stock.is_file():
+            lib.die(
+                f"cannot hash the stock file for {container_path} (resolved to {stock}). "
+                "base_sha256 is what lets m5 prove this patch belongs to this image, and a "
+                "placeholder there is a refusal two stages downstream with no way to tell a "
+                "stale patch from a typo. Run this step in the engine's container"
+            )
+        files.append({
+            "container_path": container_path,
+            "base_sha256": lib.sha256_of(stock),
+            "change": "modify",
+            # `replacement`, never a hand-rolled diff: m4's artefact is a whole
+            # file, and `apply_patch` generates the diff from stock->replacement
+            # so `patch_overlay` keeps one shape downstream.
+            "replacement": "results/optimized_kernel.py",
+        })
+
+    block = {
+        "apply_mode": "overlay_files",
+        "manifest": lib.APPLY_MANIFEST,
+        "image": ((premise.get("run_environment") or {}).get("fixed") or {}).get("image"),
+        "logical_operator": str(pinned["operator_id"]),
+        "integration_point": {
+            k: v for k, v in target.items()
+            if k in ("source_file", "entry_function", "entry_function_line", "repo_root_var")
+        },
+        "files": files,
+        "revert": "Remove the overlay and restart the engine; nothing in the stock tree is modified in place.",
+    }
+
+    entry_function = str(target.get("entry_function") or "")
+    if entry_function:
+        # Declaring this upgrades m5's `check_patch_live` from "the patched
+        # bytes were on disk" to "the patched code was entered". Without it the
+        # validator passes and says what it could not show, which is honest and
+        # is strictly less proof that this kernel ever ran.
+        block["runtime_marker"] = {"first_call": re.escape(entry_function) + r"\s*\("}
+    return block
 
 
 def main() -> int:
@@ -171,6 +267,7 @@ def main() -> int:
 
     target = pinned.get("edit_target") or {}
     kernel_path = packup / "results" / "optimized_kernel.py"
+    apply_block = _apply_block(pinned, target, packup, kernel_path, premise)
     document = {
         "schema_version": 1,
         "operator": operator_id,
@@ -182,23 +279,7 @@ def main() -> int:
             "snapshot": lib.SNAPSHOT,
         },
         "premise": premise,
-        "apply": {
-            "mode": "overlay_files",
-            "integration_point": {
-                k: v for k, v in target.items()
-                if k in ("source_file", "entry_function", "entry_function_line", "repo_root_var")
-            },
-            "files": (
-                [{
-                    "source": "results/optimized_kernel.py",
-                    "target": str(target.get("source_file")),
-                    "sha256": _sha256(kernel_path),
-                    "action": "replace",
-                }]
-                if kernel_path.is_file() else []
-            ),
-            "revert": "Remove the overlay and restart the engine; nothing in the stock tree is modified in place.",
-        },
+        "apply": apply_block,
         "evidence": {
             "correctness": {
                 "entrypoint": (pinned["entrypoints"]["correctness"] or {}).get("cmd"),
@@ -284,6 +365,20 @@ def main() -> int:
         }
 
     lib.write_json(packup / lib.DOC, document)
+
+    # The same facts, in the file m5 actually opens. Written from `apply_block`
+    # rather than assembled a second time: two records of one fact that are
+    # built twice are two records that drift, and `check_optimization_shape`
+    # compares them precisely because it has seen that happen.
+    lib.write_json(packup / lib.APPLY_MANIFEST, {
+        "schema_version": 1,
+        "operator_id": operator_id,
+        "logical_operator": apply_block["logical_operator"],
+        "image": apply_block["image"],
+        "apply_mode": apply_block["apply_mode"],
+        "files": apply_block["files"],
+        **({"runtime_marker": apply_block["runtime_marker"]} if "runtime_marker" in apply_block else {}),
+    })
 
     problems = lib.validate("kernel_optimization", document)
     if problems:

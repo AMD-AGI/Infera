@@ -13,9 +13,24 @@ set -eu
 PKG="${AGENT_SYS_TASK_PACKAGE:-${AGENT_SYS_DEMO_PACKAGE:?the runner exports one of these}}"
 
 # `bash`, explicitly: `mock.sh` uses `${!var}` indirect expansion, which dash
-# does not have and which fails as `Bad substitution`. It exits 3 (not 0) when
-# the stage is not selected, so `&& …` is the correct join.
-if bash "$PKG/assets/lib/mock.sh" stage4-kernel-opt kernel_optimization; then
+# does not have and which fails as `Bad substitution`.
+#
+# **Three outcomes, not two, and `|| rc=$?` is what keeps them apart.** `mock.sh`
+# exits 0 having copied, **3** when this stage is not in `E2E_MOCK_STAGES`, and
+# 1 when the copy itself failed. An `if …; then` would fold 1 and 3 together and
+# report a genuine mock failure as "not selected, run it for real" — which under
+# `set -eu` then exits 1 with the wrong sentence attached, and the wrong sentence
+# is what sends somebody looking in the wrong place.
+rc=0
+bash "$PKG/assets/lib/mock.sh" stage4-kernel-opt kernel_optimization || rc=$?
+
+if [ "$rc" -eq 1 ]; then
+  echo "optimize_kernel: mock.sh failed to copy the sealed handoff; not falling through to" >&2
+  echo "the real path, because a mock that half-copied is not an unmocked run." >&2
+  exit 1
+fi
+
+if [ "$rc" -eq 0 ]; then
   # --- MOCK-MAP adaptation (G) ---------------------------------------------
   #
   # The sealed stage-4 artefact predates two fields this contract requires, and

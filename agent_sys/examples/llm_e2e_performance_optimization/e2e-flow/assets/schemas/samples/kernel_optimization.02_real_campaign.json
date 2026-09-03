@@ -75,7 +75,10 @@
     }
   },
   "apply": {
-    "mode": "overlay_files",
+    "apply_mode": "overlay_files",
+    "manifest": "apply/manifest.json",
+    "image": "lmsysorg/sglang:v0.5.17-rocm720-mi35x",
+    "logical_operator": "sampler_vocab_softmax",
     "integration_point": {
       "source_file": "python/sglang/srt/layers/sampler.py",
       "entry_function": "sampler_softmax",
@@ -84,10 +87,10 @@
     },
     "files": [
       {
-        "source": "results/optimized_kernel.py",
-        "target": "python/sglang/srt/layers/sampler_softmax_kernel.py",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        "action": "add"
+        "container_path": "@SGLANG_ROOT@/srt/layers/sampler.py",
+        "base_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "change": "modify",
+        "replacement": "results/optimized_kernel.py"
       }
     ],
     "must_preserve": {
@@ -95,7 +98,15 @@
       "dtype": "fp32",
       "no_build_step": true
     },
-    "revert": "Remove the overlay file and restart the engine. Nothing in the stock tree was modified; `action: add` means the target did not exist before."
+    "revert": "Remove the overlay file and restart the engine. Nothing in the stock tree was modified; `action: add` means the target did not exist before.",
+    "runtime_marker": {
+      "import": "sampler_softmax_kernel",
+      "first_call": "sampler_softmax\\("
+    },
+    "expect": {
+      "source": "forge",
+      "speedup": 2.5854
+    }
   },
   "evidence": {
     "correctness": {

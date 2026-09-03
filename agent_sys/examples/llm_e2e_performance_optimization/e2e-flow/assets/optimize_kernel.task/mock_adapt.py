@@ -35,9 +35,9 @@ deliberately, the way MOCK-MAP (E) uses the refused `integration_report`.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -127,6 +127,49 @@ def main() -> int:
     target = operator.get("edit_target") or {}
     kernel = packup / "results" / "optimized_kernel.py"
 
+    # --- the apply block ----------------------------------------------------
+    #
+    # A real run reads `base_sha256` off the engine tree in its own container
+    # (`60_write_handoff.py`). A mock may be running on a login node with no
+    # engine tree at all, so it hashes what it can and **says which**: the real
+    # stock file when it is reachable, and otherwise the sealed replacement,
+    # marked in `notes`. A mock that quietly writes a well-formed hash of the
+    # wrong file is one m5 would refuse two stages later with no way to tell a
+    # stale patch from a fabricated one.
+    container_path = lib.container_path_for(str(target.get("source_file") or "")) or ""
+    stock = lib.expand_container_path(container_path) if container_path else None
+    if stock is not None and stock.is_file():
+        base_sha256, sha_source = lib.sha256_of(stock), "the engine tree in this container"
+    elif kernel.is_file():
+        base_sha256, sha_source = lib.sha256_of(kernel), "the sealed replacement (NO ENGINE TREE REACHABLE)"
+    else:
+        base_sha256, sha_source = "0" * 64, "nothing (NO ENGINE TREE AND NO KERNEL)"
+
+    apply_block = {
+        "apply_mode": "overlay_files",
+        "manifest": lib.APPLY_MANIFEST,
+        "image": ((run_env.get("fixed") or {}).get("image")),
+        "logical_operator": operator_id,
+        "integration_point": {
+            k: v for k, v in target.items()
+            if k in ("source_file", "entry_function", "entry_function_line", "repo_root_var")
+        },
+        "files": (
+            [{
+                "container_path": container_path,
+                "base_sha256": base_sha256,
+                "change": "modify",
+                "replacement": "results/optimized_kernel.py",
+            }]
+            if kernel.is_file() and container_path else []
+        ),
+        "revert": "Remove the overlay and restart the engine.",
+    }
+    if target.get("entry_function"):
+        apply_block["runtime_marker"] = {
+            "first_call": re.escape(str(target["entry_function"])) + r"\s*\("
+        }
+
     document = {
         "schema_version": 1,
         "operator": operator_id,
@@ -138,23 +181,7 @@ def main() -> int:
             "snapshot": lib.SNAPSHOT,
         },
         "premise": premise,
-        "apply": {
-            "mode": "overlay_files",
-            "integration_point": {
-                k: v for k, v in target.items()
-                if k in ("source_file", "entry_function", "entry_function_line", "repo_root_var")
-            },
-            "files": (
-                [{
-                    "source": "results/optimized_kernel.py",
-                    "target": str(target.get("source_file")),
-                    "sha256": hashlib.sha256(kernel.read_bytes()).hexdigest(),
-                    "action": "replace",
-                }]
-                if kernel.is_file() else []
-            ),
-            "revert": "Remove the overlay and restart the engine.",
-        },
+        "apply": apply_block,
         "evidence": {
             "correctness": {
                 "entrypoint": ((lib.entrypoints(workset, operator).get("correctness")) or {}).get("cmd"),
@@ -200,7 +227,8 @@ def main() -> int:
             "adaptation (G) rendered `premise`, `apply`, the workset snapshot and the carried "
             "baseline report from the workset staged as this task's input, because the sealed "
             "artefact predates all four. Every measurement is the sealed run's; every rendered "
-            "field is a copy of the staged workset's."
+            "field is a copy of the staged workset's. apply.files[].base_sha256 was hashed from "
+            f"{sha_source}."
             + (
                 " `--premise mismatched`: the workset environment's gpu_arch was set to gfx942 to "
                 "reproduce the sealed run's own abort, which is the only cheap test of the abort "
@@ -209,6 +237,15 @@ def main() -> int:
             )
         ),
     }
+    lib.write_json(packup / lib.APPLY_MANIFEST, {
+        "schema_version": 1,
+        "operator_id": operator_id,
+        "logical_operator": apply_block["logical_operator"],
+        "image": apply_block["image"],
+        "apply_mode": apply_block["apply_mode"],
+        "files": apply_block["files"],
+        **({"runtime_marker": apply_block["runtime_marker"]} if "runtime_marker" in apply_block else {}),
+    })
     lib.write_json(packup / lib.DOC, document)
 
     problems = lib.validate("kernel_optimization", document)

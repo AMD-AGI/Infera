@@ -90,18 +90,20 @@
     # lost at its most expensive point.
     scratch_dir: '${scratch_root:-/mnt/m2m_nobackup/yihou/e2e_flow/kfo}/substantiate'
 
-    # **The one assumption in this body that needs m3 to confirm it.**
-    # `workset.schema.json`'s `$defs/entrypoint` fixes `cmd` and `report` and
-    # says nothing about how a *candidate* implementation is selected, while its
-    # `$defs/performance_report` carries `impl` and `impl_path` — so a selector
-    # exists and its spelling is m3's to declare. These three are the convention
-    # until it is; a workset that spells it differently re-points them rather
-    # than being silently mis-driven. `optimize_kernel`'s own
-    # `steps/run_entrypoint.py` reads the same three from `KFO_*` and the two
-    # must agree.
-    report_flag: '--report'
+    # m3's shipped entrypoint contract:
+    #   ./run_performance.sh [--operator ID] [--impl PATH] [--shape CASE_ID] [--json OUT]
+    # No `--impl` is the workset's own baseline; `--impl PATH` is the candidate,
+    # against the same reference, shapes and protocol.
+    #
+    # Kept as `args` rather than literals not because the contract is unsettled
+    # — it is settled — but because this validator and `optimize_kernel`'s
+    # `steps/run_entrypoint.py` must drive the workset **identically**, and two
+    # sets of literals in two files can be edited apart. The failure mode if
+    # they diverge is silent: a flag that runs the baseline while the caller
+    # records it as the candidate yields two measurements of the same code, a
+    # ratio of 1.000, and no error anywhere.
+    report_flag: '--json'
     impl_flag: '--impl'
-    impl_path_flag: '--impl-path'
   tags:
     logic_source: external_dynamic
     cost: gpu_hours
@@ -149,6 +151,7 @@
       - results/workset.baseline_report.json
       - results/optimized_kernel.py
       - results/forge_result.json
+      - apply/manifest.json
   tags:
     logic_source: external_static
     cost: seconds
@@ -293,9 +296,8 @@
     # See `check_speedup_substantiated`'s `args`: how a candidate implementation
     # is selected is not in `workset.schema.json` yet, and these two sides must
     # agree.
-    KFO_REPORT_FLAG: '${report_flag:---report}'
+    KFO_REPORT_FLAG: '${report_flag:---json}'
     KFO_IMPL_FLAG: '${impl_flag:---impl}'
-    KFO_IMPL_PATH_FLAG: '${impl_path_flag:---impl-path}'
     # MOCK-MAP adaptation (G): `mismatched` reproduces the sealed run's
     # gfx942-vs-gfx950 abort on purpose, as the only cheap test of the abort
     # path. `held` is the default because a real run of this flow shares one

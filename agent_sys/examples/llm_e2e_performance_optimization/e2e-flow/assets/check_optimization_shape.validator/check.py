@@ -106,6 +106,24 @@ def _load_yaml(path: Path):
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
+def _load_json(path: Path, problems: list[str]) -> dict | None:
+    """A JSON object, or `None` with the reason recorded. Never raises.
+
+    A validator body that dies on a malformed input reports nothing at all —
+    `PhaseRunner` sees a non-zero exit and no `verdict.json`, which is a
+    different and much less useful failure than "this file does not parse".
+    """
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        problems.append(f"{path.name} does not parse: {exc}")
+        return None
+    if not isinstance(loaded, dict):
+        problems.append(f"{path.name} is a {type(loaded).__name__}, expected an object")
+        return None
+    return loaded
+
+
 def _operator_of(snapshot: dict, operator_id: str) -> dict | None:
     for entry in snapshot.get("operators") or ():
         if isinstance(entry, dict) and entry.get("operator_id") == operator_id:
@@ -371,12 +389,82 @@ def _check(content: Path, args: dict, problems: list[str], notes: list[str]) -> 
         elif target.stat().st_size == 0:
             problems.append(f"evidence {rel} is empty")
 
-    for entry in ((doc or {}).get("apply") or {}).get("files") or ():
-        source = packup / str(entry.get("source"))
-        if not source.is_file():
-            problems.append(f"apply names {entry.get('source')!r}, which is not in the packup")
+    if doc is not None:
+        _check_apply(doc, packup, problems)
 
     return not problems
+
+
+def _check_apply(doc: dict, packup: Path, problems: list[str]) -> None:
+    """The apply block, `apply/manifest.json`, and the two agreeing.
+
+    m5's `apply_patch` is a program because it *reads* the manifest rather than
+    judging it, so three things have to hold and none of them is about taste:
+    the manifest is where `apply_patch` globs for it, it says what the document
+    says, and every file it names is one the workset declared and one the packup
+    actually carries.
+    """
+    apply = doc.get("apply") or {}
+    manifest_rel = str(apply.get("manifest") or "apply/manifest.json")
+    manifest_path = packup / manifest_rel
+
+    if not manifest_path.is_file():
+        problems.append(
+            f"missing {manifest_rel} — `apply_patch` globs `*/apply/manifest.json` and a manifest "
+            "anywhere else is one it will not find (see the CONTRACT constant in "
+            "assets/apply_patch.task/apply.py)"
+        )
+        manifest = None
+    else:
+        manifest = _load_json(manifest_path, problems)
+
+    declared = str(((apply.get("integration_point") or {}).get("source_file")) or "")
+    entries = apply.get("files") or []
+
+    for index, entry in enumerate(entries):
+        where = f"apply.files[{index}]"
+        container_path = str(entry.get("container_path") or "")
+
+        # The container path must be the file the WORKSET declared. The two are
+        # written in different frames — the workset is repo-relative
+        # (`python/sglang/srt/layers/sampler.py`) and the manifest is
+        # root-relative (`@SGLANG_ROOT@/srt/layers/sampler.py`, and SGLANG_ROOT
+        # is `/sgl-workspace/sglang/python/sglang`) — so they are compared by
+        # the part they share rather than by a mapping this body would have to
+        # hard-code and keep in step with `container_roots.yaml`.
+        if declared and container_path:
+            tail = container_path.split("@", 2)[-1].lstrip("/")
+            if not (declared.endswith(tail) or tail.endswith(declared.lstrip("/"))):
+                problems.append(
+                    f"{where}.container_path {container_path!r} is not the file the workset "
+                    f"declared as its integration point ({declared!r}). M5.1.1: the apply is "
+                    "written against the workset's edit_target, not against whatever file the "
+                    "optimiser happened to open"
+                )
+
+        replacement = entry.get("replacement")
+        if replacement and not (packup / str(replacement)).is_file():
+            problems.append(f"{where}.replacement names {replacement!r}, which is not in the packup")
+        patch = entry.get("patch")
+        if patch and not (packup / str(patch)).is_file():
+            problems.append(f"{where}.patch names {patch!r}, which is not in the packup")
+
+    # The manifest is the copy m5 opens; the document is the copy every other
+    # consumer reads. Two records of one fact is a drift waiting to happen, so
+    # they are compared rather than trusted.
+    if manifest is not None:
+        if manifest.get("files") != entries:
+            problems.append(
+                f"{manifest_rel} and the document's apply.files disagree — m5 reads the manifest "
+                "and everything else reads the document, so a difference here is two answers to "
+                "one question"
+            )
+        for field, value in (
+            ("apply_mode", apply.get("apply_mode")),
+            ("operator_id", doc.get("operator")),
+        ):
+            if manifest.get(field) != value:
+                problems.append(f"{manifest_rel} says {field}={manifest.get(field)!r}, the document says {value!r}")
 
 
 def main() -> int:

@@ -146,24 +146,55 @@ def main() -> int:
         ),
         (
             "apply mode the deferred registry hook, which nothing implements (todo.md T5)",
-            _set(good, "apply.mode", "registry_hook"),
-            "$.apply.mode",
+            _set(good, "apply.apply_mode", "registry_hook"),
+            "$.apply.apply_mode",
         ),
         (
-            "an apply target named by absolute path — a path that will not exist for the reproducer",
+            "a bare absolute container_path — the handoff seal refuses to publish it at all",
             _set(
                 good,
                 "apply.files",
-                [
-                    {
-                        "source": "/shared_nfs/yihou/optimized_kernel.py",
-                        "target": "python/sglang/srt/layers/sampler_softmax_kernel.py",
-                        "sha256": "0" * 64,
-                        "action": "add",
-                    }
-                ],
+                [{
+                    "container_path": "/sgl-workspace/sglang/python/sglang/srt/layers/sampler.py",
+                    "base_sha256": "0" * 64,
+                    "change": "modify",
+                    "replacement": "results/optimized_kernel.py",
+                }],
             ),
-            "$.apply.files.0.source",
+            "$.apply.files.0.container_path",
+        ),
+        (
+            "a files[] entry carrying both `patch` and `replacement` — patchkit takes exactly one",
+            _set(
+                good,
+                "apply.files",
+                [{
+                    "container_path": "@SGLANG_ROOT@/srt/layers/sampler.py",
+                    "base_sha256": "0" * 64,
+                    "change": "modify",
+                    "replacement": "results/optimized_kernel.py",
+                    "patch": "apply/patches/0001-sampler.patch",
+                }],
+            ),
+            "$.apply.files.0",
+        ),
+        (
+            "a files[] entry carrying neither, so there is nothing to apply",
+            _set(
+                good,
+                "apply.files",
+                [{
+                    "container_path": "@SGLANG_ROOT@/srt/layers/sampler.py",
+                    "base_sha256": "0" * 64,
+                    "change": "modify",
+                }],
+            ),
+            "$.apply.files.0",
+        ),
+        (
+            "the manifest at a path of the producer's choosing — apply_patch globs for the fixed one",
+            _set(good, "apply.manifest", "apply/my_manifest.json"),
+            "$.apply.manifest",
         ),
         (
             "a workset snapshot at a path of the producer's choosing",

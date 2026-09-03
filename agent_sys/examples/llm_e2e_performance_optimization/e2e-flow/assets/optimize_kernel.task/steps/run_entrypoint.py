@@ -5,17 +5,24 @@ Shared by STEP 4 and STEP 5, because the two differ only in which entrypoint
 they name and what counts as acceptance. Writing it twice would be two places
 for the candidate-selection convention to drift.
 
-**The three flag names are configurable, and that is deliberate rather than
-lazy.** `workset.schema.json`'s `$defs/entrypoint` fixes `cmd` and `report` and
-says nothing about how a *candidate* implementation is selected, while its
-`$defs/performance_report` carries `impl` and `impl_path` — so a selector exists
-and its spelling is m3's to declare. Until it is in the schema these defaults are
-the convention, and a workset that spells it differently sets
-`KFO_IMPL_FLAG` / `KFO_IMPL_PATH_FLAG` / `KFO_REPORT_FLAG` rather than being
-silently mis-driven. `check_speedup_substantiated` carries the same three as
-`args`, and **the two must agree** — a workset driven one way here and another
-way there produces two reports of the same kernel that disagree for no reason a
-reader can see.
+The contract m3 shipped::
+
+    ./run_correctness.sh [--operator ID] [--impl PATH] [--shape CASE_ID] [--json OUT]
+    ./run_performance.sh [--operator ID] [--impl PATH] [--shape CASE_ID] [--json OUT]
+
+**No `--impl` means the workset's own baseline; `--impl PATH` means the
+candidate**, against the same reference, the same shapes and the same protocol.
+Exit 0 means every shape passed. Both scripts are `protected` in the workset:
+editing one makes every number in this stage incomparable with every number in
+m3's.
+
+The two flag names stay configurable (`KFO_IMPL_FLAG`, `KFO_REPORT_FLAG`) for
+one reason, and it is not that the contract is unsettled. This module and
+`check_speedup_substantiated` must drive the workset **identically**, and two
+sets of literals in two files can be edited apart. The failure mode if they ever
+disagree is silent: a wrong flag that runs the baseline while the caller records
+it as the candidate yields two measurements of the same code, a ratio of 1.000,
+and no error anywhere.
 """
 
 from __future__ import annotations
@@ -99,6 +106,7 @@ def main() -> int:
     ap.add_argument("--inputs", required=True)
     ap.add_argument("--role", required=True, choices=("correctness", "performance"))
     ap.add_argument("--candidate", default=None, help="omit to run the workset's own baseline")
+    ap.add_argument("--shape", default=None, help="one case_id, to re-measure a single shape")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
 
@@ -112,13 +120,16 @@ def main() -> int:
 
     out = Path(a.out).resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
-    argv = [*cmd.split(), os.environ.get("KFO_REPORT_FLAG", "--report"), str(out)]
-    impl_flag = os.environ.get("KFO_IMPL_FLAG", "--impl")
+    argv = [*cmd.split(), os.environ.get("KFO_REPORT_FLAG", "--json"), str(out)]
+    argv += ["--operator", operator_id]
+    if a.shape:
+        # `--shape` exists so one case can be re-measured rather than the whole
+        # workset; `check_workset_runs` uses it to spot-check the primary. It is
+        # the cheap way to sanity-check a candidate mid-campaign, and it is
+        # never how the recorded numbers are produced.
+        argv += ["--shape", a.shape]
     if a.candidate:
-        argv += [impl_flag, "candidate",
-                 os.environ.get("KFO_IMPL_PATH_FLAG", "--impl-path"), str(Path(a.candidate).resolve())]
-    else:
-        argv += [impl_flag, "baseline"]
+        argv += [os.environ.get("KFO_IMPL_FLAG", "--impl"), str(Path(a.candidate).resolve())]
 
     timeout = float(entry.get("timeout_s") or 3600)
     print(f"running: {' '.join(argv)}  (cwd {root})", file=sys.stderr)
