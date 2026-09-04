@@ -56,8 +56,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import sys
+import time
 from datetime import datetime
 
 #: `monitor/protocols.py:93` and `monitor/base.py:141`. Named here rather than
@@ -145,16 +147,94 @@ def probe(run: pathlib.Path) -> int:
         print(f"  note: {unreadable} event and {unreadable_tasks} task file(s) not readable this "
               f"pass — expected mid-run, re-run to see them")
 
+    # **Is anything still happening?** The store cannot answer this and must not
+    # be read as if it could: a run that dies abruptly leaves its last state
+    # written as `running`, and **nothing will ever overwrite it**. So every
+    # status below is a *last known* state, and without a liveness signal the
+    # tool reports a corpse in the present tense.
+    #
+    # Measured the hard way, 2026-09-04: I read this tool's own output — "latest
+    # event +1s into the run, 2357s ago" — and reported "39 minutes in,
+    # deploy_and_prove still running". The run had been dead for 39 minutes and
+    # 2357 was the evidence. I had written that wall-clock line specifically so
+    # a *live* run would not be misread as stale, and then misread a *dead* run
+    # as live off the same number.
+    #
+    # The newest mtime anywhere in the run tree is the signal the store lacks —
+    # a live run is writing zone logs and handoff content constantly, and this
+    # is what the leader used to establish the death. Cheap, and it is part of
+    # answering question 3 honestly rather than a fourth question.
+    newest = 0.0
+    for path in run.rglob("*"):
+        try:
+            newest = max(newest, path.stat().st_mtime)
+        except OSError:
+            continue
+    write_age = time.time() - newest if newest else -1.0
+
+    # **mtime alone cannot tell a quiet phase from a corpse, and saying it can is
+    # the same error in the other direction.** A 60 s threshold called this very
+    # run "NOT WRITING" while it was healthy — m1's agent polls on a `sleep 115`
+    # cycle, so it writes nothing for two minutes at a time by design. A tool
+    # that cries dead on a live run gets ignored, and then it is useless on the
+    # day the run really is dead.
+    #
+    # A **process** is the signal that actually answers. Scanning `/proc` for a
+    # cmdline naming this run directory is how the death report was disproved by
+    # hand; it costs milliseconds and it is the difference between a hint and a
+    # fact. No process found is still not proof of death — the run may be driven
+    # from another host — so that case says *unknown* rather than *dead*.
+    # **Two signals, neither of them a verdict**, and the restraint is the point.
+    #
+    # A first cut printed `ALIVE`/`NOT WRITING` and was wrong both ways within a
+    # minute: it called a healthy run dead (m1's agent polls on `sleep 115`, so
+    # it writes nothing for two minutes by design), and it called a two-hour-old
+    # corpse alive by matching **this probe's own command line**, which contains
+    # the run path whenever the path is passed as an argument. A liveness verdict
+    # that flips on how you invoked the tool is worse than no verdict — it is the
+    # confident wrong answer this whole file exists to stop.
+    #
+    # So: report what was observed and let the reader judge. `runprobe` cannot
+    # distinguish a long quiet phase from a stopped run, and **saying so is the
+    # honest output.** The one thing it can do is refuse to speak in the present
+    # tense about either.
+    holder = None
+    for entry in pathlib.Path("/proc").glob("[0-9]*"):
+        try:
+            cmdline = (entry / "cmdline").read_bytes().decode("utf-8", "replace")
+        except OSError:
+            continue
+        # Skip this probe and the shell that launched it: both carry the run
+        # path when it was given on the command line.
+        if run.name in cmdline and "runprobe" not in cmdline and entry.name != str(os.getpid()):
+            holder = entry.name
+            break
+
+    age = "never written" if write_age < 0 else f"{write_age:.0f}s ago"
+    seen = f"a process ({holder}) has this run's path in its command line" if holder \
+        else "no process found naming this run (it may be driven from another host, or between children)"
+    print(f"  observed: last write {age}; {seen}")
+    print("  runprobe cannot tell a long quiet phase from a stopped run. Every status below")
+    print("  is LAST KNOWN, not current: a killed run leaves its tasks reading `running` for")
+    print("  ever and nothing overwrites them. Check for a process before reading them as now.")
+
     # ---- 1. is `blocked` non-empty ------------------------------------------
     print(f"\n1. escalations reaching the user: {len(to_user)}   "
           f"(all escalation hops: {len(escalations)})")
     if not to_user:
-        print("   -> `blocked` is EMPTY. The stall guard reduces to `not holding`, so a leaf")
-        print("      holding a thread is not cut. A long quiet stage is safe in THIS run.")
+        print("   -> `blocked` was EMPTY as of the last record. The stall guard reduces to")
+        print("      `not holding`, so a leaf holding a thread is not cut.")
+        if not holder:
+            print("      NOTE: no process was found for this run — so this says the run was not")
+            print("      exposed up to its last record, NOT that it is still running unexposed.")
     else:
         live = [e for e in to_user
                 if (tasks.get(e.get("task_id")) or {}).get("status") not in NOT_LIVE]
-        print(f"   -> `blocked` is NON-EMPTY ({len(live)} on a still-live task).")
+        # Present tense only when the tree says something is still being written.
+        # "on a still-live task" about a run that died two hours ago is the same
+        # defect as the status list below, one line up.
+        on = "on a task still non-terminal" if holder else "on a task not terminal when last written"
+        print(f"   -> `blocked` was NON-EMPTY ({len(live)} {on}).")
         print("      Any 20 s without a task-table change ends the run, even with a leaf working.")
 
     # ---- 2. what triggered each chain ---------------------------------------
@@ -189,7 +269,8 @@ def probe(run: pathlib.Path) -> int:
         print("   nothing has escalated in that whole window. The store records transitions,")
         print("   not progress, so a long gap here means one phase has been running throughout.")
     running = sorted(name(t) for t, r in tasks.items() if r.get("status") not in NOT_LIVE)
-    print(f"   live tasks now: {', '.join(running) if running else '(none)'}")
+    label = "live tasks now" if holder else "tasks NOT in a terminal state when the store was last written"
+    print(f"   {label}: {', '.join(running) if running else '(none)'}")
     return 0
 
 
