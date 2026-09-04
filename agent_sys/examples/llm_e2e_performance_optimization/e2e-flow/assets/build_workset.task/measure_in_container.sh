@@ -146,19 +146,47 @@ export E2E_NODE E2E_JOBID E2E_TRANSPORT
 # four other owners' scripts and a header comment that already says the run root
 # being NFS is "a fact about this cluster, not about agent_sys, so it is checked
 # rather than assumed". CONTRACT §4.1: shared things are shared, not re-solved.
+#
+# **Visibility is probed; what may be *mounted* is a measured list**, and the
+# block below says why the two are not the same question. Being able to see a
+# path and being allowed to bind-mount it are separate permissions here.
 require_visible_on_node "$ROOT" "workset" || exit 1
 
-# **What the container mounts follows from where the workset is**, for the same
-# reason. `-v /shared_nfs:/shared_nfs` alone would pass the check above and then
-# hand `docker run` an empty mount — the confusing failure the old guard existed
-# to prevent, reintroduced one directory over. So the run root's own top-level
-# directory is mounted at the same path, and `/shared_nfs` as well when it is a
-# different one and present.
-MOUNT_ROOT="/$(printf '%s' "${ROOT#/}" | cut -d/ -f1)"
-[ -n "$MOUNT_ROOT" ] && [ "$MOUNT_ROOT" != "/" ] || {
-  echo "measure_in_container: cannot derive a mount point from $ROOT" >&2; exit 1; }
-MOUNTS="-v $MOUNT_ROOT:$MOUNT_ROOT"
-[ "$MOUNT_ROOT" = "/shared_nfs" ] || [ ! -d /shared_nfs ] || MOUNTS="$MOUNTS -v /shared_nfs:/shared_nfs"
+# **What the container mounts follows from where the workset is**, and the
+# daemon has an opinion about it. `-v /shared_nfs:/shared_nfs` alone would pass
+# the check above and then hand `docker run` an empty mount — the confusing
+# failure the old guard existed to prevent, reintroduced one directory over.
+#
+# **The obvious derivation is refused by this cluster.** Taking the run root's
+# top-level component gives `/home` for `/home/<user>/agent_sys_runroot`, and
+# the leader measured the daemon's answer on node 243:
+#
+#     Error response from daemon: authorization denied by plugin spur-authz:
+#     denied [BH]: /home:/home -- mount your own directory instead,
+#     e.g. -v $HOME:$HOME (or -v /home/<you>:/home/<you>)
+#
+# So the plugin's rule is about *whose* directory, not about depth: a shared
+# top-level directory is refused and `/shared_nfs` is allowed. That is not
+# derivable from the path, and the previous attempt here derived it anyway —
+# the same string-surgery-instead-of-asking mistake as the guard above, made
+# twice in one file.
+#
+# **These two forms are what was measured working, and nothing else is
+# guessed.** Anything outside them refuses here, naming both, rather than
+# arriving as an authorization denial in the middle of a measurement.
+REMOTE_HOME="${E2E_REMOTE_HOME:-$HOME}"
+case "$ROOT/" in
+  "$REMOTE_HOME"/*)  MOUNTS="-v $REMOTE_HOME:$REMOTE_HOME" ;;
+  /shared_nfs/*)     MOUNTS="-v /shared_nfs:/shared_nfs" ;;
+  *) echo "measure_in_container: $ROOT is on neither filesystem this cluster's docker" >&2
+     echo "  authorization plugin allows a measurement to mount. Measured on node 243:" >&2
+     echo "    -v $REMOTE_HOME:$REMOTE_HOME   (a run root under your home)   OK" >&2
+     echo "    -v /shared_nfs:/shared_nfs                                    OK" >&2
+     echo "    -v /home:/home            denied [BH] by plugin spur-authz" >&2
+     echo "  Point --demo-root at one of the two, or extend this case with a form you" >&2
+     echo "  have seen the daemon accept — not one you expect it to." >&2
+     exit 1 ;;
+esac
 
 # The default is the producer's pair; a caller may substitute its own.
 if [ "$#" -eq 0 ]; then
