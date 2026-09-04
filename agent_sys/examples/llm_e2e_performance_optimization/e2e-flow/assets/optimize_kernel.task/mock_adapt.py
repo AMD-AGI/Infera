@@ -47,6 +47,41 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "steps"))
 import _lib as lib  # noqa: E402
 
 
+#: `"$VAR"/a/b` -> `"$VAR/a/b"`. The closing quote moves to the far side of the
+#: path; the shell behaviour is identical and a trailing glob stays outside.
+_QUOTED_PREFIX = re.compile(r'"\$([A-Za-z_][A-Za-z0-9_]*)"(/[A-Za-z0-9._+@/-]+)')
+
+
+def _reseat_quotes(packup: Path) -> list[str]:
+    """Make the sealed markdown survive `handoff.locality.check`.
+
+    **The seal refuses `cp "$PACKUP"/scripts/kernel/*.py`**, and the reason has
+    nothing to do with the command: `handoff/locality.py:67 _CANDIDATE` has a
+    lookbehind of `[A-Za-z0-9._~@+-]`, `"` is not in it, so a closing quote does
+    not shield the path that follows — `/scripts/kernel/` is read as a rooted
+    local path. Inside the quotes the preceding character is the variable's last
+    letter, which is in the class, so `cp "$PACKUP/scripts/kernel/"*.py` seals.
+
+    Found by m5 at rung 5: `packup` carries this file verbatim into the terminal
+    kit, and nothing before that stage seals a `kernel_optimization` at all.
+
+    **This is an adaptation, not a redaction.** No number, path or claim
+    changes — only where a quote sits in a shell expression the sealed run wrote
+    before the rule existed. The sealed bytes on `/shared_nfs` are evidence and
+    are never edited; this rewrites the working copy, and says so in `notes`.
+    The real path does not need it: `60_write_handoff.py`'s REPRODUCE skeleton
+    carries the rule where its author will read it.
+    """
+    changed: list[str] = []
+    for path in sorted(packup.rglob("*.md")):
+        before = path.read_text(encoding="utf-8", errors="replace")
+        after = _QUOTED_PREFIX.sub(r'"$\1\2"', before)
+        if after != before:
+            path.write_text(after, encoding="utf-8")
+            changed.append(str(path.relative_to(packup)))
+    return changed
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--handoff", required=True, help="$AGENT_SYS_OUTPUT_KERNEL_OPTIMIZATION")
@@ -68,6 +103,8 @@ def main() -> int:
     if len(packups) != 1:
         lib.die(f"expected exactly one packup under {codes}, found {[p.name for p in packups]}")
     packup = packups[0]
+
+    reseated = _reseat_quotes(packup)
 
     workset = lib.load_workset()
     operator = lib.pick_operator(workset, os.environ.get("KFO_WORKSET_OPERATOR") or None)
@@ -247,6 +284,13 @@ def main() -> int:
             "artefact predates all four. Every measurement is the sealed run's; every rendered "
             "field is a copy of the staged workset's. apply.files[].base_sha256 was hashed from "
             f"{sha_source}."
+            + (
+                " A closing quote was moved from before a path to after it in "
+                + ", ".join(reseated)
+                + " so the sealed markdown survives `handoff.locality.check`; no number, path or "
+                "claim changed. See `_reseat_quotes`."
+                if reseated else ""
+            )
             + (
                 " `--premise mismatched`: the workset environment's gpu_arch was set to gfx942 to "
                 "reproduce the sealed run's own abort, which is the only cheap test of the abort "

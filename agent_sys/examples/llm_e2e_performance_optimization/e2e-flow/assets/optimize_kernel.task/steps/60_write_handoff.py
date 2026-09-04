@@ -64,6 +64,18 @@ Packup date {today}. Operator `{operator}`, from workset `{workset_id}`.
 Ordered and copy-pasteable. Every command was run.
 
 ```sh
+# CLOSE THE QUOTE AFTER THE PATH, NEVER BEFORE IT. This seals:
+#     cp "$PACKUP/scripts/workset/"*.py "$W/"
+# and this is REFUSED, for a reason that is nothing to do with the command:
+#     cp "$PACKUP"/scripts/workset/*.py "$W/"
+# `handoff/locality.py:67 _CANDIDATE` has a lookbehind of `[A-Za-z0-9._~@+-]`,
+# and `"` is not in it — so a closing quote does not shield the path after it
+# the way an ordinary character does, `/scripts/workset/` reads as a rooted
+# local path, and the seal rejects the handoff at this file's line number.
+# Inside the quotes the preceding character is the variable's last letter,
+# which is in the class. `cd "$PACKUP"` first and going relative is equally
+# safe. Measured 2026-09-04 against `_CANDIDATE`; found by m5 at rung 5,
+# because `packup` carries this file verbatim and nothing before that seals it.
 ```
 
 ## Expected output
