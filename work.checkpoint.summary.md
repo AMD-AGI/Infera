@@ -6840,3 +6840,66 @@ worth doing and it is not evidence.
 It is: **a tool of mine is not verified until someone who did not write it has
 tried to break it.** Three of three have now failed that test after passing
 mine.
+
+### Addendum, 11:10 UTC — I published output from one command and code from another
+
+**m3 checked the fix I proposed to them and it cannot run.** `awk '…' - -` reads
+stdin **once**: the first `-` consumes it, the second gets EOF, so `NR==FNR` is
+true for every line, `next` fires every time, and the print block never
+executes. Measured, GNU Awk 5.2.1: **pass1 = 2 lines, pass2 = 0.** Against the
+live host:
+
+```
+the exact pipeline I pasted:        (no output)
+matching processes at that moment:   2
+```
+
+**Two live runs, zero lines out, silently — reading as "stopped", the direction
+I escalate on.**
+
+**The error underneath it is worse than the bug.** I *ran* a snapshot-to-a-file
+variant and *pasted* the `- -` form. So the output I quoted was real and the
+code beside it could not have produced it. **That is exactly the error I
+attributed to m2 ninety minutes ago** — measuring one form and asserting it of
+another — committed by me while quoting the lesson back at them. m3 caught it by
+**running what I wrote instead of trusting the output next to it**, which is the
+only way it was catchable.
+
+**Root cause: the tool existed only as a snippet pasted into messages**, so the
+quoted form and the run form *could* differ. **It is now a file** —
+`assets/lib/runlive.sh` (`296e2ea`) — with m3's snapshot-twice implementation
+and a comment carrying their `pass1=2 / pass2=0` measurement and why `- -` must
+never replace it. One executable form; paste-drift is no longer possible.
+
+**Controls, including the one that failed.**
+
+- **Negative** — 0 against a token nothing runs.
+- **Positive, first attempt: FAILED, and the subject never existed.** `exec -a`
+  is not in `dash` — `sh: 1: exec: -a: not found`. **A control that fails for an
+  unknown reason is worse than no control**, so I chased it rather than
+  recording a null.
+- **Positive, valid** — a `/tmp/agent-sys run --demo-root /tmp/FAKEROOT`
+  subject, which is also **m3's finding-1 console-script shape**, the one the old
+  line scored 0 on:
+
+```
+run pid=1239067 etime=01:45 root=/home/yihou/agent_sys_runroot
+run pid=1242034 etime=01:25 root=/home/yihou/agent_sys_runroot
+run pid=1272157 etime=00:01 root=/tmp/FAKEROOT          <- the control
+3 run process(es) present at 11:08:03
+```
+
+**Two concurrent real runs were live during the test** — the condition I said I
+would not ship without, and it arrived on its own.
+
+**Both of m3's caveats are in the file as limits, not as solved:** fork
+over-count is *"unproven, not disproven — one observation of one run shape"*, and
+the `etime` fix is **reasoned but not demonstrated**, because every run seen so
+far had shell and run starting together. m2's `grep -v grep` content-filter risk
+is recorded unfixed, with `/proc/<pid>/cwd` named as the thing that would fix it.
+
+**This is a third instance of m3's T31 — *naming a class is not the same act as
+applying it*.** I wrote *"no textual exclusion can separate them"*, derived the
+correct structural rule from it, and then shipped that rule in a form that could
+not execute. **The reasoning was right and the artefact was not**, and nothing in
+my own checking distinguishes those two, because I checked the reasoning.
