@@ -160,6 +160,97 @@ def run(*args, **kwargs):
 '''
 
 
+#: What `content.py:73` requires of a `code` handoff's README, and what the
+#: sealed one is missing. The sealed document has `Purpose`, `How to run`,
+#: `Result`, `Environment` and `Watch out` — it was written for a content type
+#: whose section list was different, and it predates this one.
+_README_SECTIONS = {
+    "Interface": """\
+`items/codes/workset.yaml` is the one document a consumer reads. It indexes
+every operator, and per operator: the flashinfer-bench `definition` and
+`workload` paths, the `shapes` list, the two `entrypoints`, the `gates`, the
+measured `noise_floor`, and the `apparatus` — the exact file list that must
+travel for the entrypoints to run outside this handoff.
+
+The two entrypoints are the interface for anything that wants a number:
+
+    ./run_correctness.sh --operator <id> [--shape CASE_ID] --json <report>
+    ./run_performance.sh --operator <id> [--shape CASE_ID] --json <report>
+
+Both are run from `items/codes/`, and both take their flag spellings from
+`entrypoints.<what>.flags` in `workset.yaml` rather than from this document, so
+a consumer reads the manifest and not this paragraph. `evidence/` holds the
+reports this workset's own run produced; `check_workset_runs` re-runs the same
+scripts and compares.
+""",
+    "Boundary": """\
+**Baseline only.** `evidence/` measures the incumbent implementation against
+the reference. There is no candidate here and therefore no speedup — the ratio
+module 4 computes is not in this artefact and cannot be.
+
+**One operator is runnable.** `sampler_vocab_softmax` carries a Definition, a
+Workload and measured evidence. The `moe_gemm_*` directories carry the ranking
+provenance from the stage-3 half and are **not** runnable through the
+entrypoints; nothing here claims they are.
+
+**The numbers describe one machine.** `ground_truth.environment` names it, and
+the entrypoints refuse to measure where `abort_on_mismatch` disagrees with the
+record for this run. Numbers taken here and numbers taken elsewhere are not a
+ratio.
+
+**This is a mock artefact.** It is assembled by `mock_adapt.py` from two sealed
+handoffs; the measurement is real and taken on this hardware, and everything
+else is a replay of bytes sealed on 2026-09-02.
+""",
+}
+
+
+def _repair_readme(content: Path) -> None:
+    """Add the README sections a `code` handoff needs and the sealed one lacks.
+
+    **MOCK-MAP's own rule, and the one I missed.** *An adaptation is a step
+    after the copy* — `mock.sh` lays the sealed bytes down faithfully, and every
+    gap between what was sealed and what this package requires is a step
+    somebody wires. I wired four (the `items/code` rename, `workset.yaml`, the
+    Definitions and Workloads, `environment.yaml`) and not this one.
+
+    **The cost was rung 0, twice.** `handoff/content.py:73` requires
+    `Purpose, Interface, Boundary` of a `code` README; the sealed document has
+    `Purpose, How to run, Result, Environment, Watch out`, written for a
+    content type whose list was different. So the body ran, measured correctly,
+    transcribed, and exited 0 — **and the seal refused**:
+
+        README.md: required section 'Interface' is missing. Present at document
+        root: ['Environment', 'How to run', 'Purpose', 'Result', 'Watch out',
+        'operator_workset']
+
+    which surfaced as `output_absent: declared output was never delivered`. Two
+    runs a day apart were attributed to the stall detector, the card, and the
+    body, and the reason was in the event's own `seal_refused` attribute the
+    whole time.
+
+    Idempotent, and it **appends rather than rewrites**: a mock run that is
+    re-driven is the normal case, and `handoff/readme.py`'s own docstring cites
+    Ruff #23562 for why nothing should edit a README line by line. A section
+    that is already present is left exactly as the author wrote it.
+    """
+    readme = content / "README.md"
+    if not readme.is_file():
+        _die(f"{readme} is absent; the sealed copy should have provided it")
+    text = readme.read_text(encoding="utf-8")
+    # Document root only, matching `readme.py:sections` — a heading inside a
+    # fence or a list does not count there and must not count here, or this
+    # would decide a section exists that the seal will not find.
+    present = {m.group(1).strip() for m in re.finditer(r"^#{1,6}\s+(.+?)\s*$", text, re.MULTILINE)}
+    added = [name for name in _README_SECTIONS if name not in present]
+    if not added:
+        return
+    body = "".join(f"\n## {name}\n\n{_README_SECTIONS[name]}" for name in added)
+    readme.write_text(text.rstrip("\n") + "\n" + body, encoding="utf-8")
+    print(f"mock_adapt: README.md gained {', '.join(added)} — "
+          f"the sealed copy predates `code`'s section list (content.py:73)")
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         _die("usage: mock_adapt.py <content dir>")
@@ -173,6 +264,8 @@ def main() -> int:
         # merged kind is `code` (`items/codes`).
         sealed.rename(root)
     root.mkdir(parents=True, exist_ok=True)
+
+    _repair_readme(content)
 
     # The provenance vocabulary, from whichever stage-3 operator directory the
     # seal carried. Optional: the mock is still valid without it, and says so.
