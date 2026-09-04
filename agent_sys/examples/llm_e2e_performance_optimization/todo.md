@@ -1825,3 +1825,77 @@ you are describing at the moment you write the sentence, or describe the
 behaviour of the code in front of you and let the reader look up the wiring.
 The second is usually the better sentence anyway: *"a floor of zero grades
 nothing"* is true wherever the value comes from.
+
+**And the general form of the second half, which is not about comments at all:
+a fix verified *correct* is not a fix verified *reached*.** m4 hit the same
+thing within the hour and offered to file it separately; it belongs here
+because the two instances are one lesson and differ only in luck.
+
+| | what was verified | what was not | how it surfaced |
+|---|---|---|---|
+| m3 (this entry) | the new wording is right | the branch can execute | never — it would have printed the old string forever |
+| m4 (`0cccb97`) | the emitter threads `--impl-path` | the name is bound in that scope | `NameError` on the first candidate run |
+
+Theirs announced itself; mine was silent, in a file whose own comment said the
+fix was needed. **The failure mode that fires is the lucky one**, and neither of
+us chose it. The check is one question asked after the edit and before the
+commit — *what input reaches this line?* — and it is cheapest to ask when the
+edit is a guard, because a guard is exactly the shape whose condition may never
+hold.
+
+m4 notes they had already applied this twice today without naming it: arming a
+disabled gate to prove it fires before switching it off, and monkeypatching an
+enum to reach a branch their own fix had made unreachable. The instinct exists;
+what it lacked was a name and a moment.
+
+### T46 — a fix verified correct is not a fix verified reached
+
+**Two instances on 2026-09-04, one from m3 and one from m4, in the same stretch
+of work.** Both of us changed code, checked the change was *right*, and shipped
+without checking it was *executed*. Those are different questions, and only the
+second needs the surrounding wiring in view.
+
+**m3's would have been silent forever.** They replaced a validator note that
+printed `floor 0.0` with one saying *"this arm did not grade"*, and guarded it
+with `if raw is None or raw == ""`. **The yaml always passes the argument, so
+`raw` is never absent** — the branch could not execute, and the default path
+went on printing the exact string the fix had removed, in a file whose comment
+now claimed the fix was needed. Caught by m2 (`5ca132e`).
+
+**m4's announced itself.** The stubkit's entrypoint referenced the shell's
+`$IMPL` from inside the Python emitter — `NameError` on the first candidate run,
+loud and immediate.
+
+**The asymmetry is the entry.** An entry carrying only the second instance would
+teach that this class announces itself. **It does not; that was luck.** The
+same defect is a crash when the unreached code is malformed and a permanent
+silent wrong answer when it is well-formed — and *well-formed* is the normal
+case, because the code was written carefully and only the reachability was
+assumed. **The better the fix, the quieter the failure.**
+
+**What makes it actionable rather than cautionary: people already do this
+intermittently, without naming it.** Both of m4's other changes that day
+included a reachability step that felt like ordinary care at the time —
+
+- the `substitution` × `apply_mode` gate was **armed, run against a real
+  artefact to watch it refuse, then switched off** (`fc0784c`). That step caught
+  a `NameError` waiting in the disabled path: the call site had neither `packup`
+  nor `notes` in scope, so the gate **could not have run when enabled** — a gate
+  that cannot fire when switched on, shipped as *written and ready*;
+- `_same`'s new vocabulary reporting was exercised by **monkeypatching the
+  pre-`d08047b` enums**, because the leader's own fix had made the divergence
+  branch unreachable on current schemas (`28c177d`). Shipping it unexercised was
+  the alternative.
+
+**So the rule is not new behaviour, it is a name for something already done half
+the time.** The half where it is skipped is the half where the change looks too
+small to need it — a guard, a message, a default.
+
+**The check, and it is one question:** *what would I have to do to make this new
+line run, and has that happened?* If the answer is "nothing, it runs on every
+call", say so. If it is "a variable would have to be absent" or "an enum would
+have to differ", go and make that true once, on purpose, before shipping.
+
+**Distinct from `T40`**, which is about probes and whether a null in a control
+slot gets questioned. This is about **fixes**: the code is not an instrument, the
+result is not being read, and nothing about the slot prompts suspicion.
