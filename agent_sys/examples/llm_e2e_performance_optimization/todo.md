@@ -1282,3 +1282,29 @@ recorded from the image so the claim is *checked* rather than asserted
 fragment-inside-a-method optimisation reaches the engine — that is M5.1.1, a
 design question for the user, and the package can now state which case it is in
 without being able to install the second.
+
+### T35 — a sealed handoff from the old layout is not consumable by the definition that replaced it
+
+`check_speedup_substantiated` looks for the measurement apparatus at
+`scripts/workset` (`check.py:81`, `_APPARATUS`). The sealed stage-4
+`kernel_optimization` in `cheat_for_mock/` carries its apparatus at
+`scripts/kernel/` — `driver.py`, `graph_harness.py`, `measure_baseline.py`,
+`sampler_softmax_kernel.py`. **So the one real stage-4 artefact this effort
+owns cannot be fed to the validator that grades stage-4 artefacts.**
+
+Not a regression. The sealed handoff is 2026-09-02 output from the
+five-separate-packages layout, and `e2e-flow`'s definitions were rewritten
+against `mission.md` afterwards; `mock_adapt.py` is the bridge and exists for
+exactly this. **Leader's ruling, 2026-09-04: leave it.**
+
+**Recorded because the assumption it breaks is easy to make and expensive to
+discover.** Reaching for the sealed artefact as a ready-made fixture is the
+obvious move when a validator needs a real input — it is the only stage-4
+artefact that ever came off a cluster — and it fails at a path lookup rather
+than at anything that names the layout change. It cost a wrong turn on
+2026-09-04 while looking for an input to exercise the container path.
+
+**The open question, if anyone ever wants it:** whether sealed output of a
+stage should stay *directly* consumable by that stage's next definition, or
+whether an adapter is the intended and permanent shape. Nothing today depends
+on the answer.
