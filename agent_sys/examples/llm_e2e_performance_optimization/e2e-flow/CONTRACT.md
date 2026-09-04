@@ -968,6 +968,42 @@ workspace every git verb with an implicit object is unsafe.** `--amend` has an
 implicit commit; `commit -- <path>` has an implicit working tree. Neither has a true
 referent when six agents move HEAD and the tree.
 
+### A run stages the WORKING TREE, not HEAD — so do not launch during an edit
+
+`agent-sys run` copies the package out of the working tree into the run's zones at
+launch. It does not read HEAD, and it does not care that a file is half-written.
+
+Measured by the leader 2026-09-04, on themselves: rung 0's seventh attempt was
+launched at 11:15:50 while m4 was mid-edit in
+`check_optimization_shape.validator/check.py`, writing a gate the leader had asked
+for twenty minutes earlier. The run staged the half-written file and died in stage 4:
+
+```
+NameError: name 'packup' is not defined            check.py:309
+ValidatorInvalid: check_optimization_shape: exited 1 and wrote no
+verdict.json; nothing was decided
+```
+
+**The framework behaved correctly** — it distinguished *crashed* from *refused* and
+decided nothing, which is exactly the distinction the crash/refusal split exists to
+draw. The defect was entirely in the launch.
+
+So, for whoever launches a run in this worktree:
+
+```bash
+git status --short -- <the package>      # BEFORE launching. Modified files?
+                                         # They are what the run will execute.
+```
+
+If an owner has a file open, either wait for them to land it or accept that you are
+testing their intermediate state. **This is the same hazard as 8a's commit sweep with
+the arrow reversed**: there, your commit takes their uncommitted work; here, your run
+*executes* it. One shared tree, two ways for one person's edit to land inside another
+person's action.
+
+The failure is also cheap to misread: `ValidatorInvalid` names the validator, so it
+reads as a defect in that owner's code rather than in the launcher's timing.
+
 **And never `git --amend`. Corrections get their own commit.** Raised by
 `checkpoint` 2026-09-04 against their own near-miss, which is the only way this
 one gets found.
