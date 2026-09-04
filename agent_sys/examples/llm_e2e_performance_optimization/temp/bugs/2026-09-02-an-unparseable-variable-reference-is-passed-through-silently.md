@@ -243,10 +243,17 @@ pattern they are matched on:
 
 | hit | what it is |
 |---|---|
-| `e2e-flow/shared.yaml:58` | comment: *"**Not** `${served_name:-${model_name}}`"* |
-| `e2e-flow/steps/m2_profiling.yaml:95` | comment: *"`${expect_ranks:-${tp:-8}}` is not spellable"* |
-| `e2e-flow/steps/m5_integration.yaml:350` | comment: this note's own example |
-| `kernel-opt-demo/steps/kernel_optimization.yaml:348` | comment: the case above |
+| `e2e-flow/shared.yaml`, `served_name` | comment: *"**Not** `${served_name:-${model_name}}`"* |
+| `e2e-flow/steps/m2_profiling.yaml`, `expect_ranks` | comment: *"`${expect_ranks:-${tp:-8}}` is not spellable"* |
+| `e2e-flow/steps/m5_integration.yaml`, `integration_min_requests` | comment: this note's own example |
+| `kernel-opt-demo/steps/kernel_optimization.yaml`, `verify_scratch_dir` | comment: the case above |
+
+**Cited by variable name, not by line number, and that was learned here.** The
+first version of this table gave line numbers; `m2_profiling.yaml`'s warning
+moved from `:95` to `:114` within the same afternoon, when an unrelated comment
+was added above it. A bug note whose citations rot is a bug note the next reader
+checks once and stops trusting — and this one is *about* a fault whose whole
+danger is being hard to find. The variable names do not drift.
 
 So: **no live nested default anywhere in the example tree**, and the grep cannot
 tell you that by its exit status — read the four lines. Recorded because the
@@ -267,10 +274,10 @@ told.
 
 | line | arrived in | episode |
 |---|---|---|
-| `e2e-flow/shared.yaml:58` | *"freeze the cross-module contract"* | the leader's freeze |
-| `e2e-flow/steps/m2_profiling.yaml:95` | *"m3: validator readmes"* | **m3**, writing in m2's file |
-| `kernel-opt-demo/…:348` | *"debug the five e2e stage packages"* | the solo phase |
-| `e2e-flow/steps/m5_integration.yaml:350` | this note's own example | m5, today |
+| `shared.yaml`, `served_name` | *"freeze the cross-module contract"* | the leader's freeze |
+| `m2_profiling.yaml`, `expect_ranks` | *"m3: validator readmes"* | **m3**, writing in m2's file |
+| `kernel_optimization.yaml`, `verify_scratch_dir` | *"debug the five e2e stage packages"* | the solo phase |
+| `m5_integration.yaml`, `integration_min_requests` | this note's own example | m5, today |
 
 **Four separate discoveries, four separate people paying for the same fact.**
 The third row is the sharp one: the warning in `m2_profiling.yaml` was not
