@@ -1497,3 +1497,95 @@ The spec set is agreed and a design does not amend it. Each of these is reported
 | **O5** | **Whether executors nest as processes decides whether task depth is capped at 16.** §8.4 chooses supervisor-spawned executors, which avoids the cap. Nothing outside this document records that the choice has that consequence, and `task_graph` treats depth as unbounded |
 | **O6** | **§9.3 detects a conflict and refuses; it does not resolve one.** Refusing is right for a one-shot sync at task start. It is not right for whatever eventually wants to sync mid-task, and that caller does not exist yet |
 | **O7** | **Remote execution is less isolated than local, and now says so.** §10.4 reports it per side rather than resolving it. The moment a validation runs remotely, criterion 13 stops being enforced by anything this document specifies |
+
+## 17. o11y
+
+Side-cars that watch a run. **The rule that outranks every feature in this
+chapter: o11y may never fail the thing it observes.** Every failure is one
+`log.warning` and a skip, and there is a test per mode holding that line.
+
+### 17.1 AgentsView
+
+[AgentsView](https://github.com/kenn-io/agentsview) is an external Go binary
+that reads Claude Code's JSONL transcripts and serves search, analytics and
+token-cost views. `agent_sys` reaches its backend through `claude-agent-sdk`,
+which spawns the `claude` CLI, which writes exactly those transcripts — so the
+two fit with no glue on either side. The whole integration is *where the
+transcripts land* and *which directory the panel reads*.
+
+**AgentsView's own code is never modified.** Every knob is one it publishes:
+`--port`, `CLAUDE_PROJECTS_DIR`, `AGENTSVIEW_DATA_DIR`, `disabled_agents`.
+
+#### The prefix
+
+`~/.infera_agent_sys`, laid out like `~/.local` (`bin/ share/ state/ run/`),
+owned by `env_mgr` and named by the `AGENT_SYS_*` family in `prefix.py`. It
+exists because the two obvious alternatives are both wrong: `/usr/local/bin` is
+host state we promised not to touch, and `~/.local/bin` is the user's. Upstream's
+`install.sh` is not used — it hardcodes `/usr/local/bin` with no override point.
+The recipe (`recipes/agentsview.o11y.yaml`, `installer: bin`,
+`importance: suggested`) installs a pinned release and verifies its published
+`SHA256SUMS`.
+
+`state/claude` is deliberately not under a run root: the daemon outlives any
+single run, so the directory it reads must be a stable path.
+
+#### Session scoping — five gates
+
+The panel must show only the sessions `agent_sys` produced. **The constraint
+that outranks the feature: the user's own Claude Code must be untouched.**
+
+| | |
+|---|---|
+| 1 | `CLAUDE_CONFIG_DIR=$AGENT_SYS_CLAUDE_HOME` in the **child's** environment dict, never in our `os.environ`. `material.deploy` sets its own per-attempt value, so `<zone>/config/projects` is symlinked into the prefix — credentials and settings stay the zone's, only the output is shared |
+| 2 | `CLAUDE_PROJECTS_DIR` points the panel at that one root |
+| 3 | `disabled_agents` switches off the other 60 providers. Pinned and hand-maintained; `check_disabled_agents` warns when it has drifted from the installed binary **in either direction** — a name the binary dropped breaks `serve` loudly, a name it gained leaks silently |
+| 4 | `AGENTSVIEW_DATA_DIR` is ours, so a user's own archive and settings are untouched |
+| 5 | `HOME` is redirected into the prefix for the binary's own subprocesses. AgentsView derives every provider's *default* root from `HOME`, so this needs no list and cannot go stale when upstream adds a provider we have never heard of. Found while measuring, and stronger than gate 3 |
+
+#### Lifecycle, port, failure
+
+Started at the end of the `env_mgr` deploy path and left **resident**
+(`daemon_idle_timeout = "0s"`; the default 20m would empty the panel for anyone
+opening the URL after their run). Default port `18888`; resolution order is
+`--agentsview-port`, then `AGENTSVIEW_PORT`, then the default, and an unusable
+value falls back with a warning rather than failing. `--no-agentsview`,
+`--dry-run` and `--clean` make no external call at all.
+
+**A taken port is a warning and a skip, never a relocation.** We bind-probe
+before launching precisely because `serve` would otherwise move quietly to the
+next free port, and a panel on 18889 is a panel nobody knows the address of.
+`--replace` is passed for the same reason: without it, `serve --background
+--port N` silently attaches to any daemon already alive for this data directory
+and reports *its* port, exit 0, `N` ignored.
+
+**Reuse requires proof of ownership.** A live AgentsView on the port is not
+evidence it is ours — a user's own daemon lists every session on the machine.
+Two gates: it answers `/api/v1/agents` with 200 and JSON (a status code is not
+an identity), **and** a live `daemon.<pid>.json` in our data directory names
+that port. That record is AgentsView's own artefact, read never written; because
+the data directory is ours alone, one found there was written by a daemon we
+configured. It is removed on a clean stop, so only an unclean death leaves a
+stale one, and that is caught by checking the pid.
+
+**No validation path may start a daemon.** Measured: `health`, `projects` and
+`session list` all autostart one on a port AgentsView picks — the delegation
+this component exists to prevent, happening where nobody is watching.
+`doctor sync` does not, and answers the same question. `AGENTSVIEW_NO_DAEMON=1`
+does not rescue them; it makes them refuse outright.
+
+**Success goes to the event stream** (`EventKind.O11Y_PANEL`), not `logging`:
+this package never configures `logging`, so an info record reaches nobody while
+`log.warning` still reaches stderr through `lastResort`.
+
+#### Known limitation
+
+The zone symlink's behaviour under an enforcing policy is **untested, because
+currently untestable**: `agent_sys` refuses to start any AI task under
+`AGENT_SYS_NO_PERMISSIONS=0` today, before the executor runs, so nothing ever
+traverses the link. That refusal predates this feature — measured with paired
+arms differing in one file, both failing identically. If a confined child ever
+does follow it, the prefix is under `$HOME`, which `DEFAULT_SYSTEM_SET` does not
+grant; the likely repair is a grant on `$AGENT_SYS_CLAUDE_HOME/projects`, which
+is a permissions decision and is deliberately not taken here. Read this as
+"untested", never as "safe".

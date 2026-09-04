@@ -126,7 +126,7 @@ def test_the_install_closure_runs_nothing_until_it_is_called(monkeypatch, tmp_pa
     happened at construction time" is worth asserting directly.
     """
     import env_mgr.runner
-    from env_mgr.o11y.prefix import Prefix
+    from env_mgr.prefix import Prefix
 
     ran = []
     monkeypatch.setattr(
@@ -231,7 +231,7 @@ def test_the_readiness_probe_writes_into_the_prefix_not_the_users_claude_dir(
     import subprocess
 
     from cli import environment as cli_env
-    from env_mgr.o11y.prefix import Prefix
+    from env_mgr.prefix import Prefix
 
     seen: dict[str, str] = {}
 

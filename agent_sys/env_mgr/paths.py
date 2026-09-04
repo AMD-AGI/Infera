@@ -143,11 +143,10 @@ HANDOFFS_ENV_VAR = "AGENT_SYS_MY_HANDOFFS"
 #: would otherwise have no name; ``等等`` invited the completion.
 LOGS_ENV_VAR = "AGENT_SYS_MY_LOGS"
 
-#: **The prefix family, re-exported rather than redefined.** `o11y.prefix` owns
-#: these because it owns the layout; they are visible here because `paths` is
-#: where a reader looks for an ``AGENT_SYS_*`` name, and a name with two
-#: definitions is the drift this module exists to prevent.
-from .o11y.prefix import (  # noqa: E402
+#: **The prefix family, re-exported rather than redefined.** `prefix` owns them
+#: because it owns the layout; they are visible here because `paths` is where a
+#: reader looks for an ``AGENT_SYS_*`` name.
+from .prefix import (  # noqa: E402
     BIN_ENV_VAR,
     CLAUDE_HOME_ENV_VAR,
     HOME_ENV_VAR,

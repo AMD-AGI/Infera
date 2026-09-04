@@ -20,7 +20,7 @@ import pytest
 
 from env_mgr import material
 from env_mgr.fs.zone import Zone
-from env_mgr.o11y.prefix import Prefix
+from env_mgr.prefix import Prefix
 
 from .stubs import AgentSpec
 

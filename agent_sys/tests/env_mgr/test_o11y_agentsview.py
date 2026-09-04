@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 from env_mgr.o11y import agentsview
-from env_mgr.o11y.prefix import Prefix
+from env_mgr.prefix import Prefix
 
 
 def test_the_default_port_is_18888() -> None:

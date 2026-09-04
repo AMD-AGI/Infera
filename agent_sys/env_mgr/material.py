@@ -21,7 +21,7 @@ from typing import Any
 from env_mgr import harness
 from env_mgr.fs.layout import copy_out
 from env_mgr.fs.zone import Zone
-from env_mgr.o11y.prefix import Prefix
+from env_mgr.prefix import Prefix
 from env_mgr.protocols import PrepareRefused
 
 __all__ = ["CONFIG_DIR", "MATERIAL_KEYS", "PROJECTS_DIR", "deploy"]
@@ -110,25 +110,11 @@ def deploy(agent_spec: Any, zone: Zone) -> dict[str, str]:
 def _share_projects(config: str) -> None:
     """Point this attempt's ``config/projects`` at the o11y prefix's.
 
-    **Everything else in ``config/`` stays per-attempt.** The relocation above
-    is the reason this module exists and it is not being undone — credentials,
-    settings, ``sessions/`` and ``backups/`` remain the zone's own. Only
-    ``projects/`` is shared, because it is the one subdirectory whose contents
-    nobody in the zone reads: it is Claude Code's *output*, one JSONL per
-    session, and the o11y panel is its only consumer.
-
-    Measured on `examples/demo2` (`recon/ACCEPTANCE.md`, check 2): nine agent
-    transcripts landed under nine different ``<zone>/config/projects/`` and the
-    panel — which reads one fixed directory — showed none of them. The prefix is
-    the only anchor stable across runs and across ``--demo-root`` changes, which
-    is what a resident daemon needs.
-
-    Sharing one physical directory cannot collide: Claude Code names each
-    subdirectory after the slugified cwd, and every attempt runs in its own zone.
-
-    **Never raises.** A panel that cannot see a run is a degraded panel; a
-    prepare step that throws is a dead run. One warning, and the attempt
-    proceeds with whatever is really at that path.
+    **Everything else in ``config/`` stays per-attempt.** Only ``projects/`` is
+    shared: it is Claude Code's *output*, nobody in the zone reads it, and one
+    physical directory cannot collide because each subdirectory is named after
+    the slugified cwd. Measured on demo2: nine transcripts in nine zones, and
+    the panel showed none. **Never raises** — a degraded panel beats a dead run.
     """
     link = Path(config) / PROJECTS_DIR
     try:
@@ -142,17 +128,12 @@ def _share_projects(config: str) -> None:
             link.unlink()
         elif link.exists():
             # A real directory. `rmdir` **refuses** a non-empty one, which is
-            # the whole reason it is the call used here: an empty directory is
-            # ours to replace, and one holding transcripts raises `OSError` and
-            # falls to the warning below. Losing a zone from the panel is
-            # cheaper than deleting somebody's evidence.
+            # why it is the call used: an empty directory is ours to replace,
+            # one holding transcripts raises and falls to the warning below.
+            # Losing a zone from the panel is cheaper than deleting evidence.
             os.rmdir(link)
         link.symlink_to(target, target_is_directory=True)
     except OSError as exc:
-        # `Prefix.resolve` used to raise `KeyError` with neither `AGENT_SYS_HOME`
-        # nor `$HOME` set, and this was the only call site that survived it. It
-        # is total now — the fix went where the other two callers could reach
-        # it — so the only thing left to catch here is the filesystem.
         log.warning(
             "could not share %s with the o11y prefix (%s); this attempt's "
             "transcripts stay in its zone and the panel will not show them",

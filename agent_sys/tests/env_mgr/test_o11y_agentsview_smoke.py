@@ -55,7 +55,7 @@ from pathlib import Path
 import pytest
 
 from env_mgr.o11y import agentsview
-from env_mgr.o11y.prefix import Prefix
+from env_mgr.prefix import Prefix
 
 #: How long the daemon may take to answer after `serve --background` returns.
 #: Cold start builds the SQLite archive from the session root; ours holds one

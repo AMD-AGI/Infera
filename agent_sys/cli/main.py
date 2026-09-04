@@ -48,7 +48,7 @@ from cli.render.machine import JsonLinesRenderer
 from cli.stream import Stream
 from env_mgr import meta
 from env_mgr.o11y.agentsview import RECIPE_PATH, ensure_installed, ensure_running, resolve_port
-from env_mgr.o11y.prefix import Prefix
+from env_mgr.prefix import Prefix
 from env_mgr.prepare import EnvManager, permissions_enforced
 from env_mgr.protocols import NoConfinement, PrepareRefused, UnresolvedGrant
 from env_mgr.remote.connection import sync_transport
@@ -227,16 +227,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         try:
             if args.verb == "show":
                 return _show(args, stream)
-            # The one call site, and deliberately here: the daemon outlives the
-            # run, so it starts once per invocation rather than once per task,
-            # and its return value is never consulted for the exit code.
-            #
-            # **Not for `--dry-run` or `--clean`.** `--dry-run`'s contract is
-            # *resolve everything, do nothing*, and starting a resident daemon,
-            # creating the prefix and writing a `config.toml` are all side
-            # effects — a dry run that leaves a daemon behind has broken its
-            # only promise. `--clean` deletes every run and exits, so a panel
-            # for it would be started and immediately pointless.
+            # The one call site: the daemon outlives the run, so it starts
+            # once per invocation and its result never reaches the exit code.
+            # Not for `--dry-run` (whose contract is *resolve everything, do
+            # nothing*) or `--clean` (which deletes every run and exits).
             _start_o11y(
                 args.agentsview_port,
                 disabled=args.no_agentsview or args.dry_run or args.clean,
@@ -259,12 +253,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     return UNEXPECTED_FAILURE  # pragma: no cover — ExitStack always returns above
 
 
-#: `BinInstaller.install` reports "installed <name>" when it ran the command and
-#: "<name> already present (skip)" when it did not. That text is the only signal
-#: `ensure_installed` passes back about *which* happened, so the notice below
-#: reads it. `test_the_installers_two_ok_messages_still_discriminate` takes both
-#: phrasings from the real installer, so a rephrasing there fails a test here
-#: rather than silently muting the notice or firing it on every run.
+#: `BinInstaller.install` says "installed <name>" when it ran and "<name>
+#: already present (skip)" when it did not — the only signal `ensure_installed`
+#: passes back about which. `test_the_installers_two_ok_messages_still_discriminate`
+#: drives both real branches, so a rephrasing there fails rather than silently
+#: muting the notice or firing it every run.
 _FRESHLY_INSTALLED_PREFIX = "installed "
 
 
@@ -289,22 +282,14 @@ def _pinned_version() -> str:
 def _install_item(prefix: Prefix) -> Callable[[], Sequence[Any]]:
     """The recipe call `ensure_installed` injects rather than performs.
 
-    **This closure lives here because `env_mgr` may not contain it.** Spec §9
-    draws a wall around the installer machinery — `recipe`, `runner`,
-    `installers` — and `tests/env_mgr/test_imports.py` enforces it structurally
-    against every module under `env_mgr/`. `cli/main.py` is a different package
-    and outside that wall entirely, which makes this the sanctioned place to
-    assemble the call.
+    **It lives here because `env_mgr` may not contain it.** Spec §9 walls off
+    `recipe`/`runner`/`installers` from every module under `env_mgr/`, enforced
+    by `tests/env_mgr/test_imports.py`; `cli` is a different package.
 
-    **Zero-argument, and deliberately not a precomputed `Outcome` list.** The
-    work must not happen until `ensure_installed` has decided it is wanted;
-    a list evaluated at the call site would have run the installer before
-    anything could stop it, which is exactly what the `--dry-run` exemption
-    exists to prevent.
-
-    `target.path` is overridden because the checked-in recipe's own value is a
-    placeholder — the same convention `recipes/sglang.repo.yaml` uses, since
-    nothing in `env_mgr` expands `${VAR}` in a YAML value.
+    **Zero-argument, not a precomputed list**: a list evaluated at the call site
+    would run the installer before `--dry-run` could stop it. `target.path` is
+    overridden because the checked-in recipe's value is a placeholder — nothing
+    in `env_mgr` expands `${VAR}` in a YAML value.
     """
 
     def call() -> Sequence[Any]:
@@ -324,27 +309,18 @@ def _start_o11y(
 ) -> str | None:
     """The one call site. Returns the panel URL, or None, and never raises.
 
-    **The bare `except Exception` is deliberate and is the point.** Everything
-    inside `ensure_running` already degrades to a warning; this catches the case
-    that module has not thought of. An observability side-car that can abort a
-    run is a worse bug than a missing panel, and this is the line that makes
-    that structurally impossible rather than merely intended.
+    **The bare `except Exception` is the point**: everything inside
+    `ensure_running` already degrades to a warning, and this catches what that
+    module has not thought of. A side-car that can abort a run is a worse bug
+    than a missing panel.
 
-    **What succeeded goes to the `stream`; what failed goes to `logging`.**
-    Both were `log.info` and therefore reached nobody: this package never
-    configures `logging`, so the root logger is at `WARNING` with no handler
-    and an info record is dropped, while the warnings inside `ensure_running`
-    still reach stderr through `logging.lastResort`. The result was a component
-    that reported only its failures. The stream is the thing here whose job is
-    being read — by a human through `HumanRenderer` and by a machine through
-    `--json` — so the URL and the first-install notice belong in it.
+    **Success goes to the `stream`, failure to `logging`.** Both were
+    `log.info`, and this package never configures `logging` — so the root
+    logger sits at `WARNING` with no handler and they reached nobody, while the
+    warnings still reached stderr through `lastResort`. `stream` is optional
+    because the failure-mode tests are not about it; `main` always passes one.
 
-    `stream` is optional because the failure-mode tests call this directly and
-    a `Stream` is not what they are about; `main` always passes one.
-
-    `os.environ` is *read* here and never written. The prefix's variables belong
-    in a child's environment dict — putting them in ours would redirect a Claude
-    Code the user started in their own terminal.
+    `os.environ` is read here and never written.
     """
     if disabled:
         return None
@@ -361,11 +337,9 @@ def _start_o11y(
             # daemon whose binary is absent would only add a second.
             return None
         if _was_freshly_installed(installed.reason):
-            # **Only on the run that actually downloaded.** The user agreed to
-            # an automatic install; they did not agree to being told about it
-            # forever, and a line on every run is how a real warning gets
-            # scrolled past. Says what arrived and where, because a 45 MB
-            # download nobody typed a command for should be inspectable.
+            # Only on the run that downloaded: a line on every run is how a
+            # real warning gets scrolled past. Says what arrived and where,
+            # because a 45 MB download nobody asked for should be inspectable.
             version = _pinned_version()
             path = str(prefix.bin / "agentsview")
             message = (

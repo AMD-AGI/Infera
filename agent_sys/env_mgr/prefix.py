@@ -2,16 +2,15 @@
 # Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
 """`~/.infera_agent_sys` — agent_sys's own `~/.local`.
 
-**Why a prefix at all.** The o11y binary has to live somewhere, and the two
-obvious somewheres are both wrong: `/usr/local/bin` is host state we promised
-not to touch, and `~/.local/bin` is the user's, shared with everything else they
-installed. A prefix we own is the only place where "install" and "uninstall"
-are both a directory operation.
+**Why a prefix at all.** Things `agent_sys` installs have to live somewhere, and
+the two obvious somewheres are both wrong: `/usr/local/bin` is host state we
+promised not to touch, and `~/.local/bin` is the user's. A prefix we own is the
+only place where "install" and "uninstall" are both a directory operation.
 
-**`resolve` takes its environment as an argument** and never reads
-`os.environ` itself. A component that decides *where the user's Claude
-transcripts go* must be testable without a process-global, and the same
-discipline is what keeps this out of the ambient environment at runtime.
+**`resolve` takes its environment as an argument** and never reads `os.environ`.
+A component deciding *where the user's Claude transcripts go* must be testable
+without a process-global, and the same discipline keeps it out of the ambient
+environment at runtime. `o11y` is the first consumer, not the owner.
 """
 
 from __future__ import annotations
@@ -48,13 +47,9 @@ CLAUDE_CONFIG_ENV_VAR = "CLAUDE_CONFIG_DIR"
 def _home(environ: Mapping[str, str]) -> Path:
     """`$HOME`, then the passwd entry, then a per-uid directory in `$TMPDIR`.
 
-    The last step is a real fallback and not a formality: the prefix has to
-    resolve *somewhere* for `resolve` to be total, and the alternatives are
-    worse. The cwd would put machine state inside whatever repository happens
-    to be checked out, and a relative path would move as `agent_sys` changes
-    zones. A machine with neither `$HOME` nor a passwd entry gets a panel whose
-    archive does not survive a reboot, which is the correct amount of
-    degradation for a side-car.
+    The last step is real, not a formality: `resolve` has to be total, and the
+    cwd would put machine state inside whichever repository is checked out. An
+    archive that does not survive a reboot is the right degradation here.
     """
     home = environ.get("HOME")
     if home:
@@ -77,16 +72,10 @@ class Prefix:
     def resolve(cls, environ: Mapping[str, str]) -> Prefix:
         """**Total: it always answers, and never raises.**
 
-        It used to be `environ["HOME"]`, which is a `KeyError` under a systemd
-        unit, a stripped cron environment or `env -i`. `material.py` caught
-        that and warned; `prepare.py` and `cli/environment.py` did not — so the
-        same condition had three behaviours and two of them killed a run that
-        had not asked for a panel. That inverts the one rule this whole feature
-        is built on, so the fix belongs here, once, rather than at each caller.
-
-        `expanduser` because `AGENT_SYS_HOME=~/foo` is a literal `~/foo` to
-        `Path`, and `resolve` because a relative override is interpreted
-        against a cwd that changes as `agent_sys` moves between zones.
+        It was `environ["HOME"]` — a `KeyError` under `env -i`, caught at one of
+        three call sites and fatal at the other two. `expanduser`/`resolve`
+        because `~/foo` is a literal to `Path` and a relative override moves
+        with a cwd that changes between zones.
         """
         override = environ.get(HOME_ENV_VAR)
         if override:
@@ -113,9 +102,8 @@ class Prefix:
     def claude_home(self) -> Path:
         """`CLAUDE_CONFIG_DIR` for agent children.
 
-        **Not under a run root**, deliberately. The daemon outlives any single
-        run, so the directory it reads has to be stable; putting this under
-        `runs/<id>/` would point the panel at a directory that stops existing.
+        **Not under a run root**: a reader of these transcripts outlives any
+        one run, so `runs/<id>/` would name a directory that stops existing.
         """
         return self.state / "claude"
 
@@ -158,22 +146,11 @@ def agent_environment(
 ) -> dict[str, str]:
     """`base`, plus the prefix, plus the one variable that scopes the panel.
 
-    **`CLAUDE_CONFIG_DIR` goes in the returned dict and never into
-    `os.environ`.** That distinction is the whole promise to the user: a Claude
-    Code they start in their own terminal inherits nothing from us and keeps
-    reading `~/.claude`. `test_agent_environment_does_not_touch_this_process`
-    is the guard, and it is not a formality — a single `os.environ[...] = ...`
-    added here for convenience would silently redirect the user's own agent.
-
-    **`bin_on_path` exists because `PATH` here is a projection, not a choice.**
-    `isolation.policy.executable_path` derives `PATH` from the granted set
-    precisely so that it *cannot* name a directory the kernel will refuse, and
-    `~/.infera_agent_sys/bin` is under `$HOME`, which the default grant set does
-    not include. Prepending it unconditionally would put an `EACCES` on `PATH`
-    and break that invariant — so a caller working under a policy passes
-    `bin_on_path=False` and gets the variables without the entry. The variable
-    `AGENT_SYS_BIN` still names the directory either way, which is what a
-    consumer that knows it is granted actually reads.
+    **`CLAUDE_CONFIG_DIR` goes in the returned dict, never into `os.environ`** —
+    the whole promise to the user, guarded by
+    `test_agent_environment_does_not_touch_this_process`.
+    **`bin_on_path=False` under a policy:** `executable_path` derives `PATH`
+    from the granted set, which excludes `$HOME`. `AGENT_SYS_BIN` still names it.
     """
     env = dict(base)
     env.update(prefix.environment())

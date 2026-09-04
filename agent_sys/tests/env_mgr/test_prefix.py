@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from env_mgr.o11y.prefix import Prefix
+from env_mgr.prefix import Prefix
 
 
 def test_default_root_is_infera_agent_sys_under_home(tmp_path: Path) -> None:
@@ -91,7 +91,7 @@ def test_prefix_names_are_reachable_from_the_paths_family() -> None:
 
 
 def test_agent_environment_carries_claude_config_dir(tmp_path: Path) -> None:
-    from env_mgr.o11y.prefix import Prefix, agent_environment
+    from env_mgr.prefix import Prefix, agent_environment
 
     p = Prefix.resolve({"HOME": str(tmp_path)})
     env = agent_environment(p, base={"PATH": "/usr/bin"})
@@ -104,7 +104,7 @@ def test_agent_environment_does_not_touch_this_process(tmp_path: Path) -> None:
     """The guard on 'the user's own Claude Code is unaffected'."""
     import os
 
-    from env_mgr.o11y.prefix import Prefix, agent_environment
+    from env_mgr.prefix import Prefix, agent_environment
 
     before = dict(os.environ)
     agent_environment(Prefix.resolve({"HOME": str(tmp_path)}), base={"PATH": "/usr/bin"})

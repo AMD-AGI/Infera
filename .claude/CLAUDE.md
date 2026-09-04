@@ -1,107 +1,107 @@
-# Task — wire **AgentsView** into `agent_sys` as its o11y panel
+# Task — `e2e_deploy_standardized`: the first stage of the LLM e2e optimisation task package
 
-Three deliverables, in order, from the repo-root `mission.md`:
+Build the **"e2e 运行"** module of
+`agent_sys/examples/llm_e2e_performance_optimization/` and drive it to a stable
+pass. One closure — `e2e_deploy_standardized` — with its **task / ai agent /
+handoff / validator** fully specified, run by `agent_sys` on real hardware for
+two models.
 
-1. **Stand it up alone.** Get [`kenn-io/agentsview`](https://github.com/kenn-io/agentsview)
-   running on this box and serving its web UI.
-2. **Make it a sub-component of `agent_sys`'s o11y.** Deploying `agent_sys`
-   starts it automatically. Default port **18888**, configurable on the command
-   line, and **a taken port is a warning and a skip, never a failure**.
-   The panel must show **only the sessions `agent_sys` itself produced**, not
-   every session on the user's machine.
-3. **Prove it** end to end on `examples/demo2`.
+Acceptance for "integrated": after debug and fixes are done, **three
+consecutive runs must pass with no intervention and no edits**. Environment
+preparation and peripheral repair before that first clean run do not count
+against it.
 
-**AgentsView's own code is never modified.** It is an external dependency, used
-the way its documentation says to use it. Every knob we turn is one it already
-publishes: `--port`, `CLAUDE_PROJECTS_DIR`, `AGENTSVIEW_DATA_DIR`,
-`disabled_agents`.
+Scope agreed with the user for this round (mission steps 2–5):
 
-The full design — approved 2026-09-03, read it before writing code — is
-[`docs/superpowers/specs/2026-09-03-agentsview-o11y-design.md`](../docs/superpowers/specs/2026-09-03-agentsview-o11y-design.md).
+1. **Step 2** — author the first-cut spec of `e2e_deploy_standardized`.
+2. **Step 3** — drive it with **Qwen3.6-27B** on gfx950 until stable; sanitise
+   the resulting deliverable and add it as a **few-shot exemplar + validator
+   assertion**.
+3. **Step 4** — reproduce **GLM-5.3-Flash** on the cluster from the given packup.
+4. **Step 5** — drive `e2e_deploy_standardized` + **GLM-5.3-Flash** on gfx950;
+   same few-shot/assert treatment.
+
+Steps 6 (mxfp4) and 7 (remote) are **out of scope this round** unless the user
+re-opens them. MXFP4 GLM-5.3-Flash weights do not exist on this cluster.
 
 ## Background
 
-`agent_sys` is the decoupled multi-agent task-flow system in this repo. It
-reaches its AI backend through `claude-agent-sdk`, which spawns the `claude`
-CLI, which writes one JSONL transcript per session. AgentsView is a Go binary
-that reads exactly those transcripts and turns them into search, analytics and
-token-cost views. The two fit together with no glue on either side — the whole
-integration is *where the transcripts land* and *which directory the panel
-reads*.
+`agent_sys` is a decoupled multi-agent task-flow system living inside the
+`infera` repo. `examples/single_real_task` already proved the shape on gfx942:
+an AI agent brought Qwen3.6-27B up in mix mode and handed back a packup-shaped
+reproduction kit, checked by one program validator and one AI validator. This
+round **generalises that one-off into a standardised, model-agnostic e2e deploy
+step** and proves it on a second model and a second architecture.
 
-## Context — the four decisions already made, and why
+Mission书: `agent_sys/examples/llm_e2e_performance_optimization/temp/mission.md`
+(the series book) and the user's current `mission.md` at the repo root.
+
+## Context — this environment, measured 2026-09-01
 
 | | |
 |---|---|
-| **Install form** | A native binary under a dedicated prefix `~/.infera_agent_sys`, laid out like `~/.local` (`bin/ share/ state/ run/`). `env_mgr` owns the prefix and injects `PATH` for `agent_sys`'s process tree only — no shell rc is written, no host state outside the prefix is touched. |
-| **Env vars** | The root and every key subdirectory is named by a variable, joining the existing `AGENT_SYS_*` family in `env_mgr/paths.py`: `AGENT_SYS_HOME`, `AGENT_SYS_BIN`, `AGENT_SYS_SHARE`, `AGENT_SYS_STATE`, `AGENT_SYS_RUN`, `AGENT_SYS_CLAUDE_HOME`. |
-| **Session scoping** | `CLAUDE_CONFIG_DIR=$AGENT_SYS_CLAUDE_HOME` is injected **into the agent child process only**, via the `assignment.environment` seam that `agent/backends/claude_sdk.py:358` already forwards. Transcripts land in the prefix; agentsview reads that one root; other providers are switched off with `disabled_agents`; the archive is a separate `AGENTSVIEW_DATA_DIR`. |
-| **Lifecycle** | Started at the end of the `env_mgr` deploy path and **left resident** across runs. `agent-sys run` only health-checks it and prints the URL. |
+| where I am | login node `crs-m2m-cpu-spur-012`, **no GPU, no docker daemon access** |
+| GPU nodes | slurm holds `94842`→`crsuse2-m2m-020`, `94843`→`crsuse2-m2m-188`, 8×MI355X **gfx950**, 288 GiB/GPU, idle |
+| reaching them | `spur exec <jobid> bash -c '...'` — runs as **`yihou`**, docker talks to the **host** daemon |
+| **walltime** | both jobs are 4 h, started 07:08 UTC → **hard stop ≈ 11:07 UTC**. Resubmit 8 h sleeper holds when they die |
+| docker disk | on the 28 T NVMe, **~26 T free** — pulls and builds are fine (the 87 G on `/` is the exec namespace's own rootfs, a red herring) |
+| local scratch | `/mnt/m2m_nobackup` (28 T, per-node, 10 GB/s) — **this is where a container workdir goes** |
+| shared FS | `/shared_nfs` 360 T but **98 % full (7.6 T free)**, ~700 MB/s read, **no root_squash** (container root can write) |
+| agent_sys roots | one knob: `--demo-root /shared_nfs/yihou/agent_sys_debug/runroot` relocates runs/handoffs/playground/workspace together |
+| permissions | already default **off** (`AGENT_SYS_NO_PERMISSIONS` unset reads as `1`) |
+| ports | 8080 taken; 8000–8079, 8081–8200, 30000 free. `--network host` works |
+| GPU into containers | `--device /dev/kfd --device /dev/dri` + **numeric** `--group-add 44 --group-add 992` (named `render` fails) |
 
-**The one constraint that outranks the feature: the user's own Claude Code must
-be untouched.** `CLAUDE_CONFIG_DIR` goes into the child's environment dict and
-never into this process's `os.environ`. There is a unit test whose only job is
-to hold that line.
+Weights: `GLM-5.3-Flash` (FP8, 62 shards) and `-BF16` complete under
+`/shared_nfs/models/`; that directory is **not writable by me**, so Qwen3.6-27B
+was staged to **`/shared_nfs/yihou/models/Qwen3.6-27B`** (copied from
+`/shared_nfs/jiahazha/models/`, 15 shards / 51.75 GiB).
+
+Images: no infera image exists on these nodes and `rocm/infera:sglang-dev` is
+**not on docker.io**. `lmsysorg/sglang:v0.5.17-rocm720-mi35x` (gfx950) carries
+`qwen3_5.py` but **not** `glm5_next`; infera is pure Python and installs into it
+in seconds.
 
 ## Key references
 
-- `agent_sys/agent/backends/claude_sdk.py` — `_options()`, line ~358: the
-  `options.setdefault("env", dict(self.assignment.environment))` seam. The
-  write-side of session scoping is this one line's existing behaviour.
-- `agent_sys/env_mgr/prepare.py:468` — `environment = {"PATH":
-  executable_path(policy)}`. PATH is *derived from policy, never inherited*;
-  the new prefix joins that derivation.
-- `agent_sys/env_mgr/installers/bin.py` — "install one executable with one
-  command, probe with `check_cmd`, skip when satisfied". **No new installer
-  class is needed**; agentsview is one recipe item. `importance: suggested`
-  makes install failure a warning through `level_for_missing`, which is the
-  existing mechanism for "this is optional".
-- `agent_sys/env_mgr/recipes/sglang.repo.yaml` — the recipe format to copy.
-- `agent_sys/env_mgr/paths.py` — where the `AGENT_SYS_*` constants live.
-- AgentsView docs: `docs/configuration.md` (env vars, `disabled_agents`,
-  `[[session_sources]]`), `docs/commands.md` (`serve --port`, `--background`,
-  `--no-browser`, daemon lifecycle).
+- `agent_sys/examples/single_real_task/` — the template: `main.yaml`,
+  `steps/serve.yaml`, `assets/serve_qwen.task/readme.md` (the agent brief worth
+  copying wholesale), `assets/check_packup_shape.validator/`, `assets/lib/zone.py`.
+- `/shared_nfs/yihou/packups/packups/`:
+  - `qwen36-27b.mix.gfx942-agent_sys.packup_20260901/` — the agent_sys-driven
+    reference run, its acceptance file `spec/B4-acceptance.md`, and
+    `notes-src/FINDINGS.md` (read this before re-deriving anything).
+  - `qwen36-27b.mix.gfx950-manual.packup_20260901/` — the gfx950 recipe.
+  - `glm53flash.mix.packup_20260830/` — the GLM-5.3-Flash recipe, incl. the
+    `Dockerfile.sglang.glm53` this repo does not carry.
+- `/shared_nfs/yihou/agent_sys_debug/recon/RECON_20260901.md` — the measured
+  environment recon this table summarises.
+- Packup skill: `agent_sys/examples/llm_e2e_performance_optimization/temp/claude_code_skill_used_by_human/experiment-result-packup/`.
 
 ## Core principles
 
-1. **Read the artefact, not the exit code.** Acceptance criterion 3 — "the panel
-   shows this run's session and no others" — is judged by reading the session
-   list. A green run proves nothing about what is on the panel.
-2. **o11y may never break the thing it observes.** Binary missing, install
-   failed, port taken, daemon dead, health check timed out: every one of these
-   is one `log.warning` and a skip. There is a test per failure mode asserting
-   no exception escapes.
-3. **Suspend, don't conclude.** Two things are unverified and must not be
-   reasoned into: whether `install.sh` accepts an install prefix, and whether
-   `claude-agent-sdk` honours `CLAUDE_CONFIG_DIR` for *credential* lookup and
-   not just transcript placement. Each has a named experiment in the spec.
-   Write no code that depends on a guessed answer.
-4. **Every identifier is a parameter.** Port, prefix, data dir, config dir:
-   `: "${VAR:=…}"`, never a literal buried in a function.
-5. All temporary activity lives in **`/home/yihou/ws.agentsview_o11y/`**. The
-   repo receives the deliverable and nothing else.
-6. **Do not change host state** beyond `~/.infera_agent_sys` and our own
-   directories. Never delete anything outside a `yihou/` directory.
-7. Work in English; report to the user in Chinese.
+1. **Read the artefact, not the exit code.** A previous stage reported 14/14
+   tasks and ten validators PASS over a run in which every result was zero.
+   Every acceptance claim names a file to open and a condition that fails.
+2. **Write acceptance criteria before the run, not after.**
+3. **Pin the run id at launch.** `ls -1td runs/ | head -1` is not "my run" —
+   this box is shared.
+4. **Every identifier bound on a shared host is a parameter**: container names,
+   ports, workdir, served model name. `: "${VAR:=…}"`, never `export VAR=`, and
+   never `docker rm -f` a name you did not create.
+5. **Research → gather → analyse → plan → work.** All temp activity stays in
+   `/shared_nfs/yihou/agent_sys_debug/ws/`; the repo only receives the
+   deliverable under `agent_sys/examples/llm_e2e_performance_optimization/`.
+6. **Do not change host state** beyond docker images/containers we own and our
+   own directories. Ask before anything wider.
+7. Bugs in `agent_sys` are recorded under
+   `agent_sys/examples/llm_e2e_performance_optimization/temp/bugs/` first, then
+   worked around; fixed only when the evidence is unambiguous.
+8. Work in English; report to the user in Chinese.
 
 ## Other notable details
 
-### The agent team this mission mandates
-
-`mission.md` requires the work to run as an agent team: a leader polling
-teammates **every 10 minutes** (first sighting of a problem is *recorded only*;
-intervene on the second poll if it is still unresolved), plus a dedicated
-reporter appending a progress section to `work.checkpoint.summary.md` **every 30
-minutes**. That file's required sections are enumerated in `mission.md` — percent
-complete, elapsed and projected time, reliability of the estimate, current
-progress, code problems fixed and unfixed, non-code problems, undetermined
-questions, and new commits with one line each.
-
-The previous task's `CLAUDE.md` and checkpoint log are preserved as
-`.claude/CLAUDE.e2e_deploy.20260903-0736.md.bak` and
-`work.checkpoint.summary.e2e_deploy.20260903-0736.md.bak`.
-
-### DCO sign-off is required on every commit
+### DCO sign-off is required on every commit (unchanged repository convention)
 
 CI blocks any PR containing a commit without a `Signed-off-by:` trailer.
 
@@ -123,7 +123,7 @@ git push --force-with-lease origin <branch>
 `Co-Authored-By` is separate, is not a substitute, and must not be added when
 contributing to third-party upstreams.
 
-### Branch
+### Branch / PR
 
-`dev.yihou.aiopt.more.demo`. Changes are confined to `agent_sys/env_mgr/`,
-`agent_sys/cli/`, `agent_sys/tests/env_mgr/`, and the design doc.
+Branch `dev.yihou.aiopt.task_package`, PR 142. Activity is limited to
+`agent_sys/examples/llm_e2e_performance_optimization/`.

@@ -622,7 +622,7 @@ def test_prepared_environment_scopes_the_agent_to_the_o11y_prefix(ctx) -> None:
     matters to a user — a Claude Code they start in their own terminal must
     still read `~/.claude`, and it does, because we never set the variable here.
     """
-    from env_mgr.o11y.prefix import Prefix
+    from env_mgr.prefix import Prefix
 
     before = dict(os.environ)
     task = Task()

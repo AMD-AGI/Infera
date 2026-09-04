@@ -9,11 +9,13 @@ line, because the failure mode of a warning-only component is that someone
 later "improves" it into a raise.
 
 **Why we decide the port instead of letting AgentsView decide.** `agentsview
-serve` auto-discovers a free port when the requested one is busy. That is a
-sensible default for a human at a terminal and the wrong one here: the mission
-asks for a *warning and a skip* on a taken port, and a daemon that quietly
-moved to 18889 is a panel nobody knows the address of. So the bind probe
-happens here, before launch.
+serve` auto-discovers a free port when the requested one is busy — sensible for
+a human at a terminal, wrong here: the mission asks for a warning and a skip on
+a taken port, and a daemon that quietly moved to 18889 is a panel nobody knows
+the address of. So the bind probe happens here, before launch.
+
+Rationale, measurements and rejected alternatives: `../docs/design.md` §17.1
+and `README.md`.
 """
 
 from __future__ import annotations
@@ -35,7 +37,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from .prefix import Prefix
+    from ..prefix import Prefix
 
 __all__ = [
     "DEFAULT_PORT",
@@ -67,10 +69,8 @@ class Status:
     url: str | None = None
 
 
-#: A port we may actually ask for. **`0` is excluded deliberately**: it binds
-#: successfully and then means "any free port", handing the choice to
-#: AgentsView's own auto-discovery — the delegation this module's header says
-#: it exists to prevent.
+#: A port we may ask for. **`0` is excluded deliberately**: it binds, then means
+#: "any free port", handing the choice to AgentsView's auto-discovery.
 _LOWEST_PORT = 1
 _HIGHEST_PORT = 65535
 
@@ -82,14 +82,10 @@ def _in_range(port: int) -> bool:
 def resolve_port(flag: int | None, environ: Mapping[str, str]) -> int:
     """Flag, then environment, then 18888.
 
-    **An unusable value is the default, not an error.** This is a side-car;
-    refusing to start the whole deployment over a typo in a variable nobody
-    needed would invert the priority the module is built on. Unusable covers
-    both halves — a value that is not a number, and a number that is not a
-    port. The second is not pedantry: `socket.bind` answers an out-of-range
-    port with `OverflowError`, which is not `OSError` and so is not caught by
-    anything downstream except the CLI's blanket backstop, which is meant to
-    be a fuse rather than the mechanism.
+    **An unusable value is the default, not an error** — refusing a deployment
+    over a typo in a variable nobody needed inverts this module's priority.
+    Range matters as well as parseability: `bind` answers an out-of-range port
+    with `OverflowError`, which is not `OSError` and nothing downstream catches.
     """
     if flag is not None:
         if _in_range(flag):
@@ -123,14 +119,9 @@ def resolve_port(flag: int | None, environ: Mapping[str, str]) -> int:
 def port_is_free(port: int, host: str = "127.0.0.1") -> bool:
     """A real bind, not a connect.
 
-    Connecting answers "is someone accepting", which is a different question:
-    a socket bound and not listening still makes our own bind fail. We ask the
-    question we actually need answered.
-
-    `OverflowError` alongside `OSError` because that is what `bind` raises for
-    a port outside 0-65535, and it descends from neither. `resolve_port` keeps
-    such a value from reaching here at all; this is the second line, for a
-    caller that passes a port directly.
+    Connecting answers "is someone accepting", a different question: a socket
+    bound and not listening still makes our own bind fail. `OverflowError`
+    alongside `OSError` because that is what `bind` raises out of range.
     """
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -142,96 +133,57 @@ def port_is_free(port: int, host: str = "127.0.0.1") -> bool:
 
 
 #: How long the launch subprocess itself may take. `serve --background`
-#: daemonises and returns immediately, so anything slower is a hung binary.
+#: daemonises and returns at once, so anything slower is a hung binary.
 LAUNCH_TIMEOUT_S = 20.0
 
 #: How long we then wait for the daemon to answer. Cold-start reads the whole
 #: session archive, so this is generous.
 HEALTH_TIMEOUT_S = 30.0
 
-#: How long we spend deciding whether something already on the port is *our*
-#: panel rather than a stranger. Short deliberately: this is on the path of
-#: every deployment, and the answer either arrives at once or the thing on the
-#: port is not an agentsview that would have served us anyway.
-#:
-#: A named constant rather than a literal so a test can shrink it. The whole
-#: module is timeouts, and a suite that must really sleep through them is a
-#: suite people stop running.
+#: How long we spend deciding whether something on the port is *our* panel.
+#: Short deliberately: this is on every deployment's path, and the answer either
+#: arrives at once or the thing there would not have served us anyway. Named so
+#: a test can shrink it.
 REUSE_PROBE_TIMEOUT_S = 2.0
 
 #: AgentsView's own JSON endpoint (`docs/session-api.md:112`), used as the
-#: identity probe. Not `/`: every web server on the machine answers `/` with a
-#: 200, and this component's whole job on an occupied port is telling *our*
-#: daemon apart from a stranger's.
+#: identity probe. Not `/`: every web server answers that with a 200.
 IDENTITY_PATH = "/api/v1/agents"
 
-#: Cap on the identity response we read. The endpoint returns a short list of
-#: providers; the cap is there so a stranger streaming without end cannot hang
-#: a deployment on the o11y probe.
+#: Cap on the identity response, so a stranger streaming without end cannot
+#: hang a deployment on the o11y probe.
 IDENTITY_MAX_BYTES = 1 << 20
 
-#: One identity request's own deadline, as distinct from `REUSE_PROBE_TIMEOUT_S`
-#: which bounds the *series* of them. They happen to be equal and are unrelated;
-#: the equality is why this was a bare `timeout=2` for a while, in a module that
-#: names every other timeout.
+#: One identity request's deadline, as distinct from `REUSE_PROBE_TIMEOUT_S`
+#: which bounds the series of them. Equal by coincidence, unrelated.
 IDENTITY_PROBE_TIMEOUT_S = 2.0
 
-#: **AgentsView's own artefact, not ours.** `serve` writes one
-#: `daemon.<pid>.json` into its `AGENTSVIEW_DATA_DIR` while it is running and
-#: removes it on a clean stop (measured, v0.42.0). Because that directory is
-#: the prefix's and nobody else's, a record found here was written by a daemon
-#: we configured — which is what separates "reuse the panel we started" from
-#: "adopt whatever is listening". Read only; never written by us.
+#: **AgentsView's own artefact, not ours.** `serve` writes one per running
+#: daemon into its `AGENTSVIEW_DATA_DIR` and removes it on a clean stop
+#: (measured, v0.42.0). That directory is the prefix's and nobody else's, so a
+#: record here was written by a daemon we configured. Read only.
 DAEMON_RECORD_GLOB = "daemon.*.json"
 
-#: The `service` field of that record, checked so an unrelated file matching
-#: the glob is not mistaken for a daemon.
+#: Checked so an unrelated file matching the glob is not read as a daemon.
 SERVICE_NAME = "agentsview"
 
 
 def _binary_env(prefix: Prefix) -> dict[str, str]:
     """The environment every `agentsview` subprocess gets. One definition.
 
-    **`HOME` is gate 5 and it is the reason this is a function.** AgentsView
-    computes every provider's *default* session root from `HOME`, so pointing
-    it at the prefix means every root it could scan resolves inside the prefix
-    — regardless of whether that provider is named in `OTHER_PROVIDERS`, or
-    even exists yet. Unlike the denylist, this gate cannot go stale when
-    upstream adds a provider we have never heard of, because it needs no list
-    at all. It was written out at three call sites, with a test holding the
-    line at each; a test compensating for a missing helper is a helper that
-    should exist.
-
-    **A replacement, not an overlay.** Nothing of the caller's environment
-    reaches the binary — no `TMPDIR`, no `LANG`, no proxy variables. That is
-    deliberate (an inherited `CLAUDE_PROJECTS_DIR` or `AGENTSVIEW_DATA_DIR`
-    would undo the scoping) and it is what production has run on throughout;
-    it is *unverified* whether any AgentsView code path wants one of the
-    variables this drops.
+    **`HOME` is gate 5**: AgentsView derives every provider's default root from
+    it, so this scopes providers we have never heard of, with no list to go
+    stale. A replacement, not an overlay — unverified whether any AgentsView
+    path wants a `TMPDIR` or `LANG` this drops.
     """
     return {**prefix.environment(), "PATH": str(prefix.bin), "HOME": str(prefix.root)}
 
+
 #: **The pinned, reviewable statement of intent** — every provider AgentsView
-#: can scan, minus Claude Code, hand-maintained and version-controlled. This
-#: is what `write_config` actually disables; `check_disabled_agents` below is
-#: what tells us when reality has moved past it, in *both* directions.
-#:
-#: Deriving this at runtime from `discover_providers` (tried first, reverted)
-#: was rejected: a silent upstream AgentsView change would then silently
-#: change what the panel shows, with no commit, no diff, no review — worse
-#: than a pinned list that occasionally drifts *loudly*, via the check.
-#:
-#: Measured against `agentsview v0.42.0 doctor sync`'s own "Agent roots:"
-#: report, with `claude` removed and `aider` added back (accepted by the
-#: config parser directly even though `doctor sync` prints no root for it in
-#: this version). History: a first version of this list was guessed from
-#: AgentsView's human-readable provider table and five slugs were wrong
-#: (`claude-cowork`, `command-code`, `copilot-cli`, `cortex-code`,
-#: `gemini-cli` for `cowork`, `commandcode`, `copilot`, `cortex`, `gemini`) —
-#: caught from a real acceptance run's `stderr`, not from re-reading the docs.
-#: To re-measure after an AgentsView upgrade, see `discover_providers`'s
-#: docstring for the exact command; `check_disabled_agents` runs it
-#: automatically at install time and warns if this tuple has drifted from it.
+#: can scan, minus Claude Code. Pinned rather than derived at runtime so an
+#: upstream change alters the panel through a diff and a review, not silently.
+#: Measured against `v0.42.0 doctor sync`'s "Agent roots:"; `check_disabled_agents`
+#: re-runs that at install time and warns on drift in either direction.
 OTHER_PROVIDERS = (
     "aider", "amp", "antigravity", "antigravity-cli", "codebuff", "codex",
     "commandcode", "copilot", "cortex", "cowork", "cursor", "cursor-ide",
@@ -245,45 +197,35 @@ OTHER_PROVIDERS = (
     "windsurf", "workbuddy", "zcode", "zed", "zencoder",
 )
 
-#: The provider `OTHER_PROVIDERS` must never contain: gate 3 exists to disable
-#: everything *except* the one source `agent_sys` itself writes.
+#: The one `OTHER_PROVIDERS` must never contain: gate 3 disables everything
+#: except the source `agent_sys` itself writes.
 _KEEP_ENABLED = "claude"
 
-#: `agentsview doctor sync`'s report has an "Agent roots:" section listing
-#: every provider name the binary recognizes, one two-space-indented
-#: `name: path (status)` line per root (a provider with several default
-#: search paths repeats its name on several lines). Measured directly against
-#: a real v0.42.0 binary — this is the mechanical enumeration `discover_providers`
-#: parses, not a re-derivation of AgentsView's own provider table.
+#: `doctor sync`'s report lists every provider the binary recognizes under an
+#: "Agent roots:" header, one two-space-indented `name: path (status)` line per
+#: root. Measured against a real v0.42.0, not re-derived from the docs' table.
 _AGENT_ROOTS_HEADER = "Agent roots:"
 _AGENT_ROOT_LINE_RE = re.compile(r"^  ([a-z0-9_-]+):", re.MULTILINE)
 
-#: The end of that section: the first line that is neither indented nor blank.
+#: The end of that section: the first line that is not indented.
 _AGENT_ROOTS_END_RE = re.compile(r"^(?=\S)", re.MULTILINE)
 
-#: How long `doctor sync` may take. It only stats candidate directories and
-#: reads existing sync-state metadata — no full session parse — so this is
-#: short relative to the other probes in this module.
+#: `doctor sync` only stats candidate directories and reads sync metadata.
 DISCOVER_PROVIDERS_TIMEOUT_S = 10.0
 
 
 def _parse_agent_roots(stdout: str) -> tuple[str, ...] | None:
     """The "Agent roots:" section of a `doctor sync` report -> sorted names.
 
-    Shared by `discover_providers` and `check_disabled_agents` so there is
-    exactly one parser for this report, not two that could drift apart.
-    `None`, never an empty tuple, when the section is missing or names to
-    zero — see `discover_providers`'s docstring for why that distinction
-    matters to the caller.
+    One parser for both consumers, so they cannot drift apart. `None` rather
+    than `()` when the section is missing or names none — see
+    `discover_providers` for why the caller needs that distinction.
     """
     start = stdout.find(_AGENT_ROOTS_HEADER)
     if start == -1:
         return None
-    # **Bounded at the next unindented line.** The section's own lines are all
-    # two-space indented, so the first line that is not is the next section —
-    # and scanning past it would turn any later `  something:` line into a
-    # phantom provider and a spurious drift warning. `discover_providers`'s
-    # docstring shows the hand-run command bounded the same way, with `sed`.
+    # Bounded at the next unindented line: scanning past it would read any
+    # later `  something:` as a phantom provider and warn about drift.
     section = _AGENT_ROOTS_END_RE.split(
         stdout[start + len(_AGENT_ROOTS_HEADER) :], maxsplit=1
     )[0]
@@ -295,39 +237,21 @@ def _parse_agent_roots(stdout: str) -> tuple[str, ...] | None:
 def discover_providers(prefix: Prefix) -> tuple[str, ...] | None:
     """Ask the installed binary which session providers it recognizes, now.
 
-    Used only by `check_disabled_agents`'s completeness direction — the
-    write path uses the pinned `OTHER_PROVIDERS` (see its docstring for why).
+    **`doctor sync`, never `health`** — measured: `health`, `projects` and
+    `session list` each autostart a daemon on a port AgentsView picks.
+    **`None`, never `()`, on anything untrustworthy**: an empty tuple would read
+    as "no providers exist", which a probe failure must not assert. To
+    re-measure `OTHER_PROVIDERS` after an upgrade:
 
-    **`doctor sync`, never `health` or any other command that reads session
-    data.** Measured directly (`zonelink`'s isolated probe, confirmed here):
-    `health`, `projects`, and `session list` all silently autostart a
-    background `serve` daemon on a port *AgentsView* picks by
-    auto-discovery, exactly the "port decision made by agent_sys, never
-    delegated" rule this component exists to hold. `doctor sync` does
-    not — confirmed by running it from a cold prefix and counting real
-    `agentsview serve` processes by exact argv before and after: zero, both
-    times. It only stats candidate directories and reads config; it never
-    opens a daemon-owned connection.
-
-    To re-measure `OTHER_PROVIDERS` by hand after an AgentsView upgrade:
-
-        AGENTSVIEW_DATA_DIR=<scratch> CLAUDE_PROJECTS_DIR=<scratch-empty-dir> \\
+        AGENTSVIEW_DATA_DIR=<scratch> CLAUDE_PROJECTS_DIR=<empty> \\
           agentsview doctor sync | sed -n '/^Agent roots:/,/^Recent/p' \\
           | sed -E 's/^\\s+([a-z0-9_-]+):.*/\\1/' | sort -u
-
-    **Returns `None`, never an empty tuple, on anything not trustworthy.** A
-    missing binary, non-zero exit, unparseable report, or a report with zero
-    recognized names all return `None` — collapsing "found nothing" and
-    "couldn't tell" into one signal, because an empty tuple would read as "no
-    providers exist", which `check_disabled_agents` must not conclude from a
-    probe failure. Never raises.
     """
     exe = prefix.bin / "agentsview"
     try:
-        env = _binary_env(prefix)
         proc = subprocess.run(  # noqa: S603
             [str(exe), "doctor", "sync"],
-            env=env,
+            env=_binary_env(prefix),
             capture_output=True,
             text=True,
             timeout=DISCOVER_PROVIDERS_TIMEOUT_S,
@@ -342,35 +266,16 @@ def discover_providers(prefix: Prefix) -> tuple[str, ...] | None:
 def write_config(prefix: Prefix, disabled_agents: Sequence[str]) -> None:
     """The prefix's `config.toml`. Idempotent, and ours alone.
 
-    **A pure writer.** `disabled_agents` is the caller's decision — normally
-    `OTHER_PROVIDERS`, the pinned list — kept as a parameter rather than read
-    from a module constant so this function is testable against an arbitrary
-    list without a fake binary in the loop.
-
-    Written into `AGENTSVIEW_DATA_DIR`, never `~/.agentsview`: a user who
-    already runs AgentsView keeps their own archive and settings untouched.
-
-    **`daemon_idle_timeout = "0s"`, documented in AgentsView's own
-    `configuration.md`, default `"20m"` otherwise.** Measured directly: the
-    production daemon self-exited twice with no override present, matching
-    the doc exactly. Design §4 promises the panel "persists across runs" and
-    is only ever started from the CLI's own startup path — with the default
-    20-minute idle exit, a user opening the URL an hour after their run ends
-    finds nothing, which is precisely the case the panel exists for. Verified
-    with a real background daemon left running with this key set and zero
-    client traffic past the 20-minute default window; see PHASE0.md §0.9.
+    Written into `AGENTSVIEW_DATA_DIR`, never `~/.agentsview`, so a user who
+    already runs AgentsView keeps their archive. `daemon_idle_timeout = "0s"`
+    because the default 20m empties the panel for anyone opening the URL after
+    their run — measured, the daemon self-exited twice without it.
     """
     cfg = prefix.agentsview_data / "config.toml"
     disabled = ", ".join(json.dumps(name) for name in disabled_agents)
     cfg.parent.mkdir(parents=True, exist_ok=True)
-    # **Written whole, by rename.** `write_text` truncates and then writes, and
-    # the reader is a separate process: two concurrent deployments — the case
-    # `ensure_running` reasons about explicitly — can have one mid-truncate
-    # while the other's `doctor sync` or `serve` reads. A partial read of this
-    # particular file is not a crash, it is `disabled_agents` coming back
-    # short, which is every other provider silently re-enabled on the panel.
-    # `os.replace` is atomic within a directory, so a reader sees the old file
-    # or the new one and never a half of either.
+    # Written whole, by rename: a reader catching a truncated `write_text` gets
+    # a short `disabled_agents`, i.e. every other provider silently re-enabled.
     tmp = cfg.with_name(cfg.name + f".{os.getpid()}.tmp")
     tmp.write_text(
         "# Written by agent_sys. AgentsView itself is unmodified.\n"
@@ -382,92 +287,29 @@ def write_config(prefix: Prefix, disabled_agents: Sequence[str]) -> None:
     os.replace(tmp, cfg)
 
 
-#: The exact substring AgentsView's config parser puts around the offending
-#: name (measured directly: `disabled_agents: unknown session provider
-#: "claude-cowork"`). A regex on the real message rather than a re-derivation
-#: of the parser's own logic.
+#: The substring AgentsView's config parser puts around the offending name
+#: (measured: `disabled_agents: unknown session provider "claude-cowork"`).
 _UNKNOWN_PROVIDER_RE = re.compile(r'unknown session provider "([^"]+)"')
 
-#: How long the validation probe may take. It runs against a config with
-#: every provider disabled and `CLAUDE_PROJECTS_DIR` still whatever the
-#: caller set, so a cold sync is at most the size of that one directory —
-#: generous, not open-ended.
+#: A cold sync of one `CLAUDE_PROJECTS_DIR`. Generous, not open-ended.
 CHECK_DISABLED_AGENTS_TIMEOUT_S = 15.0
 
 
 def check_disabled_agents(prefix: Prefix) -> tuple[str, ...]:
     """Has reality moved past the pinned `OTHER_PROVIDERS`? Checks both ways.
 
-    **One `doctor sync` call answers both directions; `health` is not used
-    at all.** A first version ran `health --limit 1` against the config
-    `write_config` produced, on the reasoning that it is "the same cheap
-    command `serve` would fail identically to". Measured (`zonelink`'s
-    isolated probe, confirmed here by counting real `agentsview serve`
-    processes by exact argv before/after): `health` silently autostarts a
-    background daemon on a port *AgentsView* auto-discovers, exactly the
-    "port decision made by agent_sys, never delegated to agentsview" rule
-    this whole component exists to hold — happening on a read-only
-    validation path neither `ensure_running` nor anyone watching for it
-    would notice. `doctor sync` needs neither: measured to never touch the
-    database or start a daemon, in either the config-valid or
-    config-invalid case, and it validates `disabled_agents` with the
-    *identical* "unknown session provider" error `health` produces, so
-    nothing is lost by dropping `health` entirely.
-
-    **`AGENTSVIEW_NO_DAEMON=1` was tried here and rejected — do not reach
-    for it.** It is the obvious repair for the paragraph above (AgentsView
-    documents it as exactly the "don't autostart" knob) and its absence
-    from this code says nothing about whether it works, so: it was
-    measured, and it does not make these commands read the database
-    directly instead of autostarting — it makes them refuse outright.
-    With it set, `health`, `projects` and `session list` all exit with
-    `daemon autostart is disabled; direct SQLite reads are not supported
-    for this command`, **even against an already-populated `sessions.db`**
-    (verified by creating the database through one clean daemon lifecycle
-    first, then re-testing). There is no fallback path. Adopting it would
-    therefore have left a `health` probe that fails on every single call —
-    and since this function treats a probe it cannot trust as `()` (see
-    the last paragraph), that permanent failure would have collapsed into
-    a permanently empty result: a provider check that never warns about
-    anything, never looks broken, and is a no-op forever. Worse than the
-    stray daemon it was meant to fix. Measured in `PHASE0.md` §0.10.
-
-    **Direction 1 — rename or removal.** `doctor sync` exits non-zero and
-    names the offending entry when `config.toml`'s `disabled_agents`
-    contains something this installed version no longer recognizes; the
-    panel is not coming up until it is corrected.
-
-    **Direction 2 — addition, the one that leaks.** When `doctor sync`
-    succeeds, its own "Agent roots:" enumeration (`_parse_agent_roots`, the
-    same parser `discover_providers` uses) is diffed against
-    `OTHER_PROVIDERS`; anything present in neither `OTHER_PROVIDERS` nor
-    `claude` is a provider the binary recognizes that we are not disabling.
-    This is the dangerous direction: it loads with **no error at all** —
-    AgentsView just scans that provider's default directory and puts its
-    sessions on the panel. Only a genuine completeness check against the
-    binary's own vocabulary catches that; a validator that merely accepts
-    our list proves nothing about what we forgot to list.
-
-    **Only one direction can surface per call, and that is the price of
-    dropping `health`.** A `doctor sync` that fails (direction 1) never
-    reaches the point of printing "Agent roots:", so a config with both a
-    stale entry *and* a missing one only reports the stale one here; fixing
-    it and re-running finds the missing one next, the same iterative
-    fix-and-rerun shape a human debugging this by hand would follow. The
-    old two-probe design could report both problems from one call — trading
-    that for never starting a daemon on a validation path.
-
-    Empty result means either direction was clean, or the probe could not
-    be trusted (a probe failure is not evidence of a problem in either
-    direction: `suspend, don't conclude`). One warning at the call site
-    regardless of how many names came back. Never raises.
+    **Rename or removal:** `doctor sync` exits non-zero naming the entry this
+    version dropped, and the panel will not start. **Addition, the one that
+    leaks:** its "Agent roots:" report is diffed against `OTHER_PROVIDERS`,
+    because a provider we forgot to disable loads with no error at all. Only
+    one can surface per call — a failing sync never prints the report. Empty
+    means clean *or* untrusted; a probe failure is evidence of neither.
     """
     exe = prefix.bin / "agentsview"
     try:
-        env = _binary_env(prefix)
         proc = subprocess.run(  # noqa: S603
             [str(exe), "doctor", "sync"],
-            env=env,
+            env=_binary_env(prefix),
             capture_output=True,
             text=True,
             timeout=CHECK_DISABLED_AGENTS_TIMEOUT_S,
@@ -486,11 +328,7 @@ def check_disabled_agents(prefix: Prefix) -> tuple[str, ...]:
 
 
 def _pid_is_alive(pid: int) -> bool:
-    """`ESRCH` is a no; `EPERM` is a yes.
-
-    A process we may not signal still exists, and one living in our own data
-    directory is ours whether or not the current uid can touch it.
-    """
+    """`ESRCH` is a no; `EPERM` is a yes — a process we may not signal exists."""
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -503,39 +341,12 @@ def _pid_is_alive(pid: int) -> bool:
 def _owns_port(prefix: Prefix, port: int) -> bool:
     """Did *we* start what is on this port, and is it still alive?
 
-    **A live AgentsView on 18888 is not evidence that it is ours.** A user who
-    already runs AgentsView has a daemon with their own `AGENTSVIEW_DATA_DIR`,
-    listing every session on the machine — adopting it would hand back a panel
-    that breaks the single requirement this component exists to satisfy.
-
-    **The witness is AgentsView's own `daemon.<pid>.json`, read out of our own
-    `AGENTSVIEW_DATA_DIR`.** A stranger's daemon writes its record into
-    *their* data directory, so it structurally cannot appear here — the
-    isolation is the filesystem's, not a convention we maintain. The record is
-    the dependency's published artefact, read and never written; AgentsView
-    stays unmodified.
-
-    This replaced a file of our own holding just the port number, which
-    recorded that we *once* started a daemon here and never expired. That is
-    evidence about the past: after our daemon died and the user started their
-    own AgentsView on the same port, both gates passed and the operator was
-    handed a URL to a panel listing their whole machine, with no warning.
-    Two things fix it, and both come from the record. It is removed by
-    AgentsView itself on a clean `serve stop` — measured on a real v0.42.0,
-    file gone and pid reaped — so the ordinary case leaves no stale evidence
-    at all; and for the unclean case (SIGKILL, OOM, reboot) the recorded pid
-    is checked for liveness, which the bare port number could not be.
-
-    It also retires the *other* half of that bug. The port file was written
-    only after the health check passed, so one slow cold start left a live
-    daemon nobody could recognize and the panel was skipped on every run
-    thereafter, permanently, blaming a stranger. AgentsView writes this record
-    when it starts, so a daemon that is up is recognized as ours whether or
-    not we were still waiting when it finished booting.
-
-    Never raises: a missing, unreadable, malformed or foreign-shaped record is
-    a "no", because the safe answer to *is this ours* is the one that declines
-    to adopt a stranger.
+    **A live AgentsView here is not evidence that it is ours**: a user's own
+    lists every session on the machine. The witness is AgentsView's
+    `daemon.<pid>.json` in *our* data directory — a stranger's goes in theirs,
+    so the isolation is the filesystem's. Removed on a clean stop, so only an
+    unclean death leaves a stale one and the pid catches that. Anything
+    missing, unreadable or foreign is a "no".
     """
     try:
         records = sorted(prefix.agentsview_data.glob(DAEMON_RECORD_GLOB))
@@ -559,10 +370,9 @@ def _owns_port(prefix: Prefix, port: int) -> bool:
 def _record_names_port(record: Mapping[str, Any], port: int) -> bool:
     """`metadata.port` first, `address` as the fallback.
 
-    Both are present in a real v0.42.0 record (`"port": "18888"` and
-    `"address": "127.0.0.1:18888"`). Two readings rather than one because this
-    is an external artefact: a version that drops either field still leaves the
-    gate working, and a version that drops both fails closed.
+    Both are in a real v0.42.0 record. Two readings because this is an external
+    artefact: dropping either field leaves the gate working, dropping both
+    fails it closed.
     """
     metadata = record.get("metadata")
     if isinstance(metadata, Mapping) and str(metadata.get("port", "")) == str(port):
@@ -574,11 +384,9 @@ def _record_names_port(record: Mapping[str, Any], port: int) -> bool:
 def _identifies_as_agentsview(url: str) -> bool:
     """One request. `200` **and** a JSON body, or it is not AgentsView.
 
-    A status code is not an identity: any web server on the port answers 200,
-    and returning `Status(True, …)` for one hands the operator a URL to a
-    stranger's application labelled as their panel. `IDENTITY_PATH` is
-    AgentsView's own endpoint, so a service that both answers it and returns
-    JSON is as close to proof as a probe gets.
+    A status code is not an identity: any web server answers 200, and returning
+    `Status(True, …)` for one hands the operator a stranger's application
+    labelled as their panel.
     """
     try:
         with urllib.request.urlopen(  # noqa: S310
@@ -588,6 +396,9 @@ def _identifies_as_agentsview(url: str) -> bool:
                 return False
             json.loads(r.read(IDENTITY_MAX_BYTES).decode("utf-8", "replace"))
     except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException):
+        # `HTTPException` because `IncompleteRead` — raised on a truncated
+        # chunked body, the framing a Go server uses with no Content-Length —
+        # descends from neither `OSError` nor `ValueError`.
         return False
     return True
 
@@ -595,10 +406,9 @@ def _identifies_as_agentsview(url: str) -> bool:
 def _wait_for_health(url: str, timeout: float) -> bool:
     """Poll until AgentsView identifies itself, or the deadline passes.
 
-    Always makes at least one attempt, so a zero timeout still asks once, and
-    always sleeps between attempts — including after an answer that was *wrong*
-    rather than absent. Without that second half, a stranger returning a prompt
-    200 turns this into a busy loop hammering somebody else's service.
+    Always tries once, so a zero timeout still asks, and always sleeps between
+    attempts *including after a wrong answer* — otherwise a stranger returning
+    a prompt 200 turns this into a busy loop against someone else's service.
     """
     deadline = time.monotonic() + timeout
     while True:
@@ -613,21 +423,17 @@ def ensure_running(prefix: Prefix, port: int) -> Status:
     """Start the panel, or say in one line why there is none.
 
     **Every return is a `Status` and every failure logs exactly one warning.**
-    One, not two: a caller that sees the same problem reported twice starts
-    hunting for two problems.
+    One, not two: a caller shown the same problem twice hunts for two problems.
     """
     url = f"http://127.0.0.1:{port}"
     exe = prefix.bin / "agentsview"
 
     if not port_is_free(port):
-        # **Two gates, and neither alone is enough.** Ownership is checked
-        # first because it is a file read rather than a network round trip,
-        # and because a `no` here means we must not probe further anyway.
-        #
-        # The two failures are reported separately because their fixes are
-        # opposites: "something else has your port" sends an operator hunting
-        # for a process that does not exist when the truth is that our own
-        # daemon is wedged and wants killing.
+        # Two gates, neither enough alone. Ownership first: it is a file read
+        # rather than a round trip, and a `no` means we must not probe further.
+        # The two failures are separate warnings because their fixes are
+        # opposite — "something else has your port" sends an operator hunting
+        # for a process that does not exist when ours is merely wedged.
         if _owns_port(prefix, port):
             if _wait_for_health(url, timeout=REUSE_PROBE_TIMEOUT_S):
                 return Status(True, "already running", url)
@@ -656,47 +462,18 @@ def ensure_running(prefix: Prefix, port: int) -> Status:
         )
         return Status(False, "not installed")
 
-    # `--replace` on the `serve --background` call below: measured directly
-    # (a stray daemon left over from an earlier run, or any daemon already
-    # alive for this AGENTSVIEW_DATA_DIR) that `serve --background --port N`
-    # without this flag silently attaches to whatever is already running and
-    # reports *its* port, exit 0, `N` completely ignored. By the time that
-    # line runs the reuse gate above has already confirmed `port_is_free(port)`
-    # is True, so anything still alive there is necessarily *not* on the port
-    # we asked for -- there is no legitimate case at this call site where
-    # replacing it is wrong.
-    #
-    # **Two concurrent `agent_sys` deployments on this box, asked in review,
-    # and measured rather than assumed.** Both resolve the same prefix
-    # (`AGENTSVIEW_DATA_DIR` is not per-run), so this is the one scenario
-    # where `--replace` could plausibly cost something. Measured directly
-    # (scratch/replace_concurrency): `--replace` against an *already-settled*
-    # daemon on the exact same port still unconditionally kills and restarts
-    # it -- it is not a same-port no-op, so this is a real, not hypothetical,
-    # question. But by the time either deployment reaches the `serve
-    # --replace` call, `port_is_free(port)` must have been True for it -- so
-    # the only window where *two* deployments can both reach it for the same
-    # port is the narrow race where neither daemon is up yet (a cold start,
-    # or the moment after the idle-timeout self-exit this same fix
-    # addresses). A synchronized two-thread race against a real binary
-    # landed only one actual daemon start; the loser's own `serve --replace`
-    # invocation saw the winner's daemon and did not visibly disrupt it in
-    # that run -- but this is empirical, not a documented guarantee, and
-    # should not be read as "the race is safe by design". What *is* true
-    # regardless of who wins: both deployments point at the identical
-    # prefix, config, and port, so a replacement here swaps one daemon for a
-    # functionally identical one serving the same archive -- at worst a
-    # sub-second connection drop for anyone with the URL open mid-restart
-    # (~650-700ms measured start time), never a lasting outage or a panel
-    # showing different data.
+    # `--replace`: measured, without it `serve --background --port N` silently
+    # attaches to any daemon already alive for this data directory and reports
+    # *its* port, exit 0, `N` ignored. `port_is_free(port)` was true above, so
+    # anything still alive is necessarily not on the port we asked for and
+    # there is no legitimate case here where replacing it is wrong.
     try:
         prefix.create()
         write_config(prefix, OTHER_PROVIDERS)
-        env = _binary_env(prefix)
         proc = subprocess.run(  # noqa: S603
             [str(exe), "serve", "--background", "--no-browser", "--replace",
              "--host", "127.0.0.1", "--port", str(port)],
-            env=env,
+            env=_binary_env(prefix),
             capture_output=True,
             text=True,
             timeout=LAUNCH_TIMEOUT_S,
@@ -721,46 +498,27 @@ def ensure_running(prefix: Prefix, port: int) -> Status:
         )
         return Status(False, "health check timed out")
 
-    # Nothing is recorded here. AgentsView wrote its own `daemon.<pid>.json`
-    # into our data directory when it started, and that is what `_owns_port`
-    # reads — one witness, written by the process it describes, removed by it
-    # on a clean stop. A second record of ours would only be a thing that can
-    # disagree, and the last line of this function is a poor place to discover
-    # that `run/` has become unwritable.
+    # Nothing is recorded here: AgentsView wrote its own `daemon.<pid>.json`
+    # when it started and that is what `_owns_port` reads. A second record of
+    # ours would only be a thing that can disagree.
     return Status(True, "started", url)
 
 
-#: The recipe item `ensure_installed` drives. A fixed, in-package path rather
-#: than a caller-supplied one: there is exactly one recipe for this component,
-#: and a parameter here would just be a second way to point at the same file.
+#: The recipe item `ensure_installed` drives. Fixed and in-package: there is one
+#: recipe for this component, and a parameter would be a second way to say so.
 RECIPE_PATH = Path(__file__).resolve().parent.parent / "recipes" / "agentsview.o11y.yaml"
 
 
 @contextlib.contextmanager
 def _patched_environ(extra: Mapping[str, str]) -> Iterator[None]:
-    """Patch `os.environ` with `extra` for exactly the duration of the block.
+    """Patch `os.environ` for exactly the duration of the block.
 
-    **Why this exists at all.** The recipe's `check_cmd:` and `install:` both
-    reference `$AGENT_SYS_HOME` (confirmed by reading `recipe.py::load_recipe`
-    and `installers/base.py::run_cmd`: neither expands `${VAR}` itself; the
-    shell that `run_cmd`'s `subprocess.run(cmd, shell=True)` invokes does, and
-    only from whatever environment that call was made with — `run_cmd` takes
-    no `env=` parameter). This context manager is the one place that
-    environment is assembled, and it exists only for the width of one
-    `runner.run(...)` call — never wider.
-
-    **The cleaner long-term shape, deliberately not built now:** an `env=`
-    parameter threaded through `run_cmd` → the installer protocol → `runner.run`.
-    Not done here because `run_cmd` is shared machinery every installer in the
-    registry uses, and widening it to serve this one caller is a bigger blast
-    radius than a local, scoped patch justifies. If a second caller ever needs
-    the same thing, that is the point to revisit this.
-
-    **Restored in a `finally`, on every exit path including an exception.**
-    This module's whole reason to exist is "never touches what it did not
-    mean to" (`agent_environment`'s guard on `os.environ` is the same
-    discipline); a half-restored environment on the exception path would be
-    the worst possible way to break that promise.
+    The recipe references `$AGENT_SYS_HOME` and `installers/base.run_cmd` takes
+    no `env=`, so the shell expands from the ambient environment or not at all.
+    **This does mutate the process environment**, unlike the rest of the
+    feature — but not `CLAUDE_CONFIG_DIR`, which `Prefix.environment()` does not
+    carry, so the promise about the user's Claude Code holds. Not thread-safe;
+    the CLI path is single-threaded.
     """
     saved = dict(os.environ)
     try:
@@ -774,30 +532,10 @@ def _patched_environ(extra: Mapping[str, str]) -> Iterator[None]:
 def ensure_installed(prefix: Prefix, install_item: Callable[[], Sequence[Any]]) -> Status:
     """Install the `agentsview` binary via its recipe item, or say why not.
 
-    **`install_item` is injected rather than looked up here.** `env_mgr` spec
-    §9 draws a decoupling wall — nothing new may import the installer
-    machinery (`recipe`, `runner`, `installers/…`), checked structurally by
-    `tests/env_mgr/test_imports.py::test_nothing_new_imports_the_installer_machinery`.
-    A first draft of this function called `recipe.load_recipe` and
-    `runner.run` directly and failed exactly that test. `install_item` is a
-    zero-argument callable returning the list of `Outcome`s from running the
-    `agentsview` recipe item's `install` stage (duck-typed on `.level` /
-    `.message` below — no `Outcome` import needed even for typing, since
-    `outcome` is also below the wall); the caller assembles it, typically by
-    loading `RECIPE_PATH`, overriding `target.path` to `str(prefix.root)`
-    (the recipe's own `target.path` is a placeholder — see the recipe file's
-    header comment), and calling `runner.run(target, items, "install",
-    Filters(item="agentsview"))`. That caller lives outside this wall, e.g.
-    `env_mgr/cli.py` (the one module spec §9 exempts) or `agent_sys/cli/main.py`
-    (a different package entirely, not subject to this wall at all).
-
-    **Never raises.** Everything from "the injected callable raised" to "the
-    download failed inside it" collapses to one `Status(False, ...)` and one
-    `log.warning`, the same law `ensure_running` already holds.
-    `importance: suggested` in the recipe is not re-derived here — the
-    outcome's own `.level` (computed by `installers/base.level_for_missing`
-    from that one field) is read directly, so there is exactly one place that
-    decides "is a missing agentsview fatal", and it is the recipe.
+    **`install_item` is injected, not looked up**: spec §9 walls the installer
+    machinery off from everything under `env_mgr/`, so `cli/main.py` assembles
+    the call. **Never raises** — one `Status` and one warning. Whether a missing
+    agentsview is fatal is decided once, by the recipe's `importance:`.
     """
     try:
         prefix.create()
@@ -816,19 +554,9 @@ def ensure_installed(prefix: Prefix, install_item: Callable[[], Sequence[Any]]) 
 
     outcome = outs[-1]
     if outcome.level == "ok":
-        # **Validated here, at install time, not left for `serve` to discover
-        # later.** `OTHER_PROVIDERS` is pinned, hand-maintained, and can drift
-        # from the installed binary in two directions: a name it lists that
-        # the binary no longer recognizes (breaks `serve` loudly, the way it
-        # broke here once already), or a name the binary recognizes that the
-        # list never mentions (leaks that provider's sessions onto the panel,
-        # silently — `check_disabled_agents` is what makes that visible).
-        #
-        # In its own `try`, separate from `install_item()` above: the binary
-        # is genuinely installed at this point regardless of what this check
-        # finds, so a bug in the check itself must not turn a successful
-        # install into a reported failure — "never raises" is this module's
-        # one law, and it applies to every line, not just the obvious ones.
+        # Validated at install time rather than left for `serve` to discover.
+        # In its own `try`: the binary is installed either way, so a bug in the
+        # check must not turn a successful install into a reported failure.
         try:
             write_config(prefix, OTHER_PROVIDERS)
             bad = check_disabled_agents(prefix)
