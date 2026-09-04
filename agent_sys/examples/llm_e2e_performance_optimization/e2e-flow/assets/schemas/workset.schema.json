@@ -346,12 +346,9 @@
         "timing": {
           "type": "string",
           "enum": [
-            "hip_graph_replay",
-            "cuda_graph_replay",
-            "event",
-            "wall"
+            "wall_clock_sync"
           ],
-          "description": "How one iteration is timed. `*_graph_replay` removes launch overhead and is what the stage-4 half's `graph_harness.py` does; `event` is device events around the call; `wall` is host-side and is only honest for an operator whose runtime dwarfs a launch."
+          "description": "**How the clock is taken, and it is an enum of what the harness actually implements.** It read `event` for a day while every measurement was `time.perf_counter()` wrapped in `torch.cuda.synchronize()` — declared, consumed by nothing, and therefore never contradicted. Found by m2 reading this harness against m4's.\n\n`wall_clock_sync`: sync, start `perf_counter`, `iters` calls, sync, stop; the reported figure is already divided by `iters`. It **includes** per-launch overhead and the synchronise, amortised over the group — a different quantity from HIP event timing, which would differ systematically and in one direction on every case.\n\nOne value on purpose. `run_performance.sh` now reads this field and **refuses** anything else, so a second method cannot be declared before it is built. Adding one means adding the code and the enum member together, and re-measuring everything recorded under the old one — numbers are not comparable across methods."
         },
         "reduction": {
           "type": "string",

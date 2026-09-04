@@ -363,7 +363,7 @@ def main() -> int:
             "noise_floor": max((o["noise_floor"] for o in operators), default=1.05),
             "environment": environment},
         "entrypoints": _entrypoints(None),
-        "protocol": {"groups": 5, "iters_per_group": 10, "warmup": 3, "timing": "event"},
+        "protocol": {"groups": 5, "iters_per_group": 10, "warmup": 3, "timing": "wall_clock_sync"},
         "operators": operators,
     }
     (root / "workset.yaml").write_text(yaml.safe_dump(document, sort_keys=False), encoding="utf-8")

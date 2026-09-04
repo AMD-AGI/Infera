@@ -548,7 +548,7 @@ def main() -> int:
                          "noise_floor": 1.05,
                          "environment": environment},
         "entrypoints": entrypoints(),
-        "protocol": {"groups": 5, "iters_per_group": 10, "warmup": 3, "timing": "event"},
+        "protocol": {"groups": 5, "iters_per_group": 10, "warmup": 3, "timing": "wall_clock_sync"},
         "operators": [{
             "operator_id": OPERATOR,
             "kernel_id": "k002",

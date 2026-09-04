@@ -408,11 +408,31 @@ CMD_B64=$(printf '%s' "{ $COMMAND ; } ; rc=\$? ; chown -R $(id -u):$(id -g) '$RO
           | base64 | tr -d '\n')
 
 # `PYTHONDONTWRITEBYTECODE=1` keeps root-owned `.pyc` out of the handoff.
+#
+# **`TMPDIR` and `TRITON_CACHE_DIR` are m4's guard, adopted after measuring
+# that I do not currently need it.** Their reason: Triton defaults to
+# `$HOME/.triton`, and on a host where `$HOME` is an NFS mount a container
+# user's writes there fail *silently*; and a `TMPDIR` naming a directory that
+# does not exist segfaults every HIP launch while `torch.cuda.is_available()`
+# still returns True.
+#
+# Measured inside this image: `HOME=/root`, on the container's own overlay,
+# writable — so neither reaches NFS and the failure cannot occur here. **Set
+# anyway, because that is a property of this image and not of the contract.**
+# I mount `/home/<user>`, so an image whose `HOME` sat under that mount would
+# put the Triton cache on NFS and I would find out as unexplained compile time
+# inside warmup, which is invisible. Two flags cost nothing and remove the
+# dependency on an image's environment.
+#
+# `/tmp` and `/tmp/triton` both resolve inside the container. Naming a path
+# that does not exist is the segfault above, so these are deliberately not
+# parameterised to anything host-side.
 STARTED=1
 on "docker run --rm --name '$E2E_MEASURE_CONTAINER' \
       --device /dev/kfd --device /dev/dri --group-add 44 --group-add 992 \
       -e HIP_VISIBLE_DEVICES='$E2E_MEASURE_GPU' \
       -e E2E_NODE='${E2E_NODE:-}' -e PYTHONDONTWRITEBYTECODE=1 \
+      -e TMPDIR=/tmp -e TRITON_CACHE_DIR=/tmp/triton \
       $MOUNTS -w '$ROOT' '$IMAGE' \
       bash -c \"echo $CMD_B64 | base64 -d | bash\""
 

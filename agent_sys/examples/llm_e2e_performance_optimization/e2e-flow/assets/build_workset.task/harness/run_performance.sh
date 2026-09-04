@@ -64,6 +64,26 @@ def main() -> int:
 
     groups = int(protocol["groups"])
     iters = int(protocol["iters_per_group"])
+    # **`timing` is read here, and that is the whole point of this block.**
+    # It was declared in `workset.yaml` as `event` and consumed by nothing —
+    # while every measurement below is `perf_counter()` wrapped in syncs. m2
+    # found it by reading both harnesses side by side: the word `timing`
+    # appeared only in a docstring. A field nothing reads cannot be wrong, so
+    # it stayed wrong, and a reader of the workset reasonably believed HIP
+    # events had been used.
+    #
+    # Refusing an unimplemented value is the half that keeps it honest. Naming
+    # the method truthfully would fix it once; making the harness *read* the
+    # name is what stops it drifting again — the reader that could not be told
+    # can now be told (CONTRACT 4.3).
+    timing = str(protocol.get("timing", "wall_clock_sync"))
+    if timing != "wall_clock_sync":
+        sys.exit(
+            f"protocol.timing is {timing!r} and this harness implements only 'wall_clock_sync': "
+            f"time.perf_counter() around `iters` calls, with torch.cuda.synchronize() before the "
+            f"clock starts and again before it stops. Refusing rather than measuring one thing "
+            f"and labelling it another — every number here would carry the wrong method name."
+        )
     warmup = int(protocol.get("warmup", 0))
     ok = True
 
