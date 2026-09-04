@@ -167,13 +167,59 @@ on() {
 # a fact about this cluster, not about agent_sys, so it is checked rather than
 # assumed. If the run root ever moves to local disk the failure should name the
 # reason instead of arriving as "No such file".
+# **Three outcomes, not two**, and the third is why this was rewritten.
+#
+#   0  reachable, and the path is there
+#   1  reachable, and the path is NOT there   <- the only case the message fits
+#   2  could not reach the node at all        <- nothing about the path was tested
+#
+# The previous version ran `on "test -e …" >/dev/null 2>&1` and treated **any**
+# non-zero as absence, so an unset `E2E_JOBID`, a dead allocation, a spur hiccup
+# and a genuinely missing path all produced one sentence — and that sentence
+# blames the filesystem and recommends changing `--demo-root`.
+#
+# **It cost a rung on 2026-09-04.** `check_workset_runs` refused with *"point
+# `--demo-root` at a shared path"* while the zone **was** visible from the node
+# and `--demo-root` was already the NFS path the message recommends. The leader
+# nearly went and changed a correct path. m3 reproduced it in one command:
+# `E2E_TRANSPORT=bogus require_visible_on_node /home/yihou` → *"the workset is
+# not visible on : /home/yihou"*, for a path that plainly is.
+#
+# **The fix is to stop reading the exit status as the answer.** A sentinel in
+# **stdout** is what proves the remote shell ran: `test -e` cannot print
+# `E2E_PRESENT` from a node we never reached. Exit status conflates transport
+# failure with subject failure; the sentinel cannot, because only the far side
+# can emit it. Same rule as everywhere else here — **a reading that can come
+# back the same way for two different causes is not a reading.**
+#
+# Holds have been dying all day (`109192` cancelled at 28 minutes with
+# `Reason=None`; 217 is on preemptible burst), so *"could not reach"* is not the
+# exotic case — it is the likeliest real cause of this message.
+#
+# **Callers: 1 and 2 mean different things and deserve different sentences.**
+# Existing `|| exit 1` call sites keep working unchanged, since both are
+# non-zero; adopt the distinction when you touch them.
 require_visible_on_node() {
-  local path="$1" what="$2"
-  on "test -e '$path'" >/dev/null 2>&1 && return 0
-  echo "the $what is not visible on $E2E_NODE: $path" >&2
-  echo "This package runs its bodies on the node by absolute path and exchanges" >&2
-  echo "files through the zone, which needs the run root to be on a filesystem" >&2
-  echo "both hosts mount. Point --demo-root at a shared path (\$HOME here is NFS" >&2
-  echo "and works)." >&2
-  return 1
+  local path="$1" what="$2" out err
+  err="$(mktemp)"
+  out="$(on "test -e '$path' && echo E2E_PRESENT || echo E2E_ABSENT" 2>"$err")"
+  if printf '%s' "$out" | grep -q E2E_PRESENT; then
+    rm -f "$err"; return 0
+  fi
+  if printf '%s' "$out" | grep -q E2E_ABSENT; then
+    rm -f "$err"
+    echo "the $what is not visible on $E2E_NODE: $path" >&2
+    echo "The node answered, so this is the path and not the transport." >&2
+    echo "This package runs its bodies on the node by absolute path and exchanges" >&2
+    echo "files through the zone, which needs the run root to be on a filesystem" >&2
+    echo "both hosts mount. Point --demo-root at a shared path (\$HOME here is NFS" >&2
+    echo "and works)." >&2
+    return 1
+  fi
+  echo "cannot reach the node at all, so nothing about '$path' was tested." >&2
+  echo "  transport='${E2E_TRANSPORT:-}' jobid='${E2E_JOBID:-}' node='${E2E_NODE:-}'" >&2
+  echo "  the transport said:" >&2
+  sed 's/^/    /' "$err" >&2
+  rm -f "$err"
+  return 2
 }
