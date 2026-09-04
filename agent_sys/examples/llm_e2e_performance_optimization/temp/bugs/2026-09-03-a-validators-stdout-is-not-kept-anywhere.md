@@ -93,3 +93,61 @@ early — persists neither while still attributing the outcome to the subject.
 Recording per mission rule: bug recorded first, worked around second, fixed only
 on unambiguous evidence. The evidence here is unambiguous about the behaviour;
 whether the fix belongs in the runner or in a package convention is not.
+
+---
+
+## Correction, 2026-09-04 — the title is right, and the way it has been cited is not
+
+**Left standing above rather than edited away**, because the over-broad reading
+is the part worth seeing: this file was cited five times in one day — by m3,
+m4, m1, m2 and the leader — and every citation treated it as *"stdout is kept
+nowhere"*, a claim about the framework rather than about validators.
+
+**Measured 2026-09-04, from the event store of two runs:**
+
+| producer | event | attributes | output kept? |
+|---|---|---|---|
+| **validator** | `validation_failed` | `evidence, from_task, message` | **no** |
+| **task body, exit ≠ 0** | `output_absent` | `detail, exit_status, message, seal_refused` | **yes**, in `detail` |
+| **task body, exit = 0** | — | — | **no** |
+
+**So the title is accurate for validators and was never a claim about task
+bodies.** For a task body the truth is different and narrower, and the narrow
+version is the more useful one:
+
+> A task body's output is kept **only on the failure path the runner already
+> recognises**. A body that exits **0** has its output discarded entirely.
+
+**That is the worse half, because it is the silent one.** A body that fails
+loudly is already explained; a body that exits 0 having done part of its work
+looks exactly like one that succeeded. It cost the 047 investigation two runs
+and most of an hour: `build_workset` sealed a workset with no `workset.yaml`,
+then one with no `evidence`, exiting 0 both times with nothing retained. The
+cause was found by a two-node differential (`a4b6dd4`), not by any log —
+**this file's absence is why there was nothing to read, not why the answer was
+eventually found.**
+
+### Which fix covers which half
+
+| half | fix | scope |
+|---|---|---|
+| validator findings | `dff2bcb` — `workset_io.write_report`, always, before `write_verdict` | m3's two workset validators; adopted since by m4 and m1 in their own |
+| validator **crash** vs refusal | `4b4c9ce` — `validator_crash.txt` + `THIS VALIDATOR DID NOT RUN` | m3's, same limitation: `verdict.json` is `dict[str, bool]` (`todo.md` T29) |
+| task body exiting 0 | `cff4571` — `entry.sh` tees to `logs/build_workset.body.log` | **`build_workset` only** |
+| task body exiting ≠ 0 | none needed | the runner already keeps it in `detail` |
+
+**Nothing central.** Six owners have now fixed this in their own stage, each
+with their own file name and their own placement. That is the signature
+`checkpoint` named for a class that is named but never swept (`todo.md` T30,
+T31) — and it is the argument for the framework fix this file already asks
+for, restated with a year's worth of instances in one day.
+
+### The `seal_refused` addendum
+
+`output_absent` also carries `seal_refused`, which names the file and the
+missing section when a seal is refused. **It was read by nobody for two runs
+across two days** while four owners investigated the stall detector, the card
+and the body. So the task-body half of this bug has a second face: not only
+*"the reason is not kept"* but *"the reason is kept in an attribute nobody
+prints"*. The first needs a framework fix; the second needs only that
+something surface it, which is why it was routed to `runprobe.py`.

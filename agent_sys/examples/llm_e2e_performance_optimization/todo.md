@@ -1116,6 +1116,23 @@ act,** and the gap between them is where the next instance lives. When you
 write down a class, the same commit should carry the sweep, or say why it did
 not.
 
+**The sharpest instance, and it is not about sweeping — it is about what a
+comment cannot do.** Building the task-body output capture (`cff4571`), m3
+wrote `{ /bin/sh "$0" "$@" 2>&1; echo $? > "$_st"; }` and a body exiting 7
+produced a wrapper exiting 2: `set -e` killed the subshell before `echo $?`
+ran. **The comment twenty lines below in that same file says exactly that** —
+*"under `set -e` a simple command exiting non-zero kills the script before the
+assignment runs"*. The trap was documented, in the file, by the same author,
+and was walked into anyway while adding a mechanism whose entire purpose is to
+preserve exit information.
+
+**A comment warning about a trap does not prevent the trap. The test did.** And
+the transferable half is what the test had to be: *a capture mechanism verified
+only on the success path would have been worse than none, because it would have
+looked like evidence.* m5 reached the same conclusion about a null overlay in a
+different subsystem within the hour — **an instrument that cannot be observed
+failing is not an instrument.**
+
 ### T32 — the evidence records which node, and not which card
 
 **Owner m3, 2026-09-04, found while closing `T19` on this stage.**
@@ -1231,3 +1248,37 @@ itself.** That is a good stopgap and it is a log line, not a check.
    says it is *the environment the producer declared*, not the one m4 ran in. A
    field whose name misdescribes its provenance is the thing that made this hard
    to see, and if (1) is not wanted then the honest fix is the name.
+
+
+### T34 — two producers disagreeing is what a schema-shaped defect looks like
+
+**Owner m3, 2026-09-04, from m4's finding that `public_symbol: sampler_softmax`
+is defined nowhere in the file it names.**
+
+`integration.public_symbol` was `required`, `type: string`, `minLength: 1`. An
+operator whose engine code is a fragment inside a method **has no such symbol**,
+and the schema had nowhere to say so — so both producers filled the field, and
+filled it differently. `mock_adapt` wrote the Definition's own function name
+six lines below an `entry_function` that names a method; `scaffold` wrote the
+method qualname itself. **Neither producer was careless. The schema left them
+nowhere to put the truth.**
+
+**The generalisable part is the symptom, and its default reading is wrong.** A
+required field with no representable *not applicable* does not announce itself
+as a schema defect. It announces as **two producers disagreeing about one
+field** — and that reads as carelessness, or as one producer being wrong, until
+somebody checks the value against ground truth. Here that took reading the
+file out of the image; m4 did it, and the premise became visible only because
+one value was *provably* wrong.
+
+**So: when two producers of one field disagree, ask what the field cannot
+express before asking which producer is wrong.** The answer is sometimes that
+both are, in the only way the schema allowed.
+
+**Remedy, applied:** `substitution: module_symbol | call_site_fragment` with
+`public_symbol` nullable and `if/then` binding them, plus `module_symbols`
+recorded from the image so the claim is *checked* rather than asserted
+(`4d5a6e6`, `d206fc6`). **What it does not do** is say how a
+fragment-inside-a-method optimisation reaches the engine — that is M5.1.1, a
+design question for the user, and the package can now state which case it is in
+without being able to install the second.
