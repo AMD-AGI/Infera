@@ -37,6 +37,15 @@ each of which is a defect if forgotten:
 `bootstrap` deliberately does **not** start anything: `runner.run` calls
 ``install`` and then ``bootstrap`` for the bootstrap stage, and a start in both
 would be two servers for one declaration.
+
+**This is for a server reached over a port -- HTTP or SSE -- and no shipped
+recipe uses one yet. That is not an omission.** A **stdio** MCP server is
+spawned by its client, by definition: the transport *is* the child's stdin and
+stdout, so there is nothing to start separately and nothing to connect to
+afterwards. Both addons this repository ships are ``"type": "stdio"``, measured,
+and serena is one of them -- so declaring serena here would be wrong, not merely
+unnecessary. The split is: **stdio, the harness spawns it; port-based, this
+does.** The second case has not arisen yet.
 """
 
 from __future__ import annotations

@@ -12,6 +12,7 @@ and a 25-second hang from an inherited pipe — are both invisible to one.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import socket
 import subprocess
@@ -83,6 +84,14 @@ def reaper():
             except OSError:
                 break
             time.sleep(0.1)
+        # **Reaped, not merely killed.** A killed child of this process stays a
+        # zombie until someone waits for it, and CPython then prints
+        # `ResourceWarning: subprocess N is still running` at shutdown -- noise
+        # in a suite four agents share, and a claim ("still running") that is
+        # not even true. `WNOHANG` because a pid we never parented, or one
+        # already reaped, must not block the teardown of the next test.
+        with contextlib.suppress(ChildProcessError, OSError):
+            os.waitpid(pid, os.WNOHANG)
 
 
 @pytest.fixture
