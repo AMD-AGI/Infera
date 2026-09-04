@@ -356,3 +356,64 @@ does nothing to make it *right*, and here there is not even a variable to say it
 with. Verified green on the node before rung 1: `HIP_VISIBLE_DEVICES=4,5,6,7`
 inside the built image yields `torch.cuda.device_count() == 4`, so the mechanism
 works — it is only unparameterised and unchecked.
+
+### T20 — a container left on a node we no longer hold, and the cleanup design that would have prevented it
+*Left by m1 on 2026-09-04. Recorded as a debt rather than a task, per the leader.*
+
+**The artefact.** On `crsuse2-m2m-249`, possibly still running:
+
+```
+name    yihou_e2e_sgl_m1real-20260904
+image   infera/engine-sglang:m1-rung1-20260904
+cmd     sleep infinity
+labels  infera_e2e_run=m1real-20260904 · m1_probe_container=true
+holds   GPU 4 visible (HIP_VISIBLE_DEVICES=4), zero GPU memory, no published ports
+```
+
+It was stood up so m4 could close the one unverified line in `run_in_container.sh`
+— the `docker exec` itself — without m4 acquiring a container lifetime that
+CONTRACT §5 puts with m1. It did that job: m4's exec returned `EXIT=0` with
+`torch 2.11.0+rocm7.2` and the sampler hash matching m1's reference run.
+
+**Why it is still there.** Job `108891` was **CANCELLED at 05:13:17**, 1 h 21 m
+into an ~8 h hold and **38 seconds before** the `docker rm`. `spur exec` then
+refused: *"job 108891 is not running (state: CANCELLED)"*. The node is now
+allocated to job `108943`, a different user.
+
+**It is deliberately not being cleaned, and that is the right call.** Taking a
+hold on a node specifically to reach into it while another tenant is working
+there is worse than the thing being cleaned up, and the rule that says *never
+`docker rm -f` what you did not create* protects that tenant from us in exactly
+the same way it protects us. If a hold on 249 returns, clear it then.
+Whether the container survived the cancellation is **unmeasured** — nobody has
+checked whether this scheduler reaps containers at job teardown.
+
+**The design error, which is the part worth keeping.** The container was created
+with an explicit *"teardown is mine and I am holding it; no timer, because the
+only thing that should end it is somebody saying the verification is done."*
+That reasoning **assumed the node would outlive the decision.** It did not.
+
+The fix is not a timer — a timer would have been wrong too, and would have cut
+m4's verification. The leader's framing is the general one:
+
+> **A borrowed resource's cleanup has to be idempotent and unowned**, so that
+> anyone with access can do it and nobody has to be alive to decide.
+
+Concretely, for anything this package stands up on a node it does not own:
+
+1. the container carries a label naming the run (this one did — that is why it
+   is identifiable at all, and it is the only reason this entry can be precise);
+2. **a reclaim pass keyed on that label is runnable by anyone**, at any time,
+   with no knowledge of who created what — `assets/lib/reclaim.sh` is the
+   existing place for it, and CONTRACT §5.0 already requires bodies to call it
+   in a `finally`. What is missing is the case where the *creator* never gets to
+   run its `finally`;
+3. so a run's **first** act on a node should be to reclaim the labels of runs
+   that are provably over, and a hold's **last** act should not be the only
+   chance. Cleanup that depends on a specific process still being alive is the
+   same class as a rule that depends on someone remembering.
+
+Pairs with the reclaim finding already in `check_deploy_serves`'s history: a
+teardown that crashes warns that ports may be held, and the ports it names may
+belong to somebody else's live run. Both are about cleanup needing to be safe
+for a stranger to run.
