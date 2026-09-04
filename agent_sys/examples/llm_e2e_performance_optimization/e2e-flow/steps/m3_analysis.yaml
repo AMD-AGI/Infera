@@ -246,6 +246,10 @@
     # which cost four rung-0 runs across two stages.
     transport_path: '${transport_path:-/usr/local/bin:/usr/local/sbin}'
     transport_env: '${transport_env:-}'
+    # The card to re-measure on. No default, matching the producer: a card
+    # nobody chose is a card someone else may be serving from, and a shared
+    # card yields slower numbers rather than an error.
+    measure_gpu: '${measure_gpu:-}'
   tags: {logic_source: external_dynamic, cost: gpu_hours, domain: [llm_e2e, analysis, m3]}
 
 # --------------------------------------------------------------------------- #

@@ -1041,3 +1041,71 @@ is why the prose had nowhere to live either. `workset_io.write_report` now puts
 it beside `verdict.json` for m3's two workset validators; the other validators
 in this package still discard theirs, and a general fix belongs in `zone.py`,
 which is not m3's file.
+
+### T30 — a finding recorded against one stage is a question for every stage
+
+**Owner m3, 2026-09-04. Three instances in one session, none of them noticed
+by the person who had already read the record.**
+
+`RUN-PLAN.md`'s var table said, about m1's stage: *"A validator declares no
+agent, so the package's `env` block never reaches it… With `transport_env`
+unset, `spur` has no `SPUR_CONTROLLER_ADDR`… It cost three rung-0 runs and two
+wrong attributions."* **I read that paragraph the same day**, while checking
+whether rung 0's stop was a stale claim, took it as history about deploy, and
+never asked whether the same hole was in `check_workset_runs`. It was. It then
+cost a fourth run, and m4 called it *"the third run this shape has cost"*.
+
+Two more of the same: `require_visible_on_node`'s misattributing message is
+shared by **six call sites across four owners**, and `_pick_gpus` taking every
+free card was reported against m1 while m3's `:=4` default was the same
+property in a different file.
+
+**The remedy is not diligence, it is a grep.** When a defect is recorded
+against any stage, the recording owner names the *construct* — a variable, a
+helper, a default, a message — and every other owner greps their own files for
+it before the next run. **A finding filed against one stage is unowned by
+everyone else, and unowned is where it stays.**
+
+### T31 — naming a class is not sweeping for it
+
+**Owner m3, 2026-09-04. The operational half of `T30`, and it fires on your
+own findings rather than other people's.**
+
+At layer 4 of the `build_workset` stack I found `SPUR_CONTROLLER_ADDR` absent
+from a validation zone, wrote the class down — *a variable present in my shell
+and absent in a closed zone* — and **did not then grep my own file for other
+ambient reads.** Layer 5, an hour later, was `$HOME` being `/home` in that same
+closed zone, in the same file, producing `-v /home:/home` and a denial from
+`spur-authz`. One `grep -nE '\$(HOME|USER|PWD|PATH)'` at layer 4 would have
+found it.
+
+The same session produced the same shape twice more: after fixing a fixture
+that was more convenient than production, I built the next fixture **by
+subtracting the variables I suspected from my own contaminated shell** rather
+than taking the environment from the zone — and kept the one that mattered.
+
+**Naming a class produces the search term. Doing the search is a separate
+act,** and the gap between them is where the next instance lives. When you
+write down a class, the same commit should carry the sweep, or say why it did
+not.
+
+### T32 — the evidence records which node, and not which card
+
+**Owner m3, 2026-09-04, found while closing `T19` on this stage.**
+
+`evidence.measured_on` carries `node`, `gpu_arch`, `container` and `at`. It
+does **not** carry the GPU index the measurement ran on, and neither does
+`environment.fixed`, which records `gpu_count` — how many, not which.
+
+**Why it matters now rather than as tidiness.** `check_workset_runs`
+re-measures and compares against the recorded number. If the producer measured
+on a card that was quietly shared, the recorded number is inflated; the
+validator re-measures on **whatever card it is given**, and either reproduces
+the inflation (agrees, both wrong) or does not (refuses, and the reason looks
+like the artefact rather than the neighbour). **Neither outcome names the
+cause, and the card index is the one fact that would.**
+
+Not fixed here because the producer and the validator now both refuse to
+choose a card at all (`T19`), so the index is at least *deliberate* on both
+sides. Recording it would make it *checkable*, which is a different property
+and the one that closes this.

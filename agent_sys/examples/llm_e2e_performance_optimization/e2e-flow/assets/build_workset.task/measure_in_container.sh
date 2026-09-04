@@ -122,10 +122,37 @@ export E2E_NODE E2E_JOBID E2E_TRANSPORT
 # comment is a site fact nothing validates (m1's T19). `rocm-smi` immediately
 # before use is the only reading that is current.
 #
-# The default is 4 and both `E2E_MEASURE_GPU` and `E2E_MEASURE_CONTAINER` are
-# now declared on `workset_builder`, so the `:=` below is the *body's* fallback
-# for a standalone invocation rather than the only value the graph can produce.
-: "${E2E_MEASURE_GPU:=4}"
+# **No default, and this is T19 closed on my side.** It was `:=4`, and card 4
+# is a real card on every node this package has touched. m4 refused to declare
+# one for the same reason and was right: *a card as a package default makes a
+# consumer's refuse-when-empty guard unreachable*, and mine was the consumer
+# that defaulted where theirs refused.
+#
+# The measured cost of defaulting: 2026-09-04, all eight cards on 006 were at
+# 75% under a bring-up that declared no `HIP_VISIBLE_DEVICES`, and this stage
+# would have measured on card 4 regardless. **The bad outcome is the quiet
+# one** — not an OOM, which is loud, but timings contaminated by a co-tenant.
+# `check_workset_runs` re-measures on the same card, gets the same
+# contamination, and *agrees*: two honest measurements, both wrong, gate green.
+# Nothing in the chain looks at neighbours, so a default here is the one knob
+# that can produce a confidently wrong number.
+#
+# Refusing costs a `--var` and buys the property that a measurement never
+# happens on a card nobody chose.
+if [ -z "${E2E_MEASURE_GPU:-}" ]; then
+  echo "measure_in_container: no measurement card, and this is not defaulted on" >&2
+  echo "  purpose. Five owners share these nodes, and a card someone else is serving" >&2
+  echo "  from does not fail — it returns slower numbers that check_workset_runs" >&2
+  echo "  re-measures on the same card and agrees with. Cards on this node now:" >&2
+  on "rocm-smi --showmemuse 2>/dev/null | grep 'VRAM%'" >&2 2>/dev/null \
+    || echo "    (could not read rocm-smi on ${E2E_NODE:-the node})" >&2
+  # **The action goes last, because the consumer keeps the tail.**
+  # `check_workset_runs` reports `stderr.splitlines()[-N:]`, so a message whose
+  # instruction is at the top arrives with the instruction cut off. Measured on
+  # this very message.
+  echo "  FIX: pass --var measure_gpu=<n> to the run, or set E2E_MEASURE_GPU=<n>." >&2
+  exit 1
+fi
 : "${E2E_MEASURE_CONTAINER:=yihou_m3_measure_$$}"
 
 # **The workset must be visible from the node, and that is asked rather than

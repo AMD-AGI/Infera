@@ -239,6 +239,22 @@ def _transport_env(args: dict) -> dict[str, str]:
         name, _, value = pair.partition("=")
         if name and value:
             env[name] = value
+    # **The measurement card, which the producer now refuses to default.**
+    # `measure_in_container.sh` used to fall back to card 4; it does not, because
+    # a shared card returns *slower numbers rather than an error* and this
+    # validator would re-measure on the same contaminated card and agree. So the
+    # card must be chosen, and a validator gets no `E2E_*` block — same hole as
+    # `SPUR_CONTROLLER_ADDR`, same remedy.
+    #
+    # Re-measuring on a different card than the producer used is fine and is why
+    # this is its own arg rather than read from the artefact: the comparison is
+    # between two runs on one architecture, and `abort_on_mismatch` guards the
+    # architecture. **The workset does not record which card produced it** —
+    # `evidence.measured_on` carries node, arch and container but not the index —
+    # which is T19's unrecorded half and is noted in `todo.md`.
+    card = str(args.get("measure_gpu") or "")
+    if card:
+        env["E2E_MEASURE_GPU"] = card
     return env
 
 
@@ -323,7 +339,11 @@ def _reverify(content: Path, document: dict, recorded: list[dict], args: dict,  
                 continue
 
             if finished.returncode != 0:
-                tail = (finished.stderr or finished.stdout or "").strip().splitlines()[-3:]
+                # 12 and not 3: a body's refusal is written for a person and runs to
+                # several lines. Three kept the last three, which for a
+                # well-written message is the *end* of the explanation and not
+                # the instruction. Measured against the no-card refusal below.
+                tail = (finished.stderr or finished.stdout or "").strip().splitlines()[-12:]
                 _fail(problems, f"{operator_id}/{case_id}: the performance entrypoint exited "
                                 f"{finished.returncode}: {' | '.join(tail)}")
                 continue
