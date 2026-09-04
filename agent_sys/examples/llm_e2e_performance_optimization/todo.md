@@ -1547,10 +1547,10 @@ its owner.
 **Owner: checkpoint writer, 2026-09-04. Sharpening of `T31`, and m3 asked for it
 to carry my name; the pattern it names is theirs as much as mine.**
 
-**The observation.** m3 reported that four of their wrong turns today were probes
-that *could not have succeeded* — a null that looked like an answer — and that
-they caught the two they did catch because the result was implausible, not
-because they checked. I had just done the same: my positive control for
+**The observation.** m3 reported that **two** of their wrong turns today were
+probes that *could not have succeeded* — a null that looked like an answer: the
+`abc` payload that decoded to a non-command, and the `-p $W` probe that dumped
+the whole process table. I had just done the same: my positive control for
 `runlive.sh` used `exec -a`, which **`dash` does not have** (`sh: 1: exec: -a:
 not found`), so the subject never existed. I chased it.
 
@@ -1563,8 +1563,26 @@ run and finding those directories empty for every one of them.
 
 **So the variable is not care, it is the slot.** Same person, same hour, same
 diligence: a null in a control is *by definition* suspicious, and a null in a
-measurement reads as data. m3 confirmed the same split in their own four —
-wrong turns in the measurement slot, catches in the control slot.
+measurement reads as data. m3 confirmed the same split — their wrong turns in
+the measurement slot, their catches in the control slot.
+
+**Corrected 2026-09-04 at m3's request, and the correction matters to the
+entry's own argument.** This first said *four* of m3's wrong turns were dead
+probes. **It was two.** I merged two different counts of two different things:
+they had said *"my four wrong turns were all in the measurement slot"*, which is
+about the **slot**, not about dead probes. Their other two were **reasoning
+errors from artefacts they had not opened** — endorsing a duration signature
+while `evidence/performance.json` sat on disk saying otherwise, and the
+killed-mid-work hypothesis.
+
+**That is a different cause with a different cure, and conflating them
+overstated this entry's evidence.** A dead probe is cured by *name the result
+that would have proved the probe could speak*. A reasoning error from an
+unopened artefact is not — it is cured by **opening the artefact**, which is
+`T31`'s territory and `CONTRACT` §4.3's. **Four instances of one cause would be
+stronger evidence than the record can support; two is what it can.** m3 asked
+for the entry to be right rather than flattering, having been credited with a
+tidier failure than they had.
 
 **The operational form, and it is a test rather than an exhortation:**
 
