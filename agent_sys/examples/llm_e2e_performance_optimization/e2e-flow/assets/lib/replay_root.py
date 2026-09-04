@@ -342,7 +342,12 @@ def stability(rows: list[dict], threshold: int) -> tuple[bool, str]:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    # `__doc__` is None under `python3 -OO`, which strips docstrings — so
+    # `__doc__.splitlines()[0]` is an AttributeError before argparse ever runs,
+    # and `--help` dies with a traceback. Found by the leader; the package never
+    # invokes with -OO, so this is a courtesy to whoever does.
+    ap = argparse.ArgumentParser(
+        description=(__doc__ or "Materialise a run's handoffs into a mock_root.").splitlines()[0])
     ap.add_argument("--run", action="append", required=True,
                     help="a completed run directory; repeat, oldest first")
     ap.add_argument("--out", help="the mock_root to write (omit with --list)")

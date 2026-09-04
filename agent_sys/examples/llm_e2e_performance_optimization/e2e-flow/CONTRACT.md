@@ -897,6 +897,39 @@ claim, and the seven faces above are all about claims that cannot be checked.
 **The cheap form:** when a table of attributions, owners, or counts goes into a
 document somebody else will act on, put the command that produced it beside it.
 
+### 4.5 Where a verdict's *author* is recorded, which is one place only
+
+**`handoffs/<id>/v<N>/validation.yaml`.** Per handoff version, it holds one row
+per validator: `validator`, `result`, `strength`, `dimension`, `task_id`, the
+zone path and `at`.
+
+**Nothing else in a run tree carries a validator's name.** Measured 2026-09-04
+while building `assets/lib/replay_root.py`:
+
+- the validation zone holds `args.json`, `inputs.json`, `materials.json`,
+  `verdict.json` — and **`verdict.json` is keyed by handoff id, not by
+  validator**, so two validators' verdicts are distinguishable only by
+  fingerprinting their `args.json`;
+- `store/event/*.json` records `phase_done` and friends with `task_id` and
+  `handoff_id`, and no validator name;
+- `store/task/*.json` records `closure`, `agent_spec`, `history[].outcome` —
+  the task, not the checks it ran.
+
+**So the answer to *"did validator X pass on handoff Y in run Z"* has exactly
+one source, and grepping run output for `REFUSED` is not it** — the leader did
+that on 2026-09-04 and nearly reported four false failures, because a
+`validator_report.txt` is written by the bodies that adopted `write_report` and
+by no others, and its heading is a rendering rather than the record.
+
+**The consequence that bit first:** *"this artefact passed three times"* is not
+a statement about a run finishing, and it is not even a statement about three
+green verdicts. It has to name **which validators**. `replay_root` found
+`kernel_optimization` graded by `check_environment` alone in one run and by
+three validators in two others — all green, all "passed", and **graded by a
+different ruler**. Counting those as three would promote an artefact whose
+stability was measured against a moving standard, so **the validator set is part
+of the verdict** and a change in it is reported rather than averaged away.
+
 ### 4.1 Shared validators are shared, not copied
 
 `check_kernel_table` is **one** definition used by m2 and m3 (M3.5). The two

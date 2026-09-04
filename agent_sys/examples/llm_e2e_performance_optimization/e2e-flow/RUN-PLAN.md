@@ -1878,3 +1878,179 @@ named in whatever reports it: `apply.py`'s **generic dropped-names refusal** and
 its **no-op gate** (gates 8 and 9, never reached — a run that gets past
 `apply_patch` is a run where neither fired), and every refusal path of the seven
 m5 validators that a passing run by construction does not take.
+
+---
+
+# Skip-ahead: replaying a good run's handoffs instead of re-running the stage
+
+**The user's mechanism, 2026-09-04.** Once the earlier modules have run stably
+three or more times, a later debug run **skips** them and injects their handoffs
+from the last good run, with the not-yet-stable stage real and everything after
+it mocked. Skip in front, mock behind.
+
+**Final acceptance is still one full real e2e.** The user said so explicitly.
+This is a debugging accelerator and never an acceptance path; a green skip-ahead
+run proves the stages it ran and nothing about the ones it replayed. The
+sentence is repeated in the tool's own header, in `PROMOTION.json`, and on the
+tool's last line of output, because the person tempted to skip acceptance will
+be reading the tool and not this file.
+
+## 0. The seam question is OPEN, and this is what a wrong answer costs
+
+**Does stage N+1 consume stage N's *artefact*, or stage N's *running process*?**
+Data can be replayed. A live resource cannot.
+
+If a consumer attaches to something the producing run brought up, an injected
+handoff names a **torn-down container** and the failure appears **inside the
+consuming stage, wearing that stage's face**. So, until a seam is answered:
+
+> **Treat a failure in the consuming stage as possibly this, and not that
+> stage's defect.**
+
+`replay_root.py` prints that sentence for every kind whose seam is unrecorded,
+and records `skippable_seam: null` against it in `PROMOTION.json`.
+
+| seam | status |
+|---|---|
+| m1 → m2 | **answered: skippable.** m1, first-hand, below |
+| m2 → m3, m3 → m4, m4 → m5 | **open.** Nobody has been asked yet |
+
+### m1 → m2 is answered, and by construction rather than by intent
+
+m1's answer, 2026-09-04: `deploy_and_prove` writes the kit at **STEP 5** and
+tears the deployment down at **STEP 7**, both inside m1's own task. So
+`runtime.container` names a dead container **immediately, on every run** — not
+after three hours of replay. The kit says so in its own `runtime.notes`.
+**Replay introduces no staleness the graph does not already exercise every
+time**, which is a stronger result than the question asked for.
+
+`runtime.endpoint` has **no reader anywhere**: every occurrence outside m1's
+stage is a write.
+
+Two independent sources agree that m2 brings up its own engines rather than
+attaching to m1's:
+
+- m1, reading m2's `load/line.sh:133-149` — it takes `fixed.node`,
+  `fixed.image`, `fixed.image_id`, `fixed.model_name`, `fixed.served_model_name`,
+  `fixed.tp_size`, `fixed.gpu_devices` and `runtime.replayed_from`, and nothing
+  else;
+- `steps/m2_profiling.yaml:155-161` — *"the two lines are two bring-ups by
+  design (CUDA graph on and off cannot both be true of one running engine) and
+  CONTRACT §5.2 forbids either reusing a name it did not create."*
+
+The second is the decisive half and it is stronger than it looks: **§5.2 forbids
+reusing a name you did not create**, which rules out attaching to m1's container
+as much as to the sibling line's. **m2 has not confirmed it in their own words**
+and the row above stays "answered by two other sources" until they do.
+
+## 1. Eligibility is per node, and that is a good refusal
+
+`check_environment` carries `compare_fixed_across_inputs: [node, gpu_arch,
+image_id, model_path]` and runs across **every** handoff staged in a phase. So a
+kit captured on 217 and replayed into a run executing on 275 is **refused** —
+loudly, at the phase that stages it.
+
+**That is the safety net, not an obstacle.** It is what makes skip-ahead safe to
+use casually, and it was designed for something else entirely.
+
+But it means **`PROMOTION.json`'s `from_run` has to be checked against the run
+you are about to launch, not merely carried.** A user who replays across nodes
+and reads the refusal as a defect in the consuming stage has hit §0's failure by
+a different route.
+
+`fixed.node` is **deliberately not rewritten** by the tool. m1 suggested it; I
+declined, because the replayed artefact really was produced on the old node and
+rewriting the field would make the record claim otherwise. **Skip-ahead requires
+the same node.** Two loud refusals beat one forged field.
+
+## 2. "Stable" means the same validators passed, three times
+
+**Not that the run finished.** Rung 1 is the case: it *sealed* `deploy_kit` —
+README with all three headings, every probe green, load clean — and a validator
+then refused it on one number. "Ran" and "passed" came apart on the first real
+rung.
+
+**And not merely three green verdicts.** The validator *set* is part of the
+verdict — see CONTRACT §4.5, which also records the only place a validator's
+name survives in a run tree. `replay_root` reports a changed set rather than
+averaging it, and that fired on its first survey:
+
+```
+unstable kernel_optimization   the validator set changed between runs:
+                               check_environment
+                               | check_environment,check_optimization_shape,check_speedup_substantiated
+```
+
+Three runs, all green, **two rulers**.
+
+## 3. Using it
+
+```sh
+# survey without writing anything
+python3 assets/lib/replay_root.py --run <run> [--run <run> ...] --list
+
+# materialise the stable kinds into a fresh directory
+python3 assets/lib/replay_root.py --run <run> ... --out /home/yihou/replay_root
+
+# then point a debug run at it
+python3 -m agent_sys.cli.main run \
+  --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
+  --demo-root /home/yihou/agent_sys_runroot \
+  --var mock_root=/home/yihou/replay_root \
+  --var mock_stages=m1,m2 --var m1_agent=runner --var m2_agent=runner \
+  … the rest of the rung's own line …
+```
+
+**`mock_root` is the whole mechanism.** A mock leaf already copies
+`<stage>/<kind>/content/` into `$AGENT_SYS_OUTPUT_<KIND>`; pointing `mock_root`
+at a replayed run instead of the sealed 2026-09-02 corpus is the entire change.
+Nothing new is trusted — verified by round trip: `mock.sh` reads the produced
+root and reports `stage1-deploy/deploy_kit -> deploy_kit (44 files)`.
+
+**Survey first, every time.** `--list` decides nothing and writes nothing, and
+its output is what tells you whether the kind you meant to skip is stable
+*today*.
+
+## 4. What the tool rewrites, and why each one would otherwise lie
+
+A replayed environment record is edited **on the copy, never in the run tree** —
+a run tree is evidence. Recorded per kind in `PROMOTION.json`
+(`environment_rewrites`), and re-validated against `environment.schema.json`
+afterwards.
+
+| field | action | without it |
+|---|---|---|
+| `runtime.slurm_jobid` | **removed** | `_agree_or_die` exits 1: *"slurm_jobid is 'X' in the environment and 'Y' in the record"* — reads as a misconfigured launch |
+| `runtime.transport` | **removed** | same function, same failure; agrees today only because everything is `spur` |
+| `runtime.container` | → `replayed-from-<run>-NOT-RUNNING` | a name that **resolves to a different live process**: every field validates and m4 execs into the wrong container, silently |
+| `runtime.endpoint` | → a `.invalid` marker | schema-required, read by nothing |
+| `runtime.replayed_from` | → the source run id | the marker five consumers already read |
+
+**Removing beats rewriting** for the first two: `_agree_or_die`
+(`run_in_container.sh:96-104`, and the same three lines in m3's
+`measure_in_container.sh:127-129`) returns the **ambient** value when the
+record's is empty, so the debug run's own job id wins — which is the true one.
+Neither field is in the schema's `runtime.required`.
+
+**The container rewrite is the only one preventing a *silent* failure.** Run
+tags are not uniformly unique — one 2026-09-04 kit used a date-only tag — so a
+replayed name can resolve to a live container that is a different process. m1
+measured exactly that shape on 2026-09-04: the record said
+`started_at: 09:03:51Z` while docker reported `StartedAt: 09:37:18Z` with
+`RestartCount: 0`. An unresolvable name instead takes m4's ephemeral path
+(`run_in_container.sh:210-232`), which builds a fresh container from
+`fixed.image` and records `mode=ephemeral` — **a different claim, labelled**,
+rather than a wrong one.
+
+`--no-rewrite` copies verbatim, for inspecting what a run really produced. Not
+for a debug run.
+
+## 5. What it will not do
+
+- **Write into a directory it did not create.** Non-empty and no
+  `PROMOTION.json` → refuses, rc 2. Verified, with a foreign file left untouched.
+- **Delete a tree it did not write.** Overwriting per kind is the widest thing
+  it does.
+- **Promote a kind below the threshold**, without `--allow-unstable`, which
+  marks it in the record.
+- **Guess a seam.** An unrecorded seam is reported, never assumed.
