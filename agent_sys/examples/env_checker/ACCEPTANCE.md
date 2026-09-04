@@ -49,7 +49,7 @@ this task's scratch belongs.
 ### The fourth pin: the package must be in a commit
 
 **`selftest/launch.sh` refuses to launch when `git status --porcelain` is
-non-empty for `examples/env_checker` or `components/`.**
+non-empty for `examples/env_checker` or `agent_plugins/`.**
 
 Run 2 is why. Its pins recorded `env_mgr` at `9a9fdff`, which was true and
 **not sufficient**: the serena wiring, self-test case 2 and the validator that
@@ -327,7 +327,7 @@ cd /home/yihou/dev/git.16-19/infera.aiopt.real.task_package/agent_sys
 | 5 | `claude plugin validate examples/env_checker/assets/env_probe.agent/.claude/plugins` | `Validation passed` |
 | 6 | `command -v uv; command -v claude; claude --version` | all three answer. `uv` is what the L1 recipe installs serena with; `claude` is what installs the L3 plugin. **This row proves the binaries exist on this host and nothing about which build the run uses** — that is 6b |
 | 6b | `python3 -c "import shutil,subprocess;p=shutil.which('claude');print(p);print(subprocess.run([p,'--version'],capture_output=True,text=True).stdout.strip())"` | prints a path and **`2.1.246`**. That is the build the run pins **and** the build every probe conclusion now holds on — see *Measured on the pinned build* below. A different version is a **stop**, and it is a stop for two reasons at once: the run would invoke a CLI nobody characterised, **and** the probe evidence would no longer apply to it. The discharge is re-measuring the probes on the new build, not proceeding carefully |
-| 7 | `python3 /tmp/yihou/agentsys_envchecker_20260903/selftest/run.py` | `ALL OK` — 20 cases, both validators driven through their real `entry.sh` over a synthetic handoff. Case 2 is `every-capability-is-declared`: every capability reached through MCP has an artefact declaring its server name, which is run 1's failure catchable with no run at all. Case 1 is `salts-are-isolated`: seven `ENVCHK_SALT:` tags across the package and the components registry, all distinct, **each value in exactly one authored file**, and none of them in the three documents that describe the scheme. That is the property every other case assumes, so it is checked mechanically rather than argued |
+| 7 | `python3 /tmp/yihou/agentsys_envchecker_20260903/selftest/run.py` | `ALL OK` — 20 cases, both validators driven through their real `entry.sh` over a synthetic handoff. Case 2 is `every-capability-is-declared`: every capability reached through MCP has an artefact declaring its server name, which is run 1's failure catchable with no run at all. Case 1 is `salts-are-isolated`: seven `ENVCHK_SALT:` tags across the package and `agent_plugins/`, all distinct, **each value in exactly one authored file**, and none of them in the three documents that describe the scheme. That is the property every other case assumes, so it is checked mechanically rather than argued |
 | 8 | `git --git-dir=/home/yihou/dev/git.16-19/infera/.git config --get extensions.preciousObjects` | prints `true`. **If it prints nothing, stop and ask the user** — see below |
 | 9 | `df -h /tmp \| tail -1` | room to spare. Measured 2026-09-03: `/tmp` is on the 7 TB NVMe with ~3 TB free, and the workspace is a `git clone --shared`, so the main repo's 129 MB of objects are reached through alternates rather than copied. Disk is not a constraint for this run; the row exists so that a full disk is ruled out rather than assumed |
 

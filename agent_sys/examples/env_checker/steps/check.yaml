@@ -88,7 +88,7 @@
   # else's network without measuring anything the first does not.
   recipes: [serena]
 
-  # **L2 — components this repository ships**, resolved under
+  # **The agent plugins this repository ships**, resolved under
   # `agent_sys/agent_plugins/<name>/`. Two, and they are here for different
   # reasons:
   #

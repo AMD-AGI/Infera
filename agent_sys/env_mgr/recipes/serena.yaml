@@ -1,9 +1,18 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
 #
-# serena — an L1 industry component. `recipes: [serena]` on an agent spec
-# resolves here (`env_mgr/agent_assets.py::_recipe_paths`: a package-relative
-# path first, then this directory by bare name).
+# serena — installed from UPSTREAM. **This recipe carries no `tags: [internal]`,
+# and that is the decision, not an omission**: `internal` marks something
+# `agent_sys` itself ships, and every item here installs a third party's code
+# from `git+https://github.com/oraios/serena` or from PyPI. Tagging it internal
+# would make the tag mean "a recipe we wrote" rather than "a component we own",
+# which is the distinction it exists to draw. The declaration half of serena —
+# the `.mcp.json` that registers the server — IS ours and lives in
+# `agent_sys/agent_plugins/serena/`, reached by `agent_plugins: [serena]`.
+#
+# `recipes: [serena]` on an agent spec resolves here
+# (`env_mgr/agent_assets.py::_recipe_paths`: a package-relative path first, then
+# this directory by bare name).
 #
 # Drafted by `pkg-author` for `examples/env_checker`; everything in it was
 # measured on this host on 2026-09-03 rather than copied from documentation.
@@ -111,7 +120,7 @@ items:
 #
 # `Prepared.mcp_servers` is assembled by `env_mgr` from a component's
 # `.mcp.json`, never by a recipe, so the entry below belongs to whichever
-# component wants serena. It is recorded here so that the invocation lives
+# component wants serena — today `agent_plugins/serena/`. It is recorded here so that the invocation lives
 # beside the install that produces the binary rather than in a message.
 # Measured working, probe E — `initialize` + `tools/list` returned
 # `Serena 1.28.1` and 21 tools:
@@ -140,7 +149,7 @@ items:
 # step 6b — so `$UV_TOOL_BIN_DIR` does not exist when `PATH` is computed and
 # would not appear on it even unconfined. The absolute form is also what probe E
 # measured. Naming the variable rather than a literal path is the rule
-# `components/envchk-baseline/.claude/.mcp.json` already follows with
+# `agent_plugins/envchk-baseline/.claude/.mcp.json` already follows with
 # `${CLAUDE_CONFIG_DIR}`: the variable, not the literal, and not the search path.
 #
 # **`HOME` is set for this subprocess and must NOT be hoisted to the agent's

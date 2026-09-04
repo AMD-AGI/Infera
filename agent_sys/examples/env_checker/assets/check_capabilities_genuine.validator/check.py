@@ -68,7 +68,7 @@ def agent_plugins_root(package: Path) -> tuple[Path | None, str]:
 
     **The environment variable first, a search second, and a named failure
     third.** The search exists because the registry is a *repository* path and a
-    task package is *staged* — `<zone>/…/package/` has no `../../components` —
+    task package is *staged* — `<zone>/…/package/` has no `../../agent_plugins` —
     so in a staged run only the variable can answer. It is not a fallback that
     covers for the variable being absent: in that case the L2 capability is
     reported unverifiable **by name**, which is a fault, not a shrug.

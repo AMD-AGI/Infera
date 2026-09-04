@@ -131,7 +131,7 @@ is: the supervisor holds the API credentials the whole confinement design exists
 to keep away from a task body. Three narrowings, and they are the whole defence:
 it is done only for that exact suffix, only under ``tools/`` of a resolved
 component, and only from the **staged** package or this repository's own
-`components/` — never from `Context.package`, which is the operator's live
+`agent_plugins/` — never from `Context.package`, which is the operator's live
 checkout. An in-process tool is worth this because the alternative measured
 shape (a stdio MCP server) costs a subprocess per tool and cannot share the
 supervisor's objects; a component that does not need that should ship a
@@ -244,7 +244,7 @@ __all__ = [
 #: would be a format to convert between.
 CLAUDE_DIRNAME = ".claude"
 
-#: The components this repository ships. **A repository path, not a
+#: The agent plugins this repository ships. **A repository path, not a
 #: configurable root**: ``agent_plugins: [<name>]`` takes a bare name precisely so
 #: that a task package cannot point this anywhere, and a knob here would give back
 #: what the name shape removed.
@@ -1231,7 +1231,7 @@ def _tooldefs(tree: str, *, origin: str, config_dir: str) -> tuple[list[Any], li
     was importing **the repository** rather than the copy this attempt was
     pinned to. That is the bare-`claude` defect's class — two consumers, one of
     them reading a path the run does not own — and the module docstring's
-    narrowing (*"the staged package or this repository's own `components/`"*) is
+    narrowing (*"the staged package or this repository's own `agent_plugins/`"*) is
     the wording that made it read as fine.
 
     It also puts ``__pycache__`` in the zone, where it dies with the zone,
@@ -1524,7 +1524,7 @@ def _write_report(logs_dir: str, report: Sequence[InstallOutcome]) -> str:
     file fails the report for an avoidable reason.
 
     `<zone>/logs` is already the zone's own directory and already granted, so
-    unlike the components root this needs no new grant — `paths.py`'s rule is
+    unlike the agent plugins root this needs no new grant — `paths.py`'s rule is
     satisfied without one.
     """
     os.makedirs(logs_dir, exist_ok=True)
