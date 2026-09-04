@@ -806,3 +806,142 @@ never ran the gate. *Structure is not behaviour.*
   asserts `finish_reason: stop`, non-empty `content`, and a model id that is not
   a path — so a deployment that returns 526 characters of chain-of-thought where
   the answer should be **passes**. Measured, `todo.md` T21/T28.
+
+---
+
+## Standalone verification — m2 (`run_profiling_mode_off`, `run_profiling_mode_on`, `merge_profiling_evidence`)
+
+The user's redirection, 2026-09-04: verify each module on its own, in parallel,
+rather than only through the serial ladder. This is m2's, in the shape m4
+(`5caea8a`) and m5 (`fbb73c1`) set.
+
+**What is already known about m2 without spending a card**: its four kinds have
+sealed `valid` in three separate mock runs, `merge_profiling_evidence` included,
+and every validator that grades them passed — 14 of the 21 verdicts in run
+`072849` were m2's. **What has never happened is `line.sh` bringing a service up
+on a card.** That is the whole of what this section buys.
+
+### 1. The command, in full
+
+Not a delta against the vars table above. **The table is a diff, and a diff is
+the one shape nobody can paste** — every launch-line failure on 2026-09-04 came
+from someone assembling a command out of one.
+
+```sh
+agent-sys run --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
+  --demo-root /home/yihou/agent_sys_runroot \
+  --var jobid=<JOBID> --var node=<NODE> --var node_ip=<NODE_IP> \
+  --var model_name=Qwen/Qwen3.6-27B \
+  --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
+  --var image=<THE KIT'S IMAGE, not the node's> \
+  --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR \
+  --var mock_stages=m1,m3,m4,m5 \
+  --var m1_agent=runner --var m3_agent=runner \
+  --var m4_agent=runner --var m5_agent=runner \
+  --var expect_ranks=<THE KIT'S tp_size> \
+  --var gpu_devices=<THE CARDS THAT ARE FREE, e.g. 4,5,6,7> \
+  --var adhoc_cases=0
+```
+
+**m2 is real by *absence* from `mock_stages`** — there is no `m2_agent` to drop,
+because m2's three leaves are already `agent: runner`. The four `m<N>_agent=runner`
+vars stay: they keep m1, m3, m4 and m5 off their AI paths.
+
+Two are m2's and each has cost something:
+
+- **`expect_ranks` — read it out of the kit, never carry it.** It is a fact
+  about *the artefact being graded*. `check_trace_coverage` is `strength: strong`,
+  declares `${expect_ranks:-8}`, and is deliberately **not** derived from
+  `${tp}`. This document held both `4` and `8` as facts on the same day; neither
+  was one. m1 sizes the bring-up from the cards that were free, so the value is a
+  property of the node on the day:
+
+  ```sh
+  grep -E '^  (tp_size|node|image):' \
+    "$(find "$RUN" -path '*items/codes/environment.yaml' | head -1)"
+  ```
+
+- **`gpu_devices`** — new on 2026-09-04 (`03e3bae`). Until then nothing told the
+  kit which cards to use and it defaulted to a hardcoded `0,1,2,3`, so both
+  bring-ups took 0–3 whatever was free. Omit it and `line.sh` falls back to the
+  set the kit records having **taken**, which is the right default; name it when
+  the node is partly occupied.
+
+### 2. What it consumes, and where a real one comes from
+
+**One input: m1's `deploy_kit`. This is the one genuine dependency in the
+parallel plan, and it is narrower than it looks.**
+
+**m2 does not need m1's standalone to have run.** It needs *a* real kit whose
+`fixed.node` is the node m2 is pointed at — `line.sh` aborts on a mismatch,
+deliberately, because otherwise every number would be filed under the wrong
+environment. Two ways to have one:
+
+1. **`--var mock_stages=m1,…` replays the sealed kit**, which is a real kit: the
+   2026-09-02 deployment scripts plus MOCK-MAP (I)'s shim, and m1 verified that
+   shim makes the untouched sealed kit pass `check_deploy_kit`. The mocked
+   producer renders `environment.yaml` from *this* run's vars, so the node
+   matches by construction. **This is the parallel path and it needs nothing
+   from m1.**
+2. **A kit already on disk** from any earlier m1 run on the same node.
+
+**Verified, not assumed** — every path `line.sh` reads was checked against the
+real kit run `062414` produced on 006: `items/codes/environment.yaml` readable;
+exactly one packup directory under `items/codes` carrying `scripts/`;
+`deploy.sh`, `wait_ready.sh` and `teardown.sh` all present; all six `fixed.*`
+fields (`node`, `image`, `image_id`, `model_name`, `served_model_name`,
+`tp_size`) populated; and **all six runtime-contract variables honoured**,
+including `E2E_KIT_ROUTER_EXTRA_ARGS`, whose absence would make every capture
+produce nothing while reporting success.
+
+**The path that is easy to get wrong**: the staged kit must be visible *from the
+node*, because `line.sh` runs `deploy.sh` there by absolute path. That works
+only because `--demo-root` is under `/home`, which is NFS and mounted rw on the
+nodes. A run root on `/tmp` or local scratch fails here, and until `2cdc403` it
+failed while blaming the filesystem for a transport error.
+
+### 3. What it needs, and for how long
+
+**One node, both cards-halves free if possible, for two sequential bring-ups.**
+
+| | measured? | value |
+|---|---|---|
+| load window per line | **yes** — sealed `items/env/load.json`, `trace_window_ms: [0, 180000]` | **180 s** |
+| concurrency / workers | **yes**, same file | 32 / 8 |
+| lines | by construction | **2** — `profiling_mode_off`, then `profiling_mode_on` |
+| bring-up + teardown per line | **no — never measured for m2** | m2's real path has never run; m1's real bring-ups are the only data and they are m1's to quote |
+
+So the honest statement is **2 × (bring-up + 180 s + teardown), with only the
+180 s measured**. I will not put a total here: an unmeasured number in a table of
+measured ones is the thing this document keeps getting caught by.
+
+**The two lines are sequential and must be** — each brings its own service up
+and tears it down (M2.5), and the profiled line runs with CUDA graphs off, which
+measured ~8× slower on the sealed pair. They use different port bands
+(`PORT_OFFSET=10`) and different run tags, so a leftover from the first cannot
+be mistaken for the second.
+
+### 4. The smallest honest proof — does it agree, and can it disagree
+
+**Agrees:** all four kinds seal `valid` and `check_profiling_evidence` passes
+over four parts that arrived separately. That last clause is the load-bearing
+one — MOCK-MAP (H) refuses a stand-in for `profiling_evidence` precisely so that
+`require_same_environment` is exercised on genuine separateness rather than on a
+hand-shaped artefact.
+
+**Can disagree, and these are the ones to watch because each fails loudly on a
+real card and cannot fail in a mock:**
+
+- **`check_trace_coverage`** — one readable trace per rank, ≥1000 GPU kernels
+  each, span within `max_span_ratio` of the window. A profiler window opened on
+  an idling scheduler loop is a valid trace of nothing, and this is the check
+  that says so. It is also the one `expect_ranks` decides.
+- **`check_bench_result`** — the profiler-detached line is the only throughput
+  in this flow worth quoting; the profiled line is *not* a control for it.
+- **`check_kernel_table`** — shared with m3 (M3.5), so a disagreement here is a
+  cross-stage one and not m2's alone.
+
+**The negative control that makes the positive mean something**: point the run
+at a node whose kit records a different `fixed.node` and `line.sh` must abort
+before bringing anything up. If it proceeds, the whole agreement above is about
+an environment nobody recorded.
