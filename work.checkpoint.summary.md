@@ -9019,3 +9019,86 @@ and once against my correction of it, and the third time corrected their own
 correction by finding `062229` in the live root after telling me the frozen root
 was the place to look. **Nobody in this thread has been careless and the claim
 has moved every single pass.**
+
+### Addendum, 17:25 UTC — fifth pass: seven producers, two below the bar, and the contracted name predates the contract
+
+**m1 classified the eleven and corrected themselves a fourth time. I verified
+both new claims.**
+
+```
+084406  md5 28a153ee9603  mtime 08:50:17
+100905  md5 28a153ee9603  mtime 08:50:17     <- IDENTICAL. ten kits, not eleven
+
+062414  E2E_KIT_CUDA_GRAPH_MAX_BS:=32   written 06:36:49
+e390abb contracted that exact name       landed 15:34:38     <- 8 h 57 m later
+```
+
+**Both hold.** The duplicate is invisible without hashing — my instinct to stop
+at eleven was right for the wrong reason.
+
+### What the classification changes
+
+**All eleven are `packup_20260904` — produced today.** The line-105 fingerprint
+does not apply to them; **the packup date is the better discriminator**, which is
+m1 correcting the fingerprint they gave me an hour ago.
+
+**Their "four producers" was short, and the cause is my defect wearing their
+clothes.** They filtered on `DK_TP_SIZE:=4` **and** the `DK_` variable name,
+which silently excluded the `E2E_KIT_` and `KIT_` variants. **A filter that
+produced a plausible, complete-looking table while dropping data** — mine
+dropped 24 rows to `| tail -12`, theirs dropped three producers to a name prefix.
+
+**Corrected pre-contract producer set: seven distinct kits — `8, 16, 32, 16, 16,
+8, 32`.**
+
+**Two chose below the bar, not one:** `125637` (tp=4, ceiling 8, the run
+`check_deploy_serves` refused) and `041742` (tp=1, ceiling 8, which m2 measured
+at effective concurrency ~13.5, so 8 is under its load too). **Two of seven.**
+
+### The row, fifth revision
+
+| claim | status |
+|---|---|
+| addresses a real failure | **established — two of seven pre-contract producers chose below the bar** |
+| producers can satisfy it | established |
+| the criterion **changed** anyone's choice | **not established, and weaker still** |
+| the criterion **standardised a name** | **supported** — three names were in use (`DK_`, `E2E_KIT_`, `KIT_`), one survives |
+
+**The third row is weaker because of the fourth.** `062414` used
+`E2E_KIT_CUDA_GRAPH_MAX_BS` — the contracted spelling — **nearly nine hours
+before the contract existed.** So it is not only that 32 was reachable without
+`e390abb`; **a producer independently invented the contracted name.** The
+accurate claim is that **`e390abb` standardised one of three names already in
+use**, which is smaller and better supported than anything either of us had
+recorded.
+
+### A small one of mine, since I am cataloguing these
+
+My verification grep was `[A-Z_]*CUDA_GRAPH_MAX_BS` and printed
+`E_KIT_CUDA_GRAPH_MAX_BS` — **the `2` in `E2E_` is not in `[A-Z_]`**, so the
+match started mid-token. The value and timestamp are unaffected and the *name* I
+read was wrong by two characters. **Right answer, slightly wrong question,
+inside a verification of a claim about variable names.**
+
+### The shape, which is the finding
+
+**This claim has now been corrected five times:**
+
+| pass | by | direction |
+|---|---|---|
+| 1 | leader | over-claim: *"bound a second producer"* |
+| 2 | leader | withdraws it |
+| 3 | m1 | *"post-contract observations cannot bear on it"* — against their own change |
+| 4 | me | **over-correction**: seven consecutive producers |
+| 5 | m1 | six were replays; producer record is four |
+| 6 | m1 | **their four was short too**: seven, two below the bar |
+
+**m1's own reading of it is the one to keep, and it is not about diligence:**
+
+> **Every one of the four was caught by someone else's number forcing me to
+> re-measure my own.** Without your `tail -12` truncation my four would still be
+> standing.
+
+**Nobody in this sequence was careless, and no pass was prompted by its author
+re-reading their own work.** The claim converged because six measurements
+collided, not because anyone checked twice.
