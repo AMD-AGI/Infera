@@ -386,6 +386,40 @@
           "verdict": {
             "$ref": "#/$defs/verdict_word"
           }
+        },
+        "if": {
+          "properties": {
+            "verdict": {
+              "enum": [
+                "same",
+                "improved",
+                "REGRESSED",
+                "uninterpretable"
+              ]
+            }
+          },
+          "required": [
+            "verdict"
+          ]
+        },
+        "then": {
+          "properties": {
+            "stock": {
+              "type": "number"
+            },
+            "patched": {
+              "type": "number"
+            },
+            "rel_delta": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "stock",
+            "patched",
+            "rel_delta"
+          ],
+          "description": "m4's A7, and it holds in ONE direction only -- checked against eval_stats.perf_verdict rather than assumed. A decided verdict is reachable only when relative_change returned a number, which requires both arms present AND stock non-zero, so stock/patched/rel_delta cannot be null beside one. **The converse is false and is deliberately NOT expressed**: `unmeasured` does not imply the numbers are absent, because relative_change also returns None when stock == 0 -- a baseline of zero means the measurement did not happen, and that row carries both numbers. m4 guessed the direction that does not hold and said they had not verified it; this is the half that does."
         }
       }
     },
@@ -479,6 +513,28 @@
             "null"
           ]
         }
+      },
+      "if": {
+        "properties": {
+          "ok": {
+            "const": null
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "then": {
+        "properties": {
+          "unavailable_because": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "unavailable_because"
+        ],
+        "description": "m4's A5/A6. `ok` and `unavailable_because` were both present and nothing bound them, so `ok: null, unavailable_because: null` validated: a comparison reporting no verdict and no reason it has none. The code already enforces this shape -- check_no_regression refuses a null `ok` with an empty `unavailable_because` -- and this is the same rule one layer down, which is T43: a constraint between two fields is invisible to a schema that validates them separately."
       }
     },
     "kernel_reconciliation": {
@@ -542,6 +598,28 @@
             "null"
           ]
         }
+      },
+      "if": {
+        "properties": {
+          "agrees": {
+            "const": null
+          }
+        },
+        "required": [
+          "agrees"
+        ]
+      },
+      "then": {
+        "properties": {
+          "unavailable_because": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "unavailable_because"
+        ],
+        "description": "m4's A5/A6. `agrees` and `unavailable_because` were both present and nothing bound them, so `ok: null, unavailable_because: null` validated: a comparison reporting no verdict and no reason it has none. The code already enforces this shape -- check_no_regression refuses a null `ok` with an empty `unavailable_because` -- and this is the same rule one layer down, which is T43: a constraint between two fields is invisible to a schema that validates them separately."
       }
     },
     "verdict": {
@@ -704,6 +782,40 @@
             "type": "boolean",
             "description": "The pooled mean and the median reached different verdicts, so the rounds disagree by more than the bar can see through. The row is `uninterpretable`: a statement about the measurement, not the patch. Null disagreement rate measured on the sealed arms with no patch present: worst 9.8% at R=3, 5.7% at R=5, 1.3% at R=10."
           }
+        },
+        "if": {
+          "properties": {
+            "verdict": {
+              "enum": [
+                "same",
+                "improved",
+                "REGRESSED",
+                "uninterpretable"
+              ]
+            }
+          },
+          "required": [
+            "verdict"
+          ]
+        },
+        "then": {
+          "properties": {
+            "stock": {
+              "type": "number"
+            },
+            "patched": {
+              "type": "number"
+            },
+            "rel_delta": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "stock",
+            "patched",
+            "rel_delta"
+          ],
+          "description": "m4's A7, and it holds in ONE direction only -- checked against eval_stats.perf_verdict rather than assumed. A decided verdict is reachable only when relative_change returned a number, which requires both arms present AND stock non-zero, so stock/patched/rel_delta cannot be null beside one. **The converse is false and is deliberately NOT expressed**: `unmeasured` does not imply the numbers are absent, because relative_change also returns None when stock == 0 -- a baseline of zero means the measurement did not happen, and that row carries both numbers. m4 guessed the direction that does not hold and said they had not verified it; this is the half that does."
         }
       }
     }

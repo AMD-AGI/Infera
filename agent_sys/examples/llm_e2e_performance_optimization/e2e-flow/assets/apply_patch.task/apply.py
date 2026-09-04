@@ -644,6 +644,33 @@ def main() -> int:
             # **A file that compiles is not a file that can be imported in place
             # of another**, and that distinction had never been checked anywhere.
             dropped, lost_reexports = surface_regressions(base / "a" / rel, patched)
+            # **Name the cause when it is knowable, and keep the symptom under
+            # it.** A whole-file overlay of a file whose operator is a *fragment
+            # inside a function* drops that file's entire surface by
+            # construction, so the twelve names below are the symptom and this
+            # pair is the disease. Without this, m4's first instinct on seeing
+            # twelve dropped definitions was to look at their replacement, and
+            # the replacement is not where the fix is.
+            if dropped and (integration or {}).get("substitution") == "call_site_fragment" \
+                    and manifest.get("apply_mode") == "overlay_files":
+                raise SystemExit(
+                    f"apply: {entry['container_path']} cannot be installed by this mechanism, "
+                    "and no seed can fix it.\n"
+                    "  The workset declares `substitution: call_site_fragment` — the operator "
+                    "is a fragment inside a function, not a module-level symbol — and the "
+                    "manifest declares `apply_mode: overlay_files`, which replaces the whole "
+                    "file. A whole-file replacement of a file whose operator is a fragment "
+                    "drops that file's entire public surface, which is what happened here:\n"
+                    f"    {len(dropped)} definition(s) dropped: "
+                    + ", ".join(sorted(dropped)[:8]) + ("…" if len(dropped) > 8 else "") + "\n"
+                    "  **This is not about the seed.** `apply_mode`'s enum in "
+                    "`assets/schemas/workset.schema.json` has exactly one value, "
+                    "`overlay_files`, so for a `call_site_fragment` operator there is no legal "
+                    "combination to reach — the pair is unsatisfiable rather than merely "
+                    "unchecked, and re-cutting the replacement cannot help.\n"
+                    "  The fix is a design decision about how a fragment is installed, which "
+                    "is M5.1.1, and it belongs at the workset rather than at the optimiser."
+                )
             if dropped:
                 raise SystemExit(
                     f"apply: the patched {entry['container_path']} drops "
