@@ -469,6 +469,24 @@ runtime_contract:
     # The seventh, added 2026-09-04 after a kit without it took a co-tenant's
     # cards. m2 found the consumer half; this is the producer half.
     - name: E2E_KIT_GPU_DEVICES
+      # **Adding this refused the sealed kit, and the fix was the adapter, not an
+      # exemption.** Measured 2026-09-04: the 2026-09-02 kit's `scripts/` cannot
+      # mention a name that postdates them, so rung 0 died here within minutes.
+      # A `skip_if_replayed` escape was written and then removed — every replay in
+      # this flow goes through `mock_adapt.sh`, which **exists to bring a sealed
+      # kit up to the current contract and already synthesises the other six
+      # parameters** (`mock_adapt.sh:143-154`). An exemption would therefore never
+      # have fired, while quietly weakening the rule for any replay that did.
+      # The seventh is now synthesised there like its siblings, so this parameter
+      # is required of **every** kit, replayed or produced, with no escape.
+      #
+      # The one-liner the verdict carries. Without it the validator emitted the
+      # whole `brief` below into a run's output — measured, and it is why every
+      # future parameter should carry one.
+      err: >-
+        the cards are the one identifier this kit binds with no parameter, so a
+        second copy cannot take different ones and a caller cannot name a set to
+        avoid a co-tenant. Read it as `${E2E_KIT_GPU_DEVICES:=…}` in scripts/.
       brief: >-
         Which device indices this deployment takes, comma-separated — **the one
         identifier the kit binds that had no parameter.** Container names, ports

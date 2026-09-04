@@ -152,6 +152,20 @@ if ! grep -q 'E2E_KIT_RUN_TAG' "$ENVSH"; then
 : "${E2E_KIT_ENGINE_EXTRA_ARGS:=}"
 : "${E2E_KIT_ENGINE_EXTRA_ENV:=}"
 : "${E2E_KIT_ROUTER_EXTRA_ARGS:=}"
+# The seventh, added 2026-09-04 with the contract entry that requires it. Same
+# rename-not-new-behaviour rule as the six above: the sealed kit already binds a
+# card, it just bound it as `DK_GPU_ID`, so an unset caller still gets device 4 —
+# the sealed run's own choice, byte for byte.
+#
+# **This line is why the contract needs no replay exemption.** Adding the
+# parameter refused the sealed kit, and the first fix written was a
+# `skip_if_replayed` escape in the validator. That was wrong twice over: every
+# replay in this flow passes through *this script*, so the escape would never
+# have fired, and it would have weakened the rule for any replay that did. The
+# adapter is the seam that exists for exactly this — bringing an older artefact
+# up to the current contract — so the parameter is now required of every kit,
+# replayed or produced, with no exemption anywhere.
+: "${E2E_KIT_GPU_DEVICES:=${DK_GPU_ID:-4}}"
 EOF
 fi
 

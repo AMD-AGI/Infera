@@ -286,10 +286,14 @@ def check_invariant(rule: dict, record, where: str) -> list[str]:
         # would report the same fault twice under a less useful name.
         return []
     if len(values) > limit:
+        # **`err` is the *absent* case's message and must not be appended here.**
+        # It reads "fixed.gpu_devices is absent", which is false when the field is
+        # present and too long — so the verdict said the field was missing while
+        # quoting its nine entries. Caught in the gate's own output 2026-09-04.
         return [
             f"{where}: {rule['count_of']} has {len(values)} entries "
             f"({values}) but {rule['at_most']} is {limit} — a deployment cannot "
-            f"take more cards than the node has. {rule['err']}"
+            f"take more cards than the node has."
         ]
     return []
 
@@ -620,11 +624,16 @@ def check_runtime_contract(contract: dict, scan_rule: dict, roots: dict[str, Pat
 
     faults = []
     for parameter in contract.get("parameters") or []:
-        if parameter["name"] not in seen:
-            faults.append(
-                f"{scan_rule['dir']}/: nothing reads ${{{parameter['name']}:=…}}. "
-                f"{' '.join(parameter['brief'].split())}"
-            )
+        if parameter["name"] in seen:
+            continue
+        # **`err` is the operator-facing one-liner; `brief` is documentation.**
+        # A `brief` here runs to paragraphs, and emitting it put an entire essay
+        # into a run's verdict — measured 2026-09-04, on the first run after a
+        # seventh parameter was added. A verdict a person has to scroll is a
+        # verdict they skim. Falling back to the brief's first sentence keeps the
+        # six older parameters, which carry no `err`, readable too.
+        why = parameter.get("err") or " ".join(parameter["brief"].split()).split(". ")[0] + "."
+        faults.append(f"{scan_rule['dir']}/: nothing reads ${{{parameter['name']}:=…}}. {' '.join(why.split())}")
 
     # **There is deliberately no static mount check here**, and the reason is a
     # measured false positive rather than an omission. The layout requires the
