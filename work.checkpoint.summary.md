@@ -7476,3 +7476,79 @@ first one.
 
 **None of the four came from either of our stages, and all four outlive the
 package.** The tool that occasioned them will be superseded; these will not.
+
+### Addendum, 11:52 UTC — my metric is monotonic by construction, which is worse than saturating
+
+**The leader's note about `67a223b` exposes a third limitation, and it is the
+one I had not seen.** Verified: `67a223b` landed **11:40:55**; the run I measured
+started **11:24:14**. Sixteen minutes apart. It adds 27 lines to
+`apply_patch.task/apply.py` and 112 to `integration_report.schema.json` — **the
+refusal m5 described did not exist when that run executed.**
+
+So the leader's own summary is exact: *wrong about the mechanism, right about the
+cost.* The next run will very likely do what they said this one would, and
+**my "20 of 21" describes a package state that no longer exists.**
+
+**The limitation that follows is structural, not a slip.** My union counts *has
+this validator ever produced a verdict, in any run, ever.* That is **monotonic
+by construction**: it cannot go down. If `67a223b` means m5 is never reached
+again, my headline stays at 20 forever and reports the high-water mark of a
+package that has since changed underneath it.
+
+That is worse than the saturation I named an hour ago. **Saturation means the
+number stops moving; monotonicity means it cannot report a regression at all.**
+An instrument that can only ratchet is exactly what I criticised in a *progress
+percentage* at T+1092 — *"a percentage that only ratchets up is not measuring
+anything"* — and I have been running one as my headline all effort without
+noticing it was the same shape.
+
+**So the successor is not just the pair I named; it is the pair scoped to a
+single run.** From here: *handoffs `valid` in the **furthest single run***, and
+*judgements false in that run*. A single run can go down. The union stays in the
+table as history, labelled as history.
+
+### Three things from the leader, recorded under the new marking
+
+**Relayed — leader measured.** They lifted m1's `check_invariant` into
+`check_environment` and measured its reach before claiming it: **417 records,
+412 skip, 5 exercise it, 0 refuse.** So the fourteen-kind gap is closed *going
+forward* and grades almost nothing today.
+
+**And they nearly reported it clean from a probe that had checked zero files** —
+wrong glob — **an hour after quoting T40 at two other people.** That is the
+fifth T40 instance and the first committed by the person enforcing it. It is
+also the strongest evidence the rule is worth having: the null looked like a
+pass, in the measurement slot, to someone who had spent the hour telling others
+to distrust exactly that.
+
+**Relayed — m5 measured, from their control experiment.** On
+`check_no_regression`: **the 2 ms arm was invisible and the 20 ms arm was not**,
+so the gate's floor lies somewhere between and **nobody has bounded it.** That
+sharpens my "one refusal is not discrimination" into something testable: the
+question is not *does it refuse* but *what is the smallest regression it can
+see*.
+
+### The identifier rule, stated as the distinction rather than the fourth item
+
+The leader is right that listing it fourth undersells it. The distinction:
+
+> **Three of the four rules make provenance *visible*. The identifier rule makes
+> the claim *un-detachable from its source*.**
+>
+> `ref:` markers, the three-way split and T40's null test all attach something to
+> a claim that a reader must then check. **A pointer cannot be un-copied.**
+> *"T21's discriminator"* carries a way back to the artefact; `7 chars vs 526
+> chars` carries nothing, and the moment it is copied its provenance is gone with
+> no marker able to follow it.
+
+That is why it is the only one that prevents. The other three improve the odds
+that someone notices; this one removes the object that gets mis-attributed.
+
+### On item 5's residue
+
+The leader will not let me hold it alone, and they are right: **the claim that
+the echo row at `:274` derives from their node-243 measurement is unverified by
+both of us.** They asserted the whole thing was that denial; I narrowed it and
+left the same inference inside the narrowing. Twenty lines apart, one file, one
+author — **m3 can settle it in a sentence and it is not worth a task.** Recorded
+as *unverified, held jointly* rather than as either of ours.
