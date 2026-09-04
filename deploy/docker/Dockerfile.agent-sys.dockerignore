@@ -1,0 +1,34 @@
+# Override root .dockerignore for the agent-sys image.
+# .git is required: env_mgr/workspace.py uses git clone --shared against
+# /opt/Infera, which reads objects through .git/objects/info/alternates.
+
+# Python artefacts
+__pycache__
+*.py[cod]
+*.egg-info
+.pytest_cache
+.ruff_cache
+.mypy_cache
+build
+dist
+
+# Virtualenvs
+.venv
+**/.venv
+
+# Editors / OS
+.vscode
+.idea
+*.swp
+*.log
+.DS_Store
+
+# CI / docs not needed in the image
+.github
+
+# Engine build artefacts
+rust/target
+deploy/docker/third_party
+
+# Slurm logs
+slurm-*.out

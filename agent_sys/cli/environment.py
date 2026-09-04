@@ -45,7 +45,9 @@ __all__ = [
     "Layout",
     "LiveHandoffs",
     "build_context",
+    "WORKROOT_ENV_VAR",
     "confinement",
+    "default_root",
     "demo_grants",
     "latest_run",
     "layout_for",
@@ -214,14 +216,48 @@ class LiveHandoffs(Mapping):
         return 0 if self._mgr is None else len(self._mgr.all_ids())
 
 
+#: The run root, named outright. `--demo-root` still wins; this is what a
+#: caller who cannot pass an argument sets.
+#:
+#: **It names the root itself, not a base to append to.** `XDG_STATE_HOME` is a
+#: base — the spec says what may go under it and every program appends its own
+#: name — so `agent-sys-demo` is this program's share of a directory it does not
+#: own. That is the wrong shape for the thing this variable exists to control:
+#: the run root has to be **one absolute path that resolves identically here and
+#: on the compute node**, because `remote.sh:require_visible_on_node` asserts
+#: exactly that and the bodies run out of `<run root>/runs/<id>/zones/…/package`
+#: by absolute path. A variable that only moves the parent leaves the operator
+#: composing the real answer in their head, and a container bind mount has to
+#: name the whole path anyway.
+#:
+#: `INFERA_` and not `AGENT_SYS_`: the `AGENT_SYS_*` namespace is what `env_mgr`
+#: *publishes to a body* — `AGENT_SYS_MY_ZONE`, `AGENT_SYS_MY_WORKSPACE`,
+#: `AGENT_SYS_TASK_PACKAGE` — and one of those set by a caller is either ignored
+#: or a collision. A variable read *from* the environment does not belong in a
+#: namespace whose other members are written *to* it.
+WORKROOT_ENV_VAR = "INFERA_AGENT_SYSTEM_WORKROOT"
+
+
 def default_root() -> Path:
-    """`$XDG_STATE_HOME/agent-sys-demo`, or `~/.local/state/...`.
+    """`$INFERA_AGENT_SYSTEM_WORKROOT`, else `$XDG_STATE_HOME/agent-sys-demo`.
+
+    Two sources and one rule: the specific name wins over the generic base. A
+    caller who set neither gets `~/.local/state/agent-sys-demo`.
 
     State rather than cache or data: it is *"state that should persist between
     restarts but is not important enough for the data directory"*, which is what
     a demo run is. A cache directory would be correct until somebody cleared it
     between the interrupt and the resume.
+
+    **An empty or relative value reads as unset.** `XDG_STATE_HOME`'s own
+    specification says exactly that of a base directory, and the reason applies
+    with more force here: a relative run root resolves against whatever `cwd` a
+    body inherited, which is the one thing `<run root>` may not depend on if the
+    compute node is to find the same directory.
     """
+    named = os.environ.get(WORKROOT_ENV_VAR, "").strip()
+    if named and os.path.isabs(named):
+        return Path(named)
     base = os.environ.get("XDG_STATE_HOME") or str(Path.home() / ".local" / "state")
     return Path(base) / "agent-sys-demo"
 
