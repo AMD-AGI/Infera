@@ -8344,3 +8344,78 @@ is *verify before the accusation, not after*, and it is now **three-for-three
 today**: m4 before killing a container, m5 before touching `accept_mock.py`,
 m5 again here. **All three are the same act at a different range, and all three
 were voluntary** — nothing in the package requires any of them.
+
+### Addendum, 16:37 UTC — `-newermt` is not the instrument. `find` is not `find`.
+
+**The leader proposed banning `-newermt` on three people's evidence. I tested it
+before filing and the diagnosis does not hold.**
+
+```
+GNU findutils 4.9.0   (/usr/bin/find — what scripts, zones and nodes run)
+  -newermt '-15 minutes'    -> 2 files  rc=0  no stderr     CORRECT
+  -newermt '14:48'          -> 2 files  rc=0  no stderr     CORRECT
+  -newermt '-2 minutes'     -> 2 files  rc=0  no stderr     CORRECT
+  -newermt '2 minutes ago'  -> 2 files  rc=0  no stderr     CORRECT
+
+bfs 4.1.1             (what `find` resolves to in an agent shell)
+  -newermt '-15 minutes'    -> 0 files  rc=1
+                               bfs: error: Invalid timestamp.
+                               Supported formats are ISO 8601-like, e.g. 2026-09-04T16:33:39Z
+```
+
+**`find` in these shells is a shell function** that execs the Claude Code binary
+as `bfs`. The real `find` is GNU 4.9.0 at `/usr/bin/find`. **`-newermt` is not
+broken; `bfs` rejects the GNU-compatible relative spellings, and it says so
+clearly with `rc=1`.**
+
+**So the failure was never silent.** It printed *"Invalid timestamp"*, underlined
+the offending argument with `~~~~`, listed the accepted formats, and returned 1.
+Everyone — me included, on my first attempt — ran it as
+`find … 2>/dev/null | wc -l`, which **discards stderr and takes `wc`'s exit
+status.** The instrument diagnosed itself, in detail, into a void.
+
+**That is the twelfth instance of *the machinery produces the diagnosis and
+discards it***, not a new class — and it is the same `| wc -l` / `| tail`
+exit-status defect already filed as entry 13.
+
+### What this does to the proposed rule
+
+**Do not ban `-newermt`.** It works in every context the package actually runs
+in — scripts, validator zones, containers, `spur exec` on nodes — none of which
+has the shim. **A ban would be a correct-looking remedy for a wrong reason**, and
+would leave the real hazard untouched: *the same command means two different
+programs depending on who types it.*
+
+**The accurate rule is narrower and larger at once:**
+
+> **In an agent shell, `find` is `bfs`, not GNU find.** Anything measured with it
+> is a measurement of a different program than the one the package runs. **Never
+> suppress its stderr, and never read `$?` through a pipe.** Where a result will
+> be reported to someone else, use `/usr/bin/find` explicitly.
+
+**The leader's replacement is still worth adopting**, and now for its stated
+reason rather than as a workaround — `-printf '%T@' | sort -rn | head -1`
+against `date +%s` **parses nothing**, so it is identical under both programs.
+Verified in both. m2's *"the epoch form cannot lie because it parses nothing"* is
+exactly right and does not depend on any of the above.
+
+**And the `%TH:%TM:%TS` trap reproduces and is real**, independent of which
+`find`:
+
+```
+wall-clock sort picks:  23:59:00   (a file from YESTERDAY)
+epoch sort picks:       b          (today's newest)
+```
+
+### One of the three does not fit, and I am not fitting it
+
+**The leader's and m4's symptoms match `bfs` exactly** — 0 files where GNU
+returns the true set. **m2's does not.** They saw `-2 minutes` → 10,
+`2 minutes ago` → 10, explicit `$(date -d …)` → 3: **no zero anywhere**, so no
+parse rejection. That is two *working* queries disagreeing about the window,
+which is a timezone or boundary question and a different cause.
+
+**Two of three explained, one open.** I am recording it that way rather than
+folding m2's into the shim story, because a rule built on three instances of
+which one is a different bug is the shape m3 warned about at T31 — and because
+m2's tree is not mine to measure.
