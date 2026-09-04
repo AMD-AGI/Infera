@@ -73,7 +73,7 @@ done
 # written by docker into every container it starts and is absent on the host,
 # so this one line is the difference the exit status cannot show.
 { [ -f /.dockerenv ] && echo IN_CONTAINER || echo ON_HOST; } > "$DIR/last_where.txt"
-exec python3 "$DIR/emit.py" --plan "$DIR/plan.json" \
+exec python3 "$DIR/emit.py" --plan "$DIR/plan.json" --impl-path "$IMPL" \
      --side "$([ -n "$IMPL" ] && echo candidate || echo baseline)" --out "$OUT"
 '''
 
@@ -85,6 +85,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--plan", required=True)
 ap.add_argument("--side", required=True)
 ap.add_argument("--out", required=True)
+ap.add_argument("--impl-path", dest="impl_path", default="")
 a = ap.parse_args()
 
 plan = json.load(open(a.plan))
@@ -106,11 +107,21 @@ for case_id, ms in side["per_case_ms"].items():
 
 json.dump({"schema_version": 1, "generated_by": "stubkit",
            "impl": "candidate" if a.side == "candidate" else "baseline",
+           # **`impl_path` beside `impl`, because the real harness always sets
+           # both** (`_common.py:255-256`, `"impl_path": args.impl`). This stub
+           # omitted it entirely, so the kit exercised a report shape production
+           # cannot emit -- and once m3 bound the pair (`8ae9094`: candidate
+           # REQUIRES a non-empty `impl_path`), a stub candidate report became
+           # one the schema refuses. Nothing validates these reports today, so
+           # it was silent; the fixture was simply wrong. m3 predicted exactly
+           # this when they landed the binding -- *a second producer would not
+           # have been caught, and you have one.*
+           "impl_path": (a.impl_path or None) if a.side == "candidate" else None,
            "environment": {"node": "stub", "gpu_arch": "gfx950",
                            "container": "stub", "image_id": "sha256:" + "0" * 12},
            "started_at": "2026-09-03T00:00:00Z",
-           "protocol": {"groups": 5, "iters_per_group": 30, "warmup": 10,
-                        "timing": "hip_graph_replay"},
+           "protocol": {"groups": 5, "iters_per_group": 10, "warmup": 3,
+                        "timing": "wall_clock_sync"},
            "operators": [{"operator_id": plan["operator_id"], "ran": True, "shapes": shapes}]},
           open(a.out, "w"), indent=1)
 '''
@@ -177,8 +188,8 @@ def _workset() -> dict:
                          "environment": _environment(),
                          "dtypes": {OPERATOR: "fp32"},
                          "noise_floor": NOISE_FLOOR},
-        "protocol": {"groups": 5, "iters_per_group": 30, "warmup": 10,
-                     "timing": "hip_graph_replay", "reduction": "weighted_mean"},
+        "protocol": {"groups": 5, "iters_per_group": 10, "warmup": 3,
+                     "timing": "wall_clock_sync", "reduction": "weighted_mean"},
         # The flag spelling as data, which is what the validator now reads
         # instead of its own `args` -- one declared source beats two agreeing
         # copies.
@@ -249,15 +260,15 @@ def _document(claim_speedup: float | None, measured: dict, *, noise_floor=NOISE_
                 # comparing a copy against its own source. Recorded because a
                 # reader cannot otherwise tell whether the values matter.
                 #
-                # `timing: hip_graph_replay` here, `event` in a real workset,
-                # and the harness measures neither: `run_performance.sh:44-55`
-                # is `perf_counter` around a `torch.cuda.synchronize()`. m2
-                # found the three-way split, 2026-09-04. **Whatever wording m3
-                # lands on for the real field should reach this file too**, or
-                # this becomes the counter-example the next reader trusts.
-                # Deliberately not pre-empted here — changing it before m3
-                # decides means changing it twice.
-                "protocol": {"groups": 5, "iters_per_group": 30, "warmup": 10, "timing": "hip_graph_replay"},
+                # **Aligned to the real workset now that m3 has landed the
+                # wording** (`8ae9094` narrows the enum to `wall_clock_sync`,
+                # the one thing `run_performance.sh:44-55` actually does). m2
+                # found the three-way split and I held this back deliberately
+                # until the owner decided, so it changed once rather than
+                # twice. The counts follow for the same reason the value does:
+                # a fixture whose protocol no real workset can emit is a
+                # fixture testing itself.
+                "protocol": {"groups": 5, "iters_per_group": 10, "warmup": 3, "timing": "wall_clock_sync"},
                 "baseline": {"source": "workset", "report": "evidence/performance.json",
                              "per_case_ms": baseline},
                 "measured": {"report": "results/performance_measured.json", "per_case_ms": measured},
@@ -295,7 +306,9 @@ def _build(root: Path, *, document: dict, plan: dict) -> Path:
     (packup / "results" / "workset.snapshot.yaml").write_text(
         __import__("yaml").safe_dump(_workset()), encoding="utf-8")
     (packup / "results" / "workset.baseline_report.json").write_text(json.dumps({
-        "schema_version": 1, "impl": "baseline", "generated_by": "stubkit",
+        # `baseline` requires `impl_path` to be null, not absent -- see the
+        # entrypoint's note above.
+        "schema_version": 1, "impl": "baseline", "impl_path": None, "generated_by": "stubkit",
         "operators": [{"operator_id": OPERATOR, "ran": True, "shapes": [
             {"case_id": c, "groups": 5, "iters_total": 150, "per_group_ms": [BASELINE[c]] * 5,
              "weighted_mean_ms": BASELINE[c], "rsd": 0.02} for c in CASES]}],
