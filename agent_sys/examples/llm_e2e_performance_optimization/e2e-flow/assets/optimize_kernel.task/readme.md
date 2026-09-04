@@ -67,11 +67,32 @@ S="$AGENT_SYS_TASK_PACKAGE/assets/optimize_kernel.task/steps"
 "$S/run_in_container.sh" --workdir "$W" '<the step command>'
 ```
 
-It **execs** into the recorded container and never starts or removes one —
-m4 did not create it and CONTRACT §5.2 is absolute about that. It refuses,
-naming the container and listing what *is* running, when the record describes a
-bring-up that is gone. `HIP_VISIBLE_DEVICES` has no default and the wrapper
-refuses without it: this host is shared and cards 0–3 have been a co-tenant's.
+It **execs** into the recorded container when that container is running, and
+never starts or removes *the deployment* — m4 did not create it. **When the
+record's container is not running it starts an ephemeral one of its own** from
+the image the record names: `--rm`, self-named, removed in a trap, and never a
+name it did not create. That is the leader's ruling of 2026-09-04, because in a
+mock chain nobody brings the deployment up and a step that could only run after
+a real one could not be in the mock e2e at all. §5 conflated *the deployment*,
+whose lifetime is m1's, with *the measurement apparatus*, which belongs to
+whoever measures.
+
+**The two are different claims and the handoff says which you got.** A number
+measured inside the live deployment carries the engine's state; one measured in
+a throwaway carries only the image's. The wrapper prints which, and records it
+as `premise.observed_runtime.mode`.
+
+Two refusals you will meet, both deliberate:
+
+* **`HIP_VISIBLE_DEVICES` has no default.** This host is shared and cards 0–3
+  have been a co-tenant's, so the wrapper refuses rather than picking one.
+* **A card outside the container's own pin is refused, not substituted.** The
+  pin is an *environment default* — m1's kit starts the container with
+  `--device /dev/dri` whole and narrows it only with
+  `--env HIP_VISIBLE_DEVICES` — so `docker exec -e HIP_VISIBLE_DEVICES=4` would
+  silently widen it back out and measure on a card the deployment was never
+  given. You asked about one card; an answer about another is not a smaller
+  answer.
 
 **If you are already executing inside the container, run the step directly** —
 the wrapper is for crossing the boundary, not for being past it.
