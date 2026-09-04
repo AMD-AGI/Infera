@@ -92,6 +92,14 @@
     # a correct deployment and not the requested one.
     E2E_TP: '${tp:-8}'
     E2E_CTX: '${context_length:-262144}'
+    # **The GPU set, which rung 1 proved cannot be carried in prose.** The
+    # instruction *"take only 4-7"* went into `E2E_INSTRUCTION`, never arrived,
+    # and the agent took card 4 from the sealed kit's `DK_GPU_ID:=4` — right
+    # answer, wrong mechanism, and nothing could have caught it. `none` rather
+    # than empty for the same reason as `E2E_DSA_ARGS`: on a command line
+    # `--var gpu_devices=` is indistinguishable from not passing it, so a body
+    # cannot tell *"choose freely"* from *"nobody said"*.
+    E2E_GPU_DEVICES: '${gpu_devices:-none}'
     # Both carry the literal `none` for "this model wants neither", which is
     # different from nobody having said. **`none` is right only for a
     # non-reasoning model** — measured 2026-09-04, Qwen3.6-27B's chat template

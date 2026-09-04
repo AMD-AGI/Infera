@@ -76,6 +76,52 @@ entries:
     required: true
     schema: environment
     brief: The flow's environment record — the fixed half and the runtime half, per CONTRACT.md §2.
+    # **What the schema cannot say** (todo.md T19/T23). JSON Schema relates a
+    # value to a constant; this relates two fields of the same document, and no
+    # keyword expresses `len(a) <= b`. So it is declared here, where every other
+    # rule this kit is graded by already lives.
+    #
+    # Why it is worth a rule at all: `gpu_count` is *cards present on the node*
+    # and `gpu_devices` is *the indices this deployment took*, so the second can
+    # never be longer than the first. Rung 1 recorded `gpu_count: 8` on a node
+    # holding four cards for another tenant and passed 21 validators, because
+    # `gpu_devices` did not exist and nothing related the record's two halves.
+    #
+    # **Record-internal on purpose.** The alternative considered was comparing
+    # `environment.yaml` against `results/preflight.json` — rejected, because
+    # `preflight.json` is not a required member of `results/` and requiring it
+    # would refuse every kit that does not write one. *Widening a requirement to
+    # enable a check* is the move this file should not make.
+    invariants:
+      - name: devices_within_count
+        count_of: fixed.gpu_devices
+        at_most: fixed.gpu_count
+        # **Presence is NOT enforced yet, and this is one word from being so.**
+        # Change `on_absent` to `fault` and a real bring-up that omits the field
+        # is refused, with `required_unless` exempting a replay — a replay
+        # describes another day's deployment on another host and cannot know
+        # which devices *it* took, the same distinction `environment.md`'s
+        # rendering comparison draws two entries below. Both paths are
+        # implemented and tested.
+        #
+        # It is off because turning it on **refuses the sealed kit**, measured:
+        # `gate.sh`'s positive fixture is the real 2026-09-02 kit with
+        # `replayed_from` cleared on purpose (so the strict path stays tested),
+        # and that record predates this field, so the gate went red on a correct
+        # artefact. Whether an artefact that can never be re-produced becomes
+        # invalid is not a validator author's call to make quietly — the schema
+        # deliberately left the field optional, and this is the same decision.
+        #
+        # The `<=` relation below is unaffected and applies whenever the field
+        # is present, which is the half that catches a record that *lies*.
+        on_absent: skip
+        required_unless: runtime.replayed_from
+        err: >-
+          fixed.gpu_devices is absent. A bring-up knows which device indices it
+          took and the record is the only place that survives; without it this
+          kit can say how many cards the node has and not which ones it used,
+          which is exactly what made rung 1's `8` unfalsifiable. STEP 1 of the
+          producer brief says where the value comes from.
 
   # ---- the packup documents ------------------------------------------------ #
   - path: README.md

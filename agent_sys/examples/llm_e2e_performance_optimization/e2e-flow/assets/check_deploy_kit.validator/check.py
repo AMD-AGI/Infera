@@ -240,6 +240,60 @@ def dotted(document, path: str):
 # the entries
 
 
+def check_invariant(rule: dict, record, where: str) -> list[str]:
+    """One `invariants:` row — a relation between two fields of one document.
+
+    `count_of` names a list; `at_most` names the number it may not exceed.
+    Deliberately not a general expression language: the layout is a document a
+    kit author reads, and one relation spelled in words is readable where an
+    embedded grammar is not. A second relation adds a key here, not a parser.
+
+    `required_unless` is the half that makes this more than advisory. The field
+    is **optional in the schema** — the leader's call and the right one, because
+    a record written before the producer criterion existed is still a valid
+    record and omitting the field honestly says *"this run did not record which
+    devices it took"*, where `[]` would falsely claim it took none. But **a real
+    bring-up knows the answer**, so absence is a fault unless the named path is
+    set. That path is `runtime.replayed_from`: a replay is describing another
+    day's deployment and cannot know which devices *it* took, which is the same
+    distinction the rendering comparison above already draws.
+    """
+    values = dotted(record, rule["count_of"])
+    limit = dotted(record, rule["at_most"])
+
+    if values is None:
+        if rule.get("on_absent", "fault") == "skip":
+            print(
+                f"check_deploy_kit: {where}: {rule['count_of']} absent, and this "
+                f"invariant is declared `on_absent: skip` — not applied. "
+                f"Presence is not yet required of anyone; see the layout."
+            )
+            return []
+        exempt = rule.get("required_unless")
+        if exempt and dotted(record, exempt):
+            print(
+                f"check_deploy_kit: {where}: {rule['count_of']} absent, and "
+                f"{exempt} is set — a replay cannot know which devices it took, "
+                f"so this invariant is not applied"
+            )
+            return []
+        return [f"{where}: {rule['err']}"]
+
+    if not isinstance(values, list):
+        return [f"{where}: {rule['count_of']} is {type(values).__name__}, not a list"]
+    if not isinstance(limit, int):
+        # Its own schema entry reports the wrong type; comparing against it here
+        # would report the same fault twice under a less useful name.
+        return []
+    if len(values) > limit:
+        return [
+            f"{where}: {rule['count_of']} has {len(values)} entries "
+            f"({values}) but {rule['at_most']} is {limit} — a deployment cannot "
+            f"take more cards than the node has. {rule['err']}"
+        ]
+    return []
+
+
 def check_entry(entry: dict, roots: dict[str, Path], layout: dict) -> list[str]:
     """One row of `entries:`. Every fault it has, not only the first."""
     anchor = entry["anchor"]
@@ -310,6 +364,22 @@ def check_entry(entry: dict, roots: dict[str, Path], layout: dict) -> list[str]:
                 _validate(name, document)
             except schema_lib.SchemaError as exc:
                 faults += [f"{where}: {line}" for line in str(exc).splitlines()]
+
+    # Record-internal invariants (todo.md T19). **Declared here rather than in
+    # `environment.schema.json` because JSON Schema relates a value to a
+    # constant, and these relate two fields of the same document to each
+    # other** — no `$ref` or keyword expresses `len(a) <= b`. Like every other
+    # rule this validator applies, the rule lives in the layout and this is only
+    # its interpreter.
+    invariants = entry.get("invariants") or []
+    if invariants:
+        try:
+            record = schema_lib._read_doc(target)
+        except Exception:
+            record = None  # the `schema` entry above already reported it, once
+        if record is not None:
+            for rule in invariants:
+                faults += check_invariant(rule, record, where)
 
     # M1.1.1: a rendering, not the record. Every value the layout marks
     # load-bearing must appear in the rendering verbatim.

@@ -139,12 +139,20 @@ on "ss -ltn | awk 'NR>1{print \$4}' | sed 's/.*://' | sort -n | uniq"
   state pools, and **you can say which device indices you are taking**.
 
   **That is a different number from the one above, and on a shared host it is
-  the smaller one.** The record has nowhere to put it yet — `fixed.gpu_devices`
-  is `todo.md` **T19**, unbuilt — so a conforming record today can say *eight
-  present* and cannot say *four usable, one taken*. Put both into
-  `$KIT/results/preflight.json`: the count you recorded, and the indices you
-  actually took. Then the day T19 lands the number is already written down
-  instead of having to be re-derived from a log;
+  the smaller one.** Both go in the record now: the count as `fixed.gpu_count`,
+  and the indices you take as **`fixed.gpu_devices`** at STEP 5. Put them in
+  `$KIT/results/preflight.json` as well, with the free-VRAM reading you based
+  the choice on — the record says *what you took*, and `preflight.json` is where
+  *why* survives.
+
+  **`$E2E_GPU_DEVICES` may already answer this.** It is a comma-separated list
+  or the literal `none`. `none` means **nobody said** — choose freely from what
+  `rocm-smi` shows free, and say in `notes.md` what you chose and why. A list
+  means **the operator has taken this decision out of your hands**: use exactly
+  those indices, and if one of them is not free, **stop and report it** rather
+  than substituting a free one. An operator naming cards is usually avoiding a
+  co-tenant, and silently picking a different card defeats the only mechanism
+  that fact has;
 - **the ports you intend to bind are not in that list.** They are shared with
   every other tenant on this node. If one is taken, move — do not wait for it.
 
@@ -244,6 +252,7 @@ python3 "$AGENT_SYS_TASK_PACKAGE/assets/lib/env_render.py" --new \
         --content-type code --out "$AGENT_SYS_OUTPUT_DEPLOY_KIT" \
         --set fixed.gpu_arch=<the arch you read in step 1> \
         --set fixed.gpu_count=<count> \
+        --set fixed.gpu_devices=<the indices you took, e.g. 4,5,6,7> \
         --set fixed.image_id=<the sha256 digest from step 1> \
         --set runtime.container=<the container you started> \
         --set runtime.endpoint=<the router URL you proved in step 2>
@@ -334,6 +343,10 @@ and confirm each of these yourself:
 
 - exactly one `<name>.packup_<YYYYMMDD>/` under `items/codes/`, beside
   `environment.yaml`;
+- **`fixed.gpu_devices` is present and no longer than `fixed.gpu_count`.** The
+  layout refuses a real bring-up that omits it, and it is refused *after* your
+  deployment has already happened — a 40-minute bring-up graded in seconds. It
+  costs nothing to confirm now;
 - `README.md` has `## Result`; `REPRODUCE.md` has `Expected output` and at least
   five command lines inside code blocks;
 - `results/` holds at least two non-empty `.json` files;

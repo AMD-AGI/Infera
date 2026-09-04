@@ -18,7 +18,7 @@
 # visible here is the point — a reader can see exactly what was added and
 # nothing about the inherited rules is taken on trust.
 #
-# The negative fixture plants **eleven** faults, one per rule this validator
+# The negative fixture plants **twelve** faults, one per rule this validator
 # owns, and asserts each is reported. They are listed in the `want` array below
 # with the rule each exercises.
 set -eu
@@ -98,6 +98,13 @@ d['fixed']['gpu_arch'] = 'MI355X'      # 1. a product, not an architecture
 del d['fixed']['image_id']             # 2. a floating tag is not a reproduction
 del d['runtime']['endpoint']           # 3. required by the schema
 d['fixed']['image'] = 'other/img:v9'   # 4. environment.md renders a different image
+# 12. more cards taken than the node has. The sealed record carries no
+# `gpu_devices` at all (it predates the field), so the fault has to be PLANTED
+# rather than mutated -- which is itself the reason `on_absent` is `skip` in the
+# layout: absence is the sealed kit's honest state, and only a present-and-wrong
+# list is a lie this validator can catch today.
+d['fixed']['gpu_count'] = 8
+d['fixed']['gpu_devices'] = [0, 1, 2, 3, 4, 5, 6, 7, 8]
 yaml.safe_dump(d, open(p, 'w'), sort_keys=False)
 PY
 printf '{"model": "/models/qwen3.6-27b"}\n' > "$PACKUP/results/bad_model_id.json"   # 5
@@ -121,7 +128,7 @@ done
 
 zone "$WORK/zone_bad" "$BAD"
 echo
-echo "=== negative: eleven planted faults, each must be reported ==="
+echo "=== negative: twelve planted faults, each must be reported ==="
 run "$WORK/zone_bad" > "$WORK/bad.out" 2>&1 || true
 cat "$WORK/bad.out"
 
@@ -141,6 +148,7 @@ want=(
   "Expected output"                # 9  the reproducer's only criterion
   "wait_ready.sh: missing"         # 10 the readiness entrypoint
   "E2E_KIT_ENGINE_EXTRA_ARGS"      # 11 the runtime contract
+  "cannot take more cards"         # 12 record-internal: len(gpu_devices) <= gpu_count
 )
 missed=0
 for fragment in "${want[@]}"; do
