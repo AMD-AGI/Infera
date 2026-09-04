@@ -204,6 +204,43 @@ on "curl -sf -m 10 http://<node-ip>:<router-port>/health"
 **Criterion:** HTTP 200. If it 503s, it is still starting; wait, and watch the
 worker log grow rather than restarting anything.
 
+**Mount what a later stage will need to measure in, not only what the engine
+needs to serve.** Your container is not only a server: **m3 and m4 `docker exec`
+into the one your record names**, because CONTRACT §5 gives its lifetime to you
+and a consumer that created its own would be acquiring something it does not
+own. **The consequence is that a consumer inherits your mounts and cannot add
+any.** Measured 2026-09-04, from inside a container of this stage's that was
+otherwise perfect — torch present, four cards visible:
+
+```
+/shared_nfs      : No such file or directory
+the run root     : No such file or directory
+```
+
+It served correctly and **could not be measured in**. That is a hard stop at
+rung 4 and it is invisible until then.
+
+So the container must see the **run root** and the **workset root** read-write,
+at the same path inside as out. **Use the two forms this cluster's docker
+authorization plugin has been measured to accept, and no third:**
+
+```
+/shared_nfs/…      ->  -v /shared_nfs:/shared_nfs                OK
+/home/<user>/…     ->  -v /home/<user>:/home/<user>              OK
+                       -v /home:/home    denied [BH] by spur-authz
+```
+
+**Copy the derivation rather than writing one** — it is
+`assets/build_workset.task/measure_in_container.sh:249-266`, and it already
+carries the two corrections that cost m3 a run: derive the mount from the
+**root** and never from `$HOME` (in a closed zone `$HOME` is `/home`, the one
+form that is refused), and **refuse anything outside the two forms, naming
+both**, rather than letting an authorization denial surface in the middle of
+somebody else's measurement.
+
+`deploy_kit.layout.yaml`'s `runtime_contract.measurement_visible` is the
+contracted version of this paragraph.
+
 ### 3. Read the deployment back out of the running system
 
 Do not trust the launch command. The deployment mode is selected by **omitting**

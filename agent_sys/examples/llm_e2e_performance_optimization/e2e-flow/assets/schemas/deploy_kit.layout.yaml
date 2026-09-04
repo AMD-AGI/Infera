@@ -548,6 +548,66 @@ runtime_contract:
       mount docker creates the directory in the container layer, the capture
       succeeds, and the host sees nothing.
 
+  # **The container must be able to host a measurement, not only serve.** Added
+  # 2026-09-04 after m4 found it from the far side, and the finding is theirs:
+  #
+  #   /shared_nfs   : No such file or directory
+  #   the run root  : No such file or directory
+  #   torch, cards  : 2.9.1+rocm7.2, 4        <- the container was otherwise fine
+  #
+  # A `deploy_kit` container that mounts only the model directory serves
+  # perfectly and **cannot be measured in**, and nothing said so until rung 4 was
+  # about to hit it.
+  #
+  # **Why it is m1's job and not the consumer's.** `run_in_container.sh` **execs**
+  # rather than `docker run`s — deliberately, because CONTRACT §5 gives the
+  # container's lifetime to m1 and a consumer creating one would acquire
+  # something it does not own. The consequence nobody had drawn: **a consumer
+  # inherits the producer's mounts and cannot add its own.** m3's
+  # `measure_in_container.sh` `docker run`s and so mounts for itself, which is
+  # exactly why this stayed invisible — every previous use of m4's wrapper was
+  # against a container m4 had built, *a fixture more convenient than production
+  # where the convenience was that they built the fixture* (m4, CONTRACT §4.4).
+  #
+  # **Rejected: `docker cp` the apparatus in.** `apply_patch` copies a *patch*,
+  # which is the thing under test; copying the *apparatus* means the measurement
+  # runs against a copy rather than against the artefact the handoff carries, and
+  # then nothing downstream can say which bytes were measured. Leader's ruling,
+  # and provenance is the property this package exists to keep.
+  measurement_visible:
+    mode: rw
+    declared_by: runtime_contract.handshake.work_root_on_host
+    # **The two forms m3 measured this cluster's docker authorization plugin
+    # accepting — not a third that looks reasonable.** Reuse the derivation at
+    # `build_workset.task/measure_in_container.sh:249-266`; do not write a second.
+    accepted_mount_forms:
+      - '-v /shared_nfs:/shared_nfs'
+      - '-v /home/<user>:/home/<user>'
+    refused_mount_forms:
+      - '-v /home:/home     # denied [BH] by plugin spur-authz: mount your own directory'
+    brief: >-
+      The engine container must see the **run root** and the **workset root**
+      read-write, at the same path inside as outside, so that a stage which
+      `docker exec`s into it can read the handoff and write its evidence.
+      Read-write and not read-only: a measurement writes.
+
+      **Derive the mount from the root, never from `$HOME`.** In a validation
+      zone `$HOME` is `/home`, which is the one form the plugin explicitly
+      refuses — m3 made exactly that mistake and the refusal quoted their own
+      instruction back at them. A root is a fact about the artefact; `$HOME`
+      describes whoever is running, and a validator runs as nobody in particular.
+
+      **Anything outside the two accepted forms must refuse, naming both**,
+      rather than arriving as an authorization denial in the middle of a
+      measurement.
+
+      Checked where it can be answered rather than guessed, like
+      `writable_work_root` above: a static *"`-v` must mention the run root"*
+      rule is the false positive this file already rejects once, because the
+      sealed kit mounts `"${DK_RUN_DIR}:/workdir"` where the path is derived.
+      The honest check is a consumer exec'ing in and finding its inputs — which
+      is what m4's wrapper now does, and what found this.
+
   # Written by `scripts/deploy.sh` on success, read by every consumer. JSON and
   # not a printed line: a consumer parsing stdout has to be told which line, and a
   # kit that adds a banner breaks it silently.
