@@ -99,8 +99,26 @@ trap 'rm -f "$SNAP"' EXIT
 UNK=$(mktemp) || exit 1
 trap 'rm -f "$SNAP" "$UNK"' EXIT
 
+# ## Match the INVARIANT, not the entry point
+#
+# The pattern was `(-m agent_sys\.cli\.main|/agent-sys) +run\b`, which anchors
+# `run` to a known entry point. **Measured 2026-09-04 19:23: it reported 0 while
+# rung 2e was alive and writing**, because that run is driven by a wrapper:
+#
+#     python3 .../assets/lib/run_with_long_stall.py --stall-after 3600 run --package …
+#
+# A third launch shape after `python -m` and the `agent-sys` console script, and
+# the failure is the escalating direction — **"no process" reads as "stopped"**,
+# which is the state this record escalates on. That is m3's finding 1 again, one
+# entry point further out, and the third time this tool has been blind to a way
+# of starting a run.
+#
+# So match what every entry point must pass regardless of how it was invoked:
+# **` run ` followed by `--package`** — the CLI's own contract. Verified to match
+# the wrapper and to reject `show --package`. The `exe` and leaf filters below
+# still remove shells, `timeout`, and parents.
 ps -eo pid,ppid,etime,args --no-headers 2>/dev/null \
-  | grep -E '(-m +agent_sys\.cli\.main|/agent-sys) +run\b' \
+  | grep -E '[[:space:]]run[[:space:]].*--package' \
   | grep -v grep \
   | while read -r pid rest; do
       if exe=$(readlink "/proc/$pid/exe" 2>/dev/null); then
