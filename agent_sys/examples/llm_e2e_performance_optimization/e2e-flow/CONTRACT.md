@@ -951,6 +951,21 @@ brings it up itself, in its own `readme.md` STEPS, and tears it down.
   there is no case where reasoning produces an exception. If a path needs removing
   and does not match, it is not yours: say so and stop.
 
+- **And the same principle for WRITING, which the deletion rule does not cover.**
+  Found by m4 2026-09-04 while installing KernelForge: **`pip install -e` writes
+  `*.egg-info` into the source tree**, and `/shared_nfs/hyperloom/KernelForge` is
+  not ours. An editable install straight from it would have written into another
+  team's directory — no deletion, no rule broken, and a modified tree somebody
+  else owns.
+
+  They copied it to node-local scratch first: **12 s for 62 MB, which makes the
+  question moot rather than difficult.** Take that as the general move — when a
+  tool wants to write where you may only read, copy first and pay the seconds.
+
+  The deletion rule is absolute because deletion is irreversible. This one is
+  judgement, and the judgement is easy: **if you would not delete there, do not
+  write there either.**
+
   Applies to `rm`, `rm -rf`, `find -delete`, `git clean`, `docker rm -f` on a
   volume you did not create, and `agent-sys run --clean`. **A denial is a
   decision, not an obstacle** — do not route around one, and do not ask a
