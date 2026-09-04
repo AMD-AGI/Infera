@@ -30,8 +30,10 @@ from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "lib"))
 
 import _lib as lib  # noqa: E402
+import patchkit  # noqa: E402 — the path insert above is what makes it importable
 
 _SKELETON = {
     "README.md": """# Kernel optimisation — {operator}
@@ -113,7 +115,44 @@ def _sha256(path: Path) -> str:
 _NOT_OVERLAYABLE = ("@SGL_KERNEL_ROOT@",)
 
 
-def _apply_block(pinned: dict, packup: Path, kernel: Path, premise: dict) -> dict:
+def _diff_targets(text: str) -> list[str]:
+    """The paths a unified diff touches, from its `diff --git` headers.
+
+    `b/<path>` and not `a/<path>`: for a file the diff *creates*, `a/` is
+    `/dev/null` while `b/` is always the real destination.
+    """
+    seen: list[str] = []
+    for line in text.splitlines():
+        if not line.startswith("diff --git "):
+            continue
+        parts = line.split()
+        if len(parts) >= 4 and parts[3].startswith("b/"):
+            rel = parts[3][2:]
+            if rel not in seen:
+                seen.append(rel)
+    return seen
+
+
+def _engine_patch(forge_dir: Path) -> str:
+    """STEP 3's `engine.patch`, read rather than re-derived.
+
+    **Empty is a result and absent is a mock**, so neither is an error here.
+    Forge reverting every candidate is `improved: false`, and since `f1c088b`
+    that is *distinguishable* from a plumbing failure — the diff used to be cut
+    against `HEAD`, which is empty exactly when a campaign succeeds because
+    forge commits its keeps. Measured on 275: `git diff HEAD` 0 lines,
+    `git diff $BASELINE` 9. Re-deriving it here would reintroduce that choice in
+    a second place, which is the whole reason STEP 3 writes the file.
+    """
+    path = forge_dir / "engine.patch"
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
+def _apply_block(pinned: dict, packup: Path, kernel: Path, premise: dict,
+                 forge_dir: Path) -> dict:
     """patchkit's manifest, in patchkit's vocabulary, plus the M5.1.1 cross-check.
 
     **Written against `integration`, not against `edit_target`**, and the
@@ -221,7 +260,7 @@ def _apply_block(pinned: dict, packup: Path, kernel: Path, premise: dict) -> dic
                 "hash of the file in this container, which is pinned later than the analysis",
                 file=sys.stderr,
             )
-        files.append({
+        entry = {
             "container_path": container_path,
             "base_sha256": base_sha256,
             # The real path hashes the stock file out of the engine tree in
@@ -230,11 +269,61 @@ def _apply_block(pinned: dict, packup: Path, kernel: Path, premise: dict) -> dic
             # three produce a 64-hex string and only one matches an image.
             "base_sha256_from": {"method": "engine_tree", "image": None},
             "change": "modify",
-            # `replacement`, never a hand-rolled diff: m4's artefact is a whole
-            # file, and `apply_patch` generates the diff from stock->replacement
-            # so `patch_overlay` keeps one shape downstream.
-            "replacement": "results/optimized_kernel.py",
-        })
+        }
+
+        # **Two shapes, and `apply.py` picks between them by the entry's shape,
+        # never by `apply_mode`.** `apply.py:665` is a bare
+        # `if entry.get("patch")`: present means *use the diff at
+        # `apply/patches/<name>`*, absent means *generate one from
+        # `replacement` against the stock file it just extracted*. The schema
+        # makes that exclusive — `apply/files/items` carries a `oneOf` requiring
+        # exactly one of the two — so this is a choice and not a pair.
+        #
+        # `replacement` remains the normal path and is not being retired: m4's
+        # artefact is a whole optimised kernel, and letting `apply_patch` cut
+        # the diff keeps one shape downstream for `patch_overlay`.
+        #
+        # `patch` is taken when a campaign actually edited the engine tree,
+        # because then a diff is *what happened* while a whole-file replacement
+        # is a reconstruction of it. `optimized_kernel.py` is one file copied
+        # out of the workspace; the campaign's real change is whatever forge
+        # committed, and only the diff can carry, for instance, an edit landed
+        # in a sibling module the kernel imports — which `runner.py`'s own
+        # `git add -u` comment says is common.
+        patch_text = _engine_patch(forge_dir)
+        touched = _diff_targets(patch_text)
+        # `patchkit.split_placeholder` and not a local partition: the same split
+        # decides where `apply.py:655` stages the file, and two implementations
+        # of one frame conversion is how this package earned its "No file to
+        # patch" (CONTRACT §4.3, one authority).
+        _root, rel = patchkit.split_placeholder(str(container_path))
+        if patch_text.strip():
+            # **Refused rather than trimmed.** `apply.py:655-663` stages exactly
+            # this entry's own file into `tree/<rel>` and runs `patch -p1`
+            # there, so hunks for any other path have nothing to apply to and
+            # the run dies with `No file to patch` — after the campaign hours.
+            # Splitting the diff across entries would need a `base_sha256` per
+            # extra file that nothing has computed, so the honest answer is to
+            # say what happened rather than deliver part of it.
+            if touched != [rel]:
+                lib.die(
+                    f"the campaign's engine.patch touches {touched or ['nothing parseable']} "
+                    f"and this manifest entry can carry only {rel!r}. A diff spanning several "
+                    f"files cannot be delivered through a single-file entry: apply_patch stages "
+                    f"one file per entry and every foreign hunk fails as 'No file to patch'. "
+                    f"Deliver it by hand, or extend the manifest to one entry per file with a "
+                    f"base_sha256 for each -- do not trim the diff to fit"
+                )
+            name = f"{pinned['operator_id']}.patch"
+            (packup / "apply" / "patches").mkdir(parents=True, exist_ok=True)
+            (packup / "apply" / "patches" / name).write_text(patch_text, encoding="utf-8")
+            # A BARE FILENAME. `apply.py:409` and `:666` both resolve it under
+            # `apply/patches/`, so a prefixed value lands at
+            # `apply/patches/apply/patches/x.patch`.
+            entry["patch"] = name
+        else:
+            entry["replacement"] = "results/optimized_kernel.py"
+        files.append(entry)
 
     block = {
         "apply_mode": declared_mode,
@@ -408,7 +497,7 @@ def main() -> int:
 
     target = pinned.get("edit_target") or {}
     kernel_path = packup / "results" / "optimized_kernel.py"
-    apply_block = _apply_block(pinned, packup, kernel_path, premise)
+    apply_block = _apply_block(pinned, packup, kernel_path, premise, forge_dir)
     document = {
         "schema_version": 1,
         "operator": operator_id,
