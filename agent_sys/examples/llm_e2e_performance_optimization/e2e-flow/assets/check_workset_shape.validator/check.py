@@ -59,7 +59,14 @@ import ast
 import json
 import os
 import sys
+import traceback
 from pathlib import Path
+
+#: Where a crash puts its traceback. Beside `verdict.json` in the validation
+#: zone, because a validator's stdout is kept nowhere
+#: (`temp/bugs/2026-09-03-a-validators-stdout-is-not-kept-anywhere.md`) and a
+#: reason that exists only on a discarded stream is a reason nobody has.
+_CRASH_FILE = "validator_crash.txt"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
@@ -450,21 +457,37 @@ def _check(content: Path, args: dict, problems: list[str]) -> bool:
 def _validate_report(path: Path, definition: str, label: str, problems: list[str]) -> None:
     """One `evidence/*.json` against `workset.schema.json#/$defs/<definition>`.
 
-    Resolved through `schema.py`'s registry rather than by loading the file
-    directly, so the `$ref` to `environment.schema.json` inside it still works.
+    Resolved through `schema.py`'s **inlining**, not a `referencing` registry.
+
+    This function built its own `Registry` — and `schema.py:101` had already
+    deleted exactly that, with the reason written out: `referencing` is a
+    `jsonschema>=4.18` dependency that `/usr/bin/python3` on this host does not
+    have, and a body that reaches for it dies with `ModuleNotFoundError` before
+    it can decide anything. I re-solved a problem the shared module had solved,
+    twenty lines from the `import schema as S` that solves it — the third time
+    today I have hand-rolled something `assets/lib/` already owned (CONTRACT
+    §4.1).
+
+    **It cost the first run that ever got here.** `build_workset` sealed
+    `operator_workset` for the first time on 2026-09-04 and this validator then
+    crashed on the import, wrote no `verdict.json`, and the handoff was recorded
+    `invalid` — a missing dependency reported as a judgement about the artefact.
+
+    `$defs` travels with the subschema so its internal `#/$defs/...` pointers
+    still resolve; the cross-file `$ref` to `environment.schema.json` is already
+    inlined by the time we see it.
     """
     from jsonschema import Draft202012Validator
-    from referencing import Registry, Resource
-    from referencing.jsonschema import DRAFT202012
 
-    root = S.schema_path("workset").parent
-    registry = Registry().with_resources(
-        (p.name, Resource.from_contents(json.loads(p.read_text()), default_specification=DRAFT202012))
-        for p in sorted(root.glob("*.schema.json"))
-    )
-    validator = Draft202012Validator(
-        {"$ref": f"workset.schema.json#/$defs/{definition}"}, registry=registry
-    )
+    # `_inlined` is private to `schema.py`. A public accessor there would be
+    # better and belongs to that file's owner, not here — using the private name
+    # is deliberate and preferable to a fourth copy of the resolution logic.
+    inlined = S._inlined("workset")  # noqa: SLF001
+    defs = inlined.get("$defs") or {}
+    if definition not in defs:
+        problems.append(f"{label}: workset.schema.json has no $defs/{definition} to grade against")
+        return
+    validator = Draft202012Validator({**defs[definition], "$defs": defs})
     try:
         document = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
@@ -485,7 +508,39 @@ def main() -> int:
             problems.append("the phase staged no content for this handoff")
             verdicts[hid] = False
         else:
-            verdicts[hid] = _check(content, args, problems)
+            try:
+                verdicts[hid] = _check(content, args, problems)
+            except Exception as error:  # noqa: BLE001 — see below
+                # **A crash and a refusal are not the same event, and only the
+                # second is a judgement.** Measured 2026-09-04: a
+                # `ModuleNotFoundError` in `_validate_report` killed this body
+                # before `write_verdict`, the phase reported "nothing was
+                # decided", and `operator_workset` came out **invalid** — a
+                # missing dependency arriving downstream as a verdict about the
+                # artefact. That is the false attribution `check_workset_runs`
+                # exists to prevent, one layer up.
+                #
+                # `verdict.json` is `dict[str, bool]` (`zone.py:132`), so there
+                # is no third state to write and this **cannot** report "could
+                # not decide" as a verdict. What it can do is make the
+                # difference legible: say plainly that the instrument failed,
+                # keep the traceback where it survives, and still record False —
+                # because a validator that could not run has not established
+                # anything, and passing on that basis is the one option that is
+                # actually wrong.
+                #
+                # Bare `Exception` on purpose: the whole point is the failure
+                # nobody enumerated.
+                detail = f"{type(error).__name__}: {error}"
+                problems.append(
+                    f"THIS VALIDATOR DID NOT RUN — {detail}. This is an instrument failure, not a "
+                    f"finding about the workset: nothing here was graded. Verdict is False because "
+                    f"a check that did not execute has established nothing, NOT because the "
+                    f"artefact was judged. Traceback in {_CRASH_FILE}"
+                )
+                Path(_CRASH_FILE).write_text(
+                    f"{hid}\n{detail}\n\n{traceback.format_exc()}", encoding="utf-8")
+                verdicts[hid] = False
         for problem in problems:
             print(f"{hid}: {problem}")
     zone.write_verdict(verdicts)
