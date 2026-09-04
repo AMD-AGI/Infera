@@ -688,7 +688,27 @@ def _remeasure(
     # expensive point.
     scratch_dir = str(args.get("scratch_dir") or "").strip() or os.environ.get("TMPDIR") or ""
     if scratch_dir:
-        Path(scratch_dir).mkdir(parents=True, exist_ok=True)
+        # **A validator that raises gives no verdict at all.** This `mkdir` was
+        # unguarded, and the default `scratch_root` is node-local
+        # (`/mnt/m2m_nobackup/...`), which does not exist on a login node — so
+        # re-running this validator anywhere but the node ended in a
+        # `PermissionError` traceback out of `pathlib`, with no `verdict.json`
+        # written and nothing naming the `--var` that caused it. Measured
+        # 2026-09-04 while re-checking rung 0's refusal off the node.
+        #
+        # A refusal here is the honest answer — the re-measurement genuinely
+        # cannot be done — but it has to arrive as a refusal that names the
+        # path, not as a stack trace the reader has to interpret.
+        try:
+            Path(scratch_dir).mkdir(parents=True, exist_ok=True)
+        except OSError as error:
+            problems.append(
+                f"cannot create the re-measurement scratch directory {scratch_dir!r}: {error}. "
+                "This is `--var scratch_dir` (falling back to $TMPDIR). It must be node-local — "
+                "on this cluster's NFS every ROCm kernel launch segfaults after the first round "
+                "— so a login node cannot satisfy the default and this check belongs on the node"
+            )
+            return
         notes.append(f"scratch under {scratch_dir}")
     root = Path(tempfile.mkdtemp(prefix="substantiate-", dir=scratch_dir or None))
     seed_root, candidate_root = root / "seed", root / "candidate"
