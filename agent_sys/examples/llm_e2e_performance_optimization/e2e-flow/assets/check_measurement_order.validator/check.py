@@ -236,9 +236,135 @@ def corroborate(arm: str, timeline: list[tuple[str, dt.datetime, dt.datetime]],
     return offsets[0]
 
 
+#: The fields that say which machine an arm actually ran on. `context.json` and
+#: `deployment.json` are written by the bring-up itself; `environment.yaml` is
+#: the record the stage inherited. They are three witnesses to one fact.
+MACHINE_FIELDS = ("node", "slurm_jobid")
+
+
+def machine_of(content: Path, reasons: list, arm: str) -> tuple[dict, dict | None]:
+    """What the arm's own evidence says about its machine, and what its record claims.
+
+    Returns `(measured, declared)`. `declared` is `None` when there is no
+    readable record, which `check_environment` refuses on its own line — this
+    one does not duplicate that refusal.
+    """
+    measured: dict = {}
+    for name in ("context.json", "deployment.json"):
+        path = content / "items" / "env" / name
+        if not path.is_file():
+            continue
+        try:
+            document = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            reasons.append(f"{arm}: items/env/{name} is unreadable: {exc}")
+            continue
+        for field in MACHINE_FIELDS:
+            value = document.get(field)
+            if value not in (None, ""):
+                measured.setdefault(field, str(value))
+
+    declared = None
+    record = content / "items" / "env" / "environment.yaml"
+    if record.is_file():
+        try:
+            import yaml
+
+            document = yaml.safe_load(record.read_text(encoding="utf-8")) or {}
+            declared = {
+                "node": (document.get("fixed") or {}).get("node"),
+                "slurm_jobid": (document.get("runtime") or {}).get("slurm_jobid"),
+                "replayed_from": (document.get("runtime") or {}).get("replayed_from"),
+            }
+        except Exception:  # noqa: BLE001 — check_environment owns this refusal
+            declared = None
+    return measured, declared
+
+
+def same_machine(contents: dict[str, Path], reasons: list) -> bool:
+    """Both arms ran on one machine, and each says so about itself.
+
+    **This validator's other rules assume it and none of them checked it.**
+    `max_clock_skew_seconds` below reasons from "one node has one clock", and
+    `require_arms_disjoint_in_time` is a claim about contention for eight GPUs
+    and one page cache — both are statements about *a* machine, and two arms on
+    two machines make the whole comparison meaningless while every timestamp
+    still lines up. Measured before this existed: moving the patched arm's
+    `context.json` to another node and another jobid left this validator, and
+    `check_patch_live`, and `check_environment` all green.
+
+    Two comparisons, and they fail for different reasons.
+
+    **Arm against arm is unconditional.** One task produces both arms in one
+    session (M5.2), so a disagreement here is not a mode of the run — it is the
+    two halves of one comparison having been measured on different hardware.
+
+    **Arm against its own record is conditional on `runtime.replayed_from`.**
+    A record that names the kit it stood in for is describing evidence that
+    legitimately predates this allocation — `deploy_and_prove.task/mock_adapt.sh:124`
+    sets it and `check_deploy_kit.validator/check.py:341` already relaxes on it,
+    which is the precedent followed here rather than a second convention. With
+    it absent — a real bring-up — a record naming a machine the evidence does
+    not is the failure this whole function exists for: the arms came up
+    somewhere other than where the flow believes it is working. It is gated on a
+    field an *upstream* producer set, never on prose this producer wrote.
+    """
+    ok = True
+    seen: dict[str, dict] = {}
+    for arm in ARMS:
+        measured, declared = machine_of(contents[arm], reasons, arm)
+        if not measured:
+            ok = False
+            reasons.append(
+                f"{arm}: neither items/env/context.json nor items/env/deployment.json names a "
+                "node, so there is no evidence of which machine this arm was measured on."
+            )
+            continue
+        seen[arm] = measured
+
+        if declared is None:
+            continue
+        if declared.get("replayed_from"):
+            print(f"  {arm}: record is a replay of {declared['replayed_from']}; "
+                  f"not compared against the evidence's {measured.get('node')}")
+            continue
+        for field in MACHINE_FIELDS:
+            want, got = declared.get(field), measured.get(field)
+            if want in (None, "") or got is None:
+                continue
+            if str(want) != got:
+                ok = False
+                reasons.append(
+                    f"{arm}: environment.yaml says {field}={want!r} and the arm's own evidence "
+                    f"says {got!r}. The record describes the machine the flow believes it is "
+                    "working on; the evidence describes where these numbers came from. When they "
+                    "differ the numbers belong to a different machine than everything they will "
+                    "be compared against."
+                )
+
+    if len(seen) == len(ARMS):
+        first, second = ARMS
+        for field in MACHINE_FIELDS:
+            a, b = seen[first].get(field), seen[second].get(field)
+            if a is None or b is None:
+                continue
+            if a != b:
+                ok = False
+                reasons.append(
+                    f"the arms were measured on different machines: {first} {field}={a!r}, "
+                    f"{second} {field}={b!r}. Every other rule here — the disjoint windows, the "
+                    "clock-skew bar, the round-for-round comparison — is about one machine, and "
+                    "none of them can see this."
+                )
+        if ok:
+            print(f"  both arms on {seen[first].get('node')}"
+                  f" (jobid {seen[first].get('slurm_jobid')})")
+    return ok
+
+
 def check_pair(records: dict[str, dict], contents: dict[str, Path],
                args: dict, reasons: list) -> bool:
-    ok = True
+    ok = same_machine(contents, reasons)
     orders: dict[str, list[str]] = {}
     windows: dict[str, tuple[dt.datetime, dt.datetime]] = {}
     timelines: dict[str, list[tuple[str, dt.datetime, dt.datetime]]] = {}
