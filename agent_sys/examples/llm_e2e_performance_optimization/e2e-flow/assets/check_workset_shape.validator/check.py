@@ -501,6 +501,7 @@ def _validate_report(path: Path, definition: str, label: str, problems: list[str
 def main() -> int:
     args = zone.args()
     verdicts: dict[str, bool] = {}
+    findings: dict[str, tuple[list[str], list[str]]] = {}
     for hid in zone.inputs():
         problems: list[str] = []
         content = zone.content_of(hid)
@@ -541,8 +542,13 @@ def main() -> int:
                 Path(_CRASH_FILE).write_text(
                     f"{hid}\n{detail}\n\n{traceback.format_exc()}", encoding="utf-8")
                 verdicts[hid] = False
+        findings[hid] = (problems, [])
         for problem in problems:
             print(f"{hid}: {problem}")
+    # §4.4: fix the convenience everywhere it appears, not only where it bit.
+    # This validator's reasons were on the same discarded stream; it happened to
+    # be `check_workset_runs` that refused first.
+    W.write_report("check_workset_shape", findings)
     zone.write_verdict(verdicts)
     print(f"check_workset_shape: {sum(verdicts.values())}/{len(verdicts)} passed")
     return 0

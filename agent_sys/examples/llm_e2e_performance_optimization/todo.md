@@ -1008,3 +1008,36 @@ transport. It is a rule about which instrument answers which question, and the
 generalisation is the one this package keeps relearning: **when a reading can
 only come back one way, it is not a reading.** Establish that the instrument can
 see a positive before believing a negative.
+
+### T29 — a crashed instrument and a refused artefact are the same value in `verdict.json`
+
+**Owner m3, 2026-09-04, found by fixing the wrong half of it.**
+
+`zone.py:132` writes `verdict.json` as `dict[str, bool]`. A validator that
+**refused** and a validator that **could not run** therefore produce the same
+value, and the graph reads no difference between them.
+
+**Measured, twice in one hour.** `check_workset_shape` crashed on a
+`ModuleNotFoundError`, wrote no verdict at all, and `operator_workset` came out
+`invalid` — *a missing dependency reported as a judgement about the artefact*.
+That is the false attribution `check_workset_runs` exists to prevent, arriving
+one layer up, in the validator itself.
+
+**Worked around, not fixed.** Both workset validators now catch, say `THIS
+VALIDATOR DID NOT RUN`, keep the traceback, and write **False** — because a
+check that did not execute has established nothing, and passing on that basis
+is the one option that is actually wrong. But False is still a judgement in the
+only field a consumer reads, and the text beside it is the sole thing carrying
+the distinction.
+
+**What the framework owes:** a third verdict state — `undecided` / `errored` —
+so a phase can tell "this artefact is bad" from "this instrument is broken"
+without parsing prose. The consumer difference is real: the first should stop
+the graph, and the second should stop *and name the instrument*, because
+re-running it after fixing the artefact will fail identically.
+
+**Related and separate:** `temp/bugs/2026-09-03-a-validators-stdout-is-not-kept-anywhere.md`
+is why the prose had nowhere to live either. `workset_io.write_report` now puts
+it beside `verdict.json` for m3's two workset validators; the other validators
+in this package still discard theirs, and a general fix belongs in `zone.py`,
+which is not m3's file.

@@ -26,6 +26,8 @@ __all__ = [
     "ABSOLUTE_PATH_ALLOW_LIST",
     "PERFORMANCE_FLOOR",
     "PERFORMANCE_ROLES",
+    "VALIDATOR_REPORT",
+    "write_report",
     "absolute_paths_in",
     "arg_num",
     "assign_roles",
@@ -162,6 +164,40 @@ def assign_roles(shapes: list[dict], floor: int = PERFORMANCE_FLOOR) -> list[str
         timed.add(i)
     return ["correctness-and-performance" if i in timed else "correctness"
             for i in range(len(shapes))]
+
+
+#: Where a validator leaves its reasoning, beside `verdict.json`.
+VALIDATOR_REPORT = "validator_report.txt"
+
+
+def write_report(validator: str, findings: dict[str, tuple[list[str], list[str]]]) -> None:
+    """Every problem and note this validator produced, on disk in the zone.
+
+    **A verdict without its reasons is a number nobody can act on.** Measured
+    five times on 2026-09-04: a validator's stdout is kept nowhere
+    (`temp/bugs/2026-09-03-a-validators-stdout-is-not-kept-anywhere.md`), so a
+    zone holds `args.json`, `inputs.json`, `materials.json` and `verdict.json`
+    and **not one word about why**. The last instance was `check_workset_runs`
+    refusing a workset **correctly** — a real finding about a real
+    re-measurement, and the reason was gone before anyone could read it.
+
+    Written **always**, not only on failure. A passing re-measurement's note
+    (*"recorded 0.0415 ms, re-measured 0.0413 ms, 0.4% apart"*) is the evidence
+    that the gate did its job; keeping it only when it fails would make the
+    record of a working trust chain the one thing never kept.
+
+    `dict[str, bool]` is all `verdict.json` can carry (`zone.py:132`), so this
+    is the only place a *reason* can live until the verdict type grows a third
+    state. Named beside it deliberately: whoever finds one finds the other.
+    """
+    lines = [f"# {validator}"]
+    for hid, (problems, notes) in findings.items():
+        lines.append(f"\n## {hid}: {'REFUSED' if problems else 'passed'}")
+        lines += [f"  note:    {n}" for n in notes]
+        lines += [f"  PROBLEM: {p}" for p in problems]
+        if not problems and not notes:
+            lines.append("  (no findings)")
+    Path(VALIDATOR_REPORT).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def workset_root(content: Path) -> Path:

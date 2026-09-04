@@ -44,6 +44,7 @@ import pathlib
 import subprocess
 import sys
 import tempfile
+import traceback
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
@@ -353,6 +354,7 @@ def _check(content: Path, args: dict, problems: list[str], notes: list[str]) -> 
 def main() -> int:
     args = zone.args()
     verdicts: dict[str, bool] = {}
+    findings: dict[str, tuple[list[str], list[str]]] = {}
     for hid in zone.inputs():
         problems: list[str] = []
         notes: list[str] = []
@@ -361,11 +363,33 @@ def main() -> int:
             problems.append("the phase staged no content for this handoff")
             verdicts[hid] = False
         else:
-            verdicts[hid] = _check(content, args, problems, notes)
+            try:
+                verdicts[hid] = _check(content, args, problems, notes)
+            except Exception as error:  # noqa: BLE001
+                # **A crash and a refusal are not the same event**, and this
+                # validator is the one where confusing them costs most: it is
+                # the gate that re-measures, so "it failed" reads as "the
+                # numbers do not hold" rather than "the instrument broke".
+                # Same treatment as `check_workset_shape`, and the same
+                # limitation — `verdict.json` is `dict[str, bool]` and has no
+                # third state, so False is written because a check that did not
+                # execute has established nothing.
+                problems.append(
+                    f"THIS VALIDATOR DID NOT RUN — {type(error).__name__}: {error}. An instrument "
+                    f"failure, not a finding: no re-measurement happened, so nothing about these "
+                    f"numbers was established either way. Traceback below"
+                )
+                problems.append(traceback.format_exc())
+                verdicts[hid] = False
+        findings[hid] = (problems, notes)
         for note in notes:
             print(f"{hid}: {note}")
         for problem in problems:
             print(f"{hid}: {problem}")
+    # **Before the verdict, so a crash in the writer cannot take the reasons
+    # with it.** Ordering learnt from the reclaim: teardown that runs after the
+    # thing it protects is teardown that does not run.
+    W.write_report("check_workset_runs", findings)
     zone.write_verdict(verdicts)
     print(f"check_workset_runs: {sum(verdicts.values())}/{len(verdicts)} passed")
     return 0
