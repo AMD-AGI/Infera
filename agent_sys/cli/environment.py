@@ -37,6 +37,7 @@ from typing import Any, NamedTuple
 from env_mgr.fs.domain import DomainRegistry
 from env_mgr.isolation.policy import Granted, Mode, interpreter_grants
 from env_mgr.isolation.probe import Availability, probe, select
+from env_mgr.prefix import CLAUDE_CONFIG_ENV_VAR, Prefix
 from env_mgr.protocols import Context, DomainKind, NoConfinement, Tier
 
 __all__ = [
@@ -282,6 +283,47 @@ def confinement(availability: Availability | None = None) -> str:
 # Credentials
 
 
+def _probe_environment() -> dict[str, str]:
+    """The ambient environment **plus** the o11y prefix's `CLAUDE_CONFIG_DIR`.
+
+    Gate 1 covers *agent* children; this subprocess is not one, so it dropped a
+    JSONL into `~/.claude/projects` every run — measured. Copied, not replaced:
+    a bare `env={...}` strips `PATH`, and a probe that cannot run refuses the
+    whole run. Never into our own `os.environ`.
+    """
+    env = dict(os.environ)
+    env[CLAUDE_CONFIG_ENV_VAR] = str(Prefix.resolve(os.environ).claude_home)
+    return env
+
+
+#: Where the probe runs. Its own directory, because AgentsView names a project
+#: after the session's cwd — resolving the git *main repository* when there is
+#: one — so inheriting the caller's put ten identical probe transcripts into the
+#: real `infera` project. A plain directory falls back to its basename, and
+#: `probe` is what these sessions are.
+PROBE_DIR = "probe"
+
+
+def probe_cwd(prefix: Prefix) -> Path:
+    return prefix.state / PROBE_DIR
+
+
+def _probe_cwd_or_none(prefix: Prefix) -> str | None:
+    """The probe's own directory, or `None` if we could not make one.
+
+    **A cwd is not worth failing the run for.** `preflight_credentials` aborts
+    everything when it fails, and a child refuses a cwd that does not exist —
+    so an unwritable prefix must fall back to the old behaviour, not turn a
+    misfiled transcript into a dead deployment.
+    """
+    try:
+        cwd = probe_cwd(prefix)
+        cwd.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return None
+    return str(cwd)
+
+
 def preflight_credentials(*, cli: str = BACKEND, timeout: float = 90.0) -> str:
     """Ask the backend whether it can run at all, **before any zone is built**.
 
@@ -293,7 +335,12 @@ def preflight_credentials(*, cli: str = BACKEND, timeout: float = 90.0) -> str:
     `CredentialsMissing` carrying **stdout and stderr both** on failure.
 
     **It does not test what the run does, and saying so is the point.** This
-    runs `claude -p` *unconfined*, against the operator's own config directory.
+    runs `claude -p` *unconfined*, against the operator's own credentials — but
+    not their own config directory: `CLAUDE_CONFIG_DIR` points into
+    `~/.infera_agent_sys` like every other `claude` child we spawn, so the
+    transcript lands there. Measured to keep authentication working; see
+    `_probe_environment`. Not the relocation the table below is about.
+
     A confined task gets a different arm: `material.deploy` points
     `CLAUDE_CONFIG_DIR` into the zone — correctly, it is what removed the `$HOME`
     grant — which also moves away the `env` block in `~/.claude/settings.json`
@@ -330,6 +377,8 @@ def preflight_credentials(*, cli: str = BACKEND, timeout: float = 90.0) -> str:
     try:
         done = subprocess.run(  # noqa: S603 — `binary` came from `shutil.which`
             [binary, "-p", "Reply with exactly one word: ready"],
+            env=_probe_environment(),
+            cwd=_probe_cwd_or_none(Prefix.resolve(os.environ)),
             capture_output=True,
             text=True,
             timeout=timeout,

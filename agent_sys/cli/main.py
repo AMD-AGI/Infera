@@ -21,9 +21,10 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import shutil
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from contextlib import ExitStack
 from pathlib import Path
 from typing import Any, TextIO
@@ -46,6 +47,16 @@ from cli.render.human import HumanRenderer
 from cli.render.machine import JsonLinesRenderer
 from cli.stream import Stream
 from env_mgr import meta
+from env_mgr.o11y.agentsview import (
+    RECIPE_PATH,
+    freshly_installed,
+    ensure_installed,
+    ensure_run_project,
+    ensure_running,
+    pinned_version,
+    resolve_port,
+)
+from env_mgr.prefix import Prefix
 from env_mgr.prepare import EnvManager, permissions_enforced
 from env_mgr.protocols import NoConfinement, PrepareRefused, UnresolvedGrant
 from env_mgr.remote.connection import sync_transport
@@ -173,6 +184,21 @@ def parser() -> argparse.ArgumentParser:
             "ends in seconds regardless; this only bounds one that never stops"
         ),
     )
+    run.add_argument(
+        "--agentsview-port",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "port for the AgentsView o11y panel (default 18888; "
+            "a port already in use is a warning and a skip)"
+        ),
+    )
+    run.add_argument(
+        "--no-agentsview",
+        action="store_true",
+        help="do not start the AgentsView o11y panel",
+    )
     return top
 
 
@@ -209,7 +235,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         try:
             if args.verb == "show":
                 return _show(args, stream)
-            return _run(args, stream)
+            # The one call site: the daemon outlives the run, so it starts
+            # once per invocation and its result never reaches the exit code.
+            # Not for `--dry-run` (whose contract is *resolve everything, do
+            # nothing*) or `--clean` (which deletes every run and exits).
+            panel_url = _start_o11y(
+                args.agentsview_port,
+                disabled=args.no_agentsview or args.dry_run or args.clean,
+                stream=stream,
+            )
+            return _run(args, stream, panel_url)
         except package.PackageNotFound as exc:
             return _fail(stream, PRECONDITION, str(exc))
         except SpecInvalid as exc:
@@ -224,6 +259,110 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (PrepareRefused, UnresolvedGrant) as exc:
             return _fail(stream, PRECONDITION, f"the environment refused the task: {exc}")
     return UNEXPECTED_FAILURE  # pragma: no cover — ExitStack always returns above
+
+
+def _install_item(prefix: Prefix) -> Callable[[], Sequence[Any]]:
+    """The recipe call `ensure_installed` injects rather than performs.
+
+    **This is o11y-shaped code living in `cli/`, and review asked why. It is
+    here because it cannot be under `env_mgr/`.** Spec §9 walls `recipe`,
+    `runner` and `installers` off from every module there, and
+    `tests/env_mgr/test_imports.py` enforces it structurally — it derives the
+    "above the wall" set from the filesystem and walks it with `rglob`, so a new
+    subpackage is covered the moment it exists, with `env_mgr/cli.py` the single
+    exemption. This function's whole body is `load_recipe` + `runner.run`, so
+    any home under `env_mgr/o11y/` fails that test. A first draft of
+    `ensure_installed` did exactly that and failed exactly that test, which is
+    why it takes an injected callable rather than looking the recipe up itself.
+
+    Moving it would mean either putting it in `env_mgr/cli.py` — legal, but that
+    is env_mgr's command-line entry point and it would be there for the
+    exemption rather than because it belongs — or widening the exemption, which
+    weakens a guard whose own docstring records a module going unchecked when
+    the list was maintained by hand. Neither is this function's call to make.
+
+    **Zero-argument, not a precomputed list**: a list evaluated at the call site
+    would run the installer before `--dry-run` could stop it. `target.path` is
+    overridden because the checked-in recipe's value is a placeholder — nothing
+    in `env_mgr` expands `${VAR}` in a YAML value.
+    """
+
+    def call() -> Sequence[Any]:
+        from env_mgr.recipe import load_recipe
+        from env_mgr.runner import Filters, run
+
+        target, items = load_recipe(RECIPE_PATH)
+        target.path = str(prefix.root)
+        outs, _status = run(target, items, "install", Filters(item="agentsview"))
+        return outs
+
+    return call
+
+
+def _start_o11y(
+    port_flag: int | None, disabled: bool, stream: Stream | None = None
+) -> str | None:
+    """The one call site. Returns the panel URL, or None, and never raises.
+
+    **Also o11y-shaped code in `cli/`, and also deliberate.** Review asked for
+    it to live in `env_mgr/o11y/`, and the destination is right; the move is a
+    refactor rather than a relocation, because this function is tied to `cli/`
+    at two points. It calls `_install_item`, which cannot leave (see there). And
+    it emits on the `Stream`, so moving it as written would have `env_mgr`
+    importing `cli` — a library importing its own consumer, which is a worse
+    inversion than the one being fixed. The honest shape is
+    `start_panel(prefix, port_flag, install_item, announce)` in the o11y package
+    with a four-line adapter here, and it re-points the ten or so tests that
+    patch `cli_main.ensure_installed` / `cli_main.ensure_running` at module
+    level. Worth doing on its own, not folded into a review-fix.
+
+    **The bare `except Exception` is the point**: everything inside
+    `ensure_running` already degrades to a warning, and this catches what that
+    module has not thought of. A side-car that can abort a run is a worse bug
+    than a missing panel.
+
+    **Success goes to the `stream`, failure to `logging`.** Both were
+    `log.info`, and this package never configures `logging` — so the root
+    logger sits at `WARNING` with no handler and they reached nobody, while the
+    warnings still reached stderr through `lastResort`. `stream` is optional
+    because the failure-mode tests are not about it; `main` always passes one.
+
+    `os.environ` is read here and never written.
+    """
+    if disabled:
+        return None
+
+    def say(message: str, **fields: Any) -> None:
+        if stream is not None:
+            stream.emit(EventKind.O11Y_PANEL, message, **fields)
+
+    try:
+        prefix = Prefix.resolve(os.environ)
+        installed = ensure_installed(prefix, _install_item(prefix))
+        if not installed.running:
+            # `ensure_installed` has already logged the one warning. Starting a
+            # daemon whose binary is absent would only add a second.
+            return None
+        if freshly_installed(installed.reason):
+            # Only on the run that downloaded: a line on every run is how a
+            # real warning gets scrolled past. Says what arrived and where,
+            # because a 45 MB download nobody asked for should be inspectable.
+            version = pinned_version()
+            path = str(prefix.bin / "agentsview")
+            message = (
+                f"fetched the o11y panel binary (agentsview v{version}, "
+                f"from github.com/kenn-io/agentsview) into {path}"
+            )
+            log.info("agentsview: %s", message)
+            say(message, version=version, path=path, installed=True)
+        status = ensure_running(prefix, port=resolve_port(port_flag, os.environ))
+        if status.running:
+            log.info("agentsview: o11y panel at %s", status.url)
+            say(f"panel at {status.url}", url=status.url)
+        return status.url
+    except Exception as e:  # noqa: BLE001
+        log.warning("agentsview: o11y start-up failed (%s); continuing without a panel.", e)
+        return None
 
 
 def _fail(stream: Stream, code: int, message: str, *, kind: EventKind | None = None) -> int:
@@ -259,12 +398,12 @@ def _show(args: argparse.Namespace, stream: Stream) -> int:
 # run
 
 
-def _run(args: argparse.Namespace, stream: Stream) -> int:
+def _run(args: argparse.Namespace, stream: Stream, panel_url: str | None = None) -> int:
     if args.clean:
         return _clean(args, stream)
     if args.dry_run:
         return _dry_run(args, stream)
-    return _real_run(args, stream)
+    return _real_run(args, stream, panel_url)
 
 
 def _clean(args: argparse.Namespace, stream: Stream) -> int:
@@ -326,7 +465,7 @@ def _layout(args: argparse.Namespace) -> Layout:
     return layout_for(root).create()
 
 
-def _real_run(args: argparse.Namespace, stream: Stream) -> int:
+def _real_run(args: argparse.Namespace, stream: Stream, panel_url: str | None = None) -> int:
     """Everything. Needs credentials, a sandbox, and a model.
 
     The order of the two preconditions is measured rather than aesthetic: the
@@ -351,6 +490,18 @@ def _real_run(args: argparse.Namespace, stream: Stream) -> int:
     promises = expectations.for_package(package.locate(args.package))
 
     layout = _layout(args)
+    # **Here, and not in `_start_o11y`, because the run id does not exist yet
+    # when the panel starts.** Before any task runs, so the mapping is in place
+    # before the first transcript is ingested -- measured: a mapping that
+    # exists at ingest labels the session at sync time, with no second call.
+    mapped = ensure_run_project(panel_url, layout.run)
+    if mapped.running:
+        stream.emit(
+            EventKind.O11Y_PANEL,
+            f"this run is project {mapped.reason!r} on the panel",
+            project=mapped.reason,
+            run=str(layout.run),
+        )
     root = package.locate(args.package)
     # **Read once, at start-up, and it is the run's fact rather than a task's.**
     # `env_mgr.prepare.permissions_enforced()` is the single reader of the

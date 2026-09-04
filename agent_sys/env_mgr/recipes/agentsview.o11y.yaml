@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
+#
+# AgentsView, agent_sys's o11y panel. An external dependency, installed
+# unmodified into agent_sys's own prefix.
+#
+# `importance: suggested` is load-bearing, not decoration: `level_for_missing`
+# turns a failed install of a non-required item into a warning, which is
+# exactly the "o11y may never fail a deployment" rule, using the mechanism
+# env_mgr already has rather than a second one.
+#
+# `target.path` below is a placeholder, same convention as
+# `recipes/sglang.repo.yaml`: nothing in env_mgr expands `${VAR}` in a YAML
+# value. `ensure_installed` sets it in code; a human passes `--path`:
+#
+#   env-mgr install env_mgr/recipes/agentsview.o11y.yaml --path "$AGENT_SYS_HOME"
+#
+# `check_cmd:` is an absolute path because `run_cmd` takes no `env=` and
+# `$AGENT_SYS_HOME/bin` is deliberately not on a child's `PATH`; a bare
+# `agentsview --version` would then never report "already present (skip)".
+# `ensure_installed` patches `$AGENT_SYS_HOME` in for the duration of the call.
+#
+# The checksum gate is **two statements, not one `&&` list**: `set -e` is exempt
+# for a non-final command in an `&&` list, so the old one-liner carried on and
+# installed an unverified binary whenever awk matched no line. Three tests run
+# this string for real against a stubbed curl. `${tmp:?}` in the trap because a
+# recursive delete on a variable is one unset variable from a larger delete.
+#
+# Pinned to a release rather than "latest": two machines running different
+# panels with no record of which is not an observability story. Bumping is a
+# one-line edit of the three places it appears below, plus `version:`.
+# amd64 only.
+version: 1
+
+target:
+  kind: prefix
+  name: infera_agent_sys
+  path: /path/to/your/.infera_agent_sys
+
+items:
+  - installer: bin
+    importance: suggested
+    layer: system
+    name: agentsview
+    version: "0.42.0"
+    check_cmd: "$AGENT_SYS_HOME/bin/agentsview --version"
+    install: >-
+      set -e;
+      tmp=$(mktemp -d);
+      trap 'rm -rf "${tmp:?}"' EXIT;
+      base="https://github.com/kenn-io/agentsview/releases/download/v0.42.0";
+      curl -fsSL "$base/agentsview_0.42.0_linux_amd64.tar.gz" -o "$tmp/av.tgz";
+      curl -fsSL "$base/SHA256SUMS" -o "$tmp/SHA256SUMS";
+      expected=$(awk '$2=="agentsview_0.42.0_linux_amd64.tar.gz"{print $1}' "$tmp/SHA256SUMS");
+      [ -n "$expected" ] || exit 1;
+      actual=$(sha256sum "$tmp/av.tgz" | cut -d' ' -f1);
+      [ "$expected" = "$actual" ];
+      tar -xzf "$tmp/av.tgz" -C "$tmp" agentsview;
+      mkdir -p "$AGENT_SYS_HOME/bin";
+      mv "$tmp/agentsview" "$AGENT_SYS_HOME/bin/agentsview";
+      chmod +x "$AGENT_SYS_HOME/bin/agentsview"
+    tags: [o11y]
