@@ -265,6 +265,27 @@ _teardown() {
 }
 trap _teardown EXIT HUP INT TERM
 
+# **The payload travels base64, because `bash -c '$COMMAND'` silently ate it.**
+#
+# Measured on node 006, 2026-09-04, the first time this `docker run` ever
+# executed: a payload containing a single quote produced **no output, exit 0,
+# and the success line below**. The default payload contains four —
+# `echo '  [1/2] correctness'` and its pair — so the real measurement path was
+# the broken one. The command crosses `spur exec bash -lc`, then this string,
+# then `bash -c '...'`; the first `'` in the payload closed the quote the
+# wrapper opened, and the remainder was re-parsed by the node's shell instead
+# of the container's.
+#
+# The differential that settled it, same script and same everything else: a
+# payload with single quotes printed nothing, and the identical payload written
+# without them printed `2.9.1+rocm7.2.0.git7e1940d4` from inside the container.
+#
+# Base64 has no shell metacharacters, so it survives all three layers with one
+# pair of double quotes and no escaping to get right. `check_workset_runs` also
+# drives this script with its own `--shape` command, so the custom-command path
+# is not a convenience — a validator's payload was subject to the same defect.
+CMD_B64=$(printf '%s' "$COMMAND" | base64 | tr -d '\n')
+
 # `PYTHONDONTWRITEBYTECODE=1` keeps root-owned `.pyc` out of the handoff.
 STARTED=1
 on "docker run --rm --name '$E2E_MEASURE_CONTAINER' \
@@ -272,6 +293,6 @@ on "docker run --rm --name '$E2E_MEASURE_CONTAINER' \
       -e HIP_VISIBLE_DEVICES='$E2E_MEASURE_GPU' \
       -e E2E_NODE='${E2E_NODE:-}' -e PYTHONDONTWRITEBYTECODE=1 \
       $MOUNTS -w '$ROOT' '$IMAGE' \
-      bash -c '$COMMAND'"
+      bash -c \"echo $CMD_B64|base64 -d|bash\""
 
 echo "measure_in_container: evidence written by the same entrypoints the real path runs"
