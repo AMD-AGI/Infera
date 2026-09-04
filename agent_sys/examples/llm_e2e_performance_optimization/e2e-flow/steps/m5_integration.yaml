@@ -331,7 +331,30 @@
     # second, undeclared constraint on window length. Measured on this trace:
     # 346 requests in the default 120 s window, 166 in 60 s, ~80 in 30 s — and a
     # bar of 100 failed a working replay and stopped m2's graph.
-    min_requests: '${min_requests:-50}'
+    #
+    # **`integration_min_requests`, not `min_requests`, and the duplicated 50 is
+    # deliberate.** The other bar measuring this same quantity is m2's
+    # `check_bench_result` at `steps/m2_profiling.yaml:46`, from the same trace
+    # and with the same default. Until 2026-09-04 both read `'${min_requests:-50}'`
+    # — **one `--var` moving two owners' grading bars.** The default being shared
+    # was right; the *override* was not, because the reason to override is
+    # stage-local: shorten this stage's replay window, drop the bar to 20 for
+    # that reason, and m2's stage-2 bar drops too on a window that did not
+    # change — and neither owner can see it from their own file.
+    #
+    # Found by m2, scoped by m3 (32 vars are cross-owner and sharing is usually
+    # the point; of the nine parameterised bars this was the only one that was
+    # both), decided by the leader.
+    #
+    # **The fix that would have kept the default linked does not exist.**
+    # `'${integration_min_requests:-${min_requests:-50}}'` does not nest — it
+    # expands to the literal string `'${min_requests:-50}'`, reports **zero**
+    # problems, passes `show`, and reaches this body as text `float()` throws on.
+    # See `temp/bugs/2026-09-02-an-unparseable-variable-reference-is-passed-through-silently.md`.
+    # The **arg** stays `min_requests` — `check_bench_report/check.py:124` reads
+    # that key, and it is this validator's private vocabulary. Only the `--var`
+    # is renamed, which is the thing that was shared.
+    min_requests: '${integration_min_requests:-50}'
     # The arms are compared round for round, so a missing round is a missing
     # comparison rather than a shorter one.
     expect_rounds: '${bench_rounds:-1}'
