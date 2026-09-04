@@ -582,6 +582,76 @@ reword one `PROBLEM`, add one, flip the refusal to a pass, add a second refusal,
 delete the report, and an untouched copy as the null — are recorded in the
 commit that added it.
 
+### "Regenerate the reference and compare" is not a check anyone can run
+
+**The reference corpus cannot be re-derived from itself. It can only be replayed
+through the adapters.** Written here rather than in a note because this is where
+it bites: an acceptance step of the form *"regenerate the sealed artefacts from
+their inputs and diff"* is exactly what someone reasoning from first principles
+proposes at the end, and **it fails for reasons that have nothing to do with
+what is being accepted.**
+
+Measured 2026-09-04, running the real producer against both identities:
+
+```sh
+scaffold.py  <- sealed cheat_for_mock/stage3-analyze/operator_identity   exit 1
+   "operator_identity carries no environment.yaml; CONTRACT.md 2 requires one on every kind"
+
+scaffold.py  <- the operator_identity a run produces                     exit 0
+   2 operators, 2 definitions, a full workset.yaml
+```
+
+**The sealed corpus predates records the contract now requires.** It carries no
+`environment.yaml`, and (the same fact, found from the other side) no
+`edit_target.from_identity` for `check_workset_shape` to compare against. The
+mock adapters — `m3_mock_adapt.py`, `mock_adapt.py`, MOCK-MAP (A) and (C) —
+exist precisely to supply those at run time.
+
+**This is a documented arrangement, not a gap.** Do not file it as a bug and do
+not try to fix it by making the producer accept a record-less input; the
+requirement is CONTRACT §2 and it is right.
+
+Two consequences worth having before you need them:
+
+- **A regenerated k004 carries two shapes**, and m4's packup refuses below
+  three. The producer says so — *"has 2 observed shape(s); M3.7.4.1.2 needs 3"* —
+  but anyone treating regeneration as a drop-in meets it after the fact.
+- **`profiling_evidence` is required by the producer and never read on this
+  path.** A directory containing only an `environment.yaml` satisfied it. Not a
+  defect; noted because it is impossible to rediscover once forgotten.
+
+**What the regeneration did establish**, and it closes m5's k004 finding: the
+current producer emits `moe_gemm_2stage.py` for k004 — **correct**, matching the
+identity, with `from_identity` recording it and no `entry_function_line` at all.
+The `mixed_moe_gemm_2stage.py` disagreement exists **only** in the 2026-09-02
+artefact. It is a property of a sealed reference, not a live defect.
+
+### Do not backfill a missing record into the sealed corpus
+
+**Not `from_identity`, not `environment.yaml`, not an offset — none of it.**
+
+Every backfilled record would be *a record nobody made, manufactured today and
+indistinguishable from a real one.* The corpus's whole value is that nobody
+chose what is in it; a field added now to make a check pass converts it from
+evidence into assertion, and the check then confirms the backfill rather than
+the artefact.
+
+This is CONTRACT §5.3 in the other direction: **a mock may obtain a real fact by
+a route the producer does not use; it may not assert a fact the producer does
+not have.** It is why `mock_adapt.py` writes `from_identity: null` rather than
+repeating its own hardcoded path — null is UNVERIFIED and says so, while a
+self-supplied provenance would have agreed with itself forever.
+
+The alternative is the one already in place: **leave the gap and report it.**
+`check_workset_shape` reports UNVERIFIED for an artefact with no provenance and
+does not pass it as checked.
+
+*2026-09-04 produced four instances of manufactured provenance in one afternoon
+— the `183` constant that corroborated itself in its own `resolution_evidence`
+prose, `32.5` recorded as prose and read back as a measurement, `replayed_from`
+overwritten by the tool that writes it, and `impl_path` echoing an argument as
+if it were an observation. This rule is what they have in common.*
+
 ## The one measurement to take at rung 5 that nobody has
 
 `todo.md` T7 wants the within-arm round-to-round spread on a **quiet** node. Both holds carry other tenants today. If a quiet window appears, take it: it is the number that decides whether 5% / 10% are right, and the previous round widened them to 35% / 30% on a cross-instance artefact for want of it.
