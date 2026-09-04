@@ -171,6 +171,18 @@ items:
 # while `~/.serena` was byte-identical before and after and no `~/.solidlsp`
 # appeared.
 #
+# **Nothing is given up by no longer overriding `HOME`, and the reason is worth
+# stating because the opposite reads plausible.** `HOME` is a lookup convention,
+# not a permission: a process running as the operator can read
+# `/home/<operator>/...` by absolute path whichever way `$HOME` points, and what
+# actually bounds a read is the confinement `prepare` applies. So
+# `HOME=${TMPDIR}` never restricted anything — it only redirected `~`-relative
+# **discovery**, which for serena means the `expanduser("~")` toolchain lookups
+# in `solidlsp/language_servers/` (rvm, `.m2`, `.gradle`, `.cargo`, `.ghcup`,
+# …). Dropping the override restores those to the machine's real toolchains,
+# which is the correct answer, and `SERENA_HOME` governs the writes for the
+# first time. A strict improvement, not a trade.
+#
 # **Either way it must not be hoisted to the agent's `env:` block.** That block
 # is the *session's* environment, and a per-server knob there is a knob applied
 # to everything the agent runs. The scope is the point.
