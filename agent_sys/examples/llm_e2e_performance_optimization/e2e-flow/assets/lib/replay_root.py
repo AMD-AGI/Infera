@@ -86,6 +86,28 @@ three stages later. It was designed for something else entirely.
 
 ### Two things that guard does NOT cover, and the second is not obvious
 
+**A DIFFERENT NODE, and this corrects what this docstring used to claim.**
+`compare_fixed_across_inputs` was credited above with catching an injected
+handoff from another node. **It does not, for a replayed root** — measured:
+every downstream handoff renders its record with `env_render --inherit <the
+replayed kit>`, so all four compared fields are copied from the replay and
+**agree with each other**, on a node the run is not using:
+
+    kit says node:        crsuse2-m2m-217
+    downstream inherits:  crsuse2-m2m-217
+    fields that agree:    node, gpu_arch, image_id, model_path
+
+CONTRACT §4.6 once more, and this time *every* side shares the fault because
+every side inherits the one record. **What actually enforces it is
+`_agree_or_die`** (`run_in_container.sh:105`, `measure_in_container.sh:127`),
+comparing the ambient `E2E_NODE` against `fixed.node` — and only in a stage that
+**runs for real**. In a skip-in-front / mock-behind run where the middle stages
+are also mocked, nothing checks it at all; the mismatch is harmless there only
+because nothing touches the node.
+
+**So: skip-ahead requires the same node as the run being replayed**, enforced by
+one guard in two bodies, not by the cross-handoff comparison.
+
 **A stale live resource.** A record can name the right node and the right image
 and still name a container that no longer exists. Per-seam question — *does
 stage N+1 consume stage N's artefact, or stage N's running process?* — recorded
@@ -724,6 +746,12 @@ def main() -> int:
                     help="report and write nothing")
     ap.add_argument("--allow-unstable", action="store_true",
                     help="materialise kinds below the threshold, marked in the record")
+    ap.add_argument("--seed-from", default="/shared_nfs/yihou/agent_sys/cheat_for_mock",
+                    help="corpus to symlink un-promoted stages from, so the root is "
+                         "launchable. mock_root is ONE directory for all five stages.")
+    ap.add_argument("--no-seed", action="store_true",
+                    help="do not seed un-promoted stages. The root will then break every "
+                         "mocked stage it does not hold.")
     ap.add_argument("--no-rewrite", action="store_true",
                     help="copy the environment records verbatim. Leaves the stale "
                          "slurm_jobid that makes m3 and m4 refuse, and leaves a container "
@@ -814,6 +842,39 @@ def main() -> int:
         })
         print(f"  -> {STAGE_OF[kind]}/{kind}/content  {n} file(s)  "
               f"from {row['run']} {row['version']}")
+
+    # **Seed every stage this root did not promote, or the root cannot launch.**
+    #
+    # `mock_root` is **one directory for all five stages** — `mock.sh` reads
+    # `$E2E_MOCK_ROOT/<stage>/<kind>/content`. A root holding only the promoted
+    # stage therefore breaks every *other* mocked stage, measured:
+    #
+    #     mock: no such stage /home/yihou/replay_root_demo/stage2-profiling
+    #
+    # Which makes a partial root useless for the thing it exists for: skip in
+    # front, **mock behind** — the stages behind have nowhere to read from.
+    # Nothing said so, and the tool happily wrote one.
+    #
+    # Symlinks rather than copies: the corpus is 25 sealed handoffs, it is
+    # read-only, and a link makes the provenance visible in one `ls -l` instead
+    # of hiding a stale copy that drifts. `--no-seed` opts out for a caller who
+    # is assembling a root by hand.
+    seeded = []
+    if not args.no_seed:
+        corpus = pathlib.Path(args.seed_from)
+        promoted_stages = {STAGE_OF[p["kind"]] for p in promotions}
+        for stage in sorted(set(STAGE_OF.values())):
+            if stage in promoted_stages or (out / stage).exists():
+                continue
+            src = corpus / stage
+            if not src.is_dir():
+                continue
+            (out / stage).symlink_to(src)
+            seeded.append(stage)
+        record["seeded_from_corpus"] = {"root": str(corpus), "stages": seeded}
+        if seeded:
+            print(f"replay_root: seeded {len(seeded)} un-promoted stage(s) from {corpus} "
+                  f"as symlinks: {', '.join(seeded)}")
 
     (out / "PROMOTION.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 
