@@ -41,7 +41,7 @@ adapt, they do not get re-derived.
 |---|---|
 | where I am | login node, **no GPU**, no direct docker daemon |
 | GPU holds | `106250`→`crsuse2-m2m-061` (10.245.159.129), `106253`→`crsuse2-m2m-031` (10.245.144.239); 8 h each from ~12:40 UTC; both reachable, both carrying **other tenants' containers** |
-| reaching them | `spur exec <jobid> bash -c '...'` — runs as root in an exec namespace, docker talks to the **host** daemon |
+| reaching them | `spur exec <jobid> bash -c '...'` — exec namespace; docker talks to the **host** daemon, but the **filesystem identity is you, not root** (measured 2026-09-04: `id -u` → `50112975`, writes land `-rw-r--r-- yihou ubuntu`). Matters because `/home` is `sec=sys` NFS, where a root-squashed write would map to `nobody` and leave a tree nobody can clean up. |
 | shared FS | `/shared_nfs` 360 T, **46 T free**, shared by every spur node — this is how "remote" works |
 | scratch | `/shared_nfs/yihou/agent_sys/ws_handoff_refine/` — all temp activity lives here |
 | mock inputs | `/shared_nfs/yihou/agent_sys/cheat_for_mock/` — 25 real sealed handoffs, one folder per kind |

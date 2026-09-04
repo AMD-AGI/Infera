@@ -61,6 +61,28 @@ the whole time. **A parameter documented next to its declaration is not
 documented to the person composing a command line**, which is what this table is
 for.
 
+**`expect_ranks` is a fact about the artefact, but which artefact depends on the
+node — so the table's "omit it" advice is wrong on a partly-occupied host.**
+m1's, 2026-09-04, from measuring `crsuse2-m2m-249`: GPUs 0–3 are held by another
+tenant (~300 GB each, no docker container behind them), leaving four cards. So
+m1 brings up at `tp=4`, and at **rung 2** — where the trace comes from *that*
+bring-up rather than from the sealed TP-2 capture — `expect_ranks` must be **4**.
+Omitting it defaults to 8 and `check_trace_coverage` refuses a perfectly good
+four-rank capture **after a full bring-up and a three-minute load**.
+
+Rung 1 is unaffected: m2 is still replaying the sealed TP-2 artefact there, so
+`expect_ranks=2` stays. The var belongs to m2; **the node is what changes it**,
+which is why it is recorded here rather than left to be rediscovered.
+
+**There is no `--var` that names a GPU *set*, only a count.** `E2E_TP` gives the
+number and the index is left to the agent's `rocm-smi` read at step 1. On a
+partly-occupied host that is the largest behavioural risk at rung 1 — an agent
+taking the default devices takes 0–3 and OOMs against a co-tenant. m1 routed
+"take only 4–7" through `E2E_INSTRUCTION`, which is the declared channel for a
+site fact and the right refusal to change the package mid-rung. It is recorded
+in `todo.md` as a gap rather than a solution: **a site fact carried in prose is a
+site fact nothing validates.**
+
 `expect_ranks` is the one to watch: it is a fact about **the artefact being
 graded**, not about the run. The sealed capture is TP-2, so rungs 0 and 1 need
 `2`; at rung 2 the trace comes from a **real TP-8 bring-up**, and passing `2`
