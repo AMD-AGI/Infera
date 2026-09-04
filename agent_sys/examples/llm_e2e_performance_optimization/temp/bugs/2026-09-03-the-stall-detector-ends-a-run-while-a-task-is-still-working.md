@@ -211,3 +211,37 @@ anyone who guessed wrong.
 **And it settles rung 4 without a third data point.** A KernelForge campaign is
 hours of a quiet phase; it will be cut ~20 s in. That was an open question for
 most of 2026-09-04 and it is now closed by reading, not by spending a node on it.
+
+### The timing claim above is too strong, and rung 1 says so
+
+**Appended 2026-09-04, 06:47, by the leader.** The section above says main's
+structural escalation "is present throughout a healthy run". **A live run
+contradicts that**, and the correction belongs next to the claim rather than in
+a message.
+
+Run `20260904T062414-be315b`, rung 1, real m1 on `crsuse2-m2m-006`:
+
+```
+06:24:16  deploy_and_prove: input_validating -> running     <- last line written
+06:45:40  process alive, log unchanged, 21 minutes later
+```
+
+**Twenty-one minutes of total silence and no cut.** Since a non-empty `blocked`
+satisfies `(not holding or blocked)` *regardless of `holding`*, a run that
+survives 21 quiet minutes proves **`blocked` was empty for all of them** —
+`main` had not escalated.
+
+So the escalation is **not** present from t=0. It appears somewhere later; in the
+rung-0 logs it is already there by the time `identify` succeeds and
+`build_workset` starts. **When, and on what trigger, is not known** and is not
+worth a hold to find out.
+
+**What survives unchanged:** the defect. The rung-0 logs still show the cut
+arriving with nothing failed, and the conflation m4 identified is still what
+makes that possible. What is wrong is only the sentence about *when* the
+escalation exists — "throughout" should read "from some point in the run
+onward".
+
+**Why it is worth the paragraph:** a reader who takes "throughout" literally will
+conclude every run is cut at 20 s of quiet, see rung 1 survive 21 minutes, and
+reasonably decide the whole file is wrong. It is not; one sentence in it is.
