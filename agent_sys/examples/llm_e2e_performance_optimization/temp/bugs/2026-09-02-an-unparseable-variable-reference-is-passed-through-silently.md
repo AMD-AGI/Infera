@@ -222,6 +222,39 @@ written before it was run; running it is what produced the table. A checker that
 reports four hits and means zero is a checker whose next reader either panics or
 stops believing it.
 
+### The four hits are all *warnings*, and that is the finding
+
+Observed by m2, 2026-09-04, from the same four lines I had already read and
+walked past. **Every one of the four is somebody warning the next reader off the
+pattern.** Not one is a live value; not one was written by somebody who had been
+told.
+
+`git blame` cannot separate them — the whole team commits under one git identity
+— but the commit each line arrived in can:
+
+| line | arrived in | episode |
+|---|---|---|
+| `e2e-flow/shared.yaml:58` | *"freeze the cross-module contract"* | the leader's freeze |
+| `e2e-flow/steps/m2_profiling.yaml:95` | *"m3: validator readmes"* | **m3**, writing in m2's file |
+| `kernel-opt-demo/…:348` | *"debug the five e2e stage packages"* | the solo phase |
+| `e2e-flow/steps/m5_integration.yaml:350` | this note's own example | m5, today |
+
+**Four separate discoveries, four separate people paying for the same fact.**
+The third row is the sharp one: the warning in `m2_profiling.yaml` was not
+written by that file's owner, so even *within* one file the person who hit the
+restriction and the person who owns the place it is recorded are different. m2
+and I both misread that line as m2's until it was checked.
+
+This is the same shape as the hazard that produced this section — the shared
+`--var` at `m2_profiling.yaml:46` and `m5_integration.yaml:334`, where each
+owner read a correct floor in their own file and neither could see the other.
+**Knowledge that is correct in every local file and absent from the package.**
+Four warnings scattered across four files are four people's savings that nobody
+can spend; one note that a grep finds is the difference.
+
+That is the argument for this record existing, and it is a better one than *the
+old section was wrong*.
+
 The package's fix is to write
 two entries rather than one nested one — which is what
 `steps/m5_integration.yaml`'s `integration_min_requests` does, at the cost of
