@@ -1238,6 +1238,35 @@ choose a card at all (`T19`), so the index is at least *deliberate* on both
 sides. Recording it would make it *checkable*, which is a different property
 and the one that closes this.
 
+**STILL OPEN, 2026-09-04 end of day, and said so deliberately.** The stage has
+been exercised standalone all afternoon and this is the one thing in it that a
+fixture cannot reach: it needs two measurements on two cards to show itself, and
+every control here runs on a login node with no card at all. Closing it on the
+strength of *"the guards are deliberate now"* would be its own instance of the
+class below.
+
+**It is the third member of a class the afternoon produced three of**, and the
+leader had counted two before this one:
+
+| | the configuration | what it decides | what grades it |
+|---|---|---|---|
+| m2 | `--cuda-graph-max-bs 8` against concurrency 16 | decode exceeds the captured graph on essentially every step — a 4.7× latency spread | nothing; it was read as an image difference |
+| m1 | `32.5` | a floor, recorded as prose and read back as a measurement | nothing; the real number was 33.58 at `tp_size: 1` |
+| **m3** | **`E2E_MEASURE_GPU`** | **which card every number in `evidence/` came from** | **nothing; `measured_on` names the node** |
+
+**A configuration that determines the number and is invisible to everything that
+grades it.** The leader's sharpening is the part to keep, and it makes this the
+purest of the three: `check_workset_runs` re-measures **on the same card**, so
+when the card is the fault **it agrees for exactly the reason the original was
+wrong**. The agreement is not evidence of correctness; it is evidence that both
+readings share a premise nobody recorded.
+
+That is m5's *"a relative check cannot detect a fault both sides share"*,
+arriving in this stage from a third direction and hours before they proved it in
+theirs. The fix is unchanged and unbuilt: **record the index in
+`evidence.measured_on`**, so the two readings can be compared on their premise
+and not only on their result.
+
 ### T33 — a mechanical reformat makes a diff unreviewable, so the semantic check moves before the commit
 
 **Owners m3 and the leader, 2026-09-04, the same error twice in one morning.**
