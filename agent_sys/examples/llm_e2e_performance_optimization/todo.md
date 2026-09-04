@@ -2665,3 +2665,62 @@ when both rest on the assumption being tested.**
 
 Related in kind, different in layer: see **T52** for the `df` case in full, and CONTRACT §4.4's sixth face for the launch-var version of the same
 shape (a name that resolves while the value it names is false).
+
+### T58 — counting kits on disk counts how often we tested, not how often a producer chose
+
+**m1, 2026-09-04. Filed at the leader's request, with the fingerprint, because the
+fingerprint is the only part anyone can act on.**
+
+A census of `packup` trees is the natural way to answer *"how often has a producer
+done X?"*, and it is wrong by construction. Measured over the frozen root:
+
+```
+find /shared_nfs/yihou/agent_sys -path '*packup*' -name env.sh    ->  58 files
+
+55   line 105, DK_TP_SIZE:=1     the 2026-09-02 sealed kit, byte-identical replays
+ 3   no ceiling variable at all  two are my own 13-line stubs, one a stripped copy
+--
+ 0   produced by an agent
+```
+
+**Most of the 55 are `ws_handoff_refine/m1/gate*/{good,bad}` — copies `gate.sh`
+makes of the sealed kit on every invocation, two per run.** So the corpus is
+mostly a record of my own testing, and **the ratio gets worse every time anyone
+runs a gate.** Our diligence tilts the evidence, monotonically, in the direction
+of "this happened constantly".
+
+It already misled a real sweep: eight pre-contract runs were read as eight
+producers choosing a ceiling of 8, when six were one artefact replayed. The
+corrected producer record is **four runs — `16, 16, 8, 32`, one below the bar**.
+
+## The fingerprint
+
+**A produced `env.sh` is regenerated each run, so its line numbers move. A
+replayed one is byte-identical, so they do not.**
+
+```
+produced   env.sh:169  env.sh:193  env.sh:222     DK_TP_SIZE:=4
+replayed   env.sh:105  every time                 DK_TP_SIZE:=1
+```
+
+So: **before counting a kit as evidence of a choice, check the line number and
+the `tp_size`.** Line 105 with `tp_size: 1` is the 2026-09-02 artefact, whatever
+directory it is sitting in. Anyone can apply that; nobody would infer it.
+
+And the second reason those 55 do not count even as failures: their ceiling of 8
+is **correct for the deployment they describe**, which is `tp_size: 1` — not the
+concurrency-16 shape the bar is about. `mock_adapt.sh` preserves it deliberately
+(*"adapts a record forward; it does not re-tune a deployment that already
+happened"*), so they are a design decision working, not a producer failing.
+
+## Why it is worth an entry rather than a correction
+
+**Our own discipline generates the false signal, and being more careful makes it
+worse.** That is the same shape as m5's grep trap the same afternoon — there,
+good comments made a naive detector fire; here, thorough testing makes a naive
+census over-count. **Neither is fixable by care.** Both need the artefact's
+provenance established *before* it is counted, which is what the fingerprint is
+for.
+
+Applies to any future sweep of `packup` trees, which is exactly what someone will
+reach for the next time the question is *"how often has this happened?"*
