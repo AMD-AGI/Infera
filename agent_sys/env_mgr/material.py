@@ -148,10 +148,11 @@ def _share_projects(config: str) -> None:
             # cheaper than deleting somebody's evidence.
             os.rmdir(link)
         link.symlink_to(target, target_is_directory=True)
-    except (OSError, KeyError) as exc:
-        # `KeyError`: `Prefix.resolve` needs `$HOME` when `AGENT_SYS_HOME` is
-        # unset, and a child environment without either is a configuration we
-        # observe rather than one we refuse.
+    except OSError as exc:
+        # `Prefix.resolve` used to raise `KeyError` with neither `AGENT_SYS_HOME`
+        # nor `$HOME` set, and this was the only call site that survived it. It
+        # is total now — the fix went where the other two callers could reach
+        # it — so the only thing left to catch here is the filesystem.
         log.warning(
             "could not share %s with the o11y prefix (%s); this attempt's "
             "transcripts stay in its zone and the panel will not show them",

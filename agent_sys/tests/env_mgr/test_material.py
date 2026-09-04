@@ -131,9 +131,19 @@ def test_a_populated_directory_there_is_left_alone_with_a_warning(
 def test_a_failed_link_does_not_raise(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """**The law of this whole feature**: a broken panel never breaks a run."""
-    monkeypatch.delenv("AGENT_SYS_HOME", raising=False)
-    monkeypatch.delenv("HOME", raising=False)  # `Prefix.resolve` raises KeyError
+    """**The law of this whole feature**: a broken panel never breaks a run.
+
+    The unreachable target is a prefix rooted *inside a regular file*, so
+    `target.mkdir(parents=True)` raises `NotADirectoryError`. This used to
+    delete `$HOME` and `AGENT_SYS_HOME` instead, because `Prefix.resolve` then
+    raised `KeyError` — but that was the bug, not the fixture: two other call
+    sites did not catch it and a run with no `$HOME` died on a feature it never
+    asked for. `resolve` is total now, so the failure has to come from the
+    filesystem, which is where a real one would come from anyway.
+    """
+    blocker = tmp_path / "not-a-directory"
+    blocker.write_text("")
+    monkeypatch.setenv("AGENT_SYS_HOME", str(blocker / "prefix"))
 
     with caplog.at_level(logging.WARNING):
         env = material.deploy(AgentSpec(), zone_at(tmp_path, "a"))

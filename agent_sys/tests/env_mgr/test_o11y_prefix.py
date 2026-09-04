@@ -19,6 +19,29 @@ def test_env_var_overrides_home(tmp_path: Path) -> None:
     assert p.root == tmp_path / "elsewhere"
 
 
+def test_resolving_without_home_does_not_raise() -> None:
+    """`resolve` is total, because two of its three call sites cannot degrade.
+
+    It used to do `environ["HOME"]` and raise `KeyError`. `material.py` caught
+    that and warned; `prepare.py` and `cli/environment.py` did not, so under a
+    systemd unit or a stripped cron environment the o11y feature killed a run
+    that never asked for a panel — the one rule this whole change is built
+    around. One behaviour at all three call sites is the fix, and the
+    behaviour is *resolve to somewhere*, never raise.
+    """
+    p = Prefix.resolve({})
+    assert p.root.is_absolute()
+    assert p.root.name.startswith(".infera_agent_sys") or "infera" in p.root.name
+
+
+def test_a_tilde_in_the_override_is_expanded(tmp_path: Path) -> None:
+    """`AGENT_SYS_HOME=~/foo` is a literal `~/foo` to `Path`, and a relative
+    override is cwd-dependent — and the cwd changes across zones."""
+    p = Prefix.resolve({"HOME": str(tmp_path), "AGENT_SYS_HOME": "~/elsewhere"})
+    assert p.root == Path.home() / "elsewhere"
+    assert p.root.is_absolute()
+
+
 def test_the_layout_is_local_shaped(tmp_path: Path) -> None:
     p = Prefix.resolve({"HOME": str(tmp_path)})
     assert p.bin == p.root / "bin"

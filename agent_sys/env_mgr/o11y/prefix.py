@@ -16,6 +16,8 @@ discipline is what keeps this out of the ambient environment at runtime.
 
 from __future__ import annotations
 
+import os
+import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -43,6 +45,28 @@ CLAUDE_PROJECTS_ENV_VAR = "CLAUDE_PROJECTS_DIR"
 CLAUDE_CONFIG_ENV_VAR = "CLAUDE_CONFIG_DIR"
 
 
+def _home(environ: Mapping[str, str]) -> Path:
+    """`$HOME`, then the passwd entry, then a per-uid directory in `$TMPDIR`.
+
+    The last step is a real fallback and not a formality: the prefix has to
+    resolve *somewhere* for `resolve` to be total, and the alternatives are
+    worse. The cwd would put machine state inside whatever repository happens
+    to be checked out, and a relative path would move as `agent_sys` changes
+    zones. A machine with neither `$HOME` nor a passwd entry gets a panel whose
+    archive does not survive a reboot, which is the correct amount of
+    degradation for a side-car.
+    """
+    home = environ.get("HOME")
+    if home:
+        return Path(home).expanduser()
+    try:
+        import pwd
+
+        return Path(pwd.getpwuid(os.getuid()).pw_dir)
+    except Exception:  # noqa: BLE001 - see the module docstring; this cannot fail
+        return Path(tempfile.gettempdir()) / f"infera-agent-sys-{os.getuid()}"
+
+
 @dataclass(frozen=True)
 class Prefix:
     """One resolved prefix. Every path is derived; none is stored twice."""
@@ -51,10 +75,23 @@ class Prefix:
 
     @classmethod
     def resolve(cls, environ: Mapping[str, str]) -> Prefix:
+        """**Total: it always answers, and never raises.**
+
+        It used to be `environ["HOME"]`, which is a `KeyError` under a systemd
+        unit, a stripped cron environment or `env -i`. `material.py` caught
+        that and warned; `prepare.py` and `cli/environment.py` did not — so the
+        same condition had three behaviours and two of them killed a run that
+        had not asked for a panel. That inverts the one rule this whole feature
+        is built on, so the fix belongs here, once, rather than at each caller.
+
+        `expanduser` because `AGENT_SYS_HOME=~/foo` is a literal `~/foo` to
+        `Path`, and `resolve` because a relative override is interpreted
+        against a cwd that changes as `agent_sys` moves between zones.
+        """
         override = environ.get(HOME_ENV_VAR)
         if override:
-            return cls(Path(override))
-        return cls(Path(environ["HOME"]) / DIRNAME)
+            return cls(Path(override).expanduser().resolve())
+        return cls(_home(environ) / DIRNAME)
 
     @property
     def bin(self) -> Path:
