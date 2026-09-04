@@ -61,22 +61,59 @@ set -u
 SNAP=$(mktemp) || exit 1
 trap 'rm -f "$SNAP"' EXIT
 
+# ## The argv match is a candidate filter, NOT the decision
+#
+# **A launcher that outlives its matching child reports as a live run.** Measured
+# 2026-09-04 (m3 reasoned it, this file's author constructed it): with
+# `sh -c '<run>; sleep 20'`, once `<run>` exits the shell has no matching child,
+# so it is a leaf, and its argv still contains the run's command verbatim —
+# reported as `run pid=1347340 root=/tmp/ATTACK;`. **A run that had ended, read
+# as live.** That is the reassuring direction and the one this tool exists to
+# stop being wrong in.
+#
+# No argv rule can fix it, because the wrapper's argv legitimately *contains* the
+# run's. So the decision is made on `/proc/<pid>/exe` — **the kernel's record of
+# the actual binary, which a command line cannot fake.** Measured:
+#
+#     real run (`python -m …`)      exe = …/bin/python3.14   keep
+#     console script (`agent-sys`)  exe = …/bin/python3.14   keep   (shebang)
+#     `timeout 7200 …` wrapper      exe = /usr/bin/timeout   drop
+#     `sh -c '…'` / `zsh -c '…'`    exe = …/sh, …/zsh        drop
+#
+# The console-script form survives, so m3's finding 1 stays fixed. The leaf rule
+# below is kept as a second layer for the fork case, which is unproven either way.
+ps -eo pid,ppid,etime,args --no-headers 2>/dev/null \
+  | grep -E '(-m +agent_sys\.cli\.main|/agent-sys) +run\b' \
+  | grep -v grep \
+  | while read -r pid rest; do
+      exe=$(readlink "/proc/$pid/exe" 2>/dev/null) || continue
+      case "$exe" in
+        */python*) printf '%s %s\n' "$pid" "$rest" ;;
+        *) ;;                       # a shell or `timeout` wearing the run's argv
+      esac
+    done > "$SNAP"
+
+NOW=$(date +%H:%M:%S)
+
 # One snapshot, written to a real file, then read TWICE. Do not replace this
 # with `awk … - -`: the first `-` consumes stdin and the second gets EOF, so
 # `NR==FNR` is true for every line, `next` fires every time, and the print block
 # **never executes** — measured, GNU Awk 5.2.1: pass1=2 lines, pass2=0. The
 # failure is silent and empty, i.e. indistinguishable from "no run present".
-ps -eo pid,ppid,etime,args --no-headers 2>/dev/null \
-  | grep -E '(-m +agent_sys\.cli\.main|/agent-sys) +run\b' \
-  | grep -v grep > "$SNAP"
-
-awk '
+#
+# `date` rather than awk's `strftime`, which is a GNU extension (m3): it sits in
+# the END block, so where it is missing the failure takes the count line — the
+# part that gets quoted.
+awk -v now="$NOW" '
   NR==FNR { parent[$2] = 1; next }            # pass 1: every ppid among matches
   !parent[$1] {                                # pass 2: keep leaves only
     root = "?"
-    for (i = 1; i <= NF; i++) if ($i == "--demo-root") root = $(i + 1)
-    printf "run pid=%s etime=%s root=%s\n", $1, $3, root
+    for (i = 1; i <= NF; i++) {
+      if ($i == "--demo-root") root = $(i + 1)          # space-separated form
+      else if ($i ~ /^--demo-root=/) { root = $i; sub(/^--demo-root=/, "", root) }
+    }                                                    # `=` form (m3): silently
+    printf "run pid=%s etime=%s root=%s\n", $1, $3, root # gave root=? before
     n++
   }
-  END { printf "%d run process(es) present at %s\n", n + 0, strftime("%H:%M:%S") }
+  END { printf "%d run process(es) present at %s\n", n + 0, now }
 ' "$SNAP" "$SNAP"
