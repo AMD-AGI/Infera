@@ -204,12 +204,38 @@ def report_for(verdict: dict, run: pathlib.Path) -> tuple[pathlib.Path, list[str
             f"no validator_report.txt at {path} — the validator recorded a verdict "
             f"without writing a report, so its reason is not on disk to be pinned"
         )
-    problems = [
-        line.strip()[len("PROBLEM:") :].strip()
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if line.strip().startswith("PROBLEM:")
-    ]
-    return path, problems
+    # **Only the `REFUSED` section, not the whole file**, on checkpoint's
+    # measurement: `PROBLEM:` is not unique to a refusal. Across all 23 reports
+    # in this run there are **11** `PROBLEM:` lines in 6 reports, and **7 of
+    # them sit under a `passed` heading** — every one from
+    # `check_command_parses`. A report also carries one section per handoff the
+    # validator graded, so a validator that refuses one input and passes another
+    # writes both in one file.
+    #
+    # This body was already narrow enough to be unaffected (it reads one
+    # validator's own report, located from the verdict's `environment.zone`
+    # rather than by searching). Tightened anyway, because "unaffected today"
+    # rests on `check_no_regression` having exactly one input, which is not this
+    # file's to guarantee.
+    #
+    # Note the two-space indent: `grep -c '^PROBLEM:'` returns 0 here, which
+    # cost checkpoint a wrong answer and nearly a wrong finding. `.strip()`
+    # first.
+    sections: dict[str, list[str]] = {}
+    heading = None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("## "):
+            heading = line[3:].strip()
+            sections.setdefault(heading, [])
+        elif heading is not None and line.strip().startswith("PROBLEM:"):
+            sections[heading].append(line.strip()[len("PROBLEM:") :].strip())
+    refused = {h: p for h, p in sections.items() if h.endswith(": REFUSED")}
+    if len(refused) != 1:
+        raise Undecidable(
+            f"{path} has {len(refused)} REFUSED section(s), expected exactly 1 "
+            f"(all sections: {sorted(sections)})"
+        )
+    return path, next(iter(refused.values()))
 
 
 def match_problems(reported: list[str]) -> list[str]:
