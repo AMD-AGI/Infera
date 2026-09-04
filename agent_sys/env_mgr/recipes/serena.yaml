@@ -155,13 +155,25 @@ items:
 # `envchk_baseline` entry in the same file already follows with
 # `${CLAUDE_CONFIG_DIR}`: the variable, not the literal, and not the search path.
 #
-# **`HOME` is set for this subprocess and must NOT be hoisted to the agent's
-# `env:` block, however tidy that would look.** serena writes its own state
-# under `$HOME`, so pointing it at a zone directory keeps that out of the
-# operator's home — but `HOME` on the *agent's* environment is Claude Code's
-# `HOME` too, and moving that moves the session's own state and history. The
-# scope is the point; widening it is a much larger change wearing the same three
-# characters.
+# **`SERENA_HOME` and not `HOME`, and it is set for this subprocess only.**
+# serena writes its own state under `$HOME/.serena` by default, so the obvious
+# redirection is `HOME` — and that moves the whole process's home to relocate one
+# application's state. `SERENA_HOME` is the narrow knob, and it was verified to
+# be sufficient rather than assumed to be, because a narrower-looking variable
+# that misses a write path is worse than the blunt one. In serena 1.28.1:
+# `serena/config/serena_config.py:63` reads it, and `serena/ls_manager.py:64`
+# passes the same directory as `solidlsp_dir`, so
+# `<dir>/language_servers/static` — where language servers are downloaded — is
+# covered too, rather than falling back to `solidlsp/settings.py:30`'s
+# `Path.home()/".solidlsp"` default. Then measured: run with only `SERENA_HOME`
+# set, the target captured `serena_config.yml`, `logs/`, `memories/global/`,
+# `prompt_templates/`, `news_read.pkl` and `language_servers/static/PyrightServer`,
+# while `~/.serena` was byte-identical before and after and no `~/.solidlsp`
+# appeared.
+#
+# **Either way it must not be hoisted to the agent's `env:` block.** That block
+# is the *session's* environment, and a per-server knob there is a knob applied
+# to everything the agent runs. The scope is the point.
 #
 # **`--project` wants the directory serena should index**, and for
 # `examples/env_checker` that is the agent's workspace — `material.deploy`

@@ -66,11 +66,12 @@
   #
   # Measured 2026-09-03 (`PROBES.md` D): `uv tool install
   # "git+https://github.com/oraios/serena"` returns rc 0 and provides `serena`,
-  # `serena-agent`, `serena-hooks`. **`HOME` is deliberately not set here.**
-  # serena's own state also wants redirecting, and probe E did that by pointing
-  # `HOME` at a scratch directory *for the server subprocess* — overriding
-  # `HOME` for the whole agent session would move Claude Code's own state too.
-  # That redirection belongs to the serena recipe's `env`, not to this block.
+  # `serena-agent`, `serena-hooks`. **serena's state redirection is deliberately
+  # not here.** It is `SERENA_HOME` on the server's own `.mcp.json` entry: a
+  # per-server knob in the agent's session `env:` would apply to everything the
+  # agent runs, which is the opposite of what a narrow variable is for. The
+  # argument for `SERENA_HOME` over `HOME`, and the measurement behind it, are at
+  # the `recipes:` block below.
   env:
     ENVCHK_NONCE: '${nonce}'
     UV_TOOL_DIR: '${uv_root}/tools'
@@ -132,11 +133,23 @@
   # serena stays a **per-agent** stdio server because `--project` differs per
   # agent and has no environment-variable equivalent (`grep -c envvar=
   # serena/cli.py` -> 0). Measured 2026-09-04: concurrent instances do not
-  # collide given their own `--project` and their own `HOME` — the dashboard
-  # port search was observed live at four instances on this host. `HOME` and not
-  # `SERENA_HOME`: the entry that was measured, and the one this agent now
-  # carries, sets `"env": {"HOME": "${TMPDIR}"}`, and `TMPDIR` is per-zone
-  # (`env_mgr/material.py:168`).
+  # collide given their own `--project` and their own `SERENA_HOME` — the
+  # dashboard port search was observed live at four instances on this host.
+  #
+  # **`SERENA_HOME` and not `HOME`, and the swap was measured before it was
+  # made.** The entry read `"env": {"HOME": "${TMPDIR}"}` until 2026-09-04, which
+  # worked — `TMPDIR` is per-zone (`env_mgr/material.py:168`) — but moved `HOME`
+  # for the whole server process to redirect one application's state. Verified
+  # against serena 1.28.1's own source and then by running it:
+  # `serena/config/serena_config.py:63` reads `SERENA_HOME`, and
+  # `serena/ls_manager.py:64` passes that same directory as `solidlsp_dir`, so
+  # the language-server download root — `<dir>/language_servers/static` — is
+  # governed by it too rather than falling back to
+  # `solidlsp/settings.py:30`'s `Path.home()/".solidlsp"`. Run with only
+  # `SERENA_HOME` set, the probe directory captured `serena_config.yml`, `logs/`,
+  # `memories/global/`, `prompt_templates/`, `news_read.pkl` and
+  # `language_servers/static/PyrightServer`; `~/.serena` was byte-identical
+  # before and after and no `~/.solidlsp` appeared.
 
   # **`skills:` is absent, and its absence is the test.** The one capability
   # `agent_sys` already delivered was `skills`, by declaration

@@ -149,11 +149,13 @@ class Capability(NamedTuple):
     #: visible too, which a row copied from the `.mcp.json` could never see.
     #:
     #: **The full name and not the bare server key**, because the tool half is
-    #: where the mistake actually happens: the brief itself warns that the
-    #: in-process tool is `mcp__env_mgr__…` — *"`env_mgr`, not `envchk`, and
-    #: getting that wrong is the most common way this section fails"*. A bare
-    #: `env_mgr` would drop exactly the half that gets typed wrong. The server
-    #: half is recovered with `server_of()` for the checks that need it.
+    #: where the mistake actually happens. The clearest case was section 6's
+    #: `mcp__env_mgr__envchk_echo_token` — the server half was `env_mgr` rather
+    #: than `envchk`, and the brief had to warn about it by name. That section is
+    #: deleted and the argument survives it: `envchk_baseline` and `envchk_stdio`
+    #: differ only in their tool's server prefix, so a bare server key would drop
+    #: exactly the half a reader confuses. The server half is recovered with
+    #: `server_of()` for the checks that need it.
     #:
     #: `label` is the *report* key (`mcp_external`); this is the *registered*
     #: name (`envchk_baseline`), and nothing else in the tree relates the two.

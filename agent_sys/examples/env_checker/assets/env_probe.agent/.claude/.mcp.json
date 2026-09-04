@@ -18,7 +18,7 @@
         "--transport", "stdio"
       ],
       "env": {
-        "HOME": "${TMPDIR}"
+        "SERENA_HOME": "${TMPDIR}/.serena"
       }
     }
   }
