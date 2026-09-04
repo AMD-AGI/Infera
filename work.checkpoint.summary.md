@@ -7824,3 +7824,128 @@ three working practices of mine were invisible to me until someone named them.
 **The second set has no detection mechanism at all** — nothing in the package,
 nothing in `todo.md`, nothing anyone can be asked to run. T48 records the class;
 it does not detect it. **Recorded as open, not as solved.**
+
+## T+1373 — 2026-09-04 12:23 UTC
+
+### Brief item 2 is met. I ran the acceptance script myself rather than relay the exit code.
+
+```
+MOCK E2E ACCEPTED — 15 handoffs, 43 verdicts, 42 true; the one refusal is
+check_no_regression on integration_report and its report gives exactly the
+4 expected reasons.
+The run's own exit code is 5 and that is correct; this is the deliverable's green.
+```
+
+**Two runs, both accepted, real exit 0**, from `assets/lib/accept_mock.py`:
+`20260904T112414-cf3e82` and `20260904T114914-0a0cdd`.
+
+**The comparison I said was m3's is done and they did it by diffing, not
+eyeballing:** the four `PROBLEM:` texts match their four fingerprints one-to-one.
+So the run does not merely match the *shape* of the definition — it matches the
+content. That was the distinction I refused to collapse an hour ago and it is now
+closed from the other side.
+
+**Deliverable status.** Item 1 (definitions) substantially done; **item 2 (mock
+e2e green) — met and verified**; item 3 (real e2e, staged) barely begun.
+
+### And my own exit code was wrong before it was right
+
+My first run of the script produced this, which I nearly recorded:
+
+```
+accept_mock.py: error: unrecognized arguments: /home/.../20260904T112414-cf3e82
+  EXIT=0
+```
+
+**The script had failed on a missing `--run` flag and I printed `EXIT=0`** —
+because `$?` after `cmd | tail -8` is **`tail`'s** exit status, not the script's.
+A broken invocation reporting success, in the one measurement that certifies a
+deliverable.
+
+**Third T40 instance of mine today, and the closest to consequential.** The
+`^PROBLEM:` anchor forty minutes ago returned zero from an artefact that had
+four; this returned zero-as-success from a script that never ran. **What caught
+it was the error text sitting directly above the "success"** — not the exit code,
+which is the thing I was reading. I have re-run everything above with `rc=$?`
+captured before any pipe.
+
+### The number that matters
+
+| against the accepted definition | target | both runs |
+|---|---|---|
+| handoffs | 15 | **15** |
+| verdicts | 43 | **43** |
+| true | 42 | **42** |
+| the one false | `check_no_regression` on `integration_report` | ✓ |
+| its `PROBLEM:` lines | exactly the 4 named | ✓ **diffed by m3** |
+| **acceptance script** | exit 0 | **exit 0, run by me** |
+
+**And this metric has now saturated too — the third time I have had to say
+so.** It measures the *mock* chain, which is complete. **It says nothing at all
+about item 3**, which is the whole of the remaining work. The monotonic union
+could not go down; the handoff count could not reach its top; this one has
+reached its top and stopped discriminating. From the next section the reported
+number is **item 3's ladder — rungs clean, out of six** — which currently reads
+**0 of 6** and is the only figure that can now move.
+
+### Standing checks
+
+| check | result |
+|---|---|
+| (a) index leak | clean |
+| (b) shared-file commits | diff before, `numstat` after |
+| (c) `todo.md` | 48 items |
+| holds | three: 006, 217, 047 — **none lost in twelve intervals** |
+| run process | present at 12:23:38, **1 h 17 m**, past the reaper deaths |
+
+### 1. Progress
+
+**~86 %, up four.** Elapsed 1 373 m. **A deliverable completed and independently
+verified is the largest single move available**, and four points is what is left
+after acknowledging that item 3 — the hardest of the three — is barely begun.
+
+**Reliability: moderate** for the first time, and only for items 1 and 2, where
+there is now an executable acceptance test someone else wrote and I ran. **For
+item 3 it stays low**: 0 of 6 rungs clean, and my instrument does not measure it.
+
+**预估耗时: no number.** Unchanged, and now for a cleaner reason than before —
+item 3's cost is dominated by node availability, and four holds died unexplained
+today.
+
+### 2–6
+
+Three holds alive twelve intervals. `check_command_parses` open (below). 14
+commits since `15f5f63`, none mine.
+
+### 7. Two findings from the exchange, one of which is not mine
+
+**The seven `PROBLEM:` lines under `passed` headings are all
+`check_command_parses`**, and m3 has routed it to the leader who owns
+`steps/common.yaml`. Their point is sharp: `write_report`'s three headings are
+`passed` / `REFUSED` / `DID NOT RUN`, and `PROBLEM:` is **the marker for a
+finding that refuses**. A `PROBLEM:` under `passed` is a contradiction in the
+helper's own vocabulary — *either the validator labels notes as problems, or it
+finds problems and passes anyway.* Neither of us has read its body and neither is
+guessing. **Open, leader-owned.**
+
+**My measurement bought two controls that no control designed from this run could
+have found.** m3's script was already unaffected — it reads one validator's own
+report located from the verdict's zone, never a run-wide grep — but they
+tightened it anyway (`f577d77`) and added:
+
+```
+[3] a PROBLEM under a 'passed' heading   rc=0  ignored, as required
+[4] a second REFUSED section             rc=2  cannot judge
+```
+
+**Neither is reachable from today's artefacts.** I reported a *shape*, not a
+defect, and the shape had two holes in it.
+
+**And m3's framing of why the timing mattered is the thing I want kept:**
+
+> **A finding's value has a half-life set by how much has been built on top of
+> the thing it is about.**
+
+The same numbers a day later would have met two controls already written and a
+claim already quoted in `RUN-PLAN`, and the fix would have been an argument
+instead of an edit.
