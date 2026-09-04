@@ -132,9 +132,55 @@ capture m2 is about to take, which is sized by the deployment rung 1 recorded:
 
 ```sh
 RUN=<the rung-1 run directory under /home/yihou/agent_sys_runroot/runs/>
-grep -E '^  (tp_size|node|image):' \
-  "$(find "$RUN" -path '*items/codes/environment.yaml' | head -1)"
+KIT="$(python3 - "$RUN" <<'PY'
+import json, pathlib, sys
+run = pathlib.Path(sys.argv[1])
+best = ""
+for f in (run / "store" / "handoff").glob("*.json"):
+    d = json.loads(f.read_text())
+    if d.get("type") != "deploy_kit":
+        continue
+    # Highest version that actually holds the record. A failed attempt leaves a
+    # version directory behind with nothing in it.
+    for v in sorted((run / "handoffs" / d["id"]).glob("v*"),
+                    key=lambda p: int(p.name[1:]), reverse=True):
+        env = v / "content" / "items" / "codes" / "environment.yaml"
+        if env.is_file():
+            best = env
+            break
+print(best)
+PY
+)"
+[ -n "$KIT" ] || { echo "no deploy_kit environment.yaml under $RUN" >&2; exit 1; }
+echo "# read from: $KIT" >&2
+grep -E '^  (tp_size|node|image):' "$KIT"
 ```
+
+**This replaced a one-liner that was wrong twice over, and gave the right answer
+both times.** It was `find "$RUN" -path '*items/codes/environment.yaml' | head -1`.
+Dry-run against rung 1 on 2026-09-04 while it was still `generating`:
+
+- **It does not scope to `deploy_kit`.** On a *completed* tree that pattern
+  returns **17 paths**, not one: three real handoffs — `deploy_kit`,
+  `kernel_optimization` and `operator_workset` are all `code`-typed and all carry
+  the record at the same relative path — plus fourteen staged copies under
+  `zones/…/handoffs/` and validation `materials/`. `head -1` picked
+  **`kernel_optimization`**, which is m4's.
+- **It does not order versions.** With `v0`, `v1`, `v2` present, `find` walks
+  directory order and `head -1` reads the **oldest**. Confirmed on a fixture: the
+  superseded `v0` yielded `tp_size: 2` and a stale image while `v2` held the
+  right ones.
+
+Both were masked. The version bug is masked because rung 1's failed `v0` holds
+**0 files**, so it has no record to match. The scoping bug is masked by CONTRACT
+§2 — *one document, all fifteen kinds* — so m4's copy is byte-identical to the
+kit's and reading the wrong handoff returns the right values. **The command was
+correct by position, not by construction**, and the day it stops being so it
+returns a wrong `expect_ranks` with no signal at all.
+
+The replacement reads the store for the kind and takes the highest version that
+holds the file. Verified against both trees: the live `generating` one and a
+completed one where the old form picks m4.
 
 Then the run, with `tp_size`'s value as `expect_ranks` and `image` as `image`:
 
