@@ -19,6 +19,7 @@ happens here, before launch.
 from __future__ import annotations
 
 import contextlib
+import http.client
 import json
 import logging
 import os
@@ -66,28 +67,57 @@ class Status:
     url: str | None = None
 
 
+#: A port we may actually ask for. **`0` is excluded deliberately**: it binds
+#: successfully and then means "any free port", handing the choice to
+#: AgentsView's own auto-discovery — the delegation this module's header says
+#: it exists to prevent.
+_LOWEST_PORT = 1
+_HIGHEST_PORT = 65535
+
+
+def _in_range(port: int) -> bool:
+    return _LOWEST_PORT <= port <= _HIGHEST_PORT
+
+
 def resolve_port(flag: int | None, environ: Mapping[str, str]) -> int:
     """Flag, then environment, then 18888.
 
-    **An unparseable environment value is the default, not an error.** This is
-    a side-car; refusing to start the whole deployment over a typo in a
-    variable nobody needed would invert the priority the module is built on.
+    **An unusable value is the default, not an error.** This is a side-car;
+    refusing to start the whole deployment over a typo in a variable nobody
+    needed would invert the priority the module is built on. Unusable covers
+    both halves — a value that is not a number, and a number that is not a
+    port. The second is not pedantry: `socket.bind` answers an out-of-range
+    port with `OverflowError`, which is not `OSError` and so is not caught by
+    anything downstream except the CLI's blanket backstop, which is meant to
+    be a fuse rather than the mechanism.
     """
     if flag is not None:
-        return int(flag)
+        if _in_range(flag):
+            return int(flag)
+        log.warning(
+            "agentsview: --agentsview-port %d is not in %d-%d; using the default %d",
+            flag,
+            _LOWEST_PORT,
+            _HIGHEST_PORT,
+            DEFAULT_PORT,
+        )
+        return DEFAULT_PORT
     raw = environ.get(PORT_ENV_VAR)
     if raw is None:
         return DEFAULT_PORT
     try:
-        return int(raw)
+        parsed = int(raw)
     except ValueError:
-        log.warning(
-            "%s=%r is not a port number; using the default %d",
-            PORT_ENV_VAR,
-            raw,
-            DEFAULT_PORT,
-        )
-        return DEFAULT_PORT
+        parsed = None
+    if parsed is not None and _in_range(parsed):
+        return parsed
+    log.warning(
+        "%s=%r is not a usable port number; using the default %d",
+        PORT_ENV_VAR,
+        raw,
+        DEFAULT_PORT,
+    )
+    return DEFAULT_PORT
 
 
 def port_is_free(port: int, host: str = "127.0.0.1") -> bool:
@@ -96,13 +126,18 @@ def port_is_free(port: int, host: str = "127.0.0.1") -> bool:
     Connecting answers "is someone accepting", which is a different question:
     a socket bound and not listening still makes our own bind fail. We ask the
     question we actually need answered.
+
+    `OverflowError` alongside `OSError` because that is what `bind` raises for
+    a port outside 0-65535, and it descends from neither. `resolve_port` keeps
+    such a value from reaching here at all; this is the second line, for a
+    caller that passes a port directly.
     """
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             s.bind((host, port))
-        except OSError:
-            return False
+    except (OSError, OverflowError):
+        return False
     return True
 
 
@@ -135,10 +170,46 @@ IDENTITY_PATH = "/api/v1/agents"
 #: a deployment on the o11y probe.
 IDENTITY_MAX_BYTES = 1 << 20
 
-#: Written by a successful launch, read by the reuse gate. The record of *which
-#: port we put our own daemon on* — and therefore the only thing separating
-#: "reuse the panel we started" from "adopt whatever is listening".
-PORT_FILE = "agentsview.port"
+#: One identity request's own deadline, as distinct from `REUSE_PROBE_TIMEOUT_S`
+#: which bounds the *series* of them. They happen to be equal and are unrelated;
+#: the equality is why this was a bare `timeout=2` for a while, in a module that
+#: names every other timeout.
+IDENTITY_PROBE_TIMEOUT_S = 2.0
+
+#: **AgentsView's own artefact, not ours.** `serve` writes one
+#: `daemon.<pid>.json` into its `AGENTSVIEW_DATA_DIR` while it is running and
+#: removes it on a clean stop (measured, v0.42.0). Because that directory is
+#: the prefix's and nobody else's, a record found here was written by a daemon
+#: we configured — which is what separates "reuse the panel we started" from
+#: "adopt whatever is listening". Read only; never written by us.
+DAEMON_RECORD_GLOB = "daemon.*.json"
+
+#: The `service` field of that record, checked so an unrelated file matching
+#: the glob is not mistaken for a daemon.
+SERVICE_NAME = "agentsview"
+
+
+def _binary_env(prefix: Prefix) -> dict[str, str]:
+    """The environment every `agentsview` subprocess gets. One definition.
+
+    **`HOME` is gate 5 and it is the reason this is a function.** AgentsView
+    computes every provider's *default* session root from `HOME`, so pointing
+    it at the prefix means every root it could scan resolves inside the prefix
+    — regardless of whether that provider is named in `OTHER_PROVIDERS`, or
+    even exists yet. Unlike the denylist, this gate cannot go stale when
+    upstream adds a provider we have never heard of, because it needs no list
+    at all. It was written out at three call sites, with a test holding the
+    line at each; a test compensating for a missing helper is a helper that
+    should exist.
+
+    **A replacement, not an overlay.** Nothing of the caller's environment
+    reaches the binary — no `TMPDIR`, no `LANG`, no proxy variables. That is
+    deliberate (an inherited `CLAUDE_PROJECTS_DIR` or `AGENTSVIEW_DATA_DIR`
+    would undo the scoping) and it is what production has run on throughout;
+    it is *unverified* whether any AgentsView code path wants one of the
+    variables this drops.
+    """
+    return {**prefix.environment(), "PATH": str(prefix.bin), "HOME": str(prefix.root)}
 
 #: **The pinned, reviewable statement of intent** — every provider AgentsView
 #: can scan, minus Claude Code, hand-maintained and version-controlled. This
@@ -187,6 +258,9 @@ _KEEP_ENABLED = "claude"
 _AGENT_ROOTS_HEADER = "Agent roots:"
 _AGENT_ROOT_LINE_RE = re.compile(r"^  ([a-z0-9_-]+):", re.MULTILINE)
 
+#: The end of that section: the first line that is neither indented nor blank.
+_AGENT_ROOTS_END_RE = re.compile(r"^(?=\S)", re.MULTILINE)
+
 #: How long `doctor sync` may take. It only stats candidate directories and
 #: reads existing sync-state metadata — no full session parse — so this is
 #: short relative to the other probes in this module.
@@ -205,7 +279,14 @@ def _parse_agent_roots(stdout: str) -> tuple[str, ...] | None:
     start = stdout.find(_AGENT_ROOTS_HEADER)
     if start == -1:
         return None
-    section = stdout[start + len(_AGENT_ROOTS_HEADER) :]
+    # **Bounded at the next unindented line.** The section's own lines are all
+    # two-space indented, so the first line that is not is the next section —
+    # and scanning past it would turn any later `  something:` line into a
+    # phantom provider and a spurious drift warning. `discover_providers`'s
+    # docstring shows the hand-run command bounded the same way, with `sed`.
+    section = _AGENT_ROOTS_END_RE.split(
+        stdout[start + len(_AGENT_ROOTS_HEADER) :], maxsplit=1
+    )[0]
     names = {m.group(1) for m in _AGENT_ROOT_LINE_RE.finditer(section)}
     names.discard(_KEEP_ENABLED)
     return tuple(sorted(names)) if names else None
@@ -243,7 +324,7 @@ def discover_providers(prefix: Prefix) -> tuple[str, ...] | None:
     """
     exe = prefix.bin / "agentsview"
     try:
-        env = {**prefix.environment(), "PATH": str(prefix.bin), "HOME": str(prefix.root)}
+        env = _binary_env(prefix)
         proc = subprocess.run(  # noqa: S603
             [str(exe), "doctor", "sync"],
             env=env,
@@ -282,13 +363,23 @@ def write_config(prefix: Prefix, disabled_agents: Sequence[str]) -> None:
     cfg = prefix.agentsview_data / "config.toml"
     disabled = ", ".join(json.dumps(name) for name in disabled_agents)
     cfg.parent.mkdir(parents=True, exist_ok=True)
-    cfg.write_text(
+    # **Written whole, by rename.** `write_text` truncates and then writes, and
+    # the reader is a separate process: two concurrent deployments — the case
+    # `ensure_running` reasons about explicitly — can have one mid-truncate
+    # while the other's `doctor sync` or `serve` reads. A partial read of this
+    # particular file is not a crash, it is `disabled_agents` coming back
+    # short, which is every other provider silently re-enabled on the panel.
+    # `os.replace` is atomic within a directory, so a reader sees the old file
+    # or the new one and never a half of either.
+    tmp = cfg.with_name(cfg.name + f".{os.getpid()}.tmp")
+    tmp.write_text(
         "# Written by agent_sys. AgentsView itself is unmodified.\n"
         f"disabled_agents = [{disabled}]\n"
         'host = "127.0.0.1"\n'
         "disable_update_check = true\n"
         'daemon_idle_timeout = "0s"\n'
     )
+    os.replace(tmp, cfg)
 
 
 #: The exact substring AgentsView's config parser puts around the offending
@@ -373,7 +464,7 @@ def check_disabled_agents(prefix: Prefix) -> tuple[str, ...]:
     """
     exe = prefix.bin / "agentsview"
     try:
-        env = {**prefix.environment(), "PATH": str(prefix.bin), "HOME": str(prefix.root)}
+        env = _binary_env(prefix)
         proc = subprocess.run(  # noqa: S603
             [str(exe), "doctor", "sync"],
             env=env,
@@ -394,23 +485,90 @@ def check_disabled_agents(prefix: Prefix) -> tuple[str, ...]:
     return tuple(sorted(set(discovered) - set(OTHER_PROVIDERS)))
 
 
+def _pid_is_alive(pid: int) -> bool:
+    """`ESRCH` is a no; `EPERM` is a yes.
+
+    A process we may not signal still exists, and one living in our own data
+    directory is ours whether or not the current uid can touch it.
+    """
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except OSError:
+        return True
+    return True
+
+
 def _owns_port(prefix: Prefix, port: int) -> bool:
-    """Did *we* start what is on this port?
+    """Did *we* start what is on this port, and is it still alive?
 
     **A live AgentsView on 18888 is not evidence that it is ours.** A user who
     already runs AgentsView has a daemon with their own `AGENTSVIEW_DATA_DIR`,
     listing every session on the machine — adopting it would hand back a panel
-    that breaks the single requirement this component exists to satisfy. The
-    port file is written only by our own successful launch, so it is the only
-    evidence available that the daemon answering was configured by us.
+    that breaks the single requirement this component exists to satisfy.
 
-    Never raises: an unreadable or malformed file is a "no", because the safe
-    answer to *is this ours* is the one that declines to adopt a stranger.
+    **The witness is AgentsView's own `daemon.<pid>.json`, read out of our own
+    `AGENTSVIEW_DATA_DIR`.** A stranger's daemon writes its record into
+    *their* data directory, so it structurally cannot appear here — the
+    isolation is the filesystem's, not a convention we maintain. The record is
+    the dependency's published artefact, read and never written; AgentsView
+    stays unmodified.
+
+    This replaced a file of our own holding just the port number, which
+    recorded that we *once* started a daemon here and never expired. That is
+    evidence about the past: after our daemon died and the user started their
+    own AgentsView on the same port, both gates passed and the operator was
+    handed a URL to a panel listing their whole machine, with no warning.
+    Two things fix it, and both come from the record. It is removed by
+    AgentsView itself on a clean `serve stop` — measured on a real v0.42.0,
+    file gone and pid reaped — so the ordinary case leaves no stale evidence
+    at all; and for the unclean case (SIGKILL, OOM, reboot) the recorded pid
+    is checked for liveness, which the bare port number could not be.
+
+    It also retires the *other* half of that bug. The port file was written
+    only after the health check passed, so one slow cold start left a live
+    daemon nobody could recognize and the panel was skipped on every run
+    thereafter, permanently, blaming a stranger. AgentsView writes this record
+    when it starts, so a daemon that is up is recognized as ours whether or
+    not we were still waiting when it finished booting.
+
+    Never raises: a missing, unreadable, malformed or foreign-shaped record is
+    a "no", because the safe answer to *is this ours* is the one that declines
+    to adopt a stranger.
     """
     try:
-        return int((prefix.run / PORT_FILE).read_text().strip()) == port
-    except (OSError, ValueError):
+        records = sorted(prefix.agentsview_data.glob(DAEMON_RECORD_GLOB))
+    except OSError:
         return False
+    for path in records:
+        try:
+            record = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if not isinstance(record, dict) or record.get("service") != SERVICE_NAME:
+            continue
+        if not _record_names_port(record, port):
+            continue
+        pid = record.get("pid")
+        if isinstance(pid, int) and _pid_is_alive(pid):
+            return True
+    return False
+
+
+def _record_names_port(record: Mapping[str, Any], port: int) -> bool:
+    """`metadata.port` first, `address` as the fallback.
+
+    Both are present in a real v0.42.0 record (`"port": "18888"` and
+    `"address": "127.0.0.1:18888"`). Two readings rather than one because this
+    is an external artefact: a version that drops either field still leaves the
+    gate working, and a version that drops both fails closed.
+    """
+    metadata = record.get("metadata")
+    if isinstance(metadata, Mapping) and str(metadata.get("port", "")) == str(port):
+        return True
+    address = record.get("address")
+    return isinstance(address, str) and address.rsplit(":", 1)[-1] == str(port)
 
 
 def _identifies_as_agentsview(url: str) -> bool:
@@ -423,11 +581,13 @@ def _identifies_as_agentsview(url: str) -> bool:
     JSON is as close to proof as a probe gets.
     """
     try:
-        with urllib.request.urlopen(url + IDENTITY_PATH, timeout=2) as r:  # noqa: S310
+        with urllib.request.urlopen(  # noqa: S310
+            url + IDENTITY_PATH, timeout=IDENTITY_PROBE_TIMEOUT_S
+        ) as r:
             if r.status != 200:
                 return False
             json.loads(r.read(IDENTITY_MAX_BYTES).decode("utf-8", "replace"))
-    except (urllib.error.URLError, OSError, ValueError):
+    except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException):
         return False
     return True
 
@@ -463,10 +623,24 @@ def ensure_running(prefix: Prefix, port: int) -> Status:
         # **Two gates, and neither alone is enough.** Ownership is checked
         # first because it is a file read rather than a network round trip,
         # and because a `no` here means we must not probe further anyway.
-        if _owns_port(prefix, port) and _wait_for_health(
-            url, timeout=REUSE_PROBE_TIMEOUT_S
-        ):
-            return Status(True, "already running", url)
+        #
+        # The two failures are reported separately because their fixes are
+        # opposites: "something else has your port" sends an operator hunting
+        # for a process that does not exist when the truth is that our own
+        # daemon is wedged and wants killing.
+        if _owns_port(prefix, port):
+            if _wait_for_health(url, timeout=REUSE_PROBE_TIMEOUT_S):
+                return Status(True, "already running", url)
+            log.warning(
+                "agentsview: our own daemon holds port %d but did not answer %s "
+                "within %.1fs; skipping the o11y panel. Stop it with "
+                "`AGENTSVIEW_DATA_DIR=%s agentsview serve stop`.",
+                port,
+                url,
+                REUSE_PROBE_TIMEOUT_S,
+                prefix.agentsview_data,
+            )
+            return Status(False, f"our daemon on port {port} is not answering")
         log.warning(
             "agentsview: port %d is in use by something else; skipping the o11y "
             "panel. Pass --agentsview-port to choose another.",
@@ -518,7 +692,7 @@ def ensure_running(prefix: Prefix, port: int) -> Status:
     try:
         prefix.create()
         write_config(prefix, OTHER_PROVIDERS)
-        env = {**prefix.environment(), "PATH": str(prefix.bin), "HOME": str(prefix.root)}
+        env = _binary_env(prefix)
         proc = subprocess.run(  # noqa: S603
             [str(exe), "serve", "--background", "--no-browser", "--replace",
              "--host", "127.0.0.1", "--port", str(port)],
@@ -547,7 +721,12 @@ def ensure_running(prefix: Prefix, port: int) -> Status:
         )
         return Status(False, "health check timed out")
 
-    (prefix.run / PORT_FILE).write_text(str(port))
+    # Nothing is recorded here. AgentsView wrote its own `daemon.<pid>.json`
+    # into our data directory when it started, and that is what `_owns_port`
+    # reads — one witness, written by the process it describes, removed by it
+    # on a clean stop. A second record of ours would only be a thing that can
+    # disagree, and the last line of this function is a poor place to discover
+    # that `run/` has become unwritable.
     return Status(True, "started", url)
 
 
