@@ -139,11 +139,19 @@ def _check(content: Path, args: dict, problems: list[str], notes: list[str]) -> 
     # Reported, never graded: this is the number a reader wants and the number
     # that must not become a target.
     unresolved = [o for o in operators if not _resolved(o)]
-    # **`floor 0.0` and "no floor" are not the same statement**, and the note
-    # used to print the first for both. `min_resolve_ratio` is not passed by
-    # `steps/m3_analysis.yaml`, so the arm above **cannot refuse in this
-    # package as configured** — a reader seeing `floor 0.0` would reasonably
-    # take it for a configured bar that this artefact cleared.
+    # **`floor 0.0` and "no floor" are not the same statement**, and neither is
+    # the thing a reader needs: that *a floor of zero grades nothing*, however
+    # it got there. `steps/m3_analysis.yaml` DOES pass this arg
+    # (`min_resolve_ratio: '${min_resolve_ratio:-0.0}'`), so the arm is fully
+    # parameterised and `--var min_resolve_ratio=0.8` reaches it with no code
+    # change — m2 measured both directions: 0.0 passes an honest unresolved
+    # entry, 0.8 refuses it. An earlier version of this comment said the arg was
+    # unpassed, which would have told the next reader that wiring was needed
+    # when only a number was.
+    #
+    # The consequence for the note is that `raw` is never absent here, so the
+    # "unset" wording alone would never print. The three cases are separated
+    # below because they are three different statements about the run.
     #
     # Not fixed by inventing a number. A hard floor would refuse a legitimate
     # identity where genuinely few symbols resolved, and the design is that an
@@ -151,7 +159,12 @@ def _check(content: Path, args: dict, problems: list[str], notes: list[str]) -> 
     # output is the ratio plus the fact that nothing graded it. Same choice as
     # `reverify_shapes`: report the cost of the gap, leave the decision with
     # whoever sets the arg.
-    graded = "unset — this arm did not grade" if raw is None or raw == "" else f"floor {floor}"
+    if raw is None or raw == "":
+        graded = "no floor passed — this arm did not grade"
+    elif floor <= 0.0:
+        graded = f"floor {floor} — a floor of zero grades nothing; set --var min_resolve_ratio to grade it"
+    else:
+        graded = f"floor {floor}"
     notes.append(f"{len(resolved)}/{len(operators)} resolved (ratio {actual:.2f}, {graded})")
     for operator in unresolved:
         hint = operator.get("resolution_hint") or operator.get("excluded_reason") or ""

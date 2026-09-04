@@ -1773,3 +1773,45 @@ M5.3; m5's enum says nothing, so the same decision reads as available there.
 whenever the mechanism question is settled, is for the three to agree — either
 `rebuild` becomes emittable or it stops being acceptable.
 
+
+### T45 — a comment that asserts a wiring gap sends the next reader to change code, when only a number was missing
+
+**m3, 2026-09-04, found by m2 measuring instead of reading.**
+
+`check_identity_resolved.check.py:143` said `min_resolve_ratio` *"is not passed
+by `steps/m3_analysis.yaml`, so the arm above cannot refuse in this package as
+configured."* The yaml passes it —
+`min_resolve_ratio: '${min_resolve_ratio:-0.0}'` — so the arm is fully
+parameterised and `--var min_resolve_ratio=0.8` reaches it with no edit at all.
+m2 measured both directions on one operator with an honest unresolved entry:
+`0.0` passes, `0.8` refuses with `resolve_ratio 0.500 is below the floor 0.8`.
+
+**Two distinct costs, and the second is the reason this is a todo and not a
+typo.**
+
+1. It is wrong about the artefact. A reader who wants the bar enforced concludes
+   they must edit yaml and code, when they need only pass a var.
+2. **It made a defect look bigger than it was, in the direction of a finding.**
+   Both of us had it filed as an instance of the leader's "validators that grade
+   nothing" sweep. It is not one: `0.0` is a defended default with a written
+   argument, and the arm is live. The true defect was one stale sentence. A
+   stale comment does not merely fail to inform — it *manufactures* the finding
+   the sweep is looking for, and a sweep that trusts comments will report it.
+
+**And the fix I shipped first was itself unreachable.** `212773d` added an
+"unset — this arm did not grade" wording behind `if raw is None or raw == ""`.
+Because the yaml *does* pass the arg, `raw` is never absent and that branch
+could never execute in this package: the default path still printed
+`floor 0.0`. I checked that the new wording was correct and not that it was
+reachable — the same omission in a different costume, since a comment claiming
+the arg is unpassed is exactly what makes an `is None` branch look sufficient.
+Verified after correcting, by driving `_check` over a real `operator_identity`
+with all three arg values and reading the note each produced.
+
+**The rule.** A comment that describes *wiring* — what is passed, what is
+reachable, what cannot fire — is a claim about a file other than the one it sits
+in, and it goes stale silently because nothing loads it. Either grep the file
+you are describing at the moment you write the sentence, or describe the
+behaviour of the code in front of you and let the reader look up the wiring.
+The second is usually the better sentence anyway: *"a floor of zero grades
+nothing"* is true wherever the value comes from.
