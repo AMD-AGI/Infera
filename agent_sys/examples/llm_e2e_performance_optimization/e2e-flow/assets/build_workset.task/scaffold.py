@@ -49,6 +49,7 @@ sys.path.insert(0, str(_PACKAGE / "assets" / "lib"))
 
 import schema as schema_lib  # noqa: E402
 import store  # noqa: E402
+import workset_io as W  # noqa: E402
 
 HARNESS = _PACKAGE / "assets" / "build_workset.task" / "harness"
 
@@ -213,7 +214,13 @@ def main() -> int:
             uuid = _uuid(operator_id, case["case_id"])
             shapes.append({
                 "case_id": case["case_id"], "uuid": uuid, "axes": var_axes or {"batch": 1},
-                "role": "correctness-and-performance" if case.get("is_primary") else "correctness",
+                # Filled below, once every shape is known: the rule reads the
+                # whole list. Keying it on `is_primary` alone — which is what
+                # this line did until m4 found it — yields exactly one timed
+                # shape per operator by construction, and m4's packup refuses at
+                # three. `assign_roles` is shared with the validator so the
+                # producer cannot be the looser of the two readers.
+                "role": None,
                 "is_primary": bool(case.get("is_primary")), "observed": True,
                 "observed_shapes": case.get("shapes") or [],
                 "calls": entry.get("calls") or 0,
@@ -225,6 +232,15 @@ def main() -> int:
                              "uuid": uuid},
                 "solution": None, "evaluation": None}))
         (root / workload_rel).write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+
+        for shape, role in zip(shapes, W.assign_roles(shapes)):
+            shape["role"] = role
+        timed = sum(1 for s in shapes if W.is_performance(s["role"]))
+        if timed < W.PERFORMANCE_FLOOR:
+            print(f"warning: {operator_id} has {timed} performance-measured shape(s); "
+                  f"M3.7.4.1 needs {W.PERFORMANCE_FLOOR} and m4's packup refuses below it. "
+                  f"STEP 5 of the readme is where you add the missing ones",
+                  file=sys.stderr)
 
         # Idempotence: a Definition whose bodies the agent has already written is
         # left exactly as it is. Only the scaffolded half is refreshed.

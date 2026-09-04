@@ -237,6 +237,8 @@
           "type": "array",
           "minItems": 3,
           "description": "M3.7.4.1 — 必须提供所有 test case: 包括所有需要优化的形状, 保证在 ≥3. Two requirements, and the second is the weaker one. **Every shape the operator is to be optimised for must appear here**, so a consumer cannot optimise a shape nothing measured; three is the floor at which a performance claim is about an operator rather than about one shape. One row per line of `workload`, in the same order, and `check_workset_shape` checks the correspondence rather than trusting it.",
+          "contains": {"properties": {"role": {"enum": ["performance", "correctness-and-performance"]}}, "required": ["role"]},
+          "minContains": 3,
           "items": {"$ref": "#/$defs/shape"}
         },
 
@@ -480,7 +482,7 @@
         "role": {
           "type": "string",
           "enum": ["correctness", "performance", "correctness-and-performance"],
-          "description": "What the shape is for. **At least one shape must include `performance`** — a workset every one of whose shapes is correctness-only cannot answer the question m4 is asked."
+          "description": "What the shape is for. **At least three shapes must include `performance`** (`shapes.minContains`) — one is what keying this on `is_primary` produced, and it passes a floor written on the shape count while m4 refuses it at STEP 1 (`min_shapes_measured: 3`). A correctness-only shape cannot be shown to have got faster, so the timed count is the one M3.7.4.1's ≥3 is about. `assets/lib/workset_io.py:assign_roles` is the rule that assigns these, and both `build_workset` and `check_workset_shape` call it."
         },
         "is_primary": {"type": "boolean", "default": false, "description": "Exactly one shape per operator carries this. It is the modal shape in the capture, and it is the one a single headline number refers to."},
         "observed": {

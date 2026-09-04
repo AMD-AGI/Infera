@@ -202,8 +202,22 @@ def _check_shapes(content: Path, root: Path, operator: dict, args: dict, problem
     primaries = [s["case_id"] for s in shapes if s.get("is_primary")]
     if len(primaries) != 1:
         problems.append(f"{label}: {len(primaries)} primary shape(s) {primaries}, expected exactly 1")
-    if not any("performance" in s["role"] for s in shapes):
-        problems.append(f"{label}: no shape carries a performance role; nothing here can be timed")
+    # Not "at least one", which is what this said until m4 found the gap. One
+    # timed shape passes here and is refused twice downstream — by STEP 1 of
+    # m4's packup and again by `check_speedup_substantiated`'s
+    # `min_shapes_measured: 3` — so the loose reader was this one, at the output
+    # boundary of the stage that produces the artefact. The floor and the rule
+    # that satisfies it (`W.assign_roles`, used by the scaffold) now come from
+    # one module, so producer and validator cannot part company.
+    perf_floor = W.arg_num(args, "min_performance_shapes", W.PERFORMANCE_FLOOR, int)
+    timed = [s["case_id"] for s in shapes if W.is_performance(s["role"])]
+    if len(timed) < perf_floor:
+        problems.append(
+            f"{label}: {len(timed)} shape(s) carry a performance role {timed}, M3.7.4.1 requires "
+            f"{perf_floor}. A correctness-only shape cannot be shown to have got faster, so a "
+            f"workset that times fewer than {perf_floor} makes a claim about one shape rather "
+            f"than about an operator — and m4 refuses it at STEP 1"
+        )
 
     ids = [s["case_id"] for s in shapes]
     if len(set(ids)) != len(ids):

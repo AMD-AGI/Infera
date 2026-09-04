@@ -58,6 +58,10 @@ import yaml
 PKG = Path(os.environ.get("AGENT_SYS_TASK_PACKAGE")
            or os.environ.get("AGENT_SYS_DEMO_PACKAGE")
            or Path(__file__).resolve().parents[2])
+sys.path.insert(0, str(PKG / "assets" / "lib"))
+
+import workset_io as W  # noqa: E402
+
 HARNESS = PKG / "assets" / "build_workset.task" / "harness"
 MOCK_ROOT = Path(os.environ.get("E2E_MOCK_ROOT") or "/shared_nfs/yihou/agent_sys/cheat_for_mock")
 STAGE4 = MOCK_ROOT / "stage4-kernel-opt/workset/content/items/codes/sampler_vocab_softmax"
@@ -214,8 +218,13 @@ def main() -> int:
         uuid = f"{index:016x}"
         primary = batch == 8  # the traced production shape; the sealed README says so
         shapes.append({
+            # `role` is filled after the loop by the *production* rule rather
+            # than written here. It used to say `correctness-and-performance`
+            # outright, which is CONTRACT 4.4: the fixture was more generous
+            # than the scaffold, so no mock run ever exercised the scaffold's
+            # one-timed-shape-per-operator defect and m4 found it instead.
             "case_id": case_id, "uuid": uuid, "axes": {"batch": batch},
-            "role": "correctness-and-performance", "is_primary": primary,
+            "role": None, "is_primary": primary,
             "observed": primary,
             "calls": 20 if primary else 0,
             **({"observed_shapes": [[batch, vocab_size]]} if primary
@@ -228,6 +237,9 @@ def main() -> int:
                          "uuid": uuid},
             "solution": None, "evaluation": None}))
     (root / f"workloads/softmax/{OPERATOR}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    for shape, role in zip(shapes, W.assign_roles(shapes)):
+        shape["role"] = role
 
     # MOCK-MAP (A), and it has to happen **after** the rename above, which is
     # why it is here rather than in `entry.sh`: `env_render --content-type code`

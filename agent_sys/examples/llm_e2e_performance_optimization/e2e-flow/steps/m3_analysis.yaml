@@ -105,6 +105,13 @@
     # M3.7.4.1.2 — "保证在 ≥3". Three is the floor at which a performance claim
     # is about an operator rather than about one shape.
     min_shapes: 3
+    # The same 3, on a different count, and the difference is the whole point:
+    # `min_shapes` counts every shape and this counts the ones carrying a
+    # performance role. m4's packup refuses below three timed shapes (STEP 1,
+    # and `check_speedup_substantiated`'s `min_shapes_measured`), so a workset
+    # that satisfies only the first floor is one this stage would seal and the
+    # next would refuse.
+    min_performance_shapes: 3
     require_entrypoints: [correctness, performance]
   tags: {logic_source: external_static, cost: seconds, domain: [llm_e2e, analysis, m3]}
 

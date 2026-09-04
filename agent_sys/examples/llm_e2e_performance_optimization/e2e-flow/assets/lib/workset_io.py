@@ -24,8 +24,12 @@ from pathlib import Path
 
 __all__ = [
     "ABSOLUTE_PATH_ALLOW_LIST",
+    "PERFORMANCE_FLOOR",
+    "PERFORMANCE_ROLES",
     "absolute_paths_in",
     "arg_num",
+    "assign_roles",
+    "is_performance",
     "load_definition",
     "load_report",
     "load_workload",
@@ -100,6 +104,64 @@ def arg_num(args: dict, name: str, default, cast=float):
     if value is None or value == "":
         return cast(default)
     return cast(value)
+
+
+#: The two `role` values that mean "this shape gets timed".
+PERFORMANCE_ROLES = frozenset({"performance", "correctness-and-performance"})
+
+#: How many shapes must be **performance-measured**, not merely present.
+#:
+#: `minItems: 3` on `shapes` counts every shape, correctness-only ones included,
+#: so a workset can satisfy it while timing exactly one — and `build_workset`'s
+#: scaffold did precisely that, keying `role` on `is_primary`, of which there is
+#: exactly one per operator by construction. m4 found it: STEP 1 of its packup
+#: refuses with `1 performance shapes, the workset contract requires >= 3`, and
+#: `check_speedup_substantiated` refuses again at the output boundary under
+#: `min_shapes_measured: 3`. So the floor belongs on the *role* count as well as
+#: on the shape count, and M3.7.4.1 is where both come from: 必须提供所有 test
+#: case，包括所有需要优化的形状，保证在 ≥3 — 供步骤4使用. A shape nothing timed is
+#: not a test case module 4 can use.
+PERFORMANCE_FLOOR = 3
+
+
+def is_performance(role: str) -> bool:
+    """Whether a `shapes[].role` means the shape is timed."""
+    return role in PERFORMANCE_ROLES
+
+
+def assign_roles(shapes: list[dict], floor: int = PERFORMANCE_FLOOR) -> list[str]:
+    """The `role` of every shape, in `shapes` order. One rule, every caller.
+
+    Reads `is_primary` and `observed` off each entry and returns the role
+    strings; it does not write them, so a caller building a dict literal and a
+    caller patching one both get the same answer.
+
+    The rule, in priority order:
+
+    1. **The primary shape is always timed.** It is the modal shape in the
+       capture and the one a headline number refers to.
+    2. **Every observed shape is timed.** M3.7.4.1's 所有需要优化的形状 — a shape
+       the service actually runs is a shape the optimisation is for, and one
+       that is measured for correctness only cannot be shown to have got faster.
+    3. **Synthetic shapes are promoted, in order, until `floor` is reached.**
+       A shape constructed to cover a tile boundary is a correctness probe by
+       intent, but the floor is on the count and not on the provenance: three is
+       where a performance claim is about an operator rather than about one
+       shape, and an operator with one observed shape still owes that claim.
+
+    Everything not promoted is `correctness`. Timing costs wall-clock, so this
+    promotes to the floor and no further — beyond it, rule 2 alone decides.
+    """
+    order = sorted(range(len(shapes)),
+                   key=lambda i: (not shapes[i].get("is_primary"), not shapes[i].get("observed"), i))
+    timed = {i for i in range(len(shapes))
+             if shapes[i].get("is_primary") or shapes[i].get("observed")}
+    for i in order:
+        if len(timed) >= floor:
+            break
+        timed.add(i)
+    return ["correctness-and-performance" if i in timed else "correctness"
+            for i in range(len(shapes))]
 
 
 def workset_root(content: Path) -> Path:
