@@ -145,12 +145,21 @@ def main() -> int:
     required = bool(args.get("require_present", True))
 
     verdict: dict[str, bool] = {}
-    findings: list[str] = []
+    # `(line, is_fault)`. **The flag is set where the line is written, not
+    # recovered from its wording afterwards.** Every line used to go into
+    # `write_report`'s *problems* slot, so a passing handoff's report read
+    # `PROBLEM: items/command bash -n clean` — a `PROBLEM:` under a `passed`
+    # heading, which is a contradiction in the helper's own vocabulary and made
+    # a reader ask whether this validator grades and then ignores its own grade.
+    # It does not; the verdict was always right and only the rendering lied.
+    # Measured by `checkpoint` and reproduced by m3 across two runs: 7 of the 11
+    # `PROBLEM:` lines in the whole run came from here, all under `passed`.
+    findings: list[tuple[str, bool]] = []
 
     for hid in zone.inputs():
         content = zone.content_of(hid)
         if content is None:
-            findings.append(f"{hid}: nothing staged — treated as no content, never as a pass")
+            findings.append((f"{hid}: nothing staged — treated as no content, never as a pass", True))
             verdict[hid] = False
             continue
 
@@ -160,10 +169,13 @@ def main() -> int:
             # for the absence would fail a correct artefact. Only a kind that
             # declares one is held to this.
             verdict[hid] = not required
-            findings.append(
+            findings.append((
                 f"{hid}: no {' or '.join(CANDIDATES)}"
-                + ("" if required else " (not required for this kind)")
-            )
+                + ("" if required else " (not required for this kind)"),
+                # A kind that does not declare a command is not at fault for
+                # lacking one; the same sentence is a finding only when it is.
+                required,
+            ))
             continue
 
         ok = True
@@ -172,22 +184,25 @@ def main() -> int:
             rel = path.relative_to(content)
             if not good:
                 ok = False
-                findings.append(
+                findings.append((
                     f"{hid}: {rel} does not parse — {why}. "
                     f"A reproducer runs this first, so an unparseable one makes the "
-                    f"handoff unreproducible however complete the rest of it is."
-                )
+                    f"handoff unreproducible however complete the rest of it is.",
+                    True,
+                ))
             else:
-                findings.append(f"{hid}: {rel} {why}")
+                # The one line that is NOT a fault, and the whole reason for
+                # the flag: this is the shape that rendered as `PROBLEM:`.
+                findings.append((f"{hid}: {rel} {why}", False))
             # Executable is `agent.gate`'s rule and is checked there; reported
             # here because a script that parses and cannot be run is the same
             # dead end arrived at differently.
             if not os.access(path, os.X_OK):
-                findings.append(f"{hid}: {rel} is not executable")
+                findings.append((f"{hid}: {rel} is not executable", True))
                 ok = False
         verdict[hid] = ok
 
-    for line in findings:
+    for line, _ in findings:
         print(line, file=sys.stderr)
     # **The reasons have to outlive stdout**, and here they are printed to
     # *stderr*, which is kept even less than stdout. This validator's whole
@@ -200,9 +215,10 @@ def main() -> int:
     # the report matches the shape `write_report` publishes, and lines that
     # name no handoff are kept under `""` rather than dropped.
     by_hid: dict[str, tuple[list[str], list[str]]] = {hid: ([], []) for hid in verdict}
-    for line in findings:
+    for line, is_fault in findings:
         hid = line.split(":", 1)[0]
-        by_hid.setdefault(hid if hid in verdict else "", ([], []))[0].append(line)
+        slot = by_hid.setdefault(hid if hid in verdict else "", ([], []))
+        slot[0 if is_fault else 1].append(line)
     # Before the verdict, so a crash in the writer cannot take the reasons with it.
     W.write_report("check_command_parses", by_hid, verdict)
     zone.write_verdict(verdict)
