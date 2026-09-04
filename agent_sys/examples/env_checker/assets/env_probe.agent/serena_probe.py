@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The file serena is pointed at. L1.
+"""The file serena is pointed at. Installed by a recipe.
 
 **Not under `.claude/`, and that is deliberate.** Everything in `.claude/` is a
 capability being installed; this is a *subject* — a small Python file with one
@@ -7,11 +7,16 @@ distinctively named symbol in it, sitting in the agent's workspace so that a
 code-analysis server has something to analyse. Putting it under `.claude/`
 would offer it to the installer as a component, which it is not.
 
-serena is L1: it is installed by an `env_mgr` recipe named in the agent spec's
-`recipes:` key, it is third-party, and it is the one capability of the seven
-whose artefact this repository does not author. So its token cannot be baked
-into the tool that reports it, the way the other six are. It is baked in here
-instead, and the capability is proved by serena being able to **find** it:
+serena is installed by a recipe — `recipes: [serena]` on the agent spec, which
+resolves to `agent_sys/env_mgr/recipes/serena.yaml` — and **declared** by an
+entry in the agent's own `.claude/.mcp.json`. Both halves are needed and neither
+implies the other; run 1 had the install and not the declaration, and every
+`mcp__serena__*` call answered `No such tool available`.
+
+It is third-party, and it is the one capability of the six whose artefact this
+repository does not author. So its token cannot be baked into the tool that
+reports it, the way the others are. It is baked in here instead, and the
+capability is proved by serena being able to **find** it:
 
     mcp__serena__find_symbol  name_path="envchk_serena_token"  include_body=true
 
@@ -40,7 +45,7 @@ import hashlib
 import os
 
 LABEL = "serena"
-LEVEL = "L1"
+INSTALLED_BY = "recipe"
 
 
 def envchk_serena_token(nonce: str | None = None) -> str:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""The token scheme, and the register of the seven capabilities.
+"""The token scheme, and the register of the six capabilities.
 
-**This is the one place the derivation is written down as code.** The seven
+**This is the one place the derivation is written down as code.** The six
 artefacts each carry their own copy of the arithmetic — they have to, because a
 `SKILL.md` cannot import anything and an MCP server that imported this module
 would have a dependency on the package that installs it — but each of them
@@ -18,28 +18,28 @@ in this package is read:
 
 A token is `sha256(f"{salt}:{label}:{nonce}")[:12]`, so producing one requires
 both halves. A run whose `env_mgr` installed nothing has no salts, and an agent
-that reports seven tokens without them is reporting sha256 of something else.
+that reports six tokens without them is reporting sha256 of something else.
 
 **A central table of salts would destroy this** — one file read would yield all
-seven — so this module deliberately does not have one. The validator obtains
+six — so this module deliberately does not have one. The validator obtains
 each salt the same way the agent does: out of the artefact, by the tag below.
 Single source of truth, and it cannot drift, because there is only one copy.
 
 **Adding `SALTS = {...}` to this module is a regression, not a tidy-up.** It is
-the obvious next edit — a register of seven capabilities that does not register
+the obvious next edit — a register of six capabilities that does not register
 their salts looks incomplete — and it would reduce the whole scheme to a
 formality: any agent, having installed nothing, could read one file and report
-seven correct tokens. If a caller needs a salt it reads the artefact, and if
+six correct tokens. If a caller needs a salt it reads the artefact, and if
 that is inconvenient the inconvenience is the mechanism working.
 
 ## What the tokens do not prove
 
 Written here rather than only in the validator's readme, because this is the
-module a reader reaches first. Four of the seven artefacts are files an agent
+module a reader reaches first. Four of the six artefacts are files an agent
 with `Read` can open, so a token proves **the capability was installed and its
 artefact was reachable in this zone** — it does not prove the agent obtained it
 through the capability. `check_capabilities_genuine` closes that gap for the
-three capabilities that are processes, by running them itself, and states the
+two capabilities that are processes, by running them itself, and states the
 residual for the rest. Suspend, don't conclude: this module claims installation,
 not honesty.
 """
@@ -74,7 +74,7 @@ SALT_TAG = re.compile(r"ENVCHK_SALT:\s*([0-9a-f]{32})")
 
 
 class Capability(NamedTuple):
-    """One of the seven, and everything a validator needs to judge it.
+    """One of the six, and everything a validator needs to judge it.
 
     `artefact` is relative to `origin`'s root, not to anything absolute: a task
     package is staged into a zone and an absolute path written here would point
@@ -84,20 +84,46 @@ class Capability(NamedTuple):
     #: The key under `capabilities` in the handoff's `items/text.json`, and the
     #: `label` half of every token derivation.
     label: str
-    #: Which install level **installed** it — the fact this whole package exists
-    #: to measure. A section reporting the wrong level is a fault even when its
-    #: token is right, because it means the report is describing another route.
+    #: **The section number in the brief, written down rather than derived.**
+    #: It used to be this tuple's index plus one. That convention cannot express
+    #: a hole, and there is one: capability **6**, the in-process `ToolDef`, was
+    #: deleted with the route it measured (`agent_sys/docs/spec.provisioning.md`
+    #: §6), and renumbering serena from 7 to 6 would hide the deletion behind a
+    #: tidy sequence. A reader counting six sections and seeing 1-5 and 7 asks
+    #: the right question.
+    section: int
+    #: **Which of the two install routes put it in the zone** — the fact this
+    #: whole package exists to measure. `spec.provisioning.md` has exactly two
+    #: and this field carries their names:
     #:
-    #: **Installed, not declared, and for `serena` the two differ.** Its binary
-    #: comes from L1 (`recipes: [serena]`) and its MCP registration from L2
-    #: (`agent_plugins: [serena]`), so this field reads `L1` and `ACCEPTANCE.md`
-    #: row 7 carries the other half. Run 1 shipped with the install and no
-    #: declaration and every `mcp__serena__*` call failed, which is why the
-    #: distinction is spelled out here instead of left to the word "delivered".
-    level: str
-    #: `package` — relative to `$AGENT_SYS_TASK_PACKAGE`; or
-    #: `component:<name>` — relative to that component's directory in the
-    #: repository's `agent_sys/env_mgr/addons/` registry.
+    #: - ``"copied"`` — §3's copy route: the agent's own
+    #:   `assets/<name>.agent/.claude/` tree, copied into the zone config.
+    #: - ``"recipe"`` — §2/§4: declared in a recipe and installed by `env_mgr`.
+    #:
+    #: A section reporting the wrong one is a fault even when its token is
+    #: right, because it means the report is describing another route.
+    #:
+    #: **This replaces `level: "L1"|"L2"|"L3"`, which is gone from this package
+    #: entirely.** The levels named an install *hierarchy* that no longer
+    #: exists — `spec.provisioning.md`'s opening row says it supersedes that
+    #: vocabulary — and the middle rung, a declaration key reaching
+    #: `env_mgr/addons/`, was deleted outright.
+    #:
+    #: **Installed, not declared, and for two capabilities the two differ.**
+    #: `serena`'s binary and `mcp_external`'s server file are both installed by a
+    #: recipe, and both are *declared* in the agent's own `.claude/.mcp.json`.
+    #: This field reports the install; `ACCEPTANCE.md` rows 4 and 7 carry the
+    #: other half. Run 1 shipped serena with the install and no declaration and
+    #: every `mcp__serena__*` call failed, which is why the distinction is
+    #: spelled out here instead of left to the word "delivered".
+    installed_by: str
+    #: Where `artefact` is rooted:
+    #:
+    #: - ``"package"`` — relative to `$AGENT_SYS_TASK_PACKAGE`, the staged copy.
+    #: - ``"zone_config"`` — relative to `<zone>/config/`, where a recipe placed
+    #:   it. Used by `mcp_external`, whose server file this repository ships
+    #:   under `env_mgr/addons/` and whose only copy inside the run is the placed
+    #:   one.
     origin: str
     #: Where the salt lives, relative to that root.
     artefact: str
@@ -112,16 +138,15 @@ class Capability(NamedTuple):
     #: this file; saying it in the message saves the trip.
     what: str
     #: The **full name the brief tells the agent to call**, or `None` for the
-    #: three capabilities not reached through MCP at all.
+    #: three capabilities not reached through MCP at all — sections 1, 2 and 3.
     #:
-    #: **Written as the brief's name, not as the component's `.mcp.json` key,
-    #: and the provenance is the point.** The same string lives in
+    #: **Written as the brief's name, not as the `.mcp.json` key, and the
+    #: provenance is the point.** The same string lives in
     #: `assets/probe_env.task/readme.md` as prose — `mcp__envchk_baseline__…`,
-    #: `mcp__envchk_stdio__…`, `mcp__env_mgr__envchk_echo_token`,
-    #: `mcp__serena__find_symbol` — and until this field existed nothing could
-    #: compare that prose to the `.mcp.json` data. Sourcing the row from the
-    #: brief makes a **brief-versus-component** disagreement visible too, which
-    #: a row copied from the component could never see.
+    #: `mcp__envchk_stdio__…`, `mcp__serena__find_symbol` — and until this field
+    #: existed nothing could compare that prose to the `.mcp.json` data. Sourcing
+    #: the row from the brief makes a **brief-versus-declaration** disagreement
+    #: visible too, which a row copied from the `.mcp.json` could never see.
     #:
     #: **The full name and not the bare server key**, because the tool half is
     #: where the mistake actually happens: the brief itself warns that the
@@ -144,21 +169,24 @@ class Capability(NamedTuple):
     #: not as a capability that quietly is not there. Do not "remove the
     #: duplication" — removing it removes the only cross-check.
     #:
-    #: `env_mgr` is a **constant** server: it exists the moment any `ToolDef`
-    #: does. Statically it is still worth checking — a `*.tooldef.py` declaring
-    #: no `TOOLS` publishes nothing — but a *runtime* check asserting only
-    #: `env_mgr` would be a check that cannot fail, which is why the runtime
-    #: comparison must use the tool half this field preserves.
+    #: **Every surviving surface names a server somebody had to declare.** The
+    #: one that did not was `mcp__env_mgr__envchk_echo_token` — `env_mgr` was a
+    #: *constant* server, present the moment any `ToolDef` was, so a runtime
+    #: check asserting only its server half could not fail. That capability is
+    #: gone (section 6), and the argument it forced is kept: compare the tool
+    #: half, which is the half that gets typed wrong.
     surface: str | None
 
 
 #: The register. **Order is the order a reader meets them in the brief**, and
-#: the brief's section numbers are this tuple's indices plus one — a reordering
-#: here is a reordering there.
+#: each row carries its own `section` number rather than taking one from its
+#: index — see `Capability.section`. Section **6** is absent, and its absence is
+#: the record of a deleted capability rather than a gap to close by renumbering.
 CAPABILITIES: tuple[Capability, ...] = (
     Capability(
         label="skill",
-        level="L3",
+        section=1,
+        installed_by="copied",
         origin="package",
         artefact="assets/env_probe.agent/.claude/skills/envchk-probe/SKILL.md",
         replay="salt",
@@ -167,7 +195,8 @@ CAPABILITIES: tuple[Capability, ...] = (
     ),
     Capability(
         label="hook",
-        level="L3",
+        section=2,
+        installed_by="copied",
         origin="package",
         artefact="assets/env_probe.agent/.claude/hooks/envchk_session_start.py",
         replay="file",
@@ -176,7 +205,8 @@ CAPABILITIES: tuple[Capability, ...] = (
     ),
     Capability(
         label="plugin",
-        level="L3",
+        section=3,
+        installed_by="copied",
         origin="package",
         artefact=(
             "assets/env_probe.agent/.claude/plugins/envchk-plugin"
@@ -188,34 +218,40 @@ CAPABILITIES: tuple[Capability, ...] = (
     ),
     Capability(
         label="mcp_external",
-        level="L2",
-        origin="component:envchk-baseline",
-        artefact=".claude/servers/envchk_baseline_server.py",
+        section=4,
+        # The server FILE is placed by the package-layer recipe
+        # (`assets/main.env_recipe.yaml`), which copies it out of
+        # `env_mgr/addons/envchk-baseline/`. Its `.mcp.json` entry is the
+        # agent's own, which is what section 5 now shares with it.
+        installed_by="recipe",
+        origin="zone_config",
+        artefact="servers/envchk_baseline_server.py",
         replay="mcp",
-        what="an external MCP server declared in a component's .claude/.mcp.json",
+        what="an stdio MCP server whose file a recipe installs and whose entry the agent declares",
         surface="mcp__envchk_baseline__envchk_report",
     ),
     Capability(
         label="mcp_stdio",
-        level="L3",
+        section=5,
+        installed_by="copied",
         origin="package",
         artefact="assets/env_probe.agent/.claude/tools/envchk_stdio.mcp.py",
         replay="mcp",
         what="a bundled stdio MCP server auto-registered from .claude/tools/*.mcp.py",
         surface="mcp__envchk_stdio__envchk_report",
     ),
-    Capability(
-        label="tooldef",
-        level="L3",
-        origin="package",
-        artefact="assets/env_probe.agent/.claude/tools/envchk_inproc.tooldef.py",
-        replay="import",
-        what="an in-process ToolDef published as mcp__env_mgr__envchk_echo_token",
-        surface="mcp__env_mgr__envchk_echo_token",
-    ),
+    # **Section 6 was `tooldef` and is deleted, not moved.** It measured the
+    # in-process `ToolDef` route — a `.claude/tools/*.tooldef.py` imported into
+    # the supervisor and published as `mcp__env_mgr__envchk_echo_token` — and
+    # `spec.provisioning.md` §6 deleted that route for component-supplied tools:
+    # third-party code executing in the process that supervises every agent, with
+    # its memory, file descriptors and credentials, and no boundary to fail
+    # closed. Nothing replaces it here, because an add-on now ships a server that
+    # runs on its own, which is what sections 4 and 5 already measure.
     Capability(
         label="serena",
-        level="L1",
+        section=7,
+        installed_by="recipe",
         origin="package",
         artefact="assets/env_probe.agent/serena_probe.py",
         replay="salt",
@@ -243,7 +279,6 @@ PROOF_KEYS: dict[str, str] = {
     "plugin": "plugin_list",
     "mcp_external": "raw",
     "mcp_stdio": "raw",
-    "tooldef": "raw",
     "serena": "raw",
 }
 

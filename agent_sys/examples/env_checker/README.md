@@ -1,9 +1,10 @@
 # `examples/env_checker` — does the environment an agent is promised actually arrive?
 
 One leaf, one handoff kind, two validators, and a subject that is `agent_sys`
-itself: **seven Claude Code capabilities, installed per-agent, across three
-install levels**, each one exercised and each one reported with a token that a
-run which did not install it cannot produce.
+itself: **six Claude Code capabilities, installed per-agent by the two install
+routes `agent_sys/docs/spec.provisioning.md` defines**, each one exercised and
+each one reported with a token that a run which did not install it cannot
+produce.
 
 ```
 main                        non-leaf: readme, no entry.sh, NO agent
@@ -15,15 +16,51 @@ main                        non-leaf: readme, no entry.sh, NO agent
                               check_capabilities_genuine minutes · strong · trustworthiness
 ```
 
-| # | capability | level | delivered by |
+| # | capability | installed by | delivered by |
 |---|---|---|---|
-| 1 | skill | L3 | `assets/env_probe.agent/.claude/skills/envchk-probe/` — auto-detected |
-| 2 | hook | L3 | `.claude/settings.json` → `hooks/envchk_session_start.py`, at `SessionStart` |
-| 3 | plugin | L3 | `.claude/plugins/` — a local marketplace, `claude plugin install` |
-| 4 | external MCP server | **L2** | `agent_sys/env_mgr/addons/envchk-baseline/.claude/.mcp.json` |
-| 5 | bundled stdio MCP server | L3 | `.claude/tools/envchk_stdio.mcp.py` — location is the declaration |
-| 6 | in-process `ToolDef` | L3 | `.claude/tools/envchk_inproc.tooldef.py` → `mcp__env_mgr__envchk_echo_token` |
-| 7 | serena | **L1** | `recipes: [serena]` — the real thing, over the network |
+| 1 | skill | copied | `assets/env_probe.agent/.claude/skills/envchk-probe/` — auto-detected |
+| 2 | hook | copied | `.claude/settings.json` → `hooks/envchk_session_start.py`, at `SessionStart` |
+| 3 | plugin | copied | `.claude/plugins/` — a local marketplace, `claude plugin install` |
+| 4 | an MCP server a recipe installed | **recipe** | `assets/main.env_recipe.yaml` places `env_mgr/addons/envchk-baseline/`'s server; the agent's `.claude/.mcp.json` declares it |
+| 5 | bundled stdio MCP server | copied | `.claude/tools/envchk_stdio.mcp.py` — location is the declaration |
+| 7 | serena | **recipe** | `recipes: [serena]` — the real thing, over the network; the agent's `.claude/.mcp.json` declares it |
+
+**There are two install routes and exactly two**, and the table's second column
+is which one: a **recipe** declares something and `env_mgr` installs it, or the
+agent's own `.claude/` tree is **copied** into the zone's config directory.
+
+**Section 6 is absent and the number is not reused.** It was an in-process
+`ToolDef`, published as `mcp__env_mgr__envchk_echo_token`, and
+`spec.provisioning.md` §6 deleted that route for component-supplied tools.
+Renumbering serena to 6 would leave a reader to infer a capability was never
+there.
+
+### What this package proves now, and what it stopped proving
+
+Until 2026-09-04 the table had a third column's worth of meaning: three *install
+levels*, where L2 was **a `.claude/` tree this repository ships, installed for an
+agent by naming it** (`agent_plugins: [envchk-baseline]`). That declaration key
+is deleted, so:
+
+- **Stopped proving:** that a shipped `.claude/` tree can be installed by
+  declaration. No such route exists. Nothing here measures it and nothing should.
+- **Stopped proving:** that sections 4 and 5 differ by **who owns the declaring
+  directory**. Both entries are now in the agent's own `.claude/.mcp.json`, so
+  that distinction is gone. What still separates them is stated at each: 4 is
+  declared explicitly and its payload installed by a recipe; 5 is declared by
+  where its file sits and installed by the copy.
+- **Stopped proving:** `env_mgr`'s *load the placed copy, not the source*
+  isolation property for in-process tools. That was row 6b, the widest claim in
+  the package, and `ACCEPTANCE.md` records that it has to come back if the route
+  does.
+- **Still proves, unchanged:** that each of the six capabilities reached the
+  agent's zone, by a token the agent could not compute without doing so; that
+  serena's *install* and *declaration* are two halves and neither implies the
+  other (run 1); and that a marketplace registered outside the run root installs
+  cleanly and then fails to load (row 3b).
+- **Newly proves:** that a recipe can install something `agent_sys` ships into an
+  agent's zone with **no exported path pointing outside it** — section 4's
+  server is located by importing `env_mgr` from inside the recipe child.
 
 ## Run it
 
@@ -36,7 +73,7 @@ agent-sys run --package agent_sys/examples/env_checker \
 Both variables are **required and have no default**; `steps/check.yaml` argues
 each at the agent's `env` block. `nonce` because a constant nonce would make the
 first published handoff contain every later run's answers; `uv_root` because
-serena's L1 install is `uv tool install`, whose defaults write `~/.local/share/uv`
+serena's install is `uv tool install`, whose defaults write `~/.local/share/uv`
 — host state outside any zone.
 
 **Accept by opening the handoff, not by reading the exit code.**
@@ -50,8 +87,8 @@ on a shared box, the abort conditions, and an eight-item pre-flight.
 Every capability carries `sha256(f"{salt}:{label}:{nonce}")[:12]`, where the
 salt lives in exactly one place — that capability's own artefact — and the nonce
 is per-run. There is **no table of salts anywhere**, including in
-`assets/lib/envchk.py`: one file listing all seven would let a single read
-produce all seven tokens.
+`assets/lib/envchk.py`: one file listing all six would let a single read
+produce all six tokens.
 
 This exists because of `.claude/CLAUDE.md`'s first principle. A previous stage
 in this repository reported fourteen tasks and ten validators PASS over a run in
@@ -59,16 +96,16 @@ which every result was zero. The general form of that failure is a producer
 being believed about its own environment, and a token is the cheapest thing that
 cannot be produced by belief.
 
-**What that buys, stated exactly**: an agent cannot report seven tokens if the
-seven capabilities were not installed into its zone. It does **not** prove the
+**What that buys, stated exactly**: an agent cannot report six tokens if the
+six capabilities were not installed into its zone. It does **not** prove the
 agent obtained each token through the capability rather than by reading the
-file — four of the seven artefacts are readable files, and the agent and the
+file — four of the six artefacts are readable files, and the agent and the
 artefacts are in the same zone by construction, because putting them there is
 the thing being measured.
 `assets/check_capabilities_genuine.validator/readme.md` closes that gap for the
-three capabilities that are processes — it starts both MCP servers itself and
-imports the ToolDef module — and states the residual for the rest, per
-capability, in its *What it cannot catch* section.
+two capabilities that are processes — it starts both MCP servers itself — and
+states the residual for the rest, per capability, in its *What it cannot catch*
+section.
 
 ## Layout
 
@@ -77,31 +114,42 @@ main.yaml                                       root non-leaf
 steps/check.yaml                                agent + 2 validators + handoff kind + task
 assets/
   main.task/readme.md
-  probe_env.task/readme.md                      the brief: use all seven, report evidence
+  probe_env.task/readme.md                      the brief: use all six, report evidence
   env_probe.agent/
     README.md                                   maps the .claude/ tree and argues settings.json
     serena_probe.py                             section 7's subject — NOT a capability
-    .claude/…                                   L3: six of the seven
+    .claude/…                                   the copied tree: five of the six, plus the .mcp.json entries for 4 and 7
+  main.env_recipe.yaml                          the package recipe layer: places section 4's server
   lib/zone.py                                   the four body-facing zone files
   lib/envchk.py                                 the token scheme and the capability register
   check_env_report_shape.validator/
   check_capabilities_genuine.validator/
 ```
 
-`agent_sys/env_mgr/addons/envchk-baseline/` is L2 and lives outside this package on
-purpose: a component that only one package can reach is not a component.
+`agent_sys/env_mgr/addons/envchk-baseline/` lives outside this package on
+purpose: an add-on only one package can reach is not an add-on. It is installed
+from here by `assets/main.env_recipe.yaml`, which locates it by importing
+`env_mgr` rather than by any path this package knows.
 
 ## Known gaps
 
 Written down rather than left to be discovered.
 
-1. **`$AGENT_SYS_ADDONS_ROOT` is expected and not yet exported.** A task
-   package is staged into a zone, so `agent_sys/env_mgr/addons/` — a *repository*
-   path — has no relative route from it. `check_capabilities_genuine` takes that
-   variable first and searches upwards from the package second; in a staged run
-   only the variable can answer, and when neither does, the L2 capability is
-   reported unverifiable **by name**. That is a fault, not a shrug, and the
-   variable is what closes it.
+1. ~~`$AGENT_SYS_ADDONS_ROOT` is expected and not yet exported.~~ **Closed, by
+   the variable being deleted rather than exported.** A task package is staged
+   into a zone, so `agent_sys/env_mgr/addons/` — a *repository* path — had no
+   relative route from it, and `check_capabilities_genuine` took the variable
+   first and searched upwards from the package second. Both are gone: the
+   package's own recipe layer **copies** section 4's server into the zone, so its
+   artefact is one directory from the staged package and no variable names
+   anything outside the zone. `spec.provisioning.md` §4 deleted the variable
+   along with the declaration key it served.
+
+   Kept as a numbered entry for gap 4's reason — the argument is worth having
+   written down. `AGENT_SYS_ADDONS_ROOT` was the only exported path pointing
+   outside a zone, and it needed a `READ_EXEC` grant to be usable at all; an
+   exported-but-ungranted path is `paths.py`'s named defect. Copy-into-the-zone
+   removes both halves rather than balancing them.
 
 2. **`$AGENT_SYS_INSTALL_REPORT` is expected and not yet exported.** The brief
    tells the agent to look for it first and to fall back to a search under
@@ -110,9 +158,10 @@ Written down rather than left to be discovered.
    `check_env_report_shape` fails a report that omits it, which is the correct
    verdict and an avoidable one.
 
-3. **`.mcp.json` values need `${VAR}` expansion at load.** The component writes
+3. **`.mcp.json` values need `${VAR}` expansion at load.** The agent's
+   `.claude/.mcp.json` writes
    `"args": ["${CLAUDE_CONFIG_DIR}/servers/envchk_baseline_server.py"]` because
-   an absolute path in a component is one machine's answer. Whoever loads
+   an absolute path is one machine's answer. Whoever loads
    `.mcp.json` into `Prepared.mcp_servers` has to expand it; unexpanded, the
    server does not start and the symptom is a server with no tools rather than
    an error.
@@ -135,6 +184,16 @@ Written down rather than left to be discovered.
 5. **No `resources` block.** A leaf may declare a pool; nothing here needs one,
    and `cli/build.py:85` — the only reader — declares no pools anyway.
 
+6. **`recipes: [serena]` does not resolve from a wheel install.** A bare name
+   resolves against `agent_sys/env_mgr/recipes/`, and `pyproject.toml` does not
+   ship that directory as package data —
+   `agent_sys/docs/spec.provisioning.md` §8 and
+   `examples/llm_e2e_performance_optimization/temp/bugs/2026-09-04-*`. From a
+   git checkout it works; from a wheel, section 7 cannot install. The one-line
+   `package-data` candidate is **unrun**, so this is recorded rather than
+   claimed fixed. The package layer beside it,
+   `assets/main.env_recipe.yaml`, is unaffected: it travels inside the package.
+
 ## Deferred, on purpose — the follow-up list
 
 **Items with triggers, not a wish list.** Each says what would make it worth
@@ -147,13 +206,15 @@ itself, and cross-checks it against the install report — but that cross-check 
 **consistency only**, because the report reaches the validator through
 `payload["install_report"]`, a field the *agent* supplies.
 
-**Trigger: already met.** Runs 3 and 4 established by measurement that a real
-validation zone **does** carry the environment — `check_capabilities_genuine`
-re-derived the L2 row, which requires `AGENT_SYS_ADDONS_ROOT`, and the
-upward-search fallback cannot fire from a zone. So the validator can read
-`$AGENT_SYS_INSTALL_REPORT` **itself** and the comparison stops depending on the
-agent. Three lines in a body that already reads that file. Not done this round
-only because the round closed.
+**Trigger: met, and the subject is gone.** Runs 3 and 4 established by
+measurement that a real validation zone **does** carry the environment —
+`check_capabilities_genuine` re-derived the `mcp_external` row, which then
+required `AGENT_SYS_ADDONS_ROOT`, and the upward-search fallback cannot fire
+from a zone. That measurement stands and is what makes reading
+`$AGENT_SYS_INSTALL_REPORT` from a validator body viable. **6b itself no longer
+exists**, so the item survives only as the general point: any comparison this
+package makes against `payload["install_report"]` is consistency and not
+corroboration, because both sides come from the agent.
 
 ### 2. The placeholder regex in four other files
 
@@ -162,18 +223,20 @@ runs one of those four packages**, or a decision to build the shared helper.
 The repair wants to be **one shared change**, which is why it did not happen as
 four copies here.
 
-### 3. `agent_sys`'s in-process tool factory
+### 3. ~~`agent_sys`'s in-process tool factory~~ — closed by deletion
 
-Row 6 works around a contract, it does not fix one: an in-process `ToolDef` runs
-in the supervisor and cannot see `Prepared.environment`, so a tool needing
-per-run values has no supported route to them. `core-impl`'s axis argument is
-the specification — **an argument binds per call, a closure per construction,
-the environment per process, and the process outlives the attempt.**
+The item was: an in-process `ToolDef` runs in the supervisor and cannot see
+`Prepared.environment`, so a tool needing per-run values has no supported route
+to them, and row 6 worked around that rather than fixing it. **The route for
+component-supplied tools is deleted** (`spec.provisioning.md` §6), so there is
+nothing to give a per-run value to.
 
-**Trigger: the second package that wants a per-run value in an in-process
-tool.** One package working around it is a workaround; two is a missing
-feature, and the second one is the evidence that justifies changing the
-contract.
+Kept, because the analysis outlives the feature and because one in-process
+server remains — `env_mgr/remote/tools.py`, §6's standing exception, injected as
+a live object and therefore subject to the same limit. `core-impl`'s axis
+argument is still the specification: **an argument binds per call, a closure per
+construction, the environment per process, and the process outlives the
+attempt.**
 
 ### 4. A verdict is not attributable to a named validator from a run's artefacts
 
@@ -196,12 +259,11 @@ the brief states that surface verbatim, and every declared surface is claimed.
 Three assertions, each demonstrated red.
 
 It does **not** catch **declared-but-did-not-arrive** — a mis-set `${VAR}`, an
-unplaced file, a component whose install failed. That check exists in design:
-compare `Capability.surface` against the names `env_mgr` now records in
-`$AGENT_SYS_INSTALL_REPORT` (`agent_assets` records `names` for the external
-route, `server` for the bundled one, and `server` + `tools` for the in-process
-one, as of `9a9fdff`). It is three lines in `check_capabilities_genuine`, which
-already reads that file.
+unplaced file, a recipe item whose install failed. That check exists in design:
+compare `Capability.surface` against the names `env_mgr` records in
+`$AGENT_SYS_INSTALL_REPORT` (`agent_assets` records `names` for entries read out
+of `.mcp.json` and `server` for the bundled one, as of `9a9fdff`). It is three
+lines in `check_capabilities_genuine`, which already reads that file.
 
 **It is deliberately not built for run 2**, and the reason is worth keeping:
 **run 2 is itself the empirical check for that class.** A declared server that
@@ -325,4 +387,5 @@ the staged source path at run time.
 - `examples/single_real_task/` — the AI-task template this package's shape,
   validator layout and `assets/lib/zone.py` come from.
 - `examples/demo/main.yaml` — the non-leaf root.
-- `agent_sys/env_mgr/addons/README.md` — the L2 contract.
+- `agent_sys/env_mgr/addons/README.md` — the add-on contract.
+- `agent_sys/docs/spec.provisioning.md` — normative for the two install routes.

@@ -11,7 +11,7 @@
 # This body needs the producer row for a second reason the shape check does not:
 # `ENVCHK_NONCE` reaches it only from `Prepared.environment`, into which
 # `env_mgr.material.deploy` merged the agent spec's `env` block. On the global
-# row it is absent, and `check.py` says so by name rather than recomputing seven
+# row it is absent, and `check.py` says so by name rather than recomputing six
 # tokens from an empty string.
 set -eu
 exec "${AGENT_SYS_DEMO_PYTHON:-python3}" \

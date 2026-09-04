@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """`check_env_report_shape` — completeness, **strong**.
 
-The handoff is one well-formed JSON report covering all seven capabilities, each
-with a level, a status, a token of the right shape, a written account of how it
-was obtained, and the proof key its capability owes. Plus a README with four
-non-empty sections and an install report that is not empty.
+The handoff is one well-formed JSON report covering all six capabilities, each
+with an install route, a status, a token of the right shape, a written account
+of how it was obtained, and the proof key its capability owes. Plus a README with
+four non-empty sections and an install report that is not empty.
 
 **It checks no token against anything.** That is `check_capabilities_genuine`,
 it costs subprocesses, and it runs second precisely so that a report which is
@@ -140,11 +140,18 @@ def check_section(label: str, section: object, min_how: int) -> list[str]:
 
     faults: list[str] = []
 
-    level = section.get("level")
-    if level != capability.level:
+    # **`installed_by`, and it replaced a field called `level`.** The levels
+    # were an install hierarchy `spec.provisioning.md` supersedes; what is left
+    # is two routes, and `envchk.Capability.installed_by` names them. Renaming
+    # the reported key rather than keeping `level` with new values is deliberate:
+    # a run that still emits `"level": "L3"` fails on a **missing key**, which
+    # names the change, instead of on a value mismatch that reads like the agent
+    # got the answer wrong.
+    installed_by = section.get("installed_by")
+    if installed_by != capability.installed_by:
         faults.append(
-            f"{where}.level: {level!r}, needs {capability.level!r} — "
-            f"{capability.what}. The level is which install route is being "
+            f"{where}.installed_by: {installed_by!r}, needs {capability.installed_by!r} — "
+            f"{capability.what}. This is which of the two install routes is being "
             f"claimed, not a label"
         )
 
@@ -215,10 +222,14 @@ def check_report(payload: dict, min_how: int, min_entries: int) -> list[str]:
     else:
         missing = [label for label in envchk.LABELS if label not in capabilities]
         if missing:
-            faults.append(f"capabilities: missing {missing} of the seven")
+            faults.append(f"capabilities: missing {missing} of the six")
         extra = sorted(set(capabilities) - set(envchk.LABELS))
         if extra:
-            faults.append(f"capabilities: {extra} is not one of the seven")
+            # `tooldef` lands here, and that is the intended message rather than
+            # an accident of the set difference: an agent working from an older
+            # brief reports seven sections, and being told the seventh is not one
+            # of the six is more useful than silence.
+            faults.append(f"capabilities: {extra} is not one of the six")
         for label in envchk.LABELS:
             if label in capabilities:
                 faults += check_section(label, capabilities[label], min_how)
@@ -233,8 +244,9 @@ def check_report(payload: dict, min_how: int, min_entries: int) -> list[str]:
     elif len(installs) < min_entries:
         faults.append(
             f"install_report: {len(installs)} entries, needs {min_entries} — "
-            f"this run declares one recipe (L1) and one component (L2), and a "
-            f"report naming neither is a report that never looked"
+            f"this run runs two recipe layers (the package's own, which places "
+            f"the envchk-baseline server, and the agent's `recipes: [serena]`), "
+            f"and a report naming neither is a report that never looked"
         )
 
     source = payload.get("install_report_source")

@@ -43,8 +43,8 @@ this task's scratch belongs.
 
 | `--var` | why no default |
 |---|---|
-| `nonce` | Every token is `sha256(f"{salt}:{label}:{nonce}")[:12]`. A default is a constant; a constant nonce makes every run's seven tokens identical, and the **first published handoff then contains the answers to every run after it**. `${nonce}` with no `:-` is a load-time fault naming file and line — measured: `steps/check.yaml:75:5` |
-| `uv_root` | serena's L1 install is `uv tool install`, whose defaults write `~/.local/share/uv`, `~/.local/bin` and `~/.cache/uv` — host state outside every zone, on a box we share, **and it succeeds while doing it**. A default here would ship one machine's scratch path, with a username in it, as everyone's |
+| `nonce` | Every token is `sha256(f"{salt}:{label}:{nonce}")[:12]`. A default is a constant; a constant nonce makes every run's six tokens identical, and the **first published handoff then contains the answers to every run after it**. `${nonce}` with no `:-` is a load-time fault naming file and line — measured: `steps/check.yaml:75:5` |
+| `uv_root` | serena's install is `uv tool install`, whose defaults write `~/.local/share/uv`, `~/.local/bin` and `~/.cache/uv` — host state outside every zone, on a box we share, **and it succeeds while doing it**. A default here would ship one machine's scratch path, with a username in it, as everyone's |
 
 ### The fourth pin: the package must be in a commit
 
@@ -107,85 +107,66 @@ Shorthand below: `T(label)` is
 where `salt` is the single `ENVCHK_SALT: <32 hex>` tag in the named artefact and
 `nonce` is `$ENVCHK_RUN_NONCE`.
 
-| # | capability | level | the file to open | **the condition that fails** |
+| # | capability | installed by | the file to open | **the condition that fails** |
 |---|---|---|---|---|
-| 1 | skill | L3 | `items/text.json` → `capabilities.skill` | `.token != T("skill")` computed from the salt in `assets/env_probe.agent/.claude/skills/envchk-probe/SKILL.md`; or `.level != "L3"`; or `.status != "ok"` |
-| 2 | hook | L3 | same → `capabilities.hook` | `.token != T("hook")` from the salt in `.claude/hooks/envchk_session_start.py`; **or** `.proof.record.payload.session_id` is absent; **or** `.proof.record.payload.hook_event_name != "SessionStart"`; **or** `.proof.record.token != .token` |
-| 3 | plugin | L3 | same → `capabilities.plugin` | `.token != T("plugin")` from the salt in `.claude/plugins/envchk-plugin/skills/envchk-plugin-skill/SKILL.md`; or `.proof.plugin_list` empty. **A `.token` equal to section 1's is a fail even if well-formed** — two routes, two salts |
-| 3b | plugin **source path** | L3 | the zone's `config/settings.json` | its marketplace entry's `{"source":"directory","path": …}` is **not** under the run root — e.g. it points at `/home/yihou/dev/...`. Probe F measured that a plugin loads from its marketplace *source* directory rather than from a copy, so a marketplace outside the zone **installs cleanly and then fails to load under confinement with nothing naming the cause**. This is its own row and not a footnote precisely because it is a condition that must fail loudly rather than be checked if someone remembers |
-| 4 | external MCP | **L2** | same → `capabilities.mcp_external` | `.token` differs from what the validator gets by **starting** `agent_sys/env_mgr/addons/envchk-baseline/.claude/servers/envchk_baseline_server.py` and calling `tools/call`; or `.proof.raw.token != .token`; or `.level != "L2"` |
-| 5 | bundled stdio MCP | L3 | same → `capabilities.mcp_stdio` | `.token` differs from what the validator gets by **starting** `.claude/tools/envchk_stdio.mcp.py`; or `.proof.raw.token != .token` |
-| 6 | in-process ToolDef | L3 | same → `capabilities.tooldef` | `.token` differs from what the validator gets by **importing the placed copy** at `<staged package>/../config/tools/envchk_inproc.tooldef.py` and calling `TOOLS[0].call()`; or `.proof.raw.token != .token` |
-| 6b | tooldef **placed copy** | L3 | same → `capabilities.tooldef.proof.raw` | `.path` is not that placed copy; or `.sha256` does not match its digest |
-| 7 | serena | **L1 install + L2 declaration** | same → `capabilities.serena` | **the package declares no serena MCP server** — `agent_plugins:` must name `serena`, whose `.claude/.mcp.json` registers it; an install without a declaration gives the agent `No such tool available` and is how run 1 failed. Then: `.status == "ok"` and `.token != T("serena")` from the salt in `assets/env_probe.agent/serena_probe.py`; **or** `.status == "unavailable"` and `install_report` carries no non-`ok` entry mentioning serena; **or** `.proof.raw` is not a `find_symbol` response whose hit for `envchk_serena_token` carries `name_path`, `kind`, `relative_path` naming `serena_probe.py`, a `body_location` with integer `start_line`/`end_line`, and a `body` **containing the salt**. That schema was measured against Serena 1.28.1 on this host on 2026-09-03, not remembered — see *What a PASS does not prove* for what it is and is not worth |
+| 1 | skill | copied | `items/text.json` → `capabilities.skill` | `.token != T("skill")` computed from the salt in `assets/env_probe.agent/.claude/skills/envchk-probe/SKILL.md`; or `.installed_by != "copied"`; or `.status != "ok"` |
+| 2 | hook | copied | same → `capabilities.hook` | `.token != T("hook")` from the salt in `.claude/hooks/envchk_session_start.py`; **or** `.proof.record.payload.session_id` is absent; **or** `.proof.record.payload.hook_event_name != "SessionStart"`; **or** `.proof.record.token != .token` |
+| 3 | plugin | copied | same → `capabilities.plugin` | `.token != T("plugin")` from the salt in `.claude/plugins/envchk-plugin/skills/envchk-plugin-skill/SKILL.md`; or `.proof.plugin_list` empty. **A `.token` equal to section 1's is a fail even if well-formed** — two routes, two salts |
+| 3b | plugin **source path** | copied | the zone's `config/settings.json` | its marketplace entry's `{"source":"directory","path": …}` is **not** under the run root — e.g. it points at `/home/yihou/dev/...`. Probe F measured that a plugin loads from its marketplace *source* directory rather than from a copy, so a marketplace outside the zone **installs cleanly and then fails to load under confinement with nothing naming the cause**. This is its own row and not a footnote precisely because it is a condition that must fail loudly rather than be checked if someone remembers |
+| 4 | an MCP server a recipe installed | **recipe** | same → `capabilities.mcp_external` | **the agent's `.claude/.mcp.json` declares no `envchk_baseline` server**, or the package recipe layer did not place the file — the two halves, and either alone gives the agent a server with no tools. Then: `.token` differs from what the validator gets by **starting** the placed copy at `<staged package>/../config/servers/envchk_baseline_server.py` and calling `tools/call`; or `.proof.raw.token != .token`; or `.installed_by != "recipe"` |
+| 5 | bundled stdio MCP | copied | same → `capabilities.mcp_stdio` | `.token` differs from what the validator gets by **starting** `.claude/tools/envchk_stdio.mcp.py`; or `.proof.raw.token != .token` |
+| 6 | — | — | — | **deleted; see below.** There is no section 6 and the number is not reused |
+| 7 | serena | **recipe install + a declaration in the agent's own `.mcp.json`** | same → `capabilities.serena` | **the agent's `.claude/.mcp.json` declares no serena MCP server** — an install without a declaration gives the agent `No such tool available` and is how run 1 failed. Then: `.status == "ok"` and `.token != T("serena")` from the salt in `assets/env_probe.agent/serena_probe.py`; **or** `.status == "unavailable"` and `install_report` carries no non-`ok` entry mentioning serena; **or** `.proof.raw` is not a `find_symbol` response whose hit for `envchk_serena_token` carries `name_path`, `kind`, `relative_path` naming `serena_probe.py`, a `body_location` with integer `start_line`/`end_line`, and a `body` **containing the salt**. That schema was measured against Serena 1.28.1 on this host on 2026-09-03, not remembered — see *What a PASS does not prove* for what it is and is not worth |
 | — | install report | — | same → `install_report` | fewer than **2** entries; or `install_report_source` empty. It must be the `outcomes` **array** out of `$AGENT_SYS_INSTALL_REPORT` (`agent_assets.install.json`), verbatim, `ok` entries included |
 | — | the whole report | — | same → `nonce_digest` | `!= sha256("nonce:" + $ENVCHK_RUN_NONCE)[:12]`. This one condition invalidates every token in the file: the report was produced against a different nonce, so none of it is about this run |
 | — | the README | — | `README.md` | any of `## Purpose`, `## Schema`, `## Method`, `## Limits` missing; fewer than 10 content lines; any `TODO`/`TBD`/`FIXME`/`XXX`/`<…>` placeholder |
 
-### Rows 6 and 6b — changed 2026-09-03 after run 2, and what row 6 stopped claiming
+### Rows 6 and 6b are deleted, and this is the record of what went with them
 
-Run 2: the tool returned a token computed from an **empty** `$ENVCHK_NONCE`. An
-in-process `ToolDef` runs in the **supervisor's** process, and
-`Prepared.environment` — which carries the agent spec's `env` block — is handed
-to the **CLI child**. The supervisor never sees it. The tool did not fail; it
-returned a well-formed token about nothing and the agent quoted it correctly.
-**The tool lied to the agent**, and the agent did nothing wrong.
+**The capability is gone, not renumbered.** Section 6 was an in-process
+`ToolDef` — a `.claude/tools/*.tooldef.py` whose module-level `TOOLS`
+`agent_sys` imported into its own supervisor process and published as
+`mcp__env_mgr__envchk_echo_token`. `agent_sys/docs/spec.provisioning.md` §6
+deleted that route for component-supplied tools, on a security argument this
+package does not relitigate: third-party code executing in the process that
+supervises every agent, with its memory, file descriptors and credentials, and
+no boundary that can fail closed. Serena stays section **7**.
 
-**Row 6 used to claim, implicitly, *the tool can see the run's environment*. It
-cannot, and no test written here changes that.** It now claims: the module was
-imported, executed, read a file and computed correctly — the *executes and
-computes* tier of §3.
+**What this package stopped proving, stated because arithmetic will not say it.**
 
-**Its input is its own `__file__`, and nothing else.** Not the environment
-(broken for this route), not a tool argument (then the model chooses the input).
-The one thing a Python module always knows is where it is, and it is the only
-input in this package travelling through no channel measured to be broken or
-model-controlled.
+- **Row 6** claimed the *executes and computes* tier of §3 for the in-process
+  route: the module was imported, executed, read a file and computed correctly.
+  Nothing here measures that route now, and nothing should — it does not exist.
+- **Row 6b claimed something wider than one capability, and it is the loss worth
+  naming.** It asserted that the path the agent reported was the copy **placed
+  in this run's zone** rather than the component source — the one check in this
+  repository that could see `env_mgr`'s *load the copy, not the source*
+  isolation property break for **every package that ever shipped a tooldef**.
+  That is `e1b9f54`'s bug. With the route deleted the property has no subject,
+  so nothing is currently unguarded; **if an in-process route ever returns, this
+  row has to return with it**, and that sentence is why the deletion is recorded
+  here rather than simply removed.
+  `check_capabilities_genuine`'s readme carries the same note under *What it
+  cannot catch*, because that is where a reader checks before quoting a PASS.
 
-**The freshness is in the path, not the content.** `_tooldefs` imports the
-placed copy, so `__file__` carries this run's zone identifiers while the bytes
-are identical every run. A reader expecting a per-run digest will find none, and
-**that is not a gap to be closed** — see §3.
+**Two facts measured for row 6 that outlived it**, kept because both are about
+`agent_sys` and not about the deleted capability:
 
-**The token derives from the path for a second reason**: a token byte-identical
-across two runs is the signature of the empty-nonce bug, and a fix reproducing
-the defect's fingerprint would be indistinguishable from the defect.
-
-**No agent-side evidence.** The model can open the same file and compute the
-same digest.
-
-#### Why 6b is its own row
-
-Row 6 failing means one capability did not work. **6b failing means the
-isolation property is broken for every tooldef any package ever ships** — it is
-what fails when a tooldef is imported from the **component source** instead of
-the placed copy, which is `e1b9f54`'s bug and which nothing else in this
-repository guards. Two failures of different kind should not share a row,
-because the reader's next action differs: one sends them to the agent, the other
-to `_tooldefs`. The cost is an eleventh row in a table of ten, and one that is
-not a capability — numbered `6b` for `3b`'s reason.
-
-**All of 6b's discriminating power is in the `path`, and none is in the digest.**
-Measured: placed copy, staged source and working tree all digest to
-`39650f61fd050a3a`. A matching `sha256` proves a file was read and digested
-correctly and cannot say *which* file. Making the digest discriminating would
-require the placed copy to differ from its source, which would break the
-property under test — the weakness **is** the design.
-
-The validator derives the expected path **itself**, as
-`Path($AGENT_SYS_TASK_PACKAGE).parent / "config" / "tools" / …`, rather than
-accepting `proof.raw.path` and digesting whatever it names — otherwise 6b would
-reduce to *the tool checksummed the file it said it checksummed*. It uses
-`$AGENT_SYS_TASK_PACKAGE` and not `$AGENT_SYS_MY_ZONE` because `entry.sh`
-already refuses to start without it, so **a running body has it by the fact of
-running**; whether a validation zone carries `AGENT_SYS_MY_ZONE` is still open.
-
-A third comparison — `proof.raw.path` against the path the install report
-records for the in-process route — is a **consistency** check and is labelled
-that way in the code. Both fields come from the agent, so it catches an
-inconsistent report and **not** a consistent misstatement. Making it independent
-needs the validator to read `$AGENT_SYS_INSTALL_REPORT` itself, which is the §4
-question; run 3's `AGENT_SYS_*` listing answers it as a by-product.
+- An in-process `ToolDef` ran in the **supervisor's** process, and
+  `Prepared.environment` — which carries the agent spec's `env` block — is handed
+  to the **CLI child**. The supervisor never saw it. Run 2's tool therefore
+  returned a well-formed token computed from an **empty** `$ENVCHK_NONCE`: it did
+  not fail, it lied to the agent, and the agent quoted it correctly. Any future
+  in-process route inherits that, and a token that is byte-identical across two
+  runs is its fingerprint.
+- The zone layout row 6b relied on: `fs/layout.PACKAGE` and `material.CONFIG_DIR`
+  are **siblings**, so `Path($AGENT_SYS_TASK_PACKAGE).parent / "config"` is the
+  session's configuration directory. Row 4 now uses exactly that to find the
+  placed `envchk_baseline` server, so the measurement is still load-bearing.
+  `$AGENT_SYS_TASK_PACKAGE` and not `$AGENT_SYS_MY_ZONE`, because `entry.sh`
+  already refuses to start without the former — **a running body has it by the
+  fact of running** — and whether a validation zone carries `AGENT_SYS_MY_ZONE`
+  is still open.
 
 **One line of history, because it is evidence for a rule rather than contrition:**
 the staged-package layout was asserted without opening it twice, by two people,
@@ -217,13 +198,13 @@ tie-break.
 Read this before deciding the run succeeded. Stated per capability in
 `assets/check_capabilities_genuine.validator/readme.md`; here in one place.
 
-- **Four of the seven artefacts are files an agent with `Read` can open** — the
+- **Four of the six artefacts are files an agent with `Read` can open** — the
   two `SKILL.md`s, `serena_probe.py`, and the hook script. An agent that opened
   them and reported the tokens passes. This is not closable in-band: the agent
   and the artefacts share the zone **by construction**, because putting them
   there is the thing being measured.
-- **What the tokens do buy, in full**: an agent cannot report seven tokens if
-  the seven capabilities were not installed into its zone, because the salts
+- **What the tokens do buy, in full**: an agent cannot report six tokens if
+  the six capabilities were not installed into its zone, because the salts
   exist nowhere else — not in the brief, not in `assets/lib/envchk.py`, not in
   either validator. A run where `env_mgr` silently delivered nothing produces no
   salts and therefore no tokens, however confident the narrative. **That** is
@@ -287,7 +268,7 @@ Stop the run rather than let it finish and read the wreckage:
 
 | condition | why | what to do |
 |---|---|---|
-| **`prepare` exceeds ~10 minutes with no output** | **The operator's rule, and it is deliberately tighter than the machine's.** `installers/base.py::run_cmd` still cannot bound itself — it is `subprocess.run(shell=True)` with no timeout — but the *parent* now does: `env_mgr/agent_assets.py::RECIPE_TIMEOUT_SECONDS` is **20 minutes**, so a hung recipe ends by itself as a named failure rather than hanging forever. The two do not conflict; they answer different questions. **10 min: a human decides this run is not going to teach us anything and stops it. 20 min: the machine guarantees it stops regardless.** A bound is not a reason to stop watching — a networked install that is going to fail usually shows it long before either number | interrupt; re-run with `recipes:` temporarily removed to separate an L1 hang from everything else |
+| **`prepare` exceeds ~10 minutes with no output** | **The operator's rule, and it is deliberately tighter than the machine's.** `installers/base.py::run_cmd` still cannot bound itself — it is `subprocess.run(shell=True)` with no timeout — but the *parent* now does: `env_mgr/agent_assets.py::RECIPE_TIMEOUT_SECONDS` is **20 minutes**, so a hung recipe ends by itself as a named failure rather than hanging forever. The two do not conflict; they answer different questions. **10 min: a human decides this run is not going to teach us anything and stops it. 20 min: the machine guarantees it stops regardless.** A bound is not a reason to stop watching — a networked install that is going to fail usually shows it long before either number | interrupt; re-run with `recipes:` temporarily removed to separate a serena-install hang from everything else |
 | **anything is written under `$HOME` outside `/home/yihou/dev/...`** — in particular `~/.local/share/uv`, `~/.local/bin`, `~/.claude/plugins` | host state on a shared box, and the whole point of `${uv_root}` and the relocated `CLAUDE_CONFIG_DIR` | stop immediately, report, do **not** clean up by deleting |
 | **a second `agent-sys` run appears under our `--demo-root`** | the other Claude session on this box; two runs interleaving in one root makes every artefact ambiguous | stop, re-pin, do not delete the other run |
 | **the agent starts editing anything under `$AGENT_SYS_AGENT_ASSETS` or `$CLAUDE_CONFIG_DIR`** | those are the subject of the measurement; a salt edited to make a token match makes the whole deliverable worthless | stop, keep the transcript, report it as the finding it is |
@@ -321,13 +302,13 @@ cd /home/yihou/dev/git.16-19/infera.aiopt.real.task_package/agent_sys
 | # | command | proceed when |
 |---|---|---|
 | 1 | `python3 -m cli.main show --package examples/env_checker --var nonce=x --var uv_root=/tmp/yihou/x` | `2 tasks in the graph`, and both `output validation runs 2` |
-| 2 | `python3 -c 'from env_mgr import paths; print(paths.ADDONS_ROOT_ENV_VAR, paths.INSTALL_REPORT_ENV_VAR, paths.AGENT_ASSETS_ENV_VAR)'` | three names print. An `AttributeError` means the constants do not exist. **This row is about the names, not about the things the names refer to** — see below |
-| 3 | `python3 -c 'from env_mgr.recipe import load_recipe; print(len(load_recipe("env_mgr/recipes/serena.yaml")[1]), "items")'` | `3 items`. A `FileNotFoundError` means the L1 recipe is not placed yet and section 7 cannot pass |
+| 2 | `python3 -c 'from env_mgr import paths; print(paths.INSTALL_REPORT_ENV_VAR, paths.AGENT_ASSETS_ENV_VAR); import env_mgr.paths as m; assert not hasattr(m, "ADDONS_ROOT_ENV_VAR")'` | two names print and the assertion holds. An `AttributeError` on the first two means the constants do not exist; a failed assertion means `AGENT_SYS_ADDONS_ROOT` came back, and with it the only exported path outside the zone. **This row is about the names, not about the things the names refer to** — see below |
+| 3 | `python3 -c 'from env_mgr.recipe import load_recipe; print(len(load_recipe("env_mgr/recipes/serena.yaml")[1]), "items"); print(len(load_recipe("examples/env_checker/assets/main.env_recipe.yaml")[1]), "items")'` | `3 items` then `1 items`. **Both recipe layers, because section 4 and section 7 now depend on one each**: the second places the `envchk-baseline` server, the first installs serena. A `FileNotFoundError` on either means that capability cannot pass |
 | 4 | `python3 -m cli.main run --package examples/env_checker --demo-root /tmp/yihou/agentsys_envchecker_20260903/dryrun --var nonce=x --var uv_root=/tmp/yihou/x --dry-run` | completes, dispatches nothing, no `REJECTED` |
 | 5 | `claude plugin validate examples/env_checker/assets/env_probe.agent/.claude/plugins` | `Validation passed` |
-| 6 | `command -v uv; command -v claude; claude --version` | all three answer. `uv` is what the L1 recipe installs serena with; `claude` is what installs the L3 plugin. **This row proves the binaries exist on this host and nothing about which build the run uses** — that is 6b |
+| 6 | `command -v uv; command -v claude; claude --version` | all three answer. `uv` is what the serena recipe installs serena with; `claude` is what installs the plugin from the copied marketplace. **This row proves the binaries exist on this host and nothing about which build the run uses** — that is 6b |
 | 6b | `python3 -c "import shutil,subprocess;p=shutil.which('claude');print(p);print(subprocess.run([p,'--version'],capture_output=True,text=True).stdout.strip())"` | prints a path and **`2.1.246`**. That is the build the run pins **and** the build every probe conclusion now holds on — see *Measured on the pinned build* below. A different version is a **stop**, and it is a stop for two reasons at once: the run would invoke a CLI nobody characterised, **and** the probe evidence would no longer apply to it. The discharge is re-measuring the probes on the new build, not proceeding carefully |
-| 7 | `python3 /tmp/yihou/agentsys_envchecker_20260903/selftest/run.py` | `ALL OK` — 20 cases, both validators driven through their real `entry.sh` over a synthetic handoff. Case 2 is `every-capability-is-declared`: every capability reached through MCP has an artefact declaring its server name, which is run 1's failure catchable with no run at all. Case 1 is `salts-are-isolated`: seven `ENVCHK_SALT:` tags across the package and `addons/`, all distinct, **each value in exactly one authored file**, and none of them in the three documents that describe the scheme. That is the property every other case assumes, so it is checked mechanically rather than argued |
+| 7 | `python3 /tmp/yihou/agentsys_envchecker_20260903/selftest/run.py` | `ALL OK` — 20 cases, both validators driven through their real `entry.sh` over a synthetic handoff. Case 2 is `every-capability-is-declared`: every capability reached through MCP has an artefact declaring its server name, which is run 1's failure catchable with no run at all. Case 1 is `salts-are-isolated`: six `ENVCHK_SALT:` tags across the package and `addons/`, all distinct, **each value in exactly one authored file**, and none of them in the three documents that describe the scheme. That is the property every other case assumes, so it is checked mechanically rather than argued |
 | 8 | `git --git-dir=/home/yihou/dev/git.16-19/infera/.git config --get extensions.preciousObjects` | prints `true`. **If it prints nothing, stop and ask the user** — see below |
 | 9 | `df -h /tmp \| tail -1` | room to spare. Measured 2026-09-03: `/tmp` is on the 7 TB NVMe with ~3 TB free, and the workspace is a `git clone --shared`, so the main repo's 129 MB of objects are reached through alternates rather than copied. Disk is not a constraint for this run; the row exists so that a full disk is ruled out rather than assumed |
 
@@ -338,20 +319,22 @@ check is about the **name**, not about the thing the name refers to. That is the
 same defect as `command -v` in the wrong shell and a probe on the wrong binary,
 in a third costume.
 
-Both exports are in fact **conditional** (`agent_assets.install`):
-`AGENT_SYS_ADDONS_ROOT` is set only when the agent declares `agent_plugins:`,
-and `AGENT_SYS_INSTALL_REPORT` only when `logs_dir` is not `None`. Both
-conditions hold here — this agent declares `agent_plugins: [envchk-baseline]`, and
-`material.deploy` always passes `logs_dir=<zone>/logs` — but **that was
-established by reading the code, not by row 2**, and a reader who trusts the row
-has not learned it.
+`AGENT_SYS_INSTALL_REPORT` is **conditional** (`agent_assets.install`) — set
+only when `logs_dir` is not `None`, which holds here because `material.deploy`
+always passes `logs_dir=<zone>/logs` — but **that was established by reading the
+code, not by row 2**, and a reader who trusts the row has not learned it.
 
-What actually discharges it is the run: `$AGENT_SYS_INSTALL_REPORT` resolving to
-a real file is what the `install_report` acceptance row reads, and the L2 salt
-being re-derivable is what `check_capabilities_genuine` reports by name if
-`AGENT_SYS_ADDONS_ROOT` is absent. A stronger pre-flight row would have to
-call `agent_assets.install` for real, which runs the L1 recipe — too heavy for a
-gate, and it would be testing `env_mgr`'s own code, which has its own tests.
+The row's third clause is the one addition that can go red on its own:
+`AGENT_SYS_ADDONS_ROOT` is asserted **absent**. It was the only exported path
+pointing outside the zone, it was deleted with the `agent_plugins:` key, and a
+`hasattr` that starts passing again is the export coming back.
+
+What actually discharges the first two names is the run:
+`$AGENT_SYS_INSTALL_REPORT` resolving to a real file is what the
+`install_report` acceptance row reads. A stronger pre-flight row would have to
+call `agent_assets.install` for real, which runs the serena recipe — too heavy
+for a gate, and it would be testing `env_mgr`'s own code, which has its own
+tests.
 
 **Row 6b reproduces the resolution the launcher actually performs**, rather than
 asking a shell. `cli/environment.py::build_context` sets `agent_cli=shutil.which(BACKEND)`
@@ -420,7 +403,7 @@ failing condition, rather than a note here to be remembered afterwards.
 
 ## 6. One fact about timing, measured rather than assumed
 
-**L1 runs during `prepare`, not during the agent's session.**
+**Recipes run during `prepare`, not during the agent's session.**
 `env_mgr/material.py::deploy` calls `agent_assets.install(...)`, and that
 function runs every recipe in its `_recipe_paths(...)` loop — **before the agent
 exists**. So a slow `uv tool install` costs wall-clock on the *preparation*, the

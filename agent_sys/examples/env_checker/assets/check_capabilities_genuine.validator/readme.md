@@ -1,9 +1,9 @@
 # check_capabilities_genuine — trustworthiness, strong
 
 Every token in the report is the token that capability actually produces, for
-**this run's nonce**. Three of the seven are re-derived by running the
-capability here, in this body; the other four are recomputed from the salt in
-the installed artefact.
+**this run's nonce**. Two of the six are re-derived by running the capability
+here, in this body; the other four are recomputed from the salt in the installed
+artefact.
 
 This file spends most of its length on the difference between those two, because
 the honest claim is narrower than the validator's name and a reader who quotes
@@ -16,20 +16,24 @@ A token is `sha256(f"{salt}:{label}:{nonce}")[:12]`, prefixed
 is a 32-hex constant that exists in exactly one place — the artefact of the
 capability it belongs to. There is no table of salts anywhere, including in
 `../lib/envchk.py`, and that absence is load-bearing: a single file listing all
-seven would let one read produce all seven tokens. This body obtains each salt
+six would let one read produce all six tokens. This body obtains each salt
 the same way the agent had to, out of the artefact.
 
-## The three treatments
+## The two treatments
 
-| capability | treatment | what runs |
-|---|---|---|
-| `mcp_external` (L2) | **replay** | the component's server is started with `python3`, spoken to over JSON-RPC — `initialize`, `notifications/initialized`, `tools/call` — and its answer is the token |
-| `mcp_stdio` (L3) | **replay** | the same, against the bundled server |
-| `tooldef` (L3) | **replay** | the module is imported and `TOOLS[0].call()` is invoked |
-| `hook` (L3) | salt, **plus the payload** | the salt is read from the hook script; separately, the hook's own output file must carry a `payload` with a `session_id` and `hook_event_name: SessionStart` |
-| `skill` (L3) | salt | the salt is read from `SKILL.md` |
-| `plugin` (L3) | salt | the salt is read from the plugin's `SKILL.md` |
-| `serena` (L1) | salt | the salt is read from `serena_probe.py` |
+| capability | installed by | treatment | what runs |
+|---|---|---|---|
+| `mcp_external` | recipe | **replay** | the placed server at `<zone>/config/servers/` is started with `python3`, spoken to over JSON-RPC — `initialize`, `notifications/initialized`, `tools/call` — and its answer is the token |
+| `mcp_stdio` | copied | **replay** | the same, against the bundled server |
+| `hook` | copied | salt, **plus the payload** | the salt is read from the hook script; separately, the hook's own output file must carry a `payload` with a `session_id` and `hook_event_name: SessionStart` |
+| `skill` | copied | salt | the salt is read from `SKILL.md` |
+| `plugin` | copied | salt | the salt is read from the plugin's `SKILL.md` |
+| `serena` | recipe | salt | the salt is read from `serena_probe.py` |
+
+**There was a third replay and it is gone.** `tooldef` imported the in-process
+`ToolDef` module and invoked `TOOLS[0].call()`; `agent_sys/docs/
+spec.provisioning.md` §6 deleted that route, so this body imports nothing any
+more and the capability is not in the register.
 
 **The replays go through the declaration, not around it.** `TOOLS[0].call()`
 rather than the `echo_token` function beside it, because `TOOLS` is what
@@ -62,7 +66,7 @@ more.
 Written out rather than left implicit, because a check that reads as complete is
 worse than one whose edges are known.
 
-- **A file read instead of a capability use.** Four of the seven artefacts are
+- **A file read instead of a capability use.** Four of the six artefacts are
   files an agent with `Read` can open — two `SKILL.md`s, `serena_probe.py`, and
   the hook script. An agent that opened them and reported the tokens passes this
   validator. It is an in-band limit and it does not have a fix inside one
@@ -70,7 +74,7 @@ worse than one whose edges are known.
   construction, because putting them there is the thing being measured.
 
   What the tokens *do* buy, in full, and it is the failure this package was
-  built for: **an agent cannot report seven tokens if the seven capabilities
+  built for: **an agent cannot report six tokens if the six capabilities
   were not installed into its zone.** A run where `env_mgr` silently delivered
   nothing produces no salts and therefore no tokens, however confident the
   narrative.
@@ -112,23 +116,33 @@ worse than one whose edges are known.
   would fail. `serena_probe.py` keeps the salt as a local inside the function
   for exactly that reason.
 
-- **The L2 registry, when it cannot be found.** `agent_sys/env_mgr/addons/` is a
-  repository path and a task package is staged into a zone, so
-  `../../agent_plugins` does not exist beside it. This body takes
-  `$AGENT_SYS_ADDONS_ROOT` first and searches upwards second, and when
-  neither answers it reports the L2 capability as unverifiable **by name** —
-  which is a fault, not a shrug. `env_mgr` exporting that variable is what
-  closes it.
+- **Where a placed file was loaded from.** This body no longer observes it, and
+  the check that did is gone rather than weakened. Row 6b compared the path the
+  agent reported for the in-process `ToolDef` against the copy placed in the
+  run's zone, and it was the one check in this repository that could see
+  `env_mgr`'s isolation property — *load the copy, not the source* — break for
+  every package that ever shipped one. The route is deleted, so the property has
+  no subject here. **It is not covered elsewhere in this package**, and saying so
+  is the point of this bullet: if an in-process route ever returns, this check
+  has to return with it.
 
-  **The variable arrives; the grant beside it does not.** `env_mgr` derives a
-  read grant on the agent plugins root when an agent declares `agent_plugins:`, and
-  that grant is for the **agent's** zone. This body does not run in one: a
-  validation zone is built by `validator/environment.py` in a `mkdtemp`, not
-  through `env_mgr.prepare`, so `addon_grants` never runs for it. Harmless
-  today, because nothing is enforced in a validator zone — and worth writing
-  down rather than discovering, because the day validator zones are confined is
-  the day this read starts failing, and the cause would otherwise look like a
-  missing variable rather than a missing grant.
+- **A registry search that is no longer needed, recorded because its absence is
+  a change.** `mcp_external`'s artefact used to live at
+  `agent_sys/env_mgr/addons/envchk-baseline/…`, a *repository* path that a staged
+  task package cannot reach, so this body took `$AGENT_SYS_ADDONS_ROOT` first and
+  walked up the filesystem second — a guess that can find the wrong checkout on a
+  machine with two — and reported the capability unverifiable by name when
+  neither answered. None of that exists now: the package's own recipe layer
+  **copies the server into the zone**, so the artefact is one directory from the
+  staged package and no variable names anything outside it. The variable itself
+  is deleted (`spec.provisioning.md` §4).
+
+  A note that went with it and is worth keeping: a validation zone is built by
+  `validator/environment.py` in a `mkdtemp`, **not** through `env_mgr.prepare`,
+  so no grant is composed for it at all. Harmless today because nothing is
+  enforced in a validator zone — and the day validator zones are confined, every
+  read this body makes outside its own zone is a candidate, not just the one that
+  used to be here.
 
 Every one of these is a **false negative**: this validator does not report a
 report that has the problem. There is no configuration under which it reports a
@@ -182,7 +196,7 @@ folds a body's stderr tail into an exception message, and an exception message
 travels into the event stream.
 
 **It does not fall back to an empty nonce.** An unset `ENVCHK_NONCE` would
-produce seven mismatches and send a reader to look at the agent, so it is named
+produce six mismatches and send a reader to look at the agent, so it is named
 as its own failure instead. On this package's only phase the variable is present
 — `validator` spec §8.2's PRODUCER row is `Prepared.environment`, into which
 `env_mgr.material.deploy` merged the agent spec's `env` block — and the guard is
@@ -193,5 +207,5 @@ for whoever adds a consumer and reaches the other row.
 `entry.sh` is the command, `check.py` is the implementation,
 `../lib/zone.py` is the four body-facing zone files, and `../lib/envchk.py` is
 the capability register and the token scheme — shared with
-`check_env_report_shape`, so the two cannot disagree about which seven
+`check_env_report_shape`, so the two cannot disagree about which six
 capabilities exist.

@@ -32,12 +32,17 @@ import sys
 #: ENVCHK_SALT: 48d7f4c12e751bebb631ff42ffe54656
 SALT = "48d7f4c12e751bebb631ff42ffe54656"
 
-#: Which of `examples/env_checker`'s seven capabilities this one is.
+#: Which of `examples/env_checker`'s six capabilities this one is.
 LABEL = "mcp_external"
 
-#: Which install level delivered it. L2 — a component this repository ships,
-#: named by an agent spec's `agent_plugins:` key.
-LEVEL = "L2"
+#: Which of the two install routes delivered it (`agent_sys/docs/
+#: spec.provisioning.md` §3). **This file is not copied with a `.claude/` tree**:
+#: `agent_sys` ships it under `env_mgr/addons/envchk-baseline/`, and
+#: `examples/env_checker/assets/main.env_recipe.yaml` — the package recipe layer
+#: — copies it into `$CLAUDE_CONFIG_DIR/servers/`. Reported as `installed_by`;
+#: the field was `level: "L2"` until 2026-09-04, when the declaration key that
+#: made L2 a level was deleted.
+INSTALLED_BY = "recipe"
 
 SERVER_NAME = "envchk_baseline"
 TOOL_NAME = "envchk_report"
@@ -71,14 +76,14 @@ def report() -> dict[str, str | int]:
     return {
         "token": token(os.environ.get("ENVCHK_NONCE", "")),
         "label": LABEL,
-        "level": LEVEL,
+        "installed_by": INSTALLED_BY,
         "pid": os.getpid(),
         "at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
 
 
 TOOL_DESCRIPTION = (
-    "Return the envchk-baseline L2 component's capability token, with the pid "
+    "Return the envchk-baseline add-on's capability token, with the pid "
     "and timestamp of the process that produced it. Takes no arguments."
 )
 

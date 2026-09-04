@@ -12,11 +12,11 @@
 # 1. The agent.
 #
 # `kind: ai`, and unusually the *reason* is not that the work needs judgement —
-# calling seven tools and writing a JSON file is a script. It is that the thing
+# calling six tools and writing a JSON file is a script. It is that the thing
 # under test is **the environment an AI agent is given**. A `kind: program`
 # agent gets no Claude Code session, so there is no skills directory, no hook
-# firing at SessionStart, no plugin install and no MCP server to call: six of
-# the seven capabilities would have nowhere to exist. The subject requires the
+# firing at SessionStart, no plugin install and no MCP server to call: every one
+# of the six capabilities would have nowhere to exist. The subject requires the
 # executor.
 #
 # `backend_entry` is the dotted form rather than an entry-point name: a task
@@ -26,7 +26,7 @@
   name: env_probe
   kind: ai
   version: '1'
-  description: Exercises seven Claude Code capabilities across three install levels and reports token evidence.
+  description: Exercises six Claude Code capabilities across both install routes and reports token evidence.
 
   # **The `env` block is the only route by which a package may name its own
   # variables** (`agent.schema.json`), and this package needs exactly one.
@@ -35,7 +35,7 @@
   # token in the deliverable is `sha256(f"{salt}:{label}:{nonce}")[:12]`, so the
   # nonce is the half of the derivation that makes a token evidence *about this
   # run*. A default would be a constant, a constant nonce makes every run's
-  # seven tokens identical, and the first published handoff would then contain
+  # six tokens identical, and the first published handoff would then contain
   # the answers to every run after it — which is precisely the failure the
   # scheme exists to prevent. `${NAME}` with no `:-` is a load-time fault naming
   # the file and the line (`spec_loader/variables.py`), so the package refuses
@@ -87,6 +87,28 @@
   # is the *route*,
   # and a second recipe would add a second way for the run to fail on somebody
   # else's network without measuring anything the first does not.
+  #
+  # **The loader admits this line with a reservation, and the reservation is
+  # answered rather than silenced.** It says: *name the file by convention under
+  # `assets/` and drop the key.* That convention is for a recipe **this package
+  # owns**, and `serena.yaml` is not one — it lives in `env_mgr/recipes/`, which
+  # `agent_sys/docs/spec.provisioning.md` §2 calls the namespace of things you
+  # *name*. Following the reservation would mean copying serena's three items
+  # into this package, which is the one thing that would make this package own a
+  # third party's install recipe.
+  #
+  # Ruled by the owner: *have the agent recipe refer to it, or copy the content
+  # into the task package.* This is the first, and it is the only "refer" the
+  # machinery has — `agent_assets._recipe_paths` resolves a bare name to
+  # `env_mgr/recipes/<name>.yaml`. Nothing in `env_mgr/recipes/` moves or is
+  # relabelled.
+  #
+  # **Known gap, and it belongs on this line rather than in a document.** A bare
+  # name resolves against `env_mgr/recipes/`, which `pyproject.toml` does **not**
+  # ship as package data (`spec.provisioning.md` §8, `temp/bugs/2026-09-04-*`),
+  # so this line resolves from a git checkout and raises from a wheel install.
+  # The package layer beside it — `assets/main.env_recipe.yaml` — has no such
+  # problem, because it travels inside the package.
   recipes: [serena]
 
   # **There is no `agent_plugins:` key any more, and its absence is the design.**
@@ -149,12 +171,12 @@
 
 # Completeness, and `strong` without qualification. Every rule it applies is a
 # key that is present or absent, a string that is empty or not, a count against
-# a floor. It cannot be *approximately* right about whether the report has seven
+# a floor. It cannot be *approximately* right about whether the report has six
 # sections.
 - module: validator
   name: check_env_report_shape
   version: '1'
-  brief: The env_report handoff is one well-formed JSON report covering all seven capabilities with a status, a level, a token and a written account of how it was obtained
+  brief: The env_report handoff is one well-formed JSON report covering all six capabilities with a status, an install route, a token and a written account of how it was obtained
   dimension: completeness
   strength: strong
   inputs: [env_report]
@@ -182,10 +204,12 @@
 # its length on exactly what that strength covers, because the honest answer is
 # narrower than the name.
 #
-# It **re-runs three of the seven capabilities itself** — it starts both MCP
-# servers and speaks the protocol to them, and it imports the ToolDef module and
-# calls the handler — and compares what they produce against what the agent
-# reported. For the other four it recomputes from the salt in the artefact,
+# It **re-runs two of the six capabilities itself** — it starts both MCP
+# servers and speaks the protocol to them — and compares what they produce
+# against what the agent reported. It used to re-run a third, by importing the
+# in-process `ToolDef` module and calling its handler; that route is deleted
+# (`agent_sys/docs/spec.provisioning.md` §6) and the capability with it.
+# For the other four it recomputes from the salt in the artefact,
 # which proves the artefact was installed in this zone and does not prove the
 # agent reached it through the capability rather than with `Read`.
 #
@@ -222,7 +246,7 @@
 # --------------------------------------------------------------------------- #
 # 3. The kind.
 #
-# **`content_type: structured_text`.** The deliverable is a table of seven rows
+# **`content_type: structured_text`.** The deliverable is a table of six rows
 # read by a machine, which is what this type is for; the other three were each
 # considered and each would cost something real. `code` would make the report
 # `items/codes/<something>` and there is no code here. `text` requires an item
@@ -278,12 +302,12 @@
 # **No `repos`.** The subject is the running system's own zone, not a checkout.
 - module: task
   name: probe_env
-  description: Exercise seven Claude Code capabilities across three install levels and hand back token evidence.
+  description: Exercise six Claude Code capabilities across both install routes and hand back token evidence.
   agent: env_probe
   handoffs: [env_report]
   validators: []
   task:
-    goal: Exercise seven capabilities across three install levels; hand back token evidence.
+    goal: Exercise six capabilities across both install routes; hand back token evidence.
     version: '1'
     inputs: []
     outputs: [env_report]

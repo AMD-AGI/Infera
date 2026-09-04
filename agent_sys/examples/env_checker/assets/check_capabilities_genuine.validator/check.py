@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 """`check_capabilities_genuine` — trustworthiness, **strong**.
 
-Every token in the report is the token that capability actually produces. Three
-of the seven are re-derived by **running the capability**: both MCP servers are
-started here and spoken to over the protocol, and the ToolDef module is imported
-and its handler called. The other four are recomputed from the salt in the
-installed artefact.
+Every token in the report is the token that capability actually produces. Two
+of the six are re-derived by **running the capability**: both MCP servers are
+started here and spoken to over the protocol. The other four are recomputed from
+the salt in the installed artefact.
+
+**It used to be three of seven.** The third was the in-process `ToolDef`, whose
+module this body imported and whose handler it called; the route was deleted
+(`agent_sys/docs/spec.provisioning.md` §6) and the capability with it. What that
+costs is stated in the readme's *What it cannot catch* rather than left for a
+reader to notice from the arithmetic.
 
 The readme beside this file states, at length and by capability, exactly what
 each of those two treatments proves and what it does not. Read it before
@@ -21,7 +26,6 @@ it.
 from __future__ import annotations
 
 import datetime
-import importlib.util
 import json
 import os
 import subprocess
@@ -32,16 +36,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 import envchk  # noqa: E402 — the path insert above is what makes it importable
 import zone  # noqa: E402
-
-#: Where the repository's L2 registry sits, relative to a repository root. Used
-#: only by the fallback search below; the direct route is the environment
-#: variable named beside it.
-ADDONS_REL = Path("agent_sys") / "agent_plugins"
-
-#: The variable that names the L2 registry outright. Preferred over the search,
-#: because a search is a guess that can find the wrong tree on a machine with
-#: two checkouts, and a variable is a statement.
-COMPONENTS_ENV = "AGENT_SYS_ADDONS_ROOT"
 
 #: The MCP protocol version this body asks for. A server is free to answer with
 #: its own; both servers in this package echo whatever they are given.
@@ -63,49 +57,43 @@ def package_root() -> Path:
     raise SystemExit("check_capabilities_genuine: neither package variable is set")
 
 
-def agent_plugins_root(package: Path) -> tuple[Path | None, str]:
-    """The `agent_sys/env_mgr/addons/` registry, and how it was found.
+def zone_config(package: Path) -> Path:
+    """`<zone>/config/` — where a recipe places what it installs for the session.
 
-    **The environment variable first, a search second, and a named failure
-    third.** The search exists because the registry is a *repository* path and a
-    task package is *staged* — `<zone>/…/package/` has no `../../agent_plugins` —
-    so in a staged run only the variable can answer. It is not a fallback that
-    covers for the variable being absent: in that case the L2 capability is
-    reported unverifiable **by name**, which is a fault, not a shrug.
+    `<staged package>/../config`. Measured against run 2's tree:
+    `fs/layout.PACKAGE` and `material.CONFIG_DIR` are siblings inside the zone,
+    so the zone root is the staged package's parent.
+
+    **`$AGENT_SYS_TASK_PACKAGE` and not `$AGENT_SYS_MY_ZONE`**, deliberately:
+    `entry.sh` already refuses to start without the former, so a body that is
+    running has it *by the fact of running*. Whether a validation zone carries
+    `AGENT_SYS_MY_ZONE` is still open and nothing here needs the answer.
+
+    **This function is what replaced a search up the filesystem.** Capability 4's
+    artefact used to be read out of `agent_sys/env_mgr/addons/`, found by
+    `$AGENT_SYS_ADDONS_ROOT` or, failing that, by walking up from the staged
+    package looking for a repository layout — a guess that can find the wrong
+    checkout on a machine with two. Neither is needed now: the server file is
+    **copied into the zone** by the package-layer recipe, so the only copy this
+    run has is one directory away and no environment variable names anything
+    outside the zone. That variable no longer exists
+    (`agent_sys/docs/spec.provisioning.md` §4).
     """
-    declared = os.environ.get(COMPONENTS_ENV)
-    if declared:
-        path = Path(declared)
-        if path.is_dir():
-            return path, f"${COMPONENTS_ENV}"
-        return None, f"${COMPONENTS_ENV} is {declared!r} and is not a directory"
-    for parent in [package, *package.parents]:
-        candidate = parent / ADDONS_REL
-        if candidate.is_dir():
-            return candidate, f"found at {candidate}"
-    # **The environment is printed, not merely named.** Measured 2026-09-03,
-    # run 2: this fault fired and neither the stream nor any artefact recorded
-    # whether the variable had been set — `AGENT_SYS_ADDONS_ROOT` appears
-    # zero times across every event kind — so "unset" was an inference from the
-    # fault text rather than an observation. Listing what the body *did* have
-    # makes the next occurrence evidence: an empty list says the validator zone
-    # carries no `AGENT_SYS_*` at all, and a list without this one says the zone
-    # is populated and this variable specifically is missing. Those are
-    # different bugs and the fault text could not previously tell them apart.
-    present = sorted(k for k in os.environ if k.startswith("AGENT_SYS_"))
-    return None, (
-        f"${COMPONENTS_ENV} is unset and no {ADDONS_REL} exists above "
-        f"{package} — the L2 capability cannot be re-derived. "
-        f"AGENT_SYS_* present in this body's environment: {present or '(none)'}"
-    )
+    return package.parent / "config"
 
 
-def artefact_of(capability: envchk.Capability, package: Path, components: Path | None) -> Path | None:
-    """The file carrying this capability's salt, or `None` when its root is gone."""
-    if capability.origin == "package":
-        return package / capability.artefact
-    name = capability.origin.split(":", 1)[1]
-    return None if components is None else components / name / capability.artefact
+def artefact_of(capability: envchk.Capability, package: Path) -> Path:
+    """The file carrying this capability's salt.
+
+    Two roots and no failure case, which is the change: every artefact is now
+    inside the run, either in the staged package or in the zone's config
+    directory. A missing file is caught where it is read — `replay_mcp` and
+    `envchk.salt_of` both name the path — rather than by a root that could not be
+    located at all.
+    """
+    if capability.origin == "zone_config":
+        return zone_config(package) / capability.artefact
+    return package / capability.artefact
 
 
 # ------------------------------------------------------------------ replays
@@ -183,60 +171,6 @@ def replay_mcp(server: Path, nonce: str, timeout: float) -> tuple[dict | None, s
         return None, f"{server.name}: tools/call returned no text content"
     tail = (completed.stderr or "").strip().splitlines()[-3:]
     return None, f"{server.name}: no response to tools/call (rc {completed.returncode}); {tail}"
-
-
-def placed_tooldef(package: Path) -> Path:
-    """The tooldef copy the supervisor actually imported.
-
-    `<staged package>/../config/tools/<name>`. Measured against run 2's tree:
-    `fs/layout.PACKAGE` and `material.CONFIG_DIR` are siblings inside the zone,
-    so the zone root is the staged package's parent.
-
-    **`$AGENT_SYS_TASK_PACKAGE` and not `$AGENT_SYS_MY_ZONE`**, deliberately:
-    `entry.sh` already refuses to start without the former, so a body that is
-    running has it *by the fact of running*. Whether a validation zone carries
-    `AGENT_SYS_MY_ZONE` is still open — run 2 could not answer it, and the
-    instrumentation in `agent_plugins_root` is what will.
-    """
-    return package.parent / "config" / "tools" / "envchk_inproc.tooldef.py"
-
-
-def replay_import(module_path: Path) -> tuple[dict | None, str]:
-    """Import the tooldef the supervisor imported, and call what it declares.
-
-    **No environment is forced, and that is the change.** The previous version
-    set `ENVCHK_NONCE` in this process before calling, so it could only ever
-    catch a wrong *salt* — never a wrong *environment*, which is precisely the
-    defect run 2 found. The tool now takes no input at all, so there is nothing
-    to force and the replay observes what the tool actually produces.
-
-    **The PLACED copy, not the staged source.** The tool derives its token from
-    its own `__file__`, and `_tooldefs` imports the placed copy — so importing
-    the staged source here would yield a different path, a different token, and
-    a mismatch against an honest agent.
-
-    Through `TOOLS`, not the function beside it: `TOOLS` is what `env_mgr` reads
-    and what `claude_sdk._adapt_tool` adapts.
-    """
-    if not module_path.is_file():
-        return None, f"{module_path}: not installed — nothing was placed to import"
-    spec = importlib.util.spec_from_file_location("envchk_inproc_tooldef", module_path)
-    if spec is None or spec.loader is None:
-        return None, f"{module_path}: not importable"
-    module = importlib.util.module_from_spec(spec)
-    # Registered before execution: several stdlib decorators resolve string
-    # annotations through `sys.modules[cls.__module__]` and raise without it.
-    sys.modules[spec.name] = module
-    try:
-        spec.loader.exec_module(module)
-        tools = getattr(module, "TOOLS", None)
-        if not tools:
-            return None, f"{module_path}: no module-level TOOLS, so nothing was published"
-        return dict(tools[0].call()), ""
-    except Exception as exc:  # noqa: BLE001 — any failure here is one fault, named
-        return None, f"{module_path}: {type(exc).__name__}: {exc}"
-    finally:
-        sys.modules.pop(spec.name, None)
 
 
 def replay_salt(artefact: Path, label: str, nonce: str) -> tuple[dict | None, str]:
@@ -461,8 +395,6 @@ def check_capability(
     section: dict,
     nonce: str,
     package: Path,
-    components: Path | None,
-    components_why: str,
     installs: object,
     excused: list[str],
     timeout: float,
@@ -484,18 +416,10 @@ def check_capability(
     if not isinstance(token, str):
         return [f"{where}.token: missing — check_env_report_shape reports the shape"]
 
-    artefact = artefact_of(capability, package, components)
-    if artefact is None:
-        return [f"{where}: cannot be re-derived: {components_why}"]
+    artefact = artefact_of(capability, package)
 
     if capability.replay == "mcp":
         produced, why = replay_mcp(artefact, nonce, timeout)
-    elif capability.replay == "import":
-        # The placed copy, not the artefact in the staged package — the tool's
-        # token is derived from its own `__file__`, and it ran from the placed
-        # one. See `placed_tooldef`.
-        artefact = placed_tooldef(package)
-        produced, why = replay_import(artefact)
     else:
         produced, why = replay_salt(artefact, capability.label, nonce)
 
@@ -508,74 +432,20 @@ def check_capability(
             f"{where}.token: the report says {token!r} and {capability.what} "
             f"produces {produced.get('token')!r} for this run's nonce"
         )
-    if capability.replay in ("mcp", "import"):
+    if capability.replay == "mcp":
         faults += check_liveness(where, produced)
 
     proof = section.get("proof")
-    if capability.label == "tooldef":
-        # **Row 6b, and it is worth more than row 6.** The path the agent
-        # reported must be the placed copy: that is what fails when a tooldef is
-        # imported from the component source instead, which is `e1b9f54`'s bug
-        # and which nothing else in this repository guards. Row 6 failing means
-        # one capability did not work; this failing means the isolation property
-        # is broken for every tooldef any package ever ships.
-        #
-        # **The discrimination is in the path, not the digest.** Placed copy,
-        # staged source and working tree are byte-identical, so a matching
-        # `sha256` proves the module read a file and digested it correctly and
-        # cannot say which file.
-        expected = placed_tooldef(package)
-        raw = proof.get("raw") if isinstance(proof, dict) else None
-        if not isinstance(raw, dict):
-            faults.append(f"{where}.proof.raw: missing or not an object")
-        else:
-            if raw.get("path") != str(expected):
-                faults.append(
-                    f"{where}.proof.raw.path: {raw.get('path')!r}, needs {str(expected)!r} — "
-                    f"the placed copy in this run's zone. A tooldef imported from the "
-                    f"component source is env_mgr's isolation property broken, not a "
-                    f"capability failure: read `_tooldefs`, not the agent"
-                )
-            if raw.get("sha256") != produced.get("sha256"):
-                faults.append(
-                    f"{where}.proof.raw.sha256: {raw.get('sha256')!r} but the placed "
-                    f"file digests to {produced.get('sha256')!r}"
-                )
-            if raw.get("token") != token:
-                faults.append(
-                    f"{where}.proof.raw.token: {raw.get('token')!r} but the section "
-                    f"reports {token!r}"
-                )
-            # **A CONSISTENCY check, not an independent one, and the label is
-            # load-bearing.** `agent_assets` records the placed path on the
-            # in-process route, so the install report knows it too — but this
-            # body reads that report out of `payload["install_report"]`, which
-            # the *agent* supplied, alongside its own account of where it came
-            # from. Comparing it to `proof.raw.path` therefore compares two
-            # things from the same source: it catches an **inconsistent** agent,
-            # which is real and cheap, and it cannot catch a consistent
-            # misstatement. Calling it "cross-checked against the install
-            # report" would read as independent corroboration and would not be.
-            #
-            # Making it independent means this body reading
-            # `$AGENT_SYS_INSTALL_REPORT` itself — and whether a validation zone
-            # can see that variable is the open question the `AGENT_SYS_*`
-            # listing above is instrumented to answer. Deferred to measurement
-            # rather than argued.
-            recorded = [
-                e.get("details", {}).get("path")
-                for e in (installs if isinstance(installs, list) else [])
-                if isinstance(e, dict) and "in-process" in str(e.get("message", ""))
-            ]
-            if recorded and raw.get("path") not in recorded:
-                faults.append(
-                    f"{where}.proof.raw.path: {raw.get('path')!r} disagrees with the "
-                    f"path the agent's own install_report records for the in-process "
-                    f"route ({recorded!r}). Consistency only — both fields come from "
-                    f"the agent, so this catches an inconsistent report and not a "
-                    f"consistent misstatement"
-                )
-    elif capability.label == "serena":
+    # **Row 6b was here and went with row 6.** It asserted that the path the
+    # agent reported for the in-process `ToolDef` was the copy placed in this
+    # run's zone rather than the component source — the one check in this
+    # repository that could see `env_mgr`'s isolation property break for every
+    # package that ever shipped a tooldef. The route is deleted
+    # (`agent_sys/docs/spec.provisioning.md` §6), so the property has no subject;
+    # the readme's *What it cannot catch* records that this validator no longer
+    # observes where a placed file was loaded from, because nothing here is
+    # loaded any more.
+    if capability.label == "serena":
         # The salt again, from the artefact this body already read once for the
         # replay. Read rather than threaded through `replay_salt`'s return: that
         # function's contract is "what the capability produces", and the salt is
@@ -605,13 +475,12 @@ def main() -> int:
     nonce = os.environ.get("ENVCHK_NONCE")
     if not nonce:
         # **Named, not worked around.** Recomputing from an empty string would
-        # produce seven mismatches and send a reader looking at the agent.
+        # produce six mismatches and send a reader looking at the agent.
         print("check_capabilities_genuine: FAIL: $ENVCHK_NONCE is not set in this body's environment")
         zone.write_verdict(dict.fromkeys(zone.inputs(), False))
         return 0
 
     package = package_root()
-    components, components_why = agent_plugins_root(package)
 
     results: dict[str, bool] = {}
     for hid in zone.inputs():
@@ -647,8 +516,6 @@ def main() -> int:
                     section,
                     nonce,
                     package,
-                    components,
-                    components_why,
                     payload.get("install_report"),
                     excused,
                     timeout,

@@ -7,7 +7,7 @@ happen to this directory and they are different:
 
 | | |
 |---|---|
-| `.claude/` | **installed** — it is L3, auto-detected, never declared, and merged into the zone's `$CLAUDE_CONFIG_DIR` |
+| `.claude/` | **installed** — auto-detected, never declared, and copied into the zone's `$CLAUDE_CONFIG_DIR`. This is the one copy route `agent_sys/docs/spec.provisioning.md` §3 leaves |
 | the whole directory | **copied** to `<zone>/workspace/<dirname>/`, and named by `$AGENT_SYS_AGENT_ASSETS` |
 
 So `serena_probe.py` beside this file is *not* a capability: it is a subject,
@@ -26,16 +26,27 @@ capability goes under `.claude/` and anything that is not, must not.
 │   └── envchk-plugin/
 │       ├── .claude-plugin/plugin.json
 │       └── skills/envchk-plugin-skill/SKILL.md
-└── tools/
-    ├── envchk_stdio.mcp.py           capability 5 — a bundled stdio MCP server
-    └── envchk_inproc.tooldef.py      capability 6 — an in-process ToolDef
+├── tools/
+│   └── envchk_stdio.mcp.py           capability 5 — a bundled stdio MCP server
+└── .mcp.json                         the entries for capabilities 4 and 7
 ```
 
-Capability 4 (an external MCP server) is **not** here: it is L2, and it comes
-from `agent_sys/env_mgr/addons/envchk-baseline/`, named by the agent spec's
-`agent_plugins:` key. Capability 7 (serena) is L1, named by `recipes:`. One run
-therefore crosses all three levels, which is the only reason this package needs
-seven capabilities rather than two.
+**Capability 6 was `tools/envchk_inproc.tooldef.py` and is deleted.** It measured
+the in-process `ToolDef` route, which `spec.provisioning.md` §6 removed for
+component-supplied tools; nothing replaces it, and the number is left unused so
+that the deletion is visible rather than smoothed over by renumbering.
+
+**Capabilities 4 and 7 are declared here and installed elsewhere**, and that
+split is the point of both:
+
+| | declared | installed |
+|---|---|---|
+| 4 `envchk_baseline` | the `.mcp.json` above | `assets/main.env_recipe.yaml` copies the server out of `agent_sys/env_mgr/addons/envchk-baseline/` |
+| 7 `serena` | the `.mcp.json` above | `recipes: [serena]` on the agent spec → `agent_sys/env_mgr/recipes/serena.yaml` |
+
+Run 1 (2026-09-03) is why the split is written down: serena installed cleanly and
+every `mcp__serena__*` call returned `No such tool available`, because nothing
+declared it. **An install is not a declaration**, in either direction.
 
 ## Why `settings.json` carries no explanation
 
@@ -57,10 +68,21 @@ here.
   would sit through wondering whether the run had begun.
 - **No `matcher`.** `SessionStart` has no tool to match on.
 
-## Why there is no `.mcp.json` here
+## Why `.mcp.json` is here, when it used to be somewhere else
 
-There could be, and leaving it out is a decision. If this directory declared an
-external MCP server too, capability 4 would be provable from L3 alone and the
-run would never need `agent_sys/env_mgr/addons/` — which would leave L2 declared and
-untested. The one external server in this run comes from the component
-precisely so that its absence is a failure.
+Both entries in it were previously carried by add-ons under
+`agent_sys/env_mgr/addons/{serena,envchk-baseline}/.claude/.mcp.json`, reached by
+an `agent_plugins:` key on the agent spec. That key is deleted and this is the
+one retained copy route, so the declarations moved here **byte for byte** —
+serena's keeps `--project ${AGENT_SYS_MY_WORKSPACE}`, which is the reason it
+could not have stayed shared: the directory serena indexes differs per agent and
+has no environment-variable equivalent.
+
+**What this package stopped proving by that move.** Section 4 used to
+demonstrate that a `.claude/` tree *this repository ships* could be installed for
+an agent by name. There is no such route now, so nothing here measures it —
+correctly, because it does not exist. What section 4 measures instead is the
+route that replaced it: a recipe places a payload `agent_sys` ships, and the
+agent declares it. That is a weaker claim about ownership and an equally strong
+one about the server working, and both halves still fail loudly — the recipe item
+is `required`, and a missing declaration is run 1's `No such tool available`.

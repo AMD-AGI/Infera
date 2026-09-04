@@ -32,6 +32,6 @@ PY
 
 <!-- ENVCHK_SALT: fdf787965fb0679e22c3bf4c2988282d -->
 
-Report it under `capabilities.plugin` with `"level": "L3"`, and put in `how`
+Report it under `capabilities.plugin` with `"installed_by": "copied"`, and put in `how`
 the output of `claude plugin list` — the install record is the part of this
 capability that a file read cannot produce.

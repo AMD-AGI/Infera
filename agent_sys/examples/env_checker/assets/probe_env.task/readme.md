@@ -1,9 +1,15 @@
-# probe_env — use all seven capabilities, then report what actually happened
+# probe_env — use all six capabilities, then report what actually happened
 
-Your environment was assembled by `env_mgr` from **three install levels**. Your
-job is to find out whether all seven capabilities it was supposed to give you
+Your environment was assembled by `env_mgr` through **two install routes**: a
+**recipe** declares something and `env_mgr` installs it, or your own
+`.claude/` tree is **copied** into your session's configuration directory. Your
+job is to find out whether all six capabilities it was supposed to give you
 actually arrived, by **using** each one, and to hand back a report that a
 program can check.
+
+**The sections are numbered 1-5 and 7.** Six was an in-process tool and the route
+that carried it was deleted; the number is left unused rather than closed up, so
+that you can tell a missing section from a renumbered one.
 
 **Using is the whole task.** A section that says a capability is present because
 you saw its file is not the deliverable; it is the thing this package exists to
@@ -37,7 +43,7 @@ token = "ENVCHK-" + LABEL.upper() + "-" + sha256(f"{salt}:{label}:{nonce}").hexd
 
 - `nonce` is **`$ENVCHK_NONCE`** in your environment. Check it is set before you
   start. If it is not, stop and report that — everything below derives from it
-  and seven tokens computed from an empty string are seven wrong answers that
+  and six tokens computed from an empty string are six wrong answers that
   look right.
 - `salt` is a 32-hex constant that lives **only inside that one capability's own
   artefact**. There is no list of them. If you have not reached the capability,
@@ -59,7 +65,7 @@ Facts, not instructions. None of them is the recipe.
 | `$ENVCHK_NONCE` | This run's nonce. Required; the package refuses to load without it |
 | `$UV_TOOL_BIN_DIR` | Where serena's binary was installed. **You do not launch it** — the harness did, from that absolute path. It is here so that, if `mcp__serena__*` is absent from your tool list, you can say in section 7 whether the binary exists rather than only that the tools do not |
 | `$AGENT_SYS_AGENT_ASSETS` | Your agent's asset directory, staged. Its `README.md` maps the `.claude/` tree, and `serena_probe.py` beside it is section 7's subject |
-| `$CLAUDE_CONFIG_DIR` | Your session's config directory, inside the zone. This is where L1, L2 and L3 were all merged |
+| `$CLAUDE_CONFIG_DIR` | Your session's config directory, inside the zone. Both install routes end here: what a recipe placed and what was copied from your own `.claude/` tree sit side by side, and nothing in the directory records which was which |
 | `$AGENT_SYS_MY_LOGS` | The zone's logs directory. Section 2's hook writes here |
 | `$AGENT_SYS_OUTPUT_ENV_REPORT` | Where the report goes |
 
@@ -69,16 +75,17 @@ machine.
 
 ---
 
-# The seven sections
+# The six sections
 
 One per capability, in this order. The order is `assets/lib/envchk.py`'s
-`CAPABILITIES` tuple and the validators use the same one.
+`CAPABILITIES` tuple and the validators use the same one; each row there carries
+its own section number, which is why 6 can be missing.
 
-## 1. skill — L3
+## 1. skill — copied
 
 `envchk-probe` is a skill in your own `.claude/skills/`. It arrived because the
 directory exists at `$AGENT_SYS_AGENT_ASSETS/.claude/skills/`, **not** because
-anything declared it — that is what L3 means.
+anything declared it — that is what the copy route means.
 
 **Invoke it as a skill.** Its `SKILL.md` carries the salt and the command.
 Opening the file with `Read` gets you the same string and is a different claim;
@@ -86,7 +93,7 @@ say in `how` which you did, and if the skill is not in your skill list, say
 *that* — an honest `status` of a capability that did not arrive is the most
 valuable line in the whole report.
 
-## 2. hook — L3
+## 2. hook — copied
 
 A `SessionStart` hook, declared in `.claude/settings.json`, which is the only
 file Claude Code reads hooks from. It has **already fired** if it fired at all —
@@ -109,7 +116,7 @@ reports the empty payload, and you will have spent the turn to fail more
 confusingly. Report `status` honestly instead and say in `how` that the file was
 absent.
 
-## 3. plugin — L3
+## 3. plugin — copied
 
 A plugin called `envchk-plugin`, installed from a **local marketplace** at
 `$CLAUDE_CONFIG_DIR/plugins`. It ships a skill, `envchk-plugin-skill`, and that
@@ -123,55 +130,57 @@ Two things go in this section:
   install record, and it is the half of this capability a file read cannot
   produce.
 
-## 4. external MCP server — L2
+## 4. an MCP server a recipe installed — recipe
 
-`envchk_baseline`, from the component `agent_sys/env_mgr/addons/envchk-baseline`,
-declared in that component's `.claude/.mcp.json`. **This is the only one of the
-seven that comes from L2**, so if this section fails, L2 failed.
+`envchk_baseline`. **Two halves, and they come from different places**: the
+server file is shipped by `agent_sys` under
+`env_mgr/addons/envchk-baseline/` and copied into
+`$CLAUDE_CONFIG_DIR/servers/` by this package's own recipe layer
+(`assets/main.env_recipe.yaml`); the entry that registers it is in **your own**
+`.claude/.mcp.json`. If this section fails, one of those two halves failed, and
+saying which in `how` is worth more than the token.
 
 Call `mcp__envchk_baseline__envchk_report`. It takes no arguments. Put the
-tool's whole result object in `proof.raw` — `token`, `label`, `level`, `pid`,
-`at`. The validator starts the same server itself and compares.
+tool's whole result object in `proof.raw` — `token`, `label`, `installed_by`,
+`pid`, `at`. The validator starts the same server itself and compares.
 
-## 5. bundled stdio MCP server — L3
+## 5. bundled stdio MCP server — copied
 
 `envchk_stdio`, from `.claude/tools/envchk_stdio.mcp.py`. **Nothing declares
-it** — `env_mgr` registered it because of the file's location and suffix, which
-is the difference between this section and section 4 and the only reason both
-are in the list.
+it** — `env_mgr` registered it because of the file's location and suffix.
+
+That is the whole difference between this section and section 4, and it is
+narrower than it used to be: both servers are now `type: stdio`, both are spawned
+by the harness, and both entries reach it through your own `.claude/`. Section 4
+is *declared explicitly and installed by a recipe*; this one is *declared by
+where the file sits and installed by the copy*. Nothing else separates them.
 
 Call `mcp__envchk_stdio__envchk_report`, same shape, `proof.raw` again.
 
-## 6. in-process ToolDef — L3
+## 6. — deleted, and this heading is the record of it
 
-`.claude/tools/envchk_inproc.tooldef.py` declares a module-level `TOOLS`, and
-`agent_sys` publishes it under its own in-process MCP server. The name the model
-calls is therefore **`mcp__env_mgr__envchk_echo_token`** — `env_mgr`, not
-`envchk`, and getting that wrong is the most common way this section fails.
+There is no section 6. It was an **in-process `ToolDef`** — a
+`.claude/tools/*.tooldef.py` whose module-level `TOOLS` `agent_sys` imported into
+its own supervisor process and published as `mcp__env_mgr__envchk_echo_token`.
 
-**This tool takes no arguments and reads nothing from the environment** — call
-it with an empty argument object. It returns `token`, `path`, `sha256`, `label`,
-`level`, `pid`, `at`. Put the **whole object**, unedited, in `proof.raw`; the
-validator checks `path` and `sha256` as well as `token`, and dropping either
-fails an otherwise honest report.
+That route is gone (`agent_sys/docs/spec.provisioning.md` §6): it ran
+third-party code inside the process that supervises every agent, with its
+memory, file descriptors and credentials, and no boundary that could fail
+closed. An add-on now ships a server that runs on its own, which is what
+sections 4 and 5 measure.
 
-**Do not compute the token yourself from the salt in the file.** This section's
-token is derived from the module's **own path**, not from `$ENVCHK_NONCE`, and
-that path is one you cannot construct: it is the placed copy inside this run's
-zone. Call the tool and copy what it says.
+**Do not report a `tooldef` section.** The report's capability set is closed and
+an extra key fails the shape check by name. If you find such a tool in your tool
+list, that is a finding worth putting in `## Limits`, because it should not be
+there.
 
-Why it differs from every other section: measured on 2026-09-03, an in-process
-`ToolDef` runs in the **supervisor's** process, which does not carry
-`$ENVCHK_NONCE`. A previous run's tool computed a token from an empty nonce and
-returned it without error. If you notice this section's token looks unlike the
-others, that is expected and is not a fault to work around.
-
-## 7. serena — L1
+## 7. serena — recipe
 
 The real serena. **Two halves**, and knowing which is which is what makes an
 honest report possible here: the binary is installed by an `env_mgr` recipe
-(L1, `recipes: [serena]`), and it is registered as an MCP server by a component
-(L2, `agent_plugins: [serena]`). Its tools are `mcp__serena__*`.
+(`recipes: [serena]` on the agent spec), and it is registered as an MCP server by
+an entry in **your own** `.claude/.mcp.json` — the same arrangement as section 4.
+Its tools are `mcp__serena__*`.
 
 If those tools are absent from your tool list, say so plainly — and check
 `$UV_TOOL_BIN_DIR` so you can report **which half is missing**: a binary that
@@ -236,13 +245,12 @@ to work for or an honest failure you could point at.
 {
   "nonce_digest": "<12 hex, from the command above>",
   "capabilities": {
-    "skill":        {"level": "L3", "status": "ok", "token": "ENVCHK-SKILL-...", "how": "...", "proof": {...}},
-    "hook":         {"level": "L3", "status": "ok", "token": "ENVCHK-HOOK-...", "how": "...", "proof": {"record": {...}}},
-    "plugin":       {"level": "L3", "status": "ok", "token": "ENVCHK-PLUGIN-...", "how": "...", "proof": {"plugin_list": "..."}},
-    "mcp_external": {"level": "L2", "status": "ok", "token": "ENVCHK-MCP_EXTERNAL-...", "how": "...", "proof": {"raw": {...}}},
-    "mcp_stdio":    {"level": "L3", "status": "ok", "token": "ENVCHK-MCP_STDIO-...", "how": "...", "proof": {"raw": {...}}},
-    "tooldef":      {"level": "L3", "status": "ok", "token": "ENVCHK-TOOLDEF-...", "how": "...", "proof": {"raw": {"token": "...", "path": "...", "sha256": "...", "label": "tooldef", "level": "L3", "pid": 0, "at": "..."}}},
-    "serena":       {"level": "L1", "status": "ok", "token": "ENVCHK-SERENA-...", "how": "...", "proof": {"raw": [{"name_path": "envchk_serena_token", "kind": "Function", "relative_path": "serena_probe.py", "body_location": {"start_line": 0, "end_line": 0}, "body": "..."}]}}
+    "skill":        {"installed_by": "copied", "status": "ok", "token": "ENVCHK-SKILL-...", "how": "...", "proof": {...}},
+    "hook":         {"installed_by": "copied", "status": "ok", "token": "ENVCHK-HOOK-...", "how": "...", "proof": {"record": {...}}},
+    "plugin":       {"installed_by": "copied", "status": "ok", "token": "ENVCHK-PLUGIN-...", "how": "...", "proof": {"plugin_list": "..."}},
+    "mcp_external": {"installed_by": "recipe", "status": "ok", "token": "ENVCHK-MCP_EXTERNAL-...", "how": "...", "proof": {"raw": {...}}},
+    "mcp_stdio":    {"installed_by": "copied", "status": "ok", "token": "ENVCHK-MCP_STDIO-...", "how": "...", "proof": {"raw": {...}}},
+    "serena":       {"installed_by": "recipe", "status": "ok", "token": "ENVCHK-SERENA-...", "how": "...", "proof": {"raw": [{"name_path": "envchk_serena_token", "kind": "Function", "relative_path": "serena_probe.py", "body_location": {"start_line": 0, "end_line": 0}, "body": "..."}]}}
   },
   "install_report": [ ... ],
   "install_report_source": "how you obtained it"
@@ -251,7 +259,7 @@ to work for or an honest failure you could point at.
 
 | field | rule |
 |---|---|
-| `level` | `L1`, `L2` or `L3`, and it must be the one this brief gives for that section. It is not a guess — it says which install route you are claiming worked |
+| `installed_by` | `recipe` or `copied`, and it must be the one this brief gives for that section. It is not a guess — it says which of the two install routes you are claiming worked. **The key used to be `level` with `L1`/`L2`/`L3`; those levels no longer exist.** A report still carrying `level` fails on a missing key, which is the intended message |
 | `status` | `ok` or `unavailable`. `unavailable` is permitted for `serena` only, under the condition in section 7 |
 | `token` | the string, or `null` when `status` is not `ok`. Never a token you did not obtain |
 | `how` | at least **80 characters** of non-whitespace: the tool or command you used, and how you know it was that route rather than a file read. This is the field a human reads when a token mismatches |
@@ -259,7 +267,7 @@ to work for or an honest failure you could point at.
 
 ## `install_report`
 
-`env_mgr` records an outcome per recipe, component and capability it installed —
+`env_mgr` records an outcome per recipe item and per file it placed —
 a `level`, a `message` and `details`. The levels are **`ok`, `info`, `warn`,
 `fail`** — that tuple is owned by `env_mgr.outcome.LEVELS` and it is the
 whole set; there is no `refused`. Copy the levels through verbatim and do
@@ -293,7 +301,8 @@ Four sections, all required, all checked for being non-empty and not a
 placeholder:
 
 - **`## Purpose`** — what this handoff is: a per-capability record of which
-  Claude Code capabilities installed for one agent, at which level.
+  Claude Code capabilities installed for one agent, and by which of the two
+  install routes.
 - **`## Schema`** — the shape of `items/text.json`. Describe the fields; a
   reader should not have to open the file to know what is in it.
 - **`## Method`** — what you actually did, per capability. Which tool, which
@@ -308,9 +317,9 @@ placeholder:
 
 # Rules
 
-- **Do not report a token you did not obtain.** Both validators recompute; three
+- **Do not report a token you did not obtain.** Both validators recompute; two
   capabilities are re-run from scratch by `check_capabilities_genuine`, which
-  starts both MCP servers itself and imports the ToolDef module. A fabricated
+  starts both MCP servers itself and speaks the protocol to them. A fabricated
   token is not a risk you are taking, it is a fault you are writing down.
 - **A capability that did not arrive is a result.** `status` other than `ok`,
   `token: null`, and a `how` that says what you tried. That is a complete and

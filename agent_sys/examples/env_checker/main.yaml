@@ -4,8 +4,8 @@
 # This package's subject is **`agent_sys` itself**. Where `examples/demo` shows
 # the graph machinery and `examples/single_real_task` runs a real workload, this
 # one runs a single leaf whose entire job is to answer one question about the
-# system that started it: *did the seven Claude Code capabilities this agent
-# declares actually arrive, across all three install levels?*
+# system that started it: *did the six Claude Code capabilities this agent
+# declares actually arrive, by both of the two install routes?*
 #
 # That subject decides the shape. There is nothing to parallelise, nothing to
 # sequence, and no second step that could fail for an unrelated reason — one
@@ -23,7 +23,7 @@
 # `entry.sh` are then found by their own names.
 module: task
 name: main
-description: Prove that seven Claude Code capabilities install per-agent across three levels.
+description: Prove that six Claude Code capabilities install per-agent by both install routes.
 
 # One kind, declared here because the root's grants must cover the whole
 # subtree: permissions are inherited downwards, so the root is the one place
@@ -38,7 +38,7 @@ handoffs:
 validators: []
 
 task:
-  goal: Prove seven Claude Code capabilities install per-agent across three levels.
+  goal: Prove six Claude Code capabilities install per-agent by both install routes.
   version: '1'
 
   # `main` consumes nothing from outside the package.

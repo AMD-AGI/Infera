@@ -24,7 +24,7 @@ PY
 
 <!-- ENVCHK_SALT: 141016c5de297f4ec6ddac2809856ba1 -->
 
-Report it under `capabilities.skill` with `"level": "L3"` and, in `how`, the
+Report it under `capabilities.skill` with `"installed_by": "copied"` and, in `how`, the
 fact that you invoked this skill by name rather than opening the file — the
 brief's section 1 says which of the two you are being asked to do, and the two
 are not the same evidence.

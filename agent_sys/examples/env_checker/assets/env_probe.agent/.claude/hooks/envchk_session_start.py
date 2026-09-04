@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The `SessionStart` hook. L3.
+"""The `SessionStart` hook. Installed by the copy route.
 
 Declared by `../settings.json`, which is the **only** file Claude Code reads
 hooks from. `agent`'s `hooks:` key places a file at `<zone>/config/hooks/<name>`
@@ -16,7 +16,7 @@ four straight through into its output file beside the token. The token says
 the SessionStart event*, and there is no way to obtain a `session_id` matching
 the running session's own transcript by reading a file.
 
-Stated exactly, because it is the strongest claim any of the seven capabilities
+Stated exactly, because it is the strongest claim any of the six capabilities
 can make and it is still not a proof of honesty: an agent that ran this script
 itself, by hand, would get no stdin and therefore no `session_id` — the fields
 would be absent and `check_capabilities_genuine` reports that. An agent that
@@ -54,7 +54,7 @@ from pathlib import Path
 #: ENVCHK_SALT: 6ea6f6c74db34d32fc6deeb468877508
 SALT = "6ea6f6c74db34d32fc6deeb468877508"
 LABEL = "hook"
-LEVEL = "L3"
+INSTALLED_BY = "copied"
 
 #: The file the brief tells the agent to read. Named for the capability rather
 #: than for the event, because a second hook on a second event would be a second
@@ -69,7 +69,7 @@ PAYLOAD_KEYS = ("session_id", "transcript_path", "cwd", "hook_event_name")
 
 def token(nonce: str) -> str:
     """`sha256(f"{salt}:{label}:{nonce}")[:12]` — the derivation shared by all
-    seven capabilities in this package."""
+    six capabilities in this package."""
     digest = hashlib.sha256(f"{SALT}:{LABEL}:{nonce}".encode()).hexdigest()[:12]
     return f"ENVCHK-{LABEL.upper()}-{digest}"
 
@@ -106,7 +106,7 @@ def main() -> int:
     record = {
         "token": token(os.environ.get("ENVCHK_NONCE", "")),
         "label": LABEL,
-        "level": LEVEL,
+        "installed_by": INSTALLED_BY,
         "pid": os.getpid(),
         "at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "payload": read_payload(),

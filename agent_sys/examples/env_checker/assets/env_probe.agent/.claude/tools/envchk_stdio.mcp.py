@@ -1,22 +1,31 @@
 #!/usr/bin/env python3
-"""`envchk_stdio` — a **bundled** stdio MCP server. L3.
+"""`envchk_stdio` — a **bundled** stdio MCP server, installed by the copy route.
 
 The difference between this file and
 `agent_sys/env_mgr/addons/envchk-baseline/.claude/servers/envchk_baseline_server.py`
 is not what it does — both speak the same four JSON-RPC methods and both return
-a nonce-derived token — it is **how it is declared**:
+a nonce-derived token — it is **how each is declared and how each is installed**:
 
-| | declaration | level |
+| | declared by | installed by |
 |---|---|---|
-| `envchk-baseline` | a `command`/`args` entry in `.claude/.mcp.json` | L2, a component this repo ships |
-| this file | its own **location and suffix**, `.claude/tools/*.mcp.py` | L3, carried by one task package for one agent |
+| `envchk-baseline` | a `command`/`args` entry in the agent's `.claude/.mcp.json` | a recipe, which copies the server file into `$CLAUDE_CONFIG_DIR/servers/` |
+| this file | its own **location and suffix**, `.claude/tools/*.mcp.py` | the copy route — it is part of the agent's own `.claude/` tree |
+
+**Those two rows used to differ on a third axis and no longer do.** The
+`envchk-baseline` entry lived in an add-on's own `.mcp.json` under
+`env_mgr/addons/`, reached by an `agent_plugins:` key; that key is deleted
+(`agent_sys/docs/spec.provisioning.md` §4) and the entry now sits beside every
+other one in this agent's `.claude/.mcp.json`. So sections 4 and 5 are no longer
+distinguishable by **who owns the declaring directory** — both are the agent's.
+What still separates them is the two columns above, and that is what each
+section now proves.
 
 Nothing names this file. `env_mgr` finds it because of where it is and what it
 is called, registers it as `envchk_stdio` (the stem, less `.mcp`), and the model
-calls `mcp__envchk_stdio__envchk_report`. That auto-registration is the seventh
-capability this package exists to prove, and proving it needs a server that is
-declared *nowhere* — so the near-duplication with the component is deliberate
-and must stay: a shared import would give this file a declaration.
+calls `mcp__envchk_stdio__envchk_report`. That auto-registration is what section
+5 exists to prove, and proving it needs a server that is declared *nowhere* — so
+the near-duplication with the add-on is deliberate and must stay: a shared import
+would give this file a declaration.
 
 Standard library only, for the reason the component states — a server that
 cannot start reports as a server with **no tools**, not as an error.
@@ -33,7 +42,7 @@ import sys
 #: ENVCHK_SALT: a65f7dfdb2fffd8e47bd0dd3c76a3548
 SALT = "a65f7dfdb2fffd8e47bd0dd3c76a3548"
 LABEL = "mcp_stdio"
-LEVEL = "L3"
+INSTALLED_BY = "copied"
 
 SERVER_NAME = "envchk_stdio"
 TOOL_NAME = "envchk_report"
@@ -56,7 +65,7 @@ def report() -> dict[str, str | int]:
     return {
         "token": token(os.environ.get("ENVCHK_NONCE", "")),
         "label": LABEL,
-        "level": LEVEL,
+        "installed_by": INSTALLED_BY,
         "pid": os.getpid(),
         "at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
