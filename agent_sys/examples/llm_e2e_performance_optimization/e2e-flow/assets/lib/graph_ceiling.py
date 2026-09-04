@@ -67,8 +67,20 @@ exceeding a ceiling of 8.
 m1 established there is **no default**: the producing agent invents the ceiling
 at every bring-up, and four real runs at tp=4 chose **16, 16, 8, 32**. So this
 is not a setting somebody configured once wrongly — it is re-rolled per run, and
-a 4.6x decode difference is invisible in the environment record because nothing
+the decode difference is invisible in the environment record because nothing
 records the ceiling there.
+
+**What it is worth, measured by m2 on one node with one flag changed** — same
+image, same node, same tp, same cards:
+
+    max decode graph batch   8    ITL 42.15 ms     312 tok/s
+    max decode graph batch  16    ITL  9.31 ms    1649 tok/s
+
+**4.5x on decode, and `node`, `gpu_arch`, `image_id` and `model_path` are
+identical across the two.** That is the whole argument for this file: the
+package's strongest cross-handoff guard,
+`check_environment.compare_fixed_across_inputs`, compares exactly those four
+fields and cannot see a 4.5x engine.
 """
 from __future__ import annotations
 

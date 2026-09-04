@@ -2010,8 +2010,41 @@ attaching to m1's:
 
 The second is the decisive half and it is stronger than it looks: **§5.2 forbids
 reusing a name you did not create**, which rules out attaching to m1's container
-as much as to the sibling line's. **m2 has not confirmed it in their own words**
-and the row above stays "answered by two other sources" until they do.
+as much as to the sibling line's.
+
+**m2 has now confirmed it in their own words, and added the precision that makes
+it checkable.** `load/line.sh:131-149` reads seven `fixed.*` fields and
+`runtime.replayed_from` — a static provenance string — **and nothing else**.
+`runtime.endpoint`, `container` and `ports` *do* appear in `line.sh`, and they
+come from `deployment.json`, **the handshake m2's own `deploy.sh` just wrote**
+(`:288`, `:300`, `:306`), not from the injected kit. `:263` runs `deploy.sh` out
+of the kit and brings up m2's own engine.
+
+**The kit supplies *how to deploy*; the deployment supplies *where to send
+traffic*.** So the seam is answered by the consumer and not only inferred from
+the producer.
+
+## 0a. The guard has a hole that no compared field can see
+
+`compare_fixed_across_inputs` (§1 below) protects against a kit from a different
+node, image or model. **It does not protect against a different engine
+configuration**, and m2 measured what that is worth — one node, one image, one
+tp, same cards, one flag:
+
+```
+--cuda-graph-bs-decode max  8    ITL 42.15 ms     312 tok/s
+--cuda-graph-bs-decode max 16    ITL  9.31 ms    1649 tok/s
+```
+
+**4.5× on decode with every compared field identical.** And m1 swept the kits:
+there is **no default** — the producing agent writes the ceiling fresh at each
+bring-up, and four real runs chose 16, 16, 8, 32.
+
+So an injected kit can clear every guard here and still deploy an engine 4.5×
+slower than the one whose numbers travel beside it — surfacing downstream as a
+regression that is a configuration difference. `assets/lib/graph_ceiling.py` is
+the bar for it, and it is **absolute** rather than comparative for the reason in
+CONTRACT §4.6: both sides can share the fault, and then no comparison finds it.
 
 ## 1. Eligibility is per node, and that is a good refusal
 

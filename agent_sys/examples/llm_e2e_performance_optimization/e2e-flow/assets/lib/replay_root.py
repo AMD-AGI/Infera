@@ -69,14 +69,36 @@ sets, rather than being averaged away.
 image_id, model_path]` and runs across **every** handoff staged in a phase. So an
 injected handoff from a different node, a different image or a different model
 is **already a refusal** — loudly, at the phase that stages it, not silently
-three stages later. That property is what makes skip-ahead safe to use casually,
-and it was designed for something else entirely.
+three stages later. It was designed for something else entirely.
 
-**It does not cover a stale live resource.** A record can name the right node
-and the right image and still name a container that no longer exists. Which
-kinds are exposed to that is a per-seam question — *does stage N+1 consume stage
-N's artefact, or stage N's running process?* — and it is recorded in
-`SKIPPABLE` below rather than assumed.
+### Two things that guard does NOT cover, and the second is not obvious
+
+**A stale live resource.** A record can name the right node and the right image
+and still name a container that no longer exists. Per-seam question — *does
+stage N+1 consume stage N's artefact, or stage N's running process?* — recorded
+in `SKIPPABLE` below rather than assumed.
+
+**An engine configuration difference, which is invisible in every compared
+field.** m2's measurement, 2026-09-04, one node, one image, one tp, same cards,
+one flag:
+
+    --cuda-graph-bs-decode max  8   ITL 42.15 ms    312 tok/s
+    --cuda-graph-bs-decode max 16   ITL  9.31 ms   1649 tok/s
+
+**4.5x on decode**, and `node`, `gpu_arch`, `image_id` and `model_path` are all
+identical across those two runs. m1 swept every kit: there is **no default** —
+the producing agent writes the ceiling fresh at each bring-up, and four real runs
+chose 16, 16, 8, 32.
+
+So **an injected kit can pass `compare_fixed_across_inputs` and still deploy an
+engine 4.5x slower than the one the numbers beside it came from**, which
+surfaces downstream as a regression that is really a configuration difference.
+The guard is real and it is not sufficient; `assets/lib/graph_ceiling.py` is the
+bar that covers this gap, and it is an **absolute** bar for the reason in
+CONTRACT §4.6 — both sides can share the fault, so no comparison can find it.
+
+Named here at m2's request rather than left to be discovered during a debugging
+session.
 """
 from __future__ import annotations
 
@@ -128,8 +150,25 @@ SKIPPABLE: dict[str, bool | None] = {k: None for k in STAGE_OF}
 #: the graph does not already exercise every time.
 #:
 #: `runtime.endpoint` has **no reader anywhere** — every occurrence outside m1
-#: is a write. m2's bring-up (`load/line.sh:133-149`) reads `fixed.*` and
-#: `runtime.replayed_from`, nothing else.
+#: is a write.
+#:
+#: **Confirmed by the consumer, not only inferred from the producer.** m2,
+#: 2026-09-04: `load/line.sh:131-149` reads `fixed.{node,image,image_id,
+#: model_name,served_model_name,tp_size,gpu_devices}` and `runtime.replayed_from`
+#: — a static provenance string that cannot go stale — **and nothing else**.
+#:
+#: The precision that makes it checkable rather than asserted: `runtime.endpoint`,
+#: `container` and `ports` *do* appear in `line.sh`, and they come from
+#: `deployment.json` — **the handshake m2's own `deploy.sh` just wrote**
+#: (`:288`, `:300`, `:306`) — not from the injected kit. `:263` runs
+#: `deploy.sh` out of the kit and brings up m2's own engine; `:288` refuses if
+#: it wrote no handshake. **The kit supplies *how to deploy*; the deployment
+#: supplies *where to send traffic*.**
+#:
+#: And it is the design rather than a shortcut that happens to work while m1
+#: runs first: M2.5, quoted at `line.sh:19` — *"m1 的 output 已经包含了如何部署
+#: 的全量信息"* — the same rule that removed `serve_*` and `check_service_live`
+#: from stage 2.
 SKIPPABLE["deploy_kit"] = True
 
 
