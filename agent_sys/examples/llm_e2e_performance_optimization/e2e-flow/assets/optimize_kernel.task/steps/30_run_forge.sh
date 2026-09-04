@@ -166,19 +166,111 @@ DEGRADED=$("$PY" -c 'import sys; print("true" if float(sys.argv[1]) <= 2.0 else 
 echo "$DEGRADED" > "$WORKDIR/degraded"
 [ "$DEGRADED" = "true" ] && echo "note: max_hours $CLAMPED <= 2.0 -- this is a SMOKE TEST, analysis will be static-only" >&2
 
-# Forge commits its keeps, and $AGENT_SYS_INPUT_OPERATOR_WORKSET is a sealed
-# artefact. Copy, then run in the copy. Never in the input.
+# $AGENT_SYS_INPUT_OPERATOR_WORKSET is a sealed artefact, and the driver writes
+# beside itself. Copy, then run from the copy. Never in the input.
+#
+# **No `git init` here.** There was one, on the belief that forge commits in the
+# directory it is run from. It does not — it commits in `--workspace`
+# (`loop/runner.py:1600`), which is the tree built below. A repo here would be
+# one nothing ever writes to.
 RUN="$WORKDIR/repo"
 if [ ! -d "$RUN" ]; then
   mkdir -p "$RUN"
   cp -a "$WORKSET/." "$RUN/"
-  ( cd "$RUN" && git init -q && git add -A && git commit -qm seed )
+fi
+
+# --- the workspace: OUR copy of the engine sources, with OUR baseline --------
+#
+# Ruled 2026-09-04 after reading KernelForge rather than inferring it. Forge
+# stages `git add -u` and commits with `cwd=self.ic.workspace_dir`
+# (`loop/runner.py:1600`), i.e. `--workspace` (`cli.py:725`, `required=True`)
+# and nothing else. So the tree forge edits is a CALLER DECISION, and there are
+# three candidates, not two:
+#
+#   the container's /sgl-workspace/sglang  -- rejected, four reasons below
+#   $RUN, the workset copy                 -- rejected: forge would see none of
+#                                             the engine sources it exists to
+#                                             optimise, and m5's `overlay_files`
+#                                             would have nothing to overlay
+#   a copy of SGLANG_ROOT, made here       -- this
+#
+# **Why not the container's checkout.** (1) Modules 1-4 share one container
+# (CONTRACT §5), so forge's commits would mutate the tree m2 measured under.
+# (2) m5's two-arm design needs a STOCK arm; with the engine tree already
+# committed-into there is no stock arm and the comparison silently measures
+# nothing. (3) A commit inside a container dies at teardown, so the deliverable
+# would live in the one place guaranteed not to outlive the stage. (4) Measured
+# on 047 in `inferaimage/infera:sglang-local`: **the image's tree is DIRTY** --
+# `git status --porcelain` is 35 lines, 18 modified tracked files and 17
+# untracked, all under `python/`. `git diff HEAD` there would have swept
+# eighteen unrelated AMD engine modifications into this stage's patch, and every
+# one of them would have applied cleanly. That is the reason that produces a
+# WRONG ARTEFACT rather than a failure, and it is why this is a copy.
+#
+# **The baseline commit is load-bearing, not tidiness.** `git add -u` stages
+# only *tracked* files, so a `git init` with nothing committed gives forge
+# nothing to stage. It does not then emit an empty patch: `runner.py:1600` is
+# `check=True`, so it raises `GitError`. Loud, which is the good direction, but
+# still the campaign hours already spent.
+#
+# **The baseline is the tree as the container RUNS it, dirty state and all** --
+# not upstream HEAD. m5 overlays onto a container built from this image, so the
+# incumbent is the dirty tree; a baseline of upstream HEAD would make every one
+# of those 18 files a spurious hunk.
+#
+# **`git init` at SGLANG_ROOT's level, not at the repo root three above it.**
+# Then `git diff HEAD` emits `srt/layers/sampler.py` natively, which is exactly
+# `apply.py:637`'s frame — no `--relative`, no path surgery. Cutting the diff in
+# the wrong frame is what produced `No file to patch. Skipping patch.` earlier
+# in this package; siting the init removes the mismatch instead of compensating
+# for it.
+#
+# 110 MB and 3158 `.py` files, measured; the 3.5 GB is the whole sglang repo and
+# the 271 MB `.git` is not copied, since we make our own.
+SRC_ROOT=$("$PY" "$(dirname "$0")/resolve_source.py" --inputs "$INPUTS" --what "the stock source") || exit 1
+SRC_REL=$("$PY" "$(dirname "$0")/resolve_source.py" --inputs "$INPUTS" --relative) || exit 1
+# The root, not the file: `dirname` as many times as `$SRC_REL` has segments
+# would be arithmetic on a path. Strip the tail instead, which is exact.
+ENGINE_ROOT=${SRC_ROOT%"/$SRC_REL"}
+[ "$ENGINE_ROOT" != "$SRC_ROOT" ] || {
+  echo "cannot take the engine root: $SRC_ROOT does not end in $SRC_REL" >&2; exit 1; }
+[ -d "$ENGINE_ROOT" ] || {
+  echo "the engine sources are not at $ENGINE_ROOT -- this step runs OUTSIDE the" >&2
+  echo "  engine container, or the image does not carry the tree m3's edit_target names." >&2
+  exit 1; }
+
+WS="$WORKDIR/engine_src"
+if [ ! -d "$WS/.git" ]; then
+  echo "copying the engine sources to $WS (about 110 MB)" >&2
+  mkdir -p "$WS"
+  cp -a "$ENGINE_ROOT/." "$WS/"
+  # **Identity in the REPO, not on our one commit.** `-c user.name=…` would
+  # cover the baseline below and nothing else; forge's own commit at
+  # `runner.py:1600` passes no identity, so a container with no git config
+  # would fail there -- after the campaign hours, which is the expensive place
+  # to find it. Same for signing: forge does not pass `--no-gpg-sign`.
+  ( cd "$WS" \
+    && git init -q \
+    && git config user.name "agent-sys m4" \
+    && git config user.email "m4@e2e-flow.invalid" \
+    && git config commit.gpgsign false \
+    && git add -A \
+    && git commit -qm "baseline: the engine tree as this container runs it" )
 fi
 
 KFO_MAX_HOURS="$CLAMPED"; export KFO_MAX_HOURS
 KFO_FORGE_WORKDIR="$WORKDIR"; export KFO_FORGE_WORKDIR
+# **This copy is not on any interpreter's import path, and that is only safe
+# because m3's `--impl` contract does not import.** The measurement execs the
+# candidate file in a fresh namespace (`harness/_common.py:278-290`); nothing
+# does `import sglang` and picks the edit up. If that contract ever changes to
+# an import, forge will keep editing this tree, the driver will keep measuring
+# the container's unmodified one, and **every ratio will come back ~1.0 with no
+# error anywhere** — the failure would look like "the optimiser found nothing".
+# Recorded at the line that depends on it rather than in a design note.
 echo "running the workset's own one-liner: $ONELINE" >&2
-( cd "$RUN" && sh "./$ONELINE" )
+echo "  --workspace $WS (a copy; the container's own checkout is not touched)" >&2
+( cd "$RUN" && sh "./$ONELINE" --workspace "$WS" )
 
 # `kernel-agents list --dir` matters here: `config.experiments_dir` defaults to
 # `<project_root>/experiments` while forge-loop writes `<workspace>/
@@ -189,29 +281,26 @@ for candidate in "$RUN/forge_experiments/forge_result.json" "$WORKDIR/forge_resu
 done
 [ -f "$WORKDIR/forge_result.json" ] || { echo "the campaign wrote no forge_result.json" >&2; exit 1; }
 
-# **Which tree forge edited is not a property of forge.** An earlier note here
-# said "the engine tree, not `$RUN`", on the reasoning that forge edits the
-# sources the invocation spec names via m3's `image_repo_path: @SGLANG_ROOT@`.
-# Read from KernelForge 2026-09-04, that is wrong twice: `image_repo_path`
-# appears NOWHERE in its source (it is m3's template variable, and the spec is
-# the *measurement* contract — cases and driver — not an edit target), and the
-# loop stages and commits with `cwd=self.ic.workspace_dir`
-# (`loop/runner.py:1600`), which is `--workspace` (`cli.py:725`,
-# `required=True`) and nothing else.
+# **In the workspace, and NOT where `resolve_source.py` points by default.**
+# That resolver answers with the *container's* path, which is where the stock
+# file is and where the optimised one now is not: forge edited `$WS`. The two
+# agree on the tail and only on the tail, which is why `$SRC_REL` is taken from
+# the same resolver rather than recomputed.
 #
-# So forge edits and commits in whatever checkout it is handed, and **this step
-# hands it none**: the `$ONELINE` invocation below passes no `--workspace`, and
-# m3's wrapper refuses that by construction (`assets/lib/forge_export.py:147`,
-# exit 2 — the workset describes an operator, not a checkout). The real path
-# therefore stops before `kernel-agents` is invoked at all.
-#
-# Choosing between `$RUN` and the container's sglang checkout is a ruling, not
-# a lookup: one leaves the engine tree pristine and gives forge none of the
-# sources it exists to optimise, the other puts forge's commits inside a
-# running container's checkout. Left open deliberately rather than defaulted.
-KERNEL=$("$PY" "$(dirname "$0")/resolve_source.py" --inputs "$INPUTS" --what "the optimised kernel") || exit 1
+# An earlier note here said "the engine tree, not `$RUN`", reasoning that forge
+# edits what m3's spec names through `image_repo_path: @SGLANG_ROOT@`. Wrong
+# twice: `image_repo_path` appears nowhere in KernelForge, and the spec is the
+# measurement contract, not an edit target.
+KERNEL="$WS/$SRC_REL"
 [ -f "$KERNEL" ] || { echo "the campaign left no kernel at $KERNEL" >&2; exit 1; }
 cp "$KERNEL" "$WORKDIR/optimized_kernel.py"
+
+# **The diff, in `apply.py`'s frame with nothing done to it.** This is what the
+# init at `SGLANG_ROOT`'s level bought: `git diff HEAD` from `$WS` heads its
+# hunks `a/srt/layers/sampler.py`, which is exactly `split_placeholder`'s tail.
+# Empty is a legitimate outcome — forge reverting every candidate is `improved:
+# false`, not a failure — so it is written either way and never gated on size.
+( cd "$WS" && git diff HEAD ) > "$WORKDIR/engine.patch"
 
 # `improved: false` is a legitimate outcome and is not a failure of this step.
 echo "ok: campaign finished; kernel at $WORKDIR/optimized_kernel.py"

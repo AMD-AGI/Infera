@@ -158,12 +158,29 @@ got copied onto a gfx950 host in the previous round and tuned for a chip nobody
 was measuring.
 
 The wrapper sets the five environment facts that otherwise fail *silently* —
-see the pitfall table below — and copies the workset into a scratch git
-repository first, because forge commits its keeps and
-`$AGENT_SYS_INPUT_OPERATOR_WORKSET` is a sealed artefact.
+see the pitfall table below — and it supplies `--workspace`, which the workset's
+one-liner refuses to default (`forge_export.py:147`; it describes an operator,
+not a checkout).
+
+**`--workspace` is a copy of the engine sources, made here, and none of the
+three obvious candidates is right by default.** Forge stages `git add -u` and
+commits in `--workspace` and nowhere else (`loop/runner.py:1600`), so the tree
+it edits is this step's decision. It is not the container's
+`/sgl-workspace/sglang`: modules 1–4 share that container, m5's two-arm design
+needs a *stock* arm, a commit inside a container dies at teardown, and —
+measured on `inferaimage/infera:sglang-local` — that tree is **dirty**, 35 lines
+of AMD's own carried modifications, every one of which `git diff HEAD` would
+have swept into this stage's patch. It is not the workset copy either: forge
+would see none of the engine sources it exists to optimise. So the step copies
+`SGLANG_ROOT` (110 MB) to `forge/engine_src`, `git init`s it **at that level**
+so `git diff HEAD` comes out in `apply_patch`'s frame, and commits a baseline
+of the tree **as the container runs it, dirty state included** — that is the
+incumbent m5 overlays onto, and the commit is load-bearing rather than tidy:
+`git add -u` stages only tracked files, so without it forge's own commit raises.
 
 **Acceptance:** exit 0 and `forge/forge_result.json` exists. `improved: false`
-is a legitimate result and is **not** a failure of this step.
+is a legitimate result and is **not** a failure of this step, and neither is an
+empty `forge/engine.patch` — that is what reverting every candidate looks like.
 
 `KFO_MOCK=1` skips the campaign; the step then copies the seed to
 `forge/optimized_kernel.py` behind a banner saying so and writes a
