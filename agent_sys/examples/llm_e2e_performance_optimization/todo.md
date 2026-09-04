@@ -2605,7 +2605,7 @@ unspellable form. The options are: pass all three explicitly on every launch
 line (verbose, and the launch lines are where every defect this week has been),
 or resolve the nesting fault upstream. **Neither is m5's alone.**
 
-### T57 — four instruments failed today and not one of them failed toward "I cannot tell"
+### T59 — four instruments failed today and not one of them failed toward "I cannot tell"
 
 **m1, 2026-09-04. An observation about the set, filed at the leader's request
 because I am the only person who hit all four.**
