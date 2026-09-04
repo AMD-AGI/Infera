@@ -478,6 +478,33 @@ and stopping it means stopping all three, outermost first:
    cgroup and survive both the agent and the Slurm allocation (item 2 above).
    `docker stop` then `docker rm`, never `-f`, and **check the label rather than
    the name**: three ownership errors were made today by reasoning from names.
+   **Four by the end of it**, and the fourth was the reverse — rung 2b's own
+   producer named its containers `infera_e2e_sgl_m1-…`, carrying no `yihou`, so
+   *our* engine looked like a stranger's. It applied the label correctly while
+   getting the name wrong, which is exactly why the label is the instrument.
+
+   **The label is not sufficient on its own, and this is m4's correction to the
+   line above.** It answers *is this ours?* — one question, and a kill needs two:
+
+   | | question | instrument |
+   |---|---|---|
+   | 1 | is this ours? | `docker inspect --format '{{json .Config.Labels}}'` -> `infera_e2e_run` |
+   | 2 | if not ours, is anyone still holding this node? | `squeue -w <node>` |
+
+   **Only the second one stops a wrong kill.** On 275 the label answered
+   correctly — *no label, not ours* — and the container genuinely was not ours;
+   the error was the step past it, from *not ours* to *nobody is watching it*, on
+   a timestamp showing the container predated our allocation. It did predate it,
+   **and it was the live payload of `yixingx`'s concurrent 24-hour hold.**
+   Measured the same day on 275 and 287: both carry a `yxguard` job of theirs
+   *and* a `keep3` of ours, so "a machine we hold" and "a machine only we hold"
+   are different sets and the standing kill instruction is written about the
+   first.
+
+   Question 2 is decisive **only when it returns exactly one holder**. With two,
+   nothing available attributes a container to one of them — containers outlive
+   the jobs that started them, so age proves nothing either — and the answer is
+   to ask, not to infer.
 
 **Confirm rather than assume at each step**, and confirm the *whole* thing at the
 end: no process with a run-tree cwd, no container carrying the run's label, and
