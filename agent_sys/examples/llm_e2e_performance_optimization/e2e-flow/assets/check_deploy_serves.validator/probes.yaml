@@ -348,7 +348,33 @@ load:
     # 1. At the real 180 s it is comfortably above concurrency; at 30 s it is
     # exactly concurrency, which is the honest bar for a window that short —
     # every slot completed once.
+    # **Corrected 2026-09-04: the per-request time is now MEASURED, and the
+    # paragraph above always said it was.** The code read a constant, and the
+    # divergence refused rung 1 — a healthy deployment that completed exactly
+    # the 64 requests its own speed allows, against a floor of 80 derived from
+    # an engine 31% faster. *"Fails for a reason about the window rather than
+    # about the deployment"* is this note's own sentence, reproduced at a
+    # different engine speed instead of a different window.
+    #
+    # **`32.5` had no provenance either.** It occurs exactly once in this
+    # package — in the sentence above justifying it — and in no artefact. The
+    # floor that refused a real bring-up was calibrated on a number nobody can
+    # source.
+    #
+    # The floor now uses `output_sequence_length.avg x inter_token_latency.avg`
+    # from the run's own summary. A slower engine therefore earns a lower floor,
+    # and that is **correct for this validator and only this one**: the note at
+    # the top of this block says *"this validator's question is 'does this
+    # deployment serve', not 'is it fast'"*. It still catches the fault it exists
+    # for — a load that stalls or drops requests completes fewer than its own
+    # measured speed predicts.
+    #
+    # **There is no ITL bar anywhere in this validator, and this constant was
+    # acting as one by accident.** A 31% per-token regression passed every other
+    # check here. If a speed bar is wanted it should be explicit and separate;
+    # see `todo.md`.
     min_completed_requests_per_slot: 1
+    # Fallback only — used when AIPerf reports neither OSL nor ITL.
     seconds_per_request_estimate: 35
     # Errors under a load this small are not a capacity limit.
     max_error_rate: 0.01

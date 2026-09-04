@@ -244,9 +244,38 @@ def judge_load(summary: dict, accept: dict, load_shape: dict) -> list[str]:
         # demand that every slot completed once.
         slots = int(load_shape["concurrency"])
         per_slot = int(accept["min_completed_requests_per_slot"])
-        est = int(accept.get("seconds_per_request_estimate", 35))
-        rounds = max(1, int(load_shape["duration_seconds"]) // max(est, 1))
+        # **Measure the per-request time; do not estimate it.** `probes.yaml`
+        # already said this — *"derived from the window and the **measured**
+        # per-request time"* — and the code used a constant instead. That
+        # divergence refused rung 1 on 2026-09-04: the engine measured 42.51 ms
+        # ITL against the 32.5 ms the constant was calibrated on, so 1024 tokens
+        # took 43.5 s not 33 s, four rounds fit in 180 s not five, and the run
+        # completed **exactly** the 64 requests its own speed allows against a
+        # floor of 80. It failed for a reason about the window rather than about
+        # the deployment, which is verbatim what the scaling was introduced to
+        # prevent — fixed for a shorter window, reproduced at a slower engine.
+        #
+        # **And the constant had no provenance.** `32.5` occurs exactly once in
+        # this package: in the comment justifying it. No artefact carries it.
+        #
+        # The estimate stays as the fallback for a summary that reports neither
+        # value, and only for that.
+        osl = (metrics.get("output_sequence_length") or {}).get("avg")
+        itl = (metrics.get("inter_token_latency") or {}).get("avg")
+        if osl and itl:
+            est = max(1.0, float(osl) * float(itl) / 1000.0)
+            basis = f"measured {float(osl):.0f} tok x {float(itl):.2f} ms"
+        else:
+            est = float(accept.get("seconds_per_request_estimate", 35))
+            basis = f"estimated {est:.0f}s/request — AIPerf reported no OSL/ITL"
+        rounds = max(1, int(int(load_shape["duration_seconds"]) // est))
         floor = slots * per_slot * rounds
+        # Said out loud because the number is now run-dependent: a reader
+        # comparing two runs' floors must be able to see why they differ.
+        print(
+            f"check_deploy_serves: completion floor {floor} = {slots} slot(s) x "
+            f"{per_slot} x {rounds} round(s) over {load_shape['duration_seconds']}s ({basis})"
+        )
     if floor is not None:
         if count is None:
             faults.append("request count is absent from the AIPerf summary — unevaluated, not passed")
