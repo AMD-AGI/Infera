@@ -6981,3 +6981,67 @@ one is the verdict tally, which I attacked myself and which passed — the same
 self-attack whose first version excluded the validator most likely to fail it.
 It is the tool with the weakest evidence behind it and it produces the number in
 every section headline.
+
+### Addendum, 11:29 UTC — four people reasoned carefully about a value that never existed
+
+**Resolved, and there was no `HOME` mystery.** The string everyone was reasoning
+from — `-v /home:/home denied [BH] by plugin spur-authz` — is **not the daemon's
+output.** It is `measure_in_container.sh:274`, an `echo` inside the **refusal
+branch**, printing a reference table:
+
+```
+271  echo "  plugin will accept from $ROOT. Measured forms:" >&2
+272  echo "    -v /home/<user>:/home/<user>   OK   (a run root under one user's home)" >&2
+273  echo "    -v /shared_nfs:/shared_nfs     OK" >&2
+274  echo "    -v /home:/home                 denied [BH] by plugin spur-authz" >&2
+...
+277  exit 1
+```
+
+Verified first-hand. **The script could not derive a mount at all, printed its
+table of known-good and known-bad forms, and exited 1.** `check_workset_runs`
+captured the tail. **No `docker run` ever attempted `-v /home:/home`. The daemon
+was never asked. `$HOME` was never `/home`.**
+
+**And the refusal branch firing is evidence *for* `environment.py:235`, not
+against it.** In a validator zone `HOME = <zone>/home` and `$ROOT` is
+`<zone>/materials/<hid>/v1/items/codes` — under neither `$REMOTE_HOME` nor
+`/shared_nfs` — so both `case` arms missed and `*)` fired. **Exactly what the
+code predicts.** T42's row is right, unqualified, on `environment.py:235` alone.
+My third candidate — node-side expansion in `remote.sh:150` — is also
+eliminated: m3 has a `bash -x` trace showing `export HOME=/home/yihou`, so the
+`$( )` expands locally and never reaches the mount derivation.
+
+**What I retract.** Two messages to the leader: one proposing *"validator
+rewrites `HOME`, task body leaves `/home`"* as the likely reconciliation, and one
+correcting that to *"neither branch fits"* and naming a third candidate. **Both
+were careful reasoning about a value that never existed.** The second was worse
+than the first — I had by then read the code, established `HOME=/home/yihou`
+here, and concluded the conflict was *deeper* than it looked, when the correct
+conclusion available at that moment was **"no context produces `/home`, so
+perhaps nothing did."** I treated an unexplainable observation as evidence of a
+subtler mechanism instead of as evidence against the observation.
+
+**The mechanism is worth more than the incident, and it is m3's.** *A refusal
+that documents known-bad forms will be quoted back as a report of one
+occurring.* In a captured tail, **reference and observation are
+indistinguishable** — the row says `-v /home:/home denied`, and nothing in the
+text marks it as a catalogue entry rather than an event. That is a real cost of
+the "name the measured forms in the refusal" pattern m3 has advocated all day and
+which I have praised in this file. **The pattern is still right; it needs its
+reference rows marked as reference.**
+
+**This is a twelfth instance of the class, and the first where the instrument was
+prose.** The ten in the T+1285 table plus my `ppid=1`: each was a probe reading a
+real thing and answering a different question. Here the "probe" was **a helpful
+error message**, and the different question was *did this happen* versus *is this
+known to fail*. **My own file has the same exposure**: every quoted refusal, log
+line and diagnostic in these sections is a captured tail, and I have no way to
+tell a catalogue row from an event either.
+
+**Four people reasoned carefully from a string written to be helpful** — m3 wrote
+it and misread it, put a fitted value in `5964fd8`, the leader quoted it, I built
+a reconciliation on it and then a deeper one. **It was one message from being a
+qualified fact in T42.** What stopped it was m3 going back to a surviving
+`validator_report.txt` and diffing it against their own source — not any of the
+three of us reasoning harder.
