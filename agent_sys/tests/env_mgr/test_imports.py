@@ -24,8 +24,11 @@ ROOT = Path(__file__).resolve().parents[2] / "env_mgr"
 #: passing untouched, and this is the structural half of that.
 #:
 #: **This is the only list, and it is closed.** It names a set that finished
-#: growing before this work started, so enumerating it cannot fall behind.
-BELOW = {"recipe", "layer", "runner", "outcome", "report", "registry", "versions", "installers"}
+#: growing before this work started, so enumerating it cannot fall behind. It
+#: can still *shrink*: `layer` was removed with the layer model, and a name left
+#: here for a module that no longer exists would put the wall's `_above()` — a
+#: derived set — permanently one name out of step with reality.
+BELOW = {"recipe", "runner", "outcome", "report", "registry", "versions", "installers"}
 
 #: `cli.py` is the only module above the wall that may import from below it, and
 #: it does so exactly as it does today.

@@ -74,7 +74,7 @@ preparation order, and nowhere else.
 ```
 env_mgr/
 ├── cli.py                  EXTENDED with sub-commands (§12.2). The only shipped file that changes
-├── recipe.py  layer.py  runner.py  outcome.py  report.py  registry.py  versions.py
+├── recipe.py  runner.py  outcome.py  report.py  registry.py  versions.py
 ├── installers/             ── all unchanged (§12.1)
 │
 ├── meta.py                 configuration: domains, mappings, sync strength (spec §3.1)
@@ -122,7 +122,7 @@ That is enforced, not intended:
                                  ▲
                                cli.py
         ─────────────────── the wall ───────────────────
-   recipe, layer, runner, outcome, report, registry, installers/
+   recipe, runner, outcome, report, registry, installers/
 ```
 
 `cli.py` is the only module above the wall that may import from below it, and it
@@ -1406,8 +1406,10 @@ and if that ever stops being true the answer is another copy, not a wider grant.
 
 ### 12.1 Unchanged, and a test says so
 
-`recipe.py`, `layer.py`, `installers/`, `runner.py`, `outcome.py`, `report.py`,
+`recipe.py`, `installers/`, `runner.py`, `outcome.py`, `report.py`,
 `registry.py`, `versions.py`. 65 tests passed over them when this was written.
+`layer.py` was one of them and is now deleted: the layer model it held was
+removed, `spec.md` §9.1.
 
 **Criterion 22 is in `spec.md` §10 and is not paraphrased here**, because an
 earlier revision of this line did paraphrase it — *"criterion 22 requires them to

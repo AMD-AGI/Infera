@@ -21,7 +21,6 @@ def test_check_ok_exit_zero(tmp_path, capsys):
         items:
           - installer: oneline
             importance: suggested
-            layer: system
             check_cmd: "true"
             run: "true"
     """,
@@ -39,7 +38,6 @@ def test_check_required_missing_exit_two(tmp_path):
         items:
           - installer: bin
             importance: required
-            layer: system
             name: definitely-not-real-xyz
             check_cmd: "definitely-not-real-xyz --version"
     """,
@@ -60,7 +58,6 @@ def test_path_override_reaches_runner(tmp_path):
         items:
           - installer: oneline
             importance: required
-            layer: repo
             check_cmd: "test -f marker"
             run: "true"
     """,
@@ -82,7 +79,6 @@ def test_workspace_override_accepted(tmp_path):
         items:
           - installer: oneline
             importance: suggested
-            layer: system
             check_cmd: "true"
             run: "true"
     """,
@@ -99,7 +95,6 @@ def test_json_output_parses(tmp_path, capsys):
         items:
           - installer: oneline
             importance: suggested
-            layer: system
             check_cmd: "true"
             run: "true"
     """,
@@ -120,7 +115,6 @@ def test_main_malformed_recipe_returns_two(tmp_path):
         target: {{kind: repo, name: x, path: {tmp_path}}}
         items:
           - importance: suggested
-            layer: system
             run: "true"
     """,
     )
@@ -137,7 +131,6 @@ def test_main_unknown_installer_returns_two(tmp_path):
         items:
           - installer: sh
             importance: suggested
-            layer: system
             run: "true"
     """,
     )
@@ -154,7 +147,6 @@ def test_main_bad_importance_flag_returns_two(tmp_path):
         items:
           - installer: oneline
             importance: suggested
-            layer: system
             check_cmd: "true"
             run: "true"
     """,

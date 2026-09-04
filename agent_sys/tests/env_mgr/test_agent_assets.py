@@ -301,7 +301,6 @@ def test_l1_runs_a_package_relative_recipe_and_reports_its_status(tmp_path: Path
         "items:\n"
         "  - installer: oneline\n"
         "    importance: suggested\n"
-        "    layer: system\n"
         "    name: marker\n"
         f"    run: touch {marker}\n",
     )
@@ -1037,7 +1036,6 @@ def test_a_recipe_child_that_overruns_is_killed_and_reported(tmp_path: Path) -> 
         "items:\n"
         "  - installer: oneline\n"
         "    importance: suggested\n"
-        "    layer: system\n"
         "    name: slow\n"
         "    run: sleep 30\n",
     )
@@ -1559,7 +1557,6 @@ def test_a_recipe_item_runs_a_binary_reachable_only_through_base_env(
         "items:\n"
         "  - installer: oneline\n"
         "    importance: suggested\n"
-        "    layer: system\n"
         "    name: only-here\n"
         "    run: envchk-only-here\n",
     )

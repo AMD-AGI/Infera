@@ -1,6 +1,6 @@
 # env_mgr
 
-Layered environment manager for the agent work system. Driven by one
+Environment manager for the agent work system. Driven by one
 self-contained YAML recipe, it can **check / dry-run / install / bootstrap**
 an environment (Python, apt, binaries, Claude plugins/MCP) and report per-item
 status plus delivered artifacts (path/version/deps).
@@ -36,16 +36,18 @@ Exit code: 2 on any FAIL, else 0.
 
 ## v1 limitations
 
-- **Cross-layer skip-with-warning is not implemented** (design §4.1). env_mgr
-  does not yet walk the parent chain to detect that an item is already
-  satisfied by an upper layer and skip it with a warning. Each installer's own
-  idempotent `check` covers the practical single-host case. Consequently
-  `--on-conflict weak` is a **v1 no-op**: it skips cross-layer conflict
-  detection entirely and proceeds with install (exit 0), whereas `fail`
-  records the conflict and halts before install (exit 2). Only cross-layer
-  *version-conflict detection* under `fail` is active.
-- **workspace layer is stubbed** — the default `$HOME/workspace.infera.aiopt`
-  path, its warning, and user-bin symlinking are not wired up yet.
+- **Skip-with-warning is not implemented** (design §4.1). env_mgr does not yet
+  detect that an item is already satisfied elsewhere and skip it with a
+  warning. Each installer's own idempotent `check` covers the practical
+  single-host case. Consequently `--on-conflict weak` is a **v1 no-op**: it
+  skips conflict detection entirely and proceeds with install (exit 0), whereas
+  `fail` records the conflict and halts before install (exit 2). Only
+  *version-conflict detection* under `fail` is active. (This bullet described
+  walking a chain of *layers*; the layer model is gone — `docs/spec.md` §9.1 —
+  and what is unimplemented is the skip, not the chain.)
+- **the workspace default is stubbed** — the default
+  `$HOME/workspace.infera.aiopt` path, its warning, and user-bin symlinking are
+  not wired up yet. The default appears nowhere in this tree.
 - **system apt is detect-and-print only** — the `apt` installer never runs
   sudo; it prints the `apt-get install` line for you to run.
 
@@ -58,8 +60,9 @@ now lives entirely in this recipe and the installers above.
 
 # Above the wall: paths, zones, isolation
 
-Everything above is the **shipped installer machinery** and is unchanged
-(spec §9, criterion 22). Everything below is `docs/design.md` §2's subtree:
+Everything above is the **shipped installer machinery**, reused rather than
+reimplemented (spec §9, criterion 22 — no longer *frozen*: the layer model was
+removed from it on 2026-09-04). Everything below is `docs/design.md` §2's subtree:
 `meta.py`, `fs/`, `isolation/`, `grants.py`, `workspace.py`, `material.py`,
 `sync.py`, `remote/`, `prepare.py`, and the CLI's two new sub-commands.
 

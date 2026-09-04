@@ -5,7 +5,7 @@ behaviour rather than intuition, and this surface follows: every guarantee here
 has a probe behind it in `scratch/design/probes-envmgr/`.
 
 Everything in this file sits **above** the decoupling wall. Nothing here imports
-the installer machinery (`recipe`, `layer`, `runner`, `outcome`, `report`,
+the installer machinery (`recipe`, `runner`, `outcome`, `report`,
 `registry`, `versions`, `installers/`), and nothing there learns about domains or
 zones. A test asserts the wall in both directions.
 

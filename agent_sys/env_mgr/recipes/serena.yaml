@@ -23,7 +23,7 @@ target:
   path: /path/to/the/zone/workspace
 
 items:
-  # --- system: refuse before uv writes outside the zone -------------------- #
+  # --- refuse before uv writes outside the zone ---------------------------- #
   #
   # **This item exists because the failure it prevents is silent and is host
   # state.** `uv tool install` with no environment writes `~/.local/share/uv`,
@@ -51,7 +51,6 @@ items:
   # running it every time costs three `mkdir -p`.
   - installer: embed
     importance: required
-    layer: system
     name: uv-tool-dirs-pinned
     tags: [guard, serena]
     run: |
@@ -60,7 +59,7 @@ items:
       : "${UV_CACHE_DIR:?unset — uv would cache into ~/.cache/uv}"
       mkdir -p "$UV_TOOL_DIR" "$UV_TOOL_BIN_DIR" "$UV_CACHE_DIR"
 
-  # --- system: the uv toolchain ------------------------------------------- #
+  # --- the uv toolchain ---------------------------------------------------- #
   #
   # Lifted from `env_mgr/recipes/sglang.repo.yaml`, which already carries this
   # exact item. `required` rather than that file's `strongly-suggested`: there,
@@ -71,13 +70,12 @@ items:
   # nothing.
   - installer: bin
     importance: required
-    layer: system
     name: uv
     check_cmd: "uv --version"
     install: "pip install uv"
     tags: [toolchain, serena]
 
-  # --- system: serena itself ---------------------------------------------- #
+  # --- serena itself ------------------------------------------------------- #
   #
   # Measured 2026-09-03 (probe D): rc 0, and it provides `serena`,
   # `serena-agent` and `serena-hooks`.
@@ -104,7 +102,6 @@ items:
   # `Prepared.mcp_servers`. See the note below for the invocation.
   - installer: uv
     importance: suggested
-    layer: system
     tool: "git+https://github.com/oraios/serena"
     provides: serena
     tags: [lsp, serena]

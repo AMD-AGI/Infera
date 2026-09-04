@@ -10,12 +10,10 @@ from typing import Any
 
 import yaml
 
-from .layer import LAYER_ORDER
-
 IMPORTANCE = ("required", "strongly-suggested", "suggested")
 
 # Keys the CLI understands directly; everything else goes into Item.spec.
-_CLI_KEYS = {"installer", "importance", "layer", "tags", "version"}
+_CLI_KEYS = {"installer", "importance", "tags", "version"}
 
 
 class RecipeError(Exception):
@@ -34,7 +32,6 @@ class Target:
 class Item:
     installer: str
     importance: str
-    layer: str
     tags: list[str] = field(default_factory=list)
     version: str | None = None
     spec: dict[str, Any] = field(default_factory=dict)
@@ -49,15 +46,12 @@ class Item:
 
 def _parse_item(raw: dict[str, Any], idx: int) -> Item:
     where = f"items[{idx}]"
-    for key in ("installer", "importance", "layer"):
+    for key in ("installer", "importance"):
         if key not in raw:
             raise RecipeError(f"{where}: missing required field '{key}'")
     importance = raw["importance"]
     if importance not in IMPORTANCE:
         raise RecipeError(f"{where}: bad importance {importance!r} (expected {IMPORTANCE})")
-    layer = raw["layer"]
-    if layer not in LAYER_ORDER:
-        raise RecipeError(f"{where}: bad layer {layer!r} (expected {LAYER_ORDER})")
     spec = {k: v for k, v in raw.items() if k not in _CLI_KEYS}
     if raw["installer"] == "oneline":
         run = spec.get("run", "")
@@ -66,7 +60,6 @@ def _parse_item(raw: dict[str, Any], idx: int) -> Item:
     return Item(
         installer=raw["installer"],
         importance=importance,
-        layer=layer,
         tags=list(raw.get("tags", [])),
         version=raw.get("version"),
         spec=spec,

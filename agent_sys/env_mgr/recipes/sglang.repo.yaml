@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# v1 self-contained recipe. target = the sglang repo; items span layers.
+# v1 self-contained recipe. target = the sglang repo.
 # Set target.path via --path and parent.workspace via --workspace, or edit the
 # placeholders below. Paths are intentionally not hardcoded to a machine.
 version: 1
@@ -12,28 +12,25 @@ target:
     workspace: /path/to/your/workspace
 
 items:
-  # --- system: uv toolchain (from install_lsp_serena.sh) ---
+  # --- uv toolchain (from install_lsp_serena.sh) ---
   - installer: bin
     importance: strongly-suggested
-    layer: system
     name: uv
     check_cmd: "uv --version"
     install: "pip install uv"
     tags: [toolchain]
 
-  # --- system: pyright LSP backend (from install_lsp_serena.sh) ---
+  # --- pyright LSP backend (from install_lsp_serena.sh) ---
   - installer: bin
     importance: suggested
-    layer: system
     name: pyright-langserver
     check_cmd: "pyright-langserver --version"
     install: "npm install -g pyright"
     tags: [lsp]
 
-  # --- system: serena itself + MCP registration (from install_lsp_serena.sh) ---
+  # --- serena itself + MCP registration (from install_lsp_serena.sh) ---
   - installer: uv
     importance: required
-    layer: system
     tool: "git+https://github.com/oraios/serena"
     provides: serena
     tags: [lsp, serena]
@@ -41,18 +38,16 @@ items:
       installer: oneline
       run: "claude mcp list | grep -q '^serena' || claude mcp add --scope user serena -- serena start-mcp-server --context claude-code --project-from-cwd"
 
-  # --- system: agentic-grep tools (from install_system_deps.sh) ---
+  # --- agentic-grep tools (from install_system_deps.sh) ---
   - installer: apt
     importance: suggested
-    layer: system
     packages: [ripgrep, fd-find, jq]
     provides: {ripgrep: rg, fd-find: fdfind, jq: jq}
     tags: [system, agentic-grep]
 
-  # --- repo: per-project serena index (from bootstrap_project.sh) ---
+  # --- per-project serena index (from bootstrap_project.sh) ---
   - installer: embed
     importance: required
-    layer: repo
     tags: [lsp, serena, per-project]
     check_cmd: "test -d .serena/cache"
     run: |
@@ -61,9 +56,8 @@ items:
       grep -qxF '.serena/cache/' .gitignore 2>/dev/null || printf '\n.serena/cache/\n' >> .gitignore
       serena project index
 
-  # --- worktree: Claude plugins (from install_claude_plugins.sh; empty by default) ---
+  # --- Claude plugins (from install_claude_plugins.sh; empty by default) ---
   - installer: claude
     importance: suggested
-    layer: worktree
     plugins: []
     tags: [agent]
