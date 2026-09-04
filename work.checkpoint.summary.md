@@ -5331,3 +5331,231 @@ in both rungs it had 10–14 seconds. But *"it failed in 13.8 s"* is also not qu
 right: something ran, staged 39 files, and was then declared to have delivered
 nothing. **The failure is between the body and the store, not inside either**,
 and that is a different bug from the one anybody has been looking for.
+
+## T+1092 — 2026-09-04 07:42 UTC
+
+### My own instrument, first — it was validated in the direction it lacked
+
+Last section I added a process check and said it was validated **negative only**.
+At 07:38 it returned:
+
+```
+2168277   03:09   python3 -m agent_sys.cli.main run --package agent_sys/examples/...
+```
+
+**A live run, 3 m 09 s in** — matching `20260904T073546-1ad815`, started 07:35:46.
+So the signal now discriminates in both directions, by observation rather than
+assumption, and the gap I flagged one interval ago is closed.
+
+**And I am adopting the refinement someone else reached independently.**
+`bb97d2a` — *"report liveness as evidence, never as a verdict, and never in the
+present tense"* — is a better formulation than mine and it corrects a real
+error: by the time I write a row, the process may be gone. **From here the row
+reads "a run process was present at HH:MM:SS", not "a run is live".** Two of us
+hit the same wall within the hour; theirs is the sharper statement and it is
+theirs.
+
+### The number that matters
+
+**10 of 21 — unchanged, through the interval that was supposed to move it.**
+
+| | runs | invocations | judgements |
+|---|---|---|---|
+| union at 07:40 | **44** | **283** | **316** |
+
+**+34 invocations, +3 runs, and the distinct count did not move.** That is the
+prediction I have made since T+165 holding for the fourth time: the eleven
+unjudged validators all sit **at or beyond `build_workset`**, and every run still
+stops there. A rung that gets to `rank` and no further cannot reach them.
+
+**Run process present at 07:38:04.** State: **growing** — asserted on the
+process, with artefact motion agreeing, and this is the first section where those
+are two independent readings rather than one.
+
+### Three corrections to the brief, all from the artefacts
+
+**1. `20260904T072849` did not get further than any rung 0 ever has.** Its
+handoff shape is **identical** to `20260903T172821` (yesterday) and to
+`20260904T041742`:
+
+```
+8 valid · operator_workset generating · kernel_optimization created · e2e_packup created
+```
+
+Ten handoff directories, eighteen verdicts, in all three. I can find no
+artefact-level respect in which today's rung 0 is further along. If the advance
+is real it is in something the store does not record — and it may well be: the
+payload fix in `b9849a7` is new, and *"it failed the same way for a different
+reason"* is a distinction the handoff tree cannot show. **But the claim as
+stated is not supported, and it is load-bearing for the 65 %.**
+
+**2. `+336s` is the run offset, not `build_workset`'s duration** — and this is
+the same conflation I made at T+977 and corrected at addendum 3, arriving from
+the other side. The leaf is `a098adda`:
+
+```
+07:34:08.898  INPUT_VALIDATING finished
+07:34:25.844  output_absent — be3b89c6 never delivered      <- 16.9 s
+07:34:25.859  escalated — the executor is a program body
+```
+
+**16.9 seconds**, no `RUNNING` event. The 336 s is `07:28:49.732 → 07:34:25.910`,
+the whole run.
+
+**3. Which gives a third data point, and it settles the structural question in
+one direction.** `build_workset`'s leaf, three runs, two days:
+
+| run | leaf duration |
+|---|---|
+| `20260903T172821` (rung 0) | **13.8 s** |
+| `20260904T041742` (rung 1) | **10.8 s** |
+| `20260904T072849` (rung 0) | **16.9 s** |
+
+**All three under the 20-second threshold.** The stall detector cannot have cut
+any of them, because none of them lasted long enough to be cut. **Story 1 —
+"structural, a program body has no agent, so `blocked` goes non-empty and a
+working leaf is cut 20 s later" — requires a leaf that survives 20 s, and no
+leaf here has.** The escalation is logged *after* the absence in all three, to
+the microsecond.
+
+This does not prove story 2 either; something ends the leaf at 10–17 s and I do
+not know what. But the two stories are no longer symmetric, and **m4 should have
+this before they weigh two runs**, one of which is confounded.
+
+### Standing checks
+
+| check | result |
+|---|---|
+| (a) index leak | clean |
+| (b) per-commit ownership | clean across 13; **nobody but me touched this file** |
+| (c) `todo.md` | **28 items**, +4 (T25–T28) |
+| holds | `109238` (234), `109260` (006, rung 0), `109444` (037, m5) |
+| `/home` | 1.6 T free (85 %), flat all morning |
+| run process | **present at 07:38:04** |
+
+### 1. Progress
+
+**~68 %.** Elapsed 1 092 m. **The leader is at 65 % and I am deliberately two to
+three points above, which is the first time I have been the higher of the two.**
+
+**Reliability: low.** The reasoning matters more than the gap:
+
+- The user's finding — *item 2 has never gone green* — is **correct and
+  important**, and the leader is right to call the prioritisation a failure.
+- **But it is not new information to this record.** I have reported "0 of 6
+  rungs clean" as the headline figure for three consecutive sections, and the
+  10-of-21 ceiling with `build_workset` as its cause since T+165. My percentage
+  never credited a completed mock walk. **Dropping now would be double-counting
+  news I had already priced in.**
+- Against that, two things this interval are genuinely *good*: the deliverable
+  needs **one card for ninety seconds**, which makes it far cheaper than a day of
+  node acquisition implied; and correction 3 above **removes one of the two
+  candidate causes** at the closure that blocks it.
+
+So: 68 %, and the honest way to say it is that **the effort's position did not
+change this interval — the reporting of it did.** What moved was the leader's
+estimate converging on what this file has been measuring.
+
+**预估耗时: no number.** Held, unsoftened, per the leader. **1 of 6 rungs
+attempted, 0 clean** remains the headline.
+
+### 2. Current state
+
+The user asked *"现在mock串通跑完了么? 你的任务有那么需要用卡么?"* and the answers
+were **no and no**. Recorded as the leader's own account of a prioritisation
+failure, and I have no independent view on the second half except that it agrees
+with what the ceiling has said all day.
+
+Rung 0 was retried twice after m3's `b9849a7`; a third run was in progress at
+07:38. m5 holds 037, m2's probe gained a tier, m1 filed T27/T28.
+
+### 3. Code problems
+
+- **OPEN — what ends `build_workset` at 10–17 s.** Narrowed, not closed. Not
+  the stall detector, per correction 3.
+- **OPEN — the body/store divergence** (`v1` populated, store at `v0`).
+- **OPEN — `monitor_gave_up` has no action for `handling_failed`.**
+- **FIXED — m3's reclaim, wrong three ways with `2>/dev/null` hiding all
+  three** (`b59ed45`). The leader records that they praised the reasoning of the
+  commit above it without reading the code; that is the second time today a
+  review of prose passed a defect in the code beneath it.
+- **FIXED — the kit's hardcoded `E2E_KIT_GPU_DEVICES=0,1,2,3`** (`2d376fa`,
+  T27 item 4). It bound onto a tenant mid-model-load; m1 caught it at +22 GB and
+  the neighbour is whole. **The line to keep is m1's:** *"bound to `tp_size`"
+  would have called this kit compliant* — a check that passes the thing it was
+  written to catch.
+- **OPEN — a signal sent is not a process gone** (T26). The agent survived the
+  first SIGTERM, caught only by re-checking by cwd. **This is the same class as
+  my own liveness gap**, and it is why `8150c8f` finds children by cwd.
+
+### 4. Non-code problems
+
+- **235 released** after a neighbour consumed it — and it was costing sweep
+  width under burst's `MaxSubmitPU=4`.
+- **Node turnover measured: two of nine went 8/8 free to fully occupied inside
+  an hour.** That is the quantification the *"we cannot search for a free node,
+  only be given one"* conclusion was missing.
+- **Node 006 was double-booked** — promised to m5 at 07:21, rung 0 launched onto
+  it at 07:28 without telling anyone. Leader's account, leader's error, and it
+  confounds the run in §5.
+- Unchanged: holds cancelled without cause; a cancelled hold does not reclaim
+  its GPUs; `sacct` unusable for attribution.
+
+### 5. Open questions
+
+- **The confounded cut.** m5's unpinned T7 container took all eight cards to
+  75 % during exactly the window `build_workset` ran, and `build_workset`
+  defaults to card 4. Correction 3 weakens the structural story on timing
+  grounds; the contamination story is untested.
+- **A stated limit of `b59ed45`, not a defect** — m3's: **contaminated timings
+  look like success.** `check_workset_runs` re-measures *on the same card*, gets
+  the same contamination, and **agrees**. The trust chain catches a *falsified*
+  record and cannot catch **two honest measurements on a contaminated card.**
+  That is the sharpest thing anyone said this interval.
+- Why holds are cancelled · how much co-tenant load is corpses · whether a clean
+  run escalates before m4.
+
+### 6. New commits
+
+**13 since `c07888e`.** m5 4 · m2 2 · leader 2 · m1 2 · m3 1 · lib 2.
+
+- `d88ba43` **todo** T25 a run does not record its launch vars; T26 killing a run does not kill its agents.
+- `bb97d2a` **lib(runprobe)** report liveness as evidence, never as a verdict, and never in the present tense.
+- `8150c8f` **lib(runprobe)** find children by cwd, and say that a dying run writes too.
+- `c52ef20` **m1** the three things that make T19's field mean something (T27), T21's measured bar (T28), and how to stop a run.
+- `c1edfde` **m5** separate a bad patch from a bad measurement.
+- `d58da4d` **leader** contract 4.4 — the observer's version, a search that can find itself.
+- `8182c09` **m5** the noise floor described a statistic the gate does not compare.
+- `6e6db7f` **m2** the rung-2 launch line as a whole command, and the tp number is read not carried.
+- `29eff48` **lib** measure round-to-round noise with counts, not moments.
+- `c347398` **m5** bank each step as it finishes, so a cancelled arm is not a lost arm.
+- `b59ed45` **m3** the reclaim was wrong three ways and `2>/dev/null` hid all three.
+- `2d376fa` **m1** the pick must come from the probe, not sit beside it (T27 item 4).
+- `1eaa32a` **m2** SERVABLE vs BUILDABLE, and timestamp the table.
+
+### 7. Anything else
+
+**The interval's shape is that two people independently hit my blind spot within
+an hour of my recording it.** I wrote at T+1062 that growing/ceiling/stopped has
+no liveness signal and proposed a process check validated in one direction only.
+`bb97d2a` and `8150c8f` landed the same problem from the runner's side and got
+further: *never as a verdict, never in the present tense*, and *find children by
+cwd because a dying run writes too*. **The second is the one I would not have
+found** — I was treating "process present" as binary when a process can be
+dying and still producing artefacts, which is precisely the state that fooled me
+about the 06:24 run in the opposite direction.
+
+**And T26 — the agent survived the first SIGTERM — is the same fact wearing a
+third face.** A run's absence is not its agents' absence; a signal sent is not a
+process gone; artefact motion is not liveness. Three owners, three routes, one
+week-old assumption that *asking about a thing tells you the thing's state*.
+
+**The correction I owe most plainly is in §5's second bullet, and it is not
+mine.** m3's *"contaminated timings look like success"* is the strongest
+statement of the day's recurring theme, and it applies to this record as much as
+to `check_workset_runs`: **I re-measure the same artefacts with the same
+instrument and get agreement, and agreement is not confirmation.** The three
+corrections at the top of this section were all found by reading a *different*
+artefact — the event store against the handoff tree, the leaf's timeline against
+the run's. **Where I have only one instrument, I should say so rather than report
+the agreement of that instrument with itself.**
