@@ -6,10 +6,26 @@
 
     (not holding or blocked) and now - last_change > stall_after
 
-`holding` counts only an attempt **mid-model-call** (`main.py:980`). So a
-`kind: ai` stage is safe for as long as its conversation runs, and a long
-**program** stage is not: it produces no status change, holds no executor, and
-after twenty seconds the run is declared stalled while it is working.
+**Corrected 2026-09-04 by m2, who read the code where I had read the comment.**
+My first version of this docstring said `holding` counts only an attempt
+*mid-model-call*, so a long program stage could never hold. That is false:
+
+    holding = [t for t in live if _is_running(runner, t)
+                                  and not _awaiting_a_decision(t, registry)]
+
+`_is_running` **and** not parked on an escalation. "Mid-model-call" is the
+comment's illustration at `main.py:980`, not the predicate — I inferred the code
+from the prose, which is the class this package has spent a day cataloguing.
+
+So a long program stage **does** hold, and a quiet productive window is
+explicitly survivable: `main.py:890` — *"the deadline is the only exit for a run
+that is working, because `holding`…"* — and the comment above the condition says
+a healthy run without such an escalation is untouched.
+
+**The kill therefore requires `blocked` to be non-empty, which only an
+escalation produces.** Raising `stall_after` does not fix that and does not
+pretend to; it buys margin so a run that *does* escalate is not torn down while
+a real stage is mid-flight, and so the failure is legible instead of instant.
 
 Measured on rung 2b, 2026-09-04:
 
@@ -18,12 +34,18 @@ Measured on rung 2b, 2026-09-04:
     profiling_mode_off.bench_result   GENERATING
     -> "Nothing has changed for 20 s" -> run ended
 
-**This is not a hypothetical about slow tasks.** m2's three closures are
-`agent: runner` *literally* — that stage has no `kind: ai` body by design,
-because bring-up folds into the task that uses it (mission M2.5). It is
-therefore the one stage in the package structurally unable to hold an executor,
-and every rung from 2 onward runs it for real. Rungs 3, 4 and 5 all pass
-through it.
+**What is true about m2's stage, after the correction.** Both profiling lines
+declare `resources: {gpu: 8}`, so on an eight-GPU node they can never run
+concurrently, and everything downstream waits on both. m2 measured the resulting
+quiet window at **8–10 minutes**, and it recurs at every rung from 2 onward.
+That window is survivable by design — but it is ten minutes in which a single
+escalation ends the run instantly, and the run that died had produced three
+`strong` verdicts and a `generating` bench_result by then.
+
+**So this launcher does not unblock a structural blocker, because there is not
+one.** It widens the window in which an escalation is survivable long enough to
+be diagnosed. The escalation itself is the open question and is not addressed
+here.
 
 **Why a launcher rather than a fix.** `agent_sys/cli/` is outside this effort's
 activity scope, and both halves of the failure are already recorded:
