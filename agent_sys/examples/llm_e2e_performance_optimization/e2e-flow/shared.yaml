@@ -221,9 +221,18 @@ env:
   # right: a **real card** as a package default makes a consumer's
   # refuse-when-empty guard unreachable and picks a card silently on a shared
   # host — the outcome the guard exists to prevent, arriving through a fallback
-  # instead of a decision. m3's own body still does `: "${E2E_MEASURE_GPU:=4}"`,
-  # so nothing about m3 changes; what changes is that the package no longer
-  # asserts a card on everyone's behalf.
+  # instead of a decision. **m3's body REFUSES rather than
+  # defaulting** -- `measure_in_container.sh:142` prints the node's live
+  # `rocm-smi` and exits 1 naming the fix. This comment used to say the body
+  # falls back to card 4; that was true once, the fallback was removed, and the
+  # comment did not fail -- it started lying, in the direction of "you do not
+  # need to pass this". Third instance today of a default that became a refusal
+  # (T49), and the most consequential copy, because THIS is the file someone
+  # reads to decide whether the var is optional. It is not: `measure_gpu` is
+  # required on EVERY rung 0-5, because `build_workset/entry.sh:168` calls the
+  # container script on the MOCK path too. Omitting it cost rung 1 (2026-09-04):
+  # the guard fired, refused, printed the fix, wrote no `evidence/`, and two
+  # validators then correctly refused the absence.
   E2E_MEASURE_GPU: '${measure_gpu:-}'
   E2E_SNR_THRESHOLD: '${snr_threshold:-30.0}'
   E2E_WORKSET_ID: '${workset_id:-workset}'

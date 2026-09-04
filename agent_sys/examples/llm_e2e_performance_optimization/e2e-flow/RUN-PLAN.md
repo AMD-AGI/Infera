@@ -33,6 +33,7 @@ been telling everyone to pass the wrong one.
 | `adhoc_cases` | **0** | omit from rung 5 (`todo.md` T12) |
 | `image` | **the sealed kit's**, not the node's | the real bring-up's |
 | `transport_env` | **required on every rung** — `SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR` | same |
+| `measure_gpu` | **required on every rung** — a card `nodeprobe` reports free | same |
 
 **`image` and `transport_env` are on this table because each cost a run, and
 they fail in opposite ways.**
