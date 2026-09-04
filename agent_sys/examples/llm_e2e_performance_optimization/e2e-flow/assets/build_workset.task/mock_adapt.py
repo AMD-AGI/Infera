@@ -609,9 +609,33 @@ def main() -> int:
                             "source_file": "python/sglang/srt/layers/sampler.py",
                             "editable_sources": ["python/sglang/srt/layers/sampler.py"],
                             "entry_function": "Sampler.forward",
-                            "entry_function_line": 183,
+                            # **No `entry_function_line`, and its removal is the
+                            # fix rather than a tidy-up.** This carried `183`;
+                            # the fragment is at **207** in the deployed image
+                            # (`optimize_kernel.task/steps/_fragment_patch.py:14`,
+                            # measured), so m4 met an offset that was precise,
+                            # plausible and 24 lines wrong — which invites use in
+                            # a way an absent one does not.
+                            #
+                            # Two reasons it goes rather than gets corrected to
+                            # 207. `scaffold.py` — the real producer — emits no
+                            # line number at all, so a mock that emits one is
+                            # testing an arrangement production never uses; and
+                            # any constant here is wrong again at the next image,
+                            # silently, in the same way.
+                            #
+                            # m4 established the rule this follows: an offset must
+                            # never be a locator. Their builder anchors on the
+                            # fragment text and refuses when it is absent or
+                            # ambiguous. Exercised by
+                            # `assets/lib/controls/edit_target_failures.py`, case B3.
                             "source_resolution_method": "trace_python_stack",
-                            "resolution_evidence": "record_shapes resolved the device symbol to aten::softmax with Input Dims [[8, 151936], [], []]; the only vocabulary-wide softmax on the decode path is sampler.py:183."},
+                            # The evidence names the operator, not a line. It used
+                            # to end "...is sampler.py:183" — the wrong number a
+                            # second time, as the prose justifying itself, so a
+                            # reader checking the field against the evidence found
+                            # them in agreement and both wrong.
+                            "resolution_evidence": "record_shapes resolved the device symbol to aten::softmax with Input Dims [[8, 151936], [], []]; the only vocabulary-wide softmax on the decode path is the one inside Sampler.forward."},
             "integration": {
                 "target_files": [TARGET_FILE],
                 "base_sha256": base_sha256,

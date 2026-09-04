@@ -510,14 +510,16 @@
             },
             "entry_function_line": {
               "type": "integer",
-              "minimum": 1
+              "minimum": 1,
+              "description": "The 1-based line of `entry_function` as the analysis saw it. **Advisory, and never a locator.** Measured 2026-09-04: a workset recorded `entry_function_line: 183` while the fragment sat at line **207** of the file in the deployed image \u2014 the analysis was against sglang 0.5.14 and the image is 0.5.16. **An offset that is precise, plausible and 24 lines wrong is worse than an absent one, because it invites use** (m4's framing, and they met it while building). A consumer must locate by the fragment text or by AST and refuse when it is absent or ambiguous, which is what `optimize_kernel.task/steps/_fragment_patch.py` now does.\\n\\n**`scaffold.py` does not emit this**, so a real workset carries no offset to go stale; the 183 was a constant in the mock and has been removed (`assets/lib/controls/edit_target_failures.py`, case B). It stays in the schema because an agent may record what it read, and a recorded observation is worth having \u2014 but it is a note about where the thing was, not an instruction for finding it. Nothing validates it: doing so would need the image, which no validator in this package has."
             },
             "device_function": {
               "type": "string"
             },
             "device_function_line": {
               "type": "integer",
-              "minimum": 1
+              "minimum": 1,
+              "description": "The 1-based line of `device_function` as the analysis saw it. **Advisory, and never a locator.** Measured 2026-09-04: a workset recorded `entry_function_line: 183` while the fragment sat at line **207** of the file in the deployed image \u2014 the analysis was against sglang 0.5.14 and the image is 0.5.16. **An offset that is precise, plausible and 24 lines wrong is worse than an absent one, because it invites use** (m4's framing, and they met it while building). A consumer must locate by the fragment text or by AST and refuse when it is absent or ambiguous, which is what `optimize_kernel.task/steps/_fragment_patch.py` now does.\\n\\n**`scaffold.py` does not emit this**, so a real workset carries no offset to go stale; the 183 was a constant in the mock and has been removed (`assets/lib/controls/edit_target_failures.py`, case B). It stays in the schema because an agent may record what it read, and a recorded observation is worth having \u2014 but it is a note about where the thing was, not an instruction for finding it. Nothing validates it: doing so would need the image, which no validator in this package has."
             },
             "source_resolution_method": {
               "type": "string",
