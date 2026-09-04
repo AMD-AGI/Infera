@@ -181,6 +181,35 @@ which subcommand answers it without a daemon; `health` is not that subcommand,
 however read-only it reads. `AGENTSVIEW_NO_DAEMON=1` does not rescue it either —
 see the `check_disabled_agents` docstring for the measurement.
 
+**Reuse requires proof of ownership, and the proof is AgentsView's own.** A
+live AgentsView on `18888` is not evidence that it is *ours*: a user who
+already runs one has a daemon with their own `AGENTSVIEW_DATA_DIR` listing
+every session on the machine, and adopting it hands back a panel that breaks
+the single requirement this component exists for. So `ensure_running` reuses a
+daemon only when two gates both pass — it answers `/api/v1/agents` with `200`
+and JSON (a status code is not an identity; every web server answers `/`), and
+`$AGENTSVIEW_DATA_DIR` contains a live `daemon.<pid>.json` naming that port.
+
+That second gate is AgentsView's own artefact, read and never written. Because
+the data directory is the prefix's and nobody else's, a record found there was
+written by a daemon we configured — the isolation is the filesystem's, not a
+convention we maintain. Measured on a real v0.42.0: the record is **removed by
+AgentsView on a clean `serve stop`**, so the ordinary case leaves no stale
+evidence at all; only an unclean death (SIGKILL, OOM, reboot) leaves one, and
+that case is caught by checking the recorded pid for liveness.
+
+The first version used a file of ours holding just the port number, written by
+a successful launch. It never expired, so it recorded that we *once* started a
+daemon there — evidence about the past. After our daemon died and the user
+started their own AgentsView on that port, both gates passed and the panel was
+handed over silently. It also had a second failure: because it was written
+*after* the health check, one slow cold start left a live daemon nothing could
+recognise, and every later run skipped the panel permanently while blaming a
+stranger. Both are properties of choosing the wrong witness, and both go away
+with the right one. The two busy-port outcomes are now reported as separate
+warnings, because "something else has your port" and "our own daemon is
+wedged" call for opposite actions.
+
 **Stopping is only reliable for the most recently started daemon.** `serve stop`
 and `daemon stop` act on the one daemon AgentsView is currently tracking, and
 there is no documented command that reaches any other. Measured on the shared
@@ -205,6 +234,25 @@ parallel one.
 
 **Binding.** `127.0.0.1` only. `--require-auth` is not enabled and the UI is not
 published beyond loopback.
+
+**Success goes to the event stream; failure goes to `logging`.** The URL and
+the first-install notice are `stream.emit(EventKind.O11Y_PANEL, …)`, not
+`log.info`. This package never configures `logging`, so the root logger sits at
+`WARNING` with no handler: an info record is discarded, while the warnings
+above still reach stderr through `logging.lastResort`. As `log.info` calls,
+therefore, the two things a user is *meant* to read reached nobody, and the
+component reported only its failures. The tests did not catch it because
+`caplog.at_level("INFO")` forces the level from pytest's side — a test
+asserting the program's intent rather than its output, which is the shape to
+watch for whenever a fix is "make it print something".
+
+**A side-car may not make a run depend on the environment it did not need.**
+`Prefix.resolve` is total: `$HOME`, then the passwd entry, then a per-uid
+directory under `$TMPDIR`. It used to be `environ["HOME"]`, which is a
+`KeyError` under a systemd unit or `env -i` — caught and warned about at one of
+its three call sites and fatal at the other two, on a feature the run never
+asked for. Where a caller *can* degrade it still does; the point is that
+resolving a path is not one of the things allowed to fail.
 
 ## 5. Where the code goes
 
