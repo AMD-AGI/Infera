@@ -1506,3 +1506,36 @@ topology deserves its own rung rather than riding on a fix.
 
 *Numbered T38 against a max of T37; `todo.md` currently has duplicate `T36`s and
 the leader is reconciling numbering, so treat this number as provisional.*
+
+---
+
+### T39 — `read_events.py` prints `message` and hides the attribute that holds the cause
+
+**m2, 2026-09-04. Not blocking. One line, and it is in checkpoint's file, so it
+is routed rather than done here.**
+
+`assets/lib/read_events.py` renders each event as its `message`. For
+`output_absent` that message is
+*"declared output … was never delivered"* — **which can be false** — while the
+true reason sits in `attributes.seal_refused` and is not printed. So the tool
+built for reading the event store reproduces the misdirection the store already
+has; see
+`temp/bugs/2026-09-04-output_absent-states-a-cause-that-is-false.md`.
+
+**Two owners have now paid for this in the same day** — the leader's four-run
+stall study and m2's replayed-kit investigation — and **both ended up running
+`cat` on a raw event JSON** to find the same attribute.
+
+**The precedent already exists.** m4 hit it from the other side and fixed *their*
+reader: `runprobe` prints **every** attribute of a triggering event, and the
+leader credits that change with turning a lost reason into a one-command answer
+three times on 2026-09-04. `read_events.py` has not had the equivalent.
+
+**What would settle it:** print `seal_refused` and `detail` beside `message`
+when present — or all non-empty attributes, which is what `runprobe` does and
+needs no per-kind knowledge.
+
+**Routed to checkpoint as the file's author**, with the diff, on the leader's
+rule that the author of a file cares most about its output being right and a
+change landed by someone else and merely attributed is worse than one landed by
+its owner.
