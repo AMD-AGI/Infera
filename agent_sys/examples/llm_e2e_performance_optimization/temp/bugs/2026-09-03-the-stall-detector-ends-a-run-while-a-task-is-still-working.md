@@ -222,6 +222,21 @@ grep for an escalation record in the store               -> NOTHING
 the code's own comment claims: *"A healthy run has no such escalation and is
 untouched."*
 
+### Whose observation this was
+
+**Not mine unaided, and the file should not imply it.** The leader wrote that I
+"went and got the fact that settles it". I queried the store *because they told
+me rung 1 had run 21 minutes without a cut*. Left to myself I had already
+stopped, satisfied, with the wrong answer.
+
+Their half was symmetrical: they had that run in front of them for 21 minutes
+and read it as *"the detector has not fired yet"* rather than as *"this
+contradicts what we believe"*. It took their observation to prompt the query and
+the query to turn their observation into evidence. **Neither of us got there
+alone**, and the transferable lesson is not "check the store" — it is that a
+question one person has closed is reopened by someone else's stray observation,
+so say the stray thing out loud.
+
 ### How I got it wrong, which is the part worth keeping
 
 I had the correct reading from the code **first** — a healthy run has no such
@@ -277,3 +292,56 @@ Whether that is the right rule is the runner owner's call. `agent_sys/cli/` is
 outside this effort's scope, and this file's job is to hand over the line
 number, the docstring, the mechanism, and — now — an honest account of which
 parts were measured and which were inferred.
+
+---
+
+## The founding instance is not an instance of the bug
+
+**Appended 2026-09-04 by m4, from the first real use of
+`assets/lib/runprobe.py`** — which the leader asked for precisely so this
+question could be asked in one command instead of a hand-composed grep. It paid
+for itself immediately and against its author's expectations.
+
+Run `20260903T172821-6a3c24`, the rung-0 run this whole file is written about.
+The store, at **+179 s**:
+
+```
+17:31:21.321  build_workset   output_absent   declared output 657bcbde-… was never delivered
+17:31:21.340  build_workset   escalated       nothing to push: the executor is a program body:
+                                              there is no agent to instruct
+17:31:21.368  m3_analysis     escalated       (hop)
+17:31:21.397  main            escalated       (hop)
+17:31:21.403  main            escalated       -> target: user
+```
+
+**The trigger is `build_workset` failing to deliver its declared output**, and
+the escalation follows it by nineteen milliseconds. The monitor had no action
+because the executor is a *program body* — there is no agent to instruct — so it
+escalated, the walk ran out of task tree, and `blocked` became non-empty.
+
+That is a mock stage failing on a login node with no torch, which is the failure
+`RUN-PLAN.md` already documents as **correct and by design**.
+
+**So the sentence this file rests on —** *"a task in a running phase, doing real
+work, was torn down 20 s in"* **— is not what the store shows.** The task had
+already failed. `blocked` became non-empty *because* of that failure, and the
+run ending afterwards is the detector reporting that nothing further was going
+to happen, which was true.
+
+**What remains, and it is now smaller and unobserved:** `(not holding or
+blocked)` still admits tearing down a leaf that *is* working, because `blocked`
+alone satisfies it. That is a real discrepancy against the docstring's
+conjunction. **But there is no longer a known instance of it happening.** Every
+cut in this file traces to a run in which something had genuinely failed first.
+
+**Left open rather than closed in the other direction, because that is the
+mistake this file has now made twice.** It is not established that the defect
+cannot bite — only that it has not been seen to. What would settle it: a run
+where `runprobe.py` shows `blocked` non-empty while a leaf is legitimately
+executing, and the run is cut anyway. Nobody has that.
+
+**And the honest reading of "what it cost" above** is that two owners lost time
+to a *correctly failing* mock stage whose failure was reported as a stall — the
+detector's *message* named the wrong cause, which is the
+`2026-09-03-a-validators-stdout-is-not-kept-anywhere.md` family, not this one.
+The cost was real; the attribution was not.
