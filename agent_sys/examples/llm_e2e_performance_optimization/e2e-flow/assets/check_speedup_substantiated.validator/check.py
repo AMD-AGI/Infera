@@ -170,6 +170,41 @@ def _interpreter(problems: list[str], notes: list[str]) -> str | None:
 _PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 
+def _transport_env(args: dict, card: str) -> dict[str, str]:
+    """`os.environ` plus what `spur` needs and a validation zone strips.
+
+    **The third copy of this in the package**, and the parameter names are m1's
+    so one `--var transport_env` drives all three -- m1's `check_deploy_serves`,
+    m3's `check_workset_runs` and this. A second *spelling* would be a second
+    thing to keep in step, which is the failure that produced the whole class.
+    The duplication of the *function* is real and is flagged to the leader
+    rather than fixed here: `assets/lib/` is shared and a live run is walking
+    toward it.
+
+    A validator declares no agent, so it runs closed: no `SPUR_CONTROLLER_ADDR`
+    and a `PATH` of `/usr/bin:/bin` while `spur` lives in `/usr/local/bin`. m3
+    measured the consequence -- `tcp connect error` reported as *"the workset is
+    not visible on the node"*, a filesystem claim for a missing variable -- and
+    lost three non-reproductions to it because **their own login shell had the
+    variable**. §4.4, where the convenient fixture was the shell.
+    """
+    env = dict(os.environ)
+    extra = str(args.get("transport_path") or "")
+    if extra:
+        parts = [p for p in env.get("PATH", "").split(":") if p]
+        env["PATH"] = ":".join(parts + [p for p in extra.split(":") if p and p not in parts])
+    for pair in str(args.get("transport_env") or "").split():
+        name, _, value = pair.partition("=")
+        if name and value:
+            env[name] = value
+    # One arg, both spellings, so the two instruments cannot be pointed at
+    # different cards: `run_in_container.sh` reads `HIP_VISIBLE_DEVICES`, m3's
+    # script reads `E2E_MEASURE_GPU`.
+    env["HIP_VISIBLE_DEVICES"] = card
+    env["E2E_MEASURE_GPU"] = card
+    return env
+
+
 def _measure_env(scratch: Path, python: str | None = None) -> dict[str, str]:
     """The environment the measurement subprocess needs, built rather than inherited.
 
@@ -541,7 +576,8 @@ def _check_correctness(doc: dict, snapshot: dict, args: dict, problems: list[str
 
 def _run_entrypoint(
     root: Path, cmd: str, impl_path: Path | None, report: Path, args: dict, env: dict,
-    timeout: float, flags: dict, environment: Path | None = None
+    timeout: float, flags: dict, environment: Path | None = None,
+    wrapper: Path | None = None,
 ) -> str | None:
     """The workset's own performance entrypoint. Returns an error string or `None`.
 
@@ -587,6 +623,9 @@ def _run_entrypoint(
     # workset's own record would be comparing it with itself.
     if environment is not None:
         argv += [str(flags.get("environment") or "--environment"), str(environment)]
+    # Into the container when a wrapper was resolved -- see `_remeasure`.
+    if wrapper is not None:
+        argv = ["bash", str(wrapper), "--workdir", str(root), " ".join(argv)]
     try:
         proc = subprocess.run(
             argv, capture_output=True, text=True, cwd=root, env=env, timeout=timeout
@@ -661,7 +700,8 @@ def _remeasure(
     # shared host is a co-tenant's. Refusing is the same rule
     # `run_in_container.sh` applies to the producer side, and it has to be the
     # same rule or the two disagree about who owns the choice.
-    if not str(os.environ.get("HIP_VISIBLE_DEVICES") or "").strip():
+    card = str(args.get("measure_gpu") or os.environ.get("HIP_VISIBLE_DEVICES") or "").strip()
+    if not card:
         problems.append(
             "HIP_VISIBLE_DEVICES is not set in this validation zone, so the re-measurement "
             "would take card 0 — which on a shared host is somebody else's, and the number "
@@ -669,11 +709,6 @@ def _remeasure(
             "package's env block does not reach here; the card has to arrive with the zone"
         )
         return
-    python = _interpreter(problems, notes)
-    if python is None:
-        return
-    # Passed through, not merely probed for — see `_measure_env`.
-    env = _measure_env(root, python)
     operator_id = str(doc.get("operator"))
 
     # CONTRACT §2: a `code` handoff carries the record at `items/codes/`, and the
@@ -699,9 +734,62 @@ def _remeasure(
         )
         record = None
 
+    # **Step onto the node, through the producer's own wrapper.**
+    #
+    # Before this, the entrypoint ran by `subprocess.run` **locally** — in
+    # whatever context the phase handed the body, which is a validation zone on
+    # the login node with no torch. Measured: `no interpreter with torch found`,
+    # on a `cost: gpu_hours` check whose entire job is to re-measure. It could
+    # never have graded a real kernel, and my own T30 grep found it:
+    # `check_workset_runs` had three references to a container, this had zero.
+    #
+    # `run_in_container.sh` is m4's `measure_in_container.sh`, and routing
+    # through it is m3's rule — a validator that re-measured through a different
+    # arrangement than the producer used would not be re-measuring the same
+    # thing. The container, node, job and transport come from the record the
+    # handoff carries (CONTRACT §2), so no second declared input is needed.
+    package = os.environ.get("AGENT_SYS_TASK_PACKAGE") or os.environ.get("AGENT_SYS_DEMO_PACKAGE")
+    wrapper = Path(package) / "assets/optimize_kernel.task/steps/run_in_container.sh" \
+        if package else None
+    if wrapper is not None and not wrapper.is_file():
+        wrapper = None
+    if record is None:
+        wrapper = None
+    # **Only step onto the node when told how to reach it.** `transport_env` is
+    # the operator saying "here is what `spur` needs". Without it the wrapper
+    # cannot leave this host and taking that path anyway turns a missing `--var`
+    # into a docker error two layers down. m3 gates the same way.
+    #
+    # It is also what keeps `stubkit` honest: that kit stubs the entrypoint and
+    # must exercise the LOCAL path, so it passes no `transport_env`. A harness
+    # test that silently started taking the container path would be testing
+    # something it cannot reach.
+    if not str(args.get("transport_env") or "").strip():
+        if wrapper is not None:
+            notes.append(
+                "the record names a container but no `transport_env` was passed, so this "
+                "re-measures locally — which on a node will not find torch. Pass "
+                "--var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR to step in"
+            )
+        wrapper = None
+
+    if wrapper is not None:
+        # **The interpreter probe is skipped here deliberately.** It runs
+        # `import torch` in *this* process's world — the zone — which is not
+        # where the measurement happens. Probing the zone to decide whether the
+        # container can measure is testing the environment instead of the thing.
+        notes.append(f"re-measuring inside the container the record names, via {wrapper.name}")
+        env = _transport_env(args, card)
+        env["AGENT_SYS_INPUT_DEPLOY_KIT"] = str(record.parent.parent.parent)
+    else:
+        python = _interpreter(problems, notes)
+        if python is None:
+            return
+        env = _measure_env(root, python)
+
     seed_report = seed_root / "substantiate_seed.json"
     failure = _run_entrypoint(
-        seed_root, entrypoint, None, seed_report, args, env, timeout, flags, record
+        seed_root, entrypoint, None, seed_report, args, env, timeout, flags, record, wrapper
     )
     if failure:
         problems.append(f"the seed re-measurement failed: {failure}")
@@ -711,7 +799,7 @@ def _remeasure(
     candidate_report = candidate_root / "substantiate_candidate.json"
     failure = _run_entrypoint(
         candidate_root, entrypoint, optimized_src.resolve(), candidate_report, args, env,
-        timeout, flags, record
+        timeout, flags, record, wrapper
     )
     if failure:
         problems.append(f"the optimised re-measurement failed: {failure}")

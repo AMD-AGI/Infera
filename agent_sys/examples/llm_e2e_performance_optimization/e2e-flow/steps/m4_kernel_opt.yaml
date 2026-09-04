@@ -93,6 +93,28 @@
     require_correctness_pass: true
     min_shapes_measured: 3
 
+    # --- reaching the node, because this body re-measures ---------------------
+    #
+    # **m1's parameter names and m1's defaults, verbatim.** One
+    # `--var transport_env` has to drive m1's `check_deploy_serves`, m3's
+    # `check_workset_runs` and this one; a second spelling would be a second
+    # thing to keep in step, which is the failure that produced this whole
+    # class. RUN-PLAN's var table already records `transport_env` costing three
+    # rung-0 runs and two wrong attributions in m1's stage, and m3 lost three
+    # non-reproductions to the same hole in theirs.
+    #
+    # A validator declares no agent, so it runs closed: no `SPUR_CONTROLLER_ADDR`
+    # and a `PATH` of `/usr/bin:/bin` while `spur` lives in `/usr/local/bin`.
+    # Without these the re-measurement cannot leave the login node — and it did
+    # not, which is why this validator has never graded a real kernel.
+    transport_path: '${transport_path:-/usr/local/bin:/usr/local/sbin}'
+    transport_env: '${transport_env:-}'
+    # Which card the re-measurement takes. Empty and REFUSED at run time rather
+    # than defaulted: unset does not mean "the caller chose", it means torch
+    # takes card 0, which on a shared host is a co-tenant's. Same name m3 uses,
+    # so one `--var` points both instruments at one card.
+    measure_gpu: '${measure_gpu:-}'
+
     # How far the workset's own baseline may drift when re-measured here before
     # the premise is judged to have failed **empirically**. This is not the
     # deleted rule returning: exceeding it produces an ABORT, never a
