@@ -523,3 +523,65 @@ shapes, cheapest first:
 Not urgent — no run is blocked, and the empty string is the safe state. It is on
 this list because **the next person to notice the empty stamp will "fix" it by
 passing `--var stage=`**, which is the one action that makes the record lie.
+
+### T23 — `fixed.gpu_count` is the one required field with no definition, and 8 was defensible
+*Found by checkpoint in rung 1's own handoff, verified by the leader, localised
+by m1 who owns the producer. Third direction on T19.*
+
+Rung 1's record says `gpu_count: 8` on a node where four cards were held by a
+co-tenant at 96–98 % VRAM. All 21 verdicts passed.
+
+**The framing this arrived with is not how the code works, and the correction
+matters because it changes the fix.** It was reported as *`gpu_arch` and
+`image_id` are discovered at bring-up; `gpu_count` is a claim*. Measured —
+`env_render.py:64-66`:
+
+> `gpu_arch`, `gpu_count` and `image_id` are absent on purpose: they are
+> discovered during bring-up, and a variable holding them would be a claim
+
+**All three arrive as `--set` and `env_render.py` measures none of them.** The
+real difference is upstream, in the producer brief: STEP 1 tells the agent to run
+`docker image inspect --format '{{.Id}}'` and `rocm-smi`, so `image_id` and
+`gpu_arch` are *transcriptions of a named command's output*. **No step produces a
+count.** STEP 1's criterion is *"free VRAM per device exceeds the checkpoint size
+… and you can say which device **index** you are taking"* — an index, never a
+total. So `gpu_count` is not a claim where the others are measurements; it is the
+one of the three that no instruction generates.
+
+**And the deeper reason nothing refused it: the field has no definition.**
+`environment.schema.json` gives `gpu_count` exactly
+
+```json
+{"type": "integer", "minimum": 1}
+```
+
+**no `description`** — alone among the eight required `fixed` fields, every one
+of which otherwise explains what it means and why (`gpu_arch` says why an
+architecture and not a product name; `image_id` says why a digest and not a tag).
+
+So `gpu_count` has two defensible readings — **cards present on the node** and
+**cards this deployment could use** — and `8` is *true* under the first. The
+agent was not wrong. **A field that cannot be wrong cannot be a measurement**,
+and `fixed` is promised as 可固化环境, which is the second reading.
+
+**Deliberately not proposed: adding `gpu_count` to `check_environment`'s
+`compare_fixed_across_inputs`.** Those four fields are four on purpose and the
+DELIVERY-NOTE is explicit that bars are not widened. A cross-input comparison
+would also not have caught this — every stage would have agreed on the same
+undefined 8.
+
+**What would settle it, and it is one decision, not three:** say which reading
+`fixed.gpu_count` requires, in the schema, in a `description` like every
+neighbouring field has. Then the producer brief gets a STEP 1 criterion that
+generates it, and `check_deploy_kit` can check the record against something.
+
+**T19's `fixed.gpu_devices` makes the decision cheap rather than forced**,
+which is why these are one problem: with a device list, `gpu_count` keeps the
+node fact and `len(gpu_devices)` carries what the deployment used, and neither
+reading has to lose. Without it, whichever meaning is chosen makes the other
+unrecordable — and the run above needed both to be honest: *eight present, four
+usable, one taken.*
+
+Not blocking. Recorded rather than fixed **because the fix is a definition and
+the definition is entangled with T19** — writing a criterion first would bake in
+whichever meaning m1 happened to pick.
