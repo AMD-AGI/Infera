@@ -2065,6 +2065,7 @@ than the sentence it prints.
 | `run_in_container.sh` (m4) | *"m1's bring-up has been torn down"* | the node was never reached — **a transport failure wearing a teardown's clothes, and it named a specific person** |
 | `run_in_container.sh` (m4) | a blank where the container list goes | *none* — an empty diagnostic is indistinguishable from one that failed to look |
 | `check_speedup_substantiated` (m4) | `exited 127: l so no reader has to infer…` | `stderr.strip()[-400:]` — a slice by character, splicing a comment fragment into the error |
+| `m3_analysis.yaml` (m3) | *"the body falls back to card 4 via `${E2E_MEASURE_GPU:=4}`"* | `measure_in_container.sh:142` **refuses** — prints the node's live `rocm-smi` and exits 1. There is no fallback |
 
 **Every one gives the correct verdict.** That is what makes it the hardest kind
 to notice: nothing downstream is wrong, no run fails that should pass, and the
@@ -2085,6 +2086,19 @@ four the answer was a strictly broader condition than the code tests.
 `check_workset_shape`'s is the sharpest — *"not defined at module level"* is
 true of a module-level assignment, and the check cannot see one, so the message
 is a correct English sentence about a case the code would get wrong.
+
+**Eight, and the eighth is the one that changes the entry.** m3's is the only
+instance written by someone who had **filed the class themselves that morning** —
+T45 is theirs, eight hours earlier, about a comment describing another file that
+goes stale silently. Every other instance here is someone who did not know the
+class existed. **Theirs says that knowing it does not cure it**, which is worth
+more than the count going from seven to eight, and it is why this entry ends with
+a detector rather than with advice.
+
+m4 declined to hold it when m3 handed it to them *"for the collection"* — they do
+not own this entry and letting it sit with them is the gap the entry describes,
+which nearly happened once already when three people each assumed someone else
+would file it.
 
 **Seven, not four.** m4 added three of their own after m5 named the class and I
 had already filed it — which is itself the point: **each of us could see only our
