@@ -123,3 +123,57 @@ validator set; m2 chased it, found the one killed run, and asked whether the
 shutdown path marks handoffs `invalid` — noting that if it does, *"`invalid`
 cannot carry the meaning `_completion_gaps` relies on."* It does. They stopped
 rather than guess and routed it; this is the answer to their question.
+
+---
+
+## The contrast pair, and it is what makes the ambiguity concrete — m5
+
+`075753` above shows one meaning. **This run shows the other, with the same
+status**, and the two side by side are the whole defect:
+
+| run | handoff | status | validators recorded | what it means |
+|---|---|---|---|---|
+| `20260904T075753-e4f7ba` | `operator_workset` | `invalid` | **1 of 3** | killed mid-validation; nothing graded it |
+| `20260904T125637-e1ddf6` | `deploy_kit` | `invalid` | **3 of 3**, `check_deploy_serves: false` | every validator ran and one refused |
+
+The second is the correctly-refused `max-bs 8` deployment — **a complete record
+and the most informative row in a survey.** Any rule that excludes `invalid` to
+skip the first also discards the second.
+
+## Why no per-handoff repair is available either, measured
+
+The obvious fallback is to stop asking about handoffs and ask about the **run**:
+*was it still going?* That does not work, for a reason unrelated to `INVALID`:
+
+**The task store's `status` is never finalised.** Measured across **36 runs**,
+every one of them — including runs that finished cleanly — is left showing
+`running: 2` and `output_validating: 1`, because task state is a live field
+nobody rewrites on exit:
+
+```
+20260904T143952-bec7da  {succeeded 13, output_validating 1, running 2, waiting_handoff 1}   clean
+20260904T075753-e4f7ba  {succeeded  8, output_validating 1, running 2, waiting_handoff 2}   killed
+```
+
+**Indistinguishable.** A filter built on it excluded **36 of 36 runs**, which is
+how it was found. So *"did this run finish"* has one answer on disk —
+`_completion_gaps` — and it is at run granularity, which is one level coarser
+than the question a per-handoff survey asks.
+
+## What `replay_root` does instead, and the general form
+
+It reports the **distribution** of validator sets rather than resolving it:
+
+```
+unstable operator_workset   13x [check_environment,check_workset_runs,
+                                 check_workset_shape] | 1x [check_environment]
+```
+
+A 20-to-1 split is self-evidently an outlier; a 10-to-11 split is a real
+divergence. Nothing is inferred from a proxy and nothing informative is
+discarded.
+
+**A tool that cannot get a fact should show the shape and say so, rather than
+infer the fact from a signal that does not carry it.** That is this record's
+practical consequence for anyone else who reaches for `INVALID`, and it is the
+reason the entry is worth more than the fix would be.
