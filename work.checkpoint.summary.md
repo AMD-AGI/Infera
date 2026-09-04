@@ -7045,3 +7045,159 @@ a reconciliation on it and then a deeper one. **It was one message from being a
 qualified fact in T42.** What stopped it was m3 going back to a surviving
 `validator_report.txt` and diffing it against their own source — not any of the
 three of us reasoning harder.
+
+## T+1320 — 2026-09-04 11:30 UTC
+
+### First: a correction to my own addendum of an hour ago
+
+I wrote at 11:29 that *"no `docker run` ever attempted `-v /home:/home`. The
+daemon was never asked."* **The second sentence is false**, and the leader
+settled it from artefacts. `measure_in_container.sh:214-218`:
+
+```
+# the leader measured the daemon's answer on node 243:
+#     Error response from daemon: authorization denied by plugin spur-authz:
+#     denied [BH]: /home:/home -- mount your own directory instead,
+```
+
+**The daemon was asked — once, by the leader, on node 243 — and it refused.** The
+row in the refusal table is a *quotation of a real measurement*, not an
+invention. What is true is narrower: **no run attempted that mount**, and the
+captured tail was a catalogue row rather than a fresh event.
+
+**And the leader found the thing all three of us missed: the `/home` never came
+from `$HOME` at all.** It came from taking the **top-level component of
+`$ROOT`** — `/home/<user>/agent_sys_runroot` → `/home`. So m3's value was fitted
+to a denial about `$ROOT` while their sentence described `$HOME`. **Two records
+about two different things wearing one name**, which is exactly why it could not
+be reconciled with `environment.py:235`: there was nothing to reconcile.
+
+**T42's row is settled** — *validator*, on `environment.py:232-237` plus three
+zone listings the leader pulled from run `20260904T111550`, which show the
+`home/` directories actually existing. My `remote.sh:150` candidate is dead and
+should not stay in the file as an open branch of a closed conflict.
+
+**My own error in one line:** I corrected an overstatement by overstating in the
+other direction. *"A reference row, not an event"* was right; *"the daemon was
+never asked"* went one step past the evidence I had, in the same message where I
+was criticising exactly that.
+
+### The number that matters
+
+| | runs | invocations | judgements | **distinct** |
+|---|---|---|---|---|
+| frozen (`ro`) | 38 | 231 | 255 | 10 |
+| live | 30 | 428 | 485 | 14 |
+| **union at 11:30** | **68** | **659** | **740** | **14** |
+
+**Fifth interval flat at 14 — and the deltas underneath contain the interval's
+best result:**
+
+| validator | 11:04 | 11:30 |
+|---|---|---|
+| **`check_speedup_substantiated`** | 6 / **0** | **8 / 2** |
+| `check_optimization_shape` | 6 / 4 | 8 / 5 |
+| `check_workset_runs` | 12 / 6 | 15 / 9 |
+| `check_workset_shape` | 12 / 10 | 15 / 13 |
+
+**`check_speedup_substantiated` passed for the first time.** It had been 0-for-6
+since first contact and was the last validator in the *reached* set that had
+never returned a pass. **Every validator the graph can currently reach has now
+passed at least once.** The seven that have never spoken are still exactly m5's
+seven, unchanged since T+1177.
+
+**Two runs present at 11:30:41**, both `root=/home/yihou/agent_sys_runroot`, read
+by `runlive.sh` rather than by eye — first section where that number comes from
+a tool that has been attacked by someone else.
+
+### Standing checks
+
+| check | result |
+|---|---|
+| (a) index leak | clean |
+| (b0) pre-commit `git status` on this file | clean |
+| (b) per-commit ownership | clean |
+| (c) `todo.md` | 40 items (T40 mine, corrected at m3's request) |
+| holds | three, none lost since 06:47 |
+| `/home` | 1.6 T free (85 %) |
+| frozen constants | re-verified, mount `ro` |
+
+### 1. Progress
+
+**~79 %, up one.** Elapsed 1 320 m.
+
+**Reliability: low→moderate**, held. The point is for
+`check_speedup_substantiated` — the reached set is now fully green at least
+once, which is a real boundary. **Only one point**, because the boundary it
+marks is *"everything we can reach works"*, and what remains is the part we
+cannot reach: **seven validators, one module, never entered.**
+
+**预估耗时: no number.** Held.
+
+### 2. Current state
+
+Rung 0's **eighth attempt** is running. One commit this interval — `1b889dd`,
+m1, pass verdicts to `write_report` so the heading is not inferred.
+
+### 3. Code problems
+
+- **FIXED — `runlive.sh`'s silent drop on unreadable `exe`** (`01f768c`), the
+  last of m3's four findings.
+- **OPEN — the seven m5 validators**, unreached.
+- **RESOLVED, NOT A DEFECT — the `HOME` conflict.** No code was wrong; two
+  records described different variables.
+
+### 4. Non-code problems
+
+Three holds, none lost since 06:47 — six intervals, the longest stable stretch
+of the effort. Two `keep3` jobs still pending from the non-team session.
+
+### 5. Open questions
+
+The seven m5 validators; M5.1.1; why holds are cancelled; how much co-tenant
+load is corpses. **Removed from this list:** the `HOME` conflict, settled; the
+`remote.sh:150` node-side candidate, eliminated.
+
+### 6. New commits
+
+**1 since `25fcf23`** — `1b889dd` m1. Plus my own this interval: `01f768c`
+(runlive third answer), `8c50398` (T40), `baf4772` (T40 corrected), `25fcf23`
+(the reference-row addendum).
+
+### 7. Anything else
+
+**The `HOME` thread cost four people a round of messages and produced two things
+worth the cost.**
+
+**m3's mechanism, which is the durable one:** *a refusal that documents
+known-bad forms will be quoted back as a report of one occurring.* In a captured
+tail, reference and observation are indistinguishable. **The pattern is still
+right** — naming measured forms in a refusal is good and has been correct every
+other time today — it needs its reference rows marked as reference.
+
+**And the leader's diagnosis, which is sharper than mine:** the artefact was
+*honest about provenance and dishonest about meaning*. m3's comment correctly
+attributed the denial to the leader on node 243. What travelled wrongly was
+**which variable it was about.**
+
+**The cost, stated plainly because every other instance today was caught by a
+second reader and this one was not.** m3 wrote it; m3 misread it; the leader
+quoted it; I built a reconciliation on it; I then built a *deeper* one after
+reading the code. **Four passes, three readers, and none of us caught it.** What
+caught it was m3 diffing a surviving `validator_report.txt` against their own
+source — going back to the artefact, not reasoning further from the quote.
+
+**That is the argument against my own working method, stated at its strongest.**
+I have spent the day insisting that a second reader is what verification means,
+and this is the case where three readers all failed and one diff succeeded.
+**The second reader is necessary and is not sufficient**; what actually resolves
+things is returning to the artefact, and a second reader helps mainly because
+they are more likely to bother.
+
+**The leader added a fourth entry to the self-weakening list and it is mine.**
+Three others corrected records in their own disfavour today with nothing to gain;
+I have now corrected two published claims to the leader unprompted, and this
+section corrects a third. Their observation is the one to keep: *the rule about
+tools being verified by someone who did not write them works here because nobody
+defends a record.* **That is a property of this team, not of the rule**, and the
+rule would not survive a team that had it differently.
