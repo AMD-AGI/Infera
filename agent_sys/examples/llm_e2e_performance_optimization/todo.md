@@ -1827,6 +1827,25 @@ M5.3; m5's enum says nothing, so the same decision reads as available there.
 whenever the mechanism question is settled, is for the three to agree — either
 `rebuild` becomes emittable or it stops being acceptable.
 
+**The same defect facing the other way: `must_preserve`, emitted and read by
+none.** `60_write_handoff.py:272-281` populates it from the workset's
+`integration` — signature, invariants, `requires_restart`, `build_step` —
+`kernel_optimization.schema.json:320` documents it, two samples carry it, and
+**no consumer anywhere reads it.** Found 2026-09-04 when the mock's empty
+`must_preserve` looked like the `dtypes` omission that had cost a rung-0
+attempt; m5 grepped their whole stage and there is nothing to feed.
+
+**Deliberately not populated in the mock** (leader's call): consistency with a
+producer nobody reads is not worth a rung-0 attempt.
+
+**The pair is the point.** `rebuild` is *accepted by a reader no producer can
+satisfy*; `must_preserve` is *produced for a reader that does not exist*. Both
+validate, both are documented, and **neither can fail** — so a reader finding
+either one reasonably concludes it is load-bearing. The tell is the same in both
+directions: **trace a field to a consumer before believing it does anything**,
+and a field with a description but no consumer is exactly as inert as one with a
+consumer and no producer.
+
 
 ### T45 — a comment that asserts a wiring gap sends the next reader to change code, when only a number was missing
 
