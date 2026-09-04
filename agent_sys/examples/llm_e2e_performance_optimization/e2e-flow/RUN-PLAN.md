@@ -231,9 +231,11 @@ Say what rung 0 covered in those terms, not as "the mock passed".
 
 ## Before rung 1, and again before every rung
 
-1. **`m2`'s interpreter sweep** — `/home/yihou/ws_handoff_refine_m2/interpreter_sweep.py`. About a minute. **Treat a clean result as a gate, not a formality**: all four bugs in that class were introduced by bodies written *after* the previous sweep, so the sweep is only worth its cost when it is re-run.
+1. **`m2`'s interpreter sweep** — `python3 assets/lib/interpreter_sweep.py`. About a minute, no node. **Treat a clean result as a gate, not a formality**: all four bugs in that class were introduced by bodies written *after* the previous sweep, so the sweep is only worth its cost when it is re-run.
 
-   *Moved off `/shared_nfs` on 2026-09-04 — that export is mounted `ro` on the login node and `rw` on a held node, same volume, two mounts. The copy at `ws_handoff_refine/m2/` is **frozen** and predates the input wiring; editing it changes no result.*
+   Read the last three sections: **validators that died without writing a verdict** (a validator that refuses is healthy; one that dies without a verdict is read by the phase as broken rather than as a refused handoff), and the two "still ambiguous" lists, which say whether the run graded anything on a partial fixture.
+
+   *In the repo since 2026-09-04. It lived in scratch until then, and `RUN-PLAN` pointed at it there — **a documented gate backed by a file only one person had**, which is worse than an undocumented tool because the document implies the check exists. Scratch copies under `ws_handoff_refine/m2/` and `~/ws_handoff_refine_m2/` are frozen; this path is the one that runs. Writes its zones to `$E2E_SWEEP_SCRATCH` (default `~/ws_handoff_refine_m2/sweep`), never beside itself.*
 
 2. **The node, before you spend the hold** — `assets/lib/nodeprobe.sh <node>`, seconds, no hold needed. Free cards, m1's anchor in a local base, disk on **both** filesystems, and whether `spur-authz` accepts this flow's mounts. **Re-probe at the moment of taking, not from a message**: measured 2026-09-04, a node went from seven free cards to 0/8 at 97 % in twenty minutes. `--auto` sweeps every idle/mix node and prints why each one failed; `report.py <rows.jsonl>` re-reads a sweep without re-running it.
 
