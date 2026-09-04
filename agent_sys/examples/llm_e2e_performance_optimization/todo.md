@@ -1709,6 +1709,16 @@ them**; m1 looked, found it inexpressible in the schema, and put it in
 Corrected here after I asserted the general form and was wrong — see the
 carrier case below, which is what actually survived.
 
+**And the rule that generalises out of that mistake, m3's wording:** reading an
+unexpressed constraint as an oversight is **cheap to say and expensive to be
+wrong about.** It converts someone's deliberate placement into a defect, and the
+fix it implies — *move it into the schema* — is one the schema cannot execute.
+m1 had looked, found it inexpressible there, and put it in a layout invariant
+with a gate fault behind it; **the evidence that they looked was not in the
+schema, which is exactly why the schema reads as if nobody did.** An absent
+constraint is silent about whether it was considered. So: check before claiming,
+or claim only about the case you checked.
+
 **And the component that could have caught all of them is the one nobody
 instruments.** When a constraint lives *between* two artefacts, the only code
 that can see it is the comparison — and **comparisons are written to decide,
