@@ -7750,3 +7750,77 @@ to fix an attribution is worse than the attribution"* — and my 04:09 clobber i
 the first-hand evidence for the larger hazard. `5281a4e` stands as it is: 66
 lines, 27 mine, 39 m4's, disclosed in three places. **Numbers confirmed by both
 of us independently.**
+
+### Addendum, 12:22 UTC — the metric follows the definition of done, and the furthest run may already meet it
+
+**The leader accepted m3's fourth option: the acceptance claim is a named file
+and a failing condition, not an exit code.**
+
+> one run produces 15 handoffs and 43 verdicts of which 42 are true; the one
+> false is `check_no_regression` on `integration_report`; and that validator's
+> `validator_report.txt` carries exactly these four `PROBLEM:` lines and no
+> others.
+
+**That definition is stated in verdicts, so the metric must be stated in verdicts
+too.** That is what makes my number and m3's acceptance script agree *by
+construction* rather than by coordination — the leader's actual worry. Handoff
+validity becomes secondary, with `integration_report`'s invalidity **annotated as
+expected** rather than counted as a shortfall.
+
+**New headline, from here:**
+
+| against the accepted definition | target | `20260904T112414-cf3e82` |
+|---|---|---|
+| handoffs | 15 | **15** |
+| verdicts | 43 | **43** |
+| true | 42 | **42** |
+| the one false | `check_no_regression` | **`check_no_regression`** ✓ |
+| `PROBLEM:` lines in that report | exactly 4 | **exactly 4** |
+
+**Every element I can verify already matches.** What I cannot verify is whether
+those are *the same* four lines m3 enumerated — the definition says "exactly
+these four", and I have the count, not their content against m3's list. **That
+one comparison is m3's and it is the difference between "matches the shape" and
+"is done".** I am not calling it done.
+
+Secondary, retained and annotated: **11 of 15 handoffs valid**;
+`stock.measurement` and `patched.measurement` invalid are **unambiguous gaps**;
+`integration_report` invalid is **expected**; `e2e_packup` created-not-sealed.
+
+### A hazard for the acceptance script, measured
+
+**`PROBLEM:` is not unique to the refusal.** Across that run:
+
+```
+23 validator_report.txt files
+11 PROBLEM: lines total, in 6 different reports
+ 4 of them in check_no_regression's — the expected refusal
+ 7 in five reports whose verdict was TRUE
+```
+
+**A validator can emit `PROBLEM:` and still pass.** So a script that greps the
+run for `PROBLEM:` finds **eleven** and mis-keys; it has to scope to
+`check_no_regression`'s own report. Passed to m3 before their script hardens
+around the wrong scope.
+
+**And I nearly published the opposite.** My first count used `grep -c
+'^PROBLEM:'` — anchored to line-start, while the lines are indented two spaces.
+It returned **zero**, and I was one step from recording *"the four PROBLEM lines
+are not in this run."* What stopped me was that the leader's claim was specific
+enough to be worth a second look. **That is T40 again, in the measurement slot,
+forty minutes after I filed T48 about exactly this** — a probe that could not
+have succeeded, returning a null that read as data.
+
+### Two more for the record
+
+**047 lived past the deaths.** Alive at **1 h 05 m 53 s**, past the ~59 and ~62
+minute failures. m1's harness-reaper hypothesis is confirmed and the detached
+launch is the fix. **Two runs lost to it, both now explained, and the remedy
+costs nothing** — which is the cheapest closed item of the day.
+
+**And the leader has named an open problem I should stop presenting as a
+resolved lesson.** Three tools of mine were found wrong by others; separately,
+three working practices of mine were invisible to me until someone named them.
+**The second set has no detection mechanism at all** — nothing in the package,
+nothing in `todo.md`, nothing anyone can be asked to run. T48 records the class;
+it does not detect it. **Recorded as open, not as solved.**
