@@ -468,6 +468,40 @@ def main() -> int:
                 f"({counts['stock']} vs {counts['patched']}) — they are not comparable"
             )
 
+    # ---- per-request dispersion, for the noise floor ---------------------------
+    #
+    # AIPerf reports `std` beside `avg` for the per-request latency metrics, and
+    # `request_count` for n. Both are already in every round's summary.json, so
+    # the floor costs nothing to measure and — being closed form — can be
+    # recomputed by the validator from the three numbers the report carries.
+    #
+    # Averaged across rounds rather than pooled: `std` is a within-round
+    # dispersion and the rounds are separate samples of it. n is summed, because
+    # pooling requests across rounds is exactly what narrows the floor.
+    dispersion: dict[tuple, dict] = {}
+    for metric in PERF_METRICS:
+        for column in PERF_COLUMNS.get(metric, ("avg",)):
+            if column != "avg":
+                continue  # a quantile's floor needs a density; see eval_stats.noise_floor
+            entry: dict = {}
+            for arm in ("stock", "patched"):
+                rsds, total_n = [], 0
+                for round_name in rounds:
+                    summary = (read_json(loaded[arm]["bench"] / round_name / "summary.json", {})
+                               or {}).get("metrics", {})
+                    block = summary.get(metric) or {}
+                    avg, std = block.get("avg"), block.get("std")
+                    count = (summary.get("request_count") or {}).get("avg")
+                    if isinstance(avg, (int, float)) and avg and isinstance(std, (int, float)):
+                        rsds.append(std / avg)
+                    if isinstance(count, (int, float)):
+                        total_n += int(count)
+                if rsds:
+                    entry[f"{arm}_rsd"] = round(sum(rsds) / len(rsds), 6)
+                    entry[f"{arm}_n"] = total_n
+            if entry:
+                dispersion[(metric, column)] = entry
+
     # ---- the judged comparison: ONE row per (metric, column) -------------------
     #
     # **`performance` above is evidence from here on, not the verdict.** It kept
@@ -498,6 +532,44 @@ def main() -> int:
             row.update(metric=metric, column=column, label=label, bar=bar,
                        reduction="median", rounds=detail_a["n"],
                        stock_detail=detail_a, patched_detail=detail_b)
+
+            # ---- can this run resolve a difference at that bar at all? -------
+            #
+            # **The bars do not move; what moves is whether the run is allowed to
+            # answer.** A measurement whose own noise floor exceeds the bar
+            # cannot tell a real regression from its own scatter, and the sealed
+            # 2026-09-02 report is the worked example of what happens then: it
+            # blamed a patch for a neighbour's load. `noise_floor` separates a
+            # bad patch from a bad measurement.
+            #
+            # **Noise can only ever buy a refusal, never a pass.** A noisier run
+            # gets `uninterpretable`, which is not accepted. There is no input
+            # under which more scatter makes a patch easier to keep.
+            #
+            # Means only — see `eval_stats.noise_floor`. `p90` columns and the
+            # two throughput rates carry no usable dispersion, so they keep the
+            # fixed bar; p90's fix is pooled samples and throughput's floor
+            # awaits the queued round-to-round measurement (`todo.md` T25).
+            disp = dispersion.get((metric, column), {})
+            floors = {arm: eval_stats.noise_floor(disp.get(f"{arm}_rsd"), disp.get(f"{arm}_n"))
+                      for arm in ("stock", "patched")}
+            usable = [f for f in floors.values() if f is not None]
+            # The worse of the two arms: a comparison is only as resolvable as
+            # its noisier side.
+            floor = max(usable) if usable else None
+            row.update(noise_floor=None if floor is None else round(floor, 6),
+                       stock_rsd=disp.get("stock_rsd"), patched_rsd=disp.get("patched_rsd"),
+                       n_stock=disp.get("stock_n"), n_patched=disp.get("patched_n"))
+            if floor is not None and floor > bar and row["verdict"] != "unmeasured":
+                row["verdict"] = "uninterpretable"
+                reasons.append(
+                    f"{label} ({column}) is UNINTERPRETABLE: this run's own noise floor is "
+                    f"{floor:.1%} and the bar is {bar:.0%}, so a difference at the bar cannot "
+                    f"be told from scatter. This is a statement about the measurement, NOT "
+                    f"about the patch — the arms read {a} and {b}. More rounds narrow the "
+                    f"floor; widening the bar would only hide it."
+                )
+
             comparison_rows.append(row)
             if row["verdict"] == "REGRESSED":
                 reasons.append(

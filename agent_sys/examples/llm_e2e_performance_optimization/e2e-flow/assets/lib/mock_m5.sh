@@ -115,7 +115,7 @@ report)
   mkdir -p "$out/items"
   cp -a "$S/integration_report/content/." "$out/"
   python3 - "$out/items/text.json" "$E2E_MOCK_REPORT" "$PKG" <<'PY'
-import json, sys
+import json, os, sys
 path, mode, pkg = sys.argv[1:4]
 d = json.load(open(path))
 
@@ -197,6 +197,35 @@ for row in d.get("performance", []):
     slot = by_key.setdefault(key, {"stock": [], "patched": [], "label": row.get("label")})
     slot["stock"].append(row.get("stock"))
     slot["patched"].append(row.get("patched"))
+# The sealed arms' own per-request dispersion, out of the sealed summary.json --
+# `std`, `avg` and `request_count`, all three already recorded on 2026-09-02. The
+# noise floor is derived from them, so it is measured evidence about that run
+# rather than anything this script chose. It is also why the mock exercises the
+# `uninterpretable` path for real: those two arms were an hour and one neighbour
+# apart, and the floor says so.
+disp = {}
+mock_root = os.environ.get("E2E_MOCK_ROOT", "/shared_nfs/yihou/agent_sys/cheat_for_mock")
+# **Only in `refused` mode, and the asymmetry is the honest half of this script.**
+# `accepted` swaps the two arms' *means* for the stock control measured under
+# matched load — but no per-request dispersion was recorded for that control, and
+# the sealed arms' scatter is not it. Carrying the sealed rsd under control means
+# would assert something about the control that nobody measured, which is the one
+# thing MOCK-MAP forbids. So in `accepted` the floor is left unmeasured and the
+# report says so; in `refused` it is the sealed arms' own numbers, and it fires.
+for arm in (("stock", "patched") if mode != "accepted" else ()):
+    s_path = f"{mock_root}/stage5-integration/bench_{arm}/content/items/result/r1/summary.json"
+    try:
+        met = json.load(open(s_path))["metrics"]
+    except (OSError, ValueError, KeyError):
+        continue
+    n = int((met.get("request_count") or {}).get("avg") or 0)
+    for metric in ("ttft_ms", "inter_token_latency_ms", "request_latency_ms"):
+        blk = met.get(metric) or {}
+        avg, std = blk.get("avg"), blk.get("std")
+        if avg and isinstance(std, (int, float)):
+            disp.setdefault((metric, "avg"), {})[f"{arm}_rsd"] = round(std / avg, 6)
+            disp.setdefault((metric, "avg"), {})[f"{arm}_n"] = n
+
 comparison = []
 for (metric, column), slot in by_key.items():
     a, da = eval_stats.reduce_rounds(slot["stock"])
@@ -206,8 +235,25 @@ for (metric, column), slot in by_key.items():
     row = eval_stats.perf_verdict(a, b, max_regression=bar, higher_is_better=up)
     row.update(metric=metric, column=column, label=slot["label"], bar=bar,
                reduction="median", rounds=da["n"], stock_detail=da, patched_detail=db)
+    dd = disp.get((metric, column), {})
+    floors = [eval_stats.noise_floor(dd.get(f"{k}_rsd"), dd.get(f"{k}_n"))
+              for k in ("stock", "patched")]
+    usable = [f for f in floors if f is not None]
+    floor = max(usable) if usable else None
+    row.update(noise_floor=None if floor is None else round(floor, 6),
+               stock_rsd=dd.get("stock_rsd"), patched_rsd=dd.get("patched_rsd"),
+               n_stock=dd.get("stock_n"), n_patched=dd.get("patched_n"))
+    if floor is not None and floor > bar and row["verdict"] != "unmeasured":
+        row["verdict"] = "uninterpretable"
     comparison.append(row)
 d["comparison"] = comparison
+
+# A row the run could not resolve is not an accepted row.
+blocked = [r for r in comparison if r["verdict"] in ("REGRESSED", "uninterpretable")]
+if blocked and d.get("verdict", {}).get("accepted"):
+    d["verdict"]["accepted"] = False
+    d["verdict"].setdefault("reasons", []).extend(
+        f"{r['metric']} ({r['column']}) is {r['verdict']}" for r in blocked)
 
 json.dump(d, open(path, "w"), indent=2)
 

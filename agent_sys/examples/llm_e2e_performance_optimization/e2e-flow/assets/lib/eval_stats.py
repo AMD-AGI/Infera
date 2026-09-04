@@ -134,6 +134,35 @@ def reduce_rounds(values: list) -> tuple[float | None, dict]:
     }
 
 
+def noise_floor(rsd: float | None, n: int | None) -> float | None:
+    """The smallest relative difference this measurement can resolve.
+
+    The 95th percentile of |rel_delta| between two arms that are **the same
+    deployment**: with each arm's statistic a mean of `n` requests whose
+    per-request relative spread is `rsd`, the difference of two such means is
+    approximately normal with sd `sqrt(2) * rsd / sqrt(n)`, so
+
+        floor = 1.96 * sqrt(2) * rsd / sqrt(n)
+
+    **Closed form and not a bootstrap, so a validator can recompute it.** Checked
+    against a 20 000-draw bootstrap over the sealed arms' own per-request
+    records, six cases: agreement within 0.9 points everywhere and exact to
+    three decimals on three of them (stock 12.8 vs 13.1, 17.9 vs 18.5, 20.3 vs
+    21.2; patched 5.7 vs 5.7, 3.7 vs 3.8, 10.1 vs 10.1). `avg`, `std` and
+    `request_count` are all already in AIPerf's summary, so nothing extra is
+    measured and nothing per-request has to travel in the report.
+
+    **Only valid for a mean.** A quantile's sampling distribution needs the
+    density at the quantile, which no summary carries — measured on the same
+    arms, a p90 floor runs from 5.3% to 20.0% with no stable relation to the
+    mean's. So `p90` columns are not gated on this; their fix is more samples
+    (pooling took ttft p90 from 20.0% to 5.5% at R=5), not a floor.
+    """
+    if rsd is None or not n or n <= 0:
+        return None
+    return Z95 * math.sqrt(2.0) * float(rsd) / math.sqrt(float(n))
+
+
 def perf_verdict(a: float | None, b: float | None, *, max_regression: float,
                  higher_is_better: bool) -> dict:
     """One metric, one round, both arms.

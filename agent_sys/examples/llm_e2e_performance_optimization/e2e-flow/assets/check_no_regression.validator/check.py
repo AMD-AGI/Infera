@@ -251,12 +251,38 @@ def judge_comparison(report: dict, args: dict, throughput_bar: float, latency_ba
                     f"{metric} ({column}): the report's reduced {name} is {theirs} and its own "
                     f"{len(seen[name])} round(s) reduce to {mine}")
         again = eval_stats.perf_verdict(a, b, max_regression=bar, higher_is_better=up_is_good)
+
+        # **The noise floor, recomputed and not read.** Closed form from the
+        # three numbers the report carries, so this is the same discipline as
+        # every other line here: a producer cannot declare its own measurement
+        # resolvable. A row whose floor exceeds its bar is `uninterpretable` —
+        # the run cannot tell a difference at the bar from its own scatter —
+        # and that is a refusal, never a pass. Noise buys a harder outcome.
+        floors = [eval_stats.noise_floor(row.get(f"{arm}_rsd"), row.get(f"n_{arm}"))
+                  for arm in ("stock", "patched")]
+        usable = [f for f in floors if f is not None]
+        floor = max(usable) if usable else None
+        stated = row.get("noise_floor")
+        if floor is not None and isinstance(stated, (int, float)):
+            if abs(floor - stated) > max(1e-6, abs(floor) * 1e-3):
+                found.append(
+                    f"{metric} ({column}): the report states a noise floor of {stated:.2%} and "
+                    f"its own dispersion gives {floor:.2%}")
+        if floor is not None and floor > bar and again["verdict"] != "unmeasured":
+            again = dict(again, verdict="uninterpretable")
+
         if again["verdict"] != row.get("verdict"):
             found.append(
                 f"{metric} ({column}): the report says {row.get('verdict')!r} and the reduced "
                 f"numbers say {again['verdict']!r}")
         if again["verdict"] == "REGRESSED":
             found.append(f"{metric} ({column}) regressed over {len(seen['stock'])} round(s)")
+        if again["verdict"] == "uninterpretable":
+            found.append(
+                f"{metric} ({column}) is UNINTERPRETABLE: noise floor {floor:.1%} exceeds the "
+                f"{bar:.0%} bar, so this run cannot resolve a difference at it. This says the "
+                "measurement is unusable, NOT that the patch is bad — do not read it as a pass, "
+                "and do not answer it by widening the bar.")
 
     # A per-round row with no reduced row above it would be judged by nothing.
     for key in by_key:
@@ -580,7 +606,32 @@ def check(content: Path, args: dict, reasons: list) -> bool:
                 )
 
     if recomputed:
-        ok = _fail(reasons, f"the patch regressed: {'; '.join(recomputed[:5])}")
+        # **Split, and this is the requirement rather than a nicety.** "the patch
+        # regressed" over a list of `uninterpretable` findings is the exact
+        # confusion `uninterpretable` exists to prevent: it blames the change for
+        # a measurement that could not answer. That is the mistake the sealed
+        # 2026-09-02 report made, and printing it here would reintroduce it in
+        # the validator's own summary line while the per-row text said otherwise.
+        # Case-insensitive: the word appears shouted in the finding text and
+        # lower-cased inside a verdict-disagreement message, and a disagreement
+        # about whether a row is uninterpretable is bookkeeping about the
+        # report, not evidence about the patch either.
+        def _about_measurement(text: str) -> bool:
+            low = text.lower()
+            return "uninterpretable" in low or "noise floor" in low
+
+        unresolvable = [r for r in recomputed if _about_measurement(r)]
+        regressions = [r for r in recomputed if not _about_measurement(r)]
+        if regressions:
+            ok = _fail(reasons, f"the patch regressed: {'; '.join(regressions[:5])}")
+        if unresolvable:
+            ok = _fail(
+                reasons,
+                "this run cannot judge the patch — "
+                f"{len(unresolvable)} metric(s) have a noise floor above their bar, so a "
+                "difference at the bar is indistinguishable from scatter. NOT a statement "
+                f"about the patch: {'; '.join(unresolvable[:3])}",
+            )
     return ok
 
 

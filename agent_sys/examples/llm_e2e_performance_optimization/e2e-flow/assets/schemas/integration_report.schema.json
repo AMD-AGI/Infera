@@ -637,6 +637,39 @@
           },
           "verdict": {
             "$ref": "#/$defs/verdict_word"
+          },
+          "noise_floor": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "The smallest relative difference this run can resolve: the 95th percentile of |rel_delta| between two arms that are the same deployment, 1.96*sqrt(2)*rsd/sqrt(n). When it exceeds `bar` the verdict is `uninterpretable` -- the measurement cannot tell a difference at the bar from its own scatter. NEVER a reason to widen the bar. Closed form so check_no_regression recomputes it from the four fields below rather than trusting it. Null for p90 columns and for the throughput rates, which carry no usable dispersion."
+          },
+          "stock_rsd": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "patched_rsd": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "n_stock": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "n_patched": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
           }
         }
       }
