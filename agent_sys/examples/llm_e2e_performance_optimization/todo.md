@@ -2144,6 +2144,32 @@ message, which is evidence about the base rate and not about any particular case
 the entry exists because the fifth will be written by whoever writes the next
 refusal, and the cost lands on a reader rather than on a run.
 
+**The sibling class, recorded 2026-09-04 because the afternoon produced four of
+it: manufactured provenance.** T49 is a *true* verdict with a false reason. This
+is a *false record* that reads as a true one — and it is worse, because the check
+you would run against it passes:
+
+| | what was manufactured |
+|---|---|
+| `entry_function_line: 183` | a mock constant, **corroborated inside its own `resolution_evidence` prose** — field and evidence agreed, both wrong |
+| `32.5 ms` | an estimate written in prose, read back later as a measurement, then the calibration constant of a `strong` validator |
+| `runtime.replayed_from` | **overwritten by the tool that writes it**, collapsing `corpus → run X → here` into `run X → here` |
+| `report["impl_path"]` | `args.impl` echoed at parse time; reads identically whether the file was exec'd, imported, shadowed, or never opened |
+
+**The rule that falls out**, m3's, from declining to backfill the sealed corpus:
+**never write a record nobody made.** A backfilled `from_identity` or
+`environment.yaml` would be manufactured today and *indistinguishable from a real
+one* — which is CONTRACT §5.3 pointed at provenance rather than at facts: *"A
+mock may obtain a real fact by a route the producer does not use. It may not
+assert a fact the producer does not have."*
+
+**Why it is a different entry and not a fifth instance of T49.** T49's damage is
+that a reader is sent the wrong way and can recover by checking. Here the
+artefact *survives* checking: *"was this measured?"* returns yes, and only
+*"measured on **what**?"* catches it. Two of the four were found by someone
+volunteering the history of their own instrument, which no reader could have
+demanded.
+
 ### T50 — an instruction verified correct against a world that does not exist yet
 
 **Three owners wrote one on the same afternoon; two were unexecutable the moment
