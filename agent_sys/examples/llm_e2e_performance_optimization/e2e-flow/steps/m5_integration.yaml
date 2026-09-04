@@ -106,6 +106,22 @@
     # settle budget, and work that finishes outside it is thrown away.
     E2E_EVAL_NAMES: '${eval_names:-gsm8k mixed_prefix_gsm8k}'
     E2E_EVAL_EXAMPLES: '${eval_examples:-100}'
+    # **The generation budget, and it is the cost knob of the most expensive
+    # step in the flow.** `assets/accept/measure.sh:149,157` reads both of these
+    # and **nothing declared either** — not `runner`, not this agent — so the
+    # `:-2048` and `:-32` fallbacks always won and neither could be set from a
+    # command line. Same omission class as the four in `6ec7e42`, found the same
+    # way, and this time it is load-bearing: `probe` costs 2062 s and 2001 s on
+    # the two sealed arms, **two thirds of an arm**, and `--max-tokens` is what
+    # sizes it.
+    #
+    # Declaring them is what makes a reduced-scale arm possible at all — see
+    # `RUN-PLAN.md`, "Module 5 standalone". Defaults are the previous fallbacks
+    # exactly, so nothing about a normal run changes.
+    #
+    # `runner` should mirror both; `shared.yaml` is the leader's file.
+    E2E_EVAL_MAX_TOKENS: '${eval_max_tokens:-2048}'
+    E2E_EVAL_THREADS: '${eval_threads:-32}'
     E2E_BENCH_ROUNDS: '${bench_rounds:-1}'
     E2E_TRACE_END_MS: '${trace_end_ms:-60000}'
     # **The replay's load shape, and leaving these undeclared was not cosmetic.**
