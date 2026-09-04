@@ -1172,6 +1172,30 @@
           ],
           "description": "Which implementation produced these numbers. `candidate` **iff** `--impl` was given, and `impl_path` names it; `baseline` iff it was not, and `impl_path` is null. Bound by `allOf` below in both directions — a report claiming `candidate` with a null path is a measurement of something it cannot name, and it validated until m4's schema sweep found it. The harness sets the pair from one expression (`_common.py`: `\"candidate\" if args.impl else \"baseline\"`), so the producer could not disagree; the *contract* was silent, and a second producer would not have been caught."
         },
+        "impl_read": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": true,
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "loaded_by": {
+              "type": "string"
+            }
+          },
+          "description": "**Which bytes were actually read for `--impl`, recorded by the harness at the moment it read them.** Null on a baseline run, and null rather than omitted so a consumer can tell *this run measured the baseline* from *this run measured a candidate and did not say which bytes*.\\n\\n**Distinct from `impl_path`, which cannot do this job.** That field is `args.impl` copied at parse time \u2014 an echo of the request. It reads the same whether the file was exec'd, imported, shadowed by another copy of the same module name, or never opened at all.\\n\\n**The dependency it exists for.** m4's third-tree workspace is on no interpreter's import path, which is safe only while `_common.load_impl` reads the file it was handed rather than resolving a module through `sys.path`. If that ever became an import, forge would keep editing its tree while the driver measured the container's untouched copy, and **every ratio would come back ~1.0 with no error anywhere** \u2014 a wrong answer byte-identical to *the optimiser found nothing*. m4 could only document that at the invocation; a comment cannot fail, and a digest can.\\n\\n`sha256` is the load-bearing field: a path alone still matches when a stale or shadowing copy was read, while the digest is of the bytes that were compiled. A consumer compares it against the file it just wrote. `loaded_by` is the loader's claim about its own mechanism, so a rewrite must either drop the block \u2014 which arrives here as null \u2014 or state something false. Exercised by `assets/lib/controls/impl_is_the_file_you_named.py`, which fails when the loader is import-based."
+        },
         "impl_path": {
           "type": [
             "string",
@@ -1358,6 +1382,30 @@
             "candidate"
           ],
           "description": "Which implementation produced these numbers. `candidate` **iff** `--impl` was given, and `impl_path` names it; `baseline` iff it was not, and `impl_path` is null. Bound by `allOf` below in both directions — a report claiming `candidate` with a null path is a measurement of something it cannot name, and it validated until m4's schema sweep found it. The harness sets the pair from one expression (`_common.py`: `\"candidate\" if args.impl else \"baseline\"`), so the producer could not disagree; the *contract* was silent, and a second producer would not have been caught."
+        },
+        "impl_read": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": true,
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "loaded_by": {
+              "type": "string"
+            }
+          },
+          "description": "**Which bytes were actually read for `--impl`, recorded by the harness at the moment it read them.** Null on a baseline run, and null rather than omitted so a consumer can tell *this run measured the baseline* from *this run measured a candidate and did not say which bytes*.\\n\\n**Distinct from `impl_path`, which cannot do this job.** That field is `args.impl` copied at parse time \u2014 an echo of the request. It reads the same whether the file was exec'd, imported, shadowed by another copy of the same module name, or never opened at all.\\n\\n**The dependency it exists for.** m4's third-tree workspace is on no interpreter's import path, which is safe only while `_common.load_impl` reads the file it was handed rather than resolving a module through `sys.path`. If that ever became an import, forge would keep editing its tree while the driver measured the container's untouched copy, and **every ratio would come back ~1.0 with no error anywhere** \u2014 a wrong answer byte-identical to *the optimiser found nothing*. m4 could only document that at the invocation; a comment cannot fail, and a digest can.\\n\\n`sha256` is the load-bearing field: a path alone still matches when a stale or shadowing copy was read, while the digest is of the bytes that were compiled. A consumer compares it against the file it just wrote. `loaded_by` is the loader's claim about its own mechanism, so a rewrite must either drop the block \u2014 which arrives here as null \u2014 or state something false. Exercised by `assets/lib/controls/impl_is_the_file_you_named.py`, which fails when the loader is import-based."
         },
         "impl_path": {
           "type": [

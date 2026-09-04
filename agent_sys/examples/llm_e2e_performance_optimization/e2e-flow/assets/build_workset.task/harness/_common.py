@@ -38,6 +38,7 @@ was a measured failure somewhere in this effort:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import pathlib
@@ -264,6 +265,10 @@ def setup(what: str) -> Ctx:
 
 def finish(ctx: Ctx, ok: bool) -> None:
     ctx.report["finished_at"] = now()
+    # Absent when no `--impl` was given, and `None` rather than omitted: a
+    # consumer must be able to tell "this run measured the baseline" from "this
+    # run measured a candidate and did not say which bytes".
+    ctx.report["impl_read"] = dict(IMPL_READ) or None
     if ctx.args.json:
         out = pathlib.Path(ctx.args.json)
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -295,6 +300,13 @@ def load_definition(operator: dict) -> dict:
     return json.loads((HERE / operator["definition"]).read_text(encoding="utf-8"))
 
 
+#: What `load_impl` actually read for `--impl`, filled at the moment of reading.
+#: Module-level rather than threaded through, because `load_impl` is called by
+#: two entrypoints that do not share a context object and the alternative is a
+#: signature change in three files for a diagnostic.
+IMPL_READ: dict = {}
+
+
 def load_impl(operator: dict, definition: dict, impl_path: str | None, which: str):
     """The callable under test.
 
@@ -303,7 +315,33 @@ def load_impl(operator: dict, definition: dict, impl_path: str | None, which: st
     judged against, so a candidate that could replace it would be grading itself.
     """
     if which == "baseline" and impl_path:
-        source = pathlib.Path(impl_path).read_text(encoding="utf-8")
+        path = pathlib.Path(impl_path)
+        source = path.read_text(encoding="utf-8")
+        # **Record what was READ, not what was asked for.** `report["impl_path"]`
+        # is `args.impl` copied at parse time — an echo of the request that looks
+        # identical however the file was loaded, or whether it was loaded at all.
+        #
+        # m4's third-tree workspace depends on this function reading *the path it
+        # was handed* rather than resolving a module through `sys.path`: forge
+        # edits a checkout that is on no import path, and if this ever became an
+        # import, forge would keep editing that tree while the driver measured
+        # the container's untouched one. **Every ratio would come back ~1.0 with
+        # no error anywhere** — a wrong answer byte-identical to "the optimiser
+        # found nothing". A comment cannot fail, so this is the evidence.
+        #
+        # The hash is the load-bearing part. A path alone still matches when a
+        # stale or shadowing copy was read; the digest is of the bytes that were
+        # compiled, so a consumer comparing it against the file it just wrote
+        # learns whether those are the same bytes. `loaded_by` is the loader's
+        # claim about its own mechanism — a rewrite must either drop this block,
+        # which reads as `impl_read: null` downstream, or state something false.
+        IMPL_READ.clear()
+        IMPL_READ.update({
+            "path": str(path.resolve()),
+            "sha256": hashlib.sha256(source.encode("utf-8")).hexdigest(),
+            "bytes": len(source.encode("utf-8")),
+            "loaded_by": "exec_of_file_contents",
+        })
         return _exec_source(source, f"candidate:{operator['operator_id']}")
     return _exec_source(definition[which], f"{which}:{operator['operator_id']}")
 
