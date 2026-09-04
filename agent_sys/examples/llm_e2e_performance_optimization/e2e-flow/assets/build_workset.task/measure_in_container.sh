@@ -233,11 +233,40 @@ fi
 echo "measure_in_container: $IMAGE on GPU $E2E_MEASURE_GPU as $E2E_MEASURE_CONTAINER"
 echo "measure_in_container: starting the container; the next line comes from inside it"
 
-# `--rm` so nothing is left behind, and a name nothing else owns: **never
-# `docker rm -f` a name you did not create**, and both held nodes carry other
-# tenants' containers. `PYTHONDONTWRITEBYTECODE=1` keeps root-owned `.pyc` out
-# of the handoff; `reclaim.sh` (CONTRACT §5.0) handles what is still root-owned
-# after, because the container writes `evidence/` as root by construction.
+# **`--rm` is not a teardown, and `41c8540` is why.** A cancelled Slurm hold does
+# not reclaim its GPUs: containers talk to the *host* daemon, so they outlive the
+# job. Job 109192 was cancelled 28 minutes into 8 hours and fifteen minutes later
+# all four containers were still `Up` and serving. `--rm` covers the case where
+# docker exits on its own; it covers nothing if this script is killed, if the
+# `spur exec` is interrupted, or if the runner's stall detector ends the task
+# while timing is in progress — and holds were cancelled four times today, at
+# 5 h, 1 h 21 m and 28 minutes. An abandoned measurement container then holds a
+# card for the rest of someone else's reservation.
+#
+# So teardown is a trap and not a following line, and the flag is what keeps the
+# standing rule intact: **never `docker rm -f` a container you did not create**.
+# `STARTED` is set immediately before the `run` and nowhere else, so an operator
+# who points `E2E_MEASURE_CONTAINER` at a name that already exists cannot have it
+# removed by this script — it only ever tears down a container it just started.
+#
+# `reclaim.sh` (CONTRACT §5.0) moves into the trap for the same reason: the
+# container writes `evidence/` as root by construction, and a run that dies
+# half-way leaves the *most* root-owned files, which is exactly when the old
+# placement skipped it.
+STARTED=0
+_teardown() {
+  # Disarm first: a signal fires the handler *and then* EXIT, so without this
+  # the teardown runs twice. Both halves are idempotent, so the duplicate was
+  # harmless — but a `docker rm -f` printed twice in a transcript reads as a
+  # retry, and a retry reads as something having gone wrong.
+  trap - EXIT HUP INT TERM
+  [ "$STARTED" = 1 ] && on "docker rm -f '$E2E_MEASURE_CONTAINER' >/dev/null 2>&1 || true" || true
+  sh "$PKG/assets/lib/reclaim.sh" "$CONTENT" 2>/dev/null || true
+}
+trap _teardown EXIT HUP INT TERM
+
+# `PYTHONDONTWRITEBYTECODE=1` keeps root-owned `.pyc` out of the handoff.
+STARTED=1
 on "docker run --rm --name '$E2E_MEASURE_CONTAINER' \
       --device /dev/kfd --device /dev/dri --group-add 44 --group-add 992 \
       -e HIP_VISIBLE_DEVICES='$E2E_MEASURE_GPU' \
@@ -245,5 +274,4 @@ on "docker run --rm --name '$E2E_MEASURE_CONTAINER' \
       $MOUNTS -w '$ROOT' '$IMAGE' \
       bash -c '$COMMAND'"
 
-sh "$PKG/assets/lib/reclaim.sh" "$CONTENT" 2>/dev/null || true
 echo "measure_in_container: evidence written by the same entrypoints the real path runs"
