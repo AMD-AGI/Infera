@@ -132,26 +132,7 @@ capture m2 is about to take, which is sized by the deployment rung 1 recorded:
 
 ```sh
 RUN=<the rung-1 run directory under /home/yihou/agent_sys_runroot/runs/>
-KIT="$(python3 - "$RUN" <<'PY'
-import json, pathlib, sys
-run = pathlib.Path(sys.argv[1])
-best = ""
-for f in (run / "store" / "handoff").glob("*.json"):
-    d = json.loads(f.read_text())
-    if d.get("type") != "deploy_kit":
-        continue
-    # Highest version that actually holds the record. A failed attempt leaves a
-    # version directory behind with nothing in it.
-    for v in sorted((run / "handoffs" / d["id"]).glob("v*"),
-                    key=lambda p: int(p.name[1:]), reverse=True):
-        env = v / "content" / "items" / "codes" / "environment.yaml"
-        if env.is_file():
-            best = env
-            break
-print(best)
-PY
-)"
-[ -n "$KIT" ] || { echo "no deploy_kit environment.yaml under $RUN" >&2; exit 1; }
+KIT="$(sh agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/assets/lib/kit_env.sh "$RUN")" || exit 1
 echo "# read from: $KIT" >&2
 grep -E '^  (tp_size|node|image):' "$KIT"
 ```
@@ -160,12 +141,15 @@ grep -E '^  (tp_size|node|image):' "$KIT"
 both times.** It was `find "$RUN" -path '*items/codes/environment.yaml' | head -1`.
 Dry-run against rung 1 on 2026-09-04 while it was still `generating`:
 
-- **It does not scope to `deploy_kit`.** On a *completed* tree that pattern
-  returns **17 paths**, not one: three real handoffs — `deploy_kit`,
-  `kernel_optimization` and `operator_workset` are all `code`-typed and all carry
-  the record at the same relative path — plus fourteen staged copies under
-  `zones/…/handoffs/` and validation `materials/`. `head -1` picked
-  **`kernel_optimization`**, which is m4's.
+- **It does not scope to `deploy_kit`, and it is not deterministic.** On a
+  *completed* tree that pattern returns **17 paths**, not one: three real
+  handoffs — `deploy_kit`, `kernel_optimization` and `operator_workset` are all
+  `code`-typed and all carry the record at the same relative path — plus
+  fourteen staged copies under `zones/…/handoffs/` and validation `materials/`.
+  Ten invocations against an unchanging tree: **six returned
+  `kernel_optimization`, four returned `deploy_kit`.** `find` here is `bfs` and
+  does not promise directory order, so `head -1` is a coin flip between three
+  handoffs — the read changes its source between two runs of the same command.
 - **It does not order versions.** With `v0`, `v1`, `v2` present, `find` walks
   directory order and `head -1` reads the **oldest**. Confirmed on a fixture: the
   superseded `v0` yielded `tp_size: 2` and a stale image while `v2` held the
@@ -264,7 +248,7 @@ this morning and the two nodes had different images under similar tags.
 
 ```sh
 RUN=<the rung-2 run directory under /home/yihou/agent_sys_runroot/runs/>
-cat "$(find "$RUN" -path '*items/codes/environment.yaml' | head -1)"
+cat "$(sh agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/assets/lib/kit_env.sh "$RUN")"
 ```
 
 That file carries **all of it** — measured on `20260904T114914-0a0cdd`:
@@ -1214,7 +1198,7 @@ Two are m2's and each has cost something:
 
   ```sh
   grep -E '^  (tp_size|node|image):' \
-    "$(find "$RUN" -path '*items/codes/environment.yaml' | head -1)"
+    "$(sh agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/assets/lib/kit_env.sh "$RUN")"
   ```
 
 - **`gpu_devices`** — new on 2026-09-04 (`03e3bae`). Until then nothing told the
@@ -1480,7 +1464,7 @@ read by a person.
 ```sh
 RUN=<the newest run under /home/yihou/agent_sys_runroot/runs/ that reached m1>
 grep -E '^  (tp_size|node|image|image_id|model_path|model_name):' \
-  "$(find "$RUN" -path '*items/codes/environment.yaml' | head -1)"
+  "$(sh agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/assets/lib/kit_env.sh "$RUN")"
 ```
 
 **Not "rung 3's run", and the correction is m5's.** They wrote the same
@@ -1691,7 +1675,7 @@ because those are read by a person, not by the graph.
 ```sh
 RUN=<the rung-4 run directory under /home/yihou/agent_sys_runroot/runs/>
 grep -E '^  (tp_size|node|image|image_id|model_path):' \
-  "$(find "$RUN" -path '*items/codes/environment.yaml' | head -1)"
+  "$(sh agent_sys/examples/llm_e2e_performance_optimization/e2e-flow/assets/lib/kit_env.sh "$RUN")"
 ```
 
 `image` and `tp` should match what rung 4 ran on, **not because the graph checks
