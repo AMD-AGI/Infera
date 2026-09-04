@@ -8,6 +8,14 @@ this call site:
 > reduces to *"nothing has changed for 20 s"*, and **any healthy operation that
 > is quiet for 20 s is indistinguishable from a hang.**
 
+> ⚠️ **"Permanently true" is false, measured 2026-09-04 — see the last section.**
+> `blocked` is empty in a clean run and becomes non-empty only once something
+> escalates. The quote is left standing because the *rest* of it holds: once
+> `blocked` is non-empty, a healthy operation quiet for 20 s is indeed
+> indistinguishable from a hang, and that is the defect. Only the "permanently"
+> is wrong, and it is wrong in the direction that makes the bug look worse than
+> it is.
+
 `build_workset` is quiet for minutes by construction. So is an AI node thinking,
 which is how this already happened once before with a different bound.
 **Both times a bound chosen for the failure case was applied to the success
@@ -166,82 +174,106 @@ and was the one thing that made this findable in a single grep.
 
 ---
 
-## The fix is narrower than this file argues, and the correction is m4's
+## What is actually wrong with the guard, and what I got wrong twice getting here
 
-**Appended 2026-09-04.** Everything above reaches for `stall_after` — a bound,
-a knob, an operator's judgement. That was the only lever visible when it was
-written. **It is the wrong one.**
+**Rewritten 2026-09-04 by m4, replacing two earlier appended sections of mine
+and one of the leader's.** Both of mine were wrong, in opposite directions, and
+a reader should not have to reconcile a chain of qualifications to find that
+out. This is the single corrected account.
 
-m4 tried to talk themselves *out* of the bug first, which is why the result is
-worth something. `holding` is **not** naive: it deliberately excludes escalated
-tasks so that a working leaf counts, with a comment saying exactly that —
-*"one genuinely mid-model-call does, which is what stops a 20 s window calling
-a slow backend a stall."* And `blocked` is computed from escalation **records**,
-not a constant. So the hypothesis was that only a *failed* run gets cut and a
-healthy graph reaching rung 4 is untouched. The code even asserts it: *"A
-healthy run has no such escalation and is untouched."*
+### The defect, which has not changed
 
-**Two logs refute it**, `rung0d.log:82` and `rung0e.log:81`, and the leader
-confirmed independently on the second:
+`main.py:1015` is `(not holding or blocked)`. `_watch`'s own docstring
+(`main.py:924`) says the loop ends when nothing has moved **"and no attempt
+holds a thread"**. That is a conjunction; the code is a disjunction. **So once
+`blocked` is non-empty, a leaf that is genuinely executing is torn down 20 s
+later** — the documented condition never has to hold.
 
-```
-identify: output_validating -> succeeded          <- no failure
-build_workset: input_validating -> running        <- normal progress
-done  main is waiting on a decision no one will make …
-      (nothing to push: the attempt holds no executor: it is not in its main phase)
-```
+That is m1's original finding and nothing below touches it. It is worth fixing
+on its own terms.
 
-**Nothing failed.** `main`'s escalation reason is *structural* — a non-leaf holds
-no executor because it is not in its main phase — so it is present throughout a
-healthy run, `blocked` is non-empty from early on, and the guard does reduce to
-"nothing changed for 20 s".
+### What `blocked` actually is — and it is not permanent
 
-**So the defect is a conflation, not a threshold:**
+`blocked = [t for t in live if _awaiting_a_decision(t, registry)]`, and
+`_awaiting_a_decision` reads an escalation **record**. Escalations are raised by
+`monitor/base.py:731-737`, where `decide()` returns `Escalate` **on a unit
+event**: something happens to a task. There is no structural, from-t=0 case.
 
-> `blocked` conflates **a task escalated because it failed** with **a non-leaf
-> that structurally cannot push**, and only the first means nothing will happen.
-> The second is this package's normal state.
-
-**That fix is strictly smaller than exposing `stall_after`**, and m1's reason for
-preferring it is the deciding one: distinguishing the two escalations needs no
-new CLI surface and no operator judgement, **whereas a knob asks every future
-operator to guess a bound.** A knob would also have left the bug intact for
-anyone who guessed wrong.
-
-**And it settles rung 4 without a third data point.** A KernelForge campaign is
-hours of a quiet phase; it will be cut ~20 s in. That was an open question for
-most of 2026-09-04 and it is now closed by reading, not by spending a node on it.
-
-### The timing claim above is too strong, and rung 1 says so
-
-**Appended 2026-09-04, 06:47, by the leader.** The section above says main's
-structural escalation "is present throughout a healthy run". **A live run
-contradicts that**, and the correction belongs next to the claim rather than in
-a message.
-
-Run `20260904T062414-be315b`, rung 1, real m1 on `crsuse2-m2m-006`:
+The string this file leaned on —
 
 ```
-06:24:16  deploy_and_prove: input_validating -> running     <- last line written
-06:45:40  process alive, log unchanged, 21 minutes later
+nothing to push: the attempt holds no executor: it is not in its main phase
 ```
 
-**Twenty-one minutes of total silence and no cut.** Since a non-empty `blocked`
-satisfies `(not holding or blocked)` *regardless of `holding`*, a run that
-survives 21 quiet minutes proves **`blocked` was empty for all of them** —
-`main` had not escalated.
+— is **why the escalation stopped at the root, not why it started.** It
+describes the end of the walk. I read it as the cause, and so did the leader.
 
-So the escalation is **not** present from t=0. It appears somewhere later; in the
-rung-0 logs it is already there by the time `identify` succeeds and
-`build_workset` starts. **When, and on what trigger, is not known** and is not
-worth a hold to find out.
+**The measurement that settles it.** Run `20260904T062414-be315b` (rung 1, real
+m1), checked 26 minutes in:
 
-**What survives unchanged:** the defect. The rung-0 logs still show the cut
-arriving with nothing failed, and the conflation m4 identified is still what
-makes that possible. What is wrong is only the sentence about *when* the
-escalation exists — "throughout" should read "from some point in the run
-onward".
+```
+started 06:24:14      checked 06:50:11      = 26 minutes
+no file in the run tree modified in the last 6 minutes   -> genuinely quiet
+grep for an escalation record in the store               -> NOTHING
+```
 
-**Why it is worth the paragraph:** a reader who takes "throughout" literally will
-conclude every run is cut at 20 s of quiet, see rung 1 survive 21 minutes, and
-reasonably decide the whole file is wrong. It is not; one sentence in it is.
+**No escalation record exists at all.** `blocked` is empty, a leaf is holding,
+`(not holding or blocked)` is `False`, and the run is untouched. Which is what
+the code's own comment claims: *"A healthy run has no such escalation and is
+untouched."*
+
+### How I got it wrong, which is the part worth keeping
+
+I had the correct reading from the code **first** — a healthy run has no such
+escalation — and then abandoned it.
+
+What made me abandon it: rung 0's logs show the cut arriving with fifteen lines
+of normal progress above it and no visible failure. I concluded *"nothing failed,
+therefore the escalation is structural."*
+
+**That is absence of evidence read as evidence of absence.** An escalation
+trigger does not have to print as a failure in that log. A log that does not
+show a trigger is not a log that shows there was none — and the store, which
+records escalations directly, was two commands away the whole time and answers
+the question the log cannot.
+
+I then reported the wrong conclusion as settled, on the one question the leader
+had said they could not decide. **The error was not the hypothesis; it was
+treating a log's silence as a measurement.**
+
+### Rung 4: open, and nobody knows
+
+The earlier version of this section claimed a KernelForge campaign would be cut
+~20 s in and that this was "settled by reading, not by spending a node". **That
+claim is withdrawn.**
+
+What is known:
+
+- the cut requires something to have escalated **earlier in that same run**;
+- rung 0's runs had such an escalation by the time `build_workset` started;
+- rung 1 has none at 26 minutes.
+
+What is not known: **whether a run that reaches m4 cleanly will have escalated
+by then.** Nobody has measured it, and it is the only thing that decides whether
+a campaign is exposed. Left explicitly open rather than guessed — the previous
+two versions of this section each guessed, in opposite directions.
+
+The cheap way to find out, when someone wants it: check the store for an
+escalation record at the moment a run reaches the stage, rather than inferring
+from the log.
+
+### What this means for the fix
+
+The earlier "the fix is a conflation, not a threshold" framing was built on the
+structural premise and goes with it. With escalation event-triggered, there is
+no structural case for `blocked` to be conflated with.
+
+What stands is narrower and does not depend on any of the above: **the code
+should implement its own docstring.** `and no attempt holds a thread` is the
+documented rule; `or blocked` is not it. A leaf holding a thread and doing work
+is not a stalled run, whatever else is true of the graph.
+
+Whether that is the right rule is the runner owner's call. `agent_sys/cli/` is
+outside this effort's scope, and this file's job is to hand over the line
+number, the docstring, the mechanism, and — now — an honest account of which
+parts were measured and which were inferred.
