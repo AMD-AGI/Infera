@@ -4915,3 +4915,239 @@ and my §5 item asking whether a 17th had arrived is closed. It has not.
 
 `import httpx2` from the owner's MCP sketch remains genuinely unread by anyone,
 including the lead. It stays named and open.
+
+---
+
+## T+102 — 2026-09-04 07:56 UTC
+
+**开工.** The first window in which implementation is running. All eight decisions
+are closed, one of them by being revised away after being ruled — and the round's
+target changed shape in the process: **there is no layer vocabulary left to fold
+L1/L2/L3 into, because the layer model itself is being deleted.**
+
+### 1. Progress
+
+**Effort: ~22 %.** Elapsed 102 minutes. Estimated remaining: unknown, and the
+denominator moved again — this time upward in scope and downward in ambiguity.
+
+| workstream | est. % | basis |
+|---|---|---|
+| decisions A–H | **8 of 8 closed** | (A)(B)(D) ruled this window; (C) then **revised away entirely**; (G) withdrawn, (H) returned earlier |
+| spec / docs / fence | **4 commits landed** | `5d334a3`, `74c331f`, `fc200a2`, `fcf325e` — all read by me |
+| `_present_names` + its format tests | **landed** | `93bf0ac`, +131/−16 across 2 files. **See §7 — this is change-set work and the lead's brief did not list it** |
+| layer removal (`core-impl`) | **in the worktree, uncommitted** | measured: `env_mgr/layer.py` and `tests/env_mgr/test_layer.py` both show `D`; 11 further source/test files show `M`; `Item` no longer carries a `layer` field |
+| `components/` → `agent_plugins/`, `env_recipe.<agent>.yaml` (`pkg-impl`) | **0 % observable** | no such path exists; `git status` shows no rename |
+| **full suite** | **red, mid-edit** | 10 failed / 465 passed / 2 skipped / 1 xfailed at 07:56. §4 — and by the lead's own ruling this is **not evidence about any one agent's change** |
+
+**Reliability: the estimate is more honest than any previous one and still
+unreliable.** For the first time I can point at deleted files and a changed
+dataclass rather than at absences. But 22 % is a judgement about a denominator
+the lead sizes as ~7 modules, 2 YAMLs and 4+ test files for the layer removal
+alone, plus `pkg-impl`'s three items, none of which has left a trace. **Nothing
+of the layer removal is committed**, so all of it could still change shape.
+
+I am deliberately not converting "all decisions made and two agents running" into
+a large number, as instructed. The move from 12 % to 22 % is: four doc commits,
+one real fix commit, and a worktree that visibly contains the layer deletion.
+
+### 2. Current state
+
+Branch `dev.yihou.aiopt.task_with_agent_config`, HEAD **`fcf325e`** (was `88dba47`).
+**Five** commits this window, not four.
+
+`git status --short` — 20 tracked paths in flight, the first substantial working
+tree of the round:
+
+```
+ M agent_sys/env_mgr/{README,__init__,cli,protocols,recipe,runner}...
+ M agent_sys/env_mgr/docs/{design,spec}.md
+D  agent_sys/env_mgr/layer.py
+ M agent_sys/env_mgr/recipes/{serena,sglang.repo}.yaml
+ M agent_sys/spec_loader/{assets,package}.py
+D  agent_sys/tests/env_mgr/test_layer.py
+ M agent_sys/tests/env_mgr/{test_agent_assets,test_cli,test_imports,test_recipe,test_runner}.py
+ M agent_sys/tests/spec_loader/test_assets.py
+```
+
+plus the three long-standing untracked files at the repo root.
+
+**The layer model is measurably going.** I read `env_mgr/recipe.py` in the working
+tree: `Item` is now `installer, importance, tags, version, spec` — **no `layer`
+field**. `env_mgr/layer.py` is deleted and staged as such.
+
+**Teammates.** Two implementers dispatched ~07:44, both lead-reported as to their
+assignments:
+
+- **`core-impl`** — remove the layer model across `layer.py`, six sites in
+  `recipe.py`, `runner.py:75-76`, `cli.py:39`, `__init__.py:3`, `protocols.py:8`,
+  two recipe YAMLs, and every test constructing `Item(..., layer=...)`. The `M`/`D`
+  set above is consistent with this being underway; I have not read the diffs.
+- **`pkg-impl`** — `_present_names` + its two format tests (**landed as `93bf0ac`**),
+  then `components/` → `agent_plugins/` with `tags: [internal]`, and
+  `env_recipe.<agent>.yaml` under `assets/`. The latter two have left no trace.
+
+**Two file seams the lead sequenced rather than let collide**: `test_installers.py`
+(`core-impl` strips the kwarg first as a mechanical commit, then `pkg-impl`
+rewrites the two format tests) and `env_mgr/recipes/serena.yaml` (`core-impl`
+removes `layer:`, then `pkg-impl` adds `tags:`). Neither agent may hold either
+file while the other does.
+
+### 3. Code problems — fixed / not fixed
+
+**Fixed this window — one, and it is the round's first real repair.**
+
+- `agent_sys/env_mgr/installers/claude.py::_present_names` (`93bf0ac`, +44/−0 in
+  `claude.py`, +103/−16 in `test_installers.py`). I read the commit body. It took
+  `line.split()[0]` of `claude plugin list`, but **every entry is bulleted with
+  U+276F**, so it returned `{'Installed','Scope:','Status:','Version:','❯'}` and
+  **never a plugin name** — check reported every declared plugin missing on every
+  run and install re-ran unconditionally. Now anchored on the `name@marketplace`
+  shape. The body states the root cause was **the tests**: they fed `"superpowers
+  1.0"`, *a format the CLI does not produce*, and were green on the broken parser.
+  Rewritten against bytes captured from `claude` 2.1.246 **on a pipe**; **three of
+  the four go red on the shipped function, the fourth is a negative assertion and
+  cannot, which its comment says.** The two glyph-free variants still tie and the
+  choice is recorded as resting on *"a failure-mode asymmetry, not on evidence
+  against the others"*. The disabled-plugin wrongness is **recorded in a test and a
+  docstring, not fixed** — an undecided design question.
+
+**Not fixed — an observation about the working tree, recorded as an observation.**
+
+All **10** current failures are in `tests/env_mgr/test_installers.py`, all with the
+same message: `TypeError: Item.__init__() got an unexpected keyword argument
+'layer'`. What I can state factually: `Item` in the working tree no longer has the
+field (read above); `test_installers.py` is **unmodified since `93bf0ac`** (`git
+status` names it not at all) and contains **10** occurrences of `layer=` — matching
+the 10 failures exactly. **That is the sequenced seam in its mid-state: the
+kwarg-strip half has not happened in that file yet.** Whether that is normal
+in-flight ordering or a missed handoff I cannot tell from outside, and I am not
+guessing — §5.
+
+**Carried unchanged:** `env_mgr/layer.py`'s false docstring is now moot (the file
+is deleted). The 16 review comments remain unanswered on GitHub.
+
+### 4. Non-code problems
+
+- **A full-suite run in a two-agent worktree is not evidence about anyone's
+  change** — a ruling the lead gave both implementers, with `docs/TODO.md` 4d
+  recording the same lesson from 2026-08-29. So the 10 failed / 465 passed I
+  measured at 07:56 is **a fact about the worktree at that instant and about
+  nothing else**. Each agent reports counts for its own files; the single
+  authoritative run is taken after both land. I record the number because it is
+  observable, and I record the ruling beside it so the number is not later read as
+  a verdict on either agent.
+- **`TODO.md` 4i — a product nobody chose.** User-level AI material **outlives the
+  run that declared it**, because §9.1 sends package-declared material to the
+  agent_sys root and PR 154 puts that root deliberately outside any run root. Both
+  decisions are correct alone; **their conjunction was never decided by anyone.**
+  Recorded *before* implementation rather than discovered after — which is the
+  distinction that makes it a design note instead of an incident.
+- **The lead put a stale number in both implementer briefs.** Both say the pytest
+  baseline is **476 collected**; it is **475**. A test was retired in `fc200a2`
+  *after* the briefs were written and the pre-removal count was quoted. For
+  `pkg-impl`, whose job both deletes and adds tests, this would have corrupted its
+  own before/after arithmetic. **Second time this round a repeated number was
+  stale** — the other was `65` against a live 476. (My own collection at 07:56
+  reads **478**, which is a *third* number and reflects the uncommitted work in
+  flight, not a baseline.)
+- **`fc200a2` left the suite red and both implementers found it before the lead
+  did**, because `env_mgr/README.md`'s criterion-22 row still cited the deleted
+  test and `test_every_test_the_readme_cites_exists` failed. The lead's own words,
+  recorded as they asked and not softened: they ran only the one file they edited,
+  saw "7 passed", and stopped — **"while the brief I had just written for both of
+  them requires running the whole `tests/env_mgr` before every commit. I required
+  of them what I did not do myself."**
+- **The repair then failed the same check a second time.** The replacement text
+  named the deleted test **in backticks**, and the check scans backticked `test_*`
+  names — it **cannot tell citing a test as cover from naming one that was
+  removed**. That is the *check that fails on correct input* species, the same
+  shape as run 3's placeholder validator. Repaired by **narrowing, not deleting**:
+  the name stays for a human reader, unbackticked, with the reason inline so the
+  next editor does not re-break it. `fcf325e` is that repair.
+
+### 5. Open questions, not yet characterised
+
+**Suspend, don't conclude.**
+
+- **Whether the 10 `test_installers.py` failures are the seam mid-flight or a
+  handoff that did not happen.** The facts are in §3; the distinguishing
+  measurement is whether `core-impl` still has the mechanical kwarg-strip commit
+  ahead of it. I cannot see an agent's queue and I am not inferring it from a
+  timestamp.
+- Whether `research/core-changeset.md` retains any value. It is **invalidated
+  wholesale on the layer axis** (lead-reported, from `core-impl`): it implemented
+  loader-*assigned* layers, which is the opposite of removal. Its 36 fixture-site
+  survey may or may not still apply; nobody has said.
+- The two glyph-free `_present_names` variants still tie, and the separating case
+  — a metadata line containing `@` — was never observed and not constructed. Open
+  by its author's choice, now in a shipped commit body.
+- `import httpx2` — **fourth window**, still unread by anyone.
+- Whether `PLAN.md` still describes the round. It was written 06:29, before (D)
+  deleted the layer field and (C) was revised away; its decision B is already known
+  wrong on the `--layer` point (T+70). Not read by me.
+
+### 6. New commits
+
+Five. Four are the lead's; **the fifth is not in the brief's list** (§7).
+
+- **`5d334a3`** 07:30 — `docs(env_mgr): design.md stops paraphrasing criterion 22`.
+  +11/−2. Removes the root of the T+70 misreading — the artefact that invited it.
+- **`74c331f`** 07:45 — `docs(env_mgr): no layers at all; adopt Claude Code's
+  user/project split`. `spec.md` +33/−8, `TODO.md` +2. §9.1 rewritten as a
+  **derivation rather than a table of levels**; §2 principle 8 replaced. I read the
+  new principle 8 in the file: *"Adopt Claude Code's user/project split; invent no
+  levels of our own … There is no layer field and no layer vocabulary."* Plus
+  `TODO.md` **4i**.
+- **`fc200a2`** 07:48 — `test(env_mgr): retire the byte-identity fence; criterion 22
+  keeps its second clause`. `spec.md` +21, `test_cli_subcommands.py` **−28**. The
+  fence withdrawn at T+70 is now actually gone; old wording and the reason kept.
+- **`93bf0ac`** 07:52 — `fix(env_mgr): claude plugin check could not pass; retest on
+  captured bytes`. §3.
+- **`fcf325e`** 07:53 — `docs(env_mgr): README criterion 22 row follows the spec; my
+  fc200a2 left it red`. +1/−1. The narrowing repair. **The commit subject names the
+  author's own commit as the cause** — worth noting as a habit, not just an event.
+
+### 7. Anything else worth recording
+
+- **A commit in the log that the brief's own summary omits.** The lead's message
+  lists four commits as "my commits this window" and says *"nothing of the change
+  set has landed yet — my four commits are spec, docs and the fence."* That is true
+  of their four. But **`93bf0ac` sits between `fc200a2` and `fcf325e`**, is
+  `pkg-impl`'s, and is **change-set work**: the `_present_names` repair with its two
+  format tests rewritten and proven red. So the accurate statement at T+102 is
+  *one* change-set commit has landed, not zero. I am recording this as a gap in a
+  summary rather than as an error — the lead described their own commits correctly
+  and the sentence's scope was wider than what it enumerated. **Which is, once
+  again, this round's most-repeated species: a true sentence broader than what was
+  checked.** Fourth instance in the record.
+- **The round's target changed shape, and this is the entry to reread later.**
+  It began as *fold L1/L2/L3 into the existing recipe layer system*. (D) deleted the
+  `layer` field from every item; (C) was then revised away — *"哦，那 system 层不该
+  存在，只是一个完全的虚拟概念"* — so **there is no layer system left to fold into.**
+  The four-level scheme collapsed into Claude Code's own two scopes. The owner's
+  destination rule: non-AI → system-wide, preferring the agent_sys root; AI from
+  `main.yaml`/`default.yaml` → agent_sys level; AI declared by the agent → the
+  agent's workspace root — *"简单来说就是遵循 claude code 自己对于 user level 和
+  project level 的管理方式."*
+- **The argument that made the field indefensible is worth preserving.** Asked what
+  distinguished `workspace` from `system`, the answer was **only who declared it** —
+  and under the destination rule both land in the same place, so the field would
+  **restate a fact the file path already carries**. That is the *second writer for
+  one fact* defect, one level up, and it is the same shape as `design.md`
+  paraphrasing criterion 22. The repo's own `CLAUDE.md` principle — *one writer per
+  fact* — retired a field this window.
+- **`core-impl`'s own finding, and the ruling on it.** `_CLI_KEYS` is an
+  **exclusion** set, so simply dropping `"layer"` would make a stale author-written
+  `layer:` **silently become `Item.spec["layer"]` and ride into every installer**.
+  Ruled: **reject it explicitly with a dated migration message** — *"silent
+  pass-through is how this round's earlier defects shipped."* A deletion that
+  creates a silent accept is a deletion that leaves a trap.
+- **A non-intervention, recorded because it is the entry.** A diagnostic caught
+  `pkg-impl` mid-edit with `re` used before `import re` in `claude.py`. It was **not
+  raised** — first-sighting rule — and was gone from the next pass, fixed by its
+  author inside a minute. The restraint is the record; the transient error is not.
+  An observer who reports every mid-edit state trains the team to edit defensively
+  rather than quickly.
+- **(A)'s ruling in the owner's words**: *"我们这次说的应该是设计级别的改动吧，测试
+  当然是要改的，没用的测试去掉，该补的测试补上。"* criterion 22's *untouched* does not
+  apply to this round — which is what let `fc200a2` retire the fence at all.
