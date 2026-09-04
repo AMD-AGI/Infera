@@ -1025,6 +1025,7 @@ python3 -m agent_sys.cli.main run \
   --var model_path=/shared_nfs/yihou/models/Qwen3.6-27B \
   --var image=<AN IMAGE THAT CONTAINS infera> \
   --var gpu_devices=0,1,2,3 --var tp=4 \
+  --var measure_gpu=4 \
   --var parser_args="--reasoning-parser qwen3" \
   --var transport=spur --var transport_env="SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR" \
   --var mock_stages=m2,m3,m4,m5 \
@@ -1062,6 +1063,36 @@ Three more with reasons that have each cost something:
   block never reaches `check_deploy_serves`. Without this it refuses **in one
   second** with `failed to connect to controller`, which reads exactly like a
   deployment failure and has cost several runs.
+- **`measure_gpu` — required here even though this is m1's standalone**, and
+  the block omitted it until the leader cross-checked it against the var table
+  at the top of this file and added it by hand. **A card outside the deploy
+  set**, so `0,1,2,3` above means `4` here.
+
+  The reason it was missed is worth more than the omission. I wrote this block
+  from *"what does m1's stage consume"*, and by that reading `measure_gpu` is
+  m3's and m4's and this run mocks both. **But mocking a stage does not mock its
+  validators.** `m<N>_agent=runner` swaps the *agent* leaf; the validator leaves
+  are separate and run at every rung, and a validator declares no agent, so it
+  is fed by `args:` in the yaml rather than by any `env` block:
+  `m4_kernel_opt.yaml:116` passes `measure_gpu: '${measure_gpu:-}'`, and
+  `check_speedup_substantiated.validator/check.py:776` **refuses** on empty
+  rather than defaulting, because unset does not mean *"the caller chose"* — it
+  means torch takes card 0, which on a shared host is a co-tenant's.
+
+  So the rule the table states as *"required on every rung"* has a mechanism:
+  **every var any validator reads is required on every rung, whatever is
+  mocked.** `transport_env` above is the same rule and this is its second face.
+  (`measure_in_container.sh` refuses on the same var, but that is m3's real
+  body and is *not* the rung-1 path — the validators are.)
+
+**`expect_ranks=2` against a `tp=4` bring-up is deliberate, not stale.** It is a
+fact about **the artefact being graded, not about this deployment** — m2's
+framing, the same one that puts `image` on the var table. At rung 1 m2 is mocked,
+so the trace `check_trace_coverage` grades is the sealed capture from
+`cheat_for_mock/`, which is **TP-2** (`MOCK-MAP.md:39`,
+`m2_profiling.yaml:114-118`); it did not come from the four cards this line
+brings up, and nothing in this run connects the two. At rung 2 m2 is real, the
+trace does come from this deployment, and the number must then follow `tp`.
 
 ### 2. What it consumes — nothing, and that is the point
 

@@ -2235,3 +2235,71 @@ had read their own briefs many times.**
 
 **Not blocking for m4** — theirs is corrected. **Blocking for rung 3** until
 `workset_builder`'s brief is written.
+
+### T52 — no `df` reachable from `spur exec` predicts whether a `docker load` fits
+
+**m1, 2026-09-04. Measured, and it overturned a refusal I had already made.**
+
+I declined to `docker load` the 28.5 GB engine-image backup because every node
+looked too small: 006 70 G free, 047 87 G, 217 57 G, against an image whose
+`docker images` SIZE reads **110GB**. m2 ran the load anyway, on 047, and it
+succeeded in 2m16s.
+
+**047's disk did not move.** Before the load and after it, by two independent
+routes:
+
+```
+exec namespace          df -h /               123G  37G used  87G free
+through the daemon      docker run -v /var/lib/docker:/hd:ro … df -h /hd
+                                              123G  37G used  87G free
+docker system df        Images 47   1.19TB
+```
+
+1.19 TB of images cannot sit in 37 G, and **loading 28.5 GB changed nothing** —
+so whatever `/var/lib/docker` resolves to from inside `spur exec`, by *either*
+route, is not where images live. `docker info` says `Docker Root Dir:
+/var/lib/docker`, `Storage Driver: overlayfs`, and that is a dead end; mounting
+host `/` to look for the real one is refused by `spur-authz` (`denied [B1]`).
+
+**Both instruments available in there are unusable for this question**, in
+opposite directions: `df` reads a filesystem the operation does not touch, and
+`docker system df` reports **logical** sizes that double-count layers shared
+between images (which is also why one image reads 110GB when its restored cost
+is nearer the 28.5 GB tar).
+
+**Until someone finds the real path: do not gate a `docker load` on free space.
+Try it.** A load that runs out of space fails and leaves partial blobs; that is
+recoverable-by-retry, whereas *not loading* on a number that measures the wrong
+device is how a verification gets skipped for no reason. That is exactly what I
+did.
+
+**How I got it wrong is the reusable part.** I checked whether my instrument was
+pointed at the right device — I mounted the host's docker root through the
+daemon specifically to rule out the exec namespace, and got the same number,
+which I read as confirmation. **Two routes to one wrong answer is not
+corroboration when both routes share the assumption under test.** The only
+measurement that would have settled it was the before/after across the load
+itself, and that requires doing the thing I was using the number to avoid.
+
+### T53 — the var table's rung-2 advice for `expect_ranks` is right only at `tp=8`
+
+**m1, 2026-09-04. Not mine to edit — `RUN-PLAN.md:31` is the shared var table.**
+
+```
+| `expect_ranks` | **2** | **omit it** (defaults to 8), or track `--var tp` |
+```
+
+The second half is correct and the first half is a trap at any `tp` but 8.
+`m2_profiling.yaml:119` is `expect_ranks: '${expect_ranks:-8}'` and it
+deliberately does **not** track `tp` (a `${}` default may contain no `}`, so
+`${expect_ranks:-${tp:-8}}` is not spellable — the yaml says so at :114-116).
+So at rung 2 with the `tp=4` we are actually running, omitting it yields 8 and
+`check_trace_coverage.validator/check.py:72` fails with `expected 8 rank(s), the
+manifest lists 4` — a real deployment graded against a rank count nobody chose.
+
+Suggested: drop "omit it (defaults to 8)" and leave "**must equal the
+deployment's `tp`**", since the two are only the same sentence at `tp=8`.
+
+The yaml's own comment has the same soft spot — *"a real run leaves it alone and
+sets `--var tp=` if the deployment is not eight-way"* reads as though setting
+`tp` moves `expect_ranks`. It does not, by the design two lines above it.
