@@ -53,8 +53,11 @@ CONTENT="${1:?usage: measure_in_container.sh <workset content dir> [command ...]
 shift || true
 PKG="${AGENT_SYS_TASK_PACKAGE:-${AGENT_SYS_DEMO_PACKAGE:?the runner exports one of these}}"
 # **The node facts come from the handoff when the caller has none.** A task body
-# gets the agent's `E2E_*` block; a *validator* body gets the GLOBAL environment
-# row and none of it. But the workset carries `environment.yaml`, which names
+# gets the agent's `E2E_*` block — *the agent's*, which is the whole point and
+# was not true when this line was written: `workset_builder` declared no `env`,
+# so this script ran with none of it and was correct anyway, by reading the
+# record. A *validator* body gets the GLOBAL environment row and none of it
+# either. The workset carries `environment.yaml`, which names
 # the node, the job and the transport — so a validator reads them out of the
 # artefact it is grading rather than needing them injected. That is the same
 # rule as everything else here: the record travels with the handoff.
@@ -113,7 +116,15 @@ E2E_TRANSPORT=$(_agree_or_die transport "${E2E_TRANSPORT:-}" "$(_from_record "$R
 export E2E_NODE E2E_JOBID E2E_TRANSPORT
 
 # **Every identifier bound on a shared host is a parameter** (CONTRACT §5.2).
-# The card especially: five owners share two nodes and m1 holds GPU 0.
+# The card especially: five owners share the held nodes, and which cards are
+# free changes between rungs — this line used to name GPU 0 as m1's, and by the
+# time it was read the held set was 0-3 with 4-7 free. A site fact asserted in a
+# comment is a site fact nothing validates (m1's T19). `rocm-smi` immediately
+# before use is the only reading that is current.
+#
+# The default is 4 and both `E2E_MEASURE_GPU` and `E2E_MEASURE_CONTAINER` are
+# now declared on `workset_builder`, so the `:=` below is the *body's* fallback
+# for a standalone invocation rather than the only value the graph can produce.
 : "${E2E_MEASURE_GPU:=4}"
 : "${E2E_MEASURE_CONTAINER:=yihou_m3_measure_$$}"
 

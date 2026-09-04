@@ -46,13 +46,78 @@
 # package outside this repository cannot register an entry point in the
 # `agent_sys.backends` group without being installed, and this package is data.
 #
-# **No `env` block.** `shared.yaml` is this package's only variable declaration
-# site by design; a second one is a second place for a default to go stale.
+# **This block used to say there was no `env` block**, on the grounds that
+# `shared.yaml` is the package's only declaration site and a second one is a
+# second place for a default to go stale. The reasoning is right and the premise
+# was never checked: `env_mgr/material.py:96` builds an agent's environment from
+# `_declared_env(agent_spec)` — the `env` of **the agent that is running** — and
+# `shared.yaml`'s 36 `E2E_*` are declared on `runner`. m1 measured it off rung
+# 1's transcript: a `kind: ai` agent's first command was
+# `env | grep -E '^(E2E_|AGENT_SYS_)'` and it returned seven `AGENT_SYS_*` and
+# **zero `E2E_*`**. So the cost of the second declaration site was already being
+# paid, in the form of every variable below silently taking its fallback.
+#
+# This matters more here than at most stages because this is the stage that
+# *measures*. It bites in the `${VAR:-default}` form and not the `set -u` form:
+# an absent variable that fails is loud, and an absent variable that defaults is
+# a wrong value with a clean transcript. That is rung 1's finding exactly — four
+# `--var`s were inert and the run still looked correct, because the sealed kit's
+# defaults happened to match.
+#
+# The mock path never showed it: `--var m3_agent=runner` swaps in the shared
+# program agent, which *is* `runner` and therefore does hold the block.
+#
+# Names and defaults below are `shared.yaml`'s verbatim where `runner` declares
+# the same variable, so the leader's agreement check has something to compare.
+# The five it does not declare are marked; they are read by this stage's bodies
+# and by `rank.py`, and they have never reached either.
 - module: agent
   name: workset_builder
   kind: ai
   version: '1'
   description: Turns resolved operator identities into runnable worksets, measured on this hardware.
+  env:
+    # The allocation, for `measure_in_container.sh`. It does **not** trust these
+    # over the handoff: `_agree_or_die` refuses a disagreement between the
+    # ambient value and `environment.yaml`, and takes the record when the
+    # ambient one is absent. That discipline is why the measurement path was
+    # correct while these were missing — it was reading the record, not this.
+    E2E_JOBID: '${jobid}'
+    E2E_NODE: '${node}'
+    E2E_TRANSPORT: '${transport:-auto}'
+    # `mock_adapt.py`'s standalone `--new` path only; in the graph `deploy_kit`
+    # is a declared input and the record is inherited instead.
+    E2E_NODE_IP: '${node_ip}'
+    E2E_PORT_ROUTER: '${port_router:-8101}'
+    E2E_MOCK_ROOT: '${mock_root:-/shared_nfs/yihou/agent_sys/cheat_for_mock}'
+
+    # ---- Below here `runner` declares nothing, so these have never arrived
+    # anywhere, not just here. Defaults are the ones the bodies already fall
+    # back to, so declaring them changes no behaviour and only makes them
+    # reachable from the command line.
+
+    # The measurement card. This is m1's T19 — an identifier bound on a shared
+    # host with no `--var` — for this stage, and declaring it is a partial
+    # answer rather than a fix: the default is still an index, and which cards
+    # are free is a site fact nothing here validates. `rocm-smi` immediately
+    # before use remains the only thing that knows.
+    E2E_MEASURE_GPU: '${measure_gpu:-4}'
+    # **Deliberately empty, and not `runner`'s value if it takes one.** The
+    # body's fallback is `yihou_m3_measure_$$`, unique per invocation, which no
+    # static default can express — and a *shared* default would be a container
+    # name two concurrent measurements collide on. Empty here lets the body's
+    # `:=` fill it; naming one lets an operator override it.
+    E2E_MEASURE_CONTAINER: '${measure_container:-}'
+    # `scaffold.py` writes it into every operator's `gates.snr_db` and `rank.py`
+    # into the worklist. One number, two producers, and until now two silent
+    # 30.0s rather than one declared threshold.
+    E2E_SNR_THRESHOLD: '${snr_threshold:-30.0}'
+    # Provenance. `workset_id` names the artefact and `package_commit` is what
+    # `produced_by.commit` records — its fallback is the literal string
+    # `unknown`, so every workset this stage has produced claims to come from an
+    # unknown commit. Declaring it does not fix that; supplying it does.
+    E2E_WORKSET_ID: '${workset_id:-workset}'
+    E2E_PACKAGE_COMMIT: '${package_commit:-unknown}'
   backends:
     - key: claude_code_sdk
       backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
