@@ -581,8 +581,27 @@ Landlock-capable kernel, or the suite is red.
 20. A workspace is a worktree, not a clone, and the main checkout is unmodified.
 21. `env_mgr` reads its cluster conventions from a knowledge handoff; changing
     that handoff changes its behaviour without a code change.
-22. **The shipped recipe and installer machinery is untouched**: `pytest
-    agent_sys/tests/env_mgr` passes unchanged.
+22. **The shipped recipe and installer machinery keeps working**: `pytest
+    agent_sys/tests/env_mgr` passes.
+
+    **Revised 2026-09-04, and the earlier wording is kept here because the
+    change is the point.** It read *"is **untouched**: … passes unchanged"*, and
+    a test asserted that first clause literally — `git diff HEAD` over eight
+    paths had to be empty. That was a **scope fence** for the round that built
+    the new subsystems: do not rewrite the shipped machinery while adding to it.
+    It was not a quality gate, and it was never meant to outlive its round.
+
+    It has now been reached from the other side. The layer model is being
+    removed by design (§9.1), and `installers/claude.py::_present_names` was
+    found to be a check that can never pass — a fix that breaks **none** of the
+    machinery's tests, because none of them covered it. Two of those tests turned
+    out to encode a `claude plugin list` format the CLI does not produce, so the
+    byte fence was holding a wrong test in place.
+
+    So the fence is retired, not quietly widened: the owner ruled this round a
+    design-level change, *"没用的测试去掉，该补的测试补上"*. What remains is the
+    second clause, which is the property anyone actually wanted — **the tests
+    pass**, with the tests themselves corrected where they were wrong.
 
 ---
 
