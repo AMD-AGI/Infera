@@ -584,10 +584,46 @@ def main() -> int:
 
         sha_stock = patchkit.sha256_file(stock) if stock.stat().st_size else ""
         if entry["change"] == "modify" and sha_stock != entry["base_sha256"]:
+            # **Two opposite problems read identically here, and the producer
+            # knows which.** A mismatch is either a real patch/image
+            # disagreement, or a producer that could not reach the stock file
+            # and hashed something else. m4's `base_sha256_from` (schema
+            # `7ff962a`) carries the answer, so say it in the line rather than
+            # sending the reader to the handoff's notes — which is what the
+            # first real run of this gate did on 2026-09-04, correctly and
+            # unhelpfully.
+            #
+            # `.get`, and absent is not a fault: every already-sealed handoff
+            # predates the field and the schema keeps it optional. An old
+            # handoff gets the message this gate has always given.
+            prov = entry.get("base_sha256_from") or {}
+            method, from_image = prov.get("method"), prov.get("image")
+            why = ""
+            if method == "replacement_fallback":
+                why = (
+                    "\n  The handoff records `base_sha256_from.method: replacement_fallback` — "
+                    "the producer could not reach the stock file and hashed **the replacement "
+                    "itself**, so this patch was never cut against any image. This is not a "
+                    "patch/image disagreement: re-run the producer somewhere the engine tree "
+                    "or the image is reachable."
+                )
+            elif method in ("image_extract", "engine_tree") and from_image and from_image != image:
+                why = (
+                    f"\n  The handoff records the hash was taken by `{method}` against "
+                    f"**{from_image}**, and this run extracted from **{image}**. Two different "
+                    "images — the patch is fine, it is pointed at the wrong engine."
+                )
+            elif method:
+                why = (
+                    f"\n  The handoff records `base_sha256_from.method: {method}`"
+                    + (f" against {from_image}" if from_image else "")
+                    + ", the same image this run read, so the file itself really has changed."
+                )
             raise SystemExit(
                 f"apply: {entry['container_path']} hashes {sha_stock[:12]}… in {image} "
-                f"but the patch was cut against {entry['base_sha256'][:12]}…\n"
-                "The patch and the image do not match. Rebuild the image, or re-cut the patch."
+                f"but the patch was cut against {entry['base_sha256'][:12]}…"
+                + why
+                + "\nThe patch and the image do not match. Rebuild the image, or re-cut the patch."
             )
 
         root, rel = patchkit.split_placeholder(entry["container_path"])
