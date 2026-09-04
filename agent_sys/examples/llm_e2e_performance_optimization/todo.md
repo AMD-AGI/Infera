@@ -1956,6 +1956,19 @@ sharpening. So an entry about pathspec commits capturing a co-owner's
 uncommitted work was captured by a co-owner's pathspec commit **while being
 committed**.
 
+**And the weaker check does not fail by being skipped — it fails by firing.**
+The checkpoint writer's account of the same sweep, which is the sharpest thing
+in this entry and is theirs: they *did* run `git status --porcelain -- todo.md`
+before committing. **It printed ` M`. They proceeded.** Not carelessly — they
+had an edit in flight, so a dirty file was **exactly what they expected to
+see**, and the warning read as confirmation of their own work.
+
+**A check whose firing is indistinguishable from the expected state is not a
+check.** `git status` can say the file changed; it cannot say *by whom*, and the
+one moment you consult it is the moment you are guaranteed to have your own
+change in there. Same shape as `T40`'s null in the measurement slot: the signal
+arrives, and the slot it arrives in tells you to read it as normal.
+
 **The window is between the check and the commit, and no pre-commit check can
 close it.** `git commit -- <path>` reads the working tree at commit time; there
 is no atomic verify-then-commit for a path. Checking earlier only moves the
