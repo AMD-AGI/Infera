@@ -141,9 +141,37 @@ def _task_dirs(doc, agent_name: str, assets: pathlib.Path) -> list[pathlib.Path]
 _PROGRAM_ONLY = {"entry.sh"}
 
 
-def _referenced(dirs: list[pathlib.Path]) -> dict[str, str]:
-    """`E2E_*` names appearing anywhere under those directories -> where."""
+#: `assets/lib/<name>` mentioned by a task's readme is followed. **A readme is
+#: the program for a `kind: ai` closure**, so a script it tells the agent to run
+#: is part of that agent's dependency set even though it lives outside the task
+#: directory. m1's counterexample: `deploy_and_prove.task/readme.md:71` invokes
+#: `mock.sh` at STEP 0, and `mock.sh` reads `E2E_MOCK_STAGES` — a variable that,
+#: **undeclared, makes `mock.sh` unable to tell *unset* from *not listed*, so
+#: `--var mock_stages=all` runs the stage for real.** That is rung 1's own bug,
+#: and without this the checker written to prevent it could not see it.
+_LIB_REF = re.compile(r"\b([a-z_][a-z0-9_]*\.(?:sh|py))\b")
+
+
+def _referenced(dirs: list[pathlib.Path], lib: pathlib.Path) -> dict[str, str]:
+    """`E2E_*` names appearing under those directories, plus libs their readmes name."""
     seen: dict[str, str] = {}
+    followed: set[pathlib.Path] = set()
+    for directory in dirs:
+        for readme in directory.rglob("readme.md"):
+            try:
+                text = readme.read_text(errors="replace")
+            except OSError:
+                continue
+            for candidate in set(_LIB_REF.findall(text)):
+                target = lib / candidate
+                if target.is_file():
+                    followed.add(target)
+    for path in sorted(followed):
+        try:
+            for name in _REF.findall(path.read_text(errors="replace")):
+                seen.setdefault(name, f"{path} (named by a readme)")
+        except OSError:
+            pass
     for directory in dirs:
         for path in sorted(directory.rglob("*")):
             if not path.is_file() or path.suffix not in _SUFFIXES:
@@ -220,7 +248,7 @@ def main(argv: list[str] | None = None) -> int:
                     f"Fix the closure->assets mapping before believing this agent passed."
                 )
                 continue
-            refs = _referenced(dirs)
+            refs = _referenced(dirs, pkg / "assets" / "lib")
             for key in sorted(refs):
                 if key in declared:
                     continue
