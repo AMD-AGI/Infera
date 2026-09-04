@@ -242,6 +242,21 @@ def _document(claim_speedup: float | None, measured: dict, *, noise_floor=NOISE_
                             "shapes": [{"case_id": c, "passed": True} for c in CASES]},
             "performance": {
                 "entrypoint": "./run_performance.sh",
+                # **Inert here, and a third spelling in the package.** The
+                # validator this kit drives never reads `protocol` as data —
+                # only `entrypoint` — so these numbers exercise nothing, and
+                # `check_optimization_shape` is the sole reader anywhere,
+                # comparing a copy against its own source. Recorded because a
+                # reader cannot otherwise tell whether the values matter.
+                #
+                # `timing: hip_graph_replay` here, `event` in a real workset,
+                # and the harness measures neither: `run_performance.sh:44-55`
+                # is `perf_counter` around a `torch.cuda.synchronize()`. m2
+                # found the three-way split, 2026-09-04. **Whatever wording m3
+                # lands on for the real field should reach this file too**, or
+                # this becomes the counter-example the next reader trusts.
+                # Deliberately not pre-empted here — changing it before m3
+                # decides means changing it twice.
                 "protocol": {"groups": 5, "iters_per_group": 30, "warmup": 10, "timing": "hip_graph_replay"},
                 "baseline": {"source": "workset", "report": "evidence/performance.json",
                              "per_case_ms": baseline},
