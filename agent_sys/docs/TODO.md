@@ -37,10 +37,77 @@ unclaimed. **Not blocked on anyone — nobody has them.**
 | # | Item | Why it is not already fixed |
 |---|---|---|
 | 4b | **A typo'd `kind` in `Task.kinds` is caught by nothing at runtime** | `_participates` turns it into a no-op, and §4.16's narrowing removed the last place it would have raised. Probably `closure` check 6, at load time. **Reported twice by `env_mgr`, still unowned** |
-| 4c | **`examples/demo/logic/store.py`'s F-D5 fallback cannot work under confinement** | It reads `AGENT_SYS_DEMO_STORE` and walks to a manifest; `env_mgr`'s `p11` measured **EACCES on the store root from a confined body**. `demo`'s file, with a second defect in it that is `handoff`'s. **The declared route is `materials.json`** — reaching a non-target artefact means *declaring* it (`inputs: ['summary', 'facts']`, permitted by spec §4.1's many-to-many binding), which also makes the phase record a verdict against the second artefact. **A design question for `demo` and `validator`, not a patch** |
+| 4c | **P0 — a validator cannot reach the artefact its target was produced *from*, so five task packages scan the store instead** — *and the route this row previously proposed does not exist* | Was scoped to `examples/demo/logic/store.py`; the file is now `examples/demo/assets/lib/store.py` and **five copies** of it (`demo`, `demo2`, and three under `examples/llm_e2e_performance_optimization/`). See below |
 | 4d | **`test_a_gate_failure_does_not_deadlock_the_next_dispatch` fails 2 runs in 4** | Green alone and green in its own file. **No cause offered** — and the day's rule applies: a red suite in a shared worktree is not evidence about anyone's change. With `agent-mod-2`. **2026-08-29, end of day: 4 full-suite runs, 4 green** (`1905 passed, 3 skipped, 4 xfailed`, ~64 s each). **Not "fixed" — the worktree was quiet, so the trigger may simply have been absent**, which is the converse of the rule above and the same instrument problem. Running it alone proves nothing and was already known not to; recorded so the next person starts from four data points rather than repeating the isolated run |
 | 4e | **A hole in the store has no reaper** | §4.14 makes holes permanent and never renumbered by design. Whether they should ever be collected is undecided, not deferred |
 | 4f | **`check_grounded` has never been observed catching anything** — *ruled parked 2026-08-29, deliberately not worked* | Criterion 10 aims to show a validator catching an ungrounded number; three end-to-end runs showed a good model **declining to fabricate one** instead, so the validator's **failing** direction — what its `strong` claim is about — has never executed. **The user's ruling: not a framework question and not a principle question, this is `check_grounded`'s own business semantics, and it is not worth the time.** The shape they suggested if anyone ever picks it up: **split it in two** — one validator over the other fields, and a second that judges only whether the agent's answer about the missing duration is *reasonable*, passing if it is. **Two measurements bear on any such build:** `check_grounded` matches `\d+`, *"digits, not a parser"*, so `256` reads as grounded via `sha256_prefix` — the grounding set is **wider than what the facts assert**, and a fabricated number landing inside any digit run in the copied facts passes anyway. And `logic/check_grounded/readme.md` named the `UNEXPECTED_SUCCESS`/exit-3 outcome in advance, so **exit 3 is the artefact working, not a fault to repair** |
+
+| 4g | **The backend's `claude` child processes do not exit when their task completes** — *first report, 2026-09-04, measured not inferred* | Seen while watching an `examples/demo2` run for an unrelated reason. Nine `claude` CLI processes alive at once, one per agent task, **elapsed 6 to 26 minutes and holding 5–11 seconds of CPU each, all sleeping (`S`)**. The oldest was `directions`, which the run log showed completing 26 minutes earlier; `ps -o pid=,stat=,etime=,time=` is the whole measurement. So they are not working and not being reaped — they accumulate for the life of a run, one per task. Harmless on `demo2`; a package with many tasks, or a long-lived supervisor, is where it stops being harmless. **Whose it is, is the open part**: it could be `claude-agent-sdk` not closing its transport, or `agent/backends/claude_sdk.py` not disposing the client after the result arrives. Nothing narrows it yet, and nobody has claimed it. What would close it: run one AI task, capture the child pid, and watch whether it exits when the SDK returns — if it does, the leak is in how the runner holds the client, not in the CLI |
+
+### 4c in full — why the store scan exists, and why declaring the input would not remove it
+
+**This row said the declared route was `materials.json`, and that reaching a
+non-target artefact was a matter of *declaring* it — `inputs: ['summary',
+'facts']`. Read against the code, that fix does not work.** A validator's
+`inputs` is a **filter over the task's slots on this phase's side, not a
+request**. `validator/phase.py:731`:
+
+```python
+return list(task.inputs if kind is PhaseKind.INPUT else task.outputs)
+```
+
+and `phase.py:657` selects from exactly that: `mine = [t for t in targets if
+self._kind_of(t, registry) in spec.inputs]`. `env_mgr/prepare.py:691-695` stages
+the same set. So a kind the task does not hold **on that side** is not a target,
+is not staged, and cannot be declared into existence.
+
+**The concrete case.** `check_problems` must verify that the problem set cites a
+direction that exists — i.e. that the artefact is faithful to what its producer
+consumed. `directions` is on the producing task's **input** side; the validator
+runs on that task's **output** phase (and again on the students' input phases,
+where the candidate set is `[problems]` too). The two sides never meet in any
+phase, so there is no phase in which `directions` is reachable. Its declaration
+is `inputs: [problems]` (`examples/demo2/steps/problems.yaml:48`) while its body
+reads `directions` — so the schema's own promise for that field, *"DECLARED
+rather than discovered, so a reviewer can answer 'what does this actually read'
+without running it"*, is already false here. Same shape in
+`demo/check_grounded`.
+
+**What the packages do instead.** `lib/store.py` reads `handoff`'s on-disk
+layout through `AGENT_SYS_DEMO_STORE` (`cli/main.py:825`) and scans for *the
+newest artefact of that kind anywhere in the store*. Its own docstring calls
+that crude and wrong in a graph with more than one producer; it happens to be
+right in these packages because there is exactly one. The ~30
+`staged_content(hid) or content_dir(hid)` sites are a different thing and not
+this problem — each is commented as the fallback for a run with **no `env_mgr`
+wired**, i.e. a validator run standalone.
+
+**Why it is P0 and why it is quiet.** The scan is only alive because two things
+are switched off: `prepare_validation` *"does not confine anything"*
+(`env_mgr/prepare.py:686`, and `EnvManager.prepare_validation` at `:751` records
+that who confines a validation body *"is a third question that this ruling did
+not settle"*), and `AGENT_SYS_NO_PERMISSIONS` defaults to on
+(`prepare.py:80-95`). Either one landing kills the route — `env_mgr`'s `p11`
+measured **EACCES on the store root from a confined body**, and `store_root()`
+is `os.environ[...]` rather than `.get`, so the body dies *before*
+`write_verdict` and `PhaseRunner` gets **no `verdict.json` at all** rather than
+a `False`. So confining validations — ROADMAP §6.1's P0 — silently converts a
+grounding check into a missing file. **Not measured:** whether a confined
+*validation* body fails the same way an agent body does; that needs a policy
+applied to one validation zone and a run.
+
+**The fix that removes the knowledge rather than moving it.** Give the output
+phase read access to the producer's inputs — stage `task.inputs` read-only
+alongside `task.outputs` in `prepare_validation`, and let `inputs:` select from
+the union. Then the declaration becomes true, `declared_dir` is the only route a
+body needs, and `versions` / `content_dir` / `kind_of` / `latest_of_kind` /
+`handoff_dir` delete from all five copies. **A design question for `validator`
+and `env_mgr` jointly, not a patch** — it widens what an output validation may
+see, which is a criterion-13 (anti-gaming) question and must be argued there
+before it is built.
+
+Raised again 2026-09-04 while labelling runtime directories (PR #156), which is
+what made the five duplicated readers visible in one diff.
 
 ## To build in the alpha
 

@@ -76,11 +76,17 @@ from env_mgr.fs.layout import LOGS
 from env_mgr.fs.zone import Zone
 
 __all__ = [
+    "BIN_ENV_VAR",
+    "CLAUDE_HOME_ENV_VAR",
     "HANDOFFS_ENV_VAR",
+    "HOME_ENV_VAR",
     "LOGS_ENV_VAR",
     "PACKAGE_ENV_VAR",
     "PLAYGROUND_ENV_VAR",
     "REMOTE_SUFFIX",
+    "RUN_ENV_VAR",
+    "SHARE_ENV_VAR",
+    "STATE_ENV_VAR",
     "WORKSPACE_ENV_VAR",
     "ZONE_ENV_VAR",
     "remote_name",
@@ -136,6 +142,18 @@ HANDOFFS_ENV_VAR = "AGENT_SYS_MY_HANDOFFS"
 #: because it is one of the four directories a zone has and the only one that
 #: would otherwise have no name; ``等等`` invited the completion.
 LOGS_ENV_VAR = "AGENT_SYS_MY_LOGS"
+
+#: **The prefix family, re-exported rather than redefined.** `prefix` owns them
+#: because it owns the layout; they are visible here because `paths` is where a
+#: reader looks for an ``AGENT_SYS_*`` name.
+from .prefix import (  # noqa: E402
+    BIN_ENV_VAR,
+    CLAUDE_HOME_ENV_VAR,
+    HOME_ENV_VAR,
+    RUN_ENV_VAR,
+    SHARE_ENV_VAR,
+    STATE_ENV_VAR,
+)
 
 #: The user's ``_romote``, read as ``_remote``. A suffix rather than a second
 #: family, so that a name and its counterpart cannot drift apart.

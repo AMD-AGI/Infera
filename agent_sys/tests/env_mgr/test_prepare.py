@@ -613,6 +613,27 @@ def test_prepared_environment_carries_a_derived_path(ctx) -> None:
         assert any(contained(d, root) for root in granted), f"{d} is on PATH and not granted"
 
 
+def test_prepared_environment_scopes_the_agent_to_the_o11y_prefix(ctx) -> None:
+    """`CLAUDE_CONFIG_DIR` reaches the child, and never this process.
+
+    The write side of the o11y session scoping: the `claude` CLI that a task
+    spawns writes its transcript under `~/.infera_agent_sys`, so the panel sees
+    `agent_sys`'s sessions and only those. The second assertion is the one that
+    matters to a user — a Claude Code they start in their own terminal must
+    still read `~/.claude`, and it does, because we never set the variable here.
+    """
+    from env_mgr.prefix import Prefix
+
+    before = dict(os.environ)
+    task = Task()
+    prepared = prepare(task, task.push_execution(), ctx)
+    prefix = Prefix.resolve(os.environ)
+    assert prepared.environment["CLAUDE_CONFIG_DIR"] == str(prefix.claude_home)
+    assert prepared.environment["AGENT_SYS_BIN"] == str(prefix.bin)
+    assert dict(os.environ) == before
+    assert "CLAUDE_CONFIG_DIR" not in os.environ
+
+
 def test_a_declared_env_may_override_the_derived_path(ctx) -> None:
     """An author saying so outranks a default. An override naming an ungranted
     directory is simply unreachable, and nothing here can make it otherwise —

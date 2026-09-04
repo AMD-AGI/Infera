@@ -798,6 +798,12 @@ name→path table; it expands nothing.**
 
 So no dependency is added, and the reason is recorded rather than assumed.
 
+## O11y
+
+`agent_sys` starts an [AgentsView](https://github.com/kenn-io/agentsview) panel
+at `http://127.0.0.1:18888` over the session transcripts a run produces, resident
+across runs and never able to fail one. See `o11y/README.md`.
+
 ## Deviations from the spec, carried from the design
 
 `docs/design.md` §16.1 reports seven; the three that change what a test asserts:
