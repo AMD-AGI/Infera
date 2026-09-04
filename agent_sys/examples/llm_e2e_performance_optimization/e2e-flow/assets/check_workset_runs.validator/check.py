@@ -280,10 +280,46 @@ def _reverify(content: Path, document: dict, recorded: list[dict], args: dict,  
         primary = next((s for s in operator["shapes"] if s.get("is_primary")), None)
         if primary is not None:
             picked.append((operator["operator_id"], primary["case_id"]))
-    picked = picked[:wanted]
     if not picked:
         _fail(problems, "no operator declares a primary shape; there is nothing to re-measure")
         return
+
+    # **Which operators were re-measured, and which were taken on trust.**
+    #
+    # `picked[:wanted]` samples, and with `reverify_shapes: 1` and one operator
+    # that is the whole workset — which is why it has been free so far. With
+    # *two* operators it silently becomes: operator 1 is verified on every run
+    # and operator 2 is verified on none, because the order is stable. **A
+    # sample that never moves is not a sample of the population; it is a
+    # census of one member.**
+    #
+    # Not fixed by raising the default, and deliberately so. Each re-verify is
+    # a container start and a torch import — measured today at roughly 90 s
+    # against **3 s** of actual timing, so the cost is ~30x the measurement and
+    # scales with operator count, not with shapes. Choosing that spend is the
+    # operator's call and depends on how much of a rung they are willing to
+    # give this gate. What is *not* the operator's call is being told: the
+    # unverified set is now named in the report, per operator, so a reader sees
+    # `recorded, NOT re-measured` beside every number this validator did not
+    # actually check.
+    #
+    # The first `wanted` are the highest-ranked, because `operators` is in the
+    # ranker's order — stated because it was previously true by accident.
+    verified, unverified = picked[:wanted], picked[wanted:]
+    picked = verified
+    for operator_id, case_id in unverified:
+        notes.append(
+            f"{operator_id}/{case_id}: recorded, NOT re-measured — reverify_shapes={wanted} of "
+            f"{wanted + len(unverified)} operator(s) with a primary shape. This number is the "
+            f"producer's claim and this run did not check it"
+        )
+    if unverified:
+        notes.append(
+            f"re-measuring all {wanted + len(unverified)} would cost about "
+            f"{90 * len(unverified)}s more (a container start and a torch import each, against "
+            f"~3s of timing). Raise `reverify_shapes` to trade rung time for coverage; the "
+            f"default samples the top-ranked operator only"
+        )
 
     for operator_id, case_id in picked:
         # **The report lands beside the staged content, not in a host tempdir.**
