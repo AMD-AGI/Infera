@@ -154,7 +154,8 @@
             "operator": {"type": "string", "default": "--operator"},
             "shape": {"type": "string", "default": "--shape"},
             "impl": {"type": "string", "default": "--impl"},
-            "report": {"type": "string", "default": "--json"}
+            "report": {"type": "string", "default": "--json"},
+            "environment": {"type": "string", "default": "--environment", "description": "Path to **this run's** `environment.yaml`, which the entrypoint checks `ground_truth.environment` against before measuring anything. Omitting it makes the run's premise unchecked rather than confirmed, and the entrypoint says so on stderr and records `environment.premise_checked_against: null` in the report."}
           }
         },
         "timeout_s": {"type": "integer", "minimum": 1},

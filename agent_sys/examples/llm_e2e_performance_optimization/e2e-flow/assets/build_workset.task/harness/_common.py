@@ -26,7 +26,13 @@ was a measured failure somewhere in this effort:
   claim.
 * **The abort is a behaviour, not a paragraph.** `ground_truth.abort_on_mismatch`
   is checked here, so a run on the wrong architecture stops rather than
-  producing a number somebody later divides by.
+  producing a number somebody later divides by. **That sentence was false for
+  the life of this file** — the check read `E2E_<FIELD>` variables that nothing
+  in this package declares, so it compared against `None` and passed every
+  time. It now compares this run's environment record against the workset's,
+  and says so in the report; see `_run_record`. The lesson is not about the
+  seven names: a paragraph asserting a behaviour is not one, and this one was
+  read many times by its own author without being run.
 """
 
 from __future__ import annotations
@@ -58,16 +64,69 @@ class Ctx:
         return [s for s in operator["shapes"] if self.args.shape in (None, s["case_id"])]
 
 
-def _observed(field: str):
-    """What the host says about one `environment.fixed` field, or `None`.
+def _run_record(explicit: str | None) -> tuple[dict | None, str]:
+    """This run's environment record, and where it was found.
 
-    Read from `E2E_<FIELD>` rather than probed. Probing a GPU architecture from
-    inside a validator would mean this module needs a ROCm import to decide
-    whether it may run, and a missing import would then read as a mismatch. The
-    runner exports what it knows; an unset variable means *unknown*, and unknown
-    is not a mismatch.
+    **This replaced an `E2E_<FIELD>` lookup that could never succeed.** The old
+    reader derived `E2E_GPU_ARCH`, `E2E_GPU_COUNT`, `E2E_TP_SIZE`, `E2E_DTYPE`,
+    `E2E_IMAGE_ID`, `E2E_ROCM` and `E2E_TORCH` from the two mismatch lists —
+    **not one of the seven is declared anywhere in this package**, so it
+    returned `None` every time and both loops below have never been able to
+    fire. Its docstring said *"an unset variable means unknown, and unknown is
+    not a mismatch"*; unknown was always. The abort that stops a measurement
+    being taken on a machine the workset's evidence did not come from has been
+    inert for the life of this file, and the docstring at the top of it called
+    that abort a behaviour rather than a paragraph.
+
+    The record is the right source and the env channel was the wrong one, for
+    the reason the sibling path already demonstrated: `measure_in_container.sh`
+    and m4's `run_in_container.sh` both take the node, job and transport from
+    `environment.yaml` and refuse an ambient value only when it *disagrees*,
+    and that path came through the same outage intact. An env channel here is
+    also a second authority for a fact the record already states, which is the
+    one thing this package has learnt to avoid, and this is the worst place to
+    have it.
+
+    Two documents, and the comparison is between them rather than within one:
+
+    * **this run's record**, returned here — where the entrypoint is executing;
+    * **the evidence's record**, `ground_truth.environment` in `workset.yaml` —
+      where the numbers in `evidence/` were taken.
+
+    They are the same document when the workset is measured where it was built,
+    which is m3's own path and why it agrees trivially there. They are two
+    different documents in m4's, which is the case M4.3.5 is about: m4 renders
+    `items/codes/environment.yaml` from the `deploy_kit` — *this* run — while
+    the workset it re-measures carries m3's.
+
+    Found in that order: `--environment`, then a record sitting beside this
+    module. **Absent is reported, not passed over.** Silence is what made the
+    old reader invisible for so long, and a gate that cannot run should say so
+    in the same transcript as the numbers it did not guard.
     """
-    return os.environ.get("E2E_" + field.upper())
+    import yaml
+
+    for path, origin in ((explicit, "--environment"), (HERE / "environment.yaml", "beside the harness")):
+        if not path:
+            continue
+        candidate = pathlib.Path(path)
+        if candidate.is_file():
+            return yaml.safe_load(candidate.read_text(encoding="utf-8")) or {}, f"{origin}: {candidate}"
+    return None, ""
+
+
+def _observed(record: dict | None, field: str):
+    """What **this run's** record says about one `environment.fixed` field.
+
+    `None` when there is no record, or when the record does not carry the
+    field — a record that omits a field genuinely does not know it, which is
+    the one case the old reader's "unknown is not a mismatch" rule was written
+    for and the only case it still covers.
+    """
+    if record is None:
+        return None
+    value = (record.get("fixed") or {}).get(field)
+    return None if value is None else value
 
 
 def setup(what: str) -> Ctx:
@@ -86,7 +145,8 @@ def setup(what: str) -> Ctx:
     #
     # Found by auditing my own code for the shape after claiming it was clean.
     # It was not.
-    flags = {"operator": "--operator", "shape": "--shape", "impl": "--impl", "report": "--json"}
+    flags = {"operator": "--operator", "shape": "--shape", "impl": "--impl", "report": "--json",
+             "environment": "--environment"}
     flags.update((doc.get("entrypoints") or {}).get(what, {}).get("flags") or {})
     ap = argparse.ArgumentParser(description=f"one-click {what} over this workset")
     ap.add_argument(flags["operator"], dest="operator", help="restrict to one operator_id")
@@ -94,22 +154,43 @@ def setup(what: str) -> Ctx:
     ap.add_argument(flags["impl"], dest="impl",
                     help="a replacement implementation; omit to exercise the baseline")
     ap.add_argument(flags["report"], dest="json", help="where to write the report")
+    ap.add_argument(flags["environment"], dest="environment",
+                    help="this run's environment.yaml, against which the workset's is checked; "
+                         "defaults to one sitting beside this module")
     args = ap.parse_args()
 
     ground = doc["ground_truth"]
     fixed = ground["environment"]["fixed"]
+    record, origin = _run_record(args.environment)
+    if record is None:
+        # **Loud, and in the same transcript as the numbers.** The gate this
+        # guards is the one that stops a ratio being taken across two machines,
+        # and it spent the life of this file returning `None` in silence. A run
+        # that cannot check its premise may still be the right run — m3's own
+        # measurement is — but it may not look like a checked one.
+        print(f"warning: no environment record for this run, so "
+              f"{', '.join(ground['abort_on_mismatch'])} were NOT checked against it. "
+              f"Pass {flags['environment']} <path to this run's environment.yaml>, or place one "
+              f"beside the entrypoints. The workset claims {fixed.get('gpu_arch')!r} / "
+              f"tp {fixed.get('tp_size')!r}; nothing here confirmed it.", file=sys.stderr)
     for field in ground["abort_on_mismatch"]:
-        seen = _observed(field)
+        seen = _observed(record, field)
         if seen is not None and str(seen) != str(fixed.get(field)):
             sys.exit(
-                f"abort: {field} is {seen!r} on this host and the workset's evidence was taken "
-                f"at {fixed.get(field)!r}. Every number in evidence/ is about a different "
-                f"machine; a ratio across the two would not mean anything (M4.3.5)."
+                f"abort: {field} is {seen!r} in this run's environment record ({origin}) and the "
+                f"workset's evidence was taken at {fixed.get(field)!r}. Every number in evidence/ "
+                f"is about a different machine; a ratio across the two would not mean anything "
+                f"(M4.3.5)."
             )
     for field in ground.get("warn_on_mismatch") or []:
-        seen = _observed(field)
+        seen = _observed(record, field)
         if seen is not None and str(seen) != str(fixed.get(field)):
-            print(f"warning: {field} is {seen!r} here, the evidence was taken at "
+            # Warn and carry on, deliberately, and `image_id` is on this list
+            # rather than the abort list on m4's reading — a rebuilt image with
+            # the same architecture and topology is a software difference the
+            # record's own `warnings[]` channel carries to m5, not a reason to
+            # refuse a measurement.
+            print(f"warning: {field} is {seen!r} in this run's record, the evidence was taken at "
                   f"{fixed.get(field)!r}", file=sys.stderr)
 
     report = {
@@ -125,11 +206,25 @@ def setup(what: str) -> Ctx:
             # made `evidence.measured_on.node` useless for the one question it
             # answers: was this measured on the box m4 is standing on.
             "node": os.environ.get("E2E_NODE") or os.uname().nodename,
-            "gpu_arch": fixed["gpu_arch"],
-            "gpu_count": fixed["gpu_count"],
-            "tp_size": fixed["tp_size"],
-            "container": ground["environment"]["runtime"]["container"],
-            "image_id": fixed["image_id"],
+            # **These five said `fixed[...]` — the workset's own claim, copied
+            # into a block whose whole job is to say where the run happened.**
+            # So even a working abort gate would have had no artefact behind it:
+            # the report agreed with the premise by construction, for the same
+            # reason `node` once agreed with the container id. This run's record
+            # is preferred and the claim is the fallback, which differs only
+            # where the two disagree — and for `abort_on_mismatch` fields the
+            # run has already stopped by here, so in practice this is about the
+            # warn-level ones.
+            "gpu_arch": _observed(record, "gpu_arch") or fixed["gpu_arch"],
+            "gpu_count": _observed(record, "gpu_count") or fixed["gpu_count"],
+            "tp_size": _observed(record, "tp_size") or fixed["tp_size"],
+            "container": ((record or {}).get("runtime") or {}).get("container")
+            or ground["environment"]["runtime"]["container"],
+            "image_id": _observed(record, "image_id") or fixed["image_id"],
+            # Which of the above were read and which were assumed. Without it a
+            # reader cannot tell a checked run from an unchecked one, and that
+            # is exactly the distinction that went missing for this file's life.
+            "premise_checked_against": origin or None,
         },
         "started_at": now(),
         "impl": "candidate" if args.impl else "baseline",
