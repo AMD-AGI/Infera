@@ -551,7 +551,14 @@ def main() -> int:
             # fixed bar; p90's fix is pooled samples and throughput's floor
             # awaits the queued round-to-round measurement (`todo.md` T25).
             disp = dispersion.get((metric, column), {})
-            floors = {arm: eval_stats.noise_floor(disp.get(f"{arm}_rsd"), disp.get(f"{arm}_n"))
+            # R=1 only: `reduce_rounds` compares a median of R round averages,
+            # and above R=1 that statistic's noise is dominated by round-to-round
+            # drift no within-round dispersion can see. Claiming a floor there
+            # would understate it, which is the direction that lets a run say it
+            # can resolve what it cannot.
+            single_round = detail_a["n"] == 1 and detail_b["n"] == 1
+            floors = {arm: (eval_stats.noise_floor(disp.get(f"{arm}_rsd"), disp.get(f"{arm}_n"))
+                            if single_round else None)
                       for arm in ("stock", "patched")}
             usable = [f for f in floors.values() if f is not None]
             # The worse of the two arms: a comparison is only as resolvable as

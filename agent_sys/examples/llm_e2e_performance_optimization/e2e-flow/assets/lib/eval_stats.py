@@ -157,6 +157,21 @@ def noise_floor(rsd: float | None, n: int | None) -> float | None:
     arms, a p90 floor runs from 5.3% to 20.0% with no stable relation to the
     mean's. So `p90` columns are not gated on this; their fix is more samples
     (pooling took ttft p90 from 20.0% to 5.5% at R=5), not a floor.
+
+    **And only valid for the statistic actually compared, which today means
+    R=1.** `reduce_rounds` compares a *median of R round averages*. At R=1 that
+    is the round's own mean over `n` requests and this formula is exact. At R>1
+    the median's noise is dominated by round-to-round drift, which no within-
+    round dispersion can see, and pretending otherwise would make the floor
+    **optimistic** — the direction that lets a run claim it can resolve a
+    difference it cannot. Caught reviewing this against R>1 straight after
+    writing it: the caller summed `n` across rounds as though the statistic were
+    a pooled mean, which it is not.
+
+    So `rounds` is required and the floor is declined above 1. Two things would
+    lift that, and they are the two open items: pooling per-request across
+    rounds (then the statistic IS a pooled mean and this is exact again), or the
+    queued round-to-round measurement (then the median's own variance is known).
     """
     if rsd is None or not n or n <= 0:
         return None

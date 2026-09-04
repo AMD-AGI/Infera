@@ -258,7 +258,12 @@ def judge_comparison(report: dict, args: dict, throughput_bar: float, latency_ba
         # resolvable. A row whose floor exceeds its bar is `uninterpretable` —
         # the run cannot tell a difference at the bar from its own scatter —
         # and that is a refusal, never a pass. Noise buys a harder outcome.
-        floors = [eval_stats.noise_floor(row.get(f"{arm}_rsd"), row.get(f"n_{arm}"))
+        # Same R=1 guard as the producer, recomputed rather than read: above one
+        # round the compared statistic is a median whose variance this formula
+        # cannot see, so a floor claimed there is optimistic and must not gate.
+        single_round = (row.get("rounds") or len(seen["stock"])) == 1
+        floors = [(eval_stats.noise_floor(row.get(f"{arm}_rsd"), row.get(f"n_{arm}"))
+                   if single_round else None)
                   for arm in ("stock", "patched")]
         usable = [f for f in floors if f is not None]
         floor = max(usable) if usable else None
