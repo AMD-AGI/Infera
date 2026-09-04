@@ -227,10 +227,25 @@ require_visible_on_node "$ROOT" "workset" || exit 1
 # guessed.** Anything outside them refuses here, naming both, rather than
 # arriving as an authorization denial in the middle of a measurement.
 # **Derived from `$ROOT`, never from `$HOME`.** This read
-# `${E2E_REMOTE_HOME:-$HOME}`, and in a validation zone — a closed environment —
-# `$HOME` is `/home`. So the mount came out `-v /home:/home`, which is the one
-# form the plugin explicitly refuses, and the refusal quoted my own instruction
+# `${E2E_REMOTE_HOME:-$HOME}` and the mount came out `-v /home:/home`, the one
+# form the plugin explicitly refuses — and the refusal quoted my own instruction
 # to *extend this case with a form you have seen the daemon accept*.
+#
+# **This comment used to say `$HOME` is `/home` in a validation zone. That was a
+# fitted parameter, not a measurement**, and it is corrected rather than deleted
+# because the correction is the useful part. I never echoed `$HOME` anywhere; I
+# picked the value that would explain the mount string I had. `HOME=/home` does
+# explain it — and `validator/environment.py:235` sets a validator's `HOME` to
+# `<zone>/home`, under which this code would have taken the *refusal* branch
+# instead. **So the two do not reconcile and the real value is still unknown**:
+# either that denial came from a task body rather than the validator, or the
+# harness config puts `HOME` back over the zone's. `todo.md` T42 carries the
+# open question.
+#
+# None of which changes the fix, and that is the point: the derivation below
+# reads `$ROOT` and no ambient value, so it is correct under every candidate
+# answer. **A fix that does not depend on the disputed fact is worth more than
+# winning the dispute.**
 #
 # **I built a bound identifier out of an ambient value**, which is the mistake
 # this file already carries two other corrections for: `_agree_or_die` exists
