@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from cli import main as cli_main
 
 
@@ -86,6 +88,7 @@ def test_the_installers_two_ok_messages_still_discriminate() -> None:
     catch it. So both phrasings are taken from the real installer here.
     """
     from env_mgr.installers.bin import BinInstaller
+    from env_mgr.o11y.agentsview import freshly_installed
     from env_mgr.recipe import Item, Target
 
     target = Target(kind="prefix", name="t", path=".")
@@ -113,8 +116,8 @@ def test_the_installers_two_ok_messages_still_discriminate() -> None:
         o.message for o in BinInstaller().install(satisfied, target) if o.level == "ok"
     ]
 
-    assert cli_main._was_freshly_installed(fresh_msg) is True
-    assert cli_main._was_freshly_installed(skip_msg) is False
+    assert freshly_installed(fresh_msg) is True
+    assert freshly_installed(skip_msg) is False
 
 
 def test_the_install_closure_runs_nothing_until_it_is_called(monkeypatch, tmp_path) -> None:
@@ -152,7 +155,7 @@ def test_a_dry_run_installs_nothing_and_starts_nothing(monkeypatch) -> None:
     called = []
     monkeypatch.setattr(cli_main, "ensure_installed", lambda *a, **k: called.append("install"))
     monkeypatch.setattr(cli_main, "ensure_running", lambda *a, **k: called.append("run"))
-    monkeypatch.setattr(cli_main, "_dry_run", lambda args, stream: 0)
+    monkeypatch.setattr(cli_main, "_dry_run", lambda args, stream, panel_url=None: 0)
     assert cli_main.main(["run", "--package", "pkg", "--dry-run"]) == 0
     assert called == []
 
@@ -166,7 +169,7 @@ def test_a_dry_run_starts_no_daemon(monkeypatch) -> None:
     """
     called = []
     monkeypatch.setattr(cli_main, "ensure_running", lambda *a, **k: called.append(1))
-    monkeypatch.setattr(cli_main, "_dry_run", lambda args, stream: 0)
+    monkeypatch.setattr(cli_main, "_dry_run", lambda args, stream, panel_url=None: 0)
     assert cli_main.main(["run", "--package", "pkg", "--dry-run"]) == 0
     assert called == []
 
@@ -175,7 +178,7 @@ def test_clean_starts_no_daemon(monkeypatch) -> None:
     """`--clean` removes every run and exits; a panel for it is pointless."""
     called = []
     monkeypatch.setattr(cli_main, "ensure_running", lambda *a, **k: called.append(1))
-    monkeypatch.setattr(cli_main, "_clean", lambda args, stream: 0)
+    monkeypatch.setattr(cli_main, "_clean", lambda args, stream, panel_url=None: 0)
     assert cli_main.main(["run", "--package", "pkg", "--clean"]) == 0
     assert called == []
 
@@ -278,7 +281,7 @@ def _main_with_o11y_spied(monkeypatch, argv: list[str]) -> dict:
 
     monkeypatch.setattr(cli_main, "ensure_installed", _installed("agentsview already present"))
     monkeypatch.setattr(cli_main, "ensure_running", spy_running)
-    monkeypatch.setattr(cli_main, "_run", lambda args, stream: 0)
+    monkeypatch.setattr(cli_main, "_run", lambda args, stream, panel_url=None: 0)
     seen["exit"] = cli_main.main(argv)
     return seen
 
@@ -314,7 +317,7 @@ def test_show_never_reaches_the_panel(monkeypatch) -> None:
 
     ran = []
     monkeypatch.setattr(cli_main, "ensure_running", lambda *a, **k: ran.append(1) or Status(False, "x"))
-    monkeypatch.setattr(cli_main, "_show", lambda args, stream: 0)
+    monkeypatch.setattr(cli_main, "_show", lambda args, stream, panel_url=None: 0)
     assert cli_main.main(["show", "--package", "pkg"]) == 0
     assert ran == []
 
@@ -343,7 +346,7 @@ def test_the_fresh_install_notice_reaches_the_user(monkeypatch, capsys) -> None:
 
     monkeypatch.setattr(cli_main, "ensure_installed", _installed("installed agentsview"))
     monkeypatch.setattr(cli_main, "ensure_running", lambda prefix, port: Status(False, "x"))
-    monkeypatch.setattr(cli_main, "_run", lambda args, stream: 0)
+    monkeypatch.setattr(cli_main, "_run", lambda args, stream, panel_url=None: 0)
     cli_main.main(["run", "--package", "pkg"])
     out = capsys.readouterr().out
     assert "agentsview" in out and "kenn-io/agentsview" in out
@@ -355,6 +358,109 @@ def test_a_skipped_panel_says_nothing_to_the_user(monkeypatch, capsys) -> None:
 
     monkeypatch.setattr(cli_main, "ensure_installed", _installed("agentsview already present"))
     monkeypatch.setattr(cli_main, "ensure_running", lambda prefix, port: Status(False, "port in use"))
-    monkeypatch.setattr(cli_main, "_run", lambda args, stream: 0)
+    monkeypatch.setattr(cli_main, "_run", lambda args, stream, panel_url=None: 0)
     cli_main.main(["run", "--package", "pkg"])
     assert "127.0.0.1" not in capsys.readouterr().out
+
+
+def test_the_readiness_probe_runs_from_a_directory_inside_the_prefix(monkeypatch) -> None:
+    """Where the probe runs decides which project its transcript lands in.
+
+    AgentsView names a project after the session's cwd — resolving the git
+    *main repository* when there is one. The probe inherited the caller's cwd,
+    which is the checkout, so ten identical `Reply with exactly one word:
+    ready` sessions piled into the real `infera` project. A directory of its
+    own inside the prefix is one argument and no new state.
+    """
+    import os
+    import subprocess
+
+    from cli import environment as cli_env
+    from env_mgr.prefix import Prefix
+
+    seen: dict = {}
+
+    def spy(cmd, **kw):
+        seen.update(kw)
+        return subprocess.CompletedProcess(cmd, 0, "ready", "")
+
+    monkeypatch.setattr(cli_env.shutil, "which", lambda c: "/usr/bin/claude")
+    monkeypatch.setattr(cli_env.subprocess, "run", spy)
+
+    assert cli_env.preflight_credentials(cli="claude") == "ready"
+
+    prefix = Prefix.resolve(os.environ)
+    assert seen["cwd"] == str(cli_env.probe_cwd(prefix))
+    assert str(prefix.root) in seen["cwd"]
+    assert os.path.isdir(seen["cwd"]), "the child refuses a cwd that does not exist"
+
+
+def test_the_probe_still_runs_when_its_directory_cannot_be_made(monkeypatch) -> None:
+    """A cwd we could not create is not a reason to refuse the whole run.
+
+    `preflight_credentials` failing aborts everything, which is far worse than
+    a transcript filed under the wrong project.
+    """
+    import subprocess
+    from pathlib import Path
+
+    from cli import environment as cli_env
+
+    def boom(*a, **k):
+        raise PermissionError("read-only prefix")
+
+    def spy(cmd, **kw):
+        assert kw.get("cwd") is None, "no cwd beats a cwd that does not exist"
+        return subprocess.CompletedProcess(cmd, 0, "ready", "")
+
+    monkeypatch.setattr(cli_env.shutil, "which", lambda c: "/usr/bin/claude")
+    monkeypatch.setattr(Path, "mkdir", boom)
+    monkeypatch.setattr(cli_env.subprocess, "run", spy)
+
+    assert cli_env.preflight_credentials(cli="claude") == "ready"
+
+
+# --------------------------------------------------------------------------- #
+# The panel URL has to survive the trip from `_start_o11y` to the mapping call
+
+
+def test_the_panel_url_reaches_the_run(monkeypatch) -> None:
+    """`main` discarded `_start_o11y`'s return value until this feature needed it.
+
+    The mapping call lives in `_real_run` because the run id does not exist when
+    the panel starts, so the URL has to be threaded through two frames. Both
+    hops are one keyword each and neither is covered by anything else here.
+    """
+    from env_mgr.o11y.agentsview import Status
+
+    seen: dict = {}
+
+    monkeypatch.setattr(cli_main, "ensure_installed", _installed("agentsview already present"))
+    monkeypatch.setattr(
+        cli_main, "ensure_running",
+        lambda prefix, port: Status(True, "started", f"http://127.0.0.1:{port}"),
+    )
+    monkeypatch.setattr(
+        cli_main, "_real_run",
+        lambda args, stream, panel_url=None: seen.setdefault("url", panel_url) and 0 or 0,
+    )
+
+    cli_main.main(["run", "--package", "pkg", "--agentsview-port", "9001"])
+
+    assert seen["url"] == "http://127.0.0.1:9001"
+
+
+def test_a_run_without_a_panel_passes_none_rather_than_failing(monkeypatch) -> None:
+    """o11y absent is a `None`, not an exception and not a missing argument."""
+    from env_mgr.o11y.agentsview import Status
+
+    seen: dict = {}
+    monkeypatch.setattr(cli_main, "ensure_installed", _installed("agentsview already present"))
+    monkeypatch.setattr(cli_main, "ensure_running", lambda prefix, port: Status(False, "port in use"))
+    monkeypatch.setattr(
+        cli_main, "_real_run",
+        lambda args, stream, panel_url="MISSING": seen.setdefault("url", panel_url) or 0,
+    )
+
+    assert cli_main.main(["run", "--package", "pkg"]) == 0
+    assert seen["url"] is None

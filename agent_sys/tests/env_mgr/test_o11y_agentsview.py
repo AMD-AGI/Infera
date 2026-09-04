@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from env_mgr.o11y import agentsview
+from env_mgr.o11y.agentsview import agentsview
 from env_mgr.prefix import Prefix
 
 

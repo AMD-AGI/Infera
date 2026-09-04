@@ -296,6 +296,34 @@ def _probe_environment() -> dict[str, str]:
     return env
 
 
+#: Where the probe runs. Its own directory, because AgentsView names a project
+#: after the session's cwd — resolving the git *main repository* when there is
+#: one — so inheriting the caller's put ten identical probe transcripts into the
+#: real `infera` project. A plain directory falls back to its basename, and
+#: `probe` is what these sessions are.
+PROBE_DIR = "probe"
+
+
+def probe_cwd(prefix: Prefix) -> Path:
+    return prefix.state / PROBE_DIR
+
+
+def _probe_cwd_or_none(prefix: Prefix) -> str | None:
+    """The probe's own directory, or `None` if we could not make one.
+
+    **A cwd is not worth failing the run for.** `preflight_credentials` aborts
+    everything when it fails, and a child refuses a cwd that does not exist —
+    so an unwritable prefix must fall back to the old behaviour, not turn a
+    misfiled transcript into a dead deployment.
+    """
+    try:
+        cwd = probe_cwd(prefix)
+        cwd.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return None
+    return str(cwd)
+
+
 def preflight_credentials(*, cli: str = BACKEND, timeout: float = 90.0) -> str:
     """Ask the backend whether it can run at all, **before any zone is built**.
 
@@ -350,6 +378,7 @@ def preflight_credentials(*, cli: str = BACKEND, timeout: float = 90.0) -> str:
         done = subprocess.run(  # noqa: S603 — `binary` came from `shutil.which`
             [binary, "-p", "Reply with exactly one word: ready"],
             env=_probe_environment(),
+            cwd=_probe_cwd_or_none(Prefix.resolve(os.environ)),
             capture_output=True,
             text=True,
             timeout=timeout,
