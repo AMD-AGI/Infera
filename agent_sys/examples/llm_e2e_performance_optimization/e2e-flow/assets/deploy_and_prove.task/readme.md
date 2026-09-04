@@ -28,7 +28,7 @@ Facts about this site, not a recipe. None of them tells you which flags to use.
 | `$E2E_TP` | Tensor-parallel size to use |
 | `$E2E_CTX` | The context window to configure |
 | `$E2E_DSA_ARGS`, `$E2E_PARSER_ARGS` | Model-specific engine flag groups. The literal `none` means *this model wants neither* — which is different from nobody having said |
-| `$E2E_CONTAINER`, `$E2E_PORT_*` | Starting points for the identifiers you bind. Starting points, not reservations: check before you bind |
+| `$E2E_CONTAINER`, `$E2E_PORT_*` | Starting points for the identifiers you bind. Starting points, not reservations: check before you bind — **but see the container-naming rule below: vary the tag, keep the `yihou`** |
 | `$E2E_WORK_ROOT` | Where a container workdir may go. **Local disk** |
 | `$E2E_JOBID`, `$E2E_NODE`, `$E2E_TRANSPORT` | Which node, and how to reach it. Use `assets/lib/remote.sh`'s `on "<command>"`; do not spell a scheduler command yourself |
 | `$AGENT_SYS_OUTPUT_DEPLOY_KIT` | Where the kit goes. It exists and you are granted write on it |
@@ -203,6 +203,38 @@ on "curl -sf -m 10 http://<node-ip>:<router-port>/health"
 
 **Criterion:** HTTP 200. If it 503s, it is still starting; wait, and watch the
 worker log grow rather than restarting anything.
+
+**Every container you start must have `yihou` in its name — vary the tag, keep
+the prefix.** `$E2E_CONTAINER` is a *starting point* for the value, as the table
+above says, and that liberty is real: a fixed name collides the moment a second
+copy runs, which is why the tag varies at all. **What must survive varying it is
+the `yihou`.**
+
+**Criterion:** `docker ps` on the node shows no container of yours whose name
+lacks `yihou`.
+
+**It is an ownership marker, not a convention.** Four other owners share these
+hosts under a standing instruction to stop foreign GPU workloads, and the name
+is the first thing anyone reads. Measured 2026-09-04: two bring-ups named
+`infera_e2e_sgl_…` and `e2e_deploy_sgl_…`, and the leader — correctly following
+the team's own rule — came within one message of classifying a live engine of
+ours as a stranger's.
+
+**Do not read this as a name schema, because there is not one.** Across seven
+container names that day the prefix varied three ways, the role segment varied
+(`sgl`, `engine`, `etcd`) and the tail varied four ways. **Nothing in the name
+held still except the requirement above.** So this asks for one token to be
+present, not for a shape to be matched — a rule about *content*, which survives
+the next arrangement somebody invents.
+
+**And the bar is demonstrably reachable:** three of five bring-ups that day
+composed `$E2E_CONTAINER` into the name unprompted, one of them twice in a
+single run. This is asking for consistency in something already done, not a new
+capability.
+
+**The label is not a substitute.** `infera_e2e_run` was correct on every
+container that day *including the two whose names were wrong*, and it is the
+right instrument for a program. A person reads the name first.
 
 **Set the CUDA graph ceiling to at least the concurrency this deployment will be
 loaded at, and write down why you chose the number.** The load is **concurrency
@@ -391,6 +423,36 @@ to read, not a second record. The values the layout marks `must_render` must
 appear in it verbatim, and `check_deploy_kit` compares them.
 
 ### 6. Make the kit callable, not only readable
+
+**Tear the first deployment down before you bring the kit up, and give the kit
+the same cards you were given.** Do not start the callability arm beside the
+running one on a different card set.
+
+**Criterion:** across the whole of your task, the set of devices you bind is a
+subset of `$E2E_GPU_DEVICES`. If you were given `0,1,2,3`, then `0,1,2,3` is
+what the node sees you holding at every moment, including this step.
+
+**This is not a style rule, and it nearly cost a colleague a job today.**
+Measured 2026-09-04: this step brought its arm up on cards **4,5,6,7** while the
+launch line had named **0,1,2,3**, so the stage held eight cards on a host it had
+been given four on. Ninety-four seconds earlier a co-tenant had started a
+container with every card visible to it. It allocated nothing and exited, so
+nothing collided — **and if it had loaded, the collision would have been on
+hardware assigned to neither of us, with ours the run that had been told which
+four to take.**
+
+It is the same rule as `gpu_devices` at STEP 1, applied where the brief did not
+previously look: **a caller that names cards must be obeyed for the whole task,
+not for its first deployment.** An operator naming a subset is usually avoiding
+a co-tenant, and a second arm on "some free cards" defeats that completely — a
+card that is free this second is not a card that is yours.
+
+**The cost is real and it is accepted deliberately.** Serialising the two
+bring-ups adds roughly **fourteen minutes** to this stage, because the second
+one can no longer overlap the first. **If that ever becomes the binding
+constraint on a rung, make this step optional per rung — do not give the stage
+more cards.** Dropping a callability check is a loss you can see in the verdict;
+taking a card you were not given is a loss somebody else absorbs silently.
 
 This is the step that is new relative to a plain packup, and it is the reason
 the next stage does not need a `serve_baseline` step of its own: **module 2
