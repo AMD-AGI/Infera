@@ -7640,3 +7640,113 @@ post-check closes it.
 **m4 is not amending either commit** and neither am I — *"rewriting shared
 history to fix an attribution is worse than the attribution"*, which is the same
 conclusion 8a reached from the other direction at 04:09.
+
+## T+1349 — 2026-09-04 11:59 UTC
+
+### New headline: the furthest single run
+
+As promised at T+1330, the union metric is demoted to history and the reporting
+number is scoped to one run, because **a single run can go down.**
+
+| **furthest single run — `20260904T112414-cf3e82`** | |
+|---|---|
+| handoffs **valid** | **11 of 15** |
+| handoffs invalid | **3** (`stock.measurement`, `patched.measurement`, `integration_report`) |
+| handoffs created-not-sealed | **1** (`e2e_packup`) |
+| judgements | **42 true, 1 false** |
+
+**History, retained and labelled as such:** union across 69 runs — 38 frozen
+(`ro`) + 31 live — **20 of 21 distinct validators, 669+ invocations.** This
+number is **monotonic by construction** and cannot report a regression; it is
+kept as a high-water mark and nothing more. `67a223b` landed after the run above
+and may well mean m5 is not reached again, which the union would never show.
+
+**One run process present at 11:59:16**, 52 m 58 s, root
+`/home/yihou/agent_sys_runroot`.
+
+### Standing checks
+
+| check | result |
+|---|---|
+| (a) index leak | clean |
+| **(b) shared-file commits** | **amended — see §7.** Diff before, `numstat` after |
+| (c) `todo.md` | **47 items**; **T36 duplicated, T41 missing** — reported, not renumbered |
+| holds | three: 006, 217, 047 — none lost since 06:47 |
+| `/home` | 1.6 T free (85 %) |
+| frozen constants | 38 runs / 231 verdicts, mount `ro` |
+
+### 1. Progress
+
+**~82 %, held.** Elapsed 1 349 m. **No commits and no new runs this interval** —
+the first genuinely quiet interval since 06:00, and the quiet is real rather than
+instrumental: the process check reports a run alive and working.
+
+Reliability **low→moderate**, held. **预估耗时: no number.**
+
+### 2. Current state
+
+One run live. The interval's work was entirely on the record and its tooling.
+
+### 3. Code problems
+
+Unchanged: three m5 handoffs invalid, `e2e_packup` unsealed,
+`check_packup_shape` with nothing to judge, `check_no_regression` refused once
+with its floor unbounded.
+
+### 4. Non-code problems
+
+Three holds, none lost since 06:47 — eight intervals.
+
+### 5. Open questions
+
+Whether `check_no_regression` discriminates; the three invalid m5 handoffs;
+whether `67a223b` means m5 is no longer reached; M5.1.1.
+
+### 6. New commits
+
+**0 from other owners.** Mine: `5281a4e` (T40 sharpening — **and m4's T47, see
+§7**), `98f28bb`, `2b8dc87`.
+
+### 7. The three checks, and why two of them fail
+
+The T47 thread produced a complete account of a class of check, and it is worth
+stating once because I got it wrong twice inside twenty minutes.
+
+**`git status -- <path>` — fails on legibility.** It answers *is this file
+dirty*. I ran it, **it printed ` M`, and I proceeded**, because I had an edit in
+flight and a dirty file was exactly what I expected. **A check whose firing is
+indistinguishable from the expected state is not a check.** m4 has put that in
+T47 as mine (`7000e4a`) and calls it the part that reframes the entry: they had
+written it as a fact about git — *the rule protects the index, not the file* —
+and this is a fact about the reader, which is why the obvious mitigation fails
+for everyone rather than only the careless.
+
+**`git diff -- <path>` — fails on timing.** Strictly better: it answers *whose
+work is in this file*. **And m4 falsified it while committing T47 itself** — they
+ran the diff (one hunk, thirty-nine lines, all theirs), ran the commit seconds
+later, and got `no changes added to commit`, because I had committed in the
+window between. **The gap is between the check and the commit and nothing before
+the commit closes it.**
+
+**`git show --numstat HEAD` against the size of your own edit — works, after the
+fact.** If the commit is larger than what you wrote, someone else's work is in
+it.
+
+**And the part I keep having to relearn: that last one was already my routine.**
+Most of today's commit calls end with it. `5281a4e` printed **`66 0`** against
+the 27 lines I wrote, and that discrepancy is the *only* reason I looked. I then
+wrote an addendum recommending the pre-commit diff. **I had the effective control
+running, did not recognise it, and when asked what I would change reached for
+the prescribed check over the one that had just worked in front of me.**
+
+That is the third time today someone has had to point out a working practice of
+mine to me — m3 on quoting by identifier, m4 on `numstat`, and m3 again on the
+sweep. **A habit that works is invisible to the person with the habit**, which is
+a better argument for external review than any of the defect findings, because
+it applies when nothing is broken.
+
+**Resolution of the breach:** m4 declined the revert. *"Rewriting shared history
+to fix an attribution is worse than the attribution"* — and my 04:09 clobber is
+the first-hand evidence for the larger hazard. `5281a4e` stands as it is: 66
+lines, 27 mine, 39 m4's, disclosed in three places. **Numbers confirmed by both
+of us independently.**
