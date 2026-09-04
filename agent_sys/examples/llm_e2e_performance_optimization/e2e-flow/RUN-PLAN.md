@@ -171,6 +171,139 @@ before it costs a node. A `${NAME}` with no default is a load-time fault naming
 the file, the line and the variable, so `show` is the difference between finding
 a missing var in under a second and finding it after a bring-up.
 
+## The rung-3 launch line, as a whole command
+
+Owner: m3, since the stage that becomes real is mine. Same shape as rung 2's
+above and written the same way — a whole command, because the table is a diff
+and a diff cannot be pasted.
+
+**Rung 3 is blocked on a missing brief, not a missing var.** Read *"What has no
+source"* below before holding a node for it; the command is correct and the run
+will not do what the ladder says it does.
+
+### First read the values out of rung 2's record
+
+Every deployment fact rung 3 needs is already written down. **Read it; do not
+carry it from a message** — the leader carried `--var image` between two nodes
+this morning and the two nodes had different images under similar tags.
+
+```sh
+RUN=<the rung-2 run directory under /home/yihou/agent_sys_runroot/runs/>
+cat "$(find "$RUN" -path '*items/codes/environment.yaml' | head -1)"
+```
+
+That file carries **all of it** — measured on `20260904T114914-0a0cdd`:
+
+```yaml
+fixed:   node, node_ip, image, image_id, model_name, model_path,
+         deploy_mode, tp_size, context_length, served_model_name,
+         gpu_arch, gpu_count
+runtime: slurm_jobid, container, transport, ports{router,worker,etcd},
+         endpoint, started_at
+```
+
+### The command
+
+```sh
+python3 -m agent_sys.cli.main run \
+  --package agent_sys/examples/llm_e2e_performance_optimization/e2e-flow \
+  --demo-root /home/yihou/agent_sys_runroot \
+  --var jobid=<runtime.slurm_jobid> \
+  --var node=<fixed.node> --var node_ip=<fixed.node_ip> \
+  --var model_name=<fixed.model_name> \
+  --var model_path=<fixed.model_path> \
+  --var image=<fixed.image> \
+  --var mock_stages=m4,m5 \
+  --var m4_agent=runner --var m5_agent=runner \
+  --var measure_gpu=<a card you just read from rocm-smi> \
+  --var adhoc_cases=0 \
+  --var transport_env=SPUR_CONTROLLER_ADDR=$SPUR_CONTROLLER_ADDR
+```
+
+**Verified to load, and verified to be the rung it claims.** Loading is the
+weaker half: m2's warning is that a command still carrying the promoted stage's
+`_agent` var is the rung below wearing this rung's name, and `show` says which
+it is out loud —
+
+```
+$ … show … --var mock_stages=m4,m5 --var m4_agent=runner --var m5_agent=runner …
+   closure  build_workset: agent 'workset_builder', 3 in, 1 out   <- rung 3
+      done  6 tasks in the graph; nothing was dispatched
+
+$ … show … --var mock_stages=m3,m4,m5 --var m3_agent=runner …
+   closure  build_workset: agent 'runner', 3 in, 1 out            <- still rung 2
+```
+
+Run the first form and grep for `build_workset` before spending the hold. Both
+were run with rung 2's own recorded values, above.
+
+### What is READ from the artefact and what is CHOSEN
+
+| value | source | what happens if you choose it instead |
+|---|---|---|
+| `image` | `fixed.image` | `measure_in_container.sh` reads the record directly — the `--var` reaches m1/m5 only. A wrong tag makes `check_deploy_kit` refuse |
+| `node` | `fixed.node` | `_agree_or_die` **refuses** rather than picking: *"measuring somewhere else makes it evidence about a different machine"* |
+| `jobid` | `runtime.slurm_jobid` | same guard |
+| `transport` | `runtime.transport` | same guard; omit it and the record supplies it |
+| `node_ip`, `port_router` | `fixed.node_ip`, `runtime.ports.router` | disagreement is not caught here — these only address the engine |
+| `tp_size` | `fixed.tp_size` | feeds `expect_ranks` at rung 2. **Omit `expect_ranks` from rung 3**: m2 is real from rung 2 onward, so the capture is sized by the deployment |
+| `gpu_arch`, `image_id`, `model_path` | `fixed.*` | `check_environment` compares these across every handoff in the phase and refuses two different machines |
+
+**The guard is the point of the table.** Three of these do not need discipline
+from the operator, because `_agree_or_die` already refuses a disagreement
+between what you typed and what the record says. The ones with no guard —
+`node_ip`, `port_router` — are the ones to read carefully.
+
+Chosen, and mine: `measure_gpu`, `measure_container` (defaults to
+`yihou_m3_measure_$$` — carries `yihou`, unique per process, **not** a nested
+default), `snr_threshold`, `workset_max_rsd`, `workset_min_pass_ratio`,
+`workset_reverify_shapes`, `min_resolve_ratio`, `workset_id`, `remote_home`.
+
+### What has no source
+
+**1. `measure_gpu`, and it never will have one.** The record says `gpu_count: 8`;
+it does not say which cards are free, and no artefact can — it is a live fact
+about a shared node. `rocm-smi` **immediately before use**, not once at the
+start: a node went 7 free → 0/8 at 97 % in twenty minutes on 2026-09-04. The
+body refuses when it is unset and prints the node's current cards, so the
+failure is loud and one `--var` from fixed. This is m1's T19 and it is a
+declared gap, not an oversight.
+
+**2. `workset_builder` has no brief, and this is what blocks the rung.**
+Verified by reading, not inferred:
+
+- `assets/build_workset.task/readme.md` is the task's instructions, 330 lines,
+  ten STEPS. It contains **zero** occurrences of `measure_in_container.sh`,
+  `E2E_MEASURE_GPU`, `rocm-smi` or `--var measure_gpu`.
+- STEP 7 and STEP 8 say `cd "$WS" && ./run_correctness.sh` and
+  `./run_performance.sh` — **directly, on whatever host the agent is on.** The
+  login and `spur exec` hosts have no torch (measured, above), so STEP 7 fails
+  there; on a host that does have torch it would measure on a card nobody chose.
+- Everything that knows better is on the branch rung 3 turns off:
+  `entry.sh:168` calls `measure_in_container.sh`, which refuses without a card.
+  **A `kind: ai` task never runs `entry.sh`** — the file's own header says so.
+
+So the mock is not a weaker version of the real path here; **it is the only
+version that carries the knowledge.** Promoting m3 removes the container step
+and the card check together, silently, and the first symptom is a torch import
+error or a number measured on someone else's card.
+
+The fix is a brief, not a parameter: STEP 7 and STEP 8 have to say *run these
+through `measure_in_container.sh` on the node*, and the card has to be stated as
+a requirement rather than left to `os.environ`. `agent/runner.py:801` is the
+reason it cannot be left to the env block alone — *"an env var cannot instruct
+an agent. A conversation is not a process reading `os.environ`."* The block
+makes the value **reachable**; only the brief makes it **used**.
+
+### One thing wrong in rung 2's line above, which is not mine to edit
+
+**`--var measure_gpu` is missing from it, and rung 2 needs it.** At rung 2 m3 is
+mocked with `m3_agent=runner`, which runs `entry.sh` — and `entry.sh:168` calls
+`measure_in_container.sh` on the mock path too, because a mock that skipped the
+measurement would leave `check_workset_runs` grading an artefact nothing ever
+ran. The body refuses with `FIX: pass --var measure_gpu=<n>`. Routed to the
+leader rather than edited here.
+
 ## Rung 0 cannot complete on the login node, and that is by design
 
 Measured 2026-09-03: the mock graph runs cleanly through `deploy_kit`, all four

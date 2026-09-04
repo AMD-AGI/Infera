@@ -121,11 +121,20 @@
     # before use remains the only thing that knows.
     # Empty, matching `runner` after `4c97c71`. m4 refused to import a real card
     # as a package default because it makes a consumer's refuse-when-empty guard
-    # unreachable, and that is right. Nothing about this stage changes: the body
-    # still does `: "${E2E_MEASURE_GPU:=4}"` and the colon form substitutes on
-    # empty, so an unset var and an empty one both land on 4. **That fallback is
-    # the residual T19** — my consumer defaults where m4's refuses, so declaring
-    # the variable made the card sayable without making it right.
+    # unreachable, and that is right.
+    #
+    # **This comment used to end by saying the body falls back to card 4** —
+    # `: "${E2E_MEASURE_GPU:=4}"`, so an unset var and an empty one both land on
+    # 4, described as "the residual T19". That stopped being true when
+    # `measure_in_container.sh:142` was changed to refuse: it now prints the
+    # node's live `rocm-smi` and exits 1 with `FIX: pass --var measure_gpu=<n>`.
+    # So there is no residual fallback and this variable is **required** wherever
+    # `build_workset` runs, mock or real. Found 2026-09-04 while writing rung 3's
+    # launch line — `todo.md` T45's class, in my own file, eight hours after
+    # filing it: a comment describing behaviour in another file, gone stale
+    # silently because nothing loads it. The rule I wrote there applies here —
+    # describe the code in front of you, or re-read the file you are describing
+    # at the moment you write the sentence.
     E2E_MEASURE_GPU: '${measure_gpu:-}'
     # **Deliberately empty, and not `runner`'s value if it takes one.** The
     # body's fallback is `yihou_m3_measure_$$`, unique per invocation, which no
