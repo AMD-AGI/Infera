@@ -98,6 +98,26 @@ done <<< "$imgs"
 disk_gb="$(df -BG --output=avail /mnt/m2m_nobackup 2>/dev/null | tail -1 | tr -dc '0-9')"
 root_gb="$(df -BG --output=avail / 2>/dev/null | tail -1 | tr -dc '0-9')"
 
+# --- 3a. is the shared filesystem here, and are the weights on it ------------
+# **The tier the first two do not cover, and it cost a hold to learn.** m5 took
+# `crsuse2-m2m-037` on a SERVABLE verdict and released it again: the node has
+# **no `/shared_nfs` at all**. A servable image cannot tell you the node is
+# missing the filesystem the weights live on — the image is a fact about the
+# node's docker, the mount is a fact about the node.
+#
+# It is also what `require_visible_on_node` needs (`assets/lib/remote.sh:170`):
+# this package runs bodies on the node by absolute path and exchanges files
+# through the zone, so **both hosts must mount the run root**. A node without
+# the shared filesystem fails that three layers from its symptom.
+#
+# Two readings, because they fail separately: the mount can be present while
+# the model path is not, which is the same distinction as image-present versus
+# image-servable one directory over.
+shared_mnt=false; mount 2>/dev/null | grep -q ' /shared_nfs ' && shared_mnt=true
+model_ok=false
+[ -n "${E2E_MODEL_PATH:-}" ] || E2E_MODEL_PATH=/shared_nfs/yihou/models/Qwen3.6-27B
+[ -d "$E2E_MODEL_PATH" ] && model_ok=true
+
 # --- 3b. can this node run OUR container -------------------------------------
 # **There is an authorization plugin on the daemon**, and its refusal names
 # neither docker's usual vocabulary nor the variable at fault:
@@ -149,7 +169,8 @@ tenants="$(d ps --format '{{.Names}}' | head -8 \
                printf '%s(%s);' "$c" "${n:-?}"
              done)"
 
-printf '{"node":"%s","cards_total":%s,"cards_free":%s,"free":"%s","busy":"%s","disk_gb":%s,"root_gb":%s,"mounts":"%s","containers":%s,"tenants":"%s","bases":[%s]}\n' \
+printf '{"node":"%s","cards_total":%s,"cards_free":%s,"free":"%s","busy":"%s","disk_gb":%s,"root_gb":%s,"shared_nfs":%s,"model_path":%s,"mounts":"%s","containers":%s,"tenants":"%s","bases":[%s]}\n' \
   "$HOST" "${ncard:-0}" "${nfree:-0}" "${free_cards}" "${busy_cards}" \
-  "${disk_gb:-0}" "${root_gb:-0}" "${mounts}" "${ncontainers:-0}" "${tenants}" "${anchor_rows}" \
+  "${disk_gb:-0}" "${root_gb:-0}" "${shared_mnt}" "${model_ok}" \
+  "${mounts}" "${ncontainers:-0}" "${tenants}" "${anchor_rows}" \
   >> "$OUT"

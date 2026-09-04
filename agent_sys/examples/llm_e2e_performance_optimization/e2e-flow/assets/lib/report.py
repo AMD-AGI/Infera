@@ -50,6 +50,17 @@ def verdict(r: dict, need: int, need_disk: int, need_root: int) -> tuple[str, st
     # The daemon's authorization plugin, measured on 243. Its refusal names
     # neither docker's usual vocabulary nor the variable at fault, so a node it
     # would reject is worth knowing about before the hold, not during rung 3.
+    # **The tier that cost m5 a hold.** They took 037 on a SERVABLE verdict and
+    # released it: the node has no `/shared_nfs`. A servable image is a fact
+    # about the node's docker; the mount is a fact about the node, and this
+    # package runs bodies on the node by absolute path
+    # (`remote.sh:170 require_visible_on_node`), so a missing shared filesystem
+    # fails three layers from its symptom. Ordered above the image checks
+    # because no image makes up for it.
+    if r.get("shared_nfs") is False:
+        return "NO", "no /shared_nfs on the node — the weights and the run root live there"
+    if r.get("model_path") is False:
+        return "NO", "/shared_nfs is mounted but the model path is not on it"
     if r.get("mounts") == "denied":
         return "NO", "spur-authz refuses this flow's mounts"
     # **`SERVABLE` outranks `BUILDABLE` and the gap is a four-minute build.**
@@ -125,7 +136,7 @@ def main() -> int:
     for n, v, why in table:
         print(f"  {n:<22} {v:<8} {why}")
 
-    for tier, blurb in (("SERVABLE", "brings up as-is — no build; the state 006 and 037 were in"),
+    for tier, blurb in (("SERVABLE", "brings up as-is — no build. 006 was in this state; 037 also was, and was still useless for want of /shared_nfs"),
                         ("BUILDABLE", "free half, disk, and a local base to build from — NOT a servable image"),
                         ("USABLE", "free half and disk — costs one image pull, then a build")):
         got = [n for n, v, _ in table if v == tier]
