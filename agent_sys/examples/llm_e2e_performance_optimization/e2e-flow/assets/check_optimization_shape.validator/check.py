@@ -308,6 +308,15 @@ def _substitution_matches_apply_mode(packup, operator: dict, doc: dict,
     **To arm it:** set `_ENFORCE_SUBSTITUTION_PAIR = True`. Nothing else — the
     precondition that used to sit here is discharged.
 
+    **`False` here means *not yet*, not *abandoned*.** If rung 4 is skipped this
+    round the work does not expire: the moment M5.1.1 is resolved and the
+    workset can no longer declare `call_site_fragment` against an `apply_mode`
+    that cannot serve it, **this stops being a duplicate of m5's refusal and
+    becomes the regression guard that keeps the combination from coming back**.
+    It is off today only because two refusals for one cause, two stages apart,
+    is worse than one — not because the check is doubted. It has been
+    demonstrated firing against a real artefact.
+
     m3's `51af864` widened `module_symbols` to include module-level assignments
     (`logger`, `SGLANG_RETURN_ORIGINAL_LOGPROB`, `SYNC_TOKEN_IDS_ACROSS_TP` in
     `sampler.py`), which is what closes m5's 12 against m3's 9. `declared` below
