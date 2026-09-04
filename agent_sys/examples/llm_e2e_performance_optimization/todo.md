@@ -307,3 +307,52 @@ Until then the layout's `shared_identifiers` comment should say what it does
 **not** cover, because a check that reads as "no identifier is frozen" and means
 "no identifier reaches one of seven flags" is the gap between a claim and a
 measurement that `todo.md` exists to record.
+
+### T19 — a GPU *set* is a bound identifier with no variable, and prose is not a validator
+*Found by m1 on 2026-09-04, composing rung 1 against `crsuse2-m2m-249`.*
+
+Every other identifier this package binds on a shared host has a `--var`:
+container name, three ports, the container workdir. **The GPU set does not.**
+`E2E_TP` is a *count*; the *index* is left entirely to the agent's `rocm-smi`
+read at `deploy_and_prove.task/readme.md` STEP 1, whose criterion is only that
+*"you can say which device index you are taking"*.
+
+The producer brief's own trap list already names the GPU index alongside the
+others — *"container names, host ports, the container workdir and the GPU index
+sit in one namespace with everybody else"* — so the property is agreed and the
+parameter is simply missing.
+
+**Measured on the node this matters on.** GPUs 0–3 hold ~300 GB each with no
+`docker ps` entry behind them (the co-tenant class m1 refused to `kill -9`);
+4–7 are free. An agent that takes the default devices takes 0–3 and OOMs against
+another tenant's work — and the failure surfaces as a bring-up problem, not as a
+placement problem, which is the expensive kind.
+
+**What was done instead, and why it is a workaround rather than a fix:** the
+sentence *"GPUs 0-3 on this node are held by another tenant … take only 4-7"*
+was routed through `--var instruction=`, which is the declared channel for a
+plain-words site fact and the right refusal to change the package mid-rung.
+But **a site fact carried in prose is a site fact nothing validates.** No
+validator can tell that the agent read it, no schema records what was asked, and
+`environment.yaml` has no field that would let `check_deploy_kit` compare the
+devices requested against the devices used.
+
+**Would settle it, cheapest first:**
+
+1. `E2E_GPU_DEVICES` in `shared.yaml`, default empty meaning *"choose freely"*,
+   carrying a `HIP_VISIBLE_DEVICES`-shaped list when the operator knows the
+   answer. This is the same shape as `E2E_DSA_ARGS`'s `none` sentinel: the
+   distinction that must survive is *"the operator said 4-7"* versus *"the
+   operator said nothing"*;
+2. `fixed.gpu_devices` in `environment.schema.json` beside the existing
+   `gpu_count`, written by `env_render.py` from what the bring-up actually used.
+   `gpu_count: 4` today records *how many* and cannot record *which*, so two runs
+   on disjoint halves of one node produce identical records;
+3. with both, `check_deploy_kit` can compare requested against recorded — which
+   is the step that turns this from an instruction into a check.
+
+Note this is the **same shape as T17**: a variable that makes a fact *sayable*
+does nothing to make it *right*, and here there is not even a variable to say it
+with. Verified green on the node before rung 1: `HIP_VISIBLE_DEVICES=4,5,6,7`
+inside the built image yields `torch.cuda.device_count() == 4`, so the mechanism
+works — it is only unparameterised and unchecked.
