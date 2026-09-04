@@ -25,7 +25,9 @@ done
 [ -d "$HANDOFF" ] || { echo "no such directory: $HANDOFF" >&2; exit 1; }
 
 PKG="${AGENT_SYS_TASK_PACKAGE:-${AGENT_SYS_DEMO_PACKAGE:?the runner exports one of these}}"
-PY="${KFO_PYTHON:-python3}"
+# shellcheck source=/dev/null
+. "$(dirname "$0")/_shlib.sh"
+PY=$(kfo_python) || exit 1
 : "${KFO_SCRATCH_ROOT:?must be local disk inside a yihou/ directory}"
 
 # **A fresh directory per run, never a reused one that must be deleted first.**

@@ -31,7 +31,9 @@ done
 : "${KFO_MOCK:=0}"
 : "${KFO_MAX_HOURS:=3.0}"
 
-PY="${KFO_PYTHON:-python3}"
+# shellcheck source=/dev/null
+. "$(dirname "$0")/_shlib.sh"
+PY=$(kfo_python) || exit 1
 WORKSET=$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["workset_root"])' "$INPUTS")
 OPERATOR=$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["operator_id"])' "$INPUTS")
 ONELINE=$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["forge_one_line"] or "")' "$INPUTS")

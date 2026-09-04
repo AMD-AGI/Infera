@@ -43,9 +43,45 @@ in either direction.
 
 ---
 
+## Where these steps run: **inside m1's container**
+
+CONTRACT §5: *"Modules 1–4 share one container on one held node. m1 brings it up
+and records it in `environment.runtime`; m2, m3 and m4 exec into it."*
+
+**This is not a detail you can defer.** There is no host anywhere on this
+cluster with torch — `spur exec <job> python3 -c "import torch"` is
+`ModuleNotFoundError`, measured; only the containers have it. `KFO_PYTHON`
+defaults to `/opt/venv/bin/python3`, which is a path **inside the image**. So a
+step run on the host either dies immediately or, worse, measures nothing useful.
+
+STEPs **3, 4, 5 and 6** need the container: the campaign needs the GPU and the
+ROCm stack, the two measurements need torch, and STEP 6 hashes the stock engine
+file out of the container tree. STEPs 1, 2 and 7 read JSON and run fine either
+side.
+
+Use the wrapper, which reads the container out of the same record every other
+step reads:
+
+```sh
+S="$AGENT_SYS_TASK_PACKAGE/assets/optimize_kernel.task/steps"
+"$S/run_in_container.sh" --workdir "$W" '<the step command>'
+```
+
+It **execs** into the recorded container and never starts or removes one —
+m4 did not create it and CONTRACT §5.2 is absolute about that. It refuses,
+naming the container and listing what *is* running, when the record describes a
+bring-up that is gone. `HIP_VISIBLE_DEVICES` has no default and the wrapper
+refuses without it: this host is shared and cards 0–3 have been a co-tenant's.
+
+**If you are already executing inside the container, run the step directly** —
+the wrapper is for crossing the boundary, not for being past it.
+
+---
+
 ## STEPS
 
-Run these in order. Each is `$AGENT_SYS_TASK_PACKAGE/assets/optimize_kernel.task/steps/<name>`.
+Run these in order. Each is `$AGENT_SYS_TASK_PACKAGE/assets/optimize_kernel.task/steps/<name>`,
+and STEPs 3–6 go through `run_in_container.sh` as above.
 Everything they write goes under `$KFO_SCRATCH_ROOT/<run>/`, which is local disk.
 
 ### STEP 1 — read the inputs and pin the run
