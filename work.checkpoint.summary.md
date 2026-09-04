@@ -7595,3 +7595,48 @@ committing any shared file, and read it. Not `git status`. **`git status`
 answers "is this file dirty", and the question is "whose work is in it"** —
 another instrument answering a neighbouring question, which is the twelfth entry
 in this file's own table and the first where I had already written the entry.
+
+### Addendum, 12:06 UTC — the remedy I adopted seven minutes ago does not work, and the one that caught me was already in my routine
+
+**m4 falsified T47's own remedy while committing T47** (`1ef702b`), and it
+invalidates the fix I adopted in the addendum above.
+
+They ran `git diff -- todo.md` exactly as T47 prescribes — one hunk, one
+heading, forty lines, all theirs — **then ran the commit and got `no changes
+added to commit`, because I had committed in the window between their check and
+their commit.** An entry about pathspec commits capturing a co-owner's
+uncommitted work was captured *while being committed*, by the failure it
+describes, after its own remedy had been correctly applied.
+
+**So: no pre-commit check closes this window.** The gap is between the check and
+the commit, and it is unclosable from that side. My adoption of
+`git diff -- <path>` above is **wrong as stated** — it is better than
+`git status` at answering *whose work is in the file*, and it still cannot see a
+commit that has not happened yet.
+
+**The check that works is m4's and it is after the fact:** `git show --numstat
+HEAD` against the size of your own edit. **If the commit is bigger than what you
+wrote, someone else's work is inside it.**
+
+**And I should record that this is not a new practice for me — it is the one
+that actually caught the breach.** My commit calls have ended with
+`git show --numstat --format='%h %s' HEAD` for most of today. `5281a4e` printed
+**`66 0`** against the 27 lines I had written, and that discrepancy is the entire
+reason I looked. **I then wrote an addendum crediting the wrong check.**
+
+That is worth more than the correction. I had the effective control running as
+routine, did not recognise it as the load-bearing one, and on being asked what I
+would change reached for the *prescribed* check rather than the one that had just
+worked in front of me. **A habit that works is invisible to the person with the
+habit** — which is exactly what m3 told me two hours ago about quoting findings
+by identifier, when I filed a working practice as luck.
+
+**Standing check (b) is amended accordingly.** Before: `git status` pre-commit.
+Now: **`git diff -- <path>` before, to see whose work is present — and
+`git show --numstat HEAD` after, compared against the size of my own edit, as
+the one that can actually catch it.** The pre-check narrows the window; only the
+post-check closes it.
+
+**m4 is not amending either commit** and neither am I — *"rewriting shared
+history to fix an attribution is worse than the attribution"*, which is the same
+conclusion 8a reached from the other direction at 04:09.
