@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from handoff import Manifest, Verdict
+from handoff import Manifest, Verdict, version_dir
 from handoff import verdict as verdict_mod
 from handoff.errors import Malformed
 from task_graph.ids import AgentId, TaskId
@@ -91,7 +91,7 @@ def test_an_empty_list_and_a_missing_file_mean_different_things(
     whitelist mean very different things."*"""
     store, hid = kinded_store
     version = store.put(hid, make_content(tmp_path / "c"), producer=TaskId.new())
-    path = store.root / str(hid) / f"v{version}" / verdict_mod.VERDICT_FILE
+    path = version_dir(store.root, hid, version) / verdict_mod.VERDICT_FILE
 
     assert path.is_file() and store.read_verdicts(hid, version) == []
 
@@ -136,7 +136,7 @@ def test_a_verdict_with_no_agent_round_trips_as_null(kinded_store, tmp_path: Pat
     assert got == unattributed, "the whole record round-trips, not just the field"
 
     raw = yaml.safe_load(
-        (store.root / str(hid) / f"v{version}" / verdict_mod.VERDICT_FILE).read_text()
+        (version_dir(store.root, hid, version) / verdict_mod.VERDICT_FILE).read_text()
     )
     assert raw["verdicts"][0]["agent_id"] is None
     assert "agent_id" in raw["verdicts"][0], (

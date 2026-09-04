@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from env_mgr.fs.domain import DomainKind, DomainRegistry
+from env_mgr.fs.layout import handoff_version_dir
 from env_mgr.grants import input_env, mode_for, output_env, resolve, resolve_all
 from env_mgr.protocols import Mode, UnresolvedGrant
 from task_graph.ids import HandoffId
@@ -44,7 +45,7 @@ def test_a_kind_resolves_to_the_version_this_attempt_has(store: str) -> None:
     # `content/`, **not** `v2/`. Under §4.14 the manifest is the seal, so a
     # version directory granted whole lets its producer publish its own unsealed
     # version. A read grant gets one path because a consumer has nothing to claim.
-    assert granted.path == os.path.join(store, str(task.inputs[0]), "v2", "content")
+    assert granted.path == os.path.join(handoff_version_dir(store, task.inputs[0], 2), "content")
     assert granted.mode is Mode.READ_EXEC
 
 
@@ -157,8 +158,8 @@ def test_resolve_all_flattens_every_grant(tmp_path: Path, store: str) -> None:
     granted = resolve_all(task, execution, ctx)
     assert len(granted) == 3
     assert {g.path for g in granted} == {
-        os.path.join(store, str(a), "v0", "content"),
-        os.path.join(store, str(b), "v0", "content"),
+        os.path.join(handoff_version_dir(store, a, 0), "content"),
+        os.path.join(handoff_version_dir(store, b, 0), "content"),
         "/usr",
     }
 
@@ -351,7 +352,7 @@ def test_an_output_is_exported_under_its_declared_kind(store: str) -> None:
     execution = Execution(attempt=0, output_versions={hid: 0})
 
     assert output_env(task, execution, store) == {
-        "AGENT_SYS_OUTPUT_FACTS": os.path.join(store, str(hid), "v0", "content"),
+        "AGENT_SYS_OUTPUT_FACTS": os.path.join(handoff_version_dir(store, hid, 0), "content"),
     }
 
 
