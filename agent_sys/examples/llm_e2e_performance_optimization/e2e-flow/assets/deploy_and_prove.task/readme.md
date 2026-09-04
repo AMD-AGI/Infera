@@ -236,17 +236,39 @@ capability.
 container that day *including the two whose names were wrong*, and it is the
 right instrument for a program. A person reads the name first.
 
-**Set the CUDA graph ceiling to at least the concurrency this deployment will be
-loaded at, and write down why you chose the number.** The load is **concurrency
-16** (mission M1.2.3.4). Expose it as `${E2E_KIT_CUDA_GRAPH_MAX_BS:=…}` in
-`scripts/env.sh` — it is a contracted parameter, and `check_deploy_kit` refuses a
-kit that binds it with no parameter.
+**Set the CUDA graph ceiling to at least the concurrency the heaviest consumer of
+this kit will load it at, and write down why you chose the number.** Expose it as
+`${E2E_KIT_CUDA_GRAPH_MAX_BS:=…}` in `scripts/env.sh` — it is a contracted
+parameter, and `check_deploy_kit` refuses a kit that binds it with no parameter.
 
-**Criterion:** the ceiling your kit ships is `>= 16`, and `notes.md` states the
-value and the reason. A number with no reason fails this even when the number is
-right, and that is deliberate: four real kits before yours shipped **16, 16, 8
-and 32**, and because not one of them gave a reason, nobody could tell a
-considered 32 from an accidental 8.
+**Your own load is concurrency 16** (mission M1.2.3.4). **That is not the largest
+one.** Corrected 2026-09-04 by the lead after rung 2e, where this brief previously
+said *"the load is concurrency 16"* full stop, and it was true of stage 1 and
+false of the flow:
+
+```
+rung 2e kit ceiling                                       16   (this brief, complied with)
+check_deploy_serves, stage 1's own conc-16 load        PASSED   strong
+stage 2's Mooncake trace replay, decode concurrency    25.42
+check_bench_result                                     REFUSED  strong
+```
+
+Decode exceeded the captured graph on essentially every step and the engine fell
+back to eager — **a measured 4.6x on this cluster, same image, same node.** The
+producer that shipped 16 did exactly what this page asked; the page was scoped to
+a world where the kit was loaded only by the task that made it, which stopped
+being true when the five stages became one graph. See `todo.md` T60.
+
+**Criterion:** the ceiling your kit ships **covers the heaviest load any
+downstream stage will apply**, and `notes.md` states the value, the reason, and
+**which consumer's load the number is sized for**. A number with no reason fails
+this even when the number is right, and that is deliberate: four real kits before
+yours shipped **16, 16, 8 and 32**, and because not one of them gave a reason,
+nobody could tell a considered 32 from an accidental 8.
+
+**Do not read this as "ship 32".** 25.42 is one trace on one day; a constant
+chosen to clear it is the same mistake this correction is repairing, one size
+larger. State what your number covers.
 
 **Why this criterion exists, measured 2026-09-04.** Two runs whose every recorded
 variable was equal — same node, same image id, same model, same `tp_size`, same
