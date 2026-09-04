@@ -6671,3 +6671,172 @@ Both stand. Neither was in either opening position. **That is the second time
 today a disagreement between two owners produced a finding that neither
 investigation would have reached alone** — the first was m5 refusing the leader's
 null-overlay design.
+
+## T+1294 — 2026-09-04 11:04 UTC
+
+### The third tool was checked, and it was worse than the two that had already failed
+
+m3 attacked the process-liveness check and **made it lie four ways, measured
+against live runs rather than reasoned about.** I verified the worst one myself
+and then attacked their proposed replacement, which is what they asked for.
+
+**Finding 1, a FALSE NEGATIVE in the direction I had named as never tested.**
+`/home/yihou/miniconda3/bin/agent-sys` exists — 176 bytes,
+`#!/home/yihou/miniconda3/bin/python3.14`, `from cli.main import main`. A
+console-script run's process line is `python3.14 …/bin/agent-sys run …` with
+**no `agent_sys.cli.main` in it**. My line scores **0** against that shape,
+verified independently. **Both launch forms are in live use** — `CLAUDE.md`
+writes `agent-sys run`, `CONTRACT.md` §9 writes `python3 -m agent_sys.cli.main` —
+and my check sees one. A run launched the documented way reads as *no process*,
+which my three-state framework renders as **"stopped"**: the opposite of my
+T+1062 error and worse, because *stopped* is the state I escalate on.
+
+**Finding 2, a false positive from routine tooling.** `show` dispatches nothing
+and takes a second, and it matches. m3 runs it after every edit — **dozens of
+windows a day in which my poll reports a run that is not a run.**
+
+**Finding 3, one run is three lines.** `zsh -c` → `timeout 7200` → `python3`, all
+three matching, because a wrapper's command line contains the run's verbatim.
+
+**Findings 5 and 6 removed two worries I was carrying:** re-parenting does *not*
+affect `etime` (it is computed from start time), and `ps` truncates only to a
+tty, not through a pipe — a 1339-character line came through intact. But `etime`
+on a *wrapper* line is the **shell's** age, so reading the first match can
+overstate a run's age by however long that shell had been idle.
+
+**I attacked their replacement and it keeps 5 of 6 shapes where it should keep
+3.** Both of its exclusions miss: `(timeout|/bin/|/usr/bin/)?(ba|z|d)?sh\b`
+needs a shell token after the optional `timeout`, and `timeout 7200 python3` has
+none; and the launcher here is `/home/yihou/miniconda3/bin/zsh`, which is neither
+`/bin/` nor `/usr/bin/`. **So their line fixes findings 1 and 2 and leaves 3
+untouched** — which is their own point applied to their own fix: *a wrapper's
+command line contains the run's verbatim, so no textual exclusion can separate
+them.*
+
+**The fix that does work is structural, not textual: keep a matching pid only if
+it is not the ppid of another matching pid.** It never reads command text, so
+wrapper wording cannot fool it. Composed with m3's two fixes and their wording
+point, verified live:
+
+```
+run pid=267995 etime=58:15 root=/home/yihou/agent_sys_runroot
+control (a token nothing runs): 0
+```
+
+**m3's wording point is the half that mattered most** and I have adopted it:
+*"a process for run-root X was present at HH:MM:SS"* is the claim my three-state
+reading actually needs. `--demo-root` is in every launch line, so identity was
+free the whole time and I never asked for it. `etime` now comes from the leaf,
+which closes their finding 5.
+
+**What still is not fixed:** `grep -v grep` filters **by content** (m2), so a
+genuine run whose command line contained "grep" is silently dropped. The leaf
+rule does not touch that; a `/proc/<pid>/cwd` reading would. **Not shipping until
+I can test it against two concurrent runs**, which existed an hour ago.
+
+**And the sentence I am keeping is m3's:** *"The tool is not broken; its claim is
+wider than its evidence."* That is a better statement of the whole class than
+anything I had, and it is the same defect as the validators-stdout record.
+
+**Three of three tools have now been found wrong by someone else.** The tally
+read one root when there were two; `read_events.py` printed `message` and hid
+`seal_refused`; this one is blind to the documented launch form. **None of the
+three was found by me.** I attacked the tally myself this morning and it passed —
+and m3's finding 2 is the same shape as my collision test excluding
+`check_worklist_shape`: **each of us tested the space we could picture.**
+
+### The number that matters
+
+| | runs | invocations | judgements | **distinct** |
+|---|---|---|---|---|
+| frozen (`ro`, re-verified this interval) | 38 | 231 | 255 | 10 |
+| live | 26 | 358 | 406 | 14 |
+| **union at 11:04** | **64** | **589** | **661** | **14** |
+
+**Fourth interval flat at 14.** Deltas underneath, per the standing rule:
+
+| validator | 10:55 | 11:04 |
+|---|---|---|
+| `check_optimization_shape` | 5 / 3 | **6 / 4** |
+| `check_speedup_substantiated` | 5 / 0 | 6 / **0** |
+| `check_workset_runs` | 11 / 5 | 12 / 6 |
+| `check_workset_shape` | 11 / 9 | 12 / 10 |
+
+**One run present at 11:04**, root `/home/yihou/agent_sys_runroot`, by the new
+leaf reading. Frozen-root constants **re-verified**, mount still `ro`.
+
+### Standing checks
+
+| check | result |
+|---|---|
+| (a) index leak | clean |
+| (b0) pre-commit `git status` on this file | clean |
+| (b) per-commit ownership | clean across 1 |
+| (c) `todo.md` | 39 items |
+| holds | three: 006, 217, 047 — none lost since 06:47 |
+| `/home` | 1.6 T free (85 %) |
+| frozen constants | **re-verified**, `ro` |
+
+### 1. Progress
+
+**~78 %, held.** Elapsed 1 294 m. Distinct flat for a fourth interval;
+m5 unreached. Reliability **low→moderate**, held — I am not lowering it for the
+tool findings, because none of them changed a *number* in this file: the tally
+and `read_events` did, this one governs a state word ("stopped"/"growing") that
+has been corroborated by artefact motion every time I published it.
+**预估耗时: no number.**
+
+### 2. Current state
+
+One commit: `ea9e857`, m5 — **make the pre-registration auditable, and say the
+ids were added afterwards.** That closes my T+1210 open question, and it closes
+it the honest way: rather than assert the ordering, they recorded that the run
+ids were added after the fact. **A pre-registration that admits which parts were
+retrofitted is worth more than one that does not distinguish.**
+
+### 3. Code problems
+
+- **OPEN — my liveness check**: findings 1–4 above, fix designed and tested,
+  `grep -v grep` residue unresolved.
+- **OPEN — `check_speedup_substantiated`**, 0 of 6.
+
+### 4. Non-code problems
+
+Three holds, none lost since 06:47 — five intervals. Two `keep3` jobs pending.
+
+### 5. Open questions
+
+The seven m5 validators; `check_speedup_substantiated`; M5.1.1; the
+`grep -v grep` false-negative; why holds are cancelled.
+
+### 6. New commits
+
+**1 since `1a9286a`.** `ea9e857` m5 — make the pre-registration auditable, and
+say the ids were added afterwards. Plus my own `1a9286a` (the orphan retraction).
+
+### 7. Anything else
+
+**In ninety minutes, four owners' reviews landed on three of my tools and every
+one of them found something I had not.** m2 on `read_events.py`; m2 again on the
+liveness self-match; m3 on the liveness check, four ways; and m2's control that
+retracted my own false alarm. **I attacked one tool myself in the same window and
+it passed.**
+
+That asymmetry is the finding, and it is not about competence. **Each of us
+tested the space we could picture.** m3 found `show` because they run it dozens
+of times a day and I never do. I found the leaf rule by attacking their line
+rather than mine. m2 found the self-match by testing a form they had rebuilt from
+my description — which was also *their* error, and produced a true finding
+anyway. **The unit that works is the pair, and it has now produced four findings
+that neither party held at the start.**
+
+**Against that, my own self-attack this morning is the control.** It was
+thorough — signature collisions, misclassification, dropped verdicts, stale
+constants — and it passed, and its first version had **excluded the validator
+most likely to fail it**. A self-attack tests the failures you can imagine. It is
+worth doing and it is not evidence.
+
+**So the procedural change I am making is not "check my tools" — I did that.**
+It is: **a tool of mine is not verified until someone who did not write it has
+tried to break it.** Three of three have now failed that test after passing
+mine.
