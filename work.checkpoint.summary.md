@@ -4843,3 +4843,82 @@ false. Both were found by opening one more artefact than the claim required —
 the `args.json` beside the verdict, the event store beside the tally. **The
 green number is the one to distrust**, because nothing downstream of it argues
 back.
+
+### Addendum 3, 06:10 UTC — the eleven seconds, and where the fifty-one minutes actually went
+
+The leader corrected their own `build_workset` attribution and it lands on a
+sentence of mine. I read the full event timeline rather than either account.
+**Both of us were partly wrong, and the correct picture is better than either.**
+
+**My error first.** Addendum 2 says:
+
+> It ran for **51 minutes**, 04:17:42 → 05:08:56 — not the 20-second stall I have
+> been attributing every `build_workset` stop to.
+
+The 51 minutes is the **run**. It is not `build_workset`'s. I used a run-level
+duration to reason about a closure-level event, which is the same shape as the
+`args.json` key-signature error two addenda ago: **an aggregate read as though it
+described the specific thing inside it.** My conclusion — *not the stall
+detector* — survives, but the argument I gave for it was wrong, and the right
+argument is stronger.
+
+**The measured timeline**, `store/event/`, all 34 events sorted:
+
+| time (UTC) | task | event |
+|---|---|---|
+| 04:17:44.499 | `2ce9a753` | INPUT_VALIDATING finished |
+| **04:58:16.025** | `2ce9a753` | **RUNNING finished — 40 m 32 s** |
+| 05:07:08.250 | `2ce9a753` | OUTPUT_VALIDATING finished — **8 m 52 s** |
+| 05:07:18 … 05:08:45 | five tasks | run + validate, 3–24 s each |
+| **05:08:45.912** | `8f670625` | **INPUT_VALIDATING finished** |
+| **05:08:56.746** | ×3 tasks | **`output_absent`** — `6c5b43da` never delivered |
+| 05:08:56.762–.821 | ×4 | `escalated` — nothing to push |
+
+**`8f670625` is `build_workset`** — it is `operator_workset`'s
+`producer_task_id`, and it is the one task in the run with **no validator zones
+at all**, because it never produced an output to validate.
+
+**So: 10.83 seconds, not 51 minutes.** The leader's "eleven seconds" is right; I
+would refine only the verb — the event is `INPUT_VALIDATING finished`, so what is
+measured is *cleared input validation → declared absent*. **No `RUNNING`
+`phase_done` was ever recorded for it.** And 10.83 s is **under** the 20-second
+threshold, so the stall detector cannot have fired. That is the argument
+addendum 2 should have made.
+
+**Where the 51 minutes went, and this is the part nobody had.** One closure:
+**`2ce9a753`, which is `deploy_and_prove`** — identified not by assumption but
+because its validator zones are exactly `check_deploy_kit`,
+`check_environment`, `check_deploy_serves`, m1's three and nobody else's. It ran
+**40 m 32 s**, then spent **8 m 52 s in output validation** — consistent with
+`check_deploy_serves` redeploying the kit under a fresh tag, band and work root,
+which is the thing rung 0 could not test. **Everything after it took 100
+seconds.** The run is not "51 minutes of graph"; it is a 49-minute real
+deployment followed by a 100-second mock cascade that fell over at the first
+closure past it.
+
+**Two smaller facts worth keeping.** `output_absent` fired on **three** tasks —
+the leaf `8f670625` and two ancestors, `02a2b2a7` and `ccf85840` — so the missing
+output propagated correctly up the graph. And **all four escalations found no
+recipient**: one *"the executor is a program body: there is no agent to
+instruct"*, three *"the attempt holds no executor: it is not in its main
+phase"*. The propagation worked and the notification had nowhere to land.
+
+**Status, in the labels §3 adopts from here on:**
+
+- **OPEN** — why `build_workset` produced no `RUNNING` event in 10.8 s. Owner
+  m3, who has the zone. Distinguishable from the stall detector now, which it
+  was not this morning.
+- **OPEN** — the escalation path having no recipient when a program-body task
+  fails to deliver. Framework-level; belongs beside T14 and the discarded-stdout
+  record.
+- **FIXED (by measurement, not by change)** — the merged attribution. Rung 0's
+  stop was the detector and said so in its log; rung 1's was not. Two failures at
+  one closure, and they are now separated in the record.
+
+**The pattern, once, because it is the third instance today from the same
+family.** A key signature carries names but not membership. A run duration
+carries elapsed time but not which closure spent it. A green count carries
+verdicts but not completion. **Each time the aggregate was true and I read a
+specific claim out of it** — and each time the correction cost one more artefact:
+the yaml beside the signature, the event store beside the tally, the per-task
+timeline beside the run.
