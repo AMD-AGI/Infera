@@ -235,6 +235,18 @@ def main() -> int:
         "verdict": {"held": not aborted, "aborted_on": aborted, "warnings": []},
     }
 
+    # **No baseline report means no honest value for `evidence.performance.
+    # measured`.** The alternative is the sealed run's numbers, which is the
+    # answer rung 0 already refused, so this stops here instead.
+    if not baseline:
+        lib.die(
+            "the workset carries no usable performance report for "
+            f"{operator_id}, so there is no measurement made on THIS host to put in "
+            "evidence.performance.measured. Falling back to the sealed 2026-09-02 numbers is "
+            "what rung 0 refused at -17.5% across three cases; a mock that cannot state an "
+            "honest measurement should not state one"
+        )
+
     # --- the document -------------------------------------------------------
     #
     # The sealed run's measurements, read out of the artefact it already
@@ -249,6 +261,8 @@ def main() -> int:
     if (packup / "results" / "forge_result.json").is_file():
         forge_result = lib.load_json(packup / "results" / "forge_result.json")
 
+    # Kept for the notes and for `correctness`, NOT for `evidence.performance.
+    # measured` -- see the comment there. These are 2026-09-02 numbers.
     measured = {k: float(v) for k, v in (verification.get("baseline_median_ms") or {}).items()}
     target = operator.get("edit_target") or {}
     kernel = packup / "results" / "optimized_kernel.py"
@@ -334,9 +348,40 @@ def main() -> int:
                     "report": str(baseline_rel),
                     "per_case_ms": baseline,
                 },
+                # **`measured` means "on this host, now" — so it cannot be the
+                # sealed run's numbers, and it was.**
+                #
+                # This read `"per_case_ms": measured or baseline` with `measured`
+                # taken from the 2026-09-02 `verification.json`, i.e. a different
+                # machine, image and container on a different day. rung 0 refused
+                # it on 2026-09-04, correctly and by a margin that gave the game
+                # away: **-17.7 %, -17.1 %, -17.5 % across three cases**, three
+                # digits of agreement between them. Noise does not do that; two
+                # different worlds do.
+                #
+                # The schema is explicit — *"What `results/optimized_kernel.py`
+                # timed at, on this host, now"* — so this slot may not be filled
+                # from an artefact, and the check is not too strict: as
+                # constructed the mock could never have passed it, because the
+                # artefact was asserting a measurement nobody made here.
+                #
+                # **The workset's own baseline report is the honest value**, and
+                # it was sitting beside the wrong one the whole time. It was
+                # measured by m3 in *this* run on *this* node minutes earlier,
+                # under the same protocol, and in mock mode
+                # `results/optimized_kernel.py` is the workset's baseline source
+                # **verbatim** (`30_run_forge.sh` seeds it from the Definition's
+                # `baseline`, refusing if it is not there). So it is a real
+                # measurement of exactly this source on this host in this run.
+                #
+                # **What it is not is a measurement m4 made**, and the note below
+                # says so rather than letting the report path imply a campaign.
+                # Empty is refused rather than silently falling back: no baseline
+                # report means there is no honest number for this field, and the
+                # sealed one is the answer that has already been wrong once.
                 "measured": {
-                    "report": "results/verification.json",
-                    "per_case_ms": measured or baseline,
+                    "report": lib.BASELINE_REPORT,
+                    "per_case_ms": baseline,
                 },
             },
             # `mock: true` regardless of `--premise`: the sealed run was one,
@@ -369,6 +414,15 @@ def main() -> int:
                 + " so the sealed markdown survives `handoff.locality.check`; no number, path or "
                 "claim changed. See `_reseat_quotes`."
                 if reseated else ""
+            )
+            + (
+                " evidence.performance.measured carries the WORKSET's own baseline report, "
+                "measured by m3 in this run on this node, because in mock mode "
+                "results/optimized_kernel.py IS that baseline source verbatim and no campaign "
+                "was run. It is a real measurement of exactly this source on this host; it is "
+                "NOT a measurement m4 made. It used to carry the sealed 2026-09-02 numbers, "
+                "which rung 0 refused at -17.5% across three cases on 2026-09-04 -- different "
+                "machine, different day."
             )
             + (
                 f" A `run(*args, **kwargs)` entry point delegating to `{impl_entry}` was appended "
