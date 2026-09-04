@@ -166,26 +166,11 @@ CONTAINER=$(_field runtime.container)
 # Only the far side can print `E2E_STATE=`, so its presence is what separates
 # "the node answered" from "nothing was asked".
 CSTATE="$(on "docker inspect -f 'E2E_STATE={{.State.Running}} E2E_ID={{.Id}} E2E_CREATED={{.Created}} E2E_STARTED={{.State.StartedAt}} E2E_RESTARTS={{.RestartCount}} E2E_ENV={{json .Config.Env}}' '$CONTAINER' 2>/dev/null || echo E2E_STATE=absent" 2>/dev/null)" || true
+RECORD_CONTAINER_UP=1
 case "$CSTATE" in
   *E2E_STATE=true*) ;;
   *E2E_STATE=*)
-    echo "run_in_container: the record names container" >&2
-    echo "    $CONTAINER" >&2
-    echo "  and ${E2E_NODE:-the node} answered that it is not running there. Modules 1-4 share" >&2
-    echo "  ONE container and m1 owns its lifetime; m4 does not start one (CONTRACT section 5)." >&2
-    echo "  Containers that ARE running there:" >&2
-    # **`>&2` BEFORE `2>/dev/null`, and the other order silently emptied this
-    # list.** Redirections apply left to right, so `2>/dev/null >&2` points fd2
-    # at /dev/null and then duplicates it into fd1 — the listing goes to
-    # /dev/null and the diagnostic prints a blank where the containers should
-    # be, which reads as "there are none". Caught 2026-09-04 by the stubkit's
-    # falsification run: the wrapper correctly refused a container that did not
-    # exist and reported an empty node, while `yihou_m4_standalone_20260904` was
-    # up on it. Exactly the failure this whole file keeps re-learning — an empty
-    # result and a discarded one are indistinguishable to the reader.
-    on "docker ps --format '    {{.Names}}   {{.Image}}'" >&2 2>/dev/null || true
-    echo "  Either m1's bring-up has not run for this record, or it has been torn down." >&2
-    exit 1
+    RECORD_CONTAINER_UP=0
     ;;
   *)
     echo "run_in_container: could not reach ${E2E_NODE:-the node}, so NOTHING was learned" >&2
@@ -197,6 +182,55 @@ case "$CSTATE" in
     exit 2
     ;;
 esac
+
+# **When the record's container is not up, measure in an ephemeral one of our
+# own — and say so in the artefact.**
+#
+# Until 2026-09-04 this refused, on CONTRACT §5: *m1 owns the container's
+# lifetime; m4 execs into it.* Obeying that exactly is what stopped rung 0 —
+# **in a mock chain nobody brings the deployment up**, so the container the
+# record names has never existed, and a check that can only run after a real
+# deployment cannot be part of the mock e2e, which is the deliverable. The
+# leader ruled §5 conflates two things and is amending it: *the deployment*,
+# whose lifetime is m1's, and *the measurement apparatus*, which belongs to
+# whoever measures and is gone when they finish.
+#
+# m3 hit this first and their shape is copied rather than re-derived
+# (`build_workset.task/measure_in_container.sh:156`): self-named, `--rm`,
+# started from the image the record names, torn down in a trap, and **never a
+# name we did not create** — `STARTED` gates the teardown so a caller who points
+# `KFO_MEASURE_CONTAINER` at an existing name cannot have it removed by us.
+#
+# **The two are not interchangeable and the report must not let a reader guess.**
+# A speedup measured inside the live deployment and one measured in a fresh
+# container off the same image are different claims — the first carries the
+# engine's actual state, the second only the image's. Which was used is printed
+# and written into `observed_runtime.json` as `mode`.
+MODE=record
+if [ "$RECORD_CONTAINER_UP" = 0 ]; then
+  MODE=ephemeral
+  IMAGE="$(_field fixed.image)"
+  [ -n "$IMAGE" ] || {
+    echo "run_in_container: the record's container '$CONTAINER' is not running on" >&2
+    echo "  ${E2E_NODE:-the node}, and the record names no fixed.image to fall back to." >&2
+    echo "  Containers that ARE running there:" >&2
+    PS_OUT="$(on "docker ps --format '{{.Names}}   {{.Image}}'" 2>/dev/null)" || PS_OUT=""
+    # **Print `none` rather than nothing.** An empty line here is
+    # indistinguishable from a listing that failed, and the sentence that
+    # follows is a conclusion the reader draws from *seeing* what is there.
+    # Same class as `f103fe0`, where a redirection order emptied this list.
+    if [ -n "$PS_OUT" ]; then printf '%s\n' "$PS_OUT" | sed 's/^/    /' >&2
+    else echo "    none (the node answered; there are no containers running)" >&2; fi
+    exit 1
+  }
+  : "${KFO_MEASURE_CONTAINER:=yihou_m4_measure_$$}"
+  echo "run_in_container: the record's container '$CONTAINER' is not running." >&2
+  echo "  Measuring in an ephemeral container of my own, '$KFO_MEASURE_CONTAINER'," >&2
+  echo "  from the image the record names: $IMAGE" >&2
+  echo "  This carries the IMAGE's state, not the deployment's. The handoff records" >&2
+  echo "  mode=ephemeral so no reader has to infer which of the two produced the number." >&2
+  CONTAINER="$KFO_MEASURE_CONTAINER"
+fi
 
 # **What the record claims and what is on the node are two different facts, and
 # the join between them was unchecked.** m1 found the case on 2026-09-04: their
@@ -215,7 +249,22 @@ esac
 # work identifies itself. Printed rather than folded into the handoff, because
 # `run_environment`'s reader is the premise gate and changing what that field
 # means is a contract decision, not a wrapper's.
-echo "run_in_container: observed $(printf '%s' "$CSTATE" | tr ' ' '\n' | grep -E '^E2E_(ID|CREATED|STARTED|RESTARTS)=' | tr '\n' ' ')" >&2
+# Only in `record` mode is there anything to compare: `CSTATE` describes the
+# container the record names, and in `ephemeral` mode that container does not
+# exist, so every field below would be empty. **An empty observation printed
+# beside a claim reads as an observation that matched**, which is the one thing
+# `observed_runtime` exists to prevent.
+#
+# Written as `if` rather than `[ … ] && echo` for readability only. **I first
+# claimed that shape was what aborted the ephemeral run; it was not** — bash
+# does not apply `set -e` to a non-final command in an `&&` list, and two
+# pre-existing lines in this file rely on that. The abort was `grep` exiting 1
+# under `pipefail`, twenty lines down. Left corrected rather than deleted,
+# because a plausible wrong cause recorded as fact is how the next reader
+# "fixes" the wrong line.
+if [ "$MODE" = record ]; then
+  echo "run_in_container: observed $(printf '%s' "$CSTATE" | tr ' ' '\n' | grep -E '^E2E_(ID|CREATED|STARTED|RESTARTS)=' | tr '\n' ' ')" >&2
+fi
 echo "run_in_container: record claims started_at=$(_field runtime.started_at)" >&2
 
 # **The card this exec asks for must be one the container was actually given.**
@@ -277,8 +326,16 @@ echo "run_in_container: record claims started_at=$(_field runtime.started_at)" >
 #
 # Found only because the case was fabricated; no container in this cluster
 # happens to carry such a variable, so nothing would have surfaced it in use.
+# **`|| true` because `grep` exits 1 on no match and `pipefail` is on.** With no
+# pin in the env — every ephemeral container, and every unpinned one — this
+# pipeline legitimately finds nothing, `grep` reports that as failure, and
+# `set -euo pipefail` then killed the whole script *at this assignment*. The
+# symptom was the wrapper announcing the ephemeral fallback and exiting 1 with
+# no message, which reads as the fallback failing rather than as a successful
+# search for something absent. Found by `bash -x`; my first guess was a
+# different line and was wrong.
 CPIN_ALL="$(printf '%s' "$CSTATE" | sed -n 's/.*E2E_ENV=//p' \
-  | grep -o '"HIP_VISIBLE_DEVICES=[^"]*' | head -1 | sed 's/^"HIP_VISIBLE_DEVICES=//')"
+  | grep -o '"HIP_VISIBLE_DEVICES=[^"]*' | head -1 | sed 's/^"HIP_VISIBLE_DEVICES=//' || true)"
 if [ -n "$CPIN_ALL" ]; then
   case ",$CPIN_ALL," in
     *",$HIP_VISIBLE_DEVICES,"*) ;;
@@ -304,21 +361,43 @@ fi
 # log lines. A field that silently changed meaning would be worse than one that
 # is honestly narrow.
 #
-# `KFO_SCRATCH_ROOT` because it is the one directory this wrapper already owns
-# and already reclaims below. Absent, the observation is logged and not
-# recorded, which is the pre-existing behaviour rather than a failure: a body
-# that does not declare a scratch root has nowhere for this to live and should
-# not have one invented for it.
-if [ -n "${KFO_SCRATCH_ROOT:-}" ]; then
-  mkdir -p "$KFO_SCRATCH_ROOT" 2>/dev/null || true
+# **The destination has to be writable from HERE, and `KFO_SCRATCH_ROOT` is
+# not.** This wrote to `$KFO_SCRATCH_ROOT/observed_runtime.json` with the mkdir
+# swallowed by `|| true` — and that root is node-local
+# (`/mnt/m2m_nobackup/...`), so on the login node where every caller of this
+# script actually runs, the mkdir failed, the write failed, and **both failures
+# were silent**. The same locality mistake `e747653` fixed one layer up, still
+# sitting here. An observation nobody can read is not a record.
+#
+# `KFO_OBSERVED_RUNTIME` names the file outright, and the caller picks somewhere
+# it can read back — the validator uses its zone. The old spelling stays as a
+# fallback but is now *tested* for writability instead of assumed, and says so
+# when it is not.
+OBSERVED="${KFO_OBSERVED_RUNTIME:-}"
+if [ -z "$OBSERVED" ] && [ -n "${KFO_SCRATCH_ROOT:-}" ]; then
+  if mkdir -p "$KFO_SCRATCH_ROOT" 2>/dev/null; then
+    OBSERVED="$KFO_SCRATCH_ROOT/observed_runtime.json"
+  else
+    echo "run_in_container: cannot record the container observation under" >&2
+    echo "  KFO_SCRATCH_ROOT=$KFO_SCRATCH_ROOT (not writable from this host; it is" >&2
+    echo "  node-local). Pass KFO_OBSERVED_RUNTIME=<a path this host can write>." >&2
+  fi
+fi
+if [ -n "$OBSERVED" ]; then
+  mkdir -p "$(dirname "$OBSERVED")" 2>/dev/null || true
   _get() { printf '%s' "$CSTATE" | tr ' ' '\n' | sed -n "s/^$1=//p" | head -1; }
-  cat > "$KFO_SCRATCH_ROOT/observed_runtime.json" <<JSON || true
+  cat > "$OBSERVED" <<JSON || true
 {
+  "mode": "$MODE",
+  "_mode_means": "record = measured inside the container the deploy_kit names, carrying the deployment's own engine state. ephemeral = that container was not running, so this measured in a throwaway started from the image the record names, which carries the IMAGE's state and not the deployment's. They are different claims.",
   "container": "$CONTAINER",
+$([ "$MODE" = record ] && cat <<REC
   "container_id": "$(_get E2E_ID)",
   "created": "$(_get E2E_CREATED)",
   "started_at": "$(_get E2E_STARTED)",
   "restart_count": "$(_get E2E_RESTARTS)",
+REC
+)
   "node": "${E2E_NODE:-}",
   "gpu_pin": "$CPIN_ALL",
   "gpu_used": "$HIP_VISIBLE_DEVICES",
@@ -383,7 +462,10 @@ EXEC_ENV="$EXEC_ENV -e KFO_PYTHON=$(_sq "${KFO_PYTHON:-/opt/venv/bin/python3}")"
 WORKDIR_ARG=""
 [ -n "$WORKDIR" ] && WORKDIR_ARG="-w $(_sq "$WORKDIR")"
 
-echo "run_in_container: exec into $CONTAINER on ${E2E_NODE:-the node}, GPU $HIP_VISIBLE_DEVICES" >&2
+# Name the verb, because the two are different actions on different
+# containers and this line is what a transcript reader anchors on.
+if [ "$MODE" = record ]; then _VERB="exec into"; else _VERB="run a throwaway"; fi
+echo "run_in_container: $_VERB $CONTAINER on ${E2E_NODE:-the node}, GPU $HIP_VISIBLE_DEVICES" >&2
 echo "run_in_container: the next line comes from inside the container" >&2
 
 # **Create the scratch roots on the far side, because only the far side can.**
@@ -410,15 +492,57 @@ done
 [ -n "$MKSCRATCH" ] && COMMAND="$MKSCRATCH $COMMAND"
 
 rc=0
-# shellcheck disable=SC2086
-on "docker exec $EXEC_ENV $WORKDIR_ARG $(_sq "$CONTAINER") bash -lc $(_sq "$COMMAND")" || rc=$?
+if [ "$MODE" = record ]; then
+  # shellcheck disable=SC2086
+  on "docker exec $EXEC_ENV $WORKDIR_ARG $(_sq "$CONTAINER") bash -lc $(_sq "$COMMAND")" || rc=$?
+else
+  # **`STARTED` gates the teardown, and that is m3's rule, not a nicety.** A
+  # caller who points `KFO_MEASURE_CONTAINER` at a name that already exists must
+  # not have it removed by us: this only ever tears down a container it started
+  # itself, which is the file-wide rule *never `docker rm -f` something you did
+  # not create* expressed in a lifecycle.
+  #
+  # `--rm` and the trap are both here because they cover different failures:
+  # `--rm` handles the normal return, the trap handles being killed mid-measure.
+  # The trap **reclaims before removing** — `reclaim.sh` works by `docker exec`
+  # into a *running* container, so the other order leaves no window at all, and
+  # m3 records that getting this backwards is what left root-owned evidence in
+  # every workset the stage produced.
+  #
+  # The mounts are the three identity forms m1's `runtime_contract`
+  # (`a32f06d`) records the daemon accepting, and identity-mapped for the reason
+  # `_remeasure` needs: the apparatus path is computed on this host and handed
+  # to a shell inside the container, so the two must agree.
+  STARTED=0
+  _teardown() {
+    trap - EXIT HUP INT TERM   # disarm: a signal fires the handler and then EXIT
+    [ "$STARTED" = 1 ] || return 0
+    on "sh '$PKG/assets/lib/reclaim.sh' '$CONTAINER' '$(dirname "${OBSERVED:-/tmp}")'" || true
+    on "docker rm -f '$CONTAINER' >/dev/null 2>&1 || true" || true
+  }
+  trap _teardown EXIT HUP INT TERM
+
+  MOUNTS=""
+  for m in /shared_nfs "$HOME" "${KFO_SCRATCH_ROOT:-}"; do
+    [ -n "$m" ] && MOUNTS="$MOUNTS -v $(_sq "$m:$m")"
+  done
+  STARTED=1
+  # shellcheck disable=SC2086
+  on "docker run --rm --name $(_sq "$CONTAINER") \
+        --device /dev/kfd --device /dev/dri --group-add video \
+        --ipc=host --shm-size 16g --security-opt seccomp=unconfined \
+        $MOUNTS $EXEC_ENV $WORKDIR_ARG $(_sq "$IMAGE") bash -lc $(_sq "$COMMAND")" || rc=$?
+  _teardown
+fi
 
 # CONTRACT section 5.0, in a `finally`: idempotent, and a no-op when there is
 # nothing root-owned, so this does not decide first whether it will be needed.
-if [ -n "${AGENT_SYS_OUTPUT_KERNEL_OPTIMIZATION:-}" ]; then
+# Only meaningful in `record` mode — an ephemeral container is gone by now, and
+# its payload handed the files back before it exited.
+if [ "$MODE" = record ] && [ -n "${AGENT_SYS_OUTPUT_KERNEL_OPTIMIZATION:-}" ]; then
   sh "$PKG/assets/lib/reclaim.sh" "$CONTAINER" "$AGENT_SYS_OUTPUT_KERNEL_OPTIMIZATION" 2>/dev/null || true
 fi
-[ -n "${KFO_SCRATCH_ROOT:-}" ] && \
+[ "$MODE" = record ] && [ -n "${KFO_SCRATCH_ROOT:-}" ] && \
   sh "$PKG/assets/lib/reclaim.sh" "$CONTAINER" "$KFO_SCRATCH_ROOT" 2>/dev/null || true
 
 exit "$rc"

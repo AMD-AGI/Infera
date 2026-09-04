@@ -829,9 +829,20 @@ def _remeasure(
         # `import torch` in *this* process's world — the zone — which is not
         # where the measurement happens. Probing the zone to decide whether the
         # container can measure is testing the environment instead of the thing.
-        notes.append(f"re-measuring inside the container the record names, via {wrapper.name}")
+        notes.append(f"re-measuring in a container on the node, via {wrapper.name}")
         env = _transport_env(args, card)
         env["AGENT_SYS_INPUT_DEPLOY_KIT"] = str(record.parent.parent.parent)
+        # **Which container produced the number is part of the number.** The
+        # wrapper prefers the container the `deploy_kit` names and falls back to
+        # an ephemeral one from the same image when that is not running — the
+        # leader's ruling, 2026-09-04, because in a mock chain nobody brings the
+        # deployment up and a check that needs a real one cannot be in the mock
+        # e2e. The two are different claims: the first carries the deployment's
+        # engine state, the second only the image's. The wrapper writes which it
+        # used here, in the zone — **not** under the scratch root, which is
+        # node-local and unreadable from this process.
+        observed_at = root / "observed_runtime.json"
+        env["KFO_OBSERVED_RUNTIME"] = str(observed_at)
     else:
         python = _interpreter(problems, notes)
         if python is None:
@@ -845,6 +856,40 @@ def _remeasure(
     if failure:
         problems.append(f"the seed re-measurement failed: {failure}")
         return
+    # **Say which container produced this, before reporting any number from it.**
+    # Read after the seed run rather than before, because that is the first run
+    # that reaches the wrapper. A reader comparing two speedups across runs
+    # cannot tell a deployment measurement from an image measurement, and the
+    # difference is exactly the engine state the deployment carries.
+    if wrapper is not None:
+        observed_at = root / "observed_runtime.json"
+        if observed_at.is_file():
+            try:
+                observed = json.loads(observed_at.read_text(encoding="utf-8"))
+            except (OSError, ValueError) as error:
+                notes.append(f"the wrapper's container record is unreadable: {error}")
+            else:
+                mode = str(observed.get("mode") or "")
+                where = str(observed.get("container") or "?")
+                if mode == "ephemeral":
+                    notes.append(
+                        f"measured in an EPHEMERAL container ({where}) started from the image the "
+                        "record names, because the container the deploy_kit names was not "
+                        "running. This carries the image's state, not the deployment's"
+                    )
+                elif mode == "record":
+                    notes.append(f"measured inside the deployment the record names ({where})")
+                else:
+                    notes.append(f"the wrapper recorded no container mode; got {mode!r}")
+        else:
+            # Not fatal — but not silent either. The absence means the wrapper
+            # never got far enough to write it, and that is worth a line rather
+            # than a reader assuming the record's container was used.
+            notes.append(
+                "the wrapper wrote no container record, so which container produced these "
+                "numbers is unknown"
+            )
+
     seed = _medians(seed_report, operator_id)
 
     candidate_report = candidate_root / "substantiate_candidate.json"
