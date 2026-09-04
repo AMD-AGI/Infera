@@ -179,44 +179,49 @@ def probe(run: pathlib.Path) -> int:
     # that cries dead on a live run gets ignored, and then it is useless on the
     # day the run really is dead.
     #
-    # A **process** is the signal that actually answers. Scanning `/proc` for a
-    # cmdline naming this run directory is how the death report was disproved by
-    # hand; it costs milliseconds and it is the difference between a hint and a
-    # fact. No process found is still not proof of death — the run may be driven
-    # from another host — so that case says *unknown* rather than *dead*.
     # **Two signals, neither of them a verdict**, and the restraint is the point.
     #
     # A first cut printed `ALIVE`/`NOT WRITING` and was wrong both ways within a
     # minute: it called a healthy run dead (m1's agent polls on `sleep 115`, so
     # it writes nothing for two minutes by design), and it called a two-hour-old
-    # corpse alive by matching **this probe's own command line**, which contains
-    # the run path whenever the path is passed as an argument. A liveness verdict
-    # that flips on how you invoked the tool is worse than no verdict — it is the
-    # confident wrong answer this whole file exists to stop.
+    # corpse alive by matching **this probe's own command line**. A liveness
+    # verdict that flips on how you invoked the tool is worse than no verdict.
     #
-    # So: report what was observed and let the reader judge. `runprobe` cannot
-    # distinguish a long quiet phase from a stopped run, and **saying so is the
-    # honest output.** The one thing it can do is refuse to speak in the present
-    # tense about either.
+    # ## Look for children by cwd, not for a parent by name
+    #
+    # m1's rule, reached independently, and it is the only check that has not
+    # been wrong: **a cwd is a property of the process; a command line is a
+    # property of how it was invoked.** An argument can spoof the second and
+    # cannot spoof the first.
+    #
+    # The cmdline scan this replaces produced a false ALIVE on a run that had
+    # been dead ninety seconds — a transient shell carrying the path matched,
+    # including ones this probe spawns. The cwd walk also *finds* what a name
+    # match misses: `grep agent_sys.cli.main` cannot see the `claude` binaries a
+    # run spawns, which is why two owners reported "no agent alive" in good
+    # faith and both were wrong about an orphan that was still running.
     holder = None
+    me = {str(os.getpid()), str(os.getppid())}
     for entry in pathlib.Path("/proc").glob("[0-9]*"):
-        try:
-            cmdline = (entry / "cmdline").read_bytes().decode("utf-8", "replace")
-        except OSError:
+        if entry.name in me:
             continue
-        # Skip this probe and the shell that launched it: both carry the run
-        # path when it was given on the command line.
-        if run.name in cmdline and "runprobe" not in cmdline and entry.name != str(os.getpid()):
-            holder = entry.name
+        try:
+            cwd = os.readlink(entry / "cwd")
+        except OSError:
+            continue  # not ours to read, or gone between glob and readlink
+        if cwd == str(run) or cwd.startswith(str(run) + "/"):
+            holder = f"{entry.name} (cwd {cwd[len(str(run)):] or '/'})"
             break
 
     age = "never written" if write_age < 0 else f"{write_age:.0f}s ago"
-    seen = f"a process ({holder}) has this run's path in its command line" if holder \
-        else "no process found naming this run (it may be driven from another host, or between children)"
+    seen = f"process {holder} is working inside this run tree" if holder \
+        else "no process has its cwd in this run tree (it may be driven from another host)"
     print(f"  observed: last write {age}; {seen}")
-    print("  runprobe cannot tell a long quiet phase from a stopped run. Every status below")
-    print("  is LAST KNOWN, not current: a killed run leaves its tasks reading `running` for")
-    print("  ever and nothing overwrites them. Check for a process before reading them as now.")
+    print("  Neither is proof. runprobe cannot tell a long quiet phase from a stopped run,")
+    print("  and **a recent write does not mean alive** — a terminating run flushes on its")
+    print("  way out, so the last thing a dying run does looks exactly like a live one.")
+    print("  Every status below is LAST KNOWN: a killed run leaves its tasks reading")
+    print("  `running` for ever and nothing overwrites them.")
 
     # ---- 1. is `blocked` non-empty ------------------------------------------
     print(f"\n1. escalations reaching the user: {len(to_user)}   "
