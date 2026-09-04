@@ -1,0 +1,196 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
+#
+# serena — installed from UPSTREAM. **This recipe carries no `tags: [internal]`,
+# and that is the decision, not an omission**: `internal` marks something
+# `agent_sys` itself ships, and every item here installs a third party's code
+# from `git+https://github.com/oraios/serena` or from PyPI. Tagging it internal
+# would make the tag mean "a recipe we wrote" rather than "a component we own",
+# which is the distinction it exists to draw.
+#
+# **This recipe installs serena and declares nothing.** The other half — the
+# `.mcp.json` entry that registers the MCP server — belongs to whichever agent
+# wants serena, in its own `assets/<agent>.agent/.claude/.mcp.json`, because
+# `--project` differs per agent. `agent_sys/env_mgr/addons/serena/` used to hold
+# a shared copy and is deleted: it emptied when the `.mcp.json` moved, and there
+# is no declaration key that would have reached it anyway
+# (`agent_sys/docs/spec.provisioning.md` §4). The invocation is recorded at the
+# bottom of this file so it lives beside the install that produces the binary.
+#
+# `recipes: [agent_sys:serena]` on an agent spec resolves here — the
+# `agent_sys:` root is this directory (`env_mgr/agent_assets.py::_recipe_paths`).
+# The bare `recipes: [serena]` was removed on 2026-09-04: it was resolved by
+# trying a package-relative path first and falling back here, so the declaration
+# could not be read without knowing the resolution order, and a package carrying
+# a file named exactly `serena` shadowed this file in silence.
+#
+# Drafted by `pkg-author` for `examples/env_checker`; everything in it was
+# measured on this host on 2026-09-03 rather than copied from documentation.
+# Two changes were made when placing it, both noted at the item they affect.
+version: 1
+
+target:
+  kind: workspace
+  name: serena
+  # Only ever used as the `cwd` of the item commands below
+  # (`env_mgr/installers/base.py::run_cmd`). None of them writes into it — the
+  # install goes to `$UV_TOOL_DIR` — so the zone workspace is the natural value,
+  # and `agent_assets` overrides it at run time with `--path`. The placeholder
+  # is deliberate: a real path here would be one machine's answer in a file that
+  # is data. It must be overridden, not merely ignored: `subprocess.run` raises
+  # rather than returning non-zero when `cwd` does not exist.
+  path: /path/to/the/zone/workspace
+
+items:
+  # --- refuse before uv writes outside the zone ---------------------------- #
+  #
+  # **This item exists because the failure it prevents is silent and is host
+  # state.** `uv tool install` with no environment writes `~/.local/share/uv`,
+  # `~/.local/bin` and `~/.cache/uv` — outside every zone, shared with every
+  # other tenant of the machine, and not ours to change. Measured (probe D): it
+  # succeeds while doing it, so nothing downstream would report anything wrong.
+  #
+  # An agent declaring this recipe sets all three variables in its `env:` block,
+  # which is the only route by which a package names its own variables and is
+  # in the child's environment by the time this runs
+  # (`material.deploy` resolves the declared block *before* the installs, for
+  # exactly this reason). This item is the other half: it turns "the author
+  # forgot" into a named failure in the install report, at the first step,
+  # instead of a clean run that quietly modified `$HOME`.
+  #
+  # `${VAR:?message}` and not `test -z` plus an `echo`: the shell's own form
+  # names the variable and the reason on stderr and exits non-zero, and
+  # `run_cmd` folds stderr into the outcome's `output`.
+  #
+  # **Placed without `pkg-author`'s `check_cmd`, and that is a correction rather
+  # than a trim.** `ShellInstaller.install` skips the body entirely when
+  # `check_cmd` succeeds, so a correctly configured run — the three variables
+  # set — would have satisfied the check and never run the `mkdir`, leaving uv
+  # to fail against directories that do not exist. The body is idempotent, so
+  # running it every time costs three `mkdir -p`.
+  - installer: embed
+    importance: required
+    name: uv-tool-dirs-pinned
+    tags: [guard, serena]
+    run: |
+      : "${UV_TOOL_DIR:?unset — uv would install into ~/.local/share/uv, which is host state outside every zone}"
+      : "${UV_TOOL_BIN_DIR:?unset — serena's binaries would land in ~/.local/bin}"
+      : "${UV_CACHE_DIR:?unset — uv would cache into ~/.cache/uv}"
+      mkdir -p "$UV_TOOL_DIR" "$UV_TOOL_BIN_DIR" "$UV_CACHE_DIR"
+
+  # --- the uv toolchain ---------------------------------------------------- #
+  #
+  # Lifted from `env_mgr/recipes/sglang.repo.yaml`, which already carries this
+  # exact item. `required` rather than that file's `strongly-suggested`: there,
+  # uv is one of several toolchains; here the only thing this recipe does is a
+  # `uv tool install`, so a missing uv is the whole recipe failing, and saying so
+  # early is cheaper than saying so at the next item. Measured: `uv` is 0.11.24
+  # on `PATH` on this host, so in practice this reports `present` and installs
+  # nothing.
+  - installer: bin
+    importance: required
+    name: uv
+    check_cmd: "uv --version"
+    install: "pip install uv"
+    tags: [toolchain, serena]
+
+  # --- serena itself ------------------------------------------------------- #
+  #
+  # Measured 2026-09-03 (probe D): rc 0, and it provides `serena`,
+  # `serena-agent` and `serena-hooks`.
+  #
+  # **`importance: suggested`, and that is the decision in this file most worth
+  # arguing.** This install crosses a network and a third-party git host, so on
+  # a site with no route to it a `required` item would stop the attempt — and
+  # `examples/env_checker`, a package whose entire purpose is to report what
+  # installed, would then produce no report at all. `suggested` makes the
+  # failure a `warn` in the install report, which is exactly the artefact that
+  # package's `check_capabilities_genuine` reads to decide whether serena's one
+  # permitted `"status": "unavailable"` is honest. The failure has to be
+  # *recorded*, and `suggested` is what records it.
+  #
+  # `uv tool install` is idempotent, so a second attempt pays only the download
+  # it already has cached in `$UV_CACHE_DIR` — which is why that directory
+  # should be a shared location outside the zone rather than a per-attempt one.
+  #
+  # **No `bootstrap` running `claude mcp add --scope user`**, which is what
+  # `sglang.repo.yaml`'s serena item does. That writes into the operator's own
+  # `~/.claude`, which the zone's relocated `CLAUDE_CONFIG_DIR` then hides — so
+  # it would modify host state *and* have no effect. serena reaches the session
+  # the way every other MCP server in this design does: as an entry on
+  # `Prepared.mcp_servers`. See the note below for where the invocation lives.
+  - installer: uv
+    importance: suggested
+    tool: "git+https://github.com/oraios/serena"
+    provides: serena
+    tags: [lsp, serena]
+
+# --------------------------------------------------------------------------- #
+# The MCP entry this recipe does NOT write, and why it is here anyway.
+#
+# `Prepared.mcp_servers` is assembled by `env_mgr` from an AGENT's own
+# `.claude/.mcp.json`, never by a recipe, so the entry belongs to whichever agent
+# wants serena. The working example is
+# `examples/env_checker/assets/env_probe.agent/.claude/.mcp.json`.
+#
+# **This file names that path and does not restate the entry.** It used to carry
+# a copy, and the copy had already drifted: it read `"env": {"HOME":
+# "${AGENT_SYS_MY_PLAYGROUND}"}` while the entry actually shipped —
+# `addons/serena/.claude/.mcp.json`, now moved — read `"${TMPDIR}"`. One fact,
+# two writers, and the one nobody ran is the one that was wrong. Measured
+# working, probe E: `initialize` + `tools/list` returned `Serena 1.28.1` and 21
+# tools.
+#
+# `agent_assets._expand` resolves every `${VAR}` in that against the zone
+# environment and **refuses an unresolved one**, so a typo is an error rather
+# than a server that starts with a literal `${...}` in its argv and reports no
+# tools.
+#
+# Three things in it that are not cosmetic:
+#
+# **`command` names the binary absolutely, through `${UV_TOOL_BIN_DIR}`, and
+# must not be shortened to `"serena"`.** A task body's `PATH` is derived from
+# the granted policy (`isolation/policy.py::executable_path`) and the policy is
+# composed at `prepare` step 2, while `material.deploy` installs nothing until
+# step 6b — so `$UV_TOOL_BIN_DIR` does not exist when `PATH` is computed and
+# would not appear on it even unconfined. The absolute form is also what probe E
+# measured. Naming the variable rather than a literal path is the rule the
+# `envchk_baseline` entry in the same file already follows with
+# `${CLAUDE_CONFIG_DIR}`: the variable, not the literal, and not the search path.
+#
+# **`SERENA_HOME` and not `HOME`, and it is set for this subprocess only.**
+# serena writes its own state under `$HOME/.serena` by default, so the obvious
+# redirection is `HOME` — and that moves the whole process's home to relocate one
+# application's state. `SERENA_HOME` is the narrow knob, and it was verified to
+# be sufficient rather than assumed to be, because a narrower-looking variable
+# that misses a write path is worse than the blunt one. In serena 1.28.1:
+# `serena/config/serena_config.py:63` reads it, and `serena/ls_manager.py:64`
+# passes the same directory as `solidlsp_dir`, so
+# `<dir>/language_servers/static` — where language servers are downloaded — is
+# covered too, rather than falling back to `solidlsp/settings.py:30`'s
+# `Path.home()/".solidlsp"` default. Then measured: run with only `SERENA_HOME`
+# set, the target captured `serena_config.yml`, `logs/`, `memories/global/`,
+# `prompt_templates/`, `news_read.pkl` and `language_servers/static/PyrightServer`,
+# while `~/.serena` was byte-identical before and after and no `~/.solidlsp`
+# appeared.
+#
+# **Nothing is given up by no longer overriding `HOME`, and the reason is worth
+# stating because the opposite reads plausible.** `HOME` is a lookup convention,
+# not a permission: a process running as the operator can read
+# `/home/<operator>/...` by absolute path whichever way `$HOME` points, and what
+# actually bounds a read is the confinement `prepare` applies. So
+# `HOME=${TMPDIR}` never restricted anything — it only redirected `~`-relative
+# **discovery**, which for serena means the `expanduser("~")` toolchain lookups
+# in `solidlsp/language_servers/` (rvm, `.m2`, `.gradle`, `.cargo`, `.ghcup`,
+# …). Dropping the override restores those to the machine's real toolchains,
+# which is the correct answer, and `SERENA_HOME` governs the writes for the
+# first time. A strict improvement, not a trade.
+#
+# **Either way it must not be hoisted to the agent's `env:` block.** That block
+# is the *session's* environment, and a per-server knob there is a knob applied
+# to everything the agent runs. The scope is the point.
+#
+# **`--project` wants the directory serena should index**, and for
+# `examples/env_checker` that is the agent's workspace — `material.deploy`
+# copies the agent asset directory into it, so the file that package's
+# capability 7 asks serena to find is inside.

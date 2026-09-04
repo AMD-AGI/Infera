@@ -88,6 +88,60 @@ include = [
 # `.json` files inside it.
 [tool.setuptools.package-data]
 spec_loader = ["schemas/*.json"]
+# `addons/` is not a Python package and never will be — `agent_assets.py` calls
+# its root "a repository path, not a configurable root". Before it moved inside
+# `env_mgr/` it had **no owning package to hang a glob on**, so it could not be
+# shipped at all: measured 2026-09-04, a wheel built from this file contained no
+# member of it. That is `temp/bugs/2026-09-04-two-declaration-routes-...`, and
+# the move is what makes this line possible rather than this line being the fix.
+#
+# The `.claude/` members need naming explicitly: a leading dot is not matched by
+# `*`, so a bare `addons/**` ships the READMEs and silently drops every file
+# that matters. Verified by building the wheel and listing its members, not by
+# reading setuptools' documentation.
+env_mgr = [
+    # **The recipe layers, and this is the THIRD instance of one class.** The
+    # comment above `[tool.setuptools.package-data]` already states it — *"
+    # `packages.find` seeing the package does not ship the `.json` files inside
+    # it"* — and was written when `spec_loader/schemas` was fixed. `addons/` was
+    # the second, fixed 2026-09-04. These two are the third and were sitting
+    # under the comment that explains them. **Fixing one instance is not
+    # sweeping the class**, and the sweep here was `find env_mgr -type f
+    # ! -name '*.py'`, run rather than reasoned.
+    #
+    # `recipes/*.yaml` is the namespace a bare `recipes: [<name>]` resolves
+    # against, so without it that declaration raises from a wheel install and
+    # resolves from a git checkout.
+    #
+    # `default.env_recipe.yaml` is the worse of the two and is why the sweep was
+    # worth running: it is the DEFAULT recipe layer, it runs on every install,
+    # and `agent_assets._recipe_paths` gates it on `os.path.isfile`. Nothing
+    # declares it, so its absence is *"simply absence"* by design — from a wheel
+    # the whole default layer would therefore do nothing, report nothing, and
+    # name no cause. The `recipes/` case at least fails loudly.
+    #
+    # `recipes/README.md` is deliberately NOT shipped: nothing reads it at run
+    # time and this list is for files the package needs, not for documentation.
+    # `addons/README.md` below is the exception and is one because
+    # `addons/README.md` is the add-on contract a wheel consumer authors against.
+    "default.env_recipe.yaml",
+    "recipes/*.yaml",
+    "addons/README.md",
+    "addons/*/README.md",
+    "addons/*/.claude/**/*",
+    # `**/*` crosses a dot-DIRECTORY but will not match a dot-FILENAME at the
+    # leaf: measured, `.claude/servers/x.py` shipped and `.claude/.mcp.json` did
+    # not, so that build carried 4 of the 6 addon files there were then and
+    # looked fine until they were counted.
+    #
+    # **This glob matches nothing today and is kept anyway.** Both `.mcp.json`s
+    # moved out of `addons/` when stdio declarations moved to the agent that
+    # wants them (`docs/spec.provisioning.md` §5), so the line ships no member —
+    # it stands as the rule for the next dot-file at a leaf, which would
+    # otherwise be dropped in silence. Re-measured 2026-09-04 after the move:
+    # 3 addon members on disk, 3 in the wheel.
+    "addons/*/.claude/.mcp.json",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

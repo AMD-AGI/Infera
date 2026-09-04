@@ -1,0 +1,6 @@
+{
+  "name": "envchk-plugin",
+  "description": "Ships one skill carrying the env_checker plugin capability's token.",
+  "version": "1.0.0",
+  "author": {"name": "agent_sys examples/env_checker"}
+}

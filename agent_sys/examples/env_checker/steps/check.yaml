@@ -1,0 +1,339 @@
+# The one leaf, and everything it introduces.
+#
+# **Definition order is load-bearing within a file** — a name referenced before
+# it is defined here is an error. The order below is therefore:
+#
+#   1. the agent        (referenced by `task.agent`)
+#   2. the validators   (referenced by the kind's `validators`)
+#   3. the handoff kind (referenced by `task.handoffs` / `outputs`)
+#   4. the task         (references all of the above)
+
+# --------------------------------------------------------------------------- #
+# 1. The agent.
+#
+# `kind: ai`, and unusually the *reason* is not that the work needs judgement —
+# calling six tools and writing a JSON file is a script. It is that the thing
+# under test is **the environment an AI agent is given**. A `kind: program`
+# agent gets no Claude Code session, so there is no skills directory, no hook
+# firing at SessionStart, no plugin install and no MCP server to call: every one
+# of the six capabilities would have nowhere to exist. The subject requires the
+# executor.
+#
+# `backend_entry` is the dotted form rather than an entry-point name: a task
+# package outside this repository cannot register an entry point in the
+# `agent_sys.backends` group without being installed, and this package is data.
+- module: agent
+  name: env_probe
+  kind: ai
+  version: '1'
+  description: Exercises six Claude Code capabilities across both install routes and reports token evidence.
+
+  # **The `env` block is the only route by which a package may name its own
+  # variables** (`agent.schema.json`), and this package needs exactly one.
+  #
+  # **`ENVCHK_NONCE` is required and deliberately carries no default.** Every
+  # token in the deliverable is `sha256(f"{salt}:{label}:{nonce}")[:12]`, so the
+  # nonce is the half of the derivation that makes a token evidence *about this
+  # run*. A default would be a constant, a constant nonce makes every run's
+  # six tokens identical, and the first published handoff would then contain
+  # the answers to every run after it — which is precisely the failure the
+  # scheme exists to prevent. `${NAME}` with no `:-` is a load-time fault naming
+  # the file and the line (`spec_loader/variables.py`), so the package refuses
+  # to run rather than run weakly:
+  #
+  #     agent-sys run --package agent_sys/examples/env_checker \
+  #       --var nonce="$(python3 -c 'import secrets;print(secrets.token_hex(16))')"
+  #
+  # **It is not a credential** and nothing treats it as one: it is written into
+  # no artefact — the handoff records `sha256("nonce:"+value)[:12]` instead
+  # (`assets/lib/envchk.py:nonce_digest`) — and the validator reads it from this
+  # same block, because a validator with no `agent:` key takes `validator` spec
+  # §8.2's PRODUCER row, whose environment is `Prepared.environment`, and
+  # `env_mgr.material.deploy` merges this block into that.
+  #
+  # **`${uv_root}` is the second required variable, and it exists to keep a recipe's
+  # install off the host.** serena is installed with `uv tool install`, and uv's
+  # defaults write `~/.local/share/uv` and `~/.cache/uv` — host state outside
+  # any zone, shared with every other tenant of this machine, and not ours to
+  # change. Naming the three variables uv reads redirects the whole install into
+  # a directory the operator chose.
+  #
+  # It carries **no default**, for `model_path`'s reason exactly: where a site
+  # keeps a scratch tree is a fact about that site, and a default here would
+  # ship one machine's answer — with somebody's username in it — as everyone's.
+  #
+  #     --var uv_root=/tmp/<you>/agentsys_uv
+  #
+  # Measured 2026-09-03 (`PROBES.md` D): `uv tool install
+  # "git+https://github.com/oraios/serena"` returns rc 0 and provides `serena`,
+  # `serena-agent`, `serena-hooks`. **serena's state redirection is deliberately
+  # not here.** It is `SERENA_HOME` on the server's own `.mcp.json` entry: a
+  # per-server knob in the agent's session `env:` would apply to everything the
+  # agent runs, which is the opposite of what a narrow variable is for. The
+  # argument for `SERENA_HOME` over `HOME`, and the measurement behind it, are at
+  # the `recipes:` block below.
+  env:
+    ENVCHK_NONCE: '${nonce}'
+    UV_TOOL_DIR: '${uv_root}/tools'
+    UV_TOOL_BIN_DIR: '${uv_root}/bin'
+    UV_CACHE_DIR: '${uv_root}/cache'
+
+  # **Installed from upstream, by an `env_mgr` recipe.** serena is
+  # a real third-party language server bundle; `recipes:` is the existing recipe
+  # machinery (`env_mgr/recipe.py` + `installers/`), which until this round was
+  # reachable only from the `env-mgr` CLI and never ran during a task at all.
+  # This is the first package to name one.
+  #
+  # It is one name and not two on purpose. The point of the recipe route here
+  # is the *route*,
+  # and a second recipe would add a second way for the run to fail on somebody
+  # else's network without measuring anything the first does not.
+  #
+  # **`agent_sys:` names the root, and there is no bare form.** Until
+  # 2026-09-04 this read `recipes: [serena]`, and which root that meant was
+  # decided by trying the package first and falling back to the shipped
+  # directory — so the declaration could not be read without knowing
+  # `agent_assets._recipe_paths`' resolution order, and a package carrying a file
+  # named exactly `serena` would have shadowed the shipped recipe in silence. The scheme is the root:
+  # `agent_sys:<name>` is `env_mgr/recipes/<name>.yaml`, `package:<relpath>` is
+  # this package's own. A bare name is now an error.
+  #
+  # **The loader admits this line with a reservation, and the reservation is
+  # answered rather than silenced.** It says: *name the file by convention under
+  # `assets/` and drop the key.* That convention is for a recipe **this package
+  # owns**, and `serena.yaml` is not one — it lives in `env_mgr/recipes/`, which
+  # `agent_sys/docs/spec.provisioning.md` §2 calls the namespace of things you
+  # *name*. Following the reservation would mean copying serena's three items
+  # into this package, which is the one thing that would make this package own a
+  # third party's install recipe.
+  #
+  # Ruled by the owner: *have the agent recipe refer to it, or copy the content
+  # into the task package.* This is the first, and it is the only "refer" the
+  # machinery has — `agent_assets._recipe_paths` resolves a bare name to
+  # `env_mgr/recipes/<name>.yaml`. Nothing in `env_mgr/recipes/` moves or is
+  # relabelled.
+  #
+  # **Known gap, and it belongs on this line rather than in a document.** A bare
+  # **Known gap, now closed.** `agent_sys:` resolves against
+  # `env_mgr/recipes/`, which `pyproject.toml` did not ship as package data, so
+  # this line resolved from a git checkout and raised from a wheel install.
+  # Fixed and measured on 2026-09-04: the wheel now carries both recipe layers
+  # and the reference was resolved through `_recipe_paths` against an installed
+  # wheel. See `temp/bugs/2026-09-04-two-declaration-routes-*`.
+  recipes: [agent_sys:serena]
+
+  # **There is no `agent_plugins:` key any more, and its absence is the design.**
+  # The owner ruled that only an agent's own `assets/.claude/` tree may be
+  # installed by copying a tree, and everything else is installed by declaring
+  # it in a recipe. So the two servers this package used to name here are now
+  # declared where every other MCP server is declared — in this agent's own
+  # `.claude/.mcp.json` — and the one payload that has to be *placed*
+  # (`envchk-baseline`'s server) is copied in by the package-layer recipe at
+  # `assets/main.env_recipe.yaml`, which nothing declares because `env_mgr`
+  # auto-detects it.
+  #
+  # **What that changes about capability 7, and it is worth stating rather than
+  # letting a reader notice the key is gone.** Install and declaration are still
+  # two halves and neither implies the other — run 1 (2026-09-03) installed
+  # serena cleanly and the agent got `No such tool available` for every
+  # `mcp__serena__*` call, because nothing declared it. `recipes: [agent_sys:serena]`
+  # above is still the install; the declaration is now the `serena` entry in
+  # `.claude/.mcp.json`. The split survives; only the second half moved.
+  #
+  # serena stays a **per-agent** stdio server because `--project` differs per
+  # agent and has no environment-variable equivalent (`grep -c envvar=
+  # serena/cli.py` -> 0). Measured 2026-09-04: concurrent instances do not
+  # collide given their own `--project` and their own `SERENA_HOME` — the
+  # dashboard port search was observed live at four instances on this host.
+  #
+  # **`SERENA_HOME` and not `HOME`, and the swap was measured before it was
+  # made.** The entry read `"env": {"HOME": "${TMPDIR}"}` until 2026-09-04, which
+  # worked — `TMPDIR` is per-zone (`env_mgr/material.py:168`) — but moved `HOME`
+  # for the whole server process to redirect one application's state. Verified
+  # against serena 1.28.1's own source and then by running it:
+  # `serena/config/serena_config.py:63` reads `SERENA_HOME`, and
+  # `serena/ls_manager.py:64` passes that same directory as `solidlsp_dir`, so
+  # the language-server download root — `<dir>/language_servers/static` — is
+  # governed by it too rather than falling back to
+  # `solidlsp/settings.py:30`'s `Path.home()/".solidlsp"`. Run with only
+  # `SERENA_HOME` set, the probe directory captured `serena_config.yml`, `logs/`,
+  # `memories/global/`, `prompt_templates/`, `news_read.pkl` and
+  # `language_servers/static/PyrightServer`; `~/.serena` was byte-identical
+  # before and after and no `~/.solidlsp` appeared.
+
+  # **`skills:` is absent, and its absence is the test.** The one capability
+  # `agent_sys` already delivered was `skills`, by declaration
+  # (`env_mgr/material.py:MATERIAL_KEYS`). This agent's skill arrives instead
+  # through **the package's own material**:
+  # `assets/env_probe.agent/.claude/skills/envchk-probe/`,
+  # auto-detected because of where it is. Declaring it as well would make the
+  # run pass whether or not that material works, which is the shape of a test
+  # that cannot
+  # fail. The same reasoning keeps `hooks:` out — a declared hook lands at
+  # `<zone>/config/hooks/<basename>` and is read by nobody, and this package
+  # exists to tell a hook that is *declared* from a hook that *fires*.
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+# --------------------------------------------------------------------------- #
+# 2. The two validators.
+#
+# **Neither carries a `kind:` key**, because `validator.schema.json` has no such
+# field and `additionalProperties: false`. Both bodies are scripts run by
+# `validator.ScriptBodyRunner`; they are told apart by `tags.logic_source` and
+# `tags.cost`, which is the pair `validator` spec §5.3 orders a phase by —
+# cheap first, so a malformed report is rejected before anything is started.
+#
+# **Neither names an `agent:`.** Naming one takes §8.2's BOUND row, whose
+# environment is the agent spec's literal `env` block. Leaving it absent lets
+# the phase choose, and on this package's only phase (see the kind below) that
+# is the PRODUCER row — which is what carries `ENVCHK_NONCE` and
+# `AGENT_SYS_TASK_PACKAGE`, both of which the second body cannot work without.
+
+# Completeness, and `strong` without qualification. Every rule it applies is a
+# key that is present or absent, a string that is empty or not, a count against
+# a floor. It cannot be *approximately* right about whether the report has six
+# sections.
+- module: validator
+  name: check_env_report_shape
+  version: '1'
+  brief: The env_report handoff is one well-formed JSON report covering all six capabilities with a status, an install route, a token and a written account of how it was obtained
+  dimension: completeness
+  strength: strong
+  inputs: [env_report]
+  args:
+    # The substance floor for each section's `how` field, in **characters** of
+    # non-whitespace. A `how` of `"ok"` is the failure this floor exists to
+    # catch: it satisfies presence and tells a reader nothing about which route
+    # produced the token. 80 is roughly one written sentence.
+    min_how_chars: 80
+    # `README.md`'s content lines — non-blank, not a heading, not a fence
+    # marker. The `structured_text` content type requires `## Purpose` and
+    # `## Schema`; the kind below adds `## Method` and `## Limits`, and four
+    # empty sections are not a document.
+    min_readme_lines: 10
+    # How many entries `install_report` must carry. **One per declared install,
+    # at least**: this run declares one recipe and one agent plugin, and
+    # a report naming neither is a report that never looked.
+    min_install_report_entries: 2
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [env_checker, agent_env]
+
+# Trustworthiness, and `strong` — but the readme beside the body spends most of
+# its length on exactly what that strength covers, because the honest answer is
+# narrower than the name.
+#
+# It **re-runs two of the six capabilities itself** — it starts both MCP
+# servers and speaks the protocol to them — and compares what they produce
+# against what the agent reported. It used to re-run a third, by importing the
+# in-process `ToolDef` module and calling its handler; that route is deleted
+# (`agent_sys/docs/spec.provisioning.md` §6) and the capability with it.
+# For the other four it recomputes from the salt in the artefact,
+# which proves the artefact was installed in this zone and does not prove the
+# agent reached it through the capability rather than with `Read`.
+#
+# `cost: minutes` and not `seconds`: starting two subprocesses, importing a
+# module and reading the hook's own output is seconds of work in the good case,
+# and a server that hangs is bounded by `replay_timeout_seconds` below rather
+# than by luck. The tag's job is to put this validator **second**, behind a
+# shape check that costs nothing — `validator` spec §5.3 — and an honest order
+# of magnitude that is one step up is what does that.
+- module: validator
+  name: check_capabilities_genuine
+  version: '1'
+  brief: Each reported token is the token that capability actually produces, re-derived by running the capability or by reading the salt out of its installed artefact
+  dimension: trustworthiness
+  strength: strong
+  inputs: [env_report]
+  args:
+    # Per replayed capability. An MCP server that does not answer `initialize`
+    # inside this is a fault, and the fault names the server; without a bound it
+    # would be a validator that hangs and a run nobody can read.
+    replay_timeout_seconds: 30
+    # **serena, and only serena, may be reported `unavailable`.** It is the one
+    # capability whose install crosses a network and touches a third-party
+    # index, so a site with no route to it must still be able to run this
+    # package and get a truthful report. The exemption is not the agent's to
+    # claim: the body requires `install_report` to carry a non-`ok` outcome
+    # naming serena, and an `unavailable` with a clean install report is a FAIL.
+    may_be_unavailable: [serena]
+  tags:
+    logic_source: external_dynamic
+    cost: minutes
+    domain: [env_checker, agent_env]
+
+# --------------------------------------------------------------------------- #
+# 3. The kind.
+#
+# **`content_type: structured_text`.** The deliverable is a table of six rows
+# read by a machine, which is what this type is for; the other three were each
+# considered and each would cost something real. `code` would make the report
+# `items/codes/<something>` and there is no code here. `text` requires an item
+# called `content` and permits nothing else, so the report would be prose and
+# both validators would have to parse it. `reproducible` requires `result`,
+# `env` and one of `script`/`command`, none of which this produces.
+#
+# `structured_text` requires **one of** `text.json` / `text.yaml` / `text.xml`
+# (`handoff/content.py:_ALTERNATIVES`) and requires no item outright.
+#
+# **The `items_schema` narrows that to exactly `text.json`.** Two reasons, and
+# the first is not tidiness: the type's alternatives group means an agent could
+# satisfy it with `text.yaml`, and then every reader of this kind — both
+# validators, and anything downstream — needs a YAML parser and a branch. One
+# item, one format. The second is that `additionalProperties: false` refuses a
+# stray item, which is how a `logs/` directory of the agent's own devising stops
+# being a place to put an answer that belongs in the report.
+#
+# **`readme_sections` adds two to the type's `Purpose` and `Schema`.**
+# `## Method` is what the agent actually did, per capability, and `## Limits` is
+# what this run did *not* establish. `Limits` is required by name because the
+# whole package is about the difference between a capability that worked and a
+# capability that was reported as working, and an author who has to write down
+# what they did not prove is an author who has had to notice it.
+- module: handoff
+  name: env_report
+  version: '1'
+  description: A per-capability report of which Claude Code capabilities installed, at which level, with a nonce-derived token for each.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    properties:
+      text.json:
+        type: string
+    required: [text.json]
+    additionalProperties: false
+  readme_sections: [Method, Limits]
+  validators: [check_env_report_shape, check_capabilities_genuine]
+
+# --------------------------------------------------------------------------- #
+# 4. The task.
+#
+# A leaf, so it names an `agent`. `goal` is capped at 100 characters by
+# `task.schema.json` and is a human label, not an instruction channel —
+# everything the agent is actually told is in
+# `assets/probe_env.task/readme.md`, found by convention from the folder name.
+#
+# **No `resources`.** A leaf may declare a pool; this task needs no GPU and no
+# lease of anything, and `cli/build.py:85` — the only reader — declares no pools
+# anyway.
+#
+# **No `repos`.** The subject is the running system's own zone, not a checkout.
+- module: task
+  name: probe_env
+  description: Exercise six Claude Code capabilities across both install routes and hand back token evidence.
+  agent: env_probe
+  handoffs: [env_report]
+  validators: []
+  task:
+    goal: Exercise six capabilities across both install routes; hand back token evidence.
+    version: '1'
+    inputs: []
+    outputs: [env_report]
+    permissions:
+      grants:
+        - {path: handoffs/env_report, access: write, kind: env_report}

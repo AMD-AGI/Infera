@@ -166,7 +166,10 @@ def test_the_leak_target_resolves_to_a_real_directory_outside_every_zone(
     # The variable has to be *exported*, and this is the assertion that was
     # missing: resolved through the real mechanism, from the rendered spec.
     spec = _loaded_specs(package_root, "agent", outside=str(layout.outside))["describe"]
-    environment = material.deploy(spec, _ZoneAt(str(tmp_path / "zone")))
+    # `.environment`: `deploy` returns a `Deployed` since per-agent components
+    # gave it three more things to hand back than an environment mapping can
+    # hold. The two-argument call is unchanged, which is what §4.6 froze.
+    environment = material.deploy(spec, _ZoneAt(str(tmp_path / "zone"))).environment
     assert name in environment, (
         f"{name} is in the readme and exported by nothing; the command would "
         f'run as `echo leaked > "/leak.txt"` against a root-owned /'
@@ -647,3 +650,41 @@ def test_the_two_declared_names_point_at_the_same_level() -> None:
     assert '"content" / "items"' not in render
     collect = (package / "assets" / "produce.task" / "collect.py").read_text()
     assert 'dst / "items"' in collect and 'dst / "content"' not in collect
+
+
+def test_a_run_names_a_server_registry_under_its_own_run_root(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    """`_real_run` exports `AGENT_SYS_SERVER_REGISTRY` and enters the manager.
+
+    **The one part of `run_server` that no other test reaches.** `env_mgr`'s own
+    suite covers the installer, the registry and `owned_servers`; what it cannot
+    cover is that `cli/main.py` actually names a path and enters the block, and
+    that is the line whose absence would make every server a leak while every
+    unit test stayed green.
+
+    The three preconditions are stubbed exactly as the test above stubs them,
+    and `permissions_enforced` — the first call after the two lines under test —
+    raises, so the run stops there rather than dispatching anything. By then the
+    variable is set, which is the assertion.
+
+    It must land under **this run's own root**: a registry shared between runs
+    would have one run stopping another's servers.
+    """
+    monkeypatch.setattr(cli_main, "confinement", lambda *a, **k: "landlock")
+    monkeypatch.setattr(cli_main, "preflight_credentials", lambda: "ready")
+    monkeypatch.setattr(cli_main, "preflight_repository", lambda *a, **k: None)
+    monkeypatch.delenv("AGENT_SYS_SERVER_REGISTRY", raising=False)
+    seen: dict[str, str] = {}
+
+    def stop_here() -> bool:
+        seen["value"] = os.environ.get("AGENT_SYS_SERVER_REGISTRY", "")
+        raise RepositoryNotPrepared("stop after the lines under test")
+
+    monkeypatch.setattr(cli_main, "permissions_enforced", stop_here)
+    _cli(monkeypatch, "run", "--demo-root", str(tmp_path))
+
+    assert seen.get("value"), "no server registry was named for the run"
+    named = Path(seen["value"])
+    assert named.name == "servers.json"
+    assert named.parent.parent == tmp_path / "runs", named

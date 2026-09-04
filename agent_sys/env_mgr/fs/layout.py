@@ -324,20 +324,40 @@ def stage_package(
     return into
 
 
-def copy_out(src: str, dst: str) -> str:
+def copy_out(src: str, dst: str, *, dereference: bool = False) -> str:
     """Copy a stored artefact to `dst`. Spec §6.3 rule 2: an agent works on a copy.
 
     `handoff`'s own ``copy_out(hid, version, dst)`` has no default for `dst`
     because an agent handed the store's own path edits the store in place. The
     same reasoning applies one level down: this never returns the source.
+
+    **`dereference` exists because the default is asymmetric with depth**, which
+    is a property of `shutil` rather than a decision anyone here made. Measured
+    2026-09-03: a symlink passed as `src` goes through `copy2` and arrives as a
+    **real file with the target's content**, while a symlink *nested inside* a
+    directory `src` goes through ``copytree(symlinks=True)`` and arrives **still
+    a symlink**. Same input, two results, decided by how deep it sits.
+
+    The default is unchanged — every existing caller keeps the behaviour it was
+    written against. `dereference=True` makes the two agree by resolving links
+    at both depths, and `agent_assets._place_tree` is the caller that needs it:
+    a preserved link pointing outside the zone measurably **fails `contained`**,
+    so the confined session cannot follow it, and *copy into the zone, do not
+    reference out of it* is that module's ruling.
     """
     if os.path.abspath(src) == os.path.abspath(dst):
         raise ValueError("refusing to copy a stored artefact onto itself")
     os.makedirs(os.path.dirname(dst) or os.curdir, exist_ok=True)
-    if os.path.isdir(src):
-        shutil.copytree(src, dst, dirs_exist_ok=True, symlinks=True)
+    if os.path.isdir(src) and not (dereference and os.path.islink(src)):
+        shutil.copytree(src, dst, dirs_exist_ok=True, symlinks=not dereference)
     else:
-        shutil.copy2(src, dst)
+        # `copy2` follows a symlink, so this is already the dereferencing branch
+        # for a plain file; a symlinked *directory* under `dereference` lands
+        # here too and `copytree` above resolves it on the recursive call.
+        if dereference and os.path.islink(src) and os.path.isdir(src):
+            shutil.copytree(os.path.realpath(src), dst, dirs_exist_ok=True, symlinks=False)
+        else:
+            shutil.copy2(src, dst)
     return dst
 
 

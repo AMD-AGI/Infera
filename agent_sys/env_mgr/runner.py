@@ -69,11 +69,19 @@ def detect_conflicts(items: list[Item]) -> list[Outcome]:
             for j in range(i + 1, len(versions))
         )
         if conflict:
+            # A **list**, not a mapping. The detail used to be keyed on each
+            # item's `layer`, and the layer model is gone: there is no field
+            # left that distinguishes two items sharing a name. Keying on
+            # anything still available — `installer`, `importance` — would
+            # collide the moment the two conflicting items agree on it, and a
+            # mapping that silently drops one of the two versions is worse than
+            # no mapping. The conflicting constraints in declaration order are
+            # the whole of what the reader needs to see.
             outs.append(
                 Outcome(
                     "fail",
-                    f"cross-layer version conflict for {name}",
-                    {"versions": {g.layer: g.version for g in group}},
+                    f"version conflict for {name}",
+                    {"versions": [g.version for g in group]},
                 )
             )
     return outs

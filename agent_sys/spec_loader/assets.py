@@ -40,6 +40,15 @@ Inside a matching folder the object's `name` becomes optional, because the folde
 already said it. Everywhere else it is mandatory, which is what keeps a bare
 `assets/readme.md` from being every object's readme at once.
 
+**For an `agent` the folder itself is the answer**, and that is the one place a
+folder does fill a field. `agent` has no `body`, so `fill_body`'s note below
+records it as *"a gap, not an omission"* — the user's rule named agents and the
+schema had nothing for them to bind. `agent.assets` closes that gap: what an
+agent carries is not one readme and one entry but a **directory** — a `.claude/`
+tree in Claude Code's canonical layout — and a directory is what the third rule
+was already scoping. So the same `_folder_names` set that scopes a task's lookup
+*is* an agent's binding, and no fourth spelling rule was invented for it.
+
 ## Conflicts crash
 
 Two paths matching one query is a fault, and the error is
@@ -69,16 +78,30 @@ from typing import Any
 
 from .protocols import Problem, SpecInconsistent
 
-__all__ = ["ASSETS_DIRNAME", "AssetIndex", "fill_body"]
+__all__ = [
+    "ASSETS_DIRNAME",
+    "AssetIndex",
+    "fill_agent_assets",
+    "fill_agent_env_recipe",
+    "fill_body",
+]
 
 #: The mandatory directory (main spec §4.3). Not configurable: the whole point of
 #: fixing the name is that a document's unqualified paths have something to be
 #: relative to without the loader inferring it from the tree.
 ASSETS_DIRNAME = "assets"
 
-#: Role to the extension it requires. The extension is mandatory in both rows —
+#: Role to the extension it requires. The extension is mandatory in every row —
 #: it is the only token the user's rules never allow to be dropped.
-_ROLES: Mapping[str, str] = {"readme": ".md", "entry": ".sh"}
+#:
+#: `env_recipe` is a third role and not a third mechanism: `_stems` already
+#: generates every `.`-joined permutation, so this one line is the whole of
+#: "auto-detect `env_recipe.<agent>.yaml`" — both spellings the owner named
+#: (`env_recipe.env_probe.yaml`, `env_probe.env_recipe.yaml`) and the six more a
+#: reader would expect, plus the folder-scoped `env_probe.agent/env_recipe.yaml`.
+#: `.yaml` only, because a role takes exactly one extension; a recipe written as
+#: `.yml` is not found and is silently absent rather than an error.
+_ROLES: Mapping[str, str] = {"readme": ".md", "entry": ".sh", "env_recipe": ".yaml"}
 
 
 @dataclass(frozen=True)
@@ -131,6 +154,48 @@ class AssetIndex:
         # regression: `Path(staged) / "/abs"` is `/abs`, so a staged body would
         # never be reached.
         return Path(ASSETS_DIRNAME) / found[0].path.relative_to(self._root)
+
+    def resolve_folder(self, *, name: str, type_: str | None) -> Path | None:
+        """The package-relative path of this object's own **directory**, if one exists.
+
+        The same three spellings `_folder_names` gives `resolve` — `X`,
+        `X.agent`, `agent.X` — asked as a question in their own right rather
+        than used to scope a filename match. One function, one answer: a second
+        set of folder spellings here is how the two would come to disagree about
+        what `agent.X/` means (`engineer_principle.md` §1, *never let an
+        invariant have two writers*).
+
+        **Directly under `assets/`, not anywhere below it.** `_under_a_folder`
+        recurses because a *file* may sit deep inside its object's directory;
+        the directory itself is a top-level member of `assets/`, and admitting a
+        nested one would make `assets/a.agent/b.agent/` two answers for two
+        different agents in a tree neither of them owns.
+
+        `None` when nothing matches, which is not an error: a package's own
+        component material is
+        **undeclared and auto-detected** (`env_mgr/agent_assets.py`), so an
+        agent that carries nothing has no directory and that is its normal
+        shape. Raises `SpecInconsistent` when two spellings both exist —
+        `resolve`'s rule, for the same reason: two paths matching one query is a
+        fault, and picking one would silently drop half an agent's material.
+        """
+        if not self._root.is_dir():
+            return None
+        wanted = _folder_names(name=name, type_=type_)
+        found = sorted(p for p in self._root.iterdir() if p.is_dir() and p.name in wanted)
+        if not found:
+            return None
+        if len(found) > 1:
+            raise SpecInconsistent(
+                f"{len(found)} directories under {self._root.name}/ could be "
+                f"{name!r}'s assets, and a conflict is not resolved by guessing:\n"
+                + "\n".join(f"  {p.name}/" for p in found)
+                + "\n  Merge them, or rename all but one."
+            )
+        # Package-relative for `resolve`'s reason, restated because it is the
+        # one that bit (F-D18): `agent` resolves this against the **staged**
+        # copy, and `Path(staged) / "/abs"` is `/abs`.
+        return Path(ASSETS_DIRNAME) / found[0].name
 
     # -- matching ----------------------------------------------------------- #
 
@@ -225,6 +290,13 @@ def fill_body(
     nothing to fill for those two, and inventing a field to fill would be
     `engineer_principle.md` §2's failure mode. Reported rather than built.
 
+    **Half of that gap is now closed, and by the report rather than around it.**
+    `agent.assets` exists because per-agent component install needed a directory
+    to detect a package's own component material in, and the report above is
+    what said where it goes.
+    It is filled by `fill_agent_assets`, not here: this function's unit is a
+    `body` mapping with two path roles in it, and an agent has neither.
+
     **Explicit binding is legal and warns** (`refine.task_package.define.md`
     §2.3.5), as a non-fatal `Problem` — the mechanism `closure/check.py`'s check
     3 already uses for a report-severity finding, so a warning reaches the same
@@ -268,6 +340,120 @@ def fill_body(
     if body:
         body_owner["body"] = body
     return problems
+
+
+def fill_agent_assets(
+    doc: MutableMapping[str, Any],
+    index: AssetIndex,
+    *,
+    kind: str,
+    name: str,
+    origin: str,
+    line: int | None,
+) -> list[Problem]:
+    """Fill an agent's `assets` from the index, or warn that it was bound by hand.
+
+    **Only `kind == "agent"`.** Every other kind returns `[]` untouched, because
+    `assets` is not in their schemas and writing it would put a key there that
+    `additionalProperties: false` then rejects — an error attributed to the
+    author for something the loader did.
+
+    The value is what `env_mgr` resolves that material against: the directory is
+    copied into the zone with the rest of the package, and `<assets>/.claude/`
+    is auto-detected there. Nothing is read here and nothing is checked to
+    exist beyond the directory itself — this module fills paths and does not
+    learn what is in them, the same line `fill_body` holds.
+
+    Explicit binding warns for `fill_body`'s reason and through its mechanism: a
+    non-fatal `Problem`, so it reaches the report and the log rather than a
+    second channel.
+    """
+    if kind != "agent":
+        return []
+
+    if doc.get("assets"):
+        return [
+            Problem(
+                origin=origin,
+                path="$.assets",
+                keyword="explicit-binding",
+                message=(
+                    f"assets is bound by hand to {doc['assets']!r}. That is legal "
+                    f"and it is not what this package format is for: name the "
+                    f"directory by convention under {ASSETS_DIRNAME}/ and drop the key."
+                ),
+                fatal=False,
+                line=line,
+            )
+        ]
+
+    found = index.resolve_folder(name=name, type_="agent")
+    if found is not None:
+        doc["assets"] = found.as_posix()
+    return []
+
+
+def fill_agent_env_recipe(
+    doc: MutableMapping[str, Any],
+    index: AssetIndex,
+    *,
+    kind: str,
+    name: str,
+    origin: str,
+    line: int | None,
+) -> list[Problem]:
+    """Fill an agent's `recipes` from an `env_recipe` file it carries.
+
+    **Scoped to `assets/`, deliberately, and that is narrower than "the whole
+    task package".** `AssetIndex` is rooted at `<package>/assets/` and
+    `YamlPackage._scan()` walks the rest of the tree handing every `.yaml` to the
+    document discriminator, which *errors* on a file with no `module:` key. So a
+    recipe at the package root is a load failure today, and making it work would
+    need both an exemption in `_scan` and a second index rooted at the package —
+    the second mechanism `engineer_principle.md` §2 forbids. Under `assets/` it
+    costs one `_ROLES` entry and this function. The narrowing is the owner's
+    ruling (*"可以放在 asset 里"*) and is recorded here rather than left for a
+    reader to discover by dropping a file at the root and reading a confusing
+    error.
+
+    **A declared `recipes` wins and warns**, which is `fill_body`'s rule and its
+    mechanism. The alternative — appending the discovered path to the declared
+    list — was rejected because it gives one field two writers and no way to see
+    at the call site which of them supplied a given entry. An author who wants
+    both writes both paths.
+
+    **Only `kind == "agent"`.** Every other kind returns `[]`: `recipes` is not
+    in their schemas and writing it would put a key there that
+    `additionalProperties: false` then rejects, blaming the author for the
+    loader.
+
+    Nothing here reads the recipe. This module fills paths and does not learn
+    what is in them — the same line `fill_body` and `fill_agent_assets` hold; the
+    file is parsed by `env_mgr` against the *staged* copy.
+    """
+    if kind != "agent":
+        return []
+
+    if doc.get("recipes"):
+        return [
+            Problem(
+                origin=origin,
+                path="$.recipes",
+                keyword="explicit-binding",
+                message=(
+                    f"recipes is bound by hand to {doc['recipes']!r}. That is legal "
+                    f"and it is not what this package format is for: name the file "
+                    f"by convention under {ASSETS_DIRNAME}/ and drop the key."
+                ),
+                fatal=False,
+                line=line,
+            )
+        ]
+
+    found = index.resolve("env_recipe", name=name, type_="agent")
+    if found is not None:
+        doc["recipes"] = [found.as_posix()]
+    return []
 
 
 def _body_owner(doc: MutableMapping[str, Any], kind: str) -> tuple[MutableMapping | None, str]:

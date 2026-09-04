@@ -182,6 +182,21 @@ class Assignment(BaseModel):
     #: which is what every backend but `claude_sdk` does today.
     tools: tuple[Any, ...] = ()
 
+    #: **External MCP servers this agent's components declared**, keyed by the
+    #: name the model addresses them under. `env_mgr.Prepared.mcp_servers`,
+    #: straight through.
+    #:
+    #: Typed loosely for `tools`' reason and one more of its own: the values are
+    #: the *SDK's* server vocabulary — `{"type": "stdio", "command": …}` and the
+    #: rest — so a type here would be `agent` declaring a shape it does not own
+    #: and cannot check, on behalf of one of its backends.
+    #:
+    #: **A field and not prose in the readme**, for the reason spec §5.5 gives
+    #: `tools`: an agent told in English to start an MCP server will improvise.
+    #: A backend that cannot express external servers ignores this entirely,
+    #: which is every backend but `claude_sdk` today.
+    mcp_servers: dict[str, Any] = Field(default_factory=dict)
+
     #: `env_mgr.Confinement`, carried for an executor that wants to report what
     #: it will run under. Typed loosely because `agent` may not import `env_mgr`.
     #:

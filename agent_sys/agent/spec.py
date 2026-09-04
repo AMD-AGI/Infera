@@ -106,6 +106,34 @@ class AgentSpec(_Model):
     hooks: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
 
+    #: This agent's own directory under the package's `assets/`, package-relative,
+    #: or `""` when it has none. **Filled by `spec_loader`, not written**, from the
+    #: same folder convention that scopes a task's body lookup.
+    #:
+    #: Spec §3.1 listed nine keys and this is a tenth, so it is a spec change and
+    #: not a model detail: what an agent carries turned out not to fit in `rules` /
+    #: `hooks` / `skills`, which are three lists of *paths to individual files*. A
+    #: Claude Code component is a **tree** — a skill is a directory, a plugin
+    #: marketplace is a directory of directories — and naming each file would make
+    #: the package author restate a layout the harness already fixes.
+    assets: str = ""
+
+    #: `env_mgr` recipe YAMLs run before the session, each written
+    #: ``<scheme>:<ref>`` — ``agent_sys:<name>`` for one this repository ships
+    #: under `env_mgr/recipes/`, ``package:<relpath>`` for one this task package
+    #: carries. **A reference names its root**: there is no bare form and no
+    #: fallback, because until 2026-09-04 the root was decided by which candidate
+    #: happened to exist. The
+    #: route by which an agent asks for components this repository does not ship
+    #: and should not vendor (serena, marketplace plugins, apt/pip tools) — and,
+    #: with an item carrying ``tags: [internal]``, for one that it does.
+    #:
+    #: **Also filled by convention** when the agent carries its own recipe:
+    #: `assets/env_recipe.<name>.yaml` and every other permutation of those
+    #: tokens (`spec_loader/assets.py`, `fill_agent_env_recipe`). Declaring it
+    #: by hand is legal, warns, and wins whole.
+    recipes: list[str] = Field(default_factory=list)
+
     @field_validator("backends", mode="before")
     @classmethod
     def _normalise(cls, value: Any) -> Any:

@@ -151,6 +151,12 @@ _NO_ENV: Mapping[str, str] = MappingProxyType({})
 #: that is not an environment *no environment*. Reported by `env-mgr`.
 _NO_PATHS: Mapping[Any, str] = MappingProxyType({})
 
+#: And again for `mcp_servers`, for the reason `_NO_PATHS` is not `_NO_ENV`: the
+#: values are the SDK's server declarations, not strings, and a shared name for
+#: three differently-typed empties is a mis-annotation waiting for whoever reads
+#: the third one.
+_NO_MCP: Mapping[str, Any] = MappingProxyType({})
+
 
 class Prepared(NamedTuple):
     """What the runner is handed.
@@ -231,7 +237,28 @@ class Prepared(NamedTuple):
     #: This attempt's far-side tool surface — `remote.tools.ToolDef`s, or `()`.
     #: Declared in `protocols.Prepared` too; this is the implementation half and
     #: the two are compared by `tests/interfaces/`.
+    #:
+    #: **`remote/tools.py` is the only thing that reaches this field**, and that
+    #: is spec §6's standing exception rather than a general route: those three
+    #: tools are a live Python object injected into `ClaudeAgentOptions` with
+    #: nothing written to disk, so no installer can carry them. A *component*
+    #: that wants to offer a tool ships a server that runs on its own — the
+    #: in-process `ToolDef` route for component-supplied tools was deleted
+    #: 2026-09-04.
     tools: tuple[Any, ...] = ()
+    #: **External MCP servers for this attempt**, keyed by the name the model
+    #: addresses them under, as the SDK's `mcp_servers` option spells them.
+    #:
+    #: Separate from `tools` because they are a different *kind* of thing and
+    #: not a different source of the same thing: a `ToolDef` is a Python object
+    #: this process calls, and one of these is a declaration of a **process to
+    #: start** — `{"type": "stdio", "command": …}` — that the harness starts and
+    #: this one never sees. Merging them would mean inventing a discriminator to
+    #: split them again at the backend.
+    #:
+    #: Typed `Mapping[str, Any]` for `tools`' reason: the values are the SDK's
+    #: vocabulary, and `agent` may not import this package to learn it.
+    mcp_servers: Mapping[str, Any] = _NO_MCP
 
     def spawn(self, argv: Sequence[str], **popen_kwargs: Any) -> subprocess.Popen:
         """Start `argv` **confined**, and hand back the process. One verb.
@@ -400,6 +427,14 @@ def prepare(
         *grants.resolve_all(task, execution, ctx, enforce=enforcing),  # 2
         *ctx.interpreter_grants,  # 3
         *agent_cli_grants(ctx.agent_cli),
+        # **Nothing grants `env_mgr/addons/` and nothing needs to.** A read grant
+        # on it used to sit here, paired with an exported `AGENT_SYS_ADDONS_ROOT`
+        # so that `paths.py`'s rule — exported and granted agree by construction —
+        # kept holding. Both went with the `agent_plugins:` key
+        # (`spec.provisioning.md` §4): an add-on is installed by a recipe, which
+        # runs unconfined at step 6b and copies what it needs into the zone, so
+        # the confined body never reaches back out. This was the only grant on a
+        # path outside the zone that a task could cause to exist.
     )
 
     # 4. **No `repos` is passed, and that is a gap rather than a decision.**
@@ -467,6 +502,12 @@ def prepare(
     # ungranted directory is unreachable, and nothing here can make it otherwise.
     environment = {"PATH": executable_path(policy)}
 
+    # **Resolved once, read twice.** `Prepared.agent_cli` reports it and
+    # `material.deploy` runs plugin installs with it, and those two must be the
+    # same binary or the run installs into one build and talks to another. Two
+    # `resolve_strict` calls would be one fact with two writers.
+    agent_cli = resolve_strict(ctx.agent_cli) if ctx.agent_cli else None
+
     # 6a. **The task package: a copy in the zone, not a grant on the root.**
     # `interfaces.md` §4.16, F19's third position. It sits beside handoff
     # staging because it is the same act — putting what the executor needs where
@@ -513,8 +554,32 @@ def prepare(
     # find its own staged input by parsing our directory layout.
     environment.update(grants.input_env(task, staged_inputs))
 
+    # 6b. **Now four destinations, not one.** `deploy` used to return an
+    # environment mapping and nothing else could reach a backend from here;
+    # per-agent components produce MCP servers and in-process tools, which are
+    # not strings and never could be. `staged` and `ws` are passed because
+    # components resolve against the **staged** copy (the original checkout is
+    # outside every grant) and the asset directory is copied into the workspace.
+    deployed = None
     if agent_spec is not None:
-        environment.update(material.deploy(agent_spec, zone))  # 6b
+        # **`environment` and `agent_cli` are passed because the installs are
+        # subprocesses, and a subprocess needs both.**
+        #
+        # `environment` carries the policy-derived `PATH`. Measured 2026-09-03:
+        # without it the child gets **no `PATH` at all** — `material.deploy`
+        # builds its mapping from scratch and `harness._RESERVED` excludes
+        # `PATH` — so `sh -c "uv --version"` answers `uv: not found` (rc 127)
+        # and every recipe that needs a toolchain fails for a reason that names
+        # the toolchain rather than the cause.
+        #
+        # `agent_cli` is the **pinned** CLI, resolved once here and used twice:
+        # a plugin install must run the same binary the session will
+        # (`interfaces.md` §4.11, and `claude_sdk._prepared_cli`'s refusal is
+        # the same rule on the other side of the seam).
+        deployed = material.deploy(
+            agent_spec, zone, staged, ws.path, base_env=environment, agent_cli=agent_cli
+        )
+        environment.update(deployed.environment)
 
     # 7 -- LAST, and since the split it **checks** rather than applies.
     #
@@ -539,7 +604,7 @@ def prepare(
     return Prepared(
         permissions_enforced=enforcing,
         output_paths=MappingProxyType(grants.output_paths(task, execution, ctx.store_root)),
-        agent_cli=resolve_strict(ctx.agent_cli) if ctx.agent_cli else None,
+        agent_cli=agent_cli,
         staged_package=staged,
         zone=zone,
         workspace=ws,
@@ -547,7 +612,13 @@ def prepare(
         confinement=conf,
         sync=report,
         environment=MappingProxyType(environment),
+        # **The remote surface, and nothing else.** `deployed` used to append a
+        # component's `tools/*.tooldef.py` here; that route is deleted (spec §6)
+        # and an add-on offering a tool ships a server of its own instead. What
+        # is left is the one standing exception, which cannot be installed
+        # because it is never written to disk.
         tools=_remote_tools(zone, ctx),
+        mcp_servers=MappingProxyType(dict(deployed.mcp_servers) if deployed else {}),
     )
 
 

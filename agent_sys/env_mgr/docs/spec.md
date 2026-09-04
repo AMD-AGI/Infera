@@ -31,9 +31,10 @@ questions, a zone module that confines a process, a sync module that copies a
 tree once. What makes it a component rather than a grab-bag is that each
 mechanism is coherent on its own, and they share one fact: **the path**.
 
-The shipped `env_mgr` — a layered environment manager driven by one YAML recipe,
-doing check / dry-run / install / bootstrap — is one of those pieces and stays as
-it is (§9).
+The shipped `env_mgr` — an environment manager driven by one YAML recipe,
+doing check / dry-run / install / bootstrap — is one of those pieces and is
+reused rather than reimplemented (§9). It is no longer held unchanged: §9's
+table says which modules this round moved and why.
 
 ### 1.2 In scope
 
@@ -75,7 +76,8 @@ internally.
 | 4 | **Write narrowly, read broadly** | A task may not write outside its zones; reads get a generous but **declared** set. Both are allow-lists — the mechanisms enforce nothing else (§4.2). §4.5 |
 | 5 | **Work on a copy** | An agent copies a handoff into its playground and works there. §6.3 |
 | 6 | **A mechanism, not a manager** | §1.1 |
-| 7 | **Reuse what shipped** | The recipe, layer, and installer machinery is not rewritten. §9 |
+| 7 | **Reuse what shipped** | The recipe and installer machinery is reused, not reimplemented. It is no longer *frozen*, for **two** independent reasons, both 2026-09-04: the layer model was removed from it by design, and `installers/claude.py`'s plugin check was fixed — a check that could never pass, held in place by the fence along with two tests encoding a CLI output format that does not exist. Either alone would have retired the fence. §9 |
+| 8 | **Adopt Claude Code's user/project split; invent no levels of our own** | Non-AI installs go system-wide. AI material splits exactly as the harness already splits it: package-declared is *user level*, agent-declared is *project level*. There is no layer field and no layer vocabulary. §9.1 |
 
 ---
 
@@ -438,11 +440,18 @@ The last row is a hard requirement, not a best effort.
 
 ## 9. Relationship to the shipped `env_mgr`
 
-Reused, not rewritten.
+Reused, not rewritten — but **no longer frozen**, and that distinction is the
+point of the table. Until 2026-09-04 these modules were held *byte-identical* by
+a test, which was a scope fence for the round that built the new subsystems and
+not a quality gate. The fence is retired with criterion 22 (§10), so "reused"
+now means what it says: the same modules, changed where the design says to.
 
 | Shipped | Status |
 |---|---|
-| `recipe.py`, `layer.py`, `installers/`, `runner.py`, `outcome.py`, `report.py`, `registry.py` | **Unchanged.** They solve agent-dependency provisioning, which stays in scope |
+| `outcome.py`, `report.py`, `registry.py`, `versions.py` | **Reused unchanged.** They solve agent-dependency provisioning, which stays in scope. Nothing this round needed to touch them |
+| `installers/` | **Changed**, and it is the reason the fence had to go rather than an exception to it: `claude.py::_present_names` was a check that could never pass, and two of its tests encoded a `claude plugin list` format the CLI does not produce. The fence was holding a wrong test in place |
+| `recipe.py`, `runner.py` | **Changed** by the removal of the layer field, §9.1. `recipe.py` loses the field, its validation and its `_CLI_KEYS` entry, and gains a dated migration guard that rejects a stale `layer:` rather than letting it fall through into `Item.spec`; `runner.py`'s version-conflict Outcome loses the label it keyed on |
+| `layer.py` | **Deleted.** `LAYER_ORDER` and `layer_index`, and neither was load-bearing: `layer_index` had no production caller at all, and the field had exactly one runtime reader — a conflict label that each recipe's own subprocess had already reduced to a single key |
 | `cli.py` | **Extended** with domain and zone inspection sub-commands |
 
 New: the filesystem manager (§5), isolation (§4), the agent environment (§6),
@@ -455,8 +464,109 @@ Also needed, and recorded in [`../../docs/TODO.md`](../../docs/TODO.md): **a
 submodule that sets up the Claude Code SDK** from an API key and endpoint in
 config, so a fresh machine can run an agent without hand-setup.
 
-The shipped README records three v1 limitations. The stubbed workspace layer is
+The shipped README records three v1 limitations. The stubbed workspace default is
 superseded by §6.1; the other two stand.
+
+### 9.1 Where an installed thing lands
+
+**There is no layer field and no level vocabulary.** An earlier revision of this
+design had five, then four; both were removed, because the destination is
+*derived* and an author restating it is a second writer of a fact the file path
+already carries. The derivation is two questions.
+
+> **1. Is it AI material — a `.claude/` tree the agent harness reads as its own
+> configuration?** If not, it installs **system-wide**, once, for everyone.
+> **2. If it is: did the *agent* declare it?** If yes, **project level**.
+> If it was declared by the task package, **user level**.
+
+| what | where | Claude Code calls it |
+|---|---|---|
+| binaries, language packages, OS packages, any tool an agent shells out to | system-wide. Where the installer accepts a prefix, **the agent_sys root**; where it does not (`apt`, a system interpreter), wherever it lands | — |
+| a `.claude/` tree declared in `main.yaml` or `default.yaml` | the agent_sys root's Claude config | **user level** |
+| a `.claude/` tree under an agent's own asset directory | the agent's workspace root | **project level** |
+
+**The second and third rows are not our invention — they are Claude Code's own
+two scopes**, and adopting them is the whole point: a harness that already
+distinguishes user-scope from project-scope does not need a parallel hierarchy
+laid over it. Question 2 is answered by *which directory the file was found in*,
+so nothing has to be declared.
+
+Two consequences that follow from the rows above and are stated because they are
+behaviour changes, not restatements:
+
+- **User level is shared across the agents of a run.** A skill declared in
+  `main.yaml` is visible to every agent, not copied per agent. That is what user
+  scope means; if a skill must be one agent's only, the agent declares it.
+- **User level outlives a run.** The agent_sys root is deliberately not under a
+  run root (PR 154: a resident daemon has to outlive any single run), so
+  package-declared material persists into the next run. **Left as measured, not
+  designed around** — see `../../docs/TODO.md`.
+
+`serena` is the worked example, because it is both: the **binary** is one
+installation every agent uses, and the `.mcp.json` that names it — with that
+agent's own `--project` — is per-agent. They are two things, not one thing in two
+places, and only the second is a copy.
+
+**The shared root is not defined here.** `agent_sys` has exactly one, introduced
+by PR 154: `AGENT_SYS_HOME`, defaulting to `~/.infera_agent_sys` and laid out like
+`~/.local` (`bin/ share/ state/ run/`). This section adds a rule about *which*
+things go there; it does not add a second root, and a module that needs the path
+takes it from that owner rather than recomputing it. Until PR 154 merges, the
+constant does not exist in this tree — see [`../../docs/TODO.md`](../../docs/TODO.md).
+
+Two properties follow, and both are the reason the root is a single knob:
+
+- **Nothing installs into `/usr/local/bin` or `~/.local/bin`.** A destination
+  outside the root is a defect, not a fallback.
+- **"Do not change host state" stays satisfiable by configuration**, because one
+  variable relocates every install. A tool whose upstream default writes to
+  `$HOME` (`uv`, serena) therefore needs its own variable pinned into the root —
+  the pin is what makes the rule true, not the intention.
+
+---
+
+### 9.2 Two things that need justification, and one standing exception
+
+Both rules below are about the **same temptation**: reaching for Python because
+it is nearer than a recipe. Neither forbids the thing. Each says the reason has
+to be written down and has to be *"the other routes do not work"*, not *"this
+was quicker"*.
+
+> **Rule 1 — adding an MCP server or a tool to an agent from Python code needs
+> a justification that no declarative route works.** The declarative routes are:
+> a recipe (`installer: claude` for a plugin, `run_server` for a port-based
+> server) and an agent's own `.claude/` tree, which the harness reads. If one of
+> those can carry it, it carries it.
+>
+> **Rule 2 — running an MCP server inside the `agent_sys` process needs a
+> justification that no separate process works.** A stdio server is spawned by
+> the harness. A port-based server is started by `run_server`. Both transports
+> are already served **without** anything running in the supervisor.
+
+**Why the second rule is the stronger of the two.** An in-process server is not
+a tidier version of a subprocess — it is third-party or cross-module code
+executing in the process that supervises every agent, with that process's
+memory, file descriptors and credentials. There is no boundary to fail closed:
+a crash there is not a failed tool call, and `Installer`'s contract cannot even
+express delivering one, because it returns `Outcome`s and a live Python object
+does not survive a subprocess.
+
+#### The exception, named so that it stays one
+
+**`env_mgr/remote/tools.py` — `env_remote_run`, `env_remote_push`,
+`env_remote_pull` — runs in-process today and is permitted to.** Recorded as a
+specific exception rather than as a precedent:
+
+| | |
+|---|---|
+| what it is | §5.5's tool surface: the whole remote↔local operation set, exposed as tool calls rather than as prose an agent would improvise from |
+| why in-process | it is delivered by injection — `claude_sdk.py` puts a live `create_sdk_mcp_server` object into `ClaudeAgentOptions`. **Nothing is written to disk**, so no installer can deliver it |
+| why it is not deleted | it works and has a live user; the standalone-server replacement does not exist yet |
+| what closes it | reprovide the three tools as a standalone MCP server started by `run_server` — [`../../docs/ROADMAP.md`](../../docs/ROADMAP.md). Then this section loses its exception |
+
+**One exception with a named closing condition is a decision. A second one added
+by analogy to this is rule 1 being ignored** — the whole point of writing this
+down is that the next case argues on its own merits.
 
 ---
 
@@ -524,8 +634,27 @@ Landlock-capable kernel, or the suite is red.
 20. A workspace is a worktree, not a clone, and the main checkout is unmodified.
 21. `env_mgr` reads its cluster conventions from a knowledge handoff; changing
     that handoff changes its behaviour without a code change.
-22. **The shipped recipe and installer machinery is untouched**: `pytest
-    agent_sys/tests/env_mgr` passes unchanged.
+22. **The shipped recipe and installer machinery keeps working**: `pytest
+    agent_sys/tests/env_mgr` passes.
+
+    **Revised 2026-09-04, and the earlier wording is kept here because the
+    change is the point.** It read *"is **untouched**: … passes unchanged"*, and
+    a test asserted that first clause literally — `git diff HEAD` over eight
+    paths had to be empty. That was a **scope fence** for the round that built
+    the new subsystems: do not rewrite the shipped machinery while adding to it.
+    It was not a quality gate, and it was never meant to outlive its round.
+
+    It has now been reached from the other side. The layer model is being
+    removed by design (§9.1), and `installers/claude.py::_present_names` was
+    found to be a check that can never pass — a fix that breaks **none** of the
+    machinery's tests, because none of them covered it. Two of those tests turned
+    out to encode a `claude plugin list` format the CLI does not produce, so the
+    byte fence was holding a wrong test in place.
+
+    So the fence is retired, not quietly widened: the owner ruled this round a
+    design-level change, *"没用的测试去掉，该补的测试补上"*. What remains is the
+    second clause, which is the property anyone actually wanted — **the tests
+    pass**, with the tests themselves corrected where they were wrong.
 
 ---
 

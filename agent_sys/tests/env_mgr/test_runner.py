@@ -9,14 +9,12 @@ def _items():
         Item(
             installer="oneline",
             importance="required",
-            layer="repo",
             tags=["lsp"],
             spec={"name": "a", "check_cmd": "true", "run": "true"},
         ),
         Item(
             installer="oneline",
             importance="suggested",
-            layer="system",
             tags=["agent"],
             spec={"name": "b", "check_cmd": "false", "run": "true"},
         ),
@@ -38,14 +36,12 @@ def test_detect_conflicts_flags_differing_versions():
         Item(
             installer="uv",
             importance="required",
-            layer="system",
             version=">=0.5",
             spec={"name": "uv"},
         ),
         Item(
             installer="uv",
             importance="required",
-            layer="repo",
             version=">=0.6",
             spec={"name": "uv"},
         ),
@@ -54,19 +50,33 @@ def test_detect_conflicts_flags_differing_versions():
     assert any(o.level == "fail" and "uv" in o.message for o in outs)
 
 
+def test_conflict_detail_lists_every_conflicting_version():
+    # The layer model is gone, and with it the key this detail used to be a
+    # mapping on (`{item.layer: item.version}`). A mapping keyed on anything
+    # still available would drop one of the two versions whenever the two items
+    # agreed on that key, so the detail is a list and both constraints survive.
+    # Asserted on the *value*, not on the type: the property that matters is
+    # that a reader of the Outcome can see what conflicted with what.
+    items = [
+        Item(installer="uv", importance="required", version=">=0.5", spec={"name": "uv"}),
+        Item(installer="uv", importance="required", version=">=0.6", spec={"name": "uv"}),
+    ]
+    (out,) = detect_conflicts(items)
+    assert out.details["versions"] == [">=0.5", ">=0.6"]
+    assert "layer" not in out.message
+
+
 def test_detect_conflicts_ignores_installer_fallback_names():
     items = [
         Item(
             installer="oneline",
             importance="suggested",
-            layer="system",
             version=">=1.0",
             spec={"run": "true"},
         ),
         Item(
             installer="oneline",
             importance="suggested",
-            layer="repo",
             version=">=2.0",
             spec={"run": "true"},
         ),
@@ -79,14 +89,12 @@ def test_detect_conflicts_none_when_same():
         Item(
             installer="uv",
             importance="required",
-            layer="system",
             version=">=0.5",
             spec={"name": "uv"},
         ),
         Item(
             installer="uv",
             importance="required",
-            layer="repo",
             version=">=0.5",
             spec={"name": "uv"},
         ),
@@ -108,14 +116,12 @@ def test_run_dry_run_conflict_fails(tmp_path):
         Item(
             installer="uv",
             importance="required",
-            layer="system",
             version=">=0.5",
             spec={"name": "uv", "ref": "pyproject.toml"},
         ),
         Item(
             installer="uv",
             importance="required",
-            layer="repo",
             version=">=0.6",
             spec={"name": "uv", "ref": "pyproject.toml"},
         ),
@@ -132,14 +138,12 @@ def test_run_install_conflict_fail_does_not_mutate(tmp_path):
         Item(
             installer="oneline",
             importance="required",
-            layer="system",
             version=">=1.0",
             spec={"name": "x", "run": f"touch {marker}"},
         ),
         Item(
             installer="oneline",
             importance="required",
-            layer="repo",
             version=">=2.0",
             spec={"name": "x", "run": f"touch {marker}"},
         ),
@@ -157,14 +161,12 @@ def test_run_install_conflict_weak_proceeds(tmp_path):
         Item(
             installer="oneline",
             importance="required",
-            layer="system",
             version=">=1.0",
             spec={"name": "x", "run": f"touch {marker}"},
         ),
         Item(
             installer="oneline",
             importance="required",
-            layer="repo",
             version=">=2.0",
             spec={"name": "x", "run": f"touch {marker}"},
         ),
