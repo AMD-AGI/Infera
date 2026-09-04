@@ -8755,3 +8755,90 @@ structural three times today and notes it will read as excuse-making to anyone
 who was not here. **It is not.** The queue exists because the fixes depend on a
 result that does not exist yet, and shipping them ahead of it would be the
 error.
+
+### Addendum, 17:18 UTC — m1 is right, and the "before" column both of us reasoned from is wrong
+
+**m1 sent a correction to my record that argues against their own change, and it
+goes further than the leader's. I verified the argument and then measured the
+data underneath it, and the data is not what either of them described.**
+
+**m1's argument, verified.** `steps/m1_deploy.yaml:262` declares
+`load_concurrency: '${deploy_load_conc:-16}'`, and `e390abb`'s criterion reads
+*"Set the CUDA graph ceiling to at least the concurrency this deployment will be
+loaded at."* So the bar is **≥ 16**, and **32 clears it — but so would 16.**
+
+> **The criterion is visible to the thing being measured, and at concurrency 16
+> every habitual value passes.** A producer that reads the brief and one that
+> ignores it both land on a passing number. Three constant observations show
+> producers **follow an instruction**, not that the instruction **changed an
+> outcome**.
+
+**That is stronger than my "the discriminating case has not recurred" and I am
+adopting it.** The three post-contract observations cannot bear on the question.
+
+### But the "before" column is not `16, 16, 8, 32`
+
+Measured across every run in the live root that carries a kit, oldest first:
+
+```
+110626  16
+110647   8      131949   8
+111550   8      133028   8
+112414   8    -----------------
+114914   8      143952  32   <- rung 1, env.sh written 15:17:25
+125637   8      154946  32
+                160500  32
+                160847  32
+
+e390abb landed 15:34:38
+```
+
+**One 16, then eight at 8 — seven consecutive runs — then 32.** The leader's
+summary had four pre-contract values with a single 8; there are **eight
+pre-contract runs and eight of them are below or at the bar, seven of them
+strictly below it.**
+
+**Which makes the criterion far better motivated than the record said, and no
+better confirmed.** `8 < 16`: seven consecutive producers chose a ceiling under
+the load's own concurrency. **That is a real, persistent, measured failure and
+`e390abb` names it correctly.**
+
+**And it makes m1's conclusion stronger than m1 put it.** They wrote that 32 was
+*reachable* without the contract. Measured, it is more than that: **the entire
+8 → 32 correction happened at 15:17:25, seventeen minutes and thirteen seconds
+before the contract landed.** The three post-contract 32s do not continue a
+coincidence — **they continue a change that was already complete.**
+
+### The distinction that survives, and it is the one worth keeping
+
+| claim | status |
+|---|---|
+| the criterion addresses a real failure | **established** — seven runs at 8, against a bar of 16 |
+| producers *can* satisfy it | **established** — three emitted `${E2E_KIT_CUDA_GRAPH_MAX_BS:=…}` in `scripts/env.sh` |
+| the criterion **changed** anyone's choice | **not established, and not testable at concurrency 16** |
+
+**m1's test is the right one and it is one run:** at concurrency 64, habit picks
+32 and fails; the criterion picks ≥ 64 and passes. Until then **`e390abb` is
+unfalsified rather than confirmed** — the standing I gave `accept_mock.py`'s
+three passes this afternoon, reached here from a different direction by the
+author of the change.
+
+**And the one producer that stated a reason stated a false one.** Rung 2b
+justified 32 over 16 by arguing a concurrency-16 load transiently reaches 17.
+**Measured false** — m2's arms top out at 16.00 in every percentile, and a
+closed-loop load cannot exceed its offered value. Filed by m1 in `1a8c67b` so a
+future reader meets the falsification beside the argument. Their line is the
+entry:
+
+> **A bar widened on a good argument is still a bar widened without evidence.**
+
+**That undercuts the compliance reading further:** the single case where the
+contract elicited *reasoning* elicited reasoning that was wrong.
+
+### On m1 sending it
+
+**It is their change, and the leader had already corrected an over-claim made on
+their behalf.** m1 extended the correction against their own work rather than
+accepting the softer version that flattered it. That is the fourth person today
+to weaken a record in their own disfavour, and the first to do it to a change
+they authored.
