@@ -144,9 +144,18 @@ def main() -> int:
     for n, v, why in table:
         print(f"  {n:<22} {v:<8} {why}")
 
-    for tier, blurb in (("SERVABLE", "brings up as-is — no build. 006 was in this state; 037 also was, and was still useless for want of /shared_nfs"),
-                        ("BUILDABLE", "free half, disk, and a local base to build from — NOT a servable image"),
-                        ("USABLE", "free half and disk — costs one image pull, then a build")):
+    # **The tiers are costs, not grades**, which is why the recovery price is on
+    # each. m5 measured it on 047: `docker load` of
+    # `/shared_nfs/yihou/images/infera-sglang-local.tar` (27 G) took **4m44s**
+    # and the node passed all three checks afterwards. So a node with no infera
+    # image is not disqualified — it is five minutes away, and knowing that
+    # before binding is worth those five minutes of planning rather than a
+    # failed bring-up.
+    for tier, blurb in (("SERVABLE", "brings up as-is — no build, no load. 006 was in this state; "
+                                     "037 also was, and was still useless for want of /shared_nfs"),
+                        ("BUILDABLE", "free half, disk, and a base to build from — NOT a servable "
+                                      "image; ~4m44s to load infera-sglang-local.tar, then build"),
+                        ("USABLE", "free half and disk — costs one image pull or load, then a build")):
         got = [n for n, v, _ in table if v == tier]
         print(f"\n  {tier}: {len(got)} — {blurb}")
         if got:
