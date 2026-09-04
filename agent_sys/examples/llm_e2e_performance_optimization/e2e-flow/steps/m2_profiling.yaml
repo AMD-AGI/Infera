@@ -360,5 +360,21 @@
         - {path: handoffs/profiling_evidence, access: write, kind: profiling_evidence}
     subgraph:
       - {closure: run_profiling_mode_off, froms: []}
-      - {closure: run_profiling_mode_on, froms: []}
+      # An ORDERING edge, not a data edge: the profiled line consumes nothing
+      # the baseline produces. Without it the two leaves both declare `froms: []`
+      # and are serialised only by arithmetic -- two tasks asking `gpu: 8` do not
+      # fit in an 8-GPU node. That is a guarantee no one wrote down: the lines use
+      # different port bands and run tags, so if they ever overlapped BOTH would
+      # come up cleanly and nothing would fail -- `profiling_mode_off`, the only
+      # throughput worth quoting and the number m5's stock arm must reproduce,
+      # would simply be measured beside a profiler-attached load on the same cards.
+      # The declaration already disagrees with practice (`gpu: 8` while every real
+      # run passes `tp=4`), so the OVER-declaration is what protects the
+      # measurement, and anyone correcting it to match reality removes the
+      # protection and gets no error. Found by m2, T38.
+      #
+      # `graph.py:358-371` is explicit that this is what the field is for: "an edge
+      # no handoff supports is the one thing `froms` buys", and the check on it is
+      # deliberately non-fatal for that reason.
+      - {closure: run_profiling_mode_on, froms: [run_profiling_mode_off]}
       - {closure: merge_profiling_evidence, froms: [run_profiling_mode_off, run_profiling_mode_on], is_end: true}
